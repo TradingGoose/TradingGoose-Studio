@@ -250,10 +250,15 @@ export const openRouterProvider: ProviderConfig = {
           throw new Error('OpenRouter exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
+        const assistantMessage = currentResponse.choices[0].message
         currentMessages.push({
           role: 'assistant',
-          content: currentResponse.choices[0].message.content ?? null,
+          content: assistantMessage.content ?? null,
           tool_calls: toolCallsInResponse,
+          ...('reasoning' in assistantMessage && { reasoning: assistantMessage.reasoning }),
+          ...('reasoning_details' in assistantMessage && {
+            reasoning_details: assistantMessage.reasoning_details,
+          }),
         })
         for (const toolCall of toolCallsInResponse) {
           try {

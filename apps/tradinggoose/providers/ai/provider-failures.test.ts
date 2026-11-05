@@ -273,17 +273,51 @@ function failingOpenRouterCall(kind: string, toolName = tool.id) {
   }
 }
 
-/** Returns a cached model round with the complete native assistant tool-call batch. */
-function openRouterBatchResponse(calls: ReturnType<typeof toolCall>[]) {
+const openRouterReasoningDetails = Object.freeze([
+  Object.freeze({ type: 'reasoning.text', text: 'Consider the data', signature: 'signed-text' }),
+  Object.freeze({ type: 'reasoning.summary', summary: 'Use the tools', id: 'summary-1', index: 1 }),
+  Object.freeze({ type: 'reasoning.encrypted', data: 'opaque-state', signature: 'signed-state' }),
+])
+const openRouterReasoningState = { reasoning_details: openRouterReasoningDetails }
+
+/** Returns a cached tool round with native reasoning and unrelated metadata for whitelist checks. */
+function openRouterBatchResponse(
+  calls: ReturnType<typeof toolCall>[],
+  reasoningState: Record<string, unknown> = openRouterReasoningState
+) {
   const response = completion()
   response.choices[0].message.tool_calls = calls
   response.choices[0].message.content = 'Calling tools'
-  Object.assign(response.choices[0].message, {
-    reasoning_details: [{ type: 'reasoning.text', text: 'Provider-specific reasoning' }],
+  Object.assign(response.choices[0].message, reasoningState, {
+    provider_metadata: { internal: 'not replayed' },
+    reasoning_content: 'not a supported replay alias',
   })
   return {
     ...response,
     usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
+  }
+}
+
+/** Rejects missing, reordered or changed returned reasoning while keeping the replay whitelist narrow. */
+function requireOpenRouterReasoningState(
+  messages: any[],
+  calls: ReturnType<typeof toolCall>[],
+  reasoningState: Record<string, unknown>
+) {
+  const assistant = messages.find(
+    /** Identifies the exact native assistant batch whose reasoning is required for continuation. */
+    (message) =>
+      message.role === 'assistant' && JSON.stringify(message.tool_calls) === JSON.stringify(calls)
+  )
+  expect(assistant).toEqual({
+    role: 'assistant',
+    content: 'Calling tools',
+    tool_calls: calls,
+    ...reasoningState,
+  })
+  for (const field of ['reasoning', 'reasoning_details']) {
+    if (Object.hasOwn(reasoningState, field)) expect(assistant[field]).toBe(reasoningState[field])
+    else expect(assistant).not.toHaveProperty(field)
   }
 }
 
@@ -314,8 +348,12 @@ function hasOpenRouterBatchResults(
   return false
 }
 
-/** Allows model recovery only after receiving the failed calls and successful sibling results. */
-function arrangeOpenRouterBatchRecovery(calls: ReturnType<typeof toolCall>[], failedIds: string[]) {
+/** Allows recovery only after paired tool results and unchanged returned reasoning reach the model. */
+function arrangeOpenRouterBatchRecovery(
+  calls: ReturnType<typeof toolCall>[],
+  failedIds: string[],
+  reasoningState: Record<string, unknown> = openRouterReasoningState
+) {
   const snapshots: any[] = []
   mocks.tool.mockImplementation(
     /** Produces deterministic thrown, returned-failure and paid successful tool outcomes. */
@@ -331,8 +369,9 @@ function arrangeOpenRouterBatchRecovery(calls: ReturnType<typeof toolCall>[], fa
       const snapshot = JSON.parse(JSON.stringify(payload))
       snapshots.push(snapshot)
       if (!hasOpenRouterBatchResults(snapshot.messages, calls, failedIds)) {
-        return openRouterBatchResponse(calls)
+        return openRouterBatchResponse(calls, reasoningState)
       }
+      requireOpenRouterReasoningState(payload.messages, calls, reasoningState)
       if (payload.stream) {
         return (async function* () {
           yield { choices: [{ delta: { content: 'Recovered' }, finish_reason: 'stop' }] }
@@ -1185,7 +1224,12 @@ it('OpenRouter preserves one native mixed batch, successful siblings and ordered
     })
   )
   const history = snapshots[1].messages.slice(1)
-  expect(history[0]).toEqual({ role: 'assistant', content: 'Calling tools', tool_calls: calls })
+  expect(history[0]).toEqual({
+    role: 'assistant',
+    content: 'Calling tools',
+    tool_calls: calls,
+    ...openRouterReasoningState,
+  })
   expect(history.slice(1).map((message: any) => message.tool_call_id)).toEqual(
     calls.map((call) => call.id)
   )
@@ -1194,9 +1238,67 @@ it('OpenRouter preserves one native mixed batch, successful siblings and ordered
   expect(mocks.chat).toHaveBeenCalledTimes(2)
 })
 
+it.each(
+  [
+    { label: 'reasoning only', state: { reasoning: 'Plan before calling tools' } },
+    { label: 'details only', state: openRouterReasoningState },
+    {
+      label: 'both fields',
+      state: { reasoning: 'Plan and signed state', ...openRouterReasoningState },
+    },
+    { label: 'absent fields', state: {} },
+    { label: 'empty reasoning', state: { reasoning: '' } },
+    { label: 'empty details', state: { reasoning_details: [] } },
+    { label: 'null fields', state: { reasoning: null, reasoning_details: null } },
+  ].flatMap(({ label, state }) =>
+    ['successful', 'all-failed', 'mixed'].map((batch) => ({ label, state, batch }))
+  )
+)(
+  'OpenRouter preserves $label unchanged through a $batch tool continuation',
+  async ({ state, batch }) => {
+    const failed = failingOpenRouterCall('unknown')
+    const successful = toolCall('successful')
+    const calls =
+      batch === 'successful'
+        ? [successful]
+        : batch === 'all-failed'
+          ? [failed]
+          : [failed, successful]
+    const failedIds = batch === 'successful' ? [] : [failed.id]
+    const savedState = JSON.parse(JSON.stringify(state))
+    const snapshots = arrangeOpenRouterBatchRecovery(calls, failedIds, state)
+    const result = await openRouterProvider.executeRequest({
+      model: openRouterModel,
+      apiKey: 'test-key',
+      context: 'Analyze',
+      tools: [tool],
+    })
+    if ('stream' in result) throw new Error('Expected completed response')
+    expect(result.content).toBe('Done')
+    expect(snapshots[1].messages[1]).toEqual({
+      role: 'assistant',
+      content: 'Calling tools',
+      tool_calls: calls,
+      ...savedState,
+    })
+    expect(state).toEqual(savedState)
+    expect(result.tokens?.total).toBe(3000)
+    expect(result.cost?.total).toBeCloseTo(0.0068, 8)
+    expect(result.toolResults ?? []).toHaveLength(batch === 'all-failed' ? 0 : 1)
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(batch === 'all-failed' ? 0 : 1)
+  }
+)
+
 it('OpenRouter advances a failed forced tool and keeps schemas with none for its recovered stream', async () => {
   const first = failingOpenRouterCall('malformed')
   const second = { ...toolCall('second'), function: { name: 'second', arguments: '{}' } }
+  const firstReasoning = { reasoning: 'First tool rationale', ...openRouterReasoningState }
+  const secondReasoning = Object.freeze({
+    reasoning_details: Object.freeze([
+      Object.freeze({ type: 'reasoning.encrypted', data: 'second-state', signature: 'second' }),
+    ]),
+  })
   const snapshots: any[] = []
   mocks.chat.mockImplementation(
     /** Advances the mocked model only after each forced call receives its native result. */
@@ -1204,11 +1306,13 @@ it('OpenRouter advances a failed forced tool and keeps schemas with none for its
       const snapshot = JSON.parse(JSON.stringify(payload))
       snapshots.push(snapshot)
       if (!hasOpenRouterBatchResults(snapshot.messages, [first], [first.id])) {
-        return openRouterBatchResponse([first])
+        return openRouterBatchResponse([first], firstReasoning)
       }
+      requireOpenRouterReasoningState(payload.messages, [first], firstReasoning)
       if (!hasOpenRouterBatchResults(snapshot.messages, [second], [])) {
-        return openRouterBatchResponse([second])
+        return openRouterBatchResponse([second], secondReasoning)
       }
+      requireOpenRouterReasoningState(payload.messages, [second], secondReasoning)
       if (payload.stream) {
         return (async function* () {
           yield { choices: [{ delta: { content: 'Recovered' }, finish_reason: 'stop' }] }
