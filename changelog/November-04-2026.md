@@ -1,0 +1,64 @@
+# November-04-2026
+
+## fix/agent-block-fields @ 4c177001 vs origin/staging
+
+### Summary
+
+- Repair the existing Agent model controls across opening, model switching, retained values, clearing, searching and dynamic references.
+- Keep model capabilities authoritative across discovery, editing, input resolution and provider sanitization.
+- Preserve tool conversations, final streamed answers and known completed usage through the reviewed provider failure paths; remove proven dead and duplicate paths.
+
+### Branch Scope
+
+- Documented code comparison: `65961f12e2751a88001abae332f5a36362b8a870..4c177001e4bd7dfb4cfca95a0a88497e9e7b50ca`. The base is the merge base and reviewed `origin/staging` tip.
+- The reviewed snapshot changes 42 code/test files in `apps/tradinggoose`, covering Agent controls, provider catalogs, input resolution, provider execution and accounting regressions. No uncommitted runtime changes are included.
+- This single dated changelog is a documentation-only follow-up outside that reviewed comparison. The branch changes no dependencies, environment configuration, database schema or migrations.
+
+### Key Changes
+
+- `apps/tradinggoose/blocks/blocks/agent.ts` combines canonical catalog IDs with discoveries from every provider state. The existing Reasoning Effort, Verbosity and Thinking Level controls continue to use shared model capabilities and Auto/provider defaults.
+- For capability controls, `apps/tradinggoose/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/combobox.tsx` shows available options on fresh opening, retains saved references and stale values, and filters deliberate search input. `resolveComboBoxDisplayValue` masks a stale capability value for display without rewriting it. Canvas, inspector and preview consumers subscribe to `useProvidersStore` so rows refresh after discovery.
+- The clearable slider in `apps/tradinggoose/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block.tsx` retains an out-of-range temperature while displaying its effective default. `validateWorkflowState` in `apps/tradinggoose/lib/workflows/validation.ts` preserves optional clearable numeric values, allowing unrelated edits; required and non-clearable numeric checks remain strict. Provider sanitization omits unsupported or invalid controls.
+- `apps/tradinggoose/lib/workflows/sub-block-conditions.ts` preserves literal capability checks and editing of valid variable, environment and upstream-block model references. `apps/tradinggoose/executor/index.ts` resolves the Agent model before OpenRouter discovery and dependent inputs. `AgentBlockHandler` in `apps/tradinggoose/executor/handlers/agent/agent-handler.ts` resolves configured controls again after provider discovery through the same resolver, preserving supported tuning references without evaluating inactive unsupported references.
+- `apps/tradinggoose/providers/ai/models.ts` updates static model IDs, defaults and tuning capabilities while preserving the static Fireworks GLM-5p2 pricing source during discovery. `getOpenRouterModels` in `apps/tradinggoose/providers/ai/openrouter/models.ts` publishes pricing and capabilities together. Null `supported_efforts` accepts `max`, `xhigh`, `high`, `medium`, `low`, `minimal`, `none`; omitted/empty efforts expose no selector. Mandatory reasoning excludes `none`, and advertised arrays otherwise retain their order.
+- Updated provider loops use `MAX_TOOL_ITERATIONS` and fail on exhausted limits with completed usage. DeepSeek, OpenRouter, Mistral, Fireworks and Groq remove `tools` and `tool_choice` from final streaming requests; Cerebras retains tool definitions with `tool_choice: 'none'`. These answers cannot request an additional unexecuted tool through those final-stream paths.
+- `apps/tradinggoose/providers/ai/mistral/index.ts` preserves the complete assistant tool-call turn and a matching result for each successful or failed call, including malformed arguments and missing tools. Its visible text projection excludes thinking blocks. `executeGeminiRequest` in `apps/tradinggoose/providers/ai/gemini/core.ts` preserves candidate content/thought signatures, returns failed-tool results to the model, settles the tool loop before incremental final streaming, and synthesizes Gemini 2 schema responses after tool execution.
+- `apps/tradinggoose/providers/ai/cerebras/index.ts` retains accumulated `toolResults` in post-tool streaming output for downstream references. Groq, xAI, Cerebras and shared Gemini execution preserve completed model/tool accounting on continuation and final-stream setup failures; Gemini also covers structured synthesis failures. The executor stream-reader boundary retains current output accounting when error metadata is missing, including disconnects after emitted text.
+
+### Design Decisions
+
+- Keep capability policy in the model catalog. Editor conditions and provider sanitization consume the same metadata; unresolved references remain editable, while execution uses the resolved model and skips inactive dependent inputs.
+- Preserve stored optional controls across model changes. Display and request sanitization determine effective behavior without silently changing workflow configuration or introducing legacy value conversion.
+- Preserve native assistant/tool pairing and signed content. Exhausted tool loops fail rather than return pending calls as successful partial output; final-answer streaming follows the applicable provider contract.
+- Carry known completed usage as snapshots. Preserve original errors and explicit metadata, including zero values; do not add an existing tool charge again or estimate usage for rejected calls and disconnected streams.
+
+### Shared Contracts and Helpers to Reuse
+
+- Import `PROVIDER_DEFINITIONS`, `ModelCapabilities`, `MODEL_CONTROL_GETTERS`, `getAllModelProviders`, `getModelCapabilities`, pricing/control getters and `updateOpenRouterModels` from `apps/tradinggoose/providers/ai/models.ts`. Extend the catalog rather than duplicating capability lists in consumers.
+- Use `evaluateSubBlockCondition` / `evaluateSubBlockConditionValues` from `apps/tradinggoose/lib/workflows/sub-block-conditions.ts` and `InputResolver.resolveInputs` from `apps/tradinggoose/executor/resolver/resolver.ts`. Keep controller resolution and inactive-reference handling in that shared path.
+- Call exported `executeProviderRequest` in `apps/tradinggoose/providers/ai/index.ts` for discovery, sanitization and dispatch. Reuse `ProviderControlResolver` in `apps/tradinggoose/providers/ai/types.ts` for post-discovery controls; `sanitizeRequest` and `resolveInputValue` remain private implementation details.
+- Reuse `getOpenRouterModels`, the OpenRouter models route at `apps/tradinggoose/app/api/providers/ai/openrouter/models/route.ts`, and `useProvidersStore` in `apps/tradinggoose/stores/providers/store.ts` for server-to-editor capability propagation.
+- Use `toError` in `apps/tradinggoose/providers/ai/error.ts` with `ProviderErrorDetails` in `apps/tradinggoose/providers/ai/types.ts` to carry completed usage. Reuse `MAX_TOOL_ITERATIONS` from `apps/tradinggoose/providers/ai/constants.ts` and `calculateCost`, `createModelCost`, `withToolCosts`, `prepareToolExecution`, `prepareToolsWithUsageControl`, `trackForcedToolUsage` and `createOpenAICompatibleStream` from `apps/tradinggoose/providers/ai/utils.ts` instead of parallel accounting, tool-control or stream implementations.
+
+### Removed or Replaced Items
+
+- Removed obsolete static model entries and Mistral latest aliases from `apps/tradinggoose/providers/ai/models.ts`; use current catalog IDs. Qualified dynamic provider namespaces remain intentional.
+- Replaced the Agent's partial provider-model concatenation with the catalog/all-provider union in `apps/tradinggoose/blocks/blocks/agent.ts`. Do not reintroduce separate consumer model lists.
+- Removed raw `undiscoveredControls` copying from `apps/tradinggoose/executor/index.ts`, the optional resolver compatibility branch and duplicate dispatch branches from `AgentBlockHandler`. Use the required resolver and post-discovery `ProviderControlResolver` path.
+- Removed Gemini's unreachable batch-success wrapper and unused result `part` fields; the batch helper in `apps/tradinggoose/providers/ai/gemini/core.ts` returns execution state directly. Removed duplicate Groq/xAI/Cerebras inner logging/rethrow boundaries and redundant limit accounting where the outer boundary already owns the current snapshot.
+- Consolidated repeated error normalization/timing through `toError` and removed obsolete suppressions and unused `ProviderError` usage-detail constructor fields. The existing timing-only `ProviderError` remains. Removed synthetic billing tests superseded by real provider/Agent/executor failure and recovery coverage; do not restore unused APIs or duplicate tests.
+
+### Future Branch Guardrails
+
+- Do not add model alias normalization, default-model substitution or legacy `thinkingLevel: 'enabled'` backfills. Preserve exact catalog IDs and qualified dynamic routing for Ollama, vLLM, OpenRouter and Fireworks.
+- Do not activate hidden unsupported references, clear stored tuning solely on model changes, or replace the shared control/condition/resolver paths with provider-specific UI rules. Keep provider subscriptions in capability-dependent row consumers.
+- OpenRouter's parsed catalog uses `ai:openrouter:models:v3` with the existing 300-second TTL and concurrent-discovery deduplication. Do not read v1/v2 payloads into that contract or add a cache backfill. Preserve null-versus-omitted effort semantics and mandatory reasoning restrictions.
+- Do not restore final-stream tool payloads in the five providers named above or discard Cerebras tool results. Do not infer universal reasoning-detail replay support: this branch adds no OpenRouter reasoning-detail replay.
+- Keep failure logs, events and recovery outputs on the executor's canonical accounting path. Explicit error accounting wins over streaming-output metadata; preserve provider cost accumulators and combine tool costs through `withToolCosts` once.
+
+### Validation Notes
+
+- Reviewed `git diff --stat 65961f12 4c177001`, the matching merge base, current source contracts and `changelog/TEMPLATE.md`. This documentation-only correction verifies the exact template order, source claims, one new dated changelog relative to staging and whitespace; no runtime code or new tests are added.
+- Recorded full-branch validation for code snapshot `4c177001`: 1,950 tests across 87 test files, app type checking and diff checks passed. This is prior code-review evidence, not a new run for this Markdown addition. Focused evidence includes 76 model tests covering nullable/mandatory efforts and cache propagation, plus 49 provider-failure/accounting tests.
+- Regression coverage includes chooser DOM interactions, provider refresh, cold/retry discovery, inactive references, final streaming/schema responses, paid-tool failures, disconnects, recovery and once-only billing. Provider/catalog responses were mocked; no authenticated live inference, browser screenshots or deployment verification is claimed.
+- Rollout requires the v3 parsed-catalog namespace, with no dependency, environment, schema or migration change. Keep code and cache-contract versions aligned on backout; no database rollback or cache backfill is required. This changelog records the reviewed code behavior and does not authorize a merge or deployment.
