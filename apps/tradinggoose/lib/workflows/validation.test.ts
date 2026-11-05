@@ -245,7 +245,9 @@ describe('canonical sub-block validation', () => {
     const state = workflowWithValues('agent', { model: 'gpt-4.1', temperature: 1.5 })
     expect(validateWorkflowState(state).valid).toBe(true)
     state.blocks.sample.subBlocks.model.value = 'claude-haiku-4-5'
-    expect(validateWorkflowState(state, { sanitize: true }).valid).toBe(true)
+    const result = validateWorkflowState(state, { sanitize: true })
+    expect(result.valid).toBe(true)
+    expect(result.sanitizedState?.blocks.sample.subBlocks.temperature.value).toBe(1.5)
     expect(state.blocks.sample.subBlocks.temperature.value).toBe(1.5)
   })
 

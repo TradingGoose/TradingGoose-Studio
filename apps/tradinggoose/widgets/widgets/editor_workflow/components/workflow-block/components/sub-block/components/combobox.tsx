@@ -174,7 +174,7 @@ export function ComboBox({
     )
 
     // If current value exactly matches an option and user hasn't typed, show all (fresh open)
-    if (exactMatch && !hasTyped) return evaluatedOptions
+    if (!hasTyped && (isModelCapability || exactMatch)) return evaluatedOptions
 
     // Otherwise filter based on current input
     return evaluatedOptions.filter((option) => {
@@ -184,7 +184,7 @@ export function ComboBox({
       const search = currentValue.toLowerCase()
       return label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
     })
-  }, [displayValue, evaluatedOptions, open, hasTyped])
+  }, [displayValue, evaluatedOptions, open, hasTyped, isModelCapability])
 
   const configuredSidebarGroups = useMemo<SidebarDropdownGroup[]>(() => {
     const optionGroups = config.optionGroups

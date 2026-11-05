@@ -56,7 +56,7 @@ describe('AI model catalog', () => {
       Object.entries(PROVIDER_DEFINITIONS).map(([id, provider]) => [id, provider.models.length])
     )
     expect(counts).toEqual({
-      fireworks: 2,
+      fireworks: 3,
       openrouter: 0,
       vllm: 0,
       openai: 26,
@@ -74,7 +74,7 @@ describe('AI model catalog', () => {
       bedrock: 37,
     })
     const models = Object.values(PROVIDER_DEFINITIONS).flatMap((provider) => provider.models)
-    expect(models).toHaveLength(154)
+    expect(models).toHaveLength(155)
     expect(new Set(models.map((model) => model.id)).size).toBe(models.length)
     const allProviders = getAllModelProviders()
     const baseProviders = getBaseModelProviders()
@@ -157,13 +157,18 @@ describe('AI model catalog', () => {
     const customModel = 'fireworks/accounts/acme/models/custom'
     expect(models).toEqual([
       'fireworks/accounts/fireworks/models/glm-5p3',
+      'fireworks/accounts/fireworks/models/glm-5p2',
       'fireworks/accounts/fireworks/models/kimi-k3',
     ])
     expect(getReasoningEffortValuesForModel(models[0])).toEqual(['low', 'high', 'max'])
-    expect(getReasoningEffortValuesForModel(models[1])).toEqual(['none', 'low', 'high', 'max'])
+    expect(getReasoningEffortValuesForModel(models[2])).toEqual(['none', 'low', 'high', 'max'])
     updateFireworksModels([models[0], customModel])
     expect(getProviderModels('fireworks')).toEqual([...models, customModel])
     expect(getModelPricing(customModel)).toBeNull()
+    const pricedModel = 'fireworks/accounts/fireworks/models/glm-5p2'
+    updateFireworksModels([pricedModel, customModel])
+    expect(getModelPricing(pricedModel)).toEqual({ input: 1.4, cachedInput: 0.14, output: 4.4 })
+    expect(getMaxOutputTokensForModel(pricedModel)).toBe(131072)
   })
 
   it.each([
@@ -382,7 +387,11 @@ describe('AI model catalog', () => {
         expect.objectContaining({ cache: 'no-store' })
       )
       const catalog = mocks.writeCache.mock.calls[0][1]
-      expect(mocks.writeCache).toHaveBeenCalledExactlyOnceWith('ai:openrouter:models', catalog, 300)
+      expect(mocks.writeCache).toHaveBeenCalledExactlyOnceWith(
+        'ai:openrouter:models:v2',
+        catalog,
+        300
+      )
       updateOpenRouterModels([])
       mocks.readCache.mockResolvedValueOnce(catalog)
       expect(await getOpenRouterModels()).toEqual(catalog)

@@ -76,6 +76,17 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         },
       },
       {
+        id: 'fireworks/accounts/fireworks/models/glm-5p2',
+        pricing: {
+          input: 1.4,
+          cachedInput: 0.14,
+          output: 4.4,
+        },
+        capabilities: {
+          maxOutputTokens: 131072,
+        },
+      },
+      {
         id: 'fireworks/accounts/fireworks/models/kimi-k3',
         pricing: {
           input: 3.0,

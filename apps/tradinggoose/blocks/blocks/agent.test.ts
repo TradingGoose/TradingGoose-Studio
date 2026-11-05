@@ -183,8 +183,23 @@ describe('AgentBlock', () => {
     }
   })
 
-  it.each(['<variable.model>', '{{MODEL}}', 'gpt-<variable.version>', 'gpt-{{VERSION}}'])(
-    'hides tuning controls until model %s resolves',
+  it.each([
+    '<variable.model>',
+    '{{MODEL}}',
+    '<upstream.model>',
+    'gpt-<variable.version>',
+    'gpt-{{VERSION}}',
+  ])('preserves tuning reference editing until model %s resolves', (model) => {
+    const fieldIds = inspectorLayout(model)
+      .additionalRows.flat()
+      .map((field) => field.id)
+    for (const id of ['reasoningEffort', 'verbosity', 'thinkingLevel']) {
+      expect(fieldIds).toContain(id)
+    }
+  })
+
+  it.each(['<>', '<variable.>', '{{}}', '{{ }}', '{{{MODEL}}}'])(
+    'does not activate tuning controls for malformed model reference %s',
     (model) => {
       const fieldIds = inspectorLayout(model)
         .additionalRows.flat()

@@ -2,7 +2,7 @@ import { readServerJsonCache, writeServerJsonCache } from '@/lib/cache/server-js
 import { type ModelCapabilities, updateOpenRouterModels } from '@/providers/ai/models'
 import type { ModelPricing } from '@/providers/ai/types'
 
-const CACHE_KEY = 'ai:openrouter:models'
+const CACHE_KEY = 'ai:openrouter:models:v2'
 const CACHE_TTL_SECONDS = 300
 
 interface OpenRouterModel {

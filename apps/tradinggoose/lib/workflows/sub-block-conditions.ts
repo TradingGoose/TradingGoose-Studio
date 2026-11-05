@@ -1,5 +1,6 @@
 import type { SubBlockCondition } from '@/blocks/types'
 import { getMaxTemperature, MODEL_CONTROL_GETTERS } from '@/providers/ai/models'
+import { extractEnvironmentReferences, extractReferencePrefixes } from './references'
 
 /** Matches literal capabilities and keeps valid unresolved model references editable. */
 function matchesConditionValue(condition: SubBlockCondition, value: unknown): boolean {
@@ -8,7 +9,16 @@ function matchesConditionValue(condition: SubBlockCondition, value: unknown): bo
   const matches =
     condition.operator === 'modelCapability'
       ? typeof fieldValue === 'string' &&
-        Boolean(MODEL_CONTROL_GETTERS[condition.value](fieldValue)?.length)
+        (Boolean(MODEL_CONTROL_GETTERS[condition.value](fieldValue)?.length) ||
+          extractReferencePrefixes(fieldValue).some(({ raw }) =>
+            raw
+              .slice(1, -1)
+              .split('.')
+              .every((segment) => segment.trim().length > 0)
+          ) ||
+          extractEnvironmentReferences(fieldValue).some((reference) =>
+            /^[^{}]+$/.test(reference.slice(2, -2).trim())
+          ))
       : condition.operator === 'modelMaxTemperature'
         ? typeof fieldValue === 'string' && getMaxTemperature(fieldValue) === condition.value
         : Array.isArray(condition.value)
