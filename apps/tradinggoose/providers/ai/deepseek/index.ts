@@ -3,6 +3,7 @@ import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -284,7 +285,11 @@ export const deepseekProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw new Error('DeepSeek exceeded the tool iteration limit')
+          throw toError(new Error('DeepSeek exceeded the tool iteration limit'), {
+            model: request.model,
+            tokens,
+            cost: withToolCosts(cost.value, toolResults),
+          })
 
         // DeepSeek requires the complete reasoning content when continuing a tool turn.
         currentMessages.push(currentResponse.choices[0].message)
@@ -430,12 +435,11 @@ export const deepseekProvider: ProviderConfig = {
       if (request.stream && iterationCount > 0) {
         logger.info('Using streaming for final DeepSeek response after tool calls')
 
-        // When streaming after tool calls with forced tools, make sure tool_choice is set to 'auto'
-        // This prevents the API from trying to force tool usage again in the final streaming response
+        // The final answer stream cannot execute additional tool calls.
+        const { tools: _tools, tool_choice: _toolChoice, ...answerPayload } = payload
         const streamingPayload = {
-          ...payload,
+          ...answerPayload,
           messages: currentMessages,
-          tool_choice: 'auto', // Always use 'auto' for the streaming response after tool calls
           stream: true,
           stream_options: { include_usage: true },
         }
@@ -522,7 +526,7 @@ export const deepseekProvider: ProviderConfig = {
       })
 
       // Create a new error with timing information
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
+      const enhancedError = toError(error)
       // @ts-ignore - Adding timing property to the error
       enhancedError.timing = {
         startTime: providerStartTimeISO,

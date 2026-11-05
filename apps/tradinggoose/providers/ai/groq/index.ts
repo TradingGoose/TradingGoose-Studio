@@ -3,6 +3,7 @@ import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -229,7 +230,11 @@ export const groqProvider: ProviderConfig = {
           const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
           if (!toolCallsInResponse?.length) break
           if (iterationCount >= MAX_TOOL_ITERATIONS)
-            throw new Error('Groq exceeded the tool iteration limit')
+            throw toError(new Error('Groq exceeded the tool iteration limit'), {
+              model: request.model,
+              tokens,
+              cost: withToolCosts(cost.value, toolResults),
+            })
 
           // Track time for tool calls in this batch
           const toolsStartTime = Date.now()
@@ -363,10 +368,10 @@ export const groqProvider: ProviderConfig = {
       if (request.stream && iterationCount > 0) {
         logger.info('Using streaming for final Groq response after tool calls')
 
+        const { tools: _tools, tool_choice: _toolChoice, ...answerPayload } = payload
         const streamingPayload = {
-          ...payload,
+          ...answerPayload,
           messages: currentMessages,
-          tool_choice: toolChoice,
           stream: true,
         }
 
@@ -453,7 +458,7 @@ export const groqProvider: ProviderConfig = {
       })
 
       // Create a new error with timing information
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
+      const enhancedError = toError(error)
       // @ts-ignore - Adding timing property to the error
       enhancedError.timing = {
         startTime: providerStartTimeISO,

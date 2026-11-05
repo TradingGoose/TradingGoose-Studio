@@ -16,12 +16,12 @@ import {
   supportsTemperature,
 } from '@/providers/ai/models'
 import type { ProviderRequest, ProviderResponse, TimeSegment } from '@/providers/ai/types'
-import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
   createModelCost,
   prepareToolExecution,
   prepareToolsWithUsageControl,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
@@ -474,7 +474,11 @@ export async function executeAnthropicProviderRequest(
         const toolUses = currentResponse.content.filter((item) => item.type === 'tool_use')
         if (toolUses.length === 0) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw new Error(`${providerLabel} exceeded the tool iteration limit`)
+          throw toError(new Error(`${providerLabel} exceeded the tool iteration limit`), {
+            model: request.model,
+            tokens,
+            cost: withToolCosts(cost.value, toolResults),
+          })
 
         const toolsStartTime = Date.now()
 
@@ -683,10 +687,12 @@ export async function executeAnthropicProviderRequest(
       duration: totalDuration,
     })
 
-    throw new ProviderError(toError(error).message, {
-      startTime: providerStartTimeISO,
-      endTime: providerEndTimeISO,
-      duration: totalDuration,
+    throw toError(error, {
+      timing: {
+        startTime: providerStartTimeISO,
+        endTime: providerEndTimeISO,
+        duration: totalDuration,
+      },
     })
   }
 }

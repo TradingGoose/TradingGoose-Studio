@@ -181,18 +181,16 @@ beforeEach(() => {
 })
 
 it.each(
-  ['cold', 'warm', 'unavailable'].flatMap((catalog) =>
+  ['cold', 'warm', 'unavailable', 'retry', 'missing'].flatMap((catalog) =>
     [true, false].flatMap((supported) =>
-      ['literal', 'variable', 'environment', 'block'].map((source) => ({
-        catalog,
-        supported,
-        source,
-      }))
+      ['literal', 'variable', 'environment', 'block'].flatMap((source) =>
+        ['literal', 'references'].map((tuning) => ({ catalog, supported, source, tuning }))
+      )
     )
   )
 )(
-  'resolves OpenRouter inputs after discovery: catalog=$catalog, supported=$supported, source=$source',
-  async ({ catalog, supported, source }) => {
+  'resolves OpenRouter inputs after discovery: catalog=$catalog, supported=$supported, source=$source, tuning=$tuning',
+  async ({ catalog, supported, source, tuning }) => {
     const originalModels = PROVIDER_DEFINITIONS.openrouter.models
     const model = 'openrouter/openai/gpt-4.1'
     const capabilities = {
@@ -209,9 +207,17 @@ it.each(
       config: {
         tool: 'agent',
         params: {
-          temperature: 0,
-          reasoningEffort: supported ? 'high' : '{{REMOVED}}',
-          verbosity: supported ? 'high' : '{{REMOVED}}',
+          temperature: tuning === 'references' ? '<variable.temperature>' : 0,
+          reasoningEffort: supported
+            ? tuning === 'references'
+              ? '<variable.effort>'
+              : 'high'
+            : '{{REMOVED}}',
+          verbosity: supported
+            ? tuning === 'references'
+              ? '{{VERBOSITY}}'
+              : 'high'
+            : '{{REMOVED}}',
           thinkingLevel: '{{REMOVED}}',
           model:
             source === 'variable'
@@ -241,6 +247,7 @@ it.each(
       connections: [{ source: 'start', target: 'agent' }],
       loops: {},
     }
+    const configuredParams = structuredClone(block.config.params)
 
     try {
       updateOpenRouterModels(catalog === 'warm' ? [model] : [], undefined, {
@@ -252,8 +259,12 @@ it.each(
           expect(evaluateSubBlockConditionValues(subBlock.condition, { model })).toBe(false)
         }
       }
+      let refreshCount = 0
       vi.mocked(fetch).mockImplementation(async () => {
+        refreshCount++
         if (catalog === 'unavailable') throw new Error('Catalog unavailable')
+        if (catalog === 'retry' && refreshCount === 1) throw new Error('Catalog unavailable')
+        if (catalog === 'missing' && refreshCount === 1) return Response.json({ data: [] })
         return Response.json({
           data: [
             {
@@ -267,8 +278,12 @@ it.each(
       const result = await new Executor({
         workflow,
         workflowInput: { model },
-        envVarValues: { MODEL: model },
-        workflowVariables: { model: { name: 'model', type: 'plain', value: model } },
+        envVarValues: { MODEL: model, VERBOSITY: 'high' },
+        workflowVariables: {
+          model: { name: 'model', type: 'plain', value: model },
+          temperature: { name: 'temperature', type: 'number', value: '0' },
+          effort: { name: 'effort', type: 'plain', value: 'high' },
+        },
         contextExtensions: { workspaceId: 'workspace' },
       }).execute('workflow', 'start')
       expect(result.success, result.error).toBe(true)
@@ -287,7 +302,12 @@ it.each(
       if (!supported || catalog === 'unavailable') {
         expect(inputs).not.toHaveProperty('reasoningEffort')
         expect(inputs).not.toHaveProperty('verbosity')
+      } else {
+        expect(inputs).toHaveProperty('reasoningEffort', 'high')
+        expect(inputs).toHaveProperty('verbosity', 'high')
       }
+      expect(refreshCount).toBe(2)
+      expect(block.config.params).toEqual(configuredParams)
     } finally {
       PROVIDER_DEFINITIONS.openrouter.models = originalModels
       vi.mocked(getBlock).mockReset()
@@ -1788,13 +1808,10 @@ it.each(
     const responses = usages.map((usage, index) =>
       gemini
         ? {
-            text: index === 0 ? undefined : index === 1 ? content : 'Duplicate answer',
+            text: index === 0 ? undefined : content,
             candidates: [
               {
-                content:
-                  index === 0
-                    ? geminiAssistantContent
-                    : { parts: [{ text: index === 1 ? content : 'Duplicate answer' }] },
+                content: index === 0 ? geminiAssistantContent : { parts: [{ text: content }] },
               },
             ],
             ...(index === 0 && { functionCalls: [{ name: tool.id, args: {} }] }),
@@ -1854,7 +1871,7 @@ it.each(
     )
     if ('stream' in result) expect(await new Response(result.stream).text()).toBe(content)
     const output = 'stream' in result ? result.execution.output : result
-    const calls = provider === 'fireworks' || (stream && !gemini) ? 3 : 2
+    const calls = provider === 'fireworks' || stream ? 3 : 2
     expect(output.tokens).toEqual(
       gemini && stream
         ? { input: calls * prompt, output: calls * 100, total: calls * (prompt + 100) }

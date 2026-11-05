@@ -29,7 +29,6 @@ import type {
   ProviderResponse,
   TimeSegment,
 } from '@/providers/ai/types'
-import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
   createModelCost,
@@ -472,7 +471,11 @@ export const bedrockProvider: ProviderConfig = {
 
         if (currentToolUses.length === 0) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw new Error('Bedrock exceeded the tool iteration limit')
+          throw toError(new Error('Bedrock exceeded the tool iteration limit'), {
+            model: request.model,
+            tokens,
+            cost: withToolCosts(cost, toolResults),
+          })
 
         const toolsStartTime = Date.now()
 
@@ -875,10 +878,12 @@ export const bedrockProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      throw new ProviderError(toError(error).message, {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
+      throw toError(error, {
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
       })
     }
   },

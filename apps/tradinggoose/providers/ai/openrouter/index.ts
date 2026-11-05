@@ -3,6 +3,7 @@ import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -239,7 +240,11 @@ export const openRouterProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw new Error('OpenRouter exceeded the tool iteration limit')
+          throw toError(new Error('OpenRouter exceeded the tool iteration limit'), {
+            model: request.model,
+            tokens,
+            cost: withToolCosts(cost.value, toolResults),
+          })
 
         const toolsStartTime = Date.now()
         for (const toolCall of toolCallsInResponse) {
@@ -351,10 +356,10 @@ export const openRouterProvider: ProviderConfig = {
       }
 
       if (request.stream && iterationCount > 0) {
+        const { tools: _tools, tool_choice: _toolChoice, ...answerPayload } = payload
         const streamingPayload = {
-          ...payload,
+          ...answerPayload,
           messages: currentMessages,
-          tool_choice: 'auto',
           stream: true,
           stream_options: { include_usage: true },
         }
@@ -437,7 +442,7 @@ export const openRouterProvider: ProviderConfig = {
         error: error instanceof Error ? error.message : String(error),
         duration: totalDuration,
       })
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
+      const enhancedError = toError(error)
       // @ts-ignore
       enhancedError.timing = {
         startTime: providerStartTimeISO,

@@ -172,16 +172,38 @@ export interface ProviderRequest {
   abortSignal?: AbortSignal
 }
 
+/** Resolves configured tuning after capability discovery, before provider sanitization. */
+export type ProviderControlResolver = () => Pick<
+  ProviderRequest,
+  'temperature' | 'reasoningEffort' | 'verbosity' | 'thinkingLevel'
+>
+
+export type ProviderErrorDetails = Partial<
+  Pick<ProviderResponse, 'model' | 'tokens' | 'cost' | 'timing'>
+>
+
+/** A provider failure can retain completed model and tool usage for billing. */
 export class ProviderError extends Error {
   timing: {
     startTime: string
     endTime: string
     duration: number
   }
+  model?: string
+  tokens?: TokenInfo
+  cost?: ProviderResponse['cost']
 
-  constructor(message: string, timing: { startTime: string; endTime: string; duration: number }) {
+  /** Creates a timed failure with any model and tool usage already accrued. */
+  constructor(
+    message: string,
+    timing: { startTime: string; endTime: string; duration: number },
+    details?: ProviderErrorDetails
+  ) {
     super(message)
     this.name = 'ProviderError'
     this.timing = timing
+    this.model = details?.model
+    this.tokens = details?.tokens
+    this.cost = details?.cost
   }
 }

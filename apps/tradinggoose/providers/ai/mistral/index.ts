@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -314,7 +315,11 @@ export const mistralProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw new Error('Mistral exceeded the tool iteration limit')
+          throw toError(new Error('Mistral exceeded the tool iteration limit'), {
+            model: request.model,
+            tokens,
+            cost: withToolCosts(cost.value, toolResults),
+          })
 
         logger.info(
           `Processing ${toolCallsInResponse.length} tool calls (iteration ${iterationCount + 1}/${MAX_TOOL_ITERATIONS})`
@@ -451,10 +456,10 @@ export const mistralProvider: ProviderConfig = {
       if (request.stream && iterationCount > 0) {
         logger.info('Using streaming for final response after tool calls')
 
+        const { tools: _tools, tool_choice: _toolChoice, ...answerPayload } = payload
         const streamingPayload = {
-          ...payload,
+          ...answerPayload,
           messages: currentMessages,
-          tool_choice: 'auto',
           stream: true,
         }
 
@@ -549,7 +554,7 @@ export const mistralProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
+      const enhancedError = toError(error)
       // @ts-ignore - Adding timing property to the error
       enhancedError.timing = {
         startTime: providerStartTimeISO,

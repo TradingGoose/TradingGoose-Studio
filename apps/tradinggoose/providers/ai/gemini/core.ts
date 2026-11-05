@@ -111,7 +111,7 @@ async function executeToolCallsBatch(
 
     const tool = request.tools?.find((t) => t.id === toolName)
     if (!tool) {
-      logger.warn(`Tool ${toolName} not found in registry, skipping`)
+      logger.warn(`Tool ${toolName} not found in registry`)
       return {
         success: false,
         part,
@@ -172,12 +172,6 @@ async function executeToolCallsBatch(
   })
 
   const results = await Promise.all(executionPromises)
-
-  // Check if at least one tool was found (not all failed due to missing tools)
-  const hasValidResults = results.some((r) => r.result !== undefined)
-  if (!hasValidResults && results.every((r) => !r.success)) {
-    return { success: false, state }
-  }
 
   // Preserve the complete model response so thought signatures remain attached
   // to their original parts when the function results are sent back.
@@ -1080,6 +1074,7 @@ export async function executeGeminiRequest(
     const forcedTools = preparedTools?.forcedTools ?? []
 
     let currentResponse = response
+    let currentConfig = geminiConfig
     let content = ''
 
     // Tool execution loop
@@ -1096,7 +1091,11 @@ export async function executeGeminiRequest(
           break
         }
         if (state.iterationCount >= MAX_TOOL_ITERATIONS) {
-          throw new Error('Gemini exceeded the tool iteration limit')
+          throw toError(new Error('Gemini exceeded the tool iteration limit'), {
+            model,
+            tokens: state.tokens,
+            cost: withToolCosts(state.cost, state.toolResults),
+          })
         }
 
         const callNames = functionCallParts.map((p) => p.functionCall?.name ?? 'unknown').join(', ')
@@ -1126,75 +1125,6 @@ export async function executeGeminiRequest(
         state = updatedState
         const nextConfig = buildNextConfig(geminiConfig, state, forcedTools, request, logger, model)
 
-        // Settle the tool loop before exposing the final text as a stream.
-        if (request.stream) {
-          const nextModelStartTime = Date.now()
-          let settledResponse = await ai.models.generateContent({
-            model,
-            contents: state.contents,
-            config: nextConfig,
-          })
-          state = updateStateWithResponse(
-            state,
-            settledResponse,
-            model,
-            nextModelStartTime,
-            Date.now()
-          )
-
-          if (settledResponse.functionCalls?.length) {
-            currentResponse = settledResponse
-            continue
-          }
-
-          // Gemini 2 cannot combine tools and responseSchema. Once tools settle,
-          // make the one schema-configured synthesis required by that contract.
-          if (request.responseFormat && nextConfig.responseMimeType !== 'application/json') {
-            nextConfig.tools = undefined
-            nextConfig.toolConfig = undefined
-            nextConfig.responseMimeType = 'application/json'
-            nextConfig.responseSchema = cleanSchemaForGemini(
-              request.responseFormat.schema
-            ) as Schema
-
-            const finalModelStartTime = Date.now()
-            settledResponse = await ai.models.generateContent({
-              model,
-              contents: state.contents,
-              config: nextConfig,
-            })
-            state = updateStateWithResponse(
-              state,
-              settledResponse,
-              model,
-              finalModelStartTime,
-              Date.now()
-            )
-          }
-
-          const settledContent = extractTextContent(settledResponse.candidates?.[0])
-          const streamingResult = createStreamingResult(
-            providerStartTime,
-            providerStartTimeISO,
-            firstResponseTime,
-            initialCallTime,
-            state
-          )
-          streamingResult.execution.output.model = model
-          streamingResult.execution.output.content = settledContent
-          streamingResult.execution.output.cost = withToolCosts(state.cost, state.toolResults)
-          streamingResult.stream = new ReadableStream({
-            start(controller) {
-              if (settledContent) {
-                controller.enqueue(new TextEncoder().encode(settledContent))
-              }
-              controller.close()
-            },
-          })
-
-          return streamingResult
-        }
-
         // Non-streaming: get next response
         const nextModelStartTime = Date.now()
         const nextResponse = await ai.models.generateContent({
@@ -1204,6 +1134,7 @@ export async function executeGeminiRequest(
         })
         state = updateStateWithResponse(state, nextResponse, model, nextModelStartTime, Date.now())
         currentResponse = nextResponse
+        currentConfig = nextConfig
       }
 
       if (!content) {
@@ -1211,6 +1142,75 @@ export async function executeGeminiRequest(
       }
     } else {
       content = extractTextContent(candidate)
+    }
+
+    // Gemini 2 cannot combine tools with a response schema. Synthesize the final
+    // answer once the tool loop has settled, and stream it incrementally when requested.
+    const needsStructuredSynthesis =
+      request.responseFormat && currentConfig.responseMimeType !== 'application/json'
+    if (request.stream || needsStructuredSynthesis) {
+      const finalConfig = { ...currentConfig, tools: undefined, toolConfig: undefined }
+      if (needsStructuredSynthesis) {
+        finalConfig.responseMimeType = 'application/json'
+        finalConfig.responseSchema = cleanSchemaForGemini(request.responseFormat!.schema) as Schema
+      }
+      const settledContent = currentResponse.candidates?.[0]?.content
+      const finalContents: Content[] = [
+        ...state.contents,
+        ...(settledContent ? [settledContent] : []),
+        { role: 'user', parts: [{ text: 'Provide the final answer based on the tool results.' }] },
+      ]
+      const finalModelStartTime = Date.now()
+      if (request.stream) {
+        const streamGenerator = await ai.models.generateContentStream({
+          model,
+          contents: finalContents,
+          config: finalConfig,
+        })
+        const streamingResult = createStreamingResult(
+          providerStartTime,
+          providerStartTimeISO,
+          firstResponseTime,
+          initialCallTime,
+          state
+        )
+        streamingResult.execution.output.model = model
+        streamingResult.execution.output.cost = withToolCosts(state.cost, state.toolResults)
+        streamingResult.stream = createReadableStreamFromGeminiStream(
+          streamGenerator,
+          (finalContent, usage) => {
+            const streamEndTime = Date.now()
+            state = updateStateWithResponse(
+              state,
+              { usageMetadata: usage } as GenerateContentResponse,
+              model,
+              finalModelStartTime,
+              streamEndTime
+            )
+            const output = streamingResult.execution.output
+            output.content = finalContent
+            output.tokens = state.tokens
+            output.cost = withToolCosts(state.cost, state.toolResults)
+            if (output.providerTiming) {
+              Object.assign(output.providerTiming, {
+                endTime: new Date(streamEndTime).toISOString(),
+                duration: streamEndTime - providerStartTime,
+                modelTime: state.modelTime,
+                iterations: state.iterationCount + 1,
+                timeSegments: state.timeSegments,
+              })
+            }
+          }
+        )
+        return streamingResult
+      }
+      const finalResponse = await ai.models.generateContent({
+        model,
+        contents: finalContents,
+        config: finalConfig,
+      })
+      state = updateStateWithResponse(state, finalResponse, model, finalModelStartTime, Date.now())
+      content = extractTextContent(finalResponse.candidates?.[0])
     }
 
     const providerEndTime = Date.now()

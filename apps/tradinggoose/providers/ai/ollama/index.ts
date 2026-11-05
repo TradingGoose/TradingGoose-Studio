@@ -3,6 +3,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { resolveOllamaServiceConfig } from '@/lib/system-services/runtime'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
   ProviderRequest,
@@ -15,6 +16,7 @@ import {
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
@@ -311,7 +313,14 @@ export const ollamaProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw new Error('Ollama exceeded the tool iteration limit')
+          throw toError(new Error('Ollama exceeded the tool iteration limit'), {
+            model: request.model,
+            tokens,
+            cost: withToolCosts(
+              calculateCost(request.model, tokens.prompt, tokens.completion),
+              toolResults
+            ),
+          })
 
         logger.info(
           `Processing ${toolCallsInResponse.length} tool calls (iteration ${iterationCount + 1}/${MAX_TOOL_ITERATIONS})`
@@ -586,7 +595,7 @@ export const ollamaProvider: ProviderConfig = {
       })
 
       // Create a new error with timing information
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
+      const enhancedError = toError(error)
       // @ts-ignore - Adding timing property to the error
       enhancedError.timing = {
         startTime: providerStartTimeISO,

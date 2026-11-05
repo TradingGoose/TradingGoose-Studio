@@ -12,7 +12,6 @@ import type {
   ProviderResponse,
   TimeSegment,
 } from '@/providers/ai/types'
-import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
   createOpenAICompatibleStream,
@@ -299,7 +298,14 @@ export const vllmProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw new Error('vLLM exceeded the tool iteration limit')
+          throw toError(new Error('vLLM exceeded the tool iteration limit'), {
+            model: request.model,
+            tokens,
+            cost: withToolCosts(
+              calculateCost(request.model, tokens.input, tokens.output),
+              toolResults
+            ),
+          })
 
         logger.info(
           `Processing ${toolCallsInResponse.length} tool calls (iteration ${iterationCount + 1}/${MAX_TOOL_ITERATIONS})`
@@ -597,10 +603,12 @@ export const vllmProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      throw new ProviderError(errorMessage, {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
+      throw toError(Object.assign(toError(error), { message: errorMessage }), {
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
       })
     }
   },

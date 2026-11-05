@@ -22,7 +22,12 @@ import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
 import { getOpenRouterModels } from '@/providers/ai/openrouter/models'
-import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
+import type {
+  ProviderConfig,
+  ProviderControlResolver,
+  ProviderRequest,
+  ProviderResponse,
+} from '@/providers/ai/types'
 import { withToolCosts } from '@/providers/ai/utils'
 import { vertexProvider } from '@/providers/ai/vertex'
 import { vllmProvider } from '@/providers/ai/vllm'
@@ -110,7 +115,8 @@ function isStreamingExecution(response: any): response is StreamingExecution {
 /** Discovers model capabilities, sanitizes tuning, and normalizes provider usage and costs. */
 export async function executeProviderRequest(
   providerId: string,
-  request: ProviderRequest
+  request: ProviderRequest,
+  resolveControls?: ProviderControlResolver
 ): Promise<ProviderResponse | StreamingExecution> {
   if (isHosted && providerId === 'ollama') {
     throw new Error('Ollama is not available on hosted instances')
@@ -131,7 +137,9 @@ export async function executeProviderRequest(
     })
   }
 
-  const sanitizedRequest = sanitizeRequest(request)
+  const sanitizedRequest = sanitizeRequest(
+    resolveControls ? { ...request, ...resolveControls() } : request
+  )
 
   // Execute the request using the provider's implementation
   const response = await provider.executeRequest(sanitizedRequest)

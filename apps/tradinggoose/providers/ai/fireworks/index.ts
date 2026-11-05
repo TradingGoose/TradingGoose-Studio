@@ -13,7 +13,6 @@ import type {
   ProviderResponse,
   TimeSegment,
 } from '@/providers/ai/types'
-import { ProviderError } from '@/providers/ai/types'
 import {
   checkForForcedToolUsageOpenAI,
   createModelCost,
@@ -256,7 +255,11 @@ export const fireworksProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw new Error('Fireworks exceeded the tool iteration limit')
+          throw toError(new Error('Fireworks exceeded the tool iteration limit'), {
+            model: request.model,
+            tokens,
+            cost: withToolCosts(cost.value, toolResults),
+          })
 
         const toolsStartTime = Date.now()
 
@@ -402,10 +405,10 @@ export const fireworksProvider: ProviderConfig = {
       }
 
       if (request.stream) {
+        const { tools: _tools, tool_choice: _toolChoice, ...answerPayload } = payload
         const streamingParams: ChatCompletionCreateParamsStreaming = {
-          ...payload,
+          ...answerPayload,
           messages: [...currentMessages],
-          tool_choice: 'auto',
           stream: true,
           stream_options: { include_usage: true },
         }
@@ -540,10 +543,12 @@ export const fireworksProvider: ProviderConfig = {
       }
 
       logger.error('Error in Fireworks request:', errorDetails)
-      throw new ProviderError(toError(error).message, {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
+      throw toError(error, {
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
       })
     }
   },

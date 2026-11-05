@@ -17,9 +17,11 @@ import type {
   ToolInput,
 } from '@/executor/handlers/agent/types'
 import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
+import type { InputResolver } from '@/executor/resolver/resolver'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
 import { getProviderFromModel } from '@/providers/ai/models'
 import { decodeProviderStream } from '@/providers/ai/streaming'
+import type { ProviderControlResolver } from '@/providers/ai/types'
 import { transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
@@ -68,6 +70,8 @@ function collectBlockData(context: ExecutionContext): {
  * Handler for Agent blocks that process LLM requests with optional tools.
  */
 export class AgentBlockHandler implements BlockHandler {
+  constructor(private readonly resolver?: InputResolver) {}
+
   canHandle(block: SerializedBlock): boolean {
     return block.metadata?.id === BlockType.AGENT
   }
@@ -130,7 +134,7 @@ export class AgentBlockHandler implements BlockHandler {
       streaming: streamingConfig.shouldUseStreaming ?? false,
     })
 
-    return this.executeProviderRequest(providerRequest, block, responseFormat, context)
+    return this.executeProviderRequest(providerRequest, block, responseFormat, context, inputs)
   }
 
   private parseResponseFormat(responseFormat?: string | object): any {
@@ -538,7 +542,8 @@ export class AgentBlockHandler implements BlockHandler {
     providerRequest: any,
     block: SerializedBlock,
     responseFormat: any,
-    context: ExecutionContext
+    context: ExecutionContext,
+    inputs: AgentInputs
   ): Promise<BlockOutput | StreamingExecution> {
     const providerId = providerRequest.provider
     const model = providerRequest.model
@@ -553,7 +558,8 @@ export class AgentBlockHandler implements BlockHandler {
           block,
           responseFormat,
           context,
-          providerStartTime
+          providerStartTime,
+          inputs
         )
       }
       return this.executeBrowserSide(
@@ -575,7 +581,8 @@ export class AgentBlockHandler implements BlockHandler {
     block: SerializedBlock,
     responseFormat: any,
     context: ExecutionContext,
-    providerStartTime: number
+    providerStartTime: number,
+    inputs: AgentInputs
   ) {
     logger.info('Using direct server provider request')
 
@@ -588,11 +595,43 @@ export class AgentBlockHandler implements BlockHandler {
       providerRequest.model,
       providerRequest.apiKey
     )
-    const result = await executeProviderRequest(providerRequest.provider, {
+    const resolver = this.resolver
+    const resolveControls: ProviderControlResolver | undefined =
+      resolver && providerRequest.provider === 'openrouter'
+        ? () => {
+            const fields = ['temperature', 'reasoningEffort', 'verbosity', 'thinkingLevel'] as const
+            const params = Object.fromEntries(
+              fields
+                .filter((field) => Object.hasOwn(block.config.params, field))
+                .map((field) => [field, block.config.params[field]])
+            )
+            const resolved = resolver.resolveInputs(
+              {
+                ...block,
+                config: { ...block.config, params: { ...params, model: providerRequest.model } },
+              },
+              context
+            )
+            for (const field of fields) {
+              if (!Object.hasOwn(resolved, field)) Reflect.deleteProperty(inputs, field)
+            }
+            Object.assign(inputs, resolved)
+            return {
+              temperature: inputs.temperature,
+              reasoningEffort: inputs.reasoningEffort,
+              verbosity: inputs.verbosity,
+              thinkingLevel: inputs.thinkingLevel,
+            }
+          }
+        : undefined
+    const request = {
       ...providerRequest,
       apiKey,
       userId: context.userId,
-    })
+    }
+    const result = resolveControls
+      ? await executeProviderRequest(providerRequest.provider, request, resolveControls)
+      : await executeProviderRequest(providerRequest.provider, request)
 
     this.logExecutionSuccess(
       providerRequest.provider,
