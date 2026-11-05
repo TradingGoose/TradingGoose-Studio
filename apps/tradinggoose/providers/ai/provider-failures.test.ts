@@ -262,6 +262,101 @@ function toolAgentWorkflow(model: string, errorPath = false): SerializedWorkflow
   }
 }
 
+/** Builds a native failed call without changing its raw arguments before model replay. */
+function failingOpenRouterCall(kind: string, toolName = tool.id) {
+  return {
+    ...toolCall(kind),
+    function: {
+      name: kind === 'unknown' ? 'missing' : toolName,
+      arguments: kind === 'malformed' ? '{' : JSON.stringify({ mode: kind }),
+    },
+  }
+}
+
+/** Returns a cached model round with the complete native assistant tool-call batch. */
+function openRouterBatchResponse(calls: ReturnType<typeof toolCall>[]) {
+  const response = completion()
+  response.choices[0].message.tool_calls = calls
+  response.choices[0].message.content = 'Calling tools'
+  Object.assign(response.choices[0].message, {
+    reasoning_details: [{ type: 'reasoning.text', text: 'Provider-specific reasoning' }],
+  })
+  return {
+    ...response,
+    usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
+  }
+}
+
+/** Requires one ordered result for every original call before the mocked model can recover. */
+function hasOpenRouterBatchResults(
+  messages: any[],
+  calls: ReturnType<typeof toolCall>[],
+  failedIds: string[]
+) {
+  for (let index = 0; index < messages.length; index++) {
+    const assistant = messages[index]
+    if (
+      assistant.role !== 'assistant' ||
+      JSON.stringify(assistant.tool_calls) !== JSON.stringify(calls)
+    )
+      continue
+    for (let callIndex = 0; callIndex < calls.length; callIndex++) {
+      const call = calls[callIndex]
+      const result = messages[index + callIndex + 1]
+      if (result?.role !== 'tool' || result.tool_call_id !== call.id) return false
+      const content = JSON.parse(result.content)
+      if (failedIds.includes(call.id)) {
+        if (content.error !== true || content.tool !== call.function.name) return false
+      } else if (content.value !== 42) return false
+    }
+    return true
+  }
+  return false
+}
+
+/** Allows model recovery only after receiving the failed calls and successful sibling results. */
+function arrangeOpenRouterBatchRecovery(calls: ReturnType<typeof toolCall>[], failedIds: string[]) {
+  const snapshots: any[] = []
+  mocks.tool.mockImplementation(
+    /** Produces deterministic thrown, returned-failure and paid successful tool outcomes. */
+    async (_name, args) => {
+      if (args.mode === 'thrown') throw new Error('Tool exploded')
+      if (args.mode === 'returned') return { success: false, error: 'Tool refused' }
+      return { success: true, output: { value: 42, cost: { total: 0.125 } } }
+    }
+  )
+  mocks.chat.mockImplementation(
+    /** Repeats the pending batch until complete error feedback permits a final answer. */
+    async (payload) => {
+      const snapshot = JSON.parse(JSON.stringify(payload))
+      snapshots.push(snapshot)
+      if (!hasOpenRouterBatchResults(snapshot.messages, calls, failedIds)) {
+        return openRouterBatchResponse(calls)
+      }
+      if (payload.stream) {
+        return (async function* () {
+          yield { choices: [{ delta: { content: 'Recovered' }, finish_reason: 'stop' }] }
+          yield {
+            choices: [],
+            usage: {
+              prompt_tokens: 1000,
+              completion_tokens: 500,
+              total_tokens: 1500,
+              prompt_tokens_details: { cached_tokens: 400 },
+            },
+          }
+        })()
+      }
+      const response = completion(false)
+      return {
+        ...response,
+        usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
+      }
+    }
+  )
+  return snapshots
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   updateOpenRouterModels([openRouterModel], { [openRouterModel]: openRouterPricing })
@@ -1013,5 +1108,210 @@ it.each(['auto', 'force'] as const)(
     } finally {
       PROVIDER_DEFINITIONS.openrouter.models = originalModels
     }
+  }
+)
+
+it.each(
+  ['unknown', 'malformed', 'thrown', 'returned'].flatMap((kind) =>
+    [false, true].map((stream) => ({ kind, stream }))
+  )
+)(
+  'OpenRouter recovers from an all-failed $kind batch only after error feedback, stream=$stream',
+  async ({ kind, stream }) => {
+    const call = failingOpenRouterCall(kind)
+    const snapshots = arrangeOpenRouterBatchRecovery([call], [call.id])
+    const result = await openRouterProvider.executeRequest({
+      model: openRouterModel,
+      apiKey: 'test-key',
+      context: 'Analyze',
+      tools: [tool],
+      stream,
+    })
+    const output = 'stream' in result ? result.execution.output : result
+    if ('stream' in result) expect(await new Response(result.stream).text()).toBe('Recovered')
+    else expect(result.content).toBe('Done')
+
+    const rounds = stream ? 3 : 2
+    expect(output.tokens).toMatchObject({
+      prompt: rounds * 1000,
+      completion: rounds * 500,
+      total: rounds * 1500,
+    })
+    expect(output.cost?.total).toBeCloseTo(rounds * 0.0034, 8)
+    expect(output.cost?.toolCost ?? 0).toBe(0)
+    expect(mocks.chat).toHaveBeenCalledTimes(rounds)
+    expect(mocks.tool).toHaveBeenCalledTimes(kind === 'unknown' || kind === 'malformed' ? 0 : 1)
+    const history = snapshots[1].messages.slice(-2)
+    expect(history[0].tool_calls).toEqual([call])
+    expect(history[1]).toMatchObject({ role: 'tool', tool_call_id: call.id })
+    expect(JSON.parse(history[1].content)).toMatchObject({
+      error: true,
+      message: expect.any(String),
+      tool: call.function.name,
+    })
+    if (stream) {
+      expect(snapshots[2]).toMatchObject({ tool_choice: 'none', stream: true })
+      expect(snapshots[2].tools).toEqual(snapshots[0].tools)
+    }
+  }
+)
+
+it('OpenRouter preserves one native mixed batch, successful siblings and ordered error results', async () => {
+  const calls = [
+    failingOpenRouterCall('unknown'),
+    toolCall('successful'),
+    failingOpenRouterCall('malformed'),
+    failingOpenRouterCall('thrown'),
+    failingOpenRouterCall('returned'),
+  ]
+  const snapshots = arrangeOpenRouterBatchRecovery(
+    calls,
+    calls.filter((call) => call.id !== 'successful').map((call) => call.id)
+  )
+  const result = await openRouterProvider.executeRequest({
+    model: openRouterModel,
+    apiKey: 'test-key',
+    context: 'Analyze',
+    tools: [tool],
+  })
+  if ('stream' in result) throw new Error('Expected completed response')
+  expect(result.content).toBe('Done')
+  expect(result.toolResults).toEqual([{ value: 42, cost: { total: 0.125 } }])
+  expect(result.toolCalls).toContainEqual(
+    expect.objectContaining({
+      name: tool.id,
+      success: true,
+      result: { value: 42, cost: { total: 0.125 } },
+    })
+  )
+  const history = snapshots[1].messages.slice(1)
+  expect(history[0]).toEqual({ role: 'assistant', content: 'Calling tools', tool_calls: calls })
+  expect(history.slice(1).map((message: any) => message.tool_call_id)).toEqual(
+    calls.map((call) => call.id)
+  )
+  expect(JSON.parse(history[2].content)).toEqual({ value: 42, cost: { total: 0.125 } })
+  expect(mocks.tool).toHaveBeenCalledTimes(3)
+  expect(mocks.chat).toHaveBeenCalledTimes(2)
+})
+
+it('OpenRouter advances a failed forced tool and keeps schemas with none for its recovered stream', async () => {
+  const first = failingOpenRouterCall('malformed')
+  const second = { ...toolCall('second'), function: { name: 'second', arguments: '{}' } }
+  const snapshots: any[] = []
+  mocks.chat.mockImplementation(
+    /** Advances the mocked model only after each forced call receives its native result. */
+    async (payload) => {
+      const snapshot = JSON.parse(JSON.stringify(payload))
+      snapshots.push(snapshot)
+      if (!hasOpenRouterBatchResults(snapshot.messages, [first], [first.id])) {
+        return openRouterBatchResponse([first])
+      }
+      if (!hasOpenRouterBatchResults(snapshot.messages, [second], [])) {
+        return openRouterBatchResponse([second])
+      }
+      if (payload.stream) {
+        return (async function* () {
+          yield { choices: [{ delta: { content: 'Recovered' }, finish_reason: 'stop' }] }
+          yield {
+            choices: [],
+            usage: {
+              prompt_tokens: 1000,
+              completion_tokens: 500,
+              total_tokens: 1500,
+              prompt_tokens_details: { cached_tokens: 400 },
+            },
+          }
+        })()
+      }
+      const response = completion(false)
+      return {
+        ...response,
+        usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
+      }
+    }
+  )
+  const result = await openRouterProvider.executeRequest({
+    model: openRouterModel,
+    apiKey: 'test-key',
+    context: 'Analyze',
+    tools: [
+      { ...tool, usageControl: 'force' },
+      { ...tool, id: 'second', usageControl: 'force' },
+    ],
+    stream: true,
+  })
+  if (!('stream' in result)) throw new Error('Expected recovered stream')
+  expect(await new Response(result.stream).text()).toBe('Recovered')
+  expect(snapshots.map((payload) => payload.tool_choice)).toEqual([
+    { type: 'function', function: { name: tool.id } },
+    { type: 'function', function: { name: 'second' } },
+    'auto',
+    'none',
+  ])
+  expect(snapshots[3].tools).toEqual(snapshots[0].tools)
+  expect(result.execution.output.tokens?.total).toBe(6000)
+  expect(result.execution.output.cost?.total).toBeCloseTo(0.1386, 8)
+  expect(mocks.chat).toHaveBeenCalledTimes(4)
+  expect(mocks.tool).toHaveBeenCalledExactlyOnceWith('second', expect.any(Object))
+})
+
+it('OpenRouter bounds repeated failed batches while retaining completed cached usage without tool fees', async () => {
+  const call = failingOpenRouterCall('unknown')
+  const snapshots: any[] = []
+  mocks.chat.mockImplementation(async (payload) => {
+    snapshots.push(JSON.parse(JSON.stringify(payload)))
+    return openRouterBatchResponse([call])
+  })
+  const error = await openRouterProvider
+    .executeRequest({
+      model: openRouterModel,
+      apiKey: 'test-key',
+      context: 'Analyze',
+      tools: [tool],
+    })
+    .catch(toError)
+  expect(error).toMatchObject({
+    message: 'OpenRouter exceeded the tool iteration limit',
+    tokens: { total: (MAX_TOOL_ITERATIONS + 1) * 1500 },
+  })
+  expect(toError(error).cost?.total).toBeCloseTo((MAX_TOOL_ITERATIONS + 1) * 0.0034, 8)
+  expect(toError(error).cost?.toolCost ?? 0).toBe(0)
+  expect(mocks.chat).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+  expect(mocks.tool).not.toHaveBeenCalled()
+  expect(hasOpenRouterBatchResults(snapshots[1].messages, [call], [call.id])).toBe(true)
+  expect(snapshots.at(-1).messages.filter((message: any) => message.role === 'tool')).toHaveLength(
+    MAX_TOOL_ITERATIONS
+  )
+})
+
+it.each(['unknown', 'malformed', 'thrown', 'mixed'])(
+  'OpenRouter model recovers from %s tool feedback before the Executor takes its error edge',
+  async (kind) => {
+    const failed = failingOpenRouterCall(kind === 'mixed' ? 'unknown' : kind, 'custom_lookup')
+    const successful = {
+      ...toolCall('successful'),
+      function: { name: 'custom_lookup', arguments: '{}' },
+    }
+    const calls = kind === 'mixed' ? [failed, successful] : [failed]
+    const snapshots = arrangeOpenRouterBatchRecovery(calls, [failed.id])
+    const events = vi.fn()
+    const result = await new Executor({
+      workflow: toolAgentWorkflow(openRouterModel, true),
+      contextExtensions: { workspaceId: 'workspace', onExecutionEvent: events },
+    }).execute('workflow', 'start')
+
+    expect(result.success).toBe(true)
+    expect(result.logs?.find((log) => log.blockId === 'agent')).toMatchObject({
+      success: true,
+      output: { content: 'Done', tokens: { total: 3000 } },
+    })
+    expect(result.logs?.some((log) => log.blockId === 'response')).toBe(false)
+    expect(events.mock.calls.some(([event]) => event.type === 'block:error')).toBe(false)
+    const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+    expect(billed.totalCost).toBeCloseTo(0.0068 + (kind === 'mixed' ? 0.125 : 0), 8)
+    expect(billed.totalTokens).toBe(3000)
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(kind === 'mixed' || kind === 'thrown' ? 1 : 0)
+    expect(hasOpenRouterBatchResults(snapshots[1].messages, calls, [failed.id])).toBe(true)
   }
 )

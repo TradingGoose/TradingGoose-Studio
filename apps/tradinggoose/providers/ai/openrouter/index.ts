@@ -26,7 +26,7 @@ const logger = createLogger('OpenRouterProvider')
 export const openRouterProvider: ProviderConfig = {
   id: 'openrouter',
 
-  /** Executes OpenRouter requests, retaining completed usage when tool processing fails. */
+  /** Executes bounded OpenRouter tool rounds with paired results and completed-usage errors. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -250,12 +250,17 @@ export const openRouterProvider: ProviderConfig = {
           throw new Error('OpenRouter exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
+        currentMessages.push({
+          role: 'assistant',
+          content: currentResponse.choices[0].message.content ?? null,
+          tool_calls: toolCallsInResponse,
+        })
         for (const toolCall of toolCallsInResponse) {
           try {
             const toolName = toolCall.function.name
             const toolArgs = JSON.parse(toolCall.function.arguments)
             const tool = request.tools?.find((t) => t.id === toolName)
-            if (!tool) continue
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
             const toolCallStartTime = Date.now()
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
@@ -294,21 +299,6 @@ export const openRouterProvider: ProviderConfig = {
             })
 
             currentMessages.push({
-              role: 'assistant',
-              content: null,
-              tool_calls: [
-                {
-                  id: toolCall.id,
-                  type: 'function',
-                  function: {
-                    name: toolName,
-                    arguments: toolCall.function.arguments,
-                  },
-                },
-              ],
-            })
-
-            currentMessages.push({
               role: 'tool',
               tool_call_id: toolCall.id,
               content: JSON.stringify(resultContent),
@@ -317,6 +307,15 @@ export const openRouterProvider: ProviderConfig = {
             logger.error('Error processing tool call (OpenRouter):', {
               error: error instanceof Error ? error.message : String(error),
               toolName: toolCall?.function?.name,
+            })
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                error: true,
+                message: error instanceof Error ? error.message : String(error),
+                tool: toolCall.function?.name,
+              }),
             })
           }
         }
