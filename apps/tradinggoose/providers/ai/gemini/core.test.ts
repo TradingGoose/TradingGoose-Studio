@@ -1,11 +1,32 @@
 import type { GoogleGenAI } from '@google/genai'
-import { beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { Executor } from '@/executor'
+import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import { executeGeminiRequest } from '@/providers/ai/gemini/core'
-import type { ProviderToolConfig } from '@/providers/ai/types'
+import { googleProvider } from '@/providers/ai/google'
+import type { ProviderRequest, ProviderToolConfig } from '@/providers/ai/types'
+import { vertexProvider } from '@/providers/ai/vertex'
+import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 
-const mocks = vi.hoisted(() => ({ executeTool: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  executeTool: vi.fn(),
+  generateContent: vi.fn(),
+  generateContentStream: vi.fn(),
+}))
 vi.mock('@/tools', () => ({ executeTool: mocks.executeTool }))
+vi.mock('@google/genai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@google/genai')>()),
+  GoogleGenAI: class {
+    models = {
+      generateContent: mocks.generateContent,
+      generateContentStream: mocks.generateContentStream,
+    }
+  },
+}))
 
 const tool: ProviderToolConfig = {
   id: 'lookup',
@@ -38,6 +59,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   mocks.executeTool.mockResolvedValue({ success: true, output: { value: 42, cost: { total: 2 } } })
 })
+afterEach(() => vi.restoreAllMocks())
 
 it('delivers final Gemini answer chunks before generation completes and retains tool accounting', async () => {
   let release!: () => void
@@ -187,3 +209,197 @@ it('retains completed Gemini usage and tool costs when pending calls exceed the 
   expect(generateContent).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
   expect(mocks.executeTool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
 })
+
+const failureStages = ['continuation', 'synthesis', 'stream setup'] as const
+type FailureStage = (typeof failureStages)[number]
+const routes = [
+  { label: 'Google', provider: googleProvider, model: 'gemini-2.5-flash' },
+  { label: 'Vertex', provider: vertexProvider, model: 'vertex/gemini-2.5-flash' },
+]
+
+/** Arranges real Gemini requests whose SDK continuation fails after completed tool rounds. */
+function failAfterCompletedRounds(stage: FailureStage, rounds = 1, cached = false) {
+  const failure = Object.assign(new TypeError('Gemini rate limit'), {
+    status: 429,
+    code: 'RESOURCE_EXHAUSTED',
+    requestId: 'gemini-request',
+  })
+  const usageMetadata = {
+    promptTokenCount: 10,
+    candidatesTokenCount: 5,
+    totalTokenCount: 15,
+    cachedContentTokenCount: cached ? 4 : 0,
+  }
+  for (let round = 0; round < rounds; round++) {
+    mocks.generateContent.mockResolvedValueOnce({ ...call(), usageMetadata })
+  }
+  if (stage !== 'continuation') {
+    mocks.generateContent.mockResolvedValueOnce({ ...answer('Settled'), usageMetadata })
+  }
+  if (stage === 'stream setup') mocks.generateContentStream.mockRejectedValueOnce(failure)
+  else mocks.generateContent.mockRejectedValueOnce(failure)
+
+  const completedCalls = rounds + (stage === 'continuation' ? 0 : 1)
+  return {
+    failure,
+    completedCalls,
+    inputCost: completedCalls * (cached ? 0.00000192 : 0.000003),
+    outputCost: completedCalls * 0.0000125,
+    toolCost: rounds * 2,
+  }
+}
+
+/** Configures the same failure phase through either public Gemini provider route. */
+function failureRequest(model: string, stage: FailureStage): ProviderRequest {
+  return {
+    model,
+    apiKey: 'test-key',
+    vertexProject: 'test-project',
+    context: 'Analyze',
+    tools: [tool],
+    ...(stage === 'synthesis' && {
+      responseFormat: { schema: { type: 'object', properties: { value: { type: 'number' } } } },
+    }),
+    stream: stage === 'stream setup',
+  }
+}
+
+it.each(
+  routes.flatMap((route) =>
+    failureStages.flatMap((stage) =>
+      [1, 2].flatMap((rounds) =>
+        [false, true].map((cached) => ({ ...route, stage, rounds, cached }))
+      )
+    )
+  )
+)(
+  '$label retains completed Gemini costs after $stage failure, rounds=$rounds, cached=$cached',
+  async ({ provider, model, stage, rounds, cached }) => {
+    const { failure, completedCalls, inputCost, outputCost, toolCost } = failAfterCompletedRounds(
+      stage,
+      rounds,
+      cached
+    )
+    const error = await provider.executeRequest(failureRequest(model, stage)).catch(toError)
+    expect(error).toBe(failure)
+    expect(error).toBeInstanceOf(TypeError)
+    expect(error).toMatchObject({
+      status: 429,
+      code: 'RESOURCE_EXHAUSTED',
+      requestId: 'gemini-request',
+      model: 'gemini-2.5-flash',
+      tokens: {
+        input: completedCalls * 10,
+        output: completedCalls * 5,
+        total: completedCalls * 15,
+      },
+      cost: { toolCost },
+      timing: {
+        startTime: expect.any(String),
+        endTime: expect.any(String),
+        duration: expect.any(Number),
+      },
+    })
+    const cost = toError(error).cost
+    expect(cost?.input).toBeCloseTo(inputCost, 10)
+    expect(cost?.output).toBeCloseTo(outputCost, 10)
+    expect(cost?.total).toBeCloseTo(inputCost + outputCost + toolCost, 10)
+    expect(mocks.executeTool).toHaveBeenCalledTimes(rounds)
+    expect(mocks.generateContent).toHaveBeenCalledTimes(
+      completedCalls + (stage === 'stream setup' ? 0 : 1)
+    )
+    expect(mocks.generateContentStream).toHaveBeenCalledTimes(stage === 'stream setup' ? 1 : 0)
+  }
+)
+
+it.each(routes)(
+  '$label initial Gemini failure invents no usage or tool cost',
+  async ({ provider, model }) => {
+    const failure = Object.assign(new TypeError('Initial Gemini rate limit'), { status: 429 })
+    mocks.generateContent.mockRejectedValueOnce(failure)
+    const error = await provider
+      .executeRequest(failureRequest(model, 'continuation'))
+      .catch(toError)
+    expect(error).toBe(failure)
+    expect(toError(error).tokens?.total ?? 0).toBe(0)
+    expect(toError(error).cost?.total ?? 0).toBe(0)
+    expect(toError(error).cost?.toolCost ?? 0).toBe(0)
+    expect(mocks.executeTool).not.toHaveBeenCalled()
+  }
+)
+
+it.each(
+  routes.flatMap((route) =>
+    failureStages.flatMap((stage) =>
+      [false, true].map((recovery) => ({ ...route, stage, recovery }))
+    )
+  )
+)(
+  '$label bills actual Gemini $stage failure once through executor logs, recovery=$recovery',
+  async ({ provider, model, stage, recovery }) => {
+    const { completedCalls, inputCost, outputCost, toolCost } = failAfterCompletedRounds(
+      stage,
+      1,
+      true
+    )
+    vi.spyOn(AgentBlockHandler.prototype, 'execute')
+      .mockImplementationOnce(async () => {
+        await provider.executeRequest(failureRequest(model, stage))
+        throw new Error('Expected Gemini failure')
+      })
+      .mockResolvedValue({ response: { content: 'Recovered' } })
+    const agent: SerializedBlock = {
+      id: 'agent',
+      metadata: { id: 'agent', name: 'Agent' },
+      position: { x: 0, y: 0 },
+      config: { tool: 'agent', params: { model } },
+      inputs: {},
+      outputs: {},
+      enabled: true,
+    }
+    const workflow: SerializedWorkflow = {
+      version: '1.0',
+      blocks: [
+        {
+          ...agent,
+          id: 'start',
+          metadata: { id: 'input_trigger', category: 'triggers' },
+          config: { tool: 'input_trigger', params: {} },
+        },
+        agent,
+        ...(recovery ? [{ ...agent, id: 'fallback' }] : []),
+      ],
+      connections: [
+        { source: 'start', target: 'agent' },
+        ...(recovery ? [{ source: 'agent', target: 'fallback', sourceHandle: 'error' }] : []),
+      ],
+      loops: {},
+    }
+    const events = vi.fn()
+    const result = await new Executor({
+      workflow,
+      contextExtensions: { workspaceId: 'workspace', onExecutionEvent: events },
+    }).execute('workflow', 'start')
+    expect(result.success).toBe(recovery)
+    expect(result.logs?.find((log) => log.blockId === 'agent')).toMatchObject({
+      success: false,
+      output: {
+        model: 'gemini-2.5-flash',
+        tokens: { total: completedCalls * 15 },
+        cost: { input: inputCost, output: outputCost, toolCost },
+      },
+    })
+    const { traceSpans } = buildTraceSpans(result)
+    const billed = calculateCostSummary(traceSpans)
+    expect(billed.totalCost).toBeCloseTo(inputCost + outputCost + toolCost, 10)
+    expect(billed.totalInputCost).toBeCloseTo(inputCost, 10)
+    expect(billed.totalOutputCost).toBeCloseTo(outputCost, 10)
+    expect(billed.totalTokens).toBe(completedCalls * 15)
+    expect(mocks.executeTool).toHaveBeenCalledTimes(1)
+    expect(
+      events.mock.calls.filter(
+        ([event]) => event.type === 'block:error' && event.data.output?.cost?.toolCost === toolCost
+      )
+    ).toHaveLength(1)
+  }
+)

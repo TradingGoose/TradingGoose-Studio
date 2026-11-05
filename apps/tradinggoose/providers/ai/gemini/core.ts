@@ -894,6 +894,7 @@ export async function executeGeminiRequest(
 
   const providerStartTime = Date.now()
   const providerStartTimeISO = new Date(providerStartTime).toISOString()
+  let getAccruedState: (() => ExecutionState) | undefined
 
   try {
     const { contents, tools, systemInstruction } = convertToGeminiFormat(request)
@@ -1071,6 +1072,7 @@ export async function executeGeminiRequest(
       model,
       toolConfig
     )
+    getAccruedState = () => state
     const forcedTools = preparedTools?.forcedTools ?? []
 
     let currentResponse = response
@@ -1242,7 +1244,17 @@ export async function executeGeminiRequest(
       stack: error instanceof Error ? error.stack : undefined,
     })
 
-    const enhancedError = toError(error)
+    const accruedState = getAccruedState?.()
+    const enhancedError = toError(
+      error,
+      accruedState
+        ? {
+            model,
+            tokens: accruedState.tokens,
+            cost: withToolCosts(accruedState.cost, accruedState.toolResults),
+          }
+        : undefined
+    )
     Object.assign(enhancedError, {
       timing: {
         startTime: providerStartTimeISO,
