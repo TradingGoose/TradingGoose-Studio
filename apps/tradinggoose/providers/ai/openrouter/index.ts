@@ -356,10 +356,10 @@ export const openRouterProvider: ProviderConfig = {
       }
 
       if (request.stream && iterationCount > 0) {
-        const { tools: _tools, tool_choice: _toolChoice, ...answerPayload } = payload
         const streamingPayload = {
-          ...answerPayload,
+          ...payload,
           messages: currentMessages,
+          tool_choice: 'none',
           stream: true,
           stream_options: { include_usage: true },
         }

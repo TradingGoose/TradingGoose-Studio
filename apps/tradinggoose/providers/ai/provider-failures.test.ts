@@ -744,7 +744,6 @@ it.each([
 
 it.each([
   { provider: deepseekProvider, model: 'deepseek-flash' },
-  { provider: openRouterProvider, model: 'openrouter/test/model' },
   { provider: mistralProvider, model: 'mistral-large-4' },
   { provider: fireworksProvider, model: 'fireworks/accounts/fireworks/models/glm-5p3' },
   { provider: groqProvider, model: 'groq/openai/gpt-oss-120b' },
@@ -778,5 +777,84 @@ it.each([
     expect(mocks.chat.mock.calls[2][0]).not.toHaveProperty('tools')
     expect(mocks.chat.mock.calls[2][0]).not.toHaveProperty('tool_choice')
     expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each(['auto', 'force'] as const)(
+  'OpenRouter keeps prepared schemas and disables new calls in its final stream, usage=%s',
+  async (usageControl) => {
+    const model = 'openrouter/test/model'
+    const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+    updateOpenRouterModels([model], { [model]: { input: 2, output: 4 } })
+    const tools: ProviderToolConfig[] = [
+      { ...tool, usageControl },
+      {
+        ...tool,
+        id: 'unused',
+        parameters: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+          required: ['query'],
+        },
+      },
+      { ...tool, id: 'disabled', usageControl: 'none' },
+    ]
+    mocks.chat.mockResolvedValueOnce(completion()).mockResolvedValueOnce(completion(false))
+    mocks.chat.mockImplementationOnce(async (payload) => {
+      expect(payload.tools).toBe(mocks.chat.mock.calls[0][0].tools)
+      expect(payload.tool_choice).toBe('none')
+      return (async function* () {
+        yield { choices: [{ delta: { content: 'Done' }, finish_reason: 'stop' }] }
+        yield {
+          choices: [],
+          usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
+        }
+      })()
+    })
+    try {
+      const result = await openRouterProvider.executeRequest({
+        model,
+        apiKey: 'test-key',
+        context: 'Analyze',
+        tools,
+        stream: true,
+      })
+      if (!('stream' in result)) throw new Error('Expected final stream')
+      expect(await new Response(result.stream).text()).toBe('Done')
+      const [initial, continuation, final] = mocks.chat.mock.calls.map(([payload]) => payload)
+      const schemas = tools.slice(0, 2).map(({ id, description, parameters }) => ({
+        type: 'function',
+        function: { name: id, description, parameters },
+      }))
+      for (const payload of [initial, continuation, final]) expect(payload.tools).toEqual(schemas)
+      expect(initial.tool_choice).toEqual(
+        usageControl === 'force' ? { type: 'function', function: { name: tool.id } } : 'auto'
+      )
+      expect(continuation.tool_choice).toBe('auto')
+      expect(final).toMatchObject({
+        tool_choice: 'none',
+        stream: true,
+        stream_options: { include_usage: true },
+      })
+      expect(final.messages).toBe(continuation.messages)
+      expect(final.messages.slice(-2)).toEqual([
+        { role: 'assistant', content: null, tool_calls: [toolCall()] },
+        {
+          role: 'tool',
+          tool_call_id: 'call',
+          content: JSON.stringify({ value: 42, cost: { total: 0.125 } }),
+        },
+      ])
+      expect(result.execution.output).toMatchObject({
+        content: 'Done',
+        tokens: { prompt: 3000, completion: 1500, total: 4500 },
+        cost: { input: 0.006, output: 0.006, toolCost: 0.125 },
+      })
+      expect(result.execution.output.cost?.total).toBeCloseTo(0.137, 8)
+      expect(mocks.chat).toHaveBeenCalledTimes(3)
+      expect(mocks.tool).toHaveBeenCalledExactlyOnceWith(tool.id, expect.any(Object))
+    } finally {
+      PROVIDER_DEFINITIONS.openrouter.models = originalModels
+    }
   }
 )

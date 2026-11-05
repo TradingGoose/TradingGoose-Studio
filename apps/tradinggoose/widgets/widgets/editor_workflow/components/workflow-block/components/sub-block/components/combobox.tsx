@@ -15,6 +15,7 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { extractEnvironmentReferences, extractReferencePrefixes } from '@/lib/workflows/references'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
@@ -35,6 +36,7 @@ interface ComboBoxProps {
   placeholder?: string
   isConnecting: boolean
   config: SubBlockConfig
+  contextValues?: Record<string, any>
 }
 
 const getOptionValue = (option: string | SubBlockOption) =>
@@ -54,16 +56,24 @@ const getOptionSearchText = (option: string | SubBlockOption) => {
 const getOptionIcon = (option: string | SubBlockOption) =>
   typeof option === 'string' ? null : (option.icon ?? null)
 
-/** Keeps references editable while masking stale model levels until the user starts searching. */
+/** Preserves unresolved references and literals while masking known stale model levels. */
 export function resolveComboBoxDisplayValue(
   value: string,
   hasSelectedOption: boolean,
   hasTyped: boolean,
-  isModelCapability: boolean
+  isModelCapability: boolean,
+  isUnresolvedModel: boolean
 ) {
   const isReference =
     extractReferencePrefixes(value).length > 0 || extractEnvironmentReferences(value).length > 0
-  return isModelCapability && value && !hasSelectedOption && !hasTyped && !isReference ? '' : value
+  return isModelCapability &&
+    value &&
+    !hasSelectedOption &&
+    !hasTyped &&
+    !isReference &&
+    !isUnresolvedModel
+    ? ''
+    : value
 }
 
 /** Edits persisted selections and references, distinguishing fresh openings from typed searches. */
@@ -77,6 +87,7 @@ export function ComboBox({
   placeholder,
   isConnecting,
   config,
+  contextValues,
 }: ComboBoxProps) {
   const locale = useLocale() as LocaleCode
   const placeholderText = placeholder ?? translateWorkflowLabel(locale, 'typeOrSelectAnOption')
@@ -119,13 +130,23 @@ export function ComboBox({
   }, [evaluatedOptions, value])
 
   const rawDisplayValue = value?.toString() ?? ''
-  const isModelCapability =
+  const capabilityCondition =
     typeof config.condition === 'object' && config.condition.operator === 'modelCapability'
+      ? config.condition
+      : undefined
+  const isModelCapability = capabilityCondition !== undefined
+  const modelValue = capabilityCondition ? contextValues?.[capabilityCondition.field] : undefined
+  const isUnresolvedModel =
+    typeof modelValue === 'string' &&
+    evaluateSubBlockConditionValues(capabilityCondition, contextValues ?? {}) &&
+    (extractReferencePrefixes(modelValue).length > 0 ||
+      extractEnvironmentReferences(modelValue).length > 0)
   const displayValue = resolveComboBoxDisplayValue(
     rawDisplayValue,
     Boolean(selectedOption),
     hasTyped,
-    isModelCapability
+    isModelCapability,
+    isUnresolvedModel
   )
 
   // Get the explicit default or first option when automatic selection is enabled.

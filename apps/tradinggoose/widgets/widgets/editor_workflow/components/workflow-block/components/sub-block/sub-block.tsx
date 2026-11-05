@@ -571,6 +571,7 @@ export const SubBlock = memo(
                 disabled={isDisabled}
                 isConnecting={isConnecting}
                 config={config}
+                contextValues={contextValues}
               />
             </div>
           )

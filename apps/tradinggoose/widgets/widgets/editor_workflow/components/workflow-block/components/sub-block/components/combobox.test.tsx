@@ -46,16 +46,19 @@ vi.mock('@/lib/yjs/workflow-session-host', () => ({
 }))
 
 it.each([
-  ['xhigh', false, false, true, ''],
-  ['xhigh', true, false, true, 'xhigh'],
-  ['xhigh', false, true, true, 'xhigh'],
-  ['xhigh', false, false, false, 'xhigh'],
-  ['<variable.effort>', false, false, true, '<variable.effort>'],
-  ['{{REASONING_EFFORT}}', false, false, true, '{{REASONING_EFFORT}}'],
+  ['xhigh', false, false, true, false, ''],
+  ['xhigh', true, false, true, false, 'xhigh'],
+  ['xhigh', false, true, true, false, 'xhigh'],
+  ['xhigh', false, false, false, false, 'xhigh'],
+  ['<variable.effort>', false, false, true, false, '<variable.effort>'],
+  ['{{REASONING_EFFORT}}', false, false, true, false, '{{REASONING_EFFORT}}'],
+  ['high', false, false, true, true, 'high'],
 ] as const)(
   'resolves model-control display value %#',
-  (value, selected, typed, capability, expected) => {
-    expect(resolveComboBoxDisplayValue(value, selected, typed, capability)).toBe(expected)
+  (value, selected, typed, capability, unresolved, expected) => {
+    expect(resolveComboBoxDisplayValue(value, selected, typed, capability, unresolved)).toBe(
+      expected
+    )
   }
 )
 
@@ -77,6 +80,7 @@ function AgentChooser({ field }: { field: ModelControl }) {
       subBlockId={field}
       config={config}
       options={config.options({ model: state.model?.value })}
+      contextValues={{ model: state.model?.value }}
       isConnecting={false}
     />
   )
@@ -159,6 +163,92 @@ describe('Agent tuning chooser interactions', () => {
     return ['Auto (provider default)', ...(MODEL_CONTROL_GETTERS[field](model) ?? [])]
   }
 
+  /** Stores a real Agent snapshot and mounts its shared chooser against the Yjs document. */
+  function renderChooser(id: ModelControl, model: string, value: string) {
+    field = id
+    setWorkflowState(doc, {
+      blocks: {
+        agent: {
+          id: 'agent',
+          type: 'agent',
+          name: 'Agent',
+          position: { x: 0, y: 0 },
+          enabled: true,
+          outputs: {},
+          subBlocks: buildInitialSubBlockStates(AgentBlock.subBlocks, {
+            model,
+            [field]: value,
+          }) as BlockState['subBlocks'],
+        },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+    })
+    act(() => root.render(<AgentChooser field={field} />))
+  }
+
+  it.each(
+    (['reasoningEffort', 'verbosity', 'thinkingLevel'] as const).flatMap((id) =>
+      ['<variable.model>', '{{MODEL}}', '<upstream.model>'].map((model) => ({ id, model }))
+    )
+  )('preserves $id literals while model $model remains unresolved', ({ id, model }) => {
+    renderChooser(id, model, 'high')
+    expect(input().value).toBe('high')
+    open()
+    expect(options()).toEqual(['Auto (provider default)'])
+    close()
+    expect(input().value).toBe('high')
+    act(() => root.render(<AgentChooser key='remounted' field={field} />))
+    expect(input().value).toBe('high')
+
+    open()
+    type('medium')
+    expect(input().value).toBe('medium')
+    expect(options()).toEqual([])
+    close()
+    expect(input().value).toBe('medium')
+    open()
+    expect(options()).toEqual(['Auto (provider default)'])
+    for (const reference of ['<variable.otherModel>', '{{OTHER_MODEL}}', '<other.model>']) {
+      update({ model: reference })
+      expect(input().value).toBe('medium')
+      expect(readWorkflowSnapshot(doc)?.blocks.agent.subBlocks[field].value).toBe('medium')
+    }
+
+    type('deliberately-no-match')
+    expect(container.textContent).toContain('No matching options found')
+    expect(options()).toEqual([])
+    close()
+    expect(input().value).toBe('deliberately-no-match')
+    open()
+    expect(options()).toEqual(['Auto (provider default)'])
+    const auto = container.querySelector('[data-option-index]')!
+    act(() => auto.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })))
+    expect(readWorkflowSnapshot(doc)?.blocks.agent.subBlocks[field].value).toBe('auto')
+    open()
+    type('')
+    close()
+    open()
+    expect(input().value).toBe('')
+    expect(options()).toEqual(['Auto (provider default)'])
+
+    type('high')
+    close()
+    expect(input().value).toBe('high')
+    const resolvedModel = id === 'thinkingLevel' ? 'gemini-2.5-flash' : 'gpt-5.4'
+    update({ model: resolvedModel })
+    open()
+    expect(input().value).toBe('high')
+    expect(options()).toEqual(expectedOptions(resolvedModel))
+    update({ [field]: 'unavailable-level' })
+    expect(input().value).toBe('')
+    expect(readWorkflowSnapshot(doc)?.blocks.agent.subBlocks[field].value).toBe('unavailable-level')
+    update({ model: 'gpt-4.1' })
+    expect(container.querySelector('input')).toBeNull()
+    expect(readWorkflowSnapshot(doc)?.blocks.agent.subBlocks[field].value).toBe('unavailable-level')
+  })
+
   it.each([
     ['reasoningEffort', 'gpt-5.4', 'mistral-small-2603'],
     ['verbosity', 'gpt-5.4', 'gpt-5.6-sol'],
@@ -166,27 +256,7 @@ describe('Agent tuning chooser interactions', () => {
   ] as const)(
     'keeps %s editable through saved values, model changes and searches',
     (id, model, nextModel) => {
-      field = id
-      setWorkflowState(doc, {
-        blocks: {
-          agent: {
-            id: 'agent',
-            type: 'agent',
-            name: 'Agent',
-            position: { x: 0, y: 0 },
-            enabled: true,
-            outputs: {},
-            subBlocks: buildInitialSubBlockStates(AgentBlock.subBlocks, {
-              model,
-              [field]: '',
-            }) as BlockState['subBlocks'],
-          },
-        },
-        edges: [],
-        loops: {},
-        parallels: {},
-      })
-      act(() => root.render(<AgentChooser field={field} />))
+      renderChooser(id, model, '')
       open()
       expect(options()).toEqual(expectedOptions(model))
       expect(input().value).toBe('')
