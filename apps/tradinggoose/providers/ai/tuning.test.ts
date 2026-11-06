@@ -338,9 +338,7 @@ it.each(
       }).execute('workflow', 'start')
       if (catalog === 'unavailable' || catalog === 'omitted') {
         expect(result.success).toBe(false)
-        expect(result.error).toContain(
-          `Cannot apply configured controls without model capabilities: ${model}`
-        )
+        expect(result.error).toContain('Environment variable "REMOVED" was not found.')
         expect(mocks.chat).not.toHaveBeenCalled()
         expect(calculateCostSummary(buildTraceSpans(result).traceSpans)).toMatchObject({
           totalCost: 0,
@@ -426,6 +424,94 @@ it.each(['unavailable', 'omitted'] as const)(
   }
 )
 
+it.each(
+  ['unavailable', 'omitted'].flatMap((catalog) =>
+    ['auto', 'empty', 'unset', 'real effort', 'zero temperature', 'unresolved'].map((intent) => ({
+      catalog,
+      intent,
+    }))
+  )
+)(
+  'resolves server default-control references with unknown support: catalog=$catalog, intent=$intent',
+  /** Exercises real server resolution before permitting defaults or recording a setup failure. */
+  async ({ catalog, intent }) => {
+    const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+    const model = 'openrouter/publisher/unknown'
+    const isDefault = ['auto', 'empty', 'unset'].includes(intent)
+    const cleared = intent === 'empty' || intent === 'unset'
+    const params: Record<string, unknown> = {
+      model,
+      reasoningEffort: intent === 'unresolved' ? '<variable.removed>' : '<variable.effort>',
+      verbosity: '{{VERBOSITY}}',
+      thinkingLevel: '<start.thinking>',
+      ...(intent === 'zero temperature' && { temperature: '<variable.temperature>' }),
+    }
+    const workflow = tuningAgentWorkflow(params, false)
+    const agent = workflow.blocks[1]
+    const configuredParams = structuredClone(agent.config.params)
+    try {
+      updateOpenRouterModels([])
+      vi.mocked(getBlock).mockImplementation((type) => (type === 'agent' ? AgentBlock : undefined))
+      vi.mocked(fetch).mockImplementation(
+        /** Keeps both existing discovery opportunities genuinely unknown. */
+        async () => {
+          if (catalog === 'unavailable') throw new Error('Catalog unavailable')
+          return Response.json({ data: [] })
+        }
+      )
+      const result = await new Executor({
+        workflow,
+        workflowInput: intent === 'unset' ? {} : { thinking: cleared ? '' : 'auto' },
+        envVarValues: { VERBOSITY: cleared ? '' : 'auto' },
+        workflowVariables: {
+          effort: {
+            name: 'effort',
+            type: 'plain',
+            value:
+              intent === 'unset'
+                ? undefined
+                : intent === 'real effort'
+                  ? 'high'
+                  : cleared
+                    ? ''
+                    : 'auto',
+          },
+          temperature: { name: 'temperature', type: 'number', value: '0' },
+        },
+        contextExtensions: { workspaceId: 'workspace' },
+      }).execute('workflow', 'start')
+      expect(result.success, result.error).toBe(isDefault)
+      expect(result.logs?.find((entry) => entry.blockId === 'agent')?.success).toBe(isDefault)
+      const billing = calculateCostSummary(buildTraceSpans(result).traceSpans)
+      if (isDefault) {
+        expect(mocks.chat).toHaveBeenCalledTimes(1)
+        expect(result.logs?.find((entry) => entry.blockId === 'agent')?.output).toMatchObject({
+          content: 'Done',
+          tokens: { total: 15 },
+        })
+        const payload = mocks.chat.mock.lastCall![0]
+        for (const key of ['temperature', 'reasoning_effort', 'verbosity', 'thinking']) {
+          expect(payload).not.toHaveProperty(key)
+        }
+        expect(billing.totalTokens).toBe(15)
+      } else {
+        expect(result.error).toContain(
+          `Cannot apply configured controls without model capabilities: ${model}`
+        )
+        expect(mocks.chat).not.toHaveBeenCalled()
+        expect(billing.totalTokens).toBe(0)
+      }
+      expect(billing.totalCost).toBe(0)
+      expect(mocks.tool).not.toHaveBeenCalled()
+      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(agent.config.params).toEqual(configuredParams)
+    } finally {
+      PROVIDER_DEFINITIONS.openrouter.models = originalModels
+      vi.mocked(getBlock).mockReset()
+    }
+  }
+)
+
 it('retains known OpenRouter tuning when refreshing an existing catalog fails', async () => {
   const originalModels = PROVIDER_DEFINITIONS.openrouter.models
   const model = 'openrouter/publisher/known'
@@ -478,7 +564,7 @@ it('routes unknown OpenRouter tuning to the real Agent error edge without billin
       workflow,
       contextExtensions: { workspaceId: 'workspace' },
     }).execute('workflow', 'start')
-    const message = `Cannot apply configured controls without model capabilities: ${model}`
+    const message = 'Environment variable "REMOVED" was not found.'
     expect(result.success, result.error).toBe(true)
     expect(result.logs?.find((entry) => entry.blockId === 'agent')).toMatchObject({
       success: false,

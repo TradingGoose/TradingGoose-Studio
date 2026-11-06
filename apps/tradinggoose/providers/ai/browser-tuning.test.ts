@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { ProviderRouteBody } from '@/app/api/providers/ai/handler'
 import { GET as discoverServerModels } from '@/app/api/providers/ai/openrouter/models/route'
 import { POST as executeHttpProvider } from '@/app/api/providers/route'
@@ -222,6 +224,96 @@ it.each([
 )
 
 it.each([
+  ...(['unavailable', 'omitted'] as const).flatMap((catalog) =>
+    [
+      {
+        label: 'variable Auto, environment empty, upstream unset',
+        effort: 'auto',
+        verbosity: '',
+        thinking: undefined,
+      },
+      {
+        label: 'variable unset, environment Auto, upstream empty',
+        effort: undefined,
+        verbosity: 'auto',
+        thinking: '',
+      },
+      {
+        label: 'variable empty, environment empty, upstream Auto',
+        effort: '',
+        verbosity: '',
+        thinking: 'auto',
+      },
+    ].map((values) => ({ catalog, ...values, zero: false, succeeds: true }))
+  ),
+  {
+    catalog: 'unavailable',
+    label: 'resolved actual effort',
+    effort: 'high',
+    verbosity: '',
+    thinking: '',
+    zero: false,
+    succeeds: false,
+  },
+  {
+    catalog: 'omitted',
+    label: 'resolved zero temperature',
+    effort: 'auto',
+    verbosity: '',
+    thinking: '',
+    zero: true,
+    succeeds: false,
+  },
+] as const)(
+  'resolves browser unknown-capability reference intent: $catalog, $label',
+  async ({ catalog, effort, verbosity, thinking, zero, succeeds }) => {
+    const transport = browserTransport(catalog)
+    const workflow = browserWorkflow({
+      reasoningEffort: '<variable.effort>',
+      verbosity: '{{VERBOSITY}}',
+      thinkingLevel: '<start.thinking>',
+      ...(zero && { temperature: '<start.temperature>' }),
+    })
+    const savedParams = structuredClone(workflow.blocks[1].config.params)
+    const result = await new Executor({
+      workflow,
+      workflowInput: { thinking, temperature: 0 },
+      envVarValues: { VERBOSITY: verbosity },
+      workflowVariables: { effort: { name: 'effort', type: 'plain', value: effort } },
+      contextExtensions: { workspaceId: 'workspace' },
+    }).execute('workflow', 'start')
+
+    expect(result.success, result.error).toBe(succeeds)
+    if (succeeds) {
+      expect(transport.requests).toHaveLength(1)
+      expect(transport.requests[0].clientModels).toEqual([])
+      const body = transport.requests[0].body
+      expect(body.reasoningEffort).toBe(effort)
+      expect(body.verbosity).toBe(verbosity)
+      expect(body.thinkingLevel).toBe(thinking ?? '')
+      expect(body.temperature).toBeUndefined()
+      expect(mocks.chat).toHaveBeenCalledTimes(1)
+      for (const field of ['temperature', 'reasoning_effort', 'verbosity', 'thinking']) {
+        expect(mocks.chat.mock.calls[0][0]).not.toHaveProperty(field)
+      }
+    } else {
+      expect(result.error).toContain(
+        `Cannot apply configured controls without model capabilities: ${model}`
+      )
+      expect(transport.requests).toHaveLength(0)
+      expect(mocks.chat).not.toHaveBeenCalled()
+      expect(calculateCostSummary(buildTraceSpans(result).traceSpans)).toMatchObject({
+        totalCost: 0,
+        totalTokens: 0,
+      })
+    }
+    expect(transport.clientDiscoveryAttempts()).toBe(2)
+    expect(transport.serverDiscoveryAttempts()).toBe(succeeds ? 2 : 1)
+    expect(workflow.blocks[1].config.params).toEqual(savedParams)
+  }
+)
+
+it.each([
   {
     catalog: 'unavailable',
     params: { reasoningEffort: 'auto', verbosity: 'auto', thinkingLevel: 'auto' },
@@ -243,10 +335,12 @@ it.each([
     catalog: 'omitted',
     params: { reasoningEffort: '<variable.effort>', verbosity: '{{REMOVED}}' },
     succeeds: false,
+    error: 'Environment variable "REMOVED" was not found.',
   },
 ] as const)(
   'handles browser unknown capabilities: $catalog, controls=$params, succeeds=$succeeds',
-  async ({ catalog, params, succeeds }) => {
+  async (testCase) => {
+    const { catalog, params, succeeds } = testCase
     const transport = browserTransport(catalog)
     const workflow = browserWorkflow(params)
     const savedParams = structuredClone(workflow.blocks[1].config.params)
@@ -264,8 +358,11 @@ it.each([
       expect(payload.verbosity).toBeUndefined()
     } else {
       expect(result.error).toContain(
-        `Cannot apply configured controls without model capabilities: ${model}`
+        'error' in testCase
+          ? testCase.error
+          : `Cannot apply configured controls without model capabilities: ${model}`
       )
+      expect(transport.requests).toHaveLength(0)
       expect(mocks.chat).not.toHaveBeenCalled()
     }
     expect(workflow.blocks[1].config.params).toEqual(savedParams)

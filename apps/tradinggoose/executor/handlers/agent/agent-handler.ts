@@ -552,7 +552,7 @@ export class AgentBlockHandler implements BlockHandler {
     try {
       const resolveControls: ProviderControlResolver | undefined =
         providerRequest.provider === 'openrouter'
-          ? /** Resolves known active controls, retaining unknown configuration for the setup check. */
+          ? /** Resolves default intent for unknown support, otherwise only active controls. */
             () => {
               const fields = [
                 'temperature',
@@ -565,8 +565,17 @@ export class AgentBlockHandler implements BlockHandler {
                   .filter((field) => Object.hasOwn(block.config.params, field))
                   .map((field) => [field, block.config.params[field]])
               )
-              // Unknown controls stay unresolved for the provider's capability/setup check.
-              if (!getProviderModels('openrouter').includes(providerRequest.model)) return params
+              if (!getProviderModels('openrouter').includes(providerRequest.model)) {
+                for (const field of Object.keys(params)) {
+                  params[field] = this.resolver.resolveInputValue(
+                    field,
+                    params[field],
+                    block,
+                    context
+                  )
+                }
+                return params
+              }
               const resolved = this.resolver.resolveInputs(
                 {
                   ...block,
