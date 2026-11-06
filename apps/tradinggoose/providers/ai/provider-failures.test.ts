@@ -568,7 +568,108 @@ it('preserves the original error and completed usage through normalization', () 
   expect(toError(error, { model: 'gpt-4.1', cost })).toBe(error)
   expect(error).toMatchObject({ model: 'gpt-4.1', cost })
   expect(error).toBeInstanceOf(TypeError)
+
+  const tokens = { prompt: 0, completion: 0, total: 0 }
+  const zeroCost = { input: 0, output: 0, toolCost: 0, total: 0, pricing: null }
+  Object.assign(error, { model: 'reported-model', tokens, cost: zeroCost })
+  const details = { model: 'configured-model', tokens: { total: 30 }, cost }
+  const savedDetails = structuredClone(details)
+  expect(toError(error, details)).toBe(error)
+  expect(toError(error).model).toBe('reported-model')
+  expect(toError(error).tokens).toBe(tokens)
+  expect(toError(error).cost).toBe(zeroCost)
+  expect(details).toEqual(savedDetails)
 })
+
+const circularFailure: Record<string, unknown> = { message: 'Circular rejection', status: 429 }
+circularFailure.self = circularFailure
+const unstringifiableFailure: Record<string, unknown> = Object.create(null)
+unstringifiableFailure.self = unstringifiableFailure
+
+it.each([
+  { label: 'ordinary string', value: 'Provider refused', message: 'Provider refused' },
+  { label: 'empty string', value: '', message: '' },
+  {
+    label: 'serializable object',
+    value: { message: 'Provider refused', status: 429 },
+    message: '{"message":"Provider refused","status":429}',
+  },
+  { label: 'circular object', value: circularFailure, message: '[object Object]' },
+  { label: 'BigInt object', value: { amount: 12n }, message: '[object Object]' },
+  { label: 'BigInt primitive', value: 12n, message: '12' },
+  { label: 'undefined', value: undefined, message: 'undefined' },
+  { label: 'symbol', value: Symbol('provider failure'), message: 'Symbol(provider failure)' },
+  { label: 'failed string coercion', value: unstringifiableFailure, message: 'Unknown error' },
+])('keeps completed accounting through non-Error normalization: $label', ({ value, message }) => {
+  const details: ProviderErrorDetails = {
+    model: openRouterModel,
+    tokens: { prompt: 20, completion: 10, total: 30 },
+    cost: { input: 1, output: 1, toolCost: 2, total: 4, pricing: null },
+  }
+  const savedDetails = structuredClone(details)
+  const error = toError(value, details)
+  expect(error).toBeInstanceOf(Error)
+  expect(error.message).toBe(message)
+  if (message !== '') expect(error.message.trim()).not.toBe('')
+  expect(error).toMatchObject(details)
+  expect(error.tokens).toBe(details.tokens)
+  expect(error.cost).toBe(details.cost)
+  expect(details).toEqual(savedDetails)
+  expect(error).not.toHaveProperty('status')
+})
+
+it.each([false, true])(
+  'bills a non-Error continuation through the real Agent once, recovery=%s',
+  async (errorPath) => {
+    const failure: Record<string, unknown> = { message: 'SDK rejected an object', status: 429 }
+    failure.self = failure
+    const round = completion(true, 400)
+    round.choices[0].message.tool_calls![0].function.name = 'custom_lookup'
+    mocks.chat.mockResolvedValueOnce(round).mockRejectedValueOnce(failure)
+    const events = vi.fn()
+    const result = await new Executor({
+      workflow: toolAgentWorkflow(openRouterModel, errorPath),
+      contextExtensions: { workspaceId: 'workspace', onExecutionEvent: events },
+    }).execute('workflow', 'start')
+
+    expect(result.success).toBe(errorPath)
+    expect(result.logs?.find((log) => log.blockId === 'agent')).toMatchObject({
+      success: false,
+      output: {
+        model: openRouterModel,
+        tokens: { prompt: 1000, completion: 500, total: 1500 },
+        cost: { input: 0.0014, output: 0.002, toolCost: 0.125, total: expect.closeTo(0.1284, 8) },
+      },
+    })
+    expect(events).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'block:error',
+        data: expect.objectContaining({
+          error: '[object Object]',
+          output: expect.objectContaining({ cost: expect.objectContaining({ toolCost: 0.125 }) }),
+        }),
+      })
+    )
+    if (errorPath) {
+      expect(result.logs?.find((log) => log.blockId === 'response')?.output).toMatchObject({
+        response: { data: { recovered: true, error: '[object Object]' } },
+      })
+    } else {
+      expect(result.error).toContain('[object Object]')
+      expect(result.logs?.some((log) => log.blockId === 'response')).toBe(false)
+    }
+    const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+    expect(billed.totalCost).toBeCloseTo(0.1284, 8)
+    expect(billed.totalInputCost).toBeCloseTo(0.0014, 8)
+    expect(billed.totalOutputCost).toBeCloseTo(0.002, 8)
+    expect(billed.totalTokens).toBe(1500)
+    expect(failure.self).toBe(failure)
+    expect(failure).not.toHaveProperty('tokens')
+    expect(failure).not.toHaveProperty('cost')
+    expect(mocks.tool).toHaveBeenCalledExactlyOnceWith('custom_lookup', expect.any(Object))
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+  }
+)
 
 it('resolves streamed Cerebras tool results downstream through the real Agent and Executor', async () => {
   arrangeAgentStream()
