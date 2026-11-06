@@ -26,13 +26,16 @@ interface OpenRouterCatalog {
 
 let pendingModels: Promise<OpenRouterCatalog> | undefined
 
-/** Loads browser capabilities through the server endpoint and deduplicates cached server discovery. */
+/** Publishes browser catalogs to subscribers and deduplicates cached server discovery. */
 export async function getOpenRouterModels(): Promise<OpenRouterCatalog> {
   if (typeof window !== 'undefined') {
     const response = await fetch('/api/providers/ai/openrouter/models')
     if (!response.ok) throw new Error(`OpenRouter models endpoint returned HTTP ${response.status}`)
     const catalog = (await response.json()) as OpenRouterCatalog
-    updateOpenRouterModels(catalog.models, catalog.pricing, catalog.capabilities)
+    const { useProvidersStore } = await import('@/stores/providers/store')
+    useProvidersStore
+      .getState()
+      .publishCatalog('openrouter', catalog.models, catalog.pricing, catalog.capabilities)
     return catalog
   }
 

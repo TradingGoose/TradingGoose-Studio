@@ -275,6 +275,136 @@ describe('AI model catalog', () => {
     })
   })
 
+  it('awaits browser execution discovery and publishes capability changes with identical model IDs', async () => {
+    const model = 'openrouter/publisher/runtime'
+    const previousProviders = useProvidersStore.getState().providers
+    const previousPricing = { input: 1, output: 2 }
+    const catalog = {
+      models: [model],
+      pricing: { [model]: { input: 3, cachedInput: 0.5, output: 4 } },
+      capabilities: {
+        [model]: {
+          reasoningEffort: { values: ['high'] },
+          verbosity: { values: ['low', 'high'] },
+        },
+      },
+    }
+    updateOpenRouterModels([model], { [model]: previousPricing })
+    useProvidersStore.setState({
+      providers: {
+        ...previousProviders,
+        openrouter: { models: [model], isLoading: true },
+        ollama: { models: ['ollama/other'], isLoading: true },
+      },
+    })
+    const initialProviders = useProvidersStore.getState().providers
+    const notified = vi.fn(() => ({
+      capabilities: getModelCapabilities(model),
+      pricing: getModelPricing(model),
+    }))
+    const unsubscribe = useProvidersStore.subscribe(notified)
+    let respond!: (response: Response) => void
+    const fetchMock = vi.mocked(fetch).mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          respond = resolve
+        })
+    )
+    vi.stubGlobal('window', {})
+    try {
+      let settled = false
+      const discovery = getOpenRouterModels().finally(() => {
+        settled = true
+      })
+      await Promise.resolve()
+      expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/providers/ai/openrouter/models')
+      expect(settled).toBe(false)
+      expect(useProvidersStore.getState().providers).toBe(initialProviders)
+      expect(getModelPricing(model)).toEqual(previousPricing)
+      expect(getReasoningEffortValuesForModel(model)).toBeNull()
+      expect(notified).not.toHaveBeenCalled()
+
+      respond(Response.json(catalog))
+      await expect(discovery).resolves.toEqual(catalog)
+      const published = useProvidersStore.getState().providers
+      expect(published).not.toBe(initialProviders)
+      expect(published.openrouter).not.toBe(initialProviders.openrouter)
+      expect(published.openrouter).toEqual({ models: [model], isLoading: true })
+      for (const provider of ['base', 'ollama', 'vllm', 'fireworks'] as const) {
+        expect(published[provider]).toBe(initialProviders[provider])
+      }
+      expect(notified).toHaveBeenCalledTimes(1)
+      expect(notified.mock.results[0].value).toEqual({
+        capabilities: { toolUsageControl: true, ...catalog.capabilities[model] },
+        pricing: catalog.pricing[model],
+      })
+      expect(getProviderModels('openrouter')).toEqual(catalog.models)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(mocks.readCache).not.toHaveBeenCalled()
+      expect(mocks.writeCache).not.toHaveBeenCalled()
+    } finally {
+      unsubscribe()
+      useProvidersStore.setState({ providers: previousProviders })
+    }
+  })
+
+  it.each([
+    { label: 'HTTP failure', loading: true, failure: new Response(null, { status: 503 }) },
+    { label: 'network failure', loading: false, failure: new TypeError('Browser catalog offline') },
+  ])(
+    'awaits and propagates browser $label without publishing or clearing the catalog',
+    async ({ loading, failure }) => {
+      const model = 'openrouter/publisher/existing'
+      const previousProviders = useProvidersStore.getState().providers
+      const pricing = { input: 1, output: 2 }
+      const capabilities = { reasoningEffort: { values: ['medium'] } }
+      updateOpenRouterModels([model], { [model]: pricing }, { [model]: capabilities })
+      useProvidersStore.setState({
+        providers: { ...previousProviders, openrouter: { models: [model], isLoading: loading } },
+      })
+      const initialProviders = useProvidersStore.getState().providers
+      const notified = vi.fn()
+      const unsubscribe = useProvidersStore.subscribe(notified)
+      let release!: () => void
+      const ready = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const fetchMock = vi.mocked(fetch).mockImplementationOnce(async () => {
+        await ready
+        if (failure instanceof Error) throw failure
+        return failure
+      })
+      vi.stubGlobal('window', {})
+      try {
+        let settled = false
+        const discovery = getOpenRouterModels().finally(() => {
+          settled = true
+        })
+        const rejection =
+          failure instanceof Error
+            ? expect(discovery).rejects.toBe(failure)
+            : expect(discovery).rejects.toThrow('OpenRouter models endpoint returned HTTP 503')
+        await Promise.resolve()
+        expect(settled).toBe(false)
+        expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/providers/ai/openrouter/models')
+        release()
+        await rejection
+        expect(settled).toBe(true)
+        expect(useProvidersStore.getState().providers).toBe(initialProviders)
+        expect(getProviderModels('openrouter')).toEqual([model])
+        expect(getModelPricing(model)).toEqual(pricing)
+        expect(getModelCapabilities(model)).toEqual({ toolUsageControl: true, ...capabilities })
+        expect(notified).not.toHaveBeenCalled()
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(mocks.readCache).not.toHaveBeenCalled()
+        expect(mocks.writeCache).not.toHaveBeenCalled()
+      } finally {
+        unsubscribe()
+        useProvidersStore.setState({ providers: previousProviders })
+      }
+    }
+  )
+
   it.each([
     {
       label: 'unrestricted optional reasoning',
