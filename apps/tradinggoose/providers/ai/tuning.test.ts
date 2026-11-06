@@ -62,15 +62,28 @@ vi.mock('@/lib/system-services/runtime', () => ({
   }),
 }))
 
+import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { GET as discoverOllamaModels } from '@/app/api/providers/ai/ollama/models/route'
+import { AgentBlock } from '@/blocks/blocks/agent'
+import { getBlock } from '@/blocks/index'
+import { Executor } from '@/executor'
 import { executeProviderRequest } from '@/providers/ai'
 import { anthropicProvider } from '@/providers/ai/anthropic'
 import { azureAnthropicProvider } from '@/providers/ai/azure-anthropic'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { deepseekProvider } from '@/providers/ai/deepseek'
+import { toError } from '@/providers/ai/error'
 import { fireworksProvider } from '@/providers/ai/fireworks'
 import { groqProvider } from '@/providers/ai/groq'
+import { mistralProvider } from '@/providers/ai/mistral'
+import { PROVIDER_DEFINITIONS, updateOpenRouterModels } from '@/providers/ai/models'
 import { ollamaProvider } from '@/providers/ai/ollama'
+import { openRouterProvider } from '@/providers/ai/openrouter'
+import { vllmProvider } from '@/providers/ai/vllm'
+import { xAIProvider } from '@/providers/ai/xai'
+import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 
 const request = (model: string, params: Partial<ProviderRequest> = {}): ProviderRequest => ({
   model,
@@ -78,6 +91,51 @@ const request = (model: string, params: Partial<ProviderRequest> = {}): Provider
   context: 'Analyze',
   ...params,
 })
+/** Builds a real Agent and response edge for tuning failures and accrued-usage billing. */
+function tuningAgentWorkflow(
+  params: Record<string, unknown>,
+  errorPath = true
+): SerializedWorkflow {
+  const agent: SerializedBlock = {
+    id: 'agent',
+    metadata: { id: 'agent', name: 'Agent' },
+    position: { x: 0, y: 0 },
+    config: {
+      tool: 'agent',
+      params: { apiKey: 'test-key', userPrompt: 'Analyze', ...params },
+    },
+    inputs: {},
+    outputs: {},
+    enabled: true,
+  }
+  return {
+    version: '1.0',
+    blocks: [
+      {
+        ...agent,
+        id: 'start',
+        metadata: { id: 'input_trigger', category: 'triggers' },
+        config: { tool: 'input_trigger', params: {} },
+      },
+      agent,
+      {
+        ...agent,
+        id: 'response',
+        metadata: { id: 'response' },
+        config: {
+          tool: 'response',
+          params: { dataMode: 'json', data: { error: '<agent.error>', status: '<agent.status>' } },
+        },
+      },
+    ],
+    connections: [
+      { source: 'start', target: 'agent' },
+      { source: 'agent', target: 'response', ...(errorPath && { sourceHandle: 'error' }) },
+    ],
+    loops: {},
+  }
+}
+
 const tool: ProviderToolConfig = {
   id: 'lookup',
   name: 'Lookup',
@@ -170,6 +228,499 @@ beforeEach(() => {
   mocks.tool.mockResolvedValue({ success: true, output: { value: 42 } })
 })
 
+it.each(
+  ['cold', 'warm', 'unavailable', 'retry', 'missing', 'omitted'].flatMap((catalog) =>
+    [true, false].flatMap((supported) =>
+      ['literal', 'variable', 'environment', 'block'].flatMap((source) =>
+        ['literal', 'references'].map((tuning) => ({ catalog, supported, source, tuning }))
+      )
+    )
+  )
+)(
+  'resolves OpenRouter inputs after discovery: catalog=$catalog, supported=$supported, source=$source, tuning=$tuning',
+  async ({ catalog, supported, source, tuning }) => {
+    const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+    const model = 'openrouter/openai/gpt-4.1'
+    const capabilities = {
+      temperature: { min: 0, max: 2 },
+      ...(supported && {
+        reasoningEffort: { values: ['high'] },
+        verbosity: { values: ['high'] },
+      }),
+    }
+    const block: SerializedBlock = {
+      id: 'agent',
+      metadata: { id: 'agent' },
+      position: { x: 0, y: 0 },
+      config: {
+        tool: 'agent',
+        params: {
+          temperature: tuning === 'references' ? '<variable.temperature>' : 0,
+          reasoningEffort: supported
+            ? tuning === 'references'
+              ? '<variable.effort>'
+              : 'high'
+            : '{{REMOVED}}',
+          verbosity: supported
+            ? tuning === 'references'
+              ? '{{VERBOSITY}}'
+              : 'high'
+            : '{{REMOVED}}',
+          thinkingLevel: '{{REMOVED}}',
+          model:
+            source === 'variable'
+              ? '<variable.model>'
+              : source === 'environment'
+                ? '{{MODEL}}'
+                : source === 'block'
+                  ? '<start.model>'
+                  : model,
+          apiKey: 'test-key',
+          userPrompt: 'Analyze',
+        },
+      },
+      inputs: {},
+      outputs: {},
+      enabled: true,
+    }
+    const trigger: SerializedBlock = {
+      ...block,
+      id: 'start',
+      metadata: { id: 'input_trigger', name: 'Start', category: 'triggers' },
+      config: { tool: 'input_trigger', params: { model } },
+    }
+    const workflow: SerializedWorkflow = {
+      version: '1.0',
+      blocks: [trigger, block],
+      connections: [{ source: 'start', target: 'agent' }],
+      loops: {},
+    }
+    const configuredParams = structuredClone(block.config.params)
+
+    try {
+      updateOpenRouterModels(catalog === 'warm' ? [model] : [], undefined, {
+        [model]: capabilities,
+      })
+      vi.mocked(getBlock).mockImplementation((type) => (type === 'agent' ? AgentBlock : undefined))
+      if (catalog !== 'warm') {
+        for (const subBlock of AgentBlock.subBlocks.filter((entry) => entry.id === 'temperature')) {
+          expect(evaluateSubBlockConditionValues(subBlock.condition, { model })).toBe(false)
+        }
+      }
+      let refreshCount = 0
+      vi.mocked(fetch).mockImplementation(async () => {
+        refreshCount++
+        if (catalog === 'unavailable') throw new Error('Catalog unavailable')
+        if (catalog === 'retry' && refreshCount === 1) throw new Error('Catalog unavailable')
+        if (catalog === 'omitted' || (catalog === 'missing' && refreshCount === 1)) {
+          return Response.json({ data: [] })
+        }
+        return Response.json({
+          data: [
+            {
+              id: 'openai/gpt-4.1',
+              supported_parameters: supported ? ['temperature', 'verbosity'] : ['temperature'],
+              reasoning: { supported_efforts: supported ? ['high'] : [] },
+            },
+          ],
+        })
+      })
+      const result = await new Executor({
+        workflow,
+        workflowInput: { model },
+        envVarValues: { MODEL: model, VERBOSITY: 'high' },
+        workflowVariables: {
+          model: { name: 'model', type: 'plain', value: model },
+          temperature: { name: 'temperature', type: 'number', value: '0' },
+          effort: { name: 'effort', type: 'plain', value: 'high' },
+        },
+        contextExtensions: { workspaceId: 'workspace' },
+      }).execute('workflow', 'start')
+      if (catalog === 'unavailable' || catalog === 'omitted') {
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('Environment variable "REMOVED" was not found.')
+        expect(mocks.chat).not.toHaveBeenCalled()
+        expect(calculateCostSummary(buildTraceSpans(result).traceSpans)).toMatchObject({
+          totalCost: 0,
+          totalTokens: 0,
+        })
+        expect(refreshCount).toBe(2)
+        expect(block.config.params).toEqual(configuredParams)
+        return
+      }
+      expect(result.success, result.error).toBe(true)
+      expect(mocks.chat).toHaveBeenCalledTimes(1)
+      const payload = mocks.chat.mock.calls[0][0]
+      expect(payload.temperature).toBe(0)
+      expect(payload.reasoning_effort).toBe(supported ? 'high' : undefined)
+      expect(payload.verbosity).toBe(supported ? 'high' : undefined)
+      const inputs = result.logs?.find((log) => log.blockId === 'agent')?.input
+      expect(inputs).toMatchObject({ model })
+      expect(inputs).toHaveProperty('temperature', 0)
+      expect(inputs).not.toHaveProperty('thinkingLevel')
+      if (!supported) {
+        expect(inputs).not.toHaveProperty('reasoningEffort')
+        expect(inputs).not.toHaveProperty('verbosity')
+      } else {
+        expect(inputs).toHaveProperty('reasoningEffort', 'high')
+        expect(inputs).toHaveProperty('verbosity', 'high')
+      }
+      expect(refreshCount).toBe(2)
+      expect(block.config.params).toEqual(configuredParams)
+    } finally {
+      PROVIDER_DEFINITIONS.openrouter.models = originalModels
+      vi.mocked(getBlock).mockReset()
+    }
+  }
+)
+
+it.each(['unavailable', 'omitted'] as const)(
+  'distinguishes OpenRouter Auto defaults from configured controls when discovery remains %s',
+  async (catalog) => {
+    const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+    const model = 'openrouter/publisher/unknown'
+    try {
+      updateOpenRouterModels([])
+      vi.mocked(fetch).mockImplementation(async () => {
+        if (catalog === 'unavailable') throw new Error('Catalog unavailable')
+        return Response.json({ data: [] })
+      })
+      for (const params of [
+        { temperature: 0 },
+        { reasoningEffort: 'high' },
+        { verbosity: 'high' },
+        { thinkingLevel: 'high' },
+        { reasoningEffort: 'auto', verbosity: 'high', thinkingLevel: 'auto' },
+        { temperature: 0, reasoningEffort: 'auto', verbosity: 'auto', thinkingLevel: 'auto' },
+      ]) {
+        await expect(executeProviderRequest('openrouter', request(model, params))).rejects.toThrow(
+          `Cannot apply configured controls without model capabilities: ${model}`
+        )
+      }
+      expect(mocks.chat).not.toHaveBeenCalled()
+      for (const params of [
+        {},
+        { temperature: undefined, reasoningEffort: '', verbosity: '', thinkingLevel: '' },
+        { reasoningEffort: 'auto' },
+        { verbosity: 'auto' },
+        { thinkingLevel: 'auto' },
+        { reasoningEffort: 'auto', verbosity: 'auto', thinkingLevel: 'auto' },
+      ]) {
+        const configuredRequest = request(model, params)
+        const savedRequest = structuredClone(configuredRequest)
+        const result = await executeProviderRequest('openrouter', configuredRequest)
+        expect(result).toMatchObject({ content: 'Done', model })
+        expect(configuredRequest).toEqual(savedRequest)
+        const payload = mocks.chat.mock.lastCall![0]
+        for (const key of ['temperature', 'reasoning_effort', 'verbosity', 'thinking']) {
+          expect(payload).not.toHaveProperty(key)
+        }
+      }
+      expect(mocks.chat).toHaveBeenCalledTimes(6)
+      expect(mocks.tool).not.toHaveBeenCalled()
+    } finally {
+      PROVIDER_DEFINITIONS.openrouter.models = originalModels
+    }
+  }
+)
+
+it.each(
+  ['unavailable', 'omitted'].flatMap((catalog) =>
+    ['auto', 'empty', 'unset', 'real effort', 'zero temperature', 'unresolved'].map((intent) => ({
+      catalog,
+      intent,
+    }))
+  )
+)(
+  'resolves server default-control references with unknown support: catalog=$catalog, intent=$intent',
+  /** Exercises real server resolution before permitting defaults or recording a setup failure. */
+  async ({ catalog, intent }) => {
+    const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+    const model = 'openrouter/publisher/unknown'
+    const isDefault = ['auto', 'empty', 'unset'].includes(intent)
+    const cleared = intent === 'empty' || intent === 'unset'
+    const params: Record<string, unknown> = {
+      model,
+      reasoningEffort: intent === 'unresolved' ? '<variable.removed>' : '<variable.effort>',
+      verbosity: '{{VERBOSITY}}',
+      thinkingLevel: '<start.thinking>',
+      ...(intent === 'zero temperature' && { temperature: '<variable.temperature>' }),
+    }
+    const workflow = tuningAgentWorkflow(params, false)
+    const agent = workflow.blocks[1]
+    const configuredParams = structuredClone(agent.config.params)
+    try {
+      updateOpenRouterModels([])
+      vi.mocked(getBlock).mockImplementation((type) => (type === 'agent' ? AgentBlock : undefined))
+      vi.mocked(fetch).mockImplementation(
+        /** Keeps both existing discovery opportunities genuinely unknown. */
+        async () => {
+          if (catalog === 'unavailable') throw new Error('Catalog unavailable')
+          return Response.json({ data: [] })
+        }
+      )
+      const result = await new Executor({
+        workflow,
+        workflowInput: intent === 'unset' ? {} : { thinking: cleared ? '' : 'auto' },
+        envVarValues: { VERBOSITY: cleared ? '' : 'auto' },
+        workflowVariables: {
+          effort: {
+            name: 'effort',
+            type: 'plain',
+            value:
+              intent === 'unset'
+                ? undefined
+                : intent === 'real effort'
+                  ? 'high'
+                  : cleared
+                    ? ''
+                    : 'auto',
+          },
+          temperature: { name: 'temperature', type: 'number', value: '0' },
+        },
+        contextExtensions: { workspaceId: 'workspace' },
+      }).execute('workflow', 'start')
+      expect(result.success, result.error).toBe(isDefault)
+      expect(result.logs?.find((entry) => entry.blockId === 'agent')?.success).toBe(isDefault)
+      const billing = calculateCostSummary(buildTraceSpans(result).traceSpans)
+      if (isDefault) {
+        expect(mocks.chat).toHaveBeenCalledTimes(1)
+        expect(result.logs?.find((entry) => entry.blockId === 'agent')?.output).toMatchObject({
+          content: 'Done',
+          tokens: { total: 15 },
+        })
+        const payload = mocks.chat.mock.lastCall![0]
+        for (const key of ['temperature', 'reasoning_effort', 'verbosity', 'thinking']) {
+          expect(payload).not.toHaveProperty(key)
+        }
+        expect(billing.totalTokens).toBe(15)
+      } else {
+        expect(result.error).toContain(
+          `Cannot apply configured controls without model capabilities: ${model}`
+        )
+        expect(mocks.chat).not.toHaveBeenCalled()
+        expect(billing.totalTokens).toBe(0)
+      }
+      expect(billing.totalCost).toBe(0)
+      expect(mocks.tool).not.toHaveBeenCalled()
+      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(agent.config.params).toEqual(configuredParams)
+    } finally {
+      PROVIDER_DEFINITIONS.openrouter.models = originalModels
+      vi.mocked(getBlock).mockReset()
+    }
+  }
+)
+
+it('retains known OpenRouter tuning when refreshing an existing catalog fails', async () => {
+  const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+  const model = 'openrouter/publisher/known'
+  try {
+    updateOpenRouterModels([model], undefined, {
+      [model]: {
+        temperature: { min: 0, max: 2 },
+        reasoningEffort: { values: ['high'] },
+        verbosity: { values: ['high'] },
+      },
+    })
+    vi.mocked(fetch).mockRejectedValue(new Error('Catalog unavailable'))
+    await executeProviderRequest(
+      'openrouter',
+      request(model, { temperature: 0, reasoningEffort: 'high', verbosity: 'high' })
+    )
+    expect(mocks.chat).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ temperature: 0, reasoning_effort: 'high', verbosity: 'high' })
+    )
+    const configuredRequest = request(model, {
+      temperature: 0,
+      reasoningEffort: 'auto',
+      verbosity: 'auto',
+      thinkingLevel: 'auto',
+    })
+    const savedRequest = structuredClone(configuredRequest)
+    await executeProviderRequest('openrouter', configuredRequest)
+    const payload = mocks.chat.mock.lastCall![0]
+    expect(payload.temperature).toBe(0)
+    for (const key of ['reasoning_effort', 'verbosity', 'thinking']) {
+      expect(payload).not.toHaveProperty(key)
+    }
+    expect(configuredRequest).toEqual(savedRequest)
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+  } finally {
+    PROVIDER_DEFINITIONS.openrouter.models = originalModels
+  }
+})
+
+it('routes unknown OpenRouter tuning to the real Agent error edge without billing a default request', async () => {
+  const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+  const model = 'openrouter/publisher/unknown'
+  const workflow = tuningAgentWorkflow({ model, verbosity: '{{REMOVED}}' })
+  const agent = workflow.blocks[1]
+  try {
+    updateOpenRouterModels([])
+    vi.mocked(getBlock).mockImplementation((type) => (type === 'agent' ? AgentBlock : undefined))
+    vi.mocked(fetch).mockRejectedValue(new Error('Catalog unavailable'))
+    const result = await new Executor({
+      workflow,
+      contextExtensions: { workspaceId: 'workspace' },
+    }).execute('workflow', 'start')
+    const message = 'Environment variable "REMOVED" was not found.'
+    expect(result.success, result.error).toBe(true)
+    expect(result.logs?.find((entry) => entry.blockId === 'agent')).toMatchObject({
+      success: false,
+    })
+    expect(result.logs?.find((entry) => entry.blockId === 'response')?.output).toMatchObject({
+      response: { data: { error: message } },
+    })
+    expect(mocks.chat).not.toHaveBeenCalled()
+    expect(calculateCostSummary(buildTraceSpans(result).traceSpans)).toMatchObject({
+      totalCost: 0,
+      totalTokens: 0,
+    })
+    expect(agent.config.params.verbosity).toBe('{{REMOVED}}')
+  } finally {
+    PROVIDER_DEFINITIONS.openrouter.models = originalModels
+    vi.mocked(getBlock).mockReset()
+  }
+})
+
+it.each([false, true])(
+  'retains completed Responses usage and original continuation errors, stream=%s',
+  async (stream) => {
+    const failure = Object.assign(new TypeError('Responses rate limit'), {
+      status: 429,
+      code: 'rate_limit',
+      request_id: 'request-id',
+    })
+    respond(
+      response([{ type: 'function_call', name: tool.id, call_id: 'paid', arguments: '{}' }]),
+      () => {
+        throw failure
+      }
+    )
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 0.125 } } })
+    const result = executeProviderRequest('openai', request('gpt-4.1', { stream, tools: [tool] }))
+    if (stream) {
+      const streaming = await result
+      if (!('stream' in streaming)) throw new Error('Expected Responses stream')
+      await expect(streaming.stream.getReader().read()).rejects.toBe(failure)
+    } else {
+      await expect(result).rejects.toBe(failure)
+    }
+    expect(failure).toMatchObject({
+      model: 'gpt-4.1',
+      status: 429,
+      code: 'rate_limit',
+      request_id: 'request-id',
+      tokens: { prompt: 10, completion: 5, total: 15 },
+      cost: { input: 0.00002, output: 0.00004, toolCost: 0.125, total: 0.12506 },
+    })
+    expect(failure).toBeInstanceOf(TypeError)
+    expect(mocks.responses).toHaveBeenCalledTimes(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each([false, true])(
+  'preserves explicit zero Responses accounting on a failed continuation, stream=%s',
+  async (stream) => {
+    const tokens = { prompt: 0, completion: 0, total: 0 }
+    const cost = { input: 0, output: 0, total: 0, pricing: null }
+    const failure = toError(new Error('Reported failure'), { model: 'reported', tokens, cost })
+    respond(
+      response([{ type: 'function_call', name: tool.id, call_id: 'paid', arguments: '{}' }]),
+      () => {
+        throw failure
+      }
+    )
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 0.125 } } })
+    const result = executeProviderRequest('openai', request('gpt-4.1', { stream, tools: [tool] }))
+    if (stream) {
+      const streaming = await result
+      if (!('stream' in streaming)) throw new Error('Expected Responses stream')
+      await expect(streaming.stream.getReader().read()).rejects.toBe(failure)
+    } else {
+      await expect(result).rejects.toBe(failure)
+    }
+    expect(failure.model).toBe('reported')
+    expect(failure.tokens).toBe(tokens)
+    expect(failure.cost).toBe(cost)
+  }
+)
+
+it.each([
+  { model: 'gpt-4.1', stream: false, errorPath: false },
+  { model: 'gpt-4.1', stream: true, errorPath: true },
+  { model: 'azure/gpt-4.1', stream: false, errorPath: true },
+  { model: 'azure/gpt-4.1', stream: true, errorPath: false },
+])(
+  'bills completed Responses usage through Agent routing: $model, stream=$stream, recovery=$errorPath',
+  async ({ model, stream, errorPath }) => {
+    const failure = Object.assign(new Error('Responses continuation failure'), { status: 429 })
+    respond(
+      response([
+        { type: 'function_call', name: 'custom_lookup', call_id: 'paid', arguments: '{}' },
+      ]),
+      () => {
+        throw failure
+      }
+    )
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 0.125 } } })
+    vi.mocked(getBlock).mockImplementation((type) => (type === 'agent' ? AgentBlock : undefined))
+    try {
+      const result = await new Executor({
+        workflow: tuningAgentWorkflow(
+          {
+            model,
+            tools: [
+              {
+                type: 'custom-tool',
+                title: 'Lookup',
+                toolId: 'custom_lookup',
+                schema: { function: { parameters: { type: 'object', properties: {} } } },
+              },
+            ],
+          },
+          errorPath
+        ),
+        contextExtensions: { workspaceId: 'workspace', stream, selectedOutputs: ['agent'] },
+      }).execute('workflow', 'start')
+      expect(result.success).toBe(errorPath)
+      expect(result.logs?.find((entry) => entry.blockId === 'agent')).toMatchObject({
+        success: false,
+        output: {
+          model,
+          tokens: { prompt: 10, completion: 5, total: 15 },
+          cost: { toolCost: 0.125, total: expect.closeTo(0.12506, 8) },
+        },
+      })
+      if (errorPath) {
+        expect(result.logs?.find((entry) => entry.blockId === 'response')?.output).toMatchObject({
+          response: { data: { error: failure.message, status: '429' } },
+        })
+      } else {
+        expect(result.error).toContain(failure.message)
+      }
+      const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+      expect(billed.totalTokens).toBe(15)
+      expect(billed.totalCost).toBeCloseTo(0.12506, 8)
+      expect(mocks.responses).toHaveBeenCalledTimes(2)
+      expect(mocks.tool).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.mocked(getBlock).mockReset()
+    }
+  }
+)
+
+it('preserves an initial Responses error without inventing completed usage', async () => {
+  const failure = Object.assign(new Error('Initial Responses failure'), { status: 429 })
+  mocks.responses.mockReset().mockRejectedValueOnce(failure)
+  await expect(executeProviderRequest('openai', request('gpt-4.1'))).rejects.toBe(failure)
+  expect(failure).not.toHaveProperty('tokens')
+  expect(failure).not.toHaveProperty('cost')
+  expect(mocks.tool).not.toHaveBeenCalled()
+})
+
 it.each([
   [undefined, 'empty'],
   ['request-key', 'request-key'],
@@ -181,7 +732,7 @@ it.each([
   })
 })
 
-it('reads actual Groq stream usage from the terminal x_groq chunk', async () => {
+it('streams Groq requests when every configured tool is disabled', async () => {
   mocks.chat.mockResolvedValueOnce(
     (async function* () {
       yield { choices: [{ delta: { content: 'Done' } }] }
@@ -194,18 +745,61 @@ it('reads actual Groq stream usage from the terminal x_groq chunk', async () => 
 
   const result = await executeProviderRequest(
     'groq',
-    request('groq/llama-3.3-70b-versatile', {
+    request('groq/openai/gpt-oss-120b', {
       context: undefined,
       messages: [{ role: 'user', content: 'Analyze' }],
       stream: true,
+      tools: [{ ...tool, usageControl: 'none' }],
     })
   )
   if (!('stream' in result)) throw new Error('Expected streaming execution')
   expect(await new Response(result.stream).text()).toBe('Done')
   expect(result.execution.output.tokens).toEqual({ prompt: 1000, completion: 500, total: 1500 })
-  expect(result.execution.output.cost?.input).toBeCloseTo(0.00059, 8)
-  expect(result.execution.output.cost?.output).toBeCloseTo(0.000395, 8)
-  expect(result.execution.output.cost?.total).toBeCloseTo(0.000985, 8)
+  expect(result.execution.output.cost?.input).toBeCloseTo(0.00015, 8)
+  expect(result.execution.output.cost?.output).toBeCloseTo(0.0003, 8)
+  expect(result.execution.output.cost?.total).toBeCloseTo(0.00045, 8)
+  expect(mocks.chat.mock.calls[0][0]).not.toHaveProperty('tools')
+  expect(mocks.chat.mock.calls[0][0]).not.toHaveProperty('tool_choice')
+})
+
+it('sequences forced Groq tools before switching to automatic selection', async () => {
+  const secondTool = { ...tool, id: 'second', name: 'Second' }
+  mocks.chat
+    .mockResolvedValueOnce(
+      completion({ role: 'assistant', content: null, tool_calls: [toolCall('first')] })
+    )
+    .mockResolvedValueOnce(
+      completion({
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          {
+            id: 'second',
+            type: 'function',
+            function: { name: secondTool.id, arguments: '{}' },
+          },
+        ],
+      })
+    )
+    .mockResolvedValueOnce(completion())
+
+  await groqProvider.executeRequest(
+    request('groq/openai/gpt-oss-120b', {
+      tools: [
+        { ...tool, usageControl: 'force' },
+        { ...secondTool, usageControl: 'force' },
+        { ...tool, id: 'disabled', usageControl: 'none' },
+      ],
+    })
+  )
+
+  expect(mocks.chat.mock.calls.map(([payload]) => payload.tool_choice)).toEqual([
+    { type: 'function', function: { name: tool.id } },
+    { type: 'function', function: { name: secondTool.id } },
+    'auto',
+  ])
+  expect(mocks.chat.mock.calls[0][0].tools).toHaveLength(2)
+  expect(mocks.tool).toHaveBeenCalledTimes(2)
 })
 
 it('sends system-only requests once through Claude and Bedrock SDK adapters', async () => {
@@ -272,7 +866,7 @@ it('retains paid tool costs in completed Azure Claude streaming requests', async
 
 it.each([
   ['xai', 'grok-4.7', 110000, 2, 6],
-  ['mistral', 'mistral-large-latest', 10000, 0.5, 1.5],
+  ['mistral', 'mistral-large-4', 10000, 0.7, 2.1],
   ['anthropic', 'claude-haiku-5-5', 60000, 0.1, 0.5],
   ['azure-anthropic', 'azure-anthropic/claude-haiku-5-5', 60000, 0.1, 0.5],
 ] as const)(
@@ -322,7 +916,7 @@ it.each([
 
 it.each([
   ['xai', 'grok-4.7', 110000, 2, 6],
-  ['mistral', 'mistral-large-latest', 10000, 0.5, 1.5],
+  ['mistral', 'mistral-large-4', 10000, 0.7, 2.1],
 ] as const)(
   'retains %s tool-loop usage and costs when its final answer streams',
   async (provider, model, inputTokens, inputRate, outputRate) => {
@@ -363,6 +957,9 @@ it.each([
       2 + (inputTokens * 3 * inputRate + 300 * outputRate) / 1e6,
       8
     )
+    if (provider === 'mistral') {
+      expect(mocks.chat.mock.calls[2][0].stream_options).toBeUndefined()
+    }
   }
 )
 
@@ -385,7 +982,7 @@ it.each([0, 1000])('prices direct Mistral stream usage, input=%s', async (inputT
   )
   const result = await executeProviderRequest(
     'mistral',
-    request('mistral-large-latest', { stream: true })
+    request('mistral-large-4', { stream: true })
   )
   if (!('stream' in result)) throw new Error('Expected streaming execution')
   const initialCost = result.execution.output.cost
@@ -397,8 +994,125 @@ it.each([0, 1000])('prices direct Mistral stream usage, input=%s', async (inputT
     completion: inputTokens / 10,
     total: inputTokens * 1.1,
   })
-  expect(result.execution.output.cost?.total).toBeCloseTo(inputTokens ? 0.00065 : 0, 8)
+  expect(result.execution.output.cost?.total).toBeCloseTo(inputTokens ? 0.00091 : 0, 8)
   expect(mocks.chat).toHaveBeenCalledTimes(1)
+  expect(mocks.chat.mock.calls[0][0].stream_options).toBeUndefined()
+})
+
+it('forwards Mistral reasoning effort and returns only answer content blocks', async () => {
+  const content = [
+    { type: 'thinking', thinking: [{ type: 'text', text: 'Private reasoning' }] },
+    { type: 'text', text: 'Visible ' },
+    { type: 'text', text: 'answer' },
+  ]
+  mocks.chat.mockResolvedValueOnce(completion({ role: 'assistant', content }))
+  const result = await mistralProvider.executeRequest(
+    request('mistral-large-4', { reasoningEffort: 'high' })
+  )
+  if ('stream' in result) throw new Error('Expected nonstreaming response')
+  expect(result.content).toBe('Visible answer')
+  expect(mocks.chat.mock.calls[0][0].reasoning_effort).toBe('high')
+})
+
+it('replays complete Mistral thinking content during tool continuations', async () => {
+  const assistant = {
+    role: 'assistant',
+    content: [
+      { type: 'thinking', thinking: [{ type: 'text', text: 'Preserved reasoning' }] },
+      { type: 'text', text: 'I will look that up.' },
+    ],
+    tool_calls: [toolCall('mistral-tool')],
+  }
+  mocks.chat.mockResolvedValueOnce(completion(assistant)).mockResolvedValueOnce(completion())
+  await mistralProvider.executeRequest(
+    request('mistral-large-4', { reasoningEffort: 'high', tools: [tool] })
+  )
+  expect(mocks.chat.mock.calls[1][0].messages).toContainEqual(assistant)
+})
+
+it('pairs every failed Mistral tool call with an error result before continuing', async () => {
+  const assistant = {
+    role: 'assistant',
+    content: [{ type: 'thinking', thinking: [{ type: 'text', text: 'Keep the complete turn' }] }],
+    tool_calls: [
+      toolCall('works-first'),
+      { ...toolCall('malformed'), function: { name: tool.id, arguments: '{' } },
+      toolCall('throws'),
+      { ...toolCall('unknown'), function: { name: 'missing', arguments: '{}' } },
+      toolCall('fails'),
+      toolCall('works-last'),
+    ],
+  }
+  mocks.chat.mockResolvedValueOnce(completion(assistant))
+  mocks.tool
+    .mockResolvedValueOnce({ success: true, output: { value: 42 } })
+    .mockRejectedValueOnce(new Error('Unavailable'))
+    .mockResolvedValueOnce({ success: false, output: {}, error: 'Denied' })
+
+  const result = await mistralProvider.executeRequest(request('mistral-large-4', { tools: [tool] }))
+  expect(mocks.chat).toHaveBeenCalledTimes(2)
+  expect(mocks.tool).toHaveBeenCalledTimes(4)
+  const messages = mocks.chat.mock.calls[1][0].messages
+  expect(messages.slice(0, 2)).toEqual([{ role: 'user', content: 'Analyze' }, assistant])
+  expect(
+    messages.slice(2).map((message: { tool_call_id: string }) => message.tool_call_id)
+  ).toEqual(assistant.tool_calls.map((call) => call.id))
+  expect(
+    messages.slice(2).map((message: { content: string }) => JSON.parse(message.content))
+  ).toEqual([
+    { value: 42 },
+    { error: true, message: expect.any(String), tool: tool.id },
+    { error: true, message: 'Unavailable', tool: tool.id },
+    { error: true, message: 'Unknown tool: missing', tool: 'missing' },
+    { error: true, message: 'Denied', tool: tool.id },
+    { value: 42 },
+  ])
+  expect(result).toMatchObject({
+    content: 'Done',
+    toolCalls: [true, false, true].map((success) => ({ success })),
+    toolResults: [{ value: 42 }, { value: 42 }],
+  })
+})
+
+it('streams only Mistral text chunks while preserving string deltas', async () => {
+  mocks.chat.mockResolvedValueOnce(
+    (async function* () {
+      yield {
+        choices: [
+          {
+            delta: {
+              content: [
+                { type: 'thinking', thinking: [{ type: 'text', text: 'Private reasoning' }] },
+              ],
+            },
+          },
+        ],
+      }
+      yield {
+        choices: [
+          {
+            delta: {
+              content: [
+                { type: 'thinking', thinking: [] },
+                { type: 'text', text: 'Visible ' },
+              ],
+            },
+          },
+        ],
+      }
+      yield { choices: [{ delta: { content: 'answer' } }] }
+      yield {
+        choices: [],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      }
+    })()
+  )
+  const result = await mistralProvider.executeRequest(
+    request('mistral-large-4', { reasoningEffort: 'high', stream: true })
+  )
+  if (!('stream' in result)) throw new Error('Expected streaming execution')
+  expect(await new Response(result.stream).text()).toBe('Visible answer')
+  expect(result.execution.output.content).toBe('Visible answer')
 })
 
 it.each([undefined, 'auto', 'force'] as const)(
@@ -607,6 +1321,13 @@ it.each(
           message: {
             role: 'assistant',
             content: [
+              { text: '   ' },
+              { text: 'Calling tools' },
+              {
+                reasoningContent: {
+                  reasoningText: { text: 'Need both results', signature: 'reasoning-signature' },
+                },
+              },
               { toolUse: { toolUseId: 'known', name, input: {} } },
               { toolUse: { toolUseId: 'unknown', name: 'missing', input: {} } },
             ],
@@ -640,7 +1361,16 @@ it.each(
       expect(followup.input.messages?.slice(-2)).toMatchObject([
         {
           role: 'assistant',
-          content: [{ toolUse: { toolUseId: 'known' } }, { toolUse: { toolUseId: 'unknown' } }],
+          content: [
+            { text: 'Calling tools' },
+            {
+              reasoningContent: {
+                reasoningText: { text: 'Need both results', signature: 'reasoning-signature' },
+              },
+            },
+            { toolUse: { toolUseId: 'known' } },
+            { toolUse: { toolUseId: 'unknown' } },
+          ],
         },
         {
           role: 'user',
@@ -739,6 +1469,40 @@ it.each(
   }
 )
 
+it.each([false, true])('rejects pending Bedrock tools at the limit, stream=%s', async (stream) => {
+  let round = 0
+  const send = vi
+    .spyOn(BedrockRuntimeClient.prototype, 'send')
+    .mockImplementation(async (command) => {
+      if (!(command instanceof ConverseCommand)) throw new Error('Unexpected Bedrock stream')
+      return {
+        output: {
+          message: {
+            role: 'assistant',
+            content: [{ toolUse: { toolUseId: `round-${round++}`, name: tool.id, input: {} } }],
+          },
+        },
+        usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
+        $metadata: {},
+      }
+    })
+  try {
+    await expect(
+      executeProviderRequest(
+        'bedrock',
+        request('bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0', {
+          stream,
+          tools: [tool],
+        })
+      )
+    ).rejects.toThrow('Bedrock exceeded the tool iteration limit')
+    expect(send).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+  } finally {
+    send.mockRestore()
+  }
+})
+
 it('discovers qualified Ollama IDs and sends only the model name to the SDK', async () => {
   vi.mocked(fetch).mockResolvedValueOnce(
     new Response(JSON.stringify({ models: [{ name: 'llama3.2:latest' }] }))
@@ -790,18 +1554,60 @@ it.each([
   expect(mocks.chat).not.toHaveBeenCalled()
 })
 
+it('preserves Fireworks reasoning through tool and structured-output calls', async () => {
+  const assistant = {
+    role: 'assistant',
+    content: 'I will look that up.',
+    reasoning_content: 'Keep this reasoning unchanged.',
+    tool_calls: [toolCall('fireworks-tool')],
+  }
+  mocks.chat
+    .mockResolvedValueOnce(completion(assistant))
+    .mockResolvedValueOnce(completion({ role: 'assistant', content: 'Ready' }))
+    .mockResolvedValueOnce(completion({ role: 'assistant', content: '{"value":42}' }))
+
+  await fireworksProvider.executeRequest(
+    request('fireworks/accounts/fireworks/models/glm-5p3', {
+      reasoningEffort: 'high',
+      tools: [tool],
+      responseFormat: {
+        name: 'result',
+        schema: { type: 'object', properties: { value: { type: 'number' } } },
+      },
+    })
+  )
+
+  expect(mocks.chat.mock.calls.map(([payload]) => payload.reasoning_effort)).toEqual([
+    'high',
+    'high',
+    'high',
+  ])
+  expect(mocks.chat.mock.calls[1][0].messages).toContainEqual(assistant)
+  expect(mocks.chat.mock.calls[2][0]).toMatchObject({
+    response_format: { type: 'json_schema' },
+    tools: undefined,
+    tool_choice: undefined,
+  })
+})
+
 it.each([
   {
+    provider: fireworksProvider,
+    model: 'fireworks/accounts/fireworks/models/kimi-k3',
+    params: { reasoningEffort: 'max', stream: true },
+    expected: { reasoning_effort: 'max' },
+  },
+  {
     provider: groqProvider,
-    model: 'groq/qwen/qwen3.6-27b',
-    params: { thinkingLevel: 'enabled' },
-    expected: { reasoning_effort: 'default', reasoning_format: 'parsed' },
+    model: 'groq/qwen/qwen3.8-27b',
+    params: { reasoningEffort: 'high' },
+    expected: { reasoning_effort: 'high' },
   },
   {
     provider: deepseekProvider,
     model: 'deepseek-v4-pro',
-    params: { thinkingLevel: 'none', reasoningEffort: 'max' },
-    expected: { thinking: { type: 'disabled' } },
+    params: { thinkingLevel: 'none' },
+    expected: { reasoning_effort: 'none' },
   },
 ])(
   'forwards $model controls and omits them when unset',
@@ -1188,7 +1994,13 @@ it.each([
   'dispatches Cerebras reasoning effort %s as %s through %s',
   async (reasoningEffort, expected, path) => {
     if (path === 'tools') {
-      mocks.chat.mockResolvedValueOnce(completion({ tool_calls: [toolCall('next')] }))
+      mocks.chat
+        .mockResolvedValueOnce(completion({ tool_calls: [toolCall('next')] }))
+        .mockResolvedValueOnce(
+          (async function* () {
+            yield { choices: [{ delta: { content: 'Done' } }] }
+          })()
+        )
     } else if (path === 'stream') {
       mocks.chat.mockResolvedValueOnce(
         (async function* () {
@@ -1214,6 +2026,7 @@ it.each([
         expected === undefined ? {} : { reasoning_effort: expected }
       )
     }
+    if (path === 'tools') expect(mocks.chat.mock.calls[1][0].tool_choice).toBe('none')
   }
 )
 
@@ -1388,18 +2201,23 @@ it.each(
         : { prompt_tokens_details: { cached_tokens: cachedTokens } }),
     }))
     const content = provider === 'fireworks' ? '{"value":42}' : 'Done'
+    const geminiAssistantContent = {
+      role: 'model',
+      parts: [
+        { text: 'Calling the tool', thoughtSignature: 'text-signature' },
+        {
+          functionCall: { name: tool.id, args: {} },
+          thoughtSignature: 'function-signature',
+        },
+      ],
+    }
     const responses = usages.map((usage, index) =>
       gemini
         ? {
             text: index === 0 ? undefined : content,
             candidates: [
               {
-                content: {
-                  parts:
-                    index === 0
-                      ? [{ functionCall: { name: tool.id, args: {} } }]
-                      : [{ text: content }],
-                },
+                content: index === 0 ? geminiAssistantContent : { parts: [{ text: content }] },
               },
             ],
             ...(index === 0 && { functionCalls: [{ name: tool.id, args: {} }] }),
@@ -1422,22 +2240,22 @@ it.each(
           : { ...completion({ role: 'assistant', content }), usage }
     )
     const generate = gemini ? mocks.gemini : mocks.chat
-    generate
-      .mockResolvedValueOnce(responses[0])
-      .mockResolvedValueOnce(responses[1])
-      .mockResolvedValueOnce(
-        stream
+    const calls = provider === 'fireworks' || (stream && !gemini) ? 3 : 2
+    responses.slice(0, calls).forEach((response, index) => {
+      generate.mockResolvedValueOnce(
+        stream && (gemini || index === 2)
           ? (async function* () {
-              if (gemini) yield responses[2]
+              if (gemini) yield response
               else {
                 yield { choices: [{ delta: { content } }] }
                 yield provider === 'groq'
-                  ? { choices: [], x_groq: { usage: usages[2] } }
-                  : { choices: [], usage: usages[2] }
+                  ? { choices: [], x_groq: { usage: usages[index] } }
+                  : { choices: [], usage: usages[index] }
               }
             })()
-          : responses[2]
+          : response
       )
+    })
     mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 2 } } })
     const result = await executeProviderRequest(
       provider,
@@ -1459,7 +2277,6 @@ it.each(
     )
     if ('stream' in result) expect(await new Response(result.stream).text()).toBe(content)
     const output = 'stream' in result ? result.execution.output : result
-    const calls = stream || provider === 'fireworks' ? 3 : 2
     expect(output.tokens).toEqual(
       gemini && stream
         ? { input: calls * prompt, output: calls * 100, total: calls * (prompt + 100) }
@@ -1472,6 +2289,81 @@ it.each(
     expect(output.cost.total).toBeCloseTo(2 + inputCost + outputCost * calls, 8)
     expect(generate).toHaveBeenCalledTimes(calls)
     expect(mocks.tool).toHaveBeenCalledTimes(1)
+    if (gemini) {
+      expect(generate.mock.calls[1][0].contents.slice(-2)).toEqual([
+        geminiAssistantContent,
+        {
+          role: 'user',
+          parts: [{ functionResponse: { name: tool.id, response: { cost: { total: 2 } } } }],
+        },
+      ])
+    }
+  }
+)
+
+const geminiToolResponse = (id: string) => ({
+  candidates: [
+    {
+      content: {
+        role: 'model',
+        parts: [{ functionCall: { name: tool.id, args: {} }, thoughtSignature: id }],
+      },
+    },
+  ],
+  functionCalls: [{ name: tool.id, args: {} }],
+  usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, totalTokenCount: 15 },
+})
+
+it('accepts a completed Gemini answer after the maximum tool iterations', async () => {
+  let call = 0
+  mocks.gemini.mockImplementation(async () => {
+    const current = call++
+    return current < MAX_TOOL_ITERATIONS
+      ? geminiToolResponse(`call-${current}`)
+      : {
+          candidates: [{ content: { role: 'model', parts: [{ text: 'Done' }] } }],
+          text: 'Done',
+          usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, totalTokenCount: 15 },
+        }
+  })
+
+  await expect(
+    executeProviderRequest('google', request('gemini-2.5-flash', { tools: [tool] }))
+  ).resolves.toMatchObject({ content: 'Done' })
+  expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+  expect(mocks.gemini).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+})
+
+it.each(
+  [false, true].flatMap((stream) => [false, true].map((structured) => ({ stream, structured })))
+)(
+  'rejects pending Gemini tools at the limit, stream=$stream, structured=$structured',
+  async ({ stream, structured }) => {
+    let call = 0
+    mocks.gemini.mockImplementation(async () => {
+      const response = geminiToolResponse(`call-${call++}`)
+      return stream
+        ? (async function* () {
+            yield response
+          })()
+        : response
+    })
+
+    const result = executeProviderRequest(
+      'google',
+      request('gemini-2.5-flash', {
+        stream,
+        tools: [tool],
+        responseFormat: structured ? { schema: { type: 'object' }, strict: false } : undefined,
+      })
+    )
+    await expect(
+      result.then(async (response) => {
+        if ('stream' in response) await new Response(response.stream).text()
+      })
+    ).rejects.toThrow('Gemini exceeded the tool iteration limit')
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+    expect(mocks.gemini).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
   }
 )
 
@@ -1665,7 +2557,8 @@ it.each(['deepseek-v4-pro', 'deepseek-flash'])(
       'auto',
     ])
     for (const [payload] of mocks.chat.mock.calls) {
-      expect(payload.thinking).toEqual({ type: 'disabled' })
+      expect(payload.reasoning_effort).toBe('none')
+      expect(payload.thinking).toBeUndefined()
     }
   }
 )
@@ -1680,15 +2573,14 @@ it('preserves complete DeepSeek reasoning and parallel tool calls through follow
   mocks.chat.mockResolvedValueOnce(completion(assistant))
   await deepseekProvider.executeRequest(
     request('deepseek-v4-pro', {
-      thinkingLevel: 'enabled',
-      reasoningEffort: 'max',
+      thinkingLevel: 'max',
       tools: [tool],
     })
   )
   expect(mocks.tool).toHaveBeenCalledTimes(2)
   expect(mocks.chat).toHaveBeenCalledTimes(2)
   for (const [payload] of mocks.chat.mock.calls) {
-    expect(controls(payload)).toEqual({ thinking: { type: 'enabled' }, reasoning_effort: 'max' })
+    expect(controls(payload)).toEqual({ reasoning_effort: 'max' })
   }
   expect(mocks.chat.mock.calls[1][0].messages).toEqual([
     { role: 'user', content: 'Analyze' },
@@ -1751,6 +2643,99 @@ it('rejects DeepSeek continuation errors instead of returning partial success', 
   ).rejects.toThrow('DeepSeek unavailable')
   expect(mocks.chat).toHaveBeenCalledTimes(2)
 })
+
+it('accepts a completed DeepSeek answer after the maximum tool iterations', async () => {
+  let call = 0
+  mocks.chat.mockImplementation(async () => {
+    const current = call++
+    return current < MAX_TOOL_ITERATIONS
+      ? completion(
+          { role: 'assistant', content: null, tool_calls: [toolCall(`call-${current}`)] },
+          'tool_calls'
+        )
+      : completion({ role: 'assistant', content: '{"value":42}' }, 'stop')
+  })
+
+  await expect(
+    deepseekProvider.executeRequest(
+      request('deepseek-flash', {
+        tools: [tool],
+        responseFormat: { schema: { type: 'object' }, strict: false },
+      })
+    )
+  ).resolves.toMatchObject({ content: '{"value":42}' })
+  expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+  expect(mocks.chat).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+})
+
+it.each([
+  { mode: 'ordinary', stream: false, structured: false },
+  { mode: 'ordinary streaming', stream: true, structured: false },
+  { mode: 'structured', stream: false, structured: true },
+  { mode: 'structured streaming', stream: true, structured: true },
+])(
+  'rejects pending DeepSeek tools at the iteration limit in $mode mode',
+  async ({ stream, structured }) => {
+    let call = 0
+    mocks.chat.mockImplementation(async () =>
+      completion(
+        { role: 'assistant', content: null, tool_calls: [toolCall(`call-${++call}`)] },
+        'tool_calls'
+      )
+    )
+
+    await expect(
+      deepseekProvider.executeRequest(
+        request('deepseek-flash', {
+          stream,
+          tools: [tool],
+          responseFormat: structured ? { schema: { type: 'object' }, strict: false } : undefined,
+        })
+      )
+    ).rejects.toThrow('DeepSeek exceeded the tool iteration limit')
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+    expect(mocks.chat).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+  }
+)
+
+it.each([
+  {
+    name: 'Fireworks',
+    provider: fireworksProvider,
+    model: 'fireworks/accounts/fireworks/models/glm-5p3',
+  },
+  { name: 'Groq', provider: groqProvider, model: 'groq/openai/gpt-oss-120b' },
+  { name: 'Mistral', provider: mistralProvider, model: 'mistral-large-4' },
+  {
+    name: 'Ollama',
+    provider: ollamaProvider,
+    model: 'ollama/custom',
+  },
+  {
+    name: 'OpenRouter',
+    provider: openRouterProvider,
+    model: 'openrouter/openai/gpt-4.1',
+  },
+  { name: 'vLLM', provider: vllmProvider, model: 'vllm/custom-model' },
+  { name: 'xAI', provider: xAIProvider, model: 'grok-4.5' },
+])(
+  '$name rejects pending tools at the shared iteration limit',
+  async ({ name, provider, model }) => {
+    let call = 0
+    mocks.chat.mockImplementation(async () =>
+      completion(
+        { role: 'assistant', content: null, tool_calls: [toolCall(`call-${++call}`)] },
+        'tool_calls'
+      )
+    )
+
+    await expect(provider.executeRequest(request(model, { tools: [tool] }))).rejects.toThrow(
+      `${name} exceeded the tool iteration limit`
+    )
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
+    expect(mocks.chat).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+  }
+)
 
 it.each([
   {
@@ -1937,15 +2922,23 @@ it.each(manualThinkingProviders)(
   }
 )
 
-it.each([
-  { provider: anthropicProvider, model: 'claude-haiku-4-5', stream: false },
+const claudeToolProviders = [
+  {
+    provider: anthropicProvider,
+    label: 'Anthropic',
+    model: 'claude-haiku-4-5',
+    stream: false,
+  },
   {
     provider: azureAnthropicProvider,
+    label: 'Azure Anthropic',
     model: 'azure-anthropic/claude-sonnet-4-5',
     stream: true,
   },
-])(
-  'keeps the latest Claude answer at the tool limit for $provider.id',
+] as const
+
+it.each(claudeToolProviders)(
+  'keeps the completed Claude answer at the tool limit for $provider.id',
   async ({ provider, model, stream }) => {
     const call = { type: 'tool_use', name: tool.id, input: {} }
     const usage = { input_tokens: 10, output_tokens: 5 }
@@ -1959,10 +2952,7 @@ it.each([
       })
     }
     mocks.claude.mockResolvedValueOnce({
-      content: [
-        { type: 'text', text: 'Completed answer' },
-        ...(stream ? [{ ...call, id: 'over-limit' }] : []),
-      ],
+      content: [{ type: 'text', text: 'Completed answer' }],
       usage,
     })
 
@@ -1986,6 +2976,30 @@ it.each([
     if ('stream' in result) throw new Error('Expected completed response')
     expect(result.toolCalls).toHaveLength(MAX_TOOL_ITERATIONS)
     expect(result.toolResults).toHaveLength(MAX_TOOL_ITERATIONS)
+  }
+)
+
+it.each(claudeToolProviders)(
+  'rejects pending Claude tools at the iteration limit for $provider.id',
+  async ({ provider, label, model, stream }) => {
+    let round = 0
+    mocks.claude.mockImplementation(async () => ({
+      content: [{ type: 'tool_use', id: `round-${round++}`, name: tool.id, input: {} }],
+      usage: { input_tokens: 10, output_tokens: 5 },
+    }))
+
+    await expect(
+      provider.executeRequest(
+        request(model, {
+          stream,
+          maxTokens: 4096,
+          tools: [tool],
+          azureEndpoint: 'https://example.services.ai.azure.com',
+        })
+      )
+    ).rejects.toThrow(`${label} exceeded the tool iteration limit`)
+    expect(mocks.claude).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
+    expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
   }
 )
 

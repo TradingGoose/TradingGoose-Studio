@@ -14,6 +14,8 @@ import {
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { extractEnvironmentReferences, extractReferencePrefixes } from '@/lib/workflows/references'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
@@ -34,6 +36,7 @@ interface ComboBoxProps {
   placeholder?: string
   isConnecting: boolean
   config: SubBlockConfig
+  contextValues?: Record<string, any>
 }
 
 const getOptionValue = (option: string | SubBlockOption) =>
@@ -53,6 +56,27 @@ const getOptionSearchText = (option: string | SubBlockOption) => {
 const getOptionIcon = (option: string | SubBlockOption) =>
   typeof option === 'string' ? null : (option.icon ?? null)
 
+/** Preserves unresolved references and literals while masking known stale model levels. */
+export function resolveComboBoxDisplayValue(
+  value: string,
+  hasSelectedOption: boolean,
+  hasTyped: boolean,
+  isModelCapability: boolean,
+  isUnresolvedModel: boolean
+) {
+  const isReference =
+    extractReferencePrefixes(value).length > 0 || extractEnvironmentReferences(value).length > 0
+  return isModelCapability &&
+    value &&
+    !hasSelectedOption &&
+    !hasTyped &&
+    !isReference &&
+    !isUnresolvedModel
+    ? ''
+    : value
+}
+
+/** Edits persisted selections and references, distinguishing fresh openings from typed searches. */
 export function ComboBox({
   options,
   defaultValue,
@@ -63,6 +87,7 @@ export function ComboBox({
   placeholder,
   isConnecting,
   config,
+  contextValues,
 }: ComboBoxProps) {
   const locale = useLocale() as LocaleCode
   const placeholderText = placeholder ?? translateWorkflowLabel(locale, 'typeOrSelectAnOption')
@@ -88,7 +113,6 @@ export function ComboBox({
   const reactFlowInstance = useReactFlow()
 
   const value = propValue !== undefined ? propValue : storeValue
-  const displayValue = value?.toString() ?? ''
 
   // Evaluate options if it's a function
   const evaluatedOptions = useMemo(() => {
@@ -104,6 +128,26 @@ export function ComboBox({
       return optionValue === value || optionLabel === value
     })
   }, [evaluatedOptions, value])
+
+  const rawDisplayValue = value?.toString() ?? ''
+  const capabilityCondition =
+    typeof config.condition === 'object' && config.condition.operator === 'modelCapability'
+      ? config.condition
+      : undefined
+  const isModelCapability = capabilityCondition !== undefined
+  const modelValue = capabilityCondition ? contextValues?.[capabilityCondition.field] : undefined
+  const isUnresolvedModel =
+    typeof modelValue === 'string' &&
+    evaluateSubBlockConditionValues(capabilityCondition, contextValues ?? {}) &&
+    (extractReferencePrefixes(modelValue).length > 0 ||
+      extractEnvironmentReferences(modelValue).length > 0)
+  const displayValue = resolveComboBoxDisplayValue(
+    rawDisplayValue,
+    Boolean(selectedOption),
+    hasTyped,
+    isModelCapability,
+    isUnresolvedModel
+  )
 
   // Get the explicit default or first option when automatic selection is enabled.
   const defaultOptionValue = useMemo(() => {
@@ -138,30 +182,36 @@ export function ComboBox({
   }, [storeInitialized, value, defaultOptionValue, setStoreValue])
 
   // Filter options based on current value for display
-  const filteredOptions = useMemo(() => {
-    // Always show all options when dropdown is not open
-    if (!open) return evaluatedOptions
+  const filteredOptions = useMemo(
+    /** Keeps fresh capability choices available and filters typed or unmatched ordinary values. */
+    () => {
+      // Always show all options when dropdown is not open
+      if (!open) return evaluatedOptions
 
-    // If no value, show all options
-    const currentValue = value?.toString() ?? ''
-    if (!currentValue) return evaluatedOptions
+      // If no value, show all options
+      const currentValue = displayValue
+      if (!currentValue) return evaluatedOptions
 
-    const exactMatch = evaluatedOptions.find(
-      (opt) => getOptionValue(opt) === currentValue || getOptionLabel(opt) === currentValue
-    )
+      const exactMatch = evaluatedOptions.find(
+        (opt) => getOptionValue(opt) === currentValue || getOptionLabel(opt) === currentValue
+      )
 
-    // If current value exactly matches an option and user hasn't typed, show all (fresh open)
-    if (exactMatch && !hasTyped) return evaluatedOptions
+      // If current value exactly matches an option and user hasn't typed, show all (fresh open)
+      if (!hasTyped && (isModelCapability || exactMatch)) return evaluatedOptions
 
-    // Otherwise filter based on current input
-    return evaluatedOptions.filter((option) => {
-      const label = getOptionLabel(option).toLowerCase()
-      const optionValue = getOptionValue(option).toLowerCase()
-      const searchLabel = getOptionSearchText(option).toLowerCase()
-      const search = currentValue.toLowerCase()
-      return label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
-    })
-  }, [evaluatedOptions, value, open, hasTyped])
+      // Otherwise filter based on current input
+      return evaluatedOptions.filter((option) => {
+        const label = getOptionLabel(option).toLowerCase()
+        const optionValue = getOptionValue(option).toLowerCase()
+        const searchLabel = getOptionSearchText(option).toLowerCase()
+        const search = currentValue.toLowerCase()
+        return (
+          label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
+        )
+      })
+    },
+    [displayValue, evaluatedOptions, open, hasTyped, isModelCapability]
+  )
 
   const configuredSidebarGroups = useMemo<SidebarDropdownGroup[]>(() => {
     const optionGroups = config.optionGroups

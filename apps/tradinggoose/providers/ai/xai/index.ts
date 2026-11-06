@@ -1,8 +1,11 @@
 import OpenAI from 'openai'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -23,6 +26,7 @@ const logger = createLogger('XAIProvider')
 export const xAIProvider: ProviderConfig = {
   id: 'xai',
 
+  /** Executes xAI tool rounds with paired results and completed-usage errors. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -204,6 +208,7 @@ export const xAIProvider: ProviderConfig = {
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       // Make the initial API request
@@ -248,9 +253,13 @@ export const xAIProvider: ProviderConfig = {
       )
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
-      const MAX_ITERATIONS = 10
 
       // Track if a forced tool has been used
       let hasUsedForcedTool = false
@@ -295,207 +304,191 @@ export const xAIProvider: ProviderConfig = {
         checkForForcedToolUsage(currentResponse, originalToolChoice)
       }
 
-      try {
-        while (iterationCount < MAX_ITERATIONS) {
-          // Check for tool calls
-          const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-          if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-            break
-          }
+      while (true) {
+        // Check for tool calls
+        const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
+        if (!toolCallsInResponse?.length) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('xAI exceeded the tool iteration limit')
 
-          // Track time for tool calls in this batch
-          const toolsStartTime = Date.now()
+        // Track time for tool calls in this batch
+        const toolsStartTime = Date.now()
+        const assistantMessage = currentResponse.choices[0].message
+        currentMessages.push({
+          role: 'assistant',
+          content: assistantMessage.content ?? null,
+          tool_calls: toolCallsInResponse,
+        })
 
-          for (const toolCall of toolCallsInResponse) {
-            try {
-              const toolName = toolCall.function.name
-              const toolArgs = JSON.parse(toolCall.function.arguments)
+        for (const toolCall of toolCallsInResponse) {
+          try {
+            const toolName = toolCall.function.name
+            const toolArgs = JSON.parse(toolCall.function.arguments)
 
-              const tool = request.tools?.find((t) => t.id === toolName)
-              if (!tool) {
-                logger.warn('XAI Provider - Tool not found:', { toolName })
-                continue
+            const tool = request.tools?.find((t) => t.id === toolName)
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
+
+            const toolCallStartTime = Date.now()
+
+            const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
+
+            const result = await executeTool(toolName, executionParams)
+            const toolCallEndTime = Date.now()
+            const toolCallDuration = toolCallEndTime - toolCallStartTime
+
+            // Add to time segments for both success and failure
+            timeSegments.push({
+              type: 'tool',
+              name: toolName,
+              startTime: toolCallStartTime,
+              endTime: toolCallEndTime,
+              duration: toolCallDuration,
+            })
+
+            // Prepare result content for the LLM
+            let resultContent: any
+            if (result.success) {
+              toolResults.push(result.output)
+              resultContent = result.output
+            } else {
+              // Include error information so LLM can respond appropriately
+              resultContent = {
+                error: true,
+                message: result.error || 'Tool execution failed',
+                tool: toolName,
               }
 
-              const toolCallStartTime = Date.now()
-
-              const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-
-              const result = await executeTool(toolName, executionParams)
-              const toolCallEndTime = Date.now()
-              const toolCallDuration = toolCallEndTime - toolCallStartTime
-
-              // Add to time segments for both success and failure
-              timeSegments.push({
-                type: 'tool',
-                name: toolName,
-                startTime: toolCallStartTime,
-                endTime: toolCallEndTime,
-                duration: toolCallDuration,
-              })
-
-              // Prepare result content for the LLM
-              let resultContent: any
-              if (result.success) {
-                toolResults.push(result.output)
-                resultContent = result.output
-              } else {
-                // Include error information so LLM can respond appropriately
-                resultContent = {
-                  error: true,
-                  message: result.error || 'Tool execution failed',
-                  tool: toolName,
-                }
-
-                logger.warn('XAI Provider - Tool execution failed:', {
-                  toolName,
-                  error: result.error,
-                })
-              }
-
-              toolCalls.push({
-                name: toolName,
-                arguments: toolParams,
-                startTime: new Date(toolCallStartTime).toISOString(),
-                endTime: new Date(toolCallEndTime).toISOString(),
-                duration: toolCallDuration,
-                result: resultContent,
-                success: result.success,
-              })
-
-              // Add the tool call and result to messages (both success and failure)
-              currentMessages.push({
-                role: 'assistant',
-                content: null,
-                tool_calls: [
-                  {
-                    id: toolCall.id,
-                    type: 'function',
-                    function: {
-                      name: toolName,
-                      arguments: toolCall.function.arguments,
-                    },
-                  },
-                ],
-              })
-
-              currentMessages.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                content: JSON.stringify(resultContent),
-              })
-            } catch (error) {
-              logger.error('XAI Provider - Error processing tool call:', {
-                error: error instanceof Error ? error.message : String(error),
-                toolCall: toolCall.function.name,
+              logger.warn('XAI Provider - Tool execution failed:', {
+                toolName,
+                error: result.error,
               })
             }
+
+            toolCalls.push({
+              name: toolName,
+              arguments: toolParams,
+              startTime: new Date(toolCallStartTime).toISOString(),
+              endTime: new Date(toolCallEndTime).toISOString(),
+              duration: toolCallDuration,
+              result: resultContent,
+              success: result.success,
+            })
+
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(resultContent),
+            })
+          } catch (error) {
+            logger.error('XAI Provider - Error processing tool call:', {
+              error: error instanceof Error ? error.message : String(error),
+              toolCall: toolCall.function.name,
+            })
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                error: true,
+                message: error instanceof Error ? error.message : String(error),
+                tool: toolCall.function.name,
+              }),
+            })
           }
+        }
 
-          // Calculate tool call time for this iteration
-          const thisToolsTime = Date.now() - toolsStartTime
-          toolsTime += thisToolsTime
+        // Calculate tool call time for this iteration
+        const thisToolsTime = Date.now() - toolsStartTime
+        toolsTime += thisToolsTime
 
-          // After tool calls, create next payload based on whether we need more tools or final response
-          let nextPayload: any
+        // After tool calls, create next payload based on whether we need more tools or final response
+        let nextPayload: any
 
-          // Update tool_choice based on which forced tools have been used
-          if (
-            typeof originalToolChoice === 'object' &&
-            hasUsedForcedTool &&
-            forcedTools.length > 0
-          ) {
-            // If we have remaining forced tools, get the next one to force
-            const remainingTools = forcedTools.filter((tool) => !usedForcedTools.includes(tool))
+        // Update tool_choice based on which forced tools have been used
+        if (typeof originalToolChoice === 'object' && hasUsedForcedTool && forcedTools.length > 0) {
+          // If we have remaining forced tools, get the next one to force
+          const remainingTools = forcedTools.filter((tool) => !usedForcedTools.includes(tool))
 
-            if (remainingTools.length > 0) {
-              // Force the next tool - continue with tools, no response format
-              nextPayload = {
-                ...basePayload,
-                messages: currentMessages,
-                tools: preparedTools?.tools,
-                tool_choice: {
-                  type: 'function',
-                  function: { name: remainingTools[0] },
-                },
-              }
-            } else {
-              // All forced tools have been used, check if we need response format for final response
-              if (request.responseFormat) {
-                nextPayload = createResponseFormatPayload(currentMessages)
-              } else {
-                nextPayload = {
-                  ...basePayload,
-                  messages: currentMessages,
-                  tool_choice: 'auto',
-                  tools: preparedTools?.tools,
-                }
-              }
+          if (remainingTools.length > 0) {
+            // Force the next tool - continue with tools, no response format
+            nextPayload = {
+              ...basePayload,
+              messages: currentMessages,
+              tools: preparedTools?.tools,
+              tool_choice: {
+                type: 'function',
+                function: { name: remainingTools[0] },
+              },
             }
           } else {
-            // Normal tool processing - check if this might be the final response
+            // All forced tools have been used, check if we need response format for final response
             if (request.responseFormat) {
-              // Use response format for what might be the final response
               nextPayload = createResponseFormatPayload(currentMessages)
             } else {
               nextPayload = {
                 ...basePayload,
                 messages: currentMessages,
-                tools: preparedTools?.tools,
                 tool_choice: 'auto',
+                tools: preparedTools?.tools,
               }
             }
           }
-
-          // Time the next model call
-          const nextModelStartTime = Date.now()
-
-          currentResponse = await xai.chat.completions.create(nextPayload)
-
-          // Check if any forced tools were used in this response
-          if (nextPayload.tool_choice && typeof nextPayload.tool_choice === 'object') {
-            checkForForcedToolUsage(currentResponse, nextPayload.tool_choice)
+        } else {
+          // Normal tool processing - check if this might be the final response
+          if (request.responseFormat) {
+            // Use response format for what might be the final response
+            nextPayload = createResponseFormatPayload(currentMessages)
+          } else {
+            nextPayload = {
+              ...basePayload,
+              messages: currentMessages,
+              tools: preparedTools?.tools,
+              tool_choice: 'auto',
+            }
           }
-
-          const nextModelEndTime = Date.now()
-          const thisModelTime = nextModelEndTime - nextModelStartTime
-
-          // Add to time segments
-          timeSegments.push({
-            type: 'model',
-            name: `Model response (iteration ${iterationCount + 1})`,
-            startTime: nextModelStartTime,
-            endTime: nextModelEndTime,
-            duration: thisModelTime,
-          })
-
-          // Add to model time
-          modelTime += thisModelTime
-
-          if (currentResponse.choices[0]?.message?.content) {
-            content = currentResponse.choices[0].message.content
-          }
-
-          if (currentResponse.usage) {
-            tokens.prompt += currentResponse.usage.prompt_tokens || 0
-            tokens.completion += currentResponse.usage.completion_tokens || 0
-            tokens.total += currentResponse.usage.total_tokens || 0
-            cost.add(
-              currentResponse.usage.prompt_tokens || 0,
-              currentResponse.usage.completion_tokens || 0,
-              currentResponse.usage.prompt_tokens_details?.cached_tokens ?? 0
-            )
-          }
-
-          iterationCount++
         }
-      } catch (error) {
-        logger.error('XAI Provider - Error in tool processing loop:', {
-          error: error instanceof Error ? error.message : String(error),
-          iterationCount,
-        })
-      }
 
+        // Time the next model call
+        const nextModelStartTime = Date.now()
+
+        currentResponse = await xai.chat.completions.create(nextPayload)
+
+        // Check if any forced tools were used in this response
+        if (nextPayload.tool_choice && typeof nextPayload.tool_choice === 'object') {
+          checkForForcedToolUsage(currentResponse, nextPayload.tool_choice)
+        }
+
+        const nextModelEndTime = Date.now()
+        const thisModelTime = nextModelEndTime - nextModelStartTime
+
+        // Add to time segments
+        timeSegments.push({
+          type: 'model',
+          name: `Model response (iteration ${iterationCount + 1})`,
+          startTime: nextModelStartTime,
+          endTime: nextModelEndTime,
+          duration: thisModelTime,
+        })
+
+        // Add to model time
+        modelTime += thisModelTime
+
+        if (currentResponse.choices[0]?.message?.content) {
+          content = currentResponse.choices[0].message.content
+        }
+
+        if (currentResponse.usage) {
+          tokens.prompt += currentResponse.usage.prompt_tokens || 0
+          tokens.completion += currentResponse.usage.completion_tokens || 0
+          tokens.total += currentResponse.usage.total_tokens || 0
+          cost.add(
+            currentResponse.usage.prompt_tokens || 0,
+            currentResponse.usage.completion_tokens || 0,
+            currentResponse.usage.prompt_tokens_details?.cached_tokens ?? 0
+          )
+        }
+
+        iterationCount++
+      }
       // After all tool processing complete, if streaming was requested and we have messages, use streaming for the final response
       if (request.stream && iterationCount > 0) {
         // For final streaming response, choose between tools (auto) or response_format (never both)
@@ -624,16 +617,14 @@ export const xAIProvider: ProviderConfig = {
         hasResponseFormat: !!request.responseFormat,
       })
 
-      // Create a new error with timing information
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
-      // @ts-ignore - Adding timing property to the error
-      enhancedError.timing = {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
-      }
-
-      throw enhancedError
+      throw toError(error, {
+        ...getAccruedUsage?.(),
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
+      })
     }
   },
 }

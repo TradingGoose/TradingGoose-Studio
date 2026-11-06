@@ -7,6 +7,7 @@ import { useBlock, useBlockProtection } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { useProvidersStore } from '@/stores/providers/store'
 import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { SubBlockEditRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-edit-rows'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
@@ -23,11 +24,13 @@ const panelClassName =
 // lift the panel above it (beats the class rule, needs no Tailwind class generation).
 const panelStyle = { zIndex: 20 }
 
+/** Edits the selected node with localized fields and current provider capability visibility. */
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const { workflowEditorCopy, workflowInspectorCopy } = useWorkflowI18n()
   const canEdit = useOptionalWorkflowSession()?.canEdit === true
   const selectedBlock = useBlock(selectedNodeId ?? '')
   const isSelectedBlockProtected = useBlockProtection(selectedNodeId ?? '')
+  const providers = useProvidersStore((state) => state.providers)
 
   const blockConfig = useMemo(
     () => (selectedBlock ? getBlock(selectedBlock.type) : undefined),
@@ -103,7 +106,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
       blockState: selectedBlock,
       shouldDisableWrite,
     })
-  }, [blockConfig, selectedBlock, shouldDisableWrite, workflowInspectorCopy])
+  }, [blockConfig, providers, selectedBlock, shouldDisableWrite, workflowInspectorCopy])
 
   const {
     regularRows,

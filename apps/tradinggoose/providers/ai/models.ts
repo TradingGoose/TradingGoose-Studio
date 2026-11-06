@@ -69,6 +69,9 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 4.4,
         },
         capabilities: {
+          reasoningEffort: {
+            values: ['low', 'high', 'max'],
+          },
           maxOutputTokens: 1040000,
         },
       },
@@ -91,6 +94,9 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 15.0,
         },
         capabilities: {
+          reasoningEffort: {
+            values: ['none', 'low', 'high', 'max'],
+          },
           maxOutputTokens: 1048576,
         },
       },
@@ -101,7 +107,6 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
     defaultModel: '',
     icon: OpenRouterIcon,
     capabilities: {
-      temperature: { min: 0, max: 2 },
       toolUsageControl: true,
     },
     models: [],
@@ -143,6 +148,9 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         capabilities: {
           reasoningEffort: {
             values: ['low', 'medium', 'high', 'xhigh', 'max'],
+          },
+          verbosity: {
+            values: ['low', 'medium', 'high'],
           },
           maxOutputTokens: 128000,
         },
@@ -1725,11 +1733,8 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
     icon: DeepseekIcon,
     capabilities: {
       toolUsageControl: true,
-      reasoningEffort: {
-        values: ['low', 'high', 'max'],
-      },
       thinking: {
-        levels: ['none', 'enabled'],
+        levels: ['none', 'low', 'high', 'max'],
       },
       maxOutputTokens: 384000,
     },
@@ -1820,7 +1825,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         },
         capabilities: {
           reasoningEffort: {
-            values: ['low', 'medium', 'high', 'xhigh'],
+            values: ['low', 'medium', 'high'],
           },
         },
       },
@@ -1833,7 +1838,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         },
         capabilities: {
           reasoningEffort: {
-            values: ['none', 'low', 'medium', 'high', 'xhigh'],
+            values: ['none', 'low', 'medium', 'high'],
           },
         },
       },
@@ -1862,7 +1867,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         },
         capabilities: {
           reasoningEffort: {
-            values: ['none', 'low', 'medium', 'high', 'xhigh'],
+            values: ['low', 'medium', 'high', 'xhigh'],
           },
         },
       },
@@ -1900,26 +1905,9 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 0.75,
         },
         capabilities: {
-          maxOutputTokens: 40000,
-        },
-      },
-      {
-        id: 'cerebras/zai-glm-4.7',
-        pricing: {
-          input: 2.25,
-          output: 2.75,
-        },
-        capabilities: {
-          maxOutputTokens: 40000,
-        },
-      },
-      {
-        id: 'cerebras/gemma-4-31b',
-        pricing: {
-          input: 0.99,
-          output: 1.49,
-        },
-        capabilities: {
+          reasoningEffort: {
+            values: ['low', 'medium', 'high'],
+          },
           maxOutputTokens: 40000,
         },
       },
@@ -1927,7 +1915,7 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
   },
   groq: {
     name: 'Groq',
-    defaultModel: 'groq/llama-3.3-70b-versatile',
+    defaultModel: 'groq/openai/gpt-oss-120b',
     icon: GroqIcon,
     capabilities: {
       temperature: { min: 0, max: 2 },
@@ -1971,9 +1959,6 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         },
         capabilities: {
           maxOutputTokens: 65536,
-          reasoningEffort: {
-            values: ['low', 'medium', 'high'],
-          },
         },
       },
       {
@@ -1989,44 +1974,11 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           maxOutputTokens: 16384,
         },
       },
-      {
-        id: 'groq/qwen/qwen3.6-27b',
-        pricing: {
-          input: 0.6,
-          output: 3.0,
-        },
-        capabilities: {
-          maxOutputTokens: 16384,
-          thinking: {
-            levels: ['enabled'],
-          },
-        },
-      },
-      {
-        id: 'groq/llama-3.1-8b-instant',
-        pricing: {
-          input: 0.05,
-          output: 0.08,
-        },
-        capabilities: {
-          maxOutputTokens: 131072,
-        },
-      },
-      {
-        id: 'groq/llama-3.3-70b-versatile',
-        pricing: {
-          input: 0.59,
-          output: 0.79,
-        },
-        capabilities: {
-          maxOutputTokens: 32768,
-        },
-      },
     ],
   },
   mistral: {
     name: 'Mistral AI',
-    defaultModel: 'mistral-large-latest',
+    defaultModel: 'mistral-large-4',
     icon: MistralIcon,
     capabilities: {
       toolUsageControl: true,
@@ -2043,21 +1995,11 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           cachedInput: 0.07,
           output: 2.1,
         },
-      },
-      {
-        id: 'mistral-medium-3-5',
-        pricing: {
-          input: 1.5,
-          cachedInput: 0.15,
-          output: 7.5,
-        },
-      },
-      {
-        id: 'mistral-medium-3',
-        pricing: {
-          input: 1.5,
-          cachedInput: 0.15,
-          output: 7.5,
+        capabilities: {
+          reasoningEffort: {
+            values: ['low', 'medium', 'high'],
+          },
+          maxOutputTokens: 128000,
         },
       },
       {
@@ -2068,32 +2010,10 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           output: 4.4,
         },
         capabilities: {
+          reasoningEffort: {
+            values: ['low', 'high', 'max'],
+          },
           maxOutputTokens: 128000,
-        },
-      },
-      {
-        id: 'zai-glm-5-2',
-        pricing: {
-          input: 1.4,
-          cachedInput: 0.14,
-          output: 4.4,
-        },
-        capabilities: {
-          maxOutputTokens: 128000,
-        },
-      },
-      {
-        id: 'mistral-large-latest',
-        pricing: {
-          input: 0.5,
-          output: 1.5,
-        },
-      },
-      {
-        id: 'mistral-large-2512',
-        pricing: {
-          input: 0.5,
-          output: 1.5,
         },
       },
       {
@@ -2102,76 +2022,10 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
           input: 0.15,
           output: 0.6,
         },
-      },
-      {
-        id: 'devstral-2512',
-        pricing: {
-          input: 0.4,
-          output: 2.0,
-        },
-      },
-      {
-        id: 'magistral-medium-latest',
-        pricing: {
-          input: 2.0,
-          output: 5.0,
-        },
-      },
-      {
-        id: 'magistral-medium-2509',
-        pricing: {
-          input: 2.0,
-          output: 5.0,
-        },
-      },
-      {
-        id: 'mistral-medium-latest',
-        pricing: {
-          input: 1.5,
-          cachedInput: 0.15,
-          output: 7.5,
-        },
-      },
-      {
-        id: 'mistral-medium-2604',
-        pricing: {
-          input: 1.5,
-          output: 7.5,
-        },
-      },
-      {
-        id: 'mistral-medium-2508',
-        pricing: {
-          input: 0.4,
-          output: 2.0,
-        },
-      },
-      {
-        id: 'mistral-medium-2505',
-        pricing: {
-          input: 0.4,
-          output: 2.0,
-        },
-      },
-      {
-        id: 'mistral-small-latest',
-        pricing: {
-          input: 0.15,
-          output: 0.6,
-        },
-      },
-      {
-        id: 'open-mistral-nemo',
-        pricing: {
-          input: 0.15,
-          output: 0.15,
-        },
-      },
-      {
-        id: 'codestral-latest',
-        pricing: {
-          input: 0.3,
-          output: 0.9,
+        capabilities: {
+          reasoningEffort: {
+            values: ['none', 'high'],
+          },
         },
       },
       {
@@ -2182,20 +2036,6 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         },
       },
       {
-        id: 'devstral-latest',
-        pricing: {
-          input: 0.4,
-          output: 2.0,
-        },
-      },
-      {
-        id: 'ministral-14b-latest',
-        pricing: {
-          input: 0.2,
-          output: 0.2,
-        },
-      },
-      {
         id: 'ministral-14b-2512',
         pricing: {
           input: 0.2,
@@ -2203,24 +2043,10 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
         },
       },
       {
-        id: 'ministral-8b-latest',
-        pricing: {
-          input: 0.15,
-          output: 0.15,
-        },
-      },
-      {
         id: 'ministral-8b-2512',
         pricing: {
           input: 0.15,
           output: 0.15,
-        },
-      },
-      {
-        id: 'ministral-3b-latest',
-        pricing: {
-          input: 0.1,
-          output: 0.1,
         },
       },
       {
@@ -2815,9 +2641,17 @@ export function updateFireworksModels(models: string[]): void {
 
 export function updateOpenRouterModels(
   models: string[],
-  pricing?: Record<string, ModelPricing>
+  pricing?: Record<string, ModelPricing>,
+  capabilities?: Record<string, ModelCapabilities>
 ): void {
-  PROVIDER_DEFINITIONS.openrouter.models = models.map((id) => ({ id, pricing: pricing?.[id] }))
+  PROVIDER_DEFINITIONS.openrouter.models = models.map(
+    /** Maps a discovered model to its optional pricing and capability metadata. */
+    (id) => ({
+      id,
+      pricing: pricing?.[id],
+      capabilities: capabilities?.[id],
+    })
+  )
 }
 
 const EMBEDDING_MODEL_PRICING: Record<string, ModelPricing> = {

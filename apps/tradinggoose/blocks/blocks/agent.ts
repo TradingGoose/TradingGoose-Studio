@@ -42,11 +42,9 @@ const modelControl = (id: ModelControl, title: string): SubBlockConfig => ({
 })
 
 const getAvailableModels = () => {
-  const providersState = useProvidersStore.getState()
-  const baseModels = providersState.providers.base.models
-  const ollamaModels = providersState.providers.ollama.models
-  const openrouterModels = providersState.providers.openrouter.models
-  return Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
+  const providers = useProvidersStore.getState().providers
+  const discoveredModels = Object.values(providers).flatMap(({ models }) => models)
+  return Array.from(new Set([...Object.keys(getAllModelProviders()), ...discoveredModels]))
 }
 
 const getAvailableModelOptions = (): SubBlockOption[] => {

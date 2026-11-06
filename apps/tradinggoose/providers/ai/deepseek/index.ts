@@ -2,8 +2,11 @@ import OpenAI from 'openai'
 import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -24,6 +27,7 @@ type DeepSeekUsage = CompletionUsage & { prompt_cache_hit_tokens?: number }
 export const deepseekProvider: ProviderConfig = {
   id: 'deepseek',
 
+  /** Executes DeepSeek requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -51,6 +55,7 @@ export const deepseekProvider: ProviderConfig = {
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
     const tokens = { prompt: 0, completion: 0, total: 0 }
     const cost = createModelCost(request.model)
     const recordUsage = (usage?: DeepSeekUsage) => {
@@ -124,12 +129,7 @@ export const deepseekProvider: ProviderConfig = {
       if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
       if (request.responseFormat) payload.response_format = { type: 'json_object' }
       if (request.thinkingLevel !== undefined) {
-        payload.thinking = {
-          type: request.thinkingLevel === 'none' ? 'disabled' : 'enabled',
-        }
-      }
-      if (request.reasoningEffort !== undefined && request.thinkingLevel !== 'none') {
-        payload.reasoning_effort = request.reasoningEffort
+        payload.reasoning_effort = request.thinkingLevel
       }
 
       // Handle tools and tool usage control
@@ -156,11 +156,7 @@ export const deepseekProvider: ProviderConfig = {
                 ? toolChoice
                 : toolChoice.type === 'function'
                   ? `force:${toolChoice.function.name}`
-                  : toolChoice.type === 'tool'
-                    ? `force:${toolChoice.name}`
-                    : toolChoice.type === 'any'
-                      ? `force:${toolChoice.any?.name || 'unknown'}`
-                      : 'unknown',
+                  : `force:${toolChoice.name}`,
             model: request.model,
           })
         }
@@ -241,11 +237,15 @@ export const deepseekProvider: ProviderConfig = {
 
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       const currentMessages: Array<
         (typeof allMessages)[number] | OpenAI.Chat.Completions.ChatCompletionMessage
       > = [...allMessages]
       let iterationCount = 0
-      const MAX_ITERATIONS = 10 // Prevent infinite loops
 
       // Track if a forced tool has been used
       let hasUsedForcedTool = false
@@ -283,12 +283,12 @@ export const deepseekProvider: ProviderConfig = {
         usedForcedTools = result.usedForcedTools
       }
 
-      while (iterationCount < MAX_ITERATIONS) {
+      while (true) {
         // Check for tool calls
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-        if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-          break
-        }
+        if (!toolCallsInResponse?.length) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('DeepSeek exceeded the tool iteration limit')
 
         // DeepSeek requires the complete reasoning content when continuing a tool turn.
         currentMessages.push(currentResponse.choices[0].message)
@@ -434,12 +434,11 @@ export const deepseekProvider: ProviderConfig = {
       if (request.stream && iterationCount > 0) {
         logger.info('Using streaming for final DeepSeek response after tool calls')
 
-        // When streaming after tool calls with forced tools, make sure tool_choice is set to 'auto'
-        // This prevents the API from trying to force tool usage again in the final streaming response
+        // The final answer stream cannot execute additional tool calls.
+        const { tools: _tools, tool_choice: _toolChoice, ...answerPayload } = payload
         const streamingPayload = {
-          ...payload,
+          ...answerPayload,
           messages: currentMessages,
-          tool_choice: 'auto', // Always use 'auto' for the streaming response after tool calls
           stream: true,
           stream_options: { include_usage: true },
         }
@@ -525,16 +524,14 @@ export const deepseekProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      // Create a new error with timing information
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
-      // @ts-ignore - Adding timing property to the error
-      enhancedError.timing = {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
-      }
-
-      throw enhancedError
+      throw toError(error, {
+        ...getAccruedUsage?.(),
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
+      })
     }
   },
 }

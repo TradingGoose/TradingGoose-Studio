@@ -1,8 +1,10 @@
 import { Cerebras } from '@cerebras/cerebras_cloud_sdk'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -20,6 +22,7 @@ const logger = createLogger('CerebrasProvider')
 export const cerebrasProvider: ProviderConfig = {
   id: 'cerebras',
 
+  /** Runs bounded tool rounds and returns Cerebras output with cumulative usage and cost. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -30,6 +33,7 @@ export const cerebrasProvider: ProviderConfig = {
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       const client = new Cerebras({
@@ -194,7 +198,7 @@ export const cerebrasProvider: ProviderConfig = {
       // Make the initial API request
       const initialCallTime = Date.now()
 
-      let currentResponse = (await client.chat.completions.create(payload)) as CerebrasResponse
+      const currentResponse = (await client.chat.completions.create(payload)) as CerebrasResponse
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -205,9 +209,17 @@ export const cerebrasProvider: ProviderConfig = {
       }
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(
+          calculateCost(request.model, tokens.prompt, tokens.completion),
+          toolResults
+        ),
+      })
       const currentMessages = [...allMessages]
-      let iterationCount = 0
-      const MAX_ITERATIONS = 10 // Prevent infinite loops
+      const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
+      const iterationCount = toolCallsInResponse?.length ? 1 : 0
 
       // Track time spent in model vs tools
       let modelTime = firstResponseTime
@@ -224,220 +236,156 @@ export const cerebrasProvider: ProviderConfig = {
         },
       ]
 
-      // Keep track of processed tool calls to avoid duplicates
-      const processedToolCallIds = new Set()
-      // Keep track of tool call signatures to detect repeats
-      const toolCallSignatures = new Set()
+      if (toolCallsInResponse?.length) {
+        const processedToolCallIds = new Set<string>()
+        const toolCallSignatures = new Set<string>()
 
-      try {
-        while (iterationCount < MAX_ITERATIONS) {
-          // Check for tool calls
-          const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
+        // Track time for tool calls in this batch
+        const toolsStartTime = Date.now()
+        const assistantMessage = currentResponse.choices[0].message
+        currentMessages.push({
+          role: 'assistant',
+          content: assistantMessage.content ?? null,
+          tool_calls: toolCallsInResponse,
+        })
 
-          // Break if no tool calls
-          if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-            if (currentResponse.choices[0]?.message?.content) {
-              content = currentResponse.choices[0].message.content
-            }
-            break
+        // Process each tool call
+        for (const toolCall of toolCallsInResponse) {
+          const toolCallSignature = `${toolCall.function.name}-${toolCall.function.arguments}`
+          if (processedToolCallIds.has(toolCall.id) || toolCallSignatures.has(toolCallSignature)) {
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                error: true,
+                message: 'Repeated tool call was not executed',
+                tool: toolCall.function.name,
+              }),
+            })
+            continue
           }
 
-          // Track time for tool calls in this batch
-          const toolsStartTime = Date.now()
+          try {
+            processedToolCallIds.add(toolCall.id)
+            toolCallSignatures.add(toolCallSignature)
 
-          // Process each tool call
-          let processedAnyToolCall = false
-          let hasRepeatedToolCalls = false
+            const toolName = toolCall.function.name
+            const toolArgs = JSON.parse(toolCall.function.arguments)
 
-          for (const toolCall of toolCallsInResponse) {
-            // Skip if we've already processed this tool call
-            if (processedToolCallIds.has(toolCall.id)) {
-              continue
-            }
+            // Get the tool from the tools registry
+            const tool = request.tools?.find((t) => t.id === toolName)
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
-            // Create a signature for this tool call to detect repeats
-            const toolCallSignature = `${toolCall.function.name}-${toolCall.function.arguments}`
-            if (toolCallSignatures.has(toolCallSignature)) {
-              hasRepeatedToolCalls = true
-              continue
-            }
+            // Execute the tool
+            const toolCallStartTime = Date.now()
 
-            try {
-              processedToolCallIds.add(toolCall.id)
-              toolCallSignatures.add(toolCallSignature)
-              processedAnyToolCall = true
+            const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
 
-              const toolName = toolCall.function.name
-              const toolArgs = JSON.parse(toolCall.function.arguments)
+            const result = await executeTool(toolName, executionParams)
+            const toolCallEndTime = Date.now()
+            const toolCallDuration = toolCallEndTime - toolCallStartTime
 
-              // Get the tool from the tools registry
-              const tool = request.tools?.find((t) => t.id === toolName)
-              if (!tool) continue
+            // Add to time segments for both success and failure
+            timeSegments.push({
+              type: 'tool',
+              name: toolName,
+              startTime: toolCallStartTime,
+              endTime: toolCallEndTime,
+              duration: toolCallDuration,
+            })
 
-              // Execute the tool
-              const toolCallStartTime = Date.now()
-
-              const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-
-              const result = await executeTool(toolName, executionParams)
-              const toolCallEndTime = Date.now()
-              const toolCallDuration = toolCallEndTime - toolCallStartTime
-
-              // Add to time segments for both success and failure
-              timeSegments.push({
-                type: 'tool',
-                name: toolName,
-                startTime: toolCallStartTime,
-                endTime: toolCallEndTime,
-                duration: toolCallDuration,
-              })
-
-              // Prepare result content for the LLM
-              let resultContent: any
-              if (result.success) {
-                toolResults.push(result.output)
-                resultContent = result.output
-              } else {
-                // Include error information so LLM can respond appropriately
-                resultContent = {
-                  error: true,
-                  message: result.error || 'Tool execution failed',
-                  tool: toolName,
-                }
+            // Prepare result content for the LLM
+            let resultContent: any
+            if (result.success) {
+              toolResults.push(result.output)
+              resultContent = result.output
+            } else {
+              // Include error information so LLM can respond appropriately
+              resultContent = {
+                error: true,
+                message: result.error || 'Tool execution failed',
+                tool: toolName,
               }
-
-              toolCalls.push({
-                name: toolName,
-                arguments: toolParams,
-                startTime: new Date(toolCallStartTime).toISOString(),
-                endTime: new Date(toolCallEndTime).toISOString(),
-                duration: toolCallDuration,
-                result: resultContent,
-                success: result.success,
-              })
-
-              // Add the tool call and result to messages (both success and failure)
-              currentMessages.push({
-                role: 'assistant',
-                content: null,
-                tool_calls: [
-                  {
-                    id: toolCall.id,
-                    type: 'function',
-                    function: {
-                      name: toolName,
-                      arguments: toolCall.function.arguments,
-                    },
-                  },
-                ],
-              })
-
-              currentMessages.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                content: JSON.stringify(resultContent),
-              })
-            } catch (error) {
-              logger.error('Error processing tool call:', { error })
-            }
-          }
-
-          // Calculate tool call time for this iteration
-          const thisToolsTime = Date.now() - toolsStartTime
-          toolsTime += thisToolsTime
-
-          // After processing tool calls, get a final response
-          if (processedAnyToolCall || hasRepeatedToolCalls) {
-            // Time the next model call
-            const nextModelStartTime = Date.now()
-
-            // Make the final request
-            const finalPayload = {
-              ...payload,
-              messages: currentMessages,
             }
 
-            // Use tool_choice: 'none' for the final response to avoid an infinite loop
-            finalPayload.tool_choice = 'none'
-
-            const finalResponse = (await client.chat.completions.create(
-              finalPayload
-            )) as CerebrasResponse
-
-            const nextModelEndTime = Date.now()
-            const thisModelTime = nextModelEndTime - nextModelStartTime
-
-            // Add to time segments
-            timeSegments.push({
-              type: 'model',
-              name: 'Final response',
-              startTime: nextModelStartTime,
-              endTime: nextModelEndTime,
-              duration: thisModelTime,
+            toolCalls.push({
+              name: toolName,
+              arguments: toolParams,
+              startTime: new Date(toolCallStartTime).toISOString(),
+              endTime: new Date(toolCallEndTime).toISOString(),
+              duration: toolCallDuration,
+              result: resultContent,
+              success: result.success,
             })
 
-            // Add to model time
-            modelTime += thisModelTime
-
-            if (finalResponse.choices[0]?.message?.content) {
-              content = finalResponse.choices[0].message.content
-            }
-
-            // Update final token counts
-            if (finalResponse.usage) {
-              tokens.prompt += finalResponse.usage.prompt_tokens || 0
-              tokens.completion += finalResponse.usage.completion_tokens || 0
-              tokens.total += finalResponse.usage.total_tokens || 0
-            }
-
-            break
-          }
-
-          // Only continue if we haven't processed any tool calls and haven't seen repeats
-          if (!processedAnyToolCall && !hasRepeatedToolCalls) {
-            // Make the next request with updated messages
-            const nextPayload = {
-              ...payload,
-              messages: currentMessages,
-            }
-
-            // Time the next model call
-            const nextModelStartTime = Date.now()
-
-            // Make the next request
-            currentResponse = (await client.chat.completions.create(
-              nextPayload
-            )) as CerebrasResponse
-
-            const nextModelEndTime = Date.now()
-            const thisModelTime = nextModelEndTime - nextModelStartTime
-
-            // Add to time segments
-            timeSegments.push({
-              type: 'model',
-              name: `Model response (iteration ${iterationCount + 1})`,
-              startTime: nextModelStartTime,
-              endTime: nextModelEndTime,
-              duration: thisModelTime,
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(resultContent),
             })
-
-            // Add to model time
-            modelTime += thisModelTime
-
-            // Update token counts
-            if (currentResponse.usage) {
-              tokens.prompt += currentResponse.usage.prompt_tokens || 0
-              tokens.completion += currentResponse.usage.completion_tokens || 0
-              tokens.total += currentResponse.usage.total_tokens || 0
-            }
-
-            iterationCount++
+          } catch (error) {
+            logger.error('Error processing tool call:', { error })
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                error: true,
+                message: error instanceof Error ? error.message : String(error),
+                tool: toolCall.function.name,
+              }),
+            })
           }
         }
-      } catch (error) {
-        logger.error('Error in Cerebras tool processing:', { error })
-      }
 
+        // Calculate tool call time for this iteration
+        const thisToolsTime = Date.now() - toolsStartTime
+        toolsTime += thisToolsTime
+
+        // After processing tool calls, get a final response
+        if (!request.stream) {
+          // Time the next model call
+          const nextModelStartTime = Date.now()
+
+          // Make the final request
+          const finalPayload = {
+            ...payload,
+            messages: currentMessages,
+          }
+
+          // Use tool_choice: 'none' for the final response to avoid an infinite loop
+          finalPayload.tool_choice = 'none'
+
+          const finalResponse = (await client.chat.completions.create(
+            finalPayload
+          )) as CerebrasResponse
+
+          const nextModelEndTime = Date.now()
+          const thisModelTime = nextModelEndTime - nextModelStartTime
+
+          // Add to time segments
+          timeSegments.push({
+            type: 'model',
+            name: 'Final response',
+            startTime: nextModelStartTime,
+            endTime: nextModelEndTime,
+            duration: thisModelTime,
+          })
+
+          // Add to model time
+          modelTime += thisModelTime
+
+          if (finalResponse.choices[0]?.message?.content) {
+            content = finalResponse.choices[0].message.content
+          }
+
+          // Update final token counts
+          if (finalResponse.usage) {
+            tokens.prompt += finalResponse.usage.prompt_tokens || 0
+            tokens.completion += finalResponse.usage.completion_tokens || 0
+            tokens.total += finalResponse.usage.total_tokens || 0
+          }
+        }
+      }
       // Calculate overall timing
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()
@@ -447,12 +395,11 @@ export const cerebrasProvider: ProviderConfig = {
       if (request.stream && iterationCount > 0) {
         logger.info('Using streaming for final Cerebras response after tool calls')
 
-        // When streaming after tool calls with forced tools, make sure tool_choice is set to 'auto'
-        // This prevents the API from trying to force tool usage again in the final streaming response
+        // Disable tools for the final response after the completed tool batch.
         const streamingPayload = {
           ...payload,
           messages: currentMessages,
-          tool_choice: 'auto', // Always use 'auto' for the streaming response after tool calls
+          tool_choice: 'none',
           stream: true,
         }
 
@@ -495,6 +442,7 @@ export const cerebrasProvider: ProviderConfig = {
                       count: toolCalls.length,
                     }
                   : undefined,
+              toolResults: toolResults.length > 0 ? toolResults : undefined,
               providerTiming: {
                 startTime: providerStartTimeISO,
                 endTime: new Date().toISOString(),
@@ -553,16 +501,14 @@ export const cerebrasProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      // Create a new error with timing information
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
-      // @ts-ignore - Adding timing property to the error
-      enhancedError.timing = {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
-      }
-
-      throw enhancedError
+      throw toError(error, {
+        ...getAccruedUsage?.(),
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
+      })
     }
   },
 }

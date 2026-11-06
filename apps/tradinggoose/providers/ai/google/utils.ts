@@ -37,14 +37,6 @@ export function ensureStructResponse(value: unknown): Record<string, unknown> {
 }
 
 /**
- * Parsed function call from Gemini response
- */
-export interface ParsedFunctionCall {
-  name: string
-  args: Record<string, unknown>
-}
-
-/**
  * Removes additionalProperties from a schema object (not supported by Gemini)
  */
 export function cleanSchemaForGemini(schema: SchemaUnion): SchemaUnion {
@@ -80,40 +72,6 @@ export function extractTextContent(candidate: Candidate | undefined): string {
   if (textParts.length === 1) return textParts[0].text
 
   return textParts.map((part) => part.text).join('\n')
-}
-
-/**
- * Extracts the first function call from a Gemini response candidate
- */
-export function extractFunctionCall(candidate: Candidate | undefined): ParsedFunctionCall | null {
-  if (!candidate?.content?.parts) return null
-
-  for (const part of candidate.content.parts) {
-    if (part.functionCall) {
-      return {
-        name: part.functionCall.name ?? '',
-        args: (part.functionCall.args ?? {}) as Record<string, unknown>,
-      }
-    }
-  }
-
-  return null
-}
-
-/**
- * Extracts the full Part containing the function call (preserves thoughtSignature)
- * @deprecated Use extractAllFunctionCallParts for proper multi-tool handling
- */
-export function extractFunctionCallPart(candidate: Candidate | undefined): Part | null {
-  if (!candidate?.content?.parts) return null
-
-  for (const part of candidate.content.parts) {
-    if (part.functionCall) {
-      return part
-    }
-  }
-
-  return null
 }
 
 /**
@@ -267,31 +225,22 @@ export function convertToGeminiFormat(request: ProviderRequest): {
 }
 
 /**
- * Creates a ReadableStream from a Google Gemini streaming response
+ * Encodes native Gemini text chunks while the turn loop accounts for usage.
  */
 export function createReadableStreamFromGeminiStream(
-  stream: AsyncGenerator<GenerateContentResponse>,
-  onComplete?: (content: string, usage: GeminiUsage) => void
+  stream: AsyncGenerator<GenerateContentResponse>
 ): ReadableStream<Uint8Array> {
-  let fullContent = ''
-  let usage = convertUsageMetadata(undefined)
-
   return new ReadableStream({
+    /** Encodes native text chunks and forwards the original stream failure. */
     async start(controller) {
       try {
         for await (const chunk of stream) {
-          if (chunk.usageMetadata) {
-            usage = convertUsageMetadata(chunk.usageMetadata)
-          }
-
           const text = chunk.text
           if (text) {
-            fullContent += text
             controller.enqueue(new TextEncoder().encode(text))
           }
         }
 
-        onComplete?.(fullContent, usage)
         controller.close()
       } catch (error) {
         logger.error('Error reading Google Gemini stream', {

@@ -9,11 +9,11 @@ import type {
   FunctionCallResponse,
   Message,
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
 } from '@/providers/ai/types'
-import { ProviderError } from '@/providers/ai/types'
 import {
   checkForForcedToolUsageOpenAI,
   createModelCost,
@@ -43,6 +43,7 @@ function applyResponseFormat(
 export const fireworksProvider: ProviderConfig = {
   id: 'fireworks',
 
+  /** Executes Fireworks requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -116,6 +117,9 @@ export const fireworksProvider: ProviderConfig = {
 
     if (request.temperature !== undefined) payload.temperature = request.temperature
     if (request.maxTokens != null) payload.max_tokens = request.maxTokens
+    if (request.reasoningEffort !== undefined) {
+      payload.reasoning_effort = request.reasoningEffort
+    }
 
     let preparedTools: ReturnType<typeof prepareToolsWithUsageControl> | null = null
     let hasActiveTools = false
@@ -131,6 +135,7 @@ export const fireworksProvider: ProviderConfig = {
 
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       if (request.responseFormat && !hasActiveTools) {
@@ -219,6 +224,11 @@ export const fireworksProvider: ProviderConfig = {
       let content = currentResponse.choices[0]?.message?.content || ''
       const toolCalls: FunctionCallResponse[] = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
       let modelTime = firstResponseTime
@@ -244,84 +254,74 @@ export const fireworksProvider: ProviderConfig = {
       hasUsedForcedTool = forcedToolResult.hasUsedForcedTool
       usedForcedTools = forcedToolResult.usedForcedTools
 
-      while (iterationCount < MAX_TOOL_ITERATIONS) {
+      while (true) {
         if (currentResponse.choices[0]?.message?.content) {
           content = currentResponse.choices[0].message.content
         }
 
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-        if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-          break
-        }
+        if (!toolCallsInResponse?.length) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('Fireworks exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
 
-        const toolExecutionPromises = toolCallsInResponse.map(async (toolCall) => {
-          const toolCallStartTime = Date.now()
-          const toolName = toolCall.function.name
+        const toolExecutionPromises = toolCallsInResponse.map(
+          /** Produces one ordered native result even when lookup, arguments or execution fail. */
+          async (toolCall) => {
+            const toolCallStartTime = Date.now()
+            const toolName = toolCall.function.name
 
-          try {
-            const toolArgs = JSON.parse(toolCall.function.arguments)
-            const tool = request.tools?.find((t) => t.id === toolName)
+            try {
+              const toolArgs = JSON.parse(toolCall.function.arguments)
+              const tool = request.tools?.find((t) => t.id === toolName)
 
-            if (!tool) return null
+              if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
-            const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeTool(toolName, executionParams)
-            const toolCallEndTime = Date.now()
+              const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
+              const result = await executeTool(toolName, executionParams)
+              const toolCallEndTime = Date.now()
 
-            return {
-              toolCall,
-              toolName,
-              toolParams,
-              result,
-              startTime: toolCallStartTime,
-              endTime: toolCallEndTime,
-              duration: toolCallEndTime - toolCallStartTime,
-            }
-          } catch (error) {
-            const toolCallEndTime = Date.now()
-            logger.error('Error processing tool call (Fireworks):', {
-              error: toError(error).message,
-              toolName,
-            })
+              return {
+                toolCall,
+                toolName,
+                toolParams,
+                result,
+                startTime: toolCallStartTime,
+                endTime: toolCallEndTime,
+                duration: toolCallEndTime - toolCallStartTime,
+              }
+            } catch (error) {
+              const toolCallEndTime = Date.now()
+              logger.error('Error processing tool call (Fireworks):', {
+                error: toError(error).message,
+                toolName,
+              })
 
-            return {
-              toolCall,
-              toolName,
-              toolParams: {},
-              result: {
-                success: false,
-                output: undefined,
-                error: error instanceof Error ? error.message : 'Tool execution failed',
-              },
-              startTime: toolCallStartTime,
-              endTime: toolCallEndTime,
-              duration: toolCallEndTime - toolCallStartTime,
+              return {
+                toolCall,
+                toolName,
+                toolParams: {},
+                result: {
+                  success: false,
+                  output: undefined,
+                  error: error instanceof Error ? error.message : 'Tool execution failed',
+                },
+                startTime: toolCallStartTime,
+                endTime: toolCallEndTime,
+                duration: toolCallEndTime - toolCallStartTime,
+              }
             }
           }
-        })
+        )
 
-        const executionResults = await Promise.allSettled(toolExecutionPromises)
+        const executionResults = await Promise.all(toolExecutionPromises)
 
-        currentMessages.push({
-          role: 'assistant',
-          content: null,
-          tool_calls: toolCallsInResponse.map((tc) => ({
-            id: tc.id,
-            type: 'function',
-            function: {
-              name: tc.function.name,
-              arguments: tc.function.arguments,
-            },
-          })),
-        })
+        currentMessages.push(currentResponse.choices[0].message as Message)
 
-        for (const settledResult of executionResults) {
-          if (settledResult.status === 'rejected' || !settledResult.value) continue
-
+        for (const executionResult of executionResults) {
           const { toolCall, toolName, toolParams, result, startTime, endTime, duration } =
-            settledResult.value
+            executionResult
 
           timeSegments.push({
             type: 'tool',
@@ -409,10 +409,10 @@ export const fireworksProvider: ProviderConfig = {
       }
 
       if (request.stream) {
+        const { tools: _tools, tool_choice: _toolChoice, ...answerPayload } = payload
         const streamingParams: ChatCompletionCreateParamsStreaming = {
-          ...payload,
+          ...answerPayload,
           messages: [...currentMessages],
-          tool_choice: 'auto',
           stream: true,
           stream_options: { include_usage: true },
         }
@@ -475,14 +475,10 @@ export const fireworksProvider: ProviderConfig = {
 
       if (request.responseFormat && hasActiveTools) {
         const finalPayload: any = {
-          model: payload.model,
+          ...payload,
           messages: [...currentMessages],
-        }
-        if (payload.temperature !== undefined) {
-          finalPayload.temperature = payload.temperature
-        }
-        if (payload.max_tokens !== undefined) {
-          finalPayload.max_tokens = payload.max_tokens
+          tools: undefined,
+          tool_choice: undefined,
         }
 
         applyResponseFormat(finalPayload, request.responseFormat)
@@ -551,10 +547,13 @@ export const fireworksProvider: ProviderConfig = {
       }
 
       logger.error('Error in Fireworks request:', errorDetails)
-      throw new ProviderError(toError(error).message, {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
+      throw toError(error, {
+        ...getAccruedUsage?.(),
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
       })
     }
   },

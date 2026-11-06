@@ -21,8 +21,14 @@ import {
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
-import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
-import { withToolCosts } from '@/providers/ai/utils'
+import { getOpenRouterModels } from '@/providers/ai/openrouter/models'
+import type {
+  ProviderConfig,
+  ProviderControlResolver,
+  ProviderRequest,
+  ProviderResponse,
+} from '@/providers/ai/types'
+import { assertOpenRouterControlCapabilities, withToolCosts } from '@/providers/ai/utils'
 import { vertexProvider } from '@/providers/ai/vertex'
 import { vllmProvider } from '@/providers/ai/vllm'
 import { xAIProvider } from '@/providers/ai/xai'
@@ -106,9 +112,11 @@ function isStreamingExecution(response: any): response is StreamingExecution {
   return response && typeof response === 'object' && 'stream' in response && 'execution' in response
 }
 
+/** Discovers capabilities, rejects configured unknown tuning, and normalizes provider usage and costs. */
 export async function executeProviderRequest(
   providerId: string,
-  request: ProviderRequest
+  request: ProviderRequest,
+  resolveControls?: ProviderControlResolver
 ): Promise<ProviderResponse | StreamingExecution> {
   if (isHosted && providerId === 'ollama') {
     throw new Error('Ollama is not available on hosted instances')
@@ -123,7 +131,15 @@ export async function executeProviderRequest(
     throw new Error(`Model ${request.model} does not belong to provider ${providerId}`)
   }
 
-  const sanitizedRequest = sanitizeRequest(request)
+  if (providerId === 'openrouter') {
+    await getOpenRouterModels().catch((error) => {
+      logger.warn('Unable to refresh OpenRouter model capabilities', { error })
+    })
+  }
+
+  const resolvedRequest = resolveControls ? { ...request, ...resolveControls() } : request
+  assertOpenRouterControlCapabilities(request.model, resolvedRequest)
+  const sanitizedRequest = sanitizeRequest(resolvedRequest)
 
   // Execute the request using the provider's implementation
   const response = await provider.executeRequest(sanitizedRequest)

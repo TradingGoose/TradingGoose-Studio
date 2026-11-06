@@ -48,6 +48,7 @@ import type {
 } from '@/executor/types'
 import { PausedBlockExecution } from '@/executor/types'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
+import { toError } from '@/providers/ai/error'
 import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/serializer/types'
 
 const logger = createLogger('Executor')
@@ -158,6 +159,7 @@ export class Executor {
     await this.contextExtensions.onExecutionEvent?.(event)
   }
 
+  /** Initializes workflow state, graph managers and block handlers with the shared input resolver. */
   constructor(options: ExecutorOptions) {
     this.actualWorkflow = options.workflow
     this.initialBlockStates = options.currentBlockStates || {}
@@ -189,7 +191,7 @@ export class Executor {
 
     this.blockHandlers = [
       new TriggerBlockHandler(),
-      new AgentBlockHandler(),
+      new AgentBlockHandler(this.resolver),
       new RouterBlockHandler(this.pathTracker),
       new ConditionBlockHandler(this.pathTracker, this.resolver),
       new EvaluatorBlockHandler(),
@@ -1623,6 +1625,18 @@ export class Executor {
       blockLog.input = block.config.params
 
       // Resolve inputs
+      if (blockType === BlockType.AGENT) {
+        const { model } = this.resolver.resolveInputs(
+          { ...block, config: { ...block.config, params: { model: block.config.params.model } } },
+          context
+        )
+        if (typeof model === 'string' && model.startsWith('openrouter/')) {
+          const { getOpenRouterModels } = await import('@/providers/ai/openrouter/models')
+          await getOpenRouterModels().catch((error) => {
+            logger.warn('Unable to refresh OpenRouter model capabilities', { error })
+          })
+        }
+      }
       const inputs = this.resolver.resolveInputs(block, context)
 
       // Store input data in the block log
@@ -1722,7 +1736,17 @@ export class Executor {
         })
       }
 
+      /** Records failed block usage before emitting errors or following an error edge. */
       handleBlockFailure = async (error: any): Promise<NormalizedBlockOutput> => {
+        const providerError = toError(error)
+        if (providerError.cost) {
+          blockLog.output = {
+            ...blockLog.output,
+            model: providerError.model,
+            tokens: providerError.tokens,
+            cost: providerError.cost,
+          }
+        }
         blockLog.success = false
         blockLog.error =
           error.message ||
@@ -1754,7 +1778,7 @@ export class Executor {
               blockName,
               blockType,
               input: blockLog.input,
-              output: isCancellation ? undefined : {},
+              output: isCancellation ? undefined : (blockLog.output ?? {}),
               error: consoleErrorMessage,
               success: false,
               startedAt: blockLog.startedAt,
@@ -1778,6 +1802,11 @@ export class Executor {
         const errorOutput: NormalizedBlockOutput = {
           error: this.extractErrorMessage(error),
           status: error.status || 500,
+          ...(providerError.cost && {
+            model: providerError.model,
+            tokens: providerError.tokens,
+            cost: providerError.cost,
+          }),
         }
 
         if (isWorkflowBlockType(block.metadata?.id)) {
@@ -1818,7 +1847,7 @@ export class Executor {
           errorMessage: this.extractErrorMessage(error),
         })
 
-        const executionError = new Error(errorMessage)
+        const executionError = toError(new Error(errorMessage), providerError)
         if (Array.isArray((error as { childTraceSpans?: TraceSpan[] } | null)?.childTraceSpans)) {
           ;(executionError as any).childTraceSpans = (
             error as { childTraceSpans?: TraceSpan[] }
@@ -1939,7 +1968,11 @@ export class Executor {
           await flushStreamChunk()
         } catch (readerError: any) {
           logger.error('Error reading stream for executor:', readerError)
-          throw readerError
+          throw toError(readerError, {
+            model: output.model,
+            tokens: output.tokens,
+            cost: output.cost,
+          })
         } finally {
           await flushStreamChunk()
           try {

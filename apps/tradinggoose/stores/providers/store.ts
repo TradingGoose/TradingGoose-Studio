@@ -38,6 +38,13 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => {
       fireworks: { models: [], isLoading: false },
     },
 
+    /** Publishes metadata before notifying subscribers, preserving loading and other providers. */
+    publishCatalog: (provider, models, pricing, capabilities) => {
+      MODEL_UPDATERS[provider]?.(models, pricing, capabilities)
+      updateProvider(provider, { models })
+    },
+
+    /** Refreshes the client catalog and publishes provider capabilities to subscribed controls. */
     fetchModels: async (provider) => {
       if (isHosted && provider === 'ollama') {
         return
@@ -63,13 +70,12 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => {
         if (!response.ok) {
           throw new Error(`Failed to fetch ${provider} models: ${response.status}`)
         }
-        const { models, pricing } = await response.json()
+        const { models, pricing, capabilities } = await response.json()
         logger.info(`Successfully fetched ${provider} models`, {
           count: models.length,
           ...(provider === 'ollama' ? { models } : {}),
         })
-        MODEL_UPDATERS[provider]?.(models, pricing)
-        updateProvider(provider, { models })
+        get().publishCatalog(provider, models, pricing, capabilities)
       } catch (error) {
         logger.error(`Failed to fetch ${provider} models`, {
           error: error instanceof Error ? error.message : 'Unknown error',

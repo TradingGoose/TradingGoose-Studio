@@ -2,9 +2,11 @@ import OpenAI from 'openai'
 import type { CompletionUsage } from 'openai/resources/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
-import { getOpenRouterModels } from '@/providers/ai/openrouter/models'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -24,6 +26,7 @@ const logger = createLogger('OpenRouterProvider')
 export const openRouterProvider: ProviderConfig = {
   id: 'openrouter',
 
+  /** Executes bounded OpenRouter tool rounds with paired results and completed-usage errors. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -80,6 +83,8 @@ export const openRouterProvider: ProviderConfig = {
 
     if (request.temperature !== undefined) payload.temperature = request.temperature
     if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+    if (request.reasoningEffort !== undefined) payload.reasoning_effort = request.reasoningEffort
+    if (request.verbosity !== undefined) payload.verbosity = request.verbosity
 
     if (request.responseFormat) {
       payload.response_format = {
@@ -106,12 +111,9 @@ export const openRouterProvider: ProviderConfig = {
 
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
-      await getOpenRouterModels().catch((error) => {
-        logger.warn('Unable to refresh OpenRouter pricing', { error })
-      })
-
       const tokens = { prompt: 0, completion: 0, total: 0 }
       const cost = createModelCost(request.model)
       const recordUsage = (usage?: CompletionUsage) => {
@@ -200,9 +202,13 @@ export const openRouterProvider: ProviderConfig = {
       let content = currentResponse.choices[0]?.message?.content || ''
       const toolCalls = [] as any[]
       const toolResults = [] as any[]
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
-      const MAX_ITERATIONS = 10
       let modelTime = firstResponseTime
       let toolsTime = 0
       let hasUsedForcedTool = false
@@ -237,19 +243,29 @@ export const openRouterProvider: ProviderConfig = {
 
       checkForForcedToolUsage(currentResponse, originalToolChoice)
 
-      while (iterationCount < MAX_ITERATIONS) {
+      while (true) {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-        if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-          break
-        }
+        if (!toolCallsInResponse?.length) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('OpenRouter exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
+        const assistantMessage = currentResponse.choices[0].message
+        currentMessages.push({
+          role: 'assistant',
+          content: assistantMessage.content ?? null,
+          tool_calls: toolCallsInResponse,
+          ...('reasoning' in assistantMessage && { reasoning: assistantMessage.reasoning }),
+          ...('reasoning_details' in assistantMessage && {
+            reasoning_details: assistantMessage.reasoning_details,
+          }),
+        })
         for (const toolCall of toolCallsInResponse) {
           try {
             const toolName = toolCall.function.name
             const toolArgs = JSON.parse(toolCall.function.arguments)
             const tool = request.tools?.find((t) => t.id === toolName)
-            if (!tool) continue
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
             const toolCallStartTime = Date.now()
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
@@ -288,21 +304,6 @@ export const openRouterProvider: ProviderConfig = {
             })
 
             currentMessages.push({
-              role: 'assistant',
-              content: null,
-              tool_calls: [
-                {
-                  id: toolCall.id,
-                  type: 'function',
-                  function: {
-                    name: toolName,
-                    arguments: toolCall.function.arguments,
-                  },
-                },
-              ],
-            })
-
-            currentMessages.push({
               role: 'tool',
               tool_call_id: toolCall.id,
               content: JSON.stringify(resultContent),
@@ -311,6 +312,15 @@ export const openRouterProvider: ProviderConfig = {
             logger.error('Error processing tool call (OpenRouter):', {
               error: error instanceof Error ? error.message : String(error),
               toolName: toolCall?.function?.name,
+            })
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                error: true,
+                message: error instanceof Error ? error.message : String(error),
+                tool: toolCall.function?.name,
+              }),
             })
           }
         }
@@ -356,7 +366,7 @@ export const openRouterProvider: ProviderConfig = {
         const streamingPayload = {
           ...payload,
           messages: currentMessages,
-          tool_choice: 'auto',
+          tool_choice: 'none',
           stream: true,
           stream_options: { include_usage: true },
         }
@@ -439,14 +449,14 @@ export const openRouterProvider: ProviderConfig = {
         error: error instanceof Error ? error.message : String(error),
         duration: totalDuration,
       })
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
-      // @ts-ignore
-      enhancedError.timing = {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
-      }
-      throw enhancedError
+      throw toError(error, {
+        ...getAccruedUsage?.(),
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
+      })
     }
   },
 }

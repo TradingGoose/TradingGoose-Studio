@@ -17,10 +17,12 @@ import type {
   ToolInput,
 } from '@/executor/handlers/agent/types'
 import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
+import type { InputResolver } from '@/executor/resolver/resolver'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
-import { getProviderFromModel } from '@/providers/ai/models'
+import { getProviderFromModel, getProviderModels } from '@/providers/ai/models'
 import { decodeProviderStream } from '@/providers/ai/streaming'
-import { transformBlockTool } from '@/providers/ai/utils'
+import type { ProviderControlResolver } from '@/providers/ai/types'
+import { assertOpenRouterControlCapabilities, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
 import { createLLMToolSchema } from '@/tools/params'
@@ -68,10 +70,13 @@ function collectBlockData(context: ExecutionContext): {
  * Handler for Agent blocks that process LLM requests with optional tools.
  */
 export class AgentBlockHandler implements BlockHandler {
+  constructor(private readonly resolver: InputResolver) {}
+
   canHandle(block: SerializedBlock): boolean {
     return block.metadata?.id === BlockType.AGENT
   }
 
+  /** Builds an Agent request, deferring capability-dependent tuning until discovery completes. */
   async execute(
     block: SerializedBlock,
     inputs: AgentInputs,
@@ -129,7 +134,7 @@ export class AgentBlockHandler implements BlockHandler {
       streaming: streamingConfig.shouldUseStreaming ?? false,
     })
 
-    return this.executeProviderRequest(providerRequest, block, responseFormat, context)
+    return this.executeProviderRequest(providerRequest, block, responseFormat, context, inputs)
   }
 
   private parseResponseFormat(responseFormat?: string | object): any {
@@ -532,17 +537,64 @@ export class AgentBlockHandler implements BlockHandler {
     }
   }
 
+  /** Resolves active tuning after discovery on either transport before dispatching provider execution. */
   private async executeProviderRequest(
     providerRequest: any,
     block: SerializedBlock,
     responseFormat: any,
-    context: ExecutionContext
+    context: ExecutionContext,
+    inputs: AgentInputs
   ): Promise<BlockOutput | StreamingExecution> {
     const providerId = providerRequest.provider
     const model = providerRequest.model
     const providerStartTime = Date.now()
 
     try {
+      const resolveControls: ProviderControlResolver | undefined =
+        providerRequest.provider === 'openrouter'
+          ? /** Resolves default intent for unknown support, otherwise only active controls. */
+            () => {
+              const fields = [
+                'temperature',
+                'reasoningEffort',
+                'verbosity',
+                'thinkingLevel',
+              ] as const
+              const params = Object.fromEntries(
+                fields
+                  .filter((field) => Object.hasOwn(block.config.params, field))
+                  .map((field) => [field, block.config.params[field]])
+              )
+              if (!getProviderModels('openrouter').includes(providerRequest.model)) {
+                for (const field of Object.keys(params)) {
+                  params[field] = this.resolver.resolveInputValue(
+                    field,
+                    params[field],
+                    block,
+                    context
+                  )
+                }
+                return params
+              }
+              const resolved = this.resolver.resolveInputs(
+                {
+                  ...block,
+                  config: { ...block.config, params: { ...params, model: providerRequest.model } },
+                },
+                context
+              )
+              for (const field of fields) {
+                if (!Object.hasOwn(resolved, field)) Reflect.deleteProperty(inputs, field)
+              }
+              Object.assign(inputs, resolved)
+              return {
+                temperature: inputs.temperature,
+                reasoningEffort: inputs.reasoningEffort,
+                verbosity: inputs.verbosity,
+                thinkingLevel: inputs.thinkingLevel,
+              }
+            }
+          : undefined
       const isBrowser = typeof window !== 'undefined'
 
       if (!isBrowser) {
@@ -551,8 +603,18 @@ export class AgentBlockHandler implements BlockHandler {
           block,
           responseFormat,
           context,
-          providerStartTime
+          providerStartTime,
+          resolveControls
         )
+      }
+      if (resolveControls) {
+        const { getOpenRouterModels } = await import('@/providers/ai/openrouter/models')
+        await getOpenRouterModels().catch((error) => {
+          logger.warn('Unable to refresh OpenRouter model capabilities', { error })
+        })
+        const controls = resolveControls()
+        assertOpenRouterControlCapabilities(model, controls)
+        Object.assign(providerRequest, controls)
       }
       return this.executeBrowserSide(
         providerRequest,
@@ -567,12 +629,14 @@ export class AgentBlockHandler implements BlockHandler {
     }
   }
 
+  /** Resolves active tuning through the workflow resolver after the provider refreshes capabilities. */
   private async executeServerSide(
     providerRequest: any,
     block: SerializedBlock,
     responseFormat: any,
     context: ExecutionContext,
-    providerStartTime: number
+    providerStartTime: number,
+    resolveControls?: ProviderControlResolver
   ) {
     logger.info('Using direct server provider request')
 
@@ -585,11 +649,12 @@ export class AgentBlockHandler implements BlockHandler {
       providerRequest.model,
       providerRequest.apiKey
     )
-    const result = await executeProviderRequest(providerRequest.provider, {
+    const request = {
       ...providerRequest,
       apiKey,
       userId: context.userId,
-    })
+    }
+    const result = await executeProviderRequest(providerRequest.provider, request, resolveControls)
 
     this.logExecutionSuccess(
       providerRequest.provider,

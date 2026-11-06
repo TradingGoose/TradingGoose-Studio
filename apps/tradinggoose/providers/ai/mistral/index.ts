@@ -1,8 +1,11 @@
 import OpenAI from 'openai'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -20,12 +23,45 @@ import { executeTool } from '@/tools'
 
 const logger = createLogger('MistralProvider')
 
+/** Extracts visible answer text while excluding Mistral thinking blocks. */
+function extractMistralText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .filter(
+      /** Selects visible text blocks without exposing thinking content. */
+      (chunk): chunk is { type: 'text'; text: string } =>
+        chunk?.type === 'text' && typeof chunk.text === 'string'
+    )
+    .map((chunk) => chunk.text)
+    .join('')
+}
+
+/** Converts Mistral content-block deltas to the text format consumed by the shared stream reader. */
+async function* projectMistralStream(stream: AsyncIterable<any>) {
+  for await (const chunk of stream) {
+    yield {
+      ...chunk,
+      choices: chunk.choices?.map(
+        /** Projects each streamed choice into the shared visible-text delta format. */
+        (choice: any) => ({
+          ...choice,
+          delta: choice.delta
+            ? { ...choice.delta, content: extractMistralText(choice.delta.content) }
+            : choice.delta,
+        })
+      ),
+    }
+  }
+}
+
 /**
  * Mistral AI provider configuration
  */
 export const mistralProvider: ProviderConfig = {
   id: 'mistral',
 
+  /** Executes Mistral requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -86,6 +122,7 @@ export const mistralProvider: ProviderConfig = {
 
     if (request.temperature !== undefined) payload.temperature = request.temperature
     if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
+    if (request.reasoningEffort !== undefined) payload.reasoning_effort = request.reasoningEffort
 
     if (request.responseFormat) {
       payload.response_format = {
@@ -117,11 +154,7 @@ export const mistralProvider: ProviderConfig = {
               ? toolChoice
               : toolChoice.type === 'function'
                 ? `force:${toolChoice.function.name}`
-                : toolChoice.type === 'tool'
-                  ? `force:${toolChoice.name}`
-                  : toolChoice.type === 'any'
-                    ? `force:${toolChoice.any?.name || 'unknown'}`
-                    : 'unknown',
+                : `force:${toolChoice.name}`,
           model: request.model,
         })
       }
@@ -129,6 +162,7 @@ export const mistralProvider: ProviderConfig = {
 
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       if (request.stream && (!tools || tools.length === 0)) {
@@ -137,7 +171,6 @@ export const mistralProvider: ProviderConfig = {
         const streamResponse = await mistral.chat.completions.create({
           ...payload,
           stream: true,
-          stream_options: { include_usage: true },
         })
 
         const tokenUsage = {
@@ -148,7 +181,7 @@ export const mistralProvider: ProviderConfig = {
 
         const streamingResult = {
           stream: createOpenAICompatibleStream(
-            streamResponse as any,
+            projectMistralStream(streamResponse as any),
             'Mistral',
             (content, usage) => {
               streamingResult.execution.output.content = content
@@ -246,7 +279,7 @@ export const mistralProvider: ProviderConfig = {
       let currentResponse = await mistral.chat.completions.create(payload)
       const firstResponseTime = Date.now() - initialCallTime
 
-      let content = currentResponse.choices[0]?.message?.content || ''
+      let content = extractMistralText(currentResponse.choices[0]?.message?.content)
       const tokens = {
         prompt: currentResponse.usage?.prompt_tokens || 0,
         completion: currentResponse.usage?.completion_tokens || 0,
@@ -260,9 +293,13 @@ export const mistralProvider: ProviderConfig = {
       )
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
-      const MAX_ITERATIONS = 10
 
       let modelTime = firstResponseTime
       let toolsTime = 0
@@ -281,17 +318,18 @@ export const mistralProvider: ProviderConfig = {
 
       checkForForcedToolUsage(currentResponse, originalToolChoice)
 
-      while (iterationCount < MAX_ITERATIONS) {
+      while (true) {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
-        if (!toolCallsInResponse || toolCallsInResponse.length === 0) {
-          break
-        }
+        if (!toolCallsInResponse?.length) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('Mistral exceeded the tool iteration limit')
 
         logger.info(
-          `Processing ${toolCallsInResponse.length} tool calls (iteration ${iterationCount + 1}/${MAX_ITERATIONS})`
+          `Processing ${toolCallsInResponse.length} tool calls (iteration ${iterationCount + 1}/${MAX_TOOL_ITERATIONS})`
         )
 
         const toolsStartTime = Date.now()
+        currentMessages.push(currentResponse.choices[0].message)
 
         for (const toolCall of toolCallsInResponse) {
           try {
@@ -299,7 +337,7 @@ export const mistralProvider: ProviderConfig = {
             const toolArgs = JSON.parse(toolCall.function.arguments)
 
             const tool = request.tools?.find((t) => t.id === toolName)
-            if (!tool) continue
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
             const toolCallStartTime = Date.now()
 
@@ -339,21 +377,6 @@ export const mistralProvider: ProviderConfig = {
             })
 
             currentMessages.push({
-              role: 'assistant',
-              content: null,
-              tool_calls: [
-                {
-                  id: toolCall.id,
-                  type: 'function',
-                  function: {
-                    name: toolName,
-                    arguments: toolCall.function.arguments,
-                  },
-                },
-              ],
-            })
-
-            currentMessages.push({
               role: 'tool',
               tool_call_id: toolCall.id,
               content: JSON.stringify(resultContent),
@@ -362,6 +385,15 @@ export const mistralProvider: ProviderConfig = {
             logger.error('Error processing tool call:', {
               error,
               toolName: toolCall?.function?.name,
+            })
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                error: true,
+                message: error instanceof Error ? error.message : String(error),
+                tool: toolCall.function.name,
+              }),
             })
           }
         }
@@ -408,9 +440,7 @@ export const mistralProvider: ProviderConfig = {
 
         modelTime += thisModelTime
 
-        if (currentResponse.choices[0]?.message?.content) {
-          content = currentResponse.choices[0].message.content
-        }
+        content = extractMistralText(currentResponse.choices[0]?.message?.content) || content
 
         if (currentResponse.usage) {
           tokens.prompt += currentResponse.usage.prompt_tokens || 0
@@ -429,19 +459,18 @@ export const mistralProvider: ProviderConfig = {
       if (request.stream && iterationCount > 0) {
         logger.info('Using streaming for final response after tool calls')
 
+        const { tools: _tools, tool_choice: _toolChoice, ...answerPayload } = payload
         const streamingPayload = {
-          ...payload,
+          ...answerPayload,
           messages: currentMessages,
-          tool_choice: 'auto',
           stream: true,
-          stream_options: { include_usage: true },
         }
 
         const streamResponse = await mistral.chat.completions.create(streamingPayload)
 
         const streamingResult = {
           stream: createOpenAICompatibleStream(
-            streamResponse as any,
+            projectMistralStream(streamResponse as any),
             'Mistral',
             (content, usage) => {
               streamingResult.execution.output.content = content
@@ -528,15 +557,14 @@ export const mistralProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      const enhancedError = new Error(error instanceof Error ? error.message : String(error))
-      // @ts-ignore - Adding timing property to the error
-      enhancedError.timing = {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
-      }
-
-      throw enhancedError
+      throw toError(error, {
+        ...getAccruedUsage?.(),
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
+      })
     }
   },
 }

@@ -25,11 +25,11 @@ import { getModelCapabilities } from '@/providers/ai/models'
 import type {
   FunctionCallResponse,
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
 } from '@/providers/ai/types'
-import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
   createModelCost,
@@ -44,6 +44,7 @@ const logger = createLogger('BedrockProvider')
 export const bedrockProvider: ProviderConfig = {
   id: 'bedrock',
 
+  /** Executes Bedrock requests, retaining completed usage when tool processing fails. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -205,9 +206,6 @@ export const bedrockProvider: ProviderConfig = {
           } else if (tc.type === 'function' && tc.function?.name) {
             toolChoice = { tool: { name: tc.function.name } }
             logger.info(`Using Bedrock tool_choice format: force tool "${tc.function.name}"`)
-          } else if (tc.type === 'any') {
-            toolChoice = { any: {} }
-            logger.info('Using Bedrock tool_choice format: any tool')
           } else {
             toolChoice = { auto: {} }
           }
@@ -368,6 +366,7 @@ export const bedrockProvider: ProviderConfig = {
 
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       const initialCallTime = Date.now()
@@ -404,6 +403,11 @@ export const bedrockProvider: ProviderConfig = {
 
       const toolCalls: FunctionCallResponse[] = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost, toolResults),
+      })
       const currentMessages = [...messages]
       let iterationCount = 0
       let hasUsedForcedTool = false
@@ -469,9 +473,9 @@ export const bedrockProvider: ProviderConfig = {
           return { ...toolUse, toolUseId: toolUse.toolUseId }
         })
 
-        if (currentToolUses.length === 0 || iterationCount >= MAX_TOOL_ITERATIONS) {
-          break
-        }
+        if (currentToolUses.length === 0) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error('Bedrock exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
 
@@ -522,13 +526,10 @@ export const bedrockProvider: ProviderConfig = {
 
         const executionResults = await Promise.all(toolExecutionPromises)
 
-        const assistantContent: ContentBlock[] = currentToolUses.map((toolUse: ToolUseBlock) => ({
-          toolUse: {
-            toolUseId: toolUse.toolUseId,
-            name: toolUse.name,
-            input: toolUse.input,
-          },
-        }))
+        const assistantContent = responseContent.filter(
+          /** Preserves non-text assistant blocks and omits empty text before replay. */
+          (block) => !('text' in block) || Boolean(block.text?.trim())
+        )
         currentMessages.push({
           role: 'assistant' as ConversationRole,
           content: assistantContent,
@@ -878,10 +879,13 @@ export const bedrockProvider: ProviderConfig = {
         duration: totalDuration,
       })
 
-      throw new ProviderError(toError(error).message, {
-        startTime: providerStartTimeISO,
-        endTime: providerEndTimeISO,
-        duration: totalDuration,
+      throw toError(error, {
+        ...getAccruedUsage?.(),
+        timing: {
+          startTime: providerStartTimeISO,
+          endTime: providerEndTimeISO,
+          duration: totalDuration,
+        },
       })
     }
   },

@@ -172,16 +172,12 @@ export interface ProviderRequest {
   abortSignal?: AbortSignal
 }
 
-export class ProviderError extends Error {
-  timing: {
-    startTime: string
-    endTime: string
-    duration: number
-  }
+/** Supplies configured tuning after discovery, resolving active controls before sanitization. */
+export type ProviderControlResolver = () => Pick<
+  ProviderRequest,
+  'temperature' | 'reasoningEffort' | 'verbosity' | 'thinkingLevel'
+>
 
-  constructor(message: string, timing: { startTime: string; endTime: string; duration: number }) {
-    super(message)
-    this.name = 'ProviderError'
-    this.timing = timing
-  }
-}
+export type ProviderErrorDetails = Partial<
+  Pick<ProviderResponse, 'model' | 'tokens' | 'cost' | 'timing'>
+>

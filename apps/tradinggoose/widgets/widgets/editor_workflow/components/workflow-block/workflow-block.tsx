@@ -26,6 +26,7 @@ import { registry as blockRegistry } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useExecutionStore } from '@/stores/execution/store'
+import { useProvidersStore } from '@/stores/providers/store'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 import { subscribeScheduleUpdated } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
 import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
@@ -61,11 +62,13 @@ type WorkflowBlockNode = Node<WorkflowBlockProps, 'workflowBlock'>
 
 // Combine both interfaces into a single component - wrapped in memo for performance
 export const WorkflowBlock = memo(
+  /** Renders workflow node chrome and summaries that track document and provider state. */
   function WorkflowBlock({ id, data, selected }: NodeProps<WorkflowBlockNode>) {
     const { type, config, name, isActive: dataIsActive, isPending } = data
     const { formatWorkflowTemplate, localizeWorkflowSubBlockConfig, workflowLabelsCopy } =
       useWorkflowI18n()
     const displayName = name
+    const providers = useProvidersStore((state) => state.providers)
 
     // State management
     const [, setIsConnecting] = useState(false)
@@ -469,6 +472,7 @@ export const WorkflowBlock = memo(
       displayAdvancedMode,
       displayTriggerMode,
       subBlockState,
+      providers,
       localizeWorkflowSubBlockConfig,
       type,
     ])

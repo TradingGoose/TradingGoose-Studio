@@ -110,7 +110,8 @@ export class InputResolver {
     return result
   }
 
-  private resolveInputValue(
+  /** Resolves one configured value without applying its sub-block visibility condition. */
+  resolveInputValue(
     key: string,
     value: any,
     block: SerializedBlock,

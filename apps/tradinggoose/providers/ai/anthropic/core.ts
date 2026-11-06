@@ -15,13 +15,18 @@ import {
   getThinkingCapability,
   supportsTemperature,
 } from '@/providers/ai/models'
-import type { ProviderRequest, ProviderResponse, TimeSegment } from '@/providers/ai/types'
-import { ProviderError } from '@/providers/ai/types'
+import type {
+  ProviderErrorDetails,
+  ProviderRequest,
+  ProviderResponse,
+  TimeSegment,
+} from '@/providers/ai/types'
 import {
   calculateCost,
   createModelCost,
   prepareToolExecution,
   prepareToolsWithUsageControl,
+  withToolCosts,
 } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
@@ -410,6 +415,7 @@ export async function executeAnthropicProviderRequest(
 
   const providerStartTime = Date.now()
   const providerStartTimeISO = new Date(providerStartTime).toISOString()
+  let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
   try {
     const initialCallTime = Date.now()
@@ -433,6 +439,11 @@ export async function executeAnthropicProviderRequest(
 
     const toolCalls = []
     const toolResults: Record<string, unknown>[] = []
+    getAccruedUsage = () => ({
+      model: request.model,
+      tokens,
+      cost: withToolCosts(cost.value, toolResults),
+    })
     const currentMessages = [...messages]
     let iterationCount = 0
     let hasUsedForcedTool = false
@@ -472,9 +483,9 @@ export async function executeAnthropicProviderRequest(
         }
 
         const toolUses = currentResponse.content.filter((item) => item.type === 'tool_use')
-        if (iterationCount >= MAX_TOOL_ITERATIONS || toolUses.length === 0) {
-          break
-        }
+        if (toolUses.length === 0) break
+        if (iterationCount >= MAX_TOOL_ITERATIONS)
+          throw new Error(`${providerLabel} exceeded the tool iteration limit`)
 
         const toolsStartTime = Date.now()
 
@@ -683,10 +694,13 @@ export async function executeAnthropicProviderRequest(
       duration: totalDuration,
     })
 
-    throw new ProviderError(toError(error).message, {
-      startTime: providerStartTimeISO,
-      endTime: providerEndTimeISO,
-      duration: totalDuration,
+    throw toError(error, {
+      ...getAccruedUsage?.(),
+      timing: {
+        startTime: providerStartTimeISO,
+        endTime: providerEndTimeISO,
+        duration: totalDuration,
+      },
     })
   }
 }

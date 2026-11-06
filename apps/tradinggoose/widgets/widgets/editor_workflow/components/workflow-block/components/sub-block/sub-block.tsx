@@ -117,6 +117,7 @@ function SubBlockSwitchField({
   )
 }
 
+/** Displays provider defaults for invalid clearable values without rewriting the saved setting. */
 function SubBlockSliderField({
   blockId,
   subBlockId,
@@ -146,21 +147,34 @@ function SubBlockSliderField({
   const isUnset = storeValue == null || (typeof storeValue === 'string' && !storeValue.trim())
   const numericValue = isUnset ? Number.NaN : Number(storeValue)
   const hasNumericValue = Number.isFinite(numericValue)
-  const effectiveValue = hasNumericValue ? numericValue : (defaultValue ?? (min + max) / 2)
+  const hasValidNumericValue =
+    hasNumericValue &&
+    numericValue >= min &&
+    numericValue <= max &&
+    (!integer || Number.isInteger(numericValue))
+  const effectiveValue =
+    hasNumericValue && (!clearable || hasValidNumericValue)
+      ? numericValue
+      : (defaultValue ?? (min + max) / 2)
   const normalizedValue = Math.max(
     min,
     Math.min(max, integer ? Math.round(effectiveValue) : effectiveValue)
   )
   const range = max - min || 1
 
-  useEffect(() => {
-    if (
-      !disabled &&
-      ((!clearable && isUnset) || (hasNumericValue && numericValue !== normalizedValue))
-    ) {
-      setStoreValue(normalizedValue)
-    }
-  }, [clearable, disabled, hasNumericValue, isUnset, normalizedValue, numericValue, setStoreValue])
+  useEffect(
+    /** Persists normalized values only for enabled, non-clearable sliders. */
+    () => {
+      if (
+        !disabled &&
+        !clearable &&
+        (isUnset || (hasNumericValue && numericValue !== normalizedValue))
+      ) {
+        setStoreValue(normalizedValue)
+      }
+    },
+    [clearable, disabled, hasNumericValue, isUnset, normalizedValue, numericValue, setStoreValue]
+  )
 
   return (
     <div className='flex items-start gap-2'>
@@ -193,7 +207,7 @@ function SubBlockSliderField({
         >
           {!isUnset && !hasNumericValue
             ? storeValue
-            : isUnset && clearable && defaultValue === undefined
+            : clearable && !hasValidNumericValue && defaultValue === undefined
               ? placeholder
               : integer
                 ? normalizedValue.toString()
@@ -466,6 +480,7 @@ function SubBlockTradingAccountSelector({
 }
 
 export const SubBlock = memo(
+  /** Renders the configured field with active workflow context, permissions and value bindings. */
   function SubBlock({
     blockId,
     config,
@@ -488,6 +503,7 @@ export const SubBlock = memo(
       return null
     }
 
+    /** Selects the configured editor with its active context and disabled state. */
     const renderInput = () => {
       const isDisabled = disabled
       const valueContext = contextValues ?? {}
@@ -561,6 +577,7 @@ export const SubBlock = memo(
                 disabled={isDisabled}
                 isConnecting={isConnecting}
                 config={config}
+                contextValues={contextValues}
               />
             </div>
           )

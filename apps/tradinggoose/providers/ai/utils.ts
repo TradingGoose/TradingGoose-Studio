@@ -7,11 +7,31 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExecutionSubmissionSource } from '@/executor/types'
-import { getModelCapabilities, getModelPricing } from '@/providers/ai/models'
-import type { ProviderResponse, ProviderToolConfig } from '@/providers/ai/types'
+import { getModelCapabilities, getModelPricing, getProviderModels } from '@/providers/ai/models'
+import type { ProviderRequest, ProviderResponse, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 
 const logger = createLogger('ProviderUtils')
+
+/** Requires discovered OpenRouter support for real tuning while allowing cleared and Auto controls. */
+export function assertOpenRouterControlCapabilities(
+  model: string,
+  controls: Pick<ProviderRequest, 'temperature' | 'reasoningEffort' | 'verbosity' | 'thinkingLevel'>
+): void {
+  if (
+    model.startsWith('openrouter/') &&
+    !getProviderModels('openrouter').includes(model) &&
+    (['temperature', 'reasoningEffort', 'verbosity', 'thinkingLevel'] as const).some(
+      /** Retains numeric zero as tuning; only the combobox controls define Auto. */
+      (field) => {
+        const value = controls[field]
+        return value != null && value !== '' && (field === 'temperature' || value !== 'auto')
+      }
+    )
+  ) {
+    throw new Error(`Cannot apply configured controls without model capabilities: ${model}`)
+  }
+}
 
 /**
  * Transforms a custom tool schema into a provider tool config
@@ -273,7 +293,6 @@ export function prepareToolsWithUsageControl(
     | 'none'
     | { type: 'function'; function: { name: string } }
     | { type: 'tool'; name: string }
-    | { type: 'any'; any: { model: string; name: string } }
     | undefined
   toolConfig?: {
     // Add toolConfig for Google's format
@@ -282,7 +301,6 @@ export function prepareToolsWithUsageControl(
       allowedFunctionNames?: string[]
     }
   }
-  hasFilteredTools: boolean
   forcedTools: string[] // Return all forced tool IDs
 } {
   // If no tools, return early
@@ -290,7 +308,6 @@ export function prepareToolsWithUsageControl(
     return {
       tools: undefined,
       toolChoice: undefined,
-      hasFilteredTools: false,
       forcedTools: [],
     }
   }
@@ -316,7 +333,6 @@ export function prepareToolsWithUsageControl(
     return {
       tools: undefined,
       toolChoice: undefined,
-      hasFilteredTools: true,
       forcedTools: [],
     }
   }
@@ -335,8 +351,7 @@ export function prepareToolsWithUsageControl(
     | 'auto'
     | 'none'
     | { type: 'function'; function: { name: string } }
-    | { type: 'tool'; name: string }
-    | { type: 'any'; any: { model: string; name: string } } = 'auto'
+    | { type: 'tool'; name: string } = 'auto'
 
   // For Google, we'll use a separate toolConfig object
   let toolConfig:
@@ -399,7 +414,6 @@ export function prepareToolsWithUsageControl(
     tools: filteredTools,
     toolChoice,
     toolConfig,
-    hasFilteredTools,
     forcedTools: forcedToolIds,
   }
 }
@@ -429,7 +443,6 @@ export function trackForcedToolUsage(
     | 'auto'
     | { type: 'function'; function: { name: string } }
     | { type: 'tool'; name: string }
-    | { type: 'any'; any: { model: string; name: string } }
     | null
   nextToolConfig?: {
     functionCallingConfig: {
@@ -463,15 +476,12 @@ export function trackForcedToolUsage(
   } else if (
     typeof originalToolChoice === 'object' &&
     (originalToolChoice?.function?.name ||
-      (originalToolChoice?.type === 'tool' && originalToolChoice?.name) ||
-      (originalToolChoice?.type === 'any' && originalToolChoice?.any?.name))
+      (originalToolChoice?.type === 'tool' && originalToolChoice?.name))
   ) {
     // For other providers
-    forcedToolNames = [
-      originalToolChoice?.function?.name ||
-        originalToolChoice?.name ||
-        originalToolChoice?.any?.name,
-    ].filter(Boolean)
+    forcedToolNames = [originalToolChoice?.function?.name || originalToolChoice?.name].filter(
+      Boolean
+    )
   }
 
   // If we're forcing specific tools and we have tool calls in the response
