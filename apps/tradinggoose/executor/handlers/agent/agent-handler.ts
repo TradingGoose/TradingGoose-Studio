@@ -19,7 +19,7 @@ import type {
 import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
 import type { InputResolver } from '@/executor/resolver/resolver'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
-import { getProviderFromModel } from '@/providers/ai/models'
+import { getProviderFromModel, getProviderModels } from '@/providers/ai/models'
 import { decodeProviderStream } from '@/providers/ai/streaming'
 import type { ProviderControlResolver } from '@/providers/ai/types'
 import { transformBlockTool } from '@/providers/ai/utils'
@@ -597,7 +597,7 @@ export class AgentBlockHandler implements BlockHandler {
     )
     const resolveControls: ProviderControlResolver | undefined =
       providerRequest.provider === 'openrouter'
-        ? /** Resolves configured controls against discovered capabilities and updates execution inputs. */
+        ? /** Resolves known active controls, retaining unknown configuration for the setup check. */
           () => {
             const fields = ['temperature', 'reasoningEffort', 'verbosity', 'thinkingLevel'] as const
             const params = Object.fromEntries(
@@ -605,6 +605,8 @@ export class AgentBlockHandler implements BlockHandler {
                 .filter((field) => Object.hasOwn(block.config.params, field))
                 .map((field) => [field, block.config.params[field]])
             )
+            // Unknown controls stay unresolved for the provider's capability/setup check.
+            if (!getProviderModels('openrouter').includes(providerRequest.model)) return params
             const resolved = this.resolver.resolveInputs(
               {
                 ...block,

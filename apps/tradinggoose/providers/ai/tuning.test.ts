@@ -62,6 +62,8 @@ vi.mock('@/lib/system-services/runtime', () => ({
   }),
 }))
 
+import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { GET as discoverOllamaModels } from '@/app/api/providers/ai/ollama/models/route'
 import { AgentBlock } from '@/blocks/blocks/agent'
@@ -72,6 +74,7 @@ import { anthropicProvider } from '@/providers/ai/anthropic'
 import { azureAnthropicProvider } from '@/providers/ai/azure-anthropic'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { deepseekProvider } from '@/providers/ai/deepseek'
+import { toError } from '@/providers/ai/error'
 import { fireworksProvider } from '@/providers/ai/fireworks'
 import { groqProvider } from '@/providers/ai/groq'
 import { mistralProvider } from '@/providers/ai/mistral'
@@ -88,6 +91,51 @@ const request = (model: string, params: Partial<ProviderRequest> = {}): Provider
   context: 'Analyze',
   ...params,
 })
+/** Builds a real Agent and response edge for tuning failures and accrued-usage billing. */
+function tuningAgentWorkflow(
+  params: Record<string, unknown>,
+  errorPath = true
+): SerializedWorkflow {
+  const agent: SerializedBlock = {
+    id: 'agent',
+    metadata: { id: 'agent', name: 'Agent' },
+    position: { x: 0, y: 0 },
+    config: {
+      tool: 'agent',
+      params: { apiKey: 'test-key', userPrompt: 'Analyze', ...params },
+    },
+    inputs: {},
+    outputs: {},
+    enabled: true,
+  }
+  return {
+    version: '1.0',
+    blocks: [
+      {
+        ...agent,
+        id: 'start',
+        metadata: { id: 'input_trigger', category: 'triggers' },
+        config: { tool: 'input_trigger', params: {} },
+      },
+      agent,
+      {
+        ...agent,
+        id: 'response',
+        metadata: { id: 'response' },
+        config: {
+          tool: 'response',
+          params: { dataMode: 'json', data: { error: '<agent.error>', status: '<agent.status>' } },
+        },
+      },
+    ],
+    connections: [
+      { source: 'start', target: 'agent' },
+      { source: 'agent', target: 'response', ...(errorPath && { sourceHandle: 'error' }) },
+    ],
+    loops: {},
+  }
+}
+
 const tool: ProviderToolConfig = {
   id: 'lookup',
   name: 'Lookup',
@@ -181,7 +229,7 @@ beforeEach(() => {
 })
 
 it.each(
-  ['cold', 'warm', 'unavailable', 'retry', 'missing'].flatMap((catalog) =>
+  ['cold', 'warm', 'unavailable', 'retry', 'missing', 'omitted'].flatMap((catalog) =>
     [true, false].flatMap((supported) =>
       ['literal', 'variable', 'environment', 'block'].flatMap((source) =>
         ['literal', 'references'].map((tuning) => ({ catalog, supported, source, tuning }))
@@ -264,7 +312,9 @@ it.each(
         refreshCount++
         if (catalog === 'unavailable') throw new Error('Catalog unavailable')
         if (catalog === 'retry' && refreshCount === 1) throw new Error('Catalog unavailable')
-        if (catalog === 'missing' && refreshCount === 1) return Response.json({ data: [] })
+        if (catalog === 'omitted' || (catalog === 'missing' && refreshCount === 1)) {
+          return Response.json({ data: [] })
+        }
         return Response.json({
           data: [
             {
@@ -286,20 +336,31 @@ it.each(
         },
         contextExtensions: { workspaceId: 'workspace' },
       }).execute('workflow', 'start')
+      if (catalog === 'unavailable' || catalog === 'omitted') {
+        expect(result.success).toBe(false)
+        expect(result.error).toContain(
+          `Cannot apply configured controls without model capabilities: ${model}`
+        )
+        expect(mocks.chat).not.toHaveBeenCalled()
+        expect(calculateCostSummary(buildTraceSpans(result).traceSpans)).toMatchObject({
+          totalCost: 0,
+          totalTokens: 0,
+        })
+        expect(refreshCount).toBe(2)
+        expect(block.config.params).toEqual(configuredParams)
+        return
+      }
       expect(result.success, result.error).toBe(true)
       expect(mocks.chat).toHaveBeenCalledTimes(1)
       const payload = mocks.chat.mock.calls[0][0]
-      expect(payload.temperature).toBe(catalog === 'unavailable' ? undefined : 0)
-      expect(payload.reasoning_effort).toBe(
-        supported && catalog !== 'unavailable' ? 'high' : undefined
-      )
-      expect(payload.verbosity).toBe(supported && catalog !== 'unavailable' ? 'high' : undefined)
+      expect(payload.temperature).toBe(0)
+      expect(payload.reasoning_effort).toBe(supported ? 'high' : undefined)
+      expect(payload.verbosity).toBe(supported ? 'high' : undefined)
       const inputs = result.logs?.find((log) => log.blockId === 'agent')?.input
       expect(inputs).toMatchObject({ model })
-      if (catalog === 'unavailable') expect(inputs).not.toHaveProperty('temperature')
-      else expect(inputs).toHaveProperty('temperature', 0)
+      expect(inputs).toHaveProperty('temperature', 0)
       expect(inputs).not.toHaveProperty('thinkingLevel')
-      if (!supported || catalog === 'unavailable') {
+      if (!supported) {
         expect(inputs).not.toHaveProperty('reasoningEffort')
         expect(inputs).not.toHaveProperty('verbosity')
       } else {
@@ -314,6 +375,237 @@ it.each(
     }
   }
 )
+
+it.each(['unavailable', 'omitted'] as const)(
+  'checks explicitly configured OpenRouter controls when discovery remains %s',
+  async (catalog) => {
+    const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+    const model = 'openrouter/publisher/unknown'
+    try {
+      updateOpenRouterModels([])
+      vi.mocked(fetch).mockImplementation(async () => {
+        if (catalog === 'unavailable') throw new Error('Catalog unavailable')
+        return Response.json({ data: [] })
+      })
+      for (const params of [
+        { temperature: 0 },
+        { reasoningEffort: 'high' },
+        { verbosity: 'high' },
+        { thinkingLevel: 'high' },
+      ]) {
+        await expect(executeProviderRequest('openrouter', request(model, params))).rejects.toThrow(
+          `Cannot apply configured controls without model capabilities: ${model}`
+        )
+      }
+      expect(mocks.chat).not.toHaveBeenCalled()
+      for (const params of [
+        {},
+        { temperature: undefined, reasoningEffort: '', verbosity: '', thinkingLevel: '' },
+      ]) {
+        const result = await executeProviderRequest('openrouter', request(model, params))
+        expect(result).toMatchObject({ content: 'Done', model })
+      }
+      expect(mocks.chat).toHaveBeenCalledTimes(2)
+      expect(mocks.tool).not.toHaveBeenCalled()
+    } finally {
+      PROVIDER_DEFINITIONS.openrouter.models = originalModels
+    }
+  }
+)
+
+it('retains known OpenRouter tuning when refreshing an existing catalog fails', async () => {
+  const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+  const model = 'openrouter/publisher/known'
+  try {
+    updateOpenRouterModels([model], undefined, {
+      [model]: {
+        temperature: { min: 0, max: 2 },
+        reasoningEffort: { values: ['high'] },
+        verbosity: { values: ['high'] },
+      },
+    })
+    vi.mocked(fetch).mockRejectedValue(new Error('Catalog unavailable'))
+    await executeProviderRequest(
+      'openrouter',
+      request(model, { temperature: 0, reasoningEffort: 'high', verbosity: 'high' })
+    )
+    expect(mocks.chat).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ temperature: 0, reasoning_effort: 'high', verbosity: 'high' })
+    )
+  } finally {
+    PROVIDER_DEFINITIONS.openrouter.models = originalModels
+  }
+})
+
+it('routes unknown OpenRouter tuning to the real Agent error edge without billing a default request', async () => {
+  const originalModels = PROVIDER_DEFINITIONS.openrouter.models
+  const model = 'openrouter/publisher/unknown'
+  const workflow = tuningAgentWorkflow({ model, verbosity: '{{REMOVED}}' })
+  const agent = workflow.blocks[1]
+  try {
+    updateOpenRouterModels([])
+    vi.mocked(getBlock).mockImplementation((type) => (type === 'agent' ? AgentBlock : undefined))
+    vi.mocked(fetch).mockRejectedValue(new Error('Catalog unavailable'))
+    const result = await new Executor({
+      workflow,
+      contextExtensions: { workspaceId: 'workspace' },
+    }).execute('workflow', 'start')
+    const message = `Cannot apply configured controls without model capabilities: ${model}`
+    expect(result.success, result.error).toBe(true)
+    expect(result.logs?.find((entry) => entry.blockId === 'agent')).toMatchObject({
+      success: false,
+    })
+    expect(result.logs?.find((entry) => entry.blockId === 'response')?.output).toMatchObject({
+      response: { data: { error: message } },
+    })
+    expect(mocks.chat).not.toHaveBeenCalled()
+    expect(calculateCostSummary(buildTraceSpans(result).traceSpans)).toMatchObject({
+      totalCost: 0,
+      totalTokens: 0,
+    })
+    expect(agent.config.params.verbosity).toBe('{{REMOVED}}')
+  } finally {
+    PROVIDER_DEFINITIONS.openrouter.models = originalModels
+    vi.mocked(getBlock).mockReset()
+  }
+})
+
+it.each([false, true])(
+  'retains completed Responses usage and original continuation errors, stream=%s',
+  async (stream) => {
+    const failure = Object.assign(new TypeError('Responses rate limit'), {
+      status: 429,
+      code: 'rate_limit',
+      request_id: 'request-id',
+    })
+    respond(
+      response([{ type: 'function_call', name: tool.id, call_id: 'paid', arguments: '{}' }]),
+      () => {
+        throw failure
+      }
+    )
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 0.125 } } })
+    const result = executeProviderRequest('openai', request('gpt-4.1', { stream, tools: [tool] }))
+    if (stream) {
+      const streaming = await result
+      if (!('stream' in streaming)) throw new Error('Expected Responses stream')
+      await expect(streaming.stream.getReader().read()).rejects.toBe(failure)
+    } else {
+      await expect(result).rejects.toBe(failure)
+    }
+    expect(failure).toMatchObject({
+      model: 'gpt-4.1',
+      status: 429,
+      code: 'rate_limit',
+      request_id: 'request-id',
+      tokens: { prompt: 10, completion: 5, total: 15 },
+      cost: { input: 0.00002, output: 0.00004, toolCost: 0.125, total: 0.12506 },
+    })
+    expect(failure).toBeInstanceOf(TypeError)
+    expect(mocks.responses).toHaveBeenCalledTimes(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each([false, true])(
+  'preserves explicit zero Responses accounting on a failed continuation, stream=%s',
+  async (stream) => {
+    const tokens = { prompt: 0, completion: 0, total: 0 }
+    const cost = { input: 0, output: 0, total: 0, pricing: null }
+    const failure = toError(new Error('Reported failure'), { model: 'reported', tokens, cost })
+    respond(
+      response([{ type: 'function_call', name: tool.id, call_id: 'paid', arguments: '{}' }]),
+      () => {
+        throw failure
+      }
+    )
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 0.125 } } })
+    const result = executeProviderRequest('openai', request('gpt-4.1', { stream, tools: [tool] }))
+    if (stream) {
+      const streaming = await result
+      if (!('stream' in streaming)) throw new Error('Expected Responses stream')
+      await expect(streaming.stream.getReader().read()).rejects.toBe(failure)
+    } else {
+      await expect(result).rejects.toBe(failure)
+    }
+    expect(failure.model).toBe('reported')
+    expect(failure.tokens).toBe(tokens)
+    expect(failure.cost).toBe(cost)
+  }
+)
+
+it.each([
+  { model: 'gpt-4.1', stream: false, errorPath: false },
+  { model: 'gpt-4.1', stream: true, errorPath: true },
+  { model: 'azure/gpt-4.1', stream: false, errorPath: true },
+  { model: 'azure/gpt-4.1', stream: true, errorPath: false },
+])(
+  'bills completed Responses usage through Agent routing: $model, stream=$stream, recovery=$errorPath',
+  async ({ model, stream, errorPath }) => {
+    const failure = Object.assign(new Error('Responses continuation failure'), { status: 429 })
+    respond(
+      response([
+        { type: 'function_call', name: 'custom_lookup', call_id: 'paid', arguments: '{}' },
+      ]),
+      () => {
+        throw failure
+      }
+    )
+    mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 0.125 } } })
+    vi.mocked(getBlock).mockImplementation((type) => (type === 'agent' ? AgentBlock : undefined))
+    try {
+      const result = await new Executor({
+        workflow: tuningAgentWorkflow(
+          {
+            model,
+            tools: [
+              {
+                type: 'custom-tool',
+                title: 'Lookup',
+                toolId: 'custom_lookup',
+                schema: { function: { parameters: { type: 'object', properties: {} } } },
+              },
+            ],
+          },
+          errorPath
+        ),
+        contextExtensions: { workspaceId: 'workspace', stream, selectedOutputs: ['agent'] },
+      }).execute('workflow', 'start')
+      expect(result.success).toBe(errorPath)
+      expect(result.logs?.find((entry) => entry.blockId === 'agent')).toMatchObject({
+        success: false,
+        output: {
+          model,
+          tokens: { prompt: 10, completion: 5, total: 15 },
+          cost: { toolCost: 0.125, total: expect.closeTo(0.12506, 8) },
+        },
+      })
+      if (errorPath) {
+        expect(result.logs?.find((entry) => entry.blockId === 'response')?.output).toMatchObject({
+          response: { data: { error: failure.message, status: '429' } },
+        })
+      } else {
+        expect(result.error).toContain(failure.message)
+      }
+      const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+      expect(billed.totalTokens).toBe(15)
+      expect(billed.totalCost).toBeCloseTo(0.12506, 8)
+      expect(mocks.responses).toHaveBeenCalledTimes(2)
+      expect(mocks.tool).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.mocked(getBlock).mockReset()
+    }
+  }
+)
+
+it('preserves an initial Responses error without inventing completed usage', async () => {
+  const failure = Object.assign(new Error('Initial Responses failure'), { status: 429 })
+  mocks.responses.mockReset().mockRejectedValueOnce(failure)
+  await expect(executeProviderRequest('openai', request('gpt-4.1'))).rejects.toBe(failure)
+  expect(failure).not.toHaveProperty('tokens')
+  expect(failure).not.toHaveProperty('cost')
+  expect(mocks.tool).not.toHaveBeenCalled()
+})
 
 it.each([
   [undefined, 'empty'],
@@ -1834,22 +2126,22 @@ it.each(
           : { ...completion({ role: 'assistant', content }), usage }
     )
     const generate = gemini ? mocks.gemini : mocks.chat
-    generate
-      .mockResolvedValueOnce(responses[0])
-      .mockResolvedValueOnce(responses[1])
-      .mockResolvedValueOnce(
-        stream
+    const calls = provider === 'fireworks' || (stream && !gemini) ? 3 : 2
+    responses.slice(0, calls).forEach((response, index) => {
+      generate.mockResolvedValueOnce(
+        stream && (gemini || index === 2)
           ? (async function* () {
-              if (gemini) yield responses[2]
+              if (gemini) yield response
               else {
                 yield { choices: [{ delta: { content } }] }
                 yield provider === 'groq'
-                  ? { choices: [], x_groq: { usage: usages[2] } }
-                  : { choices: [], usage: usages[2] }
+                  ? { choices: [], x_groq: { usage: usages[index] } }
+                  : { choices: [], usage: usages[index] }
               }
             })()
-          : responses[2]
+          : response
       )
+    })
     mocks.tool.mockResolvedValueOnce({ success: true, output: { cost: { total: 2 } } })
     const result = await executeProviderRequest(
       provider,
@@ -1871,7 +2163,6 @@ it.each(
     )
     if ('stream' in result) expect(await new Response(result.stream).text()).toBe(content)
     const output = 'stream' in result ? result.execution.output : result
-    const calls = provider === 'fireworks' || stream ? 3 : 2
     expect(output.tokens).toEqual(
       gemini && stream
         ? { input: calls * prompt, output: calls * 100, total: calls * (prompt + 100) }
@@ -1935,17 +2226,27 @@ it.each(
   'rejects pending Gemini tools at the limit, stream=$stream, structured=$structured',
   async ({ stream, structured }) => {
     let call = 0
-    mocks.gemini.mockImplementation(async () => geminiToolResponse(`call-${call++}`))
+    mocks.gemini.mockImplementation(async () => {
+      const response = geminiToolResponse(`call-${call++}`)
+      return stream
+        ? (async function* () {
+            yield response
+          })()
+        : response
+    })
 
+    const result = executeProviderRequest(
+      'google',
+      request('gemini-2.5-flash', {
+        stream,
+        tools: [tool],
+        responseFormat: structured ? { schema: { type: 'object' }, strict: false } : undefined,
+      })
+    )
     await expect(
-      executeProviderRequest(
-        'google',
-        request('gemini-2.5-flash', {
-          stream,
-          tools: [tool],
-          responseFormat: structured ? { schema: { type: 'object' }, strict: false } : undefined,
-        })
-      )
+      result.then(async (response) => {
+        if ('stream' in response) await new Response(response.stream).text()
+      })
     ).rejects.toThrow('Gemini exceeded the tool iteration limit')
     expect(mocks.tool).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS)
     expect(mocks.gemini).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)

@@ -3,7 +3,6 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { Executor } from '@/executor'
-import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
 import { anthropicProvider } from '@/providers/ai/anthropic'
 import { bedrockProvider } from '@/providers/ai/bedrock'
 import { cerebrasProvider } from '@/providers/ai/cerebras'
@@ -69,8 +68,21 @@ const toolCall = (id = 'call') => ({
   type: 'function',
   function: { name: tool.id, arguments: '{}' },
 })
+/** Builds one completed usage record, including native cache fields only when requested. */
+function modelUsage(cachedTokens = 0) {
+  return {
+    prompt_tokens: 1000,
+    completion_tokens: 500,
+    total_tokens: 1500,
+    ...(cachedTokens > 0 && {
+      prompt_tokens_details: { cached_tokens: cachedTokens },
+      prompt_cache_hit_tokens: cachedTokens,
+    }),
+  }
+}
+
 /** Builds a completed model round with usage and an optional pending lookup call. */
-const completion = (pending = true) => ({
+const completion = (pending = true, cachedTokens = 0) => ({
   choices: [
     {
       message: {
@@ -81,14 +93,14 @@ const completion = (pending = true) => ({
       finish_reason: pending ? 'tool_calls' : 'stop',
     },
   ],
-  usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
+  usage: modelUsage(cachedTokens),
 })
 
 const openRouterModel = 'openrouter/publisher/reasoner'
 const openRouterPricing = { input: 2, cachedInput: 0.5, output: 4 }
 const originalOpenRouterModels = PROVIDER_DEFINITIONS.openrouter.models
 
-const continuationProviders = [
+const accountingProviders = [
   {
     label: 'Groq',
     provider: groqProvider,
@@ -117,19 +129,47 @@ const continuationProviders = [
     inputCost: 0.0014,
     outputCost: 0.002,
   },
+
+  {
+    label: 'DeepSeek',
+    provider: deepseekProvider,
+    model: 'deepseek-flash',
+    inputCost: 0.0001824,
+    outputCost: 0.0006,
+  },
+  {
+    label: 'Fireworks',
+    provider: fireworksProvider,
+    model: 'fireworks/accounts/fireworks/models/glm-5p3',
+    inputCost: 0.000944,
+    outputCost: 0.0022,
+  },
+  {
+    label: 'Mistral',
+    provider: mistralProvider,
+    model: 'mistral-large-4',
+    inputCost: 0.000448,
+    outputCost: 0.00105,
+  },
+  {
+    label: 'Ollama',
+    provider: ollamaProvider,
+    model: 'ollama/custom',
+    inputCost: 0,
+    outputCost: 0,
+  },
+  { label: 'vLLM', provider: vllmProvider, model: 'vllm/custom', inputCost: 0, outputCost: 0 },
 ]
+const nativeBatchProviders = accountingProviders.filter(
+  ({ provider }) => provider.id !== 'openrouter'
+)
 
 /** Arranges a cached model response and completed tool before the next SDK call fails. */
 function failOnContinuation(toolName = tool.id) {
   const error = Object.assign(new Error('Provider rate limit'), { status: 429, code: 'rate_limit' })
-  const response = completion()
+  const response = completion(true, 400)
   response.choices[0].message.tool_calls![0].function.name = toolName
-  mocks.chat
-    .mockResolvedValueOnce({
-      ...response,
-      usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
-    })
-    .mockRejectedValueOnce(error)
+  mocks.chat.mockResolvedValueOnce(response).mockRejectedValueOnce(error)
   return error
 }
 
@@ -144,23 +184,15 @@ function arrangePostToolStream(failure?: Error, toolName = tool.id) {
         yield { choices: [{ delta: { content: 'answer' }, finish_reason: 'stop' }] }
         yield {
           choices: [],
-          usage: {
-            prompt_tokens: 1000,
-            completion_tokens: 500,
-            total_tokens: 1500,
-            prompt_tokens_details: { cached_tokens: 400 },
-          },
+          usage: modelUsage(400),
         }
       })()
     }
-    const response = completion(completedRounds++ === 0)
+    const response = completion(completedRounds++ === 0, 400)
     if (response.choices[0].message.tool_calls) {
       response.choices[0].message.tool_calls[0].function.name = toolName
     }
-    return {
-      ...response,
-      usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
-    }
+    return response
   })
 }
 
@@ -174,16 +206,18 @@ function failOnStreamSetup(toolName = tool.id) {
   return error
 }
 
-/** Runs the real Cerebras/Agent route and waits for emitted text before disconnecting. */
-function arrangeCerebrasAgentStream(failure?: Error) {
+/** Runs completed tool rounds and waits for emitted text before a stream disconnect. */
+function arrangeAgentStream(failure?: Error) {
   let releaseDisconnect = () => {}
   const emitted = new Promise<void>((resolve) => {
     releaseDisconnect = resolve
   })
+  let completedRounds = 0
   mocks.chat.mockImplementation(async (payload: { stream?: boolean }) => {
     if (!payload.stream) {
-      const response = completion()
-      response.choices[0].message.tool_calls![0].function.name = 'custom_lookup'
+      const response = completion(completedRounds++ === 0)
+      if (response.choices[0].message.tool_calls)
+        response.choices[0].message.tool_calls[0].function.name = 'custom_lookup'
       return response
     }
     return (async function* () {
@@ -196,7 +230,7 @@ function arrangeCerebrasAgentStream(failure?: Error) {
       }
       yield {
         choices: [],
-        usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
+        usage: modelUsage(),
       }
     })()
   })
@@ -263,7 +297,7 @@ function toolAgentWorkflow(model: string, errorPath = false): SerializedWorkflow
 }
 
 /** Builds a native failed call without changing its raw arguments before model replay. */
-function failingOpenRouterCall(kind: string, toolName = tool.id) {
+function failingToolCall(kind: string, toolName = tool.id) {
   return {
     ...toolCall(kind),
     function: {
@@ -285,17 +319,14 @@ function openRouterBatchResponse(
   calls: ReturnType<typeof toolCall>[],
   reasoningState: Record<string, unknown> = openRouterReasoningState
 ) {
-  const response = completion()
+  const response = completion(true, 400)
   response.choices[0].message.tool_calls = calls
   response.choices[0].message.content = 'Calling tools'
   Object.assign(response.choices[0].message, reasoningState, {
     provider_metadata: { internal: 'not replayed' },
     reasoning_content: 'not a supported replay alias',
   })
-  return {
-    ...response,
-    usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
-  }
+  return response
 }
 
 /** Rejects missing, reordered or changed returned reasoning while keeping the replay whitelist narrow. */
@@ -322,7 +353,7 @@ function requireOpenRouterReasoningState(
 }
 
 /** Requires one ordered result for every original call before the mocked model can recover. */
-function hasOpenRouterBatchResults(
+function hasNativeBatchResults(
   messages: any[],
   calls: ReturnType<typeof toolCall>[],
   failedIds: string[]
@@ -348,6 +379,13 @@ function hasOpenRouterBatchResults(
   return false
 }
 
+/** Supplies thrown, returned-failure and paid successful outcomes to either native recovery harness. */
+async function executeBatchTool(_name: string, args: { mode?: string }) {
+  if (args.mode === 'thrown') throw new Error('Tool exploded')
+  if (args.mode === 'returned') return { success: false, error: 'Tool refused' }
+  return { success: true, output: { value: 42, cost: { total: 0.125 } } }
+}
+
 /** Allows recovery only after paired tool results and unchanged returned reasoning reach the model. */
 function arrangeOpenRouterBatchRecovery(
   calls: ReturnType<typeof toolCall>[],
@@ -355,20 +393,13 @@ function arrangeOpenRouterBatchRecovery(
   reasoningState: Record<string, unknown> = openRouterReasoningState
 ) {
   const snapshots: any[] = []
-  mocks.tool.mockImplementation(
-    /** Produces deterministic thrown, returned-failure and paid successful tool outcomes. */
-    async (_name, args) => {
-      if (args.mode === 'thrown') throw new Error('Tool exploded')
-      if (args.mode === 'returned') return { success: false, error: 'Tool refused' }
-      return { success: true, output: { value: 42, cost: { total: 0.125 } } }
-    }
-  )
+  mocks.tool.mockImplementation(executeBatchTool)
   mocks.chat.mockImplementation(
     /** Repeats the pending batch until complete error feedback permits a final answer. */
     async (payload) => {
       const snapshot = JSON.parse(JSON.stringify(payload))
       snapshots.push(snapshot)
-      if (!hasOpenRouterBatchResults(snapshot.messages, calls, failedIds)) {
+      if (!hasNativeBatchResults(snapshot.messages, calls, failedIds)) {
         return openRouterBatchResponse(calls, reasoningState)
       }
       requireOpenRouterReasoningState(payload.messages, calls, reasoningState)
@@ -377,23 +408,137 @@ function arrangeOpenRouterBatchRecovery(
           yield { choices: [{ delta: { content: 'Recovered' }, finish_reason: 'stop' }] }
           yield {
             choices: [],
-            usage: {
-              prompt_tokens: 1000,
-              completion_tokens: 500,
-              total_tokens: 1500,
-              prompt_tokens_details: { cached_tokens: 400 },
-            },
+            usage: modelUsage(400),
           }
         })()
       }
-      const response = completion(false)
-      return {
-        ...response,
-        usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
-      }
+      return completion(false, 400)
     }
   )
   return snapshots
+}
+
+/** Returns failed and paid sibling calls without altering their native IDs or argument strings. */
+function nativeBatchCalls(mixed: boolean, toolName = tool.id) {
+  const failed = ['unknown', 'malformed', 'thrown', 'returned'].map((kind) =>
+    failingToolCall(kind, toolName)
+  )
+  return mixed
+    ? [
+        failed[0],
+        { ...toolCall('successful'), function: { name: toolName, arguments: '{}' } },
+        ...failed.slice(1),
+      ]
+    : failed
+}
+
+/** Rejects invalid native call/result history instead of allowing an apparent successful recovery. */
+function arrangeNativeBatchRecovery(calls: ReturnType<typeof toolCall>[], reasoning?: string) {
+  const snapshots: any[] = []
+  const failedIds = calls.filter((call) => call.id !== 'successful').map((call) => call.id)
+  mocks.tool.mockImplementation(executeBatchTool)
+  mocks.chat.mockImplementation(
+    /** Requires a complete native assistant batch and ordered results before issuing the answer. */
+    async (payload) => {
+      snapshots.push(JSON.parse(JSON.stringify(payload)))
+      if (snapshots.length === 1) {
+        const response = completion()
+        response.choices[0].message.tool_calls = calls
+        if (reasoning !== undefined) Object.assign(response.choices[0].message, { reasoning })
+        return response
+      }
+      if (!hasNativeBatchResults(payload.messages, calls, failedIds)) {
+        throw new Error('Unpaired native tool history')
+      }
+      if (reasoning !== undefined) {
+        const assistant = payload.messages.find(
+          /** Locates the native assistant turn whose returned Groq reasoning must survive. */
+          (message: any) =>
+            message.role === 'assistant' && message.tool_calls?.[0]?.id === calls[0].id
+        )
+        expect(assistant.reasoning).toBe(reasoning)
+      }
+      if (payload.stream) {
+        return (async function* () {
+          yield { choices: [{ delta: { content: 'Recovered' }, finish_reason: 'stop' }] }
+          yield {
+            choices: [],
+            usage: modelUsage(),
+          }
+        })()
+      }
+      return completion(false)
+    }
+  )
+  return snapshots
+}
+
+const sharedFamilyProviders = [
+  {
+    label: 'Anthropic',
+    provider: anthropicProvider,
+    model: 'claude-sonnet-5-5',
+    inputCost: 0.002,
+    outputCost: 0.005,
+  },
+  {
+    label: 'Bedrock',
+    provider: bedrockProvider,
+    model: 'bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0',
+    inputCost: 0.003,
+    outputCost: 0.0075,
+  },
+]
+const sharedFamilyFailurePaths = sharedFamilyProviders.flatMap(
+  /** Exercises a stream setup boundary only in the family with an actual post-tool stream. */
+  (entry) =>
+    (entry.provider.id === 'bedrock' ? ['continuation', 'stream setup'] : ['continuation']).map(
+      (phase) => ({ ...entry, phase })
+    )
+)
+
+/** Fails a shared native family only after its model response and paid tool have completed. */
+function arrangeSharedFamilyFailure(providerId: string, phase: string, toolName = tool.id) {
+  const failure = Object.assign(new TypeError('Native family rate limit'), {
+    status: 429,
+    code: 'rate_limit',
+    requestId: 'native-request',
+  })
+  if (providerId === 'anthropic') {
+    mocks.claude
+      .mockResolvedValueOnce({
+        content: [{ type: 'tool_use', id: 'native-call', name: toolName, input: {} }],
+        stop_reason: 'tool_use',
+        usage: { input_tokens: 1000, output_tokens: 500 },
+      })
+      .mockRejectedValueOnce(failure)
+  } else {
+    let completedRounds = 0
+    vi.spyOn(BedrockRuntimeClient.prototype, 'send').mockImplementation(
+      /** Completes native tool and text rounds before rejecting the selected transport boundary. */
+      async (command) => {
+        if (
+          command.constructor.name === 'ConverseStreamCommand' ||
+          (phase === 'continuation' && completedRounds > 0)
+        )
+          throw failure
+        const pending = completedRounds++ === 0
+        return {
+          output: {
+            message: {
+              role: 'assistant',
+              content: pending
+                ? [{ toolUse: { toolUseId: 'native-call', name: toolName, input: {} } }]
+                : [{ text: 'Done' }],
+            },
+          },
+          stopReason: pending ? 'tool_use' : 'end_turn',
+          usage: { inputTokens: 1000, outputTokens: 500, totalTokens: 1500 },
+        }
+      }
+    )
+  }
+  return failure
 }
 
 beforeEach(() => {
@@ -426,7 +571,7 @@ it('preserves the original error and completed usage through normalization', () 
 })
 
 it('resolves streamed Cerebras tool results downstream through the real Agent and Executor', async () => {
-  arrangeCerebrasAgentStream()
+  arrangeAgentStream()
   const result = await new Executor({
     workflow: toolAgentWorkflow('cerebras/gpt-oss-120b'),
     contextExtensions: { workspaceId: 'workspace', stream: true, selectedOutputs: ['agent'] },
@@ -453,7 +598,7 @@ it.each([false, true])(
   'bills accrued Cerebras usage once after an emitted stream disconnect, recovery=%s',
   async (errorPath) => {
     const failure = Object.assign(new Error('Provider disconnected'), { status: 503 })
-    const releaseDisconnect = arrangeCerebrasAgentStream(failure)
+    const releaseDisconnect = arrangeAgentStream(failure)
     const events = vi.fn(async (event) => {
       if (event.type === 'stream:chunk') releaseDisconnect()
     })
@@ -524,7 +669,7 @@ it.each(['all', 'zero cost', 'zero tokens', 'model'] as const)(
       ...((provided === 'all' || provided === 'zero cost') && { cost: suppliedCost }),
     }
     const failure = toError(new TypeError('Annotated disconnect'), details)
-    const releaseDisconnect = arrangeCerebrasAgentStream(failure)
+    const releaseDisconnect = arrangeAgentStream(failure)
     const result = await new Executor({
       workflow: toolAgentWorkflow('cerebras/gpt-oss-120b', true),
       contextExtensions: {
@@ -559,7 +704,7 @@ it.each(['all', 'zero cost', 'zero tokens', 'model'] as const)(
 
 it('uses the current streamed output accounting when metadata changes before a disconnect', async () => {
   const failure = new Error('Disconnect after usage update')
-  const releaseDisconnect = arrangeCerebrasAgentStream(failure)
+  const releaseDisconnect = arrangeAgentStream(failure)
   const tokens = { prompt: 2000, completion: 1000, total: 3000 }
   const cost = { input: 0.0007, output: 0.00075, toolCost: 0.125, total: 0.12645, pricing: null }
   const executeRequest = cerebrasProvider.executeRequest
@@ -603,7 +748,7 @@ it('uses the current streamed output accounting when metadata changes before a d
 
 it('does not invent completed usage or tool charges for a direct-stream disconnect', async () => {
   const failure = new Error('Initial stream disconnected')
-  const releaseDisconnect = arrangeCerebrasAgentStream(failure)
+  const releaseDisconnect = arrangeAgentStream(failure)
   const workflow = toolAgentWorkflow('cerebras/gpt-oss-120b', true)
   workflow.blocks[1].config.params.tools = []
   const result = await new Executor({
@@ -631,7 +776,7 @@ it('does not invent completed usage or tool charges for a direct-stream disconne
   expect(mocks.tool).not.toHaveBeenCalled()
 })
 
-it.each(continuationProviders)(
+it.each(accountingProviders)(
   '$label preserves cached usage and one completed tool charge on an ordinary continuation error',
   async ({ provider, model, inputCost, outputCost }) => {
     const failure = failOnContinuation()
@@ -644,7 +789,7 @@ it.each(continuationProviders)(
       status: 429,
       code: 'rate_limit',
       model,
-      tokens: { prompt: 1000, completion: 500, total: 1500 },
+      tokens: { total: 1500 },
       cost: { input: inputCost, output: outputCost, toolCost: 0.125 },
     })
     expect(toError(error).cost?.total).toBeCloseTo(inputCost + outputCost + 0.125, 8)
@@ -653,7 +798,7 @@ it.each(continuationProviders)(
   }
 )
 
-it.each(continuationProviders)(
+it.each(accountingProviders)(
   '$label preserves initial errors without inventing tokens or tool charges',
   async ({ provider, model }) => {
     const failure = Object.assign(new Error('Initial rate limit'), { status: 429 })
@@ -676,7 +821,7 @@ it.each(continuationProviders)(
   }
 )
 
-it.each(continuationProviders)(
+it.each(accountingProviders)(
   '$label preserves cumulative paid usage when final stream SDK setup fails',
   async ({ provider, model, inputCost, outputCost }) => {
     const failure = failOnStreamSetup()
@@ -696,11 +841,7 @@ it.each(continuationProviders)(
       status: 429,
       code: 'rate_limit',
       model,
-      tokens: {
-        prompt: completedRounds * 1000,
-        completion: completedRounds * 500,
-        total: completedRounds * 1500,
-      },
+      tokens: { total: completedRounds * 1500 },
       cost: {
         input: completedRounds * inputCost,
         output: completedRounds * outputCost,
@@ -722,7 +863,11 @@ it.each(continuationProviders)(
   }
 )
 
-it.each(continuationProviders)(
+it.each(
+  accountingProviders.filter(({ provider }) =>
+    ['groq', 'xai', 'cerebras', 'openrouter'].includes(provider.id)
+  )
+)(
   '$label preserves successful final stream accounting and request payloads',
   async ({ provider, model, inputCost, outputCost }) => {
     arrangePostToolStream()
@@ -772,7 +917,7 @@ it.each(continuationProviders)(
 )
 
 it.each(
-  continuationProviders.flatMap((entry) =>
+  accountingProviders.flatMap((entry) =>
     [false, true].flatMap((errorPath) =>
       ['continuation', 'stream setup'].map((phase) => ({ ...entry, errorPath, phase }))
     )
@@ -781,58 +926,16 @@ it.each(
   '$label bills an actual failed $phase once through the Executor, recovery=$errorPath',
   async ({ provider, model, inputCost, outputCost, errorPath, phase }) => {
     const stream = phase === 'stream setup'
-    const realAgent = provider.id === 'openrouter'
-    const toolName = realAgent ? 'custom_lookup' : tool.id
+    const toolName = 'custom_lookup'
     const failure = stream ? failOnStreamSetup(toolName) : failOnContinuation(toolName)
     const completedRounds = stream && provider.id !== 'cerebras' ? 2 : 1
-    if (!realAgent) {
-      vi.spyOn(AgentBlockHandler.prototype, 'execute')
-        .mockImplementationOnce(async () => {
-          await provider.executeRequest({
-            model,
-            apiKey: 'test-key',
-            context: 'Analyze',
-            tools: [tool],
-            stream,
-          })
-          throw new Error('Expected provider continuation failure')
-        })
-        .mockResolvedValue({ response: { content: 'Recovered' } })
-    }
-    const agent: SerializedBlock = {
-      id: 'agent',
-      metadata: { id: 'agent', name: 'Agent' },
-      position: { x: 0, y: 0 },
-      config: { tool: 'agent', params: { model } },
-      inputs: {},
-      outputs: {},
-      enabled: true,
-    }
-    const workflow: SerializedWorkflow = {
-      version: '1.0',
-      blocks: [
-        {
-          ...agent,
-          id: 'start',
-          metadata: { id: 'input_trigger', category: 'triggers' },
-          config: { tool: 'input_trigger', params: {} },
-        },
-        agent,
-        ...(errorPath ? [{ ...agent, id: 'fallback' }] : []),
-      ],
-      connections: [
-        { source: 'start', target: 'agent' },
-        ...(errorPath ? [{ source: 'agent', target: 'fallback', sourceHandle: 'error' }] : []),
-      ],
-      loops: {},
-    }
     const events = vi.fn()
     const result = await new Executor({
-      workflow: realAgent ? toolAgentWorkflow(model, errorPath) : workflow,
+      workflow: toolAgentWorkflow(model, errorPath),
       contextExtensions: {
         workspaceId: 'workspace',
         onExecutionEvent: events,
-        ...(realAgent && stream && { stream: true, selectedOutputs: ['agent'] }),
+        ...(stream && { stream: true, selectedOutputs: ['agent'] }),
       },
     }).execute('workflow', 'start')
 
@@ -862,20 +965,18 @@ it.each(
     ).toBe(true)
     expect(mocks.chat).toHaveBeenCalledTimes(completedRounds + 1)
     expect(mocks.tool).toHaveBeenCalledTimes(1)
-    if (realAgent) {
-      expect(failure.status).toBe(429)
-      expect(failure.code).toBe('rate_limit')
-      if (errorPath) {
-        expect(result.logs?.find((log) => log.blockId === 'response')?.output).toMatchObject({
-          response: { data: { recovered: true, error: failure.message, status: '429' } },
-        })
-      } else {
-        expect(result.error).toContain(failure.message)
-        expect(result.logs?.some((log) => log.blockId === 'response')).toBe(false)
-      }
-      expect(mocks.tool).toHaveBeenCalledExactlyOnceWith('custom_lookup', expect.any(Object))
-      expect(mocks.catalog).toHaveBeenCalled()
+    expect(failure.status).toBe(429)
+    expect(failure.code).toBe('rate_limit')
+    if (errorPath) {
+      expect(result.logs?.find((log) => log.blockId === 'response')?.output).toMatchObject({
+        response: { data: { recovered: true, error: failure.message, status: '429' } },
+      })
+    } else {
+      expect(result.error).toContain(failure.message)
+      expect(result.logs?.some((log) => log.blockId === 'response')).toBe(false)
     }
+    expect(mocks.tool).toHaveBeenCalledExactlyOnceWith('custom_lookup', expect.any(Object))
+    if (provider.id === 'openrouter') expect(mocks.catalog).toHaveBeenCalled()
   }
 )
 
@@ -886,12 +987,9 @@ it('OpenRouter keeps the latest cached accounting after two paid rounds and a re
     requestId: 'request-third',
   })
   for (const id of ['first', 'second']) {
-    const response = completion()
+    const response = completion(true, 400)
     response.choices[0].message.tool_calls![0].id = id
-    mocks.chat.mockResolvedValueOnce({
-      ...response,
-      usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
-    })
+    mocks.chat.mockResolvedValueOnce(response)
   }
   mocks.chat.mockRejectedValueOnce(failure)
   const error = await openRouterProvider
@@ -937,13 +1035,8 @@ it.each(['all', 'tokens', 'cost', 'model'] as const)(
       code: 'rate_limit',
       requestId: 'annotated-request',
     })
-    const response = completion()
-    mocks.chat
-      .mockResolvedValueOnce({
-        ...response,
-        usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
-      })
-      .mockRejectedValueOnce(failure)
+    const response = completion(true, 400)
+    mocks.chat.mockResolvedValueOnce(response).mockRejectedValueOnce(failure)
     const error = await openRouterProvider
       .executeRequest({
         model: openRouterModel,
@@ -1049,7 +1142,7 @@ it.each([
           yield { choices: [{ delta: { content: 'Done' }, finish_reason: 'stop' }] }
           yield {
             choices: [],
-            usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
+            usage: modelUsage(),
           }
         })()
       )
@@ -1098,7 +1191,7 @@ it.each(['auto', 'force'] as const)(
         yield { choices: [{ delta: { content: 'Done' }, finish_reason: 'stop' }] }
         yield {
           choices: [],
-          usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
+          usage: modelUsage(),
         }
       })()
     })
@@ -1157,7 +1250,7 @@ it.each(
 )(
   'OpenRouter recovers from an all-failed $kind batch only after error feedback, stream=$stream',
   async ({ kind, stream }) => {
-    const call = failingOpenRouterCall(kind)
+    const call = failingToolCall(kind)
     const snapshots = arrangeOpenRouterBatchRecovery([call], [call.id])
     const result = await openRouterProvider.executeRequest({
       model: openRouterModel,
@@ -1197,11 +1290,11 @@ it.each(
 
 it('OpenRouter preserves one native mixed batch, successful siblings and ordered error results', async () => {
   const calls = [
-    failingOpenRouterCall('unknown'),
+    failingToolCall('unknown'),
     toolCall('successful'),
-    failingOpenRouterCall('malformed'),
-    failingOpenRouterCall('thrown'),
-    failingOpenRouterCall('returned'),
+    failingToolCall('malformed'),
+    failingToolCall('thrown'),
+    failingToolCall('returned'),
   ]
   const snapshots = arrangeOpenRouterBatchRecovery(
     calls,
@@ -1256,7 +1349,7 @@ it.each(
 )(
   'OpenRouter preserves $label unchanged through a $batch tool continuation',
   async ({ state, batch }) => {
-    const failed = failingOpenRouterCall('unknown')
+    const failed = failingToolCall('unknown')
     const successful = toolCall('successful')
     const calls =
       batch === 'successful'
@@ -1291,7 +1384,7 @@ it.each(
 )
 
 it('OpenRouter advances a failed forced tool and keeps schemas with none for its recovered stream', async () => {
-  const first = failingOpenRouterCall('malformed')
+  const first = failingToolCall('malformed')
   const second = { ...toolCall('second'), function: { name: 'second', arguments: '{}' } }
   const firstReasoning = { reasoning: 'First tool rationale', ...openRouterReasoningState }
   const secondReasoning = Object.freeze({
@@ -1305,11 +1398,11 @@ it('OpenRouter advances a failed forced tool and keeps schemas with none for its
     async (payload) => {
       const snapshot = JSON.parse(JSON.stringify(payload))
       snapshots.push(snapshot)
-      if (!hasOpenRouterBatchResults(snapshot.messages, [first], [first.id])) {
+      if (!hasNativeBatchResults(snapshot.messages, [first], [first.id])) {
         return openRouterBatchResponse([first], firstReasoning)
       }
       requireOpenRouterReasoningState(payload.messages, [first], firstReasoning)
-      if (!hasOpenRouterBatchResults(snapshot.messages, [second], [])) {
+      if (!hasNativeBatchResults(snapshot.messages, [second], [])) {
         return openRouterBatchResponse([second], secondReasoning)
       }
       requireOpenRouterReasoningState(payload.messages, [second], secondReasoning)
@@ -1318,20 +1411,11 @@ it('OpenRouter advances a failed forced tool and keeps schemas with none for its
           yield { choices: [{ delta: { content: 'Recovered' }, finish_reason: 'stop' }] }
           yield {
             choices: [],
-            usage: {
-              prompt_tokens: 1000,
-              completion_tokens: 500,
-              total_tokens: 1500,
-              prompt_tokens_details: { cached_tokens: 400 },
-            },
+            usage: modelUsage(400),
           }
         })()
       }
-      const response = completion(false)
-      return {
-        ...response,
-        usage: { ...response.usage, prompt_tokens_details: { cached_tokens: 400 } },
-      }
+      return completion(false, 400)
     }
   )
   const result = await openRouterProvider.executeRequest({
@@ -1360,7 +1444,7 @@ it('OpenRouter advances a failed forced tool and keeps schemas with none for its
 })
 
 it('OpenRouter bounds repeated failed batches while retaining completed cached usage without tool fees', async () => {
-  const call = failingOpenRouterCall('unknown')
+  const call = failingToolCall('unknown')
   const snapshots: any[] = []
   mocks.chat.mockImplementation(async (payload) => {
     snapshots.push(JSON.parse(JSON.stringify(payload)))
@@ -1382,7 +1466,7 @@ it('OpenRouter bounds repeated failed batches while retaining completed cached u
   expect(toError(error).cost?.toolCost ?? 0).toBe(0)
   expect(mocks.chat).toHaveBeenCalledTimes(MAX_TOOL_ITERATIONS + 1)
   expect(mocks.tool).not.toHaveBeenCalled()
-  expect(hasOpenRouterBatchResults(snapshots[1].messages, [call], [call.id])).toBe(true)
+  expect(hasNativeBatchResults(snapshots[1].messages, [call], [call.id])).toBe(true)
   expect(snapshots.at(-1).messages.filter((message: any) => message.role === 'tool')).toHaveLength(
     MAX_TOOL_ITERATIONS
   )
@@ -1391,7 +1475,7 @@ it('OpenRouter bounds repeated failed batches while retaining completed cached u
 it.each(['unknown', 'malformed', 'thrown', 'mixed'])(
   'OpenRouter model recovers from %s tool feedback before the Executor takes its error edge',
   async (kind) => {
-    const failed = failingOpenRouterCall(kind === 'mixed' ? 'unknown' : kind, 'custom_lookup')
+    const failed = failingToolCall(kind === 'mixed' ? 'unknown' : kind, 'custom_lookup')
     const successful = {
       ...toolCall('successful'),
       function: { name: 'custom_lookup', arguments: '{}' },
@@ -1416,6 +1500,330 @@ it.each(['unknown', 'malformed', 'thrown', 'mixed'])(
     expect(billed.totalTokens).toBe(3000)
     expect(mocks.chat).toHaveBeenCalledTimes(2)
     expect(mocks.tool).toHaveBeenCalledTimes(kind === 'mixed' || kind === 'thrown' ? 1 : 0)
-    expect(hasOpenRouterBatchResults(snapshots[1].messages, calls, [failed.id])).toBe(true)
+    expect(hasNativeBatchResults(snapshots[1].messages, calls, [failed.id])).toBe(true)
+  }
+)
+
+it.each(
+  nativeBatchProviders.flatMap((entry) => [false, true].map((mixed) => ({ ...entry, mixed })))
+)(
+  '$label recovers from failed native calls with one paired batch, mixed=$mixed',
+  async ({ provider, model, mixed }) => {
+    const calls = nativeBatchCalls(mixed)
+    const snapshots = arrangeNativeBatchRecovery(calls)
+    const result = await provider.executeRequest({
+      model,
+      apiKey: 'test-key',
+      context: 'Analyze',
+      tools: [tool],
+    })
+    if ('stream' in result) throw new Error('Expected completed response')
+    expect(result.content).toBe('Done')
+    expect(result.tokens?.total).toBe(3000)
+    expect(result.toolResults ?? []).toEqual(mixed ? [{ value: 42, cost: { total: 0.125 } }] : [])
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(mixed ? 3 : 2)
+    expect(
+      hasNativeBatchResults(
+        snapshots[1].messages,
+        calls,
+        calls.filter((call) => call.id !== 'successful').map((call) => call.id)
+      )
+    ).toBe(true)
+  }
+)
+
+it.each(nativeBatchProviders)(
+  '$label preserves paired mixed feedback and paid siblings in its final stream',
+  async ({ provider, model }) => {
+    const calls = nativeBatchCalls(true)
+    const snapshots = arrangeNativeBatchRecovery(calls)
+    const result = await provider.executeRequest({
+      model,
+      apiKey: 'test-key',
+      context: 'Analyze',
+      tools: [tool],
+      stream: true,
+    })
+    if (!('stream' in result)) throw new Error('Expected final stream')
+    expect(await new Response(result.stream).text()).toBe('Recovered')
+    const completedRounds = provider.id === 'cerebras' ? 1 : 2
+    expect(result.execution.output.tokens?.total).toBe((completedRounds + 1) * 1500)
+    expect(result.execution.output.cost?.toolCost).toBe(0.125)
+    expect(mocks.chat).toHaveBeenCalledTimes(completedRounds + 1)
+    expect(mocks.tool).toHaveBeenCalledTimes(3)
+    expect(
+      hasNativeBatchResults(
+        snapshots.at(-1).messages,
+        calls,
+        calls.filter((call) => call.id !== 'successful').map((call) => call.id)
+      )
+    ).toBe(true)
+  }
+)
+
+it.each(nativeBatchProviders)(
+  '$label recovers from paired tool errors through the real Agent and bills its paid sibling once',
+  async ({ provider, model }) => {
+    const calls = nativeBatchCalls(true, 'custom_lookup')
+    arrangeNativeBatchRecovery(calls)
+    const events = vi.fn()
+    const result = await new Executor({
+      workflow: toolAgentWorkflow(model, true),
+      contextExtensions: { workspaceId: 'workspace', onExecutionEvent: events },
+    }).execute('workflow', 'start')
+    expect(result.success).toBe(true)
+    const agent = result.logs?.find((log) => log.blockId === 'agent')
+    expect(agent).toMatchObject({
+      success: true,
+      output: { content: 'Done', tokens: { total: 3000 }, cost: { toolCost: 0.125 } },
+    })
+    expect(result.logs?.some((log) => log.blockId === 'response')).toBe(false)
+    expect(events.mock.calls.some(([event]) => event.type === 'block:error')).toBe(false)
+    const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+    expect(billed.totalCost).toBeCloseTo(agent!.output!.cost!.total!, 8)
+    expect(billed.totalTokens).toBe(3000)
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(mocks.tool).toHaveBeenCalledTimes(3)
+  }
+)
+
+it.each(nativeBatchProviders)(
+  '$label preserves explicit zero accounting and original request metadata on continuation failure',
+  async ({ provider, model }) => {
+    const tokens = { prompt: 0, completion: 0, total: 0 }
+    const cost = { input: 0, output: 0, toolCost: 0, total: 0, pricing: null }
+    const timing = { startTime: 'reported-start', endTime: 'reported-end', duration: 7 }
+    const failure = Object.assign(
+      toError(new TypeError('Explicit accounting'), {
+        model: 'reported-model',
+        tokens,
+        cost,
+        timing,
+      }),
+      { status: 429, code: 'rate_limit', requestId: 'original-request' }
+    )
+    mocks.chat.mockResolvedValueOnce(completion()).mockRejectedValueOnce(failure)
+    const error = await provider
+      .executeRequest({ model, apiKey: 'test-key', context: 'Analyze', tools: [tool] })
+      .catch(toError)
+    expect(error).toBe(failure)
+    expect(error).toMatchObject({
+      status: 429,
+      code: 'rate_limit',
+      requestId: 'original-request',
+      model: 'reported-model',
+    })
+    expect(toError(error).tokens).toBe(tokens)
+    expect(toError(error).cost).toBe(cost)
+    expect(toError(error).timing).toMatchObject({
+      startTime: expect.any(String),
+      endTime: expect.any(String),
+      duration: expect.any(Number),
+    })
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it('Cerebras pairs a suppressed duplicate signature without executing or charging it twice', async () => {
+  const calls = [toolCall('successful'), toolCall('duplicate')]
+  const snapshots = arrangeNativeBatchRecovery(calls)
+  const result = await cerebrasProvider.executeRequest({
+    model: 'cerebras/gpt-oss-120b',
+    apiKey: 'test-key',
+    context: 'Analyze',
+    tools: [tool],
+  })
+  if ('stream' in result) throw new Error('Expected completed response')
+  expect(result.content).toBe('Done')
+  expect(result.toolResults).toEqual([{ value: 42, cost: { total: 0.125 } }])
+  expect(mocks.tool).toHaveBeenCalledTimes(1)
+  expect(mocks.chat).toHaveBeenCalledTimes(2)
+  const history = snapshots[1].messages.slice(-3)
+  expect(history[0].tool_calls).toEqual(calls)
+  expect(history[1]).toMatchObject({ role: 'tool', tool_call_id: 'successful' })
+  expect(history[2]).toMatchObject({ role: 'tool', tool_call_id: 'duplicate' })
+  expect(JSON.parse(history[2].content)).toMatchObject({ error: true, tool: tool.id })
+})
+
+it('Groq replays its returned native reasoning unchanged while continuing a paid tool turn', async () => {
+  const snapshots = arrangeNativeBatchRecovery([toolCall('successful')], 'Native Groq reasoning')
+  const result = await groqProvider.executeRequest({
+    model: 'groq/openai/gpt-oss-120b',
+    apiKey: 'test-key',
+    context: 'Analyze',
+    tools: [tool],
+  })
+  if ('stream' in result) throw new Error('Expected completed response')
+  expect(result.content).toBe('Done')
+  expect(snapshots[1].messages.at(-2)).toMatchObject({ reasoning: 'Native Groq reasoning' })
+})
+
+it('Ollama retains cumulative paid streaming output through the real Agent and downstream results', async () => {
+  arrangeAgentStream()
+  const result = await new Executor({
+    workflow: toolAgentWorkflow('ollama/custom'),
+    contextExtensions: { workspaceId: 'workspace', stream: true, selectedOutputs: ['agent'] },
+  }).execute('workflow', 'start')
+  expect(result.success).toBe(true)
+  expect(result.logs?.find((log) => log.blockId === 'agent')?.output).toMatchObject({
+    content: 'Final answer',
+    tokens: { prompt: 3000, completion: 1500, total: 4500 },
+    cost: { input: 0, output: 0, toolCost: 0.125, total: 0.125 },
+    toolResults: [{ value: 42, cost: { total: 0.125 } }],
+  })
+  expect(result.logs?.find((log) => log.blockId === 'response')?.output).toMatchObject({
+    response: { data: { results: JSON.stringify([{ value: 42, cost: { total: 0.125 } }]) } },
+  })
+  const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+  expect(billed.totalCost).toBe(0.125)
+  expect(billed.totalTokens).toBe(4500)
+  expect(mocks.chat).toHaveBeenCalledTimes(3)
+  expect(mocks.tool).toHaveBeenCalledTimes(1)
+})
+
+it.each([false, true])(
+  'Ollama retains completed paid usage after a stream disconnect, recovery=%s',
+  async (errorPath) => {
+    const failure = Object.assign(new Error('Ollama disconnected'), { status: 503 })
+    const releaseDisconnect = arrangeAgentStream(failure)
+    const result = await new Executor({
+      workflow: toolAgentWorkflow('ollama/custom', errorPath),
+      contextExtensions: {
+        workspaceId: 'workspace',
+        stream: true,
+        selectedOutputs: ['agent'],
+        /** Disconnects after emitted text so the canonical reader uses completed provider accounting. */
+        onExecutionEvent: async (event) => {
+          if (event.type === 'stream:chunk') releaseDisconnect()
+        },
+      },
+    }).execute('workflow', 'start')
+    expect(result.success).toBe(errorPath)
+    expect(result.logs?.find((log) => log.blockId === 'agent')).toMatchObject({
+      success: false,
+      output: {
+        model: 'ollama/custom',
+        tokens: { total: 3000 },
+        cost: { toolCost: 0.125, total: 0.125 },
+      },
+    })
+    const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+    expect(billed.totalCost).toBe(0.125)
+    expect(billed.totalTokens).toBe(3000)
+    expect(failure.status).toBe(503)
+    expect(failure.message).toBe('Ollama disconnected')
+    if (errorPath)
+      expect(result.logs?.find((log) => log.blockId === 'response')?.output).toMatchObject({
+        response: { data: { recovered: true, error: failure.message, status: '503' } },
+      })
+    else expect(result.error).toContain(failure.message)
+    expect(mocks.chat).toHaveBeenCalledTimes(3)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each(sharedFamilyFailurePaths)(
+  '$label shared family retains completed accounting on $phase failure',
+  async ({ provider, model, inputCost, outputCost, phase }) => {
+    const failure = arrangeSharedFamilyFailure(provider.id, phase)
+    const error = await provider
+      .executeRequest({
+        model,
+        apiKey: 'test-key',
+        context: 'Analyze',
+        tools: [tool],
+        stream: phase === 'stream setup',
+      })
+      .catch(toError)
+    const rounds = phase === 'stream setup' ? 2 : 1
+    expect(error).toBe(failure)
+    expect(error).toMatchObject({
+      model,
+      status: 429,
+      code: 'rate_limit',
+      requestId: 'native-request',
+      tokens: { total: rounds * 1500 },
+      cost: { input: rounds * inputCost, output: rounds * outputCost, toolCost: 0.125 },
+    })
+    expect(toError(error).cost?.total).toBeCloseTo(rounds * (inputCost + outputCost) + 0.125, 8)
+    expect(mocks.tool).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each(
+  sharedFamilyFailurePaths.flatMap((entry) =>
+    [false, true].map((errorPath) => ({ ...entry, errorPath }))
+  )
+)(
+  '$label shared family bills failed $phase through the real Agent, recovery=$errorPath',
+  async ({ provider, model, inputCost, outputCost, phase, errorPath }) => {
+    const failure = arrangeSharedFamilyFailure(provider.id, phase, 'custom_lookup')
+    const stream = phase === 'stream setup'
+    const result = await new Executor({
+      workflow: toolAgentWorkflow(model, errorPath),
+      contextExtensions: {
+        workspaceId: 'workspace',
+        ...(stream && { stream: true, selectedOutputs: ['agent'] }),
+      },
+    }).execute('workflow', 'start')
+    const rounds = stream ? 2 : 1
+    expect(result.success).toBe(errorPath)
+    expect(result.logs?.find((log) => log.blockId === 'agent')).toMatchObject({
+      success: false,
+      output: {
+        model,
+        tokens: { total: rounds * 1500 },
+        cost: {
+          toolCost: 0.125,
+          total: expect.closeTo(rounds * (inputCost + outputCost) + 0.125, 8),
+        },
+      },
+    })
+    const billed = calculateCostSummary(buildTraceSpans(result).traceSpans)
+    expect(billed.totalCost).toBeCloseTo(rounds * (inputCost + outputCost) + 0.125, 8)
+    expect(billed.totalTokens).toBe(rounds * 1500)
+    expect(failure.status).toBe(429)
+    expect(failure.requestId).toBe('native-request')
+    if (errorPath)
+      expect(result.logs?.find((log) => log.blockId === 'response')?.output).toMatchObject({
+        response: { data: { recovered: true, error: failure.message, status: '429' } },
+      })
+    else expect(result.error).toContain(failure.message)
+    expect(mocks.tool).toHaveBeenCalledExactlyOnceWith('custom_lookup', expect.any(Object))
+  }
+)
+
+it.each(sharedFamilyProviders)(
+  '$label shared family preserves initial failures without invented completed accounting',
+  async ({ provider, model }) => {
+    const failure = new TypeError('Native family initial failure')
+    if (provider.id === 'anthropic') mocks.claude.mockRejectedValueOnce(failure)
+    else vi.spyOn(BedrockRuntimeClient.prototype, 'send').mockRejectedValueOnce(failure)
+    const error = await provider
+      .executeRequest({ model, apiKey: 'test-key', context: 'Analyze', tools: [tool] })
+      .catch(toError)
+    expect(error).toBe(failure)
+    expect(toError(error).tokens).toBeUndefined()
+    expect(toError(error).cost).toBeUndefined()
+    expect(mocks.tool).not.toHaveBeenCalled()
+  }
+)
+
+it.each(sharedFamilyProviders)(
+  '$label shared family retains explicit accounting instead of replacing it with accrued usage',
+  async ({ provider, model }) => {
+    const failure = arrangeSharedFamilyFailure(provider.id, 'continuation')
+    const tokens = { prompt: 0, completion: 0, total: 0 }
+    const cost = { input: 0, output: 0, toolCost: 0, total: 0, pricing: null }
+    toError(failure, { model: 'reported-model', tokens, cost })
+    const error = await provider
+      .executeRequest({ model, apiKey: 'test-key', context: 'Analyze', tools: [tool] })
+      .catch(toError)
+    expect(error).toBe(failure)
+    expect(toError(error).model).toBe('reported-model')
+    expect(toError(error).tokens).toBe(tokens)
+    expect(toError(error).cost).toBe(cost)
+    expect(failure.requestId).toBe('native-request')
   }
 )

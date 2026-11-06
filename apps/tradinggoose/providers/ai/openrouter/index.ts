@@ -449,14 +449,8 @@ export const openRouterProvider: ProviderConfig = {
         error: error instanceof Error ? error.message : String(error),
         duration: totalDuration,
       })
-      const providerError = toError(error)
-      const accruedUsage = getAccruedUsage?.()
-      if (accruedUsage) {
-        providerError.model ??= accruedUsage.model
-        providerError.tokens ??= accruedUsage.tokens
-        providerError.cost ??= accruedUsage.cost
-      }
-      throw toError(providerError, {
+      throw toError(error, {
+        ...getAccruedUsage?.(),
         timing: {
           startTime: providerStartTimeISO,
           endTime: providerEndTimeISO,

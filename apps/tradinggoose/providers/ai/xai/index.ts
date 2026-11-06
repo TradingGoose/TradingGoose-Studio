@@ -26,7 +26,7 @@ const logger = createLogger('XAIProvider')
 export const xAIProvider: ProviderConfig = {
   id: 'xai',
 
-  /** Executes xAI requests, retaining completed usage when tool processing fails. */
+  /** Executes xAI tool rounds with paired results and completed-usage errors. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -313,6 +313,12 @@ export const xAIProvider: ProviderConfig = {
 
         // Track time for tool calls in this batch
         const toolsStartTime = Date.now()
+        const assistantMessage = currentResponse.choices[0].message
+        currentMessages.push({
+          role: 'assistant',
+          content: assistantMessage.content ?? null,
+          tool_calls: toolCallsInResponse,
+        })
 
         for (const toolCall of toolCallsInResponse) {
           try {
@@ -320,10 +326,7 @@ export const xAIProvider: ProviderConfig = {
             const toolArgs = JSON.parse(toolCall.function.arguments)
 
             const tool = request.tools?.find((t) => t.id === toolName)
-            if (!tool) {
-              logger.warn('XAI Provider - Tool not found:', { toolName })
-              continue
-            }
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
             const toolCallStartTime = Date.now()
 
@@ -371,22 +374,6 @@ export const xAIProvider: ProviderConfig = {
               success: result.success,
             })
 
-            // Add the tool call and result to messages (both success and failure)
-            currentMessages.push({
-              role: 'assistant',
-              content: null,
-              tool_calls: [
-                {
-                  id: toolCall.id,
-                  type: 'function',
-                  function: {
-                    name: toolName,
-                    arguments: toolCall.function.arguments,
-                  },
-                },
-              ],
-            })
-
             currentMessages.push({
               role: 'tool',
               tool_call_id: toolCall.id,
@@ -396,6 +383,15 @@ export const xAIProvider: ProviderConfig = {
             logger.error('XAI Provider - Error processing tool call:', {
               error: error instanceof Error ? error.message : String(error),
               toolCall: toolCall.function.name,
+            })
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                error: true,
+                message: error instanceof Error ? error.message : String(error),
+                tool: toolCall.function.name,
+              }),
             })
           }
         }

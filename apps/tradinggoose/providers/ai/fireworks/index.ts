@@ -9,6 +9,7 @@ import type {
   FunctionCallResponse,
   Message,
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -134,6 +135,7 @@ export const fireworksProvider: ProviderConfig = {
 
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       if (request.responseFormat && !hasActiveTools) {
@@ -222,6 +224,11 @@ export const fireworksProvider: ProviderConfig = {
       let content = currentResponse.choices[0]?.message?.content || ''
       const toolCalls: FunctionCallResponse[] = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
       let modelTime = firstResponseTime
@@ -255,69 +262,66 @@ export const fireworksProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw toError(new Error('Fireworks exceeded the tool iteration limit'), {
-            model: request.model,
-            tokens,
-            cost: withToolCosts(cost.value, toolResults),
-          })
+          throw new Error('Fireworks exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
 
-        const toolExecutionPromises = toolCallsInResponse.map(async (toolCall) => {
-          const toolCallStartTime = Date.now()
-          const toolName = toolCall.function.name
+        const toolExecutionPromises = toolCallsInResponse.map(
+          /** Produces one ordered native result even when lookup, arguments or execution fail. */
+          async (toolCall) => {
+            const toolCallStartTime = Date.now()
+            const toolName = toolCall.function.name
 
-          try {
-            const toolArgs = JSON.parse(toolCall.function.arguments)
-            const tool = request.tools?.find((t) => t.id === toolName)
+            try {
+              const toolArgs = JSON.parse(toolCall.function.arguments)
+              const tool = request.tools?.find((t) => t.id === toolName)
 
-            if (!tool) return null
+              if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
-            const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeTool(toolName, executionParams)
-            const toolCallEndTime = Date.now()
+              const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
+              const result = await executeTool(toolName, executionParams)
+              const toolCallEndTime = Date.now()
 
-            return {
-              toolCall,
-              toolName,
-              toolParams,
-              result,
-              startTime: toolCallStartTime,
-              endTime: toolCallEndTime,
-              duration: toolCallEndTime - toolCallStartTime,
-            }
-          } catch (error) {
-            const toolCallEndTime = Date.now()
-            logger.error('Error processing tool call (Fireworks):', {
-              error: toError(error).message,
-              toolName,
-            })
+              return {
+                toolCall,
+                toolName,
+                toolParams,
+                result,
+                startTime: toolCallStartTime,
+                endTime: toolCallEndTime,
+                duration: toolCallEndTime - toolCallStartTime,
+              }
+            } catch (error) {
+              const toolCallEndTime = Date.now()
+              logger.error('Error processing tool call (Fireworks):', {
+                error: toError(error).message,
+                toolName,
+              })
 
-            return {
-              toolCall,
-              toolName,
-              toolParams: {},
-              result: {
-                success: false,
-                output: undefined,
-                error: error instanceof Error ? error.message : 'Tool execution failed',
-              },
-              startTime: toolCallStartTime,
-              endTime: toolCallEndTime,
-              duration: toolCallEndTime - toolCallStartTime,
+              return {
+                toolCall,
+                toolName,
+                toolParams: {},
+                result: {
+                  success: false,
+                  output: undefined,
+                  error: error instanceof Error ? error.message : 'Tool execution failed',
+                },
+                startTime: toolCallStartTime,
+                endTime: toolCallEndTime,
+                duration: toolCallEndTime - toolCallStartTime,
+              }
             }
           }
-        })
+        )
 
-        const executionResults = await Promise.allSettled(toolExecutionPromises)
+        const executionResults = await Promise.all(toolExecutionPromises)
 
         currentMessages.push(currentResponse.choices[0].message as Message)
 
-        for (const settledResult of executionResults) {
-          if (settledResult.status === 'rejected' || !settledResult.value) continue
-
+        for (const executionResult of executionResults) {
           const { toolCall, toolName, toolParams, result, startTime, endTime, duration } =
-            settledResult.value
+            executionResult
 
           timeSegments.push({
             type: 'tool',
@@ -544,6 +548,7 @@ export const fireworksProvider: ProviderConfig = {
 
       logger.error('Error in Fireworks request:', errorDetails)
       throw toError(error, {
+        ...getAccruedUsage?.(),
         timing: {
           startTime: providerStartTimeISO,
           endTime: providerEndTimeISO,

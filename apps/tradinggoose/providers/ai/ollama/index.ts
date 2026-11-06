@@ -6,6 +6,7 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -25,7 +26,7 @@ const logger = createLogger('OllamaProvider')
 export const ollamaProvider: ProviderConfig = {
   id: 'ollama',
 
-  /** Executes Ollama requests, retaining completed usage when tool processing fails. */
+  /** Executes Ollama tool rounds with paired results and completed-usage errors. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -134,6 +135,7 @@ export const ollamaProvider: ProviderConfig = {
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       // Check if we can stream directly (no tools required)
@@ -283,7 +285,15 @@ export const ollamaProvider: ProviderConfig = {
         total: currentResponse.usage?.total_tokens || 0,
       }
       const toolCalls = []
-      const toolResults = []
+      const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(
+          calculateCost(request.model, tokens.prompt, tokens.completion),
+          toolResults
+        ),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
 
@@ -313,14 +323,7 @@ export const ollamaProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw toError(new Error('Ollama exceeded the tool iteration limit'), {
-            model: request.model,
-            tokens,
-            cost: withToolCosts(
-              calculateCost(request.model, tokens.prompt, tokens.completion),
-              toolResults
-            ),
-          })
+          throw new Error('Ollama exceeded the tool iteration limit')
 
         logger.info(
           `Processing ${toolCallsInResponse.length} tool calls (iteration ${iterationCount + 1}/${MAX_TOOL_ITERATIONS})`
@@ -328,6 +331,12 @@ export const ollamaProvider: ProviderConfig = {
 
         // Track time for tool calls in this batch
         const toolsStartTime = Date.now()
+        const assistantMessage = currentResponse.choices[0].message
+        currentMessages.push({
+          role: 'assistant',
+          content: assistantMessage.content ?? null,
+          tool_calls: toolCallsInResponse,
+        })
 
         // Process each tool call
         for (const toolCall of toolCallsInResponse) {
@@ -337,7 +346,7 @@ export const ollamaProvider: ProviderConfig = {
 
             // Get the tool from the tools registry
             const tool = request.tools?.find((t) => t.id === toolName)
-            if (!tool) continue
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
             // Execute the tool
             const toolCallStartTime = Date.now()
@@ -380,22 +389,6 @@ export const ollamaProvider: ProviderConfig = {
               success: result.success,
             })
 
-            // Add the tool call and result to messages (both success and failure)
-            currentMessages.push({
-              role: 'assistant',
-              content: null,
-              tool_calls: [
-                {
-                  id: toolCall.id,
-                  type: 'function',
-                  function: {
-                    name: toolName,
-                    arguments: toolCall.function.arguments,
-                  },
-                },
-              ],
-            })
-
             currentMessages.push({
               role: 'tool',
               tool_call_id: toolCall.id,
@@ -405,6 +398,15 @@ export const ollamaProvider: ProviderConfig = {
             logger.error('Error processing tool call:', {
               error,
               toolName: toolCall?.function?.name,
+            })
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                error: true,
+                message: error instanceof Error ? error.message : String(error),
+                tool: toolCall.function.name,
+              }),
             })
           }
         }
@@ -496,6 +498,7 @@ export const ollamaProvider: ProviderConfig = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
             'Ollama',
+            /** Adds final streamed usage to completed rounds and publishes tool-inclusive costs. */
             (content, usage) => {
               // Update the execution data with the final content and token usage
               streamingResult.execution.output.content = content
@@ -507,16 +510,19 @@ export const ollamaProvider: ProviderConfig = {
                   .trim()
               }
 
-              // Update token usage if available from the stream
-              if (usage) {
-                const newTokens = {
-                  prompt: usage.prompt_tokens || tokens.prompt,
-                  completion: usage.completion_tokens || tokens.completion,
-                  total: usage.total_tokens || tokens.total,
-                }
-
-                streamingResult.execution.output.tokens = newTokens
+              streamingResult.execution.output.tokens = {
+                prompt: tokens.prompt + usage.prompt_tokens,
+                completion: tokens.completion + usage.completion_tokens,
+                total: tokens.total + usage.total_tokens,
               }
+              streamingResult.execution.output.cost = withToolCosts(
+                calculateCost(
+                  request.model,
+                  tokens.prompt + usage.prompt_tokens,
+                  tokens.completion + usage.completion_tokens
+                ),
+                toolResults
+              )
             }
           ),
           execution: {
@@ -529,6 +535,11 @@ export const ollamaProvider: ProviderConfig = {
                 completion: tokens.completion,
                 total: tokens.total,
               },
+              cost: withToolCosts(
+                calculateCost(request.model, tokens.prompt, tokens.completion),
+                toolResults
+              ),
+              toolResults: toolResults.length > 0 ? toolResults : undefined,
               toolCalls:
                 toolCalls.length > 0
                   ? {
@@ -595,6 +606,7 @@ export const ollamaProvider: ProviderConfig = {
       })
 
       throw toError(error, {
+        ...getAccruedUsage?.(),
         timing: {
           startTime: providerStartTimeISO,
           endTime: providerEndTimeISO,

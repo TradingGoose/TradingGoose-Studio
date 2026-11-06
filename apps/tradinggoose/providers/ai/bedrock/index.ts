@@ -25,6 +25,7 @@ import { getModelCapabilities } from '@/providers/ai/models'
 import type {
   FunctionCallResponse,
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -205,9 +206,6 @@ export const bedrockProvider: ProviderConfig = {
           } else if (tc.type === 'function' && tc.function?.name) {
             toolChoice = { tool: { name: tc.function.name } }
             logger.info(`Using Bedrock tool_choice format: force tool "${tc.function.name}"`)
-          } else if (tc.type === 'any') {
-            toolChoice = { any: {} }
-            logger.info('Using Bedrock tool_choice format: any tool')
           } else {
             toolChoice = { auto: {} }
           }
@@ -368,6 +366,7 @@ export const bedrockProvider: ProviderConfig = {
 
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       const initialCallTime = Date.now()
@@ -404,6 +403,11 @@ export const bedrockProvider: ProviderConfig = {
 
       const toolCalls: FunctionCallResponse[] = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost, toolResults),
+      })
       const currentMessages = [...messages]
       let iterationCount = 0
       let hasUsedForcedTool = false
@@ -471,11 +475,7 @@ export const bedrockProvider: ProviderConfig = {
 
         if (currentToolUses.length === 0) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw toError(new Error('Bedrock exceeded the tool iteration limit'), {
-            model: request.model,
-            tokens,
-            cost: withToolCosts(cost, toolResults),
-          })
+          throw new Error('Bedrock exceeded the tool iteration limit')
 
         const toolsStartTime = Date.now()
 
@@ -880,6 +880,7 @@ export const bedrockProvider: ProviderConfig = {
       })
 
       throw toError(error, {
+        ...getAccruedUsage?.(),
         timing: {
           startTime: providerStartTimeISO,
           endTime: providerEndTimeISO,

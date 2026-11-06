@@ -1968,11 +1968,11 @@ export class Executor {
           await flushStreamChunk()
         } catch (readerError: any) {
           logger.error('Error reading stream for executor:', readerError)
-          const error = toError(readerError)
-          error.model ??= output.model
-          error.tokens ??= output.tokens
-          error.cost ??= output.cost
-          throw error
+          throw toError(readerError, {
+            model: output.model,
+            tokens: output.tokens,
+            cost: output.cost,
+          })
         } finally {
           await flushStreamChunk()
           try {

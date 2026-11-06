@@ -15,6 +15,7 @@ import {
   getMaxTemperature,
   getMinOutputTokensForModel,
   getProviderFromModel,
+  getProviderModels,
   MODEL_CONTROL_GETTERS,
   type ModelControl,
 } from '@/providers/ai/models'
@@ -112,7 +113,7 @@ function isStreamingExecution(response: any): response is StreamingExecution {
   return response && typeof response === 'object' && 'stream' in response && 'execution' in response
 }
 
-/** Discovers model capabilities, sanitizes tuning, and normalizes provider usage and costs. */
+/** Discovers capabilities, rejects configured unknown tuning, and normalizes provider usage and costs. */
 export async function executeProviderRequest(
   providerId: string,
   request: ProviderRequest,
@@ -137,9 +138,21 @@ export async function executeProviderRequest(
     })
   }
 
-  const sanitizedRequest = sanitizeRequest(
-    resolveControls ? { ...request, ...resolveControls() } : request
-  )
+  const resolvedRequest = resolveControls ? { ...request, ...resolveControls() } : request
+  if (
+    providerId === 'openrouter' &&
+    !getProviderModels(providerId).includes(request.model) &&
+    (['temperature', 'reasoningEffort', 'verbosity', 'thinkingLevel'] as const).some(
+      /** Treats cleared controls as unset while retaining an explicit zero. */
+      (field) => {
+        const value = resolvedRequest[field]
+        return value != null && value !== ''
+      }
+    )
+  ) {
+    throw new Error(`Cannot apply configured controls without model capabilities: ${request.model}`)
+  }
+  const sanitizedRequest = sanitizeRequest(resolvedRequest)
 
   // Execute the request using the provider's implementation
   const response = await provider.executeRequest(sanitizedRequest)

@@ -26,7 +26,7 @@ const logger = createLogger('GroqProvider')
 export const groqProvider: ProviderConfig = {
   id: 'groq',
 
-  /** Executes Groq requests, retaining completed usage when tool processing fails. */
+  /** Executes Groq tool rounds with paired results and completed-usage errors. */
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
@@ -240,6 +240,13 @@ export const groqProvider: ProviderConfig = {
 
         // Track time for tool calls in this batch
         const toolsStartTime = Date.now()
+        const assistantMessage = currentResponse.choices[0].message
+        currentMessages.push({
+          role: 'assistant',
+          content: assistantMessage.content ?? null,
+          tool_calls: toolCallsInResponse,
+          ...('reasoning' in assistantMessage && { reasoning: assistantMessage.reasoning }),
+        })
 
         // Process each tool call
         for (const toolCall of toolCallsInResponse) {
@@ -249,7 +256,7 @@ export const groqProvider: ProviderConfig = {
 
             // Get the tool from the tools registry
             const tool = request.tools?.find((t) => t.id === toolName)
-            if (!tool) continue
+            if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
             // Execute the tool
             const toolCallStartTime = Date.now()
@@ -293,22 +300,6 @@ export const groqProvider: ProviderConfig = {
               success: result.success,
             })
 
-            // Add the tool call and result to messages (both success and failure)
-            currentMessages.push({
-              role: 'assistant',
-              content: null,
-              tool_calls: [
-                {
-                  id: toolCall.id,
-                  type: 'function',
-                  function: {
-                    name: toolName,
-                    arguments: toolCall.function.arguments,
-                  },
-                },
-              ],
-            })
-
             currentMessages.push({
               role: 'tool',
               tool_call_id: toolCall.id,
@@ -316,6 +307,15 @@ export const groqProvider: ProviderConfig = {
             })
           } catch (error) {
             logger.error('Error processing tool call:', { error })
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                error: true,
+                message: error instanceof Error ? error.message : String(error),
+                tool: toolCall.function.name,
+              }),
+            })
           }
         }
 

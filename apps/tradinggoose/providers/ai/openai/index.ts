@@ -11,7 +11,6 @@ import type {
   ProviderResponse,
   TimeSegment,
 } from '@/providers/ai/types'
-import { ProviderError } from '@/providers/ai/types'
 import {
   createModelCost,
   prepareToolExecution,
@@ -29,6 +28,7 @@ export const openaiProvider: ProviderConfig = {
     executeResponsesRequest(request, new OpenAI({ apiKey: request.apiKey }), request.model),
 }
 
+/** Runs native Responses tool rounds and retains completed usage on ordinary or streamed failures. */
 export async function executeResponsesRequest(
   request: ProviderRequest,
   client: OpenAI,
@@ -114,6 +114,7 @@ export async function executeResponsesRequest(
     : cancellation.signal
   const emitDeltas = !prepared.tools?.length || request.streamToolCalls
 
+  /** Accumulates completed Responses turns and attaches their usage before rethrowing failures. */
   const run = async (emit?: (text: string) => void): Promise<ProviderResponse> => {
     try {
       for (let round = 0; ; round++) {
@@ -292,10 +293,17 @@ export async function executeResponsesRequest(
     } catch (error) {
       const endTime = Date.now()
       logger.error('Error in OpenAI request', { error, duration: endTime - startTime })
-      throw new ProviderError(toError(error).message, {
-        startTime: startTimeISO,
-        endTime: new Date(endTime).toISOString(),
-        duration: endTime - startTime,
+      throw toError(error, {
+        ...(iterations > 0 && {
+          model: request.model,
+          tokens,
+          cost: withToolCosts(cost.value, toolResults),
+        }),
+        timing: {
+          startTime: startTimeISO,
+          endTime: new Date(endTime).toISOString(),
+          duration: endTime - startTime,
+        },
       })
     }
   }

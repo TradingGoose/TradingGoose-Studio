@@ -8,6 +8,7 @@ import { toError } from '@/providers/ai/error'
 import type {
   Message,
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -131,6 +132,7 @@ export const vllmProvider: ProviderConfig = {
 
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       if (request.stream && (!tools || tools.length === 0 || !hasActiveTools)) {
@@ -267,6 +269,11 @@ export const vllmProvider: ProviderConfig = {
       }
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(calculateCost(request.model, tokens.input, tokens.output), toolResults),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
 
@@ -298,14 +305,7 @@ export const vllmProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw toError(new Error('vLLM exceeded the tool iteration limit'), {
-            model: request.model,
-            tokens,
-            cost: withToolCosts(
-              calculateCost(request.model, tokens.input, tokens.output),
-              toolResults
-            ),
-          })
+          throw new Error('vLLM exceeded the tool iteration limit')
 
         logger.info(
           `Processing ${toolCallsInResponse.length} tool calls (iteration ${iterationCount + 1}/${MAX_TOOL_ITERATIONS})`
@@ -313,50 +313,53 @@ export const vllmProvider: ProviderConfig = {
 
         const toolsStartTime = Date.now()
 
-        const toolExecutionPromises = toolCallsInResponse.map(async (toolCall) => {
-          const toolCallStartTime = Date.now()
-          const toolName = toolCall.function.name
+        const toolExecutionPromises = toolCallsInResponse.map(
+          /** Produces one ordered native result even when lookup, arguments or execution fail. */
+          async (toolCall) => {
+            const toolCallStartTime = Date.now()
+            const toolName = toolCall.function.name
 
-          try {
-            const toolArgs = JSON.parse(toolCall.function.arguments)
-            const tool = request.tools?.find((t) => t.id === toolName)
+            try {
+              const toolArgs = JSON.parse(toolCall.function.arguments)
+              const tool = request.tools?.find((t) => t.id === toolName)
 
-            if (!tool) return null
+              if (!tool) throw new Error(`Unknown tool: ${toolName}`)
 
-            const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeTool(toolName, executionParams)
-            const toolCallEndTime = Date.now()
+              const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
+              const result = await executeTool(toolName, executionParams)
+              const toolCallEndTime = Date.now()
 
-            return {
-              toolCall,
-              toolName,
-              toolParams,
-              result,
-              startTime: toolCallStartTime,
-              endTime: toolCallEndTime,
-              duration: toolCallEndTime - toolCallStartTime,
-            }
-          } catch (error) {
-            const toolCallEndTime = Date.now()
-            logger.error('Error processing tool call:', { error, toolName })
+              return {
+                toolCall,
+                toolName,
+                toolParams,
+                result,
+                startTime: toolCallStartTime,
+                endTime: toolCallEndTime,
+                duration: toolCallEndTime - toolCallStartTime,
+              }
+            } catch (error) {
+              const toolCallEndTime = Date.now()
+              logger.error('Error processing tool call:', { error, toolName })
 
-            return {
-              toolCall,
-              toolName,
-              toolParams: {},
-              result: {
-                success: false,
-                output: undefined,
-                error: error instanceof Error ? error.message : 'Tool execution failed',
-              },
-              startTime: toolCallStartTime,
-              endTime: toolCallEndTime,
-              duration: toolCallEndTime - toolCallStartTime,
+              return {
+                toolCall,
+                toolName,
+                toolParams: {},
+                result: {
+                  success: false,
+                  output: undefined,
+                  error: error instanceof Error ? error.message : 'Tool execution failed',
+                },
+                startTime: toolCallStartTime,
+                endTime: toolCallEndTime,
+                duration: toolCallEndTime - toolCallStartTime,
+              }
             }
           }
-        })
+        )
 
-        const executionResults = await Promise.allSettled(toolExecutionPromises)
+        const executionResults = await Promise.all(toolExecutionPromises)
 
         currentMessages.push({
           role: 'assistant',
@@ -371,11 +374,9 @@ export const vllmProvider: ProviderConfig = {
           })),
         })
 
-        for (const settledResult of executionResults) {
-          if (settledResult.status === 'rejected' || !settledResult.value) continue
-
+        for (const executionResult of executionResults) {
           const { toolCall, toolName, toolParams, result, startTime, endTime, duration } =
-            settledResult.value
+            executionResult
 
           timeSegments.push({
             type: 'tool',
@@ -583,7 +584,7 @@ export const vllmProvider: ProviderConfig = {
       const providerEndTimeISO = new Date(providerEndTime).toISOString()
       const totalDuration = providerEndTime - providerStartTime
 
-      const providerError = toError(error)
+      const providerError = toError(error, getAccruedUsage?.())
       let errorMessage = providerError.message
       let errorType: string | undefined
       let errorCode: number | undefined

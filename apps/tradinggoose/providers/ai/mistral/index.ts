@@ -5,6 +5,7 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -153,11 +154,7 @@ export const mistralProvider: ProviderConfig = {
               ? toolChoice
               : toolChoice.type === 'function'
                 ? `force:${toolChoice.function.name}`
-                : toolChoice.type === 'tool'
-                  ? `force:${toolChoice.name}`
-                  : toolChoice.type === 'any'
-                    ? `force:${toolChoice.any?.name || 'unknown'}`
-                    : 'unknown',
+                : `force:${toolChoice.name}`,
           model: request.model,
         })
       }
@@ -165,6 +162,7 @@ export const mistralProvider: ProviderConfig = {
 
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
     try {
       if (request.stream && (!tools || tools.length === 0)) {
@@ -295,6 +293,11 @@ export const mistralProvider: ProviderConfig = {
       )
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       const currentMessages = [...allMessages]
       let iterationCount = 0
 
@@ -319,11 +322,7 @@ export const mistralProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw toError(new Error('Mistral exceeded the tool iteration limit'), {
-            model: request.model,
-            tokens,
-            cost: withToolCosts(cost.value, toolResults),
-          })
+          throw new Error('Mistral exceeded the tool iteration limit')
 
         logger.info(
           `Processing ${toolCallsInResponse.length} tool calls (iteration ${iterationCount + 1}/${MAX_TOOL_ITERATIONS})`
@@ -559,6 +558,7 @@ export const mistralProvider: ProviderConfig = {
       })
 
       throw toError(error, {
+        ...getAccruedUsage?.(),
         timing: {
           startTime: providerStartTimeISO,
           endTime: providerEndTimeISO,

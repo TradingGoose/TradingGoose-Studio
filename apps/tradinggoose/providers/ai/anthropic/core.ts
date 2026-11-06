@@ -15,7 +15,12 @@ import {
   getThinkingCapability,
   supportsTemperature,
 } from '@/providers/ai/models'
-import type { ProviderRequest, ProviderResponse, TimeSegment } from '@/providers/ai/types'
+import type {
+  ProviderErrorDetails,
+  ProviderRequest,
+  ProviderResponse,
+  TimeSegment,
+} from '@/providers/ai/types'
 import {
   calculateCost,
   createModelCost,
@@ -410,6 +415,7 @@ export async function executeAnthropicProviderRequest(
 
   const providerStartTime = Date.now()
   const providerStartTimeISO = new Date(providerStartTime).toISOString()
+  let getAccruedUsage: (() => ProviderErrorDetails) | undefined
 
   try {
     const initialCallTime = Date.now()
@@ -433,6 +439,11 @@ export async function executeAnthropicProviderRequest(
 
     const toolCalls = []
     const toolResults: Record<string, unknown>[] = []
+    getAccruedUsage = () => ({
+      model: request.model,
+      tokens,
+      cost: withToolCosts(cost.value, toolResults),
+    })
     const currentMessages = [...messages]
     let iterationCount = 0
     let hasUsedForcedTool = false
@@ -474,11 +485,7 @@ export async function executeAnthropicProviderRequest(
         const toolUses = currentResponse.content.filter((item) => item.type === 'tool_use')
         if (toolUses.length === 0) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw toError(new Error(`${providerLabel} exceeded the tool iteration limit`), {
-            model: request.model,
-            tokens,
-            cost: withToolCosts(cost.value, toolResults),
-          })
+          throw new Error(`${providerLabel} exceeded the tool iteration limit`)
 
         const toolsStartTime = Date.now()
 
@@ -688,6 +695,7 @@ export async function executeAnthropicProviderRequest(
     })
 
     throw toError(error, {
+      ...getAccruedUsage?.(),
       timing: {
         startTime: providerStartTimeISO,
         endTime: providerEndTimeISO,

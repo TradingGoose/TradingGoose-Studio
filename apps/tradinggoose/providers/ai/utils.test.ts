@@ -430,7 +430,6 @@ describe('Tool Management', () => {
 
       expect(result.tools).toBeUndefined()
       expect(result.toolChoice).toBeUndefined()
-      expect(result.hasFilteredTools).toBe(false)
       expect(result.forcedTools).toEqual([])
     })
 
@@ -449,7 +448,6 @@ describe('Tool Management', () => {
       const result = prepareToolsWithUsageControl(tools, providerTools, mockLogger)
 
       expect(result.tools).toHaveLength(2)
-      expect(result.hasFilteredTools).toBe(true)
       expect(result.forcedTools).toEqual(['tool3'])
       expect(mockLogger.info).toHaveBeenCalledWith("Filtered out 1 tools with usageControl='none'")
     })
@@ -500,7 +498,6 @@ describe('Tool Management', () => {
 
       expect(result.tools).toBeUndefined()
       expect(result.toolChoice).toBeUndefined()
-      expect(result.hasFilteredTools).toBe(true)
     })
 
     it.concurrent('should default to auto when no forced tools', () => {

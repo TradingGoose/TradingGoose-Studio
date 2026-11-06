@@ -6,6 +6,7 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
 import type {
   ProviderConfig,
+  ProviderErrorDetails,
   ProviderRequest,
   ProviderResponse,
   TimeSegment,
@@ -54,6 +55,7 @@ export const deepseekProvider: ProviderConfig = {
     // Start execution timer for the entire provider execution
     const providerStartTime = Date.now()
     const providerStartTimeISO = new Date(providerStartTime).toISOString()
+    let getAccruedUsage: (() => ProviderErrorDetails) | undefined
     const tokens = { prompt: 0, completion: 0, total: 0 }
     const cost = createModelCost(request.model)
     const recordUsage = (usage?: DeepSeekUsage) => {
@@ -154,11 +156,7 @@ export const deepseekProvider: ProviderConfig = {
                 ? toolChoice
                 : toolChoice.type === 'function'
                   ? `force:${toolChoice.function.name}`
-                  : toolChoice.type === 'tool'
-                    ? `force:${toolChoice.name}`
-                    : toolChoice.type === 'any'
-                      ? `force:${toolChoice.any?.name || 'unknown'}`
-                      : 'unknown',
+                  : `force:${toolChoice.name}`,
             model: request.model,
           })
         }
@@ -239,6 +237,11 @@ export const deepseekProvider: ProviderConfig = {
 
       const toolCalls = []
       const toolResults: Record<string, unknown>[] = []
+      getAccruedUsage = () => ({
+        model: request.model,
+        tokens,
+        cost: withToolCosts(cost.value, toolResults),
+      })
       const currentMessages: Array<
         (typeof allMessages)[number] | OpenAI.Chat.Completions.ChatCompletionMessage
       > = [...allMessages]
@@ -285,11 +288,7 @@ export const deepseekProvider: ProviderConfig = {
         const toolCallsInResponse = currentResponse.choices[0]?.message?.tool_calls
         if (!toolCallsInResponse?.length) break
         if (iterationCount >= MAX_TOOL_ITERATIONS)
-          throw toError(new Error('DeepSeek exceeded the tool iteration limit'), {
-            model: request.model,
-            tokens,
-            cost: withToolCosts(cost.value, toolResults),
-          })
+          throw new Error('DeepSeek exceeded the tool iteration limit')
 
         // DeepSeek requires the complete reasoning content when continuing a tool turn.
         currentMessages.push(currentResponse.choices[0].message)
@@ -526,6 +525,7 @@ export const deepseekProvider: ProviderConfig = {
       })
 
       throw toError(error, {
+        ...getAccruedUsage?.(),
         timing: {
           startTime: providerStartTimeISO,
           endTime: providerEndTimeISO,
