@@ -1,4 +1,3 @@
-import { readServerJsonCache, writeServerJsonCache } from '@/lib/cache/server-json-cache'
 import { type ModelCapabilities, updateOpenRouterModels } from '@/providers/ai/models'
 import type { ModelPricing } from '@/providers/ai/types'
 
@@ -27,11 +26,22 @@ interface OpenRouterCatalog {
 
 let pendingModels: Promise<OpenRouterCatalog> | undefined
 
-/** Loads priced model capabilities from the versioned cache, deduplicating concurrent discovery. */
+/** Loads browser capabilities through the server endpoint and deduplicates cached server discovery. */
 export async function getOpenRouterModels(): Promise<OpenRouterCatalog> {
+  if (typeof window !== 'undefined') {
+    const response = await fetch('/api/providers/ai/openrouter/models')
+    if (!response.ok) throw new Error(`OpenRouter models endpoint returned HTTP ${response.status}`)
+    const catalog = (await response.json()) as OpenRouterCatalog
+    updateOpenRouterModels(catalog.models, catalog.pricing, catalog.capabilities)
+    return catalog
+  }
+
   pendingModels ??=
     /** Loads cached or discovered model capabilities and pricing. */
     (async () => {
+      const { readServerJsonCache, writeServerJsonCache } = await import(
+        '@/lib/cache/server-json-cache'
+      )
       const cached = await readServerJsonCache<OpenRouterCatalog>(CACHE_KEY)
       if (cached) return cached
 

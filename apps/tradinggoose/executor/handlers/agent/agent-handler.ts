@@ -22,7 +22,7 @@ import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/execu
 import { getProviderFromModel, getProviderModels } from '@/providers/ai/models'
 import { decodeProviderStream } from '@/providers/ai/streaming'
 import type { ProviderControlResolver } from '@/providers/ai/types'
-import { transformBlockTool } from '@/providers/ai/utils'
+import { assertOpenRouterControlCapabilities, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
 import { createLLMToolSchema } from '@/tools/params'
@@ -537,7 +537,7 @@ export class AgentBlockHandler implements BlockHandler {
     }
   }
 
-  /** Routes execution through the server or browser provider path. */
+  /** Resolves active tuning after discovery on either transport before dispatching provider execution. */
   private async executeProviderRequest(
     providerRequest: any,
     block: SerializedBlock,
@@ -550,6 +550,42 @@ export class AgentBlockHandler implements BlockHandler {
     const providerStartTime = Date.now()
 
     try {
+      const resolveControls: ProviderControlResolver | undefined =
+        providerRequest.provider === 'openrouter'
+          ? /** Resolves known active controls, retaining unknown configuration for the setup check. */
+            () => {
+              const fields = [
+                'temperature',
+                'reasoningEffort',
+                'verbosity',
+                'thinkingLevel',
+              ] as const
+              const params = Object.fromEntries(
+                fields
+                  .filter((field) => Object.hasOwn(block.config.params, field))
+                  .map((field) => [field, block.config.params[field]])
+              )
+              // Unknown controls stay unresolved for the provider's capability/setup check.
+              if (!getProviderModels('openrouter').includes(providerRequest.model)) return params
+              const resolved = this.resolver.resolveInputs(
+                {
+                  ...block,
+                  config: { ...block.config, params: { ...params, model: providerRequest.model } },
+                },
+                context
+              )
+              for (const field of fields) {
+                if (!Object.hasOwn(resolved, field)) Reflect.deleteProperty(inputs, field)
+              }
+              Object.assign(inputs, resolved)
+              return {
+                temperature: inputs.temperature,
+                reasoningEffort: inputs.reasoningEffort,
+                verbosity: inputs.verbosity,
+                thinkingLevel: inputs.thinkingLevel,
+              }
+            }
+          : undefined
       const isBrowser = typeof window !== 'undefined'
 
       if (!isBrowser) {
@@ -559,8 +595,17 @@ export class AgentBlockHandler implements BlockHandler {
           responseFormat,
           context,
           providerStartTime,
-          inputs
+          resolveControls
         )
+      }
+      if (resolveControls) {
+        const { getOpenRouterModels } = await import('@/providers/ai/openrouter/models')
+        await getOpenRouterModels().catch((error) => {
+          logger.warn('Unable to refresh OpenRouter model capabilities', { error })
+        })
+        const controls = resolveControls()
+        assertOpenRouterControlCapabilities(model, controls)
+        Object.assign(providerRequest, controls)
       }
       return this.executeBrowserSide(
         providerRequest,
@@ -582,7 +627,7 @@ export class AgentBlockHandler implements BlockHandler {
     responseFormat: any,
     context: ExecutionContext,
     providerStartTime: number,
-    inputs: AgentInputs
+    resolveControls?: ProviderControlResolver
   ) {
     logger.info('Using direct server provider request')
 
@@ -595,37 +640,6 @@ export class AgentBlockHandler implements BlockHandler {
       providerRequest.model,
       providerRequest.apiKey
     )
-    const resolveControls: ProviderControlResolver | undefined =
-      providerRequest.provider === 'openrouter'
-        ? /** Resolves known active controls, retaining unknown configuration for the setup check. */
-          () => {
-            const fields = ['temperature', 'reasoningEffort', 'verbosity', 'thinkingLevel'] as const
-            const params = Object.fromEntries(
-              fields
-                .filter((field) => Object.hasOwn(block.config.params, field))
-                .map((field) => [field, block.config.params[field]])
-            )
-            // Unknown controls stay unresolved for the provider's capability/setup check.
-            if (!getProviderModels('openrouter').includes(providerRequest.model)) return params
-            const resolved = this.resolver.resolveInputs(
-              {
-                ...block,
-                config: { ...block.config, params: { ...params, model: providerRequest.model } },
-              },
-              context
-            )
-            for (const field of fields) {
-              if (!Object.hasOwn(resolved, field)) Reflect.deleteProperty(inputs, field)
-            }
-            Object.assign(inputs, resolved)
-            return {
-              temperature: inputs.temperature,
-              reasoningEffort: inputs.reasoningEffort,
-              verbosity: inputs.verbosity,
-              thinkingLevel: inputs.thinkingLevel,
-            }
-          }
-        : undefined
     const request = {
       ...providerRequest,
       apiKey,

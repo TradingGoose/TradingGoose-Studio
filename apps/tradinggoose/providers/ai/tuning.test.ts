@@ -377,7 +377,7 @@ it.each(
 )
 
 it.each(['unavailable', 'omitted'] as const)(
-  'checks explicitly configured OpenRouter controls when discovery remains %s',
+  'distinguishes OpenRouter Auto defaults from configured controls when discovery remains %s',
   async (catalog) => {
     const originalModels = PROVIDER_DEFINITIONS.openrouter.models
     const model = 'openrouter/publisher/unknown'
@@ -392,6 +392,8 @@ it.each(['unavailable', 'omitted'] as const)(
         { reasoningEffort: 'high' },
         { verbosity: 'high' },
         { thinkingLevel: 'high' },
+        { reasoningEffort: 'auto', verbosity: 'high', thinkingLevel: 'auto' },
+        { temperature: 0, reasoningEffort: 'auto', verbosity: 'auto', thinkingLevel: 'auto' },
       ]) {
         await expect(executeProviderRequest('openrouter', request(model, params))).rejects.toThrow(
           `Cannot apply configured controls without model capabilities: ${model}`
@@ -401,11 +403,22 @@ it.each(['unavailable', 'omitted'] as const)(
       for (const params of [
         {},
         { temperature: undefined, reasoningEffort: '', verbosity: '', thinkingLevel: '' },
+        { reasoningEffort: 'auto' },
+        { verbosity: 'auto' },
+        { thinkingLevel: 'auto' },
+        { reasoningEffort: 'auto', verbosity: 'auto', thinkingLevel: 'auto' },
       ]) {
-        const result = await executeProviderRequest('openrouter', request(model, params))
+        const configuredRequest = request(model, params)
+        const savedRequest = structuredClone(configuredRequest)
+        const result = await executeProviderRequest('openrouter', configuredRequest)
         expect(result).toMatchObject({ content: 'Done', model })
+        expect(configuredRequest).toEqual(savedRequest)
+        const payload = mocks.chat.mock.lastCall![0]
+        for (const key of ['temperature', 'reasoning_effort', 'verbosity', 'thinking']) {
+          expect(payload).not.toHaveProperty(key)
+        }
       }
-      expect(mocks.chat).toHaveBeenCalledTimes(2)
+      expect(mocks.chat).toHaveBeenCalledTimes(6)
       expect(mocks.tool).not.toHaveBeenCalled()
     } finally {
       PROVIDER_DEFINITIONS.openrouter.models = originalModels
@@ -432,6 +445,21 @@ it('retains known OpenRouter tuning when refreshing an existing catalog fails', 
     expect(mocks.chat).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ temperature: 0, reasoning_effort: 'high', verbosity: 'high' })
     )
+    const configuredRequest = request(model, {
+      temperature: 0,
+      reasoningEffort: 'auto',
+      verbosity: 'auto',
+      thinkingLevel: 'auto',
+    })
+    const savedRequest = structuredClone(configuredRequest)
+    await executeProviderRequest('openrouter', configuredRequest)
+    const payload = mocks.chat.mock.lastCall![0]
+    expect(payload.temperature).toBe(0)
+    for (const key of ['reasoning_effort', 'verbosity', 'thinking']) {
+      expect(payload).not.toHaveProperty(key)
+    }
+    expect(configuredRequest).toEqual(savedRequest)
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
   } finally {
     PROVIDER_DEFINITIONS.openrouter.models = originalModels
   }

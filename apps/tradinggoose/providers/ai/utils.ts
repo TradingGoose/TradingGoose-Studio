@@ -7,11 +7,31 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExecutionSubmissionSource } from '@/executor/types'
-import { getModelCapabilities, getModelPricing } from '@/providers/ai/models'
-import type { ProviderResponse, ProviderToolConfig } from '@/providers/ai/types'
+import { getModelCapabilities, getModelPricing, getProviderModels } from '@/providers/ai/models'
+import type { ProviderRequest, ProviderResponse, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 
 const logger = createLogger('ProviderUtils')
+
+/** Requires discovered OpenRouter support for real tuning while allowing cleared and Auto controls. */
+export function assertOpenRouterControlCapabilities(
+  model: string,
+  controls: Pick<ProviderRequest, 'temperature' | 'reasoningEffort' | 'verbosity' | 'thinkingLevel'>
+): void {
+  if (
+    model.startsWith('openrouter/') &&
+    !getProviderModels('openrouter').includes(model) &&
+    (['temperature', 'reasoningEffort', 'verbosity', 'thinkingLevel'] as const).some(
+      /** Retains numeric zero as tuning; only the combobox controls define Auto. */
+      (field) => {
+        const value = controls[field]
+        return value != null && value !== '' && (field === 'temperature' || value !== 'auto')
+      }
+    )
+  ) {
+    throw new Error(`Cannot apply configured controls without model capabilities: ${model}`)
+  }
+}
 
 /**
  * Transforms a custom tool schema into a provider tool config

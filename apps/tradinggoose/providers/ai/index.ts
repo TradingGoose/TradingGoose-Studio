@@ -15,7 +15,6 @@ import {
   getMaxTemperature,
   getMinOutputTokensForModel,
   getProviderFromModel,
-  getProviderModels,
   MODEL_CONTROL_GETTERS,
   type ModelControl,
 } from '@/providers/ai/models'
@@ -29,7 +28,7 @@ import type {
   ProviderRequest,
   ProviderResponse,
 } from '@/providers/ai/types'
-import { withToolCosts } from '@/providers/ai/utils'
+import { assertOpenRouterControlCapabilities, withToolCosts } from '@/providers/ai/utils'
 import { vertexProvider } from '@/providers/ai/vertex'
 import { vllmProvider } from '@/providers/ai/vllm'
 import { xAIProvider } from '@/providers/ai/xai'
@@ -139,19 +138,7 @@ export async function executeProviderRequest(
   }
 
   const resolvedRequest = resolveControls ? { ...request, ...resolveControls() } : request
-  if (
-    providerId === 'openrouter' &&
-    !getProviderModels(providerId).includes(request.model) &&
-    (['temperature', 'reasoningEffort', 'verbosity', 'thinkingLevel'] as const).some(
-      /** Treats cleared controls as unset while retaining an explicit zero. */
-      (field) => {
-        const value = resolvedRequest[field]
-        return value != null && value !== ''
-      }
-    )
-  ) {
-    throw new Error(`Cannot apply configured controls without model capabilities: ${request.model}`)
-  }
+  assertOpenRouterControlCapabilities(request.model, resolvedRequest)
   const sanitizedRequest = sanitizeRequest(resolvedRequest)
 
   // Execute the request using the provider's implementation

@@ -340,6 +340,7 @@ describe('AI model catalog', () => {
         ...(expected ?? []),
       ])
 
+      vi.stubGlobal('window', undefined)
       updateOpenRouterModels([])
       mocks.readCache.mockResolvedValueOnce(catalog)
       expect(await getOpenRouterModels()).toEqual(catalog)
