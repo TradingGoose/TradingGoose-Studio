@@ -40,7 +40,7 @@ import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { createStripeUserCustomer } from '@/lib/billing/stripe-customers'
-import { hydrateSubscriptionsWithTiers, requireBillingTierById } from '@/lib/billing/tiers'
+import { hydrateSubscriptionsWithTiers } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { handleManualEnterpriseSubscription } from '@/lib/billing/webhooks/enterprise'
@@ -1812,44 +1812,12 @@ export const auth = betterAuth({
             referenceId,
           })
         },
-        getCheckoutSessionParams: async ({ plan, subscription }) => {
-          const [settings, tier] = await Promise.all([
-            getResolvedSystemSettings(),
-            requireBillingTierById(plan.name),
-          ])
-          const allowPromotionCodes = settings.allowPromotionCodes
-
-          if (tier.ownerType === 'organization') {
-            const seatCount = tier.seatCount ?? 1
-            const checkoutQuantity = Math.max(subscription?.seats || seatCount, seatCount, 1)
-
-            return {
-              params: {
-                allow_promotion_codes: allowPromotionCodes,
-                line_items: [
-                  {
-                    price: plan.priceId,
-                    quantity: checkoutQuantity,
-                    ...(tier.seatMode === 'adjustable'
-                      ? {
-                          adjustable_quantity: {
-                            enabled: true,
-                            minimum: seatCount,
-                            ...(typeof tier.seatMaximum === 'number'
-                              ? { maximum: tier.seatMaximum }
-                              : {}),
-                          },
-                        }
-                      : {}),
-                  },
-                ],
-              },
-            }
-          }
-
+        getCheckoutSessionParams: async () => {
+          const settings = await getResolvedSystemSettings()
           return {
             params: {
-              allow_promotion_codes: allowPromotionCodes,
+              allow_promotion_codes: settings.allowPromotionCodes,
+              subscription_data: { billing_mode: { type: 'classic' } },
             },
           }
         },

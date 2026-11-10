@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useSession } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
+import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
@@ -27,6 +28,7 @@ import { useWorkspaceSettings } from '@/hooks/queries/workspace'
 import { formatUsd } from '@/i18n/formatters'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { UsageHeader } from '../shared/usage-header'
+import { TeamSeats } from '../team-management/components/team-seats/team-seats'
 import { PlanCard, UsageLimit, type UsageLimitRef, WorkspaceBillingOwnerEditor } from './components'
 import {
   getPersonalPaygUiState,
@@ -235,6 +237,7 @@ function openContactUrl(url: string | null) {
 
 export function Subscription({ onOpenChange }: SubscriptionProps) {
   const copy = useTranslations('workspace.settingsModal.subscription')
+  const teamCopy = useTranslations('workspace.settingsModal.team')
   const locale = useLocale()
   const { data: session } = useSession()
   const { handleUpgrade } = useSubscriptionUpgrade()
@@ -288,6 +291,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     isOrgBillingLoading || Boolean(organizationBillingId && isOrgBillingPlaceholder)
 
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
+  const [pendingUpgradeTier, setPendingUpgradeTier] = useState<PublicBillingTierDisplay | null>(
+    null
+  )
+  const [isUpgradePending, setIsUpgradePending] = useState(false)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
 
@@ -444,16 +451,30 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     !isOrganizationPlan && Boolean(billingPayload?.cancelAtPeriodEnd)
 
   const handleUpgradeWithErrorHandling = useCallback(
-    async (targetTier: ReturnType<typeof toUpgradeTarget>) => {
+    async (targetTier: PublicBillingTierDisplay, seats?: number) => {
+      if (
+        targetTier.ownerType === 'organization' &&
+        targetTier.seatMode === 'adjustable' &&
+        seats === undefined
+      ) {
+        setUpgradeError(null)
+        setPendingUpgradeTier(targetTier)
+        return
+      }
+      setIsUpgradePending(true)
       try {
-        await handleUpgrade(targetTier, {
+        await handleUpgrade(toUpgradeTarget(targetTier), {
           ...(targetTier.ownerType === 'organization' && organizationBillingId
             ? { organizationId: organizationBillingId }
             : {}),
+          ...(seats !== undefined ? { seats } : {}),
         })
+        setPendingUpgradeTier(null)
       } catch {
-        setUpgradeError(targetTier.billingTierId)
-        alert(copy('errors.unknown'))
+        setUpgradeError(targetTier.id)
+        if (seats === undefined) alert(copy('errors.unknown'))
+      } finally {
+        setIsUpgradePending(false)
       }
     },
     [copy, handleUpgrade, organizationBillingId]
@@ -518,7 +539,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         (tier) => tier.id !== surfaceState.currentTier?.id
       )
       if (defaultUpgradeTier) {
-        void handleUpgradeWithErrorHandling(toUpgradeTarget(defaultUpgradeTier))
+        void handleUpgradeWithErrorHandling(defaultUpgradeTier)
       }
       return
     }
@@ -718,8 +739,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                             ? copy('titles.upgrade')
                             : copy('actions.changeTo', { name: tier.displayName })
                       }
-                      onButtonClick={() => handleUpgradeWithErrorHandling(toUpgradeTarget(tier))}
-                      buttonDisabled={!canManageSelectedPlan}
+                      onButtonClick={() => handleUpgradeWithErrorHandling(tier)}
+                      buttonDisabled={!canManageSelectedPlan || isUpgradePending}
                       isCurrent={isCurrentTier}
                       isError={!isCurrentTier && upgradeError === tier.id}
                       layout='vertical'
@@ -795,6 +816,31 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
       </div>
+      <TeamSeats
+        open={Boolean(pendingUpgradeTier)}
+        onOpenChange={(open) => {
+          if (!open) setPendingUpgradeTier(null)
+        }}
+        title={pendingUpgradeTier?.displayName ?? ''}
+        description={pendingUpgradeTier?.description || teamCopy('plans.description')}
+        pricePerSeat={pendingUpgradeTier?.monthlyPriceUsd ?? 0}
+        minimumSeats={Math.max(
+          pendingUpgradeTier?.seatCount ?? 1,
+          organizationBillingPayload?.usedSeats ?? 1
+        )}
+        maximumSeats={pendingUpgradeTier?.seatMaximum ?? null}
+        initialSeats={Math.max(
+          pendingUpgradeTier?.seatCount ?? 1,
+          organizationBillingPayload?.totalSeats ?? 1,
+          organizationBillingPayload?.usedSeats ?? 1
+        )}
+        isLoading={isUpgradePending}
+        error={upgradeError === pendingUpgradeTier?.id ? copy('errors.unknown') : null}
+        onConfirm={async (seats) => {
+          if (pendingUpgradeTier) await handleUpgradeWithErrorHandling(pendingUpgradeTier, seats)
+        }}
+        confirmButtonText={copy('titles.upgrade')}
+      />
     </div>
   )
 }

@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   billing: null as Record<string, unknown> | null,
   refetch: vi.fn(),
   mutate: vi.fn(),
+  publicTiers: [] as Record<string, unknown>[],
 }))
 
 vi.mock('@/lib/auth-client', () => ({
@@ -66,7 +67,7 @@ vi.mock('@/hooks/queries/subscription', () => ({
 }))
 
 vi.mock('@/hooks/queries/public-billing-catalog', () => ({
-  usePublicBillingCatalog: () => ({ data: { publicTiers: [] }, isLoading: false }),
+  usePublicBillingCatalog: () => ({ data: { publicTiers: mocks.publicTiers }, isLoading: false }),
 }))
 
 vi.mock('@/hooks/queries/private-tier-access', () => ({
@@ -86,7 +87,7 @@ vi.mock('./team-management/components', async () => ({
   ),
   RemoveMemberDialog: () => null,
   TeamMembers: (await import('./team-management/components/team-members/team-members')).TeamMembers,
-  TeamSeats: () => null,
+  TeamSeats: (await import('./team-management/components/team-seats/team-seats')).TeamSeats,
   TeamSeatsOverview: () => null,
   TeamUsage: () => null,
   WorkspaceBilling: () => null,
@@ -102,6 +103,7 @@ describe('settings localization', () => {
     vi.clearAllMocks()
     mocks.organization = null
     mocks.billing = null
+    mocks.publicTiers = []
     queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     container = document.createElement('div')
     document.body.append(container)
@@ -203,6 +205,68 @@ describe('settings localization', () => {
       expect(container.textContent).not.toContain('Team ID:')
       expect(container.textContent).not.toContain('licensed seats')
     }
+  })
+
+  it('selects organization seats before checkout through the existing localized dialog', async () => {
+    mocks.organization = {
+      id: 'org-1',
+      name: 'Design team',
+      slug: 'design-team',
+      createdAt: '2025-06-15T12:00:00Z',
+      members: [{ id: 'member-1', role: 'owner', user: { email: 'ana@example.com' } }],
+    }
+    mocks.billing = {
+      organizationId: 'org-1',
+      billingEnabled: true,
+      subscriptionTier: null,
+      totalSeats: 1,
+      totalCurrentUsage: 0,
+      totalUsageLimit: 0,
+    }
+    mocks.publicTiers = [
+      {
+        id: 'tier-org',
+        displayName: 'Organization Pro',
+        description: '',
+        ownerType: 'organization',
+        usageScope: 'pooled',
+        seatMode: 'adjustable',
+        seatCount: 2,
+        seatMaximum: 10,
+        monthlyPriceUsd: 12.5,
+        yearlyPriceUsd: null,
+        displayOrder: 0,
+        pricingFeatures: [],
+        canEditUsageLimit: false,
+        isDefault: false,
+      },
+    ]
+
+    await render('es', <TeamManagement />)
+    const plan = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Organization Pro')
+    )!
+    await act(async () => plan.click())
+
+    expect(mocks.mutate).not.toHaveBeenCalled()
+    const dialog = document.querySelector('[role="dialog"]')!
+    const seatsInput = dialog.querySelector<HTMLInputElement>('#seats')!
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+        seatsInput,
+        '8'
+      )
+      seatsInput.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const confirm = Array.from(dialog.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Configurar suscripción de equipo'
+    )!
+    await act(async () => confirm.click())
+
+    expect(mocks.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ billingTierId: 'tier-org', ownerType: 'organization' }),
+      { organizationId: 'org-1', seats: 8 }
+    )
   })
 
   it.each([

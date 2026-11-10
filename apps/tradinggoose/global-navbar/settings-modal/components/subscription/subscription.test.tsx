@@ -345,7 +345,7 @@ describe('Subscription billing subject', () => {
     expect(onOpenChange).not.toHaveBeenCalled()
   })
 
-  it('offers public and granted-private organization tiers to an unsubscribed organization owner', () => {
+  it('selects seats before upgrading an unsubscribed organization to a granted private tier', async () => {
     mocks.workspaceSettings = workspaceBillingOwner({
       type: 'organization',
       organizationId: 'org-billing',
@@ -378,9 +378,24 @@ describe('Subscription billing subject', () => {
     expect(privatePlan).toHaveAttribute('data-price', '$12.50')
     act(() => privatePlan?.click())
 
+    expect(mocks.handleUpgrade).not.toHaveBeenCalled()
+    const dialog = document.querySelector('[role="dialog"]')!
+    const seatsInput = dialog.querySelector<HTMLInputElement>('#seats')!
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+        seatsInput,
+        '8'
+      )
+      seatsInput.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const confirm = Array.from(dialog.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Upgrade'
+    )!
+    await act(async () => confirm.click())
+
     expect(mocks.handleUpgrade).toHaveBeenCalledWith(
       expect.objectContaining({ billingTierId: 'tier-org-private', ownerType: 'organization' }),
-      { organizationId: 'org-billing' }
+      { organizationId: 'org-billing', seats: 8 }
     )
   })
 
