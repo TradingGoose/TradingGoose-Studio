@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -52,13 +52,18 @@ export function TeamSeats({
 }: TeamSeatsProps) {
   const t = useTranslations('workspace.settingsModal.team')
   const locale = useLocale()
-  const [selectedSeats, setSelectedSeats] = useState(initialSeats)
+  const clampSeats = useCallback(
+    (seats: number) =>
+      Math.max(minimumSeats, maximumSeats === null ? seats : Math.min(seats, maximumSeats)),
+    [minimumSeats, maximumSeats]
+  )
+  const [selectedSeats, setSelectedSeats] = useState(() => clampSeats(initialSeats))
 
   useEffect(() => {
     if (open) {
-      setSelectedSeats(initialSeats)
+      setSelectedSeats(clampSeats(initialSeats))
     }
-  }, [open, initialSeats])
+  }, [open, initialSeats, clampSeats])
 
   const totalMonthlyCost = selectedSeats * pricePerSeat
   const costChange = currentSeats ? (selectedSeats - currentSeats) * pricePerSeat : 0
@@ -95,11 +100,7 @@ export function TeamSeats({
                 return
               }
 
-              const nextValue = Math.max(
-                minimumSeats,
-                maximumSeats === null ? parsed : Math.min(parsed, maximumSeats)
-              )
-              setSelectedSeats(nextValue)
+              setSelectedSeats(clampSeats(parsed))
             }}
             className='rounded-sm'
             disabled={isLoading}

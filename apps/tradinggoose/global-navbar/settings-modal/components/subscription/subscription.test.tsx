@@ -345,7 +345,11 @@ describe('Subscription billing subject', () => {
     expect(onOpenChange).not.toHaveBeenCalled()
   })
 
-  it('selects seats before upgrading an unsubscribed organization to a granted private tier', async () => {
+  it.each([
+    { licensedSeats: 0, selectedSeats: 8, expectedSeats: 8 },
+    { licensedSeats: 20, selectedSeats: null, expectedSeats: 10 },
+  ])('selects private tier seats with $licensedSeats licenses', async (testCase) => {
+    const { licensedSeats, selectedSeats, expectedSeats } = testCase
     mocks.workspaceSettings = workspaceBillingOwner({
       type: 'organization',
       organizationId: 'org-billing',
@@ -353,8 +357,10 @@ describe('Subscription billing subject', () => {
     mocks.organizationBilling = {
       organizationId: 'org-billing',
       billingEnabled: true,
-      subscriptionTier: null,
-      subscriptionStatus: null,
+      subscriptionTier: licensedSeats ? organizationPayload().subscriptionTier : null,
+      subscriptionStatus: licensedSeats ? 'active' : null,
+      totalSeats: licensedSeats,
+      usedSeats: 4,
       userRole: 'owner',
     }
     mocks.publicTiers = [
@@ -362,7 +368,10 @@ describe('Subscription billing subject', () => {
       catalogTier('tier-org-public', 'Organization Public', 'organization', 1),
     ]
     mocks.privateTiers = [
-      catalogTier('tier-org-private', 'Organization Private', 'organization', 2),
+      {
+        ...catalogTier('tier-org-private', 'Organization Private', 'organization', 2),
+        seatMaximum: 10,
+      },
     ]
 
     render()
@@ -381,13 +390,16 @@ describe('Subscription billing subject', () => {
     expect(mocks.handleUpgrade).not.toHaveBeenCalled()
     const dialog = document.querySelector('[role="dialog"]')!
     const seatsInput = dialog.querySelector<HTMLInputElement>('#seats')!
-    act(() => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
-        seatsInput,
-        '8'
-      )
-      seatsInput.dispatchEvent(new Event('input', { bubbles: true }))
-    })
+    expect(seatsInput).toHaveValue(licensedSeats ? 10 : 4)
+    if (selectedSeats !== null) {
+      act(() => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+          seatsInput,
+          String(selectedSeats)
+        )
+        seatsInput.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+    }
     const confirm = Array.from(dialog.querySelectorAll('button')).find(
       (button) => button.textContent === 'Upgrade'
     )!
@@ -395,7 +407,7 @@ describe('Subscription billing subject', () => {
 
     expect(mocks.handleUpgrade).toHaveBeenCalledWith(
       expect.objectContaining({ billingTierId: 'tier-org-private', ownerType: 'organization' }),
-      { organizationId: 'org-billing', seats: 8 }
+      { organizationId: 'org-billing', seats: expectedSeats }
     )
   })
 
