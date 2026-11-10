@@ -406,6 +406,7 @@ describe('/api/billing/payg/activate route', () => {
     expect(mockStripeSubscriptionsCreate).toHaveBeenCalledWith(
       {
         customer: 'cus_123',
+        billing_mode: { type: 'classic' },
         default_payment_method: 'pm_123',
         items: [{ price: 'price_payg' }],
         metadata: {
