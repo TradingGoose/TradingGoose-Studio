@@ -55,6 +55,7 @@ async function setup(email = 'owner@example.com', emailVerified = true) {
     baseURL: 'http://localhost:3000',
     secret: 'email-change-test-secret-that-is-long-enough',
     user: productionOptions.user,
+    emailAndPassword: productionAuth.options.emailAndPassword,
     session: productionAuth.options.session,
     hooks: productionAuth.options.hooks,
     emailVerification: productionAuth.options.emailVerification,
@@ -213,6 +214,108 @@ describe('account email change through native Better Auth OTP', () => {
     expect(mail.send).not.toHaveBeenCalled()
     expect(await storedUser(fixture)).toMatchObject({ email: fixture.email })
     expect(fixture.customerUpdate).not.toHaveBeenCalled()
+  })
+
+  it('invalidates this user’s old password reset links without removing other verifications', async () => {
+    const fixture = await setup()
+    await fixture.context.test.saveUser(
+      fixture.context.test.createUser({ id: 'other', email: 'other@example.com' })
+    )
+    await fixture.auth.api.requestPasswordReset({ body: { email: fixture.email } })
+    await fixture.auth.api.requestPasswordReset({ body: { email: fixture.email } })
+    await fixture.auth.api.requestPasswordReset({ body: { email: 'other@example.com' } })
+    const tokens = await fixture.context.adapter.findMany<{ identifier: string; value: string }>({
+      model: 'verification',
+      where: [{ field: 'identifier', value: 'reset-password:', operator: 'starts_with' }],
+    })
+    expect(tokens.filter((token) => token.value === 'owner')).toHaveLength(2)
+    await fixture.context.internalAdapter.createVerificationValue({
+      identifier: 'other-purpose:owner',
+      value: 'owner',
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    const otp = await requestChange(fixture, 'new@example.com')
+    await fixture.auth.api.changeEmailEmailOTP({
+      headers: fixture.login.headers,
+      body: { newEmail: 'new@example.com', otp },
+    })
+    for (const token of tokens.filter((token) => token.value === 'owner')) {
+      await expect(
+        fixture.auth.api.resetPassword({
+          body: {
+            token: token.identifier.slice('reset-password:'.length),
+            newPassword: 'new-password',
+          },
+        })
+      ).rejects.toMatchObject({ body: { code: 'INVALID_TOKEN' } })
+    }
+    const other = tokens.find((token) => token.value === 'other')!
+    expect(
+      await fixture.auth.api.resetPassword({
+        body: {
+          token: other.identifier.slice('reset-password:'.length),
+          newPassword: 'new-password',
+        },
+      })
+    ).toEqual({ status: true })
+    expect(
+      await fixture.context.internalAdapter.findVerificationValue('other-purpose:owner')
+    ).toMatchObject({ value: 'owner' })
+  })
+
+  it('revokes every other session beyond the first page, including expired sessions', async () => {
+    const fixture = await setup()
+    for (let index = 0; index < 101; index++) {
+      await fixture.context.internalAdapter.createSession(
+        'owner',
+        false,
+        { expiresAt: new Date(Date.now() - 1000) },
+        true
+      )
+    }
+    const other = await fixture.context.test.login({ userId: 'owner' })
+    const otp = await requestChange(fixture, 'new@example.com')
+    await fixture.auth.api.changeEmailEmailOTP({
+      headers: fixture.login.headers,
+      body: { newEmail: 'new@example.com', otp },
+    })
+    expect(
+      await fixture.context.adapter.count({
+        model: 'session',
+        where: [{ field: 'userId', value: 'owner' }],
+      })
+    ).toBe(1)
+    expect(await fixture.auth.api.getSession({ headers: other.headers })).toBeNull()
+    expect(await fixture.auth.api.getSession({ headers: fixture.login.headers })).toMatchObject({
+      session: { id: fixture.login.session.id },
+    })
+  })
+
+  it('rejects a pending code after the current email changes and accepts a fresh request', async () => {
+    const fixture = await setup()
+    const staleOtp = await requestChange(fixture, 'pending@example.com')
+    const otp = await requestChange(fixture, 'changed@example.com')
+    await fixture.auth.api.changeEmailEmailOTP({
+      headers: fixture.login.headers,
+      body: { newEmail: 'changed@example.com', otp },
+    })
+    await expect(
+      fixture.auth.api.changeEmailEmailOTP({
+        headers: fixture.login.headers,
+        body: { newEmail: 'pending@example.com', otp: staleOtp },
+      })
+    ).rejects.toMatchObject({ body: { code: 'INVALID_OTP' } })
+    expect(await storedUser(fixture)).toMatchObject({ email: 'changed@example.com' })
+    const currentOtp = await sendCurrentCode(fixture, 'changed@example.com')
+    await fixture.auth.api.requestEmailChangeEmailOTP({
+      headers: fixture.login.headers,
+      body: { newEmail: 'pending@example.com', otp: currentOtp },
+    })
+    await fixture.auth.api.changeEmailEmailOTP({
+      headers: fixture.login.headers,
+      body: { newEmail: 'pending@example.com', otp: deliveredCode('pending@example.com') },
+    })
+    expect(await storedUser(fixture)).toMatchObject({ email: 'pending@example.com' })
   })
 
   it('rejects a code from another account whose native email-pair key collides', async () => {

@@ -854,10 +854,18 @@ export const auth = betterAuth({
         return
       }
       const { user, session } = ctx.context.session
-      const otherSessions = (await ctx.context.internalAdapter.listSessions(user.id)).filter(
-        (other) => other.token !== session.token
-      )
-      if (otherSessions.length) {
+      await ctx.context.adapter.deleteMany({
+        model: 'verification',
+        where: [
+          { field: 'value', value: user.id },
+          { field: 'identifier', value: 'reset-password:', operator: 'starts_with' },
+        ],
+      })
+      while (true) {
+        const otherSessions = (await ctx.context.internalAdapter.listSessions(user.id)).filter(
+          (other) => other.token !== session.token
+        )
+        if (!otherSessions.length) break
         await ctx.context.internalAdapter.deleteSessions(otherSessions.map((other) => other.token))
       }
     }),
