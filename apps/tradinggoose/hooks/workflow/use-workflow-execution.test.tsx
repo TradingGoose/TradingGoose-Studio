@@ -3,7 +3,7 @@
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { COPILOT_NATIVE_REVISION, type CompletionEvent } from '@/lib/copilot/native/contract'
+import type { CompletionEvent } from '@/lib/copilot/native/contract'
 
 const mockRunQueuedWorkflowExecution = vi.hoisted(() => vi.fn())
 const mockWorkflowDoc = vi.hoisted(() => ({}))
@@ -663,7 +663,6 @@ describe('useWand feedback', () => {
             {
               done: true,
               result: {
-                protocolRevision: COPILOT_NATIVE_REVISION,
                 requestId: wandRequestId,
                 status: 'completed',
                 runId: 'wand-feedback-run',

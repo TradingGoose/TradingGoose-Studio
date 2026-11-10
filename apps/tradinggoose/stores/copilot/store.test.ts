@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  COPILOT_NATIVE_REVISION,
   type FinancialFact,
   type Pending,
   parseNativeContract,
@@ -12,23 +11,14 @@ import { buildCopilotWorkspaceChannelId } from './channel-id'
 import { getCopilotStore, resetCopilotStoreRegistry } from './store'
 import { getCopilotStoreForToolCall } from './store-access'
 import { hasUiActiveToolCalls } from './store-state'
-import { applyNativeEvent } from './streaming'
+import { applyNativeEvent, displayNativePending } from './streaming'
 import type { CopilotChat } from './types'
 
 const tools = vi.hoisted(() => ({
-  execute: vi.fn(),
-  accept: vi.fn(),
-  reject: vi.fn(),
   refresh: vi.fn(),
   browser: vi.fn(),
   bind: vi.fn(),
   hydrate: vi.fn(),
-}))
-vi.mock('@/lib/copilot/tools/client/server-tool-response', async (original) => ({
-  ...(await original<object>()),
-  executeCopilotServerTool: tools.execute,
-  acceptCopilotServerToolReview: tools.accept,
-  rejectCopilotServerToolReview: tools.reject,
 }))
 vi.mock('./tool-registry', async (original) => ({
   ...(await original<object>()),
@@ -56,17 +46,6 @@ const pending = (stage: Pending['stage'] = 'result', toolName = 'read_workflow')
   target: { threadId, resourceId: 'resource-fixture', runId, toolCallId: 'call-fixture', toolName },
   stage,
   originalArgs: { workflowId: 'entity-fixture' },
-  financialBinding: {
-    namespace: 'billing-usage:fixture-owner',
-    key: 'fixture-operation',
-    fingerprint: 'fixture-fingerprint',
-    runId,
-    actorUserId,
-    workspaceId,
-    workflowId: null,
-    purpose: 'copilot',
-  },
-  financialOccurrence: { stepNumber: 7, retryCount: 3, runId },
 })
 const defer = <T>() => {
   let resolve!: (value: T) => void
@@ -76,7 +55,6 @@ const defer = <T>() => {
   return { promise, resolve }
 }
 const result = (request: StudioNativeCommand, value: object) => ({
-  protocolRevision: COPILOT_NATIVE_REVISION,
   requestId: request.requestId,
   ...value,
 })
@@ -120,7 +98,8 @@ const installPending = (item: Pending) => {
       [item.target.toolCallId]: {
         id: item.target.toolCallId,
         name: item.target.toolName,
-        state: ClientToolCallState.pending,
+        state: item.preview ? ClientToolCallState.review : ClientToolCallState.pending,
+        ...(item.preview ? { result: item.preview } : {}),
         params: item.originalArgs,
         pending: item,
       },
@@ -357,7 +336,6 @@ describe('canonical browser conversation transport', () => {
           ? json({ ...ready(request), financial: { ...financial, appliedUsd } })
           : undefined
       expect(await store().getState().sendMessage('First')).toBe(false)
-      expect(store().getState().lastNativeFinancial).toBeNull()
       expect(store().getState().error).toBeTruthy()
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
       expect(titleRequests).toEqual([])
@@ -380,7 +358,6 @@ describe('canonical browser conversation transport', () => {
       status: 'failed',
       error: { code: 'UNCERTAIN', uncertain: true },
     })
-    expect(store().getState().lastNativeFinancial).toBeNull()
     expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
     expect(commands.some((request) => request.command === 'context.compact')).toBe(false)
     expect(titleRequests).toEqual([])
@@ -485,10 +462,6 @@ describe('canonical browser conversation transport', () => {
           ])
         : undefined
     expect(await store().getState().sendMessage('Read')).toBe(false)
-    expect(store().getState().lastNativeFinancial).toMatchObject({
-      accepted: true,
-      appliedUsd: '0.02',
-    })
     expect(store().getState().lastNativeOutcome).toMatchObject({
       status: 'failed',
       error: { code: 'UNCERTAIN', uncertain: true },
@@ -527,7 +500,9 @@ describe('canonical browser conversation transport', () => {
           )
         : undefined
     const sending = store().getState().sendMessage('Read')
-    await vi.waitFor(() => expect(store().getState().lastNativeFinancial?.appliedUsd).toBe('0.02'))
+    await vi.waitFor(() =>
+      expect(store().getState().toolCallsById[item.target.toolCallId]?.pending).toBeDefined()
+    )
     store().getState().abortMessage()
     expect(await sending).toBe(false)
     await vi.waitFor(() =>
@@ -537,10 +512,6 @@ describe('canonical browser conversation transport', () => {
     expect(commands.filter((request) => request.command === 'cancel')).toEqual([
       expect.objectContaining({ threadId, runId, workspaceId }),
     ])
-    expect(store().getState().lastNativeFinancial).toMatchObject({
-      accepted: true,
-      appliedUsd: '0.02',
-    })
     expect(store().getState().lastNativeOutcome).toMatchObject({
       status: 'cancel_requested',
       uncertaintyRemains: true,
@@ -567,227 +538,110 @@ describe('canonical browser conversation transport', () => {
   })
 })
 
-describe('genuine pending, native approval and business review', () => {
-  it('renders display events without dispatch or authority', async () => {
-    setChat()
-    onCommand = (request) =>
-      request.command === 'message'
-        ? eventResponse(request, [
-            {
-              type: 'tool.display',
-              toolName: 'read_workflow',
-              toolCallId: 'display',
-              executionAuthorized: false,
-            },
-            { type: 'response.completed', result: ready(request) },
-          ])
-        : undefined
-    await store().getState().sendMessage('Read')
-    expect(tools.execute).not.toHaveBeenCalled()
-    expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
-  })
-  it('never autoapproves under full access and refuses a nontransitioning approval reply', async () => {
-    store().setState({ accessLevel: 'full', conversationWorkspaceId: workspaceId })
-    const item = pending('approval')
-    onCommand = (request) =>
-      request.command === 'message'
-        ? json(suspended(request, [item]))
-        : request.command === 'pending.list'
-          ? json(
-              result(request, {
-                status: 'pending_targets',
-                items: [item],
-                page: request.page,
-                hasMore: false,
-              })
-            )
-          : undefined
-    await store().getState().sendMessage('Read')
-    await new Promise<void>((resolve) => queueMicrotask(resolve))
-    expect(commands.some((request) => request.command === 'tool.approve')).toBe(false)
-    expect(tools.execute).not.toHaveBeenCalled()
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    expect(commands.find((request) => request.command === 'tool.approve')).toMatchObject({
-      target: item.target,
-      financialBinding: item.financialBinding,
-    })
-    expect(tools.execute).not.toHaveBeenCalled()
-  })
-  it.each(['target', 'originalArgs', 'financialBinding', 'financialOccurrence'])(
-    'refuses a changed original %s before business execution',
-    async (field) => {
-      const item = pending()
-      installPending(item)
-      const changed = structuredClone(item)
-      if (field === 'target') changed.target.resourceId = 'forged'
-      if (field === 'originalArgs') changed.originalArgs.workflowId = 'other'
-      if (field === 'financialBinding') changed.financialBinding.fingerprint = 'other'
-      if (field === 'financialOccurrence') changed.financialOccurrence.retryCount++
-      onCommand = (request) =>
-        request.command === 'pending.list'
-          ? json(
-              result(request, {
-                status: 'pending_targets',
-                items: [changed],
-                page: request.page,
-                hasMore: false,
-              })
-            )
-          : undefined
-      await store().getState().executeCopilotToolCall(item.target.toolCallId)
-      expect(tools.execute).not.toHaveBeenCalled()
-      expect(store().getState().error).toContain('changed')
-    }
-  )
-  it('keeps preview, business review accept and final signed resume distinct', async () => {
-    const item = pending('result', 'edit_workflow')
-    installPending(item)
-    onCommand = (request) =>
-      request.command === 'pending.list'
-        ? json(
-            result(request, {
-              status: 'pending_targets',
-              items: [item],
-              page: request.page,
-              hasMore: false,
-            })
-          )
-        : undefined
-    tools.execute.mockResolvedValue({
-      success: true,
-      result: { requiresReview: true, reviewToken: 'review-token' },
-    })
-    tools.accept.mockResolvedValue({
-      success: true,
-      result: { success: true, workflowId: 'entity-fixture' },
-      proof: 'signed-proof',
-    })
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe('review')
-    expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    expect(tools.execute).toHaveBeenCalledOnce()
-    expect(tools.accept).toHaveBeenCalledWith(
-      expect.objectContaining({
-        native: { workspaceId, target: item.target },
-        reviewToken: 'review-token',
+describe('local pending approval and preview decisions', () => {
+  const pendingResponse = (request: StudioNativeCommand, items: Pending[]) =>
+    json(
+      result(request, {
+        status: 'pending_targets',
+        items,
+        page: 'page' in request ? request.page : { page: 0, perPage: 100 },
+        hasMore: false,
       })
     )
-    expect(commands.find((request) => request.command === 'tool.result')).toMatchObject({
-      source: 'studio_signed',
-      target: item.target,
-      financialBinding: item.financialBinding,
-      proof: 'signed-proof',
-    })
-  })
-  it('never repeats an effect after uncertain delivery; explicit readback only publishes proof', async () => {
-    const item = pending()
+  it('keeps full-access approval explicit and sends no browser billing provenance', async () => {
+    const item = pending('approval', 'make_api_request')
     installPending(item)
-    let deliver = false
+    store().setState({ accessLevel: 'full' })
     onCommand = (request) =>
-      request.command === 'pending.list'
-        ? json(
-            result(request, {
-              status: 'pending_targets',
-              items: [item],
-              page: request.page,
-              hasMore: false,
-            })
-          )
-        : request.command === 'tool.result' && !deliver
-          ? Promise.reject(new Error('connection lost'))
-          : undefined
-    tools.execute
-      .mockResolvedValueOnce({ success: true, result: { success: true }, proof: 'proof' })
-      .mockResolvedValue({ success: true, result: { success: true }, proof: 'readback-proof' })
+      request.command === 'pending.list' ? pendingResponse(request, [item]) : undefined
+    expect(commands.some((request) => request.command === 'tool.approve')).toBe(false)
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    expect(tools.execute).toHaveBeenCalledOnce()
-    expect(store().getState().error).toContain('requires delivery or authorized readback')
-    deliver = true
-    await store().getState().readbackCopilotToolCall(item.target.toolCallId)
-    expect(tools.execute).toHaveBeenLastCalledWith({
-      native: { workspaceId, target: item.target },
-      action: 'readback',
-    })
-    expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(2)
-  })
-  it('declines approval separately and refuses unsupported result-stage Skip without canceling unrelated work', async () => {
-    const item = pending('approval')
-    installPending(item)
-    onCommand = (request) =>
-      request.command === 'pending.list'
-        ? json(
-            result(request, {
-              status: 'pending_targets',
-              items: [item],
-              page: request.page,
-              hasMore: false,
-            })
-          )
-        : undefined
-    await store().getState().skipCopilotToolCall(item.target.toolCallId)
-    expect(commands.some((request) => request.command === 'tool.decline')).toBe(true)
-    item.stage = 'result'
-    installPending(item)
-    commands = []
-    await expect(store().getState().skipCopilotToolCall(item.target.toolCallId)).rejects.toThrow(
-      'no server preview'
-    )
+    const approval = commands.find((request) => request.command === 'tool.approve')
+    expect(approval).toMatchObject({ target: item.target, workspaceId })
+    expect(approval).not.toHaveProperty('financialBinding')
     expect(
-      commands.some((request) =>
-        ['cancel', 'tool.decline', 'tool.result'].includes(request.command)
+      commands.some(
+        (request) => request.command === 'tool.execute' || request.command === 'tool.result'
       )
     ).toBe(false)
   })
-  it('serializes business actions and cancels queued work after the conversation changes', async () => {
+  it('uses the displayed pending target without another discovery request', async () => {
+    const item = pending()
+    installPending(item)
+    const copy = await store().getState().readPendingTool(item.target.toolCallId)
+    expect(copy).toEqual(item)
+    copy.originalArgs.changed = true
+    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+    expect(commands).toEqual([])
+  })
+  it('restores a persisted preview and accepts through one server-owned continuation', async () => {
+    const item = pending('result', 'edit_workflow')
+    item.preview = { requiresReview: true, reviewToken: 'preview' }
+    installPending(item)
+    store().setState((state) => displayNativePending(state, item))
+    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+      state: 'review',
+      result: item.preview,
+    })
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
+      expect.objectContaining({
+        target: item.target,
+        action: 'review.accept',
+        reviewToken: 'preview',
+      }),
+    ])
+    expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
+  })
+  it('declines approval without canceling unrelated work', async () => {
+    const item = pending('approval')
+    installPending(item)
+    onCommand = (request) =>
+      request.command === 'pending.list' ? pendingResponse(request, [item]) : undefined
+    await store().getState().skipCopilotToolCall(item.target.toolCallId)
+    expect(commands.some((request) => request.command === 'tool.decline')).toBe(true)
+    expect(commands.some((request) => request.command === 'cancel')).toBe(false)
+  })
+  it('serializes server actions and discards queued work after navigation', async () => {
     const first = pending()
-    const second = structuredClone(first)
-    second.target.toolCallId = 'second'
+    const second = { ...structuredClone(first), target: { ...first.target, toolCallId: 'second' } }
     installPending(first)
-    store().setState({
+    store().setState((state) => ({
       toolCallsById: {
-        ...store().getState().toolCallsById,
+        ...state.toolCallsById,
         second: {
           id: 'second',
           name: second.target.toolName,
           state: ClientToolCallState.pending,
-          params: second.originalArgs,
           pending: second,
         },
       },
-    })
+    }))
+    const gate = defer<Response>()
     onCommand = (request) =>
       request.command === 'pending.list'
-        ? json(
-            result(request, {
-              status: 'pending_targets',
-              items: [first, second],
-              page: request.page,
-              hasMore: false,
-            })
-          )
-        : undefined
-    const late = defer<{ success: boolean; result: object; proof: string }>()
-    tools.execute.mockReturnValue(late.promise)
-    const a = store().getState().executeCopilotToolCall(first.target.toolCallId)
-    const b = store().getState().executeCopilotToolCall(second.target.toolCallId)
-    await vi.waitFor(() => expect(tools.execute).toHaveBeenCalledOnce())
-    const signal = tools.execute.mock.calls[0][0].signal as AbortSignal
-    await store().getState().createNewChat('other-workspace')
-    expect(signal.aborted).toBe(true)
-    late.resolve({ success: true, result: { success: true }, proof: 'late-proof' })
-    await Promise.all([a, b])
-    expect(tools.execute).toHaveBeenCalledOnce()
-    expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
-    expect(store().getState().currentChat).toBeNull()
-    expect(store().getState().error).toBeNull()
+        ? pendingResponse(request, [first, second])
+        : request.command === 'tool.execute'
+          ? gate.promise
+          : undefined
+    const active = store().getState().executeCopilotToolCall(first.target.toolCallId)
+    await vi.waitFor(() =>
+      expect(commands.some((request) => request.command === 'tool.execute')).toBe(true)
+    )
+    const queued = store().getState().executeCopilotToolCall('second')
+    await store().getState().createNewChat()
+    gate.resolve(json(ready(commands.find((request) => request.command === 'tool.execute')!)))
+    await Promise.all([active, queued])
+    expect(commands.filter((request) => request.command === 'tool.execute')).toHaveLength(1)
   })
-  it('refuses ambiguous local tool IDs across stores instead of choosing an owner', () => {
+  it('refuses ambiguous tool IDs across stores', () => {
     const item = pending()
     installPending(item)
-    getCopilotStore('second').setState({ toolCallsById: store().getState().toolCallsById })
-    expect(() => getCopilotStoreForToolCall(item.target.toolCallId)).toThrow('No unique active')
+    const other = getCopilotStore(
+      buildCopilotWorkspaceChannelId({ authenticatedUserId: actorUserId, workspaceId: 'other' })
+    )
+    other.setState({ toolCallsById: store().getState().toolCallsById })
+    expect(() => getCopilotStoreForToolCall(item.target.toolCallId)).toThrow('unique')
   })
 })
 
@@ -828,7 +682,7 @@ describe('canonical history, edits and context', () => {
       historical: true,
       state: 'aborted',
     })
-    expect(tools.execute).not.toHaveBeenCalled()
+    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
   })
   it('opens canonical history without cancelling or erasing an active first turn', async () => {
     const abortController = new AbortController()
@@ -894,14 +748,13 @@ describe('canonical history, edits and context', () => {
       setChat()
       const prior = { ...financial, appliedUsd: '0.12345678901234567890123456789' }
       const priorTitle = {
-        protocolRevision: COPILOT_NATIVE_REVISION,
         requestId: 'prior-title-request',
         status: 'completed' as const,
         runId: 'prior-title-run',
         text: 'Existing title',
         financial: { ...financial, appliedUsd: '0.30000000000000001' },
       }
-      store().setState({ lastNativeFinancial: prior, lastTitleOutcome: priorTitle })
+      store().setState({ lastTitleOutcome: priorTitle })
       const before = store().getState().messages
       onCommand = (request) =>
         request.command === 'context.compact'
@@ -928,7 +781,6 @@ describe('canonical history, edits and context', () => {
       expect(store().getState().lastNativeOutcome).toMatchObject({ status: 'compacted', applied })
       expect(store().getState().lastNativeOutcome).not.toHaveProperty('runId')
       expect(store().getState().lastNativeOutcome).not.toHaveProperty('financial')
-      expect(store().getState().lastNativeFinancial).toEqual(prior)
       expect(store().getState().lastTitleOutcome).toEqual(priorTitle)
       expect(store().getState().contextEvidence).not.toHaveProperty('hasObservations')
     }
@@ -938,7 +790,7 @@ describe('canonical history, edits and context', () => {
     async (field) => {
       setChat()
       const prior = { ...financial, appliedUsd: '0.30000000000000001' }
-      store().setState({ lastNativeFinancial: prior })
+
       const obsolete = {
         runId,
         financial,
@@ -957,7 +809,6 @@ describe('canonical history, edits and context', () => {
             )
           : undefined
       await expect(store().getState().compactCurrentContext()).rejects.toThrow()
-      expect(store().getState().lastNativeFinancial).toEqual(prior)
       expect(commands.filter((request) => request.command === 'context.compact')).toHaveLength(1)
       expect(commands.some((request) => request.command === 'message')).toBe(false)
       expect(titleRequests).toEqual([])
@@ -968,13 +819,11 @@ describe('canonical history, edits and context', () => {
     async (applied) => {
       setChat()
       const prior = { ...financial, appliedUsd: '0.30000000000000001' }
-      store().setState({ lastNativeFinancial: prior, currentRunId: runId })
+      store().setState({ currentRunId: runId })
       const event = await parseNativeContract('CopilotEvent', {
-        protocolRevision: COPILOT_NATIVE_REVISION,
         requestId: 'compact-event',
         type: 'context.compacted',
         result: {
-          protocolRevision: COPILOT_NATIVE_REVISION,
           requestId: 'compact-event',
           status: 'compacted',
           threadId,
@@ -990,7 +839,6 @@ describe('canonical history, edits and context', () => {
       })
       expect(patch).not.toHaveProperty('lastNativeFinancial')
       expect(patch).not.toHaveProperty('currentRunId')
-      expect({ ...state, ...patch }.lastNativeFinancial).toBe(prior)
       expect(commands).toEqual([])
     }
   )
@@ -998,7 +846,6 @@ describe('canonical history, edits and context', () => {
 
 describe('actual bounded initial-title publication', () => {
   const titleOutcome = {
-    protocolRevision: COPILOT_NATIVE_REVISION,
     requestId: 'title-request',
     status: 'completed',
     runId: 'title-run',
@@ -1123,7 +970,6 @@ describe('actual bounded initial-title publication', () => {
       await vi.waitFor(() => expect(titleRequests).toHaveLength(1))
       await vi.waitFor(() => expect(store().getState().error).toBeTruthy())
       expect(commands.some((request) => request.command === 'thread.title')).toBe(false)
-      expect(store().getState().lastNativeFinancial).toEqual(financial)
     }
   )
   it('retains exact high precision accepted title facts without numeric conversion', async () => {
@@ -1163,7 +1009,6 @@ describe('actual bounded initial-title publication', () => {
         .getState()
         .messages.find((message) => message.role === 'assistant')?.content
     ).toBe('canonical answer')
-    expect(store().getState().lastNativeFinancial?.appliedUsd).toBe(appliedUsd)
     expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
   })
   it('retains accepted title facts on uncertain publication failure without replay or fabricated title', async () => {
@@ -1205,7 +1050,6 @@ describe('actual bounded initial-title publication', () => {
         mode === 'null'
           ? undefined
           : {
-              protocolRevision: COPILOT_NATIVE_REVISION,
               requestId: 'title-request',
               status: mode === 'error' ? 'failed' : mode,
               error: {
@@ -1361,12 +1205,10 @@ describe('owned late pruning and history-edit refresh', () => {
       expect(store().getState().currentChat).toEqual(before.currentChat)
       expect(store().getState().messages).toEqual(before.messages)
       expect(store().getState().lastNativeOutcome).toEqual(before.lastNativeOutcome)
-      expect(store().getState().lastNativeFinancial).toEqual(before.lastNativeFinancial)
       if (!finishBeforeCompact) {
         stream.finish()
         expect(await sending).toBe(true)
       }
-      expect(store().getState().lastNativeFinancial).toEqual(stream.accepted)
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
       expect(titleRequests).toEqual([])
     }
@@ -1406,7 +1248,6 @@ describe('owned late pruning and history-edit refresh', () => {
     ).toEqual([])
     stream.finish()
     expect(await sending).toBe(true)
-    expect(store().getState().lastNativeFinancial).toEqual(stream.accepted)
     expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
   })
   it('discards edit hydration already in flight when a later same-thread turn starts', async () => {
@@ -1529,8 +1370,12 @@ describe('requested conversation scope survives discovery failure', () => {
   })
 })
 
-describe('reopened workflow pending business context', () => {
-  async function reopen(item: Pending) {
+describe('reopened workflow pending cards', () => {
+  it('restores public pending state and resolves the card locally without discovery', async () => {
+    const item = {
+      ...pending('result', 'deploy_workflow'),
+      originalArgs: { entityId: 'original-workflow', action: 'deploy', deployType: 'api' },
+    }
     onCommand = (request) =>
       request.command === 'pending.list'
         ? json(
@@ -1542,101 +1387,21 @@ describe('reopened workflow pending business context', () => {
             })
           )
         : undefined
-    await store().getState().selectChat(chat(item.financialBinding.workspaceId))
+    await store().getState().selectChat(chat(null))
+    commands = []
+    expect(await store().getState().readPendingTool(item.target.toolCallId)).toEqual(item)
+    expect(commands).toEqual([])
     expect(workflowRequests).toEqual([])
     expect(tools.browser).not.toHaveBeenCalled()
-    expect(commands.some((request) => request.command === 'message')).toBe(false)
-  }
-  const workflowPending = (scope: string | null = workspaceId) => ({
-    ...pending('result', 'deploy_workflow'),
-    originalArgs: { entityId: 'original-workflow', action: 'deploy', deployType: 'api' },
-    financialBinding: { ...pending().financialBinding, workspaceId: scope },
   })
-  it.each([workspaceId, null])(
-    'restores original authorized entity workspace with conversation %s',
-    async (scope) => {
-      const item = workflowPending(scope)
-      await reopen(item)
-      await store().getState().executeCopilotToolCall(item.target.toolCallId)
-      expect(workflowRequests).toEqual(['original-workflow'])
-      expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
-      expect(tools.bind).toHaveBeenCalledWith(
-        item.target.toolCallId,
-        expect.objectContaining({
-          contextEntityKind: 'workflow',
-          contextEntityId: 'original-workflow',
-          workspaceId: 'original-entity-workspace',
-        })
-      )
-      const restored = store().getState().toolCallsById[item.target.toolCallId]
-      expect(restored.pending).toEqual(item)
-      expect(restored.provenance?.workspaceId).toBe('original-entity-workspace')
-      expect(store().getState().conversationWorkspaceId).toBe(scope)
-      expect(commands.some((request) => request.command === 'message')).toBe(false)
-    }
-  )
-  it('restores a reopened run tool from the exact original workflow and trigger', async () => {
-    const item = {
-      ...workflowPending(),
-      target: { ...workflowPending().target, toolName: 'run_workflow' },
-      originalArgs: {
-        entityId: 'original-workflow',
-        triggerBlockId: 'original-trigger',
-        workflow_input: ' exact input ',
-      },
-    }
-    await reopen(item)
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
-    expect(tools.bind).toHaveBeenCalledWith(
-      item.target.toolCallId,
-      expect.objectContaining({
-        contextEntityId: 'original-workflow',
-        workspaceId: 'original-entity-workspace',
-      })
+  it('rejects a displayed pending card belonging to a different thread', async () => {
+    const item = pending()
+    item.target.threadId = 'foreign-thread'
+    installPending(item)
+    await expect(store().getState().readPendingTool(item.target.toolCallId)).rejects.toThrow(
+      'selected thread'
     )
-    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
-  })
-  it.each([
-    [403, { error: 'Denied' }],
-    [404, { error: 'Missing' }],
-    [
-      200,
-      {
-        data: [
-          { id: 'original-workflow', workspaceId: 'one' },
-          { id: 'other', workspaceId: 'two' },
-        ],
-      },
-    ],
-    [200, { data: { id: 'other-workflow', workspaceId: 'original-entity-workspace' } }],
-    [200, { data: { id: 'original-workflow', workspaceId: null } }],
-  ])('refuses inaccessible or inconsistent target %s/%j', async (status, body) => {
-    const item = workflowPending()
-    await reopen(item)
-    onWorkflow = () => json(body, status)
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    expect(tools.browser).not.toHaveBeenCalled()
-    expect(tools.bind).not.toHaveBeenCalled()
-    expect(store().getState().error).toContain('could not be verified')
-    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
-  })
-  it('ignores a late target response after cross-workspace navigation', async () => {
-    const item = workflowPending()
-    await reopen(item)
-    const target = defer<Response>()
-    onWorkflow = () => target.promise
-    const executing = store().getState().executeCopilotToolCall(item.target.toolCallId)
-    await vi.waitFor(() => expect(workflowRequests).toEqual(['original-workflow']))
-    await store().getState().createNewChat('new-workspace')
-    target.resolve(
-      json({ data: { id: 'original-workflow', workspaceId: 'original-entity-workspace' } })
-    )
-    await executing
-    expect(tools.browser).not.toHaveBeenCalled()
-    expect(tools.bind).not.toHaveBeenCalled()
-    expect(store().getState().conversationWorkspaceId).toBe('new-workspace')
-    expect(store().getState().toolCallsById).toEqual({})
+    expect(commands).toEqual([])
   })
 })
 
@@ -1689,7 +1454,7 @@ describe('display-only terminal settlement and optional completed history', () =
           .find((block) => block.type === 'tool_call')?.toolCall.state
       ).toBe(state.toolCallsById['display-only'].state)
       expect(tools.browser).not.toHaveBeenCalled()
-      expect(tools.execute).not.toHaveBeenCalled()
+      expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
     }
   )
   it.each(['json', 'sse'])(
@@ -1718,7 +1483,6 @@ describe('display-only terminal settlement and optional completed history', () =
           expect.objectContaining({ type: 'thinking', content: reasoning })
         )
       expect(before.lastNativeOutcome?.status).toBe('completed')
-      expect(before.lastNativeFinancial).toEqual(financial)
       expect(before.historyRefreshError).toBeTruthy()
       onCommand = () => undefined
       await store().getState().refreshCurrentHistory()
@@ -1738,7 +1502,6 @@ describe('display-only terminal settlement and optional completed history', () =
       ...applyNativeEvent(
         state,
         {
-          protocolRevision: COPILOT_NATIVE_REVISION,
           requestId: 'display',
           type: 'tool.display',
           toolCallId: 'display-only',
@@ -1783,7 +1546,6 @@ describe('explicit reopened Drive business choice', () => {
   }
   it('requires an explicit new workspace, distinct from personal conversation scope and original financial identity', async () => {
     const item = drive()
-    item.financialBinding.workspaceId = null
     prepare(item)
     store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
     await expect(store().getState().authorizeToolWorkspace(item.target.toolCallId)).rejects.toThrow(
@@ -1800,34 +1562,24 @@ describe('explicit reopened Drive business choice', () => {
     await expect(
       store().getState().readbackCopilotToolCall(item.target.toolCallId)
     ).rejects.toThrow('workspace and credential')
-    expect(tools.execute).not.toHaveBeenCalled()
+    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
   })
-  it('routes an explicitly chosen credential through authorized readback and then original native proof delivery', async () => {
+  it('combines chosen credential readback and continuation in one authenticated command', async () => {
     const item = prepare()
     await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
-    tools.execute.mockResolvedValue({
-      success: true,
-      result: { credentialId: 'explicit-credential' },
-      proof: 'actual-proof-seam',
-    })
     await store()
       .getState()
       .readbackCopilotToolCall(item.target.toolCallId, { credentialId: 'explicit-credential' })
-    expect(tools.execute).toHaveBeenCalledExactlyOnceWith({
-      native: { workspaceId, target: item.target },
-      action: 'readback',
-      context: { workspaceId: 'chosen-business' },
-      readback: { credentialId: 'explicit-credential' },
-    })
-    expect(commands.filter((x) => x.command === 'tool.result')).toEqual([
+    expect(commands.filter((x) => x.command === 'tool.execute')).toEqual([
       expect.objectContaining({
+        workspaceId,
         target: item.target,
-        result: { credentialId: 'explicit-credential' },
-        proof: 'actual-proof-seam',
-        source: 'studio_signed',
+        action: 'readback',
+        context: { workspaceId: 'chosen-business' },
+        readback: { credentialId: 'explicit-credential' },
       }),
     ])
-    expect(commands.filter((x) => x.command === 'message')).toEqual([])
+    expect(commands.some((x) => x.command === 'tool.result')).toBe(false)
     expect(tools.browser).not.toHaveBeenCalled()
   })
   it('refuses the approval stage, unavailable or duplicate workspaces without losing Pending or contacting business services', async () => {
@@ -1849,7 +1601,7 @@ describe('explicit reopened Drive business choice', () => {
       store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
     ).rejects.toThrow('unavailable or ambiguous')
     expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
-    expect(tools.execute).not.toHaveBeenCalled()
+    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
   })
   it.each(['navigation', 'pending-change'] as const)(
     'refuses delayed workspace authorization after %s',
@@ -1881,7 +1633,7 @@ describe('explicit reopened Drive business choice', () => {
       expect(
         store().getState().toolCallsById[item.target.toolCallId]?.provenance?.workspaceId
       ).toBeUndefined()
-      expect(tools.execute).not.toHaveBeenCalled()
+      expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
     }
   )
 })
@@ -1964,9 +1716,8 @@ describe('R5 command-specific streamed outcomes', () => {
         status: 'failed',
         error: { code: 'UNCERTAIN', uncertain: true, retryable: false },
       })
-      expect(store().getState().lastNativeFinancial).toBeNull()
       expect(commands.map((request) => request.command)).toEqual(['message'])
-      expect(tools.execute).not.toHaveBeenCalled()
+      expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
       expect(tools.browser).not.toHaveBeenCalled()
       expect(titleRequests).toEqual([])
     }
@@ -1976,7 +1727,7 @@ describe('R5 command-specific streamed outcomes', () => {
     item.originalArgs = { providerName: 'Google Drive' }
     installPending(item)
     const paid = { ...financial, appliedUsd: '0.1234567890123456789' }
-    store().setState({ lastNativeFinancial: paid })
+
     onCommand = (request) => {
       if (request.command === 'pending.list')
         return json(
@@ -2010,7 +1761,6 @@ describe('R5 command-specific streamed outcomes', () => {
           data: { opened: true, surface: 'integrations', message: 'Opened' },
         })
     ).rejects.toThrow('not verified')
-    expect(store().getState().lastNativeFinancial).toEqual(paid)
     expect(
       store()
         .getState()
@@ -2024,7 +1774,7 @@ describe('R5 command-specific streamed outcomes', () => {
       )
     ).toBe(false)
     expect(tools.browser).not.toHaveBeenCalled()
-    expect(tools.execute).not.toHaveBeenCalled()
+    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
   })
 })
 
@@ -2032,7 +1782,6 @@ describe('R5 reopened OAuth workspace authorization', () => {
   const oauth = (scope: string | null = null) => ({
     ...pending('result', 'oauth_request_access'),
     originalArgs: { providerName: 'Google Drive' },
-    financialBinding: { ...pending().financialBinding, workspaceId: scope },
   })
   let allowed: Array<{ id: string; name: string }>
   async function reopen(item = oauth()) {
@@ -2062,7 +1811,7 @@ describe('R5 reopened OAuth workspace authorization', () => {
         ? Promise.resolve(json({ workspaces: allowed }))
         : original(url, init)
     )
-    await store().getState().selectChat(chat(item.financialBinding.workspaceId))
+    await store().getState().selectChat(chat(null))
     return item
   }
   it('preserves a reopened personal Pending and permits an explicit choice after a proved missing-context refusal', async () => {
@@ -2107,33 +1856,23 @@ describe('R5 reopened OAuth workspace authorization', () => {
     await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
     expect(tools.browser).toHaveBeenCalledExactlyOnceWith({ providerName: 'Google Drive' })
-    expect(item.financialBinding.workspaceId).toBeNull()
+    expect(store().getState().currentChat?.workspaceId).toBeNull()
   })
-  it('freshly resolves an actual original workflow locator without substituting conversation workspace', async () => {
+  it('requires an explicit business workspace when a reopened OAuth card has no workspace', async () => {
     const item = await reopen()
     store().setState((state) => ({
       toolCallsById: {
         ...state.toolCallsById,
         [item.target.toolCallId]: {
           ...state.toolCallsById[item.target.toolCallId],
-          provenance: {
-            contextEntityKind: 'workflow',
-            contextEntityId: 'actual-original-workflow',
-          },
+          provenance: { contextEntityKind: 'workflow', contextEntityId: 'original-workflow' },
         },
       },
     }))
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    expect(workflowRequests).toEqual(['actual-original-workflow'])
-    expect(tools.bind).toHaveBeenCalledWith(
-      item.target.toolCallId,
-      expect.objectContaining({
-        workspaceId: 'original-entity-workspace',
-        contextEntityKind: 'workflow',
-        contextEntityId: 'actual-original-workflow',
-      })
-    )
-    expect(store().getState().currentChat?.workspaceId).toBeNull()
+    expect(workflowRequests).toEqual([])
+    expect(tools.browser).not.toHaveBeenCalled()
+    expect(store().getState().error).toContain('Choose an authorized workspace')
   })
   it('refuses revoked or ambiguous choices before contact and retains a later explicitly authorized attempt', async () => {
     const item = await reopen()
@@ -2305,7 +2044,6 @@ describe('R5 per-tool context at actual live call creation', () => {
         const unchanged = applyNativeEvent(
           store().getState(),
           {
-            protocolRevision: COPILOT_NATIVE_REVISION,
             requestId: 'later',
             type: 'tool.display',
             toolCallId: item.target.toolCallId,
@@ -2319,18 +2057,13 @@ describe('R5 per-tool context at actual live call creation', () => {
       }
       const item = items[selectedIndex]
       item.stage = 'result'
-      tools.execute.mockResolvedValue({
-        success: true,
-        result: { scope: 'recorded' },
-        proof: 'actual-proof-seam',
-      })
+      store().setState((state) => displayNativePending(state, item))
       await store().getState().executeCopilotToolCall(item.target.toolCallId)
-      expect(tools.execute).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({
-          native: { workspaceId, target: item.target },
-          context: expected[selectedIndex],
-        })
-      )
+      expect(commands.find((request) => request.command === 'tool.execute')).toMatchObject({
+        workspaceId,
+        target: item.target,
+        context: expected[selectedIndex],
+      })
       expect(store().getState().conversationWorkspaceId).toBe(workspaceId)
     }
   )
@@ -2341,7 +2074,6 @@ describe('owned workflow chat deployment UI', () => {
     const item: Pending = {
       ...pending('result', 'deploy_workflow'),
       originalArgs: { action: 'deploy', deployType: 'chat', entityId: 'target-a' },
-      financialBinding: { ...pending().financialBinding, workspaceId: null },
     }
     installPending(item)
     store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
@@ -2396,7 +2128,7 @@ describe('owned workflow chat deployment UI', () => {
     expect(item).toEqual(original)
     expect(store().getState().currentChat?.workspaceId).toBeNull()
     expect(commands.filter((request) => request.command === 'tool.result')).toEqual([])
-    expect(tools.execute).not.toHaveBeenCalled()
+    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
     store().getState().settleWorkflowChatDeployment(request.id, 'closed')
   })
 
@@ -2494,7 +2226,7 @@ describe('owned workflow chat deployment UI', () => {
   })
 })
 
-describe('R8 originating action, automatic freshness and signed review decisions', () => {
+describe('built-in tool continuation', () => {
   const pendingResponse = (request: StudioNativeCommand, items: Pending[]) =>
     json(
       result(request, {
@@ -2504,566 +2236,150 @@ describe('R8 originating action, automatic freshness and signed review decisions
         hasMore: false,
       })
     )
-
-  it.each(['limited', 'full-after-preview'] as const)(
-    'keeps a genuine preview explicit through unrelated read refreshes: %s',
-    async (policy) => {
-      setChat()
-      const edit = pending('result', 'edit_workflow')
-      const reads = ['read-a', 'read-b', 'read-c'].map((id) => {
-        const item = pending('result', 'search_online')
-        item.target.toolCallId = id
-        item.originalArgs = { query: id }
-        return item
-      })
-      let remaining = [edit, ...reads]
-      onCommand = (request) => {
-        if (request.command === 'message') return json(suspended(request, remaining))
-        if (request.command === 'pending.list') return pendingResponse(request, remaining)
-        if (request.command === 'tool.result') {
-          remaining = remaining.filter(
-            (item) => item.target.toolCallId !== request.target.toolCallId
-          )
-          return json(remaining.length ? suspended(request, remaining) : ready(request))
-        }
-        return undefined
-      }
-      tools.execute.mockImplementation(async (input) => {
-        if (input.native.target.toolName === 'edit_workflow') {
-          if (policy === 'full-after-preview') store().setState({ accessLevel: 'full' })
-          return { success: true, result: { requiresReview: true, reviewToken: 'review-token' } }
-        }
-        return { success: true, result: { results: [] }, proof: 'read-proof' }
-      })
-      tools.accept.mockResolvedValue({
-        success: true,
-        result: { success: true },
-        proof: 'accept-proof',
-      })
-      expect(await store().getState().sendMessage('Prepare an edit and read')).toBe(true)
-      await vi.waitFor(() =>
-        expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(3)
-      )
-      expect(tools.execute).toHaveBeenCalledTimes(4)
-      expect(tools.accept).not.toHaveBeenCalled()
-      expect(store().getState().toolCallsById[edit.target.toolCallId]).toMatchObject({
-        state: ClientToolCallState.review,
-        result: { reviewToken: 'review-token' },
-      })
-      const projected = store()
-        .getState()
-        .messages.flatMap((message) => message.contentBlocks ?? [])
-        .find((block) => block.type === 'tool_call' && block.toolCall.id === edit.target.toolCallId)
-      expect(projected).toMatchObject({ toolCall: { state: ClientToolCallState.review } })
-      await store().getState().executeCopilotToolCall(edit.target.toolCallId)
-      expect(tools.accept).toHaveBeenCalledOnce()
-      expect(tools.execute).toHaveBeenCalledTimes(4)
-      expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(4)
-    }
-  )
-
   it.each(['limited', 'full'] as const)(
-    'one explicit Allow continues the same make_api_request once in %s mode',
+    'never automatically accepts a persisted preview under %s access',
     async (accessLevel) => {
-      const item = pending('approval', 'make_api_request')
-      item.originalArgs = { url: 'https://example.test', method: 'GET' }
-      installPending(item)
-      store().setState({ accessLevel })
-      onCommand = (request) => {
-        if (request.command === 'pending.list') return pendingResponse(request, [item])
-        if (request.command === 'tool.approve') {
-          item.stage = 'result'
-          return json(suspended(request, [item]))
-        }
-        return undefined
-      }
-      tools.execute.mockResolvedValue({
-        success: true,
-        result: { status: 200, data: 'actual synthetic HTTP result' },
-        proof: 'proof',
-      })
-      await store().getState().executeCopilotToolCall(item.target.toolCallId)
-      await new Promise<void>((resolve) => queueMicrotask(resolve))
-      expect(commands.filter((request) => request.command === 'tool.approve')).toHaveLength(1)
-      expect(tools.execute).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({
-          native: { workspaceId, target: item.target },
-          action: 'execute',
-          accessLevel,
-        })
-      )
-      expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(1)
-    }
-  )
-
-  it('continues an explicit original action after fresh native approval already advanced without approving again', async () => {
-    const original = pending('approval', 'make_api_request')
-    original.originalArgs = { url: 'https://example.test', method: 'GET' }
-    installPending(structuredClone(original))
-    const current = { ...structuredClone(original), stage: 'result' as const }
-    onCommand = (request) =>
-      request.command === 'pending.list' ? pendingResponse(request, [current]) : undefined
-    tools.execute.mockResolvedValue({
-      success: true,
-      result: { status: 200, data: 'authorized result' },
-      proof: 'proof',
-    })
-    await store().getState().executeCopilotToolCall(original.target.toolCallId)
-    expect(commands.some((request) => request.command === 'tool.approve')).toBe(false)
-    expect(tools.execute).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({
-        native: { workspaceId, target: current.target },
-        action: 'execute',
-      })
-    )
-    expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(1)
-  })
-
-  it('native Allow prepares a gated limited preview and does not also accept it', async () => {
-    const item = pending('approval', 'create_workflow')
-    item.originalArgs = { name: 'Proposed workflow', workspaceId }
-    installPending(item)
-    onCommand = (request) => {
-      if (request.command === 'pending.list') return pendingResponse(request, [item])
-      if (request.command === 'tool.approve') {
-        item.stage = 'result'
-        return json(suspended(request, [item]))
-      }
-      return undefined
-    }
-    tools.execute.mockResolvedValue({
-      success: true,
-      result: { requiresReview: true, reviewToken: 'create-preview' },
-    })
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    expect(tools.execute).toHaveBeenCalledOnce()
-    expect(tools.accept).not.toHaveBeenCalled()
-    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe(
-      ClientToolCallState.review
-    )
-    expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
-  })
-
-  it.each(['target', 'originalArgs', 'financialBinding', 'financialOccurrence'] as const)(
-    'does not continue approval after %s changes',
-    async (field) => {
-      const item = pending('approval', 'make_api_request')
-      item.originalArgs = { url: 'https://example.test', method: 'GET' }
-      installPending(item)
-      const changed = structuredClone(item)
-      changed.stage = 'result'
-      if (field === 'target') changed.target.runId = 'other-run'
-      if (field === 'originalArgs') changed.originalArgs.url = 'https://other.test'
-      if (field === 'financialBinding') changed.financialBinding.fingerprint = 'other'
-      if (field === 'financialOccurrence') changed.financialOccurrence.retryCount++
-      let approved = false
-      onCommand = (request) => {
-        if (request.command === 'pending.list')
-          return pendingResponse(request, [approved ? changed : item])
-        if (request.command === 'tool.approve') {
-          approved = true
-          return json(suspended(request, [changed]))
-        }
-        return undefined
-      }
-      await store().getState().executeCopilotToolCall(item.target.toolCallId)
-      expect(tools.execute).not.toHaveBeenCalled()
-      expect(tools.browser).not.toHaveBeenCalled()
-      expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
-    }
-  )
-
-  it('suppresses a queued automatic initial action when a genuine preview appears before fresh dispatch', async () => {
-    setChat()
-    const item = pending('result', 'edit_workflow')
-    const entered = defer<void>()
-    const delayed = defer<Response>()
-    let calls = 0
-    onCommand = (request) => {
-      if (request.command === 'message') return json(suspended(request, [item]))
-      if (request.command === 'pending.list') {
-        if (++calls === 2) {
-          entered.resolve()
-          return delayed.promise
-        }
-        return pendingResponse(request, [item])
-      }
-      return undefined
-    }
-    const sending = store().getState().sendMessage('Prepare edit')
-    await entered.promise
-    const call = store().getState().toolCallsById[item.target.toolCallId]
-    const review = {
-      ...call,
-      state: ClientToolCallState.review,
-      result: { requiresReview: true, reviewToken: 'new-preview' },
-    }
-    store().setState({ toolCallsById: { [call.id]: review } })
-    const request = commands.filter((command) => command.command === 'pending.list').at(-1)!
-    delayed.resolve(pendingResponse(request, [item]))
-    await sending
-    await vi.waitFor(() =>
-      expect(store().getState().toolCallsById[call.id].state).toBe(ClientToolCallState.review)
-    )
-    expect(tools.execute).not.toHaveBeenCalled()
-    expect(tools.accept).not.toHaveBeenCalled()
-  })
-
-  it('rejects one genuine preview through signed delivery while unrelated work remains pending', async () => {
-    const edit = pending('result', 'edit_workflow')
-    const other = pending('approval', 'make_api_request')
-    other.target.toolCallId = 'unrelated'
-    installPending(edit)
-    let remaining = [edit, other]
-    onCommand = (request) => {
-      if (request.command === 'pending.list') return pendingResponse(request, remaining)
-      if (request.command === 'tool.result') {
-        remaining = [other]
-        return json(suspended(request, remaining))
-      }
-      return undefined
-    }
-    tools.execute.mockResolvedValue({
-      success: true,
-      result: { requiresReview: true, reviewToken: 'token' },
-    })
-    const rejection = { success: false, rejected: true, toolName: 'edit_workflow' }
-    tools.reject.mockResolvedValue({ success: true, result: rejection, proof: 'rejected-proof' })
-    await store().getState().executeCopilotToolCall(edit.target.toolCallId)
-    await store().getState().skipCopilotToolCall(edit.target.toolCallId)
-    expect(tools.reject).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({
-        native: { workspaceId, target: edit.target },
-        reviewToken: 'token',
-      })
-    )
-    expect(commands.find((request) => request.command === 'tool.result')).toMatchObject({
-      source: 'studio_signed',
-      target: edit.target,
-      result: rejection,
-      proof: 'rejected-proof',
-      financialBinding: edit.financialBinding,
-    })
-    expect(
-      commands.some((request) => request.command === 'cancel' || request.command === 'tool.decline')
-    ).toBe(false)
-    expect(tools.accept).not.toHaveBeenCalled()
-    expect(tools.refresh).not.toHaveBeenCalled()
-    expect(remaining).toEqual([other])
-    expect(store().getState().isAwaitingContinuation).toBe(true)
-  })
-
-  it('retains a known rejection/proof after native ACK loss and retries signed delivery without another decision', async () => {
-    const item = pending('result', 'edit_workflow')
-    installPending(item)
-    let deliver = false
-    onCommand = (request) =>
-      request.command === 'pending.list'
-        ? pendingResponse(request, [item])
-        : request.command === 'tool.result' && !deliver
-          ? Promise.reject(new Error('native ACK lost'))
-          : undefined
-    tools.execute.mockResolvedValue({
-      success: true,
-      result: { requiresReview: true, reviewToken: 'token' },
-    })
-    const result = { success: false, rejected: true, toolName: 'edit_workflow' }
-    tools.reject.mockResolvedValue({ success: true, result, proof: 'known-proof' })
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    await expect(store().getState().skipCopilotToolCall(item.target.toolCallId)).rejects.toThrow(
-      'not verified'
-    )
-    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
-      state: ClientToolCallState.error,
-      result,
-      resultProof: 'known-proof',
-      resultDeliveryError: expect.any(String),
-    })
-    deliver = true
-    await store().getState().retryToolResultDelivery(item.target.toolCallId)
-    expect(tools.reject).toHaveBeenCalledOnce()
-    expect(tools.execute).toHaveBeenCalledOnce()
-    expect(tools.accept).not.toHaveBeenCalled()
-    expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(2)
-    expect(commands.some((request) => request.command === 'cancel')).toBe(false)
-  })
-
-  it('an uncertain rejection HTTP reply cannot become a new Accept or Reject attempt', async () => {
-    const item = pending('result', 'edit_workflow')
-    installPending(item)
-    onCommand = (request) =>
-      request.command === 'pending.list' ? pendingResponse(request, [item]) : undefined
-    tools.execute.mockResolvedValue({
-      success: true,
-      result: { requiresReview: true, reviewToken: 'token' },
-    })
-    tools.reject.mockRejectedValue(new Error('decision HTTP reply lost'))
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    await expect(store().getState().skipCopilotToolCall(item.target.toolCallId)).rejects.toThrow(
-      'HTTP reply lost'
-    )
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    await expect(store().getState().skipCopilotToolCall(item.target.toolCallId)).rejects.toThrow()
-    expect(tools.reject).toHaveBeenCalledOnce()
-    expect(tools.accept).not.toHaveBeenCalled()
-    expect(tools.execute).toHaveBeenCalledOnce()
-    expect(store().getState().toolCallsById[item.target.toolCallId].resultProof).toBeUndefined()
-    expect(
-      commands.some((request) => request.command === 'cancel' || request.command === 'tool.result')
-    ).toBe(false)
-  })
-  it.each(['error', 'success', 'rejected', 'aborted', 'background', 'executing'] as const)(
-    'does not reset/automatically dispatch retained %s state on Pending refresh',
-    async (state) => {
       const item = pending('result', 'edit_workflow')
-      installPending(item)
-      const call = {
-        ...store().getState().toolCallsById[item.target.toolCallId],
-        state: ClientToolCallState[state],
-        result: { retained: 'known previous work' },
-      }
-      store().setState({
-        toolCallsById: { [call.id]: call },
-        messages: [
-          {
-            id: 'earlier-assistant',
-            role: 'assistant',
-            content: '',
-            timestamp: at,
-            contentBlocks: [{ type: 'tool_call', toolCall: call, timestamp: Date.now() }],
-          },
-        ],
-      })
+      item.preview = { requiresReview: true, reviewToken: 'preview' }
+      store().setState({ conversationWorkspaceId: workspaceId, accessLevel })
       onCommand = (request) =>
         request.command === 'message'
           ? json(suspended(request, [item]))
           : request.command === 'pending.list'
             ? pendingResponse(request, [item])
             : undefined
-      await store().getState().sendMessage('Observe existing pending')
+      expect(await store().getState().sendMessage('Prepare edit')).toBe(true)
       await new Promise<void>((resolve) => queueMicrotask(resolve))
-      expect(tools.execute).not.toHaveBeenCalled()
-      expect(tools.accept).not.toHaveBeenCalled()
-      expect(store().getState().toolCallsById[call.id]).toMatchObject({
-        state,
-        result: { retained: 'known previous work' },
+      expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+        state: 'review',
+        result: item.preview,
       })
-      expect(store().getState().messages[0].contentBlocks?.[0]).toMatchObject({
-        toolCall: { state },
-      })
+      expect(
+        commands.some(
+          (request) => request.command === 'tool.execute' || request.command === 'tool.approve'
+        )
+      ).toBe(false)
     }
   )
-
-  it.each(['failed HTTP', 'missing proof'] as const)(
-    'does not retry a prior initial attempt after another read refresh: %s',
-    async (failure) => {
-      setChat()
-      const edit = pending('result', 'edit_workflow')
-      const read = pending('result', 'search_online')
-      read.target.toolCallId = 'other-read'
-      read.originalArgs = { query: 'other' }
-      let remaining = [edit, read]
-      onCommand = (request) => {
-        if (request.command === 'message') return json(suspended(request, remaining))
-        if (request.command === 'pending.list') return pendingResponse(request, remaining)
-        if (request.command === 'tool.result') {
-          remaining = [edit]
-          return json(suspended(request, remaining))
-        }
-        return undefined
-      }
-      tools.execute.mockImplementation(async (input) => {
-        if (input.native.target.toolName === 'edit_workflow') {
-          if (failure === 'failed HTTP') throw new Error('uncertain business reply')
-          return { success: true, result: { completed: 'known business output' } }
-        }
-        return { success: true, result: { results: [] }, proof: 'read-proof' }
-      })
-      await store().getState().sendMessage('Initial attempts')
-      await vi.waitFor(() =>
-        expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(1)
-      )
-      expect(tools.execute).toHaveBeenCalledTimes(2)
-      expect(tools.accept).not.toHaveBeenCalled()
-      expect(store().getState().toolCallsById[edit.target.toolCallId].state).toBe(
-        ClientToolCallState.error
-      )
-    }
-  )
-
-  it('a queued initial click cannot turn into acceptance of a later displayed preview', async () => {
-    const first = pending('result', 'search_online')
-    first.originalArgs = { query: 'first' }
-    const edit = pending('result', 'edit_workflow')
-    edit.target.toolCallId = 'queued-edit'
-    installPending(first)
-    store().setState({
-      toolCallsById: {
-        ...store().getState().toolCallsById,
-        [edit.target.toolCallId]: {
-          id: edit.target.toolCallId,
-          name: edit.target.toolName,
-          state: ClientToolCallState.pending,
-          params: edit.originalArgs,
-          pending: edit,
-        },
-      },
-    })
-    const entered = defer<void>()
-    const release = defer<{ success: true; result: { results: never[] }; proof: string }>()
+  it('rejects a preview through one local decision while preserving other pending work', async () => {
+    const item = pending('result', 'edit_workflow')
+    item.preview = { requiresReview: true, reviewToken: 'preview' }
+    const other = { ...pending('approval'), target: { ...pending().target, toolCallId: 'other' } }
+    installPending(item)
     onCommand = (request) =>
       request.command === 'pending.list'
-        ? pendingResponse(request, [first, edit])
-        : request.command === 'tool.result'
-          ? json(suspended(request, [edit]))
+        ? pendingResponse(request, [item, other])
+        : request.command === 'tool.execute'
+          ? json(suspended(request, [other]))
           : undefined
-    tools.execute.mockImplementation(async () => {
-      entered.resolve()
-      return release.promise
+    await store().getState().readPendingTool(item.target.toolCallId)
+    await store().getState().skipCopilotToolCall(item.target.toolCallId)
+    expect(commands.find((request) => request.command === 'tool.execute')).toMatchObject({
+      target: item.target,
+      action: 'review.reject',
+      reviewToken: 'preview',
     })
-    const executing = store().getState().executeCopilotToolCall(first.target.toolCallId)
-    await entered.promise
-    const queued = store().getState().executeCopilotToolCall(edit.target.toolCallId)
-    const call = store().getState().toolCallsById[edit.target.toolCallId]
-    store().setState({
-      toolCallsById: {
-        ...store().getState().toolCallsById,
-        [call.id]: {
-          ...call,
-          state: ClientToolCallState.review,
-          result: { requiresReview: true, reviewToken: 'later-preview' },
-        },
-      },
-    })
-    release.resolve({ success: true, result: { results: [] }, proof: 'first-proof' })
-    await Promise.all([executing, queued])
-    expect(tools.execute).toHaveBeenCalledOnce()
-    expect(tools.accept).not.toHaveBeenCalled()
-    expect(store().getState().toolCallsById[call.id]).toMatchObject({
-      state: ClientToolCallState.review,
-      result: { reviewToken: 'later-preview' },
-    })
+    expect(
+      commands.some((request) => request.command === 'tool.result' || request.command === 'cancel')
+    ).toBe(false)
+    expect(store().getState().isAwaitingContinuation).toBe(true)
   })
-
-  it('a concurrent Reject cannot resolve as rejected while an Accept owns the action', async () => {
+  it('an initial action that discovers a new preview never accepts it implicitly', async () => {
     const item = pending('result', 'edit_workflow')
     installPending(item)
+    const fresh = { ...item, preview: { requiresReview: true, reviewToken: 'later-preview' } }
     onCommand = (request) =>
-      request.command === 'pending.list' ? pendingResponse(request, [item]) : undefined
-    tools.execute.mockResolvedValue({
-      success: true,
-      result: { requiresReview: true, reviewToken: 'token' },
-    })
+      request.command === 'tool.execute' ? json(suspended(request, [fresh])) : undefined
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    const entered = defer<void>()
-    const release = defer<{ success: true; result: { success: true }; proof: string }>()
-    tools.accept.mockImplementation(async () => {
-      entered.resolve()
-      return release.promise
-    })
-    const accepting = store().getState().executeCopilotToolCall(item.target.toolCallId)
-    await entered.promise
-    await expect(store().getState().skipCopilotToolCall(item.target.toolCallId)).rejects.toThrow(
-      'in flight'
-    )
-    expect(tools.reject).not.toHaveBeenCalled()
-    expect(store().getState().toolCallsById[item.target.toolCallId].state).not.toBe(
-      ClientToolCallState.rejected
-    )
-    release.resolve({ success: true, result: { success: true }, proof: 'accepted' })
-    await accepting
-    expect(tools.accept).toHaveBeenCalledOnce()
+    expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
+      expect.objectContaining({ action: 'execute', target: item.target }),
+    ])
+    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe('review')
   })
-
-  it('restores a historical shell for manual preview but never auto-dispatches it under full access', async () => {
+  it('a concurrent rejection cannot claim success while acceptance is in flight', async () => {
     const item = pending('result', 'edit_workflow')
+    item.preview = { requiresReview: true, reviewToken: 'preview' }
     installPending(item)
-    const call = store().getState().toolCallsById[item.target.toolCallId]
-    store().setState({
-      accessLevel: 'full',
-      toolCallsById: {
-        [call.id]: {
-          ...call,
-          pending: undefined,
-          historical: true,
-          state: ClientToolCallState.aborted,
-        },
-      },
-    })
+    const gate = defer<Response>()
     onCommand = (request) =>
       request.command === 'pending.list'
         ? pendingResponse(request, [item])
-        : request.command === 'message'
-          ? json(suspended(request, [item]))
+        : request.command === 'tool.execute'
+          ? gate.promise
           : undefined
-    await store().getState().readPendingTool(call.id)
-    expect(store().getState().toolCallsById[call.id]).toMatchObject({
-      state: ClientToolCallState.pending,
-      historical: false,
-      historyOrigin: true,
-      pending: item,
-    })
-    await store().getState().sendMessage('Observe retained work')
-    await new Promise<void>((resolve) => queueMicrotask(resolve))
-    expect(tools.execute).not.toHaveBeenCalled()
-    expect(tools.browser).not.toHaveBeenCalled()
-    tools.execute.mockResolvedValue({
-      success: true,
-      result: { requiresReview: true, reviewToken: 'fresh-manual-preview' },
-    })
-    await store().getState().executeCopilotToolCall(call.id)
-    expect(tools.execute).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ action: 'execute', accessLevel: 'limited' })
+    await store().getState().readPendingTool(item.target.toolCallId)
+    const active = store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await vi.waitFor(() =>
+      expect(commands.some((request) => request.command === 'tool.execute')).toBe(true)
     )
-    expect(store().getState().toolCallsById[call.id]).toMatchObject({
-      state: ClientToolCallState.review,
-      historyOrigin: true,
-    })
-    expect(tools.accept).not.toHaveBeenCalled()
+    await expect(store().getState().skipCopilotToolCall(item.target.toolCallId)).rejects.toThrow(
+      'already in flight'
+    )
+    gate.resolve(json(ready(commands.find((request) => request.command === 'tool.execute')!)))
+    await active
+    expect(commands.filter((request) => request.command === 'tool.execute')).toHaveLength(1)
   })
-
-  it('keeps conversation billing A separate from original business B through preview and rejection', async () => {
-    const item = pending('result', 'edit_workflow')
-    installPending(item)
-    const call = store().getState().toolCallsById[item.target.toolCallId]
-    store().setState({
-      toolCallsById: {
-        [call.id]: {
-          ...call,
-          provenance: {
-            contextEntityKind: 'workflow',
-            contextEntityId: 'original-workflow',
-            workspaceId: 'business-B',
-          },
-        },
-      },
-    })
+  it('renders authoritative automatic tool results without a browser round trip', async () => {
+    setChat()
     onCommand = (request) =>
-      request.command === 'pending.list' ? pendingResponse(request, [item]) : undefined
-    tools.execute.mockResolvedValue({
-      success: true,
-      result: { requiresReview: true, reviewToken: 'token-B' },
-    })
-    tools.reject.mockResolvedValue({
-      success: true,
-      result: { success: false, rejected: true, toolName: 'edit_workflow' },
-      proof: 'original-proof-B',
-    })
-    await store().getState().executeCopilotToolCall(call.id)
-    await store().getState().skipCopilotToolCall(call.id)
-    expect(tools.reject).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({
-        native: { workspaceId, target: item.target },
-        context: {
-          contextEntityKind: 'workflow',
-          contextEntityId: 'original-workflow',
-          workspaceId: 'business-B',
-        },
-      })
-    )
-    expect(commands.find((request) => request.command === 'tool.result')).toMatchObject({
-      financialBinding: item.financialBinding,
-      workspaceId,
-    })
+      request.command === 'message'
+        ? eventResponse(request, [
+            {
+              type: 'tool.display',
+              toolCallId: 'automatic',
+              toolName: 'search_online',
+              executionAuthorized: false,
+            },
+            {
+              type: 'tool.result',
+              toolCallId: 'automatic',
+              toolName: 'search_online',
+              result: { results: [] },
+            },
+            { type: 'response.completed', result: ready(request) },
+          ])
+        : undefined
+    expect(await store().getState().sendMessage('Search')).toBe(true)
+    expect(tools.refresh).toHaveBeenCalledWith('search_online', { results: [] })
+    expect(
+      commands.some(
+        (request) => request.command === 'tool.execute' || request.command === 'tool.result'
+      )
+    ).toBe(false)
   })
+  it.each(['error', 'denied'] as const)(
+    'shows %s automatic tool results without success refresh effects',
+    async (outcome) => {
+      setChat()
+      const failed = {
+        type: 'tool.result',
+        requestId: 'request',
+        toolCallId: 'failed',
+        toolName: 'search_online',
+        result: { error: 'Tool failed' },
+        ...(outcome === 'error' ? { isError: true } : { denied: true }),
+      } as const
+      const projected = applyNativeEvent(store().getState(), failed, 'assistant')
+      expect(projected.toolCallsById?.failed).toMatchObject({
+        state: outcome === 'error' ? ClientToolCallState.error : ClientToolCallState.rejected,
+        result: { error: 'Tool failed' },
+      })
+      onCommand = (request) =>
+        request.command === 'message'
+          ? eventResponse(request, [
+              {
+                type: 'tool.display',
+                toolCallId: 'failed',
+                toolName: 'search_online',
+                executionAuthorized: false,
+                args: { query: 'search' },
+              },
+              { ...failed, requestId: request.requestId },
+              { type: 'response.completed', result: ready(request) },
+            ])
+          : undefined
+      expect(await store().getState().sendMessage('Search')).toBe(true)
+      expect(tools.refresh).not.toHaveBeenCalled()
+    }
+  )
 })

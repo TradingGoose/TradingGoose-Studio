@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseStudioNativeExecutionRequest } from './studio-execution'
+import { parseStudioNativeTarget } from './studio-execution'
 
 const native = {
   workspaceId: null,
@@ -8,52 +8,35 @@ const native = {
     resourceId: 'resource',
     runId: 'run',
     toolCallId: 'call',
-    toolName: 'edit_workflow',
+    toolName: 'run_workflow',
   },
 }
-describe('internal server review decision envelope', () => {
-  it.each(['review.accept', 'review.reject'] as const)(
-    'accepts only the bound %s token lookup',
-    async (action) => {
-      const request = { native, action, reviewToken: 'original-token' }
-      expect(await parseStudioNativeExecutionRequest(request)).toEqual(request)
-      await expect(parseStudioNativeExecutionRequest({ native, action })).rejects.toThrow(
-        'reviewToken'
-      )
+describe('browser business effect target envelope', () => {
+  it.each([null, 'workspace'])(
+    'preserves only the conversation scope and target for %j',
+    async (workspaceId) => {
+      const input = { ...native, workspaceId }
+      expect(await parseStudioNativeTarget(input)).toEqual(input)
     }
   )
-  it.each(['result', 'proof', 'payload', 'toolName', 'originalArgs'])(
-    'refuses caller supplied %s',
+  it.each(['result', 'proof', 'payload', 'originalArgs', 'actorUserId', 'action'])(
+    'rejects caller-supplied %s outside the target',
+    async (field) => {
+      await expect(parseStudioNativeTarget({ ...native, [field]: {} })).rejects.toThrow()
+    }
+  )
+  it.each(['threadId', 'resourceId', 'runId', 'toolCallId', 'toolName'])(
+    'requires a nonempty %s lookup',
     async (field) => {
       await expect(
-        parseStudioNativeExecutionRequest({
-          native,
-          action: 'review.reject',
-          reviewToken: 'token',
-          [field]: {},
-        })
+        parseStudioNativeTarget({ ...native, target: { ...native.target, [field]: '' } })
       ).rejects.toThrow()
     }
   )
-  it.each(['execute', 'readback'] as const)(
-    'does not permit a review token on %s',
-    async (action) => {
+  it('rejects effect payloads or runtime controls inside the target', async () => {
+    for (const field of ['originalArgs', 'resumeData', 'approved', 'workspaceId'])
       await expect(
-        parseStudioNativeExecutionRequest({ native, action, reviewToken: 'token' })
-      ).rejects.toThrow('only permitted')
-    }
-  )
-  it('keeps rejection separate from credential readback and native decline', async () => {
-    await expect(
-      parseStudioNativeExecutionRequest({
-        native,
-        action: 'review.reject',
-        reviewToken: 'token',
-        readback: { credentialId: 'credential' },
-      })
-    ).rejects.toThrow('Readback')
-    await expect(
-      parseStudioNativeExecutionRequest({ native, action: 'tool.decline', reviewToken: 'token' })
-    ).rejects.toThrow()
+        parseStudioNativeTarget({ ...native, target: { ...native.target, [field]: {} } })
+      ).rejects.toThrow()
   })
 })

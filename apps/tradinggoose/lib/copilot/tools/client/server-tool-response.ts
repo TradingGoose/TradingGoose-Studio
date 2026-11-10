@@ -1,7 +1,3 @@
-import { parseNativeContract } from '@/lib/copilot/native/contract'
-import type { StudioNativeExecutionRequest } from '@/lib/copilot/native/studio-execution'
-import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
-
 export interface CopilotServerToolErrorLike {
   error?: string
   code?: string
@@ -89,22 +85,6 @@ export async function buildCopilotServerToolError(response: Response): Promise<E
   }
 }
 
-/** The server resolves genuine pending originalArgs; browser input never supplies effect payload. */
-export async function executeCopilotServerTool(
-  input: StudioNativeExecutionRequest & { signal?: AbortSignal }
-) {
-  const { signal, ...request } = input
-  const response = await fetch('/api/copilot/execute-copilot-server-tool', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    signal,
-    body: JSON.stringify(request),
-  })
-  if (!response.ok) throw await buildCopilotServerToolError(response)
-  const result = ExecuteResponseSuccessSchema.parse(await response.json())
-  return { ...result, result: await parseNativeContract('Json', result.result) }
-}
-
 export function isCopilotServerToolReviewResult(result: unknown): result is {
   requiresReview: true
   reviewToken: string
@@ -115,22 +95,4 @@ export function isCopilotServerToolReviewResult(result: unknown): result is {
     (result as { requiresReview?: unknown }).requiresReview === true &&
     typeof (result as { reviewToken?: unknown }).reviewToken === 'string'
   )
-}
-
-export function acceptCopilotServerToolReview(
-  input: Omit<StudioNativeExecutionRequest, 'action' | 'accessLevel' | 'readback'> & {
-    reviewToken: string
-    signal?: AbortSignal
-  }
-) {
-  return executeCopilotServerTool({ ...input, action: 'review.accept' })
-}
-
-export function rejectCopilotServerToolReview(
-  input: Omit<StudioNativeExecutionRequest, 'action' | 'accessLevel' | 'readback'> & {
-    reviewToken: string
-    signal?: AbortSignal
-  }
-) {
-  return executeCopilotServerTool({ ...input, action: 'review.reject' })
 }

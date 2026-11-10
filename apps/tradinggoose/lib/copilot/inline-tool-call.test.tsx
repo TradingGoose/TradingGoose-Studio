@@ -22,7 +22,6 @@ const mockUseCopilotStoreState = {
   skipCopilotToolCall: vi.fn(),
   authorizeToolWorkspace: vi.fn(),
   readbackCopilotToolCall: vi.fn(),
-  retryToolResultDelivery: vi.fn(),
   recordToolFailure: vi.fn(),
   toolCallsById: {},
 }
@@ -96,7 +95,6 @@ describe('InlineToolCall', () => {
     mockUseCopilotStoreState.skipCopilotToolCall.mockReset()
     mockUseCopilotStoreState.authorizeToolWorkspace.mockReset()
     mockUseCopilotStoreState.readbackCopilotToolCall.mockReset()
-    mockUseCopilotStoreState.retryToolResultDelivery.mockReset()
     mockUseCopilotStoreState.recordToolFailure.mockReset()
     mockUseCopilotStoreState.accessLevel = 'limited'
     mockUseCopilotStoreState.toolCallsById = {}
@@ -602,17 +600,6 @@ describe('InlineToolCall', () => {
       },
       stage,
       originalArgs: { providerName: 'Google Drive' },
-      financialBinding: {
-        namespace: 'billing-usage:ui-fixture',
-        key: 'original-operation',
-        fingerprint: 'original-fingerprint',
-        runId: 'original-run',
-        actorUserId: 'original-actor',
-        workspaceId: null,
-        workflowId: null,
-        purpose: 'copilot',
-      },
-      financialOccurrence: { stepNumber: 1, retryCount: 0, runId: 'original-run' },
     },
   })
 
@@ -652,7 +639,7 @@ describe('InlineToolCall', () => {
     )
     expect(mockUseCopilotStoreState.readbackCopilotToolCall).not.toHaveBeenCalled()
     expect(value.pending?.originalArgs).toEqual({ providerName: 'Google Drive' })
-    expect(value.pending?.financialBinding.workspaceId).toBeNull()
+    expect(value.pending).not.toHaveProperty('financialBinding')
   })
 
   it('keeps native approval separate from the OAuth result-stage workspace card', async () => {
@@ -736,28 +723,15 @@ describe('InlineToolCall', () => {
     expect(reject.disabled).toBe(false)
     expect(container.textContent).not.toContain('Changes were rejected.')
   })
-  it('retains a known rejected result with visible unverified delivery and retries only delivery', async () => {
+  it('renders a known rejection without a browser result-delivery action', async () => {
     const value: CopilotToolCall = {
       id: 'retained',
       name: 'edit_workflow',
-      state: ClientToolCallState.error,
-      pending: { stage: 'result' } as any,
+      state: ClientToolCallState.rejected,
       result: { success: false, rejected: true, toolName: 'edit_workflow' },
-      resultProof: 'signed',
-      resultDeliveryError: 'Lost native acknowledgement',
     }
     await act(async () => root.render(<InlineToolCall toolCall={value} />))
-    expect(container.textContent).toContain(
-      'Changes were rejected. Native result delivery is unverified.'
-    )
-    expect(container.querySelector('[role="alert"]')).not.toBeNull()
-    const retry = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === 'Retry result delivery'
-    )!
-    await act(async () => retry.click())
-    expect(mockUseCopilotStoreState.retryToolResultDelivery).toHaveBeenCalledExactlyOnceWith(
-      'retained'
-    )
+    expect(container.textContent).not.toContain('Retry result delivery')
     expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
     expect(mockUseCopilotStoreState.skipCopilotToolCall).not.toHaveBeenCalled()
   })

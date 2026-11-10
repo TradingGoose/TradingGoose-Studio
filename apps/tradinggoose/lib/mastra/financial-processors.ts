@@ -1,10 +1,12 @@
 import type { MastraDBMessage } from '@mastra/core/agent/message-list'
 import type { InputProcessor, OutputProcessor } from '@mastra/core/processors'
 import { occurrenceKey } from '@tradinggoose/billing'
+import { addMoney } from '@tradinggoose/billing/money'
 import {
   acceptFinancialModelStep,
   admitFinancialModelStep,
   createFinancialInvocation,
+  type FinancialBinding,
   type ModelOccurrence,
 } from '@/lib/billing/native-finance'
 import { assertNativeToolArguments } from './options'
@@ -27,11 +29,27 @@ export async function financialProcessors(
     key: string
     occurrence: ModelOccurrence
     readResponse: () => MastraDBMessage[]
-  }) => void
+  }) => void,
+  original?: { binding?: FinancialBinding; operationKey?: string }
 ) {
   if (!scope.actorUserId)
     throw new Error('An authenticated financial actor is required before model contact')
-  const binding = await createFinancialInvocation({ ...scope, actorUserId: scope.actorUserId })
+  if (
+    original?.binding &&
+    (original.binding.actorUserId !== scope.actorUserId ||
+      original.binding.workspaceId !== (scope.workspaceId ?? null) ||
+      original.binding.workflowId !== (scope.workflowId ?? null) ||
+      original.binding.runId !== scope.runId ||
+      original.binding.purpose !== scope.purpose)
+  )
+    throw new Error('Original financial invocation does not match the authenticated scope')
+  const binding = original?.binding
+    ? { ...original.binding }
+    : await createFinancialInvocation({
+        ...scope,
+        actorUserId: scope.actorUserId,
+        ...(original?.operationKey ? { operationKey: original.operationKey } : {}),
+      })
   let active: ModelOccurrence | undefined
   let failure: { error: unknown } | undefined
   const acknowledgements = new Map<
@@ -41,6 +59,7 @@ export async function financialProcessors(
       acknowledged: boolean
       usage?: NativeUsage
       finishReason?: 'stop' | 'tool-calls' | 'length'
+      appliedUsd?: string
     }
   >()
   const recordFailure = (error: unknown) => {
@@ -173,7 +192,11 @@ export async function financialProcessors(
           acknowledgement.finishReason !== args.finishReason
         )
           throw new Error('Native model contact has no proven successful completion')
-        await acceptFinancialModelStep(binding, { ...occurrence, usage: args.usage })
+        const receipt = await acceptFinancialModelStep(binding, {
+          ...occurrence,
+          usage: args.usage,
+        })
+        acknowledgement.appliedUsd = receipt.appliedUsd
         acknowledgements.get(key)!.acknowledged = true
         if (captureFailure) throw captureFailure.error
         for (const call of args.toolCalls ?? []) assertNativeToolArguments(call.args)
@@ -189,6 +212,18 @@ export async function financialProcessors(
     binding,
     inputProcessors: [input],
     outputProcessors: [output],
+    getLastOccurrence(): ModelOccurrence | undefined {
+      return active && { ...active }
+    },
+    getFinancialFact() {
+      const accepted = [...acknowledgements.values()].filter((value) => value.acknowledged)
+      if (!accepted.length) return undefined
+      return {
+        accepted: true as const,
+        modelUsd: 'unavailable' as const,
+        appliedUsd: addMoney(...accepted.map((value) => value.appliedUsd!)),
+      }
+    },
     getUsage(): NativeUsage {
       return sumNativeUsage([...acknowledgements.values()].map(({ usage }) => ({ usage })))
     },

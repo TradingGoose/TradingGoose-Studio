@@ -1958,10 +1958,6 @@
         }
       },
       "service": {
-        "copilot": {
-          "title": "Copiloto",
-          "description": "Genere claves para el acceso a la API de Copilot."
-        },
         "market": {
           "title": "Mercado",
           "description": "Genere claves para el acceso a la API de Market."

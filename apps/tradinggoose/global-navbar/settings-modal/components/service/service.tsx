@@ -35,10 +35,7 @@ export function Service() {
 
   return (
     <div className='h-full px-6 py-4'>
-      <div className='grid gap-4 md:grid-cols-2'>
-        <ServiceKeyPanel service='copilot' />
-        <ServiceKeyPanel service='market' />
-      </div>
+      <ServiceKeyPanel service='market' />
     </div>
   )
 }

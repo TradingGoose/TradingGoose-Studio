@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { JsonObject, Pending, Scope } from './contract'
+import type { JsonObject, Scope } from './contract'
+import type { ServerPending as Pending } from './target'
 
 const m = vi.hoisted(() => ({
   rows: vi.fn(),
@@ -267,7 +268,7 @@ describe('authoritative native result readback', () => {
       )
     ).rejects.toMatchObject({ status: 409 })
   })
-  it('unsupported lost proof never reexecutes an effect', async () => {
+  it('unsupported result recovery never reexecutes an effect', async () => {
     await expect(
       readbackNativeToolResult(scope, pending('create_workflow'), { userId: 'member' })
     ).rejects.toThrow('must not be repeated')

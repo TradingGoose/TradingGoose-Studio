@@ -13,7 +13,6 @@ import { ToolAccessChoice } from '@/lib/copilot/tool-access-choice'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
 import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/server-tool-response'
-import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { getListingIdentityKey, getListingIdentitySymbol } from '@/lib/listing/identity'
 import type { WatchlistDocumentInputContent, WatchlistSettings } from '@/lib/watchlists/types'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
@@ -713,7 +712,7 @@ export function InlineToolCall({
     toolName === 'make_api_request' || toolName === 'set_environment_variables'
 
   const accessLevel = useCopilotStore((s) => s.accessLevel)
-  const { readbackCopilotToolCall, retryToolResultDelivery, recordToolFailure } = useCopilotStore()
+  const { readbackCopilotToolCall, recordToolFailure } = useCopilotStore()
 
   if (!toolCall) return null
 
@@ -732,12 +731,6 @@ export function InlineToolCall({
     toolCall.state !== ClientToolCallState.success &&
     !oauthOpened
   const showAccessChoice = showDriveChoice || showOAuthChoice
-  const retryDelivery =
-    !toolCall.historical &&
-    toolCall.pending?.stage === 'result' &&
-    toolCall.state === ClientToolCallState.error &&
-    !!toolCall.resultProof &&
-    toolCall.result !== undefined
   const recoverable =
     !toolCall.historical &&
     toolCall.pending?.stage === 'result' &&
@@ -920,23 +913,6 @@ export function InlineToolCall({
         )}
         {showButtons ? (
           <ToolActionButtons toolCall={toolCall} hideAccept={showAccessChoice || oauthOpened} />
-        ) : retryDelivery ? (
-          <Button
-            size='sm'
-            variant='secondary'
-            onClick={async () => {
-              try {
-                await retryToolResultDelivery(toolCall.id)
-              } catch (error) {
-                recordToolFailure(
-                  toolCall.id,
-                  error instanceof Error ? error.message : 'Result delivery was not verified'
-                )
-              }
-            }}
-          >
-            Retry result delivery
-          </Button>
         ) : recoverable ? (
           <Button
             size='sm'
@@ -983,14 +959,6 @@ export function InlineToolCall({
           key={`${toolCall.id}:${toolCall.pending!.target.runId}`}
           toolCall={toolCall}
         />
-      ) : null}
-      {toolCall.resultDeliveryError ? (
-        <p role='alert' className='px-1 text-destructive text-xs'>
-          {isServerToolReviewRejectedResult(toolCall.name, toolCall.result)
-            ? 'Changes were rejected. Native result delivery is unverified. '
-            : 'The completed business result is retained. Native result delivery is unverified. '}
-          {toolCall.resultDeliveryError}
-        </p>
       ) : null}
       {failureDetails ? (
         <div className='space-y-1 px-5 text-destructive text-xs'>

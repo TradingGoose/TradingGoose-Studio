@@ -25,6 +25,7 @@ import type { StudioNativeCommand } from '@/lib/copilot/native/studio-request'
 import type { StudioNativeTitleRequest } from '@/lib/copilot/native/studio-title'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
+import { collectCopilotToolContexts } from '@/lib/copilot/tool-context'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import {
   disposeAllClientTools,
@@ -32,12 +33,7 @@ import {
   registerToolStateSync,
   unregisterClientTool,
 } from '@/lib/copilot/tools/client/manager'
-import {
-  acceptCopilotServerToolReview,
-  executeCopilotServerTool,
-  isCopilotServerToolReviewResult,
-  rejectCopilotServerToolReview,
-} from '@/lib/copilot/tools/client/server-tool-response'
+import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/server-tool-response'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { parseCopilotWorkspaceChannelId } from './channel-id'
@@ -117,7 +113,6 @@ const initialState = {
   toolCallsById: {} as CopilotStore['toolCallsById'],
   contextEvidence: null,
   lastNativeOutcome: null,
-  lastNativeFinancial: null,
   lastTitleOutcome: null,
   error: null,
   historyRefreshError: null,
@@ -164,25 +159,10 @@ function createCopilotStoreInstance(channelId: string) {
           error instanceof NativeCommandError || error instanceof NativeCommandResponseError
             ? error.nativeOutcome
             : undefined
-        set({
-          error: message,
-          ...(outcome
-            ? {
-                lastNativeOutcome: outcome,
-                ...('financial' in outcome && outcome.financial
-                  ? { lastNativeFinancial: outcome.financial }
-                  : {}),
-              }
-            : {}),
-        })
+        set({ error: message, ...(outcome ? { lastNativeOutcome: outcome } : {}) })
         return message
       }
-      const updateTool = (
-        id: string,
-        state: ClientToolCallState,
-        result?: unknown,
-        evidence?: { resultProof?: string; resultDeliveryError?: string }
-      ) => {
+      const updateTool = (id: string, state: ClientToolCallState, result?: unknown) => {
         const current = get().toolCallsById[id]
         if (!current) return
         const updated = {
@@ -190,7 +170,6 @@ function createCopilotStoreInstance(channelId: string) {
           state,
           display: resolveToolDisplay(current.name, state, id, current.params),
           ...(result !== undefined ? { result } : {}),
-          ...evidence,
         }
         set((currentState) => ({
           toolCallsById: { ...currentState.toolCallsById, [id]: updated },
@@ -329,21 +308,8 @@ function createCopilotStoreInstance(channelId: string) {
         return message.id
       }
       const verifyPending = (pending: Pending) => {
-        const current = get()
-        const owner = parseCopilotWorkspaceChannelId(channelId)
-        if (
-          !current.currentChat ||
-          pending.target.threadId !== current.currentChat.threadId ||
-          pending.financialBinding.workspaceId !== current.currentChat.workspaceId ||
-          (owner && pending.financialBinding.actorUserId !== owner.authenticatedUserId)
-        )
-          throw new Error('Native pending actor/conversation scope differs')
-        if (
-          pending.financialBinding.runId !== pending.target.runId ||
-          (pending.financialOccurrence.runId !== undefined &&
-            pending.financialOccurrence.runId !== pending.target.runId)
-        )
-          throw new Error('Original native financial occurrence differs')
+        if (!get().currentChat || pending.target.threadId !== get().currentChat!.threadId)
+          throw new Error('Copilot pending tool is outside the selected thread')
       }
       const ownsChat = (chat: CopilotChat, selectedEpoch: number, interaction: number) =>
         selectedEpoch === epoch &&
@@ -378,40 +344,24 @@ function createCopilotStoreInstance(channelId: string) {
         })
         await get().fetchContextUsage()
       }
-      const refreshPending = async (
-        autoExecute: boolean,
-        provenance?: CopilotToolExecutionProvenance
-      ) => {
-        const current = get()
-        if (!current.currentChat) return
+      const scheduleBrowserTools = () => {
         const id = epoch
         const interaction = interactionGeneration
-        const pending = await listNativePending(
-          current.currentChat.workspaceId,
-          current.currentChat.threadId,
-          current.abortController?.signal
-        )
-        if (id !== epoch || interaction !== interactionGeneration) return
-        if (autoExecute && current.isAwaitingContinuation && !pending.length)
-          throw new Error('Native suspension has no current pending targets')
-        set({ isAwaitingContinuation: pending.length > 0 })
-        for (const item of pending) {
-          verifyPending(item)
-          set((state) => displayNativePending(state, item, provenance))
-          if (autoExecute && automaticEligible(item)) {
-            const selected = structuredClone(item)
-            queueMicrotask(() => {
-              if (
-                id === epoch &&
-                interaction === interactionGeneration &&
-                automaticEligible(selected)
-              )
-                void performToolAction(selected.target.toolCallId, {
-                  kind: 'automatic',
-                  pending: selected,
-                })
-            })
-          }
+        for (const call of Object.values(get().toolCallsById)) {
+          const pending = call.pending
+          if (!pending || !automaticEligible(pending)) continue
+          const selected = structuredClone(pending)
+          queueMicrotask(() => {
+            if (
+              id === epoch &&
+              interaction === interactionGeneration &&
+              automaticEligible(selected)
+            )
+              void performToolAction(selected.target.toolCallId, {
+                kind: 'automatic',
+                pending: selected,
+              })
+          })
         }
       }
       const applyResponse = (
@@ -430,7 +380,6 @@ function createCopilotStoreInstance(channelId: string) {
           set((state) => settleDisplayOnlyTools(state, messageId, ClientToolCallState.error))
           set({
             lastNativeOutcome: result,
-            ...(result.financial ? { lastNativeFinancial: result.financial } : {}),
             error: result.error.message,
             isSendingMessage: false,
             isAwaitingContinuation: false,
@@ -480,8 +429,16 @@ function createCopilotStoreInstance(channelId: string) {
               if (!current() || abort.signal.aborted) return false
               if (terminal)
                 throw new Error('Native Copilot emitted data after its terminal outcome')
-              if ('result' in event) assertNativeCommandResponse(command.command, event.result)
+              if ('result' in event && event.type !== 'tool.result')
+                assertNativeCommandResponse(command.command, event.result)
               set((state) => applyNativeEvent(state, event, messageId, provenance))
+              if (
+                event.type === 'tool.result' &&
+                !event.isError &&
+                !event.denied &&
+                !isServerToolReviewRejectedResult(event.toolName, event.result)
+              )
+                await handleCopilotServerToolSuccess(event.toolName, event.result)
               if (
                 [
                   'response.completed',
@@ -532,7 +489,7 @@ function createCopilotStoreInstance(channelId: string) {
             }
           }
           if (!current()) return true
-          if (get().isAwaitingContinuation) await refreshPending(true, provenance)
+          if (get().isAwaitingContinuation) scheduleBrowserTools()
           else
             void get()
               .fetchContextUsage()
@@ -562,18 +519,16 @@ function createCopilotStoreInstance(channelId: string) {
         requestId: crypto.randomUUID(),
         workspaceId: get().currentChat!.workspaceId,
         target: pending.target,
-        financialBinding: pending.financialBinding,
         stream: true,
       })
       type ToolIntent = {
-        kind: 'initial' | 'automatic' | 'accept' | 'reject' | 'decline' | 'delivery'
+        kind: 'initial' | 'automatic' | 'accept' | 'reject' | 'decline'
         pending: Pending
         reviewToken?: string
-        delivery?: { result: unknown; proof: string }
       }
       const sameOrigin = (left: Pending | undefined, right: Pending) =>
         !!left &&
-        (['target', 'originalArgs', 'financialBinding', 'financialOccurrence'] as const).every(
+        (['target', 'originalArgs'] as const).every(
           (field) =>
             stableStringifyJsonValue(left[field]) === stableStringifyJsonValue(right[field])
         )
@@ -581,12 +536,12 @@ function createCopilotStoreInstance(channelId: string) {
         const call = get().toolCallsById[pending.target.toolCallId]
         return (
           pending.stage === 'result' &&
+          !isServerManagedCopilotTool(pending.target.toolName) &&
           !!call &&
           !call.historical &&
           !call.historyOrigin &&
           call.state === ClientToolCallState.pending &&
           call.result === undefined &&
-          call.resultProof === undefined &&
           sameOrigin(call.pending, pending) &&
           call.pending?.stage === 'result' &&
           (ownsFlight || !inFlightTools.has(pending.target.toolCallId)) &&
@@ -596,7 +551,7 @@ function createCopilotStoreInstance(channelId: string) {
       }
       const performToolAction = async (id: string, intent: ToolIntent) => {
         if (inFlightTools.has(id)) {
-          if (['reject', 'decline', 'delivery'].includes(intent.kind))
+          if (['reject', 'decline'].includes(intent.kind))
             throw new Error('A decision or execution for this tool is already in flight')
           return
         }
@@ -647,6 +602,7 @@ function createCopilotStoreInstance(channelId: string) {
             })
             if (!current()) return
             if (!approved) throw new Error('Native approval was not verified')
+            if (isServerManagedCopilotTool(pending.target.toolName)) return
             const approvedPending = await get().readPendingTool(id)
             if (!current()) return
             if (approvedPending.stage !== 'result' || !sameOrigin(approvedPending, pending))
@@ -654,22 +610,6 @@ function createCopilotStoreInstance(channelId: string) {
             pending = approvedPending
           }
           if (pending.stage !== 'result') throw new Error('Native result stage is required')
-          if (intent.kind === 'delivery') {
-            if (!intent.delivery) throw new Error('Retained result proof is unavailable')
-            const result = await parseNativeContract('Json', intent.delivery.result)
-            if (!current()) return
-            await get().submitAuthoritativeToolResult(id, result, intent.delivery.proof)
-            if (current())
-              updateTool(
-                id,
-                isServerToolReviewRejectedResult(pending.target.toolName, result)
-                  ? ClientToolCallState.rejected
-                  : ClientToolCallState.success,
-                result,
-                { resultDeliveryError: undefined }
-              )
-            return
-          }
           if (pending.target.toolName === 'oauth_request_access') {
             await get().authorizeToolWorkspace(id)
             if (!current()) return
@@ -695,78 +635,20 @@ function createCopilotStoreInstance(channelId: string) {
             )
               throw new Error('The selected business preview changed')
             if (!decision && isCopilotServerToolReviewResult(call.result)) return
-            if (!decision && call.result !== undefined)
-              throw new Error(
-                'A retained business result requires delivery or authorized readback, not another execution'
-              )
-            const key = stableStringifyJsonValue({
-              target: pending.target,
-              action: decision ? 'review.decision' : 'execute',
-              ...(decision ? { reviewToken: intent.reviewToken } : {}),
+            const success = await invoke({
+              command: 'tool.execute',
+              ...requestForPending(pending),
+              action:
+                intent.kind === 'reject'
+                  ? 'review.reject'
+                  : intent.kind === 'accept'
+                    ? 'review.accept'
+                    : 'execute',
+              ...(intent.reviewToken ? { reviewToken: intent.reviewToken } : {}),
+              accessLevel: call.historyOrigin ? 'limited' : get().accessLevel,
+              context: businessContext(call.provenance),
             })
-            if (attemptedTools.has(key))
-              throw new Error(
-                'Business execution was already attempted; use authoritative readback instead of replay'
-              )
-            attemptedTools.add(key)
-            attemptedTools.add(stableStringifyJsonValue(pending.target))
-            const businessAbort = new AbortController()
-            ownedAbort = businessAbort
-            set({ abortController: businessAbort })
-            const native = { workspaceId: chat!.workspaceId, target: pending.target }
-            const context = businessContext(call.provenance)
-            const response =
-              intent.kind === 'reject'
-                ? await rejectCopilotServerToolReview({
-                    native,
-                    reviewToken: intent.reviewToken!,
-                    context,
-                    signal: businessAbort.signal,
-                  })
-                : intent.kind === 'accept'
-                  ? await acceptCopilotServerToolReview({
-                      native,
-                      reviewToken: intent.reviewToken!,
-                      context,
-                      signal: businessAbort.signal,
-                    })
-                  : await executeCopilotServerTool({
-                      native,
-                      action: 'execute',
-                      accessLevel: call.historyOrigin ? 'limited' : get().accessLevel,
-                      context,
-                      signal: businessAbort.signal,
-                    })
-            if (!current() || businessAbort.signal.aborted) return
-            if (
-              stableStringifyJsonValue(get().toolCallsById[id]?.pending ?? null) !==
-              stableStringifyJsonValue(pending)
-            )
-              throw new Error(
-                'Native pending target changed after the business request; do not replay it'
-              )
-            if (get().abortController === businessAbort) set({ abortController: null })
-            if (isCopilotServerToolReviewResult(response.result)) {
-              if (decision) throw new Error('The business decision did not return a final result')
-              updateTool(id, ClientToolCallState.review, response.result)
-              return
-            }
-            const rejected = isServerToolReviewRejectedResult(call.name, response.result)
-            updateTool(
-              id,
-              rejected ? ClientToolCallState.rejected : ClientToolCallState.success,
-              response.result,
-              { resultProof: response.proof }
-            )
-            if (!response.proof)
-              throw new Error(
-                'Completed business result proof is unavailable; execution will not be replayed'
-              )
-            if (intent.kind === 'reject' && !rejected)
-              throw new Error('The server did not verify the selected preview rejection')
-            if (!rejected) await handleCopilotServerToolSuccess(call.name, response.result)
-            if (!current()) return
-            await get().submitAuthoritativeToolResult(id, response.result, response.proof)
+            if (!success) throw new Error('Copilot tool execution did not complete')
           } else {
             if (intent.kind === 'accept' || intent.kind === 'reject')
               throw new Error('This tool does not have a signed server preview decision')
@@ -801,7 +683,7 @@ function createCopilotStoreInstance(channelId: string) {
         } catch (error) {
           if (current() && sameOrigin(get().toolCallsById[id]?.pending, intent.pending))
             get().recordToolFailure(id, fail(error))
-          if (['reject', 'decline', 'delivery'].includes(intent.kind)) throw error
+          if (['reject', 'decline'].includes(intent.kind)) throw error
         } finally {
           if (ownedAbort && get().abortController === ownedAbort) set({ abortController: null })
           release()
@@ -1159,12 +1041,13 @@ function createCopilotStoreInstance(channelId: string) {
               messages: [...state.messages, user, assistant],
               currentRunId: null,
               lastNativeOutcome: null,
-              lastNativeFinancial: null,
               lastTitleOutcome: null,
             }))
             const success = await invoke(
               {
                 command: 'message',
+                toolContext: businessContext(turnProvenance),
+                toolContexts: collectCopilotToolContexts(contexts),
                 requestId,
                 workspaceId,
                 ...(chat ? { threadId: chat.threadId } : {}),
@@ -1317,87 +1200,16 @@ function createCopilotStoreInstance(channelId: string) {
           })
         },
         readPendingTool: async (toolCallId) => {
-          const chat = get().currentChat
-          if (!chat) throw new Error('Native tool thread is missing')
-          const current = get().toolCallsById[toolCallId]
-          const id = epoch
-          const interaction = interactionGeneration
-          const ownsPendingSelection = () => ownsChat(chat, id, interaction)
-          const candidates = await listNativePending(
-            chat.workspaceId,
-            chat.threadId,
-            get().abortController?.signal
+          const call = get().toolCallsById[toolCallId]
+          const pending = call?.pending
+          if (
+            !pending ||
+            pending.target.toolCallId !== toolCallId ||
+            pending.target.toolName !== call.name
           )
-          if (!ownsPendingSelection()) throw new Error('Native tool selection changed')
-          const pending = candidates.find((item) => item.target.toolCallId === toolCallId)
-          if (!pending || !current || pending.target.toolName !== current.name)
-            throw new Error('Native tool is no longer pending')
+            throw new Error('Copilot tool is no longer pending')
           verifyPending(pending)
-          if (
-            current.pending &&
-            (stableStringifyJsonValue(current.pending.target) !==
-              stableStringifyJsonValue(pending.target) ||
-              stableStringifyJsonValue(current.pending.financialBinding) !==
-                stableStringifyJsonValue(pending.financialBinding) ||
-              stableStringifyJsonValue(current.pending.originalArgs) !==
-                stableStringifyJsonValue(pending.originalArgs) ||
-              stableStringifyJsonValue(current.pending.financialOccurrence) !==
-                stableStringifyJsonValue(pending.financialOccurrence))
-          )
-            throw new Error('Original native pending target/arguments/binding changed')
-          let provenance = current.provenance
-          const toolName = pending.target.toolName
-          if (
-            !provenance?.workspaceId &&
-            (toolName === 'deploy_workflow' ||
-              toolName === 'run_workflow' ||
-              ((toolName === 'gdrive_request_access' || toolName === 'oauth_request_access') &&
-                provenance?.contextEntityKind === 'workflow' &&
-                provenance.contextEntityId))
-          ) {
-            const entityId =
-              toolName === 'gdrive_request_access' || toolName === 'oauth_request_access'
-                ? provenance!.contextEntityId!
-                : ToolArgSchemas[toolName].parse(pending.originalArgs).entityId
-            const response = await fetch(`/api/workflows/${encodeURIComponent(entityId)}`, {
-              signal: get().abortController?.signal,
-            })
-            if (!ownsPendingSelection()) throw new Error('Native tool selection changed')
-            if (!response.ok) throw new Error('Workflow target access could not be verified')
-            const { data } = await response.json()
-            if (!ownsPendingSelection()) throw new Error('Native tool selection changed')
-            if (
-              data?.id !== entityId ||
-              typeof data.workspaceId !== 'string' ||
-              !data.workspaceId.trim()
-            )
-              throw new Error('Workflow target workspace could not be verified')
-            provenance = {
-              contextEntityKind: 'workflow',
-              contextEntityId: entityId,
-              workspaceId: data.workspaceId,
-            }
-          }
-          set((state) => {
-            const projected = displayNativePending(state, pending)
-            if (provenance) {
-              const call = {
-                ...projected.toolCallsById[toolCallId],
-                provenance,
-              }
-              projected.toolCallsById[toolCallId] = call
-              projected.messages = projected.messages.map((message) => ({
-                ...message,
-                contentBlocks: message.contentBlocks?.map((block) =>
-                  block.type === 'tool_call' && block.toolCall.id === toolCallId
-                    ? { ...block, toolCall: call }
-                    : block
-                ),
-              }))
-            }
-            return projected
-          })
-          return pending
+          return structuredClone(pending)
         },
         authorizeToolWorkspace: async (id, workspaceId) => {
           const chat = get().currentChat
@@ -1463,55 +1275,6 @@ function createCopilotStoreInstance(channelId: string) {
           })
           if (!success) throw new Error('Native browser result delivery was not verified')
         },
-        submitAuthoritativeToolResult: async (id, result, proof) => {
-          const chat = get().currentChat
-          const generation = epoch
-          const interaction = interactionGeneration
-          const original = get().toolCallsById[id]?.pending
-          if (!chat || !original || original.stage !== 'result' || !proof)
-            throw new Error('Native result proof is required')
-          const rejected = isServerToolReviewRejectedResult(original.target.toolName, result)
-          updateTool(
-            id,
-            rejected ? ClientToolCallState.rejected : ClientToolCallState.success,
-            result,
-            {
-              resultProof: proof,
-              resultDeliveryError: undefined,
-            }
-          )
-          try {
-            const pending = await get().readPendingTool(id)
-            if (!ownsChat(chat, generation, interaction))
-              throw new Error('Native tool selection changed')
-            if (pending.stage !== 'result' || !sameOrigin(pending, original))
-              throw new Error('Original native result target changed')
-            const success = await invoke({
-              command: 'tool.result',
-              source: 'studio_signed',
-              ...requestForPending(pending),
-              result,
-              proof,
-            })
-            if (!success)
-              throw new Error(
-                'Native result delivery was not verified; business execution will not be replayed'
-              )
-          } catch (error) {
-            if (
-              ownsChat(chat, generation, interaction) &&
-              sameOrigin(get().toolCallsById[id]?.pending, original)
-            )
-              updateTool(id, ClientToolCallState.error, result, {
-                resultProof: proof,
-                resultDeliveryError:
-                  error instanceof Error
-                    ? error.message
-                    : 'Native result delivery was not verified',
-              })
-            throw error
-          }
-        },
         readbackCopilotToolCall: async (id, readback) => {
           const chat = get().currentChat
           if (!chat) throw new Error('Native tool thread is missing')
@@ -1526,24 +1289,17 @@ function createCopilotStoreInstance(channelId: string) {
             (!context?.workspaceId || !readback?.credentialId?.trim())
           )
             throw new Error('Choose an authorized workspace and credential for this Drive request')
-          const response = await executeCopilotServerTool({
-            native: { workspaceId: get().currentChat!.workspaceId, target: pending.target },
+          const success = await invoke({
+            command: 'tool.execute',
+            ...requestForPending(pending),
             action: 'readback',
             ...(context ? { context } : {}),
             ...(readback?.credentialId
               ? { readback: { credentialId: readback.credentialId } }
               : {}),
           })
-          if (!ownsChat(chat, generation, interaction))
-            throw new Error('Native tool selection changed')
-          if (
-            stableStringifyJsonValue(get().toolCallsById[id]?.pending ?? null) !==
-            stableStringifyJsonValue(pending)
-          )
-            throw new Error('Native pending target changed')
-          if (!response.proof) throw new Error('Authoritative readback proof is unavailable')
-          updateTool(id, ClientToolCallState.success, response.result)
-          await get().submitAuthoritativeToolResult(id, response.result, response.proof)
+          if (!ownsChat(chat, generation, interaction)) return
+          if (!success) throw new Error('Authoritative readback did not complete')
         },
         recordToolFailure: (id, message) => {
           updateTool(
@@ -1588,18 +1344,6 @@ function createCopilotStoreInstance(channelId: string) {
             kind: 'reject',
             pending: structuredClone(call.pending),
             reviewToken: call.result.reviewToken,
-          })
-        },
-        retryToolResultDelivery: async (id) => {
-          const call = get().toolCallsById[id]
-          if (!call?.pending || !call.resultProof || call.result === undefined)
-            throw new Error(
-              'Retained result proof is unavailable; business work will not be replayed'
-            )
-          await performToolAction(id, {
-            kind: 'delivery',
-            pending: structuredClone(call.pending),
-            delivery: { result: structuredClone(call.result), proof: call.resultProof },
           })
         },
       }

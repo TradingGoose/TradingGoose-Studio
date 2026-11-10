@@ -1,82 +1,107 @@
-import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import {
+  assertNativeCommandResponse,
   assertNativeCorrelation,
-  COPILOT_NATIVE_REVISION,
-  isNativeContractDefinition,
   parseNativeContract,
 } from './contract'
-import fixtures from './contract/fixtures.json'
-import provenance from './contract/provenance.json'
 
-describe('accepted canonical native contract', () => {
-  it('preserves the exact accepted protocol, schema and fixture bytes', async () => {
-    for (const entry of provenance.files) {
-      const bytes = await readFile(new URL(`./contract/${entry.path}`, import.meta.url))
-      expect(createHash('sha256').update(bytes).digest('hex'), entry.path).toBe(entry.sha256)
+const target = {
+  threadId: 'thread',
+  resourceId: 'resource',
+  runId: 'run',
+  toolCallId: 'call',
+  toolName: 'edit_workflow',
+}
+const scope = { actorUserId: 'actor', workspaceId: null }
+describe('Studio Copilot product contract', () => {
+  it('accepts local tool decisions with server-owned arguments and billing', async () => {
+    const command = {
+      requestId: 'request',
+      scope,
+      command: 'tool.execute',
+      target,
+      action: 'review.accept',
+      reviewToken: 'review',
+      stream: true,
     }
+    await expect(parseNativeContract('CopilotRequest', command)).resolves.toEqual(command)
+    for (const extra of [
+      { result: { success: true } },
+      { financialBinding: {} },
+      { originalArgs: {} },
+      { proof: 'old-proof' },
+    ])
+      await expect(
+        parseNativeContract('CopilotRequest', { ...command, ...extra })
+      ).rejects.toThrow()
   })
-  it('binds flattened canonical assets to their original owner paths and sealed manifest', async () => {
-    const sourceManifest: {
-      protocolRevision: string
-      billingTarSha256: string
-      files: Array<{ path: string; sha256: string }>
-    } = JSON.parse(
-      await readFile(new URL('./contract/source-manifest.txt', import.meta.url), 'utf8')
-    )
-    const sourceChecksums: { entries: Array<{ path: string; sha256: string }> } = JSON.parse(
-      await readFile(new URL('./contract/source-checksums.txt', import.meta.url), 'utf8')
-    )
-    expect(sourceManifest.protocolRevision).toBe(COPILOT_NATIVE_REVISION)
-    expect(sourceManifest.billingTarSha256).toBe(provenance.selectedFinancialPackage.tarballSha256)
-    expect(new Set(provenance.files.map((entry) => entry.path)).size).toBe(provenance.files.length)
-    for (const entry of provenance.files) {
-      if (entry.sourcePath === 'SHA256SUMS.json') continue
-      const sealed = sourceChecksums.entries.find((owner) => owner.path === entry.sourcePath)
-      expect(sealed?.sha256, entry.sourcePath).toBe(entry.sha256)
-      if (entry.sourcePath.startsWith('src/')) {
-        const original = sourceManifest.files.find((owner) => owner.path === entry.sourcePath)
-        expect(original?.sha256, entry.sourcePath).toBe(entry.sha256)
-      }
+  it('accepts browser acknowledgements while refusing arbitrary authoritative results', async () => {
+    const command = {
+      requestId: 'request',
+      scope,
+      command: 'tool.result',
+      target,
+      stream: true,
+      source: 'browser_assertion',
+      assertion: { kind: 'ui.opened', data: { opened: true } },
     }
+    await expect(parseNativeContract('CopilotRequest', command)).resolves.toEqual(command)
+    await expect(
+      parseNativeContract('CopilotRequest', {
+        ...command,
+        source: 'studio_signed',
+        result: { success: true },
+        proof: 'proof',
+      })
+    ).rejects.toThrow()
   })
-  for (const fixture of fixtures.fixtures) {
-    const accepted =
-      fixture.schemaValid && fixture.moneyValid !== false && fixture.mediaValid !== false
-    it(`${fixture.id}: canonical syntax and required semantics ${accepted ? 'accept' : 'refuse'}`, async () => {
-      const name = fixture.schema
-      if (!isNativeContractDefinition(name)) throw new Error(`Unknown fixture definition ${name}`)
-      const operation = parseNativeContract(name, fixture.value)
-      if (accepted) await expect(operation).resolves.toEqual(fixture.value)
-      else await expect(operation).rejects.toThrow('Invalid native')
-    })
-  }
-  it('preserves arbitrary nested business money/image-shaped fields outside native semantic slots', async () => {
-    const business = {
-      financial: { accepted: true, appliedUsd: 0.02 },
-      image: { type: 'image', image: 'ordinary-business-reference', mediaType: 'not-native-media' },
-      error: { type: 'error', message: ' exact business content\t\n' },
+  it('rejects raw runtime events and extended product events', async () => {
+    for (const event of [
+      { type: 'step-finish', payload: {} },
+      { requestId: 'request', type: 'text.delta', text: 'safe', providerMetadata: {} },
+    ])
+      await expect(parseNativeContract('CopilotEvent', event)).rejects.toThrow()
+  })
+  it.each(['0', '0.30000000000000001', '9007199254740993.1234567890123456789'])(
+    'preserves exact accepted decimal %s',
+    async (appliedUsd) => {
+      await expect(
+        parseNativeContract('FinancialFact', {
+          accepted: true,
+          modelUsd: 'unavailable',
+          appliedUsd,
+        })
+      ).resolves.toMatchObject({ appliedUsd })
     }
-    await expect(parseNativeContract('Json', business)).resolves.toEqual(business)
-  })
-  it('correlates every response with its captured revision and request', () => {
+  )
+  it.each([undefined, 0, '0.0', '+0', '-0', '1e-2', 'not-money'])(
+    'rejects invalid accepted decimal %j',
+    async (appliedUsd) => {
+      await expect(
+        parseNativeContract('FinancialFact', {
+          accepted: true,
+          modelUsd: 'unavailable',
+          appliedUsd,
+        })
+      ).rejects.toThrow()
+    }
+  )
+  it('validates correlation and command-specific outcomes', () => {
+    expect(() => assertNativeCorrelation({ requestId: 'stale' }, 'request')).toThrow()
     expect(() =>
-      assertNativeCorrelation(
-        { protocolRevision: COPILOT_NATIVE_REVISION, requestId: 'first' },
-        'first'
-      )
-    ).not.toThrow()
-    for (const value of [
-      { protocolRevision: 'unreviewed', requestId: 'first' },
-      { protocolRevision: COPILOT_NATIVE_REVISION, requestId: 'other' },
-    ]) {
-      expect(() => assertNativeCorrelation(value, 'first')).toThrow('does not match')
-    }
+      assertNativeCommandResponse('message', {
+        requestId: 'request',
+        status: 'compacted',
+        threadId: 'thread',
+        applied: true,
+        sourceBoundaryVerified: true,
+      })
+    ).toThrow()
   })
-  it('does not treat inherited names as canonical definitions', () => {
-    for (const name of ['constructor', 'toString', '__proto__']) {
-      expect(isNativeContractDefinition(name)).toBe(false)
-    }
+  it('keeps billing invocation identity out of public pending cards', async () => {
+    const pending = { target, stage: 'approval', originalArgs: { entityId: 'workflow' } }
+    await expect(parseNativeContract('Pending', pending)).resolves.toEqual(pending)
+    for (const field of ['financialBinding', 'financialOccurrence'])
+      await expect(parseNativeContract('Pending', { ...pending, [field]: {} })).rejects.toThrow()
   })
 })

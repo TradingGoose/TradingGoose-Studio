@@ -20,6 +20,7 @@ const state = vi.hoisted(() => ({
   failAccept: false,
   admit: vi.fn(),
   accept: vi.fn(),
+  create: vi.fn(),
   binding: {
     runId: 'financial-run',
     namespace: 'billing-usage:user:actor',
@@ -32,13 +33,14 @@ const state = vi.hoisted(() => ({
   },
 }))
 vi.mock('@/lib/billing/native-finance', () => ({
-  createFinancialInvocation: async () => state.binding,
+  createFinancialInvocation: (...args: unknown[]) => state.create(...args),
   admitFinancialModelStep: state.admit,
   acceptFinancialModelStep: state.accept,
 }))
 beforeEach(() => {
   state.order.length = 0
   state.failAccept = false
+  state.create.mockReset().mockResolvedValue(state.binding)
   state.admit.mockReset().mockImplementation(async (_binding, occurrence) => {
     state.order.push(`admit:${occurrence.stepNumber}:${occurrence.retryCount}`)
   })
@@ -138,6 +140,51 @@ async function processors(signal?: AbortSignal) {
     },
   }
 }
+
+it('reuses only an original binding in the exact authenticated scope on continuation', async () => {
+  const original = { ...state.binding }
+  const finance = await financialProcessors(
+    { actorUserId: 'actor', runId: 'financial-run', purpose: 'fixture' },
+    undefined,
+    { binding: original }
+  )
+  expect(finance.binding).toEqual(original)
+  expect(finance.binding).not.toBe(original)
+  expect(state.create).not.toHaveBeenCalled()
+  expect(finance.getFinancialFact()).toBeUndefined()
+  expect(finance.getLastOccurrence()).toBeUndefined()
+  await expect(
+    financialProcessors(
+      { actorUserId: 'another-actor', runId: 'financial-run', purpose: 'fixture' },
+      undefined,
+      { binding: original }
+    )
+  ).rejects.toThrow('does not match the authenticated scope')
+})
+
+it('projects acknowledged financial amounts once per occurrence with exact decimal arithmetic', async () => {
+  state.accept.mockImplementation(async (binding, occurrence) => ({
+    ...canonicalReceipt(binding, occurrence),
+    appliedUsd: occurrence.stepNumber === 0 ? '0.1' : '0.2',
+  }))
+  const finance = await processors()
+  await finance.admit(0)
+  expect(finance.getFinancialFact()).toBeUndefined()
+  await finance.accept(0)
+  await finance.accept(0)
+  await finance.admit(1)
+  await finance.accept(1)
+  expect(finance.getFinancialFact()).toEqual({
+    accepted: true,
+    modelUsd: 'unavailable',
+    appliedUsd: '0.3',
+  })
+  expect(finance.getLastOccurrence()).toEqual({
+    stepNumber: 1,
+    retryCount: 0,
+    runId: 'financial-run',
+  })
+})
 
 it('accepts each native output before its tool and the next actual model contact', async () => {
   const finance = await financialProcessors({

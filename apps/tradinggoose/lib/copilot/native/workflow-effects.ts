@@ -1,3 +1,4 @@
+import { assertCopilotRunActive, claimCopilotBrowserEffect } from '@/lib/copilot/agent/state'
 import { ToolArgSchemas } from '@/lib/copilot/registry'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
@@ -62,6 +63,11 @@ export async function authorizeNativeWorkflowQueueEffect(
   }
   await authorizeNativeBusinessResult(scope, pending)
   signal?.throwIfAborted()
+  await assertCopilotRunActive(pending.target.runId)
+  await claimCopilotBrowserEffect(pending.target.runId, pending.target.toolCallId, {
+    target: pending.target,
+    args,
+  })
 }
 
 export async function authorizeNativeWorkflowDeploymentEffect(
@@ -87,4 +93,9 @@ export async function authorizeNativeWorkflowDeploymentEffect(
   }
   await authorizeNativeBusinessResult(scope, pending)
   signal?.throwIfAborted()
+  await assertCopilotRunActive(pending.target.runId)
+  await claimCopilotBrowserEffect(pending.target.runId, pending.target.toolCallId, {
+    target: pending.target,
+    args,
+  })
 }

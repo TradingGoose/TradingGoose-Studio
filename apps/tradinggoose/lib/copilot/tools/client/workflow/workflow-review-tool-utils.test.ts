@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildWorkflowSummary, getReadableWorkflowState } from './workflow-review-tool-utils'
+import {
+  buildWorkflowSummary,
+  getReadableWorkflowState,
+  resolveWorkflowTarget,
+} from './workflow-review-tool-utils'
 
 const mockGetRegisteredWorkflowSession = vi.hoisted(() => vi.fn())
 const mockAcquireWritableWorkflowSessionLease = vi.hoisted(() => vi.fn())
@@ -258,5 +262,36 @@ describe('workflow-review-tool-utils', () => {
       expect.objectContaining({ source: 'child', target: 'parallel', scope: 'internal' }),
       expect.objectContaining({ source: 'parallel', target: 'agent', scope: 'external' }),
     ])
+  })
+  it('loads ordinary workflow metadata for a reopened deployment without a pinned workspace', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      Response.json({ data: { id: 'workflow', workspaceId: 'business-workspace' } })
+    )
+    expect(
+      await resolveWorkflowTarget(
+        { toolCallId: 'call', toolName: 'deploy_workflow' },
+        { entityId: 'workflow' }
+      )
+    ).toEqual({ workflowId: 'workflow', workspaceId: 'business-workspace' })
+    expect(fetch).toHaveBeenCalledWith('/api/workflows/workflow', { signal: undefined })
+  })
+  it('rejects unavailable workflow metadata and canceled lookups', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      Response.json({ data: { id: 'foreign', workspaceId: 'business-workspace' } })
+    )
+    await expect(
+      resolveWorkflowTarget(
+        { toolCallId: 'call', toolName: 'deploy_workflow' },
+        { entityId: 'workflow' }
+      )
+    ).rejects.toThrow('workspace is unavailable')
+    const abort = new AbortController()
+    abort.abort(new Error('Cancelled'))
+    await expect(
+      resolveWorkflowTarget(
+        { toolCallId: 'call', toolName: 'deploy_workflow' },
+        { entityId: 'workflow', signal: abort.signal }
+      )
+    ).rejects.toThrow('Cancelled')
   })
 })

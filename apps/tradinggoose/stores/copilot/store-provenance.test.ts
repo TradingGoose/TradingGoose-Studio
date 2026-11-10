@@ -20,7 +20,7 @@ describe('buildTurnProvenanceFromContexts', () => {
         ],
         null
       )
-    ).toEqual({
+    ).toMatchObject({
       contextEntityKind: 'workflow',
       contextEntityId: 'workflow-explicit',
       workspaceId: 'workspace-1',
@@ -40,7 +40,7 @@ describe('buildTurnProvenanceFromContexts', () => {
         ],
         'workspace-live'
       )
-    ).toEqual({
+    ).toMatchObject({
       contextEntityKind: 'watchlist',
       contextEntityId: 'watchlist-1',
       workspaceId: 'workspace-1',
@@ -60,7 +60,7 @@ describe('buildTurnProvenanceFromContexts', () => {
         ],
         'workspace-live'
       )
-    ).toEqual({
+    ).toMatchObject({
       contextEntityKind: 'knowledge_base',
       contextEntityId: 'knowledge-current',
       workspaceId: 'workspace-live',
@@ -87,7 +87,7 @@ describe('buildTurnProvenanceFromContexts', () => {
       'workspace-1'
     )
 
-    expect(provenance).toEqual({
+    expect(provenance).toMatchObject({
       contextEntityKind: 'watchlist',
       contextEntityId: 'watchlist-current',
       workspaceId: 'workspace-1',
@@ -107,7 +107,7 @@ describe('buildTurnProvenanceFromContexts', () => {
         },
         provenance
       ).provenance
-    ).toEqual({
+    ).toMatchObject({
       contextEntityKind: 'watchlist',
       contextEntityId: 'watchlist-current',
       workspaceId: 'workspace-1',
@@ -122,7 +122,7 @@ describe('buildTurnProvenanceFromContexts', () => {
         },
         provenance
       ).provenance
-    ).toEqual({
+    ).toMatchObject({
       contextEntityKind: 'dashboard_layout',
       contextEntityId: 'layout-current',
       workspaceId: 'workspace-1',

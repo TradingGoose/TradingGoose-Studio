@@ -2,6 +2,7 @@
 
 import { DASHBOARD_LAYOUT_TOOL_NAMES } from '@/lib/copilot/registry'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { collectCopilotToolContexts, resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { normalizeOptionalString } from '@/lib/utils'
 import type {
@@ -89,6 +90,8 @@ export function buildTurnProvenanceFromContexts(
     }
   }
 
+  const toolContexts = collectCopilotToolContexts(contexts ?? [])
+  if (toolContexts.length) provenance.toolContexts = toolContexts
   return hasContext ? provenance : undefined
 }
 
@@ -102,10 +105,16 @@ export function withPinnedToolExecutionProvenance(
 
   const dashboardLayoutContext =
     toolCall.provenance?.dashboardLayoutContext ?? baseProvenance?.dashboardLayoutContext
-  const { dashboardLayoutContext: _baseDashboardLayoutContext, ...baseProvenanceRest } =
-    baseProvenance ?? {}
-  const { dashboardLayoutContext: _toolDashboardLayoutContext, ...toolProvenanceRest } =
-    toolCall.provenance ?? {}
+  const {
+    dashboardLayoutContext: _baseDashboardLayoutContext,
+    toolContexts: _baseContexts,
+    ...baseProvenanceRest
+  } = baseProvenance ?? {}
+  const {
+    dashboardLayoutContext: _toolDashboardLayoutContext,
+    toolContexts: _toolContexts,
+    ...toolProvenanceRest
+  } = toolCall.provenance ?? {}
   const mergedProvenance = {
     ...baseProvenanceRest,
     ...toolProvenanceRest,
@@ -119,7 +128,12 @@ export function withPinnedToolExecutionProvenance(
 
   return {
     ...toolCall,
-    provenance: mergedProvenance,
+    provenance: resolveCopilotToolContext(
+      toolCall.name,
+      toolCall.params ?? {},
+      mergedProvenance,
+      toolCall.provenance?.toolContexts ?? baseProvenance?.toolContexts
+    ),
   }
 }
 

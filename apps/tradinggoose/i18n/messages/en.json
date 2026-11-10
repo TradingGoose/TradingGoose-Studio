@@ -1958,10 +1958,6 @@
         }
       },
       "service": {
-        "copilot": {
-          "title": "Copilot",
-          "description": "Generate keys for Copilot API access."
-        },
         "market": {
           "title": "Market",
           "description": "Generate keys for Market API access."

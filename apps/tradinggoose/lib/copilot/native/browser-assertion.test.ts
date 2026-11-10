@@ -13,22 +13,11 @@ function pending(toolName: string, originalArgs: JsonObject = {}): Pending {
     },
     originalArgs,
     stage: 'result',
-    financialBinding: {
-      namespace: 'billing',
-      key: 'key',
-      fingerprint: 'fp',
-      actorUserId: 'actor',
-      workspaceId: null,
-      workflowId: null,
-      runId: 'run',
-      purpose: 'copilot',
-    },
-    financialOccurrence: { stepNumber: 1, retryCount: 0 },
   }
 }
 describe('browser assertions cannot become authoritative business results', () => {
   it.each(['run_workflow', 'gdrive_request_access', 'create_workflow', 'read_workflow'])(
-    'requires Studio result proof for %s',
+    'requires authoritative Studio readback for %s',
     (toolName) => {
       expect(() =>
         validateNativeBrowserAssertion(pending(toolName), {

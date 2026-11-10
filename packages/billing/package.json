@@ -4,25 +4,10 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./schema": {
-      "types": "./dist/schema.d.ts",
-      "default": "./dist/schema.js"
-    },
-    "./money": {
-      "types": "./dist/money.d.ts",
-      "default": "./dist/money.js"
-    }
+    ".": "./src/index.ts",
+    "./money": "./src/money.ts"
   },
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "scripts": {
-    "build": "bun run build.ts",
     "type-check": "tsc -p tsconfig.json --noEmit",
     "test": "bun test src"
   },
@@ -32,10 +17,10 @@
   },
   "devDependencies": {
     "@types/node": "24.2.1",
-    "typescript": "^5.7.3",
-    "@tradinggoose/db": "workspace:*"
+    "typescript": "^5.7.3"
   },
   "dependencies": {
-    "bignumber.js": "9.3.1"
+    "bignumber.js": "9.3.1",
+    "@tradinggoose/db": "workspace:*"
   }
 }

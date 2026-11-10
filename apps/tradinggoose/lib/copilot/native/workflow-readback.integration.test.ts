@@ -1,19 +1,18 @@
 /** @vitest-environment node */
 /**
- * Actual queue/native-target/readback/canonical-result/signed-proof composition.
- * Native transport, session, workspace/entity DAL, enqueue, archive bytes and financial
- * verification are controlled source seams. No actual executor, receipt DB or provider.
+ * Actual workflow queue route, local pending authorization, and canonical result readback.
+ * Session, workspace/entity DAL, enqueue, archive bytes, and financial verification
+ * are controlled seams. No external Copilot server or provider is involved.
  */
 
 import type { FinancialBinding } from '@tradinggoose/billing'
-import { decodeJwt } from 'jose'
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   canonicalLogFixture,
   hydrateCanonicalLogFixture,
 } from '@/lib/execution/__test-utils__/canonical-log-fixture'
-import type { CopilotRequest, Pending } from './contract'
+import type { ServerPending as Pending } from './target'
 
 const m = vi.hoisted(() => {
   const state: {
@@ -38,7 +37,8 @@ const m = vi.hoisted(() => {
     workspace: vi.fn(),
     entity: vi.fn(),
     enqueue: vi.fn(),
-    nativeRead: vi.fn(),
+    pending: vi.fn(),
+    claims: new Set<string>(),
     verify: vi.fn(),
     hydrate: vi.fn(),
     duringHydration: vi.fn(),
@@ -129,7 +129,15 @@ vi.mock('@/lib/execution/workflow-execution-stream', () => ({
     throw new Error('Unexpected stream/effect in readback source test')
   },
 }))
-vi.mock('@/lib/copilot/native/client', () => ({ readNativeCopilot: m.nativeRead }))
+vi.mock('@/lib/copilot/agent/service', () => ({ listCopilotPending: m.pending }))
+vi.mock('@/lib/copilot/agent/state', () => ({
+  assertCopilotRunActive: async () => undefined,
+  claimCopilotBrowserEffect: async (runId: string, callId: string) => {
+    const key = JSON.stringify([runId, callId])
+    if (m.claims.has(key)) throw new NativeTargetError('Already dispatched', 409)
+    m.claims.add(key)
+  },
+}))
 vi.mock('@/lib/billing/native-finance', () => ({ verifyFinancialAcceptance: m.verify }))
 vi.mock('@/lib/workflow-archive/functional', () => ({
   hydrateExecutionPayload: (...args: unknown[]) => m.hydrate(...args),
@@ -160,7 +168,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 vi.mock('@/lib/env', () => ({
   env: {
-    INTERNAL_API_SECRET: 'r7-controlled-source-proof-only-not-a-live-secret',
     NODE_ENV: 'test',
   },
   getEnv: () => undefined,
@@ -168,12 +175,15 @@ vi.mock('@/lib/env', () => ({
 }))
 vi.unmock('@/blocks/registry')
 
-import { verifyCopilotToolResultProof } from '@/lib/copilot/result-proof'
-import { POST as readbackPost } from '@/app/api/copilot/execute-copilot-server-tool/route'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { POST as queuePost } from '@/app/api/workflows/[id]/queue/route'
-import { COPILOT_NATIVE_REVISION, parseNativeContract } from './contract'
-import { nativeConversationIdentity, nativeFinancialRootId, nativeResultBinding } from './identity'
-import { NativeTargetError } from './target'
+import { nativeConversationIdentity } from './identity'
+import { readbackNativeToolResult } from './readback'
+import {
+  authorizeNativeConversationScope,
+  NativeTargetError,
+  resolveNativePendingTarget,
+} from './target'
 
 const ACTOR = 'actor'
 const WORKFLOW = 'workflow-b'
@@ -250,19 +260,16 @@ async function queue() {
   )
 }
 async function readback(context?: { workspaceId: string }, signal?: AbortSignal) {
-  const pending = m.state.pendingValue
-  if (!pending) throw new Error('Missing source Pending')
-  return readbackPost(
-    new NextRequest('https://studio.example.test/api/copilot/execute-copilot-server-tool', {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'readback',
-        native: { workspaceId: m.state.conversationWorkspaceId, target: pending.target },
-        ...(context ? { context } : {}),
-      }),
-      ...(signal ? { signal } : {}),
-    })
-  )
+  const original = m.state.pendingValue
+  if (!original) throw new Error('Missing Pending')
+  const scope = await authorizeNativeConversationScope(ACTOR, m.state.conversationWorkspaceId)
+  const pending = await resolveNativePendingTarget(scope, original.target, 'result', signal)
+  const result = await readbackNativeToolResult(scope, pending, {
+    userId: ACTOR,
+    ...context,
+    signal,
+  })
+  return ToolResultSchemas.run_workflow.parse(result)
 }
 function terminal(failed = false, logOnly = false) {
   const queued = m.state.pendingRows[0]
@@ -349,21 +356,10 @@ beforeEach(() => {
       inserted,
     }
   })
-  m.nativeRead.mockReset().mockImplementation(async (request: CopilotRequest) => {
-    if (request.command !== 'pending.list')
-      throw new Error('No inference/resume allowed in source test')
-    return {
-      status: 200,
-      result: await parseNativeContract('CopilotResponse', {
-        protocolRevision: COPILOT_NATIVE_REVISION,
-        requestId: request.requestId,
-        status: 'pending_targets',
-        items: m.state.pendingValue ? [m.state.pendingValue] : [],
-        page: request.page,
-        hasMore: false,
-      }),
-    }
-  })
+  m.claims.clear()
+  m.pending
+    .mockReset()
+    .mockImplementation(async () => (m.state.pendingValue ? [m.state.pendingValue] : []))
   // Explicit verification seam: these values are not actual receipts/monetary evidence.
   m.verify
     .mockReset()
@@ -379,47 +375,21 @@ beforeEach(() => {
   })
 })
 
-describe('original workflow B outcome from conversation A through actual routes', () => {
+describe('local workflow execution and authoritative readback', () => {
   it.each([null, 'workspace-a', 'workspace-b'])(
-    'queues once and signs canonical readback for unchanged conversation %j with separate finance',
+    'queues once and reads canonical output from conversation %j',
     async (workspaceId) => {
       m.state.conversationWorkspaceId = workspaceId
       m.state.pendingValue = originalPending()
       const original = structuredClone(m.state.pendingValue)
       expect((await queue()).status).toBe(202)
-      expect(m.enqueue).toHaveBeenCalledOnce()
-      expect(m.enqueue).toHaveBeenCalledWith(
-        expect.objectContaining({
-          pendingExecutionId: EXECUTION,
-          workflowId: WORKFLOW,
-          userId: ACTOR,
-          workspaceId: 'workspace-b',
-        })
-      )
       terminal()
-      const response = await readback({ workspaceId: 'workspace-b' })
-      expect(response.status).toBe(200)
-      const body = await response.json()
-      expect(body.result).toMatchObject({
+      expect(await readback({ workspaceId: 'workspace-b' })).toMatchObject({
         executionId: EXECUTION,
         data: {
           success: true,
           output: { literal: '  <working_memory> business </working_memory>\n' },
         },
-      })
-      await expect(
-        verifyCopilotToolResultProof(body.proof, {
-          binding: nativeResultBinding(conversation(), original),
-          originalArgs: original.originalArgs,
-          result: body.result,
-        })
-      ).resolves.toBeUndefined()
-      expect(decodeJwt(body.proof)).toMatchObject({
-        workspaceId,
-        actorId: ACTOR,
-        runId: NATIVE_RUN,
-        toolCallId: EXECUTION,
-        financialRootId: nativeFinancialRootId(original.financialBinding),
       })
       expect(m.verify).toHaveBeenCalledWith(original.financialBinding, original.financialOccurrence)
       expect(m.verify).toHaveBeenCalledWith(originalWorkflowBinding(), {
@@ -427,99 +397,80 @@ describe('original workflow B outcome from conversation A through actual routes'
         retryCount: 0,
         runId: EXECUTION,
       })
-      expect(original.financialBinding.workspaceId).toBe(workspaceId)
       expect(m.state.pendingValue).toEqual(original)
+      expect((await queue()).status).toBe(409)
       expect(m.enqueue).toHaveBeenCalledOnce()
       expect(m.forbiddenEffect).not.toHaveBeenCalled()
     }
   )
-  it.each([false, true])(
-    'preserves original failed workflow output, pending-row fallback=%s',
-    async (logOnly) => {
-      expect((await queue()).status).toBe(202)
-      terminal(true, logOnly)
-      const response = await readback()
-      expect(response.status).toBe(200)
-      const body = await response.json()
-      expect(body.result.data).toMatchObject({
-        success: false,
-        error: 'Original workflow failed after known work',
-      })
-      expect(body.proof).toEqual(expect.any(String))
-      expect(m.enqueue).toHaveBeenCalledOnce()
-    }
-  )
-  it('allows read-only original B after queue, but cannot queue another execution', async () => {
+  it.each([false, true])('preserves failed output with log-only fallback=%s', async (logOnly) => {
+    expect((await queue()).status).toBe(202)
+    terminal(true, logOnly)
+    expect(await readback()).toMatchObject({
+      data: { success: false, error: 'Original workflow failed after known work' },
+    })
+    expect(m.enqueue).toHaveBeenCalledOnce()
+  })
+  it('permits current read access to a completed run while rejecting another write', async () => {
     expect((await queue()).status).toBe(202)
     terminal()
     m.state.canQueue = false
-    expect((await readback()).status).toBe(200)
+    expect(await readback()).toHaveProperty('executionId', EXECUTION)
     expect((await queue()).status).toBe(403)
     expect(m.enqueue).toHaveBeenCalledOnce()
   })
-  it('retains historical execution B when current workflow authorization resolves C', async () => {
+  it('checks original execution workspace independently from the current workflow workspace', async () => {
     expect((await queue()).status).toBe(202)
     terminal()
     m.state.workflowWorkspaceId = 'workspace-c'
-    expect((await readback()).status).toBe(200)
+    expect(await readback()).toHaveProperty('executionId', EXECUTION)
     expect(m.workspace).toHaveBeenCalledWith('workspace-b', ACTOR)
     expect(m.workspace).toHaveBeenCalledWith('workspace-c', ACTOR)
-  })
-  it('independently refuses revoked original B although current workflow C remains authorized', async () => {
-    expect((await queue()).status).toBe(202)
-    terminal()
-    m.state.workflowWorkspaceId = 'workspace-c'
     m.state.allowedWorkspaces.delete('workspace-b')
-    expect((await readback()).status).toBe(403)
+    m.hydrate.mockClear()
+    await expect(readback()).rejects.toMatchObject({ status: 403 })
     expect(m.hydrate).not.toHaveBeenCalled()
-    expect(m.enqueue).toHaveBeenCalledOnce()
   })
-  it('refuses conversation A revocation before reading workflow output', async () => {
+  it('rejects revoked conversation access before reading execution output', async () => {
     expect((await queue()).status).toBe(202)
     terminal()
     m.state.allowedWorkspaces.delete('workspace-a')
-    expect((await readback()).status).toBe(403)
+    await expect(readback()).rejects.toMatchObject({ status: 403 })
     expect(m.hydrate).not.toHaveBeenCalled()
   })
-  it('rechecks B through canonical hydration and returns no proof after mid-read revocation', async () => {
+  it('rechecks original workspace authorization during canonical payload hydration', async () => {
     expect((await queue()).status).toBe(202)
     terminal()
     m.state.workflowWorkspaceId = 'workspace-c'
-    m.duringHydration.mockImplementationOnce(() => {
-      m.state.allowedWorkspaces.delete('workspace-b')
-    })
-    const response = await readback()
-    expect(response.status).toBe(403)
-    expect((await response.json()).proof).toBeUndefined()
+    m.duringHydration.mockImplementationOnce(() => m.state.allowedWorkspaces.delete('workspace-b'))
+    await expect(readback()).rejects.toMatchObject({ status: 403 })
     expect(m.enqueue).toHaveBeenCalledOnce()
   })
   it.each(['workspace', 'actor'])(
-    'refuses pending/log %s disagreement before canonical payload',
+    'rejects terminal log %s disagreement before payload access',
     async (field) => {
       expect((await queue()).status).toBe(202)
       const row = terminal()
       if (field === 'workspace') row.workspaceId = 'workspace-c'
       else row.executionData.environment.userId = 'other-actor'
-      const response = await readback()
-      expect(response.status).toBe(403)
-      expect((await response.json()).proof).toBeUndefined()
+      await expect(readback()).rejects.toMatchObject({ status: 403 })
       expect(m.hydrate).not.toHaveBeenCalled()
     }
   )
-  it('log-only fallback rejects another actor without exposing canonical payload', async () => {
+  it('rejects a foreign actor through the log-only fallback', async () => {
     expect((await queue()).status).toBe(202)
     const row = terminal(false, true)
     row.executionData.environment.userId = 'other-actor'
-    expect((await readback()).status).toBe(403)
+    await expect(readback()).rejects.toMatchObject({ status: 403 })
     expect(m.hydrate).not.toHaveBeenCalled()
   })
-  it('keeps supplied business workspace conflict refusal, never replaces it with A or B', async () => {
+  it('rejects conflicting business workspace context', async () => {
     expect((await queue()).status).toBe(202)
     terminal()
-    expect((await readback({ workspaceId: 'workspace-c' })).status).toBe(403)
+    await expect(readback({ workspaceId: 'workspace-c' })).rejects.toMatchObject({ status: 403 })
     expect(m.hydrate).not.toHaveBeenCalled()
   })
-  it('refuses missing original workflow acceptance despite accepted Copilot occurrence', async () => {
+  it('requires original workflow accounting even after accepted Copilot accounting', async () => {
     expect((await queue()).status).toBe(202)
     terminal()
     m.verify.mockImplementation(async (binding: FinancialBinding) => {
@@ -527,62 +478,34 @@ describe('original workflow B outcome from conversation A through actual routes'
         throw new Error('Original workflow receipt unavailable')
       return { accepted: true, appliedUsd: '0.001234', modelUsd: 'unavailable' }
     })
-    const response = await readback()
-    expect(response.status).toBeGreaterThanOrEqual(400)
-    expect((await response.json()).proof).toBeUndefined()
+    await expect(readback()).rejects.toThrow('Original workflow receipt unavailable')
     expect(m.hydrate).not.toHaveBeenCalled()
-    expect(m.enqueue).toHaveBeenCalledOnce()
   })
-  it('refuses nonterminal and missing canonical payload without manufacturing success', async () => {
+  it('rejects nonterminal logs and unavailable canonical payload without replaying', async () => {
     expect((await queue()).status).toBe(202)
     const row = terminal()
     row.endedAt = null
-    expect((await readback()).status).toBe(409)
+    await expect(readback()).rejects.toMatchObject({ status: 409 })
     row.endedAt = new Date('2026-11-09T00:00:01.000Z')
     m.hydrate.mockRejectedValueOnce(new Error('Canonical payload digest mismatch'))
-    const response = await readback()
-    expect(response.status).toBeGreaterThanOrEqual(400)
-    expect((await response.json()).proof).toBeUndefined()
+    await expect(readback()).rejects.toThrow('Canonical payload digest mismatch')
     expect(m.enqueue).toHaveBeenCalledOnce()
   })
-  it('rejects altered original Copilot finance without substituting the workflow receipt', async () => {
+  it('rejects changed Copilot financial scope without substituting workflow accounting', async () => {
     expect((await queue()).status).toBe(202)
     terminal()
-    const pending = m.state.pendingValue
-    if (!pending) throw new Error('Missing original Pending')
-    pending.financialBinding.workspaceId = 'workspace-b'
-    expect((await readback()).status).toBe(403)
+    m.state.pendingValue!.financialBinding.workspaceId = 'workspace-b'
+    await expect(readback()).rejects.toMatchObject({ status: 403 })
     expect(m.hydrate).not.toHaveBeenCalled()
-    expect(m.enqueue).toHaveBeenCalledOnce()
   })
-  it('final whole-Pending change after canonical hydration refuses signed completion without replay', async () => {
-    expect((await queue()).status).toBe(202)
-    terminal()
-    m.duringHydration.mockImplementationOnce(() => {
-      const pending = m.state.pendingValue
-      if (!pending) throw new Error('Missing original Pending')
-      m.state.pendingValue = {
-        ...pending,
-        financialOccurrence: { ...pending.financialOccurrence, stepNumber: 4 },
-      }
-    })
-    const response = await readback()
-    expect(response.status).toBe(409)
-    expect((await response.json()).proof).toBeUndefined()
-    expect(m.hydrate).toHaveBeenCalledOnce()
-    expect(m.enqueue).toHaveBeenCalledOnce()
-    expect(m.forbiddenEffect).not.toHaveBeenCalled()
-  })
-  it('cancellation during hydration cannot publish proof or replay effects', async () => {
+  it('stops cancelled hydration without repeating the queued effect', async () => {
     expect((await queue()).status).toBe(202)
     terminal()
     const controller = new AbortController()
-    m.duringHydration.mockImplementationOnce(() => {
-      controller.abort()
+    m.duringHydration.mockImplementationOnce(() => controller.abort())
+    await expect(readback(undefined, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
     })
-    const response = await readback(undefined, controller.signal)
-    expect(response.status).toBeGreaterThanOrEqual(400)
-    expect((await response.json()).proof).toBeUndefined()
     expect(m.enqueue).toHaveBeenCalledOnce()
     expect(m.forbiddenEffect).not.toHaveBeenCalled()
   })

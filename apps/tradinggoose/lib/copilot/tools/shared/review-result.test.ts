@@ -1,14 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
-import type { Pending } from '@/lib/copilot/native/contract'
-import { nativeResultBinding } from '@/lib/copilot/native/identity'
+import { describe, expect, it } from 'vitest'
 import { type ToolId, ToolResultSchemas } from '@/lib/copilot/registry'
-import {
-  createCopilotToolResultProof,
-  verifyCopilotToolResultProof,
-} from '@/lib/copilot/result-proof'
 import { isServerToolReviewRejectedResult } from './review-result'
-
-vi.mock('@/lib/env', () => ({ env: { INTERNAL_API_SECRET: 'synthetic-review-proof-secret' } }))
 
 // Exact current producers, not a second production inventory or a native command catalogue.
 const previews: ToolId[] = [
@@ -67,57 +59,5 @@ describe('tool-specific final server preview rejection', () => {
       ).toBe(false)
     expect(previews).toHaveLength(29)
     expect(new Set(previews).size).toBe(29)
-  })
-  it('binds a real JOSE decision proof to exact original target, arguments and financial root', async () => {
-    const scope = { actorUserId: 'actor', workspaceId: null }
-    const pending: Pending = {
-      target: {
-        threadId: 'thread',
-        resourceId: 'resource',
-        runId: 'run',
-        toolCallId: 'call',
-        toolName: 'edit_workflow',
-      },
-      stage: 'result',
-      originalArgs: { entityId: 'workflow', entityDocument: 'exact original document' },
-      financialBinding: {
-        namespace: 'billing',
-        key: 'key',
-        fingerprint: 'fingerprint',
-        actorUserId: 'actor',
-        workspaceId: null,
-        workflowId: null,
-        runId: 'run',
-        purpose: 'copilot',
-      },
-      financialOccurrence: { stepNumber: 7, retryCount: 2, runId: 'run' },
-    }
-    const result = ToolResultSchemas.edit_workflow.parse({
-      success: false,
-      rejected: true,
-      toolName: 'edit_workflow',
-    })
-    const evidence = {
-      binding: nativeResultBinding(scope, pending),
-      originalArgs: pending.originalArgs,
-      result,
-    }
-    const proof = await createCopilotToolResultProof(evidence)
-    await expect(verifyCopilotToolResultProof(proof, evidence)).resolves.toBeUndefined()
-    await expect(
-      verifyCopilotToolResultProof(proof, { ...evidence, result: { ...result, rejected: false } })
-    ).rejects.toThrow()
-    await expect(
-      verifyCopilotToolResultProof(proof, { ...evidence, originalArgs: { entityId: 'other' } })
-    ).rejects.toThrow()
-    await expect(
-      verifyCopilotToolResultProof(proof, {
-        ...evidence,
-        binding: nativeResultBinding(scope, {
-          ...pending,
-          financialBinding: { ...pending.financialBinding, fingerprint: 'other-original-root' },
-        }),
-      })
-    ).rejects.toThrow()
   })
 })

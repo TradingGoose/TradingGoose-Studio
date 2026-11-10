@@ -1,11 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { closeNativeRuntime, createNativeStorage, getMastra } from './runtime'
+import {
+  closeNativeRuntime,
+  createNativeStorage,
+  getCopilotAgent,
+  getCopilotMemory,
+  getMastra,
+  PASSIVE_MEMORY_OPTIONS,
+} from './runtime'
 
 const state = vi.hoisted(() => ({
   pools: [] as Array<{ end: ReturnType<typeof vi.fn>; query: ReturnType<typeof vi.fn> }>,
   constructorFailure: false,
   close: vi.fn(async () => {}),
   listThreads: vi.fn(async () => ({ threads: [] })),
+  memories: [] as unknown[],
+  agent: {},
 }))
 vi.mock('pg', () => ({
   Pool: class {
@@ -40,16 +49,25 @@ vi.mock('@mastra/pg', () => ({
   },
 }))
 vi.mock('@mastra/core/mastra', () => ({ Mastra: class {} }))
-vi.mock('@mastra/memory', () => ({ Memory: class {} }))
+vi.mock('@mastra/memory', () => ({
+  Memory: class {
+    constructor(options: unknown) {
+      state.memories.push(options)
+    }
+  },
+}))
+vi.mock('@/lib/copilot/agent/agent', () => ({ createCopilotAgent: () => state.agent }))
 vi.mock('./connections', () => ({ getConfiguredGateways: () => ({}) }))
 
 beforeEach(() => {
   vi.clearAllMocks()
   state.pools.length = 0
+  state.memories.length = 0
   state.constructorFailure = false
   state.close.mockResolvedValue(undefined)
   state.listThreads.mockResolvedValue({ threads: [] })
   vi.stubEnv('MASTRA_DATABASE_URL', 'postgresql://scoped-runtime@localhost/native_fixture')
+  vi.stubEnv('DATABASE_URL', 'postgresql://application@localhost/native_fixture')
 })
 afterEach(async () => {
   await closeNativeRuntime()
@@ -93,6 +111,30 @@ describe('native runtime failure cleanup', () => {
     await expect(getMastra()).rejects.toThrow(
       'MASTRA_DATABASE_URL with scoped runtime credentials is required'
     )
+    expect(state.pools).toHaveLength(0)
+  })
+
+  it('keeps workflow Memory passive and uses conversational Memory on the same store', async () => {
+    expect(await getCopilotAgent()).toBe(state.agent)
+    expect(await getCopilotMemory()).toBeDefined()
+    const memories = state.memories as Array<{ storage: unknown; options: Record<string, unknown> }>
+    expect(memories).toHaveLength(2)
+    expect(memories[0].options).toEqual(PASSIVE_MEMORY_OPTIONS)
+    expect(memories[1].storage).toBe(memories[0].storage)
+    expect(memories[1].options).toMatchObject({
+      messageHistory: { maxTokens: 32000 },
+      generateTitle: false,
+    })
+    expect(memories[1].options.lastMessages).toBeUndefined()
+  })
+
+  it.each([
+    'postgresql://runtime@elsewhere/native_fixture',
+    'postgresql://runtime@localhost/other_database',
+    'postgresql://runtime@localhost:5433/native_fixture',
+  ])('rejects a separate native database %s before opening pools', async (url) => {
+    vi.stubEnv('MASTRA_DATABASE_URL', url)
+    await expect(getMastra()).rejects.toThrow('must use the Studio application database')
     expect(state.pools).toHaveLength(0)
   })
 })

@@ -10,8 +10,7 @@ import type {
   CompletionResponse,
   ContextResponse,
   CopilotResponse,
-  FinancialFact,
-  Json,
+  CopilotToolContext,
   Pending,
 } from '@/lib/copilot/native/contract'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
@@ -25,9 +24,6 @@ export interface CopilotToolCall {
   params?: Record<string, any>
   display?: ClientToolDisplay
   result?: any
-  /** Transient evidence retained for delivery only; never business replay authority. */
-  resultProof?: string
-  resultDeliveryError?: string
   // Immutable execution provenance captured when the tool call is created.
   provenance?: CopilotToolExecutionProvenance
   pending?: Pending
@@ -97,6 +93,7 @@ export interface CopilotSendRuntimeContext {
 }
 
 export interface CopilotToolExecutionProvenance {
+  toolContexts?: CopilotToolContext[]
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
   workspaceId?: string
@@ -132,7 +129,6 @@ export interface CopilotState {
   workflowChatDeployment: WorkflowChatDeploymentRequest | null
   contextEvidence: ContextResponse | null
   lastNativeOutcome: CopilotResponse | null
-  lastNativeFinancial: FinancialFact | null
   lastTitleOutcome: CompletionResponse | CompletionFailureResponse | null
   error: string | null
   historyRefreshError: string | null
@@ -190,8 +186,6 @@ export interface CopilotActions {
   readPendingTool: (toolCallId: string) => Promise<Pending>
   authorizeToolWorkspace: (toolCallId: string, workspaceId?: string) => Promise<string>
   submitBrowserAssertion: (toolCallId: string, assertion: BrowserAssertion) => Promise<void>
-  submitAuthoritativeToolResult: (toolCallId: string, result: Json, proof: string) => Promise<void>
-  retryToolResultDelivery: (toolCallId: string) => Promise<void>
   readbackCopilotToolCall: (
     toolCallId: string,
     readback?: { credentialId?: string }

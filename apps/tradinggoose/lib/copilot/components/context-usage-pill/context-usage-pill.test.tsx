@@ -3,14 +3,13 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { COPILOT_NATIVE_REVISION, type ContextResponse } from '@/lib/copilot/native/contract'
+import type { ContextResponse } from '@/lib/copilot/native/contract'
 import { ContextUsagePill } from './context-usage-pill'
 
 let root: Root
 let container: HTMLDivElement
 const environment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 const evidence: ContextResponse = {
-  protocolRevision: COPILOT_NATIVE_REVISION,
   requestId: 'context-fixture',
   status: 'context',
   threadId: 'thread-fixture',

@@ -185,6 +185,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       const entityId = requireCopilotEntityId(args)
       const { workflowId, workspaceId } = await resolveWorkflowTarget(executionContext, {
         entityId,
+        signal: this.getAbortSignal(),
       })
 
       if (action === 'deploy' && deployType === 'chat') {

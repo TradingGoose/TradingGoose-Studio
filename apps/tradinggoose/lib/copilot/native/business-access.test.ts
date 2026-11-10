@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { JsonObject, Pending, Scope } from './contract'
+import type { JsonObject, Scope } from './contract'
+import type { ServerPending as Pending } from './target'
 
 const m = vi.hoisted(() => ({
   rows: vi.fn(),

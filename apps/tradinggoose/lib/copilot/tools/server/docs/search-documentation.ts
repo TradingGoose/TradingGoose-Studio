@@ -1,11 +1,11 @@
 import { db } from '@tradinggoose/db'
 import { docsEmbeddings } from '@tradinggoose/db/schema'
 import { sql } from 'drizzle-orm'
+import { verifyFinancialAcceptance } from '@/lib/billing/native-finance'
 import {
   authorizeNativeConversationScope,
   getNativeFinancialSource,
   NativeTargetError,
-  resolveNativePendingTarget,
 } from '@/lib/copilot/native/target'
 import { ServerToolArgSchemas } from '@/lib/copilot/registry'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
@@ -59,23 +59,8 @@ export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any
           )
           if (stableStringifyJsonValue(original) !== stableStringifyJsonValue(params))
             throw new NativeTargetError('Original documentation arguments changed', 403)
-          const scope = await authorizeNativeConversationScope(
-            source.scope.actorUserId,
-            source.scope.workspaceId
-          )
-          const pending = await resolveNativePendingTarget(
-            scope,
-            source.target,
-            'result',
-            source.signal
-          )
-          const current = getNativeFinancialSource(pending)
-          if (
-            !current ||
-            current.pendingJson !== source.pendingJson ||
-            current.acceptanceJson !== source.acceptanceJson
-          )
-            throw new NativeTargetError('Original native documentation target changed', 409)
+          await authorizeNativeConversationScope(source.scope.actorUserId, source.scope.workspaceId)
+          await verifyFinancialAcceptance(source.binding, source.occurrence)
           source.signal.throwIfAborted()
         }
       : undefined
@@ -90,7 +75,9 @@ export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any
           runId: `embedding-copilot-docs:${hashServerToolReviewBase({
             purpose: 'embedding',
             scope: source.scope,
-            pending: source.pendingJson,
+            binding: source.binding,
+            target: source.target,
+            args: source.originalArgsJson,
           })}`,
           expectedNamespace: source.binding.namespace,
           verifySource,

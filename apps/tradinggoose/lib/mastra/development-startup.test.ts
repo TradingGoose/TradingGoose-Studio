@@ -1,4 +1,4 @@
-/** Script orchestration only: build and service leaves are synthetic. Cold compilation is separate. */
+/** Execute configured startup orchestration with finite stand-ins for the services. */
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -35,16 +35,10 @@ function run(name,cwd = process.cwd()) {
   return shell(pkg.scripts[name],cwd);
 }
 function leaf(name) {
-  if(name !== 'docs' && !fs.existsSync(process.env.DEV_READY)) throw new Error('Consumer before successful build');
   event('leaf:'+name); return 0;
 }
 (async () => {
   if(command==='bun') {
-    if(args[0]==='run' && args[1]==='--cwd' && args[2]==='../../packages/billing' && args[3]==='build') {
-      event('build:start');
-      if(process.env.DEV_FAIL_BUILD==='1') return 31;
-      fs.writeFileSync(process.env.DEV_READY,'synthetic'); event('build:end'); return 0;
-    }
     if(args[0]==='run' && args[1]==='socket-server/index.ts') return leaf('sockets');
     if(args[0]==='run' && args.length===2) return run(args[1]);
   }
@@ -64,7 +58,7 @@ function leaf(name) {
 `
 
 type Event = { type: string; cwd: string }
-function execute(scope: 'root' | 'app', name: string, failure = false) {
+function execute(scope: 'root' | 'app', name: string) {
   const root = mkdtempSync(join(tmpdir(), 'tg-development-startup-'))
   directories.push(root)
   for (const [name, value] of [
@@ -91,8 +85,6 @@ function execute(scope: 'root' | 'app', name: string, failure = false) {
       PATH: `${bin}:${process.env.PATH}`,
       NODE_ENV: 'test',
       DEV_EVENTS: events,
-      DEV_READY: join(root, 'ready'),
-      DEV_FAIL_BUILD: failure ? '1' : '0',
     },
     encoding: 'utf8',
     timeout: 10_000,
@@ -109,7 +101,8 @@ function execute(scope: 'root' | 'app', name: string, failure = false) {
 }
 
 const entries = [
-  ['root', 'dev', ['next']],
+  ['root', 'dev', ['docs', 'next']],
+  ['root', 'dev:docs', ['docs']],
   ['root', 'dev:next', ['next']],
   ['root', 'dev:sockets', ['sockets']],
   ['root', 'dev:full', ['next', 'sockets']],
@@ -121,36 +114,12 @@ const entries = [
 ] as const
 
 it.each(entries)(
-  '%s %s completes exactly one build before its consumer leaves',
+  '%s %s starts its consumers directly from workspace source',
   (scope, name, leaves) => {
     const result = execute(scope, name)
     expect(result.status, result.output).toBe(0)
-    expect(result.events.filter(({ type }) => type === 'build:start')).toHaveLength(1)
-    expect(result.events.filter(({ type }) => type === 'build:end')).toHaveLength(1)
-    const completed = result.events.findIndex(({ type }) => type === 'build:end')
-    const actual = result.events.filter(
-      ({ type }) => type.startsWith('leaf:') && type !== 'leaf:docs'
+    expect(result.events.map(({ type }) => type).sort()).toEqual(
+      leaves.map((leaf) => `leaf:${leaf}`).sort()
     )
-    expect(actual.map(({ type }) => type.slice(5)).sort()).toEqual([...leaves].sort())
-    for (const leaf of actual) expect(result.events.indexOf(leaf)).toBeGreaterThan(completed)
   }
 )
-
-it.each(entries)(
-  '%s %s propagates build failure without starting a Studio consumer',
-  (scope, name) => {
-    const result = execute(scope, name, true)
-    expect(result.status, result.output).not.toBe(0)
-    expect(result.events.filter(({ type }) => type === 'build:start')).toHaveLength(1)
-    expect(result.events.some(({ type }) => type === 'build:end')).toBe(false)
-    expect(
-      result.events.filter(({ type }) => type.startsWith('leaf:') && type !== 'leaf:docs')
-    ).toEqual([])
-  }
-)
-
-it('keeps the independent docs development script free of a billing prerequisite', () => {
-  const result = execute('root', 'dev:docs')
-  expect(result.status, result.output).toBe(0)
-  expect(result.events.map(({ type }) => type)).toEqual(['leaf:docs'])
-})

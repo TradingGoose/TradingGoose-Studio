@@ -5,6 +5,7 @@ import type {
   SuspendedResponse,
 } from '@/lib/copilot/native/contract'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { withPinnedToolExecutionProvenance } from './store-provenance'
 import { resolveToolDisplay } from './tool-registry'
@@ -88,26 +89,19 @@ export function displayNativePending(
   provenance?: CopilotToolExecutionProvenance
 ): Pick<CopilotStore, 'toolCallsById' | 'messages'> {
   const target = pending.target
-  if (
-    !state.currentChat ||
-    target.threadId !== state.currentChat.threadId ||
-    pending.financialBinding.workspaceId !== state.currentChat.workspaceId ||
-    pending.financialBinding.runId !== target.runId ||
-    (pending.financialOccurrence.runId !== undefined &&
-      pending.financialOccurrence.runId !== target.runId)
-  )
+  if (!state.currentChat || target.threadId !== state.currentChat.threadId)
     throw new Error('Native pending target scope differs')
   const current = state.toolCallsById[target.toolCallId]
   if (current && current.name !== target.toolName) throw new Error('Native tool identity differs')
   if (
     current?.pending &&
-    ['target', 'originalArgs', 'financialBinding', 'financialOccurrence'].some(
+    ['target', 'originalArgs'].some(
       (key) =>
         stableStringifyJsonValue(current.pending![key as keyof Pending]) !==
         stableStringifyJsonValue(pending[key as keyof Pending])
     )
   )
-    throw new Error('Original native pending target/arguments/binding changed')
+    throw new Error('Original Copilot pending target or arguments changed')
   // An unfinished historical invocation is display-only. Fresh Pending restores its
   // action card; current attempt/error/review state and any known result stay intact.
   const stateToDisplay =
@@ -116,8 +110,7 @@ export function displayNativePending(
     !(
       current.historical &&
       current.state === ClientToolCallState.aborted &&
-      current.result === undefined &&
-      current.resultProof === undefined
+      current.result === undefined
     )
       ? current.state
       : ClientToolCallState.pending
@@ -129,10 +122,11 @@ export function displayNativePending(
     pending,
     historical: false,
     historyOrigin: current?.historical || current?.historyOrigin ? true : undefined,
-    state: stateToDisplay,
+    state: pending.preview ? ClientToolCallState.review : stateToDisplay,
+    ...(pending.preview ? { result: pending.preview } : {}),
     display: resolveToolDisplay(
       target.toolName,
-      stateToDisplay,
+      pending.preview ? ClientToolCallState.review : stateToDisplay,
       target.toolCallId,
       pending.originalArgs
     ),
@@ -209,7 +203,6 @@ export function applyNativeResponse(
     isSendingMessage: false,
     isAwaitingContinuation: response.status === 'suspended',
     lastNativeOutcome: response,
-    lastNativeFinancial: response.financial,
   }
 }
 
@@ -245,12 +238,14 @@ export function applyNativeEvent(
         {
           id: event.toolCallId,
           name: event.toolName,
+          ...(event.args ? { params: event.args } : {}),
           state: ClientToolCallState.generating,
           historical: false,
           display: resolveToolDisplay(
             event.toolName,
             ClientToolCallState.generating,
-            event.toolCallId
+            event.toolCallId,
+            event.args
           ),
         },
         provenance
@@ -270,11 +265,39 @@ export function applyNativeEvent(
         ),
       }
     }
-    case 'tool.pending':
-      return {
-        ...displayNativePending(state, event.pending, provenance),
-        lastNativeFinancial: event.financial,
+    case 'tool.result': {
+      const current = state.toolCallsById[event.toolCallId]
+      if (current && current.name !== event.toolName)
+        throw new Error('Copilot tool identity differs')
+      const nextState = event.isError
+        ? ClientToolCallState.error
+        : event.denied || isServerToolReviewRejectedResult(event.toolName, event.result)
+          ? ClientToolCallState.rejected
+          : ClientToolCallState.success
+      const toolCall: CopilotToolCall = {
+        ...current,
+        id: event.toolCallId,
+        name: event.toolName,
+        result: event.result,
+        state: nextState,
+        historical: false,
+        pending: undefined,
+        display: resolveToolDisplay(event.toolName, nextState, event.toolCallId, current?.params),
       }
+      return {
+        toolCallsById: { ...state.toolCallsById, [toolCall.id]: toolCall },
+        messages: state.messages.map((message) => ({
+          ...message,
+          contentBlocks: message.contentBlocks?.map((block) =>
+            block.type === 'tool_call' && block.toolCall.id === toolCall.id
+              ? { ...block, toolCall }
+              : block
+          ),
+        })),
+      }
+    }
+    case 'tool.pending':
+      return displayNativePending(state, event.pending, provenance)
     case 'response.completed':
       return applyNativeResponse(state, event.result, messageId)
     case 'response.suspended': {
@@ -289,7 +312,6 @@ export function applyNativeEvent(
       return {
         toolCallsById: display.toolCallsById,
         lastNativeOutcome: event.result,
-        ...(event.result.financial ? { lastNativeFinancial: event.result.financial } : {}),
         error: event.result.error.message,
         isSendingMessage: false,
         isAwaitingContinuation: false,

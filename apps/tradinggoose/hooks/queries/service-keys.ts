@@ -6,7 +6,7 @@ import {
 } from '@tanstack/react-query'
 import { isHosted } from '@/lib/environment'
 
-export type ServiceKeyKind = 'copilot' | 'market'
+export type ServiceKeyKind = 'market'
 
 export interface ServiceApiKey {
   id: string
@@ -22,12 +22,10 @@ interface GenerateServiceKeyResponse {
 }
 
 const SERVICE_LABELS: Record<ServiceKeyKind, string> = {
-  copilot: 'Copilot',
   market: 'Market',
 }
 
 const SERVICE_API_PATHS: Record<ServiceKeyKind, string> = {
-  copilot: '/api/copilot/api-keys',
   market: '/api/market/api-keys',
 }
 

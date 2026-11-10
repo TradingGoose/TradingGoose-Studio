@@ -53,7 +53,7 @@ Copilot 可调用一整套覆盖整个平台的工具：
 
 ## 支持的模型
 
-Copilot 仅支持六个 OpenRouter 模型。Studio 会原样发送每个 OpenRouter 规范模型 slug，你可以在输入栏中切换当前模型。
+Copilot 提供 Studio Mastra 模型注册表中的六个模型。Studio 使用所选的提供商/模型 ID 和已配置的连接；你可以在输入栏中切换当前模型。
 
 **Anthropic** -- anthropic/claude-fable-5, anthropic/claude-opus-5
 
@@ -74,20 +74,15 @@ Copilot 仅支持六个 OpenRouter 模型。Studio 会原样发送每个 OpenRou
   <Step>
     ### 自托管版
 
-    自托管实例需要 Copilot API 密钥才能连接到托管推理服务。
+    Copilot 在 Studio 内运行，复用其 Mastra 模型连接和应用数据库。
 
-    1. 登录 [tradinggoose.ai](https://tradinggoose.ai)，打开 **Settings > Service API Keys**。
-    2. 在 **Copilot** 卡片中点击 **Create** 生成新的 API 密钥。请立即复制——它只显示一次。
-    3. 在自托管部署中以系统管理员身份登录，打开 **Admin > Services > Copilot API**。
-    4. 将复制的值填入 **API Key** 并保存。除非使用其他 Copilot 服务端点，否则保留 **Base URL** 的默认值。Studio 读取此处保存的服务配置，而不是通过环境变量配置。
+    1. 在 Studio 部署中配置所选模型提供商的凭证。自定义模型连接使用 `MASTRA_MODEL_PROVIDERS`；Azure OpenAI 连接使用 `MASTRA_AZURE_OPENAI`。
+    2. 在 `apps/tradinggoose` 下运行 `bun run native:init`，使用 `MASTRA_OWNER_DATABASE_URL` 完成共享 Mastra 存储的部署初始化。
+    3. 打开工作区，选择已配置的模型并开始对话。
   </Step>
 </Steps>
 
-上述 Copilot 服务 API 密钥用于将内置助手连接到托管推理服务。[Copilot MCP](/copilot/copilot-mcp#installation) 使用通过其自有浏览器授权流程获取的个人 TradingGoose API 密钥。
-
-<Callout type="warn">
-  Copilot 服务 API 密钥可访问托管推理。请妥善保管，一旦泄露立即轮换。你可以在 **Settings > Service API Keys** 中删除服务密钥；删除后访问权限会立即撤销。
-</Callout>
+[Copilot MCP](/copilot/copilot-mcp#installation) 使用通过其浏览器授权流程获取的个人 TradingGoose API 密钥。
 
 ## 对话管理
 

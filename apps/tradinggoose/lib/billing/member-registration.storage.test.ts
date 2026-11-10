@@ -17,7 +17,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import * as currentBuiltPolicy from '../../../../packages/billing/dist/index.js'
 
 const state = vi.hoisted(() => ({
   session: null as null | { user: { id: string; email: string } },
@@ -467,7 +466,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
     for (let tick = 0; tick < 3; tick++) await dispatchFinancialMarkers()
   })
 
-  it('R12 synthetic million-settled indexed0/10/1000 hold benchmark measures CURRENT and FINAL admission without financial-conformance claims', () => {
+  it('R12 synthetic million-settled indexed0/10/1000 hold benchmark measures source admission without financial-conformance claims', () => {
     benchmarkOutcome = 'running'
     console.info('R12_BENCHMARK_STARTED ' + JSON.stringify({ started: true }))
     benchmarkWork = Promise.resolve()
@@ -542,10 +541,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
           )
           expect(JSON.stringify(plan)).toContain('idempotency_billing_outstanding_idx')
           stage('index-verified', { active })
-          for (const [label, api] of [
-            ['CURRENT', currentBuiltPolicy],
-            ['FINAL', policy],
-          ] as const) {
+          for (const [label, api] of [['SOURCE', policy]] as const) {
             const times: number[] = []
             for (let sample = 0; sample < 45; sample++) {
               const occurrence = { stepNumber: stepNumber++, retryCount: 0 }
@@ -693,7 +689,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
   )
 
   it.each(['generate', 'stream'] as const)(
-    'R9 current processors accept genuine empty %s success through selected FINAL policy',
+    'R9 current processors accept genuine empty %s success through Studio source policy',
     async (method) => {
       const f = await organizationFixture()
       const { financialProcessors } = await import('@/lib/mastra/financial-processors')
@@ -1082,7 +1078,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
     }
   })
 
-  // R12 raw CURRENT and physically installed FINAL admission share no APP preguard.
+  // R12 raw source admission share no APP preguard.
   async function r12Binding(
     api: typeof policy,
     f: { workspaceId: string; owner: string },
@@ -1195,10 +1191,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
       member: await ledger(f.id, f.owner),
     })
   }
-  for (const [label, api] of [
-    ['CURRENT', currentBuiltPolicy],
-    ['FINAL', policy],
-  ] as const) {
+  for (const [label, api] of [['SOURCE', policy]] as const) {
     for (const writer of ['adapter', 'direct'] as const) {
       for (const scope of ['pooled', 'individual'] as const) {
         it(`R12 ${label} ${writer} ${scope} surviving same-actor hold20 reserves individual1+20+1 and settles original liability once`, async () => {
@@ -1638,7 +1631,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
       ).toMatchObject({ identity: { memberUserId: other }, holdState: 'outstanding' })
     })
   }
-  // R8 raw exported FINAL package controls run before the retained service cases.
+  // R8 raw exported source package controls run before the retained service cases.
   async function r8OriginalInvoice() {
     const f = await baseInvoiceFixture()
     const invoice = baseInvoice(f, [baseInvoiceLine(f)])
@@ -1672,7 +1665,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
         )
       )
   }
-  // Capture only the existing configured callback; actual tests call the restored raw FINAL export.
+  // Capture only the existing configured callback; actual tests call the restored raw source export.
   let r8Execute: policy.FinancialDispatchDrainOptions['execute'] | undefined
   async function r8DefaultExecute() {
     if (r8Execute) return r8Execute
@@ -4615,7 +4608,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
     })
   }
 
-  // R6 uses the same real app adapter, current direct helpers and installed canonical policy.
+  // R6 uses the same real app adapter, current direct helpers and Studio canonical policy.
   for (const writer of ['adapter', 'direct'] as const) {
     for (const scope of ['pooled', 'individual'] as const) {
       it(`restores ${writer} ${scope} same-period eligibility without resetting incurred money, holds or quotes`, async () => {
@@ -5395,7 +5388,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
     const period = await scopePeriod(first)
     return { ...f, retained, hold, first, second, period, key: policy.periodKey(period) }
   }
-  for (const implementation of ['current-build', 'installed-final-tar'] as const) {
+  for (const implementation of ['source'] as const) {
     it(`R11 raw ${implementation} evaluator includes departed retained liabilities and preserves pending/issued reservations`, async () => {
       const f = await r11MemberBasisFixture()
       await adapter.delete({
@@ -5406,7 +5399,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
         ],
       })
       expect(await ledger(f.id, f.retained)).toBeDefined()
-      const api = implementation === 'current-build' ? currentBuiltPolicy : policy
+      const api = policy
       const invoice = await tx((bound) =>
         api.evaluateFinancialPeriod(bound, ns(f.id), f.key, 'threshold')
       )
@@ -5488,7 +5481,7 @@ suite('genuine member registration with disposable PostgreSQL', () => {
     })
   })
   for (const authority of ['live', 'suspended', 'frozen'] as const) {
-    it(`R11 raw installed evaluator refuses missing retained targets on ${authority} authority without financial mutation`, async () => {
+    it(`R11 raw source evaluator refuses missing retained targets on ${authority} authority without financial mutation`, async () => {
       const f = await r11MemberBasisFixture()
       if (authority === 'suspended')
         await (await import('./financial-subscriptions')).updateFinancialSubscription(

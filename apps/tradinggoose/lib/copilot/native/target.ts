@@ -1,14 +1,21 @@
+import type { FinancialBinding, ModelOccurrence } from '@tradinggoose/billing'
 import { NativeTargetError } from './errors'
 
 export { NativeTargetError } from './errors'
 
 import { verifyFinancialAcceptance } from '@/lib/billing/native-finance'
+import { listCopilotPending } from '@/lib/copilot/agent/service'
 import { isToolId } from '@/lib/copilot/registry'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { readNativeCopilot } from './client'
-import { COPILOT_NATIVE_REVISION, type Pending, type Scope, type Target } from './contract'
+import type { Pending, Scope, Target } from './contract'
 import { nativeConversationIdentity } from './identity'
+
+/** Original billing provenance stays on the server, outside product events/browser state. */
+export type ServerPending = Pending & {
+  financialBinding: FinancialBinding
+  financialOccurrence: ModelOccurrence
+}
 
 export async function authorizeNativeConversationScope(
   actorUserId: string,
@@ -42,11 +49,9 @@ export function assertOriginalBusinessArguments(originalArgs: unknown) {
 type NativeFinancialSource = Readonly<{
   scope: Readonly<Scope>
   target: Readonly<Target>
-  binding: Readonly<Pending['financialBinding']>
-  occurrence: Readonly<Pending['financialOccurrence']>
+  binding: Readonly<FinancialBinding>
+  occurrence: Readonly<ModelOccurrence>
   originalArgsJson: string
-  pendingJson: string
-  acceptanceJson: string
   signal?: AbortSignal
 }>
 const NATIVE_FINANCIAL_SOURCE = Symbol('verified-native-pending-financial-source')
@@ -70,94 +75,55 @@ export function copyNativeFinancialSource<T extends object>(from: unknown, to: T
   return to
 }
 
-/** Identifiers are lookups. Only fresh service pending evidence plus original receipt can authorize an action. */
+/** Native snapshots supply pending work; browser identifiers only select it. */
 export async function resolveNativePendingTarget(
   scope: Scope,
   target: Target,
   stage: Pending['stage'],
   signal?: AbortSignal
-): Promise<Pending> {
+): Promise<ServerPending> {
+  await authorizeNativeConversationScope(scope.actorUserId, scope.workspaceId)
   if (
     !isToolId(target.toolName) ||
     target.resourceId !== nativeConversationIdentity(scope).resourceId
-  ) {
-    throw new NativeTargetError('Native target does not belong to this conversation scope', 403)
-  }
-  let match: Pending | undefined
-  const seen = new Set<string>()
-  let page = 0
-  while (true) {
-    signal?.throwIfAborted()
-    const requestedPage = { page, perPage: 100 }
-    const { result, status } = await readNativeCopilot(
-      {
-        protocolRevision: COPILOT_NATIVE_REVISION,
-        requestId: crypto.randomUUID(),
-        command: 'pending.list',
-        scope,
-        threadId: target.threadId,
-        page: requestedPage,
-      },
-      signal
-    )
-    if (status !== 200 || result.status !== 'pending_targets') {
-      throw new NativeTargetError(
-        'Native pending target could not be verified',
-        status >= 400 ? status : 503
-      )
-    }
-    if (
-      result.page.page !== page ||
-      result.page.perPage !== 100 ||
-      result.items.length > 100 ||
-      (result.hasMore && result.items.length === 0)
-    ) {
-      throw new NativeTargetError('Native pending target pagination is inconsistent', 503)
-    }
-    for (const pending of result.items) {
-      const identity = stableStringifyJsonValue(pending.target)
-      if (
-        seen.has(identity) ||
-        pending.target.threadId !== target.threadId ||
-        pending.target.resourceId !== target.resourceId ||
-        !isToolId(pending.target.toolName)
-      )
-        throw new NativeTargetError('Native pending list contains an inconsistent target', 503)
-      seen.add(identity)
-      if (identity !== stableStringifyJsonValue(target)) continue
-      if (match) throw new NativeTargetError('Native target is ambiguous')
-      match = pending
-    }
-    if (!result.hasMore) break
-    page += 1
-    if (!Number.isSafeInteger(page))
-      throw new NativeTargetError('Native pending pagination overflow', 503)
-  }
+  )
+    throw new NativeTargetError('Copilot target does not belong to this conversation scope', 403)
+  const items = await listCopilotPending(scope, target.threadId, signal)
+  const match = items.find(
+    (pending) => stableStringifyJsonValue(pending.target) === stableStringifyJsonValue(target)
+  )
   if (!match || match.stage !== stage)
-    throw new NativeTargetError('Native target is stale or at the wrong suspension stage')
-  const binding = match.financialBinding
+    throw new NativeTargetError('Copilot target is stale or at the wrong suspension stage', 409)
+  return verifyCopilotPendingSource(scope, match, signal)
+}
+
+/** Mint local financial provenance after authorization and canonical acceptance. */
+export async function verifyCopilotPendingSource(
+  scope: Scope,
+  pending: ServerPending,
+  signal?: AbortSignal
+): Promise<ServerPending> {
+  const binding = pending.financialBinding
+  const target = pending.target
   if (
     binding.actorUserId !== scope.actorUserId ||
     binding.workspaceId !== scope.workspaceId ||
     binding.runId !== target.runId ||
     binding.purpose !== 'copilot' ||
-    (match.financialOccurrence.runId !== undefined &&
-      match.financialOccurrence.runId !== target.runId)
-  ) {
-    throw new NativeTargetError('Native target original financial scope does not match', 403)
-  }
-  const acceptance = await verifyFinancialAcceptance(binding, match.financialOccurrence)
+    (pending.financialOccurrence.runId !== undefined &&
+      pending.financialOccurrence.runId !== target.runId)
+  )
+    throw new NativeTargetError('Copilot target original financial scope does not match', 403)
+  await verifyFinancialAcceptance(binding, pending.financialOccurrence)
   signal?.throwIfAborted()
-  assertOriginalBusinessArguments(match.originalArgs)
-  const verified = { ...match }
+  assertOriginalBusinessArguments(pending.originalArgs)
+  const verified = { ...pending }
   const source: NativeFinancialSource = Object.freeze({
     scope: Object.freeze({ ...scope }),
-    target: Object.freeze({ ...match.target }),
+    target: Object.freeze({ ...target }),
     binding: Object.freeze({ ...binding }),
-    occurrence: Object.freeze({ ...match.financialOccurrence }),
-    originalArgsJson: stableStringifyJsonValue(match.originalArgs),
-    pendingJson: stableStringifyJsonValue(match),
-    acceptanceJson: stableStringifyJsonValue(acceptance),
+    occurrence: Object.freeze({ ...pending.financialOccurrence }),
+    originalArgsJson: stableStringifyJsonValue(pending.originalArgs),
     signal,
   })
   Object.defineProperty(verified, NATIVE_FINANCIAL_SOURCE, { value: source, enumerable: false })

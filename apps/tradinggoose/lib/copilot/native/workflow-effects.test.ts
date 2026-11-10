@@ -1,7 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Pending } from './contract'
+import type { ServerPending as Pending } from './target'
 
-const m = vi.hoisted(() => ({ scope: vi.fn(), pending: vi.fn(), access: vi.fn() }))
+const m = vi.hoisted(() => ({
+  scope: vi.fn(),
+  pending: vi.fn(),
+  access: vi.fn(),
+  active: vi.fn(),
+  claim: vi.fn(),
+}))
+vi.mock('@/lib/copilot/agent/state', () => ({
+  assertCopilotRunActive: m.active,
+  claimCopilotBrowserEffect: m.claim,
+}))
 vi.mock('./target', () => ({
   NativeTargetError: class NativeTargetError extends Error {
     constructor(
@@ -70,6 +80,8 @@ function body() {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  m.active.mockReset().mockResolvedValue(undefined)
+  m.claim.mockReset().mockResolvedValue(undefined)
   m.scope.mockResolvedValue(scope)
   m.pending.mockImplementation(async () => pending())
 })
@@ -84,6 +96,11 @@ describe('native business effect admission', () => {
     expect(m.scope).toHaveBeenCalledWith('member', null)
     expect(m.pending).toHaveBeenCalledWith(scope, target, 'result', undefined)
     expect(m.access).toHaveBeenCalledWith(scope, pending())
+    expect(m.active).toHaveBeenCalledWith(target.runId)
+    expect(m.claim).toHaveBeenCalledWith(target.runId, target.toolCallId, {
+      target,
+      args: pending().originalArgs,
+    })
   })
   it.each([
     { executionId: 'other' },
@@ -168,5 +185,26 @@ describe('native business effect admission', () => {
         'deploy'
       )
     ).rejects.toMatchObject({ status: 403 })
+  })
+  it('rejects stale callbacks before any effect claim', async () => {
+    m.pending.mockRejectedValueOnce(
+      Object.assign(new Error('Stale pending target'), { status: 409 })
+    )
+    await expect(
+      authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
+    ).rejects.toMatchObject({ status: 409 })
+    expect(m.claim).not.toHaveBeenCalled()
+  })
+  it('rejects cancelled runs and duplicate browser dispatch', async () => {
+    m.active.mockRejectedValueOnce(Object.assign(new Error('Cancelled run'), { status: 409 }))
+    await expect(
+      authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
+    ).rejects.toMatchObject({ status: 409 })
+    expect(m.claim).not.toHaveBeenCalled()
+    m.claim.mockRejectedValueOnce(Object.assign(new Error('Already dispatched'), { status: 409 }))
+    await expect(
+      authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
+    ).rejects.toMatchObject({ status: 409 })
+    expect(m.claim).toHaveBeenCalledOnce()
   })
 })

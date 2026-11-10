@@ -53,7 +53,7 @@ The access-level toggle in the input bar controls how much autonomy Copilot has.
 
 ## Supported Models
 
-Copilot supports exactly six OpenRouter models. Studio sends each canonical OpenRouter model slug unchanged, and you can switch the active model from the input bar.
+Copilot offers six models from Studio’s Mastra model registry. Studio uses the selected provider/model ID and configured connection; switch the active model from the input bar.
 
 **Anthropic** -- anthropic/claude-fable-5, anthropic/claude-opus-5
 
@@ -74,20 +74,15 @@ Copilot supports exactly six OpenRouter models. Studio sends each canonical Open
   <Step>
     ### Self-hosted
 
-    Self-hosted instances need a Copilot API key to connect to the managed inference service.
+    Copilot runs inside Studio and uses its Mastra model connections and application database.
 
-    1. Sign in at [tradinggoose.ai](https://tradinggoose.ai) and open **Settings > Service API Keys**.
-    2. In the **Copilot** card, click **Create** to generate a new API key. Copy it immediately -- it is shown only once.
-    3. On your self-hosted deployment, sign in as a system administrator and open **Admin > Services > Copilot API**.
-    4. Enter the copied value in **API Key** and save. Leave **Base URL** at its default unless you use a different Copilot service endpoint. Studio reads this saved service configuration; setting an environment variable is not the configuration path.
+    1. Configure the selected model provider’s credentials in the Studio deployment. Custom model connections use `MASTRA_MODEL_PROVIDERS`; Azure OpenAI connections use `MASTRA_AZURE_OPENAI`.
+    2. Initialize the shared Mastra store with `bun run native:init` from `apps/tradinggoose`, using `MASTRA_OWNER_DATABASE_URL` for deployment initialization.
+    3. Open a workspace, select a configured model, and start chatting.
   </Step>
 </Steps>
 
-The Copilot service API key above connects the built-in assistant to managed inference. [Copilot MCP](/copilot/copilot-mcp#installation) uses a personal TradingGoose API key obtained through its own browser approval flow.
-
-<Callout type="warn">
-  Copilot service API keys grant access to managed inference. Store them securely and rotate them if compromised. You can delete a service key from **Settings > Service API Keys**; deletion revokes access immediately.
-</Callout>
+[Copilot MCP](/copilot/copilot-mcp#installation) uses a personal TradingGoose API key obtained through its browser approval flow.
 
 ## Chat Management
 

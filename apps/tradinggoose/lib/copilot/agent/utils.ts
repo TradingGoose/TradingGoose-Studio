@@ -1,11 +1,5 @@
-import { fetchNativeCompletion } from '@/lib/copilot/native/client'
-import {
-  assertNativeCorrelation,
-  COPILOT_NATIVE_REVISION,
-  type CompletionFailureResponse,
-  type CompletionResponse,
-  parseNativeContract,
-} from '@/lib/copilot/native/contract'
+import { completeCopilot } from '@/lib/copilot/native/completion'
+import type { CompletionFailureResponse, CompletionResponse } from '@/lib/copilot/native/contract'
 import { TITLE_GENERATION_SYSTEM_PROMPT, TITLE_GENERATION_USER_PROMPT } from '@/lib/copilot/prompts'
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -31,9 +25,9 @@ export async function requestCopilotTitle({
 }): Promise<string | null> {
   const requestId = crypto.randomUUID()
   try {
-    const response = await fetchNativeCompletion(
+    signal?.throwIfAborted()
+    const outcome = await completeCopilot(
       {
-        protocolRevision: COPILOT_NATIVE_REVISION,
         requestId,
         scope: { actorUserId: userId, workspaceId },
         purpose: 'title',
@@ -46,19 +40,9 @@ export async function requestCopilotTitle({
       },
       signal
     )
-    const payload: unknown = await response.json()
-    const completed =
-      payload !== null &&
-      typeof payload === 'object' &&
-      'status' in payload &&
-      payload.status === 'completed'
-    const outcome = completed
-      ? await parseNativeContract('CompletionResponse', payload)
-      : await parseNativeContract('CompletionFailureResponse', payload)
-    assertNativeCorrelation(outcome, requestId)
     // Active received acceptance remains visible independently of title publication.
     onOutcome?.(outcome)
-    if (signal?.aborted || !response.ok || outcome.status !== 'completed') return null
+    if (signal?.aborted || outcome.status !== 'completed') return null
     return outcome.text.trim() || null
   } catch (error) {
     logger.warn('Native Copilot title did not complete', {

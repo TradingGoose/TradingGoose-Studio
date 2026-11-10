@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { COPILOT_NATIVE_REVISION, type HistoryMessage } from '@/lib/copilot/native/contract'
+import type { HistoryMessage } from '@/lib/copilot/native/contract'
 
 const m = vi.hoisted(() => ({
   session: vi.fn(),
@@ -39,7 +39,6 @@ const first: HistoryMessage = {
   ],
 }
 const completed = {
-  protocolRevision: COPILOT_NATIVE_REVISION,
   requestId: 'utility',
   status: 'completed',
   runId: 'title-run',

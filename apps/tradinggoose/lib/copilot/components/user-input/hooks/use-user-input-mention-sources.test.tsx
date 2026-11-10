@@ -3,7 +3,6 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { COPILOT_NATIVE_REVISION } from '@/lib/copilot/native/contract'
 import type { MentionSubmenu } from '../types'
 import { useUserInputMentionSources } from './use-user-input-mention-sources'
 
@@ -130,7 +129,6 @@ const startLoads = (...submenus: MentionSubmenu[]) => {
 }
 
 const nativeThreads = (request: any, items: Array<{ id: string; title: string }>) => ({
-  protocolRevision: COPILOT_NATIVE_REVISION,
   requestId: request.requestId,
   status: 'threads',
   page: request.page,

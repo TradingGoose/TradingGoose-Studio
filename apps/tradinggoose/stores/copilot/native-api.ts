@@ -56,27 +56,12 @@ async function completePages<T>(
   identity: (item: T) => string,
   signal?: AbortSignal
 ): Promise<T[]> {
-  const items: T[] = []
-  const seen = new Set<string>()
-  let page = 0
-  while (true) {
+  const items = new Map<string, T>()
+  for (let page = 0; ; page++) {
     const result = project(await readNativeCommand(command({ page, perPage: 100 }), signal))
-    if (
-      result.page.page !== page ||
-      result.page.perPage !== 100 ||
-      result.items.length > 100 ||
-      (result.hasMore && !result.items.length)
-    )
-      throw new Error('Native history/pending pagination differs')
-    for (const item of result.items) {
-      const id = identity(item)
-      if (!id || seen.has(id)) throw new Error('Native history/pending identity repeats')
-      seen.add(id)
-      items.push(item)
-    }
-    if (!result.hasMore) return items
-    page++
-    if (!Number.isSafeInteger(page)) throw new Error('Native page range exceeded')
+    for (const item of result.items) items.set(identity(item), item)
+    if (!result.hasMore) return [...items.values()]
+    if (!result.items.length) throw new Error('Copilot returned an empty page with more results')
   }
 }
 
@@ -105,8 +90,7 @@ export function listNativeHistory(
       page,
     }),
     (result) => {
-      if (result.status !== 'history' || result.threadId !== threadId)
-        throw new Error('Native history scope differs')
+      if (result.status !== 'history') throw new Error('Copilot history is unavailable')
       return result
     },
     (item) => item.id,

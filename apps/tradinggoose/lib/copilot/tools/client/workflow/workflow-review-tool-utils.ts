@@ -112,14 +112,26 @@ export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowS
 
 export async function resolveWorkflowTarget(
   executionContext: ClientToolExecutionContext,
-  options: { entityId?: string } = {}
+  options: { entityId?: string; signal?: AbortSignal } = {}
 ): Promise<WorkflowTarget> {
   const requestedWorkflowId = resolveOptionalCopilotEntityId(options)
   if (requestedWorkflowId) {
-    return {
-      workflowId: requestedWorkflowId,
-      workspaceId: executionContext.workspaceId ?? null,
-    }
+    if (executionContext.workspaceId)
+      return { workflowId: requestedWorkflowId, workspaceId: executionContext.workspaceId }
+    options.signal?.throwIfAborted()
+    const response = await fetch(`/api/workflows/${encodeURIComponent(requestedWorkflowId)}`, {
+      signal: options.signal,
+    })
+    if (!response.ok) throw new Error('Workflow target is unavailable')
+    const { data } = await response.json()
+    options.signal?.throwIfAborted()
+    if (
+      data?.id !== requestedWorkflowId ||
+      typeof data.workspaceId !== 'string' ||
+      !data.workspaceId.trim()
+    )
+      throw new Error('Workflow workspace is unavailable')
+    return { workflowId: requestedWorkflowId, workspaceId: data.workspaceId }
   }
 
   throw new Error('Workflow target is required')

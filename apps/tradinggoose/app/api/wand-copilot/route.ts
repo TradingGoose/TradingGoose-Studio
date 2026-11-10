@@ -2,17 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import { fetchNativeCompletion } from '@/lib/copilot/native/client'
-import {
-  assertNativeCorrelation,
-  COPILOT_NATIVE_REVISION,
-  type CompletionRequest,
-  parseNativeContract,
-} from '@/lib/copilot/native/contract'
-import { relayNativeEvents } from '@/lib/copilot/native/stream'
+import { createCompletionResponse } from '@/lib/copilot/native/completion'
+import type { CompletionRequest } from '@/lib/copilot/native/contract'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
-import { SSE_HEADERS } from '@/lib/utils'
 
 const logger = createLogger('WandCopilot')
 
@@ -140,7 +133,6 @@ export async function POST(req: NextRequest) {
 
   const requestId = randomUUID()
   const nativeRequest: CompletionRequest = {
-    protocolRevision: COPILOT_NATIVE_REVISION,
     requestId,
     scope: { actorUserId: session.user.id, workspaceId: null },
     purpose: 'wand',
@@ -148,40 +140,12 @@ export async function POST(req: NextRequest) {
     messages: [messages[0]!, ...messages.slice(1)],
     stream: true,
   }
-  const abort = new AbortController()
-  const signal = AbortSignal.any([req.signal, abort.signal])
-  let upstream: Response
   try {
-    upstream = await fetchNativeCompletion(nativeRequest, signal)
+    const response = await createCompletionResponse(nativeRequest, req.signal)
+    response.headers.set('x-wand-request-id', requestId)
+    return response
   } catch (error) {
-    logger.error('Native wand connection failed', { error })
-    return NextResponse.json({ error: 'Failed to connect to Copilot' }, { status: 502 })
+    logger.error('Wand generation failed', { error })
+    return NextResponse.json({ error: 'Wand generation is unavailable' }, { status: 503 })
   }
-  if (!upstream.ok) {
-    try {
-      const failure = await parseNativeContract('CompletionFailureResponse', await upstream.json())
-      assertNativeCorrelation(failure, requestId)
-      return NextResponse.json(failure, {
-        status: upstream.status,
-        headers: { 'x-wand-request-id': requestId },
-      })
-    } catch {
-      return NextResponse.json({ error: 'Invalid native completion failure' }, { status: 502 })
-    }
-  }
-  if (!upstream.body) {
-    return NextResponse.json({ error: 'Copilot stream is empty' }, { status: 502 })
-  }
-  const stream = relayNativeEvents(upstream.body, 'CompletionEvent', {
-    requestId,
-    signal: req.signal,
-    abortUpstream: () => abort.abort(),
-  })
-  return new Response(stream, {
-    headers: {
-      ...SSE_HEADERS,
-      'Cache-Control': 'no-cache, no-transform',
-      'x-wand-request-id': requestId,
-    },
-  })
 }

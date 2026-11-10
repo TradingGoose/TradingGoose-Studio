@@ -1,0 +1,717 @@
+import type { AgentExecutionOptions } from '@mastra/core/agent'
+import type { MastraDBMessage } from '@mastra/core/agent/message-list'
+import type { InputProcessor } from '@mastra/core/processors'
+import { z } from 'zod'
+import { createFinancialInvocation, verifyFinancialAcceptance } from '@/lib/billing/native-finance'
+import { validateNativeBrowserAssertion } from '@/lib/copilot/native/browser-assertion'
+import { authorizeNativeBusinessResult } from '@/lib/copilot/native/business-access'
+import {
+  type CopilotEvent,
+  type CopilotRequest,
+  type CopilotResponse,
+  type ErrorResponse,
+  type FinancialFact,
+  type Json,
+  type Pending,
+  parseNativeContract,
+  type Scope,
+} from '@/lib/copilot/native/contract'
+import { readNativeThread } from '@/lib/copilot/native/history'
+import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
+import { readbackNativeToolResult } from '@/lib/copilot/native/readback'
+import {
+  authorizeNativeConversationScope,
+  NativeTargetError,
+  resolveNativePendingTarget,
+  type ServerPending,
+  verifyCopilotPendingSource,
+} from '@/lib/copilot/native/target'
+import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
+import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
+import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import { financialProcessors } from '@/lib/mastra/financial-processors'
+import { assertNativeToolArguments, trustedPrepareStep } from '@/lib/mastra/options'
+import { assertListedModel } from '@/lib/mastra/registry'
+import { assertNativeCompletion } from '@/lib/mastra/result'
+import { getCopilotAgent, getCopilotMemory, getNativeMemoryStore } from '@/lib/mastra/runtime'
+import { SSE_HEADERS } from '@/lib/utils'
+import { bindCopilotExecution, type CopilotDecision } from './context'
+import {
+  assertCopilotRunActive,
+  type CopilotRun,
+  cancelCopilotRun,
+  claimCopilotThread,
+  isCopilotRunCancelled,
+  readCopilotRun,
+  releaseCopilotThread,
+  saveCopilotOccurrence,
+  saveCopilotRun,
+} from './state'
+
+const suspendedPayload = z.object({
+  originalArgs: z.record(z.string(), z.json()),
+  preview: z.record(z.string(), z.json()).optional(),
+  financialOccurrence: z.object({
+    stepNumber: z.number().int().nonnegative(),
+    retryCount: z.number().int().nonnegative(),
+    runId: z.string().optional(),
+  }),
+})
+const activeRuns = new Map<string, AbortController>()
+
+async function requireThread(scope: Scope, threadId: string, signal?: AbortSignal) {
+  const thread = await readNativeThread(scope, threadId, signal)
+  if (!thread) throw new NativeTargetError('Copilot thread is unavailable', 404)
+  return thread
+}
+
+/** Supported native discovery owns suspension state, including after a restart. */
+export async function listCopilotPending(
+  scope: Scope,
+  threadId: string,
+  signal?: AbortSignal
+): Promise<ServerPending[]> {
+  await requireThread(scope, threadId, signal)
+  const { resourceId } = nativeConversationIdentity(scope)
+  const agent = await getCopilotAgent()
+  const { runs } = await agent.listSuspendedRuns({ threadId, resourceId })
+  const pending: ServerPending[] = []
+  for (const suspended of runs) {
+    if (await isCopilotRunCancelled(suspended.runId)) continue
+    const run = await readCopilotRun(scope, suspended.runId)
+    if (run.threadId !== threadId || !run.occurrence)
+      throw new NativeTargetError('Suspended Copilot run context is unavailable', 409)
+    for (const call of suspended.toolCalls) {
+      if (!call.toolCallId || !call.toolName || !isToolId(call.toolName))
+        throw new NativeTargetError('Suspended Copilot tool is unavailable', 409)
+      const payload = call.requiresApproval
+        ? undefined
+        : suspendedPayload.parse(call.suspendPayload)
+      let args = call.requiresApproval ? call.args : payload!.originalArgs
+      assertNativeToolArguments(args)
+      if (typeof args === 'string') args = JSON.parse(args)
+      const originalArgs = ToolArgSchemas[call.toolName].parse(args)
+      pending.push(
+        await verifyCopilotPendingSource(
+          scope,
+          {
+            target: {
+              threadId,
+              resourceId,
+              runId: run.runId,
+              toolCallId: call.toolCallId,
+              toolName: call.toolName,
+            },
+            stage: call.requiresApproval ? 'approval' : 'result',
+            originalArgs,
+            financialBinding: run.binding,
+            financialOccurrence: payload?.financialOccurrence ?? run.occurrence,
+            ...(payload?.preview ? { preview: payload.preview } : {}),
+          },
+          signal
+        )
+      )
+    }
+  }
+  return pending
+}
+
+function publicPending({ target, stage, originalArgs, preview }: ServerPending): Pending {
+  return { target, stage, originalArgs, ...(preview ? { preview } : {}) }
+}
+
+function failure(requestId: string, error: unknown): ErrorResponse {
+  const status = error instanceof NativeTargetError ? error.status : 503
+  return {
+    requestId,
+    status: status < 500 ? 'refused' : 'failed',
+    error: {
+      code:
+        status === 403
+          ? 'FORBIDDEN'
+          : status === 409
+            ? 'STALE_TARGET'
+            : status < 500
+              ? 'INVALID_REQUEST'
+              : 'GENERATION_FAILED',
+      message:
+        error instanceof NativeTargetError ? error.message : 'Copilot generation did not complete',
+      retryable: false,
+      uncertain: status >= 500,
+    },
+  }
+}
+
+async function previousFinancialFact(run: CopilotRun): Promise<FinancialFact> {
+  if (!run.occurrence) throw new NativeTargetError('Copilot has no accepted model occurrence', 409)
+  const receipt = await verifyFinancialAcceptance(run.binding, run.occurrence)
+  return { accepted: true, modelUsd: 'unavailable', appliedUsd: receipt.appliedUsd! }
+}
+
+async function readCommand(
+  request: CopilotRequest,
+  signal?: AbortSignal
+): Promise<CopilotResponse | undefined> {
+  const { scope, requestId } = request
+  const store = await getNativeMemoryStore()
+  const resourceId = nativeConversationIdentity(scope).resourceId
+  if (request.command === 'threads.list') {
+    const result = await store.listThreads({
+      ...request.page,
+      filter: { resourceId },
+      orderBy: { field: 'updatedAt', direction: 'DESC' },
+    })
+    return {
+      requestId,
+      status: 'threads',
+      items: result.threads.map((thread) => ({
+        id: thread.id,
+        title: thread.title ?? '',
+        createdAt: thread.createdAt.toISOString(),
+        updatedAt: thread.updatedAt.toISOString(),
+      })),
+      page: request.page,
+      hasMore: result.hasMore,
+    }
+  }
+  if (!('threadId' in request) || !request.threadId || request.command === 'message') return
+  await requireThread(scope, request.threadId, signal)
+  switch (request.command) {
+    case 'history.read': {
+      const result = await store.listMessages({
+        threadId: request.threadId,
+        resourceId,
+        ...request.page,
+        orderBy: { field: 'createdAt', direction: 'ASC' },
+      })
+      return {
+        requestId,
+        status: 'history',
+        threadId: request.threadId,
+        items: result.messages.map((message) => ({
+          id: message.id,
+          role: message.role,
+          createdAt: message.createdAt.toISOString(),
+          parts: message.content.parts as never,
+        })),
+        page: request.page,
+        hasMore: result.hasMore,
+      }
+    }
+    case 'pending.list': {
+      const pending = await listCopilotPending(scope, request.threadId, signal)
+      const start = request.page.page * request.page.perPage
+      return {
+        requestId,
+        status: 'pending_targets',
+        items: pending.slice(start, start + request.page.perPage).map(publicPending),
+        page: request.page,
+        hasMore: start + request.page.perPage < pending.length,
+      }
+    }
+    case 'thread.title':
+      await store.updateThread({ id: request.threadId, title: request.title })
+      return { requestId, status: 'updated', threadId: request.threadId, operation: 'thread.title' }
+    case 'thread.delete': {
+      const mutationId = crypto.randomUUID()
+      await claimCopilotThread(scope, request.threadId, mutationId)
+      try {
+        await (await getCopilotMemory()).deleteThread(request.threadId)
+        return {
+          requestId,
+          status: 'updated',
+          threadId: request.threadId,
+          operation: 'thread.delete',
+        }
+      } finally {
+        await releaseCopilotThread(scope, request.threadId, mutationId)
+      }
+    }
+    case 'history.edit': {
+      const mutationId = crypto.randomUUID()
+      await claimCopilotThread(scope, request.threadId, mutationId)
+      try {
+        const history = await store.listMessages({
+          threadId: request.threadId,
+          resourceId,
+          perPage: false,
+          orderBy: { field: 'createdAt', direction: 'ASC' },
+        })
+        const index = history.messages.findIndex((message) => message.id === request.messageId)
+        const message = history.messages[index]
+        if (
+          !message ||
+          message.role !== 'user' ||
+          !message.content.parts.length ||
+          message.content.parts.some((part) => part.type !== 'text')
+        )
+          throw new NativeTargetError('Only plain text user messages can be edited', 422)
+        if (
+          history.messages
+            .slice(index + 1)
+            .some((item) => item.content.parts.some((part) => part.type === 'tool-invocation'))
+        )
+          throw new NativeTargetError(
+            'Start a new message after tool activity to preserve its history',
+            409
+          )
+        await store.saveMessages({
+          messages: [
+            {
+              ...message,
+              content: { ...message.content, parts: [{ type: 'text', text: request.text }] },
+            },
+          ],
+        })
+        await store.deleteMessages(history.messages.slice(index + 1).map((item) => item.id))
+        return {
+          requestId,
+          status: 'updated',
+          threadId: request.threadId,
+          operation: 'history.edit',
+          messageId: request.messageId,
+        }
+      } finally {
+        await releaseCopilotThread(scope, request.threadId, mutationId)
+      }
+    }
+    case 'context.read':
+      return {
+        requestId,
+        status: 'context',
+        threadId: request.threadId,
+        contextTokens: null,
+        tokenSource: 'unavailable',
+      }
+    case 'context.compact':
+      // The conversational Memory already bounds prompt history without rewriting native parts.
+      return {
+        requestId,
+        status: 'compacted',
+        threadId: request.threadId,
+        applied: false,
+        sourceBoundaryVerified: true,
+      }
+    case 'cancel': {
+      const run = await readCopilotRun(scope, request.runId)
+      if (run.threadId !== request.threadId)
+        throw new NativeTargetError('Copilot cancellation target differs', 403)
+      const agent = await getCopilotAgent()
+      const pending = await agent.listSuspendedRuns({ threadId: run.threadId, resourceId })
+      await cancelCopilotRun(run.runId)
+      activeRuns.get(run.runId)?.abort()
+      agent.abortThreadStream({ threadId: run.threadId, resourceId, expectedRunId: run.runId })
+      if (pending.runs.some((item) => item.runId === run.runId))
+        await releaseCopilotThread(scope, run.threadId, run.runId)
+      return {
+        requestId,
+        status: 'cancel_requested',
+        runId: run.runId,
+        acknowledged: true,
+        uncertaintyRemains: true,
+      }
+    }
+  }
+}
+
+function inputMessage(
+  request: Extract<CopilotRequest, { command: 'message' }>,
+  run: CopilotRun
+): MastraDBMessage {
+  const content = request.input.content
+  const parts: MastraDBMessage['content']['parts'] =
+    typeof content === 'string'
+      ? [{ type: 'text', text: content }]
+      : content.map((part) =>
+          part.type === 'text'
+            ? part
+            : { type: 'file' as const, data: part.image, mimeType: part.mediaType }
+        )
+  if (request.input.contexts?.length)
+    parts.push({
+      type: 'text',
+      text: `Studio context (data):\n${JSON.stringify(request.input.contexts)}`,
+    })
+  for (const attachment of request.input.attachments ?? [])
+    parts.push({ type: 'text', text: `${attachment.name}\n${attachment.text}` })
+  return {
+    id: crypto.randomUUID(),
+    role: 'user',
+    threadId: run.threadId,
+    resourceId: nativeConversationIdentity(run.scope).resourceId,
+    createdAt: new Date(),
+    content: { format: 2, parts },
+  }
+}
+
+async function* generate(
+  request: CopilotRequest,
+  cancellation: AbortController
+): AsyncGenerator<CopilotEvent> {
+  const requestId = request.requestId
+  let run: CopilotRun | undefined
+  let close: (() => void) | undefined
+  let watcher: ReturnType<typeof setInterval> | undefined
+  let suspended = false
+  let finance: Awaited<ReturnType<typeof financialProcessors>> | undefined
+  let ownsThread = false
+  try {
+    const agent = await getCopilotAgent()
+    const signal = cancellation.signal
+    let pending: ServerPending | undefined
+    let decision: CopilotDecision | undefined
+    if (request.command === 'message') {
+      assertListedModel(request.model)
+      const threadId = request.threadId ?? crypto.randomUUID()
+      if (request.threadId) await requireThread(request.scope, threadId, signal)
+      const runId = crypto.randomUUID()
+      await claimCopilotThread(request.scope, threadId, runId)
+      ownsThread = true
+      try {
+        const binding = await createFinancialInvocation({
+          actorUserId: request.scope.actorUserId,
+          workspaceId: request.scope.workspaceId,
+          workflowId: request.workflowId,
+          runId,
+          purpose: 'copilot',
+          operationKey: runId,
+        })
+        run = {
+          runId,
+          threadId,
+          scope: request.scope,
+          model: request.model,
+          binding,
+          accessLevel: request.accessLevel ?? 'limited',
+          toolContext: request.toolContext,
+          toolContexts: request.toolContexts,
+          workflowId: request.workflowId,
+        }
+        await saveCopilotRun(run)
+        if (!request.threadId)
+          await (await getCopilotMemory()).createThread({
+            threadId,
+            resourceId: nativeConversationIdentity(request.scope).resourceId,
+            title: '',
+            metadata: { product: 'copilot' },
+          })
+      } catch (error) {
+        await releaseCopilotThread(request.scope, threadId, runId)
+        ownsThread = false
+        throw error
+      }
+    } else if ('target' in request) {
+      pending = await resolveNativePendingTarget(
+        request.scope,
+        request.target,
+        request.command === 'tool.approve' || request.command === 'tool.decline'
+          ? 'approval'
+          : 'result',
+        signal
+      )
+      run = await readCopilotRun(request.scope, pending.target.runId)
+      await assertCopilotRunActive(run.runId)
+      await authorizeNativeBusinessResult(request.scope, pending)
+      if (request.command === 'tool.result') {
+        validateNativeBrowserAssertion(pending, request.assertion)
+        decision = {
+          action: 'result',
+          result:
+            request.assertion.kind === 'ui.opened'
+              ? {
+                  message:
+                    'The requested Studio dialog was opened. User completion is still required.',
+                  ...(pending.target.toolName === 'deploy_workflow' ? { openedModal: true } : {}),
+                }
+              : request.assertion.data,
+        }
+      } else if (request.command === 'tool.execute') {
+        const toolContext = resolveCopilotToolContext(
+          pending.target.toolName,
+          pending.originalArgs,
+          run.toolContext ??
+            (run.scope.workspaceId ? { workspaceId: run.scope.workspaceId } : undefined),
+          run.toolContexts
+        )
+        const businessContext = { ...toolContext, userId: run.scope.actorUserId, signal }
+        for (const [key, value] of Object.entries(request.context ?? {})) {
+          if (value === undefined || value === toolContext?.[key as keyof typeof toolContext])
+            continue
+          if (
+            key === 'workspaceId' &&
+            !toolContext?.workspaceId &&
+            ['gdrive_request_access', 'oauth_request_access'].includes(pending.target.toolName)
+          ) {
+            await authorizeNativeConversationScope(run.scope.actorUserId, value)
+            businessContext.workspaceId = value
+          } else throw new NativeTargetError('The original tool context has changed', 403)
+        }
+        await authorizeNativeBusinessResult(run.scope, pending, undefined, businessContext)
+        if (request.action === 'readback') {
+          decision = {
+            action: 'result',
+            result: await readbackNativeToolResult(
+              run.scope,
+              pending,
+              businessContext,
+              request.readback
+            ),
+          }
+        } else if (request.action === 'review.accept' || request.action === 'review.reject') {
+          if (!request.reviewToken || request.reviewToken !== pending.preview?.reviewToken)
+            throw new NativeTargetError('The current preview token is required', 409)
+          decision = { action: request.action, reviewToken: request.reviewToken }
+        } else decision = { action: 'execute' }
+      }
+    } else throw new NativeTargetError('This command does not generate a response', 422)
+    let checking = false
+    watcher = setInterval(() => {
+      if (checking) return
+      checking = true
+      void assertCopilotRunActive(run!.runId)
+        .catch((error) => cancellation.abort(error))
+        .finally(() => {
+          checking = false
+        })
+    }, 500)
+    finance = await financialProcessors(
+      {
+        actorUserId: run.scope.actorUserId,
+        workspaceId: run.scope.workspaceId ?? undefined,
+        workflowId: run.workflowId,
+        runId: run.runId,
+        purpose: 'copilot',
+        signal,
+      },
+      undefined,
+      { binding: run.binding }
+    )
+    const execution = bindCopilotExecution({ run, finance, signal, pending, decision })
+    close = execution.close
+    const guard: InputProcessor = {
+      id: 'studio-copilot-authorization',
+      async processInputStep() {
+        await authorizeNativeConversationScope(run!.scope.actorUserId, run!.scope.workspaceId)
+        await requireThread(run!.scope, run!.threadId, signal)
+        await assertCopilotRunActive(run!.runId)
+        signal.throwIfAborted()
+      },
+    }
+    const model = createConfiguredLanguageModel(run.model)
+    const options: AgentExecutionOptions & { model: typeof model } = {
+      runId: run.runId,
+      requestContext: execution.requestContext,
+      model,
+      memory: { thread: run.threadId, resource: nativeConversationIdentity(run.scope).resourceId },
+      inputProcessors: [guard, ...finance.inputProcessors],
+      outputProcessors: finance.outputProcessors,
+      maxSteps: 50,
+      abortSignal: signal,
+      modelSettings: { maxRetries: 0 },
+      prepareStep: trustedPrepareStep(model),
+    }
+    yield { type: 'response.started', requestId, runId: run.runId, threadId: run.threadId }
+    const output =
+      request.command === 'message'
+        ? await agent.stream([inputMessage(request, run)], options)
+        : request.command === 'tool.approve'
+          ? await agent.approveToolCall({
+              ...options,
+              runId: run.runId,
+              toolCallId: pending!.target.toolCallId,
+            })
+          : request.command === 'tool.decline'
+            ? await agent.declineToolCall({
+                ...options,
+                runId: run.runId,
+                toolCallId: pending!.target.toolCallId,
+                reason: request.reason,
+              })
+            : await agent.resumeStream(decision, {
+                ...options,
+                toolCallId: pending!.target.toolCallId,
+              })
+    ownsThread = true
+    activeRuns.set(run.runId, cancellation)
+    let streamError: unknown
+    for await (const part of output.fullStream) {
+      if (part.type === 'error') streamError = part.payload.error
+      if (signal.aborted) continue
+      if (part.type === 'text-delta' || part.type === 'reasoning-delta')
+        yield {
+          type: part.type === 'text-delta' ? 'text.delta' : 'reasoning.delta',
+          requestId,
+          text: part.payload.text,
+        }
+      else if (part.type === 'tool-call') {
+        const args = isToolId(part.payload.toolName)
+          ? ToolArgSchemas[part.payload.toolName].safeParse(part.payload.args)
+          : undefined
+        yield {
+          type: 'tool.display',
+          requestId,
+          toolCallId: part.payload.toolCallId,
+          toolName: part.payload.toolName,
+          executionAuthorized: false,
+          ...(args?.success ? { args: args.data } : {}),
+        }
+      } else if (part.type === 'tool-result')
+        yield {
+          type: 'tool.result',
+          requestId,
+          toolCallId: part.payload.toolCallId,
+          toolName: part.payload.toolName,
+          result: part.payload.isError
+            ? { error: 'This Studio tool did not complete successfully' }
+            : (part.payload.result as Json),
+          ...(part.payload.isError ? { isError: true } : {}),
+        }
+      else if (part.type === 'tool-error' || part.type === 'tool-output-denied')
+        yield {
+          type: 'tool.result',
+          requestId,
+          toolCallId: part.payload.toolCallId,
+          toolName: part.payload.toolName,
+          result: {
+            error:
+              part.type === 'tool-error'
+                ? 'This Studio tool did not complete successfully'
+                : 'This tool call was declined',
+          },
+          ...(part.type === 'tool-error' ? { isError: true } : { denied: true }),
+        }
+    }
+    const result = await output.getFullOutput()
+    const occurrence = finance.getLastOccurrence()
+    if (occurrence) {
+      await finance.verifyComplete()
+      await saveCopilotOccurrence(run, occurrence)
+    }
+    signal.throwIfAborted()
+    if (streamError || result.error) throw streamError ?? result.error
+    const items = await listCopilotPending(run.scope, run.threadId, signal)
+    const financial = finance.getFinancialFact() ?? (await previousFinancialFact(run))
+    if (items.length) {
+      suspended = true
+      for (const item of items)
+        yield { type: 'tool.pending', requestId, pending: publicPending(item), financial }
+      yield {
+        type: 'response.suspended',
+        requestId,
+        result: {
+          requestId,
+          status: 'suspended',
+          threadId: run.threadId,
+          runId: run.runId,
+          text: result.text,
+          pending: items.map(publicPending),
+          financial,
+          usage: finance.getUsage(),
+        },
+      }
+    } else {
+      assertNativeCompletion(result)
+      yield {
+        type: 'response.completed',
+        requestId,
+        result: {
+          requestId,
+          status: 'completed',
+          threadId: run.threadId,
+          runId: run.runId,
+          text: result.text,
+          financial,
+          usage: finance.getUsage(),
+        },
+      }
+    }
+  } catch (error) {
+    if (cancellation.signal.aborted && run) {
+      yield {
+        type: 'response.cancel_requested',
+        requestId,
+        result: {
+          requestId,
+          status: 'cancel_requested',
+          runId: run.runId,
+          acknowledged: true,
+          uncertaintyRemains: true,
+        },
+      }
+    } else {
+      const result = failure(requestId, error)
+      const financial = finance?.getFinancialFact()
+      if (financial) result.financial = financial
+      if (finance) result.usage = finance.getUsage()
+      yield {
+        type: result.status === 'refused' ? 'response.refused' : 'response.error',
+        requestId,
+        result,
+      }
+    }
+  } finally {
+    if (watcher) clearInterval(watcher)
+    close?.()
+    if (run) {
+      if (activeRuns.get(run.runId) === cancellation) activeRuns.delete(run.runId)
+      if (ownsThread && !suspended) await releaseCopilotThread(run.scope, run.threadId, run.runId)
+    }
+  }
+}
+
+export async function executeCopilotCommand(
+  request: CopilotRequest,
+  signal?: AbortSignal
+): Promise<Response> {
+  signal?.throwIfAborted()
+  request = await parseNativeContract('CopilotRequest', request)
+  await authorizeNativeConversationScope(request.scope.actorUserId, request.scope.workspaceId)
+  try {
+    const result = await readCommand(request, signal)
+    if (result) return Response.json(result)
+  } catch (error) {
+    return Response.json(failure(request.requestId, error), {
+      status: error instanceof NativeTargetError ? error.status : 503,
+    })
+  }
+  const cancellation = new AbortController()
+  const abort = () => cancellation.abort(signal?.reason)
+  signal?.addEventListener('abort', abort, { once: true })
+  const events = generate(request, cancellation)
+  if (!('stream' in request) || !request.stream) {
+    let result: CopilotResponse | undefined
+    try {
+      for await (const event of events)
+        if ('result' in event && event.type !== 'tool.result') result = event.result
+    } finally {
+      signal?.removeEventListener('abort', abort)
+    }
+    if (!result) result = failure(request.requestId, new Error('Missing Copilot outcome'))
+    return Response.json(result, {
+      status: result.status === 'refused' ? 409 : result.status === 'failed' ? 503 : 200,
+    })
+  }
+  const encoder = new TextEncoder()
+  return new Response(
+    new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        const next = await events.next()
+        if (next.done) {
+          signal?.removeEventListener('abort', abort)
+          controller.close()
+        } else
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify(await parseNativeContract('CopilotEvent', next.value))}\n\n`
+            )
+          )
+      },
+      async cancel() {
+        cancellation.abort()
+        signal?.removeEventListener('abort', abort)
+        await events.return(undefined)
+      },
+    }),
+    { headers: SSE_HEADERS }
+  )
+}

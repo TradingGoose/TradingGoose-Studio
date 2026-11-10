@@ -1945,10 +1945,6 @@
         }
       },
       "service": {
-        "copilot": {
-          "title": "Copilot",
-          "description": "生成用于 Copilot API 访问的密钥。"
-        },
         "market": {
           "title": "市场",
           "description": "生成用于访问市场 API 的密钥。"

@@ -2,7 +2,6 @@
 import { createHash, createHmac } from 'node:crypto'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { COPILOT_NATIVE_REVISION } from '@/lib/copilot/native/contract'
 
 const m = vi.hoisted(() => ({
   session: vi.fn(),
@@ -10,7 +9,6 @@ const m = vi.hoisted(() => ({
   download: vi.fn(),
   model: vi.fn(),
   contexts: vi.fn(),
-  manifest: vi.fn(),
   bucket: 'copilot-fixture',
 }))
 vi.mock('@/lib/auth', () => ({ getSession: m.session }))
@@ -24,15 +22,9 @@ vi.mock('@/lib/uploads/core/storage-service', () => ({
   downloadFile: m.download,
   uploadFile: vi.fn(),
 }))
-vi.mock('@/lib/copilot/native/client', () => ({
-  fetchNativeCopilot: m.model,
-  readNativeCopilot: vi.fn(),
-}))
+vi.mock('@/lib/copilot/agent/service', () => ({ executeCopilotCommand: m.model }))
 vi.mock('@/lib/billing/native-finance', () => ({ verifyFinancialAcceptance: vi.fn() }))
 vi.mock('@/lib/copilot/runtime-models', () => ({ COPILOT_RUNTIME_MODELS: ['test/model'] }))
-vi.mock('@/lib/copilot/runtime-tool-manifest', () => ({
-  getCopilotRuntimeToolManifest: m.manifest,
-}))
 vi.mock('@/lib/copilot/process-contents', () => ({ processContextsServer: m.contexts }))
 vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: vi.fn() }))
 vi.mock('@/lib/copilot/native/business-access', () => ({ authorizeNativeBusinessResult: vi.fn() }))
@@ -101,10 +93,8 @@ beforeEach(() => {
   m.access.mockResolvedValue({ hasAccess: true })
   m.download.mockResolvedValue(png)
   m.contexts.mockResolvedValue([])
-  m.manifest.mockResolvedValue({ version: 'v1', tools: [] })
   m.model.mockResolvedValue(
     Response.json({
-      protocolRevision: COPILOT_NATIVE_REVISION,
       requestId: 'attachment-request',
       status: 'completed',
       runId: 'run',

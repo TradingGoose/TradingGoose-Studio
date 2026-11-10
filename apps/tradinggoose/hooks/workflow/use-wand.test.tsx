@@ -2,7 +2,6 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { COPILOT_NATIVE_REVISION } from '@/lib/copilot/native/contract'
 import { useWand } from './use-wand'
 
 const requestId = 'wand-native-request'
@@ -10,7 +9,6 @@ const financial = { accepted: true, appliedUsd: '0', modelUsd: 'unavailable' }
 const completed = (text = 'Canonical result🔥') => ({
   done: true,
   result: {
-    protocolRevision: COPILOT_NATIVE_REVISION,
     requestId,
     status: 'completed',
     runId: 'native-run',
@@ -196,7 +194,6 @@ describe('native wand success-only commit', () => {
   )
   it('retains correlated collected refusal without converting it to acceptance or success', async () => {
     const failure = {
-      protocolRevision: COPILOT_NATIVE_REVISION,
       requestId,
       status: 'refused',
       error: { code: 'QUOTA_EXCEEDED', message: 'Quota', retryable: false, uncertain: false },

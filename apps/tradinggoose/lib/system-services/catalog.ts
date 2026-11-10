@@ -1,4 +1,3 @@
-import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
@@ -156,27 +155,6 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
         label: 'Project ID',
         description: 'Browserbase project id used for Stagehand sessions.',
         type: 'text',
-      },
-    ],
-  },
-  {
-    id: 'copilot_api',
-    displayName: 'Copilot API',
-    description: 'Remote Copilot service endpoint and service authentication.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Used for TradingGoose-Copilot service authentication.',
-      },
-    ],
-    settingFields: [
-      {
-        key: 'baseUrl',
-        label: 'Base URL',
-        description: 'Base URL for the remote Copilot service.',
-        type: 'url',
-        defaultValue: COPILOT_API_URL_DEFAULT,
       },
     ],
   },

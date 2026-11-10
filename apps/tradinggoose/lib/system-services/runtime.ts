@@ -80,11 +80,6 @@ export const resolveAzureCommunicationEmailServiceConfig = createServiceResolver
   })
 )
 
-export const resolveCopilotApiServiceConfig = createServiceResolver(
-  'copilot_api',
-  readApiKeyAndBaseUrlConfig
-)
-
 export const resolveMarketApiServiceConfig = createServiceResolver(
   'market_api',
   readApiKeyAndBaseUrlConfig

@@ -29,11 +29,8 @@ export function validateNativeBrowserAssertion(pending: Pending, assertion: Brow
       throw new NativeTargetError('Local timer assertion does not match its business schema', 422)
     return
   }
-  if (
-    authority !== 'browser_ui_opened_assertion' &&
-    authority !== 'branch_specific_ui_assertion_or_studio_deployment_proof'
-  ) {
-    throw new NativeTargetError('This tool requires authoritative Studio result proof', 422)
+  if (authority !== 'browser_ui' && authority !== 'workflow_deployment') {
+    throw new NativeTargetError('This tool requires authoritative Studio readback', 422)
   }
   if (
     assertion.kind !== 'ui.opened' ||
