@@ -87,7 +87,7 @@ export function Code({
     generationType,
   ])
 
-  const [streamingLock, setStreamingLock] = useState(false)
+  const [wandPreview, setWandPreview] = useState<string | null>(null)
   const [showTags, setShowTags] = useState(false)
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -251,19 +251,17 @@ Current code context: {context}
   }
 
   const wandHook = useWand({
-    wandConfig: readOnly ? { ...wandConfig, enabled: false } : wandConfig,
+    wandConfig: isReadOnly ? { ...wandConfig, enabled: false } : wandConfig,
     currentValue: code,
-    onStreamStart: () => {
-      setStreamingLock(true)
-      if (shouldUseStoreValue) {
-        setTextFieldValue('')
-      }
-    },
+    generationKey: `${workflowSession?.doc?.guid ?? ''}:${blockId}:${subBlockId}`,
+    getCurrentValue: () => yText?.toString() ?? code,
+    onStreamStart: () => setWandPreview(''),
+    onStreamChunk: (chunk) => setWandPreview((current) => (current ?? '') + chunk),
     onGeneratedContent: (generatedCode: string) => {
-      if (!disabled && !readOnly) {
-        persistValue(generatedCode)
-      }
+      if (disabled || readOnly) return false
+      persistValue(generatedCode)
     },
+    onGenerationEnd: () => setWandPreview(null),
   })
 
   const isAiLoading = wandHook.isLoading
@@ -275,12 +273,6 @@ Current code context: {context}
   const promptInputValue = wandHook.promptInputValue
   const updatePromptValue = wandHook.updatePromptValue
   const cancelGeneration = wandHook.cancelGeneration
-
-  useEffect(() => {
-    if (!isAiStreaming) {
-      setStreamingLock(false)
-    }
-  }, [isAiStreaming])
 
   const handleEditorChange = useCallback(
     (newCode: string) => {
@@ -514,7 +506,7 @@ Current code context: {context}
         >
           <MonacoEditor
             ref={editorRef}
-            value={code}
+            value={wandPreview ?? code}
             onChange={handleEditorChange}
             onCursorChange={handleCursorChange}
             onKeyDown={(e) => {
@@ -530,7 +522,7 @@ Current code context: {context}
             placeholder={isCollapsed ? '' : dynamicPlaceholder}
             decorations={decorations}
             diagnosticSourceBuilder={diagnosticSourceBuilder}
-            yText={yText}
+            yText={wandPreview === null ? yText : null}
             awareness={workflowSession?.awareness ?? null}
             autoHeight
             minHeight={106}

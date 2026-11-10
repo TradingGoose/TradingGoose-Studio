@@ -60,8 +60,10 @@ export interface UsageLimits {
     authType: string
   }
   usage: {
-    currentPeriodCost: number
-    limit: number
+    /** Exact USD decimal text; never coerce monetary values to number. */
+    currentPeriodCost: string
+    /** null represents an unlimited budget. */
+    limit: string | null
     tier: Record<string, unknown>
   }
   storage: {

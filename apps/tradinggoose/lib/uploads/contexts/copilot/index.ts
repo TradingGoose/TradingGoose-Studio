@@ -1,11 +1,9 @@
 export {
+  authorizeCopilotAttachments,
+  type CopilotAttachmentScope,
   type CopilotFileAttachment,
-  deleteCopilotFile,
-  downloadCopilotFile,
-  type GenerateCopilotUploadUrlOptions,
-  generateCopilotDownloadUrl,
-  generateCopilotUploadUrl,
   isImageFileType,
   isSupportedFileType,
   processCopilotAttachments,
+  uploadCopilotFile,
 } from './copilot-file-manager'

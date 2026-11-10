@@ -95,22 +95,3 @@ export function hasAcceptedLiveMutationAfterMessage(
 
   return false
 }
-
-export function dropsAcceptedLiveMutation(
-  currentMessages: ReplaySafetyMessageLike[],
-  nextMessages: Array<Pick<ReplaySafetyMessageLike, 'id'>>
-): boolean {
-  const nextMessageIds = new Set(nextMessages.map((message) => message.id))
-
-  for (const message of currentMessages) {
-    if (nextMessageIds.has(message.id)) {
-      continue
-    }
-
-    if (messageHasAcceptedLiveMutation(message)) {
-      return true
-    }
-  }
-
-  return false
-}

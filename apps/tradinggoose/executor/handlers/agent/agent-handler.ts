@@ -1,28 +1,49 @@
+import { Agent, type AgentExecutionOptions } from '@mastra/core/agent'
+import type { MastraDBMessage } from '@mastra/core/agent/message-list'
+import { getModelReasoningOptions } from '@mastra/core/llm'
+import { toStandardSchema } from '@mastra/core/schema'
+import { createTool } from '@mastra/core/tools'
+import type { ModelOccurrence } from '@/lib/billing/native-finance'
 import {
   buildCustomToolModelDescription,
   getCustomToolEntityIdFromRuntimeId,
+  isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
+import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import { projectNativeMessages, safeInferenceError } from '@/lib/mastra/errors'
+import { financialProcessors } from '@/lib/mastra/financial-processors'
+import { normalizeNativeToolResult } from '@/lib/mastra/media'
+import {
+  assertNativeToolArguments,
+  NATIVE_AGENT_POLICY,
+  trustedProviderOptions as parseNativeProviderOptions,
+  trustedModelSettings,
+  trustedPrepareStep,
+} from '@/lib/mastra/options'
+import { assertListedModel } from '@/lib/mastra/registry'
+import { assertNativeCompletion, getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
+import { getMastra } from '@/lib/mastra/runtime'
+import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
+import { writeFunctionalPayload } from '@/lib/mastra/workflow-history'
+import { copyWorkflowMessageSource } from '@/lib/mastra/workflow-message-source'
 import { createMcpToolId } from '@/lib/mcp/utils'
+import { deepRedactSecrets } from '@/lib/security/redaction'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { getAllBlocks } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
+import { checkpointFunctionalOutput } from '@/executor/checkpoint'
 import { BlockType } from '@/executor/consts'
-import { parseAgentStructuredResponse } from '@/executor/handlers/agent/response-format'
 import type {
   AgentInputs,
+  AgentToolConfig,
   Message,
   StreamingConfig,
   ToolInput,
 } from '@/executor/handlers/agent/types'
 import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
-import type { InputResolver } from '@/executor/resolver/resolver'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
-import { getProviderFromModel, getProviderModels } from '@/providers/ai/models'
-import { decodeProviderStream } from '@/providers/ai/streaming'
-import type { ProviderControlResolver } from '@/providers/ai/types'
-import { assertOpenRouterControlCapabilities, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
 import { createLLMToolSchema } from '@/tools/params'
@@ -70,13 +91,11 @@ function collectBlockData(context: ExecutionContext): {
  * Handler for Agent blocks that process LLM requests with optional tools.
  */
 export class AgentBlockHandler implements BlockHandler {
-  constructor(private readonly resolver: InputResolver) {}
-
   canHandle(block: SerializedBlock): boolean {
     return block.metadata?.id === BlockType.AGENT
   }
 
-  /** Builds an Agent request, deferring capability-dependent tuning until discovery completes. */
+  /** Builds a native Agent request with resolved workflow inputs. */
   async execute(
     block: SerializedBlock,
     inputs: AgentInputs,
@@ -86,8 +105,8 @@ export class AgentBlockHandler implements BlockHandler {
 
     const model = inputs.model
     if (!model) throw new Error('Agent model is required')
+    assertListedModel(model)
     const responseFormat = this.parseResponseFormat(inputs.responseFormat)
-    const providerId = getProviderFromModel(model)
     const formattedTools = await this.formatTools(inputs.tools || [], context)
     const skillInputs = Array.isArray(inputs.skills)
       ? inputs.skills.filter((skill) => skill?.skillId)
@@ -100,41 +119,325 @@ export class AgentBlockHandler implements BlockHandler {
             context.isDeployedContext !== false
           )
         : []
-    const skillLoaderToolId =
-      skillMetadata.length > 0
-        ? createSkillLoaderToolId(
-            formattedTools
-              .map((tool) => (typeof tool?.id === 'string' ? tool.id : ''))
-              .filter((toolId) => toolId.length > 0)
-          )
-        : null
+    const skillLoaderToolId = skillMetadata.length
+      ? createSkillLoaderToolId(formattedTools.map((tool) => tool.id))
+      : undefined
+    if (skillLoaderToolId) formattedTools.push(buildLoadSkillTool(skillLoaderToolId, skillMetadata))
 
-    if (skillMetadata.length > 0 && skillLoaderToolId) {
-      formattedTools.push(buildLoadSkillTool(skillLoaderToolId, skillMetadata))
-    }
-
-    const streamingConfig = this.getStreamingConfig(block, context)
-    const messages = this.buildMessages(inputs, skillMetadata, skillLoaderToolId)
-
-    const providerRequest = this.buildProviderRequest({
-      providerId,
-      model,
-      messages,
-      inputs,
+    const messages = this.buildMessages(inputs, skillMetadata, skillLoaderToolId) || []
+    const selectedSystemMessages = messages.filter((message) => message.role === 'system')
+    const modelMessages = messages.filter((message) => message.role !== 'system')
+    const { blockData, blockNameMapping } = collectBlockData(context)
+    const abortController = new AbortController()
+    const signal = AbortSignal.any([abortController.signal, AbortSignal.timeout(REQUEST_TIMEOUT)])
+    const { tools, toolRuns } = createAgentToolSet(
       formattedTools,
-      responseFormat: responseFormat
-        ? {
-            name: responseFormat.name,
-            schema: responseFormat.schema,
-            strict: providerId !== 'deepseek',
-          }
-        : undefined,
-      block,
+      {
+        ...context,
+        toolExecutionId: getBlockToolExecutionId(block, context),
+        environmentVariables: context.environmentVariables,
+        workflowVariables: context.workflowVariables,
+        blockData,
+        blockNameMapping,
+      },
       context,
-      streaming: streamingConfig.shouldUseStreaming ?? false,
+      { signal, abort: (reason) => abortController.abort(reason) }
+    )
+    const policy = createForcedToolPolicy(formattedTools)
+    const mastra = await getMastra()
+    const startedAt = new Date()
+    const runId = crypto.randomUUID()
+    const responseMessages = new Map<string, MastraDBMessage>()
+    let responseSource:
+      | { key: string; occurrence: ModelOccurrence; readResponse: () => MastraDBMessage[] }
+      | undefined
+    let responseCaptureFailure: { error: unknown } | undefined
+    const observeResponse = (messages: MastraDBMessage[]) => {
+      try {
+        const snapshot = structuredClone(
+          checkpointFunctionalOutput(projectNativeMessages(messages))
+        )
+        const seen = new Set<string>()
+        for (const message of snapshot) {
+          if (!message.id || seen.has(message.id))
+            throw new Error('Invalid native response identity')
+          seen.add(message.id)
+        }
+        // Native response views are cumulative. Empty later views never erase known work.
+        for (const message of snapshot) responseMessages.set(message.id, message)
+      } catch (error) {
+        responseCaptureFailure ??= { error }
+        throw error
+      }
+    }
+    const refreshResponse = () => {
+      if (!responseSource) return
+      try {
+        observeResponse(responseSource.readResponse())
+      } catch (error) {
+        responseCaptureFailure ??= { error }
+        throw error
+      }
+    }
+    const finance = await financialProcessors(
+      {
+        actorUserId: context.userId,
+        workspaceId: context.workspaceId,
+        workflowId: context.workflowId,
+        runId,
+        purpose: 'workflow-agent',
+        signal,
+      },
+      (observation) => {
+        responseSource = observation
+        refreshResponse()
+      }
+    )
+    const admittedModel = createConfiguredLanguageModel(model, inputs.apiKey)
+    const agent = new Agent({
+      inputProcessors: [
+        {
+          id: 'workflow-selected-systems',
+          processInputStep: () => ({
+            systemMessages: selectedSystemMessages as Array<{ role: 'system'; content: string }>,
+          }),
+        },
+        ...finance.inputProcessors,
+      ],
+      outputProcessors: finance.outputProcessors,
+      ...NATIVE_AGENT_POLICY,
+      id: block.id,
+      name: block.metadata?.name || 'Workflow Agent',
+      instructions: '',
+      model: admittedModel,
+      tools,
+      mastra,
     })
-
-    return this.executeProviderRequest(providerRequest, block, responseFormat, context, inputs)
+    const steps: any[] = []
+    let finished = false
+    let cancellationTimer: ReturnType<typeof setTimeout> | undefined
+    const checkCancellation = async () => {
+      try {
+        if (await context.shouldCancelExecution?.()) abortController.abort()
+      } catch (error) {
+        abortController.abort(error)
+      }
+      if (!finished && !signal.aborted) cancellationTimer = setTimeout(checkCancellation, 1000)
+    }
+    const stopCancellationCheck = () => {
+      finished = true
+      clearTimeout(cancellationTimer)
+    }
+    const options: AgentExecutionOptions<any> = {
+      runId,
+      abortSignal: signal,
+      maxSteps: 20,
+      modelSettings: trustedModelSettings({
+        temperature: inputs.temperature,
+        maxOutputTokens: inputs.maxTokens,
+      }),
+      maxProcessorRetries: 0,
+      structuredOutput: responseFormat
+        ? { schema: toStandardSchema(responseFormat.schema), errorStrategy: 'strict' }
+        : undefined,
+      tracingOptions: {
+        metadata: { userId: context.userId, resourceId: context.workspaceId, runId },
+      },
+      providerOptions: parseNativeProviderOptions(inputs.providerOptions),
+      activeTools: Object.keys(tools),
+      prepareStep: trustedPrepareStep(admittedModel, async (step) => {
+        if (await context.shouldCancelExecution?.()) abortController.abort()
+        signal.throwIfAborted()
+        validateNativeReasoning(model, inputs.reasoningEffort, step.model.specificationVersion)
+        return {
+          ...policy.prepareStep(step),
+          ...(inputs.reasoningEffort && inputs.reasoningEffort !== 'auto'
+            ? { modelSettings: { ...step.modelSettings, reasoning: inputs.reasoningEffort as any } }
+            : {}),
+        }
+      }),
+      onStepFinish: (step) => {
+        steps.push(step)
+        if (responseSource) refreshResponse()
+        else observeResponse(step.response?.dbMessages ?? [])
+      },
+      onAbort: ({ steps: completed }) => {
+        if (completed.length > steps.length) steps.splice(0, steps.length, ...completed)
+        try {
+          if (responseSource) refreshResponse()
+          else for (const step of completed) observeResponse(step.response?.dbMessages ?? [])
+        } catch (error) {
+          // Preserve the original failure and every earlier detached response.
+          responseCaptureFailure ??= { error }
+        }
+      },
+    }
+    let returnedUsage: Parameters<typeof resultAccounting>[0]
+    const capture = (usage = returnedUsage) =>
+      resultAccounting(selectNativeUsage(usage, finance.getUsage(), sumNativeUsage(steps)))
+    const archivedTools = () =>
+      toolRuns.map((run) => ({ ...run, arguments: deepRedactSecrets(run.arguments) }))
+    let canonicalWriteAttempted = false
+    const complete = async (result: any) => {
+      returnedUsage = selectNativeUsage(result.totalUsage, result.usage)
+      if (responseSource) refreshResponse()
+      else observeResponse(result.response?.dbMessages ?? result.messages ?? [])
+      if (responseCaptureFailure) throw responseCaptureFailure.error
+      await finance.verifyComplete()
+      stopCancellationCheck()
+      const accounting = await capture()
+      policy.assertComplete(result.steps)
+      const output = extractAgentOutput(
+        result,
+        model,
+        accounting,
+        toolRuns,
+        responseFormat !== undefined,
+        startedAt
+      )
+      if (!context.workflowLogId || !context.executionId)
+        throw new Error('Workflow Agent canonical history requires its execution log identity')
+      canonicalWriteAttempted = true
+      const ref = await writeFunctionalPayload(
+        {
+          workspaceId: context.workspaceId,
+          executionId: context.executionId,
+          logId: context.workflowLogId,
+          blockId: getBlockToolExecutionId(block, context),
+          runId,
+          actorUserId: context.userId,
+        },
+        {
+          selectedMessages: messages,
+          messages: [...responseMessages.values()],
+          output: responseFormat ? result.object : { content: result.text },
+          tools: archivedTools(),
+        }
+      )
+      getInferenceFacts(output)!.nativePayload = ref
+      return output
+    }
+    const fail = async (error: unknown) => {
+      stopCancellationCheck()
+      try {
+        // Native tool rows may arrive after the output hook without a finish/abort callback.
+        // Read only the latest already-bound source; never replace the original failure.
+        refreshResponse()
+      } catch {
+        // The refresh latches its projection failure and keeps all earlier detached rows.
+      }
+      const accounting = await capture()
+      const failure = new Error(safeInferenceError(error, inputs.apiKey))
+      const owned = {
+        model,
+        ...accounting,
+        ...extractCompletedToolMetadata(toolRuns),
+      }
+      Object.assign(failure, owned)
+      const facts = {
+        ...owned,
+        generatedFields: Object.keys(owned),
+      }
+      if (!canonicalWriteAttempted && context.workflowLogId && context.executionId) {
+        canonicalWriteAttempted = true
+        try {
+          const nativePayload = await writeFunctionalPayload(
+            {
+              workspaceId: context.workspaceId,
+              executionId: context.executionId,
+              logId: context.workflowLogId,
+              blockId: getBlockToolExecutionId(block, context),
+              runId,
+              actorUserId: context.userId,
+            },
+            {
+              selectedMessages: messages,
+              messages: [...responseMessages.values()],
+              output: { error: failure.message },
+              tools: archivedTools(),
+            }
+          )
+          return withInferenceFacts(failure, { ...facts, nativePayload })
+        } catch {
+          logger.warn('Canonical failed-turn payload remains unavailable', { runId })
+        }
+      }
+      return withInferenceFacts(failure, facts)
+    }
+    if (!this.getStreamingConfig(block, context).shouldUseStreaming) {
+      try {
+        if (context.shouldCancelExecution) cancellationTimer = setTimeout(checkCancellation, 1000)
+        return await complete(
+          options.structuredOutput
+            ? await agent.generate(modelMessages, {
+                ...options,
+                structuredOutput: options.structuredOutput,
+              })
+            : await agent.generate(modelMessages, { ...options, structuredOutput: undefined })
+        )
+      } catch (error) {
+        throw await fail(error)
+      }
+    }
+    const execution: StreamingExecution['execution'] = {
+      success: true,
+      output: {},
+      logs: [],
+      metadata: { duration: 0 },
+      isStreaming: true,
+    }
+    try {
+      if (context.shouldCancelExecution) cancellationTimer = setTimeout(checkCancellation, 1000)
+      const nativeStream = options.structuredOutput
+        ? await agent.stream(modelMessages, {
+            ...options,
+            structuredOutput: options.structuredOutput,
+          })
+        : await agent.stream(modelMessages, { ...options, structuredOutput: undefined })
+      const reader = nativeStream.fullStream.getReader()
+      const stream = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          try {
+            while (true) {
+              if (await context.shouldCancelExecution?.()) abortController.abort()
+              signal.throwIfAborted()
+              const { done, value } = await reader.read()
+              if (await context.shouldCancelExecution?.()) abortController.abort()
+              signal.throwIfAborted()
+              if (done) {
+                Object.assign(execution.output, await complete(await nativeStream.getFullOutput()))
+                execution.metadata!.duration = Date.now() - startedAt.getTime()
+                controller.close()
+                return
+              }
+              if (value.type === 'text-delta') {
+                controller.enqueue(new TextEncoder().encode(value.payload.text))
+                return
+              }
+              if (value.type === 'error') throw value.payload.error
+              if (value.type === 'abort') throw new Error('Agent generation was cancelled')
+            }
+          } catch (error) {
+            const failure = await fail(error)
+            execution.success = false
+            execution.error = failure.message
+            Object.assign(execution.output, failure)
+            controller.error(failure)
+          }
+        },
+        async cancel(reason) {
+          abortController.abort(reason)
+          await reader.cancel(reason)
+          const failure = await fail(new Error('Agent generation was cancelled'))
+          execution.success = false
+          execution.error = failure.message
+          Object.assign(execution.output, failure)
+        },
+      })
+      return { stream, execution }
+    } catch (error) {
+      throw await fail(error)
+    }
   }
 
   private parseResponseFormat(responseFormat?: string | object): any {
@@ -164,7 +467,10 @@ export class AgentBlockHandler implements BlockHandler {
     return format
   }
 
-  private async formatTools(inputTools: ToolInput[], context: ExecutionContext): Promise<any[]> {
+  private async formatTools(
+    inputTools: ToolInput[],
+    context: ExecutionContext
+  ): Promise<AgentToolConfig[]> {
     if (!Array.isArray(inputTools)) return []
 
     const tools = await Promise.all(
@@ -183,6 +489,11 @@ export class AgentBlockHandler implements BlockHandler {
             }
             return await this.transformBlockTool(tool, context)
           } catch (error) {
+            if (tool.usageControl === 'force') {
+              throw new Error(
+                `Cannot prepare forced tool ${tool.title || tool.toolId || tool.type}: ${error instanceof Error ? error.message : String(error)}`
+              )
+            }
             logger.warn(
               `Skipping unavailable agent tool ${tool.title || tool.toolId || tool.type}:`,
               error
@@ -220,7 +531,7 @@ export class AgentBlockHandler implements BlockHandler {
     }
 
     if (tool.code) {
-      base.executeFunction = async (callParams: Record<string, any>) => {
+      base.executeFunction = async (callParams: Record<string, any>, signal?: AbortSignal) => {
         // Merge user-provided parameters with LLM-generated parameters
         const mergedParams = mergeToolParameters(userProvidedParams, callParams)
 
@@ -240,7 +551,8 @@ export class AgentBlockHandler implements BlockHandler {
             isCustomTool: true,
           },
           false, // skipPostProcess
-          context // execution context for file processing
+          context, // execution context for file processing
+          { signal }
         )
 
         if (!result.success) {
@@ -322,7 +634,7 @@ export class AgentBlockHandler implements BlockHandler {
       parameters: filteredSchema,
       params: userProvidedParams,
       usageControl: tool.usageControl || 'auto',
-      executeFunction: async (callParams: Record<string, any>) => {
+      executeFunction: async (callParams: Record<string, any>, signal?: AbortSignal) => {
         logger.info(`Executing MCP tool ${toolName} on server ${serverId}`)
 
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -340,6 +652,7 @@ export class AgentBlockHandler implements BlockHandler {
         const execResponse = await fetch(`${getBaseUrl()}/api/mcp/tools/execute`, {
           method: 'POST',
           headers,
+          signal,
           body: JSON.stringify({
             serverId,
             toolName,
@@ -376,25 +689,30 @@ export class AgentBlockHandler implements BlockHandler {
   }
 
   private async transformBlockTool(tool: ToolInput, context: ExecutionContext) {
-    const transformedTool = await transformBlockTool(tool, {
-      selectedOperation: tool.operation,
-      getAllBlocks,
-      getToolAsync: (toolId: string) =>
-        getToolAsync(
+    const blockDef = getAllBlocks().find((definition) => definition.type === tool.type)
+    if (!blockDef) throw new Error(`Block definition not found for agent tool: ${tool.type}`)
+    const toolId =
+      (blockDef.tools?.access?.length || 0) > 1 && tool.operation && blockDef.tools?.config?.tool
+        ? blockDef.tools.config.tool({ ...tool.params, operation: tool.operation })
+        : blockDef.tools?.access?.[0]
+    if (!toolId) throw new Error(`No tool configured for agent tool: ${tool.type}`)
+    const toolConfig = isCustomToolRuntimeId(toolId)
+      ? await getToolAsync(
           toolId,
           context.workflowId,
           context.workspaceId,
           context.isDeployedContext !== false
-        ),
-      getTool,
-      createLLMToolSchema,
-    })
-
-    if (!transformedTool) {
-      throw new Error(`Agent tool ${tool.title || tool.toolId || tool.type} could not be resolved`)
+        )
+      : getTool(toolId)
+    if (!toolConfig) throw new Error(`Agent tool ${toolId} could not be resolved`)
+    return {
+      id: toolConfig.id,
+      name: toolConfig.name,
+      description: toolConfig.description,
+      params: tool.params || {},
+      parameters: createLLMToolSchema(toolConfig, tool.params || {}),
+      usageControl: tool.usageControl || 'auto',
     }
-    transformedTool.usageControl = tool.usageControl || 'auto'
-    return transformedTool
   }
 
   private getStreamingConfig(block: SerializedBlock, context: ExecutionContext): StreamingConfig {
@@ -409,10 +727,9 @@ export class AgentBlockHandler implements BlockHandler {
         )
       })
 
-    const hasOutgoingConnections = context.edges?.some((edge) => edge.source === block.id) ?? false
     const shouldUseStreaming = Boolean(context.stream) && isBlockSelectedForOutput
 
-    return { shouldUseStreaming, isBlockSelectedForOutput, hasOutgoingConnections }
+    return { shouldUseStreaming, isBlockSelectedForOutput }
   }
 
   private buildMessages(
@@ -436,6 +753,7 @@ export class AgentBlockHandler implements BlockHandler {
       const systemIndex = messages.findIndex((message) => message.role === 'system')
 
       if (systemIndex >= 0) {
+        // This is newly composed application text, not unchanged original Memory bytes.
         messages[systemIndex] = {
           ...messages[systemIndex],
           content: `${messages[systemIndex].content}${skillSection}`,
@@ -462,458 +780,292 @@ export class AgentBlockHandler implements BlockHandler {
     memoryArray.forEach((memory: any) => {
       if (memory.data && Array.isArray(memory.data)) {
         memory.data.forEach((msg: any) => {
-          if (msg.role && msg.content && ['system', 'user', 'assistant'].includes(msg.role)) {
-            messages.push({
-              role: msg.role as 'system' | 'user' | 'assistant',
-              content: msg.content,
-            })
+          if (
+            msg.role &&
+            typeof msg.content === 'string' &&
+            ['system', 'user', 'assistant'].includes(msg.role)
+          ) {
+            messages.push(
+              copyWorkflowMessageSource(msg, {
+                role: msg.role as 'system' | 'user' | 'assistant',
+                content: msg.content,
+              })
+            )
           }
         })
       } else if (
         memory.role &&
-        memory.content &&
+        typeof memory.content === 'string' &&
         ['system', 'user', 'assistant'].includes(memory.role)
       ) {
-        messages.push({
-          role: memory.role as 'system' | 'user' | 'assistant',
-          content: memory.content,
-        })
+        messages.push(
+          copyWorkflowMessageSource(memory, {
+            role: memory.role as 'system' | 'user' | 'assistant',
+            content: memory.content,
+          })
+        )
       }
     })
 
     return messages
   }
+}
 
-  private buildProviderRequest(config: {
-    providerId: string
-    model: string
-    messages: Message[] | undefined
-    inputs: AgentInputs
-    formattedTools: any[]
-    responseFormat: any
-    block: SerializedBlock
-    context: ExecutionContext
-    streaming: boolean
-  }) {
-    const {
-      providerId,
-      model,
-      messages,
-      inputs,
-      formattedTools,
-      responseFormat,
-      block,
-      context,
-      streaming,
-    } = config
+/** Names identify configured instances; callbacks keep the original application tool ID. */
+function namedAgentTools(configured: AgentToolConfig[]) {
+  const reserved = new Set(configured.map((tool) => tool.id))
+  const counts = new Map<string, number>()
+  return configured.map((tool) => {
+    const duplicate = configured.filter((candidate) => candidate.id === tool.id).length > 1
+    if (!duplicate) return { tool, nativeName: tool.id }
+    let index = counts.get(tool.id) ?? 0
+    let nativeName: string
+    do {
+      nativeName = `${tool.id}__instance_${++index}`
+    } while (reserved.has(nativeName))
+    counts.set(tool.id, index)
+    reserved.add(nativeName)
+    return { tool, nativeName }
+  })
+}
 
-    // Collect block outputs for runtime resolution
-    const { blockData, blockNameMapping } = collectBlockData(context)
-
-    return {
-      provider: providerId,
-      model,
-      tools: formattedTools,
-      temperature: inputs.temperature,
-      maxTokens: inputs.maxTokens,
-      apiKey: inputs.apiKey,
-      azureEndpoint: inputs.azureEndpoint,
-      responseFormat,
-      workflowId: context.workflowId,
-      workspaceId: context.workspaceId,
-      workflowLogId: context.workflowLogId,
-      submissionSource: context.submissionSource,
-      toolExecutionId: getBlockToolExecutionId(block, context),
-      stream: streaming,
-      messages,
-      environmentVariables: context.environmentVariables || {},
-      workflowVariables: context.workflowVariables || {},
-      blockData,
-      blockNameMapping,
-      isDeployedContext: context.isDeployedContext !== false,
-      reasoningEffort: inputs.reasoningEffort,
-      verbosity: inputs.verbosity,
-      thinkingLevel: inputs.thinkingLevel,
-    }
-  }
-
-  /** Resolves active tuning after discovery on either transport before dispatching provider execution. */
-  private async executeProviderRequest(
-    providerRequest: any,
-    block: SerializedBlock,
-    responseFormat: any,
-    context: ExecutionContext,
-    inputs: AgentInputs
-  ): Promise<BlockOutput | StreamingExecution> {
-    const providerId = providerRequest.provider
-    const model = providerRequest.model
-    const providerStartTime = Date.now()
-
-    try {
-      const resolveControls: ProviderControlResolver | undefined =
-        providerRequest.provider === 'openrouter'
-          ? /** Resolves default intent for unknown support, otherwise only active controls. */
-            () => {
-              const fields = [
-                'temperature',
-                'reasoningEffort',
-                'verbosity',
-                'thinkingLevel',
-              ] as const
-              const params = Object.fromEntries(
-                fields
-                  .filter((field) => Object.hasOwn(block.config.params, field))
-                  .map((field) => [field, block.config.params[field]])
-              )
-              if (!getProviderModels('openrouter').includes(providerRequest.model)) {
-                for (const field of Object.keys(params)) {
-                  params[field] = this.resolver.resolveInputValue(
-                    field,
-                    params[field],
-                    block,
-                    context
-                  )
-                }
-                return params
-              }
-              const resolved = this.resolver.resolveInputs(
-                {
-                  ...block,
-                  config: { ...block.config, params: { ...params, model: providerRequest.model } },
-                },
-                context
-              )
-              for (const field of fields) {
-                if (!Object.hasOwn(resolved, field)) Reflect.deleteProperty(inputs, field)
-              }
-              Object.assign(inputs, resolved)
-              return {
-                temperature: inputs.temperature,
-                reasoningEffort: inputs.reasoningEffort,
-                verbosity: inputs.verbosity,
-                thinkingLevel: inputs.thinkingLevel,
-              }
+/** Native tools invoke the existing authorization and workflow execution path. */
+export function createAgentToolSet(
+  configured: AgentToolConfig[],
+  scope: Record<string, any>,
+  executionContext: ExecutionContext | undefined,
+  nativeMedia: { signal: AbortSignal; abort: (reason: unknown) => void }
+) {
+  const toolRuns: Array<Record<string, any>> = []
+  const tools = Object.fromEntries(
+    namedAgentTools(configured)
+      .filter(({ tool }) => tool.usageControl !== 'none')
+      .map(({ tool, nativeName }) => [
+        nativeName,
+        createTool({
+          id: nativeName,
+          title: tool.name,
+          description: tool.description,
+          inputSchema: toStandardSchema(tool.parameters),
+          execute: async (inputData, nativeContext) => {
+            assertNativeToolArguments(inputData)
+            const startedAt = new Date()
+            const params = { ...(inputData as Record<string, any>), ...tool.params }
+            const run: Record<string, any> = {
+              id: tool.id,
+              nativeName,
+              name: tool.name || tool.id,
+              toolCallId: nativeContext?.agent?.toolCallId,
+              arguments: params,
+              startTime: startedAt.toISOString(),
+              success: false,
             }
-          : undefined
-      const isBrowser = typeof window !== 'undefined'
+            toolRuns.push(run)
+            try {
+              const result = tool.executeFunction
+                ? await tool.executeFunction(params, nativeContext?.abortSignal)
+                : await executeTool(
+                    tool.id,
+                    {
+                      ...params,
+                      _context: {
+                        workflowId: scope.workflowId,
+                        workspaceId: scope.workspaceId,
+                        workflowLogId: scope.workflowLogId,
+                        toolExecutionId: scope.toolExecutionId,
+                        submissionSource: scope.submissionSource,
+                        userId: scope.userId,
+                        executionId: scope.executionId,
+                        isDeployedContext: scope.isDeployedContext !== false,
+                      },
+                      envVars: scope.environmentVariables,
+                      workflowVariables: scope.workflowVariables,
+                      blockData: scope.blockData,
+                      blockNameMapping: scope.blockNameMapping,
+                    },
+                    false,
+                    executionContext,
+                    { signal: nativeContext?.abortSignal }
+                  )
+              run.result = tool.executeFunction ? result : result.output
+              if (result?.success === false)
+                throw new Error(result.error || `Tool ${tool.id} failed`)
+              run.success = true
+              const facts = getInferenceFacts(run.result)
+              const functional = facts ? { ...run.result } : run.result
+              if (facts) for (const field of facts.generatedFields) delete functional[field]
+              try {
+                return await normalizeNativeToolResult(functional, {
+                  actorUserId: scope.userId,
+                  workspaceId: scope.workspaceId,
+                  signal: nativeContext?.abortSignal
+                    ? AbortSignal.any([nativeMedia.signal, nativeContext.abortSignal])
+                    : nativeMedia.signal,
+                })
+              } catch (error) {
+                // The effect and raw result are already known; refuse unsafe model continuation.
+                nativeMedia.abort(error)
+                throw error
+              }
+            } catch (error) {
+              if (
+                getInferenceFacts(error) ||
+                (error && typeof error === 'object' && ('cost' in error || 'tokens' in error))
+              ) {
+                run.result = error
+              }
+              run.error = error instanceof Error ? error.message : String(error)
+              throw error
+            } finally {
+              run.endTime = new Date().toISOString()
+              run.duration = Date.now() - startedAt.getTime()
+            }
+          },
+        }),
+      ])
+  )
+  return { tools, toolRuns }
+}
 
-      if (!isBrowser) {
-        return this.executeServerSide(
-          providerRequest,
-          block,
-          responseFormat,
-          context,
-          providerStartTime,
-          resolveControls
+/** Force names are selected from observed successful calls in configured order. */
+export function createForcedToolPolicy(tools: AgentToolConfig[]) {
+  const named = namedAgentTools(tools)
+  const activeTools = named
+    .filter(({ tool }) => tool.usageControl !== 'none')
+    .map(({ nativeName }) => nativeName)
+  const forced = named
+    .filter(({ tool }) => tool.usageControl === 'force')
+    .map(({ nativeName }) => nativeName)
+  const completedCount = (steps: any[] = []) => {
+    let count = 0
+    const seenCalls = new Set<string>()
+    for (const step of steps)
+      for (const call of step.toolCalls || []) {
+        const data = call.payload || call
+        if (seenCalls.has(data.toolCallId)) continue
+        seenCalls.add(data.toolCallId)
+        if (count >= forced.length) continue
+        if (data.toolName !== forced[count])
+          throw new Error(
+            `Native named tool selection was not honored: expected forced tool ${forced[count]}, received ${data.toolName}. Select a compatible model/tool/schema/thinking configuration or change this tool to Auto.`
+          )
+        if (
+          (step.toolResults || []).some((result: any) => {
+            const output = result.payload || result
+            return (
+              output.toolCallId === data.toolCallId &&
+              !output.isError &&
+              output.output?.type !== 'error-text' &&
+              output.output?.type !== 'error-json'
+            )
+          })
         )
+          count += 1
       }
-      if (resolveControls) {
-        const { getOpenRouterModels } = await import('@/providers/ai/openrouter/models')
-        await getOpenRouterModels().catch((error) => {
-          logger.warn('Unable to refresh OpenRouter model capabilities', { error })
-        })
-        const controls = resolveControls()
-        assertOpenRouterControlCapabilities(model, controls)
-        Object.assign(providerRequest, controls)
+    return count
+  }
+  return {
+    prepareStep({ steps }: { steps: any[] }) {
+      const pending = forced[completedCount(steps)]
+      return {
+        activeTools: pending ? [pending] : activeTools,
+        toolChoice: pending ? { type: 'tool' as const, toolName: pending } : ('auto' as const),
       }
-      return this.executeBrowserSide(
-        providerRequest,
-        block,
-        responseFormat,
-        context,
-        providerStartTime
-      )
-    } catch (error) {
-      this.handleExecutionError(error, providerStartTime, providerId, model, context, block)
-      throw error
-    }
-  }
-
-  /** Resolves active tuning through the workflow resolver after the provider refreshes capabilities. */
-  private async executeServerSide(
-    providerRequest: any,
-    block: SerializedBlock,
-    responseFormat: any,
-    context: ExecutionContext,
-    providerStartTime: number,
-    resolveControls?: ProviderControlResolver
-  ) {
-    logger.info('Using direct server provider request')
-
-    const [{ executeProviderRequest }, { getApiKey }] = await Promise.all([
-      import('@/providers/ai'),
-      import('@/providers/ai/utils-server'),
-    ])
-    const apiKey = await getApiKey(
-      providerRequest.provider,
-      providerRequest.model,
-      providerRequest.apiKey
-    )
-    const request = {
-      ...providerRequest,
-      apiKey,
-      userId: context.userId,
-    }
-    const result = await executeProviderRequest(providerRequest.provider, request, resolveControls)
-
-    this.logExecutionSuccess(
-      providerRequest.provider,
-      providerRequest.model,
-      context,
-      block,
-      providerStartTime,
-      result
-    )
-
-    return this.processProviderResponse(
-      this.withToolCallMetadata(result, providerRequest.tools),
-      block,
-      responseFormat
-    )
-  }
-
-  private async executeBrowserSide(
-    providerRequest: any,
-    block: SerializedBlock,
-    responseFormat: any,
-    context: ExecutionContext,
-    providerStartTime: number
-  ) {
-    return this.executeViaProviderApi(
-      providerRequest,
-      block,
-      responseFormat,
-      context,
-      providerStartTime
-    )
-  }
-
-  private async executeViaProviderApi(
-    providerRequest: any,
-    block: SerializedBlock,
-    responseFormat: any,
-    context: ExecutionContext,
-    providerStartTime: number
-  ) {
-    logger.info('Using HTTP provider request')
-
-    const url = new URL('/api/providers', getBaseUrl())
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (typeof window === 'undefined') {
-      const { generateInternalToken } = await import('@/lib/auth/internal')
-      headers.Authorization = `Bearer ${await generateInternalToken(context.userId)}`
-    }
-    const response = await fetch(url.toString(), {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(providerRequest),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT),
-    })
-
-    if (!response.ok) {
-      const errorMessage = await this.extractErrorMessage(response)
-      throw new Error(errorMessage)
-    }
-
-    this.logExecutionSuccess(
-      providerRequest.provider,
-      providerRequest.model,
-      context,
-      block,
-      providerStartTime,
-      'HTTP response'
-    )
-
-    // Check if this is a streaming response
-    const contentType = response.headers.get('Content-Type')
-    if (contentType?.includes('text/event-stream')) {
-      // Handle streaming response
-      logger.info('Received streaming response')
-      return this.handleStreamingResponse(response, block, providerRequest.tools)
-    }
-
-    // Handle regular JSON response
-    const result = await response.json()
-    return this.processProviderResponse(
-      this.withToolCallMetadata(result, providerRequest.tools),
-      block,
-      responseFormat
-    )
-  }
-
-  private handleStreamingResponse(
-    response: Response,
-    block: SerializedBlock,
-    tools: any[]
-  ): StreamingExecution {
-    if (!response.body) throw new Error('Streaming provider response requires a body')
-    return this.processStreamingExecution(
-      this.withToolCallMetadata(decodeProviderStream(response.body), tools),
-      block
-    )
-  }
-
-  private async extractErrorMessage(response: Response): Promise<string> {
-    let errorMessage = `Provider API request failed with status ${response.status}`
-    try {
-      const errorData = await response.json()
-      if (errorData.error) {
-        errorMessage = errorData.error
-      }
-    } catch (_e) {
-      // Use default message if JSON parsing fails
-    }
-    return errorMessage
-  }
-
-  private logExecutionSuccess(
-    provider: string,
-    model: string,
-    context: ExecutionContext,
-    block: SerializedBlock,
-    startTime: number,
-    response: any
-  ) {
-    const executionTime = Date.now() - startTime
-    const responseType =
-      response && typeof response === 'object' && 'stream' in response
-        ? 'streaming-execution'
-        : 'json'
-
-    logger.info('Provider request completed successfully', {
-      provider,
-      model,
-      workflowId: context.workflowId,
-      blockId: block.id,
-      executionTime,
-      responseType,
-    })
-  }
-
-  private handleExecutionError(
-    error: any,
-    startTime: number,
-    provider: string,
-    model: string,
-    context: ExecutionContext,
-    block: SerializedBlock
-  ) {
-    const executionTime = Date.now() - startTime
-
-    logger.error('Error executing provider request:', {
-      error,
-      executionTime,
-      provider,
-      model,
-      workflowId: context.workflowId,
-      blockId: block.id,
-    })
-
-    if (!(error instanceof Error)) return
-
-    logger.error('Provider request error details', {
-      workflowId: context.workflowId,
-      blockId: block.id,
-      errorName: error.name,
-      errorMessage: error.message,
-      errorStack: error.stack,
-      timestamp: new Date().toISOString(),
-    })
-
-    if (error.name === 'AbortError') {
-      throw new Error('Provider request timed out - the API took too long to respond')
-    }
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error(
-        'Network error - unable to connect to provider API. Please check your internet connection.'
-      )
-    }
-    if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-      throw new Error('Unable to connect to server - DNS or connection issue')
-    }
-  }
-
-  private processProviderResponse(
-    response: any,
-    block: SerializedBlock,
-    responseFormat: any
-  ): BlockOutput | StreamingExecution {
-    if (this.isStreamingExecution(response)) {
-      return this.processStreamingExecution(response, block)
-    }
-
-    return this.processRegularResponse(response, responseFormat)
-  }
-
-  private isStreamingExecution(response: any): boolean {
-    return (
-      response && typeof response === 'object' && 'stream' in response && 'execution' in response
-    )
-  }
-
-  private processStreamingExecution(
-    response: StreamingExecution,
-    block: SerializedBlock
-  ): StreamingExecution {
-    const streamingExec = response as StreamingExecution
-    logger.info(`Received StreamingExecution for block ${block.id}`)
-
-    if (streamingExec.execution.output) {
-      const execution = streamingExec.execution as any
-      if (block.metadata?.name) execution.blockName = block.metadata.name
-      if (block.metadata?.id) execution.blockType = block.metadata.id
-      execution.blockId = block.id
-      execution.isStreaming = true
-    }
-
-    return streamingExec
-  }
-
-  private processRegularResponse(result: any, responseFormat: any): BlockOutput {
-    return {
-      ...(responseFormat
-        ? parseAgentStructuredResponse(result.content)
-        : { content: result.content, model: result.model }),
-      ...this.createResponseMetadata(result),
-    }
-  }
-
-  private withToolCallMetadata(result: any, tools: any[] = []) {
-    const toolNames = new Map<string, string>()
-    for (const tool of tools) {
-      if (typeof tool?.id === 'string' && typeof tool.name === 'string') {
-        toolNames.set(tool.id, tool.name.trim())
-      }
-    }
-
-    const apply = (toolCalls?: any[]) =>
-      toolCalls?.forEach((toolCall) => {
-        if (typeof toolCall?.name !== 'string') return
-        const id = toolCall.name
-        const name = toolNames.get(id)
-        if (name) Object.assign(toolCall, { id, name })
-      })
-
-    if (this.isStreamingExecution(result)) {
-      result.stream = result.stream.pipeThrough(
-        new TransformStream({ flush: () => apply(result.execution.output.toolCalls?.list) })
-      )
-    } else {
-      apply(result?.toolCalls)
-    }
-    return result
-  }
-
-  private createResponseMetadata(result: any) {
-    return {
-      tokens: result.tokens || { prompt: 0, completion: 0, total: 0 },
-      toolResults: Array.isArray(result.toolResults) ? result.toolResults : [],
-      toolCalls: {
-        list: result.toolCalls || [],
-        count: result.toolCalls?.length || 0,
-      },
-      providerTiming: result.timing,
-      cost: result.cost,
-    }
+    },
+    assertComplete(steps: any[] = []) {
+      const pending = forced.slice(completedCount(steps))
+      if (pending.length)
+        throw new Error(
+          `Agent did not complete forced tools: ${pending.join(', ')}. Select a model and tool/schema/thinking configuration that supports named tool calls, or change these tools to Auto.`
+        )
+    },
   }
 }
+
+export function validateNativeReasoning(model: string, effort?: string, version?: string) {
+  if (!effort || effort === 'auto') return
+  const options = getModelReasoningOptions(model)
+  if (!options?.some((option) => option.type === 'effort' && option.values.includes(effort))) {
+    throw new Error(
+      `Reasoning effort ${effort} is not published for ${model}. Clear this field or select a listed value.`
+    )
+  }
+  if (version !== 'v4')
+    throw new Error(
+      `Native reasoning control is unavailable for this model connection. Clear Reasoning Effort or use a connection with native reasoning support.`
+    )
+}
+
+/** Extract only the workflow's supported output fields from public native results. */
+export function extractAgentOutput(
+  result: any,
+  model: string,
+  accounting: Awaited<ReturnType<typeof resultAccounting>>,
+  toolRuns: Array<Record<string, any>> = [],
+  structured = false,
+  startedAt = new Date()
+): BlockOutput {
+  assertNativeCompletion(result)
+  if (
+    structured &&
+    (!result.object || typeof result.object !== 'object' || Array.isArray(result.object))
+  ) {
+    throw new Error('Agent response format requires a valid JSON object')
+  }
+  const facts = {
+    model,
+    ...accounting,
+    ...extractCompletedToolMetadata(toolRuns),
+    toolCalls: { list: toolRuns, count: toolRuns.length },
+    providerTiming: {
+      duration: Date.now() - startedAt.getTime(),
+      startTime: startedAt.toISOString(),
+      endTime: new Date().toISOString(),
+      segments: [],
+    },
+  }
+  const business = structured ? result.object : { content: result.text }
+  return withInferenceFacts(
+    { ...facts, ...business },
+    {
+      ...facts,
+      generatedFields: Object.keys(facts).filter((key) => !Object.hasOwn(business, key)),
+    }
+  )
+}
+
+/** Completed tool charges remain separate from native model spend on every outcome. */
+export function extractCompletedToolMetadata(toolRuns: Array<Record<string, any>>) {
+  const completed = toolRuns.filter((run) => run.success || run.result?.cost || run.result?.tokens)
+  const seen = new Set<string>()
+  let toolCost: number | undefined
+  let unavailableToolCosts = 0
+  for (const run of completed) {
+    const facts = getInferenceFacts(run.result)
+    if (!facts) continue
+    const cost = facts.cost
+    const ids: string[] = run.toolCallId ? [run.toolCallId] : []
+    if (ids.length && ids.every((id) => seen.has(id))) continue
+    ids.forEach((id) => seen.add(id))
+    const amount = cost?.total ?? cost?.availableTotal
+    if (typeof amount === 'number' && Number.isFinite(amount) && amount >= 0)
+      toolCost = (toolCost ?? 0) + amount
+    if (cost?.status === 'unavailable' || cost?.status === 'partial') unavailableToolCosts += 1
+  }
+  return {
+    ...(toolCost !== undefined ? { toolCost } : {}),
+    ...(unavailableToolCosts ? { unavailableToolCosts } : {}),
+    toolResults: completed.map((run) => {
+      const facts = getInferenceFacts(run.result)
+      const result =
+        run.result instanceof Error && facts
+          ? withInferenceFacts(checkpointFunctionalOutput(run.result), facts)
+          : run.result
+      return result && typeof result === 'object'
+        ? { ...result, toolCallId: run.toolCallId }
+        : result
+    }),
+  }
+}
+
+export { trustedProviderOptions as parseNativeProviderOptions } from '@/lib/mastra/options'

@@ -61,7 +61,16 @@ describe('Copilot store lifecycle', () => {
       text: 'private @Documentation draft',
       contexts: [{ kind: 'docs', label: 'Documentation' }],
     })
-    await ownedStore.getState().handleNewReviewSessionCreation('review-session-1', 'workspace-1')
+    ownedStore.setState({
+      conversationWorkspaceId: 'workspace-1',
+      currentChat: {
+        threadId: 'thread-1',
+        workspaceId: 'workspace-1',
+        title: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    })
     ownedStore.setState({
       abortController,
       isSendingMessage: true,
@@ -113,9 +122,9 @@ describe('Copilot store lifecycle', () => {
     expect(getClientTool(toolCallId)).toBeUndefined()
     expect(tool.getState()).toBe(ClientToolCallState.aborted)
     expect(() => getCopilotStoreForToolCall(toolCallId)).toThrow(
-      `No active Copilot store owns tool call ${toolCallId}`
+      `No unique active Copilot store owns tool call ${toolCallId}`
     )
-    await expect(tool.markToolComplete(200, 'late completion')).resolves.toBe(true)
+    await expect(tool.handleUserAction()).resolves.toBeUndefined()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

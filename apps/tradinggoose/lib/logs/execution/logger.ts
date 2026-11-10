@@ -1,32 +1,22 @@
+import {
+  acceptModelStep,
+  type FinancialBinding,
+  type FinancialTransaction,
+} from '@tradinggoose/billing'
+import type { DecimalAmount } from '@tradinggoose/billing/money'
 import { db } from '@tradinggoose/db'
-import { organization, user as userTable, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import { getUserUsageLimit, maybeSendUsageThresholdEmail } from '@/lib/billing/core/usage'
-import { getResolvedBillingSettings } from '@/lib/billing/settings'
-import { checkAndBillOverageThreshold } from '@/lib/billing/threshold-billing'
-import {
-  getTierDisplayName,
-  getTierUsageAllowanceUsd,
-  getTierWorkflowExecutionMultiplier,
-  getTierWorkflowModelCostMultiplier,
-  isFreeBillingTier,
-} from '@/lib/billing/tiers'
-import {
-  accrueUserUsageCost,
-  type UsageAccrual,
-  type UsageTransaction,
-} from '@/lib/billing/usage-accrual'
-import {
-  resolveWorkspaceBillingContext,
-  type WorkspaceBillingContext,
-} from '@/lib/billing/workspace-billing'
+import { admitFinancialModelStep, createFinancialInvocation } from '@/lib/billing/native-finance'
 import { createLogger } from '@/lib/logs/console/logger'
 import { emitWorkflowExecutionCompleted } from '@/lib/logs/events'
+import { verifyWorkflowFinancialAcceptance } from '@/lib/logs/execution/financial-acceptance'
 import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
 import { snapshotService } from '@/lib/logs/execution/snapshot/service'
 import type {
   BlockOutputData,
+  CostMetadata,
   ExecutionEnvironment,
   ExecutionTrigger,
   TraceSpan,
@@ -34,31 +24,32 @@ import type {
   WorkflowExecutionSnapshot,
   WorkflowState,
 } from '@/lib/logs/types'
+import { writeFunctionalPayload } from '@/lib/mastra/workflow-history'
+import {
+  assertRetainedLogAccess,
+  FUNCTIONAL_OUTPUT_REFERENCE,
+  hydrateExecutionPayload,
+  projectFunctionalBlocks,
+} from '@/lib/workflow-archive/functional'
 
 const logger = createLogger('ExecutionLogger')
 
-type ExecutionBilling = {
-  billable?: boolean
-  quote?: { enabled: boolean; baseCharge: number; modelMultiplier: number }
-  accountedCost?: number
-  accountedTokens?: number
-  counted?: boolean
-}
-type UsageReceipt = UsageAccrual & {
-  context: WorkspaceBillingContext
-  workflowId: string | null
-  costDelta: number
-}
+type ExecutionBilling = { binding?: FinancialBinding; billable?: boolean }
+type UsageReceipt = { binding: FinancialBinding; appliedUsd?: DecimalAmount }
 
-function executionCost(traceSpans: TraceSpan[], quote?: ExecutionBilling['quote']) {
-  const summary = calculateCostSummary(
-    traceSpans,
-    quote?.baseCharge ?? 0,
-    quote?.modelMultiplier ?? 1
-  )
+function executionCost(
+  traceSpans: TraceSpan[],
+  unavailable = false
+): CostMetadata & { status: NonNullable<CostMetadata['status']> } {
+  if (unavailable) return { status: 'unavailable', tokens: {}, models: {} }
+  const summary = calculateCostSummary(traceSpans)
   return {
     total: summary.totalCost,
-    baseExecutionCharge: summary.baseExecutionCharge,
+    availableTotal: summary.availableTotal,
+    status: summary.status,
+    estimated: summary.estimated,
+    toolCost: summary.toolCost,
+    unavailableComponents: summary.unavailableComponents,
     modelCost: summary.modelCost,
     input: summary.totalInputCost,
     output: summary.totalOutputCost,
@@ -89,6 +80,7 @@ export class ExecutionLogger {
     environment: ExecutionEnvironment
     workflowState: WorkflowState
     workflowSummary: WorkflowExecutionLog['workflowSummary']
+    billable?: boolean
   }): Promise<{
     workflowLog: WorkflowExecutionLog
     snapshot: WorkflowExecutionSnapshot
@@ -103,6 +95,16 @@ export class ExecutionLogger {
       state: workflowState,
     })
 
+    const binding = await createFinancialInvocation({
+      actorUserId: environment.userId,
+      workspaceId: environment.workspaceId,
+      workflowId,
+      runId: executionId,
+      purpose: 'workflow-execution',
+      operationKey: executionId,
+      billable: params.billable ?? true,
+    })
+    await admitFinancialModelStep(binding, { stepNumber: 0, retryCount: 0 })
     const startTime = new Date()
     const workflowLogValues = {
       workflowId,
@@ -139,8 +141,7 @@ export class ExecutionLogger {
           executionData: {
             environment,
             trigger,
-            traceSpans: [],
-            finalOutput: {},
+            billing: { binding, billable: params.billable ?? true },
             errorMessage: message,
           },
         })
@@ -162,6 +163,7 @@ export class ExecutionLogger {
           executionData: {
             environment,
             trigger,
+            billing: { binding, billable: params.billable ?? true },
           },
         })
         .onConflictDoNothing({
@@ -253,38 +255,82 @@ export class ExecutionLogger {
     if (!existingLog) throw new Error(`Workflow log not found for execution ${executionId}`)
 
     const existingData = existingLog.executionData as Record<string, any>
-    const cost = executionCost(traceSpans, existingData.billing?.quote)
+    let cost = executionCost(traceSpans, Boolean(existingLog.endedAt))
     const executionFiles = this.extractFilesFromExecution(traceSpans, finalOutput, workflowInput)
-    const completedExecutionData = {
-      ...(variables ? { environment: { ...existingData.environment, variables } } : {}),
-      traceSpans,
-      finalOutput,
-      ...(hasResponseBlock ? { hasResponseBlock: true } : {}),
-      ...(failureReason ? { errorMessage: failureReason } : {}),
-      tokenBreakdown: cost.tokens,
-      models: cost.models,
+    let deliveredOutput = finalOutput
+    let deliveredSpans = traceSpans
+    let completedExecutionData: Record<string, unknown> = {}
+    if (existingLog.endedAt) {
+      // Retrying terminal publication/finance reuses canonical paid work; it never rewrites or replays it.
+      const scope = { workspaceId, executionId, logId: workflowLogId }
+      const retained = await hydrateExecutionPayload(
+        { ...existingLog, ...scope, executionData: existingData },
+        () => assertRetainedLogAccess(scope)
+      )
+      deliveredOutput = retained.executionData.finalOutput
+      deliveredSpans = retained.executionData.traceSpans ?? []
+    } else {
+      const blocks = projectFunctionalBlocks(traceSpans)
+      const functionalPayload = await writeFunctionalPayload(
+        {
+          workspaceId,
+          executionId,
+          logId: workflowLogId,
+          blockId: '__execution__',
+          runId: 'completion',
+          ...(readExecutionActorUserId(existingData)
+            ? { actorUserId: readExecutionActorUserId(existingData)! }
+            : {}),
+        },
+        { blocks, output: finalOutput }
+      )
+      const nativePayloads = {
+        ...(existingData.nativePayloads ?? {}),
+        ...(existingData.functionalPayload
+          ? {
+              [`${existingData.functionalPayload.blockId}:${existingData.functionalPayload.runId}`]:
+                existingData.functionalPayload,
+            }
+          : {}),
+        ...Object.fromEntries(
+          blocks.flatMap((block) =>
+            block.nativePayload
+              ? [
+                  [
+                    `${block.nativePayload.blockId}:${block.nativePayload.runId}`,
+                    block.nativePayload,
+                  ],
+                ]
+              : []
+          )
+        ),
+        [`${functionalPayload.blockId}:${functionalPayload.runId}`]: functionalPayload,
+      }
+      completedExecutionData = {
+        ...(variables ? { environment: { ...existingData.environment, variables } } : {}),
+        functionalPayload,
+        nativePayloads,
+        finalOutput: FUNCTIONAL_OUTPUT_REFERENCE,
+        ...(hasResponseBlock ? { hasResponseBlock: true } : {}),
+        ...(failureReason ? { errorMessage: failureReason } : {}),
+      }
     }
 
     // Terminal state survives a pricing/ledger outage; settlement retries only accounting.
-    const [updatedLog] = await db
+    const completedRows = await db
       .update(workflowExecutionLogs)
       .set({
         level: success ? 'info' : 'error',
         endedAt: new Date(endedAt),
         totalDurationMs,
         files: executionFiles.length > 0 ? executionFiles : null,
-        executionData: sql`(coalesce(${workflowExecutionLogs.executionData}, '{}'::jsonb) || ${JSON.stringify(completedExecutionData)}::jsonb || jsonb_build_object('billing', coalesce(${workflowExecutionLogs.executionData}->'billing', '{}'::jsonb) || ${JSON.stringify({ billable })}::jsonb)) - 'checkpoint' - 'pause'`,
-        cost,
+        executionData: sql`(coalesce(${workflowExecutionLogs.executionData}, '{}'::jsonb) || ${JSON.stringify(completedExecutionData)}::jsonb || jsonb_build_object('billing', coalesce(${workflowExecutionLogs.executionData}->'billing', '{}'::jsonb) || ${JSON.stringify({ billable })}::jsonb)) - 'checkpoint' - 'pause' - 'traceSpans' - 'tokenBreakdown' - 'models'`,
+        cost: null,
       })
       .where(and(workflowLogWhere, isNull(workflowExecutionLogs.endedAt)))
       .returning()
 
-    let settlementFailure: { error: unknown } | undefined
-    try {
-      await this.settleWorkflowExecutionUsage(executionId)
-    } catch (error) {
-      settlementFailure = { error }
-    }
+    await this.settleWorkflowExecutionUsage(executionId)
     const [completedRow] = await db
       .select()
       .from(workflowExecutionLogs)
@@ -292,6 +338,28 @@ export class ExecutionLogger {
       .limit(1)
     if (!completedRow?.endedAt)
       throw new Error(`Workflow log not found for execution ${executionId}`)
+
+    if (!completedRows.length) {
+      // A competing completion owns the retained payload, status and delivery.
+      if (
+        !completedRow.executionData ||
+        typeof completedRow.executionData !== 'object' ||
+        Array.isArray(completedRow.executionData)
+      )
+        throw new Error('Completed workflow payload is unavailable')
+      const scope = { workspaceId, executionId, logId: workflowLogId }
+      const retained = await hydrateExecutionPayload(
+        {
+          ...completedRow,
+          ...scope,
+          executionData: completedRow.executionData as Record<string, any>,
+        },
+        () => assertRetainedLogAccess(scope)
+      )
+      deliveredOutput = retained.executionData.finalOutput
+      deliveredSpans = retained.executionData.traceSpans ?? []
+      cost = executionCost(deliveredSpans, true)
+    }
 
     const completedLog = {
       id: completedRow.id,
@@ -305,174 +373,46 @@ export class ExecutionLogger {
       startedAt: completedRow.startedAt.toISOString(),
       endedAt: completedRow.endedAt.toISOString(),
       totalDurationMs: completedRow.totalDurationMs!,
-      executionData: completedRow.executionData as WorkflowExecutionLog['executionData'],
-      cost: completedRow.cost as ReturnType<typeof executionCost>,
+      executionData: {
+        ...(completedRow.executionData as WorkflowExecutionLog['executionData']),
+        finalOutput: deliveredOutput,
+        traceSpans: deliveredSpans,
+      },
+      cost,
       createdAt: completedRow.createdAt.toISOString(),
     }
-    if (updatedLog) {
-      emitWorkflowExecutionCompleted(completedLog).catch((error) => {
-        logger.error('Failed to emit workflow execution completed event', { error, executionId })
-      })
-    }
-    if (settlementFailure) throw settlementFailure.error
+    await verifyWorkflowFinancialAcceptance(completedRow)
+    await emitWorkflowExecutionCompleted(completedLog)
     return completedLog
   }
 
-  /** Settle cumulative work, never execution state. Caller-owned transactions notify after commit. */
+  /** Original pinned fixed/business charge posts once; model results settle at their own gates. */
   async settleWorkflowExecutionUsage(
     executionId: string,
-    transaction?: UsageTransaction
+    transaction?: FinancialTransaction
   ): Promise<UsageReceipt | undefined> {
-    const settle = async (tx: UsageTransaction): Promise<UsageReceipt | undefined> => {
+    const settle = async (tx: FinancialTransaction): Promise<UsageReceipt> => {
       const [row] = await tx
         .select()
         .from(workflowExecutionLogs)
         .where(eq(workflowExecutionLogs.executionId, executionId))
         .limit(1)
-        .for('update')
       if (!row) throw new Error(`Workflow log not found for execution ${executionId}`)
       const data = row.executionData as Record<string, any>
-      const billing: ExecutionBilling = data.billing ?? {}
-      let context: WorkspaceBillingContext | undefined
-      let quote = billing.quote
-      const settings = await getResolvedBillingSettings(tx)
-      if (!quote) {
-        if (settings.billingEnabled) {
-          context = await resolveWorkspaceBillingContext(
-            { workspaceId: row.workspaceId, actorUserId: readExecutionActorUserId(data) },
-            tx
-          )
+      const binding = (data.billing as ExecutionBilling | undefined)?.binding
+      if (!binding || binding.runId !== executionId || binding.workspaceId !== row.workspaceId)
+        throw new Error('Original workflow financial binding is missing')
+      const accepted = await acceptModelStep(
+        tx,
+        binding,
+        { stepNumber: 0, retryCount: 0 },
+        {
+          executionTrigger: row.trigger as ExecutionTrigger['type'],
         }
-        quote = {
-          enabled: settings.billingEnabled,
-          baseCharge:
-            context && billing.billable !== false
-              ? settings.workflowExecutionChargeUsd *
-                getTierWorkflowExecutionMultiplier(context.tier)
-              : 0,
-          modelMultiplier: context ? getTierWorkflowModelCostMultiplier(context.tier) : 1,
-        }
-      }
-      const cost = executionCost(data.traceSpans ?? [], quote)
-      const costDelta = Math.max(0, cost.total - (billing.accountedCost ?? 0))
-      const tokenDelta = Math.max(0, cost.tokens.total - (billing.accountedTokens ?? 0))
-      let receipt: UsageReceipt | undefined
-      if (
-        settings.billingEnabled &&
-        quote.enabled &&
-        (costDelta > 0 || tokenDelta > 0 || !billing.counted)
-      ) {
-        context ??= await resolveWorkspaceBillingContext(
-          { workspaceId: row.workspaceId, actorUserId: readExecutionActorUserId(data) },
-          tx
-        )
-        const counters = {
-          manual: ['totalManualExecutions', 'total_manual_executions'],
-          api: ['totalApiCalls', 'total_api_calls'],
-          webhook: ['totalWebhookTriggers', 'total_webhook_triggers'],
-          schedule: ['totalScheduledExecutions', 'total_scheduled_executions'],
-          chat: ['totalChatExecutions', 'total_chat_executions'],
-        } as const
-        const [counter, column] = counters[row.trigger as ExecutionTrigger['type']]
-        const accrued = await accrueUserUsageCost(
-          {
-            userId: readExecutionActorUserId(data) ?? context.billingUserId,
-            workspaceId: row.workspaceId,
-            workflowId: row.workflowId,
-            billingContext: context,
-            cost: costDelta,
-            extraUpdates: {
-              totalTokensUsed: sql`total_tokens_used + ${tokenDelta}`,
-              ...(!billing.counted
-                ? {
-                    [counter]: sql`${sql.raw(column)} + 1`,
-                  }
-                : {}),
-            },
-            skipThresholdBilling: true,
-            reason: 'workflow_execution',
-          },
-          tx
-        )
-        if (!accrued) throw new Error('Workflow usage billing ledger is missing')
-        billing.accountedCost = (billing.accountedCost ?? 0) + costDelta
-        billing.accountedTokens = (billing.accountedTokens ?? 0) + tokenDelta
-        billing.counted = true
-        receipt = { context, workflowId: row.workflowId, costDelta, ...accrued }
-      }
-      await tx
-        .update(workflowExecutionLogs)
-        .set({
-          cost,
-          executionData: {
-            ...data,
-            billing: { ...billing, quote },
-            tokenBreakdown: cost.tokens,
-            models: cost.models,
-          },
-        })
-        .where(eq(workflowExecutionLogs.id, row.id))
-      return receipt
+      )
+      return { binding, appliedUsd: accepted.appliedUsd }
     }
-    if (transaction) return settle(transaction)
-    const receipt = await db.transaction(settle)
-    await this.notifyWorkflowUsage(receipt)
-    return receipt
-  }
-
-  async notifyWorkflowUsage(receipt?: UsageReceipt): Promise<void> {
-    if (!receipt || receipt.costDelta <= 0) return
-    const { context, workflowId, currentUsageBefore, currentUsageAfter } = receipt
-    try {
-      await checkAndBillOverageThreshold({
-        userId: context.actorUserId ?? context.billingUserId,
-        workspaceId: context.workspaceId,
-        workflowId,
-      })
-    } catch (error) {
-      logger.warn('Workflow overage threshold billing failed', { error })
-    }
-    try {
-      const [billingUser] = await db
-        .select({ email: userTable.email, name: userTable.name })
-        .from(userTable)
-        .where(eq(userTable.id, context.billingUserId))
-        .limit(1)
-      let limit: number
-      if (context.scopeType === 'organization') {
-        const [org] = await db
-          .select({ orgUsageLimit: organization.orgUsageLimit })
-          .from(organization)
-          .where(eq(organization.id, context.scopeId))
-          .limit(1)
-        const { getBillingTierPricing } = await import('@/lib/billing/core/billing')
-        const { usageAllowance } = getBillingTierPricing(context.subscription)
-        limit = Math.max(Number(org?.orgUsageLimit ?? 0), usageAllowance)
-      } else if (context.scopeType === 'organization_member') {
-        limit = getTierUsageAllowanceUsd(context.subscription?.tier ?? context.tier)
-      } else {
-        limit = await getUserUsageLimit(context.billingUserId)
-      }
-      if (context.scopeType !== 'organization' && !billingUser?.email) return
-      await maybeSendUsageThresholdEmail({
-        ...(context.scopeType === 'organization'
-          ? { scope: 'organization' as const, organizationId: context.scopeId }
-          : {
-              scope: 'user' as const,
-              userId: context.billingUserId,
-              userEmail: billingUser!.email,
-              userName: billingUser!.name || undefined,
-            }),
-        planName: getTierDisplayName(context.tier),
-        isFreeTier: context.scopeType !== 'organization' && isFreeBillingTier(context.tier),
-        percentBefore: limit > 0 ? Math.min(100, (currentUsageBefore / limit) * 100) : 0,
-        percentAfter: limit > 0 ? Math.min(100, (currentUsageAfter / limit) * 100) : 0,
-        currentUsageAfter,
-        limit,
-      })
-    } catch (error) {
-      logger.warn('Usage threshold notification check failed (non-fatal)', { error })
-    }
+    return transaction ? settle(transaction) : db.transaction(settle)
   }
 
   /**

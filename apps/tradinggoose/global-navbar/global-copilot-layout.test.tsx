@@ -47,6 +47,10 @@ vi.mock('@/global-navbar/global-copilot-panel', () => ({
   },
 }))
 
+vi.mock('@/global-navbar/workflow-chat-deployment-dialog', () => ({
+  WorkflowChatDeploymentDialog: () => <div data-testid='owned-chat-deployment-host' />,
+}))
+
 vi.mock('@/components/ui/resizable', () => ({
   ResizablePanelGroup: ({ children }: { children: ReactNode }) => (
     <div data-testid='copilot-split'>{children}</div>
@@ -152,6 +156,7 @@ describe('GlobalCopilotLayout', () => {
     expect(container.querySelector('[data-testid="workspace-copilot"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="workspace-page"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="page-content"]')).not.toBeNull()
+    expect(container.querySelectorAll('[data-testid="owned-chat-deployment-host"]')).toHaveLength(1)
     expect(container.querySelector('[data-testid="workspace-copilot"]')).toHaveAttribute(
       'data-min-size',
       '25'

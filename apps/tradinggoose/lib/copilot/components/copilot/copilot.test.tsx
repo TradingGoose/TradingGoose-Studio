@@ -206,6 +206,31 @@ describe('Copilot auto-scroll', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
+  it('shows an optional history refresh error separately from the known completed message', async () => {
+    mockStoreState = {
+      ...mockStoreState,
+      isSendingMessage: false,
+      currentChat: { threadId: 'owned-thread', latestTurnStatus: 'completed' },
+      historyRefreshError: 'History read unavailable',
+      isRefreshingHistory: false,
+      refreshCurrentHistory: vi.fn(async () => {}),
+      messages: [createAssistantMessage({ content: 'Known completed answer' })],
+    }
+    await renderCopilot()
+    expect(container.querySelector('[data-testid="message-assistant-1"]')).not.toBeNull()
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'History read unavailable'
+    )
+    const button = Array.from(container.querySelectorAll('button')).find((x) =>
+      x.textContent?.includes('Refresh history')
+    )!
+    expect(button).toBeDefined()
+    await act(async () => button.click())
+    expect(mockStoreState.refreshCurrentHistory).toHaveBeenCalledOnce()
+    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+    expect(mockStoreState.abortMessage).not.toHaveBeenCalled()
+  })
+
   it('keeps auto-scroll active when an in-flight programmatic scroll emits scroll events', async () => {
     await renderCopilot()
 

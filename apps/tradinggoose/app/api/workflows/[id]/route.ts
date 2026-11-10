@@ -8,6 +8,8 @@ import { getSession } from '@/lib/auth'
 import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
+import { lockMemoryOwners } from '@/lib/mastra/memory-locks'
+import { cleanupOrphanWorkflowMemory } from '@/lib/mastra/workflow-memory'
 import {
   renameSavedEntityIdentityInTx,
   SavedEntityIdentityError,
@@ -238,11 +240,18 @@ export async function DELETE(
     await runYjsDrainFencedTransaction({ sessionIds: [workflowId] }, async (tx) => {
       if (workflowData.workspaceId) {
         await lockSavedEntityList(tx, 'workflow', workflowData.workspaceId as string)
+        await lockMemoryOwners(tx, workflowData.workspaceId as string, [workflowId])
       }
       await tx.delete(workflow).where(eq(workflow.id, workflowId))
     })
 
     if (workflowData.workspaceId) {
+      await cleanupOrphanWorkflowMemory(workflowData.workspaceId, workflowId).catch((error) =>
+        logger.error('Native Memory cleanup deferred; deleted owner remains inaccessible', {
+          error,
+          workflowId,
+        })
+      )
       await refreshWorkflowList(workflowData.workspaceId)
     }
     const elapsed = Date.now() - startTime

@@ -119,16 +119,32 @@ export class SleepClientTool extends BaseClientTool {
 
       try {
         // Sleep for the specified duration
-        await new Promise((resolve) => setTimeout(resolve, seconds * 1000))
+        const signal = this.getAbortSignal()
+        signal?.throwIfAborted()
+        await new Promise<void>((resolve, reject) => {
+          const onAbort = () => {
+            clearTimeout(timer)
+            reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'))
+          }
+          const timer = setTimeout(() => {
+            signal?.removeEventListener('abort', onAbort)
+            resolve()
+          }, seconds * 1000)
+          signal?.addEventListener('abort', onAbort, { once: true })
+        })
+        signal?.throwIfAborted()
 
         logger.debug('Sleep completed successfully')
         this.setState(ClientToolCallState.success)
-        await this.markToolComplete(200, `Slept for ${seconds} seconds`)
+        await this.completeBrowserAssertion({
+          kind: 'timer.completed',
+          data: { success: true, seconds, message: `Slept for ${seconds} seconds` },
+        })
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         logger.error('Sleep failed', { error: message })
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(500, message)
+        this.fail(message)
       } finally {
         // Clean up start time tracking
         delete sleepStartTimes[this.toolCallId]

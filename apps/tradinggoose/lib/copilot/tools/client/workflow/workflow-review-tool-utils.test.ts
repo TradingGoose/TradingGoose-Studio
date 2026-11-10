@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  buildWorkflowDocumentToolResult,
-  buildWorkflowSummary,
-  getReadableWorkflowState,
-} from './workflow-review-tool-utils'
+import { buildWorkflowSummary, getReadableWorkflowState } from './workflow-review-tool-utils'
 
 const mockGetRegisteredWorkflowSession = vi.hoisted(() => vi.fn())
 const mockAcquireWritableWorkflowSessionLease = vi.hoisted(() => vi.fn())
@@ -137,22 +133,6 @@ describe('workflow-review-tool-utils', () => {
         contextEntityId: 'workflow-current',
       })
     ).rejects.toThrow('Workflow target is required')
-  })
-
-  it('builds workflow document payloads with canonical workflow identity', async () => {
-    expect(
-      buildWorkflowDocumentToolResult({
-        workflowId: 'workflow-entity',
-        entityName: 'Momentum Flow',
-        entityDocument: 'flowchart TD',
-      })
-    ).toEqual({
-      entityKind: 'workflow',
-      entityId: 'workflow-entity',
-      entityName: 'Momentum Flow',
-      entityDocument: 'flowchart TD',
-      documentFormat: 'tg-mermaid-v1',
-    })
   })
 
   it('surfaces invalid external edges into container end handles', async () => {

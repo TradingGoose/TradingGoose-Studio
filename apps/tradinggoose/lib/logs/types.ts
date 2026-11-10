@@ -1,4 +1,5 @@
 import type { Edge } from '@xyflow/react'
+import type { NativeCost } from '@/lib/mastra/usage'
 import type { BlockLog, NormalizedBlockOutput } from '@/executor/types'
 import type { DeploymentStatus } from '@/stores/workflows/registry/types'
 import type { Loop, Parallel, WorkflowState } from '@/stores/workflows/workflow/types'
@@ -23,14 +24,21 @@ export interface ToolCallMetadata {
   toolCalls?: ToolCall[]
 }
 
-export interface CostMetadata {
-  baseExecutionCharge?: number
+export interface CostMetadata extends Omit<NativeCost, 'status'> {
+  status?: NativeCost['status']
+  unavailableComponents?: number
+  availableTotal?: number
+  toolCost?: number
+  modelCost?: number
   models?: Record<
     string,
     {
       input?: number
       output?: number
       total?: number
+      availableTotal?: number
+      estimated?: boolean
+      status?: NativeCost['status']
       tokens?: {
         prompt?: number
         completion?: number
@@ -45,12 +53,6 @@ export interface CostMetadata {
     prompt?: number
     completion?: number
     total?: number
-  }
-  pricing?: {
-    input: number
-    output: number
-    cachedInput?: number
-    updatedAt: string
   }
 }
 
@@ -117,21 +119,7 @@ export interface WorkflowExecutionLog {
     finalOutput?: unknown
   }
   // Top-level cost information
-  cost?: {
-    input?: number
-    output?: number
-    total?: number
-    tokens?: { prompt?: number; completion?: number; total?: number }
-    models?: Record<
-      string,
-      {
-        input?: number
-        output?: number
-        total?: number
-        tokens?: { prompt?: number; completion?: number; total?: number }
-      }
-    >
-  }
+  cost?: CostMetadata
   durationMs?: number | null
   createdAt?: string
 }
@@ -161,6 +149,7 @@ export interface ProviderTiming {
 }
 
 export interface TraceSpan {
+  inference?: import('@/lib/mastra/result').InferenceFacts
   id: string
   name: string
   type: string
@@ -176,11 +165,7 @@ export interface TraceSpan {
   input?: Record<string, unknown>
   output?: Record<string, unknown>
   model?: string
-  cost?: {
-    input?: number
-    output?: number
-    total?: number
-  }
+  cost?: Omit<NativeCost, 'status'> & { status?: NativeCost['status'] }
   providerTiming?: ProviderTiming
 }
 

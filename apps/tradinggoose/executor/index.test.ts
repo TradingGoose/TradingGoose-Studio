@@ -594,6 +594,8 @@ describe('Executor', () => {
         })
         const completedTiming = { blockId: 'block1', durationMs: 183 }
         expect(result.logs).toContainEqual(expect.objectContaining(completedTiming))
+        expect(result.logs?.every((log) => typeof log.id === 'string' && log.id.trim())).toBe(true)
+        expect(new Set(result.logs?.map((log) => log.id)).size).toBe(result.logs?.length)
         expect(onExecutionEvent).toHaveBeenCalledWith(
           expect.objectContaining({
             type: 'block:completed',
@@ -611,20 +613,13 @@ describe('Executor', () => {
     })
 
     it.each([
-      ['{"answer":', responseFormat, undefined],
-      ['[]', responseFormat, undefined],
-      ['null', responseFormat, undefined],
-      ['', responseFormat, undefined],
-      [
-        '{"answer":42,"content":"schema text","model":"schema model","tokens":"ignored"}',
-        responseFormat,
-        { answer: 42, content: 'schema text', model: 'schema model' },
-      ],
-      ['plain text', '   ', { content: 'plain text', model: 'test-model' }],
-      ['', undefined, { content: '', model: 'test-model' }],
+      ['Searching...{"answer":42}', responseFormat, { answer: 42 }],
+      ['{"answer":999}', responseFormat, { answer: 42, content: 'schema text' }],
+      ['display text', '   ', { content: 'Final native text' }],
+      ['', undefined, { content: '' }],
     ] as const)(
-      'finalizes streamed content %j using the resolved response format',
-      async (content, format, expected) => {
+      'uses finalized output instead of rebuilding it from stream text %j',
+      async (content, format, nativeOutput) => {
         const workflow = createMinimalWorkflow()
         workflow.blocks[1].config.params.responseFormat = format
         const onExecutionEvent = vi.fn()
@@ -632,12 +627,14 @@ describe('Executor', () => {
           contextExtensions: { stream: true, selectedOutputs: ['block1'], onExecutionEvent },
         })
         const metadata = {
+          model: 'test-model',
           tokens: { prompt: 10, completion: 20, total: 30 },
           toolCalls: { list: [], count: 0 },
           toolResults: [{ value: 42 }],
           providerTiming: { duration: 100 },
           cost: { total: 0.01 },
         }
+        const output = {}
         ;(executor as any).blockHandlers = [
           {
             canHandle: (block: any) => block.metadata?.category === 'triggers',
@@ -649,31 +646,23 @@ describe('Executor', () => {
               stream: new ReadableStream({
                 start(controller) {
                   controller.enqueue(new TextEncoder().encode(content))
+                  Object.assign(output, nativeOutput, metadata)
                   controller.close()
                 },
               }),
-              execution: { output: { content: '', model: 'test-model', ...metadata } },
+              execution: { output },
             }),
           },
         ]
 
         const result = await executor.execute('test-workflow-id', 'trigger')
 
-        expect(result.success).toBe(expected !== undefined)
-        if (expected) {
-          expect(result.output).toEqual({ ...expected, ...metadata })
-          expect(result.logs?.find((log) => log.blockId === 'block1')?.output).toEqual(
-            result.output
-          )
-          expect(onExecutionEvent).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'stream:done' })
-          )
-        } else {
-          expect(result.error).toContain('Agent response format requires a valid JSON object')
-          expect(onExecutionEvent).not.toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'stream:done' })
-          )
-        }
+        expect(result.success).toBe(true)
+        expect(result.output).toEqual({ ...nativeOutput, ...metadata })
+        expect(result.logs?.find((log) => log.blockId === 'block1')?.output).toEqual(result.output)
+        expect(onExecutionEvent).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'stream:done' })
+        )
       }
     )
 
@@ -746,6 +735,8 @@ describe('Executor', () => {
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Provider stream failed')
+      expect(result.logs?.every((log) => typeof log.id === 'string' && log.id.trim())).toBe(true)
+      expect(new Set(result.logs?.map((log) => log.id)).size).toBe(result.logs?.length)
       expect(mockOnExecutionEvent).not.toHaveBeenCalledWith(
         expect.objectContaining({ type: 'stream:done' })
       )

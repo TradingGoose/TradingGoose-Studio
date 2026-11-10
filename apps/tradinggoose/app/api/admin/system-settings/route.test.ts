@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ADMIN_ERROR_CODES } from '@/app/admin/constants'
 
 const {
-  mockBackfillDefaultUserSubscriptions,
+  mockAssertFinancialStorageReady,
+  mockFinancialSchedulerReady,
   mockGetSystemAdminAccess,
   mockClaimFirstSystemAdmin,
   mockGetBillingGateState,
@@ -16,7 +17,8 @@ const {
   mockLogger,
   MockTriggerExecutionBusyError,
 } = vi.hoisted(() => ({
-  mockBackfillDefaultUserSubscriptions: vi.fn(),
+  mockAssertFinancialStorageReady: vi.fn(),
+  mockFinancialSchedulerReady: vi.fn(),
   mockGetSystemAdminAccess: vi.fn(),
   mockClaimFirstSystemAdmin: vi.fn(),
   mockGetBillingGateState: vi.fn(),
@@ -40,13 +42,21 @@ const {
   },
 }))
 
+vi.mock('@tradinggoose/db', () => ({
+  db: { transaction: async (run: (tx: object) => Promise<void>) => run({}) },
+}))
+vi.mock('@tradinggoose/billing', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tradinggoose/billing')>()),
+  assertFinancialStorageReady: mockAssertFinancialStorageReady,
+}))
+
 vi.mock('@/lib/admin/access', () => ({
   claimFirstSystemAdmin: mockClaimFirstSystemAdmin,
   getSystemAdminAccess: mockGetSystemAdminAccess,
 }))
 
-vi.mock('@/lib/billing/core/subscription', () => ({
-  backfillDefaultUserSubscriptions: mockBackfillDefaultUserSubscriptions,
+vi.mock('@/lib/billing/native-finance', () => ({
+  financialSchedulerReady: mockFinancialSchedulerReady,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -72,6 +82,7 @@ describe('/api/admin/system-settings route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
+    mockAssertFinancialStorageReady.mockReset().mockResolvedValue(undefined)
 
     mockGetSystemAdminAccess.mockResolvedValue({
       session: { activeOrganizationId: null },
@@ -106,7 +117,7 @@ describe('/api/admin/system-settings route', () => {
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
     })
-    mockBackfillDefaultUserSubscriptions.mockResolvedValue(3)
+    mockFinancialSchedulerReady.mockReturnValue(true)
   })
 
   it('claims bootstrap ownership before returning the system settings snapshot', async () => {
@@ -151,7 +162,7 @@ describe('/api/admin/system-settings route', () => {
     expect(mockIsTriggerConfigurationReady).not.toHaveBeenCalled()
   })
 
-  it('backfills default subscriptions only after enabling billing is saved', async () => {
+  it('enables billing only after financial dispatch readiness is verified', async () => {
     mockGetResolvedSystemSettings.mockResolvedValueOnce({
       settings: null,
       registrationMode: 'open',
@@ -184,9 +195,9 @@ describe('/api/admin/system-settings route', () => {
       triggerDevEnabled: true,
       triggerReady: true,
     })
-    expect(mockBackfillDefaultUserSubscriptions).toHaveBeenCalledTimes(1)
-    expect(mockUpsertSystemSettings.mock.invocationCallOrder[0]).toBeLessThan(
-      mockBackfillDefaultUserSubscriptions.mock.invocationCallOrder[0]
+    expect(mockFinancialSchedulerReady).toHaveBeenCalledTimes(1)
+    expect(mockFinancialSchedulerReady.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUpsertSystemSettings.mock.invocationCallOrder[0]
     )
     expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
       registrationMode: 'open',
@@ -196,7 +207,7 @@ describe('/api/admin/system-settings route', () => {
     })
   })
 
-  it('does not backfill subscriptions when disabling billing', async () => {
+  it('disables billing without requiring financial dispatch readiness', async () => {
     mockGetResolvedSystemSettings.mockResolvedValueOnce({
       settings: null,
       registrationMode: 'open',
@@ -230,7 +241,7 @@ describe('/api/admin/system-settings route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
+    expect(mockFinancialSchedulerReady).not.toHaveBeenCalled()
   })
 
   it('rejects enabling billing before billing configuration is ready', async () => {
@@ -265,7 +276,33 @@ describe('/api/admin/system-settings route', () => {
       code: ADMIN_ERROR_CODES.BILLING_NOT_READY,
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
-    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
+    expect(mockFinancialSchedulerReady).not.toHaveBeenCalled()
+  })
+
+  it('refuses billing enablement before canonical financial storage is ready', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValueOnce({
+      registrationMode: 'open',
+      billingEnabled: false,
+      triggerDevEnabled: false,
+      allowPromotionCodes: false,
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: '',
+      settings: null,
+    })
+    const { FinancialPolicyError } = await import('@tradinggoose/billing')
+    mockAssertFinancialStorageReady.mockRejectedValueOnce(
+      new FinancialPolicyError('Required financial index is missing', 503)
+    )
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ billingEnabled: true }),
+      }) as any
+    )
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({ code: ADMIN_ERROR_CODES.BILLING_NOT_READY })
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
 
   it('serializes billing as disabled when Stripe is not configured', async () => {
@@ -321,7 +358,7 @@ describe('/api/admin/system-settings route', () => {
       code: ADMIN_ERROR_CODES.BILLING_NOT_CONFIGURED,
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
-    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
+    expect(mockFinancialSchedulerReady).not.toHaveBeenCalled()
   })
 
   it('rejects enabling Trigger.dev before trigger configuration is ready', async () => {
@@ -428,7 +465,7 @@ describe('/api/admin/system-settings route', () => {
     expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
       emailDomain: 'support.tradinggoose.ai',
     })
-    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
+    expect(mockFinancialSchedulerReady).not.toHaveBeenCalled()
   })
 
   it('rejects invalid request data', async () => {

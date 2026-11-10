@@ -8,9 +8,9 @@
     "node": "24.x"
   },
   "scripts": {
-    "dev": "NODE_OPTIONS='--no-deprecation' next dev --port 3000",
-    "dev:sockets": "bun run socket-server/index.ts",
-    "dev:full": "concurrently -n \"App,Realtime\" -c \"cyan,magenta\" \"bun run dev\" \"bun run dev:sockets\"",
+    "dev": "bun run prepare:billing && NODE_OPTIONS='--no-deprecation' next dev --port 3000",
+    "dev:sockets": "bun run prepare:billing && bun run socket-server/index.ts",
+    "dev:full": "bun run prepare:billing && concurrently -n \"App,Realtime\" -c \"cyan,magenta\" \"NODE_OPTIONS='--no-deprecation' next dev --port 3000\" \"bun run socket-server/index.ts\"",
     "build": "NODE_OPTIONS='--max-old-space-size=8192' next build",
     "start": "next start",
     "i18n": "bunx lingo.dev@latest run",
@@ -20,13 +20,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "email:dev": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' email dev --dir components/emails",
+    "email:dev": "bun run prepare:billing && NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' email dev --dir components/emails",
     "type-check": "next typegen && NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit -p tsconfig.typecheck.json",
-    "test:billing:suite": "vitest run billing subscription"
+    "test:billing:suite": "vitest run billing subscription",
+    "native:init": "bun run scripts/init-native-storage.ts",
+    "generate:copilot-contract": "bun run scripts/sync-copilot-contract.ts",
+    "prepare:billing": "bun run --cwd ../../packages/billing build"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.71.2",
-    "@aws-sdk/client-bedrock-runtime": "3.940.0",
     "@aws-sdk/client-s3": "^3.779.0",
     "@aws-sdk/s3-request-presigner": "^3.779.0",
     "@azure/communication-email": "1.0.0",
@@ -35,15 +36,16 @@
     "@better-auth/sso": "1.6.2",
     "@better-auth/stripe": "1.6.2",
     "@browserbasehq/stagehand": "^2.0.0",
-    "@cerebras/cerebras_cloud_sdk": "^1.23.0",
     "@dnd-kit/core": "6.3.1",
     "@dnd-kit/modifiers": "9.0.0",
     "@dnd-kit/sortable": "10.0.0",
     "@dnd-kit/utilities": "3.2.2",
     "@e2b/code-interpreter": "^2.0.0",
-    "@google/genai": "1.50.1",
     "@hookform/resolvers": "^5.5.7",
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@mastra/core": "1.82.0",
+    "@mastra/memory": "1.41.0",
+    "@mastra/pg": "1.35.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@monaco-editor/react": "4.7.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.200.0",
@@ -52,6 +54,7 @@
     "@opentelemetry/sdk-trace-node": "2.0.0",
     "@react-email/components": "^1.0.2",
     "@react-email/render": "2.0.4",
+    "@tradinggoose/billing": "workspace:*",
     "@trigger.dev/sdk": "4.5.12",
     "@types/three": "0.177.0",
     "@vercel/blob": "2.3.3",
@@ -74,9 +77,7 @@
     "framer-motion": "^12.5.0",
     "fuse.js": "7.1.0",
     "geist": "1.4.2",
-    "google-auth-library": "10.5.0",
     "gray-matter": "4.0.3",
-    "groq-sdk": "^0.15.0",
     "html-to-text": "^9.0.5",
     "input-otp": "^1.4.2",
     "ioredis": "^5.6.0",
@@ -99,8 +100,8 @@
     "next-themes": "^0.4.6",
     "node-fetch": "3.3.2",
     "officeparser": "^5.2.0",
-    "openai": "^4.91.1",
     "papaparse": "5.5.3",
+    "pg": "8.23.1",
     "pinets": "^0.8.8",
     "posthog-js": "1.268.9",
     "posthog-node": "5.9.2",
@@ -130,7 +131,7 @@
     "y-monaco": "0.1.6",
     "y-websocket": "2.1.0",
     "yjs": "13.6.30",
-    "zod": "^4.3.6",
+    "zod": "^4.6.7",
     "zustand": "4.5.7"
   },
   "devDependencies": {
@@ -143,6 +144,7 @@
     "@types/lodash": "^4.17.16",
     "@types/node": "24.2.1",
     "@types/papaparse": "5.3.16",
+    "@types/pg": "^8.20.0",
     "@types/prismjs": "^1.26.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -154,6 +156,7 @@
     "critters": "0.0.25",
     "dotenv": "^16.4.7",
     "jsdom": "^26.0.0",
+    "json-schema-to-typescript": "16.0.0",
     "postcss": "^8",
     "react-email": "^5.1.0",
     "tailwindcss": "^3.4.1",
@@ -168,6 +171,6 @@
   ],
   "overrides": {
     "drizzle-orm": "^0.44.5",
-    "postgres": "^3.4.5"
+    "postgres": "4.1.0"
   }
 }

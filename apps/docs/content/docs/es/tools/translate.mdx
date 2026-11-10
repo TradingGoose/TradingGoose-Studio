@@ -3,20 +3,16 @@ title: Traducir
 description: Traduce texto a cualquier idioma
 ---
 
-import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard
-  type="translate"
-  color=""
-/>
+Selecciona un identificador `proveedor/modelo` del registro de Mastra. El selector mantiene la búsqueda y la agrupación por proveedor. Las referencias a variables de entorno y salidas de otros bloques se resuelven antes de validar el modelo; un identificador incompatible requiere una nueva selección. La clave de API pertenece a esta solicitud. Si la omites, se usa la conexión configurada de Mastra.
 
 ## Configuración
 
 <ShowcaseCard>
   <BlockConfigPreview
-    name="Traducir"
+    name="Translate"
     type="translate"
     color=""
     hideHeader
@@ -24,81 +20,44 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "context",
             "type": "long-input",
-            "title": "Texto a traducir",
+            "title": "Text to Translate",
             "layout": "full",
-            "placeholder": "Introduce el texto que quieres traducir",
+            "placeholder": "Enter the text you want to translate",
             "required": true
         },
         {
             "id": "targetLanguage",
             "type": "short-input",
-            "title": "Traducir a",
+            "title": "Translate To",
             "layout": "full",
-            "placeholder": "Introduce el idioma (p. ej., español, francés, etc.)",
+            "placeholder": "Enter language (e.g. Spanish, French, etc.)",
             "required": true
         },
         {
             "id": "model",
             "type": "combobox",
-            "title": "Modelo",
+            "title": "Model",
             "layout": "half",
-            "placeholder": "Escribe o selecciona un modelo...",
+            "placeholder": "Type or select a model...",
             "required": true
         },
         {
             "id": "apiKey",
             "type": "short-input",
-            "title": "Clave de API",
+            "title": "API Key",
             "layout": "full",
-            "placeholder": "Introduce tu clave de API",
-            "password": true,
-            "description": "Se muestra cuando corresponde al modelo seleccionado en tiempo de ejecución."
-        },
-        {
-            "id": "azureEndpoint",
-            "type": "short-input",
-            "title": "Punto de conexión de Azure OpenAI",
-            "layout": "full",
-            "placeholder": "https://your-resource.openai.azure.com",
-            "password": true,
-            "description": "Se muestra cuando el modelo es uno de 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
-        },
-        {
-            "id": "azureApiVersion",
-            "type": "short-input",
-            "title": "Versión de API de Azure",
-            "layout": "full",
-            "placeholder": "2024-07-01-preview",
-            "description": "Se muestra cuando el modelo es uno de 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano', 'azure/model-router'."
+            "placeholder": "Enter your API key",
+            "description": "Leave unset to use the configured Mastra connection.",
+            "password": true
         }
     ]}
   />
 </ShowcaseCard>
 
-## Entrada
+## Uso y salidas
 
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | -------- | ----------- |
-| `context` | string | Sí | Texto a traducir |
-| `targetLanguage` | string | Sí | Idioma de destino |
-| `model` | combobox | Sí | Modelo |
-| `apiKey` | string | No | Clave de API del proveedor |
-| `azureEndpoint` | string | No | URL del punto de conexión de Azure OpenAI |
-| `azureApiVersion` | string | No | Versión de API de Azure |
+Introduce el texto y el idioma de destino. El modelo seleccionado genera la traducción con las instrucciones del bloque. Las salidas conservan `content`, `model` y los tokens disponibles. No hay una lista mantenida de modelos ni una ruta de proveedor adicional.
 
-## Salida
+## Uso y coste
 
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `content` | string | Texto traducido |
-| `model` | string | Modelo usado |
-| `tokens` | json | Uso de tokens |
-
-## Instrucciones de uso
-
-Traduce texto a cualquier idioma. La lista de modelos se carga en tiempo de ejecución a partir de los modelos base, Ollama y OpenRouter disponibles en el despliegue.
-
-## Notas
-
-- Categoría: `tools`
-- Tipo: `translate`
+Los registros distinguen el coste informado por el proveedor, la estimación nativa y el coste no disponible. Un coste ausente no es cero; los tokens conocidos se conservan aunque falten dólares. Los cargos propios del producto se calculan por separado. Las incrustaciones independientes conservan los vectores y el uso nativo disponible, pero su coste en USD se muestra como no disponible.

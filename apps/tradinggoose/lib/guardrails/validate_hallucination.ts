@@ -1,8 +1,20 @@
+import { Agent } from '@mastra/core/agent'
+import { toStandardSchema } from '@mastra/core/schema'
 import { createLogger } from '@/lib/logs/console/logger'
+import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import { safeInferenceError } from '@/lib/mastra/errors'
+import { financialProcessors } from '@/lib/mastra/financial-processors'
+import { NATIVE_AGENT_POLICY, trustedModelSettings, trustedPrepareStep } from '@/lib/mastra/options'
+import { assertListedModel } from '@/lib/mastra/registry'
+import { assertNativeCompletion } from '@/lib/mastra/result'
+import { getMastra } from '@/lib/mastra/runtime'
+import {
+  type NativeCost,
+  resultAccounting,
+  selectNativeUsage,
+  sumNativeUsage,
+} from '@/lib/mastra/usage'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { executeProviderRequest } from '@/providers/ai'
-import { getProviderFromModel } from '@/providers/ai/models'
-import { getApiKey } from '@/providers/ai/utils-server'
 
 const logger = createLogger('HallucinationValidator')
 
@@ -11,6 +23,9 @@ export interface HallucinationValidationResult {
   error?: string
   score?: number
   reasoning?: string
+  tokens?: { prompt?: number; completion?: number; total?: number }
+  cost?: NativeCost
+  embeddingUsage?: { status: string; batches: number }
 }
 
 export interface HallucinationValidationInput {
@@ -21,8 +36,11 @@ export interface HallucinationValidationInput {
   model: string
   apiKey?: string
   workflowId?: string
+  userId?: string
+  workspaceId?: string
   requestId: string
   authHeaders: Headers
+  signal?: AbortSignal
 }
 
 /**
@@ -35,9 +53,27 @@ async function scoreHallucinationWithLLM(
   userInput: string,
   ragContext: string[],
   model: string,
-  apiKey: string,
-  requestId: string
-): Promise<{ score: number; reasoning: string }> {
+  apiKey: string | undefined,
+  requestId: string,
+  userId?: string,
+  workspaceId?: string,
+  externalSignal?: AbortSignal,
+  workflowId?: string
+): Promise<{
+  score: number
+  reasoning: string
+  tokens?: { prompt?: number; completion?: number; total?: number }
+  cost?: NativeCost
+}> {
+  let capture:
+    | ((usage?: {
+        inputTokens?: number
+        outputTokens?: number
+        totalTokens?: number
+      }) => Promise<Awaited<ReturnType<typeof resultAccounting>>>)
+    | undefined
+  let accounting: Awaited<ReturnType<typeof resultAccounting>> | undefined
+  let finance: Awaited<ReturnType<typeof financialProcessors>> | undefined
   try {
     const contextText = ragContext.join('\n\n---\n\n')
 
@@ -71,40 +107,68 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
       contextChunks: ragContext.length,
     })
 
-    const providerId = getProviderFromModel(model)
-
-    const response = await executeProviderRequest(providerId, {
-      model,
-      systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
-      temperature: 0.1, // Low temperature for consistent scoring
-      apiKey,
+    assertListedModel(model)
+    const mastra = await getMastra()
+    const steps: Array<{
+      usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+    }> = []
+    capture = async (usage) =>
+      resultAccounting(selectNativeUsage(usage, finance?.getUsage(), sumNativeUsage(steps)))
+    const signal = AbortSignal.any([
+      AbortSignal.timeout(120000),
+      ...(externalSignal ? [externalSignal] : []),
+    ])
+    finance = await financialProcessors({
+      actorUserId: userId,
+      workspaceId,
+      runId: requestId,
+      purpose: 'hallucination-scoring',
+      signal,
+      workflowId,
     })
+    const admittedModel = createConfiguredLanguageModel(model, apiKey)
+    const agent = new Agent({
+      inputProcessors: finance.inputProcessors,
+      outputProcessors: finance.outputProcessors,
+      ...NATIVE_AGENT_POLICY,
+      id: requestId,
+      name: 'Hallucination Validator',
+      instructions: systemPrompt,
+      model: admittedModel,
+      mastra,
+    })
+    const response = await agent.generate([{ role: 'user', content: userPrompt }], {
+      runId: requestId,
+      onStepFinish: (step) => {
+        steps.push(step)
+      },
+      tracingOptions: { metadata: { runId: requestId, userId, resourceId: workspaceId } },
+      modelSettings: trustedModelSettings({ temperature: 0.1 }),
+      maxProcessorRetries: 0,
+      prepareStep: trustedPrepareStep(admittedModel),
+      structuredOutput: {
+        schema: toStandardSchema({
+          type: 'object',
+          properties: {
+            score: { type: 'number', minimum: 0, maximum: 10 },
+            reasoning: { type: 'string' },
+          },
+          required: ['score', 'reasoning'],
+          additionalProperties: false,
+        }),
+        errorStrategy: 'strict',
+      },
+      abortSignal: signal,
+    })
+    accounting = await capture(response.totalUsage)
+    assertNativeCompletion(response)
+    await finance.verifyComplete()
+    const result = response.object as { score: number; reasoning: string }
 
-    if (response instanceof ReadableStream || ('stream' in response && 'execution' in response)) {
-      throw new Error('Unexpected streaming response from LLM')
+    if (response.finishReason === 'aborted' || response.finishReason === 'error') {
+      throw new Error(`Hallucination scoring ${response.finishReason}`)
     }
-
-    const content = response.content.trim()
-    logger.debug(`[${requestId}] LLM response:`, { content })
-
-    let jsonContent = content
-
-    if (content.includes('```')) {
-      const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
-      if (jsonMatch) {
-        jsonContent = jsonMatch[1]
-      }
-    }
-
-    const result = JSON.parse(jsonContent)
-
-    if (typeof result.score !== 'number' || result.score < 0 || result.score > 10) {
+    if (!result || typeof result.score !== 'number' || result.score < 0 || result.score > 10) {
       throw new Error('Invalid score format from LLM')
     }
 
@@ -115,13 +179,36 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
     return {
       score: result.score,
       reasoning: result.reasoning || 'No reasoning provided',
+      ...accounting,
     }
   } catch (error: any) {
     logger.error(`[${requestId}] Error scoring with LLM`, {
-      error: error.message,
+      error: safeInferenceError(error, apiKey),
     })
-    throw new Error(`Failed to score confidence: ${error.message}`)
+    throw Object.assign(
+      new Error(`Failed to score confidence: ${safeInferenceError(error, apiKey)}`),
+      {
+        model,
+        ...(accounting || (await capture?.())),
+      }
+    )
   }
+}
+
+/** Search and scoring are distinct active calls; missing facts are never inferred as zero. */
+function combineAccounting(
+  ...parts: Array<Pick<HallucinationValidationResult, 'tokens' | 'cost'> | undefined>
+) {
+  const tokens: NonNullable<HallucinationValidationResult['tokens']> = {}
+  for (const part of parts) {
+    for (const key of ['prompt', 'completion', 'total'] as const) {
+      const count = part?.tokens?.[key]
+      if (typeof count === 'number' && Number.isFinite(count) && count >= 0)
+        tokens[key] = (tokens[key] ?? 0) + count
+    }
+  }
+  const cost: NativeCost = { status: 'unavailable' }
+  return { tokens, cost }
 }
 
 /**
@@ -138,26 +225,20 @@ export async function validateHallucination(
     model,
     apiKey,
     workflowId,
+    userId,
+    workspaceId,
     requestId,
     authHeaders,
   } = input
 
+  let searchAccounting:
+    | Pick<HallucinationValidationResult, 'tokens' | 'cost' | 'embeddingUsage'>
+    | undefined
   try {
     if (!userInput || userInput.trim().length === 0) {
       return {
         passed: false,
         error: 'User input is required',
-      }
-    }
-
-    let finalApiKey: string
-    try {
-      const providerId = getProviderFromModel(model)
-      finalApiKey = await getApiKey(providerId, model, apiKey)
-    } catch (error: any) {
-      return {
-        passed: false,
-        error: `API key error: ${error.message}`,
       }
     }
 
@@ -170,6 +251,7 @@ export async function validateHallucination(
       method: 'POST',
       headers,
       redirect: 'error',
+      signal: input.signal,
       body: JSON.stringify({
         knowledgeBaseIds: [knowledgeBaseId],
         query: userInput,
@@ -177,10 +259,18 @@ export async function validateHallucination(
         workflowId,
       }),
     })
+    const payload = await response.json()
+    const data = payload.data ?? payload
+    if (data.cost || data.tokens || data.embeddingUsage) {
+      searchAccounting = {
+        tokens: data.tokens ?? data.cost?.tokens,
+        cost: data.cost ?? { status: 'unavailable' },
+        embeddingUsage: data.embeddingUsage,
+      }
+    }
     if (!response.ok) {
       throw new Error(`Knowledge base query failed (${response.status})`)
     }
-    const { data } = await response.json()
     const ragContext = data.results
       .map((result: { content: string }) => result.content)
       .filter(Boolean)
@@ -189,16 +279,22 @@ export async function validateHallucination(
       return {
         passed: false,
         error: 'No relevant context found in knowledge base',
+        ...combineAccounting(searchAccounting),
+        embeddingUsage: searchAccounting?.embeddingUsage,
       }
     }
 
     // Step 2: Use LLM to score confidence
-    const { score, reasoning } = await scoreHallucinationWithLLM(
+    const { score, reasoning, tokens, cost } = await scoreHallucinationWithLLM(
       userInput,
       ragContext,
       model,
-      finalApiKey,
-      requestId
+      apiKey,
+      requestId,
+      userId,
+      workspaceId,
+      input.signal,
+      workflowId
     )
 
     logger.info(`[${requestId}] Confidence score: ${score}`, {
@@ -213,17 +309,21 @@ export async function validateHallucination(
       passed,
       score,
       reasoning,
+      ...combineAccounting(searchAccounting, { tokens, cost }),
+      embeddingUsage: searchAccounting?.embeddingUsage,
       error: passed
         ? undefined
         : `Low confidence: score ${score}/10 is below threshold ${threshold}`,
     }
   } catch (error: any) {
     logger.error(`[${requestId}] Hallucination validation error`, {
-      error: error.message,
+      error: safeInferenceError(error, apiKey),
     })
     return {
       passed: false,
-      error: `Validation error: ${error.message}`,
+      error: `Validation error: ${safeInferenceError(error, apiKey)}`,
+      ...combineAccounting(searchAccounting, error),
+      embeddingUsage: searchAccounting?.embeddingUsage,
     }
   }
 }

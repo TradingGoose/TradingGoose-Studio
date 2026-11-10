@@ -18,14 +18,3 @@ export {
   isUsingCloudStorage,
 } from '@/lib/uploads/core/storage-client'
 export * as StorageService from '@/lib/uploads/core/storage-service'
-export {
-  bufferToBase64,
-  createFileContent as createAnthropicFileContent,
-  type FileAttachment,
-  getContentType as getAnthropicContentType,
-  getFileExtension,
-  getMimeTypeFromExtension,
-  isSupportedFileType,
-  type MessageContent as AnthropicMessageContent,
-  MIME_TYPE_MAPPING,
-} from '@/lib/uploads/utils/file-utils'

@@ -1,23 +1,25 @@
+import { FinancialPolicyError } from '@tradinggoose/billing'
 import { db, member, user, userStats } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getUserUsageData } from '@/lib/billing/core/usage'
+import { mutateOrganizationFinancialScope } from '@/lib/billing/financial-membership'
 import { createLogger } from '@/lib/logs/console/logger'
 import { assertWorkspaceOwnerCanLeaveBillingOrganization } from '@/lib/workspaces/billing-owner'
 
 const logger = createLogger('OrganizationMemberAPI')
 
 type MemberUsagePayload = {
-  currentPeriodCost: number | string | null
+  currentPeriodCost: string | null
   customUsageLimit: string | null
   customUsageLimitUpdatedAt: Date | null
   lastPeriodCost: string | null
   billingPeriodStart: Date | null
   billingPeriodEnd: Date | null
   usageScope?: 'individual' | 'pooled'
-  sharedCurrentPeriodCost?: number | null
+  sharedCurrentPeriodCost?: string | null
 }
 
 /**
@@ -119,7 +121,7 @@ export async function GET(
           usage: {
             ...defaultUsage,
             currentPeriodCost:
-              usageScope === 'individual' ? (memberUsage?.currentUsage ?? 0) : null,
+              usageScope === 'individual' ? (memberUsage?.currentUsage ?? null) : null,
             billingPeriodStart: organizationBillingData.billingPeriodStart,
             billingPeriodEnd: organizationBillingData.billingPeriodEnd,
             usageScope,
@@ -229,11 +231,16 @@ export async function PUT(
     }
 
     // Update member role
-    const updatedMember = await db
-      .update(member)
-      .set({ role })
-      .where(and(eq(member.organizationId, organizationId), eq(member.userId, memberId)))
-      .returning()
+    const updatedMember = await mutateOrganizationFinancialScope(
+      organizationId,
+      async (tx) =>
+        tx
+          .update(member)
+          .set({ role })
+          .where(and(eq(member.organizationId, organizationId), eq(member.userId, memberId)))
+          .returning(),
+      { actorUserId: session.user.id, targetUserId: memberId, requestedRole: role }
+    )
 
     if (updatedMember.length === 0) {
       return NextResponse.json({ error: 'Failed to update member role' }, { status: 500 })
@@ -257,6 +264,8 @@ export async function PUT(
       },
     })
   } catch (error) {
+    if (error instanceof FinancialPolicyError)
+      return NextResponse.json({ error: error.message }, { status: error.status })
     logger.error('Failed to update organization member role', {
       organizationId: (await params).id,
       memberId: (await params).memberId,
@@ -321,23 +330,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Cannot remove organization owner' }, { status: 400 })
     }
 
-    try {
-      await assertWorkspaceOwnerCanLeaveBillingOrganization({
-        organizationId,
-        workspaceOwnerId: memberId,
-      })
-    } catch (error) {
-      if (error instanceof Error) {
-        return NextResponse.json({ error: error.message }, { status: 409 })
-      }
-      throw error
-    }
-
     // Remove member
-    const removedMember = await db
-      .delete(member)
-      .where(and(eq(member.organizationId, organizationId), eq(member.userId, memberId)))
-      .returning()
+    const removedMember = await mutateOrganizationFinancialScope(
+      organizationId,
+      async (tx) => {
+        await assertWorkspaceOwnerCanLeaveBillingOrganization(
+          { organizationId, workspaceOwnerId: memberId },
+          tx
+        )
+        return tx
+          .delete(member)
+          .where(and(eq(member.organizationId, organizationId), eq(member.userId, memberId)))
+          .returning()
+      },
+      { actorUserId: session.user.id, targetUserId: memberId, allowSelfRemoval: true }
+    )
 
     if (removedMember.length === 0) {
       return NextResponse.json({ error: 'Failed to remove member' }, { status: 500 })
@@ -363,6 +370,8 @@ export async function DELETE(
       },
     })
   } catch (error) {
+    if (error instanceof FinancialPolicyError)
+      return NextResponse.json({ error: error.message }, { status: error.status })
     logger.error('Failed to remove organization member', {
       organizationId: (await params).id,
       memberId: (await params).memberId,

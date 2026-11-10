@@ -5,6 +5,7 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const mockNativeEffect = vi.fn()
 const mockValidateWorkflowPermissions = vi.fn()
 const mockLoadWorkflowState = vi.fn()
 const mockDbLimit = vi.fn()
@@ -13,9 +14,14 @@ describe('Workflow Deploy API Route', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    mockNativeEffect.mockReset()
 
     mockLoadWorkflowState.mockResolvedValue(null)
     mockDbLimit.mockReset()
+
+    vi.doMock('@/lib/copilot/native/workflow-effects', () => ({
+      authorizeNativeWorkflowDeploymentEffect: mockNativeEffect,
+    }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
       createLogger: vi.fn().mockReturnValue({
@@ -165,4 +171,48 @@ describe('Workflow Deploy API Route', () => {
       apiKey: 'Primary key (personal)',
     })
   })
+  it.each(['POST', 'DELETE'] as const)(
+    'native %s rechecks real actor/target/finance before any deployment mutation',
+    async (method) => {
+      mockValidateWorkflowPermissions.mockResolvedValueOnce({
+        error: null,
+        session: { user: { id: 'actual-actor' } },
+        workflow: {
+          id: 'workflow-1',
+          userId: 'workflow-owner',
+          workspaceId: 'workspace-1',
+          pinnedApiKeyId: 'key',
+        },
+      })
+      const { NativeTargetError } = await import('@/lib/copilot/native/errors')
+      mockNativeEffect.mockRejectedValueOnce(new NativeTargetError('Original target is stale', 409))
+      const native = {
+        workspaceId: null,
+        target: {
+          threadId: 'thread',
+          resourceId: 'resource',
+          runId: 'run',
+          toolCallId: 'call',
+          toolName: 'deploy_workflow',
+        },
+      }
+      const route = await import('./route')
+      const response = await route[method](
+        new NextRequest('http://localhost/api/workflows/workflow-1/deploy', {
+          method,
+          body: JSON.stringify({ native }),
+        }),
+        { params: Promise.resolve({ id: 'workflow-1' }) }
+      )
+      expect(response.status).toBe(409)
+      expect(mockNativeEffect).toHaveBeenCalledWith(
+        'actual-actor',
+        'workflow-1',
+        native,
+        method === 'POST' ? 'deploy' : 'undeploy',
+        expect.any(AbortSignal)
+      )
+      expect(mockDbLimit).not.toHaveBeenCalled()
+    }
+  )
 })

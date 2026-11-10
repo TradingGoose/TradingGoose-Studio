@@ -1,16 +1,9 @@
-import {
-  getResolvableStripeBillingTiers,
-  getTierIncludedUsageLimit,
-  parseBillingAmount,
-} from '@/lib/billing/tiers'
+import { getResolvableStripeBillingTiers } from '@/lib/billing/tiers'
 
 interface BillingPlan {
   name: string
   priceId: string
   annualDiscountPriceId?: string
-  limits: {
-    cost: number
-  }
 }
 
 const NEXT_BUILD_PHASE = 'phase-production-build'
@@ -30,8 +23,5 @@ export async function getPlans(): Promise<BillingPlan[]> {
     name: tier.id,
     priceId: tier.stripeMonthlyPriceId || '',
     annualDiscountPriceId: tier.stripeYearlyPriceId || undefined,
-    limits: {
-      cost: getTierIncludedUsageLimit(tier) || parseBillingAmount(tier.monthlyPriceUsd) || 0,
-    },
   }))
 }

@@ -4,7 +4,8 @@ import { eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
-import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
+import { getEffectiveCurrentPeriodCost } from '@/lib/billing/core/usage'
+import { updateFinancialSubscription } from '@/lib/billing/financial-subscriptions'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
@@ -13,7 +14,6 @@ import {
 } from '@/lib/billing/stripe-customers'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { type BillingTierRecord, isFreeBillingTier } from '@/lib/billing/tiers'
-import { handleSubscriptionCreated } from '@/lib/billing/webhooks/subscription'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('PayAsYouGoActivationAPI')
@@ -280,22 +280,9 @@ export async function POST() {
         return
       }
 
-      await handleSubscriptionCreated(
+      await updateFinancialSubscription(
+        currentSubscription.id,
         {
-          id: currentSubscription.id,
-          referenceType: currentSubscription.referenceType,
-          referenceId: currentSubscription.referenceId,
-          status: stripeSubscription.status,
-          stripeSubscriptionId: stripeSubscription.id,
-          seats: currentSubscription.seats,
-          tier: activationState.currentSubscription.tier,
-        },
-        tx
-      )
-
-      await tx
-        .update(subscription)
-        .set({
           plan: activationState.currentSubscription.tier.id,
           billingTierId: activationState.currentSubscription.tier.id,
           stripeCustomerId: customer.id,
@@ -307,20 +294,14 @@ export async function POST() {
           trialStart,
           trialEnd,
           metadata: withoutPaygActivationAttemptId(currentSubscription.metadata),
-        })
-        .where(eq(subscription.id, currentSubscription.id))
+        },
+        { transaction: tx, expectedStripeSubscriptionId: null }
+      )
       didPersistActivation = true
     })
 
     if (didPersistActivation) {
-      await syncSubscriptionUsageLimits({
-        id: activationState.currentSubscription.id,
-        referenceType: activationState.currentSubscription.referenceType,
-        referenceId: activationState.currentSubscription.referenceId,
-        seats: activationState.currentSubscription.seats,
-        tier: activationState.currentSubscription.tier,
-        status: stripeSubscription.status,
-      })
+      await getEffectiveCurrentPeriodCost(session.user.id)
     }
 
     logger.info('Activated personal pay-as-you-go subscription', {

@@ -2,7 +2,6 @@
 
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
 import { resolveOptionalCopilotEntityId } from '@/lib/copilot/tools/entity-target'
-import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
   readWorkflowContainerBoundaryEdgeViolation,
   readWorkflowEdgeScope,
@@ -58,25 +57,6 @@ function normalizeWorkflowTargetValue(value?: string | null): string | undefined
   return normalized ? normalized : undefined
 }
 
-export function buildWorkflowDocumentToolResult(options: {
-  workflowId: string
-  entityName?: string
-  workspaceId?: string | null
-  entityDocument: string
-  documentFormat?: string
-}) {
-  const entityName = normalizeWorkflowTargetValue(options.entityName)
-
-  return {
-    entityKind: 'workflow',
-    entityId: options.workflowId,
-    ...(entityName ? { entityName } : {}),
-    ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
-    entityDocument: options.entityDocument,
-    documentFormat: options.documentFormat ?? TG_MERMAID_DOCUMENT_FORMAT,
-  }
-}
-
 export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowSummary {
   const edges: WorkflowSummary['edges'] = (workflowState.edges ?? []).map((edge) => {
     return {
@@ -128,46 +108,6 @@ export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowS
       return message ? [{ edgeIndex, ...edgeWithoutScope, message }] : []
     }),
   }
-}
-
-export async function listWorkflowsForExecutionContext(
-  executionContext: ClientToolExecutionContext
-): Promise<WorkflowTarget[]> {
-  const workspaceId = executionContext.workspaceId
-  if (!workspaceId) {
-    throw new Error('Workspace ID is required to list workflows')
-  }
-
-  const response = await fetch(`/api/workflows?workspaceId=${encodeURIComponent(workspaceId)}`, {
-    method: 'GET',
-  })
-  const payload = (await response.json().catch(() => null)) as {
-    data?: Array<{
-      id?: string | null
-      name?: string | null
-      workspaceId?: string | null
-    }>
-    error?: string
-  } | null
-
-  if (!response.ok) {
-    const bodyText = await response.text().catch(() => '')
-    throw new Error(payload?.error || bodyText || `Failed to list workflows: ${response.status}`)
-  }
-
-  return (payload?.data ?? []).flatMap((workflow) => {
-    const workflowId = normalizeWorkflowTargetValue(workflow.id)
-    const entityName = normalizeWorkflowTargetValue(workflow.name)
-    return workflowId
-      ? [
-          {
-            workflowId,
-            ...(entityName ? { entityName } : {}),
-            workspaceId: workflow.workspaceId ?? null,
-          },
-        ]
-      : []
-  })
 }
 
 export async function resolveWorkflowTarget(

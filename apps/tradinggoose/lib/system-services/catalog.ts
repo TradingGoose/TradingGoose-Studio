@@ -1,5 +1,4 @@
 import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
-import { isHosted } from '@/lib/environment'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
@@ -41,39 +40,6 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
       },
     ],
     settingFields: [],
-  },
-  {
-    id: 'azure_openai',
-    displayName: 'Azure OpenAI',
-    description: 'Shared Azure OpenAI configuration for embeddings and Azure-hosted model calls.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Used for platform-managed Azure OpenAI requests.',
-      },
-    ],
-    settingFields: [
-      {
-        key: 'endpoint',
-        label: 'Endpoint',
-        description: 'Base Azure OpenAI endpoint.',
-        type: 'url',
-      },
-      {
-        key: 'apiVersion',
-        label: 'API Version',
-        description: 'Azure OpenAI API version.',
-        type: 'text',
-        defaultValue: '2024-07-01-preview',
-      },
-      {
-        key: 'embeddingModel',
-        label: 'Embedding Model',
-        description: 'Azure deployment name used for knowledge embeddings.',
-        type: 'text',
-      },
-    ],
   },
   {
     id: 'serper',
@@ -237,57 +203,6 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
     ],
   },
   {
-    id: 'ollama',
-    displayName: 'Ollama',
-    description: 'Base URL for the local or remote Ollama service.',
-    credentialFields: [],
-    settingFields: [
-      {
-        key: 'baseUrl',
-        label: 'Base URL',
-        description: 'OpenAI-compatible Ollama host URL.',
-        type: 'url',
-        defaultValue: 'http://localhost:11434',
-      },
-    ],
-  },
-  {
-    id: 'vllm',
-    displayName: 'vLLM',
-    description: 'Base URL and optional bearer token for the OpenAI-compatible vLLM service.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Optional bearer token for the vLLM endpoint.',
-        required: false,
-      },
-    ],
-    settingFields: [
-      {
-        key: 'baseUrl',
-        label: 'Base URL',
-        description: 'Base URL for the OpenAI-compatible vLLM host.',
-        type: 'url',
-        required: false,
-      },
-    ],
-  },
-  {
-    id: 'fireworks',
-    displayName: 'Fireworks',
-    description: 'API key for Fireworks model discovery in the provider picker.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Used to fetch available Fireworks models.',
-        required: false,
-      },
-    ],
-    settingFields: [],
-  },
-  {
     id: 'elevenlabs',
     displayName: 'ElevenLabs',
     description: 'API key for system-owned text-to-speech requests.',
@@ -403,9 +318,7 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
 ]
 
 const SYSTEM_SERVICE_DEFINITIONS_BY_ID = new Map(
-  SYSTEM_SERVICE_DEFINITIONS.filter((definition) => !isHosted || definition.id !== 'ollama').map(
-    (definition) => [definition.id, definition]
-  )
+  SYSTEM_SERVICE_DEFINITIONS.map((definition) => [definition.id, definition])
 )
 
 export function getSystemServiceDefinitions() {

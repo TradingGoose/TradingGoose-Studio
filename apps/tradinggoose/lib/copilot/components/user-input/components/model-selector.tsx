@@ -10,8 +10,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui'
 import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
+import { getModelIcon } from '@/lib/ui/model-icon'
 import { cn } from '@/lib/utils'
-import { getProviderIcon } from '@/providers/ai/models'
 import { useCopilotStore } from '@/stores/copilot/store'
 
 interface ModelSelectorProps {
@@ -21,7 +21,7 @@ interface ModelSelectorProps {
 
 function ModelLabel({ model, className }: { model: string; className?: string }) {
   const modelName = model.split('/').pop() ?? model
-  const ProviderIcon = getProviderIcon(modelName)
+  const ProviderIcon = getModelIcon(model)
 
   return (
     <span className={cn('flex min-w-0 items-center gap-1.5', className)}>

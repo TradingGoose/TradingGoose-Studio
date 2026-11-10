@@ -1,10 +1,20 @@
+import {
+  addMoney,
+  compareMoney,
+  type DecimalAmount,
+  decimalFromSafeInteger,
+  displayPercentage,
+  maxMoney,
+  monetary,
+  multiplyMoney,
+  subtractMoneyClamped,
+} from '@tradinggoose/billing/money'
 import { db } from '@tradinggoose/db'
 import {
   member,
   organization,
   organizationMemberBillingLedger,
   subscription,
-  user,
   userStats,
 } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
@@ -20,7 +30,6 @@ import {
   getTierUsageAllowanceUsd,
   hydrateSubscriptionsWithTiers,
   isFreeBillingTier,
-  isOrganizationSubscription,
   toBillingTierSummary,
   usesIndividualBillingLedger,
 } from '@/lib/billing/tiers'
@@ -28,52 +37,6 @@ import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('Billing')
-
-function parseDecimal(value: string | number | null | undefined): number {
-  if (value === null || value === undefined) {
-    return 0
-  }
-
-  const parsed = Number.parseFloat(value.toString())
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-export async function getOrganizationCurrentUsageForTier(
-  organizationId: string,
-  tier: BillingTierRecord
-): Promise<number> {
-  if (usesIndividualBillingLedger(tier)) {
-    const memberRows = await db
-      .select({
-        currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost,
-      })
-      .from(organizationMemberBillingLedger)
-      .where(eq(organizationMemberBillingLedger.organizationId, organizationId))
-
-    return memberRows.reduce((total, row) => total + parseDecimal(row.currentPeriodCost), 0)
-  }
-
-  const billingLedger = await getOrganizationBillingLedger(organizationId)
-  return billingLedger?.currentPeriodCost ?? 0
-}
-
-export async function calculateOrganizationIndividualOverage(params: {
-  organizationId: string
-  tier: BillingTierRecord
-}): Promise<number> {
-  const perUserLimit = getTierUsageAllowanceUsd(params.tier)
-  const memberRows = await db
-    .select({
-      currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost,
-    })
-    .from(organizationMemberBillingLedger)
-    .where(eq(organizationMemberBillingLedger.organizationId, params.organizationId))
-
-  return memberRows.reduce((total, row) => {
-    const currentUsage = parseDecimal(row.currentPeriodCost)
-    return total + Math.max(0, currentUsage - perUserLimit)
-  }, 0)
-}
 
 /**
  * Get organization subscription directly by organization ID
@@ -99,138 +62,17 @@ export async function getOrganizationSubscription(
 }
 
 /**
- * BILLING MODEL:
- * 1. User purchases a paid billing tier → Gets charged immediately via Stripe subscription
- * 2. User uses $15 during the month → No additional charge (covered by $20)
- * 3. User uses $35 during the month → Gets charged $15 overage at month end
- * 4. Usage resets, next month they pay $20 again + any overages
- */
-
-/**
  * Get billing tier pricing information
  */
-export function getBillingTierPricing(
-  source: BillingTierRecord | { tier?: BillingTierRecord | null } | null | undefined
-): {
-  basePrice: number // What they pay upfront via Stripe subscription
-  usageAllowance: number // What amount of usage is included before overage begins
+export function getBillingTierPricing(source: BillingTierRecord | { tier: BillingTierRecord }): {
+  basePrice: DecimalAmount | null // Actual configured upfront Stripe subscription price, when known
+  usageAllowance: DecimalAmount // What amount of usage is included before overage begins
 } {
-  const tier: BillingTierRecord | null | undefined =
-    source && 'tier' in source ? source.tier : (source as BillingTierRecord | null | undefined)
+  const tier = 'tier' in source ? source.tier : source
   return {
     basePrice: getTierBasePrice(tier),
     usageAllowance: getSubscriptionUsageAllowanceUsd(source),
   }
-}
-
-/**
- * Calculate overage billing for a user
- * Returns only the amount that exceeds their subscription base price
- */
-export async function calculateUserOverage(userId: string): Promise<{
-  basePrice: number
-  actualUsage: number
-  overageAmount: number
-  tier: BillingTierSummary
-} | null> {
-  try {
-    // Get user's subscription and usage data
-    const [{ billingEnabled }, subscription, usageData, userRecord] = await Promise.all([
-      getResolvedBillingSettings(),
-      getEffectiveSubscription(userId),
-      getUserUsageData(userId),
-      db.select().from(user).where(eq(user.id, userId)).limit(1),
-    ])
-
-    if (userRecord.length === 0) {
-      logger.warn('User not found for overage calculation', { userId })
-      return null
-    }
-
-    const tier = toBillingTierSummary(subscription?.tier)
-    const { basePrice, usageAllowance } = getBillingTierPricing(subscription ?? null)
-    const actualUsage = usageData.currentUsage
-
-    const overageAmount =
-      billingEnabled && subscription ? Math.max(0, actualUsage - usageAllowance) : 0
-
-    return {
-      basePrice,
-      actualUsage,
-      overageAmount,
-      tier,
-    }
-  } catch (error) {
-    logger.error('Failed to calculate user overage', { userId, error })
-    return null
-  }
-}
-
-/**
- * Calculate overage amount for a subscription
- * Shared logic between invoice.finalized and customer.subscription.deleted handlers
- */
-export async function calculateSubscriptionOverage(sub: {
-  id: string
-  referenceId: string
-  seats?: number | null
-  tier?: BillingTierRecord | null
-}): Promise<number> {
-  let totalOverage = 0
-
-  if (isOrganizationSubscription(sub) && sub.tier) {
-    if (usesIndividualBillingLedger(sub.tier)) {
-      totalOverage = await calculateOrganizationIndividualOverage({
-        organizationId: sub.referenceId,
-        tier: sub.tier,
-      })
-    } else {
-      const billingLedger = await getOrganizationBillingLedger(sub.referenceId)
-      const currentUsage = billingLedger?.currentPeriodCost ?? 0
-      const { usageAllowance } = getBillingTierPricing(sub)
-
-      totalOverage = Math.max(0, currentUsage - usageAllowance)
-
-      logger.info('Calculated organization overage', {
-        subscriptionId: sub.id,
-        organizationId: sub.referenceId,
-        currentUsage,
-        usageAllowance,
-        totalOverage,
-      })
-    }
-
-    if (usesIndividualBillingLedger(sub.tier)) {
-      logger.info('Calculated organization member-scoped overage', {
-        subscriptionId: sub.id,
-        organizationId: sub.referenceId,
-        totalOverage,
-      })
-    }
-  } else if (sub.tier) {
-    const [stats] = await db
-      .select({
-        currentPeriodCost: userStats.currentPeriodCost,
-        totalCost: userStats.totalCost,
-      })
-      .from(userStats)
-      .where(eq(userStats.userId, sub.referenceId))
-      .limit(1)
-    const currentUsage = parseDecimal(stats?.currentPeriodCost ?? stats?.totalCost)
-    const { usageAllowance } = getBillingTierPricing(sub.tier)
-    totalOverage = Math.max(0, currentUsage - usageAllowance)
-
-    logger.info('Calculated individual-tier overage', {
-      subscriptionId: sub.id,
-      totalIndividualUsage: currentUsage,
-      usageAllowance,
-      totalOverage,
-    })
-  } else {
-    throw new Error(`Cannot calculate overage for subscription ${sub.id} without a hydrated tier`)
-  }
-
-  return totalOverage
 }
 
 /**
@@ -243,11 +85,11 @@ export async function getSimplifiedBillingSummary(
   id: string | null
   type: 'individual' | 'organization'
   tier: BillingTierSummary
-  basePrice: number
-  currentUsage: number
-  overageAmount: number
-  totalProjected: number
-  usageLimit: number
+  basePrice: DecimalAmount | null
+  currentUsage: DecimalAmount
+  overageAmount: DecimalAmount
+  totalProjected: DecimalAmount | null
+  usageLimit: DecimalAmount | null
   percentUsed: number
   isWarning: boolean
   isExceeded: boolean
@@ -262,24 +104,24 @@ export async function getSimplifiedBillingSummary(
   cancelAtPeriodEnd?: boolean
   // Usage details
   usage: {
-    current: number
-    limit: number
+    current: DecimalAmount
+    limit: DecimalAmount | null
     percentUsed: number
     isWarning: boolean
     isExceeded: boolean
     billingPeriodStart: Date | null
     billingPeriodEnd: Date | null
-    lastPeriodCost: number
-    lastPeriodCopilotCost: number
+    lastPeriodCost: DecimalAmount
+    lastPeriodCopilotCost: DecimalAmount
     daysRemaining: number
-    copilotCost: number
+    copilotCost: DecimalAmount
   }
   organizationData?: {
     seatCount: number
     memberCount: number
-    totalBasePrice: number
-    totalCurrentUsage: number
-    totalOverage: number
+    totalBasePrice: DecimalAmount | null
+    totalCurrentUsage: DecimalAmount
+    totalOverage: DecimalAmount
   }
 }> {
   try {
@@ -331,47 +173,61 @@ export async function getSimplifiedBillingSummary(
         throw new Error(`No billing ledger found for billed organization ${organizationId}`)
       }
 
-      const { basePrice: basePricePerSeat, usageAllowance } = getBillingTierPricing(subscription)
+      const { basePrice: basePricePerSeat, usageAllowance } = billingEnabled
+        ? getBillingTierPricing(subscription)
+        : { basePrice: '0', usageAllowance: '0' }
       // Organization billing is always seat-based. Fall back to the tier's configured seat count
       // until the subscription record has an explicit seat quantity.
       const licensedSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
-      const totalBasePrice = billingEnabled ? basePricePerSeat * licensedSeats : 0
+      const totalBasePrice =
+        basePricePerSeat === null
+          ? null
+          : multiplyMoney(basePricePerSeat, decimalFromSafeInteger(licensedSeats))
 
-      const totalCurrentUsage = await getOrganizationCurrentUsageForTier(
-        organizationId,
-        subscription.tier
-      )
-      const totalCopilotCost = billingLedger.currentPeriodCopilotCost
-      const totalLastPeriodCopilotCost = billingLedger.lastPeriodCopilotCost
+      const memberUsage = usesIndividualBillingLedger(subscription.tier)
+        ? (
+            await db
+              .select({ currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost })
+              .from(organizationMemberBillingLedger)
+              .where(eq(organizationMemberBillingLedger.organizationId, organizationId))
+          ).map((row) => monetary(row.currentPeriodCost))
+        : null
+      const totalCurrentUsage =
+        memberUsage === null ? monetary(billingLedger.currentPeriodCost) : addMoney(...memberUsage)
+      const totalCopilotCost = monetary(billingLedger.currentPeriodCopilotCost)
+      const totalLastPeriodCopilotCost = monetary(billingLedger.lastPeriodCopilotCost)
       const totalOverage = billingEnabled
-        ? usesIndividualBillingLedger(subscription.tier)
-          ? await calculateOrganizationIndividualOverage({
-              organizationId,
-              tier: subscription.tier,
-            })
-          : Math.max(0, totalCurrentUsage - usageAllowance)
-        : 0
+        ? memberUsage === null
+          ? subtractMoneyClamped(totalCurrentUsage, usageAllowance)
+          : addMoney(
+              ...memberUsage.map((current) =>
+                subtractMoneyClamped(current, getTierUsageAllowanceUsd(subscription.tier))
+              )
+            )
+        : '0'
       const billingPeriodStart = subscription.periodStart || null
       const billingPeriodEnd = subscription.periodEnd || null
 
       const configuredUsageLimit =
-        orgRows.length > 0 && orgRows[0].orgUsageLimit
-          ? Number.parseFloat(orgRows[0].orgUsageLimit)
-          : null
+        orgRows[0]?.orgUsageLimit == null ? null : monetary(orgRows[0].orgUsageLimit)
       const totalUsageLimit = billingEnabled
         ? usesIndividualBillingLedger(subscription.tier)
           ? usageAllowance
           : configuredUsageLimit !== null
-            ? Math.max(configuredUsageLimit, usageAllowance)
+            ? maxMoney(configuredUsageLimit, usageAllowance)
             : usageAllowance
-        : Number.MAX_SAFE_INTEGER
+        : null
       const percentUsed =
-        billingEnabled && totalUsageLimit > 0
-          ? Math.round((totalCurrentUsage / totalUsageLimit) * 100)
-          : 0
+        totalUsageLimit === null ? 0 : displayPercentage(totalCurrentUsage, totalUsageLimit)
+      const isExceeded =
+        totalUsageLimit !== null && compareMoney(totalCurrentUsage, totalUsageLimit) >= 0
       const isWarning =
-        billingEnabled && percentUsed >= usageWarningThresholdPercent && percentUsed < 100
-      const isExceeded = billingEnabled && totalCurrentUsage >= totalUsageLimit
+        totalUsageLimit !== null &&
+        !isExceeded &&
+        compareMoney(
+          multiplyMoney(totalCurrentUsage, '100'),
+          multiplyMoney(totalUsageLimit, decimalFromSafeInteger(usageWarningThresholdPercent))
+        ) >= 0
       const daysRemaining = billingPeriodEnd
         ? Math.max(0, Math.ceil((billingPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
         : 0
@@ -382,7 +238,7 @@ export async function getSimplifiedBillingSummary(
         basePrice: totalBasePrice,
         currentUsage: totalCurrentUsage,
         overageAmount: totalOverage,
-        totalProjected: totalBasePrice + totalOverage,
+        totalProjected: totalBasePrice === null ? null : addMoney(totalBasePrice, totalOverage),
         usageLimit: totalUsageLimit,
         percentUsed,
         isWarning,
@@ -406,7 +262,7 @@ export async function getSimplifiedBillingSummary(
           isExceeded,
           billingPeriodStart,
           billingPeriodEnd,
-          lastPeriodCost: billingLedger.lastPeriodCost,
+          lastPeriodCost: monetary(billingLedger.lastPeriodCost),
           lastPeriodCopilotCost: totalLastPeriodCopilotCost,
           daysRemaining,
           copilotCost: totalCopilotCost,
@@ -427,7 +283,10 @@ export async function getSimplifiedBillingSummary(
     }
 
     const usageData = await getUserUsageData(userId)
-    const { basePrice, usageAllowance } = getBillingTierPricing(subscription ?? null)
+    const { basePrice, usageAllowance } =
+      billingEnabled && subscription
+        ? getBillingTierPricing(subscription)
+        : { basePrice: '0', usageAllowance: '0' }
 
     // Fetch user stats for copilot cost breakdown
     const userStatsRows = await db
@@ -439,27 +298,29 @@ export async function getSimplifiedBillingSummary(
       .where(eq(userStats.userId, userId))
       .limit(1)
 
-    const copilotCost =
-      userStatsRows.length > 0
-        ? Number.parseFloat(userStatsRows[0].currentPeriodCopilotCost?.toString() || '0')
-        : 0
+    const stats = userStatsRows[0]
+    if (!stats && billingEnabled)
+      throw new Error(`Original personal ledger is missing for ${userId}`)
+    const copilotCost = stats ? monetary(stats.currentPeriodCopilotCost) : '0'
+    const lastPeriodCopilotCost = stats ? monetary(stats.lastPeriodCopilotCost) : '0'
 
-    const lastPeriodCopilotCost =
-      userStatsRows.length > 0
-        ? Number.parseFloat(userStatsRows[0].lastPeriodCopilotCost?.toString() || '0')
-        : 0
-
-    const currentUsage = usageData.currentUsage
+    const currentUsage = monetary(usageData.currentUsage)
     const totalCopilotCost = copilotCost
     const totalLastPeriodCopilotCost = lastPeriodCopilotCost
 
     const overageAmount =
-      billingEnabled && subscription ? Math.max(0, currentUsage - usageAllowance) : 0
-    const percentUsed = usageData.limit > 0 ? (currentUsage / usageData.limit) * 100 : 0
-    const isWarning = percentUsed >= usageWarningThresholdPercent && percentUsed < 100
-    const isExceeded = currentUsage >= usageData.limit
-    const effectiveBasePrice = billingEnabled ? basePrice : 0
-
+      billingEnabled && subscription ? subtractMoneyClamped(currentUsage, usageAllowance) : '0'
+    const usageLimit =
+      !billingEnabled || usageData.limit === null ? null : monetary(usageData.limit)
+    const percentUsed = usageLimit === null ? 0 : displayPercentage(currentUsage, usageLimit)
+    const isExceeded = usageLimit !== null && compareMoney(currentUsage, usageLimit) >= 0
+    const isWarning =
+      usageLimit !== null &&
+      !isExceeded &&
+      compareMoney(
+        multiplyMoney(currentUsage, '100'),
+        multiplyMoney(usageLimit, decimalFromSafeInteger(usageWarningThresholdPercent))
+      ) >= 0
     // Calculate days remaining in billing period
     const daysRemaining = usageData.billingPeriodEnd
       ? Math.max(
@@ -471,11 +332,11 @@ export async function getSimplifiedBillingSummary(
     return {
       type: 'individual',
       id: exposedSubscription?.id ?? null,
-      basePrice: effectiveBasePrice,
+      basePrice,
       currentUsage: currentUsage,
       overageAmount,
-      totalProjected: effectiveBasePrice + overageAmount,
-      usageLimit: usageData.limit,
+      totalProjected: basePrice === null ? null : addMoney(basePrice, overageAmount),
+      usageLimit,
       percentUsed,
       isWarning,
       isExceeded,
@@ -492,13 +353,13 @@ export async function getSimplifiedBillingSummary(
       // Usage details
       usage: {
         current: currentUsage,
-        limit: usageData.limit,
+        limit: usageLimit,
         percentUsed,
         isWarning,
         isExceeded,
         billingPeriodStart: usageData.billingPeriodStart,
         billingPeriodEnd: usageData.billingPeriodEnd,
-        lastPeriodCost: usageData.lastPeriodCost,
+        lastPeriodCost: monetary(usageData.lastPeriodCost),
         lastPeriodCopilotCost: totalLastPeriodCopilotCost,
         daysRemaining,
         copilotCost: totalCopilotCost,
@@ -524,11 +385,11 @@ function getDisabledBillingSummary(type: 'individual' | 'organization') {
     type,
     id: null,
     tier: toBillingTierSummary(null),
-    basePrice: 0,
-    currentUsage: 0,
-    overageAmount: 0,
-    totalProjected: 0,
-    usageLimit: Number.MAX_SAFE_INTEGER,
+    basePrice: '0',
+    currentUsage: '0',
+    overageAmount: '0',
+    totalProjected: '0',
+    usageLimit: null,
     percentUsed: 0,
     isWarning: false,
     isExceeded: false,
@@ -542,25 +403,25 @@ function getDisabledBillingSummary(type: 'individual' | 'organization') {
     periodEnd: null,
     // Usage details
     usage: {
-      current: 0,
-      limit: Number.MAX_SAFE_INTEGER,
+      current: '0',
+      limit: null,
       percentUsed: 0,
       isWarning: false,
       isExceeded: false,
       billingPeriodStart: null,
       billingPeriodEnd: null,
-      lastPeriodCost: 0,
-      lastPeriodCopilotCost: 0,
+      lastPeriodCost: '0',
+      lastPeriodCopilotCost: '0',
       daysRemaining: 0,
-      copilotCost: 0,
+      copilotCost: '0',
     },
     ...(type === 'organization' && {
       organizationData: {
         seatCount: 0,
         memberCount: 0,
-        totalBasePrice: 0,
-        totalCurrentUsage: 0,
-        totalOverage: 0,
+        totalBasePrice: '0',
+        totalCurrentUsage: '0',
+        totalOverage: '0',
       },
     }),
   }

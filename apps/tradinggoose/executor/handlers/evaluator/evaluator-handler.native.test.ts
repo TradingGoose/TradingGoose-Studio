@@ -1,0 +1,175 @@
+vi.mock('@/lib/mastra/connections', async (original) => ({
+  ...(await original<typeof import('@/lib/mastra/connections')>()),
+  createConfiguredLanguageModel: () => state.model,
+}))
+vi.mock('@/lib/mastra/financial-processors', () => ({
+  financialProcessors: async () => ({
+    inputProcessors: [],
+    outputProcessors: [],
+    getUsage: () => state.usage,
+    verifyComplete: () => state.verify(),
+  }),
+}))
+vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
+
+import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getInferenceFacts } from '@/lib/mastra/result'
+import { resultAccounting, selectNativeUsage } from '@/lib/mastra/usage'
+import { createMinimalWorkflow, createMockContext } from '@/executor/__test-utils__/executor-mocks'
+import { checkpointFunctionalOutput } from '@/executor/checkpoint'
+import { RouterBlockHandler } from '../router/router-handler'
+import { EvaluatorBlockHandler } from './evaluator-handler'
+
+const state = vi.hoisted(() => {
+  const usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } = {}
+  return { model: null as any, result: undefined as any, usage, verify: vi.fn() }
+})
+vi.mock('@/blocks/blocks/router', () => ({
+  generateRouterPrompt: (prompt: string) => prompt,
+}))
+vi.mock('@mastra/core/agent', async (original) => {
+  const native = await original<typeof import('@mastra/core/agent')>()
+  return {
+    ...native,
+    Agent: class extends native.Agent {
+      constructor(config: any) {
+        super({ ...config, model: state.model })
+      }
+      async generate(...args: any[]) {
+        state.result = await (super.generate as any)(...args)
+        return state.result
+      }
+    },
+  }
+})
+beforeEach(() => {
+  state.result = undefined
+  state.usage = {}
+  state.verify.mockReset().mockResolvedValue(undefined)
+})
+afterEach(() => vi.restoreAllMocks())
+
+it('rejects the installed native engine resolving an aborted score-less structured result', async () => {
+  const timeout = AbortSignal.timeout.bind(AbortSignal)
+  vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => timeout(20))
+  state.model = new MastraLanguageModelV2Mock({
+    doGenerate: async (options) =>
+      new Promise((_resolve, reject) => {
+        options.abortSignal?.addEventListener('abort', () => reject(options.abortSignal?.reason), {
+          once: true,
+        })
+      }),
+  })
+  const outcome = new EvaluatorBlockHandler().execute(
+    { id: 'evaluator', metadata: { id: 'evaluator' } } as any,
+    {
+      model: 'openai/gpt-4.1',
+      metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
+      content: 'Answer',
+    },
+    { userId: 'actor', workspaceId: 'workspace' } as any
+  )
+  const failure = await outcome.then(
+    () => {
+      throw new Error('Aborted native generation unexpectedly succeeded')
+    },
+    (error: unknown) => error
+  )
+  expect(failure).toBeInstanceOf(Error)
+  expect(state.result).toMatchObject({ finishReason: 'aborted', object: undefined })
+  // The installed aborted result can omit usage. Preserve only counts it actually returned.
+  const expected = await resultAccounting(selectNativeUsage(state.result.totalUsage))
+  expect(getInferenceFacts(failure)).toMatchObject({
+    ...expected,
+    generatedFields: ['model', 'tokens', 'cost'],
+  })
+  expect(expected.cost).toEqual({ status: 'unavailable' })
+  expect(checkpointFunctionalOutput(failure)).not.toHaveProperty('tokens')
+  expect(state.model.doGenerateCalls).toHaveLength(1)
+})
+
+describe('installed native returned usage before financial refusal', () => {
+  it.each(['evaluator', 'router'] as const)(
+    'retains %s actual aggregate 17 over processor 7 without double counting',
+    async (kind) => {
+      let contacts = 0
+      state.usage = { totalTokens: 7 }
+      state.verify.mockRejectedValue(new Error('Financial acceptance refused'))
+      state.model = new MastraLanguageModelV2Mock({
+        doGenerate: async () => {
+          contacts += 1
+          return {
+            content: [{ type: 'text', text: kind === 'evaluator' ? '{"accuracy":8}' : 'target' }],
+            finishReason: 'stop',
+            usage: { inputTokens: 11, outputTokens: 6, totalTokens: 17 },
+            warnings: [],
+          }
+        },
+      })
+      const workflow = createMinimalWorkflow()
+      const block = workflow.blocks[1]
+      block.metadata = { ...block.metadata, id: kind }
+      block.id = kind
+      if (kind === 'router') {
+        workflow.blocks.push({
+          ...block,
+          id: 'target',
+          metadata: { ...block.metadata, id: 'agent', name: 'Target' },
+        })
+        workflow.connections = [{ source: block.id, target: 'target' }]
+      }
+      const context = {
+        ...createMockContext({ workflow, workspaceId: 'workspace' }),
+        userId: 'actor',
+      }
+      const operation =
+        kind === 'evaluator'
+          ? new EvaluatorBlockHandler().execute(
+              block,
+              {
+                model: 'openai/gpt-4.1',
+                metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
+                content: 'Answer',
+              },
+              context
+            )
+          : new RouterBlockHandler().execute(
+              block,
+              { model: 'openai/gpt-4.1', prompt: 'Select target' },
+              context
+            )
+      const failure = await operation.then(
+        () => {
+          throw new Error('Financial refusal unexpectedly succeeded')
+        },
+        (error: unknown) => error
+      )
+      expect(failure).toBeInstanceOf(Error)
+      expect(state.result.finishReason).toBe('stop')
+      expect(state.result.totalUsage).toMatchObject({
+        inputTokens: 11,
+        outputTokens: 6,
+        totalTokens: 17,
+      })
+      expect(getInferenceFacts(failure)).toMatchObject({
+        model: 'openai/gpt-4.1',
+        tokens: { prompt: 11, completion: 6, total: 17 },
+        cost: { status: 'unavailable' },
+        generatedFields: ['model', 'tokens', 'cost'],
+      })
+      const cold = JSON.parse(JSON.stringify(checkpointFunctionalOutput(failure)))
+      expect(cold).toMatchObject({
+        name: 'Error',
+        message: 'Financial acceptance refused',
+        model: 'openai/gpt-4.1',
+      })
+      expect(cold).not.toHaveProperty('tokens')
+      expect(cold).not.toHaveProperty('cost')
+      expect(cold).not.toHaveProperty('stack')
+      expect(getInferenceFacts(cold)).toBeUndefined()
+      expect(state.verify).toHaveBeenCalledOnce()
+      expect(contacts).toBe(1)
+    }
+  )
+})

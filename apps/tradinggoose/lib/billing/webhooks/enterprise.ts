@@ -1,11 +1,14 @@
+import { lockFinancialRoots } from '@tradinggoose/billing'
+import { monetary } from '@tradinggoose/billing/money'
 import { db } from '@tradinggoose/db'
-import { organization, subscription, user } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { organization, user } from '@tradinggoose/db/schema'
+import { eq, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import {
   getEmailSubject,
   renderEnterpriseSubscriptionEmail,
 } from '@/components/emails/render-email'
+import { createFinancialSubscription } from '@/lib/billing/financial-subscriptions'
 import {
   getTierIncludedUsageLimit,
   isOrganizationBillingTier,
@@ -55,7 +58,10 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     referenceId: metadata.referenceId.trim(),
     billingTierId: metadata.billingTierId.trim(),
   }
-  const stripeCustomerId = stripeSubscription.customer as string
+  const stripeCustomerId =
+    typeof stripeSubscription.customer === 'string'
+      ? stripeSubscription.customer
+      : stripeSubscription.customer.id
 
   if (!stripeCustomerId) {
     logger.error('[subscription.created] Missing Stripe customer ID', {
@@ -77,10 +83,12 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
   const metadataJson: Record<string, unknown> = { ...enterpriseMetadata }
 
   // Extract and parse seats and monthly price from metadata (they come as strings from Stripe)
-  const seats = Number.parseInt(enterpriseMetadata.seats, 10)
-  const monthlyPrice = Number.parseFloat(enterpriseMetadata.monthlyPrice)
+  const seats = /^[1-9]\d*$/.test(enterpriseMetadata.seats)
+    ? Number(enterpriseMetadata.seats)
+    : Number.NaN
+  const monthlyPrice = monetary(enterpriseMetadata.monthlyPrice)
 
-  if (!seats || seats <= 0 || Number.isNaN(seats)) {
+  if (!Number.isSafeInteger(seats) || seats <= 0) {
     logger.error('[subscription.created] Invalid or missing seats in enterprise metadata', {
       subscriptionId: stripeSubscription.id,
       seatsRaw: enterpriseMetadata.seats,
@@ -89,7 +97,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     throw new Error('Enterprise subscription must include valid seats in metadata')
   }
 
-  if (!monthlyPrice || monthlyPrice <= 0 || Number.isNaN(monthlyPrice)) {
+  if (monthlyPrice === '0') {
     logger.error('[subscription.created] Invalid or missing monthlyPrice in enterprise metadata', {
       subscriptionId: stripeSubscription.id,
       monthlyPriceRaw: enterpriseMetadata.monthlyPrice,
@@ -135,55 +143,23 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     metadata: metadataJson,
   }
 
-  const [persistedSubscription] = await db
-    .insert(subscription)
-    .values(subscriptionRow)
-    .onConflictDoUpdate({
-      target: subscription.stripeSubscriptionId,
-      set: {
-        plan: subscriptionRow.plan,
-        billingTierId: subscriptionRow.billingTierId,
-        referenceType: subscriptionRow.referenceType,
-        referenceId: subscriptionRow.referenceId,
-        stripeCustomerId: subscriptionRow.stripeCustomerId,
-        status: subscriptionRow.status,
-        periodStart: subscriptionRow.periodStart,
-        periodEnd: subscriptionRow.periodEnd,
-        cancelAtPeriodEnd: subscriptionRow.cancelAtPeriodEnd,
-        seats: subscriptionRow.seats,
-        trialStart: subscriptionRow.trialStart,
-        trialEnd: subscriptionRow.trialEnd,
-        metadata: subscriptionRow.metadata,
-      },
-    })
-    .returning({ id: subscription.id })
-  const subscriptionId = persistedSubscription?.id || subscriptionRow.id
-
-  if (billingTierRecord.usageScope === 'pooled') {
-    const organizationUsageLimit = getTierIncludedUsageLimit(billingTierRecord) || monthlyPrice
-
-    try {
-      await db
+  const persistedSubscription = await db.transaction(async (tx) => {
+    await lockFinancialRoots(tx, [{ type: 'organization', id: referenceId }])
+    const persisted = await createFinancialSubscription(subscriptionRow, tx)
+    if (billingTierRecord.usageScope === 'pooled') {
+      const included = getTierIncludedUsageLimit(billingTierRecord)
+      const minimum = included !== '0' ? included : monthlyPrice
+      await tx
         .update(organization)
         .set({
-          orgUsageLimit: organizationUsageLimit.toFixed(2),
+          orgUsageLimit: sql`greatest(coalesce(${organization.orgUsageLimit}, 0), ${minimum})`,
           updatedAt: new Date(),
         })
         .where(eq(organization.id, referenceId))
-
-      logger.info('[subscription.created] Updated organization usage limit', {
-        organizationId: referenceId,
-        usageLimit: organizationUsageLimit,
-      })
-    } catch (error) {
-      logger.error('[subscription.created] Failed to update organization usage limit', {
-        organizationId: referenceId,
-        usageLimit: organizationUsageLimit,
-        error,
-      })
-      // Don't throw - the subscription was created successfully, just log the error
     }
-  }
+    return persisted
+  })
+  const subscriptionId = persistedSubscription.id
 
   logger.info('[subscription.created] Upserted enterprise subscription', {
     subscriptionId,

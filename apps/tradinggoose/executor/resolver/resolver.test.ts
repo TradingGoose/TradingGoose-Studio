@@ -17,6 +17,7 @@ import type { ExecutionContext } from '@/executor/types'
 import { planMarketSeriesRequest } from '@/providers/market/series-planner'
 import type { MarketSeriesRequest } from '@/providers/market/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
+import { useModelRegistry } from '@/stores/model-registry'
 import { historicalDataTool, type MarketSeriesParams } from '@/tools/market_data/series'
 
 const createInputResolver = (
@@ -2244,67 +2245,99 @@ describe('InputResolver', () => {
 
     afterEach(() => {
       mockGetBlock.mockReset()
+      useModelRegistry.setState({ providers: [] })
     })
 
-    it.each([
-      ['claude-haiku-4-5', 'claude-haiku-4-5', { thinkingLevel: 'high' }],
-      ['claude-opus-5-5', 'claude-opus-5-5', { thinkingLevel: 'high' }],
-      ['claude-haiku-4-5-20251001', 'claude-haiku-4-5-20251001', {}],
-      ['gpt-4.1', 'gpt-4.1', {}],
-      ...['<variable.stringVar>', '{{MODEL}}', '<start.model>'].flatMap(
-        (model) =>
-          [
-            [model, 'claude-opus-5-5', { thinkingLevel: 'high' }],
-            [model, 'gpt-5.4', { reasoningEffort: 'high', verbosity: 'high' }],
-            [model, 'deepseek-flash', { thinkingLevel: 'high' }],
-            [model, 'gpt-4.1', {}],
-          ] as const
-      ),
-    ] as const)(
-      'resolves Agent tuning eligibility for %s as %s',
-      (model, resolvedModel, expected) => {
+    it.each(['example/reasoning', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
+      'resolves model reference %s before native capability conditions',
+      (model) => {
+        useModelRegistry.setState({
+          providers: [
+            {
+              id: 'example',
+              name: 'Example',
+              models: [
+                {
+                  id: 'example/reasoning',
+                  reasoning: [{ type: 'effort', values: ['high'] }],
+                  temperature: false,
+                },
+              ],
+            },
+          ],
+        })
         mockGetBlock.mockReturnValue(AgentBlock)
-        mockWorkflowVars.stringVar.value = resolvedModel
-        mockEnvironmentVars.MODEL = resolvedModel
-        mockContext.blockStates.get('trigger-block').output.model = resolvedModel
+        mockWorkflowVars.stringVar.value = 'example/reasoning'
+        mockEnvironmentVars.MODEL = 'example/reasoning'
+        mockContext.blockStates.get('trigger-block').output.model = 'example/reasoning'
         const block = {
           ...sampleWorkflow.blocks[1],
           metadata: { id: BlockType.AGENT },
           config: {
             tool: BlockType.AGENT,
-            params: { thinkingLevel: 'high', reasoningEffort: 'high', verbosity: 'high', model },
+            params: { model, reasoningEffort: 'high', temperature: 0, maxTokens: 512 },
           },
         }
-
         expect(resolver.resolveInputs(block, mockContext)).toEqual({
-          model: resolvedModel,
-          ...expected,
+          model: 'example/reasoning',
+          temperature: 0,
+          maxTokens: 512,
         })
       }
     )
 
-    it.each([
-      ['ollama/custom', true],
-      ['openrouter/custom/model', false],
-      ['fireworks/accounts/demo/models/adapter#accounts/demo/deployments/gpu', true],
-      ['vllm/custom', true],
-      ['gpt-5.4', false],
-    ] as const)('resolves temperature eligibility before discovery for %s', (model, supported) => {
-      mockGetBlock.mockReturnValue(AgentBlock)
-      mockWorkflowVars.stringVar.value = model
-      const block = {
-        ...sampleWorkflow.blocks[1],
-        metadata: { id: BlockType.AGENT },
-        config: {
-          tool: BlockType.AGENT,
-          params: { temperature: 0, model: '<variable.stringVar>' },
-        },
+    it.each([true, false, undefined])(
+      'preserves unknown temperature support (%s)',
+      (temperature) => {
+        useModelRegistry.setState({
+          providers: [
+            { id: 'example', name: 'Example', models: [{ id: 'example/model', temperature }] },
+          ],
+        })
+        mockGetBlock.mockReturnValue(AgentBlock)
+        mockWorkflowVars.stringVar.value = 'example/model'
+        const block = {
+          ...sampleWorkflow.blocks[1],
+          metadata: { id: BlockType.AGENT },
+          config: {
+            tool: BlockType.AGENT,
+            params: { temperature: 0, model: '<variable.stringVar>' },
+          },
+        }
+        expect(resolver.resolveInputs(block, mockContext)).toEqual({
+          model: 'example/model',
+          temperature: 0,
+        })
       }
-      expect(resolver.resolveInputs(block, mockContext)).toEqual({
-        model,
-        ...(supported && { temperature: 0 }),
-      })
-    })
+    )
+
+    it.each(['openai/gpt-4.1', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
+      'uses native reasoning metadata after resolving %s with an empty browser store',
+      (model) => {
+        useModelRegistry.setState({ providers: [] })
+        mockGetBlock.mockReturnValue({
+          subBlocks: [
+            {
+              id: 'reasoningEffort',
+              condition: { field: 'model', operator: 'modelCapability', value: 'reasoningEffort' },
+            },
+          ],
+        })
+        mockWorkflowVars.stringVar.value = 'openai/gpt-4.1'
+        mockEnvironmentVars.MODEL = 'openai/gpt-4.1'
+        mockContext.blockStates.get('trigger-block').output.model = 'openai/gpt-4.1'
+        expect(
+          resolver.resolveInputs(
+            {
+              ...sampleWorkflow.blocks[1],
+              metadata: { id: BlockType.AGENT },
+              config: { tool: BlockType.AGENT, params: { model, reasoningEffort: 'high' } },
+            },
+            mockContext
+          )
+        ).toEqual({ model: 'openai/gpt-4.1' })
+      }
+    )
 
     it.each([true, false])(
       'keeps ordinary AND conditions active for supported models, enabled=%s',

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "rootDir": "..",
+    "outDir": "dist/types"
+  },
+  "include": ["src/index.ts", "src/money.ts", "../db/schema.ts", "../db/schema/**/*.ts"]
+}

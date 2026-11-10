@@ -80,6 +80,7 @@ vi.mock('@/lib/copilot/inline-tool-call', () => ({
 vi.mock('@/stores/copilot/store', () => ({
   useCopilotStore: () => mockStoreState,
   useCopilotStoreApi: () => ({
+    getState: () => mockStoreState,
     setState: vi.fn(),
   }),
 }))
@@ -108,13 +109,11 @@ vi.mock('../user-input/user-input', () => ({
   ),
 }))
 
-vi.mock('./components/assistant-message-segments', () => ({
-  buildAssistantMessageSegments: (contentBlocks: any[] = []) =>
-    contentBlocks.map((block, index) => ({ type: 'text', key: `text-${index}`, block })),
-}))
-
 vi.mock('./components/file-display', () => ({
   FileAttachmentDisplay: () => <div data-testid='file-attachments' />,
+  NativeFileDisplay: ({ file }: any) => (
+    <img data-native-image alt='Conversation image' src={file.data} />
+  ),
 }))
 
 vi.mock('./components/options-selector', () => ({
@@ -194,6 +193,7 @@ describe('CopilotMessage', () => {
       },
       messages: [assistantMessage],
       sendMessage: vi.fn(),
+      editMessage: vi.fn().mockResolvedValue(undefined),
       isSendingMessage: false,
       isAwaitingContinuation: false,
       isAborting: false,
@@ -219,6 +219,61 @@ describe('CopilotMessage', () => {
     expect(container.textContent).toContain('Plan is ready.')
     expect(container.textContent).toContain('Source A')
   })
+  it('renders canonical user images between exact text parts without a source-proof preview lane', async () => {
+    const data =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg=='
+    const message: CopilotMessageType = {
+      id: 'native-user',
+      role: 'user',
+      content: ' before\n\tafter ',
+      timestamp: '2026-11-08T00:00:00Z',
+      contentBlocks: [
+        { type: 'text', content: ' before\n', timestamp: 1 },
+        { type: 'file', file: { data, mimeType: 'image/png' }, timestamp: 1 },
+        { type: 'text', content: '\tafter ', timestamp: 1 },
+      ],
+    }
+    mockStoreState.messages = [message]
+    await renderMessage(message)
+    const rendered = container.querySelector('[data-message-box] > div')!
+    expect([...rendered.children].map((child) => child.tagName)).toEqual(['SPAN', 'IMG', 'SPAN'])
+    expect(rendered.children[0]).toHaveTextContent('before')
+    expect(rendered.children[1].getAttribute('src')).toBe(data)
+    expect(rendered.children[2]).toHaveTextContent('after')
+    expect(container.querySelector('[data-testid="file-attachments"]')).toBeNull()
+    expect((rendered as HTMLElement).style.maxHeight).toBe('none')
+    await act(async () => (rendered.children[1] as HTMLImageElement).click())
+    expect(container.querySelector('[data-testid="user-input"]')).toBeNull()
+    await editAndSubmit()
+    expect(mockStoreState.editMessage).not.toHaveBeenCalled()
+    expect(container.textContent).toContain('attachments and contexts were retained')
+  })
+  it('renders native assistant image parts in their canonical text order through the actual segmenter', async () => {
+    const data =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg=='
+    const message: CopilotMessageType = {
+      ...assistantMessage,
+      citations: [],
+      content: 'beforeafter',
+      contentBlocks: [
+        { type: 'text', content: 'before', timestamp: 1 },
+        { type: 'file', file: { data, mimeType: 'image/png' }, timestamp: 2 },
+        { type: 'text', content: 'after', timestamp: 3 },
+      ],
+    }
+    mockStoreState.messages = [message]
+    await renderMessage(message)
+    const image = container.querySelector('img')!
+    expect(image.getAttribute('src')).toBe(data)
+    const before = [...container.querySelectorAll('div')].find(
+      (element) => element.textContent === 'before'
+    )!
+    const after = [...container.querySelectorAll('div')].find(
+      (element) => element.textContent === 'after'
+    )!
+    expect(before.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(image.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 
   it('renders mentions inline and preserves their contexts when editing', async () => {
     mockStoreState.messages = [userMentionMessage]
@@ -230,15 +285,14 @@ describe('CopilotMessage', () => {
     expect(container.textContent).toContain("what's the trigger of this workflow?")
     await editAndSubmit()
 
-    expect(mockStoreState.sendMessage).toHaveBeenCalledWith(userMentionMessage.content, {
-      fileAttachments: undefined,
-      contexts: userMentionMessage.contexts,
-      messageId: userMentionMessage.id,
-      runtimeContext,
-    })
+    expect(mockStoreState.editMessage).toHaveBeenCalledWith(
+      userMentionMessage.id,
+      userMentionMessage.content
+    )
+    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
   })
 
-  it('keeps stop out of the edit composer and aborts before resending', async () => {
+  it('keeps stop out of the edit composer and aborts before a native history edit', async () => {
     vi.useFakeTimers()
     mockStoreState.currentChat.latestTurnStatus = 'in_progress'
     mockStoreState.messages = [userMentionMessage]
@@ -252,7 +306,8 @@ describe('CopilotMessage', () => {
 
     expect(mockStoreState.abortMessage).toHaveBeenCalledOnce()
     await act(async () => vi.advanceTimersByTimeAsync(100))
-    expect(mockStoreState.sendMessage).toHaveBeenCalledOnce()
+    expect(mockStoreState.editMessage).toHaveBeenCalledOnce()
+    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
   })
 
   it('uses updated context identity when same-text mention props change', async () => {
@@ -275,12 +330,11 @@ describe('CopilotMessage', () => {
     await renderMessage(updatedMessage)
     await editAndSubmit()
 
-    expect(mockStoreState.sendMessage).toHaveBeenCalledWith(updatedMessage.content, {
-      fileAttachments: undefined,
-      contexts: updatedMessage.contexts,
-      messageId: updatedMessage.id,
-      runtimeContext,
-    })
+    expect(mockStoreState.editMessage).toHaveBeenCalledWith(
+      updatedMessage.id,
+      updatedMessage.content
+    )
+    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
   })
 
   it('uses the current page context when selecting an option after navigation', async () => {

@@ -1,3 +1,5 @@
+import { assertFinancialStorageReady, FinancialPolicyError } from '@tradinggoose/billing'
+import { db } from '@tradinggoose/db'
 import { type NextRequest, NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { claimFirstSystemAdmin, getSystemAdminAccess } from '@/lib/admin/access'
@@ -5,7 +7,7 @@ import {
   type AdminSystemSettingsMutationInput,
   adminSystemSettingsMutationSchema,
 } from '@/lib/admin/system-settings/mutations'
-import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
+import { financialSchedulerReady } from '@/lib/billing/native-finance'
 import { getBillingGateState, isBillingConfigurationReady } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -164,6 +166,19 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
+    if (isEnablingBilling && !financialSchedulerReady()) {
+      return NextResponse.json(
+        {
+          error:
+            'Billing cannot be enabled until its authenticated recurring financial dispatch and indexes are verified.',
+          code: ADMIN_ERROR_CODES.BILLING_NOT_READY,
+        },
+        { status: 409, headers: NO_STORE_HEADERS }
+      )
+    }
+
+    if (isEnablingBilling) await db.transaction(assertFinancialStorageReady)
+
     const isEnablingTriggerDev =
       hasPayloadField(payload, 'triggerDevEnabled') &&
       payload.triggerDevEnabled &&
@@ -182,10 +197,6 @@ export async function PATCH(request: NextRequest) {
 
     const snapshot = await upsertSystemSettings(payload)
 
-    if (isEnablingBilling) {
-      await backfillDefaultUserSubscriptions()
-    }
-
     return NextResponse.json(
       serializeSnapshot(snapshot, billingGate.stripeConfigured, billingReady, triggerReady),
       {
@@ -200,6 +211,11 @@ export async function PATCH(request: NextRequest) {
         { status: 409, headers: NO_STORE_HEADERS }
       )
     }
+    if (error instanceof FinancialPolicyError)
+      return NextResponse.json(
+        { error: error.message, code: ADMIN_ERROR_CODES.BILLING_NOT_READY },
+        { status: 409, headers: NO_STORE_HEADERS }
+      )
 
     if (error instanceof ZodError) {
       logger.warn(`[${requestId}] Invalid admin system settings payload`, {

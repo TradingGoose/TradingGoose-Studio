@@ -78,6 +78,8 @@ Los errores utilizan el mismo sobre con `"event":"error"` y un mensaje `error`.
 
 Cada respuesta de la API de registros incluye información sobre los límites de ejecución y el uso de tu flujo de trabajo:
 
+**Cambio incompatible del ABI monetario:** `currentPeriodCost` es texto decimal exacto en USD, por ejemplo `"9007199254740993.30000000000000001"`; el `limit` monetario es una cadena decimal o `null` para un límite ilimitado. Los precios, asignaciones y multiplicadores del nivel también son cadenas decimales o `null` según la configuración. Conserva estos valores sin convertirlos con `Number`/`float`. Los contadores de velocidad, plazas y campos de almacenamiento siguen siendo numéricos.
+
 ```jsonc
 {
   "limits": {
@@ -94,8 +96,8 @@ Cada respuesta de la API de registros incluye información sobre los límites de
       }
     },
     "usage": {
-      "currentPeriodCost": 1.234,  // Current billing period usage in USD
-      "limit": 10,                  // Usage limit in USD
+      "currentPeriodCost": "1.234",  // Current billing period usage in USD
+      "limit": "10",                  // Usage limit in USD
       "tier": {                     // Current billing tier summary
         "id": "tier_pro",
         "displayName": "Pro"
@@ -169,7 +171,9 @@ Consulta los registros de ejecución de flujos de trabajo con amplias opciones d
           "endedAt": "2025-01-01T12:34:57.123Z",
           "totalDurationMs": 334,
           "cost": {
-            "total": 0.00234
+            "status": "unavailable",
+            "tokens": {},
+            "models": {}
           },
           "files": null
         }
@@ -189,8 +193,8 @@ Consulta los registros de ejecución de flujos de trabajo con amplias opciones d
           }
         },
         "usage": {
-          "currentPeriodCost": 1.234,
-          "limit": 10,
+          "currentPeriodCost": "1.234",
+          "limit": "10",
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"
@@ -203,6 +207,10 @@ Consulta los registros de ejecución de flujos de trabajo con amplias opciones d
 
   </Tab>
 </Tabs>
+
+Los cargos de producto realmente aplicados se verifican mediante recibos financieros compartidos y el uso del periodo. El informe genérico `cost` del registro no es ese libro financiero. El historial nativo conserva mensajes y resultados funcionales, sin informes duraderos de tokens o costos de modelos por turno. Al recargar, esas métricas no están disponibles. El uso nativo es opcional durante la solicitud activa; no se estima un precio a partir de tokens.
+
+El CSV conserva los campos genéricos disponibles. Los importes ausentes quedan vacíos o no disponibles; no se interpretan como cero. Un cero conocido sigue siendo cero y un subtotal disponible no es un cargo completo. Las salidas canónicas requieren autorización actual del espacio de trabajo y registro; las referencias internas y los puntos de control cifrados no son permisos de descarga pública.
 
 ### Obtener detalles del log
 
@@ -245,24 +253,9 @@ Recupera información detallada sobre una entrada de log específica.
           "finalOutput": {...}
         },
         "cost": {
-          "total": 0.00234,
-          "tokens": {
-            "prompt": 123,
-            "completion": 456,
-            "total": 579
-          },
-          "models": {
-            "gpt-4o": {
-              "input": 0.001,
-              "output": 0.00134,
-              "total": 0.00234,
-              "tokens": {
-                "prompt": 123,
-                "completion": 456,
-                "total": 579
-              }
-            }
-          }
+          "status": "unavailable",
+          "tokens": {},
+          "models": {}
         },
         "createdAt": "2025-01-01T12:34:57.200Z"
       },
@@ -280,8 +273,8 @@ Recupera información detallada sobre una entrada de log específica.
             }
           },
           "usage": {
-            "currentPeriodCost": 1.234,
-            "limit": 10,
+            "currentPeriodCost": "1.234",
+            "limit": "10",
             "tier": {
               "id": "tier_pro",
               "displayName": "Pro"
@@ -340,8 +333,8 @@ Recupera los detalles de la ejecución, incluida la instantánea del estado del 
           }
         },
         "usage": {
-          "currentPeriodCost": 1.234,
-          "limit": 10,
+          "currentPeriodCost": "1.234",
+          "limit": "10",
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"
@@ -393,24 +386,9 @@ Cuando se completa una ejecución del flujo de trabajo, TradingGoose envía una 
     "endedAt": "2025-01-01T12:34:57.123Z",
     "totalDurationMs": 334,
     "cost": {
-      "total": 0.00234,
-      "tokens": {
-        "prompt": 123,
-        "completion": 456,
-        "total": 579
-      },
-      "models": {
-        "gpt-4o": {
-          "input": 0.001,
-          "output": 0.00134,
-          "total": 0.00234,
-          "tokens": {
-            "prompt": 123,
-            "completion": 456,
-            "total": 579
-          }
-        }
-      }
+      "status": "unavailable",
+      "tokens": {},
+      "models": {}
     },
     "files": null,
     "errorMessage": "...", // Solo en errores, si includeFinalOutput=true o includeTraceSpans=true

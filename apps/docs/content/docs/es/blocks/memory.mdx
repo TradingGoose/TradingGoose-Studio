@@ -31,7 +31,7 @@ El bloque Memoria almacena y recupera mensajes entre ejecuciones del mismo flujo
     <strong>Obtener todas las memorias</strong>: Obtiene hasta 50 registros de memoria del flujo actual
   </Step>
   <Step>
-    <strong>Eliminar memoria</strong>: Elimina una entrada de memoria por su ID
+    <strong>Eliminar memoria</strong>: Elimina todos los mensajes de la conversación seleccionada
   </Step>
 </Steps>
 
@@ -68,7 +68,7 @@ Guarda los mensajes de usuario y asistente con Add Memory. En ejecuciones poster
     Devuelve hasta 50 registros de memoria del flujo actual. El bloque no ofrece paginación; no es una exportación del historial completo.
   </Tab>
   <Tab>
-    Elimina una entrada de memoria por ID.
+    Elimina todos los mensajes del ID seleccionado. Tras confirmarse, Get Memory indica que el ID no existe y Get All deja de mostrarlo. Un Add posterior inicia otra conversación con el mismo ID. Un mensaje de texto vacío sigue siendo una entrada almacenada.
 
     | Campo | Obligatorio | Descripción |
     |---|---|---|
@@ -140,7 +140,7 @@ Guarda los mensajes de usuario y asistente con Add Memory. En ejecuciones poster
 |---|---|
 | Get Memory | `memories`: arreglo de mensajes del ID seleccionado; `message`: texto de estado |
 | Get All Memories | `memories`: hasta 50 registros con forma `{ key, type, data }`; `message`: texto de estado |
-| Delete Memory | `message`: confirmación de eliminación |
+| Delete Memory | `message`: confirmación de eliminación o error |
 | Add Memory | `memories`: arreglo de mensajes actualizado de la conversación |
 
 Get All Memories no devuelve un único arreglo plano de mensajes. Selecciona `data` del registro deseado antes de usar su conversación como memoria del Agent. No se devuelve un `id` independiente en el nivel superior.
@@ -148,4 +148,4 @@ Get All Memories no devuelve un único arreglo plano de mensajes. Selecciona `da
 ## Buenas prácticas
 
 - **Usa IDs consistentes** -- el ID de memoria es la clave que agrupa los mensajes en una conversación. Usa un identificador estable (como un ID de usuario o un ID de sesión) para que las memorias se acumulen correctamente entre ejecuciones.
-- **Limpia cuando sea necesario** -- usa la operación Delete para borrar conversaciones obsoletas y evitar un crecimiento ilimitado de la memoria.
+- **Comprueba el resultado** -- tras una eliminación confirmada, la conversación deja de aparecer. Si hay un error o un tiempo de espera agotado, consulta el estado actual antes de continuar; no supongas que la operación se revirtió.

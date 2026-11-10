@@ -1,3 +1,4 @@
+import { withInferenceFacts } from '@/lib/mastra/result'
 import type { ToolConfig } from '@/tools/types'
 
 export interface GuardrailsValidateInput {
@@ -82,7 +83,7 @@ export const guardrailsValidateTool: ToolConfig<GuardrailsValidateInput, Guardra
         type: 'string',
         required: false,
         visibility: 'user-only',
-        description: 'LLM model for confidence scoring (default: gpt-4o-mini)',
+        description: 'Listed Mastra provider/model for confidence scoring',
       },
       apiKey: {
         type: 'string',
@@ -189,6 +190,13 @@ export const guardrailsValidateTool: ToolConfig<GuardrailsValidateInput, Guardra
         }
       }
 
+      if (result.output?.tokens || result.output?.cost || result.output?.embeddingUsage) {
+        result.output = withInferenceFacts(result.output, {
+          tokens: result.output.tokens,
+          cost: result.output.cost,
+          generatedFields: ['tokens', 'cost', 'embeddingUsage'],
+        })
+      }
       return result
     },
   }

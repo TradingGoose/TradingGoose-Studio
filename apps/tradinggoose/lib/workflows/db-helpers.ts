@@ -157,8 +157,6 @@ export async function requireWorkflowRealtimeState(
     workspaceId: null,
     entityKind: 'workflow',
     entityId: workflowId,
-    draftSessionId: null,
-    reviewSessionId: null,
     yjsSessionId: workflowId,
   }).catch((error) => {
     throw new WorkflowRealtimeRequiredError(error)

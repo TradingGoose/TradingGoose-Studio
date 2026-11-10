@@ -10,7 +10,14 @@ import {
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { executionLogger } from '@/lib/logs/execution/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { writeFunctionalPayload } from '@/lib/mastra/workflow-history'
 import { decryptSecret, encryptSecret } from '@/lib/utils-server'
+import { revalidateCheckpointMemorySources } from '@/lib/workflow-archive/checkpoint-sources'
+import { functionalDigest } from '@/lib/workflow-archive/format'
+import {
+  hydrateCheckpointFunctionalPayloads,
+  projectFunctionalBlocks,
+} from '@/lib/workflow-archive/functional'
 import { validateWorkflowPauseInput } from '@/lib/workflows/human-in-the-loop/form'
 import { workflowPauseLinks } from '@/lib/workflows/human-in-the-loop/links'
 import {
@@ -82,8 +89,46 @@ export async function saveWorkflowCheckpoint(args: {
   ) {
     throw new WorkflowCheckpointError('Checkpoint requires uniquely identified pause points', 400)
   }
+  const [initial] = await executionLogQuery(args.executionId)
+  if (!initial || initial.endedAt)
+    throw new WorkflowCheckpointError('Execution is already terminal or its log is missing')
+  if (
+    initial.id !== args.snapshot.workflowLogId ||
+    initial.workflowId !== args.workflowId ||
+    initial.workspaceId !== args.workspaceId ||
+    dataOf(initial).environment?.userId !== args.userId
+  )
+    throw new WorkflowCheckpointError('Checkpoint execution scope does not match')
+  if (dataOf(initial).checkpoint && dataOf(initial).pause) {
+    return db.transaction(async (tx) => {
+      const [current] = await executionLogQuery(args.executionId, tx).for('update')
+      const checkpoint =
+        current && !current.endedAt && dataOf(current).pause && dataOf(current).checkpoint
+      if (!checkpoint || current.id !== initial.id)
+        throw new WorkflowCheckpointError('Checkpoint changed; retry the current operation')
+      return { revision: checkpoint.revision, pausePoints: checkpoint.pausePoints }
+    })
+  }
   const { encrypted } = await encryptSecret(JSON.stringify(args.snapshot))
   const pausePoints = args.pausePoints.map(({ notification: _notification, ...point }) => point)
+  await executionLogger.settleWorkflowExecutionUsage(args.executionId)
+  const { traceSpans } = buildTraceSpans({
+    success: true,
+    output: {},
+    logs: args.snapshot.executor.context.blockLogs,
+    metadata: args.snapshot.executor.context.metadata,
+  })
+  const functionalPayload = await writeFunctionalPayload(
+    {
+      workspaceId: args.workspaceId,
+      executionId: args.executionId,
+      logId: args.snapshot.workflowLogId,
+      blockId: '__checkpoint__',
+      runId: functionalDigest(args.snapshot),
+      actorUserId: args.userId,
+    },
+    { blocks: projectFunctionalBlocks(traceSpans) }
+  )
   const saved = await db.transaction(async (tx) => {
     const [row] = await executionLogQuery(args.executionId, tx).for('update')
     if (!row || row.endedAt)
@@ -114,28 +159,36 @@ export async function saveWorkflowCheckpoint(args: {
       pausePoints,
       activeJobId: null,
     }
-    const { traceSpans } = buildTraceSpans({
-      success: true,
-      output: {},
-      logs: args.snapshot.executor.context.blockLogs,
-      metadata: args.snapshot.executor.context.metadata,
-    })
     await tx
       .update(workflowExecutionLogs)
       .set({
         totalDurationMs: args.snapshot.executor.context.metadata.duration,
         executionData: {
           ...data,
-          traceSpans,
+          functionalPayload,
+          nativePayloads: {
+            ...((data.nativePayloads as Record<string, unknown>) ?? {}),
+            [`${functionalPayload.blockId}:${functionalPayload.runId}`]: functionalPayload,
+            ...Object.fromEntries(
+              args.snapshot.executor.context.blockLogs.flatMap((log) =>
+                log.inference?.nativePayload
+                  ? [
+                      [
+                        `${log.inference.nativePayload.blockId}:${log.inference.nativePayload.runId}`,
+                        log.inference.nativePayload,
+                      ],
+                    ]
+                  : []
+              )
+            ),
+          },
           checkpoint,
           pause: { ...workflowPauseLinks(args.workflowId, args.executionId), revision },
         },
       })
       .where(eq(workflowExecutionLogs.id, row.id))
-    const usage = await executionLogger.settleWorkflowExecutionUsage(args.executionId, tx)
-    return { revision, pausePoints, usage }
+    return { revision, pausePoints }
   })
-  await executionLogger.notifyWorkflowUsage(saved.usage)
   return { revision: saved.revision, pausePoints: saved.pausePoints }
 }
 
@@ -145,6 +198,53 @@ export async function claimWorkflowCheckpoint(args: {
   jobId: string
 }) {
   if (args.jobId !== workflowResumeJobId(args.executionId, args.revision)) return null
+  // Read/authenticate a candidate without its row lock, then release the app connection before Memory barriers.
+  const prepared = await db.transaction(async (tx) => {
+    const [row] = await executionLogQuery(args.executionId, tx)
+    if (!row || row.endedAt || !row.workflowId) return null
+    const data = dataOf(row)
+    const checkpoint = data.checkpoint
+    if (
+      !checkpoint ||
+      !data.pause ||
+      checkpoint.revision !== args.revision ||
+      checkpoint.activeJobId !== args.jobId
+    )
+      return null
+    const access = await authorizeWorkflowScope(
+      { success: true, userId: data.environment?.userId },
+      row.workflowId,
+      'write',
+      tx
+    )
+    if (!access.ok || access.workspaceId !== row.workspaceId)
+      throw new WorkflowCheckpointError(
+        'The original execution user no longer has workflow access',
+        403
+      )
+    if (!checkpoint.pausePoints.every(isSubmitted))
+      throw new WorkflowCheckpointError('Checkpoint still awaits input')
+    return { row, checkpoint, actorUserId: access.userId }
+  })
+  if (!prepared) return null
+  const { decrypted } = await decryptSecret(prepared.checkpoint.encryptedSnapshot)
+  const snapshot = JSON.parse(decrypted) as WorkflowCheckpointSnapshot
+  if (
+    !snapshot?.executor ||
+    snapshot.blueprint?.workflowId !== prepared.row.workflowId ||
+    snapshot.workflowLogId !== prepared.row.id
+  )
+    throw new WorkflowCheckpointError('Invalid stored checkpoint', 500)
+  await hydrateCheckpointFunctionalPayloads(snapshot, {
+    workspaceId: prepared.row.workspaceId,
+    executionId: prepared.row.executionId!,
+    logId: prepared.row.id,
+  })
+  await revalidateCheckpointMemorySources(
+    snapshot.executor,
+    prepared.row.workspaceId,
+    prepared.actorUserId
+  )
   return db.transaction(async (tx) => {
     const [row] = await executionLogQuery(args.executionId, tx).for('update')
     if (!row || row.endedAt || !row.workflowId) return null
@@ -170,14 +270,13 @@ export async function claimWorkflowCheckpoint(args: {
       )
     if (!checkpoint.pausePoints.every(isSubmitted))
       throw new WorkflowCheckpointError('Checkpoint still awaits input')
-    const { decrypted } = await decryptSecret(checkpoint.encryptedSnapshot)
-    const snapshot = JSON.parse(decrypted) as WorkflowCheckpointSnapshot
     if (
-      !snapshot?.executor ||
-      snapshot.blueprint?.workflowId !== row.workflowId ||
-      snapshot.workflowLogId !== row.id
+      checkpoint.encryptedSnapshot !== prepared.checkpoint.encryptedSnapshot ||
+      row.id !== prepared.row.id ||
+      data.environment?.userId !== prepared.actorUserId
     )
-      throw new WorkflowCheckpointError('Invalid stored checkpoint', 500)
+      throw new WorkflowCheckpointError('Checkpoint changed during canonical readback; retry')
+    await revalidateCheckpointMemorySources(snapshot.executor, row.workspaceId, access.userId, tx)
     const { pause: _pause, ...runningData } = data
     await tx
       .update(workflowExecutionLogs)
@@ -200,8 +299,66 @@ export async function readWorkflowCheckpointSnapshot(executionId: string) {
   const [row] = await executionLogQuery(executionId)
   const checkpoint = row && !row.endedAt && dataOf(row).checkpoint
   if (!checkpoint) return null
-  const { decrypted } = await decryptSecret(checkpoint.encryptedSnapshot)
-  return JSON.parse(decrypted) as WorkflowCheckpointSnapshot
+  const originalRevision = checkpoint.revision
+  const originalJobId = checkpoint.activeJobId
+  const originalCiphertext = checkpoint.encryptedSnapshot
+  const actorUserId = dataOf(row).environment?.userId
+  if (!actorUserId || !row.workflowId)
+    throw new WorkflowCheckpointError('Checkpoint actor/owner is unavailable')
+  const access = await authorizeWorkflowScope(
+    { success: true, userId: actorUserId },
+    row.workflowId,
+    'write'
+  )
+  if (!access.ok || access.workspaceId !== row.workspaceId)
+    throw new WorkflowCheckpointError(
+      'The original execution user no longer has workflow access',
+      403
+    )
+  const { decrypted } = await decryptSecret(originalCiphertext)
+  const snapshot = JSON.parse(decrypted) as WorkflowCheckpointSnapshot
+  if (
+    !snapshot?.executor ||
+    snapshot.workflowLogId !== row.id ||
+    snapshot.blueprint?.workflowId !== row.workflowId
+  )
+    throw new WorkflowCheckpointError('Invalid stored checkpoint', 500)
+  await hydrateCheckpointFunctionalPayloads(snapshot, {
+    workspaceId: row.workspaceId,
+    executionId: row.executionId!,
+    logId: row.id,
+  })
+  await revalidateCheckpointMemorySources(snapshot.executor, row.workspaceId, actorUserId)
+  return db.transaction(async (tx) => {
+    const [current] = await executionLogQuery(executionId, tx).for('update')
+    const control = current && !current.endedAt && dataOf(current).checkpoint
+    if (
+      !current ||
+      !control ||
+      !current.workflowId ||
+      current.id !== row.id ||
+      current.workflowId !== row.workflowId ||
+      current.workspaceId !== row.workspaceId ||
+      control.revision !== originalRevision ||
+      control.activeJobId !== originalJobId ||
+      control.encryptedSnapshot !== originalCiphertext ||
+      dataOf(current).environment?.userId !== actorUserId
+    )
+      throw new WorkflowCheckpointError('Checkpoint changed during canonical readback; retry')
+    const fresh = await authorizeWorkflowScope(
+      { success: true, userId: actorUserId },
+      current.workflowId,
+      'write',
+      tx
+    )
+    if (!fresh.ok || fresh.workspaceId !== current.workspaceId)
+      throw new WorkflowCheckpointError(
+        'The original execution user no longer has workflow access',
+        403
+      )
+    await revalidateCheckpointMemorySources(snapshot.executor, current.workspaceId, actorUserId, tx)
+    return snapshot
+  })
 }
 
 export async function readWorkflowCheckpointChildren(executionId: string) {

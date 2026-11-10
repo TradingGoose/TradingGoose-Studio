@@ -11,13 +11,20 @@ describe('buildTraceSpans', () => {
     'retains %s child traces without billing their model usage again',
     (blockType) => {
       const modelLog = {
+        id: 'local-model-occurrence',
         blockId: 'local-agent',
         blockType: 'agent',
         startedAt: '2026-09-17T00:00:00.000Z',
         endedAt: '2026-09-17T00:00:00.001Z',
         durationMs: 1,
         success: true,
-        output: { model: 'test-model', cost: { total: 1 }, tokens: { total: 10 } },
+        output: { content: 'business output' },
+        inference: {
+          model: 'test-model',
+          cost: { total: 1, status: 'reported' as const },
+          tokens: { total: 10 },
+          generatedFields: [],
+        },
       }
       const result = { success: true, output: {}, metadata: { duration: 1 } }
       const child = buildTraceSpans({
@@ -26,11 +33,13 @@ describe('buildTraceSpans', () => {
           {
             ...modelLog,
             blockId: 'child-agent',
-            output: {
+            inference: {
+              generatedFields: [],
               model: 'test-model',
-              cost: { total: 2 },
+              cost: { total: 2, status: 'reported' },
               tokens: { total: 20 },
             },
+            id: 'trace-spans.test.ts:saved-occurrence:1',
           },
         ],
       }).traceSpans
@@ -45,20 +54,19 @@ describe('buildTraceSpans', () => {
             output: {
               childTraceSpans: child,
             },
+            id: 'trace-spans.test.ts:saved-occurrence:2',
           },
         ],
       }).traceSpans
       const snapshot = structuredClone(parent)
 
       expect(parent[0].children?.[1].children).toMatchObject([{ blockId: 'child-agent' }])
-      expect(calculateCostSummary([{ type: 'parallel', children: parent }], 0.25, 2)).toMatchObject(
-        {
-          totalCost: 2.25,
-          modelCost: 2,
-          totalTokens: 10,
-          models: { 'test-model': { total: 2, tokens: { total: 10 } } },
-        }
-      )
+      expect(calculateCostSummary([{ type: 'parallel', children: parent }])).toMatchObject({
+        totalCost: 1,
+        modelCost: 1,
+        totalTokens: 10,
+        models: { 'test-model': { total: 1, tokens: { total: 10 } } },
+      })
       expect(calculateCostSummary(child)).toMatchObject({ modelCost: 2, totalTokens: 20 })
       expect(parent).toEqual(snapshot)
     }
@@ -70,6 +78,7 @@ describe('buildTraceSpans', () => {
       output: { content: 'Final output' },
       logs: [
         {
+          id: 'trace-spans.test.ts:saved-occurrence:3',
           blockId: 'agent-1',
           blockName: 'Test Agent',
           blockType: 'agent',
@@ -78,16 +87,18 @@ describe('buildTraceSpans', () => {
           durationMs: 8000,
           success: true,
           input: { userPrompt: 'Test prompt' },
-          output: {
-            content: 'Agent response',
+          output: { content: 'Agent response' },
+          inference: {
+            generatedFields: [],
             model: 'gpt-4o',
             tokens: { prompt: 10, completion: 20, total: 30 },
-            cost: { input: 0.01, output: 0.02, toolCost: 2, total: 2.03 },
+            cost: { input: 0.01, output: 0.02, total: 0.03, status: 'reported' },
+            toolCost: 2,
             providerTiming: {
               duration: 8000,
               startTime: '2024-01-01T10:00:00.000Z',
               endTime: '2024-01-01T10:00:08.000Z',
-              timeSegments: [
+              segments: [
                 {
                   type: 'model',
                   name: 'Initial response',
@@ -124,7 +135,7 @@ describe('buildTraceSpans', () => {
                   id: 'custom_test_tool',
                   name: 'Test Tool',
                   arguments: { input: 'test input' },
-                  result: { output: 'test output', cost: { total: 2 } },
+                  result: { output: 'test output', cost: { total: 2, status: 'reported' } },
                   duration: 2000,
                 },
                 {
@@ -164,7 +175,10 @@ describe('buildTraceSpans', () => {
     expect(segments[1].duration).toBe(2000)
     expect(segments[1].status).toBe('success')
     expect(segments[1].input).toEqual({ input: 'test input' })
-    expect(segments[1].output).toEqual({ output: 'test output', cost: { total: 2 } })
+    expect(segments[1].output).toEqual({
+      output: 'test output',
+      cost: { total: 2, status: 'reported' },
+    })
 
     // Third segment: Second tool call
     expect(segments[2].name).toBe('http_request')
@@ -192,6 +206,7 @@ describe('buildTraceSpans', () => {
       output: { content: 'Final output' },
       logs: [
         {
+          id: 'trace-spans.test.ts:saved-occurrence:4',
           blockId: 'agent-1',
           blockName: 'Test Agent',
           blockType: 'agent',
@@ -200,14 +215,16 @@ describe('buildTraceSpans', () => {
           durationMs: 5000,
           success: true,
           input: { userPrompt: 'Test prompt' },
-          output: {
-            content: 'Agent response',
+          output: { content: 'Agent response' },
+          inference: {
+            generatedFields: [],
             model: 'gpt-4o',
             tokens: { prompt: 10, completion: 20, total: 30 },
             providerTiming: {
               duration: 4000,
               startTime: '2024-01-01T10:00:00.500Z',
               endTime: '2024-01-01T10:00:04.500Z',
+              segments: [],
             },
             toolCalls: {
               list: [
@@ -266,6 +283,7 @@ describe('buildTraceSpans', () => {
       output: { content: 'Final output' },
       logs: [
         {
+          id: 'trace-spans.test.ts:saved-occurrence:5',
           blockId: 'agent-4',
           blockName: 'Error Agent',
           blockType: 'agent',
@@ -274,14 +292,15 @@ describe('buildTraceSpans', () => {
           durationMs: 3000,
           success: true,
           input: { userPrompt: 'Test prompt' },
-          output: {
-            content: 'Agent response',
+          output: { content: 'Agent response' },
+          inference: {
+            generatedFields: [],
             model: 'gpt-4o',
             providerTiming: {
               duration: 3000,
               startTime: '2024-01-01T10:00:00.000Z',
               endTime: '2024-01-01T10:00:03.000Z',
-              timeSegments: [
+              segments: [
                 {
                   type: 'model',
                   name: 'Initial response',
@@ -345,6 +364,7 @@ describe('buildTraceSpans', () => {
       output: { content: 'Final output' },
       logs: [
         {
+          id: 'trace-spans.test.ts:saved-occurrence:6',
           blockId: 'text-1',
           blockName: 'Text Block',
           blockType: 'text',
@@ -373,6 +393,7 @@ describe('buildTraceSpans', () => {
       output: { content: 'Final comprehensive response' },
       logs: [
         {
+          id: 'trace-spans.test.ts:saved-occurrence:7',
           blockId: 'agent-complex',
           blockName: 'Multi-Tool Agent',
           blockType: 'agent',
@@ -381,20 +402,17 @@ describe('buildTraceSpans', () => {
           durationMs: 15000,
           success: true,
           input: { userPrompt: 'Research and analyze tennis news' },
-          output: {
-            content: 'Based on my research using multiple sources...',
+          output: { content: 'Based on my research using multiple sources...' },
+          inference: {
+            generatedFields: [],
             model: 'gpt-4o',
             tokens: { prompt: 50, completion: 200, total: 250 },
-            cost: { total: 0.0025, prompt: 0.001, completion: 0.0015 },
+            cost: { total: 0.0025, input: 0.001, output: 0.0015, status: 'reported' },
             providerTiming: {
               duration: 15000,
               startTime: '2024-01-01T10:00:00.000Z',
               endTime: '2024-01-01T10:00:15.000Z',
-              modelTime: 8000,
-              toolsTime: 6500,
-              iterations: 2,
-              firstResponseTime: 1500,
-              timeSegments: [
+              segments: [
                 {
                   type: 'model',
                   name: 'Initial response',
@@ -594,6 +612,7 @@ describe('buildTraceSpans', () => {
       output: { result: 'parent output' },
       logs: [
         {
+          id: 'trace-spans.test.ts:saved-occurrence:8',
           blockId: 'workflow-1',
           blockName: 'Child Workflow',
           blockType: 'workflow_input',
@@ -685,6 +704,7 @@ describe('buildTraceSpans', () => {
       },
       logs: [
         {
+          id: 'trace-spans.test.ts:saved-occurrence:9',
           blockId: 'workflow-silk',
           blockName: 'Silk Pond',
           blockType: 'workflow_input',
@@ -729,4 +749,146 @@ describe('buildTraceSpans', () => {
     expect(functionSpan?.status).toBe('error')
     expect((functionSpan?.output as { error?: string })?.error).toContain('Syntax Error')
   })
+})
+
+test('does not interpret schema-owned AI report names as internal trace facts', () => {
+  const business = {
+    model: 1,
+    tokens: 'customer',
+    cost: { total: 999 },
+    providerTiming: { timeSegments: [] },
+    toolCalls: { list: [{ name: 'schema value' }] },
+  }
+  const { traceSpans } = buildTraceSpans({
+    success: true,
+    output: business,
+    metadata: { duration: 1 },
+    logs: [
+      {
+        id: 'trace-spans.test.ts:saved-occurrence:10',
+        blockId: 'agent',
+        blockType: 'agent',
+        blockName: 'Agent',
+        startedAt: '2026-11-08T00:00:00Z',
+        endedAt: '2026-11-08T00:00:01Z',
+        durationMs: 1000,
+        success: true,
+        output: business,
+      },
+    ],
+  })
+  const agentSpan = traceSpans[0].children!.find((span) => span.type === 'agent')!
+  expect(agentSpan.output).toEqual(business)
+  expect(agentSpan.cost).toBeUndefined()
+  expect(agentSpan.tokens).toBeUndefined()
+  expect(agentSpan.model).toBeUndefined()
+  expect(agentSpan.toolCalls).toBeUndefined()
+})
+
+test('preserves same-block equal-time occurrences and rejects invalid saved identity before map overwrite', async () => {
+  const { projectFunctionalBlocks } = await import('@/lib/workflow-archive/functional')
+  const at = '2026-11-10T12:00:00.000Z'
+  const first = {
+    id: 'saved-first',
+    blockId: 'same',
+    blockType: 'variables',
+    blockName: 'Same',
+    startedAt: at,
+    endedAt: at,
+    durationMs: 0,
+    success: true,
+    input: { value: 0 },
+    output: { value: 0 },
+  }
+  const second = {
+    ...first,
+    id: 'saved-second',
+    success: false,
+    input: { value: 1 },
+    output: { value: 1 },
+    error: 'retained exact failure',
+  }
+  const result = { success: false, output: {}, logs: [first, second] }
+  const built = buildTraceSpans(result).traceSpans
+  expect(
+    projectFunctionalBlocks(built).map(({ id, blockId, input, output }) => ({
+      id,
+      blockId,
+      input,
+      output,
+    }))
+  ).toEqual([
+    { id: first.id, blockId: 'same', input: { value: 0 }, output: { value: 0 } },
+    {
+      id: second.id,
+      blockId: 'same',
+      input: { value: 1 },
+      output: { value: 1, error: 'retained exact failure' },
+    },
+  ])
+  expect(buildTraceSpans(result).traceSpans).toEqual(built)
+  for (const id of [undefined, null, '', '  ', 1, {}]) {
+    const invalid = { ...second }
+    Reflect.set(invalid, 'id', id)
+    expect(() => buildTraceSpans({ ...result, logs: [first, invalid] })).toThrow(
+      'block log occurrence'
+    )
+  }
+  expect(() => buildTraceSpans({ ...result, logs: [first, { ...second, id: first.id }] })).toThrow(
+    'block log occurrence'
+  )
+})
+test('retains distinct equal-time child occurrences and their saved parent association', async () => {
+  const { projectFunctionalBlocks, hydrateFunctionalBlocks } = await import(
+    '@/lib/workflow-archive/functional'
+  )
+  const at = '2026-11-10T12:00:00.000Z'
+  const child = (id: string, value: number) =>
+    buildTraceSpans({
+      success: true,
+      output: { value },
+      logs: [
+        {
+          id,
+          blockId: 'reused-child',
+          blockType: 'variables',
+          startedAt: at,
+          endedAt: at,
+          durationMs: 0,
+          success: true,
+          output: { value },
+        },
+      ],
+    }).traceSpans
+  const first = child('child-first', 0)
+  const second = child('child-second', 1)
+  const result = {
+    success: true,
+    output: {},
+    logs: [
+      {
+        id: 'parent-occurrence',
+        blockId: 'parent',
+        blockType: BlockType.WORKFLOW,
+        startedAt: at,
+        endedAt: at,
+        durationMs: 0,
+        success: true,
+        output: { childTraceSpans: [...first, ...second] },
+      },
+    ],
+  }
+  const projected = projectFunctionalBlocks(buildTraceSpans(result).traceSpans)
+  expect(
+    projected
+      .filter(({ blockId }) => blockId === 'reused-child')
+      .map(({ id, parentId, output }) => ({ id, parentId, output }))
+  ).toEqual([
+    { id: 'child-first', parentId: 'parent-occurrence', output: { value: 0 } },
+    { id: 'child-second', parentId: 'parent-occurrence', output: { value: 1 } },
+  ])
+  expect(
+    projectFunctionalBlocks(await hydrateFunctionalBlocks(JSON.parse(JSON.stringify(projected))))
+  ).toEqual(projected)
+  expect(projectFunctionalBlocks(buildTraceSpans(result).traceSpans)).toEqual(projected)
 })

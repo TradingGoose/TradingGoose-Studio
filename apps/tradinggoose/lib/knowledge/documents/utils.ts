@@ -10,6 +10,7 @@ interface HTTPError extends Error {
 type RetryableError = HTTPError | Error | { status?: number; message?: string }
 
 export interface RetryOptions {
+  signal?: AbortSignal
   maxRetries?: number
   initialDelayMs?: number
   maxDelayMs?: number
@@ -68,6 +69,7 @@ export async function retryWithExponentialBackoff<T>(
   options: RetryOptions = {}
 ): Promise<T> {
   const {
+    signal,
     maxRetries = 5,
     initialDelayMs = 1000,
     maxDelayMs = 30000,
@@ -80,6 +82,7 @@ export async function retryWithExponentialBackoff<T>(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      signal?.throwIfAborted()
       logger.debug(`Executing operation attempt ${attempt + 1}/${maxRetries + 1}`)
       const result = await operation()
 
@@ -112,7 +115,18 @@ export async function retryWithExponentialBackoff<T>(
         `Retrying in ${Math.round(actualDelay)}ms (attempt ${attempt + 1}/${maxRetries + 1})`
       )
 
-      await new Promise((resolve) => setTimeout(resolve, actualDelay))
+      signal?.throwIfAborted()
+      await new Promise<void>((resolve, reject) => {
+        const abort = () => {
+          clearTimeout(timer)
+          reject(signal?.reason)
+        }
+        const timer = setTimeout(() => {
+          signal?.removeEventListener('abort', abort)
+          resolve()
+        }, actualDelay)
+        signal?.addEventListener('abort', abort, { once: true })
+      })
 
       // Exponential backoff
       delay = Math.min(delay * backoffMultiplier, maxDelayMs)

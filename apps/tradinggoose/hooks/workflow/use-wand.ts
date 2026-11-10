@@ -1,4 +1,11 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  assertNativeCorrelation,
+  type CompletionEvent,
+  type CompletionFailureResponse,
+  parseNativeContract,
+} from '@/lib/copilot/native/contract'
+import { readNativeEvents } from '@/lib/copilot/native/stream'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WandConfig } from '@/blocks/types'
 
@@ -55,231 +62,190 @@ interface ChatMessage {
 interface UseWandProps {
   wandConfig: WandConfig
   currentValue?: string
-  onGeneratedContent: (content: string) => void
+  onGeneratedContent: (content: string) => undefined | boolean
+  /** Current document identity and direct source read protect late commits from concurrent edits. */
+  generationKey?: unknown
+  getCurrentValue?: () => string
+  onGenerationEnd?: () => void
   onStreamChunk?: (chunk: string) => void
   onStreamStart?: () => void
   onGenerationComplete?: (prompt: string, generatedContent: string) => void
 }
 
-export function useWand({
-  wandConfig,
-  currentValue,
-  onGeneratedContent,
-  onStreamChunk,
-  onStreamStart,
-  onGenerationComplete,
-}: UseWandProps) {
+export function useWand(props: UseWandProps) {
+  const current = useRef(props)
+  current.current = props
   const [isLoading, setIsLoading] = useState(false)
   const [isPromptVisible, setIsPromptVisible] = useState(false)
   const [promptInputValue, setPromptInputValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isStreaming, setIsStreaming] = useState(false)
-
-  // Conversation history state
+  const [terminalOutcome, setTerminalOutcome] = useState<
+    CompletionEvent | CompletionFailureResponse | null
+  >(null)
   const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>([])
-
+  const historyRef = useRef<ChatMessage[]>([])
   const abortControllerRef = useRef<AbortController | null>(null)
-
+  const generation = useRef(0)
+  useEffect(
+    () => () => {
+      generation.current++
+      abortControllerRef.current?.abort()
+    },
+    []
+  )
   const showPromptInline = useCallback(() => {
     setIsPromptVisible(true)
     setError(null)
   }, [])
-
   const hidePromptInline = useCallback(() => {
     setIsPromptVisible(false)
     setPromptInputValue('')
     setError(null)
   }, [])
-
-  const updatePromptValue = useCallback((value: string) => {
-    setPromptInputValue(value)
-  }, [])
-
+  const updatePromptValue = useCallback((value: string) => setPromptInputValue(value), [])
   const cancelGeneration = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      abortControllerRef.current = null
-    }
+    generation.current++
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    current.current.onGenerationEnd?.()
     setIsStreaming(false)
     setIsLoading(false)
     setError(null)
   }, [])
-
   const openPrompt = useCallback(() => {
     setIsPromptVisible(true)
     setPromptInputValue('')
   }, [])
-
   const closePrompt = useCallback(() => {
-    if (isLoading) return
-    setIsPromptVisible(false)
-    setPromptInputValue('')
+    if (!isLoading) {
+      setIsPromptVisible(false)
+      setPromptInputValue('')
+    }
   }, [isLoading])
 
-  const generateStream = useCallback(
-    async ({ prompt }: { prompt: string }) => {
-      if (!prompt) {
-        setError('Prompt cannot be empty.')
-        return
-      }
-
-      if (!wandConfig.enabled) {
-        setError('Wand is not enabled.')
-        return
-      }
-
-      setIsLoading(true)
-      setIsStreaming(true)
-      setError(null)
-
-      abortControllerRef.current = new AbortController()
-
-      // Signal the start of streaming to clear previous content
-      if (onStreamStart) {
-        onStreamStart()
-      }
-
-      try {
-        // Build context-aware message
-        const contextInfo = buildContextInfo(currentValue, wandConfig.generationType)
-
-        // Build the system prompt with context information
-        let systemPrompt = wandConfig.prompt
-        if (systemPrompt.includes('{context}')) {
-          systemPrompt = systemPrompt.replace('{context}', contextInfo)
-        }
-
-        // User message is just the user's specific request
-        const userMessage = prompt
-
-        // Keep track of the current prompt for history
-        const currentPrompt = prompt
-
-        const response = await fetch('/api/wand-copilot', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache, no-transform',
-          },
-          body: JSON.stringify({
-            prompt: userMessage,
-            systemPrompt: systemPrompt, // Send the processed system prompt with context
-            streaming: true,
-            history: wandConfig.maintainHistory ? conversationHistory : [], // Include history if enabled
-            generationType: wandConfig.generationType,
-          }),
-          signal: abortControllerRef.current.signal,
-          cache: 'no-store',
-        })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(errorText || `HTTP error! status: ${response.status}`)
-        }
-
-        if (!response.body) {
-          throw new Error('Response body is null')
-        }
-
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let accumulatedContent = ''
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-
-            const chunk = decoder.decode(value)
-            const lines = chunk.split('\n\n')
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const lineData = line.substring(6)
-
-                if (lineData === '[DONE]') {
-                  continue
-                }
-
-                let data: { error?: string; chunk?: string; done?: boolean }
-                try {
-                  data = JSON.parse(lineData)
-                } catch (parseError) {
-                  logger.debug('Failed to parse SSE line', { line, parseError })
-                  continue
-                }
-
-                if (data.error) {
-                  throw new Error(data.error)
-                }
-
-                if (data.chunk) {
-                  accumulatedContent += data.chunk
-                  if (onStreamChunk) {
-                    onStreamChunk(data.chunk)
-                  }
-                }
-
-                if (data.done) {
-                  break
-                }
-              }
-            }
-          }
-        } finally {
-          reader.releaseLock()
-        }
-
-        if (accumulatedContent) {
-          onGeneratedContent(accumulatedContent)
-
-          if (wandConfig.maintainHistory) {
-            setConversationHistory((prev) => [
-              ...prev,
-              { role: 'user', content: currentPrompt },
-              { role: 'assistant', content: accumulatedContent },
-            ])
-          }
-
-          if (onGenerationComplete) {
-            onGenerationComplete(currentPrompt, accumulatedContent)
-          }
-        }
-
-        setPromptInputValue('')
-        logger.debug('Wand generation completed', {
+  const generateStream = useCallback(async ({ prompt }: { prompt: string }) => {
+    if (!prompt) {
+      setError('Prompt cannot be empty.')
+      return
+    }
+    const start = current.current
+    if (!start.wandConfig.enabled) {
+      setError('Wand is not enabled.')
+      return
+    }
+    abortControllerRef.current?.abort()
+    const id = ++generation.current
+    const abort = new AbortController()
+    abortControllerRef.current = abort
+    const baseValue = start.currentValue
+    const baseDocumentValue = start.getCurrentValue?.()
+    const key = start.generationKey
+    setIsLoading(true)
+    setIsStreaming(true)
+    setError(null)
+    setTerminalOutcome(null)
+    start.onStreamStart?.()
+    try {
+      const contextInfo = buildContextInfo(baseValue, start.wandConfig.generationType)
+      const systemPrompt = start.wandConfig.prompt.replace('{context}', contextInfo)
+      const response = await fetch('/api/wand-copilot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-transform' },
+        body: JSON.stringify({
           prompt,
-          contentLength: accumulatedContent.length,
-        })
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          logger.debug('Wand generation cancelled')
-        } else {
-          logger.error('Wand generation failed', { error })
-          setError(error.message || 'Generation failed')
+          systemPrompt,
+          history: start.wandConfig.maintainHistory ? historyRef.current : [],
+          generationType: start.wandConfig.generationType,
+        }),
+        signal: abort.signal,
+        cache: 'no-store',
+      })
+      if (id !== generation.current || abort.signal.aborted) return
+      if (!response.ok) {
+        const data: unknown = await response.json()
+        try {
+          const failure = await parseNativeContract('CompletionFailureResponse', data)
+          assertNativeCorrelation(failure, response.headers.get('x-wand-request-id') ?? '')
+          if (id !== generation.current || abort.signal.aborted) return
+          setTerminalOutcome(failure)
+          throw new Error(failure.error.message)
+        } catch (failure) {
+          if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string')
+            throw new Error(data.error)
+          throw failure
         }
-      } finally {
+      }
+      const requestId = response.headers.get('x-wand-request-id')
+      if (!requestId || !response.body)
+        throw new Error('Native completion stream identity or body is missing')
+      let complete = false
+      for await (const event of readNativeEvents(response.body, 'CompletionEvent', {
+        requestId,
+        signal: abort.signal,
+      })) {
+        if (id !== generation.current || abort.signal.aborted) return
+        if ('chunk' in event) {
+          current.current.onStreamChunk?.(event.chunk)
+          continue
+        }
+        if ('done' in event) assertNativeCorrelation(event.result, requestId)
+        setTerminalOutcome(event) // Keep received acceptance/disposition before any UI error/cancel.
+        if ('error' in event) throw new Error(event.error)
+        if ('cancelled' in event) throw new Error('Generation cancelled')
+        const latest = current.current
+        if (
+          !latest.wandConfig.enabled ||
+          latest.generationKey !== key ||
+          latest.currentValue !== baseValue ||
+          latest.getCurrentValue?.() !== baseDocumentValue
+        )
+          throw new Error('Document changed during generation; generated preview was discarded')
+        if (latest.onGeneratedContent(event.result.text) === false)
+          throw new Error('Document changed during generation; generated preview was discarded')
+        if (start.wandConfig.maintainHistory) {
+          const nextHistory: ChatMessage[] = [
+            ...historyRef.current,
+            { role: 'user', content: prompt },
+            { role: 'assistant', content: event.result.text },
+          ]
+          historyRef.current = nextHistory
+          setConversationHistory(nextHistory)
+        }
+        latest.onGenerationComplete?.(prompt, event.result.text)
+        setPromptInputValue('')
+        complete = true
+        break
+      }
+      if (!complete) throw new Error('Native completion ended without a terminal outcome')
+    } catch (failure) {
+      if (id === generation.current && !abort.signal.aborted) {
+        const message = failure instanceof Error ? failure.message : 'Generation failed'
+        logger.error('Wand generation failed', { error: message })
+        setError(message)
+      }
+    } finally {
+      if (id === generation.current) {
+        current.current.onGenerationEnd?.()
         setIsLoading(false)
         setIsStreaming(false)
         abortControllerRef.current = null
       }
-    },
-    [
-      wandConfig,
-      currentValue,
-      onGeneratedContent,
-      onStreamChunk,
-      onStreamStart,
-      onGenerationComplete,
-    ]
-  )
-
+    }
+  }, [])
+  useEffect(() => {
+    cancelGeneration()
+    historyRef.current = []
+    setConversationHistory([])
+    setTerminalOutcome(null)
+  }, [props.generationKey, cancelGeneration])
   return {
     isLoading,
     isStreaming,
     isPromptVisible,
     promptInputValue,
     error,
+    terminalOutcome,
     conversationHistory,
     generateStream,
     showPromptInline,

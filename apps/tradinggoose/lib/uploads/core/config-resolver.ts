@@ -1,3 +1,4 @@
+import { assertPublicStorageContext } from '@/lib/uploads/archive-boundary'
 import {
   AZURE_CHAT_CONFIG,
   AZURE_CONFIG,
@@ -45,6 +46,7 @@ export interface StorageConfig {
  * Get the appropriate storage configuration for a given context.
  */
 export function getStorageConfig(context: StorageContext): StorageConfig {
+  assertPublicStorageContext(context)
   if (USE_AZURE_STORAGE) {
     return getAzureConfig(context)
   }

@@ -2,21 +2,23 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { compareMoney, monetary } from '@tradinggoose/billing/money'
 import { Check, LoaderCircle, Pencil, X } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { organizationMutationOptions } from '@/hooks/queries/organization'
 import { subscriptionMutationOptions } from '@/hooks/queries/subscription'
+import { formatUsd } from '@/i18n/formatters'
 
 const logger = createLogger('UsageLimit')
 
 interface UsageLimitProps {
-  currentLimit: number
-  currentUsage: number
+  currentLimit: string | null | undefined
+  currentUsage: string | null | undefined
   canEdit: boolean
-  minimumLimit: number
+  minimumLimit: string | null | undefined
   context?: 'user' | 'organization'
   organizationId?: string
 }
@@ -30,8 +32,14 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
     { currentLimit, currentUsage, canEdit, minimumLimit, context = 'user', organizationId },
     ref
   ) => {
+    const locale = useLocale()
+    const editable =
+      canEdit &&
+      typeof currentLimit === 'string' &&
+      typeof currentUsage === 'string' &&
+      typeof minimumLimit === 'string'
     const t = useTranslations('workspace.settingsModal.subscription.limit')
-    const [inputValue, setInputValue] = useState(currentLimit.toString())
+    const [inputValue, setInputValue] = useState(currentLimit ?? '')
     const [errorType, setErrorType] = useState<'general' | 'belowUsage' | null>(null)
     const hasError = errorType !== null
     const [isEditing, setIsEditing] = useState(false)
@@ -52,10 +60,10 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
         : updateUserLimitMutation.isPending
 
     const handleStartEdit = () => {
-      if (!canEdit || isPending) return
+      if (!editable || isPending) return
       setErrorType(null)
       setIsEditing(true)
-      setInputValue(currentLimit.toString())
+      setInputValue(currentLimit ?? '')
     }
 
     useImperativeHandle(
@@ -63,11 +71,11 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
       () => ({
         startEdit: handleStartEdit,
       }),
-      [canEdit, currentLimit, isPending]
+      [editable, currentLimit, isPending]
     )
 
     useEffect(() => {
-      setInputValue(currentLimit.toString())
+      setInputValue(currentLimit ?? '')
     }, [currentLimit])
 
     useEffect(() => {
@@ -80,20 +88,25 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
     const handleSubmit = async () => {
       if (submitLockRef.current || isPending) return
 
-      const newLimit = Number.parseInt(inputValue, 10)
-
-      if (Number.isNaN(newLimit) || newLimit < minimumLimit) {
-        setInputValue(currentLimit.toString())
+      if (!editable) return
+      let newLimit: string
+      try {
+        newLimit = monetary(inputValue)
+      } catch {
+        setInputValue(currentLimit ?? '')
         setIsEditing(false)
         return
       }
-
-      if (newLimit < currentUsage) {
+      if (compareMoney(newLimit, minimumLimit!) < 0) {
+        setInputValue(currentLimit ?? '')
+        setIsEditing(false)
+        return
+      }
+      if (compareMoney(newLimit, currentUsage!) < 0) {
         setErrorType('belowUsage')
         return
       }
-
-      if (newLimit === currentLimit) {
+      if (compareMoney(newLimit, currentLimit!) === 0) {
         setIsEditing(false)
         return
       }
@@ -112,7 +125,7 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
           await updateUserLimitMutation.mutateAsync({ limit: newLimit })
         }
 
-        setInputValue(newLimit.toString())
+        setInputValue(newLimit)
         setIsEditing(false)
         setErrorType(null)
       } catch (err) {
@@ -121,7 +134,7 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
         const message = err instanceof Error ? err.message : String(err)
         setErrorType(message.includes('below current usage') ? 'belowUsage' : 'general')
 
-        setInputValue(currentLimit.toString())
+        setInputValue(currentLimit ?? '')
       } finally {
         submitLockRef.current = false
       }
@@ -129,7 +142,7 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
 
     const handleCancelEdit = () => {
       setIsEditing(false)
-      setInputValue(currentLimit.toString())
+      setInputValue(currentLimit ?? '')
       setErrorType(null)
     }
 
@@ -151,9 +164,14 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
               <span className='text-muted-foreground text-xs tabular-nums'>$</span>
               <input
                 ref={inputRef}
-                type='number'
+                type='text'
+                inputMode='decimal'
+                aria-label={t('edit')}
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                onChange={(e) => {
+                  setInputValue(e.target.value)
+                  setErrorType(null)
+                }}
                 onKeyDown={handleKeyDown}
                 onBlur={(e) => {
                   const relatedTarget = e.relatedTarget as HTMLElement
@@ -168,20 +186,20 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
                   '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
                   hasError && 'text-red-500'
                 )}
-                min={minimumLimit}
-                step='1'
                 disabled={isPending}
                 autoComplete='off'
                 autoCorrect='off'
                 autoCapitalize='off'
                 spellCheck='false'
-                style={{ width: `${Math.max(3, inputValue.length)}ch` }}
+                style={{ width: `${Math.min(24, Math.max(3, inputValue.length))}ch` }}
               />
             </>
           ) : (
-            <span className='text-muted-foreground text-xs tabular-nums'>${currentLimit}</span>
+            <span className='text-muted-foreground text-xs tabular-nums'>
+              {formatUsd(locale, currentLimit)}
+            </span>
           )}
-          {canEdit && (
+          {editable && (
             <Button
               variant='ghost'
               size='icon'

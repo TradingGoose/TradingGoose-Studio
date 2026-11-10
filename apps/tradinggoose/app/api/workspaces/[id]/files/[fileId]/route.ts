@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { deleteWorkspaceFile } from '@/lib/uploads/contexts/workspace'
+import { PrivateSourceMutationError } from '@/lib/uploads/source-read-boundary'
 import { generateRequestId } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -35,7 +36,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
-    await deleteWorkspaceFile(workspaceId, fileId)
+    await deleteWorkspaceFile(workspaceId, fileId, session.user.id)
 
     logger.info(`[${requestId}] Deleted workspace file: ${fileId}`)
 
@@ -49,7 +50,7 @@ export async function DELETE(
         success: false,
         error: error instanceof Error ? error.message : 'Failed to delete file',
       },
-      { status: 500 }
+      { status: error instanceof PrivateSourceMutationError ? error.status : 500 }
     )
   }
 }

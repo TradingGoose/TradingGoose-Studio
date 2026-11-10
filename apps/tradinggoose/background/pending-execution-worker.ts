@@ -1,7 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { AbortTaskRunError, task, timeout, wait } from '@trigger.dev/sdk'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import {
   cancelPendingExecutionTriggerRun,
   getProcessingPendingExecution,
@@ -17,6 +17,7 @@ import {
 } from '@/lib/execution/pending-execution'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
+import { emitWorkflowExecutionCompleted } from '@/lib/logs/events'
 import { executionLogger } from '@/lib/logs/execution/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
@@ -231,9 +232,21 @@ export async function terminalizeWorkflowExecution(
     .select({
       id: workflowExecutionLogs.id,
       endedAt: workflowExecutionLogs.endedAt,
+      executionId: workflowExecutionLogs.executionId,
+      workspaceId: workflowExecutionLogs.workspaceId,
+      workflowId: workflowExecutionLogs.workflowId,
+      workflowSummary: workflowExecutionLogs.workflowSummary,
+      executionData: workflowExecutionLogs.executionData,
+      level: workflowExecutionLogs.level,
+      trigger: workflowExecutionLogs.trigger,
     })
     .from(workflowExecutionLogs)
-    .where(eq(workflowExecutionLogs.executionId, executionId))
+    .where(
+      and(
+        eq(workflowExecutionLogs.executionId, executionId),
+        eq(workflowExecutionLogs.workspaceId, row.workspaceId)
+      )
+    )
     .limit(1)
   if (existingLog?.endedAt) {
     await executionLogger.settleWorkflowExecutionUsage(executionId)
@@ -242,6 +255,7 @@ export async function terminalizeWorkflowExecution(
       workflowId: row.workflowId,
     })
     if (terminal?.status === 'completed' || terminal?.status === 'failed') {
+      await emitWorkflowExecutionCompleted(existingLog)
       await completeWorkflowCheckpointChild({
         childExecutionId: executionId,
         input: { ...terminal.result },
@@ -281,6 +295,7 @@ export async function terminalizeWorkflowExecution(
       userId: row.userId,
       workspaceId: row.workspaceId,
       workflowState: getWorkflowState(row),
+      billable,
       triggerData: metadata ? { ...(triggerData ?? {}), queuedExecution: metadata } : triggerData,
     })
   }

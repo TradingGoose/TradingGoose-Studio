@@ -3,6 +3,7 @@
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { COPILOT_NATIVE_REVISION, type CompletionEvent } from '@/lib/copilot/native/contract'
 
 const mockRunQueuedWorkflowExecution = vi.hoisted(() => vi.fn())
 const mockWorkflowDoc = vi.hoisted(() => ({}))
@@ -597,21 +598,33 @@ function WandHarness() {
   )
 }
 
-const wandStreamResponse = (payload: string) => ({
-  ok: true,
-  body: new ReadableStream({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode(payload))
-      controller.close()
-    },
-  }),
-})
+const wandRequestId = 'wand-feedback-native-request'
+const wandFinancial = {
+  accepted: true as const,
+  modelUsd: 'unavailable' as const,
+  appliedUsd: '0.02',
+}
+const wandStreamResponse = (events: CompletionEvent[]) =>
+  new Response(
+    new ReadableStream({
+      start(controller) {
+        for (const event of events)
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`))
+        controller.close()
+      },
+    }),
+    { headers: { 'content-type': 'text/event-stream', 'x-wand-request-id': wandRequestId } }
+  )
 
 describe('useWand feedback', () => {
+  const reactEnvironment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  let previousActEnvironment: boolean | undefined
   let container: HTMLDivElement
   let root: Root
 
   beforeEach(() => {
+    previousActEnvironment = reactEnvironment.IS_REACT_ACT_ENVIRONMENT
+    reactEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     generatedWandContent.mockReset()
     currentWand = null
     container = document.createElement('div')
@@ -624,6 +637,7 @@ describe('useWand feedback', () => {
     act(() => root.unmount())
     container.remove()
     vi.unstubAllGlobals()
+    reactEnvironment.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
   })
 
   it('surfaces SSE failure safely, retains the prompt for retry, and clears it after success', async () => {
@@ -631,9 +645,33 @@ describe('useWand feedback', () => {
       'fetch',
       vi
         .fn()
-        .mockResolvedValueOnce(wandStreamResponse('data: {"error":"private upstream detail"}\n\n'))
         .mockResolvedValueOnce(
-          wandStreamResponse('data: {"chunk":"generated"}\n\ndata: {"done":true}\n\n')
+          wandStreamResponse([
+            {
+              error: 'private upstream detail',
+              code: 'NATIVE_FAILURE',
+              refusal: false,
+              uncertain: false,
+              financialDisposition: 'accepted',
+              financial: wandFinancial,
+            },
+          ])
+        )
+        .mockResolvedValueOnce(
+          wandStreamResponse([
+            { chunk: 'uncommitted preview' },
+            {
+              done: true,
+              result: {
+                protocolRevision: COPILOT_NATIVE_REVISION,
+                requestId: wandRequestId,
+                status: 'completed',
+                runId: 'wand-feedback-run',
+                text: 'generated',
+                financial: wandFinancial,
+              },
+            },
+          ])
         )
     )
 
@@ -647,6 +685,13 @@ describe('useWand feedback', () => {
 
     expect(currentWand?.error).toBe('private upstream detail')
     expect(currentWand?.promptInputValue).toBe('Keep this prompt')
+    expect(generatedWandContent).not.toHaveBeenCalled()
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(currentWand?.terminalOutcome).toMatchObject({
+      error: 'private upstream detail',
+      financialDisposition: 'accepted',
+      financial: wandFinancial,
+    })
     const alert = container.querySelector<HTMLElement>('[role="alert"]')
     expect(alert?.textContent).toBe('Generation failed. Your prompt is ready to retry.')
     expect(alert?.textContent).not.toContain('private upstream detail')
@@ -658,7 +703,12 @@ describe('useWand feedback', () => {
 
     expect(currentWand?.error).toBeNull()
     expect(currentWand?.promptInputValue).toBe('')
-    expect(generatedWandContent).toHaveBeenCalledWith('generated')
+    expect(generatedWandContent).toHaveBeenCalledExactlyOnceWith('generated')
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(currentWand?.terminalOutcome).toMatchObject({
+      done: true,
+      result: { requestId: wandRequestId, text: 'generated', financial: wandFinancial },
+    })
     expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 })

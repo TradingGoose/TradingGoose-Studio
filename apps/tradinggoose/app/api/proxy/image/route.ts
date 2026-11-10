@@ -2,6 +2,11 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateImageUrl } from '@/lib/security/input-validation'
+import { fetchPublicStorageUrl } from '@/lib/uploads/archive-boundary'
+import {
+  assertStorageReferenceAccess,
+  PrivateSourceAccessError,
+} from '@/lib/uploads/source-read-boundary'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('ImageProxyAPI')
@@ -26,6 +31,13 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Missing URL parameter', { status: 400 })
   }
 
+  try {
+    assertStorageReferenceAccess(imageUrl)
+  } catch (error) {
+    return new NextResponse(error instanceof Error ? error.message : 'File access denied', {
+      status: 403,
+    })
+  }
   const urlValidation = validateImageUrl(imageUrl)
   if (!urlValidation.isValid) {
     logger.warn(`[${requestId}] Blocked image proxy request`, {
@@ -38,7 +50,7 @@ export async function GET(request: NextRequest) {
   logger.info(`[${requestId}] Proxying image request for: ${imageUrl}`)
 
   try {
-    const imageResponse = await fetch(imageUrl, {
+    const imageResponse = await fetchPublicStorageUrl(imageUrl, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -83,7 +95,7 @@ export async function GET(request: NextRequest) {
     logger.error(`[${requestId}] Image proxy error:`, { error: errorMessage })
 
     return new NextResponse(`Failed to proxy image: ${errorMessage}`, {
-      status: 500,
+      status: error instanceof PrivateSourceAccessError ? error.status : 500,
     })
   }
 }

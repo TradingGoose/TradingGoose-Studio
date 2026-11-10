@@ -1,235 +1,147 @@
-/**
- * @vitest-environment node
- */
-
+/** @vitest-environment node */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockDb, mockEq, mockGetResolvedBillingSettings } = vi.hoisted(() => ({
-  mockDb: {
-    select: vi.fn(),
-    update: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  rows: [] as Array<Record<string, unknown>>,
+  updates: [] as Array<Record<string, unknown>>,
+  lock: vi.fn(),
+  insert: vi.fn(),
+  settings: vi.fn(),
+  effective: vi.fn(),
+  editable: vi.fn(),
+  minimum: vi.fn(),
+  configured: vi.fn(),
+}))
+const query = () => ({
+  from() {
+    return this
   },
-  mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
-  mockGetResolvedBillingSettings: vi.fn(),
-}))
-
-let statsRows: Array<Record<string, unknown>> = []
-let updateValues: Array<Record<string, unknown>> = []
-
-vi.mock('@tradinggoose/db', () => ({
-  db: mockDb,
-}))
-
+  where() {
+    return this
+  },
+  limit: async () => mocks.rows,
+})
+const store = {
+  select: vi.fn(query),
+  update: vi.fn(() => ({
+    set: (value: Record<string, unknown>) => {
+      mocks.updates.push(value)
+      return { where: vi.fn(async () => []) }
+    },
+  })),
+  insert: mocks.insert,
+  transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback(store)),
+}
+vi.mock('@tradinggoose/db', () => ({ db: store }))
 vi.mock('@tradinggoose/db/schema', () => ({
+  idempotencyKey: { namespace: 'namespace', key: 'key' },
   member: {},
-  settings: {},
   user: {},
   userStats: {
-    userId: 'userStats.userId',
-    currentPeriodCost: 'userStats.currentPeriodCost',
-    currentPeriodCopilotCost: 'userStats.currentPeriodCopilotCost',
-    grantedOnboardingAllowanceUsd: 'userStats.grantedOnboardingAllowanceUsd',
-    customUsageLimit: 'userStats.customUsageLimit',
+    id: 'id',
+    userId: 'userId',
+    currentPeriodCost: 'current',
+    totalCost: 'total',
+    lastPeriodCost: 'prior',
   },
 }))
-
-vi.mock('drizzle-orm', () => ({
-  eq: mockEq,
+vi.mock('drizzle-orm', () => ({ eq: vi.fn() }))
+vi.mock('@tradinggoose/billing', () => ({
+  FinancialPolicyError: Error,
+  financialNamespace: () => 'billing-usage:user:actor',
+  lockFinancialRoots: mocks.lock,
 }))
-
-vi.mock('@/components/emails/render-email', () => ({
-  getEmailSubject: vi.fn(),
-  renderFreeTierUpgradeEmail: vi.fn(),
-  renderUsageThresholdEmail: vi.fn(),
-}))
-
 vi.mock('@/lib/billing/core/subscription', () => ({
-  getConfiguredPersonalUsageLimit: vi.fn(),
-  getEffectiveSubscription: vi.fn(),
-  getSubscribedPersonalUsageMinimumLimit: vi.fn(),
+  getEffectiveSubscription: mocks.effective,
+  getPersonalEffectiveSubscription: mocks.effective,
+  getSubscribedPersonalUsageMinimumLimit: mocks.minimum,
+  getConfiguredPersonalUsageLimit: mocks.configured,
 }))
+vi.mock('@/lib/billing/settings', () => ({ getResolvedBillingSettings: mocks.settings }))
+vi.mock('@/lib/billing/subscriptions/utils', () => ({ canEditUsageLimit: mocks.editable }))
+vi.mock('@/lib/billing/tiers', () => ({ toBillingTierSummary: (tier: unknown) => tier }))
+vi.mock('@/lib/logs/console/logger', () => ({ createLogger: () => ({ error: vi.fn() }) }))
 
-vi.mock('@/lib/billing/settings', () => ({
-  getResolvedBillingSettings: mockGetResolvedBillingSettings,
-}))
-
-vi.mock('@/lib/billing/subscriptions/utils', () => ({
-  canEditUsageLimit: vi.fn(),
-}))
-
-vi.mock('@/lib/billing/tiers', () => ({
-  getPrimaryPublicUserUpgradeTier: vi.fn(),
-  getTierBasePrice: vi.fn(),
-  getTierUsageAllowanceUsd: vi.fn(),
-  toBillingTierSummary: vi.fn(),
-}))
-
-vi.mock('@/lib/email/mailer', () => ({
-  sendEmail: vi.fn(),
-}))
-
-vi.mock('@/lib/email/unsubscribe', () => ({
-  getEmailPreferences: vi.fn(),
-}))
-
-vi.mock('@/lib/logs/console/logger', () => ({
-  createLogger: () => ({
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  }),
-}))
-
-vi.mock('@/lib/urls/utils', () => ({
-  getBaseUrl: vi.fn(),
-}))
-
-function createSelectQueryMock(result: unknown) {
-  const query = {
-    from: vi.fn(() => query),
-    where: vi.fn(() => query),
-    limit: vi.fn(() => Promise.resolve(result)),
-  }
-
-  return query
-}
-
-describe('usage onboarding allowance helpers', () => {
+describe('exact usage readers and explicit limit mutation', () => {
   beforeEach(() => {
-    vi.resetModules()
     vi.clearAllMocks()
-
-    statsRows = []
-    updateValues = []
-
-    mockGetResolvedBillingSettings.mockResolvedValue({
-      onboardingAllowanceUsd: 25,
-    })
-    mockDb.select.mockImplementation(() => createSelectQueryMock(statsRows))
-    mockDb.update.mockImplementation(() => ({
-      set: vi.fn((values) => ({
-        where: vi.fn(async () => {
-          updateValues.push(values)
-          return []
-        }),
-      })),
-    }))
-  })
-
-  it('consumes granted onboarding allowance without reducing the seeded custom usage limit', async () => {
-    statsRows = [
+    mocks.updates.length = 0
+    mocks.rows = [
       {
-        currentPeriodCost: '12.50',
-        currentPeriodCopilotCost: '1.25',
-        grantedOnboardingAllowanceUsd: '25.00',
-        customUsageLimit: '25.00',
-      },
-    ]
-
-    const { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } = await import('./usage')
-
-    await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
-
-    expect(updateValues).toEqual([
-      {
-        billedOverageThisPeriod: '0',
-        currentPeriodCopilotCost: '0',
-        currentPeriodCost: '0',
-        grantedOnboardingAllowanceUsd: '12.5',
-        lastPeriodCopilotCost: '1.25',
-        lastPeriodCost: '12.5',
-      },
-    ])
-  })
-
-  it('clamps consumed onboarding allowance at zero', async () => {
-    statsRows = [
-      {
-        currentPeriodCost: '30.00',
-        currentPeriodCopilotCost: '0.50',
-        grantedOnboardingAllowanceUsd: '25.00',
-        customUsageLimit: '25.00',
-      },
-    ]
-
-    const { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } = await import('./usage')
-
-    await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
-
-    expect(updateValues).toEqual([
-      {
-        billedOverageThisPeriod: '0',
-        currentPeriodCopilotCost: '0',
-        currentPeriodCost: '0',
+        currentPeriodCost: '0.30000000000000001',
+        lastPeriodCost: '0.1',
+        totalCost: '0.40000000000000001',
         grantedOnboardingAllowanceUsd: '0',
-        lastPeriodCopilotCost: '0.50',
-        lastPeriodCost: '30',
-      },
-    ])
-  })
-
-  it('preserves higher custom usage limits while consuming onboarding allowance', async () => {
-    statsRows = [
-      {
-        currentPeriodCost: '7.00',
-        currentPeriodCopilotCost: '0.75',
-        grantedOnboardingAllowanceUsd: '25.00',
-        customUsageLimit: '100.00',
+        customUsageLimit: '0.3',
+        customUsageLimitUpdatedAt: null,
       },
     ]
-
-    const { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } = await import('./usage')
-
-    await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
-
-    expect(updateValues).toEqual([
-      {
-        billedOverageThisPeriod: '0',
-        currentPeriodCopilotCost: '0',
-        currentPeriodCost: '0',
-        grantedOnboardingAllowanceUsd: '18',
-        lastPeriodCopilotCost: '0.75',
-        lastPeriodCost: '7',
-      },
+    mocks.settings.mockResolvedValue({ billingEnabled: true, usageWarningThresholdPercent: 80 })
+    mocks.effective.mockResolvedValue({ tier: { id: 'tier' }, periodStart: null, periodEnd: null })
+    mocks.minimum.mockReturnValue('0.3')
+    mocks.configured.mockReturnValue('0.3')
+    mocks.editable.mockReturnValue(true)
+  })
+  it('returns exact committed strings and derives exceeded state before display rounding', async () => {
+    const { getUserUsageData } = await import('./usage')
+    const result = await getUserUsageData('actor')
+    expect(result.currentUsage).toBe('0.30000000000000001')
+    expect(result.limit).toBe('0.3')
+    expect(result.isExceeded).toBe(true)
+    expect(mocks.lock).not.toHaveBeenCalled()
+    expect(mocks.insert).not.toHaveBeenCalled()
+  })
+  it('keeps disabled billing unlimited without a numeric money sentinel', async () => {
+    mocks.settings.mockResolvedValue({ billingEnabled: false, usageWarningThresholdPercent: 80 })
+    const { getUserUsageData } = await import('./usage')
+    const result = await getUserUsageData('actor')
+    expect(result.currentUsage).toBe('0.40000000000000001')
+    expect(result.limit).toBeNull()
+    expect(result.isExceeded).toBe(false)
+  })
+  it('never repairs a missing ledger while reading', async () => {
+    mocks.rows = []
+    const { getUserUsageData } = await import('./usage')
+    await expect(getUserUsageData('actor')).rejects.toThrow('ledger is missing')
+    expect(mocks.insert).not.toHaveBeenCalled()
+    expect(mocks.lock).not.toHaveBeenCalled()
+  })
+  it('reads exact committed current-period money directly without provisioning', async () => {
+    mocks.rows = [{ current: '0.30000000000000001' }]
+    const { getEffectiveCurrentPeriodCost } = await import('./usage')
+    expect(await getEffectiveCurrentPeriodCost('actor')).toBe('0.30000000000000001')
+    expect(mocks.insert).not.toHaveBeenCalled()
+    expect(mocks.lock).not.toHaveBeenCalled()
+    expect(mocks.updates).toEqual([])
+  })
+  it('refuses missing personal current-period ledger without repair', async () => {
+    mocks.rows = []
+    const { getEffectiveCurrentPeriodCost } = await import('./usage')
+    await expect(getEffectiveCurrentPeriodCost('actor')).rejects.toThrow('ledger is missing')
+    expect(mocks.insert).not.toHaveBeenCalled()
+    expect(mocks.lock).not.toHaveBeenCalled()
+    expect(mocks.updates).toEqual([])
+  })
+  it('refuses a limit below exact committed usage under the original root lock', async () => {
+    const { updateUserUsageLimit } = await import('./usage')
+    expect(await updateUserUsageLimit('actor', '0.3')).toEqual({
+      success: false,
+      error: 'Usage limit cannot be below current usage of $0.30000000000000001',
+    })
+    expect(mocks.lock).toHaveBeenCalledWith(store, [{ type: 'user', id: 'actor' }])
+    expect(mocks.updates).toEqual([])
+  })
+  it('preserves an exact allowed limit without changing grant or monetary slots', async () => {
+    const { updateUserUsageLimit } = await import('./usage')
+    expect(await updateUserUsageLimit('actor', '0.30000000000000002')).toEqual({ success: true })
+    expect(mocks.updates).toEqual([
+      { customUsageLimit: '0.30000000000000002', customUsageLimitUpdatedAt: expect.any(Date) },
     ])
   })
-
-  it('keeps migrated last-period usage intact on a zero-usage retry', async () => {
-    statsRows = [
-      {
-        currentPeriodCost: '0',
-        currentPeriodCopilotCost: '0',
-        grantedOnboardingAllowanceUsd: '12.50',
-        customUsageLimit: '12.50',
-      },
-    ]
-
-    const { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } = await import('./usage')
-
-    await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
-
-    expect(updateValues).toEqual([])
-  })
-
-  it('resets default usage state to the onboarding allowance balance', async () => {
-    statsRows = [
-      {
-        grantedOnboardingAllowanceUsd: '7.00',
-      },
-    ]
-
-    const { resetUserDefaultUsageToOnboardingAllowanceBalance } = await import('./usage')
-
-    await resetUserDefaultUsageToOnboardingAllowanceBalance('user-1')
-
-    expect(updateValues).toEqual([
-      {
-        billedOverageThisPeriod: '0',
-        currentPeriodCopilotCost: '0',
-        currentPeriodCost: '18',
-        customUsageLimit: '25',
-        customUsageLimitUpdatedAt: expect.any(Date),
-      },
-    ])
+  it('rejects monetary-number ingress rather than coercing it', async () => {
+    const { updateUserUsageLimit } = await import('./usage')
+    expect((await updateUserUsageLimit('actor', 0.3 as unknown as string)).success).toBe(false)
+    expect(mocks.lock).not.toHaveBeenCalled()
+    expect(mocks.updates).toEqual([])
   })
 })

@@ -21,6 +21,7 @@ import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { LocaleCode } from '@/i18n/utils'
+import { getRegistryModel, useModelRegistry } from '@/stores/model-registry'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -90,6 +91,10 @@ export function ComboBox({
   contextValues,
 }: ComboBoxProps) {
   const locale = useLocale() as LocaleCode
+  const registryLoading = useModelRegistry((state) => state.isLoading)
+  const registryError = useModelRegistry((state) => state.error)
+  const loadRegistry = useModelRegistry((state) => state.load)
+  const isModelPicker = subBlockId === 'model' && config.dropdownMode === 'sidebar'
   const placeholderText = placeholder ?? translateWorkflowLabel(locale, 'typeOrSelectAnOption')
   const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
@@ -140,7 +145,8 @@ export function ComboBox({
     typeof modelValue === 'string' &&
     evaluateSubBlockConditionValues(capabilityCondition, contextValues ?? {}) &&
     (extractReferencePrefixes(modelValue).length > 0 ||
-      extractEnvironmentReferences(modelValue).length > 0)
+      extractEnvironmentReferences(modelValue).length > 0 ||
+      getRegistryModel(modelValue)?.reasoning === undefined)
   const displayValue = resolveComboBoxDisplayValue(
     rawDisplayValue,
     Boolean(selectedOption),
@@ -213,11 +219,8 @@ export function ComboBox({
     [displayValue, evaluatedOptions, open, hasTyped, isModelCapability]
   )
 
-  const configuredSidebarGroups = useMemo<SidebarDropdownGroup[]>(() => {
-    const optionGroups = config.optionGroups
-    if (!optionGroups) return []
-    return typeof optionGroups === 'function' ? optionGroups() : optionGroups
-  }, [config.optionGroups])
+  const configuredSidebarGroups: SidebarDropdownGroup[] =
+    typeof config.optionGroups === 'function' ? config.optionGroups() : (config.optionGroups ?? [])
 
   const sidebarItems = useMemo<SidebarDropdownItem[]>(
     () =>
@@ -590,6 +593,25 @@ export function ComboBox({
           />
         </Button>
       </div>
+
+      {isModelPicker && registryLoading && (
+        <p role='status' className='mt-1 text-muted-foreground text-xs'>
+          {translateWorkflowLabel(locale, 'loadingModels')}
+        </p>
+      )}
+      {isModelPicker && registryError && (
+        <div role='alert' className='mt-1 text-destructive text-xs'>
+          <p>{translateWorkflowLabel(locale, 'modelRegistryUnavailable')}</p>
+          <Button
+            variant='ghost'
+            size='sm'
+            disabled={registryLoading}
+            onClick={() => void loadRegistry()}
+          >
+            {translateWorkflowLabel(locale, 'retryModels')}
+          </Button>
+        </div>
+      )}
 
       {/* Dropdown */}
       {open && (

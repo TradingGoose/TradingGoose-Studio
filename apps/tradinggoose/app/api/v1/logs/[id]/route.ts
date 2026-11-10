@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
+import { hydrateAuthorizedLog } from '@/lib/workflow-archive/functional'
 import { buildPublicWorkflowLogExecutionData } from '@/app/api/logs/log-utils'
 import { createApiResponse, getUserLimits } from '@/app/api/v1/logs/meta'
 import { checkRateLimit, createRateLimitResponse } from '@/app/api/v1/middleware'
@@ -78,11 +79,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .where(and(eq(workflowExecutionLogs.id, id), workspaceAccess.accessFilter))
       .limit(1)
 
-    const log = rows[0]
+    let log = rows[0]
     if (!log) {
       return NextResponse.json({ error: 'Log not found' }, { status: 404 })
     }
 
+    log = await hydrateAuthorizedLog(log, userId)
     const summary = readWorkflowSummary(log.workflowSummary)
     const workflowSummary = {
       id: log.workflowId ?? summary.id ?? null,

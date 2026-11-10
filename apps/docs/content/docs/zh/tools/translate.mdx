@@ -3,20 +3,16 @@ title: 翻译
 description: 将文本翻译成任意语言
 ---
 
-import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard
-  type="translate"
-  color=""
-/>
+从 Mastra 注册表中选择 `提供方/模型` 标识符。选择器保留搜索和按提供方分组的功能。环境变量和上游输出引用先解析，再验证模型；不兼容的标识符需要重新选择。API 密钥仅用于当前请求；留空时使用已配置的 Mastra 连接。
 
 ## 配置
 
 <ShowcaseCard>
   <BlockConfigPreview
-    name="翻译"
+    name="Translate"
     type="translate"
     color=""
     hideHeader
@@ -24,81 +20,44 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "context",
             "type": "long-input",
-            "title": "待翻译文本",
+            "title": "Text to Translate",
             "layout": "full",
-            "placeholder": "输入要翻译的文本",
+            "placeholder": "Enter the text you want to translate",
             "required": true
         },
         {
             "id": "targetLanguage",
             "type": "short-input",
-            "title": "翻译为",
+            "title": "Translate To",
             "layout": "full",
-            "placeholder": "输入语言（例如：西班牙语、法语等）",
+            "placeholder": "Enter language (e.g. Spanish, French, etc.)",
             "required": true
         },
         {
             "id": "model",
             "type": "combobox",
-            "title": "模型",
+            "title": "Model",
             "layout": "half",
-            "placeholder": "输入或选择模型...",
+            "placeholder": "Type or select a model...",
             "required": true
         },
         {
             "id": "apiKey",
             "type": "short-input",
-            "title": "API 密钥",
+            "title": "API Key",
             "layout": "full",
-            "placeholder": "输入你的 API 密钥",
-            "password": true,
-            "description": "在运行时对所选模型适用时显示。"
-        },
-        {
-            "id": "azureEndpoint",
-            "type": "short-input",
-            "title": "Azure OpenAI 终结点",
-            "layout": "full",
-            "placeholder": "https://your-resource.openai.azure.com",
-            "password": true,
-            "description": "当模型为 'azure/gpt-5.4'、'azure/gpt-5.4-mini'、'azure/gpt-5.4-nano'、'azure/gpt-5.2'、'azure/gpt-5.1'、'azure/gpt-5.1-codex'、'azure/gpt-5'、'azure/gpt-5-mini'、'azure/gpt-5-nano'、'azure/gpt-5-chat'、'azure/o3'、'azure/o4-mini'、'azure/gpt-4.1'、'azure/gpt-4.1-mini'、'azure/gpt-4.1-nano'、'azure/model-router' 之一时显示。"
-        },
-        {
-            "id": "azureApiVersion",
-            "type": "short-input",
-            "title": "Azure API 版本",
-            "layout": "full",
-            "placeholder": "2024-07-01-preview",
-            "description": "当模型为 'azure/gpt-5.4'、'azure/gpt-5.4-mini'、'azure/gpt-5.4-nano'、'azure/gpt-5.2'、'azure/gpt-5.1'、'azure/gpt-5.1-codex'、'azure/gpt-5'、'azure/gpt-5-mini'、'azure/gpt-5-nano'、'azure/gpt-5-chat'、'azure/o3'、'azure/o4-mini'、'azure/gpt-4.1'、'azure/gpt-4.1-mini'、'azure/gpt-4.1-nano'、'azure/model-router' 之一时显示。"
+            "placeholder": "Enter your API key",
+            "description": "Leave unset to use the configured Mastra connection.",
+            "password": true
         }
     ]}
   />
 </ShowcaseCard>
 
-## 输入
+## 使用和输出
 
-| 参数 | 类型 | 必填 | 说明 |
-| --------- | ---- | -------- | ----------- |
-| `context` | string | 是 | 要翻译的文本 |
-| `targetLanguage` | string | 是 | 目标语言 |
-| `model` | combobox | 是 | 模型 |
-| `apiKey` | string | 否 | 提供商 API 密钥 |
-| `azureEndpoint` | string | 否 | Azure OpenAI 终结点 URL |
-| `azureApiVersion` | string | 否 | Azure API 版本 |
+输入文本和目标语言。选定模型根据区块指令生成译文。输出保留 `content`、`model` 和可用 token 用量，不再维护模型清单或额外的提供方路由。
 
-## 输出
+## 用量和费用
 
-| 参数 | 类型 | 说明 |
-| --------- | ---- | ----------- |
-| `content` | string | 翻译文本 |
-| `model` | string | 所用模型 |
-| `tokens` | json | Token 用量 |
-
-## 使用说明
-
-将文本翻译为任意语言。模型列表在运行时从该部署可用的基础模型、Ollama 和 OpenRouter 模型加载。
-
-## 备注
-
-- 分类：`tools`
-- 类型：`translate`
+记录会区分提供方报告的费用、原生估算费用和不可用费用。缺失费用不等于零；即使美元金额缺失，已知 token 用量仍会保留。产品自身的费用单独计算。独立嵌入保留向量及可用的原生用量，其美元费用显示为不可用。

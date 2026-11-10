@@ -1,78 +1,61 @@
 'use client'
 
-import { memo } from 'react'
-import { Plus } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { memo, useState } from 'react'
+import { Minimize2, Plus } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
-import { formatTemplate, type LocaleCode } from '@/i18n/utils'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
+import type { ContextResponse } from '@/lib/copilot/native/contract'
 
 interface ContextUsagePillProps {
-  percentage: number
+  evidence: ContextResponse
   onCreateNewChat: () => void
+  onCompact: () => Promise<void>
 }
 
-export const ContextUsagePill = memo(({ percentage, onCreateNewChat }: ContextUsagePillProps) => {
-  const locale = useLocale() as LocaleCode
-  const copilotCopy = useCopilotMessages()
-
-  // Don't render if invalid (but DO render if 0 or very small)
-  if (!Number.isFinite(percentage)) return null
-
-  const isHighUsage = percentage >= 75
-
-  // Determine color based on percentage (similar to Cursor IDE)
-  const getColorClass = () => {
-    if (percentage >= 90) return 'bg-red-500/10 text-red-600 dark:text-red-400'
-    if (percentage >= 75) return 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
-    if (percentage >= 50) return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
-    return 'bg-gray-500/10 text-gray-600 dark:text-gray-400'
-  }
-
-  // Format: show 1 decimal for <1%, 0 decimals for >=1%
-  const formattedPercentage = percentage < 1 ? percentage.toFixed(1) : percentage.toFixed(0)
-  const fullPercentage = percentage.toFixed(2)
-  const title = formatTemplate(
-    copilotCopy.contextUsage.title,
-    { percentage: fullPercentage },
-    locale
-  )
-
-  return (
-    <div
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-[11px] tabular-nums transition-colors',
-        getColorClass(),
-        isHighUsage && 'border border-red-500/50'
-      )}
-    >
-      <Tooltip>
-        <TooltipTrigger render={<span>{formattedPercentage}%</span>} />
-        <TooltipContent side='top'>{title}</TooltipContent>
-      </Tooltip>
-      {isHighUsage && (
+/** Context evidence has no advertised capacity; it is never a percentage or a billing report. */
+export const ContextUsagePill = memo(
+  ({ evidence, onCreateNewChat, onCompact }: ContextUsagePillProps) => {
+    const [compacting, setCompacting] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const label =
+      evidence.tokenSource === 'active_native_usage'
+        ? 'Native context usage'
+        : evidence.tokenSource === 'context_estimate'
+          ? 'Context estimate'
+          : 'Context unavailable'
+    const text =
+      evidence.contextTokens === null
+        ? label
+        : `${label}: ${evidence.contextTokens.toLocaleString()} tokens`
+    return (
+      <div className='inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground'>
         <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onCreateNewChat()
-                }}
-                className='inline-flex items-center justify-center transition-opacity hover:opacity-70'
-                aria-label={copilotCopy.contextUsage.recommendedNewChat}
-                type='button'
-              >
-                <Plus className='h-3 w-3' />
-              </button>
-            }
-          />
-          <TooltipContent side='top'>{copilotCopy.contextUsage.recommendedNewChat}</TooltipContent>
+          <TooltipTrigger render={<span>{text}</span>} />
+          <TooltipContent>{text}. Context capacity is unavailable.</TooltipContent>
         </Tooltip>
-      )}
-    </div>
-  )
-})
-
+        <button
+          type='button'
+          aria-label='Compact native context'
+          disabled={compacting}
+          onClick={async () => {
+            setCompacting(true)
+            setError(null)
+            try {
+              await onCompact()
+            } catch (error) {
+              setError(error instanceof Error ? error.message : 'Native compaction failed')
+            } finally {
+              setCompacting(false)
+            }
+          }}
+        >
+          <Minimize2 className='h-3 w-3' />
+        </button>
+        <button type='button' aria-label='Create new chat' onClick={onCreateNewChat}>
+          <Plus className='h-3 w-3' />
+        </button>
+        {error && <span role='alert'>{error}</span>}
+      </div>
+    )
+  }
+)
 ContextUsagePill.displayName = 'ContextUsagePill'

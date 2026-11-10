@@ -1,4 +1,3 @@
-import type { TraceSpan } from '@/lib/logs/types'
 import type { WorkflowExecutionEventInput } from '@/lib/workflows/execution-events'
 import type { WorkflowPausePoint } from '@/lib/workflows/human-in-the-loop/types'
 import type { BlockOutput } from '@/blocks/types'
@@ -23,54 +22,15 @@ export interface UserFile {
   context?: string
 }
 
-/**
- * Standardized block output format that ensures compatibility with the execution engine.
- */
-export interface NormalizedBlockOutput {
-  [key: string]: any
-  // Content fields
-  content?: string // Text content from LLM responses
-  model?: string // Model identifier used for generation
-  tokens?: {
-    input?: number
-    output?: number
-    prompt?: number
-    completion?: number
-    total?: number
-  }
-  toolCalls?: {
-    list: any[]
-    count: number
-  }
-  // File fields
-  files?: UserFile[] // Binary files/attachments from this block
-  // Path selection fields
-  selectedPath?: {
-    blockId: string
-    blockType?: string
-    blockTitle?: string
-  }
-  selectedOption?: string // ID of selected condition option
-  conditionResult?: boolean // Whether condition evaluated to true
-  // Generic result fields
-  result?: any // Generic result value
-  stdout?: string // Standard output from function execution
-  executionTime?: number // Time taken to execute
-  // API response fields
-  data?: any // Response data from API calls
-  status?: number // HTTP status code
-  headers?: Record<string, string> // HTTP headers
-  // Error handling
-  error?: string // Error message if block execution failed
-  // Child workflow introspection (for workflow blocks)
-  childTraceSpans?: TraceSpan[]
-  childWorkflowName?: string
-}
+/** Business schema roots are unrestricted; trusted outcome and inference facts live separately. */
+export type NormalizedBlockOutput = Record<string, any>
 
 /**
  * Execution log entry for a single block.
  */
 export interface BlockLog {
+  id: string // Saved server-owned identity for this actual block occurrence
+  inference?: import('@/lib/mastra/result').InferenceFacts
   blockId: string // Unique identifier of the executed block
   blockName?: string // Display name of the block
   blockType?: string // Type of the block (agent, router, etc.)
@@ -81,6 +41,26 @@ export interface BlockLog {
   output?: any // Output data from successful execution
   input?: any // Input data for the block execution
   error?: string // Error message if execution failed
+}
+
+/** Refuse unproved occurrence identity; never allocate or normalize during preservation. */
+export function assertOccurrenceIds(values: unknown, message: string): void {
+  if (!Array.isArray(values)) throw new Error(message)
+  const seen = new Set<string>()
+  for (const value of values) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(message)
+    const prototype = Object.getPrototypeOf(value)
+    if ((prototype !== Object.prototype && prototype !== null) || !Object.hasOwn(value, 'id'))
+      throw new Error(message)
+    const descriptor = Object.getOwnPropertyDescriptor(value, 'id')
+    if (!descriptor?.enumerable || !('value' in descriptor)) throw new Error(message)
+    const toJSON = Object.getOwnPropertyDescriptor(value, 'toJSON')
+    if (toJSON && (!('value' in toJSON) || typeof toJSON.value === 'function'))
+      throw new Error(message)
+    const id = descriptor.value
+    if (typeof id !== 'string' || !id.trim() || seen.has(id)) throw new Error(message)
+    seen.add(id)
+  }
 }
 
 /**
@@ -101,6 +81,7 @@ export interface ExecutionMetadata {
  * Current state of a block during workflow execution.
  */
 export interface BlockState {
+  success?: boolean
   output: NormalizedBlockOutput // Current output data from the block
   executed: boolean // Whether the block has been executed
   executionTime: number // Time taken to execute in milliseconds

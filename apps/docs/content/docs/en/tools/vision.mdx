@@ -49,24 +49,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         },
         {
             "id": "model",
-            "type": "dropdown",
+            "type": "combobox",
             "title": "Vision Model",
-            "layout": "half",
-            "defaultValue": "gpt-4o",
-            "options": [
-                {
-                    "id": "gpt-4o",
-                    "label": "gpt-4o"
-                },
-                {
-                    "id": "claude-3-opus-20240229",
-                    "label": "claude-3-opus"
-                },
-                {
-                    "id": "claude-3-sonnet-20240229",
-                    "label": "claude-3-sonnet"
-                }
-            ]
+            "layout": "half"
         },
         {
             "id": "prompt",
@@ -82,8 +67,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "API Key",
             "layout": "full",
             "placeholder": "Enter your API key",
-            "password": true,
-            "required": true
+            "description": "Leave unset to use the configured Mastra connection.",
+            "password": true
         }
     ]}
   />
@@ -99,10 +84,10 @@ Process and analyze images using advanced vision models. Capable of understandin
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | API key for the selected model provider |
+| `apiKey` | string | No | API key for the selected model provider |
 | `imageUrl` | string | No | Publicly accessible image URL |
 | `imageFile` | file | No | Image file to analyze |
-| `model` | string | No | Vision model to use \(gpt-4o, claude-3-opus-20240229, etc\) |
+| `model` | string | No | Listed Mastra provider/model ID to use for image analysis |
 | `prompt` | string | No | Custom prompt for image analysis |
 
 #### Output
@@ -112,6 +97,7 @@ Process and analyze images using advanced vision models. Capable of understandin
 | `content` | string | The analyzed content and description of the image |
 | `model` | string | The vision model that was used for analysis |
 | `tokens` | number | Total tokens used for the analysis |
+| `cost` | object | Model cost in USD is unavailable |
 | `usage` | object | Detailed token usage breakdown |
 
 

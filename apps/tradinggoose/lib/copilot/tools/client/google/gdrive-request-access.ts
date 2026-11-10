@@ -1,12 +1,9 @@
 import { CheckCircle, FolderOpen, Loader2, MinusCircle, X, XCircle } from 'lucide-react'
-import { ENTITY_KIND_WORKFLOW } from '@/lib/copilot/review-sessions/types'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { resolveCopilotContextEntityId } from '@/lib/copilot/tools/entity-target'
-import { createLogger } from '@/lib/logs/console/logger'
 
 export class GDriveRequestAccessClientTool extends BaseClientTool {
   static readonly id = 'gdrive_request_access'
@@ -32,40 +29,7 @@ export class GDriveRequestAccessClientTool extends BaseClientTool {
   }
 
   async handleAccept(): Promise<void> {
-    const logger = createLogger('GDriveRequestAccessClientTool')
-    logger.debug('handleAccept() called', { toolCallId: this.toolCallId })
-
-    try {
-      this.setState(ClientToolCallState.executing)
-      const executionContext = this.requireExecutionContext()
-      const params = new URLSearchParams({ provider: 'google-drive' })
-      const workflowId = resolveCopilotContextEntityId(executionContext, ENTITY_KIND_WORKFLOW)
-      if (workflowId) {
-        params.set('workflowId', workflowId)
-      } else if (executionContext.workspaceId?.trim()) {
-        params.set('workspaceId', executionContext.workspaceId.trim())
-      } else {
-        throw new Error('workspaceId or workflowId is required to request Google Drive access')
-      }
-
-      const credsRes = await fetch(`/api/auth/oauth/credentials?${params}`)
-      if (!credsRes.ok) {
-        throw new Error(`Failed to load OAuth credentials (${credsRes.status})`)
-      }
-      const credsData = await credsRes.json()
-      const creds = Array.isArray(credsData.credentials) ? credsData.credentials : []
-      if (creds.length === 0) {
-        throw new Error('No OAuth credentials found')
-      }
-      const defaultCred = creds.find((c: any) => c.isDefault) || creds[0]
-
-      await this.markToolComplete(200, { granted: true, credentialId: defaultCred.id })
-      this.setState(ClientToolCallState.success)
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : String(error)
-      await this.markToolComplete(500, message)
-      this.setState(ClientToolCallState.error)
-    }
+    this.fail('Choose an authorized workspace and Google Drive credential in this tool card')
   }
 
   async handleReject(): Promise<void> {

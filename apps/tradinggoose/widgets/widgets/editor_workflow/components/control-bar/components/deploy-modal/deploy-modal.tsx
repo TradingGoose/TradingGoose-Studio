@@ -91,6 +91,9 @@ const logger = createLogger('DeployModal')
 interface DeployModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  container?: HTMLElement | null
+  initialTab?: 'chat'
+  onChatRendered?: () => void
   workflowId: string | null
   isDeployed: boolean
   needsRedeployment: boolean
@@ -231,6 +234,9 @@ function isTriggerDeployTabConfigured(tabState: TriggerDeployValidationState): b
 export function DeployModal({
   open,
   onOpenChange,
+  container,
+  initialTab,
+  onChatRendered,
   workflowId,
   isDeployed,
   needsRedeployment,
@@ -278,11 +284,15 @@ export function DeployModal({
   const [openDropdown, setOpenDropdown] = useState<number | null>(null)
   const [versionToActivate, setVersionToActivate] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const openedTargetRef = useRef<string | null>(null)
   const overlayRootId = workflowId ? `workflow-editor-overlay-root-${workflowId}` : null
-  const overlayContainer =
-    open && overlayRootId && typeof document !== 'undefined'
-      ? document.getElementById(overlayRootId)
-      : null
+  const overlayContainer = !open
+    ? null
+    : container !== undefined
+      ? container
+      : overlayRootId && typeof document !== 'undefined'
+        ? document.getElementById(overlayRootId)
+        : null
   const isWorkflowDeployed =
     isDeployed || Boolean(deploymentInfo?.isDeployed) || Boolean(deployedState)
   const mergedBlocks = workflowId ? mergeSubblockState(currentBlocks, workflowId) : currentBlocks
@@ -756,7 +766,7 @@ export function DeployModal({
       } else {
         setPublishedChat(null)
       }
-      setActiveTab(fallbackTab)
+      if (initialTab === undefined) setActiveTab(fallbackTab)
       setVersionToActivate(null)
     } else {
       setSelectedApiKeyId('')
@@ -764,7 +774,20 @@ export function DeployModal({
       setPublishedChat(null)
       setVersionToActivate(null)
     }
-  }, [open, workflowId, requiresApiKeyForDeployment, hasChatTrigger, fallbackTab])
+  }, [open, workflowId, requiresApiKeyForDeployment, hasChatTrigger, fallbackTab, initialTab])
+
+  useEffect(() => {
+    if (!open) {
+      openedTargetRef.current = null
+      return
+    }
+    if (initialTab === undefined) return
+    const target = workflowId ?? ''
+    if (openedTargetRef.current !== target) {
+      openedTargetRef.current = target
+      setActiveTab(initialTab ?? fallbackTab)
+    }
+  }, [open, workflowId, initialTab, fallbackTab])
 
   useEffect(() => {
     const availableTabs = new Set<TabView>([
@@ -1732,6 +1755,7 @@ export function DeployModal({
                           blockId={chatTriggerBlock.id}
                           publishedChat={publishedChat}
                           onBusyChange={setIsChatConfigBusy}
+                          onRendered={onChatRendered}
                         />
                       )}
                     </div>

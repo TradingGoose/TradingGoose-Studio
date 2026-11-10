@@ -1,8 +1,9 @@
+import { monetary } from '@tradinggoose/billing/money'
 import { db } from '@tradinggoose/db'
 import { subscription } from '@tradinggoose/db/schema'
 import { count, inArray } from 'drizzle-orm'
 import { DEFAULT_BILLING_SETTINGS, getResolvedBillingSettings } from '@/lib/billing/settings'
-import { type BillingTierRecord, getAllBillingTiers, parseBillingAmount } from '@/lib/billing/tiers'
+import { type BillingTierRecord, getAllBillingTiers } from '@/lib/billing/tiers'
 import type { AdminBillingSnapshot, AdminBillingTierSnapshot } from './types'
 
 function toTierSnapshot(tier: BillingTierRecord): AdminBillingTierSnapshot {
@@ -15,11 +16,10 @@ function toTierSnapshot(tier: BillingTierRecord): AdminBillingTierSnapshot {
     ownerType: tier.ownerType,
     usageScope: tier.usageScope,
     seatMode: tier.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
-    monthlyPriceUsd:
-      tier.monthlyPriceUsd === null ? null : parseBillingAmount(tier.monthlyPriceUsd),
-    yearlyPriceUsd: tier.yearlyPriceUsd === null ? null : parseBillingAmount(tier.yearlyPriceUsd),
+    monthlyPriceUsd: tier.monthlyPriceUsd === null ? null : monetary(tier.monthlyPriceUsd),
+    yearlyPriceUsd: tier.yearlyPriceUsd === null ? null : monetary(tier.yearlyPriceUsd),
     includedUsageLimitUsd:
-      tier.includedUsageLimitUsd === null ? null : parseBillingAmount(tier.includedUsageLimitUsd),
+      tier.includedUsageLimitUsd === null ? null : monetary(tier.includedUsageLimitUsd),
     storageLimitGb: tier.storageLimitGb,
     concurrencyLimit: tier.concurrencyLimit,
     workflowExecutionTimeLimitSeconds: tier.workflowExecutionTimeLimitSeconds,
@@ -37,19 +37,13 @@ function toTierSnapshot(tier: BillingTierRecord): AdminBillingTierSnapshot {
     canConfigureSso: tier.canConfigureSso,
     logRetentionDays: tier.logRetentionDays,
     workflowExecutionMultiplier:
-      tier.workflowExecutionMultiplier === null
-        ? null
-        : parseBillingAmount(tier.workflowExecutionMultiplier),
+      tier.workflowExecutionMultiplier === null ? null : monetary(tier.workflowExecutionMultiplier),
     workflowModelCostMultiplier:
-      tier.workflowModelCostMultiplier === null
-        ? null
-        : parseBillingAmount(tier.workflowModelCostMultiplier),
+      tier.workflowModelCostMultiplier === null ? null : monetary(tier.workflowModelCostMultiplier),
     functionExecutionMultiplier:
-      tier.functionExecutionMultiplier === null
-        ? null
-        : parseBillingAmount(tier.functionExecutionMultiplier),
+      tier.functionExecutionMultiplier === null ? null : monetary(tier.functionExecutionMultiplier),
     copilotCostMultiplier:
-      tier.copilotCostMultiplier === null ? null : parseBillingAmount(tier.copilotCostMultiplier),
+      tier.copilotCostMultiplier === null ? null : monetary(tier.copilotCostMultiplier),
     pricingFeatures: tier.pricingFeatures,
     isPublic: tier.isPublic,
     isDefault: tier.isDefault,
@@ -96,10 +90,10 @@ export async function getAdminBillingSnapshot(): Promise<AdminBillingSnapshot> {
 
   return {
     billingEnabled: settings.billingEnabled,
-    onboardingAllowanceUsd: settings.onboardingAllowanceUsd.toString(),
-    overageThresholdDollars: settings.overageThresholdDollars.toString(),
-    workflowExecutionChargeUsd: settings.workflowExecutionChargeUsd.toString(),
-    functionExecutionChargeUsd: settings.functionExecutionChargeUsd.toString(),
+    onboardingAllowanceUsd: monetary(settings.onboardingAllowanceUsd),
+    overageThresholdDollars: monetary(settings.overageThresholdDollars),
+    workflowExecutionChargeUsd: monetary(settings.workflowExecutionChargeUsd),
+    functionExecutionChargeUsd: monetary(settings.functionExecutionChargeUsd),
     usageWarningThresholdPercent: settings.usageWarningThresholdPercent,
     freeTierUpgradeThresholdPercent: settings.freeTierUpgradeThresholdPercent,
     enterpriseContactUrl:

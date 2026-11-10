@@ -139,18 +139,18 @@ describe('/api/billing route', () => {
         ownerType: 'user',
         usageScope: 'individual',
         seatMode: 'fixed',
-        monthlyPriceUsd: 0,
-        yearlyPriceUsd: 0,
+        monthlyPriceUsd: '0',
+        yearlyPriceUsd: '0',
       },
       usage: {
-        current: 0,
-        limit: 25,
+        current: '0.30000000000000001',
+        limit: '25',
         percentUsed: 0,
         isWarning: false,
         isExceeded: false,
         billingPeriodStart: null,
         billingPeriodEnd: null,
-        lastPeriodCost: 0,
+        lastPeriodCost: '0',
       },
     })
   })
@@ -170,7 +170,8 @@ describe('/api/billing route', () => {
     expect(payload.context).toBe('user')
     expect(payload.userRole).toBeUndefined()
     expect(payload.data.tier.ownerType).toBe('user')
-    expect(payload.data.usage.limit).toBe(25)
+    expect(payload.data.usage.limit).toBe('25')
+    expect(payload.data.usage.current).toBe('0.30000000000000001')
     expect(payload.data.billingBlocked).toBe(true)
     expect(payload.data.hasPaymentMethodOnFile).toBe(false)
     expect(payload.data.organizationId).toBeUndefined()
@@ -199,19 +200,19 @@ describe('/api/billing route', () => {
         ownerType: 'user',
         usageScope: 'individual',
         seatMode: 'fixed',
-        monthlyPriceUsd: 0,
-        yearlyPriceUsd: 0,
+        monthlyPriceUsd: '0',
+        yearlyPriceUsd: '0',
         hasStripeMonthlyPriceId: true,
       },
       usage: {
-        current: 0,
-        limit: 25,
+        current: '0',
+        limit: '25',
         percentUsed: 0,
         isWarning: false,
         isExceeded: false,
         billingPeriodStart: null,
         billingPeriodEnd: null,
-        lastPeriodCost: 0,
+        lastPeriodCost: '0',
       },
     })
     mockStripeCustomersRetrieve.mockResolvedValue({
@@ -255,18 +256,17 @@ describe('/api/billing route', () => {
       organizationName: 'Acme',
       subscriptionTier: null,
       subscriptionStatus: null,
-      seatPriceUsd: 0,
+      seatPriceUsd: '0',
       seatCount: null,
       seatMaximum: null,
       seatMode: null,
       totalSeats: 1,
       usedSeats: 1,
       seatsCount: 1,
-      totalCurrentUsage: 0,
-      totalUsageLimit: 0,
+      totalCurrentUsage: '0',
+      totalUsageLimit: '0',
       warningThresholdPercent: 0,
-      minimumUsageLimit: 0,
-      averageUsagePerMember: 0,
+      minimumUsageLimit: '0',
       billingPeriodStart: null,
       billingPeriodEnd: null,
       billingBlocked: false,
@@ -305,7 +305,7 @@ describe('/api/billing route', () => {
         ownerType: 'organization',
         usageScope: 'pooled',
         seatMode: 'adjustable',
-        monthlyPriceUsd: 20,
+        monthlyPriceUsd: '20',
         seatCount: 3,
         seatMaximum: 10,
         canEditUsageLimit: true,
@@ -313,18 +313,17 @@ describe('/api/billing route', () => {
         hasStripeMonthlyPriceId: true,
       },
       subscriptionStatus: 'active',
-      seatPriceUsd: 20,
+      seatPriceUsd: '20',
       seatCount: 3,
       seatMaximum: 10,
       seatMode: 'adjustable',
       totalSeats: 3,
       usedSeats: 2,
       seatsCount: 3,
-      totalCurrentUsage: 12,
-      totalUsageLimit: 90,
+      totalCurrentUsage: '12',
+      totalUsageLimit: '90',
       warningThresholdPercent: 80,
-      minimumUsageLimit: 90,
-      averageUsagePerMember: 6,
+      minimumUsageLimit: '90',
       billingPeriodStart: new Date('2026-04-01T00:00:00.000Z'),
       billingPeriodEnd: new Date('2026-05-01T00:00:00.000Z'),
       billingBlocked: false,
@@ -333,7 +332,7 @@ describe('/api/billing route', () => {
           userId: 'user-1',
           userName: 'User One',
           userEmail: 'user@example.com',
-          currentUsage: 12,
+          currentUsage: '12',
           usageLimit: 45,
           percentUsed: 26.67,
           isOverLimit: false,
@@ -357,7 +356,7 @@ describe('/api/billing route', () => {
     expect(payload.data.subscriptionTier.ownerType).toBe('organization')
     expect(payload.data.subscriptionTier.status).toBe('archived')
     expect(payload.data.subscriptionTier.hasStripeMonthlyPriceId).toBe(true)
-    expect(payload.data.minimumUsageLimit).toBe(90)
+    expect(payload.data.minimumUsageLimit).toBe('90')
     expect(payload.data.members[0].joinedAt).toBe('2026-04-01T00:00:00.000Z')
   })
 
@@ -383,11 +382,10 @@ describe('/api/billing route', () => {
       totalSeats: 0,
       usedSeats: 0,
       seatsCount: 0,
-      totalCurrentUsage: 0,
-      totalUsageLimit: Number.MAX_SAFE_INTEGER,
+      totalCurrentUsage: '0',
+      totalUsageLimit: null,
       warningThresholdPercent: 80,
-      minimumUsageLimit: 0,
-      averageUsagePerMember: 0,
+      minimumUsageLimit: '0',
       billingPeriodStart: null,
       billingPeriodEnd: null,
       billingBlocked: false,

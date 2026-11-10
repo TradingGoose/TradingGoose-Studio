@@ -3,6 +3,12 @@ import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { type StorageContext, StorageService } from '@/lib/uploads'
+import { resolveAuthorizedWorkspaceFileReference } from '@/lib/uploads/contexts/workspace'
+import {
+  assertStorageReferenceAccess,
+  PrivateSourceAccessError,
+  withAuthorizedStorageRead,
+} from '@/lib/uploads/source-read-boundary'
 import { extractStorageKey } from '@/lib/uploads/utils/file-utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -59,10 +65,19 @@ export async function POST(request: NextRequest) {
       isWorkspaceFile: validatedData.filePath.includes('/api/files/serve/'),
     })
 
+    const workspaceFile = await resolveAuthorizedWorkspaceFileReference(
+      validatedData.filePath,
+      authResult.userId
+    )
+    if (!workspaceFile) assertStorageReferenceAccess(validatedData.filePath)
     let fileUrl = validatedData.filePath
 
     // Check if it's an internal workspace file path
-    if (validatedData.filePath?.includes('/api/files/serve/')) {
+    if (workspaceFile) {
+      fileUrl = await withAuthorizedStorageRead(workspaceFile.key, 'workspace', () =>
+        StorageService.generatePresignedDownloadUrl(workspaceFile.key, 'workspace', 5 * 60)
+      )
+    } else if (validatedData.filePath?.includes('/api/files/serve/')) {
       try {
         const storageKey = extractStorageKey(validatedData.filePath)
 
@@ -77,9 +92,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Failed to generate file access URL',
+            error:
+              error instanceof PrivateSourceAccessError
+                ? error.message
+                : 'Failed to generate file access URL',
           },
-          { status: 500 }
+          { status: error instanceof PrivateSourceAccessError ? error.status : 500 }
         )
       }
     } else if (validatedData.filePath?.startsWith('/')) {
@@ -160,7 +178,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Internal server error',
       },
-      { status: 500 }
+      { status: error instanceof PrivateSourceAccessError ? error.status : 500 }
     )
   }
 }

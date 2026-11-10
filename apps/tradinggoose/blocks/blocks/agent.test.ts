@@ -1,277 +1,170 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
-import type { SubBlockCondition } from '@/blocks/types'
-import { getWorkflowInspectorCopy, type LocaleCode } from '@/i18n/block-editor'
-import { getProviderModels } from '@/providers/ai/models'
-import { useProvidersStore } from '@/stores/providers/store'
+import { getWorkflowInspectorCopy } from '@/i18n/block-editor'
+import {
+  getReasoningEffortValues,
+  getRegistryModel,
+  useModelRegistry,
+} from '@/stores/model-registry'
 import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { AgentBlock } from './agent'
 import { EvaluatorBlock } from './evaluator'
+import { GuardrailsBlock } from './guardrails'
 import { RouterBlock } from './router'
+import { TranslateBlock } from './translate'
+import { VisionBlock } from './vision'
 
-const inspectorLayout = (model?: string, locale: LocaleCode = 'en') =>
+const original = useModelRegistry.getState().providers
+const providers = [
+  {
+    id: 'example',
+    name: 'Example Models',
+    models: [
+      {
+        id: 'example/effort',
+        reasoning: [{ type: 'effort' as const, values: ['minimal', 'extreme'] }],
+        temperature: true,
+      },
+      { id: 'example/plain', reasoning: [], temperature: false },
+      { id: 'example/unknown' },
+    ],
+  },
+]
+afterEach(() => useModelRegistry.setState({ providers: original }))
+const fields = (model: string) =>
   buildTriggerEditingLayout({
-    inspectorCopy: getWorkflowInspectorCopy(locale),
+    inspectorCopy: getWorkflowInspectorCopy('en'),
     blockType: 'agent',
     blockConfig: AgentBlock,
     blockState: { subBlocks: { model: { value: model } } },
     shouldDisableWrite: false,
-  })
+  }).additionalRows.flat()
 
-describe('AgentBlock', () => {
-  it.each([false, true])('requires user API keys across AI blocks, hosted=%s', async (hosted) => {
-    vi.doMock('@/lib/environment', async (importOriginal) => ({
-      ...(await importOriginal<typeof import('@/lib/environment')>()),
-      isHosted: hosted,
-    }))
-    vi.resetModules()
-    try {
-      const blocks = [
-        (await import('./agent')).AgentBlock,
-        (await import('./router')).RouterBlock,
-        (await import('./evaluator')).EvaluatorBlock,
-        (await import('./translate')).TranslateBlock,
-        (await import('./guardrails')).GuardrailsBlock,
-      ]
-      const { useProvidersStore } = await import('@/stores/providers/store')
-      useProvidersStore.setState((state) => ({
-        providers: {
-          ...state.providers,
-          ollama: { models: ['ollama/llama3.2:latest'], isLoading: false },
-        },
-      }))
-      for (const block of blocks) {
-        const field = block.subBlocks.find((field) => field.id === 'apiKey')!
-        for (const model of [
-          'gpt-4.1',
-          'claude-haiku-4-5',
-          'mistral-large-4',
-          'azure/gpt-4.1',
-          'openrouter/openai/gpt-4.1',
-        ]) {
-          const values = { model, validationType: 'hallucination' }
-          expect(evaluateSubBlockConditionValues(field.condition, values)).toBe(true)
-          expect(evaluateSubBlockConditionValues(field.required, values)).toBe(true)
-        }
-        expect(
-          evaluateSubBlockConditionValues(field.condition, {
-            model: 'ollama/llama3.2:latest',
-            validationType: 'hallucination',
-          })
-        ).toBe(hosted)
-        if (block.type === 'guardrails') {
-          expect(
-            evaluateSubBlockConditionValues(field.condition, {
-              model: 'gpt-4.1',
-              validationType: 'json',
-            })
-          ).toBe(false)
-        }
-      }
-    } finally {
-      vi.doUnmock('@/lib/environment')
-      vi.resetModules()
-    }
-  })
-
-  it.each([AgentBlock, RouterBlock, EvaluatorBlock])(
-    'resolves $name Ollama provider identity without browser model discovery',
-    (block) => {
-      expect(getProviderModels('ollama')).toEqual([])
-      expect(block.tools.config!.tool({ model: 'ollama/llama3.2:latest' })).toBe('ollama')
-    }
-  )
-
-  it('includes every discovered dynamic provider in the model selector', () => {
-    const previous = useProvidersStore.getState().providers
-    useProvidersStore.setState({
-      providers: {
-        ...previous,
-        ollama: { models: ['ollama/local'], isLoading: false },
-        openrouter: { models: ['openrouter/openai/gpt-4.1'], isLoading: false },
-        vllm: { models: ['vllm/local'], isLoading: false },
-        fireworks: {
-          models: ['fireworks/accounts/acme/deployments/prod'],
-          isLoading: false,
-        },
-      },
-    })
-    try {
-      const modelField = AgentBlock.subBlocks.find((field) => field.id === 'model')!
-      if (typeof modelField.options !== 'function') throw new Error('Expected dynamic options')
-      expect(modelField.options().map((option) => option.id)).toEqual(
-        expect.arrayContaining([
-          'ollama/local',
-          'openrouter/openai/gpt-4.1',
-          'vllm/local',
-          'fireworks/accounts/acme/deployments/prod',
-          'fireworks/accounts/fireworks/models/glm-5p3',
-        ])
-      )
-    } finally {
-      useProvidersStore.setState({ providers: previous })
-    }
-  })
-
-  it('uses additional fields without mode switches or forced tuning defaults', () => {
-    expect(AgentBlock.subBlocks.some((field) => field.mode)).toBe(false)
-    const coreFields = inspectorLayout('gpt-4.1')
-      .regularRows.flat()
-      .map((field) => field.id)
-    expect(coreFields.slice(coreFields.indexOf('tools'), coreFields.indexOf('tools') + 2)).toEqual([
-      'tools',
-      'skills',
-    ])
-    for (const id of [
-      'memories',
-      'responseFormat',
-      'temperature',
-      'maxTokens',
-      'reasoningEffort',
-      'verbosity',
-      'thinkingLevel',
+describe('registry-backed model interaction', () => {
+  it('uses the same grouped searchable registry selection for every model block', () => {
+    useModelRegistry.setState({ providers })
+    for (const block of [
+      AgentBlock,
+      RouterBlock,
+      EvaluatorBlock,
+      TranslateBlock,
+      GuardrailsBlock,
+      VisionBlock,
     ]) {
-      const field = AgentBlock.subBlocks.find((field) => field.id === id)!
+      const field = block.subBlocks.find(({ id }) => id === 'model')!
+      expect(field.type).toBe('combobox')
+      expect(field.dropdownMode).toBe('sidebar')
+      expect(typeof field.options).toBe('function')
+      const options = typeof field.options === 'function' ? field.options() : []
+      expect(options.map(({ id }) => id)).toEqual(providers[0].models.map(({ id }) => id))
+      expect(options[0]).toMatchObject({
+        group: 'example',
+        searchLabel: 'example/effort Example Models',
+      })
+      const groups = typeof field.optionGroups === 'function' ? field.optionGroups() : []
+      expect(groups).toEqual([{ id: 'example', label: 'Example Models', icon: undefined }])
+      expect(block.subBlocks.find(({ id }) => id === 'apiKey')?.password).toBe(true)
+    }
+  })
+
+  it('retains Additional Fields and unset/Auto without invented reasoning values or ranges', () => {
+    useModelRegistry.setState({ providers })
+    const available = fields('example/effort')
+    for (const id of ['memories', 'responseFormat', 'temperature', 'maxTokens']) {
+      const field = available.find((entry) => entry.id === id)!
       expect(field.additional).toBe(true)
       expect(field.defaultValue).toBeUndefined()
       expect(field.value).toBeUndefined()
     }
+    expect(available.some(({ id }) => id === 'reasoningEffort')).toBe(false)
+    const info = available.find(({ id }) => id === 'reasoningOptions')!
+    expect(info.value?.({ model: 'example/effort' })).toContain('minimal, extreme')
+    expect(info.value?.({ model: 'example/effort' })).toContain(
+      'Shorthand reasoning is unavailable'
+    )
+    const temperature = available.find(({ id }) => id === 'temperature')!
+    expect(temperature.type).toBe('short-input')
+    expect(temperature.min).toBeUndefined()
+    expect(temperature.max).toBeUndefined()
+    expect(AgentBlock.subBlocks.some(({ id }) => ['verbosity', 'thinkingLevel'].includes(id))).toBe(
+      false
+    )
   })
 
-  it('keeps response format strictness out of the editor contract', () => {
-    const prompt = AgentBlock.subBlocks.find((field) => field.id === 'responseFormat')?.wandConfig
-      ?.prompt
-    expect(typeof prompt).toBe('string')
-    expect(prompt).not.toContain('strict')
-    expect(JSON.stringify(AgentBlock.inputs.responseFormat)).not.toContain('strict')
+  it('preserves unknown versus explicit unsupported helper data', () => {
+    useModelRegistry.setState({ providers })
+    expect(getReasoningEffortValues('example/plain')).toEqual([])
+    expect(getReasoningEffortValues('example/unknown')).toBeUndefined()
+    expect(getRegistryModel('example/plain')?.temperature).toBe(false)
+    expect(getRegistryModel('example/unknown')?.temperature).toBeUndefined()
+    expect(fields('example/plain').map(({ id }) => id)).not.toContain('reasoningEffort')
+    expect(fields('example/plain').map(({ id }) => id)).not.toContain('temperature')
+    expect(fields('example/unknown').map(({ id }) => id)).toEqual(
+      expect.arrayContaining(['reasoningOptions', 'temperature'])
+    )
   })
 
-  it.each([
-    ['reasoningEffort', 'gpt-5.4', ['none', 'low', 'medium', 'high', 'xhigh']],
-    ['reasoningEffort', 'gpt-5.6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
-    ['reasoningEffort', 'gpt-6-sol', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
-    ['reasoningEffort', 'gpt-6.1-sol', ['low', 'medium', 'high', 'xhigh', 'max']],
-    ['reasoningEffort', 'grok-4.5', ['low', 'medium', 'high']],
-    ['reasoningEffort', 'grok-4.3', ['none', 'low', 'medium', 'high']],
-    ['reasoningEffort', 'grok-4.20-multi-agent-0309', ['low', 'medium', 'high', 'xhigh']],
-    ['reasoningEffort', 'cerebras/gpt-oss-120b', ['low', 'medium', 'high']],
-    ['reasoningEffort', 'groq/qwen/qwen3.8-27b', ['none', 'low', 'medium', 'high']],
-    ['reasoningEffort', 'mistral-large-4', ['low', 'medium', 'high']],
-    ['reasoningEffort', 'mistral-small-2603', ['none', 'high']],
-    ['reasoningEffort', 'zai-glm-5-3', ['low', 'high', 'max']],
-    ['thinkingLevel', 'claude-sonnet-5-5', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
-    ['thinkingLevel', 'claude-haiku-5-5', ['none', 'low', 'medium', 'high', 'xhigh', 'max']],
-    ['thinkingLevel', 'claude-haiku-4-5', ['low', 'medium', 'high']],
-    ['thinkingLevel', 'deepseek-v4-pro', ['none', 'low', 'high', 'max']],
-    ['thinkingLevel', 'deepseek-flash', ['none', 'low', 'high', 'max']],
-    ['thinkingLevel', 'gemini-2.5-flash', ['none', 'low', 'medium', 'high']],
-    ['thinkingLevel', 'gemini-2.5-flash-lite', ['none', 'low', 'medium', 'high']],
-    ['thinkingLevel', 'vertex/gemini-2.5-flash', ['none', 'low', 'medium', 'high']],
-    ['thinkingLevel', 'vertex/gemini-2.5-flash-lite', ['none', 'low', 'medium', 'high']],
-    ['verbosity', 'gpt-5.6-sol', ['low', 'medium', 'high']],
-    ['verbosity', 'gpt-6-astra', ['low', 'medium', 'high']],
-  ] as const)('resolves %s for %s from the selected model', (id, model, levels) => {
-    for (const locale of ['en', 'es', 'zh'] as const) {
-      const fields = inspectorLayout(model, locale).additionalRows.flat()
-      expect(fields.map((field) => field.id)).toContain(id)
-      const field = fields.find((field) => field.id === id)!
-      if (typeof field.options !== 'function') throw new Error('Expected model-dependent options')
-      expect(field.options({ model }).map((option) => option.id)).toEqual(['auto', ...levels])
-      expect(field.autoSelectFirstOption).toBe(false)
-      expect(field.type).toBe('combobox')
-      expect(field.dependsOn).toBeUndefined()
-    }
-  })
-
-  it.each([
-    '<variable.model>',
-    '{{MODEL}}',
-    '<upstream.model>',
-    'gpt-<variable.version>',
-    'gpt-{{VERSION}}',
-  ])('preserves tuning reference editing until model %s resolves', (model) => {
-    const fieldIds = inspectorLayout(model)
-      .additionalRows.flat()
-      .map((field) => field.id)
-    for (const id of ['reasoningEffort', 'verbosity', 'thinkingLevel']) {
-      expect(fieldIds).toContain(id)
-    }
-  })
-
-  it.each(['<>', '<variable.>', '{{}}', '{{ }}', '{{{MODEL}}}'])(
-    'does not activate tuning controls for malformed model reference %s',
+  it.each(['<variable.model>', '{{MODEL}}', '<upstream.model>', 'example/{{MODEL}}'])(
+    'keeps unresolved %s editable',
     (model) => {
-      const fieldIds = inspectorLayout(model)
-        .additionalRows.flat()
-        .map((field) => field.id)
-      for (const id of ['reasoningEffort', 'verbosity', 'thinkingLevel']) {
-        expect(fieldIds).not.toContain(id)
-      }
+      useModelRegistry.setState({ providers })
+      expect(fields(model).map(({ id }) => id)).toEqual(
+        expect.arrayContaining(['reasoningOptions', 'temperature', 'maxTokens'])
+      )
     }
   )
 
-  it.each([
-    ['reasoningEffort', 'gpt-4.1'],
-    ['thinkingLevel', 'gpt-4.1'],
-    ['thinkingLevel', 'unknown-model'],
-    ['thinkingLevel', undefined],
-    ['reasoningEffort', 'claude-haiku-4-5'],
-    ['reasoningEffort', 'deepseek-v4-pro'],
-    ['reasoningEffort', 'groq/openai/gpt-oss-safeguard-20b'],
-    ['verbosity', 'claude-haiku-4-5'],
-  ])('hides unsupported %s controls for %s', (id, model) => {
-    const field = AgentBlock.subBlocks.find((field) => field.id === id)!
-    expect(evaluateSubBlockConditionValues(field.condition, { model })).toBe(false)
-    expect(
-      inspectorLayout(model)
-        .additionalRows.flat()
-        .map((field) => field.id)
-    ).not.toContain(id)
+  it('shows actual budget bounds and toggles with native Provider Options rather than invented shorthands', () => {
+    useModelRegistry.setState({
+      providers: [
+        {
+          id: 'example',
+          name: 'Example',
+          models: [
+            { id: 'example/budget', reasoning: [{ type: 'budget_tokens', min: 2048, max: 8192 }] },
+            { id: 'example/toggle', reasoning: [{ type: 'toggle' }] },
+          ],
+        },
+      ],
+    })
+    const budget = fields('example/budget')
+    expect(budget.some(({ id }) => id === 'reasoningEffort')).toBe(false)
+    const info = budget.find(({ id }) => id === 'reasoningOptions')!
+    expect(info.value?.({ model: 'example/budget' })).toContain('minimum 2048, maximum 8192')
+    expect(info.value?.({ model: 'example/toggle' })).toContain('on/off toggle')
+    expect(budget.find(({ id }) => id === 'providerOptions')).toMatchObject({
+      type: 'code',
+      language: 'json',
+      additional: true,
+    })
   })
 
-  it.each([
-    ['gpt-4.1', 2],
-    ['claude-haiku-4-5', 1],
-    ['mistral-large-4', 1.5],
-    ['ollama/llama3.2:latest', 2],
-    ['fireworks/accounts/demo/models/adapter#accounts/demo/deployments/gpu', 2],
-    ['vllm/custom', 2],
-  ] as const)('uses a clearable temperature slider for %s', (model, max) => {
-    const fields = inspectorLayout(model)
-      .additionalRows.flat()
-      .filter((field) => field.id === 'temperature')
-    expect(fields).toHaveLength(1)
-    expect(fields[0]).toMatchObject({ type: 'slider', min: 0, max, step: 0.1, clearable: true })
-    expect(fields[0].defaultValue).toBeUndefined()
-    expect(fields[0].value).toBeUndefined()
+  it('keeps native Max Output Tokens available independently of metadata', () => {
+    for (const model of ['example/plain', 'example/unknown', '<upstream.model>']) {
+      const limits = fields(model).filter(({ id }) => id === 'maxTokens')
+      expect(limits).toHaveLength(1)
+      expect(limits[0]).toMatchObject({
+        type: 'short-input',
+        inputType: 'number',
+        min: 1,
+        integer: true,
+      })
+      expect(limits[0].max).toBeUndefined()
+    }
   })
 
-  it('preserves serializable capability conditions, negation, and dependencies', () => {
-    const condition: SubBlockCondition = {
+  it('preserves condition negation and dependencies through serialization', () => {
+    useModelRegistry.setState({ providers })
+    const condition = {
       field: 'model',
       operator: 'modelCapability',
-      value: 'thinkingLevel',
+      value: 'reasoningEffort',
       and: { field: 'enabled', value: true },
-    }
+    } as const
     const restored = JSON.parse(JSON.stringify(condition))
-    const values = { model: { id: 'claude-haiku-4-5' }, enabled: true }
+    const values = { model: { id: 'example/effort' }, enabled: true }
     expect(evaluateSubBlockConditionValues(restored, values)).toBe(true)
     expect(evaluateSubBlockConditionValues(restored, { ...values, enabled: false })).toBe(false)
-    expect(evaluateSubBlockConditionValues({ ...condition, not: true }, values)).toBe(false)
-  })
-
-  it.each([
-    ['gpt-4.1', 16],
-    ['gpt-6.1-sol', 16],
-    ['azure/gpt-6.1-sol', 16],
-    ['claude-haiku-4-5', 1],
-    ['openrouter/custom/manual', 1],
-    ['c', 1],
-  ] as const)('uses the selected model token minimum for %s', (model, min) => {
-    const fields = inspectorLayout(model)
-      .additionalRows.flat()
-      .filter((field) => field.id === 'maxTokens')
-    expect(fields).toHaveLength(1)
-    expect(fields[0]).toMatchObject({ min, integer: true, inputType: 'number' })
+    expect(evaluateSubBlockConditionValues({ ...restored, not: true }, values)).toBe(false)
   })
 })

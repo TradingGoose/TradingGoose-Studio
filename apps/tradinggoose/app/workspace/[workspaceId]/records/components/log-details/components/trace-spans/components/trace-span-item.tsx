@@ -3,13 +3,12 @@ import { ChevronDown, ChevronRight, Code, RepeatIcon, SplitIcon, ToolCase } from
 import type { JsonDisplayMode } from '@/components/json-display/json-display'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatCost } from '@/lib/logs/cost'
 import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import { getModelIcon } from '@/lib/ui/model-icon'
 import { cn } from '@/lib/utils'
-import { scaleLogCostBreakdown } from '@/app/workspace/[workspaceId]/records/utils'
 import { getBlock } from '@/blocks/registry'
 import { isSkillLoaderToolId } from '@/executor/handlers/agent/skill-loader'
-import { getProviderIcon } from '@/providers/ai/models'
-import { formatCost } from '@/providers/ai/utils'
 import type { TraceSpan } from '@/stores/logs/filters/types'
 import { CollapsibleInputOutput } from './collapsible-input-output'
 
@@ -21,7 +20,6 @@ interface TraceSpanItemProps {
   workflowStartTime: number
   onToggle: (spanId: string, expanded: boolean) => void
   expandedSpans: Set<string>
-  costMultiplier?: number
   hoveredPercent?: number | null
   forwardHover: (clientX: number, clientY: number) => void
   gapBeforeMs?: number
@@ -44,7 +42,6 @@ export function TraceSpanItem({
   workflowStartTime,
   onToggle,
   expandedSpans,
-  costMultiplier = 1,
   hoveredPercent,
   forwardHover,
   gapBeforeMs = 0,
@@ -59,7 +56,7 @@ export function TraceSpanItem({
   const hasToolCalls = span.toolCalls && span.toolCalls.length > 0
   const hasInputOutput = Boolean(span.input || span.output)
   const hasNestedItems = hasChildren || hasToolCalls || hasInputOutput
-  const displayCost = scaleLogCostBreakdown(span.cost, costMultiplier)
+  const displayCost = span.cost
 
   const spanStartTime = new Date(span.startTime).getTime()
   const spanEndTime = new Date(span.endTime).getTime()
@@ -276,7 +273,7 @@ export function TraceSpanItem({
                       <span className='inline-flex cursor-default items-center gap-1 rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums'>
                         {(() => {
                           const model = String(span.model) || ''
-                          const IconComp = getProviderIcon(model) as React.ComponentType<{
+                          const IconComp = getModelIcon(model) as React.ComponentType<{
                             className?: string
                           }> | null
                           return IconComp ? <IconComp className='h-3 w-3' /> : null
@@ -333,13 +330,14 @@ export function TraceSpanItem({
                 </Tooltip>
               </TooltipProvider>
             )}
-            {chipVisibility.cost && displayCost?.total !== undefined && (
+            {chipVisibility.cost && displayCost && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <span className='cursor-default rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums'>
-                        {formatCost(Number(displayCost.total) || 0)}
+                        {displayCost.status === 'estimated' ? '~' : ''}
+                        {formatCost(displayCost.total)}
                       </span>
                     }
                   />
@@ -356,6 +354,10 @@ export function TraceSpanItem({
                             : undefined
                       return (
                         <div className='space-y-0.5'>
+                          {c.status && <div className='text-xs'>Cost: {c.status}</div>}
+                          {c.status === 'partial' && (
+                            <div className='text-xs'>Available: {formatCost(c.availableTotal)}</div>
+                          )}
                           {typeof input === 'number' && (
                             <div className='text-xs'>Input: {formatCost(input)}</div>
                           )}
@@ -614,7 +616,6 @@ export function TraceSpanItem({
                 onToggle={onToggle}
                 expandedSpans={expandedSpans}
                 forwardHover={forwardHover}
-                costMultiplier={costMultiplier}
                 gapBeforeMs={childGapMs}
                 gapBeforePercent={childGapPercent}
                 jsonDisplayMode={jsonDisplayMode}
@@ -661,7 +662,6 @@ export function TraceSpanItem({
                 onToggle={onToggle}
                 expandedSpans={expandedSpans}
                 forwardHover={forwardHover}
-                costMultiplier={costMultiplier}
                 jsonDisplayMode={jsonDisplayMode}
                 jsonWrapText={jsonWrapText}
                 chipVisibility={chipVisibility}

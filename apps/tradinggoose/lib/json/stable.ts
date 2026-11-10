@@ -18,7 +18,7 @@ export function sortJsonValue(value: unknown): unknown {
           sorted[key] = nextValue
         }
         return sorted
-      }, {})
+      }, Object.create(null))
   }
 
   return value

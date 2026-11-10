@@ -12,6 +12,7 @@ export interface AttachedFile {
   type: string
   path: string
   key?: string
+  sourceProof?: string
   uploading: boolean
   previewUrl?: string
 }
@@ -21,8 +22,9 @@ export interface UserInputProps {
   onSubmit: (
     message: string,
     fileAttachments?: MessageFileAttachment[],
-    contexts?: ChatContext[]
-  ) => void
+    contexts?: ChatContext[],
+    submittedDraft?: CopilotDraft
+  ) => Promise<boolean> | boolean
   onAbort?: () => void
   isLoading?: boolean
   isAborting?: boolean
@@ -60,7 +62,8 @@ export interface MentionRange {
 }
 
 export interface PastChatItem {
-  reviewSessionId: string
+  threadId: string
+  workspaceId: string | null
   title: string | null
 }
 

@@ -2,6 +2,10 @@
  * @vitest-environment node
  */
 
+vi.mock('@/lib/workflow-archive/functional', () => ({
+  hydrateAuthorizedLog: vi.fn(async (row) => row),
+}))
+
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

@@ -115,7 +115,14 @@ describe('workflowHasResponseBlock', () => {
       workflowHasResponseBlock({
         success: true,
         output,
-        logs: [{ blockId: 'response-1', blockType: 'response', success: true } as any],
+        logs: [
+          {
+            id: 'utils.test.ts:saved-occurrence:1',
+            blockId: 'response-1',
+            blockType: 'response',
+            success: true,
+          } as any,
+        ],
       })
     ).toBe(true)
 

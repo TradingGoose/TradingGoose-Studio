@@ -1,19 +1,6 @@
 import { TranslateIcon } from '@/components/icons/icons'
-import { isHosted } from '@/lib/environment'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
-import {
-  getProviderDefaultModel,
-  getProviderFromModel,
-  getProviderIcon,
-  getProviderModels,
-} from '@/providers/ai/models'
-import { useProvidersStore } from '@/stores/providers/store'
-
-const DEFAULT_MODEL = getProviderDefaultModel('openai')
-
-const getCurrentOllamaModels = () => {
-  return useProvidersStore.getState().providers.ollama.models
-}
+import { getDefaultModel, getModelGroups, getModelOptions } from '@/stores/model-registry'
 
 const getTranslationPrompt = (
   targetLanguage: string
@@ -32,7 +19,7 @@ export const TranslateBlock: BlockConfig = {
   description: 'Translate text to any language',
   authMode: AuthMode.ApiKey,
   longDescription:
-    'Translate text to any language. The model list is loaded at runtime from the base, Ollama, and OpenRouter models available to the deployment.',
+    'Translate text to any language. The model list comes from the configured Mastra registry.',
   docsLink: 'https://docs.tradinggoose.ai/tools/translate',
   category: 'tools',
   bgColor: '',
@@ -61,18 +48,11 @@ export const TranslateBlock: BlockConfig = {
       layout: 'half',
       placeholder: 'Type or select a model...',
       required: true,
-      options: () => {
-        const providersState = useProvidersStore.getState()
-        const baseModels = providersState.providers.base.models
-        const ollamaModels = providersState.providers.ollama.models
-        const openrouterModels = providersState.providers.openrouter.models
-        const allModels = Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
-
-        return allModels.map((model) => {
-          const icon = getProviderIcon(model)
-          return { label: model, id: model, ...(icon && { icon }) }
-        })
-      },
+      dropdownMode: 'sidebar',
+      autoSelectFirstOption: false,
+      optionGroups: getModelGroups,
+      options: getModelOptions,
+      value: getDefaultModel,
     },
     {
       id: 'apiKey',
@@ -82,27 +62,7 @@ export const TranslateBlock: BlockConfig = {
       placeholder: 'Enter your API key',
       password: true,
       connectionDroppable: false,
-      required: true,
-      condition: isHosted
-        ? undefined
-        : () => ({
-            field: 'model',
-            value: getCurrentOllamaModels(),
-            not: true, // Show for all models EXCEPT Ollama models
-          }),
-    },
-    {
-      id: 'azureEndpoint',
-      title: 'Azure OpenAI Endpoint',
-      type: 'short-input',
-      layout: 'full',
-      password: true,
-      placeholder: 'https://your-resource.openai.azure.com',
-      connectionDroppable: false,
-      condition: {
-        field: 'model',
-        value: getProviderModels('azure-openai'),
-      },
+      description: 'Leave unset to use the configured Mastra connection.',
     },
     {
       id: 'systemPrompt',
@@ -116,23 +76,11 @@ export const TranslateBlock: BlockConfig = {
       },
     },
   ],
-  tools: {
-    access: ['openai_chat', 'anthropic_chat', 'google_chat'],
-    config: {
-      tool: (params: Record<string, any>) => {
-        const model = params.model || DEFAULT_MODEL
-        if (!model) {
-          throw new Error('No model selected')
-        }
-        return getProviderFromModel(model)
-      },
-    },
-  },
+  tools: { access: ['llm_chat'], config: { tool: () => 'llm_chat' } },
   inputs: {
     context: { type: 'string', description: 'Text to translate' },
     targetLanguage: { type: 'string', description: 'Target language' },
     apiKey: { type: 'string', description: 'Provider API key' },
-    azureEndpoint: { type: 'string', description: 'Azure OpenAI endpoint URL' },
     systemPrompt: { type: 'string', description: 'Translation instructions' },
   },
   outputs: {

@@ -45,6 +45,9 @@ Streaming makes the Execution API return `text/event-stream`. The preview SDK do
 `execute_with_retry` retries only `RATE_LIMIT_EXCEEDED`. Its defaults are `max_retries=3`, `initial_delay=1.0` seconds, `max_delay=30.0` seconds, and `backoff_multiplier=2.0`. The current workflow endpoint does not emit `Retry-After`, so the client uses exponential backoff with ±25% jitter. A compatible deployment that supplies the header overrides that delay. Python exposes these settings as keyword arguments rather than a separate retry-options type.
 
 - `get_rate_limit_info()` normally returns `None` because the current workflow and usage endpoints do not emit rate-limit headers. A compatible deployment or proxy may supply `limit`, `remaining`, an ISO `reset` timestamp, and optional `retry_after` stored in milliseconds.
+
+**Breaking money ABI:** `currentPeriodCost` is exact USD decimal text, such as `"9007199254740993.30000000000000001"`; the monetary usage `limit` is a decimal string or `null` for unlimited. Nested tier prices, allowances and billing multipliers remain decimal strings or configured `null`. Preserve these values without `Number`/`float` conversion. Rate-limit counts, seats and storage fields remain numeric.
+
 - `get_usage_limits()` returns `UsageLimits(success, rate_limit, usage, storage)`; the rate-limit, usage, and storage payloads are dictionaries matching the API response.
 
 ## Errors and results

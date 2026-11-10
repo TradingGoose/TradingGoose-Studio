@@ -1,7 +1,12 @@
 import { del, get, put } from '@vercel/blob'
 import { createLogger } from '@/lib/logs/console/logger'
+import { assertPublicStorageInput } from '@/lib/uploads/archive-boundary'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 import { VERCEL_BLOB_CONFIG, type VercelBlobAccess } from '@/lib/uploads/core/setup'
+import {
+  assertStorageDeleteAccess,
+  assertStorageReadAccess,
+} from '@/lib/uploads/source-read-boundary'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { createVercelDownloadToken } from './download-token'
 
@@ -67,7 +72,8 @@ export async function uploadToVercel(
   contentType: string,
   customConfig: CustomVercelConfig,
   size?: number,
-  preserveKey?: boolean
+  preserveKey?: boolean,
+  preventOverwrite?: boolean
 ): Promise<FileInfo>
 
 export async function uploadToVercel(
@@ -76,8 +82,15 @@ export async function uploadToVercel(
   contentType: string,
   configOrSize?: CustomVercelConfig | number,
   sizeOrPreserveKey?: number | boolean,
-  preserveKey?: boolean
+  preserveKey?: boolean,
+  preventOverwrite?: boolean
 ): Promise<FileInfo> {
+  assertPublicStorageInput(
+    fileName,
+    undefined,
+    typeof configOrSize === 'object' ? configOrSize : undefined
+  )
+
   const fileSize =
     typeof configOrSize === 'number'
       ? configOrSize
@@ -85,6 +98,7 @@ export async function uploadToVercel(
         ? sizeOrPreserveKey
         : file.length
   const config = typeof configOrSize === 'object' ? getConfig(configOrSize) : getConfig()
+  assertPublicStorageInput(fileName, undefined, config)
   const shouldPreserveKey =
     typeof sizeOrPreserveKey === 'boolean' ? sizeOrPreserveKey : (preserveKey ?? false)
   const safeFileName = fileName.replace(/\s+/g, '-')
@@ -97,6 +111,7 @@ export async function uploadToVercel(
     token: config.token,
     contentType,
     addRandomSuffix: false,
+    ...(preventOverwrite ? { allowOverwrite: false } : {}),
     multipart: fileSize > SERVER_MULTIPART_THRESHOLD_BYTES,
   })
 
@@ -109,29 +124,49 @@ export async function uploadToVercel(
   }
 }
 
-export async function downloadFromVercel(key: string): Promise<Buffer>
-
 export async function downloadFromVercel(
   key: string,
-  customConfig: CustomVercelConfig
-): Promise<Buffer>
-
-export async function downloadFromVercel(
-  key: string,
-  customConfig?: CustomVercelConfig
+  customConfig?: CustomVercelConfig,
+  signal?: AbortSignal
 ): Promise<Buffer> {
+  signal?.throwIfAborted()
+  assertStorageReadAccess(key, undefined, customConfig, 'vercel')
+
   const config = getConfig(customConfig)
+  assertStorageReadAccess(key, undefined, config, 'vercel')
   const result = await get(key, {
     access: config.access,
     token: config.token,
+    abortSignal: signal,
   })
 
   if (!result || result.statusCode !== 200 || !result.stream) {
     throw new Error(`File not found in Vercel Blob: ${key}`)
   }
 
-  const arrayBuffer = await new Response(result.stream).arrayBuffer()
-  return Buffer.from(arrayBuffer)
+  const reader = result.stream.getReader()
+  let cancellation: Promise<void> | undefined
+  const abort = () => {
+    cancellation = reader.cancel(signal?.reason)
+  }
+  signal?.addEventListener('abort', abort, { once: true })
+  try {
+    signal?.throwIfAborted()
+    const chunks: Uint8Array[] = []
+    while (true) {
+      const part = await reader.read()
+      signal?.throwIfAborted()
+      if (part.done) return Buffer.concat(chunks)
+      chunks.push(part.value)
+    }
+  } finally {
+    signal?.removeEventListener('abort', abort)
+    try {
+      await (cancellation ?? reader.cancel())
+    } finally {
+      reader.releaseLock()
+    }
+  }
 }
 
 export async function deleteFromVercel(key: string): Promise<void>
@@ -142,7 +177,10 @@ export async function deleteFromVercel(
   key: string,
   customConfig?: CustomVercelConfig
 ): Promise<void> {
+  assertStorageDeleteAccess(key, undefined, customConfig, 'vercel')
+
   const config = getConfig(customConfig)
+  assertStorageDeleteAccess(key, undefined, config, 'vercel')
   await del(key, { token: config.token })
 }
 
@@ -152,6 +190,8 @@ export async function getDownloadUrlWithConfig(
   expiresIn = 3600,
   context?: StorageContext
 ): Promise<string> {
-  getConfig(customConfig)
+  assertStorageReadAccess(key, context, customConfig, 'vercel')
+
+  assertStorageReadAccess(key, context, getConfig(customConfig), 'vercel')
   return buildSignedServeUrl(key, expiresIn, context)
 }

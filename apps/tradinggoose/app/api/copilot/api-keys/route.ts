@@ -1,80 +1,38 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
+import { listCopilotApiKeys, revokeCopilotApiKey } from '@/lib/copilot/keys'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
+  const session = await getSession()
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const userId = session.user.id
-
-    const res = await proxyCopilotRequest({
-      endpoint: '/api/validate-key/get-api-keys',
-      body: { userId },
+    const now = Date.now()
+    const rows = await listCopilotApiKeys(session.user.id)
+    return NextResponse.json({
+      keys: rows
+        .filter(
+          (key) =>
+            key.status === 'active' &&
+            !key.revokedAt &&
+            (!key.expiresAt || Date.parse(key.expiresAt) > now)
+        )
+        .map((key) => ({ id: key.id, displayKey: `•••••${key.suffix ?? ''}` })),
     })
-
-    if (!res.ok) {
-      return NextResponse.json({ error: 'Failed to get keys' }, { status: res.status || 500 })
-    }
-
-    const apiKeys = (await res.json().catch(() => null)) as { id: string; apiKey: string }[] | null
-
-    if (!Array.isArray(apiKeys)) {
-      return NextResponse.json(
-        { error: 'Invalid response from TradingGoose Agent' },
-        { status: 500 }
-      )
-    }
-
-    const keys = apiKeys.map((k) => {
-      const value = typeof k.apiKey === 'string' ? k.apiKey : ''
-      const last6 = value.slice(-6)
-      const displayKey = `•••••${last6}`
-      return { id: k.id, displayKey }
-    })
-
-    return NextResponse.json({ keys }, { status: 200 })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to get keys' }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Failed to get copilot API keys' }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest) {
+  const session = await getSession()
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const id = request.nextUrl.searchParams.get('id')
+  if (!id?.trim()) return NextResponse.json({ error: 'id is required' }, { status: 400 })
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const userId = session.user.id
-    const url = new URL(request.url)
-    const id = url.searchParams.get('id')
-    if (!id) {
-      return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    }
-
-    const res = await proxyCopilotRequest({
-      endpoint: '/api/validate-key/delete',
-      body: { userId, apiKeyId: id },
-    })
-
-    if (!res.ok) {
-      return NextResponse.json({ error: 'Failed to delete key' }, { status: res.status || 500 })
-    }
-
-    const data = (await res.json().catch(() => null)) as { success?: boolean } | null
-    if (!data?.success) {
-      return NextResponse.json(
-        { error: 'Invalid response from TradingGoose Agent' },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({ success: true }, { status: 200 })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete key' }, { status: 500 })
+    if (!(await revokeCopilotApiKey(id, session.user.id)))
+      return NextResponse.json({ error: 'Active Copilot key not found' }, { status: 404 })
+    return NextResponse.json({ success: true })
+  } catch {
+    return NextResponse.json({ error: 'Failed to revoke copilot API key' }, { status: 500 })
   }
 }

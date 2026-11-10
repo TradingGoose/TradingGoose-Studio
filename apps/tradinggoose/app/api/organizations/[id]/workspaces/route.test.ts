@@ -13,7 +13,7 @@ describe('Organization workspaces DELETE route', () => {
   const updateMock = vi.fn(() => ({
     set: updateSetMock,
   }))
-  const mockResolveWorkspaceBillingOwnerUpdate = vi.fn()
+  const mockUpdateWorkspaceFinancialBinding = vi.fn()
 
   const selectMock = vi.fn(() => ({
     from: vi.fn(() => ({
@@ -28,7 +28,7 @@ describe('Organization workspaces DELETE route', () => {
     vi.clearAllMocks()
     selectResults.length = 0
     updateWhereMock.mockResolvedValue([])
-    mockResolveWorkspaceBillingOwnerUpdate.mockResolvedValue({
+    mockUpdateWorkspaceFinancialBinding.mockResolvedValue({
       billingOwnerType: 'user',
       billingOwnerUserId: 'owner-1',
       billingOwnerOrganizationId: null,
@@ -84,7 +84,7 @@ describe('Organization workspaces DELETE route', () => {
     }))
 
     vi.doMock('@/lib/workspaces/billing-owner', () => ({
-      resolveWorkspaceBillingOwnerUpdate: mockResolveWorkspaceBillingOwnerUpdate,
+      updateWorkspaceFinancialBinding: mockUpdateWorkspaceFinancialBinding,
       toWorkspaceApiRecord: vi.fn((record) => ({
         id: record.id,
         ownerId: record.ownerId,
@@ -138,16 +138,15 @@ describe('Organization workspaces DELETE route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(mockResolveWorkspaceBillingOwnerUpdate).toHaveBeenCalledWith({
+    expect(mockUpdateWorkspaceFinancialBinding).toHaveBeenCalledWith({
       actingUserId: 'user-1',
       workspaceId: 'workspace-1',
-      workspaceOwnerId: 'owner-1',
       billingOwner: {
         type: 'user',
         userId: 'owner-1',
       },
     })
-    expect(updateMock).toHaveBeenCalled()
+    expect(updateMock).not.toHaveBeenCalled()
     expect(await response.json()).toEqual({
       success: true,
       workspace: {

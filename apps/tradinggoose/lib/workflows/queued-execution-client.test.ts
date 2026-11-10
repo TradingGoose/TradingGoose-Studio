@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runQueuedWorkflowExecution } from './queued-execution-client'
 
 const runParams = {
@@ -21,6 +21,7 @@ const streamResponse = (body: ConstructorParameters<typeof Response>[0]) =>
   })
 
 describe('runQueuedWorkflowExecution', () => {
+  afterEach(() => vi.unstubAllGlobals())
   beforeEach(() => {
     vi.restoreAllMocks()
   })
@@ -82,7 +83,7 @@ describe('runQueuedWorkflowExecution', () => {
       const requestUrl = url.toString()
 
       if (requestUrl === '/api/workflows/workflow-1/queue') {
-        expect(init?.signal).toBeUndefined()
+        expect(init?.signal).toBe(abortController.signal)
         await queueStarted
         return Response.json({
           success: true,
@@ -182,4 +183,37 @@ describe('runQueuedWorkflowExecution', () => {
       expect(fetchMock).toHaveBeenCalledTimes(stream ? 1 : 2)
     }
   )
+  it('preserves native target and actual cancellation signal on the single queue contact', async () => {
+    const controller = new AbortController()
+    const native = {
+      workspaceId: null,
+      target: {
+        threadId: 'thread',
+        resourceId: 'resource',
+        runId: 'run',
+        toolCallId: 'execution-1',
+        toolName: 'run_workflow',
+      },
+    }
+    const result = { success: true, output: { value: 42 }, logs: [] }
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (url.toString() === '/api/workflows/workflow-1/queue') {
+        expect(init?.signal).toBe(controller.signal)
+        expect(JSON.parse(String(init?.body))).toMatchObject({
+          native,
+          executionId: 'execution-1',
+          triggerType: 'manual',
+        })
+        return Response.json({ success: true, taskId: 'execution-1', executionId: 'execution-1' })
+      }
+      return Response.json({ success: true, status: 'completed', output: result })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(
+      runQueuedWorkflowExecution({ ...runParams, native, signal: controller.signal })
+    ).resolves.toEqual(result)
+    expect(fetchMock.mock.calls.filter(([url]) => url.toString().endsWith('/queue'))).toHaveLength(
+      1
+    )
+  })
 })

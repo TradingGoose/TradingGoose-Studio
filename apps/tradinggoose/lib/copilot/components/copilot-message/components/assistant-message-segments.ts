@@ -4,6 +4,7 @@ type AssistantContentBlock = NonNullable<CopilotMessage['contentBlocks']>[number
 type ThinkingContentBlock = Extract<AssistantContentBlock, { type: 'thinking' }>
 type TextContentBlock = Extract<AssistantContentBlock, { type: 'text' }>
 type ToolCallContentBlock = Extract<AssistantContentBlock, { type: 'tool_call' }>
+type FileContentBlock = Extract<AssistantContentBlock, { type: 'file' }>
 
 export type AssistantMessageSegment =
   | {
@@ -21,6 +22,7 @@ export type AssistantMessageSegment =
       key: string
       block: ToolCallContentBlock
     }
+  | { type: 'file'; key: string; block: FileContentBlock }
 
 export function buildAssistantMessageSegments(
   contentBlocks?: CopilotMessage['contentBlocks']
@@ -70,6 +72,8 @@ export function buildAssistantMessageSegments(
         key: `tool-${segments.length}-${block.toolCall.id}`,
         block,
       })
+    } else if (block.type === 'file') {
+      segments.push({ type: 'file', key: `file-${segments.length}-${block.timestamp}`, block })
     }
   }
 

@@ -5,41 +5,27 @@ title: Cálculo de costos
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 
-TradingGoose mide la ejecución de flujos de trabajo, el uso de modelos y el tiempo de ejecución de Function/herramientas personalizadas. Los cargos usan la configuración y el nivel efectivo del responsable de facturación del espacio de trabajo, sea usuario u organización.
+TradingGoose registra los cargos de producto aceptados para el responsable de facturación original del espacio de trabajo, ya sea usuario u organización. La política financiera compartida conserva el actor, el periodo de facturación y la cotización originales durante la ejecución y su reanudación.
 
-## Cómo se calculan los costos
+## Cargos aplicados
 
-Cuando la facturación está habilitada, el uso puede incluir tres componentes de costo:
+- **Ejecución del flujo de trabajo**: usa el cargo base y el multiplicador de ejecución del nivel guardados en la cotización original. Cada ejecución lógica liquida su cargo base una sola vez. Los flujos hijos se liquidan por separado.
+- **Tiempo de Function y herramientas personalizadas**: usa el cargo por segundo y el multiplicador de Function guardados, multiplicados por los milisegundos reales de ejecución y divididos entre 1000. Un intento que haya contactado el entorno puede generar este cargo aunque el código falle.
+- **Trabajo de modelos y embeddings**: requiere admisión financiera y aceptación verificada para cada paso o lote real. El costo genérico en USD de los modelos nativos no está disponible en la integración actual. Los tokens no determinan un cargo en dólares y un precio ausente nunca se interpreta como cero conocido.
 
-- **Cargo de ejecución**: el cargo de flujo de trabajo configurado multiplicado por el multiplicador de ejecución del nivel, según la cotización guardada para esa ejecución.
-- **Uso de modelos de IA**: el costo del modelo del proveedor registrado por cada span de ejecución, multiplicado por el multiplicador de costo de modelos del nivel guardado en esa cotización.
-- **Tiempo de ejecución de Function**: el cargo por segundo configurado, multiplicado por el tiempo de ejecución en segundos y el multiplicador de Function del nivel. Se acumula por separado para Function/herramientas personalizadas, incluidos los intentos de ejecución que fallan.
+Los importes, límites, asignaciones, multiplicadores y recibos usan cadenas decimales exactas. Los cargos de Function conservan toda su precisión, sin cuantización a seis decimales. La presentación monetaria puede redondear para facilitar la lectura. Al emitir la factura, USD se convierte a centavos con la regla documentada de redondeo a la mitad hacia arriba; esta conversión no modifica el registro de uso.
 
-```javascript
-executionCost = configuredWorkflowCharge * tierWorkflowExecutionMultiplier
-adjustedModelCost = recordedModelCost * tierWorkflowModelCostMultiplier
-workflowLogSubtotal = executionCost + sum(adjustedModelCost)
-functionCost = (executionTimeMs / 1000) * configuredFunctionChargePerSecond * tierFunctionExecutionMultiplier
-totalMeteredCost = workflowLogSubtotal + sum(functionCost)
-```
-
-Esta fórmula es ilustrativa. Cada cargo de Function se redondea a seis decimales. El total del registro del flujo de trabajo es el subtotal de ejecución/modelos; los cargos de Function acumulados por separado también contribuyen al uso del responsable de facturación. No son cargos de modelos de IA y pueden aplicarse a flujos de trabajo sin IA.
-
-El trabajo de modelos ya realizado se contabiliza al guardar un punto de control de human-in-the-loop. Reanudar o cancelar no vuelve a cobrar ese mismo trabajo: cada ejecución lógica reutiliza su cotización de ejecución/modelos y aplica el cargo base de ejecución una sola vez. Los costos de un flujo hijo se contabilizan en su propio registro, sin volver a cobrarlos mediante las trazas anidadas del padre.
+La finalización requiere aceptación financiera verificada y lectura autorizada de la salida canónica. Un fallo financiero o de lectura puede impedir entregar el resultado como exitoso aunque el trabajo haya terminado; no autoriza repetir ese trabajo. La reanudación conserva la identidad financiera y las operaciones aceptadas sin volver a cobrar el mismo trabajo. Los puntos de revisión humana conservan esa identidad.
 
 <Callout type="info">
-  Para las ejecuciones cuya cotización se guarda por primera vez con la facturación deshabilitada, el cargo base es cero y los costos de modelos registrados usan un multiplicador de uno. Mientras la facturación está deshabilitada, no se acumula uso facturable adicional de flujos de trabajo ni de Function; las cotizaciones guardadas anteriormente no se modifican. La configuración de facturación, y no los valores fijos de esta guía, es la fuente de verdad para los cargos y los multiplicadores.
+  Consulta el uso realmente aceptado y la cotización guardada para obtener los datos de facturación. Un cargo cero configurado y verificado es distinto de un costo de modelo no disponible. Cambiar la configuración no reescribe una cotización, un responsable ni un periodo existentes.
 </Callout>
 
-## Desglose de modelos en los registros
+## Uso activo y registros recargados
 
-En los flujos de trabajo que usan bloques de IA, puedes consultar información detallada de costos en los registros:
+Durante una solicitud activa, los resultados nativos pueden incluir recuentos opcionales de tokens de entrada, salida o totales y el modelo seleccionado. Los contadores ausentes siguen sin estar disponibles. El costo genérico en USD se etiqueta como no disponible, sin tablas manuales de precios ni estimaciones basadas en tokens.
 
-La barra lateral de detalle del registro incluye una sección de desglose de modelos que muestra:
-- **Uso de tokens**: recuento de tokens de entrada y de salida de cada modelo
-- **Desglose de costos**: costo de entrada, de salida y total de cada modelo
-- **Modelos utilizados**: qué modelos contribuyeron al costo de ejecución
-- **Costo total**: subtotal de ejecución/modelos del registro; consulta el uso para ver los cargos de Function acumulados por separado
+Al recargar Records se conservan las entradas, salidas, herramientas y detalles funcionales mediante almacenamiento canónico autorizado. Los diagnósticos del proveedor, informes de costos de modelos y totales de tokens por turno no son informes duraderos del producto. La recarga no reconstruye un desglose de costos a partir de trazas o del tamaño de la conversación. Consulta **Configuración → Suscripción** para ver el uso realmente aplicado del periodo; un subtotal de modelos visible no es el registro financiero.
 
 ## Precios y límites
 
@@ -60,9 +46,6 @@ Un nivel de facturación también puede imponer una duración máxima a cada eje
     Los prompts bien estructurados y concisos reducen el uso de tokens sin sacrificar la calidad.
   </Accordion>
 
-  <Accordion title="Modelos locales">
-    Usa Ollama cuando un modelo local sea adecuado para evitar los cargos del proveedor externo de modelos. El cargo por ejecución de flujo de trabajo puede seguir aplicándose.
-  </Accordion>
 
   <Accordion title="Caché y reutilización">
     Reutiliza las salidas de etapas anteriores o las variables del flujo de trabajo dentro de una ejecución en lugar de repetir llamadas al modelo de IA.
@@ -102,6 +85,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 **Respuesta de ejemplo:**
 
+**Cambio incompatible del ABI monetario:** `currentPeriodCost` es texto decimal exacto en USD, por ejemplo `"9007199254740993.30000000000000001"`; el `limit` monetario es una cadena decimal o `null` para un límite ilimitado. Los precios, asignaciones y multiplicadores del nivel también son cadenas decimales o `null` según la configuración. Conserva estos valores sin convertirlos con `Number`/`float`. Los contadores de velocidad, plazas y campos de almacenamiento siguen siendo numéricos.
+
 ```jsonc
 {
   "success": true,
@@ -111,8 +96,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
     "authType": "api"
   },
   "usage": {
-    "currentPeriodCost": 12.34,
-    "limit": 100,
+    "currentPeriodCost": "12.34",
+    "limit": "100",
     "tier": {
       "id": "tier_example",
       "displayName": "Example Tier",
@@ -122,8 +107,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
       "asyncRateLimitPerMinute": 50,
       "apiEndpointRateLimitPerMinute": 60,
       "logRetentionDays": 30,
-      "workflowExecutionMultiplier": 1,
-      "workflowModelCostMultiplier": 1
+      "workflowExecutionMultiplier": "1",
+      "workflowModelCostMultiplier": "1"
       // The response includes the remaining BillingTierSummary fields.
     }
   },

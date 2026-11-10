@@ -1,4 +1,5 @@
 import { render } from '@react-email/components'
+import type { DecimalAmount } from '@tradinggoose/billing/money'
 import {
   type EmailLocale,
   emailText,
@@ -321,8 +322,8 @@ export async function renderUsageThresholdEmail(params: {
   userName?: string
   planName: string
   percentUsed: number
-  currentUsage: number
-  limit: number
+  currentUsage: DecimalAmount
+  limit: DecimalAmount
   ctaLink: string
   locale?: EmailLocale
 }): Promise<string> {
@@ -363,12 +364,12 @@ export async function renderFreeTierUpgradeEmail(params: {
   userName?: string
   currentTierName?: string
   percentUsed: number
-  currentUsage: number
-  limit: number
+  currentUsage: DecimalAmount
+  limit: DecimalAmount
   upgradeLink: string
   recommendedTierName?: string | null
-  recommendedTierPriceUsd?: number | null
-  recommendedTierIncludedUsageLimitUsd?: number | null
+  recommendedTierPriceUsd?: DecimalAmount | null
+  recommendedTierIncludedUsageLimitUsd?: DecimalAmount | null
   recommendedTierFeatures?: string[]
   locale?: EmailLocale
 }): Promise<string> {
@@ -383,14 +384,14 @@ export async function renderFreeTierUpgradeEmail(params: {
       })
     )
   }
-  if (params.recommendedTierPriceUsd) {
+  if (params.recommendedTierPriceUsd != null) {
     details.push(
       text(params.locale, copy.billing.freeTier.recommendedPrice, {
         price: formatEmailCurrency(params.locale, params.recommendedTierPriceUsd),
       })
     )
   }
-  if (params.recommendedTierIncludedUsageLimitUsd) {
+  if (params.recommendedTierIncludedUsageLimitUsd != null) {
     details.push(
       text(params.locale, copy.billing.freeTier.recommendedUsage, {
         usage: formatEmailCurrency(params.locale, params.recommendedTierIncludedUsageLimitUsd),
@@ -429,7 +430,7 @@ export async function renderFreeTierUpgradeEmail(params: {
 
 export async function renderPaymentFailedEmail(params: {
   userName?: string
-  amountDue?: number
+  amountDue?: DecimalAmount | null
   lastFourDigits?: string
   paymentUrl: string
   failureReason?: string
@@ -438,7 +439,7 @@ export async function renderPaymentFailedEmail(params: {
   const copy = getEmailCopy(params.locale)
   const details = [
     text(params.locale, copy.billing.paymentFailed.amountDue, {
-      amount: formatEmailCurrency(params.locale, params.amountDue ?? 0),
+      amount: formatEmailCurrency(params.locale, params.amountDue),
     }),
   ]
 

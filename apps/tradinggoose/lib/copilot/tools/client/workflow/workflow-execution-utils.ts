@@ -1,3 +1,4 @@
+import type { StudioNativeTarget } from '@/lib/copilot/native/studio-execution'
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
@@ -8,6 +9,8 @@ import { buildExecutableWorkflowData } from '@/stores/workflows/workflow/utils'
 const logger = createLogger('WorkflowExecutionUtils')
 
 type WorkflowExecutionOptions = {
+  native: StudioNativeTarget
+  signal?: AbortSignal
   workflowInput?: any
   executionId?: string
   workflowId: string
@@ -55,6 +58,8 @@ export async function executeWorkflowWithFullLogging(
 
   return runQueuedWorkflowExecution({
     workflowId: options.workflowId,
+    native: options.native,
+    signal: options.signal,
     executionId: options.executionId ?? createExecutionId(),
     input: start.input,
     triggerType: start.triggerType,

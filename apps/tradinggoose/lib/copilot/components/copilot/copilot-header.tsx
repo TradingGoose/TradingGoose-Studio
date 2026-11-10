@@ -145,7 +145,7 @@ function ChatHistoryItem({
   return (
     <div
       className='group flex w-full items-center gap-1'
-      onMouseEnter={() => onHoverChat(chat.reviewSessionId)}
+      onMouseEnter={() => onHoverChat(chat.threadId)}
       onMouseLeave={() => onHoverChat(null)}
     >
       <DropdownMenuItem
@@ -167,7 +167,7 @@ function ChatHistoryItem({
         onClick={(event) => {
           event.preventDefault()
           event.stopPropagation()
-          void onDelete(chat.reviewSessionId)
+          void onDelete(chat.threadId)
         }}
         disabled={isSendingMessage}
         aria-label={historyCopy.deleteChatAria}
@@ -199,12 +199,12 @@ function ChatHistoryGroup({
       <div className='space-y-1'>
         {chats.map((chat) => (
           <ChatHistoryItem
-            key={chat.reviewSessionId}
+            key={chat.threadId}
             chat={chat}
             onSelect={onSelect}
             onDelete={onDelete}
             isSendingMessage={isSendingMessage}
-            isHovered={hoveredChatId === chat.reviewSessionId}
+            isHovered={hoveredChatId === chat.threadId}
             onHoverChat={onHoverChat}
             locale={locale}
             historyCopy={historyCopy}
@@ -233,16 +233,14 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
   }
 
   const handleSelectChat = async (chat: CopilotChat) => {
-    if (currentChat?.reviewSessionId === chat.reviewSessionId) return
+    if (currentChat?.threadId === chat.threadId) return
     try {
       await store.getState().selectChat(chat)
     } catch {}
   }
 
   const title = currentChat?.title || historyCopy.newChat
-  const deleteChat = deleteChatId
-    ? chats.find((chat) => chat.reviewSessionId === deleteChatId)
-    : null
+  const deleteChat = deleteChatId ? chats.find((chat) => chat.threadId === deleteChatId) : null
   const dropdownMenuBody = (() => {
     if (isLoadingChats) {
       return <div className='p-3 text-muted-foreground text-sm'>{historyCopy.loading}</div>

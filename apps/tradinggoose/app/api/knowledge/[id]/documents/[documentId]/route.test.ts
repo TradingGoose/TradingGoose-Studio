@@ -393,7 +393,8 @@ describe('Document By ID API Route', () => {
           fileSize: failedDocument.fileSize,
           mimeType: failedDocument.mimeType,
         },
-        expect.any(String)
+        expect.any(String),
+        'user-123'
       )
     })
 
@@ -488,7 +489,7 @@ describe('Document By ID API Route', () => {
   describe('DELETE /api/knowledge/[id]/documents/[documentId]', () => {
     const mockParams = Promise.resolve({ id: 'kb-123', documentId: 'doc-123' })
 
-    it('should delete document successfully', async () => {
+    it('should delete document metadata and forward the retained-storage report', async () => {
       const { checkDocumentWriteAccess } = await import('@/app/api/knowledge/utils')
       const { deleteDocument } = await import('@/lib/knowledge/documents/service')
 
@@ -504,9 +505,22 @@ describe('Document By ID API Route', () => {
         },
       })
 
+      const storageCleanup = {
+        deleted: [],
+        retained: [
+          {
+            fileUrl: mockDocument.fileUrl,
+            reason:
+              'File deletion is unavailable without current canonical ownership and delete permission',
+          },
+        ],
+      }
+      const message =
+        'Document deleted; stored files were retained because physical deletion could not be verified or completed'
       vi.mocked(deleteDocument).mockResolvedValue({
         success: true,
-        message: 'Document deleted successfully',
+        message,
+        storageCleanup,
       })
 
       const req = createMockRequest('DELETE')
@@ -516,7 +530,7 @@ describe('Document By ID API Route', () => {
 
       expect(response.status).toBe(200)
       expect(data.success).toBe(true)
-      expect(data.data.message).toBe('Document deleted successfully')
+      expect(data.data).toEqual({ success: true, message, storageCleanup })
       expect(vi.mocked(deleteDocument)).toHaveBeenCalledWith('doc-123', expect.any(String))
     })
 

@@ -1,0 +1,41 @@
+{
+  "name": "@tradinggoose/billing",
+  "version": "0.2.0-dev.9",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema.js"
+    },
+    "./money": {
+      "types": "./dist/money.d.ts",
+      "default": "./dist/money.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "bun run build.ts",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test src"
+  },
+  "peerDependencies": {
+    "drizzle-orm": "0.44.7",
+    "postgres": "4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.2.1",
+    "typescript": "^5.7.3",
+    "@tradinggoose/db": "workspace:*"
+  },
+  "dependencies": {
+    "bignumber.js": "9.3.1"
+  }
+}

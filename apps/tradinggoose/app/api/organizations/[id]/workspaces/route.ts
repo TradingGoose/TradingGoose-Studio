@@ -6,8 +6,8 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getManageableWorkspaces, hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import {
-  resolveWorkspaceBillingOwnerUpdate,
   toWorkspaceApiRecord,
+  updateWorkspaceFinancialBinding,
 } from '@/lib/workspaces/billing-owner'
 
 const logger = createLogger('OrganizationWorkspacesAPI')
@@ -316,23 +316,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
     }
 
-    const billingOwnerUpdate = await resolveWorkspaceBillingOwnerUpdate({
+    await updateWorkspaceFinancialBinding({
       actingUserId: session.user.id,
       workspaceId,
-      workspaceOwnerId: existingWorkspace.ownerId,
       billingOwner: {
         type: 'organization',
         organizationId,
       },
     })
-
-    await db
-      .update(workspace)
-      .set({
-        ...billingOwnerUpdate,
-        updatedAt: new Date(),
-      })
-      .where(eq(workspace.id, workspaceId))
 
     const updatedWorkspace = await db
       .select()
@@ -409,23 +400,14 @@ export async function DELETE(
       )
     }
 
-    const billingOwnerUpdate = await resolveWorkspaceBillingOwnerUpdate({
+    await updateWorkspaceFinancialBinding({
       actingUserId: session.user.id,
       workspaceId,
-      workspaceOwnerId: existingWorkspace.ownerId,
       billingOwner: {
         type: 'user',
         userId: existingWorkspace.ownerId,
       },
     })
-
-    await db
-      .update(workspace)
-      .set({
-        ...billingOwnerUpdate,
-        updatedAt: new Date(),
-      })
-      .where(eq(workspace.id, workspaceId))
 
     const updatedWorkspace = await db
       .select()

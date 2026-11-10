@@ -1,12 +1,22 @@
 import { readFile } from 'fs/promises'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
-import { CopilotFiles, isUsingCloudStorage } from '@/lib/uploads'
+import { isUsingCloudStorage } from '@/lib/uploads'
+import { assertPublicStorageInput } from '@/lib/uploads/archive-boundary'
+import {
+  CopilotSourceError,
+  isCopilotSourceReference,
+} from '@/lib/uploads/contexts/copilot/source-proof'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 import { downloadFile } from '@/lib/uploads/core/storage-service'
 import { verifyVercelDownloadToken } from '@/lib/uploads/providers/vercel/download-token'
+import {
+  assertStorageReadAccess,
+  withAuthorizedStorageRead,
+} from '@/lib/uploads/source-read-boundary'
 import {
   createErrorResponse,
   createFileResponse,
@@ -30,6 +40,10 @@ export async function GET(
 
     logger.info('File serve request:', { path })
 
+    assertPublicStorageInput(
+      path.join('/'),
+      request.nextUrl.searchParams.get('context') ?? undefined
+    )
     const fullPath = path.join('/')
     const isS3Path = path[0] === 's3'
     const isAzurePath = path[0] === 'azure'
@@ -37,9 +51,58 @@ export async function GET(
     const isCloudPath = isS3Path || isAzurePath || isVercelPath
     const cloudKey = isCloudPath ? path.slice(1).join('/') : fullPath
 
+    if (
+      request.nextUrl.searchParams.get('context') === 'copilot' ||
+      isCopilotSourceReference(cloudKey)
+    ) {
+      const { processCopilotAttachments } = await import('@/lib/uploads/contexts/copilot')
+      const session = await getSession()
+      if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      const [file] = await processCopilotAttachments(
+        [{ key: cloudKey, sourceProof: request.nextUrl.searchParams.get('sourceProof') || '' }],
+        {
+          actorUserId: session.user.id,
+          workspaceId: request.nextUrl.searchParams.get('workspaceId'),
+        },
+        'copilot-file-serve',
+        request.signal
+      )
+      if (!file) throw new CopilotSourceError('Attachment is unavailable', 404)
+      return privateFileResponse({
+        buffer: file.buffer,
+        contentType: file.attachment.media_type,
+        filename: file.attachment.filename,
+      })
+    }
+
+    if (request.nextUrl.searchParams.get('context') === 'workspace') {
+      const workspaceId = request.nextUrl.searchParams.get('workspaceId')
+      const fileId = request.nextUrl.searchParams.get('fileId')
+      if (workspaceId && fileId) {
+        const session = await getSession()
+        if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const { checkWorkspaceAccess } = await import('@/lib/permissions/utils')
+        const { getWorkspaceFile } = await import('@/lib/uploads/contexts/workspace')
+        if (!(await checkWorkspaceAccess(workspaceId, session.user.id)).hasAccess)
+          return NextResponse.json({ error: 'File access denied' }, { status: 403 })
+        const file = await getWorkspaceFile(workspaceId, fileId)
+        if (!file || file.key !== decodeURIComponent(cloudKey))
+          return NextResponse.json({ error: 'File is unavailable' }, { status: 404 })
+        const buffer = await withAuthorizedStorageRead(file.key, 'workspace', () =>
+          downloadFile({ key: file.key, context: 'workspace' })
+        )
+        return privateFileResponse({ buffer, contentType: file.type, filename: file.name })
+      }
+    }
+
     const signedVercelAccess = isVercelPath
       ? await resolveSignedVercelAccess(request, cloudKey)
       : { authorized: false as const }
+    if (signedVercelAccess.authorized && signedVercelAccess.context === 'copilot')
+      return NextResponse.json(
+        { error: 'Copilot images require authenticated source authorization' },
+        { status: 403 }
+      )
 
     let userId: string | undefined
 
@@ -62,9 +125,12 @@ export async function GET(
       return await handleCloudProxy(cloudKey, contextParam, userId)
     }
 
+    assertStorageReadAccess(fullPath)
     return await handleLocalFile(fullPath, userId)
   } catch (error) {
     logger.error('Error serving file:', error)
+    if (error instanceof CopilotSourceError)
+      return NextResponse.json({ error: error.message }, { status: error.status })
 
     if (error instanceof FileNotFoundError) {
       return createErrorResponse(error)
@@ -168,16 +234,10 @@ async function handleCloudProxy(
       logger.info(`Inferred context: ${context} from key pattern: ${cloudKey}`)
     }
 
-    let fileBuffer: Buffer
-
-    if (context === 'copilot') {
-      fileBuffer = await CopilotFiles.downloadCopilotFile(cloudKey)
-    } else {
-      fileBuffer = await downloadFile({
-        key: cloudKey,
-        context,
-      })
-    }
+    const fileBuffer = await downloadFile({
+      key: cloudKey,
+      context,
+    })
 
     const originalFilename = cloudKey.split('/').pop() || 'download'
     const contentType = getContentType(originalFilename)
@@ -198,4 +258,10 @@ async function handleCloudProxy(
     logger.error('Error downloading from cloud storage:', error)
     throw error
   }
+}
+
+function privateFileResponse(file: { buffer: Buffer; contentType: string; filename: string }) {
+  const response = createFileResponse(file)
+  response.headers.set('Cache-Control', 'private, no-store')
+  return response
 }

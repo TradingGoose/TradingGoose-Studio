@@ -1,14 +1,7 @@
 import { ShieldCheckIcon } from '@/components/icons/icons'
-import { isHosted } from '@/lib/environment'
 import type { BlockConfig } from '@/blocks/types'
-import { getProviderIcon } from '@/providers/ai/models'
-import { useProvidersStore } from '@/stores/providers/store'
+import { getDefaultModel, getModelGroups, getModelOptions } from '@/stores/model-registry'
 import type { ToolResponse } from '@/tools/types'
-
-const getCurrentOllamaModels = () => {
-  const providersState = useProvidersStore.getState()
-  return providersState.providers.ollama.models
-}
 
 export interface GuardrailsResponse extends ToolResponse {
   output: {
@@ -97,18 +90,11 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
       layout: 'half',
       placeholder: 'Type or select a model...',
       required: true,
-      options: () => {
-        const providersState = useProvidersStore.getState()
-        const baseModels = providersState.providers.base.models
-        const ollamaModels = providersState.providers.ollama.models
-        const openrouterModels = providersState.providers.openrouter.models
-        const allModels = Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
-
-        return allModels.map((model) => {
-          const icon = getProviderIcon(model)
-          return { label: model, id: model, ...(icon && { icon }) }
-        })
-      },
+      dropdownMode: 'sidebar',
+      autoSelectFirstOption: false,
+      optionGroups: getModelGroups,
+      options: getModelOptions,
+      value: getDefaultModel,
       condition: {
         field: 'validationType',
         value: ['hallucination'],
@@ -151,27 +137,8 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
       placeholder: 'Enter your API key',
       password: true,
       connectionDroppable: false,
-      required: true,
-      // Show API key field only for hallucination validation
-      condition: () => {
-        const baseCondition = {
-          field: 'validationType' as const,
-          value: ['hallucination'],
-        }
-
-        if (isHosted) {
-          return baseCondition
-        }
-        // In self-hosted mode, hide for Ollama models
-        return {
-          ...baseCondition,
-          and: {
-            field: 'model' as const,
-            value: getCurrentOllamaModels(),
-            not: true, // Show for all models EXCEPT Ollama ones
-          },
-        }
-      },
+      description: 'Leave unset to use the configured Mastra connection.',
+      condition: { field: 'validationType', value: ['hallucination'] },
     },
     {
       id: 'piiEntityTypes',
@@ -308,11 +275,11 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
     },
     model: {
       type: 'string',
-      description: 'LLM model for hallucination scoring (default: gpt-4o-mini)',
+      description: 'Listed Mastra model for hallucination scoring',
     },
     apiKey: {
       type: 'string',
-      description: 'User-provided API key for hallucination scoring (not required for Ollama)',
+      description: 'Optional request-local API key for hallucination scoring',
     },
     piiEntityTypes: {
       type: 'json',

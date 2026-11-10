@@ -1,3 +1,6 @@
+import type { DecimalAmount } from '@tradinggoose/billing/money'
+import type { BillingTierSummary } from '@/lib/billing/types'
+
 export interface User {
   name?: string
   email?: string
@@ -30,6 +33,7 @@ export interface Organization {
 
 export interface Subscription {
   id: string
+  billingEnabled?: boolean
   status: string
   seats?: number
   referenceType?: 'user' | 'organization'
@@ -38,6 +42,7 @@ export interface Subscription {
   periodEnd?: number | Date
   trialEnd?: number | Date
   metadata?: any
+  tier?: BillingTierSummary | null
   [key: string]: unknown
 }
 
@@ -65,8 +70,8 @@ export interface MemberUsageData {
   userId: string
   userName: string
   userEmail: string
-  currentUsage: number
-  usageLimit: number
+  currentUsage: DecimalAmount | null
+  usageLimit: DecimalAmount | null
   percentUsed: number
   isOverLimit: boolean
   role: string
@@ -77,86 +82,25 @@ export interface MemberUsageData {
 export interface OrganizationBillingData {
   organizationId: string
   organizationName: string
-  subscriptionTierName: string
+  billingEnabled?: boolean
+  subscriptionTier: BillingTierSummary | null
   subscriptionStatus: string
+  seatPriceUsd: DecimalAmount | null
+  seatCount: number | null
+  seatMaximum: number | null
+  seatMode: 'fixed' | 'adjustable'
   totalSeats: number
   usedSeats: number
   seatsCount: number
-  totalCurrentUsage: number
-  totalUsageLimit: number
-  minimumUsageLimit: number
-  averageUsagePerMember: number
+  totalCurrentUsage: DecimalAmount
+  totalUsageLimit: DecimalAmount | null
+  warningThresholdPercent: number
+  isWarning: boolean
+  isExceeded: boolean
+  minimumUsageLimit: DecimalAmount
   billingPeriodStart: string | null
   billingPeriodEnd: string | null
   members?: MemberUsageData[]
   userRole?: string
   billingBlocked?: boolean
-}
-
-export interface OrganizationState {
-  // Core organization data
-  organizations: Organization[]
-  activeOrganization: Organization | null
-
-  // Team management
-  subscriptionData: Subscription | null
-  userWorkspaces: Workspace[]
-
-  // Organization billing and usage
-  organizationBillingData: OrganizationBillingData | null
-
-  // Organization settings
-  orgFormData: OrganizationFormData
-
-  // Loading states
-  isLoading: boolean
-  isLoadingSubscription: boolean
-  isLoadingOrgBilling: boolean
-  isCreatingOrg: boolean
-  isInviting: boolean
-  isSavingOrgSettings: boolean
-
-  // Error states
-  error: string | null
-  orgSettingsError: string | null
-
-  // Success states
-  inviteSuccess: boolean
-  orgSettingsSuccess: string | null
-
-  // Cache timestamps
-  lastFetched: number | null
-  lastSubscriptionFetched: number | null
-  lastOrgBillingFetched: number | null
-}
-
-export interface OrganizationStore extends OrganizationState {
-  loadData: () => Promise<void>
-  loadOrganizationSubscription: (orgId: string) => Promise<void>
-  loadOrganizationBillingData: (organizationId: string, force?: boolean) => Promise<void>
-  loadUserWorkspaces: (userId?: string) => Promise<void>
-  refreshOrganization: () => Promise<void>
-
-  // Organization management
-  createOrganization: (name: string, slug: string) => Promise<void>
-  setActiveOrganization: (orgId: string) => Promise<void>
-  updateOrganizationSettings: () => Promise<void>
-
-  // Team management
-  inviteMember: (email: string, workspaceInvitations?: WorkspaceInvitation[]) => Promise<void>
-  removeMember: (memberId: string, shouldReduceSeats?: boolean) => Promise<void>
-  cancelInvitation: (invitationId: string) => Promise<void>
-
-  // Seat management
-  addSeats: (newSeatCount: number) => Promise<void>
-  reduceSeats: (newSeatCount: number) => Promise<void>
-
-  getUserRole: (userEmail?: string) => string
-  isAdminOrOwner: (userEmail?: string) => boolean
-  getUsedSeats: () => { used: number; members: number; pending: number }
-
-  setOrgFormData: (data: Partial<OrganizationFormData>) => void
-
-  clearError: () => void
-  clearSuccessMessages: () => void
 }

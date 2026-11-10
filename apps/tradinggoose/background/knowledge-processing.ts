@@ -65,7 +65,10 @@ export async function executeDocumentProcessingJob(value: unknown) {
   logger.info(`[${requestId}] Starting document pending execution: ${docData.filename}`)
 
   try {
-    await processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions)
+    await processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions, {
+      actorUserId: payload.userId,
+      workspaceId: payload.workspaceId,
+    })
 
     logger.info(
       `[${requestId}] Successfully completed document pending execution: ${docData.filename}`
@@ -81,10 +84,7 @@ export const processDocument = task({
   maxDuration: envNumber(env.KB_CONFIG_MAX_DURATION, 600),
   machine: 'large-1x',
   retry: {
-    maxAttempts: envNumber(env.KB_CONFIG_MAX_ATTEMPTS, 3),
-    factor: envNumber(env.KB_CONFIG_RETRY_FACTOR, 2),
-    minTimeoutInMs: envNumber(env.KB_CONFIG_MIN_TIMEOUT, 1000),
-    maxTimeoutInMs: envNumber(env.KB_CONFIG_MAX_TIMEOUT, 10000),
+    maxAttempts: 1,
   },
   queue: {
     concurrencyLimit: envNumber(env.KB_CONFIG_CONCURRENCY_LIMIT, 20),
@@ -99,7 +99,12 @@ export async function executeTriggeredDocumentProcessingJob(value: unknown) {
 }
 
 export async function markDocumentProcessingJobFailed(value: unknown, errorMessage: string) {
-  if (!value || typeof value !== 'object') return
-  const { documentId } = value as Record<string, unknown>
-  if (typeof documentId === 'string') await markDocumentProcessingFailed(documentId, errorMessage)
+  if (!isDocumentProcessingPayload(value)) return
+  await markDocumentProcessingFailed(
+    value.knowledgeBaseId,
+    value.documentId,
+    value.docData,
+    { actorUserId: value.userId, workspaceId: value.workspaceId },
+    errorMessage
+  )
 }

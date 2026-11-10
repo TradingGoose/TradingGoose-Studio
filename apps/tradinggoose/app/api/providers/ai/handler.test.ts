@@ -1,224 +1,433 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import * as environment from '@/lib/environment'
-import { handleAIProviderRequest } from '@/app/api/providers/ai/handler'
-import { EvaluatorBlockHandler } from '@/executor/handlers/evaluator/evaluator-handler'
-import { RouterBlockHandler } from '@/executor/handlers/router/router-handler'
-import { PathTracker } from '@/executor/path/path'
-import type { ExecutionContext } from '@/executor/types'
-import { openaiProvider } from '@/providers/ai/openai'
-import { decodeProviderStream } from '@/providers/ai/streaming'
-import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
-
-const mocks = vi.hoisted(() => ({ execute: vi.fn(), responses: vi.fn(), tool: vi.fn() }))
-vi.mock('@/providers/ai', () => ({ executeProviderRequest: mocks.execute }))
-vi.mock('@/tools', () => ({ executeTool: mocks.tool }))
-vi.mock('openai', () => ({
-  default: class {
-    responses = { create: mocks.responses }
+vi.mock('@/lib/mastra/connections', async (original) => ({
+  ...(await original<typeof import('@/lib/mastra/connections')>()),
+  createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
+}))
+vi.mock('@/lib/mastra/financial-processors', () => ({
+  financialProcessors: async (scope: unknown) => {
+    native.finance(scope)
+    return {
+      inputProcessors: [],
+      outputProcessors: [],
+      getUsage: () => ({}),
+      verifyComplete: async () => {},
+    }
   },
 }))
+vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 
+import { EMBEDDING_MODELS } from '@mastra/core/llm'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { withInferenceFacts } from '@/lib/mastra/result'
+import { handleAIProviderRequest } from './handler'
+
+const native = vi.hoisted(() => ({
+  finance: vi.fn(),
+  generate: vi.fn(),
+  stream: vi.fn(),
+  configurations: [] as any[],
+  executeTool: vi.fn(),
+  accountingReads: vi.fn(),
+}))
+vi.mock('@mastra/core/agent', () => ({
+  Agent: class {
+    constructor(configuration: any) {
+      native.configurations.push(configuration)
+    }
+    generate = native.generate
+    stream = native.stream
+  },
+}))
+vi.mock('@/lib/mastra/usage', async (original) => ({
+  ...(await original<typeof import('@/lib/mastra/usage')>()),
+  getMastra: async () => undefined,
+  resultAccounting: async (usage: any) => {
+    native.accountingReads(usage)
+    return { tokens: { total: usage?.totalTokens }, cost: { status: 'unavailable' } }
+  },
+}))
+vi.mock('@/blocks', () => ({ getAllBlocks: vi.fn(() => []) }))
+vi.mock('@/tools', () => ({ executeTool: native.executeTool, getToolAsync: vi.fn() }))
+vi.mock('@/tools/utils', () => ({ getTool: vi.fn() }))
+vi.mock('@/lib/logs/console/logger', () => ({
+  createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
+}))
+const result = {
+  text: '价格 📈',
+  finishReason: 'stop',
+  totalUsage: { inputTokens: 2, outputTokens: 3, totalTokens: 5 },
+  steps: [],
+}
 beforeEach(() => {
-  vi.resetAllMocks()
-  mocks.execute.mockImplementation((_provider, request) => openaiProvider.executeRequest(request))
+  vi.clearAllMocks()
+  native.configurations.length = 0
+  native.generate.mockResolvedValue(result)
+  native.executeTool.mockResolvedValue({ success: true, output: { found: true } })
 })
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-  vi.restoreAllMocks()
-})
-
-it.each(['openai', 'anthropic'])(
-  'rejects hosted %s requests without user credentials before inference',
-  async (providerId) => {
-    vi.spyOn(environment, 'isHosted', 'get').mockReturnValue(true)
+describe('native AI HTTP handler', () => {
+  it('requires and exactly validates the resolved canonical model', async () => {
+    const missing = await handleAIProviderRequest({ body: {}, requestId: 'missing' })
+    expect(missing.status).toBe(400)
+    await expect(
+      handleAIProviderRequest({ body: { model: 'gpt-4.1' }, requestId: 'bare' })
+    ).rejects.toThrow()
+    expect(native.generate).not.toHaveBeenCalled()
+  })
+  it('passes canonical Anthropic routing and request-local keys directly to Mastra', async () => {
     const response = await handleAIProviderRequest({
-      providerId,
-      requestId: 'missing-key',
-      startTime: Date.now(),
       body: {
-        model: providerId === 'openai' ? 'gpt-4.1' : 'claude-haiku-4-5',
-        context: 'Analyze',
+        model: 'anthropic/claude-sonnet-4-5',
+        apiKey: 'tenant-key',
+        messages: [{ role: 'user', content: 'Analyze' }],
+        modelSettings: { maxOutputTokens: 51 },
       },
+      requestId: 'anthropic',
     })
-    expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({
-      error: expect.stringContaining('API key is required'),
+    expect(native.configurations[0].model).toEqual({
+      id: 'anthropic/claude-sonnet-4-5',
+      apiKey: 'tenant-key',
     })
-    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(native.generate.mock.calls[0][1].modelSettings.maxOutputTokens).toBe(51)
+    expect(await response.json()).toMatchObject({
+      content: '价格 📈',
+      tokens: { total: 5 },
+      cost: { status: 'unavailable' },
+    })
+  })
+  it('binds tool authorization to the authenticated actor and preserves configured arguments', async () => {
+    await handleAIProviderRequest({
+      body: {
+        model: 'openai/gpt-4.1',
+        workspaceId: 'workspace',
+        workflowId: 'workflow',
+        tools: [
+          {
+            id: 'lookup',
+            description: 'Lookup',
+            params: { query: 'fixed' },
+            parameters: { type: 'object', properties: { query: { type: 'string' } } },
+          },
+        ],
+      },
+      requestId: 'tools',
+      authUserId: 'authenticated-user',
+    })
+    await native.configurations[0].tools.lookup.execute({ query: 'generated' }, {})
+    expect(native.executeTool.mock.calls[0][1]).toMatchObject({
+      query: 'fixed',
+      _context: { userId: 'authenticated-user', workspaceId: 'workspace', workflowId: 'workflow' },
+    })
+  })
+  it('transports native Unicode events and completes workflow metadata after stream consumption', async () => {
+    native.stream.mockResolvedValue({
+      fullStream: new ReadableStream({
+        start(controller) {
+          controller.enqueue({ type: 'text-delta', payload: { text: '价格 📈' } })
+          controller.close()
+        },
+      }),
+      getFullOutput: async () => result,
+    })
+    const response = await handleAIProviderRequest({
+      body: { model: 'openai/gpt-4.1', stream: true },
+      requestId: 'stream',
+    })
+    const text = await response.text()
+    expect(text).toContain('价格 📈')
+    expect(text).toContain('"type":"workflow-output"')
+    expect(text).toContain('"total":5')
+    expect(text).toContain('"status":"unavailable"')
+  })
+})
+
+it('retains completed tool charges when HTTP native generation fails later', async () => {
+  native.executeTool.mockResolvedValue({
+    success: true,
+    output: withInferenceFacts(
+      { found: true, cost: { availableTotal: 0.006, status: 'partial' } },
+      { cost: { availableTotal: 0.006, status: 'partial' }, generatedFields: ['cost'] }
+    ),
+  })
+  native.generate.mockImplementationOnce(async () => {
+    await native.configurations[0].tools.lookup.execute({ query: 'generated' }, {})
+    throw new Error('Later native model failure')
+  })
+  await expect(
+    handleAIProviderRequest({
+      body: {
+        model: 'openai/gpt-4.1',
+        tools: [
+          {
+            id: 'lookup',
+            description: 'Lookup',
+            parameters: { type: 'object', properties: { query: { type: 'string' } } },
+          },
+        ],
+      },
+      requestId: 'failed-tool',
+      authUserId: 'actor',
+    })
+  ).rejects.toMatchObject({
+    toolCost: 0.006,
+    unavailableToolCosts: 1,
+    cost: { status: 'unavailable' },
+  })
+})
+
+it.each([false, true])(
+  'keeps raw business reports functional without counting them after HTTP failure (stream=%s)',
+  async (stream) => {
+    const business = {
+      id: 'business-id',
+      model: 'business-model',
+      tokens: { total: 9999 },
+      cost: { availableTotal: 9999, status: 'partial' },
+      inference: { tokens: { total: 9999 }, cost: { total: 9999 } },
+    }
+    native.executeTool.mockResolvedValue({ success: true, output: business })
+    const failure = new Error('Later untrusted business fixture failure')
+    const execute = async () => {
+      await native.configurations[0].tools.lookup.execute({ query: 'generated' }, {})
+    }
+    if (stream)
+      native.stream.mockImplementationOnce(async () => {
+        await execute()
+        return {
+          fullStream: new ReadableStream({
+            start(controller) {
+              controller.enqueue({ type: 'error', payload: { error: failure } })
+              controller.close()
+            },
+          }),
+          getFullOutput: async () => {
+            throw failure
+          },
+        }
+      })
+    else
+      native.generate.mockImplementationOnce(async () => {
+        await execute()
+        throw failure
+      })
+    const request = handleAIProviderRequest({
+      body: {
+        model: 'openai/gpt-4.1',
+        stream,
+        tools: [
+          {
+            id: 'lookup',
+            description: 'Lookup',
+            parameters: { type: 'object', properties: { query: { type: 'string' } } },
+          },
+        ],
+      },
+      requestId: `business-failure-${stream}`,
+      authUserId: 'actor',
+    })
+    if (stream) {
+      const reader = (await request).body!.getReader()
+      expect((await reader.read()).done).toBe(false)
+      await expect(reader.read()).rejects.toBe(failure)
+    } else await expect(request).rejects.toBe(failure)
+    expect(failure).toMatchObject({ toolResults: [business] })
+    expect(failure).not.toHaveProperty('toolCost')
+    expect(failure).not.toHaveProperty('unavailableToolCosts')
+    expect(business.tokens.total).toBe(9999)
+    expect(business.cost.availableTotal).toBe(9999)
+    expect(native.executeTool).toHaveBeenCalledTimes(1)
   }
 )
 
-it.each([false, true])('preserves completed OpenAI HTTP metadata, tools=%s', async (withTools) => {
-  let finishTool!: () => void
-  let startTool!: () => void
-  const pendingTool = new Promise<void>((resolve) => {
-    finishTool = resolve
-  })
-  const startedTool = new Promise<void>((resolve) => {
-    startTool = resolve
-  })
-  mocks.tool.mockImplementationOnce(async () => {
-    startTool()
-    await pendingTool
-    return { success: true, output: { quote: '股票 📈', cost: { total: 2 } } }
-  })
-  mocks.responses.mockImplementation(async (payload) => {
-    const done =
-      !withTools ||
-      payload.input.some((item: { type: string }) => item.type === 'function_call_output')
-    const response = {
-      status: 'completed',
-      output: done
-        ? [{ type: 'message', content: [{ type: 'output_text', text: '价格 📈' }] }]
-        : [
-            {
-              type: 'function_call',
-              call_id: 'price-call',
-              name: 'lookup',
-              arguments: '{"symbol":"你好"}',
-            },
-          ],
-      usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+describe('public native stream errors and lifecycle', () => {
+  it.each(['error', 'tool-error'] as const)(
+    'projects %s without SDK diagnostic payloads',
+    async (type) => {
+      const apiKey = 'fixture-caller-credential'
+      const error = Object.assign(new Error(`Provider failed for ${apiKey}`), {
+        responseHeaders: { 'x-private': 'private-header' },
+        responseBody: 'private-body',
+        requestBodyValues: { privateRequest: 'private-request' },
+      })
+      native.stream.mockResolvedValue({
+        fullStream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({
+              type,
+              payload: {
+                error,
+                toolName: 'lookup',
+                toolCallId: 'lookup-call',
+                args: { apiKey },
+                providerMetadata: { diagnostic: 'private-metadata' },
+              },
+            })
+            controller.close()
+          },
+        }),
+        getFullOutput: async () => result,
+      })
+      const response = await handleAIProviderRequest({
+        body: { model: 'openai/gpt-4.1', apiKey, stream: true },
+        requestId: `public-${type}`,
+      })
+      const text = await response.text()
+      const event = JSON.parse(text.split('\n\n')[0].slice(6))
+      expect(event).toEqual({
+        type,
+        payload: {
+          ...(type === 'tool-error' ? { toolName: 'lookup', toolCallId: 'lookup-call' } : {}),
+          error: 'Provider failed for [redacted]',
+        },
+      })
+      expect(text).not.toMatch(/responseHeaders|responseBody|requestBodyValues|stack|private-/)
+      expect(text).not.toContain(apiKey)
     }
-    return (async function* () {
-      if (done) yield { type: 'response.output_text.delta', delta: '价格 📈' }
-      yield { type: 'response.completed', response }
-    })()
-  })
+  )
 
-  const response = await handleAIProviderRequest({
-    providerId: 'openai',
-    requestId: 'http-metadata-test',
-    startTime: Date.now(),
-    authUserId: 'user',
-    body: {
-      model: 'gpt-6.1-sol',
-      apiKey: 'test-key',
-      messages: [{ role: 'user', content: 'Get prices' }],
-      stream: true,
-      tools: withTools
-        ? [
-            {
-              id: 'lookup',
-              name: 'Get prices',
-              description: 'Get prices',
-              params: {},
-              parameters: {
-                type: 'object',
-                properties: { symbol: { type: 'string' } },
-                required: ['symbol'],
+  it('uses the existing generic public message for serialized native errors', async () => {
+    native.stream.mockResolvedValue({
+      fullStream: new ReadableStream({
+        start(controller) {
+          controller.enqueue({
+            type: 'error',
+            payload: {
+              error: {
+                message: 'private-upstream-message',
+                stack: 'private-stack',
+                responseBody: 'private-body',
               },
             },
-          ]
-        : undefined,
-    },
-  })
-  expect(response.headers.get('Content-Type')).toContain('text/event-stream')
-  expect(response.headers.has('X-Execution-Data')).toBe(false)
-  if (!response.body) throw new Error('Expected HTTP stream body')
-  const decoded = decodeProviderStream(response.body)
-  const output = decoded.execution.output
-  const metadata = decoded.execution.metadata
-  const content = new Response(decoded.stream).text()
-  if (withTools) {
-    await startedTool
-    expect(output.toolCalls).toBeUndefined()
-    finishTool()
-  }
-  expect(await content).toBe('价格 📈')
-  expect(decoded.execution.output).toBe(output)
-  expect(decoded.execution.metadata).toBe(metadata)
-  const calls = withTools ? 2 : 1
-  expect(output).toMatchObject({
-    content: '价格 📈',
-    tokens: { prompt: 10 * calls, completion: 5 * calls, total: 15 * calls },
-    providerTiming: { iterations: calls, timeSegments: expect.any(Array) },
-  })
-  expect(metadata).toMatchObject({ startTime: expect.any(String), endTime: expect.any(String) })
-  expect(output.cost.total).toBeCloseTo((withTools ? 2 : 0) + calls * 0.00007, 8)
-  if (withTools)
-    expect(output.toolCalls).toMatchObject({
-      count: 1,
-      list: [
-        {
-          id: 'price-call',
-          name: 'lookup',
-          arguments: { symbol: '你好' },
-          result: { quote: '股票 📈' },
-          success: true,
+          })
+          controller.close()
         },
-      ],
+      }),
+      getFullOutput: async () => result,
     })
-  expect(mocks.responses).toHaveBeenCalledTimes(calls)
+    const response = await handleAIProviderRequest({
+      body: { model: 'openai/gpt-4.1', stream: true },
+      requestId: 'serialized-error',
+    })
+    const text = await response.text()
+    expect(text).toContain('Model request failed. Check the selected model and connection.')
+    expect(text).not.toMatch(/private-|responseBody|stack/)
+  })
+
+  it('retains completed-step and tool accounting after a later stream failure', async () => {
+    native.executeTool.mockResolvedValue({
+      success: true,
+      output: withInferenceFacts(
+        { cost: { availableTotal: 0.006, status: 'partial' } },
+        { cost: { availableTotal: 0.006, status: 'partial' }, generatedFields: ['cost'] }
+      ),
+    })
+    const error = new Error('Later native stream failure')
+    native.stream.mockImplementationOnce(async (_messages, options) => {
+      options.onStepFinish({ usage: { inputTokens: 2, outputTokens: 3, totalTokens: 5 } })
+      await native.configurations[0].tools.lookup.execute({ query: 'generated' }, {})
+      return {
+        fullStream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({ type: 'error', payload: { error } })
+            controller.close()
+          },
+        }),
+        getFullOutput: async () => {
+          throw error
+        },
+      }
+    })
+    const response = await handleAIProviderRequest({
+      body: {
+        model: 'openai/gpt-4.1',
+        stream: true,
+        tools: [
+          {
+            id: 'lookup',
+            description: 'Lookup',
+            parameters: { type: 'object', properties: { query: { type: 'string' } } },
+          },
+        ],
+      },
+      requestId: 'stream-accounting',
+    })
+    const reader = response.body!.getReader()
+    const first = await reader.read()
+    expect(new TextDecoder().decode(first.value)).toContain('Later native stream failure')
+    await expect(reader.read()).rejects.toMatchObject({
+      model: 'openai/gpt-4.1',
+      tokens: { total: 5 },
+      cost: { status: 'unavailable' },
+      toolCost: 0.006,
+      unavailableToolCosts: 1,
+    })
+    expect(native.accountingReads).toHaveBeenCalledWith({
+      inputTokens: 2,
+      outputTokens: 3,
+      totalTokens: 5,
+    })
+  })
+
+  it('aborts native work and captures completed usage when the HTTP reader cancels', async () => {
+    const cancel = vi.fn()
+    let signal: AbortSignal | undefined
+    native.stream.mockImplementationOnce(async (_messages, options) => {
+      signal = options.abortSignal
+      options.onStepFinish({ usage: { inputTokens: 2, outputTokens: 3, totalTokens: 5 } })
+      return {
+        fullStream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({ type: 'text-delta', payload: { text: 'Partial' } })
+          },
+          cancel,
+        }),
+      }
+    })
+    const response = await handleAIProviderRequest({
+      body: { model: 'openai/gpt-4.1', stream: true },
+      requestId: 'stream-cancel',
+    })
+    const reader = response.body!.getReader()
+    await reader.read()
+    await reader.cancel('Consumer stopped')
+    expect(signal?.aborted).toBe(true)
+    expect(cancel).toHaveBeenCalledWith('Consumer stopped')
+    expect(native.accountingReads).toHaveBeenCalledWith({
+      inputTokens: 2,
+      outputTokens: 3,
+      totalTokens: 5,
+    })
+  })
 })
 
-it.each(['router', 'evaluator'])(
-  'preserves uncached OpenAI costs through %s execution',
-  async (kind) => {
-    const block: SerializedBlock = {
-      id: 'source',
-      position: { x: 0, y: 0 },
-      config: { tool: kind, params: {} },
-      inputs: {},
-      outputs: {},
-      enabled: true,
-    }
-    const workflow: SerializedWorkflow = {
-      version: '1',
-      blocks: [block, { ...block, id: 'target' }],
-      connections: [{ source: block.id, target: 'target' }],
-      loops: {},
-    }
-    const context = {
-      workflowId: 'cost-test',
-      workflow,
-      blockStates: new Map(),
-    } as ExecutionContext
-    mocks.responses.mockResolvedValue({
-      status: 'completed',
-      output: [
-        {
-          type: 'message',
-          content: [{ type: 'output_text', text: kind === 'router' ? 'target' : '{"score":1}' }],
+it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provider, id] as const))(
+  'refuses native-known embedding model %s before generation admission or model contact',
+  async (model, provider, modelId) => {
+    // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
+    vi.stubEnv(
+      'MASTRA_MODEL_PROVIDERS',
+      JSON.stringify({
+        [provider]: {
+          name: 'Controlled registered provider',
+          url: 'https://not-contacted.invalid',
+          models: [modelId],
         },
-      ],
-      usage: {
-        input_tokens: 1000,
-        output_tokens: 100,
-        total_tokens: 1100,
-        input_tokens_details: { cached_tokens: 0 },
-      },
-    })
-    vi.stubGlobal('fetch', async (_url: string, init: RequestInit) =>
-      handleAIProviderRequest({
-        providerId: 'openai',
-        requestId: 'handler-cost-test',
-        startTime: Date.now(),
-        authUserId: 'user',
-        body: JSON.parse(init.body as string),
       })
     )
-    const handler =
-      kind === 'router'
-        ? new RouterBlockHandler(new PathTracker(workflow))
-        : new EvaluatorBlockHandler()
-    const result = await handler.execute(
-      block,
-      {
-        model: 'gpt-4.1',
-        apiKey: 'test-key',
-        prompt: 'Choose a path',
-        content: 'Evaluate this',
-        metrics: [{ name: 'score', range: { min: 0, max: 1 } }],
-      },
-      context
-    )
-    expect(mocks.execute).toHaveBeenCalledTimes(1)
-    expect(mocks.execute.mock.calls[0][1].context).toBeTruthy()
-    expect(result).toMatchObject({
-      cost: { input: 0.002, output: 0.0008, total: 0.0028 },
-      ...(kind === 'router' ? { selectedPath: { blockId: 'target' } } : { score: 1 }),
-    })
+    try {
+      await expect(
+        handleAIProviderRequest({
+          body: { model, messages: [{ role: 'user', content: 'Generate a response' }] },
+          requestId: 'embedding-rejected',
+          authUserId: 'user-1',
+        })
+      ).rejects.toMatchObject({ status: 400 })
+      expect(native.finance).not.toHaveBeenCalled()
+      expect(native.generate).not.toHaveBeenCalled()
+      expect(native.stream).not.toHaveBeenCalled()
+      expect(native.configurations).toEqual([])
+      expect(native.executeTool).not.toHaveBeenCalled()
+      expect(native.accountingReads).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
   }
 )

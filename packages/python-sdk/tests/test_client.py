@@ -2,6 +2,7 @@
 Tests for the TradingGoose Python SDK
 """
 
+import json
 import pytest
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
@@ -406,8 +407,8 @@ def test_get_usage_limits_success(mock_get):
             "authType": "api"
         },
         "usage": {
-            "currentPeriodCost": 1.23,
-            "limit": 100.0,
+            "currentPeriodCost": "1.23",
+            "limit": "100",
             "tier": {"id": "tier-pro", "displayName": "Pro"}
         },
         "storage": {
@@ -425,7 +426,7 @@ def test_get_usage_limits_success(mock_get):
     assert result.success is True
     assert result.rate_limit["sync"]["limit"] == 100
     assert result.rate_limit["async"]["limit"] == 50
-    assert result.usage["currentPeriodCost"] == 1.23
+    assert result.usage["currentPeriodCost"] == "1.23"
     assert result.usage["tier"] == {"id": "tier-pro", "displayName": "Pro"}
     assert result.storage["usedBytes"] == 1000
     assert result.storage["limitBytes"] == 10000
@@ -469,3 +470,38 @@ def test_required_response_fields_are_not_fabricated(mock_get, method, args):
     client = TradingGooseClient(api_key="test-api-key")
     with pytest.raises(KeyError):
         getattr(client, method)(*args)
+
+
+@pytest.mark.parametrize("limit", ["0.3", None])
+@patch('tradinggoose.requests.Session.get')
+def test_get_usage_limits_preserves_exact_wire_money(mock_get, limit):
+    """The real client retains decimal JSON strings/null without wrapping or numeric parsing."""
+    amount = "9007199254740993.30000000000000001"
+    body = json.dumps({
+        "success": True,
+        "rateLimit": {"sync": {"limit": 100}, "async": {"limit": 50}},
+        "usage": {"currentPeriodCost": amount, "limit": limit, "tier": {
+            "monthlyPriceUsd": "0.30000000000000001",
+            "includedUsageLimitUsd": None,
+            "workflowModelCostMultiplier": "1.00000000000000001",
+        }},
+        "storage": {"usedBytes": 1000, "limitBytes": 10000, "percentUsed": 10},
+    })
+    mock_response = Mock()
+    mock_response.ok = True
+    mock_response.status_code = 200
+    mock_response.headers.get.return_value = None
+    mock_response.json.return_value = json.loads(body)
+    mock_get.return_value = mock_response
+    client = TradingGooseClient(api_key="test-api-key", base_url="https://test.tradinggoose.ai")
+    result = client.get_usage_limits()
+    assert result.usage["currentPeriodCost"] == amount
+    assert result.usage["limit"] == limit
+    assert result.usage["tier"]["workflowModelCostMultiplier"] == "1.00000000000000001"
+    assert result.usage["tier"]["includedUsageLimitUsd"] is None
+    assert result.rate_limit["sync"]["limit"] == 100
+    assert result.storage["usedBytes"] == 1000
+    assert isinstance(result.usage, dict)
+    mock_get.assert_called_once_with(
+        "https://test.tradinggoose.ai/api/users/me/usage-limits", allow_redirects=False
+    )

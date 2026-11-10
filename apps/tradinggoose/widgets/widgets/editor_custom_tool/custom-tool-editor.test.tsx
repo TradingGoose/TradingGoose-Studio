@@ -29,7 +29,7 @@ const editorMocks = vi.hoisted(() => ({
     | ((offset: number, coords: { top: number; left: number; height: number } | null) => void)
     | null,
   envVarOnSelect: null as ((value: string) => void) | null,
-  wandInputs: [] as Array<{ onStreamChunk?: (chunk: string) => void }>,
+  wandInputs: [] as Array<Parameters<typeof import('@/hooks/workflow/use-wand').useWand>[0]>,
 }))
 
 vi.mock('@/hooks/workflow/use-wand', () => ({
@@ -420,6 +420,45 @@ describe('CustomToolEditor', () => {
       retainedStreamChunk?.('return 3')
     })
     expect(getEntityFields(doc, 'custom_tool').codeText).toBe('return 1')
+    doc.destroy()
+  })
+  it('keeps schema/code previews local and discards them without overwriting current Yjs fields', async () => {
+    const doc = createCustomToolDoc({
+      schema: {
+        type: 'function',
+        function: { description: 'Original', parameters: { type: 'object', properties: {} } },
+      },
+      code: 'return 1',
+    })
+    await act(async () =>
+      root.render(
+        <CustomToolEditor
+          activeSection='schema'
+          blockId='editor'
+          toolId='tool'
+          toolTitle='Tool'
+          doc={doc}
+          save={vi.fn()}
+          onSectionChange={vi.fn()}
+        />
+      )
+    )
+    const before = getEntityFields(doc, 'custom_tool')
+    await act(async () => {
+      editorMocks.wandInputs[0].onStreamStart?.()
+      editorMocks.wandInputs[0].onStreamChunk?.('Partial schema')
+      editorMocks.wandInputs[1].onStreamStart?.()
+      editorMocks.wandInputs[1].onStreamChunk?.('Partial code')
+    })
+    expect(getEntityFields(doc, 'custom_tool')).toMatchObject(before)
+    await act(async () => replaceEntityTextField(doc, 'codeText', 'concurrent edit'))
+    await act(async () => {
+      editorMocks.wandInputs.at(-2)!.onGenerationEnd?.()
+      editorMocks.wandInputs.at(-1)!.onGenerationEnd?.()
+    })
+    expect(getEntityFields(doc, 'custom_tool').codeText).toBe('concurrent edit')
+    await act(async () => editorMocks.wandInputs.at(-1)!.onGeneratedContent('return 2'))
+    expect(getEntityFields(doc, 'custom_tool').codeText).toBe('return 2')
     doc.destroy()
   })
 })

@@ -8,7 +8,6 @@ import { resetCopilotStoreRegistry } from '@/stores/copilot/store'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
-import { useSubscriptionStore } from '@/stores/subscription/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('Stores')
@@ -45,7 +44,6 @@ export {
   useExecutionStore,
   useConsoleStore,
   useCustomToolsStore,
-  useSubscriptionStore,
 }
 
 // Helper function to reset all stores
@@ -71,7 +69,6 @@ export const resetAllStores = () => {
   useCustomToolsStore.getState().resetAll()
   resetWorkspacePermissionsStore()
   // Variables store has no tracking to reset; registry hydrates
-  useSubscriptionStore.getState().reset() // Reset subscription store
 }
 
 // Helper function to log all store states
@@ -82,7 +79,6 @@ export const logAllStores = () => {
     execution: useExecutionStore.getState(),
     console: useConsoleStore.getState(),
     customTools: useCustomToolsStore.getState(),
-    subscription: useSubscriptionStore.getState(),
   }
 
   return state

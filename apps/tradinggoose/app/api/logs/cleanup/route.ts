@@ -4,7 +4,7 @@ import {
   workflowLogWebhookDelivery,
   workspace,
 } from '@tradinggoose/db/schema'
-import { and, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
+import { and, gt, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
@@ -12,7 +12,12 @@ import { getTierLogRetentionDays } from '@/lib/billing/tiers'
 import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 import { snapshotService } from '@/lib/logs/execution/snapshot/service'
-import { isUsingCloudStorage, StorageService } from '@/lib/uploads'
+import { cleanupOrphanWorkflowMemoryPage } from '@/lib/mastra/workflow-memory'
+import {
+  ArchivePruneDeferredError,
+  prepareWorkflowArchive,
+  pruneArchivedWorkflowPayload,
+} from '@/lib/workflow-archive/lifecycle'
 
 export const dynamic = 'force-dynamic'
 
@@ -108,16 +113,22 @@ export async function GET(request: NextRequest) {
       return authError
     }
 
+    const memoryPage = Number(new URL(request.url).searchParams.get('memoryPage') ?? 0)
+    const memoryCleanup = await cleanupOrphanWorkflowMemoryPage(memoryPage)
+
     if (!(await isBillingEnabledForRuntime())) {
       logger.info('Skipping log cleanup because billing is disabled')
-      return NextResponse.json({ message: 'Billing disabled, skipping cleanup' })
+      return NextResponse.json({
+        message: 'Billing disabled, skipping log retention',
+        memoryCleanup,
+      })
     }
 
     const workspaceGroups = await getWorkspaceRetentionGroups()
 
     if (workspaceGroups.length === 0) {
       logger.info('No workspaces found for finite log retention cleanup')
-      return NextResponse.json({ message: 'No workspaces found for cleanup' })
+      return NextResponse.json({ message: 'No workspaces found for cleanup', memoryCleanup })
     }
 
     const results = {
@@ -125,6 +136,7 @@ export async function GET(request: NextRequest) {
         total: 0,
         archived: 0,
         archiveFailed: 0,
+        pruneDeferred: 0,
         deleted: 0,
         deleteFailed: 0,
       },
@@ -132,6 +144,7 @@ export async function GET(request: NextRequest) {
         total: 0,
         deleted: 0,
         deleteFailed: 0,
+        skippedUnverified: 0,
       },
       snapshots: {
         cleaned: 0,
@@ -156,12 +169,14 @@ export async function GET(request: NextRequest) {
 
     for (const workspaceGroup of workspaceGroups) {
       if (batchesProcessed >= MAX_BATCHES) {
+        hasMoreLogs = true
         break
       }
 
       const retentionDate = new Date()
       retentionDate.setDate(retentionDate.getDate() - workspaceGroup.retentionDays)
       let groupHasMoreLogs = true
+      let afterId: string | undefined
 
       while (groupHasMoreLogs && batchesProcessed < MAX_BATCHES) {
         const oldEnhancedLogs = await db
@@ -184,6 +199,7 @@ export async function GET(request: NextRequest) {
           .where(
             and(
               inArray(workflowExecutionLogs.workspaceId, workspaceGroup.workspaceIds),
+              afterId === undefined ? undefined : gt(workflowExecutionLogs.id, afterId),
               completedLogReadyForRetention,
               lt(workflowExecutionLogs.createdAt, retentionDate),
               sql`NOT EXISTS (
@@ -197,75 +213,40 @@ export async function GET(request: NextRequest) {
               )`
             )
           )
+          .orderBy(workflowExecutionLogs.id)
           .limit(BATCH_SIZE)
 
         results.enhancedLogs.total += oldEnhancedLogs.length
+        afterId = oldEnhancedLogs.at(-1)?.id ?? afterId
 
         for (const log of oldEnhancedLogs) {
-          const today = new Date().toISOString().split('T')[0]
-
-          const enhancedLogKey = `archived-enhanced-logs/${today}/${log.id}.json`
-          const enhancedLogData = JSON.stringify({
-            ...log,
-            archivedAt: new Date().toISOString(),
-            logType: 'enhanced',
-          })
-
           try {
-            await StorageService.uploadFile({
-              file: Buffer.from(enhancedLogData),
-              fileName: enhancedLogKey,
-              contentType: 'application/json',
-              context: 'general',
-              metadata: {
-                logId: String(log.id),
-                workflowId: String(log.workflowId),
-                executionId: String(log.executionId),
-                logType: 'enhanced',
-                archivedAt: new Date().toISOString(),
-              },
-            })
-
+            await prepareWorkflowArchive(log.id)
             results.enhancedLogs.archived++
 
-            if (isUsingCloudStorage() && log.files && Array.isArray(log.files)) {
-              for (const file of log.files) {
-                if (file && typeof file === 'object' && file.key) {
-                  results.files.total++
-                  try {
-                    await StorageService.deleteFile({
-                      key: file.key,
-                      context: 'general',
-                    })
-                    results.files.deleted++
-                    logger.info(`Deleted file: ${file.key}`)
-                  } catch (fileError) {
-                    results.files.deleteFailed++
-                    logger.error(`Failed to delete file ${file.key}:`, { fileError })
-                  }
-                }
-              }
+            // Logger files include caller-authored inputs/outputs; retention is not asset ownership.
+            if (Array.isArray(log.files)) {
+              const unverified = log.files.filter(
+                (file) =>
+                  file &&
+                  typeof file === 'object' &&
+                  typeof file.key === 'string' &&
+                  file.key.length > 0
+              ).length
+              results.files.total += unverified
+              results.files.skippedUnverified += unverified
             }
 
             try {
-              const deleteResult = await db
-                .delete(workflowExecutionLogs)
-                .where(and(eq(workflowExecutionLogs.id, log.id), completedLogReadyForRetention))
-                .returning({ id: workflowExecutionLogs.id })
-
-              if (deleteResult.length > 0) {
-                results.enhancedLogs.deleted++
+              await pruneArchivedWorkflowPayload(log.id)
+            } catch (pruneError) {
+              if (pruneError instanceof ArchivePruneDeferredError) {
+                results.enhancedLogs.pruneDeferred++
+                logger.info(`Native payload pruning deferred for enhanced log ${log.id}`)
               } else {
                 results.enhancedLogs.deleteFailed++
-                logger.warn(
-                  `Failed to delete enhanced log ${log.id} after archiving: No rows deleted`
-                )
+                logger.error(`Failed to prune enhanced log ${log.id}:`, { pruneError })
               }
-            } catch (deleteError) {
-              results.enhancedLogs.deleteFailed++
-              logger.error(`Error deleting enhanced log ${log.id} after archiving:`, {
-                deleteError,
-              })
             }
           } catch (archiveError) {
             results.enhancedLogs.archiveFailed++
@@ -275,7 +256,6 @@ export async function GET(request: NextRequest) {
 
         batchesProcessed++
         groupHasMoreLogs = oldEnhancedLogs.length === BATCH_SIZE
-        hasMoreLogs = hasMoreLogs || groupHasMoreLogs
 
         logger.info(
           `Processed enhanced logs batch ${batchesProcessed}: ${oldEnhancedLogs.length} logs`,
@@ -284,6 +264,7 @@ export async function GET(request: NextRequest) {
           }
         )
       }
+      hasMoreLogs = hasMoreLogs || groupHasMoreLogs
     }
 
     try {
@@ -303,6 +284,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       message: `Processed ${batchesProcessed} enhanced log batches (${results.enhancedLogs.total} logs, ${results.files.total} files) in ${timeElapsed.toFixed(2)}s${reachedLimit ? ' (batch limit reached)' : ''}`,
       results,
+      memoryCleanup,
       complete: !hasMoreLogs,
       batchLimitReached: reachedLimit,
     })

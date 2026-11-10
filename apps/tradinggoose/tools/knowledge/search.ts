@@ -1,3 +1,4 @@
+import { withInferenceFacts } from '@/lib/mastra/result'
 import type { KnowledgeSearchResponse } from '@/tools/knowledge/types'
 import { enrichKBTagFiltersSchema } from '@/tools/schema-enrichers'
 import { parseTagFilters } from '@/tools/shared/tags'
@@ -83,12 +84,21 @@ export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
 
     return {
       success: true,
-      output: {
-        results: data.results || [],
-        query: data.query,
-        totalResults: data.totalResults || 0,
-        cost: data.cost,
-      },
+      output: withInferenceFacts(
+        {
+          results: data.results || [],
+          query: data.query,
+          totalResults: data.totalResults || 0,
+          cost: data.cost,
+          embeddingUsage: data.embeddingUsage,
+        },
+        {
+          model: data.cost?.model,
+          tokens: data.cost?.tokens,
+          cost: data.cost,
+          generatedFields: ['cost', 'embeddingUsage'],
+        }
+      ),
     }
   },
 
@@ -115,6 +125,11 @@ export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
     totalResults: {
       type: 'number',
       description: 'Total number of results found',
+    },
+    embeddingUsage: {
+      type: 'object',
+      description: 'Native embedding usage status and batch count',
+      optional: true,
     },
     cost: {
       type: 'object',

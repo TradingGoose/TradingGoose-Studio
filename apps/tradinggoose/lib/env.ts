@@ -62,6 +62,7 @@ function safeCreateEnv() {
 
   server: {
     // Core Database & Authentication
+    MASTRA_DATABASE_URL: z.string().url().optional(), // Scoped DML runtime role; initialized separately by deployment owner
     DATABASE_URL: z.string().url(),                       // Primary database connection string
     BETTER_AUTH_URL: z.string().url(),                       // Base URL for Better Auth service
     BETTER_AUTH_SECRET: z.string().min(32),                     // Secret key for Better Auth JWT signing
@@ -123,12 +124,21 @@ function safeCreateEnv() {
     VERCEL_BLOB_READ_WRITE_TOKEN: z.string().optional(),                  // Custom-named Vercel Blob read-write token
     VERCEL_BLOB_ACCESS: z.enum(['public', 'private']).optional(),                  // Vercel Blob access mode
 
+    // Internal workflow archives: explicit private destinations; never generic file contexts.
+    WORKFLOW_ARCHIVE_PROVIDER: z.enum(['local', 's3', 'azure', 'vercel']).optional(),
+    WORKFLOW_ARCHIVE_PRIVATE_VERIFIED: z.boolean().optional(),
+    WORKFLOW_ARCHIVE_LOCAL_ROOT: z.string().optional(),
+    WORKFLOW_ARCHIVE_S3_BUCKET: z.string().optional(),
+    WORKFLOW_ARCHIVE_S3_REGION: z.string().optional(),
+    WORKFLOW_ARCHIVE_AZURE_CONTAINER: z.string().optional(),
+    WORKFLOW_ARCHIVE_AZURE_ACCOUNT: z.string().optional(),
+    WORKFLOW_ARCHIVE_AZURE_KEY: z.string().optional(),
+    WORKFLOW_ARCHIVE_AZURE_CONNECTION_STRING: z.string().optional(),
+    WORKFLOW_ARCHIVE_VERCEL_TOKEN: z.string().optional(),
+    WORKFLOW_ARCHIVE_VERCEL_ORIGIN: z.string().url().optional(),
+
     // Knowledge Base Processing Configuration - Shared across all processing methods
     KB_CONFIG_MAX_DURATION: z.number().optional().default(600),     // Max processing duration in seconds (10 minutes)
-    KB_CONFIG_MAX_ATTEMPTS: z.number().optional().default(3),       // Max retry attempts
-    KB_CONFIG_RETRY_FACTOR: z.number().optional().default(2),       // Retry backoff factor
-    KB_CONFIG_MIN_TIMEOUT: z.number().optional().default(1000),    // Min timeout in ms
-    KB_CONFIG_MAX_TIMEOUT: z.number().optional().default(10000),   // Max timeout in ms
     KB_CONFIG_CONCURRENCY_LIMIT: z.number().optional().default(20),      // Queue concurrency limit
 
     // Real-time Communication

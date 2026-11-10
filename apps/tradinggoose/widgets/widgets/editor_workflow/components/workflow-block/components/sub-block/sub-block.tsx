@@ -880,7 +880,7 @@ export const SubBlock = memo(
               subBlockId={config.id}
               content={
                 typeof config.value === 'function'
-                  ? config.value(valueContext)
+                  ? (config.value(valueContext) ?? '')
                   : (config.defaultValue as string) || ''
               }
             />

@@ -26,7 +26,7 @@
   },
   "peerDependencies": {
     "drizzle-orm": "^0.44.5",
-    "postgres": "^3.4.5"
+    "postgres": "4.1.0"
   },
   "devDependencies": {
     "@types/node": "24.2.1",
@@ -34,6 +34,6 @@
   },
   "overrides": {
     "drizzle-orm": "^0.44.5",
-    "postgres": "^3.4.5"
+    "postgres": "4.1.0"
   }
 }

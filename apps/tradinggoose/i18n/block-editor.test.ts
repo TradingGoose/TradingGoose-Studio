@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
+import { AgentBlock } from '@/blocks/blocks/agent'
 import { GitHubBlock } from '@/blocks/blocks/github'
 import { GmailBlock } from '@/blocks/blocks/gmail'
 import { GoogleDriveBlock } from '@/blocks/blocks/google_drive'
@@ -512,14 +513,13 @@ describe('block-editor i18n helpers', () => {
       type: 'agent',
       name: 'Agent',
       description: 'Build an agent',
-      longDescription:
-        'The Agent block is a core workflow block that is a wrapper around an LLM. It takes in system/user prompts and calls an LLM provider. It can also make tool calls by directly containing tools inside of its tool input. It can additionally return structured output.',
+      longDescription: AgentBlock.longDescription,
     })
 
     expect(agentMetadata.name).toBe('Agente')
     expect(agentMetadata.description).toBe('Crear un agente')
-    expect(agentMetadata.longDescription).toContain('envoltorio para un LLM')
-    expect(agentMetadata.longDescription).toContain('salida estructurada')
+    expect(agentMetadata.longDescription).toBe(AgentBlock.longDescription)
+    expect(agentMetadata.longDescription).toContain('configured Mastra registry')
 
     const stagehandMetadata = getLocalizedBlockMetadata('es', {
       type: 'stagehand',

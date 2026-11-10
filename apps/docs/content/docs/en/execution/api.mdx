@@ -78,6 +78,8 @@ Errors use the same envelope with `"event":"error"` and an `error` message.
 
 Every Logs API response includes information about your workflow execution limits and usage:
 
+**Breaking money ABI:** `currentPeriodCost` is exact USD decimal text, such as `"9007199254740993.30000000000000001"`; the monetary usage `limit` is a decimal string or `null` for unlimited. Nested tier prices, allowances and billing multipliers remain decimal strings or configured `null`. Preserve these values without `Number`/`float` conversion. Rate-limit counts, seats and storage fields remain numeric.
+
 ```jsonc
 {
   "limits": {
@@ -94,8 +96,8 @@ Every Logs API response includes information about your workflow execution limit
       }
     },
     "usage": {
-      "currentPeriodCost": 1.234,  // Current billing period usage in USD
-      "limit": 10,                  // Usage limit in USD
+      "currentPeriodCost": "1.234",  // Current billing period usage in USD
+      "limit": "10",                  // Usage limit in USD
       "tier": {                     // Current billing tier summary
         "id": "tier_pro",
         "displayName": "Pro"
@@ -167,7 +169,9 @@ Query workflow execution logs with extensive filtering options.
           "endedAt": "2025-01-01T12:34:57.123Z",
           "totalDurationMs": 334,
           "cost": {
-            "total": 0.00234
+            "status": "unavailable",
+            "tokens": {},
+            "models": {}
           },
           "files": null
         }
@@ -187,8 +191,8 @@ Query workflow execution logs with extensive filtering options.
           }
         },
         "usage": {
-          "currentPeriodCost": 1.234,
-          "limit": 10,
+          "currentPeriodCost": "1.234",
+          "limit": "10",
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"
@@ -200,6 +204,10 @@ Query workflow execution logs with extensive filtering options.
     ```
   </Tab>
 </Tabs>
+
+Actual applied product charges are verified through shared financial receipts and period usage. The generic log `cost` report is not that ledger. Ordinary native history stores functional messages and tool results, without a durable per-turn token, model-dollar or estimate report. These metrics are **Unavailable** after reload. Native usage is optional during the active invocation; no token-to-price estimate is calculated.
+
+The CSV preserves available generic cost fields when present. Missing model amounts remain blank or unavailable; they are never a reported zero. A supplied known zero remains zero, and an available subtotal is not a complete charge. Canonical payloads are hydrated through current workspace/log authorization; internal native/archive references and encrypted checkpoint sections are not public download capabilities.
 
 ### Get Log Details
 
@@ -239,24 +247,9 @@ Retrieve detailed information about a specific log entry.
           "finalOutput": {...}
         },
         "cost": {
-          "total": 0.00234,
-          "tokens": {
-            "prompt": 123,
-            "completion": 456,
-            "total": 579
-          },
-          "models": {
-            "gpt-4o": {
-              "input": 0.001,
-              "output": 0.00134,
-              "total": 0.00234,
-              "tokens": {
-                "prompt": 123,
-                "completion": 456,
-                "total": 579
-              }
-            }
-          }
+          "status": "unavailable",
+          "tokens": {},
+          "models": {}
         },
         "createdAt": "2025-01-01T12:34:57.200Z"
       },
@@ -274,8 +267,8 @@ Retrieve detailed information about a specific log entry.
             }
           },
           "usage": {
-            "currentPeriodCost": 1.234,
-            "limit": 10,
+            "currentPeriodCost": "1.234",
+            "limit": "10",
             "tier": {
               "id": "tier_pro",
               "displayName": "Pro"
@@ -330,8 +323,8 @@ Retrieve execution details including the workflow state snapshot.
           }
         },
         "usage": {
-          "currentPeriodCost": 1.234,
-          "limit": 10,
+          "currentPeriodCost": "1.234",
+          "limit": "10",
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"
@@ -384,24 +377,9 @@ When a workflow execution completes, TradingGoose sends a POST request to your w
     "endedAt": "2025-01-01T12:34:57.123Z",
     "totalDurationMs": 334,
     "cost": {
-      "total": 0.00234,
-      "tokens": {
-        "prompt": 123,
-        "completion": 456,
-        "total": 579
-      },
-      "models": {
-        "gpt-4o": {
-          "input": 0.001,
-          "output": 0.00134,
-          "total": 0.00234,
-          "tokens": {
-            "prompt": 123,
-            "completion": 456,
-            "total": 579
-          }
-        }
-      }
+      "status": "unavailable",
+      "tokens": {},
+      "models": {}
     },
     "files": null,
     "finalOutput": {...},  // Only if includeFinalOutput=true

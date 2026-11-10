@@ -1,371 +1,378 @@
-import '@/executor/__test-utils__/mock-dependencies'
-
-import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
-import { BlockType } from '@/executor/consts'
-import { EvaluatorBlockHandler } from '@/executor/handlers/evaluator/evaluator-handler'
-import type { ExecutionContext } from '@/executor/types'
-import { getProviderFromModel } from '@/providers/ai/models'
-import type { SerializedBlock } from '@/serializer/types'
-
-const mockGetProviderFromModel = getProviderFromModel as Mock
-const mockFetch = global.fetch as unknown as Mock
-
-describe('EvaluatorBlockHandler', () => {
-  let handler: EvaluatorBlockHandler
-  let mockBlock: SerializedBlock
-  let mockContext: ExecutionContext
-
-  beforeEach(() => {
-    handler = new EvaluatorBlockHandler()
-
-    mockBlock = {
-      id: 'eval-block-1',
-      metadata: { id: BlockType.EVALUATOR, name: 'Test Evaluator' },
-      position: { x: 20, y: 20 },
-      config: { tool: BlockType.EVALUATOR, params: {} },
-      inputs: {
-        content: 'string',
-        metrics: 'json',
-        model: 'string',
-        temperature: 'number',
-      }, // Using ParamType strings
-      outputs: {},
-      enabled: true,
+vi.mock('@/lib/mastra/financial-processors', () => ({
+  financialProcessors: async (scope: unknown) => {
+    native.finance(scope)
+    return {
+      inputProcessors: [],
+      outputProcessors: [],
+      getUsage: () => native.usage(),
+      verifyComplete: () => native.verify(),
     }
+  },
+}))
+vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 
-    mockContext = {
-      workflowId: 'test-workflow-id',
-      workspaceId: 'test-workspace-id',
-      blockStates: new Map(),
-      blockLogs: [],
-      metadata: { duration: 0 },
-      environmentVariables: {},
-      decisions: { router: new Map(), condition: new Map() },
-      loopIterations: new Map(),
-      loopItems: new Map(),
-      completedLoops: new Set(),
-      executedBlocks: new Set(),
-      activeExecutionPath: new Set(),
-    }
+import { EMBEDDING_MODELS } from '@mastra/core/llm'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getInferenceFacts } from '@/lib/mastra/result'
+import { checkpointFunctionalOutput } from '@/executor/checkpoint'
+import { EvaluatorBlockHandler } from './evaluator-handler'
 
-    // Reset mocks using vi
-    vi.clearAllMocks()
-
-    // Default mock implementations
-    mockGetProviderFromModel.mockReturnValue('openai')
-
-    // Set up fetch mock to return a successful response
-    mockFetch.mockImplementation(() => {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            content: JSON.stringify({ score1: 5, score2: 8 }),
-            model: 'mock-model',
-            tokens: { prompt: 50, completion: 10, total: 60 },
-            cost: { input: 0.001, output: 0.001, total: 0.002, pricing: null },
-            timing: { total: 200 },
-          }),
-      })
-    })
+const native = vi.hoisted(() => ({
+  finance: vi.fn(),
+  generate: vi.fn(),
+  usage: vi.fn(),
+  verify: vi.fn(),
+}))
+vi.mock('@mastra/core/agent', () => ({
+  Agent: class {
+    generate = native.generate
+  },
+}))
+const block = { id: 'evaluator', metadata: { id: 'evaluator' } } as any
+const context = { workspaceId: 'workspace', userId: 'user' } as any
+beforeEach(() => {
+  vi.clearAllMocks()
+  native.usage.mockReset().mockReturnValue({})
+  native.verify.mockReset().mockResolvedValue(undefined)
+  native.generate.mockResolvedValue({
+    finishReason: 'stop',
+    object: { accuracy: 8 },
+    totalUsage: { totalTokens: 7 },
   })
-
-  it('should handle evaluator blocks', () => {
-    expect(handler.canHandle(mockBlock)).toBe(true)
-    const nonEvalBlock: SerializedBlock = { ...mockBlock, metadata: { id: 'other' } }
-    expect(handler.canHandle(nonEvalBlock)).toBe(false)
-  })
-
-  it('should execute evaluator block correctly with basic inputs', async () => {
-    const inputs = {
-      content: 'This is the content to evaluate.',
-      metrics: [
-        { name: 'score1', description: 'First score', range: { min: 0, max: 10 } },
-        { name: 'score2', description: 'Second score', range: { min: 0, max: 10 } },
-      ],
-      model: 'gpt-4.1',
-      temperature: 0.1,
-    }
-
-    const result = await handler.execute(mockBlock, inputs, mockContext)
-
-    expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4.1')
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.any(Object),
-        body: expect.any(String),
-      })
-    )
-
-    // Verify the request body contains the expected data
-    const fetchCallArgs = mockFetch.mock.calls[0]
-    const requestBody = JSON.parse(fetchCallArgs[1].body)
-    expect(requestBody).toMatchObject({
-      provider: 'openai',
-      model: 'gpt-4.1',
-      systemPrompt: expect.stringContaining(inputs.content),
-      responseFormat: expect.objectContaining({
-        strict: true,
-        schema: {
-          type: 'object',
-          properties: {
-            score1: { type: 'number' },
-            score2: { type: 'number' },
-          },
-          required: ['score1', 'score2'],
-          additionalProperties: false,
-        },
-      }),
-      temperature: 0.1,
-    })
-
-    expect(result).toEqual({
-      content: 'This is the content to evaluate.',
-      model: 'mock-model',
-      tokens: { prompt: 50, completion: 10, total: 60 },
-      cost: { input: 0.001, output: 0.001, total: 0.002, pricing: null },
-      score1: 5,
-      score2: 8,
-    })
-  })
-
-  it('uses non-strict JSON mode for DeepSeek', async () => {
-    const model = 'deepseek-flash'
-    mockGetProviderFromModel.mockReturnValue('deepseek')
-
-    await handler.execute(
-      mockBlock,
+})
+describe('Evaluator native structured generation', () => {
+  it('retains metric output references and configures actual metric bounds', async () => {
+    const output = await new EvaluatorBlockHandler().execute(
+      block,
       {
-        content: 'Evaluate this content.',
-        metrics: [{ name: 'score1', description: 'Score', range: { min: 0, max: 10 } }],
-        model,
+        model: 'openai/gpt-4.1',
+        content: { answer: 42 },
+        temperature: 0,
+        metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 }, description: 'Accurate answer' }],
       },
-      mockContext
+      context
     )
-
-    expect(mockGetProviderFromModel).toHaveBeenCalledWith(model)
-    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchObject({
-      provider: 'deepseek',
-      model,
-      responseFormat: { strict: false },
+    expect(output).toMatchObject({
+      accuracy: 8,
+      content: { answer: 42 },
+      tokens: { total: 7 },
+      cost: { status: 'unavailable' },
     })
+    expect(native.generate.mock.calls[0][0]).toEqual([{ role: 'user', content: '{"answer":42}' }])
+    expect(native.generate.mock.calls[0][1].structuredOutput.errorStrategy).toBe('strict')
+    expect(native.generate.mock.calls[0][1].modelSettings.temperature).toBe(0)
   })
+  it('propagates native schema failures instead of synthesizing zero scores', async () => {
+    native.generate.mockRejectedValue(new Error('Schema validation failed'))
+    await expect(
+      new EvaluatorBlockHandler().execute(block, { model: 'openai/gpt-4.1', metrics: [] }, context)
+    ).rejects.toThrow('Schema validation failed')
+  })
+  it('rejects unlisted resolved models before inference', async () => {
+    await expect(
+      new EvaluatorBlockHandler().execute(block, { model: 'gpt-4o' }, context)
+    ).rejects.toThrow()
+    expect(native.generate).not.toHaveBeenCalled()
+  })
+})
 
-  it('should process JSON string content correctly', async () => {
-    const contentObj = { text: 'Evaluate this JSON.', value: 42 }
-    const inputs = {
-      model: 'gpt-4.1',
-      content: JSON.stringify(contentObj),
-      metrics: [{ name: 'clarity', description: 'Clarity score', range: { min: 1, max: 5 } }],
+describe('evaluator incomplete native outcomes and workflow cancellation', () => {
+  it.each(['aborted', 'error'])(
+    'rejects %s results and retains completed accounting',
+    async (finishReason) => {
+      native.generate.mockResolvedValue({
+        finishReason,
+        object: undefined,
+        text: 'target',
+        totalUsage: { totalTokens: 7 },
+      })
+      await expect(
+        new EvaluatorBlockHandler().execute(block, { model: 'openai/gpt-4.1' }, context)
+      ).rejects.toMatchObject({ cost: { status: 'unavailable' }, tokens: { total: 7 } })
     }
-
-    mockFetch.mockImplementationOnce(() => {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            content: JSON.stringify({ clarity: 4 }),
-            model: 'm',
-            tokens: {},
-            cost: { input: 0, output: 0, total: 0, pricing: null },
-            timing: {},
-          }),
+  )
+  it('interrupts inference when cancellation arrives after generation starts', async () => {
+    vi.useFakeTimers()
+    let cancelled = false
+    const shouldCancelExecution = vi.fn(async () => cancelled)
+    native.generate.mockImplementation(
+      (_messages, options) =>
+        new Promise((_resolve, reject) => {
+          options.abortSignal.addEventListener('abort', () => reject(new Error('cancelled')), {
+            once: true,
+          })
+        })
+    )
+    try {
+      const execution = new EvaluatorBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1' },
+        { ...context, shouldCancelExecution }
+      )
+      const outcome = expect(execution).rejects.toMatchObject({
+        message: 'cancelled',
+        tokens: {},
       })
-    })
-
-    await handler.execute(mockBlock, inputs, mockContext)
-
-    const fetchCallArgs = mockFetch.mock.calls[0]
-    const requestBody = JSON.parse(fetchCallArgs[1].body)
-    expect(requestBody).toMatchObject({
-      systemPrompt: expect.stringContaining(JSON.stringify(contentObj, null, 2)),
-    })
-  })
-
-  it('should process object content correctly', async () => {
-    const contentObj = { data: [1, 2, 3], status: 'ok' }
-    const inputs = {
-      model: 'gpt-4.1',
-      content: contentObj,
-      metrics: [
-        { name: 'completeness', description: 'Data completeness', range: { min: 0, max: 1 } },
-      ],
+      await vi.advanceTimersByTimeAsync(0)
+      expect(native.generate).toHaveBeenCalledTimes(1)
+      cancelled = true
+      await vi.advanceTimersByTimeAsync(1000)
+      await outcome
+      expect(shouldCancelExecution).toHaveBeenCalledTimes(2)
+      const checks = shouldCancelExecution.mock.calls.length
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(shouldCancelExecution).toHaveBeenCalledTimes(checks)
+    } finally {
+      vi.useRealTimers()
     }
-
-    mockFetch.mockImplementationOnce(() => {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            content: JSON.stringify({ completeness: 1 }),
-            model: 'm',
-            tokens: {},
-            cost: { input: 0, output: 0, total: 0, pricing: null },
-            timing: {},
-          }),
-      })
-    })
-
-    await handler.execute(mockBlock, inputs, mockContext)
-
-    const fetchCallArgs = mockFetch.mock.calls[0]
-    const requestBody = JSON.parse(fetchCallArgs[1].body)
-    expect(requestBody).toMatchObject({
-      systemPrompt: expect.stringContaining(JSON.stringify(contentObj, null, 2)),
-    })
   })
+})
 
-  it('should parse valid JSON response correctly', async () => {
-    const inputs = {
-      model: 'gpt-4.1',
-      content: 'Test content',
-      metrics: [{ name: 'quality', description: 'Quality score', range: { min: 1, max: 10 } }],
+it('rejects a successful native response without the required structured object', async () => {
+  native.generate.mockResolvedValue({
+    finishReason: 'stop',
+    object: undefined,
+    totalUsage: { totalTokens: 7 },
+  })
+  await expect(
+    new EvaluatorBlockHandler().execute(block, { model: 'openai/gpt-4.1' }, context)
+  ).rejects.toThrow('valid structured result')
+})
+
+it('keeps colliding metric score roots as business data and native facts separately', async () => {
+  const { getInferenceFacts } = await import('@/lib/mastra/result')
+  native.generate.mockResolvedValue({
+    finishReason: 'stop',
+    object: { model: 7, tokens: 8, cost: 9, content: 6 },
+    totalUsage: { totalTokens: 7 },
+  })
+  const output = await new EvaluatorBlockHandler().execute(
+    block,
+    {
+      model: 'openai/gpt-4.1',
+      content: 'evaluate',
+      metrics: ['model', 'tokens', 'cost', 'content'].map((name) => ({
+        name,
+        range: { min: 0, max: 10 },
+      })),
+    },
+    context
+  )
+  expect(output).toMatchObject({ model: 7, tokens: 8, cost: 9, content: 6 })
+  expect(getInferenceFacts(output)).toMatchObject({
+    model: 'openai/gpt-4.1',
+    tokens: { total: 7 },
+    cost: { status: 'unavailable' },
+  })
+})
+
+it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provider, id] as const))(
+  'refuses native-known embedding model %s before generation admission or model contact',
+  async (model, provider, modelId) => {
+    // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
+    vi.stubEnv(
+      'MASTRA_MODEL_PROVIDERS',
+      JSON.stringify({
+        [provider]: {
+          name: 'Controlled registered provider',
+          url: 'https://not-contacted.invalid',
+          models: [modelId],
+        },
+      })
+    )
+    try {
+      await expect(
+        new EvaluatorBlockHandler().execute(
+          block,
+          {
+            model,
+            content: { answer: 42 },
+            metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
+          },
+          context
+        )
+      ).rejects.toMatchObject({ status: 400 })
+      expect(native.finance).not.toHaveBeenCalled()
+      expect(native.generate).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
     }
+  }
+)
 
-    mockFetch.mockImplementationOnce(() => {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            content: '```json\n{ "quality": 9 }\n```',
-            model: 'm',
-            tokens: {},
-            cost: { input: 0, output: 0, total: 0, pricing: null },
-            timing: {},
-          }),
-      })
-    })
-
-    const result = await handler.execute(mockBlock, inputs, mockContext)
-
-    expect((result as any).quality).toBe(9)
-  })
-
-  it('should handle invalid/non-JSON response gracefully (scores = 0)', async () => {
-    const inputs = {
-      model: 'gpt-4.1',
-      content: 'Test content',
-      metrics: [{ name: 'score', description: 'Score', range: { min: 0, max: 5 } }],
+// Real accounting/projection helpers; only the public model result, finance and callback
+// boundaries below are controlled. These cases do not establish monetary acceptance.
+describe('evaluator trusted failed accounting with real helpers', () => {
+  it.each([
+    'error',
+    'aborted',
+    'native error',
+    'tripwire',
+    'financial refusal',
+    'missing structured result',
+  ])('retains returned aggregate17 instead of finance7/step5 through %s', async (failure) => {
+    native.usage.mockReturnValue({ totalTokens: 7 })
+    const returned: {
+      finishReason: string
+      object?: unknown
+      totalUsage: { inputTokens: number; outputTokens: number; totalTokens: number }
+      error?: unknown
+      tripwire?: unknown
+    } = {
+      ...{ finishReason: 'stop', object: { accuracy: 8 } },
+      totalUsage: { inputTokens: 11, outputTokens: 6, totalTokens: 17 },
     }
-
-    mockFetch.mockImplementationOnce(() => {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            content: 'Sorry, I cannot provide a score.',
-            model: 'm',
-            tokens: {},
-            cost: { input: 0, output: 0, total: 0, pricing: null },
-            timing: {},
-          }),
-      })
+    if (failure === 'error' || failure === 'aborted') returned.finishReason = failure
+    if (failure === 'native error') returned.error = new Error('native failure')
+    if (failure === 'tripwire') returned.tripwire = { reason: 'controlled refusal' }
+    if (failure === 'missing structured result') returned.object = undefined
+    if (failure === 'financial refusal')
+      native.verify.mockRejectedValueOnce(new Error('Financial acceptance refused'))
+    native.generate.mockImplementationOnce(async (_messages, options) => {
+      options.onStepFinish({ usage: { totalTokens: 5 } })
+      return returned
     })
-
-    const result = await handler.execute(mockBlock, inputs, mockContext)
-
-    expect((result as any).score).toBe(0)
-  })
-
-  it('should handle partially valid JSON response (extracts what it can)', async () => {
-    const inputs = {
-      model: 'gpt-4.1',
-      content: 'Test content',
-      metrics: [
-        { name: 'accuracy', description: 'Acc', range: { min: 0, max: 1 } },
-        { name: 'fluency', description: 'Flu', range: { min: 0, max: 1 } },
-      ],
+    let failureValue: unknown
+    try {
+      await new EvaluatorBlockHandler().execute(
+        block,
+        {
+          model: 'openai/gpt-4.1',
+          content: 'evaluate',
+          metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
+        },
+        context
+      )
+    } catch (error) {
+      failureValue = error
     }
-
-    mockFetch.mockImplementationOnce(() => {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            content: '{ "accuracy": 1, "fluency": invalid }',
-            model: 'm',
-            tokens: {},
-            cost: { input: 0, output: 0, total: 0, pricing: null },
-            timing: {},
-          }),
-      })
+    expect(failureValue).toBeInstanceOf(Error)
+    const facts = getInferenceFacts(failureValue)
+    expect(facts).toMatchObject({
+      model: 'openai/gpt-4.1',
+      tokens: { prompt: 11, completion: 6, total: 17 },
+      cost: { status: 'unavailable' },
+      generatedFields: ['model', 'tokens', 'cost'],
     })
-
-    const result = await handler.execute(mockBlock, inputs, mockContext)
-    expect((result as any).accuracy).toBe(0)
-    expect((result as any).fluency).toBe(0)
+    const functional = checkpointFunctionalOutput(failureValue)
+    expect(functional).toMatchObject({
+      name: 'Error',
+      message: expect.any(String),
+      model: 'openai/gpt-4.1',
+    })
+    expect(functional).not.toHaveProperty('tokens')
+    expect(functional).not.toHaveProperty('cost')
+    expect(functional).not.toHaveProperty('stack')
+    expect(getInferenceFacts(functional)).toBeUndefined()
+    expect(getInferenceFacts(failureValue)).toBe(facts)
+    expect(native.generate).toHaveBeenCalledOnce()
+    if (failure === 'financial refusal')
+      expect(failureValue).toMatchObject({ message: 'Financial acceptance refused' })
   })
-
-  it('should extract metric scores ignoring case', async () => {
-    const inputs = {
-      model: 'gpt-4.1',
-      content: 'Test',
-      metrics: [{ name: 'CamelCaseScore', description: 'Desc', range: { min: 0, max: 10 } }],
+  it.each([
+    {
+      label: 'partial aggregate',
+      aggregate: { inputTokens: 4, outputTokens: -2, totalTokens: Number.NaN },
+      finance: { totalTokens: 7 },
+      expected: { prompt: 4 },
+    },
+    {
+      label: 'empty aggregate',
+      aggregate: {},
+      finance: { totalTokens: 7 },
+      expected: { total: 7 },
+    },
+    {
+      label: 'invalid aggregate',
+      aggregate: { totalTokens: Number.POSITIVE_INFINITY },
+      finance: { totalTokens: 7 },
+      expected: { total: 7 },
+    },
+    {
+      label: 'absent aggregate with steps',
+      aggregate: undefined,
+      finance: {},
+      expected: { total: 5 },
+    },
+    {
+      label: 'genuine public zero',
+      aggregate: { totalTokens: 0 },
+      finance: { totalTokens: 7 },
+      expected: { total: 0 },
+    },
+  ])('selects ONE known representation: $label', async (sample) => {
+    native.usage.mockReturnValue(sample.finance)
+    native.verify.mockRejectedValueOnce(new Error('Financial acceptance refused'))
+    native.generate.mockImplementationOnce(async (_messages, options) => {
+      options.onStepFinish({ usage: { totalTokens: 5 } })
+      return { ...{ finishReason: 'stop', object: { accuracy: 8 } }, totalUsage: sample.aggregate }
+    })
+    let failure: unknown
+    try {
+      await new EvaluatorBlockHandler().execute(
+        block,
+        {
+          model: 'openai/gpt-4.1',
+          content: 'evaluate',
+          metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
+        },
+        context
+      )
+    } catch (error) {
+      failure = error
     }
-
-    mockFetch.mockImplementationOnce(() => {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            content: JSON.stringify({ camelcasescore: 7 }),
-            model: 'm',
-            tokens: {},
-            cost: { input: 0, output: 0, total: 0, pricing: null },
-            timing: {},
-          }),
-      })
+    expect(getInferenceFacts(failure)).toMatchObject({
+      tokens: sample.expected,
+      cost: { status: 'unavailable' },
     })
-
-    const result = await handler.execute(mockBlock, inputs, mockContext)
-
-    expect((result as any).camelcasescore).toBe(7)
+    expect(getInferenceFacts(failure)?.tokens).toEqual(sample.expected)
+    expect(native.generate).toHaveBeenCalledOnce()
   })
-
-  it('should handle missing metrics in response (score = 0)', async () => {
-    const inputs = {
-      model: 'gpt-4.1',
-      content: 'Test',
-      metrics: [
-        { name: 'presentScore', description: 'Desc1', range: { min: 0, max: 5 } },
-        { name: 'missingScore', description: 'Desc2', range: { min: 0, max: 5 } },
-      ],
+  it('uses latest actual finance fallback if no returned aggregate was available before refusal', async () => {
+    native.usage.mockReturnValue({ totalTokens: 7 })
+    native.generate.mockResolvedValueOnce({ finishReason: 'stop', object: { accuracy: 8 } })
+    native.verify.mockImplementationOnce(async () => {
+      native.usage.mockReturnValue({ totalTokens: 9 })
+      throw new Error('Financial acceptance refused')
+    })
+    let failure: unknown
+    try {
+      await new EvaluatorBlockHandler().execute(
+        block,
+        {
+          model: 'openai/gpt-4.1',
+          content: 'evaluate',
+          metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
+        },
+        context
+      )
+    } catch (error) {
+      failure = error
     }
-
-    mockFetch.mockImplementationOnce(() => {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            content: JSON.stringify({ presentScore: 4 }),
-            model: 'm',
-            tokens: {},
-            cost: { input: 0, output: 0, total: 0, pricing: null },
-            timing: {},
-          }),
-      })
-    })
-
-    const result = await handler.execute(mockBlock, inputs, mockContext)
-
-    expect((result as any).presentscore).toBe(4)
-    expect((result as any).missingscore).toBe(0)
+    expect(getInferenceFacts(failure)?.tokens).toEqual({ total: 9 })
+    expect(native.generate).toHaveBeenCalledOnce()
   })
-
-  it('should handle server error responses', async () => {
-    const inputs = { model: 'gpt-4.1', content: 'Test error handling.' }
-
-    // Override fetch mock to return an error
-    mockFetch.mockImplementationOnce(() => {
-      return Promise.resolve({
-        ok: false,
-        status: 500,
-        json: () => Promise.resolve({ error: 'Server error' }),
-      })
+  it('does not invent a zero total when no public response, finance or callback count exists', async () => {
+    native.generate.mockRejectedValueOnce(new Error('No native response'))
+    let failure: unknown
+    try {
+      await new EvaluatorBlockHandler().execute(
+        block,
+        {
+          model: 'openai/gpt-4.1',
+          content: 'evaluate',
+          metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
+        },
+        context
+      )
+    } catch (error) {
+      failure = error
+    }
+    expect(getInferenceFacts(failure)).toMatchObject({
+      tokens: {},
+      cost: { status: 'unavailable' },
     })
-
-    await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow('Server error')
+    expect(getInferenceFacts(failure)?.tokens).toEqual({})
+    expect(native.generate).toHaveBeenCalledOnce()
   })
 })

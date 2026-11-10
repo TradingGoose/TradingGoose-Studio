@@ -179,13 +179,37 @@ describe('getBlocksMetadataServerTool', () => {
     expect(agent?.bestPractices).toContain(
       'Response Format must be a JSON object containing a JSON Schema in its schema field.'
     )
-    for (const id of ['thinkingLevel', 'reasoningEffort', 'verbosity']) {
+    for (const [id, capability] of [
+      ['temperature', 'temperature'],
+      ['reasoningOptions', 'reasoning'],
+    ]) {
       expect(agent?.subBlocks?.find((field) => field.id === id)?.condition).toEqual({
         field: 'model',
         operator: 'modelCapability',
-        value: id,
+        value: capability,
       })
     }
+    expect(agent?.subBlocks?.find((field) => field.id === 'reasoningOptions')).toMatchObject({
+      type: 'text',
+      title: 'Model Reasoning',
+    })
+    expect(agent?.subBlocks?.find((field) => field.id === 'providerOptions')).toMatchObject({
+      type: 'code',
+      language: 'json',
+    })
+    const outputTokens = agent?.subBlocks?.find((field) => field.id === 'maxTokens')
+    expect(outputTokens).toMatchObject({
+      type: 'short-input',
+      inputType: 'number',
+      min: 1,
+      integer: true,
+    })
+    expect(outputTokens?.condition).toBeUndefined()
+    expect(
+      agent?.subBlocks?.some((field) =>
+        ['reasoningEffort', 'verbosity', 'thinkingLevel'].includes(field.id)
+      )
+    ).toBe(false)
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {

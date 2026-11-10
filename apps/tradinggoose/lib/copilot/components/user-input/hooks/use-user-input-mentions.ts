@@ -330,11 +330,14 @@ export function useUserInputMentions({
     restoreEditorSelection(caretPos, caretPos)
   }
 
-  const insertPastChatMention = (chat: Pick<PastChatItem, 'reviewSessionId' | 'title'>) => {
+  const insertPastChatMention = (
+    chat: Pick<PastChatItem, 'threadId' | 'workspaceId' | 'title'>
+  ) => {
     const label = getPastChatMentionLabel(mentionCopy, chat)
     insertMentionContext(label, {
       kind: 'past_chat',
-      reviewSessionId: chat.reviewSessionId,
+      threadId: chat.threadId,
+      workspaceId: chat.workspaceId,
       label,
     })
     closeMentionMenu()

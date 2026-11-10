@@ -1,7 +1,6 @@
 import type { JSX, SVGProps } from 'react'
 import type { TimeFormat } from '@/lib/time-format'
 import type { WorkflowOutputType, WorkflowParamType } from '@/lib/workflows/value-types'
-import type { ModelControl } from '@/providers/ai/models'
 import type { ParameterVisibility, ToolResponse } from '@/tools/types'
 
 export type BlockIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element
@@ -86,8 +85,7 @@ export type SubBlockCondition = {
   and?: SubBlockCondition | SubBlockCondition[]
 } & (
   | { operator?: never; value: string | number | boolean | Array<string | number | boolean> }
-  | { operator: 'modelCapability'; value: ModelControl }
-  | { operator: 'modelMaxTemperature'; value: number }
+  | { operator: 'modelCapability'; value: 'reasoningEffort' | 'reasoning' | 'temperature' }
 )
 
 export type ExtractToolOutput<T> = T extends ToolResponse ? T['output'] : never
@@ -231,7 +229,7 @@ export interface SubBlockConfig {
   requiresFeature?: string
   description?: string
   tooltip?: string
-  value?: (params: Record<string, any>) => string
+  value?: (params: Record<string, any>) => string | undefined
   grouped?: boolean
   scrollable?: boolean
   maxHeight?: number

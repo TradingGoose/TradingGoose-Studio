@@ -4,6 +4,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { StorageService } from '@/lib/uploads'
 import { getWorkspaceFile } from '@/lib/uploads/contexts/workspace'
+import { withAuthorizedStorageRead } from '@/lib/uploads/source-read-boundary'
 import { generateRequestId } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -43,17 +44,22 @@ export async function POST(
     }
 
     // Generate 5-minute presigned URL using unified storage service
-    const downloadUrl = await StorageService.generatePresignedDownloadUrl(
-      fileRecord.key,
-      'workspace',
-      5 * 60 // 5 minutes
+    const downloadUrl = await withAuthorizedStorageRead(fileRecord.key, 'workspace', () =>
+      StorageService.generatePresignedDownloadUrl(fileRecord.key, 'workspace', 5 * 60)
     )
+
+    const deliveryUrl = new URL(downloadUrl, request.url)
+    if (deliveryUrl.pathname.startsWith('/api/files/serve/')) {
+      deliveryUrl.searchParams.set('context', 'workspace')
+      deliveryUrl.searchParams.set('workspaceId', workspaceId)
+      deliveryUrl.searchParams.set('fileId', fileId)
+    }
 
     logger.info(`[${requestId}] Generated download URL for workspace file: ${fileRecord.name}`)
 
     return NextResponse.json({
       success: true,
-      downloadUrl,
+      downloadUrl: deliveryUrl.toString(),
       fileName: fileRecord.name,
       expiresIn: 300, // 5 minutes
     })

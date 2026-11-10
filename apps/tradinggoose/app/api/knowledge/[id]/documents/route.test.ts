@@ -13,6 +13,13 @@ import {
 } from '@/app/api/__test-utils__/utils'
 
 mockKnowledgeSchemas()
+vi.mock('@/lib/auth/hybrid', () => ({
+  checkSessionOrInternalAuth: async () => {
+    const { getSession } = await import('@/lib/auth')
+    const session = await getSession()
+    return { success: !!session?.user?.id, userId: session?.user?.id }
+  },
+}))
 
 vi.mock('@/app/api/knowledge/utils', () => ({
   checkKnowledgeBaseAccess: vi.fn(),

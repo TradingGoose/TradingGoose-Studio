@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { compareMoney } from '@tradinggoose/billing/money'
 import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
@@ -41,8 +42,8 @@ interface UsageResponse {
   usage?: {
     tier?: {
       displayName?: string
-      monthlyPriceUsd?: number | null
-      yearlyPriceUsd?: number | null
+      monthlyPriceUsd?: string | null
+      yearlyPriceUsd?: string | null
     } | null
   }
 }
@@ -50,13 +51,15 @@ interface UsageResponse {
 function isPaidTierFromUsageTier(
   tier:
     | {
-        monthlyPriceUsd?: number | null
-        yearlyPriceUsd?: number | null
+        monthlyPriceUsd?: string | null
+        yearlyPriceUsd?: string | null
       }
     | null
     | undefined
 ) {
-  return Math.max(tier?.monthlyPriceUsd ?? 0, tier?.yearlyPriceUsd ?? 0) > 0
+  return [tier?.monthlyPriceUsd, tier?.yearlyPriceUsd].some(
+    (price) => price != null && compareMoney(price, '0') > 0
+  )
 }
 
 interface FilesResponse {

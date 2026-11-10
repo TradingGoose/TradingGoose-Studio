@@ -31,7 +31,6 @@ import {
 import { useRouter } from '@/i18n/navigation'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
-import { getModelCapabilities } from '@/providers/ai/models'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
   getRenderableToolParameters,
@@ -72,7 +71,6 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
   const router = useRouter()
   const { setSubBlockValue: yjsSetSubBlockValue } = useWorkflowMutations()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
-  const [modelValue] = useSubBlockValue<string | null>(blockId, 'model')
   const [toolSelectorValue, setToolSelectorValue] = useState<string | undefined>()
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
@@ -80,10 +78,6 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
   // MCP tools integration
   const { mcpTools } = useMcpTools(workspaceId)
-
-  // Get the current model from the 'model' subblock
-  const model = typeof modelValue === 'string' ? modelValue : ''
-  const supportsToolControl = getModelCapabilities(model)?.toolUsageControl ?? false
 
   const allToolBlocks = useMemo(
     () =>
@@ -802,7 +796,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                     </div>
                     <div className='ml-2 flex flex-shrink-0 items-center gap-1'>
                       {/* Only render the tool usage control if the provider supports it */}
-                      {supportsToolControl && (
+                      {
                         <Tooltip>
                           <TooltipTrigger
                             render={
@@ -870,7 +864,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                             </p>
                           </TooltipContent>
                         </Tooltip>
-                      )}
+                      }
                       <button
                         onClick={(e) => {
                           e.stopPropagation()

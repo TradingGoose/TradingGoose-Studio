@@ -14,6 +14,8 @@ loadEnvConfig(projectDir)
 export default defineConfig({
   plugins: [react(), tsconfigPaths()] as any,
   test: {
+    // Bound SDK imports and whole-app catalog scans while retaining existing test deadlines.
+    maxWorkers: 2,
     globals: true,
     environment: 'node',
     include: ['**/*.test.{ts,tsx}'],

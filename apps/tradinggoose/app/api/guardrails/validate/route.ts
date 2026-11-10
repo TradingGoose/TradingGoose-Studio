@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import {
   type HallucinationValidationResult,
   validateHallucination,
@@ -8,6 +9,7 @@ import { type PIIValidationResult, validatePII } from '@/lib/guardrails/validate
 import { validateRegex } from '@/lib/guardrails/validate_regex'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { checkKnowledgeBaseAccess } from '@/app/api/knowledge/utils'
 
 const logger = createLogger('GuardrailsValidateAPI')
 
@@ -69,7 +71,20 @@ export async function POST(request: NextRequest) {
       case 'regex':
         validationResult = validateRegex(inputStr, regex)
         break
-      case 'hallucination':
+      case 'hallucination': {
+        const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+        if (!auth.success || !auth.userId) {
+          return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+        }
+        const access = knowledgeBaseId
+          ? await checkKnowledgeBaseAccess(knowledgeBaseId, auth.userId)
+          : undefined
+        if (access && !access.hasAccess) {
+          return NextResponse.json(
+            { success: false, error: 'Knowledge base not found or access denied' },
+            { status: 404 }
+          )
+        }
         validationResult = knowledgeBaseId
           ? await validateHallucination({
               userInput: inputStr,
@@ -81,9 +96,13 @@ export async function POST(request: NextRequest) {
               workflowId,
               requestId,
               authHeaders: request.headers,
+              signal: request.signal,
+              userId: auth.userId,
+              workspaceId: access?.hasAccess ? access.knowledgeBase.workspaceId : auth.workspaceId,
             })
           : { passed: false, error: 'Knowledge base ID is required for hallucination check' }
         break
+      }
       default:
         validationResult = await validatePII({
           text: inputStr,

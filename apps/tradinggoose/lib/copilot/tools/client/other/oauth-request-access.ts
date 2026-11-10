@@ -42,6 +42,8 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
   static readonly id = 'oauth_request_access'
 
   private providerName?: string
+  private opened = false
+  private opening = false
 
   constructor(toolCallId: string) {
     super(toolCallId, OAuthRequestAccessClientTool.id, OAuthRequestAccessClientTool.metadata)
@@ -88,6 +90,14 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
   }
 
   async handleAccept(args?: OAuthRequestAccessArgs): Promise<void> {
+    if (
+      this.opened ||
+      this.opening ||
+      this.hasSubmittedResult() ||
+      this.resolveResult<{ opened?: boolean }>()?.opened
+    )
+      return
+    this.opening = true
     try {
       if (args?.providerName) {
         this.providerName = args.providerName
@@ -96,7 +106,7 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
       if (!this.providerName) {
         logger.error('No provider name provided')
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'No provider name specified')
+        this.fail('No provider name specified')
         return
       }
 
@@ -106,7 +116,7 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
           providerName: this.providerName,
         })
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, `Unknown provider: ${this.providerName}`)
+        this.fail(`Unknown provider: ${this.providerName}`)
         return
       }
 
@@ -118,25 +128,52 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
 
       if (typeof window !== 'undefined') {
-        const pathMatch = window.location.pathname.match(/\/workspace\/([^/]+)/)
-        const workspaceId = pathMatch?.[1]
-        if (!workspaceId) {
-          throw new Error('Missing workspace context for OAuth callback')
+        await this.requireNativeTarget()
+        const { workspaceId } = this.requireExecutionContext()
+        this.getAbortSignal()?.throwIfAborted()
+        if (!workspaceId) throw new Error('Missing original workspace context for OAuth callback')
+        const url = new URL(
+          `/workspace/${encodeURIComponent(workspaceId)}/integrations`,
+          window.location.origin
+        )
+        url.searchParams.set('connect', serviceId)
+        // noopener's Window.open feature returns null even after successful opening. Obtain
+        // the blank, same-origin window, then disown it BEFORE any target navigation.
+        const opened = window.open('about:blank', '_blank')
+        if (!opened || opened.closed) throw new Error('Integration window was blocked')
+        try {
+          opened.opener = null
+          if (opened.opener !== null) throw new Error('Integration window isolation failed')
+          opened.location.replace(url.toString())
+          if (opened.closed) throw new Error('Integration window was closed')
+        } catch (error) {
+          opened.close()
+          throw error
         }
-        const callbackURL = `/workspace/${workspaceId}/integrations`
-
-        this.setState(ClientToolCallState.success)
-        await this.markToolComplete(200, `Opened ${this.providerName} connection dialog`)
-        window.location.assign(`${callbackURL}?connect=${encodeURIComponent(serviceId)}`)
+        this.opened = true
+        const result = {
+          opened: true,
+          surface: 'integrations' as const,
+          message: `Opened ${this.providerName} connection dialog`,
+        }
+        // Opening is a known UI fact even if the subsequent native acknowledgement fails.
+        this.setState(ClientToolCallState.executing, { result })
+        await this.completeBrowserAssertion({ kind: 'ui.opened', data: result })
+        this.setState(ClientToolCallState.success, { result })
         return
       }
 
-      this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, `Opened ${this.providerName} connection dialog`)
+      throw new Error('Integration UI is unavailable')
     } catch (e) {
       logger.error('Failed to open OAuth connect flow', { error: e })
       this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, 'Failed to open OAuth connection dialog')
+      this.fail(
+        this.opened
+          ? 'Integration window opened; native acknowledgement failed'
+          : 'Failed to open OAuth connection dialog'
+      )
+    } finally {
+      this.opening = false
     }
   }
 

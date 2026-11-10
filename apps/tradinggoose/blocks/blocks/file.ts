@@ -9,7 +9,7 @@ export const FileBlock: BlockConfig<FileParserOutput> = {
   type: 'file',
   name: 'File',
   description: 'Read and parse multiple files',
-  longDescription: `Integrate File into the workflow. Can upload a file manually or insert a file url.`,
+  longDescription: `Upload files or enter an accessible file URL. Workspace files use your current permissions. Unverified private sources return an access error. Removing a file from the input only clears its selection.`,
   bestPractices: `
   - You should always use the File URL input method and enter the file URL if the user gives it to you or clarify if they have one.
   `,

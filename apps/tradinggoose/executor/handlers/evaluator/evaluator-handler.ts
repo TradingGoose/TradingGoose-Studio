@@ -1,16 +1,20 @@
-import { createLogger } from '@/lib/logs/console/logger'
-import { getBaseUrl } from '@/lib/urls/utils'
+import { Agent } from '@mastra/core/agent'
+import { toStandardSchema } from '@mastra/core/schema'
+import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import { safeInferenceError } from '@/lib/mastra/errors'
+import { financialProcessors } from '@/lib/mastra/financial-processors'
+import { NATIVE_AGENT_POLICY, trustedModelSettings, trustedPrepareStep } from '@/lib/mastra/options'
+import { assertListedModel } from '@/lib/mastra/registry'
+import { assertNativeCompletion, withInferenceFacts } from '@/lib/mastra/result'
+import { getMastra } from '@/lib/mastra/runtime'
+import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
+import { watchExecutionCancellation } from '@/executor/handlers/agent/cancellation'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
-import { getProviderFromModel } from '@/providers/ai/models'
 import type { SerializedBlock } from '@/serializer/types'
 
-const logger = createLogger('EvaluatorBlockHandler')
-
-/**
- * Handler for Evaluator blocks that assess content against criteria.
- */
+/** Evaluates content with native schema validation and direct metric output fields. */
 export class EvaluatorBlockHandler implements BlockHandler {
   canHandle(block: SerializedBlock): boolean {
     return block.metadata?.id === BlockType.EVALUATOR
@@ -23,242 +27,111 @@ export class EvaluatorBlockHandler implements BlockHandler {
   ): Promise<BlockOutput> {
     const model = inputs.model
     if (!model) throw new Error('Model is required')
-    const providerId = getProviderFromModel(model)
-
-    // Process the content to ensure it's in a suitable format
-    let processedContent = ''
-
+    assertListedModel(model)
+    const metrics = (Array.isArray(inputs.metrics) ? inputs.metrics : []).filter(
+      (metric: any) => metric?.name && metric.range
+    )
+    const properties = Object.fromEntries(
+      metrics.map((metric: any) => [
+        metric.name.toLowerCase(),
+        { type: 'number', minimum: metric.range.min, maximum: metric.range.max },
+      ])
+    )
+    const schema = {
+      type: 'object' as const,
+      properties,
+      required: Object.keys(properties),
+      additionalProperties: false,
+    }
+    const instructions = `Evaluate the content against these metrics and return scores as a JSON object.
+${metrics.map((metric: any) => `${metric.name} (${metric.range.min}-${metric.range.max}): ${metric.description || ''}`).join('\n')}`
+    const mastra = await getMastra()
+    const startedAt = new Date()
+    const runId = crypto.randomUUID()
+    const steps: Array<{
+      usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+    }> = []
+    let returnedUsage: Parameters<typeof resultAccounting>[0]
+    let accounting: Awaited<ReturnType<typeof resultAccounting>> | undefined
+    let finance: Awaited<ReturnType<typeof financialProcessors>> | undefined
+    const capture = () =>
+      resultAccounting(selectNativeUsage(returnedUsage, finance?.getUsage(), sumNativeUsage(steps)))
+    const cancellation = watchExecutionCancellation(context.shouldCancelExecution)
     try {
-      if (typeof inputs.content === 'string') {
-        if (inputs.content.trim().startsWith('[') || inputs.content.trim().startsWith('{')) {
-          try {
-            const parsed = JSON.parse(inputs.content)
-            processedContent = JSON.stringify(parsed, null, 2)
-          } catch (_e) {
-            processedContent = inputs.content
-          }
-        } else {
-          processedContent = inputs.content
-        }
-      } else if (typeof inputs.content === 'object') {
-        processedContent = JSON.stringify(inputs.content, null, 2)
-      } else {
-        processedContent = String(inputs.content || '')
-      }
-    } catch (e) {
-      logger.error('Error processing content:', e)
-      processedContent = String(inputs.content || '')
-    }
+      await cancellation.check()
+      finance = await financialProcessors({
+        actorUserId: context.userId,
+        workspaceId: context.workspaceId,
+        workflowId: context.workflowId,
+        runId,
+        purpose: 'workflow-evaluator',
+        signal: cancellation.signal,
+      })
+      const admittedModel = createConfiguredLanguageModel(model, inputs.apiKey)
+      const agent = new Agent({
+        inputProcessors: finance.inputProcessors,
+        outputProcessors: finance.outputProcessors,
+        ...NATIVE_AGENT_POLICY,
+        id: block.id,
+        name: 'Workflow Evaluator',
+        instructions,
+        model: admittedModel,
+        mastra,
+      })
 
-    // Parse system prompt object with robust error handling
-    let systemPromptObj: { systemPrompt: string; responseFormat: any } = {
-      systemPrompt: '',
-      responseFormat: null,
-    }
-
-    logger.info('Inputs for evaluator:', inputs)
-    const metrics = Array.isArray(inputs.metrics) ? inputs.metrics : []
-    logger.info('Metrics for evaluator:', metrics)
-    const metricDescriptions = metrics
-      .filter((m: any) => m?.name && m.range) // Filter out invalid/incomplete metrics
-      .map((m: any) => `"${m.name}" (${m.range.min}-${m.range.max}): ${m.description || ''}`)
-      .join('\n')
-
-    // Create a response format structure
-    const responseProperties: Record<string, any> = {}
-    metrics.forEach((m: any) => {
-      // Ensure metric and name are valid before using them
-      if (m?.name) {
-        responseProperties[m.name.toLowerCase()] = { type: 'number' } // Use lowercase for consistency
-      } else {
-        logger.warn('Skipping invalid metric entry during response format generation:', m)
-      }
-    })
-
-    systemPromptObj = {
-      systemPrompt: `You are an evaluation agent. Analyze this content against the metrics and provide scores.
-      
-    Metrics:
-    ${metricDescriptions}
-
-    Content:
-    ${processedContent}
-
-    Return a JSON object with each metric name as a key and a numeric score as the value. No explanations, only scores.`,
-      responseFormat: {
-        name: 'evaluation_response',
-        schema: {
-          type: 'object',
-          properties: responseProperties,
-          // Filter out invalid names before creating the required array
-          required: metrics.filter((m: any) => m?.name).map((m: any) => m.name.toLowerCase()),
-          additionalProperties: false,
-        },
-        strict: providerId !== 'deepseek',
-      },
-    }
-
-    // Ensure we have a system prompt
-    if (!systemPromptObj.systemPrompt) {
-      systemPromptObj.systemPrompt =
-        'Evaluate the content and provide scores for each metric as JSON.'
-    }
-
-    try {
-      const url = new URL('/api/providers', getBaseUrl())
-
-      // Make sure we force JSON output in the request
-      const providerRequest = {
-        provider: providerId,
-        model: model,
-        systemPrompt: systemPromptObj.systemPrompt,
-        responseFormat: systemPromptObj.responseFormat,
-        context: JSON.stringify([
+      const result = await agent.generate(
+        [
           {
             role: 'user',
             content:
-              'Please evaluate the content provided in the system prompt. Return ONLY a valid JSON with metric scores.',
+              typeof inputs.content === 'string'
+                ? inputs.content
+                : JSON.stringify(inputs.content ?? ''),
           },
-        ]),
-        temperature: inputs.temperature || 0,
-        apiKey: inputs.apiKey,
-        workflowId: context.workflowId,
+        ],
+        {
+          runId,
+          onStepFinish: (step) => {
+            steps.push(step)
+          },
+          modelSettings: trustedModelSettings({ temperature: inputs.temperature }),
+          maxProcessorRetries: 0,
+          prepareStep: trustedPrepareStep(admittedModel),
+          structuredOutput: { schema: toStandardSchema(schema), errorStrategy: 'strict' },
+          abortSignal: cancellation.signal,
+          tracingOptions: {
+            metadata: { userId: context.userId, resourceId: context.workspaceId, runId },
+          },
+        }
+      )
+      // Snapshot only validated public counts before completion/financial checks can reject.
+      returnedUsage = selectNativeUsage(result.totalUsage)
+      assertNativeCompletion(result)
+      await finance.verifyComplete()
+      accounting = await capture()
+      cancellation.signal.throwIfAborted()
+      if (result.finishReason === 'aborted' || result.finishReason === 'error') {
+        throw new Error(`Evaluator generation ${result.finishReason}`)
       }
-
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(providerRequest),
-      })
-
-      if (!response.ok) {
-        // Try to extract a helpful error message
-        let errorMessage = `Provider API request failed with status ${response.status}`
-        try {
-          const errorData = await response.json()
-          if (errorData.error) {
-            errorMessage = errorData.error
-          }
-        } catch (_e) {
-          // If JSON parsing fails, use the original error message
-        }
-        throw new Error(errorMessage)
+      if (!result.object || typeof result.object !== 'object' || Array.isArray(result.object)) {
+        throw new Error('Evaluator requires a valid structured result')
       }
-
-      const result = await response.json()
-
-      // Parse response content with robust error handling
-      let parsedContent: Record<string, any> = {}
-      try {
-        const contentStr = result.content.trim()
-        let jsonStr = ''
-
-        // Method 1: Extract content between first { and last }
-        const fullMatch = contentStr.match(/(\{[\s\S]*\})/) // Regex to find JSON structure
-        if (fullMatch) {
-          jsonStr = fullMatch[0]
+      const business = result.object as Record<string, number>
+      const facts = { model, ...accounting }
+      return withInferenceFacts(
+        { content: inputs.content, ...facts, ...business },
+        {
+          ...facts,
+          generatedFields: Object.keys(facts).filter((key) => !Object.hasOwn(business, key)),
         }
-        // Method 2: Try to find and extract just the JSON part
-        else if (contentStr.includes('{') && contentStr.includes('}')) {
-          const startIdx = contentStr.indexOf('{')
-          const endIdx = contentStr.lastIndexOf('}') + 1
-          jsonStr = contentStr.substring(startIdx, endIdx)
-        }
-        // Method 3: Just use the raw content as a last resort
-        else {
-          jsonStr = contentStr
-        }
-
-        // Try to parse the extracted JSON
-        try {
-          parsedContent = JSON.parse(jsonStr)
-        } catch (parseError) {
-          logger.error('Failed to parse extracted JSON:', parseError)
-          throw new Error('Invalid JSON in response')
-        }
-      } catch (error) {
-        logger.error('Error parsing evaluator response:', error)
-        logger.error('Raw response content:', result.content)
-
-        // Fallback to empty object
-        parsedContent = {}
-      }
-
-      // Extract and process metric scores with proper validation
-      const metricScores: Record<string, any> = {}
-
-      try {
-        // Ensure metrics is an array before processing
-        const validMetrics = Array.isArray(inputs.metrics) ? inputs.metrics : []
-
-        // If we have a successful parse, extract the metrics
-        if (Object.keys(parsedContent).length > 0) {
-          validMetrics.forEach((metric: any) => {
-            // Check if metric and name are valid before proceeding
-            if (!metric || !metric.name) {
-              logger.warn('Skipping invalid metric entry during score extraction:', metric)
-              return // Skip this iteration
-            }
-
-            const metricName = metric.name
-            const lowerCaseMetricName = metricName.toLowerCase()
-
-            // Try multiple possible ways the metric might be represented
-            if (parsedContent[metricName] !== undefined) {
-              metricScores[lowerCaseMetricName] = Number(parsedContent[metricName])
-            } else if (parsedContent[metricName.toLowerCase()] !== undefined) {
-              metricScores[lowerCaseMetricName] = Number(parsedContent[metricName.toLowerCase()])
-            } else if (parsedContent[metricName.toUpperCase()] !== undefined) {
-              metricScores[lowerCaseMetricName] = Number(parsedContent[metricName.toUpperCase()])
-            } else {
-              // Last resort - try to find any key that might contain this metric name
-              const matchingKey = Object.keys(parsedContent).find((key) => {
-                // Add check for key validity before calling toLowerCase()
-                return typeof key === 'string' && key.toLowerCase().includes(lowerCaseMetricName)
-              })
-
-              if (matchingKey) {
-                metricScores[lowerCaseMetricName] = Number(parsedContent[matchingKey])
-              } else {
-                logger.warn(`Metric "${metricName}" not found in LLM response`)
-                metricScores[lowerCaseMetricName] = 0
-              }
-            }
-          })
-        } else {
-          // If we couldn't parse any content, set all metrics to 0
-          validMetrics.forEach((metric: any) => {
-            // Ensure metric and name are valid before setting default score
-            if (metric?.name) {
-              metricScores[metric.name.toLowerCase()] = 0
-            } else {
-              logger.warn('Skipping invalid metric entry when setting default scores:', metric)
-            }
-          })
-        }
-      } catch (e) {
-        logger.error('Error extracting metric scores:', e)
-      }
-
-      // Create result with metrics as direct fields for easy access
-      const outputResult = {
-        content: inputs.content,
-        model: result.model,
-        tokens: {
-          prompt: result.tokens?.prompt || 0,
-          completion: result.tokens?.completion || 0,
-          total: result.tokens?.total || 0,
-        },
-        cost: result.cost,
-        ...metricScores,
-      }
-
-      return outputResult
+      )
     } catch (error) {
-      logger.error('Evaluator execution failed:', error)
-      throw error
+      const failure = new Error(safeInferenceError(error, inputs.apiKey))
+      const facts = { model, ...(accounting ?? (await capture())) }
+      Object.assign(failure, facts)
+      throw withInferenceFacts(failure, { ...facts, generatedFields: Object.keys(facts) })
+    } finally {
+      cancellation.stop()
     }
   }
 }

@@ -87,6 +87,14 @@ describe('stringifySubBlockValue', () => {
 })
 
 describe('resolveInitialSubBlockValue', () => {
+  it('keeps an unresolved model default distinct from deliberate clearing and references', () => {
+    const field = { id: 'model', type: 'combobox' as const, value: () => undefined }
+    expect(resolveInitialSubBlockValue(field, {})).toBeNull()
+    for (const explicit of ['', '{{MODEL}}', '<upstream.model>']) {
+      expect(resolveInitialSubBlockValue(field, {}, explicit)).toBe(explicit)
+    }
+  })
+
   it('uses defaultValue when no explicit or configured value exists', () => {
     expect(
       resolveInitialSubBlockValue(

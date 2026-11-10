@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { displayPercentage } from '@tradinggoose/billing/money'
 import { useLocale, useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui'
 import { calculateFilledPills, USAGE_PILL_COUNT } from '@/lib/subscription/usage-visualization'
@@ -17,8 +18,8 @@ interface UsageHeaderProps {
   badgeText?: string
   onBadgeClick?: () => void
   rightContent?: ReactNode
-  current: number
-  limit: number
+  current: string | null | undefined
+  limit: string | null | undefined
   progressValue?: number
   seatsText?: string
   isBlocked?: boolean
@@ -45,10 +46,12 @@ export function UsageHeader({
 }: UsageHeaderProps) {
   const locale = useLocale()
   const copy = useTranslations('workspace.settingsModal.subscription.usageHeader')
-  const progress = progressValue ?? (limit > 0 ? Math.min((current / limit) * 100, 100) : 0)
+  const progress =
+    progressValue ??
+    (current != null && limit != null ? displayPercentage(current, limit) : undefined)
 
   // Calculate filled pills using shared visualization utility for consistency
-  const filledPillsCount = calculateFilledPills(progress)
+  const filledPillsCount = calculateFilledPills(progress ?? 0)
   const isAlmostOut = filledPillsCount === USAGE_PILL_COUNT
 
   return (
@@ -84,7 +87,7 @@ export function UsageHeader({
                 <span className='text-[12px] text-muted-foreground'>/</span>
                 {rightContent ?? (
                   <span className='text-[12px] text-muted-foreground tabular-nums'>
-                    {formatUsd(locale, limit)}
+                    {limit === null ? '∞' : formatUsd(locale, limit)}
                   </span>
                 )}
               </>

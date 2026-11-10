@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
 import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
@@ -20,6 +21,7 @@ type QueuedWorkflowExecutionTarget = 'deployed' | 'live'
 
 type QueueRequestBody = {
   executionId?: string
+  native?: unknown
   input?: unknown
   executionTarget?: unknown
   triggerType?: unknown
@@ -154,6 +156,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 400 }
       )
     }
+    if (body.native !== undefined && auth.authType !== 'session') {
+      return NextResponse.json(
+        { error: 'Native Copilot workflow effects require the actual user session' },
+        { status: 403 }
+      )
+    }
+    if (body.native !== undefined) {
+      const { authorizeNativeWorkflowQueueEffect } = await import(
+        '@/lib/copilot/native/workflow-effects'
+      )
+      await authorizeNativeWorkflowQueueEffect(auth.userId, workflowId, body, request.signal)
+    }
     const createdAt = new Date().toISOString()
     const pendingExecutionId =
       typeof body.executionId === 'string' && body.executionId.length > 0
@@ -244,6 +258,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       { status: 202 }
     )
   } catch (error) {
+    if (error instanceof NativeTargetError)
+      return NextResponse.json({ error: error.message, retryable: false }, { status: error.status })
     if (isPendingExecutionLimitError(error)) {
       return NextResponse.json(
         { error: 'Pending execution backlog is full' },

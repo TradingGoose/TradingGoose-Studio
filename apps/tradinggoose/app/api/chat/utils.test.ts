@@ -358,6 +358,7 @@ describe('Chat API Utils', () => {
         output: {},
         logs: [
           {
+            id: 'utils.test.ts:saved-occurrence:1',
             blockId: 'agent1',
             startedAt: '2023-01-01T00:00:00Z',
             endedAt: '2023-01-01T00:00:01Z',
@@ -367,6 +368,7 @@ describe('Chat API Utils', () => {
             error: undefined,
           },
           {
+            id: 'utils.test.ts:saved-occurrence:2',
             blockId: 'agent2',
             startedAt: '2023-01-01T00:00:00Z',
             endedAt: '2023-01-01T00:00:01Z',

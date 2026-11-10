@@ -14,6 +14,9 @@ services:
       - '3000:3000'
     environment:
       - NODE_ENV=production
+      - MASTRA_DATABASE_URL=${MASTRA_DATABASE_URL:-}
+      - MASTRA_MODEL_PROVIDERS=${MASTRA_MODEL_PROVIDERS:-}
+      - MASTRA_AZURE_OPENAI=${MASTRA_AZURE_OPENAI:-}
       - DATABASE_URL=postgresql://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-tradinggoose}
       - BETTER_AUTH_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}

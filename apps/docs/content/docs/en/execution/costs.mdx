@@ -5,41 +5,27 @@ title: Cost Calculation
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 
-TradingGoose meters workflow execution, model usage, and Function/custom-tool runtime. Charges use the configuration and effective tier of the workspace's user or organization billing owner.
+TradingGoose records accepted product charges for the workspace's original user or organization billing owner. The shared financial policy preserves the original actor, billing period and pricing quote throughout execution and resume.
 
-## How Costs Are Calculated
+## Applied Charges
 
-When billing is enabled, usage can include three cost components:
+- **Workflow execution** uses the configured base charge and tier execution multiplier captured in the original quote. The same logical execution settles its base charge once. Child workflows settle independently.
+- **Function and custom-tool runtime** uses the captured per-second charge and tier Function multiplier multiplied by actual runtime milliseconds divided by 1000. A contacted runtime attempt can incur this charge even when its code fails.
+- **Model and embedding work** requires financial admission and verified acceptance for each actual step or batch. Generic native model USD is unavailable in the current integration. Token counts do not establish a dollar charge, and missing provider prices are never treated as known zero.
 
-- **Execution charge**: the configured workflow charge multiplied by the tier execution multiplier, as captured in the execution's pricing quote.
-- **AI model usage**: the provider-model cost recorded by each execution span, multiplied by the tier model-cost multiplier captured in that quote.
-- **Function runtime**: the configured per-second Function charge multiplied by execution time in seconds and the tier's Function execution multiplier. This is accrued separately for Function/custom-tool execution, including runtime attempts that fail.
+Amounts, limits, allowances, multipliers and receipts use exact decimal strings. Function charges retain their full decimal precision; there is no six-decimal quantization. Currency display can round for readability. The invoice boundary converts USD to cents using the documented half-up rule; that conversion does not change the underlying usage ledger.
 
-```javascript
-executionCost = configuredWorkflowCharge * tierWorkflowExecutionMultiplier
-adjustedModelCost = recordedModelCost * tierWorkflowModelCostMultiplier
-workflowLogSubtotal = executionCost + sum(adjustedModelCost)
-functionCost = (executionTimeMs / 1000) * configuredFunctionChargePerSecond * tierFunctionExecutionMultiplier
-totalMeteredCost = workflowLogSubtotal + sum(functionCost)
-```
-
-This formula is illustrative. Each Function runtime charge is rounded to six decimal places. The workflow log's cost total is its execution/model subtotal; separately accrued Function charges also contribute to the billing owner's usage. They are not an AI-model charge and can apply to non-AI workflows.
-
-Completed model work is accounted for when a human-in-the-loop checkpoint is saved. Resuming or cancelling does not charge that same work again: each logical execution reuses its captured execution/model pricing quote and incurs its base execution charge only once. Child workflow costs are accounted for in the child's own log, not charged again through the parent's nested traces.
+Completion requires verified financial acceptance and authorized canonical output readback. A financial or readback failure can prevent successful delivery after work has finished; it does not authorize repeating that work. Resume reuses the original financial identity and accepted occurrences rather than charging the same completed work again. A human review checkpoint preserves that identity.
 
 <Callout type="info">
-  For executions whose pricing quote is first captured while billing is disabled, the base execution charge is zero and recorded model costs use a multiplier of one. Disabled billing accrues no additional billed workflow or Function usage; it does not rewrite previously captured quotes. Billing configuration, rather than fixed values in this guide, is the source of truth for charges and multipliers.
+  Read actual accepted usage and the execution's captured quote for billing facts. A configured, verified zero charge differs from unavailable model USD. Changing billing configuration does not rewrite an existing quote, original payer or original period.
 </Callout>
 
-## Model Breakdown in Logs
+## Active Usage and Reloaded Logs
 
-For workflows using AI blocks, you can view detailed cost information in the logs:
+During an active request, native results can expose optional input, output or total token counts and the selected model. Missing counters remain unavailable. Generic USD is labelled unavailable; no manual price table or token-based estimate fills the gap.
 
-The log detail sidebar includes a model breakdown section that shows:
-- **Token Usage**: Input and output token counts for each model
-- **Cost Breakdown**: Input, output, and total cost for each model
-- **Models Used**: Which models contributed to the execution cost
-- **Total Cost**: The workflow log's execution/model subtotal; check usage for separately accrued Function runtime charges
+Reloaded Records retain functional inputs, outputs, tools and workflow execution details through authorized canonical storage. Provider diagnostics, model cost reports and per-turn token totals are not durable product reporting. Reload does not reconstruct a model-cost breakdown from traces or transcript size. Use **Settings → Subscription** for actual applied current-period usage; a visible model subtotal is not the financial ledger.
 
 ## Pricing and Limits
 
@@ -60,9 +46,6 @@ A billing tier can also impose a maximum duration on each queued workflow execut
     Well-structured, concise prompts reduce token usage without sacrificing quality.
   </Accordion>
   
-  <Accordion title="Local Models">
-    Use Ollama when a local model is appropriate to avoid external model-provider charges. The workflow execution charge can still apply.
-  </Accordion>
   
   <Accordion title="Caching and Reuse">
     Reuse upstream outputs or workflow variables within a run instead of repeating AI model calls.
@@ -99,6 +82,9 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 ```
 
 **Example Response:**
+
+**Breaking money ABI:** `currentPeriodCost` is exact USD decimal text, such as `"9007199254740993.30000000000000001"`; the monetary usage `limit` is a decimal string or `null` for unlimited. Nested tier prices, allowances and billing multipliers remain decimal strings or configured `null`. Preserve these values without `Number`/`float` conversion. Rate-limit counts, seats and storage fields remain numeric.
+
 ```jsonc
 {
   "success": true,
@@ -108,8 +94,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
     "authType": "api"
   },
   "usage": {
-    "currentPeriodCost": 12.34,
-    "limit": 100,
+    "currentPeriodCost": "12.34",
+    "limit": "100",
     "tier": {
       "id": "tier_example",
       "displayName": "Example Tier",
@@ -119,8 +105,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
       "asyncRateLimitPerMinute": 50,
       "apiEndpointRateLimitPerMinute": 60,
       "logRetentionDays": 30,
-      "workflowExecutionMultiplier": 1,
-      "workflowModelCostMultiplier": 1
+      "workflowExecutionMultiplier": "1",
+      "workflowModelCostMultiplier": "1"
       // The response includes the remaining BillingTierSummary fields.
     }
   },

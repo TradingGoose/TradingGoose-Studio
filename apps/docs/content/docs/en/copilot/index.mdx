@@ -11,6 +11,10 @@ Copilot is an AI-powered assistant that works across the entire TradingGoose wor
 
 This page covers the built-in Studio assistant. To work on TradingGoose from your own coding agent, see [Copilot MCP](/copilot/copilot-mcp) for capabilities, installation, and authentication.
 
+## Context usage
+
+Copilot can shorten the prompt sent to the model by removing eligible historical context. Automatic pruning, the context view and manual pruning use the same transient projection; stored messages, ordered parts and images remain intact. Pruning makes no additional model call or billing acceptance. Ordinary chat, title and wand inference keep their normal accounting. The context display labels measured, estimated or unavailable token counts; it does not infer a percentage or model capacity. A successful pruning request can report no change. Protected current inputs and pending tool obligations can prevent further reduction.
+
 ## Capabilities
 
 Copilot has access to a comprehensive set of tools spanning the entire platform:
@@ -99,14 +103,16 @@ Chat state persists while you navigate the workspace or collapse and reopen the 
 
 Copilot is context-aware. The current page publishes only the selected object's identity, such as the active dashboard layout, knowledge base, execution log, or monitor. Use the `@` mention menu when you want to add other explicit context to a message.
 
-When Copilot streams a response that includes tool calls (for example adding a block, creating a skill, or configuring an MCP server), each action is rendered as an inline preview. In **Limited** mode you approve or reject each change; in **Full** mode changes are applied automatically.
+When Copilot streams a response that includes tool calls (for example adding a block, creating a skill, or configuring an MCP server), each action is rendered inline. In **Limited** mode you review changes; in **Full** mode eligible new actions can run automatically. A prepared change preview still requires an explicit **Accept** or **Reject**. Refreshing pending work does not accept a preview or repeat an attempted action.
+
+Rejecting a preview leaves the change unapplied and sends that decision back to Copilot. If delivery of a known result fails, retrying delivery sends the same result without running the action again. An uncertain action outcome remains unresolved.
 
 You can edit an earlier prompt to truncate and regenerate the messages that follow it, but only when no accepted live mutation follows that prompt. Editing chat history does not undo changes already applied to the workspace; reverse an applied action by changing the affected entity again. Messages after an editable point are dimmed to indicate that they will be regenerated.
 
 ## Billing
 
-Copilot completion charges use the authoritative total cost reported by OpenRouter, followed by the Copilot cost multiplier for your plan. This keeps final billing aligned with the actual routed request, including applicable cached-token, reasoning, media, search, long-context, and provider-specific charges.
+Copilot model operations report their accepted applied charge as an exact canonical USD string. An unavailable model-USD value remains unavailable; token counts and estimates do not become a replacement price. Normal inference retains the selected plan multiplier and shared billing checks.
 
 <Callout type="info">
-  Studio may reserve a conservative estimate before a request. The final charge always uses OpenRouter's reported completion cost, not the estimate.
+  Studio can reserve a conservative amount before model contact. Deterministic context pruning creates no separate financial fact; existing accepted charges remain historical facts.
 </Callout>

@@ -12,6 +12,7 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { hydrateAuthorizedLog } from '@/lib/workflow-archive/functional'
 import { serializeWorkflowLog } from '@/app/api/logs/log-utils'
 
 const logger = createLogger('LogDetailsByIdAPI')
@@ -66,17 +67,21 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .where(and(eq(workflowExecutionLogs.id, id), workspaceAccess.accessFilter))
       .limit(1)
 
-    const row = rows[0]
+    let row = rows[0]
     if (!row) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    return NextResponse.json({
-      data: {
-        ...serializeWorkflowLog(row, 'full'),
-        createdAt: undefined,
+    row = await hydrateAuthorizedLog(row, userId)
+    return NextResponse.json(
+      {
+        data: {
+          ...serializeWorkflowLog(row, 'full'),
+          createdAt: undefined,
+        },
       },
-    })
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    )
   } catch (error: any) {
     logger.error(`[${requestId}] log details fetch error`, error)
     return NextResponse.json({ error: error.message }, { status: 500 })

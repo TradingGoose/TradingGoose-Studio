@@ -1,7 +1,7 @@
 import { EyeIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getProviderIcon } from '@/providers/ai/models'
+import { getDefaultModel, getModelGroups, getModelOptions } from '@/stores/model-registry'
 import type { VisionResponse } from '@/tools/vision/types'
 
 export const VisionBlock: BlockConfig<VisionResponse> = {
@@ -50,26 +50,13 @@ export const VisionBlock: BlockConfig<VisionResponse> = {
     {
       id: 'model',
       title: 'Vision Model',
-      type: 'dropdown',
+      type: 'combobox',
       layout: 'half',
-      options: () => {
-        const models = [
-          { label: 'gpt-4o', id: 'gpt-4o' },
-          { label: 'claude-3-opus', id: 'claude-3-opus-20240229' },
-          { label: 'claude-3-sonnet', id: 'claude-3-sonnet-20240229' },
-        ]
-
-        return models.map((model) => {
-          const icon = getProviderIcon(model.id)
-          return icon
-            ? {
-                ...model,
-                icon,
-              }
-            : model
-        })
-      },
-      value: () => 'gpt-4o',
+      dropdownMode: 'sidebar',
+      autoSelectFirstOption: false,
+      optionGroups: getModelGroups,
+      options: getModelOptions,
+      value: getDefaultModel,
     },
     {
       id: 'prompt',
@@ -86,7 +73,7 @@ export const VisionBlock: BlockConfig<VisionResponse> = {
       layout: 'full',
       placeholder: 'Enter your API key',
       password: true,
-      required: true,
+      description: 'Leave unset to use the configured Mastra connection.',
     },
   ],
   tools: {

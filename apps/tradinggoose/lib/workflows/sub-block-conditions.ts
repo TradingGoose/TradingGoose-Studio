@@ -1,15 +1,31 @@
+import type { RegistryModel } from '@/lib/mastra/registry'
 import type { SubBlockCondition } from '@/blocks/types'
-import { getMaxTemperature, MODEL_CONTROL_GETTERS } from '@/providers/ai/models'
+import { getRegistryModel } from '@/stores/model-registry'
 import { extractEnvironmentReferences, extractReferencePrefixes } from './references'
 
 /** Matches literal capabilities and keeps valid unresolved model references editable. */
-function matchesConditionValue(condition: SubBlockCondition, value: unknown): boolean {
+function matchesConditionValue(
+  condition: SubBlockCondition,
+  value: unknown,
+  getModel: (id: string) => RegistryModel | undefined
+): boolean {
   const normalized = value && typeof value === 'object' && 'id' in value ? value.id : value
   const fieldValue = normalized === undefined ? '' : normalized
+  const capability =
+    typeof fieldValue === 'string'
+      ? condition.value === 'temperature'
+        ? getModel(fieldValue)?.temperature
+        : condition.value === 'reasoning'
+          ? getModel(fieldValue)?.reasoning
+          : getModel(fieldValue)?.reasoning?.flatMap((option) =>
+              option.type === 'effort' ? option.values : []
+            )
+      : undefined
   const matches =
     condition.operator === 'modelCapability'
       ? typeof fieldValue === 'string' &&
-        (Boolean(MODEL_CONTROL_GETTERS[condition.value](fieldValue)?.length) ||
+        Boolean(fieldValue) &&
+        ((Array.isArray(capability) ? capability.length > 0 : capability !== false) ||
           extractReferencePrefixes(fieldValue).some(({ raw }) =>
             raw
               .slice(1, -1)
@@ -19,11 +35,9 @@ function matchesConditionValue(condition: SubBlockCondition, value: unknown): bo
           extractEnvironmentReferences(fieldValue).some((reference) =>
             /^[^{}]+$/.test(reference.slice(2, -2).trim())
           ))
-      : condition.operator === 'modelMaxTemperature'
-        ? typeof fieldValue === 'string' && getMaxTemperature(fieldValue) === condition.value
-        : Array.isArray(condition.value)
-          ? condition.value.includes(fieldValue as string | number | boolean)
-          : fieldValue === condition.value
+      : Array.isArray(condition.value)
+        ? condition.value.includes(fieldValue as string | number | boolean)
+        : fieldValue === condition.value
 
   return condition.not ? !matches : matches
 }
@@ -31,7 +45,8 @@ function matchesConditionValue(condition: SubBlockCondition, value: unknown): bo
 /** Evaluates a field condition and its nested AND dependencies with lazy controller values. */
 export function evaluateSubBlockCondition(
   condition: boolean | SubBlockCondition | (() => SubBlockCondition) | undefined,
-  getFieldValue: (field: string) => unknown
+  getFieldValue: (field: string) => unknown,
+  getModel: (id: string) => RegistryModel | undefined = getRegistryModel
 ): boolean {
   if (typeof condition === 'boolean') return condition
   if (!condition) return true
@@ -44,8 +59,8 @@ export function evaluateSubBlockCondition(
       : []
 
   return (
-    matchesConditionValue(actualCondition, getFieldValue(actualCondition.field)) &&
-    andConditions.every((entry) => evaluateSubBlockCondition(entry, getFieldValue))
+    matchesConditionValue(actualCondition, getFieldValue(actualCondition.field), getModel) &&
+    andConditions.every((entry) => evaluateSubBlockCondition(entry, getFieldValue, getModel))
   )
 }
 

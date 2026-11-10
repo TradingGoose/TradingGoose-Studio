@@ -4,9 +4,9 @@ const workspaceSelectionByScope = new Map<string, string | null>()
 
 export function rememberCopilotWorkspaceSelection(
   workspaceId?: string | null,
-  reviewSessionId?: string | null
+  threadId?: string | null
 ) {
-  workspaceSelectionByScope.set(workspaceId ?? 'global', reviewSessionId ?? null)
+  workspaceSelectionByScope.set(workspaceId ?? 'global', threadId ?? null)
 }
 
 export function getCopilotWorkspaceSelection(workspaceId: string | null | undefined) {

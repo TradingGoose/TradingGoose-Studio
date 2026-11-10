@@ -1,3 +1,4 @@
+import { addAbortSignal, Readable } from 'node:stream'
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -10,7 +11,12 @@ import {
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { env } from '@/lib/env'
+import { assertPublicStorageInput } from '@/lib/uploads/archive-boundary'
 import { S3_CONFIG, S3_KB_CONFIG } from '@/lib/uploads/core/setup'
+import {
+  assertStorageDeleteAccess,
+  assertStorageReadAccess,
+} from '@/lib/uploads/source-read-boundary'
 
 // Lazily create a single S3 client instance.
 let _s3Client: S3Client | null = null
@@ -113,7 +119,8 @@ export async function uploadToS3(
   contentType: string,
   customConfig: CustomS3Config,
   size?: number,
-  skipTimestampPrefix?: boolean
+  skipTimestampPrefix?: boolean,
+  preventOverwrite?: boolean
 ): Promise<FileInfo>
 
 export async function uploadToS3(
@@ -122,8 +129,15 @@ export async function uploadToS3(
   contentType: string,
   configOrSize?: CustomS3Config | number,
   size?: number,
-  skipTimestampPrefix?: boolean
+  skipTimestampPrefix?: boolean,
+  preventOverwrite?: boolean
 ): Promise<FileInfo> {
+  assertPublicStorageInput(
+    fileName,
+    undefined,
+    typeof configOrSize === 'object' ? configOrSize : S3_CONFIG
+  )
+
   // Handle overloaded parameters
   let config: CustomS3Config
   let fileSize: number
@@ -154,6 +168,7 @@ export async function uploadToS3(
       Key: uniqueKey,
       Body: file,
       ContentType: contentType,
+      ...(preventOverwrite ? { IfNoneMatch: '*' } : {}),
       // Add some useful metadata with sanitized values
       Metadata: {
         originalName: encodeURIComponent(fileName), // Encode filename to prevent invalid characters in HTTP headers
@@ -181,6 +196,8 @@ export async function uploadToS3(
  * @returns Presigned URL
  */
 export async function getPresignedUrl(key: string, expiresIn = 3600) {
+  assertStorageReadAccess(key, undefined, S3_CONFIG, 's3')
+
   const command = new GetObjectCommand({
     Bucket: S3_CONFIG.bucket,
     Key: key,
@@ -201,6 +218,8 @@ export async function getPresignedUrlWithConfig(
   customConfig: CustomS3Config,
   expiresIn = 3600
 ) {
+  assertStorageReadAccess(key, undefined, customConfig ?? S3_CONFIG, 's3')
+
   const command = new GetObjectCommand({
     Bucket: customConfig.bucket,
     Key: key,
@@ -214,17 +233,14 @@ export async function getPresignedUrlWithConfig(
  * @param key S3 object key
  * @returns File buffer
  */
-export async function downloadFromS3(key: string): Promise<Buffer>
+export async function downloadFromS3(
+  key: string,
+  customConfig?: CustomS3Config,
+  signal?: AbortSignal
+): Promise<Buffer> {
+  signal?.throwIfAborted()
+  assertStorageReadAccess(key, undefined, customConfig ?? S3_CONFIG, 's3')
 
-/**
- * Download a file from S3 with custom bucket configuration
- * @param key S3 object key
- * @param customConfig Custom S3 configuration
- * @returns File buffer
- */
-export async function downloadFromS3(key: string, customConfig: CustomS3Config): Promise<Buffer>
-
-export async function downloadFromS3(key: string, customConfig?: CustomS3Config): Promise<Buffer> {
   const config = customConfig || { bucket: S3_CONFIG.bucket, region: S3_CONFIG.region }
 
   const command = new GetObjectCommand({
@@ -232,8 +248,10 @@ export async function downloadFromS3(key: string, customConfig?: CustomS3Config)
     Key: key,
   })
 
-  const response = await getS3Client().send(command)
+  const response = await getS3Client().send(command, { abortSignal: signal })
   const stream = response.Body as any
+
+  if (signal && stream instanceof Readable) addAbortSignal(signal, stream)
 
   // Convert stream to buffer
   return new Promise<Buffer>((resolve, reject) => {
@@ -251,6 +269,8 @@ export async function downloadFromS3(key: string, customConfig?: CustomS3Config)
  * @returns File buffer
  */
 export async function downloadFromS3WithConfig(key: string, customConfig: CustomS3Config) {
+  assertStorageReadAccess(key, undefined, customConfig ?? S3_CONFIG, 's3')
+
   const command = new GetObjectCommand({
     Bucket: customConfig.bucket,
     Key: key,
@@ -282,6 +302,8 @@ export async function deleteFromS3(key: string): Promise<void>
 export async function deleteFromS3(key: string, customConfig: CustomS3Config): Promise<void>
 
 export async function deleteFromS3(key: string, customConfig?: CustomS3Config): Promise<void> {
+  assertStorageDeleteAccess(key, undefined, customConfig ?? S3_CONFIG, 's3')
+
   const config = customConfig || { bucket: S3_CONFIG.bucket, region: S3_CONFIG.region }
 
   await getS3Client().send(
@@ -316,9 +338,12 @@ export interface S3MultipartPart {
 export async function initiateS3MultipartUpload(
   options: S3MultipartUploadInit
 ): Promise<{ uploadId: string; key: string }> {
+  assertPublicStorageInput(options.fileName, undefined, options.customConfig)
+
   const { fileName, contentType, customConfig } = options
 
   const config = customConfig || { bucket: S3_KB_CONFIG.bucket, region: S3_KB_CONFIG.region }
+  assertPublicStorageInput(fileName, undefined, config)
   const s3Client = getS3Client()
 
   // Create unique key for the object
@@ -358,6 +383,8 @@ export async function getS3MultipartPartUrls(
   partNumbers: number[],
   customConfig?: CustomS3Config
 ): Promise<S3PartUploadUrl[]> {
+  assertPublicStorageInput(key, undefined, customConfig ?? S3_KB_CONFIG)
+
   const config = customConfig || { bucket: S3_KB_CONFIG.bucket, region: S3_KB_CONFIG.region }
   const s3Client = getS3Client()
 
@@ -387,6 +414,8 @@ export async function completeS3MultipartUpload(
   parts: S3MultipartPart[],
   customConfig?: CustomS3Config
 ): Promise<{ location: string; path: string; key: string }> {
+  assertPublicStorageInput(key, undefined, customConfig ?? S3_KB_CONFIG)
+
   const config = customConfig || { bucket: S3_KB_CONFIG.bucket, region: S3_KB_CONFIG.region }
   const s3Client = getS3Client()
 
@@ -419,6 +448,8 @@ export async function abortS3MultipartUpload(
   uploadId: string,
   customConfig?: CustomS3Config
 ): Promise<void> {
+  assertPublicStorageInput(key, undefined, customConfig ?? S3_KB_CONFIG)
+
   const config = customConfig || { bucket: S3_KB_CONFIG.bucket, region: S3_KB_CONFIG.region }
   const s3Client = getS3Client()
 

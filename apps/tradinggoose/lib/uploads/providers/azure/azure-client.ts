@@ -1,3 +1,4 @@
+import { addAbortSignal, Stream } from 'node:stream'
 import {
   BlobSASPermissions,
   BlobServiceClient,
@@ -6,7 +7,12 @@ import {
   StorageSharedKeyCredential,
 } from '@azure/storage-blob'
 import { createLogger } from '@/lib/logs/console/logger'
+import { assertPublicStorageInput } from '@/lib/uploads/archive-boundary'
 import { AZURE_CONFIG } from '@/lib/uploads/core/setup'
+import {
+  assertStorageDeleteAccess,
+  assertStorageReadAccess,
+} from '@/lib/uploads/source-read-boundary'
 
 const logger = createLogger('AzureClient')
 
@@ -110,7 +116,8 @@ export async function uploadToAzure(
   contentType: string,
   customConfig: CustomAzureConfig,
   size?: number,
-  skipTimestampPrefix?: boolean
+  skipTimestampPrefix?: boolean,
+  preventOverwrite?: boolean
 ): Promise<FileInfo>
 
 export async function uploadToAzure(
@@ -119,8 +126,15 @@ export async function uploadToAzure(
   contentType: string,
   configOrSize?: CustomAzureConfig | number,
   sizeOrSkipTimestamp?: number | boolean,
-  skipTimestampPrefix?: boolean
+  skipTimestampPrefix?: boolean,
+  preventOverwrite?: boolean
 ): Promise<FileInfo> {
+  assertPublicStorageInput(
+    fileName,
+    undefined,
+    typeof configOrSize === 'object' ? configOrSize : AZURE_CONFIG
+  )
+
   // Handle overloaded parameters
   let config: CustomAzureConfig
   let fileSize: number
@@ -157,6 +171,7 @@ export async function uploadToAzure(
   const blockBlobClient = containerClient.getBlockBlobClient(uniqueKey)
 
   await blockBlobClient.upload(file, fileSize, {
+    ...(preventOverwrite ? { conditions: { ifNoneMatch: '*' } } : {}),
     blobHTTPHeaders: {
       blobContentType: contentType,
     },
@@ -184,6 +199,8 @@ export async function uploadToAzure(
  * @returns Presigned URL
  */
 export async function getPresignedUrl(key: string, expiresIn = 3600) {
+  assertStorageReadAccess(key, undefined, AZURE_CONFIG, 'azure')
+
   const azureServiceClient = getAzureServiceClient()
   const containerClient = azureServiceClient.getContainerClient(AZURE_CONFIG.containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(key)
@@ -222,6 +239,8 @@ export async function getPresignedUrlWithConfig(
   customConfig: CustomAzureConfig,
   expiresIn = 3600
 ) {
+  assertStorageReadAccess(key, undefined, customConfig ?? AZURE_CONFIG, 'azure')
+
   let tempAzureServiceClient: BlobServiceClient
 
   if (customConfig.connectionString) {
@@ -271,23 +290,14 @@ export async function getPresignedUrlWithConfig(
  * @param key File key
  * @returns File buffer
  */
-export async function downloadFromAzure(key: string): Promise<Buffer>
-
-/**
- * Download a file from Azure storage with custom configuration
- * @param key File key
- * @param customConfig Custom Azure configuration
- * @returns File buffer
- */
 export async function downloadFromAzure(
   key: string,
-  customConfig: CustomAzureConfig
-): Promise<Buffer>
-
-export async function downloadFromAzure(
-  key: string,
-  customConfig?: CustomAzureConfig
+  customConfig?: CustomAzureConfig,
+  signal?: AbortSignal
 ): Promise<Buffer> {
+  signal?.throwIfAborted()
+  assertStorageReadAccess(key, undefined, customConfig ?? AZURE_CONFIG, 'azure')
+
   let azureServiceClient: BlobServiceClient
   let containerName: string
 
@@ -315,10 +325,14 @@ export async function downloadFromAzure(
   const containerClient = azureServiceClient.getContainerClient(containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(key)
 
-  const downloadBlockBlobResponse = await blockBlobClient.download()
+  const downloadBlockBlobResponse = await blockBlobClient.download(0, undefined, {
+    abortSignal: signal,
+  })
   if (!downloadBlockBlobResponse.readableStreamBody) {
     throw new Error('Failed to get readable stream from Azure download')
   }
+  if (signal && downloadBlockBlobResponse.readableStreamBody instanceof Stream)
+    addAbortSignal(signal, downloadBlockBlobResponse.readableStreamBody)
   const downloaded = await streamToBuffer(downloadBlockBlobResponse.readableStreamBody)
 
   return downloaded
@@ -341,6 +355,8 @@ export async function deleteFromAzure(
   key: string,
   customConfig?: CustomAzureConfig
 ): Promise<void> {
+  assertStorageDeleteAccess(key, undefined, customConfig ?? AZURE_CONFIG, 'azure')
+
   let azureServiceClient: BlobServiceClient
   let containerName: string
 
@@ -418,6 +434,8 @@ export interface AzureMultipartPart {
 export async function initiateMultipartUpload(
   options: AzureMultipartUploadInit
 ): Promise<{ uploadId: string; key: string }> {
+  assertPublicStorageInput(options.fileName, undefined, options.customConfig ?? AZURE_CONFIG)
+
   const { fileName, contentType, customConfig } = options
 
   let azureServiceClient: BlobServiceClient
@@ -480,6 +498,8 @@ export async function getMultipartPartUrls(
   partNumbers: number[],
   customConfig?: CustomAzureConfig
 ): Promise<AzurePartUploadUrl[]> {
+  assertPublicStorageInput(key, undefined, customConfig ?? AZURE_CONFIG)
+
   let azureServiceClient: BlobServiceClient
   let containerName: string
   let accountName: string
@@ -563,6 +583,7 @@ export async function completeMultipartUpload(
   parts: Array<{ blockId: string; partNumber: number }>,
   customConfig?: CustomAzureConfig
 ): Promise<{ location: string; path: string; key: string }> {
+  assertPublicStorageInput(key, undefined, customConfig ?? AZURE_CONFIG)
   let azureServiceClient: BlobServiceClient
   let containerName: string
 
@@ -621,6 +642,8 @@ export async function abortMultipartUpload(
   _uploadId: string, // Not used in Azure multipart flow, kept for interface consistency
   customConfig?: CustomAzureConfig
 ): Promise<void> {
+  assertPublicStorageInput(key, undefined, customConfig ?? AZURE_CONFIG)
+
   let azureServiceClient: BlobServiceClient
   let containerName: string
 

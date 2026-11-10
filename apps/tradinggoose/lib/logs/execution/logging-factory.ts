@@ -2,6 +2,7 @@ import { db } from '@tradinggoose/db'
 import { workflow, workflowFolder } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ExecutionEnvironment, ExecutionTrigger } from '@/lib/logs/types'
+import { getInferenceFacts } from '@/lib/mastra/result'
 import { isWorkflowBlockType } from '@/executor/consts'
 
 export function createTriggerObject(
@@ -79,131 +80,137 @@ export async function loadWorkflowSummaryForExecution(workflowId: string) {
   }
 }
 
-export function calculateCostSummary(
-  traceSpans: any[],
-  workflowExecutionChargeUsd = 0,
-  workflowModelCostMultiplier = 1
-): {
-  totalCost: number
-  totalInputCost: number
-  totalOutputCost: number
-  totalTokens: number
-  totalPromptTokens: number
-  totalCompletionTokens: number
-  baseExecutionCharge: number
-  modelCost: number
-  models: Record<
-    string,
-    {
-      input: number
-      output: number
-      total: number
-      tokens: { prompt: number; completion: number; total: number }
+export function calculateCostSummary(traceSpans: any[]) {
+  type ModelTotal = {
+    input?: number
+    output?: number
+    total?: number
+    availableTotal?: number
+    estimated?: boolean
+    status: 'reported' | 'estimated' | 'unavailable' | 'partial'
+    tokens: { prompt?: number; completion?: number; total?: number }
+  }
+  const models: Record<string, ModelTotal> = {}
+  const seen = new Set<string>()
+  let modelCost = 0
+  let toolCost = 0
+  let inputCost: number | undefined
+  let outputCost: number | undefined
+  let totalTokens: number | undefined
+  let promptTokens: number | undefined
+  let completionTokens: number | undefined
+  let hasKnownCharge = false
+  let unavailableComponents = 0
+  let estimated = false
+  const finite = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0
+
+  const accumulate = (component: any, isTool = false) => {
+    if (!component || typeof component !== 'object') return
+    const original = component
+    // Only server-created spans may carry typed inference; nested payloads need their own brand.
+    const facts = getInferenceFacts(original) ?? (isTool ? undefined : original.inference)
+    if (!facts) return
+    component = {
+      ...facts,
+      ...(facts.cost || !(facts.model || facts.tokens || facts.nativePayload)
+        ? {}
+        : { cost: { status: 'unavailable' } }),
     }
-  >
-} {
-  if (!traceSpans || traceSpans.length === 0) {
-    return {
-      totalCost: workflowExecutionChargeUsd,
-      totalInputCost: 0,
-      totalOutputCost: 0,
-      totalTokens: 0,
-      totalPromptTokens: 0,
-      totalCompletionTokens: 0,
-      baseExecutionCharge: workflowExecutionChargeUsd,
-      modelCost: 0,
-      models: {},
+    const fallbackId = isTool ? original.toolCallId : original.id
+    const identity = fallbackId ? [fallbackId] : []
+    if (identity.length > 0 && identity.every((id) => seen.has(id))) return
+    identity.forEach((id) => seen.add(id))
+    if (component.cost || component.tokens) {
+      const cost = component.cost ?? {}
+      const tokens = component.tokens ?? cost.tokens ?? {}
+      const prompt = tokens.prompt ?? tokens.input
+      const completion = tokens.completion ?? tokens.output
+      const total = typeof tokens === 'number' ? tokens : tokens.total
+      if (finite(prompt)) promptTokens = (promptTokens ?? 0) + prompt
+      if (finite(completion)) completionTokens = (completionTokens ?? 0) + completion
+      if (finite(total)) totalTokens = (totalTokens ?? 0) + total
+      const available = finite(cost.total)
+        ? cost.total
+        : finite(cost.availableTotal)
+          ? cost.availableTotal
+          : undefined
+      const known = finite(cost.total)
+      const missing = !known || cost.status === 'partial' || cost.status === 'unavailable'
+      const isEstimated = cost.status === 'estimated' || cost.estimated === true
+      if (missing) unavailableComponents += 1
+      estimated ||= isEstimated
+      if (available !== undefined) {
+        hasKnownCharge = true
+        if (isTool) toolCost += available
+        else modelCost += available
+      }
+      if (finite(cost.input)) inputCost = (inputCost ?? 0) + cost.input
+      if (finite(cost.output)) outputCost = (outputCost ?? 0) + cost.output
+      const modelName = component.model ?? cost.model
+      if (modelName) {
+        const model = (models[modelName] ??= {
+          status: 'reported',
+          tokens: {},
+        })
+        if (finite(cost.input)) model.input = (model.input ?? 0) + cost.input
+        if (finite(cost.output)) model.output = (model.output ?? 0) + cost.output
+        if (available !== undefined) model.availableTotal = (model.availableTotal ?? 0) + available
+        if (known) model.total = (model.total ?? 0) + cost.total
+        if (finite(prompt)) model.tokens.prompt = (model.tokens.prompt ?? 0) + prompt
+        if (finite(completion))
+          model.tokens.completion = (model.tokens.completion ?? 0) + completion
+        if (finite(total)) model.tokens.total = (model.tokens.total ?? 0) + total
+        model.estimated ||= isEstimated
+        if (missing || model.status === 'partial' || model.status === 'unavailable')
+          model.status = model.availableTotal === undefined ? 'unavailable' : 'partial'
+        else if (model.estimated) model.status = 'estimated'
+      }
+    }
+    if (Array.isArray(facts.toolResults) && facts.toolResults.length) {
+      for (const result of facts.toolResults) accumulate(result, true)
+    } else {
+      // Charge-only tools still require trusted facts. Child lists already include their subtotal.
+      if (finite(facts.toolCost)) {
+        toolCost += facts.toolCost
+        hasKnownCharge = true
+      }
+      unavailableComponents += facts.unavailableToolCosts ?? 0
     }
   }
-
-  // Child workflow traces are visible here but billed by their own execution.
-  const collectCostSpans = (spans: any[]): any[] => {
-    const costSpans: any[] = []
-
-    for (const span of spans) {
+  const visit = (spans: any[]) => {
+    for (const span of spans ?? []) {
+      // Child workflows settle their own usage. Their visible traces are inclusive.
       if (span.blockId && isWorkflowBlockType(span.type)) continue
-
-      if (span.cost) {
-        costSpans.push(span)
-      }
-
-      if (span.children && Array.isArray(span.children)) {
-        costSpans.push(...collectCostSpans(span.children))
-      }
-    }
-
-    return costSpans
-  }
-
-  const costSpans = collectCostSpans(traceSpans)
-  const modelCostMultiplier =
-    Number.isFinite(workflowModelCostMultiplier) && workflowModelCostMultiplier >= 0
-      ? workflowModelCostMultiplier
-      : 1
-
-  let totalCost = 0
-  let totalInputCost = 0
-  let totalOutputCost = 0
-  let totalTokens = 0
-  let totalPromptTokens = 0
-  let totalCompletionTokens = 0
-  const models: Record<
-    string,
-    {
-      input: number
-      output: number
-      total: number
-      tokens: { prompt: number; completion: number; total: number }
-    }
-  > = {}
-
-  for (const span of costSpans) {
-    const tokens = span.tokens || {}
-    const promptTokens = tokens.prompt ?? tokens.input ?? 0
-    const completionTokens = tokens.completion ?? tokens.output ?? 0
-    const totalSpanTokens = tokens.total ?? promptTokens + completionTokens
-    const scaledInputCost = (span.cost.input || 0) * modelCostMultiplier
-    const scaledOutputCost = (span.cost.output || 0) * modelCostMultiplier
-    const scaledTotalCost = (span.cost.total || 0) * modelCostMultiplier
-
-    totalCost += scaledTotalCost
-    totalInputCost += scaledInputCost
-    totalOutputCost += scaledOutputCost
-    totalTokens += totalSpanTokens
-    totalPromptTokens += promptTokens
-    totalCompletionTokens += completionTokens
-
-    if (span.model) {
-      const model = span.model
-      if (!models[model]) {
-        models[model] = {
-          input: 0,
-          output: 0,
-          total: 0,
-          tokens: { prompt: 0, completion: 0, total: 0 },
-        }
-      }
-      models[model].input += scaledInputCost
-      models[model].output += scaledOutputCost
-      models[model].total += scaledTotalCost
-      models[model].tokens.prompt += promptTokens
-      models[model].tokens.completion += completionTokens
-      models[model].tokens.total += totalSpanTokens
+      accumulate(span)
+      if (Array.isArray(span.children)) visit(span.children)
     }
   }
-
-  const modelCost = totalCost
-  totalCost += workflowExecutionChargeUsd
-
+  visit(traceSpans)
+  for (const model of Object.values(models)) {
+    if (model.status === 'partial' || model.status === 'unavailable') model.total = undefined
+  }
+  const availableTotal = modelCost + toolCost
+  const status: ModelTotal['status'] = unavailableComponents
+    ? hasKnownCharge
+      ? 'partial'
+      : 'unavailable'
+    : estimated
+      ? 'estimated'
+      : 'reported'
   return {
-    totalCost,
-    totalInputCost,
-    totalOutputCost,
+    totalCost: unavailableComponents ? undefined : availableTotal,
+    availableTotal: unavailableComponents && !hasKnownCharge ? undefined : availableTotal,
+    totalInputCost: inputCost,
+    totalOutputCost: outputCost,
     totalTokens,
-    totalPromptTokens,
-    totalCompletionTokens,
-    baseExecutionCharge: workflowExecutionChargeUsd,
-    modelCost,
+    totalPromptTokens: promptTokens,
+    totalCompletionTokens: completionTokens,
+    modelCost: unavailableComponents && modelCost === 0 ? undefined : modelCost,
+    status,
+    unavailableComponents,
+    estimated,
+    toolCost,
     models,
   }
 }

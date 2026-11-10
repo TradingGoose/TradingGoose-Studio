@@ -1440,7 +1440,6 @@
         "toolCalls": "工具调用",
         "files": "文件",
         "costBreakdown": "费用明细",
-        "baseExecution": "基础执行：",
         "modelInput": "模型输入：",
         "modelOutput": "模型输出：",
         "total": "总计：",
@@ -1448,7 +1447,6 @@
         "modelBreakdown": "模型明细（{count}）",
         "input": "输入：",
         "output": "输出：",
-        "totalCostNote": "总费用包括基础执行费 {amount} 以及任何模型使用费用。",
         "notAvailable": "不可用",
         "unknownSize": "未知大小",
         "unknownType": "未知类型",
@@ -3013,8 +3011,6 @@
         "payload": "有效负载",
         "signingSecret": "签名密钥",
         "additionalHeaders": "附加标头",
-        "reasoningEffort": "推理力度",
-        "verbosity": "详细程度",
         "configured": "已配置",
         "items": "项",
         "fields": "字段",
@@ -3281,8 +3277,6 @@
         "enterSystemPrompt": "输入系统提示...",
         "enterContextOrUserMessage": "输入上下文或用户消息...",
         "connectMemoryBlockOutput": "连接记忆块输出...",
-        "selectReasoningEffort": "选择推理力度...",
-        "selectVerbosity": "选择详细程度...",
         "systemPromptToGuideTheModelBehavior": "系统提示词以指导模型行为...",
         "enterYourPromptHere": "在此输入您的提示词...",
         "Maximum number of tokens": "最大 Token 数量",
@@ -3325,7 +3319,10 @@
         "pleaseSelectWealthboxCredentialsFirst": "请先选择 Wealthbox 凭据",
         "pleaseSelectGoogleDriveCredentialsFirst": "请先选择 Google Drive 凭据",
         "url": "URL",
-        "value": "值"
+        "value": "值",
+        "loadingModels": "正在加载模型…",
+        "modelRegistryUnavailable": "模型注册表不可用。请重试。",
+        "retryModels": "重试"
       },
       "blockEditor": {
         "blockNames": {
@@ -3646,7 +3643,6 @@
           "wait": "将工作流执行暂停指定的时间间隔。等待会在配置的时长内执行简单的休眠操作。",
           "workflow": "这是一个核心工作流块。将另一个工作流作为块执行到当前工作流中。输入要传递给子工作流的变量。",
           "parallel_ai": "将 Parallel AI 集成到工作流中。可以搜索网页。",
-          "agent": "智能体块是一个核心工作流块，是对 LLM 的封装。它接收系统/用户提示并调用 LLM 提供商。还可以通过在其工具输入中直接包含工具来进行工具调用。此外，它还可以返回结构化输出。",
           "perplexity": "将 Perplexity 集成到工作流中。可以使用 Perplexity AI 聊天模型生成补全内容。",
           "translate": "将翻译集成到工作流中。可以将文本翻译成任何语言。",
           "tts": "使用来自 OpenAI、Deepgram、ElevenLabs、Cartesia、Google Cloud、Azure 和 PlayHT 的最先进的 AI 声音，从文本生成自然流畅的语音。支持多种声音、语言和音频格式。",
@@ -5881,14 +5877,6 @@
             }
           },
           "evaluator": {
-            "azureApiVersion": {
-              "placeholder": "2024-07-01-preview",
-              "title": "Azure API 版本"
-            },
-            "azureEndpoint": {
-              "placeholder": "https://your-resource.openai.azure.com",
-              "title": "Azure OpenAI 终结点"
-            },
             "content": {
               "placeholder": "输入要评估的内容"
             }
@@ -16885,14 +16873,6 @@
             }
           },
           "translate": {
-            "azureApiVersion": {
-              "placeholder": "2024-07-01-preview",
-              "title": "Azure API 版本"
-            },
-            "azureEndpoint": {
-              "placeholder": "https://your-resource.openai.azure.com",
-              "title": "Azure OpenAI 终结点"
-            },
             "targetLanguage": {
               "placeholder": "输入language (e.g. Spanish, French, etc.)"
             }
@@ -17732,24 +17712,7 @@
               "title": "引用图片"
             }
           },
-          "vision": {
-            "model": {
-              "options": [
-                {
-                  "id": "gpt-4o",
-                  "label": "gpt-4o"
-                },
-                {
-                  "id": "claude-3-opus-20240229",
-                  "label": "claude-3-opus"
-                },
-                {
-                  "id": "claude-3-sonnet-20240229",
-                  "label": "claude-3-sonnet"
-                }
-              ]
-            }
-          },
+          "vision": {},
           "wealthbox": {
             "backgroundInformation": {
               "placeholder": "输入背景 Information",
@@ -22426,6 +22389,24 @@
         "model": {
           "choose": "选择模型",
           "label": "模型"
+        },
+        "driveChoice": {
+          "title": "Google Drive 访问",
+          "oauthTitle": "集成访问",
+          "oauthNewChoice": "请为本次请求选择工作区。这是新的选择，并非恢复原始上下文。",
+          "connect": "连接",
+          "original": "使用此工具原始上下文中的工作区。",
+          "newChoice": "原始工作区不可用。请为本次请求选择工作区和凭据。",
+          "workspace": "本次请求的工作区",
+          "chooseWorkspace": "选择工作区",
+          "credential": "Google Drive 凭据",
+          "unavailable": "无法验证工作区访问权限。请选择可用的工作区。",
+          "stale": "此工具已不再被选中。"
+        },
+        "historyRefresh": {
+          "failed": "响应已完成，但无法刷新其历史记录。",
+          "retry": "刷新历史记录",
+          "loading": "正在刷新历史记录…"
         }
       }
     },

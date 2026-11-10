@@ -1453,7 +1453,6 @@
         "toolCalls": "Tool Calls",
         "files": "Files",
         "costBreakdown": "Cost Breakdown",
-        "baseExecution": "Base Execution:",
         "modelInput": "Model Input:",
         "modelOutput": "Model Output:",
         "total": "Total:",
@@ -1461,7 +1460,6 @@
         "modelBreakdown": "Model Breakdown ({count})",
         "input": "Input:",
         "output": "Output:",
-        "totalCostNote": "Total cost includes a base execution charge of {amount} plus any model usage costs.",
         "notAvailable": "Not available",
         "unknownSize": "Unknown size",
         "unknownType": "Unknown type",
@@ -3026,8 +3024,6 @@
         "payload": "Payload",
         "signingSecret": "Signing Secret",
         "additionalHeaders": "Additional Headers",
-        "reasoningEffort": "Reasoning Effort",
-        "verbosity": "Verbosity",
         "configured": "Configured",
         "items": "Items",
         "fields": "Fields",
@@ -3294,8 +3290,6 @@
         "enterSystemPrompt": "Enter system prompt...",
         "enterContextOrUserMessage": "Enter context or user message...",
         "connectMemoryBlockOutput": "Connect memory block output...",
-        "selectReasoningEffort": "Select reasoning effort...",
-        "selectVerbosity": "Select verbosity...",
         "systemPromptToGuideTheModelBehavior": "System prompt to guide the model behavior...",
         "enterYourPromptHere": "Enter your prompt here...",
         "Maximum number of tokens": "Maximum number of tokens",
@@ -3338,7 +3332,10 @@
         "pleaseSelectWealthboxCredentialsFirst": "Please select Wealthbox credentials first",
         "pleaseSelectGoogleDriveCredentialsFirst": "Please select Google Drive credentials first",
         "url": "URL",
-        "value": "Value"
+        "value": "Value",
+        "loadingModels": "Loading models…",
+        "modelRegistryUnavailable": "Model registry is unavailable. Try again.",
+        "retryModels": "Try again"
       },
       "blockEditor": {
         "blockNames": {
@@ -3659,7 +3656,6 @@
           "wait": "Pauses workflow execution for a specified time interval. The wait executes a simple sleep for the configured duration.",
           "workflow": "This is a core workflow block. Execute another workflow as a block in your workflow. Enter the input variable to pass to the child workflow.",
           "parallel_ai": "Integrate Parallel AI into the workflow. Can search the web.",
-          "agent": "The Agent block is a core workflow block that is a wrapper around an LLM. It takes in system/user prompts and calls an LLM provider. It can also make tool calls by directly containing tools inside of its tool input. It can additionally return structured output.",
           "perplexity": "Integrate Perplexity into the workflow. Can generate completions using Perplexity AI chat models.",
           "translate": "Integrate Translate into the workflow. Can translate text to any language.",
           "tts": "Generate natural-sounding speech from text using state-of-the-art AI voices from OpenAI, Deepgram, ElevenLabs, Cartesia, Google Cloud, Azure, and PlayHT. Supports multiple voices, languages, and audio formats.",
@@ -5894,14 +5890,6 @@
             }
           },
           "evaluator": {
-            "azureApiVersion": {
-              "placeholder": "2024-07-01-preview",
-              "title": "Azure API Version"
-            },
-            "azureEndpoint": {
-              "placeholder": "https://your-resource.openai.azure.com",
-              "title": "Azure OpenAI Endpoint"
-            },
             "content": {
               "placeholder": "Enter the content to evaluate"
             }
@@ -16898,14 +16886,6 @@
             }
           },
           "translate": {
-            "azureApiVersion": {
-              "placeholder": "2024-07-01-preview",
-              "title": "Azure API Version"
-            },
-            "azureEndpoint": {
-              "placeholder": "https://your-resource.openai.azure.com",
-              "title": "Azure OpenAI Endpoint"
-            },
             "targetLanguage": {
               "placeholder": "Enter language (e.g. Spanish, French, etc.)"
             }
@@ -17745,24 +17725,7 @@
               "title": "Reference Image"
             }
           },
-          "vision": {
-            "model": {
-              "options": [
-                {
-                  "id": "gpt-4o",
-                  "label": "gpt-4o"
-                },
-                {
-                  "id": "claude-3-opus-20240229",
-                  "label": "claude-3-opus"
-                },
-                {
-                  "id": "claude-3-sonnet-20240229",
-                  "label": "claude-3-sonnet"
-                }
-              ]
-            }
-          },
+          "vision": {},
           "wealthbox": {
             "backgroundInformation": {
               "placeholder": "Enter Background Information",
@@ -22439,6 +22402,24 @@
         "model": {
           "choose": "Choose model",
           "label": "Model"
+        },
+        "driveChoice": {
+          "title": "Google Drive access",
+          "oauthTitle": "Integration access",
+          "oauthNewChoice": "Choose a workspace for this request. This is a new choice, not a reconstruction of the original context.",
+          "connect": "Connect",
+          "original": "Use the workspace from this tool’s original context.",
+          "newChoice": "The original workspace is unavailable. Choose a workspace and credential for this request.",
+          "workspace": "Workspace for this request",
+          "chooseWorkspace": "Choose a workspace",
+          "credential": "Google Drive credential",
+          "unavailable": "Workspace access could not be verified. Choose an available workspace.",
+          "stale": "This tool is no longer selected."
+        },
+        "historyRefresh": {
+          "failed": "The response is complete, but its history could not be refreshed.",
+          "retry": "Refresh history",
+          "loading": "Refreshing history…"
         }
       }
     },

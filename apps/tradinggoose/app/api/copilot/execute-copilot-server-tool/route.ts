@@ -1,120 +1,154 @@
+import { FinancialPolicyError } from '@tradinggoose/billing'
 import { type NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
+import { getSession } from '@/lib/auth'
+import { authorizeNativeBusinessResult } from '@/lib/copilot/native/business-access'
+import { nativeFinancialRootId, nativeResultBinding } from '@/lib/copilot/native/identity'
+import { readbackNativeToolResult } from '@/lib/copilot/native/readback'
+import { parseStudioNativeExecutionRequest } from '@/lib/copilot/native/studio-execution'
 import {
-  authenticateCopilotRequestSessionOnly,
-  createBadRequestResponse,
-  createRequestTracker,
-  createUnauthorizedResponse,
-} from '@/lib/copilot/auth'
-import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
+  authorizeNativeConversationScope,
+  copyNativeFinancialSource,
+  getNativeFinancialSource,
+  NativeTargetError,
+  resolveNativePendingTarget,
+} from '@/lib/copilot/native/target'
+import { isToolId, ToolArgSchemas, ToolResultSchemas } from '@/lib/copilot/registry'
+import { createCopilotToolResultProof } from '@/lib/copilot/result-proof'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
-import { createLogger } from '@/lib/logs/console/logger'
+import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
+import {
+  hashServerToolReviewBase,
+  type ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
+import {
+  acceptServerManagedToolReview,
+  rejectServerManagedToolReview,
+  stageServerManagedToolReview,
+} from '@/lib/copilot/tools/server/review-acceptance'
+import { routeExecution } from '@/lib/copilot/tools/server/router'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { getFailureAccounting } from '@/lib/mastra/errors'
+import { getInferenceFacts, type InferenceFacts } from '@/lib/mastra/result'
 
-const logger = createLogger('ExecuteCopilotServerToolAPI')
-
-const ExecuteSchema = z
-  .object({
-    toolName: z.string().min(1),
-    payload: z.unknown().optional(),
-    accessLevel: z.enum(['limited', 'full']).optional(),
-    reviewAction: z.enum(['accept']).optional(),
-    reviewToken: z.string().optional(),
-    context: z
-      .object({
-        contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
-        contextEntityId: z.string().optional(),
-        workspaceId: z.string().optional(),
-      })
-      .optional(),
-  })
-  .strict()
-
-export async function POST(req: NextRequest) {
-  const tracker = createRequestTracker()
+export async function POST(request: NextRequest) {
   let toolName: string | undefined
+  let completedFacts: InferenceFacts | undefined
   try {
-    const { userId, isAuthenticated } = await authenticateCopilotRequestSessionOnly()
-    if (!isAuthenticated || !userId) {
-      return createUnauthorizedResponse()
+    const session = await getSession()
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const input = await parseStudioNativeExecutionRequest(await request.json())
+    const scope = await authorizeNativeConversationScope(session.user.id, input.native.workspaceId)
+    const pending = await resolveNativePendingTarget(
+      scope,
+      input.native.target,
+      'result',
+      request.signal
+    )
+    toolName = pending.target.toolName
+    if (!isToolId(toolName)) throw new NativeTargetError('Unknown native tool', 422)
+    const policy = getCopilotToolPolicy(toolName)
+    if (input.action !== 'readback' && policy.execution !== 'server') {
+      throw new NativeTargetError(
+        'This native tool executes through its browser business flow',
+        422
+      )
     }
-
-    const body = await req.json()
-    let parsedBody: z.infer<typeof ExecuteSchema>
-    try {
-      parsedBody = ExecuteSchema.parse(body)
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        logger.debug(`[${tracker.requestId}] Execute request envelope validation error`, {
-          issues: error.issues,
-        })
-        return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
-      }
-      throw error
-    }
-    toolName = parsedBody.toolName
-    const { payload, context, reviewAction, reviewToken } = parsedBody
-    const contextEntityKind = context?.contextEntityKind
-    const contextEntityId =
-      typeof context?.contextEntityId === 'string' ? context.contextEntityId.trim() : undefined
-    const contextWorkspaceId =
-      typeof context?.workspaceId === 'string' ? context.workspaceId.trim() : undefined
-
-    if (reviewAction === 'accept' && !reviewToken) {
-      return createBadRequestResponse('reviewToken is required to accept a server tool review')
-    }
-    if (contextEntityKind === 'dashboard_layout') {
-      if (contextEntityId?.includes('dashboard_layout:')) {
-        return createBadRequestResponse(
-          'dashboard_layout contextEntityId must be the raw layout id'
-        )
-      }
-      if (reviewAction !== 'accept' && (!contextEntityId || !contextWorkspaceId)) {
-        return createBadRequestResponse(
-          'dashboard_layout context requires contextEntityId and workspaceId'
-        )
-      }
-    }
-
-    const [
-      { isToolId },
-      { routeExecution },
-      { acceptServerManagedToolReview, stageServerManagedToolReview },
-    ] = await Promise.all([
-      import('@/lib/copilot/registry'),
-      import('@/lib/copilot/tools/server/router'),
-      import('@/lib/copilot/tools/server/review-acceptance'),
-    ])
-
-    if (!isToolId(toolName)) {
-      return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
-    }
-    const toolId = toolName
-    const normalizedContext = context
-      ? {
-          ...(contextEntityKind ? { contextEntityKind } : {}),
-          ...(contextEntityId ? { contextEntityId } : {}),
-          ...(contextWorkspaceId ? { workspaceId: contextWorkspaceId } : {}),
-        }
-      : undefined
-
-    logger.info(`[${tracker.requestId}] Executing server tool`, { toolName: toolId, reviewAction })
-    const executionContext = {
-      userId,
+    const args = ToolArgSchemas[toolName].parse(pending.originalArgs)
+    const context: ServerToolExecutionContext = {
+      ...input.context,
+      userId: scope.actorUserId,
       accessLevel:
-        reviewAction === 'accept' ? ('limited' as const) : (parsedBody.accessLevel ?? 'limited'),
-      ...normalizedContext,
-      signal: req.signal,
+        input.action === 'review.accept' || input.action === 'review.reject'
+          ? 'limited'
+          : (input.accessLevel ?? 'limited'),
+      signal: request.signal,
+      nativeReviewBinding: hashServerToolReviewBase({
+        target: pending.target,
+        scope,
+        financialRootId: nativeFinancialRootId(pending.financialBinding),
+        financialBinding: pending.financialBinding,
+        financialOccurrence: pending.financialOccurrence,
+        originalArgs: pending.originalArgs,
+      }),
     }
-    const result = await (reviewAction === 'accept'
-      ? acceptServerManagedToolReview(toolId, reviewToken!, executionContext)
-      : routeExecution(toolId, payload, executionContext).then((toolResult) =>
-          stageServerManagedToolReview(toolId, payload, toolResult, executionContext)
-        ))
-
-    return NextResponse.json({ success: true, result })
+    if (toolName === 'search_documentation' && input.action === 'execute') {
+      const source = getNativeFinancialSource(pending)
+      if (!source || source.signal !== request.signal)
+        throw new NativeTargetError(
+          'Original native documentation financial provenance is missing',
+          403
+        )
+      copyNativeFinancialSource(pending, context)
+    }
+    if (
+      context.contextEntityKind === 'dashboard_layout' &&
+      context.contextEntityId?.includes('dashboard_layout:')
+    ) {
+      throw new NativeTargetError('dashboard_layout contextEntityId must be the raw layout id', 422)
+    }
+    await authorizeNativeBusinessResult(scope, pending, undefined, context)
+    if (request.signal.aborted) throw request.signal.reason ?? new Error('Aborted')
+    const result =
+      input.action === 'readback'
+        ? await readbackNativeToolResult(scope, pending, context, input.readback)
+        : input.action === 'review.reject'
+          ? await rejectServerManagedToolReview(toolName, input.reviewToken!, context)
+          : input.action === 'review.accept'
+            ? await acceptServerManagedToolReview(toolName, input.reviewToken!, context)
+            : await stageServerManagedToolReview(
+                toolName,
+                pending.originalArgs,
+                await routeExecution(toolName, args, context),
+                context
+              )
+    completedFacts = getInferenceFacts(result)
+    if (
+      result &&
+      typeof result === 'object' &&
+      'requiresReview' in result &&
+      result.requiresReview === true
+    ) {
+      return NextResponse.json({ success: true, result })
+    }
+    // The business action/decision may have changed state. Recheck before evidence; never redispatch it to recover evidence.
+    const currentPending = await resolveNativePendingTarget(
+      scope,
+      input.native.target,
+      'result',
+      request.signal
+    )
+    if (stableStringifyJsonValue(currentPending) !== stableStringifyJsonValue(pending)) {
+      throw new NativeTargetError(
+        'Original native pending target changed after execution; do not repeat the effect',
+        409
+      )
+    }
+    const typedResult = ToolResultSchemas[toolName].parse(result)
+    await authorizeNativeBusinessResult(scope, pending, typedResult, context)
+    if (request.signal.aborted) throw request.signal.reason ?? new Error('Aborted')
+    const proof = await createCopilotToolResultProof({
+      binding: nativeResultBinding(scope, pending),
+      originalArgs: pending.originalArgs,
+      result: typedResult,
+    })
+    return NextResponse.json({ success: true, result: typedResult, proof })
   } catch (error) {
-    logger.error(`[${tracker.requestId}] Failed to execute server tool:`, error)
-    const structuredError = buildCopilotServerToolErrorResponse(toolName, error)
-    return NextResponse.json(structuredError.body, { status: structuredError.status })
+    const facts = getInferenceFacts(error) ?? completedFacts
+    const accounting = facts ? getFailureAccounting(facts) : {}
+    if (error instanceof NativeTargetError || error instanceof FinancialPolicyError)
+      return NextResponse.json(
+        {
+          error: error.message,
+          code:
+            error instanceof FinancialPolicyError
+              ? (error.code ?? 'native_target_rejected')
+              : 'native_target_rejected',
+          retryable: false,
+          ...accounting,
+        },
+        { status: error.status }
+      )
+    const structured = buildCopilotServerToolErrorResponse(toolName, error)
+    return NextResponse.json({ ...structured.body, ...accounting }, { status: structured.status })
   }
 }

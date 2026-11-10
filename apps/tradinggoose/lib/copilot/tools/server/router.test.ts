@@ -3,6 +3,8 @@ import {
   KNOWLEDGE_BASE_DOCUMENT_FORMAT,
   WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
+import { getFailureAccounting } from '@/lib/mastra/errors'
+import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
@@ -58,6 +60,9 @@ const setEnvironmentVariablesExecute = vi.fn(async () => ({
   message: 'ok',
 }))
 const searchListingExecute = vi.fn(async () => ({ results: [] }))
+const docsExecute = vi.fn(
+  async (_args?: unknown, _context?: unknown): Promise<any> => ({ results: [] })
+)
 const noopEntityExecute = vi.fn(async () => ({}))
 
 const entityTool = (name: string, execute = noopEntityExecute) => ({ name, execute })
@@ -95,7 +100,7 @@ vi.mock('@/lib/copilot/tools/server/indicators/get-indicator-metadata', () => ({
 vi.mock('@/lib/copilot/tools/server/docs/search-documentation', () => ({
   searchDocumentationServerTool: {
     name: 'search_documentation',
-    execute: vi.fn(async () => ({ results: [] })),
+    execute: docsExecute,
   },
 }))
 vi.mock('@/lib/copilot/tools/server/listing/search-listing', () => ({
@@ -240,6 +245,7 @@ beforeEach(() => {
   readOAuthCredentialsExecute.mockClear()
   setEnvironmentVariablesExecute.mockClear()
   searchListingExecute.mockClear()
+  docsExecute.mockReset().mockResolvedValue({ results: [] })
   noopEntityExecute.mockClear()
 })
 
@@ -795,4 +801,77 @@ describe('routeExecution', () => {
       )
     }
   )
+})
+
+it('preserves only genuine own completed docs facts after global result projection', async () => {
+  const facts = {
+    model: 'source/embedding',
+    tokens: { prompt: 3, total: 3 },
+    cost: { status: 'unavailable' as const },
+    embeddingUsage: { status: 'reported' as const, batches: 1 },
+    generatedFields: ['tokens', 'cost', 'embeddingUsage'],
+  }
+  docsExecute.mockResolvedValueOnce(
+    withInferenceFacts({ results: [], embeddingUsage: { literal: 'removed by schema' } }, facts)
+  )
+  const result = await routeExecution(
+    'search_documentation',
+    { query: 'docs' },
+    { userId: 'actor', workspaceId: 'resource-must-drop' }
+  )
+  expect(Object.fromEntries(Object.entries(result))).toEqual({ results: [] })
+  expect(getInferenceFacts(result)).toBe(facts)
+  const context = docsExecute.mock.calls[0][1]
+  expect(context).not.toHaveProperty('workspaceId')
+  docsExecute.mockResolvedValueOnce({
+    results: [],
+    tokens: { total: 9000 },
+    embeddingUsage: { status: 'business' },
+  })
+  expect(
+    getInferenceFacts(
+      await routeExecution('search_documentation', { query: 'docs' }, { userId: 'actor' })
+    )
+  ).toBeUndefined()
+})
+it.each(['abort', 'schema'] as const)(
+  'retains completed docs facts when final router %s fails',
+  async (failure) => {
+    const controller = new AbortController()
+    const facts = {
+      model: 'source/embedding',
+      tokens: { prompt: 3, total: 3 },
+      cost: { status: 'unavailable' as const },
+      embeddingUsage: { status: 'reported' as const, batches: 1 },
+      generatedFields: ['tokens', 'cost', 'embeddingUsage'],
+    }
+    docsExecute.mockImplementationOnce(async () => {
+      if (failure === 'abort') controller.abort()
+      return withInferenceFacts({ results: failure === 'schema' ? 'invalid' : [] }, facts)
+    })
+    const error = await routeExecution(
+      'search_documentation',
+      { query: 'docs' },
+      { userId: 'actor', signal: controller.signal }
+    ).catch((error) => error)
+    expect(error).toBeInstanceOf(Error)
+    expect(getInferenceFacts(error)).toBe(facts)
+    expect(getFailureAccounting(error)).toMatchObject({
+      tokens: { total: 3 },
+      embeddingUsage: { status: 'reported', batches: 1 },
+    })
+    expect(docsExecute).toHaveBeenCalledOnce()
+  }
+)
+it('keeps an already branded docs Error without readonly Symbol assignment', async () => {
+  const facts = { tokens: { total: 3 }, generatedFields: ['tokens'] }
+  const failure = withInferenceFacts(
+    Object.assign(new Error('known docs failure'), { tokens: { total: 3 } }),
+    facts
+  )
+  docsExecute.mockRejectedValueOnce(failure)
+  await expect(
+    routeExecution('search_documentation', { query: 'docs' }, { userId: 'actor' })
+  ).rejects.toBe(failure)
+  expect(getInferenceFacts(failure)).toBe(facts)
 })

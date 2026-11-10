@@ -167,7 +167,7 @@ describe('Knowledge Base API Route', () => {
       const data = await response.json()
 
       expect(response.status).toBe(200)
-      expect(data.data.embeddingModel).toBe('text-embedding-3-small')
+      expect(data.data.embeddingModel).toBe('openai/text-embedding-3-small')
       expect(data.data.embeddingDimension).toBe(1536)
       expect(data.data.chunkingConfig).toEqual({
         maxSize: 1024,

@@ -62,10 +62,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
       if (isExecuting) {
         logger.debug('Execution prevented: already executing')
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(
-          409,
-          'The workflow is already in the middle of an execution. Try again later'
-        )
+        this.fail('The workflow is already in the middle of an execution. Try again later')
         return
       }
 
@@ -75,7 +72,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
       } catch {
         logger.debug('Execution prevented: no target workflow')
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'entityId is required')
+        this.fail('entityId is required')
         return
       }
       logger.debug('Using target workflow', { workflowId: activeWorkflowId })
@@ -83,7 +80,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
       if (typeof params.triggerBlockId !== 'string' || params.triggerBlockId.length === 0) {
         logger.debug('Execution prevented: no trigger block selected')
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'triggerBlockId is required')
+        this.fail('triggerBlockId is required')
         return
       }
 
@@ -120,7 +117,10 @@ export class RunWorkflowClientTool extends BaseClientTool {
           executionId: this.toolCallId,
         })
 
+        const native = await this.requireNativeTarget()
         const result = await executeWorkflowWithFullLogging({
+          native,
+          signal: this.getAbortSignal(),
           workflowInput,
           executionId: this.toolCallId,
           workflowId: activeWorkflowId,
@@ -151,28 +151,18 @@ export class RunWorkflowClientTool extends BaseClientTool {
           }
         } catch {}
 
-        if (succeeded) {
-          logger.debug('Workflow execution finished with success')
-          this.setState(ClientToolCallState.success)
-          await this.markToolComplete(
-            200,
-            `Workflow execution completed. Started at: ${executionStartTime}`
-          )
-        } else {
-          const msg = errorMessage || 'Workflow execution failed'
-          logger.error('Workflow execution finished with failure', { message: msg })
-          this.setState(ClientToolCallState.error)
-          await this.markToolComplete(500, msg)
-        }
+        // Completion is attested from the actual canonical retained execution, including a real failed outcome.
+        await this.completeAuthoritativeReadback()
+        this.setState(succeeded ? ClientToolCallState.success : ClientToolCallState.error, {
+          result,
+        })
       } catch (error: any) {
         const message = error instanceof Error ? error.message : String(error)
-        const failedDependency = typeof message === 'string' && /dependency/i.test(message)
-        const status = failedDependency ? 424 : 500
 
         logger.error('Run workflow failed', { message })
 
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(status, failedDependency ? undefined : message)
+        this.fail(message)
       } finally {
         if (shouldClearExecution) {
           setIsExecuting(false)

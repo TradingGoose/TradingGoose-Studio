@@ -1,5 +1,6 @@
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getNativeRegistryModel } from '@/lib/mastra/registry'
 import { VariableManager } from '@/lib/variables/variable-manager'
 import {
   extractEnvironmentReferences,
@@ -89,11 +90,19 @@ export class InputResolver {
       resolving.add(key)
       try {
         const matchingSubBlocks = subBlocks.filter((subBlock) => subBlock.id === key)
+        if (
+          key === 'reasoningEffort' &&
+          block.metadata?.id === 'agent' &&
+          !matchingSubBlocks.length
+        ) {
+          resolved.set(key, undefined)
+          return undefined
+        }
         let value: unknown
         if (
           !matchingSubBlocks.length ||
           matchingSubBlocks.some((subBlock) =>
-            evaluateSubBlockCondition(subBlock.condition, resolveField)
+            evaluateSubBlockCondition(subBlock.condition, resolveField, getNativeRegistryModel)
           )
         ) {
           value = this.resolveInputValue(key, inputs[key], block, context)

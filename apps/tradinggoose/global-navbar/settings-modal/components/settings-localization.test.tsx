@@ -182,11 +182,11 @@ describe('settings localization', () => {
         ownerType: 'organization',
         usageScope: 'pooled',
         seatMode: 'adjustable',
-        monthlyPriceUsd: 12.5,
+        monthlyPriceUsd: '12.5',
       },
       totalSeats: 2,
-      totalCurrentUsage: 0,
-      totalUsageLimit: 25,
+      totalCurrentUsage: '0',
+      totalUsageLimit: '25',
     }
 
     await render(locale, <TeamManagement />)
@@ -223,8 +223,8 @@ describe('settings localization', () => {
         locale,
         <UsageHeader
           title='Organization Pro'
-          current={12.5}
-          limit={100}
+          current='12.5'
+          limit='100'
           status='warning'
           percentUsed={75}
         />
@@ -242,7 +242,7 @@ describe('settings localization', () => {
 
       await render(
         locale,
-        <UsageHeader title='Organization Pro' current={0} limit={100} isBlocked />
+        <UsageHeader title='Organization Pro' current='0' limit='100' isBlocked />
       )
       expect(container.textContent).not.toContain('Payment required')
       expect(container.textContent).not.toContain('Payment failed')
@@ -332,7 +332,7 @@ describe('settings localization', () => {
               displayName: 'Organization Pro',
               ownerType: 'organization',
               seatMode: 'adjustable',
-              monthlyPriceUsd: 12.5,
+              monthlyPriceUsd: '12.5',
             },
           }}
           isLoadingSubscription={false}

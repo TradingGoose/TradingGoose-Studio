@@ -56,12 +56,15 @@ export class PlanClientTool extends BaseClientTool {
 
       this.setState(ClientToolCallState.success)
       // Echo args back so store/tooling can parse todoList if needed
-      await this.markToolComplete(200, 'Plan ready', args || {})
+      await this.completeBrowserAssertion({
+        kind: 'plan.updated',
+        data: JSON.parse(JSON.stringify(args || {})),
+      })
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })
       this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, e?.message || 'Failed to plan')
+      this.fail(e?.message || 'Failed to plan')
     }
   }
 }

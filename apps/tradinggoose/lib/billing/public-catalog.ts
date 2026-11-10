@@ -1,3 +1,5 @@
+import type { DecimalAmount } from '@tradinggoose/billing/money'
+import { formatUsd } from '@/i18n/formatters'
 export interface PublicBillingTierDisplay {
   id: string
   displayName: string
@@ -6,8 +8,8 @@ export interface PublicBillingTierDisplay {
   seatMode: 'fixed' | 'adjustable'
   usageScope: 'individual' | 'pooled'
   displayOrder: number
-  monthlyPriceUsd: number | null
-  yearlyPriceUsd: number | null
+  monthlyPriceUsd: DecimalAmount | null
+  yearlyPriceUsd: DecimalAmount | null
   seatCount: number | null
   seatMaximum: number | null
   canEditUsageLimit: boolean
@@ -39,9 +41,9 @@ export const GENERIC_ENTERPRISE_PLACEHOLDER_FEATURES = [
 ]
 
 function getPrimaryRecurringPrice(tier: {
-  monthlyPriceUsd: number | null
-  yearlyPriceUsd: number | null
-}): { value: number; period: '/mo' | '/yr' | null } {
+  monthlyPriceUsd: DecimalAmount | null
+  yearlyPriceUsd: DecimalAmount | null
+}): { value: DecimalAmount | null; period: '/mo' | '/yr' | null } {
   if (tier.monthlyPriceUsd !== null) {
     return { value: tier.monthlyPriceUsd, period: '/mo' }
   }
@@ -50,7 +52,7 @@ function getPrimaryRecurringPrice(tier: {
     return { value: tier.yearlyPriceUsd, period: '/yr' }
   }
 
-  return { value: 0, period: null }
+  return { value: null, period: null }
 }
 
 function joinWithAnd(values: string[]): string {
@@ -82,17 +84,17 @@ function describePrice(
 }
 
 export function formatBillingPriceLabel(tier: {
-  monthlyPriceUsd: number | null
-  yearlyPriceUsd: number | null
+  monthlyPriceUsd: DecimalAmount | null
+  yearlyPriceUsd: DecimalAmount | null
 }): string {
   const price = getPrimaryRecurringPrice(tier)
 
-  return `$${price.value.toFixed(0)}`
+  return formatUsd('en', price.value, { maximumFractionDigits: 0 })
 }
 
 export function formatBillingPricePeriod(tier: {
-  monthlyPriceUsd: number | null
-  yearlyPriceUsd: number | null
+  monthlyPriceUsd: DecimalAmount | null
+  yearlyPriceUsd: DecimalAmount | null
 }): string | null {
   return getPrimaryRecurringPrice(tier).period
 }

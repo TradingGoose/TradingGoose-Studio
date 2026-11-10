@@ -51,6 +51,13 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
   ) => {
     const [isNearTop, setIsNearTop] = useState(false)
     const [mentionPortalStyle, setMentionPortalStyle] = useState<MentionPortalStyle | null>(null)
+    const submissionGeneration = useRef(0)
+    useEffect(
+      () => () => {
+        submissionGeneration.current += 1
+      },
+      []
+    )
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const overlayRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -60,7 +67,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const menuListRef = useRef<HTMLDivElement>(null)
     const { data: session } = useSession()
     const copilotCopy = useCopilotMessages()
-    const { contextUsage, createNewChat } = useCopilotStore()
+    const { contextEvidence, createNewChat, compactCurrentContext } = useCopilotStore()
     const message = draft.text
 
     const {
@@ -73,6 +80,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       isDragging,
       processFiles,
       removeFile,
+      uploadError,
     } = useUserInputAttachments({ userId: session?.user?.id })
     const { ensureSubmenuLoaded, mentionFailed, mentionLoading, mentionSources } =
       useUserInputMentionSources({
@@ -315,28 +323,43 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         return
       }
 
-      const failedUploads = attachedFiles.filter((file) => !file.uploading && !file.key)
+      const failedUploads = attachedFiles.filter(
+        (file) => file.uploading || !file.key || !file.sourceProof
+      )
       if (failedUploads.length > 0) {
         logger.error(
           `Some files failed to upload: ${failedUploads.map((file) => file.name).join(', ')}`
         )
+        return
       }
 
       const fileAttachments = attachedFiles
         .filter((file) => !file.uploading && file.key)
         .map((file) => ({
           id: file.id,
+          sourceProof: file.sourceProof!,
           key: file.key!,
           filename: file.name,
           media_type: file.type,
           size: file.size,
         }))
 
-      onSubmit(trimmedMessage, fileAttachments, selectedContexts)
+      const submittedDraft = draft
+      const submission = ++submissionGeneration.current
+      const submittedFiles = fileAttachments.map((file) => file.id)
+      const accepted = await onSubmit(
+        trimmedMessage,
+        fileAttachments,
+        selectedContexts,
+        submittedDraft
+      )
+      if (!accepted || submission !== submissionGeneration.current) return
 
       if (clearOnSubmit) {
-        onDraftChange({ text: '', contexts: [] })
-        clearAttachedFiles()
+        onDraftChange((current) =>
+          current === submittedDraft ? { text: '', contexts: [] } : current
+        )
+        clearAttachedFiles(submittedFiles)
       }
 
       closeMentionMenu()
@@ -407,15 +430,21 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {!hideContextUsage && contextUsage && contextUsage.percentage > 0 && (
+          {!hideContextUsage && contextEvidence && (
             <div className='absolute top-2 right-2 z-10'>
               <ContextUsagePill
-                percentage={contextUsage.percentage}
+                evidence={contextEvidence}
+                onCompact={() => compactCurrentContext()}
                 onCreateNewChat={() => createNewChat(workspaceId)}
               />
             </div>
           )}
 
+          {uploadError && (
+            <p role='alert' className='mb-2 text-destructive text-xs'>
+              {uploadError}
+            </p>
+          )}
           <AttachedFilesGrid
             attachedFiles={attachedFiles}
             onFileClick={handleFileClick}

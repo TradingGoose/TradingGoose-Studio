@@ -58,4 +58,27 @@ describe('buildAssistantMessageSegments', () => {
 
     expect(segments.map((segment) => segment.type)).toEqual(['thinking', 'text', 'thinking'])
   })
+  it('keeps native images between their original text and reasoning parts', () => {
+    const image = {
+      type: 'file' as const,
+      timestamp: 1,
+      file: {
+        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg==',
+        mimeType: 'image/png',
+      },
+    }
+    const segments = buildAssistantMessageSegments([
+      thinking('one', 'before'),
+      image,
+      thinking('two', 'after'),
+      text('tail', 'tail'),
+    ])
+    expect(segments.map((segment) => segment.type)).toEqual([
+      'thinking',
+      'file',
+      'thinking',
+      'text',
+    ])
+    expect(segments[1]).toMatchObject({ type: 'file', block: image })
+  })
 })

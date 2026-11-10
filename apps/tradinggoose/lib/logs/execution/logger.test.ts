@@ -1,243 +1,171 @@
 /** @vitest-environment node */
 import { db } from '@tradinggoose/db'
-import {
-  organizationBillingLedger,
-  userStats,
-  user as userTable,
-  workflowExecutionLogs,
-} from '@tradinggoose/db/schema'
 import { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { hydrateFunctionalBlocks, projectFunctionalBlocks } from '@/lib/workflow-archive/functional'
 import { ExecutionLogger } from './logger'
 
 const state = vi.hoisted(() => ({
-  log: {} as Record<string, any>,
-  ledgers: {} as Record<string, Record<string, any> | null>,
-  context: {} as Record<string, any>,
-  lock: Promise.resolve() as Promise<unknown>,
-  locked: false,
-  locks: [] as unknown[],
-  failLedger: false,
-  failWatermark: false,
-  settings: vi.fn(),
-  contextLookup: vi.fn(),
-  modelMultiplier: vi.fn(),
-  baseMultiplier: vi.fn(),
-  threshold: vi.fn(),
-  email: vi.fn(),
+  row: null as Record<string, any> | null,
+  insertFailure: false,
+  nativeFailure: false,
+  financeFailure: false,
+  payloads: new Map<string, unknown>(),
+  write: vi.fn(),
+  read: vi.fn(),
+  create: vi.fn(),
+  admit: vi.fn(),
+  accept: vi.fn(),
+  verify: vi.fn(),
   emit: vi.fn(),
+  snapshot: vi.fn(),
 }))
-
+const binding = {
+  namespace: 'billing-usage:user:original-payer',
+  key: 'invocation:execution',
+  fingerprint: 'original-financial-identity',
+  runId: 'execution',
+  actorUserId: 'actor',
+  workspaceId: 'workspace',
+  workflowId: 'workflow',
+  purpose: 'workflow-execution',
+}
+const ref = {
+  version: 1,
+  purpose: 'workflow-agent',
+  workspaceId: 'workspace',
+  executionId: 'execution',
+  logId: 'log',
+  blockId: '__execution__',
+  runId: 'completion',
+  resourceId: 'native-resource',
+  threadId: 'native-thread',
+  messageIds: ['native-payload'],
+  digest: 'verified-digest',
+}
+vi.mock('@tradinggoose/billing', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tradinggoose/billing')>()),
+  acceptModelStep: state.accept,
+}))
+vi.mock('@/lib/billing/native-finance', () => ({
+  createFinancialInvocation: state.create,
+  admitFinancialModelStep: state.admit,
+  verifyFinancialAcceptance: state.verify,
+}))
+vi.mock('@/lib/mastra/workflow-history', () => ({
+  writeFunctionalPayload: state.write,
+  readFunctionalPayload: state.read,
+}))
+vi.mock('@/lib/logs/events', () => ({ emitWorkflowExecutionCompleted: state.emit }))
+vi.mock('@/lib/logs/execution/snapshot/service', () => ({
+  snapshotService: { createSnapshotWithDeduplication: state.snapshot },
+}))
+vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: vi.fn() }))
 vi.mock('@tradinggoose/db', () => {
-  const ledgerKey = (table: unknown) =>
-    table === userStats ? 'user' : table === organizationBillingLedger ? 'organization' : 'member'
-  const rows = (table: unknown) =>
-    table === workflowExecutionLogs
-      ? [state.log]
-      : table === userTable
-        ? [{ email: 'billing@example.com', name: 'Owner' }]
-        : state.ledgers[ledgerKey(table)]
-          ? [state.ledgers[ledgerKey(table)]]
-          : []
-  const dialect = () => new PgDialect()
-  const query = (table?: unknown, update?: Record<string, any>) => {
-    let predicate: SQL | undefined
-    let applied = false
-    let value: any[]
+  const query = (update?: Record<string, any>, inserting = false) => {
+    let condition: SQL | undefined
     const run = () => {
-      if (applied) return value
-      applied = true
-      const filter = predicate && dialect().sqlToQuery(predicate)
-      if (
-        table === workflowExecutionLogs &&
-        filter?.sql.includes('"ended_at" is null') &&
-        state.log.endedAt
-      ) {
-        return (value = [])
-      }
-      value = rows(table)
-      if (!update) return value
-      if (table !== workflowExecutionLogs && state.failLedger) throw new Error('ledger unavailable')
-      if (
-        table === workflowExecutionLogs &&
-        !(update.executionData instanceof SQL) &&
-        state.failWatermark
-      ) {
-        throw new Error('watermark unavailable')
-      }
-      for (const row of value) {
-        for (const [key, entry] of Object.entries(update)) {
-          if (!(entry instanceof SQL)) {
-            row[key] = structuredClone(entry)
-            continue
-          }
-          const compiled = dialect().sqlToQuery(entry)
-          if (key === 'executionData') {
-            const patch = JSON.parse(compiled.params[0] as string)
-            const billable = JSON.parse(compiled.params[1] as string)
-            const {
-              checkpoint: _checkpoint,
-              pause: _pause,
-              ...data
-            } = {
-              ...row.executionData,
-              ...patch,
-              billing: { ...row.executionData.billing, ...billable },
-            }
-            row.executionData = data
-          } else {
-            row[key] = Number(row[key] ?? 0) + Number(compiled.params[0] ?? 1)
-          }
+      if (inserting) {
+        if (state.insertFailure) {
+          state.insertFailure = false
+          throw new Error('initial log insert unavailable')
         }
+        if (state.row) return []
+        state.row = { ...update, createdAt: new Date('2026-11-08T10:00:00Z') }
+        return [state.row]
       }
-      return value
+      if (!state.row) return []
+      const filter = condition && new PgDialect().sqlToQuery(condition).sql
+      if (update && filter?.includes('"ended_at" is null') && state.row.endedAt) return []
+      if (update)
+        for (const [key, value] of Object.entries(update)) {
+          if (value instanceof SQL && key === 'executionData') {
+            const params = new PgDialect().sqlToQuery(value).params
+            const patch = JSON.parse(params[0] as string)
+            const billable = JSON.parse(params[1] as string)
+            const data = {
+              ...state.row.executionData,
+              ...patch,
+              billing: { ...state.row.executionData.billing, ...billable },
+            }
+            for (const obsolete of [
+              'checkpoint',
+              'pause',
+              'traceSpans',
+              'tokenBreakdown',
+              'models',
+            ])
+              delete data[obsolete]
+            state.row.executionData = data
+          } else state.row[key] = value
+        }
+      return [state.row]
     }
     const chain = {
-      from: (target: unknown) => {
-        table = target
-        return chain
-      },
-      where: (condition: SQL) => {
-        predicate = condition
+      from: (_table: unknown) => chain,
+      where: (value: SQL) => {
+        condition = value
         return chain
       },
       limit: () => chain,
-      for: () => {
-        expect(state.locked).toBe(true)
-        state.locks.push(table)
-        return chain
-      },
       returning: () => chain,
-      then: (resolve: (result: unknown) => unknown, reject: (error: unknown) => unknown) =>
+      onConflictDoNothing: () => chain,
+      then: (resolve: (value: unknown) => unknown, reject: (error: unknown) => unknown) =>
         Promise.resolve().then(run).then(resolve, reject),
     }
     return chain
   }
   const connection = {
     select: () => query(),
-    update: (table: unknown) => ({ set: (update: Record<string, any>) => query(table, update) }),
+    insert: () => ({ values: (value: Record<string, any>) => query(value, true) }),
+    update: () => ({ set: (value: Record<string, any>) => query(value) }),
   }
   return {
     db: {
       ...connection,
-      transaction: async (callback: (tx: typeof connection) => Promise<unknown>) => {
-        const previous = state.lock
-        let release = () => {}
-        state.lock = new Promise<void>((resolve) => {
-          release = resolve
-        })
-        await previous
-        const log = structuredClone(state.log)
-        const ledgers = structuredClone(state.ledgers)
-        state.locked = true
-        try {
-          return await callback(connection)
-        } catch (error) {
-          state.log = log
-          state.ledgers = ledgers
-          throw error
-        } finally {
-          state.locked = false
-          release()
-        }
-      },
+      transaction: (callback: (tx: typeof connection) => Promise<unknown>) => callback(connection),
     },
   }
 })
 
-vi.mock('@/lib/billing/settings', () => ({
-  getResolvedBillingSettings: state.settings,
-  isBillingEnabledForRuntime: async () => (await state.settings()).billingEnabled,
-}))
-vi.mock('@/lib/billing/workspace-billing', () => ({
-  resolveWorkspaceBillingContext: state.contextLookup,
-  resolveWorkflowBillingContext: state.contextLookup,
-}))
-vi.mock('@/lib/billing/tiers', () => ({
-  getTierWorkflowExecutionMultiplier: state.baseMultiplier,
-  getTierWorkflowModelCostMultiplier: state.modelMultiplier,
-  getTierDisplayName: () => 'Plan',
-  getTierUsageAllowanceUsd: () => 100,
-  isFreeBillingTier: () => false,
-}))
-vi.mock('@/lib/billing/core/billing', () => ({
-  getBillingTierPricing: () => ({ usageAllowance: 100 }),
-}))
-vi.mock('@/lib/billing/core/usage', () => ({
-  getUserUsageLimit: async () => 100,
-  maybeSendUsageThresholdEmail: state.email,
-}))
-vi.mock('@/lib/billing/threshold-billing', () => ({
-  checkAndBillOverageThreshold: state.threshold,
-}))
-vi.mock('@/lib/logs/events', () => ({ emitWorkflowExecutionCompleted: state.emit }))
-vi.mock('@/lib/logs/execution/snapshot/service', () => ({ snapshotService: {} }))
-
-const span = (cost = 2, tokens = 150) => ({
-  id: 'agent',
+const span = {
+  id: 'agent-occurrence',
   name: 'Agent',
   type: 'agent',
-  status: 'success' as const,
-  startTime: '2026-09-17T12:00:00Z',
-  endTime: '2026-09-17T12:00:01Z',
+  blockId: 'agent-block',
   duration: 1000,
-  model: 'model',
-  cost: { input: cost * 0.75, output: cost * 0.25, total: cost },
-  tokens: { prompt: (tokens * 2) / 3, completion: tokens / 3, total: tokens },
-})
+  startTime: '2026-11-08T10:00:00Z',
+  endTime: '2026-11-08T10:00:01Z',
+  status: 'success' as const,
+  input: { message: 'selected input' },
+  output: { answer: 'functional answer' },
+  model: 'openai/gpt-4.1',
+  cost: { status: 'unavailable' as const },
+  tokens: { prompt: 10, completion: 3, total: 13 },
+  inference: {
+    model: 'openai/gpt-4.1',
+    tokens: { prompt: 10, completion: 3, total: 13 },
+    cost: { status: 'unavailable' as const },
+    generatedFields: [],
+  },
+}
 const completion = {
   executionId: 'execution',
   workflowLogId: 'log',
   workspaceId: 'workspace',
-  endedAt: '2026-09-17T12:00:01Z',
+  endedAt: '2026-11-08T10:00:01Z',
   totalDurationMs: 1000,
-  finalOutput: { done: true },
+  finalOutput: { answer: 'functional answer' },
   success: true,
-  traceSpans: [span()],
+  traceSpans: [span],
 }
 let logger: ExecutionLogger
-
 beforeEach(() => {
   vi.clearAllMocks()
-  state.lock = Promise.resolve()
-  state.locked = false
-  state.locks = []
-  state.failLedger = false
-  state.failWatermark = false
-  state.settings.mockResolvedValue({ billingEnabled: true, workflowExecutionChargeUsd: 0.25 })
-  state.baseMultiplier.mockReturnValue(1)
-  state.modelMultiplier.mockReturnValue(1)
-  state.context = {
-    workspaceId: 'workspace',
-    actorUserId: 'actor',
-    billingUserId: 'owner',
-    billingOwner: { type: 'user', userId: 'owner' },
-    scopeType: 'user',
-    scopeId: 'owner',
-    subscription: null,
-    tier: {},
-  }
-  state.contextLookup.mockImplementation(async () => state.context)
-  state.threshold.mockImplementation(async () => {
-    expect(state.locked).toBe(false)
-  })
-  state.email.mockImplementation(async () => {
-    expect(state.locked).toBe(false)
-  })
-  state.emit.mockResolvedValue(undefined)
-  state.ledgers = Object.fromEntries(
-    ['user', 'organization', 'member'].map((key) => [
-      key,
-      {
-        totalCost: 0,
-        currentPeriodCost: 0,
-        totalTokensUsed: 0,
-        totalApiCalls: 0,
-      },
-    ])
-  )
-  state.log = {
+  state.insertFailure = state.nativeFailure = state.financeFailure = false
+  state.payloads.clear()
+  state.row = {
     id: 'log',
     executionId: 'execution',
     workflowId: 'workflow',
@@ -246,277 +174,344 @@ beforeEach(() => {
     workflowSummary: { id: 'workflow' },
     level: 'info',
     trigger: 'api',
-    startedAt: new Date('2026-09-17T12:00:00Z'),
-    createdAt: new Date('2026-09-17T12:00:00Z'),
+    startedAt: new Date('2026-11-08T10:00:00Z'),
+    createdAt: new Date('2026-11-08T10:00:00Z'),
     endedAt: null,
     totalDurationMs: null,
     executionData: {
-      environment: { userId: 'actor', variables: { old: 'value' } },
+      environment: {
+        userId: 'actor',
+        workflowId: 'workflow',
+        workspaceId: 'workspace',
+        executionId: 'execution',
+        variables: { old: 'value' },
+      },
+      billing: { binding },
       checkpoint: { revision: 1 },
       pause: { revision: 1 },
-      traceSpans: [span()],
-      untouched: 'preserve',
+      traceSpans: [span],
+      tokenBreakdown: { total: 13 },
+      models: { old: {} },
+      untouched: 'keep',
     },
   }
+  state.create.mockResolvedValue(binding)
+  state.admit.mockResolvedValue(undefined)
+  state.accept.mockImplementation(async () => {
+    if (state.financeFailure) throw new Error('shared financial acceptance unavailable')
+    return { appliedUsd: '0.30000000000000001' }
+  })
+  state.verify.mockResolvedValue({ accepted: true, appliedUsd: '0', modelUsd: 'unavailable' })
+  state.emit.mockResolvedValue(undefined)
+  state.snapshot.mockResolvedValue({
+    snapshot: { id: 'snapshot', stateHash: 'state-hash', stateData: {} },
+  })
+  state.write.mockImplementation(async (scope, payload) => {
+    if (state.nativeFailure) throw new Error('canonical native readback unavailable')
+    if (state.row?.endedAt) throw new Error('Workflow payload writer is closed')
+    if (scope.executionId !== state.row?.executionId || scope.logId !== state.row?.id)
+      throw new Error('Wrong canonical scope')
+    state.payloads.set('completion', structuredClone(payload))
+    return ref
+  })
+  state.read.mockImplementation(
+    async (reference) => state.payloads.get(reference.digest) ?? state.payloads.get('completion')
+  )
   logger = new ExecutionLogger()
 })
 
-describe('canonical workflow usage settlement', () => {
-  it.each(['user', 'organization', 'organization_member'])(
-    'preserves each committed %s usage interval when notifications are delayed',
-    async (scopeType) => {
-      state.settings.mockResolvedValue({ billingEnabled: true, workflowExecutionChargeUsd: 0 })
-      state.context.scopeType = scopeType
-      if (scopeType !== 'user') {
-        state.context.scopeId = 'organization'
-        state.context.billingOwner = { type: 'organization', organizationId: 'organization' }
+describe('canonical workflow result and independent shared financial acceptance', () => {
+  it('emits the actual completion CAS winner rather than its losing native candidate', async () => {
+    const winningRef = { ...ref, digest: 'winning-reference', messageIds: ['winning-message'] }
+    const winningOutput = { answer: 'actual retained winner', status: 500 }
+    state.write.mockImplementationOnce(async () => {
+      state.payloads.set(winningRef.digest, { output: winningOutput, blocks: [] })
+      state.row = {
+        ...state.row!,
+        level: 'error',
+        endedAt: new Date('2026-11-08T10:00:03Z'),
+        totalDurationMs: 3000,
+        executionData: {
+          ...state.row!.executionData,
+          functionalPayload: winningRef,
+          nativePayloads: { completion: winningRef },
+          finalOutput: { purpose: 'workflow-functional-output', version: 1 },
+        },
       }
-      const ledger = state.ledgers[scopeType === 'organization_member' ? 'member' : scopeType]!
-      Object.assign(ledger, { totalCost: 79, currentPeriodCost: 79 })
-      if (scopeType === 'organization_member')
-        Object.assign(state.ledgers.organization!, { totalCost: 179, currentPeriodCost: 179 })
-
-      const first = await db.transaction((tx) =>
-        logger.settleWorkflowExecutionUsage('execution', tx)
+      return { ...ref, digest: 'losing-reference', messageIds: ['losing-message'] }
+    })
+    const result = await logger.completeWorkflowExecution(completion)
+    expect(state.read).toHaveBeenCalledWith(winningRef)
+    expect(result.executionData.finalOutput).toEqual(winningOutput)
+    expect(result.executionData.traceSpans).toEqual([])
+    expect(result.level).toBe('error')
+    expect(result.totalDurationMs).toBe(3000)
+    expect(result.cost.status).toBe('unavailable')
+    expect(state.emit).toHaveBeenCalledExactlyOnceWith(result)
+    expect(JSON.stringify(state.emit.mock.calls)).not.toContain('losing-reference')
+  })
+  it('settles only the pinned original binding using the caller transaction, never trace costs', async () => {
+    state.row!.executionData.traceSpans = [{ cost: { total: 999999 }, tokens: { total: 999999 } }]
+    const result = await db.transaction((tx) =>
+      logger.settleWorkflowExecutionUsage('execution', tx)
+    )
+    expect(result).toEqual({ binding, appliedUsd: '0.30000000000000001' })
+    expect(state.accept).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ select: expect.any(Function) }),
+      binding,
+      { stepNumber: 0, retryCount: 0 },
+      { executionTrigger: 'api' }
+    )
+    expect(state.create).not.toHaveBeenCalled()
+    expect(state.admit).not.toHaveBeenCalled()
+  })
+  it.each(['missing', 'run', 'workspace'])(
+    'rejects a %s original binding before financial posting',
+    async (kind) => {
+      state.row!.executionData.billing.binding =
+        kind === 'missing'
+          ? undefined
+          : { ...binding, [kind === 'run' ? 'runId' : 'workspaceId']: 'wrong' }
+      await expect(logger.settleWorkflowExecutionUsage('execution')).rejects.toThrow(
+        'Original workflow financial binding'
       )
-      state.log.executionData.traceSpans = [span(4, 300)]
-      const second = await db.transaction((tx) =>
-        logger.settleWorkflowExecutionUsage('execution', tx)
-      )
-      expect(ledger.currentPeriodCost).toBe(83)
-      expect(state.email).not.toHaveBeenCalled()
-      await logger.notifyWorkflowUsage(first)
-      await logger.notifyWorkflowUsage(second)
-      expect(
-        state.email.mock.calls.map(([receipt]) => [
-          receipt.percentBefore,
-          receipt.percentAfter,
-          receipt.currentUsageAfter,
-        ])
-      ).toEqual([
-        [79, 81, 81],
-        [81, 83, 83],
-      ])
-      await logger.settleWorkflowExecutionUsage('execution')
-      expect(ledger).toMatchObject({ totalCost: 83, totalTokensUsed: 300, totalApiCalls: 1 })
-      expect(state.email).toHaveBeenCalledTimes(2)
-      expect(state.threshold).toHaveBeenCalledTimes(2)
-      if (scopeType === 'organization_member')
-        expect(state.ledgers.organization?.currentPeriodCost).toBe(183)
+      expect(state.accept).not.toHaveBeenCalled()
     }
   )
-
   it.each([true, false])(
-    'settles pause, resumed work and terminal state exactly once (success=%s)',
+    'persists canonical functional references and live terminal result (success=%s)',
     async (success) => {
-      await Promise.all(
-        Array.from({ length: 3 }, () => logger.settleWorkflowExecutionUsage('execution'))
-      )
-      expect(state.ledgers.user).toMatchObject({
-        totalCost: 2.25,
-        totalTokensUsed: 150,
-        totalApiCalls: 1,
-      })
-      expect(state.log.endedAt).toBeNull()
-      expect(state.log.executionData.pause).toBeDefined()
-
-      state.log.executionData.traceSpans = [span(3, 300)]
-      await logger.settleWorkflowExecutionUsage('execution')
-      expect(state.ledgers.user).toMatchObject({
-        totalCost: 3.25,
-        totalTokensUsed: 300,
-        totalApiCalls: 1,
-      })
       const result = await logger.completeWorkflowExecution({
         ...completion,
         success,
-        traceSpans: [span(3, 300)],
         billable: success,
-        failureReason: success ? undefined : 'Workflow execution was cancelled',
         variables: { next: 'value' },
+        failureReason: success ? undefined : 'cancelled',
+        hasResponseBlock: true,
       })
-      await logger.completeWorkflowExecution({ ...completion, totalDurationMs: 9999 })
-      expect(state.ledgers.user).toMatchObject({
-        totalCost: 3.25,
-        totalTokensUsed: 300,
-        totalApiCalls: 1,
+      expect(state.write).toHaveBeenCalledExactlyOnceWith(
+        {
+          workspaceId: 'workspace',
+          executionId: 'execution',
+          logId: 'log',
+          blockId: '__execution__',
+          runId: 'completion',
+          actorUserId: 'actor',
+        },
+        {
+          blocks: expect.arrayContaining([
+            expect.objectContaining({ id: span.id, input: span.input, output: span.output }),
+          ]),
+          output: completion.finalOutput,
+        }
+      )
+      expect(state.row).toMatchObject({
+        endedAt: new Date(completion.endedAt),
+        level: success ? 'info' : 'error',
+        cost: null,
       })
-      expect(result.cost).toMatchObject({ total: 3.25, modelCost: 3, baseExecutionCharge: 0.25 })
-      expect(result.executionData).toMatchObject({
-        untouched: 'preserve',
-        finalOutput: { done: true },
+      expect(state.row!.executionData).toMatchObject({
+        functionalPayload: ref,
+        finalOutput: { purpose: 'workflow-functional-output', version: 1 },
+        untouched: 'keep',
         environment: { userId: 'actor', variables: { next: 'value' } },
       })
-      expect(result.executionData).not.toHaveProperty('checkpoint')
-      expect(result.executionData).not.toHaveProperty('pause')
-      expect(result.level).toBe(success ? 'info' : 'error')
+      for (const obsolete of ['checkpoint', 'pause', 'traceSpans', 'tokenBreakdown', 'models'])
+        expect(state.row!.executionData).not.toHaveProperty(obsolete)
+      expect(result.executionData).toMatchObject({
+        finalOutput: completion.finalOutput,
+        traceSpans: [span],
+      })
+      expect(result.cost).toMatchObject({ status: 'unavailable', tokens: { total: 13 } })
       expect(state.emit).toHaveBeenCalledExactlyOnceWith(result)
-      expect(state.contextLookup).toHaveBeenCalledWith(
-        { workspaceId: 'workspace', actorUserId: 'actor' },
-        expect.objectContaining({ select: expect.any(Function) })
-      )
-      expect(state.locks).toContain(workflowExecutionLogs)
-      expect(state.locks).toContain(userStats)
+      expect(state.accept).toHaveBeenCalledWith(expect.anything(), binding, expect.anything(), {
+        executionTrigger: 'api',
+      })
     }
   )
+  it('refuses terminal publication when canonical payload/readback failed', async () => {
+    state.nativeFailure = true
+    await expect(logger.completeWorkflowExecution(completion)).rejects.toThrow(
+      'canonical native readback'
+    )
+    expect(state.row!.endedAt).toBeNull()
+    expect(state.row!.executionData.checkpoint).toEqual({ revision: 1 })
+    expect(state.accept).not.toHaveBeenCalled()
+    expect(state.emit).not.toHaveBeenCalled()
+  })
+  it('preserves terminal payload through finance outage and retries finance without rewriting native payload', async () => {
+    state.financeFailure = true
+    await expect(logger.completeWorkflowExecution(completion)).rejects.toThrow(
+      'shared financial acceptance'
+    )
+    expect(state.row!.endedAt).toEqual(new Date(completion.endedAt))
+    expect(state.row!.executionData.functionalPayload).toEqual(ref)
+    expect(state.payloads.get('completion')).toMatchObject({ output: completion.finalOutput })
+    expect(state.emit).not.toHaveBeenCalled()
+    expect(state.verify).not.toHaveBeenCalled()
+    state.financeFailure = false
+    const result = await logger.completeWorkflowExecution({ ...completion, totalDurationMs: 9999 })
+    expect(result.totalDurationMs).toBe(1000)
+    expect(result.cost).toMatchObject({ status: 'unavailable' })
+    expect(result.cost.total).toBeUndefined()
+    expect(state.write).toHaveBeenCalledOnce()
+    expect(state.emit).toHaveBeenCalledOnce()
+    expect(state.accept).toHaveBeenCalledTimes(2)
+  })
+  it('does not publish a terminal result until read-only canonical acceptance also verifies', async () => {
+    state.verify.mockRejectedValueOnce(new Error('accepted receipt unavailable'))
+    await expect(logger.completeWorkflowExecution(completion)).rejects.toThrow(
+      'accepted receipt unavailable'
+    )
+    expect(state.row!.endedAt).toEqual(new Date(completion.endedAt))
+    expect(state.emit).not.toHaveBeenCalled()
+    await logger.completeWorkflowExecution(completion)
+    await logger.completeWorkflowExecution(completion)
+    expect(state.write).toHaveBeenCalledOnce()
+    expect(state.accept).toHaveBeenCalledTimes(3)
+    expect(state.verify).toHaveBeenCalledTimes(3)
+    // Actual emitter coalesces these attempts through its deterministic delivery PK.
+    expect(state.emit).toHaveBeenCalledTimes(2)
+  })
+  it('retains unique file references from functional input/output without diagnostic payloads', async () => {
+    const file = {
+      id: 'file-1',
+      name: 'result.txt',
+      url: 'https://files.example.invalid/result.txt',
+      key: 'uploads/result.txt',
+      size: 42,
+      type: 'text/plain',
+      uploadedAt: '2026-11-08T10:00:00Z',
+      expiresAt: '2026-11-09T10:00:00Z',
+    }
+    await logger.completeWorkflowExecution({
+      ...completion,
+      finalOutput: { files: [file, file] },
+      workflowInput: { attachments: [file] },
+    })
+    expect(state.row!.files).toHaveLength(1)
+    expect(state.row!.files[0]).toMatchObject(file)
+  })
+})
 
-  it.each([true, false])(
-    'retains model costs and configured multiplier when billable=%s',
+describe('workflow start', () => {
+  const start = {
+    workflowId: 'workflow',
+    executionId: 'execution',
+    trigger: { type: 'api' as const, source: 'test', timestamp: '2026-11-08T10:00:00Z' },
+    environment: {
+      userId: 'actor',
+      workspaceId: 'workspace',
+      workflowId: 'workflow',
+      executionId: 'execution',
+      variables: {},
+    },
+    workflowState: { blocks: {}, edges: [], loops: {}, parallels: {} } as any,
+    workflowSummary: { id: 'workflow', name: 'Test workflow' } as any,
+  }
+  it.each([undefined, false])(
+    'pins admission billability before starting its canonical log (%s)',
     async (billable) => {
-      state.modelMultiplier.mockReturnValue(1.5)
-      state.baseMultiplier.mockReturnValue(2)
-      const result = await logger.completeWorkflowExecution({
-        ...completion,
-        success: false,
-        billable,
+      state.row = null
+      const result = await logger.startWorkflowExecution({
+        ...start,
+        ...(billable !== undefined && { billable }),
       })
-      expect(result.cost).toMatchObject({
-        total: billable ? 3.5 : 3,
-        baseExecutionCharge: billable ? 0.5 : 0,
-        input: 2.25,
-        output: 0.75,
-        modelCost: 3,
-        tokens: { total: 150 },
-        models: { model: { total: 3, tokens: { total: 150 } } },
+      expect(state.create).toHaveBeenCalledExactlyOnceWith({
+        actorUserId: 'actor',
+        workspaceId: 'workspace',
+        workflowId: 'workflow',
+        runId: 'execution',
+        purpose: 'workflow-execution',
+        operationKey: 'execution',
+        billable: billable ?? true,
       })
-      expect(state.ledgers.user).toMatchObject({
-        totalCost: billable ? 3.5 : 3,
-        totalTokensUsed: 150,
-      })
+      expect(state.admit).toHaveBeenCalledExactlyOnceWith(binding, { stepNumber: 0, retryCount: 0 })
+      expect(result.workflowLog.executionData).toMatchObject({ billing: { binding } })
+      expect(result.workflowLog.executionData).not.toHaveProperty('traceSpans')
     }
   )
-
-  it('does not reprice prior work after tier changes while paused', async () => {
-    state.modelMultiplier.mockReturnValue(1.5)
-    await logger.settleWorkflowExecutionUsage('execution')
-    state.modelMultiplier.mockReturnValue(3)
-    state.baseMultiplier.mockReturnValue(4)
-    await logger.completeWorkflowExecution({ ...completion, traceSpans: [span(3, 300)] })
-    expect(state.ledgers.user).toMatchObject({
-      totalCost: 4.75,
-      totalTokensUsed: 300,
-      totalApiCalls: 1,
+  it('preserves a failed start with financial identity and no invented functional transcript', async () => {
+    state.row = null
+    state.insertFailure = true
+    await expect(logger.startWorkflowExecution(start)).rejects.toThrow(
+      'initial log insert unavailable'
+    )
+    expect(state.row).toMatchObject({
+      level: 'error',
+      totalDurationMs: 0,
+      executionData: { billing: { binding }, errorMessage: 'initial log insert unavailable' },
     })
-    expect(state.modelMultiplier).toHaveBeenCalledOnce()
-    expect(state.baseMultiplier).toHaveBeenCalledOnce()
+    expect(state.row!.executionData).not.toHaveProperty('traceSpans')
+    expect(state.row!.executionData).not.toHaveProperty('finalOutput')
+    expect(state.write).not.toHaveBeenCalled()
   })
+})
 
-  it.each([false, true])(
-    'respects disabled billing even if previously quoted: %s',
-    async (quoted) => {
-      if (quoted) await logger.settleWorkflowExecutionUsage('execution')
-      state.settings.mockResolvedValue({ billingEnabled: false, workflowExecutionChargeUsd: 0.25 })
-      await logger.completeWorkflowExecution({
-        ...completion,
-        success: false,
-        traceSpans: [span(3, 300)],
-      })
-      expect(state.ledgers.user).toMatchObject({
-        totalCost: quoted ? 2.25 : 0,
-        totalTokensUsed: quoted ? 150 : 0,
-        totalApiCalls: quoted ? 1 : 0,
-      })
-    }
+it('preserves every saved occurrence through terminal retries without another native write', async () => {
+  const first = { ...span, id: 'saved-first', output: { value: 0 } }
+  const second = { ...span, id: 'saved-second', output: { value: 1 } }
+  const params = { ...completion, traceSpans: [first, second] }
+  const expectedBlocks = projectFunctionalBlocks(params.traceSpans)
+  const expectedRetainedSpans = await hydrateFunctionalBlocks(
+    JSON.parse(JSON.stringify(expectedBlocks))
   )
-
-  it.each([0, 150])('counts a free execution with %s tokens only once', async (tokens) => {
-    state.settings.mockResolvedValue({ billingEnabled: true, workflowExecutionChargeUsd: 0 })
-    state.log.executionData.traceSpans = [span(0, tokens)]
-    await logger.settleWorkflowExecutionUsage('execution')
-    await logger.completeWorkflowExecution({ ...completion, traceSpans: [span(0, tokens)] })
-    expect(state.ledgers.user).toMatchObject({
-      totalCost: 0,
-      totalTokensUsed: tokens,
-      totalApiCalls: 1,
+  const initial = await logger.completeWorkflowExecution(params)
+  const repeated = await logger.completeWorkflowExecution(params)
+  expect(initial.executionData.traceSpans).toStrictEqual(params.traceSpans)
+  expect(
+    initial.executionData.traceSpans?.map(({ id, output }) => ({
+      id,
+      output,
+    }))
+  ).toEqual([
+    { id: first.id, output: first.output },
+    { id: second.id, output: second.output },
+  ])
+  expect(
+    initial.executionData.traceSpans?.map(({ model, inference, tokens, cost }) => ({
+      model,
+      inference,
+      tokens,
+      cost,
+    }))
+  ).toStrictEqual(
+    [first, second].map(({ model, inference, tokens, cost }) => ({
+      model,
+      inference,
+      tokens,
+      cost,
+    }))
+  )
+  expect(repeated.executionData.traceSpans).toStrictEqual(expectedRetainedSpans)
+  expect(projectFunctionalBlocks(repeated.executionData.traceSpans ?? [])).toStrictEqual(
+    expectedBlocks
+  )
+  expect(repeated.executionData.finalOutput).toStrictEqual(initial.executionData.finalOutput)
+  for (const retained of repeated.executionData.traceSpans ?? []) {
+    for (const field of ['inference', 'model', 'tokens', 'cost']) {
+      expect(retained).not.toHaveProperty(field)
+    }
+  }
+  expect(repeated.cost).toStrictEqual({ status: 'unavailable', tokens: {}, models: {} })
+  expect(state.write).toHaveBeenCalledOnce()
+  expect(state.payloads.get('completion')).toStrictEqual({
+    blocks: expectedBlocks,
+    output: params.finalOutput,
+  })
+  expect(expectedBlocks.map(({ id }) => id)).toEqual([first.id, second.id])
+  expect(state.emit).toHaveBeenCalledTimes(2)
+  expect(state.emit).toHaveBeenNthCalledWith(1, initial)
+  expect(state.emit).toHaveBeenNthCalledWith(2, repeated)
+})
+it('refuses duplicate functional IDs before persisting or publishing an unreadable terminal payload', async () => {
+  await expect(
+    logger.completeWorkflowExecution({
+      ...completion,
+      traceSpans: [span, { ...span, output: { earlier: 'must not disappear' } }],
     })
-    expect(state.threshold).not.toHaveBeenCalled()
-    expect(state.email).not.toHaveBeenCalled()
-  })
-
-  it.each(['organization', 'organization_member'])(
-    'uses the shared ledger for %s',
-    async (scopeType) => {
-      state.context.scopeType = scopeType
-      state.context.scopeId = 'organization'
-      state.context.billingOwner = { type: 'organization', organizationId: 'organization' }
-      await logger.settleWorkflowExecutionUsage('execution')
-      await logger.settleWorkflowExecutionUsage('execution')
-      expect(state.ledgers.organization).toMatchObject({
-        totalCost: 2.25,
-        totalTokensUsed: 150,
-        totalApiCalls: 1,
-      })
-      expect(state.ledgers.member?.totalCost).toBe(scopeType === 'organization_member' ? 2.25 : 0)
-      expect(state.ledgers.user?.totalCost).toBe(0)
-    }
-  )
-
-  it.each(['ledger', 'watermark', 'missing_member'])(
-    'rolls back every accrued amount on %s failure',
-    async (failure) => {
-      state.failLedger = failure === 'ledger'
-      state.failWatermark = failure === 'watermark'
-      if (failure === 'missing_member') {
-        state.context.scopeType = 'organization_member'
-        state.context.billingOwner = { type: 'organization', organizationId: 'organization' }
-        state.ledgers.member = null
-      }
-      await expect(logger.settleWorkflowExecutionUsage('execution')).rejects.toThrow()
-      expect(state.log.executionData.billing).toBeUndefined()
-      expect(state.ledgers.user?.totalCost).toBe(0)
-      expect(state.ledgers.organization?.totalCost).toBe(0)
-      expect(state.threshold).not.toHaveBeenCalled()
-      state.failLedger = state.failWatermark = false
-      state.ledgers.member ??= {}
-      await logger.settleWorkflowExecutionUsage('execution')
-      const ledger = failure === 'missing_member' ? state.ledgers.organization : state.ledgers.user
-      expect(ledger).toMatchObject({ totalCost: 2.25, totalTokensUsed: 150, totalApiCalls: 1 })
-    }
-  )
-
-  it.each(['pricing', 'ledger'])(
-    'keeps terminal results and completion emission durable during %s outages',
-    async (failure) => {
-      if (failure === 'pricing')
-        state.settings.mockRejectedValueOnce(new Error('pricing unavailable'))
-      else state.failLedger = true
-      await expect(
-        logger.completeWorkflowExecution({ ...completion, totalDurationMs: 0 })
-      ).rejects.toThrow('unavailable')
-      expect(state.log).toMatchObject({
-        level: 'info',
-        totalDurationMs: 0,
-        endedAt: new Date(completion.endedAt),
-        executionData: { finalOutput: { done: true }, traceSpans: [span()] },
-        cost: { total: 2, tokens: { total: 150 } },
-      })
-      expect(state.log.executionData).not.toHaveProperty('pause')
-      expect(state.emit).toHaveBeenCalledOnce()
-      expect(state.ledgers.user?.totalCost).toBe(0)
-      state.failLedger = false
-      await logger.settleWorkflowExecutionUsage('execution')
-      const retry = await logger.completeWorkflowExecution({ ...completion, totalDurationMs: 9999 })
-      expect(retry.totalDurationMs).toBe(0)
-      expect(state.ledgers.user).toMatchObject({
-        totalCost: 2.25,
-        totalTokensUsed: 150,
-        totalApiCalls: 1,
-      })
-      expect(state.emit).toHaveBeenCalledOnce()
-    }
-  )
-
-  it('does not reapply ledger increments when notification or threshold billing fails', async () => {
-    state.threshold.mockRejectedValue(new Error('stripe unavailable'))
-    state.email.mockRejectedValue(new Error('mail unavailable'))
-    await logger.settleWorkflowExecutionUsage('execution')
-    await logger.settleWorkflowExecutionUsage('execution')
-    expect(state.ledgers.user).toMatchObject({
-      totalCost: 2.25,
-      totalTokensUsed: 150,
-      totalApiCalls: 1,
-    })
-    expect(state.email).toHaveBeenCalledOnce()
-    expect(state.threshold).toHaveBeenCalledOnce()
-  })
+  ).rejects.toThrow('functional block occurrence')
+  expect(state.write).not.toHaveBeenCalled()
+  expect(state.emit).not.toHaveBeenCalled()
+  expect(state.row!.endedAt).toBeNull()
 })

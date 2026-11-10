@@ -4,6 +4,7 @@ import {
   type QueryClient,
   useQuery,
 } from '@tanstack/react-query'
+import { monetary } from '@tradinggoose/billing/money'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
@@ -190,7 +191,7 @@ export function useOrganizationMembers(orgId: string) {
  */
 interface UpdateOrganizationUsageLimitParams {
   organizationId: string
-  limit: number
+  limit: string
 }
 
 interface InviteMemberParams {
@@ -237,7 +238,7 @@ export const organizationMutationOptions = {
         const response = await fetch('/api/usage', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ context: 'organization', organizationId, limit }),
+          body: JSON.stringify({ context: 'organization', organizationId, limit: monetary(limit) }),
         })
 
         if (!response.ok) {
@@ -246,43 +247,6 @@ export const organizationMutationOptions = {
         }
 
         return response.json()
-      },
-      onMutate: async ({ organizationId, limit }) => {
-        await queryClient.cancelQueries({ queryKey: organizationKeys.billing(organizationId) })
-
-        const previousBillingData = queryClient.getQueryData(
-          organizationKeys.billing(organizationId)
-        )
-
-        queryClient.setQueryData(organizationKeys.billing(organizationId), (old: any) => {
-          if (!old) return old
-          const currentUsage = old.data?.currentUsage || old.data?.usage?.current || 0
-          const newPercentUsed = limit > 0 ? (currentUsage / limit) * 100 : 0
-
-          return {
-            ...old,
-            data: {
-              ...old.data,
-              totalUsageLimit: limit,
-              usage: {
-                ...old.data?.usage,
-                limit,
-                percentUsed: newPercentUsed,
-              },
-              percentUsed: newPercentUsed,
-            },
-          }
-        })
-
-        return { previousBillingData, organizationId }
-      },
-      onError: (_err, _variables, context) => {
-        if (context?.previousBillingData && context?.organizationId) {
-          queryClient.setQueryData(
-            organizationKeys.billing(context.organizationId),
-            context.previousBillingData
-          )
-        }
       },
       onSettled: (_data, _error, variables) =>
         queryClient.invalidateQueries({
@@ -398,24 +362,20 @@ export const organizationMutationOptions = {
   createOrganization(queryClient: QueryClient) {
     return mutationOptions({
       mutationFn: async ({ name, slug }: CreateOrganizationParams) => {
-        const result = await client.organization.create({
-          name,
-          slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
+        const response = await fetch('/api/organizations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, slug: slug || name.toLowerCase().replace(/\s+/g, '-') }),
         })
-
-        if (result.error) {
-          throw new Error(result.error.message || 'Failed to create organization')
-        }
-
-        if (!result.data?.id) {
-          throw new Error('Failed to create organization')
-        }
+        const result = await response.json()
+        if (!response.ok || typeof result.organizationId !== 'string')
+          throw new Error(result.error || 'Failed to create organization')
 
         await client.organization.setActive({
-          organizationId: result.data.id,
+          organizationId: result.organizationId,
         })
 
-        return { success: true, organizationId: result.data.id }
+        return { success: true, organizationId: result.organizationId }
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: organizationKeys.all })

@@ -1,3 +1,4 @@
+import { withInferenceFacts } from '@/lib/mastra/result'
 import type { OpenAIEmbeddingsParams } from '@/tools/openai/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -12,21 +13,14 @@ export const embeddingsTool: ToolConfig<OpenAIEmbeddingsParams> = {
       type: 'string',
       required: true,
       visibility: 'user-or-llm',
-      description: 'Text to generate embeddings for',
+      description: 'Exact text or an array of texts to generate embeddings for',
     },
     model: {
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description: 'Model to use for embeddings',
-      default: 'text-embedding-3-small',
-    },
-    encodingFormat: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'The format to return the embeddings in',
-      default: 'float',
+      description: 'Listed native OpenAI embedding provider/model identifier',
+      default: 'openai/text-embedding-3-small',
     },
     apiKey: {
       type: 'string',
@@ -38,30 +32,33 @@ export const embeddingsTool: ToolConfig<OpenAIEmbeddingsParams> = {
 
   request: {
     method: 'POST',
-    url: () => 'https://api.openai.com/v1/embeddings',
-    headers: (params) => ({
-      Authorization: `Bearer ${params.apiKey}`,
+    url: '/api/tools/openai/embeddings',
+    headers: () => ({
       'Content-Type': 'application/json',
     }),
     body: (params) => ({
       input: params.input,
-      model: params.model || 'text-embedding-3-small',
-      encoding_format: params.encodingFormat || 'float',
+      model: params.model || 'openai/text-embedding-3-small',
+      apiKey: params.apiKey,
     }),
   },
 
   transformResponse: async (response) => {
     const data = await response.json()
+    if (!response.ok || !data.output) throw new Error(data.error || 'Embedding request failed')
+    const { embeddings, model, usage, tokens, cost, embeddingUsage } = data.output
     return {
-      success: true,
-      output: {
-        embeddings: data.data.map((item: any) => item.embedding),
-        model: data.model,
-        usage: {
-          prompt_tokens: data.usage.prompt_tokens,
-          total_tokens: data.usage.total_tokens,
-        },
-      },
+      success: data.success === true,
+      ...(data.success === false ? { error: data.error || 'Embedding request failed' } : {}),
+      output: withInferenceFacts(
+        { embeddings, model, usage, tokens, cost, embeddingUsage },
+        {
+          model,
+          tokens,
+          cost,
+          generatedFields: ['model', 'usage', 'tokens', 'cost', 'embeddingUsage'],
+        }
+      ),
     }
   },
 
@@ -73,6 +70,12 @@ export const embeddingsTool: ToolConfig<OpenAIEmbeddingsParams> = {
       properties: {
         embeddings: { type: 'array', description: 'Array of embedding vectors' },
         model: { type: 'string', description: 'Model used for generating embeddings' },
+        tokens: { type: 'object', description: 'Available native token counts' },
+        cost: { type: 'object', description: 'Model USD is unavailable' },
+        embeddingUsage: {
+          type: 'object',
+          description: 'Completed batch count and reported usage status',
+        },
         usage: {
           type: 'object',
           description: 'Token usage information',

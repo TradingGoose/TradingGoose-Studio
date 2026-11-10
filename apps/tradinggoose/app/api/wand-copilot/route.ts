@@ -1,27 +1,36 @@
+import { randomUUID } from 'node:crypto'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import { readCompletionDeltaText, readCompletionError } from '@/lib/copilot/completion'
+import { fetchNativeCompletion } from '@/lib/copilot/native/client'
+import {
+  assertNativeCorrelation,
+  COPILOT_NATIVE_REVISION,
+  type CompletionRequest,
+  parseNativeContract,
+} from '@/lib/copilot/native/contract'
+import { relayNativeEvents } from '@/lib/copilot/native/stream'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
-import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
-import { proxyCopilotCompletionRequest } from '@/app/api/copilot/proxy'
+import { SSE_HEADERS } from '@/lib/utils'
 
 const logger = createLogger('WandCopilot')
 
-const WandRequestSchema = z.object({
-  prompt: z.string().min(1, 'Prompt is required.'),
-  systemPrompt: z.string().optional(),
-  generationType: z.string().optional(),
-  history: z
-    .array(
-      z.object({
-        role: z.enum(['user', 'assistant', 'system', 'tool']),
-        content: z.string(),
-      })
-    )
-    .optional(),
-})
+const WandRequestSchema = z
+  .object({
+    prompt: z.string().min(1, 'Prompt is required.'),
+    systemPrompt: z.string().optional(),
+    generationType: z.string().optional(),
+    history: z
+      .array(
+        z.object({
+          role: z.enum(['user', 'assistant', 'system', 'tool']),
+          content: z.string(),
+        })
+      )
+      .optional(),
+  })
+  .strict()
 
 function buildGenerationTypeContract(generationType?: string): string | null {
   switch (generationType) {
@@ -91,49 +100,6 @@ function buildWandSystemPrompt(systemPrompt?: string, generationType?: string): 
   return contract
 }
 
-function relayCompletionSegment(
-  rawSegment: string,
-  controller: ReadableStreamDefaultController<Uint8Array>
-): boolean {
-  if (!rawSegment.trim()) {
-    return false
-  }
-
-  let sawDone = false
-  for (const line of rawSegment.split('\n')) {
-    const data = line.startsWith('data:') ? line.slice(5).trim() : ''
-    if (!data) {
-      continue
-    }
-
-    if (data === '[DONE]') {
-      controller.enqueue(encodeSSE({ done: true }))
-      sawDone = true
-      continue
-    }
-
-    let payload: unknown
-    try {
-      payload = JSON.parse(data)
-    } catch {
-      continue
-    }
-
-    const errorMessage = readCompletionError(payload)
-    if (errorMessage) {
-      controller.enqueue(encodeSSE({ error: errorMessage }))
-      continue
-    }
-
-    const contentChunk = readCompletionDeltaText(payload)
-    if (contentChunk) {
-      controller.enqueue(encodeSSE({ chunk: contentChunk }))
-    }
-  }
-
-  return sawDone
-}
-
 export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session?.user?.id) {
@@ -172,83 +138,50 @@ export async function POST(req: NextRequest) {
     { role: 'user' as const, content: prompt },
   ]
 
-  let copilotResponse: Response
+  const requestId = randomUUID()
+  const nativeRequest: CompletionRequest = {
+    protocolRevision: COPILOT_NATIVE_REVISION,
+    requestId,
+    scope: { actorUserId: session.user.id, workspaceId: null },
+    purpose: 'wand',
+    model: configuredModel,
+    messages: [messages[0]!, ...messages.slice(1)],
+    stream: true,
+  }
+  const abort = new AbortController()
+  const signal = AbortSignal.any([req.signal, abort.signal])
+  let upstream: Response
   try {
-    copilotResponse = await proxyCopilotCompletionRequest({
-      body: {
-        model: configuredModel,
-        stream: true,
-        messages,
-      },
-      signal: req.signal,
-      headers: {
-        'x-copilot-user-id': session.user.id,
-      },
-    })
+    upstream = await fetchNativeCompletion(nativeRequest, signal)
   } catch (error) {
-    logger.error('Failed to proxy wand stream', { error })
+    logger.error('Native wand connection failed', { error })
     return NextResponse.json({ error: 'Failed to connect to Copilot' }, { status: 502 })
   }
-
-  if (!copilotResponse.ok) {
-    const errorText = await copilotResponse.text().catch(() => '')
-    logger.error('Copilot wand proxy returned error', {
-      status: copilotResponse.status,
-      errorText,
-    })
-    return NextResponse.json(
-      { error: errorText || 'Copilot responded with an error' },
-      { status: copilotResponse.status }
-    )
+  if (!upstream.ok) {
+    try {
+      const failure = await parseNativeContract('CompletionFailureResponse', await upstream.json())
+      assertNativeCorrelation(failure, requestId)
+      return NextResponse.json(failure, {
+        status: upstream.status,
+        headers: { 'x-wand-request-id': requestId },
+      })
+    } catch {
+      return NextResponse.json({ error: 'Invalid native completion failure' }, { status: 502 })
+    }
   }
-
-  if (!copilotResponse.body) {
-    return NextResponse.json({ error: 'Copilot stream is empty' }, { status: 500 })
+  if (!upstream.body) {
+    return NextResponse.json({ error: 'Copilot stream is empty' }, { status: 502 })
   }
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      const reader = copilotResponse.body!.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let didSendDone = false
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) {
-            break
-          }
-
-          buffer += decoder.decode(value, { stream: true })
-          const segments = buffer.split('\n\n')
-          buffer = segments.pop() || ''
-
-          for (const segment of segments) {
-            didSendDone = relayCompletionSegment(segment, controller) || didSendDone
-          }
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Streaming error'
-        controller.enqueue(encodeSSE({ error: message }))
-        logger.error('Error while streaming wand proxy response', { error })
-      } finally {
-        reader.releaseLock()
-        if (buffer.trim()) {
-          didSendDone = relayCompletionSegment(buffer, controller) || didSendDone
-        }
-        if (!didSendDone) {
-          controller.enqueue(encodeSSE({ done: true }))
-        }
-        controller.close()
-      }
-    },
+  const stream = relayNativeEvents(upstream.body, 'CompletionEvent', {
+    requestId,
+    signal: req.signal,
+    abortUpstream: () => abort.abort(),
   })
-
   return new Response(stream, {
     headers: {
       ...SSE_HEADERS,
       'Cache-Control': 'no-cache, no-transform',
+      'x-wand-request-id': requestId,
     },
   })
 }

@@ -1,70 +1,61 @@
 /** @vitest-environment node */
 import { db } from '@tradinggoose/db'
-import {
-  organizationBillingLedger,
-  organizationMemberBillingLedger,
-  subscription,
-  systemBillingSettings,
-  systemBillingTier,
-  systemSettings,
-  userStats,
-  workflowExecutionLogs,
-  workspace,
-} from '@tradinggoose/db/schema'
+import { idempotencyKey, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { ExecutionLogger } from './logger'
 
 const pool = vi.hoisted(() => ({
   reserved: false,
   tail: Promise.resolve() as Promise<unknown>,
-  rows: new Map<unknown, Record<string, any>[]>(),
   reads: new Set<unknown>(),
+  policyCalls: 0,
+  failPolicy: false,
+  binding: {
+    namespace: 'billing-usage:user:original',
+    key: 'invocation:execution',
+    fingerprint: 'original',
+    runId: 'execution',
+    workspaceId: 'workspace',
+    actorUserId: 'actor',
+    workflowId: 'workflow',
+    purpose: 'workflow-execution',
+  },
 }))
-
 vi.mock('@tradinggoose/db', async () => {
   const schema = await import('@tradinggoose/db/schema')
   const connection = (pooled: boolean) => {
-    const query = (table?: unknown, update?: Record<string, any>) => {
+    const query = () => {
+      let table: unknown
       const chain = {
         from: (target: unknown) => {
           table = target
           return chain
         },
         where: () => chain,
-        orderBy: () => chain,
         limit: () => chain,
-        for: () => chain,
-        returning: () => chain,
-        onConflictDoUpdate: () => chain,
         then: (resolve: (rows: unknown) => unknown, reject: (error: unknown) => unknown) =>
           Promise.resolve()
             .then(() => {
-              // One reserved connection is sufficient to reproduce pool starvation.
-              // Reject a second checkout instead of leaving the regression hanging forever.
               if (pooled && pool.reserved) throw new Error('Database pool exhausted')
               pool.reads.add(table)
-              const rows = pool.rows.get(table) ?? []
-              if (update) {
-                if (!rows.length) rows.push(update)
-                else Object.assign(rows[0], update)
-                pool.rows.set(table, rows)
-              }
-              return rows
+              return table === schema.workflowExecutionLogs
+                ? [
+                    {
+                      executionId: 'execution',
+                      workspaceId: 'workspace',
+                      trigger: 'api',
+                      executionData: { billing: { binding: pool.binding } },
+                    },
+                  ]
+                : []
             })
             .then(resolve, reject),
       }
       return chain
     }
-    return {
-      select: () => query(),
-      update: (table: unknown) => ({ set: (values: Record<string, any>) => query(table, values) }),
-      insert: (table: unknown) => ({
-        values: (values: Record<string, any>) => query(table, values),
-      }),
-    }
+    return { select: () => query() }
   }
   return {
-    ...schema,
     db: {
       ...connection(true),
       transaction: (callback: (tx: ReturnType<typeof connection>) => Promise<unknown>) => {
@@ -82,65 +73,43 @@ vi.mock('@tradinggoose/db', async () => {
     },
   }
 })
-
-vi.mock('@/lib/system-services/stripe-runtime', () => ({ hasStripeSecretKey: () => true }))
-vi.mock('@/lib/billing/threshold-billing', () => ({ checkAndBillOverageThreshold: vi.fn() }))
-vi.mock('@/lib/billing/core/usage', () => ({}))
+vi.mock('@tradinggoose/billing', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tradinggoose/billing')>()),
+  acceptModelStep: async (
+    tx: typeof db,
+    binding: unknown,
+    occurrence: unknown,
+    options: unknown
+  ) => {
+    expect(binding).toEqual(pool.binding)
+    expect(occurrence).toEqual({ stepNumber: 0, retryCount: 0 })
+    expect(options).toEqual({ executionTrigger: 'api' })
+    // The shared package performs its reads on this supplied transaction, never a second pool checkout.
+    await tx.select().from(idempotencyKey).limit(1)
+    pool.policyCalls++
+    if (pool.failPolicy) throw new Error('financial policy unavailable')
+    return { appliedUsd: '0.25' }
+  },
+}))
+vi.mock('@/lib/billing/native-finance', () => ({}))
 vi.mock('@/lib/logs/events', () => ({}))
 vi.mock('@/lib/logs/execution/snapshot/service', () => ({ snapshotService: {} }))
+vi.mock('@/lib/mastra/workflow-history', () => ({}))
 vi.mock('@/lib/permissions/utils', () => ({}))
 
 beforeEach(() => {
   pool.reserved = false
   pool.tail = Promise.resolve()
-  pool.rows.clear()
   pool.reads.clear()
+  pool.policyCalls = 0
+  pool.failPolicy = false
 })
 
-it.each(
-  [false, true].flatMap((callerOwned) =>
-    ['disabled', 'user', 'organization', 'organization_member', 'default_tier'].map((scope) => ({
-      callerOwned,
-      scope,
-    }))
-  )
-)(
-  'settles $scope using one connection (callerOwned=$callerOwned)',
-  async ({ callerOwned, scope }) => {
-    const enabled = scope !== 'disabled'
-    const ownerType = scope.startsWith('organization') ? 'organization' : 'user'
-    const log = {
-      id: 'log',
-      executionId: 'execution',
-      workspaceId: 'workspace',
-      trigger: 'api',
-      executionData: { environment: { userId: 'actor' }, traceSpans: [] } as Record<string, any>,
-    }
-    pool.rows.set(workflowExecutionLogs, [log])
-    pool.rows.set(systemSettings, [{ billingEnabled: enabled }])
-    pool.rows.set(systemBillingSettings, [{ workflowExecutionChargeUsd: '0' }])
-    pool.rows.set(workspace, [
-      {
-        ownerId: 'owner',
-        billingOwnerType: ownerType,
-        billingOwnerUserId: 'owner',
-        billingOwnerOrganizationId: 'org',
-      },
-    ])
-    pool.rows.set(
-      subscription,
-      scope === 'default_tier'
-        ? []
-        : [{ referenceType: ownerType, referenceId: 'owner', billingTierId: 'tier' }]
-    )
-    pool.rows.set(systemBillingTier, [
-      { id: 'tier', ownerType, usageScope: scope === 'organization' ? 'pooled' : 'individual' },
-    ])
-    for (const table of [userStats, organizationBillingLedger, organizationMemberBillingLedger]) {
-      pool.rows.set(table, [{}])
-    }
+it.each([false, true])(
+  'uses one connection for pinned settlement (caller transaction=%s)',
+  async (callerOwned) => {
     const logger = new ExecutionLogger()
-    await Promise.all(
+    const receipts = await Promise.all(
       Array.from({ length: 30 }, () =>
         callerOwned
           ? db.transaction((tx) => logger.settleWorkflowExecutionUsage('execution', tx))
@@ -148,13 +117,23 @@ it.each(
       )
     )
     expect(pool.reserved).toBe(false)
-    expect(log.executionData.billing).toMatchObject({ quote: { enabled } })
-    expect(log.executionData.billing.counted).toBe(enabled ? true : undefined)
-    for (const table of [systemSettings, systemBillingSettings])
-      expect(pool.reads.has(table)).toBe(true)
-    for (const table of [workspace, subscription, systemBillingTier])
-      expect(pool.reads.has(table)).toBe(enabled)
-    if (scope === 'default_tier')
-      expect(pool.rows.get(subscription)?.[0].id).toBe('sub_default_owner')
+    expect(pool.policyCalls).toBe(30)
+    expect(pool.reads).toEqual(new Set([workflowExecutionLogs, idempotencyKey]))
+    expect(receipts).toEqual(
+      Array.from({ length: 30 }, () => ({ binding: pool.binding, appliedUsd: '0.25' }))
+    )
   }
 )
+
+it('releases its connection after shared financial policy failure', async () => {
+  pool.failPolicy = true
+  await expect(new ExecutionLogger().settleWorkflowExecutionUsage('execution')).rejects.toThrow(
+    'financial policy unavailable'
+  )
+  expect(pool.reserved).toBe(false)
+  pool.failPolicy = false
+  await expect(new ExecutionLogger().settleWorkflowExecutionUsage('execution')).resolves.toEqual({
+    binding: pool.binding,
+    appliedUsd: '0.25',
+  })
+})

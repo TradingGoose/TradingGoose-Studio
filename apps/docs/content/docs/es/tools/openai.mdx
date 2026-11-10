@@ -34,21 +34,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Modelo",
             "layout": "full",
-            "defaultValue": "text-embedding-3-small",
-            "options": [
-                {
-                    "id": "text-embedding-3-small",
-                    "label": "text-embedding-3-small"
-                },
-                {
-                    "id": "text-embedding-3-large",
-                    "label": "text-embedding-3-large"
-                },
-                {
-                    "id": "text-embedding-ada-002",
-                    "label": "text-embedding-ada-002"
-                }
-            ]
+            "defaultValue": "openai/text-embedding-3-small"
         },
         {
             "id": "apiKey",
@@ -92,3 +78,6 @@ Integra Embeddings en el flujo de trabajo. Puede generar embeddings a partir de 
 
 - Categoría: `tools`
 - Tipo: `openai`
+
+
+El campo Modelo carga los modelos de embeddings OpenAI disponibles del registro nativo. Selecciona un identificador completo como `openai/text-embedding-3-small`. La entrada se conserva exactamente; los textos que superan el límite del modelo se rechazan. El uso de tokens solo aparece cuando lo informa el modelo; el costo del modelo en USD no está disponible.

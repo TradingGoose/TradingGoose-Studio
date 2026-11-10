@@ -1,7 +1,9 @@
+import { compareMoney, type DecimalAmount, monetary } from '@tradinggoose/billing/money'
 import { z } from 'zod'
+import { adminMoneySchema } from './money-schema'
 
-const nullableNumberSchema = z.number().finite().nonnegative().nullable()
-const nullableIntegerSchema = z.number().int().nonnegative().nullable()
+const nullableMoneySchema = adminMoneySchema.nullable()
+const nullableIntegerSchema = z.number().int().safe().nonnegative().nullable()
 const nullableExecutionTimeLimitSchema = z.number().int().min(5).max(2_147_483).nullable()
 const nullableTrimmedStringSchema = z
   .string()
@@ -9,8 +11,8 @@ const nullableTrimmedStringSchema = z
   .transform((value) => (value.length > 0 ? value : null))
   .nullable()
 
-function hasPositiveNumber(value: number | null): value is number {
-  return value !== null && value > 0
+function hasPositiveAmount(value: DecimalAmount | null): boolean {
+  return value !== null && compareMoney(value, '0') > 0
 }
 
 export const adminBillingTierMutationSchema = z.object({
@@ -21,9 +23,9 @@ export const adminBillingTierMutationSchema = z.object({
   ownerType: z.enum(['user', 'organization']),
   usageScope: z.enum(['individual', 'pooled']),
   seatMode: z.enum(['fixed', 'adjustable']),
-  monthlyPriceUsd: nullableNumberSchema,
-  yearlyPriceUsd: nullableNumberSchema,
-  includedUsageLimitUsd: nullableNumberSchema,
+  monthlyPriceUsd: nullableMoneySchema,
+  yearlyPriceUsd: nullableMoneySchema,
+  includedUsageLimitUsd: nullableMoneySchema,
   storageLimitGb: nullableIntegerSchema,
   concurrencyLimit: nullableIntegerSchema,
   workflowExecutionTimeLimitSeconds: nullableExecutionTimeLimitSchema,
@@ -40,14 +42,14 @@ export const adminBillingTierMutationSchema = z.object({
   canEditUsageLimit: z.boolean(),
   canConfigureSso: z.boolean(),
   logRetentionDays: nullableIntegerSchema,
-  workflowExecutionMultiplier: nullableNumberSchema,
-  workflowModelCostMultiplier: nullableNumberSchema,
-  functionExecutionMultiplier: nullableNumberSchema,
-  copilotCostMultiplier: nullableNumberSchema,
+  workflowExecutionMultiplier: nullableMoneySchema,
+  workflowModelCostMultiplier: nullableMoneySchema,
+  functionExecutionMultiplier: nullableMoneySchema,
+  copilotCostMultiplier: nullableMoneySchema,
   pricingFeatures: z.array(z.string().trim().min(1)),
   isPublic: z.boolean(),
   isDefault: z.boolean(),
-  displayOrder: z.number().int(),
+  displayOrder: z.number().int().safe(),
 })
 
 export type AdminBillingTierMutationInput = z.infer<typeof adminBillingTierMutationSchema>
@@ -56,17 +58,16 @@ export function toBillingTierMutationValues(
   input: AdminBillingTierMutationInput,
   updatedByUserId: string
 ) {
-  const toDecimalString = (value: number | null) => (value === null ? null : value.toString())
-
   return {
     ...input,
-    monthlyPriceUsd: toDecimalString(input.monthlyPriceUsd),
-    yearlyPriceUsd: toDecimalString(input.yearlyPriceUsd),
-    includedUsageLimitUsd: toDecimalString(input.includedUsageLimitUsd),
-    workflowExecutionMultiplier: String(input.workflowExecutionMultiplier ?? 1),
-    workflowModelCostMultiplier: String(input.workflowModelCostMultiplier ?? 1),
-    functionExecutionMultiplier: String(input.functionExecutionMultiplier ?? 1),
-    copilotCostMultiplier: String(input.copilotCostMultiplier ?? 1),
+    monthlyPriceUsd: input.monthlyPriceUsd === null ? null : monetary(input.monthlyPriceUsd),
+    yearlyPriceUsd: input.yearlyPriceUsd === null ? null : monetary(input.yearlyPriceUsd),
+    includedUsageLimitUsd:
+      input.includedUsageLimitUsd === null ? null : monetary(input.includedUsageLimitUsd),
+    workflowExecutionMultiplier: monetary(input.workflowExecutionMultiplier ?? '1'),
+    workflowModelCostMultiplier: monetary(input.workflowModelCostMultiplier ?? '1'),
+    functionExecutionMultiplier: monetary(input.functionExecutionMultiplier ?? '1'),
+    copilotCostMultiplier: monetary(input.copilotCostMultiplier ?? '1'),
     updatedByUserId,
     updatedAt: new Date(),
   }
@@ -109,7 +110,7 @@ export function validateAdminBillingTierInput(
       return 'The default tier must be a public user tier with individual usage and fixed seats'
     }
 
-    if (hasPositiveNumber(input.monthlyPriceUsd) || hasPositiveNumber(input.yearlyPriceUsd)) {
+    if (hasPositiveAmount(input.monthlyPriceUsd) || hasPositiveAmount(input.yearlyPriceUsd)) {
       return 'The default tier cannot configure a recurring price'
     }
   }
@@ -164,11 +165,11 @@ export function validateAdminBillingTierInput(
     return 'New tiers must configure a Stripe monthly price ID'
   }
 
-  if (input.isPublic && hasPositiveNumber(input.monthlyPriceUsd) && !input.stripeMonthlyPriceId) {
+  if (input.isPublic && hasPositiveAmount(input.monthlyPriceUsd) && !input.stripeMonthlyPriceId) {
     return 'Public tiers with a recurring monthly price must configure a Stripe monthly price ID'
   }
 
-  if (input.isPublic && hasPositiveNumber(input.yearlyPriceUsd) && !input.stripeYearlyPriceId) {
+  if (input.isPublic && hasPositiveAmount(input.yearlyPriceUsd) && !input.stripeYearlyPriceId) {
     return 'Public tiers with a recurring yearly price must configure a Stripe yearly price ID'
   }
 

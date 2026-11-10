@@ -12,6 +12,7 @@ import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type {
   ChatContext,
+  CopilotDraft,
   CopilotSendRuntimeContext,
   MessageFileAttachment,
 } from '@/stores/copilot/types'
@@ -77,6 +78,10 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     currentChat,
     toolCallsById,
     fetchContextUsage,
+    error,
+    historyRefreshError,
+    isRefreshingHistory,
+    refreshCurrentHistory,
   } = useCopilotStore()
   const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
   const isTurnInProgress =
@@ -110,13 +115,13 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
 
   // Fetch context usage when component is initialized and has a current chat
   useEffect(() => {
-    if (isInitialized && currentChat?.reviewSessionId) {
+    if (isInitialized && currentChat?.threadId) {
       logger.info('[Copilot] Component initialized, fetching context usage')
       fetchContextUsage().catch((err) => {
         logger.warn('[Copilot] Failed to fetch context usage on mount', err)
       })
     }
-  }, [currentChat?.reviewSessionId, fetchContextUsage, isInitialized])
+  }, [currentChat?.threadId, fetchContextUsage, isInitialized])
 
   const clearProgrammaticScrollLock = useCallback(() => {
     if (programmaticScrollResetTimerRef.current !== null) {
@@ -305,22 +310,31 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
 
   // Handle message submission
   const handleSubmit = useCallback(
-    async (query: string, fileAttachments?: MessageFileAttachment[], contexts?: ChatContext[]) => {
-      if (!query || isTurnInProgress) return
+    async (
+      query: string,
+      fileAttachments?: MessageFileAttachment[],
+      contexts?: ChatContext[],
+      submittedDraft?: CopilotDraft
+    ) => {
+      if (!query || isTurnInProgress) return false
 
       try {
-        await sendMessage(query, {
+        const accepted = await sendMessage(query, {
           fileAttachments,
           contexts,
+          submittedDraft,
           runtimeContext: sendRuntimeContext,
         })
+        if (!accepted) return false
         logger.info(
           'Sent message:',
           query,
           fileAttachments ? `with ${fileAttachments.length} attachments` : ''
         )
+        return true
       } catch (error) {
         logger.error('Failed to send message:', error)
+        return false
       }
     },
     [isTurnInProgress, sendMessage, sendRuntimeContext]
@@ -415,6 +429,27 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
 
           {/* Input area with integrated access selector */}
           <div className='pt-2'>
+            {historyRefreshError ? (
+              <div role='alert' className='space-y-1 px-3 py-2 text-sm'>
+                <p>{copilotCopy.historyRefresh.failed}</p>
+                <p className='text-muted-foreground'>{historyRefreshError}</p>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  disabled={isRefreshingHistory}
+                  onClick={() => void refreshCurrentHistory()}
+                >
+                  {isRefreshingHistory
+                    ? copilotCopy.historyRefresh.loading
+                    : copilotCopy.historyRefresh.retry}
+                </Button>
+              </div>
+            ) : null}
+            {error && (
+              <p role='alert' className='px-3 py-2 text-destructive text-sm'>
+                {error}
+              </p>
+            )}
             <UserInput
               workspaceId={workspaceId}
               onSubmit={handleSubmit}

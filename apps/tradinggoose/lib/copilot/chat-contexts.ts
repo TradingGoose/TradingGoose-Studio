@@ -36,7 +36,7 @@ export const buildCopilotContextIdentityKey = (context: ChatContext): string => 
 
   switch (context.kind) {
     case 'past_chat':
-      return `past_chat:${context.reviewSessionId}`
+      return `past_chat:${JSON.stringify([context.workspaceId, context.threadId])}`
     case 'workflow_block':
       return `workflow_block:${context.workflowId}:${context.blockId}`
     case 'blocks':

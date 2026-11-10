@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { authorizeCredentialUse, credentialAuthStatus } from '@/lib/auth/credential-access'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getFailureAccounting, safeInferenceError } from '@/lib/mastra/errors'
 import { generateRequestId } from '@/lib/utils'
 import {
   type ProviderRouteBody as AIProviderRouteBody,
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
   const startTime = Date.now()
 
+  let requestApiKey: string | undefined
   try {
     logger.info(`[${requestId}] Provider API request started`, {
       timestamp: new Date().toISOString(),
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
       providerNamespace ?? providerType
     )
 
-    if (!providerId) {
+    if (!providerId && namespace !== 'ai') {
       logger.warn(`[${requestId}] Provider not specified in request body`)
       return NextResponse.json({ error: 'Provider identifier is required' }, { status: 400 })
     }
@@ -54,18 +56,30 @@ export async function POST(request: NextRequest) {
 
     if (namespace === 'ai') {
       const aiBody = body as AIProviderRouteBody
-      const auth = aiBody.tools?.length
-        ? await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
-        : null
-      if (auth && (!auth.success || !auth.userId)) {
+      requestApiKey = aiBody.apiKey
+      const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+      if (!auth.success || !auth.userId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
-      return handleAIProviderRequest({
-        body: aiBody,
-        providerId,
+      const scope: Pick<AIProviderRouteBody, 'workflowId' | 'workspaceId'> = {}
+      const query = new URL(request.url).searchParams
+      for (const field of ['workflowId', 'workspaceId'] as const) {
+        const values = query.getAll(field)
+        const value = aiBody[field]
+        if (
+          (Object.hasOwn(aiBody, field) && (typeof value !== 'string' || !value.trim())) ||
+          values.length > 1 ||
+          (values.length === 1 && !values[0].trim()) ||
+          (typeof value === 'string' && values.length === 1 && value.trim() !== values[0].trim())
+        )
+          return NextResponse.json({ error: `Invalid or conflicting ${field}` }, { status: 400 })
+        scope[field] = typeof value === 'string' ? value.trim() : values[0]?.trim()
+      }
+      return await handleAIProviderRequest({
+        body: { ...aiBody, ...scope },
         requestId,
-        startTime,
-        authUserId: auth?.userId,
+        authUserId: auth.userId,
+        signal: request.signal,
       })
     }
 
@@ -132,8 +146,12 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
+      { error: safeInferenceError(error, requestApiKey), ...getFailureAccounting(error) },
+      {
+        status: [400, 403].includes((error as { status?: number })?.status ?? 0)
+          ? (error as { status: number }).status
+          : 500,
+      }
     )
   }
 }

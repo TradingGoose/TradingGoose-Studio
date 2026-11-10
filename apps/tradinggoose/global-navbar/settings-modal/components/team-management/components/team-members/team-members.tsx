@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { type DecimalAmount, monetary } from '@tradinggoose/billing/money'
 import { LogOut, UserX, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -6,8 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { Invitation, Member, Organization } from '@/lib/organization/types'
 import { formatUsd } from '@/i18n/formatters'
-import type { Invitation, Member, Organization } from '@/stores/organization'
 
 const logger = createLogger('TeamMembers')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
@@ -59,9 +60,9 @@ export function TeamMembers({
   const copy = useTranslations('workspace.settingsModal.team.members')
   const roles = useTranslations('workspace.switcher.roles')
   const locale = useLocale()
-  const [memberUsageData, setMemberUsageData] = useState<Record<string, number>>({})
+  const [memberUsageData, setMemberUsageData] = useState<Record<string, DecimalAmount>>({})
   const [memberUsageMode, setMemberUsageMode] = useState<MemberUsageMode>('individual')
-  const [sharedUsageTotal, setSharedUsageTotal] = useState<number | null>(null)
+  const [sharedUsageTotal, setSharedUsageTotal] = useState<DecimalAmount | null>(null)
   const [isLoadingUsage, setIsLoadingUsage] = useState(false)
 
   // Fetch member usage data when organization changes and user is admin
@@ -79,20 +80,20 @@ export function TeamMembers({
         const response = await fetch(`/api/organizations/${organization.id}/members?include=usage`)
         if (response.ok) {
           const result = await response.json()
-          const usageMap: Record<string, number> = {}
+          const usageMap: Record<string, DecimalAmount> = {}
           const usageMode =
             result.usageScope === 'pooled' || result.usageScope === 'individual'
               ? result.usageScope
               : 'individual'
           const pooledUsageTotal =
-            typeof result.sharedCurrentPeriodCost === 'number'
-              ? result.sharedCurrentPeriodCost
+            result.sharedCurrentPeriodCost !== null && result.sharedCurrentPeriodCost !== undefined
+              ? monetary(result.sharedCurrentPeriodCost)
               : null
 
           if (result.data) {
             result.data.forEach((member: any) => {
               if (member.currentPeriodCost !== null && member.currentPeriodCost !== undefined) {
-                usageMap[member.userId] = Number.parseFloat(member.currentPeriodCost.toString())
+                usageMap[member.userId] = monetary(member.currentPeriodCost)
               }
             })
           }
@@ -121,10 +122,14 @@ export function TeamMembers({
   if (organization.members) {
     organization.members.forEach((member: Member) => {
       const userId = member.user?.id
-      const usageAmount = userId ? (memberUsageData[userId] ?? 0) : 0
+      const usageAmount = userId ? (memberUsageData[userId] ?? null) : null
       const name = member.user?.name || copy('unknown')
       const usage =
-        memberUsageMode === 'pooled' ? copy('sharedPool') : formatUsd(locale, usageAmount)
+        memberUsageMode === 'pooled'
+          ? copy('sharedPool')
+          : usageAmount === null
+            ? '—'
+            : formatUsd(locale, usageAmount)
 
       const memberItem: MemberItem = {
         type: 'member',

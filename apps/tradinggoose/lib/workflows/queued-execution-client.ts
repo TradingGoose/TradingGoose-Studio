@@ -1,3 +1,4 @@
+import type { StudioNativeTarget } from '@/lib/copilot/native/studio-execution'
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import { isExecutionResult } from '@/lib/workflows/execution-result'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
@@ -6,6 +7,7 @@ import type { QueuedWorkflowTriggerType } from '@/services/queue'
 
 type QueuedWorkflowExecutionRequest = {
   workflowId: string
+  native?: StudioNativeTarget
   executionId?: string
   input?: unknown
   triggerType: QueuedWorkflowTriggerType
@@ -84,9 +86,11 @@ export async function queueWorkflowExecution(
 ): Promise<QueuedWorkflowExecutionHandle> {
   const response = await fetch(`/api/workflows/${request.workflowId}/queue`, {
     method: 'POST',
+    signal: request.signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       executionId: request.executionId,
+      ...(request.native ? { native: request.native } : {}),
       input: request.input,
       triggerType: request.triggerType,
       executionTarget: request.executionTarget,

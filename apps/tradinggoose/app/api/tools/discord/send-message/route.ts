@@ -90,6 +90,13 @@ export async function POST(request: NextRequest) {
 
     logger.info(`[${requestId}] Processing ${validatedData.files.length} file(s)`)
 
+    if (!authResult.userId?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'File access requires an authenticated user' },
+        { status: 403 }
+      )
+    }
+
     const userFiles = processFilesToUserFiles(validatedData.files, requestId, logger)
 
     if (userFiles.length === 0) {
@@ -126,7 +133,11 @@ export async function POST(request: NextRequest) {
       const userFile = userFiles[i]
       logger.info(`[${requestId}] Downloading file ${i}: ${userFile.name}`)
 
-      const buffer = await downloadFileFromStorage(userFile, requestId, logger)
+      const buffer = await downloadFileFromStorage(userFile, requestId, logger, {
+        actorUserId: authResult.userId,
+        workspaceId: authResult.workspaceId,
+        signal: request.signal,
+      })
 
       const blob = new Blob([new Uint8Array(buffer)], { type: userFile.type })
       formData.append(`files[${i}]`, blob, userFile.name)
@@ -166,6 +177,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && 'status' in error && error.status === 403) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 })
+    }
     logger.error(`[${requestId}] Error sending Discord message:`, error)
     return NextResponse.json(
       {

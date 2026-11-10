@@ -1,11 +1,18 @@
+import { Agent } from '@mastra/core/agent'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getBaseUrl } from '@/lib/urls/utils'
+import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import { safeInferenceError } from '@/lib/mastra/errors'
+import { financialProcessors } from '@/lib/mastra/financial-processors'
+import { NATIVE_AGENT_POLICY, trustedModelSettings, trustedPrepareStep } from '@/lib/mastra/options'
+import { assertListedModel } from '@/lib/mastra/registry'
+import { assertNativeCompletion, withInferenceFacts } from '@/lib/mastra/result'
+import { getMastra } from '@/lib/mastra/runtime'
+import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
 import { generateRouterPrompt } from '@/blocks/blocks/router'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
-import type { PathTracker } from '@/executor/path/path'
+import { watchExecutionCancellation } from '@/executor/handlers/agent/cancellation'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
-import { getProviderFromModel } from '@/providers/ai/models'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('RouterBlockHandler')
@@ -14,11 +21,6 @@ const logger = createLogger('RouterBlockHandler')
  * Handler for Router blocks that dynamically select execution paths.
  */
 export class RouterBlockHandler implements BlockHandler {
-  /**
-   * @param pathTracker - Utility for tracking execution paths
-   */
-  constructor(private pathTracker: PathTracker) {}
-
   canHandle(block: SerializedBlock): boolean {
     return block.metadata?.id === BlockType.ROUTER
   }
@@ -32,47 +34,64 @@ export class RouterBlockHandler implements BlockHandler {
 
     const model = inputs.model
     if (!model) throw new Error('Model is required')
-    const providerId = getProviderFromModel(model)
+    assertListedModel(model)
 
+    const mastra = await getMastra()
+    const startedAt = new Date()
+    const runId = crypto.randomUUID()
+    const steps: Array<{
+      usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+    }> = []
+    let returnedUsage: Parameters<typeof resultAccounting>[0]
+    let accounting: Awaited<ReturnType<typeof resultAccounting>> | undefined
+    let finance: Awaited<ReturnType<typeof financialProcessors>> | undefined
+    const capture = () =>
+      resultAccounting(selectNativeUsage(returnedUsage, finance?.getUsage(), sumNativeUsage(steps)))
+    const cancellation = watchExecutionCancellation(context.shouldCancelExecution)
     try {
-      const url = new URL('/api/providers', getBaseUrl())
-
-      // Create the provider request with proper message formatting
-      const messages = [{ role: 'user', content: inputs.prompt }]
-      const systemPrompt = generateRouterPrompt(inputs.prompt, targetBlocks)
-      const providerRequest = {
-        provider: providerId,
-        model,
-        systemPrompt: systemPrompt,
-        context: JSON.stringify(messages),
-        temperature: inputs.temperature,
-        apiKey: inputs.apiKey,
+      await cancellation.check()
+      finance = await financialProcessors({
+        actorUserId: context.userId,
+        workspaceId: context.workspaceId,
         workflowId: context.workflowId,
-      }
-
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(providerRequest),
+        runId,
+        purpose: 'workflow-router',
+        signal: cancellation.signal,
       })
-
-      if (!response.ok) {
-        // Try to extract a helpful error message
-        let errorMessage = `Provider API request failed with status ${response.status}`
-        try {
-          const errorData = await response.json()
-          if (errorData.error) {
-            errorMessage = errorData.error
-          }
-        } catch (_e) {
-          // If JSON parsing fails, use the original error message
-        }
-        throw new Error(errorMessage)
+      const admittedModel = createConfiguredLanguageModel(model, inputs.apiKey)
+      const agent = new Agent({
+        inputProcessors: finance.inputProcessors,
+        outputProcessors: finance.outputProcessors,
+        ...NATIVE_AGENT_POLICY,
+        id: block.id,
+        name: 'Workflow Router',
+        instructions: generateRouterPrompt(inputs.prompt, targetBlocks),
+        model: admittedModel,
+        mastra,
+      })
+      const native = await agent.generate([{ role: 'user', content: inputs.prompt }], {
+        runId,
+        onStepFinish: (step) => {
+          steps.push(step)
+        },
+        modelSettings: trustedModelSettings({ temperature: inputs.temperature }),
+        maxProcessorRetries: 0,
+        prepareStep: trustedPrepareStep(admittedModel),
+        abortSignal: cancellation.signal,
+        tracingOptions: {
+          metadata: { userId: context.userId, resourceId: context.workspaceId, runId },
+        },
+      })
+      // Snapshot only validated public counts before completion/financial checks can reject.
+      returnedUsage = selectNativeUsage(native.totalUsage)
+      assertNativeCompletion(native)
+      await finance.verifyComplete()
+      accounting = await capture()
+      cancellation.signal.throwIfAborted()
+      if (native.finishReason === 'aborted' || native.finishReason === 'error') {
+        throw new Error(`Router generation ${native.finishReason}`)
       }
-
-      const result = await response.json()
+      const result = { content: native.text, model, ...accounting }
 
       const chosenBlockId = result.content.trim().toLowerCase()
       const chosenBlock = targetBlocks?.find((b) => b.id === chosenBlockId)
@@ -85,26 +104,28 @@ export class RouterBlockHandler implements BlockHandler {
         throw new Error(`Invalid routing decision: ${chosenBlockId}`)
       }
 
-      const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-
-      return {
-        prompt: inputs.prompt,
-        model: result.model,
-        tokens: {
-          prompt: tokens.prompt || 0,
-          completion: tokens.completion || 0,
-          total: tokens.total || 0,
+      return withInferenceFacts(
+        {
+          prompt: inputs.prompt,
+          model: result.model,
+          tokens: result.tokens,
+          cost: result.cost,
+          selectedPath: {
+            blockId: chosenBlock.id,
+            blockType: chosenBlock.type || 'unknown',
+            blockTitle: chosenBlock.title || 'Untitled Block',
+          },
         },
-        cost: result.cost,
-        selectedPath: {
-          blockId: chosenBlock.id,
-          blockType: chosenBlock.type || 'unknown',
-          blockTitle: chosenBlock.title || 'Untitled Block',
-        },
-      }
+        { model, ...accounting, generatedFields: ['model', 'tokens', 'cost'] }
+      )
     } catch (error) {
-      logger.error('Router execution failed:', error)
-      throw error
+      logger.error('Router execution failed:', safeInferenceError(error, inputs.apiKey))
+      const failure = new Error(safeInferenceError(error, inputs.apiKey))
+      const facts = { model, ...(accounting ?? (await capture())) }
+      Object.assign(failure, facts)
+      throw withInferenceFacts(failure, { ...facts, generatedFields: Object.keys(facts) })
+    } finally {
+      cancellation.stop()
     }
   }
 

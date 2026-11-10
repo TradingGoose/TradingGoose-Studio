@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto'
+import { FinancialPolicyError } from '@tradinggoose/billing'
 import { db } from '@tradinggoose/db'
 import { invitation, member, organization, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
@@ -7,6 +8,7 @@ import { getEmailSubject, renderInvitationEmail } from '@/components/emails/rend
 import { getSession } from '@/lib/auth'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getUserUsageData } from '@/lib/billing/core/usage'
+import { createFinancialInvitations } from '@/lib/billing/financial-membership'
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
@@ -103,7 +105,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         const membersWithUsage = base.map((row) => ({
           ...row,
           currentPeriodCost:
-            usageScope === 'individual' ? (memberUsageByUserId.get(row.userId) ?? 0) : null,
+            usageScope === 'individual' ? (memberUsageByUserId.get(row.userId) ?? null) : null,
           billingPeriodStart,
           billingPeriodEnd,
         }))
@@ -149,6 +151,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       hasAdminAccess,
     })
   } catch (error) {
+    if (error instanceof FinancialPolicyError)
+      return NextResponse.json({ error: error.message }, { status: error.status })
     logger.error('Failed to get organization members', {
       organizationId: (await params).id,
       error,
@@ -264,16 +268,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 7)
 
-    await db.insert(invitation).values({
-      id: invitationId,
-      email: normalizedEmail,
-      inviterId: session.user.id,
+    await createFinancialInvitations(
       organizationId,
-      role,
-      status: 'pending',
-      expiresAt,
-      createdAt: new Date(),
-    })
+      [
+        {
+          id: invitationId,
+          email: normalizedEmail,
+          inviterId: session.user.id,
+          organizationId,
+          role,
+          status: 'pending',
+          expiresAt,
+          createdAt: new Date(),
+        },
+      ],
+      session.user.id
+    )
 
     const organizationEntry = await db
       .select({ name: organization.name })
@@ -334,6 +344,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       },
     })
   } catch (error) {
+    if (error instanceof FinancialPolicyError)
+      return NextResponse.json({ error: error.message }, { status: error.status })
     logger.error('Failed to invite organization member', {
       organizationId: (await params).id,
       error,

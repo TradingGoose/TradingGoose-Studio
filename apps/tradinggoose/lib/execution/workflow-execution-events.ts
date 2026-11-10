@@ -1,8 +1,15 @@
+import { FinancialPolicyError } from '@tradinggoose/billing'
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  verifyWorkflowFinancialAcceptance,
+  type WorkflowFinancialLog,
+} from '@/lib/logs/execution/financial-acceptance'
+import { publicTraceSpans } from '@/lib/logs/public'
 import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
+import { assertRetainedLogAccess, hydrateExecutionPayload } from '@/lib/workflow-archive/functional'
 import type {
   WorkflowExecutionEvent,
   WorkflowExecutionEventEntry,
@@ -32,7 +39,7 @@ type WorkflowExecutionEventState = WorkflowExecutionResultState & {
   events: WorkflowExecutionEventEntry[]
 }
 
-type WorkflowExecutionLogStateRow = {
+type WorkflowExecutionLogStateRow = WorkflowFinancialLog & {
   level: string
   startedAt: Date
   endedAt: Date | null
@@ -193,7 +200,7 @@ export async function readWorkflowExecutionAccessContext(params: {
   }
 }
 
-export function createWorkflowExecutionResultFromLog(
+function createWorkflowExecutionResultFromLog(
   row: WorkflowExecutionLogStateRow
 ): WorkflowExecutionResultState {
   const executionData = isRecord(row.executionData) ? row.executionData : {}
@@ -214,7 +221,9 @@ export function createWorkflowExecutionResultFromLog(
 
   const finalOutput = readFinalOutput(executionData)
   const queuedExecution = readQueuedExecutionMetadata(executionData)
-  const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
+  const traceSpans = Array.isArray(executionData.traceSpans)
+    ? publicTraceSpans(executionData.traceSpans)
+    : []
   const hasResponseBlock = executionData.hasResponseBlock === true
   const failed = row.level === 'error'
   const failureReason =
@@ -240,6 +249,43 @@ export function createWorkflowExecutionResultFromLog(
     result,
     failureReason,
   }
+}
+
+/** Reconstruct invocation delivery only after original finance and canonical scoped payload proof. */
+export async function readVerifiedWorkflowExecutionData(
+  row: WorkflowExecutionLogStateRow,
+  authorize?: () => Promise<void>
+): Promise<unknown> {
+  const data = isRecord(row.executionData) ? row.executionData : {}
+  if (!row.endedAt && !isRecord(data.pause))
+    throw new Error('Workflow invocation has no durable terminal or paused outcome')
+  if (!row.executionId)
+    throw new FinancialPolicyError('Original workflow execution identity is missing')
+  const scope = { workspaceId: row.workspaceId, executionId: row.executionId, logId: row.id }
+  const checkAccess = authorize ?? (() => assertRetainedLogAccess(scope))
+  await checkAccess()
+  await verifyWorkflowFinancialAcceptance(row)
+  let current = row
+  if (data.functionalPayload || data.workflowArchive || data.preservedFunctionalArchive) {
+    current = await hydrateExecutionPayload({ ...row, ...scope }, checkAccess)
+  } else if (data.finalOutput !== undefined || data.traceSpans !== undefined) {
+    throw new Error('Workflow output requires verified current-format preservation')
+  }
+  await checkAccess()
+  return current.executionData
+}
+
+/** The one public workflow-result reconstruction boundary; Records history remains separate. */
+export async function readWorkflowExecutionResultFromLog(
+  row: WorkflowExecutionLogStateRow,
+  authorize?: () => Promise<void>
+): Promise<WorkflowExecutionResultState> {
+  const data = isRecord(row.executionData) ? row.executionData : {}
+  if (!row.endedAt && !isRecord(data.pause)) return createWorkflowExecutionResultFromLog(row)
+  return createWorkflowExecutionResultFromLog({
+    ...row,
+    executionData: await readVerifiedWorkflowExecutionData(row, authorize),
+  })
 }
 
 function createWorkflowExecutionStateFromTerminalEvent(event: WorkflowExecutionTerminalEvent) {
@@ -383,6 +429,11 @@ export async function readWorkflowExecutionEventState(params: {
     readEvents(params.afterEventId ?? 0),
     db
       .select({
+        id: workflowExecutionLogs.id,
+        workflowId: workflowExecutionLogs.workflowId,
+        workflowSummary: workflowExecutionLogs.workflowSummary,
+        workspaceId: workflowExecutionLogs.workspaceId,
+        executionId: workflowExecutionLogs.executionId,
         level: workflowExecutionLogs.level,
         startedAt: workflowExecutionLogs.startedAt,
         endedAt: workflowExecutionLogs.endedAt,
@@ -404,23 +455,34 @@ export async function readWorkflowExecutionEventState(params: {
   const pause = isRecord(logData.pause) && !logRow?.endedAt ? logData.pause : null
   const visibleEvents = events.filter(({ event }) => {
     if (logRow?.endedAt) return !isTerminalWorkflowExecutionEvent(event)
-    return (
-      event.type !== 'execution:paused' ||
-      !logRow ||
-      (pause && event.data.result.output.revision === pause.revision)
-    )
+    if (pause && isTerminalWorkflowExecutionEvent(event))
+      return (
+        event.type === 'execution:paused' && event.data.result.output.revision === pause.revision
+      )
+    return event.type !== 'execution:paused' || !logRow
   })
   const terminalEvent = findTerminalEvent(visibleEvents)
+  if (logRow && (logRow.endedAt || pause)) {
+    return {
+      ...(await readWorkflowExecutionResultFromLog(logRow)),
+      events: params.afterEventId === undefined ? [] : visibleEvents,
+    }
+  }
+  if (
+    visibleEvents.some(
+      ({ event }) => event.type === 'execution:completed' || event.type === 'execution:paused'
+    )
+  )
+    throw new FinancialPolicyError('Happy workflow result has no verified durable financial owner')
   if (terminalEvent) {
     return {
       ...createWorkflowExecutionStateFromTerminalEvent(terminalEvent),
       events: params.afterEventId === undefined ? [] : visibleEvents,
     }
   }
-
   if (logRow) {
     return {
-      ...createWorkflowExecutionResultFromLog(logRow),
+      ...(await readWorkflowExecutionResultFromLog(logRow)),
       events: params.afterEventId === undefined ? [] : visibleEvents,
     }
   }

@@ -8,10 +8,11 @@ import {
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { type AuthResult, AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
-import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
+import { readWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { assertRetainedLogAccess } from '@/lib/workflow-archive/functional'
 import {
   createInternalWorkflowJobResult,
   createPublicExecutionResult,
@@ -92,6 +93,11 @@ export async function GET(
         : workspaceAccess.accessFilter
     const [logRow] = await db
       .select({
+        id: workflowExecutionLogs.id,
+        workspaceId: workflowExecutionLogs.workspaceId,
+        executionId: workflowExecutionLogs.executionId,
+        workflowId: workflowExecutionLogs.workflowId,
+        workflowSummary: workflowExecutionLogs.workflowSummary,
         level: workflowExecutionLogs.level,
         startedAt: workflowExecutionLogs.startedAt,
         endedAt: workflowExecutionLogs.endedAt,
@@ -105,7 +111,12 @@ export async function GET(
       .limit(1)
 
     if (logRow) {
-      const state = createWorkflowExecutionResultFromLog(logRow)
+      const state = await readWorkflowExecutionResultFromLog(logRow, () =>
+        assertRetainedLogAccess(
+          { workspaceId: logRow.workspaceId, executionId: logRow.executionId!, logId: logRow.id },
+          auth.userId
+        )
+      )
       const output = isExecutionResult(state.result)
         ? shouldIncludeInternalWorkflowTraceSpans(auth, state.result)
           ? createInternalWorkflowJobResult(state.result)

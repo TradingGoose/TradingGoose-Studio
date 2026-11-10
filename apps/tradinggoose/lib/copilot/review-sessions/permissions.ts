@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { copilotReviewSessions, layoutMaps, permissions, workspace } from '@tradinggoose/db/schema'
+import { layoutMaps, permissions, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import {
   isEntityListSessionId,
@@ -17,7 +17,7 @@ import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { resolveEntityWorkspaceId } from '@/lib/yjs/server/entity-loaders'
 
-const logger = createLogger('ReviewSessionPermissions')
+const logger = createLogger('ReviewTargetPermissions')
 type ReviewAccessReadStore = Pick<typeof db, 'select'>
 
 export interface ReviewAccessResult {
@@ -30,8 +30,6 @@ export interface ReviewAccessResult {
 interface ReviewTargetAccessInput {
   entityKind: YjsDocumentKind
   entityId: string | null
-  draftSessionId?: string | null
-  reviewSessionId?: string | null
   workspaceId: string | null
   ownerUserId?: string | null
   yjsSessionId?: string | null
@@ -136,91 +134,6 @@ async function verifyWorkspaceAccess(
     workspaceId,
     accessMode,
   })
-}
-
-async function verifyDraftReviewSessionAccess(
-  userId: string,
-  reviewTarget: ReviewTargetAccessInput,
-  readStore: ReviewAccessReadStore
-): Promise<Pick<ReviewAccessResult, 'hasAccess' | 'workspaceId'>> {
-  if (!reviewTarget.reviewSessionId) {
-    return { hasAccess: false, workspaceId: null }
-  }
-
-  const [reviewSession] = await readStore
-    .select({
-      workspaceId: copilotReviewSessions.workspaceId,
-      entityKind: copilotReviewSessions.entityKind,
-      entityId: copilotReviewSessions.entityId,
-      draftSessionId: copilotReviewSessions.draftSessionId,
-      userId: copilotReviewSessions.userId,
-    })
-    .from(copilotReviewSessions)
-    .where(eq(copilotReviewSessions.id, reviewTarget.reviewSessionId))
-    .limit(1)
-
-  if (!reviewSession) {
-    logger.warn('Review session not found', {
-      userId,
-      reviewSessionId: reviewTarget.reviewSessionId,
-    })
-    return { hasAccess: false, workspaceId: null }
-  }
-
-  if (reviewSession.entityKind !== reviewTarget.entityKind) {
-    logger.warn('Review session entity kind mismatch', {
-      userId,
-      reviewSessionId: reviewTarget.reviewSessionId,
-      expected: reviewTarget.entityKind,
-      actual: reviewSession.entityKind,
-    })
-    return { hasAccess: false, workspaceId: reviewSession.workspaceId }
-  }
-
-  if (reviewTarget.workspaceId && reviewSession.workspaceId !== reviewTarget.workspaceId) {
-    logger.warn('Review session workspace mismatch', {
-      userId,
-      reviewSessionId: reviewTarget.reviewSessionId,
-      expected: reviewTarget.workspaceId,
-      actual: reviewSession.workspaceId,
-    })
-    return { hasAccess: false, workspaceId: reviewSession.workspaceId }
-  }
-
-  if (reviewTarget.entityId || reviewSession.entityId) {
-    logger.warn('Saved entities must use entity Yjs targets, not review sessions', {
-      userId,
-      reviewSessionId: reviewTarget.reviewSessionId,
-      targetEntityId: reviewTarget.entityId,
-      sessionEntityId: reviewSession.entityId,
-    })
-    return { hasAccess: false, workspaceId: reviewSession.workspaceId }
-  }
-
-  if (reviewSession.userId !== userId) {
-    logger.warn('Draft review session not owned by user', {
-      userId,
-      reviewSessionId: reviewTarget.reviewSessionId,
-    })
-    return { hasAccess: false, workspaceId: reviewSession.workspaceId }
-  }
-
-  if (reviewTarget.draftSessionId) {
-    if (reviewSession.draftSessionId !== reviewTarget.draftSessionId) {
-      logger.warn('Review session draft mismatch', {
-        userId,
-        reviewSessionId: reviewTarget.reviewSessionId,
-        expected: reviewTarget.draftSessionId,
-        actual: reviewSession.draftSessionId,
-      })
-      return { hasAccess: false, workspaceId: reviewSession.workspaceId }
-    }
-  }
-
-  return {
-    hasAccess: true,
-    workspaceId: reviewSession.workspaceId,
-  }
 }
 
 async function verifySavedEntityTargetAccess(
@@ -365,116 +278,5 @@ export async function verifyReviewTargetAccess(
     return access
   }
 
-  if (!reviewTarget.reviewSessionId) {
-    return verifySavedEntityTargetAccess(userId, reviewTarget, accessMode, readStore)
-  }
-
-  const reviewSessionAccess = await verifyDraftReviewSessionAccess(
-    userId,
-    reviewTarget as ReviewTargetAccessInput,
-    readStore
-  )
-  if (!reviewSessionAccess.hasAccess || !reviewSessionAccess.workspaceId) {
-    return {
-      hasAccess: false,
-      userPermission: null,
-      workspaceId: reviewSessionAccess.workspaceId,
-      isOwner: false,
-    }
-  }
-
-  return verifyWorkspaceAccess(userId, reviewSessionAccess.workspaceId, accessMode, readStore)
-}
-
-function hasAccessToReviewSession(
-  userId: string,
-  session: typeof copilotReviewSessions.$inferSelect
-): boolean {
-  return session.userId === userId
-}
-
-/**
- * Loads a review session when the caller can access it.
- * Review-session rows are chat/draft history and remain creator-owned.
- * Saved entities use Yjs editing targets keyed by entityId.
- */
-export async function loadReviewSessionForUser(
-  reviewSessionId: string,
-  userId: string
-): Promise<typeof copilotReviewSessions.$inferSelect | null> {
-  const [session] = await db
-    .select()
-    .from(copilotReviewSessions)
-    .where(eq(copilotReviewSessions.id, reviewSessionId))
-    .limit(1)
-
-  if (!session) {
-    return null
-  }
-
-  const hasAccess = hasAccessToReviewSession(userId, session)
-  return hasAccess ? session : null
-}
-
-export async function loadReviewSessionForUserByConversationId(
-  conversationId: string,
-  entityKind: string,
-  userId: string
-): Promise<typeof copilotReviewSessions.$inferSelect | null> {
-  const sessions = await db
-    .select()
-    .from(copilotReviewSessions)
-    .where(
-      and(
-        eq(copilotReviewSessions.conversationId, conversationId),
-        eq(copilotReviewSessions.entityKind, entityKind)
-      )
-    )
-
-  for (const session of sessions) {
-    if (hasAccessToReviewSession(userId, session)) {
-      return session
-    }
-  }
-
-  return null
-}
-
-/**
- * Verifies that a review session exists and belongs to the given user.
- * Returns the session row (projected to `columns` if provided) or null.
- *
- * Used by the owner-only session mutation routes to enforce simple ownership.
- */
-export async function verifyReviewSessionOwnership<
-  T extends Partial<Record<keyof typeof copilotReviewSessions.$inferSelect, true>>,
->(
-  reviewSessionId: string,
-  userId: string,
-  columns?: T
-): Promise<
-  T extends undefined
-    ? typeof copilotReviewSessions.$inferSelect | null
-    : Pick<
-        typeof copilotReviewSessions.$inferSelect,
-        Extract<keyof T, keyof typeof copilotReviewSessions.$inferSelect>
-      > | null
-> {
-  const query = columns
-    ? db
-        .select(
-          Object.fromEntries(
-            Object.keys(columns).map((col) => [col, (copilotReviewSessions as any)[col]])
-          )
-        )
-        .from(copilotReviewSessions)
-    : db.select().from(copilotReviewSessions)
-
-  const [session] = await query
-    .where(
-      and(eq(copilotReviewSessions.id, reviewSessionId), eq(copilotReviewSessions.userId, userId))
-    )
-    .limit(1)
-
-  return (session ?? null) as any
+  return verifySavedEntityTargetAccess(userId, reviewTarget, accessMode, readStore)
 }

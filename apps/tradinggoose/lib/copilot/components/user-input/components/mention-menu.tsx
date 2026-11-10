@@ -325,7 +325,7 @@ export function MentionMenu({
               ) : (
                 submenuItems.map((item, index) => (
                   <div
-                    key={`${openSubmenuFor}-${(item as any).id || (item as any).reviewSessionId || index}`}
+                    key={`${openSubmenuFor}-${(item as any).id || (item as any).threadId || index}`}
                     data-idx={index}
                     className={cn(
                       'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-muted',

@@ -6,6 +6,7 @@ import type { ImperativePanelHandle } from 'react-resizable-panels'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { GlobalCopilotContextProvider } from '@/global-navbar/copilot-context'
 import { GlobalCopilotPanel } from '@/global-navbar/global-copilot-panel'
+import { WorkflowChatDeploymentDialog } from '@/global-navbar/workflow-chat-deployment-dialog'
 import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
 import { CopilotStoreProvider } from '@/stores/copilot/store'
 
@@ -75,6 +76,7 @@ export function GlobalCopilotLayout({
           {shouldMountCopilot ? (
             <CopilotStoreProvider channelId={channelId}>
               <GlobalCopilotPanel workspaceId={workspaceId} ownerUserId={ownerUserId} />
+              <WorkflowChatDeploymentDialog />
             </CopilotStoreProvider>
           ) : null}
         </ResizablePanel>

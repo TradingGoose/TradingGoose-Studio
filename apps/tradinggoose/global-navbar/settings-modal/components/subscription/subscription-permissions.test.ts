@@ -1,3 +1,4 @@
+import { compareMoney } from '@tradinggoose/billing/money'
 import { describe, expect, it } from 'vitest'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
@@ -16,7 +17,7 @@ function buildTier(overrides: Partial<PublicBillingTierDisplay>): PublicBillingT
     seatMode: 'fixed',
     usageScope: 'individual',
     displayOrder: 0,
-    monthlyPriceUsd: 0,
+    monthlyPriceUsd: '0',
     yearlyPriceUsd: null,
     seatCount: null,
     seatMaximum: null,
@@ -44,7 +45,8 @@ function toSummary(tier: PublicBillingTierDisplay): BillingTierSummary {
     canEditUsageLimit: tier.canEditUsageLimit,
     pricingFeatures: tier.pricingFeatures,
     isPublic: true,
-    hasStripeMonthlyPriceId: (tier.monthlyPriceUsd ?? 0) > 0,
+    hasStripeMonthlyPriceId:
+      tier.monthlyPriceUsd !== null && compareMoney(tier.monthlyPriceUsd, '0') > 0,
   }
 }
 
@@ -59,13 +61,13 @@ describe('getSubscriptionSurfaceState', () => {
     id: 'tier_pro',
     displayName: 'Pro',
     displayOrder: 1,
-    monthlyPriceUsd: 20,
+    monthlyPriceUsd: '20',
   })
   const teamTier = buildTier({
     id: 'tier_team',
     displayName: 'Team',
     displayOrder: 2,
-    monthlyPriceUsd: 80,
+    monthlyPriceUsd: '80',
   })
   const publicTiers = [freeTier, proTier, teamTier]
 
@@ -110,7 +112,7 @@ describe('getSubscriptionSurfaceState', () => {
       id: 'tier_private',
       displayName: 'Private',
       displayOrder: 0,
-      monthlyPriceUsd: 15,
+      monthlyPriceUsd: '15',
     })
 
     const state = getSubscriptionSurfaceState({
@@ -157,7 +159,7 @@ describe('getSubscriptionSurfaceState', () => {
       ownerType: 'organization',
       usageScope: 'pooled',
       seatMode: 'adjustable',
-      monthlyPriceUsd: 100,
+      monthlyPriceUsd: '100',
       seatCount: 3,
     })
 
@@ -215,7 +217,7 @@ describe('getSubscriptionSurfaceState', () => {
       id: 'tier_private_active',
       displayName: 'Private',
       displayOrder: 1,
-      monthlyPriceUsd: 15,
+      monthlyPriceUsd: '15',
     })
 
     const state = getSubscriptionSurfaceState({
@@ -250,7 +252,7 @@ describe('getSubscriptionSurfaceState', () => {
       ownerType: 'organization',
       usageScope: 'pooled',
       seatMode: 'adjustable',
-      monthlyPriceUsd: 120,
+      monthlyPriceUsd: '120',
       seatCount: 3,
     })
     const state = getSubscriptionSurfaceState({
@@ -287,7 +289,7 @@ describe('getSubscriptionSurfaceState', () => {
       usageScope: 'pooled',
       seatMode: 'adjustable',
       displayOrder: 3,
-      monthlyPriceUsd: 150,
+      monthlyPriceUsd: '150',
     })
 
     const state = getSubscriptionSurfaceState({

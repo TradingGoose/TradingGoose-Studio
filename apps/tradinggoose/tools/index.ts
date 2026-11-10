@@ -5,6 +5,7 @@ import {
   parseCustomToolSchemaText,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getFailureAccounting } from '@/lib/mastra/errors'
 import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -333,6 +334,7 @@ function createTransformedErrorFromErrorInfo(errorInfo?: ErrorInfo, extractorId?
     status: errorInfo?.status,
     statusText: errorInfo?.statusText,
     data: errorInfo?.data,
+    ...getFailureAccounting(errorInfo?.data),
   })
   return transformed
 }
@@ -698,7 +700,7 @@ export async function executeTool(
     const duration = endTime.getTime() - startTime.getTime()
     return {
       success: false,
-      output: errorDetails,
+      output: { ...errorDetails, ...getFailureAccounting(error) },
       error: errorMessage,
       timing: {
         startTime: startTimeISO,

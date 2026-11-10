@@ -347,7 +347,9 @@ describe('runPreparedWorkflowExecution', () => {
     mocks.execute.mockResolvedValueOnce({
       success: true,
       output: { response: { data: { ok: true }, status: 201, headers: {} } },
-      logs: [{ blockType: 'response', success: true }],
+      logs: [
+        { id: 'execution-runner.test.ts:saved-occurrence:1', blockType: 'response', success: true },
+      ],
     })
 
     await runPreparedWorkflowExecution({
@@ -393,13 +395,15 @@ describe('runPreparedWorkflowExecution', () => {
         metadata: { duration: 2000 },
         blockLogs: [
           {
+            id: 'execution-runner.test.ts:saved-occurrence:2',
             blockId: 'upstream',
             blockType: 'agent',
             startedAt: '2026-09-17T10:00:00.000Z',
             endedAt: '2026-09-17T10:00:02.000Z',
             durationMs: 2000,
             success: true,
-            output: { model: 'test-model', cost: { total: 2 }, tokens: { total: 150 } },
+            output: { content: 'prior completed work' },
+            inference: { model: 'test-model', generatedFields: ['model', 'tokens', 'cost'] },
           },
         ],
       },
@@ -423,13 +427,20 @@ describe('runPreparedWorkflowExecution', () => {
     logs: [
       ...snapshot.executor.context.blockLogs,
       {
+        id: 'execution-runner.test.ts:saved-occurrence:3',
         blockId: 'downstream',
         blockType: 'agent',
         startedAt: '2026-09-17T11:00:00.000Z',
         endedAt: '2026-09-17T11:00:03.000Z',
         durationMs: 3000,
         success: true,
-        output: { model: 'test-model', cost: { total: 1 }, tokens: { total: 75 } },
+        output: { content: 'current completed work' },
+        inference: {
+          model: 'test-model',
+          cost: { total: 1, status: 'reported' },
+          tokens: { total: 75 },
+          generatedFields: ['model', 'tokens', 'cost'],
+        },
       },
     ],
   }
@@ -463,8 +474,10 @@ describe('runPreparedWorkflowExecution', () => {
       })
     )
     expect(calculateCostSummary(mocks.complete.mock.calls[0][0].traceSpans)).toMatchObject({
-      modelCost: 3,
-      totalTokens: 225,
+      modelCost: 1,
+      totalCost: undefined,
+      totalTokens: 75,
+      status: 'partial',
     })
     expect(mocks.dispatchWorkflowPauseNotifications).not.toHaveBeenCalled()
     expect(mocks.cancelPendingExecutionDescendants).toHaveBeenCalledExactlyOnceWith('execution-1')

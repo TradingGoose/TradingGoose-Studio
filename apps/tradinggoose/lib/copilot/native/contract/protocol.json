@@ -1,0 +1,413 @@
+{
+  "protocolRevision": "copilot-native/2026-11-09.8",
+  "status": "Current .8 deterministic context pruning interface; component implementation and independent/default-financial/joint review remain separately gated.",
+  "schema": "contract.schema.json",
+  "apiVersion": "v1",
+  "methods": [
+    {
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "request": "CopilotRequest",
+      "response": "CopilotResponse",
+      "sse": "CopilotEvent",
+      "commands": {
+        "message": [
+          "ReadyResponse",
+          "SuspendedResponse",
+          "ErrorResponse"
+        ],
+        "pending.list": [
+          "PendingResponse",
+          "ErrorResponse"
+        ],
+        "tool.approve": [
+          "ReadyResponse",
+          "SuspendedResponse",
+          "ErrorResponse"
+        ],
+        "tool.decline": [
+          "ReadyResponse",
+          "SuspendedResponse",
+          "ErrorResponse"
+        ],
+        "tool.result": [
+          "ReadyResponse",
+          "SuspendedResponse",
+          "ErrorResponse"
+        ],
+        "cancel": [
+          "CancelResponse",
+          "ErrorResponse"
+        ],
+        "threads.list": [
+          "ThreadsResponse",
+          "ErrorResponse"
+        ],
+        "history.read": [
+          "HistoryResponse",
+          "ErrorResponse"
+        ],
+        "thread.title": [
+          "MutationResponse",
+          "ErrorResponse"
+        ],
+        "history.edit": [
+          "MutationResponse",
+          "ErrorResponse"
+        ],
+        "thread.delete": [
+          "MutationResponse",
+          "ErrorResponse"
+        ],
+        "context.read": [
+          "ContextResponse",
+          "ErrorResponse"
+        ],
+        "context.compact": [
+          "CompactResponse",
+          "ErrorResponse"
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/completion?version=v1",
+      "request": "CompletionRequest",
+      "response": [
+        "CompletionResponse",
+        "CompletionFailureResponse"
+      ],
+      "sse": "CompletionEvent",
+      "purposes": [
+        "wand",
+        "title"
+      ]
+    }
+  ],
+  "auth": {
+    "scheme": "x-api-key only; no public bearer alias",
+    "studioCommands": "service key + session-authorized trusted actor/scope",
+    "userKeys": "preserve stored-key actor binding; safe own-scope message/history/context/utility/cancel only; no trusted result/approval assertions",
+    "serviceOnly": [
+      "tool.approve",
+      "tool.decline",
+      "tool.result"
+    ],
+    "unauthorizedHttp": 401,
+    "wrongActorOrWorkspaceHttp": 403
+  },
+  "responseCodes": {
+    "invalidRequest": 422,
+    "quota": 402,
+    "busyStaleAlreadyAccepted": 409,
+    "missingPrecondition": 412,
+    "dependencyUnavailable": 503,
+    "acceptedThenDeliveryError": "SSE terminal error or collected error with known financial fact; never undo/replay money"
+  },
+  "bindingConventions": {
+    "tenantId": "JSON.stringify(workspaceId===null ? [\"personal\",actorUserId] : [\"workspace\",workspaceId])",
+    "resourceId": "JSON.stringify([\"copilot\",workspaceId===null?\"personal\":\"workspace\",workspaceId??actorUserId,actorUserId,workspaceId])",
+    "financialRootId": "JSON.stringify([FinancialBinding.namespace,FinancialBinding.key,FinancialBinding.fingerprint])",
+    "runIdentity": "Copilot assigns the native run and financial binding once before contact, stores verified immutable references and reuses them on result/resume/classified financial retry. requestId is correlation only, not HTTP inference-idempotence or replay authority. Caller cannot supply a fresh runId/control field or request another paid occurrence to repair uncertainty.",
+    "personalContext": "workspaceId:null is real personal/global context; entity target workspace authorization is a separate Studio obligation, never a fabricated conversation workspace",
+    "pending": "Actual native stage/IDs/suspendPayload + persisted verified FinancialBinding; supplied identifiers are lookups, never authority",
+    "financialOccurrence": "Read genuine native stepNumber/retryCount persisted with the immutable binding in the bridge suspension; validate optional native runId when supplied, never invent0 for missing counters. A result command cannot supply or override them."
+  },
+  "proof": {
+    "algorithm": "HS256",
+    "type": "copilot-tool-result",
+    "issuer": "tradinggoose-studio",
+    "audience": "tradinggoose-copilot-result",
+    "maximumLifetimeSeconds": 300,
+    "digest": "sha256(stableStringifyJsonValue(validated decoded JSON)); sort plain-record keys, preserve array order/string bytes",
+    "schema": "ProofClaims",
+    "ownerDependency": "Existing source progress and historical .4 generated consumer/proof helpers require exact .7 required-money DTO/parser adaptation and matching parent package/Studio selection. Provenance is not effect exclusion or runtime acceptance.",
+    "persistence": "Digest/immutable references only; no business result payload in proof or financial receipt"
+  },
+  "historyPayload": "Closed service envelope; parts is an intentional native JSON content slot validated against pinned MastraDBMessage types and output-safe projection. It is not a client bulk-write/control slot.",
+  "retired": [
+    "/api/tools/mark-complete",
+    "manual generation/control protocol",
+    "bulk Studio transcript mirror writes",
+    "raw OpenAI body/SSE passthrough",
+    "VNext usage.accepted/usageReports durable monetary report contract",
+    "unverified per-turn reload cost/token metrics",
+    "/api/tools/abort-turn callback protocol",
+    "/api/get-context-usage replaced by context.read",
+    "old per-turn reporting/statistics surface"
+  ],
+  "capabilityStatusFields": [
+    "proposed",
+    "independentlyReviewed",
+    "agreed",
+    "implemented",
+    "locallyRuntimeVerified",
+    "deployed"
+  ],
+  "financialInterface": {
+    "package": "@tradinggoose/billing",
+    "version": "0.2.0-dev.9",
+    "interfaceTargetResolved": true,
+    "creatorAccepted": false,
+    "parentSelectionFinal": true,
+    "authority": "../../../../vendor/billing-selection.json",
+    "publicAbi": "../public-financial-abi.json",
+    "manifestSha256": "7e7ffda22a618480d5d05801b8ef77d0048ab0ba64aad74c08cb73a4ea4ff008",
+    "tarballSha256": "3f6034c87633e9f0eca2e31719d2a0b31c72d4860541eedbbf6f15096ef646ed",
+    "sourceFingerprint": "db1d5e60b87f952c8b35cc73a5b1d5a97da2feb42a07fcfa6eb7323b2fd015c9",
+    "sourceFingerprintRecipe": "SHA256 UTF-8 JSON.stringify(manifest.sourceFiles/applicationFiles), preserve exact recorded row/key order; no resorting",
+    "entries": [
+      ".",
+      "./money",
+      "./schema"
+    ],
+    "callerOwnedTransaction": true,
+    "peers": {
+      "drizzle-orm": "0.44.7",
+      "postgres": "4.1.0"
+    },
+    "bundledPrivateDependency": {
+      "bignumber.js": "9.3.1"
+    },
+    "appliedUsd": {
+      "type": "Required canonical DecimalAmount string on every verified accepted FinancialFact",
+      "absence": "Refusal/operational failure, never fabricated zero or Number cast",
+      "zero": "0",
+      "validation": "typeof value==='string' && monetary(value)===value, catching rejection",
+      "moneyEntry": "@tradinggoose/billing/money",
+      "noFloatAdapter": true,
+      "internalOperationReceiptStillOptional": true
+    },
+    "administrationOwner": "Studio; no caller billable policy or Copilot workflow-only billable:false bypass",
+    "implementationBuild": {
+      "candidate": "0.2.0-dev.9",
+      "issued": true,
+      "studioLocalIntegrationSelected": true,
+      "parentCopilotSelected": true,
+      "jointFinalBuildAccepted": false,
+      "ownerEvidence": "Owner-attributedFIFTH single178PASS0FAIL0SKIP=151retained+26R12+1syntheticbenchmark/currentmodules+physicallyinstalledIDENTICALFINAL3f6034/rawpublic WITHOUTAPPpreguard. FOURpriorWHOLEFAIL175/3 UNKNOWNbenchmarksettlement,177/1readiness,177/1packet45869.615,177/1packet47286.380 remain; no sum/retrospectivePASS/body-timer-sample weakening. Complete sixmeasurement40406.216/original45000ms,scales0-10-1000/5warmups40samples/p95max116.886 syntheticclosedrows+oneanchor not businessoperations/USD/productionlatency/defaultcadenceSLA. Package176/imports/178nondata-skips overlap; strict66/separate71/priorlint unwaived, seams/unknownjoins/generalcredit-baseproration-F1 limitations; no Copilotfinancial/native/defaultfinance/joint acceptance.",
+      "membersAndReadiness": "Actual published public declarations and four partial plus unique identity index set; Studio-owned member/admin/provenance/DDL only",
+      "noGuessedFutureBuild": true,
+      "immutableCandidateResolvedForRequirementsReview": true,
+      "previousBuild": "dev.2/dev.3/dev.4/dev.5/dev.6/dev.7/dev.8 immutable history only; no runtime fallback"
+    },
+    "installedInCopilot": true,
+    "actualFinancialAccepted": false,
+    "finalReleaseBuildAccepted": false,
+    "applicationFingerprint": "c9aa144ce66de914f96418708069b955e982f0f85deda774ecae4c70fd84a5cd",
+    "readiness": {
+      "signature": "assertFinancialStorageReady(tx: FinancialTransaction): Promise<void>",
+      "callerUsesGenuineTransaction": true,
+      "cache": "Module-local WeakMap<object,true> keyed by exact passed transaction object, success only. New transaction object rechecks; failed checks never cache. No guarantee from reusing long-lived DB object as tx, no force/options/receipt/global-pool cache.",
+      "indexOwner": "Studio",
+      "catalog": "Read-only PG17 public.idempotency_key four partial + unique identity index exact definitions/flags",
+      "consumerDdl": false
+    },
+    "publicAbiOriginVersion": "0.2.0-dev.2",
+    "localIntegrationSelectionSha256": "eab1ad364183049c090311f1adc659a36ce85afae544865cbaf937e580b3ef9d",
+    "publicAbiDelta": {
+      "rootExports": {
+        "old": 66,
+        "new": 66,
+        "added": [],
+        "removed": []
+      },
+      "rootDtsSha256": "927f00d1d08cbdfcc9e1fc05ae00e72c4a5789f7e892e4d5a05ca66b8725f960",
+      "rootAndNestedIndexDtsChangedTogetherAndEqual": false,
+      "rootAndNestedIndexDtsEqual": true,
+      "allDtsUnchanged": 20,
+      "declarationChanges": [],
+      "moneyExports": 14,
+      "schemaExports": 77,
+      "moneySchemaJSDts": "Actual normal and independent frozen installed bytes equal previous selected dev8; all20DTS and runtime export membership unchanged, rootJS implementation changed",
+      "rootJsREADMEPackageVersionActuallyChanged": true,
+      "noServiceWireOrSchemaChangeSelected": true
+    }
+  },
+  "collectedConversationalSuccess": "ReadyResponse.threadId required, including first nonstream message. Stateless CompletionResponse has no threadId.",
+  "utilityOutcomes": {
+    "collectedFailure": "CompletionFailureResponse",
+    "streamTerminal": "CompletionEvent error/cancel variants",
+    "financialDisposition": [
+      "accepted",
+      "not_contacted",
+      "uncertain"
+    ],
+    "accepted": "Verified FinancialFact with required canonical-string appliedUsd, including exact0/high precision. Missing/invalid fact refuses; accepted durable facts survive later failure/cancel/publication and are never repriced/refunded/replayed.",
+    "not_contacted": "Positive authoritative refusal/predelegation/proven-unused evidence only; forbid acceptance assertion.",
+    "uncertain": "Possible contact or acceptance not verified; uncertain:true, protected facts/holds, no retry/refund or fabricated acceptance.",
+    "operationUncertainty": "uncertain is independent of already known financial acceptance; cancellation does not invent uncertainty after positively B-ready completion.",
+    "delivery": "Await required publication; present writer resolving/catching/skipping does not prove delivery. Closed/failed reader has no terminal-frame guarantee.",
+    "studioTitle": "Parse collected response, expose received financial metadata to existing caller error handling without a new financial mirror, success text trim/string/null; refusal/error/cancel returns null without replacing existing title or auto retry.",
+    "studioWand": "Preserve terminal financial outcome before error/cancel UI; commit content/history only on explicit successful done.result; no finally success/EOF commit/replay. Workflow long-input, Pine and custom-tool callbacks must not publish Yjs/domain values during preview; only explicit success commits. Discard failed preview without overwriting concurrent edits."
+  },
+  "contextMeter": {
+    "response": "ContextResponse labelled scoped thread-size evidence only; context.read has no model/window parameter",
+    "selectedModelAuthority": "Studio useCopilotStore().selectedModel / ModelSelector / COPILOT_RUNTIME_MODELS; reload uses actual initialized current store selection, never historical usage.model",
+    "windowAuthority": "Absent in current Studio runtime-model list, RegistryModel and /api/models; no fallback capacity permitted",
+    "currentUnavailableUI": "Resolved target remains hidden/unavailable percentage meter without a new context-inspection UI. Original selected consumer used contextUsage:null. Later unaccepted owner drift uses contextEvidence and a labelled evidence/controls pill rendered when !hideContextUsage && contextEvidence even without known capacity; actual owner consumer must adapt to target and joint-build acceptance, not rely silently on the retired property.",
+    "correlation": "Immediately clear on channel/scope/thread/model switch; refetch size; accept only same captured selection/thread/request generation/requestId; discard late/malformed responses and clear on failures",
+    "size": "context_estimate is labelled TokenCounter size; active_native_usage is genuine scoped current-run input-token evidence, not total/output or newly selected model occupancy; null/unavailable differs from actual zero",
+    "retiredAuthority": "DEFAULT_CONTEXT_WINDOW=128000 and old in-memory latest-usage fallback; no Copilot provider catalog or guessed capacity",
+    "media": "Unknown absent actual scoped native input usage; do not estimate base64 text or call asynchronous provider token endpoints."
+  },
+  "precontactFinancialSnapshot": {
+    "configuration": {
+      "api": "createDurableAgent({agent,shouldPersistSnapshot})",
+      "predicate": "({workflowStatus}) => ['pending','paused','suspended','running'].includes(workflowStatus)",
+      "engine": "default in-process",
+      "mastraRecovery": {
+        "workflows": "off",
+        "durableAgents": "off"
+      }
+    },
+    "why": "Recovery-off default omits ordinary running state; RequestContext in memory and pending placeholder do not establish persistence.",
+    "bindingKey": "copilot.financialBinding (service convention, not native field)",
+    "beforeGenerate": "Create original financial binding and trusted immutable scope, validate plain lossless JSON roundtrip, set service-owned RequestContext entries; no private capability serialization.",
+    "inputStepBarrier": "At every awaited processInputStep, before admitModelStep/physical delegation, require positive public persisted-original readback, genuine stepNumber/retryCount, optional runId comparison and current private invocation capability.",
+    "store": "await mastra.getStorage()?.getStore('workflows')",
+    "read": "getWorkflowRunById({runId,workflowName:'durable-agentic-loop'})",
+    "verify": [
+      "row.workflowName/runId",
+      "snapshot.runId",
+      "snapshot.context.input.__workflowKind===durable-agent",
+      "input.agentId/runId",
+      "conversational input.state.threadId/resourceId",
+      "input.requestContextEntries[service binding key] exact original FinancialBinding/scope/effective-context match"
+    ],
+    "stateless": "Verify actual run/agent/purpose/actor/workspace and any assigned resource, allow genuine absent thread without artificial history.",
+    "coldResume": "Load original persisted binding before resume; reject caller/options overrides; native restoration alone is insufficient because supplied context wins merges.",
+    "failure": "Unsupported policy/store/readback, absent/malformed/unreadable/omitted/lossy/mismatched original => refuse before physical contact, no in-memory/SQL/manual snapshot/control/recovery fallback. Protect/classify financial facts through package.",
+    "notTerminalAuthority": "Checkpoint is neither financial acceptance/replay authority nor a new terminal snapshot/cleanup join for policy B.",
+    "evidence": "../../consumer-snapshot-r7/snapshot-api-evidence.md",
+    "requiredRuntimeWitnesses": "../snapshot-binding-fixtures.json",
+    "sourceVerified": true,
+    "actualNativePersistenceRuntimeVerified": false
+  },
+  "consumerAgreement": {
+    "acceptedHistoricalRevision": "copilot-native/2026-11-08.4",
+    "targetRevision": "copilot-native/2026-11-09.8",
+    "targetExplicitStudioAgreement": false,
+    "generatedDtoParserAdaptationRequired": true,
+    "noDualAcceptOrEmit": true,
+    "previousSealedProposal": "copilot-native/2026-11-08.6",
+    "acceptedRequirementsBaselineRevision": "copilot-native/2026-11-08.6",
+    "acceptedRequirementsBaselineGoal": "r10, parent accepted independent PASS; no matching Studio .6 agreement or runtime capability inferred"
+  },
+  "coldOriginalManifest": "Before native cold resume reconstruct original persisted InvocationConfig/tool manifest/JSON schemas and caller semantic validators, reject missing/invalid/unsupported/replacement config; same genuine native binding, no new control store or validator bypass. Retained image content is reconstructed from currently authorized canonical native rows, not source tokens/private snapshot refs.",
+  "implementationOnlyBuildRule": "Actual compared implementation fix preserving exposed wire/monetary ABI/policy may be jointly selected without another wire version; material actual exposed DTO/policy differences require reconciliation/review/versioning.",
+  "generatedTypes": {
+    "file": "contract.d.ts",
+    "source": "contract.schema.json",
+    "provenance": "../type-validation.json",
+    "singleDtoAuthority": true,
+    "publicCanonicalMoneyGateRequired": true,
+    "checkpointApplicationStillUses": ".4",
+    "studioTargetAgreement": false
+  },
+  "images": {
+    "publicInput": "AIV5Type.ModelMessage user content via public @mastra/core/agent/message-list MessageListInput -> DurableAgent.generate/stream",
+    "wire": "Input.content string | ordered TextPart/ImagePart array; image/mediaType is selected V5 subset, no duplicate text field",
+    "inlineProfile": "Nonempty standard base64 data URL; explicit verified image mediaType must match header/source. Encoding does not prove decodability/model support. No URL/key/token/provider ref/options fetch authority.",
+    "sourceOwner": "Studio verifies complete actor/exact completed immutable object/Copilot context/media/validity/scope batch before any download, using trusted signed allocation/completion or authoritative existing asset. No prefix ownership, reverse RPC/new owner store/backfill/deletion.",
+    "sourcePatternStatus": "Initially pinned allocation-only/actor-less skipping helper is historical. Current owner server upload requests no overwrite, verifies stored byte size/hash/media then signs exact actor/object/context/media/storage identity/expiry claims; whole descriptor/proof/scope batch is checked before reads. Native route authorizes then returns503 without download/delegation; store still blocks images. Entire source/runtime/.7 target boundary remains unrun/unaccepted.",
+    "delivery": "Last plain awaited processLLMRequest checks actual finalized non-URL V2 file bytes/media/order against required current/retained native rows, abort retry:false if missing/placeholder/substituted; no model comprehension/retention guarantee.",
+    "persistence": "Selected exact attached raw native domain/readOnly public lifecycle with actual current-user/response/target readback under native fence. All verbatim/image/early-error/cold/history/context guarantees unchanged; no actual native PG retention or image-capacity proof.",
+    "retainedHistory": "Canonical native file data/mimeType parts and current scoped history auth survive source-token expiry. No short-lived token/unsigned key as durable authority or private snapshot encoding.",
+    "contextCompaction": "Deterministic copy-only pruning; protect current/system/tool/image input, keep raw history; zero model/financial work.",
+    "meter": "With media use scoped actual native input usage when available, otherwise null/unavailable; no base64-as-text/pixel formula/window guess or async token endpoint.",
+    "limits": "1,000,000 JSON nodes per RequestContext value, failed entries skipped; no image/string byte cap or unlimited/100MiB guarantee inferred from JSON.stringify/toPgJson. Actual media/runtime/provider/storage limits and retention need acceptance.",
+    "actualNativeRuntimeVerified": false,
+    "sourceBoundaryVerified": false,
+    "flatSourceAliases": {
+      "authority": "../../image-preservation/flat-source-alias-boundary.md",
+      "owner": "Studio before signing/retrieval/parsing/proxy/model contact",
+      "rule": "Unproved raw key/URL/caller context/generic route must refuse if actual effective physical destination overlaps or cannot be proved separate from protected Copilot sources. Exact authoritative actor/source or canonical asset/record scope required; whole config HMAC is not physical-store equality.",
+      "routing": "Use existing resolver/archive exclusion patterns and actual provider precedence/alias/redirect semantics; current config separation does not prove historical source boundary. Preserve proved canonical authorized paths and proved-disjoint public/general behavior.",
+      "copilotBoundary": "Authorized inline native content only; retained images use current scoped canonical native history independently of source-token expiry. No new locator/wire field/RPC/credential/owner DB/backfill/deletion.",
+      "operationalLimits": [
+        "historical destination mappings",
+        "CDN/DNS equivalence",
+        "cloud ACLs",
+        "revocation/invalidation of old external URLs"
+      ],
+      "actualBoundaryAcceptance": false
+    }
+  },
+  "businessEffects": {
+    "pendingAndProof": "Discovery/provenance, not consumptive effect claim",
+    "existingBounds": [
+      "same-review-token CAS/base-state",
+      "workflow executionId=toolCallId queue duplicate guards",
+      "Yjs request UUID/fingerprint",
+      "client/store instance/in-flight lifetime guards"
+    ],
+    "explicitFullSessionCreates": "Separate authorized create_workflow calls retain random entity-ID limitations; no global native-target exclusion promised",
+    "retries": "Result/resume/proof delivery/history recovery performs zero effect redispatch; supported authorized readback or explicit classified uncertainty, no uncertain non-idempotent retry",
+    "noNewCoordinatorClaimEndpointOrUniversalExactlyOnce": true
+  },
+  "ownerRequirementsRevision": "r15-schema-identity",
+  "initialTitle": {
+    "authority": "../../initial-title-preservation.md",
+    "baseline": "Existing live untitled empty-history stream-start and nonstream post-persistence caller; unconditional successful SQL title writes had no CAS. SQL mirror is retired.",
+    "canonicalUntitled": "Public Memory.createThread without title stores ''; service Thread.title projects native title ?? ''. Exactly '' is untitled; display fallback/New Chat/Untitled/whitespace is not absence.",
+    "armBeforeMessage": "One local initial candidate for omitted-threadId fresh interaction, or existing canonical title empty and positive complete scoped empty native history before send. UI-empty history/currentChat:null alone is not all native initial state. Capture invocation/scope/model/manual-title edit generation and original input.",
+    "timing": "Invoke optional utility once after first correlated valid ReadyResponse or SuspendedResponse (including corresponding streamed terminal); response.started supplies identity/correlation but alone does not establish persisted first-input/readback. Explicit selected timing differs from historical stream-start; no private cleanup/global conversation-readiness join, no title on failed/refused/cancelled main interaction.",
+    "identity": "Use actual correlated returned threadId/runId/requestId and scoped canonical native readback, never guessed/stale selected ID. Ready/Suspended require threadId; no new field needed.",
+    "preUtility": "Native title still exactly empty; scoped canonical first-input/history belongs to the captured initial interaction with no additional native user interaction. Use correlated response identity plus complete owned native history and threads list, not a display label. Failure/ambiguity skips optional utility without paid retry.",
+    "prompt": "Studio owns prompt/generation type and exact authenticated model/scope. Preserve original captured Input.content: a string stays exact; concatenate ordered text-part text strings with no added separator, excluding image parts, contexts, text attachments and filenames. Do not derive the prompt from all flattened native user text, since inert appended context/attachments are also text. Empty/whitespace-only actual input text skips utility before contact; no synthetic caption/new utility image DTO or prefix heuristic. Adapt trusted original-input flow using existing helper, not new Copilot wire fields.",
+    "utilitySuccess": "Only parsed final successful CompletionResponse/explicit done.result with required canonical-string accepted FinancialFact.appliedUsd and nonempty trimmed title can request thread.title; missing/invalid accepted money, null/error/refusal/cancel/EOF/partial yields no mutation or paid replay.",
+    "localGuards": "One attempt per captured local initial invocation; invalidate on manual edit from candidate capture, scope/channel/thread/model switch, new interaction, abort/reset/dispose. Recheck before utility/publication and after every await; stale results cannot mutate or replace current local title. These are local bounds, not cross-tab/server CAS.",
+    "mutation": "Existing thread.title command; require matching MutationResponse operation/thread then scoped paginated threads.list readback. Render actual current native title; separate concurrent successful update may win. Mutation error/uncertainty preserves financial facts, no auto utility/mutation replay or rollback.",
+    "noCasCoordinatorMirrorAutoInferenceOrGlobalReadyGate": true,
+    "currentSource": "New unaccepted live store/title-route source supersedes helper-only gap, but fresh-only/completed-only/canonical-absence/manual-edit gaps remain for target adaptation; actual caller/native/readback acceptance unrun."
+  },
+  "nativePersistence": {
+    "status": "Selected source-backed bounded public lifecycle design under complete parent functional-boundary adoption; actual native runtime acceptance unrun",
+    "transportRevisionChanged": false,
+    "completeSelectedPublicWriter": "Exact attached official MemoryStorage.saveMessages through genuine default-engine public input/output/iteration/tool/final seams, with positive actual readback gates",
+    "verbatimContractUnchanged": true,
+    "rejectedInheritedWriter": "MessageHistory.persistMessages, Memory.saveMessages/persistMessages and upstream SaveQueue filtering; no override/filter/private adapter/copy/escaping/cache",
+    "configuration": "Fixed attached passive readOnly Memory plus explicit original call-time and persisted cold/resume memory.options.readOnly:true; no MessageHistory/automatic history/semantic/working/OM/title processors, no writable queue toggle",
+    "rawPublicSignature": "MemoryStorage.saveMessages({messages:MastraDBMessage[],fence?:RunFence}):Promise<{messages:MastraDBMessage[]}>",
+    "nativeFenceConstraint": "Exact attached-store identity in genuine default engine scope; implicit native run fence, strict own claim/register/current lease preserved; no copied/manual fence or observer writer",
+    "selection": "Public get.input.db/get.response.db provenance: exact original current user plus genuine current-run response and exact native target updates only. Remove known service-private copilotExactArguments annotation from copies and replace only genuine top-level native diagnostic error parts with the exact fixed safe MastraErrorPart; preserve every nonerror functional native/provider field/signature and exact ordinary text/parts/media. No blanket all.db or UI/model conversion saves. Final response selection first uses public cloneForPersistence() to retain original identity/order across temporary final splits. Genuine current-run cumulative/native internal-tool updates and exact resumed target updates are allowed; unrelated recalled history is not.",
+    "idAndReadback": "Owned thread plus global-ID preflight; native stable ID/role/thread/resource/time; reject unrelated/conflicting duplicates/updates. Awaited raw save acknowledges the write transaction; returned normalized supplied rows and getPersisted tracking are not DB readback; actual listMessagesById/scoped paginated history compare by ID and restore genuine order. Actual DB content is compared as stored against the deliberately diagnostic-projected expected row; never pre-project actual readback to mask unsafe fields.",
+    "pendingAuthority": "Official workflow suspension/snapshots and supported scoped discovery/resume; pendingToolApprovals/suspendedTools copies not separately required without selected reader. Preserve genuine available required fields; generic SDK UI/channel/delegation/auto-resume consumers excluded, not universally unused.",
+    "lifecycle": "Input-step original binding/user/mapped result readback before contact; output-step financial acceptance then strict validation then actual call/text save/readback before tools/approval; bridge genuine suspension + available native rows; actual mapped result/error/denial/approval where supplied via iteration and independent next-input/final barriers; normal abort/final/error obligations explicit.",
+    "softenedErrorsAndCold": "Private predicate prevents live false success/effects/contact after softened callbacks; cold original native snapshot/manifest/validators/canonical call/financial/business facts govern and missing required facts refuse without synthetic repair/replay. Policy B known terminal errors remain classifiable; no terminal registry/universal private cleanup join/permanent busy from cleanup alone.",
+    "excludedHardDeadline": "Native modelSettings.timeout.totalMs is not set/exposed/selected; its early fence settlement cannot be treated as a late-writer capability. Ordinary native abort/HTTP cancellation gates remain required.",
+    "authority": "../../native-history-functional-boundary-adoption.md",
+    "studioDecisionSha256": "ed53ec4f24d2293b1189338163b9d4a9fcb0dfe57cef97e2b811d5592d835418",
+    "sourceEvidence": "../selected-public-path.md",
+    "supportedApiCounterexampleEstablished": false,
+    "financialAbiUnchanged": "Actual0.2dev2/.7 required canonical accepted money/readiness/member/schema ownership unchanged; no parent Copilot package selection inferred",
+    "actualNativePgRetentionVerified": false,
+    "readinessOrReleaseClaim": false,
+    "diagnosticProjection": {
+      "boundary": "../diagnostic-boundary.md",
+      "publicType": "MastraErrorPart from @mastra/core/agent/message-list",
+      "fixedPart": {
+        "type": "error",
+        "error": {
+          "name": "Error",
+          "message": "Native operation did not complete"
+        }
+      },
+      "selector": "Only genuine top-level native MastraDBMessage.content.parts diagnostic type:error; no recursive business matching",
+      "write": "Every selected canonical raw write on selected copies before application payload serialization/digest/write, after required public provenance/final clone; no original part/error spreads",
+      "readback": "Compare actual DB rows as stored to projected-safe expected rows; never project actual stored rows first and hide unsafe data",
+      "view": "Authorized history/context/continuation/summary safe view retains fixed error part and position; exact complete nonerror/nested business fields stay unchanged",
+      "privateSdkGlobalOrHistoricalCertification": false,
+      "actualNativeRuntimeVerified": false
+    }
+  },
+  "contextPruning": {
+    "implementation": "Public TokenLimiterProcessor prompt stage and ToolCallFilter over copied authorized input; no persisted cutoff/observations",
+    "modelContacts": 0,
+    "billed": false,
+    "response": "CompactResponse with boolean applied/sourceBoundaryVerified; no runId/financial/usage",
+    "contextView": "Native synchronous local text estimate or media null/unavailable; no hasObservations",
+    "terminal": "context.compacted only"
+  }
+}

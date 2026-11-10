@@ -1,10 +1,15 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { assertPublicStorageInput } from '@/lib/uploads/archive-boundary'
 import {
   type StorageProvider,
   USE_AZURE_STORAGE,
   USE_S3_STORAGE,
   USE_VERCEL_STORAGE,
 } from '@/lib/uploads/core/setup'
+import {
+  assertStorageDeleteAccess,
+  assertStorageReadAccess,
+} from '@/lib/uploads/source-read-boundary'
 import { sanitizeFileKey } from '@/lib/uploads/utils/file-utils'
 import { getStorageConfig, type StorageContext } from './config-resolver'
 import type { FileInfo } from './storage-client'
@@ -32,12 +37,14 @@ export interface UploadFileOptions {
   context: StorageContext
   preserveKey?: boolean // Skip timestamp prefix (for workspace/execution files)
   customKey?: string // Provide exact key to use (overrides fileName)
+  preventOverwrite?: boolean
   metadata?: Record<string, string>
 }
 
 export interface DownloadFileOptions {
   key: string
   context?: StorageContext
+  signal?: AbortSignal
 }
 
 export interface DeleteFileOptions {
@@ -65,7 +72,19 @@ export interface PresignedUrlResponse {
  * Upload a file to the configured storage provider with context-aware configuration
  */
 export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> {
-  const { file, fileName, contentType, context, preserveKey, customKey, metadata } = options
+  assertPublicStorageInput(options.fileName, options.context)
+  if (options.customKey) assertPublicStorageInput(options.customKey, options.context)
+
+  const {
+    file,
+    fileName,
+    contentType,
+    context,
+    preserveKey,
+    customKey,
+    metadata,
+    preventOverwrite,
+  } = options
 
   logger.info(`Uploading file to ${context} storage: ${fileName}`)
 
@@ -82,7 +101,15 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
       connectionString: config.connectionString,
     }
 
-    return uploadToAzure(file, keyToUse, contentType, azureConfig, file.length, preserveKey)
+    return uploadToAzure(
+      file,
+      keyToUse,
+      contentType,
+      azureConfig,
+      file.length,
+      preserveKey,
+      preventOverwrite
+    )
   }
 
   if (USE_VERCEL_STORAGE) {
@@ -93,7 +120,8 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
       contentType,
       createVercelConfig(config),
       file.length,
-      preserveKey
+      preserveKey,
+      preventOverwrite
     )
 
     return {
@@ -109,7 +137,15 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
       region: config.region!,
     }
 
-    return uploadToS3(file, keyToUse, contentType, s3Config, file.length, preserveKey)
+    return uploadToS3(
+      file,
+      keyToUse,
+      contentType,
+      s3Config,
+      file.length,
+      preserveKey,
+      preventOverwrite
+    )
   }
 
   logger.info('Using local file storage')
@@ -126,7 +162,7 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
 
   try {
     await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, file)
+    await writeFile(filePath, file, preventOverwrite ? { flag: 'wx' } : undefined)
   } catch (error) {
     logger.error(`Failed to write file to local storage: ${fileName}`, error)
     throw new Error(
@@ -147,7 +183,10 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
  * Download a file from the configured storage provider
  */
 export async function downloadFile(options: DownloadFileOptions): Promise<Buffer> {
-  const { key, context } = options
+  assertStorageReadAccess(options.key, options.context)
+
+  const { key, context, signal } = options
+  signal?.throwIfAborted()
 
   logger.info(`Downloading file: ${key}${context ? ` (context: ${context})` : ''}`)
 
@@ -162,12 +201,12 @@ export async function downloadFile(options: DownloadFileOptions): Promise<Buffer
         accountKey: config.accountKey,
         connectionString: config.connectionString,
       }
-      return downloadFromAzure(key, azureConfig)
+      return downloadFromAzure(key, azureConfig, signal)
     }
 
     if (USE_VERCEL_STORAGE) {
       const { downloadFromVercel } = await import('../providers/vercel/vercel-client')
-      return downloadFromVercel(key, createVercelConfig(config))
+      return downloadFromVercel(key, createVercelConfig(config), signal)
     }
 
     if (USE_S3_STORAGE) {
@@ -176,18 +215,20 @@ export async function downloadFile(options: DownloadFileOptions): Promise<Buffer
         bucket: config.bucket!,
         region: config.region!,
       }
-      return downloadFromS3(key, s3Config)
+      return downloadFromS3(key, s3Config, signal)
     }
   }
 
   const { downloadFile: defaultDownload } = await import('./storage-client')
-  return defaultDownload(key)
+  return defaultDownload(key, undefined, signal)
 }
 
 /**
  * Delete a file from the configured storage provider
  */
 export async function deleteFile(options: DeleteFileOptions): Promise<void> {
+  assertStorageDeleteAccess(options.key, options.context)
+
   const { key, context } = options
 
   logger.info(`Deleting file: ${key}${context ? ` (context: ${context})` : ''}`)
@@ -231,6 +272,8 @@ export async function deleteFile(options: DeleteFileOptions): Promise<void> {
 export async function generatePresignedUploadUrl(
   options: GeneratePresignedUrlOptions
 ): Promise<PresignedUrlResponse> {
+  assertPublicStorageInput(options.fileName, options.context)
+
   const {
     fileName,
     contentType,
@@ -403,6 +446,8 @@ export async function generatePresignedDownloadUrl(
   context: StorageContext,
   expirationSeconds = 3600
 ): Promise<string> {
+  assertStorageReadAccess(key, context)
+
   logger.info(`Generating presigned download URL for ${context}: ${key}`)
 
   const config = getStorageConfig(context)

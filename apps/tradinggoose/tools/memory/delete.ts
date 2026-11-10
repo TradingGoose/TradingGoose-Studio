@@ -4,7 +4,8 @@ import type { ToolConfig } from '@/tools/types'
 export const memoryDeleteTool: ToolConfig<any, MemoryResponse> = {
   id: 'memory_delete',
   name: 'Delete Memory',
-  description: 'Delete a specific memory by its ID',
+  description:
+    'Delete the current logical memory and its captured messages. The empty backing container is retained.',
   version: '1.0.0',
 
   params: {

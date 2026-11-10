@@ -7,6 +7,7 @@ describe('validateSeatAvailability', () => {
   const selectMock = vi.fn()
   const updateMock = vi.fn()
   const getOrganizationSubscriptionMock = vi.fn()
+  const updateFinancialSubscriptionMock = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -14,6 +15,8 @@ describe('validateSeatAvailability', () => {
     selectMock.mockReset()
     updateMock.mockReset()
     getOrganizationSubscriptionMock.mockReset()
+    updateFinancialSubscriptionMock.mockReset()
+    updateFinancialSubscriptionMock.mockResolvedValue(undefined)
 
     vi.doMock('@tradinggoose/db', () => ({
       db: {
@@ -35,6 +38,9 @@ describe('validateSeatAvailability', () => {
 
     vi.doMock('@/lib/billing/core/billing', () => ({
       getOrganizationSubscription: getOrganizationSubscriptionMock,
+    }))
+    vi.doMock('@/lib/billing/financial-subscriptions', () => ({
+      updateFinancialSubscription: updateFinancialSubscriptionMock,
     }))
 
     vi.doMock('@/lib/email/validation', () => ({
@@ -128,6 +134,7 @@ describe('validateSeatAvailability', () => {
       error: 'Cannot reduce seats below current occupied seat count (3)',
     })
     expect(updateMock).not.toHaveBeenCalled()
+    expect(updateFinancialSubscriptionMock).not.toHaveBeenCalled()
   })
 
   it('reports pending invitations in organization seat info', async () => {
@@ -173,5 +180,55 @@ describe('validateSeatAvailability', () => {
       subscriptionTierName: 'Team',
       canAddSeats: true,
     })
+  })
+  it('passes original seat/subscription and actor binding to the canonical mutation', async () => {
+    getOrganizationSubscriptionMock.mockResolvedValue({
+      id: 'sub-1',
+      seats: 3,
+      stripeSubscriptionId: 'stripe-original',
+      tier: { ownerType: 'organization', seatMode: 'adjustable', seatCount: 1 },
+    })
+    const countQuery = () => ({ from: () => ({ where: async () => [{ count: 1 }] }) })
+    selectMock.mockImplementation(countQuery)
+    const { updateOrganizationSeats } = await import('./seat-management')
+    await expect(updateOrganizationSeats('org-1', 4, 'actor')).resolves.toEqual({ success: true })
+    expect(updateFinancialSubscriptionMock).toHaveBeenCalledExactlyOnceWith(
+      'sub-1',
+      { seats: 4 },
+      { actorUserId: 'actor', expectedSeats: 3, expectedStripeSubscriptionId: 'stripe-original' }
+    )
+    expect(updateMock).not.toHaveBeenCalled()
+  })
+  it('retains financial mutation failures without a raw SQL alternative', async () => {
+    getOrganizationSubscriptionMock.mockResolvedValue({
+      id: 'sub-1',
+      seats: 3,
+      stripeSubscriptionId: 'stripe-original',
+      tier: { ownerType: 'organization', seatMode: 'adjustable', seatCount: 1 },
+    })
+    selectMock.mockImplementation(() => ({ from: () => ({ where: async () => [{ count: 1 }] }) }))
+    updateFinancialSubscriptionMock.mockRejectedValue(
+      new Error('Original financial binding changed')
+    )
+    const { updateOrganizationSeats } = await import('./seat-management')
+    await expect(updateOrganizationSeats('org-1', 4, 'actor')).resolves.toEqual({
+      success: false,
+      error: 'Original financial binding changed',
+    })
+    expect(updateMock).not.toHaveBeenCalled()
+  })
+  it('keeps Stripe seat quantities numeric and passes the original expected seats', async () => {
+    const { syncSeatsFromStripeQuantity } = await import('./seat-management')
+    await expect(syncSeatsFromStripeQuantity('sub-1', 3, 5)).resolves.toEqual({
+      synced: true,
+      previousSeats: 3,
+      newSeats: 5,
+    })
+    expect(updateFinancialSubscriptionMock).toHaveBeenCalledExactlyOnceWith(
+      'sub-1',
+      { seats: 5 },
+      { expectedSeats: 3 }
+    )
+    expect(updateMock).not.toHaveBeenCalled()
   })
 })

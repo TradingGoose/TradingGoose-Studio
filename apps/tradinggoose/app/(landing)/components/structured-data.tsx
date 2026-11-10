@@ -1,3 +1,4 @@
+import { compareMoney } from '@tradinggoose/billing/money'
 import { getLocale } from 'next-intl/server'
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingNarrative } from '@/lib/billing/public-catalog'
@@ -26,10 +27,13 @@ function buildStructuredOffers(
       eligibleRegion: { '@type': 'Place', name: 'Worldwide' },
     }
 
-    const hasMonthlyPrice = (tier.monthlyPriceUsd ?? 0) > 0
-    const hasYearlyPrice = (tier.yearlyPriceUsd ?? 0) > 0
+    const hasMonthlyPrice =
+      tier.monthlyPriceUsd !== null && compareMoney(tier.monthlyPriceUsd, '0') > 0
+    const hasYearlyPrice =
+      tier.yearlyPriceUsd !== null && compareMoney(tier.yearlyPriceUsd, '0') > 0
 
     if (!hasMonthlyPrice && !hasYearlyPrice) {
+      if (tier.monthlyPriceUsd === null && tier.yearlyPriceUsd === null) return baseOffer
       return {
         ...baseOffer,
         price: '0',
@@ -40,11 +44,11 @@ function buildStructuredOffers(
     if (hasYearlyPrice && !hasMonthlyPrice) {
       return {
         ...baseOffer,
-        price: `${tier.yearlyPriceUsd ?? 0}`,
+        price: tier.yearlyPriceUsd!,
         priceCurrency: 'USD',
         priceSpecification: {
           '@type': 'UnitPriceSpecification',
-          price: `${tier.yearlyPriceUsd ?? 0}`,
+          price: tier.yearlyPriceUsd!,
           priceCurrency: 'USD',
           unitText: 'YEAR',
           billingIncrement: 1,
@@ -54,11 +58,11 @@ function buildStructuredOffers(
 
     return {
       ...baseOffer,
-      price: `${tier.monthlyPriceUsd ?? 0}`,
+      price: tier.monthlyPriceUsd!,
       priceCurrency: 'USD',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: `${tier.monthlyPriceUsd ?? 0}`,
+        price: tier.monthlyPriceUsd!,
         priceCurrency: 'USD',
         unitText: 'MONTH',
         billingIncrement: 1,

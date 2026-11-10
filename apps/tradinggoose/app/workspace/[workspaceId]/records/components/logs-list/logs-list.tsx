@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { formatCost } from '@/lib/logs/cost'
 import { cn } from '@/lib/utils'
 import {
   getLogLevelOption,
@@ -215,9 +216,21 @@ export function LogsList({
                                   </TableCell>
                                   <TableCell className='px-4 py-3 text-center align-middle'>
                                     <div className='font-medium text-muted-foreground text-xs'>
-                                      {typeof (log as any)?.cost?.total === 'number'
-                                        ? `$${((log as any).cost.total as number).toFixed(4)}`
-                                        : '—'}
+                                      {log.cost?.estimated || log.cost?.status === 'estimated'
+                                        ? 'Estimated '
+                                        : ''}
+                                      {formatCost(log.cost?.total)}
+                                      {log.cost?.status === 'partial' ||
+                                      log.cost?.status === 'unavailable' ? (
+                                        <span>
+                                          {' '}
+                                          (
+                                          {log.cost?.estimated
+                                            ? 'estimated available'
+                                            : 'available'}
+                                          : {formatCost(log.cost?.availableTotal)})
+                                        </span>
+                                      ) : null}
                                     </div>
                                   </TableCell>
                                   <TableCell className='hidden px-4 py-3 text-center align-middle xl:table-cell'>

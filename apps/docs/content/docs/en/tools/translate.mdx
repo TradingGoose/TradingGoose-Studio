@@ -53,44 +53,42 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "API Key",
             "layout": "full",
             "placeholder": "Enter your API key",
-            "password": true,
-            "description": "Shown when applicable to the selected model at runtime."
-        },
-        {
-            "id": "azureEndpoint",
-            "type": "short-input",
-            "title": "Azure OpenAI Endpoint",
-            "layout": "full",
-            "placeholder": "https://your-resource.openai.azure.com",
-            "password": true,
-            "description": "Shown when model is one of 'azure/gpt-6.1-sol', 'azure/gpt-6-sol', 'azure/gpt-6-luna', 'azure/gpt-6-astra', 'azure/gpt-5.6-sol', 'azure/gpt-5.6-terra', 'azure/gpt-5.6-luna', 'azure/gpt-5.5', 'azure/gpt-5.4-pro', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano'."
+            "description": "Leave unset to use the configured Mastra connection.",
+            "password": true
         }
     ]}
   />
 </ShowcaseCard>
 
-## Input
+## Tools
+
+### `llm_chat`
+
+Send a chat completion request to any supported LLM provider
+
+#### Input
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `context` | string | Yes | Text to translate |
-| `targetLanguage` | string | Yes | Target language |
-| `model` | combobox | Yes | Model |
-| `apiKey` | string | No | Provider API key |
-| `azureEndpoint` | string | No | Azure OpenAI endpoint URL |
+| `model` | string | Yes | A listed Mastra provider/model identifier |
+| `systemPrompt` | string | No | System prompt to set the behavior of the assistant |
+| `context` | string | Yes | The user message or context to send to the model |
+| `temperature` | number | No | Temperature for response generation, where supported by the selected model |
+| `maxTokens` | number | No | Maximum tokens in the response |
 
-## Output
+#### Output
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `content` | string | Translated text |
-| `model` | string | Model used |
-| `tokens` | json | Token usage |
+| `content` | string | The generated response content |
+| `model` | string | The model used for generation |
+| `tokens` | object | Available native token usage |
+| `cost` | object | Model cost in USD is unavailable |
 
 
 ## Usage Instructions
 
-Translate text to any language. The model list is loaded at runtime from the base, Ollama, and OpenRouter models available to the deployment.
+Translate text to any language. The model list comes from the configured Mastra registry.
 
 
 

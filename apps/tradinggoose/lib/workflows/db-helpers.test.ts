@@ -1084,8 +1084,6 @@ describe('Database Helpers', () => {
         workspaceId: null,
         entityKind: 'workflow',
         entityId: mockWorkflowId,
-        draftSessionId: null,
-        reviewSessionId: null,
         yjsSessionId: mockWorkflowId,
       })
       expect(result).toMatchObject({

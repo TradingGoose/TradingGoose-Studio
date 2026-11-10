@@ -4,11 +4,24 @@ import fsPromises, { readFile } from 'fs/promises'
 import path from 'path'
 import binaryExtensionsList from 'binary-extensions'
 import { type NextRequest, NextResponse } from 'next/server'
+import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { isSupportedFileType, parseFile } from '@/lib/file-parsers'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { isUsingCloudStorage, type StorageContext, StorageService } from '@/lib/uploads'
+import { fetchPublicStorageUrl } from '@/lib/uploads/archive-boundary'
+import { isCopilotSourceReference } from '@/lib/uploads/contexts/copilot/source-proof'
+import {
+  resolveAuthorizedWorkspaceFileReference,
+  type WorkspaceFileRecord,
+} from '@/lib/uploads/contexts/workspace'
 import { UPLOAD_DIR_SERVER } from '@/lib/uploads/core/setup.server'
+import {
+  assertStorageReferenceAccess,
+  PrivateSourceAccessError,
+  withAuthorizedStorageRead,
+} from '@/lib/uploads/source-read-boundary'
 import { extractStorageKey } from '@/lib/uploads/utils/file-utils'
 import '@/lib/uploads/core/setup.server'
 
@@ -89,6 +102,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No file path provided' }, { status: 400 })
     }
 
+    const actor = await checkHybridAuth(request, { requireWorkflowId: false })
+    if (workspaceId !== undefined) {
+      if (typeof workspaceId !== 'string' || !workspaceId.trim())
+        return NextResponse.json(
+          { success: false, error: 'Invalid workspace scope' },
+          { status: 400 }
+        )
+      if (
+        !actor.success ||
+        !actor.userId ||
+        !(await checkWorkspaceAccess(workspaceId, actor.userId)).hasAccess
+      )
+        throw new PrivateSourceAccessError()
+    }
+    const workspaceFiles = new Map<string, WorkspaceFileRecord>()
+    for (const reference of Array.isArray(filePath) ? filePath : [filePath]) {
+      if (typeof reference !== 'string')
+        return NextResponse.json(
+          { success: false, error: 'Invalid file reference' },
+          { status: 400 }
+        )
+      if (!reference.trim()) continue
+      const file = await resolveAuthorizedWorkspaceFileReference(
+        reference,
+        actor.success ? actor.userId : undefined
+      )
+      if (file) workspaceFiles.set(reference, file)
+      else assertStorageReferenceAccess(reference)
+    }
+
+    const parseReference = (reference: string) => {
+      const file = workspaceFiles.get(reference)
+      return file
+        ? withAuthorizedStorageRead(file.key, 'workspace', () =>
+            handleCloudFile(file.key, fileType, 'workspace')
+          )
+        : parseFileSingle(reference, fileType, workspaceId)
+    }
+
     logger.info('File parse request received:', { filePath, fileType, workspaceId })
 
     if (Array.isArray(filePath)) {
@@ -103,7 +155,7 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        const result = await parseFileSingle(path, fileType, workspaceId)
+        const result = await parseReference(path)
         if (result.metadata) {
           result.metadata.processingTime = Date.now() - startTime
         }
@@ -131,7 +183,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const result = await parseFileSingle(filePath, fileType, workspaceId)
+    const result = await parseReference(filePath)
 
     if (result.metadata) {
       result.metadata.processingTime = Date.now() - startTime
@@ -159,7 +211,7 @@ export async function POST(request: NextRequest) {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         filePath: '',
       },
-      { status: 500 }
+      { status: error instanceof PrivateSourceAccessError ? error.status : 500 }
     )
   }
 }
@@ -172,6 +224,9 @@ async function parseFileSingle(
   fileType?: string,
   workspaceId?: string
 ): Promise<ParseResult> {
+  assertStorageReferenceAccess(filePath)
+  if (isCopilotSourceReference(filePath) || /[?&]context=copilot(?:&|$)/.test(filePath))
+    throw new Error('Copilot images require authenticated source authorization')
   logger.info('Parsing file:', filePath)
 
   if (!filePath || filePath.trim() === '') {
@@ -301,14 +356,15 @@ async function handleExternalUrl(
         const workspaceFiles = await listWorkspaceFiles(workspaceId)
         const existingFile = workspaceFiles.find((f) => f.name === filename)
 
-        if (existingFile) {
-          const storageFilePath = `/api/files/serve/${existingFile.key}`
-          return handleCloudFile(storageFilePath, fileType, 'workspace')
+        if (existingFile && existingFile.workspaceId === workspaceId) {
+          return withAuthorizedStorageRead(existingFile.key, 'workspace', () =>
+            handleCloudFile(existingFile.key, fileType, 'workspace')
+          )
         }
       }
     }
 
-    const response = await fetch(url, {
+    const response = await fetchPublicStorageUrl(url, {
       signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     })
     if (!response.ok) {
@@ -334,7 +390,10 @@ async function handleExternalUrl(
         const { uploadWorkspaceFile } = await import('@/lib/uploads/contexts/workspace')
 
         const session = await getSession()
-        if (session?.user?.id) {
+        if (
+          session?.user?.id &&
+          (await checkWorkspaceAccess(workspaceId, session.user.id)).canWrite
+        ) {
           const mimeType = response.headers.get('content-type') || getMimeType(extension)
           await uploadWorkspaceFile(workspaceId, session.user.id, buffer, filename, mimeType)
           logger.info(`Saved URL file to workspace storage: ${filename}`)

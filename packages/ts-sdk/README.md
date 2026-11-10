@@ -183,10 +183,14 @@ interface UsageLimits {
     async: { isLimited: boolean; limit: number; remaining: number; resetAt: string };
     authType: string;
   };
-  usage: { currentPeriodCost: number; limit: number; tier: Record<string, unknown> };
+  usage: { currentPeriodCost: string; limit: string | null; tier: Record<string, unknown> };
   storage: { usedBytes: number; limitBytes: number; percentUsed: number };
 }
 ```
+
+### Breaking usage money contract
+
+Usage money now crosses JSON as exact decimal strings: `currentPeriodCost: "9007199254740993.30000000000000001"` and `limit: "100"` or `null` for an unlimited budget. Nested tier prices, allowances and billing multipliers also remain decimal strings (or configured `null`). This replaces the previous numeric money ABI. Update numeric consumers; preserve strings for storage and use exact decimal arithmetic when needed. Do not convert these values with `Number`, `parseFloat` or `toFixed`. Rate limits, seat counts and storage byte/percentage fields remain numbers. The SDK preserves the response payload without monetary coercion.
 
 ### WorkflowExecutionResult
 

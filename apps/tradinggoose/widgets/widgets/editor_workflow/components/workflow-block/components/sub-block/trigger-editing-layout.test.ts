@@ -164,7 +164,7 @@ describe('trigger-editing-layout', () => {
               condition: { field: 'model', value: 'reasoning-model' },
             },
             {
-              id: 'thinkingLevel',
+              id: 'providerOptions',
               type: 'dropdown',
               additional: true,
               condition: { field: 'model', value: 'other-model' },

@@ -6,11 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { planMarketSeriesRequest } from '@/providers/market/series-planner'
 import type { MarketLiveRequest, MarketSeriesRequest } from '@/providers/market/types'
 
-const { fetchMock, mockResolveListingContext, mockResolveProviderSymbol } = vi.hoisted(() => ({
-  fetchMock: vi.fn(),
-  mockResolveListingContext: vi.fn(),
-  mockResolveProviderSymbol: vi.fn(),
-}))
+const { fetchMock, mockMarketRequest, mockResolveListingContext, mockResolveProviderSymbol } =
+  vi.hoisted(() => ({
+    fetchMock: vi.fn(),
+    mockMarketRequest: vi.fn(),
+    mockResolveListingContext: vi.fn(),
+    mockResolveProviderSymbol: vi.fn(),
+  }))
+
+vi.mock('@/lib/market/client', () => ({ marketClient: { makeRequest: mockMarketRequest } }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
@@ -67,6 +71,9 @@ describe('fetchFinnhubSeries', () => {
       timeZoneName: 'America/New_York',
     })
     mockResolveProviderSymbol.mockReturnValue('AAPL')
+    mockMarketRequest.mockImplementation(() => {
+      throw new Error('Unexpected Market session-service request outside its explicit fixture')
+    })
   })
 
   afterEach(() => {
@@ -262,6 +269,15 @@ describe('fetchFinnhubSeries', () => {
 
   it('uses the prior Finnhub trading date for quote change and the current date for volume', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-26T17:00:00Z'))
+    const hours = {
+      isHoliday: false,
+      timeZone: { name: 'America/New_York', utcOffset: '-04:00' },
+      marketHors: { premarket: null, market: { start: '09:30', end: '16:00' }, postmarket: null },
+    }
+    mockMarketRequest.mockResolvedValue({
+      success: true,
+      data: { data: { '2026-10-23': hours, '2026-10-26': hours } },
+    })
     fetchMock.mockImplementation(async (url: string) =>
       Response.json(
         new URL(url).searchParams.get('resolution') === 'D'
@@ -284,6 +300,13 @@ describe('fetchFinnhubSeries', () => {
     })
     expect(quote).toMatchObject({ lastPrice: 151.73, previousClose: 150, volume: 20 })
     expect(quote.change).toBeCloseTo(1.73)
+    expect(mockMarketRequest).toHaveBeenCalledOnce()
+    const calendarUrl = new URL(
+      mockMarketRequest.mock.calls[0][0],
+      'https://market.fixture.invalid'
+    )
+    expect(calendarUrl.pathname).toBe('/api/get/market-hours')
+    expect(calendarUrl.searchParams.get('listing_id')).toBe('AAPL')
   })
 
   it.each([

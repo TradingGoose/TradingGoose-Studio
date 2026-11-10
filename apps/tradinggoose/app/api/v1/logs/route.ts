@@ -4,9 +4,11 @@ import { and, eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
+import { publicTraceSpans } from '@/lib/logs/public'
 import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { normalizeOptionalString } from '@/lib/utils'
+import { hydrateAuthorizedLog } from '@/lib/workflow-archive/functional'
 import { parseListingFilter } from '@/app/api/logs/log-utils'
 import { buildLogFilters, getOrderBy } from '@/app/api/v1/logs/filters'
 import { createApiResponse, getUserLimits } from '@/app/api/v1/logs/meta'
@@ -230,52 +232,52 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const formattedLogs = data.map((log) => {
-      const workflowSummary = readWorkflowSummary(log.workflowSummary)
-      const workflowId = log.workflowId ?? workflowSummary.id ?? null
-      const result: any = {
-        id: log.id,
-        workflowId,
-        executionId: log.executionId,
-        level: log.level,
-        trigger: log.trigger,
-        startedAt: log.startedAt.toISOString(),
-        endedAt: log.endedAt?.toISOString() || null,
-        totalDurationMs: log.totalDurationMs,
-        cost: log.cost ? { total: (log.cost as any).total } : null,
-        files: log.files || null,
-      }
-
-      if (params.details === 'full') {
-        result.workflow = {
-          id: workflowId,
-          name: log.workflowName ?? workflowSummary.name ?? null,
-          description: log.workflowDescription ?? workflowSummary.description ?? null,
+    const formattedLogs = await Promise.all(
+      data.map(async (sourceLog) => {
+        const log =
+          params.details === 'full' ? await hydrateAuthorizedLog(sourceLog, userId) : sourceLog
+        const workflowSummary = readWorkflowSummary(log.workflowSummary)
+        const workflowId = log.workflowId ?? workflowSummary.id ?? null
+        const result: any = {
+          id: log.id,
+          workflowId,
+          executionId: log.executionId,
+          level: log.level,
+          trigger: log.trigger,
+          startedAt: log.startedAt.toISOString(),
+          endedAt: log.endedAt?.toISOString() || null,
+          totalDurationMs: log.totalDurationMs,
+          cost: log.cost || null,
+          files: log.files || null,
         }
 
-        if (log.cost) {
-          result.cost = log.cost
+        if (params.details === 'full') {
+          result.workflow = {
+            id: workflowId,
+            name: log.workflowName ?? workflowSummary.name ?? null,
+            description: log.workflowDescription ?? workflowSummary.description ?? null,
+          }
+
+          if (log.executionData) {
+            const execData = log.executionData as any
+            if (
+              (params.includeFinalOutput || params.includeTraceSpans) &&
+              typeof execData.errorMessage === 'string'
+            ) {
+              result.errorMessage = execData.errorMessage
+            }
+            if (params.includeFinalOutput && execData.finalOutput !== undefined) {
+              result.finalOutput = execData.finalOutput
+            }
+            if (params.includeTraceSpans && execData.traceSpans) {
+              result.traceSpans = publicTraceSpans(execData.traceSpans)
+            }
+          }
         }
 
-        if (log.executionData) {
-          const execData = log.executionData as any
-          if (
-            (params.includeFinalOutput || params.includeTraceSpans) &&
-            typeof execData.errorMessage === 'string'
-          ) {
-            result.errorMessage = execData.errorMessage
-          }
-          if (params.includeFinalOutput && execData.finalOutput !== undefined) {
-            result.finalOutput = execData.finalOutput
-          }
-          if (params.includeTraceSpans && execData.traceSpans) {
-            result.traceSpans = execData.traceSpans
-          }
-        }
-      }
-
-      return result
-    })
+        return result
+      })
+    )
 
     // Get user's workflow execution limits and usage
     const limits = await getUserLimits(userId)

@@ -375,7 +375,7 @@ describe('NodeEditorPanel', () => {
       mockSelectedBlock.advancedMode = advancedMode
       mockBlockConfig.subBlocks = [
         { id: 'model', title: 'Model', type: 'combobox' },
-        { id: 'thinkingLevel', title: 'Thinking Level', type: 'dropdown', additional: true },
+        { id: 'providerOptions', title: 'Provider Options', type: 'dropdown', additional: true },
       ]
       reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
       container = document.createElement('div')
@@ -405,10 +405,10 @@ describe('NodeEditorPanel', () => {
     'shows configured additional fields when protected=%s',
     (protectedBlock) => {
       mockBlockProtection = protectedBlock
-      mockSelectedBlock.subBlocks = { thinkingLevel: { value: 'high' } }
+      mockSelectedBlock.subBlocks = { providerOptions: { value: 'high' } }
       mockBlockConfig.subBlocks = [
         { id: 'model', title: 'Model', type: 'combobox' },
-        { id: 'thinkingLevel', title: 'Thinking Level', type: 'dropdown', additional: true },
+        { id: 'providerOptions', title: 'Provider Options', type: 'dropdown', additional: true },
       ]
 
       const markup = renderToStaticMarkup(

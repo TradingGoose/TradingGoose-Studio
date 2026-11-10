@@ -1,17 +1,24 @@
-import { db, knowledgeBase, permissions, workflow, workspace } from '@tradinggoose/db'
+import { knowledgeBase, permissions, workflow, workspace } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { lockMemoryOwners } from '@/lib/mastra/memory-locks'
+import { cleanupOrphanWorkflowMemory } from '@/lib/mastra/workflow-memory'
 import {
   checkWorkspaceAccess,
   getUserEntityPermissions,
   getWorkspaceById,
 } from '@/lib/permissions/utils'
 import {
-  resolveWorkspaceBillingOwnerUpdate,
+  ArchiveBusyError,
+  assertWorkspaceArchiveDeletionInTx,
+  prepareWorkspaceArchiveDeletion,
+} from '@/lib/workflow-archive/lifecycle'
+import {
   toWorkspaceApiRecord,
+  updateWorkspaceFinancialBinding,
   WorkspaceBillingOwnerUpdateError,
   workspaceBillingOwnerSchema,
 } from '@/lib/workspaces/billing-owner'
@@ -86,44 +93,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
     }
 
-    const updateData: Record<string, unknown> = {}
-
-    if (name !== undefined) {
-      updateData.name = name
-    }
-
-    if (allowPersonalApiKeys !== undefined) {
-      updateData.allowPersonalApiKeys = allowPersonalApiKeys
-    }
-
-    if (billingOwner !== undefined) {
-      Object.assign(
-        updateData,
-        await resolveWorkspaceBillingOwnerUpdate({
-          actingUserId: session.user.id,
-          workspaceId,
-          workspaceOwnerId: existingWorkspace.ownerId,
-          billingOwner,
-        })
-      )
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return NextResponse.json({ error: 'No valid updates provided' }, { status: 400 })
-    }
-
-    await db
-      .update(workspace)
-      .set({
-        ...updateData,
-        updatedAt: new Date(),
-      })
-      .where(eq(workspace.id, workspaceId))
-
-    const updatedWorkspace = await getWorkspaceById(workspaceId)
-    if (!updatedWorkspace) {
-      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
-    }
+    const updatedWorkspace = await updateWorkspaceFinancialBinding({
+      actingUserId: session.user.id,
+      workspaceId,
+      billingOwner,
+      updates: {
+        ...(name !== undefined ? { name } : {}),
+        ...(allowPersonalApiKeys !== undefined ? { allowPersonalApiKeys } : {}),
+      },
+    })
 
     return NextResponse.json({
       workspace: {
@@ -178,10 +156,20 @@ export async function DELETE(
   try {
     logger.info(`Deleting workspace ${workspaceId} for user ${session.user.id}`)
 
+    await prepareWorkspaceArchiveDeletion(workspaceId)
+    const deletedWorkflowIds: string[] = []
     await runYjsDrainFencedTransaction({ workspaceIds: [workspaceId] }, async (tx) => {
+      await assertWorkspaceArchiveDeletionInTx(tx, workspaceId)
       for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
         await lockSavedEntityList(tx, entityKind, workspaceId)
       }
+
+      const memoryOwners = await tx
+        .select({ id: workflow.id })
+        .from(workflow)
+        .where(eq(workflow.workspaceId, workspaceId))
+      deletedWorkflowIds.push(...memoryOwners.map(({ id }) => id))
+      await lockMemoryOwners(tx, workspaceId, deletedWorkflowIds)
 
       // Delete live workflow definitions first. Durable execution logs and snapshots
       // remain workspace-owned until the workspace row is deleted below.
@@ -196,8 +184,17 @@ export async function DELETE(
       await tx.delete(workspace).where(eq(workspace.id, workspaceId))
     })
 
+    for (const workflowId of deletedWorkflowIds)
+      await cleanupOrphanWorkflowMemory(workspaceId, workflowId).catch((error) =>
+        logger.error('Native Memory cleanup deferred after workspace deletion', {
+          error,
+          workflowId,
+        })
+      )
     return NextResponse.json({ success: true })
   } catch (error) {
+    if (error instanceof ArchiveBusyError)
+      return NextResponse.json({ error: error.message }, { status: error.status })
     const realtimeResponse = createSavedEntityErrorResponse(error)
     if (realtimeResponse) return realtimeResponse
     logger.error(`Error deleting workspace ${workspaceId}:`, error)

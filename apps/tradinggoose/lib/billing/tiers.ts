@@ -1,3 +1,9 @@
+import {
+  type DecimalAmount,
+  decimalFromSafeInteger,
+  monetary,
+  multiplyMoney,
+} from '@tradinggoose/billing/money'
 import { db } from '@tradinggoose/db'
 import { type subscription, systemBillingTier } from '@tradinggoose/db/schema'
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
@@ -47,36 +53,14 @@ type SubscriptionScopeRecord = {
   tier?: BillingTierRecord | null
 }
 
-export function parseBillingAmount(value: string | number | null | undefined): number {
-  if (value === null || value === undefined) {
-    return 0
-  }
-
-  const parsed = Number.parseFloat(value.toString())
-  return Number.isFinite(parsed) ? Math.max(parsed, 0) : 0
+function parseOptionalBillingAmount(value: string | null): DecimalAmount | null {
+  return value === null ? null : monetary(value)
 }
-
-function parseOptionalBillingAmount(value: string | number | null | undefined): number | null {
-  return value === null || value === undefined ? null : parseBillingAmount(value)
-}
-
-function parseBillingAmountWithFallback(
-  value: string | number | null | undefined,
-  fallback: number
-): number {
-  if (value === null || value === undefined) {
-    return fallback
-  }
-
-  const parsed = Number.parseFloat(value.toString())
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
-}
-
 export function isFreeBillingTier(tier: BillingTierRecord | null | undefined): boolean {
   return Boolean(
     tier &&
-      parseBillingAmount(tier.monthlyPriceUsd) <= 0 &&
-      parseBillingAmount(tier.yearlyPriceUsd) <= 0
+      (tier.monthlyPriceUsd === null ? '0' : monetary(tier.monthlyPriceUsd)) === '0' &&
+      (tier.yearlyPriceUsd === null ? '0' : monetary(tier.yearlyPriceUsd)) === '0'
   )
 }
 
@@ -104,16 +88,20 @@ export function usesIndividualBillingLedger(tier: BillingTierRecord | null | und
   return Boolean(tier && tier.usageScope === 'individual')
 }
 
-export function getTierBasePrice(tier: BillingTierRecord | null | undefined): number {
-  return parseBillingAmount(tier?.monthlyPriceUsd)
+export function getTierBasePrice(tier: BillingTierRecord | null | undefined): DecimalAmount | null {
+  return !tier || tier.monthlyPriceUsd === null ? null : monetary(tier.monthlyPriceUsd)
 }
-
-export function getTierIncludedUsageLimit(tier: BillingTierRecord | null | undefined): number {
-  return parseBillingAmount(tier?.includedUsageLimitUsd)
+export function getTierIncludedUsageLimit(
+  tier: BillingTierRecord | null | undefined
+): DecimalAmount {
+  if (!tier) throw new Error('Required billing tier is missing')
+  // A nullable configured credit means no included credit; an absent/malformed field is unknown.
+  return tier.includedUsageLimitUsd === null ? '0' : monetary(tier.includedUsageLimitUsd)
 }
-
-export function getTierUsageAllowanceUsd(tier: BillingTierRecord | null | undefined): number {
-  return parseBillingAmount(tier?.includedUsageLimitUsd)
+export function getTierUsageAllowanceUsd(
+  tier: BillingTierRecord | null | undefined
+): DecimalAmount {
+  return getTierIncludedUsageLimit(tier)
 }
 
 export function getSubscriptionUsageAllowanceUsd(
@@ -125,17 +113,17 @@ export function getSubscriptionUsageAllowanceUsd(
       }
     | null
     | undefined
-): number {
+): DecimalAmount {
   const tier: BillingTierRecord | null | undefined =
     source && 'tier' in source ? source.tier : (source as BillingTierRecord | null | undefined)
-  const seats = source && 'tier' in source ? Math.max(source.seats || 1, 1) : 1
+  const seats = source && 'tier' in source ? (source.seats ?? 1) : 1
+  if (!Number.isSafeInteger(seats) || seats < 1)
+    throw new RangeError('Billing seats must be a positive safe integer')
 
-  if (!tier) {
-    return 0
-  }
+  if (!tier) throw new Error('Required financial tier/basis is missing')
 
   if (usesSeatBasedBilling(tier)) {
-    return seats * getTierUsageAllowanceUsd(tier)
+    return multiplyMoney(decimalFromSafeInteger(seats), getTierUsageAllowanceUsd(tier))
   }
 
   return getTierUsageAllowanceUsd(tier)
@@ -175,19 +163,10 @@ export function toBillingTierSummary(
     canEditUsageLimit: tier.canEditUsageLimit,
     canConfigureSso: tier.canConfigureSso,
     logRetentionDays: tier.logRetentionDays ?? null,
-    workflowExecutionMultiplier: parseBillingAmountWithFallback(
-      tier.workflowExecutionMultiplier,
-      1
-    ),
-    workflowModelCostMultiplier: parseBillingAmountWithFallback(
-      tier.workflowModelCostMultiplier,
-      1
-    ),
-    functionExecutionMultiplier: parseBillingAmountWithFallback(
-      tier.functionExecutionMultiplier,
-      1
-    ),
-    copilotCostMultiplier: parseBillingAmountWithFallback(tier.copilotCostMultiplier, 1),
+    workflowExecutionMultiplier: monetary(tier.workflowExecutionMultiplier),
+    workflowModelCostMultiplier: monetary(tier.workflowModelCostMultiplier),
+    functionExecutionMultiplier: monetary(tier.functionExecutionMultiplier),
+    copilotCostMultiplier: monetary(tier.copilotCostMultiplier),
     pricingFeatures: tier.pricingFeatures,
     isPublic: tier.isPublic,
     hasStripeMonthlyPriceId: Boolean(tier.stripeMonthlyPriceId),
@@ -202,26 +181,11 @@ export function getTierRateLimits(tier: BillingTierRecord | null | undefined) {
   }
 }
 
-export function getTierWorkflowModelCostMultiplier(
+export function getTierCopilotCostMultiplier(
   tier: BillingTierRecord | null | undefined
-): number {
-  return parseBillingAmountWithFallback(tier?.workflowModelCostMultiplier, 1)
-}
-
-export function getTierWorkflowExecutionMultiplier(
-  tier: BillingTierRecord | null | undefined
-): number {
-  return parseBillingAmountWithFallback(tier?.workflowExecutionMultiplier, 1)
-}
-
-export function getTierFunctionExecutionMultiplier(
-  tier: BillingTierRecord | null | undefined
-): number {
-  return parseBillingAmountWithFallback(tier?.functionExecutionMultiplier, 1)
-}
-
-export function getTierCopilotCostMultiplier(tier: BillingTierRecord | null | undefined): number {
-  return parseBillingAmountWithFallback(tier?.copilotCostMultiplier, 1)
+): DecimalAmount {
+  if (!tier) throw new Error('Required financial billing tier is missing')
+  return monetary(tier.copilotCostMultiplier)
 }
 
 function getSubscriptionDateValue(value: Date | null | undefined): number {

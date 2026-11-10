@@ -149,7 +149,7 @@ describe('WorkflowBlock localization', () => {
         subBlocks: {
           model: { value: 'reasoning-model' },
           reasoningEffort: { value: 'high' },
-          thinkingLevel: { value: 'high' },
+          providerOptions: { value: 'high' },
           temperature: { value: '' },
         },
       }
@@ -172,7 +172,7 @@ describe('WorkflowBlock localization', () => {
                   additional: true,
                 },
                 {
-                  id: 'thinkingLevel',
+                  id: 'providerOptions',
                   title: 'Unsupported thinking control',
                   type: 'dropdown',
                   additional: true,

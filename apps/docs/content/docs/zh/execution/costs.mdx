@@ -5,41 +5,27 @@ title: 费用计算
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 
-TradingGoose 计量工作流执行、模型使用量以及 Function/自定义工具运行时间。费用根据工作区用户或组织账单负责人的计费配置和生效层级计算。
+TradingGoose 为工作区原始的用户或组织账单负责人记录已接受的产品费用。共享财务策略在执行和恢复过程中保留原始操作者、计费周期和报价。
 
-## 费用如何计算
+## 实际计入的费用
 
-启用计费时，用量可包含三类费用：
+- **工作流执行**：使用原始报价保存的基础费用和层级执行倍率。同一次逻辑执行只结算一次基础费用，子工作流单独结算。
+- **Function 和自定义工具运行**：使用已保存的每秒费用和 Function 倍率，乘以实际运行毫秒数再除以 1000。已接触运行环境的尝试即使代码失败，也可能产生这项费用。
+- **模型和嵌入工作**：每个实际步骤或批次都需要财务准入和已验证的接受结果。当前集成无法提供通用原生模型的美元费用。Token 数量不能证明美元费用，缺少提供商价格也不会被视为已知的零费用。
 
-- **执行费用**：配置的工作流费用乘以层级执行乘数，以该次执行保存的计费报价为准。
-- **AI 模型使用量**：每个执行跨度记录的提供商模型费用乘以该报价中保存的层级模型费用乘数。
-- **Function 运行费用**：配置的每秒 Function 费用乘以运行秒数和当前层级的 Function 执行乘数。Function/自定义工具运行费用单独累计，运行后失败的尝试也可能计费。
+金额、限额、额度、倍率和收据均使用精确的十进制字符串。Function 费用保留完整的小数精度，不进行六位小数量化。金额显示可以为便于阅读而四舍五入。开票时按已规定的半入规则将美元转换为美分；此转换不会改写底层用量账本。
 
-```javascript
-executionCost = configuredWorkflowCharge * tierWorkflowExecutionMultiplier
-adjustedModelCost = recordedModelCost * tierWorkflowModelCostMultiplier
-workflowLogSubtotal = executionCost + sum(adjustedModelCost)
-functionCost = (executionTimeMs / 1000) * configuredFunctionChargePerSecond * tierFunctionExecutionMultiplier
-totalMeteredCost = workflowLogSubtotal + sum(functionCost)
-```
-
-此公式用于说明计算方式。每次 Function 运行费用保留六位小数。工作流日志的费用总额是执行与模型费用小计；单独累计的 Function 费用也会计入账单负责人的用量。它不是 AI 模型费用，无 AI 的工作流也可能产生此项费用。
-
-保存人工参与检查点时，已完成的模型工作会计入用量。恢复或取消执行不会对同一工作重复收费：同一次逻辑执行会复用已保存的执行与模型计费报价，基础执行费用只收取一次。子工作流的费用计入其自身日志，不会通过父工作流的嵌套追踪再次收费。
+完成要求已验证的财务接受结果和经过授权的规范输出读取。即使工作已经完成，财务或读取失败也可能阻止成功交付；这不允许重复执行该工作。恢复使用原始财务身份和已接受的操作，不会重复收取同一项已完成工作的费用。人工审核检查点也保留这一身份。
 
 <Callout type="info">
-  如果某次执行首次保存计费报价时计费已禁用，其基础执行费用为零，记录的模型费用按乘数 1 计算。禁用计费期间不累计额外的工作流或 Function 计费用量，也不会改写此前保存的报价。费用和乘数应以计费配置为准，而不是本指南中的固定值。
+  计费事实以实际接受的用量和已保存的执行报价为准。配置并验证的零费用与无法提供的模型美元费用不同。修改配置不会改写现有报价、原始付款方或原始周期。
 </Callout>
 
-## 日志中的模型明细
+## 活跃用量与重新加载的日志
 
-对于使用 AI 模块的工作流，你可以在日志中查看详细的费用信息：
+活跃请求的原生结果可能包含可选的输入、输出或总 token 数量以及所选模型。缺失的计数仍不可用。通用美元费用标记为不可用，不使用手动价格表或基于 token 的估算填补。
 
-日志详情侧边栏包含一个模型明细部分，显示：
-- **Token 使用量**：每个模型的输入和输出 token 数量
-- **费用明细**：每个模型的输入、输出和总费用
-- **使用的模型**：哪些模型计入了执行费用
-- **总费用**：日志中的执行/模型费用小计；单独累计的 Function 运行费用请在用量中查看
+重新加载 Records 时，通过经过授权的规范存储保留功能性的输入、输出、工具和工作流执行详情。提供商诊断、模型费用报告和每轮 token 总量不是持久的产品报告。重新加载不会根据追踪或对话大小重建模型费用明细。请在**设置 → 订阅**中查看当前周期实际计入的用量；可见的模型小计不等于财务账本。
 
 ## 价格与限制
 
@@ -60,9 +46,6 @@ totalMeteredCost = workflowLogSubtotal + sum(functionCost)
     结构良好、简洁的提示词可减少 token 用量，同时不牺牲质量。
   </Accordion>
 
-  <Accordion title="本地模型">
-    适合使用本地模型时，请使用 Ollama，以避免外部模型服务商的费用。工作流执行费用仍可能产生。
-  </Accordion>
 
   <Accordion title="缓存与复用">
     在一次运行中复用上游输出或工作流变量，而不是重复调用 AI 模型。
@@ -102,6 +85,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 **示例响应：**
 
+**金额 ABI 不兼容变更：** `currentPeriodCost` 是精确的美元十进制字符串，例如 `"9007199254740993.30000000000000001"`；金额用量 `limit` 是十进制字符串，无上限时为 `null`。计费层级的价格、额度和倍率也保留为十进制字符串或配置的 `null`。请保留原值，不要转换为 `Number`/`float`。速率计数、席位和存储字段仍为数值。
+
 ```jsonc
 {
   "success": true,
@@ -111,8 +96,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
     "authType": "api"
   },
   "usage": {
-    "currentPeriodCost": 12.34,
-    "limit": 100,
+    "currentPeriodCost": "12.34",
+    "limit": "100",
     "tier": {
       "id": "tier_example",
       "displayName": "Example Tier",
@@ -122,8 +107,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
       "asyncRateLimitPerMinute": 50,
       "apiEndpointRateLimitPerMinute": 60,
       "logRetentionDays": 30,
-      "workflowExecutionMultiplier": 1,
-      "workflowModelCostMultiplier": 1
+      "workflowExecutionMultiplier": "1",
+      "workflowModelCostMultiplier": "1"
       // The response includes the remaining BillingTierSummary fields.
     }
   },

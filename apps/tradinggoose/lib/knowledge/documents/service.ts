@@ -13,14 +13,21 @@ import {
   decrementStorageUsage,
   incrementStorageUsage,
 } from '@/lib/billing/storage'
-import { generateEmbeddings } from '@/lib/embeddings/utils'
+import { type EmbeddingScope, generateEmbeddings } from '@/lib/embeddings/utils'
 import { env } from '@/lib/env'
 import { enqueuePendingExecution } from '@/lib/execution/pending-execution'
 import { getSlotsForFieldType, type TAG_SLOT_CONFIG } from '@/lib/knowledge/consts'
 import { processDocument } from '@/lib/knowledge/documents/document-processor'
-import { deleteKnowledgeDocumentFiles } from '@/lib/knowledge/documents/storage'
+import {
+  assertKnowledgeDocumentSource,
+  deleteKnowledgeDocumentFiles,
+  type KnowledgeDocumentFileCleanup,
+} from '@/lib/knowledge/documents/storage'
 import { getNextAvailableSlot } from '@/lib/knowledge/tags/service'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getFailureAccounting } from '@/lib/mastra/errors'
+import { PrivateSourceAccessError } from '@/lib/uploads/source-read-boundary'
+import { checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
 import type { DocumentProcessingPayload } from '@/background/knowledge-processing'
 import type { DocumentSortField, SortOrder } from './types'
 
@@ -28,7 +35,6 @@ const logger = createLogger('DocumentService')
 
 const TIMEOUTS = {
   OVERALL_PROCESSING: (env.KB_CONFIG_MAX_DURATION || 600) * 1000, // Default 10 minutes for KB document processing
-  EMBEDDINGS_API: (env.KB_CONFIG_MAX_TIMEOUT || 10000) * 18,
 } as const
 
 // Configuration for handling large documents
@@ -47,9 +53,60 @@ type DocumentDeletionTarget = {
   fileSize: number
 }
 
-export async function markDocumentProcessingFailed(documentId: string, errorMessage: string) {
+function documentSourceWhere(
+  knowledgeBaseId: string,
+  documentId: string,
+  docData: DocumentProcessingPayload['docData']
+) {
+  return and(
+    eq(document.id, documentId),
+    eq(document.knowledgeBaseId, knowledgeBaseId),
+    eq(document.fileUrl, docData.fileUrl),
+    eq(document.filename, docData.filename),
+    eq(document.mimeType, docData.mimeType),
+    eq(document.fileSize, docData.fileSize),
+    isNull(document.deletedAt)
+  )
+}
+
+async function authorizeDocumentProcessingSource(
+  knowledgeBaseId: string,
+  documentId: string,
+  docData: DocumentProcessingPayload['docData'],
+  scope: EmbeddingScope
+) {
+  assertKnowledgeDocumentSource(docData.fileUrl, docData.filename, {
+    workspaceId: scope.workspaceId ?? '',
+    knowledgeBaseId,
+    filename: docData.filename,
+  })
+  if (!scope.actorUserId?.trim()) throw new PrivateSourceAccessError()
+  const access = await checkKnowledgeBaseWriteAccess(knowledgeBaseId, scope.actorUserId)
+  if (
+    !access.hasAccess ||
+    !access.knowledgeBase ||
+    access.knowledgeBase.workspaceId !== scope.workspaceId
+  )
+    throw new PrivateSourceAccessError()
+  const [currentDocument] = await db
+    .select({ id: document.id })
+    .from(document)
+    .where(documentSourceWhere(knowledgeBaseId, documentId, docData))
+    .limit(1)
+  if (!currentDocument) throw new PrivateSourceAccessError()
+  return access.knowledgeBase
+}
+
+export async function markDocumentProcessingFailed(
+  knowledgeBaseId: string,
+  documentId: string,
+  docData: DocumentProcessingPayload['docData'],
+  scope: EmbeddingScope,
+  errorMessage: string
+) {
+  await authorizeDocumentProcessingSource(knowledgeBaseId, documentId, docData, scope)
   await db.transaction(async (tx) => {
-    const [failedDocument] = await tx
+    await tx
       .update(document)
       .set({
         processingStatus: 'failed',
@@ -59,24 +116,10 @@ export async function markDocumentProcessingFailed(documentId: string, errorMess
       })
       .where(
         and(
-          eq(document.id, documentId),
-          inArray(document.processingStatus, ['pending', 'processing']),
-          isNull(document.deletedAt)
+          documentSourceWhere(knowledgeBaseId, documentId, docData),
+          inArray(document.processingStatus, ['pending', 'processing'])
         )
       )
-      .returning({ id: document.id })
-
-    if (!failedDocument) {
-      const [activeDocument] = await tx
-        .select({ id: document.id })
-        .from(document)
-        .where(and(eq(document.id, documentId), isNull(document.deletedAt)))
-        .limit(1)
-
-      if (activeDocument) return
-    }
-
-    await tx.delete(embedding).where(eq(embedding.documentId, documentId))
   })
 }
 
@@ -96,13 +139,7 @@ async function deleteQueuedDocumentExecutions(documentIds: string[]) {
 }
 
 async function getUnreferencedDocumentFileUrls(targets: DocumentDeletionTarget[]) {
-  const fileUrls = [
-    ...new Set(
-      targets
-        .map((target) => target.fileUrl)
-        .filter((fileUrl) => fileUrl.includes('/api/files/serve/'))
-    ),
-  ]
+  const fileUrls = [...new Set(targets.map((target) => target.fileUrl))]
 
   if (fileUrls.length === 0) {
     return []
@@ -166,16 +203,16 @@ async function deleteDocumentTargets(targets: DocumentDeletionTarget[], requestI
   const deletedIds = new Set(result.map((row) => row.id))
   const deletedTargets = targets.filter((target) => deletedIds.has(target.id))
   const fileUrlsToDelete = await getUnreferencedDocumentFileUrls(deletedTargets)
-  const storageUsageTargets = fileUrlsToDelete.flatMap((fileUrl) => {
+  const storageCleanup = await deleteKnowledgeDocumentFiles(fileUrlsToDelete)
+  const storageUsageTargets = storageCleanup.deleted.flatMap((fileUrl) => {
     const target = deletedTargets.find((target) => target.fileUrl === fileUrl)
     return target ? [target] : []
   })
 
-  await deleteKnowledgeDocumentFiles(fileUrlsToDelete)
   await deleteQueuedDocumentExecutions([...deletedIds])
   await decrementStorageUsageForDeletedDocuments(storageUsageTargets, requestId)
 
-  return result.map((row) => ({ ...row, deletedAt }))
+  return { documents: result.map((row) => ({ ...row, deletedAt })), storageCleanup }
 }
 
 /**
@@ -184,14 +221,19 @@ async function deleteDocumentTargets(targets: DocumentDeletionTarget[], requestI
 function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
-  operation = 'Operation'
+  operation: string,
+  abort: () => void
 ): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
   return Promise.race([
     promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`${operation} timed out after ${timeoutMs}ms`)), timeoutMs)
-    ),
-  ])
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        abort()
+        reject(new Error(`${operation} timed out after ${timeoutMs}ms`))
+      }, timeoutMs)
+    }),
+  ]).finally(() => clearTimeout(timer))
 }
 
 export interface DocumentData {
@@ -315,34 +357,37 @@ export async function processDocumentAsync(
     chunkSize: number
     minCharactersPerChunk: number
     chunkOverlap: number
-  }
+  },
+  scope: EmbeddingScope
 ): Promise<void> {
   const startTime = Date.now()
+  const controller = new AbortController()
+  const signal = scope.signal
+    ? AbortSignal.any([scope.signal, controller.signal])
+    : controller.signal
+  let completedPrompt: number | undefined
+  let completedBatches = 0
+  let awaitingEmbedding = false
+  let authorized = false
+  const sourceWhere = () => documentSourceWhere(knowledgeBaseId, documentId, docData)
+  const reauthorize = async (checkCancellation = true) => {
+    if (checkCancellation) signal.throwIfAborted()
+    const current = await authorizeDocumentProcessingSource(
+      knowledgeBaseId,
+      documentId,
+      docData,
+      scope
+    )
+    if (checkCancellation) signal.throwIfAborted()
+    return current
+  }
   try {
-    const [documentState] = await db
-      .select({ deletedAt: document.deletedAt })
-      .from(document)
-      .where(eq(document.id, documentId))
-      .limit(1)
-
-    if (!documentState || documentState.deletedAt) {
-      logger.info(`[${documentId}] Skipping processing for deleted document`)
-      return
-    }
-
-    const [knowledgeBaseState] = await db
-      .select({ embeddingModel: knowledgeBase.embeddingModel })
-      .from(knowledgeBase)
-      .where(and(eq(knowledgeBase.id, knowledgeBaseId), isNull(knowledgeBase.deletedAt)))
-      .limit(1)
-
-    if (!knowledgeBaseState) {
-      throw new Error(`Knowledge base ${knowledgeBaseId} not found`)
-    }
+    const knowledgeBaseState = await reauthorize()
+    authorized = true
 
     const kbEmbeddingModel = knowledgeBaseState.embeddingModel
 
-    await prepareDocumentForProcessing(documentId)
+    await prepareDocumentForProcessing(documentId, sourceWhere())
 
     logger.info(`[${documentId}] Starting document processing: ${docData.filename}`)
 
@@ -352,6 +397,15 @@ export async function processDocumentAsync(
           docData.fileUrl,
           docData.filename,
           docData.mimeType,
+          {
+            workspaceId: knowledgeBaseState.workspaceId,
+            knowledgeBaseId,
+            filename: docData.filename,
+            reauthorize: async () => {
+              await reauthorize()
+            },
+            signal,
+          },
           processingOptions.chunkSize,
           processingOptions.chunkOverlap,
           processingOptions.minCharactersPerChunk
@@ -389,64 +443,93 @@ export async function processDocumentAsync(
 
             logger.info(`[${documentId}] Processing embedding batch ${batchNum}/${totalBatches}`)
 
+            await reauthorize()
+            awaitingEmbedding = true
             const batchEmbeddings = await generateEmbeddings(
               chunkBatch.map((chunk) => chunk.text),
+              {
+                ...scope,
+                signal,
+                runId: `embedding-document:${documentId}:${batchNum}`,
+              },
               kbEmbeddingModel
             )
+            awaitingEmbedding = false
+            completedBatches += batchEmbeddings.usage.batches
+            if (batchEmbeddings.tokens.prompt !== undefined)
+              completedPrompt = (completedPrompt ?? 0) + batchEmbeddings.tokens.prompt
+            signal.throwIfAborted()
 
-            const inserted = await db.transaction(async (tx) => {
-              const [documentTags] = await tx
-                .select({
-                  tag1: document.tag1,
-                  tag2: document.tag2,
-                  tag3: document.tag3,
-                  tag4: document.tag4,
-                  tag5: document.tag5,
-                  tag6: document.tag6,
-                  tag7: document.tag7,
-                })
-                .from(document)
-                .where(and(eq(document.id, documentId), isNull(document.deletedAt)))
-                .for('update')
-                .limit(1)
-
-              if (!documentTags) {
-                await tx.delete(embedding).where(eq(embedding.documentId, documentId))
-                return false
-              }
-
-              const embeddingRecords = chunkBatch.map((chunk, batchIndex) => {
-                const chunkIndex = i + batchIndex
-
-                return {
-                  id: crypto.randomUUID(),
-                  knowledgeBaseId,
-                  documentId,
-                  chunkIndex,
-                  chunkHash: crypto.createHash('sha256').update(chunk.text).digest('hex'),
-                  content: chunk.text,
-                  contentLength: chunk.text.length,
-                  tokenCount: Math.ceil(chunk.text.length / 4),
-                  embedding: batchEmbeddings[batchIndex] || null,
-                  embeddingModel: kbEmbeddingModel,
-                  startOffset: chunk.metadata.startIndex,
-                  endOffset: chunk.metadata.endIndex,
-                  // Copy tags from document
-                  tag1: documentTags.tag1,
-                  tag2: documentTags.tag2,
-                  tag3: documentTags.tag3,
-                  tag4: documentTags.tag4,
-                  tag5: documentTags.tag5,
-                  tag6: documentTags.tag6,
-                  tag7: documentTags.tag7,
-                  createdAt: now,
-                  updatedAt: now,
-                }
-              })
-
-              await tx.insert(embedding).values(embeddingRecords)
-              return true
+            logger.info('Document embedding usage', {
+              documentId,
+              model: batchEmbeddings.model,
+              tokens: batchEmbeddings.tokens,
+              usage: batchEmbeddings.usage,
+              cost: batchEmbeddings.cost,
             })
+
+            await reauthorize()
+            const inserted = await db
+              .transaction(async (tx) => {
+                const [documentTags] = await tx
+                  .select({
+                    tag1: document.tag1,
+                    tag2: document.tag2,
+                    tag3: document.tag3,
+                    tag4: document.tag4,
+                    tag5: document.tag5,
+                    tag6: document.tag6,
+                    tag7: document.tag7,
+                  })
+                  .from(document)
+                  .where(sourceWhere())
+                  .for('update')
+                  .limit(1)
+
+                if (!documentTags) {
+                  return false
+                }
+
+                const embeddingRecords = chunkBatch.map((chunk, batchIndex) => {
+                  const chunkIndex = i + batchIndex
+
+                  return {
+                    id: crypto.randomUUID(),
+                    knowledgeBaseId,
+                    documentId,
+                    chunkIndex,
+                    chunkHash: crypto.createHash('sha256').update(chunk.text).digest('hex'),
+                    content: chunk.text,
+                    contentLength: chunk.text.length,
+                    tokenCount: Math.ceil(chunk.text.length / 4),
+                    embedding: batchEmbeddings.embeddings[batchIndex] || null,
+                    embeddingModel: kbEmbeddingModel,
+                    startOffset: chunk.metadata.startIndex,
+                    endOffset: chunk.metadata.endIndex,
+                    // Copy tags from document
+                    tag1: documentTags.tag1,
+                    tag2: documentTags.tag2,
+                    tag3: documentTags.tag3,
+                    tag4: documentTags.tag4,
+                    tag5: documentTags.tag5,
+                    tag6: documentTags.tag6,
+                    tag7: documentTags.tag7,
+                    createdAt: now,
+                    updatedAt: now,
+                  }
+                })
+
+                await tx.insert(embedding).values(embeddingRecords)
+                return true
+              })
+              .catch((error) => {
+                const failure = error instanceof Error ? error : new Error(String(error))
+                Object.assign(failure, {
+                  model: batchEmbeddings.model,
+                  completedEmbeddings: batchEmbeddings.embeddings,
+                })
+                throw failure
+              })
 
             if (!inserted) {
               logger.info(`[${documentId}] Stopped embedding inserts for deleted document`)
@@ -459,16 +542,16 @@ export async function processDocumentAsync(
           }
         }
 
+        await reauthorize()
         await db.transaction(async (tx) => {
           const [currentDocument] = await tx
             .select({ deletedAt: document.deletedAt })
             .from(document)
-            .where(and(eq(document.id, documentId), isNull(document.deletedAt)))
+            .where(sourceWhere())
             .for('update')
             .limit(1)
 
           if (!currentDocument) {
-            await tx.delete(embedding).where(eq(embedding.documentId, documentId))
             logger.info(`[${documentId}] Skipping completion update for deleted document`)
             return
           }
@@ -487,12 +570,31 @@ export async function processDocumentAsync(
         })
       })(),
       TIMEOUTS.OVERALL_PROCESSING,
-      'Document processing'
+      'Document processing',
+      () => controller.abort(new Error('Document processing deadline exceeded'))
     )
 
     const processingTime = Date.now() - startTime
     logger.info(`[${documentId}] Successfully processed document in ${processingTime}ms`)
   } catch (error) {
+    const failure = error instanceof Error ? error : new Error(String(error))
+    if (awaitingEmbedding) {
+      const partial = getFailureAccounting(failure)
+      const tokens = partial.tokens as { prompt?: number } | undefined
+      const usage = partial.embeddingUsage as { batches?: number } | undefined
+      if (tokens?.prompt !== undefined) completedPrompt = (completedPrompt ?? 0) + tokens.prompt
+      completedBatches += usage?.batches ?? 0
+    }
+    if (completedBatches)
+      Object.assign(failure, {
+        tokens:
+          completedPrompt === undefined ? {} : { prompt: completedPrompt, total: completedPrompt },
+        embeddingUsage: {
+          status: completedPrompt === undefined ? 'unavailable' : 'partial',
+          batches: completedBatches,
+        },
+        cost: { status: 'unavailable' },
+      })
     const processingTime = Date.now() - startTime
     logger.error(`[${documentId}] Failed to process document after ${processingTime}ms:`, {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -500,21 +602,36 @@ export async function processDocumentAsync(
       filename: docData.filename,
       fileUrl: docData.fileUrl,
       mimeType: docData.mimeType,
+      ...getFailureAccounting(error),
     })
 
-    await markDocumentProcessingFailed(
-      documentId,
-      error instanceof Error ? error.message : 'Unknown error'
-    )
+    // Denied/misbound sources must never mutate another document's status or embeddings.
+    if (authorized)
+      await (async () => {
+        await reauthorize(false)
+        await markDocumentProcessingFailed(
+          knowledgeBaseId,
+          documentId,
+          docData,
+          scope,
+          failure.message
+        )
+      })().catch((persistenceError) => {
+        logger.error(`[${documentId}] Could not persist document failure`, {
+          persistenceError,
+          ...getFailureAccounting(failure),
+        })
+      })
 
-    throw error
+    throw failure
   }
 }
 
-export async function prepareDocumentForProcessing(documentId: string) {
+async function prepareDocumentForProcessing(
+  documentId: string,
+  sourceWhere: ReturnType<typeof and>
+) {
   await db.transaction(async (tx) => {
-    await tx.delete(embedding).where(eq(embedding.documentId, documentId))
-
     await tx
       .update(document)
       .set({
@@ -526,28 +643,31 @@ export async function prepareDocumentForProcessing(documentId: string) {
         tokenCount: 0,
         characterCount: 0,
       })
-      .where(and(eq(document.id, documentId), isNull(document.deletedAt)))
+      .where(sourceWhere)
   })
 }
 
 export async function enqueueDocumentProcessingJobs(
   documents: DocumentProcessingRequestPayload[],
-  requestId: string
+  requestId: string,
+  actorUserId: string
 ): Promise<string[]> {
+  if (!actorUserId?.trim()) throw new Error('Authenticated document processing actor is required')
   if (documents.length === 0) {
     return []
   }
 
-  const [knowledgeBaseOwner] = await db
+  if (documents.some((entry) => entry.knowledgeBaseId !== documents[0].knowledgeBaseId))
+    throw new Error('Document batch must use one knowledge base')
+  const [knowledgeBaseScope] = await db
     .select({
-      userId: knowledgeBase.userId,
       workspaceId: knowledgeBase.workspaceId,
     })
     .from(knowledgeBase)
     .where(eq(knowledgeBase.id, documents[0].knowledgeBaseId))
     .limit(1)
 
-  if (!knowledgeBaseOwner) {
+  if (!knowledgeBaseScope) {
     throw new Error('Knowledge base not found')
   }
 
@@ -559,14 +679,14 @@ export async function enqueueDocumentProcessingJobs(
       const job = await enqueuePendingExecution({
         executionType: 'document',
         pendingExecutionId,
-        workspaceId: knowledgeBaseOwner.workspaceId,
-        userId: knowledgeBaseOwner.userId,
+        workspaceId: knowledgeBaseScope.workspaceId,
+        userId: actorUserId,
         source: 'document_processing',
         requestId,
         payload: {
           ...document,
-          userId: knowledgeBaseOwner.userId,
-          workspaceId: knowledgeBaseOwner.workspaceId,
+          userId: actorUserId,
+          workspaceId: knowledgeBaseScope.workspaceId,
         },
       })
       return job.pendingExecutionId
@@ -921,6 +1041,7 @@ export async function bulkDocumentOperation(
     enabled?: boolean
     deletedAt?: Date | null
   }>
+  storageCleanup?: KnowledgeDocumentFileCleanup
 }> {
   logger.info(
     `[${requestId}] Starting bulk ${operation} operation on ${documentIds.length} documents in knowledge base ${knowledgeBaseId}`
@@ -960,8 +1081,11 @@ export async function bulkDocumentOperation(
     deletedAt?: Date | null
   }>
 
+  let storageCleanup: KnowledgeDocumentFileCleanup | undefined
   if (operation === 'delete') {
-    updateResult = await deleteDocumentTargets(documentsToUpdate, requestId)
+    const deletion = await deleteDocumentTargets(documentsToUpdate, requestId)
+    updateResult = deletion.documents
+    storageCleanup = deletion.storageCleanup
   } else {
     // Handle bulk enable/disable
     const enabled = operation === 'enable'
@@ -991,6 +1115,7 @@ export async function bulkDocumentOperation(
     success: true,
     successCount,
     updatedDocuments: updateResult,
+    ...(storageCleanup ? { storageCleanup } : {}),
   }
 }
 
@@ -1006,7 +1131,8 @@ export async function retryDocumentProcessing(
     fileSize: number
     mimeType: string
   },
-  requestId: string
+  requestId: string,
+  actorUserId: string
 ): Promise<{ success: boolean; status: string; message: string }> {
   const processingOptions = {
     chunkSize: 512,
@@ -1024,7 +1150,8 @@ export async function retryDocumentProcessing(
         requestId,
       },
     ],
-    requestId
+    requestId,
+    actorUserId
   )
 
   logger.info(`[${requestId}] Document retry initiated: ${documentId}`)
@@ -1239,7 +1366,7 @@ export async function updateDocument(
 export async function deleteDocument(
   documentId: string,
   requestId: string
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message: string; storageCleanup: KnowledgeDocumentFileCleanup }> {
   const [documentToDelete] = await db
     .select({
       id: document.id,
@@ -1255,12 +1382,15 @@ export async function deleteDocument(
     throw new Error(`Document ${documentId} not found`)
   }
 
-  await deleteDocumentTargets([documentToDelete], requestId)
+  const { storageCleanup } = await deleteDocumentTargets([documentToDelete], requestId)
 
   logger.info(`[${requestId}] Document deleted: ${documentId}`)
 
   return {
     success: true,
-    message: 'Document deleted successfully',
+    message: storageCleanup.retained.length
+      ? 'Document deleted; stored files were retained because physical deletion could not be verified or completed'
+      : 'Document deleted successfully',
+    storageCleanup,
   }
 }

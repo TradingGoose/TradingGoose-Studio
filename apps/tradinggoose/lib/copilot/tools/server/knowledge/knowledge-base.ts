@@ -4,12 +4,10 @@ import {
   type ServerToolExecutionContext,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import { generateSearchEmbedding } from '@/lib/embeddings/utils'
 import { createKnowledgeBase, getKnowledgeBaseById } from '@/lib/knowledge/service'
 import type { ChunkingConfig, KnowledgeBaseWithCounts } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { savedEntityRowToContent } from '@/lib/yjs/entity-state'
-import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/search/utils'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
@@ -62,7 +60,7 @@ async function createKnowledgeBaseEntity(
       description: String(fields.description ?? ''),
       workspaceId,
       userId,
-      embeddingModel: 'text-embedding-3-small',
+      embeddingModel: 'openai/text-embedding-3-small',
       embeddingDimension: 1536,
       chunkingConfig: fields.chunkingConfig as ChunkingConfig,
     },
@@ -167,36 +165,66 @@ export const queryKnowledgeBaseServerTool: BaseServerTool<{
   name: 'query_knowledge_base',
   async execute(args, context) {
     const kb = await readAccessibleKnowledgeBase(args.entityId, context)
+    if (!context?.userId) throw new Error('Authenticated embedding actor is required')
     const topK = args.topK || 5
 
-    const queryEmbedding = await generateSearchEmbedding(args.query, kb.embeddingModel)
-    const queryVector = JSON.stringify(queryEmbedding)
-    const strategy = getQueryStrategy(1, topK)
-    const results = await handleVectorOnlySearch({
-      knowledgeBaseIds: [args.entityId],
-      topK,
-      queryVector,
-      distanceThreshold: strategy.distanceThreshold,
-    })
+    const { generateSearchEmbedding, getQueryStrategy, handleVectorOnlySearch } = await import(
+      '@/app/api/knowledge/search/utils'
+    )
+    const queryEmbedding = await generateSearchEmbedding(
+      args.query,
+      {
+        actorUserId: context.userId,
+        workspaceId: kb.workspaceId,
+        signal: context.signal,
+      },
+      kb.embeddingModel
+    )
+    try {
+      const queryVector = JSON.stringify(queryEmbedding.embedding)
+      const strategy = getQueryStrategy(1, topK)
+      const results = await handleVectorOnlySearch({
+        knowledgeBaseIds: [args.entityId],
+        topK,
+        queryVector,
+        distanceThreshold: strategy.distanceThreshold,
+      })
 
-    logger.info('Knowledge base queried via copilot', {
-      knowledgeBaseId: args.entityId,
-      resultCount: results.length,
-    })
+      logger.info('Knowledge base queried via copilot', {
+        knowledgeBaseId: args.entityId,
+        resultCount: results.length,
+      })
 
-    return {
-      entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
-      entityId: args.entityId,
-      entityName: kb.name,
-      query: args.query,
-      topK,
-      totalResults: results.length,
-      results: results.map((result) => ({
-        documentId: result.documentId,
-        content: result.content,
-        chunkIndex: result.chunkIndex,
-        similarity: 1 - result.distance,
-      })),
+      return {
+        entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
+        entityId: args.entityId,
+        entityName: kb.name,
+        embeddingUsage: {
+          model: queryEmbedding.model,
+          tokens: queryEmbedding.tokens,
+          usage: queryEmbedding.usage,
+          cost: queryEmbedding.cost,
+        },
+        query: args.query,
+        topK,
+        totalResults: results.length,
+        results: results.map((result) => ({
+          documentId: result.documentId,
+          content: result.content,
+          chunkIndex: result.chunkIndex,
+          similarity: 1 - result.distance,
+        })),
+      }
+    } catch (error) {
+      const failure = error instanceof Error ? error : new Error(String(error))
+      Object.assign(failure, {
+        model: queryEmbedding.model,
+        tokens: queryEmbedding.tokens,
+        cost: queryEmbedding.cost,
+        embeddingUsage: queryEmbedding.usage,
+        completedEmbeddings: [queryEmbedding.embedding],
+      })
+      throw failure
     }
   },
 }

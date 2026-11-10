@@ -26,11 +26,13 @@ interface FileDownloadProps {
 
 export function FileDownload({ file, isExecutionFile = false, className }: FileDownloadProps) {
   const [isDownloading, setIsDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
 
   const handleDownload = async () => {
     if (isDownloading) return
 
     setIsDownloading(true)
+    setDownloadError(null)
 
     try {
       logger.info(`Initiating download for file: ${file.name}`)
@@ -43,45 +45,66 @@ export function FileDownload({ file, isExecutionFile = false, className }: FileD
         },
         body: JSON.stringify({
           key: file.key,
+          fileReference: file.url, // Locator only; the server must verify the actual file row.
           name: file.name,
-          storageProvider: file.storageProvider,
-          bucketName: file.bucketName,
           isExecutionFile, // Add flag to indicate execution file
         }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: response.statusText }))
-        throw new Error(errorData.error || `Failed to generate download URL: ${response.status}`)
+        const errorData: unknown = await response.json().catch(() => null)
+        const detail =
+          errorData && typeof errorData === 'object'
+            ? 'message' in errorData &&
+              typeof errorData.message === 'string' &&
+              errorData.message.trim()
+              ? errorData.message
+              : 'error' in errorData && typeof errorData.error === 'string'
+                ? errorData.error
+                : null
+            : null
+        throw new Error(detail || `Download is unavailable (${response.status}).`)
       }
 
       const { downloadUrl, fileName } = await response.json()
 
-      // Open the download URL in a new tab
+      if (typeof downloadUrl !== 'string' || !downloadUrl.trim()) {
+        throw new Error('The authorized download is unavailable.')
+      }
+
+      // Open only the newly authorized URL, never the stored output URL.
       window.open(downloadUrl, '_blank')
 
       logger.info(`Download initiated for file: ${fileName}`)
     } catch (error) {
       logger.error(`Failed to download file ${file.name}:`, error)
+      setDownloadError(error instanceof Error ? error.message : 'The file could not be downloaded.')
     } finally {
       setIsDownloading(false)
     }
   }
 
   return (
-    <Button
-      variant='ghost'
-      size='sm'
-      className={`h-6 px-2 text-[11px] ${className || ''}`}
-      onClick={handleDownload}
-      disabled={isDownloading}
-    >
-      {isDownloading ? (
-        <Loader2 className='h-3 w-3 animate-spin' />
-      ) : (
-        <ArrowDown className='h-3 w-3' />
+    <div className='flex max-w-xs flex-col items-end gap-1'>
+      <Button
+        variant='ghost'
+        size='sm'
+        className={`h-6 px-2 text-[11px] ${className || ''}`}
+        onClick={handleDownload}
+        disabled={isDownloading}
+      >
+        {isDownloading ? (
+          <Loader2 className='h-3 w-3 animate-spin' />
+        ) : (
+          <ArrowDown className='h-3 w-3' />
+        )}
+        {isDownloading ? 'Downloading...' : 'Download'}
+      </Button>
+      {downloadError && (
+        <p role='alert' className='text-destructive text-xs'>
+          {downloadError} Request a new authorized download from the file owner.
+        </p>
       )}
-      {isDownloading ? 'Downloading...' : 'Download'}
-    </Button>
+    </div>
   )
 }

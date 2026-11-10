@@ -37,10 +37,9 @@ export function formatEmailDateTime(locale: EmailLocale, date: Date) {
   }).format(date)
 }
 
-export function formatEmailCurrency(locale: EmailLocale, value: number) {
-  return new Intl.NumberFormat(normalizeEmailTemplateLocale(locale), {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(value)
+export function formatEmailCurrency(locale: EmailLocale, value: DecimalAmount | null | undefined) {
+  return formatUsd(normalizeEmailTemplateLocale(locale), value == null ? value : monetary(value))
 }
+
+import { type DecimalAmount, monetary } from '@tradinggoose/billing/money'
+import { formatUsd } from '@/i18n/formatters'

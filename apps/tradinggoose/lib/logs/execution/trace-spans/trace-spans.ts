@@ -1,7 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ToolCall, TraceSpan } from '@/lib/logs/types'
 import { isWorkflowBlockType } from '@/executor/consts'
-import type { ExecutionResult } from '@/executor/types'
+import { assertOccurrenceIds, type ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('TraceSpans')
 
@@ -62,9 +62,9 @@ export function buildTraceSpans(result: ExecutionResult): {
   traceSpans: TraceSpan[]
   totalDuration: number
 } {
-  if (!result.logs || result.logs.length === 0) {
-    return { traceSpans: [], totalDuration: 0 }
-  }
+  if (result.logs === undefined) return { traceSpans: [], totalDuration: 0 }
+  assertOccurrenceIds(result.logs, 'Malformed block log occurrence')
+  if (result.logs.length === 0) return { traceSpans: [], totalDuration: 0 }
 
   const spanMap = new Map<string, TraceSpan>()
 
@@ -83,7 +83,7 @@ export function buildTraceSpans(result: ExecutionResult): {
   result.logs.forEach((log) => {
     if (!log.blockId || !log.blockType) return
 
-    const spanId = `${log.blockId}-${new Date(log.startedAt).getTime()}`
+    const spanId = log.id
 
     const duration = log.durationMs || 0
 
@@ -110,40 +110,23 @@ export function buildTraceSpans(result: ExecutionResult): {
       blockId: log.blockId,
       input: log.input || {},
       output: output,
+      ...(log.inference ? { inference: log.inference } : {}),
     }
 
-    if (log.output?.providerTiming) {
-      const providerTiming = log.output.providerTiming as {
-        duration: number
-        startTime: string
-        endTime: string
-        timeSegments?: Array<{
-          type: string
-          name?: string
-          startTime: string | number
-          endTime: string | number
-          duration: number
-        }>
-      }
+    const facts =
+      log.inference ?? (['agent', 'evaluator'].includes(log.blockType) ? undefined : log.output)
+    if (facts?.providerTiming) span.providerTiming = facts.providerTiming
 
-      span.providerTiming = {
-        duration: providerTiming.duration,
-        startTime: providerTiming.startTime,
-        endTime: providerTiming.endTime,
-        segments: providerTiming.timeSegments || [],
-      }
-    }
-
-    if (log.output?.cost) {
-      span.cost = log.output.cost as {
+    if (facts?.cost) {
+      span.cost = facts.cost as {
         input?: number
         output?: number
         total?: number
       }
     }
 
-    if (log.output?.tokens) {
-      const t = log.output.tokens as
+    if (facts?.tokens) {
+      const t = facts.tokens as
         | number
         | {
             input?: number
@@ -157,11 +140,7 @@ export function buildTraceSpans(result: ExecutionResult): {
       } else if (typeof t === 'object') {
         const input = t.input ?? t.prompt
         const output = t.output ?? t.completion
-        const total =
-          t.total ??
-          (typeof input === 'number' || typeof output === 'number'
-            ? (input || 0) + (output || 0)
-            : undefined)
+        const total = t.total
         span.tokens = {
           ...(typeof input === 'number' ? { input } : {}),
           ...(typeof output === 'number' ? { output } : {}),
@@ -172,17 +151,17 @@ export function buildTraceSpans(result: ExecutionResult): {
       }
     }
 
-    if (log.output?.model) {
-      span.model = log.output.model as string
+    if (facts?.model) {
+      span.model = facts.model as string
     }
 
     if (
       !isWorkflowBlockType(log.blockType) &&
-      log.output?.providerTiming?.timeSegments &&
-      Array.isArray(log.output.providerTiming.timeSegments)
+      facts?.providerTiming?.segments?.length &&
+      Array.isArray(facts.providerTiming.segments)
     ) {
-      const timeSegments = log.output.providerTiming.timeSegments
-      const toolCallsData = log.output?.toolCalls?.list || log.output?.toolCalls || []
+      const timeSegments = facts.providerTiming.segments
+      const toolCallsData = facts?.toolCalls?.list || log.output?.toolCalls || []
 
       span.children = timeSegments.map(
         (
@@ -247,8 +226,8 @@ export function buildTraceSpans(result: ExecutionResult): {
       let toolCallsList = null
 
       try {
-        if (log.output?.toolCalls?.list) {
-          toolCallsList = log.output.toolCalls.list
+        if (facts?.toolCalls?.list) {
+          toolCallsList = facts.toolCalls.list
         }
 
         if (toolCallsList && !Array.isArray(toolCallsList)) {
@@ -336,7 +315,7 @@ export function buildTraceSpans(result: ExecutionResult): {
   sortedLogs.forEach((log) => {
     if (!log.blockId) return
 
-    const spanId = `${log.blockId}-${new Date(log.startedAt).getTime()}`
+    const spanId = log.id
     const span = spanMap.get(spanId)
     if (span) {
       rootSpans.push(span)
@@ -349,7 +328,7 @@ export function buildTraceSpans(result: ExecutionResult): {
     sortedLogs.forEach((log) => {
       if (!log.blockId || !log.blockType) return
 
-      const spanId = `${log.blockId}-${new Date(log.startedAt).getTime()}`
+      const spanId = log.id
       const span = spanMap.get(spanId)
       if (!span) return
 

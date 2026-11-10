@@ -1,0 +1,498 @@
+{
+  "protocolRevision": "copilot-native/2026-11-09.8",
+  "status": "proposed request/response expectations, no HTTP calls",
+  "fixtures": [
+    {
+      "id": "http-message-workspace",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "message-workspace",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-message-personal-null-workspace",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "message-personal-null-workspace",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-pending.list",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "pending.list",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-tool.approve",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "tool.approve",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-tool.decline",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "tool.decline",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-tool.result",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "tool.result",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-cancel",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "cancel",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-threads.list",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "threads.list",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-history.read",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "history.read",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-thread.title",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "thread.title",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-history.edit",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "history.edit",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-thread.delete",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "thread.delete",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-context.read",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "context.read",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-context.compact",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "context.compact",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-browser-local-plan-only",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "browser-local-plan-only",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-native-title",
+      "method": "POST",
+      "path": "/api/completion?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "native-title",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-native-wand",
+      "method": "POST",
+      "path": "/api/completion?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "native-wand",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-untrusted-url",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "untrusted-url",
+      "schemaValid": false,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-untrusted-model-retry",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "untrusted-model-retry",
+      "schemaValid": false,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-legacy-history-writer",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "legacy-history-writer",
+      "schemaValid": false,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-wrong-protocol",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "wrong-protocol",
+      "schemaValid": false,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-approval-cannot-be-result",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "approval-cannot-be-result",
+      "schemaValid": false,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-browser-cannot-assert-business-result",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "browser-cannot-assert-business-result",
+      "schemaValid": false,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-server-result-missing-proof",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "server-result-missing-proof",
+      "schemaValid": false,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-retired-mark-complete",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "retired-mark-complete",
+      "schemaValid": false,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-raw-openai-body-removed",
+      "method": "POST",
+      "path": "/api/completion?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "raw-openai-body-removed",
+      "schemaValid": false,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-wrong-scope",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "wrong-scope",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-approval-stage-as-final",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "approval-stage-as-final",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-forged-or-expired-proof",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "forged-or-expired-proof",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-effect-asserted-by-browser",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "effect-asserted-by-browser",
+      "schemaValid": true,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "missing-service-auth",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {},
+      "bodyFixtureId": "message-workspace",
+      "expectedRuntimeStatus": 401,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "missing-api-version",
+      "method": "POST",
+      "path": "/api/copilot",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "message-workspace",
+      "expectedRuntimeStatus": 422,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "retired-callback-path",
+      "method": "POST",
+      "path": "/api/tools/mark-complete?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "retired-mark-complete",
+      "expectedRuntimeStatus": 404,
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-first-message-collected-native-thread",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "first-message-nonstream",
+      "schemaValid": true,
+      "responseFixtureIds": [
+        "conversation-ready-first-thread",
+        "conversation-ready-missing-thread",
+        "copilot-success-missing-thread"
+      ],
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-title-collected-financial-error",
+      "method": "POST",
+      "path": "/api/completion?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "native-title",
+      "responseFixtureIds": [
+        "title-collected-error-after-acceptance",
+        "title-collected-cancel-after-acceptance",
+        "utility-collected-precontact-refusal",
+        "utility-collected-uncertain-contact"
+      ],
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-context-labelled-size-no-capacity",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "context.read",
+      "responseFixtureIds": [
+        "context-size-with-unknown-capacity",
+        "context-size-unavailable",
+        "context-real-empty-size"
+      ],
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-string-money-utility-success-error-cancel",
+      "method": "POST",
+      "path": "/api/completion?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "native-title",
+      "responseFixtureIds": [
+        "money-utility-success-zero",
+        "money-utility-success-precise",
+        "money-utility-error-zero",
+        "money-utility-cancel-precise",
+        "money-utility-stream-cancel-numeric-rejected"
+      ],
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-string-money-conversation-outcomes",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "message-workspace",
+      "responseFixtureIds": [
+        "money-conversation-success-zero",
+        "money-conversation-success-zero",
+        "money-conversation-error-precise",
+        "money-conversation-stream-error-numeric-rejected"
+      ],
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-authorized-native-image-message",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "ordered-text-two-images",
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "http-image-retained-history-scope",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key-not-production"
+      },
+      "bodyFixtureId": "history.read",
+      "responseFixtureIds": [
+        "image-retained-native-history-after-source-expiry"
+      ],
+      "implementedRuntimeOutcomeVerified": false
+    },
+    {
+      "id": "initial-native-title-publication",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key"
+      },
+      "bodyFixtureId": "initial-native-title-command",
+      "responseFixtureIds": [
+        "initial-title-native-mutation-confirmed"
+      ],
+      "expectedRuntimeStatus": 200,
+      "implementedRuntimeOutcomeVerified": false,
+      "semanticExpectation": "After valid successful final title utility and all bounded local/native guards; matching title operation/thread then scoped paginated threads.list readback. No CAS/no automatic replay."
+    },
+    {
+      "id": "required-financial-fact-output-refusal",
+      "method": "POST",
+      "path": "/api/copilot?version=v1",
+      "headers": {
+        "x-api-key": "fixture-service-key"
+      },
+      "bodyFixtureId": "initial-native-title-command",
+      "responseFixtureIds": [],
+      "expectedRuntimeStatus": 503,
+      "implementedRuntimeOutcomeVerified": false,
+      "semanticExpectation": "Required accepted money validation/publication failure refuses success; preserve actual financial facts/holds and classify, never emit missing/invalid accepted amount or retry paid work. Descriptor is not an HTTP test."
+    }
+  ]
+}

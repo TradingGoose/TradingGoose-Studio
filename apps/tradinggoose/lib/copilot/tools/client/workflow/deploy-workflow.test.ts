@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { DeployWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/deploy-workflow'
 
@@ -10,7 +10,14 @@ const mockRegistryState = {
 }
 
 const mockCopilotState = {
-  toolCallsById: {} as Record<string, { params?: Record<string, any> }>,
+  toolCallsById: {} as Record<string, { params?: Record<string, unknown> }>,
+  currentChat: { workspaceId: null },
+  readPendingTool: vi.fn(),
+  readbackCopilotToolCall: vi.fn(),
+  submitBrowserAssertion: vi.fn(),
+  openWorkflowChatDeployment: vi.fn(),
+  recordToolFailure: vi.fn(),
+  abortController: new AbortController(),
 }
 
 vi.mock('@/stores/workflows/registry/store', () => ({
@@ -30,6 +37,7 @@ vi.mock('@/lib/workflows/operations/deployment-utils', () => ({
 }))
 
 describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
+  afterEach(() => vi.unstubAllGlobals())
   beforeEach(() => {
     vi.restoreAllMocks()
     mockRegistryState.getActiveWorkflowId.mockReset()
@@ -37,6 +45,21 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     mockRegistryState.setDeploymentStatus.mockReset()
     mockRegistryState.workflows = {}
     mockCopilotState.toolCallsById = {}
+    mockCopilotState.abortController = new AbortController()
+    mockCopilotState.readPendingTool.mockReset().mockImplementation(async (toolCallId: string) => ({
+      stage: 'result',
+      target: {
+        threadId: 'thread',
+        resourceId: 'personal-resource',
+        runId: 'run',
+        toolCallId,
+        toolName: 'deploy_workflow',
+      },
+    }))
+    mockCopilotState.readbackCopilotToolCall.mockReset().mockResolvedValue(undefined)
+    mockCopilotState.submitBrowserAssertion.mockReset().mockResolvedValue(undefined)
+    mockCopilotState.openWorkflowChatDeployment.mockReset().mockResolvedValue(undefined)
+    mockCopilotState.recordToolFailure.mockReset()
   })
 
   it('getInterruptDisplays resolves deployment state only from explicit params', () => {
@@ -124,14 +147,6 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
         }
       }
 
-      if (url.includes('/api/copilot/tools/mark-complete')) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
       throw new Error(`Unexpected fetch URL: ${url} ${init?.method || 'GET'}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -156,6 +171,23 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     })
 
     expect(deployRequest).toBeDefined()
+    expect(JSON.parse(String(deployRequest?.[1]?.body))).toEqual({
+      native: {
+        workspaceId: null,
+        target: {
+          threadId: 'thread',
+          resourceId: 'personal-resource',
+          runId: 'run',
+          toolCallId,
+          toolName: 'deploy_workflow',
+        },
+      },
+    })
+    expect(deployRequest?.[1]?.signal).toBe(mockCopilotState.abortController.signal)
+    expect(mockCopilotState.readbackCopilotToolCall).toHaveBeenCalledExactlyOnceWith(
+      toolCallId,
+      undefined
+    )
     expect(mockRegistryState.getActiveWorkflowId).not.toHaveBeenCalled()
     expect(mockRegistryState.setDeploymentStatus).toHaveBeenCalledWith(
       'wf-target',
@@ -163,5 +195,138 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       expect.any(Date),
       'server-key'
     )
+  })
+  it('waits for the actual target form before recording opened UI and native acknowledgement', async () => {
+    let rendered!: () => void
+    mockCopilotState.openWorkflowChatDeployment.mockReturnValue(
+      new Promise<void>((resolve) => {
+        rendered = resolve
+      })
+    )
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const tool = new DeployWorkflowClientTool('chat-ui-call')
+    tool.setExecutionContext({
+      toolCallId: 'chat-ui-call',
+      toolName: 'deploy_workflow',
+      workspaceId: 'entity-workspace',
+    })
+    const execution = tool.handleAccept({
+      action: 'deploy',
+      deployType: 'chat',
+      entityId: 'explicit-workflow',
+    })
+    await vi.waitFor(() =>
+      expect(mockCopilotState.openWorkflowChatDeployment).toHaveBeenCalledOnce()
+    )
+    expect(mockCopilotState.openWorkflowChatDeployment).toHaveBeenCalledWith('chat-ui-call', {
+      workflowId: 'explicit-workflow',
+      workspaceId: 'entity-workspace',
+    })
+    expect(mockCopilotState.submitBrowserAssertion).not.toHaveBeenCalled()
+    expect(tool.getState()).toBe(ClientToolCallState.executing)
+    rendered()
+    await execution
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockCopilotState.submitBrowserAssertion).toHaveBeenCalledExactlyOnceWith(
+      'chat-ui-call',
+      {
+        kind: 'ui.opened',
+        data: {
+          opened: true,
+          surface: 'chat-deployment',
+          message: 'Opened chat deployment settings',
+        },
+      }
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(mockCopilotState.readbackCopilotToolCall).not.toHaveBeenCalled()
+  })
+
+  it('retains an opened UI after failed ACK and never reopens or claims deployment', async () => {
+    mockCopilotState.submitBrowserAssertion.mockRejectedValue(new Error('ACK lost'))
+    const tool = new DeployWorkflowClientTool('chat-failed-ack')
+    tool.setExecutionContext({
+      toolCallId: 'chat-failed-ack',
+      toolName: 'deploy_workflow',
+      workspaceId: 'entity-workspace',
+    })
+    const args = {
+      action: 'deploy' as const,
+      deployType: 'chat' as const,
+      entityId: 'explicit-workflow',
+    }
+    await tool.handleAccept(args)
+    await tool.handleAccept(args)
+    expect(mockCopilotState.openWorkflowChatDeployment).toHaveBeenCalledOnce()
+    expect(mockCopilotState.submitBrowserAssertion).toHaveBeenCalledOnce()
+    expect(tool.getState()).toBe(ClientToolCallState.error)
+    expect(tool.hasSubmittedResult()).toBe(false)
+    expect(mockCopilotState.recordToolFailure).toHaveBeenCalledWith(
+      'chat-failed-ack',
+      'Chat deployment settings opened; native acknowledgement failed'
+    )
+    expect(mockRegistryState.setDeploymentStatus).not.toHaveBeenCalled()
+    expect(mockCopilotState.readbackCopilotToolCall).not.toHaveBeenCalled()
+  })
+
+  it.each(['approval', 'closed', 'cancelled'] as const)(
+    'refuses %s chat opening without an opened assertion',
+    async (kind) => {
+      const tool = new DeployWorkflowClientTool('chat-refusal')
+      tool.setExecutionContext({
+        toolCallId: 'chat-refusal',
+        toolName: 'deploy_workflow',
+        workspaceId: 'entity-workspace',
+      })
+      if (kind === 'approval')
+        mockCopilotState.readPendingTool.mockResolvedValue({ stage: 'approval' })
+      if (kind === 'closed')
+        mockCopilotState.openWorkflowChatDeployment.mockRejectedValue(
+          new Error('Dialog closed before rendering')
+        )
+      if (kind === 'cancelled') mockCopilotState.abortController.abort()
+      await tool.handleAccept({
+        action: 'deploy',
+        deployType: 'chat',
+        entityId: 'explicit-workflow',
+      })
+      expect(mockCopilotState.submitBrowserAssertion).not.toHaveBeenCalled()
+      expect(tool.getState()).toBe(ClientToolCallState.error)
+      if (kind !== 'closed')
+        expect(mockCopilotState.openWorkflowChatDeployment).not.toHaveBeenCalled()
+    }
+  )
+  it('undeployment carries native target then reads actual postcondition without inventing a completion callback', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ isDeployed: false, deployedAt: null }))
+    vi.stubGlobal('fetch', fetchMock)
+    const tool = new DeployWorkflowClientTool('undeploy-call')
+    tool.setExecutionContext({
+      toolCallId: 'undeploy-call',
+      toolName: 'deploy_workflow',
+      workspaceId: 'entity-workspace',
+    })
+    await tool.handleAccept({
+      action: 'undeploy',
+      deployType: 'api',
+      entityId: 'explicit-workflow',
+    })
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+      '/api/workflows/explicit-workflow/deploy',
+      expect.objectContaining({ method: 'DELETE', signal: mockCopilotState.abortController.signal })
+    )
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toMatchObject({
+      native: {
+        workspaceId: null,
+        target: { toolCallId: 'undeploy-call', toolName: 'deploy_workflow' },
+      },
+    })
+    expect(mockCopilotState.readbackCopilotToolCall).toHaveBeenCalledExactlyOnceWith(
+      'undeploy-call',
+      undefined
+    )
+    expect(mockCopilotState.submitBrowserAssertion).not.toHaveBeenCalled()
   })
 })

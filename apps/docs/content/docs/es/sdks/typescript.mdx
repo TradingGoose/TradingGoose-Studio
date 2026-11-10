@@ -42,6 +42,9 @@ El streaming hace que la API de ejecución devuelva `text/event-stream`. El SDK 
 `executeWithRetry(workflowId, options, retryOptions)` solo reintenta `RATE_LIMIT_EXCEEDED`. Los valores predeterminados de `RetryOptions` son `maxRetries: 3`, `initialDelay: 1000` ms, `maxDelay: 30000` ms y `backoffMultiplier: 2`. El endpoint de flujo de trabajo actual no emite `Retry-After`, por lo que el cliente usa retroceso exponencial con ±25 % de fluctuación. Un despliegue compatible que proporcione el encabezado anula ese retraso.
 
 - `getRateLimitInfo(): RateLimitInfo | null` normalmente devuelve `null` porque los endpoints de flujo de trabajo y de uso actuales no emiten encabezados de límite de tasa. Un despliegue o proxy compatible puede proporcionar `limit`, `remaining`, una marca de tiempo ISO `reset` y, de forma opcional, `retryAfter` en milisegundos.
+
+**Cambio incompatible del ABI monetario:** `currentPeriodCost` es texto decimal exacto en USD, por ejemplo `"9007199254740993.30000000000000001"`; el `limit` monetario es una cadena decimal o `null` para un límite ilimitado. Los precios, asignaciones y multiplicadores del nivel también son cadenas decimales o `null` según la configuración. Conserva estos valores sin convertirlos con `Number`/`float`. Los contadores de velocidad, plazas y campos de almacenamiento siguen siendo numéricos.
+
 - `getUsageLimits(): Promise<UsageLimits>` expone `isLimited` sincrónico y asíncrono, `limit`, `remaining` e `resetAt`, además de `authType`; uso `currentPeriodCost`, `limit` y el objeto de resumen del nivel de facturación; y almacenamiento `usedBytes`, `limitBytes` e `percentUsed`.
 
 ## Errores y resultados

@@ -2,7 +2,9 @@ import { existsSync } from 'fs'
 import { join, resolve, sep } from 'path'
 import { NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
+import { ArchiveAccessError, assertPublicStorageInput } from '@/lib/uploads/archive-boundary'
 import { UPLOAD_DIR } from '@/lib/uploads/core/setup'
+import { PrivateSourceAccessError } from '@/lib/uploads/source-read-boundary'
 import { sanitizeFileKey } from '@/lib/uploads/utils/file-utils'
 
 const logger = createLogger('FilesUtils')
@@ -203,6 +205,7 @@ function sanitizeFilename(filename: string): string {
 
 export function findLocalFile(filename: string): string | null {
   try {
+    assertPublicStorageInput(filename)
     const sanitizedFilename = sanitizeFilename(filename)
 
     const possiblePaths = [
@@ -300,7 +303,13 @@ export function createFileResponse(file: FileResponse): NextResponse {
 
 export function createErrorResponse(error: Error, status = 500): NextResponse {
   const statusCode =
-    error instanceof FileNotFoundError ? 404 : error instanceof InvalidRequestError ? 400 : status
+    error instanceof ArchiveAccessError || error instanceof PrivateSourceAccessError
+      ? 403
+      : error instanceof FileNotFoundError
+        ? 404
+        : error instanceof InvalidRequestError
+          ? 400
+          : status
 
   return NextResponse.json(
     {

@@ -1,3 +1,19 @@
+import {
+  assertFinancialMemberTargets,
+  FinancialPolicyError,
+  lockFinancialRoots,
+  readFinancialMemberTarget,
+} from '@tradinggoose/billing'
+import {
+  addMoney,
+  compareMoney,
+  type DecimalAmount,
+  decimalFromSafeInteger,
+  displayPercentage,
+  maxMoney,
+  monetary,
+  multiplyMoney,
+} from '@tradinggoose/billing/money'
 import { db } from '@tradinggoose/db'
 import {
   member,
@@ -8,7 +24,7 @@ import {
   userStats,
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { getBillingTierPricing, getOrganizationSubscription } from '@/lib/billing/core/billing'
+import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import {
   canTierEditUsageLimit,
@@ -21,17 +37,8 @@ import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('OrganizationBilling')
 
-function roundCurrency(value: number): number {
-  return Math.round(value * 100) / 100
-}
-
-function parseLedgerNumber(value: string | number | null | undefined): number {
-  if (value === null || value === undefined) {
-    return 0
-  }
-
-  const parsed = Number.parseFloat(value.toString())
-  return Number.isFinite(parsed) ? parsed : 0
+function parseLedgerNumber(value: string | null | undefined): DecimalAmount {
+  return monetary(value)
 }
 
 export interface OrganizationBillingLedgerSnapshot {
@@ -42,13 +49,13 @@ export interface OrganizationBillingLedgerSnapshot {
   totalScheduledExecutions: number
   totalChatExecutions: number
   totalTokensUsed: number
-  totalCost: number
-  currentPeriodCost: number
-  lastPeriodCost: number
-  billedOverageThisPeriod: number
-  totalCopilotCost: number
-  currentPeriodCopilotCost: number
-  lastPeriodCopilotCost: number
+  totalCost: DecimalAmount
+  currentPeriodCost: DecimalAmount
+  lastPeriodCost: DecimalAmount
+  billedOverageThisPeriod: DecimalAmount
+  totalCopilotCost: DecimalAmount
+  currentPeriodCopilotCost: DecimalAmount
+  lastPeriodCopilotCost: DecimalAmount
   totalCopilotTokens: number
   totalCopilotCalls: number
   billingBlocked: boolean
@@ -66,12 +73,12 @@ export interface OrganizationMemberBillingLedgerSnapshot {
   totalScheduledExecutions: number
   totalChatExecutions: number
   totalTokensUsed: number
-  totalCost: number
-  currentPeriodCost: number
-  lastPeriodCost: number
-  totalCopilotCost: number
-  currentPeriodCopilotCost: number
-  lastPeriodCopilotCost: number
+  totalCost: DecimalAmount
+  currentPeriodCost: DecimalAmount
+  lastPeriodCost: DecimalAmount
+  totalCopilotCost: DecimalAmount
+  currentPeriodCopilotCost: DecimalAmount
+  lastPeriodCopilotCost: DecimalAmount
   totalCopilotTokens: number
   totalCopilotCalls: number
   lastActive: Date
@@ -82,46 +89,29 @@ export interface OrganizationMemberBillingLedgerSnapshot {
 export async function getOrganizationBillingLedger(
   organizationId: string
 ): Promise<OrganizationBillingLedgerSnapshot | null> {
-  const organizationRows = await db
-    .select({ id: organization.id })
-    .from(organization)
-    .where(eq(organization.id, organizationId))
-    .limit(1)
+  return db.transaction(async (tx) => {
+    await lockFinancialRoots(tx, [{ type: 'organization', id: organizationId }])
+    const organizationRows = await tx
+      .select({ id: organization.id })
+      .from(organization)
+      .where(eq(organization.id, organizationId))
+      .limit(1)
 
-  if (organizationRows.length === 0) {
-    return null
-  }
+    if (organizationRows.length === 0) {
+      return null
+    }
 
-  const ledgerRows = await db
-    .select()
-    .from(organizationBillingLedger)
-    .where(eq(organizationBillingLedger.organizationId, organizationId))
-    .limit(1)
-
-  if (ledgerRows.length === 0) {
-    await db
-      .insert(organizationBillingLedger)
-      .values({
-        organizationId,
-      })
-      .onConflictDoNothing({
-        target: [organizationBillingLedger.organizationId],
-      })
-
-    const seededRows = await db
+    const ledgerRows = await tx
       .select()
       .from(organizationBillingLedger)
       .where(eq(organizationBillingLedger.organizationId, organizationId))
       .limit(1)
 
-    if (seededRows.length === 0) {
-      return null
-    }
+    if (ledgerRows.length === 0)
+      throw new FinancialPolicyError('Original financial ledger is missing; preservation required')
 
-    return mapOrganizationBillingLedgerRow(seededRows[0])
-  }
-
-  return mapOrganizationBillingLedgerRow(ledgerRows[0])
+    return mapOrganizationBillingLedgerRow(ledgerRows[0])
+  })
 }
 
 function mapOrganizationBillingLedgerRow(
@@ -155,32 +145,10 @@ export async function getOrganizationMemberBillingLedger(
   organizationId: string,
   userId: string
 ): Promise<OrganizationMemberBillingLedgerSnapshot | null> {
-  const ledgerRows = await db
-    .select()
-    .from(organizationMemberBillingLedger)
-    .where(
-      and(
-        eq(organizationMemberBillingLedger.organizationId, organizationId),
-        eq(organizationMemberBillingLedger.userId, userId)
-      )
-    )
-    .limit(1)
-
-  if (ledgerRows.length === 0) {
-    await db
-      .insert(organizationMemberBillingLedger)
-      .values({
-        organizationId,
-        userId,
-      })
-      .onConflictDoNothing({
-        target: [
-          organizationMemberBillingLedger.organizationId,
-          organizationMemberBillingLedger.userId,
-        ],
-      })
-
-    const seededRows = await db
+  return db.transaction(async (tx) => {
+    await lockFinancialRoots(tx, [{ type: 'organization', id: organizationId }])
+    await readFinancialMemberTarget(tx, organizationId, userId)
+    const ledgerRows = await tx
       .select()
       .from(organizationMemberBillingLedger)
       .where(
@@ -191,25 +159,24 @@ export async function getOrganizationMemberBillingLedger(
       )
       .limit(1)
 
-    if (seededRows.length === 0) {
-      return null
-    }
+    if (ledgerRows.length === 0)
+      throw new FinancialPolicyError('Original financial member target is missing')
 
-    return mapOrganizationMemberBillingLedgerRow(seededRows[0])
-  }
-
-  return mapOrganizationMemberBillingLedgerRow(ledgerRows[0])
+    return mapOrganizationMemberBillingLedgerRow(ledgerRows[0])
+  })
 }
 
 export async function getOrganizationMemberBillingLedgers(
   organizationId: string
 ): Promise<OrganizationMemberBillingLedgerSnapshot[]> {
-  const rows = await db
-    .select()
-    .from(organizationMemberBillingLedger)
-    .where(eq(organizationMemberBillingLedger.organizationId, organizationId))
-
-  return rows.map(mapOrganizationMemberBillingLedgerRow)
+  return db.transaction(async (tx) => {
+    await assertFinancialMemberTargets(tx, organizationId)
+    const rows = await tx
+      .select()
+      .from(organizationMemberBillingLedger)
+      .where(eq(organizationMemberBillingLedger.organizationId, organizationId))
+    return rows.map(mapOrganizationMemberBillingLedgerRow)
+  })
 }
 
 function mapOrganizationMemberBillingLedgerRow(
@@ -238,336 +205,219 @@ function mapOrganizationMemberBillingLedgerRow(
   }
 }
 
-interface OrganizationUsageData {
+export interface OrganizationUsageData {
   organizationId: string
   organizationName: string
   subscriptionTier: BillingTierSummary | null
   subscriptionStatus: string | null
-  seatPriceUsd: number
+  seatPriceUsd: DecimalAmount | null
   seatCount: number | null
   seatMaximum: number | null
   seatMode: 'fixed' | 'adjustable' | null
   totalSeats: number
   usedSeats: number
   seatsCount: number
-  totalCurrentUsage: number
-  totalUsageLimit: number
+  totalCurrentUsage: DecimalAmount
+  totalUsageLimit: DecimalAmount | null
   warningThresholdPercent: number
-  minimumUsageLimit: number
-  averageUsagePerMember: number
+  minimumUsageLimit: DecimalAmount
+  percentUsed: number
+  isWarning: boolean
+  isExceeded: boolean
   billingPeriodStart: Date | null
   billingPeriodEnd: Date | null
-  currentPeriodCost: number
-  lastPeriodCost: number
-  billedOverageThisPeriod: number
-  currentPeriodCopilotCost: number
-  lastPeriodCopilotCost: number
-  totalCost: number
-  totalCopilotCost: number
+  currentPeriodCost: DecimalAmount
+  lastPeriodCost: DecimalAmount
+  billedOverageThisPeriod: DecimalAmount
+  currentPeriodCopilotCost: DecimalAmount
+  lastPeriodCopilotCost: DecimalAmount
+  totalCost: DecimalAmount
+  totalCopilotCost: DecimalAmount
   billingBlocked: boolean
   members: MemberUsageData[]
 }
-
-interface MemberUsageData {
+export interface MemberUsageData {
   userId: string
   userName: string
   userEmail: string
-  currentUsage: number
-  usageLimit: number
+  currentUsage: DecimalAmount | null
+  usageLimit: DecimalAmount | null
   percentUsed: number
   isOverLimit: boolean
   role: string
   joinedAt: Date
   lastActive: Date | null
 }
-
 export function getOrganizationMinimumUsageLimitUsd(
   subscription: Awaited<ReturnType<typeof getOrganizationSubscription>> | null
-): number {
-  return roundCurrency(getSubscriptionUsageAllowanceUsd(subscription))
+): DecimalAmount {
+  return subscription ? getSubscriptionUsageAllowanceUsd(subscription) : '0'
 }
 
-/**
- * Get comprehensive organization billing and usage data
- */
 export async function getOrganizationBillingData(
   organizationId: string
 ): Promise<OrganizationUsageData | null> {
-  try {
-    // Get organization info
-    const orgRecord = await db
-      .select()
-      .from(organization)
-      .where(eq(organization.id, organizationId))
-      .limit(1)
-
-    if (orgRecord.length === 0) {
-      logger.warn('Organization not found', { organizationId })
-      return null
-    }
-
-    const organizationData = orgRecord[0]
-
-    // Get organization subscription directly (referenceId = organizationId)
-    const [{ billingEnabled, usageWarningThresholdPercent }, subscription, billingLedger] =
-      await Promise.all([
-        getResolvedBillingSettings(),
-        getOrganizationSubscription(organizationId),
-        getOrganizationBillingLedger(organizationId),
-      ])
-
-    if (!billingLedger) {
-      logger.warn('Organization billing ledger not found', { organizationId })
-      return null
-    }
-
-    const memberRows = await db
-      .select({
-        userId: member.userId,
-        userName: user.name,
-        userEmail: user.email,
-        role: member.role,
-        joinedAt: member.createdAt,
-        lastActive: userStats.lastActive,
-      })
-      .from(member)
-      .innerJoin(user, eq(member.userId, user.id))
-      .leftJoin(userStats, eq(member.userId, userStats.userId))
-      .where(eq(member.organizationId, organizationId))
-
-    if (!billingEnabled || !subscription) {
-      const memberLedgers = await getOrganizationMemberBillingLedgers(organizationId)
-      const memberLedgerByUserId = new Map(memberLedgers.map((ledger) => [ledger.userId, ledger]))
-      const usageLimit = billingEnabled ? 0 : Number.MAX_SAFE_INTEGER
-      const members: MemberUsageData[] = memberRows.map((memberRecord) => {
-        const currentUsage = memberLedgerByUserId.get(memberRecord.userId)?.currentPeriodCost ?? 0
-        return {
-          userId: memberRecord.userId,
-          userName: memberRecord.userName,
-          userEmail: memberRecord.userEmail,
-          currentUsage,
-          usageLimit,
-          percentUsed: 0,
-          isOverLimit: currentUsage > usageLimit,
-          role: memberRecord.role,
-          joinedAt: memberRecord.joinedAt,
-          lastActive: memberRecord.lastActive,
-        }
-      })
-      const totalCurrentUsage =
-        memberLedgers.length > 0
-          ? memberLedgers.reduce((total, ledger) => total + ledger.currentPeriodCost, 0)
-          : billingLedger.currentPeriodCost
-      const averageUsagePerMember = members.length > 0 ? totalCurrentUsage / members.length : 0
-
-      return {
-        organizationId,
-        organizationName: organizationData.name || '',
-        subscriptionTier: null,
-        subscriptionStatus: null,
-        seatPriceUsd: 0,
-        seatCount: null,
-        seatMaximum: null,
-        seatMode: null,
-        totalSeats: members.length,
-        usedSeats: members.length,
-        seatsCount: members.length,
-        totalCurrentUsage: roundCurrency(totalCurrentUsage),
-        totalUsageLimit: billingEnabled ? 0 : Number.MAX_SAFE_INTEGER,
-        warningThresholdPercent: 0,
-        minimumUsageLimit: 0,
-        averageUsagePerMember: roundCurrency(averageUsagePerMember),
-        billingPeriodStart: null,
-        billingPeriodEnd: null,
-        members: members.sort((a, b) => b.currentUsage - a.currentUsage),
-        currentPeriodCost: roundCurrency(billingLedger.currentPeriodCost),
-        lastPeriodCost: roundCurrency(billingLedger.lastPeriodCost),
-        billedOverageThisPeriod: 0,
-        currentPeriodCopilotCost: roundCurrency(billingLedger.currentPeriodCopilotCost),
-        lastPeriodCopilotCost: roundCurrency(billingLedger.lastPeriodCopilotCost),
-        totalCost: roundCurrency(billingLedger.totalCost),
-        totalCopilotCost: roundCurrency(billingLedger.totalCopilotCost),
-        billingBlocked: false,
-      }
-    }
-
-    const memberLedgers =
-      subscription.tier.usageScope === 'individual'
-        ? await getOrganizationMemberBillingLedgers(organizationId)
-        : []
-    const memberLedgerByUserId = new Map(memberLedgers.map((ledger) => [ledger.userId, ledger]))
-
-    // Process member data
-    const members: MemberUsageData[] = memberRows.map((memberRecord) => {
-      const memberLedger = memberLedgerByUserId.get(memberRecord.userId)
-      const currentUsage =
-        subscription.tier.usageScope === 'individual' ? (memberLedger?.currentPeriodCost ?? 0) : 0
-      const usageLimit =
-        subscription.tier.usageScope === 'individual'
-          ? getTierUsageAllowanceUsd(subscription.tier)
-          : 0
-      const percentUsed = usageLimit > 0 ? (currentUsage / usageLimit) * 100 : 0
-
-      return {
-        userId: memberRecord.userId,
-        userName: memberRecord.userName,
-        userEmail: memberRecord.userEmail,
-        currentUsage,
-        usageLimit,
-        percentUsed: Math.round(percentUsed * 100) / 100,
-        isOverLimit: currentUsage > usageLimit,
-        role: memberRecord.role,
-        joinedAt: memberRecord.joinedAt,
-        lastActive: memberRecord.lastActive,
-      }
+  const [org] = await db
+    .select()
+    .from(organization)
+    .where(eq(organization.id, organizationId))
+    .limit(1)
+  if (!org) return null
+  const [{ billingEnabled, usageWarningThresholdPercent }, active, ledger] = await Promise.all([
+    getResolvedBillingSettings(),
+    getOrganizationSubscription(organizationId),
+    getOrganizationBillingLedger(organizationId),
+  ])
+  const subscription = billingEnabled ? active : null
+  const people = await db
+    .select({
+      userId: member.userId,
+      userName: user.name,
+      userEmail: user.email,
+      role: member.role,
+      joinedAt: member.createdAt,
+      lastActive: userStats.lastActive,
     })
-    const totalMemberUsageLimit = members.reduce((total, memberRecord) => {
-      return total + memberRecord.usageLimit
-    }, 0)
-
-    // Calculate aggregated statistics
-    const totalCurrentUsage =
-      subscription.tier.usageScope === 'individual'
-        ? memberLedgers.reduce((total, ledger) => total + ledger.currentPeriodCost, 0)
-        : billingLedger.currentPeriodCost
-    const totalCopilotCost = billingLedger.currentPeriodCopilotCost
-    const totalLastPeriodCopilotCost = billingLedger.lastPeriodCopilotCost
-
-    const { basePrice: recurringPrice } = getBillingTierPricing(subscription.tier)
-    // Use Stripe subscription seats as source of truth
-    // Ensure we always have at least 1 seat (protect against 0 or falsy values)
-    const licensedSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
-
-    const minimumUsageLimit = getOrganizationMinimumUsageLimitUsd(subscription)
-    let totalUsageLimit: number
-
-    if (subscription.tier.usageScope === 'pooled') {
-      const configuredLimit = organizationData.orgUsageLimit
-        ? Number.parseFloat(organizationData.orgUsageLimit)
-        : null
-
-      totalUsageLimit =
-        configuredLimit !== null ? Math.max(configuredLimit, minimumUsageLimit) : minimumUsageLimit
-    } else {
-      totalUsageLimit = totalMemberUsageLimit
-    }
-
-    const averageUsagePerMember = members.length > 0 ? totalCurrentUsage / members.length : 0
-
-    // Billing period comes from the organization's subscription
-    const billingPeriodStart = subscription.periodStart || null
-    const billingPeriodEnd = subscription.periodEnd || null
-
+    .from(member)
+    .innerJoin(user, eq(member.userId, user.id))
+    .leftJoin(userStats, eq(member.userId, userStats.userId))
+    .where(eq(member.organizationId, organizationId))
+  const memberLedgers = await getOrganizationMemberBillingLedgers(organizationId)
+  if (!ledger) throw new FinancialPolicyError('Original organization financial ledger is missing')
+  const individual = subscription?.tier.usageScope === 'individual'
+  const byUser = new Map(memberLedgers.map((row) => [row.userId, row]))
+  const members: MemberUsageData[] = people.map((person) => {
+    const money = byUser.get(person.userId)?.currentPeriodCost ?? null
+    const limit = !billingEnabled
+      ? null
+      : individual
+        ? getTierUsageAllowanceUsd(subscription?.tier)
+        : '0'
     return {
-      organizationId,
-      organizationName: organizationData.name || '',
-      subscriptionTier: toBillingTierSummary(subscription.tier),
-      subscriptionStatus: subscription.status || 'inactive',
-      seatPriceUsd: roundCurrency(recurringPrice),
-      seatCount: subscription.tier.seatCount ?? null,
-      seatMaximum: subscription.tier.seatMaximum ?? null,
-      seatMode: subscription.tier.seatMode,
-      totalSeats: licensedSeats,
-      usedSeats: members.length,
-      seatsCount: licensedSeats,
-      totalCurrentUsage: roundCurrency(totalCurrentUsage),
-      totalUsageLimit: roundCurrency(totalUsageLimit),
-      warningThresholdPercent: usageWarningThresholdPercent,
-      minimumUsageLimit,
-      averageUsagePerMember: roundCurrency(averageUsagePerMember),
-      billingPeriodStart,
-      billingPeriodEnd,
-      members: members.sort((a, b) => b.currentUsage - a.currentUsage), // Sort by usage desc
-      currentPeriodCost: roundCurrency(billingLedger.currentPeriodCost),
-      lastPeriodCost: roundCurrency(billingLedger.lastPeriodCost),
-      billedOverageThisPeriod: roundCurrency(billingLedger.billedOverageThisPeriod),
-      currentPeriodCopilotCost: roundCurrency(totalCopilotCost),
-      lastPeriodCopilotCost: roundCurrency(totalLastPeriodCopilotCost),
-      totalCost: roundCurrency(billingLedger.totalCost),
-      totalCopilotCost: roundCurrency(billingLedger.totalCopilotCost),
-      billingBlocked: billingLedger.billingBlocked,
+      ...person,
+      currentUsage: individual || !subscription ? money : null,
+      usageLimit: limit,
+      percentUsed: money !== null && limit !== null ? displayPercentage(money, limit) : 0,
+      isOverLimit:
+        billingEnabled &&
+        (!subscription || individual) &&
+        (money === null || (limit !== null && compareMoney(money, limit) > 0)),
     }
-  } catch (error) {
-    logger.error('Failed to get organization billing data', { organizationId, error })
-    throw error
+  })
+  const totalCurrentUsage =
+    individual && memberLedgers.length
+      ? addMoney(...memberLedgers.map((row) => row.currentPeriodCost))
+      : ledger.currentPeriodCost
+  const minimumUsageLimit = subscription ? getOrganizationMinimumUsageLimitUsd(subscription) : '0'
+  const totalUsageLimit = !billingEnabled
+    ? null
+    : !subscription
+      ? '0'
+      : individual
+        ? addMoney(...members.map((row) => row.usageLimit ?? '0'))
+        : org.orgUsageLimit === null
+          ? minimumUsageLimit
+          : maxMoney(monetary(org.orgUsageLimit), minimumUsageLimit)
+  const percentUsed =
+    totalUsageLimit === null ? 0 : displayPercentage(totalCurrentUsage, totalUsageLimit)
+  const isExceeded =
+    billingEnabled &&
+    (ledger.billingBlocked ||
+      (totalUsageLimit !== null && compareMoney(totalCurrentUsage, totalUsageLimit) >= 0))
+  const isWarning =
+    billingEnabled &&
+    totalUsageLimit !== null &&
+    compareMoney(
+      multiplyMoney(totalCurrentUsage, '100'),
+      multiplyMoney(totalUsageLimit, decimalFromSafeInteger(usageWarningThresholdPercent))
+    ) >= 0
+  const seats = subscription?.seats ?? subscription?.tier.seatCount ?? people.length
+  if (!Number.isSafeInteger(seats) || seats < 0)
+    throw new FinancialPolicyError('Organization seat quantity is invalid')
+  return {
+    organizationId,
+    organizationName: org.name,
+    subscriptionTier: subscription ? toBillingTierSummary(subscription.tier) : null,
+    subscriptionStatus: subscription?.status ?? null,
+    seatPriceUsd:
+      subscription?.tier.monthlyPriceUsd === null || !subscription
+        ? null
+        : monetary(subscription.tier.monthlyPriceUsd),
+    seatCount: subscription?.tier.seatCount ?? null,
+    seatMaximum: subscription?.tier.seatMaximum ?? null,
+    seatMode: subscription?.tier.seatMode ?? null,
+    totalSeats: seats,
+    usedSeats: people.length,
+    seatsCount: seats,
+    totalCurrentUsage,
+    totalUsageLimit,
+    warningThresholdPercent: billingEnabled ? usageWarningThresholdPercent : 0,
+    minimumUsageLimit,
+    percentUsed,
+    isWarning,
+    isExceeded,
+    billingPeriodStart: subscription?.periodStart ?? null,
+    billingPeriodEnd: subscription?.periodEnd ?? null,
+    currentPeriodCost: ledger.currentPeriodCost,
+    lastPeriodCost: ledger.lastPeriodCost,
+    billedOverageThisPeriod: ledger.billedOverageThisPeriod,
+    currentPeriodCopilotCost: ledger.currentPeriodCopilotCost,
+    lastPeriodCopilotCost: ledger.lastPeriodCopilotCost,
+    totalCost: ledger.totalCost,
+    totalCopilotCost: ledger.totalCopilotCost,
+    billingBlocked: ledger.billingBlocked,
+    members: members.sort((a, b) =>
+      a.currentUsage === null
+        ? 1
+        : b.currentUsage === null
+          ? -1
+          : compareMoney(b.currentUsage, a.currentUsage)
+    ),
   }
 }
 
-/**
- * Update organization usage limit (cap)
- */
 export async function updateOrganizationUsageLimit(
   organizationId: string,
-  newLimit: number
+  newLimit: DecimalAmount,
+  actorUserId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Validate the organization exists
-    const orgRecord = await db
-      .select()
-      .from(organization)
-      .where(eq(organization.id, organizationId))
-      .limit(1)
-
-    if (orgRecord.length === 0) {
-      return { success: false, error: 'Organization not found' }
-    }
-
-    // Get subscription to validate minimum
-    const subscription = await getOrganizationSubscription(organizationId)
-    if (!subscription) {
-      return { success: false, error: 'No active subscription found' }
-    }
-
-    if (!canTierEditUsageLimit(subscription.tier)) {
-      return {
-        success: false,
-        error: 'This tier does not allow usage limit changes',
-      }
-    }
-
-    if (subscription.tier.usageScope === 'individual') {
-      return {
-        success: false,
-        error: 'Organization-level usage caps are only available for pooled billing tiers',
-      }
-    }
-
-    const minimumUsageLimit = getOrganizationMinimumUsageLimitUsd(subscription)
-
-    // Validate new limit is not below minimum
-    if (newLimit < minimumUsageLimit) {
-      return {
-        success: false,
-        error: `Usage limit cannot be less than the minimum included allowance of $${minimumUsageLimit.toFixed(2)}`,
-      }
-    }
-
-    // Update the organization usage limit
-    // Convert number to string for decimal column
-    await db
-      .update(organization)
-      .set({
-        orgUsageLimit: roundCurrency(newLimit).toFixed(2),
-        updatedAt: new Date(),
-      })
-      .where(eq(organization.id, organizationId))
-
-    logger.info('Organization usage limit updated', {
-      organizationId,
-      newLimit,
-      minimumUsageLimit,
+    const limit = monetary(newLimit)
+    return await db.transaction(async (tx) => {
+      await lockFinancialRoots(tx, [{ type: 'organization', id: organizationId }])
+      const [actor] = await tx
+        .select({ role: member.role })
+        .from(member)
+        .where(and(eq(member.organizationId, organizationId), eq(member.userId, actorUserId)))
+        .limit(1)
+      if (actor?.role !== 'owner')
+        throw new FinancialPolicyError('Current organization owner authorization required', 403)
+      const subscription = await getOrganizationSubscription(organizationId)
+      if (!subscription) return { success: false, error: 'No active subscription found' }
+      if (!canTierEditUsageLimit(subscription.tier))
+        return { success: false, error: 'This tier does not allow usage limit changes' }
+      if (subscription.tier.usageScope === 'individual')
+        return {
+          success: false,
+          error: 'Organization-level usage caps are only available for pooled billing tiers',
+        }
+      const minimum = getOrganizationMinimumUsageLimitUsd(subscription)
+      if (compareMoney(limit, minimum) < 0)
+        return {
+          success: false,
+          error: `Usage limit cannot be less than the minimum included allowance of $${minimum}`,
+        }
+      await tx
+        .update(organization)
+        .set({ orgUsageLimit: limit, updatedAt: new Date() })
+        .where(eq(organization.id, organizationId))
+      return { success: true }
     })
-
-    return { success: true }
   } catch (error) {
-    logger.error('Failed to update organization usage limit', {
-      organizationId,
-      newLimit,
-      error,
-    })
+    logger.error('Failed to update organization usage limit', { organizationId, error })
     return {
       success: false,
-      error: 'Failed to update usage limit',
+      error: error instanceof Error ? error.message : 'Failed to update usage limit',
     }
   }
 }

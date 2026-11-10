@@ -1,86 +1,13 @@
 import { AgentIcon } from '@/components/icons/icons'
-import { isHosted } from '@/lib/environment'
-import type {
-  BlockConfig,
-  SubBlockConfig,
-  SubBlockOption,
-  SubBlockOptionGroup,
-} from '@/blocks/types'
+import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import {
-  getAllModelProviders,
-  getMinOutputTokensForModel,
-  getProviderDefaultModel,
-  getProviderFromModel,
-  getProviderModels,
-  MODEL_CONTROL_GETTERS,
-  type ModelControl,
-  PROVIDER_DEFINITIONS,
-} from '@/providers/ai/models'
-import { useProvidersStore } from '@/stores/providers/store'
+  getDefaultModel,
+  getModelGroups,
+  getModelOptions,
+  getRegistryModel,
+} from '@/stores/model-registry'
 import type { ToolResponse } from '@/tools/types'
-
-const DEFAULT_MODEL = getProviderDefaultModel('openai')
-
-const modelControl = (id: ModelControl, title: string): SubBlockConfig => ({
-  id,
-  title,
-  description: 'Available levels depend on the model. Unset or Auto uses the provider default.',
-  type: 'combobox',
-  layout: 'half',
-  placeholder: 'Auto (provider default)',
-  additional: true,
-  autoSelectFirstOption: false,
-  condition: { field: 'model', operator: 'modelCapability', value: id },
-  options: (params) => [
-    { label: 'Auto (provider default)', id: 'auto' },
-    ...(MODEL_CONTROL_GETTERS[id](params?.model ?? '') ?? []).map((value) => ({
-      label: value,
-      id: value,
-    })),
-  ],
-})
-
-const getAvailableModels = () => {
-  const providers = useProvidersStore.getState().providers
-  const discoveredModels = Object.values(providers).flatMap(({ models }) => models)
-  return Array.from(new Set([...Object.keys(getAllModelProviders()), ...discoveredModels]))
-}
-
-const getAvailableModelOptions = (): SubBlockOption[] => {
-  return getAvailableModels().map((model) => {
-    const providerId = getProviderFromModel(model)
-    const provider = PROVIDER_DEFINITIONS[providerId]
-
-    return {
-      label: model,
-      id: model,
-      group: providerId,
-      searchLabel: `${model} ${provider.name}`,
-      ...(provider.icon && { icon: provider.icon }),
-    }
-  })
-}
-
-const getAvailableModelGroups = (): SubBlockOptionGroup[] => {
-  const seenProviderIds = new Set<string>()
-  const groups: SubBlockOptionGroup[] = []
-
-  for (const model of getAvailableModels()) {
-    const providerId = getProviderFromModel(model)
-    if (seenProviderIds.has(providerId)) continue
-
-    const provider = PROVIDER_DEFINITIONS[providerId]
-    seenProviderIds.add(providerId)
-    groups.push({
-      id: providerId,
-      label: provider.name,
-      ...(provider.icon && { icon: provider.icon }),
-    })
-  }
-
-  return groups
-}
 
 interface AgentResponse extends ToolResponse {
   output: {
@@ -108,7 +35,7 @@ export const AgentBlock: BlockConfig<AgentResponse> = {
   description: 'Build an agent',
   authMode: AuthMode.ApiKey,
   longDescription:
-    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the deployment catalog and configured provider connections. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token limits, and model-supported temperature, reasoning effort, verbosity, or thinking levels without switching block modes. Unset tuning controls or Auto use the provider’s defaults. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
+    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the configured Mastra registry. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token limits, and model-supported temperature and native Provider Options without switching block modes. Unset tuning controls use the provider’s defaults. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
   bestPractices: `
   - Cannot use core blocks like API, Webhook, Function, Workflow, Memory as tools. Only integrations or custom tools. 
   - Check custom tools examples for YAML syntax. Only construct these if there isn't an existing integration for that purpose.
@@ -207,59 +134,67 @@ Create a system prompt appropriately detailed for the request, using clear langu
       placeholder: 'Type or select a model...',
       required: true,
       dropdownMode: 'sidebar',
-      optionGroups: getAvailableModelGroups,
-      value: () => {
-        const allModels = getAvailableModels()
-        if (allModels.includes(DEFAULT_MODEL)) return DEFAULT_MODEL
-        return allModels[0]
-      },
-      options: getAvailableModelOptions,
+      autoSelectFirstOption: false,
+      optionGroups: getModelGroups,
+      value: getDefaultModel,
+      options: getModelOptions,
     },
-    ...[1, 1.5, 2].map(
-      (max): SubBlockConfig => ({
-        id: 'temperature',
-        title: 'Temperature',
-        type: 'slider',
-        layout: 'half',
-        placeholder: 'Use the provider default',
-        clearable: true,
-        min: 0,
-        max,
-        step: 0.1,
-        additional: true,
-        condition: {
-          field: 'model',
-          operator: 'modelMaxTemperature',
-          value: max,
-        },
-      })
-    ),
-    modelControl('reasoningEffort', 'Reasoning Effort'),
-    modelControl('verbosity', 'Verbosity'),
-    modelControl('thinkingLevel', 'Thinking Level'),
-    ...Array.from(
-      new Set([1, ...Object.keys(getAllModelProviders()).map(getMinOutputTokensForModel)])
-    ).map(
-      (min): SubBlockConfig => ({
-        id: 'maxTokens',
-        title: 'Max Output Tokens',
-        type: 'short-input',
-        layout: 'half',
-        placeholder: 'Use the provider default',
-        inputType: 'number',
-        min,
-        integer: true,
-        additional: true,
-        condition: () => ({
-          field: 'model',
-          not: min === 1,
-          value: Object.keys(getAllModelProviders()).filter((model) => {
-            const minimum = getMinOutputTokensForModel(model)
-            return min === 1 ? minimum !== 1 : minimum === min
-          }),
-        }),
-      })
-    ),
+    {
+      id: 'temperature',
+      title: 'Temperature',
+      type: 'short-input',
+      inputType: 'number',
+      layout: 'half',
+      placeholder: 'Use the provider default',
+      additional: true,
+      condition: { field: 'model', operator: 'modelCapability', value: 'temperature' },
+    },
+    {
+      id: 'reasoningOptions',
+      title: 'Model Reasoning',
+      type: 'text',
+      layout: 'full',
+      additional: true,
+      condition: { field: 'model', operator: 'modelCapability', value: 'reasoning' },
+      value: (params) => {
+        const options = getRegistryModel(params.model ?? '')?.reasoning
+        return options
+          ?.map((option) => {
+            if (option.type === 'effort')
+              return `Published effort values: ${option.values.join(', ')}. Shorthand reasoning is unavailable with this runtime; use supported native Provider Options.`
+            if (option.type === 'toggle')
+              return 'Reasoning publishes an on/off toggle. Configure supported native Provider Options.'
+            const bounds = [
+              option.min === undefined ? undefined : `minimum ${option.min}`,
+              option.max === undefined ? undefined : `maximum ${option.max}`,
+            ].filter(Boolean)
+            return `Reasoning token budget${bounds.length ? `: ${bounds.join(', ')}` : ''}. Configure through Provider Options.`
+          })
+          .join('\n')
+      },
+    },
+    {
+      id: 'providerOptions',
+      title: 'Provider Options',
+      type: 'code',
+      language: 'json',
+      layout: 'full',
+      additional: true,
+      placeholder: 'Enter native provider options JSON...',
+      description:
+        'Native options for the selected provider, including supported thinking budgets or toggles. Unset uses the provider default.',
+    },
+    {
+      id: 'maxTokens',
+      title: 'Max Output Tokens',
+      type: 'short-input',
+      inputType: 'number',
+      layout: 'half',
+      placeholder: 'Use the provider default',
+      min: 1,
+      integer: true,
+      additional: true,
+    },
     {
       id: 'apiKey',
       title: 'API Key',
@@ -268,27 +203,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
       placeholder: 'Enter your API key',
       password: true,
       connectionDroppable: false,
-      required: true,
-      condition: isHosted
-        ? undefined
-        : () => ({
-            field: 'model',
-            value: useProvidersStore.getState().providers.ollama.models,
-            not: true, // Show for all models EXCEPT Ollama models
-          }),
-    },
-    {
-      id: 'azureEndpoint',
-      title: 'Azure OpenAI Endpoint',
-      type: 'short-input',
-      layout: 'full',
-      password: true,
-      placeholder: 'https://your-resource.openai.azure.com',
-      connectionDroppable: false,
-      condition: {
-        field: 'model',
-        value: getProviderModels('azure-openai'),
-      },
+      description: 'Leave unset to use the configured Mastra connection.',
     },
     {
       id: 'tools',
@@ -400,32 +315,13 @@ Example 3 (Array Input):
       },
     },
   ],
-  tools: {
-    access: [
-      'openai_chat',
-      'anthropic_chat',
-      'google_chat',
-      'xai_chat',
-      'deepseek_chat',
-      'deepseek_reasoner',
-    ],
-    config: {
-      tool: (params: Record<string, any>) => {
-        const model = params.model
-        if (!model) {
-          throw new Error('No model selected')
-        }
-        return getProviderFromModel(model)
-      },
-    },
-  },
+  tools: { access: ['llm_chat'], config: { tool: () => 'llm_chat' } },
   inputs: {
     systemPrompt: { type: 'string', description: 'Initial system instructions' },
     userPrompt: { type: 'string', description: 'User message or context' },
     memories: { type: 'json', description: 'Agent memory data' },
     model: { type: 'string', description: 'AI model to use' },
     apiKey: { type: 'string', description: 'Provider API key' },
-    azureEndpoint: { type: 'string', description: 'Azure OpenAI endpoint URL' },
     responseFormat: {
       type: 'json',
       description: 'JSON object containing a JSON Schema in its schema field',
@@ -467,9 +363,10 @@ Example 3 (Array Input):
     },
     temperature: { type: 'number', description: 'Response randomness level' },
     maxTokens: { type: 'number', description: 'Maximum output tokens' },
-    reasoningEffort: { type: 'string', description: 'Model-supported reasoning effort, or auto' },
-    verbosity: { type: 'string', description: 'Model-supported response verbosity, or auto' },
-    thinkingLevel: { type: 'string', description: 'Model-supported thinking level, or auto' },
+    providerOptions: {
+      type: 'json',
+      description: 'Native provider options for the selected model',
+    },
     tools: { type: 'json', description: 'Available tools configuration' },
     skills: { type: 'json', description: 'Selected skills configuration' },
   },

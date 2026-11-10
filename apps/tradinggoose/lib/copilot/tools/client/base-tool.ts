@@ -1,21 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
+import type { BrowserAssertion } from '@/lib/copilot/native/contract'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { createLogger } from '@/lib/logs/console/logger'
-import {
-  maybeHandleCopilotMarkCompleteContinuation,
-  postCopilotMarkCompleteRequest,
-} from '@/stores/copilot/mark-complete'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { syncToolState } from './manager'
 
-const baseToolLogger = createLogger('BaseClientTool')
-
-/** Default timeout for tool execution (2 minutes) */
 const DEFAULT_TOOL_TIMEOUT_MS = 2 * 60 * 1000
-
-/** Timeout for tools that run workflows (10 minutes) */
 export const WORKFLOW_EXECUTION_TIMEOUT_MS = 10 * 60 * 1000
-export const REJECTED_TOOL_COMPLETION_STATUS = 409
 
 // Client tool call states used by the new runtime
 export enum ClientToolCallState {
@@ -77,322 +67,161 @@ export interface ClientToolExecutionContext {
 export class BaseClientTool {
   readonly toolCallId: string
   readonly name: string
-  protected state: ClientToolCallState
+  protected state = ClientToolCallState.generating
   protected metadata: BaseClientToolMetadata
-  protected isMarkedComplete = false
-  protected timeoutMs: number = DEFAULT_TOOL_TIMEOUT_MS
-  private isDisposed = false
+  protected timeoutMs = DEFAULT_TOOL_TIMEOUT_MS
+  private disposed = false
+  private resultSubmitted = false
   private executionContext: ClientToolExecutionContext | null = null
-  private persistedToolCall: Record<string, any> | undefined
-
-  constructor(toolCallId: string, name: string, metadata: BaseClientToolMetadata) {
-    this.toolCallId = toolCallId
+  private toolCall: Record<string, any> | undefined
+  constructor(id: string, name: string, metadata: BaseClientToolMetadata) {
+    this.toolCallId = id
     this.name = name
     this.metadata = metadata
-    this.state = ClientToolCallState.generating
   }
-
-  /**
-   * Set a custom timeout for this tool (in milliseconds)
-   */
-  setTimeoutMs(ms: number): void {
+  setTimeoutMs(ms: number) {
     this.timeoutMs = ms
   }
-
-  /**
-   * Check if this tool has been marked complete
-   */
-  hasBeenMarkedComplete(): boolean {
-    return this.isMarkedComplete
+  hasSubmittedResult() {
+    return this.resultSubmitted
   }
-
-  /**
-   * Ensure the tool is marked complete. If not already marked, marks it with error.
-   * This should be called in finally blocks to prevent leaked tool calls.
-   */
-  async ensureMarkedComplete(
-    fallbackMessage = 'Tool execution did not complete properly'
-  ): Promise<void> {
-    if (!this.isMarkedComplete) {
-      baseToolLogger.warn('Tool was not marked complete, marking with error', {
-        toolCallId: this.toolCallId,
-        toolName: this.name,
-        state: this.state,
-      })
-      await this.markToolComplete(500, fallbackMessage)
-      this.setState(ClientToolCallState.error)
-    }
-  }
-
-  /**
-   * Execute with timeout protection. Wraps the execution in a timeout and ensures
-   * markToolComplete is always called.
-   */
-  async executeWithTimeout(executeFn: () => Promise<void>, timeoutMs?: number): Promise<void> {
-    const timeout = timeoutMs ?? this.timeoutMs
-    let timeoutId: NodeJS.Timeout | null = null
-
+  async executeWithTimeout(execute: () => Promise<void>, timeoutMs = this.timeoutMs) {
+    let timer: ReturnType<typeof setTimeout> | undefined
     try {
       await Promise.race([
-        executeFn(),
-        new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            reject(new Error(`Tool execution timed out after ${timeout / 1000} seconds`))
-          }, timeout)
+        execute(),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('Tool request timed out; its effect outcome was not verified')),
+            timeoutMs
+          )
         }),
       ])
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      baseToolLogger.error('Tool execution failed or timed out', {
-        toolCallId: this.toolCallId,
-        toolName: this.name,
-        error: message,
-      })
-      // Only mark complete if not already marked
-      if (!this.isMarkedComplete) {
-        await this.markToolComplete(500, message)
-        this.setState(ClientToolCallState.error)
-      }
+      this.fail(error instanceof Error ? error.message : 'Tool execution failed')
     } finally {
-      if (timeoutId) clearTimeout(timeoutId)
-      // Ensure tool is always marked complete
-      await this.ensureMarkedComplete()
+      if (timer) clearTimeout(timer)
     }
   }
-
-  // Intentionally left empty - specific tools can override
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async execute(_args?: Record<string, any>): Promise<void> {
-    return
+  async execute(_args?: Record<string, any>): Promise<void> {}
+  setExecutionContext(context: ClientToolExecutionContext) {
+    if (!this.disposed) this.executionContext = context
   }
-
-  setExecutionContext(context: ClientToolExecutionContext): void {
-    if (this.isDisposed) return
-    this.executionContext = context
-  }
-
-  protected getExecutionContext(): ClientToolExecutionContext | null {
+  protected getExecutionContext() {
     return this.executionContext
   }
-
-  protected requireExecutionContext(): ClientToolExecutionContext {
-    if (!this.executionContext) {
+  protected requireExecutionContext() {
+    if (!this.executionContext)
       throw new Error(`Missing execution context for tool call ${this.toolCallId}`)
-    }
     return this.executionContext
   }
-
-  protected getAbortSignal(): AbortSignal | undefined {
-    if (this.isDisposed) return AbortSignal.abort()
-    return getCopilotStoreForToolCall(this.toolCallId).getState().abortController?.signal
+  protected getAbortSignal() {
+    return this.disposed
+      ? AbortSignal.abort()
+      : getCopilotStoreForToolCall(this.toolCallId).getState().abortController?.signal
   }
-
-  hydratePersistedToolCall(toolCall?: Record<string, any>): void {
-    if (this.isDisposed) return
-    this.persistedToolCall = toolCall ? { ...toolCall } : undefined
-    const persistedState = toolCall?.state as ClientToolCallState | undefined
-    if (persistedState !== undefined && this.state === ClientToolCallState.generating) {
-      this.state = persistedState
-    }
+  hydrateToolCall(call?: Record<string, any>) {
+    if (!this.disposed) this.toolCall = call
   }
-
-  /**
-   * Mark a tool as complete on the server (proxies to server-side route).
-   * Once called, the tool is considered complete and won't be marked again.
-   */
-  async markToolComplete(status: number, message?: any, data?: any): Promise<boolean> {
-    if (this.isDisposed) return true
-
-    // Prevent double-marking
-    if (this.isMarkedComplete) {
-      baseToolLogger.warn('markToolComplete called but tool already marked complete', {
-        toolCallId: this.toolCallId,
-        toolName: this.name,
-        existingState: this.state,
-        attemptedStatus: status,
-      })
-      return true
-    }
-
-    const storeState = getCopilotStoreForToolCall(this.toolCallId).getState()
-    if (storeState.toolCallsById[this.toolCallId]?.state === ClientToolCallState.aborted) {
-      this.isMarkedComplete = true
-      return true
-    }
-
-    this.isMarkedComplete = true
-
-    baseToolLogger.info('markToolComplete called', {
-      toolCallId: this.toolCallId,
-      toolName: this.name,
-      state: this.state,
-      status,
-      hasMessage: message !== undefined,
-      hasData: data !== undefined,
-    })
-
-    try {
-      const res = await postCopilotMarkCompleteRequest(
-        {
-          toolCallId: this.toolCallId,
-          toolName: this.name,
-          status,
-          message,
-          data,
-        },
-        storeState.abortController?.signal
-      )
-
-      if (!res.ok) {
-        // Try to surface server error
-        let errorText = `Failed to mark tool complete (status ${res.status})`
-        try {
-          const { error } = await res.json()
-          if (error) errorText = String(error)
-        } catch {}
-        throw new Error(errorText)
-      }
-
-      if (
-        await maybeHandleCopilotMarkCompleteContinuation({
-          toolCallId: this.toolCallId,
-          response: res,
-        })
-      ) {
-        return true
-      }
-
-      const json = (await res.json()) as { success?: boolean }
-      return json?.success === true
-    } catch (e) {
-      // Default failure path - but tool is still marked complete locally
-      baseToolLogger.error('Failed to mark tool complete on server', {
-        toolCallId: this.toolCallId,
-        error: e instanceof Error ? e.message : String(e),
-      })
-      return false
-    }
+  protected resolveToolCall() {
+    return this.toolCall
   }
-
-  // Accept (continue) for interrupt flows: move pending -> executing
-  async handleAccept(): Promise<void> {
+  protected resolveToolState() {
+    return this.toolCall?.state as ClientToolCallState | undefined
+  }
+  protected resolveResult<T = unknown>() {
+    return this.toolCall?.result as T | undefined
+  }
+  protected async requireNativeTarget() {
+    if (this.disposed) throw new Error('Client tool is no longer active')
+    const store = getCopilotStoreForToolCall(this.toolCallId).getState()
+    const pending = await store.readPendingTool(this.toolCallId)
+    if (pending.stage !== 'result')
+      throw new Error('Native approval is required before business execution')
+    if (!store.currentChat) throw new Error('Native conversation scope is missing')
+    return { workspaceId: store.currentChat.workspaceId, target: pending.target }
+  }
+  protected async completeBrowserAssertion(assertion: BrowserAssertion) {
+    if (this.disposed || this.resultSubmitted) return
+    await getCopilotStoreForToolCall(this.toolCallId)
+      .getState()
+      .submitBrowserAssertion(this.toolCallId, assertion)
+    this.resultSubmitted = true
+  }
+  protected async completeAuthoritativeReadback(readback?: { credentialId: string }) {
+    if (this.disposed || this.resultSubmitted) return
+    await getCopilotStoreForToolCall(this.toolCallId)
+      .getState()
+      .readbackCopilotToolCall(this.toolCallId, readback)
+    this.resultSubmitted = true
+  }
+  protected fail(message: string) {
+    if (this.disposed) return
+    this.setState(ClientToolCallState.error)
+    getCopilotStoreForToolCall(this.toolCallId)
+      .getState()
+      .recordToolFailure(this.toolCallId, message)
+  }
+  async handleAccept(_args?: Record<string, any>): Promise<void> {
     this.setState(ClientToolCallState.executing)
   }
-
-  protected resolvePersistedToolCall(): Record<string, any> | undefined {
-    return this.persistedToolCall
+  protected resolveUserActionState() {
+    return this.state === ClientToolCallState.pending || this.state === ClientToolCallState.review
+      ? this.state
+      : (this.resolveToolState() ?? this.state)
   }
-
-  protected resolvePersistedToolState(): ClientToolCallState | undefined {
-    return this.resolvePersistedToolCall()?.state as ClientToolCallState | undefined
-  }
-
-  protected resolvePersistedResult<T = any>(): T | undefined {
-    return this.resolvePersistedToolCall()?.result as T | undefined
-  }
-
-  protected resolveUserActionState(): ClientToolCallState {
-    if (this.state === ClientToolCallState.pending || this.state === ClientToolCallState.review) {
-      return this.state
-    }
-
-    return this.resolvePersistedToolState() ?? this.state
-  }
-
   protected async getPendingUserAction(_args?: Record<string, any>): Promise<'accept' | 'execute'> {
     return this.getInterruptDisplays() ? 'accept' : 'execute'
   }
-
   protected async prepareReviewAccept(_args?: Record<string, any>): Promise<boolean> {
     return true
   }
-
-  protected getRejectCompletionMessage(): string {
-    return 'Tool execution was skipped by the user'
-  }
-
-  // Unified entry point for explicit user-triggered execution from the copilot UI.
-  async handleUserAction(args?: Record<string, any>): Promise<void> {
-    if (this.isDisposed) return
-
-    const effectiveState = this.resolveUserActionState()
-
-    if (effectiveState === ClientToolCallState.review) {
-      if (!(await this.prepareReviewAccept(args))) {
-        return
-      }
-      await (this as any).handleAccept?.(args)
+  async handleUserAction(args?: Record<string, any>) {
+    if (this.disposed || this.resultSubmitted) return
+    const state = this.resolveUserActionState()
+    if (state === ClientToolCallState.review) {
+      if (await this.prepareReviewAccept(args)) await this.handleAccept(args)
       return
     }
-
-    if (effectiveState === ClientToolCallState.pending && this.getInterruptDisplays()) {
-      const action = await this.getPendingUserAction(args)
-      if (action === 'accept') {
-        await (this as any).handleAccept?.(args)
-        return
-      }
+    if (
+      state === ClientToolCallState.pending &&
+      (await this.getPendingUserAction(args)) === 'accept'
+    ) {
+      await this.handleAccept(args)
+      return
     }
-
-    await (this as any).execute?.(args)
+    await this.execute(args)
   }
-
-  // Reject (skip) for interrupt flows: mark complete with a standard skip message
-  async handleReject(): Promise<void> {
-    await this.markToolComplete(
-      REJECTED_TOOL_COMPLETION_STATUS,
-      this.getRejectCompletionMessage(),
-      {
-        rejected: true,
-      }
-    )
+  async handleReject() {
+    if (this.disposed) return
+    await getCopilotStoreForToolCall(this.toolCallId)
+      .getState()
+      .skipCopilotToolCall(this.toolCallId)
     this.setState(ClientToolCallState.rejected)
   }
-
-  // Return the display configuration for the current state
-  getDisplayState(): ClientToolDisplay | undefined {
+  getDisplayState() {
     return this.metadata.displayNames[this.state]
   }
-
-  // Return interrupt display config (labels/icons) if defined
-  getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
+  getInterruptDisplays() {
     return this.metadata.interrupt
   }
-
-  // Transition to a new state (also sync to Copilot store)
-  setState(next: ClientToolCallState, options?: { result?: any }): void {
-    if (this.isDisposed) return
-
-    const prev = this.state
-    this.state = next
-    this.persistedToolCall = {
-      ...this.persistedToolCall,
+  setState(state: ClientToolCallState, options?: { result?: unknown }) {
+    if (this.disposed) return
+    this.state = state
+    this.toolCall = {
+      ...this.toolCall,
+      state,
       ...(options?.result !== undefined ? { result: options.result } : {}),
-      state: next,
     }
-
-    syncToolState(this.toolCallId, next, options)
-
-    baseToolLogger.info('setState transition', {
-      toolCallId: this.toolCallId,
-      toolName: this.name,
-      prev,
-      next,
-      hasResult: options?.result !== undefined,
-    })
+    syncToolState(this.toolCallId, state, options)
   }
-
-  // Expose current state
-  getState(): ClientToolCallState {
+  getState() {
     return this.state
   }
-
-  dispose(): void {
-    if (this.isDisposed) return
-
-    this.isDisposed = true
-    this.isMarkedComplete = true
+  dispose() {
+    this.disposed = true
     this.state = ClientToolCallState.aborted
     this.executionContext = null
-    this.persistedToolCall = undefined
+    this.toolCall = undefined
   }
 }

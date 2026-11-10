@@ -12,6 +12,10 @@ Copilot es un asistente de IA que funciona en todo el espacio de trabajo de Trad
 
 Esta página cubre el asistente integrado de Studio. Para trabajar en TradingGoose desde tu propio agente de codificación, consulta [Copilot MCP](/copilot/copilot-mcp) para conocer las capacidades, la instalación y la autenticación.
 
+## Uso del contexto
+
+Copilot puede acortar el prompt enviado al modelo eliminando contexto histórico apto. La poda automática, la vista de contexto y la poda manual usan la misma proyección temporal; los mensajes almacenados, sus partes ordenadas y las imágenes permanecen intactos. La poda no realiza llamadas adicionales al modelo ni aceptaciones de facturación. Las inferencias de chat, títulos y wand conservan su contabilidad habitual. La vista distingue los recuentos de tokens medidos, estimados o no disponibles, sin deducir porcentajes ni capacidad del modelo. Una solicitud correcta puede no producir cambios. Las entradas actuales protegidas y las obligaciones de herramientas pendientes pueden impedir una reducción adicional.
+
 ## Capacidades
 
 Copilot tiene acceso a un conjunto completo de herramientas que abarcan toda la plataforma:
@@ -100,14 +104,16 @@ El estado del chat se conserva mientras navegas por el espacio de trabajo o cont
 
 Copilot tiene en cuenta el contexto. La página actual solo publica la identidad del objeto seleccionado, como el diseño de dashboard activo, la base de conocimiento, el registro de ejecución o el monitor. Usa el menú de menciones `@` cuando quieras añadir otro contexto explícito a un mensaje.
 
-Cuando Copilot transmite una respuesta que incluye llamadas a herramientas (por ejemplo, añadir un bloque, crear una skill o configurar un servidor MCP), cada acción se muestra como una vista previa insertada. En el modo **Limited**, apruebas o rechazas cada cambio; en el modo **Full**, los cambios se aplican automáticamente.
+Cuando Copilot transmite una respuesta que incluye llamadas a herramientas (por ejemplo, añadir un bloque, crear una skill o configurar un servidor MCP), cada acción se muestra en el chat. En el modo **Limited**, revisas los cambios; en el modo **Full**, las acciones nuevas permitidas pueden ejecutarse automáticamente. Una vista previa ya preparada sigue requiriendo **Accept** o **Reject** explícitamente. Actualizar las acciones pendientes no acepta una vista previa ni repite una acción ya intentada.
+
+Rechazar una vista previa deja el cambio sin aplicar y comunica esa decisión a Copilot. Si falla la entrega de un resultado conocido, reintentar su entrega envía el mismo resultado sin ejecutar otra vez la acción. Un resultado incierto de la acción permanece sin resolver.
 
 Puedes editar un prompt anterior para truncar y regenerar los mensajes que le siguen, pero solo cuando no haya una mutación en vivo aceptada después de ese prompt. Editar el historial del chat no deshace los cambios ya aplicados al espacio de trabajo; para revertir una acción aplicada, modifica de nuevo la entidad afectada. Los mensajes posteriores a un punto editable se atenúan para indicar que se regenerarán.
 
 ## Facturación
 
-Los cargos por completaciones de Copilot usan el costo total autoritativo informado por OpenRouter, seguido del multiplicador de costo de Copilot de tu plan. Esto mantiene la facturación final alineada con la solicitud realmente enrutada, incluidos los cargos aplicables por tokens en caché, razonamiento, medios, búsqueda, contexto largo y los específicos del proveedor.
+Las operaciones de modelo de Copilot informan el cargo aplicado y aceptado mediante una cadena USD canónica exacta. Si el costo USD del modelo no está disponible, sigue sin estarlo; los tokens y las estimaciones no lo sustituyen por un precio. La inferencia ordinaria conserva el multiplicador del plan y las comprobaciones de facturación compartidas.
 
 <Callout type="info">
-  Studio puede reservar una estimación conservadora antes de una solicitud. El cargo final siempre usa el costo de completación informado por OpenRouter, no la estimación.
+  Studio puede reservar una cantidad conservadora antes de contactar al modelo. La poda determinista del contexto no crea un hecho financiero separado; los cargos ya aceptados siguen siendo hechos históricos.
 </Callout>

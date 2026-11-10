@@ -9,16 +9,13 @@ import { Button } from '@/components/ui/button'
 import { CopyButton } from '@/components/ui/copy-button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatCost } from '@/lib/logs/cost'
 import { FrozenCanvasModal } from '@/app/workspace/[workspaceId]/records/components/log-details/components/execution-snapshot/frozen-canvas-modal'
 import { FileDownload } from '@/app/workspace/[workspaceId]/records/components/log-details/components/file-download/file-download'
 import { ToolCallsDisplay } from '@/app/workspace/[workspaceId]/records/components/log-details/components/tool-calls/tool-calls-display'
 import { TraceSpans } from '@/app/workspace/[workspaceId]/records/components/log-details/components/trace-spans/trace-spans'
-import {
-  formatDate,
-  getTraceSpanDisplayCostMultiplier,
-} from '@/app/workspace/[workspaceId]/records/utils'
+import { formatDate } from '@/app/workspace/[workspaceId]/records/utils'
 import { formatDurationMs, formatFileSize } from '@/i18n/formatters'
-import { formatCost } from '@/providers/ai/utils'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
 interface LogDetailsProps {
@@ -84,15 +81,6 @@ export function LogDetails({
   }, [log])
 
   const hasCostInfo = useMemo(() => Boolean(log?.cost), [log])
-  const baseExecutionCharge = Number(log?.cost?.baseExecutionCharge || 0)
-  const traceSpanCostMultiplier = useMemo(() => {
-    if (!log?.executionData?.traceSpans) {
-      return 1
-    }
-
-    return getTraceSpanDisplayCostMultiplier(log?.executionData?.traceSpans, log?.cost)
-  }, [log?.cost, log?.executionData?.traceSpans])
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -316,7 +304,6 @@ export function LogDetails({
                   <TraceSpans
                     traceSpans={log.executionData.traceSpans}
                     totalDuration={log.durationMs ?? undefined}
-                    costMultiplier={traceSpanCostMultiplier}
                   />
                 </div>
               )}
@@ -380,21 +367,15 @@ export function LogDetails({
                   <div className='overflow-hidden rounded-md border'>
                     <div className='flex flex-col gap-2 p-3'>
                       <div className='flex items-center justify-between'>
-                        <span className='text-muted-foreground text-xs'>{t('baseExecution')}</span>
-                        <span className='text-foreground text-xs'>
-                          {formatCost(baseExecutionCharge)}
-                        </span>
-                      </div>
-                      <div className='flex items-center justify-between'>
                         <span className='text-muted-foreground text-xs'>{t('modelInput')}</span>
                         <span className='text-foreground text-xs'>
-                          {formatCost(log.cost?.input || 0)}
+                          {formatCost(log.cost?.input)}
                         </span>
                       </div>
                       <div className='flex items-center justify-between'>
                         <span className='text-muted-foreground text-xs'>{t('modelOutput')}</span>
                         <span className='text-foreground text-xs'>
-                          {formatCost(log.cost?.output || 0)}
+                          {formatCost(log.cost?.output)}
                         </span>
                       </div>
                     </div>
@@ -405,14 +386,23 @@ export function LogDetails({
                       <div className='flex items-center justify-between'>
                         <span className='text-muted-foreground text-xs'>{t('total')}</span>
                         <span className='text-foreground text-xs'>
-                          {formatCost(log.cost?.total || 0)}
+                          {log.cost?.estimated || log.cost?.status === 'estimated'
+                            ? 'Estimated '
+                            : ''}
+                          {formatCost(log.cost?.total)}
+                          {log.cost?.status === 'partial' || log.cost?.status === 'unavailable' ? (
+                            <span className='ml-1 text-muted-foreground'>
+                              ({log.cost?.estimated ? 'estimated available' : 'available'}:{' '}
+                              {formatCost(log.cost?.availableTotal)})
+                            </span>
+                          ) : null}
                         </span>
                       </div>
                       <div className='flex items-center justify-between'>
                         <span className='text-muted-foreground text-xs'>{t('tokens')}</span>
                         <span className='text-muted-foreground text-xs'>
-                          {log.cost?.tokens?.prompt || 0} in / {log.cost?.tokens?.completion || 0}{' '}
-                          out
+                          {log.cost?.tokens?.prompt ?? 'Unavailable'} in /{' '}
+                          {log.cost?.tokens?.completion ?? 'Unavailable'} out
                         </span>
                       </div>
                     </div>
@@ -445,23 +435,27 @@ export function LogDetails({
                                   <div className='space-y-1 text-xs'>
                                     <div className='flex justify-between'>
                                       <span className='text-muted-foreground'>{t('input')}</span>
-                                      <span>{formatCost(cost.input || 0)}</span>
+                                      <span>{formatCost(cost.input)}</span>
                                     </div>
                                     <div className='flex justify-between'>
                                       <span className='text-muted-foreground'>{t('output')}</span>
-                                      <span>{formatCost(cost.output || 0)}</span>
+                                      <span>{formatCost(cost.output)}</span>
                                     </div>
                                     <div className='flex justify-between border-t pt-1'>
                                       <span className='text-muted-foreground'>{t('total')}</span>
                                       <span className='font-medium'>
-                                        {formatCost(cost.total || 0)}
+                                        {cost.status === 'estimated' ? 'Estimated ' : ''}
+                                        {formatCost(cost.total)}
+                                        {cost.status === 'partial'
+                                          ? ` (${cost.estimated ? 'estimated available' : 'available'}: ${formatCost(cost.availableTotal)})`
+                                          : ''}
                                       </span>
                                     </div>
                                     <div className='flex justify-between'>
                                       <span className='text-muted-foreground'>{t('tokens')}</span>
                                       <span>
-                                        {cost.tokens?.prompt || 0} in /{' '}
-                                        {cost.tokens?.completion || 0} out
+                                        {cost.tokens?.prompt ?? 'Unavailable'} in /{' '}
+                                        {cost.tokens?.completion ?? 'Unavailable'} out
                                       </span>
                                     </div>
                                   </div>
@@ -472,14 +466,6 @@ export function LogDetails({
                         )}
                       </div>
                     )}
-
-                    <div className='border-t bg-muted/40 p-2 text-[11px] text-muted-foreground'>
-                      <p>
-                        {t('totalCostNote', {
-                          amount: formatCost(baseExecutionCharge),
-                        })}
-                      </p>
-                    </div>
                   </div>
                 </div>
               )}
@@ -493,7 +479,6 @@ export function LogDetails({
             workflowName={log.workflow?.name}
             trigger={log.trigger || undefined}
             traceSpans={log.executionData?.traceSpans}
-            costMultiplier={traceSpanCostMultiplier}
             isOpen={isFrozenCanvasOpen}
             onClose={() => setIsFrozenCanvasOpen(false)}
           />

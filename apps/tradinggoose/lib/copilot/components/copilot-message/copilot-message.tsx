@@ -9,6 +9,7 @@ import {
   hasAcceptedLiveMutationAfterMessage,
 } from '@/lib/copilot/chat-replay-safety'
 import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
@@ -22,7 +23,7 @@ import type {
 } from '@/stores/copilot/types'
 import { UserInput, type UserInputRef } from '../user-input/user-input'
 import { buildAssistantMessageSegments } from './components/assistant-message-segments'
-import { FileAttachmentDisplay } from './components/file-display'
+import { FileAttachmentDisplay, NativeFileDisplay } from './components/file-display'
 import { OptionsSelector, parseSpecialTags } from './components/options-selector'
 import { SmoothStreamingText, StreamingIndicator } from './components/smooth-streaming'
 import { ThinkingGroup } from './components/thinking-group'
@@ -178,6 +179,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const shouldShowActivityIndicator =
       isAssistant && isLastMessage && isTurnInProgress && !isMessageTyping
     const userMessageText = message.content
+    const hasNativeFiles = message.contentBlocks?.some((block) => block.type === 'file') ?? false
     const userMessageContexts = extractExplicitCopilotContexts(message.contexts)
 
     const isReplayBlockedForEdit = useMemo(
@@ -210,7 +212,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       onEditModeChange(false)
     }
 
-    const handleMessageClick = () => {
+    const handleMessageClick = (event: React.MouseEvent<HTMLDivElement>) => {
+      if (event.target instanceof Element && event.target.closest('[data-native-image]')) return
       // Allow entering edit mode even while streaming
 
       // If message needs expansion and is not expanded, expand it
@@ -227,23 +230,21 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       fileAttachments?: MessageFileAttachment[],
       contexts?: ChatContext[]
     ) => {
-      if (!editedMessage.trim()) return
+      if (!editedMessage.trim()) return false
 
       if (isReplayBlockedForEdit) {
         handleCancelEdit()
         setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
-        return
+        return false
       }
 
       // If a stream is in progress, abort it first
       if (isTurnInProgress) {
         abortMessage()
-        // Wait a brief moment for abort to complete
-        await new Promise((resolve) => setTimeout(resolve, 100))
       }
 
       // Proceed with the edit
-      await performEdit(editedMessage, fileAttachments, contexts)
+      return performEdit(editedMessage, fileAttachments, contexts)
     }
 
     const performEdit = async (
@@ -251,82 +252,26 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       fileAttachments?: MessageFileAttachment[],
       contexts?: ChatContext[]
     ) => {
-      // Find the index of this message and truncate conversation
-      const currentMessages = messages
-      const editIndex = currentMessages.findIndex((m) => m.id === message.id)
-
-      if (editIndex !== -1) {
-        // Truncate messages after the edited message (but keep the edited message with updated content)
-        const truncatedMessages = currentMessages.slice(0, editIndex)
-
-        // Update the edited message with new content but keep it in the array
-        const updatedMessage = {
-          ...message,
-          content: editedMessage,
-          fileAttachments: fileAttachments || message.fileAttachments,
-          contexts: contexts ?? message.contexts,
-        }
-
-        // If we have a current chat, update the DB to remove messages after this point
-        if (currentChat?.reviewSessionId) {
-          try {
-            const response = await fetch('/api/copilot/chat/update-messages', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                reviewSessionId: currentChat.reviewSessionId,
-                messages: truncatedMessages.map((m) => ({
-                  id: m.id,
-                  role: m.role,
-                  content: m.content,
-                  timestamp: m.timestamp,
-                  ...(m.contentBlocks && { contentBlocks: m.contentBlocks }),
-                  ...(m.fileAttachments && { fileAttachments: m.fileAttachments }),
-                  ...(m.contexts && { contexts: m.contexts }),
-                })),
-              }),
-            })
-
-            if (!response.ok) {
-              let errorMessage = 'Failed to update messages in DB after edit'
-
-              try {
-                const payload = await response.json()
-                if (typeof payload?.error === 'string' && payload.error.trim().length > 0) {
-                  errorMessage = payload.error
-                }
-              } catch {}
-
-              if (response.status === 409) {
-                handleCancelEdit()
-                setEditBlockedReason(errorMessage)
-                return
-              }
-
-              throw new Error(errorMessage)
-            }
-          } catch (error) {
-            logger.error('Failed to update messages in DB after edit:', error)
-            return
-          }
-        }
-
-        // Exit edit mode visually
+      if (
+        fileAttachments?.length ||
+        message.contentBlocks?.some((block) => block.type === 'file') ||
+        stableStringifyJsonValue(contexts ?? []) !==
+          stableStringifyJsonValue(message.contexts ?? [])
+      ) {
+        setEditBlockedReason(
+          'Native history editing accepts text only; attachments and contexts were retained.'
+        )
+        return false
+      }
+      try {
+        await copilotStoreApi.getState().editMessage(message.id, editedMessage)
         setIsEditMode(false)
         setEditBlockedReason(null)
-        // Clear editing state in parent immediately to prevent dimming of new messages
         onEditModeChange(false)
-
-        // Show the updated message immediately to prevent disappearing
-        copilotStoreApi.setState({ messages: [...truncatedMessages, updatedMessage] })
-
-        // Send the edited message with the SAME message ID
-        await sendMessage(editedMessage, {
-          fileAttachments: fileAttachments || message.fileAttachments,
-          contexts: contexts ?? message.contexts,
-          messageId: message.id, // Reuse the original message ID
-          runtimeContext,
-        })
+        return true
+      } catch (error) {
+        setEditBlockedReason(error instanceof Error ? error.message : 'Native history edit failed')
+        return false
       }
     }
 
@@ -552,6 +497,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             </div>
           )
         }
+        if (segment.type === 'file')
+          return <NativeFileDisplay key={segment.key} file={segment.block.file} />
         return null
       })
     }, [handleTypingStateChange, isStreaming, visibleAssistantSegments])
@@ -561,6 +508,14 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         <div
           className={`w-full min-w-0 max-w-full overflow-hidden py-0.5 transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
         >
+          {editBlockedReason && (
+            <div
+              role='alert'
+              className='mb-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-destructive text-xs'
+            >
+              {editBlockedReason}
+            </div>
+          )}
           {isEditMode ? (
             <div ref={editContainerRef} className='relative w-full'>
               <UserInput
@@ -579,16 +534,13 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             </div>
           ) : (
             <div className='w-full min-w-0'>
-              {editBlockedReason && (
-                <div className='mb-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-destructive text-xs'>
-                  {editBlockedReason}
-                </div>
-              )}
-
               {/* File attachments displayed above the message box */}
               {message.fileAttachments && message.fileAttachments.length > 0 && (
                 <div className='mb-1.5 flex flex-wrap gap-1.5'>
-                  <FileAttachmentDisplay fileAttachments={message.fileAttachments} />
+                  <FileAttachmentDisplay
+                    fileAttachments={message.fileAttachments}
+                    workspaceId={currentChat?.workspaceId}
+                  />
                 </div>
               )}
 
@@ -605,15 +557,26 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                   ref={messageContentRef}
                   className={`min-w-0 whitespace-pre-wrap break-words py-1 pl-[2px] font-sans text-foreground text-sm leading-[1.25rem] ${isSendingMessage && isLastUserMessage ? 'pr-10' : 'pr-2'}`}
                   style={{
-                    maxHeight: !isExpanded && needsExpansion ? '60px' : 'none',
-                    overflow: !isExpanded && needsExpansion ? 'hidden' : 'visible',
+                    maxHeight: !hasNativeFiles && !isExpanded && needsExpansion ? '60px' : 'none',
+                    overflow:
+                      !hasNativeFiles && !isExpanded && needsExpansion ? 'hidden' : 'visible',
                     position: 'relative',
                   }}
                 >
-                  {renderUserMessageTextWithMentions(userMessageText, userMessageContexts)}
+                  {hasNativeFiles
+                    ? message.contentBlocks?.map((block, index) =>
+                        block.type === 'file' ? (
+                          <NativeFileDisplay key={`file-${index}`} file={block.file} />
+                        ) : block.type === 'text' ? (
+                          <span key={`text-${index}`}>
+                            {renderUserMessageTextWithMentions(block.content, userMessageContexts)}
+                          </span>
+                        ) : null
+                      )
+                    : renderUserMessageTextWithMentions(userMessageText, userMessageContexts)}
                 </div>
                 {/* Gradient fade when truncated */}
-                {!isExpanded && needsExpansion && (
+                {!hasNativeFiles && !isExpanded && needsExpansion && (
                   <div className='absolute right-0 bottom-0 left-0 h-full rounded-b-lg bg-gradient-to-t from-background/60 to-transparent' />
                 )}
                 {/* Abort button when hovering and response is generating (only on last user message) */}
@@ -794,6 +757,13 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     for (let i = 0; i < nextContentBlocks.length; i++) {
       const prevBlock = prevContentBlocks[i]
       const nextBlock = nextContentBlocks[i]
+      if (
+        prevBlock?.type === 'file' &&
+        nextBlock?.type === 'file' &&
+        (prevBlock.file.data !== nextBlock.file.data ||
+          prevBlock.file.mimeType !== nextBlock.file.mimeType)
+      )
+        return false
       if (
         prevBlock?.type === 'tool_call' &&
         nextBlock?.type === 'tool_call' &&

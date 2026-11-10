@@ -1,6 +1,9 @@
+import { UPLOAD_DIR_SERVER } from '@/lib/uploads/core/local-path'
+
+export { UPLOAD_DIR_SERVER } from '@/lib/uploads/core/local-path'
+
 import { existsSync } from 'fs'
 import { mkdir } from 'fs/promises'
-import path, { join } from 'path'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -12,10 +15,6 @@ import {
 } from '@/lib/uploads/core/setup'
 
 const logger = createLogger('UploadsSetup')
-
-// Server-only upload directory path
-const PROJECT_ROOT = path.resolve(/* turbopackIgnore: true */ process.cwd())
-export const UPLOAD_DIR_SERVER = join(PROJECT_ROOT, 'uploads')
 
 /**
  * Server-only function to ensure uploads directory exists

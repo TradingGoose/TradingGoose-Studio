@@ -83,7 +83,7 @@ describe('PreviewNode', () => {
                 { id: 'reasoningEffort', title: 'Effort', type: 'dropdown', additional: true },
                 { id: 'skills', title: 'Unused skills', type: 'skill-input', additional: true },
                 {
-                  id: 'thinkingLevel',
+                  id: 'providerOptions',
                   title: 'Unsupported thinking',
                   type: 'dropdown',
                   additional: true,
@@ -96,7 +96,7 @@ describe('PreviewNode', () => {
               model: { value: 'reasoning-model' },
               reasoningEffort: { value: 'high' },
               skills: { value: [] },
-              thinkingLevel: { value: 'high' },
+              providerOptions: { value: 'high' },
             },
           },
         })

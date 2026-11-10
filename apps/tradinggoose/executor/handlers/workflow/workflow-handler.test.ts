@@ -34,6 +34,7 @@ function expectCanonicalChildTrace(output: Record<string, any>) {
     output,
     logs: [
       {
+        id: 'workflow-handler.test.ts:saved-occurrence:1',
         blockId: 'parent-block',
         blockType: 'workflow_input',
         blockName: 'Child Workflow',

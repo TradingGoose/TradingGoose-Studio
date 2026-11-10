@@ -1,5 +1,5 @@
-import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { parseNativeContract } from '@/lib/copilot/native/contract'
+import type { StudioNativeExecutionRequest } from '@/lib/copilot/native/studio-execution'
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 
 export interface CopilotServerToolErrorLike {
@@ -89,50 +89,20 @@ export async function buildCopilotServerToolError(response: Response): Promise<E
   }
 }
 
-export function getCopilotServerToolErrorDetails(
-  error: unknown
-): CopilotServerToolErrorDetails | undefined {
-  return normalizeCopilotServerToolErrorDetails(
-    (error as CopilotServerToolError | undefined)?.payload
-  )
-}
-
-export function getCopilotServerToolErrorStatus(error: unknown): number | undefined {
-  const status = (error as { status?: unknown } | undefined)?.status
-  return typeof status === 'number' ? status : undefined
-}
-
-export async function executeCopilotServerTool<TResult = unknown>(input: {
-  toolName: string
-  payload?: unknown
-  accessLevel?: CopilotAccessLevel
-  context?: {
-    contextEntityKind?: ReviewEntityKind
-    contextEntityId?: string
-    workspaceId?: string
-  }
-  signal?: AbortSignal
-}): Promise<TResult> {
-  const context = input.context && Object.keys(input.context).length > 0 ? input.context : undefined
+/** The server resolves genuine pending originalArgs; browser input never supplies effect payload. */
+export async function executeCopilotServerTool(
+  input: StudioNativeExecutionRequest & { signal?: AbortSignal }
+) {
+  const { signal, ...request } = input
   const response = await fetch('/api/copilot/execute-copilot-server-tool', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    signal: input.signal,
-    body: JSON.stringify({
-      toolName: input.toolName,
-      payload: input.payload ?? {},
-      ...(input.accessLevel === 'full' ? { accessLevel: input.accessLevel } : {}),
-      ...(context ? { context } : {}),
-    }),
+    signal,
+    body: JSON.stringify(request),
   })
-
-  if (!response.ok) {
-    throw await buildCopilotServerToolError(response)
-  }
-
-  const json = await response.json()
-  const parsed = ExecuteResponseSuccessSchema.parse(json)
-  return parsed.result as TResult
+  if (!response.ok) throw await buildCopilotServerToolError(response)
+  const result = ExecuteResponseSuccessSchema.parse(await response.json())
+  return { ...result, result: await parseNativeContract('Json', result.result) }
 }
 
 export function isCopilotServerToolReviewResult(result: unknown): result is {
@@ -147,34 +117,20 @@ export function isCopilotServerToolReviewResult(result: unknown): result is {
   )
 }
 
-export async function acceptCopilotServerToolReview<TResult = unknown>(input: {
-  toolName: string
-  reviewToken: string
-  context?: {
-    contextEntityKind?: ReviewEntityKind
-    contextEntityId?: string
-    workspaceId?: string
+export function acceptCopilotServerToolReview(
+  input: Omit<StudioNativeExecutionRequest, 'action' | 'accessLevel' | 'readback'> & {
+    reviewToken: string
+    signal?: AbortSignal
   }
-  signal?: AbortSignal
-}): Promise<TResult> {
-  const context = input.context && Object.keys(input.context).length > 0 ? input.context : undefined
-  const response = await fetch('/api/copilot/execute-copilot-server-tool', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    signal: input.signal,
-    body: JSON.stringify({
-      toolName: input.toolName,
-      reviewAction: 'accept',
-      reviewToken: input.reviewToken,
-      ...(context ? { context } : {}),
-    }),
-  })
+) {
+  return executeCopilotServerTool({ ...input, action: 'review.accept' })
+}
 
-  if (!response.ok) {
-    throw await buildCopilotServerToolError(response)
+export function rejectCopilotServerToolReview(
+  input: Omit<StudioNativeExecutionRequest, 'action' | 'accessLevel' | 'readback'> & {
+    reviewToken: string
+    signal?: AbortSignal
   }
-
-  const json = await response.json()
-  const parsed = ExecuteResponseSuccessSchema.parse(json)
-  return parsed.result as TResult
+) {
+  return executeCopilotServerTool({ ...input, action: 'review.reject' })
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { decimalFromSafeInteger, monetary, multiplyMoney } from '@tradinggoose/billing/money'
 import { useLocale, useTranslations } from 'next-intl'
 import { Button, Input, Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
@@ -40,8 +41,6 @@ import {
 } from './components'
 
 const logger = createLogger('TeamManagement')
-const safeNumber = (value: number | null | undefined) =>
-  typeof value === 'number' && Number.isFinite(value) ? value : 0
 
 type TeamSubscriptionData = {
   id: string
@@ -55,18 +54,6 @@ type TeamSubscriptionData = {
   periodEnd?: number | Date
   cancelAtPeriodEnd: boolean
   tier: BillingTierSummary | null
-  usage: {
-    current: number
-    limit: number
-    percentUsed: number
-    isWarning: boolean
-    isExceeded: boolean
-    billingPeriodStart: Date | null
-    billingPeriodEnd: Date | null
-    lastPeriodCost: number
-    lastPeriodCopilotCost: number
-    copilotCost: number
-  }
   billingBlocked?: boolean
 }
 
@@ -216,35 +203,6 @@ export function TeamManagement() {
           : undefined,
         cancelAtPeriodEnd: false,
         tier: organizationSubscriptionTier,
-        usage: {
-          current: organizationBillingPayload.totalCurrentUsage,
-          limit: organizationBillingPayload.totalUsageLimit,
-          percentUsed:
-            organizationBillingPayload.totalUsageLimit > 0
-              ? (organizationBillingPayload.totalCurrentUsage /
-                  organizationBillingPayload.totalUsageLimit) *
-                100
-              : 0,
-          isWarning:
-            organizationBillingPayload.totalUsageLimit > 0 &&
-            (organizationBillingPayload.totalCurrentUsage /
-              organizationBillingPayload.totalUsageLimit) *
-              100 >=
-              organizationBillingPayload.warningThresholdPercent,
-          isExceeded:
-            organizationBillingPayload.totalUsageLimit > 0 &&
-            organizationBillingPayload.totalCurrentUsage >=
-              organizationBillingPayload.totalUsageLimit,
-          billingPeriodStart: organizationBillingPayload.billingPeriodStart
-            ? new Date(organizationBillingPayload.billingPeriodStart)
-            : null,
-          billingPeriodEnd: organizationBillingPayload.billingPeriodEnd
-            ? new Date(organizationBillingPayload.billingPeriodEnd)
-            : null,
-          lastPeriodCost: organizationBillingPayload.lastPeriodCost ?? 0,
-          lastPeriodCopilotCost: organizationBillingPayload.lastPeriodCopilotCost ?? 0,
-          copilotCost: organizationBillingPayload.currentPeriodCopilotCost ?? 0,
-        },
         billingBlocked: organizationBillingPayload.billingBlocked,
       }
     : null
@@ -292,8 +250,10 @@ export function TeamManagement() {
     publicBillingCatalog?.publicTiers.find(
       (tier) => tier.ownerType === 'organization' && tier.seatMode === 'adjustable'
     ) ?? null
-  const seatPriceUsd =
-    safeNumber(currentTier?.monthlyPriceUsd) || safeNumber(adjustableSeatTier?.monthlyPriceUsd)
+  const configuredSeatPrice = currentTier
+    ? currentTier.monthlyPriceUsd
+    : (adjustableSeatTier?.monthlyPriceUsd ?? null)
+  const seatPriceUsd = configuredSeatPrice === null ? null : monetary(configuredSeatPrice)
   const seatCount = currentTier?.seatCount ?? adjustableSeatTier?.seatCount ?? 1
   const seatMaximum = currentTier?.seatMaximum ?? adjustableSeatTier?.seatMaximum ?? null
   const organizationPlanCatalogPending =
@@ -606,7 +566,16 @@ export function TeamManagement() {
                 <li>
                   {copy('billingHowWorksSeatCost', {
                     seats: subscriptionData?.seats || 0,
-                    amount: formatUsd(locale, (subscriptionData?.seats || 0) * seatPriceUsd),
+                    amount:
+                      seatPriceUsd === null
+                        ? '—'
+                        : formatUsd(
+                            locale,
+                            multiplyMoney(
+                              decimalFromSafeInteger(subscriptionData?.seats ?? 0),
+                              seatPriceUsd
+                            )
+                          ),
                   })}
                 </li>
                 <li>{copy('billingHowWorksUsageTracked')}</li>
@@ -660,7 +629,9 @@ export function TeamManagement() {
                   const planLabel = (
                     <>
                       {tier.displayName} ·{' '}
-                      {formatUsd(locale, tier.monthlyPriceUsd ?? tier.yearlyPriceUsd ?? 0)}
+                      {tier.monthlyPriceUsd === null && tier.yearlyPriceUsd === null
+                        ? '—'
+                        : formatUsd(locale, tier.monthlyPriceUsd ?? tier.yearlyPriceUsd!)}
                       {tier.monthlyPriceUsd !== null
                         ? copy('plans.monthly')
                         : tier.yearlyPriceUsd !== null
@@ -870,7 +841,9 @@ export function TeamManagement() {
         open={isAddSeatDialogOpen && isOrganizationOwner && isAdjustableSeatTier}
         onOpenChange={setIsAddSeatDialogOpen}
         title={copy('addSeats.title')}
-        description={copy('addSeats.description', { price: formatUsd(locale, seatPriceUsd) })}
+        description={copy('addSeats.description', {
+          price: seatPriceUsd === null ? '—' : formatUsd(locale, seatPriceUsd),
+        })}
         pricePerSeat={seatPriceUsd}
         minimumSeats={seatCount}
         maximumSeats={seatMaximum}

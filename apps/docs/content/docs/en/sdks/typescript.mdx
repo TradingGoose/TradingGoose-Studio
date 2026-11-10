@@ -42,6 +42,9 @@ Streaming makes the Execution API return `text/event-stream`. The preview SDK do
 `executeWithRetry(workflowId, options, retryOptions)` retries only `RATE_LIMIT_EXCEEDED`. `RetryOptions` defaults to `maxRetries: 3`, `initialDelay: 1000` ms, `maxDelay: 30000` ms, and `backoffMultiplier: 2`. The current workflow endpoint does not emit `Retry-After`, so the client uses exponential backoff with ±25% jitter. A compatible deployment that supplies the header overrides that delay.
 
 - `getRateLimitInfo(): RateLimitInfo | null` normally returns `null` because the current workflow and usage endpoints do not emit rate-limit headers. A compatible deployment or proxy may supply `limit`, `remaining`, an ISO `reset` timestamp, and optional `retryAfter` in milliseconds.
+
+**Breaking money ABI:** `currentPeriodCost` is exact USD decimal text, such as `"9007199254740993.30000000000000001"`; the monetary usage `limit` is a decimal string or `null` for unlimited. Nested tier prices, allowances and billing multipliers remain decimal strings or configured `null`. Preserve these values without `Number`/`float` conversion. Rate-limit counts, seats and storage fields remain numeric.
+
 - `getUsageLimits(): Promise<UsageLimits>` exposes sync and async `isLimited`, `limit`, `remaining`, and `resetAt`, plus `authType`; usage `currentPeriodCost`, `limit`, and the billing-tier summary object; and storage `usedBytes`, `limitBytes`, and `percentUsed`.
 
 ## Errors and results

@@ -3,22 +3,22 @@ import type { BillingTierSummary } from '@/lib/billing/types'
 export type { BillingTierSummary } from '@/lib/billing/types'
 
 export interface UsageData {
-  current: number
-  limit: number
-  percentUsed: number
+  current: string | null
+  limit?: string | null
+  percentUsed?: number
   isWarning: boolean
   isExceeded: boolean
   billingPeriodStart: Date | null
   billingPeriodEnd: Date | null
-  lastPeriodCost: number
-  lastPeriodCopilotCost?: number
-  copilotCost?: number
+  lastPeriodCost: string | null
+  lastPeriodCopilotCost?: string | null
+  copilotCost?: string | null
 }
 
 export interface UsageLimitData {
-  currentLimit: number
+  currentLimit: string | null
   canEdit: boolean
-  minimumLimit: number
+  minimumLimit: string
   setBy?: string
   updatedAt?: Date
 }
@@ -48,28 +48,4 @@ export interface SubscriptionStatusData {
   seats: number | null
   metadata: any | null
   tier: BillingTierSummary
-}
-
-export interface SubscriptionStore {
-  subscriptionData: SubscriptionData | null
-  usageLimitData: UsageLimitData | null
-  isLoading: boolean
-  error: string | null
-  lastFetched: number | null
-  loadSubscriptionData: () => Promise<SubscriptionData | null>
-  loadUsageLimitData: () => Promise<UsageLimitData | null>
-  loadData: () => Promise<{
-    subscriptionData: SubscriptionData | null
-    usageLimitData: UsageLimitData | null
-  }>
-  updateUsageLimit: (newLimit: number) => Promise<{ success: boolean; error?: string }>
-  refresh: () => Promise<void>
-  clearError: () => void
-  reset: () => void
-  getSubscriptionStatus: () => SubscriptionStatusData
-  getUsage: () => UsageData
-  getBillingStatus: () => BillingStatus
-  getRemainingBudget: () => number
-  getDaysRemainingInPeriod: () => number | null
-  canUpgrade: () => boolean
 }

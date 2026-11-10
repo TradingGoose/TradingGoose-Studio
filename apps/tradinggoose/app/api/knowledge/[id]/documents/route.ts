@@ -2,6 +2,8 @@ import { randomUUID } from 'crypto'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import {
   bulkDocumentOperation,
   createDocumentRecords,
@@ -10,7 +12,6 @@ import {
 } from '@/lib/knowledge/documents/service'
 import type { DocumentSortField, SortOrder } from '@/lib/knowledge/documents/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserId } from '@/lib/oauth/tokens'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { checkKnowledgeBaseAccess, checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
 
@@ -144,16 +145,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       bodyKeys: Object.keys(body),
     })
 
-    const userId = await getUserId(requestId, workflowId)
-
-    if (!userId) {
-      const authenticationFailure = workflowId ? 'Workflow not found' : 'Unauthorized'
-      const statusCode = workflowId ? 404 : 401
-      logger.warn(`[${requestId}] Authentication failed: ${authenticationFailure}`, {
-        workflowId,
-        hasWorkflowId: !!workflowId,
-      })
-      return NextResponse.json({ error: authenticationFailure }, { status: statusCode })
+    const auth = await checkSessionOrInternalAuth(req, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId)
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId = auth.userId
+    let workflowWorkspaceId: string | undefined
+    if (workflowId !== undefined) {
+      if (typeof workflowId !== 'string' || !workflowId.trim())
+        return NextResponse.json({ error: 'Invalid workflowId' }, { status: 400 })
+      const scope = await authorizeWorkflowScope(auth, workflowId, 'read')
+      if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status })
+      workflowWorkspaceId = scope.workspaceId
     }
 
     const accessCheck = await checkKnowledgeBaseWriteAccess(knowledgeBaseId, userId)
@@ -168,6 +170,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       )
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (workflowWorkspaceId && workflowWorkspaceId !== accessCheck.knowledgeBase.workspaceId)
+      return NextResponse.json(
+        { error: 'Knowledge base is outside the workflow workspace' },
+        { status: 403 }
+      )
 
     if (body.bulk === true) {
       try {
@@ -214,7 +221,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             },
             requestId,
           })),
-          requestId
+          requestId,
+          userId
         )
 
         return NextResponse.json({
@@ -275,7 +283,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               requestId,
             },
           ],
-          requestId
+          requestId,
+          userId
         )
 
         // Track single document upload

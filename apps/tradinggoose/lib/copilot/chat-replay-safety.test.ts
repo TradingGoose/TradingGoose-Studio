@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  dropsAcceptedLiveMutation,
   hasAcceptedLiveMutationAfterMessage,
   isAcceptedLiveMutationToolCall,
   messageHasAcceptedLiveMutation,
@@ -168,22 +167,5 @@ describe('chat replay safety', () => {
 
     expect(hasAcceptedLiveMutationAfterMessage(messages, 'message-1')).toBe(true)
     expect(hasAcceptedLiveMutationAfterMessage(messages, 'message-2')).toBe(false)
-    expect(
-      dropsAcceptedLiveMutation(messages, [
-        {
-          id: 'message-1',
-        },
-      ])
-    ).toBe(true)
-    expect(
-      dropsAcceptedLiveMutation(messages, [
-        {
-          id: 'message-1',
-        },
-        {
-          id: 'message-2',
-        },
-      ])
-    ).toBe(false)
   })
 })

@@ -5,7 +5,9 @@ import { task, wait } from '@trigger.dev/sdk'
 import { and, eq, isNull, lte, or, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import type { BillingTierSummary } from '@/lib/billing/types'
+import { readVerifiedWorkflowExecutionData } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
+import { publicTraceSpans } from '@/lib/logs/public'
 import type { WorkflowExecutionLog } from '@/lib/logs/types'
 import { decryptSecret } from '@/lib/utils-server'
 
@@ -56,8 +58,8 @@ interface WebhookPayload {
       }
     }
     usage?: {
-      currentPeriodCost: number
-      limit: number
+      currentPeriodCost: string
+      limit: string | null
       tier: BillingTierSummary
       isExceeded: boolean
     }
@@ -184,13 +186,20 @@ export const logsWebhookDelivery = task({
         return { success: false }
       }
 
-      const executionData = (logRow.executionData ?? {}) as Record<string, any>
+      if (!logRow.endedAt)
+        throw new Error('Completion publication requires a terminal workflow outcome')
+      if (
+        (logRow.workflowId ?? (logRow.workflowSummary as { id?: string })?.id) !==
+        workflowSummary.id
+      )
+        throw new Error('Completion publication workflow scope differs')
+      const executionData = (await readVerifiedWorkflowExecutionData(logRow)) as Record<string, any>
       const webhookExecutionData: Record<string, any> = {}
       if (subscriptionSnapshot.includeFinalOutput && executionData.finalOutput !== undefined) {
         webhookExecutionData.finalOutput = executionData.finalOutput
       }
       if (subscriptionSnapshot.includeTraceSpans && executionData.traceSpans) {
-        webhookExecutionData.traceSpans = executionData.traceSpans
+        webhookExecutionData.traceSpans = publicTraceSpans(executionData.traceSpans)
       }
       if (subscriptionSnapshot.includeRateLimits) {
         webhookExecutionData.includeRateLimits = true

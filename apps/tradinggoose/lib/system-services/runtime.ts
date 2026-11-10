@@ -41,13 +41,6 @@ function readApiKeyAndBaseUrlConfig(config: ServiceConfigRecord): ApiKeyAndBaseU
   }
 }
 
-export const resolveAzureOpenAIServiceConfig = createServiceResolver('azure_openai', (config) => ({
-  apiKey: asString(config.apiKey),
-  endpoint: asString(config.endpoint),
-  apiVersion: asString(config.apiVersion) ?? '2024-07-01-preview',
-  embeddingModel: asString(config.embeddingModel),
-}))
-
 export const resolveOpenAIServiceConfig = createServiceResolver('openai', (config) => ({
   defaultApiKey: asString(config.defaultApiKey),
 }))
@@ -96,14 +89,6 @@ export const resolveMarketApiServiceConfig = createServiceResolver(
   'market_api',
   readApiKeyAndBaseUrlConfig
 )
-
-export const resolveOllamaServiceConfig = createServiceResolver('ollama', (config) => ({
-  baseUrl: asString(config.baseUrl) ?? 'http://localhost:11434',
-}))
-
-export const resolveVllmServiceConfig = createServiceResolver('vllm', readApiKeyAndBaseUrlConfig)
-
-export const resolveFireworksServiceConfig = createServiceResolver('fireworks', readApiKeyConfig)
 
 export const resolveElevenLabsServiceConfig = createServiceResolver('elevenlabs', readApiKeyConfig)
 

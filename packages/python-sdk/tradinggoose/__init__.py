@@ -4,7 +4,7 @@ TradingGoose SDK for Python
 Repository-local preview client for executing TradingGoose workflows programmatically.
 """
 
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Dict, Literal, Optional, TypedDict, Union
 from dataclasses import dataclass, fields
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -24,6 +24,7 @@ __all__ = [
     "WorkflowStatus",
     "RateLimitInfo",
     "UsageLimits",
+    "UsageData",
 ]
 
 
@@ -76,12 +77,19 @@ class RateLimitInfo:
     retry_after: Optional[int] = None
 
 
+class UsageData(TypedDict):
+    """Lossless USD strings; null limit is unlimited. Tier money also remains string/null."""
+    currentPeriodCost: str
+    limit: Optional[str]
+    tier: Dict[str, Any]
+
+
 @dataclass
 class UsageLimits:
     """Usage limits and quota information."""
     success: bool
     rate_limit: Dict[str, Any]
-    usage: Dict[str, Any]
+    usage: UsageData
     storage: Dict[str, Any]
 
 

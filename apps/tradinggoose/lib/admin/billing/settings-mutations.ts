@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { adminMoneySchema } from './money-schema'
 
 const nullableTrimmedUrlSchema = z
   .string()
@@ -10,10 +11,10 @@ const nullableTrimmedUrlSchema = z
   })
 
 export const adminBillingSettingsMutationSchema = z.object({
-  onboardingAllowanceUsd: z.number().finite().nonnegative(),
-  overageThresholdDollars: z.number().finite().nonnegative(),
-  workflowExecutionChargeUsd: z.number().finite().nonnegative(),
-  functionExecutionChargeUsd: z.number().finite().nonnegative(),
+  onboardingAllowanceUsd: adminMoneySchema,
+  overageThresholdDollars: adminMoneySchema,
+  workflowExecutionChargeUsd: adminMoneySchema,
+  functionExecutionChargeUsd: adminMoneySchema,
   usageWarningThresholdPercent: z.number().int().min(1).max(100),
   freeTierUpgradeThresholdPercent: z.number().int().min(1).max(100),
   enterpriseContactUrl: nullableTrimmedUrlSchema,

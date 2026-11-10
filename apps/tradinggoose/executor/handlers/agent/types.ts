@@ -15,10 +15,8 @@ export interface AgentInputs {
   temperature?: number
   maxTokens?: number
   apiKey?: string
-  azureEndpoint?: string
   reasoningEffort?: string
-  verbosity?: string
-  thinkingLevel?: string
+  providerOptions?: string | Record<string, any>
 }
 
 export interface ToolInput {
@@ -33,13 +31,22 @@ export interface ToolInput {
   operation?: string
 }
 
-export interface Message {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
+export type Message =
+  | { role: 'system'; content: string }
+  | { role: 'user'; content: string }
+  | { role: 'assistant'; content: string }
 
 export interface StreamingConfig {
   shouldUseStreaming: boolean
   isBlockSelectedForOutput: boolean
-  hasOutgoingConnections: boolean
+}
+
+export interface AgentToolConfig {
+  id: string
+  name?: string
+  description: string
+  params?: Record<string, any>
+  parameters: Record<string, any>
+  usageControl?: 'auto' | 'force' | 'none'
+  executeFunction?: (params: Record<string, any>, signal?: AbortSignal) => Promise<any>
 }

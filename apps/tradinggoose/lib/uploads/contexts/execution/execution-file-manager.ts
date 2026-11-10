@@ -1,6 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import {
-  deleteFile,
   downloadFile,
   generatePresignedDownloadUrl,
   uploadFile,
@@ -136,27 +135,6 @@ export async function generateExecutionFileDownloadUrl(userFile: UserFile): Prom
     logger.error(`Failed to generate download URL for ${userFile.name}:`, error)
     throw new Error(
       `Failed to generate download URL: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
-  }
-}
-
-/**
- * Delete a file from execution-scoped storage
- */
-export async function deleteExecutionFile(userFile: UserFile): Promise<void> {
-  logger.info(`Deleting execution file: ${userFile.name}`)
-
-  try {
-    await deleteFile({
-      key: userFile.key,
-      context: 'execution',
-    })
-
-    logger.info(`Successfully deleted execution file: ${userFile.name}`)
-  } catch (error) {
-    logger.error(`Failed to delete execution file ${userFile.name}:`, error)
-    throw new Error(
-      `Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   }
 }

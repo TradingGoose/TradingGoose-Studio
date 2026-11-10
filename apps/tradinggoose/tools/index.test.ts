@@ -1305,6 +1305,37 @@ describe('MCP Tool Execution', () => {
     )
   })
 
+  it.each(['vision_tool', 'llm_chat'])(
+    'preserves failed native accounting through HTTP execution for %s',
+    async (toolId) => {
+      const accounting = {
+        model: 'openai/gpt-4o',
+        tokens: { total: 20 },
+        cost: { status: 'partial', availableTotal: 0.002, estimated: true },
+      }
+      global.fetch = Object.assign(
+        vi
+          .fn()
+          .mockResolvedValue(
+            new Response(
+              JSON.stringify({ success: false, error: 'generation aborted', ...accounting }),
+              { status: 500 }
+            )
+          ),
+        { preconnect: vi.fn() }
+      ) as typeof fetch
+      const result = await executeTool(
+        toolId,
+        { model: 'openai/gpt-4o', context: 'hello', imageUrl: 'https://example.com/image.png' },
+        false,
+        createMockExecutionContext()
+      )
+      expect(result.success).toBe(false)
+      expect(result.output).toMatchObject(accounting)
+      expect(result.error).toContain('generation aborted')
+    }
+  )
+
   it('should handle MCP tool execution errors', async () => {
     global.fetch = Object.assign(
       vi.fn().mockImplementation(async () => ({

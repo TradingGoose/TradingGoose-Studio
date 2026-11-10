@@ -3,20 +3,16 @@ title: 视觉
 description: 使用视觉模型分析图像
 ---
 
-import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard
-  type="vision"
-  color="#4D5FFF"
-/>
+从 Mastra 注册表中选择 `提供方/模型` 标识符。选择器保留搜索和按提供方分组的功能。环境变量和上游输出引用先解析，再验证模型；不兼容的标识符需要重新选择。API 密钥仅用于当前请求；留空时使用已配置的 Mastra 连接。
 
 ## 配置
 
 <ShowcaseCard>
   <BlockConfigPreview
-    name="视觉"
+    name="Vision"
     type="vision"
     color="#4D5FFF"
     hideHeader
@@ -24,99 +20,58 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "imageFile",
             "type": "file-upload",
-            "title": "图像文件",
+            "title": "Image File",
             "layout": "full",
-            "placeholder": "上传图像文件",
+            "placeholder": "Upload an image file",
             "required": false
         },
         {
             "id": "imageFileReference",
             "type": "short-input",
-            "title": "图像文件引用",
+            "title": "Image File Reference",
             "layout": "full",
-            "placeholder": "引用先前模块中的图像",
+            "placeholder": "Reference an image from previous blocks",
             "required": false
         },
         {
             "id": "imageUrl",
             "type": "short-input",
-            "title": "图像 URL（备选）",
+            "title": "Image URL (alternative)",
             "layout": "full",
-            "placeholder": "或输入可公开访问的图像 URL",
+            "placeholder": "Or enter publicly accessible image URL",
             "required": false
         },
         {
             "id": "model",
-            "type": "dropdown",
-            "title": "视觉模型",
-            "layout": "half",
-            "defaultValue": "gpt-4o",
-            "options": [
-                {
-                    "id": "gpt-4o",
-                    "label": "gpt-4o"
-                },
-                {
-                    "id": "claude-3-opus-20240229",
-                    "label": "claude-3-opus"
-                },
-                {
-                    "id": "claude-3-sonnet-20240229",
-                    "label": "claude-3-sonnet"
-                }
-            ]
+            "type": "combobox",
+            "title": "Vision Model",
+            "layout": "half"
         },
         {
             "id": "prompt",
             "type": "long-input",
-            "title": "提示词",
+            "title": "Prompt",
             "layout": "full",
-            "placeholder": "输入图像分析提示词",
+            "placeholder": "Enter prompt for image analysis",
             "required": true
         },
         {
             "id": "apiKey",
             "type": "short-input",
-            "title": "API 密钥",
+            "title": "API Key",
             "layout": "full",
-            "placeholder": "输入 API 密钥",
-            "password": true,
-            "required": true
+            "placeholder": "Enter your API key",
+            "description": "Leave unset to use the configured Mastra connection.",
+            "password": true
         }
     ]}
   />
 </ShowcaseCard>
 
-## 工具
+## 使用和输出
 
-### `vision_tool`
+提供图片 URL 或上传文件，并输入分析指令。文件继续经过身份验证、存储引用处理及下载。Mastra 接收多模态内容，并根据完整模型标识符选择提供方协议，包括 Anthropic。输出保留 `content`、`model`、`tokens` 及可用的原生用量明细。
 
-使用先进的视觉模型处理并分析图像。可理解图像内容、提取文字、识别对象，并提供详细的视觉描述。
+## 用量和费用
 
-#### 输入
-
-| 参数 | 类型 | 必填 | 说明 |
-| --------- | ---- | -------- | ----------- |
-| `apiKey` | string | 是 | 所选模型提供方的 API 密钥 |
-| `imageUrl` | string | 否 | 可公开访问的图像 URL |
-| `imageFile` | file | 否 | 要分析的图像文件 |
-| `model` | string | 否 | 要使用的视觉模型 \(gpt-4o, claude-3-opus-20240229 等\) |
-| `prompt` | string | 否 | 用于图像分析的自定义提示词 |
-
-#### 输出
-
-| 参数 | 类型 | 说明 |
-| --------- | ---- | ----------- |
-| `content` | string | 图像的分析内容与描述 |
-| `model` | string | 用于分析的视觉模型 |
-| `tokens` | number | 分析所用的总 token 数 |
-| `usage` | object | token 用量明细 |
-
-## 使用说明
-
-将 Vision 集成到工作流中。可使用视觉模型分析图像。
-
-## 备注
-
-- 类别：`tools`
-- 类型：`vision`
+记录会区分提供方报告的费用、原生估算费用和不可用费用。缺失费用不等于零；即使美元金额缺失，已知 token 用量仍会保留。产品自身的费用单独计算。独立嵌入保留向量及可用的原生用量，其美元费用显示为不可用。

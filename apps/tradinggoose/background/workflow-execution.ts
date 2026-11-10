@@ -3,6 +3,7 @@ import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { publicTraceSpans } from '@/lib/logs/public'
 import { getMonitorProviderForTriggerId, isMonitorTriggerId } from '@/lib/monitors/sources'
 import { createWorkflowExecutionTerminalEventInput } from '@/lib/workflows/execution-events'
 import {
@@ -180,8 +181,9 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       workflowId: payload.workflowId,
       executionId,
       output: result.output,
+      logs: result.logs?.map(({ inference: _inference, ...log }) => log),
       error: result.error,
-      traceSpans: traceSpans || [],
+      traceSpans: publicTraceSpans(traceSpans || []),
       executedAt: new Date().toISOString(),
       metadata: {
         ...(result.metadata ?? {}),

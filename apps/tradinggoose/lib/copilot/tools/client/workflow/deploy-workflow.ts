@@ -7,7 +7,6 @@ import {
 import { resolveWorkflowTarget } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getInputFormatExample } from '@/lib/workflows/operations/deployment-utils'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -19,6 +18,9 @@ interface DeployWorkflowArgs {
 
 export class DeployWorkflowClientTool extends BaseClientTool {
   static readonly id = 'deploy_workflow'
+
+  private chatOpened = false
+  private chatOpening = false
 
   constructor(toolCallId: string) {
     super(toolCallId, DeployWorkflowClientTool.id, DeployWorkflowClientTool.metadata)
@@ -169,13 +171,6 @@ export class DeployWorkflowClientTool extends BaseClientTool {
     window.location.assign(`/workspace/${encodeURIComponent(workspaceId)}/api-keys`)
   }
 
-  /**
-   * Opens the deploy modal to the chat tab
-   */
-  private openDeployModal(tab: 'api' | 'chat' = 'api'): void {
-    window.dispatchEvent(new CustomEvent('open-deploy-modal', { detail: { tab } }))
-  }
-
   async handleReject(): Promise<void> {
     await super.handleReject()
     this.setState(ClientToolCallState.rejected)
@@ -192,19 +187,35 @@ export class DeployWorkflowClientTool extends BaseClientTool {
         entityId,
       })
 
-      // For chat deployment, just open the deploy modal
       if (action === 'deploy' && deployType === 'chat') {
-        this.setState(ClientToolCallState.success)
-        this.openDeployModal('chat')
-        await this.markToolComplete(
-          200,
-          'Opened chat deployment settings. Configure and deploy your workflow as a chat interface.',
-          {
-            action,
-            deployType,
-            openedModal: true,
-          }
+        if (
+          this.chatOpened ||
+          this.chatOpening ||
+          this.hasSubmittedResult() ||
+          this.resolveResult<{ opened?: boolean }>()?.opened
         )
+          return
+        if (!workspaceId) throw new Error('Workflow workspace not found')
+        this.chatOpening = true
+        try {
+          await this.requireNativeTarget()
+          this.getAbortSignal()?.throwIfAborted()
+          this.setState(ClientToolCallState.executing)
+          await getCopilotStoreForToolCall(this.toolCallId)
+            .getState()
+            .openWorkflowChatDeployment(this.toolCallId, { workflowId, workspaceId })
+          this.chatOpened = true
+          const result = {
+            opened: true,
+            surface: 'chat-deployment' as const,
+            message: 'Opened chat deployment settings',
+          }
+          this.setState(ClientToolCallState.executing, { result })
+          await this.completeBrowserAssertion({ kind: 'ui.opened', data: result })
+          this.setState(ClientToolCallState.success, { result })
+        } finally {
+          this.chatOpening = false
+        }
         return
       }
 
@@ -223,15 +234,10 @@ export class DeployWorkflowClientTool extends BaseClientTool {
           // Open the workspace API keys page to help user create one
           this.openApiKeysPage(workspaceId)
 
-          await this.markToolComplete(
-            200,
-            'Cannot deploy without an API key. Opened API key settings so you can create one. Once you have an API key, try deploying again.',
-            {
-              needsApiKey: true,
-              message:
-                'You need to create an API key before you can deploy your workflow. The API key settings have been opened for you. After creating an API key, you can deploy your workflow.',
-            }
-          )
+          await this.completeBrowserAssertion({
+            kind: 'ui.opened',
+            data: { opened: true, surface: 'api-key-settings', message: 'Opened API key settings' },
+          })
           return
         }
       }
@@ -242,10 +248,12 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       const endpoint = `/api/workflows/${workflowId}/deploy`
       const method = action === 'deploy' ? 'POST' : 'DELETE'
 
+      const native = await this.requireNativeTarget()
       const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: action === 'deploy' ? JSON.stringify({}) : undefined,
+        body: JSON.stringify({ native }),
+        signal: this.getAbortSignal(),
       })
 
       if (!res.ok) {
@@ -255,42 +263,8 @@ export class DeployWorkflowClientTool extends BaseClientTool {
 
       const json = await res.json()
 
-      let successMessage = ''
-      let resultData: any = {
-        action,
-        isDeployed: action === 'deploy',
-        deployedAt: json.deployedAt,
-      }
-
-      if (action === 'deploy') {
-        // Generate the curl command for the deployed workflow (matching deploy modal format)
-        const appUrl =
-          typeof window !== 'undefined'
-            ? window.location.origin
-            : process.env.NEXT_PUBLIC_APP_URL || 'https://app.tradinggoose.ai'
-        const endpoint = `${appUrl}/api/workflows/${workflowId}/execute`
-        const apiKeyPlaceholder = '$TRADINGGOOSE_API_KEY'
-
-        // Get input format example (returns empty string if no inputs, or -d flag with example data)
-        const inputExample = getInputFormatExample(workflowId)
-
-        // Match the exact format from deploy modal
-        const curlCommand = `curl -X POST -H "X-API-Key: ${apiKeyPlaceholder}" -H "Content-Type: application/json"${inputExample} ${endpoint}`
-
-        successMessage = 'Workflow deployed successfully. You can now call it via the API.'
-
-        resultData = {
-          ...resultData,
-          endpoint,
-          curlCommand,
-          apiKeyPlaceholder,
-        }
-      } else {
-        successMessage = 'Workflow undeployed successfully.'
-      }
-
       this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, successMessage, resultData)
+      await this.completeAuthoritativeReadback()
 
       // Refresh the workflow registry to update deployment status
       try {
@@ -313,7 +287,11 @@ export class DeployWorkflowClientTool extends BaseClientTool {
     } catch (e: any) {
       logger.error('Deploy/undeploy failed', { message: e?.message })
       this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, e?.message || 'Failed to deploy/undeploy workflow')
+      this.fail(
+        this.chatOpened
+          ? 'Chat deployment settings opened; native acknowledgement failed'
+          : e?.message || 'Failed to deploy/undeploy workflow'
+      )
     }
   }
 

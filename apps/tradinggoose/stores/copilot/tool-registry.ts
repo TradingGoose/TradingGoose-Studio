@@ -1,4 +1,5 @@
-import { CopilotTool, isToolId, ToolArgSchemas, type ToolId } from '@/lib/copilot/registry'
+import { CopilotTool, isToolId, type ToolId } from '@/lib/copilot/registry'
+import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import type {
   BaseClientTool,
   BaseClientToolMetadata,
@@ -34,6 +35,7 @@ type ToolExecutionKind = 'client' | 'server'
 type ClientToolCtor = {
   new (toolCallId: string): BaseClientTool
   metadata: BaseClientToolMetadata
+  id: ToolId
 }
 
 interface CopilotToolDefinition {
@@ -43,36 +45,25 @@ interface CopilotToolDefinition {
   createInstance?: (toolCallId: string) => BaseClientTool
 }
 
-function clientTool(Ctor: ClientToolCtor, gated = false): CopilotToolDefinition {
+function clientTool(Ctor: ClientToolCtor): CopilotToolDefinition {
   return {
     execution: 'client',
-    gated,
+    gated: getCopilotToolPolicy(Ctor.id).gated,
     metadata: Ctor.metadata,
     createInstance: (toolCallId) => new Ctor(toolCallId),
   }
 }
 
-function serverTool(
-  toolName: keyof typeof SERVER_TOOL_METADATA,
-  gated = false
-): CopilotToolDefinition {
+function serverTool(toolName: keyof typeof SERVER_TOOL_METADATA): CopilotToolDefinition {
   return {
     execution: 'server',
-    gated,
+    gated: getCopilotToolPolicy(toolName).gated,
     metadata: SERVER_TOOL_METADATA[toolName],
   }
 }
 
-function cloneArgs(args: Record<string, any> | undefined): Record<string, any> {
-  if (!args || typeof args !== 'object') {
-    return {}
-  }
-
-  return { ...args }
-}
-
 const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
-  run_workflow: clientTool(RunWorkflowClientTool, true),
+  run_workflow: clientTool(RunWorkflowClientTool),
   [CopilotTool.read_workflow_logs]: serverTool(CopilotTool.read_workflow_logs),
   [CopilotTool.get_available_blocks]: serverTool(CopilotTool.get_available_blocks),
   [CopilotTool.get_blocks_metadata]: serverTool(CopilotTool.get_blocks_metadata),
@@ -83,37 +74,37 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   search_documentation: serverTool('search_documentation'),
   search_listing: serverTool('search_listing'),
   [CopilotTool.read_environment_variables]: serverTool(CopilotTool.read_environment_variables),
-  set_environment_variables: serverTool('set_environment_variables', true),
+  set_environment_variables: serverTool('set_environment_variables'),
   [CopilotTool.read_credentials]: serverTool(CopilotTool.read_credentials),
   list_knowledge_bases: serverTool('list_knowledge_bases'),
   read_knowledge_base: serverTool('read_knowledge_base'),
-  create_knowledge_base: serverTool('create_knowledge_base', true),
-  edit_knowledge_base: serverTool('edit_knowledge_base', true),
-  rename_knowledge_base: serverTool('rename_knowledge_base', true),
+  create_knowledge_base: serverTool('create_knowledge_base'),
+  edit_knowledge_base: serverTool('edit_knowledge_base'),
+  rename_knowledge_base: serverTool('rename_knowledge_base'),
   query_knowledge_base: serverTool('query_knowledge_base'),
   list_custom_tools: serverTool('list_custom_tools'),
   [CopilotTool.read_custom_tool]: serverTool(CopilotTool.read_custom_tool),
-  create_custom_tool: serverTool('create_custom_tool', true),
-  edit_custom_tool: serverTool('edit_custom_tool', true),
-  rename_custom_tool: serverTool('rename_custom_tool', true),
+  create_custom_tool: serverTool('create_custom_tool'),
+  edit_custom_tool: serverTool('edit_custom_tool'),
+  rename_custom_tool: serverTool('rename_custom_tool'),
   list_monitors: serverTool('list_monitors'),
   [CopilotTool.read_monitor]: serverTool(CopilotTool.read_monitor),
-  edit_monitor: serverTool('edit_monitor', true),
+  edit_monitor: serverTool('edit_monitor'),
   [CopilotTool.list_indicators]: serverTool(CopilotTool.list_indicators),
   [CopilotTool.read_indicator]: serverTool(CopilotTool.read_indicator),
-  create_indicator: serverTool('create_indicator', true),
-  edit_indicator: serverTool('edit_indicator', true),
-  rename_indicator: serverTool('rename_indicator', true),
+  create_indicator: serverTool('create_indicator'),
+  edit_indicator: serverTool('edit_indicator'),
+  rename_indicator: serverTool('rename_indicator'),
   list_skills: serverTool('list_skills'),
   [CopilotTool.read_skill]: serverTool(CopilotTool.read_skill),
-  create_skill: serverTool('create_skill', true),
-  edit_skill: serverTool('edit_skill', true),
-  rename_skill: serverTool('rename_skill', true),
+  create_skill: serverTool('create_skill'),
+  edit_skill: serverTool('edit_skill'),
+  rename_skill: serverTool('rename_skill'),
   list_mcp_servers: serverTool('list_mcp_servers'),
   [CopilotTool.read_mcp_server]: serverTool(CopilotTool.read_mcp_server),
-  create_mcp_server: serverTool('create_mcp_server', true),
-  edit_mcp_server: serverTool('edit_mcp_server', true),
-  rename_mcp_server: serverTool('rename_mcp_server', true),
+  create_mcp_server: serverTool('create_mcp_server'),
+  edit_mcp_server: serverTool('edit_mcp_server'),
+  rename_mcp_server: serverTool('rename_mcp_server'),
   list_watchlist: serverTool('list_watchlist'),
   read_watchlist: serverTool('read_watchlist'),
   create_watchlist: serverTool('create_watchlist'),
@@ -130,20 +121,20 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   list_gdrive_files: serverTool('list_gdrive_files'),
   read_gdrive_file: serverTool('read_gdrive_file'),
   [CopilotTool.read_oauth_credentials]: serverTool(CopilotTool.read_oauth_credentials),
-  make_api_request: serverTool('make_api_request', true),
+  make_api_request: serverTool('make_api_request'),
   plan: clientTool(PlanClientTool),
   checkoff_todo: clientTool(CheckoffTodoClientTool),
   mark_todo_in_progress: clientTool(MarkTodoInProgressClientTool),
-  gdrive_request_access: clientTool(GDriveRequestAccessClientTool, true),
-  oauth_request_access: clientTool(OAuthRequestAccessClientTool, true),
-  create_workflow: serverTool('create_workflow', true),
+  gdrive_request_access: clientTool(GDriveRequestAccessClientTool),
+  oauth_request_access: clientTool(OAuthRequestAccessClientTool),
+  create_workflow: serverTool('create_workflow'),
   edit_workflow: serverTool('edit_workflow'),
   edit_workflow_block: serverTool('edit_workflow_block'),
-  rename_workflow: serverTool('rename_workflow', true),
+  rename_workflow: serverTool('rename_workflow'),
   [CopilotTool.read_workflow]: serverTool(CopilotTool.read_workflow),
   [CopilotTool.list_workflows]: serverTool(CopilotTool.list_workflows),
   [CopilotTool.edit_workflow_variable]: serverTool(CopilotTool.edit_workflow_variable),
-  deploy_workflow: clientTool(DeployWorkflowClientTool, true),
+  deploy_workflow: clientTool(DeployWorkflowClientTool),
   check_deployment_status: serverTool('check_deployment_status'),
   sleep: clientTool(SleepClientTool),
   [CopilotTool.read_block_outputs]: serverTool(CopilotTool.read_block_outputs),
@@ -151,36 +142,6 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
     CopilotTool.read_block_upstream_references
   ),
 }
-
-const WORKSPACE_TARGETED_TOOL_NAMES = new Set<ToolId>([
-  CopilotTool.create_workflow,
-  CopilotTool.list_workflows,
-  CopilotTool.get_agent_accessory_catalog,
-  CopilotTool.list_gdrive_files,
-  CopilotTool.read_gdrive_file,
-  CopilotTool.list_knowledge_bases,
-  CopilotTool.create_knowledge_base,
-  CopilotTool.list_custom_tools,
-  CopilotTool.create_custom_tool,
-  CopilotTool.list_monitors,
-  CopilotTool.list_indicators,
-  CopilotTool.create_indicator,
-  CopilotTool.list_skills,
-  CopilotTool.create_skill,
-  CopilotTool.list_mcp_servers,
-  CopilotTool.create_mcp_server,
-  CopilotTool.list_watchlist,
-  CopilotTool.create_watchlist,
-  CopilotTool.list_layout,
-  CopilotTool.create_layout,
-])
-
-const WORKSPACE_SCOPED_TOOL_NAMES = new Set<ToolId>([
-  CopilotTool.read_environment_variables,
-  CopilotTool.read_credentials,
-  CopilotTool.read_oauth_credentials,
-  CopilotTool.set_environment_variables,
-])
 
 export function createExecutionContext(params: {
   toolCallId: string
@@ -278,34 +239,6 @@ export function bindClientToolExecutionContext(
     const instance = getClientTool(toolCallId) as BaseClientTool | undefined
     instance?.setExecutionContext(context)
   } catch {}
-}
-
-export function prepareCopilotToolArgs(
-  toolName: string | undefined,
-  args: Record<string, any> | undefined,
-  context: ClientToolExecutionContext
-): Record<string, any> {
-  const clonedArgs = cloneArgs(args)
-  if (!toolName || !isToolId(toolName)) {
-    return clonedArgs
-  }
-
-  if (
-    WORKSPACE_TARGETED_TOOL_NAMES.has(toolName) &&
-    !clonedArgs.workspaceId &&
-    context.workspaceId
-  ) {
-    clonedArgs.workspaceId = context.workspaceId
-  } else if (
-    WORKSPACE_SCOPED_TOOL_NAMES.has(toolName) &&
-    clonedArgs.scope === 'workspace' &&
-    !clonedArgs.workspaceId &&
-    context.workspaceId
-  ) {
-    clonedArgs.workspaceId = context.workspaceId
-  }
-
-  return ToolArgSchemas[toolName].parse(clonedArgs) as Record<string, any>
 }
 
 type ServerToolSuccessContext = {

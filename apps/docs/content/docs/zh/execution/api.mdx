@@ -78,6 +78,8 @@ data: [DONE]
 
 每个 Logs API 响应都包含有关你的工作流执行限制和用量的信息：
 
+**金额 ABI 不兼容变更：** `currentPeriodCost` 是精确的美元十进制字符串，例如 `"9007199254740993.30000000000000001"`；金额用量 `limit` 是十进制字符串，无上限时为 `null`。计费层级的价格、额度和倍率也保留为十进制字符串或配置的 `null`。请保留原值，不要转换为 `Number`/`float`。速率计数、席位和存储字段仍为数值。
+
 ```jsonc
 {
   "limits": {
@@ -94,8 +96,8 @@ data: [DONE]
       }
     },
     "usage": {
-      "currentPeriodCost": 1.234,  // Current billing period usage in USD
-      "limit": 10,                  // Usage limit in USD
+      "currentPeriodCost": "1.234",  // Current billing period usage in USD
+      "limit": "10",                  // Usage limit in USD
       "tier": {                     // Current billing tier summary
         "id": "tier_pro",
         "displayName": "Pro"
@@ -169,7 +171,9 @@ data: [DONE]
           "endedAt": "2025-01-01T12:34:57.123Z",
           "totalDurationMs": 334,
           "cost": {
-            "total": 0.00234
+            "status": "unavailable",
+            "tokens": {},
+            "models": {}
           },
           "files": null
         }
@@ -189,8 +193,8 @@ data: [DONE]
           }
         },
         "usage": {
-          "currentPeriodCost": 1.234,
-          "limit": 10,
+          "currentPeriodCost": "1.234",
+          "limit": "10",
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"
@@ -203,6 +207,10 @@ data: [DONE]
 
   </Tab>
 </Tabs>
+
+实际计入的产品费用通过共享财务收据和周期用量验证。日志的通用 `cost` 报告不是财务账本。原生历史保留功能性消息和工具结果，不保留每轮 token 或模型美元费用报告。重新加载后这些指标不可用。活跃请求期间的原生用量是可选的，不根据 token 估算价格。
+
+CSV 保留已提供的通用费用字段。缺失金额为空或不可用，不会当作零；已知的零仍为零，可用小计也不是完整费用。规范输出需要当前工作区和日志授权；内部引用和加密检查点不是公共下载权限。
 
 ### 获取日志详情
 
@@ -245,24 +253,9 @@ data: [DONE]
           "finalOutput": {...}
         },
         "cost": {
-          "total": 0.00234,
-          "tokens": {
-            "prompt": 123,
-            "completion": 456,
-            "total": 579
-          },
-          "models": {
-            "gpt-4o": {
-              "input": 0.001,
-              "output": 0.00134,
-              "total": 0.00234,
-              "tokens": {
-                "prompt": 123,
-                "completion": 456,
-                "total": 579
-              }
-            }
-          }
+          "status": "unavailable",
+          "tokens": {},
+          "models": {}
         },
         "createdAt": "2025-01-01T12:34:57.200Z"
       },
@@ -280,8 +273,8 @@ data: [DONE]
             }
           },
           "usage": {
-            "currentPeriodCost": 1.234,
-            "limit": 10,
+            "currentPeriodCost": "1.234",
+            "limit": "10",
             "tier": {
               "id": "tier_pro",
               "displayName": "Pro"
@@ -340,8 +333,8 @@ data: [DONE]
           }
         },
         "usage": {
-          "currentPeriodCost": 1.234,
-          "limit": 10,
+          "currentPeriodCost": "1.234",
+          "limit": "10",
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"
@@ -393,24 +386,9 @@ Webhook 订阅管理不属于 API 密钥日志 API 的一部分。应用程序�
     "endedAt": "2025-01-01T12:34:57.123Z",
     "totalDurationMs": 334,
     "cost": {
-      "total": 0.00234,
-      "tokens": {
-        "prompt": 123,
-        "completion": 456,
-        "total": 579
-      },
-      "models": {
-        "gpt-4o": {
-          "input": 0.001,
-          "output": 0.00134,
-          "total": 0.00234,
-          "tokens": {
-            "prompt": 123,
-            "completion": 456,
-            "total": 579
-          }
-        }
-      }
+      "status": "unavailable",
+      "tokens": {},
+      "models": {}
     },
     "files": null,
     "errorMessage": "...", // 仅在执行失败且 includeFinalOutput=true 或 includeTraceSpans=true 时包含

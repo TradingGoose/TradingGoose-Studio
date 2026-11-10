@@ -10,10 +10,7 @@ import { and, count, eq, inArray, isNull } from 'drizzle-orm'
 import { checkStorageQuota, incrementStorageUsage } from '@/lib/billing/storage'
 import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
 import { enqueueDocumentProcessingJobs } from '@/lib/knowledge/documents/service'
-import {
-  copyKnowledgeDocumentFile,
-  deleteKnowledgeDocumentFiles,
-} from '@/lib/knowledge/documents/storage'
+import { copyKnowledgeDocumentFile } from '@/lib/knowledge/documents/storage'
 import type {
   ChunkingConfig,
   CreateKnowledgeBaseData,
@@ -154,25 +151,34 @@ export async function copyKnowledgeBaseToWorkspace(
   const copiedDocuments: Array<{
     sourceDocument: (typeof sourceDocuments)[number]
     fileUrl: string
+    rollback: () => Promise<void>
   }> = []
+  const rollbackCopies = async () => {
+    const results = await Promise.allSettled(copiedDocuments.map(({ rollback }) => rollback()))
+    for (const result of results) {
+      if (result.status === 'rejected')
+        logger.error(
+          `[${requestId}] Copied knowledge file retained after rollback failure:`,
+          result.reason
+        )
+    }
+  }
 
   try {
     for (const sourceDocument of sourceDocuments) {
       copiedDocuments.push({
         sourceDocument,
-        fileUrl: await copyKnowledgeDocumentFile({
+        ...(await copyKnowledgeDocumentFile({
           sourceFileUrl: sourceDocument.fileUrl,
           targetWorkspaceId,
           targetKnowledgeBaseId: newKnowledgeBaseId,
           filename: sourceDocument.filename,
           mimeType: sourceDocument.mimeType,
-        }),
+        })),
       })
     }
   } catch (error) {
-    if (copiedDocuments.length > 0) {
-      await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
-    }
+    await rollbackCopies()
     throw error
   }
 
@@ -313,9 +319,7 @@ export async function copyKnowledgeBaseToWorkspace(
   try {
     await copyTransaction
   } catch (error) {
-    if (copiedDocuments.length > 0) {
-      await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
-    }
+    await rollbackCopies()
     throw error
   }
 
@@ -344,7 +348,7 @@ export async function copyKnowledgeBaseToWorkspace(
   }
 
   if (processingJobs.length > 0) {
-    await enqueueDocumentProcessingJobs(processingJobs, requestId)
+    await enqueueDocumentProcessingJobs(processingJobs, requestId, userId)
   }
 
   logger.info(

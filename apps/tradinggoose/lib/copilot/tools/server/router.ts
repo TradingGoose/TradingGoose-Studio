@@ -1,3 +1,4 @@
+import { copyNativeFinancialSource } from '@/lib/copilot/native/target'
 import {
   CopilotTool,
   getToolContract,
@@ -79,6 +80,8 @@ import { readBlockOutputsServerTool } from '@/lib/copilot/tools/server/workflow/
 import { readBlockUpstreamReferencesServerTool } from '@/lib/copilot/tools/server/workflow/read-block-upstream-references'
 import { readWorkflowLogsServerTool } from '@/lib/copilot/tools/server/workflow/read-workflow-logs'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getFailureAccounting } from '@/lib/mastra/errors'
+import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 
 const logger = createLogger('ServerToolRouter')
 
@@ -270,13 +273,6 @@ export function isWorkspaceAgnosticServerTool(
   return isToolId(toolName) && WORKSPACE_AGNOSTIC_SERVER_TOOL_ID_SET.has(toolName)
 }
 
-export function getServerToolIds(): ToolId[] {
-  return [
-    ...(Object.keys(serverToolRegistry) as ToolId[]),
-    ...(Object.keys(lazyServerToolLoaders) as ToolId[]),
-  ]
-}
-
 export function getMcpServerToolIds(): ToolId[] {
   return [...mcpServerToolIds]
 }
@@ -310,7 +306,7 @@ export async function routeExecution(
 
   if (isWorkspaceAgnosticServerTool(toolName)) {
     const args = ServerToolArgSchemas[toolName].parse(payload ?? {})
-    const executionContext = context
+    const executionContext: ServerToolExecutionContext | undefined = context
       ? {
           userId: context.userId,
           accessLevel: context.accessLevel,
@@ -318,11 +314,29 @@ export async function routeExecution(
           signal: context.signal,
         }
       : undefined
+    if (executionContext && toolName === CopilotTool.search_documentation) {
+      executionContext.nativeReviewBinding = context?.nativeReviewBinding
+      copyNativeFinancialSource(context, executionContext)
+    }
     throwIfServerToolAborted(executionContext)
     const result = await tool.execute(args, executionContext)
-    throwIfServerToolAborted(executionContext)
-
-    return contract.result.parse(result)
+    const facts = getInferenceFacts(result)
+    try {
+      throwIfServerToolAborted(executionContext)
+      const parsed = contract.result.parse(result)
+      if (facts && !getInferenceFacts(parsed)) {
+        if (!parsed || typeof parsed !== 'object') {
+          throw new Error('Native tool result lost its structured accounting output')
+        }
+        return withInferenceFacts(parsed, facts)
+      }
+      return parsed
+    } catch (error) {
+      if (!facts || getInferenceFacts(error)) throw error
+      const failure = error instanceof Error ? error : new Error(String(error))
+      Object.assign(failure, getFailureAccounting(facts))
+      throw withInferenceFacts(failure, facts)
+    }
   }
 
   let args: any

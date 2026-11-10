@@ -85,6 +85,7 @@ import {
 } from '@/tools/knowledge'
 import { linearCreateIssueTool, linearReadIssuesTool } from '@/tools/linear'
 import { linkupSearchTool } from '@/tools/linkup'
+import { llmChatTool } from '@/tools/llm'
 import { historicalDataTool } from '@/tools/market_data'
 import { mem0AddMemoriesTool, mem0GetMemoriesTool, mem0SearchMemoriesTool } from '@/tools/mem0'
 import { memoryAddTool, memoryDeleteTool, memoryGetAllTool, memoryGetTool } from '@/tools/memory'
@@ -295,6 +296,7 @@ import {
 
 // Registry of all available tools
 export const tools: Record<string, ToolConfig> = {
+  llm_chat: llmChatTool,
   arxiv_search: arxivSearchTool,
   arxiv_get_paper: arxivGetPaperTool,
   arxiv_get_author_papers: arxivGetAuthorPapersTool,

@@ -1,5 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
+import { ToolArgSchemas, ToolIds } from '@/lib/copilot/registry'
 import { MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
 import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { environmentKeys } from '@/hooks/queries/environment'
@@ -10,8 +12,9 @@ import {
   ensureClientToolInstance,
   getToolInterruptDisplays,
   handleCopilotServerToolSuccess,
+  isClientManagedCopilotTool,
   isGatedTool,
-  prepareCopilotToolArgs,
+  isServerManagedCopilotTool,
 } from '@/stores/copilot/tool-registry'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -20,6 +23,34 @@ describe('tool-registry', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('retains all 76 tools, 68 server/8 browser operations and existing limited-access gates', () => {
+    const server = ToolIds.options.filter(isServerManagedCopilotTool)
+    const client = ToolIds.options.filter(isClientManagedCopilotTool)
+    expect(ToolIds.options).toHaveLength(76)
+    expect(server).toHaveLength(68)
+    expect(client.sort()).toEqual([
+      'checkoff_todo',
+      'deploy_workflow',
+      'gdrive_request_access',
+      'mark_todo_in_progress',
+      'oauth_request_access',
+      'plan',
+      'run_workflow',
+      'sleep',
+    ])
+    expect(server.filter(isGatedTool)).toHaveLength(20)
+    expect(client.filter(isGatedTool).sort()).toEqual([
+      'deploy_workflow',
+      'gdrive_request_access',
+      'oauth_request_access',
+      'run_workflow',
+    ])
+    for (const name of ToolIds.options) {
+      expect(shouldRequireToolApproval('limited', isGatedTool(name))).toBe(isGatedTool(name))
+      expect(shouldRequireToolApproval('full', isGatedTool(name))).toBe(false)
+    }
   })
 
   it('keeps workflow edit tools server-managed while exposing review interrupts from metadata', () => {
@@ -31,212 +62,25 @@ describe('tool-registry', () => {
     expect(getToolInterruptDisplays('edit_workflow_variable', toolCallId)).toBeDefined()
   })
 
-  it('requires explicit target args instead of injecting ambient entity context', () => {
+  it('carries UI provenance separately and validates genuine original arguments without target injection', () => {
     const context = createExecutionContext({
       toolCallId,
       toolName: 'read_workflow_logs',
-      provenance: { contextEntityKind: 'workflow', contextEntityId: 'wf-current' },
+      provenance: {
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-current',
+        workspaceId: 'workspace',
+      },
     })
-
-    expect(context.contextEntityKind).toBe('workflow')
     expect(context.contextEntityId).toBe('wf-current')
-    expect(() => prepareCopilotToolArgs('read_workflow_logs', {}, context)).toThrow()
-    expect(
-      prepareCopilotToolArgs('read_workflow_logs', { entityId: 'wf-explicit' }, context)
-    ).toEqual({ entityId: 'wf-explicit' })
-  })
-
-  it('injects hosted workspace context for workspace-targeted GDrive tools', () => {
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'read_gdrive_file',
-      provenance: { workspaceId: 'workspace-1' },
+    expect(() => ToolArgSchemas.read_workflow_logs.parse({})).toThrow()
+    expect(ToolArgSchemas.read_workflow_logs.parse({ entityId: 'wf-explicit' })).toEqual({
+      entityId: 'wf-explicit',
     })
-
-    expect(
-      prepareCopilotToolArgs(
-        'read_gdrive_file',
-        { credentialId: 'credential-1', fileId: 'file-1', type: 'doc' },
-        context
-      )
-    ).toEqual({
-      workspaceId: 'workspace-1',
-      credentialId: 'credential-1',
-      fileId: 'file-1',
-      type: 'doc',
+    expect(() => ToolArgSchemas.list_knowledge_bases.parse({})).toThrow()
+    expect(ToolArgSchemas.read_environment_variables.parse({ scope: 'personal' })).toEqual({
+      scope: 'personal',
     })
-  })
-
-  it('requires workspace context for workspace-targeted GDrive tools', () => {
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'read_gdrive_file',
-      provenance: {},
-    })
-
-    expect(() =>
-      prepareCopilotToolArgs(
-        'read_gdrive_file',
-        { credentialId: 'credential-1', fileId: 'file-1', type: 'doc' },
-        context
-      )
-    ).toThrow()
-  })
-
-  it('injects hosted workspace context for workspace-scoped environment and credential tools', () => {
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'set_environment_variables',
-      provenance: { workspaceId: 'workspace-1' },
-    })
-
-    expect(
-      prepareCopilotToolArgs(
-        'set_environment_variables',
-        { scope: 'workspace', variables: { API_KEY: 'secret' } },
-        context
-      )
-    ).toEqual({
-      scope: 'workspace',
-      workspaceId: 'workspace-1',
-      variables: { API_KEY: 'secret' },
-    })
-
-    for (const toolName of [
-      'read_environment_variables',
-      'read_credentials',
-      'read_oauth_credentials',
-    ] as const) {
-      expect(prepareCopilotToolArgs(toolName, { scope: 'workspace' }, context)).toEqual({
-        scope: 'workspace',
-        workspaceId: 'workspace-1',
-      })
-    }
-
-    expect(() =>
-      prepareCopilotToolArgs(
-        'set_environment_variables',
-        { variables: { API_KEY: 'secret' } },
-        context
-      )
-    ).toThrow()
-  })
-
-  it('preserves personal scope for environment and credential tools in workspace context', () => {
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'read_environment_variables',
-      provenance: { workspaceId: 'workspace-1' },
-    })
-
-    for (const toolName of [
-      'read_environment_variables',
-      'read_credentials',
-      'read_oauth_credentials',
-    ] as const) {
-      expect(prepareCopilotToolArgs(toolName, { scope: 'personal' }, context)).toEqual({
-        scope: 'personal',
-      })
-    }
-  })
-
-  it('injects hosted workspace context into workspace-targeted knowledge base tools', () => {
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'list_knowledge_bases',
-      provenance: { workspaceId: 'workspace-1' },
-    })
-
-    expect(prepareCopilotToolArgs('list_knowledge_bases', {}, context)).toEqual({
-      workspaceId: 'workspace-1',
-    })
-
-    expect(
-      prepareCopilotToolArgs(
-        'create_knowledge_base',
-        {
-          name: 'Research',
-          entityDocument:
-            '{"description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}',
-          documentFormat: 'tg-knowledge-base-document-v1',
-        },
-        context
-      )
-    ).toEqual({
-      workspaceId: 'workspace-1',
-      name: 'Research',
-      entityDocument:
-        '{"description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}',
-      documentFormat: 'tg-knowledge-base-document-v1',
-    })
-  })
-
-  it('injects hosted workspace context into workspace-targeted watchlist list tool', () => {
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'list_watchlist',
-      provenance: { workspaceId: 'workspace-1' },
-    })
-
-    expect(prepareCopilotToolArgs('list_watchlist', {}, context)).toEqual({
-      workspaceId: 'workspace-1',
-    })
-  })
-
-  it('does not inject workspace context into widget catalog tools', () => {
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'get_available_widgets',
-      provenance: { workspaceId: 'workspace-1' },
-    })
-
-    expect(prepareCopilotToolArgs('get_available_widgets', {}, context)).toEqual({})
-    expect(
-      prepareCopilotToolArgs('get_available_widgets', { category: 'trading' }, context)
-    ).toEqual({
-      category: 'trading',
-    })
-    expect(
-      prepareCopilotToolArgs('get_widgets_metadata', { widgetKeys: ['data_chart'] }, context)
-    ).toEqual({
-      widgetKeys: ['data_chart'],
-    })
-    expect(() =>
-      prepareCopilotToolArgs(
-        'get_widgets_metadata',
-        { widgetKeys: ['data_chart'], workspaceId: 'workspace-1' },
-        context
-      )
-    ).toThrow()
-  })
-
-  it('does not inject workspace context into listing search', () => {
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'search_listing',
-      provenance: { workspaceId: 'workspace-1' },
-    })
-
-    expect(prepareCopilotToolArgs('search_listing', { query: 'Apple' }, context)).toEqual({
-      query: 'Apple',
-    })
-    expect(() =>
-      prepareCopilotToolArgs(
-        'search_listing',
-        { query: 'Apple', workspaceId: 'workspace-1' },
-        context
-      )
-    ).toThrow()
-  })
-
-  it('requires workspaceId for local knowledge base list tools', () => {
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'list_knowledge_bases',
-      provenance: {},
-    })
-
-    expect(() => prepareCopilotToolArgs('list_knowledge_bases', {}, context)).toThrow()
   })
 
   it('classifies gated and non-gated tools explicitly', () => {

@@ -1,5 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { getProviderFromModel } from '@/providers/ai/models'
+import { getFailureAccounting } from '@/lib/mastra/errors'
+import { withInferenceFacts } from '@/lib/mastra/result'
+import type { NativeCost } from '@/lib/mastra/usage'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
 const logger = createLogger('LLMChatTool')
@@ -11,20 +13,13 @@ interface LLMChatParams {
   apiKey?: string
   temperature?: number
   maxTokens?: number
-  azureEndpoint?: string
-  azureApiVersion?: string
-  vertexProject?: string
-  vertexLocation?: string
-  vertexCredential?: string
-  bedrockAccessKeyId?: string
-  bedrockSecretKey?: string
-  bedrockRegion?: string
 }
 
 interface LLMChatResponse extends ToolResponse {
   output: {
     content: string
     model: string
+    cost?: NativeCost
     tokens?: {
       prompt?: number
       completion?: number
@@ -43,7 +38,7 @@ export const llmChatTool: ToolConfig<LLMChatParams, LLMChatResponse> = {
     model: {
       type: 'string',
       required: true,
-      description: 'The model to use (e.g., gpt-4o, claude-sonnet-4-5, gemini-2.0-flash)',
+      description: 'A listed Mastra provider/model identifier',
     },
     systemPrompt: {
       type: 'string',
@@ -59,65 +54,17 @@ export const llmChatTool: ToolConfig<LLMChatParams, LLMChatResponse> = {
       type: 'string',
       required: false,
       visibility: 'hidden',
-      description: 'User-provided API key for the provider (not required for Ollama)',
+      description: 'Request-local API key; otherwise uses the configured Mastra connection',
     },
     temperature: {
       type: 'number',
       required: false,
-      description: 'Temperature for response generation (0-2)',
+      description: 'Temperature for response generation, where supported by the selected model',
     },
     maxTokens: {
       type: 'number',
       required: false,
       description: 'Maximum tokens in the response',
-    },
-    azureEndpoint: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Azure OpenAI endpoint URL',
-    },
-    azureApiVersion: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Azure OpenAI API version',
-    },
-    vertexProject: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Google Cloud project ID for Vertex AI',
-    },
-    vertexLocation: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Google Cloud location for Vertex AI (defaults to us-central1)',
-    },
-    vertexCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Google Cloud OAuth credential ID for Vertex AI',
-    },
-    bedrockAccessKeyId: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'AWS Access Key ID for Bedrock',
-    },
-    bedrockSecretKey: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'AWS Secret Access Key for Bedrock',
-    },
-    bedrockRegion: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'AWS region for Bedrock (defaults to us-east-1)',
     },
   },
 
@@ -128,24 +75,13 @@ export const llmChatTool: ToolConfig<LLMChatParams, LLMChatResponse> = {
       'Content-Type': 'application/json',
     }),
     body: (params) => {
-      const provider = getProviderFromModel(params.model)
-
       return {
-        provider,
+        providerNamespace: 'ai',
         model: params.model,
-        systemPrompt: params.systemPrompt,
-        context: JSON.stringify([{ role: 'user', content: params.context }]),
+        instructions: params.systemPrompt,
+        messages: [{ role: 'user', content: params.context }],
         apiKey: params.apiKey,
-        temperature: params.temperature,
-        maxTokens: params.maxTokens,
-        azureEndpoint: params.azureEndpoint,
-        azureApiVersion: params.azureApiVersion,
-        vertexProject: params.vertexProject,
-        vertexLocation: params.vertexLocation,
-        vertexCredential: params.vertexCredential,
-        bedrockAccessKeyId: params.bedrockAccessKeyId,
-        bedrockSecretKey: params.bedrockSecretKey,
-        bedrockRegion: params.bedrockRegion,
+        modelSettings: { temperature: params.temperature, maxOutputTokens: params.maxTokens },
       }
     },
   },
@@ -155,24 +91,37 @@ export const llmChatTool: ToolConfig<LLMChatParams, LLMChatResponse> = {
       const errorData = await response.json().catch(() => ({}))
       const errorMessage = errorData.error || `LLM API error: ${response.status}`
       logger.error('LLM chat request failed', { error: errorMessage })
-      throw new Error(errorMessage)
+      throw Object.assign(new Error(errorMessage), getFailureAccounting(errorData))
     }
 
     const data = await response.json()
 
     return {
       success: true,
-      output: {
-        content: data.content,
-        model: data.model,
-        tokens: data.tokens,
-      },
+      output: withInferenceFacts(
+        {
+          content: data.content,
+          model: data.model,
+          tokens: data.tokens,
+          cost: data.cost,
+        },
+        {
+          model: data.model,
+          tokens: data.tokens,
+          cost: data.cost,
+          generatedFields: ['model', 'tokens', 'cost'],
+        }
+      ),
     }
   },
 
   outputs: {
     content: { type: 'string', description: 'The generated response content' },
     model: { type: 'string', description: 'The model used for generation' },
-    tokens: { type: 'object', description: 'Token usage information' },
+    tokens: { type: 'object', description: 'Available native token usage' },
+    cost: {
+      type: 'object',
+      description: 'Model cost in USD is unavailable',
+    },
   },
 }

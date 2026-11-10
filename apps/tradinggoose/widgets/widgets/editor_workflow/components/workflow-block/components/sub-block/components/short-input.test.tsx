@@ -23,10 +23,12 @@ import { getWorkflowInspectorCopy } from '@/i18n/block-editor'
 import { Serializer } from '@/serializer'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { buildTriggerEditingLayout } from '../trigger-editing-layout'
+import { LongInput } from './long-input'
 import { ShortInput } from './short-input'
 
 const mocks = vi.hoisted(() => ({
   session: null as Pick<WorkflowSessionContextValue, 'doc' | 'transactWorkflow'> | null,
+  wand: undefined as Parameters<typeof import('@/hooks/workflow/use-wand').useWand>[0] | undefined,
 }))
 
 vi.unmock('@/blocks/registry')
@@ -53,15 +55,21 @@ vi.mock('@/hooks/use-webhook-management', () => ({
 vi.mock('@/hooks/workflow/use-accessible-reference-prefixes', () => ({
   useAccessibleReferencePrefixes: () => null,
 }))
-vi.mock('@/hooks/workflow/use-wand', () => ({ useWand: () => ({ isStreaming: false }) }))
+vi.mock('@/hooks/workflow/use-wand', () => ({
+  useWand: (input: Parameters<typeof import('@/hooks/workflow/use-wand').useWand>[0]) => {
+    mocks.wand = input
+    return { isStreaming: false }
+  },
+}))
 vi.mock('@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar', () => ({
   WandPromptBar: () => null,
 }))
 vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () => ({
   useOptionalWorkflowRoute: () => null,
+  useWorkspaceId: () => undefined,
 }))
 vi.mock('@/widgets/widgets/editor_workflow/copy', () => ({
-  useWorkflowBlockEditorCopy: () => ({ shortInput: {} }),
+  useWorkflowBlockEditorCopy: () => ({ shortInput: {}, longInput: {} }),
 }))
 
 vi.mock('@/lib/yjs/workflow-session-host', () => ({
@@ -448,6 +456,41 @@ describe('ShortInput numeric contract', () => {
       }
       expect(new Set(mergedValues).size).toBe(1)
       for (const client of clients) client.destroy()
+    }
+  )
+  it.each(['short', 'long'])(
+    '%s input keeps wand preview local and commits only the explicit generated result',
+    (kind) => {
+      const onChange = vi.fn()
+      const props = {
+        blockId: 'external',
+        subBlockId: 'text',
+        isConnecting: false,
+        config: {
+          id: 'text',
+          type: kind === 'short' ? ('short-input' as const) : ('long-input' as const),
+          wandConfig: { enabled: true, prompt: '' },
+        },
+        value: 'original',
+        onChange,
+      }
+      act(() =>
+        root.render(kind === 'short' ? <ShortInput {...props} /> : <LongInput {...props} />)
+      )
+      act(() => {
+        mocks.wand!.onStreamStart?.()
+        mocks.wand!.onStreamChunk?.('Partial preview')
+      })
+      expect(onChange).not.toHaveBeenCalled()
+      expect(
+        container.querySelector('input,textarea')!.getAttribute('value') ??
+          (container.querySelector('input,textarea') as HTMLTextAreaElement).value
+      ).toBe('Partial preview')
+      act(() => mocks.wand!.onGenerationEnd?.())
+      expect((container.querySelector('input,textarea') as HTMLInputElement).value).toBe('original')
+      expect(onChange).not.toHaveBeenCalled()
+      act(() => mocks.wand!.onGeneratedContent('Explicit completed result'))
+      expect(onChange).toHaveBeenCalledExactlyOnceWith('Explicit completed result')
     }
   )
 })
