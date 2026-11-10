@@ -10,14 +10,16 @@ const { mail, policy } = vi.hoisted(() => ({
     send: vi.fn(),
     audience: vi.fn(),
   },
-  policy: { allowedDomains: '' },
+  policy: { allowedDomains: '', verificationEnabled: false },
 }))
 
 vi.mock('@tradinggoose/db', () => ({ db: {} }))
 vi.mock('@/lib/billing/plans', () => ({ getBetterAuthPlansConfig: () => [] }))
 vi.mock('@/lib/environment', async (original) => ({
   ...(await original<typeof import('@/lib/environment')>()),
-  isEmailVerificationEnabled: false,
+  get isEmailVerificationEnabled() {
+    return policy.verificationEnabled
+  },
 }))
 vi.mock('@/lib/env', async (original) => {
   const actual = await original<typeof import('@/lib/env')>()
@@ -125,6 +127,7 @@ describe('account email change through native Better Auth OTP', () => {
     mail.available.mockReset().mockResolvedValue(true)
     mail.send.mockReset().mockResolvedValue({ success: true })
     policy.allowedDomains = ''
+    policy.verificationEnabled = false
   })
 
   it.each([true, false])(
@@ -401,6 +404,204 @@ describe('account email change through native Better Auth OTP', () => {
       body: { newEmail: 'pending@example.com', otp: deliveredCode('pending@example.com') },
     })
     expect(await storedUser(fixture)).toMatchObject({ email: 'pending@example.com' })
+  })
+
+  it.each(['sign-in', 'forget-password', 'email-verification'] as const)(
+    'binds %s proof to its original owner when the address is reused',
+    async (type) => {
+      policy.verificationEnabled = true
+      const fixture = await setup()
+      await fixture.auth.api.sendVerificationOTP({ body: { email: fixture.email, type } })
+      const oldOtp = deliveredCode(fixture.email)
+      const otp = await requestChange(fixture, 'changed@example.com')
+      await fixture.auth.api.changeEmailEmailOTP({
+        headers: fixture.login.headers,
+        body: { newEmail: 'changed@example.com', otp },
+      })
+      const second = await fixture.auth.api.signUpEmail({
+        body: { email: fixture.email, password: 'second-owner-password', name: 'Second owner' },
+      })
+      const accounts = await fixture.context.internalAdapter.findAccounts(second.user.id)
+      const sessions = await fixture.context.internalAdapter.listSessions(second.user.id)
+      const operation =
+        type === 'sign-in'
+          ? fixture.auth.api.signInEmailOTP({ body: { email: fixture.email, otp: oldOtp } })
+          : type === 'forget-password'
+            ? fixture.auth.api.resetPasswordEmailOTP({
+                body: { email: fixture.email, otp: oldOtp, password: 'attacker-password' },
+              })
+            : fixture.auth.api.verifyEmailOTP({ body: { email: fixture.email, otp: oldOtp } })
+      await expect(operation).rejects.toMatchObject({ body: { code: 'INVALID_OTP' } })
+      expect(await fixture.context.internalAdapter.findAccounts(second.user.id)).toEqual(accounts)
+      expect(await fixture.context.internalAdapter.listSessions(second.user.id)).toEqual(sessions)
+      expect(await storedUser(fixture, second.user.id)).toMatchObject({ emailVerified: false })
+
+      await fixture.auth.api.sendVerificationOTP({ body: { email: fixture.email, type } })
+      const freshOtp = deliveredCode(fixture.email)
+      if (type === 'sign-in') {
+        expect(
+          await fixture.auth.api.signInEmailOTP({ body: { email: fixture.email, otp: freshOtp } })
+        ).toMatchObject({ user: { id: second.user.id } })
+      } else if (type === 'forget-password') {
+        expect(
+          await fixture.auth.api.resetPasswordEmailOTP({
+            body: { email: fixture.email, otp: freshOtp, password: 'new-owner-password' },
+          })
+        ).toEqual({ success: true })
+      } else {
+        expect(
+          await fixture.auth.api.verifyEmailOTP({ body: { email: fixture.email, otp: freshOtp } })
+        ).toMatchObject({ status: true, user: { id: second.user.id, emailVerified: true } })
+      }
+    }
+  )
+
+  it.each(['sign-in', 'forget-password'] as const)(
+    'binds delayed %s issuance before an address changes owners',
+    async (type) => {
+      policy.verificationEnabled = true
+      const fixture = await setup()
+      let resume!: () => void
+      let paused!: () => void
+      const gate = new Promise<void>((resolve) => {
+        resume = resolve
+      })
+      const reached = new Promise<void>((resolve) => {
+        paused = resolve
+      })
+      const create = fixture.context.internalAdapter.createVerificationValue.bind(
+        fixture.context.internalAdapter
+      )
+      const delayedCreate = vi
+        .spyOn(fixture.context.internalAdapter, 'createVerificationValue')
+        .mockImplementation(async (data) => {
+          if (data.identifier.startsWith(`${type}-otp-`)) {
+            paused()
+            await gate
+          }
+          return create(data)
+        })
+      const issuance =
+        type === 'sign-in'
+          ? fixture.auth.api.sendVerificationOTP({ body: { email: fixture.email, type } })
+          : fixture.auth.api.requestPasswordResetEmailOTP({ body: { email: fixture.email } })
+      await reached
+      const otp = await requestChange(fixture, 'changed@example.com')
+      await fixture.auth.api.changeEmailEmailOTP({
+        headers: fixture.login.headers,
+        body: { newEmail: 'changed@example.com', otp },
+      })
+      const second = await fixture.auth.api.signUpEmail({
+        body: { email: fixture.email, password: 'second-owner-password', name: 'Second owner' },
+      })
+      const accounts = await fixture.context.internalAdapter.findAccounts(second.user.id)
+      const sessions = await fixture.context.internalAdapter.listSessions(second.user.id)
+      resume()
+      await issuance
+      delayedCreate.mockRestore()
+      const oldOtp = deliveredCode(fixture.email)
+      const operation =
+        type === 'sign-in'
+          ? fixture.auth.api.signInEmailOTP({ body: { email: fixture.email, otp: oldOtp } })
+          : fixture.auth.api.resetPasswordEmailOTP({
+              body: { email: fixture.email, otp: oldOtp, password: 'attacker-password' },
+            })
+      await expect(operation).rejects.toMatchObject({ body: { code: 'INVALID_OTP' } })
+      expect(await fixture.context.internalAdapter.findAccounts(second.user.id)).toEqual(accounts)
+      expect(await fixture.context.internalAdapter.listSessions(second.user.id)).toEqual(sessions)
+      expect(await storedUser(fixture, second.user.id)).toMatchObject({ emailVerified: false })
+    }
+  )
+
+  it.each(['sign-in', 'forget-password', 'email-verification'] as const)(
+    'keeps an in-flight %s redemption on its captured owner after consumption',
+    async (type) => {
+      policy.verificationEnabled = true
+      const fixture = await setup()
+      await fixture.auth.api.sendVerificationOTP({ body: { email: fixture.email, type } })
+      const oldOtp = deliveredCode(fixture.email)
+      let resume!: () => void
+      let paused!: () => void
+      let shouldPause = true
+      const gate = new Promise<void>((resolve) => {
+        resume = resolve
+      })
+      const reached = new Promise<void>((resolve) => {
+        paused = resolve
+      })
+      const consume = fixture.context.internalAdapter.consumeVerificationValue.bind(
+        fixture.context.internalAdapter
+      )
+      const delayedConsume = vi
+        .spyOn(fixture.context.internalAdapter, 'consumeVerificationValue')
+        .mockImplementation(async (identifier) => {
+          const record = await consume(identifier)
+          if (shouldPause && record && identifier.startsWith(`${type}-otp-`)) {
+            shouldPause = false
+            paused()
+            await gate
+          }
+          return record
+        })
+      const operation =
+        type === 'sign-in'
+          ? fixture.auth.api.signInEmailOTP({ body: { email: fixture.email, otp: oldOtp } })
+          : type === 'forget-password'
+            ? fixture.auth.api.resetPasswordEmailOTP({
+                body: { email: fixture.email, otp: oldOtp, password: 'new-password' },
+              })
+            : fixture.auth.api.verifyEmailOTP({ body: { email: fixture.email, otp: oldOtp } })
+      await reached
+      const otp = await requestChange(fixture, 'changed@example.com')
+      await fixture.auth.api.changeEmailEmailOTP({
+        headers: fixture.login.headers,
+        body: { newEmail: 'changed@example.com', otp },
+      })
+      const second = await fixture.auth.api.signUpEmail({
+        body: { email: fixture.email, password: 'second-owner-password', name: 'Second owner' },
+      })
+      const user = await storedUser(fixture, second.user.id)
+      const accounts = await fixture.context.internalAdapter.findAccounts(second.user.id)
+      const sessions = await fixture.context.internalAdapter.listSessions(second.user.id)
+      resume()
+      const [outcome] = await Promise.allSettled([operation])
+      delayedConsume.mockRestore()
+      if (outcome.status === 'fulfilled' && 'user' in outcome.value) {
+        expect(outcome.value.user.id).toBe('owner')
+      }
+      expect(await storedUser(fixture, second.user.id)).toEqual(user)
+      expect(await fixture.context.internalAdapter.findAccounts(second.user.id)).toEqual(accounts)
+      expect(await fixture.context.internalAdapter.listSessions(second.user.id)).toEqual(sessions)
+      expect(await storedUser(fixture)).toMatchObject({ email: 'changed@example.com' })
+    }
+  )
+
+  it('keeps ownerless signup proof separate from independently registered accounts', async () => {
+    policy.verificationEnabled = true
+    const fixture = await setup()
+    const email = 'unclaimed@example.com'
+    await fixture.auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } })
+    const otp = deliveredCode(email)
+    const second = await fixture.auth.api.signUpEmail({
+      body: { email, password: 'second-owner-password', name: 'Second owner' },
+    })
+    const accounts = await fixture.context.internalAdapter.findAccounts(second.user.id)
+    const sessions = await fixture.context.internalAdapter.listSessions(second.user.id)
+    await expect(fixture.auth.api.signInEmailOTP({ body: { email, otp } })).rejects.toMatchObject({
+      body: { code: 'INVALID_OTP' },
+    })
+    expect(await fixture.context.internalAdapter.findAccounts(second.user.id)).toEqual(accounts)
+    expect(await fixture.context.internalAdapter.listSessions(second.user.id)).toEqual(sessions)
+    expect(await storedUser(fixture, second.user.id)).toMatchObject({ emailVerified: false })
+
+    const newEmail = 'new-signup@example.com'
+    await fixture.auth.api.sendVerificationOTP({ body: { email: newEmail, type: 'sign-in' } })
+    const signedUp = await fixture.auth.api.signInEmailOTP({
+      body: { email: newEmail, otp: deliveredCode(newEmail), name: 'New owner' },
+    })
+    expect(signedUp.user).toMatchObject({ email: newEmail, emailVerified: true })
+    expect(signedUp.user.id).not.toBe(second.user.id)
+    expect(signedUp.token).toEqual(expect.any(String))
   })
 
   it('rejects a code from another account whose native email-pair key collides', async () => {
