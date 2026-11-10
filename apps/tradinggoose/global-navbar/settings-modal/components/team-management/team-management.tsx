@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Button, Input, Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
+import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -159,6 +160,9 @@ export function TeamManagement() {
   const [orgSlug, setOrgSlug] = useState('')
   const [isAddSeatDialogOpen, setIsAddSeatDialogOpen] = useState(false)
   const [newSeatCount, setNewSeatCount] = useState(1)
+  const [pendingUpgradeTier, setPendingUpgradeTier] = useState<PublicBillingTierDisplay | null>(
+    null
+  )
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const [actionError, setActionError] = useState<{ action: string; message: string } | null>(null)
   const actionLockRef = useRef(false)
@@ -546,18 +550,11 @@ export function TeamManagement() {
         return
       }
 
-      logger.info('Organization tier upgrade requested', {
-        seats,
-        organizationId: activeOrgId,
-        billingTier: adjustableSeatTier.displayName,
-      })
-
-      await handleUpgrade(toUpgradeTarget(adjustableSeatTier), {
-        seats,
-        organizationId: activeOrgId,
-      })
+      setActionError(null)
+      setNewSeatCount(Math.max(seats, adjustableSeatTier.seatCount ?? 1, usedSeats.used))
+      setPendingUpgradeTier(adjustableSeatTier)
     },
-    [session?.user, activeOrgId, adjustableSeatTier, handleUpgrade, copy]
+    [session?.user, adjustableSeatTier, usedSeats.used, copy]
   )
 
   const queryError = orgError || organizationBillingError || subscriptionError
@@ -688,6 +685,18 @@ export function TeamManagement() {
                         !organizationPlanSurface.canManageOrganizationPlan
                       }
                       onClick={() => {
+                        if (tier.seatMode === 'adjustable') {
+                          setActionError(null)
+                          setNewSeatCount(
+                            Math.max(
+                              tier.seatCount ?? 1,
+                              subscriptionData?.seats ?? 1,
+                              usedSeats.used
+                            )
+                          )
+                          setPendingUpgradeTier(tier)
+                          return
+                        }
                         void runAction(`subscribe:${tier.id}`, () =>
                           handleUpgrade(toUpgradeTarget(tier), {
                             organizationId: activeOrgId,
@@ -864,6 +873,32 @@ export function TeamManagement() {
             isSelfRemoval: false,
           })
         }
+      />
+
+      <TeamSeats
+        open={Boolean(pendingUpgradeTier) && isOrganizationOwner}
+        onOpenChange={(open) => {
+          if (!open) setPendingUpgradeTier(null)
+        }}
+        title={pendingUpgradeTier?.displayName ?? ''}
+        description={pendingUpgradeTier?.description || copy('plans.description')}
+        pricePerSeat={pendingUpgradeTier?.monthlyPriceUsd ?? 0}
+        minimumSeats={Math.max(pendingUpgradeTier?.seatCount ?? 1, usedSeats.used)}
+        maximumSeats={pendingUpgradeTier?.seatMaximum ?? null}
+        initialSeats={newSeatCount}
+        isLoading={pendingAction === `subscribe:${pendingUpgradeTier?.id}`}
+        error={pendingUpgradeTier ? actionFailure(`subscribe:${pendingUpgradeTier.id}`) : null}
+        onConfirm={async (seats) => {
+          if (!pendingUpgradeTier || !activeOrgId) return
+          const succeeded = await runAction(`subscribe:${pendingUpgradeTier.id}`, () =>
+            handleUpgrade(toUpgradeTarget(pendingUpgradeTier), {
+              organizationId: activeOrgId,
+              seats,
+            })
+          )
+          if (succeeded) setPendingUpgradeTier(null)
+        }}
+        confirmButtonText={copy('setUpTeamSubscription')}
       />
 
       <TeamSeats
