@@ -166,6 +166,7 @@ export async function POST() {
         .create(
           {
             customer: customer.id,
+            billing_mode: { type: 'classic' },
             default_payment_method: defaultPaymentMethodId ?? undefined,
             items: [{ price: activationState.currentSubscription.tier.stripeMonthlyPriceId! }],
             metadata: {
