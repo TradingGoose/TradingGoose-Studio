@@ -1,7 +1,7 @@
 # ========================================
 # Base Stage: Alpine Linux with Bun
 # ========================================
-FROM oven/bun:1.3.14-alpine AS base
+FROM oven/bun:1.4.4-alpine AS base
 
 # ========================================
 # Dependencies Stage: Install Dependencies
@@ -11,6 +11,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json bun.lock ./
+COPY patches ./patches
 RUN mkdir -p apps
 COPY apps/tradinggoose/package.json ./apps/tradinggoose/package.json
 

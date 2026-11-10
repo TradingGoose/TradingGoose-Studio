@@ -1,11 +1,12 @@
 # ========================================
 # Dependencies Stage: Install Dependencies
 # ========================================
-FROM oven/bun:1.3.14-alpine AS deps
+FROM oven/bun:1.4.4-alpine AS deps
 WORKDIR /app
 
 # Copy only package files needed for migrations
 COPY package.json bun.lock ./
+COPY patches ./patches
 COPY packages/db/package.json ./packages/db/package.json
 
 # Install dependencies
@@ -14,7 +15,7 @@ RUN bun install --ignore-scripts
 # ========================================
 # Runner Stage: Production Environment
 # ========================================
-FROM oven/bun:1.3.14-alpine AS runner
+FROM oven/bun:1.4.4-alpine AS runner
 WORKDIR /app
 
 # Create non-root user and group
