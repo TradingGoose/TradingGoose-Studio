@@ -1877,7 +1877,7 @@
         "profileDetailsDescription": "更新您的姓名并管理访问权限。",
         "fullName": "姓名",
         "emailAddress": "电子邮箱",
-        "emailHint": "修改邮箱请联系技术支持。",
+        "emailHint": "验证当前邮箱和新邮箱后，即可更改账户邮箱。",
         "passwordReset": "重置密码",
         "passwordResetDescription": "我们将向您发送一封包含安全链接的邮件。",
         "sendLink": "发送链接",
@@ -1885,6 +1885,7 @@
         "saveName": "保存姓名",
         "cancelEditingName": "取消编辑姓名",
         "editName": "编辑姓名",
+        "editEmail": "编辑邮箱",
         "privacy": "隐私",
         "privacyDescription": "管理数据的收集方式。",
         "telemetry": {
@@ -1908,6 +1909,35 @@
           "noEmail": "未找到此账户的电子邮件地址。",
           "passwordResetSent": "密码重置链接已发送至您的收件箱。",
           "passwordResetFailed": "无法发送密码重置电子邮件。"
+        },
+        "emailChange": {
+          "title": "更改账户邮箱",
+          "newEmail": "新邮箱地址",
+          "currentCode": "发送到当前邮箱的验证码",
+          "newCode": "发送到新邮箱的验证码",
+          "sendCode": "发送验证码",
+          "verifyCurrent": "验证当前邮箱",
+          "confirm": "确认更改邮箱",
+          "cancel": "取消",
+          "resend": "重新发送验证码",
+          "restart": "请求新的验证码",
+          "currentCodeSent": "请输入发送至 {email} 的验证码。",
+          "newCodeSent": "请输入发送至 {email} 的验证码以完成邮箱更改。",
+          "restartHint": "如需重新发送新邮箱验证码，请先再次验证当前邮箱。",
+          "success": "账户邮箱已更改。",
+          "errors": {
+            "invalidEmail": "请输入有效的邮箱地址。",
+            "sameEmail": "请输入其他邮箱地址。",
+            "inUse": "该邮箱地址不可用。",
+            "notAllowed": "管理员不允许使用该邮箱地址。",
+            "unavailable": "邮箱验证暂不可用，请稍后重试。",
+            "invalidCode": "验证码不正确，请重试。",
+            "expiredCode": "验证码已过期，请请求新的验证码后重试。",
+            "tooManyAttempts": "尝试次数过多，请等待一分钟后请求新的验证码。",
+            "sessionExpired": "会话已过期，请重新登录后更改邮箱。",
+            "sendFailed": "验证码发送失败，请重新请求后重试。",
+            "changeFailed": "邮箱更改失败，请重试。"
+          }
         }
       },
       "help": {

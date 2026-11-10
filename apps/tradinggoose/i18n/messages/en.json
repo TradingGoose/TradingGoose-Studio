@@ -1890,7 +1890,7 @@
         "profileDetailsDescription": "Update your name and manage access.",
         "fullName": "Full name",
         "emailAddress": "Email address",
-        "emailHint": "Email changes are handled by support.",
+        "emailHint": "Verify your current and new email addresses to change your account email.",
         "passwordReset": "Password reset",
         "passwordResetDescription": "We’ll email you a secure link.",
         "sendLink": "Send link",
@@ -1898,6 +1898,7 @@
         "saveName": "Save name",
         "cancelEditingName": "Cancel editing name",
         "editName": "Edit name",
+        "editEmail": "Edit email",
         "privacy": "Privacy",
         "privacyDescription": "Manage how your data is collected.",
         "telemetry": {
@@ -1921,6 +1922,35 @@
           "noEmail": "No email address found for this account.",
           "passwordResetSent": "Password reset link sent to your inbox.",
           "passwordResetFailed": "Unable to send password reset email."
+        },
+        "emailChange": {
+          "title": "Change account email",
+          "newEmail": "New email address",
+          "currentCode": "Code sent to your current email",
+          "newCode": "Code sent to your new email",
+          "sendCode": "Send verification code",
+          "verifyCurrent": "Verify current email",
+          "confirm": "Confirm email change",
+          "cancel": "Cancel",
+          "resend": "Resend code",
+          "restart": "Request new codes",
+          "currentCodeSent": "Enter the code sent to {email}.",
+          "newCodeSent": "Enter the code sent to {email} to finish changing your email.",
+          "restartHint": "To request another code for your new address, verify your current email again.",
+          "success": "Your account email has been changed.",
+          "errors": {
+            "invalidEmail": "Enter a valid email address.",
+            "sameEmail": "Enter a different email address.",
+            "inUse": "That email address is unavailable.",
+            "notAllowed": "That email address is not allowed by your administrator.",
+            "unavailable": "Email verification is unavailable. Please try again later.",
+            "invalidCode": "The code is incorrect. Please try again.",
+            "expiredCode": "The code has expired. Request new codes and try again.",
+            "tooManyAttempts": "Too many attempts. Wait a minute, then request new codes.",
+            "sessionExpired": "Your session has expired. Sign in again to change your email.",
+            "sendFailed": "Unable to send the verification code. Request a new code and try again.",
+            "changeFailed": "Unable to change your email. Please try again."
+          }
         }
       },
       "help": {

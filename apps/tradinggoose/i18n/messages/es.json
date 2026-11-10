@@ -1890,7 +1890,7 @@
         "profileDetailsDescription": "Actualice su nombre y administre el acceso.",
         "fullName": "Nombre completo",
         "emailAddress": "Dirección de correo electrónico",
-        "emailHint": "Los cambios de correo electrónico son gestionados por el soporte.",
+        "emailHint": "Verifica tu correo actual y el nuevo para cambiar el correo de tu cuenta.",
         "passwordReset": "Restablecimiento de contraseña",
         "passwordResetDescription": "Le enviaremos un enlace seguro por correo electrónico.",
         "sendLink": "Enviar enlace",
@@ -1898,6 +1898,7 @@
         "saveName": "Guardar nombre",
         "cancelEditingName": "Cancelar edición del nombre",
         "editName": "Editar nombre",
+        "editEmail": "Editar correo electrónico",
         "privacy": "Privacidad",
         "privacyDescription": "Gestione cómo se recopilan sus datos.",
         "telemetry": {
@@ -1921,6 +1922,35 @@
           "noEmail": "No se encontró una dirección de correo electrónico para esta cuenta.",
           "passwordResetSent": "Enlace de restablecimiento de contraseña enviado a tu bandeja de entrada.",
           "passwordResetFailed": "No se pudo enviar el correo de restablecimiento de contraseña."
+        },
+        "emailChange": {
+          "title": "Cambiar el correo de la cuenta",
+          "newEmail": "Nuevo correo electrónico",
+          "currentCode": "Código enviado a tu correo actual",
+          "newCode": "Código enviado a tu nuevo correo",
+          "sendCode": "Enviar código de verificación",
+          "verifyCurrent": "Verificar correo actual",
+          "confirm": "Confirmar cambio de correo",
+          "cancel": "Cancelar",
+          "resend": "Reenviar código",
+          "restart": "Solicitar nuevos códigos",
+          "currentCodeSent": "Introduce el código enviado a {email}.",
+          "newCodeSent": "Introduce el código enviado a {email} para terminar de cambiar tu correo.",
+          "restartHint": "Para solicitar otro código para tu nueva dirección, verifica de nuevo tu correo actual.",
+          "success": "Se ha cambiado el correo de tu cuenta.",
+          "errors": {
+            "invalidEmail": "Introduce una dirección de correo válida.",
+            "sameEmail": "Introduce una dirección de correo diferente.",
+            "inUse": "Esa dirección de correo no está disponible.",
+            "notAllowed": "Tu administrador no permite esa dirección de correo.",
+            "unavailable": "La verificación de correo no está disponible. Inténtalo más tarde.",
+            "invalidCode": "El código es incorrecto. Inténtalo de nuevo.",
+            "expiredCode": "El código ha caducado. Solicita nuevos códigos e inténtalo de nuevo.",
+            "tooManyAttempts": "Demasiados intentos. Espera un minuto y solicita nuevos códigos.",
+            "sessionExpired": "Tu sesión ha caducado. Inicia sesión de nuevo para cambiar tu correo.",
+            "sendFailed": "No se pudo enviar el código de verificación. Solicita uno nuevo e inténtalo de nuevo.",
+            "changeFailed": "No se pudo cambiar tu correo. Inténtalo de nuevo."
+          }
         }
       },
       "help": {
