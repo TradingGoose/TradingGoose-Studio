@@ -14,6 +14,7 @@ import { UsageHeader } from './shared/usage-header'
 import { WorkspaceBillingOwnerEditor } from './subscription/components/workspace-billing-owner'
 import { MemberInvitationCard } from './team-management/components/member-invitation-card/member-invitation-card'
 import { NoOrganizationView } from './team-management/components/no-organization-view/no-organization-view'
+import { TeamSeats } from './team-management/components/team-seats/team-seats'
 import { TeamSeatsOverview } from './team-management/components/team-seats-overview/team-seats-overview'
 import { TeamManagement } from './team-management/team-management'
 
@@ -133,6 +134,17 @@ describe('settings localization', () => {
     })
   }
 
+  function enterSeats(value: number) {
+    const input = document.querySelector<HTMLInputElement>('#seats')!
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+        input,
+        String(value)
+      )
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+
   it.each([
     ['es', 'Propietario de facturación', 'Organización'],
     ['zh', '账单所有者', '组织'],
@@ -207,19 +219,40 @@ describe('settings localization', () => {
     }
   })
 
-  it('selects organization seats before checkout through the existing localized dialog', async () => {
+  it.each([
+    { licensedSeats: 0, selectedSeats: 8, expectedSeats: 8 },
+    { licensedSeats: 20, selectedSeats: null, expectedSeats: 10 },
+  ])('selects organization seats with $licensedSeats licenses', async (testCase) => {
+    const { licensedSeats, selectedSeats, expectedSeats } = testCase
     mocks.organization = {
       id: 'org-1',
       name: 'Design team',
       slug: 'design-team',
       createdAt: '2025-06-15T12:00:00Z',
-      members: [{ id: 'member-1', role: 'owner', user: { email: 'ana@example.com' } }],
+      members: [
+        { id: 'member-1', role: 'owner', user: { email: 'ana@example.com' } },
+        ...Array.from({ length: 3 }, (_, index) => ({
+          id: `member-${index + 2}`,
+          role: 'member',
+          user: { email: `member-${index + 2}@example.com` },
+        })),
+      ],
     }
     mocks.billing = {
       organizationId: 'org-1',
       billingEnabled: true,
-      subscriptionTier: null,
-      totalSeats: 1,
+      subscriptionTier: licensedSeats
+        ? {
+            ...EMPTY_BILLING_TIER_SUMMARY,
+            id: 'current-org-tier',
+            displayName: 'Current organization tier',
+            ownerType: 'organization',
+            usageScope: 'pooled',
+            seatMode: 'adjustable',
+            hasStripeMonthlyPriceId: true,
+          }
+        : null,
+      totalSeats: licensedSeats,
       totalCurrentUsage: 0,
       totalUsageLimit: 0,
     }
@@ -251,13 +284,8 @@ describe('settings localization', () => {
     expect(mocks.mutate).not.toHaveBeenCalled()
     const dialog = document.querySelector('[role="dialog"]')!
     const seatsInput = dialog.querySelector<HTMLInputElement>('#seats')!
-    act(() => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
-        seatsInput,
-        '8'
-      )
-      seatsInput.dispatchEvent(new Event('input', { bubbles: true }))
-    })
+    expect(seatsInput).toHaveValue(licensedSeats ? 10 : 4)
+    if (selectedSeats !== null) enterSeats(selectedSeats)
     const confirm = Array.from(dialog.querySelectorAll('button')).find(
       (button) => button.textContent === 'Configurar suscripción de equipo'
     )!
@@ -265,8 +293,49 @@ describe('settings localization', () => {
 
     expect(mocks.mutate).toHaveBeenCalledWith(
       expect.objectContaining({ billingTierId: 'tier-org', ownerType: 'organization' }),
-      { organizationId: 'org-1', seats: 8 }
+      { organizationId: 'org-1', seats: expectedSeats }
     )
+  })
+
+  it('bounds initial seats and resets them when reopening or constraints change', async () => {
+    const dialog = (
+      <TeamSeats
+        open
+        onOpenChange={vi.fn()}
+        title='Seats'
+        description='Select seats'
+        pricePerSeat={10}
+        minimumSeats={4}
+        maximumSeats={10}
+        initialSeats={20}
+        isLoading={false}
+        onConfirm={mocks.mutate}
+        confirmButtonText='Confirm'
+      />
+    )
+    const seats = () => document.querySelector<HTMLInputElement>('#seats')!
+
+    await render('en', dialog)
+    expect(seats()).toHaveValue(10)
+    enterSeats(8)
+    await render('en', cloneElement(dialog, { initialSeats: 30 }))
+    expect(seats()).toHaveValue(10)
+    enterSeats(8)
+    await render('en', cloneElement(dialog, { open: false }))
+    await render('en', dialog)
+    expect(seats()).toHaveValue(10)
+
+    const lowInitial = cloneElement(dialog, { initialSeats: 2, minimumSeats: 1 })
+    await render('en', lowInitial)
+    enterSeats(8)
+    await render('en', cloneElement(lowInitial, { maximumSeats: 5 }))
+    expect(seats()).toHaveValue(2)
+    await render('en', cloneElement(lowInitial, { minimumSeats: 4 }))
+    expect(seats()).toHaveValue(4)
+    await render('en', cloneElement(dialog, { maximumSeats: null }))
+    expect(seats()).toHaveValue(20)
+    await render('en', cloneElement(dialog, { minimumSeats: 12 }))
+    expect(seats()).toHaveValue(12)
   })
 
   it.each([
