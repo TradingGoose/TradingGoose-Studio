@@ -4,6 +4,14 @@
 [Better Auth v1.7.16](https://github.com/better-auth/better-auth/blob/v1.7.16/packages/better-auth/src/plugins/email-otp/routes.ts#L1090).
 The installed Better Auth packages remain on 1.6.34.
 
+One identifier builder binds normal OTPs to `[userId, email]`, using an explicit
+`null` owner only when no account exists. Issuance, signup hooks, reuse, and all
+verification utilities use that same scope. A pending ownerless signup proof
+cannot authenticate an account created independently afterward.
+The resolved account is carried through verification and mutation, following
+[Better Auth's two-factor OTP pattern](https://github.com/better-auth/better-auth/blob/v1.7.20/packages/better-auth/src/plugins/two-factor/otp/index.ts).
+Redemption never selects a replacement account by looking up the address again.
+
 Upstream 1.6.34 joins `oldEmail-newEmail`, allowing different address pairs to
 share a verification identifier. The patch uses a JSON-encoded tuple of
 `[userId, currentEmail, newEmail]` when creating, deleting, and verifying the
@@ -21,5 +29,5 @@ The opaque link and identifier stay unchanged; no post-change deletion is needed
 
 Reassess this patch when upgrading Better Auth. Remove it only after verifying
 that upstream provides equivalent account/mailbox binding and all regressions
-still pass. Older OTP challenges and unbound reset tokens are not accepted;
+still pass. Unbound OTP challenges and reset tokens are not accepted;
 request a fresh code or reset link instead.
