@@ -1,12 +1,12 @@
 diff --git a/dist/plugins/email-otp/routes.mjs b/dist/plugins/email-otp/routes.mjs
-index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..e6d1f4423340c82f1330b6284fe29b9e20acd101 100644
+index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..dd31e688fb556cb8d23db4baf9e5af7b58133e35 100644
 --- a/dist/plugins/email-otp/routes.mjs
 +++ b/dist/plugins/email-otp/routes.mjs
 @@ -654,13 +654,14 @@ const requestEmailChangeEmailOTP = (opts) => createAuthEndpoint("/email-otp/requ
  		type: "change-email"
  	}, ctx) || defaultOTPGenerator(opts);
  	const storedOTP = await storeOTP(ctx, opts, otp);
-+	const identifier = toOTPIdentifier("change-email", `${ctx.context.session.user.id}:${newEmail}`);
++	const identifier = toOTPIdentifier("change-email", JSON.stringify([ctx.context.session.user.id, email, newEmail]));
  	await ctx.context.internalAdapter.createVerificationValue({
  		value: `${storedOTP}:0`,
 -		identifier: toOTPIdentifier("change-email", `${email}-${newEmail}`),
@@ -24,7 +24,7 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..e6d1f4423340c82f1330b6284fe29b9e
  		throw APIError$1.fromStatus("BAD_REQUEST", { message: "Email is the same" });
  	}
 -	await atomicVerifyOTP(ctx, opts, toOTPIdentifier("change-email", `${email}-${newEmail}`), ctx.body.otp);
-+	await atomicVerifyOTP(ctx, opts, toOTPIdentifier("change-email", `${session.user.id}:${newEmail}`), ctx.body.otp);
++	await atomicVerifyOTP(ctx, opts, toOTPIdentifier("change-email", JSON.stringify([session.user.id, email, newEmail])), ctx.body.otp);
  	const currentUser = await ctx.context.internalAdapter.findUserByEmail(email);
  	if (!currentUser)
   /**
