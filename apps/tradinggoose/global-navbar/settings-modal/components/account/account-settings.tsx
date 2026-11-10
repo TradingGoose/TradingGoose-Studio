@@ -16,6 +16,7 @@ import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
 import { useGeneralStore } from '@/stores/settings/general/store'
+import { ChangeEmailForm } from './change-email-form'
 
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
@@ -478,9 +479,7 @@ export function AccountSettings() {
               </div>
               <div className='space-y-1'>
                 <Label>{tAccount('emailAddress')}</Label>
-                <div className='rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground text-sm'>
-                  {email || '—'}
-                </div>
+                <ChangeEmailForm email={email} onEmailChanged={setEmail} />
                 <p className='text-muted-foreground text-xs'>{tAccount('emailHint')}</p>
               </div>
             </div>

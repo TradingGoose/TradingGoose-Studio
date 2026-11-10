@@ -2,10 +2,13 @@
 
 import type React from 'react'
 import { act } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getGeneralSettingsResponsePatch } from '@/hooks/queries/general-settings'
+import { organizationKeys } from '@/hooks/queries/organization'
+import { workspaceKeys } from '@/hooks/queries/workspace'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
@@ -13,6 +16,13 @@ import { AccountSettings } from './account-settings'
 
 const mockUseSession = vi.fn()
 const mockSetTelemetryEnabled = vi.fn()
+const mocks = vi.hoisted(() => ({
+  send: vi.fn(),
+  request: vi.fn(),
+  change: vi.fn(),
+  refetch: vi.fn(),
+}))
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 const generalState = {
   isLoading: false,
   telemetryEnabled: false,
@@ -54,7 +64,25 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 vi.mock('@/lib/auth-client', () => ({
+  client: {
+    emailOtp: {
+      sendVerificationOtp: mocks.send,
+      requestEmailChange: mocks.request,
+      changeEmail: mocks.change,
+    },
+  },
   useSession: () => mockUseSession(),
+}))
+vi.mock('@/components/ui/input-otp', () => ({
+  InputOTP: ({
+    children: _children,
+    onChange,
+    ...props
+  }: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> & {
+    onChange: (value: string) => void
+  }) => <input {...props} onChange={(event) => onChange(event.target.value)} />,
+  InputOTPGroup: () => null,
+  InputOTPSlot: () => null,
 }))
 vi.mock('@/stores/settings/general/store', () => ({
   useGeneralStore: (selector: (state: typeof generalState) => unknown) => selector(generalState),
@@ -62,9 +90,11 @@ vi.mock('@/stores/settings/general/store', () => ({
 
 function renderAccountSettings(root: Root, locale: LocaleCode) {
   root.render(
-    <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-      <AccountSettings />
-    </NextIntlClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+        <AccountSettings />
+      </NextIntlClientProvider>
+    </QueryClientProvider>
   )
 }
 function findButtonByText(container: HTMLElement, text: string) {
@@ -103,7 +133,13 @@ describe('AccountSettings localization', () => {
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     mockSetTelemetryEnabled.mockReset()
+    vi.clearAllMocks()
+    mocks.send.mockResolvedValue({ data: { success: true }, error: null })
+    mocks.request.mockResolvedValue({ data: { success: true }, error: null })
+    mocks.change.mockResolvedValue({ data: { success: true }, error: null })
+    mocks.refetch.mockResolvedValue(undefined)
     mockUseSession.mockReturnValue({
+      refetch: mocks.refetch,
       data: {
         user: {
           id: 'user-1',
@@ -151,6 +187,7 @@ describe('AccountSettings localization', () => {
       root.unmount()
     })
     container.remove()
+    queryClient.clear()
     vi.restoreAllMocks()
   })
   afterAll(() => {
@@ -246,5 +283,171 @@ describe('AccountSettings localization', () => {
       await click(findButtonByText(container, copy.sendLink))
     })
     expect(container.textContent).toContain(copy.status.passwordResetSent)
+  })
+  describe('email changes', () => {
+    let copy: ReturnType<
+      typeof getPublicCopy
+    >['workspace']['settingsModal']['account']['emailChange']
+    async function render(locale: LocaleCode = 'en') {
+      copy = getPublicCopy(locale).workspace.settingsModal.account.emailChange
+      await act(async () => {
+        renderAccountSettings(root, locale)
+        await flush()
+      })
+      await press(getPublicCopy(locale).workspace.settingsModal.account.editEmail)
+    }
+    async function press(text: string) {
+      await act(async () => {
+        await click(findButtonByText(container, text))
+      })
+    }
+    async function fill(selector: string, value: string) {
+      await act(async () => {
+        setInputValue(container.querySelector<HTMLInputElement>(selector)!, value)
+        await flush()
+      })
+    }
+    async function start() {
+      await fill('#account-new-email', '  New@Example.com  ')
+      await press(copy.sendCode)
+    }
+    async function verifyCurrent() {
+      await fill('#account-email-code', '111111')
+      await press(copy.verifyCurrent)
+    }
+    it('changes the email only after both mailboxes are verified, then refreshes session and identity queries', async () => {
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+      await render()
+      await start()
+      expect(mocks.send).toHaveBeenCalledWith({
+        email: 'ada@example.com',
+        type: 'email-verification',
+      })
+      expect(container.textContent).toContain('ada@example.com')
+      await verifyCurrent()
+      expect(mocks.request).toHaveBeenCalledWith({ newEmail: 'new@example.com', otp: '111111' })
+      expect(mocks.change).not.toHaveBeenCalled()
+      await fill('#account-email-code', '222222')
+      await press(copy.confirm)
+
+      expect(mocks.change).toHaveBeenCalledWith({ newEmail: 'new@example.com', otp: '222222' })
+      expect(container.textContent).toContain('new@example.com')
+      expect(mocks.refetch).toHaveBeenCalledOnce()
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: organizationKeys.all })
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: workspaceKeys.all })
+      expect(container.textContent).toContain(copy.success)
+      expect(container.querySelector('form')).toBeNull()
+    })
+
+    it('restarts current-mailbox proof to resend the new-mailbox code while retaining its target', async () => {
+      await render()
+      await start()
+      await verifyCurrent()
+      await press(copy.restart)
+      expect(mocks.send).toHaveBeenCalledTimes(2)
+      expect(mocks.request).toHaveBeenCalledOnce()
+      expect(container.querySelector('label[for="account-email-code"]')?.textContent).toBe(
+        copy.currentCode
+      )
+      await fill('#account-email-code', '333333')
+      await press(copy.verifyCurrent)
+      expect(mocks.request).toHaveBeenLastCalledWith({ newEmail: 'new@example.com', otp: '333333' })
+      expect(mocks.change).not.toHaveBeenCalled()
+    })
+
+    it.each(['es', 'zh'] as const)(
+      'localizes invalid current codes and lets the user resend in %s',
+      async (locale) => {
+        mocks.request.mockResolvedValueOnce({
+          error: { code: 'INVALID_OTP', message: 'Invalid OTP' },
+        })
+        await render(locale)
+        await start()
+        await verifyCurrent()
+        expect(container.querySelector('[role="alert"]')?.textContent).toBe(copy.errors.invalidCode)
+        expect(container.querySelector('label[for="account-email-code"]')?.textContent).toBe(
+          copy.currentCode
+        )
+        await press(copy.resend)
+        expect(mocks.send).toHaveBeenCalledTimes(2)
+        expect(container.querySelector('[role="alert"]')).toBeNull()
+        expect(mocks.change).not.toHaveBeenCalled()
+      }
+    )
+
+    it('retries failed new-mail delivery by requesting fresh current-mailbox proof', async () => {
+      mocks.request.mockResolvedValueOnce({ error: { status: 500, message: 'Delivery failed' } })
+      await render()
+      await start()
+      await verifyCurrent()
+      expect(container.querySelector('[role="alert"]')?.textContent).toBe(copy.errors.sendFailed)
+      expect(container.querySelector('#account-new-email')).toHaveValue('new@example.com')
+      await press(copy.sendCode)
+      expect(mocks.send).toHaveBeenCalledTimes(2)
+      expect(mocks.request).toHaveBeenCalledOnce()
+      expect(container.querySelector('label[for="account-email-code"]')?.textContent).toBe(
+        copy.currentCode
+      )
+    })
+
+    it.each([
+      ['OTP_EXPIRED', 'expiredCode'],
+      ['TOO_MANY_ATTEMPTS', 'tooManyAttempts'],
+      ['UNAUTHORIZED', 'sessionExpired'],
+    ] as const)('keeps a failed new-code confirmation recoverable for %s', async (code, key) => {
+      mocks.change.mockResolvedValueOnce({ error: { code } })
+      await render()
+      await start()
+      await verifyCurrent()
+      await fill('#account-email-code', '222222')
+      await press(copy.confirm)
+      expect(container.querySelector('[role="alert"]')?.textContent).toBe(copy.errors[key])
+      expect(container.querySelector('form')).not.toBeNull()
+      expect(container.querySelector('#account-email-code')).toHaveValue('')
+      await press(copy.cancel)
+      expect(container.querySelector('form')).toBeNull()
+      expect(container.textContent).toContain('ada@example.com')
+    })
+
+    it('blocks duplicate submits and edits while a code is being sent', async () => {
+      let finish!: (result: { error: null }) => void
+      mocks.send.mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve
+        })
+      )
+      await render()
+      await fill('#account-new-email', 'new@example.com')
+      const form = container.querySelector('form')!
+      await act(async () => {
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+      expect(mocks.send).toHaveBeenCalledOnce()
+      expect(container.querySelector('button[type="submit"]')).toBeDisabled()
+      expect(container.querySelector('#account-new-email')).toBeDisabled()
+      await act(async () => finish({ error: null }))
+      await press(copy.cancel)
+      expect(container.querySelector('form')).toBeNull()
+      expect(container.textContent).toContain('ada@example.com')
+    })
+
+    it('keeps successful email mutation successful when session and cache refresh fail', async () => {
+      mocks.refetch.mockRejectedValueOnce(new Error('Session refresh failed'))
+      vi.spyOn(queryClient, 'invalidateQueries').mockRejectedValue(
+        new Error('Cache refresh failed')
+      )
+      await render()
+      await start()
+      await verifyCurrent()
+      await fill('#account-email-code', '222222')
+      await press(copy.confirm)
+      expect(container.textContent).toContain('new@example.com')
+      expect(container.textContent).toContain(copy.success)
+      expect(container.querySelector('[role="alert"]')).toBeNull()
+      await press(getPublicCopy('en').workspace.settingsModal.account.editEmail)
+      expect(container.querySelector('#account-new-email')).toHaveValue('new@example.com')
+    })
   })
 })
