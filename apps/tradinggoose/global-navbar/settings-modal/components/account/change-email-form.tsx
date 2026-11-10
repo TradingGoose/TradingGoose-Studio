@@ -2,6 +2,7 @@
 
 import { type FormEvent, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { REGEXP_ONLY_DIGITS } from 'input-otp'
 import { Loader2, Pencil } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -177,7 +178,7 @@ export function ChangeEmailForm({
                 inputMode='numeric'
                 autoComplete='one-time-code'
                 maxLength={6}
-                pattern='[0-9]*'
+                pattern={REGEXP_ONLY_DIGITS}
                 autoFocus
                 value={otp}
                 disabled={isLoading}

@@ -73,17 +73,6 @@ vi.mock('@/lib/auth-client', () => ({
   },
   useSession: () => mockUseSession(),
 }))
-vi.mock('@/components/ui/input-otp', () => ({
-  InputOTP: ({
-    children: _children,
-    onChange,
-    ...props
-  }: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> & {
-    onChange: (value: string) => void
-  }) => <input {...props} onChange={(event) => onChange(event.target.value)} />,
-  InputOTPGroup: () => null,
-  InputOTPSlot: () => null,
-}))
 vi.mock('@/stores/settings/general/store', () => ({
   useGeneralStore: (selector: (state: typeof generalState) => unknown) => selector(generalState),
 }))
@@ -132,6 +121,14 @@ describe('AccountSettings localization', () => {
   let root: Root
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        disconnect() {}
+      }
+    )
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => null })
     mockSetTelemetryEnabled.mockReset()
     vi.clearAllMocks()
     mocks.send.mockResolvedValue({ data: { success: true }, error: null })
@@ -189,6 +186,8 @@ describe('AccountSettings localization', () => {
     container.remove()
     queryClient.clear()
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    Reflect.deleteProperty(document, 'elementFromPoint')
   })
   afterAll(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
@@ -353,6 +352,30 @@ describe('AccountSettings localization', () => {
       await press(copy.verifyCurrent)
       expect(mocks.request).toHaveBeenLastCalledWith({ newEmail: 'new@example.com', otp: '333333' })
       expect(mocks.change).not.toHaveBeenCalled()
+    })
+
+    it('rejects letters in real OTP inputs without blocking resend or restart', async () => {
+      await render()
+      await start()
+      for (const value of ['abcdef', '12ab34']) {
+        await fill('#account-email-code', value)
+        expect(container.querySelector('#account-email-code')).toHaveValue('')
+        expect(findButtonByText(container, copy.verifyCurrent)).toBeDisabled()
+      }
+      await press(copy.resend)
+      expect(mocks.send).toHaveBeenCalledTimes(2)
+      await verifyCurrent()
+      expect(mocks.request).toHaveBeenCalledWith({ newEmail: 'new@example.com', otp: '111111' })
+      await fill('#account-email-code', '12ab34')
+      expect(container.querySelector('#account-email-code')).toHaveValue('')
+      expect(findButtonByText(container, copy.confirm)).toBeDisabled()
+      await press(copy.restart)
+      expect(mocks.send).toHaveBeenCalledTimes(3)
+      await verifyCurrent()
+      await fill('#account-email-code', '222222')
+      expect(findButtonByText(container, copy.confirm)).toBeEnabled()
+      await press(copy.confirm)
+      expect(mocks.change).toHaveBeenCalledWith({ newEmail: 'new@example.com', otp: '222222' })
     })
 
     it.each(['es', 'zh'] as const)(
