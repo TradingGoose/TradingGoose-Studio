@@ -7,6 +7,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PRIVATE_TIER_ACCESS_ERROR_CODES } from '@/lib/billing/private-tier-access-contract'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
+import { organizationKeys } from '@/hooks/queries/organization'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { Subscription } from './subscription'
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   organizationBillingId: '',
   organizationBillingPlaceholder: false,
   handleUpgrade: vi.fn(),
+  getFullOrganization: vi.fn(),
   personalBilling: null as Record<string, unknown> | null,
   privateTiers: [] as Array<Record<string, unknown>>,
   privateTierAccessError: null as Error | null,
@@ -31,6 +33,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => ({ data: { user: { id: 'user-1', email: 'user@example.com' } } }),
+  client: { organization: { getFullOrganization: mocks.getFullOrganization } },
 }))
 
 vi.mock('@/lib/subscription/upgrade', () => ({
@@ -56,7 +59,8 @@ vi.mock('@/hooks/queries/workspace', () => ({
   workspaceMutationOptions: { updateSettings: vi.fn() },
 }))
 
-vi.mock('@/hooks/queries/organization', () => ({
+vi.mock('@/hooks/queries/organization', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/queries/organization')>()),
   useOrganizationBilling: (id: string) => {
     mocks.organizationBillingId = id
     return {
@@ -191,6 +195,17 @@ function organizationPayload() {
   }
 }
 
+function organizationDetails() {
+  return {
+    id: 'org-billing',
+    name: 'Billing organization',
+    slug: 'billing',
+    createdAt: new Date(),
+    members: [1, 2, 3, 4].map((id) => ({ id: String(id), role: 'member' })),
+    invitations: [] as Array<{ id: string; email: string; status: string }>,
+  }
+}
+
 function catalogTier(
   id: string,
   displayName: string,
@@ -246,6 +261,7 @@ describe('Subscription billing subject', () => {
     mocks.organizationBillingPlaceholder = false
     mocks.personalBilling = personalPayload()
     mocks.handleUpgrade.mockReset()
+    mocks.getFullOrganization.mockReset().mockResolvedValue({ data: organizationDetails() })
     mocks.privateTiers = []
     mocks.privateTierAccessError = null
     mocks.publicTiers = []
@@ -253,6 +269,7 @@ describe('Subscription billing subject', () => {
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
+    queryClient.setQueryData(organizationKeys.detail('org-billing'), organizationDetails())
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -343,6 +360,114 @@ describe('Subscription billing subject', () => {
     expect(container.querySelector('[data-testid="billing-owner-editor"]')).not.toBeNull()
     expect(container.textContent).not.toContain('Personal Pro')
     expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('waits for the billing organization before quoting members and pending invitations', async () => {
+    mocks.workspaceSettings = workspaceBillingOwner({
+      type: 'organization',
+      organizationId: 'org-billing',
+    })
+    mocks.organizationBilling = {
+      ...organizationPayload(),
+      subscriptionTier: null,
+      totalSeats: 0,
+      usedSeats: 2,
+      userRole: 'owner',
+    }
+    mocks.publicTiers = [catalogTier('tier-org-public', 'Organization Public', 'organization', 1)]
+    const organization = {
+      ...organizationDetails(),
+      members: organizationDetails().members.slice(0, 2),
+      invitations: ['pending', 'pending', 'pending', 'cancelled', 'accepted'].map(
+        (status, index) => ({
+          id: String(index),
+          email: `invite-${index}@example.com`,
+          status,
+        })
+      ),
+    }
+    let finish!: () => void
+    mocks.getFullOrganization.mockImplementationOnce(
+      (options) =>
+        new Promise((resolve) => {
+          finish = () =>
+            resolve({
+              data:
+                options?.query?.organizationId === 'org-billing'
+                  ? organization
+                  : { ...organizationDetails(), id: 'org-active' },
+            })
+        })
+    )
+    queryClient.removeQueries({ queryKey: organizationKeys.detail('org-billing'), exact: true })
+
+    render()
+    expect(container.querySelector('[data-testid="plan-card"]')).toBeNull()
+    expect(mocks.getFullOrganization).toHaveBeenCalledWith({
+      query: { organizationId: 'org-billing' },
+    })
+    expect(mocks.handleUpgrade).not.toHaveBeenCalled()
+    await act(async () => {
+      finish()
+      await vi.waitFor(() =>
+        expect(queryClient.getQueryState(organizationKeys.detail('org-billing'))?.status).toBe(
+          'success'
+        )
+      )
+    })
+    act(() => container.querySelector<HTMLButtonElement>('[data-testid="plan-card"]')!.click())
+
+    const dialog = document.querySelector('[role="dialog"]')!
+    const seats = dialog.querySelector<HTMLInputElement>('#seats')!
+    expect(seats).toHaveAttribute('min', '5')
+    expect(seats).toHaveValue(5)
+    expect(dialog.textContent).toContain('$62.50')
+    expect(dialog.textContent).not.toContain('$25.00')
+    const confirm = Array.from(dialog.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Upgrade'
+    )!
+    await act(async () => confirm.click())
+    expect(mocks.handleUpgrade).toHaveBeenCalledWith(
+      expect.objectContaining({ billingTierId: 'tier-org-public' }),
+      { organizationId: 'org-billing', seats: 5 }
+    )
+  })
+
+  it('does not quote a different organization while its details are cached', () => {
+    mocks.workspaceSettings = workspaceBillingOwner({
+      type: 'organization',
+      organizationId: 'org-billing',
+    })
+    mocks.publicTiers = [catalogTier('tier-org-public', 'Organization Public', 'organization', 1)]
+    queryClient.setQueryData(organizationKeys.detail('org-billing'), {
+      ...organizationDetails(),
+      id: 'org-active',
+    })
+    render()
+    expect(container.textContent).toContain('You cannot access this billing organization.')
+    expect(container.querySelector('[data-testid="plan-card"]')).toBeNull()
+    expect(mocks.handleUpgrade).not.toHaveBeenCalled()
+  })
+
+  it('keeps checkout unavailable when organization details cannot be loaded', async () => {
+    mocks.workspaceSettings = workspaceBillingOwner({
+      type: 'organization',
+      organizationId: 'org-billing',
+    })
+    mocks.publicTiers = [catalogTier('tier-org-public', 'Organization Public', 'organization', 1)]
+    queryClient.removeQueries({ queryKey: organizationKeys.detail('org-billing'), exact: true })
+    mocks.getFullOrganization.mockRejectedValueOnce(new Error('Organization unavailable'))
+    render()
+    await act(async () => {
+      await vi.waitFor(() =>
+        expect(queryClient.getQueryState(organizationKeys.detail('org-billing'))?.status).toBe(
+          'error'
+        )
+      )
+    })
+    expect(container.textContent).toContain('You cannot access this billing organization.')
+    expect(container.querySelector('[data-testid="plan-card"]')).toBeNull()
+    expect(mocks.handleUpgrade).not.toHaveBeenCalled()
   })
 
   it.each([

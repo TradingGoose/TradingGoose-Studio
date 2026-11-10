@@ -60,15 +60,17 @@ export function useOrganizations(options?: { enabled?: boolean }) {
   })
 }
 
-async function fetchOrganization() {
-  const response = await client.organization.getFullOrganization()
+async function fetchOrganization(orgId: string) {
+  const response = await client.organization.getFullOrganization({
+    query: { organizationId: orgId },
+  })
   return response.data
 }
 
 export function useOrganization(orgId: string) {
   return useQuery({
     queryKey: organizationKeys.detail(orgId),
-    queryFn: fetchOrganization,
+    queryFn: () => fetchOrganization(orgId),
     enabled: !!orgId,
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,
