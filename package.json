@@ -43,7 +43,7 @@
   "overrides": {
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "drizzle-orm": "^0.44.5",
+    "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5",
     "vite": "6.4.3"
   },
@@ -53,7 +53,7 @@
     "@tanstack/react-query": "5.90.8",
     "cronstrue": "3.3.0",
     "diff": "9.0.0",
-    "drizzle-orm": "^0.44.5",
+    "drizzle-orm": "^0.45.2",
     "lightweight-charts": "5.1.0",
     "mongodb": "6.19.0",
     "parse-diff": "0.12.0",
@@ -78,5 +78,8 @@
     "*.{js,jsx,ts,tsx,json,css,scss}": [
       "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
     ]
+  },
+  "patchedDependencies": {
+    "better-auth@1.6.34": "patches/better-auth@1.6.34.patch"
   }
 }

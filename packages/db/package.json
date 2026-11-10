@@ -25,7 +25,7 @@
     "type-check": "tsc --noEmit"
   },
   "peerDependencies": {
-    "drizzle-orm": "^0.44.5",
+    "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5"
   },
   "devDependencies": {
@@ -33,7 +33,7 @@
     "typescript": "^5.7.3"
   },
   "overrides": {
-    "drizzle-orm": "^0.44.5",
+    "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5"
   }
 }

@@ -5,10 +5,10 @@ import { eq } from 'drizzle-orm'
 import type Stripe from 'stripe'
 
 type StripeCustomerCreateClient = {
-  customers: Pick<Stripe.CustomersResource, 'create'>
+  customers: Pick<Stripe.CustomerResource, 'create'>
 }
 type StripeCustomerClient = {
-  customers: Pick<Stripe.CustomersResource, 'create' | 'retrieve'>
+  customers: Pick<Stripe.CustomerResource, 'create' | 'retrieve'>
 }
 type StripeUserCustomerRecord = {
   stripeCustomerId: string | null

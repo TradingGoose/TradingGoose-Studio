@@ -134,12 +134,28 @@ async function ensureManagementPortalConfiguration(stripe: Stripe) {
   )
 
   if (!managementConfiguration) {
+    const { features } = defaultConfiguration
     const created = await stripe.billingPortal.configurations.create(
       {
         name: 'TradingGoose billing management',
         business_profile: toBusinessProfile(defaultConfiguration),
         features: {
-          ...defaultConfiguration.features,
+          ...features,
+          payment_method_update: {
+            ...features.payment_method_update,
+            payment_method_configuration:
+              features.payment_method_update.payment_method_configuration ?? undefined,
+          },
+          subscription_cancel: {
+            ...features.subscription_cancel,
+            cancellation_reason: {
+              ...features.subscription_cancel.cancellation_reason,
+              feedback_options:
+                features.subscription_cancel.cancellation_reason.feedback_options?.map((option) =>
+                  typeof option === 'string' ? option : option.id
+                ),
+            },
+          },
           subscription_update: { enabled: false },
         },
         login_page: { enabled: false },

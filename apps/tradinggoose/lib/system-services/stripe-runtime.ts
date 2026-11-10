@@ -1,7 +1,7 @@
 import Stripe from 'stripe'
 import { env } from '@/lib/env'
 
-const STRIPE_API_VERSION = '2025-08-27.basil'
+const STRIPE_API_VERSION = '2026-08-26.dahlia'
 const MISSING_STRIPE_CLIENT_ERROR =
   'Stripe client is not available. Configure STRIPE_SECRET_KEY in apps/tradinggoose/.env.'
 
