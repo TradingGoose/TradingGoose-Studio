@@ -8,54 +8,12 @@ import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
+import { SSO_PROVIDER_IDS } from '@/lib/sso/consts'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 
 const logger = createLogger('SSO')
-
-const TRUSTED_SSO_PROVIDERS = [
-  'okta',
-  'okta-saml',
-  'okta-prod',
-  'okta-dev',
-  'okta-staging',
-  'okta-test',
-  'azure-ad',
-  'azure-active-directory',
-  'azure-corp',
-  'azure-enterprise',
-  'adfs',
-  'adfs-company',
-  'adfs-corp',
-  'adfs-enterprise',
-  'auth0',
-  'auth0-prod',
-  'auth0-dev',
-  'auth0-staging',
-  'onelogin',
-  'onelogin-prod',
-  'onelogin-corp',
-  'jumpcloud',
-  'jumpcloud-prod',
-  'jumpcloud-corp',
-  'ping-identity',
-  'ping-federate',
-  'pingone',
-  'shibboleth',
-  'shibboleth-idp',
-  'google-workspace',
-  'google-sso',
-  'saml',
-  'saml2',
-  'saml-sso',
-  'oidc',
-  'oidc-sso',
-  'openid-connect',
-  'custom-sso',
-  'enterprise-sso',
-  'company-sso',
-]
 
 interface SSOProvider {
   id: string
@@ -249,7 +207,7 @@ export function SSO() {
     if (!value || !value.trim()) return ['Domain is required.']
     if (/^https?:\/\//i.test(value.trim())) out.push('Do not include protocol (https://).')
     if (!/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(value.trim()))
-      out.push('Enter a valid domain like your-domain.identityprovider.com')
+      out.push('Enter an email domain like company.com')
     return out
   }
 
@@ -610,7 +568,7 @@ export function SSO() {
                     )}
                   >
                     <option value=''>Select a provider ID</option>
-                    {TRUSTED_SSO_PROVIDERS.map((providerId) => (
+                    {SSO_PROVIDER_IDS.map((providerId) => (
                       <option key={providerId} value={providerId}>
                         {providerId}
                       </option>
@@ -622,7 +580,7 @@ export function SSO() {
                     </div>
                   )}
                   <p className='text-muted-foreground text-xs'>
-                    Select a pre-configured provider ID from the trusted providers list
+                    Select a provider ID for this SSO configuration.
                   </p>
                 </div>
 
@@ -660,7 +618,7 @@ export function SSO() {
                   <Input
                     id='domain'
                     type='text'
-                    placeholder='Enter Domain'
+                    placeholder='company.com'
                     value={formData.domain}
                     name='sso_identity_domain'
                     autoComplete='off'
@@ -681,6 +639,7 @@ export function SSO() {
                       <p>{errors.domain.join(' ')}</p>
                     </div>
                   )}
+                  <p className='text-muted-foreground text-xs'>Use your users' email domain.</p>
                 </div>
 
                 {/* Provider-specific fields */}

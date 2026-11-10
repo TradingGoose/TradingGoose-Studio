@@ -1,4 +1,4 @@
-export const SSO_TRUSTED_PROVIDERS = [
+export const SSO_PROVIDER_IDS = [
   'okta',
   'okta-saml',
   'okta-prod',
