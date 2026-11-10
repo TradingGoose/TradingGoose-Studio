@@ -228,7 +228,9 @@ describe('account email change through native Better Auth OTP', () => {
       model: 'verification',
       where: [{ field: 'identifier', value: 'reset-password:', operator: 'starts_with' }],
     })
-    expect(tokens.filter((token) => token.value === 'owner')).toHaveLength(2)
+    const ownerTokens = tokens.filter((token) => JSON.parse(token.value).userId === 'owner')
+    expect(ownerTokens).toHaveLength(2)
+    expect(JSON.parse(ownerTokens[0].value)).toEqual({ userId: 'owner', email: fixture.email })
     await fixture.context.internalAdapter.createVerificationValue({
       identifier: 'other-purpose:owner',
       value: 'owner',
@@ -239,7 +241,7 @@ describe('account email change through native Better Auth OTP', () => {
       headers: fixture.login.headers,
       body: { newEmail: 'new@example.com', otp },
     })
-    for (const token of tokens.filter((token) => token.value === 'owner')) {
+    for (const token of ownerTokens) {
       await expect(
         fixture.auth.api.resetPassword({
           body: {
@@ -249,7 +251,7 @@ describe('account email change through native Better Auth OTP', () => {
         })
       ).rejects.toMatchObject({ body: { code: 'INVALID_TOKEN' } })
     }
-    const other = tokens.find((token) => token.value === 'other')!
+    const other = tokens.find((token) => JSON.parse(token.value).userId === 'other')!
     expect(
       await fixture.auth.api.resetPassword({
         body: {
@@ -261,6 +263,89 @@ describe('account email change through native Better Auth OTP', () => {
     expect(
       await fixture.context.internalAdapter.findVerificationValue('other-purpose:owner')
     ).toMatchObject({ value: 'owner' })
+  })
+
+  it('rejects an overlapping old-address reset request and accepts only bound reset records', async () => {
+    const fixture = await setup()
+    let resume!: () => void
+    let paused!: () => void
+    let token = ''
+    const gate = new Promise<void>((resolve) => {
+      resume = resolve
+    })
+    const reached = new Promise<void>((resolve) => {
+      paused = resolve
+    })
+    const create = fixture.context.internalAdapter.createVerificationValue.bind(
+      fixture.context.internalAdapter
+    )
+    const delayedCreate = vi
+      .spyOn(fixture.context.internalAdapter, 'createVerificationValue')
+      .mockImplementation(async (data) => {
+        if (data.identifier.startsWith('reset-password:')) {
+          token = data.identifier.slice('reset-password:'.length)
+          paused()
+          await gate
+        }
+        return create(data)
+      })
+    const resetRequest = fixture.auth.api.requestPasswordReset({ body: { email: fixture.email } })
+    await reached
+    const otp = await requestChange(fixture, 'changed@example.com')
+    await fixture.auth.api.changeEmailEmailOTP({
+      headers: fixture.login.headers,
+      body: { newEmail: 'changed@example.com', otp },
+    })
+    resume()
+    await resetRequest
+    delayedCreate.mockRestore()
+    expect(
+      mail.send.mock.calls.some(
+        ([message]) => message.to === fixture.email && message.html.includes(token)
+      )
+    ).toBe(true)
+    const callback = await fixture.auth.handler(
+      new Request(
+        `http://localhost:3000/api/auth/reset-password/${token}?callbackURL=http%3A%2F%2Flocalhost%3A3000%2Freset-password`
+      )
+    )
+    expect.soft(callback.headers.get('location')).toContain('error=INVALID_TOKEN')
+    expect.soft(callback.headers.get('location')).not.toContain('token=')
+    await expect(
+      fixture.auth.api.resetPassword({ body: { token, newPassword: 'new-password' } })
+    ).rejects.toMatchObject({ statusCode: 400, body: { code: 'INVALID_TOKEN' } })
+    await fixture.auth.api.requestPasswordReset({ body: { email: 'changed@example.com' } })
+    const [fresh] = await fixture.context.adapter.findMany<{ identifier: string }>({
+      model: 'verification',
+      where: [{ field: 'identifier', value: 'reset-password:', operator: 'starts_with' }],
+    })
+    expect(
+      await fixture.auth.api.resetPassword({
+        body: {
+          token: fresh.identifier.slice('reset-password:'.length),
+          newPassword: 'new-password',
+        },
+      })
+    ).toEqual({ status: true })
+    for (const [invalidToken, value] of [
+      ['unbound', 'owner'],
+      ['malformed', '{'],
+      [
+        'extra-fields',
+        JSON.stringify({ userId: 'owner', email: 'changed@example.com', extra: true }),
+      ],
+    ]) {
+      await create({
+        identifier: `reset-password:${invalidToken}`,
+        value,
+        expiresAt: new Date(Date.now() + 60_000),
+      })
+      await expect(
+        fixture.auth.api.resetPassword({
+          body: { token: invalidToken, newPassword: 'another-password' },
+        })
+      ).rejects.toMatchObject({ statusCode: 400, body: { code: 'INVALID_TOKEN' } })
+    }
   })
 
   it('revokes every other session beyond the first page, including expired sessions', async () => {

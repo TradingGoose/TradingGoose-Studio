@@ -1,3 +1,57 @@
+diff --git a/dist/api/routes/password.mjs b/dist/api/routes/password.mjs
+index 72c5c80da3af4d0df6f4d8519c6ea37e68dec6c6..4cf182a8f59c7f031f58f90b434936d2ca5ac730 100644
+--- a/dist/api/routes/password.mjs
++++ b/dist/api/routes/password.mjs
+@@ -4,6 +4,7 @@ import { sensitiveSessionMiddleware } from "./session.mjs";
+ import { validatePassword } from "../../utils/password.mjs";
+ import { APIError, BASE_ERROR_CODES } from "@better-auth/core/error";
+ import { generateId } from "@better-auth/core/utils/id";
++import { safeJSONParse } from "@better-auth/core/utils/json";
+ import { createAuthEndpoint } from "@better-auth/core/api";
+ import * as z from "zod";
+ //#region src/api/routes/password.ts
+@@ -17,6 +18,12 @@ function redirectCallback(ctx, callbackURL, query) {
+ 	if (query) Object.entries(query).forEach(([k, v]) => url.searchParams.set(k, v));
+ 	return url.href;
+ }
++async function getPasswordResetUser(ctx, value) {
++	const parsed = z.object({ userId: z.string().min(1), email: z.email() }).strict().safeParse(safeJSONParse(value));
++	if (!parsed.success) return null;
++	const user = await ctx.context.internalAdapter.findUserById(parsed.data.userId);
++	return user?.email.toLowerCase() === parsed.data.email.toLowerCase() ? user : null;
++}
+ const requestPasswordReset = createAuthEndpoint("/request-password-reset", {
+ 	method: "POST",
+ 	body: z.object({
+@@ -73,7 +80,7 @@ const requestPasswordReset = createAuthEndpoint("/request-password-reset", {
+ 	const expiresAt = getDate(ctx.context.options.emailAndPassword.resetPasswordTokenExpiresIn || 3600 * 1, "sec");
+ 	const verificationToken = generateId(24);
+ 	await ctx.context.internalAdapter.createVerificationValue({
+-		value: user.user.id,
++		value: JSON.stringify({ userId: user.user.id, email: user.user.email.toLowerCase() }),
+ 		identifier: `reset-password:${verificationToken}`,
+ 		expiresAt
+ 	});
+@@ -123,7 +130,7 @@ const requestPasswordResetCallback = createAuthEndpoint("/reset-password/:token"
+ 	const { callbackURL } = ctx.query;
+ 	if (!token || !callbackURL) throw ctx.redirect(redirectError(ctx.context, callbackURL, { error: "INVALID_TOKEN" }));
+ 	const verification = await ctx.context.internalAdapter.findVerificationValue(`reset-password:${token}`);
+-	if (!verification || verification.expiresAt < /* @__PURE__ */ new Date()) throw ctx.redirect(redirectError(ctx.context, callbackURL, { error: "INVALID_TOKEN" }));
++	if (!verification || verification.expiresAt < /* @__PURE__ */ new Date() || !await getPasswordResetUser(ctx, verification.value)) throw ctx.redirect(redirectError(ctx.context, callbackURL, { error: "INVALID_TOKEN" }));
+ 	throw ctx.redirect(redirectCallback(ctx.context, callbackURL, { token }));
+ });
+ const resetPassword = createAuthEndpoint("/reset-password", {
+@@ -156,7 +163,9 @@ const resetPassword = createAuthEndpoint("/reset-password", {
+ 	const id = `reset-password:${token}`;
+ 	const verification = await ctx.context.internalAdapter.consumeVerificationValue(id);
+ 	if (!verification) throw APIError.from("BAD_REQUEST", BASE_ERROR_CODES.INVALID_TOKEN);
+-	const userId = verification.value;
++	const resetUser = await getPasswordResetUser(ctx, verification.value);
++	if (!resetUser) throw APIError.from("BAD_REQUEST", BASE_ERROR_CODES.INVALID_TOKEN);
++	const userId = resetUser.id;
+ 	const hashedPassword = await ctx.context.password.hash(newPassword);
+ 	if (!(await ctx.context.internalAdapter.findAccounts(userId)).find((ac) => ac.providerId === "credential")) await ctx.context.internalAdapter.createAccount({
+ 		userId,
 diff --git a/dist/plugins/email-otp/routes.mjs b/dist/plugins/email-otp/routes.mjs
 index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..dd31e688fb556cb8d23db4baf9e5af7b58133e35 100644
 --- a/dist/plugins/email-otp/routes.mjs
