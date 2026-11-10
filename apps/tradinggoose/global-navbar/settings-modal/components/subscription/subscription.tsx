@@ -839,11 +839,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         pricePerSeat={pendingUpgradeTier?.monthlyPriceUsd ?? 0}
         minimumSeats={Math.max(pendingUpgradeTier?.seatCount ?? 1, usedSeats.used)}
         maximumSeats={pendingUpgradeTier?.seatMaximum ?? null}
-        initialSeats={Math.max(
-          pendingUpgradeTier?.seatCount ?? 1,
-          organizationBillingPayload?.totalSeats ?? 1,
-          usedSeats.used
-        )}
+        initialSeats={organizationBillingPayload?.totalSeats ?? 1}
         isLoading={isUpgradePending}
         error={upgradeError === pendingUpgradeTier?.id ? copy('errors.unknown') : null}
         onConfirm={async (seats) => {
