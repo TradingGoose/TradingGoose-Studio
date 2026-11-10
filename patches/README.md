@@ -11,6 +11,15 @@ challenge. Changing the current email invalidates pending challenges, while
 the user ID and JSON encoding prevent address-pair collisions. Both regressions are covered in
 `apps/tradinggoose/lib/auth/email-change.test.ts`.
 
+Password-reset records use strict JSON `{ userId, email }`, following
+[Better Auth's JSON verification records](https://github.com/better-auth/better-auth/blob/v1.7.20/packages/better-auth/src/plugins/magic-link/index.ts)
+and [Django's email-bound reset tokens](https://github.com/django/django/blob/5.2/django/contrib/auth/tokens.py#L91-L115).
+One validator checks the current account email in both the link callback and
+redemption after atomic token consumption. An issuance request that captured
+the old mailbox cannot create a usable reset link after the email changes.
+The opaque link and identifier stay unchanged; no post-change deletion is needed.
+
 Reassess this patch when upgrading Better Auth. Remove it only after verifying
-that upstream provides equivalent owner and current-mailbox binding and both
-regressions still pass. Pending challenges from older patch versions are not accepted.
+that upstream provides equivalent account/mailbox binding and all regressions
+still pass. Older OTP challenges and unbound reset tokens are not accepted;
+request a fresh code or reset link instead.
