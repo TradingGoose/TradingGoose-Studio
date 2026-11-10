@@ -551,10 +551,10 @@ export function TeamManagement() {
       }
 
       setActionError(null)
-      setNewSeatCount(Math.max(seats, adjustableSeatTier.seatCount ?? 1, usedSeats.used))
+      setNewSeatCount(seats)
       setPendingUpgradeTier(adjustableSeatTier)
     },
-    [session?.user, adjustableSeatTier, usedSeats.used, copy]
+    [session?.user, adjustableSeatTier, copy]
   )
 
   const queryError = orgError || organizationBillingError || subscriptionError
@@ -687,13 +687,7 @@ export function TeamManagement() {
                       onClick={() => {
                         if (tier.seatMode === 'adjustable') {
                           setActionError(null)
-                          setNewSeatCount(
-                            Math.max(
-                              tier.seatCount ?? 1,
-                              subscriptionData?.seats ?? 1,
-                              usedSeats.used
-                            )
-                          )
+                          setNewSeatCount(subscriptionData?.seats ?? 1)
                           setPendingUpgradeTier(tier)
                           return
                         }
