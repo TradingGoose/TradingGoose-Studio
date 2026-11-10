@@ -12,6 +12,7 @@ import { openBillingPortal } from '@/lib/billing/billing-portal'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
+import { getUsedSeats } from '@/lib/organization'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import { cn } from '@/lib/utils'
@@ -20,7 +21,7 @@ import {
   generalSettingsKeys,
   patchBillingUsageNotifications,
 } from '@/hooks/queries/general-settings'
-import { useOrganizationBilling } from '@/hooks/queries/organization'
+import { useOrganization, useOrganizationBilling } from '@/hooks/queries/organization'
 import { usePrivateTierAccessForm } from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
@@ -289,6 +290,15 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   } = useOrganizationBilling(organizationBillingId)
   const isOrgBillingPending =
     isOrgBillingLoading || Boolean(organizationBillingId && isOrgBillingPlaceholder)
+  const {
+    data: organization,
+    isLoading: isOrganizationLoading,
+    isError: isOrganizationError,
+    isPlaceholderData: isOrganizationPlaceholder,
+  } = useOrganization(organizationBillingId)
+  const isOrganizationPending =
+    isOrganizationLoading || Boolean(organizationBillingId && isOrganizationPlaceholder)
+  const usedSeats = getUsedSeats(organization?.id === organizationBillingId ? organization : null)
 
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
   const [pendingUpgradeTier, setPendingUpgradeTier] = useState<PublicBillingTierDisplay | null>(
@@ -552,7 +562,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const isLoading =
     isWorkspaceSettingsPending ||
     (isOrganizationBillingSubject
-      ? isOrgBillingPending
+      ? isOrgBillingPending || isOrganizationPending
       : isOtherUserBillingSubject
         ? false
         : isSubscriptionLoading || isUsageLimitLoading) ||
@@ -588,7 +598,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     )
   }
 
-  if (isOrganizationBillingSubject && isOrgBillingError) {
+  if (
+    isOrganizationBillingSubject &&
+    (isOrgBillingError || isOrganizationError || organization?.id !== organizationBillingId)
+  ) {
     return (
       <div className='px-6 pt-4 pb-4'>
         <div className='flex flex-col gap-4'>
@@ -824,15 +837,12 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         title={pendingUpgradeTier?.displayName ?? ''}
         description={pendingUpgradeTier?.description || teamCopy('plans.description')}
         pricePerSeat={pendingUpgradeTier?.monthlyPriceUsd ?? 0}
-        minimumSeats={Math.max(
-          pendingUpgradeTier?.seatCount ?? 1,
-          organizationBillingPayload?.usedSeats ?? 1
-        )}
+        minimumSeats={Math.max(pendingUpgradeTier?.seatCount ?? 1, usedSeats.used)}
         maximumSeats={pendingUpgradeTier?.seatMaximum ?? null}
         initialSeats={Math.max(
           pendingUpgradeTier?.seatCount ?? 1,
           organizationBillingPayload?.totalSeats ?? 1,
-          organizationBillingPayload?.usedSeats ?? 1
+          usedSeats.used
         )}
         isLoading={isUpgradePending}
         error={upgradeError === pendingUpgradeTier?.id ? copy('errors.unknown') : null}
