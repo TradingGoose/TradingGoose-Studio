@@ -93,7 +93,6 @@ import { createDefaultWorkspaceForUser } from '@/lib/workspaces/service'
 import { localizeUrl } from '@/i18n/utils'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import { resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
-import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
 const logger = createLogger('Auth')
 
@@ -718,13 +717,7 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
       allowDifferentEmails: true,
-      trustedProviders: [
-        // Standard OAuth providers
-        ...TRUSTED_OAUTH_PROVIDER_IDS,
-
-        // Common SSO provider patterns
-        ...SSO_TRUSTED_PROVIDERS,
-      ],
+      trustedProviders: TRUSTED_OAUTH_PROVIDER_IDS,
     },
   },
   socialProviders: buildSocialProviders(),

@@ -1,3 +1,4 @@
+import { discoverOIDCConfig } from '@better-auth/sso'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { auth, getSession } from '@/lib/auth'
@@ -78,15 +79,6 @@ const ssoRegistrationSchema = z.discriminatedUnion('providerType', [
     idpMetadata: z.string().optional(),
   }),
 ])
-
-function validateHttpsUrl(url: string, label: string) {
-  const validation = validateExternalUrl(url, label)
-  if (!validation.isValid) {
-    return validation.error ?? `${label} is invalid`
-  }
-
-  return null
-}
 
 function getLegacyOidcOverrideFields(value: unknown): string[] {
   if (!value || typeof value !== 'object') {
@@ -192,114 +184,26 @@ export async function POST(request: NextRequest) {
           : ['openid', 'profile', 'email'].filter((scope) => scope !== 'offline_access'),
         pkce: pkce ?? true,
         mapping,
-      }
-
-      const discoveryUrl = `${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`
-      const discoveryUrlError = validateHttpsUrl(discoveryUrl, 'OIDC discovery URL')
-      if (discoveryUrlError) {
-        logger.warn('OIDC discovery URL failed validation', {
-          discoveryUrl,
-          error: discoveryUrlError,
-        })
-        return NextResponse.json({ error: discoveryUrlError }, { status: 400 })
+        // Discovery is handled once here using the application's external URL policy.
+        skipDiscovery: true,
       }
 
       try {
-        logger.info('Fetching OIDC discovery document', {
-          discoveryUrl,
-        })
-
-        const discoveryResponse = await fetch(discoveryUrl, {
-          headers: { Accept: 'application/json' },
-        })
-
-        if (!discoveryResponse.ok) {
-          logger.error('Failed to fetch OIDC discovery document', {
-            status: discoveryResponse.status,
+        Object.assign(
+          oidcConfig,
+          await discoverOIDCConfig({
+            issuer,
+            isTrustedOrigin: (url) => validateExternalUrl(url, 'OIDC URL').isValid,
           })
-          return NextResponse.json(
-            {
-              error: 'Failed to fetch OIDC discovery document. Please verify the issuer URL.',
-            },
-            { status: 400 }
-          )
-        }
-
-        const discovery = (await discoveryResponse.json()) as Record<string, unknown>
-
-        const discoveredEndpoints: Record<string, unknown> = {
-          authorization_endpoint: discovery.authorization_endpoint,
-          token_endpoint: discovery.token_endpoint,
-          userinfo_endpoint: discovery.userinfo_endpoint,
-          jwks_uri: discovery.jwks_uri,
-        }
-
-        for (const [key, value] of Object.entries(discoveredEndpoints)) {
-          if (typeof value !== 'string') {
-            continue
-          }
-
-          const endpointError = validateHttpsUrl(value, `OIDC ${key}`)
-          if (endpointError) {
-            logger.warn('OIDC discovered endpoint failed validation', {
-              endpoint: key,
-              url: value,
-              error: endpointError,
-            })
-            return NextResponse.json(
-              {
-                error: `Discovered OIDC ${key} failed security validation: ${endpointError}`,
-              },
-              { status: 400 }
-            )
-          }
-        }
-
-        oidcConfig.authorizationEndpoint = discovery.authorization_endpoint
-        oidcConfig.tokenEndpoint = discovery.token_endpoint
-        oidcConfig.userInfoEndpoint = discovery.userinfo_endpoint
-        oidcConfig.jwksEndpoint = discovery.jwks_uri
-
-        logger.info('Resolved OIDC endpoints from discovery', {
-          providerId,
-          issuer,
-          authorizationEndpoint: oidcConfig.authorizationEndpoint,
-          tokenEndpoint: oidcConfig.tokenEndpoint,
-          userInfoEndpoint: oidcConfig.userInfoEndpoint,
-          jwksEndpoint: oidcConfig.jwksEndpoint,
-        })
+        )
       } catch (error) {
         logger.error('Error fetching OIDC discovery document', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          discoveryUrl,
+          issuer,
         })
         return NextResponse.json(
           {
             error: 'Failed to fetch OIDC discovery document. Please verify the issuer URL.',
-          },
-          { status: 400 }
-        )
-      }
-
-      if (
-        !oidcConfig.authorizationEndpoint ||
-        !oidcConfig.tokenEndpoint ||
-        !oidcConfig.jwksEndpoint
-      ) {
-        const missing: string[] = []
-        if (!oidcConfig.authorizationEndpoint) missing.push('authorizationEndpoint')
-        if (!oidcConfig.tokenEndpoint) missing.push('tokenEndpoint')
-        if (!oidcConfig.jwksEndpoint) missing.push('jwksEndpoint')
-
-        logger.error('Missing required OIDC endpoints after discovery', {
-          missing,
-          authorizationEndpoint: oidcConfig.authorizationEndpoint,
-          tokenEndpoint: oidcConfig.tokenEndpoint,
-          jwksEndpoint: oidcConfig.jwksEndpoint,
-        })
-        return NextResponse.json(
-          {
-            error: `Missing required OIDC endpoints from discovery: ${missing.join(', ')}. Please verify the issuer supports OIDC discovery.`,
           },
           { status: 400 }
         )
