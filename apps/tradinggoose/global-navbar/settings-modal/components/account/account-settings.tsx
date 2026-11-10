@@ -243,7 +243,7 @@ export function AccountSettings() {
   }
 
   const handlePasswordReset = async () => {
-    const targetEmail = session?.user?.email ?? email
+    const targetEmail = email || session?.user?.email
     if (!targetEmail) {
       setPasswordResetStatus({
         type: 'error',

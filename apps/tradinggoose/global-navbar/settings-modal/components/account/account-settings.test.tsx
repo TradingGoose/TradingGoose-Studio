@@ -469,6 +469,14 @@ describe('AccountSettings localization', () => {
       expect(container.textContent).toContain('new@example.com')
       expect(container.textContent).toContain(copy.success)
       expect(container.querySelector('[role="alert"]')).toBeNull()
+      await press(getPublicCopy('en').workspace.settingsModal.account.sendLink)
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/auth/forget-password',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"email":"new@example.com"'),
+        })
+      )
       await press(getPublicCopy('en').workspace.settingsModal.account.editEmail)
       expect(container.querySelector('#account-new-email')).toHaveValue('new@example.com')
     })
