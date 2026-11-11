@@ -385,6 +385,159 @@ describe('native Agent workflow execution', () => {
     })
   })
 
+  it.each([
+    {
+      name: 'tool-free text',
+      tools: false,
+      usageControl: 'auto',
+      maxSteps: 5,
+      progressive: true,
+      structured: false,
+    },
+    {
+      name: 'reserved final step',
+      tools: true,
+      usageControl: 'auto',
+      maxSteps: 1,
+      progressive: true,
+      structured: false,
+    },
+    {
+      name: 'completed forced tool',
+      tools: true,
+      usageControl: 'force',
+      maxSteps: 2,
+      progressive: true,
+      structured: false,
+    },
+    {
+      name: 'early tool-enabled answer',
+      tools: true,
+      usageControl: 'auto',
+      maxSteps: 5,
+      progressive: false,
+      structured: false,
+    },
+    {
+      name: 'structured answer',
+      tools: false,
+      usageControl: 'auto',
+      maxSteps: 1,
+      progressive: false,
+      structured: true,
+    },
+  ] as const)('delivers $name with the appropriate native streaming boundary', async (scenario) => {
+    const parts = scenario.structured ? ['{"answer":', '42}'] : ['Final ', 'answer']
+    let finish: (() => void) | undefined
+    state.model = new MastraLanguageModelV2Mock({
+      doStream: async (options) => ({
+        stream: new ReadableStream({
+          start(controller) {
+            const forced = options.toolChoice?.type === 'tool'
+            controller.enqueue({ type: 'text-start', id: 'text' })
+            controller.enqueue({
+              type: 'text-delta',
+              id: 'text',
+              delta: forced ? 'Searching...' : parts[0],
+            })
+            if (options.toolChoice?.type === 'tool') {
+              controller.enqueue({ type: 'text-end', id: 'text' })
+              controller.enqueue({
+                type: 'tool-call',
+                toolCallId: 'streamed-lookup',
+                toolName: options.toolChoice.toolName,
+                input: '{"query":"lookup"}',
+              })
+              controller.enqueue({ type: 'finish', finishReason: 'tool-calls', usage })
+              controller.close()
+              return
+            }
+            finish = () => {
+              controller.enqueue({ type: 'text-delta', id: 'text', delta: parts[1] })
+              controller.enqueue({ type: 'text-end', id: 'text' })
+              controller.enqueue({ type: 'finish', finishReason: 'stop', usage })
+              controller.close()
+            }
+          },
+        }),
+      }),
+    })
+    const result = (await new AgentBlockHandler().execute(
+      block,
+      {
+        model: 'openai/gpt-4.1',
+        userPrompt: 'Answer using available information',
+        maxSteps: scenario.maxSteps,
+        tools: scenario.tools
+          ? [
+              {
+                type: 'custom-tool',
+                toolId: 'custom_lookup',
+                usageControl: scenario.usageControl,
+                schema: {
+                  function: {
+                    description: 'Lookup',
+                    parameters: {
+                      type: 'object',
+                      properties: { query: { type: 'string' } },
+                      required: ['query'],
+                    },
+                  },
+                },
+              },
+            ]
+          : [],
+        responseFormat: scenario.structured
+          ? {
+              schema: {
+                type: 'object',
+                properties: { answer: { type: 'number' } },
+                required: ['answer'],
+                additionalProperties: false,
+              },
+            }
+          : undefined,
+      },
+      context({ stream: true })
+    )) as StreamingExecution
+    const reader = result.stream.getReader()
+    const decoder = new TextDecoder()
+    let received = false
+    const firstRead = reader.read().then((chunk) => {
+      received = true
+      return chunk
+    })
+    let text = ''
+    try {
+      await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
+      if (scenario.progressive) {
+        await vi.waitFor(() => expect(received).toBe(true), { timeout: 200 })
+        expect(decoder.decode((await firstRead).value)).toBe(parts[0])
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 25))
+        expect(received).toBe(false)
+      }
+      expect(result.execution.output).toEqual({})
+    } finally {
+      finish?.()
+      text += decoder.decode((await firstRead).value)
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        text += decoder.decode(value)
+      }
+    }
+    expect(text).toBe(parts.join(''))
+    expect(text).not.toContain('Searching...')
+    expect(result.execution.success).toBe(true)
+    expect(result.execution.output).toMatchObject(
+      scenario.structured ? { answer: 42 } : { content: 'Final answer' }
+    )
+    expect(result.execution.output.tokens).toMatchObject({
+      total: scenario.usageControl === 'force' ? 10 : 5,
+    })
+  })
+
   it.each(['options', 'schema', 'native setup'])(
     'does not start cancellation polling when %s rejects before generation',
     async (failure) => {
@@ -1001,68 +1154,90 @@ describe('native structured streams through the workflow executor', () => {
   })
 })
 
-it('aborts a native stream during a model step and retains earlier completed work', async () => {
-  let cancelled = false
-  vi.mocked(executeTool).mockResolvedValue({
-    success: true,
-    output: withInferenceFacts(
-      { found: true, cost: { total: 0.004, status: 'reported' } },
-      { cost: { total: 0.004, status: 'reported' }, generatedFields: ['cost'] }
-    ),
-  })
-  state.model = new MastraLanguageModelV2Mock({
-    doStream: async (options) => ({
-      stream: new ReadableStream({
-        start(controller) {
-          if (options.toolChoice?.type === 'tool') {
-            controller.enqueue({
-              type: 'tool-call',
-              toolCallId: 'completed-lookup',
-              toolName: options.toolChoice.toolName,
-              input: '{"query":"lookup"}',
-            })
-            controller.enqueue({ type: 'finish', finishReason: 'tool-calls', usage })
-            controller.close()
-          } else {
-            options.abortSignal?.addEventListener(
-              'abort',
-              () => controller.error(options.abortSignal?.reason),
-              { once: true }
-            )
-            controller.enqueue({ type: 'text-start', id: 'partial' })
-            controller.enqueue({ type: 'text-delta', id: 'partial', delta: 'Partial answer' })
-            cancelled = true
-          }
-        },
+it.each([false, true])(
+  'aborts a native stream and retains earlier work (progressive=%s)',
+  async (progressive) => {
+    let cancelled = false
+    let cancelStep: (() => void) | undefined
+    let started!: () => void
+    const modelStepStarted = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    vi.mocked(executeTool).mockResolvedValue({
+      success: true,
+      output: withInferenceFacts(
+        { found: true, cost: { total: 0.004, status: 'reported' } },
+        { cost: { total: 0.004, status: 'reported' }, generatedFields: ['cost'] }
+      ),
+    })
+    state.model = new MastraLanguageModelV2Mock({
+      doStream: async (options) => ({
+        stream: new ReadableStream({
+          start(controller) {
+            if (options.toolChoice?.type === 'tool') {
+              controller.enqueue({
+                type: 'tool-call',
+                toolCallId: 'completed-lookup',
+                toolName: options.toolChoice.toolName,
+                input: '{"query":"lookup"}',
+              })
+              controller.enqueue({ type: 'finish', finishReason: 'tool-calls', usage })
+              controller.close()
+            } else {
+              options.abortSignal?.addEventListener(
+                'abort',
+                () => controller.error(options.abortSignal?.reason),
+                { once: true }
+              )
+              controller.enqueue({ type: 'text-start', id: 'partial' })
+              controller.enqueue({ type: 'text-delta', id: 'partial', delta: 'Partial answer' })
+              cancelStep = () => {
+                cancelled = true
+                controller.enqueue({ type: 'text-end', id: 'partial' })
+              }
+              started()
+            }
+          },
+        }),
       }),
-    }),
-  })
-  const schema = { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-  const result = (await new AgentBlockHandler().execute(
-    block,
-    {
-      model: 'openai/gpt-4.1',
-      userPrompt: 'Lookup then stream',
-      tools: [
-        {
-          type: 'custom-tool',
-          toolId: 'custom_lookup',
-          schema: { function: { description: 'Lookup', parameters: schema } },
-          usageControl: 'force',
-        },
-      ],
-    },
-    context({ stream: true, shouldCancelExecution: async () => cancelled })
-  )) as StreamingExecution
-  const reader = result.stream.getReader()
-  await expect(reader.read()).rejects.toThrow()
-  expect(result.execution.success).toBe(false)
-  expect(result.execution.output.tokens).toMatchObject({ total: 5 })
-  expect(result.execution.output.cost).toMatchObject({ status: 'unavailable' })
-  expect(getInferenceFacts(result.execution.output)?.toolResults?.[0].inference.cost?.total).toBe(
-    0.004
-  )
-})
+    })
+    const schema = {
+      type: 'object',
+      properties: { query: { type: 'string' } },
+      required: ['query'],
+    }
+    const result = (await new AgentBlockHandler().execute(
+      block,
+      {
+        model: 'openai/gpt-4.1',
+        maxSteps: progressive ? 2 : undefined,
+        userPrompt: 'Lookup then stream',
+        tools: [
+          {
+            type: 'custom-tool',
+            toolId: 'custom_lookup',
+            schema: { function: { description: 'Lookup', parameters: schema } },
+            usageControl: 'force',
+          },
+        ],
+      },
+      context({ stream: true, shouldCancelExecution: async () => cancelled })
+    )) as StreamingExecution
+    const reader = result.stream.getReader()
+    const firstRead = reader.read()
+    await modelStepStarted
+    if (progressive)
+      expect(new TextDecoder().decode((await firstRead).value)).toBe('Partial answer')
+    cancelStep!()
+    await expect(progressive ? reader.read() : firstRead).rejects.toThrow()
+    expect(result.execution.success).toBe(false)
+    expect(result.execution.output.tokens).toMatchObject({ total: 5 })
+    expect(result.execution.output.cost).toMatchObject({ status: 'unavailable' })
+    expect(getInferenceFacts(result.execution.output)?.toolResults?.[0].inference.cost?.total).toBe(
+      0.004
+    )
+  }
+)
 
 it('retains completed partial tool charges when a later native model step fails', async () => {
   vi.mocked(executeTool).mockResolvedValue({
