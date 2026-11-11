@@ -4,13 +4,12 @@ import { getSession } from '@/lib/auth'
 import { requestCopilotTitle } from '@/lib/copilot/agent/utils'
 import { readNativeThread, readNativeThreadHistory } from '@/lib/copilot/native/history'
 import { authorizeNativeConversationScope, NativeTargetError } from '@/lib/copilot/native/target'
-import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
 
 const inputSchema = z
   .object({
     workspaceId: z.string().min(1).nullable(),
     threadId: z.string().min(1),
-    model: z.enum(COPILOT_RUNTIME_MODELS),
+    model: z.string().min(1),
     originalInput: z.string(),
   })
   .strict()

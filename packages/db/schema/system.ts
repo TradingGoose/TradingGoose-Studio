@@ -97,6 +97,24 @@ export const systemSettings = pgTable('system_settings', {
   allowPromotionCodes: boolean('allow_promotion_codes').notNull().default(true),
   emailDomain: text('email_domain').notNull().default('tradinggoose.ai'),
   fromEmailAddress: text('from_email_address'),
+  copilot: jsonb('copilot')
+    .$type<{
+      models: {
+        provider:
+          | 'openai'
+          | 'anthropic'
+          | 'deepseek'
+          | 'xai'
+          | 'google'
+          | 'mistral'
+          | 'groq'
+          | 'openrouter'
+        model: string
+      }[]
+      defaultModel: string | null
+    }>()
+    .notNull()
+    .default(sql`'{"models":[],"defaultModel":null}'::jsonb`),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

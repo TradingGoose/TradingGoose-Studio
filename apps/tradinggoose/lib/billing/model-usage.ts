@@ -40,13 +40,14 @@ export async function recordModelUsage(
   const copilot = ['copilot', 'title', 'wand'].includes(scope.purpose)
   if (scope.workflowId && !copilot) return
   if (!(await isBillingEnabledForRuntime())) return
-  if (
-    !['reported', 'estimated'].includes(cost.status) ||
-    cost.total === undefined ||
-    !Number.isFinite(cost.total) ||
-    cost.total < 0 ||
-    (cost.currency !== undefined && cost.currency !== 'USD')
-  )
+  if (cost.total !== undefined && (!Number.isFinite(cost.total) || cost.total < 0))
+    throw new Error(`Model cost is unavailable for ${scope.model}`)
+  const usdCost =
+    ['reported', 'estimated'].includes(cost.status) &&
+    (cost.currency === undefined || cost.currency === 'USD')
+      ? cost.total
+      : undefined
+  if (usdCost === undefined && !copilot)
     throw new Error(`Model cost is unavailable for ${scope.model}`)
   const tokens =
     usage.totalTokens ??
@@ -64,7 +65,11 @@ export async function recordModelUsage(
         workspaceId: scope.workspaceId,
         actorUserId: scope.actorUserId,
       })
-  const chargedCost = cost.total * (copilot ? getTierCopilotCostMultiplier(billingContext.tier) : 1)
+  // Unknown model costs remain unknown; a zero ledger delta records only the usage counters.
+  const chargedCost =
+    usdCost === undefined
+      ? 0
+      : usdCost * (copilot ? getTierCopilotCostMultiplier(billingContext.tier) : 1)
   if (!Number.isFinite(chargedCost) || chargedCost < 0)
     throw new Error('Model charge must be finite and nonnegative')
   await accrueUserUsageCost({
@@ -73,12 +78,17 @@ export async function recordModelUsage(
     workflowId: scope.workflowId,
     billingContext,
     cost: chargedCost,
+    skipThresholdBilling: usdCost === undefined,
     extraUpdates: {
       ...(tokens !== undefined ? { totalTokensUsed: sql`total_tokens_used + ${tokens}` } : {}),
       ...(copilot
         ? {
-            totalCopilotCost: sql`total_copilot_cost + ${chargedCost}`,
-            currentPeriodCopilotCost: sql`current_period_copilot_cost + ${chargedCost}`,
+            ...(usdCost !== undefined
+              ? {
+                  totalCopilotCost: sql`total_copilot_cost + ${chargedCost}`,
+                  currentPeriodCopilotCost: sql`current_period_copilot_cost + ${chargedCost}`,
+                }
+              : {}),
             totalCopilotCalls: sql`total_copilot_calls + 1`,
             ...(tokens !== undefined
               ? { totalCopilotTokens: sql`total_copilot_tokens + ${tokens}` }

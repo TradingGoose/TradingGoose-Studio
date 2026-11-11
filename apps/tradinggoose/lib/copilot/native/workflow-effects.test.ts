@@ -7,7 +7,11 @@ const m = vi.hoisted(() => ({
   access: vi.fn(),
   active: vi.fn(),
   claim: vi.fn(),
+  run: vi.fn(),
+  model: vi.fn(),
 }))
+vi.mock('@/lib/copilot/agent/context', () => ({ readCopilotRun: m.run }))
+vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: m.model }))
 vi.mock('@/lib/copilot/agent/state', () => ({
   assertCopilotRunActive: m.active,
   claimCopilotBrowserEffect: m.claim,
@@ -39,6 +43,13 @@ const target = {
   runId: 'run',
   toolCallId: 'call',
   toolName: 'run_workflow',
+}
+const run = {
+  threadId: target.threadId,
+  runId: target.runId,
+  scope,
+  model: 'openai/original-admin-model',
+  accessLevel: 'limited',
 }
 function pending(): Pending {
   return {
@@ -73,12 +84,15 @@ beforeEach(() => {
   m.claim.mockReset().mockResolvedValue(undefined)
   m.scope.mockResolvedValue(scope)
   m.pending.mockImplementation(async () => pending())
+  m.run.mockReset().mockResolvedValue(run)
+  m.model.mockReset().mockResolvedValue({ model: run.model, apiKey: 'admin-key' })
 })
 describe('native business effect admission', () => {
   it('keeps ordinary explicitly authenticated manual workflows free of invented native context', async () => {
     await authorizeNativeWorkflowQueueEffect('member', 'workflow', {})
     await authorizeNativeWorkflowDeploymentEffect('member', 'workflow', undefined, 'deploy')
     expect(m.pending).not.toHaveBeenCalled()
+    expect(m.model).not.toHaveBeenCalled()
   })
   it('checks actual actor, original target/financial result stage and canonical trigger before enqueue', async () => {
     await authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
@@ -86,7 +100,9 @@ describe('native business effect admission', () => {
     expect(m.pending).toHaveBeenCalledWith(scope, target, 'result', undefined)
     expect(m.access).toHaveBeenCalledWith(scope, pending())
     expect(m.active).toHaveBeenCalledWith(target.runId)
-    expect(m.claim).toHaveBeenCalledWith({ ...target, scope }, target.toolCallId)
+    expect(m.run).toHaveBeenCalledWith(scope, target.threadId, target.runId)
+    expect(m.model).toHaveBeenCalledWith(run.model)
+    expect(m.claim).toHaveBeenCalledWith(run, target.toolCallId)
   })
   it.each([
     { executionId: 'other' },
@@ -193,4 +209,28 @@ describe('native business effect admission', () => {
     ).rejects.toMatchObject({ status: 409 })
     expect(m.claim).toHaveBeenCalledOnce()
   })
+  it.each([409, 422])(
+    'rejects revoked model/key configuration (%i) before queue or deployment claims',
+    async (status) => {
+      m.model.mockRejectedValue(Object.assign(new Error('Copilot model unavailable'), { status }))
+      await expect(
+        authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
+      ).rejects.toMatchObject({ status })
+      const deploy = {
+        ...pending(),
+        target: { ...target, toolName: 'deploy_workflow' },
+        originalArgs: { entityId: 'workflow', action: 'deploy', deployType: 'api' },
+      }
+      m.pending.mockResolvedValueOnce(deploy)
+      await expect(
+        authorizeNativeWorkflowDeploymentEffect(
+          'member',
+          'workflow',
+          { workspaceId: null, target: deploy.target },
+          'deploy'
+        )
+      ).rejects.toMatchObject({ status })
+      expect(m.claim).not.toHaveBeenCalled()
+    }
+  )
 })

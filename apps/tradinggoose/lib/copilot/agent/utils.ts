@@ -1,6 +1,5 @@
 import { completeCopilot } from '@/lib/copilot/native/completion'
 import { TITLE_GENERATION_SYSTEM_PROMPT, TITLE_GENERATION_USER_PROMPT } from '@/lib/copilot/prompts'
-import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('CopilotTitle')
@@ -16,7 +15,7 @@ export async function requestCopilotTitle({
   message: string
   userId: string
   workspaceId: string | null
-  model: CopilotRuntimeModel
+  model: string
   signal?: AbortSignal
 }): Promise<string | null> {
   try {

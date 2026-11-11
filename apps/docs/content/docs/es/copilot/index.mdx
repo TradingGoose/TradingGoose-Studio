@@ -54,15 +54,9 @@ El conmutador de nivel de acceso en la barra de entrada controla cuánta autonom
 
 ## Modelos compatibles
 
-Copilot ofrece los siguientes modelos mediante las conexiones configuradas en Studio. Puedes cambiar el modelo activo desde la barra de entrada.
+El administrador del sistema elige los pares proveedor/modelo disponibles en **Admin → Configuración del sistema → Modelos de Copilot**. Puedes cambiar el modelo activo desde la barra de entrada. La selección inicial del modelo y Wand utilizan el modelo predeterminado.
 
-**Anthropic** -- anthropic/claude-fable-5, anthropic/claude-opus-5
-
-**DeepSeek** -- deepseek/deepseek-v4-pro
-
-**OpenAI** -- openai/gpt-5.6-terra, openai/gpt-5.6-sol
-
-**xAI** -- x-ai/grok-4.6
+Los administradores introducen los ID exactos que acepta cada proveedor; la lista no se limita al registro de modelos de Studio. Configura la clave de API de cada proveedor en **Admin → Servicios**. Las claves permanecen cifradas en el servidor y se comparten entre los modelos de Copilot del mismo proveedor. Copilot no está disponible hasta que se configuren un modelo y la clave de su proveedor.
 
 ## Configuración
 
@@ -77,8 +71,8 @@ Copilot ofrece los siguientes modelos mediante las conexiones configuradas en St
 
     Copilot se ejecuta dentro de Studio y utiliza sus conexiones de modelos Mastra y su base de datos.
 
-    1. Configura las credenciales del proveedor seleccionado en el despliegue de Studio. Las conexiones personalizadas usan `MASTRA_MODEL_PROVIDERS`; Azure OpenAI usa `MASTRA_AZURE_OPENAI`.
-    2. Ejecuta `bun run db:migrate` desde la raíz del repositorio con el `DATABASE_URL` de Studio. El comando aplica las migraciones de la aplicación. Mastra inicializa sus propias tablas en la misma base de datos al iniciar el entorno compartido.
+    1. Ejecuta `bun run db:migrate` desde la raíz del repositorio con el `DATABASE_URL` de Studio. El comando aplica las migraciones de la aplicación. Mastra inicializa sus propias tablas en la misma base de datos al iniciar el entorno compartido.
+    2. Configura las claves de API de los proveedores en **Admin → Servicios**. En **Admin → Configuración del sistema → Modelos de Copilot**, añade filas de proveedor/modelo, elige un modelo predeterminado y guarda los cambios.
     3. Abre un espacio de trabajo, selecciona un modelo configurado y empieza a chatear.
   </Step>
 </Steps>
@@ -107,8 +101,8 @@ Puedes editar un prompt anterior para truncar y regenerar los mensajes que le si
 
 ## Facturación
 
-Las operaciones de modelo de Copilot informan el cargo aplicado y aceptado mediante una cadena USD canónica exacta. Si el costo USD del modelo no está disponible, sigue sin estarlo; los tokens y las estimaciones no lo sustituyen por un precio. La inferencia ordinaria conserva el multiplicador del plan y las comprobaciones de facturación compartidas.
+Copilot comparte las comprobaciones de uso y el registro de facturación de Studio. Se priorizan los costos en USD informados por el proveedor; de lo contrario, se estiman a partir del uso de tokens informado y los precios publicados en models.dev. El multiplicador de Copilot del plan se aplica a los costos conocidos. Si no se puede determinar el costo, Copilot, los títulos y Wand pueden completarse: se registran las llamadas y los tokens informados, el costo permanece no disponible y no se añade un cargo en USD al registro de Studio por ese uso sin precio.
 
 <Callout type="info">
-  Studio puede reservar una cantidad conservadora antes de contactar al modelo. El recorte automático del historial no añade llamadas al modelo ni cargos.
+  El recorte automático del contexto no realiza una llamada adicional al modelo.
 </Callout>

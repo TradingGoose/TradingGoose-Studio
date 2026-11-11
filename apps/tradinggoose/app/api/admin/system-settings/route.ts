@@ -245,5 +245,6 @@ function serializeSnapshot(
     allowPromotionCodes: snapshot.allowPromotionCodes,
     emailDomain: snapshot.emailDomain,
     fromEmailAddress: snapshot.fromEmailAddress ?? '',
+    copilot: snapshot.copilot,
   }
 }

@@ -26,7 +26,6 @@ vi.mock('@/lib/copilot/native/history', () => ({
   readNativeThreadHistory: m.history,
 }))
 vi.mock('@/lib/copilot/agent/utils', () => ({ requestCopilotTitle: m.title }))
-vi.mock('@/lib/copilot/runtime-models', () => ({ COPILOT_RUNTIME_MODELS: ['test/model'] }))
 const scope = { actorUserId: 'actual-member', workspaceId: null }
 const first = {
   id: 'message',
@@ -103,8 +102,14 @@ describe('actual first-thread title utility boundary', () => {
         })
       ).status
     ).toBe(422)
-    expect((await post({ ...titleRequest, model: 'unknown/model' })).status).toBe(422)
+    expect((await post({ ...titleRequest, model: '' })).status).toBe(422)
     expect(m.title).not.toHaveBeenCalled()
+  })
+  it('passes a dynamic model identity to the authorized completion utility', async () => {
+    expect((await post({ ...titleRequest, model: 'openai/new-admin-model' })).status).toBe(200)
+    expect(m.title).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'openai/new-admin-model' })
+    )
   })
   it('denies unauthorized or unavailable history without paid contact or guessed thread', async () => {
     m.history.mockRejectedValueOnce(new Error('Unknown thread'))

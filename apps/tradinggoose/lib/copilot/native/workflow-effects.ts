@@ -1,6 +1,8 @@
 import { z } from 'zod'
+import { readCopilotRun } from '@/lib/copilot/agent/context'
 import { assertCopilotRunActive, claimCopilotBrowserEffect } from '@/lib/copilot/agent/state'
 import { ToolArgSchemas } from '@/lib/copilot/registry'
+import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import { resolveWorkflowRunTrigger } from '@/lib/workflows/triggers'
@@ -69,7 +71,9 @@ export async function authorizeNativeWorkflowQueueEffect(
   await authorizeNativeBusinessResult(scope, pending)
   signal?.throwIfAborted()
   await assertCopilotRunActive(pending.target.runId)
-  await claimCopilotBrowserEffect({ ...pending.target, scope }, pending.target.toolCallId)
+  const run = await readCopilotRun(scope, pending.target.threadId, pending.target.runId)
+  await resolveCopilotModel(run.model)
+  await claimCopilotBrowserEffect(run, pending.target.toolCallId)
 }
 
 export async function authorizeNativeWorkflowDeploymentEffect(
@@ -96,5 +100,7 @@ export async function authorizeNativeWorkflowDeploymentEffect(
   await authorizeNativeBusinessResult(scope, pending)
   signal?.throwIfAborted()
   await assertCopilotRunActive(pending.target.runId)
-  await claimCopilotBrowserEffect({ ...pending.target, scope }, pending.target.toolCallId)
+  const run = await readCopilotRun(scope, pending.target.threadId, pending.target.runId)
+  await resolveCopilotModel(run.model)
+  await claimCopilotBrowserEffect(run, pending.target.toolCallId)
 }

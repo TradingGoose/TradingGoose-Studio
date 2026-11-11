@@ -22269,6 +22269,11 @@
         "searchPlaceholder": "搜索标的..."
       },
       "copilot": {
+        "models": {
+          "loading": "正在加载模型…",
+          "unconfigured": "尚未配置 Copilot",
+          "loadError": "无法加载 Copilot 模型"
+        },
         "welcome": {
           "subtitleLimited": "提问并在工具执行前先审核",
           "subtitleFull": "提问并允许工具无需额外批准直接执行",
@@ -22859,6 +22864,20 @@
         "allowPromotionCodesHint": "控制结账时是否允许使用促销码。",
         "triggerDevEnabled": "Trigger.dev 已启用",
         "triggerDevEnabledHint": "将受支持的异步任务通过 Trigger.dev 路由，而不是直接在进程中执行。"
+      },
+      "copilot": {
+        "title": "Copilot 模型",
+        "description": "选择所有 Copilot 用户可用的模型。请输入各提供商接受的准确模型 ID。",
+        "manageKeys": "管理提供商 API 密钥",
+        "provider": "提供商",
+        "model": "模型 ID",
+        "modelPlaceholder": "提供商的准确模型 ID",
+        "defaultModel": "默认",
+        "defaultHint": "初始模型选择和 Wand 使用默认模型。",
+        "addModel": "添加模型",
+        "removeModel": "删除第 {number} 行模型",
+        "empty": "尚未配置模型。添加模型并配置其提供商 API 密钥以启用 Copilot。",
+        "invalidModels": "请为每行填写模型 ID，删除重复的提供商/模型组合，并选择默认模型。"
       },
       "emailIdentity": {
         "title": "邮件身份",

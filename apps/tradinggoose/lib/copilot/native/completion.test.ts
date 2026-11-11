@@ -4,6 +4,8 @@ import { InMemoryStore } from '@mastra/core/storage'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { Memory } from '@mastra/memory'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
+import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { completeCopilot, createCompletionResponse } from './completion'
 import type { CompletionRequest } from './contract'
@@ -14,7 +16,7 @@ const state = vi.hoisted(() => ({
   admit: vi.fn(),
   accept: vi.fn(),
   access: vi.fn(),
-  listed: vi.fn(),
+  resolve: vi.fn(),
   requests: [] as any[],
   storage: undefined as unknown as InMemoryStore,
 }))
@@ -24,11 +26,9 @@ vi.mock('@/lib/mastra/runtime', () => ({
 }))
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<object>()),
-  createConfiguredLanguageModel: () => state.model,
+  createConfiguredLanguageModel: vi.fn(() => state.model),
 }))
-vi.mock('@/lib/mastra/registry', () => ({
-  assertListedModel: (...args: unknown[]) => state.listed(...args),
-}))
+vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: state.resolve }))
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => state.access(...args),
 }))
@@ -49,6 +49,10 @@ beforeEach(() => {
   vi.clearAllMocks()
   state.requests.length = 0
   state.access.mockResolvedValue({ hasAccess: true })
+  state.resolve.mockReset().mockImplementation(async (model: string) => ({
+    model,
+    apiKey: 'admin-key',
+  }))
   state.admit.mockResolvedValue(undefined)
   state.accept.mockResolvedValue(undefined)
   state.model = new MastraLanguageModelV2Mock({
@@ -98,7 +102,8 @@ describe('built-in stateless completions', () => {
       text: 'Known title',
       usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
     })
-    expect(state.listed).toHaveBeenCalledWith(input.model)
+    expect(state.resolve).toHaveBeenCalledWith(input.model)
+    expect(createConfiguredLanguageModel).toHaveBeenCalledWith(input.model, 'admin-key')
     expect(state.admit).toHaveBeenCalledOnce()
     expect(state.accept).toHaveBeenCalledOnce()
     expect(state.accept.mock.calls[0][0]).toMatchObject({ model: input.model, purpose: 'title' })
@@ -108,6 +113,7 @@ describe('built-in stateless completions', () => {
       currency: 'USD',
     })
     expect(JSON.stringify(state.requests)).toContain('Exact first prompt')
+    expect(JSON.stringify(state.requests)).not.toContain('admin-key')
     expect(
       (await (await state.storage.getStore('memory'))!.listThreads({ page: 0, perPage: 100 }))
         .threads
@@ -128,6 +134,24 @@ describe('built-in stateless completions', () => {
     ).toMatchObject({ status: 'refused' })
     expect(state.requests).toHaveLength(0)
   })
+  it.each([409, 422])(
+    'refuses unavailable admin configuration (%i) before billing or inference',
+    async (status) => {
+      state.resolve.mockRejectedValueOnce(
+        new NativeTargetError('Copilot model unavailable', status)
+      )
+      expect(await completeCopilot(input)).toMatchObject({ status: 'refused' })
+      expect(state.admit).not.toHaveBeenCalled()
+      expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
+      expect(state.requests).toHaveLength(0)
+    }
+  )
+  it('runs an administrator model without requiring installed registry or price metadata', async () => {
+    const model = 'openai/new-admin-model'
+    expect(await completeCopilot({ ...input, model })).toMatchObject({ status: 'completed' })
+    expect(state.resolve).toHaveBeenCalledWith(model)
+    expect(createConfiguredLanguageModel).toHaveBeenCalledWith(model, 'admin-key')
+  })
   it('does not contact an already cancelled request', async () => {
     const controller = new AbortController()
     controller.abort()
@@ -142,6 +166,24 @@ describe('built-in stateless completions', () => {
       status: 'failed',
     })
     expect(state.requests).toHaveLength(1)
+  })
+  it('keeps arbitrary administrator credentials out of provider failure responses', async () => {
+    const credential = 'opaque-value-that-does-not-match-a-secret-pattern'
+    state.resolve.mockResolvedValue({ model: input.model, apiKey: credential })
+    const fail = async () => {
+      throw new Error(`Upstream rejected ${credential}`)
+    }
+    state.model.doGenerate = fail
+    state.model.doStream = fail
+    const result = await completeCopilot(input)
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: { message: 'Copilot completion did not complete' },
+    })
+    expect(JSON.stringify(result)).not.toContain(credential)
+    const text = await (await createCompletionResponse({ ...input, purpose: 'wand' })).text()
+    expect(text).not.toContain(credential)
+    expect(text).toContain('Copilot completion did not complete')
   })
 
   it('keeps observed usage when cancellation wins after the model response', async () => {

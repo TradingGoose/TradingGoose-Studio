@@ -63,6 +63,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     isSendingMessage,
     isAwaitingContinuation,
     isAborting,
+    selectedModel,
     accessLevel,
     draft,
     planTodos,
@@ -436,6 +437,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
               onSubmit={handleSubmit}
               onAbort={abortMessage}
               isLoading={isTurnInProgress}
+              submitDisabled={!selectedModel}
               isAborting={isAborting}
               accessLevel={accessLevel}
               onAccessLevelChange={setAccessLevel}

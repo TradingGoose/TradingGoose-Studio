@@ -24,6 +24,7 @@ import {
   type AdminSystemSettingsEditableFields,
   type AdminSystemSettingsSnapshot,
 } from '@/lib/admin/system-settings/types'
+import { CopilotSettingsSchema, DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/settings'
 import { REGISTRATION_MODE_VALUES } from '@/lib/registration/shared'
 import { adminBillingKeys } from '@/hooks/queries/admin-billing'
 import { adminRegistrationKeys } from '@/hooks/queries/admin-registration'
@@ -32,8 +33,10 @@ import {
   updateAdminSystemSettings,
   useAdminSystemSettingsSnapshot,
 } from '@/hooks/queries/admin-system-settings'
+import { copilotModelsKeys } from '@/hooks/queries/copilot-models'
 import { subscriptionKeys } from '@/hooks/queries/subscription'
 import { ADMIN_META_BADGE_CLASSNAME } from './badge-styles'
+import { CopilotSettingsFields } from './copilot-settings-fields'
 import { getAdminSystemSettingsErrorMessage } from './errors'
 
 const EMPTY_SNAPSHOT: AdminSystemSettingsSnapshot = {
@@ -46,6 +49,7 @@ const EMPTY_SNAPSHOT: AdminSystemSettingsSnapshot = {
   allowPromotionCodes: true,
   emailDomain: 'tradinggoose.ai',
   fromEmailAddress: '',
+  copilot: DEFAULT_COPILOT_SETTINGS,
 }
 
 export function AdminSystemSettingsSection() {
@@ -62,6 +66,7 @@ export function AdminSystemSettingsSection() {
         queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
         queryClient.invalidateQueries({ queryKey: adminRegistrationKeys.snapshot() }),
         queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
+        queryClient.invalidateQueries({ queryKey: copilotModelsKeys.all }),
       ])
     },
   })
@@ -100,9 +105,10 @@ export function AdminSystemSettingsSection() {
     [draft, savedSnapshot]
   )
   const hasDirtyChanges = Object.keys(dirtyInput).length > 0
+  const isCopilotValid = CopilotSettingsSchema.safeParse(settings.copilot).success
 
   async function handleSave() {
-    if (writeLockRef.current || !hasDirtyChanges) {
+    if (writeLockRef.current || !hasDirtyChanges || !isCopilotValid) {
       return
     }
 
@@ -328,11 +334,16 @@ export function AdminSystemSettingsSection() {
             </div>
           </div>
 
+          <CopilotSettingsFields
+            value={settings.copilot}
+            onChange={(copilot) => updateField('copilot', copilot)}
+          />
+
           <div className='flex items-center justify-end'>
             <Button
               type='button'
               onClick={handleSave}
-              disabled={updateMutation.isPending || !hasDirtyChanges}
+              disabled={updateMutation.isPending || !hasDirtyChanges || !isCopilotValid}
               aria-busy={updateMutation.isPending || undefined}
             >
               {updateMutation.isPending ? copy.saving : copy.save}
@@ -395,7 +406,11 @@ function buildDirtyInput(
   for (const field of ADMIN_SYSTEM_SETTINGS_EDITABLE_FIELDS) {
     const nextValue = nextSnapshot[field]
 
-    if (currentSnapshot[field] !== nextValue) {
+    if (
+      field === 'copilot'
+        ? JSON.stringify(currentSnapshot[field]) !== JSON.stringify(nextValue)
+        : currentSnapshot[field] !== nextValue
+    ) {
       assignDirtyField(dirtyInput, field, nextValue)
     }
   }

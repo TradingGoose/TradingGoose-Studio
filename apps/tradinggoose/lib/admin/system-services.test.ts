@@ -79,4 +79,21 @@ describe('admin system services', () => {
     }
     expect(snapshot.services.some((service) => service.id === 'openai')).toBe(true)
   })
+
+  it('provides a masked admin credential for every supported Copilot provider', async () => {
+    const { listAdminSystemServices } = await import('./system-services')
+    const { COPILOT_PROVIDERS } = await import('@/lib/copilot/settings')
+    const snapshot = await listAdminSystemServices()
+
+    for (const [id, provider] of Object.entries(COPILOT_PROVIDERS)) {
+      const service = snapshot.services.find((candidate) => candidate.id === id)
+      expect(service?.credentials).toContainEqual(
+        expect.objectContaining({
+          key: provider.credentialKey,
+          value: '',
+          hasValue: false,
+        })
+      )
+    }
+  })
 })

@@ -27,6 +27,7 @@ export interface UserInputProps {
   onAbort?: () => void
   isLoading?: boolean
   isAborting?: boolean
+  submitDisabled?: boolean
   placeholder?: string
   accessLevel: CopilotAccessLevel
   onAccessLevelChange: (accessLevel: CopilotAccessLevel) => void

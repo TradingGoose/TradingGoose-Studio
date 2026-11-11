@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { type CopilotSettings, DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/settings'
 
 const {
   mockEq,
@@ -97,6 +98,7 @@ describe('system settings service', () => {
       allowPromotionCodes: true,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: null,
+      copilot: DEFAULT_COPILOT_SETTINGS,
     })
   })
 
@@ -113,6 +115,7 @@ describe('system settings service', () => {
           allowPromotionCodes: false,
           emailDomain: 'old.example.com',
           fromEmailAddress: 'TradingGoose <noreply@old.example.com>',
+          copilot: DEFAULT_COPILOT_SETTINGS,
           createdAt: now,
           updatedAt: now,
         },
@@ -126,6 +129,7 @@ describe('system settings service', () => {
           allowPromotionCodes: false,
           emailDomain: 'mail.example.com',
           fromEmailAddress: null,
+          copilot: DEFAULT_COPILOT_SETTINGS,
           createdAt: now,
           updatedAt: now,
         },
@@ -148,6 +152,7 @@ describe('system settings service', () => {
       allowPromotionCodes: false,
       emailDomain: 'mail.example.com',
       fromEmailAddress: null,
+      copilot: DEFAULT_COPILOT_SETTINGS,
       createdAt: now,
       updatedAt: expect.any(Date),
     })
@@ -160,6 +165,7 @@ describe('system settings service', () => {
         allowPromotionCodes: false,
         emailDomain: 'mail.example.com',
         fromEmailAddress: null,
+        copilot: DEFAULT_COPILOT_SETTINGS,
         updatedAt: expect.any(Date),
       },
     })
@@ -178,6 +184,34 @@ describe('system settings service', () => {
     expect(mockSelect.mock.invocationCallOrder[0]).toBeLessThan(
       mockInsert.mock.invocationCallOrder[0]
     )
+  })
+
+  it('persists a dynamic Copilot catalogue and preserves it when unrelated settings change', async () => {
+    const copilot: CopilotSettings = {
+      models: [{ provider: 'openai', model: 'future-model' }],
+      defaultModel: 'openai/future-model',
+    }
+    mockSelectLimit.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'global', copilot }])
+
+    await expect(upsertSystemSettings({ copilot })).resolves.toMatchObject({ copilot })
+    expect(mockInsertValues).toHaveBeenLastCalledWith(expect.objectContaining({ copilot }))
+
+    mockSelectLimit
+      .mockResolvedValueOnce([{ id: 'global', copilot }])
+      .mockResolvedValueOnce([{ id: 'global', copilot }])
+    await upsertSystemSettings({ emailDomain: 'example.com' })
+
+    expect(mockInsertOnConflictDoUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ set: expect.objectContaining({ copilot }) })
+    )
+  })
+
+  it('does not replace invalid saved configuration with a built-in catalogue', async () => {
+    mockSelectLimit.mockResolvedValueOnce([
+      { id: 'global', copilot: { models: [], defaultModel: 'openai/removed-model' } },
+    ])
+
+    await expect(getResolvedSystemSettings()).rejects.toThrow()
   })
 
   it('rejects an execution-mode switch under the lock before writing when work exists', async () => {

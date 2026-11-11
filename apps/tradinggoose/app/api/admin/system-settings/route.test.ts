@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/settings'
 import { ADMIN_ERROR_CODES } from '@/app/admin/constants'
 
 const {
@@ -90,6 +91,7 @@ describe('/api/admin/system-settings route', () => {
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
+      copilot: DEFAULT_COPILOT_SETTINGS,
     })
     mockUpsertSystemSettings.mockResolvedValue({
       settings: null,
@@ -99,6 +101,7 @@ describe('/api/admin/system-settings route', () => {
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
+      copilot: DEFAULT_COPILOT_SETTINGS,
     })
   })
 
@@ -119,6 +122,7 @@ describe('/api/admin/system-settings route', () => {
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
       billingReady: true,
       triggerReady: true,
+      copilot: DEFAULT_COPILOT_SETTINGS,
     })
     expect(payload).not.toHaveProperty('stripeSecretKey')
     expect(payload).not.toHaveProperty('stripeWebhookSecret')
@@ -414,6 +418,69 @@ describe('/api/admin/system-settings route', () => {
     expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
       emailDomain: 'support.tradinggoose.ai',
     })
+  })
+
+  it('updates the Copilot catalogue independently without registry or credential prerequisites', async () => {
+    const copilot = {
+      models: [{ provider: 'deepseek', model: 'future-model' }],
+      defaultModel: 'deepseek/future-model',
+    }
+    mockUpsertSystemSettings.mockResolvedValueOnce({ copilot })
+    const { PATCH } = await import('./route')
+
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ copilot }),
+      }) as any
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    await expect(response.json()).resolves.toMatchObject({ copilot })
+    expect(mockUpsertSystemSettings).toHaveBeenCalledWith({ copilot })
+  })
+
+  it('rejects a default model outside the Copilot catalogue before saving', async () => {
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          copilot: {
+            models: [{ provider: 'openai', model: 'new-model' }],
+            defaultModel: 'openai/unconfigured-model',
+          },
+        }),
+      }) as any
+    )
+
+    expect(response.status).toBe(400)
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { isAuthenticated: false, isSystemAdmin: false, status: 401 },
+    { isAuthenticated: true, isSystemAdmin: false, status: 403 },
+  ])('denies Copilot settings reads and writes without admin access: %j', async (access) => {
+    mockGetSystemAdminAccess.mockResolvedValue({
+      userId: access.isAuthenticated ? 'ordinary-user' : null,
+      canBootstrapSystemAdmin: false,
+      ...access,
+    })
+    const { GET, PATCH } = await import('./route')
+    const readResponse = await GET()
+    const writeResponse = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ copilot: DEFAULT_COPILOT_SETTINGS }),
+      }) as any
+    )
+
+    expect(readResponse.status).toBe(access.status)
+    expect(writeResponse.status).toBe(access.status)
+    expect(mockGetResolvedSystemSettings).not.toHaveBeenCalled()
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
 
   it('rejects invalid request data', async () => {

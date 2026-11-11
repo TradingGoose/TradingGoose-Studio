@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createCompletionResponse } from '@/lib/copilot/native/completion'
 import type { CompletionRequest } from '@/lib/copilot/native/contract'
-import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
+import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('WandCopilot')
@@ -119,7 +120,6 @@ export async function POST(req: NextRequest) {
   }
 
   const { prompt, systemPrompt, generationType, history } = parsed.data
-  const configuredModel = DEFAULT_COPILOT_RUNTIME_MODEL
   const finalSystemPrompt = buildWandSystemPrompt(systemPrompt, generationType)
   const messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }> = [
     ...(finalSystemPrompt ? [{ role: 'system' as const, content: finalSystemPrompt }] : []),
@@ -130,16 +130,19 @@ export async function POST(req: NextRequest) {
     { role: 'user' as const, content: prompt },
   ]
 
-  const nativeRequest: CompletionRequest = {
-    scope: { actorUserId: session.user.id, workspaceId: null },
-    purpose: 'wand',
-    model: configuredModel,
-    messages: [messages[0]!, ...messages.slice(1)],
-  }
   try {
+    const { model } = await resolveCopilotModel()
+    const nativeRequest: CompletionRequest = {
+      scope: { actorUserId: session.user.id, workspaceId: null },
+      purpose: 'wand',
+      model,
+      messages: [messages[0]!, ...messages.slice(1)],
+    }
     const response = await createCompletionResponse(nativeRequest, req.signal)
     return response
   } catch (error) {
+    if (error instanceof NativeTargetError)
+      return NextResponse.json({ error: error.message }, { status: error.status })
     logger.error('Wand generation failed', { error })
     return NextResponse.json({ error: 'Wand generation is unavailable' }, { status: 503 })
   }

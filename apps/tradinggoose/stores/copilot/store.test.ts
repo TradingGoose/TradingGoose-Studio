@@ -171,6 +171,7 @@ function eventResponse(request: CopilotRequest, events: object[]) {
 }
 beforeEach(() => {
   resetCopilotStoreRegistry()
+  store().setState({ selectedModel: 'anthropic/admin-selected-model' })
   commands = []
   titleRequests = []
   workflowRequests = []
@@ -207,6 +208,15 @@ afterEach(() => {
 })
 
 describe('canonical browser conversation transport', () => {
+  it('starts unconfigured and refuses to send without a selected administrator model', async () => {
+    resetCopilotStoreRegistry()
+    expect(store().getState().selectedModel).toBeNull()
+    expect(await store().getState().sendMessage('Hello')).toBe(false)
+    expect(commands).toEqual([])
+    expect(titleRequests).toEqual([])
+    expect(store().getState().isSendingMessage).toBe(false)
+  })
+
   it('uses the actual nullable conversation scope, selected model and exact input, then reads canonical history', async () => {
     store().setState({ currentChat: chat(null), selectedModel: 'openai/gpt-5.6-sol' })
     expect(

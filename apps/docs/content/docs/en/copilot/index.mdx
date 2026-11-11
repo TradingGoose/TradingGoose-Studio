@@ -53,15 +53,9 @@ The access-level toggle in the input bar controls how much autonomy Copilot has.
 
 ## Supported Models
 
-Copilot offers six models from Studio’s Mastra model registry. Studio uses the selected provider/model ID and configured connection; switch the active model from the input bar.
+Your system administrator chooses the available provider/model pairs in **Admin → System settings → Copilot models**. Switch the active model from the input bar. The configured default is used for the initial model selection and Wand.
 
-**Anthropic** -- anthropic/claude-fable-5, anthropic/claude-opus-5
-
-**DeepSeek** -- deepseek/deepseek-v4-pro
-
-**OpenAI** -- openai/gpt-5.6-terra, openai/gpt-5.6-sol
-
-**xAI** -- x-ai/grok-4.6
+Administrators enter exact model IDs accepted by the selected provider; the list is not limited to Studio’s model registry. Configure each provider’s API key in **Admin → Services**. Keys stay encrypted on the server and are shared by that provider’s configured Copilot models. Copilot is unavailable until a model and its provider key are configured.
 
 ## Setup
 
@@ -76,8 +70,8 @@ Copilot offers six models from Studio’s Mastra model registry. Studio uses the
 
     Copilot runs inside Studio and uses its Mastra model connections and application database.
 
-    1. Configure the selected model provider’s credentials in the Studio deployment. Custom model connections use `MASTRA_MODEL_PROVIDERS`; Azure OpenAI connections use `MASTRA_AZURE_OPENAI`.
-    2. Run `bun run db:migrate` from the repository root with Studio’s `DATABASE_URL`. This applies application migrations. Mastra initializes its own tables in the same database when the shared runtime starts.
+    1. Run `bun run db:migrate` from the repository root with Studio’s `DATABASE_URL`. This applies application migrations. Mastra initializes its own tables in the same database when the shared runtime starts.
+    2. In **Admin → Services**, configure the API keys for the providers you want to use. In **Admin → System settings → Copilot models**, add provider/model rows, choose a default, and save.
     3. Open a workspace, select a configured model, and start chatting.
   </Step>
 </Steps>
@@ -106,7 +100,7 @@ You can edit an earlier prompt to truncate and regenerate the messages that foll
 
 ## Billing
 
-Copilot shares Studio's usage checks and billing ledger. Provider-reported USD takes precedence; otherwise, costs are estimated from reported token usage and published models.dev prices. The selected plan's Copilot multiplier applies to the charge. Missing usage or prices remain unavailable when no cost can be established.
+Copilot shares Studio's usage checks and billing ledger. Provider-reported USD takes precedence; otherwise, costs are estimated from reported token usage and published models.dev prices. The selected plan's Copilot multiplier applies to known costs. If no cost can be established, Copilot, titles, and Wand can still complete: calls and reported tokens are recorded, cost remains unavailable, and no USD charge is added to Studio's ledger for that unpriced usage.
 
 <Callout type="info">
   Automatic context trimming does not make an additional model call.

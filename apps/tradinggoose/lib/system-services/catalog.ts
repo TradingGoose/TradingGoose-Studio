@@ -1,3 +1,4 @@
+import { COPILOT_PROVIDERS } from '@/lib/copilot/settings'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
@@ -30,16 +31,31 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   {
     id: 'openai',
     displayName: 'OpenAI',
-    description: 'Default API key for system-owned OpenAI embeddings.',
+    description: 'Default API key for system-owned OpenAI embeddings and Copilot.',
     credentialFields: [
       {
         key: 'defaultApiKey',
         label: 'Default API Key',
-        description: 'Used for system-owned OpenAI embeddings.',
+        description: 'Used for system-owned OpenAI embeddings and Copilot.',
       },
     ],
     settingFields: [],
   },
+  ...Object.entries(COPILOT_PROVIDERS)
+    .filter(([id]) => id !== 'openai' && id !== 'mistral')
+    .map(([id, provider]) => ({
+      id,
+      displayName: provider.name,
+      description: `API key for system-owned ${provider.name} Copilot access.`,
+      credentialFields: [
+        {
+          key: provider.credentialKey,
+          label: 'API Key',
+          description: `Used for system-owned ${provider.name} Copilot requests.`,
+        },
+      ],
+      settingFields: [],
+    })),
   {
     id: 'serper',
     displayName: 'Serper',
@@ -101,13 +117,13 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   },
   {
     id: 'mistral',
-    displayName: 'Mistral OCR',
-    description: 'API key for Mistral OCR document processing.',
+    displayName: 'Mistral',
+    description: 'API key for Mistral OCR document processing and Copilot.',
     credentialFields: [
       {
         key: 'apiKey',
         label: 'API Key',
-        description: 'Used for Mistral OCR document parsing.',
+        description: 'Used for Mistral OCR document parsing and Copilot.',
       },
     ],
     settingFields: [],

@@ -16,7 +16,6 @@ import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
 import type { CopilotEvent, CopilotRequest, Pending } from '@/lib/copilot/native/contract'
 import { readNativeEvents } from '@/lib/copilot/native/stream'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
-import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { collectCopilotToolContexts } from '@/lib/copilot/tool-context'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import {
@@ -90,7 +89,7 @@ const businessContext = (provenance?: CopilotToolExecutionProvenance) =>
     : undefined
 const initialState = {
   accessLevel: 'limited' as const,
-  selectedModel: DEFAULT_COPILOT_RUNTIME_MODEL,
+  selectedModel: null as string | null,
   currentChat: null as CopilotChat | null,
   chats: [] as CopilotChat[],
   messages: [] as CopilotStore['messages'],
@@ -119,7 +118,7 @@ function createCopilotStoreInstance(channelId: string) {
     epoch: number
     interaction: number
     workspaceId: string | null
-    model: CopilotStore['selectedModel']
+    model: string
     originalInput: string
     titleEdit: number
     threadId?: string
@@ -862,11 +861,15 @@ function createCopilotStoreInstance(channelId: string) {
             hasUiActiveToolCalls(get().toolCallsById)
           )
             return false
+          const model = get().selectedModel
+          if (!model) {
+            set({ error: 'Select an available Copilot model before sending a message.' })
+            return false
+          }
           const chat = get().currentChat
           const workspaceId = chat ? chat.workspaceId : get().conversationWorkspaceId
           const id = epoch
           const interaction = ++interactionGeneration
-          const model = get().selectedModel
           const titleEdit = titleEditGeneration
           const preflight = new AbortController()
           titleAbort?.abort()

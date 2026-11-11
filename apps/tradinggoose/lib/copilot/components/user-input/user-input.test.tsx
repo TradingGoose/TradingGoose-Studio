@@ -86,7 +86,13 @@ const descriptor: AttachedFile = {
 }
 let currentDraft: CopilotDraft
 let updateDraft: Dispatch<SetStateAction<CopilotDraft>>
-function Harness({ clear = true }: { clear?: boolean }) {
+function Harness({
+  clear = true,
+  submitDisabled = false,
+}: {
+  clear?: boolean
+  submitDisabled?: boolean
+}) {
   const [draft, setDraft] = useState<CopilotDraft>({ text: 'Preserved draft', contexts: [] })
   currentDraft = draft
   updateDraft = setDraft
@@ -97,6 +103,7 @@ function Harness({ clear = true }: { clear?: boolean }) {
       accessLevel='limited'
       onAccessLevelChange={vi.fn()}
       clearOnSubmit={clear}
+      submitDisabled={submitDisabled}
       draft={draft}
       onDraftChange={(update) => {
         mocked.change(update)
@@ -129,6 +136,21 @@ it('shows the authenticated upload failure as an actionable error while retainin
   expect(container.querySelector('[role="alert"]')).toHaveTextContent(mocked.uploadError)
   expect(container.querySelector('textarea')).toHaveValue('Preserved draft')
   expect(container.textContent).toContain('retained.png')
+})
+it('keeps composing available but refuses click and Enter submission without a configured model', async () => {
+  await act(async () => root.render(<Harness submitDisabled />))
+  expect(container.querySelector('[aria-label="Send"]')).toBeDisabled()
+  const textarea = container.querySelector('textarea')!
+  expect(textarea).not.toBeDisabled()
+  await submit()
+  await act(async () => {
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    )
+  })
+  expect(mocked.submit).not.toHaveBeenCalled()
+  expect(currentDraft.text).toBe('Preserved draft')
+  expect(mocked.clear).not.toHaveBeenCalled()
 })
 it('retains draft and attachments when native image delivery is blocked before contact', async () => {
   mocked.submit.mockResolvedValue(false)

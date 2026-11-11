@@ -1,0 +1,1 @@
+ALTER TABLE "system_settings" ADD COLUMN "copilot" jsonb DEFAULT '{"models":[],"defaultModel":null}'::jsonb NOT NULL;

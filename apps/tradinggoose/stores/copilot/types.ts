@@ -12,7 +12,6 @@ import type {
   Pending,
 } from '@/lib/copilot/native/contract'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
 import type { NativeCost, NativeUsage } from '@/lib/mastra/usage'
 
@@ -111,7 +110,7 @@ export interface WorkflowChatDeploymentRequest {
 
 export interface CopilotState {
   accessLevel: CopilotAccessLevel
-  selectedModel: CopilotRuntimeModel
+  selectedModel: string | null
 
   currentChat: CopilotChat | null
   conversationWorkspaceId: string | null

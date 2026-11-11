@@ -1,4 +1,7 @@
 /** @vitest-environment node */
+
+import { Agent } from '@mastra/core/agent'
+import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import {
   organizationBillingLedger,
   organizationMemberBillingLedger,
@@ -7,6 +10,9 @@ import {
 import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, expect, it, vi } from 'vitest'
+import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
+import type { NativeCost } from '@/lib/mastra/usage'
+import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { assertModelUsageAllowed, type ModelUsageScope, recordModelUsage } from './model-usage'
 import type { BillingTierRecord } from './tiers'
 import type { WorkspaceBillingContext } from './workspace-billing'
@@ -42,6 +48,12 @@ const scope: ModelUsageScope = {
 }
 const usage = { inputTokens: 12, outputTokens: 3, totalTokens: 15 }
 const cost = { total: 1.25, currency: 'USD', status: 'reported' as const }
+const unknownCosts: NativeCost[] = [
+  { status: 'unavailable' },
+  { status: 'partial', availableTotal: 1.25 },
+  { status: 'reported' },
+  { status: 'reported', total: 1, currency: 'EUR' },
+]
 const dialect = new PgDialect()
 const parameters = (value: SQL) => dialect.sqlToQuery(value).params
 const context = (overrides: Partial<WorkspaceBillingContext> = {}): WorkspaceBillingContext => ({
@@ -183,19 +195,83 @@ it.each([
   ])
 })
 
+it.each(
+  ['copilot', 'title', 'wand'].flatMap((purpose) =>
+    unknownCosts.map((unknownCost) => ({ purpose, unknownCost }))
+  )
+)(
+  'records Copilot calls and tokens without unknown USD increments: %j',
+  async ({ purpose, unknownCost }) => {
+    await recordModelUsage({ ...scope, purpose }, usage, unknownCost)
+
+    expect(fixture.writes).toHaveLength(1)
+    const write = fixture.writes[0]
+    expect(parameters(write.values.totalCost)).toEqual([0])
+    expect(parameters(write.values.currentPeriodCost)).toEqual([0])
+    expect(parameters(write.values.totalTokensUsed)).toEqual([15])
+    expect(parameters(write.values.totalCopilotTokens)).toEqual([15])
+    expect(dialect.sqlToQuery(write.values.totalCopilotCalls).sql).toBe('total_copilot_calls + 1')
+    expect(write.values).not.toHaveProperty('totalCopilotCost')
+    expect(write.values).not.toHaveProperty('currentPeriodCopilotCost')
+    expect(fixture.threshold).not.toHaveBeenCalled()
+  }
+)
+
+it.each(unknownCosts)(
+  'preserves rejection of unknown USD for non-Copilot calls: %j',
+  async (unknownCost) => {
+    await expect(
+      recordModelUsage({ ...scope, purpose: 'workflow-provider' }, usage, unknownCost)
+    ).rejects.toThrow('Model cost is unavailable')
+    expect(fixture.workspace).not.toHaveBeenCalled()
+    expect(fixture.transaction).not.toHaveBeenCalled()
+  }
+)
+
 it.each([
-  { status: 'unavailable' as const },
-  { status: 'partial' as const, availableTotal: 1.25 },
-  { status: 'reported' as const },
   { status: 'reported' as const, total: Number.NaN },
   { status: 'reported' as const, total: -1 },
-  { status: 'reported' as const, total: 1, currency: 'EUR' },
-])('refuses unknown or invalid USD instead of silently accruing zero: %j', async (unknownCost) => {
-  await expect(recordModelUsage(scope, usage, unknownCost)).rejects.toThrow(
-    'Model cost is unavailable'
-  )
-  expect(fixture.workspace).not.toHaveBeenCalled()
-  expect(fixture.transaction).not.toHaveBeenCalled()
+  { status: 'estimated' as const, total: Number.POSITIVE_INFINITY },
+  { status: 'partial' as const, total: -1 },
+])(
+  'refuses malformed reported totals rather than treating them as unknown: %j',
+  async (invalidCost) => {
+    await expect(recordModelUsage(scope, usage, invalidCost)).rejects.toThrow(
+      'Model cost is unavailable'
+    )
+    expect(fixture.workspace).not.toHaveBeenCalled()
+    expect(fixture.transaction).not.toHaveBeenCalled()
+  }
+)
+
+it('completes successful native inference for a new unpriced Copilot model with billing enabled', async () => {
+  const accounting = await usageProcessors({ ...scope, model: 'openai/new-unpriced-model' })
+  const agent = new Agent({
+    ...NATIVE_AGENT_POLICY,
+    id: 'unpriced-copilot-test',
+    name: 'Unpriced Copilot test',
+    instructions: '',
+    model: new MastraLanguageModelV2Mock({
+      doGenerate: async () => ({
+        content: [{ type: 'text', text: 'Completed answer' }],
+        usage,
+        finishReason: 'stop',
+        warnings: [],
+      }),
+    }),
+    inputProcessors: accounting.inputProcessors,
+    outputProcessors: accounting.outputProcessors,
+  })
+
+  const response = await agent.generate('hello', { runId: scope.runId, maxSteps: 1 })
+
+  expect(response.text).toBe('Completed answer')
+  await expect(accounting.verifyComplete()).resolves.toBeUndefined()
+  expect(accounting.getUsage()).toEqual(usage)
+  expect(accounting.getCost()).toMatchObject({ status: 'unavailable' })
+  expect(accounting.getCost()).not.toHaveProperty('total')
+  expect(fixture.writes).toHaveLength(1)
+  expect(fixture.writes[0].values).not.toHaveProperty('totalCopilotCost')
 })
 
 it('checks limits but skips accrual when billing is disabled', async () => {

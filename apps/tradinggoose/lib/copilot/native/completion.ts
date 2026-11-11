@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { safeInferenceError } from '@/lib/mastra/errors'
-import { assertListedModel } from '@/lib/mastra/registry'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
+import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion } from '@/lib/mastra/result'
 import { getCopilotAgent } from '@/lib/mastra/runtime'
@@ -22,7 +22,7 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
     !(await checkWorkspaceAccess(request.scope.workspaceId, request.scope.actorUserId)).hasAccess
   )
     throw Object.assign(new Error('Conversation workspace access denied'), { status: 403 })
-  assertListedModel(request.model)
+  const { apiKey } = await resolveCopilotModel(request.model)
   const runId = randomUUID()
   const prepared = await prepareModelRequest(
     {
@@ -34,6 +34,7 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
       signal,
     },
     {
+      apiKey,
       modelSettings: request.maxOutputTokens
         ? { maxOutputTokens: request.maxOutputTokens }
         : undefined,
@@ -83,7 +84,11 @@ function completionFailure(
     status,
     error: {
       code: status === 'cancel_requested' ? 'CANCELLED' : 'COMPLETION_FAILED',
-      message: signal?.aborted ? 'Generation cancelled' : safeInferenceError(error),
+      message: signal?.aborted
+        ? 'Generation cancelled'
+        : error instanceof NativeTargetError
+          ? error.message
+          : 'Copilot completion did not complete',
     },
     ...(usage ? { usage: usage.getUsage() } : {}),
   }

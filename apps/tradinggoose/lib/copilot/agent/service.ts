@@ -22,9 +22,9 @@ import {
   type ServerPending,
 } from '@/lib/copilot/native/target'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
+import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { assertNativeToolArguments } from '@/lib/mastra/options'
-import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion } from '@/lib/mastra/result'
 import { getAgentMemory, getCopilotAgent, getNativeMemoryStore } from '@/lib/mastra/runtime'
@@ -270,8 +270,9 @@ async function* generate(
     const signal = cancellation.signal
     let pending: ServerPending | undefined
     let decision: CopilotDecision | undefined
+    let apiKey: string
     if (request.command === 'message') {
-      assertListedModel(request.model)
+      apiKey = (await resolveCopilotModel(request.model)).apiKey
       const threadId = request.threadId ?? crypto.randomUUID()
       if (request.threadId) await requireThread(scope, threadId, signal)
       const runId = crypto.randomUUID()
@@ -311,6 +312,7 @@ async function* generate(
       )
       run = await readCopilotRun(scope, pending.target.threadId, pending.target.runId)
       await assertCopilotRunActive(run.runId)
+      apiKey = (await resolveCopilotModel(run.model)).apiKey
       await authorizeNativeBusinessResult(scope, pending)
       if (request.command === 'tool.result') {
         validateNativeBrowserAssertion(pending, request.assertion)
@@ -374,15 +376,18 @@ async function* generate(
           checking = false
         })
     }, 500)
-    const prepared = await prepareModelRequest({
-      model: run.model,
-      actorUserId: run.scope.actorUserId,
-      workspaceId: run.scope.workspaceId ?? undefined,
-      workflowId: run.workflowId,
-      runId: run.runId,
-      purpose: 'copilot',
-      signal,
-    })
+    const prepared = await prepareModelRequest(
+      {
+        model: run.model,
+        actorUserId: run.scope.actorUserId,
+        workspaceId: run.scope.workspaceId ?? undefined,
+        workflowId: run.workflowId,
+        runId: run.runId,
+        purpose: 'copilot',
+        signal,
+      },
+      { apiKey }
+    )
     usage = prepared.usage
     const requestContext = createCopilotRequestContext({
       run,

@@ -1,6 +1,11 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution, systemSettings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
+import {
+  type CopilotSettings,
+  CopilotSettingsSchema,
+  DEFAULT_COPILOT_SETTINGS,
+} from '@/lib/copilot/settings'
 import { lockPendingExecutionMode } from '@/lib/execution/execution-mode-lock'
 import { DEFAULT_REGISTRATION_MODE, type RegistrationMode } from '@/lib/registration/shared'
 
@@ -13,6 +18,7 @@ export const DEFAULT_SYSTEM_SETTINGS = {
   allowPromotionCodes: true,
   emailDomain: 'tradinggoose.ai',
   fromEmailAddress: null,
+  copilot: DEFAULT_COPILOT_SETTINGS,
 } as const
 
 type SystemSettingsRecord = typeof systemSettings.$inferSelect
@@ -26,6 +32,7 @@ export type UpsertSystemSettingsInput = {
   allowPromotionCodes?: boolean
   emailDomain?: string
   fromEmailAddress?: string | null
+  copilot?: CopilotSettings
 }
 
 type ResolvedSystemSettingsFlags = {
@@ -35,6 +42,7 @@ type ResolvedSystemSettingsFlags = {
   allowPromotionCodes: boolean
   emailDomain: string
   fromEmailAddress: string | null
+  copilot: CopilotSettings
 }
 
 export type ResolvedSystemSettings = {
@@ -45,6 +53,7 @@ export type ResolvedSystemSettings = {
   allowPromotionCodes: boolean
   emailDomain: string
   fromEmailAddress: string | null
+  copilot: CopilotSettings
 }
 
 export class TriggerExecutionBusyError extends Error {
@@ -77,9 +86,11 @@ export function resolveSystemSettingsFlags(
     | 'allowPromotionCodes'
     | 'emailDomain'
     | 'fromEmailAddress'
+    | 'copilot'
   > | null
 ): ResolvedSystemSettingsFlags {
   return {
+    copilot: CopilotSettingsSchema.parse(settings ? settings.copilot : DEFAULT_COPILOT_SETTINGS),
     registrationMode: settings?.registrationMode ?? DEFAULT_SYSTEM_SETTINGS.registrationMode,
     billingEnabled: settings?.billingEnabled ?? DEFAULT_SYSTEM_SETTINGS.billingEnabled,
     triggerDevEnabled: settings?.triggerDevEnabled ?? DEFAULT_SYSTEM_SETTINGS.triggerDevEnabled,
@@ -164,6 +175,13 @@ async function writeSystemSettings(
         existing?.fromEmailAddress,
         DEFAULT_SYSTEM_SETTINGS.fromEmailAddress
       )
+  const nextCopilot = CopilotSettingsSchema.parse(
+    input.copilot !== undefined
+      ? input.copilot
+      : existing
+        ? existing.copilot
+        : DEFAULT_COPILOT_SETTINGS
+  )
 
   await store
     .insert(systemSettings)
@@ -175,6 +193,7 @@ async function writeSystemSettings(
       allowPromotionCodes: nextAllowPromotionCodes,
       emailDomain: nextEmailDomain,
       fromEmailAddress: nextFromEmailAddress,
+      copilot: nextCopilot,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     })
@@ -187,6 +206,7 @@ async function writeSystemSettings(
         allowPromotionCodes: nextAllowPromotionCodes,
         emailDomain: nextEmailDomain,
         fromEmailAddress: nextFromEmailAddress,
+        copilot: nextCopilot,
         updatedAt: now,
       },
     })

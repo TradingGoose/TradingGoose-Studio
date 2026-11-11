@@ -122,6 +122,17 @@ vi.mock('@/lib/execution/workflow-execution-stream', () => ({
   },
 }))
 vi.mock('@/lib/copilot/agent/service', () => ({ listCopilotPending: m.pending }))
+vi.mock('@/lib/copilot/agent/context', () => ({
+  readCopilotRun: async (scope: unknown, threadId: string, runId: string) => ({
+    scope,
+    threadId,
+    runId,
+    model: 'openai/admin-model',
+  }),
+}))
+vi.mock('@/lib/copilot/settings.server', () => ({
+  resolveCopilotModel: async (model: string) => ({ model, apiKey: 'admin-key' }),
+}))
 vi.mock('@/lib/copilot/agent/state', () => ({
   assertCopilotRunActive: async () => undefined,
   claimCopilotBrowserEffect: async (run: { runId: string }, callId: string) => {

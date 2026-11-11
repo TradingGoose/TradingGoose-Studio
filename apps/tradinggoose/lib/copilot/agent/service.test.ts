@@ -5,6 +5,7 @@ import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { Memory } from '@mastra/memory'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CopilotRequest, CopilotResponse, Scope } from '@/lib/copilot/native/contract'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { readNativeEvents } from '@/lib/copilot/native/stream'
 import { assertAcceptedServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
@@ -26,6 +27,7 @@ const m = vi.hoisted(() => ({
   accept: vi.fn(),
   route: vi.fn(),
   business: vi.fn(),
+  resolve: vi.fn(),
   claims: new Map<string, string>(),
   cancelled: new Set<string>(),
   effects: new Map<string, string>(),
@@ -38,10 +40,12 @@ vi.mock('@/lib/mastra/runtime', () => ({
   getNativeWorkflowsStore: async () => m.storage.getStore('workflows'),
 }))
 vi.mock('@/lib/mastra/connections', () => ({
-  createConfiguredLanguageModel: vi.fn(() => m.model),
+  createConfiguredLanguageModel: vi.fn((_model: string, apiKey?: string) =>
+    Object.assign(m.model, { config: { apiKey } })
+  ),
   getConfiguredProviders: () => ({}),
 }))
-vi.mock('@/lib/mastra/registry', () => ({ assertListedModel: vi.fn() }))
+vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: m.resolve }))
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => m.access(...args),
 }))
@@ -215,6 +219,10 @@ async function pending(threadId: string) {
 beforeEach(() => {
   vi.clearAllMocks()
   m.route.mockReset()
+  m.resolve.mockReset().mockImplementation(async (model: string) => ({
+    model,
+    apiKey: 'admin-key',
+  }))
   m.contacts.length = 0
   m.claims.clear()
   m.cancelled.clear()
@@ -231,6 +239,18 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('built-in Copilot service bridge', () => {
+  it.each([409, 422])(
+    'refuses unavailable admin configuration (%i) before claiming a thread or inference',
+    async (status) => {
+      m.resolve.mockRejectedValueOnce(new NativeTargetError('Copilot model unavailable', status))
+      setModel({ text: 'Must not run' })
+      expect((await message()).result).toMatchObject({ status: 'refused' })
+      expect(m.contacts).toHaveLength(0)
+      expect(m.claims.size).toBe(0)
+      expect(m.admit).not.toHaveBeenCalled()
+      expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
+    }
+  )
   it('returns complete scoped native lists in their stored order', async () => {
     const store = (await m.storage.getStore('memory'))!
     const resourceId = nativeConversationIdentity(scope).resourceId
@@ -342,7 +362,7 @@ describe('built-in Copilot service bridge', () => {
     expect(m.accept).toHaveBeenCalledTimes(2)
     expect(createConfiguredLanguageModel).toHaveBeenCalledExactlyOnceWith(
       'configured/model',
-      undefined
+      'admin-key'
     )
     expect(m.fetch).not.toHaveBeenCalled()
     if (result.status !== 'completed') throw new Error(JSON.stringify(result))
@@ -430,6 +450,12 @@ describe('built-in Copilot service bridge', () => {
   })
 
   it('recovers the original preview after restart and applies a decision once', async () => {
+    const originalCredential = 'first-synthetic-credential'
+    const rotatedCredential = 'replacement-synthetic-credential'
+    m.resolve.mockImplementation(async (model: string) => ({
+      model,
+      apiKey: originalCredential,
+    }))
     const args = { entityId: 'workflow', name: 'Renamed' }
     const preview = { requiresReview: true, reviewBaseStateHash: 'original-base' }
     setModel({ tool: 'rename_workflow', args }, { text: 'Renamed successfully' })
@@ -453,9 +479,16 @@ describe('built-in Copilot service bridge', () => {
     expect(initial.pending[0].stage).toBe('approval')
     expect(m.route).not.toHaveBeenCalled()
     const workflows = (await m.storage.getStore('workflows'))!
+    expect(JSON.stringify(m.model).includes(originalCredential)).toBe(true)
     expect(
       JSON.stringify(await workflows.getWorkflowRunById({ runId: initial.runId }))
     ).not.toContain('copilot-execution')
+    expect(
+      JSON.stringify(await workflows.getWorkflowRunById({ runId: initial.runId })).includes(
+        originalCredential
+      )
+    ).toBe(false)
+    m.resolve.mockImplementation(async (model: string) => ({ model, apiKey: rotatedCredential }))
     restart()
     expect(await readCopilotRun(scope, initial.threadId, initial.runId)).toMatchObject({
       scope,
@@ -471,6 +504,20 @@ describe('built-in Copilot service bridge', () => {
     const approved = suspended(
       (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
     )
+    expect(m.resolve).toHaveBeenLastCalledWith('openai/gpt-4.1')
+    expect(createConfiguredLanguageModel).toHaveBeenLastCalledWith(
+      'openai/gpt-4.1',
+      rotatedCredential
+    )
+    expect(JSON.stringify(m.model).includes(rotatedCredential)).toBe(true)
+    const resumedSnapshot = JSON.stringify(
+      await workflows.getWorkflowRunById({ runId: initial.runId })
+    )
+    expect(
+      [originalCredential, rotatedCredential].some((credential) =>
+        resumedSnapshot.includes(credential)
+      )
+    ).toBe(false)
     expect(approved.pending[0]).toMatchObject({
       stage: 'result',
       originalArgs: args,
@@ -598,6 +645,28 @@ describe('built-in Copilot service bridge', () => {
     expect(m.route).not.toHaveBeenCalled()
     expect(m.contacts).toHaveLength(1)
     expect(m.accept).toHaveBeenCalledTimes(charges)
+    expect(m.claims.size).toBe(0)
+  })
+  it('blocks revoked models on resume while preserving history and cancellation', async () => {
+    setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Renamed' } })
+    const initial = suspended((await message({ accessLevel: 'limited' })).result)
+    const charges = m.accept.mock.calls.length
+    m.resolve.mockRejectedValue(new NativeTargetError('Copilot model unavailable', 422))
+    restart()
+    expect(
+      (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
+    ).toMatchObject({ status: 'refused' })
+    expect(m.resolve).toHaveBeenLastCalledWith('configured/model')
+    expect(m.route).not.toHaveBeenCalled()
+    expect(m.contacts).toHaveLength(1)
+    expect(m.accept).toHaveBeenCalledTimes(charges)
+    expect(
+      (await command({ command: 'history.read', threadId: initial.threadId })).result
+    ).toMatchObject({ status: 'history' })
+    expect(
+      (await command({ command: 'cancel', threadId: initial.threadId, runId: initial.runId }))
+        .result
+    ).toMatchObject({ status: 'cancel_requested' })
     expect(m.claims.size).toBe(0)
   })
   it('rejects a claimed run mismatch and makes unclaimed cancellation a harmless no-op', async () => {

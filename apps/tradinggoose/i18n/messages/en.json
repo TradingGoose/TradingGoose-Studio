@@ -22282,6 +22282,11 @@
         "searchPlaceholder": "Search listings..."
       },
       "copilot": {
+        "models": {
+          "loading": "Loading models…",
+          "unconfigured": "Copilot is not configured",
+          "loadError": "Unable to load Copilot models"
+        },
         "welcome": {
           "subtitleLimited": "Ask questions and review tools before they run",
           "subtitleFull": "Ask questions and let tools run without extra approval",
@@ -22872,6 +22877,20 @@
         "allowPromotionCodesHint": "Controls whether promo codes are allowed during checkout.",
         "triggerDevEnabled": "Trigger.dev enabled",
         "triggerDevEnabledHint": "Routes supported async jobs through Trigger.dev instead of direct in-process execution."
+      },
+      "copilot": {
+        "title": "Copilot models",
+        "description": "Choose the models available to every Copilot user. Enter the exact model ID accepted by each provider.",
+        "manageKeys": "Manage provider API keys",
+        "provider": "Provider",
+        "model": "Model ID",
+        "modelPlaceholder": "Exact provider model ID",
+        "defaultModel": "Default",
+        "defaultHint": "The default is used for the initial model selection and Wand.",
+        "addModel": "Add model",
+        "removeModel": "Remove model row {number}",
+        "empty": "No models configured. Add a model and configure its provider API key to enable Copilot.",
+        "invalidModels": "Enter a model ID for every row, remove duplicate provider/model pairs, and choose a default."
       },
       "emailIdentity": {
         "title": "Email identity",

@@ -28,7 +28,6 @@ vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
   verifySavedEntityContext: mocks.entity,
 }))
 vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: mocks.workflow }))
-vi.mock('@/lib/copilot/runtime-models', () => ({ COPILOT_RUNTIME_MODELS: ['test/model'] }))
 const listing = {
   workspaceId: null,
   command: 'threads.list',
@@ -76,6 +75,7 @@ describe('built-in Copilot authenticated boundary', () => {
     { scope: { actorUserId: 'foreign', workspaceId: null } },
     { financialBinding: {} },
     { protocolRevision: 'retired' },
+    { apiKey: 'caller-key' },
   ])('refuses browser-authored trusted envelope fields %j', async (extra) => {
     expect((await post({ ...listing, ...extra })).status).toBe(422)
     expect(mocks.execute).not.toHaveBeenCalled()

@@ -1,10 +1,17 @@
 /** @vitest-environment node */
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
 
-const mocks = vi.hoisted(() => ({ session: vi.fn(), native: vi.fn(), cancelled: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  session: vi.fn(),
+  native: vi.fn(),
+  cancelled: vi.fn(),
+  resolve: vi.fn(),
+}))
 vi.mock('@/lib/auth', () => ({ getSession: mocks.session }))
 vi.mock('@/lib/copilot/native/completion', () => ({ createCompletionResponse: mocks.native }))
+vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: mocks.resolve }))
 
 import { POST } from './route'
 
@@ -37,6 +44,7 @@ function stream(frames: unknown[], split = false) {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.session.mockResolvedValue({ user: { id: 'actual-actor' } })
+  mocks.resolve.mockResolvedValue({ model: 'openai/new-admin-default', apiKey: 'admin-key' })
   mocks.native.mockImplementation(async () =>
     stream([{ chunk: 'Preview🔥' }, { done: true, result: result() }], true)
   )
@@ -55,7 +63,7 @@ describe('built-in Wand completion route', () => {
     expect(input).toEqual({
       scope: { actorUserId: 'actual-actor', workspaceId: null },
       purpose: 'wand',
-      model: 'anthropic/claude-fable-5',
+      model: 'openai/new-admin-default',
       messages: [
         { role: 'system', content: 'Only code' },
         { role: 'assistant', content: 'Earlier' },
@@ -63,6 +71,8 @@ describe('built-in Wand completion route', () => {
       ],
     })
     expect(signal).toBeInstanceOf(AbortSignal)
+    expect(mocks.resolve).toHaveBeenCalledExactlyOnceWith()
+    expect(input).not.toHaveProperty('apiKey')
     const text = await response.text()
     expect(text).toContain('"chunk":"Preview🔥"')
     expect(text).toContain('"done":true,"result":')
@@ -152,5 +162,12 @@ describe('built-in Wand completion route', () => {
     expect(response.status).toBe(503)
     expect(await response.json()).toEqual({ error: 'Wand generation is unavailable' })
     expect(mocks.native).toHaveBeenCalledOnce()
+  })
+  it('refuses an unconfigured default without invoking a completion', async () => {
+    mocks.resolve.mockRejectedValueOnce(new NativeTargetError('Configure Copilot first', 409))
+    const response = await POST(request())
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: 'Configure Copilot first' })
+    expect(mocks.native).not.toHaveBeenCalled()
   })
 })

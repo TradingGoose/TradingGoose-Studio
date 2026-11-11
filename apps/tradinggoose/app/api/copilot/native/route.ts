@@ -10,7 +10,6 @@ import { CopilotRequestSchema, type CopilotToolContext } from '@/lib/copilot/nat
 import { validateNativeImageParts } from '@/lib/copilot/native/images'
 import { authorizeNativeConversationScope, NativeTargetError } from '@/lib/copilot/native/target'
 import { processContextsServer } from '@/lib/copilot/process-contents'
-import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
 import { collectCopilotToolContexts } from '@/lib/copilot/tool-context'
 
 async function validateToolContext(
@@ -42,7 +41,6 @@ export async function POST(request: NextRequest) {
     const command = CopilotRequestSchema.parse(await request.json())
     const scope = await authorizeNativeConversationScope(session.user.id, command.workspaceId)
     if (command.command === 'message') {
-      z.enum(COPILOT_RUNTIME_MODELS).parse(command.model)
       if (command.workflowId) {
         const workflow = await authorizeWorkflowScope(
           { success: true, userId: session.user.id },

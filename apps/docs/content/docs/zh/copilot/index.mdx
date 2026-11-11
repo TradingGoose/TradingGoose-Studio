@@ -53,15 +53,9 @@ Copilot 可调用一整套覆盖整个平台的工具：
 
 ## 支持的模型
 
-Copilot 提供 Studio Mastra 模型注册表中的六个模型。Studio 使用所选的提供商/模型 ID 和已配置的连接；你可以在输入栏中切换当前模型。
+系统管理员在 **管理 → 系统设置 → Copilot 模型** 中选择可用的提供商/模型组合。你可以在输入栏中切换当前模型。初始模型选择和 Wand 使用已配置的默认模型。
 
-**Anthropic** -- anthropic/claude-fable-5, anthropic/claude-opus-5
-
-**DeepSeek** -- deepseek/deepseek-v4-pro
-
-**OpenAI** -- openai/gpt-5.6-terra, openai/gpt-5.6-sol
-
-**xAI** -- x-ai/grok-4.6
+管理员输入各提供商接受的准确模型 ID；模型列表不受 Studio 模型注册表限制。在 **管理 → 服务** 中配置各提供商的 API 密钥。密钥以加密形式保存在服务器上，由同一提供商的 Copilot 模型共用。配置模型及其提供商密钥后，Copilot 才可用。
 
 ## 设置
 
@@ -76,8 +70,8 @@ Copilot 提供 Studio Mastra 模型注册表中的六个模型。Studio 使用�
 
     Copilot 在 Studio 内运行，复用其 Mastra 模型连接和应用数据库。
 
-    1. 在 Studio 部署中配置所选模型提供商的凭证。自定义模型连接使用 `MASTRA_MODEL_PROVIDERS`；Azure OpenAI 连接使用 `MASTRA_AZURE_OPENAI`。
-    2. 在仓库根目录运行 `bun run db:migrate`，使用 Studio 的 `DATABASE_URL` 应用数据库迁移。共享运行时启动时，Mastra 会在同一数据库中初始化自己的表。
+    1. 在仓库根目录运行 `bun run db:migrate`，使用 Studio 的 `DATABASE_URL` 应用数据库迁移。共享运行时启动时，Mastra 会在同一数据库中初始化自己的表。
+    2. 在 **管理 → 服务** 中配置所需提供商的 API 密钥。在 **管理 → 系统设置 → Copilot 模型** 中添加提供商/模型行，选择默认模型并保存。
     3. 打开工作区，选择已配置的模型并开始对话。
   </Step>
 </Steps>
@@ -104,8 +98,8 @@ Copilot 具备上下文感知能力。当前页面只会公开所选对象的身
 
 ## 计费
 
-Copilot 模型操作以精确的规范 USD 字符串报告已接受的实际费用。模型 USD 不可用时仍保持不可用，不会将 token 数量或估算值转换为替代价格。普通推理保留所选套餐倍率和共享计费检查。
+Copilot 复用 Studio 的用量检查和计费账本。优先采用提供商报告的美元费用；否则根据报告的 token 用量和 models.dev 公布的价格进行估算。套餐的 Copilot 倍率适用于已知费用。无法确定费用时，Copilot、标题生成和 Wand 仍可完成：记录调用次数和报告的 token 用量，费用保持不可用，且不会将这部分未知价格的用量计入 Studio 的美元费用。
 
 <Callout type="info">
-  Studio 可以在联系模型前预留保守金额。自动裁剪历史记录不会增加模型调用或费用。
+  自动裁剪上下文不会额外调用模型。
 </Callout>

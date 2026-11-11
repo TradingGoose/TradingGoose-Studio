@@ -36,6 +36,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       onAbort,
       isLoading = false,
       isAborting = false,
+      submitDisabled = false,
       placeholder,
       accessLevel,
       onAccessLevelChange,
@@ -315,7 +316,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
     const handleSubmit = async () => {
       const trimmedMessage = message.trim()
-      if (!trimmedMessage || isLoading) {
+      if (!trimmedMessage || isLoading || submitDisabled) {
         return
       }
 
@@ -396,7 +397,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       }
     }
 
-    const canSubmit = message.trim().length > 0 && !isLoading
+    const canSubmit = message.trim().length > 0 && !isLoading && !submitDisabled
     const abortAction = isLoading ? onAbort : undefined
 
     return (
