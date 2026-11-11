@@ -10,9 +10,13 @@ const mocks = vi.hoisted(() => ({
   authorizeCredential: vi.fn(),
   credentialAuthStatus: vi.fn(),
   execute: vi.fn(),
+  authorizeWorkflow: vi.fn(),
+  workspaceAccess: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({ checkSessionOrInternalAuth: vi.fn() }))
+vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: mocks.authorizeWorkflow }))
+vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: mocks.workspaceAccess }))
 vi.mock('@/lib/auth/credential-access', () => ({
   authorizeCredentialUse: mocks.authorizeCredential,
   credentialAuthStatus: mocks.credentialAuthStatus,
@@ -236,9 +240,17 @@ describe('AI execution scope normalization', () => {
       userId: 'actual-actor',
     } as any)
     vi.mocked(handleAIProviderRequest).mockResolvedValue(Response.json({ content: 'known' }) as any)
+    mocks.authorizeWorkflow.mockResolvedValue({
+      ok: true,
+      userId: 'actual-actor',
+      workflowId: 'workflow',
+      workspaceId: 'workspace',
+    })
+    mocks.workspaceAccess.mockResolvedValue({ hasAccess: true })
   })
   it.each([
     [{}, '', undefined, undefined],
+    [{ workflowId: 'workflow' }, '', 'workflow', 'workspace'],
     [{ workflowId: ' workflow ', workspaceId: ' workspace ' }, '', 'workflow', 'workspace'],
     [{}, '?workflowId=%20workflow%20&workspaceId=workspace', 'workflow', 'workspace'],
     [
@@ -287,5 +299,43 @@ describe('AI execution scope normalization', () => {
     )
     expect(response.status).toBe(400)
     expect(handleAIProviderRequest).not.toHaveBeenCalled()
+    expect(mocks.authorizeWorkflow).not.toHaveBeenCalled()
+    expect(mocks.workspaceAccess).not.toHaveBeenCalled()
   })
+
+  it.each([
+    [{ workspaceId: 'workspace' }, { ok: true, workspaceId: 'workspace' }, false, 403],
+    [
+      { workflowId: 'workflow' },
+      { ok: false, error: 'Workflow access denied', status: 403 },
+      true,
+      403,
+    ],
+    [
+      { workflowId: 'workflow' },
+      { ok: false, error: 'Workflow not found', status: 404 },
+      true,
+      404,
+    ],
+    [
+      { workflowId: 'workflow', workspaceId: 'other' },
+      { ok: true, workspaceId: 'workspace' },
+      true,
+      403,
+    ],
+  ])(
+    'rejects unauthorized billing scope %j before the handler',
+    async (scope, owner, access, status) => {
+      mocks.authorizeWorkflow.mockResolvedValue(owner)
+      mocks.workspaceAccess.mockResolvedValue({ hasAccess: access })
+      const response = await POST(
+        new NextRequest('http://localhost/api/providers', {
+          method: 'POST',
+          body: JSON.stringify({ model: 'openai/gpt-4.1', ...scope }),
+        })
+      )
+      expect(response.status).toBe(status)
+      expect(handleAIProviderRequest).not.toHaveBeenCalled()
+    }
+  )
 })

@@ -1,8 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { authorizeCredentialUse, credentialAuthStatus } from '@/lib/auth/credential-access'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getFailureAccounting, safeInferenceError } from '@/lib/mastra/errors'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
   type ProviderRouteBody as AIProviderRouteBody,
@@ -74,6 +76,21 @@ export async function POST(request: NextRequest) {
         )
           return NextResponse.json({ error: `Invalid or conflicting ${field}` }, { status: 400 })
         scope[field] = typeof value === 'string' ? value.trim() : values[0]?.trim()
+      }
+      if (scope.workflowId) {
+        const owner = await authorizeWorkflowScope(auth, scope.workflowId, 'read')
+        if (!owner.ok) return NextResponse.json({ error: owner.error }, { status: owner.status })
+        if (scope.workspaceId && scope.workspaceId !== owner.workspaceId)
+          return NextResponse.json(
+            { error: 'Workspace scope differs from the workflow' },
+            { status: 403 }
+          )
+        scope.workspaceId = owner.workspaceId
+      } else if (
+        scope.workspaceId &&
+        !(await checkWorkspaceAccess(scope.workspaceId, auth.userId)).hasAccess
+      ) {
+        return NextResponse.json({ error: 'Workspace access denied' }, { status: 403 })
       }
       return await handleAIProviderRequest({
         body: { ...aiBody, ...scope },

@@ -35,14 +35,14 @@ export async function usageProcessors(
     async processOutputStep(args) {
       try {
         if (failure) throw failure
-        if (!args.finishReason || !['stop', 'tool-calls', 'length'].includes(args.finishReason))
-          throw new Error('Model step did not complete successfully')
         const key = `${scope.runId}:${args.stepNumber}:${args.retryCount}`
         if (!steps.has(key)) {
           const usage = selectNativeUsage(args.usage)
           steps.set(key, usage)
           await recordModelUsage(actorScope, usage)
         }
+        if (!args.finishReason || !['stop', 'tool-calls', 'length'].includes(args.finishReason))
+          throw new Error('Model step did not complete successfully')
         for (const call of args.toolCalls ?? []) assertNativeToolArguments(call.args)
         scope.signal?.throwIfAborted()
         return args.messageList

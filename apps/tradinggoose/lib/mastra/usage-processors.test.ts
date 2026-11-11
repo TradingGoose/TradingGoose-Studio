@@ -19,15 +19,18 @@ beforeEach(() => {
   billing.record.mockResolvedValue(undefined)
 })
 
-async function generate() {
+async function generate(
+  finishReason: 'stop' | 'content-filter' | 'error' = 'stop',
+  reportedUsage = usage
+) {
   const accounting = await usageProcessors(scope)
   const model = new MastraLanguageModelV2Mock({
     doGenerate: async () => {
       billing.contact()
       return {
         content: [{ type: 'text', text: 'answer' }],
-        usage,
-        finishReason: 'stop',
+        usage: reportedUsage,
+        finishReason,
         warnings: [],
       }
     },
@@ -76,3 +79,15 @@ it('retains observed usage and latches a deferred accounting error', async () =>
   await expect(accounting.verifyComplete()).rejects.toBe(failure)
   expect(accounting.getUsage()).toEqual(usage)
 })
+
+it.each(['content-filter', 'error'] as const)(
+  'accounts for reported usage before rejecting a %s outcome',
+  async (finishReason) => {
+    const reported = { inputTokens: 12, outputTokens: 3, totalTokens: 15 }
+    const accounting = await generate(finishReason, reported)
+    await expect(accounting.verifyComplete()).rejects.toThrow('did not complete successfully')
+    expect(accounting.getUsage()).toEqual(reported)
+    expect(billing.record).toHaveBeenCalledExactlyOnceWith(scope, reported)
+    expect(billing.contact).toHaveBeenCalledOnce()
+  }
+)

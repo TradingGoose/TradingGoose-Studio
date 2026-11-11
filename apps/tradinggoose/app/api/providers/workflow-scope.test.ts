@@ -12,6 +12,9 @@ const boundary = vi.hoisted(() => ({
   admit: vi.fn(),
   accept: vi.fn(),
   contact: vi.fn(),
+  owner: vi.fn(),
+  access: vi.fn(),
+  finishReason: 'stop' as 'stop' | 'content-filter',
   requests: [] as NextRequest[],
 }))
 vi.mock('@/lib/auth/hybrid', () => ({
@@ -20,10 +23,12 @@ vi.mock('@/lib/auth/hybrid', () => ({
 vi.mock('@/lib/auth/internal', () => ({
   generateInternalToken: async () => 'synthetic-internal-auth',
 }))
-vi.mock('@/lib/billing/model-usage', () => ({
-  assertModelUsageAllowed: boundary.admit,
-  recordModelUsage: boundary.accept,
+vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: boundary.owner }))
+vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: boundary.access }))
+vi.mock('@/lib/billing/calculations/usage-monitor', () => ({
+  checkServerSideUsageLimits: boundary.admit,
 }))
+vi.mock('@/lib/billing/usage-accrual', () => ({ accrueUserUsageCost: boundary.accept }))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<object>()),
@@ -33,8 +38,11 @@ vi.mock('@/lib/mastra/connections', async (original) => ({
         boundary.contact()
         return {
           content: [{ type: 'text', text: 'exact scoped output' }],
-          finishReason: 'stop',
-          usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
+          finishReason: boundary.finishReason,
+          usage:
+            boundary.finishReason === 'content-filter'
+              ? { inputTokens: 12, outputTokens: 3, totalTokens: 15 }
+              : { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
           warnings: [],
         }
       },
@@ -58,8 +66,16 @@ const context: ExecutionContext = {
 beforeEach(() => {
   vi.clearAllMocks()
   boundary.requests.length = 0
-  boundary.admit.mockResolvedValue(undefined)
+  boundary.finishReason = 'stop'
+  boundary.admit.mockResolvedValue({ isExceeded: false })
   boundary.accept.mockResolvedValue(undefined)
+  boundary.owner.mockResolvedValue({
+    ok: true,
+    workflowId: context.workflowId,
+    workspaceId: context.workspaceId,
+    userId: context.userId,
+  })
+  boundary.access.mockResolvedValue({ hasAccess: true })
   vi.stubGlobal(
     'fetch',
     Object.assign(
@@ -80,14 +96,14 @@ function assertScope() {
   expect(url.searchParams.get('workspaceId')).toBe(context.workspaceId)
   expect(boundary.admit).toHaveBeenCalledWith(
     expect.objectContaining({
-      actorUserId: 'authenticated-actor',
+      userId: 'authenticated-actor',
       workflowId: context.workflowId,
       workspaceId: context.workspaceId,
-      purpose: 'workflow-provider',
     })
   )
   expect(boundary.admit).toHaveBeenCalledOnce()
-  expect(boundary.accept).toHaveBeenCalledOnce()
+  // Workflow logs own these tokens; the provider must not accrue them a second time.
+  expect(boundary.accept).not.toHaveBeenCalled()
   expect(boundary.contact).toHaveBeenCalledOnce()
 }
 it('carries the actual llm_chat URL-only scope through real route, Agent and usage processors', async () => {
@@ -143,7 +159,7 @@ it('retains a nested native tool callback scope instead of trusting its input id
   assertScope()
 })
 it('denies a canonical authorization failure before admission/model contact without falling back to personal', async () => {
-  boundary.admit.mockRejectedValue(new Error('Workflow authorization denied'))
+  boundary.owner.mockResolvedValue({ ok: false, error: 'Workflow access denied', status: 403 })
   const output = await executeTool(
     'llm_chat',
     { model: 'openai/gpt-4.1', context: 'literal' },
@@ -151,9 +167,76 @@ it('denies a canonical authorization failure before admission/model contact with
     context
   )
   expect(output.success).toBe(false)
-  expect(boundary.admit).toHaveBeenCalledWith(
-    expect.objectContaining({ workspaceId: context.workspaceId, workflowId: context.workflowId })
-  )
+  expect(boundary.admit).not.toHaveBeenCalled()
   expect(boundary.accept).not.toHaveBeenCalled()
   expect(boundary.contact).not.toHaveBeenCalled()
+})
+
+it.each(['personal-workspace', 'organization-workspace'])(
+  'rejects unauthorized %s before admission, provider contact or ledger updates',
+  async (workspaceId) => {
+    boundary.access.mockResolvedValue({ hasAccess: false })
+    const response = await POST(
+      new NextRequest('http://localhost/api/providers', {
+        method: 'POST',
+        body: JSON.stringify({
+          model: 'openai/gpt-4.1',
+          workspaceId,
+          messages: [{ role: 'user', content: 'hello' }],
+        }),
+      })
+    )
+    expect(response.status).toBe(403)
+    expect(boundary.access).toHaveBeenCalledExactlyOnceWith(workspaceId, context.userId)
+    expect(boundary.admit).not.toHaveBeenCalled()
+    expect(boundary.contact).not.toHaveBeenCalled()
+    expect(boundary.accept).not.toHaveBeenCalled()
+  }
+)
+
+it('accounts for an authorized standalone workspace request through the real Agent and accounting path', async () => {
+  const response = await POST(
+    new NextRequest('http://localhost/api/providers', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'openai/gpt-4.1',
+        workspaceId: context.workspaceId,
+        messages: [{ role: 'user', content: 'hello' }],
+      }),
+    })
+  )
+  expect(response.status).toBe(200)
+  expect(boundary.accept).toHaveBeenCalledExactlyOnceWith({
+    userId: context.userId,
+    workspaceId: context.workspaceId,
+    cost: 0,
+    extraUpdates: { totalTokensUsed: expect.anything() },
+  })
+  expect(boundary.access.mock.invocationCallOrder[0]).toBeLessThan(
+    boundary.admit.mock.invocationCallOrder[0]
+  )
+  expect(boundary.admit.mock.invocationCallOrder[0]).toBeLessThan(
+    boundary.contact.mock.invocationCallOrder[0]
+  )
+})
+
+it('retains filtered provider usage in the HTTP failure and records it once', async () => {
+  boundary.finishReason = 'content-filter'
+  const response = await POST(
+    new NextRequest('http://localhost/api/providers', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'openai/gpt-4.1',
+        workspaceId: context.workspaceId,
+        messages: [{ role: 'user', content: 'hello' }],
+      }),
+    })
+  )
+  expect(response.status).toBe(500)
+  expect(await response.json()).toMatchObject({
+    tokens: { prompt: 12, completion: 3, total: 15 },
+    cost: { status: 'unavailable' },
+  })
+  expect(boundary.accept).toHaveBeenCalledOnce()
+  expect(boundary.contact).toHaveBeenCalledOnce()
 })
