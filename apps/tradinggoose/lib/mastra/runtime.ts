@@ -1,6 +1,8 @@
 import { Mastra } from '@mastra/core/mastra'
+import { MastraCompositeStore } from '@mastra/core/storage'
 import { Memory } from '@mastra/memory'
-import { PostgresStore } from '@mastra/pg'
+import { MemoryPG, WorkflowsPG } from '@mastra/pg'
+import { Pool } from 'pg'
 import { createCopilotAgent } from '@/lib/copilot/agent/agent'
 import { getConfiguredGateways } from './connections'
 
@@ -15,7 +17,15 @@ export const AGENT_MEMORY_OPTIONS = {
 async function createRuntime() {
   const connectionString = process.env.DATABASE_URL
   if (!connectionString) throw new Error('DATABASE_URL is required for the shared Studio database')
-  const storage = new PostgresStore({ id: 'studio', connectionString, schemaName: 'mastra' })
+  const pool = new Pool({ connectionString, max: 20 })
+  const storage = new MastraCompositeStore({
+    id: 'studio',
+    domains: {
+      memory: new MemoryPG({ pool, schemaName: 'mastra' }),
+      workflows: new WorkflowsPG({ pool, schemaName: 'mastra' }),
+      threadState: false,
+    },
+  })
   try {
     await storage.init()
     const memory = new Memory({ storage, options: AGENT_MEMORY_OPTIONS })
@@ -28,7 +38,7 @@ async function createRuntime() {
     })
     return { storage, memory, mastra }
   } catch (error) {
-    await storage.close()
+    await pool.end()
     throw error
   }
 }
