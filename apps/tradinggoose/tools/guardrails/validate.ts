@@ -41,6 +41,7 @@ export const guardrailsValidateTool: ToolConfig<GuardrailsValidateInput, Guardra
     description:
       'Validate content using guardrails (JSON, regex, hallucination check, or PII detection)',
     version: '1.0.0',
+    settlesModelUsage: true,
 
     params: {
       input: {

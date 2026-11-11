@@ -12,6 +12,7 @@ const boundary = vi.hoisted(() => ({
   admit: vi.fn(),
   accept: vi.fn(),
   contact: vi.fn(),
+  owner: vi.fn(),
   requests: [] as NextRequest[],
 }))
 vi.mock('@/lib/auth/hybrid', () => ({
@@ -20,6 +21,7 @@ vi.mock('@/lib/auth/hybrid', () => ({
 vi.mock('@/lib/auth/internal', () => ({
   generateInternalToken: async () => 'synthetic-internal-auth',
 }))
+vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: boundary.owner }))
 vi.mock('@/lib/billing/model-usage', () => ({
   assertModelUsageAllowed: boundary.admit,
   recordModelUsage: boundary.accept,
@@ -43,6 +45,7 @@ vi.mock('@/lib/mastra/connections', async (original) => ({
 const context: ExecutionContext = {
   workflowId: 'execution-workflow',
   workspaceId: 'execution-workspace',
+  executionId: 'execution-1',
   userId: 'authenticated-actor',
   blockStates: new Map(),
   blockLogs: [],
@@ -60,6 +63,13 @@ beforeEach(() => {
   boundary.requests.length = 0
   boundary.admit.mockResolvedValue(undefined)
   boundary.accept.mockResolvedValue(undefined)
+  boundary.owner.mockResolvedValue({
+    ok: true,
+    workflowId: context.workflowId,
+    workspaceId: context.workspaceId,
+    userId: context.userId,
+    executionId: context.executionId,
+  })
   vi.stubGlobal(
     'fetch',
     Object.assign(
@@ -83,6 +93,7 @@ function assertScope() {
       actorUserId: 'authenticated-actor',
       model: 'openai/gpt-4.1',
       workflowId: context.workflowId,
+      executionId: context.executionId,
       workspaceId: context.workspaceId,
       purpose: 'vision',
     })
@@ -154,7 +165,11 @@ it('retains a nested native tool callback scope instead of trusting its input id
   assertScope()
 })
 it('denies a canonical authorization failure before admission/model contact without falling back to personal', async () => {
-  boundary.admit.mockRejectedValue(new Error('Workflow authorization denied'))
+  boundary.owner.mockResolvedValue({
+    ok: false,
+    error: 'Workflow authorization denied',
+    status: 403,
+  })
   const output = await executeTool(
     'vision_tool',
     { model: 'openai/gpt-4.1', imageUrl: 'data:image/png;base64,aW1hZ2U=', prompt: 'literal' },
@@ -162,9 +177,7 @@ it('denies a canonical authorization failure before admission/model contact with
     context
   )
   expect(output.success).toBe(false)
-  expect(boundary.admit).toHaveBeenCalledWith(
-    expect.objectContaining({ workspaceId: context.workspaceId, workflowId: context.workflowId })
-  )
+  expect(boundary.admit).not.toHaveBeenCalled()
   expect(boundary.accept).not.toHaveBeenCalled()
   expect(boundary.contact).not.toHaveBeenCalled()
 })

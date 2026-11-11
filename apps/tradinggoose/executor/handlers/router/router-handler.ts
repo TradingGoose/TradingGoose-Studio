@@ -46,6 +46,7 @@ export class RouterBlockHandler implements BlockHandler {
           workflowId: context.workflowId,
           runId,
           purpose: 'workflow-router',
+          executionId: context.executionId,
           signal: cancellation.signal,
         },
         { apiKey: inputs.apiKey, modelSettings: { temperature: inputs.temperature } }

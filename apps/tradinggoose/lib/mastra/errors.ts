@@ -14,6 +14,18 @@ export function getFailureAccounting(error: unknown): Record<string, unknown> {
   return facts ? withInferenceFacts(redacted, facts) : redacted
 }
 
+/** Only an internal inference producer can restore facts lost at its HTTP boundary. */
+export function restoreInferenceError(error: Error): Error {
+  if (getInferenceFacts(error)) return error
+  const accounting = getFailureAccounting(error)
+  if (!Object.keys(accounting).length) return error
+  Object.assign(error, accounting)
+  return withInferenceFacts(error, {
+    ...accounting,
+    generatedFields: Object.keys(accounting),
+  })
+}
+
 export function safeInferenceError(error: unknown, apiKey?: string): string {
   let message =
     error instanceof Error

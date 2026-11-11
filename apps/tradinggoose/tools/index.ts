@@ -5,7 +5,7 @@ import {
   parseCustomToolSchemaText,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getFailureAccounting } from '@/lib/mastra/errors'
+import { getFailureAccounting, restoreInferenceError } from '@/lib/mastra/errors'
 import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -200,14 +200,15 @@ export async function getToolAsync(
   return undefined
 }
 
-function generateScopedInternalToken(scope: ExecutionScope) {
+function generateScopedInternalToken(scope: ExecutionScope, settlesModelUsage?: true) {
   const workflowExecution =
-    !scope.userId && scope.workflowId && scope.toolExecutionId
+    scope.workflowId && scope.toolExecutionId
       ? {
           source: 'workflow_block' as const,
           parentWorkflowId: scope.workflowId,
           ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
           parentBlockId: scope.toolExecutionId,
+          ...(settlesModelUsage ? { settlesModelUsage } : {}),
         }
       : undefined
   return workflowExecution
@@ -766,12 +767,13 @@ async function addInternalAuthIfNeeded(
   isInternalRoute: boolean,
   requestId: string,
   context: string,
-  scope: ExecutionScope
+  scope: ExecutionScope,
+  settlesModelUsage?: true
 ): Promise<void> {
   if (typeof window === 'undefined') {
     if (isInternalRoute) {
       try {
-        const internalToken = await generateScopedInternalToken(scope)
+        const internalToken = await generateScopedInternalToken(scope, settlesModelUsage)
         if (headers instanceof Headers) {
           headers.set('Authorization', `Bearer ${internalToken}`)
         } else {
@@ -844,7 +846,14 @@ async function executeToolRequest(
     }
 
     const headers = new Headers(requestParams.headers)
-    await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId, scope)
+    await addInternalAuthIfNeeded(
+      headers,
+      isInternalRoute,
+      requestId,
+      toolId,
+      scope,
+      tool.settlesModelUsage
+    )
     throwIfToolRequestAborted(options?.signal)
 
     if (typeof requestParams.body === 'string') {
@@ -929,7 +938,7 @@ async function executeToolRequest(
         errorData: errorInfo.data,
       })
 
-      throw errorToTransform
+      throw tool.settlesModelUsage ? restoreInferenceError(errorToTransform) : errorToTransform
     }
 
     let responseData
@@ -961,7 +970,7 @@ async function executeToolRequest(
         errorData: errorInfo?.data,
       })
 
-      throw errorToTransform
+      throw tool.settlesModelUsage ? restoreInferenceError(errorToTransform) : errorToTransform
     }
 
     if (tool.transformResponse) {
@@ -984,7 +993,9 @@ async function executeToolRequest(
         logger.error(`[${requestId}] Transform response error for ${toolId}:`, {
           error: transformError instanceof Error ? transformError.message : String(transformError),
         })
-        throw transformError
+        throw transformError instanceof Error && tool.settlesModelUsage
+          ? restoreInferenceError(transformError)
+          : transformError
       }
     }
 

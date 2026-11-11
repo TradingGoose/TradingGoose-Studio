@@ -17,6 +17,7 @@ export type InternalWorkflowExecutionContext = {
   parentExecutionId?: string
   parentPendingExecutionId?: string
   parentBlockId: string
+  settlesModelUsage?: true
 }
 
 type GenerateInternalTokenOptions = {
@@ -32,7 +33,9 @@ function isInternalWorkflowExecutionContext(
     !Array.isArray(value) &&
     (value as Record<string, unknown>).source === 'workflow_block' &&
     typeof (value as Record<string, unknown>).parentBlockId === 'string' &&
-    ((value as Record<string, unknown>).parentBlockId as string).length > 0
+    ((value as Record<string, unknown>).parentBlockId as string).length > 0 &&
+    ((value as Record<string, unknown>).settlesModelUsage === undefined ||
+      (value as Record<string, unknown>).settlesModelUsage === true)
   )
 }
 

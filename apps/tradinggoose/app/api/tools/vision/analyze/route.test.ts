@@ -27,6 +27,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
+  owner: vi.fn(),
+  access: vi.fn(),
   finance: vi.fn(),
   generate: vi.fn(),
   configurations: [] as Array<Record<string, any>>,
@@ -47,6 +49,8 @@ vi.mock('@mastra/core/agent', () => ({
   },
 }))
 vi.mock('@/lib/auth/hybrid', () => ({ checkHybridAuth: mocks.auth }))
+vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: mocks.owner }))
+vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: mocks.access }))
 vi.mock('@/lib/uploads/utils/file-processing', () => ({
   processSingleFileToUserFile: mocks.processFile,
   downloadFileFromStorage: mocks.download,
@@ -72,6 +76,13 @@ beforeEach(() => {
   mocks.usage.mockReset().mockReturnValue({ inputTokens: 12, outputTokens: 3, totalTokens: 15 })
   mocks.configurations.length = 0
   mocks.auth.mockResolvedValue({ success: true, userId: 'user-1', workspaceId: 'workspace-1' })
+  mocks.owner.mockImplementation(async (_auth, workflowId: string) => ({
+    ok: true,
+    userId: 'user-1',
+    workflowId,
+    workspaceId: workflowId === 'workflow-b' ? 'workspace-b' : 'workspace-1',
+  }))
+  mocks.access.mockResolvedValue({ hasAccess: true })
   mocks.generate.mockResolvedValue({
     finishReason: 'stop',
     text: 'A goose',
@@ -150,6 +161,32 @@ describe('native Vision input and authorization', () => {
       })
     )
   })
+
+  it.each(['workspace', 'workflow', 'workflow-workspace-mismatch'])(
+    'denies unauthorized %s scope before media, admission or inference',
+    async (scope) => {
+      if (scope === 'workspace') mocks.access.mockResolvedValue({ hasAccess: false })
+      else if (scope === 'workflow')
+        mocks.owner.mockResolvedValue({ ok: false, error: 'Workflow access denied', status: 403 })
+      else
+        mocks.owner.mockResolvedValue({
+          ok: true,
+          userId: 'user-1',
+          workflowId: 'workflow-1',
+          workspaceId: 'other-workspace',
+        })
+      const response = await POST(
+        request(
+          { imageUrl: 'https://example.com/image.png' },
+          scope === 'workspace' ? '' : '?workflowId=workflow-1'
+        )
+      )
+      expect(response.status).toBe(403)
+      expect(mocks.mediaFetch).not.toHaveBeenCalled()
+      expect(mocks.finance).not.toHaveBeenCalled()
+      expect(mocks.generate).not.toHaveBeenCalled()
+    }
+  )
 
   it('requires authentication before model or upload execution', async () => {
     mocks.auth.mockResolvedValue({ success: false, error: 'Authentication required' })

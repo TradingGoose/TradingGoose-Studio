@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
     const { workflowId, ...searchParams } = body
     const userId = auth.userId
     let workflowWorkspaceId: string | undefined
+    let executionId: string | undefined
     if (workflowId !== undefined) {
       if (typeof workflowId !== 'string' || !workflowId.trim()) {
         return NextResponse.json({ error: 'Invalid workflowId' }, { status: 400 })
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest) {
       const scope = await authorizeWorkflowScope(auth, workflowId, 'read')
       if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status })
       workflowWorkspaceId = scope.workspaceId
+      executionId = scope.executionId
     }
 
     try {
@@ -195,6 +197,7 @@ export async function POST(request: NextRequest) {
               actorUserId: userId,
               workspaceId: accessibleKnowledgeBases[0].workspaceId,
               workflowId,
+              executionId,
               signal: request.signal,
             },
             queryEmbeddingModel

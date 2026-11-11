@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
         )
     const workflowId = query.has('workflowId') ? scopeId.parse(query.get('workflowId')) : null
     let workspaceId = query.has('workspaceId') ? scopeId.parse(query.get('workspaceId')) : null
+    let executionId: string | undefined
     if (workflowId) {
       const owner = await authorizeWorkflowScope(auth, workflowId, 'read')
       if (!owner.ok)
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         )
       workspaceId = owner.workspaceId
+      executionId = owner.executionId
     } else if (workspaceId && !(await checkWorkspaceAccess(workspaceId, auth.userId)).hasAccess) {
       return NextResponse.json(
         { success: false, error: 'Workspace access denied' },
@@ -84,6 +86,7 @@ export async function POST(request: NextRequest) {
         actorUserId: auth.userId,
         workspaceId,
         workflowId,
+        executionId,
         signal: request.signal,
         apiKey: data.apiKey,
         runId: randomUUID(),

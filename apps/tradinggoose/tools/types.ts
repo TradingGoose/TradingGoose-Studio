@@ -121,6 +121,9 @@ export interface ToolConfig<P = any, R = any> {
   // Response handling
   transformResponse?: (response: Response, params?: P) => Promise<R>
 
+  // Internal inference producers preserve trusted accounting for workflow log settlement.
+  settlesModelUsage?: true
+
   /**
    * Direct execution function for tools that don't need HTTP requests.
    * If provided, this will be called instead of making an HTTP request.

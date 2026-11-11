@@ -10,6 +10,7 @@ export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
   description:
     'Search a knowledge base by query, text tag equality, or both. Repeated values for one tag use OR; different tags use AND.',
   version: '1.0.0',
+  settlesModelUsage: true,
 
   params: {
     knowledgeBaseId: {

@@ -19,6 +19,34 @@ beforeEach(() => {
 
 describe('Authenticated workflow scope', () => {
   it.each([
+    [AuthType.SESSION, 'workflow-1', true, undefined],
+    [AuthType.INTERNAL_JWT, 'other-workflow', true, undefined],
+    [AuthType.INTERNAL_JWT, 'workflow-1', undefined, undefined],
+    [AuthType.INTERNAL_JWT, 'workflow-1', true, 'execution-1'],
+  ])(
+    'carries only matching signed execution claims (%s, %s)',
+    async (authType, parentWorkflowId, settlesModelUsage, executionId) => {
+      const result = await authorizeWorkflowScope(
+        {
+          success: true,
+          userId: 'member-1',
+          authType,
+          internalWorkflowExecution: {
+            source: 'workflow_block',
+            parentWorkflowId,
+            parentExecutionId: 'execution-1',
+            parentBlockId: 'block-1',
+            ...(settlesModelUsage ? { settlesModelUsage: true as const } : {}),
+          },
+        },
+        'workflow-1',
+        'read'
+      )
+      expect(result).toMatchObject({ ok: true })
+      expect(result.ok ? result.executionId : undefined).toBe(executionId)
+    }
+  )
+  it.each([
     [{ success: false }, 'read'],
     [{ success: true, authType: AuthType.INTERNAL_JWT }, 'read'],
     [

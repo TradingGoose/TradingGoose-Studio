@@ -33,6 +33,7 @@ export const llmChatTool: ToolConfig<LLMChatParams, LLMChatResponse> = {
   name: 'LLM Chat',
   description: 'Send a chat completion request to any supported LLM provider',
   version: '1.0.0',
+  settlesModelUsage: true,
 
   params: {
     model: {

@@ -169,6 +169,7 @@ export class AgentBlockHandler implements BlockHandler {
         workflowId: context.workflowId,
         runId,
         purpose: 'workflow-agent',
+        executionId: context.executionId,
         signal,
       },
       {

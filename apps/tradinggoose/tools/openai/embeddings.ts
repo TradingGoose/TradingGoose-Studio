@@ -7,6 +7,7 @@ export const embeddingsTool: ToolConfig<OpenAIEmbeddingsParams> = {
   name: 'OpenAI Embeddings',
   description: "Generate embeddings from text using OpenAI's embedding models",
   version: '1.0',
+  settlesModelUsage: true,
 
   params: {
     input: {

@@ -24,9 +24,17 @@ const fixture = vi.hoisted(() => ({
   workflow: vi.fn(),
   transaction: vi.fn(),
   threshold: vi.fn(),
+  execution: vi.fn(),
   writes: [] as { table: unknown; where: SQL; values: Record<string, SQL> }[],
 }))
-vi.mock('@tradinggoose/db', () => ({ db: { transaction: fixture.transaction } }))
+vi.mock('@tradinggoose/db', () => ({
+  db: {
+    transaction: fixture.transaction,
+    select: () => ({
+      from: () => ({ where: (query: SQL) => ({ limit: () => fixture.execution(query) }) }),
+    }),
+  },
+}))
 vi.mock('@/lib/billing/settings', () => ({ isBillingEnabledForRuntime: fixture.enabled }))
 vi.mock('@/lib/billing/calculations/usage-monitor', () => ({
   checkServerSideUsageLimits: fixture.limits,
@@ -76,6 +84,7 @@ beforeEach(() => {
   fixture.workspace.mockResolvedValue(context())
   fixture.workflow.mockResolvedValue(context())
   fixture.threshold.mockResolvedValue(undefined)
+  fixture.execution.mockReset().mockResolvedValue([])
   fixture.transaction.mockImplementation(async (operation) =>
     operation({
       select: () => ({
@@ -170,7 +179,7 @@ it('resolves personal usage through the existing workspace billing resolver', as
   expect(parameters(fixture.writes[0].where)).toEqual(['actor'])
 })
 
-it('uses raw model USD for standalone generation and leaves workflow-owned accounting to its log', async () => {
+it('charges workflow-scoped requests without a verified settlement execution', async () => {
   await recordModelUsage({ ...scope, purpose: 'workflow-provider' }, usage, cost)
   expect(parameters(fixture.writes[0].values.currentPeriodCost)).toEqual([1.25])
   expect(fixture.writes[0].values).not.toHaveProperty('totalCopilotCost')
@@ -180,8 +189,39 @@ it('uses raw model USD for standalone generation and leaves workflow-owned accou
     usage,
     cost
   )
+  expect(fixture.writes).toHaveLength(1)
+  expect(parameters(fixture.writes[0].values.currentPeriodCost)).toEqual([1.25])
+  expect(fixture.workflow).toHaveBeenCalledOnce()
+})
+
+it('defers only to an active execution matching the workflow, workspace and authenticated actor', async () => {
+  fixture.execution.mockResolvedValue([{ id: 'active-log' }])
+  await recordModelUsage(
+    { ...scope, purpose: 'workflow-provider', workflowId: 'workflow', executionId: 'execution' },
+    usage,
+    cost
+  )
+  expect(fixture.execution).toHaveBeenCalledOnce()
+  const query = dialect.sqlToQuery(fixture.execution.mock.calls[0][0])
+  expect(query.params).toEqual(['workflow', 'workspace', 'execution', 'actor'])
+  expect(query.sql).toMatch(/"workflow_id" = \$1/)
+  expect(query.sql).toMatch(/"workspace_id" = \$2/)
+  expect(query.sql).toMatch(/"execution_id" = \$3/)
+  expect(query.sql).toMatch(/"ended_at" is null/)
+  expect(query.sql).toContain("->'environment'->>'userId' = $4")
   expect(fixture.writes).toHaveLength(0)
   expect(fixture.workflow).not.toHaveBeenCalled()
+})
+
+it('accrues model usage when no matching active execution exists', async () => {
+  await recordModelUsage(
+    { ...scope, purpose: 'workflow-provider', workflowId: 'workflow', executionId: 'execution' },
+    usage,
+    cost
+  )
+  expect(fixture.execution).toHaveBeenCalledOnce()
+  expect(parameters(fixture.writes[0].values.currentPeriodCost)).toEqual([1.25])
+  expect(parameters(fixture.writes[0].values.totalTokensUsed)).toEqual([15])
 })
 
 it.each([

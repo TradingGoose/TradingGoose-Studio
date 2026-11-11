@@ -2,6 +2,7 @@ import { Agent } from '@mastra/core/agent'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getFailureAccounting, safeInferenceError } from '@/lib/mastra/errors'
 import { normalizeNativeMediaMessages } from '@/lib/mastra/media'
@@ -9,6 +10,7 @@ import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion } from '@/lib/mastra/result'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import {
   downloadFileFromStorage,
   processSingleFileToUserFile,
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
       userId: authResult.userId,
     })
 
-    const scope: { workflowId?: string; workspaceId?: string } = {}
+    const scope: { workflowId?: string; workspaceId?: string; executionId?: string } = {}
     const query = new URL(request.url).searchParams
     for (const field of ['workflowId', 'workspaceId'] as const) {
       const values = query.getAll(field)
@@ -64,6 +66,26 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       )
     scope.workspaceId = authResult.workspaceId ?? scope.workspaceId
+    if (scope.workflowId) {
+      const owner = await authorizeWorkflowScope(authResult, scope.workflowId, 'read')
+      if (!owner.ok)
+        return NextResponse.json({ success: false, error: owner.error }, { status: owner.status })
+      if (scope.workspaceId && scope.workspaceId !== owner.workspaceId)
+        return NextResponse.json(
+          { success: false, error: 'Workspace scope differs from the workflow' },
+          { status: 403 }
+        )
+      scope.workspaceId = owner.workspaceId
+      scope.executionId = owner.executionId
+    } else if (
+      scope.workspaceId &&
+      !(await checkWorkspaceAccess(scope.workspaceId, authResult.userId)).hasAccess
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Workspace access denied' },
+        { status: 403 }
+      )
+    }
 
     const body = await request.json()
     const validatedData = VisionAnalyzeSchema.parse(body)
@@ -145,6 +167,7 @@ export async function POST(request: NextRequest) {
         actorUserId: authResult.userId,
         workspaceId: scope.workspaceId,
         workflowId: scope.workflowId,
+        executionId: scope.executionId,
         runId: requestId,
         purpose: 'vision',
         signal: request.signal,

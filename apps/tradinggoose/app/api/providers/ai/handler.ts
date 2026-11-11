@@ -24,11 +24,13 @@ export async function handleAIProviderRequest({
   body,
   requestId,
   authUserId,
+  executionId,
   signal: requestSignal,
 }: {
   body: ProviderRouteBody
   requestId: string
   authUserId?: string
+  executionId?: string
   signal?: AbortSignal
 }) {
   if (!body.model) return NextResponse.json({ error: 'Model is required' }, { status: 400 })
@@ -49,6 +51,7 @@ export async function handleAIProviderRequest({
       actorUserId: authUserId,
       workspaceId: body.workspaceId,
       workflowId: body.workflowId,
+      executionId,
       runId: requestId,
       purpose: 'workflow-provider',
       signal,

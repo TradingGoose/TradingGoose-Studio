@@ -55,6 +55,7 @@ ${metrics.map((metric: any) => `${metric.name} (${metric.range.min}-${metric.ran
           workflowId: context.workflowId,
           runId,
           purpose: 'workflow-evaluator',
+          executionId: context.executionId,
           signal: cancellation.signal,
         },
         { apiKey: inputs.apiKey, modelSettings: { temperature: inputs.temperature } }

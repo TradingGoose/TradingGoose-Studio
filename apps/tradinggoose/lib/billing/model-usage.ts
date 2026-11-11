@@ -1,4 +1,6 @@
-import { sql } from 'drizzle-orm'
+import { db } from '@tradinggoose/db'
+import { workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { checkServerSideUsageLimits } from '@/lib/billing/calculations/usage-monitor'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { getTierCopilotCostMultiplier } from '@/lib/billing/tiers'
@@ -13,6 +15,7 @@ export interface ModelUsageScope {
   actorUserId: string
   workspaceId?: string | null
   workflowId?: string | null
+  executionId?: string
   runId: string
   model: string
   purpose: string
@@ -31,15 +34,30 @@ export async function assertModelUsageAllowed(scope: ModelUsageScope) {
   scope.signal?.throwIfAborted()
 }
 
-/** Workflow logs own workflow model accounting; standalone calls use the same Studio ledger. */
+/** Active workflow logs own their model accounting; other calls accrue directly to Studio's ledger. */
 export async function recordModelUsage(
   scope: ModelUsageScope,
   usage: NativeUsage,
   cost: NativeCost
 ) {
   const copilot = ['copilot', 'title', 'wand'].includes(scope.purpose)
-  if (scope.workflowId && !copilot) return
   if (!(await isBillingEnabledForRuntime())) return
+  if (!copilot && scope.workflowId && scope.workspaceId && scope.executionId) {
+    const [execution] = await db
+      .select({ id: workflowExecutionLogs.id })
+      .from(workflowExecutionLogs)
+      .where(
+        and(
+          eq(workflowExecutionLogs.workflowId, scope.workflowId),
+          eq(workflowExecutionLogs.workspaceId, scope.workspaceId),
+          eq(workflowExecutionLogs.executionId, scope.executionId),
+          isNull(workflowExecutionLogs.endedAt),
+          sql`${workflowExecutionLogs.executionData}->'environment'->>'userId' = ${scope.actorUserId}`
+        )
+      )
+      .limit(1)
+    if (execution) return
+  }
   if (cost.total !== undefined && (!Number.isFinite(cost.total) || cost.total < 0))
     throw new Error(`Model cost is unavailable for ${scope.model}`)
   const usdCost =

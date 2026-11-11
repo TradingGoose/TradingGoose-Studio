@@ -9,6 +9,7 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
   description:
     'Process and analyze images using advanced vision models. Capable of understanding image content, extracting text, identifying objects, and providing detailed visual descriptions.',
   version: '1.0.0',
+  settlesModelUsage: true,
 
   params: {
     apiKey: {

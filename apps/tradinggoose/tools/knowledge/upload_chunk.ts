@@ -7,6 +7,7 @@ export const knowledgeUploadChunkTool: ToolConfig<any, KnowledgeUploadChunkRespo
   name: 'Knowledge Upload Chunk',
   description: 'Upload a new chunk to a document in a knowledge base',
   version: '1.0.0',
+  settlesModelUsage: true,
 
   params: {
     knowledgeBaseId: {

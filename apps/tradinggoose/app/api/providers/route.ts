@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
       const scope: Pick<AIProviderRouteBody, 'workflowId' | 'workspaceId'> = {}
+      let executionId: string | undefined
       const query = new URL(request.url).searchParams
       for (const field of ['workflowId', 'workspaceId'] as const) {
         const values = query.getAll(field)
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
             { status: 403 }
           )
         scope.workspaceId = owner.workspaceId
+        executionId = owner.executionId
       } else if (
         scope.workspaceId &&
         !(await checkWorkspaceAccess(scope.workspaceId, auth.userId)).hasAccess
@@ -81,6 +83,7 @@ export async function POST(request: NextRequest) {
         body: { ...aiBody, ...scope },
         requestId,
         authUserId: auth.userId,
+        executionId,
         signal: request.signal,
       })
     }

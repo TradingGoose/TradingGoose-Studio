@@ -29,6 +29,7 @@ export interface HallucinationValidationInput {
   model: string
   apiKey?: string
   workflowId?: string
+  executionId?: string
   userId?: string
   workspaceId?: string
   requestId: string
@@ -51,7 +52,8 @@ async function scoreHallucinationWithLLM(
   userId?: string,
   workspaceId?: string,
   externalSignal?: AbortSignal,
-  workflowId?: string
+  workflowId?: string,
+  executionId?: string
 ): Promise<{
   score: number
   reasoning: string
@@ -106,6 +108,7 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
         purpose: 'hallucination-scoring',
         signal,
         workflowId,
+        executionId,
       },
       { apiKey, modelSettings: { temperature: 0.1 } }
     )
@@ -265,7 +268,8 @@ export async function validateHallucination(
       userId,
       workspaceId,
       input.signal,
-      workflowId
+      workflowId,
+      input.executionId
     )
 
     logger.info(`[${requestId}] Confidence score: ${score}`, {

@@ -34,6 +34,7 @@ export interface EmbeddingScope {
   apiKey?: string
   workspaceId?: string | null
   workflowId?: string | null
+  executionId?: string
   signal?: AbortSignal
   /** Server-issued and persisted by a background caller; never a client request field. */
   runId?: string
@@ -94,6 +95,7 @@ export async function generateEmbeddings(
       actorUserId: scope.actorUserId,
       workspaceId: scope.workspaceId,
       workflowId: scope.workflowId,
+      executionId: scope.executionId,
       signal: scope.signal,
       runId: scope.runId ?? randomUUID(),
       purpose: 'embedding',

@@ -123,12 +123,14 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = auth.userId
     let workflowWorkspaceId: string | undefined
+    let executionId: string | undefined
     if (workflowId !== undefined) {
       if (typeof workflowId !== 'string' || !workflowId.trim())
         return NextResponse.json({ error: 'Invalid workflowId' }, { status: 400 })
       const scope = await authorizeWorkflowScope(auth, workflowId, 'read')
       if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status })
       workflowWorkspaceId = scope.workspaceId
+      executionId = scope.executionId
     }
 
     const accessCheck = await checkDocumentWriteAccess(knowledgeBaseId, documentId, userId)
@@ -189,6 +191,7 @@ export async function POST(
           actorUserId: userId,
           workspaceId: accessCheck.knowledgeBase.workspaceId,
           workflowId,
+          executionId,
           signal: req.signal,
         }
       )
