@@ -2,23 +2,6 @@
  * @vitest-environment node
  */
 
-vi.mock('@/lib/mastra/memory-locks', () => ({ lockMemoryOwners: vi.fn(async () => {}) }))
-vi.mock('@/lib/mastra/workflow-memory', () => ({
-  cleanupOrphanWorkflowMemory: vi.fn(async () => {
-    drainHarness.events.push('memory-cleanup')
-    return 0
-  }),
-}))
-vi.mock('@/lib/workflow-archive/lifecycle', () => ({
-  prepareWorkspaceArchiveDeletion: vi.fn(async () => {
-    drainHarness.events.push('archive-prepare')
-  }),
-  assertWorkspaceArchiveDeletionInTx: (...args: unknown[]) => drainHarness.archiveGuard(...args),
-  ArchiveBusyError: class ArchiveBusyError extends Error {
-    readonly status = 409
-  },
-}))
-
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
@@ -27,7 +10,7 @@ const {
   mockGetSession,
   mockGetUserEntityPermissions,
   mockGetWorkspaceById,
-  mockUpdateWorkspaceFinancialBinding,
+  mockResolveWorkspaceBillingOwnerUpdate,
   mockToWorkspaceApiRecord,
   mockUpdateWhere,
   mockLogger,
@@ -35,7 +18,7 @@ const {
   mockGetSession: vi.fn(),
   mockGetUserEntityPermissions: vi.fn(),
   mockGetWorkspaceById: vi.fn(),
-  mockUpdateWorkspaceFinancialBinding: vi.fn(),
+  mockResolveWorkspaceBillingOwnerUpdate: vi.fn(),
   mockToWorkspaceApiRecord: vi.fn((workspace) => workspace),
   mockUpdateWhere: vi.fn(),
   mockLogger: {
@@ -47,7 +30,7 @@ const {
 }))
 const drainHarness = vi.hoisted(() => ({
   events: [] as string[],
-  archiveGuard: vi.fn(),
+  active: false,
   delete: vi.fn(),
   fenced: vi.fn(),
   lockList: vi.fn(),
@@ -64,6 +47,12 @@ vi.mock('@tradinggoose/db', () => ({
   },
   knowledgeBase: {},
   permissions: {},
+  workflowExecutionLogs: {
+    id: 'logs.id',
+    workspaceId: 'logs.workspaceId',
+    executionId: 'logs.executionId',
+    endedAt: 'logs.endedAt',
+  },
   workflow: {
     id: 'workflow.id',
     workspaceId: 'workflow.workspaceId',
@@ -72,6 +61,9 @@ vi.mock('@tradinggoose/db', () => ({
     id: 'workspace.id',
   },
 }))
+
+vi.mock('@/lib/mastra/agent-history', () => ({ deleteAgentHistory: vi.fn() }))
+vi.mock('@/lib/mastra/workflow-memory', () => ({ deleteWorkflowMemories: vi.fn(async () => {}) }))
 
 vi.mock('drizzle-orm', async () => {
   const actual = await vi.importActual<typeof import('drizzle-orm')>('drizzle-orm')
@@ -112,8 +104,8 @@ vi.mock('@/lib/workspaces/billing-owner', () => {
         organizationId: z.string().trim().min(1),
       }),
     ]),
-    updateWorkspaceFinancialBinding: (...args: unknown[]) =>
-      mockUpdateWorkspaceFinancialBinding(...args),
+    resolveWorkspaceBillingOwnerUpdate: (...args: unknown[]) =>
+      mockResolveWorkspaceBillingOwnerUpdate(...args),
     toWorkspaceApiRecord: (workspace: unknown) => mockToWorkspaceApiRecord(workspace),
   }
 })
@@ -146,22 +138,23 @@ describe('Workspace by id PATCH route', () => {
     })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
     mockGetWorkspaceById.mockResolvedValue({ id: 'workspace-1', ownerId: 'user-1' })
-    mockUpdateWorkspaceFinancialBinding.mockReset()
+    mockResolveWorkspaceBillingOwnerUpdate.mockReset()
     mockUpdateWhere.mockReset()
     mockUpdateSet.mockClear()
     drainHarness.events.length = 0
-    drainHarness.archiveGuard.mockReset()
-    drainHarness.archiveGuard.mockImplementation(async () => {
-      drainHarness.events.push('archive-guard')
-    })
+    drainHarness.active = false
     drainHarness.delete.mockReturnValue({ where: vi.fn() })
     drainHarness.lockList.mockResolvedValue(undefined)
     drainHarness.fenced.mockImplementation(async (_target, mutate) => {
       drainHarness.events.push('fence-begin')
-      const result = await mutate({
-        delete: drainHarness.delete,
-        select: () => ({ from: () => ({ where: async () => [{ id: 'workflow-1' }] }) }),
-      })
+      const query = {
+        from: () => query,
+        where: () => query,
+        for: async () => [],
+        limit: async () => (drainHarness.active ? [{ id: 'active' }] : []),
+        then: (resolve: (rows: unknown[]) => unknown) => Promise.resolve([]).then(resolve),
+      }
+      const result = await mutate({ delete: drainHarness.delete, select: () => query })
       drainHarness.events.push('fence-commit')
       return result
     })
@@ -175,36 +168,19 @@ describe('Workspace by id PATCH route', () => {
 
     expect(response.status).toBe(200)
     expect(drainHarness.fenced.mock.calls[0]?.[0]).toEqual({ workspaceIds: ['workspace-1'] })
-    expect(drainHarness.events).toEqual([
-      'archive-prepare',
-      'fence-begin',
-      'archive-guard',
-      'fence-commit',
-      'memory-cleanup',
-    ])
+    expect(drainHarness.events).toEqual(['fence-begin', 'fence-commit'])
     expect(drainHarness.lockList).toHaveBeenCalledTimes(2)
     expect(drainHarness.delete).toHaveBeenCalledTimes(4)
   })
 
-  it('refuses the actual cascade before any list lock or delete when the archive guard defers', async () => {
-    const { ArchiveBusyError } = await import('@/lib/workflow-archive/lifecycle')
-    drainHarness.archiveGuard.mockRejectedValueOnce(
-      new ArchiveBusyError('Retained workflow payloads require verified quiescence')
-    )
+  it('keeps a workspace with active workflow executions and its native history intact', async () => {
+    drainHarness.active = true
     const { DELETE } = await import('./route')
     const response = await DELETE(new NextRequest('http://localhost/api/workspaces/workspace-1'), {
       params: Promise.resolve({ id: 'workspace-1' }),
     })
     expect(response.status).toBe(409)
-    expect(await response.json()).toEqual({
-      error: 'Retained workflow payloads require verified quiescence',
-    })
-    expect(drainHarness.events).toEqual(['archive-prepare', 'fence-begin'])
-    expect(drainHarness.archiveGuard).toHaveBeenCalledWith(expect.any(Object), 'workspace-1')
-    expect(drainHarness.lockList).not.toHaveBeenCalled()
     expect(drainHarness.delete).not.toHaveBeenCalled()
-    const { cleanupOrphanWorkflowMemory } = await import('@/lib/mastra/workflow-memory')
-    expect(cleanupOrphanWorkflowMemory).not.toHaveBeenCalled()
   })
 
   it('returns 500 when the workspace update fails unexpectedly', async () => {
@@ -212,7 +188,7 @@ describe('Workspace by id PATCH route', () => {
       id: 'workspace-1',
       ownerId: 'owner-1',
     })
-    mockUpdateWorkspaceFinancialBinding.mockRejectedValue(new Error('database offline'))
+    mockUpdateWhere.mockRejectedValue(new Error('database offline'))
 
     const { PATCH } = await import('./route')
     const response = await PATCH(
@@ -234,7 +210,7 @@ describe('Workspace by id PATCH route', () => {
       id: 'workspace-1',
       ownerId: 'owner-1',
     })
-    mockUpdateWorkspaceFinancialBinding.mockRejectedValue(
+    mockResolveWorkspaceBillingOwnerUpdate.mockRejectedValue(
       new WorkspaceBillingOwnerUpdateError('Workspace billing owner user must have admin access')
     )
 

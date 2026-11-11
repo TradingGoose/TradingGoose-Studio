@@ -141,12 +141,11 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
   const subscription = getSubscriptionStatus(billingPayload)
   const usage = getUsage(billingPayload)
   const billingStatus = getBillingStatus(billingPayload)
-  const percentUsed =
-    usage.percentUsed === undefined
-      ? undefined
-      : Math.max(0, Math.min(Math.round(usage.percentUsed), 100))
+  const percentUsed = Math.max(0, Math.min(Math.round(usage.percentUsed ?? 0), 100))
   const normalizedBillingStatus: 'ok' | 'warning' | 'exceeded' | 'blocked' =
     billingStatus === 'unknown' ? 'ok' : billingStatus
+  const safeCurrentUsage = Number.isFinite(usage.current) ? Number(usage.current) : 0
+  const safeUsageLimit = Number.isFinite(usage.limit) ? Number(usage.limit) : 0
   const seatsText = subscription.seats ? `${subscription.seats} seats` : undefined
   const usageTitle = subscription.tier.displayName
   const shouldShowUsageHeader =
@@ -195,8 +194,8 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
           gradientTitle={!subscription.isFree}
           showBadge={false}
           seatsText={seatsText}
-          current={usage.current}
-          limit={usage.limit}
+          current={safeCurrentUsage}
+          limit={safeUsageLimit}
           isBlocked={normalizedBillingStatus === 'blocked'}
           onResolvePayment={
             normalizedBillingStatus === 'blocked' ? handleResolvePayment : undefined

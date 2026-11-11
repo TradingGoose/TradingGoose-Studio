@@ -1,15 +1,11 @@
-import {
-  assertNativeCommandResponse,
-  assertNativeCorrelation,
-  type CopilotResponse,
-  type HistoryMessage,
-  NativeCommandResponseError,
-  type Page,
-  type Pending,
-  parseNativeContract,
-  type Thread,
+import type {
+  CopilotRequest,
+  CopilotResponse,
+  HistoryMessage,
+  Page,
+  Pending,
+  Thread,
 } from '@/lib/copilot/native/contract'
-import type { StudioNativeCommand } from '@/lib/copilot/native/studio-request'
 
 export class NativeCommandError extends Error {
   constructor(readonly nativeOutcome: CopilotResponse) {
@@ -18,7 +14,7 @@ export class NativeCommandError extends Error {
 }
 
 /** Browser transport contains no service credential or upstream URL override. */
-export function postNativeCommand(command: StudioNativeCommand, signal?: AbortSignal) {
+export function postNativeCommand(command: CopilotRequest, signal?: AbortSignal) {
   signal?.throwIfAborted()
   return fetch('/api/copilot/native', {
     method: 'POST',
@@ -29,29 +25,21 @@ export function postNativeCommand(command: StudioNativeCommand, signal?: AbortSi
   })
 }
 
-export async function readNativeCommandResponse(command: StudioNativeCommand, response: Response) {
-  const result = await parseNativeContract('CopilotResponse', await response.json())
-  assertNativeCorrelation(result, command.requestId)
-  try {
-    assertNativeCommandResponse(command.command, result)
-  } catch (error) {
-    if (error instanceof NativeCommandResponseError)
-      throw new NativeCommandError(error.nativeOutcome)
-    throw error
-  }
+export async function readNativeCommandResponse(response: Response) {
+  const result: CopilotResponse = await response.json()
   if (!response.ok || result.status === 'failed' || result.status === 'refused')
     throw new NativeCommandError(result)
   return result
 }
 
-export async function readNativeCommand(command: StudioNativeCommand, signal?: AbortSignal) {
-  const result = await readNativeCommandResponse(command, await postNativeCommand(command, signal))
+export async function readNativeCommand(command: CopilotRequest, signal?: AbortSignal) {
+  const result = await readNativeCommandResponse(await postNativeCommand(command, signal))
   signal?.throwIfAborted()
   return result
 }
 
 async function completePages<T>(
-  command: (page: Page) => StudioNativeCommand,
+  command: (page: Page) => CopilotRequest,
   project: (result: CopilotResponse) => { items: T[]; page: Page; hasMore: boolean },
   identity: (item: T) => string,
   signal?: AbortSignal
@@ -67,7 +55,7 @@ async function completePages<T>(
 
 export function listNativeThreads(workspaceId: string | null, signal?: AbortSignal) {
   return completePages<Thread>(
-    (page) => ({ command: 'threads.list', requestId: crypto.randomUUID(), workspaceId, page }),
+    (page) => ({ command: 'threads.list', workspaceId, page }),
     (result) => {
       if (result.status !== 'threads') throw new Error('Native threads unavailable')
       return result
@@ -84,7 +72,6 @@ export function listNativeHistory(
   return completePages<HistoryMessage>(
     (page) => ({
       command: 'history.read',
-      requestId: crypto.randomUUID(),
       workspaceId,
       threadId,
       page,
@@ -105,7 +92,6 @@ export function listNativePending(
   return completePages<Pending>(
     (page) => ({
       command: 'pending.list',
-      requestId: crypto.randomUUID(),
       workspaceId,
       threadId,
       page,

@@ -1,4 +1,3 @@
-import type { MastraDBMessage, MastraMessagePart } from '@mastra/core/agent/message-list'
 import { deepRedactSecrets } from '@/lib/security/redaction'
 import { getInferenceFacts, withInferenceFacts } from './result'
 
@@ -32,18 +31,11 @@ export function safeInferenceError(error: unknown, apiKey?: string): string {
   return deepRedactSecrets(message) as string
 }
 
-/** Native error parts are diagnostics, never functional model/tool content. */
-export function projectNativeMessagePart(part: MastraMessagePart): MastraMessagePart {
-  if (part.type !== 'error') return part
-  return {
-    type: 'error',
-    error: { name: 'Error', message: safeInferenceError(undefined) },
+export class WorkflowMemoryError extends Error {
+  constructor(
+    message: string,
+    readonly status = 409
+  ) {
+    super(message)
   }
-}
-
-export function projectNativeMessages(messages: MastraDBMessage[]): MastraDBMessage[] {
-  return messages.map((message) => ({
-    ...message,
-    content: { ...message.content, parts: message.content.parts.map(projectNativeMessagePart) },
-  }))
 }

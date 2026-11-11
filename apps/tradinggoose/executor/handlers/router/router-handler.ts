@@ -2,12 +2,12 @@ import { Agent } from '@mastra/core/agent'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { financialProcessors } from '@/lib/mastra/financial-processors'
-import { NATIVE_AGENT_POLICY, trustedModelSettings, trustedPrepareStep } from '@/lib/mastra/options'
+import { NATIVE_AGENT_POLICY, trustedModelSettings } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { assertNativeCompletion, withInferenceFacts } from '@/lib/mastra/result'
 import { getMastra } from '@/lib/mastra/runtime'
 import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
+import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { generateRouterPrompt } from '@/blocks/blocks/router'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
@@ -44,13 +44,13 @@ export class RouterBlockHandler implements BlockHandler {
     }> = []
     let returnedUsage: Parameters<typeof resultAccounting>[0]
     let accounting: Awaited<ReturnType<typeof resultAccounting>> | undefined
-    let finance: Awaited<ReturnType<typeof financialProcessors>> | undefined
+    let finance: Awaited<ReturnType<typeof usageProcessors>> | undefined
     const capture = () =>
       resultAccounting(selectNativeUsage(returnedUsage, finance?.getUsage(), sumNativeUsage(steps)))
     const cancellation = watchExecutionCancellation(context.shouldCancelExecution)
     try {
       await cancellation.check()
-      finance = await financialProcessors({
+      finance = await usageProcessors({
         actorUserId: context.userId,
         workspaceId: context.workspaceId,
         workflowId: context.workflowId,
@@ -76,7 +76,6 @@ export class RouterBlockHandler implements BlockHandler {
         },
         modelSettings: trustedModelSettings({ temperature: inputs.temperature }),
         maxProcessorRetries: 0,
-        prepareStep: trustedPrepareStep(admittedModel),
         abortSignal: cancellation.signal,
         tracingOptions: {
           metadata: { userId: context.userId, resourceId: context.workspaceId, runId },

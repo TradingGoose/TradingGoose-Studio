@@ -13,16 +13,8 @@ import { devtools } from 'zustand/middleware'
 import { createWithEqualityFn as create, useStoreWithEqualityFn } from 'zustand/traditional'
 import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
-import {
-  assertNativeCommandResponse,
-  type CopilotResponse,
-  NativeCommandResponseError,
-  type Pending,
-  parseNativeContract,
-} from '@/lib/copilot/native/contract'
+import type { CopilotEvent, CopilotRequest, Pending } from '@/lib/copilot/native/contract'
 import { readNativeEvents } from '@/lib/copilot/native/stream'
-import type { StudioNativeCommand } from '@/lib/copilot/native/studio-request'
-import type { StudioNativeTitleRequest } from '@/lib/copilot/native/studio-title'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { collectCopilotToolContexts } from '@/lib/copilot/tool-context'
@@ -57,7 +49,6 @@ import {
 import { buildTurnProvenanceFromContexts } from './store-provenance'
 import {
   applyNativeEvent,
-  applyNativeResponse,
   displayNativePending,
   replaceNativeText,
   settleDisplayOnlyTools,
@@ -111,9 +102,7 @@ const initialState = {
   abortController: null as AbortController | null,
   planTodos: [] as CopilotStore['planTodos'],
   toolCallsById: {} as CopilotStore['toolCallsById'],
-  contextEvidence: null,
   lastNativeOutcome: null,
-  lastTitleOutcome: null,
   error: null,
   historyRefreshError: null,
   isRefreshingHistory: false,
@@ -121,7 +110,6 @@ const initialState = {
 
 function createCopilotStoreInstance(channelId: string) {
   let epoch = 0
-  let contextGeneration = 0
   let threadsGeneration = 0
   let interactionGeneration = 0
   let titleEditGeneration = 0
@@ -130,7 +118,6 @@ function createCopilotStoreInstance(channelId: string) {
     interaction: number
     workspaceId: string | null
     model: CopilotStore['selectedModel']
-    requestId: string
     originalInput: string
     titleEdit: number
     threadId?: string
@@ -149,16 +136,9 @@ function createCopilotStoreInstance(channelId: string) {
   } | null = null
   const store = create<CopilotStore>()(
     devtools((set, get) => {
-      const clearContext = () => {
-        contextGeneration++
-        set({ contextEvidence: null })
-      }
       const fail = (error: unknown) => {
         const message = error instanceof Error ? error.message : 'Native Copilot request failed'
-        const outcome =
-          error instanceof NativeCommandError || error instanceof NativeCommandResponseError
-            ? error.nativeOutcome
-            : undefined
+        const outcome = error instanceof NativeCommandError ? error.nativeOutcome : undefined
         set({ error: message, ...(outcome ? { lastNativeOutcome: outcome } : {}) })
         return message
       }
@@ -199,7 +179,6 @@ function createCopilotStoreInstance(channelId: string) {
           (candidate.threadId !== undefined && candidate.threadId !== chat.threadId) ||
           !outcome ||
           !['completed', 'suspended'].includes(outcome.status) ||
-          outcome.requestId !== candidate.requestId ||
           !('threadId' in outcome) ||
           outcome.threadId !== chat.threadId
         )
@@ -216,7 +195,7 @@ function createCopilotStoreInstance(channelId: string) {
           get().selectedModel === candidate.model &&
           get().currentChat?.title === '' &&
           candidate.titleEdit === titleEditGeneration
-        const request: StudioNativeTitleRequest = {
+        const request = {
           workspaceId: chat.workspaceId,
           threadId: chat.threadId,
           model: candidate.model,
@@ -240,31 +219,10 @@ function createCopilotStoreInstance(channelId: string) {
               !(body.title === null || typeof body.title === 'string')
             )
               throw new Error('Native initial title response is invalid')
-            let outcome: CopilotStore['lastTitleOutcome'] = null
-            if ('outcome' in body && body.outcome !== undefined) {
-              const value = body.outcome
-              outcome =
-                value &&
-                typeof value === 'object' &&
-                'status' in value &&
-                value.status === 'completed'
-                  ? await parseNativeContract('CompletionResponse', value)
-                  : await parseNativeContract('CompletionFailureResponse', value)
-              if (candidate.epoch === epoch && get().currentChat?.threadId === chat.threadId)
-                set({ lastTitleOutcome: outcome })
-            }
-            if (!response.ok || body.title === null || !current()) return
-            if (
-              !outcome ||
-              outcome.status !== 'completed' ||
-              body.title !== outcome.text.trim() ||
-              !body.title
-            )
-              throw new Error('Initial title has no successful native completion')
+            if (!response.ok || typeof body.title !== 'string' || !body.title || !current()) return
             const updated = await readNativeCommand(
               {
                 command: 'thread.title',
-                requestId: crypto.randomUUID(),
                 workspaceId: chat.workspaceId,
                 threadId: chat.threadId,
                 title: body.title,
@@ -342,7 +300,6 @@ function createCopilotStoreInstance(channelId: string) {
           planTodos: buildPlanTodosFromMessages(projected.messages),
           isAwaitingContinuation: pending.length > 0,
         })
-        await get().fetchContextUsage()
       }
       const scheduleBrowserTools = () => {
         const id = epoch
@@ -364,42 +321,7 @@ function createCopilotStoreInstance(channelId: string) {
           })
         }
       }
-      const applyResponse = (
-        result: CopilotResponse,
-        messageId: string,
-        provenance?: CopilotToolExecutionProvenance
-      ) => {
-        if (result.status === 'completed' || result.status === 'suspended') {
-          set((state) => applyNativeResponse(state, result, messageId))
-          if (result.status === 'suspended')
-            for (const pending of result.pending) {
-              verifyPending(pending)
-              set((state) => displayNativePending(state, pending, provenance))
-            }
-        } else if (result.status === 'failed' || result.status === 'refused') {
-          set((state) => settleDisplayOnlyTools(state, messageId, ClientToolCallState.error))
-          set({
-            lastNativeOutcome: result,
-            error: result.error.message,
-            isSendingMessage: false,
-            isAwaitingContinuation: false,
-          })
-          throw new NativeCommandError(result)
-        } else if (result.status === 'cancel_requested') {
-          set((state) => settleDisplayOnlyTools(state, messageId))
-          set({
-            lastNativeOutcome: result,
-            isAborting: false,
-            isSendingMessage: false,
-            isAwaitingContinuation: false,
-          })
-        } else if (result.status === 'compacted') {
-          if (get().currentChat?.threadId !== result.threadId)
-            throw new Error('Native compacted thread differs')
-          set({ lastNativeOutcome: result })
-        } else throw new Error('Unexpected native invocation outcome')
-      }
-      const invoke = async (command: StudioNativeCommand, messageId = assistantForCommand()) => {
+      const invoke = async (command: CopilotRequest, messageId = assistantForCommand()) => {
         const id = epoch
         const interaction = interactionGeneration
         const provenance = turnProvenance
@@ -416,21 +338,20 @@ function createCopilotStoreInstance(channelId: string) {
         try {
           const response = await postNativeCommand(command, abort.signal)
           if (!current()) return false
+          if (!response.ok) await readNativeCommandResponse(response)
           if (
-            response.ok &&
-            response.headers.get('content-type')?.includes('text/event-stream') &&
-            response.body
-          ) {
+            !response.headers.get('content-type')?.includes('text/event-stream') ||
+            !response.body
+          )
+            throw new Error('Copilot stream is unavailable')
+          {
             let terminal = false
-            for await (const event of readNativeEvents(response.body, 'CopilotEvent', {
-              requestId: command.requestId,
+            for await (const event of readNativeEvents<CopilotEvent>(response.body, {
               signal: abort.signal,
             })) {
               if (!current() || abort.signal.aborted) return false
               if (terminal)
                 throw new Error('Native Copilot emitted data after its terminal outcome')
-              if ('result' in event && event.type !== 'tool.result')
-                assertNativeCommandResponse(command.command, event.result)
               set((state) => applyNativeEvent(state, event, messageId, provenance))
               if (
                 event.type === 'tool.result' &&
@@ -446,17 +367,12 @@ function createCopilotStoreInstance(channelId: string) {
                   'response.refused',
                   'response.error',
                   'response.cancel_requested',
-                  'context.compacted',
                 ].includes(event.type)
               ) {
                 terminal = true
               }
             }
             if (!terminal) throw new Error('Native Copilot ended without a terminal outcome')
-          } else {
-            const result = await readNativeCommandResponse(command, response)
-            if (!current()) return false
-            applyResponse(result, messageId, provenance)
           }
           if (
             get().lastNativeOutcome?.status === 'failed' ||
@@ -490,10 +406,6 @@ function createCopilotStoreInstance(channelId: string) {
           }
           if (!current()) return true
           if (get().isAwaitingContinuation) scheduleBrowserTools()
-          else
-            void get()
-              .fetchContextUsage()
-              .catch(() => {})
           return true
         } catch (error) {
           if (current() && !abort.signal.aborted) {
@@ -516,15 +428,12 @@ function createCopilotStoreInstance(channelId: string) {
         }
       }
       const requestForPending = (pending: Pending) => ({
-        requestId: crypto.randomUUID(),
         workspaceId: get().currentChat!.workspaceId,
         target: pending.target,
-        stream: true,
       })
       type ToolIntent = {
         kind: 'initial' | 'automatic' | 'accept' | 'reject' | 'decline'
         pending: Pending
-        reviewToken?: string
       }
       const sameOrigin = (left: Pending | undefined, right: Pending) =>
         !!left &&
@@ -630,8 +539,7 @@ function createCopilotStoreInstance(channelId: string) {
             if (
               decision &&
               (call.state !== ClientToolCallState.review ||
-                !isCopilotServerToolReviewResult(call.result) ||
-                call.result.reviewToken !== intent.reviewToken)
+                !isCopilotServerToolReviewResult(call.result))
             )
               throw new Error('The selected business preview changed')
             if (!decision && isCopilotServerToolReviewResult(call.result)) return
@@ -644,14 +552,13 @@ function createCopilotStoreInstance(channelId: string) {
                   : intent.kind === 'accept'
                     ? 'review.accept'
                     : 'execute',
-              ...(intent.reviewToken ? { reviewToken: intent.reviewToken } : {}),
               accessLevel: call.historyOrigin ? 'limited' : get().accessLevel,
               context: businessContext(call.provenance),
             })
             if (!success) throw new Error('Copilot tool execution did not complete')
           } else {
             if (intent.kind === 'accept' || intent.kind === 'reject')
-              throw new Error('This tool does not have a signed server preview decision')
+              throw new Error('This tool does not have a server preview decision')
             const instance = ensureClientToolInstance(call.name, id)
             if (!instance) throw new Error('Native browser tool is unavailable')
             bindClientToolExecutionContext(
@@ -830,39 +737,7 @@ function createCopilotStoreInstance(channelId: string) {
               'Native model selection changed'
             )
           titleAbort?.abort()
-          clearContext()
           set({ selectedModel })
-          await get().fetchContextUsage()
-        },
-        fetchContextUsage: async () => {
-          clearContext()
-          const state = get()
-          const chat = state.currentChat
-          const model = state.selectedModel
-          const generation = contextGeneration
-          const interaction = interactionGeneration
-          if (!chat) return
-          try {
-            const result = await readNativeCommand({
-              command: 'context.read',
-              requestId: crypto.randomUUID(),
-              workspaceId: chat.workspaceId,
-              threadId: chat.threadId,
-            })
-            if (
-              generation !== contextGeneration ||
-              interaction !== interactionGeneration ||
-              get().selectedModel !== model ||
-              get().currentChat?.threadId !== chat.threadId ||
-              get().currentChat?.workspaceId !== chat.workspaceId
-            )
-              return
-            if (result.status !== 'context' || result.threadId !== chat.threadId)
-              throw new Error('Native context scope differs')
-            set({ contextEvidence: result })
-          } catch {
-            if (generation === contextGeneration) set({ contextEvidence: null })
-          }
         },
         loadChats: async (options) => {
           const workspaceId =
@@ -917,7 +792,6 @@ function createCopilotStoreInstance(channelId: string) {
           get().abortMessage()
           const id = ++epoch
           const interaction = interactionGeneration
-          clearContext()
           set({
             currentChat: chat,
             conversationWorkspaceId: chat.workspaceId,
@@ -941,7 +815,6 @@ function createCopilotStoreInstance(channelId: string) {
         createNewChat: async (workspaceId) => {
           get().abortMessage()
           ++epoch
-          clearContext()
           const scope = workspaceId === undefined ? get().conversationWorkspaceId : workspaceId
           rememberCopilotWorkspaceSelection(scope, null)
           set({
@@ -963,7 +836,6 @@ function createCopilotStoreInstance(channelId: string) {
           if (!chat) throw new Error('Native thread ownership is unavailable')
           const result = await readNativeCommand({
             command: 'thread.delete',
-            requestId: crypto.randomUUID(),
             workspaceId: chat.workspaceId,
             threadId,
           })
@@ -978,7 +850,7 @@ function createCopilotStoreInstance(channelId: string) {
         },
         sendMessage: async (message, options = {}) => {
           if (
-            (!message.trim() && !options.fileAttachments?.length) ||
+            (!message.trim() && !options.images?.length) ||
             get().isSendingMessage ||
             get().isAwaitingContinuation
           )
@@ -989,7 +861,6 @@ function createCopilotStoreInstance(channelId: string) {
           const interaction = ++interactionGeneration
           const model = get().selectedModel
           const titleEdit = titleEditGeneration
-          const requestId = crypto.randomUUID()
           const preflight = new AbortController()
           titleAbort?.abort()
           titleCandidate = null
@@ -1008,7 +879,7 @@ function createCopilotStoreInstance(channelId: string) {
           turnProvenance =
             buildTurnProvenanceFromContexts(contexts, options.runtimeContext?.workspaceId) ?? {}
           try {
-            const parsed = await parseNativeContract('Input', { content: message, contexts })
+            const parsed = { content: message, contexts }
             if (!selected()) return false
             let initial = !chat
             if (chat?.title === '' && message.trim()) {
@@ -1028,45 +899,32 @@ function createCopilotStoreInstance(channelId: string) {
                     interaction,
                     workspaceId,
                     model,
-                    requestId,
                     originalInput: message,
                     titleEdit,
                     ...(chat ? { threadId: chat.threadId } : {}),
                   }
                 : null
-            const user = createUserMessage(message, options.fileAttachments, contexts)
+            const user = createUserMessage(message, options.images, contexts)
             const assistant = createStreamingMessage()
-            clearContext()
             set((state) => ({
               messages: [...state.messages, user, assistant],
               currentRunId: null,
               lastNativeOutcome: null,
-              lastTitleOutcome: null,
             }))
             const success = await invoke(
               {
                 command: 'message',
                 toolContext: businessContext(turnProvenance),
                 toolContexts: collectCopilotToolContexts(contexts),
-                requestId,
                 workspaceId,
                 ...(chat ? { threadId: chat.threadId } : {}),
                 model,
-                input: { ...parsed, content: message },
-                ...(options.fileAttachments?.length
-                  ? {
-                      fileAttachments: options.fileAttachments.map(
-                        ({ key, sourceProof, filename, media_type, size }) => ({
-                          key,
-                          sourceProof,
-                          filename,
-                          media_type,
-                          size,
-                        })
-                      ),
-                    }
-                  : {}),
-                stream: true,
+                input: {
+                  ...parsed,
+                  content: options.images?.length
+                    ? [{ type: 'text', text: message }, ...options.images]
+                    : message,
+                },
                 accessLevel: get().accessLevel,
               },
               assistant.id
@@ -1095,7 +953,6 @@ function createCopilotStoreInstance(channelId: string) {
           titleCandidate = null
           current.abortController?.abort()
           for (const id of Object.keys(current.toolCallsById)) unregisterClientTool(id)
-          clearContext()
           set({
             ...settleDisplayOnlyTools(current),
             abortController: null,
@@ -1107,7 +964,6 @@ function createCopilotStoreInstance(channelId: string) {
           if (current.currentChat && current.currentRunId)
             void readNativeCommand({
               command: 'cancel',
-              requestId: crypto.randomUUID(),
               workspaceId: current.currentChat.workspaceId,
               threadId: current.currentChat.threadId,
               runId: current.currentRunId,
@@ -1132,38 +988,11 @@ function createCopilotStoreInstance(channelId: string) {
           ++epoch
           titleAbort?.abort()
           titleCandidate = null
-          contextGeneration++
           threadsGeneration++
           get().abortController?.abort()
           inFlightTools.clear()
           attemptedTools.clear()
           set({ ...initialState, draft: emptyDraft() })
-        },
-        compactCurrentContext: async () => {
-          const chat = get().currentChat
-          if (!chat) return
-          clearContext()
-          const id = epoch
-          const interaction = interactionGeneration
-          const model = get().selectedModel
-          const current = () => ownsChat(chat, id, interaction) && get().selectedModel === model
-          const result = await readNativeCommand({
-            command: 'context.compact',
-            requestId: crypto.randomUUID(),
-            workspaceId: chat.workspaceId,
-            threadId: chat.threadId,
-            model,
-            stream: false,
-          }).catch((error) => {
-            if (current()) throw error
-          })
-          if (!current() || !result) return
-          if (result.status !== 'compacted' || result.threadId !== chat.threadId)
-            throw new Error('Native compaction was not verified')
-          set({ lastNativeOutcome: result })
-          // Pruning changes only the prompt projection, never canonical history. Refreshing
-          // token evidence must not reselect the chat or abort a newer model invocation.
-          await get().fetchContextUsage()
         },
         editMessage: async (messageId, text) => {
           const dialog = get().workflowChatDeployment
@@ -1179,7 +1008,6 @@ function createCopilotStoreInstance(channelId: string) {
           const current = () => ownsChat(chat, id, interaction)
           const result = await readNativeCommand({
             command: 'history.edit',
-            requestId: crypto.randomUUID(),
             workspaceId: chat.workspaceId,
             threadId: chat.threadId,
             messageId,
@@ -1321,7 +1149,6 @@ function createCopilotStoreInstance(channelId: string) {
           await performToolAction(id, {
             kind: review ? 'accept' : 'initial',
             pending: structuredClone(call.pending),
-            ...(review ? { reviewToken: call.result.reviewToken } : {}),
           })
         },
         skipCopilotToolCall: async (id) => {
@@ -1343,7 +1170,6 @@ function createCopilotStoreInstance(channelId: string) {
           await performToolAction(id, {
             kind: 'reject',
             pending: structuredClone(call.pending),
-            reviewToken: call.result.reviewToken,
           })
         },
       }
@@ -1430,7 +1256,6 @@ export function CopilotStoreProvider({
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
   useLayoutEffect(() => {
     activateAuthenticatedCopilotUser(identity.authenticatedUserId)
-    store.setState({ contextEvidence: null })
   }, [identity.authenticatedUserId, store])
   return createElement(CopilotStoreContext.Provider, { value: store }, children)
 }

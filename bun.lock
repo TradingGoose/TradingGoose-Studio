@@ -102,7 +102,6 @@
         "@opentelemetry/sdk-trace-node": "2.0.0",
         "@react-email/components": "^1.0.2",
         "@react-email/render": "2.0.4",
-        "@tradinggoose/billing": "workspace:*",
         "@trigger.dev/sdk": "4.5.12",
         "@types/three": "0.177.0",
         "@vercel/blob": "2.3.3",
@@ -149,7 +148,6 @@
         "node-fetch": "3.3.2",
         "officeparser": "^5.2.0",
         "papaparse": "5.5.3",
-        "pg": "8.23.1",
         "pinets": "^0.8.8",
         "posthog-js": "1.268.9",
         "posthog-node": "5.9.2",
@@ -192,7 +190,6 @@
         "@types/lodash": "^4.17.16",
         "@types/node": "24.2.1",
         "@types/papaparse": "5.3.16",
-        "@types/pg": "^8.20.0",
         "@types/prismjs": "^1.26.5",
         "@types/react": "^19",
         "@types/react-dom": "^19",
@@ -210,22 +207,6 @@
         "vite": "6.4.3",
         "vite-tsconfig-paths": "^5.1.4",
         "vitest": "4.1.8",
-      },
-    },
-    "packages/billing": {
-      "name": "@tradinggoose/billing",
-      "version": "0.2.0-dev.9",
-      "dependencies": {
-        "@tradinggoose/db": "workspace:*",
-        "bignumber.js": "9.3.1",
-      },
-      "devDependencies": {
-        "@types/node": "24.2.1",
-        "typescript": "^5.7.3",
-      },
-      "peerDependencies": {
-        "drizzle-orm": "0.44.7",
-        "postgres": "4.1.0",
       },
     },
     "packages/cli": {
@@ -1342,8 +1323,6 @@
     "@tokenizer/token": ["@tokenizer/token@0.3.0", "", {}, "sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A=="],
 
     "@tradinggoose/app": ["@tradinggoose/app@workspace:apps/tradinggoose"],
-
-    "@tradinggoose/billing": ["@tradinggoose/billing@workspace:packages/billing"],
 
     "@tradinggoose/db": ["@tradinggoose/db@workspace:packages/db"],
 

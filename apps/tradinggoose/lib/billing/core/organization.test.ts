@@ -15,9 +15,6 @@ const {
   mockGetSubscriptionUsageAllowanceUsd,
   mockGetTierUsageAllowanceUsd,
   mockToBillingTierSummary,
-  mockLockFinancialRoots,
-  mockReadFinancialMemberTarget,
-  mockAssertFinancialMemberTargets,
 } = vi.hoisted(() => ({
   mockAnd: vi.fn(),
   mockCanTierEditUsageLimit: vi.fn(),
@@ -25,7 +22,6 @@ const {
     insert: vi.fn(),
     select: vi.fn(),
     update: vi.fn(),
-    transaction: vi.fn(),
   },
   mockEq: vi.fn(),
   mockGetBillingTierPricing: vi.fn(),
@@ -34,23 +30,13 @@ const {
   mockGetSubscriptionUsageAllowanceUsd: vi.fn(),
   mockGetTierUsageAllowanceUsd: vi.fn(),
   mockToBillingTierSummary: vi.fn(),
-  mockLockFinancialRoots: vi.fn(),
-  mockReadFinancialMemberTarget: vi.fn(),
-  mockAssertFinancialMemberTargets: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
   db: mockDb,
 }))
-vi.mock('@tradinggoose/billing', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tradinggoose/billing')>()),
-  lockFinancialRoots: mockLockFinancialRoots,
-  readFinancialMemberTarget: mockReadFinancialMemberTarget,
-  assertFinancialMemberTargets: mockAssertFinancialMemberTargets,
-}))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  idempotencyKey: { key: 'idempotencyKey.key', namespace: 'idempotencyKey.namespace' },
   member: {
     createdAt: 'member.createdAt',
     organizationId: 'member.organizationId',
@@ -79,22 +65,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
   },
 }))
 
-vi.mock('drizzle-orm', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('drizzle-orm')>()),
+vi.mock('drizzle-orm', () => ({
   and: mockAnd,
   eq: mockEq,
 }))
-
-beforeEach(() => {
-  mockDb.select.mockReset()
-  mockReadFinancialMemberTarget.mockReset().mockResolvedValue(undefined)
-  mockAssertFinancialMemberTargets.mockReset().mockResolvedValue(undefined)
-  mockDb.transaction.mockImplementation(async (callback) => callback(mockDb))
-  mockLockFinancialRoots.mockResolvedValue(undefined)
-  mockDb.insert.mockImplementation(() => {
-    throw new Error('Billing projection must not recreate a historical ledger')
-  })
-})
 
 vi.mock('@/lib/billing/core/billing', () => ({
   getBillingTierPricing: mockGetBillingTierPricing,
@@ -144,13 +118,13 @@ function createOrganizationLedgerRow(overrides: Record<string, unknown> = {}) {
     totalScheduledExecutions: 0,
     totalChatExecutions: 0,
     totalTokensUsed: 0,
-    totalCost: '0',
-    currentPeriodCost: '0',
-    lastPeriodCost: '0',
-    billedOverageThisPeriod: '0',
-    totalCopilotCost: '0',
-    currentPeriodCopilotCost: '0',
-    lastPeriodCopilotCost: '0',
+    totalCost: 0,
+    currentPeriodCost: 0,
+    lastPeriodCost: 0,
+    billedOverageThisPeriod: 0,
+    totalCopilotCost: 0,
+    currentPeriodCopilotCost: 0,
+    lastPeriodCopilotCost: 0,
     totalCopilotTokens: 0,
     totalCopilotCalls: 0,
     billingBlocked: false,
@@ -163,7 +137,7 @@ function createOrganizationLedgerRow(overrides: Record<string, unknown> = {}) {
 
 function createOrganizationMemberLedgerRow(
   userId: string,
-  currentPeriodCost: string,
+  currentPeriodCost: number,
   overrides: Record<string, unknown> = {}
 ) {
   const now = new Date('2026-04-11T00:00:00.000Z')
@@ -179,10 +153,10 @@ function createOrganizationMemberLedgerRow(
     totalTokensUsed: 0,
     totalCost: currentPeriodCost,
     currentPeriodCost,
-    lastPeriodCost: '0',
-    totalCopilotCost: '0',
-    currentPeriodCopilotCost: '0',
-    lastPeriodCopilotCost: '0',
+    lastPeriodCost: 0,
+    totalCopilotCost: 0,
+    currentPeriodCopilotCost: 0,
+    lastPeriodCopilotCost: 0,
     totalCopilotTokens: 0,
     totalCopilotCalls: 0,
     lastActive: now,
@@ -192,77 +166,6 @@ function createOrganizationMemberLedgerRow(
   }
 }
 
-describe('organization ledger reads under the financial boundary', () => {
-  beforeEach(() => {
-    vi.resetModules()
-    vi.clearAllMocks()
-  })
-  it('maps an existing ledger after locking its original root in the same transaction', async () => {
-    mockDb.select
-      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'org_123' }]))
-      .mockImplementationOnce(() =>
-        createSelectQueryMock([
-          createOrganizationLedgerRow({ totalCost: '18.50', currentPeriodCost: '4.25' }),
-        ])
-      )
-    const { getOrganizationBillingLedger } = await import('./organization')
-    await expect(getOrganizationBillingLedger('org_123')).resolves.toMatchObject({
-      organizationId: 'org_123',
-      totalCost: '18.5',
-      currentPeriodCost: '4.25',
-    })
-    expect(mockDb.transaction).toHaveBeenCalledOnce()
-    expect(mockLockFinancialRoots).toHaveBeenCalledExactlyOnceWith(mockDb, [
-      { type: 'organization', id: 'org_123' },
-    ])
-    expect(mockLockFinancialRoots.mock.invocationCallOrder[0]).toBeLessThan(
-      mockDb.select.mock.invocationCallOrder[0]
-    )
-    expect(mockDb.insert).not.toHaveBeenCalled()
-  })
-  it('does not create a ledger after the original organization is gone', async () => {
-    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([]))
-    const { getOrganizationBillingLedger } = await import('./organization')
-    await expect(getOrganizationBillingLedger('org_123')).resolves.toBeNull()
-    expect(mockDb.select).toHaveBeenCalledOnce()
-    expect(mockDb.insert).not.toHaveBeenCalled()
-  })
-  it('refuses a missing historical organization ledger without replacing it with zero', async () => {
-    mockDb.select
-      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'org_123' }]))
-      .mockImplementationOnce(() => createSelectQueryMock([]))
-    const { FinancialPolicyError } = await import('@tradinggoose/billing')
-    const { getOrganizationBillingLedger } = await import('./organization')
-    await expect(getOrganizationBillingLedger('org_123')).rejects.toBeInstanceOf(
-      FinancialPolicyError
-    )
-    expect(mockDb.select).toHaveBeenCalledTimes(2)
-    expect(mockDb.insert).not.toHaveBeenCalled()
-  })
-  it('refuses missing registered member proof before reading or initializing its ledger', async () => {
-    const { FinancialPolicyError } = await import('@tradinggoose/billing')
-    mockReadFinancialMemberTarget.mockRejectedValueOnce(
-      new FinancialPolicyError('Original target missing')
-    )
-    const { getOrganizationMemberBillingLedger } = await import('./organization')
-    await expect(
-      getOrganizationMemberBillingLedger('org_123', 'departed_member')
-    ).rejects.toBeInstanceOf(FinancialPolicyError)
-    expect(mockReadFinancialMemberTarget).toHaveBeenCalledWith(mockDb, 'org_123', 'departed_member')
-    expect(mockDb.select).not.toHaveBeenCalled()
-    expect(mockDb.insert).not.toHaveBeenCalled()
-  })
-  it('refuses reader-side initialization even when the organization has no monetary history', async () => {
-    mockDb.select
-      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'org_123' }]))
-      .mockImplementationOnce(() => createSelectQueryMock([]))
-    const { getOrganizationBillingLedger } = await import('./organization')
-    await expect(getOrganizationBillingLedger('org_123')).rejects.toThrow('preservation required')
-    expect(mockDb.insert).not.toHaveBeenCalled()
-    expect(mockDb.select).toHaveBeenCalledTimes(2)
-  })
-})
-
 describe('getOrganizationMinimumUsageLimitUsd', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -270,20 +173,45 @@ describe('getOrganizationMinimumUsageLimitUsd', () => {
   })
 
   it('uses the subscription usage allowance instead of recurring seat price semantics', async () => {
-    mockGetSubscriptionUsageAllowanceUsd.mockReturnValue('87.456')
+    mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(87.456)
 
     const { getOrganizationMinimumUsageLimitUsd } = await import('./organization')
 
-    expect(getOrganizationMinimumUsageLimitUsd({} as never)).toBe('87.456')
+    expect(getOrganizationMinimumUsageLimitUsd({} as never)).toBe(87.46)
     expect(mockGetSubscriptionUsageAllowanceUsd).toHaveBeenCalledWith({})
   })
 
   it('returns zero when no subscription is available', async () => {
-    mockGetSubscriptionUsageAllowanceUsd.mockReturnValue('0')
+    mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(0)
 
     const { getOrganizationMinimumUsageLimitUsd } = await import('./organization')
 
-    expect(getOrganizationMinimumUsageLimitUsd(null)).toBe('0')
+    expect(getOrganizationMinimumUsageLimitUsd(null)).toBe(0)
+  })
+})
+
+describe('billing ledger reads', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+  })
+
+  it('refuses a missing organization ledger without creating a replacement', async () => {
+    mockDb.select
+      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'org' }]))
+      .mockImplementationOnce(() => createSelectQueryMock([]))
+    const { getOrganizationBillingLedger } = await import('./organization')
+    await expect(getOrganizationBillingLedger('org')).rejects.toThrow('ledger is missing')
+    expect(mockDb.insert).not.toHaveBeenCalled()
+  })
+
+  it('refuses a missing member ledger without resetting its usage', async () => {
+    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([]))
+    const { getOrganizationMemberBillingLedger } = await import('./organization')
+    await expect(getOrganizationMemberBillingLedger('org', 'member')).rejects.toThrow(
+      'ledger is missing'
+    )
+    expect(mockDb.insert).not.toHaveBeenCalled()
   })
 })
 
@@ -300,8 +228,8 @@ describe('getOrganizationBillingData', () => {
       basePrice: 99,
     })
     mockCanTierEditUsageLimit.mockReturnValue(false)
-    mockGetSubscriptionUsageAllowanceUsd.mockReturnValue('80')
-    mockGetTierUsageAllowanceUsd.mockReturnValue('80')
+    mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(80)
+    mockGetTierUsageAllowanceUsd.mockReturnValue(80)
     mockToBillingTierSummary.mockImplementation((tier) => ({
       ...tier,
       status: tier.status ?? 'active',
@@ -319,7 +247,6 @@ describe('getOrganizationBillingData', () => {
       tier: {
         id: 'tier_org_individual',
         displayName: 'Team Individual',
-        monthlyPriceUsd: null,
         status: 'archived',
         ownerType: 'organization',
         usageScope: 'individual',
@@ -342,7 +269,7 @@ describe('getOrganizationBillingData', () => {
       )
       .mockImplementationOnce(() => createSelectQueryMock([{ id: 'org_123' }]))
       .mockImplementationOnce(() =>
-        createSelectQueryMock([createOrganizationLedgerRow({ currentPeriodCost: '999' })])
+        createSelectQueryMock([createOrganizationLedgerRow({ currentPeriodCost: 999 })])
       )
       .mockImplementationOnce(() =>
         createSelectQueryMock(
@@ -370,8 +297,8 @@ describe('getOrganizationBillingData', () => {
       .mockImplementationOnce(() =>
         createSelectQueryMock(
           [
-            createOrganizationMemberLedgerRow('user_1', '80'),
-            createOrganizationMemberLedgerRow('user_2', '40'),
+            createOrganizationMemberLedgerRow('user_1', 80),
+            createOrganizationMemberLedgerRow('user_2', 40),
           ],
           'where'
         )
@@ -382,22 +309,21 @@ describe('getOrganizationBillingData', () => {
 
     expect(result).not.toBeNull()
     expect(result?.members).toHaveLength(2)
-    expect(result?.members.map((member) => member.usageLimit)).toEqual(['80', '80'])
-    expect(result?.totalCurrentUsage).toBe('120')
-    expect(result?.totalUsageLimit).toBe('160')
-    expect(result?.minimumUsageLimit).toBe('80')
+    expect(result?.members.map((member) => member.usageLimit)).toEqual([80, 80])
+    expect(result?.totalCurrentUsage).toBe(120)
+    expect(result?.totalUsageLimit).toBe(160)
+    expect(result?.minimumUsageLimit).toBe(80)
     expect(result?.subscriptionTier?.status).toBe('archived')
     expect(result?.subscriptionTier?.hasStripeMonthlyPriceId).toBe(true)
     expect(mockToBillingTierSummary).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'tier_org_individual' })
     )
 
-    const percentUsed = result?.percentUsed
+    const percentUsed = ((result?.totalCurrentUsage ?? 0) / (result?.totalUsageLimit ?? 1)) * 100
 
     expect(percentUsed).toBe(75)
     expect(percentUsed).toBeLessThan(result?.warningThresholdPercent ?? 0)
-    expect(result?.isExceeded).toBe(false)
-    expect(result?.isWarning).toBe(false)
+    expect((result?.totalCurrentUsage ?? 0) >= (result?.totalUsageLimit ?? 0)).toBe(false)
   })
 
   it('returns unlimited organization usage data with no subscription tier when billing is disabled', async () => {
@@ -414,7 +340,6 @@ describe('getOrganizationBillingData', () => {
       tier: {
         id: 'tier_org_individual',
         displayName: 'Team Individual',
-        monthlyPriceUsd: null,
         ownerType: 'organization',
         usageScope: 'individual',
         seatMode: 'adjustable',
@@ -435,7 +360,7 @@ describe('getOrganizationBillingData', () => {
       )
       .mockImplementationOnce(() => createSelectQueryMock([{ id: 'org_123' }]))
       .mockImplementationOnce(() =>
-        createSelectQueryMock([createOrganizationLedgerRow({ currentPeriodCost: '120' })])
+        createSelectQueryMock([createOrganizationLedgerRow({ currentPeriodCost: 120 })])
       )
       .mockImplementationOnce(() =>
         createSelectQueryMock(
@@ -463,8 +388,8 @@ describe('getOrganizationBillingData', () => {
       .mockImplementationOnce(() =>
         createSelectQueryMock(
           [
-            createOrganizationMemberLedgerRow('user_1', '80'),
-            createOrganizationMemberLedgerRow('user_2', '40'),
+            createOrganizationMemberLedgerRow('user_1', 80),
+            createOrganizationMemberLedgerRow('user_2', 40),
           ],
           'where'
         )
@@ -477,8 +402,11 @@ describe('getOrganizationBillingData', () => {
     expect(result?.subscriptionTier).toBeNull()
     expect(result?.subscriptionStatus).toBeNull()
     expect(result?.seatMode).toBeNull()
-    expect(result?.members.map((member) => member.usageLimit)).toEqual([null, null])
-    expect(result?.totalUsageLimit).toBeNull()
+    expect(result?.members.map((member) => member.usageLimit)).toEqual([
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER,
+    ])
+    expect(result?.totalUsageLimit).toBe(Number.MAX_SAFE_INTEGER)
     expect(result?.billingBlocked).toBe(false)
   })
 
@@ -492,7 +420,7 @@ describe('getOrganizationBillingData', () => {
       .mockImplementationOnce(() => createSelectQueryMock([createOrganizationLedgerRow()]))
       .mockImplementationOnce(() => createSelectQueryMock([{ userId: 'user_1' }], 'where'))
       .mockImplementationOnce(() =>
-        createSelectQueryMock([createOrganizationMemberLedgerRow('user_1', '1')], 'where')
+        createSelectQueryMock([createOrganizationMemberLedgerRow('user_1', 1)], 'where')
       )
 
     const { getOrganizationBillingData } = await import('./organization')
@@ -501,10 +429,8 @@ describe('getOrganizationBillingData', () => {
     expect(result).toMatchObject({
       subscriptionTier: null,
       subscriptionStatus: null,
-      totalUsageLimit: '0',
+      totalUsageLimit: 0,
     })
-    expect(result?.members).toEqual([
-      expect.objectContaining({ usageLimit: '0', isOverLimit: true }),
-    ])
+    expect(result?.members).toEqual([expect.objectContaining({ usageLimit: 0, isOverLimit: true })])
   })
 })

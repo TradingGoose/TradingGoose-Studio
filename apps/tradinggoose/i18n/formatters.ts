@@ -1,4 +1,3 @@
-import { monetary } from '@tradinggoose/billing/money'
 import type { LocaleCode } from './utils'
 
 type FileSizeOptions = {
@@ -18,35 +17,15 @@ export function formatLocalizedNumber(
 
 export function formatUsd(
   locale: LocaleCode | string,
-  value: string | number | null | undefined,
+  value: number,
   options?: Omit<Intl.NumberFormatOptions, 'style' | 'currency'>
 ) {
-  if (value === null || value === undefined) return '—'
-  const formatter = new Intl.NumberFormat(locale, {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: 2,
     ...options,
-  })
-  if (typeof value === 'number') return formatter.format(value)
-  const amount = monetary(value)
-  // ECMA-402 accepts mathematical decimal strings; the installed TS lib omits that overload.
-  const formatted: string = Reflect.apply(formatter.format, formatter, [amount])
-  const infinity = formatter
-    .formatToParts(Number.POSITIVE_INFINITY)
-    .find((part) => part.type === 'infinity')!
-  if (!formatted.includes(infinity.value)) return formatted
-  // NUMERIC can exceed Intl's finite formatting range. Preserve the complete known value.
-  return formatter
-    .formatToParts(0)
-    .map((part) =>
-      part.type === 'integer'
-        ? amount
-        : ['currency', 'literal'].includes(part.type)
-          ? part.value
-          : ''
-    )
-    .join('')
+  }).format(value)
 }
 
 export function formatFileSize(

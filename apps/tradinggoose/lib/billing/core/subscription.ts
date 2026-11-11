@@ -1,16 +1,6 @@
-import {
-  FinancialPolicyError,
-  type FinancialTransaction,
-  financialNamespace,
-  lockFinancialRoots,
-  periodKey,
-  readFinancialReceipt,
-} from '@tradinggoose/billing'
-import { compareMoney, type DecimalAmount, maxMoney, monetary } from '@tradinggoose/billing/money'
 import { db } from '@tradinggoose/db'
-import { idempotencyKey, member, subscription, user, userStats } from '@tradinggoose/db/schema'
+import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
-import { rotateSubscriptionAfterMutation } from '@/lib/billing/financial-subscriptions'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import type { BillingReference, SubscriptionWithTier } from '@/lib/billing/tiers'
@@ -38,28 +28,52 @@ export class MissingBillingSubscriptionError extends Error {
 export interface PersonalBillingSnapshot {
   subscription: SubscriptionWithTier | null
   tier: BillingTierSummary
-  currentPeriodCost: DecimalAmount
-  limit: DecimalAmount | null
+  currentPeriodCost: number
+  limit: number
   isExceeded: boolean
+}
+
+function parseOptionalNumber(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  const parsed = Number.parseFloat(value.toString())
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function getGrantedOnboardingAllowance(value: string | number | null | undefined): number {
+  const parsed = parseOptionalNumber(value)
+  return parsed === null ? 0 : Math.max(parsed, 0)
 }
 
 export function getSubscribedPersonalUsageMinimumLimit(params: {
   subscription: SubscriptionWithTier | null
-  grantedOnboardingAllowanceUsd: DecimalAmount | null | undefined
-}): DecimalAmount {
-  if (!params.subscription) return '0'
+  grantedOnboardingAllowanceUsd: string | number | null | undefined
+}): number {
+  if (!params.subscription) {
+    return 0
+  }
+
   const subscriptionLimit = getSubscriptionUsageAllowanceUsd(params.subscription)
   return params.subscription.tier.isDefault
-    ? maxMoney(subscriptionLimit, monetary(params.grantedOnboardingAllowanceUsd))
+    ? Math.max(
+        subscriptionLimit,
+        getGrantedOnboardingAllowance(params.grantedOnboardingAllowanceUsd)
+      )
     : subscriptionLimit
 }
+
 export function getConfiguredPersonalUsageLimit(
-  customUsageLimit: DecimalAmount | null | undefined,
-  minimumLimit: DecimalAmount
-): DecimalAmount {
-  return customUsageLimit === null || customUsageLimit === undefined
-    ? monetary(minimumLimit)
-    : maxMoney(monetary(customUsageLimit), monetary(minimumLimit))
+  customUsageLimit: string | number | null | undefined,
+  minimumLimit: number
+): number {
+  const parsedCustomUsageLimit = parseOptionalNumber(customUsageLimit)
+  if (parsedCustomUsageLimit === null) {
+    return minimumLimit
+  }
+
+  return Math.max(parsedCustomUsageLimit, minimumLimit)
 }
 
 /**
@@ -81,9 +95,7 @@ export async function getActiveSubscriptionForReference(
     )
 
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows, dbClient)
-  const effectiveSubscription = selectEffectiveSubscription(hydratedSubscriptions)
-
-  return effectiveSubscription
+  return selectEffectiveSubscription(hydratedSubscriptions)
 }
 
 export async function requireActiveSubscriptionForReference(
@@ -116,8 +128,7 @@ export async function getSubscriptionByStripeSubscriptionId(
 export async function getEffectiveSubscription(
   userId: string
 ): Promise<SubscriptionWithTier | null> {
-  const personalSubscription = await getPersonalEffectiveSubscription(userId)
-  return personalSubscription
+  return getPersonalEffectiveSubscription(userId)
 }
 
 export async function getPersonalEffectiveSubscription(
@@ -140,88 +151,48 @@ export async function getPersonalEffectiveSubscription(
 
 export async function ensureDefaultUserSubscription(
   userId: string,
-  transaction?: FinancialTransaction
+  dbClient: Pick<typeof db, 'insert' | 'select'> = db
 ): Promise<SubscriptionWithTier> {
-  const initialize = async (tx: FinancialTransaction): Promise<SubscriptionWithTier> => {
-    const root = { type: 'user' as const, id: userId }
-    await lockFinancialRoots(tx, [root])
-    const existing = await getPersonalEffectiveSubscription(userId, tx)
-    if (existing) return existing
-    const defaultTier = await requireDefaultBillingTier(tx)
-    const head = await readFinancialReceipt(tx, financialNamespace(root), 'period-head')
-    let previous: typeof subscription.$inferSelect | undefined
-    if (!head) {
-      const [ledger] = await tx
-        .select({
-          total: userStats.totalCost,
-          current: userStats.currentPeriodCost,
-          previous: userStats.lastPeriodCost,
-        })
-        .from(userStats)
-        .where(eq(userStats.userId, userId))
-        .limit(1)
-      const [evidence] = await tx
-        .select({ key: idempotencyKey.key })
-        .from(idempotencyKey)
-        .where(eq(idempotencyKey.namespace, financialNamespace(root)))
-        .limit(1)
-      if (
-        evidence ||
-        (ledger &&
-          [ledger.total, ledger.current, ledger.previous].some((value) => monetary(value) !== '0'))
-      )
-        throw new FinancialPolicyError(
-          'Original financial basis must be preserved before default provisioning'
-        )
-    }
-    if (head) {
-      if (head.recordType !== 'period-head')
-        throw new FinancialPolicyError('Original financial period identity is invalid')
-      if (head.current) {
-        const basis = await readFinancialReceipt(
-          tx,
-          financialNamespace(root),
-          periodKey(head.current)
-        )
-        if (!basis || basis.recordType !== 'period' || !basis.closing)
-          throw new FinancialPolicyError(
-            'Verified original closing basis required before default restoration'
-          )
-        ;[previous] = await tx
-          .select()
-          .from(subscription)
-          .where(eq(subscription.id, head.current.subscriptionId))
-          .limit(1)
-        if (!previous || previous.referenceType !== 'user' || previous.referenceId !== userId)
-          throw new FinancialPolicyError('Original financial subscription must remain retained')
-      }
-    }
-    const [created] = await tx
-      .insert(subscription)
-      .values({
-        id: crypto.randomUUID(),
-        plan: defaultTier.id,
-        billingTierId: defaultTier.id,
-        referenceType: 'user',
-        referenceId: userId,
-        stripeCustomerId: null,
-        stripeSubscriptionId: null,
-        status: 'active',
-        periodStart: null,
-        periodEnd: null,
-        cancelAtPeriodEnd: false,
-        seats: null,
-        trialStart: null,
-        trialEnd: null,
-        metadata: { source: 'default-tier' },
-      })
-      .returning()
-    if (!created) throw new FinancialPolicyError('Default subscription creation failed')
-    if (previous && head?.recordType === 'period-head' && head.current)
-      await rotateSubscriptionAfterMutation(tx, previous, created, true, head.current)
-    return { ...created, tier: defaultTier }
+  const existingSubscription = await getPersonalEffectiveSubscription(userId, dbClient)
+  if (existingSubscription) {
+    return existingSubscription
   }
-  return transaction ? initialize(transaction) : db.transaction(initialize)
+
+  const defaultTier = await requireDefaultBillingTier(dbClient)
+  const defaultValues = {
+    plan: defaultTier.id,
+    billingTierId: defaultTier.id,
+    referenceType: 'user' as const,
+    referenceId: userId,
+    stripeSubscriptionId: null,
+    status: 'active',
+    periodStart: null,
+    periodEnd: null,
+    cancelAtPeriodEnd: false,
+    seats: null,
+    trialStart: null,
+    trialEnd: null,
+    metadata: { source: 'default-tier' },
+  }
+
+  await dbClient
+    .insert(subscription)
+    .values({
+      ...defaultValues,
+      id: `sub_default_${userId}`,
+      stripeCustomerId: null,
+    })
+    .onConflictDoUpdate({
+      target: subscription.id,
+      set: defaultValues,
+    })
+
+  const defaultSubscription = await getPersonalEffectiveSubscription(userId, dbClient)
+  if (!defaultSubscription) {
+    throw new Error(`Failed to provision default subscription for user ${userId}`)
+  }
+
+  return defaultSubscription
 }
 
 export async function getPersonalBillingSnapshot(userId: string): Promise<PersonalBillingSnapshot> {
@@ -242,15 +213,16 @@ export async function getPersonalBillingSnapshot(userId: string): Promise<Person
     ])
 
     const stats = statsRecords[0]
-    if (!stats) throw new FinancialPolicyError('Original financial ledger missing')
-    const currentPeriodCost = monetary(stats.currentPeriodCost)
+    const currentPeriodCost = Number.parseFloat(
+      (stats?.currentPeriodCost ?? stats?.totalCost)?.toString() || '0'
+    )
 
     if (!billingEnabled) {
       return {
         subscription: null,
         tier: toBillingTierSummary(null),
         currentPeriodCost,
-        limit: null,
+        limit: Number.MAX_SAFE_INTEGER,
         isExceeded: false,
       }
     }
@@ -270,7 +242,7 @@ export async function getPersonalBillingSnapshot(userId: string): Promise<Person
       tier: toBillingTierSummary(subscription.tier),
       currentPeriodCost,
       limit,
-      isExceeded: compareMoney(currentPeriodCost, limit) >= 0,
+      isExceeded: currentPeriodCost >= limit,
     }
   } catch (error) {
     logger.error('Error getting personal billing snapshot', { error, userId })

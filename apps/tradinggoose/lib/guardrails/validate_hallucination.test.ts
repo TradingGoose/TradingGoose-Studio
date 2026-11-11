@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { validateHallucination } from './validate_hallucination'
 
 const native = vi.hoisted(() => ({ generate: vi.fn(), finance: vi.fn(), verify: vi.fn() }))
-vi.mock('@/lib/mastra/financial-processors', () => ({ financialProcessors: native.finance }))
+vi.mock('@/lib/mastra/usage-processors', () => ({ usageProcessors: native.finance }))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 vi.mock('@mastra/core/agent', () => ({
   Agent: class {

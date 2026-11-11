@@ -11,7 +11,6 @@ export interface ServerToolExecutionContext {
   apiKeyType?: ApiKeyType
   accessLevel?: CopilotAccessLevel
   acceptedReviewBaseStateHash?: string
-  nativeReviewBinding?: string
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
   workspaceId?: string

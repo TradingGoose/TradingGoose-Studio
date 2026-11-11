@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
-import { buildCopilotServerToolError } from '@/lib/copilot/tools/client/server-tool-response'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
@@ -97,7 +96,7 @@ describe('sanitizeAgentToolsInBlocks', () => {
     ])
   })
 
-  it('keeps unexpected validation details out of structured client errors', async () => {
+  it('keeps unexpected validation details out of structured client errors', () => {
     const cause = new Error('database password=raw-secret')
     validationMocks.getBlock.mockImplementation(() => {
       throw cause
@@ -118,14 +117,9 @@ describe('sanitizeAgentToolsInBlocks', () => {
       'edit_workflow',
       new Error(`Invalid edited workflow: ${result.errors.join('; ')}`)
     )
-    const clientError = await buildCopilotServerToolError(
-      Response.json(serverError.body, { status: serverError.status })
-    )
-
     expect(serverError.status).toBe(422)
-    expect(clientError.message).toContain('Workflow validation could not be completed')
+    expect(serverError.body.error).toContain('Workflow validation could not be completed')
     expect(JSON.stringify(serverError)).not.toContain('raw-secret')
-    expect(clientError.message).not.toContain('raw-secret')
   })
 })
 

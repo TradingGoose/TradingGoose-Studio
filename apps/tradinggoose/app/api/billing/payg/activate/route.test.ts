@@ -12,11 +12,11 @@ const {
   mockGetBillingGateState,
   mockGetSession,
   mockIsFreeBillingTier,
-  mockUpdateFinancialSubscription,
+  mockHandleSubscriptionCreated,
   mockRandomUUID,
   mockRequireStripeClient,
   mockSql,
-  mockGetEffectiveCurrentPeriodCost,
+  mockSyncSubscriptionUsageLimits,
   mockStripeSubscriptionsCreate,
   mockStripeSubscriptionsList,
 } = vi.hoisted(() => ({
@@ -26,8 +26,11 @@ const {
   mockExecute: vi.fn(),
   mockGetBillingGateState: vi.fn(),
   mockGetSession: vi.fn(),
-  mockIsFreeBillingTier: vi.fn(),
-  mockUpdateFinancialSubscription: vi.fn(),
+  mockIsFreeBillingTier: vi.fn(
+    (tier: { monthlyPriceUsd?: number | string | null; yearlyPriceUsd?: number | string | null }) =>
+      Number(tier?.monthlyPriceUsd ?? 0) <= 0 && Number(tier?.yearlyPriceUsd ?? 0) <= 0
+  ),
+  mockHandleSubscriptionCreated: vi.fn(),
   mockRequireStripeClient: vi.fn(),
   mockRandomUUID: vi.fn(),
   mockSql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
@@ -36,7 +39,7 @@ const {
   })),
   mockStripeSubscriptionsCreate: vi.fn(),
   mockStripeSubscriptionsList: vi.fn(),
-  mockGetEffectiveCurrentPeriodCost: vi.fn(),
+  mockSyncSubscriptionUsageLimits: vi.fn(),
 }))
 
 const subscriptionTable = {
@@ -48,33 +51,23 @@ let subscriptionUpdates: Array<{ table: unknown; values: Record<string, unknown>
 const mockTx = {
   execute: mockExecute,
   update: vi.fn((table) => ({
-    set: vi.fn((values) => {
-      if (Object.keys(values).some((key) => key !== 'metadata')) {
-        throw new Error('Financial subscription changes must use the canonical mutation boundary')
-      }
-      return {
-        where: vi.fn(async () => {
-          subscriptionUpdates.push({ table, values })
-          return []
-        }),
-      }
-    }),
+    set: vi.fn((values) => ({
+      where: vi.fn(async () => {
+        subscriptionUpdates.push({ table, values })
+        return []
+      }),
+    })),
   })),
 }
 
 const mockDb = {
   update: vi.fn((table) => ({
-    set: vi.fn((values) => {
-      if (Object.keys(values).some((key) => key !== 'metadata')) {
-        throw new Error('Financial subscription changes must use the canonical mutation boundary')
-      }
-      return {
-        where: vi.fn(async () => {
-          subscriptionUpdates.push({ table, values })
-          return []
-        }),
-      }
-    }),
+    set: vi.fn((values) => ({
+      where: vi.fn(async () => {
+        subscriptionUpdates.push({ table, values })
+        return []
+      }),
+    })),
   })),
   transaction: vi.fn(async (callback: (tx: typeof mockTx) => Promise<unknown>) => callback(mockTx)),
 }
@@ -100,8 +93,8 @@ vi.mock('@/lib/billing/core/subscription', () => ({
   ensureDefaultUserSubscription: mockEnsureDefaultUserSubscription,
 }))
 
-vi.mock('@/lib/billing/core/usage', () => ({
-  getEffectiveCurrentPeriodCost: mockGetEffectiveCurrentPeriodCost,
+vi.mock('@/lib/billing/organization', () => ({
+  syncSubscriptionUsageLimits: mockSyncSubscriptionUsageLimits,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -132,8 +125,8 @@ vi.mock('@/lib/billing/tiers', () => ({
   isFreeBillingTier: mockIsFreeBillingTier,
 }))
 
-vi.mock('@/lib/billing/financial-subscriptions', () => ({
-  updateFinancialSubscription: mockUpdateFinancialSubscription,
+vi.mock('@/lib/billing/webhooks/subscription', () => ({
+  handleSubscriptionCreated: mockHandleSubscriptionCreated,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -174,8 +167,8 @@ function buildCurrentSubscription(overrides: Record<string, unknown> = {}) {
       usageScope: 'individual',
       seatMode: 'fixed',
       stripeMonthlyPriceId: 'price_payg',
-      monthlyPriceUsd: '0',
-      yearlyPriceUsd: '0',
+      monthlyPriceUsd: 0,
+      yearlyPriceUsd: 0,
     },
     ...overrides,
   }
@@ -245,14 +238,19 @@ function expectActivationAttemptMetadataCleared() {
 }
 
 function expectPersistedStripeSubscriptionUpdate(stripeSubscriptionId: string) {
-  expect(mockUpdateFinancialSubscription).toHaveBeenCalledExactlyOnceWith(
-    'sub_default_user-1',
-    expect.objectContaining({
-      stripeSubscriptionId,
-      status: 'active',
-      metadata: { source: 'default-tier' },
-    }),
-    { transaction: mockTx, expectedStripeSubscriptionId: null }
+  expect(subscriptionUpdates).toEqual(
+    expect.arrayContaining([
+      {
+        table: subscriptionTable,
+        values: expect.objectContaining({
+          stripeSubscriptionId,
+          status: 'active',
+          metadata: {
+            source: 'default-tier',
+          },
+        }),
+      },
+    ])
   )
 }
 
@@ -292,9 +290,6 @@ describe('/api/billing/payg/activate route', () => {
     mockEnsureDefaultUserSubscription.mockResolvedValue(buildCurrentSubscription())
     mockEnsureStripeUserCustomer.mockResolvedValue(buildStripeCustomer())
     mockRequireStripeClient.mockReturnValue(stripeClient)
-    mockIsFreeBillingTier.mockReturnValue(true)
-    mockUpdateFinancialSubscription.mockResolvedValue(undefined)
-    mockGetEffectiveCurrentPeriodCost.mockResolvedValue('0.30000000000000001')
     mockStripeSubscriptionsList.mockResolvedValue({
       data: [],
     })
@@ -426,28 +421,48 @@ describe('/api/billing/payg/activate route', () => {
       }
     )
     expectActivationAttemptMetadataPersisted()
-    expect(mockUpdateFinancialSubscription).toHaveBeenCalledExactlyOnceWith(
-      'sub_default_user-1',
-      {
-        plan: 'tier_payg',
-        billingTierId: 'tier_payg',
-        stripeCustomerId: 'cus_123',
+    expect(subscriptionUpdates).toEqual(
+      expect.arrayContaining([
+        {
+          table: subscriptionTable,
+          values: expect.objectContaining({
+            plan: 'tier_payg',
+            billingTierId: 'tier_payg',
+            stripeCustomerId: 'cus_123',
+            stripeSubscriptionId: 'sub_stripe_123',
+            status: 'active',
+            cancelAtPeriodEnd: false,
+            periodStart: new Date('2024-04-12T07:06:40.000Z'),
+            periodEnd: new Date('2024-05-13T07:06:40.000Z'),
+            trialStart: null,
+            trialEnd: null,
+            metadata: {
+              source: 'default-tier',
+            },
+          }),
+        },
+      ])
+    )
+    expect(mockHandleSubscriptionCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'sub_default_user-1',
+        referenceType: 'user',
+        referenceId: 'user-1',
         stripeSubscriptionId: 'sub_stripe_123',
         status: 'active',
-        cancelAtPeriodEnd: false,
-        periodStart: new Date('2024-04-12T07:06:40.000Z'),
-        periodEnd: new Date('2024-05-13T07:06:40.000Z'),
-        trialStart: null,
-        trialEnd: null,
-        metadata: { source: 'default-tier' },
-      },
-      { transaction: mockTx, expectedStripeSubscriptionId: null }
+        tier: expect.objectContaining({ id: 'tier_payg' }),
+      }),
+      mockTx
     )
-    expect(mockExecute).toHaveBeenCalledTimes(2)
-    expect(mockExecute.mock.invocationCallOrder[1]).toBeLessThan(
-      mockUpdateFinancialSubscription.mock.invocationCallOrder[0]
+    expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'sub_default_user-1',
+        referenceType: 'user',
+        referenceId: 'user-1',
+        tier: expect.objectContaining({ id: 'tier_payg' }),
+        status: 'active',
+      })
     )
-    expect(mockGetEffectiveCurrentPeriodCost).toHaveBeenCalledExactlyOnceWith('user-1')
   })
 
   it('skips creation-side effects when another request already persisted the activation locally', async () => {
@@ -471,8 +486,8 @@ describe('/api/billing/payg/activate route', () => {
       stripeSubscriptionId: 'sub_stripe_123',
     })
     expectActivationAttemptMetadataPersisted()
-    expect(mockUpdateFinancialSubscription).not.toHaveBeenCalled()
-    expect(mockGetEffectiveCurrentPeriodCost).not.toHaveBeenCalled()
+    expect(mockHandleSubscriptionCreated).not.toHaveBeenCalled()
+    expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
 
   it('reconciles an already-created active Stripe subscription before creating another one', async () => {
@@ -491,7 +506,7 @@ describe('/api/billing/payg/activate route', () => {
       stripeSubscriptionId: 'sub_stripe_existing',
     })
     expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
-    expect(mockUpdateFinancialSubscription).toHaveBeenCalledOnce()
+    expect(mockHandleSubscriptionCreated).toHaveBeenCalledOnce()
     expectActivationAttemptMetadataPersisted()
     expectPersistedStripeSubscriptionUpdate('sub_stripe_existing')
   })
@@ -519,7 +534,7 @@ describe('/api/billing/payg/activate route', () => {
       stripeSubscriptionId: 'sub_stripe_existing',
     })
     expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
-    expect(mockUpdateFinancialSubscription).toHaveBeenCalledOnce()
+    expect(mockHandleSubscriptionCreated).toHaveBeenCalledOnce()
   })
 
   it('ignores canceled historical Stripe subscriptions when reactivating PAYG', async () => {
@@ -559,8 +574,8 @@ describe('/api/billing/payg/activate route', () => {
     })
     expectActivationAttemptMetadataPersisted()
     expectActivationAttemptMetadataCleared()
-    expect(mockUpdateFinancialSubscription).not.toHaveBeenCalled()
-    expect(mockGetEffectiveCurrentPeriodCost).not.toHaveBeenCalled()
+    expect(mockHandleSubscriptionCreated).not.toHaveBeenCalled()
+    expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
 
   it('uses a fresh idempotency key on each retry after a failed activation attempt', async () => {
@@ -603,11 +618,11 @@ describe('/api/billing/payg/activate route', () => {
     )
     expectActivationAttemptMetadataPersisted()
     expectActivationAttemptMetadataCleared()
-    expect(mockUpdateFinancialSubscription).not.toHaveBeenCalled()
-    expect(mockGetEffectiveCurrentPeriodCost).not.toHaveBeenCalled()
+    expect(mockHandleSubscriptionCreated).not.toHaveBeenCalled()
+    expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
 
-  it('retries activation reconciliation after a post-commit missing-ledger refusal without creating a second Stripe subscription', async () => {
+  it('retries activation reconciliation after a post-subscription sync failure without creating a second Stripe subscription', async () => {
     mockEnsureDefaultUserSubscription
       .mockResolvedValueOnce(buildCurrentSubscription())
       .mockResolvedValueOnce(
@@ -638,9 +653,7 @@ describe('/api/billing/payg/activate route', () => {
     mockStripeSubscriptionsList
       .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ data: [buildStripeSubscription()] })
-    mockGetEffectiveCurrentPeriodCost.mockRejectedValueOnce(
-      new Error('Original user financial ledger is missing')
-    )
+    mockSyncSubscriptionUsageLimits.mockRejectedValueOnce(new Error('sync failed'))
 
     const { POST } = await import('./route')
 
@@ -656,40 +669,12 @@ describe('/api/billing/payg/activate route', () => {
       stripeSubscriptionId: 'sub_stripe_123',
     })
     expect(mockStripeSubscriptionsCreate).toHaveBeenCalledTimes(1)
-    expect(mockUpdateFinancialSubscription).toHaveBeenCalledTimes(1)
+    expect(
+      subscriptionUpdates.filter(
+        (update) => update.table === subscriptionTable && 'stripeSubscriptionId' in update.values
+      )
+    ).toHaveLength(1)
     expectActivationAttemptMetadataPersisted()
     expectPersistedStripeSubscriptionUpdate('sub_stripe_123')
-  })
-
-  it('refuses a paid tier before any Stripe customer or subscription contact', async () => {
-    mockIsFreeBillingTier.mockReturnValue(false)
-    const { POST } = await import('./route')
-
-    const response = await POST()
-
-    expect(response.status).toBe(409)
-    expect(mockEnsureStripeUserCustomer).not.toHaveBeenCalled()
-    expect(mockStripeSubscriptionsList).not.toHaveBeenCalled()
-    expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
-    expect(mockUpdateFinancialSubscription).not.toHaveBeenCalled()
-  })
-
-  it('does not report activation or read the personal ledger when the financial mutation refuses', async () => {
-    mockUpdateFinancialSubscription.mockRejectedValueOnce(
-      new Error('Original Stripe subscription changed; reconcile the remote result')
-    )
-    const { POST } = await import('./route')
-
-    const response = await POST()
-
-    expect(response.status).toBe(500)
-    expect(await response.json()).toEqual({
-      error: 'Failed to activate pay-as-you-go subscription',
-    })
-    expectPersistedStripeSubscriptionUpdate('sub_stripe_123')
-    expect(mockGetEffectiveCurrentPeriodCost).not.toHaveBeenCalled()
-    expect(
-      subscriptionUpdates.every((update) => Object.keys(update.values).join() === 'metadata')
-    ).toBe(true)
   })
 })

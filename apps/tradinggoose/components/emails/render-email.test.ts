@@ -1,11 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { formatEmailCurrency } from '@/components/emails/email-copy'
 import {
   getEmailSubject,
-  renderFreeTierUpgradeEmail,
-  renderPaymentFailedEmail,
   renderPlanWelcomeEmail,
-  renderUsageThresholdEmail,
   renderWaitlistConfirmationEmail,
   renderWorkspaceInvitationEmail,
 } from '@/components/emails/render-email'
@@ -74,55 +70,5 @@ describe('localized email rendering', () => {
 
     expect(html).toContain(invitationLink)
     expect(html).not.toContain('token=invitation-1')
-  })
-  it('formats exact financial strings above binary64 precision in localized notices', async () => {
-    const currentUsage = '9007199254740993.01'
-    const limit = '10000000000000000.01'
-    expect(formatEmailCurrency('en', currentUsage)).toBe('$9,007,199,254,740,993.01')
-    const html = await renderUsageThresholdEmail({
-      planName: 'Pro',
-      percentUsed: 90,
-      currentUsage,
-      limit,
-      ctaLink: 'https://test.tradinggoose.ai/es/billing',
-      locale: 'es',
-    })
-    expect(html).toContain(formatEmailCurrency('es', currentUsage))
-    expect(html).toContain(formatEmailCurrency('es', limit))
-    expect(html).toContain('https://test.tradinggoose.ai/es/billing')
-  })
-  it('renders known zero recommended money and omits absent optional money', async () => {
-    const params = {
-      percentUsed: 25,
-      currentUsage: '0.25',
-      limit: '1',
-      upgradeLink: 'https://test.tradinggoose.ai/billing',
-      locale: 'en',
-    }
-    const knownZero = await renderFreeTierUpgradeEmail({
-      ...params,
-      recommendedTierPriceUsd: '0',
-      recommendedTierIncludedUsageLimitUsd: '0',
-    })
-    expect(knownZero.split('$0.00').length - 1).toBe(2)
-    const absent = await renderFreeTierUpgradeEmail({
-      ...params,
-      recommendedTierPriceUsd: null,
-      recommendedTierIncludedUsageLimitUsd: null,
-    })
-    expect(absent).not.toContain('$0.00')
-  })
-  it('keeps an unavailable payment amount distinct from a known zero', async () => {
-    const paymentUrl = 'https://test.tradinggoose.ai/billing'
-    const absent = await renderPaymentFailedEmail({ paymentUrl, locale: 'en' })
-    expect(absent).toContain('—')
-    expect(absent).not.toContain('$0.00')
-    const knownZero = await renderPaymentFailedEmail({ paymentUrl, locale: 'en', amountDue: '0' })
-    expect(knownZero).toContain('$0.00')
-  })
-  it('rejects a numeric financial input instead of adding a float compatibility path', () => {
-    expect(() => Reflect.apply(formatEmailCurrency, undefined, ['en', 0.3])).toThrow(
-      'decimal strings'
-    )
   })
 })

@@ -5,17 +5,13 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import type { ImagePart } from '@/lib/copilot/native/contract'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
-import type {
-  ChatContext,
-  CopilotDraft,
-  CopilotSendRuntimeContext,
-  MessageFileAttachment,
-} from '@/stores/copilot/types'
+import type { ChatContext, CopilotDraft, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { CopilotMessage } from '../copilot-message/copilot-message'
 import { TodoList } from '../todo-list/todo-list'
 import { UserInput } from '../user-input/user-input'
@@ -77,7 +73,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     loadChats,
     currentChat,
     toolCallsById,
-    fetchContextUsage,
     error,
     historyRefreshError,
     isRefreshingHistory,
@@ -112,16 +107,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
       cancelled = true
     }
   }, [loadChats, workspaceId])
-
-  // Fetch context usage when component is initialized and has a current chat
-  useEffect(() => {
-    if (isInitialized && currentChat?.threadId) {
-      logger.info('[Copilot] Component initialized, fetching context usage')
-      fetchContextUsage().catch((err) => {
-        logger.warn('[Copilot] Failed to fetch context usage on mount', err)
-      })
-    }
-  }, [currentChat?.threadId, fetchContextUsage, isInitialized])
 
   const clearProgrammaticScrollLock = useCallback(() => {
     if (programmaticScrollResetTimerRef.current !== null) {
@@ -312,7 +297,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
   const handleSubmit = useCallback(
     async (
       query: string,
-      fileAttachments?: MessageFileAttachment[],
+      images?: ImagePart[],
       contexts?: ChatContext[],
       submittedDraft?: CopilotDraft
     ) => {
@@ -320,17 +305,13 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
 
       try {
         const accepted = await sendMessage(query, {
-          fileAttachments,
+          images,
           contexts,
           submittedDraft,
           runtimeContext: sendRuntimeContext,
         })
         if (!accepted) return false
-        logger.info(
-          'Sent message:',
-          query,
-          fileAttachments ? `with ${fileAttachments.length} attachments` : ''
-        )
+        logger.info('Sent message:', query, images ? `with ${images.length} attachments` : '')
         return true
       } catch (error) {
         logger.error('Failed to send message:', error)

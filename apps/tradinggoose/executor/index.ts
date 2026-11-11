@@ -10,7 +10,6 @@ import { getBlock } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
 import {
   type ExecutorCheckpoint,
-  finalizeExecutorCheckpoint,
   restoreExecutionContext,
   saveExecutionContext,
 } from '@/executor/checkpoint'
@@ -287,13 +286,13 @@ export class Executor {
               status: 'paused',
               output: {},
               pausePoints: context.pausePoints,
-              checkpoint: finalizeExecutorCheckpoint({
+              checkpoint: {
                 workflow: this.actualWorkflow,
                 currentBlockStates: this.initialBlockStates,
                 context: saveExecutionContext(context),
                 iteration: iteration + 1,
                 finalOutput,
-              }),
+              },
               logs: context.blockLogs,
               metadata: {
                 duration: context.metadata.duration,

@@ -1,10 +1,4 @@
 import { useEffect, useState } from 'react'
-import {
-  compareMoney,
-  type DecimalAmount,
-  decimalFromSafeInteger,
-  multiplyMoney,
-} from '@tradinggoose/billing/money'
 import { useLocale, useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -26,7 +20,7 @@ interface TeamSeatsProps {
   onOpenChange: (open: boolean) => void
   title: string
   description: string
-  pricePerSeat: DecimalAmount | null
+  pricePerSeat: number
   minimumSeats: number
   maximumSeats: number | null
   currentSeats?: number
@@ -66,21 +60,8 @@ export function TeamSeats({
     }
   }, [open, initialSeats])
 
-  const totalMonthlyCost =
-    pricePerSeat === null
-      ? null
-      : multiplyMoney(decimalFromSafeInteger(selectedSeats), pricePerSeat)
-  const seatsChanged = currentSeats === undefined ? 0 : Math.abs(selectedSeats - currentSeats)
-  const costChange =
-    pricePerSeat === null ? null : multiplyMoney(decimalFromSafeInteger(seatsChanged), pricePerSeat)
-  const costChangeText =
-    costChange === null
-      ? '—'
-      : currentSeats !== undefined &&
-          selectedSeats < currentSeats &&
-          compareMoney(costChange, '0') > 0
-        ? `−${formatUsd(locale, costChange)}`
-        : formatUsd(locale, costChange, { signDisplay: 'exceptZero' })
+  const totalMonthlyCost = selectedSeats * pricePerSeat
+  const costChange = currentSeats ? (selectedSeats - currentSeats) * pricePerSeat : 0
   const handleConfirm = async () => {
     await onConfirm(selectedSeats)
   }
@@ -108,8 +89,8 @@ export function TeamSeats({
             max={maximumSeats ?? undefined}
             value={selectedSeats}
             onChange={(event) => {
-              const parsed = Number(event.target.value)
-              if (!Number.isSafeInteger(parsed)) {
+              const parsed = Number.parseInt(event.target.value, 10)
+              if (!Number.isFinite(parsed)) {
                 setSelectedSeats(minimumSeats)
                 return
               }
@@ -127,7 +108,7 @@ export function TeamSeats({
           <p className='mt-2 text-muted-foreground text-sm'>
             {t('yourTeamWillHave', {
               count: selectedSeats,
-              cost: totalMonthlyCost === null ? '—' : formatUsd(locale, totalMonthlyCost),
+              cost: formatUsd(locale, totalMonthlyCost),
             })}
           </p>
           <p className='mt-1 text-muted-foreground text-xs'>
@@ -153,7 +134,7 @@ export function TeamSeats({
               </div>
               <div className='mt-2 flex justify-between border-t pt-2 font-medium text-sm'>
                 <span>{t('monthlyCostChange')}</span>
-                <span>{costChangeText}</span>
+                <span>{formatUsd(locale, costChange, { signDisplay: 'exceptZero' })}</span>
               </div>
             </div>
           )}
@@ -178,7 +159,6 @@ export function TeamSeats({
                       onClick={handleConfirm}
                       disabled={
                         isLoading ||
-                        pricePerSeat === null ||
                         (showCostBreakdown && selectedSeats === currentSeats) ||
                         isCancelledAtPeriodEnd
                       }

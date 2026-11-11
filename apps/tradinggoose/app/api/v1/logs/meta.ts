@@ -16,8 +16,8 @@ export interface UserLimits {
     }
   }
   usage: {
-    currentPeriodCost: string
-    limit: string | null
+    currentPeriodCost: number
+    limit: number
     tier: BillingTierSummary
     isExceeded: boolean
   }

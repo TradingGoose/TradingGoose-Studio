@@ -3,18 +3,16 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { and, eq, inArray, or, select, update, updateFinancialSubscription } = vi.hoisted(() => ({
+const { and, eq, inArray, or, select, update } = vi.hoisted(() => ({
   and: vi.fn((...conditions: unknown[]) => ({ and: conditions })),
   eq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   inArray: vi.fn((field: unknown, values: unknown[]) => ({ field, values })),
   or: vi.fn((...conditions: unknown[]) => ({ or: conditions })),
   select: vi.fn(),
   update: vi.fn(),
-  updateFinancialSubscription: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({ db: { select, update } }))
-vi.mock('@/lib/billing/financial-subscriptions', () => ({ updateFinancialSubscription }))
 vi.mock('@tradinggoose/db/schema', () => ({
   subscription: { id: 'subscription.id' },
   organization: { id: 'organization.id' },
@@ -54,6 +52,7 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
     stripeMonthlyPriceId: 'price_monthly',
     stripeYearlyPriceId: 'price_yearly',
   }
+  const set = vi.fn()
   let selectResults: unknown[][]
 
   beforeEach(() => {
@@ -64,10 +63,8 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
         where: () => ({ limit: vi.fn().mockResolvedValue(selectResults.shift() ?? []) }),
       }),
     }))
-    update.mockImplementation(() => {
-      throw new Error('Subscription normalization must use the financial mutation boundary')
-    })
-    updateFinancialSubscription.mockResolvedValue(undefined)
+    set.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
+    update.mockReturnValue({ set })
   })
 
   it('resolves the tier from the signed recurring Stripe price', async () => {
@@ -81,17 +78,11 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
     expect(inArray).toHaveBeenCalledWith('tier.status', ['active', 'archived'])
     expect(inArray).toHaveBeenCalledWith('tier.stripeMonthlyPriceId', ['price_yearly'])
     expect(inArray).toHaveBeenCalledWith('tier.stripeYearlyPriceId', ['price_yearly'])
-    expect(updateFinancialSubscription).toHaveBeenCalledExactlyOnceWith(
-      'sub_local',
-      {
-        plan: 'tier_team',
-        billingTierId: 'tier_team',
-        referenceType: 'organization',
-        stripeCustomerId: 'customer_signed',
-      },
-      { transaction: undefined, expectedStripeSubscriptionId: 'sub_stripe' }
-    )
-    expect(update).not.toHaveBeenCalled()
+    expect(set).toHaveBeenCalledWith({
+      billingTierId: 'tier_team',
+      referenceType: 'organization',
+      stripeCustomerId: 'customer_signed',
+    })
   })
 
   it('rejects a signed recurring price that matches no tier', async () => {
@@ -106,7 +97,6 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
     ).rejects.toThrow('matched 0 billing tiers')
 
     expect(update).not.toHaveBeenCalled()
-    expect(updateFinancialSubscription).not.toHaveBeenCalled()
   })
 
   it('rejects a signed recurring price that matches multiple tiers', async () => {
@@ -121,7 +111,6 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
     ).rejects.toThrow('matched 2 billing tiers')
 
     expect(update).not.toHaveBeenCalled()
-    expect(updateFinancialSubscription).not.toHaveBeenCalled()
   })
 
   it('rejects a Stripe subscription without a recurring price', async () => {
@@ -136,7 +125,6 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
 
     expect(select).not.toHaveBeenCalled()
     expect(update).not.toHaveBeenCalled()
-    expect(updateFinancialSubscription).not.toHaveBeenCalled()
   })
 
   it('rejects an organization tier attached to a non-organization reference', async () => {
@@ -150,33 +138,6 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
       })
     ).rejects.toThrow('does not reference an organization')
 
-    expect(update).not.toHaveBeenCalled()
-    expect(updateFinancialSubscription).not.toHaveBeenCalled()
-  })
-  it('rejects a missing original local subscription without mutation', async () => {
-    selectResults[1] = []
-    const { syncSubscriptionBillingTierFromStripeSubscription } = await import('./persistence')
-    await expect(
-      syncSubscriptionBillingTierFromStripeSubscription({
-        subscriptionId: 'sub_local',
-        stripeSubscription: stripeSubscription('price_monthly'),
-      })
-    ).rejects.toThrow('Subscription sub_local does not exist')
-    expect(updateFinancialSubscription).not.toHaveBeenCalled()
-    expect(update).not.toHaveBeenCalled()
-  })
-  it('preserves financial mutation failure without a raw update alternative', async () => {
-    updateFinancialSubscription.mockRejectedValue(
-      new Error('Original financial basis is unavailable')
-    )
-    const { syncSubscriptionBillingTierFromStripeSubscription } = await import('./persistence')
-    await expect(
-      syncSubscriptionBillingTierFromStripeSubscription({
-        subscriptionId: 'sub_local',
-        stripeSubscription: stripeSubscription('price_monthly'),
-      })
-    ).rejects.toThrow('Original financial basis is unavailable')
-    expect(updateFinancialSubscription).toHaveBeenCalledOnce()
     expect(update).not.toHaveBeenCalled()
   })
 })

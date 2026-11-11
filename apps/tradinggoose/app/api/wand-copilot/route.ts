@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -131,18 +130,14 @@ export async function POST(req: NextRequest) {
     { role: 'user' as const, content: prompt },
   ]
 
-  const requestId = randomUUID()
   const nativeRequest: CompletionRequest = {
-    requestId,
     scope: { actorUserId: session.user.id, workspaceId: null },
     purpose: 'wand',
     model: configuredModel,
     messages: [messages[0]!, ...messages.slice(1)],
-    stream: true,
   }
   try {
     const response = await createCompletionResponse(nativeRequest, req.signal)
-    response.headers.set('x-wand-request-id', requestId)
     return response
   } catch (error) {
     logger.error('Wand generation failed', { error })

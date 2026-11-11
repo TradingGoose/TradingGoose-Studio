@@ -2,8 +2,8 @@ vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
   createConfiguredLanguageModel: () => state.model,
 }))
-vi.mock('@/lib/mastra/financial-processors', () => ({
-  financialProcessors: async () => ({
+vi.mock('@/lib/mastra/usage-processors', () => ({
+  usageProcessors: async () => ({
     inputProcessors: [],
     outputProcessors: [],
     getUsage: () => state.usage,
@@ -17,7 +17,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getInferenceFacts } from '@/lib/mastra/result'
 import { resultAccounting, selectNativeUsage } from '@/lib/mastra/usage'
 import { createMinimalWorkflow, createMockContext } from '@/executor/__test-utils__/executor-mocks'
-import { checkpointFunctionalOutput } from '@/executor/checkpoint'
 import { RouterBlockHandler } from '../router/router-handler'
 import { EvaluatorBlockHandler } from './evaluator-handler'
 
@@ -85,7 +84,6 @@ it('rejects the installed native engine resolving an aborted score-less structur
     generatedFields: ['model', 'tokens', 'cost'],
   })
   expect(expected.cost).toEqual({ status: 'unavailable' })
-  expect(checkpointFunctionalOutput(failure)).not.toHaveProperty('tokens')
   expect(state.model.doGenerateCalls).toHaveLength(1)
 })
 
@@ -158,16 +156,6 @@ describe('installed native returned usage before financial refusal', () => {
         cost: { status: 'unavailable' },
         generatedFields: ['model', 'tokens', 'cost'],
       })
-      const cold = JSON.parse(JSON.stringify(checkpointFunctionalOutput(failure)))
-      expect(cold).toMatchObject({
-        name: 'Error',
-        message: 'Financial acceptance refused',
-        model: 'openai/gpt-4.1',
-      })
-      expect(cold).not.toHaveProperty('tokens')
-      expect(cold).not.toHaveProperty('cost')
-      expect(cold).not.toHaveProperty('stack')
-      expect(getInferenceFacts(cold)).toBeUndefined()
       expect(state.verify).toHaveBeenCalledOnce()
       expect(contacts).toBe(1)
     }

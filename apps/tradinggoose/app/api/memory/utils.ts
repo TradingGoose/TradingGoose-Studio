@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { AuthResult } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
-import { WorkflowMemoryError } from '@/lib/mastra/memory-budget'
+import { WorkflowMemoryError } from '@/lib/mastra/errors'
 
 const logger = createLogger('MemoryAPI')
 export const MemoryMessageSchema = z
@@ -31,7 +31,6 @@ export function memoryError(error: unknown) {
       status,
       headers: {
         'Cache-Control': 'private, no-store',
-        ...(status === 503 ? { 'Retry-After': '1' } : {}),
       },
     }
   )

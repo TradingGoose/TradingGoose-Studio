@@ -1,15 +1,10 @@
-import {
-  assertNativeCorrelation,
-  type NativeContractDefinitions,
-  parseNativeContract,
-} from './contract'
+import type { CompletionEvent, CopilotEvent } from './contract'
 
-/** Decode complete SSE frames; validate closed product events rather than forwarding upstream envelopes. */
-export async function* readNativeEvents<K extends 'CopilotEvent' | 'CompletionEvent'>(
+/** Decode complete SSE frames from the built-in service. */
+export async function* readNativeEvents<T extends CopilotEvent | CompletionEvent = CopilotEvent>(
   stream: ReadableStream<Uint8Array>,
-  definition: K,
-  options: { requestId: string; signal?: AbortSignal }
-): AsyncGenerator<NativeContractDefinitions[K]> {
+  options: { signal?: AbortSignal } = {}
+): AsyncGenerator<T> {
   const reader = stream.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -34,12 +29,7 @@ export async function* readNativeEvents<K extends 'CopilotEvent' | 'CompletionEv
           .map((line) => line.slice(5).replace(/^ /, ''))
           .join('\n')
         if (data) {
-          const event = await parseNativeContract(definition, JSON.parse(data))
-          if ('requestId' in event) {
-            assertNativeCorrelation(event, options.requestId)
-          }
-          if ('result' in event && (!('type' in event) || event.type !== 'tool.result'))
-            assertNativeCorrelation(event.result, options.requestId)
+          const event = JSON.parse(data) as T
           yield event
         }
         separator = /\r?\n\r?\n/.exec(buffer)

@@ -2,7 +2,8 @@
 
 import type { ComponentType, Dispatch, SetStateAction } from 'react'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { ChatContext, CopilotDraft, MessageFileAttachment } from '@/stores/copilot/types'
+import type { ImagePart } from '@/lib/copilot/native/contract'
+import type { ChatContext, CopilotDraft } from '@/stores/copilot/types'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
 
 export interface AttachedFile {
@@ -10,9 +11,7 @@ export interface AttachedFile {
   name: string
   size: number
   type: string
-  path: string
-  key?: string
-  sourceProof?: string
+  data?: string
   uploading: boolean
   previewUrl?: string
 }
@@ -21,7 +20,7 @@ export interface UserInputProps {
   workspaceId: string
   onSubmit: (
     message: string,
-    fileAttachments?: MessageFileAttachment[],
+    images?: ImagePart[],
     contexts?: ChatContext[],
     submittedDraft?: CopilotDraft
   ) => Promise<boolean> | boolean
@@ -34,7 +33,6 @@ export interface UserInputProps {
   draft: CopilotDraft
   onDraftChange: Dispatch<SetStateAction<CopilotDraft>>
   panelWidth: number
-  hideContextUsage?: boolean
   clearOnSubmit?: boolean
 }
 

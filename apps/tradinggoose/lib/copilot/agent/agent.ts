@@ -1,38 +1,24 @@
 import { Agent } from '@mastra/core/agent'
 import { createTool } from '@mastra/core/tools'
 import type { Memory } from '@mastra/memory'
-import { z } from 'zod'
-import { verifyFinancialAcceptance } from '@/lib/billing/native-finance'
+import type { z } from 'zod'
 import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { authorizeNativeBusinessResult } from '@/lib/copilot/native/business-access'
 import type { JsonObject } from '@/lib/copilot/native/contract'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
-import {
-  authorizeNativeConversationScope,
-  copyNativeFinancialSource,
-  NativeTargetError,
-  verifyCopilotPendingSource,
-} from '@/lib/copilot/native/target'
+import { authorizeNativeConversationScope, NativeTargetError } from '@/lib/copilot/native/target'
 import { ToolArgSchemas, ToolIds, ToolResultSchemas } from '@/lib/copilot/registry'
 import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
-import {
-  hashServerToolReviewBase,
-  type ServerToolExecutionContext,
-} from '@/lib/copilot/tools/server/base-tool'
-import {
-  acceptServerManagedToolReview,
-  rejectServerManagedToolReview,
-  stageServerManagedToolReview,
-} from '@/lib/copilot/tools/server/review-acceptance'
+import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { routeExecution } from '@/lib/copilot/tools/server/router'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
-import { type CopilotExecution, getCopilotExecution } from './context'
+import { type CopilotExecution, CopilotSuspendSchema, getCopilotExecution } from './context'
 import { COPILOT_INSTRUCTIONS } from './instructions'
-import { assertCopilotRunActive, runCopilotEffectOnce, saveCopilotOccurrence } from './state'
+import { assertCopilotRunActive, runCopilotEffectOnce } from './state'
 
 function createCopilotTools(execution: CopilotExecution) {
   return Object.fromEntries(
@@ -43,15 +29,7 @@ function createCopilotTools(execution: CopilotExecution) {
         description: TOOL_PROMPT_METADATA[name].description,
         inputSchema: ToolArgSchemas[name] as z.ZodType<JsonObject>,
         // Only the server can produce resume data. Business schemas validate the final result.
-        suspendSchema: z.object({
-          originalArgs: z.record(z.string(), z.json()),
-          preview: z.record(z.string(), z.json()).optional(),
-          financialOccurrence: z.object({
-            stepNumber: z.number().int().nonnegative(),
-            retryCount: z.number().int().nonnegative(),
-            runId: z.string().optional(),
-          }),
-        }),
+        suspendSchema: CopilotSuspendSchema,
         requireApproval: shouldRequireToolApproval(
           execution.run.accessLevel,
           getCopilotToolPolicy(name).gated
@@ -60,7 +38,7 @@ function createCopilotTools(execution: CopilotExecution) {
           const live = getCopilotExecution(context.requestContext)
           if (!live || !context.agent)
             throw new NativeTargetError('An active Studio invocation is required', 403)
-          const { run, finance, signal } = live
+          const { run, signal } = live
           signal.throwIfAborted()
           await authorizeNativeConversationScope(run.scope.actorUserId, run.scope.workspaceId)
           await assertCopilotRunActive(run.runId)
@@ -75,36 +53,24 @@ function createCopilotTools(execution: CopilotExecution) {
             live.pending.target.threadId === run.threadId &&
             live.pending.target.toolCallId === context.agent.toolCallId &&
             live.pending.target.toolName === name
-          const occurrence = resumed
-            ? live.pending!.financialOccurrence
-            : (finance.getLastOccurrence() ?? run.occurrence)
-          if (!occurrence)
-            throw new NativeTargetError('The tool has no accepted model occurrence', 403)
-          await verifyFinancialAcceptance(run.binding, occurrence)
-          await saveCopilotOccurrence(run, occurrence)
+          if (!resumed) await live.usage.verifyComplete()
           if (
             resumed &&
             stableStringifyJsonValue(live.pending!.originalArgs) !== stableStringifyJsonValue(args)
           )
             throw new NativeTargetError('Suspended Copilot tool arguments have changed', 403)
-          const pending = await verifyCopilotPendingSource(
-            run.scope,
-            {
-              target: {
-                threadId: run.threadId,
-                resourceId: identity.resourceId,
-                runId: run.runId,
-                toolCallId: context.agent.toolCallId,
-                toolName: name,
-              },
-              stage: 'result',
-              originalArgs: args,
-              financialBinding: run.binding,
-              financialOccurrence: occurrence,
-              ...(resumed && live.pending?.preview ? { preview: live.pending.preview } : {}),
+          const pending = {
+            target: {
+              threadId: run.threadId,
+              resourceId: identity.resourceId,
+              runId: run.runId,
+              toolCallId: context.agent.toolCallId,
+              toolName: name,
             },
-            signal
-          )
+            stage: 'result' as const,
+            originalArgs: args,
+            ...(resumed && live.pending?.preview ? { preview: live.pending.preview } : {}),
+          }
           const businessContext: ServerToolExecutionContext = {
             ...resolveCopilotToolContext(
               name,
@@ -116,23 +82,18 @@ function createCopilotTools(execution: CopilotExecution) {
             userId: run.scope.actorUserId,
             accessLevel: run.accessLevel,
             signal,
-            nativeReviewBinding: hashServerToolReviewBase({
-              target: pending.target,
-              scope: run.scope,
-              originalArgs: args,
-            }),
           }
-          copyNativeFinancialSource(pending, businessContext)
           await authorizeNativeBusinessResult(run.scope, pending, undefined, businessContext)
           let result: unknown
           if (resumed && live.decision?.action === 'result') {
             result = live.decision.result
           } else if (pending.preview) {
             const decision = live.decision
+            const baseStateHash = live.pending?.reviewBaseStateHash
             if (
               !decision ||
-              !('reviewToken' in decision) ||
-              decision.reviewToken !== pending.preview.reviewToken
+              !['review.accept', 'review.reject'].includes(decision.action) ||
+              !baseStateHash
             )
               throw new NativeTargetError('A decision on the current preview is required', 409)
             result = await runCopilotEffectOnce(
@@ -140,10 +101,14 @@ function createCopilotTools(execution: CopilotExecution) {
               context.agent.toolCallId,
               'review',
               decision,
-              () =>
+              async () =>
                 decision.action === 'review.accept'
-                  ? acceptServerManagedToolReview(name, decision.reviewToken, businessContext)
-                  : rejectServerManagedToolReview(name, decision.reviewToken, businessContext)
+                  ? routeExecution(name, args, {
+                      ...businessContext,
+                      accessLevel: 'full',
+                      acceptedReviewBaseStateHash: baseStateHash,
+                    })
+                  : { success: false, rejected: true, toolName: name }
             )
           } else if (getCopilotToolPolicy(name).execution === 'server') {
             result = await runCopilotEffectOnce(
@@ -151,16 +116,10 @@ function createCopilotTools(execution: CopilotExecution) {
               context.agent.toolCallId,
               'execute',
               { args, scope: run.scope },
-              async () =>
-                stageServerManagedToolReview(
-                  name,
-                  args,
-                  await routeExecution(name, args, businessContext),
-                  businessContext
-                )
+              () => routeExecution(name, args, businessContext)
             )
           } else {
-            await context.agent.suspend({ originalArgs: args, financialOccurrence: occurrence })
+            await context.agent.suspend({ originalArgs: args })
             return
           }
           if (
@@ -169,11 +128,10 @@ function createCopilotTools(execution: CopilotExecution) {
             'requiresReview' in result &&
             result.requiresReview === true
           ) {
-            await context.agent.suspend({
-              originalArgs: args,
-              preview: result as JsonObject,
-              financialOccurrence: occurrence,
-            })
+            const { reviewBaseStateHash, ...preview } = result as JsonObject
+            if (typeof reviewBaseStateHash !== 'string' || !reviewBaseStateHash)
+              throw new NativeTargetError('Tool preview is missing its current base state', 409)
+            await context.agent.suspend({ originalArgs: args, preview, reviewBaseStateHash })
             return
           }
           const typed = ToolResultSchemas[name].parse(result)

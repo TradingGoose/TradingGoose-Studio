@@ -5,10 +5,10 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
 import { publicTraceSpans } from '@/lib/logs/public'
+import { attachAgentHistory } from '@/lib/mastra/agent-history'
 import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { normalizeOptionalString } from '@/lib/utils'
-import { hydrateAuthorizedLog } from '@/lib/workflow-archive/functional'
 import { parseListingFilter } from '@/app/api/logs/log-utils'
 import { buildLogFilters, getOrderBy } from '@/app/api/v1/logs/filters'
 import { createApiResponse, getUserLimits } from '@/app/api/v1/logs/meta'
@@ -235,7 +235,7 @@ export async function GET(request: NextRequest) {
     const formattedLogs = await Promise.all(
       data.map(async (sourceLog) => {
         const log =
-          params.details === 'full' ? await hydrateAuthorizedLog(sourceLog, userId) : sourceLog
+          params.details === 'full' ? await attachAgentHistory(sourceLog, userId) : sourceLog
         const workflowSummary = readWorkflowSummary(log.workflowSummary)
         const workflowId = log.workflowId ?? workflowSummary.id ?? null
         const result: any = {

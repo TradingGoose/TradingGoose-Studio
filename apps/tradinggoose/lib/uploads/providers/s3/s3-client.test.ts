@@ -3,7 +3,6 @@
  *
  * @vitest-environment node
  */
-import { PassThrough } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('S3 Client', () => {
@@ -16,12 +15,10 @@ describe('S3 Client', () => {
   const mockGetObjectCommand = vi.fn()
   const mockDeleteObjectCommand = vi.fn()
   const mockGetSignedUrl = vi.fn()
-  let copilotBucket = 'private-copilot-bucket'
 
   beforeEach(() => {
     vi.resetModules()
-    vi.resetAllMocks()
-    copilotBucket = 'private-copilot-bucket'
+    vi.clearAllMocks()
 
     vi.doMock('@aws-sdk/client-s3', () => ({
       S3Client: vi.fn(function () {
@@ -40,7 +37,6 @@ describe('S3 Client', () => {
     vi.doMock('@/lib/env', () => ({
       env: {
         S3_BUCKET_NAME: 'test-bucket',
-        S3_COPILOT_BUCKET_NAME: copilotBucket,
         AWS_REGION: 'test-region',
         AWS_ACCESS_KEY_ID: 'test-access-key',
         AWS_SECRET_ACCESS_KEY: 'test-secret-key',
@@ -54,6 +50,13 @@ describe('S3 Client', () => {
         warn: vi.fn(),
         error: vi.fn(),
       }),
+    }))
+
+    vi.doMock('@/lib/uploads/setup', () => ({
+      S3_CONFIG: {
+        bucket: 'test-bucket',
+        region: 'test-region',
+      },
     }))
 
     vi.spyOn(Date, 'now').mockReturnValue(1672603200000)
@@ -133,46 +136,6 @@ describe('S3 Client', () => {
       expect(result.size).toBe(providedSize)
     })
 
-    it('uses the provider exclusive-create condition for the exact preserved key without changing defaults', async () => {
-      mockSend.mockResolvedValue({})
-      const { uploadToS3 } = await import('@/lib/uploads/providers/s3/s3-client')
-      const bytes = Buffer.from('immutable source bytes')
-      const config = { bucket: 'test-bucket', region: 'test-region' }
-      const uploaded = await uploadToS3(
-        bytes,
-        'nested/source.txt',
-        'text/plain',
-        config,
-        bytes.length,
-        true,
-        true
-      )
-      expect(uploaded.key).toBe('nested/source.txt')
-      expect(mockPutObjectCommand).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          Bucket: config.bucket,
-          Key: 'nested/source.txt',
-          Body: bytes,
-          IfNoneMatch: '*',
-        })
-      )
-      await uploadToS3(bytes, 'ordinary.txt', 'text/plain', config, bytes.length, true)
-      expect(mockPutObjectCommand.mock.calls.at(-1)?.[0]).not.toHaveProperty('IfNoneMatch')
-      mockSend.mockRejectedValueOnce(new Error('PreconditionFailed: existing key'))
-      await expect(
-        uploadToS3(
-          Buffer.from('replacement'),
-          'nested/source.txt',
-          'text/plain',
-          config,
-          undefined,
-          true,
-          true
-        )
-      ).rejects.toThrow('PreconditionFailed')
-      expect(mockSend).toHaveBeenCalledTimes(3)
-    })
-
     it('should handle upload errors', async () => {
       const error = new Error('Upload failed')
       mockSend.mockRejectedValueOnce(error)
@@ -237,25 +200,6 @@ describe('S3 Client', () => {
   })
 
   describe('downloadFromS3', () => {
-    it('cancels the actual body stream and forwards the signal without returning partial bytes', async () => {
-      const { downloadFromS3 } = await import('./s3-client')
-      const body = new PassThrough()
-      const controller = new AbortController()
-      mockSend.mockResolvedValueOnce({ Body: body })
-      const read = downloadFromS3('test-file.txt', undefined, controller.signal)
-      const outcome = expect(read).rejects.toMatchObject({ name: 'AbortError' })
-      await vi.waitFor(() => expect(body.listenerCount('data')).toBeGreaterThan(0))
-      body.write('partial')
-      controller.abort()
-      await outcome
-      expect(body.destroyed).toBe(true)
-      expect(mockSend.mock.calls[0][1]).toEqual({ abortSignal: controller.signal })
-      mockSend.mockClear()
-      await expect(
-        downloadFromS3('test-file.txt', undefined, AbortSignal.abort())
-      ).rejects.toMatchObject({ name: 'AbortError' })
-      expect(mockSend).not.toHaveBeenCalled()
-    })
     it('should download a file from S3', async () => {
       const mockStream = {
         on: vi.fn((event, callback) => {
@@ -325,27 +269,6 @@ describe('S3 Client', () => {
     })
   })
 
-  describe('actual private source read boundary', () => {
-    it.each(['test-bucket', ''])(
-      'denies raw read/sign before provider contact when Copilot destination is shared or unknown: %s',
-      async (bucket) => {
-        copilotBucket = bucket
-        const { downloadFromS3, getPresignedUrl } = await import(
-          '@/lib/uploads/providers/s3/s3-client'
-        )
-        await expect(downloadFromS3('old-flat-key.txt')).rejects.toThrow(
-          'File access is unavailable'
-        )
-        await expect(getPresignedUrl('old-flat-key.txt')).rejects.toThrow(
-          'File access is unavailable'
-        )
-        expect(mockSend).not.toHaveBeenCalled()
-        expect(mockGetSignedUrl).not.toHaveBeenCalled()
-        expect(mockGetObjectCommand).not.toHaveBeenCalled()
-      }
-    )
-  })
-
   describe('deleteFromS3', () => {
     it('should delete a file from S3', async () => {
       mockSend.mockResolvedValueOnce({})
@@ -381,10 +304,16 @@ describe('S3 Client', () => {
       vi.doMock('@/lib/env', () => ({
         env: {
           S3_BUCKET_NAME: 'test-bucket',
-          S3_COPILOT_BUCKET_NAME: copilotBucket,
           AWS_REGION: 'test-region',
           AWS_ACCESS_KEY_ID: 'test-access-key',
           AWS_SECRET_ACCESS_KEY: 'test-secret-key',
+        },
+      }))
+
+      vi.doMock('@/lib/uploads/setup', () => ({
+        S3_CONFIG: {
+          bucket: 'test-bucket',
+          region: 'test-region',
         },
       }))
 
@@ -408,10 +337,16 @@ describe('S3 Client', () => {
       vi.doMock('@/lib/env', () => ({
         env: {
           S3_BUCKET_NAME: 'test-bucket',
-          S3_COPILOT_BUCKET_NAME: copilotBucket,
           AWS_REGION: 'test-region',
           AWS_ACCESS_KEY_ID: undefined,
           AWS_SECRET_ACCESS_KEY: undefined,
+        },
+      }))
+
+      vi.doMock('@/lib/uploads/setup', () => ({
+        S3_CONFIG: {
+          bucket: 'test-bucket',
+          region: 'test-region',
         },
       }))
 

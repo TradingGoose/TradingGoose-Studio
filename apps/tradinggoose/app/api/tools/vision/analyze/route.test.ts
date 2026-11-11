@@ -2,8 +2,8 @@ vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
   createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
 }))
-vi.mock('@/lib/mastra/financial-processors', () => ({
-  financialProcessors: async (scope: unknown) => {
+vi.mock('@/lib/mastra/usage-processors', () => ({
+  usageProcessors: async (scope: unknown) => {
     mocks.finance(scope)
     return {
       inputProcessors: [],
@@ -196,8 +196,7 @@ describe('native Vision input and authorization', () => {
             {
               type: 'image',
               image: Buffer.from('source image bytes'),
-              mediaType: 'image/png',
-              mimeType: 'image/png',
+              mediaType: undefined,
             },
           ],
         },
@@ -240,31 +239,29 @@ describe('native Vision input and authorization', () => {
       type: 'image',
       image: Buffer.from('image bytes'),
       mediaType: 'image/png',
-      mimeType: 'image/png',
     })
     expect(mocks.mediaFetch).not.toHaveBeenCalled()
   })
 
-  it.each([
-    '/api/files/serve/flat.png?context=copilot',
-    '/api/files/serve/%252fworkflow-archive',
-    'https://public.fixture/archived-enhanced-logs/private.json',
-  ])('refuses protected media %s before finance/model/fetch', async (imageUrl) => {
-    const response = await POST(request({ imageUrl, apiKey: 'request-key' }))
-    expect(response.status).toBe(403)
-    expect(mocks.mediaFetch).not.toHaveBeenCalled()
-    expect(mocks.finance).not.toHaveBeenCalled()
-    expect(mocks.generate).not.toHaveBeenCalled()
-    expect(mocks.configurations).toHaveLength(0)
-  })
+  it.each(['/api/files/serve/%252fprivate'])(
+    'refuses malformed media %s before finance/model/fetch',
+    async (imageUrl) => {
+      const response = await POST(request({ imageUrl, apiKey: 'request-key' }))
+      expect(response.status).toBe(403)
+      expect(mocks.mediaFetch).not.toHaveBeenCalled()
+      expect(mocks.finance).not.toHaveBeenCalled()
+      expect(mocks.generate).not.toHaveBeenCalled()
+      expect(mocks.configurations).toHaveLength(0)
+    }
+  )
 
-  it('refuses a private redirect after canceling its response and never contacts the target/model', async () => {
+  it('refuses an invalid redirect after canceling its response', async () => {
     const cancel = vi.fn()
     mocks.mediaFetch.mockImplementationOnce(
       async () =>
         new Response(new ReadableStream({ cancel }), {
           status: 302,
-          headers: { location: '/api/files/serve/key?context=copilot' },
+          headers: { location: 'file:///private.png' },
         })
     )
     const response = await POST(request({ imageUrl: 'https://public.fixture/redirect' }))

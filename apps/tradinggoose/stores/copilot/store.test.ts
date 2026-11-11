@@ -1,10 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  type FinancialFact,
-  type Pending,
-  parseNativeContract,
-} from '@/lib/copilot/native/contract'
-import type { StudioNativeCommand } from '@/lib/copilot/native/studio-request'
+import type { CopilotRequest, Pending } from '@/lib/copilot/native/contract'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { buildCopilotWorkspaceChannelId } from './channel-id'
@@ -29,7 +24,6 @@ vi.mock('./tool-registry', async (original) => ({
   }),
   bindClientToolExecutionContext: tools.bind,
 }))
-const financial: FinancialFact = { accepted: true, appliedUsd: '0', modelUsd: 'unavailable' }
 const threadId = 'thread-fixture'
 const workspaceId = 'workspace-fixture'
 const actorUserId = 'actor-fixture'
@@ -54,15 +48,29 @@ const defer = <T>() => {
   })
   return { promise, resolve }
 }
-const result = (request: StudioNativeCommand, value: object) => ({
-  requestId: request.requestId,
+const result = (request: CopilotRequest, value: object) => ({
   ...value,
 })
-const json = (value: unknown, status = 200) => Response.json(value, { status })
-const ready = (request: StudioNativeCommand, text = 'canonical answer') =>
-  result(request, { status: 'completed', threadId, runId, text, financial })
-const suspended = (request: StudioNativeCommand, items: Pending[]) =>
-  result(request, { status: 'suspended', threadId, runId, text: '', pending: items, financial })
+const json = (value: unknown, status = 200): Response => {
+  if (
+    status === 200 &&
+    value &&
+    typeof value === 'object' &&
+    'status' in value &&
+    ['completed', 'suspended'].includes(String(value.status))
+  )
+    return eventResponse({} as CopilotRequest, [
+      {
+        type: value.status === 'completed' ? 'response.completed' : 'response.suspended',
+        result: value,
+      },
+    ])
+  return Response.json(value, { status })
+}
+const ready = (request: CopilotRequest, text = 'canonical answer') =>
+  result(request, { status: 'completed', threadId, runId, text })
+const suspended = (request: CopilotRequest, items: Pending[]) =>
+  result(request, { status: 'suspended', threadId, runId, text: '', pending: items })
 const history = [
   {
     id: 'user-native',
@@ -77,9 +85,9 @@ const history = [
     parts: [{ type: 'text', text: 'canonical answer' }],
   },
 ]
-let commands: StudioNativeCommand[]
+let commands: CopilotRequest[]
 let onCommand: (
-  request: StudioNativeCommand,
+  request: CopilotRequest,
   init?: RequestInit
 ) => Promise<Response> | Response | undefined
 let onTitle: (body: any, init?: RequestInit) => Promise<Response> | Response
@@ -106,7 +114,7 @@ const installPending = (item: Pending) => {
     },
   })
 }
-function defaultResponse(request: StudioNativeCommand) {
+function defaultResponse(request: CopilotRequest) {
   if (request.command === 'history.read')
     return json(
       result(request, {
@@ -130,15 +138,6 @@ function defaultResponse(request: StudioNativeCommand) {
         hasMore: false,
       })
     )
-  if (request.command === 'context.read')
-    return json(
-      result(request, {
-        status: 'context',
-        threadId: request.threadId,
-        contextTokens: null,
-        tokenSource: 'unavailable',
-      })
-    )
   if (
     request.command === 'thread.title' ||
     request.command === 'history.edit' ||
@@ -157,13 +156,11 @@ function defaultResponse(request: StudioNativeCommand) {
       result(request, {
         status: 'cancel_requested',
         runId: request.runId,
-        acknowledged: true,
-        uncertaintyRemains: true,
       })
     )
   return json(ready(request))
 }
-function eventResponse(request: StudioNativeCommand, events: object[]) {
+function eventResponse(request: CopilotRequest, events: object[]) {
   const encoder = new TextEncoder()
   const bytes = encoder.encode(
     events.map((value) => `data: ${JSON.stringify(result(request, value))}\r\n\r\n`).join('')
@@ -201,7 +198,7 @@ beforeEach(() => {
         return onTitle(body, init)
       }
       expect(String(input)).toBe('/api/copilot/native')
-      const request = JSON.parse(String(init?.body)) as StudioNativeCommand
+      const request = JSON.parse(String(init?.body)) as CopilotRequest
       commands.push(request)
       expect(Object.hasOwn(request, 'workspaceId')).toBe(true)
       expect(request).not.toHaveProperty('scope')
@@ -270,8 +267,6 @@ describe('canonical browser conversation transport', () => {
               error: {
                 code: 'FORBIDDEN',
                 message: 'Source access denied',
-                retryable: false,
-                uncertain: false,
               },
             }),
             403
@@ -281,14 +276,11 @@ describe('canonical browser conversation transport', () => {
       await store()
         .getState()
         .sendMessage('image prompt', {
-          fileAttachments: [
+          images: [
             {
-              id: 'image',
-              key: 'private',
-              sourceProof: 'local-proof',
-              filename: 'duck.png',
-              media_type: 'image/png',
-              size: 10,
+              type: 'image',
+              image: 'data:image/png;base64,cGl4ZWw=',
+              mediaType: 'image/png',
             },
           ],
         })
@@ -296,16 +288,13 @@ describe('canonical browser conversation transport', () => {
     expect(commands).toEqual([
       expect.objectContaining({
         command: 'message',
-        input: { content: 'image prompt', contexts: [] },
-        fileAttachments: [
-          {
-            key: 'private',
-            sourceProof: 'local-proof',
-            filename: 'duck.png',
-            media_type: 'image/png',
-            size: 10,
-          },
-        ],
+        input: {
+          content: [
+            { type: 'text', text: 'image prompt' },
+            { type: 'image', image: 'data:image/png;base64,cGl4ZWw=', mediaType: 'image/png' },
+          ],
+          contexts: [],
+        },
       }),
     ])
     expect(titleRequests).toEqual([])
@@ -313,53 +302,34 @@ describe('canonical browser conversation transport', () => {
     expect(store().getState().error).toBe('Source access denied')
   })
   it('sends image-only selection in original order as Studio source descriptors without a caption or title utility', async () => {
-    const files = ['first', 'second'].map((id) => ({
-      id,
-      key: `owned/${id}`,
-      sourceProof: `proof-${id}`,
-      filename: `${id}.png`,
-      media_type: 'image/png',
-      size: 70,
+    const images = ['first', 'second'].map((id) => ({
+      type: 'image' as const,
+      image: `data:image/png;base64,${btoa(id)}`,
+      mediaType: 'image/png',
     }))
-    expect(await store().getState().sendMessage(' \n\t ', { fileAttachments: files })).toBe(true)
+    expect(await store().getState().sendMessage(' \n\t ', { images })).toBe(true)
     expect(commands.find((command) => command.command === 'message')).toMatchObject({
-      input: { content: ' \n\t ', contexts: [] },
-      fileAttachments: files.map(({ id: _id, ...descriptor }) => descriptor),
+      input: {
+        content: [{ type: 'text', text: ' \n\t ' }, ...images],
+        contexts: [],
+      },
     })
     expect(titleRequests).toEqual([])
   })
-  it.each([undefined, null, 0, 0.02, '0.00', '1e-2', '-1'])(
-    'refuses invalid accepted monetary fact %s without title publication, fake zero or replay',
-    async (appliedUsd) => {
-      onCommand = (request) =>
-        request.command === 'message'
-          ? json({ ...ready(request), financial: { ...financial, appliedUsd } })
-          : undefined
-      expect(await store().getState().sendMessage('First')).toBe(false)
-      expect(store().getState().error).toBeTruthy()
-      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-      expect(titleRequests).toEqual([])
-    }
-  )
-  it('refuses a wrong-command pruning terminal without inventing a model acceptance fact', async () => {
+  it('refuses a wrong-command history mutation without inventing a model acceptance fact', async () => {
     setChat()
     onCommand = (request) => {
       if (request.command !== 'message') return
       const wrong = result(request, {
-        status: 'compacted',
+        status: 'updated',
         threadId,
-        applied: true,
-        sourceBoundaryVerified: true,
+        operation: 'history.edit',
       })
       return json(wrong)
     }
     expect(await store().getState().sendMessage('First')).toBe(false)
-    expect(store().getState().lastNativeOutcome).toMatchObject({
-      status: 'failed',
-      error: { code: 'UNCERTAIN', uncertain: true },
-    })
+    expect(store().getState().error).toBe('Copilot stream is unavailable')
     expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-    expect(commands.some((request) => request.command === 'context.compact')).toBe(false)
     expect(titleRequests).toEqual([])
   })
   it('preserves split UTF8, reasoning/text order and native final canonical content', async () => {
@@ -377,11 +347,10 @@ describe('canonical browser conversation transport', () => {
     expect(store().getState().lastNativeOutcome).toMatchObject({
       status: 'completed',
       text: 'canonical answer',
-      financial,
     })
     expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
   })
-  it.each(['missing-terminal', 'raw-openai', 'trailing-data', 'wrong-correlation'])(
+  it.each(['missing-terminal', 'raw-openai', 'trailing-data'])(
     'refuses %s streams without inventing success',
     async (mode) => {
       setChat()
@@ -399,7 +368,6 @@ describe('canonical browser conversation transport', () => {
                   type: 'response.completed',
                   result: {
                     ...ready(request),
-                    ...(mode === 'wrong-correlation' ? { requestId: 'stale' } : {}),
                   },
                 },
                 ...(mode === 'trailing-data' ? [{ type: 'text.delta', text: 'extra' }] : []),
@@ -411,7 +379,7 @@ describe('canonical browser conversation transport', () => {
       expect(titleRequests).toEqual([])
     }
   )
-  it('preserves a known accepted financial error rather than reporting EOF success', async () => {
+  it('preserves an explicit failed outcome instead of reporting EOF success', async () => {
     setChat()
     onCommand = (request) =>
       request.command === 'message'
@@ -423,10 +391,7 @@ describe('canonical browser conversation transport', () => {
                 error: {
                   code: 'NATIVE_FAILURE',
                   message: 'Output failed after acceptance',
-                  retryable: false,
-                  uncertain: false,
                 },
-                financial: { ...financial, appliedUsd: '0.02' },
               }),
             },
           ])
@@ -434,11 +399,10 @@ describe('canonical browser conversation transport', () => {
     expect(await store().getState().sendMessage('Hello')).toBe(false)
     expect(store().getState().lastNativeOutcome).toMatchObject({
       status: 'failed',
-      financial: { appliedUsd: '0.02' },
     })
     expect(titleRequests).toEqual([])
   })
-  it('retains accepted financial facts from a genuine pending event when cancellation follows', async () => {
+  it('settles a genuine pending tool when cancellation follows', async () => {
     setChat()
     const item = pending('approval')
     onCommand = (request) =>
@@ -448,26 +412,22 @@ describe('canonical browser conversation transport', () => {
             {
               type: 'tool.pending',
               pending: item,
-              financial: { ...financial, appliedUsd: '0.02' },
             },
             {
               type: 'response.cancel_requested',
               result: result(request, {
                 status: 'cancel_requested',
                 runId,
-                acknowledged: true,
-                uncertaintyRemains: true,
               }),
             },
           ])
         : undefined
     expect(await store().getState().sendMessage('Read')).toBe(false)
     expect(store().getState().lastNativeOutcome).toMatchObject({
-      status: 'failed',
-      error: { code: 'UNCERTAIN', uncertain: true },
+      status: 'cancel_requested',
     })
   })
-  it('retains accepted financial facts during actual UI abort and a separate cancel acknowledgement', async () => {
+  it('settles pending tools during a UI abort and separate cancel acknowledgement', async () => {
     setChat()
     const item = pending('approval')
     let streamCancelled = false
@@ -481,7 +441,6 @@ describe('canonical browser conversation transport', () => {
                   {
                     type: 'tool.pending',
                     pending: item,
-                    financial: { ...financial, appliedUsd: '0.02' },
                   },
                 ]
                 controller.enqueue(
@@ -514,7 +473,6 @@ describe('canonical browser conversation transport', () => {
     ])
     expect(store().getState().lastNativeOutcome).toMatchObject({
       status: 'cancel_requested',
-      uncertaintyRemains: true,
     })
   })
   it('rejects a stale thread response without selecting it', async () => {
@@ -539,7 +497,7 @@ describe('canonical browser conversation transport', () => {
 })
 
 describe('local pending approval and preview decisions', () => {
-  const pendingResponse = (request: StudioNativeCommand, items: Pending[]) =>
+  const pendingResponse = (request: CopilotRequest, items: Pending[]) =>
     json(
       result(request, {
         status: 'pending_targets',
@@ -576,7 +534,7 @@ describe('local pending approval and preview decisions', () => {
   })
   it('restores a persisted preview and accepts through one server-owned continuation', async () => {
     const item = pending('result', 'edit_workflow')
-    item.preview = { requiresReview: true, reviewToken: 'preview' }
+    item.preview = { requiresReview: true }
     installPending(item)
     store().setState((state) => displayNativePending(state, item))
     expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
@@ -588,7 +546,6 @@ describe('local pending approval and preview decisions', () => {
       expect.objectContaining({
         target: item.target,
         action: 'review.accept',
-        reviewToken: 'preview',
       }),
     ])
     expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
@@ -712,145 +669,13 @@ describe('canonical history, edits and context', () => {
     })
     expect(commands.some((request) => request.command === 'message')).toBe(false)
   })
-  it('clears prior context synchronously and ignores late context from another model/selection', async () => {
-    setChat()
-    const late = defer<Response>()
-    let first = true
-    onCommand = (request) => {
-      if (request.command !== 'context.read' || !first) return
-      first = false
-      return late.promise
-    }
-    const reading = store().getState().fetchContextUsage()
-    expect(store().getState().contextEvidence).toBeNull()
-    await store().getState().setSelectedModel('openai/gpt-5.6-sol')
-    const original = commands[0]
-    late.resolve(
-      json(
-        result(original, {
-          status: 'context',
-          threadId,
-          contextTokens: 999,
-          tokenSource: 'context_estimate',
-        })
-      )
-    )
-    await reading
-    expect(store().getState().contextEvidence).toMatchObject({
-      contextTokens: null,
-      tokenSource: 'unavailable',
-    })
-    expect(commands[0]).not.toHaveProperty('model')
-  })
-  it.each([true, false])(
-    'prunes native context with applied:%s without replacing chat/title financial facts or replaying inference',
-    async (applied) => {
-      setChat()
-      const prior = { ...financial, appliedUsd: '0.12345678901234567890123456789' }
-      const priorTitle = {
-        requestId: 'prior-title-request',
-        status: 'completed' as const,
-        runId: 'prior-title-run',
-        text: 'Existing title',
-        financial: { ...financial, appliedUsd: '0.30000000000000001' },
-      }
-      store().setState({ lastTitleOutcome: priorTitle })
-      const before = store().getState().messages
-      onCommand = (request) =>
-        request.command === 'context.compact'
-          ? json(
-              result(request, {
-                status: 'compacted',
-                threadId,
-                applied,
-                sourceBoundaryVerified: true,
-              })
-            )
-          : undefined
-      await store().getState().compactCurrentContext()
-      expect(commands[0]).toMatchObject({
-        command: 'context.compact',
-        threadId,
-        stream: false,
-        model: store().getState().selectedModel,
-      })
-      expect(commands.some((request) => request.command === 'history.read')).toBe(false)
-      expect(store().getState().messages).toEqual(before)
-      expect(commands.some((request) => request.command === 'message')).toBe(false)
-      expect(titleRequests).toEqual([])
-      expect(store().getState().lastNativeOutcome).toMatchObject({ status: 'compacted', applied })
-      expect(store().getState().lastNativeOutcome).not.toHaveProperty('runId')
-      expect(store().getState().lastNativeOutcome).not.toHaveProperty('financial')
-      expect(store().getState().lastTitleOutcome).toEqual(priorTitle)
-      expect(store().getState().contextEvidence).not.toHaveProperty('hasObservations')
-    }
-  )
-  it.each(['runId', 'financial', 'usage'])(
-    'refuses obsolete compact response field %s without replacing prior finance',
-    async (field) => {
-      setChat()
-      const prior = { ...financial, appliedUsd: '0.30000000000000001' }
-
-      const obsolete = {
-        runId,
-        financial,
-        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-      }
-      onCommand = (request) =>
-        request.command === 'context.compact'
-          ? json(
-              result(request, {
-                status: 'compacted',
-                threadId,
-                applied: true,
-                sourceBoundaryVerified: true,
-                [field]: obsolete[field as keyof typeof obsolete],
-              })
-            )
-          : undefined
-      await expect(store().getState().compactCurrentContext()).rejects.toThrow()
-      expect(commands.filter((request) => request.command === 'context.compact')).toHaveLength(1)
-      expect(commands.some((request) => request.command === 'message')).toBe(false)
-      expect(titleRequests).toEqual([])
-    }
-  )
-  it.each([true, false])(
-    'terminal context.compacted applied:%s preserves prior model facts',
-    async (applied) => {
-      setChat()
-      const prior = { ...financial, appliedUsd: '0.30000000000000001' }
-      store().setState({ currentRunId: runId })
-      const event = await parseNativeContract('CopilotEvent', {
-        requestId: 'compact-event',
-        type: 'context.compacted',
-        result: {
-          requestId: 'compact-event',
-          status: 'compacted',
-          threadId,
-          applied,
-          sourceBoundaryVerified: true,
-        },
-      })
-      const state = store().getState()
-      const patch = applyNativeEvent(state, event, 'unused-message')
-      expect(patch).toMatchObject({
-        lastNativeOutcome: { status: 'compacted', applied },
-        contextEvidence: null,
-      })
-      expect(patch).not.toHaveProperty('lastNativeFinancial')
-      expect(patch).not.toHaveProperty('currentRunId')
-      expect(commands).toEqual([])
-    }
-  )
 })
 
 describe('actual bounded initial-title publication', () => {
   const titleOutcome = {
-    requestId: 'title-request',
     status: 'completed',
     runId: 'title-run',
     text: '  Generated title  ',
-    financial,
   }
   it('calls utility for the actual first thread/model/scope, then mutates and reads native title only after success', async () => {
     store().setState({ conversationWorkspaceId: workspaceId, selectedModel: 'openai/gpt-5.6-sol' })
@@ -863,7 +688,6 @@ describe('actual bounded initial-title publication', () => {
     expect(commands.filter((request) => request.command === 'thread.title')).toEqual([
       expect.objectContaining({ title: 'Generated title' }),
     ])
-    expect(store().getState().lastTitleOutcome).toEqual(titleOutcome)
     await store().getState().sendMessage('Second')
     expect(titleRequests).toHaveLength(1)
   })
@@ -958,36 +782,10 @@ describe('actual bounded initial-title publication', () => {
     expect(await sending).toBe(true)
     expect(titleRequests).toEqual([])
   })
-  it.each([undefined, 0, '0.00', '1e-2'])(
-    'does not publish a title with invalid accepted utility money %s',
-    async (appliedUsd) => {
-      onTitle = () =>
-        json({
-          title: 'Generated title',
-          outcome: { ...titleOutcome, financial: { ...financial, appliedUsd } },
-        })
-      expect(await store().getState().sendMessage('First')).toBe(true)
-      await vi.waitFor(() => expect(titleRequests).toHaveLength(1))
-      await vi.waitFor(() => expect(store().getState().error).toBeTruthy())
-      expect(commands.some((request) => request.command === 'thread.title')).toBe(false)
-    }
-  )
-  it('retains exact high precision accepted title facts without numeric conversion', async () => {
-    const appliedUsd = '0.12345678901234567890123456789'
-    onTitle = () =>
-      json({
-        title: 'Generated title',
-        outcome: { ...titleOutcome, financial: { ...financial, appliedUsd } },
-      })
-    await store().getState().sendMessage('First')
-    await vi.waitFor(() => expect(store().getState().currentChat?.title).toBe('verified title'))
-    expect(store().getState().lastTitleOutcome?.financial?.appliedUsd).toBe(appliedUsd)
-  })
-  it('retains accepted main facts when canonical history readback fails without replaying inference', async () => {
-    const appliedUsd = '0.12345678901234567890123456789'
+  it('keeps the completed outcome when history readback fails without replaying inference', async () => {
     onCommand = (request) =>
       request.command === 'message'
-        ? json({ ...ready(request), financial: { ...financial, appliedUsd } })
+        ? json({ ...ready(request) })
         : request.command === 'history.read'
           ? json(
               result(request, {
@@ -995,8 +793,6 @@ describe('actual bounded initial-title publication', () => {
                 error: {
                   code: 'FORBIDDEN',
                   message: 'Current history access denied',
-                  retryable: false,
-                  uncertain: false,
                 },
               }),
               403
@@ -1011,12 +807,11 @@ describe('actual bounded initial-title publication', () => {
     ).toBe('canonical answer')
     expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
   })
-  it('retains accepted title facts on uncertain publication failure without replay or fabricated title', async () => {
-    const appliedUsd = '0.12345678901234567890123456789'
+  it('keeps the generated title outcome when publication fails without replay', async () => {
     onTitle = () =>
       json({
         title: 'Generated title',
-        outcome: { ...titleOutcome, financial: { ...financial, appliedUsd } },
+        outcome: { ...titleOutcome },
       })
     onCommand = (request) =>
       request.command === 'thread.title'
@@ -1026,8 +821,6 @@ describe('actual bounded initial-title publication', () => {
               error: {
                 code: 'UNCERTAIN',
                 message: 'Title publication outcome is uncertain',
-                retryable: false,
-                uncertain: true,
               },
             }),
             503
@@ -1037,7 +830,6 @@ describe('actual bounded initial-title publication', () => {
     await vi.waitFor(() =>
       expect(store().getState().error).toContain('publication outcome is uncertain')
     )
-    expect(store().getState().lastTitleOutcome?.financial?.appliedUsd).toBe(appliedUsd)
     expect(store().getState().currentChat?.title).toBe('')
     expect(titleRequests).toHaveLength(1)
     expect(commands.filter((request) => request.command === 'thread.title')).toHaveLength(1)
@@ -1050,23 +842,15 @@ describe('actual bounded initial-title publication', () => {
         mode === 'null'
           ? undefined
           : {
-              requestId: 'title-request',
               status: mode === 'error' ? 'failed' : mode,
               error: {
                 code: 'NATIVE_FAILURE',
                 message: 'title unavailable',
-                retryable: false,
-                uncertain: false,
               },
-              uncertain: false,
-              financialDisposition: 'accepted',
-              financial,
             }
       onTitle = () => json({ title: null, ...(outcome ? { outcome } : {}) })
       await store().getState().sendMessage('First')
       await vi.waitFor(() => expect(titleRequests).toHaveLength(1))
-      if (outcome)
-        await vi.waitFor(() => expect(store().getState().lastTitleOutcome).toEqual(outcome))
       expect(commands.some((request) => request.command === 'thread.title')).toBe(false)
     }
   )
@@ -1093,14 +877,13 @@ describe('actual bounded initial-title publication', () => {
   )
 })
 
-describe('owned late pruning and history-edit refresh', () => {
+describe('owned late history-edit refresh', () => {
   function controlledTurn() {
-    let active: Extract<StudioNativeCommand, { command: 'message' }> | undefined
+    let active: Extract<CopilotRequest, { command: 'message' }> | undefined
     let controller: ReadableStreamDefaultController<Uint8Array> | undefined
     let signal: AbortSignal | null | undefined
     const cancelled = vi.fn()
     const text = 'new stream exact output 🔥\n'
-    const accepted = { ...financial, appliedUsd: '0.1234567890123456789' }
     const emit = (value: object) => {
       if (!active || !controller) throw new Error('Controlled stream was not started')
       controller.enqueue(
@@ -1109,12 +892,11 @@ describe('owned late pruning and history-edit refresh', () => {
     }
     return {
       text,
-      accepted,
       cancelled,
       get signal() {
         return signal
       },
-      handle(request: StudioNativeCommand, init?: RequestInit) {
+      handle(request: CopilotRequest, init?: RequestInit) {
         if (request.command === 'message') {
           active = request
           signal = init?.signal
@@ -1164,55 +946,12 @@ describe('owned late pruning and history-edit refresh', () => {
             threadId: active.threadId,
             runId,
             text,
-            financial: accepted,
           }),
         })
         controller.close()
       },
     }
   }
-  it.each([
-    { applied: true, finishBeforeCompact: false },
-    { applied: false, finishBeforeCompact: false },
-    { applied: true, finishBeforeCompact: true },
-    { applied: false, finishBeforeCompact: true },
-  ])(
-    'ignores old compact result after a distinct new turn: %j',
-    async ({ applied, finishBeforeCompact }) => {
-      setChat()
-      const late = defer<Response>()
-      const stream = controlledTurn()
-      onCommand = (request, init) =>
-        request.command === 'context.compact' ? late.promise : stream.handle(request, init)
-      const compacting = store().getState().compactCurrentContext()
-      const original = commands[0]
-      const sending = store().getState().sendMessage('New request')
-      await vi.waitFor(() => expect(store().getState().messages.at(-1)?.content).toBe(stream.text))
-      if (finishBeforeCompact) {
-        stream.finish()
-        expect(await sending).toBe(true)
-      }
-      const before = store().getState()
-      late.resolve(
-        json(
-          result(original, { status: 'compacted', threadId, applied, sourceBoundaryVerified: true })
-        )
-      )
-      await compacting
-      expect(stream.signal?.aborted).toBe(false)
-      expect(stream.cancelled).not.toHaveBeenCalled()
-      expect(commands.filter((request) => request.command === 'cancel')).toEqual([])
-      expect(store().getState().currentChat).toEqual(before.currentChat)
-      expect(store().getState().messages).toEqual(before.messages)
-      expect(store().getState().lastNativeOutcome).toEqual(before.lastNativeOutcome)
-      if (!finishBeforeCompact) {
-        stream.finish()
-        expect(await sending).toBe(true)
-      }
-      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-      expect(titleRequests).toEqual([])
-    }
-  )
   it('ignores editA result after navigationB and a real new streaming turn', async () => {
     setChat()
     const late = defer<Response>()
@@ -1337,7 +1076,7 @@ describe('requested conversation scope survives discovery failure', () => {
   it('does not select a discovered chat after a new turn owns the requested scope', async () => {
     const discovery = defer<Response>()
     const message = defer<Response>()
-    let original: StudioNativeCommand | undefined
+    let original: CopilotRequest | undefined
     onCommand = (request) => {
       if (request.command === 'threads.list') return discovery.promise
       if (request.command === 'message') {
@@ -1407,7 +1146,7 @@ describe('reopened workflow pending cards', () => {
 
 describe('display-only terminal settlement and optional completed history', () => {
   it.each(['error', 'refused', 'cancel'])(
-    'settles tool.display on SSE %s without losing accepted facts',
+    'settles tool.display on SSE %s while retaining its completed outcome',
     async (kind) => {
       setChat()
       onCommand = (request) =>
@@ -1417,7 +1156,6 @@ describe('display-only terminal settlement and optional completed history', () =
                 type: 'tool.display',
                 toolName: 'read_workflow',
                 toolCallId: 'display-only',
-                executionAuthorized: false,
               },
               kind === 'cancel'
                 ? {
@@ -1425,8 +1163,6 @@ describe('display-only terminal settlement and optional completed history', () =
                     result: result(request, {
                       status: 'cancel_requested',
                       runId,
-                      acknowledged: true,
-                      uncertaintyRemains: true,
                     }),
                   }
                 : {
@@ -1436,10 +1172,7 @@ describe('display-only terminal settlement and optional completed history', () =
                       error: {
                         code: 'FAILED',
                         message: 'Actual terminal refusal',
-                        retryable: false,
-                        uncertain: false,
                       },
-                      financial,
                     }),
                   },
             ])
@@ -1502,11 +1235,9 @@ describe('display-only terminal settlement and optional completed history', () =
       ...applyNativeEvent(
         state,
         {
-          requestId: 'display',
           type: 'tool.display',
           toolCallId: 'display-only',
           toolName: 'read_workflow',
-          executionAuthorized: false,
         },
         'unknown-message'
       ),
@@ -1544,7 +1275,7 @@ describe('explicit reopened Drive business choice', () => {
     )
     return item
   }
-  it('requires an explicit new workspace, distinct from personal conversation scope and original financial identity', async () => {
+  it('requires an explicit new workspace, distinct from personal conversation scope and original tool identity', async () => {
     const item = drive()
     prepare(item)
     store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
@@ -1689,92 +1420,6 @@ describe('submitted immutable draft ownership', () => {
     else expect(store().getState().draft).toBe(next)
     if (['navigation', 'abort', 'failure'].includes(kind)) expect(accepted).toBe(false)
     expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-  })
-})
-
-describe('R5 command-specific streamed outcomes', () => {
-  it.each([true, false])(
-    'rejects message compacted applied:%s before completion effects',
-    async (applied) => {
-      setChat()
-      onCommand = (request) =>
-        request.command === 'message'
-          ? eventResponse(request, [
-              {
-                type: 'context.compacted',
-                result: result(request, {
-                  status: 'compacted',
-                  threadId,
-                  applied,
-                  sourceBoundaryVerified: true,
-                }),
-              },
-            ])
-          : undefined
-      expect(await store().getState().sendMessage('ordinary message')).toBe(false)
-      expect(store().getState().lastNativeOutcome).toMatchObject({
-        status: 'failed',
-        error: { code: 'UNCERTAIN', uncertain: true, retryable: false },
-      })
-      expect(commands.map((request) => request.command)).toEqual(['message'])
-      expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
-      expect(tools.browser).not.toHaveBeenCalled()
-      expect(titleRequests).toEqual([])
-    }
-  )
-  it('retains rendered output and accepted facts when a tool continuation receives a compacted terminal', async () => {
-    const item = pending('result', 'oauth_request_access')
-    item.originalArgs = { providerName: 'Google Drive' }
-    installPending(item)
-    const paid = { ...financial, appliedUsd: '0.1234567890123456789' }
-
-    onCommand = (request) => {
-      if (request.command === 'pending.list')
-        return json(
-          result(request, {
-            status: 'pending_targets',
-            items: [item],
-            page: request.page,
-            hasMore: false,
-          })
-        )
-      if (request.command === 'tool.result')
-        return eventResponse(request, [
-          { type: 'text.delta', text: 'known completed output' },
-          {
-            type: 'context.compacted',
-            result: result(request, {
-              status: 'compacted',
-              threadId,
-              applied: false,
-              sourceBoundaryVerified: true,
-            }),
-          },
-        ])
-      return undefined
-    }
-    await expect(
-      store()
-        .getState()
-        .submitBrowserAssertion(item.target.toolCallId, {
-          kind: 'ui.opened',
-          data: { opened: true, surface: 'integrations', message: 'Opened' },
-        })
-    ).rejects.toThrow('not verified')
-    expect(
-      store()
-        .getState()
-        .messages.some((message) => message.content.includes('known completed output'))
-    ).toBe(true)
-    expect(store().getState().lastNativeOutcome).toMatchObject({ status: 'failed' })
-    expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(1)
-    expect(
-      commands.some(
-        (request) => request.command === 'message' || request.command === 'context.compact'
-      )
-    ).toBe(false)
-    expect(tools.browser).not.toHaveBeenCalled()
-    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
   })
 })
 
@@ -1982,9 +1627,8 @@ describe('R5 per-tool context at actual live call creation', () => {
             type: 'tool.display',
             toolCallId: item.target.toolCallId,
             toolName: item.target.toolName,
-            executionAuthorized: false,
           }))
-          const pendings = items.map((item) => ({ type: 'tool.pending', pending: item, financial }))
+          const pendings = items.map((item) => ({ type: 'tool.pending', pending: item }))
           return eventResponse(request, [
             { type: 'response.started', threadId, runId },
             ...(order === 'display-first'
@@ -2044,11 +1688,9 @@ describe('R5 per-tool context at actual live call creation', () => {
         const unchanged = applyNativeEvent(
           store().getState(),
           {
-            requestId: 'later',
             type: 'tool.display',
             toolCallId: item.target.toolCallId,
             toolName: item.target.toolName,
-            executionAuthorized: false,
           },
           'unused',
           { workspaceId: 'workspace-c' }
@@ -2096,7 +1738,7 @@ describe('owned workflow chat deployment UI', () => {
       workspaceId: 'original-entity-workspace',
     })
 
-  it('awaits the target form and records known opened before resolving, without changing native or financial scope', async () => {
+  it('awaits the target form and records known opened before resolving, without changing tool scope', async () => {
     const item = prepareChatDeployment()
     const original = structuredClone(item)
     let completed = false
@@ -2227,7 +1869,7 @@ describe('owned workflow chat deployment UI', () => {
 })
 
 describe('built-in tool continuation', () => {
-  const pendingResponse = (request: StudioNativeCommand, items: Pending[]) =>
+  const pendingResponse = (request: CopilotRequest, items: Pending[]) =>
     json(
       result(request, {
         status: 'pending_targets',
@@ -2240,7 +1882,7 @@ describe('built-in tool continuation', () => {
     'never automatically accepts a persisted preview under %s access',
     async (accessLevel) => {
       const item = pending('result', 'edit_workflow')
-      item.preview = { requiresReview: true, reviewToken: 'preview' }
+      item.preview = { requiresReview: true }
       store().setState({ conversationWorkspaceId: workspaceId, accessLevel })
       onCommand = (request) =>
         request.command === 'message'
@@ -2263,7 +1905,7 @@ describe('built-in tool continuation', () => {
   )
   it('rejects a preview through one local decision while preserving other pending work', async () => {
     const item = pending('result', 'edit_workflow')
-    item.preview = { requiresReview: true, reviewToken: 'preview' }
+    item.preview = { requiresReview: true }
     const other = { ...pending('approval'), target: { ...pending().target, toolCallId: 'other' } }
     installPending(item)
     onCommand = (request) =>
@@ -2277,7 +1919,6 @@ describe('built-in tool continuation', () => {
     expect(commands.find((request) => request.command === 'tool.execute')).toMatchObject({
       target: item.target,
       action: 'review.reject',
-      reviewToken: 'preview',
     })
     expect(
       commands.some((request) => request.command === 'tool.result' || request.command === 'cancel')
@@ -2287,7 +1928,7 @@ describe('built-in tool continuation', () => {
   it('an initial action that discovers a new preview never accepts it implicitly', async () => {
     const item = pending('result', 'edit_workflow')
     installPending(item)
-    const fresh = { ...item, preview: { requiresReview: true, reviewToken: 'later-preview' } }
+    const fresh = { ...item, preview: { requiresReview: true, description: 'later preview' } }
     onCommand = (request) =>
       request.command === 'tool.execute' ? json(suspended(request, [fresh])) : undefined
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
@@ -2298,7 +1939,7 @@ describe('built-in tool continuation', () => {
   })
   it('a concurrent rejection cannot claim success while acceptance is in flight', async () => {
     const item = pending('result', 'edit_workflow')
-    item.preview = { requiresReview: true, reviewToken: 'preview' }
+    item.preview = { requiresReview: true }
     installPending(item)
     const gate = defer<Response>()
     onCommand = (request) =>
@@ -2328,7 +1969,6 @@ describe('built-in tool continuation', () => {
               type: 'tool.display',
               toolCallId: 'automatic',
               toolName: 'search_online',
-              executionAuthorized: false,
             },
             {
               type: 'tool.result',
@@ -2353,7 +1993,6 @@ describe('built-in tool continuation', () => {
       setChat()
       const failed = {
         type: 'tool.result',
-        requestId: 'request',
         toolCallId: 'failed',
         toolName: 'search_online',
         result: { error: 'Tool failed' },
@@ -2371,10 +2010,9 @@ describe('built-in tool continuation', () => {
                 type: 'tool.display',
                 toolCallId: 'failed',
                 toolName: 'search_online',
-                executionAuthorized: false,
                 args: { query: 'search' },
               },
-              { ...failed, requestId: request.requestId },
+              { ...failed },
               { type: 'response.completed', result: ready(request) },
             ])
           : undefined

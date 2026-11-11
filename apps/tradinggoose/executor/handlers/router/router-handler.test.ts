@@ -2,8 +2,8 @@ vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
   createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
 }))
-vi.mock('@/lib/mastra/financial-processors', () => ({
-  financialProcessors: async (scope: unknown) => {
+vi.mock('@/lib/mastra/usage-processors', () => ({
+  usageProcessors: async (scope: unknown) => {
     native.finance(scope)
     return {
       inputProcessors: [],
@@ -18,7 +18,6 @@ vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getInferenceFacts } from '@/lib/mastra/result'
-import { checkpointFunctionalOutput } from '@/executor/checkpoint'
 import { RouterBlockHandler } from './router-handler'
 
 const native = vi.hoisted(() => ({
@@ -83,11 +82,6 @@ describe('Router native generation', () => {
       model: 'openai/gpt-4.1',
       tokens: { total: 7 },
       cost: { status: 'unavailable' },
-    })
-    expect(checkpointFunctionalOutput(result)).toEqual({
-      prompt: 'Route',
-      model: 'openai/gpt-4.1',
-      selectedPath: { blockId: 'target', blockType: 'agent', blockTitle: 'Answer' },
     })
     expect(result).toMatchObject({ tokens: { total: 7 } })
     expect(native.configurations[0].model).toEqual({ id: 'openai/gpt-4.1', apiKey: 'local-key' })
@@ -240,16 +234,6 @@ describe('router trusted failed accounting with real helpers', () => {
       cost: { status: 'unavailable' },
       generatedFields: ['model', 'tokens', 'cost'],
     })
-    const functional = checkpointFunctionalOutput(failureValue)
-    expect(functional).toMatchObject({
-      name: 'Error',
-      message: expect.any(String),
-      model: 'openai/gpt-4.1',
-    })
-    expect(functional).not.toHaveProperty('tokens')
-    expect(functional).not.toHaveProperty('cost')
-    expect(functional).not.toHaveProperty('stack')
-    expect(getInferenceFacts(functional)).toBeUndefined()
     expect(getInferenceFacts(failureValue)).toBe(facts)
     expect(native.generate).toHaveBeenCalledOnce()
     if (failure === 'financial refusal')

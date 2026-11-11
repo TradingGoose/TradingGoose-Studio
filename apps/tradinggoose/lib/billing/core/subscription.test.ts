@@ -13,7 +13,7 @@ const {
   mockGetSubscriptionUsageAllowanceUsd,
   mockHydrateSubscriptionsWithTiers,
   mockInArray,
-  mockFinancialWrite,
+  mockSql,
   mockSelectEffectiveSubscription,
   mockToBillingTierSummary,
 } = vi.hoisted(() => ({
@@ -21,7 +21,6 @@ const {
   mockDb: {
     select: vi.fn(),
     insert: vi.fn(),
-    transaction: vi.fn(),
   },
   mockEq: vi.fn(),
   mockRequireDefaultBillingTier: vi.fn(),
@@ -29,27 +28,17 @@ const {
   mockGetSubscriptionUsageAllowanceUsd: vi.fn(),
   mockHydrateSubscriptionsWithTiers: vi.fn(),
   mockInArray: vi.fn(),
-  mockFinancialWrite: vi.fn(() => {
-    throw new Error('Subscription readers must not perform financial mutations')
-  }),
+  mockSql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+    strings,
+    values,
+    type: 'sql',
+  })),
   mockSelectEffectiveSubscription: vi.fn(),
   mockToBillingTierSummary: vi.fn((tier) => tier ?? { id: null, displayName: 'No plan' }),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
   db: mockDb,
-}))
-
-vi.mock('@tradinggoose/billing', () => ({
-  FinancialPolicyError: Error,
-  financialNamespace: mockFinancialWrite,
-  lockFinancialRoots: mockFinancialWrite,
-  periodKey: mockFinancialWrite,
-  readFinancialReceipt: mockFinancialWrite,
-}))
-
-vi.mock('@/lib/billing/financial-subscriptions', () => ({
-  rotateSubscriptionAfterMutation: mockFinancialWrite,
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
@@ -77,6 +66,7 @@ vi.mock('drizzle-orm', () => ({
   and: mockAnd,
   eq: mockEq,
   inArray: mockInArray,
+  sql: mockSql,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -123,18 +113,12 @@ describe('subscription billing helpers', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-    mockGetSubscriptionUsageAllowanceUsd.mockReturnValue('10')
+    mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(10)
     mockHydrateSubscriptionsWithTiers.mockImplementation(async (rows) => rows)
     mockSelectEffectiveSubscription.mockImplementation((subscriptions) => subscriptions[0] ?? null)
     mockRequireDefaultBillingTier.mockResolvedValue({
       id: 'tier_default',
       isDefault: true,
-    })
-    mockDb.insert.mockImplementation(() => {
-      throw new Error('Subscription readers must not insert subscriptions')
-    })
-    mockDb.transaction.mockImplementation(() => {
-      throw new Error('Subscription readers must not start financial transactions')
     })
   })
 
@@ -150,7 +134,7 @@ describe('subscription billing helpers', () => {
       grantedOnboardingAllowanceUsd: '25',
     })
 
-    expect(minimum).toBe('25')
+    expect(minimum).toBe(25)
     expect(mockGetSubscriptionUsageAllowanceUsd).toHaveBeenCalled()
   })
 
@@ -175,80 +159,16 @@ describe('subscription billing helpers', () => {
     const snapshot = await getPersonalBillingSnapshot('user_123')
 
     expect(snapshot.subscription).toBeNull()
-    expect(snapshot.limit).toBeNull()
+    expect(snapshot.limit).toBe(Number.MAX_SAFE_INTEGER)
     expect(snapshot.isExceeded).toBe(false)
-    expect(snapshot.currentPeriodCost).toBe('12.5')
+    expect(snapshot.currentPeriodCost).toBe(12.5)
   })
 
-  it.each([true, false])(
-    'keeps repeated missing-entitlement reads pure when billingEnabled is %s',
-    async (billingEnabled) => {
-      mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled })
-      mockDb.select.mockImplementation(() => createSelectQueryMock([], 'where'))
-
-      const { getActiveSubscriptionForReference, getEffectiveSubscription } = await import(
-        './subscription'
-      )
-
-      for (let index = 0; index < 2; index += 1) {
-        await expect(getEffectiveSubscription('user_123')).resolves.toBeNull()
-        await expect(
-          getActiveSubscriptionForReference({ referenceType: 'user', referenceId: 'user_123' })
-        ).resolves.toBeNull()
-      }
-      expect(mockDb.insert).not.toHaveBeenCalled()
-      expect(mockDb.transaction).not.toHaveBeenCalled()
-      expect(mockRequireDefaultBillingTier).not.toHaveBeenCalled()
-      expect(mockFinancialWrite).not.toHaveBeenCalled()
-      expect(mockGetResolvedBillingSettings).not.toHaveBeenCalled()
-    }
-  )
-
-  it('returns the current personal entitlement without replacing its identity', async () => {
-    const current = {
-      id: 'original_subscription',
-      referenceType: 'user',
-      referenceId: 'user_123',
-      stripeCustomerId: 'original_customer',
-      stripeSubscriptionId: 'original_stripe_subscription',
-      status: 'active',
-      tier: { id: 'tier_default', isDefault: true },
-    }
-    mockDb.select.mockImplementation(() => createSelectQueryMock([current], 'where'))
+  it('leaves a missing subscription missing without writing during a read', async () => {
+    mockDb.select.mockImplementation(() => createSelectQueryMock([], 'where'))
     const { getEffectiveSubscription } = await import('./subscription')
-
-    await expect(getEffectiveSubscription('user_123')).resolves.toBe(current)
-    expect(current.stripeCustomerId).toBe('original_customer')
-    expect(current.stripeSubscriptionId).toBe('original_stripe_subscription')
+    await expect(getEffectiveSubscription('user_123')).resolves.toBeNull()
     expect(mockDb.insert).not.toHaveBeenCalled()
-    expect(mockDb.transaction).not.toHaveBeenCalled()
-    expect(mockFinancialWrite).not.toHaveBeenCalled()
-  })
-
-  it('fails a billed snapshot without repairing missing entitlement', async () => {
-    mockGetResolvedBillingSettings.mockResolvedValue({
-      billingEnabled: true,
-    })
-    mockDb.select
-      .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
-      .mockImplementationOnce(() =>
-        createSelectQueryMock([
-          {
-            currentPeriodCost: '12.50',
-            totalCost: '20.00',
-            customUsageLimit: null,
-            grantedOnboardingAllowanceUsd: '5.00',
-          },
-        ])
-      )
-
-    const { getPersonalBillingSnapshot } = await import('./subscription')
-    await expect(getPersonalBillingSnapshot('user_123')).rejects.toThrow(
-      'No active personal subscription found for billed user user_123'
-    )
-    expect(mockDb.insert).not.toHaveBeenCalled()
-    expect(mockDb.transaction).not.toHaveBeenCalled()
-    expect(mockFinancialWrite).not.toHaveBeenCalled()
   })
 
   it('throws a typed error when a required active subscription is missing', async () => {

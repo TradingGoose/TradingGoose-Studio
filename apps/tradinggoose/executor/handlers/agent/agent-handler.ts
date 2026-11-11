@@ -1,9 +1,7 @@
 import { Agent, type AgentExecutionOptions } from '@mastra/core/agent'
-import type { MastraDBMessage } from '@mastra/core/agent/message-list'
 import { getModelReasoningOptions } from '@mastra/core/llm'
 import { toStandardSchema } from '@mastra/core/schema'
 import { createTool } from '@mastra/core/tools'
-import type { ModelOccurrence } from '@/lib/billing/native-finance'
 import {
   buildCustomToolModelDescription,
   getCustomToolEntityIdFromRuntimeId,
@@ -11,29 +9,24 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
-import { projectNativeMessages, safeInferenceError } from '@/lib/mastra/errors'
-import { financialProcessors } from '@/lib/mastra/financial-processors'
+import { safeInferenceError } from '@/lib/mastra/errors'
 import { normalizeNativeToolResult } from '@/lib/mastra/media'
 import {
   assertNativeToolArguments,
   NATIVE_AGENT_POLICY,
-  trustedProviderOptions as parseNativeProviderOptions,
+  parseProviderOptions,
   trustedModelSettings,
-  trustedPrepareStep,
 } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { assertNativeCompletion, getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
-import { getMastra } from '@/lib/mastra/runtime'
+import { getAgentMemory, getMastra } from '@/lib/mastra/runtime'
 import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
-import { writeFunctionalPayload } from '@/lib/mastra/workflow-history'
-import { copyWorkflowMessageSource } from '@/lib/mastra/workflow-message-source'
+import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { createMcpToolId } from '@/lib/mcp/utils'
-import { deepRedactSecrets } from '@/lib/security/redaction'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { getAllBlocks } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
-import { checkpointFunctionalOutput } from '@/executor/checkpoint'
 import { BlockType } from '@/executor/consts'
 import type {
   AgentInputs,
@@ -147,52 +140,26 @@ export class AgentBlockHandler implements BlockHandler {
     const mastra = await getMastra()
     const startedAt = new Date()
     const runId = crypto.randomUUID()
-    const responseMessages = new Map<string, MastraDBMessage>()
-    let responseSource:
-      | { key: string; occurrence: ModelOccurrence; readResponse: () => MastraDBMessage[] }
-      | undefined
-    let responseCaptureFailure: { error: unknown } | undefined
-    const observeResponse = (messages: MastraDBMessage[]) => {
-      try {
-        const snapshot = structuredClone(
-          checkpointFunctionalOutput(projectNativeMessages(messages))
-        )
-        const seen = new Set<string>()
-        for (const message of snapshot) {
-          if (!message.id || seen.has(message.id))
-            throw new Error('Invalid native response identity')
-          seen.add(message.id)
-        }
-        // Native response views are cumulative. Empty later views never erase known work.
-        for (const message of snapshot) responseMessages.set(message.id, message)
-      } catch (error) {
-        responseCaptureFailure ??= { error }
-        throw error
-      }
-    }
-    const refreshResponse = () => {
-      if (!responseSource) return
-      try {
-        observeResponse(responseSource.readResponse())
-      } catch (error) {
-        responseCaptureFailure ??= { error }
-        throw error
-      }
-    }
-    const finance = await financialProcessors(
-      {
-        actorUserId: context.userId,
-        workspaceId: context.workspaceId,
-        workflowId: context.workflowId,
-        runId,
-        purpose: 'workflow-agent',
-        signal,
-      },
-      (observation) => {
-        responseSource = observation
-        refreshResponse()
-      }
+    if (
+      !context.workspaceId ||
+      !context.executionId ||
+      !context.workflowId ||
+      !context.workflowLogId
     )
+      throw new Error('Workflow Agent history requires its execution scope')
+    const history = {
+      threadId: `workflow-agent:${runId}`,
+      resourceId: `workflow-execution:${context.workspaceId}:${context.executionId}`,
+      runId,
+    }
+    const finance = await usageProcessors({
+      actorUserId: context.userId,
+      workspaceId: context.workspaceId,
+      workflowId: context.workflowId,
+      runId,
+      purpose: 'workflow-agent',
+      signal,
+    })
     const admittedModel = createConfiguredLanguageModel(model, inputs.apiKey)
     const agent = new Agent({
       inputProcessors: [
@@ -211,6 +178,7 @@ export class AgentBlockHandler implements BlockHandler {
       instructions: '',
       model: admittedModel,
       tools,
+      memory: await getAgentMemory(),
       mastra,
     })
     const steps: any[] = []
@@ -230,6 +198,22 @@ export class AgentBlockHandler implements BlockHandler {
     }
     const options: AgentExecutionOptions<any> = {
       runId,
+      memory: {
+        resource: history.resourceId,
+        thread: {
+          id: history.threadId,
+          metadata: {
+            purpose: 'workflow-agent',
+            logId: context.workflowLogId,
+            systemMessages: selectedSystemMessages,
+            workspaceId: context.workspaceId,
+            executionId: context.executionId,
+            workflowId: context.workflowId,
+            blockId: block.id,
+            runId,
+          },
+        },
+      },
       abortSignal: signal,
       maxSteps: 20,
       modelSettings: trustedModelSettings({
@@ -243,9 +227,9 @@ export class AgentBlockHandler implements BlockHandler {
       tracingOptions: {
         metadata: { userId: context.userId, resourceId: context.workspaceId, runId },
       },
-      providerOptions: parseNativeProviderOptions(inputs.providerOptions),
+      providerOptions: parseProviderOptions(inputs.providerOptions),
       activeTools: Object.keys(tools),
-      prepareStep: trustedPrepareStep(admittedModel, async (step) => {
+      prepareStep: async (step) => {
         if (await context.shouldCancelExecution?.()) abortController.abort()
         signal.throwIfAborted()
         validateNativeReasoning(model, inputs.reasoningEffort, step.model.specificationVersion)
@@ -255,34 +239,19 @@ export class AgentBlockHandler implements BlockHandler {
             ? { modelSettings: { ...step.modelSettings, reasoning: inputs.reasoningEffort as any } }
             : {}),
         }
-      }),
+      },
       onStepFinish: (step) => {
         steps.push(step)
-        if (responseSource) refreshResponse()
-        else observeResponse(step.response?.dbMessages ?? [])
       },
       onAbort: ({ steps: completed }) => {
         if (completed.length > steps.length) steps.splice(0, steps.length, ...completed)
-        try {
-          if (responseSource) refreshResponse()
-          else for (const step of completed) observeResponse(step.response?.dbMessages ?? [])
-        } catch (error) {
-          // Preserve the original failure and every earlier detached response.
-          responseCaptureFailure ??= { error }
-        }
       },
     }
     let returnedUsage: Parameters<typeof resultAccounting>[0]
     const capture = (usage = returnedUsage) =>
       resultAccounting(selectNativeUsage(usage, finance.getUsage(), sumNativeUsage(steps)))
-    const archivedTools = () =>
-      toolRuns.map((run) => ({ ...run, arguments: deepRedactSecrets(run.arguments) }))
-    let canonicalWriteAttempted = false
     const complete = async (result: any) => {
       returnedUsage = selectNativeUsage(result.totalUsage, result.usage)
-      if (responseSource) refreshResponse()
-      else observeResponse(result.response?.dbMessages ?? result.messages ?? [])
-      if (responseCaptureFailure) throw responseCaptureFailure.error
       await finance.verifyComplete()
       stopCancellationCheck()
       const accounting = await capture()
@@ -295,37 +264,11 @@ export class AgentBlockHandler implements BlockHandler {
         responseFormat !== undefined,
         startedAt
       )
-      if (!context.workflowLogId || !context.executionId)
-        throw new Error('Workflow Agent canonical history requires its execution log identity')
-      canonicalWriteAttempted = true
-      const ref = await writeFunctionalPayload(
-        {
-          workspaceId: context.workspaceId,
-          executionId: context.executionId,
-          logId: context.workflowLogId,
-          blockId: getBlockToolExecutionId(block, context),
-          runId,
-          actorUserId: context.userId,
-        },
-        {
-          selectedMessages: messages,
-          messages: [...responseMessages.values()],
-          output: responseFormat ? result.object : { content: result.text },
-          tools: archivedTools(),
-        }
-      )
-      getInferenceFacts(output)!.nativePayload = ref
+      getInferenceFacts(output)!.history = history
       return output
     }
     const fail = async (error: unknown) => {
       stopCancellationCheck()
-      try {
-        // Native tool rows may arrive after the output hook without a finish/abort callback.
-        // Read only the latest already-bound source; never replace the original failure.
-        refreshResponse()
-      } catch {
-        // The refresh latches its projection failure and keeps all earlier detached rows.
-      }
       const accounting = await capture()
       const failure = new Error(safeInferenceError(error, inputs.apiKey))
       const owned = {
@@ -336,31 +279,8 @@ export class AgentBlockHandler implements BlockHandler {
       Object.assign(failure, owned)
       const facts = {
         ...owned,
+        history,
         generatedFields: Object.keys(owned),
-      }
-      if (!canonicalWriteAttempted && context.workflowLogId && context.executionId) {
-        canonicalWriteAttempted = true
-        try {
-          const nativePayload = await writeFunctionalPayload(
-            {
-              workspaceId: context.workspaceId,
-              executionId: context.executionId,
-              logId: context.workflowLogId,
-              blockId: getBlockToolExecutionId(block, context),
-              runId,
-              actorUserId: context.userId,
-            },
-            {
-              selectedMessages: messages,
-              messages: [...responseMessages.values()],
-              output: { error: failure.message },
-              tools: archivedTools(),
-            }
-          )
-          return withInferenceFacts(failure, { ...facts, nativePayload })
-        } catch {
-          logger.warn('Canonical failed-turn payload remains unavailable', { runId })
-        }
       }
       return withInferenceFacts(failure, facts)
     }
@@ -785,12 +705,10 @@ export class AgentBlockHandler implements BlockHandler {
             typeof msg.content === 'string' &&
             ['system', 'user', 'assistant'].includes(msg.role)
           ) {
-            messages.push(
-              copyWorkflowMessageSource(msg, {
-                role: msg.role as 'system' | 'user' | 'assistant',
-                content: msg.content,
-              })
-            )
+            messages.push({
+              role: msg.role as 'system' | 'user' | 'assistant',
+              content: msg.content,
+            })
           }
         })
       } else if (
@@ -798,12 +716,10 @@ export class AgentBlockHandler implements BlockHandler {
         typeof memory.content === 'string' &&
         ['system', 'user', 'assistant'].includes(memory.role)
       ) {
-        messages.push(
-          copyWorkflowMessageSource(memory, {
-            role: memory.role as 'system' | 'user' | 'assistant',
-            content: memory.content,
-          })
-        )
+        messages.push({
+          role: memory.role as 'system' | 'user' | 'assistant',
+          content: memory.content,
+        })
       }
     })
 
@@ -1059,7 +975,7 @@ export function extractCompletedToolMetadata(toolRuns: Array<Record<string, any>
       const facts = getInferenceFacts(run.result)
       const result =
         run.result instanceof Error && facts
-          ? withInferenceFacts(checkpointFunctionalOutput(run.result), facts)
+          ? withInferenceFacts({ name: 'Error', message: safeInferenceError(run.result) }, facts)
           : run.result
       return result && typeof result === 'object'
         ? { ...result, toolCallId: run.toolCallId }
@@ -1067,5 +983,3 @@ export function extractCompletedToolMetadata(toolRuns: Array<Record<string, any>
     }),
   }
 }
-
-export { trustedProviderOptions as parseNativeProviderOptions } from '@/lib/mastra/options'

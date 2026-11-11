@@ -4,16 +4,12 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWand } from './use-wand'
 
-const requestId = 'wand-native-request'
-const financial = { accepted: true, appliedUsd: '0', modelUsd: 'unavailable' }
 const completed = (text = 'Canonical result🔥') => ({
   done: true,
   result: {
-    requestId,
     status: 'completed',
     runId: 'native-run',
     text,
-    financial,
   },
 })
 const encode = (frames: unknown[]) =>
@@ -28,7 +24,7 @@ function response(frames: unknown[], split = false) {
         controller.close()
       },
     }),
-    { headers: { 'x-wand-request-id': requestId } }
+    {}
   )
 }
 let root: Root
@@ -82,46 +78,6 @@ afterEach(async () => {
 })
 
 describe('native wand success-only commit', () => {
-  it.each([undefined, 0, '0.00', '1e-2'])(
-    'keeps preview local and refuses final success with invalid accepted money %s',
-    async (appliedUsd) => {
-      const done = completed()
-      vi.stubGlobal(
-        'fetch',
-        vi
-          .fn()
-          .mockResolvedValue(
-            response([
-              { chunk: 'Local preview' },
-              { ...done, result: { ...done.result, financial: { ...financial, appliedUsd } } },
-            ])
-          )
-      )
-      await generate()
-      expect(preview).toHaveBeenCalledWith('Local preview')
-      expect(generated).not.toHaveBeenCalled()
-      expect(api.conversationHistory).toEqual([])
-      expect(api.error).toBeTruthy()
-      expect(fetch).toHaveBeenCalledTimes(1)
-    }
-  )
-  it('preserves exact accepted high precision money on the final successful utility outcome', async () => {
-    const appliedUsd = '0.12345678901234567890123456789'
-    const done = completed()
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValue(
-          response([
-            { ...done, result: { ...done.result, financial: { ...financial, appliedUsd } } },
-          ])
-        )
-    )
-    await generate()
-    expect(generated).toHaveBeenCalledOnce()
-    expect(api.terminalOutcome).toMatchObject({ result: { financial: { appliedUsd } } })
-  })
   it('buffers split UTF8/SSE and commits exact done.result rather than partial chunks', async () => {
     await generate()
     expect(preview).toHaveBeenCalledExactlyOnceWith('Preview differs')
@@ -130,12 +86,11 @@ describe('native wand success-only commit', () => {
       { role: 'user', content: 'Improve' },
       { role: 'assistant', content: 'Canonical result🔥' },
     ])
-    expect(api.terminalOutcome).toEqual(completed())
     expect(api.error).toBeNull()
     expect(ended).toHaveBeenCalledOnce()
     expect(JSON.parse((fetch as any).mock.calls[0][1].body)).not.toHaveProperty('streaming')
   })
-  it.each(['eof', 'bare-done', 'raw-sdk', 'wrong-correlation'])(
+  it.each(['eof', 'bare-done', 'raw-sdk'])(
     'discards preview on %s without committing content/history',
     async (kind) => {
       const bad =
@@ -143,9 +98,7 @@ describe('native wand success-only commit', () => {
           ? [{ chunk: 'partial' }]
           : kind === 'bare-done'
             ? [{ done: true }]
-            : kind === 'raw-sdk'
-              ? [{ choices: [{ delta: { content: 'raw' } }] }]
-              : [{ done: true, result: { ...completed().result, requestId: 'wrong' } }]
+            : [{ choices: [{ delta: { content: 'raw' } }] }]
       vi.mocked(fetch).mockResolvedValueOnce(response(bad))
       await generate()
       expect(generated).not.toHaveBeenCalled()
@@ -155,7 +108,7 @@ describe('native wand success-only commit', () => {
     }
   )
   it.each(['error', 'cancelled'] as const)(
-    'retains terminal %s financial acceptance before discarding preview',
+    'retains terminal %s completion state before discarding preview',
     async (kind) => {
       const terminal =
         kind === 'error'
@@ -163,48 +116,22 @@ describe('native wand success-only commit', () => {
               error: 'Delivery failed',
               code: 'NATIVE_FAILURE',
               refusal: false,
-              uncertain: false,
-              financialDisposition: 'accepted',
-              financial,
             }
-          : { cancelled: true, uncertain: false, financialDisposition: 'accepted', financial }
+          : { cancelled: true }
       vi.mocked(fetch).mockResolvedValueOnce(response([{ chunk: 'partial' }, terminal]))
       await generate()
-      expect(api.terminalOutcome).toEqual(terminal)
       expect(api.error).toBe(kind === 'error' ? 'Delivery failed' : 'Generation cancelled')
-      expect(generated).not.toHaveBeenCalled()
-      expect(api.conversationHistory).toEqual([])
-    }
-  )
-  it.each(['not_contacted', 'uncertain'] as const)(
-    'retains a received %s financial disposition without inventing acceptance',
-    async (financialDisposition) => {
-      const terminal = {
-        cancelled: true,
-        uncertain: financialDisposition === 'uncertain',
-        financialDisposition,
-      }
-      vi.mocked(fetch).mockResolvedValueOnce(response([terminal]))
-      await generate()
-      expect(api.terminalOutcome).toEqual(terminal)
-      expect(api.terminalOutcome).not.toHaveProperty('financial')
       expect(generated).not.toHaveBeenCalled()
       expect(api.conversationHistory).toEqual([])
     }
   )
   it('retains correlated collected refusal without converting it to acceptance or success', async () => {
     const failure = {
-      requestId,
       status: 'refused',
-      error: { code: 'QUOTA_EXCEEDED', message: 'Quota', retryable: false, uncertain: false },
-      uncertain: false,
-      financialDisposition: 'not_contacted',
+      error: { code: 'QUOTA_EXCEEDED', message: 'Quota' },
     }
-    vi.mocked(fetch).mockResolvedValueOnce(
-      Response.json(failure, { status: 402, headers: { 'x-wand-request-id': requestId } })
-    )
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json(failure, { status: 402 }))
     await generate()
-    expect(api.terminalOutcome).toEqual(failure)
     expect(api.error).toBe('Quota')
     expect(generated).not.toHaveBeenCalled()
   })
@@ -216,7 +143,6 @@ describe('native wand success-only commit', () => {
     expect(generated).not.toHaveBeenCalled()
     expect(documentValue).toBe('Concurrent edit')
     expect(api.error).toContain('Document changed')
-    expect(api.terminalOutcome).toEqual(completed())
   })
   it('discards a cancelled request and late frames without clearing a newer successful generation', async () => {
     let firstResolve!: (value: Response) => void
@@ -251,7 +177,7 @@ describe('native wand success-only commit', () => {
             controller = value
           },
         }),
-        { headers: { 'x-wand-request-id': requestId } }
+        {}
       )
     )
     let work!: Promise<void>

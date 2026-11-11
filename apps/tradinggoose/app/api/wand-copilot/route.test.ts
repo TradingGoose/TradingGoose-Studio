@@ -1,7 +1,6 @@
 /** @vitest-environment node */
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CompletionRequest } from '@/lib/copilot/native/contract'
 
 const mocks = vi.hoisted(() => ({ session: vi.fn(), native: vi.fn(), cancelled: vi.fn() }))
 vi.mock('@/lib/auth', () => ({ getSession: mocks.session }))
@@ -9,13 +8,10 @@ vi.mock('@/lib/copilot/native/completion', () => ({ createCompletionResponse: mo
 
 import { POST } from './route'
 
-const financial = { accepted: true, modelUsd: 'unavailable', appliedUsd: '0' }
-const result = (id: string) => ({
-  requestId: id,
+const result = () => ({
   status: 'completed',
   runId: 'native-run',
   text: 'Final result🔥',
-  financial,
 })
 const request = (body: unknown = { prompt: 'Refine this function' }) =>
   new NextRequest('http://localhost/api/wand-copilot', {
@@ -41,8 +37,8 @@ function stream(frames: unknown[], split = false) {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.session.mockResolvedValue({ user: { id: 'actual-actor' } })
-  mocks.native.mockImplementation(async (input: CompletionRequest) =>
-    stream([{ chunk: 'Preview🔥' }, { done: true, result: result(input.requestId) }], true)
+  mocks.native.mockImplementation(async () =>
+    stream([{ chunk: 'Preview🔥' }, { done: true, result: result() }], true)
   )
 })
 describe('built-in Wand completion route', () => {
@@ -57,11 +53,9 @@ describe('built-in Wand completion route', () => {
     expect(response.status).toBe(200)
     const [input, signal] = mocks.native.mock.calls[0]
     expect(input).toEqual({
-      requestId: expect.any(String),
       scope: { actorUserId: 'actual-actor', workspaceId: null },
       purpose: 'wand',
       model: 'anthropic/claude-fable-5',
-      stream: true,
       messages: [
         { role: 'system', content: 'Only code' },
         { role: 'assistant', content: 'Earlier' },
@@ -74,7 +68,6 @@ describe('built-in Wand completion route', () => {
     expect(text).toContain('"done":true,"result":')
     expect(text).toContain('"text":"Final result🔥"')
     expect(text).not.toMatch(/choices|delta|\[DONE\]/)
-    expect(response.headers.get('x-wand-request-id')).toBe(input.requestId)
   })
   it('preserves generation type output contracts', async () => {
     const response = await POST(
@@ -104,7 +97,7 @@ describe('built-in Wand completion route', () => {
     expect(mocks.native).not.toHaveBeenCalled()
   })
   it.each(['error', 'cancelled'] as const)(
-    'preserves terminal %s financial acceptance without inventing done',
+    'preserves terminal %s completion state without inventing done',
     async (kind) => {
       const terminal =
         kind === 'error'
@@ -112,30 +105,22 @@ describe('built-in Wand completion route', () => {
               error: 'Delivery failed after acceptance',
               code: 'NATIVE_FAILURE',
               refusal: false,
-              uncertain: false,
-              financialDisposition: 'accepted',
-              financial,
             }
-          : { cancelled: true, uncertain: false, financialDisposition: 'accepted', financial }
+          : { cancelled: true }
       mocks.native.mockResolvedValueOnce(stream([{ chunk: 'Partial' }, terminal]))
       const text = await (await POST(request())).text()
       expect(text).toContain(JSON.stringify(terminal))
       expect(text).not.toContain('"done"')
     }
   )
-  it('returns the local completion response with its status and request identifier', async () => {
-    const local = Response.json(
-      { status: 'refused', financialDisposition: 'not_contacted' },
-      { status: 402 }
-    )
+  it('returns the local completion response with its status', async () => {
+    const local = Response.json({ status: 'refused' }, { status: 402 })
     mocks.native.mockResolvedValueOnce(local)
     const response = await POST(request())
     expect(response).toBe(local)
     expect(response.status).toBe(402)
-    expect(response.headers.get('x-wand-request-id')).toBe(mocks.native.mock.calls[0][0].requestId)
     expect(await response.json()).toEqual({
       status: 'refused',
-      financialDisposition: 'not_contacted',
     })
   })
   it('passes the request signal directly and preserves local stream cancellation', async () => {

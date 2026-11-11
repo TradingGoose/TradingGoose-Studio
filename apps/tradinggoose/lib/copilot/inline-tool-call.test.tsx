@@ -123,7 +123,6 @@ describe('InlineToolCall', () => {
             pending: { stage: 'result' } as any,
             result: {
               requiresReview: true,
-              reviewToken: 'fixture-review-token',
               workflowState: {
                 blocks: {
                   'trigger-1': {
@@ -271,7 +270,6 @@ describe('InlineToolCall', () => {
             },
             result: {
               requiresReview: true,
-              reviewToken: 'fixture-review-token',
               workflowState: {
                 blocks: {
                   fn1: {
@@ -310,7 +308,7 @@ describe('InlineToolCall', () => {
         name: 'edit_workflow',
         state: ClientToolCallState.review,
         pending: { stage: 'result' } as any,
-        result: { requiresReview: true, reviewToken: 'fixture-review-token' },
+        result: { requiresReview: true },
       },
     }
 
@@ -363,7 +361,6 @@ describe('InlineToolCall', () => {
             pending: { stage: 'result' } as any,
             result: {
               requiresReview: true,
-              reviewToken: 'fixture-review-token',
               entityKind: 'skill',
               entityName: 'Updated skill',
               preview: {
@@ -702,7 +699,7 @@ describe('InlineToolCall', () => {
       name: 'edit_workflow',
       state: ClientToolCallState.review,
       pending: { stage: 'result' } as any,
-      result: { requiresReview: true, reviewToken: 'token' },
+      result: { requiresReview: true },
     }
     await act(async () => root.render(<InlineToolCall toolCall={value} />))
     const reject = Array.from(container.querySelectorAll('button')).find(

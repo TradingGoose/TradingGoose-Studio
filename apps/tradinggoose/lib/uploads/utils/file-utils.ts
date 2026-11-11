@@ -40,3 +40,54 @@ export function sanitizeFileKey(key: string): string {
     })
     .join('/')
 }
+
+const FILE_CONTEXTS = new Set([
+  'general',
+  'knowledge-base',
+  'chat',
+  'execution',
+  'workspace',
+  'profile-pictures',
+])
+
+export class StorageAccessError extends Error {
+  readonly status = 403
+  constructor() {
+    super('File access denied')
+  }
+}
+
+/** Validate storage paths and supported contexts before extracting a key. */
+export function assertStorageReferenceAccess(value: unknown, context?: unknown): void {
+  if (context !== undefined && (typeof context !== 'string' || !FILE_CONTEXTS.has(context)))
+    throw new StorageAccessError()
+  if (typeof value !== 'string') throw new StorageAccessError()
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(value)
+  } catch {
+    throw new StorageAccessError()
+  }
+  if (
+    decoded.includes(String.fromCharCode(0)) ||
+    decoded.includes(String.fromCharCode(92)) ||
+    /%(?:2f|5c|00|2e|25)/i.test(decoded) ||
+    decoded.toLowerCase().startsWith('file:') ||
+    decoded.split(/[/?#]/).some((part) => part === '.' || part === '..')
+  )
+    throw new StorageAccessError()
+}
+
+/** Check every redirect before requesting its body. */
+export async function fetchPublicStorageUrl(url: string, init?: RequestInit): Promise<Response> {
+  for (let redirects = 0; redirects <= 5; redirects++) {
+    assertStorageReferenceAccess(url)
+    const response = await fetch(url, { ...init, redirect: 'manual' })
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response
+    const location = response.headers.get('location')
+    await response.body?.cancel()
+    if (!location) throw new Error('File redirect has no location')
+    url = new URL(location, url).toString()
+  }
+  throw new Error('Too many file redirects')
+}

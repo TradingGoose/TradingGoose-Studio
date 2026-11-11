@@ -8,9 +8,6 @@ import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 const m = vi.hoisted(() => ({
   select: vi.fn(),
   embedding: vi.fn(),
-  authorize: vi.fn(),
-  acceptance: vi.fn(),
-  sources: new WeakMap<object, any>(),
 }))
 vi.mock('@tradinggoose/db', () => ({ db: { select: m.select } }))
 vi.mock('@tradinggoose/db/schema', () => ({ docsEmbeddings: {} }))
@@ -22,15 +19,6 @@ vi.mock('@/lib/copilot/config', () => ({
   getCopilotConfig: () => ({ rag: { similarityThreshold: 0.3 } }),
 }))
 vi.mock('@/lib/embeddings/utils', () => ({ generateSearchEmbedding: m.embedding }))
-vi.mock('@/lib/billing/native-finance', () => ({ verifyFinancialAcceptance: m.acceptance }))
-vi.mock('@/lib/copilot/native/target', async () => {
-  const { NativeTargetError } = await import('@/lib/copilot/native/errors')
-  return {
-    NativeTargetError,
-    getNativeFinancialSource: (context: object) => m.sources.get(context),
-    authorizeNativeConversationScope: m.authorize,
-  }
-})
 
 import { searchDocumentationServerTool } from './search-documentation'
 
@@ -60,35 +48,10 @@ function mockIndexedSearch(queryResult: () => Promise<unknown[]> = async () => [
     .mockReturnValueOnce({ from: () => ({ limit: async () => [{ chunkId: 'chunk-1' }] }) })
     .mockReturnValueOnce({ from: () => ({ orderBy: () => ({ limit: queryResult }) }) })
 }
-function sourceContext() {
-  const controller = new AbortController()
-  const context = {
-    userId: 'user-1',
-    nativeReviewBinding: 'local-tool-binding',
-    signal: controller.signal,
-  }
-  const source = {
-    scope: { actorUserId: context.userId, workspaceId: 'workspace-1' },
-    target: { runId: 'run-1', toolCallId: 'call-1', toolName: 'search_documentation' },
-    originalArgsJson: JSON.stringify({ query: 'docs' }),
-    binding: {
-      actorUserId: context.userId,
-      workspaceId: 'workspace-1',
-      workflowId: null,
-      namespace: 'billing-usage:user:user-1',
-    },
-    occurrence: { runId: 'run-1', stepNumber: 2, retryCount: 0 },
-    signal: context.signal,
-  }
-  m.sources.set(context, source)
-  return { context, source, controller }
-}
 beforeEach(() => {
   vi.clearAllMocks()
   m.select.mockReset()
   m.embedding.mockReset()
-  m.authorize.mockResolvedValue(undefined)
-  m.acceptance.mockResolvedValue({ accepted: true, appliedUsd: '0.025' })
 })
 afterEach(() => vi.restoreAllMocks())
 
@@ -181,44 +144,27 @@ describe('documentation search accounting', () => {
   )
 })
 
-describe('local Copilot documentation context', () => {
-  it('uses the original billing namespace and verifies current access without remote discovery', async () => {
-    const { context, source } = sourceContext()
+describe('authenticated documentation usage', () => {
+  it('passes the authenticated Studio actor and selected workspace to embeddings', async () => {
     mockIndexedSearch()
     m.embedding.mockResolvedValue(ownedEmbedding())
+    const context = {
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      signal: new AbortController().signal,
+    }
     await searchDocumentationServerTool.execute({ query: 'docs' }, context)
-    expect(m.authorize).toHaveBeenCalledWith('user-1', 'workspace-1')
-    expect(m.acceptance).toHaveBeenCalledWith(source.binding, source.occurrence)
-    expect(m.embedding).toHaveBeenCalledWith('docs', {
+    expect(m.embedding).toHaveBeenCalledExactlyOnceWith('docs', {
       actorUserId: 'user-1',
       workspaceId: 'workspace-1',
-      workflowId: null,
       signal: context.signal,
-      runId: expect.stringMatching(/^embedding-copilot-docs:/),
-      expectedNamespace: source.binding.namespace,
-      verifySource: expect.any(Function),
     })
-    m.authorize.mockRejectedValueOnce(new Error('access revoked'))
-    await expect(m.embedding.mock.calls[0][1].verifySource()).rejects.toThrow('access revoked')
   })
-
-  it('refuses marker-only financial context before database or embedding contact', async () => {
-    await expect(
-      searchDocumentationServerTool.execute(
-        { query: 'docs' },
-        { userId: 'user-1', nativeReviewBinding: 'forged-marker' }
-      )
-    ).rejects.toMatchObject({ status: 403 })
-    expect(m.select).not.toHaveBeenCalled()
+  it('requires authentication before any embedding or database read', async () => {
+    await expect(searchDocumentationServerTool.execute({ query: 'docs' })).rejects.toThrow(
+      'Authenticated'
+    )
     expect(m.embedding).not.toHaveBeenCalled()
-  })
-
-  it('refuses changed arguments before database or embedding contact', async () => {
-    const { context } = sourceContext()
-    await expect(
-      searchDocumentationServerTool.execute({ query: 'changed' }, context)
-    ).rejects.toMatchObject({ status: 403 })
     expect(m.select).not.toHaveBeenCalled()
-    expect(m.embedding).not.toHaveBeenCalled()
   })
 })

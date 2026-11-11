@@ -12,7 +12,6 @@ type RouteContext = { params: Promise<{ id: string }> }
 export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
     const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
-    const authenticatedAt = performance.now()
     requireMemoryAuth(auth)
     const { id } = await params
     const { workflowId } = ScopeSchema.parse(Object.fromEntries(new URL(request.url).searchParams))
@@ -20,8 +19,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       auth,
       workflowId,
       z.string().min(1).parse(id),
-      request.signal,
-      authenticatedAt
+      request.signal
     )
     return NextResponse.json(
       { success: true, data: record },
@@ -35,17 +33,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
   try {
     const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
-    const authenticatedAt = performance.now()
     requireMemoryAuth(auth)
     const { id } = await params
     const { workflowId } = ScopeSchema.parse(Object.fromEntries(new URL(request.url).searchParams))
-    await deleteWorkflowMemory(
-      auth,
-      workflowId,
-      z.string().min(1).parse(id),
-      request.signal,
-      authenticatedAt
-    )
+    await deleteWorkflowMemory(auth, workflowId, z.string().min(1).parse(id), request.signal)
     return NextResponse.json({ success: true, data: { message: 'Memory deleted successfully' } })
   } catch (error) {
     return memoryError(error)

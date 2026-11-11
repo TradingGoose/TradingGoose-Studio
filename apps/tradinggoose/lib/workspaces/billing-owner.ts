@@ -1,16 +1,9 @@
-import {
-  assertFinancialRootClosed,
-  FinancialPolicyError,
-  type FinancialRoot,
-  type FinancialTransaction,
-  financialNamespace,
-  lockFinancialRoots,
-} from '@tradinggoose/billing'
-import { db, member, permissions, subscription, workspace } from '@tradinggoose/db'
+import { db, member, subscription, workspace } from '@tradinggoose/db'
 import { and, eq, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { isOrganizationSubscription } from '@/lib/billing/tiers'
+import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 
 type WorkspaceBillingOwnerColumns = Pick<
   typeof workspace.$inferInsert,
@@ -97,11 +90,8 @@ export function toWorkspaceApiRecord<T extends WorkspaceBillingOwnerRecord>(
   }
 }
 
-async function hasOrganizationBilledWorkspaces(
-  organizationId: string,
-  store: Pick<typeof db, 'select'> = db
-): Promise<boolean> {
-  const rows = await store
+async function hasOrganizationBilledWorkspaces(organizationId: string): Promise<boolean> {
+  const rows = await db
     .select({ id: workspace.id })
     .from(workspace)
     .where(
@@ -115,11 +105,11 @@ async function hasOrganizationBilledWorkspaces(
   return rows.length > 0
 }
 
-async function hasWorkspaceOwnedByBillingOrganization(
-  args: { organizationId: string; workspaceOwnerId: string },
-  store: Pick<typeof db, 'select'>
-): Promise<boolean> {
-  const rows = await store
+async function hasWorkspaceOwnedByBillingOrganization(args: {
+  organizationId: string
+  workspaceOwnerId: string
+}): Promise<boolean> {
+  const rows = await db
     .select({ id: workspace.id })
     .from(workspace)
     .where(
@@ -134,11 +124,8 @@ async function hasWorkspaceOwnedByBillingOrganization(
   return rows.length > 0
 }
 
-async function hasBlockingOrganizationSubscription(
-  organizationId: string,
-  store: Pick<typeof db, 'select'> = db
-): Promise<boolean> {
-  const rows = await store
+async function hasBlockingOrganizationSubscription(organizationId: string): Promise<boolean> {
+  const rows = await db
     .select({ id: subscription.id })
     .from(subscription)
     .where(
@@ -157,29 +144,23 @@ async function hasBlockingOrganizationSubscription(
   return rows.length > 0
 }
 
-export async function assertWorkspaceOwnerCanLeaveBillingOrganization(
-  args: { organizationId: string; workspaceOwnerId: string },
-  store: Pick<typeof db, 'select'>
-): Promise<void> {
-  if (await hasWorkspaceOwnedByBillingOrganization(args, store)) {
-    throw new FinancialPolicyError(
-      'Workspace owner must reassign billing before leaving the organization'
-    )
+export async function assertWorkspaceOwnerCanLeaveBillingOrganization(args: {
+  organizationId: string
+  workspaceOwnerId: string
+}): Promise<void> {
+  if (await hasWorkspaceOwnedByBillingOrganization(args)) {
+    throw new Error('Workspace owner must reassign billing before leaving the organization')
   }
 }
 
-export async function assertOrganizationCanBeDeleted(
-  organizationId: string,
-  store: FinancialTransaction
-): Promise<void> {
-  if (await hasOrganizationBilledWorkspaces(organizationId, store)) {
+export async function assertOrganizationCanBeDeleted(organizationId: string): Promise<void> {
+  if (await hasOrganizationBilledWorkspaces(organizationId)) {
     throw new Error('Cannot delete an organization while workspaces are billed to it')
   }
 
-  if (await hasBlockingOrganizationSubscription(organizationId, store)) {
+  if (await hasBlockingOrganizationSubscription(organizationId)) {
     throw new Error('Cannot delete an organization while it still has a billing subscription')
   }
-  await assertFinancialRootClosed(store, { type: 'organization', id: organizationId })
 }
 
 export function assertWorkspaceBillingOwnerRetainsAdminAccess(args: {
@@ -224,10 +205,9 @@ export function assertWorkspaceBillingOwnerCanBeRemoved(args: {
 
 async function hasOrganizationBillingAdminAccess(
   userId: string,
-  organizationId: string,
-  store: Pick<typeof db, 'select'> = db
+  organizationId: string
 ): Promise<boolean> {
-  const rows = await store
+  const rows = await db
     .select({ id: member.id })
     .from(member)
     .where(
@@ -244,10 +224,9 @@ async function hasOrganizationBillingAdminAccess(
 
 async function isWorkspaceOwnerInOrganization(
   workspaceOwnerId: string,
-  organizationId: string,
-  store: Pick<typeof db, 'select'> = db
+  organizationId: string
 ): Promise<boolean> {
-  const rows = await store
+  const rows = await db
     .select({ id: member.id })
     .from(member)
     .where(and(eq(member.userId, workspaceOwnerId), eq(member.organizationId, organizationId)))
@@ -256,31 +235,16 @@ async function isWorkspaceOwnerInOrganization(
   return rows.length > 0
 }
 
-export async function resolveWorkspaceBillingOwnerUpdate(
-  args: {
-    actingUserId: string
-    workspaceId: string
-    workspaceOwnerId: string
-    billingOwner: WorkspaceBillingOwnerInput
-  },
-  store: Pick<typeof db, 'select'> = db
-): Promise<WorkspaceBillingOwnerColumns> {
+export async function resolveWorkspaceBillingOwnerUpdate(args: {
+  actingUserId: string
+  workspaceId: string
+  workspaceOwnerId: string
+  billingOwner: WorkspaceBillingOwnerInput
+}): Promise<WorkspaceBillingOwnerColumns> {
   const { actingUserId, workspaceId, workspaceOwnerId, billingOwner } = args
 
   if (billingOwner.type === 'user') {
-    const [access] = await store
-      .select({ id: permissions.id })
-      .from(permissions)
-      .where(
-        and(
-          eq(permissions.userId, billingOwner.userId),
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workspaceId),
-          eq(permissions.permissionType, 'admin')
-        )
-      )
-      .limit(1)
-    const hasAdminAccess = Boolean(access) || billingOwner.userId === workspaceOwnerId
+    const hasAdminAccess = await hasWorkspaceAdminAccess(billingOwner.userId, workspaceId)
     if (!hasAdminAccess) {
       throw new WorkspaceBillingOwnerUpdateError(
         'Workspace billing owner user must have admin access'
@@ -296,8 +260,7 @@ export async function resolveWorkspaceBillingOwnerUpdate(
 
   const canManageOrganizationBilling = await hasOrganizationBillingAdminAccess(
     actingUserId,
-    billingOwner.organizationId,
-    store
+    billingOwner.organizationId
   )
 
   if (!canManageOrganizationBilling) {
@@ -308,8 +271,7 @@ export async function resolveWorkspaceBillingOwnerUpdate(
 
   const ownerBelongsToOrganization = await isWorkspaceOwnerInOrganization(
     workspaceOwnerId,
-    billingOwner.organizationId,
-    store
+    billingOwner.organizationId
   )
 
   if (!ownerBelongsToOrganization) {
@@ -318,10 +280,7 @@ export async function resolveWorkspaceBillingOwnerUpdate(
     )
   }
 
-  const organizationSubscription = await getOrganizationSubscription(
-    billingOwner.organizationId,
-    store
-  )
+  const organizationSubscription = await getOrganizationSubscription(billingOwner.organizationId)
   if (!isOrganizationSubscription(organizationSubscription)) {
     throw new WorkspaceBillingOwnerUpdateError(
       'Organization must have an active organization billing tier before workspaces can bill to it'
@@ -333,71 +292,4 @@ export async function resolveWorkspaceBillingOwnerUpdate(
     billingOwnerUserId: null,
     billingOwnerOrganizationId: billingOwner.organizationId,
   }
-}
-
-/** Lock both immutable payer roots before the workspace; waiting writers revalidate everything. */
-export async function updateWorkspaceFinancialBinding(input: {
-  actingUserId: string
-  workspaceId: string
-  billingOwner?: WorkspaceBillingOwner
-  updates?: { name?: string; allowPersonalApiKeys?: boolean }
-}) {
-  return db.transaction(async (tx) => {
-    const [initial] = await tx
-      .select()
-      .from(workspace)
-      .where(eq(workspace.id, input.workspaceId))
-      .limit(1)
-    if (!initial) throw new WorkspaceBillingOwnerUpdateError('Workspace not found')
-    const before = serializeWorkspaceBillingOwner(initial)
-    const next = input.billingOwner ?? before
-    const root = (owner: WorkspaceBillingOwner): FinancialRoot =>
-      owner.type === 'organization'
-        ? { type: 'organization', id: owner.organizationId }
-        : { type: 'user', id: owner.userId }
-    await lockFinancialRoots(tx, [root(before), root(next)])
-    const [fresh] = await tx
-      .select()
-      .from(workspace)
-      .where(eq(workspace.id, input.workspaceId))
-      .for('update')
-      .limit(1)
-    if (
-      !fresh ||
-      financialNamespace(root(serializeWorkspaceBillingOwner(fresh))) !==
-        financialNamespace(root(before))
-    )
-      throw new WorkspaceBillingOwnerUpdateError('Workspace billing changed while waiting; retry')
-    const [access] = await tx
-      .select({ id: permissions.id })
-      .from(permissions)
-      .where(
-        and(
-          eq(permissions.userId, input.actingUserId),
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, input.workspaceId),
-          eq(permissions.permissionType, 'admin')
-        )
-      )
-      .limit(1)
-    if (!access && fresh.ownerId !== input.actingUserId)
-      throw new WorkspaceBillingOwnerUpdateError('Workspace admin access required')
-    const billing = input.billingOwner
-      ? await resolveWorkspaceBillingOwnerUpdate(
-          {
-            actingUserId: input.actingUserId,
-            workspaceId: input.workspaceId,
-            workspaceOwnerId: fresh.ownerId,
-            billingOwner: next,
-          },
-          tx
-        )
-      : {}
-    const [updated] = await tx
-      .update(workspace)
-      .set({ ...input.updates, ...billing, updatedAt: new Date() })
-      .where(eq(workspace.id, input.workspaceId))
-      .returning()
-    return updated
-  })
 }

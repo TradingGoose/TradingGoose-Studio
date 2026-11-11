@@ -54,7 +54,7 @@ export function TraceSpanItem({
   const expanded = expandedSpans.has(spanId)
   const hasChildren = span.children && span.children.length > 0
   const hasToolCalls = span.toolCalls && span.toolCalls.length > 0
-  const hasInputOutput = Boolean(span.input || span.output)
+  const hasInputOutput = Boolean(span.input || span.output || span.agentHistory)
   const hasNestedItems = hasChildren || hasToolCalls || hasInputOutput
   const displayCost = span.cost
 
@@ -581,7 +581,7 @@ export function TraceSpanItem({
 
   const nestedContent = (
     <div>
-      {(span.input || span.output) && (
+      {(span.input || span.output || span.agentHistory) && (
         <CollapsibleInputOutput
           span={span}
           depth={depth}

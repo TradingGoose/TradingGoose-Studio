@@ -1,11 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { member } from '@tradinggoose/db/schema'
+import { member, subscription } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
-import { updateFinancialSubscription } from '@/lib/billing/financial-subscriptions'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { getOccupiedSeatCount, getSeatOccupancy } from '@/lib/billing/validation/seat-management'
@@ -179,15 +178,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Update our local database to reflect the change
     // Note: This will also be updated via webhook, but we update immediately for UX
-    await updateFinancialSubscription(
-      orgSubscription.id,
-      { seats: newSeatCount },
-      {
-        actorUserId: session.user.id,
-        expectedSeats: orgSubscription.seats,
-        expectedStripeSubscriptionId: orgSubscription.stripeSubscriptionId,
-      }
-    )
+    await db
+      .update(subscription)
+      .set({
+        seats: newSeatCount,
+      })
+      .where(eq(subscription.id, orgSubscription.id))
 
     logger.info('Successfully updated seat count', {
       organizationId,

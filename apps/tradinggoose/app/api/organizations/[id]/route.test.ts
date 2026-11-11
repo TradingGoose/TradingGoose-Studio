@@ -16,7 +16,6 @@ describe('Organization DELETE route', () => {
     })),
   }))
   const mockAssertOrganizationCanBeDeleted = vi.fn()
-  const transaction = { select: selectMock, delete: deleteMock }
 
   beforeEach(() => {
     vi.resetModules()
@@ -27,8 +26,6 @@ describe('Organization DELETE route', () => {
       db: {
         select: selectMock,
         delete: deleteMock,
-        transaction: async (callback: (tx: typeof transaction) => Promise<unknown>) =>
-          callback(transaction),
       },
       member: {
         id: 'member.id',
@@ -44,11 +41,6 @@ describe('Organization DELETE route', () => {
         createdAt: 'organization.createdAt',
         updatedAt: 'organization.updatedAt',
       },
-    }))
-
-    vi.doMock('@tradinggoose/billing', async () => ({
-      ...(await vi.importActual<typeof import('@tradinggoose/billing')>('@tradinggoose/billing')),
-      lockFinancialRoots: vi.fn(),
     }))
 
     vi.doMock('@/lib/auth', () => ({
@@ -98,7 +90,7 @@ describe('Organization DELETE route', () => {
     mockAssertOrganizationCanBeDeleted.mockRejectedValue(
       new Error('Cannot delete an organization while workspaces are billed to it')
     )
-    selectResults.push([{ id: 'member-1', role: 'owner' }], [{ id: 'member-1', role: 'owner' }])
+    selectResults.push([{ id: 'member-1', role: 'owner' }])
 
     const { DELETE } = await import('./route')
     const response = await DELETE(
@@ -113,14 +105,14 @@ describe('Organization DELETE route', () => {
       error: 'Cannot delete an organization while workspaces are billed to it',
     })
     expect(deleteMock).not.toHaveBeenCalled()
-    expect(mockAssertOrganizationCanBeDeleted).toHaveBeenCalledWith('org-1', transaction)
+    expect(mockAssertOrganizationCanBeDeleted).toHaveBeenCalledWith('org-1')
   })
 
   it('blocks deleting an organization while it still has a billing subscription', async () => {
     mockAssertOrganizationCanBeDeleted.mockRejectedValue(
       new Error('Cannot delete an organization while it still has a billing subscription')
     )
-    selectResults.push([{ id: 'member-1', role: 'owner' }], [{ id: 'member-1', role: 'owner' }])
+    selectResults.push([{ id: 'member-1', role: 'owner' }])
 
     const { DELETE } = await import('./route')
     const response = await DELETE(
@@ -135,17 +127,6 @@ describe('Organization DELETE route', () => {
       error: 'Cannot delete an organization while it still has a billing subscription',
     })
     expect(deleteMock).not.toHaveBeenCalled()
-    expect(mockAssertOrganizationCanBeDeleted).toHaveBeenCalledWith('org-1', transaction)
-  })
-  it('rechecks current administrator authority inside the financial deletion transaction', async () => {
-    selectResults.push([{ id: 'member-1', role: 'owner' }], [])
-    const { DELETE } = await import('./route')
-    const response = await DELETE(
-      new NextRequest('http://localhost/api/organizations/org-1', { method: 'DELETE' }),
-      { params: Promise.resolve({ id: 'org-1' }) }
-    )
-    expect(response.status).toBe(403)
-    expect(deleteMock).not.toHaveBeenCalled()
-    expect(mockAssertOrganizationCanBeDeleted).not.toHaveBeenCalled()
+    expect(mockAssertOrganizationCanBeDeleted).toHaveBeenCalledWith('org-1')
   })
 })

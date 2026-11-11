@@ -13,6 +13,10 @@ import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('AdminBillingSettingsAPI')
 
+function toDecimalString(value: number) {
+  return value.toString()
+}
+
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(request: Request) {
@@ -33,10 +37,10 @@ export async function PATCH(request: Request) {
     }
 
     const values = {
-      onboardingAllowanceUsd: parsed.data.onboardingAllowanceUsd,
-      overageThresholdDollars: parsed.data.overageThresholdDollars,
-      workflowExecutionChargeUsd: parsed.data.workflowExecutionChargeUsd,
-      functionExecutionChargeUsd: parsed.data.functionExecutionChargeUsd,
+      onboardingAllowanceUsd: toDecimalString(parsed.data.onboardingAllowanceUsd),
+      overageThresholdDollars: toDecimalString(parsed.data.overageThresholdDollars),
+      workflowExecutionChargeUsd: toDecimalString(parsed.data.workflowExecutionChargeUsd),
+      functionExecutionChargeUsd: toDecimalString(parsed.data.functionExecutionChargeUsd),
       usageWarningThresholdPercent: parsed.data.usageWarningThresholdPercent,
       freeTierUpgradeThresholdPercent: parsed.data.freeTierUpgradeThresholdPercent,
       enterpriseContactUrl: parsed.data.enterpriseContactUrl,

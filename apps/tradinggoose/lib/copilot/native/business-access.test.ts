@@ -33,17 +33,6 @@ function pending(toolName: string, args: JsonObject): Pending {
     },
     originalArgs: args,
     stage: 'result',
-    financialBinding: {
-      namespace: 'billing',
-      key: 'key',
-      fingerprint: 'fp',
-      actorUserId: 'actor',
-      workspaceId: null,
-      workflowId: null,
-      runId: 'run',
-      purpose: 'copilot',
-    },
-    financialOccurrence: { stepNumber: 1, retryCount: 0 },
   }
 }
 beforeEach(() => {

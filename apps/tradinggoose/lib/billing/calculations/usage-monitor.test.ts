@@ -26,8 +26,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
   },
 }))
 
-vi.mock('drizzle-orm', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('drizzle-orm')>()),
+vi.mock('drizzle-orm', () => ({
   eq: vi.fn(() => 'eq'),
 }))
 
@@ -73,17 +72,17 @@ describe('checkServerSideUsageLimits', () => {
     })
 
     mockGetUserUsageData.mockResolvedValue({
-      currentUsage: '12.5',
-      limit: '100',
+      currentUsage: 12.5,
+      limit: 100,
       percentUsed: 12.5,
       isWarning: false,
       isExceeded: false,
       billingPeriodStart: null,
       billingPeriodEnd: null,
-      lastPeriodCost: '0',
+      lastPeriodCost: 0,
     })
 
-    mockDbLimit.mockResolvedValue([{ blocked: false }])
+    mockDbLimit.mockResolvedValue([{ billingBlocked: false }])
     mockDbSelect.mockImplementation(() => ({
       from: vi.fn(() => ({
         where: vi.fn(() => ({
@@ -94,14 +93,14 @@ describe('checkServerSideUsageLimits', () => {
   })
 
   it('blocks personal execution when billing is blocked', async () => {
-    mockDbLimit.mockResolvedValueOnce([{ blocked: true }])
+    mockDbLimit.mockResolvedValueOnce([{ billingBlocked: true }])
 
     const { checkServerSideUsageLimits } = await import('./usage-monitor')
 
     await expect(checkServerSideUsageLimits({ userId: 'user-1' })).resolves.toEqual({
       isExceeded: true,
-      currentUsage: '12.5',
-      limit: null,
+      currentUsage: 12.5,
+      limit: 0,
       message: 'Billing issue detected. Please update your payment method to continue.',
     })
   })
@@ -111,22 +110,9 @@ describe('checkServerSideUsageLimits', () => {
 
     await expect(checkServerSideUsageLimits({ userId: 'user-1' })).resolves.toEqual({
       isExceeded: false,
-      currentUsage: '12.5',
-      limit: '100',
-    })
-  })
-
-  it('blocks execution when the original financial ledger is missing', async () => {
-    mockDbLimit.mockResolvedValueOnce([])
-
-    const { checkServerSideUsageLimits } = await import('./usage-monitor')
-
-    await expect(checkServerSideUsageLimits({ userId: 'user-1' })).resolves.toEqual({
-      isExceeded: true,
-      currentUsage: null,
-      limit: null,
-      message:
-        'Unable to determine usage limits. Execution blocked until billing is configured correctly.',
+      currentUsage: 12.5,
+      limit: 100,
+      message: undefined,
     })
   })
 })

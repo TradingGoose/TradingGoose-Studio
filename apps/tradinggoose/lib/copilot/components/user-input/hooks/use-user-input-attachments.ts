@@ -2,6 +2,7 @@
 
 import { type DragEvent, useEffect, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
+import { MAX_FILE_SIZE } from '@/lib/uploads/utils/validation'
 import type { AttachedFile } from '../types'
 
 const logger = createLogger('CopilotUserInputAttachments')
@@ -57,7 +58,6 @@ export function useUserInputAttachments({ userId }: { userId?: string }) {
         name: file.name,
         size: file.size,
         type: file.type,
-        path: '',
         uploading: true,
         previewUrl,
       }
@@ -65,32 +65,23 @@ export function useUserInputAttachments({ userId }: { userId?: string }) {
       setAttachedFiles((prev) => [...prev, tempFile])
 
       try {
-        const formData = new FormData()
-        formData.append('file', file)
-        const response = await fetch('/api/files/upload?type=copilot', {
-          method: 'POST',
-          body: formData,
+        if (!file.size || file.size > MAX_FILE_SIZE) throw new Error('Image size is invalid')
+        const data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () =>
+            typeof reader.result === 'string'
+              ? resolve(reader.result)
+              : reject(new Error('Image could not be read'))
+          reader.onerror = () => reject(new Error('Image could not be read'))
+          reader.readAsDataURL(file)
         })
-        const uploaded = await response.json()
-        if (!response.ok) throw new Error(uploaded.error || 'Image upload failed')
-        if (
-          typeof uploaded.key !== 'string' ||
-          !uploaded.key ||
-          typeof uploaded.sourceProof !== 'string' ||
-          !uploaded.sourceProof
-        )
-          throw new Error('Image upload ownership could not be verified')
-        const uploadedFileKey = uploaded.key
-        const uploadedFilePath = uploaded.path || ''
 
         setAttachedFiles((prev) =>
           prev.map((attachedFile) =>
             attachedFile.id === tempFile.id
               ? {
                   ...attachedFile,
-                  path: uploadedFilePath,
-                  key: uploadedFileKey,
-                  sourceProof: uploaded.sourceProof,
+                  data,
                   uploading: false,
                 }
               : attachedFile

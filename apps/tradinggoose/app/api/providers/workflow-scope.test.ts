@@ -9,7 +9,6 @@ import { executeTool } from '@/tools'
 import { POST } from './route'
 
 const boundary = vi.hoisted(() => ({
-  create: vi.fn(),
   admit: vi.fn(),
   accept: vi.fn(),
   contact: vi.fn(),
@@ -21,10 +20,9 @@ vi.mock('@/lib/auth/hybrid', () => ({
 vi.mock('@/lib/auth/internal', () => ({
   generateInternalToken: async () => 'synthetic-internal-auth',
 }))
-vi.mock('@/lib/billing/native-finance', () => ({
-  createFinancialInvocation: boundary.create,
-  admitFinancialModelStep: boundary.admit,
-  acceptFinancialModelStep: boundary.accept,
+vi.mock('@/lib/billing/model-usage', () => ({
+  assertModelUsageAllowed: boundary.admit,
+  recordModelUsage: boundary.accept,
 }))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 vi.mock('@/lib/mastra/connections', async (original) => ({
@@ -60,14 +58,6 @@ const context: ExecutionContext = {
 beforeEach(() => {
   vi.clearAllMocks()
   boundary.requests.length = 0
-  boundary.create.mockImplementation(async (scope) => ({
-    namespace: 'billing-usage:synthetic',
-    key: 'synthetic-binding',
-    fingerprint: 'synthetic-fingerprint',
-    ...scope,
-    workspaceId: scope.workspaceId ?? null,
-    workflowId: scope.workflowId ?? null,
-  }))
   boundary.admit.mockResolvedValue(undefined)
   boundary.accept.mockResolvedValue(undefined)
   vi.stubGlobal(
@@ -88,7 +78,7 @@ function assertScope() {
   const url = new URL(boundary.requests[0].url)
   expect(url.searchParams.get('workflowId')).toBe(context.workflowId)
   expect(url.searchParams.get('workspaceId')).toBe(context.workspaceId)
-  expect(boundary.create).toHaveBeenCalledWith(
+  expect(boundary.admit).toHaveBeenCalledWith(
     expect.objectContaining({
       actorUserId: 'authenticated-actor',
       workflowId: context.workflowId,
@@ -100,7 +90,7 @@ function assertScope() {
   expect(boundary.accept).toHaveBeenCalledOnce()
   expect(boundary.contact).toHaveBeenCalledOnce()
 }
-it('carries the actual llm_chat URL-only scope through real route, Agent and financial processors', async () => {
+it('carries the actual llm_chat URL-only scope through real route, Agent and usage processors', async () => {
   const output = await executeTool(
     'llm_chat',
     {
@@ -153,7 +143,7 @@ it('retains a nested native tool callback scope instead of trusting its input id
   assertScope()
 })
 it('denies a canonical authorization failure before admission/model contact without falling back to personal', async () => {
-  boundary.create.mockRejectedValue(new Error('Workflow authorization denied'))
+  boundary.admit.mockRejectedValue(new Error('Workflow authorization denied'))
   const output = await executeTool(
     'llm_chat',
     { model: 'openai/gpt-4.1', context: 'literal' },
@@ -161,9 +151,9 @@ it('denies a canonical authorization failure before admission/model contact with
     context
   )
   expect(output.success).toBe(false)
-  expect(boundary.create).toHaveBeenCalledWith(
+  expect(boundary.admit).toHaveBeenCalledWith(
     expect.objectContaining({ workspaceId: context.workspaceId, workflowId: context.workflowId })
   )
-  expect(boundary.admit).not.toHaveBeenCalled()
+  expect(boundary.accept).not.toHaveBeenCalled()
   expect(boundary.contact).not.toHaveBeenCalled()
 })

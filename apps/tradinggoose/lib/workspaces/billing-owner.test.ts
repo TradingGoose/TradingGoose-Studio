@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('workspace billing owner helpers', () => {
   const selectResults: any[][] = []
+  const mockHasWorkspaceAdminAccess = vi.fn()
   const mockGetOrganizationSubscription = vi.fn()
   const mockIsOrganizationSubscription = vi.fn()
   const selectMock = vi.fn(() => ({
@@ -20,13 +21,6 @@ describe('workspace billing owner helpers', () => {
     vi.doMock('@tradinggoose/db', () => ({
       db: {
         select: selectMock,
-      },
-      permissions: {
-        id: 'permissions.id',
-        userId: 'permissions.userId',
-        entityType: 'permissions.entityType',
-        entityId: 'permissions.entityId',
-        permissionType: 'permissions.permissionType',
       },
       member: {
         id: 'member.id',
@@ -50,6 +44,10 @@ describe('workspace billing owner helpers', () => {
       },
     }))
 
+    vi.doMock('@/lib/permissions/utils', () => ({
+      hasWorkspaceAdminAccess: mockHasWorkspaceAdminAccess,
+    }))
+
     vi.doMock('@/lib/billing/core/billing', () => ({
       getOrganizationSubscription: mockGetOrganizationSubscription,
     }))
@@ -69,7 +67,7 @@ describe('workspace billing owner helpers', () => {
   })
 
   it('resolves a user billing owner when the target user has workspace admin access', async () => {
-    selectResults.push([{ id: 'admin-permission' }])
+    mockHasWorkspaceAdminAccess.mockResolvedValue(true)
     const { resolveWorkspaceBillingOwnerUpdate } = await import('./billing-owner')
 
     await expect(
@@ -88,11 +86,11 @@ describe('workspace billing owner helpers', () => {
       billingOwnerOrganizationId: null,
     })
 
-    expect(selectMock).toHaveBeenCalled()
+    expect(mockHasWorkspaceAdminAccess).toHaveBeenCalledWith('user-2', 'workspace-1')
   })
 
   it('rejects a user billing owner without workspace admin access', async () => {
-    selectResults.push([])
+    mockHasWorkspaceAdminAccess.mockResolvedValue(false)
     const { resolveWorkspaceBillingOwnerUpdate } = await import('./billing-owner')
 
     await expect(
@@ -168,59 +166,24 @@ describe('workspace billing owner helpers', () => {
   })
 
   it('blocks a workspace owner from leaving a billing organization while owning billed workspaces', async () => {
+    selectResults.push([{ id: 'workspace-1' }])
     const { assertWorkspaceOwnerCanLeaveBillingOrganization } = await import('./billing-owner')
-    const callerSelect = vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({ limit: vi.fn(async () => [{ id: 'workspace-1' }]) })),
-      })),
-    }))
-    // Only the SELECT chain is doubled here; disposable PG tests verify the real transaction.
-    const callerStore = { select: callerSelect } as unknown as Parameters<
-      typeof assertWorkspaceOwnerCanLeaveBillingOrganization
-    >[1]
 
     await expect(
-      assertWorkspaceOwnerCanLeaveBillingOrganization(
-        { organizationId: 'org-1', workspaceOwnerId: 'owner-1' },
-        callerStore
-      )
-    ).rejects.toMatchObject({
-      name: 'FinancialPolicyError',
-      status: 409,
-      message: 'Workspace owner must reassign billing before leaving the organization',
-    })
-    expect(callerSelect).toHaveBeenCalledOnce()
-    expect(selectMock).not.toHaveBeenCalled()
-  })
-
-  it('allows leaving only from the passed caller snapshot without querying the global pool', async () => {
-    const { assertWorkspaceOwnerCanLeaveBillingOrganization } = await import('./billing-owner')
-    const callerSelect = vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({ limit: vi.fn(async () => []) })),
-      })),
-    }))
-    const callerStore = { select: callerSelect } as unknown as Parameters<
-      typeof assertWorkspaceOwnerCanLeaveBillingOrganization
-    >[1]
-
-    await expect(
-      assertWorkspaceOwnerCanLeaveBillingOrganization(
-        { organizationId: 'org-1', workspaceOwnerId: 'owner-1' },
-        callerStore
-      )
-    ).resolves.toBeUndefined()
-    expect(callerSelect).toHaveBeenCalledOnce()
-    expect(selectMock).not.toHaveBeenCalled()
+      assertWorkspaceOwnerCanLeaveBillingOrganization({
+        organizationId: 'org-1',
+        workspaceOwnerId: 'owner-1',
+      })
+    ).rejects.toThrow('Workspace owner must reassign billing before leaving the organization')
   })
 
   it('blocks deleting an organization while workspaces are still billed to it', async () => {
     selectResults.push([{ id: 'workspace-1' }])
     const { assertOrganizationCanBeDeleted } = await import('./billing-owner')
 
-    await expect(
-      assertOrganizationCanBeDeleted('org-1', (await import('@tradinggoose/db')).db)
-    ).rejects.toThrow('Cannot delete an organization while workspaces are billed to it')
+    await expect(assertOrganizationCanBeDeleted('org-1')).rejects.toThrow(
+      'Cannot delete an organization while workspaces are billed to it'
+    )
   })
 
   it('blocks deleting an organization while it still has a billing subscription', async () => {
@@ -228,9 +191,9 @@ describe('workspace billing owner helpers', () => {
     selectResults.push([{ id: 'subscription-1' }])
     const { assertOrganizationCanBeDeleted } = await import('./billing-owner')
 
-    await expect(
-      assertOrganizationCanBeDeleted('org-1', (await import('@tradinggoose/db')).db)
-    ).rejects.toThrow('Cannot delete an organization while it still has a billing subscription')
+    await expect(assertOrganizationCanBeDeleted('org-1')).rejects.toThrow(
+      'Cannot delete an organization while it still has a billing subscription'
+    )
   })
 
   it('blocks downgrading the workspace billing owner away from admin', async () => {

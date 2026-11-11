@@ -1,4 +1,3 @@
-import { FinancialPolicyError, lockFinancialRoots } from '@tradinggoose/billing'
 import { db, member, organization } from '@tradinggoose/db'
 import { and, eq, ne } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
@@ -248,28 +247,19 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
-    let deleted
     try {
-      deleted = await db.transaction(async (tx) => {
-        await lockFinancialRoots(tx, [{ type: 'organization', id: organizationId }])
-        const [currentMember] = await tx
-          .select()
-          .from(member)
-          .where(and(eq(member.organizationId, organizationId), eq(member.userId, session.user.id)))
-          .limit(1)
-        if (!currentMember || !['owner', 'admin'].includes(currentMember.role))
-          throw new FinancialPolicyError('Current organization admin access required', 403)
-        await assertOrganizationCanBeDeleted(organizationId, tx)
-        return tx.delete(organization).where(eq(organization.id, organizationId)).returning()
-      })
+      await assertOrganizationCanBeDeleted(organizationId)
     } catch (error) {
-      if (error instanceof Error)
-        return NextResponse.json(
-          { error: error.message },
-          { status: error instanceof FinancialPolicyError ? error.status : 409 }
-        )
+      if (error instanceof Error) {
+        return NextResponse.json({ error: error.message }, { status: 409 })
+      }
       throw error
     }
+
+    const deleted = await db
+      .delete(organization)
+      .where(eq(organization.id, organizationId))
+      .returning()
 
     if (deleted.length === 0) {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })

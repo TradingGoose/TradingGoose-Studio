@@ -73,17 +73,17 @@ describe('billing settings', () => {
     mockGetDefaultBillingTier.mockResolvedValue({ id: 'tier_default' })
   })
 
-  it('preserves the financial policy when this service has no Stripe admin credentials', async () => {
+  it('disables effective billing when Stripe is not configured', async () => {
     mockHasStripeSecretKey.mockReturnValueOnce(false)
 
     const { getResolvedBillingSettings } = await import('./settings')
     const result = await getResolvedBillingSettings()
 
-    expect(result.billingEnabled).toBe(true)
+    expect(result.billingEnabled).toBe(false)
     expect(result.stripeConfigured).toBe(false)
   })
 
-  it('keeps runtime billing controlled by the system flag', async () => {
+  it('keeps effective billing enabled when both the system flag and Stripe are configured', async () => {
     const { isBillingEnabledForRuntime } = await import('./settings')
 
     await expect(isBillingEnabledForRuntime()).resolves.toBe(true)
@@ -95,22 +95,8 @@ describe('billing settings', () => {
     const { getBillingGateState } = await import('./settings')
 
     await expect(getBillingGateState()).resolves.toEqual({
-      billingEnabled: true,
+      billingEnabled: false,
       stripeConfigured: false,
     })
   })
-
-  it.each([true, false])(
-    'does not re-enable a disabled financial policy when Stripe configured=%s',
-    async (configured) => {
-      mockHasStripeSecretKey.mockReturnValue(configured)
-      mockResolveSystemSettingsFlags.mockReturnValue({ billingEnabled: false })
-      const { getBillingGateState, isBillingEnabledForRuntime } = await import('./settings')
-      await expect(getBillingGateState()).resolves.toEqual({
-        billingEnabled: false,
-        stripeConfigured: configured,
-      })
-      await expect(isBillingEnabledForRuntime()).resolves.toBe(false)
-    }
-  )
 })

@@ -1,4 +1,3 @@
-import { monetary } from '@tradinggoose/billing/money'
 import { db } from '@tradinggoose/db'
 import { systemBillingSettings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
@@ -13,10 +12,10 @@ export const ADMIN_BILLING_UNAVAILABLE_ERROR =
 export const BILLING_DISABLED_ERROR = 'Billing is not enabled.'
 
 export const DEFAULT_BILLING_SETTINGS = {
-  onboardingAllowanceUsd: '0',
-  overageThresholdDollars: '50',
-  workflowExecutionChargeUsd: '0',
-  functionExecutionChargeUsd: '0',
+  onboardingAllowanceUsd: 0,
+  overageThresholdDollars: 50,
+  workflowExecutionChargeUsd: 0,
+  functionExecutionChargeUsd: 0,
   usageWarningThresholdPercent: 80,
   freeTierUpgradeThresholdPercent: 90,
   enterpriseContactUrl: null,
@@ -44,23 +43,39 @@ export async function getResolvedBillingSettings(store: Pick<typeof db, 'select'
   ])
   const systemFlags = resolveSystemSettingsFlags(systemSettings)
   const stripeConfigured = hasStripeSecretKey()
+  const parsedOverageThreshold = Number.parseFloat(
+    settings?.overageThresholdDollars?.toString() ?? ''
+  )
+  const parsedOnboardingAllowance = Number.parseFloat(
+    settings?.onboardingAllowanceUsd?.toString() ?? ''
+  )
+  const parsedWorkflowExecutionCharge = Number.parseFloat(
+    settings?.workflowExecutionChargeUsd?.toString() ?? ''
+  )
+  const parsedFunctionExecutionCharge = Number.parseFloat(
+    settings?.functionExecutionChargeUsd?.toString() ?? ''
+  )
 
   return {
     settings,
-    billingEnabled: systemFlags.billingEnabled,
+    billingEnabled: systemFlags.billingEnabled && stripeConfigured,
     stripeConfigured,
-    onboardingAllowanceUsd: monetary(
-      settings?.onboardingAllowanceUsd ?? DEFAULT_BILLING_SETTINGS.onboardingAllowanceUsd
-    ),
-    overageThresholdDollars: monetary(
-      settings?.overageThresholdDollars ?? DEFAULT_BILLING_SETTINGS.overageThresholdDollars
-    ),
-    workflowExecutionChargeUsd: monetary(
-      settings?.workflowExecutionChargeUsd ?? DEFAULT_BILLING_SETTINGS.workflowExecutionChargeUsd
-    ),
-    functionExecutionChargeUsd: monetary(
-      settings?.functionExecutionChargeUsd ?? DEFAULT_BILLING_SETTINGS.functionExecutionChargeUsd
-    ),
+    onboardingAllowanceUsd:
+      Number.isFinite(parsedOnboardingAllowance) && parsedOnboardingAllowance >= 0
+        ? parsedOnboardingAllowance
+        : DEFAULT_BILLING_SETTINGS.onboardingAllowanceUsd,
+    overageThresholdDollars:
+      Number.isFinite(parsedOverageThreshold) && parsedOverageThreshold >= 0
+        ? parsedOverageThreshold
+        : DEFAULT_BILLING_SETTINGS.overageThresholdDollars,
+    workflowExecutionChargeUsd:
+      Number.isFinite(parsedWorkflowExecutionCharge) && parsedWorkflowExecutionCharge >= 0
+        ? parsedWorkflowExecutionCharge
+        : DEFAULT_BILLING_SETTINGS.workflowExecutionChargeUsd,
+    functionExecutionChargeUsd:
+      Number.isFinite(parsedFunctionExecutionCharge) && parsedFunctionExecutionCharge >= 0
+        ? parsedFunctionExecutionCharge
+        : DEFAULT_BILLING_SETTINGS.functionExecutionChargeUsd,
     usageWarningThresholdPercent:
       settings?.usageWarningThresholdPercent ??
       DEFAULT_BILLING_SETTINGS.usageWarningThresholdPercent,

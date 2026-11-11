@@ -6,14 +6,12 @@ import { executeCopilotCommand } from '@/lib/copilot/agent/service'
 import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { replaceCopilotWorkspaceEntityMentionsWithIds } from '@/lib/copilot/chat-contexts'
 import { MAX_COPILOT_CONTEXTS_PER_TURN } from '@/lib/copilot/context-limits'
-import { type CopilotToolContext, parseNativeContract } from '@/lib/copilot/native/contract'
-import { prepareNativeImageParts } from '@/lib/copilot/native/images'
-import { parseStudioNativeCommand } from '@/lib/copilot/native/studio-request'
+import { CopilotRequestSchema, type CopilotToolContext } from '@/lib/copilot/native/contract'
+import { validateNativeImageParts } from '@/lib/copilot/native/images'
 import { authorizeNativeConversationScope, NativeTargetError } from '@/lib/copilot/native/target'
 import { processContextsServer } from '@/lib/copilot/process-contents'
 import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
 import { collectCopilotToolContexts } from '@/lib/copilot/tool-context'
-import { CopilotSourceError } from '@/lib/uploads/contexts/copilot/source-proof'
 
 async function validateToolContext(
   context: CopilotToolContext,
@@ -34,21 +32,21 @@ async function validateToolContext(
 }
 
 export async function POST(request: NextRequest) {
-  let requestId = crypto.randomUUID()
   try {
     const session = await getSession()
-    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const input = await parseStudioNativeCommand(await request.json())
-    requestId = input.requestId
-    const scope = await authorizeNativeConversationScope(session.user.id, input.workspaceId)
-    const { workspaceId: _workspaceId, ...fields } = input
-    let command: Record<string, unknown> = { ...fields, scope }
-    if (input.command === 'message') {
-      z.enum(COPILOT_RUNTIME_MODELS).parse(input.model)
-      if (input.workflowId) {
+    if (!session?.user?.id)
+      return NextResponse.json(
+        { status: 'refused', error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } },
+        { status: 401 }
+      )
+    const command = CopilotRequestSchema.parse(await request.json())
+    const scope = await authorizeNativeConversationScope(session.user.id, command.workspaceId)
+    if (command.command === 'message') {
+      z.enum(COPILOT_RUNTIME_MODELS).parse(command.model)
+      if (command.workflowId) {
         const workflow = await authorizeWorkflowScope(
           { success: true, userId: session.user.id },
-          input.workflowId,
+          command.workflowId,
           'read'
         )
         if (!workflow.ok) throw new NativeTargetError(workflow.error, workflow.status)
@@ -59,24 +57,12 @@ export async function POST(request: NextRequest) {
           )
         }
       }
-      const { fileAttachments: _attachments, ...message } = fields as typeof input
-      command = { ...message, scope }
-      if (input.fileAttachments?.length) {
-        const { authorizeCopilotAttachments } = await import(
-          '@/lib/uploads/contexts/copilot/copilot-file-manager'
-        )
-        await authorizeCopilotAttachments(
-          input.fileAttachments,
-          { actorUserId: session.user.id, workspaceId: scope.workspaceId },
-          request.signal
-        )
-      }
       const contexts = z
         .array(ChatContextSchema)
         .max(MAX_COPILOT_CONTEXTS_PER_TURN)
-        .parse(input.input.contexts ?? [])
+        .parse(command.input.contexts ?? [])
       const candidates = collectCopilotToolContexts(contexts)
-      for (const requested of input.toolContexts ?? []) {
+      for (const requested of command.toolContexts ?? []) {
         if (
           !candidates.some(
             (candidate) =>
@@ -94,11 +80,11 @@ export async function POST(request: NextRequest) {
       for (const candidate of candidates)
         toolContexts.push(await validateToolContext(candidate, scope.actorUserId))
       command.toolContexts = toolContexts
-      if (input.toolContext?.contextEntityId) {
+      if (command.toolContext?.contextEntityId) {
         const primary = toolContexts.find(
           (candidate) =>
-            candidate.contextEntityKind === input.toolContext?.contextEntityKind &&
-            candidate.contextEntityId === input.toolContext?.contextEntityId
+            candidate.contextEntityKind === command.toolContext?.contextEntityKind &&
+            candidate.contextEntityId === command.toolContext?.contextEntityId
         )
         if (!primary)
           throw new NativeTargetError(
@@ -106,10 +92,28 @@ export async function POST(request: NextRequest) {
             422
           )
         command.toolContext = primary
-      } else if (input.toolContext) {
-        command.toolContext = await validateToolContext(input.toolContext, scope.actorUserId)
+      } else if (command.toolContext) {
+        command.toolContext = await validateToolContext(command.toolContext, scope.actorUserId)
       }
-      const text = replaceCopilotWorkspaceEntityMentionsWithIds(input.input.content, contexts)
+      validateNativeImageParts(command.input.content)
+      const content =
+        typeof command.input.content === 'string'
+          ? replaceCopilotWorkspaceEntityMentionsWithIds(command.input.content, contexts)
+          : command.input.content.map((part) =>
+              part.type === 'text'
+                ? {
+                    ...part,
+                    text: replaceCopilotWorkspaceEntityMentionsWithIds(part.text, contexts),
+                  }
+                : part
+            )
+      const text =
+        typeof content === 'string'
+          ? content
+          : content
+              .filter((part) => part.type === 'text')
+              .map((part) => part.text)
+              .join('\n')
       const resolvedContexts = await processContextsServer(
         contexts,
         session.user.id,
@@ -117,36 +121,24 @@ export async function POST(request: NextRequest) {
         scope.workspaceId ?? undefined,
         { signal: request.signal }
       )
-      const images = input.fileAttachments?.length
-        ? await prepareNativeImageParts(input.fileAttachments, scope, requestId, request.signal)
-        : []
       command.input = {
-        ...input.input,
-        content: images.length ? [{ type: 'text', text }, ...images] : text,
+        ...command.input,
+        content,
         contexts: resolvedContexts,
       }
-    } else if (input.command === 'context.compact') {
-      z.enum(COPILOT_RUNTIME_MODELS).parse(input.model)
     }
-    return await executeCopilotCommand(
-      await parseNativeContract('CopilotRequest', command),
-      request.signal
-    )
+    return await executeCopilotCommand(command, session.user.id, request.signal)
   } catch (error) {
-    const status =
-      error instanceof NativeTargetError || error instanceof CopilotSourceError ? error.status : 422
+    const status = error instanceof NativeTargetError ? error.status : 422
     return NextResponse.json(
       {
-        requestId,
         status: 'refused',
         error: {
           code: status === 401 ? 'UNAUTHORIZED' : status === 403 ? 'FORBIDDEN' : 'INVALID_REQUEST',
           message:
-            error instanceof NativeTargetError || error instanceof CopilotSourceError
+            error instanceof NativeTargetError
               ? error.message
               : 'Copilot command could not be authorized or validated',
-          retryable: false,
-          uncertain: false,
         },
       },
       { status }

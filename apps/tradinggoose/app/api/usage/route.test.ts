@@ -60,9 +60,9 @@ describe('/api/usage route', () => {
     })
     mockIsOrganizationOwnerOrAdmin.mockResolvedValue(true)
     mockGetUserUsageLimitInfo.mockResolvedValue({
-      currentLimit: null,
+      currentLimit: Number.MAX_SAFE_INTEGER,
       canEdit: false,
-      minimumLimit: '0',
+      minimumLimit: 0,
       tier: null,
     })
     mockGetOrganizationBillingData.mockResolvedValue({
@@ -118,7 +118,7 @@ describe('/api/usage route', () => {
         body: JSON.stringify({
           context: 'organization',
           organizationId: 'org-1',
-          limit: '10',
+          limit: 10,
         }),
         headers: {
           'content-type': 'application/json',
@@ -146,7 +146,7 @@ describe('/api/usage route', () => {
         method: 'PUT',
         body: JSON.stringify({
           context: 'user',
-          limit: '10',
+          limit: 10,
         }),
         headers: {
           'content-type': 'application/json',
@@ -158,6 +158,6 @@ describe('/api/usage route', () => {
     expect(await response.json()).toEqual({
       error: 'This billing tier cannot edit usage limits',
     })
-    expect(mockUpdateUserUsageLimit).toHaveBeenCalledWith('user-1', '10')
+    expect(mockUpdateUserUsageLimit).toHaveBeenCalledWith('user-1', 10)
   })
 })

@@ -1,12 +1,9 @@
 'use client'
+
+import type { ImagePart } from '@/lib/copilot/native/contract'
+import { projectNativeHistoryMessage } from './history'
 import { resolveToolDisplay } from './tool-registry'
-import type {
-  ChatContext,
-  CopilotMessage,
-  CopilotStore,
-  CopilotToolCall,
-  MessageFileAttachment,
-} from './types'
+import type { ChatContext, CopilotMessage, CopilotStore, CopilotToolCall } from './types'
 
 type PlanTodo = CopilotStore['planTodos'][number]
 
@@ -164,17 +161,25 @@ export function updateMessagesForToolCallState(
 
 export function createUserMessage(
   content: string,
-  fileAttachments?: MessageFileAttachment[],
+  images?: ImagePart[],
   contexts?: ChatContext[],
   messageId?: string
 ): CopilotMessage {
   return {
-    id: messageId || crypto.randomUUID(),
-    role: 'user',
-    content,
-    timestamp: new Date().toISOString(),
-    ...(fileAttachments && fileAttachments.length > 0 && { fileAttachments }),
-    ...(contexts && contexts.length > 0 && { contexts }),
+    ...projectNativeHistoryMessage({
+      id: messageId || crypto.randomUUID(),
+      role: 'user',
+      createdAt: new Date().toISOString(),
+      parts: [
+        { type: 'text', text: content },
+        ...(images ?? []).map((image) => ({
+          type: 'file',
+          data: image.image,
+          mimeType: image.mediaType,
+        })),
+      ],
+    })!,
+    ...(contexts?.length && { contexts }),
   }
 }
 

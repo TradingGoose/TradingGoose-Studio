@@ -2,7 +2,7 @@ import type { ProviderTiming } from '@/lib/logs/types'
 import type { NativeCost } from './usage'
 
 export interface InferenceFacts {
-  nativePayload?: import('./workflow-history').NativePayloadRef
+  history?: { threadId: string; resourceId: string; runId: string }
   model?: string
   tokens?: { prompt?: number; completion?: number; total?: number }
   cost?: NativeCost

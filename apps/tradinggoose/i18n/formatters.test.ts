@@ -25,22 +25,3 @@ describe('i18n formatters', () => {
     expect(formatDurationMs('en', null)).toBeNull()
   })
 })
-
-it('formats canonical monetary strings without binary64 conversion', () => {
-  const value = '9007199254740993.1234567890123456789'
-  expect(formatUsd('en', value, { maximumFractionDigits: 20 })).toBe(
-    '$9,007,199,254,740,993.1234567890123456789'
-  )
-  expect(formatUsd('es', value, { maximumFractionDigits: 20 })).toContain(
-    '9.007.199.254.740.993,1234567890123456789'
-  )
-  expect(formatUsd('en', '0')).toBe('$0.00')
-  expect(formatUsd('en', null)).toBe('—')
-  expect(formatUsd('en', undefined)).toBe('—')
-  expect(() => formatUsd('en', 'NaN')).toThrow()
-})
-
-it('preserves full NUMERIC values beyond Intl finite formatting range', () => {
-  const value = `1${'0'.repeat(400)}.1234567890123456789`
-  expect(formatUsd('en', value)).toBe(`$${value}`)
-})

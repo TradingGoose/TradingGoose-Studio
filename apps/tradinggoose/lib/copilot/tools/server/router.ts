@@ -1,4 +1,3 @@
-import { copyNativeFinancialSource } from '@/lib/copilot/native/target'
 import {
   CopilotTool,
   getToolContract,
@@ -314,10 +313,6 @@ export async function routeExecution(
           signal: context.signal,
         }
       : undefined
-    if (executionContext && toolName === CopilotTool.search_documentation) {
-      executionContext.nativeReviewBinding = context?.nativeReviewBinding
-      copyNativeFinancialSource(context, executionContext)
-    }
     throwIfServerToolAborted(executionContext)
     const result = await tool.execute(args, executionContext)
     const facts = getInferenceFacts(result)

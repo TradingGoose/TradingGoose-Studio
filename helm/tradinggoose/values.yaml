@@ -49,8 +49,7 @@ app:
   
   # Environment variables
   env:
-    # Supply MASTRA_DATABASE_URL via secret-backed extraEnvVars using a scoped role
-    # on the application primary. Runtime native DDL is disabled. Owner init runs separately.
+    # Mastra initializes its schema in the same DATABASE_URL at runtime.
     # Native Mastra server connections (exact configured models/deployments only).
     # Set MASTRA_MODEL_PROVIDERS to JSON native provider configurations for local/cloud URLs.
     # Set MASTRA_AZURE_OPENAI to JSON AzureOpenAIGateway configuration; store keys as secrets.
@@ -592,15 +591,6 @@ cronjobs:
   
   # Individual job configurations
   jobs:
-    billingDispatch:
-      enabled: true
-      name: billing-dispatch
-      schedule: "* * * * *"
-      path: "/api/cron/billing-dispatch"
-      concurrencyPolicy: Forbid
-      successfulJobsHistoryLimit: 3
-      failedJobsHistoryLimit: 1
-
     scheduleExecution:
       enabled: true
       name: schedule-execution

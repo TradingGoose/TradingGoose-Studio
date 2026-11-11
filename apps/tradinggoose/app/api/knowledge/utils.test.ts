@@ -206,7 +206,7 @@ describe('Knowledge Utils', () => {
   describe('processDocumentAsync', () => {
     beforeEach(() => mockGetUserEntityPermissions.mockResolvedValue('write'))
     afterEach(() => mockGetUserEntityPermissions.mockReset())
-    it('preserves existing completed vectors while processing new gated batches', async () => {
+    it('resets persisted embeddings before processing native batches', async () => {
       kbRows.push({ id: 'kb1', workspaceId: 'workspace-1', embeddingModel: 'kb-embedding-model' })
       docRows.push({ id: 'doc1', deletedAt: null })
 
@@ -227,7 +227,7 @@ describe('Knowledge Utils', () => {
         { actorUserId: 'actor-1', workspaceId: 'workspace-1' }
       )
 
-      expect(dbOps.order).toEqual(['update', 'insert', 'update'])
+      expect(dbOps.order).toEqual(['deleteEmbeddings', 'update', 'insert', 'update'])
 
       expect(dbOps.updatePayloads[0]).toMatchObject({
         processingStatus: 'processing',
@@ -252,48 +252,26 @@ describe('Knowledge Utils', () => {
       )
     })
 
-    it('preserves completed vectors when an active document processing is marked failed', async () => {
+    it('should clear persisted embeddings when processing is marked failed', async () => {
       docRows.push({ id: 'doc1', deletedAt: null, processingStatus: 'processing' })
 
-      kbRows.push({ id: 'kb1', workspaceId: 'workspace-1' })
-      await markDocumentProcessingFailed(
-        'kb1',
-        'doc1',
-        {
-          filename: 'file.txt',
-          fileUrl: 'https://example.com/file.txt',
-          fileSize: 10,
-          mimeType: 'text/plain',
-        },
-        { actorUserId: 'actor-1', workspaceId: 'workspace-1' },
-        'Embedding timeout'
-      )
+      await markDocumentProcessingFailed('doc1', 'Embedding timeout')
 
-      expect(dbOps.order).toEqual(['update'])
+      expect(dbOps.order).toEqual(['update', 'deleteEmbeddings'])
       expect(dbOps.updatePayloads[0]).toMatchObject({
         processingStatus: 'failed',
         processingError: 'Embedding timeout',
       })
     })
 
-    it('refuses a deleted/unbound document failure callback without changing status or embeddings', async () => {
-      kbRows.push({ id: 'kb1', workspaceId: 'workspace-1' })
-      await expect(
-        markDocumentProcessingFailed(
-          'kb1',
-          'doc1',
-          {
-            filename: 'file.txt',
-            fileUrl: 'https://example.com/file.txt',
-            fileSize: 10,
-            mimeType: 'text/plain',
-          },
-          { actorUserId: 'actor-1', workspaceId: 'workspace-1' },
-          'Embedding timeout'
-        )
-      ).rejects.toMatchObject({ status: 403 })
-      expect(dbOps.order).toEqual([])
-      expect(dbOps.updatePayloads).toEqual([])
+    it('should clear persisted embeddings when processing fails after document deletion', async () => {
+      await markDocumentProcessingFailed('doc1', 'Embedding timeout')
+
+      expect(dbOps.order).toEqual(['update', 'deleteEmbeddings'])
+      expect(dbOps.updatePayloads[0]).toMatchObject({
+        processingStatus: 'failed',
+        processingError: 'Embedding timeout',
+      })
     })
   })
 

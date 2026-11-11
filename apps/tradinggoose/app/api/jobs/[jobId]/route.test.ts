@@ -4,10 +4,6 @@
 
 import { NextResponse } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  canonicalLogFixture,
-  hydrateCanonicalLogFixture,
-} from '@/lib/execution/__test-utils__/canonical-log-fixture'
 
 const {
   checkHybridAuthMock,
@@ -16,9 +12,6 @@ const {
   andMock,
   orMock,
   limitMock,
-  verifyMock,
-  accessMock,
-  hydrateMock,
 } = vi.hoisted(() => ({
   checkHybridAuthMock: vi.fn(),
   cancelPendingWorkflowExecutionMock: vi.fn(),
@@ -26,9 +19,6 @@ const {
   andMock: vi.fn((...args) => ({ args })),
   orMock: vi.fn((...args) => ({ args })),
   limitMock: vi.fn(),
-  verifyMock: vi.fn(),
-  accessMock: vi.fn(),
-  hydrateMock: vi.fn(),
 }))
 
 const queryChain = {
@@ -36,10 +26,7 @@ const queryChain = {
   innerJoin: vi.fn().mockReturnThis(),
   leftJoin: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
-  limit: (...args: unknown[]) =>
-    limitMock(...args).then((rows: any[]) =>
-      rows.map((row) => ('level' in row ? canonicalLogFixture(row) : row))
-    ),
+  limit: limitMock,
 }
 
 vi.mock('@tradinggoose/db', () => ({
@@ -78,17 +65,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
   },
 }))
 
-vi.mock('drizzle-orm', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('drizzle-orm')>()),
+vi.mock('drizzle-orm', () => ({
   eq: eqMock,
   and: andMock,
   or: orMock,
-}))
-
-vi.mock('@/lib/billing/native-finance', () => ({ verifyFinancialAcceptance: verifyMock }))
-vi.mock('@/lib/workflow-archive/functional', () => ({
-  hydrateExecutionPayload: hydrateMock,
-  assertRetainedLogAccess: accessMock,
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({
@@ -155,9 +135,6 @@ const mockCompletedWorkflowJob = (
 describe('GET /api/jobs/[jobId]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    verifyMock.mockResolvedValue({ accepted: true, appliedUsd: '0', modelUsd: 'unavailable' })
-    accessMock.mockResolvedValue(undefined)
-    hydrateMock.mockImplementation(hydrateCanonicalLogFixture)
     queryChain.from.mockReturnThis()
     queryChain.innerJoin.mockReturnThis()
     queryChain.leftJoin.mockReturnThis()
@@ -298,39 +275,6 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(body.metadata).not.toHaveProperty('completedAt')
     expect(JSON.stringify(body)).not.toContain('private')
     expect(body.output).not.toHaveProperty('traceSpans')
-  })
-
-  it.each(['receipt', 'binding', 'canonical'])(
-    'refuses a happy job response when %s readiness is unavailable',
-    async (kind) => {
-      if (kind === 'receipt')
-        verifyMock.mockRejectedValueOnce(new Error('Base acceptance unavailable'))
-      if (kind === 'canonical')
-        hydrateMock.mockRejectedValueOnce(new Error('Canonical scoped readback unavailable'))
-      const row = createWorkflowResult({ source: 'workflow_execute_api' })
-      if (kind === 'binding') Object.assign(row.executionData, { billing: {} })
-      limitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([row])
-      const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-        params: Promise.resolve({ jobId: 'job-1' }),
-      })
-      expect(response.status).toBe(500)
-      expect(await response.json()).toEqual({ message: 'Failed to fetch task status' })
-      expect(row.executionData.finalOutput).toEqual({ answer: 42 })
-    }
-  )
-
-  it('rechecks retained log authorization around canonical successful job hydration', async () => {
-    mockCompletedWorkflowJob({ source: 'workflow_execute_api' })
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
-    expect(response.status).toBe(200)
-    expect(hydrateMock).toHaveBeenCalledOnce()
-    expect(accessMock).toHaveBeenCalledWith(
-      expect.objectContaining({ workspaceId: 'workspace-1', logId: 'fixture-log' }),
-      'user-1'
-    )
-    expect(accessMock.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 
   it('does not treat successful workflow output with error property as failed', async () => {
@@ -529,70 +473,4 @@ describe('DELETE /api/jobs/[jobId]', () => {
       message: 'Task not found',
     })
   })
-})
-
-describe('preserved archive job boundary (archive IO/receipt transport seams)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    verifyMock
-      .mockReset()
-      .mockResolvedValue({ accepted: true, appliedUsd: '0', modelUsd: 'unavailable' })
-    accessMock.mockReset().mockResolvedValue(undefined)
-    hydrateMock.mockReset().mockImplementation(hydrateCanonicalLogFixture)
-    limitMock.mockReset()
-    queryChain.from.mockReturnThis()
-    queryChain.innerJoin.mockReturnThis()
-    queryChain.leftJoin.mockReturnThis()
-    queryChain.where.mockReturnThis()
-    checkHybridAuthMock.mockResolvedValue({ success: true, userId: 'user-1' })
-  })
-  it.each(['missing-original-binding', 'accepted-original-binding'])(
-    'retains original proof requirements for %s instead of trusting archive existence',
-    async (kind) => {
-      const base = createWorkflowResult({ source: 'workflow_execute_api' })
-      const { finalOutput: _output, traceSpans: _spans, ...control } = base.executionData
-      const row = {
-        ...base,
-        executionData: {
-          ...control,
-          preservedFunctionalArchive: { version: 1, purpose: 'workflow-archive' },
-          ...(kind === 'missing-original-binding' ? { billing: {} } : {}),
-        },
-      }
-      const output = { exact: ' preserved🔥\n ' }
-      hydrateMock.mockImplementation(async (candidate, authorize) => {
-        await authorize()
-        return {
-          ...candidate,
-          executionData: { ...candidate.executionData, finalOutput: output, traceSpans: [] },
-        }
-      })
-      limitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([row])
-      const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-        params: Promise.resolve({ jobId: 'job-1' }),
-      })
-      if (kind === 'missing-original-binding') {
-        expect(response.status).toBe(500)
-        expect(verifyMock).not.toHaveBeenCalled()
-        expect(hydrateMock).not.toHaveBeenCalled()
-      } else {
-        expect(response.status).toBe(200)
-        expect(await response.json()).toMatchObject({
-          status: 'completed',
-          output: {
-            success: true,
-            output,
-            metadata: {
-              duration: 1000,
-              startTime: base.startedAt.toISOString(),
-              endTime: base.endedAt.toISOString(),
-            },
-          },
-        })
-        expect(verifyMock).toHaveBeenCalledOnce()
-        expect(accessMock).toHaveBeenCalledWith(expect.anything(), 'user-1')
-      }
-      expect(row.executionData).not.toHaveProperty('finalOutput')
-    }
-  )
 })

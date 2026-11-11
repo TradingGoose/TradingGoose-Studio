@@ -558,29 +558,5 @@ export const idempotencyKey = pgTable(
 
     // Index for namespace-based queries
     namespaceIdx: index('idempotency_key_namespace_idx').on(table.namespace),
-    billingOutstandingIdx: index('idempotency_billing_outstanding_idx')
-      .on(table.namespace, table.key)
-      .where(
-        sql`${table.namespace} LIKE 'billing-usage:%' AND ${table.result}->>'recordType' = 'operation' AND ${table.result}->>'holdState' = 'outstanding'`
-      ),
-    billingMemberRegistrationsIdx: index('idempotency_billing_member_registrations_idx')
-      .on(table.namespace, table.key)
-      .where(
-        sql`${table.namespace} LIKE 'billing-usage:%' AND ${table.result}->>'recordType' = 'member-registration'`
-      ),
-    billingDispatchDueIdx: index('idempotency_billing_dispatch_due_idx')
-      .on(
-        sql`(CASE WHEN ((${table.result}->>'dispatchAtMs') COLLATE "C") ~ '^[0-9]{1,15}$' THEN (${table.result}->>'dispatchAtMs')::bigint ELSE 0::bigint END)`,
-        table.namespace,
-        table.key
-      )
-      .where(
-        sql`${table.namespace} LIKE 'billing-usage:%' AND ${table.result}->>'dispatchState' = 'pending'`
-      ),
-    billingTargetBlockersIdx: index('idempotency_billing_target_blockers_idx')
-      .on(table.namespace, table.key)
-      .where(
-        sql`${table.namespace} LIKE 'billing-usage:%' AND (${table.result}->>'financialClosureState' IS DISTINCT FROM 'closed' OR (${table.result}->>'recordType' = 'operation' AND ${table.result}->>'holdState' = 'outstanding') OR ${table.result}->>'dispatchState' = 'pending' OR ${table.result}->>'invoiceObligationState' = 'open')`
-      ),
   })
 )

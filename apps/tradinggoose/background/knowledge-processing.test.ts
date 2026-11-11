@@ -28,7 +28,7 @@ const payload = {
   processingOptions: { chunkSize: 1000, chunkOverlap: 200, minCharactersPerChunk: 1 },
 }
 beforeEach(() => vi.resetAllMocks())
-it('passes actual queued actor/source/scope for ordinary execution and freshly authorized failure reporting', async () => {
+it('passes the queued actor to processing and the document ID to failure reporting', async () => {
   await executeDocumentProcessingJob(payload)
   expect(m.process).toHaveBeenCalledExactlyOnceWith(
     'kb',
@@ -38,13 +38,7 @@ it('passes actual queued actor/source/scope for ordinary execution and freshly a
     { actorUserId: 'actor', workspaceId: 'workspace' }
   )
   await markDocumentProcessingJobFailed(payload, 'failed')
-  expect(m.failed).toHaveBeenCalledExactlyOnceWith(
-    'kb',
-    'doc',
-    payload.docData,
-    { actorUserId: 'actor', workspaceId: 'workspace' },
-    'failed'
-  )
+  expect(m.failed).toHaveBeenCalledExactlyOnceWith('doc', 'failed')
 })
 it.each([null, {}, { documentId: 'foreign' }, { ...payload, userId: undefined }])(
   'never treats partial failure payload %j as row mutation authority',
@@ -53,7 +47,7 @@ it.each([null, {}, { documentId: 'foreign' }, { ...payload, userId: undefined }]
     expect(m.failed).not.toHaveBeenCalled()
   }
 )
-it('retains a fresh canonical authorization refusal rather than falling back to documentId-only updates', async () => {
+it('propagates failure-update errors', async () => {
   m.failed.mockRejectedValue(Object.assign(new Error('revoked'), { status: 403 }))
   await expect(markDocumentProcessingJobFailed(payload, 'failed')).rejects.toMatchObject({
     status: 403,

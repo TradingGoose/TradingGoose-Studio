@@ -5,13 +5,13 @@ import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { getFailureAccounting, safeInferenceError } from '@/lib/mastra/errors'
-import { financialProcessors } from '@/lib/mastra/financial-processors'
 import { normalizeNativeMediaMessages } from '@/lib/mastra/media'
-import { NATIVE_AGENT_POLICY, trustedModelSettings, trustedPrepareStep } from '@/lib/mastra/options'
+import { NATIVE_AGENT_POLICY, trustedModelSettings } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { assertNativeCompletion } from '@/lib/mastra/result'
 import { getMastra } from '@/lib/mastra/runtime'
 import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
+import { usageProcessors } from '@/lib/mastra/usage-processors'
 import {
   downloadFileFromStorage,
   processSingleFileToUserFile,
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     const startedAt = new Date()
     const mastra = await getMastra()
-    const finance = await financialProcessors({
+    const finance = await usageProcessors({
       actorUserId: authResult.userId,
       workspaceId: scope.workspaceId,
       workflowId: scope.workflowId,
@@ -180,7 +180,6 @@ export async function POST(request: NextRequest) {
         abortSignal: request.signal,
         modelSettings: trustedModelSettings({ maxOutputTokens: 1024 }),
         maxProcessorRetries: 0,
-        prepareStep: trustedPrepareStep(admittedModel),
         tracingOptions: {
           metadata: { userId: authResult.userId, resourceId: scope.workspaceId },
         },

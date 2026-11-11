@@ -1,20 +1,16 @@
 import type { AgentExecutionOptions } from '@mastra/core/agent'
 import type { MastraDBMessage } from '@mastra/core/agent/message-list'
 import type { InputProcessor } from '@mastra/core/processors'
-import { z } from 'zod'
-import { createFinancialInvocation, verifyFinancialAcceptance } from '@/lib/billing/native-finance'
 import { validateNativeBrowserAssertion } from '@/lib/copilot/native/browser-assertion'
 import { authorizeNativeBusinessResult } from '@/lib/copilot/native/business-access'
-import {
-  type CopilotEvent,
-  type CopilotRequest,
-  type CopilotResponse,
-  type ErrorResponse,
-  type FinancialFact,
-  type Json,
-  type Pending,
-  parseNativeContract,
-  type Scope,
+import type {
+  CopilotEvent,
+  CopilotRequest,
+  CopilotResponse,
+  ErrorResponse,
+  Json,
+  Pending,
+  Scope,
 } from '@/lib/copilot/native/contract'
 import { readNativeThread } from '@/lib/copilot/native/history'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
@@ -24,40 +20,27 @@ import {
   NativeTargetError,
   resolveNativePendingTarget,
   type ServerPending,
-  verifyCopilotPendingSource,
 } from '@/lib/copilot/native/target'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
-import { financialProcessors } from '@/lib/mastra/financial-processors'
-import { assertNativeToolArguments, trustedPrepareStep } from '@/lib/mastra/options'
+import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { assertNativeCompletion } from '@/lib/mastra/result'
-import { getCopilotAgent, getCopilotMemory, getNativeMemoryStore } from '@/lib/mastra/runtime'
+import { getAgentMemory, getCopilotAgent, getNativeMemoryStore } from '@/lib/mastra/runtime'
+import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { SSE_HEADERS } from '@/lib/utils'
-import { bindCopilotExecution, type CopilotDecision } from './context'
+import { type CopilotDecision, CopilotSuspendSchema, createCopilotRequestContext } from './context'
 import {
   assertCopilotRunActive,
   type CopilotRun,
   cancelCopilotRun,
   claimCopilotThread,
+  deleteCopilotThread,
   isCopilotRunCancelled,
   readCopilotRun,
   releaseCopilotThread,
-  saveCopilotOccurrence,
   saveCopilotRun,
 } from './state'
-
-const suspendedPayload = z.object({
-  originalArgs: z.record(z.string(), z.json()),
-  preview: z.record(z.string(), z.json()).optional(),
-  financialOccurrence: z.object({
-    stepNumber: z.number().int().nonnegative(),
-    retryCount: z.number().int().nonnegative(),
-    runId: z.string().optional(),
-  }),
-})
-const activeRuns = new Map<string, AbortController>()
 
 async function requireThread(scope: Scope, threadId: string, signal?: AbortSignal) {
   const thread = await readNativeThread(scope, threadId, signal)
@@ -79,38 +62,32 @@ export async function listCopilotPending(
   for (const suspended of runs) {
     if (await isCopilotRunCancelled(suspended.runId)) continue
     const run = await readCopilotRun(scope, suspended.runId)
-    if (run.threadId !== threadId || !run.occurrence)
+    if (run.threadId !== threadId)
       throw new NativeTargetError('Suspended Copilot run context is unavailable', 409)
     for (const call of suspended.toolCalls) {
       if (!call.toolCallId || !call.toolName || !isToolId(call.toolName))
         throw new NativeTargetError('Suspended Copilot tool is unavailable', 409)
       const payload = call.requiresApproval
         ? undefined
-        : suspendedPayload.parse(call.suspendPayload)
+        : CopilotSuspendSchema.parse(call.suspendPayload)
       let args = call.requiresApproval ? call.args : payload!.originalArgs
       assertNativeToolArguments(args)
       if (typeof args === 'string') args = JSON.parse(args)
       const originalArgs = ToolArgSchemas[call.toolName].parse(args)
-      pending.push(
-        await verifyCopilotPendingSource(
-          scope,
-          {
-            target: {
-              threadId,
-              resourceId,
-              runId: run.runId,
-              toolCallId: call.toolCallId,
-              toolName: call.toolName,
-            },
-            stage: call.requiresApproval ? 'approval' : 'result',
-            originalArgs,
-            financialBinding: run.binding,
-            financialOccurrence: payload?.financialOccurrence ?? run.occurrence,
-            ...(payload?.preview ? { preview: payload.preview } : {}),
-          },
-          signal
-        )
-      )
+      pending.push({
+        target: {
+          threadId,
+          resourceId,
+          runId: run.runId,
+          toolCallId: call.toolCallId,
+          toolName: call.toolName,
+        },
+        stage: call.requiresApproval ? 'approval' : 'result',
+        originalArgs,
+        ...(payload?.preview
+          ? { preview: payload.preview, reviewBaseStateHash: payload.reviewBaseStateHash }
+          : {}),
+      })
     }
   }
   return pending
@@ -120,10 +97,9 @@ function publicPending({ target, stage, originalArgs, preview }: ServerPending):
   return { target, stage, originalArgs, ...(preview ? { preview } : {}) }
 }
 
-function failure(requestId: string, error: unknown): ErrorResponse {
+function failure(error: unknown): ErrorResponse {
   const status = error instanceof NativeTargetError ? error.status : 503
   return {
-    requestId,
     status: status < 500 ? 'refused' : 'failed',
     error: {
       code:
@@ -136,23 +112,15 @@ function failure(requestId: string, error: unknown): ErrorResponse {
               : 'GENERATION_FAILED',
       message:
         error instanceof NativeTargetError ? error.message : 'Copilot generation did not complete',
-      retryable: false,
-      uncertain: status >= 500,
     },
   }
 }
 
-async function previousFinancialFact(run: CopilotRun): Promise<FinancialFact> {
-  if (!run.occurrence) throw new NativeTargetError('Copilot has no accepted model occurrence', 409)
-  const receipt = await verifyFinancialAcceptance(run.binding, run.occurrence)
-  return { accepted: true, modelUsd: 'unavailable', appliedUsd: receipt.appliedUsd! }
-}
-
 async function readCommand(
   request: CopilotRequest,
+  scope: Scope,
   signal?: AbortSignal
 ): Promise<CopilotResponse | undefined> {
-  const { scope, requestId } = request
   const store = await getNativeMemoryStore()
   const resourceId = nativeConversationIdentity(scope).resourceId
   if (request.command === 'threads.list') {
@@ -162,7 +130,6 @@ async function readCommand(
       orderBy: { field: 'updatedAt', direction: 'DESC' },
     })
     return {
-      requestId,
       status: 'threads',
       items: result.threads.map((thread) => ({
         id: thread.id,
@@ -185,7 +152,6 @@ async function readCommand(
         orderBy: { field: 'createdAt', direction: 'ASC' },
       })
       return {
-        requestId,
         status: 'history',
         threadId: request.threadId,
         items: result.messages.map((message) => ({
@@ -202,7 +168,6 @@ async function readCommand(
       const pending = await listCopilotPending(scope, request.threadId, signal)
       const start = request.page.page * request.page.perPage
       return {
-        requestId,
         status: 'pending_targets',
         items: pending.slice(start, start + request.page.perPage).map(publicPending),
         page: request.page,
@@ -211,22 +176,14 @@ async function readCommand(
     }
     case 'thread.title':
       await store.updateThread({ id: request.threadId, title: request.title })
-      return { requestId, status: 'updated', threadId: request.threadId, operation: 'thread.title' }
-    case 'thread.delete': {
-      const mutationId = crypto.randomUUID()
-      await claimCopilotThread(scope, request.threadId, mutationId)
-      try {
-        await (await getCopilotMemory()).deleteThread(request.threadId)
-        return {
-          requestId,
-          status: 'updated',
-          threadId: request.threadId,
-          operation: 'thread.delete',
-        }
-      } finally {
-        await releaseCopilotThread(scope, request.threadId, mutationId)
+      return { status: 'updated', threadId: request.threadId, operation: 'thread.title' }
+    case 'thread.delete':
+      await deleteCopilotThread(scope, request.threadId)
+      return {
+        status: 'updated',
+        threadId: request.threadId,
+        operation: 'thread.delete',
       }
-    }
     case 'history.edit': {
       const mutationId = crypto.randomUUID()
       await claimCopilotThread(scope, request.threadId, mutationId)
@@ -265,7 +222,6 @@ async function readCommand(
         })
         await store.deleteMessages(history.messages.slice(index + 1).map((item) => item.id))
         return {
-          requestId,
           status: 'updated',
           threadId: request.threadId,
           operation: 'history.edit',
@@ -275,23 +231,6 @@ async function readCommand(
         await releaseCopilotThread(scope, request.threadId, mutationId)
       }
     }
-    case 'context.read':
-      return {
-        requestId,
-        status: 'context',
-        threadId: request.threadId,
-        contextTokens: null,
-        tokenSource: 'unavailable',
-      }
-    case 'context.compact':
-      // The conversational Memory already bounds prompt history without rewriting native parts.
-      return {
-        requestId,
-        status: 'compacted',
-        threadId: request.threadId,
-        applied: false,
-        sourceBoundaryVerified: true,
-      }
     case 'cancel': {
       const run = await readCopilotRun(scope, request.runId)
       if (run.threadId !== request.threadId)
@@ -299,16 +238,12 @@ async function readCommand(
       const agent = await getCopilotAgent()
       const pending = await agent.listSuspendedRuns({ threadId: run.threadId, resourceId })
       await cancelCopilotRun(run.runId)
-      activeRuns.get(run.runId)?.abort()
       agent.abortThreadStream({ threadId: run.threadId, resourceId, expectedRunId: run.runId })
       if (pending.runs.some((item) => item.runId === run.runId))
         await releaseCopilotThread(scope, run.threadId, run.runId)
       return {
-        requestId,
         status: 'cancel_requested',
         runId: run.runId,
-        acknowledged: true,
-        uncertaintyRemains: true,
       }
     }
   }
@@ -346,15 +281,16 @@ function inputMessage(
 
 async function* generate(
   request: CopilotRequest,
+  scope: Scope,
   cancellation: AbortController
 ): AsyncGenerator<CopilotEvent> {
-  const requestId = request.requestId
   let run: CopilotRun | undefined
-  let close: (() => void) | undefined
   let watcher: ReturnType<typeof setInterval> | undefined
   let suspended = false
-  let finance: Awaited<ReturnType<typeof financialProcessors>> | undefined
+  let usage: Awaited<ReturnType<typeof usageProcessors>> | undefined
   let ownsThread = false
+  let nativeOutput: { getFullOutput(): Promise<unknown> } | undefined
+  let drained = false
   try {
     const agent = await getCopilotAgent()
     const signal = cancellation.signal
@@ -363,25 +299,16 @@ async function* generate(
     if (request.command === 'message') {
       assertListedModel(request.model)
       const threadId = request.threadId ?? crypto.randomUUID()
-      if (request.threadId) await requireThread(request.scope, threadId, signal)
+      if (request.threadId) await requireThread(scope, threadId, signal)
       const runId = crypto.randomUUID()
-      await claimCopilotThread(request.scope, threadId, runId)
+      await claimCopilotThread(scope, threadId, runId)
       ownsThread = true
       try {
-        const binding = await createFinancialInvocation({
-          actorUserId: request.scope.actorUserId,
-          workspaceId: request.scope.workspaceId,
-          workflowId: request.workflowId,
-          runId,
-          purpose: 'copilot',
-          operationKey: runId,
-        })
         run = {
           runId,
           threadId,
-          scope: request.scope,
+          scope: scope,
           model: request.model,
-          binding,
           accessLevel: request.accessLevel ?? 'limited',
           toolContext: request.toolContext,
           toolContexts: request.toolContexts,
@@ -389,29 +316,29 @@ async function* generate(
         }
         await saveCopilotRun(run)
         if (!request.threadId)
-          await (await getCopilotMemory()).createThread({
+          await (await getAgentMemory()).createThread({
             threadId,
-            resourceId: nativeConversationIdentity(request.scope).resourceId,
+            resourceId: nativeConversationIdentity(scope).resourceId,
             title: '',
             metadata: { product: 'copilot' },
           })
       } catch (error) {
-        await releaseCopilotThread(request.scope, threadId, runId)
+        await releaseCopilotThread(scope, threadId, runId)
         ownsThread = false
         throw error
       }
     } else if ('target' in request) {
       pending = await resolveNativePendingTarget(
-        request.scope,
+        scope,
         request.target,
         request.command === 'tool.approve' || request.command === 'tool.decline'
           ? 'approval'
           : 'result',
         signal
       )
-      run = await readCopilotRun(request.scope, pending.target.runId)
+      run = await readCopilotRun(scope, pending.target.runId)
       await assertCopilotRunActive(run.runId)
-      await authorizeNativeBusinessResult(request.scope, pending)
+      await authorizeNativeBusinessResult(scope, pending)
       if (request.command === 'tool.result') {
         validateNativeBrowserAssertion(pending, request.assertion)
         decision = {
@@ -458,9 +385,9 @@ async function* generate(
             ),
           }
         } else if (request.action === 'review.accept' || request.action === 'review.reject') {
-          if (!request.reviewToken || request.reviewToken !== pending.preview?.reviewToken)
-            throw new NativeTargetError('The current preview token is required', 409)
-          decision = { action: request.action, reviewToken: request.reviewToken }
+          if (!pending.preview || !pending.reviewBaseStateHash)
+            throw new NativeTargetError('The current tool preview is required', 409)
+          decision = { action: request.action }
         } else decision = { action: 'execute' }
       }
     } else throw new NativeTargetError('This command does not generate a response', 422)
@@ -474,20 +401,15 @@ async function* generate(
           checking = false
         })
     }, 500)
-    finance = await financialProcessors(
-      {
-        actorUserId: run.scope.actorUserId,
-        workspaceId: run.scope.workspaceId ?? undefined,
-        workflowId: run.workflowId,
-        runId: run.runId,
-        purpose: 'copilot',
-        signal,
-      },
-      undefined,
-      { binding: run.binding }
-    )
-    const execution = bindCopilotExecution({ run, finance, signal, pending, decision })
-    close = execution.close
+    usage = await usageProcessors({
+      actorUserId: run.scope.actorUserId,
+      workspaceId: run.scope.workspaceId ?? undefined,
+      workflowId: run.workflowId,
+      runId: run.runId,
+      purpose: 'copilot',
+      signal,
+    })
+    const requestContext = createCopilotRequestContext({ run, usage, signal, pending, decision })
     const guard: InputProcessor = {
       id: 'studio-copilot-authorization',
       async processInputStep() {
@@ -497,21 +419,18 @@ async function* generate(
         signal.throwIfAborted()
       },
     }
-    const model = createConfiguredLanguageModel(run.model)
-    const options: AgentExecutionOptions & { model: typeof model } = {
+    const options: AgentExecutionOptions = {
       runId: run.runId,
-      requestContext: execution.requestContext,
-      model,
+      requestContext,
       memory: { thread: run.threadId, resource: nativeConversationIdentity(run.scope).resourceId },
-      inputProcessors: [guard, ...finance.inputProcessors],
-      outputProcessors: finance.outputProcessors,
+      inputProcessors: [guard, ...usage.inputProcessors],
+      outputProcessors: usage.outputProcessors,
       maxSteps: 50,
       abortSignal: signal,
       modelSettings: { maxRetries: 0 },
-      prepareStep: trustedPrepareStep(model),
     }
-    yield { type: 'response.started', requestId, runId: run.runId, threadId: run.threadId }
-    const output =
+    yield { type: 'response.started', runId: run.runId, threadId: run.threadId }
+    const output = (nativeOutput =
       request.command === 'message'
         ? await agent.stream([inputMessage(request, run)], options)
         : request.command === 'tool.approve'
@@ -530,9 +449,8 @@ async function* generate(
             : await agent.resumeStream(decision, {
                 ...options,
                 toolCallId: pending!.target.toolCallId,
-              })
+              }))
     ownsThread = true
-    activeRuns.set(run.runId, cancellation)
     let streamError: unknown
     for await (const part of output.fullStream) {
       if (part.type === 'error') streamError = part.payload.error
@@ -540,7 +458,6 @@ async function* generate(
       if (part.type === 'text-delta' || part.type === 'reasoning-delta')
         yield {
           type: part.type === 'text-delta' ? 'text.delta' : 'reasoning.delta',
-          requestId,
           text: part.payload.text,
         }
       else if (part.type === 'tool-call') {
@@ -549,16 +466,13 @@ async function* generate(
           : undefined
         yield {
           type: 'tool.display',
-          requestId,
           toolCallId: part.payload.toolCallId,
           toolName: part.payload.toolName,
-          executionAuthorized: false,
           ...(args?.success ? { args: args.data } : {}),
         }
       } else if (part.type === 'tool-result')
         yield {
           type: 'tool.result',
-          requestId,
           toolCallId: part.payload.toolCallId,
           toolName: part.payload.toolName,
           result: part.payload.isError
@@ -569,7 +483,6 @@ async function* generate(
       else if (part.type === 'tool-error' || part.type === 'tool-output-denied')
         yield {
           type: 'tool.result',
-          requestId,
           toolCallId: part.payload.toolCallId,
           toolName: part.payload.toolName,
           result: {
@@ -582,46 +495,36 @@ async function* generate(
         }
     }
     const result = await output.getFullOutput()
-    const occurrence = finance.getLastOccurrence()
-    if (occurrence) {
-      await finance.verifyComplete()
-      await saveCopilotOccurrence(run, occurrence)
-    }
+    drained = true
     signal.throwIfAborted()
     if (streamError || result.error) throw streamError ?? result.error
     const items = await listCopilotPending(run.scope, run.threadId, signal)
-    const financial = finance.getFinancialFact() ?? (await previousFinancialFact(run))
+    if (request.command === 'message' || result.finishReason !== 'suspended')
+      await usage.verifyComplete()
     if (items.length) {
       suspended = true
-      for (const item of items)
-        yield { type: 'tool.pending', requestId, pending: publicPending(item), financial }
+      for (const item of items) yield { type: 'tool.pending', pending: publicPending(item) }
       yield {
         type: 'response.suspended',
-        requestId,
         result: {
-          requestId,
           status: 'suspended',
           threadId: run.threadId,
           runId: run.runId,
           text: result.text,
           pending: items.map(publicPending),
-          financial,
-          usage: finance.getUsage(),
+          usage: usage.getUsage(),
         },
       }
     } else {
       assertNativeCompletion(result)
       yield {
         type: 'response.completed',
-        requestId,
         result: {
-          requestId,
           status: 'completed',
           threadId: run.threadId,
           runId: run.runId,
           text: result.text,
-          financial,
-          usage: finance.getUsage(),
+          usage: usage.getUsage(),
         },
       }
     }
@@ -629,68 +532,61 @@ async function* generate(
     if (cancellation.signal.aborted && run) {
       yield {
         type: 'response.cancel_requested',
-        requestId,
         result: {
-          requestId,
           status: 'cancel_requested',
           runId: run.runId,
-          acknowledged: true,
-          uncertaintyRemains: true,
         },
       }
     } else {
-      const result = failure(requestId, error)
-      const financial = finance?.getFinancialFact()
-      if (financial) result.financial = financial
-      if (finance) result.usage = finance.getUsage()
+      const result = failure(error)
+      if (usage) result.usage = usage.getUsage()
       yield {
         type: result.status === 'refused' ? 'response.refused' : 'response.error',
-        requestId,
         result,
       }
     }
   } finally {
-    if (watcher) clearInterval(watcher)
-    close?.()
-    if (run) {
-      if (activeRuns.get(run.runId) === cancellation) activeRuns.delete(run.runId)
-      if (ownsThread && !suspended) await releaseCopilotThread(run.scope, run.threadId, run.runId)
+    if (cancellation.signal.aborted && run && !drained) {
+      try {
+        await cancelCopilotRun(run.runId)
+      } catch {
+        ownsThread = false // Keep the claim when durable cancellation cannot be confirmed.
+      }
     }
+    // Closing the HTTP observer does not stop the native writer. Keep ownership until it settles.
+    if (nativeOutput && !drained) {
+      try {
+        await nativeOutput.getFullOutput()
+        drained = true
+      } catch {
+        // An unknown native outcome must keep the claim, rather than admit a competing writer.
+      }
+    }
+    if (watcher) clearInterval(watcher)
+    if (run && ownsThread && !suspended && (!nativeOutput || drained))
+      await releaseCopilotThread(run.scope, run.threadId, run.runId)
   }
 }
 
 export async function executeCopilotCommand(
   request: CopilotRequest,
+  actorUserId: string,
   signal?: AbortSignal
 ): Promise<Response> {
   signal?.throwIfAborted()
-  request = await parseNativeContract('CopilotRequest', request)
-  await authorizeNativeConversationScope(request.scope.actorUserId, request.scope.workspaceId)
+  const scope = await authorizeNativeConversationScope(actorUserId, request.workspaceId)
   try {
-    const result = await readCommand(request, signal)
+    const result = await readCommand(request, scope, signal)
     if (result) return Response.json(result)
   } catch (error) {
-    return Response.json(failure(request.requestId, error), {
+    return Response.json(failure(error), {
       status: error instanceof NativeTargetError ? error.status : 503,
     })
   }
   const cancellation = new AbortController()
   const abort = () => cancellation.abort(signal?.reason)
   signal?.addEventListener('abort', abort, { once: true })
-  const events = generate(request, cancellation)
-  if (!('stream' in request) || !request.stream) {
-    let result: CopilotResponse | undefined
-    try {
-      for await (const event of events)
-        if ('result' in event && event.type !== 'tool.result') result = event.result
-    } finally {
-      signal?.removeEventListener('abort', abort)
-    }
-    if (!result) result = failure(request.requestId, new Error('Missing Copilot outcome'))
-    return Response.json(result, {
-      status: result.status === 'refused' ? 409 : result.status === 'failed' ? 503 : 200,
-    })
-  }
+  const events = generate(request, scope, cancellation)
   const encoder = new TextEncoder()
   return new Response(
     new ReadableStream<Uint8Array>({
@@ -699,12 +595,7 @@ export async function executeCopilotCommand(
         if (next.done) {
           signal?.removeEventListener('abort', abort)
           controller.close()
-        } else
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify(await parseNativeContract('CopilotEvent', next.value))}\n\n`
-            )
-          )
+        } else controller.enqueue(encoder.encode(`data: ${JSON.stringify(next.value)}\n\n`))
       },
       async cancel() {
         cancellation.abort()

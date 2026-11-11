@@ -41,6 +41,9 @@ import {
 
 const UPGRADE_ERROR_TIMEOUT = 3000
 
+const safeNumber = (value: number | null | undefined) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : 0
+
 const EMPTY_ORGANIZATION_BILLING_TIER = {
   ...EMPTY_BILLING_TIER_SUMMARY,
   ownerType: 'organization' as const,
@@ -312,7 +315,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const usage = getUsage(billingPayload)
   const billingStatus = getBillingStatus(billingPayload)
 
-  const defaultMinimumLimit = subscription.tier.monthlyPriceUsd
+  const defaultMinimumLimit = safeNumber(subscription.tier.monthlyPriceUsd)
   const usageLimitPayload = usageLimitResponse?.data
   const usageLimitInfo = {
     currentLimit: usageLimitPayload?.currentLimit ?? usage.limit,
@@ -349,19 +352,26 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
   const isOrganizationPlan = surfaceState.isOrganizationPlan
   const canManageSelectedPlan = !isOrganizationPlan || surfaceState.canManageOrganizationPlan
-  const aggregatedCurrentUsage = isOrganizationPlan
-    ? organizationBillingPayload?.totalCurrentUsage
-    : usage.current
-  const aggregatedUsageLimit = isOrganizationPlan
-    ? organizationBillingPayload?.totalUsageLimit
-    : usage.limit
+  const aggregatedCurrentUsage = safeNumber(
+    isOrganizationPlan ? organizationBillingPayload?.totalCurrentUsage : usage.current
+  )
+  const aggregatedUsageLimit = safeNumber(
+    isOrganizationPlan ? organizationBillingPayload?.totalUsageLimit : usage.limit
+  )
   const percentUsedRaw = isOrganizationPlan
-    ? organizationBillingPayload?.percentUsed
+    ? (() => {
+        const totalLimit = organizationBillingPayload?.totalUsageLimit
+        if (totalLimit && totalLimit > 0) {
+          return ((organizationBillingPayload?.totalCurrentUsage ?? 0) / totalLimit) * 100
+        }
+        return 0
+      })()
     : usage.percentUsed
-  const percentUsedClamped =
-    percentUsedRaw === undefined
-      ? undefined
-      : Math.max(0, Math.min(Math.round(percentUsedRaw), 100))
+  const percentUsedClamped = Math.max(0, Math.min(Math.round(percentUsedRaw ?? 0), 100))
+  const organizationWarningThresholdPercent =
+    typeof organizationBillingPayload?.warningThresholdPercent === 'number'
+      ? organizationBillingPayload.warningThresholdPercent
+      : 100
   const hasPaymentMethodOnFile = Boolean(billingPayload?.hasPaymentMethodOnFile)
   const hasStripeSubscription = Boolean(billingPayload?.stripeSubscriptionId)
   const canEditPersonalUsageLimit = canEditUsageLimit(billingPayload)
@@ -380,9 +390,9 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const normalizedBillingStatus = selectedBillingBlocked
     ? 'blocked'
     : isOrganizationPlan
-      ? organizationBillingPayload?.isExceeded
+      ? percentUsedClamped >= 100
         ? 'exceeded'
-        : organizationBillingPayload?.isWarning
+        : percentUsedRaw >= organizationWarningThresholdPercent
           ? 'warning'
           : 'ok'
       : billingStatus === 'unknown'
@@ -603,8 +613,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               isOrganizationPlan
                 ? aggregatedUsageLimit
                 : showUsageLimitControl
-                  ? usage.current
-                  : usage.limit
+                  ? safeNumber(usage.current)
+                  : safeNumber(usage.limit)
             }
             isBlocked={selectedBillingBlocked}
             status={normalizedBillingStatus}
@@ -617,11 +627,15 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                   currentLimit={
                     isOrganizationPlan ? aggregatedUsageLimit : usageLimitInfo.currentLimit
                   }
-                  currentUsage={isOrganizationPlan ? aggregatedCurrentUsage : usage.current}
+                  currentUsage={
+                    isOrganizationPlan ? aggregatedCurrentUsage : safeNumber(usage.current)
+                  }
                   canEdit={surfaceState.canEditUsageLimit}
                   minimumLimit={
                     isOrganizationPlan
-                      ? organizationBillingPayload?.minimumUsageLimit
+                      ? safeNumber(
+                          organizationBillingPayload?.minimumUsageLimit ?? aggregatedUsageLimit
+                        )
                       : usageLimitInfo.minimumLimit
                   }
                   context={isOrganizationPlan ? 'organization' : 'user'}
@@ -688,7 +702,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                     <PlanCard
                       key={tier.id}
                       name={tier.displayName}
-                      price={formatUsd(locale, tier.monthlyPriceUsd ?? tier.yearlyPriceUsd)}
+                      price={formatUsd(locale, tier.monthlyPriceUsd ?? tier.yearlyPriceUsd ?? 0)}
                       priceSubtext={
                         tier.monthlyPriceUsd !== null
                           ? copy('periods.monthly')

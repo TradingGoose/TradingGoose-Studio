@@ -8,8 +8,8 @@ import {
 } from '@/lib/copilot/tools/server/base-tool'
 import { checkDeploymentStatusServerTool } from '@/lib/copilot/tools/server/workflow/check-deployment-status'
 import {
+  createWorkflowExecutionResultFromLog,
   readWorkflowExecutionAccessContext,
-  readWorkflowExecutionResultFromLog,
 } from '@/lib/execution/workflow-execution-events'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { authorizeNativeBusinessResult, authorizeNativeCredential } from './business-access'
@@ -92,7 +92,8 @@ export async function readbackNativeToolResult(
       if (!row?.endedAt)
         throw new NativeTargetError('Original workflow execution has no terminal result', 409)
       assertOriginalLog(row)
-      const state = await readWorkflowExecutionResultFromLog(row, () => authorize(row))
+      await authorize(row)
+      const state = createWorkflowExecutionResultFromLog(row)
       if (state.status !== 'completed' && state.status !== 'failed')
         throw new NativeTargetError('Original workflow execution has no terminal result', 409)
       return {

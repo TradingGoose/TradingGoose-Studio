@@ -1,4 +1,3 @@
-import { monetary } from '@tradinggoose/billing/money'
 import { db } from '@tradinggoose/db'
 import { member } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
@@ -97,18 +96,17 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    let limit: string
-    try {
-      limit = monetary(body?.limit)
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid limit. A nonnegative decimal string is required' },
-        { status: 400 }
-      )
-    }
+    const limit = body?.limit
     const context = body?.context || 'user'
     const organizationId = body?.organizationId
     const userId = session.user.id
+
+    if (typeof limit !== 'number' || limit < 0) {
+      return NextResponse.json(
+        { error: 'Invalid limit. Must be a positive number' },
+        { status: 400 }
+      )
+    }
 
     if (!['user', 'organization'].includes(context)) {
       return NextResponse.json(
@@ -145,7 +143,7 @@ export async function PUT(request: NextRequest) {
       }
 
       const { updateOrganizationUsageLimit } = await import('@/lib/billing/core/organization')
-      const result = await updateOrganizationUsageLimit(organizationId, limit, session.user.id)
+      const result = await updateOrganizationUsageLimit(organizationId, limit)
 
       if (!result.success) {
         return NextResponse.json({ error: result.error }, { status: 400 })

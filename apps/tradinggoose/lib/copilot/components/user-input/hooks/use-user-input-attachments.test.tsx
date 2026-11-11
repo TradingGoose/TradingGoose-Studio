@@ -14,17 +14,13 @@ function Harness() {
 }
 const files = (name: string) =>
   [new File(['image'], name, { type: 'image/png' })] as unknown as FileList
-const response = (key: string) => Response.json({ key, sourceProof: `proof:${key}` })
 beforeEach(async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
   revoke.mockClear()
-  vi.stubGlobal(
-    'fetch',
-    vi.fn().mockImplementation(async () => response('first'))
-  )
+  vi.stubGlobal('fetch', vi.fn())
   vi.stubGlobal(
     'URL',
     Object.assign(URL, {
@@ -39,36 +35,18 @@ afterEach(() => {
   container.remove()
   vi.unstubAllGlobals()
 })
-it('removes/revokes only submitted IDs and preserves a new in-flight upload through its eventual acknowledgement', async () => {
+it('reads selected images inline without an upload and clears only submitted attachments', async () => {
   await act(async () => state.processFiles(files('first.png')))
   const submitted = state.attachedFiles.map((file) => file.id)
-  let finish!: (response: Response) => void
-  vi.mocked(fetch).mockReturnValueOnce(
-    new Promise<Response>((resolve) => {
-      finish = resolve
-    })
-  )
-  let uploading!: Promise<void>
-  await act(async () => {
-    uploading = state.processFiles(files('second.png'))
-  })
-  expect(state.attachedFiles).toHaveLength(2)
-  await act(async () => state.clearAttachedFiles(submitted))
-  expect(state.attachedFiles.map((file) => file.name)).toEqual(['second.png'])
-  expect(state.attachedFiles[0].uploading).toBe(true)
-  expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:first.png')
-  await act(async () => {
-    finish(response('second'))
-    await uploading
-  })
   expect(state.attachedFiles[0]).toMatchObject({
-    name: 'second.png',
-    key: 'second',
+    data: 'data:image/png;base64,aW1hZ2U=',
     uploading: false,
   })
+  expect(fetch).not.toHaveBeenCalled()
+  await act(async () => state.processFiles(files('second.png')))
   await act(async () => state.clearAttachedFiles(submitted))
-  expect(revoke).toHaveBeenCalledOnce()
-  expect(state.attachedFiles).toHaveLength(1)
+  expect(state.attachedFiles.map((file) => file.name)).toEqual(['second.png'])
+  expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:first.png')
 })
 it('a removed submitted image cannot delete a newly uploaded image with the same filename', async () => {
   await act(async () => state.processFiles(files('same.png')))

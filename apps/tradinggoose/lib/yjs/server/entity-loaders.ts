@@ -1,7 +1,3 @@
-import { lockSavedEntityList } from './saved-entity-list-lock'
-
-export { lockSavedEntityList } from './saved-entity-list-lock'
-
 import { db } from '@tradinggoose/db'
 import {
   customTools,
@@ -13,7 +9,7 @@ import {
   watchlistTable,
   workflow,
 } from '@tradinggoose/db/schema'
-import { and, asc, eq, isNull, type SQL } from 'drizzle-orm'
+import { and, asc, eq, isNull, type SQL, sql } from 'drizzle-orm'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import {
   listDashboardLayouts,
@@ -43,6 +39,8 @@ const ENTITY_TABLES = {
   mcp_server: { table: mcpServers, name: mcpServers.name, softDelete: true },
 } as const
 
+const SAVED_ENTITY_LIST_LOCK_NAMESPACE = 1_904_202_618
+
 export type RowBackedSavedEntityKind = Exclude<SavedEntityKind, 'watchlist' | 'dashboard_layout'>
 export type SavedEntityListLockKind = RowBackedSavedEntityKind | 'workflow' | 'watchlist'
 export const SAVED_ENTITY_LIST_LOCK_KINDS: SavedEntityListLockKind[] = [
@@ -52,6 +50,17 @@ export const SAVED_ENTITY_LIST_LOCK_KINDS: SavedEntityListLockKind[] = [
 ]
 export type EntityListReadStore = Pick<typeof db, 'select'>
 export type EntityListBeforeInsert = (store: EntityListReadStore) => Promise<void> | void
+type EntityListLockWriter = Pick<typeof db, 'execute'>
+
+export async function lockSavedEntityList(
+  tx: EntityListLockWriter,
+  entityKind: SavedEntityListLockKind,
+  workspaceId: string
+): Promise<void> {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(${SAVED_ENTITY_LIST_LOCK_NAMESPACE}, hashtext(${`${entityKind}:${workspaceId}`}))`
+  )
+}
 
 function entityCondition(entityKind: RowBackedSavedEntityKind, clauses: SQL[]): SQL | undefined {
   const config = ENTITY_TABLES[entityKind]

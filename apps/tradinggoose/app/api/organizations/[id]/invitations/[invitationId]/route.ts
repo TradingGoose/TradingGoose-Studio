@@ -1,10 +1,10 @@
 import { randomUUID } from 'crypto'
-import { FinancialPolicyError, registerFinancialMember } from '@tradinggoose/billing'
 import { db } from '@tradinggoose/db'
 import {
   invitation,
   member,
   organization,
+  organizationMemberBillingLedger,
   user,
   type WorkspaceInvitationStatus,
   workspaceInvitation,
@@ -12,8 +12,6 @@ import {
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { assertOrganizationFinancialCapacity } from '@/lib/billing/financial-membership'
-import { withFinancialRootMutation } from '@/lib/billing/native-finance'
 import { createLogger } from '@/lib/logs/console/logger'
 import { grantWorkspaceAccessInTx } from '@/lib/workspaces/service'
 
@@ -57,8 +55,6 @@ export async function GET(
       organization: org,
     })
   } catch (error) {
-    if (error instanceof FinancialPolicyError)
-      return NextResponse.json({ error: error.message }, { status: error.status })
     logger.error('Error fetching organization invitation:', error)
     return NextResponse.json({ error: 'Failed to fetch invitation' }, { status: 500 })
   }
@@ -168,16 +164,12 @@ export async function PUT(
 
         // Member of a different organization
         // Mark the invitation as rejected since they can't accept it
-        await withFinancialRootMutation(
-          [{ type: 'organization', id: organizationId }],
-          async (tx) =>
-            tx
-              .update(invitation)
-              .set({
-                status: 'rejected',
-              })
-              .where(eq(invitation.id, invitationId))
-        )
+        await db
+          .update(invitation)
+          .set({
+            status: 'rejected',
+          })
+          .where(eq(invitation.id, invitationId))
 
         return NextResponse.json(
           {
@@ -189,99 +181,58 @@ export async function PUT(
       }
     }
 
-    await withFinancialRootMutation(
-      [
-        { type: 'organization', id: organizationId },
-        { type: 'user', id: session.user.id },
-      ],
-      async (tx) => {
-        const [fresh] = await tx
+    await db.transaction(async (tx) => {
+      await tx.update(invitation).set({ status }).where(eq(invitation.id, invitationId))
+
+      if (status === 'accepted') {
+        await tx.insert(member).values({
+          id: randomUUID(),
+          userId: session.user.id,
+          organizationId,
+          role: orgInvitation.role,
+          createdAt: new Date(),
+        })
+
+        await tx
+          .insert(organizationMemberBillingLedger)
+          .values({
+            organizationId,
+            userId: session.user.id,
+          })
+          .onConflictDoNothing()
+
+        const linkedWorkspaceInvitations = await tx
           .select()
-          .from(invitation)
-          .where(eq(invitation.id, invitationId))
-          .limit(1)
-        if (
-          !fresh ||
-          fresh.organizationId !== organizationId ||
-          fresh.status !== 'pending' ||
-          fresh.expiresAt < new Date()
-        )
-          throw new FinancialPolicyError('Invitation is no longer available', 409)
-        if (
-          status !== 'cancelled' &&
-          fresh.email.toLowerCase() !== session.user.email.toLowerCase()
-        )
-          throw new FinancialPolicyError(
-            'Invitation recipient does not match the authenticated user',
-            403
-          )
-        if (status === 'cancelled') {
-          const [actor] = await tx
-            .select({ role: member.role })
-            .from(member)
-            .where(
-              and(eq(member.organizationId, organizationId), eq(member.userId, session.user.id))
+          .from(workspaceInvitation)
+          .where(
+            and(
+              eq(workspaceInvitation.orgInvitationId, invitationId),
+              eq(workspaceInvitation.status, 'pending' as WorkspaceInvitationStatus)
             )
-            .limit(1)
-          if (!actor || !['owner', 'admin'].includes(actor.role))
-            throw new FinancialPolicyError('Current administrator access required', 403)
-        }
-        if (status === 'accepted') {
-          const [membership] = await tx
-            .select({ id: member.id })
-            .from(member)
-            .where(eq(member.userId, session.user.id))
-            .limit(1)
-          if (membership)
-            throw new FinancialPolicyError('User already belongs to an organization', 409)
-        }
-        await tx.update(invitation).set({ status }).where(eq(invitation.id, invitationId))
-
-        if (status === 'accepted') {
-          await registerFinancialMember(tx, { organizationId, userId: session.user.id }, () =>
-            tx.insert(member).values({
-              id: randomUUID(),
-              userId: session.user.id,
-              organizationId,
-              role: fresh.role,
-              createdAt: new Date(),
-            })
           )
 
-          const linkedWorkspaceInvitations = await tx
-            .select()
-            .from(workspaceInvitation)
-            .where(
-              and(
-                eq(workspaceInvitation.orgInvitationId, invitationId),
-                eq(workspaceInvitation.status, 'pending' as WorkspaceInvitationStatus)
-              )
-            )
-
-          for (const wsInvitation of linkedWorkspaceInvitations) {
-            await tx
-              .update(workspaceInvitation)
-              .set({
-                status: 'accepted' as WorkspaceInvitationStatus,
-                updatedAt: new Date(),
-              })
-              .where(eq(workspaceInvitation.id, wsInvitation.id))
-
-            await grantWorkspaceAccessInTx(tx, {
-              workspaceId: wsInvitation.workspaceId,
-              userId: session.user.id,
-              permissionType: wsInvitation.permissions || 'read',
-            })
-          }
-        } else if (status === 'cancelled') {
+        for (const wsInvitation of linkedWorkspaceInvitations) {
           await tx
             .update(workspaceInvitation)
-            .set({ status: 'cancelled' as WorkspaceInvitationStatus })
-            .where(eq(workspaceInvitation.orgInvitationId, invitationId))
+            .set({
+              status: 'accepted' as WorkspaceInvitationStatus,
+              updatedAt: new Date(),
+            })
+            .where(eq(workspaceInvitation.id, wsInvitation.id))
+
+          await grantWorkspaceAccessInTx(tx, {
+            workspaceId: wsInvitation.workspaceId,
+            userId: session.user.id,
+            permissionType: wsInvitation.permissions || 'read',
+          })
         }
-        await assertOrganizationFinancialCapacity(tx, organizationId)
+      } else if (status === 'cancelled') {
+        await tx
+          .update(workspaceInvitation)
+          .set({ status: 'cancelled' as WorkspaceInvitationStatus })
+          .where(eq(workspaceInvitation.orgInvitationId, invitationId))
       }
-    )
+    })
 
     logger.info(`Organization invitation ${status}`, {
       organizationId,
@@ -296,8 +247,6 @@ export async function PUT(
       invitation: { ...orgInvitation, status },
     })
   } catch (error) {
-    if (error instanceof FinancialPolicyError)
-      return NextResponse.json({ error: error.message }, { status: error.status })
     logger.error(`Error updating organization invitation:`, error)
     return NextResponse.json({ error: 'Failed to update invitation' }, { status: 500 })
   }

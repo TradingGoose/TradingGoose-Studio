@@ -100,11 +100,5 @@ export async function executeTriggeredDocumentProcessingJob(value: unknown) {
 
 export async function markDocumentProcessingJobFailed(value: unknown, errorMessage: string) {
   if (!isDocumentProcessingPayload(value)) return
-  await markDocumentProcessingFailed(
-    value.knowledgeBaseId,
-    value.documentId,
-    value.docData,
-    { actorUserId: value.userId, workspaceId: value.workspaceId },
-    errorMessage
-  )
+  await markDocumentProcessingFailed(value.documentId, errorMessage)
 }

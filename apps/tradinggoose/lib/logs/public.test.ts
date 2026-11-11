@@ -3,12 +3,12 @@ import { publicTraceSpans } from './public'
 import type { TraceSpan } from './types'
 
 describe('public Records and terminal event projection', () => {
-  it('removes private native reference envelopes recursively without erasing intentional structured business names', () => {
+  it('removes internal inference metadata while retaining native history and structured outputs', () => {
     const nested = {
       model: 'schema model',
       tokens: 9,
       cost: { business: true },
-      inference: { nativePayload: 'ordinary user JSON' },
+      inference: { history: 'ordinary user JSON' },
     }
     const span: TraceSpan = {
       id: 'a',
@@ -19,22 +19,20 @@ describe('public Records and terminal event projection', () => {
       startTime: 'start',
       endTime: 'end',
       output: nested,
+      agentHistory: [
+        {
+          id: 'message',
+          threadId: 'private-thread',
+          resourceId: 'private-resource',
+          role: 'assistant',
+          createdAt: new Date(),
+          content: { format: 2, parts: [{ type: 'text', text: 'Canonical Agent output' }] },
+        },
+      ],
       inference: {
         model: 'native/model',
         generatedFields: [],
-        nativePayload: {
-          version: 1,
-          purpose: 'workflow-agent',
-          workspaceId: 'w',
-          executionId: 'e',
-          logId: 'l',
-          blockId: 'a',
-          runId: 'r',
-          threadId: 'private-thread',
-          resourceId: 'private-resource',
-          messageIds: ['private-id'],
-          digest: 'digest',
-        },
+        history: { runId: 'r', threadId: 'private-thread', resourceId: 'private-resource' },
       },
       children: [],
     }
@@ -43,7 +41,7 @@ describe('public Records and terminal event projection', () => {
     expect(visible[0]).not.toHaveProperty('inference')
     expect(visible[0].children?.[0]).not.toHaveProperty('inference')
     expect(visible[0].output).toEqual(nested)
-    expect(JSON.stringify(visible)).not.toContain('private-thread')
+    expect(visible[0].agentHistory).toEqual(span.agentHistory)
     expect(span.inference).toBeDefined()
   })
 })

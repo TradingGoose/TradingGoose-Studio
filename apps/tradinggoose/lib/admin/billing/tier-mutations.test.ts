@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   type AdminBillingTierMutationInput,
   adminBillingTierMutationSchema,
-  toBillingTierMutationValues,
   validateAdminBillingTierInput,
 } from './tier-mutations'
 
@@ -19,7 +18,7 @@ function createTierInput(
     seatMode: 'fixed',
     monthlyPriceUsd: null,
     yearlyPriceUsd: null,
-    includedUsageLimitUsd: '0',
+    includedUsageLimitUsd: 0,
     storageLimitGb: null,
     concurrencyLimit: null,
     workflowExecutionTimeLimitSeconds: null,
@@ -36,10 +35,10 @@ function createTierInput(
     canEditUsageLimit: false,
     canConfigureSso: false,
     logRetentionDays: null,
-    workflowExecutionMultiplier: '1',
-    workflowModelCostMultiplier: '1',
-    functionExecutionMultiplier: '1',
-    copilotCostMultiplier: '1',
+    workflowExecutionMultiplier: 1,
+    workflowModelCostMultiplier: 1,
+    functionExecutionMultiplier: 1,
+    copilotCostMultiplier: 1,
     pricingFeatures: [],
     isPublic: true,
     isDefault: true,
@@ -64,7 +63,7 @@ describe('validateAdminBillingTierInput', () => {
       validateAdminBillingTierInput(
         createTierInput({
           status: 'active',
-          includedUsageLimitUsd: '25',
+          includedUsageLimitUsd: 25,
           storageLimitGb: 10,
           concurrencyLimit: 3,
           syncRateLimitPerMinute: 30,
@@ -106,7 +105,7 @@ describe('validateAdminBillingTierInput', () => {
       validateAdminBillingTierInput(
         createTierInput({
           status: 'active',
-          includedUsageLimitUsd: '25',
+          includedUsageLimitUsd: 25,
           storageLimitGb: 10,
           concurrencyLimit: 3,
           syncRateLimitPerMinute: 30,
@@ -206,72 +205,5 @@ describe('validateAdminBillingTierInput', () => {
         })
       )
     ).toBe('Stripe monthly and yearly price IDs must be different')
-  })
-})
-
-describe('exact admin tier money ingress', () => {
-  it('preserves exact decimal values through JSON validation and database values', () => {
-    const source = createTierInput({
-      monthlyPriceUsd: '9007199254740993.30000000000000001',
-      yearlyPriceUsd: '1.0000000000000000000000000000000001',
-      includedUsageLimitUsd: '0.000000000000000000000000000001',
-      workflowExecutionMultiplier: '0.30000000000000001',
-      workflowModelCostMultiplier: '1.00000000000000001',
-      functionExecutionMultiplier: null,
-    })
-    const parsed = adminBillingTierMutationSchema.parse(JSON.parse(JSON.stringify(source)))
-    const stored = toBillingTierMutationValues(parsed, 'admin')
-    for (const key of [
-      'monthlyPriceUsd',
-      'yearlyPriceUsd',
-      'includedUsageLimitUsd',
-      'workflowExecutionMultiplier',
-      'workflowModelCostMultiplier',
-    ] as const)
-      expect(stored[key]).toBe(source[key])
-    expect(stored.functionExecutionMultiplier).toBe('1')
-    expect(stored.seatCount).toBeNull()
-    expect(toBillingTierMutationValues(createTierInput(), 'admin').monthlyPriceUsd).toBeNull()
-  })
-  it.each([
-    0,
-    0.1,
-    Number.NaN,
-    Number.POSITIVE_INFINITY,
-    -1,
-    '-0.1',
-    'NaN',
-    'Infinity',
-    '0x10',
-    ' 0.3 ',
-    '1e131072',
-    '1e-16384',
-  ])('rejects non-string or invalid/out-of-range monetary input %s', (value) => {
-    expect(
-      adminBillingTierMutationSchema.safeParse({
-        ...createTierInput(),
-        includedUsageLimitUsd: value,
-      }).success
-    ).toBe(false)
-  })
-  it('normalizes permitted decimal text exactly without an intermediate number', () => {
-    expect(
-      adminBillingTierMutationSchema.parse(
-        createTierInput({ includedUsageLimitUsd: '3.0000000000000001e-1' })
-      ).includedUsageLimitUsd
-    ).toBe('0.30000000000000001')
-  })
-  it('keeps unlimited capacity null and refuses unsafe integer quantities', () => {
-    expect(adminBillingTierMutationSchema.parse(createTierInput()).concurrencyLimit).toBeNull()
-    expect(
-      adminBillingTierMutationSchema.safeParse(
-        createTierInput({ seatCount: Number.MAX_SAFE_INTEGER + 1 })
-      ).success
-    ).toBe(false)
-  })
-  it('keeps tiny positive recurring prices subject to the existing free-tier rule', () => {
-    expect(validateAdminBillingTierInput(createTierInput({ monthlyPriceUsd: '1e-16383' }))).toBe(
-      'The default tier cannot configure a recurring price'
-    )
   })
 })

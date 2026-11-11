@@ -1,4 +1,4 @@
-import type { StudioNativeTarget } from '@/lib/copilot/native/studio-execution'
+import type { CopilotToolTarget } from '@/lib/copilot/native/contract'
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
@@ -9,7 +9,7 @@ import { buildExecutableWorkflowData } from '@/stores/workflows/workflow/utils'
 const logger = createLogger('WorkflowExecutionUtils')
 
 type WorkflowExecutionOptions = {
-  native: StudioNativeTarget
+  native: CopilotToolTarget
   signal?: AbortSignal
   workflowInput?: any
   executionId?: string

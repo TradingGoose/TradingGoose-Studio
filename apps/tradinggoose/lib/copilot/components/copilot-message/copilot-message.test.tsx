@@ -110,7 +110,6 @@ vi.mock('../user-input/user-input', () => ({
 }))
 
 vi.mock('./components/file-display', () => ({
-  FileAttachmentDisplay: () => <div data-testid='file-attachments' />,
   NativeFileDisplay: ({ file }: any) => (
     <img data-native-image alt='Conversation image' src={file.data} />
   ),
@@ -219,7 +218,7 @@ describe('CopilotMessage', () => {
     expect(container.textContent).toContain('Plan is ready.')
     expect(container.textContent).toContain('Source A')
   })
-  it('renders canonical user images between exact text parts without a source-proof preview lane', async () => {
+  it('renders canonical user images between exact text parts', async () => {
     const data =
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg=='
     const message: CopilotMessageType = {
@@ -240,7 +239,6 @@ describe('CopilotMessage', () => {
     expect(rendered.children[0]).toHaveTextContent('before')
     expect(rendered.children[1].getAttribute('src')).toBe(data)
     expect(rendered.children[2]).toHaveTextContent('after')
-    expect(container.querySelector('[data-testid="file-attachments"]')).toBeNull()
     expect((rendered as HTMLElement).style.maxHeight).toBe('none')
     await act(async () => (rendered.children[1] as HTMLImageElement).click())
     expect(container.querySelector('[data-testid="user-input"]')).toBeNull()

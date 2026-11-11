@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { workflowMessageDigest } from '@/lib/mastra/messages'
 import { memoryAddTool } from './add'
 import { memoryDeleteTool } from './delete'
 import { memoryGetTool } from './get'
@@ -23,7 +22,7 @@ describe('Memory Add canonical request', () => {
       key: 'conversation-1',
       type: 'agent',
       workflowId: 'workflow-1',
-      data: { role: 'user' as const, content: 'Hello' },
+      data: { role: 'user', content: 'Hello' },
     })
     expect(memoryAddTool.execution?.workspace).toEqual({ required: true, access: 'write' })
     expect(memoryAddTool.params.id.required).toBe(true)
@@ -40,33 +39,11 @@ describe('Memory Add canonical request', () => {
   it('exposes the persisted message array from create and append responses', async () => {
     for (const status of [201, 200]) {
       const messages = [
-        { role: 'user' as const, content: 'Hello' },
-        { role: 'assistant' as const, content: 'Hi' },
+        { role: 'user', content: 'Hello' },
+        { role: 'assistant', content: 'Hi' },
       ]
       const response = Response.json(
-        {
-          success: true,
-          data: {
-            id: 'workflow-memory:thread',
-            workflowId: 'workflow',
-            key: 'chat',
-            data: messages,
-            sourceRefs: messages.map((message, index) => ({
-              messageId: `message-${index}`,
-              ordinal: index,
-              threadId: 'workflow-memory:thread',
-              resourceId: 'workflow-memory:resource',
-              digest: workflowMessageDigest([message]),
-              readProof: {
-                version: 1 as const,
-                workspaceId: 'workspace',
-                workflowId: 'workflow',
-                key: 'chat',
-                digest: workflowMessageDigest([message]),
-              },
-            })),
-          },
-        },
+        { success: true, data: { id: 'mem-1', data: messages } },
         { status }
       )
       expect(await memoryAddTool.transformResponse!(response)).toEqual({
@@ -89,28 +66,8 @@ describe('Memory Add canonical request', () => {
   )
 
   it('reads canonical Get and Get All response envelopes', async () => {
-    const data = [{ role: 'user' as const, content: 'Hello' }]
-    const record = {
-      id: 'workflow-memory:thread',
-      workflowId: 'workflow',
-      key: 'chat',
-      type: 'agent',
-      data,
-      sourceRefs: data.map((message, index) => ({
-        messageId: `message-${index}`,
-        ordinal: index,
-        threadId: 'workflow-memory:thread',
-        resourceId: 'workflow-memory:resource',
-        digest: workflowMessageDigest([message]),
-        readProof: {
-          version: 1 as const,
-          workspaceId: 'workspace',
-          workflowId: 'workflow',
-          key: 'chat',
-          digest: workflowMessageDigest([message]),
-        },
-      })),
-    }
+    const data = [{ role: 'user', content: 'Hello' }]
+    const record = { id: 'mem-1', key: 'chat', type: 'agent', data }
     expect(
       (await memoryGetTool.transformResponse!(Response.json({ success: true, data: record })))
         .output.memories

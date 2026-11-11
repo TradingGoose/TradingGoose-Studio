@@ -1,33 +1,14 @@
-import {
-  type FinancialBinding,
-  financialFingerprint,
-  type ModelOccurrence,
-  type OperationReceipt,
-  occurrenceKey,
-} from '@tradinggoose/billing'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   order: [] as string[],
   accept: vi.fn(),
 }))
-vi.mock('@/lib/billing/native-finance', () => ({
-  createFinancialInvocation: async (input: unknown) => {
-    mocks.order.push('create')
-    const value = input as FinancialBinding & { operationKey: string }
-    return {
-      ...value,
-      namespace: `billing-usage:user:${value.actorUserId}`,
-      key: `invocation:${value.operationKey}`,
-      fingerprint: 'bound',
-      workspaceId: value.workspaceId ?? null,
-      workflowId: value.workflowId ?? null,
-    }
+vi.mock('@/lib/billing/model-usage', () => ({
+  assertModelUsageAllowed: async () => {
+    mocks.order.push('admit')
   },
-  admitFinancialModelStep: async (_binding: unknown, occurrence: { stepNumber: number }) => {
-    mocks.order.push(`admit:${occurrence.stepNumber}`)
-  },
-  acceptFinancialModelStep: mocks.accept,
+  recordModelUsage: mocks.accept,
 }))
 vi.mock('@/lib/mastra/connections', () => ({
   resolveConfiguredModel: (_model: string, apiKey?: string) => ({
@@ -48,49 +29,12 @@ vi.mock('@/lib/mastra/registry', () => ({
 vi.mock('@/lib/system-services/runtime', () => ({ resolveOpenAIServiceConfig: async () => ({}) }))
 
 import { generateEmbeddings } from '@/lib/embeddings/utils'
-import { getInferenceFacts } from '@/lib/mastra/result'
-
-function acceptedReceipt(binding: FinancialBinding, occurrence: ModelOccurrence): OperationReceipt {
-  return {
-    recordType: 'operation',
-    fingerprint: financialFingerprint([binding.fingerprint, occurrenceKey(binding, occurrence)]),
-    binding,
-    identity: {
-      root: { type: 'user', id: binding.actorUserId },
-      actorUserId: binding.actorUserId,
-      memberUserId: null,
-      scope: 'user',
-      period: null,
-      billingEnabled: false,
-      quote: {
-        holdUsd: '0',
-        multiplier: '1',
-        modelUsd: 'unavailable',
-        baseChargeUsd: '0',
-        defaultGrant: false,
-        billable: true,
-      },
-      workspaceId: binding.workspaceId,
-      workflowId: binding.workflowId,
-      purpose: binding.purpose,
-    },
-    holdState: 'closed',
-    contactState: 'accepted',
-    appliedUsd: '0',
-    modelUsd: 'unavailable',
-    financialClosureState: 'closed',
-    dispatchState: 'complete',
-    dispatchAtMs: 0,
-    markers: [],
-  }
-}
 
 beforeEach(() => {
   mocks.order.length = 0
   vi.clearAllMocks()
-  mocks.accept.mockImplementation(async (_binding, occurrence) => {
-    mocks.order.push(`accept:${occurrence.stepNumber}`)
-    return acceptedReceipt(_binding, occurrence)
+  mocks.accept.mockImplementation(async () => {
+    mocks.order.push('accept')
   })
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -120,16 +64,8 @@ describe('installed native direct embedding transport', () => {
     expect(result.embeddings).toHaveLength(2049)
     expect(result.tokens).toEqual({ prompt: 2049, total: 2049 })
     expect(result.cost).toEqual({ status: 'unavailable' })
-    expect(mocks.order).toEqual([
-      'create',
-      'admit:0',
-      'http',
-      'accept:0',
-      'admit:1',
-      'http',
-      'accept:1',
-    ])
-    expect(mocks.accept.mock.calls.map((call) => call[1].usage)).toEqual([
+    expect(mocks.order).toEqual(['admit', 'http', 'accept', 'admit', 'http', 'accept'])
+    expect(mocks.accept.mock.calls.map((call) => call[1])).toEqual([
       { inputTokens: 2048, totalTokens: 2048 },
       { inputTokens: 1, totalTokens: 1 },
     ])
@@ -150,7 +86,7 @@ describe('installed native direct embedding transport', () => {
         generateEmbeddings(['hello'], { actorUserId: 'member-1', runId: 'failed-native-embedding' })
       ).rejects.toThrow()
       expect(fetch).toHaveBeenCalledOnce()
-      expect(mocks.order).toEqual(['create', 'admit:0'])
+      expect(mocks.order).toEqual(['admit'])
       expect(mocks.accept).not.toHaveBeenCalled()
     }
   )
@@ -199,52 +135,4 @@ it('uses each request-owned credential and actual abort signal without changing 
   expect(two.tokens).toEqual({})
   expect(one.usage.status).toBe('unavailable')
   expect(fetch).toHaveBeenCalledTimes(2)
-})
-
-it('uses actual installed native transport only after both trusted-source checks and retains its facts', async () => {
-  const order: string[] = []
-  const verifySource = vi.fn(async () => {
-    order.push('source')
-  })
-  const fetcher = vi.fn(async () => {
-    order.push('http')
-    return Response.json({
-      object: 'list',
-      model: 'embedding',
-      data: [{ object: 'embedding', embedding: [0.25, 0.5], index: 0 }],
-      usage: { prompt_tokens: 2, total_tokens: 2 },
-    })
-  })
-  vi.stubGlobal('fetch', fetcher)
-  const result = await generateEmbeddings(['hello'], {
-    actorUserId: 'member-1',
-    runId: 'owned-native-docs-child',
-    verifySource,
-    expectedNamespace: 'billing-usage:user:member-1',
-  })
-  expect(order).toEqual(['source', 'source', 'http'])
-  expect(mocks.order).toEqual(['create', 'admit:0', 'create', 'accept:0'])
-  expect(getInferenceFacts(result)).toMatchObject({
-    tokens: { prompt: 2, total: 2 },
-    embeddingUsage: { status: 'reported', batches: 1 },
-  })
-  expect(fetcher).toHaveBeenCalledOnce()
-})
-it('refuses a changed Pending source after native admission with zero installed transport contacts', async () => {
-  const verifySource = vi
-    .fn()
-    .mockResolvedValueOnce(undefined)
-    .mockRejectedValueOnce(new Error('Pending changed'))
-  const fetcher = vi.fn()
-  vi.stubGlobal('fetch', fetcher)
-  await expect(
-    generateEmbeddings(['hello'], {
-      actorUserId: 'member-1',
-      runId: 'owned-native-docs-denied',
-      verifySource,
-    })
-  ).rejects.toThrow('Pending changed')
-  expect(mocks.order).toEqual(['create', 'admit:0'])
-  expect(fetcher).not.toHaveBeenCalled()
-  expect(mocks.accept).not.toHaveBeenCalled()
 })

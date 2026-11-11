@@ -15,7 +15,6 @@ it('loads complete local conversation pages and deduplicates repeated rows', asy
     expect(init.credentials).toBe('include')
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
     return Response.json({
-      requestId: request.requestId,
       status: 'threads',
       page: request.page,
       hasMore: request.page.page === 0,
@@ -58,7 +57,6 @@ it('loads native message parts and public pending cards through local pagination
     vi.fn(async (_url, init) => {
       const request = JSON.parse(init.body)
       return Response.json({
-        requestId: request.requestId,
         status: request.command === 'history.read' ? 'history' : 'pending_targets',
         ...(request.command === 'history.read' ? { threadId: 'thread' } : {}),
         items: request.command === 'history.read' ? [message] : [pending],
@@ -76,7 +74,6 @@ it('stops inconsistent empty pagination instead of looping', async () => {
     vi.fn(async (_url, init) => {
       const request = JSON.parse(init.body)
       return Response.json({
-        requestId: request.requestId,
         status: 'threads',
         items: [],
         page: request.page,
@@ -101,13 +98,10 @@ it('preserves local refusals as errors', async () => {
       const request = JSON.parse(init.body)
       return Response.json(
         {
-          requestId: request.requestId,
           status: 'refused',
           error: {
             code: 'FORBIDDEN',
             message: 'Access denied',
-            retryable: false,
-            uncertain: false,
           },
         },
         { status: 403 }
@@ -117,7 +111,6 @@ it('preserves local refusals as errors', async () => {
   await expect(
     readNativeCommand({
       command: 'threads.list',
-      requestId: 'request',
       workspaceId: null,
       page: { page: 0, perPage: 100 },
     })

@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  canonicalLogFixture,
-  hydrateCanonicalLogFixture,
-} from '@/lib/execution/__test-utils__/canonical-log-fixture'
-import {
   executeScheduleJob,
   isScheduleExecutionPayload,
   type ScheduleExecutionPayload,
@@ -17,15 +13,7 @@ const mocks = vi.hoisted(() => ({
   updateWhere: vi.fn(),
   delete: vi.fn(),
   info: vi.fn(),
-  verify: vi.fn(),
   logRows: [] as Record<string, unknown>[],
-}))
-
-vi.mock('@/lib/billing/native-finance', () => ({ verifyFinancialAcceptance: mocks.verify }))
-
-vi.mock('@/lib/workflow-archive/functional', () => ({
-  hydrateExecutionPayload: hydrateCanonicalLogFixture,
-  assertRetainedLogAccess: async () => {},
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -38,7 +26,7 @@ vi.mock('@tradinggoose/db', () => ({
           limit: async () =>
             fields
               ? 'level' in fields
-                ? mocks.logRows.map(canonicalLogFixture)
+                ? mocks.logRows
                 : []
               : [{ id: 'workflow-1', workspaceId: 'workspace-1', pinnedApiKeyId: 'key-1' }],
         }),
@@ -84,7 +72,6 @@ describe('executeScheduleJob', () => {
     vi.clearAllMocks()
     vi.useFakeTimers({ now: new Date(payload.now) })
     mocks.logRows = []
-    mocks.verify.mockResolvedValue({ accepted: true, appliedUsd: '0', modelUsd: 'unavailable' })
     mocks.set.mockReturnValue({ where: mocks.updateWhere })
     mocks.updateWhere.mockResolvedValue(undefined)
     mocks.loadWorkflowExecutionBlueprint.mockResolvedValue({
@@ -230,26 +217,4 @@ describe('executeScheduleJob', () => {
       })
     }
   )
-  it('does not count preserved functional work as a successful schedule while financial proof refuses', async () => {
-    const unavailable = new Error('Original base occurrence remains unaccepted')
-    mocks.runPreparedWorkflowExecution.mockRejectedValueOnce(
-      new Error('Ledger acceptance unavailable')
-    )
-    mocks.logRows = [
-      {
-        level: 'info',
-        startedAt: new Date(payload.now),
-        endedAt: new Date(payload.now),
-        executionData: { finalOutput: { completedWork: true } },
-      },
-    ]
-    mocks.verify.mockRejectedValueOnce(unavailable)
-    await expect(executeScheduleJob(payload)).rejects.toBe(unavailable)
-    expect(mocks.runPreparedWorkflowExecution).toHaveBeenCalledOnce()
-    expect(mocks.set).not.toHaveBeenCalled()
-    expect(mocks.logRows[0]).toMatchObject({
-      level: 'info',
-      executionData: { finalOutput: { completedWork: true } },
-    })
-  })
 })

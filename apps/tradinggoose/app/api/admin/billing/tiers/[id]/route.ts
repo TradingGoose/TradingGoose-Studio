@@ -1,4 +1,3 @@
-import { compareMoney } from '@tradinggoose/billing/money'
 import { db } from '@tradinggoose/db'
 import { subscription, systemBillingTier } from '@tradinggoose/db/schema'
 import { count, eq } from 'drizzle-orm'
@@ -106,16 +105,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         'stripeYearlyPriceId',
         'stripeProductId',
       ]
-      const changedStructuralField = structuralFields.find((field) => {
-        if (field === 'monthlyPriceUsd' || field === 'yearlyPriceUsd') {
-          const before = existingTier[field]
-          const after = parsed.data[field]
-          return before === null || after === null
-            ? before !== after
-            : compareMoney(before, after) !== 0
-        }
-        return existingTier[field] !== (parsed.data as any)[field]
-      })
+      const changedStructuralField = structuralFields.find(
+        (field) =>
+          (field === 'monthlyPriceUsd' || field === 'yearlyPriceUsd'
+            ? existingTier[field] === null
+              ? null
+              : Number(existingTier[field])
+            : existingTier[field]) !== (parsed.data as any)[field]
+      )
 
       if (existingTier.status !== 'draft' && changedStructuralField) {
         return NextResponse.json(
@@ -163,14 +160,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         }
 
         const zeroedExecutionMultipliers = [
-          parsed.data.workflowExecutionMultiplier !== null &&
-          compareMoney(parsed.data.workflowExecutionMultiplier, '0') === 0
-            ? 'workflow execution multiplier'
-            : null,
-          parsed.data.functionExecutionMultiplier !== null &&
-          compareMoney(parsed.data.functionExecutionMultiplier, '0') === 0
-            ? 'function execution multiplier'
-            : null,
+          parsed.data.workflowExecutionMultiplier === 0 ? 'workflow execution multiplier' : null,
+          parsed.data.functionExecutionMultiplier === 0 ? 'function execution multiplier' : null,
         ].filter((value): value is string => Boolean(value))
 
         if (zeroedExecutionMultipliers.length > 0) {

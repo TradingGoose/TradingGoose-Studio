@@ -107,9 +107,9 @@ function createPayload() {
     ownerType: 'organization',
     usageScope: 'pooled',
     seatMode: 'adjustable',
-    monthlyPriceUsd: '49',
-    yearlyPriceUsd: '499',
-    includedUsageLimitUsd: '100',
+    monthlyPriceUsd: 49,
+    yearlyPriceUsd: 499,
+    includedUsageLimitUsd: 100,
     storageLimitGb: 100,
     concurrencyLimit: 10,
     workflowExecutionTimeLimitSeconds: null,
@@ -126,10 +126,10 @@ function createPayload() {
     canEditUsageLimit: true,
     canConfigureSso: true,
     logRetentionDays: 30,
-    workflowExecutionMultiplier: '1',
-    workflowModelCostMultiplier: '1.5',
-    functionExecutionMultiplier: '1',
-    copilotCostMultiplier: '1',
+    workflowExecutionMultiplier: 1,
+    workflowModelCostMultiplier: 1.5,
+    functionExecutionMultiplier: 1,
+    copilotCostMultiplier: 1,
     pricingFeatures: ['Priority support'],
     isPublic: true,
     isDefault: false,
@@ -200,7 +200,7 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
   ])('rejects zero %s for tiers that already have subscriptions', async (field, label) => {
     const { PATCH } = await import('./route')
     const payload = createPayload()
-    payload[field as 'workflowExecutionMultiplier' | 'functionExecutionMultiplier'] = '0'
+    payload[field as 'workflowExecutionMultiplier' | 'functionExecutionMultiplier'] = 0
 
     const response = await PATCH(
       new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
@@ -238,7 +238,7 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
 
   it.each([
     ['stripeMonthlyPriceId', 'price_replacement'],
-    ['monthlyPriceUsd', '1'],
+    ['monthlyPriceUsd', 1],
   ] as const)('keeps activated %s immutable', async (field, value) => {
     mockCountWhere.mockResolvedValueOnce([{ count: 0 }])
     const { PATCH } = await import('./route')
@@ -300,7 +300,7 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
           ownerType: 'user',
           usageScope: 'individual',
           seatMode: 'fixed',
-          monthlyPriceUsd: '0',
+          monthlyPriceUsd: 0,
           yearlyPriceUsd: null,
           seatCount: null,
           seatMaximum: null,
@@ -316,45 +316,5 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
     expect(mockCountWhere).toHaveBeenCalledOnce()
     expect(mockTransaction).toHaveBeenCalledOnce()
     expect(mockUpdate).not.toHaveBeenCalled()
-  })
-  it('detects distinct active prices that collapse to the same binary64 value', async () => {
-    const existing = (await mockTierLimit())[0]
-    mockTierLimit.mockResolvedValue([{ ...existing, monthlyPriceUsd: '49.00000000000000001' }])
-    const { PATCH } = await import('./route')
-    const response = await PATCH(
-      new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
-        method: 'PATCH',
-        body: JSON.stringify({ ...createPayload(), monthlyPriceUsd: '49.00000000000000002' }),
-      }),
-      { params: Promise.resolve({ id: 'tier-pro' }) }
-    )
-    expect(response.status).toBe(409)
-    expect((await response.json()).error).toContain('Cannot change monthlyPriceUsd')
-    expect(mockUpdate).not.toHaveBeenCalled()
-  })
-  it('accepts exactly equivalent canonical price text without a structural change', async () => {
-    const { PATCH } = await import('./route')
-    const response = await PATCH(
-      new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
-        method: 'PATCH',
-        body: JSON.stringify({ ...createPayload(), monthlyPriceUsd: '49.000' }),
-      }),
-      { params: Promise.resolve({ id: 'tier-pro' }) }
-    )
-    expect(response.status).toBe(200)
-    expect(mockUpdateSet).toHaveBeenCalledWith(expect.objectContaining({ monthlyPriceUsd: '49' }))
-  })
-  it('rejects a monetary JSON number before Stripe validation or any transaction', async () => {
-    const { PATCH } = await import('./route')
-    const response = await PATCH(
-      new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
-        method: 'PATCH',
-        body: JSON.stringify({ ...createPayload(), monthlyPriceUsd: 49 }),
-      }),
-      { params: Promise.resolve({ id: 'tier-pro' }) }
-    )
-    expect(response.status).toBe(400)
-    expect(mockValidateBillingTierStripeCatalog).not.toHaveBeenCalled()
-    expect(mockTransaction).not.toHaveBeenCalled()
   })
 })

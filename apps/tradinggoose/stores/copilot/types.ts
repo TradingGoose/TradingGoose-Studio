@@ -6,11 +6,9 @@ export type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type {
   BrowserAssertion,
-  CompletionFailureResponse,
-  CompletionResponse,
-  ContextResponse,
   CopilotResponse,
   CopilotToolContext,
+  ImagePart,
   Pending,
 } from '@/lib/copilot/native/contract'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
@@ -30,16 +28,6 @@ export interface CopilotToolCall {
   historical?: boolean
   /** Display provenance only: reopened native history is never fresh automatic work. */
   historyOrigin?: true
-}
-
-export interface MessageFileAttachment {
-  /** Local Studio authorization proof; never a native service image DTO. */
-  sourceProof: string
-  id: string
-  key: string
-  filename: string
-  media_type: string
-  size: number
 }
 
 export type NativeImageFile = Pick<
@@ -66,7 +54,6 @@ export interface CopilotMessage {
     | { type: 'tool_call'; toolCall: CopilotToolCall; timestamp: number }
     | { type: 'file'; file: NativeImageFile; timestamp: number }
   >
-  fileAttachments?: MessageFileAttachment[]
   contexts?: ChatContext[]
   isError?: boolean
 }
@@ -127,9 +114,7 @@ export interface CopilotState {
   conversationWorkspaceId: string | null
   currentRunId: string | null
   workflowChatDeployment: WorkflowChatDeploymentRequest | null
-  contextEvidence: ContextResponse | null
   lastNativeOutcome: CopilotResponse | null
-  lastTitleOutcome: CompletionResponse | CompletionFailureResponse | null
   error: string | null
   historyRefreshError: string | null
   isRefreshingHistory: boolean
@@ -153,7 +138,6 @@ export interface CopilotState {
 export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
-  fetchContextUsage: () => Promise<void>
   refreshCurrentHistory: () => Promise<void>
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
@@ -164,7 +148,7 @@ export interface CopilotActions {
   sendMessage: (
     message: string,
     options?: {
-      fileAttachments?: MessageFileAttachment[]
+      images?: ImagePart[]
       contexts?: ChatContext[]
       submittedDraft?: CopilotDraft
       messageId?: string
@@ -181,7 +165,6 @@ export interface CopilotActions {
     todos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
   ) => void
   updatePlanTodoStatus: (id: string, status: 'executing' | 'completed') => void
-  compactCurrentContext: () => Promise<void>
   editMessage: (messageId: string, text: string) => Promise<void>
   readPendingTool: (toolCallId: string) => Promise<Pending>
   authorizeToolWorkspace: (toolCallId: string, workspaceId?: string) => Promise<string>

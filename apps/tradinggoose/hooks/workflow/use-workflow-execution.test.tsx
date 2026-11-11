@@ -598,12 +598,6 @@ function WandHarness() {
   )
 }
 
-const wandRequestId = 'wand-feedback-native-request'
-const wandFinancial = {
-  accepted: true as const,
-  modelUsd: 'unavailable' as const,
-  appliedUsd: '0.02',
-}
 const wandStreamResponse = (events: CompletionEvent[]) =>
   new Response(
     new ReadableStream({
@@ -613,7 +607,7 @@ const wandStreamResponse = (events: CompletionEvent[]) =>
         controller.close()
       },
     }),
-    { headers: { 'content-type': 'text/event-stream', 'x-wand-request-id': wandRequestId } }
+    { headers: { 'content-type': 'text/event-stream' } }
   )
 
 describe('useWand feedback', () => {
@@ -651,9 +645,6 @@ describe('useWand feedback', () => {
               error: 'private upstream detail',
               code: 'NATIVE_FAILURE',
               refusal: false,
-              uncertain: false,
-              financialDisposition: 'accepted',
-              financial: wandFinancial,
             },
           ])
         )
@@ -663,11 +654,9 @@ describe('useWand feedback', () => {
             {
               done: true,
               result: {
-                requestId: wandRequestId,
                 status: 'completed',
                 runId: 'wand-feedback-run',
                 text: 'generated',
-                financial: wandFinancial,
               },
             },
           ])
@@ -686,11 +675,6 @@ describe('useWand feedback', () => {
     expect(currentWand?.promptInputValue).toBe('Keep this prompt')
     expect(generatedWandContent).not.toHaveBeenCalled()
     expect(fetch).toHaveBeenCalledOnce()
-    expect(currentWand?.terminalOutcome).toMatchObject({
-      error: 'private upstream detail',
-      financialDisposition: 'accepted',
-      financial: wandFinancial,
-    })
     const alert = container.querySelector<HTMLElement>('[role="alert"]')
     expect(alert?.textContent).toBe('Generation failed. Your prompt is ready to retry.')
     expect(alert?.textContent).not.toContain('private upstream detail')
@@ -704,10 +688,6 @@ describe('useWand feedback', () => {
     expect(currentWand?.promptInputValue).toBe('')
     expect(generatedWandContent).toHaveBeenCalledExactlyOnceWith('generated')
     expect(fetch).toHaveBeenCalledTimes(2)
-    expect(currentWand?.terminalOutcome).toMatchObject({
-      done: true,
-      result: { requestId: wandRequestId, text: 'generated', financial: wandFinancial },
-    })
     expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 })

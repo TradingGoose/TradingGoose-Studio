@@ -2,7 +2,6 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { type DecimalAmount, monetary } from '@tradinggoose/billing/money'
 import { Plus, Receipt } from 'lucide-react'
 import { useLocale, useMessages } from 'next-intl'
 import {
@@ -96,15 +95,30 @@ function readOptionalText(formData: FormData, key: string) {
   return value.length > 0 ? value : null
 }
 
-function readMoneySetting(formData: FormData, key: string) {
-  return monetary(readRequiredText(formData, key) || '0')
+function readOptionalNumber(formData: FormData, key: string) {
+  const value = readRequiredText(formData, key)
+  if (!value) {
+    return null
+  }
+
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid number for ${key}`)
+  }
+
+  return parsed
 }
 
 function readOptionalInteger(formData: FormData, key: string) {
-  const text = readOptionalText(formData, key)
-  if (text === null) return null
-  const value = Number(text)
-  if (!Number.isSafeInteger(value)) throw new Error(`Invalid safe integer for ${key}`)
+  const value = readOptionalNumber(formData, key)
+  if (value === null) {
+    return null
+  }
+
+  if (!Number.isInteger(value)) {
+    throw new Error(`Invalid integer for ${key}`)
+  }
+
   return value
 }
 
@@ -112,14 +126,12 @@ function readBoolean(formData: FormData, key: string) {
   return formData.get(key) === 'on'
 }
 
-export function buildBillingSettingsMutationInput(
-  formData: FormData
-): AdminBillingSettingsMutationInput {
+function buildBillingSettingsMutationInput(formData: FormData): AdminBillingSettingsMutationInput {
   return {
-    onboardingAllowanceUsd: readMoneySetting(formData, 'onboardingAllowanceUsd'),
-    overageThresholdDollars: readMoneySetting(formData, 'overageThresholdDollars'),
-    workflowExecutionChargeUsd: readMoneySetting(formData, 'workflowExecutionChargeUsd'),
-    functionExecutionChargeUsd: readMoneySetting(formData, 'functionExecutionChargeUsd'),
+    onboardingAllowanceUsd: readOptionalNumber(formData, 'onboardingAllowanceUsd') ?? 0,
+    overageThresholdDollars: readOptionalNumber(formData, 'overageThresholdDollars') ?? 0,
+    workflowExecutionChargeUsd: readOptionalNumber(formData, 'workflowExecutionChargeUsd') ?? 0,
+    functionExecutionChargeUsd: readOptionalNumber(formData, 'functionExecutionChargeUsd') ?? 0,
     usageWarningThresholdPercent:
       readOptionalInteger(formData, 'usageWarningThresholdPercent') ?? 80,
     freeTierUpgradeThresholdPercent:
@@ -128,11 +140,7 @@ export function buildBillingSettingsMutationInput(
   }
 }
 
-function formatMoney(
-  locale: LocaleCode | string,
-  copy: AdminBillingCopy,
-  value: DecimalAmount | null
-) {
+function formatMoney(locale: LocaleCode | string, copy: AdminBillingCopy, value: number | null) {
   if (value === null) {
     return copy.commerce.custom
   }
@@ -244,9 +252,9 @@ function BillingTierOverviewCard({
             <span>{formatTierRecurringPrice(locale, copy, tier)}</span>
             <span>•</span>
             <span>
-              {tier.includedUsageLimitUsd === null
-                ? copy.commerce.custom
-                : formatTemplate(copy.commerce.usdIncluded, { value: tier.includedUsageLimitUsd })}
+              {formatNullableNumber(locale, copy, tier.includedUsageLimitUsd, (value) =>
+                formatTemplate(copy.commerce.usdIncluded, { value })
+              )}
             </span>
           </div>
           <div className='flex flex-wrap items-center gap-2'>
@@ -362,8 +370,8 @@ function BillingSettingsCard({
                     id='onboardingAllowanceUsd'
                     name='onboardingAllowanceUsd'
                     aria-labelledby='onboardingAllowanceUsd-label'
-                    type='text'
-                    inputMode='decimal'
+                    type='number'
+                    step='0.01'
                     defaultValue={defaults.onboardingAllowanceUsd}
                   />
                 </FieldShell>
@@ -378,8 +386,8 @@ function BillingSettingsCard({
                     id='overageThresholdDollars'
                     name='overageThresholdDollars'
                     aria-labelledby='overageThresholdDollars-label'
-                    type='text'
-                    inputMode='decimal'
+                    type='number'
+                    step='0.01'
                     defaultValue={defaults.overageThresholdDollars}
                   />
                 </FieldShell>
@@ -436,8 +444,8 @@ function BillingSettingsCard({
                       id='workflowExecutionChargeUsd'
                       name='workflowExecutionChargeUsd'
                       aria-labelledby='workflowExecutionChargeUsd-label'
-                      type='text'
-                      inputMode='decimal'
+                      type='number'
+                      step='0.0001'
                       defaultValue={defaults.workflowExecutionChargeUsd}
                     />
                   </FieldShell>
@@ -452,8 +460,8 @@ function BillingSettingsCard({
                       id='functionExecutionChargeUsd'
                       name='functionExecutionChargeUsd'
                       aria-labelledby='functionExecutionChargeUsd-label'
-                      type='text'
-                      inputMode='decimal'
+                      type='number'
+                      step='0.0001'
                       defaultValue={defaults.functionExecutionChargeUsd}
                     />
                   </FieldShell>

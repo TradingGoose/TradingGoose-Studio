@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkpointFunctionalOutput } from '@/executor/checkpoint'
-import { getFailureAccounting, safeInferenceError } from './errors'
+import { getFailureAccounting } from './errors'
 import { getInferenceFacts, withInferenceFacts } from './result'
 
 describe('local failure accounting provenance', () => {
@@ -68,7 +67,6 @@ describe('local failure accounting provenance', () => {
     const accounting = getFailureAccounting(failure)
     expect(getInferenceFacts(accounting)).toBeUndefined()
     expect(getInferenceFacts({ ...accounting })).toBeUndefined()
-    expect(checkpointFunctionalOutput(accounting)).toEqual(accounting)
   })
 
   it('never revives provenance from a JSON copy or an inherited Symbol', () => {
@@ -78,24 +76,5 @@ describe('local failure accounting provenance', () => {
     expect(getInferenceFacts(getFailureAccounting(json))).toBeUndefined()
     const inherited = Object.create(original)
     expect(getInferenceFacts(getFailureAccounting(inherited))).toBeUndefined()
-  })
-
-  it('retains functional model/tool data while the checkpoint removes only branded report fields', () => {
-    const failure = withInferenceFacts(
-      Object.assign(new Error('Authorization: Bearer synthetic-r10-key'), {
-        model: 'native/model',
-        tokens: { total: 17 },
-        cost: { status: 'unavailable' },
-        toolResults: [{ output: { model: 'business', tokens: 3, cost: 'literal' } }],
-      }),
-      { tokens: { total: 17 }, generatedFields: ['model', 'tokens', 'cost', 'toolResults'] }
-    )
-    const output = checkpointFunctionalOutput(getFailureAccounting(failure))
-    expect(output).toEqual({
-      model: 'native/model',
-      toolResults: [{ output: { model: 'business', tokens: 3, cost: 'literal' } }],
-    })
-    expect(getInferenceFacts(output)).toBeUndefined()
-    expect(safeInferenceError(failure)).not.toContain('synthetic-r10-key')
   })
 })

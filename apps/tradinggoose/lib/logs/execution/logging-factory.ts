@@ -113,9 +113,7 @@ export function calculateCostSummary(traceSpans: any[]) {
     if (!facts) return
     component = {
       ...facts,
-      ...(facts.cost || !(facts.model || facts.tokens || facts.nativePayload)
-        ? {}
-        : { cost: { status: 'unavailable' } }),
+      ...(facts.cost || !(facts.model || facts.tokens) ? {} : { cost: { status: 'unavailable' } }),
     }
     const fallbackId = isTool ? original.toolCallId : original.id
     const identity = fallbackId ? [fallbackId] : []

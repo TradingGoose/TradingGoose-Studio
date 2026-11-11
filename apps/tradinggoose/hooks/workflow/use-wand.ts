@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  assertNativeCorrelation,
-  type CompletionEvent,
-  type CompletionFailureResponse,
-  parseNativeContract,
-} from '@/lib/copilot/native/contract'
+import type { CompletionEvent, CompletionFailureResponse } from '@/lib/copilot/native/contract'
 import { readNativeEvents } from '@/lib/copilot/native/stream'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WandConfig } from '@/blocks/types'
@@ -80,9 +75,6 @@ export function useWand(props: UseWandProps) {
   const [promptInputValue, setPromptInputValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isStreaming, setIsStreaming] = useState(false)
-  const [terminalOutcome, setTerminalOutcome] = useState<
-    CompletionEvent | CompletionFailureResponse | null
-  >(null)
   const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>([])
   const historyRef = useRef<ChatMessage[]>([])
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -144,7 +136,6 @@ export function useWand(props: UseWandProps) {
     setIsLoading(true)
     setIsStreaming(true)
     setError(null)
-    setTerminalOutcome(null)
     start.onStreamStart?.()
     try {
       const contextInfo = buildContextInfo(baseValue, start.wandConfig.generationType)
@@ -163,25 +154,12 @@ export function useWand(props: UseWandProps) {
       })
       if (id !== generation.current || abort.signal.aborted) return
       if (!response.ok) {
-        const data: unknown = await response.json()
-        try {
-          const failure = await parseNativeContract('CompletionFailureResponse', data)
-          assertNativeCorrelation(failure, response.headers.get('x-wand-request-id') ?? '')
-          if (id !== generation.current || abort.signal.aborted) return
-          setTerminalOutcome(failure)
-          throw new Error(failure.error.message)
-        } catch (failure) {
-          if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string')
-            throw new Error(data.error)
-          throw failure
-        }
+        const data: CompletionFailureResponse | { error: string } = await response.json()
+        throw new Error(typeof data.error === 'string' ? data.error : data.error.message)
       }
-      const requestId = response.headers.get('x-wand-request-id')
-      if (!requestId || !response.body)
-        throw new Error('Native completion stream identity or body is missing')
+      if (!response.body) throw new Error('Completion stream body is missing')
       let complete = false
-      for await (const event of readNativeEvents(response.body, 'CompletionEvent', {
-        requestId,
+      for await (const event of readNativeEvents<CompletionEvent>(response.body, {
         signal: abort.signal,
       })) {
         if (id !== generation.current || abort.signal.aborted) return
@@ -189,8 +167,6 @@ export function useWand(props: UseWandProps) {
           current.current.onStreamChunk?.(event.chunk)
           continue
         }
-        if ('done' in event) assertNativeCorrelation(event.result, requestId)
-        setTerminalOutcome(event) // Keep received acceptance/disposition before any UI error/cancel.
         if ('error' in event) throw new Error(event.error)
         if ('cancelled' in event) throw new Error('Generation cancelled')
         const latest = current.current
@@ -237,7 +213,6 @@ export function useWand(props: UseWandProps) {
     cancelGeneration()
     historyRef.current = []
     setConversationHistory([])
-    setTerminalOutcome(null)
   }, [props.generationKey, cancelGeneration])
   return {
     isLoading,
@@ -245,7 +220,6 @@ export function useWand(props: UseWandProps) {
     isPromptVisible,
     promptInputValue,
     error,
-    terminalOutcome,
     conversationHistory,
     generateStream,
     showPromptInline,

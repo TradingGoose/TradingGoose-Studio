@@ -25,7 +25,6 @@ vi.mock('@/components/ui', async () => {
   }
 })
 vi.mock('@/lib/auth-client', () => ({ useSession: () => ({ data: { user: { id: 'actor' } } }) }))
-vi.mock('@/stores/copilot/store', () => ({ useCopilotStore: () => ({ contextEvidence: null }) }))
 vi.mock('@/i18n/workspace-widget-hooks', () => ({
   useCopilotMessages: () => ({
     input: {
@@ -82,9 +81,7 @@ const descriptor: AttachedFile = {
   name: 'retained.png',
   size: 10,
   type: 'image/png',
-  path: '/private',
-  key: 'private-key',
-  sourceProof: 'server-signed-proof',
+  data: 'data:image/png;base64,aW1hZ2U=',
   uploading: false,
 }
 let currentDraft: CopilotDraft
@@ -141,12 +138,9 @@ it('retains draft and attachments when native image delivery is blocked before c
     'Preserved draft',
     [
       {
-        id: descriptor.id,
-        sourceProof: descriptor.sourceProof,
-        key: descriptor.key,
-        filename: descriptor.name,
-        media_type: descriptor.type,
-        size: descriptor.size,
+        type: 'image',
+        image: descriptor.data,
+        mediaType: descriptor.type,
       },
     ],
     [],
@@ -164,8 +158,8 @@ it('clears only after accepted submission', async () => {
   expect(currentDraft).toEqual({ text: '', contexts: [] })
   expect(mocked.clear).toHaveBeenCalledWith([descriptor.id])
 })
-it('refuses missing upload proof before calling the native send handler', async () => {
-  mocked.files = [{ ...descriptor, sourceProof: undefined }]
+it('refuses missing image bytes before calling the native send handler', async () => {
+  mocked.files = [{ ...descriptor, data: undefined }]
   await render()
   await submit()
   expect(mocked.submit).not.toHaveBeenCalled()

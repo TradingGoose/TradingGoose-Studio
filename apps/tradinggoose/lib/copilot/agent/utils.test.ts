@@ -15,12 +15,10 @@ const completed = {
   status: 'completed',
   runId: 'native-title-run',
   text: '  Momentum Screener  ',
-  financial: { accepted: true, modelUsd: 'unavailable', appliedUsd: '0' },
 }
 beforeEach(() => {
   vi.clearAllMocks()
   state.complete.mockImplementation(async (request: CompletionRequest) => ({
-    requestId: request.requestId,
     ...completed,
   }))
 })
@@ -34,10 +32,8 @@ describe('built-in title completion', () => {
       )
       expect(state.complete).toHaveBeenCalledExactlyOnceWith(
         {
-          requestId: expect.any(String),
           scope: { actorUserId: 'actor', workspaceId: 'workspace' },
           purpose: 'title',
-          stream: false,
           model,
           messages: [
             {
@@ -53,13 +49,11 @@ describe('built-in title completion', () => {
   )
   it('exposes accepted outcome even when cancellation prevents publication', async () => {
     const controller = new AbortController()
-    const onOutcome = vi.fn()
     state.complete.mockImplementationOnce(async (request: CompletionRequest) => {
       controller.abort()
-      return { ...completed, requestId: request.requestId }
+      return { ...completed }
     })
-    expect(await requestCopilotTitle({ ...input, signal: controller.signal, onOutcome })).toBeNull()
-    expect(onOutcome).toHaveBeenCalledWith(expect.objectContaining(completed))
+    expect(await requestCopilotTitle({ ...input, signal: controller.signal })).toBeNull()
     expect(state.complete).toHaveBeenCalledOnce()
   })
   it.each(['failed', 'refused', 'cancel_requested'])(
@@ -67,16 +61,10 @@ describe('built-in title completion', () => {
     async (status) => {
       const outcome = {
         status,
-        requestId: 'utility',
-        uncertain: false,
-        financialDisposition: 'accepted',
-        financial: completed.financial,
-        error: { code: 'FAILED', message: 'unavailable', retryable: false, uncertain: false },
+        error: { code: 'FAILED', message: 'unavailable' },
       }
       state.complete.mockResolvedValueOnce(outcome)
-      const onOutcome = vi.fn()
-      expect(await requestCopilotTitle({ ...input, onOutcome })).toBeNull()
-      expect(onOutcome).toHaveBeenCalledWith(outcome)
+      expect(await requestCopilotTitle({ ...input })).toBeNull()
       expect(state.complete).toHaveBeenCalledOnce()
     }
   )

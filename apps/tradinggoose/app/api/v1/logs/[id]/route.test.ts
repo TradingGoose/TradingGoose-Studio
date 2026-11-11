@@ -2,10 +2,6 @@
  * @vitest-environment node
  */
 
-vi.mock('@/lib/workflow-archive/functional', () => ({
-  hydrateAuthorizedLog: vi.fn(async (row) => row),
-}))
-
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -242,56 +238,6 @@ describe('v1 log detail route', () => {
       )
       expect(response.status).toBe(400)
       expect(mocks.select).not.toHaveBeenCalled()
-    }
-  )
-
-  it.each([
-    ['reported', { status: 'reported', total: 0.004, estimated: false }],
-    [
-      'estimated',
-      {
-        status: 'estimated',
-        total: 0.002,
-        estimated: true,
-        currency: 'USD',
-      },
-    ],
-    ['partial', { status: 'partial', availableTotal: 0.002, unavailableComponents: 1 }],
-    [
-      'estimated partial',
-      { status: 'partial', estimated: true, availableTotal: 0.003, unavailableComponents: 2 },
-    ],
-    ['unavailable', { status: 'unavailable', unavailableComponents: 1 }],
-    [
-      'reported zero',
-      {
-        status: 'reported',
-        total: 0,
-        availableTotal: 0,
-        estimated: false,
-        unavailableComponents: 0,
-      },
-    ],
-    [
-      'partial zero',
-      { status: 'partial', estimated: true, availableTotal: 0, unavailableComponents: 1 },
-    ],
-    ['absent', null],
-  ] as const)(
-    'preserves %s accounting in default, basic and full list responses',
-    async (_name, cost) => {
-      mocks.selectRows()[0].cost = cost
-      const { GET } = await import('../route')
-
-      for (const details of ['', '&details=basic', '&details=full']) {
-        const response = await GET(
-          new NextRequest(`http://localhost/api/v1/logs?workspaceId=workspace-1${details}`)
-        )
-        expect(response.status).toBe(200)
-        const body = await response.json()
-        expect(body.data[0].cost).toEqual(cost)
-        if (cost && !('total' in cost)) expect(body.data[0].cost).not.toHaveProperty('total')
-      }
     }
   )
 })

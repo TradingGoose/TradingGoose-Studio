@@ -81,7 +81,6 @@ function getBillingOwnerId(billingOwner: WorkspaceBillingOwner): string {
 
 function resolveBillingUserId(params: {
   ownerId: string | null
-  actorUserId?: string | null
   billingOwner: WorkspaceBillingOwner
 }): string {
   if (params.billingOwner.type === 'user') {
@@ -90,8 +89,8 @@ function resolveBillingUserId(params: {
 
   // Organization billing keeps a stable workspace owner reference for user-scoped
   // actions, while the actual pooled billing ledger lives on the organization row.
-  if (params.actorUserId) {
-    return params.actorUserId
+  if (params.ownerId) {
+    return params.ownerId
   }
 
   throw new Error('Organization-billed workspace is missing a stable workspace owner')
@@ -159,7 +158,6 @@ async function hydrateBillingContext(
   const subscription = await getBillingOwnerSubscription(params.billingOwner, store)
   const billingUserId = resolveBillingUserId({
     ownerId: params.ownerId,
-    actorUserId: params.actorUserId,
     billingOwner: params.billingOwner,
   })
   if (!subscription?.tier) {

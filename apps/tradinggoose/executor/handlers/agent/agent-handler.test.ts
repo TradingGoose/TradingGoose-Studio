@@ -1,35 +1,14 @@
 import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
-import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
+import { withInferenceFacts } from '@/lib/mastra/result'
 import { selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
 
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
   createConfiguredLanguageModel: vi.fn(() => state.model),
 }))
-vi.mock('@/lib/mastra/workflow-history', () => ({
-  readFunctionalPayload: async () => state.payloads.at(-1),
-  writeFunctionalPayload: async (scope: Record<string, unknown>, payload: any) => {
-    state.payloads.push({
-      ...payload,
-      toolResultIndexes: payload.tools.flatMap((run: any, index: number) =>
-        run.success || run.result?.cost || run.result?.tokens ? [index] : []
-      ),
-    })
-    const { actorUserId: _actor, ...owned } = scope
-    return {
-      version: 1,
-      purpose: 'workflow-agent',
-      threadId: 'canonical-fixture',
-      ...owned,
-      resourceId: 'canonical-fixture-resource',
-      messageIds: [],
-      digest: 'canonical-fixture-digest',
-    }
-  },
-}))
-vi.mock('@/lib/mastra/financial-processors', () => ({
-  financialProcessors: async (scope: unknown, captureResponse?: (observation: any) => void) => {
+vi.mock('@/lib/mastra/usage-processors', () => ({
+  usageProcessors: async (scope: unknown, captureResponse?: (observation: any) => void) => {
     state.finance(scope)
     const signal = (scope as { signal: AbortSignal }).signal
     let occurrence: { stepNumber: number; retryCount: number; runId?: string } | undefined
@@ -82,17 +61,24 @@ vi.mock('@/lib/mastra/financial-processors', () => ({
     }
   },
 }))
-vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
+vi.mock('@/lib/mastra/runtime', async () => {
+  const { Memory } = await import('@mastra/memory')
+  const { InMemoryStore } = await import('@mastra/core/storage')
+  const memory = new Memory({
+    storage: new InMemoryStore(),
+    options: {
+      messageHistory: { maxTokens: 32000 },
+      semanticRecall: false,
+      workingMemory: { enabled: false },
+      generateTitle: false,
+    },
+  })
+  return { getMastra: async () => undefined, getAgentMemory: async () => memory }
+})
 
 import { Agent } from '@mastra/core/agent'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  attachWorkflowMessageSource,
-  getWorkflowMessageSource,
-} from '@/lib/mastra/workflow-message-source'
-import { hydrateCheckpointFunctionalPayloads } from '@/lib/workflow-archive/functional'
-import type { WorkflowCheckpointSnapshot } from '@/lib/workflows/human-in-the-loop/types'
 import { Executor } from '@/executor'
 import { createMinimalWorkflow } from '@/executor/__test-utils__/executor-mocks'
 import {
@@ -100,12 +86,10 @@ import {
   createAgentToolSet,
   createForcedToolPolicy,
   extractCompletedToolMetadata,
-  parseNativeProviderOptions,
 } from '@/executor/handlers/agent/agent-handler'
 import type { ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
-import { resolveSkillMetadata } from './skills-resolver'
 
 const state = vi.hoisted(() => ({
   finance: vi.fn(),
@@ -113,7 +97,6 @@ const state = vi.hoisted(() => ({
   admissions: vi.fn(),
   model: null as any,
   configurations: [] as any[],
-  payloads: [] as any[],
   setupError: undefined as Error | undefined,
   completionError: undefined as Error | undefined,
   nativeCost: { status: 'unavailable' } as Record<string, unknown>,
@@ -223,36 +206,12 @@ beforeEach(() => {
   state.completionError = undefined
   state.nativeCost = { status: 'unavailable' }
   state.configurations.length = 0
-  state.payloads.length = 0
   vi.mocked(executeTool).mockResolvedValue({ success: true, output: { found: true } })
 })
 
 afterEach(() => vi.unstubAllGlobals())
 
 describe('native Agent workflow execution', () => {
-  it.each(['flat', 'record'])(
-    'preserves actual empty text entries in %s reusable memory through model selection',
-    async (shape) => {
-      const memories = [
-        { role: 'system', content: '' },
-        { role: 'user', content: '' },
-        { role: 'assistant', content: ' exact\n' },
-      ]
-      await new AgentBlockHandler().execute(
-        block,
-        {
-          model: 'openai/gpt-4.1',
-          memories: shape === 'record' ? [{ data: memories }] : memories,
-          userPrompt: 'continue',
-        },
-        context()
-      )
-      expect(state.payloads[0].selectedMessages).toEqual([
-        ...memories,
-        { role: 'user', content: 'continue' },
-      ])
-    }
-  )
   it('preserves literal working-memory tags and surrounding code through actual native turns', async () => {
     const userText =
       ' \n\tBefore user\n```xml\n<working_memory>literal user 🔥</working_memory>\n```\nAfter user\t \n'
@@ -273,13 +232,6 @@ describe('native Agent workflow execution', () => {
       throw new Error('Expected completed first-turn content')
     const firstSelected = [...memories, { role: 'user', content: userText }]
     expect(first.content).toBe(assistantText)
-    expect(state.payloads[0].selectedMessages).toEqual(firstSelected)
-    expect(state.payloads[0].output).toEqual({ content: assistantText })
-    expect(
-      state.payloads[0].messages
-        .filter((message: any) => message.role === 'assistant')
-        .flatMap((message: any) => message.content.parts)
-    ).toContainEqual(expect.objectContaining({ type: 'text', text: assistantText }))
     expect(
       state.model.doGenerateCalls[0].prompt
         .filter((message: any) => ['user', 'assistant'].includes(message.role))
@@ -303,7 +255,6 @@ describe('native Agent workflow execution', () => {
       throw new Error('Expected completed later-turn content')
     const laterSelected = [...laterMemories, { role: 'user', content: nextUserText }]
     expect(later.content).toBe(assistantText)
-    expect(state.payloads[1].selectedMessages).toEqual(laterSelected)
     expect(
       state.model.doGenerateCalls[1].prompt
         .filter((message: any) => ['user', 'assistant'].includes(message.role))
@@ -317,7 +268,7 @@ describe('native Agent workflow execution', () => {
     ).toEqual(laterSelected)
     expect(state.configurations).toHaveLength(2)
     for (const configuration of state.configurations) {
-      expect(configuration).not.toHaveProperty('memory')
+      expect(configuration).toHaveProperty('memory')
       expect(configuration.mastra).toBeUndefined()
     }
   })
@@ -421,11 +372,6 @@ describe('native Agent workflow execution', () => {
       tokens: { total: 5 },
       cost: { status: 'unavailable' },
     })
-  })
-
-  it('rejects malformed native options instead of clearing the user configuration', () => {
-    expect(() => parseNativeProviderOptions('{')).toThrow('valid JSON')
-    expect(() => parseNativeProviderOptions({ openai: 'invalid' })).toThrow('namespace')
   })
 
   it.each(['options', 'schema', 'native setup'])(
@@ -1032,121 +978,6 @@ it.each([false, true])(
   }
 )
 
-describe('exact selected Memory system provenance', () => {
-  it.each([false, 0, '', undefined])(
-    'retains duplicate whitespace and ordered Memory systems when explicit prompt is %s',
-    async (systemPrompt) => {
-      const first = attachWorkflowMessageSource(
-        { role: 'system', content: '  policy  ' },
-        {
-          messageId: 'first',
-          threadId: 'workflow-memory:thread',
-          resourceId: 'workflow-memory:resource',
-        }
-      )
-      const second = attachWorkflowMessageSource(
-        { role: 'system', content: '  policy  ' },
-        {
-          messageId: 'second',
-          threadId: 'workflow-memory:thread',
-          resourceId: 'workflow-memory:resource',
-        }
-      )
-      await new AgentBlockHandler().execute(
-        block,
-        {
-          model: 'openai/gpt-4.1',
-          systemPrompt,
-          memories: [
-            {
-              data: [
-                first,
-                { role: 'user', content: 'prior' },
-                second,
-                { role: 'assistant', content: 'answer' },
-                { role: 'system', content: '' },
-              ],
-            },
-          ],
-          userPrompt: 'current',
-        } as any,
-        context()
-      )
-      const selected = state.payloads[0].selectedMessages
-      expect(selected.map(({ role, content }: any) => [role, content])).toEqual([
-        ['system', '  policy  '],
-        ['user', 'prior'],
-        ['system', '  policy  '],
-        ['assistant', 'answer'],
-        ['system', ''],
-        ['user', 'current'],
-      ])
-      expect(getWorkflowMessageSource(selected[0])?.messageId).toBe('first')
-      expect(getWorkflowMessageSource(selected[2])?.messageId).toBe('second')
-      const systems = state.configurations[0].inputProcessors[0].processInputStep().systemMessages
-      expect(systems.map((message: any) => message.content)).toEqual([
-        '  policy  ',
-        '  policy  ',
-        '',
-      ])
-    }
-  )
-
-  it('selects a truthy explicit prompt before stringification and removes all Memory systems', async () => {
-    await new AgentBlockHandler().execute(
-      block,
-      {
-        model: 'openai/gpt-4.1',
-        systemPrompt: { exact: 'override' },
-        memories: [
-          { role: 'system', content: 'old' },
-          { role: 'user', content: 'keep' },
-          { role: 'system', content: 'old2' },
-        ],
-      } as any,
-      context()
-    )
-    const selected = state.payloads[0].selectedMessages
-    expect(selected).toHaveLength(2)
-    expect(selected[0].role).toBe('system')
-    expect(JSON.parse(selected[0].content)).toEqual({ exact: 'override' })
-    expect(getWorkflowMessageSource(selected[0])).toBeUndefined()
-    expect(selected[1]).toEqual({ role: 'user', content: 'keep' })
-  })
-
-  it('adds skills only to the first selected system without claiming unchanged original provenance for composed text', async () => {
-    vi.mocked(resolveSkillMetadata).mockResolvedValueOnce([
-      { id: 'skill', name: 'Skill', description: 'Read the handbook' },
-    ])
-    const first = attachWorkflowMessageSource(
-      { role: 'system', content: 'first' },
-      {
-        messageId: 'first',
-        threadId: 'workflow-memory:thread',
-        resourceId: 'workflow-memory:resource',
-      }
-    )
-    const second = attachWorkflowMessageSource(
-      { role: 'system', content: 'second' },
-      {
-        messageId: 'second',
-        threadId: 'workflow-memory:thread',
-        resourceId: 'workflow-memory:resource',
-      }
-    )
-    await new AgentBlockHandler().execute(
-      block,
-      { model: 'openai/gpt-4.1', skills: [{ skillId: 'skill' }], memories: [first, second] } as any,
-      context()
-    )
-    const selected = state.payloads[0].selectedMessages
-    expect(selected[0].content).toContain('Read the handbook')
-    expect(selected[1].content).toBe('second')
-    expect(getWorkflowMessageSource(selected[0])).toBeUndefined()
-    expect(getWorkflowMessageSource(selected[1])?.messageId).toBe('second')
-  })
-})
-
 it('removes a request-local key from failed-turn errors and canonical history without dropping known facts', async () => {
   const key = 'request-local-fixture-key'
   const userText =
@@ -1176,130 +1007,10 @@ it('removes a request-local key from failed-turn errors and canonical history wi
   expect(failure.message).toContain('[redacted]')
   expect(failure.message).not.toContain(key)
   expect(failure.cost).toMatchObject({ status: 'unavailable' })
-  expect(state.payloads).toHaveLength(1)
-  expect(JSON.stringify(state.payloads[0].output)).not.toContain(key)
-  expect(JSON.stringify(state.payloads[0].messages)).not.toContain(key)
-  expect(state.payloads[0].selectedMessages).toEqual([
-    ...memories,
-    { role: 'user', content: userText },
-  ])
-  expect(state.payloads[0].messages).toHaveLength(1)
-  expect(state.payloads[0].messages[0].role).toBe('assistant')
-  expect(state.payloads[0].messages[0].content.parts.map((part: any) => part.type)).toEqual([
-    'error',
-  ])
   expect(state.model.doGenerateCalls).toHaveLength(1)
-  expect(state.configurations[0]).not.toHaveProperty('memory')
+  expect(state.configurations[0]).toHaveProperty('memory')
   expect(state.configurations[0].mastra).toBeUndefined()
 })
-
-it.each([false, true])(
-  'keeps actual executor status 500 through failed Agent error-edge, canonical hydration and %s cold resume',
-  async (cold) => {
-    const literal = ' completed <working_memory>literal🔥</working_memory>\n '
-    state.model = fixture(literal)
-    state.completionError = new Error('Synthetic completed Agent acknowledgement unavailable')
-    const workflow = createMinimalWorkflow()
-    workflow.blocks[1].metadata = { id: 'agent', name: 'Agent' }
-    workflow.blocks[1].config = {
-      tool: 'llm_chat',
-      params: { model: 'openai/gpt-4.1', userPrompt: 'Complete exactly once' },
-    }
-    workflow.blocks.push(
-      {
-        id: 'approval',
-        position: { x: 200, y: 0 },
-        enabled: true,
-        inputs: {},
-        outputs: {},
-        metadata: { id: 'human_in_the_loop', name: 'Approval' },
-        config: {
-          tool: 'human_in_the_loop',
-          params: {
-            inputFormat: [{ name: 'approved', type: 'boolean', required: true }],
-            builderData: [{ id: 'display', name: 'question', type: 'string', value: 'Continue?' }],
-          },
-        },
-      },
-      {
-        id: 'after',
-        position: { x: 300, y: 0 },
-        enabled: true,
-        inputs: {},
-        outputs: {},
-        metadata: { id: 'response', name: 'After' },
-        config: {
-          tool: 'response',
-          params: {
-            dataMode: 'structured',
-            builderData: [
-              { id: 'status', name: 'status', type: 'number', value: '<agent.status>' },
-            ],
-          },
-        },
-      }
-    )
-    workflow.connections.push(
-      { source: 'block1', target: 'approval', sourceHandle: 'error' },
-      { source: 'approval', target: 'after' }
-    )
-    const contextExtensions = {
-      workspaceId: 'workspace-1',
-      userId: 'user-1',
-      workflowLogId: 'log-1',
-      executionId: 'execution-1',
-    }
-    const paused = await new Executor({ workflow, contextExtensions }).execute(
-      'workflow-1',
-      'trigger'
-    )
-    expect(paused.status).toBe('paused')
-    expect(state.model.doGenerateCalls).toHaveLength(1)
-    expect(state.payloads).toHaveLength(1)
-    expect(state.payloads[0].output).toEqual({
-      error: expect.stringContaining('acknowledgement unavailable'),
-    })
-    expect(JSON.stringify(state.payloads[0].messages)).toContain(literal.replace(/\n/g, '\\n'))
-    if (!paused.checkpoint) throw new Error('Expected actual executor checkpoint')
-    const before = paused.checkpoint
-    expect(before.context.blockStates.find(([id]) => id === 'block1')?.[1].output).toMatchObject({
-      status: 500,
-    })
-    expect(before.currentBlockStates).not.toHaveProperty('block1')
-    const snapshot = {
-      executor: cold ? JSON.parse(JSON.stringify(before)) : before,
-      blueprint: { workflowId: 'workflow-1' },
-      workflowLogId: 'log-1',
-    } as unknown as WorkflowCheckpointSnapshot
-    await hydrateCheckpointFunctionalPayloads(snapshot, {
-      workspaceId: 'workspace-1',
-      executionId: 'execution-1',
-      logId: 'log-1',
-    })
-    const log = snapshot.executor.context.blockLogs.find(({ blockId }) => blockId === 'block1')!
-    expect(log.success).toBe(false)
-    expect(log.output).not.toHaveProperty('status')
-    expect(
-      snapshot.executor.context.blockStates.find(([id]) => id === 'block1')?.[1].output
-    ).toMatchObject({ status: 500 })
-    expect(snapshot.executor.currentBlockStates).not.toHaveProperty('block1')
-    const resumed = await new Executor({
-      workflow: snapshot.executor.workflow,
-      checkpoint: snapshot.executor,
-      currentBlockStates: snapshot.executor.currentBlockStates,
-      workflowVariables: snapshot.executor.context.workflowVariables,
-      envVarValues: snapshot.executor.context.environmentVariables,
-      resumeInputs: new Map([['approval', { approved: true }]]),
-      contextExtensions: { ...contextExtensions, pendingExecutionId: 'execution-1:resume:1' },
-    }).execute('workflow-1', 'trigger')
-    expect(resumed.success).toBe(true)
-    expect(resumed.logs?.find(({ blockId }) => blockId === 'after')?.output).toMatchObject({
-      response: { status: 200, data: { status: 500 } },
-    })
-    expect(state.model.doGenerateCalls).toHaveLength(1)
-    expect(state.payloads).toHaveLength(1)
-  }
-)
 
 it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provider, id] as const))(
   'refuses native-known embedding model %s before generation admission or model contact',
@@ -1326,198 +1037,12 @@ it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provide
       expect(state.finance).not.toHaveBeenCalled()
       expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
       expect(state.configurations).toEqual([])
-      expect(state.payloads).toEqual([])
       expect(executeTool).not.toHaveBeenCalled()
     } finally {
       vi.unstubAllEnvs()
     }
   }
 )
-
-it('archives a same branded tool Error and counts native5 plus tool9 once when cancellation stops the next step', async () => {
-  const { getInferenceFacts } = await import('@/lib/mastra/result')
-  const { checkpointFunctionalOutput } = await import('@/executor/checkpoint')
-  const { calculateCostSummary } = await import('@/lib/logs/execution/logging-factory')
-  const toolFacts = {
-    model: 'native/tool',
-    tokens: { total: 9 },
-    cost: { status: 'unavailable' },
-    generatedFields: ['model', 'tokens', 'cost'],
-  } satisfies import('@/lib/mastra/result').InferenceFacts
-  const business = {
-    model: 'business model',
-    tokens: 9000,
-    cost: 'literal',
-    stack: 'business stack',
-  }
-  const cause = new Error('Private provider diagnostics')
-  const toolFailure = withInferenceFacts(
-    Object.assign(new Error('Lookup failed after completed native work'), {
-      model: toolFacts.model,
-      tokens: toolFacts.tokens,
-      cost: toolFacts.cost,
-      cause,
-      business,
-    }),
-    toolFacts
-  )
-  // Make both known Error diagnostics enumerable so the old active spread visibly leaks them.
-  Object.defineProperty(toolFailure, 'stack', { enumerable: true })
-  const originalStack = toolFailure.stack
-  const originalStackDescriptor = Object.getOwnPropertyDescriptor(toolFailure, 'stack')
-  let cancelled = false
-  const shouldCancelExecution = vi.fn(async () => cancelled)
-  vi.mocked(executeTool).mockImplementationOnce(async () => {
-    // This is the existing explicit cancellation hook, not a new Force failure policy.
-    cancelled = true
-    throw toolFailure
-  })
-  const failure = await new AgentBlockHandler()
-    .execute(
-      block,
-      {
-        model: 'openai/gpt-4.1',
-        userPrompt: 'Perform the required lookup',
-        tools: [
-          {
-            type: 'custom-tool',
-            toolId: 'custom_lookup',
-            title: 'Lookup',
-            schema: {
-              function: {
-                description: 'Lookup',
-                parameters: {
-                  type: 'object',
-                  properties: { query: { type: 'string' } },
-                  required: ['query'],
-                },
-              },
-            },
-            usageControl: 'force',
-          },
-        ],
-      },
-      context({ shouldCancelExecution })
-    )
-    .then(
-      () => {
-        throw new Error('Cancelled native turn unexpectedly succeeded')
-      },
-      (error: unknown) => error
-    )
-  expect(failure).toBeInstanceOf(Error)
-  expect(cancelled).toBe(true)
-  expect(await shouldCancelExecution.mock.results.at(-1)?.value).toBe(true)
-  expect(state.model.doGenerateCalls).toHaveLength(1)
-  expect(executeTool).toHaveBeenCalledOnce()
-  expect(state.payloads).toHaveLength(1)
-  const facts = getInferenceFacts(failure)
-  if (!facts) throw new Error('Expected the actual Agent failure facts')
-  expect(facts).toMatchObject({
-    model: 'openai/gpt-4.1',
-    tokens: { prompt: 2, completion: 3, total: 5 },
-    cost: { status: 'unavailable' },
-    unavailableToolCosts: 1,
-    nativePayload: { purpose: 'workflow-agent' },
-  })
-  const activeTools = facts.toolResults
-  if (!activeTools || activeTools.length !== 1)
-    throw new Error('Expected the single completed failed-tool occurrence')
-  expect(getInferenceFacts(activeTools[0])).toBe(toolFacts)
-  const payload = state.payloads[0]
-  expect(payload.tools).toHaveLength(1)
-  const run = payload.tools[0]
-  expect(run).toMatchObject({
-    id: 'custom_lookup',
-    success: false,
-    toolCallId: expect.any(String),
-    error: toolFailure.message,
-  })
-  // The real createAgentToolSet catch retained the SAME object; the writer seam has not projected it.
-  expect(run.result).toBe(toolFailure)
-  expect(getInferenceFacts(run.result)).toBe(toolFacts)
-  expect(payload.toolResultIndexes).toEqual([0])
-  const functionalChild = {
-    toolCallId: run.toolCallId,
-    name: 'Error',
-    message: toolFailure.message,
-    model: 'native/tool',
-    business,
-  }
-  // The extractor's active plain copy keeps its SAME private facts, not raw Error diagnostics/reports.
-  expect(activeTools[0]).not.toBe(toolFailure)
-  expect(Object.getPrototypeOf(activeTools[0])).toBe(Object.prototype)
-  expect(activeTools[0]).toMatchObject(functionalChild)
-  expect(getInferenceFacts(activeTools[0])?.tokens).toEqual({ total: 9 })
-  for (const field of ['tokens', 'cost', 'stack', 'cause'])
-    expect(activeTools[0]).not.toHaveProperty(field)
-  const projectedActiveTools = checkpointFunctionalOutput(activeTools)
-  const projectedFailure = checkpointFunctionalOutput(failure)
-  const coldActiveTools = JSON.parse(JSON.stringify(projectedActiveTools))
-  const coldFailure = JSON.parse(JSON.stringify(projectedFailure))
-  expect(coldActiveTools).toEqual([functionalChild])
-  expect(coldFailure).toMatchObject({
-    name: 'Error',
-    message: expect.any(String),
-    model: 'openai/gpt-4.1',
-    toolResults: [functionalChild],
-  })
-  for (const copy of [coldActiveTools[0], coldFailure.toolResults[0]]) {
-    for (const field of ['tokens', 'cost', 'stack', 'cause']) expect(copy).not.toHaveProperty(field)
-    expect(copy.message).toBe(toolFailure.message)
-    expect(copy.business).toEqual(business)
-    expect(getInferenceFacts(copy)).toBeUndefined()
-  }
-  for (const field of ['tokens', 'cost', 'stack', 'cause'])
-    expect(coldFailure).not.toHaveProperty(field)
-  expect(getInferenceFacts(projectedActiveTools[0])).toBeUndefined()
-  expect(getInferenceFacts(projectedFailure)).toBeUndefined()
-  expect(getInferenceFacts(coldFailure)).toBeUndefined()
-  const activeSpan = { id: 'failed-agent-native-turn', inference: facts }
-  for (const summary of [
-    calculateCostSummary([activeSpan]),
-    calculateCostSummary([activeSpan, activeSpan]),
-  ]) {
-    expect(summary.totalTokens).toBe(14)
-    expect(summary.models['openai/gpt-4.1'].tokens.total).toBe(5)
-    expect(summary.models['native/tool'].tokens.total).toBe(9)
-    expect(summary.status).toBe('unavailable')
-    expect(summary.totalCost).toBeUndefined()
-    expect(summary.availableTotal).toBeUndefined()
-  }
-  const projected = checkpointFunctionalOutput(payload)
-  const cold = JSON.parse(JSON.stringify(projected))
-  expect(projected.tools[0].result).not.toBe(toolFailure)
-  expect(Object.getPrototypeOf(projected.tools[0].result)).toBe(Object.prototype)
-  expect(cold.toolResultIndexes).toEqual([0])
-  expect(cold.tools[0]).toMatchObject({
-    success: false,
-    toolCallId: run.toolCallId,
-    error: toolFailure.message,
-  })
-  expect(cold.tools[0].result).toEqual({
-    name: 'Error',
-    message: toolFailure.message,
-    model: 'native/tool',
-    business,
-  })
-  for (const field of ['tokens', 'cost', 'stack', 'cause'])
-    expect(cold.tools[0].result).not.toHaveProperty(field)
-  expect(getInferenceFacts(projected.tools[0].result)).toBeUndefined()
-  expect(getInferenceFacts(cold.tools[0].result)).toBeUndefined()
-  expect(getInferenceFacts(cold.tools[0])).toBeUndefined()
-  expect(toolFailure.message).toBe('Lookup failed after completed native work')
-  expect(toolFailure.stack).toBe(originalStack)
-  expect(Object.getOwnPropertyDescriptor(toolFailure, 'stack')).toEqual(originalStackDescriptor)
-  expect(toolFailure.cause).toBe(cause)
-  expect(toolFailure.business).toBe(business)
-  expect(toolFailure.tokens.total).toBe(9)
-  expect(getInferenceFacts(toolFailure)).toBe(toolFacts)
-  // Projection and cold reading perform no new model/tool/payload work.
-  expect(state.model.doGenerateCalls).toHaveLength(1)
-  expect(executeTool).toHaveBeenCalledOnce()
-  expect(state.payloads).toHaveLength(1)
-})
 
 const liveToolImage = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6uO8AAAAASUVORK5CYII=',
@@ -1587,13 +1112,13 @@ function liveCustomTool() {
 }
 
 it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stream, allowed }))))(
-  'guards a newly completed Agent tool result before another installed native step (stream=$stream,allowed=$allowed)',
+  'validates canonical MCP image data before the next Agent step (stream=$stream,allowed=$allowed)',
   async ({ stream, allowed }) => {
     state.trackAdmissions = true
     state.model = liveToolModel()
-    const url = allowed
-      ? 'https://public.fixture/live-agent.png'
-      : 'https://private.fixture/api/files/serve/hidden.png?context=copilot'
+    const data = allowed
+      ? liveToolImage.toString('base64')
+      : 'https://example.invalid/not-base64.png'
     const toolFacts = {
       tokens: { total: 9 },
       cost: { total: 0.004, status: 'reported' as const },
@@ -1603,7 +1128,7 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
       {
         content: [
           { type: 'text', text: 'Exact tool text' },
-          { type: 'image', data: url, mimeType: 'image/png' },
+          { type: 'image', data, mimeType: 'image/png' },
         ],
         business: { value: 17 },
         tokens: toolFacts.tokens,
@@ -1612,13 +1137,7 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
       toolFacts
     )
     vi.mocked(executeTool).mockResolvedValue({ success: true, output: raw })
-    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      expect(String(input)).toBe('https://public.fixture/live-agent.png')
-      expect(init?.redirect).toBe('manual')
-      return new Response(new Uint8Array(liveToolImage), {
-        headers: { 'content-type': 'image/png' },
-      })
-    })
+    const fetcher = vi.fn()
     vi.stubGlobal('fetch', fetcher)
     let output: any
     let failure: unknown
@@ -1651,16 +1170,8 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
     expect(calls).toHaveLength(allowed ? 2 : 1)
     const scope = state.finance.mock.calls[0][0] as { signal: AbortSignal }
     expect(scope.signal.aborted).toBe(!allowed)
-    expect(fetcher).toHaveBeenCalledTimes(allowed ? 1 : 0)
-    expect(state.payloads).toHaveLength(1)
-    const saved = state.payloads[0]
-    expect(saved.tools).toHaveLength(1)
-    expect(saved.tools[0]).toMatchObject({ success: true, id: 'custom_lookup' })
-    expect(saved.tools[0].result).toBe(raw)
-    expect(getInferenceFacts(saved.tools[0].result)).toBe(toolFacts)
-    expect(saved.toolResultIndexes).toEqual([0])
-    expect(raw.content[1].data).toBe(url)
-    expect(JSON.stringify(saved.messages)).toContain('Known before media delivery')
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(raw.content[1].data).toBe(data)
     const active = allowed ? output : failure
     expect(active).toMatchObject({
       model: 'openai/gpt-4.1',
@@ -1679,7 +1190,6 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
       expect(failure).toBeUndefined()
       expect(output.content).toBe('Known before media deliveryVerified media answer')
       const prompt = JSON.stringify(calls[1].prompt)
-      expect(prompt).not.toContain(url)
       expect(prompt).toContain(liveToolImage.toString('base64'))
       expect(prompt).toContain('Exact tool text')
       expect(prompt).not.toContain('"total":9')
@@ -1687,13 +1197,13 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
   }
 )
 
-it.each(['actor', 'owner-cancel', 'native-cancel'])(
-  'refuses actual promoted tool media with invalid live authority (%s), retaining the effect once',
+it.each(['owner-cancel', 'native-cancel'])(
+  'stops cancelled tool results before the next model step (%s), retaining the completed effect',
   async (failure) => {
     const owner = new AbortController()
     const native = new AbortController()
     const raw = {
-      content: [{ type: 'image', data: 'https://public.fixture/never.png', mimeType: 'image/png' }],
+      content: [{ type: 'image', data: liveToolImage.toString('base64'), mimeType: 'image/png' }],
     }
     const effect = vi.fn(async () => {
       if (failure === 'owner-cancel') owner.abort(new Error('Owner cancelled after effect'))
@@ -1711,7 +1221,7 @@ it.each(['actor', 'owner-cancel', 'native-cancel'])(
           executeFunction: effect,
         },
       ],
-      context({ userId: failure === 'actor' ? undefined : 'user-1' }),
+      context({ userId: 'user-1' }),
       undefined,
       { signal: owner.signal, abort: (reason) => owner.abort(reason) }
     )
@@ -1759,7 +1269,6 @@ it.each(['ordinary-json', 'nested-mcp-wrapper'])(
     expect(state.admissions).toHaveBeenCalledTimes(2)
     expect(executeTool).toHaveBeenCalledOnce()
     expect(fetcher).not.toHaveBeenCalled()
-    expect(state.payloads[0].tools[0].result).toBe(raw)
     expect(JSON.stringify(state.model.doGenerateCalls[1].prompt)).toContain(url)
   }
 )

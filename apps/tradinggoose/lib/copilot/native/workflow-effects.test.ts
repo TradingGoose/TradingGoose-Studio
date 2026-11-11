@@ -49,17 +49,6 @@ function pending(): Pending {
       workflow_input: { symbol: 'AAPL' },
     },
     stage: 'result',
-    financialBinding: {
-      namespace: 'billing',
-      key: 'key',
-      fingerprint: 'fp',
-      actorUserId: 'member',
-      workspaceId: null,
-      workflowId: null,
-      runId: 'run',
-      purpose: 'copilot',
-    },
-    financialOccurrence: { stepNumber: 3, retryCount: 0 },
   }
 }
 function body() {

@@ -9,6 +9,7 @@ import {
   hasAcceptedLiveMutationAfterMessage,
 } from '@/lib/copilot/chat-replay-safety'
 import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
+import type { ImagePart } from '@/lib/copilot/native/contract'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
@@ -19,11 +20,10 @@ import type {
   CopilotDraft,
   CopilotMessage as CopilotMessageType,
   CopilotSendRuntimeContext,
-  MessageFileAttachment,
 } from '@/stores/copilot/types'
 import { UserInput, type UserInputRef } from '../user-input/user-input'
 import { buildAssistantMessageSegments } from './components/assistant-message-segments'
-import { FileAttachmentDisplay, NativeFileDisplay } from './components/file-display'
+import { NativeFileDisplay } from './components/file-display'
 import { OptionsSelector, parseSpecialTags } from './components/options-selector'
 import { SmoothStreamingText, StreamingIndicator } from './components/smooth-streaming'
 import { ThinkingGroup } from './components/thinking-group'
@@ -227,7 +227,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const handleSubmitEdit = async (
       editedMessage: string,
-      fileAttachments?: MessageFileAttachment[],
+      images?: ImagePart[],
       contexts?: ChatContext[]
     ) => {
       if (!editedMessage.trim()) return false
@@ -244,16 +244,16 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       }
 
       // Proceed with the edit
-      return performEdit(editedMessage, fileAttachments, contexts)
+      return performEdit(editedMessage, images, contexts)
     }
 
     const performEdit = async (
       editedMessage: string,
-      fileAttachments?: MessageFileAttachment[],
+      images?: ImagePart[],
       contexts?: ChatContext[]
     ) => {
       if (
-        fileAttachments?.length ||
+        images?.length ||
         message.contentBlocks?.some((block) => block.type === 'file') ||
         stableStringifyJsonValue(contexts ?? []) !==
           stableStringifyJsonValue(message.contexts ?? [])
@@ -528,22 +528,11 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 accessLevel={accessLevel}
                 onAccessLevelChange={setAccessLevel}
                 panelWidth={panelWidth}
-                hideContextUsage={true}
                 clearOnSubmit={false}
               />
             </div>
           ) : (
             <div className='w-full min-w-0'>
-              {/* File attachments displayed above the message box */}
-              {message.fileAttachments && message.fileAttachments.length > 0 && (
-                <div className='mb-1.5 flex flex-wrap gap-1.5'>
-                  <FileAttachmentDisplay
-                    fileAttachments={message.fileAttachments}
-                    workspaceId={currentChat?.workspaceId}
-                  />
-                </div>
-              )}
-
               {/* Message box - styled like input, clickable to edit */}
               <div
                 data-message-box

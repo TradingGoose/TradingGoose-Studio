@@ -4,7 +4,6 @@ import {
   type QueryClient,
   useQuery,
 } from '@tanstack/react-query'
-import { monetary } from '@tradinggoose/billing/money'
 
 /**
  * Query key factories for subscription-related queries
@@ -69,7 +68,7 @@ export function useUsageLimitData() {
  * Update usage limit mutation
  */
 interface UpdateUsageLimitParams {
-  limit: string
+  limit: number
 }
 
 export const subscriptionMutationOptions = {
@@ -79,7 +78,7 @@ export const subscriptionMutationOptions = {
         const response = await fetch('/api/usage?context=user', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ limit: monetary(limit) }),
+          body: JSON.stringify({ limit }),
         })
 
         if (!response.ok) {
@@ -88,6 +87,52 @@ export const subscriptionMutationOptions = {
         }
 
         return response.json()
+      },
+      onMutate: async ({ limit }) => {
+        await queryClient.cancelQueries({ queryKey: subscriptionKeys.user() })
+        await queryClient.cancelQueries({ queryKey: subscriptionKeys.usage() })
+
+        const previousSubscriptionData = queryClient.getQueryData(subscriptionKeys.user())
+        const previousUsageData = queryClient.getQueryData(subscriptionKeys.usage())
+
+        queryClient.setQueryData(subscriptionKeys.user(), (old: any) => {
+          if (!old) return old
+          const currentUsage = old.data?.usage?.current || 0
+          const newPercentUsed = limit > 0 ? (currentUsage / limit) * 100 : 0
+
+          return {
+            ...old,
+            data: {
+              ...old.data,
+              usage: {
+                ...old.data?.usage,
+                limit,
+                percentUsed: newPercentUsed,
+              },
+            },
+          }
+        })
+
+        queryClient.setQueryData(subscriptionKeys.usage(), (old: any) => {
+          if (!old) return old
+          return {
+            ...old,
+            data: {
+              ...old.data,
+              currentLimit: limit,
+            },
+          }
+        })
+
+        return { previousSubscriptionData, previousUsageData }
+      },
+      onError: (_err, _variables, context) => {
+        if (context?.previousSubscriptionData) {
+          queryClient.setQueryData(subscriptionKeys.user(), context.previousSubscriptionData)
+        }
+        if (context?.previousUsageData) {
+          queryClient.setQueryData(subscriptionKeys.usage(), context.previousUsageData)
+        }
       },
       onSettled: () =>
         Promise.all([

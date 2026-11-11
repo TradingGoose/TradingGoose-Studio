@@ -1,4 +1,4 @@
-import type { StudioNativeTarget } from '@/lib/copilot/native/studio-execution'
+import type { CopilotToolTarget } from '@/lib/copilot/native/contract'
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import { isExecutionResult } from '@/lib/workflows/execution-result'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
@@ -7,7 +7,7 @@ import type { QueuedWorkflowTriggerType } from '@/services/queue'
 
 type QueuedWorkflowExecutionRequest = {
   workflowId: string
-  native?: StudioNativeTarget
+  native?: CopilotToolTarget
   executionId?: string
   input?: unknown
   triggerType: QueuedWorkflowTriggerType

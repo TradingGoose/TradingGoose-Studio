@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { WorkflowMemoryError } from '@/lib/mastra/memory-budget'
+import { WorkflowMemoryError } from '@/lib/mastra/errors'
 import { memoryAddTool } from '@/tools/memory/add'
 import { DELETE, GET as GET_BY_ID } from './[id]/route'
 import { GET, POST } from './route'
@@ -55,8 +55,7 @@ describe('four native Memory product operations', () => {
       'workflow-1',
       'chat',
       messages[0],
-      expect.any(AbortSignal),
-      expect.any(Number)
+      expect.any(AbortSignal)
     )
   })
   it('accepts a literal empty-string entry through the actual Add request adapter', async () => {
@@ -83,14 +82,12 @@ describe('four native Memory product operations', () => {
       expect.anything(),
       'workflow-1',
       'chat',
-      expect.any(AbortSignal),
-      expect.any(Number)
+      expect.any(AbortSignal)
     )
     expect(mocks.list).toHaveBeenCalledWith(
       expect.anything(),
       'workflow-1',
-      expect.any(AbortSignal),
-      expect.any(Number)
+      expect.any(AbortSignal)
     )
   })
   it('rejects retired list options, invalid roles and nonstring content before native IO', async () => {
@@ -114,17 +111,16 @@ describe('four native Memory product operations', () => {
     expect(mocks.list).not.toHaveBeenCalled()
     expect(mocks.append).not.toHaveBeenCalled()
   })
-  it('keeps auth and busy errors actionable with no partial body', async () => {
+  it('returns authentication and missing-memory errors', async () => {
     mocks.auth.mockResolvedValueOnce({ success: false })
     expect((await GET(request('GET'))).status).toBe(401)
     expect(mocks.list).not.toHaveBeenCalled()
-    mocks.get.mockRejectedValueOnce(new WorkflowMemoryError('Complete read failed; retry', 503))
+    mocks.get.mockRejectedValueOnce(new WorkflowMemoryError('Memory not found', 404))
     const response = await GET_BY_ID(request('GET'), context)
-    expect(response.status).toBe(503)
-    expect(response.headers.get('Retry-After')).toBe('1')
+    expect(response.status).toBe(404)
     expect(await response.json()).toEqual({
       success: false,
-      error: { message: 'Complete read failed; retry' },
+      error: { message: 'Memory not found' },
     })
   })
 })

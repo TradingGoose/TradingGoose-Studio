@@ -150,6 +150,7 @@ export interface ProviderTiming {
 
 export interface TraceSpan {
   inference?: import('@/lib/mastra/result').InferenceFacts
+  agentHistory?: import('@mastra/core/agent/message-list').MastraDBMessage[]
   id: string
   name: string
   type: string

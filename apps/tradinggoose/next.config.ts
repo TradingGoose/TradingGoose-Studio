@@ -129,7 +129,6 @@ const nextConfig: NextConfig = {
     '@t3-oss/env-nextjs',
     '@t3-oss/env-core',
     '@tradinggoose/db',
-    '@tradinggoose/billing',
   ],
   async headers() {
     const apiRouteHeaders = [

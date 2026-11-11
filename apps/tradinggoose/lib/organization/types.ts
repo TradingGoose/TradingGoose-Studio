@@ -1,6 +1,3 @@
-import type { DecimalAmount } from '@tradinggoose/billing/money'
-import type { BillingTierSummary } from '@/lib/billing/types'
-
 export interface User {
   name?: string
   email?: string
@@ -33,7 +30,6 @@ export interface Organization {
 
 export interface Subscription {
   id: string
-  billingEnabled?: boolean
   status: string
   seats?: number
   referenceType?: 'user' | 'organization'
@@ -42,7 +38,6 @@ export interface Subscription {
   periodEnd?: number | Date
   trialEnd?: number | Date
   metadata?: any
-  tier?: BillingTierSummary | null
   [key: string]: unknown
 }
 
@@ -70,8 +65,8 @@ export interface MemberUsageData {
   userId: string
   userName: string
   userEmail: string
-  currentUsage: DecimalAmount | null
-  usageLimit: DecimalAmount | null
+  currentUsage: number
+  usageLimit: number
   percentUsed: number
   isOverLimit: boolean
   role: string
@@ -82,22 +77,15 @@ export interface MemberUsageData {
 export interface OrganizationBillingData {
   organizationId: string
   organizationName: string
-  billingEnabled?: boolean
-  subscriptionTier: BillingTierSummary | null
+  subscriptionTierName: string
   subscriptionStatus: string
-  seatPriceUsd: DecimalAmount | null
-  seatCount: number | null
-  seatMaximum: number | null
-  seatMode: 'fixed' | 'adjustable'
   totalSeats: number
   usedSeats: number
   seatsCount: number
-  totalCurrentUsage: DecimalAmount
-  totalUsageLimit: DecimalAmount | null
-  warningThresholdPercent: number
-  isWarning: boolean
-  isExceeded: boolean
-  minimumUsageLimit: DecimalAmount
+  totalCurrentUsage: number
+  totalUsageLimit: number
+  minimumUsageLimit: number
+  averageUsagePerMember: number
   billingPeriodStart: string | null
   billingPeriodEnd: string | null
   members?: MemberUsageData[]

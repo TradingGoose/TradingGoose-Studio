@@ -78,9 +78,7 @@ function toOrganizationBillingPayload(
     totalUsageLimit: rawBillingData.totalUsageLimit,
     warningThresholdPercent: rawBillingData.warningThresholdPercent,
     minimumUsageLimit: rawBillingData.minimumUsageLimit,
-    percentUsed: rawBillingData.percentUsed,
-    isWarning: rawBillingData.isWarning,
-    isExceeded: rawBillingData.isExceeded,
+    averageUsagePerMember: rawBillingData.averageUsagePerMember,
     billingPeriodStart: rawBillingData.billingPeriodStart?.toISOString() || null,
     billingPeriodEnd: rawBillingData.billingPeriodEnd?.toISOString() || null,
     members: rawBillingData.members.map((member) => ({

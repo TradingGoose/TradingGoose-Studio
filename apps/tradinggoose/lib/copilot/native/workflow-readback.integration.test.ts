@@ -1,17 +1,12 @@
 /** @vitest-environment node */
 /**
  * Actual workflow queue route, local pending authorization, and canonical result readback.
- * Session, workspace/entity DAL, enqueue, archive bytes, and financial verification
+ * Session, workspace/entity DAL, and enqueue
  * are controlled seams. No external Copilot server or provider is involved.
  */
 
-import type { FinancialBinding } from '@tradinggoose/billing'
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  canonicalLogFixture,
-  hydrateCanonicalLogFixture,
-} from '@/lib/execution/__test-utils__/canonical-log-fixture'
 import type { ServerPending as Pending } from './target'
 
 const m = vi.hoisted(() => {
@@ -39,9 +34,6 @@ const m = vi.hoisted(() => {
     enqueue: vi.fn(),
     pending: vi.fn(),
     claims: new Set<string>(),
-    verify: vi.fn(),
-    hydrate: vi.fn(),
-    duringHydration: vi.fn(),
     workflowAccess: vi.fn(),
     forbiddenEffect: vi.fn(),
     queries: vi.fn(),
@@ -138,19 +130,8 @@ vi.mock('@/lib/copilot/agent/state', () => ({
     m.claims.add(key)
   },
 }))
-vi.mock('@/lib/billing/native-finance', () => ({ verifyFinancialAcceptance: m.verify }))
-vi.mock('@/lib/workflow-archive/functional', () => ({
-  hydrateExecutionPayload: (...args: unknown[]) => m.hydrate(...args),
-  assertRetainedLogAccess: () => {
-    throw new Error('Canonical readback must supply its repeated authorization callback')
-  },
-}))
 vi.mock('@/lib/redis', () => ({ getRedisClient: () => null, getRedisStorageMode: () => 'local' }))
 vi.mock('@/lib/copilot/tools/server/router', () => ({ routeExecution: m.forbiddenEffect }))
-vi.mock('@/lib/copilot/tools/server/review-acceptance', () => ({
-  acceptServerManagedToolReview: m.forbiddenEffect,
-  stageServerManagedToolReview: m.forbiddenEffect,
-}))
 vi.mock('@/lib/copilot/tools/server/workflow/check-deployment-status', () => ({
   checkDeploymentStatusServerTool: { execute: m.forbiddenEffect },
 }))
@@ -207,29 +188,6 @@ function originalPending(): Pending {
       workflow_input: { literal: '  <working_memory> business </working_memory>\n' },
     },
     stage: 'result',
-    financialBinding: {
-      namespace: 'billing-usage:copilot-source-fixture',
-      key: `invocation:${NATIVE_RUN}`,
-      fingerprint: 'original-copilot-fingerprint',
-      actorUserId: ACTOR,
-      workspaceId: m.state.conversationWorkspaceId,
-      workflowId: null,
-      runId: NATIVE_RUN,
-      purpose: 'copilot',
-    },
-    financialOccurrence: { runId: NATIVE_RUN, stepNumber: 3, retryCount: 0 },
-  }
-}
-function originalWorkflowBinding(): FinancialBinding {
-  return {
-    namespace: 'billing-usage:workflow-source-fixture',
-    key: `invocation:${EXECUTION}`,
-    fingerprint: 'original-workflow-fingerprint',
-    actorUserId: ACTOR,
-    workspaceId: 'workspace-b',
-    workflowId: WORKFLOW,
-    runId: EXECUTION,
-    purpose: 'workflow-execution',
   }
 }
 function queueBody() {
@@ -274,7 +232,7 @@ async function readback(context?: { workspaceId: string }, signal?: AbortSignal)
 function terminal(failed = false, logOnly = false) {
   const queued = m.state.pendingRows[0]
   if (!queued) throw new Error('Queue must run before the terminal source seam')
-  const row = canonicalLogFixture({
+  const row = {
     id: 'original-log',
     executionId: queued.id,
     workflowId: queued.workflowId,
@@ -282,7 +240,7 @@ function terminal(failed = false, logOnly = false) {
     workflowSummary: { id: WORKFLOW },
     level: failed ? 'error' : 'info',
     startedAt: new Date('2026-11-09T00:00:00.000Z'),
-    endedAt: new Date('2026-11-09T00:00:01.000Z'),
+    endedAt: new Date('2026-11-09T00:00:01.000Z') as Date | null,
     totalDurationMs: 1000,
     executionData: {
       environment: {
@@ -291,14 +249,13 @@ function terminal(failed = false, logOnly = false) {
         workflowId: queued.workflowId,
         executionId: queued.id,
       },
-      billing: { binding: originalWorkflowBinding() },
       finalOutput: {
         literal: '  <working_memory> business </working_memory>\n',
         nested: { cost: 'business' },
       },
       ...(failed ? { errorMessage: 'Original workflow failed after known work' } : {}),
     },
-  })
+  }
   m.state.logRows.push(row)
   if (logOnly) m.state.pendingRows.length = 0
   return row
@@ -352,7 +309,6 @@ beforeEach(() => {
       })
     return {
       pendingExecutionId: input.pendingExecutionId,
-      billingScopeId: 'source-fixture',
       inserted,
     }
   })
@@ -360,16 +316,6 @@ beforeEach(() => {
   m.pending
     .mockReset()
     .mockImplementation(async () => (m.state.pendingValue ? [m.state.pendingValue] : []))
-  // Explicit verification seam: these values are not actual receipts/monetary evidence.
-  m.verify
-    .mockReset()
-    .mockResolvedValue({ accepted: true, appliedUsd: '0.001234', modelUsd: 'unavailable' })
-  m.duringHydration.mockReset().mockResolvedValue(undefined)
-  m.hydrate.mockReset().mockImplementation(async (row, authorize) => {
-    await authorize()
-    await m.duringHydration()
-    return hydrateCanonicalLogFixture(row, authorize)
-  })
   m.forbiddenEffect.mockReset().mockImplementation(() => {
     throw new Error('No business effect/review/deployment/provider redispatch is allowed')
   })
@@ -391,19 +337,13 @@ describe('local workflow execution and authoritative readback', () => {
           output: { literal: '  <working_memory> business </working_memory>\n' },
         },
       })
-      expect(m.verify).toHaveBeenCalledWith(original.financialBinding, original.financialOccurrence)
-      expect(m.verify).toHaveBeenCalledWith(originalWorkflowBinding(), {
-        stepNumber: 0,
-        retryCount: 0,
-        runId: EXECUTION,
-      })
       expect(m.state.pendingValue).toEqual(original)
       expect((await queue()).status).toBe(409)
       expect(m.enqueue).toHaveBeenCalledOnce()
       expect(m.forbiddenEffect).not.toHaveBeenCalled()
     }
   )
-  it.each([false, true])('preserves failed output with log-only fallback=%s', async (logOnly) => {
+  it.each([false, true])('preserves failed output after queue-row cleanup=%s', async (logOnly) => {
     expect((await queue()).status).toBe(202)
     terminal(true, logOnly)
     expect(await readback()).toMatchObject({
@@ -427,24 +367,13 @@ describe('local workflow execution and authoritative readback', () => {
     expect(m.workspace).toHaveBeenCalledWith('workspace-b', ACTOR)
     expect(m.workspace).toHaveBeenCalledWith('workspace-c', ACTOR)
     m.state.allowedWorkspaces.delete('workspace-b')
-    m.hydrate.mockClear()
     await expect(readback()).rejects.toMatchObject({ status: 403 })
-    expect(m.hydrate).not.toHaveBeenCalled()
   })
   it('rejects revoked conversation access before reading execution output', async () => {
     expect((await queue()).status).toBe(202)
     terminal()
     m.state.allowedWorkspaces.delete('workspace-a')
     await expect(readback()).rejects.toMatchObject({ status: 403 })
-    expect(m.hydrate).not.toHaveBeenCalled()
-  })
-  it('rechecks original workspace authorization during canonical payload hydration', async () => {
-    expect((await queue()).status).toBe(202)
-    terminal()
-    m.state.workflowWorkspaceId = 'workspace-c'
-    m.duringHydration.mockImplementationOnce(() => m.state.allowedWorkspaces.delete('workspace-b'))
-    await expect(readback()).rejects.toMatchObject({ status: 403 })
-    expect(m.enqueue).toHaveBeenCalledOnce()
   })
   it.each(['workspace', 'actor'])(
     'rejects terminal log %s disagreement before payload access',
@@ -454,59 +383,24 @@ describe('local workflow execution and authoritative readback', () => {
       if (field === 'workspace') row.workspaceId = 'workspace-c'
       else row.executionData.environment.userId = 'other-actor'
       await expect(readback()).rejects.toMatchObject({ status: 403 })
-      expect(m.hydrate).not.toHaveBeenCalled()
     }
   )
-  it('rejects a foreign actor through the log-only fallback', async () => {
+  it('rejects a foreign actor after queue-row cleanup', async () => {
     expect((await queue()).status).toBe(202)
     const row = terminal(false, true)
     row.executionData.environment.userId = 'other-actor'
     await expect(readback()).rejects.toMatchObject({ status: 403 })
-    expect(m.hydrate).not.toHaveBeenCalled()
   })
   it('rejects conflicting business workspace context', async () => {
     expect((await queue()).status).toBe(202)
     terminal()
     await expect(readback({ workspaceId: 'workspace-c' })).rejects.toMatchObject({ status: 403 })
-    expect(m.hydrate).not.toHaveBeenCalled()
   })
-  it('requires original workflow accounting even after accepted Copilot accounting', async () => {
-    expect((await queue()).status).toBe(202)
-    terminal()
-    m.verify.mockImplementation(async (binding: FinancialBinding) => {
-      if (binding.purpose === 'workflow-execution')
-        throw new Error('Original workflow receipt unavailable')
-      return { accepted: true, appliedUsd: '0.001234', modelUsd: 'unavailable' }
-    })
-    await expect(readback()).rejects.toThrow('Original workflow receipt unavailable')
-    expect(m.hydrate).not.toHaveBeenCalled()
-  })
-  it('rejects nonterminal logs and unavailable canonical payload without replaying', async () => {
+  it('rejects nonterminal logs without replaying', async () => {
     expect((await queue()).status).toBe(202)
     const row = terminal()
     row.endedAt = null
     await expect(readback()).rejects.toMatchObject({ status: 409 })
-    row.endedAt = new Date('2026-11-09T00:00:01.000Z')
-    m.hydrate.mockRejectedValueOnce(new Error('Canonical payload digest mismatch'))
-    await expect(readback()).rejects.toThrow('Canonical payload digest mismatch')
     expect(m.enqueue).toHaveBeenCalledOnce()
-  })
-  it('rejects changed Copilot financial scope without substituting workflow accounting', async () => {
-    expect((await queue()).status).toBe(202)
-    terminal()
-    m.state.pendingValue!.financialBinding.workspaceId = 'workspace-b'
-    await expect(readback()).rejects.toMatchObject({ status: 403 })
-    expect(m.hydrate).not.toHaveBeenCalled()
-  })
-  it('stops cancelled hydration without repeating the queued effect', async () => {
-    expect((await queue()).status).toBe(202)
-    terminal()
-    const controller = new AbortController()
-    m.duringHydration.mockImplementationOnce(() => controller.abort())
-    await expect(readback(undefined, controller.signal)).rejects.toMatchObject({
-      name: 'AbortError',
-    })
-    expect(m.enqueue).toHaveBeenCalledOnce()
-    expect(m.forbiddenEffect).not.toHaveBeenCalled()
   })
 })

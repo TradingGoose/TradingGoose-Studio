@@ -1,12 +1,5 @@
 import { z } from 'zod'
 
-// Generic envelope used by client to validate API responses
-export const ExecuteResponseSuccessSchema = z.object({
-  success: z.literal(true),
-  result: z.unknown(),
-  proof: z.string().optional(),
-})
-
 // dashboard widget catalog / metadata
 export const WidgetCatalogItemSchema = z.object({
   widgetKey: z.string(),

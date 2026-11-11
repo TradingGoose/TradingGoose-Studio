@@ -3,6 +3,7 @@ import { stripe } from '@better-auth/stripe'
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
 import { betterAuth, parseState } from 'better-auth'
+import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import {
@@ -29,20 +30,24 @@ import {
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
-import { getEffectiveCurrentPeriodCost, handleNewUser } from '@/lib/billing/core/usage'
-import { financialDrizzleAdapter } from '@/lib/billing/financial-adapter'
+import { handleNewUser } from '@/lib/billing/core/usage'
+import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { createStripeUserCustomer } from '@/lib/billing/stripe-customers'
 import { hydrateSubscriptionsWithTiers, requireBillingTierById } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
+import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { handleManualEnterpriseSubscription } from '@/lib/billing/webhooks/enterprise'
 import {
   handleInvoiceFinalized,
   handleInvoicePaymentFailed,
   handleInvoicePaymentSucceeded,
 } from '@/lib/billing/webhooks/invoices'
-import { handleStripeSubscriptionDeleted } from '@/lib/billing/webhooks/subscription'
+import {
+  handleStripeSubscriptionDeleted,
+  handleSubscriptionCreated,
+} from '@/lib/billing/webhooks/subscription'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -143,8 +148,8 @@ async function handleCompletedSubscription(input: {
   stripeSubscription: Stripe.Subscription
 }) {
   const subscription = await syncBillingTierAndRequireSubscription(input)
-  if (subscription.referenceType === 'user')
-    await getEffectiveCurrentPeriodCost(subscription.referenceId)
+  await handleSubscriptionCreated(subscription)
+  await syncSubscriptionUsageLimits(subscription)
   await sendBillingTierWelcomeEmail(subscription)
 }
 
@@ -517,7 +522,10 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: { enabled: false },
   },
-  database: financialDrizzleAdapter,
+  database: drizzleAdapter(db, {
+    provider: 'pg',
+    schema,
+  }),
   session: {
     expiresIn: 30 * 24 * 60 * 60, // 30 days (how long a session can last overall)
     updateAge: 24 * 60 * 60, // 24 hours (how often to refresh the expiry)
@@ -556,19 +564,9 @@ export const auth = betterAuth({
             })
           }
 
-          try {
-            await handleNewUser(user.id)
-
-            const { billingEnabled } = await getBillingGateState()
-            if (billingEnabled) {
-              await ensureDefaultUserSubscription(user.id)
-            }
-          } catch (error) {
-            logger.error('[databaseHooks.user.create.after] Failed to initialize user stats', {
-              userId: user.id,
-              error,
-            })
-          }
+          await handleNewUser(user.id)
+          const { billingEnabled } = await getBillingGateState()
+          if (billingEnabled) await ensureDefaultUserSubscription(user.id)
 
           if (hasStripeSecretKey()) {
             try {
@@ -1807,18 +1805,14 @@ export const auth = betterAuth({
           })
 
           try {
-            if (resolvedSubscription.referenceType === 'user')
-              await getEffectiveCurrentPeriodCost(resolvedSubscription.referenceId)
+            await syncSubscriptionUsageLimits(resolvedSubscription)
           } catch (error) {
-            logger.error(
-              '[onSubscriptionUpdate] Original personal financial ledger is unavailable',
-              {
-                subscriptionId: subscription.id,
-                referenceType: resolvedSubscription.referenceType,
-                referenceId: resolvedSubscription.referenceId,
-                error,
-              }
-            )
+            logger.error('[onSubscriptionUpdate] Failed to sync usage limits', {
+              subscriptionId: subscription.id,
+              referenceType: resolvedSubscription.referenceType,
+              referenceId: resolvedSubscription.referenceId,
+              error,
+            })
           }
         },
       },
@@ -1830,7 +1824,6 @@ export const auth = betterAuth({
 
         try {
           switch (event.type) {
-            case 'invoice.paid':
             case 'invoice.payment_succeeded': {
               await handleInvoicePaymentSucceeded(event)
               break
@@ -1923,6 +1916,35 @@ export const auth = betterAuth({
         } catch (error) {
           logger.error('Error sending invitation email', { error })
         }
+      },
+      organizationHooks: {
+        beforeCreateInvitation: async ({ organization }) => {
+          const seats = await validateSeatAvailability(organization.id)
+          if (!seats.canInvite) throw new Error(seats.reason ?? 'Unable to invite member')
+        },
+        afterCreateOrganization: async ({ organization }) => {
+          await db
+            .insert(schema.organizationBillingLedger)
+            .values({ organizationId: organization.id })
+        },
+        afterAddMember: async ({ member }) => {
+          await db
+            .insert(schema.organizationMemberBillingLedger)
+            .values({
+              organizationId: member.organizationId,
+              userId: member.userId,
+            })
+            .onConflictDoNothing()
+        },
+        afterAcceptInvitation: async ({ member }) => {
+          await db
+            .insert(schema.organizationMemberBillingLedger)
+            .values({
+              organizationId: member.organizationId,
+              userId: member.userId,
+            })
+            .onConflictDoNothing()
+        },
       },
     }),
     nextCookies(),

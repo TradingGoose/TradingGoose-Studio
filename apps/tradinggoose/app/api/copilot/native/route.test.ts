@@ -30,7 +30,6 @@ vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
 vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: mocks.workflow }))
 vi.mock('@/lib/copilot/runtime-models', () => ({ COPILOT_RUNTIME_MODELS: ['test/model'] }))
 const listing = {
-  requestId: 'request',
   workspaceId: null,
   command: 'threads.list',
   page: { page: 0, perPage: 100 },
@@ -62,11 +61,11 @@ describe('built-in Copilot authenticated boundary', () => {
     expect((await post(listing)).status).toBe(200)
     expect(mocks.execute).toHaveBeenCalledWith(
       {
-        requestId: 'request',
         command: 'threads.list',
         page: listing.page,
-        scope: { actorUserId: 'actual-actor', workspaceId: null },
+        workspaceId: null,
       },
+      'actual-actor',
       expect.any(AbortSignal)
     )
   })
@@ -86,22 +85,20 @@ describe('built-in Copilot authenticated boundary', () => {
   it('processes contexts and preserves model/access selection without an external manifest', async () => {
     const body = {
       command: 'message',
-      requestId: 'request',
       workspaceId: 'workspace',
       model: 'test/model',
       input: { content: 'hello', contexts: [] },
       accessLevel: 'full',
-      stream: true,
     }
     expect((await post(body)).status).toBe(200)
     const command = mocks.execute.mock.calls[0]![0]
     expect(command).toMatchObject({
       accessLevel: 'full',
       model: 'test/model',
-      scope: { actorUserId: 'actual-actor', workspaceId: 'workspace' },
+      workspaceId: 'workspace',
       input: { content: 'hello', contexts: [] },
     })
-    expect(command).not.toHaveProperty('workspaceId')
+    expect(command).not.toHaveProperty('scope')
     expect(command).not.toHaveProperty('toolManifest')
   })
   it('checks workflow context belongs to the selected workspace before execution', async () => {
@@ -109,12 +106,10 @@ describe('built-in Copilot authenticated boundary', () => {
       (
         await post({
           command: 'message',
-          requestId: 'request',
           workspaceId: 'other',
           model: 'test/model',
           workflowId: 'workflow',
           input: { content: 'hello' },
-          stream: true,
         })
       ).status
     ).toBe(403)
@@ -122,7 +117,6 @@ describe('built-in Copilot authenticated boundary', () => {
   })
   it('transports a review decision without accepting business payloads from the browser', async () => {
     const body = {
-      requestId: 'request',
       workspaceId: null,
       command: 'tool.execute',
       target: {
@@ -133,13 +127,10 @@ describe('built-in Copilot authenticated boundary', () => {
         toolName: 'edit_workflow',
       },
       action: 'review.accept',
-      reviewToken: 'preview',
-      stream: true,
     }
     expect((await post(body)).status).toBe(200)
     expect(mocks.execute.mock.calls[0]![0]).toMatchObject({
       action: 'review.accept',
-      reviewToken: 'preview',
     })
     mocks.execute.mockClear()
     expect((await post({ ...body, result: { success: true }, originalArgs: {} })).status).toBe(422)
@@ -172,13 +163,11 @@ describe('built-in Copilot authenticated boundary', () => {
       (
         await post({
           command: 'message',
-          requestId: 'request',
           workspaceId: null,
           model: 'test/model',
           input: { content: 'Read both', contexts },
           toolContext: toolContexts[1],
           toolContexts,
-          stream: true,
         })
       ).status
     ).toBe(200)
@@ -193,15 +182,63 @@ describe('built-in Copilot authenticated boundary', () => {
       (
         await post({
           command: 'message',
-          requestId: 'request',
           workspaceId: null,
           model: 'test/model',
           input: { content: 'Read' },
           toolContexts: [{ contextEntityKind: 'workflow', contextEntityId: 'hidden' }],
-          stream: true,
         })
       ).status
     ).toBe(422)
     expect(mocks.execute).not.toHaveBeenCalled()
   })
+})
+
+it('preserves ordered native text and image content through authenticated ingress', async () => {
+  const content = [
+    { type: 'text', text: 'First image' },
+    { type: 'image', image: 'data:image/png;base64,aGVsbG8=', mediaType: 'image/png' },
+    { type: 'text', text: 'Second image' },
+    { type: 'image', image: 'data:image/jpeg;base64,d29ybGQ=', mediaType: 'image/jpeg' },
+  ]
+  expect(
+    (
+      await post({
+        command: 'message',
+        workspaceId: 'workspace',
+        model: 'test/model',
+        input: { content },
+      })
+    ).status
+  ).toBe(200)
+  expect(mocks.execute).toHaveBeenCalledWith(
+    expect.objectContaining({ workspaceId: 'workspace', input: { content, contexts: [] } }),
+    'actual-actor',
+    expect.any(AbortSignal)
+  )
+  expect(mocks.contexts).toHaveBeenCalledWith(
+    [],
+    'actual-actor',
+    'First image\nSecond image',
+    'workspace',
+    { signal: expect.any(AbortSignal) }
+  )
+})
+
+it('rejects remote image locators before context resolution or model execution', async () => {
+  expect(
+    (
+      await post({
+        command: 'message',
+        workspaceId: null,
+        model: 'test/model',
+        input: {
+          content: [
+            { type: 'image', image: 'https://private.test/source', mediaType: 'image/png' },
+          ],
+        },
+      })
+    ).status
+  ).toBe(422)
+  expect(mocks.contexts).not.toHaveBeenCalled()
+  expect(mocks.execute).not.toHaveBeenCalled()
 })

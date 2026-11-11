@@ -43,8 +43,6 @@ export function AttachedFilesGrid({
                       alt={file.name}
                       className='h-full w-full object-cover'
                     />
-                  ) : isImageMediaType(file.type) && file.key ? (
-                    <img src={file.path} alt={file.name} className='h-full w-full object-cover' />
                   ) : (
                     <span className='flex h-full w-full items-center justify-center bg-background/50'>
                       <FileTypeIcon mediaType={file.type} />

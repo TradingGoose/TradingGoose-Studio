@@ -1,9 +1,11 @@
 import { checkServerSideUsageLimits } from '@/lib/billing'
+import { getResolvedBillingSettings, isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import { getTierFunctionExecutionMultiplier } from '@/lib/billing/tiers'
+import { accrueUserUsageCost } from '@/lib/billing/usage-accrual'
 import {
-  acceptFinancialBusinessOperation,
-  admitFinancialModelStep,
-  createFinancialInvocation,
-} from '@/lib/billing/native-finance'
+  resolveWorkflowBillingContext,
+  resolveWorkspaceBillingContext,
+} from '@/lib/billing/workspace-billing'
 import {
   getLocalVmSaturationLimitMessage,
   isLocalVmSaturationLimitError,
@@ -55,6 +57,20 @@ type FunctionExecutionResponseBody = {
 export type FunctionExecutionResponse = {
   statusCode: number
   body: FunctionExecutionResponseBody
+}
+
+function calculateFunctionExecutionCost(params: {
+  executionTimeMs: number
+  functionExecutionChargeUsd: number
+  functionExecutionMultiplier: number
+}): number {
+  const executionSeconds = Math.max(params.executionTimeMs, 0) / 1000
+  const totalCost =
+    Math.max(params.functionExecutionChargeUsd, 0) *
+    executionSeconds *
+    Math.max(params.functionExecutionMultiplier, 0)
+
+  return Number(totalCost.toFixed(6))
 }
 
 export async function executeFunctionRequest(
@@ -170,15 +186,6 @@ export async function executeFunctionRequest(
     }
 
     const transpiledCode = await transpileTypeScriptCode(resolvedCode)
-    const financial = await createFinancialInvocation({
-      actorUserId: payload.userId,
-      workspaceId,
-      workflowId,
-      runId: requestId,
-      operationKey: requestId,
-      purpose: 'function-execution',
-    })
-    await admitFinancialModelStep(financial, { stepNumber: 0, retryCount: 0 })
     const runtimeExecution = await executeFunctionWithRuntimeGate({
       requestId,
       transpiledCode,
@@ -214,10 +221,44 @@ export async function executeFunctionRequest(
     const runtimeStdout = runtimeExecution.stdout || stdout
     stdout = runtimeStdout
     userCodeStartLine = runtimeExecution.userCodeStartLine
-    const financialReceipt = await acceptFinancialBusinessOperation(financial, {
-      executionTimeMs: runtimeExecution.executionTime,
-    })
-    const functionExecutionCost = financialReceipt.appliedUsd
+    let functionExecutionCost = 0
+
+    if (await isBillingEnabledForRuntime()) {
+      try {
+        const billingContext = workflowId
+          ? await resolveWorkflowBillingContext({
+              workflowId,
+              actorUserId: payload.userId,
+            })
+          : await resolveWorkspaceBillingContext({
+              workspaceId,
+              actorUserId: payload.userId,
+            })
+        const billingSettings = await getResolvedBillingSettings()
+        functionExecutionCost = calculateFunctionExecutionCost({
+          executionTimeMs: runtimeExecution.executionTime,
+          functionExecutionChargeUsd: billingSettings.functionExecutionChargeUsd,
+          functionExecutionMultiplier: getTierFunctionExecutionMultiplier(billingContext.tier),
+        })
+        if (functionExecutionCost > 0) {
+          await accrueUserUsageCost({
+            userId: payload.userId,
+            workspaceId,
+            workflowId,
+            cost: functionExecutionCost,
+          })
+        }
+      } catch (billingError) {
+        logger.error(`[${requestId}] Failed to record function execution billing`, {
+          error: billingError,
+          userId: payload.userId,
+          workflowId,
+          workspaceId,
+          executionTime: runtimeExecution.executionTime,
+          runtimeSuccess: runtimeExecution.success,
+        })
+      }
+    }
 
     if (!runtimeExecution.success) {
       logger.warn(`[${requestId}] Function execution failed after runtime attempt`, {

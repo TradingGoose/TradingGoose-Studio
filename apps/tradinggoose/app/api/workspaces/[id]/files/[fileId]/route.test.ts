@@ -241,9 +241,4 @@ describe('canonical workspace-file deletion actual route/helper/guard', () => {
     expect((await call()).status).toBe(403)
     noMutation()
   })
-  it('keeps archive lifetime exclusions even for a current writer and exact row', async () => {
-    state.rows[0].key = 'archived-enhanced-logs/private'
-    expect((await call()).status).toBe(500)
-    noMutation()
-  })
 })

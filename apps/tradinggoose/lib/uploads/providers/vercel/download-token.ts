@@ -1,6 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { env } from '@/lib/env'
-import { assertPublicStorageInput } from '@/lib/uploads/archive-boundary'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 
 const VERCEL_DOWNLOAD_AUDIENCE = 'tradinggoose-vercel-download'
@@ -38,7 +37,6 @@ export async function createVercelDownloadToken(
   claims: VercelDownloadClaims,
   expiresIn: number
 ): Promise<string> {
-  assertPublicStorageInput(claims.key, claims.context)
   const issuedAt = Math.floor(Date.now() / 1000)
   const payload: VercelDownloadTokenPayload = {
     aud: VERCEL_DOWNLOAD_AUDIENCE,
@@ -96,7 +94,6 @@ export async function verifyVercelDownloadToken(
       return null
     }
 
-    assertPublicStorageInput(payload.key, payload.context)
     return {
       key: payload.key,
       context:

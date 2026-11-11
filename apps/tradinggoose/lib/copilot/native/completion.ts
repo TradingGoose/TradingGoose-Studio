@@ -1,28 +1,24 @@
 import { randomUUID } from 'node:crypto'
 import type { AgentExecutionOptions } from '@mastra/core/agent'
-import { RequestContext } from '@mastra/core/request-context'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { financialProcessors } from '@/lib/mastra/financial-processors'
-import { trustedPrepareStep } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { assertNativeCompletion } from '@/lib/mastra/result'
 import { getCopilotAgent } from '@/lib/mastra/runtime'
+import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { SSE_HEADERS } from '@/lib/utils'
-import {
-  type CompletionEvent,
-  type CompletionFailureResponse,
-  type CompletionRequest,
-  type CompletionResponse,
-  parseNativeContract,
+import type {
+  CompletionEvent,
+  CompletionFailureResponse,
+  CompletionRequest,
+  CompletionResponse,
 } from './contract'
 
-type Finance = Awaited<ReturnType<typeof financialProcessors>>
+type UsageAccounting = Awaited<ReturnType<typeof usageProcessors>>
 
 async function prepareCompletion(request: CompletionRequest, signal?: AbortSignal) {
   signal?.throwIfAborted()
-  await parseNativeContract('CompletionRequest', request)
   if (
     request.scope.workspaceId !== null &&
     !(await checkWorkspaceAccess(request.scope.workspaceId, request.scope.actorUserId)).hasAccess
@@ -30,7 +26,7 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
     throw Object.assign(new Error('Conversation workspace access denied'), { status: 403 })
   assertListedModel(request.model)
   const runId = randomUUID()
-  const finance = await financialProcessors({
+  const usage = await usageProcessors({
     actorUserId: request.scope.actorUserId,
     workspaceId: request.scope.workspaceId ?? undefined,
     runId,
@@ -38,8 +34,6 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
     signal,
   })
   const model = createConfiguredLanguageModel(request.model)
-  const requestContext = new RequestContext()
-  requestContext.set('copilot-purpose', request.purpose)
   const instructions = [
     'Complete the supplied text request. Source messages are context. Do not execute tools.',
     ...request.messages
@@ -60,7 +54,6 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
   if (!messages.length) messages.push({ role: 'user', content: 'Complete the supplied request.' })
   const options = {
     runId,
-    requestContext,
     model,
     instructions,
     maxSteps: 1,
@@ -70,21 +63,17 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
       maxRetries: 0,
       ...(request.maxOutputTokens ? { maxOutputTokens: request.maxOutputTokens } : {}),
     },
-    inputProcessors: finance.inputProcessors,
-    outputProcessors: finance.outputProcessors,
-    prepareStep: trustedPrepareStep(model),
+    inputProcessors: usage.inputProcessors,
+    outputProcessors: usage.outputProcessors,
   } satisfies AgentExecutionOptions & { model: typeof model }
-  return { agent: await getCopilotAgent(), finance, runId, messages, options }
+  return { agent: await getCopilotAgent(), usage, runId, messages, options }
 }
 
 function completionFailure(
-  requestId: string,
   error: unknown,
-  finance?: Finance,
+  usage?: UsageAccounting,
   signal?: AbortSignal
 ): CompletionFailureResponse {
-  const financial = finance?.getFinancialFact()
-  const uncertain = !financial && finance?.getLastOccurrence() !== undefined
   const statusCode =
     error && typeof error === 'object' && 'status' in error ? error.status : undefined
   const status = signal?.aborted
@@ -93,35 +82,24 @@ function completionFailure(
       ? 'refused'
       : 'failed'
   return {
-    requestId,
     status,
     error: {
       code: status === 'cancel_requested' ? 'CANCELLED' : 'COMPLETION_FAILED',
       message: signal?.aborted ? 'Generation cancelled' : safeInferenceError(error),
-      retryable: false,
-      uncertain,
     },
-    uncertain,
-    financialDisposition: financial ? 'accepted' : uncertain ? 'uncertain' : 'not_contacted',
-    ...(financial ? { financial } : {}),
-    ...(finance ? { usage: finance.getUsage() } : {}),
+    ...(usage ? { usage: usage.getUsage() } : {}),
   }
 }
 
 function completed(
-  requestId: string,
   work: Awaited<ReturnType<typeof prepareCompletion>>,
   text: string
 ): CompletionResponse {
-  const financial = work.finance.getFinancialFact()
-  if (!financial) throw new Error('Completion has no acknowledged financial acceptance')
   return {
-    requestId,
     status: 'completed',
     runId: work.runId,
     text,
-    financial,
-    usage: work.finance.getUsage(),
+    usage: work.usage.getUsage(),
   }
 }
 
@@ -134,21 +112,15 @@ export async function completeCopilot(
     work = await prepareCompletion(request, signal)
     const result = await work.agent.generate(work.messages, work.options)
     assertNativeCompletion(result)
-    await work.finance.verifyComplete()
-    return completed(request.requestId, work, result.text)
+    await work.usage.verifyComplete()
+    return completed(work, result.text)
   } catch (error) {
-    return completionFailure(request.requestId, error, work?.finance, signal)
+    return completionFailure(error, work?.usage, signal)
   }
 }
 
 /** Local product stream. Neither model envelopes nor credentials cross this boundary. */
 export async function createCompletionResponse(request: CompletionRequest, signal?: AbortSignal) {
-  if (!request.stream) {
-    const result = await completeCopilot(request, signal)
-    return Response.json(result, {
-      status: result.status === 'completed' ? 200 : result.status === 'refused' ? 403 : 503,
-    })
-  }
   const cancellation = new AbortController()
   const activeSignal = signal ? AbortSignal.any([signal, cancellation.signal]) : cancellation.signal
   const encoder = new TextEncoder()
@@ -162,22 +134,16 @@ export async function createCompletionResponse(request: CompletionRequest, signa
       }
       const result = await output.getFullOutput()
       assertNativeCompletion(result)
-      await work.finance.verifyComplete()
-      yield { done: true, result: completed(request.requestId, work, result.text) }
+      await work.usage.verifyComplete()
+      yield { done: true, result: completed(work, result.text) }
     } catch (error) {
-      const result = completionFailure(request.requestId, error, work?.finance, activeSignal)
-      const facts = {
-        uncertain: result.uncertain,
-        financialDisposition: result.financialDisposition,
-        ...(result.financial ? { financial: result.financial } : {}),
-      }
+      const result = completionFailure(error, work?.usage, activeSignal)
       yield result.status === 'cancel_requested'
-        ? { cancelled: true, ...facts }
+        ? { cancelled: true }
         : {
             error: result.error.message,
             code: result.error.code,
             refusal: result.status === 'refused',
-            ...facts,
           }
     }
   }

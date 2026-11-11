@@ -1,4 +1,3 @@
-import { readWorkflowMemoryTransport } from '@/lib/mastra/workflow-message-source'
 import type { MemoryResponse } from '@/tools/memory/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -32,7 +31,7 @@ export const memoryGetAllTool: ToolConfig<any, MemoryResponse> = {
       data.memories.map(async (memory: any) => ({
         key: memory.key,
         type: memory.type,
-        data: await readWorkflowMemoryTransport(memory),
+        data: memory.data,
       }))
     )
 

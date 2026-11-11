@@ -2,8 +2,8 @@ vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
   createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
 }))
-vi.mock('@/lib/mastra/financial-processors', () => ({
-  financialProcessors: async (scope: unknown) => {
+vi.mock('@/lib/mastra/usage-processors', () => ({
+  usageProcessors: async (scope: unknown) => {
     native.finance(scope)
     return {
       inputProcessors: [],

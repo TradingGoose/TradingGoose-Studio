@@ -1,5 +1,4 @@
 import { useRef } from 'react'
-import { displayPercentage, monetary } from '@tradinggoose/billing/money'
 import { useLocale, useTranslations } from 'next-intl'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActiveOrganization } from '@/lib/auth-client'
@@ -52,12 +51,7 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
     )
   }
 
-  if (
-    error ||
-    (organizationBillingPayload &&
-      (typeof organizationBillingPayload.isWarning !== 'boolean' ||
-        typeof organizationBillingPayload.isExceeded !== 'boolean'))
-  ) {
+  if (error) {
     return (
       <div className='rounded-sm border bg-background p-3 shadow-xs'>
         <p className='text-center text-red-500 text-xs'>{copy('errors.loadBillingData')}</p>
@@ -69,19 +63,19 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
     return null
   }
 
-  const currentUsage = monetary(organizationBillingPayload.totalCurrentUsage)
+  const currentUsage = organizationBillingPayload.totalCurrentUsage || 0
   const currentCap =
-    organizationBillingPayload.totalUsageLimit === null
-      ? null
-      : monetary(organizationBillingPayload.totalUsageLimit)
-  const minimumUsageLimit = monetary(organizationBillingPayload.minimumUsageLimit)
-  const seatsCount = organizationBillingPayload.seatsCount ?? 1
-  const percentUsed = currentCap === null ? 0 : displayPercentage(currentUsage, currentCap)
-  const status: 'ok' | 'warning' | 'exceeded' = organizationBillingPayload.isExceeded
-    ? 'exceeded'
-    : organizationBillingPayload.isWarning
-      ? 'warning'
-      : 'ok'
+    organizationBillingPayload.totalUsageLimit || organizationBillingPayload.minimumUsageLimit || 0
+  const minimumUsageLimit = organizationBillingPayload.minimumUsageLimit || 0
+  const seatsCount = organizationBillingPayload.seatsCount || 1
+  const percentUsed =
+    currentCap > 0 ? Math.round(Math.min((currentUsage / currentCap) * 100, 100)) : 0
+  const warningThresholdPercent =
+    typeof organizationBillingPayload.warningThresholdPercent === 'number'
+      ? organizationBillingPayload.warningThresholdPercent
+      : 100
+  const status: 'ok' | 'warning' | 'exceeded' =
+    percentUsed >= 100 ? 'exceeded' : percentUsed >= warningThresholdPercent ? 'warning' : 'ok'
 
   const title =
     organizationBillingPayload.subscriptionTier?.displayName || copy('titles.organizationUsage')
@@ -118,9 +112,7 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
           />
         ) : (
           <span className='text-muted-foreground text-xs tabular-nums'>
-            {currentCap === null
-              ? '∞'
-              : formatUsd(locale, currentCap, { maximumFractionDigits: 0 })}
+            {formatUsd(locale, currentCap, { maximumFractionDigits: 0 })}
           </span>
         )
       }

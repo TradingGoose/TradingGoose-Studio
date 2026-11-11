@@ -2,31 +2,18 @@
  * @vitest-environment node
  */
 import { beforeEach, expect, it, vi } from 'vitest'
-import {
-  canonicalLogFixture,
-  hydrateCanonicalLogFixture,
-} from '@/lib/execution/__test-utils__/canonical-log-fixture'
 
 const mocks = vi.hoisted(() => ({
   pendingRows: [] as unknown[],
   logRows: [] as unknown[],
   storageMode: 'redis' as 'redis' | 'local',
   dbSelect: vi.fn(),
-  verify: vi.fn(),
-  hydrate: vi.fn(),
-}))
-
-vi.mock('@/lib/billing/native-finance', () => ({ verifyFinancialAcceptance: mocks.verify }))
-
-vi.mock('@/lib/workflow-archive/functional', () => ({
-  hydrateExecutionPayload: mocks.hydrate,
-  assertRetainedLogAccess: async () => {},
 }))
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: mocks.dbSelect.mockImplementation((fields: Record<string, unknown>) => {
-      const rows = 'status' in fields ? mocks.pendingRows : mocks.logRows.map(canonicalLogFixture)
+      const rows = 'status' in fields ? mocks.pendingRows : mocks.logRows
       return {
         from: vi.fn(() => ({
           where: vi.fn(() => ({
@@ -51,9 +38,7 @@ vi.mock('@/lib/redis', () => ({
 
 import {
   createWorkflowExecutionEventWriter,
-  readVerifiedWorkflowExecutionData,
   readWorkflowExecutionEventState,
-  readWorkflowExecutionResultFromLog,
 } from './workflow-execution-events'
 
 beforeEach(() => {
@@ -61,10 +46,6 @@ beforeEach(() => {
   mocks.logRows.length = 0
   mocks.storageMode = 'redis'
   mocks.dbSelect.mockClear()
-  mocks.hydrate.mockReset().mockImplementation(hydrateCanonicalLogFixture)
-  mocks.verify
-    .mockReset()
-    .mockResolvedValue({ accepted: true, appliedUsd: '0', modelUsd: 'unavailable' })
 })
 
 it('prefers a finalized error log and otherwise uses pending state', async () => {
@@ -106,7 +87,7 @@ it('prefers a finalized error log and otherwise uses pending state', async () =>
   })
 })
 
-it('refuses a buffered happy terminal without its durable financially accepted owner', async () => {
+it('refuses a success event without its durable execution log', async () => {
   mocks.storageMode = 'local'
   const writer = createWorkflowExecutionEventWriter({
     pendingExecutionId: 'local-execution-1',
@@ -125,7 +106,7 @@ it('refuses a buffered happy terminal without its durable financially accepted o
       workflowId: 'workflow-1',
       afterEventId: 0,
     })
-  ).rejects.toThrow('durable financial owner')
+  ).rejects.toThrow('durable execution log')
 })
 
 it.each(['info', 'error'])(
@@ -152,6 +133,7 @@ it.each(['info', 'error'])(
       executionData: {
         finalOutput: { completedWork: true },
         ...(level === 'error' ? { errorMessage: 'Block failed' } : {}),
+        billing: { accountedCost: 2 },
       },
     })
 
@@ -215,143 +197,4 @@ it.each([
     events:
       bufferedRevision === 2 ? [{ event: { type: 'execution:paused', data: { result } } }] : [],
   })
-})
-
-it.each(['completed', 'paused'] as const)(
-  'refuses preserved %s work until its original base occurrence is accepted',
-  async (status) => {
-    const params = { pendingExecutionId: `unaccepted-${status}`, workflowId: 'workflow-1' }
-    const row = {
-      level: 'info',
-      startedAt: new Date('2026-09-16T12:00:00Z'),
-      endedAt: status === 'completed' ? new Date('2026-09-16T12:01:00Z') : null,
-      executionData:
-        status === 'completed'
-          ? { finalOutput: { paidWork: 'preserved' } }
-          : { pause: { revision: 1 } },
-    }
-    mocks.logRows.push(row)
-    mocks.verify.mockRejectedValueOnce(new Error('Original base occurrence remains unaccepted'))
-    await expect(readWorkflowExecutionEventState(params)).rejects.toThrow(
-      'Original base occurrence remains unaccepted'
-    )
-    expect(row.executionData).toEqual(
-      status === 'completed'
-        ? { finalOutput: { paidWork: 'preserved' } }
-        : { pause: { revision: 1 } }
-    )
-    await expect(readWorkflowExecutionEventState(params)).resolves.toMatchObject({
-      status,
-      result: { success: true },
-    })
-  }
-)
-
-it('refuses absent original binding even when a terminal output and buffered completion exist', async () => {
-  mocks.storageMode = 'local'
-  const params = { pendingExecutionId: 'missing-binding', workflowId: 'workflow-1' }
-  await createWorkflowExecutionEventWriter(params).write({
-    type: 'execution:completed',
-    data: { result: { success: true, output: { ready: true } } },
-  })
-  mocks.logRows.push({
-    level: 'info',
-    startedAt: new Date(),
-    endedAt: new Date(),
-    executionData: { finalOutput: { ready: true }, billing: {} },
-  })
-  await expect(readWorkflowExecutionEventState(params)).rejects.toThrow(
-    'Original workflow financial binding'
-  )
-  expect(mocks.verify).not.toHaveBeenCalled()
-})
-
-it('refuses every unowned buffered happy event even when a later failure would hide its terminal status', async () => {
-  mocks.storageMode = 'local'
-  const params = {
-    pendingExecutionId: 'unowned-happy-before-error',
-    workflowId: 'workflow-1',
-    afterEventId: 0,
-  }
-  const writer = createWorkflowExecutionEventWriter(params)
-  await writer.write({
-    type: 'execution:completed',
-    data: { result: { success: true, output: { leaked: true } } },
-  })
-  await writer.write({
-    type: 'execution:error',
-    data: {
-      error: 'Later failure',
-      result: { success: false, output: {}, error: 'Later failure' },
-    },
-  })
-  await expect(readWorkflowExecutionEventState(params)).rejects.toThrow('durable financial owner')
-})
-
-it('does not treat a preserved archive reference as original financial proof', async () => {
-  const row = canonicalLogFixture({
-    id: 'preserved-log',
-    executionId: 'preserved-execution',
-    workspaceId: 'workspace-1',
-    workflowId: 'workflow-1',
-    level: 'info',
-    startedAt: new Date(),
-    endedAt: new Date(),
-    totalDurationMs: 1,
-    executionData: {
-      preservedFunctionalArchive: {
-        version: 1,
-        purpose: 'workflow-archive',
-        workspaceId: 'workspace-1',
-        executionId: 'preserved-execution',
-        logId: 'preserved-log',
-        provider: 'local',
-        key: 'archive',
-        digest: 'digest',
-      },
-      billing: {},
-    },
-  })
-  await expect(readVerifiedWorkflowExecutionData(row)).rejects.toThrow(
-    'Original workflow financial binding'
-  )
-  await expect(readWorkflowExecutionResultFromLog(row)).rejects.toThrow(
-    'Original workflow financial binding'
-  )
-  expect(mocks.verify).not.toHaveBeenCalled()
-  expect(mocks.hydrate).not.toHaveBeenCalled()
-})
-it('uses the same original-finance and actual result projection for a preserved candidate (archive IO seam)', async () => {
-  const output = { exact: ' preserved🔥\n ', toolResults: [{ original: true }] }
-  const row = canonicalLogFixture({
-    level: 'error',
-    startedAt: new Date('2026-01-01'),
-    endedAt: new Date('2026-01-02'),
-    totalDurationMs: 1,
-    executionData: {
-      preservedFunctionalArchive: { purpose: 'workflow-archive' },
-      hasResponseBlock: true,
-      errorMessage: 'original failure',
-      trigger: { data: { queuedExecution: { source: 'workflow_execute_api' } } },
-    },
-  })
-  mocks.hydrate.mockImplementationOnce(async (candidate, authorize) => {
-    await authorize()
-    return {
-      ...candidate,
-      executionData: { ...candidate.executionData, finalOutput: output, traceSpans: [] },
-    }
-  })
-  const result = await readWorkflowExecutionResultFromLog(row)
-  expect(result).toMatchObject({
-    status: 'failed',
-    failureReason: 'original failure',
-    result: {
-      success: false,
-      output,
-      metadata: { hasResponseBlock: true, queuedExecution: { source: 'workflow_execute_api' } },
-    },
-  })
-  expect(mocks.verify).toHaveBeenCalledOnce()
-  expect(mocks.hydrate).toHaveBeenCalledWith({ ...row, logId: row.id }, expect.any(Function))
 })

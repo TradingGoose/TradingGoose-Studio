@@ -1,15 +1,20 @@
+import { z } from 'zod'
 import { assertCopilotRunActive, claimCopilotBrowserEffect } from '@/lib/copilot/agent/state'
 import { ToolArgSchemas } from '@/lib/copilot/registry'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import { resolveWorkflowRunTrigger } from '@/lib/workflows/triggers'
 import { authorizeNativeBusinessResult } from './business-access'
-import { parseStudioNativeTarget } from './studio-execution'
+import { TargetSchema } from './contract'
 import {
   authorizeNativeConversationScope,
   NativeTargetError,
   resolveNativePendingTarget,
 } from './target'
+
+const nativeTargetSchema = z
+  .object({ workspaceId: z.string().min(1).nullable(), target: TargetSchema })
+  .strict()
 
 /** Native context is mandatory in the managed Copilot caller; ordinary authenticated manual APIs retain their own gates. */
 export async function authorizeNativeWorkflowQueueEffect(
@@ -27,7 +32,7 @@ export async function authorizeNativeWorkflowQueueEffect(
   signal?: AbortSignal
 ) {
   if (body.native === undefined) return
-  const native = await parseStudioNativeTarget(body.native)
+  const native = nativeTargetSchema.parse(body.native)
   const scope = await authorizeNativeConversationScope(actorUserId, native.workspaceId)
   const pending = await resolveNativePendingTarget(scope, native.target, 'result', signal)
   if (pending.target.toolName !== 'run_workflow')
@@ -78,7 +83,7 @@ export async function authorizeNativeWorkflowDeploymentEffect(
   signal?: AbortSignal
 ) {
   if (nativeContext === undefined) return
-  const native = await parseStudioNativeTarget(nativeContext)
+  const native = nativeTargetSchema.parse(nativeContext)
   const scope = await authorizeNativeConversationScope(actorUserId, native.workspaceId)
   const pending = await resolveNativePendingTarget(scope, native.target, 'result', signal)
   if (pending.target.toolName !== 'deploy_workflow')

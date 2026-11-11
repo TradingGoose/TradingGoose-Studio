@@ -2,10 +2,6 @@
  * @vitest-environment node
  */
 
-vi.mock('@/lib/workflow-archive/functional', () => ({
-  hydrateAuthorizedLog: vi.fn(async (row) => row),
-}))
-
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -565,20 +561,6 @@ describe('logs route', () => {
     expect(await response.json()).toEqual({
       error: 'Workflow log log-1 is missing startedAt',
     })
-  })
-
-  it('requires a numeric present total when filtering for zero cost', async () => {
-    const { GET } = await import('./route')
-    const response = await GET(
-      new NextRequest('http://localhost/api/logs?workspaceId=workspace-1&costMin=0&costMax=0')
-    )
-    expect(response.status).toBe(200)
-    const whereCall = mockWhere.mock.calls.at(-1)
-    const serialized = JSON.stringify(whereCall?.[0])
-    expect(serialized).toContain('CASE WHEN jsonb_typeof(')
-    expect(serialized).toContain(" = 'number' THEN (")
-    expect(serialized).toContain('::double precision END')
-    expect(serialized).not.toContain('::double precision, 0)')
   })
 
   it('pushes range-bound qualifiers into the SQL condition tree', async () => {

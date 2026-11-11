@@ -2,16 +2,6 @@
  * @vitest-environment node
  */
 
-vi.mock('@/lib/mastra/workflow-memory', () => ({
-  cleanupOrphanWorkflowMemoryPage: vi.fn(async () => ({ scanned: 0, hasMore: false, nextPage: 0 })),
-}))
-vi.mock('@/lib/workflow-archive/lifecycle', () => ({
-  prepareWorkflowArchive: (...args: unknown[]) => mockArchive(...args),
-  ArchivePruneDeferredError: MockArchivePruneDeferredError,
-  pruneArchivedWorkflowPayload: mockPrune,
-  deleteArchivedWorkflowLog: mockSqlDelete,
-}))
-
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -22,24 +12,20 @@ const {
   mockOldLogsLimit,
   mockSnapshotCleanup,
   mockDeleteWhere,
-  mockArchive,
-  mockResolveBilling,
-  mockTierRetention,
-  mockPrune,
-  mockSqlDelete,
-  MockArchivePruneDeferredError,
+  mockDeleteReturning,
+  mockNativeCleanup,
 } = vi.hoisted(() => {
   const mockOrderHistoryTable = {
     logId: 'orderHistoryTable.logId',
   }
   const mockOldLogsLimit = vi.fn()
   const mockOldLogsWhere = vi.fn(() => ({
-    orderBy: vi.fn(() => ({ limit: mockOldLogsLimit })),
+    limit: mockOldLogsLimit,
   }))
   const mockSelect = vi.fn()
   const mockSnapshotCleanup = vi.fn()
-  const mockDeleteWhere = vi.fn()
-  class MockArchivePruneDeferredError extends Error {}
+  const mockDeleteReturning = vi.fn()
+  const mockDeleteWhere = vi.fn((_condition: unknown) => ({ returning: mockDeleteReturning }))
 
   return {
     mockOrderHistoryTable,
@@ -48,12 +34,8 @@ const {
     mockOldLogsLimit,
     mockSnapshotCleanup,
     mockDeleteWhere,
-    mockArchive: vi.fn(),
-    mockResolveBilling: vi.fn(),
-    mockTierRetention: vi.fn(),
-    mockPrune: vi.fn(),
-    mockSqlDelete: vi.fn(),
-    MockArchivePruneDeferredError,
+    mockDeleteReturning,
+    mockNativeCleanup: vi.fn(),
   }
 })
 
@@ -101,7 +83,6 @@ vi.mock('drizzle-orm', () => ({
     value,
   })),
   lt: vi.fn((field: unknown, value: unknown) => ({ field, type: 'lt', value })),
-  gt: vi.fn((field: unknown, value: unknown) => ({ field, type: 'gt', value })),
   isNotNull: vi.fn((field: unknown) => ({ field, type: 'isNotNull' })),
   sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
     strings,
@@ -119,11 +100,11 @@ vi.mock('@/lib/billing/settings', () => ({
 }))
 
 vi.mock('@/lib/billing/tiers', () => ({
-  getTierLogRetentionDays: mockTierRetention,
+  getTierLogRetentionDays: vi.fn(() => 30),
 }))
 
 vi.mock('@/lib/billing/workspace-billing', () => ({
-  resolveWorkspaceBillingContext: mockResolveBilling,
+  resolveWorkspaceBillingContext: vi.fn(async () => ({ tier: 'free' })),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -140,13 +121,7 @@ vi.mock('@/lib/logs/execution/snapshot/service', () => ({
   },
 }))
 
-vi.mock('@/lib/uploads', () => ({
-  isUsingCloudStorage: vi.fn(() => false),
-  StorageService: {
-    deleteFile: vi.fn(),
-    uploadFile: mockArchive,
-  },
-}))
+vi.mock('@/lib/mastra/agent-history', () => ({ deleteAgentHistory: mockNativeCleanup }))
 
 const collectConditions = (value: unknown): Array<Record<string, any>> => {
   if (!value || typeof value !== 'object') {
@@ -165,9 +140,7 @@ const collectConditions = (value: unknown): Array<Record<string, any>> => {
 describe('logs cleanup route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSelect.mockReset()
     mockSelect
-      .mockReturnValue({ from: vi.fn(() => ({ where: mockOldLogsWhere })) })
       .mockReturnValueOnce({
         from: vi.fn(async () => [
           {
@@ -176,76 +149,18 @@ describe('logs cleanup route', () => {
           },
         ]),
       })
-    mockOldLogsLimit.mockReset().mockResolvedValue([])
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: mockOldLogsWhere,
+        })),
+      })
+    mockOldLogsLimit.mockResolvedValue([])
     mockSnapshotCleanup.mockResolvedValue(0)
-    mockArchive.mockResolvedValue({ digest: 'verified-private-digest' })
-    mockPrune
-      .mockReset()
-      .mockRejectedValue(new MockArchivePruneDeferredError('Scoped writer settlement is unproved'))
-    mockSqlDelete.mockReset()
-    mockResolveBilling.mockReset().mockResolvedValue({ tier: 'free' })
-    mockTierRetention.mockReset().mockReturnValue(30)
+    mockNativeCleanup.mockResolvedValue({})
+    mockDeleteReturning.mockResolvedValue([{ id: 'finished-log' }])
   })
 
-  it('skips unproved log/output file references without delete contact while preserving archive retention', async () => {
-    mockOldLogsLimit.mockResolvedValueOnce([
-      {
-        id: 'finished-log',
-        executionId: 'execution-1',
-        endedAt: new Date(0),
-        files: [
-          { key: 'copilot/private.png', sourceProof: 'not-delete-authority' },
-          { key: 'old-flat.png', context: 'general', userId: 'caller' },
-          { key: 'https://protected.example/file.png' },
-        ],
-      },
-    ])
-    const { GET } = await import('./route')
-    const response = await GET(new NextRequest('https://studio.example/api/logs/cleanup'))
-    expect(response.status).toBe(200)
-    expect((await response.json()).results).toMatchObject({
-      files: { total: 3, deleted: 0, deleteFailed: 0, skippedUnverified: 3 },
-      enhancedLogs: { archived: 1, pruneDeferred: 1, deleted: 0, archiveFailed: 0 },
-    })
-    const { StorageService } = await import('@/lib/uploads')
-    expect(StorageService.deleteFile).not.toHaveBeenCalled()
-    expect(mockArchive).toHaveBeenCalledWith('finished-log')
-    expect(mockSqlDelete).not.toHaveBeenCalled()
-    expect(mockSnapshotCleanup).toHaveBeenCalledOnce()
-    const { pruneArchivedWorkflowPayload } = await import('@/lib/workflow-archive/lifecycle')
-    expect(pruneArchivedWorkflowPayload).toHaveBeenCalledWith('finished-log')
-  })
-
-  it('reports deferred Memory cleanup while continuing log archive retention orchestration', async () => {
-    const { cleanupOrphanWorkflowMemoryPage } = await import('@/lib/mastra/workflow-memory')
-    vi.mocked(cleanupOrphanWorkflowMemoryPage).mockResolvedValueOnce({
-      scanned: 1,
-      hasMore: false,
-      nextPage: 0,
-      removed: 0,
-      deferredOwners: 1,
-    })
-    mockOldLogsLimit.mockResolvedValueOnce([
-      { id: 'finished-log', executionId: 'execution-1', endedAt: new Date(0), files: [] },
-    ])
-    const { GET } = await import('./route')
-    const response = await GET(new NextRequest('http://localhost/api/logs/cleanup'))
-    expect(response.status).toBe(200)
-    expect((await response.json()).memoryCleanup).toEqual({
-      scanned: 1,
-      hasMore: false,
-      nextPage: 0,
-      removed: 0,
-      deferredOwners: 1,
-    })
-    expect(mockArchive).toHaveBeenCalledWith('finished-log')
-    expect(mockSqlDelete).not.toHaveBeenCalled()
-    expect(mockSnapshotCleanup).toHaveBeenCalledOnce()
-    const { pruneArchivedWorkflowPayload } = await import('@/lib/workflow-archive/lifecycle')
-    expect(pruneArchivedWorkflowPayload).toHaveBeenCalledWith('finished-log')
-  })
-
-  it('selects by durable workspace scope while excluding order-linked logs', async () => {
+  it('deletes by durable workspace scope while excluding order-linked logs', async () => {
     const { GET } = await import('./route')
 
     const response = await GET(new NextRequest('http://localhost/api/logs/cleanup'))
@@ -336,119 +251,28 @@ describe('logs cleanup route', () => {
       const response = await GET(new NextRequest('http://localhost/api/logs/cleanup'))
 
       expect(response.status).toBe(200)
-      const archived = mockArchive.mock.calls.map(([id]) => ({ id }))
+      const removed = mockNativeCleanup.mock.calls.map(([log]) => log)
       const expectedIds = parentFinished
         ? ['parent-log', 'finished-log', 'child-log']
         : ['finished-log']
-      expect(archived.map((log) => log.id)).toEqual(expectedIds)
-      expect(JSON.stringify(archived)).not.toContain('secret')
-      const [where] = mockOldLogsWhere.mock.calls[0] as unknown as [unknown]
-      const parentGuard = collectConditions(where).find(
-        (guard) => guard.type === 'sql' && guard.strings.join('').includes('retention_parent')
-      )
-      expect(parentGuard?.strings.join('')).toContain("->'queuedExecution'->>'parentExecutionId'")
-      expect(parentGuard?.strings.join('')).toContain("->>'source' = 'workflow_block'")
-      expect(parentGuard?.strings.join('')).toContain('retention_parent.ended_at IS NULL')
-      expect(mockSqlDelete).not.toHaveBeenCalled()
-      expect((await response.json()).results.enhancedLogs).toMatchObject({
-        archived: expectedIds.length,
-        pruneDeferred: expectedIds.length,
-        deleted: 0,
-      })
+      expect(removed.map((log) => log.id)).toEqual(expectedIds)
+      expect(JSON.stringify(removed)).not.toContain('secret')
+      for (const [index, [where]] of mockDeleteWhere.mock.calls.entries()) {
+        const deleteConditions = collectConditions(where)
+        expect(deleteConditions).toEqual(
+          expect.arrayContaining([
+            { type: 'eq', field: 'workflowExecutionLogs.id', value: expectedIds[index] },
+            { type: 'isNotNull', field: 'workflowExecutionLogs.endedAt' },
+          ])
+        )
+        const parentGuard = deleteConditions.find(
+          (guard) => guard.type === 'sql' && guard.strings.join('').includes('retention_parent')
+        )
+        expect(parentGuard?.strings.join('')).toContain("->'queuedExecution'->>'parentExecutionId'")
+        expect(parentGuard?.strings.join('')).toContain("->>'source' = 'workflow_block'")
+        expect(parentGuard?.strings.join('')).toContain('retention_parent.ended_at IS NULL')
+      }
+      expect((await response.json()).results.enhancedLogs.deleted).toBe(expectedIds.length)
     }
   )
-
-  it('continues after preparation and prune errors, counting a verified archive before deferral', async () => {
-    mockOldLogsLimit.mockResolvedValueOnce([
-      { id: 'a-preparation-fails', files: [] },
-      { id: 'b-prune-fails', files: [] },
-      { id: 'c-deferred', files: [] },
-    ])
-    mockArchive.mockRejectedValueOnce(new Error('Private archive readback failed'))
-    mockPrune.mockRejectedValueOnce(new Error('Archived source changed'))
-    const { GET } = await import('./route')
-    const response = await GET(new NextRequest('http://localhost/api/logs/cleanup'))
-    expect(response.status).toBe(200)
-    expect((await response.json()).results.enhancedLogs).toEqual({
-      total: 3,
-      archived: 2,
-      archiveFailed: 1,
-      pruneDeferred: 1,
-      deleted: 0,
-      deleteFailed: 1,
-    })
-    expect(mockArchive.mock.calls.map(([id]) => id)).toEqual([
-      'a-preparation-fails',
-      'b-prune-fails',
-      'c-deferred',
-    ])
-    expect(mockPrune.mock.calls.map(([id]) => id)).toEqual(['b-prune-fails', 'c-deferred'])
-    expect(mockSqlDelete).not.toHaveBeenCalled()
-    expect(mockSnapshotCleanup).toHaveBeenCalledOnce()
-  })
-
-  it('advances past a full deferred batch without recounting it or skipping snapshot cleanup', async () => {
-    const rows = Array.from({ length: 2000 }, (_, index) => ({
-      id: `log-${String(index).padStart(4, '0')}`,
-      files: [],
-    }))
-    mockOldLogsLimit.mockImplementation(async () => {
-      const [where] = mockOldLogsWhere.mock.calls.at(-1) as unknown as [unknown]
-      const cursor = collectConditions(where).find((condition) => condition.type === 'gt')
-      return rows.filter((row) => !cursor || row.id > cursor.value).slice(0, 2000)
-    })
-    const { GET } = await import('./route')
-    const response = await GET(new NextRequest('http://localhost/api/logs/cleanup'))
-    expect(response.status).toBe(200)
-    expect(await response.json()).toMatchObject({
-      results: { enhancedLogs: { total: 2000, archived: 2000, pruneDeferred: 2000, deleted: 0 } },
-      complete: true,
-      batchLimitReached: false,
-    })
-    expect(mockOldLogsLimit).toHaveBeenCalledTimes(2)
-    expect(mockArchive).toHaveBeenCalledTimes(2000)
-    expect(new Set(mockArchive.mock.calls.map(([id]) => id)).size).toBe(2000)
-    expect(mockSqlDelete).not.toHaveBeenCalled()
-    expect(mockSnapshotCleanup).toHaveBeenCalledOnce()
-  })
-
-  it('resets the sorted cursor for the next retention group, including lower log IDs', async () => {
-    mockSelect
-      .mockReset()
-      .mockReturnValue({ from: vi.fn(() => ({ where: mockOldLogsWhere })) })
-      .mockReturnValueOnce({
-        from: vi.fn(async () => [
-          { id: 'workspace-1', ownerId: 'user-1' },
-          { id: 'workspace-2', ownerId: 'user-2' },
-        ]),
-      })
-    mockTierRetention.mockReturnValueOnce(30).mockReturnValueOnce(7)
-    const high = Array.from({ length: 2000 }, (_, index) => ({
-      id: `z-${String(index).padStart(4, '0')}`,
-      files: [],
-    }))
-    mockOldLogsLimit.mockImplementation(async () => {
-      const [where] = mockOldLogsWhere.mock.calls.at(-1) as unknown as [unknown]
-      const conditions = collectConditions(where)
-      const group = conditions.find((condition) => condition.type === 'inArray')
-      const cursor = conditions.find((condition) => condition.type === 'gt')
-      const rows = group?.value.includes('workspace-1')
-        ? high
-        : [{ id: 'a-lower-next-group', files: [] }]
-      return rows.filter((row) => !cursor || row.id > cursor.value).slice(0, 2000)
-    })
-    const { GET } = await import('./route')
-    const response = await GET(new NextRequest('http://localhost/api/logs/cleanup'))
-    expect(response.status).toBe(200)
-    expect((await response.json()).results.enhancedLogs).toMatchObject({
-      total: 2001,
-      archived: 2001,
-      pruneDeferred: 2001,
-    })
-    expect(mockArchive).toHaveBeenCalledWith('a-lower-next-group')
-    const [lastWhere] = mockOldLogsWhere.mock.calls.at(-1) as unknown as [unknown]
-    expect(collectConditions(lastWhere).some((condition) => condition.type === 'gt')).toBe(false)
-    expect(mockSqlDelete).not.toHaveBeenCalled()
-    expect(mockSnapshotCleanup).toHaveBeenCalledOnce()
-  })
 })

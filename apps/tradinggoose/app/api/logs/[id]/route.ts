@@ -10,9 +10,9 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { attachAgentHistory } from '@/lib/mastra/agent-history'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { hydrateAuthorizedLog } from '@/lib/workflow-archive/functional'
 import { serializeWorkflowLog } from '@/app/api/logs/log-utils'
 
 const logger = createLogger('LogDetailsByIdAPI')
@@ -67,16 +67,15 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .where(and(eq(workflowExecutionLogs.id, id), workspaceAccess.accessFilter))
       .limit(1)
 
-    let row = rows[0]
+    const row = rows[0]
     if (!row) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    row = await hydrateAuthorizedLog(row, userId)
     return NextResponse.json(
       {
         data: {
-          ...serializeWorkflowLog(row, 'full'),
+          ...serializeWorkflowLog(await attachAgentHistory(row, userId), 'full'),
           createdAt: undefined,
         },
       },

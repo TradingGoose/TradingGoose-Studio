@@ -12,10 +12,10 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowLogOutcome } from '@/lib/logs/types'
+import { attachAgentHistory } from '@/lib/mastra/agent-history'
 import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId, normalizeOptionalString } from '@/lib/utils'
-import { hydrateAuthorizedLog } from '@/lib/workflow-archive/functional'
 import {
   parseListingFilters,
   serializeWorkflowLog,
@@ -543,7 +543,7 @@ export async function GET(request: NextRequest) {
         data: await Promise.all(
           rows.map(async (row) =>
             serializeWorkflowLog(
-              params.details === 'full' ? await hydrateAuthorizedLog(row, userId) : row,
+              params.details === 'full' ? await attachAgentHistory(row, userId) : row,
               params.details
             )
           )

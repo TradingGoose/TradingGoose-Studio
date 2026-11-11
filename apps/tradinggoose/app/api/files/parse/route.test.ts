@@ -1,291 +1,436 @@
-/** @vitest-environment node */
+import path from 'path'
 import { NextRequest } from 'next/server'
+
+vi.mock('@/lib/uploads/contexts/workspace', () => ({
+  resolveAuthorizedWorkspaceFileReference: async () => null,
+}))
+
+/**
+ * Tests for file parse API route
+ *
+ * @vitest-environment node
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMockRequest, setupFileApiMocks } from '@/app/api/__test-utils__/utils'
 
-const state = vi.hoisted(() => ({
-  provider: 's3',
-  general: 'shared-private',
-  actor: 'owner' as string | undefined,
-  permitted: true,
-  row: null as Record<string, unknown> | null,
-  select: vi.fn(),
-  access: vi.fn(),
-  read: vi.fn(),
-  parse: vi.fn(),
-  fetcher: vi.fn(),
-}))
 vi.mock('@/lib/auth/hybrid', () => ({
-  checkHybridAuth: async () => ({ success: Boolean(state.actor), userId: state.actor }),
+  checkHybridAuth: async () => ({ success: true, userId: 'actor' }),
 }))
-vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: state.access }))
-vi.mock('@tradinggoose/db', () => ({ db: { select: state.select } }))
-vi.mock('@/lib/uploads/core/setup', () => ({
-  getStorageProvider: () => state.provider,
-  get USE_S3_STORAGE() {
-    return state.provider === 's3'
-  },
-  get USE_AZURE_STORAGE() {
-    return false
-  },
-  get USE_VERCEL_STORAGE() {
-    return false
-  },
-  get USE_LOCAL_STORAGE() {
-    return state.provider === 'local'
-  },
-  S3_EXECUTION_FILES_CONFIG: { bucket: 'execution-disjoint' },
-  AZURE_EXECUTION_FILES_CONFIG: {},
-}))
-vi.mock('@/lib/uploads/core/config-resolver', () => ({
-  getStorageConfig: (context: string) => ({
-    bucket:
-      context === 'copilot'
-        ? 'shared-private'
-        : context === 'execution'
-          ? 'execution-disjoint'
-          : state.general,
-    region: context === 'copilot' ? 'a' : 'b',
-  }),
-}))
-vi.mock('@/lib/uploads/core/setup.server', () => ({ UPLOAD_DIR_SERVER: '/disposable/uploads' }))
-vi.mock('@/lib/uploads', async () => ({
-  isUsingCloudStorage: () => state.provider !== 'local',
-  getServePathPrefix: () => '/api/files/serve/s3/',
-  StorageService: await import('@/lib/uploads/core/storage-service'),
-}))
-vi.mock('@/lib/uploads/providers/s3/s3-client', () => ({ downloadFromS3: state.read }))
-vi.mock('@/lib/file-parsers', () => ({
-  isSupportedFileType: () => true,
-  parseBuffer: state.parse,
-  parseFile: state.parse,
-}))
-vi.mock('@/lib/security/input-validation', () => ({
-  validateExternalUrl: () => ({ isValid: true }),
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: async () => ({ hasAccess: true }),
 }))
 
-import { fileParserTool } from '@/tools/file/parser'
-import { POST } from './route'
+import { POST } from '@/app/api/files/parse/route'
 
-beforeEach(() => {
-  vi.resetAllMocks()
-  state.provider = 's3'
-  state.general = 'shared-private'
-  state.actor = 'owner'
-  state.permitted = true
-  state.row = {
-    id: 'file-1',
-    workspaceId: 'workspace-1',
-    key: 'workspace-1/owned.txt',
-    name: 'owned.txt',
-    size: 14,
-    type: 'text/plain',
-    uploadedBy: 'uploader',
-    uploadedAt: new Date(0),
+const mockJoin = vi.fn((...args: string[]): string => {
+  if (args[0] === '/test/uploads') {
+    return `/test/uploads/${args[args.length - 1]}`
   }
-  state.access.mockImplementation(async () => ({ hasAccess: state.permitted }))
-  state.select.mockImplementation(() => ({
-    from: () => ({ where: () => ({ limit: async () => (state.row ? [state.row] : []) }) }),
-  }))
-  state.read.mockResolvedValue(Buffer.from('actual content'))
-  state.parse.mockImplementation(async (buffer) => ({ content: buffer.toString(), metadata: {} }))
-  state.fetcher.mockResolvedValue(
-    new Response('external content', { headers: { 'content-type': 'text/plain' } })
-  )
-  vi.stubGlobal('fetch', state.fetcher)
+  return path.join(...args)
 })
-afterEach(() => vi.unstubAllGlobals())
-function request(body: unknown) {
-  return new NextRequest('https://studio.example/api/files/parse', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-}
-function toolBody(params: {
-  filePath?: string | string[]
-  _context?: { workspaceId: string }
-  file?: { path: string; name: string; id: string; userId: string }
-}) {
-  if (!fileParserTool.request.body) throw new Error('FileParser body is required')
-  return fileParserTool.request.body({ filePath: '', ...params })
-}
-const transform = fileParserTool.transformResponse!
 
-describe('FileParser actual tool and private-source parse route', () => {
-  it.each([
-    'old-flat.txt',
-    '/api/files/serve/s3/old-flat.txt?context=general',
-    '/api/files/serve/old-flat.txt?context=workspace',
-    'https://shared-private.s3.us-west-2.amazonaws.com/old-flat.txt',
-    'https://s3.amazonaws.com/shared-private/old-flat.txt',
-    '/api/files/serve/%6fld-flat.txt?context=chat',
-  ])('refuses unproved key/URL %s before read/parser/fetch', async (filePath) => {
-    const response = await POST(
-      request(toolBody({ filePath, _context: { workspaceId: 'caller-workspace' } }))
-    )
-    expect(response.status).toBe(403)
-    await expect(transform(response)).rejects.toThrow('File access is unavailable')
-    expect(state.read).not.toHaveBeenCalled()
-    expect(state.parse).not.toHaveBeenCalled()
-    expect(state.fetcher).not.toHaveBeenCalled()
-  })
-  it('refuses raw caller UserFile/workflow output rather than treating it as ownership', async () => {
-    const response = await POST(
-      request(
-        toolBody({
-          file: {
-            path: '/api/files/serve/old-flat.txt',
-            name: 'old-flat.txt',
-            id: 'persisted-output',
-            userId: 'owner',
-          },
-        })
-      )
-    )
-    expect(response.status).toBe(403)
-    await expect(transform(response)).rejects.toThrow('File access')
-    expect(state.read).not.toHaveBeenCalled()
-  })
-  it('authorizes the complete reference batch before its first download', async () => {
-    state.general = 'general-disjoint'
-    const response = await POST(
-      request(
-        toolBody({
-          filePath: ['public.txt', 'https://shared-private.s3.amazonaws.com/private.txt'],
-        })
-      )
-    )
-    expect(response.status).toBe(403)
-    expect(state.read).not.toHaveBeenCalled()
-    expect(state.fetcher).not.toHaveBeenCalled()
-  })
-  it('preserves actual successful disjoint cloud parsing through tool transform', async () => {
-    state.general = 'general-disjoint'
-    const response = await POST(request(toolBody({ filePath: '/api/files/serve/s3/public.txt' })))
-    expect(response.status).toBe(200)
-    const output = await transform(response)
-    expect(output).toMatchObject({
-      success: true,
-      output: {
-        combinedContent: 'actual content',
-        files: [{ content: 'actual content', size: 14 }],
-      },
+describe('File Parse API Route', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+
+    vi.doMock('@/lib/file-parsers', () => ({
+      isSupportedFileType: vi.fn().mockReturnValue(true),
+      parseFile: vi.fn().mockResolvedValue({
+        content: 'parsed content',
+        metadata: { pageCount: 1 },
+      }),
+      parseBuffer: vi.fn().mockResolvedValue({
+        content: 'parsed buffer content',
+        metadata: { pageCount: 1 },
+      }),
+    }))
+
+    vi.doMock('path', () => {
+      return {
+        default: path,
+        ...path,
+        join: mockJoin,
+        basename: path.basename,
+        extname: path.extname,
+      }
     })
-    expect(state.read).toHaveBeenCalledOnce()
-    expect(state.parse).toHaveBeenCalledOnce()
+
+    vi.doMock('@/lib/uploads/setup.server', () => ({}))
   })
-  it('retains complete successful multiple-file output', async () => {
-    state.general = 'general-disjoint'
-    const response = await POST(request(toolBody({ filePath: ['one.txt', 'two.txt'] })))
-    const output = await transform(response)
-    expect(output.success).toBe(true)
-    expect(output.output.files).toHaveLength(2)
-    expect(state.read).toHaveBeenCalledTimes(2)
+
+  afterEach(() => {
+    vi.clearAllMocks()
   })
-  it('does not turn an individual batch parsing failure into successful empty output', async () => {
-    state.general = 'general-disjoint'
-    state.read.mockRejectedValueOnce(new Error('synthetic unavailable file'))
-    const response = await POST(request(toolBody({ filePath: ['one.txt', 'two.txt'] })))
-    await expect(transform(response)).rejects.toThrow('synthetic unavailable file')
+
+  it('should handle missing file path', async () => {
+    setupFileApiMocks()
+
+    const req = createMockRequest('POST', {})
+    const { POST } = await import('@/app/api/files/parse/route')
+
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toHaveProperty('error', 'No file path provided')
   })
-  it('preserves canonical workspace parsing from actual authorized row even on shared storage', async () => {
-    const response = await POST(
-      request(
-        toolBody({
-          filePath:
-            '/api/files/serve/s3/workspace-1%2Fowned.txt?context=workspace&workspaceId=workspace-1&fileId=file-1',
-        })
-      )
-    )
-    expect((await transform(response)).output.combinedContent).toBe('actual content')
-    expect(state.access).toHaveBeenCalledWith('workspace-1', 'owner')
-    expect(state.select).toHaveBeenCalledOnce()
-    expect(state.read).toHaveBeenCalledWith(
-      'workspace-1/owned.txt',
-      expect.objectContaining({ bucket: 'shared-private' }),
-      undefined
-    )
-  })
-  it.each(['revoked', 'wrong-key', 'missing-row', 'unauthenticated'])(
-    'refuses canonical workspace %s before any storage/parser contact',
-    async (kind) => {
-      if (kind === 'revoked') state.permitted = false
-      if (kind === 'wrong-key' && state.row) state.row.key = 'different.txt'
-      if (kind === 'missing-row') state.row = null
-      if (kind === 'unauthenticated') state.actor = undefined
-      const response = await POST(
-        request(
-          toolBody({
-            filePath:
-              '/api/files/serve/s3/workspace-1%2Fowned.txt?context=workspace&workspaceId=workspace-1&fileId=file-1',
-          })
-        )
-      )
-      expect(response.status).toBe(403)
-      await expect(transform(response)).rejects.toThrow('File access is unavailable')
-      expect(state.read).not.toHaveBeenCalled()
-      expect(state.parse).not.toHaveBeenCalled()
-      expect(state.fetcher).not.toHaveBeenCalled()
-      if (kind === 'revoked' || kind === 'unauthenticated')
-        expect(state.select).not.toHaveBeenCalled()
+
+  it('should accept and process a local file', async () => {
+    setupFileApiMocks({
+      cloudEnabled: false,
+      storageProvider: 'local',
+    })
+
+    const req = createMockRequest('POST', {
+      filePath: '/api/files/serve/test-file.txt',
+    })
+
+    const { POST } = await import('@/app/api/files/parse/route')
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).not.toBeNull()
+
+    if (data.success === true) {
+      expect(data).toHaveProperty('output')
+    } else {
+      expect(data).toHaveProperty('error')
+      expect(typeof data.error).toBe('string')
     }
-  )
-  it('refuses revoked caller workspace context before external fetch or canonical query', async () => {
-    state.permitted = false
-    const response = await POST(
-      request({ filePath: 'https://public.example/readme.txt', workspaceId: 'revoked-workspace' })
-    )
-    expect(response.status).toBe(403)
-    expect(state.select).not.toHaveBeenCalled()
-    expect(state.read).not.toHaveBeenCalled()
-    expect(state.fetcher).not.toHaveBeenCalled()
   })
-  it('retains allowed external public parsing without source-store contact', async () => {
-    const response = await POST(
-      request(toolBody({ filePath: 'https://public.example/readme.txt' }))
-    )
-    expect((await transform(response)).output.combinedContent).toBe('external content')
-    expect(state.fetcher).toHaveBeenCalledOnce()
-    expect(state.read).not.toHaveBeenCalled()
+
+  it('should process S3 files', async () => {
+    setupFileApiMocks({
+      cloudEnabled: true,
+      storageProvider: 's3',
+    })
+
+    const req = createMockRequest('POST', {
+      filePath: '/api/files/serve/s3/test-file.pdf',
+    })
+
+    const { POST } = await import('@/app/api/files/parse/route')
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+
+    if (data.success === true) {
+      expect(data).toHaveProperty('output')
+    } else {
+      expect(data).toHaveProperty('error')
+    }
   })
-  it('rechecks external redirect before fetching a protected target', async () => {
-    state.fetcher.mockResolvedValue(
-      new Response(null, {
-        status: 302,
-        headers: { location: 'https://shared-private.s3.amazonaws.com/private.txt' },
+
+  it('should handle multiple files', async () => {
+    setupFileApiMocks({
+      cloudEnabled: false,
+      storageProvider: 'local',
+    })
+
+    const req = createMockRequest('POST', {
+      filePath: ['/api/files/serve/file1.txt', '/api/files/serve/file2.txt'],
+    })
+
+    const { POST } = await import('@/app/api/files/parse/route')
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).toHaveProperty('success')
+    expect(data).toHaveProperty('results')
+    expect(Array.isArray(data.results)).toBe(true)
+    expect(data.results).toHaveLength(2)
+  })
+
+  it('should process execution file URLs with context query param', async () => {
+    setupFileApiMocks({
+      cloudEnabled: true,
+      storageProvider: 's3',
+    })
+
+    const req = createMockRequest('POST', {
+      filePath:
+        '/api/files/serve/s3/6vzIweweXAS1pJ1mMSrr9Flh6paJpHAx/79dac297-5ebb-410b-b135-cc594dfcb361/c36afbb0-af50-42b0-9b23-5dae2d9384e8/Confirmation.pdf?context=execution',
+    })
+
+    const { POST } = await import('@/app/api/files/parse/route')
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+
+    if (data.success === true) {
+      expect(data).toHaveProperty('output')
+    } else {
+      expect(data).toHaveProperty('error')
+    }
+  })
+
+  it('should process workspace file URLs with context query param', async () => {
+    setupFileApiMocks({
+      cloudEnabled: true,
+      storageProvider: 's3',
+    })
+
+    const req = createMockRequest('POST', {
+      filePath:
+        '/api/files/serve/s3/fa8e96e6-7482-4e3c-a0e8-ea083b28af55-be56ca4f-83c2-4559-a6a4-e25eb4ab8ee2_1761691045516-1ie5q86-Confirmation.pdf?context=workspace',
+    })
+
+    const { POST } = await import('@/app/api/files/parse/route')
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+
+    if (data.success === true) {
+      expect(data).toHaveProperty('output')
+    } else {
+      expect(data).toHaveProperty('error')
+    }
+  })
+
+  it('should handle S3 access errors gracefully', async () => {
+    setupFileApiMocks({
+      cloudEnabled: true,
+      storageProvider: 's3',
+    })
+
+    const downloadFileMock = vi.fn().mockRejectedValue(new Error('Access denied'))
+
+    vi.doMock('@/lib/uploads/core/storage-service', () => ({
+      downloadFile: downloadFileMock,
+      hasCloudStorage: vi.fn().mockReturnValue(true),
+    }))
+
+    const req = new NextRequest('http://localhost:3000/api/files/parse', {
+      method: 'POST',
+      body: JSON.stringify({
+        filePath: '/api/files/serve/s3/test-file.txt',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/files/parse/route')
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(data).toBeDefined()
+    expect(typeof data).toBe('object')
+  })
+
+  it('should handle access errors gracefully', async () => {
+    setupFileApiMocks({
+      cloudEnabled: false,
+      storageProvider: 'local',
+    })
+
+    vi.doMock('fs/promises', () => ({
+      access: vi.fn().mockRejectedValue(new Error('ENOENT: no such file')),
+      stat: vi.fn().mockImplementation(() => ({ isFile: () => true })),
+      readFile: vi.fn().mockResolvedValue(Buffer.from('test file content')),
+      writeFile: vi.fn().mockResolvedValue(undefined),
+    }))
+
+    const req = createMockRequest('POST', {
+      filePath: 'nonexistent.txt',
+    })
+
+    const { POST } = await import('@/app/api/files/parse/route')
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).toHaveProperty('success')
+    expect(data).toHaveProperty('error')
+  })
+})
+
+describe('Files Parse API - Path Traversal Security', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('Path Traversal Prevention', () => {
+    it('should reject path traversal attempts with .. segments', async () => {
+      const maliciousRequests = [
+        '../../../etc/passwd',
+        '/api/files/serve/../../../etc/passwd',
+        '/api/files/serve/../../app.js',
+        '/api/files/serve/../.env',
+        'uploads/../../../etc/hosts',
+      ]
+
+      for (const maliciousPath of maliciousRequests) {
+        const request = new NextRequest('http://localhost:3000/api/files/parse', {
+          method: 'POST',
+          body: JSON.stringify({
+            filePath: maliciousPath,
+          }),
+        })
+
+        const response = await POST(request)
+        const result = await response.json()
+
+        expect(result.success).toBe(false)
+        expect(result.error).toMatch(
+          /File access denied|Access denied|Invalid path|Path outside allowed directory/
+        )
+      }
+    })
+
+    it('should reject paths with tilde characters', async () => {
+      const maliciousPaths = [
+        '~/../../etc/passwd',
+        '/api/files/serve/~/secret.txt',
+        '~root/.ssh/id_rsa',
+      ]
+
+      for (const maliciousPath of maliciousPaths) {
+        const request = new NextRequest('http://localhost:3000/api/files/parse', {
+          method: 'POST',
+          body: JSON.stringify({
+            filePath: maliciousPath,
+          }),
+        })
+
+        const response = await POST(request)
+        const result = await response.json()
+
+        expect(result.success).toBe(false)
+        expect(result.error).toMatch(/File access denied|Access denied|Invalid path/)
+      }
+    })
+
+    it('should reject absolute paths outside upload directory', async () => {
+      const maliciousPaths = [
+        '/etc/passwd',
+        '/root/.bashrc',
+        '/app/.env',
+        '/var/log/auth.log',
+        'C:\\Windows\\System32\\drivers\\etc\\hosts',
+      ]
+
+      for (const maliciousPath of maliciousPaths) {
+        const request = new NextRequest('http://localhost:3000/api/files/parse', {
+          method: 'POST',
+          body: JSON.stringify({
+            filePath: maliciousPath,
+          }),
+        })
+
+        const response = await POST(request)
+        const result = await response.json()
+
+        expect(result.success).toBe(false)
+        expect(result.error).toMatch(
+          /File access denied|Access denied|Path outside allowed directory/
+        )
+      }
+    })
+
+    it('should allow valid paths within upload directory', async () => {
+      const validPaths = [
+        '/api/files/serve/document.txt',
+        '/api/files/serve/folder/file.pdf',
+        '/api/files/serve/subfolder/image.png',
+      ]
+
+      for (const validPath of validPaths) {
+        const request = new NextRequest('http://localhost:3000/api/files/parse', {
+          method: 'POST',
+          body: JSON.stringify({
+            filePath: validPath,
+          }),
+        })
+
+        const response = await POST(request)
+        const result = await response.json()
+
+        if (result.error) {
+          expect(result.error).not.toMatch(
+            /File access denied|Access denied|Path outside allowed directory|Invalid path/
+          )
+        }
+      }
+    })
+
+    it('should handle encoded path traversal attempts', async () => {
+      const encodedMaliciousPaths = [
+        '/api/files/serve/%2e%2e%2f%2e%2e%2fetc%2fpasswd', // ../../../etc/passwd
+        '/api/files/serve/..%2f..%2f..%2fetc%2fpasswd',
+        '/api/files/serve/%2e%2e/%2e%2e/etc/passwd',
+      ]
+
+      for (const maliciousPath of encodedMaliciousPaths) {
+        const request = new NextRequest('http://localhost:3000/api/files/parse', {
+          method: 'POST',
+          body: JSON.stringify({
+            filePath: decodeURIComponent(maliciousPath),
+          }),
+        })
+
+        const response = await POST(request)
+        const result = await response.json()
+
+        expect(result.success).toBe(false)
+        expect(result.error).toMatch(
+          /File access denied|Access denied|Invalid path|Path outside allowed directory/
+        )
+      }
+    })
+
+    it('should handle null byte injection attempts', async () => {
+      const nullBytePaths = [
+        '/api/files/serve/file.txt\0../../etc/passwd',
+        'file.txt\0/etc/passwd',
+        '/api/files/serve/document.pdf\0/var/log/auth.log',
+      ]
+
+      for (const maliciousPath of nullBytePaths) {
+        const request = new NextRequest('http://localhost:3000/api/files/parse', {
+          method: 'POST',
+          body: JSON.stringify({
+            filePath: maliciousPath,
+          }),
+        })
+
+        const response = await POST(request)
+        const result = await response.json()
+
+        expect(result.success).toBe(false)
+      }
+    })
+  })
+
+  describe('Edge Cases', () => {
+    it('should handle empty file paths', async () => {
+      const request = new NextRequest('http://localhost:3000/api/files/parse', {
+        method: 'POST',
+        body: JSON.stringify({
+          filePath: '',
+        }),
       })
-    )
-    const response = await POST(
-      request(toolBody({ filePath: 'https://public.example/redirect.txt' }))
-    )
-    await expect(transform(response)).rejects.toThrow('File access is unavailable')
-    expect(state.fetcher).toHaveBeenCalledTimes(1)
-    expect(state.parse).not.toHaveBeenCalled()
-    expect(state.read).not.toHaveBeenCalled()
-  })
-  it('refuses authenticated-looking raw local paths without authority', async () => {
-    state.provider = 'local'
-    const response = await POST(
-      request({ filePath: 'old-flat.txt', userId: 'owner', workspaceId: 'workspace' })
-    )
-    expect(response.status).toBe(403)
-    expect(state.parse).not.toHaveBeenCalled()
-  })
-  it.each([
-    '../private.txt',
-    '/api/files/serve/%252e%252e%252fprivate.txt',
-    '/api/files/serve/a%00.txt',
-    'archived-enhanced-logs/private.txt',
-  ])('keeps path/archive rejection before any source contact: %s', async (filePath) => {
-    const response = await POST(request({ filePath }))
-    expect(response.status).not.toBe(200)
-    expect(state.read).not.toHaveBeenCalled()
-    expect(state.parse).not.toHaveBeenCalled()
-    expect(state.fetcher).not.toHaveBeenCalled()
-  })
-  it('returns explicit validation for missing and malformed references', async () => {
-    expect((await POST(request({}))).status).toBe(400)
-    expect((await POST(request({ filePath: 42 }))).status).toBe(400)
-    expect(state.read).not.toHaveBeenCalled()
+
+      const response = await POST(request)
+      const result = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(result.error).toBe('No file path provided')
+    })
+
+    it('should handle missing filePath parameter', async () => {
+      const request = new NextRequest('http://localhost:3000/api/files/parse', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+
+      const response = await POST(request)
+      const result = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(result.error).toBe('No file path provided')
+    })
   })
 })

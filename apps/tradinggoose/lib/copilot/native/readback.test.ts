@@ -21,7 +21,7 @@ vi.mock('./business-access', () => ({
 }))
 vi.mock('@/lib/execution/workflow-execution-events', () => ({
   readWorkflowExecutionAccessContext: m.executionAccess,
-  readWorkflowExecutionResultFromLog: m.executionResult,
+  createWorkflowExecutionResultFromLog: m.executionResult,
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/check-deployment-status', () => ({
   checkDeploymentStatusServerTool: { execute: m.deployment },
@@ -44,17 +44,6 @@ function pending(
     },
     originalArgs: args,
     stage: 'result',
-    financialBinding: {
-      namespace: 'billing',
-      key: 'key',
-      fingerprint: 'fp',
-      actorUserId: 'member',
-      workspaceId: null,
-      workflowId: null,
-      runId: 'native-run',
-      purpose: 'copilot',
-    },
-    financialOccurrence: { stepNumber: 2, retryCount: 0 },
   }
 }
 function logRow(overrides: Record<string, unknown> = {}) {
@@ -73,7 +62,7 @@ beforeEach(() => {
   m.rows.mockResolvedValue([logRow()])
   m.workspace.mockReset().mockResolvedValue({ hasAccess: true, canWrite: false })
   m.executionAccess.mockResolvedValue({ userId: 'member', workspaceId: 'entity-workspace' })
-  m.executionResult.mockResolvedValue({
+  m.executionResult.mockReturnValue({
     status: 'completed',
     result: { success: true, output: { value: 42 } },
     failureReason: null,
@@ -86,7 +75,7 @@ beforeEach(() => {
   })
 })
 describe('authoritative native result readback', () => {
-  it('reads only original workflow execution and uses canonical finance/payload result reader with repeated authorization', async () => {
+  it('reads the original self-contained execution result after fresh authorization', async () => {
     expect(await readbackNativeToolResult(scope, pending(), { userId: 'member' })).toEqual({
       executionId: 'original-execution',
       message: 'Workflow execution completed',
@@ -96,8 +85,9 @@ describe('authoritative native result readback', () => {
       pendingExecutionId: 'original-execution',
       workflowId: 'workflow',
     })
-    const authorize = m.executionResult.mock.calls[0]![1]
-    await authorize()
+    expect(m.executionResult).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ executionId: 'original-execution' })
+    )
     expect(m.access).toHaveBeenCalledTimes(2)
   })
   it.each(['other-member', null])(
@@ -111,16 +101,15 @@ describe('authoritative native result readback', () => {
     }
   )
   it.each([null, 'entity-workspace', 'conversation-workspace'])(
-    'reads an independently authorized execution from conversation %j without rewriting scope or finance',
+    'reads an independently authorized execution from conversation %j without rewriting its scope',
     async (workspaceId) => {
       const conversation = { ...scope, workspaceId }
       const original = pending()
-      original.financialBinding.workspaceId = workspaceId
       const before = structuredClone(original)
       await expect(
         readbackNativeToolResult(conversation, original, { userId: 'member' })
       ).resolves.toMatchObject({ executionId: 'original-execution' })
-      expect(m.workspace).toHaveBeenCalledExactlyOnceWith('entity-workspace', 'member')
+      expect(m.workspace).toHaveBeenCalledWith('entity-workspace', 'member')
       expect(original).toEqual(before)
       expect(conversation.workspaceId).toBe(workspaceId)
     }
@@ -158,12 +147,8 @@ describe('authoritative native result readback', () => {
     ).rejects.toMatchObject({ status: 403 })
     expect(m.executionResult).not.toHaveBeenCalled()
   })
-  it('rechecks workspace read permission through the canonical hydration callback', async () => {
+  it('rechecks workspace read permission through the final authorization check', async () => {
     m.workspace.mockResolvedValueOnce({ hasAccess: true }).mockResolvedValue({ hasAccess: false })
-    m.executionResult.mockImplementationOnce(async (_row, authorize) => {
-      await authorize()
-      throw new Error('Must not expose output after revoked access')
-    })
     await expect(
       readbackNativeToolResult(scope, pending(), { userId: 'member' })
     ).rejects.toMatchObject({ status: 403 })
@@ -172,14 +157,10 @@ describe('authoritative native result readback', () => {
   it.each([
     { userId: 'other-member', workspaceId: 'entity-workspace' },
     { userId: 'member', workspaceId: 'changed-workspace' },
-  ])('refuses access provenance drift during canonical hydration %j', async (changedAccess) => {
+  ])('refuses access provenance drift before projecting the result %j', async (changedAccess) => {
     m.executionAccess
       .mockResolvedValueOnce({ userId: 'member', workspaceId: 'entity-workspace' })
       .mockResolvedValue(changedAccess)
-    m.executionResult.mockImplementationOnce(async (_row, authorize) => {
-      await authorize()
-      throw new Error('Must not expose output after changed original access')
-    })
     await expect(
       readbackNativeToolResult(scope, pending(), { userId: 'member' })
     ).rejects.toMatchObject({ status: 403 })
@@ -192,7 +173,7 @@ describe('authoritative native result readback', () => {
     expect(m.executionAccess).not.toHaveBeenCalled()
     expect(m.executionResult).not.toHaveBeenCalled()
   })
-  it('checks cancellation before execution access and during canonical hydration', async () => {
+  it('checks cancellation before execution access and before projecting the result', async () => {
     const controller = new AbortController()
     controller.abort()
     await expect(
@@ -200,24 +181,19 @@ describe('authoritative native result readback', () => {
     ).rejects.toMatchObject({ name: 'AbortError' })
     expect(m.executionAccess).not.toHaveBeenCalled()
     const active = new AbortController()
-    m.executionResult.mockImplementationOnce(async (_row, authorize) => {
+    m.rows.mockImplementationOnce(async () => {
       active.abort()
-      await authorize()
-      throw new Error('Must not expose canceled output')
+      return [logRow()]
     })
     await expect(
       readbackNativeToolResult(scope, pending(), { userId: 'member', signal: active.signal })
     ).rejects.toMatchObject({ name: 'AbortError' })
   })
-  it('does not invent terminal output for pending, paused or unavailable finance/payload', async () => {
+  it('does not invent terminal output for pending, paused or unavailable logs', async () => {
     m.rows.mockResolvedValueOnce([{ endedAt: null }])
     await expect(
       readbackNativeToolResult(scope, pending(), { userId: 'member' })
     ).rejects.toMatchObject({ status: 409 })
-    m.executionResult.mockRejectedValueOnce(new Error('Original financial acceptance missing'))
-    await expect(readbackNativeToolResult(scope, pending(), { userId: 'member' })).rejects.toThrow(
-      'financial acceptance'
-    )
   })
   it('uses only authorized selected credential reference', async () => {
     expect(

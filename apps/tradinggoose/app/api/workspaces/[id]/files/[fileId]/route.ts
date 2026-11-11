@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { deleteWorkspaceFile } from '@/lib/uploads/contexts/workspace'
-import { PrivateSourceMutationError } from '@/lib/uploads/source-read-boundary'
+import { StorageAccessError } from '@/lib/uploads/utils/file-utils'
 import { generateRequestId } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -50,7 +50,7 @@ export async function DELETE(
         success: false,
         error: error instanceof Error ? error.message : 'Failed to delete file',
       },
-      { status: error instanceof PrivateSourceMutationError ? error.status : 500 }
+      { status: error instanceof StorageAccessError ? error.status : 500 }
     )
   }
 }

@@ -1,5 +1,4 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { assertPublicStorageInput } from '@/lib/uploads/archive-boundary'
 import {
   type StorageProvider,
   USE_AZURE_STORAGE,
@@ -9,10 +8,6 @@ import {
 import type { CustomAzureConfig } from '@/lib/uploads/providers/azure/azure-client'
 import type { CustomS3Config } from '@/lib/uploads/providers/s3/s3-client'
 import type { CustomVercelConfig } from '@/lib/uploads/providers/vercel/vercel-client'
-import {
-  assertStorageDeleteAccess,
-  assertStorageReadAccess,
-} from '@/lib/uploads/source-read-boundary'
 import { sanitizeFileKey } from '@/lib/uploads/utils/file-utils'
 
 const logger = createLogger('StorageClient')
@@ -79,12 +74,6 @@ export async function uploadFile(
   configOrSize?: CustomStorageConfig | number,
   size?: number
 ): Promise<FileInfo> {
-  assertPublicStorageInput(
-    fileName,
-    undefined,
-    typeof configOrSize === 'object' ? configOrSize : undefined
-  )
-
   if (USE_AZURE_STORAGE) {
     logger.info(`Uploading file to Azure storage: ${fileName}`)
     const { uploadToAzure } = await import('@/lib/uploads/providers/azure/azure-client')
@@ -161,14 +150,20 @@ export async function uploadFile(
  * @param key File key/name
  * @returns File buffer
  */
+export async function downloadFile(key: string): Promise<Buffer>
+
+/**
+ * Download a file from the configured storage provider with custom configuration
+ * @param key File key/name
+ * @param customConfig Custom storage configuration
+ * @returns File buffer
+ */
+export async function downloadFile(key: string, customConfig: CustomStorageConfig): Promise<Buffer>
+
 export async function downloadFile(
   key: string,
-  customConfig?: CustomStorageConfig,
-  signal?: AbortSignal
+  customConfig?: CustomStorageConfig
 ): Promise<Buffer> {
-  signal?.throwIfAborted()
-  assertStorageReadAccess(key, undefined, customConfig)
-
   if (USE_AZURE_STORAGE) {
     logger.info(`Downloading file from Azure storage: ${key}`)
     const { downloadFromAzure } = await import('@/lib/uploads/providers/azure/azure-client')
@@ -179,9 +174,9 @@ export async function downloadFile(
         accountKey: customConfig.accountKey,
         connectionString: customConfig.connectionString,
       }
-      return downloadFromAzure(key, azureConfig, signal)
+      return downloadFromAzure(key, azureConfig)
     }
-    return downloadFromAzure(key, undefined, signal)
+    return downloadFromAzure(key)
   }
 
   if (USE_VERCEL_STORAGE) {
@@ -192,9 +187,9 @@ export async function downloadFile(
         token: customConfig.token!,
         access: customConfig.access || 'private',
       }
-      return downloadFromVercel(key, vercelConfig, signal)
+      return downloadFromVercel(key, vercelConfig)
     }
-    return downloadFromVercel(key, undefined, signal)
+    return downloadFromVercel(key)
   }
 
   if (USE_S3_STORAGE) {
@@ -205,9 +200,9 @@ export async function downloadFile(
         bucket: customConfig.bucket!,
         region: customConfig.region!,
       }
-      return downloadFromS3(key, s3Config, signal)
+      return downloadFromS3(key, s3Config)
     }
-    return downloadFromS3(key, undefined, signal)
+    return downloadFromS3(key)
   }
 
   logger.info(`Downloading file from local storage: ${key}`)
@@ -227,7 +222,7 @@ export async function downloadFile(
   }
 
   try {
-    return await readFile(filePath, { signal })
+    return await readFile(filePath)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       throw new Error(`File not found: ${key}`)
@@ -241,8 +236,6 @@ export async function downloadFile(
  * @param key File key/name
  */
 export async function deleteFile(key: string): Promise<void> {
-  assertStorageDeleteAccess(key)
-
   if (USE_AZURE_STORAGE) {
     logger.info(`Deleting file from Azure storage: ${key}`)
     const { deleteFromAzure } = await import('@/lib/uploads/providers/azure/azure-client')

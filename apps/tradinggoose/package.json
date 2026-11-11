@@ -22,8 +22,7 @@
     "test:coverage": "vitest run --coverage",
     "email:dev": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' email dev --dir components/emails",
     "type-check": "next typegen && NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit -p tsconfig.typecheck.json",
-    "test:billing:suite": "vitest run billing subscription",
-    "native:init": "bun run scripts/init-native-storage.ts"
+    "test:billing:suite": "vitest run billing subscription"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.779.0",
@@ -52,7 +51,6 @@
     "@opentelemetry/sdk-trace-node": "2.0.0",
     "@react-email/components": "^1.0.2",
     "@react-email/render": "2.0.4",
-    "@tradinggoose/billing": "workspace:*",
     "@trigger.dev/sdk": "4.5.12",
     "@types/three": "0.177.0",
     "@vercel/blob": "2.3.3",
@@ -99,7 +97,6 @@
     "node-fetch": "3.3.2",
     "officeparser": "^5.2.0",
     "papaparse": "5.5.3",
-    "pg": "8.23.1",
     "pinets": "^0.8.8",
     "posthog-js": "1.268.9",
     "posthog-node": "5.9.2",
@@ -142,7 +139,6 @@
     "@types/lodash": "^4.17.16",
     "@types/node": "24.2.1",
     "@types/papaparse": "5.3.16",
-    "@types/pg": "^8.20.0",
     "@types/prismjs": "^1.26.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",

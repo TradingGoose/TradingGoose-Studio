@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto'
-import type { FinancialBinding, ModelOccurrence } from '@tradinggoose/billing'
 import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, ne } from 'drizzle-orm'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type { CopilotToolContext, Scope } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { getAgentMemory, getNativeWorkflowsStore } from '@/lib/mastra/runtime'
 
 export interface CopilotRun {
   runId: string
@@ -21,8 +21,6 @@ export interface CopilotRun {
   >
   toolContexts?: CopilotToolContext[]
   workflowId?: string
-  binding: FinancialBinding
-  occurrence?: ModelOccurrence
 }
 
 // These are authorization context and one-shot effect receipts, never conversation history.
@@ -40,13 +38,13 @@ async function readReceipt<T>(id: string): Promise<T | undefined> {
   return row ? (JSON.parse(row.value) as T) : undefined
 }
 
-async function insertReceipt(id: string, value: unknown) {
+async function insertReceipt(id: string, value: unknown, identifier: string) {
   const now = new Date()
   const rows = await db
     .insert(verification)
     .values({
       id,
-      identifier: id,
+      identifier,
       value: JSON.stringify(value),
       expiresAt,
       createdAt: now,
@@ -58,7 +56,13 @@ async function insertReceipt(id: string, value: unknown) {
 }
 
 export async function saveCopilotRun(run: CopilotRun) {
-  if (!(await insertReceipt(receiptId('run', run.runId), run)))
+  if (
+    !(await insertReceipt(
+      receiptId('run', run.runId),
+      run,
+      receiptId('thread', [run.scope, run.threadId])
+    ))
+  )
     throw new NativeTargetError('Copilot run already exists', 409)
 }
 
@@ -73,17 +77,18 @@ export async function readCopilotRun(scope: Scope, runId: string): Promise<Copil
   return run
 }
 
-export async function saveCopilotOccurrence(run: CopilotRun, occurrence: ModelOccurrence) {
-  run.occurrence = occurrence
-  await db
-    .update(verification)
-    .set({ value: JSON.stringify(run), updatedAt: new Date() })
-    .where(eq(verification.id, receiptId('run', run.runId)))
-}
-
 export async function claimCopilotThread(scope: Scope, threadId: string, runId: string) {
-  if (!(await insertReceipt(receiptId('thread', [scope, threadId]), { runId })))
-    throw new NativeTargetError('Finish or cancel the current Copilot turn first', 409)
+  if (
+    !(await insertReceipt(
+      receiptId('thread', [scope, threadId]),
+      { runId },
+      receiptId('thread', [scope, threadId])
+    ))
+  )
+    throw new NativeTargetError(
+      'This conversation has an unfinished turn. Stop it, or start a new conversation if it was interrupted.',
+      409
+    )
 }
 
 export async function releaseCopilotThread(scope: Scope, threadId: string, runId: string) {
@@ -97,13 +102,8 @@ export async function releaseCopilotThread(scope: Scope, threadId: string, runId
     )
 }
 
-export async function assertCopilotThreadIdle(scope: Scope, threadId: string) {
-  if (await readReceipt(receiptId('thread', [scope, threadId])))
-    throw new NativeTargetError('Finish or cancel the current Copilot turn first', 409)
-}
-
 export async function cancelCopilotRun(runId: string) {
-  await insertReceipt(receiptId('cancel', runId), true)
+  await insertReceipt(receiptId('cancel', runId), true, await runReceiptOwner(runId))
 }
 
 export async function assertCopilotRunActive(runId: string) {
@@ -115,6 +115,13 @@ export async function isCopilotRunCancelled(runId: string) {
   return Boolean(await readReceipt(receiptId('cancel', runId)))
 }
 
+async function runReceiptOwner(runId: string) {
+  const run = await readReceipt<CopilotRun>(receiptId('run', runId))
+  if (!run) throw new NativeTargetError('Copilot run is unavailable', 409)
+  return receiptId('thread', [run.scope, run.threadId])
+}
+
+/** Mastra stores outcomes. This claim prevents repeating an effect after an uncertain interruption. */
 export async function runCopilotEffectOnce<T>(
   runId: string,
   toolCallId: string,
@@ -122,45 +129,67 @@ export async function runCopilotEffectOnce<T>(
   input: unknown,
   execute: () => Promise<T>
 ): Promise<T> {
-  const id = receiptId('effect', [runId, toolCallId, phase])
-  const fingerprint = stableStringifyJsonValue(input)
-  const claimed = { fingerprint, state: 'claimed' as const }
-  if (!(await insertReceipt(id, claimed))) {
-    const previous = await readReceipt<{ fingerprint: string; state: string; result?: T }>(id)
-    if (previous?.fingerprint !== fingerprint)
-      throw new NativeTargetError(
-        'This Copilot action was already claimed with different input',
-        409
-      )
-    if (previous.state === 'completed') return previous.result as T
+  if (
+    !(await insertReceipt(
+      receiptId('effect', [runId, toolCallId, phase]),
+      { fingerprint: receiptId('input', input) },
+      await runReceiptOwner(runId)
+    ))
+  )
     throw new NativeTargetError(
       'This Copilot action was already dispatched; verify its result before continuing',
       409
     )
-  }
   await assertCopilotRunActive(runId)
-  const result = await execute()
-  const rows = await db
-    .update(verification)
-    .set({
-      value: JSON.stringify({ fingerprint, state: 'completed', result }),
-      updatedAt: new Date(),
-    })
-    .where(and(eq(verification.id, id), eq(verification.value, JSON.stringify(claimed))))
-    .returning({ id: verification.id })
-  if (!rows.length)
-    throw new NativeTargetError(
-      'Copilot effect acknowledgement is unavailable; do not repeat the action',
-      409
-    )
-  return result
+  return execute()
+}
+
+/** Delete the native conversation and all application claims together under its mutation claim. */
+export async function deleteCopilotThread(scope: Scope, threadId: string) {
+  const mutationId = crypto.randomUUID()
+  await claimCopilotThread(scope, threadId, mutationId)
+  try {
+    const owner = receiptId('thread', [scope, threadId])
+    const receipts = await db
+      .select({ id: verification.id, value: verification.value })
+      .from(verification)
+      .where(eq(verification.identifier, owner))
+    const workflows = await getNativeWorkflowsStore()
+    for (const receipt of receipts) {
+      if (!receipt.id.startsWith('copilot:run:')) continue
+      const run = JSON.parse(receipt.value) as CopilotRun
+      if (
+        run.threadId !== threadId ||
+        stableStringifyJsonValue(run.scope) !== stableStringifyJsonValue(scope)
+      )
+        throw new NativeTargetError('Stored Copilot conversation ownership differs', 403)
+      let snapshot = await workflows.getWorkflowRunById({ runId: run.runId })
+      while (snapshot) {
+        await workflows.deleteWorkflowRunById({
+          runId: run.runId,
+          workflowName: snapshot.workflowName,
+        })
+        snapshot = await workflows.getWorkflowRunById({ runId: run.runId })
+      }
+    }
+    await db
+      .delete(verification)
+      .where(and(eq(verification.identifier, owner), ne(verification.id, owner)))
+    await (await getAgentMemory()).deleteThread(threadId)
+  } finally {
+    await releaseCopilotThread(scope, threadId, mutationId)
+  }
 }
 
 /** Browser effect routes claim before dispatch; authoritative readback supplies their result. */
 export async function claimCopilotBrowserEffect(runId: string, toolCallId: string, input: unknown) {
   const id = receiptId('effect', [runId, toolCallId, 'browser'])
   if (
-    !(await insertReceipt(id, { fingerprint: stableStringifyJsonValue(input), state: 'claimed' }))
+    !(await insertReceipt(
+      id,
+      { fingerprint: receiptId('input', input) },
+      await runReceiptOwner(runId)
+    ))
   )
     throw new NativeTargetError('This Copilot browser action was already dispatched', 409)
   await assertCopilotRunActive(runId)

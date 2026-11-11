@@ -39,11 +39,9 @@ const first: HistoryMessage = {
   ],
 }
 const completed = {
-  requestId: 'utility',
   status: 'completed',
   runId: 'title-run',
   text: 'Title',
-  financial: { accepted: true, modelUsd: 'unavailable', appliedUsd: '0' },
 }
 const titleRequest = {
   workspaceId: null,
@@ -68,14 +66,13 @@ beforeEach(() => {
   m.thread.mockResolvedValue({ id: 'original-thread', title: '' })
   m.history.mockResolvedValue([first])
   m.title.mockImplementation(async (input) => {
-    input.onOutcome(completed)
     return 'Title'
   })
 })
 describe('actual first-thread title utility boundary', () => {
   it('confirms canonical untitled thread and one actual user, then uses exact captured original input', async () => {
     const result = await post()
-    expect(await result.json()).toEqual({ title: 'Title', outcome: completed })
+    expect(await result.json()).toEqual({ title: 'Title' })
     expect(m.scope).toHaveBeenCalledWith('actual-member', null)
     expect(m.history).toHaveBeenCalledWith(scope, 'original-thread', expect.any(AbortSignal))
     expect(m.thread).toHaveBeenCalledWith(scope, 'original-thread', expect.any(AbortSignal))
@@ -119,10 +116,9 @@ describe('actual first-thread title utility boundary', () => {
   })
   it('keeps received acceptance when optional title does not complete and never retries', async () => {
     m.title.mockImplementationOnce(async (input) => {
-      input.onOutcome(completed)
       return null
     })
-    expect(await (await post()).json()).toEqual({ title: null, outcome: completed })
+    expect(await (await post()).json()).toEqual({ title: null })
     expect(m.title).toHaveBeenCalledOnce()
   })
   it.each(['New Chat', 'Untitled', ' ', '\n', 'Manual title'])(
@@ -160,13 +156,11 @@ describe('actual first-thread title utility boundary', () => {
   it('retains accepted facts but publishes no title after cancellation and never retries', async () => {
     const controller = new AbortController()
     m.title.mockImplementationOnce(async (input) => {
-      input.onOutcome(completed)
       controller.abort()
       return 'Late title'
     })
     expect(await (await post(titleRequest, controller.signal)).json()).toEqual({
       title: null,
-      outcome: completed,
     })
     expect(m.title).toHaveBeenCalledOnce()
   })

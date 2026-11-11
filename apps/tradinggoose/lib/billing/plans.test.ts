@@ -62,8 +62,8 @@ describe('getPlans', () => {
         monthlyPriceUsd: '49',
       },
     ])
-    getTierIncludedUsageLimitMock.mockReturnValue('25')
-    parseBillingAmountMock.mockReturnValue('49')
+    getTierIncludedUsageLimitMock.mockReturnValue(25)
+    parseBillingAmountMock.mockReturnValue(49)
 
     const { getPlans } = await import('./plans')
 
@@ -72,6 +72,9 @@ describe('getPlans', () => {
         name: 'team',
         priceId: 'price_monthly',
         annualDiscountPriceId: 'price_yearly',
+        limits: {
+          cost: 25,
+        },
       },
     ])
   })

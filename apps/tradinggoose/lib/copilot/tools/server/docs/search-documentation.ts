@@ -1,21 +1,12 @@
 import { db } from '@tradinggoose/db'
 import { docsEmbeddings } from '@tradinggoose/db/schema'
 import { sql } from 'drizzle-orm'
-import { verifyFinancialAcceptance } from '@/lib/billing/native-finance'
-import {
-  authorizeNativeConversationScope,
-  getNativeFinancialSource,
-  NativeTargetError,
-} from '@/lib/copilot/native/target'
-import { ServerToolArgSchemas } from '@/lib/copilot/registry'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import {
   type BaseServerTool,
-  hashServerToolReviewBase,
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
-import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getFailureAccounting } from '@/lib/mastra/errors'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
@@ -35,54 +26,11 @@ export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any
     if (!context?.userId) throw new Error('Authenticated embedding actor is required')
     throwIfServerToolAborted(context)
 
-    const source = getNativeFinancialSource(context)
-    if (context.nativeReviewBinding && !source)
-      throw new NativeTargetError(
-        'Original native documentation financial provenance is missing',
-        403
-      )
-    const verifySource = source
-      ? async () => {
-          if (
-            context.userId !== source.scope.actorUserId ||
-            context.signal !== source.signal ||
-            !source.signal ||
-            source.target.toolName !== 'search_documentation'
-          )
-            throw new NativeTargetError(
-              'Original documentation actor, target or signal changed',
-              403
-            )
-          source.signal.throwIfAborted()
-          const original = ServerToolArgSchemas.search_documentation.parse(
-            JSON.parse(source.originalArgsJson)
-          )
-          if (stableStringifyJsonValue(original) !== stableStringifyJsonValue(params))
-            throw new NativeTargetError('Original documentation arguments changed', 403)
-          await authorizeNativeConversationScope(source.scope.actorUserId, source.scope.workspaceId)
-          await verifyFinancialAcceptance(source.binding, source.occurrence)
-          source.signal.throwIfAborted()
-        }
-      : undefined
-    // The marker only requires an authentic source; it never selects a financial actor/root.
-    if (verifySource) await verifySource()
-    const embeddingScope = source
-      ? {
-          actorUserId: source.binding.actorUserId,
-          workspaceId: source.binding.workspaceId,
-          workflowId: source.binding.workflowId,
-          signal: source.signal,
-          runId: `embedding-copilot-docs:${hashServerToolReviewBase({
-            purpose: 'embedding',
-            scope: source.scope,
-            binding: source.binding,
-            target: source.target,
-            args: source.originalArgsJson,
-          })}`,
-          expectedNamespace: source.binding.namespace,
-          verifySource,
-        }
-      : { actorUserId: context.userId, workspaceId: context.workspaceId, signal: context.signal }
+    const embeddingScope = {
+      actorUserId: context.userId,
+      workspaceId: context.workspaceId,
+      signal: context.signal,
+    }
 
     logger.info('Executing docs search', { query, topK })
 

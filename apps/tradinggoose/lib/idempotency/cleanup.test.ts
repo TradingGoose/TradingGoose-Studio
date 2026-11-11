@@ -29,7 +29,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
 vi.mock('drizzle-orm', () => ({
   and: (...conditions: unknown[]) => ({ operator: 'and', conditions }),
   eq: (field: unknown, value: unknown) => ({ operator: 'eq', field, value }),
-  notLike: (field: unknown, value: unknown) => ({ operator: 'notLike', field, value }),
   lt: (field: unknown, value: unknown) => ({ operator: 'lt', field, value }),
   or: (...conditions: unknown[]) => ({ operator: 'or', conditions }),
 }))
@@ -40,19 +39,9 @@ it('deletes a mixed idempotency batch by either composite key', async () => {
   await expect(cleanupExpiredIdempotencyKeys({ batchSize: 3 })).resolves.toBe(2)
 
   const deletion = mocks.where.mock.lastCall![0] as any
-  expect(deletion).toMatchObject({
-    operator: 'and',
-    conditions: [
-      { operator: 'notLike', field: 'namespace', value: 'billing-usage:%' },
-      { operator: 'or', conditions: [{ operator: 'and' }, { operator: 'and' }] },
-    ],
-  })
-})
-
-it('protects an explicitly requested financial namespace without reading or deleting it', async () => {
-  const calls = mocks.where.mock.calls.length
-  await expect(
-    cleanupExpiredIdempotencyKeys({ namespace: 'billing-usage:organization:original' })
-  ).resolves.toBe(0)
-  expect(mocks.where.mock.calls.length).toBe(calls)
+  expect(deletion).toMatchObject({ operator: 'or' })
+  expect(deletion.conditions.map(({ operator }: { operator: string }) => operator)).toEqual([
+    'and',
+    'and',
+  ])
 })

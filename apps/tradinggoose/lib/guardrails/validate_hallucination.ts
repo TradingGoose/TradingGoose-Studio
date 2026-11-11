@@ -3,8 +3,7 @@ import { toStandardSchema } from '@mastra/core/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { financialProcessors } from '@/lib/mastra/financial-processors'
-import { NATIVE_AGENT_POLICY, trustedModelSettings, trustedPrepareStep } from '@/lib/mastra/options'
+import { NATIVE_AGENT_POLICY, trustedModelSettings } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { assertNativeCompletion } from '@/lib/mastra/result'
 import { getMastra } from '@/lib/mastra/runtime'
@@ -14,6 +13,7 @@ import {
   selectNativeUsage,
   sumNativeUsage,
 } from '@/lib/mastra/usage'
+import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('HallucinationValidator')
@@ -73,7 +73,7 @@ async function scoreHallucinationWithLLM(
       }) => Promise<Awaited<ReturnType<typeof resultAccounting>>>)
     | undefined
   let accounting: Awaited<ReturnType<typeof resultAccounting>> | undefined
-  let finance: Awaited<ReturnType<typeof financialProcessors>> | undefined
+  let finance: Awaited<ReturnType<typeof usageProcessors>> | undefined
   try {
     const contextText = ragContext.join('\n\n---\n\n')
 
@@ -118,7 +118,7 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
       AbortSignal.timeout(120000),
       ...(externalSignal ? [externalSignal] : []),
     ])
-    finance = await financialProcessors({
+    finance = await usageProcessors({
       actorUserId: userId,
       workspaceId,
       runId: requestId,
@@ -145,7 +145,6 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
       tracingOptions: { metadata: { runId: requestId, userId, resourceId: workspaceId } },
       modelSettings: trustedModelSettings({ temperature: 0.1 }),
       maxProcessorRetries: 0,
-      prepareStep: trustedPrepareStep(admittedModel),
       structuredOutput: {
         schema: toStandardSchema({
           type: 'object',

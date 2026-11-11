@@ -10,8 +10,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { isUsingCloudStorage, type StorageContext, StorageService } from '@/lib/uploads'
-import { fetchPublicStorageUrl } from '@/lib/uploads/archive-boundary'
-import { isCopilotSourceReference } from '@/lib/uploads/contexts/copilot/source-proof'
 import {
   resolveAuthorizedWorkspaceFileReference,
   type WorkspaceFileRecord,
@@ -19,10 +17,10 @@ import {
 import { UPLOAD_DIR_SERVER } from '@/lib/uploads/core/setup.server'
 import {
   assertStorageReferenceAccess,
-  PrivateSourceAccessError,
-  withAuthorizedStorageRead,
-} from '@/lib/uploads/source-read-boundary'
-import { extractStorageKey } from '@/lib/uploads/utils/file-utils'
+  extractStorageKey,
+  fetchPublicStorageUrl,
+  StorageAccessError,
+} from '@/lib/uploads/utils/file-utils'
 import '@/lib/uploads/core/setup.server'
 
 export const dynamic = 'force-dynamic'
@@ -114,7 +112,7 @@ export async function POST(request: NextRequest) {
         !actor.userId ||
         !(await checkWorkspaceAccess(workspaceId, actor.userId)).hasAccess
       )
-        throw new PrivateSourceAccessError()
+        throw new StorageAccessError()
     }
     const workspaceFiles = new Map<string, WorkspaceFileRecord>()
     for (const reference of Array.isArray(filePath) ? filePath : [filePath]) {
@@ -135,9 +133,7 @@ export async function POST(request: NextRequest) {
     const parseReference = (reference: string) => {
       const file = workspaceFiles.get(reference)
       return file
-        ? withAuthorizedStorageRead(file.key, 'workspace', () =>
-            handleCloudFile(file.key, fileType, 'workspace')
-          )
+        ? handleCloudFile(file.key, fileType, 'workspace')
         : parseFileSingle(reference, fileType, workspaceId)
     }
 
@@ -211,7 +207,7 @@ export async function POST(request: NextRequest) {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         filePath: '',
       },
-      { status: error instanceof PrivateSourceAccessError ? error.status : 500 }
+      { status: error instanceof StorageAccessError ? error.status : 500 }
     )
   }
 }
@@ -225,8 +221,6 @@ async function parseFileSingle(
   workspaceId?: string
 ): Promise<ParseResult> {
   assertStorageReferenceAccess(filePath)
-  if (isCopilotSourceReference(filePath) || /[?&]context=copilot(?:&|$)/.test(filePath))
-    throw new Error('Copilot images require authenticated source authorization')
   logger.info('Parsing file:', filePath)
 
   if (!filePath || filePath.trim() === '') {
@@ -357,9 +351,7 @@ async function handleExternalUrl(
         const existingFile = workspaceFiles.find((f) => f.name === filename)
 
         if (existingFile && existingFile.workspaceId === workspaceId) {
-          return withAuthorizedStorageRead(existingFile.key, 'workspace', () =>
-            handleCloudFile(existingFile.key, fileType, 'workspace')
-          )
+          return handleCloudFile(existingFile.key, fileType, 'workspace')
         }
       }
     }

@@ -1,8 +1,14 @@
 import { db } from '@tradinggoose/db'
-import { invitation, member, organization, user, userStats } from '@tradinggoose/db/schema'
+import {
+  invitation,
+  member,
+  organization,
+  subscription,
+  user,
+  userStats,
+} from '@tradinggoose/db/schema'
 import { and, count, eq } from 'drizzle-orm'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
-import { updateFinancialSubscription } from '@/lib/billing/financial-subscriptions'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -293,15 +299,12 @@ export async function updateOrganizationSeats(
       }
     }
 
-    await updateFinancialSubscription(
-      subscriptionRecord.id,
-      { seats: newSeatCount },
-      {
-        actorUserId: updatedBy,
-        expectedSeats: subscriptionRecord.seats,
-        expectedStripeSubscriptionId: subscriptionRecord.stripeSubscriptionId,
-      }
-    )
+    await db
+      .update(subscription)
+      .set({
+        seats: newSeatCount,
+      })
+      .where(eq(subscription.id, subscriptionRecord.id))
 
     logger.info('Organization seat count updated', {
       organizationId,
@@ -456,11 +459,10 @@ export async function syncSeatsFromStripeQuantity(
   }
 
   try {
-    await updateFinancialSubscription(
-      subscriptionId,
-      { seats: stripeQuantity },
-      { expectedSeats: currentSeats }
-    )
+    await db
+      .update(subscription)
+      .set({ seats: stripeQuantity })
+      .where(eq(subscription.id, subscriptionId))
 
     logger.info('Synced seat count from Stripe', {
       subscriptionId,

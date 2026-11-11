@@ -1,7 +1,5 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
-import { hydrateFunctionalBlocks, projectFunctionalBlocks } from '@/lib/workflow-archive/functional'
 import { validateWorkflowPauseInput } from '@/lib/workflows/human-in-the-loop/form'
 import { Executor, type ExecutorOptions } from '@/executor'
 import type { ExecutorCheckpoint } from '@/executor/checkpoint'
@@ -17,7 +15,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),
 }))
-vi.mock('@tradinggoose/db', () => ({ db: {} }))
 vi.mock('@/blocks', () => ({ getBlock: () => undefined }))
 vi.mock('@/blocks/index', () => ({ getBlock: () => undefined }))
 vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'http://localhost:3000' }))
@@ -398,24 +395,6 @@ describe('Real executor durable Human in the Loop', () => {
     expect(completed.success).toBe(true)
     expect(completed.status).not.toBe('paused')
     expect(mocks.effect.mock.calls).toEqual([['after', {}]])
-    const logs = completed.logs ?? []
-    expect(new Set(logs.map(({ id }) => id)).size).toBe(logs.length)
-    expect(
-      logs.slice(0, partiallyResumed.checkpoint!.context.blockLogs.length).map(({ id }) => id)
-    ).toEqual(partiallyResumed.checkpoint!.context.blockLogs.map(({ id }) => id))
-    const blocks = projectFunctionalBlocks(buildTraceSpans(completed).traceSpans)
-    expect(
-      blocks
-        .filter(({ type }) => type === 'human_in_the_loop')
-        .map(({ id, blockId, output }) => ({ id, blockId, output }))
-    ).toEqual(
-      logs
-        .filter(({ blockType }) => blockType === 'human_in_the_loop')
-        .map(({ id, blockId, output }) => ({ id, blockId, output }))
-    )
-    expect(
-      projectFunctionalBlocks(await hydrateFunctionalBlocks(JSON.parse(JSON.stringify(blocks))))
-    ).toEqual(blocks)
   })
 
   it('uses the new capacity owner when a resumed workflow queues a child', async () => {
@@ -492,168 +471,5 @@ describe('Real executor durable Human in the Loop', () => {
     expect(completed.status).not.toBe('paused')
     expect(mocks.fetch).toHaveBeenCalledTimes(2)
     expect(mocks.effect.mock.calls).toEqual([['after', {}]])
-    const childLogs = completed.logs?.filter(({ blockId }) => blockId === 'child') ?? []
-    expect(childLogs).toHaveLength(1)
-    expect(childLogs[0].id).toEqual(expect.any(String))
-    expect(childLogs[0].id.trim()).not.toBe('')
-    const completedBeforeWait = paused.checkpoint!.context.blockLogs
-    expect(completed.logs?.slice(0, completedBeforeWait.length).map(({ id }) => id)).toEqual(
-      completedBeforeWait.map(({ id }) => id)
-    )
-    const projected = projectFunctionalBlocks(buildTraceSpans(completed).traceSpans)
-    expect(projected.find(({ blockId }) => blockId === 'child')?.id).toBe(childLogs[0].id)
-  })
-})
-
-function occurrenceLoop(withPause = false): SerializedWorkflow {
-  const workflow = linear([
-    block('loop', 'loop'),
-    block('values', 'variables', {
-      variables: [
-        { variableId: 'v', variableName: 'iteration', type: 'number', value: '<loop.index>' },
-      ],
-    }),
-    ...(withPause ? [approval()] : []),
-    block('after'),
-  ])
-  workflow.loops = { loop: { id: 'loop', nodes: ['values'], iterations: 3, loopType: 'for' } }
-  workflow.connections = [
-    { source: 'trigger', target: 'loop' },
-    { source: 'loop', target: 'values', sourceHandle: 'loop-start-source' },
-    { source: 'values', target: 'loop', targetHandle: 'loop-end-target' },
-    { source: 'loop', target: withPause ? 'approval' : 'after', sourceHandle: 'loop-end-source' },
-    ...(withPause ? [{ source: 'approval', target: 'after' }] : []),
-  ]
-  return workflow
-}
-const occurrenceVariables = () => ({ v: { name: 'iteration', type: 'number', value: -1 } })
-describe('saved real block occurrence identity', () => {
-  it('preserves every fast serial Loop/Variables output and initialized file trigger at one Date', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] }).setSystemTime(new Date('2026-11-10T12:00:00.000Z'))
-    const file = {
-      id: 'input-file',
-      name: 'exact.txt',
-      key: 'owned/input.txt',
-      size: 3,
-      type: 'text/plain',
-      url: '/api/files/serve/owned/input.txt',
-      uploadedAt: '2026-11-10T12:00:00Z',
-      expiresAt: '2026-11-11T12:00:00Z',
-    }
-    const workflow = occurrenceLoop()
-    const result = await run(workflow, {
-      workflowVariables: occurrenceVariables(),
-      workflowInput: { files: [file] },
-    })
-    expect(result.success).toBe(true)
-    const logs = result.logs ?? []
-    expect(logs.filter((log) => log.blockId === 'values').map((log) => log.output)).toEqual([
-      { iteration: 0 },
-      { iteration: 1 },
-      { iteration: 2 },
-    ])
-    const triggerLogs = logs.filter((log) => log.blockId === 'trigger')
-    const triggerOutput = { files: [file], input: { files: [file] } }
-    const triggerRecord = {
-      blockId: 'trigger',
-      blockName: 'trigger',
-      blockType: 'input_trigger',
-      startedAt: '2026-11-10T12:00:00.000Z',
-      endedAt: '2026-11-10T12:00:00.000Z',
-      success: true,
-      output: triggerOutput,
-    }
-    // Initialization captures files before the real trigger executes with resolved params.
-    expect(triggerLogs).toHaveLength(2)
-    expect(triggerLogs).toStrictEqual([
-      { ...triggerRecord, id: triggerLogs[0].id, input: { files: [file] }, durationMs: 0 },
-      {
-        ...triggerRecord,
-        id: triggerLogs[1].id,
-        input: {},
-        durationMs: triggerLogs[1].durationMs,
-        inference: undefined,
-      },
-    ])
-    expect(logs.slice(0, 2)).toStrictEqual(triggerLogs)
-    expect(Number.isSafeInteger(triggerLogs[1].durationMs)).toBe(true)
-    expect(triggerLogs[1].durationMs).toBeGreaterThanOrEqual(0)
-    expect(new Set(logs.map((log) => log.startedAt)).size).toBe(1)
-    expect(new Set(logs.map((log) => log.id)).size).toBe(logs.length)
-    for (const log of logs) {
-      expect(log.id).toEqual(expect.any(String))
-      expect(log.id.trim()).not.toBe('')
-      expect(log.inference).toBeUndefined()
-    }
-    const first = projectFunctionalBlocks(buildTraceSpans(result).traceSpans)
-    const second = projectFunctionalBlocks(buildTraceSpans(result).traceSpans)
-    expect(second).toEqual(first)
-    expect(
-      first
-        .filter((entry) => entry.blockId === 'trigger')
-        .map(({ id, input, output }) => ({ id, input, output }))
-    ).toStrictEqual([
-      { id: triggerLogs[0].id, input: { files: [file] }, output: triggerOutput },
-      { id: triggerLogs[1].id, input: {}, output: triggerOutput },
-    ])
-    expect(
-      first
-        .filter((entry) => entry.blockId === 'values')
-        .map((entry) => ({ id: entry.id, output: entry.output }))
-    ).toEqual(
-      logs
-        .filter((log) => log.blockId === 'values')
-        .map((log) => ({ id: log.id, output: log.output }))
-    )
-    const restored = await hydrateFunctionalBlocks(JSON.parse(JSON.stringify(first)))
-    expect(projectFunctionalBlocks(restored)).toEqual(first)
-    const next = await run(workflow, {
-      workflowVariables: occurrenceVariables(),
-      workflowInput: { files: [file] },
-    })
-    expect(next.success).toBe(true)
-    expect(next.logs?.filter((log) => log.blockId === 'values').map((log) => log.output)).toEqual([
-      { iteration: 0 },
-      { iteration: 1 },
-      { iteration: 2 },
-    ])
-    expect(next.logs?.every((log) => !logs.some((previous) => previous.id === log.id))).toBe(true)
-  })
-  it('retains completed IDs through JSON cold pause/resume and refuses unproved saved IDs before effects', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] }).setSystemTime(new Date('2026-11-10T12:00:00.000Z'))
-    const paused = await run(occurrenceLoop(true), { workflowVariables: occurrenceVariables() })
-    expect(paused.status).toBe('paused')
-    const saved = JSON.parse(JSON.stringify(paused.checkpoint))
-    const completedBeforePause = saved.context.blockLogs
-    expect(
-      completedBeforePause
-        .filter((log: { blockId: string }) => log.blockId === 'values')
-        .map((log: { output: unknown }) => log.output)
-    ).toEqual([{ iteration: 0 }, { iteration: 1 }, { iteration: 2 }])
-    expect(mocks.effect).not.toHaveBeenCalled()
-    const invalid = structuredClone(saved)
-    Reflect.deleteProperty(invalid.context.blockLogs[0], 'id')
-    await expect(
-      run(invalid.workflow, {
-        checkpoint: invalid,
-        resumeInputs: new Map([['approval', { approved: true }]]),
-      })
-    ).rejects.toThrow('block occurrence')
-    expect(mocks.effect).not.toHaveBeenCalled()
-    const completed = await resume(paused, new Map([['approval', { approved: true }]]))
-    expect(completed.success).toBe(true)
-    expect(completed.logs?.slice(0, completedBeforePause.length)).toEqual(completedBeforePause)
-    const oldIds = completedBeforePause.map((log: { id: string }) => log.id)
-    expect(
-      completed.logs?.slice(completedBeforePause.length).every((log) => !oldIds.includes(log.id))
-    ).toBe(true)
-    expect(mocks.effect.mock.calls).toEqual([['after', {}]])
-    const blocks = projectFunctionalBlocks(buildTraceSpans(completed).traceSpans)
-    expect(
-      blocks.filter((entry) => entry.blockId === 'values').map((entry) => entry.output)
-    ).toEqual([{ iteration: 0 }, { iteration: 1 }, { iteration: 2 }])
-    expect(
-      projectFunctionalBlocks(await hydrateFunctionalBlocks(JSON.parse(JSON.stringify(blocks))))
-    ).toEqual(blocks)
   })
 })

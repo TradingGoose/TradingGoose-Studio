@@ -333,10 +333,7 @@ export function applyNativeEvent(
         isSendingMessage: false,
         isAwaitingContinuation: false,
       }
-    case 'context.compacted':
-      return {
-        lastNativeOutcome: event.result,
-        contextEvidence: null,
-      }
+    default:
+      throw new Error('Unknown Copilot event')
   }
 }

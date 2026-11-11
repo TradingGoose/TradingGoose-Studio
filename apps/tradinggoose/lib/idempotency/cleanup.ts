@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { idempotencyKey } from '@tradinggoose/db/schema'
-import { and, eq, lt, notLike, or } from 'drizzle-orm'
+import { and, eq, lt, or } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('IdempotencyCleanup')
@@ -12,7 +12,6 @@ export type CleanupOptions = {
 }
 
 export async function cleanupExpiredIdempotencyKeys(options: CleanupOptions = {}): Promise<number> {
-  if (options.namespace?.startsWith('billing-usage:')) return 0
   const maxAgeSeconds = options.maxAgeSeconds ?? 7 * 24 * 60 * 60
   const batchSize = options.batchSize ?? 1_000
   const cutoff = new Date(Date.now() - maxAgeSeconds * 1_000)
@@ -28,23 +27,19 @@ export async function cleanupExpiredIdempotencyKeys(options: CleanupOptions = {}
     const expired = options.namespace
       ? and(lt(idempotencyKey.createdAt, cutoff), eq(idempotencyKey.namespace, options.namespace))
       : lt(idempotencyKey.createdAt, cutoff)
-    const protectedExpiry = and(expired, notLike(idempotencyKey.namespace, 'billing-usage:%'))
     const rows = await db
       .select({ key: idempotencyKey.key, namespace: idempotencyKey.namespace })
       .from(idempotencyKey)
-      .where(protectedExpiry)
+      .where(expired)
       .limit(batchSize)
     if (rows.length === 0) break
 
     const removed = await db
       .delete(idempotencyKey)
       .where(
-        and(
-          notLike(idempotencyKey.namespace, 'billing-usage:%'),
-          or(
-            ...rows.map(({ key, namespace }) =>
-              and(eq(idempotencyKey.key, key), eq(idempotencyKey.namespace, namespace))
-            )
+        or(
+          ...rows.map(({ key, namespace }) =>
+            and(eq(idempotencyKey.key, key), eq(idempotencyKey.namespace, namespace))
           )
         )
       )

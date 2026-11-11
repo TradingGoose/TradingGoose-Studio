@@ -1,11 +1,3 @@
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { assertPublicStorageInput } from '@/lib/uploads/archive-boundary'
-import {
-  PrivateSourceAccessError,
-  PrivateSourceMutationError,
-  withAuthorizedStorageDelete,
-} from '@/lib/uploads/source-read-boundary'
-import { extractStorageKey } from '@/lib/uploads/utils/file-utils'
 /**
  * Workspace file storage system
  * Files uploaded at workspace level persist indefinitely and are accessible across all workflows
@@ -20,7 +12,13 @@ import {
   incrementStorageUsage,
 } from '@/lib/billing/storage'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { deleteFile, downloadFile, uploadFile } from '@/lib/uploads/core/storage-service'
+import {
+  assertStorageReferenceAccess,
+  extractStorageKey,
+  StorageAccessError,
+} from '@/lib/uploads/utils/file-utils'
 import type { UserFile } from '@/executor/types'
 
 const logger = createLogger('WorkspaceFileStorage')
@@ -236,17 +234,15 @@ export async function deleteWorkspaceFile(
   actorUserId: string
 ): Promise<void> {
   if (!actorUserId || !(await checkWorkspaceAccess(workspaceId, actorUserId)).canWrite)
-    throw new PrivateSourceMutationError()
+    throw new StorageAccessError()
   logger.info(`Deleting workspace file: ${fileId}`)
 
   try {
     const fileRecord = await getWorkspaceFile(workspaceId, fileId)
     if (!fileRecord || fileRecord.workspaceId !== workspaceId || fileRecord.id !== fileId)
-      throw new PrivateSourceMutationError()
+      throw new StorageAccessError()
 
-    await withAuthorizedStorageDelete(fileRecord.key, 'workspace', () =>
-      deleteFile({ key: fileRecord.key, context: 'workspace' })
-    )
+    await deleteFile({ key: fileRecord.key, context: 'workspace' })
 
     await db
       .delete(workspaceFile)
@@ -261,37 +257,34 @@ export async function deleteWorkspaceFile(
     logger.info(`Successfully deleted workspace file: ${fileRecord.name}`)
   } catch (error) {
     logger.error(`Failed to delete workspace file ${fileId}:`, error)
-    if (error instanceof PrivateSourceMutationError) throw error
+    if (error instanceof StorageAccessError) throw error
     throw new Error(
       `Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   }
 }
 
-/** Locators are untrusted: only a fresh actor permission and actual exact-key row grant access. */
+/** A file's stored row owns its workspace; request contexts and URL locators grant no access. */
 export async function resolveAuthorizedWorkspaceFileReference(
   reference: string,
   actorUserId: string | undefined
 ): Promise<WorkspaceFileRecord | null> {
-  assertPublicStorageInput(reference)
+  assertStorageReferenceAccess(reference)
   const url = new URL(reference, 'https://storage-reference.invalid')
-  if (
-    !url.pathname.startsWith('/api/files/serve/') ||
-    url.searchParams.get('context') !== 'workspace'
-  )
+  if (/^https?:/.test(reference) && !url.pathname.startsWith('/api/files/serve/')) return null
+  const key = extractStorageKey(reference)
+  const [file] = await db.select().from(workspaceFile).where(eq(workspaceFile.key, key)).limit(1)
+  if (!file) {
+    if (url.searchParams.get('context') === 'workspace') throw new StorageAccessError()
     return null
-  const workspaceId = url.searchParams.get('workspaceId')
-  const fileId = url.searchParams.get('fileId')
-  if (!workspaceId || !fileId) return null
-  if (!actorUserId || !(await checkWorkspaceAccess(workspaceId, actorUserId)).hasAccess)
-    throw new PrivateSourceAccessError()
-  const file = await getWorkspaceFile(workspaceId, fileId)
+  }
+  if (!actorUserId || !(await checkWorkspaceAccess(file.workspaceId, actorUserId)).hasAccess)
+    throw new StorageAccessError()
   if (
-    !file ||
-    file.id !== fileId ||
-    file.workspaceId !== workspaceId ||
-    file.key !== extractStorageKey(reference)
+    (url.searchParams.has('workspaceId') &&
+      url.searchParams.get('workspaceId') !== file.workspaceId) ||
+    (url.searchParams.has('fileId') && url.searchParams.get('fileId') !== file.id)
   )
-    throw new PrivateSourceAccessError()
-  return file
+    throw new StorageAccessError()
+  return { ...file, path: reference }
 }

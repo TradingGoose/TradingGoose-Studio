@@ -52,7 +52,7 @@ export interface BatchSendEmailResult {
   data?: any
 }
 
-export interface ProcessedEmailData {
+interface ProcessedEmailData {
   to: string | string[]
   subject: string
   html?: string
@@ -200,7 +200,7 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
   }
 }
 
-export async function processEmailData(options: EmailOptions): Promise<ProcessedEmailData> {
+async function processEmailData(options: EmailOptions): Promise<ProcessedEmailData> {
   const {
     to,
     subject,

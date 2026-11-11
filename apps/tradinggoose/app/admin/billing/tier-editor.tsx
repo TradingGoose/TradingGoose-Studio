@@ -1,7 +1,6 @@
 'use client'
 
 import type { FormEvent, ReactNode } from 'react'
-import { compareMoney, type DecimalAmount, monetary } from '@tradinggoose/billing/money'
 import { ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react'
 import type { Messages } from 'next-intl'
 import {
@@ -195,10 +194,6 @@ function formatOptionalNumber(value: number | null) {
   return value === null ? '' : value.toString()
 }
 
-function formatOptionalMoney(value: DecimalAmount | null) {
-  return value === null ? '' : monetary(value)
-}
-
 function normalizeTierAccessFields(fields: TierDerivedAccessFields): TierDerivedAccessFields {
   if (fields.ownerType === 'user') {
     return {
@@ -222,8 +217,8 @@ function getTierCommerceLabel(defaults: {
   stripeMonthlyPriceId: string
   stripeYearlyPriceId: string
 }): TierCommerceLabel {
-  const hasMonthlyPrice = hasPositiveMoney(defaults.monthlyPriceUsd)
-  const hasYearlyPrice = hasPositiveMoney(defaults.yearlyPriceUsd)
+  const hasMonthlyPrice = hasPositiveNumber(defaults.monthlyPriceUsd)
+  const hasYearlyPrice = hasPositiveNumber(defaults.yearlyPriceUsd)
 
   if (!hasMonthlyPrice && !hasYearlyPrice) {
     return 'free'
@@ -255,9 +250,9 @@ export function createTierFormDefaults(tier?: AdminBillingTierSnapshot): TierFor
     ownerType: tier?.ownerType ?? 'user',
     usageScope: tier?.usageScope ?? 'individual',
     seatMode: tier?.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
-    monthlyPriceUsd: formatOptionalMoney(tier?.monthlyPriceUsd ?? null),
-    yearlyPriceUsd: formatOptionalMoney(tier?.yearlyPriceUsd ?? null),
-    includedUsageLimitUsd: formatOptionalMoney(tier?.includedUsageLimitUsd ?? null),
+    monthlyPriceUsd: formatOptionalNumber(tier?.monthlyPriceUsd ?? null),
+    yearlyPriceUsd: formatOptionalNumber(tier?.yearlyPriceUsd ?? null),
+    includedUsageLimitUsd: formatOptionalNumber(tier?.includedUsageLimitUsd ?? null),
     storageLimitGb: formatOptionalNumber(tier?.storageLimitGb ?? null),
     concurrencyLimit: formatOptionalNumber(tier?.concurrencyLimit ?? null),
     workflowExecutionTimeLimitSeconds: formatOptionalNumber(
@@ -278,10 +273,10 @@ export function createTierFormDefaults(tier?: AdminBillingTierSnapshot): TierFor
     canEditUsageLimit: tier?.canEditUsageLimit ?? false,
     canConfigureSso: tier?.canConfigureSso ?? false,
     logRetentionDays: formatOptionalNumber(tier?.logRetentionDays ?? null),
-    workflowExecutionMultiplier: formatOptionalMoney(tier?.workflowExecutionMultiplier ?? null),
-    workflowModelCostMultiplier: formatOptionalMoney(tier?.workflowModelCostMultiplier ?? null),
-    functionExecutionMultiplier: formatOptionalMoney(tier?.functionExecutionMultiplier ?? null),
-    copilotCostMultiplier: formatOptionalMoney(tier?.copilotCostMultiplier ?? null),
+    workflowExecutionMultiplier: formatOptionalNumber(tier?.workflowExecutionMultiplier ?? null),
+    workflowModelCostMultiplier: formatOptionalNumber(tier?.workflowModelCostMultiplier ?? null),
+    functionExecutionMultiplier: formatOptionalNumber(tier?.functionExecutionMultiplier ?? null),
+    copilotCostMultiplier: formatOptionalNumber(tier?.copilotCostMultiplier ?? null),
     pricingFeatures: tier?.pricingFeatures.join('\n') ?? '',
     isPublic: tier?.isPublic ?? true,
     isDefault: tier?.isDefault ?? false,
@@ -298,16 +293,30 @@ function readOptionalText(formData: FormData, key: string) {
   return value.length > 0 ? value : null
 }
 
-function readOptionalMoney(formData: FormData, key: string) {
-  const value = readOptionalText(formData, key)
-  return value === null ? null : monetary(value)
+function readOptionalNumber(formData: FormData, key: string) {
+  const value = readRequiredText(formData, key)
+  if (!value) {
+    return null
+  }
+
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid number for ${key}`)
+  }
+
+  return parsed
 }
 
 function readOptionalInteger(formData: FormData, key: string) {
-  const text = readOptionalText(formData, key)
-  if (text === null) return null
-  const value = Number(text)
-  if (!Number.isSafeInteger(value)) throw new Error(`Invalid safe integer for ${key}`)
+  const value = readOptionalNumber(formData, key)
+  if (value === null) {
+    return null
+  }
+
+  if (!Number.isInteger(value)) {
+    throw new Error(`Invalid integer for ${key}`)
+  }
+
   return value
 }
 
@@ -336,9 +345,9 @@ export function buildTierMutationInput(formData: FormData): AdminBillingTierMuta
     ownerType: accessFields.ownerType,
     usageScope: accessFields.usageScope,
     seatMode: accessFields.seatMode,
-    monthlyPriceUsd: readOptionalMoney(formData, 'monthlyPriceUsd'),
-    yearlyPriceUsd: readOptionalMoney(formData, 'yearlyPriceUsd'),
-    includedUsageLimitUsd: readOptionalMoney(formData, 'includedUsageLimitUsd'),
+    monthlyPriceUsd: readOptionalNumber(formData, 'monthlyPriceUsd'),
+    yearlyPriceUsd: readOptionalNumber(formData, 'yearlyPriceUsd'),
+    includedUsageLimitUsd: readOptionalNumber(formData, 'includedUsageLimitUsd'),
     storageLimitGb: readOptionalInteger(formData, 'storageLimitGb'),
     concurrencyLimit: readOptionalInteger(formData, 'concurrencyLimit'),
     workflowExecutionTimeLimitSeconds: readOptionalInteger(
@@ -358,10 +367,10 @@ export function buildTierMutationInput(formData: FormData): AdminBillingTierMuta
     canEditUsageLimit: readBoolean(formData, 'canEditUsageLimit'),
     canConfigureSso: readBoolean(formData, 'canConfigureSso'),
     logRetentionDays: readOptionalInteger(formData, 'logRetentionDays'),
-    workflowExecutionMultiplier: readOptionalMoney(formData, 'workflowExecutionMultiplier'),
-    workflowModelCostMultiplier: readOptionalMoney(formData, 'workflowModelCostMultiplier'),
-    functionExecutionMultiplier: readOptionalMoney(formData, 'functionExecutionMultiplier'),
-    copilotCostMultiplier: readOptionalMoney(formData, 'copilotCostMultiplier'),
+    workflowExecutionMultiplier: readOptionalNumber(formData, 'workflowExecutionMultiplier'),
+    workflowModelCostMultiplier: readOptionalNumber(formData, 'workflowModelCostMultiplier'),
+    functionExecutionMultiplier: readOptionalNumber(formData, 'functionExecutionMultiplier'),
+    copilotCostMultiplier: readOptionalNumber(formData, 'copilotCostMultiplier'),
     pricingFeatures: readRequiredText(formData, 'pricingFeatures')
       .split('\n')
       .map((entry) => entry.trim())
@@ -415,23 +424,17 @@ function formatCurrencyValue(locale: LocaleCode | string, value: string) {
     return null
   }
 
-  try {
-    return formatUsd(locale, monetary(value))
-  } catch {
-    return `$${value}`
-  }
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? formatUsd(locale, parsed) : `$${value}`
 }
 
-function hasPositiveMoney(value: string) {
+function hasPositiveNumber(value: string) {
   if (!isFilled(value)) {
     return false
   }
 
-  try {
-    return compareMoney(monetary(value), '0') > 0
-  } catch {
-    return false
-  }
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0
 }
 
 function countPricingFeatureLines(value: string) {
@@ -504,17 +507,17 @@ function getTierSectionSummaries(
 
   const pricingMissing = [
     defaults.isPublic &&
-    hasPositiveMoney(defaults.monthlyPriceUsd) &&
+    hasPositiveNumber(defaults.monthlyPriceUsd) &&
     !isFilled(defaults.stripeMonthlyPriceId)
       ? copy.editor.summaries.monthlyStripePrice
       : null,
     defaults.isPublic &&
-    hasPositiveMoney(defaults.yearlyPriceUsd) &&
+    hasPositiveNumber(defaults.yearlyPriceUsd) &&
     !isFilled(defaults.stripeYearlyPriceId)
       ? copy.editor.summaries.yearlyStripePrice
       : null,
     commerceLabel === 'free' &&
-    (hasPositiveMoney(defaults.monthlyPriceUsd) || hasPositiveMoney(defaults.yearlyPriceUsd))
+    (hasPositiveNumber(defaults.monthlyPriceUsd) || hasPositiveNumber(defaults.yearlyPriceUsd))
       ? copy.editor.summaries.freeTiersNoRecurring
       : null,
   ].filter((value): value is string => Boolean(value))
@@ -1224,8 +1227,8 @@ export function TierEditorFormSurface({
                         id='monthlyPriceUsd'
                         name='monthlyPriceUsd'
                         aria-labelledby='monthlyPriceUsd-label'
-                        type='text'
-                        inputMode='decimal'
+                        type='number'
+                        step='0.01'
                         defaultValue={initialValues.monthlyPriceUsd}
                         readOnly={structuralIdentityLocked}
                       />
@@ -1270,8 +1273,8 @@ export function TierEditorFormSurface({
                         id='yearlyPriceUsd'
                         name='yearlyPriceUsd'
                         aria-labelledby='yearlyPriceUsd-label'
-                        type='text'
-                        inputMode='decimal'
+                        type='number'
+                        step='0.01'
                         defaultValue={initialValues.yearlyPriceUsd}
                         readOnly={structuralIdentityLocked}
                       />
@@ -1452,8 +1455,8 @@ export function TierEditorFormSurface({
                           id='includedUsageLimitUsd'
                           name='includedUsageLimitUsd'
                           aria-labelledby='includedUsageLimitUsd-label'
-                          type='text'
-                          inputMode='decimal'
+                          type='number'
+                          step='0.01'
                           defaultValue={initialValues.includedUsageLimitUsd}
                         />
                       </FieldShell>
@@ -1617,8 +1620,8 @@ export function TierEditorFormSurface({
                     id='workflowExecutionMultiplier'
                     name='workflowExecutionMultiplier'
                     aria-labelledby='workflowExecutionMultiplier-label'
-                    type='text'
-                    inputMode='decimal'
+                    type='number'
+                    step='0.01'
                     defaultValue={initialValues.workflowExecutionMultiplier}
                   />
                 </FieldShell>
@@ -1635,8 +1638,8 @@ export function TierEditorFormSurface({
                     id='workflowModelCostMultiplier'
                     name='workflowModelCostMultiplier'
                     aria-labelledby='workflowModelCostMultiplier-label'
-                    type='text'
-                    inputMode='decimal'
+                    type='number'
+                    step='0.01'
                     defaultValue={initialValues.workflowModelCostMultiplier}
                   />
                 </FieldShell>
@@ -1653,8 +1656,8 @@ export function TierEditorFormSurface({
                     id='functionExecutionMultiplier'
                     name='functionExecutionMultiplier'
                     aria-labelledby='functionExecutionMultiplier-label'
-                    type='text'
-                    inputMode='decimal'
+                    type='number'
+                    step='0.0001'
                     defaultValue={initialValues.functionExecutionMultiplier}
                   />
                 </FieldShell>
@@ -1671,8 +1674,8 @@ export function TierEditorFormSurface({
                     id='copilotCostMultiplier'
                     name='copilotCostMultiplier'
                     aria-labelledby='copilotCostMultiplier-label'
-                    type='text'
-                    inputMode='decimal'
+                    type='number'
+                    step='0.01'
                     defaultValue={initialValues.copilotCostMultiplier}
                   />
                 </FieldShell>

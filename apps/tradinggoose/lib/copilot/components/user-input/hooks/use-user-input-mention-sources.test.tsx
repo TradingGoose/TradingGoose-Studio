@@ -129,7 +129,6 @@ const startLoads = (...submenus: MentionSubmenu[]) => {
 }
 
 const nativeThreads = (request: any, items: Array<{ id: string; title: string }>) => ({
-  requestId: request.requestId,
   status: 'threads',
   page: request.page,
   hasMore: false,

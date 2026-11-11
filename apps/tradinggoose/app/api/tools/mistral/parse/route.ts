@@ -6,10 +6,9 @@ import { type StorageContext, StorageService } from '@/lib/uploads'
 import { resolveAuthorizedWorkspaceFileReference } from '@/lib/uploads/contexts/workspace'
 import {
   assertStorageReferenceAccess,
-  PrivateSourceAccessError,
-  withAuthorizedStorageRead,
-} from '@/lib/uploads/source-read-boundary'
-import { extractStorageKey } from '@/lib/uploads/utils/file-utils'
+  extractStorageKey,
+  StorageAccessError,
+} from '@/lib/uploads/utils/file-utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
 
@@ -74,8 +73,10 @@ export async function POST(request: NextRequest) {
 
     // Check if it's an internal workspace file path
     if (workspaceFile) {
-      fileUrl = await withAuthorizedStorageRead(workspaceFile.key, 'workspace', () =>
-        StorageService.generatePresignedDownloadUrl(workspaceFile.key, 'workspace', 5 * 60)
+      fileUrl = await StorageService.generatePresignedDownloadUrl(
+        workspaceFile.key,
+        'workspace',
+        5 * 60
       )
     } else if (validatedData.filePath?.includes('/api/files/serve/')) {
       try {
@@ -93,11 +94,11 @@ export async function POST(request: NextRequest) {
           {
             success: false,
             error:
-              error instanceof PrivateSourceAccessError
+              error instanceof StorageAccessError
                 ? error.message
                 : 'Failed to generate file access URL',
           },
-          { status: error instanceof PrivateSourceAccessError ? error.status : 500 }
+          { status: error instanceof StorageAccessError ? error.status : 500 }
         )
       }
     } else if (validatedData.filePath?.startsWith('/')) {
@@ -178,7 +179,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Internal server error',
       },
-      { status: error instanceof PrivateSourceAccessError ? error.status : 500 }
+      { status: error instanceof StorageAccessError ? error.status : 500 }
     )
   }
 }

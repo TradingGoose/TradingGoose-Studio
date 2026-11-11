@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getInferenceFacts, type InferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
-import { checkpointFunctionalOutput } from '@/executor/checkpoint'
 
 vi.mock('@tradinggoose/db', () => ({ db: {} }))
 
@@ -277,8 +276,7 @@ it('keeps native10 plus arbitrary unbranded business9999 at10 without changing t
   expect(result).toMatchObject({ totalTokens: 10, status: 'unavailable', unavailableComponents: 1 })
   expect(Object.keys(result.models)).toEqual(['native/outer'])
   expect(business).toEqual(snapshot)
-  expect(checkpointFunctionalOutput(business)).toEqual(snapshot)
-  const cold = JSON.parse(JSON.stringify(checkpointFunctionalOutput(business)))
+  const cold = JSON.parse(JSON.stringify(business))
   expect(cold).toEqual(snapshot)
   expect(
     calculateCostSummary([

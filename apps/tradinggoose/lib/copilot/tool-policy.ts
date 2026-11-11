@@ -3,7 +3,6 @@ import type { ToolId } from './registry'
 type ToolPolicy = {
   execution: 'client' | 'server'
   gated: boolean
-  mcpExposed: boolean
   resultAuthority:
     | 'studio_result'
     | 'workflow_execution'
@@ -16,14 +15,12 @@ type ToolPolicy = {
 const serverTool: ToolPolicy = {
   execution: 'server',
   gated: false,
-  mcpExposed: true,
   resultAuthority: 'studio_result',
 }
 const serverGated: ToolPolicy = { ...serverTool, gated: true }
 const browserLocal: ToolPolicy = {
   execution: 'client',
   gated: false,
-  mcpExposed: false,
   resultAuthority: 'browser_local',
 }
 
@@ -91,7 +88,7 @@ const policies = {
   list_gdrive_files: serverTool,
   read_gdrive_file: serverTool,
   read_oauth_credentials: serverTool,
-  make_api_request: { ...serverGated, mcpExposed: false },
+  make_api_request: serverGated,
   plan: browserLocal,
   checkoff_todo: browserLocal,
   mark_todo_in_progress: browserLocal,

@@ -65,17 +65,7 @@
       "!**/apps/docs/.source/**",
       "!**/packages/db/migrations/meta/**",
       "!**/venv/**",
-      "!**/.venv/**",
-      "!apps/tradinggoose/lib/copilot/native/contract/protocol.json",
-      "!apps/tradinggoose/lib/copilot/native/contract/contract.schema.json",
-      "!apps/tradinggoose/lib/copilot/native/contract/fixtures.json",
-      "!apps/tradinggoose/lib/copilot/native/contract/http-fixtures.json",
-      "!apps/tradinggoose/lib/copilot/native/contract/proof-fixtures.json",
-      "!apps/tradinggoose/lib/copilot/native/contract/tool-coverage.json",
-      "!apps/tradinggoose/lib/copilot/native/contract.generated.d.ts",
-      "!apps/tradinggoose/lib/copilot/native/version.generated.ts",
-      "!apps/tradinggoose/lib/copilot/native/schema.generated.ts",
-      "!apps/tradinggoose/lib/copilot/native/parsers.generated.ts"
+      "!**/.venv/**"
     ]
   },
   "assist": {

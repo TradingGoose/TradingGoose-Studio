@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-vi.mock('@/lib/mastra/memory-locks', () => ({ lockMemoryOwners: vi.fn(async () => {}) }))
-vi.mock('@/lib/mastra/workflow-memory', () => ({
-  cleanupOrphanWorkflowMemory: vi.fn(async () => 0),
-}))
 
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

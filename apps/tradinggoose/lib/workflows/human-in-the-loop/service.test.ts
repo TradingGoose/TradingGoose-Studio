@@ -11,24 +11,9 @@ const state = vi.hoisted(() => ({
   readChild: vi.fn(),
   isCancellationRequested: vi.fn(),
   settleUsage: vi.fn(),
-  verifyUsage: vi.fn(),
-  writePayload: vi.fn(),
-  readPayload: vi.fn(),
-  sources: vi.fn(),
+  notifyUsage: vi.fn(),
   children: [] as Record<string, any>[],
   authorizationRows: new Map<object, Record<string, unknown>[]>(),
-}))
-
-vi.mock('@tradinggoose/billing', () => ({
-  FinancialPolicyError: class FinancialPolicyError extends Error {},
-}))
-vi.mock('@/lib/billing/native-finance', () => ({ verifyFinancialAcceptance: state.verifyUsage }))
-vi.mock('@/lib/workflow-archive/functional', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/workflow-archive/functional')>()),
-  hydrateExecutionPayload: async (row: unknown, authorize: () => Promise<void>) => {
-    await authorize()
-    return row
-  },
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
@@ -131,13 +116,6 @@ vi.mock('@tradinggoose/db', () => {
     },
   }
 })
-vi.mock('@/lib/workflow-archive/checkpoint-sources', () => ({
-  revalidateCheckpointMemorySources: (...args: unknown[]) => state.sources(...args),
-}))
-vi.mock('@/lib/mastra/workflow-history', () => ({
-  writeFunctionalPayload: (...args: unknown[]) => state.writePayload(...args),
-  readFunctionalPayload: (...args: unknown[]) => state.readPayload(...args),
-}))
 vi.mock('@/lib/execution/pending-execution', () => ({
   enqueuePendingExecution: state.enqueue,
   isPendingWorkflowExecutionCancellationRequested: state.isCancellationRequested,
@@ -155,6 +133,7 @@ vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'https://studio.test' }))
 vi.mock('@/lib/logs/execution/logger', () => ({
   executionLogger: {
     settleWorkflowExecutionUsage: state.settleUsage,
+    notifyWorkflowUsage: state.notifyUsage,
   },
 }))
 
@@ -174,10 +153,7 @@ import {
 } from './service'
 
 const snapshot = {
-  executor: {
-    currentBlockStates: {},
-    context: { blockStates: [], blockLogs: [], metadata: { duration: 5000 } },
-  },
+  executor: { context: { blockLogs: [], metadata: { duration: 5000 } } },
   blueprint: { workflowId: 'workflow' },
   workflowLogId: 'log',
 } as unknown as WorkflowCheckpointSnapshot
@@ -230,28 +206,7 @@ describe('durable workflow checkpoint lifecycle', () => {
       workspaceId: 'workspace',
       endedAt: null,
       level: 'info',
-      workflowSummary: { id: 'workflow' },
-      executionData: {
-        environment: {
-          userId: 'original',
-          workflowId: 'workflow',
-          workspaceId: 'workspace',
-          executionId: 'execution',
-        },
-        preserved: 'metadata',
-        billing: {
-          binding: {
-            namespace: 'billing-usage:user:original',
-            key: 'invocation:execution',
-            fingerprint: 'original-financial-fingerprint',
-            runId: 'execution',
-            actorUserId: 'original',
-            workspaceId: 'workspace',
-            workflowId: 'workflow',
-            purpose: 'workflow-execution',
-          },
-        },
-      },
+      executionData: { environment: { userId: 'original' }, preserved: 'metadata' },
     }
     state.children = []
     state.authorizationRows.clear()
@@ -264,26 +219,7 @@ describe('durable workflow checkpoint lifecycle', () => {
     state.readChild.mockResolvedValue(null)
     state.isCancellationRequested.mockResolvedValue(false)
     state.settleUsage.mockResolvedValue(undefined)
-    state.verifyUsage.mockResolvedValue({
-      accepted: true,
-      appliedUsd: '0',
-      modelUsd: 'unavailable',
-    })
-    state.sources.mockResolvedValue(undefined)
-    state.readPayload.mockReset()
-    state.writePayload.mockResolvedValue({
-      version: 1,
-      purpose: 'workflow-agent',
-      workspaceId: 'workspace',
-      executionId: 'execution',
-      logId: 'log',
-      blockId: '__checkpoint__',
-      runId: 'run',
-      resourceId: 'private-resource',
-      threadId: 'private-thread',
-      messageIds: [],
-      digest: 'verified',
-    })
+    state.notifyUsage.mockResolvedValue(undefined)
     state.enqueue.mockImplementation(async (args) => {
       const ready = await db.transaction(args.beforeEnqueue)
       if (ready && !state.admitted.includes(args.pendingExecutionId))
@@ -291,96 +227,6 @@ describe('durable workflow checkpoint lifecycle', () => {
       if (ready && state.dispatchFails) throw new Error('Dispatch failed')
       return { inserted: ready, pendingExecutionId: args.pendingExecutionId }
     })
-  })
-
-  it('restores each failed Agent destination from encrypted cold checkpoint read and actual claim without losing executor status', async () => {
-    const ref = {
-      version: 1 as const,
-      purpose: 'workflow-agent' as const,
-      workspaceId: 'workspace',
-      executionId: 'execution',
-      logId: 'log',
-      blockId: 'agent',
-      runId: 'native-run',
-      resourceId: 'native-resource',
-      threadId: 'native-thread',
-      messageIds: ['reply'],
-      digest: 'verified',
-    }
-    const saved = {
-      ...snapshot,
-      executor: {
-        ...snapshot.executor,
-        context: {
-          ...snapshot.executor.context,
-          blockLogs: [
-            {
-              id: 'service.test.ts:saved-occurrence:1',
-              blockId: 'agent',
-              success: false,
-              inference: { nativePayload: ref, generatedFields: [] },
-              output: { error: 'saved log failure', logOnly: true },
-            },
-          ],
-          blockStates: [
-            [
-              'agent',
-              {
-                executed: true,
-                output: { error: 'saved state failure', status: 500, stateOnly: true },
-              },
-            ],
-          ],
-        },
-        currentBlockStates: {
-          agent: { error: 'saved current failure', status: 500, currentOnly: true },
-        },
-      },
-    } as unknown as WorkflowCheckpointSnapshot
-    state.readPayload.mockResolvedValue({
-      output: { error: 'canonical failed output', fallback: ' exact🔥\n ' },
-      tools: [],
-    })
-    await saveWorkflowCheckpoint({
-      executionId: 'execution',
-      pendingExecutionId: 'execution',
-      workflowId: 'workflow',
-      workspaceId: 'workspace',
-      userId: 'original',
-      snapshot: saved,
-      pausePoints: [point('first')],
-    })
-    const restored = await readWorkflowCheckpointSnapshot('execution')
-    expect(restored?.executor.context.blockLogs[0].output).toEqual({
-      error: 'saved log failure',
-      fallback: ' exact🔥\n ',
-      logOnly: true,
-    })
-    expect(restored?.executor.context.blockStates[0][1].output).toEqual({
-      error: 'saved state failure',
-      fallback: ' exact🔥\n ',
-      status: 500,
-      stateOnly: true,
-    })
-    expect(restored?.executor.currentBlockStates.agent).toEqual({
-      error: 'saved current failure',
-      fallback: ' exact🔥\n ',
-      status: 500,
-      currentOnly: true,
-    })
-    await submit()
-    const claimed = await claim()
-    expect(claimed?.snapshot.executor.context.blockStates[0][1].output).toMatchObject({
-      status: 500,
-      stateOnly: true,
-    })
-    expect(claimed?.snapshot.executor.currentBlockStates.agent).toMatchObject({
-      status: 500,
-      currentOnly: true,
-    })
-    expect(claimed?.snapshot.executor.context.blockLogs[0].output).not.toHaveProperty('status')
-    expect(state.readPayload).toHaveBeenCalledWith(ref)
-    expect(state.enqueue).toHaveBeenCalledOnce()
   })
 
   it('stores encrypted snapshots and excludes notification credentials and reviewer IDs from review data', async () => {
@@ -395,22 +241,21 @@ describe('durable workflow checkpoint lifecycle', () => {
     expect(state.log.executionData.checkpoint?.pausePoints[0].reviewerId).toBe('reviewer')
   })
 
-  it('accepts original financial facts before canonical payload writes and pause publication', async () => {
+  it('accounts completed work before exposing a pause, rolling back on ledger failure', async () => {
     state.settleUsage.mockImplementationOnce(async (_id, tx) => {
-      expect(tx).toBeUndefined()
-      expect(state.log.executionData.functionalPayload).toBeUndefined()
-      expect(state.log.executionData.pause).toBeUndefined()
+      expect(tx).toBeDefined()
+      expect(state.log.totalDurationMs).toBe(5000)
+      expect(state.log.executionData.traceSpans).toEqual([])
+      expect(state.log.executionData.pause).toBeDefined()
       throw new Error('ledger unavailable')
     })
     await expect(save()).rejects.toThrow('ledger unavailable')
     expect(state.log.executionData.checkpoint).toBeUndefined()
     expect(state.log.executionData.pause).toBeUndefined()
-    expect(state.writePayload).not.toHaveBeenCalled()
+    expect(state.notifyUsage).not.toHaveBeenCalled()
     await save()
     expect(state.log.executionData.pause.revision).toBe(1)
-    expect(state.writePayload).toHaveBeenCalledOnce()
-    expect(state.log.executionData.functionalPayload).toMatchObject({ purpose: 'workflow-agent' })
-    expect(state.log.executionData).not.toHaveProperty('traceSpans')
+    expect(state.notifyUsage).toHaveBeenCalledOnce()
   })
 
   it('replays an already-accounted pause without another billing lookup', async () => {
@@ -443,16 +288,12 @@ describe('durable workflow checkpoint lifecycle', () => {
   )
 
   it('reconstructs complete public pause links from the saved checkpoint log', async () => {
-    const { readWorkflowExecutionResultFromLog } = await vi.importActual<
+    const { createWorkflowExecutionResultFromLog } = await vi.importActual<
       typeof import('@/lib/execution/workflow-execution-events')
     >('@/lib/execution/workflow-execution-events')
     await save()
     const [row] = await db.select().from(workflowExecutionLogs)
-    const { result } = await readWorkflowExecutionResultFromLog(row)
-    expect(state.verifyUsage).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ runId: 'execution' }),
-      { stepNumber: 0, retryCount: 0, runId: 'execution' }
-    )
+    const { result } = createWorkflowExecutionResultFromLog(row)
     expect(createPublicExecutionResult(result!)).toEqual({
       success: true,
       status: 'paused',
@@ -586,63 +427,6 @@ describe('durable workflow checkpoint lifecycle', () => {
     expect(await readWorkflowCheckpoint('execution', 'other', 'workspace')).toBeNull()
     expect(state.admitted).toEqual([])
   })
-
-  it('keeps an approved checkpoint pinned when source validation fails before the row-locked claim', async () => {
-    await save()
-    await submit()
-    const before = structuredClone(state.log.executionData)
-    state.sources.mockRejectedValueOnce(new Error('Memory source removed'))
-    await expect(claim()).rejects.toThrow('Memory source removed')
-    expect(state.log.executionData).toEqual(before)
-    expect(state.log.executionData.pause).toBeDefined()
-  })
-
-  it('reauthorizes original Memory sources on the actual final claim connection after IO', async () => {
-    await save()
-    await submit()
-    state.sources.mockClear()
-    const claimed = await claim()
-    expect(claimed?.userId).toBe('original')
-    expect(state.sources).toHaveBeenCalledTimes(2)
-    expect(state.sources.mock.calls[0]).toHaveLength(3)
-    expect(state.sources.mock.calls[1]).toEqual([
-      expect.anything(),
-      'workspace',
-      'original',
-      expect.objectContaining({ select: expect.any(Function) }),
-    ])
-  })
-  it('pins the approved checkpoint if final source authorization changes after canonical IO', async () => {
-    await save()
-    await submit()
-    const before = structuredClone(state.log.executionData)
-    state.sources
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('Original source permission revoked'))
-    await expect(claim()).rejects.toThrow('Original source permission revoked')
-    expect(state.log.executionData).toEqual(before)
-  })
-  it.each(['actor', 'ciphertext', 'revision'])(
-    'recovery read refuses changed %s controls during source verification',
-    async (kind) => {
-      await save()
-      state.sources.mockImplementationOnce(async () => {
-        if (kind === 'actor') state.log.executionData.environment.userId = 'different'
-        if (kind === 'ciphertext')
-          state.log.executionData.checkpoint = {
-            ...state.log.executionData.checkpoint,
-            encryptedSnapshot: `${state.log.executionData.checkpoint.encryptedSnapshot}changed`,
-          }
-        if (kind === 'revision')
-          state.log.executionData.checkpoint = {
-            ...state.log.executionData.checkpoint,
-            revision: 99,
-          }
-      })
-      await expect(readWorkflowCheckpointSnapshot('execution')).rejects.toThrow(/changed|access/)
-      expect(state.log.executionData.pause).toBeDefined()
-    }
-  )
 
   it('increments revision when the same block pauses again and rejects stale submissions', async () => {
     await save()

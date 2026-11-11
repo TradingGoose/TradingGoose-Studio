@@ -150,7 +150,32 @@ describe('canonical native history display', () => {
   it('keeps user mention locators on transient user messages only in the canonical contexts field', () => {
     const message = createUserMessage('Read @Docs', undefined, [{ kind: 'docs', label: 'Docs' }])
     expect(message.contexts).toEqual([{ kind: 'docs', label: 'Docs' }])
-    expect(message.contentBlocks).toBeUndefined()
+    expect(message.contentBlocks).toEqual([
+      { type: 'text', content: 'Read @Docs', timestamp: Date.parse(message.timestamp) },
+    ])
+  })
+  it('projects optimistic images through the same ordered native history parts', () => {
+    const images = ['first', 'second'].map((text) => ({
+      type: 'image' as const,
+      image: `data:image/png;base64,${btoa(text)}`,
+      mediaType: 'image/png',
+    }))
+    const message = createUserMessage('Look', images)
+    expect(message).toEqual(
+      projectNativeHistoryMessage({
+        id: message.id,
+        role: 'user',
+        createdAt: message.timestamp,
+        parts: [
+          { type: 'text', text: 'Look' },
+          ...images.map((image) => ({
+            type: 'file',
+            data: image.image,
+            mimeType: image.mediaType,
+          })),
+        ],
+      })
+    )
   })
   it('rebuilds plan/todo display in actual message order and resets it at the next user turn', () => {
     const message: CopilotMessage = {

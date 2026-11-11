@@ -1,4 +1,3 @@
-import type { DecimalAmount } from '@tradinggoose/billing/money'
 import { Building2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -20,7 +19,7 @@ type Subscription = {
     displayName: string
     ownerType: 'user' | 'organization'
     seatMode: 'fixed' | 'adjustable'
-    monthlyPriceUsd: DecimalAmount | null
+    monthlyPriceUsd: number | null
   } | null
 }
 
@@ -79,7 +78,7 @@ export function TeamSeatsOverview({
   const canManageSeats =
     subscriptionData?.tier?.ownerType === 'organization' &&
     subscriptionData?.tier?.seatMode === 'adjustable'
-  const pricePerSeat = subscriptionData?.tier?.monthlyPriceUsd ?? null
+  const pricePerSeat = subscriptionData?.tier?.monthlyPriceUsd ?? 0
 
   if (isLoadingSubscription) {
     return <TeamSeatsSkeleton />
@@ -121,9 +120,7 @@ export function TeamSeatsOverview({
           <div className='flex items-center gap-2'>
             <span className='font-medium text-sm'>{t('seats')}</span>
             <span className='text-muted-foreground text-xs'>
-              {t('pricePerSeat', {
-                price: pricePerSeat === null ? '—' : formatUsd(locale, pricePerSeat),
-              })}
+              {t('pricePerSeat', { price: formatUsd(locale, pricePerSeat) })}
             </span>
           </div>
           <div className='flex items-center gap-1 text-xs tabular-nums'>

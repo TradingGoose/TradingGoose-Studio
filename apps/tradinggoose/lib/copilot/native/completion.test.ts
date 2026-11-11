@@ -13,7 +13,6 @@ const state = vi.hoisted(() => ({
   agent: undefined as any,
   admit: vi.fn(),
   accept: vi.fn(),
-  create: vi.fn(),
   access: vi.fn(),
   listed: vi.fn(),
   requests: [] as any[],
@@ -27,13 +26,11 @@ vi.mock('@/lib/mastra/registry', () => ({
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => state.access(...args),
 }))
-vi.mock('@/lib/billing/native-finance', () => ({
-  createFinancialInvocation: (...args: unknown[]) => state.create(...args),
-  admitFinancialModelStep: (...args: unknown[]) => state.admit(...args),
-  acceptFinancialModelStep: (...args: unknown[]) => state.accept(...args),
+vi.mock('@/lib/billing/model-usage', () => ({
+  assertModelUsageAllowed: (...args: unknown[]) => state.admit(...args),
+  recordModelUsage: (...args: unknown[]) => state.accept(...args),
 }))
 const input: CompletionRequest = {
-  requestId: 'completion',
   scope: { actorUserId: 'actor', workspaceId: null },
   purpose: 'title',
   model: 'fixture/model',
@@ -41,22 +38,13 @@ const input: CompletionRequest = {
     { role: 'system', content: 'Only a title' },
     { role: 'user', content: 'Exact first prompt' },
   ],
-  stream: false,
 }
 beforeEach(() => {
   vi.clearAllMocks()
   state.requests.length = 0
   state.access.mockResolvedValue({ hasAccess: true })
-  state.create.mockImplementation(async (scope) => ({
-    ...scope,
-    namespace: 'user:actor',
-    key: 'binding',
-    fingerprint: 'original',
-    workspaceId: scope.workspaceId ?? null,
-    workflowId: null,
-  }))
   state.admit.mockResolvedValue(undefined)
-  state.accept.mockResolvedValue({ appliedUsd: '0.25' })
+  state.accept.mockResolvedValue(undefined)
   state.model = new MastraLanguageModelV2Mock({
     doGenerate: async (request) => {
       state.requests.push(request)
@@ -102,13 +90,9 @@ describe('built-in stateless completions', () => {
     expect(result).toMatchObject({
       status: 'completed',
       text: 'Known title',
-      financial: { accepted: true, modelUsd: 'unavailable', appliedUsd: '0.25' },
       usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
     })
     expect(state.listed).toHaveBeenCalledWith('fixture/model')
-    expect(state.create).toHaveBeenCalledWith(
-      expect.objectContaining({ actorUserId: 'actor', purpose: 'title' })
-    )
     expect(state.admit).toHaveBeenCalledOnce()
     expect(state.accept).toHaveBeenCalledOnce()
     expect(JSON.stringify(state.requests)).toContain('Exact first prompt')
@@ -118,11 +102,10 @@ describe('built-in stateless completions', () => {
     ).toEqual([])
   })
   it('streams only text deltas and its completed local outcome', async () => {
-    const response = await createCompletionResponse({ ...input, purpose: 'wand', stream: true })
+    const response = await createCompletionResponse({ ...input, purpose: 'wand' })
     const text = await response.text()
     expect(text).toContain('"chunk":"Known title"')
     expect(text).toContain('"done":true')
-    expect(text).toContain('"appliedUsd":"0.25"')
     expect(text).not.toContain('Exact first prompt')
     expect(state.accept).toHaveBeenCalledOnce()
   })
@@ -130,8 +113,7 @@ describe('built-in stateless completions', () => {
     state.access.mockResolvedValueOnce({ hasAccess: false })
     expect(
       await completeCopilot({ ...input, scope: { actorUserId: 'actor', workspaceId: 'revoked' } })
-    ).toMatchObject({ status: 'refused', financialDisposition: 'not_contacted' })
-    expect(state.create).not.toHaveBeenCalled()
+    ).toMatchObject({ status: 'refused' })
     expect(state.requests).toHaveLength(0)
   })
   it('does not contact an already cancelled request', async () => {
@@ -139,31 +121,25 @@ describe('built-in stateless completions', () => {
     controller.abort()
     expect(await completeCopilot(input, controller.signal)).toMatchObject({
       status: 'cancel_requested',
-      financialDisposition: 'not_contacted',
     })
-    expect(state.create).not.toHaveBeenCalled()
     expect(state.requests).toHaveLength(0)
   })
   it('does not claim success when authoritative accounting fails', async () => {
     state.accept.mockRejectedValueOnce(new Error('accounting unavailable'))
     expect(await completeCopilot(input)).toMatchObject({
       status: 'failed',
-      financialDisposition: 'uncertain',
-      uncertain: true,
     })
     expect(state.requests).toHaveLength(1)
   })
 
-  it('keeps acknowledged usage and accounting when cancellation wins after the model response', async () => {
+  it('keeps observed usage when cancellation wins after the model response', async () => {
     const controller = new AbortController()
     state.accept.mockImplementationOnce(async () => {
       controller.abort()
-      return { appliedUsd: '0.25' }
+      return undefined
     })
     expect(await completeCopilot(input, controller.signal)).toMatchObject({
       status: 'cancel_requested',
-      financialDisposition: 'accepted',
-      financial: { accepted: true, appliedUsd: '0.25' },
       usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
     })
     expect(state.requests).toHaveLength(1)

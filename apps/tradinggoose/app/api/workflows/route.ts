@@ -6,7 +6,6 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
-import { lockMemoryOwners } from '@/lib/mastra/memory-locks'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { refreshWorkflowListForWorkflow } from '@/lib/workflows/db-helpers'
@@ -205,7 +204,6 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       await db.transaction(async (tx) => {
         await lockSavedEntityList(tx, 'workflow', workspaceId)
-        await lockMemoryOwners(tx, workspaceId, [workflowId])
         await tx.delete(workflow).where(eq(workflow.id, workflowId))
       })
       throw error

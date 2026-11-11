@@ -58,10 +58,8 @@ export async function POST(request: NextRequest) {
     if (uploadType === 'knowledge-base') {
       throw new ValidationError('Knowledge base uploads must use /api/files/upload')
     }
-    if (uploadType === 'copilot')
-      throw new ValidationError(
-        'Copilot images require authenticated upload through /api/files/upload?type=copilot'
-      )
+    if (request.nextUrl.searchParams.get('type') === 'copilot')
+      throw new ValidationError('Copilot images are sent inline with the conversation')
 
     const validationError = validateUploadRequest({
       fileName,

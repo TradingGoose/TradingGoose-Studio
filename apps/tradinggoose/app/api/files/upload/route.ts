@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
-import { CopilotSourceError } from '@/lib/uploads/contexts/copilot/source-proof'
 import '@/lib/uploads/core/setup.server'
 import { getSession } from '@/lib/auth'
 import {
@@ -96,17 +95,9 @@ export async function POST(request: NextRequest) {
     const workspaceId = String(formData.get('workspaceId') ?? '').trim()
     const knowledgeBaseId = String(formData.get('knowledgeBaseId') ?? '').trim()
     const uploadContext = getUploadContext(request)
+    if (request.nextUrl.searchParams.get('type') === 'copilot')
+      throw new InvalidRequestError('Copilot images are sent inline with the conversation')
     const isExecutionUpload = formData.has('workflowId') || formData.has('executionId')
-    if (uploadContext === 'copilot' && (workspaceId || isExecutionUpload || knowledgeBaseId))
-      throw new InvalidRequestError(
-        'Copilot images use private actor storage, without storage context overrides'
-      )
-    if (uploadContext === 'copilot') {
-      for (const file of files) {
-        const validationError = validateFileForContext(file, uploadContext)
-        if (validationError) throw new InvalidRequestError(validationError)
-      }
-    }
     let executionUploadContext:
       | { workflowId: string; executionId: string; workspaceId: string }
       | undefined
@@ -189,27 +180,6 @@ export async function POST(request: NextRequest) {
 
       const bytes = await file.arrayBuffer()
       const buffer = Buffer.from(bytes)
-
-      if (uploadContext === 'copilot') {
-        const { uploadCopilotFile } = await import('@/lib/uploads/contexts/copilot')
-        if (workspaceId || executionUploadContext)
-          throw new InvalidRequestError(
-            'Copilot images use private actor storage, without workspace or execution storage overrides'
-          )
-        const uploaded = await uploadCopilotFile({
-          actorUserId: session.user.id,
-          buffer,
-          filename: originalName,
-          mediaType: contentType,
-          signal: request.signal,
-        })
-        uploadResults.push({
-          ...uploaded,
-          context: 'copilot',
-          uploadedAt: new Date().toISOString(),
-        })
-        continue
-      }
 
       let uploadFileName = originalName
       let preserveUploadKey = false
@@ -328,8 +298,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ files: uploadResults })
   } catch (error) {
     logger.error('Error in file upload:', error)
-    if (error instanceof CopilotSourceError)
-      return NextResponse.json({ error: error.message }, { status: error.status })
     return createErrorResponse(error instanceof Error ? error : new Error('File upload failed'))
   }
 }

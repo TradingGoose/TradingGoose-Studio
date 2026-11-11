@@ -8,11 +8,10 @@ import {
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { type AuthResult, AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
-import { readWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
+import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { assertRetainedLogAccess } from '@/lib/workflow-archive/functional'
 import {
   createInternalWorkflowJobResult,
   createPublicExecutionResult,
@@ -111,12 +110,7 @@ export async function GET(
       .limit(1)
 
     if (logRow) {
-      const state = await readWorkflowExecutionResultFromLog(logRow, () =>
-        assertRetainedLogAccess(
-          { workspaceId: logRow.workspaceId, executionId: logRow.executionId!, logId: logRow.id },
-          auth.userId
-        )
-      )
+      const state = createWorkflowExecutionResultFromLog(logRow)
       const output = isExecutionResult(state.result)
         ? shouldIncludeInternalWorkflowTraceSpans(auth, state.result)
           ? createInternalWorkflowJobResult(state.result)

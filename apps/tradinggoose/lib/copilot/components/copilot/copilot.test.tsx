@@ -189,7 +189,6 @@ describe('Copilot auto-scroll', () => {
         latestTurnStatus: 'in_progress',
       },
       toolCallsById: {},
-      fetchContextUsage: vi.fn(async () => {}),
     }
   })
 

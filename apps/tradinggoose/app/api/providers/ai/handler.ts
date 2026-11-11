@@ -4,19 +4,22 @@ import { toStandardSchema } from '@mastra/core/schema'
 import { NextResponse } from 'next/server'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { projectNativeModelEvent } from '@/lib/mastra/events'
-import { financialProcessors } from '@/lib/mastra/financial-processors'
 import { normalizeNativeMediaMessages } from '@/lib/mastra/media'
-import { NATIVE_AGENT_POLICY, trustedModelSettings, trustedPrepareStep } from '@/lib/mastra/options'
+import {
+  NATIVE_AGENT_POLICY,
+  parseProviderOptions,
+  trustedModelSettings,
+} from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { getMastra } from '@/lib/mastra/runtime'
 import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
+import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import {
   createAgentToolSet,
   createForcedToolPolicy,
   extractAgentOutput,
   extractCompletedToolMetadata,
-  parseNativeProviderOptions,
 } from '@/executor/handlers/agent/agent-handler'
 import type { AgentToolConfig } from '@/executor/handlers/agent/types'
 import type { ExecutionSubmissionSource } from '@/executor/types'
@@ -80,7 +83,7 @@ export async function handleAIProviderRequest({
     signal,
   })
   const mastra = await getMastra()
-  const finance = await financialProcessors({
+  const finance = await usageProcessors({
     actorUserId: authUserId,
     workspaceId: body.workspaceId,
     workflowId: body.workflowId,
@@ -110,9 +113,9 @@ export async function handleAIProviderRequest({
     structuredOutput: body.structuredOutput
       ? { schema: toStandardSchema(body.structuredOutput.schema), errorStrategy: 'strict' }
       : undefined,
-    providerOptions: parseNativeProviderOptions(body.providerOptions),
+    providerOptions: parseProviderOptions(body.providerOptions),
     activeTools: Object.keys(tools),
-    prepareStep: trustedPrepareStep(admittedModel, policy.prepareStep),
+    prepareStep: policy.prepareStep,
     onStepFinish: (step) => {
       steps.push(step)
     },

@@ -17,8 +17,6 @@ import {
   renderInvitationEmail,
 } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
-import { createFinancialInvitations } from '@/lib/billing/financial-membership'
-import { withFinancialRootMutation } from '@/lib/billing/native-finance'
 import {
   validateBulkInvitations,
   validateSeatAvailability,
@@ -276,7 +274,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       createdAt: new Date(),
     }))
 
-    await createFinancialInvitations(organizationId, invitationsToCreate, session.user.id)
+    await db.insert(invitation).values(invitationsToCreate)
 
     const workspaceInvitationIds: string[] = []
     if (isBatch && validWorkspaceInvitations.length > 0) {
@@ -471,24 +469,20 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
-    const result = await withFinancialRootMutation(
-      [{ type: 'organization', id: organizationId }],
-      async (tx) =>
-        tx
-          .update(invitation)
-          .set({ status: 'cancelled' })
-          .where(
-            and(
-              eq(invitation.id, invitationId),
-              eq(invitation.organizationId, organizationId),
-              or(
-                eq(invitation.status, 'pending'),
-                eq(invitation.status, 'rejected') // Allow cancelling rejected invitations too
-              )
-            )
+    const result = await db
+      .update(invitation)
+      .set({ status: 'cancelled' })
+      .where(
+        and(
+          eq(invitation.id, invitationId),
+          eq(invitation.organizationId, organizationId),
+          or(
+            eq(invitation.status, 'pending'),
+            eq(invitation.status, 'rejected') // Allow cancelling rejected invitations too
           )
-          .returning()
-    )
+        )
+      )
+      .returning()
 
     if (result.length === 0) {
       return NextResponse.json(

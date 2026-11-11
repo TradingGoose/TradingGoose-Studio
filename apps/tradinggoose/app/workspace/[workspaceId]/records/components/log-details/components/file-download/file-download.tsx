@@ -45,7 +45,6 @@ export function FileDownload({ file, isExecutionFile = false, className }: FileD
         },
         body: JSON.stringify({
           key: file.key,
-          fileReference: file.url, // Locator only; the server must verify the actual file row.
           name: file.name,
           isExecutionFile, // Add flag to indicate execution file
         }),

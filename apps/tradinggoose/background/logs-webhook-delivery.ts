@@ -5,7 +5,6 @@ import { task, wait } from '@trigger.dev/sdk'
 import { and, eq, isNull, lte, or, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import type { BillingTierSummary } from '@/lib/billing/types'
-import { readVerifiedWorkflowExecutionData } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { publicTraceSpans } from '@/lib/logs/public'
 import type { WorkflowExecutionLog } from '@/lib/logs/types'
@@ -58,8 +57,8 @@ interface WebhookPayload {
       }
     }
     usage?: {
-      currentPeriodCost: string
-      limit: string | null
+      currentPeriodCost: number
+      limit: number
       tier: BillingTierSummary
       isExceeded: boolean
     }
@@ -193,7 +192,7 @@ export const logsWebhookDelivery = task({
         workflowSummary.id
       )
         throw new Error('Completion publication workflow scope differs')
-      const executionData = (await readVerifiedWorkflowExecutionData(logRow)) as Record<string, any>
+      const executionData = logRow.executionData as Record<string, any>
       const webhookExecutionData: Record<string, any> = {}
       if (subscriptionSnapshot.includeFinalOutput && executionData.finalOutput !== undefined) {
         webhookExecutionData.finalOutput = executionData.finalOutput

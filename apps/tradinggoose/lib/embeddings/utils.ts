@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { ModelRouterEmbeddingModel } from '@mastra/core/llm'
-import { FinancialPolicyError, financialFingerprint } from '@tradinggoose/billing'
 import {
-  acceptFinancialModelStep,
-  admitFinancialModelStep,
-  createFinancialInvocation,
-} from '@/lib/billing/native-finance'
+  assertModelUsageAllowed,
+  type ModelUsageScope,
+  recordModelUsage,
+} from '@/lib/billing/model-usage'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveConfiguredModel } from '@/lib/mastra/connections'
 import { assertListedEmbeddingModel } from '@/lib/mastra/registry'
@@ -31,16 +30,13 @@ export interface EmbeddingResult extends EmbeddingAccounting {
 
 export interface EmbeddingScope {
   actorUserId: string
-  /** Explicit request-local credential; never stored in a financial binding or process environment. */
+  /** Request-local credential. */
   apiKey?: string
   workspaceId?: string | null
   workflowId?: string | null
   signal?: AbortSignal
   /** Server-issued and persisted by a background caller; never a client request field. */
   runId?: string
-  /** Server-only restrictions from a freshly verified originating operation. */
-  expectedNamespace?: string
-  verifySource?: () => Promise<void>
 }
 
 /** Token counts used for batching are metadata; only native response usage is accounting. */
@@ -93,22 +89,14 @@ export async function generateEmbeddings(
     cost: { status: 'unavailable' },
   })
   try {
-    await scope.verifySource?.()
-    scope.signal?.throwIfAborted()
-    const runId = scope.runId ?? randomUUID()
-    const invocation: Parameters<typeof createFinancialInvocation>[0] = {
+    const usageScope: ModelUsageScope = {
       actorUserId: scope.actorUserId,
       workspaceId: scope.workspaceId,
       workflowId: scope.workflowId,
-      runId,
-      operationKey: runId,
+      signal: scope.signal,
+      runId: scope.runId ?? randomUUID(),
       purpose: 'embedding',
-      ...(scope.expectedNamespace !== undefined
-        ? { expectedNamespace: scope.expectedNamespace }
-        : {}),
     }
-    const binding = batches.length ? await createFinancialInvocation(invocation) : null
-    let stepNumber = 0
     for (const batch of batches) {
       const size =
         maxEmbeddings && Number.isSafeInteger(maxEmbeddings) && maxEmbeddings > 0
@@ -116,24 +104,7 @@ export async function generateEmbeddings(
           : batch.length
       for (let index = 0; index < batch.length; index += size) {
         const values = batch.slice(index, index + size)
-        const occurrence = { runId, stepNumber: stepNumber++, retryCount: 0 }
-        scope.signal?.throwIfAborted()
-        if (!binding) throw new Error('Embedding financial binding is required')
-        await admitFinancialModelStep(binding, occurrence)
-        scope.signal?.throwIfAborted()
-        await scope.verifySource?.()
-        scope.signal?.throwIfAborted()
-        if (invocation.expectedNamespace !== undefined) {
-          // Reuse this child's exact idempotent input. Current authorization and
-          // the transaction-local namespace guard must still select its admitted binding.
-          const current = await createFinancialInvocation(invocation)
-          if (!current || financialFingerprint(current) !== financialFingerprint(binding))
-            throw new FinancialPolicyError(
-              'Embedding financial binding changed before contact',
-              403
-            )
-          scope.signal?.throwIfAborted()
-        }
+        await assertModelUsageAllowed(usageScope)
         const result = await embedder.doEmbed({ values, abortSignal: scope.signal })
         batchCount += 1
         if (result.usage?.tokens !== undefined) {
@@ -141,13 +112,12 @@ export async function generateEmbeddings(
           reportedBatches += 1
         }
         embeddings.push(...result.embeddings)
-        await acceptFinancialModelStep(binding, {
-          ...occurrence,
-          usage:
-            result.usage?.tokens === undefined
-              ? undefined
-              : { inputTokens: result.usage.tokens, totalTokens: result.usage.tokens },
-        })
+        await recordModelUsage(
+          usageScope,
+          result.usage?.tokens === undefined
+            ? {}
+            : { inputTokens: result.usage.tokens, totalTokens: result.usage.tokens }
+        )
         scope.signal?.throwIfAborted()
         if (result.embeddings.length !== values.length) {
           throw new Error(

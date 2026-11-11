@@ -14,8 +14,6 @@ import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
-import { useCopilotStore } from '@/stores/copilot/store'
-import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
 import { AccessLevelSelector } from './components/access-level-selector'
 import { AttachedFilesGrid } from './components/attached-files-grid'
 import { MentionMenu } from './components/mention-menu'
@@ -44,7 +42,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       draft,
       onDraftChange,
       panelWidth,
-      hideContextUsage = false,
       clearOnSubmit = true,
     },
     ref
@@ -67,7 +64,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const menuListRef = useRef<HTMLDivElement>(null)
     const { data: session } = useSession()
     const copilotCopy = useCopilotMessages()
-    const { contextEvidence, createNewChat, compactCurrentContext } = useCopilotStore()
     const message = draft.text
 
     const {
@@ -323,9 +319,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         return
       }
 
-      const failedUploads = attachedFiles.filter(
-        (file) => file.uploading || !file.key || !file.sourceProof
-      )
+      const failedUploads = attachedFiles.filter((file) => file.uploading || !file.data)
       if (failedUploads.length > 0) {
         logger.error(
           `Some files failed to upload: ${failedUploads.map((file) => file.name).join(', ')}`
@@ -333,26 +327,16 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         return
       }
 
-      const fileAttachments = attachedFiles
-        .filter((file) => !file.uploading && file.key)
-        .map((file) => ({
-          id: file.id,
-          sourceProof: file.sourceProof!,
-          key: file.key!,
-          filename: file.name,
-          media_type: file.type,
-          size: file.size,
-        }))
+      const images = attachedFiles.map((file) => ({
+        type: 'image' as const,
+        image: file.data!,
+        mediaType: file.type,
+      }))
 
       const submittedDraft = draft
       const submission = ++submissionGeneration.current
-      const submittedFiles = fileAttachments.map((file) => file.id)
-      const accepted = await onSubmit(
-        trimmedMessage,
-        fileAttachments,
-        selectedContexts,
-        submittedDraft
-      )
+      const submittedFiles = attachedFiles.map((file) => file.id)
+      const accepted = await onSubmit(trimmedMessage, images, selectedContexts, submittedDraft)
       if (!accepted || submission !== submissionGeneration.current) return
 
       if (clearOnSubmit) {
@@ -407,9 +391,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     }
 
     const handleFileClick = (file: AttachedFile) => {
-      if (file.key) {
-        window.open(file.path, '_blank')
-      } else if (file.previewUrl) {
+      if (file.previewUrl) {
         window.open(file.previewUrl, '_blank')
       }
     }
@@ -430,16 +412,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {!hideContextUsage && contextEvidence && (
-            <div className='absolute top-2 right-2 z-10'>
-              <ContextUsagePill
-                evidence={contextEvidence}
-                onCompact={() => compactCurrentContext()}
-                onCreateNewChat={() => createNewChat(workspaceId)}
-              />
-            </div>
-          )}
-
           {uploadError && (
             <p role='alert' className='mb-2 text-destructive text-xs'>
               {uploadError}

@@ -1,4 +1,3 @@
-import { monetary } from '@tradinggoose/billing/money'
 import {
   GENERIC_ENTERPRISE_PLACEHOLDER_DESCRIPTION,
   GENERIC_ENTERPRISE_PLACEHOLDER_FEATURES,
@@ -18,8 +17,8 @@ export function toBillingTierDisplay(tier: BillingTierRecord): PublicBillingTier
     seatMode: tier.seatMode,
     usageScope: tier.usageScope,
     displayOrder: tier.displayOrder,
-    monthlyPriceUsd: tier.monthlyPriceUsd === null ? null : monetary(tier.monthlyPriceUsd),
-    yearlyPriceUsd: tier.yearlyPriceUsd === null ? null : monetary(tier.yearlyPriceUsd),
+    monthlyPriceUsd: tier.monthlyPriceUsd === null ? null : Number(tier.monthlyPriceUsd),
+    yearlyPriceUsd: tier.yearlyPriceUsd === null ? null : Number(tier.yearlyPriceUsd),
     seatCount: tier.seatCount ?? null,
     seatMaximum: tier.seatMaximum ?? null,
     canEditUsageLimit: tier.canEditUsageLimit,

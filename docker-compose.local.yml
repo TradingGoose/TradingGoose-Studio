@@ -14,7 +14,6 @@ services:
       - '3000:3000'
     environment:
       - NODE_ENV=production
-      - MASTRA_DATABASE_URL=${MASTRA_DATABASE_URL:-}
       - MASTRA_MODEL_PROVIDERS=${MASTRA_MODEL_PROVIDERS:-}
       - MASTRA_AZURE_OPENAI=${MASTRA_AZURE_OPENAI:-}
       - DATABASE_URL=postgresql://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-tradinggoose}

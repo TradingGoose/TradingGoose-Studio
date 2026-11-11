@@ -1,5 +1,4 @@
 export * as ChatFiles from '@/lib/uploads/contexts/chat'
-export * as CopilotFiles from '@/lib/uploads/contexts/copilot'
 export * as ExecutionFiles from '@/lib/uploads/contexts/execution'
 export * as WorkspaceFiles from '@/lib/uploads/contexts/workspace'
 export { getStorageConfig, type StorageContext } from '@/lib/uploads/core/config-resolver'

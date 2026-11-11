@@ -1,15 +1,9 @@
-import { FinancialPolicyError } from '@tradinggoose/billing'
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  verifyWorkflowFinancialAcceptance,
-  type WorkflowFinancialLog,
-} from '@/lib/logs/execution/financial-acceptance'
 import { publicTraceSpans } from '@/lib/logs/public'
 import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
-import { assertRetainedLogAccess, hydrateExecutionPayload } from '@/lib/workflow-archive/functional'
 import type {
   WorkflowExecutionEvent,
   WorkflowExecutionEventEntry,
@@ -39,7 +33,10 @@ type WorkflowExecutionEventState = WorkflowExecutionResultState & {
   events: WorkflowExecutionEventEntry[]
 }
 
-type WorkflowExecutionLogStateRow = WorkflowFinancialLog & {
+type WorkflowExecutionLogStateRow = {
+  id?: string
+  workspaceId?: string
+  executionId?: string | null
   level: string
   startedAt: Date
   endedAt: Date | null
@@ -200,7 +197,7 @@ export async function readWorkflowExecutionAccessContext(params: {
   }
 }
 
-function createWorkflowExecutionResultFromLog(
+export function createWorkflowExecutionResultFromLog(
   row: WorkflowExecutionLogStateRow
 ): WorkflowExecutionResultState {
   const executionData = isRecord(row.executionData) ? row.executionData : {}
@@ -249,43 +246,6 @@ function createWorkflowExecutionResultFromLog(
     result,
     failureReason,
   }
-}
-
-/** Reconstruct invocation delivery only after original finance and canonical scoped payload proof. */
-export async function readVerifiedWorkflowExecutionData(
-  row: WorkflowExecutionLogStateRow,
-  authorize?: () => Promise<void>
-): Promise<unknown> {
-  const data = isRecord(row.executionData) ? row.executionData : {}
-  if (!row.endedAt && !isRecord(data.pause))
-    throw new Error('Workflow invocation has no durable terminal or paused outcome')
-  if (!row.executionId)
-    throw new FinancialPolicyError('Original workflow execution identity is missing')
-  const scope = { workspaceId: row.workspaceId, executionId: row.executionId, logId: row.id }
-  const checkAccess = authorize ?? (() => assertRetainedLogAccess(scope))
-  await checkAccess()
-  await verifyWorkflowFinancialAcceptance(row)
-  let current = row
-  if (data.functionalPayload || data.workflowArchive || data.preservedFunctionalArchive) {
-    current = await hydrateExecutionPayload({ ...row, ...scope }, checkAccess)
-  } else if (data.finalOutput !== undefined || data.traceSpans !== undefined) {
-    throw new Error('Workflow output requires verified current-format preservation')
-  }
-  await checkAccess()
-  return current.executionData
-}
-
-/** The one public workflow-result reconstruction boundary; Records history remains separate. */
-export async function readWorkflowExecutionResultFromLog(
-  row: WorkflowExecutionLogStateRow,
-  authorize?: () => Promise<void>
-): Promise<WorkflowExecutionResultState> {
-  const data = isRecord(row.executionData) ? row.executionData : {}
-  if (!row.endedAt && !isRecord(data.pause)) return createWorkflowExecutionResultFromLog(row)
-  return createWorkflowExecutionResultFromLog({
-    ...row,
-    executionData: await readVerifiedWorkflowExecutionData(row, authorize),
-  })
 }
 
 function createWorkflowExecutionStateFromTerminalEvent(event: WorkflowExecutionTerminalEvent) {
@@ -464,7 +424,7 @@ export async function readWorkflowExecutionEventState(params: {
   const terminalEvent = findTerminalEvent(visibleEvents)
   if (logRow && (logRow.endedAt || pause)) {
     return {
-      ...(await readWorkflowExecutionResultFromLog(logRow)),
+      ...createWorkflowExecutionResultFromLog(logRow),
       events: params.afterEventId === undefined ? [] : visibleEvents,
     }
   }
@@ -473,7 +433,7 @@ export async function readWorkflowExecutionEventState(params: {
       ({ event }) => event.type === 'execution:completed' || event.type === 'execution:paused'
     )
   )
-    throw new FinancialPolicyError('Happy workflow result has no verified durable financial owner')
+    throw new Error('Completed workflow result has no durable execution log')
   if (terminalEvent) {
     return {
       ...createWorkflowExecutionStateFromTerminalEvent(terminalEvent),
@@ -482,7 +442,7 @@ export async function readWorkflowExecutionEventState(params: {
   }
   if (logRow) {
     return {
-      ...(await readWorkflowExecutionResultFromLog(logRow)),
+      ...createWorkflowExecutionResultFromLog(logRow),
       events: params.afterEventId === undefined ? [] : visibleEvents,
     }
   }
