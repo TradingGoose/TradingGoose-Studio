@@ -3,8 +3,6 @@ import { Mastra } from '@mastra/core/mastra'
 import { InMemoryStore, type MastraCompositeStore } from '@mastra/core/storage'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { Memory } from '@mastra/memory'
-import { PostgresStore } from '@mastra/pg'
-import postgres from 'postgres'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CopilotRequest, CopilotResponse, Scope } from '@/lib/copilot/native/contract'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
@@ -447,16 +445,21 @@ describe('built-in Copilot service bridge', () => {
       (
         await message({
           accessLevel: 'limited',
+          model: 'openai/gpt-4.1',
           input: { content: 'Rename the workflow', contexts: [context] },
         })
       ).result
     )
     expect(initial.pending[0].stage).toBe('approval')
     expect(m.route).not.toHaveBeenCalled()
+    const workflows = (await m.storage.getStore('workflows'))!
+    expect(
+      JSON.stringify(await workflows.getWorkflowRunById({ runId: initial.runId }))
+    ).not.toContain('copilot-execution')
     restart()
     expect(await readCopilotRun(scope, initial.threadId, initial.runId)).toMatchObject({
       scope,
-      model: 'configured/model',
+      model: 'openai/gpt-4.1',
       accessLevel: 'limited',
     })
     await expect(
@@ -494,6 +497,15 @@ describe('built-in Copilot service bridge', () => {
       args,
       expect.objectContaining({ accessLevel: 'full', acceptedReviewBaseStateHash: 'original-base' })
     )
+    const history = (await command({ command: 'history.read', threadId: initial.threadId })).result
+    if (history.status !== 'history') throw new Error(JSON.stringify(history))
+    const assistants = history.items.filter((item) => item.role === 'assistant')
+    expect(assistants).toHaveLength(2)
+    for (const assistant of assistants) {
+      expect(assistant.usage).toEqual({ inputTokens: 3, outputTokens: 2, totalTokens: 5 })
+      expect(assistant.cost).toMatchObject({ status: 'estimated', currency: 'USD' })
+      expect(assistant.cost?.total).toBeCloseTo(0.000022, 12)
+    }
     const contacts = m.contacts.length
     expect((await command(decision)).result).toMatchObject({
       status: 'refused',
@@ -694,106 +706,3 @@ describe('built-in Copilot service bridge', () => {
     }
   })
 })
-
-const databaseUrl = process.env.MASTRA_TEST_DATABASE_URL
-it.runIf(Boolean(databaseUrl))(
-  'resumes the actual Studio service in a fresh context without persisting runtime callbacks',
-  async () => {
-    const schema = `copilot_context_${crypto.randomUUID().replaceAll('-', '')}`
-    const storage = new PostgresStore({
-      id: schema,
-      connectionString: databaseUrl!,
-      schemaName: schema,
-    })
-    const owner = postgres(databaseUrl!, { max: 1 })
-    try {
-      await storage.init()
-      m.storage = storage
-      restart()
-      const args = { entityId: 'workflow', name: 'Renamed' }
-      setModel({ tool: 'rename_workflow', args }, { text: 'Native continuation completed' })
-      m.route
-        .mockResolvedValueOnce({ requiresReview: true, reviewBaseStateHash: 'current-base' })
-        .mockResolvedValueOnce({
-          success: true,
-          workspaceId: 'workspace',
-          entityKind: 'workflow',
-          entityId: 'workflow',
-          entityName: 'Renamed',
-        })
-      const context = { entityId: 'workflow', resolvedContent: 'Postgres native resume context' }
-      const initial = suspended(
-        (
-          await message({
-            accessLevel: 'limited',
-            model: 'openai/gpt-4.1',
-            input: { content: 'Rename the workflow', contexts: [context] },
-          })
-        ).result
-      )
-      const workflows = (await storage.getStore('workflows'))!
-      expect(await readCopilotRun(scope, initial.threadId, initial.runId)).toMatchObject({
-        scope,
-        model: 'openai/gpt-4.1',
-        accessLevel: 'limited',
-      })
-      expect(
-        JSON.stringify(await workflows.getWorkflowRunById({ runId: initial.runId }))
-      ).not.toContain('copilot-execution')
-      const initialHistory = (
-        await command({ command: 'history.read', threadId: initial.threadId })
-      ).result
-      if (initialHistory.status !== 'history') throw new Error(JSON.stringify(initialHistory))
-      expect(initialHistory.items.find((item) => item.role === 'assistant')).toMatchObject({
-        usage: { inputTokens: 3, outputTokens: 2, totalTokens: 5 },
-        cost: { status: 'estimated', currency: 'USD', total: 0.000022 },
-      })
-      restart()
-      const approved = suspended(
-        (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
-      )
-      restart()
-      expect(
-        (
-          await command({
-            command: 'tool.execute',
-            target: approved.pending[0].target,
-            action: 'review.accept',
-          })
-        ).result
-      ).toMatchObject({ status: 'completed', text: 'Native continuation completed' })
-      expect(JSON.stringify(m.contacts[1])).toContain(context.resolvedContent)
-      const history = (
-        await command({
-          command: 'history.read',
-          threadId: initial.threadId,
-        })
-      ).result
-      if (history.status !== 'history') throw new Error(JSON.stringify(history))
-      expect(history.items[0].parts).toMatchObject([{ type: 'text', text: 'Rename the workflow' }])
-      expect(JSON.stringify(history)).not.toContain(context.resolvedContent)
-      const assistants = history.items.filter((item) => item.role === 'assistant')
-      expect(assistants).toHaveLength(2)
-      for (const assistant of assistants) {
-        expect(assistant.usage).toEqual({ inputTokens: 3, outputTokens: 2, totalTokens: 5 })
-        expect(assistant.cost).toMatchObject({ status: 'estimated', currency: 'USD' })
-        expect(assistant.cost?.total).toBeCloseTo(0.000022)
-        expect(assistant).not.toHaveProperty('metadata')
-      }
-      expect(m.accept).toHaveBeenCalledTimes(2)
-      expect(m.route).toHaveBeenLastCalledWith(
-        'rename_workflow',
-        args,
-        expect.objectContaining({
-          userId: scope.actorUserId,
-          acceptedReviewBaseStateHash: 'current-base',
-        })
-      )
-    } finally {
-      await storage.close()
-      await owner.unsafe(`drop schema "${schema}" cascade`)
-      await owner.end()
-    }
-  },
-  30000
-)

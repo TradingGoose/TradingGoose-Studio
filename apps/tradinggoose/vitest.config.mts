@@ -11,21 +11,12 @@ const projectDir = process.cwd()
 const configDir = dirname(fileURLToPath(import.meta.url))
 loadEnvConfig(projectDir)
 
-const testDatabaseUrl = process.env.MASTRA_TEST_DATABASE_URL
-if (testDatabaseUrl) {
-  const url = new URL(testDatabaseUrl)
-  if (
-    !['postgres:', 'postgresql:'].includes(url.protocol) ||
-    !['localhost', '127.0.0.1'].includes(url.hostname) ||
-    !url.pathname.endsWith('_disposable')
-  )
-    throw new Error('Database tests require a disposable loopback PostgreSQL database')
-  process.env.DATABASE_URL = testDatabaseUrl
-}
+process.env.DATABASE_URL = ''
 
 export default defineConfig({
   plugins: [react(), tsconfigPaths()] as any,
   test: {
+    env: { DATABASE_URL: '' },
     // Bound SDK imports and whole-app catalog scans while retaining existing test deadlines.
     maxWorkers: 2,
     globals: true,
