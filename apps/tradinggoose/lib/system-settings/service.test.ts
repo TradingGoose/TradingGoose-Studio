@@ -3,6 +3,7 @@ import { type CopilotSettings, DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/se
 
 const {
   mockEq,
+  mockEnsureDefaultUserSubscription,
   mockInsert,
   mockInsertOnConflictDoUpdate,
   mockInsertValues,
@@ -13,8 +14,10 @@ const {
   mockSql,
   mockTransaction,
   mockTransactionExecute,
+  mockUserRows,
 } = vi.hoisted(() => ({
   mockEq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
+  mockEnsureDefaultUserSubscription: vi.fn(),
   mockInsert: vi.fn(),
   mockInsertOnConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
   mockInsertValues: vi.fn(),
@@ -25,6 +28,7 @@ const {
   mockSql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values })),
   mockTransaction: vi.fn(),
   mockTransactionExecute: vi.fn(),
+  mockUserRows: vi.fn(),
 }))
 
 const transactionStore = {
@@ -52,6 +56,11 @@ vi.mock('@tradinggoose/db/schema', () => ({
   pendingExecution: {
     id: 'pending_execution.id',
   },
+  user: { id: 'user.id' },
+}))
+
+vi.mock('@/lib/billing/core/subscription', () => ({
+  ensureDefaultUserSubscription: mockEnsureDefaultUserSubscription,
 }))
 
 vi.mock('drizzle-orm', () => ({
@@ -73,10 +82,9 @@ describe('system settings service', () => {
     mockSelect.mockImplementation(() => ({
       from: mockSelectFrom,
     }))
-    mockSelectFrom.mockImplementation(() => ({
-      limit: mockSelectLimit,
-      where: mockSelectWhere,
-    }))
+    mockSelectFrom.mockImplementation((table) =>
+      table.id === 'user.id' ? mockUserRows() : { limit: mockSelectLimit, where: mockSelectWhere }
+    )
     mockSelectWhere.mockImplementation(() => ({
       limit: mockSelectLimit,
     }))
@@ -89,6 +97,8 @@ describe('system settings service', () => {
     }))
     mockTransaction.mockImplementation(async (callback) => callback(transactionStore))
     mockTransactionExecute.mockResolvedValue(undefined)
+    mockUserRows.mockResolvedValue([])
+    mockEnsureDefaultUserSubscription.mockReset().mockResolvedValue(undefined)
   })
 
   it('returns app-owned defaults when no system settings record exists', async () => {
@@ -107,6 +117,73 @@ describe('system settings service', () => {
       copilot: DEFAULT_COPILOT_SETTINGS,
     })
   })
+
+  it.each([null, { id: 'global', billingEnabled: false }])(
+    'initializes billing activation users in the settings transaction before publishing its enabled flag (%j)',
+    async (existing) => {
+      mockSelectLimit
+        .mockResolvedValueOnce(existing ? [existing] : [])
+        .mockResolvedValueOnce([{ id: 'global', billingEnabled: true }])
+      mockUserRows.mockResolvedValue([{ id: 'initial-admin' }, { id: 'earlier-signup' }])
+
+      await expect(upsertSystemSettings({ billingEnabled: true })).resolves.toMatchObject({
+        billingEnabled: true,
+      })
+
+      expect(mockEnsureDefaultUserSubscription.mock.calls).toEqual([
+        ['initial-admin', transactionStore],
+        ['earlier-signup', transactionStore],
+      ])
+      expect(mockTransactionExecute).toHaveBeenCalledTimes(2)
+      expect(mockTransactionExecute.mock.calls[1][0]).toEqual({
+        strings: ['LOCK TABLE ', ' IN SHARE MODE'],
+        values: [{ id: 'user.id' }],
+      })
+      expect(mockTransactionExecute.mock.invocationCallOrder[1]).toBeLessThan(
+        mockUserRows.mock.invocationCallOrder[0]
+      )
+      expect(mockUserRows.mock.invocationCallOrder[0]).toBeLessThan(
+        mockEnsureDefaultUserSubscription.mock.invocationCallOrder[0]
+      )
+      expect(mockEnsureDefaultUserSubscription.mock.invocationCallOrder[1]).toBeLessThan(
+        mockInsertValues.mock.invocationCallOrder[0]
+      )
+    }
+  )
+
+  it('does not publish billing activation when any subscription initialization fails', async () => {
+    mockSelectLimit.mockResolvedValueOnce([{ id: 'global', billingEnabled: false }])
+    mockUserRows.mockResolvedValue([{ id: 'initial-admin' }, { id: 'earlier-signup' }])
+    mockEnsureDefaultUserSubscription
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('Subscription initialization failed'))
+
+    await expect(upsertSystemSettings({ billingEnabled: true })).rejects.toThrow(
+      'Subscription initialization failed'
+    )
+
+    expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledTimes(2)
+    expect(
+      mockEnsureDefaultUserSubscription.mock.calls.every(([, store]) => store === transactionStore)
+    ).toBe(true)
+    expect(mockInsert).not.toHaveBeenCalled()
+    expect(mockTransaction).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    [true, { billingEnabled: true }],
+    [true, { billingEnabled: false }],
+    [false, { emailDomain: 'example.com' }],
+  ] as const)(
+    'does not provision subscriptions outside billing activation (%s, %j)',
+    async (enabled, input) => {
+      mockSelectLimit.mockResolvedValueOnce([{ id: 'global', billingEnabled: enabled }])
+      await upsertSystemSettings(input)
+      expect(mockUserRows).not.toHaveBeenCalled()
+      expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
+      expect(mockTransactionExecute).toHaveBeenCalledOnce()
+    }
+  )
 
   it('upserts only app-owned settings and preserves omitted values', async () => {
     const now = new Date('2026-04-12T00:00:00.000Z')
@@ -179,7 +256,7 @@ describe('system settings service', () => {
       emailDomain: 'mail.example.com',
       fromEmailAddress: null,
     })
-    expect(mockTransactionExecute).toHaveBeenCalledOnce()
+    expect(mockTransactionExecute).toHaveBeenCalledTimes(2)
     expect(mockTransactionExecute.mock.invocationCallOrder[0]).toBeLessThan(
       mockSelect.mock.invocationCallOrder[0]
     )

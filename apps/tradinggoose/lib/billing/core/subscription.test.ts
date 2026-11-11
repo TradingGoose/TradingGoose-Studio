@@ -171,6 +171,29 @@ describe('subscription billing helpers', () => {
     expect(mockDb.insert).not.toHaveBeenCalled()
   })
 
+  it.each([false, true])(
+    'preserves an existing personal subscription during initialization (default=%s)',
+    async (isDefault) => {
+      const existing = {
+        id: isDefault ? 'sub_default_user_123' : 'sub_paid_user_123',
+        referenceType: 'user',
+        referenceId: 'user_123',
+        status: 'active',
+        tier: { id: isDefault ? 'tier_default' : 'tier_paid', isDefault },
+      }
+      const store = {
+        select: vi.fn(() => createSelectQueryMock([existing], 'where')),
+        insert: vi.fn(),
+      }
+      const { ensureDefaultUserSubscription } = await import('./subscription')
+
+      await expect(ensureDefaultUserSubscription('user_123', store as any)).resolves.toBe(existing)
+      expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([existing], store)
+      expect(store.insert).not.toHaveBeenCalled()
+      expect(mockRequireDefaultBillingTier).not.toHaveBeenCalled()
+    }
+  )
+
   it('throws a typed error when a required active subscription is missing', async () => {
     mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'where'))
 
