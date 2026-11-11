@@ -144,7 +144,7 @@ function restart() {
 
 type ResponseStep =
   | { text: string }
-  | { tool: string; args: Record<string, unknown>; toolCallId?: string }
+  | { tool: string; args: Record<string, unknown>; toolCallId?: string; text?: string }
 function setModel(...steps: ResponseStep[]) {
   let index = 0
   m.model = new MastraLanguageModelV2Mock({
@@ -154,6 +154,11 @@ function setModel(...steps: ResponseStep[]) {
       return {
         stream: new ReadableStream({
           start(controller) {
+            if ('text' in step && step.text !== undefined) {
+              controller.enqueue({ type: 'text-start', id: 'answer' })
+              controller.enqueue({ type: 'text-delta', id: 'answer', delta: step.text })
+              controller.enqueue({ type: 'text-end', id: 'answer' })
+            }
             if ('tool' in step)
               controller.enqueue({
                 type: 'tool-call',
@@ -161,11 +166,6 @@ function setModel(...steps: ResponseStep[]) {
                 toolName: step.tool,
                 input: JSON.stringify(step.args),
               })
-            else {
-              controller.enqueue({ type: 'text-start', id: 'answer' })
-              controller.enqueue({ type: 'text-delta', id: 'answer', delta: step.text })
-              controller.enqueue({ type: 'text-end', id: 'answer' })
-            }
             controller.enqueue({
               type: 'finish',
               finishReason: 'tool' in step ? 'tool-calls' : 'stop',
@@ -402,6 +402,66 @@ describe('built-in Copilot service bridge', () => {
         cost: { status: 'unavailable' },
       },
     ])
+  })
+
+  it('fails an exhausted native tool loop while retaining every step charge and releasing the conversation', async () => {
+    setModel(
+      ...Array.from({ length: 50 }, (_, index) => ({
+        tool: 'list_workflows',
+        args: { workspaceId: 'workspace' },
+        toolCallId: `loop-call-${index}`,
+      }))
+    )
+    m.route.mockResolvedValue({ entityKind: 'workflow', entities: [], count: 0 })
+    const { result } = await message({ accessLevel: 'full' })
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: { code: 'GENERATION_FAILED' },
+      usage: { inputTokens: 150, outputTokens: 100, totalTokens: 250 },
+    })
+    expect(m.contacts).toHaveLength(50)
+    expect(m.route).toHaveBeenCalledTimes(49)
+    expect(m.accept).toHaveBeenCalledTimes(50)
+    expect(m.claims.size).toBe(0)
+  })
+
+  it('reserves the last native step for an answer using existing tool results', async () => {
+    setModel(
+      ...Array.from({ length: 49 }, (_, index) => ({
+        tool: 'list_workflows',
+        args: { workspaceId: 'workspace' },
+        toolCallId: `answer-call-${index}`,
+      })),
+      { text: 'No workflows are available.' }
+    )
+    m.route.mockResolvedValue({ entityKind: 'workflow', entities: [], count: 0 })
+    const { result } = await message({ accessLevel: 'full' })
+    expect(result).toMatchObject({
+      status: 'completed',
+      text: 'No workflows are available.',
+      usage: { inputTokens: 150, outputTokens: 100, totalTokens: 250 },
+    })
+    expect(m.contacts).toHaveLength(50)
+    expect(m.contacts.at(-1)).toMatchObject({ toolChoice: { type: 'none' } })
+    expect(m.route).toHaveBeenCalledTimes(49)
+    expect(m.accept).toHaveBeenCalledTimes(50)
+    expect(m.claims.size).toBe(0)
+  })
+
+  it('does not accept earlier tool commentary as an answer when the final response is blank', async () => {
+    setModel(
+      { tool: 'list_workflows', args: { workspaceId: 'workspace' }, text: 'Checking workflows...' },
+      { text: '' }
+    )
+    m.route.mockResolvedValue({ entityKind: 'workflow', entities: [], count: 0 })
+    const { result } = await message({ accessLevel: 'full' })
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: { code: 'GENERATION_FAILED' },
+      usage: { inputTokens: 6, outputTokens: 4, totalTokens: 10 },
+    })
+    expect(m.accept).toHaveBeenCalledTimes(2)
+    expect(m.claims.size).toBe(0)
   })
 
   it('gives the model current Studio context while persisting and editing only the visible input', async () => {

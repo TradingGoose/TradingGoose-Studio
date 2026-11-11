@@ -185,6 +185,25 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('native Agent workflow execution', () => {
+  it.each(
+    [0, -1, 1.5, Number.POSITIVE_INFINITY, 'invalid', '0', false, [], {}].map((maxSteps) => ({
+      maxSteps,
+    }))
+  )(
+    'rejects invalid Max Steps $maxSteps before admission or model contact',
+    async ({ maxSteps }) => {
+      await expect(
+        new AgentBlockHandler().execute(
+          block,
+          { model: 'openai/gpt-4.1', maxSteps: maxSteps as any },
+          context()
+        )
+      ).rejects.toThrow('Max Steps must be a positive integer')
+      expect(state.finance).not.toHaveBeenCalled()
+      expect(state.configurations).toHaveLength(0)
+    }
+  )
+
   it.each(['auto', 'force'] as const)(
     'rejects an unavailable selected %s tool before model contact',
     async (usageControl) => {
@@ -557,6 +576,208 @@ describe('native forced sequence failures and completion accounting', () => {
     schema: { function: { description: 'Lookup', parameters: schema } },
     usageControl: 'force' as const,
   }
+  it.each([
+    { stream: false, maxSteps: 1, steps: 1 },
+    { stream: true, maxSteps: '1', steps: 1 },
+    { stream: false, maxSteps: 2, steps: 2 },
+    { stream: true, maxSteps: '2', steps: 2 },
+    { stream: false, maxSteps: undefined, steps: 5 },
+    { stream: false, maxSteps: '', steps: 5 },
+    { stream: false, maxSteps: '  ', steps: 5 },
+    { stream: false, maxSteps: 5, steps: 5 },
+  ])(
+    'rejects noncompliance at native maxSteps $maxSteps (stream=$stream), retaining completed usage',
+    async ({ stream, maxSteps, steps }) => {
+      state.nativeCost = { total: 0.006, status: 'estimated' }
+      const toolCall = () => ({
+        type: 'tool-call' as const,
+        toolCallId: crypto.randomUUID(),
+        toolName: 'custom_lookup',
+        input: '{"query":"keep searching"}',
+      })
+      state.model = new MastraLanguageModelV2Mock({
+        doGenerate: async () => ({
+          content: [{ type: 'text', text: 'Still searching' }, toolCall()],
+          finishReason: 'tool-calls',
+          usage,
+          warnings: [],
+        }),
+        doStream: async () => ({
+          stream: new ReadableStream({
+            start(controller) {
+              controller.enqueue({ type: 'text-start', id: 'text' })
+              controller.enqueue({ type: 'text-delta', id: 'text', delta: 'Still searching' })
+              controller.enqueue({ type: 'text-end', id: 'text' })
+              controller.enqueue(toolCall())
+              controller.enqueue({ type: 'finish', finishReason: 'tool-calls', usage })
+              controller.close()
+            },
+          }),
+        }),
+      })
+      let failure: unknown
+      let streamed: StreamingExecution | undefined
+      try {
+        const result = await new AgentBlockHandler().execute(
+          block,
+          {
+            model: 'openai/gpt-4.1',
+            maxSteps,
+            userPrompt: 'Search until done',
+            tools: [{ ...customTool, usageControl: 'auto' }],
+          },
+          context({ stream })
+        )
+        if (stream) {
+          streamed = result as StreamingExecution
+          await new Response(streamed.stream).text()
+        }
+      } catch (error) {
+        failure = error
+      }
+      expect(failure).toBeInstanceOf(Error)
+      expect((failure as Error).message).toContain('step limit')
+      const accounted = streamed?.execution.output ?? failure
+      expect(accounted).toMatchObject({
+        tokens: { prompt: steps * 2, completion: steps * 3, total: steps * 5 },
+        cost: { total: 0.006, status: 'estimated' },
+      })
+      expect(accounted).not.toHaveProperty('content')
+      expect(getInferenceFacts(accounted)?.history).toBeDefined()
+      expect(stream ? state.model.doStreamCalls : state.model.doGenerateCalls).toHaveLength(steps)
+      expect(executeTool).toHaveBeenCalledTimes(steps - 1)
+      const lastCall = (stream ? state.model.doStreamCalls : state.model.doGenerateCalls).at(-1)
+      expect(lastCall).toMatchObject({ toolChoice: { type: 'none' }, tools: undefined })
+      if (streamed) expect(streamed.execution.success).toBe(false)
+    }
+  )
+  it.each([false, true].flatMap((stream) => [1, 2, 5].map((maxSteps) => ({ stream, maxSteps }))))(
+    'reserves the final answer within native maxSteps $maxSteps (stream=$stream)',
+    async ({ stream, maxSteps }) => {
+      const toolCall = () => ({
+        type: 'tool-call' as const,
+        toolCallId: crypto.randomUUID(),
+        toolName: 'custom_lookup',
+        input: '{"query":"keep searching"}',
+      })
+      state.model = new MastraLanguageModelV2Mock({
+        doGenerate: async (options) => {
+          const final = options.toolChoice?.type === 'none'
+          return {
+            content: final
+              ? [{ type: 'text', text: 'Final answer from available results' }]
+              : [{ type: 'text', text: 'Still searching' }, toolCall()],
+            finishReason: final ? 'stop' : 'tool-calls',
+            usage,
+            warnings: [],
+          }
+        },
+        doStream: async (options) => ({
+          stream: new ReadableStream({
+            start(controller) {
+              const final = options.toolChoice?.type === 'none'
+              controller.enqueue({ type: 'text-start', id: 'text' })
+              controller.enqueue({
+                type: 'text-delta',
+                id: 'text',
+                delta: final ? 'Final answer from available results' : 'Still searching',
+              })
+              controller.enqueue({ type: 'text-end', id: 'text' })
+              if (!final) controller.enqueue(toolCall())
+              controller.enqueue({
+                type: 'finish',
+                finishReason: final ? 'stop' : 'tool-calls',
+                usage,
+              })
+              controller.close()
+            },
+          }),
+        }),
+      })
+      const result = await new AgentBlockHandler().execute(
+        block,
+        {
+          model: 'openai/gpt-4.1',
+          maxSteps,
+          systemPrompt: 'Respect the original policy',
+          userPrompt: 'Search until done',
+          tools: [{ ...customTool, usageControl: 'auto' }],
+        },
+        context({ stream })
+      )
+      let output: any
+      if (stream) {
+        const streamed = result as StreamingExecution
+        expect(await new Response(streamed.stream).text()).toBe(
+          'Final answer from available results'
+        )
+        expect(streamed.execution.success).toBe(true)
+        output = streamed.execution.output
+      } else output = result
+      expect(output).toMatchObject({
+        content: 'Final answer from available results',
+        tokens: { prompt: maxSteps * 2, completion: maxSteps * 3, total: maxSteps * 5 },
+      })
+      const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
+      expect(calls).toHaveLength(maxSteps)
+      expect(executeTool).toHaveBeenCalledTimes(maxSteps - 1)
+      expect(calls.at(-1)).toMatchObject({ toolChoice: { type: 'none' }, tools: undefined })
+      const finalPrompt = JSON.stringify(calls.at(-1).prompt)
+      expect(finalPrompt).toContain('Respect the original policy')
+      expect(finalPrompt).toContain('No model steps remain after this one')
+      expect(finalPrompt).toContain('explain missing information instead of inventing it')
+      for (const call of calls.slice(0, -1)) {
+        expect(call.tools).toContainEqual(expect.objectContaining({ name: 'custom_lookup' }))
+        expect(JSON.stringify(call.prompt)).not.toContain('No model steps remain after this one')
+      }
+    }
+  )
+
+  it.each([false, true])(
+    'rejects an empty final answer, retaining usage (stream=%s)',
+    async (stream) => {
+      state.model = fixture(' \n\t ')
+      const generate = new AgentBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', maxSteps: 1 },
+        context({ stream })
+      )
+      if (stream) {
+        const result = (await generate) as StreamingExecution
+        await expect(new Response(result.stream).text()).rejects.toThrow('final answer')
+        expect(result.execution.output.tokens).toMatchObject({ total: 5 })
+        expect(result.execution.success).toBe(false)
+      } else await expect(generate).rejects.toMatchObject({ tokens: { total: 5 } })
+    }
+  )
+
+  it('does not satisfy an unfinished Force tool by reserving a final-answer step', async () => {
+    await expect(
+      new AgentBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', maxSteps: 1, tools: [customTool] },
+        context()
+      )
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('did not complete forced tools'),
+      tokens: { total: 5 },
+    })
+    expect(executeTool).not.toHaveBeenCalled()
+    expect(state.model.doGenerateCalls).toHaveLength(1)
+  })
+  it('allows one Force tool round followed by a separate final answer', async () => {
+    const output = await new AgentBlockHandler().execute(
+      block,
+      { model: 'openai/gpt-4.1', maxSteps: 2, tools: [customTool] },
+      context()
+    )
+    expect(output).toMatchObject({ content: 'Native response', tokens: { total: 10 } })
+    expect(executeTool).toHaveBeenCalledOnce()
+    expect(state.model.doGenerateCalls.map((call: any) => call.toolChoice)).toEqual([
+      { type: 'tool', toolName: 'custom_lookup' },
+      { type: 'none' },
+    ])
+  })
   it('rejects a native model that ignores the pending named Force choice', async () => {
     state.model = new MastraLanguageModelV2Mock({
       doGenerate: async () => ({
@@ -770,8 +991,7 @@ describe('native structured streams through the workflow executor', () => {
       const displayedText = onExecutionEvent.mock.calls
         .map(([event]) => (event.type === 'stream:chunk' ? event.data.chunk : ''))
         .join('')
-      expect(displayedText).toContain('Searching...')
-      expect(displayedText).toContain('{"answer":42}')
+      expect(displayedText).toBe('{"answer":42}')
     } else {
       expect(result.error).toBeTruthy()
       expect(onExecutionEvent).not.toHaveBeenCalledWith(
@@ -811,6 +1031,7 @@ it('aborts a native stream during a model step and retains earlier completed wor
             )
             controller.enqueue({ type: 'text-start', id: 'partial' })
             controller.enqueue({ type: 'text-delta', id: 'partial', delta: 'Partial answer' })
+            cancelled = true
           }
         },
       }),
@@ -834,8 +1055,6 @@ it('aborts a native stream during a model step and retains earlier completed wor
     context({ stream: true, shouldCancelExecution: async () => cancelled })
   )) as StreamingExecution
   const reader = result.stream.getReader()
-  expect(new TextDecoder().decode((await reader.read()).value)).toBe('Partial answer')
-  cancelled = true
   await expect(reader.read()).rejects.toThrow()
   expect(result.execution.success).toBe(false)
   expect(result.execution.output.tokens).toMatchObject({ total: 5 })
@@ -1160,6 +1379,7 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
     const fetcher = vi.fn()
     vi.stubGlobal('fetch', fetcher)
     let output: any
+    let displayedText = ''
     let failure: unknown
     try {
       const result = await new AgentBlockHandler().execute(
@@ -1175,7 +1395,9 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
         const streamed = result as StreamingExecution
         const reader = streamed.stream.getReader()
         for (;;) {
-          if ((await reader.read()).done) break
+          const chunk = await reader.read()
+          if (chunk.done) break
+          displayedText += new TextDecoder().decode(chunk.value)
         }
         output = streamed.execution.output
       } else output = result
@@ -1202,7 +1424,15 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
     expect(JSON.stringify(getInferenceFacts(active))).not.toContain('Exact tool text')
     if (allowed) {
       expect(failure).toBeUndefined()
-      expect(output.content).toBe('Known before media deliveryVerified media answer')
+      expect(output.content).toBe('Verified media answer')
+      if (stream) expect(displayedText).toBe('Verified media answer')
+      const history = getInferenceFacts(output)!.history!
+      const { messages } = await (await getAgentMemory()).recall({
+        threadId: history.threadId,
+        resourceId: history.resourceId,
+        perPage: false,
+      })
+      expect(JSON.stringify(messages)).toContain('Known before media delivery')
       const prompt = JSON.stringify(calls[1].prompt)
       expect(prompt).toContain(liveToolImage.toString('base64'))
       expect(prompt).toContain('Exact tool text')
@@ -1280,7 +1510,7 @@ it.each(['ordinary-json', 'nested-mcp-wrapper'])(
     )
     if (!output || typeof output !== 'object' || !('content' in output))
       throw new Error('Actual nonstream business response content is unavailable')
-    expect(output.content).toBe('Known before media deliveryVerified media answer')
+    expect(output.content).toBe('Verified media answer')
     expect(state.model.doGenerateCalls).toHaveLength(2)
     expect(state.admissions).toHaveBeenCalledTimes(2)
     expect(executeTool).toHaveBeenCalledOnce()

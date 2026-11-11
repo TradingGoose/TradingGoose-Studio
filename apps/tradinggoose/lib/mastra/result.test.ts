@@ -1,8 +1,48 @@
 import { describe, expect, it } from 'vitest'
 import { createAgentToolSet, extractAgentOutput } from '@/executor/handlers/agent/agent-handler'
-import { getInferenceFacts, isInferenceResult, withInferenceFacts } from './result'
+import {
+  assertNativeCompletion,
+  getInferenceFacts,
+  getNativeFinalText,
+  isInferenceResult,
+  withInferenceFacts,
+} from './result'
+
+it('rejects unfinished native tool loops while accepting final model answers', () => {
+  expect(() => assertNativeCompletion({ finishReason: 'tool-calls' })).toThrow('step limit')
+  for (const finishReason of ['stop', 'length'])
+    expect(() => assertNativeCompletion({ finishReason })).not.toThrow()
+})
+
+it.each(['', ' \n\t '])(
+  'rejects a blank final answer despite earlier native commentary (%j)',
+  (text) => {
+    const result = {
+      text: `Intermediate commentary${text}`,
+      steps: [{ text: 'Intermediate commentary' }, { text }],
+    }
+    expect(() => getNativeFinalText(result)).toThrow('final answer')
+  }
+)
+
+it('requires a final native step and returns its exact untrimmed answer', () => {
+  expect(() => getNativeFinalText({ steps: [] })).toThrow('final answer')
+  const text = ' \nFinal answer\t\n'
+  expect(getNativeFinalText({ steps: [{ text: 'Intermediate commentary' }, { text }] })).toBe(text)
+})
 
 describe('structured business roots and trusted facts', () => {
+  it('accepts a valid structured object without requiring text content', () => {
+    const output = extractAgentOutput(
+      { object: { answer: 42 }, steps: [{ text: '' }], finishReason: 'stop' },
+      'openai/gpt-4.1',
+      { tokens: {}, cost: { status: 'unavailable' } },
+      [],
+      true
+    )
+    expect(output).toMatchObject({ answer: 42 })
+    expect(output).not.toHaveProperty('content')
+  })
   it('preserves every schema-owned root without granting it accounting or control authority', () => {
     const object = {
       model: 'Corolla',
@@ -18,7 +58,7 @@ describe('structured business roots and trusted facts', () => {
       execution: { success: false },
     }
     const output = extractAgentOutput(
-      { object, finishReason: 'stop' },
+      { object, steps: [{ text: JSON.stringify(object) }], finishReason: 'stop' },
       'openai/gpt-4.1',
       { tokens: { total: 5 }, cost: { status: 'unavailable' } },
       [],
@@ -85,7 +125,11 @@ describe('completed tool accounting provenance', () => {
       await tools.lookup.execute!({}, { agent: { toolCallId: 'same-call' } } as any)
     }
     const output = extractAgentOutput(
-      { text: 'Answer', finishReason: 'stop' },
+      {
+        text: 'Intermediate commentaryAnswer',
+        steps: [{ text: 'Intermediate commentary' }, { text: 'Answer' }],
+        finishReason: 'stop',
+      },
       'native/outer',
       { tokens: { total: 2 }, cost: { total: 1, status: 'reported' } },
       toolResults

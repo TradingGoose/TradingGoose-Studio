@@ -1,3 +1,4 @@
+import type { FullOutput } from '@mastra/core/stream'
 import type { NativeCost } from './usage'
 
 export interface InferenceFacts {
@@ -31,6 +32,15 @@ export function isInferenceResult(output: unknown): boolean {
   return getInferenceFacts(output) !== undefined
 }
 
+/** A completed text answer belongs to the final native step, not the concatenated transcript. */
+export function getNativeFinalText(result: {
+  steps: Pick<FullOutput['steps'][number], 'text'>[]
+}): string {
+  const text = result.steps.at(-1)?.text
+  if (!text?.trim()) throw new Error('Native generation did not produce a final answer')
+  return text
+}
+
 /** Inspect the public native result, never schema-owned error/control fields. */
 export function assertNativeCompletion(result: {
   error?: unknown
@@ -38,11 +48,13 @@ export function assertNativeCompletion(result: {
   finishReason?: string
   usedFallbackValue?: boolean
 }) {
+  if (result.finishReason === 'tool-calls')
+    throw new Error('Native generation reached its step limit before producing a final answer.')
   if (
     result.error ||
     result.tripwire ||
     result.usedFallbackValue ||
-    !['stop', 'tool-calls', 'length'].includes(result.finishReason ?? '')
+    !['stop', 'length'].includes(result.finishReason ?? '')
   )
     throw new Error(
       `Native generation did not complete successfully (${result.finishReason ?? 'unknown'})`

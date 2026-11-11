@@ -14,6 +14,7 @@ export interface AgentInputs {
   memories?: any
   temperature?: number
   maxTokens?: number
+  maxSteps?: number | string
   apiKey?: string
   providerOptions?: string | Record<string, any>
 }

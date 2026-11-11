@@ -35,6 +35,7 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
     },
     {
       apiKey,
+      maxSteps: 1,
       modelSettings: request.maxOutputTokens
         ? { maxOutputTokens: request.maxOutputTokens }
         : undefined,
@@ -62,7 +63,6 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
     ...prepared.options,
     model: prepared.model,
     instructions,
-    maxSteps: 1,
     toolChoice: 'none' as const,
   }
   return { agent: await getCopilotAgent(), usage: prepared.usage, runId, messages, options }

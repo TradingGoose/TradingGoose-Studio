@@ -201,6 +201,12 @@ describe('getBlocksMetadataServerTool', () => {
       integer: true,
     })
     expect(outputTokens?.condition).toBeUndefined()
+    expect(agent?.subBlocks?.find((field) => field.id === 'maxSteps')).toMatchObject({
+      type: 'short-input',
+      inputType: 'number',
+      min: 1,
+      integer: true,
+    })
     expect(
       agent?.subBlocks?.some((field) =>
         ['reasoningEffort', 'reasoningOptions', 'verbosity', 'thinkingLevel'].includes(field.id)

@@ -26,7 +26,7 @@ import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { prepareModelRequest } from '@/lib/mastra/request'
-import { assertNativeCompletion } from '@/lib/mastra/result'
+import { assertNativeCompletion, getNativeFinalText } from '@/lib/mastra/result'
 import { getAgentMemory, getCopilotAgent, getNativeMemoryStore } from '@/lib/mastra/runtime'
 import { SSE_HEADERS } from '@/lib/utils'
 import {
@@ -383,7 +383,7 @@ async function* generate(
         purpose: 'copilot',
         signal,
       },
-      { apiKey }
+      { apiKey, maxSteps: 50 }
     )
     usage = prepared.usage
     const requestContext = createCopilotRequestContext({
@@ -416,7 +416,6 @@ async function* generate(
         : {}),
       memory: { thread: run.threadId, resource: nativeConversationIdentity(run.scope).resourceId },
       inputProcessors: [guard, ...prepared.options.inputProcessors],
-      maxSteps: 50,
     }
     yield { type: 'response.started', runId: run.runId, threadId: run.threadId }
     const output = (nativeOutput =
@@ -505,6 +504,7 @@ async function* generate(
       }
     } else {
       assertNativeCompletion(result)
+      getNativeFinalText(result)
       yield {
         type: 'response.completed',
         result: {

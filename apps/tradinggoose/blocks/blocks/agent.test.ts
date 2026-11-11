@@ -73,6 +73,7 @@ describe('registry-backed model interaction', () => {
       'responseFormat',
       'temperature',
       'maxTokens',
+      'maxSteps',
       'providerOptions',
     ]) {
       const field = available.find((entry) => entry.id === id)!
@@ -112,22 +113,32 @@ describe('registry-backed model interaction', () => {
     (model) => {
       useModelRegistry.setState({ providers })
       expect(fields(model).map(({ id }) => id)).toEqual(
-        expect.arrayContaining(['providerOptions', 'responseFormat', 'temperature', 'maxTokens'])
+        expect.arrayContaining([
+          'providerOptions',
+          'responseFormat',
+          'temperature',
+          'maxTokens',
+          'maxSteps',
+        ])
       )
     }
   )
 
-  it('keeps native Max Output Tokens available independently of metadata', () => {
+  it.each([
+    ['maxTokens', 1],
+    ['maxSteps', 1],
+  ] as const)('keeps native %s available independently of metadata', (id, min) => {
     for (const model of ['example/plain', 'example/unknown', '<upstream.model>']) {
-      const limits = fields(model).filter(({ id }) => id === 'maxTokens')
+      const limits = fields(model).filter((field) => field.id === id)
       expect(limits).toHaveLength(1)
       expect(limits[0]).toMatchObject({
         type: 'short-input',
         inputType: 'number',
-        min: 1,
+        min,
         integer: true,
       })
       expect(limits[0].max).toBeUndefined()
+      expect(limits[0].defaultValue).toBeUndefined()
     }
   })
 

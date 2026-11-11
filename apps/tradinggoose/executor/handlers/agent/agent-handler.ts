@@ -15,6 +15,7 @@ import { prepareModelRequest } from '@/lib/mastra/request'
 import {
   assertNativeCompletion,
   getInferenceFacts,
+  getNativeFinalText,
   type InferenceFacts,
   withInferenceFacts,
 } from '@/lib/mastra/result'
@@ -97,6 +98,18 @@ export class AgentBlockHandler implements BlockHandler {
     const model = inputs.model
     if (!model) throw new Error('Agent model is required')
     assertListedModel(model)
+    const maxSteps =
+      inputs.maxSteps == null ||
+      (typeof inputs.maxSteps === 'string' && inputs.maxSteps.trim() === '')
+        ? undefined
+        : Number(inputs.maxSteps)
+    if (
+      maxSteps !== undefined &&
+      (!['number', 'string'].includes(typeof inputs.maxSteps) ||
+        !Number.isSafeInteger(maxSteps) ||
+        maxSteps < 1)
+    )
+      throw new Error('Max Steps must be a positive integer')
     const responseFormat = this.parseResponseFormat(inputs.responseFormat)
     const formattedTools = await this.formatTools(inputs.tools || [], context)
     const skillInputs = Array.isArray(inputs.skills)
@@ -160,6 +173,7 @@ export class AgentBlockHandler implements BlockHandler {
       },
       {
         apiKey: inputs.apiKey,
+        maxSteps,
         modelSettings: { temperature: inputs.temperature, maxOutputTokens: inputs.maxTokens },
         providerOptions: inputs.providerOptions,
       }
@@ -201,7 +215,6 @@ export class AgentBlockHandler implements BlockHandler {
           },
         },
       },
-      maxSteps: 20,
       structuredOutput: responseFormat
         ? { schema: toStandardSchema(responseFormat.schema), errorStrategy: 'strict' }
         : undefined,
@@ -209,7 +222,7 @@ export class AgentBlockHandler implements BlockHandler {
       prepareStep: async (step) => {
         await cancellation.check()
         signal.throwIfAborted()
-        return policy.prepareStep(step)
+        return { ...policy.prepareStep(step), ...work.options.prepareStep(step) }
       },
     }
     const cancellation = watchExecutionCancellation(context.shouldCancelExecution, REQUEST_TIMEOUT)
@@ -291,13 +304,11 @@ export class AgentBlockHandler implements BlockHandler {
               if (await context.shouldCancelExecution?.()) abortController.abort()
               signal.throwIfAborted()
               if (done) {
-                Object.assign(execution.output, await complete(await nativeStream.getFullOutput()))
+                const result = await nativeStream.getFullOutput()
+                Object.assign(execution.output, await complete(result))
                 execution.metadata!.duration = Date.now() - startedAt.getTime()
+                controller.enqueue(new TextEncoder().encode(result.steps.at(-1)!.text))
                 controller.close()
-                return
-              }
-              if (value.type === 'text-delta') {
-                controller.enqueue(new TextEncoder().encode(value.payload.text))
                 return
               }
               if (value.type === 'error') throw value.payload.error
@@ -831,6 +842,7 @@ export function extractAgentOutput(
   structured = false
 ): BlockOutput {
   assertNativeCompletion(result)
+  if (!result.steps.length) throw new Error('Agent generation has no completed model steps')
   if (
     structured &&
     (!result.object || typeof result.object !== 'object' || Array.isArray(result.object))
@@ -841,7 +853,7 @@ export function extractAgentOutput(
     model,
     ...accounting,
   }
-  const business = structured ? result.object : { content: result.text }
+  const business = structured ? result.object : { content: getNativeFinalText(result) }
   return withInferenceFacts(
     { ...facts, ...business },
     {

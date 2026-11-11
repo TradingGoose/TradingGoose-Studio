@@ -23,7 +23,7 @@ export const AgentBlock: BlockConfig<AgentResponse> = {
   description: 'Build an agent',
   authMode: AuthMode.ApiKey,
   longDescription:
-    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the configured Mastra registry. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token limits, and model-supported temperature and native Provider Options without switching block modes. Unset tuning controls use the provider’s defaults. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
+    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the configured Mastra registry. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, and model-supported temperature and native Provider Options without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in Mastra history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
   bestPractices: `
   - Cannot use core blocks like API, Webhook, Function, Workflow, Memory as tools. Only integrations or custom tools. 
   - Check custom tools examples for YAML syntax. Only construct these if there isn't an existing integration for that purpose.
@@ -155,6 +155,19 @@ Create a system prompt appropriately detailed for the request, using clear langu
       inputType: 'number',
       layout: 'half',
       placeholder: 'Use the provider default',
+      min: 1,
+      integer: true,
+      additional: true,
+    },
+    {
+      id: 'maxSteps',
+      title: 'Max Steps',
+      type: 'short-input',
+      inputType: 'number',
+      layout: 'half',
+      placeholder: 'Use the default step budget',
+      description:
+        'Maximum model-generation steps, including tool-call rounds and the final answer. The last step disables tools and answers from available results. Unset uses the shared default step budget. An unfinished response still fails.',
       min: 1,
       integer: true,
       additional: true,
@@ -328,6 +341,10 @@ Example 3 (Array Input):
     },
     temperature: { type: 'number', description: 'Response randomness level' },
     maxTokens: { type: 'number', description: 'Maximum output tokens' },
+    maxSteps: {
+      type: 'number',
+      description: 'Maximum model-generation steps, including the final answer',
+    },
     providerOptions: {
       type: 'json',
       description: 'Native provider options for the selected model',

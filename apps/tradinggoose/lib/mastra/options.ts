@@ -13,6 +13,7 @@ export const NATIVE_AGENT_POLICY = {
   errorProcessorDefaults: false,
   errorProcessors: [],
   defaultOptions: {
+    maxSteps: 5,
     errorProcessors: [],
     eagerToolExecution: false,
     modelSettings: { maxRetries: 0 },
