@@ -310,21 +310,6 @@ function createToolRequestSignal(
 }
 
 /**
- * System parameters that should be filtered out when extracting tool arguments
- * These are internal parameters used by the execution framework, not tool inputs
- */
-const MCP_SYSTEM_PARAMETERS = new Set([
-  'serverId',
-  'toolName',
-  'serverName',
-  '_context',
-  'envVars',
-  'workflowVariables',
-  'blockData',
-  'blockNameMapping',
-])
-
-/**
  * Create an Error instance from errorInfo and attach useful context
  * Uses the error extractor registry to find the best error message
  */
@@ -437,14 +422,7 @@ export async function executeTool(
       )
     } else if (isMcpTool) {
       await assertExecutionWorkspaceAccess(toolId, scope, 'read')
-      return await executeMcpTool(
-        toolId,
-        params,
-        executionContext,
-        requestId,
-        startTimeISO,
-        scope.userId
-      )
+      return await executeMcpTool(toolId, params, scope, requestId, startTimeISO, options?.signal)
     } else {
       // For built-in tools, use the synchronous version
       tool = getTool(toolId)
@@ -1086,23 +1064,20 @@ function validateClientSideParams(
  *
  * @param toolId - MCP tool ID in format "mcp-serverId-toolName"
  * @param params - Tool parameters
- * @param executionContext - Execution context
+ * @param scope - Authorized execution scope
  * @param requestId - Request ID for logging
  * @param startTimeISO - Start time for timing
  */
 async function executeMcpTool(
   toolId: string,
   params: Record<string, any>,
-  executionContext?: ExecutionContext,
-  requestId?: string,
-  startTimeISO?: string,
-  userId?: string
+  scope: ExecutionScope,
+  requestId: string,
+  startTimeISO: string,
+  signal?: AbortSignal
 ): Promise<ToolResponse> {
-  const actualRequestId = requestId || generateRequestId()
-  const actualStartTime = startTimeISO || new Date().toISOString()
-
   try {
-    logger.info(`[${actualRequestId}] Executing MCP tool: ${toolId}`)
+    logger.info(`[${requestId}] Executing MCP tool: ${toolId}`)
 
     const { serverId, toolName } = parseMcpToolId(toolId)
 
@@ -1110,55 +1085,15 @@ async function executeMcpTool(
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
 
-    if (typeof window === 'undefined') {
-      try {
-        const internalToken = await generateInternalToken(userId ?? executionContext?.userId)
-        headers.Authorization = `Bearer ${internalToken}`
-      } catch (error) {
-        logger.error(`[${actualRequestId}] Failed to generate internal token:`, error)
-      }
-    }
+    if (typeof window === 'undefined')
+      headers.Authorization = `Bearer ${await generateInternalToken(scope.userId)}`
 
-    // Handle two different parameter structures:
-    // 1. Direct MCP blocks: arguments are stored as JSON string in 'arguments' field
-    // 2. Agent blocks: arguments are passed directly as top-level parameters
-    let toolArguments = {}
+    const toolArguments =
+      typeof params.arguments === 'string' ? JSON.parse(params.arguments) : (params.arguments ?? {})
+    if (typeof toolArguments !== 'object' || toolArguments === null || Array.isArray(toolArguments))
+      throw new Error('MCP arguments must be a JSON object')
 
-    // First check if we have the 'arguments' field (direct MCP block usage)
-    if (params.arguments) {
-      if (typeof params.arguments === 'string') {
-        try {
-          toolArguments = JSON.parse(params.arguments)
-        } catch (error) {
-          logger.warn(`[${actualRequestId}] Failed to parse MCP arguments JSON:`, params.arguments)
-          toolArguments = {}
-        }
-      } else {
-        toolArguments = params.arguments
-      }
-    } else {
-      // Agent block usage: extract MCP-specific arguments by filtering out system parameters
-      toolArguments = Object.fromEntries(
-        Object.entries(params).filter(([key]) => !MCP_SYSTEM_PARAMETERS.has(key))
-      )
-    }
-
-    const scope = resolveExecutionScope(params, executionContext)
-    const workspaceId = scope.workspaceId
-    const workflowId = scope.workflowId
-
-    if (!workspaceId) {
-      return {
-        success: false,
-        output: {},
-        error: `Missing workspaceId in execution context for MCP tool ${toolName}`,
-        timing: {
-          startTime: actualStartTime,
-          endTime: new Date().toISOString(),
-          duration: Date.now() - new Date(actualStartTime).getTime(),
-        },
-      }
-    }
+    const { workspaceId, workflowId } = scope
 
     const requestBody = {
       serverId,
@@ -1171,7 +1106,7 @@ async function executeMcpTool(
         : {}),
     }
 
-    logger.info(`[${actualRequestId}] Making MCP tool request to ${toolName} on ${serverId}`, {
+    logger.info(`[${requestId}] Making MCP tool request to ${toolName} on ${serverId}`, {
       hasWorkspaceId: !!workspaceId,
       hasWorkflowId: !!workflowId,
     })
@@ -1180,11 +1115,12 @@ async function executeMcpTool(
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
+      signal,
     })
 
     const endTime = new Date()
     const endTimeISO = endTime.toISOString()
-    const duration = endTime.getTime() - new Date(actualStartTime).getTime()
+    const duration = endTime.getTime() - new Date(startTimeISO).getTime()
 
     if (!response.ok) {
       let errorMessage = `MCP tool execution failed: ${response.status} ${response.statusText}`
@@ -1203,7 +1139,7 @@ async function executeMcpTool(
         output: {},
         error: errorMessage,
         timing: {
-          startTime: actualStartTime,
+          startTime: startTimeISO,
           endTime: endTimeISO,
           duration,
         },
@@ -1218,20 +1154,21 @@ async function executeMcpTool(
         output: {},
         error: result.error || 'MCP tool execution failed',
         timing: {
-          startTime: actualStartTime,
+          startTime: startTimeISO,
           endTime: endTimeISO,
           duration,
         },
       }
     }
 
-    logger.info(`[${actualRequestId}] MCP tool ${toolId} executed successfully`)
+    if (!result.data?.output) throw new Error('Invalid MCP execution response')
+    logger.info(`[${requestId}] MCP tool ${toolId} executed successfully`)
 
     return {
       success: true,
-      output: result.data?.output || result.output || result.data || {},
+      output: result.data.output,
       timing: {
-        startTime: actualStartTime,
+        startTime: startTimeISO,
         endTime: endTimeISO,
         duration,
       },
@@ -1239,9 +1176,9 @@ async function executeMcpTool(
   } catch (error) {
     const endTime = new Date()
     const endTimeISO = endTime.toISOString()
-    const duration = endTime.getTime() - new Date(actualStartTime).getTime()
+    const duration = endTime.getTime() - new Date(startTimeISO).getTime()
 
-    logger.error(`[${actualRequestId}] Error executing MCP tool ${toolId}:`, error)
+    logger.error(`[${requestId}] Error executing MCP tool ${toolId}:`, error)
 
     const errorMessage =
       error instanceof Error ? error.message : `Failed to execute MCP tool ${toolId}`
@@ -1251,7 +1188,7 @@ async function executeMcpTool(
       output: {},
       error: errorMessage,
       timing: {
-        startTime: actualStartTime,
+        startTime: startTimeISO,
         endTime: endTimeISO,
         duration,
       },

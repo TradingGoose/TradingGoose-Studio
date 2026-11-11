@@ -21,8 +21,9 @@ import {
 } from '@/lib/mastra/result'
 import { getAgentMemory } from '@/lib/mastra/runtime'
 import type { resultAccounting } from '@/lib/mastra/usage'
+import { mcpService } from '@/lib/mcp/service'
 import { createMcpToolId } from '@/lib/mcp/utils'
-import { getBaseUrl } from '@/lib/urls/utils'
+import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { getAllBlocks } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
@@ -462,126 +463,42 @@ export class AgentBlockHandler implements BlockHandler {
     return base
   }
 
-  private async createMcpTool(tool: ToolInput, context: ExecutionContext): Promise<any> {
+  private async createMcpTool(
+    tool: ToolInput,
+    context: ExecutionContext
+  ): Promise<AgentToolConfig> {
     const { serverId, toolName, ...userProvidedParams } = tool.params || {}
-
-    if (!serverId || !toolName) {
+    if (!serverId || !toolName)
       throw new Error('MCP tool selection is missing serverId or toolName')
-    }
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-
-    if (typeof window === 'undefined') {
-      try {
-        const { generateInternalToken } = await import('@/lib/auth/internal')
-        const internalToken = await generateInternalToken(context.userId)
-        headers.Authorization = `Bearer ${internalToken}`
-      } catch (error) {
-        logger.error(`Failed to generate internal token for MCP tool discovery:`, error)
-      }
-    }
-
-    const url = new URL('/api/mcp/tools/discover', getBaseUrl())
-    url.searchParams.set('serverId', serverId)
-    if (context.workspaceId) {
-      url.searchParams.set('workspaceId', context.workspaceId)
-    } else {
-      throw new Error('workspaceId is required for MCP tool discovery')
-    }
-    if (context.workflowId) {
-      url.searchParams.set('workflowId', context.workflowId)
-    } else {
-      throw new Error('workflowId is required for internal JWT authentication')
-    }
-    url.searchParams.set('isDeployedContext', String(context.isDeployedContext !== false))
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers,
-    })
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '')
-      throw new Error(
-        `Failed to discover tools from MCP server ${serverId} (status ${response.status})${errorText ? `: ${errorText}` : ''}`
-      )
-    }
-
-    const data = await response.json()
-    if (!data.success) {
-      throw new Error(data.error || `MCP tool discovery failed for server ${serverId}`)
-    }
-
-    const mcpTool = data.data.tools.find((t: any) => t.name === toolName)
-    if (!mcpTool) {
-      throw new Error(`MCP tool ${toolName} not found on server ${serverId}`)
-    }
-
-    const toolId = createMcpToolId(serverId, toolName)
-
-    const { filterSchemaForLLM } = await import('@/tools/params')
-    const filteredSchema = filterSchemaForLLM(
-      mcpTool.inputSchema || { type: 'object', properties: {} },
-      userProvidedParams
+    if (!context.userId || !context.workspaceId)
+      throw new Error('Authenticated workspace context is required for MCP tool discovery')
+    const permission = await getUserEntityPermissions(
+      context.userId,
+      'workspace',
+      context.workspaceId
     )
-
+    if (!permission || !['read', 'write', 'admin'].includes(permission))
+      throw new Error('Workspace access required for MCP operations')
+    const discovered = await mcpService.discoverServerTools(
+      context.userId,
+      serverId,
+      context.workspaceId,
+      context.isDeployedContext !== false
+    )
+    const mcpTool = discovered.find((candidate) => candidate.name === toolName)
+    if (!mcpTool) throw new Error(`MCP tool ${toolName} not found on server ${serverId}`)
+    if (mcpTool.inputSchema.type !== 'object') throw new Error('MCP input schema must be an object')
+    const { filterSchemaForLLM } = await import('@/tools/params')
     return {
-      id: toolId,
+      id: createMcpToolId(serverId, toolName),
       name: toolName,
       description: mcpTool.description || `MCP tool ${toolName} from ${mcpTool.serverName}`,
-      parameters: filteredSchema,
+      parameters: filterSchemaForLLM(
+        { ...mcpTool.inputSchema, type: 'object' },
+        userProvidedParams
+      ),
       params: userProvidedParams,
       usageControl: tool.usageControl || 'auto',
-      executeFunction: async (callParams: Record<string, any>, signal?: AbortSignal) => {
-        logger.info(`Executing MCP tool ${toolName} on server ${serverId}`)
-
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-
-        if (typeof window === 'undefined') {
-          try {
-            const { generateInternalToken } = await import('@/lib/auth/internal')
-            const internalToken = await generateInternalToken(context.userId)
-            headers.Authorization = `Bearer ${internalToken}`
-          } catch (error) {
-            logger.error(`Failed to generate internal token for MCP tool ${toolName}:`, error)
-          }
-        }
-
-        const execResponse = await fetch(`${getBaseUrl()}/api/mcp/tools/execute`, {
-          method: 'POST',
-          headers,
-          signal,
-          body: JSON.stringify({
-            serverId,
-            toolName,
-            arguments: callParams,
-            workspaceId: context.workspaceId,
-            workflowId: context.workflowId,
-            isDeployedContext: context.isDeployedContext !== false,
-          }),
-        })
-
-        if (!execResponse.ok) {
-          throw new Error(
-            `MCP tool execution failed: ${execResponse.status} ${execResponse.statusText}`
-          )
-        }
-
-        const result = await execResponse.json()
-        if (!result.success) {
-          throw new Error(result.error || 'MCP tool execution failed')
-        }
-
-        return {
-          success: true,
-          output: result.data.output || {},
-          metadata: {
-            source: 'mcp',
-            serverId,
-            serverName: mcpTool.serverName,
-            toolName,
-          },
-        }
-      },
     }
   }
 
@@ -748,7 +665,7 @@ export function createAgentToolSet(
                 : await executeTool(
                     tool.id,
                     {
-                      ...params,
+                      ...(tool.id.startsWith('mcp-') ? { arguments: params } : params),
                       _context: {
                         workflowId: scope.workflowId,
                         workspaceId: scope.workspaceId,
@@ -815,6 +732,7 @@ export function createForcedToolPolicy(tools: AgentToolConfig[]) {
     const seenCalls = new Set<string>()
     for (const step of steps)
       for (const call of step.toolCalls || []) {
+        // prepareStep exposes flat AI SDK results; FullOutput exposes Mastra payload chunks.
         const data = call.payload || call
         if (seenCalls.has(data.toolCallId)) continue
         seenCalls.add(data.toolCallId)

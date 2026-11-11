@@ -353,10 +353,9 @@ export function mergeToolParameters(
 /**
  * Filters out user-provided parameters from tool schema for LLM
  */
-export function filterSchemaForLLM(
-  originalSchema: ToolSchema,
-  userProvidedParams: Record<string, unknown>
-): ToolSchema {
+export function filterSchemaForLLM<
+  T extends { type: 'object'; properties?: ToolSchema['properties']; required?: string[] },
+>(originalSchema: T, userProvidedParams: Record<string, unknown>): T {
   if (!originalSchema || !originalSchema.properties) {
     return originalSchema
   }

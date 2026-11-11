@@ -3,6 +3,8 @@ import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import { getAgentMemory } from '@/lib/mastra/runtime'
 import { sumNativeUsage } from '@/lib/mastra/usage'
+import { mcpService } from '@/lib/mcp/service'
+import { getUserEntityPermissions } from '@/lib/permissions/utils'
 
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
@@ -99,6 +101,8 @@ vi.mock('@mastra/core/agent', async (original) => {
     },
   }
 })
+vi.mock('@/lib/mcp/service', () => ({ mcpService: { discoverServerTools: vi.fn() } }))
+vi.mock('@/lib/permissions/utils', () => ({ getUserEntityPermissions: vi.fn() }))
 vi.mock('@/blocks', () => ({ getAllBlocks: vi.fn(() => []), getBlock: vi.fn() }))
 vi.mock('@/tools', () => ({ executeTool: vi.fn(), getToolAsync: vi.fn() }))
 vi.mock('@/tools/utils', () => ({ getTool: vi.fn() }))
@@ -180,6 +184,24 @@ beforeEach(() => {
   state.nativeCost = { status: 'unavailable' }
   state.configurations.length = 0
   vi.mocked(executeTool).mockResolvedValue({ success: true, output: { found: true } })
+  vi.mocked(getUserEntityPermissions).mockResolvedValue('read')
+  vi.mocked(mcpService.discoverServerTools).mockResolvedValue([
+    {
+      name: 'lookup',
+      description: 'MCP lookup',
+      serverId: 'mcp-123',
+      serverName: 'Research',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string' },
+          arguments: { type: 'string' },
+          _context: { type: 'object' },
+        },
+        required: ['query'],
+      },
+    },
+  ])
 })
 
 afterEach(() => vi.unstubAllGlobals())
@@ -566,6 +588,94 @@ describe('native Agent workflow execution', () => {
       }
     }
   )
+})
+
+describe('native Agent MCP integration', () => {
+  const selected = {
+    type: 'mcp',
+    params: {
+      serverId: 'mcp-123',
+      toolName: 'lookup',
+      query: 'fixed query',
+      arguments: 'application input',
+      _context: { userId: 'application user' },
+    },
+    usageControl: 'force' as const,
+  }
+  it.each([false, true])(
+    'uses workspace-authorized discovery and the shared execution path (deployed=%s)',
+    async (isDeployedContext) => {
+      const fetcher = vi.fn()
+      vi.stubGlobal('fetch', fetcher)
+      await new AgentBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', tools: [selected] },
+        context({ isDeployedContext })
+      )
+      expect(getUserEntityPermissions).toHaveBeenCalledWith('user-1', 'workspace', 'workspace-1')
+      expect(mcpService.discoverServerTools).toHaveBeenCalledWith(
+        'user-1',
+        'mcp-123',
+        'workspace-1',
+        isDeployedContext
+      )
+      expect(executeTool).toHaveBeenCalledOnce()
+      const [toolId, params, skipPostProcess, execution, options] =
+        vi.mocked(executeTool).mock.calls[0]
+      expect(toolId).toBe('mcp-123-lookup')
+      expect(params).toMatchObject({
+        arguments: {
+          query: 'fixed query',
+          arguments: 'application input',
+          _context: { userId: 'application user' },
+        },
+        _context: {
+          userId: 'user-1',
+          workspaceId: 'workspace-1',
+          workflowId: 'workflow-1',
+          executionId: 'execution-1',
+          isDeployedContext,
+        },
+      })
+      expect(skipPostProcess).toBe(false)
+      expect(execution?.userId).toBe('user-1')
+      expect(options?.signal).toBeInstanceOf(AbortSignal)
+      expect(fetcher).not.toHaveBeenCalled()
+      expect(state.model.doGenerateCalls).toHaveLength(2)
+    }
+  )
+  it('rejects non-object MCP schemas before model contact', async () => {
+    vi.mocked(mcpService.discoverServerTools).mockResolvedValueOnce([
+      {
+        name: 'lookup',
+        serverId: 'mcp-123',
+        serverName: 'Research',
+        inputSchema: { type: 'array' },
+      },
+    ])
+    await expect(
+      new AgentBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', tools: [selected] },
+        context()
+      )
+    ).rejects.toThrow('MCP input schema must be an object')
+    expect(executeTool).not.toHaveBeenCalled()
+    expect(state.model.doGenerateCalls).toEqual([])
+  })
+  it('rejects revoked workspace access before discovery', async () => {
+    vi.mocked(getUserEntityPermissions).mockResolvedValueOnce(null)
+    await expect(
+      new AgentBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', tools: [selected] },
+        context()
+      )
+    ).rejects.toThrow('Workspace access required')
+    expect(mcpService.discoverServerTools).not.toHaveBeenCalled()
+    expect(executeTool).not.toHaveBeenCalled()
+    expect(state.model.doGenerateCalls).toEqual([])
+  })
 })
 
 describe('native named Force tools', () => {
