@@ -272,11 +272,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     const orgSubscription = await getOrganizationSubscription(organizationId)
 
-    if (!orgSubscription) {
-      return NextResponse.json({ error: 'No active subscription found' }, { status: 404 })
-    }
-
-    const maxSeats = Math.max(orgSubscription.seats || orgSubscription.tier.seatCount || 1, 1)
+    const maxSeats = orgSubscription
+      ? Math.max(orgSubscription.seats || orgSubscription.tier.seatCount || 1, 1)
+      : 0
     const seatOccupancy = await getSeatOccupancy(organizationId)
     const usedSeats = seatOccupancy.occupied
     const availableSeats = Math.max(0, maxSeats - usedSeats)
@@ -284,17 +282,18 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({
       success: true,
       data: {
+        organizationId,
         maxSeats,
         usedSeats,
         memberSeats: seatOccupancy.members,
         pendingInvitations: seatOccupancy.pending,
         availableSeats,
-        tier: orgSubscription.tier.displayName,
+        tier: orgSubscription?.tier.displayName ?? null,
         canModifySeats:
-          orgSubscription.tier.ownerType === 'organization' &&
+          orgSubscription?.tier.ownerType === 'organization' &&
           orgSubscription.tier.seatMode === 'adjustable',
-        seatMode: orgSubscription.tier.seatMode,
-        seatMaximum: orgSubscription.tier.seatMaximum,
+        seatMode: orgSubscription?.tier.seatMode ?? null,
+        seatMaximum: orgSubscription?.tier.seatMaximum ?? null,
       },
     })
   } catch (error) {

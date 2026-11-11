@@ -12,7 +12,6 @@ import { openBillingPortal } from '@/lib/billing/billing-portal'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
-import { getUsedSeats } from '@/lib/organization'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import { cn } from '@/lib/utils'
@@ -21,7 +20,7 @@ import {
   generalSettingsKeys,
   patchBillingUsageNotifications,
 } from '@/hooks/queries/general-settings'
-import { useOrganization, useOrganizationBilling } from '@/hooks/queries/organization'
+import { useOrganizationBilling, useOrganizationSeats } from '@/hooks/queries/organization'
 import { usePrivateTierAccessForm } from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
@@ -239,6 +238,7 @@ function openContactUrl(url: string | null) {
 export function Subscription({ onOpenChange }: SubscriptionProps) {
   const copy = useTranslations('workspace.settingsModal.subscription')
   const teamCopy = useTranslations('workspace.settingsModal.team')
+  const retryCopy = useTranslations('workspace.permissionsFeedback')
   const locale = useLocale()
   const { data: session } = useSession()
   const { handleUpgrade } = useSubscriptionUpgrade()
@@ -290,15 +290,25 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   } = useOrganizationBilling(organizationBillingId)
   const isOrgBillingPending =
     isOrgBillingLoading || Boolean(organizationBillingId && isOrgBillingPlaceholder)
+  const organizationBillingPayload =
+    organizationBillingData?.organizationId === organizationBillingId
+      ? organizationBillingData
+      : null
   const {
-    data: organization,
-    isLoading: isOrganizationLoading,
-    isError: isOrganizationError,
-    isPlaceholderData: isOrganizationPlaceholder,
-  } = useOrganization(organizationBillingId)
-  const isOrganizationPending =
-    isOrganizationLoading || Boolean(organizationBillingId && isOrganizationPlaceholder)
-  const usedSeats = getUsedSeats(organization?.id === organizationBillingId ? organization : null)
+    data: organizationSeats,
+    isPending: isSeatCountsPending,
+    isError: isSeatCountsError,
+    isFetching: isSeatCountsFetching,
+    refetch: refetchSeatCounts,
+  } = useOrganizationSeats(
+    organizationBillingId,
+    organizationBillingPayload?.billingEnabled === true
+  )
+  const seatCountsUnavailable =
+    Boolean(organizationBillingId) &&
+    (isSeatCountsPending ||
+      isSeatCountsError ||
+      organizationSeats?.organizationId !== organizationBillingId)
 
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
   const [pendingUpgradeTier, setPendingUpgradeTier] = useState<PublicBillingTierDisplay | null>(
@@ -313,10 +323,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     privateTierAccess.data?.privateTiers
   )
   const billingPayload = subscriptionData?.data
-  const organizationBillingPayload =
-    organizationBillingData?.organizationId === organizationBillingId
-      ? organizationBillingData
-      : null
   const personalSubscription = getSubscriptionStatus(billingPayload)
   const organizationTier = organizationBillingPayload?.subscriptionTier ?? null
   const subscription = isOrganizationBillingSubject
@@ -462,14 +468,16 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
   const handleUpgradeWithErrorHandling = useCallback(
     async (targetTier: PublicBillingTierDisplay, seats?: number) => {
-      if (
-        targetTier.ownerType === 'organization' &&
-        targetTier.seatMode === 'adjustable' &&
-        seats === undefined
-      ) {
-        setUpgradeError(null)
-        setPendingUpgradeTier(targetTier)
-        return
+      if (targetTier.ownerType === 'organization' && targetTier.seatMode === 'adjustable') {
+        if (seatCountsUnavailable) {
+          setUpgradeError(targetTier.id)
+          return
+        }
+        if (seats === undefined) {
+          setUpgradeError(null)
+          setPendingUpgradeTier(targetTier)
+          return
+        }
       }
       setIsUpgradePending(true)
       try {
@@ -487,7 +495,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         setIsUpgradePending(false)
       }
     },
-    [copy, handleUpgrade, organizationBillingId]
+    [copy, handleUpgrade, organizationBillingId, seatCountsUnavailable]
   )
 
   const handleOpenBillingPortal = () =>
@@ -562,7 +570,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const isLoading =
     isWorkspaceSettingsPending ||
     (isOrganizationBillingSubject
-      ? isOrgBillingPending || isOrganizationPending
+      ? isOrgBillingPending
       : isOtherUserBillingSubject
         ? false
         : isSubscriptionLoading || isUsageLimitLoading) ||
@@ -598,10 +606,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     )
   }
 
-  if (
-    isOrganizationBillingSubject &&
-    (isOrgBillingError || isOrganizationError || organization?.id !== organizationBillingId)
-  ) {
+  if (isOrganizationBillingSubject && (isOrgBillingError || !organizationBillingPayload)) {
     return (
       <div className='px-6 pt-4 pb-4'>
         <div className='flex flex-col gap-4'>
@@ -722,6 +727,20 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
         {hasVisiblePlanCards && (
           <div className='flex flex-col gap-2'>
+            {isSeatCountsError && (
+              <div role='alert' className='flex items-center gap-2 text-destructive text-xs'>
+                <p>{copy('errors.unknown')}</p>
+                <Button
+                  type='button'
+                  size='sm'
+                  variant='outline'
+                  disabled={isSeatCountsFetching}
+                  onClick={() => void refetchSeatCounts()}
+                >
+                  {retryCopy('retry')}
+                </Button>
+              </div>
+            )}
             {surfaceState.visiblePlanTiers.length > 0 && (
               <div
                 className={cn(
@@ -753,7 +772,13 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                             : copy('actions.changeTo', { name: tier.displayName })
                       }
                       onButtonClick={() => handleUpgradeWithErrorHandling(tier)}
-                      buttonDisabled={!canManageSelectedPlan || isUpgradePending}
+                      buttonDisabled={
+                        !canManageSelectedPlan ||
+                        isUpgradePending ||
+                        (tier.ownerType === 'organization' &&
+                          tier.seatMode === 'adjustable' &&
+                          seatCountsUnavailable)
+                      }
                       isCurrent={isCurrentTier}
                       isError={!isCurrentTier && upgradeError === tier.id}
                       layout='vertical'
@@ -830,14 +855,17 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         )}
       </div>
       <TeamSeats
-        open={Boolean(pendingUpgradeTier)}
+        open={Boolean(pendingUpgradeTier) && !seatCountsUnavailable}
         onOpenChange={(open) => {
           if (!open) setPendingUpgradeTier(null)
         }}
         title={pendingUpgradeTier?.displayName ?? ''}
         description={pendingUpgradeTier?.description || teamCopy('plans.description')}
         pricePerSeat={pendingUpgradeTier?.monthlyPriceUsd ?? 0}
-        minimumSeats={Math.max(pendingUpgradeTier?.seatCount ?? 1, usedSeats.used)}
+        minimumSeats={Math.max(
+          pendingUpgradeTier?.seatCount ?? 1,
+          organizationSeats?.usedSeats ?? 0
+        )}
         maximumSeats={pendingUpgradeTier?.seatMaximum ?? null}
         initialSeats={organizationBillingPayload?.totalSeats ?? 1}
         isLoading={isUpgradePending}

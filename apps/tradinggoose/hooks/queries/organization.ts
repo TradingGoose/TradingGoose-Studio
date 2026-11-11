@@ -18,6 +18,7 @@ export const organizationKeys = {
   details: () => [...organizationKeys.all, 'detail'] as const,
   detail: (id: string) => [...organizationKeys.details(), id] as const,
   billing: (id: string) => [...organizationKeys.detail(id), 'billing'] as const,
+  seats: (id: string) => [...organizationKeys.detail(id), 'seats'] as const,
   members: (id: string) => [...organizationKeys.detail(id), 'members'] as const,
   memberUsage: (id: string) => [...organizationKeys.detail(id), 'member-usage'] as const,
   workspaces: (id: string) => [...organizationKeys.detail(id), 'workspaces'] as const,
@@ -101,6 +102,36 @@ export function useOrganizationBilling(orgId: string) {
     retry: false,
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,
+  })
+}
+
+export interface OrganizationSeats {
+  organizationId: string
+  maxSeats: number
+  usedSeats: number
+  memberSeats: number
+  pendingInvitations: number
+  availableSeats: number
+  tier: string | null
+  canModifySeats: boolean
+  seatMode: 'fixed' | 'adjustable' | null
+  seatMaximum: number | null
+}
+
+export function useOrganizationSeats(orgId: string, enabled = true) {
+  return useQuery({
+    queryKey: organizationKeys.seats(orgId),
+    queryFn: async (): Promise<OrganizationSeats> => {
+      const response = await fetch(`/api/organizations/${orgId}/seats`)
+      if (!response.ok) throw new Error('Failed to fetch organization seats')
+      const payload = await response.json()
+      if (payload.data?.organizationId !== orgId)
+        throw new Error('Organization seats scope mismatch')
+      return payload.data
+    },
+    enabled: Boolean(orgId) && enabled,
+    retry: false,
+    staleTime: 30 * 1000,
   })
 }
 
