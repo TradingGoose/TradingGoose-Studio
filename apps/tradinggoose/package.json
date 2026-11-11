@@ -25,6 +25,7 @@
     "test:billing:suite": "vitest run billing subscription"
   },
   "dependencies": {
+    "@ai-sdk/provider-utils": "4.0.63",
     "@aws-sdk/client-s3": "^3.779.0",
     "@aws-sdk/s3-request-presigner": "^3.779.0",
     "@azure/communication-email": "1.0.0",
@@ -120,6 +121,7 @@
     "three": "0.177.0",
     "typescript": "^5.7.3",
     "unpdf": "1.4.0",
+    "undici": "6.29.1",
     "uuid": "^11.1.0",
     "ws": "^8.17.1",
     "xlsx": "0.18.5",

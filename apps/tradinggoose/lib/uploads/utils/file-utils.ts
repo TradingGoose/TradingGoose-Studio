@@ -1,3 +1,13 @@
+import dns from 'node:dns'
+import { isIP } from 'node:net'
+import {
+  DownloadError,
+  fetchWithValidatedRedirects,
+  validateDownloadUrl,
+} from '@ai-sdk/provider-utils'
+// The explicit package entry avoids Bun's built-in undici shim, which ignores connector hooks.
+import { Agent, fetch as undiciFetch } from 'undici/index.js'
+
 /**
  * Extract storage key from a file path
  * Handles various path formats: /api/files/serve/xyz, /api/files/serve/s3/xyz, etc.
@@ -78,16 +88,52 @@ export function assertStorageReferenceAccess(value: unknown, context?: unknown):
     throw new StorageAccessError()
 }
 
-/** Check every redirect before requesting its body. */
+// Use the same pinned transport under Node and Bun. A pre-fetch DNS check followed by ordinary
+// fetch would resolve twice and allow DNS rebinding; the connector uses these exact records.
+const publicFileDispatcher = new Agent({
+  connect: {
+    lookup(hostname, options, callback) {
+      dns.lookup(hostname, { ...options, all: true }, (error, addresses) => {
+        if (error) return callback(error, '')
+        try {
+          if (!addresses.length) throw new StorageAccessError()
+          for (const { address, family } of addresses) {
+            if (isIP(address) !== family) throw new StorageAccessError()
+            validateDownloadUrl(`http://${family === 6 ? `[${address}]` : address}/`)
+          }
+        } catch (error) {
+          const failure = DownloadError.isInstance(error) ? new StorageAccessError() : error
+          callback(failure instanceof Error ? failure : new Error(String(failure)), '')
+          return
+        }
+        if (options.all) callback(null, addresses)
+        else callback(null, addresses[0].address, addresses[0].family)
+      })
+    },
+  },
+})
+
+/** The SDK validates each redirect; the transport validates DNS when opening the socket. */
 export async function fetchPublicStorageUrl(url: string, init?: RequestInit): Promise<Response> {
-  for (let redirects = 0; redirects <= 5; redirects++) {
-    assertStorageReferenceAccess(url)
-    const response = await fetch(url, { ...init, redirect: 'manual' })
-    if (![301, 302, 303, 307, 308].includes(response.status)) return response
-    const location = response.headers.get('location')
-    await response.body?.cancel()
-    if (!location) throw new Error('File redirect has no location')
-    url = new URL(location, url).toString()
+  assertStorageReferenceAccess(url)
+  try {
+    return await fetchWithValidatedRedirects({
+      url,
+      headers: init?.headers,
+      abortSignal: init?.signal ?? undefined,
+      maxRedirects: 5,
+      fetch: (input, options) =>
+        undiciFetch(input as string, {
+          method: 'GET',
+          headers: Object.fromEntries(new Headers(options?.headers)),
+          signal: options?.signal,
+          redirect: 'manual',
+          dispatcher: publicFileDispatcher,
+        }) as unknown as Promise<Response>,
+    })
+  } catch (error) {
+    if (DownloadError.isInstance(error)) throw new StorageAccessError()
+    if (error instanceof Error && error.cause instanceof StorageAccessError) throw error.cause
+    throw error
   }
-  throw new Error('Too many file redirects')
 }

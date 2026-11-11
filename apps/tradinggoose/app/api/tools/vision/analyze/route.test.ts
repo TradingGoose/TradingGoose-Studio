@@ -2,6 +2,10 @@ vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
   createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
 }))
+vi.mock('undici/index.js', async (original) => ({
+  ...(await original<typeof import('undici/index.js')>()),
+  fetch: (...args: unknown[]) => mocks.mediaFetch(...args),
+}))
 vi.mock('@/lib/mastra/usage-processors', () => ({
   usageProcessors: async (scope: unknown) => {
     mocks.finance(scope)
@@ -220,7 +224,7 @@ describe('native Vision input and authorization', () => {
       totalTokens: 15,
     })
     expect(mocks.mediaFetch).toHaveBeenCalledTimes(1)
-    expect(mocks.mediaFetch.mock.calls[0][1].headers).toBeUndefined()
+    expect([...new Headers(mocks.mediaFetch.mock.calls[0][1].headers)]).toEqual([])
   })
 
   it('preserves upload/storage processing with trusted requester/signal and native bytes', async () => {
