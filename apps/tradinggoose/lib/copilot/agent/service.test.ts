@@ -314,6 +314,41 @@ describe('built-in Copilot service bridge', () => {
     expect(m.fetch).not.toHaveBeenCalled()
   })
 
+  it('gives the model current Studio context while persisting and editing only the visible input', async () => {
+    setModel({ text: 'Initial answer' }, { text: 'Follow-up answer' })
+    const context = { entityId: 'workflow', resolvedContent: 'Private current Studio context' }
+    const { result } = await message({ input: { content: 'Hello', contexts: [context] } })
+    expect(result.status).toBe('completed')
+    if (result.status !== 'completed') throw new Error(JSON.stringify(result))
+    expect(JSON.stringify(m.contacts[0])).toContain(context.resolvedContent)
+    const history = (
+      await command({
+        command: 'history.read',
+        threadId: result.threadId,
+        page: { page: 0, perPage: 100 },
+      })
+    ).result
+    if (history.status !== 'history') throw new Error(JSON.stringify(history))
+    expect(history.items[0].parts).toMatchObject([{ type: 'text', text: 'Hello' }])
+    expect(JSON.stringify(history)).not.toContain(context.resolvedContent)
+    expect(
+      (
+        await command({
+          command: 'history.edit',
+          threadId: result.threadId,
+          messageId: history.items[0].id,
+          text: 'Edited hello',
+        })
+      ).result.status
+    ).toBe('updated')
+    restart()
+    expect(
+      (await message({ threadId: result.threadId, input: { content: 'Follow up' } })).result.status
+    ).toBe('completed')
+    expect(JSON.stringify(m.contacts[1])).toContain('Edited hello')
+    expect(JSON.stringify(m.contacts[1])).not.toContain(context.resolvedContent)
+  })
+
   it('streams validated Studio events through server-tool continuation', async () => {
     setModel(
       { tool: 'list_workflows', args: { workspaceId: 'workspace' } },
@@ -364,7 +399,15 @@ describe('built-in Copilot service bridge', () => {
       entityId: 'workflow',
       entityName: 'Renamed',
     })
-    const initial = suspended((await message({ accessLevel: 'limited' })).result)
+    const context = { entityId: 'workflow', resolvedContent: 'Current rename context' }
+    const initial = suspended(
+      (
+        await message({
+          accessLevel: 'limited',
+          input: { content: 'Rename the workflow', contexts: [context] },
+        })
+      ).result
+    )
     expect(initial.pending[0].stage).toBe('approval')
     expect(m.route).not.toHaveBeenCalled()
     restart()
@@ -391,6 +434,7 @@ describe('built-in Copilot service bridge', () => {
       text: 'Renamed successfully',
     })
     expect(m.route).toHaveBeenCalledTimes(2)
+    expect(JSON.stringify(m.contacts[1])).toContain(context.resolvedContent)
     expect(m.route).toHaveBeenLastCalledWith(
       'rename_workflow',
       args,
@@ -613,7 +657,15 @@ it.runIf(Boolean(databaseUrl))(
           entityId: 'workflow',
           entityName: 'Renamed',
         })
-      const initial = suspended((await message({ accessLevel: 'limited' })).result)
+      const context = { entityId: 'workflow', resolvedContent: 'Postgres native resume context' }
+      const initial = suspended(
+        (
+          await message({
+            accessLevel: 'limited',
+            input: { content: 'Rename the workflow', contexts: [context] },
+          })
+        ).result
+      )
       const workflows = (await storage.getStore('workflows'))!
       expect(
         JSON.stringify(await workflows.getWorkflowRunById({ runId: initial.runId }))
@@ -632,6 +684,17 @@ it.runIf(Boolean(databaseUrl))(
           })
         ).result
       ).toMatchObject({ status: 'completed', text: 'Native continuation completed' })
+      expect(JSON.stringify(m.contacts[1])).toContain(context.resolvedContent)
+      const history = (
+        await command({
+          command: 'history.read',
+          threadId: initial.threadId,
+          page: { page: 0, perPage: 100 },
+        })
+      ).result
+      if (history.status !== 'history') throw new Error(JSON.stringify(history))
+      expect(history.items[0].parts).toMatchObject([{ type: 'text', text: 'Rename the workflow' }])
+      expect(JSON.stringify(history)).not.toContain(context.resolvedContent)
       expect(m.route).toHaveBeenLastCalledWith(
         'rename_workflow',
         args,

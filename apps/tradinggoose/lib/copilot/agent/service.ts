@@ -262,11 +262,6 @@ function inputMessage(
             ? part
             : { type: 'file' as const, data: part.image, mimeType: part.mediaType }
         )
-  if (request.input.contexts?.length)
-    parts.push({
-      type: 'text',
-      text: `Studio context (data):\n${JSON.stringify(request.input.contexts)}`,
-    })
   for (const attachment of request.input.attachments ?? [])
     parts.push({ type: 'text', text: `${attachment.name}\n${attachment.text}` })
   return {
@@ -422,6 +417,16 @@ async function* generate(
     const options: AgentExecutionOptions = {
       runId: run.runId,
       requestContext,
+      ...(request.command === 'message' && request.input.contexts?.length
+        ? {
+            context: [
+              {
+                role: 'user',
+                content: `Studio context (data):\n${JSON.stringify(request.input.contexts)}`,
+              },
+            ],
+          }
+        : {}),
       memory: { thread: run.threadId, resource: nativeConversationIdentity(run.scope).resourceId },
       inputProcessors: [guard, ...usage.inputProcessors],
       outputProcessors: usage.outputProcessors,
