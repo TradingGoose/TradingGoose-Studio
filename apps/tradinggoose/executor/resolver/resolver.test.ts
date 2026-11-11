@@ -2248,54 +2248,46 @@ describe('InputResolver', () => {
       useModelRegistry.setState({ providers: [] })
     })
 
-    it.each(['example/reasoning', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
-      'resolves model reference %s before native capability conditions',
+    it.each(['openai/gpt-5', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
+      'resolves model reference %s before applying native capability metadata',
       (model) => {
-        useModelRegistry.setState({
-          providers: [
-            {
-              id: 'example',
-              name: 'Example',
-              models: [
-                {
-                  id: 'example/reasoning',
-                  reasoning: [{ type: 'effort', values: ['high'] }],
-                  temperature: false,
-                },
-              ],
-            },
-          ],
-        })
+        useModelRegistry.setState({ providers: [] })
         mockGetBlock.mockReturnValue(AgentBlock)
-        mockWorkflowVars.stringVar.value = 'example/reasoning'
-        mockEnvironmentVars.MODEL = 'example/reasoning'
-        mockContext.blockStates.get('trigger-block').output.model = 'example/reasoning'
+        mockWorkflowVars.stringVar.value = 'openai/gpt-5'
+        mockEnvironmentVars.MODEL = 'openai/gpt-5'
+        mockContext.blockStates.get('trigger-block').output.model = 'openai/gpt-5'
+        const responseFormat = '{"schema":{"type":"object","properties":{}}}'
         const block = {
           ...sampleWorkflow.blocks[1],
           metadata: { id: BlockType.AGENT },
           config: {
             tool: BlockType.AGENT,
-            params: { model, reasoningEffort: 'high', temperature: 0, maxTokens: 512 },
+            params: {
+              model,
+              temperature: '<disabled-block.result>',
+              responseFormat,
+              maxTokens: 512,
+            },
           },
         }
         expect(resolver.resolveInputs(block, mockContext)).toEqual({
-          model: 'example/reasoning',
-          temperature: 0,
+          model: 'openai/gpt-5',
+          responseFormat: JSON.parse(responseFormat),
           maxTokens: 512,
         })
       }
     )
 
-    it.each([true, false, undefined])(
-      'preserves unknown temperature support (%s)',
-      (temperature) => {
-        useModelRegistry.setState({
-          providers: [
-            { id: 'example', name: 'Example', models: [{ id: 'example/model', temperature }] },
-          ],
-        })
+    it.each([
+      ['openai/gpt-4.1', true],
+      ['openai/gpt-5', false],
+      ['unknown/model', true],
+    ] as const)(
+      'applies native temperature support for %s without browser metadata',
+      (model, supported) => {
+        useModelRegistry.setState({ providers: [] })
         mockGetBlock.mockReturnValue(AgentBlock)
-        mockWorkflowVars.stringVar.value = 'example/model'
+        mockWorkflowVars.stringVar.value = model
         const block = {
           ...sampleWorkflow.blocks[1],
           metadata: { id: BlockType.AGENT },
@@ -2305,37 +2297,33 @@ describe('InputResolver', () => {
           },
         }
         expect(resolver.resolveInputs(block, mockContext)).toEqual({
-          model: 'example/model',
-          temperature: 0,
+          model,
+          ...(supported && { temperature: 0 }),
         })
       }
     )
 
-    it.each(['openai/gpt-4.1', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
-      'uses native reasoning metadata after resolving %s with an empty browser store',
+    it.each(['openai/gpt-3.5-turbo', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
+      'excludes unsupported structured output after resolving %s',
       (model) => {
         useModelRegistry.setState({ providers: [] })
-        mockGetBlock.mockReturnValue({
-          subBlocks: [
-            {
-              id: 'reasoningEffort',
-              condition: { field: 'model', operator: 'modelCapability', value: 'reasoningEffort' },
-            },
-          ],
-        })
-        mockWorkflowVars.stringVar.value = 'openai/gpt-4.1'
-        mockEnvironmentVars.MODEL = 'openai/gpt-4.1'
-        mockContext.blockStates.get('trigger-block').output.model = 'openai/gpt-4.1'
+        mockGetBlock.mockReturnValue(AgentBlock)
+        mockWorkflowVars.stringVar.value = 'openai/gpt-3.5-turbo'
+        mockEnvironmentVars.MODEL = 'openai/gpt-3.5-turbo'
+        mockContext.blockStates.get('trigger-block').output.model = 'openai/gpt-3.5-turbo'
         expect(
           resolver.resolveInputs(
             {
               ...sampleWorkflow.blocks[1],
               metadata: { id: BlockType.AGENT },
-              config: { tool: BlockType.AGENT, params: { model, reasoningEffort: 'high' } },
+              config: {
+                tool: BlockType.AGENT,
+                params: { model, responseFormat: '<disabled-block.result>', temperature: 0 },
+              },
             },
             mockContext
           )
-        ).toEqual({ model: 'openai/gpt-4.1' })
+        ).toEqual({ model: 'openai/gpt-3.5-turbo', temperature: 0 })
       }
     )
 
@@ -2345,17 +2333,17 @@ describe('InputResolver', () => {
         mockGetBlock.mockReturnValue({
           subBlocks: [
             {
-              id: 'reasoningEffort',
+              id: 'temperature',
               condition: {
                 field: 'model',
                 operator: 'modelCapability',
-                value: 'reasoningEffort',
+                value: 'temperature',
                 and: { field: 'enabled', value: true },
               },
             },
           ],
         })
-        const model = 'gpt-5.4'
+        const model = 'openai/gpt-4.1'
         expect(
           resolver.resolveInputs(
             {
@@ -2363,7 +2351,7 @@ describe('InputResolver', () => {
               config: {
                 tool: 'agent',
                 params: {
-                  reasoningEffort: enabled ? 'high' : '<disabled-block.result>',
+                  temperature: enabled ? 0 : '<disabled-block.result>',
                   model,
                   enabled,
                 },
@@ -2371,7 +2359,7 @@ describe('InputResolver', () => {
             },
             mockContext
           )
-        ).toEqual({ model, enabled, ...(enabled && { reasoningEffort: 'high' }) })
+        ).toEqual({ model, enabled, ...(enabled && { temperature: 0 }) })
       }
     )
 

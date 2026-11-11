@@ -15,7 +15,6 @@ export interface AgentInputs {
   temperature?: number
   maxTokens?: number
   apiKey?: string
-  reasoningEffort?: string
   providerOptions?: string | Record<string, any>
 }
 

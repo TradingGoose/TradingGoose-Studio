@@ -67,7 +67,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Provider Options",
             "layout": "full",
             "placeholder": "Enter native provider options JSON...",
-            "description": "Native options for the selected provider, including supported thinking budgets or toggles. Unset uses the provider default. Available in Additional Fields.",
+            "description": "Mastra provider options JSON, keyed by provider namespace, including reasoning effort, thinking budgets, or toggles. Unset uses the provider default. Available in Additional Fields.",
             "language": "json"
         },
         {
@@ -106,7 +106,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Response Format",
             "layout": "full",
             "placeholder": "Enter response format JSON...",
-            "description": "JSON object containing a JSON Schema in its schema field. Available in Additional Fields.",
+            "description": "JSON object containing a JSON Schema in its schema field. Available in Additional Fields. Shown when model supports structured output.",
             "language": "json"
         }
     ]}
@@ -135,8 +135,8 @@ Send a chat completion request to any supported LLM provider
 | --------- | ---- | ----------- |
 | `content` | string | The generated response content |
 | `model` | string | The model used for generation |
-| `tokens` | object | Reported prompt, completion and total token counts |
-| `cost` | object | Reported or estimated USD cost, with availability status |
+| `tokens` | object | Available native token usage |
+| `cost` | object | Reported or estimated model cost in USD, with availability status |
 
 ## Input
 
@@ -147,7 +147,7 @@ Send a chat completion request to any supported LLM provider
 | `memories` | json | No | Agent memory data |
 | `model` | string | Yes | AI model to use |
 | `apiKey` | string | No | Provider API key |
-| `responseFormat` | json | No | JSON object containing a JSON Schema in its schema field |
+| `responseFormat` | json | No | JSON object containing a JSON Schema in its schema field. Shown when model supports structured output. |
 | `temperature` | number | No | Response randomness level. Shown when model supports temperature. |
 | `maxTokens` | number | No | Maximum output tokens |
 | `providerOptions` | json | No | Native provider options for the selected model |
@@ -160,8 +160,7 @@ Send a chat completion request to any supported LLM provider
 | --------- | ---- | ----------- |
 | `content` | string | Generated response content |
 | `model` | string | Model used for generation |
-| `tokens` | object | Reported prompt, completion and total token counts |
-| `cost` | object | Reported or estimated USD cost, with availability status |
+| `tokens` | any | Token usage statistics |
 | `cost` | object | Reported or estimated model cost in USD, with availability status |
 
 

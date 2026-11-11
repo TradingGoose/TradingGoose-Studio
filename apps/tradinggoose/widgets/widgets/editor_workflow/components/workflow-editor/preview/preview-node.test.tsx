@@ -80,7 +80,7 @@ describe('PreviewNode', () => {
               icon: (props: any) => createElement('svg', props),
               subBlocks: [
                 { id: 'model', title: 'Model', type: 'combobox' },
-                { id: 'reasoningEffort', title: 'Effort', type: 'dropdown', additional: true },
+                { id: 'maxTokens', title: 'Token limit', type: 'short-input', additional: true },
                 { id: 'skills', title: 'Unused skills', type: 'skill-input', additional: true },
                 {
                   id: 'providerOptions',
@@ -94,7 +94,7 @@ describe('PreviewNode', () => {
             blockState: { advancedMode },
             subBlockValues: {
               model: { value: 'reasoning-model' },
-              reasoningEffort: { value: 'high' },
+              maxTokens: { value: 512 },
               skills: { value: [] },
               providerOptions: { value: 'high' },
             },
@@ -103,8 +103,8 @@ describe('PreviewNode', () => {
       )
 
       expect(markup).toContain('reasoning-model')
-      expect(markup).toContain('Effort')
-      expect(markup).toContain('high')
+      expect(markup).toContain('Token limit')
+      expect(markup).toContain('512')
       expect(markup).not.toContain('Unused skills')
       expect(markup).not.toContain('Unsupported thinking')
     }

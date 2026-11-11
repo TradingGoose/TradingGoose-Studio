@@ -158,8 +158,8 @@ describe('trigger-editing-layout', () => {
           subBlocks: [
             { id: 'model', type: 'combobox' },
             {
-              id: 'reasoningEffort',
-              type: 'dropdown',
+              id: 'temperature',
+              type: 'short-input',
               additional: true,
               condition: { field: 'model', value: 'reasoning-model' },
             },
@@ -175,7 +175,7 @@ describe('trigger-editing-layout', () => {
           advancedMode,
           subBlocks: {
             model: { value: 'reasoning-model' },
-            reasoningEffort: { value: 'high' },
+            temperature: { value: 0 },
           },
         },
         shouldDisableWrite: false,
@@ -183,9 +183,7 @@ describe('trigger-editing-layout', () => {
 
       expect(layout.regularRows.flat().map((subBlock) => subBlock.id)).toEqual(['model'])
       expect(layout.hasAdvancedFields).toBe(false)
-      expect(layout.additionalRows.flat().map((subBlock) => subBlock.id)).toEqual([
-        'reasoningEffort',
-      ])
+      expect(layout.additionalRows.flat().map((subBlock) => subBlock.id)).toEqual(['temperature'])
       expect(layout.displayAdditionalFields).toBe(true)
     }
   )

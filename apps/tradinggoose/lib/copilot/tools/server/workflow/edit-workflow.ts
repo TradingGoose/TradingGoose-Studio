@@ -5,6 +5,7 @@ import type {
 } from '@/lib/copilot/tools/server/base-tool'
 import { loadWorkflowSnapshotForCopilot } from '@/lib/copilot/tools/server/entities/workflow'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getNativeRegistryModel } from '@/lib/mastra/registry'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
@@ -89,7 +90,9 @@ function buildDefaultBlock(
     name: name?.trim() || blockConfig.name,
     position: getInitialPosition(parentId),
     subBlocks: initialSubBlocks,
-    outputs: resolveOutputType(readBlockOutputs(blockType, initialSubBlocks, false)),
+    outputs: resolveOutputType(
+      readBlockOutputs(blockType, initialSubBlocks, false, getNativeRegistryModel)
+    ),
     enabled: true,
     ...(data ? { data } : {}),
   }

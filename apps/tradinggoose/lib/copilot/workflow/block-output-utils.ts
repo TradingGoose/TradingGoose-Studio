@@ -1,3 +1,4 @@
+import { getNativeRegistryModel } from '@/lib/mastra/registry'
 import { getBlockOutputPaths, getBlockOutputType } from '@/lib/workflows/block-outputs'
 import { getSubflowInsidePaths } from '@/lib/workflows/references'
 import type { Variable } from '@/stores/variables/types'
@@ -152,9 +153,14 @@ export function computeBlockOutputReferences(
   }
 
   const mergedSubBlocks = getMergedSubBlocks(blocks, subBlockValues, block.id)
-  const outputPaths = getBlockOutputPaths(block.type, mergedSubBlocks, block.triggerMode)
+  const outputPaths = getBlockOutputPaths(
+    block.type,
+    mergedSubBlocks,
+    block.triggerMode,
+    getNativeRegistryModel
+  )
 
   return formatOutputReferencesWithPrefix(outputPaths, blockName, (path) =>
-    getBlockOutputType(block.type, path, mergedSubBlocks, block.triggerMode)
+    getBlockOutputType(block.type, path, mergedSubBlocks, block.triggerMode, getNativeRegistryModel)
   )
 }

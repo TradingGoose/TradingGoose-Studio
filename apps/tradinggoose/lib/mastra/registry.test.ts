@@ -24,10 +24,8 @@ vi.mock('@mastra/core/llm', () => ({
     provider: id.includes('/') ? id.split('/')[0] : null,
     modelId: id.slice(id.indexOf('/') + 1),
   }),
-  getModelReasoningOptions: (id: string) => (id.endsWith('/listed') ? [] : undefined),
   modelSupportsTemperature: (id: string) => (id.endsWith('/listed') ? false : undefined),
   modelSupportsStructuredOutput: () => true,
-  modelSupportsAttachments: () => undefined,
 }))
 
 import {
@@ -61,7 +59,7 @@ describe('public Mastra registry transport', () => {
         id: 'configured',
         name: 'Configured Provider',
         models: [
-          { id: 'configured/listed', reasoning: [], temperature: false, structuredOutput: true },
+          { id: 'configured/listed', temperature: false, structuredOutput: true },
           { id: 'configured/other', structuredOutput: true },
         ],
       },

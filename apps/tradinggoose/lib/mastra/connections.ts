@@ -5,6 +5,7 @@ import {
   ModelRouterLanguageModel,
   type OpenAICompatibleConfig,
   type ProviderConfig,
+  parseModelString,
 } from '@mastra/core/llm'
 
 /** Server deployment configuration only; request bodies cannot supply connection URLs. */
@@ -71,16 +72,14 @@ export function getConfiguredGateways(): Record<string, MastraModelGatewayInterf
 
 /** Native configuration preserves the selected ID and request-local credential override. */
 export function resolveConfiguredModel(model: string, apiKey?: string): OpenAICompatibleConfig {
-  const config = getConfiguredProviders()[model.slice(0, model.indexOf('/'))]
+  const { provider, modelId } = parseModelString(model)
+  if (!provider) throw new Error('Model must use Mastra provider/model format')
+  const config = getConfiguredProviders()[provider]
   const envVars = config ? [config.apiKeyEnvVar].flat() : []
   return {
-    ...(config?.url
-      ? {
-          providerId: model.slice(0, model.indexOf('/')),
-          modelId: model.slice(model.indexOf('/') + 1),
-          url: config.url,
-        }
-      : { id: model as `${string}/${string}` }),
+    providerId: provider,
+    modelId,
+    url: config?.url,
     apiKey: apiKey || envVars.map((name) => process.env[name]).find(Boolean) || undefined,
   }
 }

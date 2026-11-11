@@ -32,23 +32,23 @@ it('refreshes mounted preview fields from registry metadata without rewriting sa
   environment.IS_REACT_ACT_ENVIRONMENT = true
   const values = {
     model: { value: 'example/model' },
-    reasoningEffort: { value: 'high' },
+    responseFormat: { value: '{"schema":{"type":"object"}}' },
     temperature: { value: '0.4' },
     maxTokens: { value: 42 },
   }
   const saved = structuredClone(values)
-  const publish = (reasoning: [] | [{ type: 'effort'; values: string[] }], temperature: boolean) =>
+  const publish = (structuredOutput: boolean, temperature: boolean) =>
     useModelRegistry.setState({
       providers: [
         {
           id: 'example',
           name: 'Example',
-          models: [{ id: 'example/model', reasoning, temperature }],
+          models: [{ id: 'example/model', structuredOutput, temperature }],
         },
       ],
     })
   try {
-    publish([], false)
+    publish(false, false)
     act(() =>
       root.render(
         <PreviewNode
@@ -59,14 +59,14 @@ it('refreshes mounted preview fields from registry metadata without rewriting sa
         />
       )
     )
-    expect(container.textContent).not.toContain('Reasoning Effort')
+    expect(container.textContent).not.toContain('Response Format')
     expect(container.textContent).not.toContain('Temperature')
-    act(() => publish([{ type: 'effort', values: ['high'] }], true))
-    expect(container.textContent).not.toContain('Reasoning Effort')
+    act(() => publish(true, true))
+    expect(container.textContent).toContain('Response Format')
     expect(container.textContent).toContain('Temperature')
     expect(container.textContent).toContain('Max Output Tokens')
-    act(() => publish([], false))
-    expect(container.textContent).not.toContain('Reasoning Effort')
+    act(() => publish(false, false))
+    expect(container.textContent).not.toContain('Response Format')
     expect(container.textContent).not.toContain('Temperature')
     expect(container.textContent).toContain('Max Output Tokens')
     expect(values).toEqual(saved)

@@ -1,7 +1,6 @@
 import type { Edge } from '@xyflow/react'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { createLogger } from '@/lib/logs/console/logger'
-import { parseResponseFormatSafely } from '@/lib/response-format'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { buildConfiguredSubBlockParams } from '@/lib/workflows/subblock-values'
@@ -257,10 +256,6 @@ export class Serializer {
         inputs[key] = config.type
       })
     }
-    const responseFormat = params.responseFormat
-      ? parseResponseFormatSafely(params.responseFormat, block.id)
-      : null
-
     return {
       id: block.id,
       position: block.position,
@@ -269,10 +264,7 @@ export class Serializer {
         params,
       },
       inputs,
-      outputs: {
-        ...block.outputs,
-        ...(responseFormat ? { responseFormat } : {}),
-      },
+      outputs: block.outputs,
       metadata: {
         id: block.type,
         name: block.name,

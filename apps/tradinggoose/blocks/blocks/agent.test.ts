@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { getWorkflowInspectorCopy } from '@/i18n/block-editor'
-import {
-  getReasoningEffortValues,
-  getRegistryModel,
-  useModelRegistry,
-} from '@/stores/model-registry'
+import { useModelRegistry } from '@/stores/model-registry'
 import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { AgentBlock } from './agent'
 import { EvaluatorBlock } from './evaluator'
@@ -21,11 +17,11 @@ const providers = [
     name: 'Example Models',
     models: [
       {
-        id: 'example/effort',
-        reasoning: [{ type: 'effort' as const, values: ['minimal', 'extreme'] }],
+        id: 'example/capable',
         temperature: true,
+        structuredOutput: true,
       },
-      { id: 'example/plain', reasoning: [], temperature: false },
+      { id: 'example/plain', temperature: false, structuredOutput: false },
       { id: 'example/unknown' },
     ],
   },
@@ -59,7 +55,7 @@ describe('registry-backed model interaction', () => {
       expect(options.map(({ id }) => id)).toEqual(providers[0].models.map(({ id }) => id))
       expect(options[0]).toMatchObject({
         group: 'example',
-        searchLabel: 'example/effort Example Models',
+        searchLabel: 'example/capable Example Models',
       })
       const groups = typeof field.optionGroups === 'function' ? field.optionGroups() : []
       expect(groups).toEqual([
@@ -69,77 +65,57 @@ describe('registry-backed model interaction', () => {
     }
   })
 
-  it('retains Additional Fields and unset/Auto without invented reasoning values or ranges', () => {
+  it('uses unset native settings and one Provider Options editor for provider-specific controls', () => {
     useModelRegistry.setState({ providers })
-    const available = fields('example/effort')
-    for (const id of ['memories', 'responseFormat', 'temperature', 'maxTokens']) {
+    const available = fields('example/capable')
+    for (const id of [
+      'memories',
+      'responseFormat',
+      'temperature',
+      'maxTokens',
+      'providerOptions',
+    ]) {
       const field = available.find((entry) => entry.id === id)!
       expect(field.additional).toBe(true)
       expect(field.defaultValue).toBeUndefined()
       expect(field.value).toBeUndefined()
     }
-    expect(available.some(({ id }) => id === 'reasoningEffort')).toBe(false)
-    const info = available.find(({ id }) => id === 'reasoningOptions')!
-    expect(info.value?.({ model: 'example/effort' })).toContain('minimal, extreme')
-    expect(info.value?.({ model: 'example/effort' })).toContain(
-      'Shorthand reasoning is unavailable'
-    )
+    expect(available.find(({ id }) => id === 'providerOptions')).toMatchObject({
+      type: 'code',
+      language: 'json',
+    })
     const temperature = available.find(({ id }) => id === 'temperature')!
     expect(temperature.type).toBe('short-input')
     expect(temperature.min).toBeUndefined()
     expect(temperature.max).toBeUndefined()
-    expect(AgentBlock.subBlocks.some(({ id }) => ['verbosity', 'thinkingLevel'].includes(id))).toBe(
-      false
-    )
+    expect(
+      AgentBlock.subBlocks.some(({ id }) =>
+        ['reasoningOptions', 'reasoningEffort', 'verbosity', 'thinkingLevel'].includes(id)
+      )
+    ).toBe(false)
   })
 
-  it('preserves unknown versus explicit unsupported helper data', () => {
-    useModelRegistry.setState({ providers })
-    expect(getReasoningEffortValues('example/plain')).toEqual([])
-    expect(getReasoningEffortValues('example/unknown')).toBeUndefined()
-    expect(getRegistryModel('example/plain')?.temperature).toBe(false)
-    expect(getRegistryModel('example/unknown')?.temperature).toBeUndefined()
-    expect(fields('example/plain').map(({ id }) => id)).not.toContain('reasoningEffort')
-    expect(fields('example/plain').map(({ id }) => id)).not.toContain('temperature')
-    expect(fields('example/unknown').map(({ id }) => id)).toEqual(
-      expect.arrayContaining(['reasoningOptions', 'temperature'])
-    )
-  })
+  it.each(['temperature', 'responseFormat'])(
+    'gates %s only on explicit native non-support',
+    (id) => {
+      useModelRegistry.setState({ providers })
+      expect(fields('example/capable').map((field) => field.id)).toContain(id)
+      expect(fields('example/plain').map((field) => field.id)).not.toContain(id)
+      expect(fields('example/unknown').map((field) => field.id)).toContain(id)
+      expect(fields('example/unlisted').map((field) => field.id)).toContain(id)
+      expect(fields('').map((field) => field.id)).not.toContain(id)
+    }
+  )
 
   it.each(['<variable.model>', '{{MODEL}}', '<upstream.model>', 'example/{{MODEL}}'])(
     'keeps unresolved %s editable',
     (model) => {
       useModelRegistry.setState({ providers })
       expect(fields(model).map(({ id }) => id)).toEqual(
-        expect.arrayContaining(['reasoningOptions', 'temperature', 'maxTokens'])
+        expect.arrayContaining(['providerOptions', 'responseFormat', 'temperature', 'maxTokens'])
       )
     }
   )
-
-  it('shows actual budget bounds and toggles with native Provider Options rather than invented shorthands', () => {
-    useModelRegistry.setState({
-      providers: [
-        {
-          id: 'example',
-          name: 'Example',
-          models: [
-            { id: 'example/budget', reasoning: [{ type: 'budget_tokens', min: 2048, max: 8192 }] },
-            { id: 'example/toggle', reasoning: [{ type: 'toggle' }] },
-          ],
-        },
-      ],
-    })
-    const budget = fields('example/budget')
-    expect(budget.some(({ id }) => id === 'reasoningEffort')).toBe(false)
-    const info = budget.find(({ id }) => id === 'reasoningOptions')!
-    expect(info.value?.({ model: 'example/budget' })).toContain('minimum 2048, maximum 8192')
-    expect(info.value?.({ model: 'example/toggle' })).toContain('on/off toggle')
-    expect(budget.find(({ id }) => id === 'providerOptions')).toMatchObject({
-      type: 'code',
-      language: 'json',
-      additional: true,
-    })
-  })
 
   it('keeps native Max Output Tokens available independently of metadata', () => {
     for (const model of ['example/plain', 'example/unknown', '<upstream.model>']) {
@@ -160,11 +136,11 @@ describe('registry-backed model interaction', () => {
     const condition = {
       field: 'model',
       operator: 'modelCapability',
-      value: 'reasoningEffort',
+      value: 'structuredOutput',
       and: { field: 'enabled', value: true },
     } as const
     const restored = JSON.parse(JSON.stringify(condition))
-    const values = { model: { id: 'example/effort' }, enabled: true }
+    const values = { model: { id: 'example/capable' }, enabled: true }
     expect(evaluateSubBlockConditionValues(restored, values)).toBe(true)
     expect(evaluateSubBlockConditionValues(restored, { ...values, enabled: false })).toBe(false)
     expect(evaluateSubBlockConditionValues({ ...restored, not: true }, values)).toBe(false)

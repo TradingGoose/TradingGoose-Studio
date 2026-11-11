@@ -1,5 +1,4 @@
 import { Agent, type AgentExecutionOptions } from '@mastra/core/agent'
-import { getModelReasoningOptions } from '@mastra/core/llm'
 import { toStandardSchema } from '@mastra/core/schema'
 import { createTool } from '@mastra/core/tools'
 import {
@@ -210,13 +209,7 @@ export class AgentBlockHandler implements BlockHandler {
       prepareStep: async (step) => {
         await cancellation.check()
         signal.throwIfAborted()
-        validateNativeReasoning(model, inputs.reasoningEffort, step.model.specificationVersion)
-        return {
-          ...policy.prepareStep(step),
-          ...(inputs.reasoningEffort && inputs.reasoningEffort !== 'auto'
-            ? { modelSettings: { ...step.modelSettings, reasoning: inputs.reasoningEffort as any } }
-            : {}),
-        }
+        return policy.prepareStep(step)
       },
     }
     const cancellation = watchExecutionCancellation(context.shouldCancelExecution, REQUEST_TIMEOUT)
@@ -827,20 +820,6 @@ export function createForcedToolPolicy(tools: AgentToolConfig[]) {
         )
     },
   }
-}
-
-export function validateNativeReasoning(model: string, effort?: string, version?: string) {
-  if (!effort || effort === 'auto') return
-  const options = getModelReasoningOptions(model)
-  if (!options?.some((option) => option.type === 'effort' && option.values.includes(effort))) {
-    throw new Error(
-      `Reasoning effort ${effort} is not published for ${model}. Clear this field or select a listed value.`
-    )
-  }
-  if (version !== 'v4')
-    throw new Error(
-      `Native reasoning control is unavailable for this model connection. Clear Reasoning Effort or use a connection with native reasoning support.`
-    )
 }
 
 /** Extract only the workflow's supported output fields from public native results. */

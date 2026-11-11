@@ -51,7 +51,7 @@ describe('model editor credentials', () => {
     'clears mismatched credentials after $unresolved model edits (reopen=$reopen)',
     async ({ unresolved, reopen }) => {
       const tuning = {
-        reasoningEffort: { id: 'reasoningEffort', type: 'combobox' as const, value: 'high' },
+        temperature: { id: 'temperature', type: 'short-input' as const, value: '0' },
         providerOptions: { id: 'providerOptions', type: 'code' as const, value: '{}' },
         maxTokens: { id: 'maxTokens', type: 'short-input' as const, value: '4096' },
       }

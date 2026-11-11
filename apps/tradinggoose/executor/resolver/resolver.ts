@@ -90,14 +90,6 @@ export class InputResolver {
       resolving.add(key)
       try {
         const matchingSubBlocks = subBlocks.filter((subBlock) => subBlock.id === key)
-        if (
-          key === 'reasoningEffort' &&
-          block.metadata?.id === 'agent' &&
-          !matchingSubBlocks.length
-        ) {
-          resolved.set(key, undefined)
-          return undefined
-        }
         let value: unknown
         if (
           !matchingSubBlocks.length ||

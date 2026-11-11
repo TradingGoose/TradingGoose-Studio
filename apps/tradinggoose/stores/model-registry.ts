@@ -64,9 +64,3 @@ export function getModelGroups() {
 export function getDefaultModel() {
   return getRegistryModel('openai/gpt-4.1') ? 'openai/gpt-4.1' : undefined
 }
-
-export function getReasoningEffortValues(model: string): string[] | undefined {
-  const reasoning = getRegistryModel(model)?.reasoning
-  if (reasoning === undefined) return undefined
-  return reasoning.flatMap((option) => (option.type === 'effort' ? option.values : []))
-}

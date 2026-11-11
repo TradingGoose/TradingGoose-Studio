@@ -1,12 +1,7 @@
 import { AgentIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import {
-  getDefaultModel,
-  getModelGroups,
-  getModelOptions,
-  getRegistryModel,
-} from '@/stores/model-registry'
+import { getDefaultModel, getModelGroups, getModelOptions } from '@/stores/model-registry'
 import type { ToolResponse } from '@/tools/types'
 
 interface AgentResponse extends ToolResponse {
@@ -143,30 +138,6 @@ Create a system prompt appropriately detailed for the request, using clear langu
       condition: { field: 'model', operator: 'modelCapability', value: 'temperature' },
     },
     {
-      id: 'reasoningOptions',
-      title: 'Model Reasoning',
-      type: 'text',
-      layout: 'full',
-      additional: true,
-      condition: { field: 'model', operator: 'modelCapability', value: 'reasoning' },
-      value: (params) => {
-        const options = getRegistryModel(params.model ?? '')?.reasoning
-        return options
-          ?.map((option) => {
-            if (option.type === 'effort')
-              return `Published effort values: ${option.values.join(', ')}. Shorthand reasoning is unavailable with this runtime; use supported native Provider Options.`
-            if (option.type === 'toggle')
-              return 'Reasoning publishes an on/off toggle. Configure supported native Provider Options.'
-            const bounds = [
-              option.min === undefined ? undefined : `minimum ${option.min}`,
-              option.max === undefined ? undefined : `maximum ${option.max}`,
-            ].filter(Boolean)
-            return `Reasoning token budget${bounds.length ? `: ${bounds.join(', ')}` : ''}. Configure through Provider Options.`
-          })
-          .join('\n')
-      },
-    },
-    {
       id: 'providerOptions',
       title: 'Provider Options',
       type: 'code',
@@ -175,7 +146,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
       additional: true,
       placeholder: 'Enter native provider options JSON...',
       description:
-        'Native options for the selected provider, including supported thinking budgets or toggles. Unset uses the provider default.',
+        'Mastra provider options JSON, keyed by provider namespace, including reasoning effort, thinking budgets, or toggles. Unset uses the provider default.',
     },
     {
       id: 'maxTokens',
@@ -221,6 +192,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
       description: 'JSON object containing a JSON Schema in its schema field.',
       language: 'json',
       additional: true,
+      condition: { field: 'model', operator: 'modelCapability', value: 'structuredOutput' },
       wandConfig: {
         enabled: true,
         maintainHistory: true,

@@ -67,11 +67,11 @@ describe('documentation regeneration boundaries', () => {
       describeVisibilityCondition({
         field: 'model',
         operator: 'modelCapability',
-        value: 'reasoningEffort',
+        value: 'structuredOutput',
         not: true,
         and: { field: 'operation', value: 'send' },
       })
-    ).toBe("model does not support reasoning effort and operation is 'send'")
+    ).toBe("model does not support structured output and operation is 'send'")
   })
 
   it('regenerates every block, including stale and empty references, while preserving guides', () => {
@@ -141,6 +141,8 @@ describe('documentation regeneration boundaries', () => {
     expect(first['agent.mdx']).toContain('Available in Additional Fields.')
     expect(first['agent.mdx']).toContain('"id": "providerOptions"')
     expect(first['agent.mdx']).toContain('"id": "maxTokens"')
+    expect(first['agent.mdx']).not.toContain('"id": "reasoningOptions"')
+    expect(first['agent.mdx']).toContain('model supports structured output')
     expect(first['agent.mdx']).not.toContain('\"id\": \"reasoningEffort\"')
     expect(first['agent.mdx']).toContain('where supported by the selected model')
     expect(first['agent.mdx']).not.toContain('Temperature for response generation (0-2)')

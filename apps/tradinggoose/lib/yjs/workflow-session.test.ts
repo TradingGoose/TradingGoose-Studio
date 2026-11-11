@@ -43,7 +43,10 @@ describe('workflow session fields', () => {
             enabled: true,
             position: { x: 0, y: 0 },
             outputs: {},
-            subBlocks: { responseFormat: { id: 'responseFormat', type: 'code', value: '' } },
+            subBlocks: {
+              model: { id: 'model', type: 'combobox', value: 'openai/gpt-4.1' },
+              responseFormat: { id: 'responseFormat', type: 'code', value: '' },
+            },
           },
         },
       })
@@ -196,7 +199,9 @@ describe('workflow session fields', () => {
             enabled: true,
             position: { x: 0, y: 0 },
             outputs: {},
-            subBlocks: buildInitialSubBlockStates(AgentBlock.subBlocks) as BlockState['subBlocks'],
+            subBlocks: buildInitialSubBlockStates(AgentBlock.subBlocks, {
+              model: 'openai/gpt-4.1',
+            }) as BlockState['subBlocks'],
           },
         ]
       })

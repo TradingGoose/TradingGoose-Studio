@@ -264,15 +264,15 @@ vi.mock('@/blocks', () => ({
           { id: 'systemPrompt', type: 'long-input', title: 'System Prompt' }, // mode: 'both' (default)
           { id: 'userPrompt', type: 'long-input', title: 'User Prompt' }, // mode: 'both' (default)
           { id: 'memories', type: 'short-input', title: 'Memories', additional: true },
-          { id: 'reasoningEffort', type: 'dropdown', title: 'Reasoning Effort', additional: true },
-          { id: 'providerOptions', type: 'dropdown', title: 'Provider Options', additional: true },
+          { id: 'temperature', type: 'short-input', title: 'Temperature', additional: true },
+          { id: 'providerOptions', type: 'code', title: 'Provider Options', additional: true },
           { id: 'model', type: 'dropdown', title: 'Model' }, // mode: 'both' (default)
         ],
         inputs: {
           systemPrompt: { type: 'string' },
           userPrompt: { type: 'string' },
           memories: { type: 'array' },
-          reasoningEffort: { type: 'string' },
+          temperature: { type: 'number' },
           providerOptions: { type: 'string' },
           model: { type: 'string' },
         },
@@ -414,7 +414,10 @@ describe('Serializer', () => {
       expect(agentBlock?.metadata?.id).toBe('agent')
       expect(agentBlock?.config.tool).toBe('llm_chat')
       expect(agentBlock?.config.params.model).toBe('openai/gpt-4.1')
-      expect(agentBlock?.outputs.responseFormat).toBeDefined()
+      expect(agentBlock?.config.params.responseFormat).toBe(
+        blocks.agent1.subBlocks.responseFormat.value
+      )
+      expect(agentBlock?.outputs).toEqual(blocks.agent1.outputs)
     })
 
     it.concurrent('should serialize agent block with custom tools correctly', () => {
@@ -1038,8 +1041,8 @@ describe('Serializer', () => {
             systemPrompt: { value: 'You are helpful' },
             userPrompt: { value: 'Hello' },
             memories: { value: [{ role: 'user', content: 'My name is John' }] },
-            reasoningEffort: { value: 'auto' },
-            providerOptions: { value: 'high' },
+            temperature: { value: 0 },
+            providerOptions: { value: '{}' },
             model: { value: 'anthropic/claude-sonnet-5-5' },
           },
           outputs: {},
@@ -1053,8 +1056,8 @@ describe('Serializer', () => {
           systemPrompt: 'You are helpful',
           userPrompt: 'Hello',
           memories: [{ role: 'user', content: 'My name is John' }],
-          reasoningEffort: 'auto',
-          providerOptions: 'high',
+          temperature: 0,
+          providerOptions: '{}',
           model: 'anthropic/claude-sonnet-5-5',
         })
       }

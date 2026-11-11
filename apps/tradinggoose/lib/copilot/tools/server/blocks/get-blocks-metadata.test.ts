@@ -181,7 +181,7 @@ describe('getBlocksMetadataServerTool', () => {
     )
     for (const [id, capability] of [
       ['temperature', 'temperature'],
-      ['reasoningOptions', 'reasoning'],
+      ['responseFormat', 'structuredOutput'],
     ]) {
       expect(agent?.subBlocks?.find((field) => field.id === id)?.condition).toEqual({
         field: 'model',
@@ -189,10 +189,6 @@ describe('getBlocksMetadataServerTool', () => {
         value: capability,
       })
     }
-    expect(agent?.subBlocks?.find((field) => field.id === 'reasoningOptions')).toMatchObject({
-      type: 'text',
-      title: 'Model Reasoning',
-    })
     expect(agent?.subBlocks?.find((field) => field.id === 'providerOptions')).toMatchObject({
       type: 'code',
       language: 'json',
@@ -207,7 +203,7 @@ describe('getBlocksMetadataServerTool', () => {
     expect(outputTokens?.condition).toBeUndefined()
     expect(
       agent?.subBlocks?.some((field) =>
-        ['reasoningEffort', 'verbosity', 'thinkingLevel'].includes(field.id)
+        ['reasoningEffort', 'reasoningOptions', 'verbosity', 'thinkingLevel'].includes(field.id)
       )
     ).toBe(false)
   })

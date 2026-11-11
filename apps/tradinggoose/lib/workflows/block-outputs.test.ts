@@ -1,7 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { computeBlockOutputReferences } from '@/lib/copilot/workflow/block-output-utils'
 import { getBlock } from '@/blocks'
+import { AgentBlock } from '@/blocks/blocks/agent'
 import { TradingPortfolioDetailBlock } from '@/blocks/blocks/portfolio_detail'
 import { ResponseBlock } from '@/blocks/blocks/response'
+import { useModelRegistry } from '@/stores/model-registry'
+import type { BlockState } from '@/stores/workflows/workflow/types'
 import { getBlockOutputPaths, getBlockOutputType, readBlockOutputs } from './block-outputs'
 
 vi.mock('@/blocks', () => ({ getBlock: vi.fn() }))
@@ -35,6 +39,61 @@ describe('block output schema traversal', () => {
   beforeEach(() => {
     vi.mocked(getBlock).mockReturnValue({ outputs } as unknown as ReturnType<typeof getBlock>)
   })
+  afterEach(() => useModelRegistry.setState({ providers: [] }))
+
+  const schema = JSON.stringify({
+    schema: { type: 'object', properties: { answer: { type: 'number' } } },
+  })
+
+  it('keeps saved schema fields inactive when the selected model does not support structured output', () => {
+    vi.mocked(getBlock).mockReturnValue(AgentBlock)
+    useModelRegistry.setState({
+      providers: [
+        {
+          id: 'example',
+          name: 'Example',
+          models: [
+            { id: 'example/supported', structuredOutput: true },
+            { id: 'example/unsupported', structuredOutput: false },
+          ],
+        },
+      ],
+    })
+    const subBlocks = {
+      model: { value: 'example/supported' },
+      responseFormat: { value: schema },
+    }
+    expect(getBlockOutputPaths('agent', subBlocks)).toEqual(['answer'])
+    subBlocks.model.value = 'example/unsupported'
+    expect(readBlockOutputs('agent', subBlocks)).toEqual(AgentBlock.outputs)
+    expect(getBlockOutputPaths('agent', subBlocks)).not.toContain('answer')
+    subBlocks.model.value = 'example/supported'
+    expect(getBlockOutputType('agent', 'answer', subBlocks)).toBe('number')
+    expect(subBlocks.responseFormat.value).toBe(schema)
+  })
+
+  it.each([
+    ['openai/gpt-5', true],
+    ['openai/gpt-3.5-turbo', false],
+  ] as const)(
+    'uses native capabilities for Copilot references to %s without browser state',
+    (model, supported) => {
+      vi.mocked(getBlock).mockReturnValue(AgentBlock)
+      useModelRegistry.setState({ providers: [] })
+      const block = {
+        id: 'agent',
+        type: 'agent',
+        name: 'Agent',
+        subBlocks: { model: { value: model }, responseFormat: { value: schema } },
+      } as unknown as BlockState
+      const outputs = computeBlockOutputReferences(block, {
+        blocks: { agent: block },
+        subBlockValues: {},
+      })
+      expect(outputs.some(({ path }) => path === 'agent.answer')).toBe(supported)
+      expect(outputs.some(({ path }) => path === 'agent.content')).toBe(!supported)
+    }
+  )
 
   it('uses only the selected broker capability fields for portfolio references', () => {
     vi.mocked(getBlock).mockReturnValue(TradingPortfolioDetailBlock)

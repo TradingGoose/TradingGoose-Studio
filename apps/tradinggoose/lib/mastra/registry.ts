@@ -1,9 +1,6 @@
 import {
   EMBEDDING_MODELS,
   GatewayRegistry,
-  getModelReasoningOptions,
-  type ModelReasoningOption,
-  modelSupportsAttachments,
   modelSupportsStructuredOutput,
   modelSupportsTemperature,
   parseModelString,
@@ -12,10 +9,8 @@ import { getConfiguredProviders } from './connections'
 
 export interface RegistryModel {
   id: string
-  reasoning?: ModelReasoningOption[]
   temperature?: boolean
   structuredOutput?: boolean
-  attachments?: boolean
 }
 
 export interface RegistryProvider {
@@ -64,16 +59,7 @@ export function getModelRegistry(): RegistryProvider[] {
     name: provider.name,
     models: provider.models
       .filter((modelId) => isListedGenerationModel(id, modelId, provider.models))
-      .map((modelId) => {
-        const model = `${id}/${modelId}`
-        return {
-          id: model,
-          reasoning: getModelReasoningOptions(model),
-          temperature: modelSupportsTemperature(model),
-          structuredOutput: modelSupportsStructuredOutput(model),
-          attachments: modelSupportsAttachments(model),
-        }
-      }),
+      .map((modelId) => getNativeRegistryModel(`${id}/${modelId}`)),
   }))
 }
 
@@ -81,10 +67,8 @@ export function getModelRegistry(): RegistryProvider[] {
 export function getNativeRegistryModel(model: string): RegistryModel {
   return {
     id: model,
-    reasoning: getModelReasoningOptions(model),
     temperature: modelSupportsTemperature(model),
     structuredOutput: modelSupportsStructuredOutput(model),
-    attachments: modelSupportsAttachments(model),
   }
 }
 
