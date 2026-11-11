@@ -143,18 +143,6 @@ describe('execution native accounting', () => {
       totalTokens: 1,
     })
   })
-
-  it('keeps trusted charge-only callbacks separate from model spend and includes them once', () => {
-    const result = calculateCostSummary([
-      span('a', { cost: { total: 0.004, status: 'reported' }, toolCost: 0.002 }),
-    ])
-    expect(result).toMatchObject({
-      modelCost: 0.004,
-      toolCost: 0.002,
-      availableTotal: 0.006,
-      totalCost: 0.006,
-    })
-  })
 })
 
 it('aggregates callback model charges and tokens once regardless of their call location', () => {
@@ -168,7 +156,7 @@ it('aggregates callback model charges and tokens once regardless of their call l
     model: 'native/outer',
     tokens: { total: 10 },
     cost: { total: 0.004, status: 'reported' },
-    toolCost: 0.004,
+
     toolResults: [child, child],
   })
   expect(calculateCostSummary(JSON.parse(JSON.stringify([outer])))).toEqual(
@@ -177,7 +165,7 @@ it('aggregates callback model charges and tokens once regardless of their call l
   expect(calculateCostSummary([outer])).toMatchObject({
     totalCost: 0.006,
     modelCost: 0.006,
-    toolCost: 0,
+
     totalTokens: 30,
     status: 'estimated',
     estimated: true,
@@ -195,20 +183,19 @@ it('counts combined native guardrail cost as model spend without requiring a sin
     tokens: { total: 8 },
     cost: { total: 0.5, currency: 'USD', status: 'estimated' },
   })
-  const product = callback('function-call', { toolCost: 0.125 })
   const result = calculateCostSummary([
     span('outer', {
       model: 'native/outer',
       tokens: { total: 2 },
       cost: { total: 0.25, status: 'reported' },
-      toolResults: [guardrail, guardrail, product],
+      toolResults: [guardrail, guardrail],
     }),
   ])
   expect(result).toMatchObject({
     totalTokens: 10,
     modelCost: 0.75,
-    toolCost: 0.125,
-    totalCost: 0.875,
+
+    totalCost: 0.75,
     status: 'estimated',
   })
 })
@@ -244,7 +231,7 @@ it('uses native callback identities to count separate calls', () => {
     calculateCostSummary([
       span('outer', { cost: { total: 0.004, status: 'reported' }, toolResults }),
     ])
-  ).toMatchObject({ totalCost: 0.006, modelCost: 0.006, toolCost: 0, totalTokens: 8 })
+  ).toMatchObject({ totalCost: 0.006, modelCost: 0.006, totalTokens: 8 })
 })
 
 it('keeps unknown usage unknown and genuine reported zero available', () => {
@@ -301,7 +288,7 @@ it('does not accept raw top-level roots or component.output as an inference carr
   const result = calculateCostSummary([raw])
   expect(result.totalTokens).toBeUndefined()
   expect(result.models).toEqual({})
-  expect(result.toolCost).toBe(0)
+  expect(result).not.toHaveProperty('toolCost')
 })
 
 it('counts trusted nested callbacks once without adding inclusive native/tool subtotals', () => {
@@ -314,7 +301,7 @@ it('counts trusted nested callbacks once without adding inclusive native/tool su
     model: 'native/nested',
     tokens: { total: 7 },
     cost: { total: 0.002, status: 'reported' },
-    toolCost: 999,
+
     toolResults: [embedding, embedding],
   })
   const result = calculateCostSummary([
@@ -322,14 +309,14 @@ it('counts trusted nested callbacks once without adding inclusive native/tool su
       model: 'native/outer',
       tokens: { total: 10 },
       cost: { total: 0.004, status: 'reported' },
-      toolCost: 888,
+
       toolResults: [nested, nested],
     }),
   ])
   expect(result).toMatchObject({
     totalTokens: 20,
     modelCost: 0.006,
-    toolCost: 0,
+
     availableTotal: 0.006,
     totalCost: undefined,
     status: 'partial',
@@ -373,8 +360,11 @@ it('retains partial public counts without inventing a completion count', () => {
   })
 })
 
-it('accepts an own-branded server span and charge-only child without raw business-field promotion', () => {
-  const charge = callback('charge-only', { toolCost: 0.003 })
+it('accepts an own-branded server span and native child without raw business-field promotion', () => {
+  const charge = callback('native-child', {
+    model: 'native/inner',
+    cost: { total: 0.003, status: 'reported' },
+  })
   const outer = withInferenceFacts(span('server-span', {}), {
     model: 'native/real',
     tokens: { total: 10 },
@@ -384,8 +374,7 @@ it('accepts an own-branded server span and charge-only child without raw busines
   })
   expect(calculateCostSummary([outer])).toMatchObject({
     totalTokens: 10,
-    modelCost: 0.004,
-    toolCost: 0.003,
+    modelCost: 0.007,
     totalCost: 0.007,
     status: 'reported',
   })

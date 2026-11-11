@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { pendingExecution, systemSettings } from '@tradinggoose/db/schema'
+import { pendingExecution, systemServiceValue, systemSettings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import {
   type CopilotSettings,
@@ -10,6 +10,7 @@ import { lockPendingExecutionMode } from '@/lib/execution/execution-mode-lock'
 import { DEFAULT_REGISTRATION_MODE, type RegistrationMode } from '@/lib/registration/shared'
 
 export const GLOBAL_SYSTEM_SETTINGS_ID = 'global'
+const COPILOT_SETTINGS_ID = 'copilot:setting:configuration'
 
 export const DEFAULT_SYSTEM_SETTINGS = {
   registrationMode: DEFAULT_REGISTRATION_MODE,
@@ -18,7 +19,6 @@ export const DEFAULT_SYSTEM_SETTINGS = {
   allowPromotionCodes: true,
   emailDomain: 'tradinggoose.ai',
   fromEmailAddress: null,
-  copilot: DEFAULT_COPILOT_SETTINGS,
 } as const
 
 type SystemSettingsRecord = typeof systemSettings.$inferSelect
@@ -42,7 +42,6 @@ type ResolvedSystemSettingsFlags = {
   allowPromotionCodes: boolean
   emailDomain: string
   fromEmailAddress: string | null
-  copilot: CopilotSettings
 }
 
 export type ResolvedSystemSettings = {
@@ -77,6 +76,17 @@ export async function getSystemSettingsRecord(
   return row ?? null
 }
 
+export async function getCopilotSettings(
+  store: SystemSettingsReadStore = db
+): Promise<CopilotSettings> {
+  const [row] = await store
+    .select({ value: systemServiceValue.value })
+    .from(systemServiceValue)
+    .where(eq(systemServiceValue.id, COPILOT_SETTINGS_ID))
+    .limit(1)
+  return row ? CopilotSettingsSchema.parse(JSON.parse(row.value)) : DEFAULT_COPILOT_SETTINGS
+}
+
 export function resolveSystemSettingsFlags(
   settings: Pick<
     SystemSettingsRecord,
@@ -86,11 +96,9 @@ export function resolveSystemSettingsFlags(
     | 'allowPromotionCodes'
     | 'emailDomain'
     | 'fromEmailAddress'
-    | 'copilot'
   > | null
 ): ResolvedSystemSettingsFlags {
   return {
-    copilot: CopilotSettingsSchema.parse(settings ? settings.copilot : DEFAULT_COPILOT_SETTINGS),
     registrationMode: settings?.registrationMode ?? DEFAULT_SYSTEM_SETTINGS.registrationMode,
     billingEnabled: settings?.billingEnabled ?? DEFAULT_SYSTEM_SETTINGS.billingEnabled,
     triggerDevEnabled: settings?.triggerDevEnabled ?? DEFAULT_SYSTEM_SETTINGS.triggerDevEnabled,
@@ -110,12 +118,16 @@ export function resolveSystemSettingsFlags(
 export async function getResolvedSystemSettings(
   store: SystemSettingsReadStore = db
 ): Promise<ResolvedSystemSettings> {
-  const settings = await getSystemSettingsRecord(store)
+  const [settings, copilot] = await Promise.all([
+    getSystemSettingsRecord(store),
+    getCopilotSettings(store),
+  ])
   const flags = resolveSystemSettingsFlags(settings)
 
   return {
     settings,
     ...flags,
+    copilot,
   }
 }
 
@@ -139,7 +151,24 @@ export async function upsertSystemSettings(
       if (queuedOrRunning) throw new TriggerExecutionBusyError()
     }
 
-    await writeSystemSettings(tx, input, existing)
+    if (Object.keys(input).some((key) => key !== 'copilot'))
+      await writeSystemSettings(tx, input, existing)
+    if (input.copilot !== undefined) {
+      const value = JSON.stringify(CopilotSettingsSchema.parse(input.copilot))
+      await tx
+        .insert(systemServiceValue)
+        .values({
+          id: COPILOT_SETTINGS_ID,
+          service: 'copilot',
+          kind: 'setting',
+          key: 'configuration',
+          value,
+        })
+        .onConflictDoUpdate({
+          target: systemServiceValue.id,
+          set: { value, updatedAt: new Date() },
+        })
+    }
     return getResolvedSystemSettings(tx)
   })
 }
@@ -175,14 +204,6 @@ async function writeSystemSettings(
         existing?.fromEmailAddress,
         DEFAULT_SYSTEM_SETTINGS.fromEmailAddress
       )
-  const nextCopilot = CopilotSettingsSchema.parse(
-    input.copilot !== undefined
-      ? input.copilot
-      : existing
-        ? existing.copilot
-        : DEFAULT_COPILOT_SETTINGS
-  )
-
   await store
     .insert(systemSettings)
     .values({
@@ -193,7 +214,6 @@ async function writeSystemSettings(
       allowPromotionCodes: nextAllowPromotionCodes,
       emailDomain: nextEmailDomain,
       fromEmailAddress: nextFromEmailAddress,
-      copilot: nextCopilot,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     })
@@ -206,7 +226,6 @@ async function writeSystemSettings(
         allowPromotionCodes: nextAllowPromotionCodes,
         emailDomain: nextEmailDomain,
         fromEmailAddress: nextFromEmailAddress,
-        copilot: nextCopilot,
         updatedAt: now,
       },
     })

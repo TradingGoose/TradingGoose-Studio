@@ -97,16 +97,6 @@ export const systemSettings = pgTable('system_settings', {
   allowPromotionCodes: boolean('allow_promotion_codes').notNull().default(true),
   emailDomain: text('email_domain').notNull().default('tradinggoose.ai'),
   fromEmailAddress: text('from_email_address'),
-  copilot: jsonb('copilot')
-    .$type<{
-      models: {
-        provider: string
-        model: string
-      }[]
-      defaultModel: string | null
-    }>()
-    .notNull()
-    .default(sql`'{"models":[],"defaultModel":null}'::jsonb`),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -114,7 +104,7 @@ export const systemSettings = pgTable('system_settings', {
 export const systemServiceValue = pgTable(
   'system_service_values',
   {
-    // Provider-owned runtime config. Credential rows are encrypted; setting rows are plain text.
+    // Service runtime config. Credential rows are encrypted; setting rows are plain text.
     id: text('id').primaryKey(),
     service: text('service').notNull(),
     kind: systemServiceValueKindEnum('kind').notNull(),

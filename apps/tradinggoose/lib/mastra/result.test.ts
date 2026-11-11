@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  extractAgentOutput,
-  extractCompletedToolMetadata,
-} from '@/executor/handlers/agent/agent-handler'
+import { createAgentToolSet, extractAgentOutput } from '@/executor/handlers/agent/agent-handler'
 import { getInferenceFacts, isInferenceResult, withInferenceFacts } from './result'
 
 describe('structured business roots and trusted facts', () => {
@@ -32,7 +29,7 @@ describe('structured business roots and trusted facts', () => {
       model: 'openai/gpt-4.1',
       tokens: { total: 5 },
       cost: { status: 'unavailable' },
-      toolCalls: { count: 0 },
+      toolResults: [],
     })
     const streamed = Object.assign({}, output)
     expect(isInferenceResult(streamed)).toBe(true)
@@ -58,8 +55,8 @@ describe('structured business roots and trusted facts', () => {
   })
 })
 
-describe('completed tool metadata provenance', () => {
-  it('projects only own-branded tool facts into JSON-safe execution children', () => {
+describe('completed tool accounting provenance', () => {
+  it('retains only own-branded child facts and native call IDs, keeping details in native history', async () => {
     const childFacts = {
       model: 'native/child',
       tokens: { total: 3 },
@@ -68,149 +65,43 @@ describe('completed tool metadata provenance', () => {
     }
     const genuine = withInferenceFacts({ business: 'private-business-payload' }, childFacts)
     const forged = { cost: { total: 99 }, inference: childFacts }
+    const controller = new AbortController()
+    let selected: unknown
+    const { tools, toolResults } = createAgentToolSet(
+      [
+        {
+          id: 'lookup',
+          description: 'Lookup',
+          parameters: { type: 'object', properties: {} },
+          executeFunction: async () => selected,
+        },
+      ],
+      {},
+      undefined,
+      { signal: controller.signal, abort: (reason) => controller.abort(reason) }
+    )
+    for (const result of [forged, Object.create(genuine), genuine, { ...genuine }]) {
+      selected = result
+      await tools.lookup.execute!({}, { agent: { toolCallId: 'same-call' } } as any)
+    }
     const output = extractAgentOutput(
       { text: 'Answer', finishReason: 'stop' },
       'native/outer',
       { tokens: { total: 2 }, cost: { total: 1, status: 'reported' } },
-      [forged, Object.create(genuine), genuine, { ...genuine }].map((result) => ({
-        success: true,
-        toolCallId: 'same-call',
-        result,
-      }))
+      toolResults
     )
-    const publicOutput = JSON.parse(JSON.stringify(output))
-    expect(publicOutput.toolResults).toHaveLength(4)
-    expect(publicOutput.toolResults[2].business).toBe('private-business-payload')
-    const persistedFacts = JSON.parse(JSON.stringify(getInferenceFacts(output)))
-    expect(persistedFacts.toolResults).toEqual([
+    expect(JSON.parse(JSON.stringify(output))).toEqual({
+      content: 'Answer',
+      model: 'native/outer',
+      tokens: { total: 2 },
+      cost: { total: 1, status: 'reported' },
+    })
+    expect(JSON.parse(JSON.stringify(getInferenceFacts(output)?.toolResults))).toEqual([
       { toolCallId: 'same-call', inference: childFacts },
       { toolCallId: 'same-call', inference: childFacts },
     ])
-    expect(JSON.stringify(persistedFacts.toolResults)).not.toContain('private-business-payload')
-  })
-
-  it('keeps schema-owned cost, tokens and model in results without treating them as charges', () => {
-    const business = {
-      model: 'Corolla',
-      tokens: { total: 9999 },
-      cost: { total: 123 },
-      inference: { cost: { total: 456 } },
-      toolCost: 999,
-      toolResults: [{ cost: { total: 789 } }],
-    }
-    const snapshot = JSON.parse(JSON.stringify(business))
-    const result = extractCompletedToolMetadata([
-      { success: true, toolCallId: 'business', result: business },
-      { success: false, toolCallId: 'failed-business', result: { cost: { total: 321 } } },
-    ])
-    expect(result).not.toHaveProperty('toolCost')
-    expect(result).not.toHaveProperty('unavailableToolCosts')
-    expect(result.toolResults).toEqual([
-      { ...snapshot, toolCallId: 'business' },
-      { cost: { total: 321 }, toolCallId: 'failed-business' },
-    ])
-    expect(business).toEqual(snapshot)
-  })
-
-  it('checks provenance before consuming native tool-call identity and deduplicates only real facts', () => {
-    const genuine = withInferenceFacts(
-      { id: 'document', cost: { total: 999 } },
-      {
-        cost: { status: 'partial', availableTotal: 0.006 },
-        generatedFields: [],
-      }
-    )
-    const inherited = Object.create(genuine)
-    const runs = [
-      { success: true, toolCallId: 'same-call', result: { cost: { total: 123 } } },
-      { success: true, toolCallId: 'same-call', result: inherited },
-      { success: true, toolCallId: 'same-call', result: genuine },
-      { success: true, toolCallId: 'same-call', result: { ...genuine } },
-    ]
-    const result = extractCompletedToolMetadata(runs)
-    expect(result).toMatchObject({ toolCost: 0.006, unavailableToolCosts: 1 })
-    expect(result.toolResults).toHaveLength(4)
-    expect(result.toolResults[0]).toEqual({ cost: { total: 123 }, toolCallId: 'same-call' })
-    expect(getInferenceFacts(result.toolResults[1])).toBeUndefined()
-    expect(getInferenceFacts(result.toolResults[2])).toBe(getInferenceFacts(genuine))
-    expect(getInferenceFacts(result.toolResults[3])).toBe(getInferenceFacts(genuine))
-  })
-
-  it('counts distinct native calls sharing a business ID and preserves real zero and unavailable amounts', () => {
-    const output = () =>
-      withInferenceFacts(
-        { id: 'same-business-document' },
-        {
-          cost: { total: 0.002, status: 'reported' },
-          generatedFields: [],
-        }
-      )
-    const result = extractCompletedToolMetadata([
-      { success: true, toolCallId: 'first-call', result: output() },
-      { success: true, toolCallId: 'second-call', result: output() },
-      {
-        success: true,
-        toolCallId: 'zero-call',
-        result: withInferenceFacts(
-          {},
-          {
-            cost: { total: 0, status: 'reported' },
-            generatedFields: [],
-          }
-        ),
-      },
-      {
-        success: true,
-        toolCallId: 'unknown-call',
-        result: withInferenceFacts(
-          {},
-          {
-            cost: { status: 'unavailable' },
-            generatedFields: [],
-          }
-        ),
-      },
-    ])
-    expect(result).toMatchObject({ toolCost: 0.004, unavailableToolCosts: 1 })
-    expect(result.toolResults).toHaveLength(4)
-    expect(
-      extractCompletedToolMetadata([
-        {
-          success: true,
-          result: withInferenceFacts(
-            {},
-            {
-              cost: { total: 0, status: 'reported' },
-              generatedFields: [],
-            }
-          ),
-        },
-      ])
-    ).toMatchObject({ toolCost: 0 })
-  })
-
-  it('retains the live success-or-cost-or-tokens membership and order independently of accounting', () => {
-    const failedKnown = withInferenceFacts(
-      { tokens: { total: 8 }, business: 'failed-output' },
-      {
-        tokens: { total: 8 },
-        cost: { status: 'unavailable' },
-        generatedFields: [],
-      }
-    )
-    const result = extractCompletedToolMetadata([
-      { success: true, toolCallId: 'text-success', result: 'text' },
-      { success: false, toolCallId: 'omitted', result: { business: 'no-report' } },
-      { success: false, toolCallId: 'raw-cost', result: { cost: { total: 100 } } },
-      { success: false, toolCallId: 'known-failure', result: failedKnown },
-    ])
-    expect(result.toolResults).toEqual([
-      'text',
-      { cost: { total: 100 }, toolCallId: 'raw-cost' },
-      { ...failedKnown, toolCallId: 'known-failure' },
-    ])
-    expect(result).not.toHaveProperty('toolCost')
-    expect(result.unavailableToolCosts).toBe(1)
-    expect(failedKnown.business).toBe('failed-output')
+    expect(JSON.stringify(getInferenceFacts(output))).not.toContain('private-business-payload')
+    expect(genuine.business).toBe('private-business-payload')
+    expect(forged.cost.total).toBe(99)
   })
 })

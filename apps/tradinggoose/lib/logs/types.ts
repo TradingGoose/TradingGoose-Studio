@@ -8,27 +8,10 @@ export type { WorkflowState, Loop, Parallel, DeploymentStatus }
 export type WorkflowEdge = Edge
 export type { NormalizedBlockOutput, BlockLog }
 
-export interface ToolCall {
-  id?: string
-  name: string
-  duration: number
-  startTime: string
-  endTime: string
-  status: 'success' | 'error'
-  input?: Record<string, unknown>
-  output?: Record<string, unknown>
-  error?: string
-}
-
-export interface ToolCallMetadata {
-  toolCalls?: ToolCall[]
-}
-
 export interface CostMetadata extends Omit<NativeCost, 'status'> {
   status?: NativeCost['status']
   unavailableComponents?: number
   availableTotal?: number
-  toolCost?: number
   modelCost?: number
   models?: Record<
     string,
@@ -135,19 +118,6 @@ export interface TokenInfo {
   completion?: number
 }
 
-export interface ProviderTiming {
-  duration: number
-  startTime: string
-  endTime: string
-  segments: Array<{
-    type: string
-    name?: string
-    startTime: string | number
-    endTime: string | number
-    duration: number
-  }>
-}
-
 export interface TraceSpan {
   inference?: import('@/lib/mastra/result').InferenceFacts
   agentHistory?: import('@/lib/mastra/messages').NativeHistoryMessage[]
@@ -158,7 +128,6 @@ export interface TraceSpan {
   startTime: string
   endTime: string
   children?: TraceSpan[]
-  toolCalls?: ToolCall[]
   status?: 'success' | 'error'
   tokens?: number | TokenInfo
   relativeStartMs?: number
@@ -167,7 +136,6 @@ export interface TraceSpan {
   output?: Record<string, unknown>
   model?: string
   cost?: Omit<NativeCost, 'status'> & { status?: NativeCost['status'] }
-  providerTiming?: ProviderTiming
 }
 
 export type WorkflowLogOutcome = 'running' | 'success' | 'error'
@@ -214,7 +182,7 @@ export interface WorkflowLog {
     bucketName?: string
   }>
   cost?: CostMetadata
-  executionData?: ToolCallMetadata & {
+  executionData?: {
     errorMessage?: string
     finalOutput?: unknown
     traceSpans?: TraceSpan[]

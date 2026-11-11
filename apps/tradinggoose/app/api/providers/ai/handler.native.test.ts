@@ -1,5 +1,6 @@
+import { NextRequest } from 'next/server'
 import { afterEach, expect, it, vi } from 'vitest'
-import { handleAIProviderRequest } from './handler'
+import { POST } from '../route'
 
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 vi.mock('@/lib/mastra/usage-processors', () => ({
@@ -11,9 +12,10 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
     verifyComplete: async () => {},
   }),
 }))
-vi.mock('@/blocks', () => ({ getAllBlocks: () => [] }))
-vi.mock('@/tools', () => ({ executeTool: vi.fn(), getToolAsync: vi.fn() }))
-vi.mock('@/tools/utils', () => ({ getTool: vi.fn() }))
+vi.mock('@/lib/auth', () => ({ getSession: vi.fn() }))
+vi.mock('@/lib/auth/hybrid', () => ({
+  checkSessionOrInternalAuth: async () => ({ success: true, userId: 'actor' }),
+}))
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
@@ -42,51 +44,33 @@ it.each([401, 429, 500])(
     )
     vi.stubGlobal('fetch', fetcher)
 
-    const response = await handleAIProviderRequest({
-      body: {
-        model: 'openai/gpt-4.1',
-        messages: [{ role: 'user', content: privateRequest }],
-        stream: true,
-        modelSettings: { maxRetries: 0 },
-      },
-      requestId: 'installed-adapter-error',
-    })
-    const reader = response.body!.getReader()
-    const decoder = new TextDecoder()
-    let text = ''
-    let failure: unknown
-    try {
-      while (true) {
-        const chunk = await reader.read()
-        if (chunk.done) break
-        text += decoder.decode(chunk.value, { stream: true })
-      }
-    } catch (error) {
-      failure = error
-    }
+    const response = await POST(
+      new NextRequest('http://localhost/api/providers', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerNamespace: 'ai',
+          model: 'openai/gpt-4.1',
+          messages: [{ role: 'user', content: privateRequest }],
+          modelSettings: { maxRetries: 0 },
+        }),
+      })
+    )
+    const text = await response.text()
+    expect(response.status).toBe(500)
 
     expect(fetcher).toHaveBeenCalledTimes(1)
     const [url, request] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
     expect(String(url)).toBe('https://api.openai.com/v1/responses')
     expect(new Headers(request.headers).get('authorization')).toBe(`Bearer ${credential}`)
     expect(request.body).toContain(privateRequest)
-    const events = text
-      .split('\n\n')
-      .filter((line) => line.startsWith('data: '))
-      .map((line) => JSON.parse(line.slice(6)))
-    expect(events).toContainEqual({
-      type: 'error',
-      payload: { error: 'Upstream rejected the request' },
+    expect(JSON.parse(text)).toEqual({
+      error: 'Upstream rejected the request',
+      model: 'openai/gpt-4.1',
+      tokens: {},
+      cost: { status: 'unavailable' },
     })
     expect(text).not.toMatch(/responseHeaders|responseBody|requestBodyValues|stack/)
     expect(text).not.toContain(credential)
-    expect(JSON.stringify(events.find((event) => event.type === 'error'))).not.toContain(
-      privateRequest
-    )
-    expect(text).not.toContain('workflow-output')
-    expect(failure).toMatchObject({
-      model: 'openai/gpt-4.1',
-      cost: { status: 'unavailable' },
-    })
+    expect(text).not.toContain(privateRequest)
   }
 )

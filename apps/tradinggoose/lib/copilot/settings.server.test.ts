@@ -24,7 +24,7 @@ vi.mock('@opencode-ai/models/snapshot', () => ({
 }))
 
 vi.mock('@/lib/system-settings/service', () => ({
-  getResolvedSystemSettings: mockGetResolvedSystemSettings,
+  getCopilotSettings: async () => (await mockGetResolvedSystemSettings()).copilot,
 }))
 vi.mock('@/lib/system-services/service', () => ({
   resolveSystemServiceConfig: mockResolveSystemServiceConfig,

@@ -31,7 +31,6 @@ import { parseCopilotWorkspaceChannelId } from './channel-id'
 import { projectNativeHistory } from './history'
 import {
   listNativeHistory,
-  listNativePending,
   listNativeThreads,
   NativeCommandError,
   postNativeCommand,
@@ -276,12 +275,10 @@ function createCopilotStoreInstance(channelId: string) {
         get().currentChat?.threadId === chat.threadId &&
         get().currentChat?.workspaceId === chat.workspaceId
       const refreshChatHistory = async (chat: CopilotChat, current: () => boolean) => {
-        const messages = projectNativeHistory(
-          await listNativeHistory(chat.workspaceId, chat.threadId)
-        )
+        const history = await listNativeHistory(chat.workspaceId, chat.threadId)
         if (!current()) return
-        const pending = await listNativePending(chat.workspaceId, chat.threadId)
-        if (!current()) return
+        const messages = projectNativeHistory(history.items)
+        const pending = history.pending
         const currentRunId = pending[0]?.target.runId ?? null
         if (pending.some((item) => item.target.runId !== currentRunId))
           throw new Error('Copilot pending tools belong to different runs')
@@ -554,7 +551,6 @@ function createCopilotStoreInstance(channelId: string) {
                   : intent.kind === 'accept'
                     ? 'review.accept'
                     : 'execute',
-              accessLevel: call.historyOrigin ? 'limited' : get().accessLevel,
               context: businessContext(call.provenance),
             })
             if (!success) throw new Error('Copilot tool execution did not complete')
@@ -895,8 +891,8 @@ function createCopilotStoreInstance(channelId: string) {
             if (chat?.title === '' && message.trim()) {
               try {
                 initial =
-                  (await listNativeHistory(workspaceId, chat.threadId, preflight.signal)).length ===
-                  0
+                  (await listNativeHistory(workspaceId, chat.threadId, preflight.signal)).items
+                    .length === 0
               } catch {
                 initial = false
               }
@@ -1110,7 +1106,6 @@ function createCopilotStoreInstance(channelId: string) {
             throw new Error('Native approval is required before a result')
           const success = await invoke({
             command: 'tool.result',
-            source: 'browser_assertion',
             ...requestForPending(pending),
             assertion,
           })

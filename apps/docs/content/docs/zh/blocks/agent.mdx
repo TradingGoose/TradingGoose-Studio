@@ -113,7 +113,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 Auto 允许模型自行选择工具；Force 按配置顺序要求执行所有标记的工具，然后恢复 Auto；None 会排除工具。不支持的组合或未完成的强制序列会产生明确错误。固定参数和已授权的工作流上下文保持有效。
 
-未指定结构化格式时，输出包含 `content`、`model`、`tokens` 和 `toolCalls`。Response Format 接受一个在 `schema` 属性中包含 JSON Schema 的对象；返回字段位于输出根级，可供后续区块引用。需要跨运行保存历史时，使用 Memory Add，并将 Get Memory 的消息数组连接到 Memories。生成和流式输出均由 Mastra 执行。独立的 Gemini Interactions/Deep Research 创建及轮询生命周期已移除。
+未指定结构化格式时，输出包含 `content`、`model`、`tokens` 和 `cost`。详细输入、轮次、工具调用及其结果可在工作流执行的 Mastra 历史记录中查看。Response Format 接受一个在 `schema` 属性中包含 JSON Schema 的对象；返回字段位于输出根级，可供后续区块引用。需要跨运行保存历史时，使用 Memory Add，并将 Get Memory 的消息数组连接到 Memories。生成和流式输出均由 Mastra 执行。独立的 Gemini Interactions/Deep Research 创建及轮询生命周期已移除。
 
 ## 用量和费用
 

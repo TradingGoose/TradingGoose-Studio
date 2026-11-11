@@ -6,15 +6,7 @@ export function getFailureAccounting(error: unknown): Record<string, unknown> {
   if (!error || typeof error !== 'object') return {}
   const source = error as Record<string, unknown>
   const accounting: Record<string, unknown> = {}
-  for (const key of [
-    'model',
-    'tokens',
-    'cost',
-    'embeddingUsage',
-    'toolResults',
-    'toolCost',
-    'unavailableToolCosts',
-  ]) {
+  for (const key of ['model', 'tokens', 'cost', 'embeddingUsage']) {
     if (source[key] !== undefined) accounting[key] = source[key]
   }
   const redacted = deepRedactSecrets(accounting) as Record<string, unknown>

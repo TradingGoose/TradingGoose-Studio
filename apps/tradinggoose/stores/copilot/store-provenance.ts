@@ -7,7 +7,6 @@ import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entit
 import { normalizeOptionalString } from '@/lib/utils'
 import type {
   ChatContext,
-  CopilotMessage,
   CopilotToolCall,
   CopilotToolExecutionProvenance,
 } from '@/stores/copilot/types'
@@ -135,25 +134,4 @@ export function withPinnedToolExecutionProvenance(
       toolCall.provenance?.toolContexts ?? baseProvenance?.toolContexts
     ),
   }
-}
-
-export function findAssistantMessageIdForToolCall(
-  messages: CopilotMessage[],
-  toolCallId: string
-): string | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index]
-    if (message.role !== 'assistant') continue
-
-    if (
-      Array.isArray(message.contentBlocks) &&
-      message.contentBlocks.some(
-        (block) => block.type === 'tool_call' && block.toolCall?.id === toolCallId
-      )
-    ) {
-      return message.id
-    }
-  }
-
-  return null
 }

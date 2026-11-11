@@ -20,7 +20,6 @@ const logger = createLogger('ProvidersAPI')
 
 export const dynamic = 'force-dynamic'
 
-type ProviderNamespace = 'ai' | 'market'
 type ProviderRouteBody = AIProviderRouteBody | MarketProviderRouteBody
 
 /**
@@ -39,23 +38,9 @@ export async function POST(request: NextRequest) {
     })
 
     const body = (await request.json()) as ProviderRouteBody
-    const { provider, providerNamespace, providerType } = body
-
-    const { namespace, providerId } = resolveProviderNamespace(
-      provider,
-      providerNamespace ?? providerType
-    )
-
-    if (!providerId && namespace !== 'ai') {
-      logger.warn(`[${requestId}] Provider not specified in request body`)
-      return NextResponse.json({ error: 'Provider identifier is required' }, { status: 400 })
-    }
-
-    logger.info(`[${requestId}] Provider request details`, {
-      provider: providerId,
-      providerNamespace: namespace,
-    })
-
+    const namespace = body.providerNamespace
+    if (namespace !== 'ai' && namespace !== 'market')
+      return NextResponse.json({ error: 'A valid providerNamespace is required' }, { status: 400 })
     if (namespace === 'ai') {
       const aiBody = body as AIProviderRouteBody
       requestApiKey = aiBody.apiKey
@@ -100,58 +85,50 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    if (namespace === 'market') {
-      const marketBody = body as MarketProviderRouteBody
-      const oauth = getMarketProviderDefinition(providerId.split('/')[0])?.oauth
-      const searchParams = new URL(request.url).searchParams
-      const workflowId = searchParams.get('workflowId')?.trim()
-      const workspaceId =
-        (typeof marketBody.workspaceId === 'string' && marketBody.workspaceId.trim()) ||
-        searchParams.get('workspaceId')?.trim() ||
-        undefined
-      let authUserId: string | undefined
-      if (oauth) {
-        const credentialId = marketBody.providerParams?.credentialId
-        if (typeof credentialId !== 'string' || !credentialId.trim()) {
-          return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
-        }
-        const authz = await authorizeCredentialUse(request, {
-          credentialId: credentialId.trim(),
-          workflowId,
-          workspaceId,
-        })
-        if (!authz.ok || !authz.credentialOwnerUserId || !authz.resolvedTokenAccountId) {
-          return NextResponse.json(
-            { error: authz.error || 'Unauthorized' },
-            { status: credentialAuthStatus(authz.error) }
-          )
-        }
-        if (authz.resolvedProviderId !== oauth.provider) {
-          return NextResponse.json({ error: 'Credential provider mismatch' }, { status: 403 })
-        }
-        marketBody.providerParams = {
-          ...marketBody.providerParams,
-          credentialId: authz.resolvedTokenAccountId,
-        }
-        authUserId = authz.credentialOwnerUserId
+    const marketBody = body as MarketProviderRouteBody
+    const providerId = marketBody.provider
+    if (!providerId)
+      return NextResponse.json({ error: 'Provider identifier is required' }, { status: 400 })
+    const oauth = getMarketProviderDefinition(providerId.split('/')[0])?.oauth
+    const searchParams = new URL(request.url).searchParams
+    const workflowId = searchParams.get('workflowId')?.trim()
+    const workspaceId =
+      (typeof marketBody.workspaceId === 'string' && marketBody.workspaceId.trim()) ||
+      searchParams.get('workspaceId')?.trim() ||
+      undefined
+    let authUserId: string | undefined
+    if (oauth) {
+      const credentialId = marketBody.providerParams?.credentialId
+      if (typeof credentialId !== 'string' || !credentialId.trim()) {
+        return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
       }
-      return handleMarketProviderRequest({
-        body: marketBody,
-        providerId,
-        requestId,
-        startTime,
-        authUserId,
+      const authz = await authorizeCredentialUse(request, {
+        credentialId: credentialId.trim(),
+        workflowId,
+        workspaceId,
       })
+      if (!authz.ok || !authz.credentialOwnerUserId || !authz.resolvedTokenAccountId) {
+        return NextResponse.json(
+          { error: authz.error || 'Unauthorized' },
+          { status: credentialAuthStatus(authz.error) }
+        )
+      }
+      if (authz.resolvedProviderId !== oauth.provider) {
+        return NextResponse.json({ error: 'Credential provider mismatch' }, { status: 403 })
+      }
+      marketBody.providerParams = {
+        ...marketBody.providerParams,
+        credentialId: authz.resolvedTokenAccountId,
+      }
+      authUserId = authz.credentialOwnerUserId
     }
-
-    logger.warn(`[${requestId}] Unsupported provider namespace`, {
-      namespace,
+    return handleMarketProviderRequest({
+      body: marketBody,
       providerId,
+      requestId,
+      startTime,
+      authUserId,
     })
-    return NextResponse.json(
-      { error: `Provider namespace '${namespace}' is not supported` },
-      { status: 501 }
-    )
   } catch (error) {
     const executionTime = Date.now() - startTime
     logger.error(`[${requestId}] Provider request failed:`, {
@@ -171,30 +148,4 @@ export async function POST(request: NextRequest) {
       }
     )
   }
-}
-
-function resolveProviderNamespace(
-  provider: string | undefined,
-  explicit?: ProviderNamespace
-): { namespace: ProviderNamespace; providerId: string } {
-  if (!provider) {
-    return { namespace: explicit ?? 'ai', providerId: '' }
-  }
-
-  if (explicit) {
-    return { namespace: explicit, providerId: provider }
-  }
-
-  if (provider.includes(':')) {
-    const [maybeNamespace, remainder] = provider.split(':', 2)
-    if (
-      (maybeNamespace === 'ai' || maybeNamespace === 'market') &&
-      typeof remainder === 'string' &&
-      remainder.length > 0
-    ) {
-      return { namespace: maybeNamespace as ProviderNamespace, providerId: remainder }
-    }
-  }
-
-  return { namespace: 'ai', providerId: provider }
 }

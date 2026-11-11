@@ -18,7 +18,7 @@ const {
 
 vi.mock('@/lib/mastra/registry', () => ({ getModelProviders: mockModelProviders }))
 vi.mock('@/lib/system-settings/service', () => ({
-  getResolvedSystemSettings: mockResolvedSettings,
+  getCopilotSettings: async () => (await mockResolvedSettings()).copilot,
 }))
 
 vi.mock('@/lib/system-services/service', () => ({

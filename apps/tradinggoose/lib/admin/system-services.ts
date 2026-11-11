@@ -8,7 +8,7 @@ import {
   SystemServiceValidationError,
   upsertSystemServiceConfig,
 } from '@/lib/system-services/service'
-import { getResolvedSystemSettings } from '@/lib/system-settings/service'
+import { getCopilotSettings } from '@/lib/system-settings/service'
 
 export const adminSystemServiceCredentialSchema = z.object({
   key: z.string().trim().min(1),
@@ -34,10 +34,10 @@ export type AdminSystemServiceUpdateInput = z.infer<typeof adminSystemServiceUpd
 export { SystemServiceValidationError }
 
 export async function listAdminSystemServices() {
-  const [state, settings] = await Promise.all([listSystemServices(), getResolvedSystemSettings()])
+  const [state, copilot] = await Promise.all([listSystemServices(), getCopilotSettings()])
   const visibleServiceIds = new Set([
     ...SYSTEM_SERVICE_DEFINITIONS.map(({ id }) => id),
-    ...settings.copilot.models.map(({ provider }) => provider),
+    ...copilot.models.map(({ provider }) => provider),
   ])
   const definitions = getSystemServiceDefinitions().filter(({ id }) => visibleServiceIds.has(id))
   const stateById = new Map(state.map((service) => [service.id, service]))

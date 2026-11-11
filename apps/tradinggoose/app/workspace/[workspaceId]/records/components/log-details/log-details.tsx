@@ -12,7 +12,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { formatCost } from '@/lib/logs/cost'
 import { FrozenCanvasModal } from '@/app/workspace/[workspaceId]/records/components/log-details/components/execution-snapshot/frozen-canvas-modal'
 import { FileDownload } from '@/app/workspace/[workspaceId]/records/components/log-details/components/file-download/file-download'
-import { ToolCallsDisplay } from '@/app/workspace/[workspaceId]/records/components/log-details/components/tool-calls/tool-calls-display'
 import { TraceSpans } from '@/app/workspace/[workspaceId]/records/components/log-details/components/trace-spans/trace-spans'
 import { formatDate } from '@/app/workspace/[workspaceId]/records/utils'
 import { formatDurationMs, formatFileSize } from '@/i18n/formatters'
@@ -305,18 +304,6 @@ export function LogDetails({
                     traceSpans={log.executionData.traceSpans}
                     totalDuration={log.durationMs ?? undefined}
                   />
-                </div>
-              )}
-
-              {/* Tool Calls (if available) */}
-              {log.executionData?.toolCalls && log.executionData.toolCalls.length > 0 && (
-                <div className='flex w-full flex-col gap-2 rounded-md border bg-muted/30 px-3 py-2'>
-                  <span className='font-medium text-muted-foreground text-xs'>
-                    {t('toolCalls')}
-                  </span>
-                  <div className='w-full overflow-x-hidden rounded-md bg-background p-3'>
-                    <ToolCallsDisplay metadata={log.executionData} />
-                  </div>
                 </div>
               )}
 

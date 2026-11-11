@@ -1,10 +1,9 @@
 import type {
   CopilotRequest,
   CopilotResponse,
-  Pending,
+  HistoryResponse,
   Thread,
 } from '@/lib/copilot/native/contract'
-import type { NativeHistoryMessage } from '@/lib/mastra/messages'
 
 export class NativeCommandError extends Error {
   constructor(readonly nativeOutcome: CopilotResponse) {
@@ -49,17 +48,8 @@ export async function listNativeHistory(
   workspaceId: string | null,
   threadId: string,
   signal?: AbortSignal
-): Promise<NativeHistoryMessage[]> {
+): Promise<HistoryResponse> {
   const result = await readNativeCommand({ command: 'history.read', workspaceId, threadId }, signal)
   if (result.status !== 'history') throw new Error('Copilot history is unavailable')
-  return result.items
-}
-export async function listNativePending(
-  workspaceId: string | null,
-  threadId: string,
-  signal?: AbortSignal
-): Promise<Pending[]> {
-  const result = await readNativeCommand({ command: 'pending.list', workspaceId, threadId }, signal)
-  if (result.status !== 'pending_targets') throw new Error('Native pending unavailable')
-  return result.items
+  return result
 }

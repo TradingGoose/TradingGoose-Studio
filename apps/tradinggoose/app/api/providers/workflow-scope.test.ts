@@ -20,6 +20,7 @@ const boundary = vi.hoisted(() => ({
 vi.mock('@/lib/auth/hybrid', () => ({
   checkSessionOrInternalAuth: async () => ({ success: true, userId: 'authenticated-actor' }),
 }))
+vi.mock('@/lib/auth', () => ({ getSession: vi.fn() }))
 vi.mock('@/lib/auth/internal', () => ({
   generateInternalToken: async () => 'synthetic-internal-auth',
 }))
@@ -189,6 +190,7 @@ it.each(['personal-workspace', 'organization-workspace'])(
       new NextRequest('http://localhost/api/providers', {
         method: 'POST',
         body: JSON.stringify({
+          providerNamespace: 'ai',
           model: 'openai/gpt-4.1',
           workspaceId,
           messages: [{ role: 'user', content: 'hello' }],
@@ -208,6 +210,7 @@ it('accounts for an authorized standalone workspace request through the real Age
     new NextRequest('http://localhost/api/providers', {
       method: 'POST',
       body: JSON.stringify({
+        providerNamespace: 'ai',
         model: 'openai/gpt-4.1',
         workspaceId: context.workspaceId,
         messages: [{ role: 'user', content: 'hello' }],
@@ -237,6 +240,7 @@ it('retains filtered provider usage in the HTTP failure and records it once', as
     new NextRequest('http://localhost/api/providers', {
       method: 'POST',
       body: JSON.stringify({
+        providerNamespace: 'ai',
         model: 'openai/gpt-4.1',
         workspaceId: context.workspaceId,
         messages: [{ role: 'user', content: 'hello' }],

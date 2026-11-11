@@ -117,13 +117,20 @@ describe('native embeddings', () => {
     })
   })
 
-  it('retains known usage when a completed response has invalid vectors', async () => {
+  it('accepts known usage before rejecting invalid vectors without retrying', async () => {
     mocks.embed.mockResolvedValueOnce({ embeddings: [], usage: { tokens: 7 } })
     await expect(generateEmbeddings(['one'], scope)).rejects.toMatchObject({
+      message: expect.stringMatching(/vector count/),
       tokens: { prompt: 7, total: 7 },
       embeddingUsage: { status: 'partial', batches: 1 },
       cost: { status: 'estimated', total: expect.closeTo(0.00000014, 12), currency: 'USD' },
     })
+    expect(mocks.accept).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'openai/text-embedding-3-small' }),
+      { inputTokens: 7, totalTokens: 7 },
+      expect.objectContaining({ status: 'estimated', total: expect.closeTo(0.00000014, 12) })
+    )
+    expect(mocks.embed).toHaveBeenCalledOnce()
   })
 
   it('does not invent tokens when the first batch fails', async () => {
@@ -168,17 +175,6 @@ describe('native embeddings', () => {
     ).rejects.toThrow()
     expect(mocks.admit).not.toHaveBeenCalled()
     expect(mocks.embed).not.toHaveBeenCalled()
-  })
-
-  it('accepts completed known usage before vector validation and has no transport retry on failure', async () => {
-    mocks.embed.mockResolvedValueOnce({ embeddings: [], usage: { tokens: 7 } })
-    await expect(generateEmbeddings(['one'], scope)).rejects.toThrow(/vector count/)
-    expect(mocks.accept).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'openai/text-embedding-3-small' }),
-      { inputTokens: 7, totalTokens: 7 },
-      expect.objectContaining({ status: 'estimated', total: expect.closeTo(0.00000014, 12) })
-    )
-    expect(mocks.embed).toHaveBeenCalledOnce()
   })
 })
 

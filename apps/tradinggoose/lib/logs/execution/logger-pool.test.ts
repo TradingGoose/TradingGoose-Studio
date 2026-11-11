@@ -12,7 +12,6 @@ import {
   workspace,
 } from '@tradinggoose/db/schema'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/settings'
 import { ExecutionLogger } from './logger'
 
 const pool = vi.hoisted(() => ({
@@ -118,7 +117,7 @@ it.each(
       executionData: { environment: { userId: 'actor' }, traceSpans: [] } as Record<string, any>,
     }
     pool.rows.set(workflowExecutionLogs, [log])
-    pool.rows.set(systemSettings, [{ billingEnabled: enabled, copilot: DEFAULT_COPILOT_SETTINGS }])
+    pool.rows.set(systemSettings, [{ billingEnabled: enabled }])
     pool.rows.set(systemBillingSettings, [{ workflowExecutionChargeUsd: '0' }])
     pool.rows.set(workspace, [
       {

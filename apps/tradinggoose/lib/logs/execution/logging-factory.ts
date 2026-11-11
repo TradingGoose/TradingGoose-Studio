@@ -3,12 +3,7 @@ import { workflow, workflowFolder } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ExecutionEnvironment, ExecutionTrigger } from '@/lib/logs/types'
 import { getInferenceFacts, type InferenceFacts } from '@/lib/mastra/result'
-import {
-  type NativeCost,
-  resultAccounting,
-  sumNativeCosts,
-  sumNativeUsage,
-} from '@/lib/mastra/usage'
+import { resultAccounting, sumNativeCosts, sumNativeUsage } from '@/lib/mastra/usage'
 import { isWorkflowBlockType } from '@/executor/consts'
 
 export function createTriggerObject(
@@ -89,9 +84,7 @@ export async function loadWorkflowSummaryForExecution(workflowId: string) {
 export function calculateCostSummary(traceSpans: any[]) {
   const components: InferenceFacts[] = []
   const modelComponents = new Map<string, InferenceFacts[]>()
-  const toolCharges: NativeCost[] = []
   const seen = new Set<string>()
-  let toolCost = 0
   let unavailableComponents = 0
   const summarize = (facts: InferenceFacts[]) => {
     const usage = sumNativeUsage(
@@ -124,24 +117,9 @@ export function calculateCostSummary(traceSpans: any[]) {
         modelComponents.set(facts.model, group)
       }
     }
-    if (facts.toolResults?.length) {
-      for (const result of facts.toolResults) accumulate(result.inference, result.toolCallId)
-    } else {
-      // Child lists already contain their subtotal; only charge-only tools add one here.
-      if (
-        typeof facts.toolCost === 'number' &&
-        Number.isFinite(facts.toolCost) &&
-        facts.toolCost >= 0
-      ) {
-        toolCost += facts.toolCost
-        toolCharges.push({ total: facts.toolCost, status: 'reported' })
-      }
-      if (facts.unavailableToolCosts) {
-        unavailableComponents += facts.unavailableToolCosts
-        toolCharges.push({ status: 'unavailable' })
-      }
-    }
+    for (const result of facts.toolResults ?? []) accumulate(result.inference, result.toolCallId)
   }
+
   const visit = (spans: any[]) => {
     for (const span of spans ?? []) {
       // Child workflows settle their own usage. Their visible traces are inclusive.
@@ -152,7 +130,7 @@ export function calculateCostSummary(traceSpans: any[]) {
   }
   visit(traceSpans)
   const model = summarize(components)
-  const costs = [...components.map((component) => component.cost!), ...toolCharges]
+  const costs = components.map((component) => component.cost!)
   const cost = sumNativeCosts(costs.length ? costs : [{ total: 0, status: 'reported' }])
   return {
     totalCost: cost.total,
@@ -166,7 +144,6 @@ export function calculateCostSummary(traceSpans: any[]) {
     status: cost.status,
     unavailableComponents,
     estimated: cost.estimated === true,
-    toolCost,
     models: Object.fromEntries(
       [...modelComponents].map(([name, facts]) => [name, summarize(facts)])
     ),

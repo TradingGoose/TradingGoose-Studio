@@ -10,9 +10,9 @@ import { workflowKeys } from '@/hooks/queries/workflows'
 import {
   createExecutionContext,
   ensureClientToolInstance,
+  getCopilotToolMetadata,
   getToolInterruptDisplays,
   handleCopilotServerToolSuccess,
-  isClientManagedCopilotTool,
   isGatedTool,
   isServerManagedCopilotTool,
 } from '@/stores/copilot/tool-registry'
@@ -27,7 +27,7 @@ describe('tool-registry', () => {
 
   it('retains all 76 tools, 68 server/8 browser operations and existing limited-access gates', () => {
     const server = ToolIds.options.filter(isServerManagedCopilotTool)
-    const client = ToolIds.options.filter(isClientManagedCopilotTool)
+    const client = ToolIds.options.filter((name) => !isServerManagedCopilotTool(name))
     expect(ToolIds.options).toHaveLength(76)
     expect(server).toHaveLength(68)
     expect(client.sort()).toEqual([
@@ -48,6 +48,7 @@ describe('tool-registry', () => {
       'run_workflow',
     ])
     for (const name of ToolIds.options) {
+      expect(getCopilotToolMetadata(name)).toBeDefined()
       expect(shouldRequireToolApproval('limited', isGatedTool(name))).toBe(isGatedTool(name))
       expect(shouldRequireToolApproval('full', isGatedTool(name))).toBe(false)
     }

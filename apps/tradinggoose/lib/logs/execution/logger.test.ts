@@ -401,7 +401,7 @@ describe('canonical workflow usage settlement', () => {
     expect(state.ledgers.user?.totalCost).toBe(2.25)
   })
 
-  it('accrues nested native model costs once while keeping product tool charges separate', async () => {
+  it('accrues nested native model costs once', async () => {
     const original = span()
     const nested = {
       toolCallId: 'native-tool',
@@ -411,16 +411,9 @@ describe('canonical workflow usage settlement', () => {
         generatedFields: ['cost', 'tokens'],
       },
     }
-    const toolProduct = {
-      toolCallId: 'product-tool',
-      inference: {
-        toolCost: 3,
-        generatedFields: ['toolCost'],
-      },
-    }
     const priced = {
       ...original,
-      inference: { ...original.inference, toolResults: [nested, nested, toolProduct] },
+      inference: { ...original.inference, toolResults: [nested, nested] },
     }
     const result = await logger.completeWorkflowExecution({ ...completion, traceSpans: [priced] })
     expect(result.cost).toMatchObject({ modelCost: 2.5, estimated: true })

@@ -61,7 +61,6 @@ export function TraceSpans({ traceSpans = [], totalDuration = 0 }: TraceSpansPro
           const id = s.id || `span-${s.name}-${s.startTime}`
           next.add(id)
           if (s.children?.length) collect(s.children)
-          if (s?.toolCalls?.length) next.add(`${id}-tools`)
         }
       }
       collect(traceSpans)

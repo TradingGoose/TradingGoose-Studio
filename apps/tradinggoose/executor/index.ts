@@ -1736,10 +1736,6 @@ export class Executor {
           model: error?.model,
           tokens: error?.tokens,
           cost: error?.cost,
-          toolCost: error?.toolCost,
-          unavailableToolCosts: error?.unavailableToolCosts,
-          toolCalls: error?.toolCalls,
-          toolResults: error?.toolResults,
         })
         if (inference && !getInferenceFacts(failure)) withInferenceFacts(failure, inference)
         const accounting = Object.fromEntries(
@@ -1747,18 +1743,9 @@ export class Executor {
             model: failure.model,
             tokens: failure.tokens,
             cost: failure.cost,
-            toolCost: failure.toolCost,
-            unavailableToolCosts: failure.unavailableToolCosts,
-            toolCalls: failure.toolCalls,
-            toolResults: failure.toolResults,
           }).filter(([, value]) => value !== undefined)
         )
-        if (
-          failure.tokens ||
-          failure.cost ||
-          failure.toolCost !== undefined ||
-          failure.unavailableToolCosts
-        ) {
+        if (failure.tokens || failure.cost) {
           blockLog.output = {
             ...blockLog.output,
             ...accounting,
@@ -1822,10 +1809,7 @@ export class Executor {
         const errorOutput: NormalizedBlockOutput = {
           error: this.extractErrorMessage(error),
           status: error.status || 500,
-          ...((failure.tokens ||
-            failure.cost ||
-            failure.toolCost !== undefined ||
-            failure.unavailableToolCosts) && {
+          ...((failure.tokens || failure.cost) && {
             ...accounting,
           }),
         }
@@ -2001,10 +1985,6 @@ export class Executor {
                   model: source.model,
                   tokens: source.tokens,
                   cost: source.cost,
-                  toolCost: source.toolCost,
-                  unavailableToolCosts: source.unavailableToolCosts,
-                  toolCalls: source.toolCalls,
-                  toolResults: source.toolResults,
                 }
               : {
                   model: readerError?.model ?? output.model,

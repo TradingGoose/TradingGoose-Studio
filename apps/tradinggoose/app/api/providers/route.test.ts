@@ -47,7 +47,8 @@ const marketRequest = (provider: string, credentialId: unknown, query = '', work
   new NextRequest(`http://localhost/api/providers${query}`, {
     method: 'POST',
     body: JSON.stringify({
-      provider: `market:${provider}/series`,
+      providerNamespace: 'market',
+      provider: `${provider}/series`,
       listing,
       workspaceId,
       ...forgedIdentity,
@@ -180,7 +181,12 @@ describe('native AI generation boundary', () => {
   const request = (extra = {}) =>
     new NextRequest('http://localhost/api/providers', {
       method: 'POST',
-      body: JSON.stringify({ model: 'openai/gpt-4.1', messages: [], ...extra }),
+      body: JSON.stringify({
+        providerNamespace: 'ai',
+        model: 'openai/gpt-4.1',
+        messages: [],
+        ...extra,
+      }),
     })
   it.each([{}, { apiKey: 'caller-key' }])(
     'authenticates generation without tools (%j)',
@@ -331,11 +337,27 @@ describe('AI execution scope normalization', () => {
       const response = await POST(
         new NextRequest('http://localhost/api/providers', {
           method: 'POST',
-          body: JSON.stringify({ model: 'openai/gpt-4.1', ...scope }),
+          body: JSON.stringify({ providerNamespace: 'ai', model: 'openai/gpt-4.1', ...scope }),
         })
       )
       expect(response.status).toBe(status)
       expect(handleAIProviderRequest).not.toHaveBeenCalled()
     }
   )
+})
+
+it.each([
+  { provider: 'openai', model: 'openai/gpt-4.1' },
+  { providerType: 'ai', model: 'openai/gpt-4.1' },
+  { provider: 'ai:openai', model: 'openai/gpt-4.1' },
+  { provider: 'market:alpaca/series' },
+])('requires the canonical namespace rather than legacy inference (%j)', async (body) => {
+  const response = await POST(
+    new NextRequest('http://localhost/api/providers', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  )
+  expect(response.status).toBe(400)
+  expect(mocks.execute).not.toHaveBeenCalled()
 })

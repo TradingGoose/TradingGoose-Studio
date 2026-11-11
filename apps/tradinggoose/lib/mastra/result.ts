@@ -1,4 +1,3 @@
-import type { ProviderTiming } from '@/lib/logs/types'
 import type { NativeCost } from './usage'
 
 export interface InferenceFacts {
@@ -7,11 +6,7 @@ export interface InferenceFacts {
   tokens?: { prompt?: number; completion?: number; total?: number }
   cost?: NativeCost
   embeddingUsage?: { status: 'reported' | 'partial' | 'unavailable'; batches: number }
-  toolCost?: number
-  unavailableToolCosts?: number
   toolResults?: Array<{ toolCallId?: string; inference: InferenceFacts }>
-  toolCalls?: { list: Array<Record<string, any>>; count: number }
-  providerTiming?: ProviderTiming
   generatedFields: string[]
 }
 

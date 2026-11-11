@@ -1,10 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import {
-  listNativeHistory,
-  listNativePending,
-  listNativeThreads,
-  readNativeCommand,
-} from './native-api'
+import { listNativeHistory, listNativeThreads, readNativeCommand } from './native-api'
 
 const at = '2026-11-08T00:00:00.000Z'
 afterEach(() => vi.unstubAllGlobals())
@@ -44,19 +39,18 @@ it('loads native message parts and public pending cards through the local servic
     createdAt: at,
     parts: [{ type: 'text', text: 'hello' }],
   }
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (_url, init) => {
-      const request = JSON.parse(init.body)
-      return Response.json({
-        status: request.command === 'history.read' ? 'history' : 'pending_targets',
-        ...(request.command === 'history.read' ? { threadId: 'thread' } : {}),
-        items: request.command === 'history.read' ? [message] : [pending],
-      })
+  const response = { status: 'history', threadId: 'thread', items: [message], pending: [pending] }
+  const fetcher = vi.fn(async (_url, init) => {
+    expect(JSON.parse(init.body)).toEqual({
+      command: 'history.read',
+      workspaceId: null,
+      threadId: 'thread',
     })
-  )
-  expect(await listNativeHistory(null, 'thread')).toEqual([message])
-  expect(await listNativePending(null, 'thread')).toEqual([pending])
+    return Response.json(response)
+  })
+  vi.stubGlobal('fetch', fetcher)
+  expect(await listNativeHistory(null, 'thread')).toEqual(response)
+  expect(fetcher).toHaveBeenCalledOnce()
 })
 it('does not contact the server after cancellation', async () => {
   const abort = new AbortController()

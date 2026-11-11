@@ -331,8 +331,6 @@ export function applyNativeEvent(
         })),
       }
     }
-    case 'tool.pending':
-      return displayNativePending(state, event.pending, provenance)
     case 'response.completed':
       return applyNativeResponse(state, event.result, messageId)
     case 'response.suspended': {

@@ -42,7 +42,7 @@ export const ToolContextSchema = z
 export type CopilotToolContext = z.infer<typeof ToolContextSchema>
 export const BrowserAssertionSchema = z
   .object({
-    kind: z.enum(['plan.updated', 'timer.completed', 'ui.opened', 'selection.submitted']),
+    kind: z.enum(['plan.updated', 'timer.completed', 'ui.opened']),
     data: z.json(),
   })
   .strict()
@@ -63,7 +63,6 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
       toolContexts: z.array(ToolContextSchema).max(16).optional(),
     })
     .strict(),
-  z.object({ ...base, command: z.literal('pending.list'), threadId: id }).strict(),
   z.object({ ...base, command: z.literal('tool.approve'), target: TargetSchema }).strict(),
   z
     .object({
@@ -79,7 +78,6 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
       command: z.literal('tool.execute'),
       target: TargetSchema,
       action: z.enum(['execute', 'review.accept', 'review.reject', 'readback']),
-      accessLevel: z.enum(['limited', 'full']).optional(),
       context: ToolContextSchema.optional(),
       readback: z.object({ credentialId: id }).strict().optional(),
     })
@@ -88,7 +86,6 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
     .object({
       ...base,
       command: z.literal('tool.result'),
-      source: z.literal('browser_assertion'),
       target: TargetSchema,
       assertion: BrowserAssertionSchema,
     })
@@ -115,7 +112,6 @@ export type CopilotRequest = z.infer<typeof CopilotRequestSchema>
 export type Target = z.infer<typeof TargetSchema>
 export type CopilotToolTarget = { workspaceId: Scope['workspaceId']; target: Target }
 export type Input = z.infer<typeof InputSchema>
-export type TextPart = Extract<Exclude<Input['content'], string>[number], { type: 'text' }>
 export type ImagePart = Extract<Exclude<Input['content'], string>[number], { type: 'image' }>
 export type BrowserAssertion = z.infer<typeof BrowserAssertionSchema>
 export interface SafeError {
@@ -166,10 +162,7 @@ export interface HistoryResponse {
   status: 'history'
   threadId: string
   items: NativeHistoryMessage[]
-}
-export interface PendingResponse {
-  status: 'pending_targets'
-  items: Pending[]
+  pending: Pending[]
 }
 export interface MutationResponse {
   status: 'updated'
@@ -180,7 +173,6 @@ export interface MutationResponse {
 export type CopilotResponse =
   | ReadyResponse
   | SuspendedResponse
-  | PendingResponse
   | CancelResponse
   | ThreadsResponse
   | HistoryResponse
@@ -190,7 +182,6 @@ export type CopilotEvent =
   | { type: 'response.started'; runId: string; threadId: string }
   | { type: 'text.delta' | 'reasoning.delta'; text: string }
   | { type: 'tool.display'; toolCallId: string; toolName: string; args?: JsonObject }
-  | { type: 'tool.pending'; pending: Pending }
   | {
       type: 'tool.result'
       toolCallId: string

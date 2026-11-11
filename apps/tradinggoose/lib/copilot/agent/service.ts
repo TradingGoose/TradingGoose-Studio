@@ -145,14 +145,11 @@ async function readCommand(
       status: 'history',
       threadId: request.threadId,
       items: await readNativeThreadHistory(scope, request.threadId, signal),
+      pending: (await listCopilotPending(scope, request.threadId, signal)).map(publicPending),
     }
   if (!('threadId' in request) || !request.threadId || request.command === 'message') return
   await requireThread(scope, request.threadId, signal)
   switch (request.command) {
-    case 'pending.list': {
-      const pending = await listCopilotPending(scope, request.threadId, signal)
-      return { status: 'pending_targets', items: pending.map(publicPending) }
-    }
     case 'thread.title':
       await store.updateThread({ id: request.threadId, title: request.title })
       return { status: 'updated', threadId: request.threadId, operation: 'thread.title' }
@@ -399,7 +396,6 @@ async function* generate(
     const guard: InputProcessor = {
       id: 'studio-copilot-authorization',
       async processInputStep() {
-        await authorizeNativeConversationScope(run!.scope.actorUserId, run!.scope.workspaceId)
         await requireThread(run!.scope, run!.threadId, signal)
         await assertCopilotRunActive(run!.runId)
         signal.throwIfAborted()
@@ -496,7 +492,6 @@ async function* generate(
       await usage.verifyComplete()
     if (items.length) {
       suspended = true
-      for (const item of items) yield { type: 'tool.pending', pending: publicPending(item) }
       yield {
         type: 'response.suspended',
         result: {

@@ -191,20 +191,3 @@ export function createStreamingMessage(): CopilotMessage {
     timestamp: new Date().toISOString(),
   }
 }
-
-export function createErrorMessage(messageId: string, content: string): CopilotMessage {
-  return {
-    id: messageId,
-    role: 'assistant',
-    content,
-    timestamp: new Date().toISOString(),
-    isError: true,
-    contentBlocks: [
-      {
-        type: 'text',
-        content,
-        timestamp: Date.now(),
-      },
-    ],
-  }
-}

@@ -1,6 +1,7 @@
 import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
-import { withInferenceFacts } from '@/lib/mastra/result'
+import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
+import { getAgentMemory } from '@/lib/mastra/runtime'
 import { sumNativeUsage } from '@/lib/mastra/usage'
 
 vi.mock('@/lib/mastra/connections', async (original) => ({
@@ -70,7 +71,6 @@ import {
   AgentBlockHandler,
   createAgentToolSet,
   createForcedToolPolicy,
-  extractCompletedToolMetadata,
 } from '@/executor/handlers/agent/agent-handler'
 import type { ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
@@ -420,7 +420,7 @@ describe('native named Force tools', () => {
         usageControl: 'none' as const,
       },
     ]
-    const { tools, toolRuns } = createOwnedTestToolSet(configured, context())
+    const { tools } = createOwnedTestToolSet(configured, context())
     const policy = createForcedToolPolicy(configured)
     const agent = new Agent({
       id: 'forced',
@@ -450,7 +450,6 @@ describe('native named Force tools', () => {
       query: 'fixed',
       _context: { userId: 'user-1', workspaceId: 'workspace-1', workflowId: 'workflow-1' },
     })
-    expect(toolRuns.map((run) => run.name)).toEqual(['first', 'second'])
     expect(result.text).toBe('Native response')
   })
 
@@ -462,7 +461,7 @@ describe('native named Force tools', () => {
       params: { query },
       usageControl: 'force' as const,
     }))
-    const { tools, toolRuns } = createOwnedTestToolSet(configured, context())
+    const { tools } = createOwnedTestToolSet(configured, context())
     expect(Object.keys(tools)).toHaveLength(2)
     expect(Object.keys(createOwnedTestToolSet(configured, context()).tools)).toEqual(
       Object.keys(tools)
@@ -484,7 +483,6 @@ describe('native named Force tools', () => {
       ['same_operation', 'first'],
       ['same_operation', 'second'],
     ])
-    expect(toolRuns.map((run) => run.id)).toEqual(['same_operation', 'same_operation'])
     expect(state.model.doGenerateCalls.map((call: any) => call.toolChoice)).toEqual([
       ...Object.keys(tools).map((toolName) => ({ type: 'tool', toolName })),
       { type: 'auto' },
@@ -626,7 +624,32 @@ describe('native forced sequence failures and completion accounting', () => {
       },
       context()
     )
-    expect(output).toMatchObject({ answer: 42, toolCalls: { count: 1 }, tokens: { total: 10 } })
+    expect(output).toMatchObject({ answer: 42, tokens: { total: 10 } })
+    expect(output).not.toHaveProperty('toolCalls')
+    expect(output).not.toHaveProperty('toolResults')
+    const history = getInferenceFacts(output)!.history!
+    const { messages } = await (await getAgentMemory()).recall({
+      threadId: history.threadId,
+      resourceId: history.resourceId,
+      perPage: false,
+    })
+    expect(
+      messages.some(
+        (message) =>
+          message.role === 'user' &&
+          JSON.stringify(message.content.parts).includes('Lookup then answer')
+      )
+    ).toBe(true)
+    expect(messages.flatMap((message) => message.content.parts)).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-invocation',
+        toolInvocation: expect.objectContaining({
+          toolName: 'custom_lookup',
+          state: 'result',
+          result: { found: true },
+        }),
+      })
+    )
   })
 })
 
@@ -730,9 +753,12 @@ describe('native structured streams through the workflow executor', () => {
     expect(output).toMatchObject({
       model: 'openai/gpt-4.1',
       cost: { total: 0.006, status: 'estimated' },
-      toolCost: 0.004,
-      toolResults: [{ found: true, cost: { total: 0.004 } }],
     })
+    expect(getInferenceFacts(output)?.toolResults).toMatchObject([
+      { inference: { cost: { total: 0.004, status: 'reported' } } },
+    ])
+    expect(output).not.toHaveProperty('toolResults')
+    expect(JSON.stringify(getInferenceFacts(output))).not.toContain('"found"')
     expect(output?.tokens?.total).toBe(valid ? 10 : 5)
     expect(contextSpy.mock.results[0].value.blockStates.get('block1').output).toMatchObject(output)
     if (valid) {
@@ -814,7 +840,9 @@ it('aborts a native stream during a model step and retains earlier completed wor
   expect(result.execution.success).toBe(false)
   expect(result.execution.output.tokens).toMatchObject({ total: 5 })
   expect(result.execution.output.cost).toMatchObject({ status: 'unavailable' })
-  expect(result.execution.output.toolCost).toBe(0.004)
+  expect(getInferenceFacts(result.execution.output)?.toolResults?.[0].inference.cost?.total).toBe(
+    0.004
+  )
 })
 
 it('retains completed partial tool charges when a later native model step fails', async () => {
@@ -844,8 +872,8 @@ it('retains completed partial tool charges when a later native model step fails'
     },
   })
   const schema = { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-  await expect(
-    new AgentBlockHandler().execute(
+  const failure = await new AgentBlockHandler()
+    .execute(
       block,
       {
         model: 'openai/gpt-4.1',
@@ -861,13 +889,13 @@ it('retains completed partial tool charges when a later native model step fails'
       },
       context()
     )
-  ).rejects.toMatchObject({
-    model: 'openai/gpt-4.1',
-    toolCost: 0.006,
-    unavailableToolCosts: 1,
-    cost: { status: 'unavailable' },
-    toolResults: [{ found: true, cost: { availableTotal: 0.006, status: 'partial' } }],
-  })
+    .catch((error) => error)
+  expect(failure).toMatchObject({ model: 'openai/gpt-4.1', cost: { status: 'unavailable' } })
+  expect(getInferenceFacts(failure)?.toolResults).toMatchObject([
+    { inference: { cost: { availableTotal: 0.006, status: 'partial' } } },
+  ])
+  expect(failure).not.toHaveProperty('toolResults')
+  expect(JSON.stringify(getInferenceFacts(failure))).not.toContain('"found"')
 })
 
 it('retains native accounting from a failed callback in metadata used by workflow failure settlement', async () => {
@@ -883,19 +911,19 @@ it('retains native accounting from a failed callback in metadata used by workflo
       }
     ),
   })
-  const { tools, toolRuns } = createOwnedTestToolSet(
+  const { tools, toolResults } = createOwnedTestToolSet(
     [{ id: 'vision', description: 'Vision', parameters: { type: 'object', properties: {} } }],
     context()
   )
   await expect(
     tools.vision.execute?.({}, { agent: { toolCallId: 'failed-vision' } } as any)
   ).rejects.toThrow('Vision cancelled')
-  expect(extractCompletedToolMetadata(toolRuns)).toMatchObject({
-    toolCost: 0.002,
-    toolResults: [
-      { toolCallId: 'failed-vision', tokens: { total: 9 }, cost: { status: 'estimated' } },
-    ],
-  })
+  expect(toolResults).toMatchObject([
+    {
+      toolCallId: 'failed-vision',
+      inference: { tokens: { total: 9 }, cost: { status: 'estimated' } },
+    },
+  ])
 })
 
 it.each([false, true])(
@@ -1167,17 +1195,11 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
     const active = allowed ? output : failure
     expect(active).toMatchObject({
       model: 'openai/gpt-4.1',
-      toolCost: 0.004,
       tokens: { prompt: allowed ? 4 : 2, completion: allowed ? 6 : 3, total: allowed ? 10 : 5 },
-      toolResults: [
-        {
-          content: raw.content,
-          business: raw.business,
-          tokens: toolFacts.tokens,
-          cost: toolFacts.cost,
-        },
-      ],
     })
+    expect(getInferenceFacts(active)?.toolResults).toMatchObject([{ inference: toolFacts }])
+    expect(active).not.toHaveProperty('toolResults')
+    expect(JSON.stringify(getInferenceFacts(active))).not.toContain('Exact tool text')
     if (allowed) {
       expect(failure).toBeUndefined()
       expect(output.content).toBe('Known before media deliveryVerified media answer')
@@ -1194,9 +1216,12 @@ it.each(['owner-cancel', 'native-cancel'])(
   async (failure) => {
     const owner = new AbortController()
     const native = new AbortController()
-    const raw = {
-      content: [{ type: 'image', data: liveToolImage.toString('base64'), mimeType: 'image/png' }],
-    }
+    const raw = withInferenceFacts(
+      {
+        content: [{ type: 'image', data: liveToolImage.toString('base64'), mimeType: 'image/png' }],
+      },
+      { cost: { total: 0.004, status: 'reported' }, generatedFields: [] }
+    )
     const effect = vi.fn(async () => {
       if (failure === 'owner-cancel') owner.abort(new Error('Owner cancelled after effect'))
       if (failure === 'native-cancel') native.abort(new Error('Native cancelled after effect'))
@@ -1204,7 +1229,7 @@ it.each(['owner-cancel', 'native-cancel'])(
     })
     const fetcher = vi.fn()
     vi.stubGlobal('fetch', fetcher)
-    const { tools, toolRuns } = createAgentToolSet(
+    const { tools, toolResults } = createAgentToolSet(
       [
         {
           id: 'image_result',
@@ -1223,9 +1248,8 @@ it.each(['owner-cancel', 'native-cancel'])(
     expect(effect).toHaveBeenCalledOnce()
     expect(fetcher).not.toHaveBeenCalled()
     expect(owner.signal.aborted).toBe(true)
-    expect(toolRuns).toHaveLength(1)
-    expect(toolRuns[0].success).toBe(true)
-    expect(toolRuns[0].result).toBe(raw)
+    expect(toolResults).toEqual([{ toolCallId: undefined, inference: getInferenceFacts(raw) }])
+    expect(JSON.stringify(toolResults)).not.toContain(liveToolImage.toString('base64'))
   }
 )
 

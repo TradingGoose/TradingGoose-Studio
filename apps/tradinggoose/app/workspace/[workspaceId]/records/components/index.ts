@@ -1,7 +1,6 @@
 export { LogDetails } from './log-details'
 export { FrozenCanvasModal } from './log-details/components/execution-snapshot'
 export { FileDownload } from './log-details/components/file-download'
-export { ToolCallsDisplay } from './log-details/components/tool-calls'
 export { TraceSpans } from './log-details/components/trace-spans'
 export { LogRowContextMenu } from './log-row-context-menu'
 export { LogsList } from './logs-list'

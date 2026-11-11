@@ -122,7 +122,7 @@ export class AgentBlockHandler implements BlockHandler {
     const { blockData, blockNameMapping } = collectBlockData(context)
     const abortController = new AbortController()
     const signal = AbortSignal.any([abortController.signal, AbortSignal.timeout(REQUEST_TIMEOUT)])
-    const { tools, toolRuns } = createAgentToolSet(
+    const { tools, toolResults } = createAgentToolSet(
       formattedTools,
       {
         ...context,
@@ -136,7 +136,6 @@ export class AgentBlockHandler implements BlockHandler {
       { signal, abort: (reason) => abortController.abort(reason) }
     )
     const policy = createForcedToolPolicy(formattedTools)
-    const startedAt = new Date()
     const runId = crypto.randomUUID()
     if (
       !context.workspaceId ||
@@ -236,9 +235,8 @@ export class AgentBlockHandler implements BlockHandler {
         result,
         model,
         accounting,
-        toolRuns,
-        responseFormat !== undefined,
-        startedAt
+        toolResults,
+        responseFormat !== undefined
       )
       getInferenceFacts(output)!.history = history
       return output
@@ -247,16 +245,14 @@ export class AgentBlockHandler implements BlockHandler {
       stopCancellationCheck()
       const accounting = work.accounting()
       const failure = new Error(safeInferenceError(error, inputs.apiKey))
-      const toolMetadata = extractCompletedToolMetadata(toolRuns)
       const owned = {
         model,
         ...accounting,
-        ...toolMetadata,
       }
       Object.assign(failure, owned)
       const facts = {
         ...owned,
-        toolResults: toolResultInference(toolMetadata.toolResults),
+        toolResults,
         history,
         generatedFields: Object.keys(owned),
       }
@@ -276,6 +272,7 @@ export class AgentBlockHandler implements BlockHandler {
         throw await fail(error)
       }
     }
+    const startedAt = new Date()
     const execution: StreamingExecution['execution'] = {
       success: true,
       output: {},
@@ -703,7 +700,7 @@ export function createAgentToolSet(
   executionContext: ExecutionContext | undefined,
   nativeMedia: { signal: AbortSignal; abort: (reason: unknown) => void }
 ) {
-  const toolRuns: Array<Record<string, any>> = []
+  const toolResults: NonNullable<InferenceFacts['toolResults']> = []
   const tools = Object.fromEntries(
     namedAgentTools(configured)
       .filter(({ tool }) => tool.usageControl !== 'none')
@@ -716,18 +713,8 @@ export function createAgentToolSet(
           inputSchema: toStandardSchema(tool.parameters),
           execute: async (inputData, nativeContext) => {
             assertNativeToolArguments(inputData)
-            const startedAt = new Date()
             const params = { ...(inputData as Record<string, any>), ...tool.params }
-            const run: Record<string, any> = {
-              id: tool.id,
-              nativeName,
-              name: tool.name || tool.id,
-              toolCallId: nativeContext?.agent?.toolCallId,
-              arguments: params,
-              startTime: startedAt.toISOString(),
-              success: false,
-            }
-            toolRuns.push(run)
+            let inference: InferenceFacts | undefined
             try {
               const result = tool.executeFunction
                 ? await tool.executeFunction(params, nativeContext?.abortSignal)
@@ -754,13 +741,12 @@ export function createAgentToolSet(
                     executionContext,
                     { signal: nativeContext?.abortSignal }
                   )
-              run.result = tool.executeFunction ? result : result.output
+              const output = tool.executeFunction ? result : result.output
+              inference = getInferenceFacts(output)
               if (result?.success === false)
                 throw new Error(result.error || `Tool ${tool.id} failed`)
-              run.success = true
-              const facts = getInferenceFacts(run.result)
-              const functional = facts ? { ...run.result } : run.result
-              if (facts) for (const field of facts.generatedFields) delete functional[field]
+              const functional = inference ? { ...output } : output
+              if (inference) for (const field of inference.generatedFields) delete functional[field]
               try {
                 return await normalizeNativeToolResult(functional, {
                   actorUserId: scope.userId,
@@ -770,28 +756,22 @@ export function createAgentToolSet(
                     : nativeMedia.signal,
                 })
               } catch (error) {
-                // The effect and raw result are already known; refuse unsafe model continuation.
+                // The effect is already complete; refuse unsafe model continuation.
                 nativeMedia.abort(error)
                 throw error
               }
             } catch (error) {
-              if (
-                getInferenceFacts(error) ||
-                (error && typeof error === 'object' && ('cost' in error || 'tokens' in error))
-              ) {
-                run.result = error
-              }
-              run.error = error instanceof Error ? error.message : String(error)
+              inference = getInferenceFacts(error) ?? inference
               throw error
             } finally {
-              run.endTime = new Date().toISOString()
-              run.duration = Date.now() - startedAt.getTime()
+              if (inference)
+                toolResults.push({ toolCallId: nativeContext?.agent?.toolCallId, inference })
             }
           },
         }),
       ])
   )
-  return { tools, toolRuns }
+  return { tools, toolResults }
 }
 
 /** Force names are selected from observed successful calls in configured order. */
@@ -868,9 +848,8 @@ export function extractAgentOutput(
   result: any,
   model: string,
   accounting: Awaited<ReturnType<typeof resultAccounting>>,
-  toolRuns: Array<Record<string, any>> = [],
-  structured = false,
-  startedAt = new Date()
+  toolResults: NonNullable<InferenceFacts['toolResults']> = [],
+  structured = false
 ): BlockOutput {
   assertNativeCompletion(result)
   if (
@@ -879,68 +858,17 @@ export function extractAgentOutput(
   ) {
     throw new Error('Agent response format requires a valid JSON object')
   }
-  const toolMetadata = extractCompletedToolMetadata(toolRuns)
   const facts = {
     model,
     ...accounting,
-    ...toolMetadata,
-    toolCalls: { list: toolRuns, count: toolRuns.length },
-    providerTiming: {
-      duration: Date.now() - startedAt.getTime(),
-      startTime: startedAt.toISOString(),
-      endTime: new Date().toISOString(),
-      segments: [],
-    },
   }
   const business = structured ? result.object : { content: result.text }
   return withInferenceFacts(
     { ...facts, ...business },
     {
       ...facts,
-      toolResults: toolResultInference(toolMetadata.toolResults),
+      toolResults,
       generatedFields: Object.keys(facts).filter((key) => !Object.hasOwn(business, key)),
     }
   )
-}
-
-/** Only producer-owned facts enter the JSON-safe execution tree; business results stay separate. */
-function toolResultInference(toolResults: any[]): NonNullable<InferenceFacts['toolResults']> {
-  return toolResults.flatMap((result) => {
-    const inference = getInferenceFacts(result)
-    return inference ? [{ toolCallId: result.toolCallId, inference }] : []
-  })
-}
-
-/** Completed tool charges remain separate from native model spend on every outcome. */
-export function extractCompletedToolMetadata(toolRuns: Array<Record<string, any>>) {
-  const completed = toolRuns.filter((run) => run.success || run.result?.cost || run.result?.tokens)
-  const seen = new Set<string>()
-  let toolCost: number | undefined
-  let unavailableToolCosts = 0
-  for (const run of completed) {
-    const facts = getInferenceFacts(run.result)
-    if (!facts) continue
-    const cost = facts.cost
-    const ids: string[] = run.toolCallId ? [run.toolCallId] : []
-    if (ids.length && ids.every((id) => seen.has(id))) continue
-    ids.forEach((id) => seen.add(id))
-    const amount = cost?.total ?? cost?.availableTotal
-    if (typeof amount === 'number' && Number.isFinite(amount) && amount >= 0)
-      toolCost = (toolCost ?? 0) + amount
-    if (cost?.status === 'unavailable' || cost?.status === 'partial') unavailableToolCosts += 1
-  }
-  return {
-    ...(toolCost !== undefined ? { toolCost } : {}),
-    ...(unavailableToolCosts ? { unavailableToolCosts } : {}),
-    toolResults: completed.map((run) => {
-      const facts = getInferenceFacts(run.result)
-      const result =
-        run.result instanceof Error && facts
-          ? withInferenceFacts({ name: 'Error', message: safeInferenceError(run.result) }, facts)
-          : run.result
-      return result && typeof result === 'object'
-        ? { ...result, toolCallId: run.toolCallId }
-        : result
-    }),
-  }
 }

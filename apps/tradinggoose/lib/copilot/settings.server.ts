@@ -1,13 +1,9 @@
 import { providers } from '@opencode-ai/models/snapshot'
 import { getSystemServiceDefinition } from '@/lib/system-services/catalog'
 import { resolveSystemServiceConfig } from '@/lib/system-services/service'
-import { getResolvedSystemSettings } from '@/lib/system-settings/service'
+import { getCopilotSettings } from '@/lib/system-settings/service'
 import { NativeTargetError } from './native/errors'
-import { type CopilotModelOption, type CopilotSettings, getCopilotModelId } from './settings'
-
-export async function getCopilotSettings(): Promise<CopilotSettings> {
-  return (await getResolvedSystemSettings()).copilot
-}
+import { type CopilotModelOption, getCopilotModelId } from './settings'
 
 export async function resolveCopilotModel(
   modelId?: string

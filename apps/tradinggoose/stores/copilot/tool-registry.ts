@@ -30,53 +30,21 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('CopilotToolRegistry')
 
-type ToolExecutionKind = 'client' | 'server'
-
 type ClientToolCtor = {
   new (toolCallId: string): BaseClientTool
   metadata: BaseClientToolMetadata
   id: ToolId
 }
 
-interface CopilotToolDefinition {
-  execution: ToolExecutionKind
-  gated: boolean
-  metadata: BaseClientToolMetadata
-  createInstance?: (toolCallId: string) => BaseClientTool
-}
-
-function clientTool(Ctor: ClientToolCtor): CopilotToolDefinition {
-  return {
-    execution: 'client',
-    gated: getCopilotToolPolicy(Ctor.id).gated,
-    metadata: Ctor.metadata,
-    createInstance: (toolCallId) => new Ctor(toolCallId),
-  }
-}
-
-function serverTool(toolName: keyof typeof SERVER_TOOL_METADATA): CopilotToolDefinition {
-  return {
-    execution: 'server',
-    gated: getCopilotToolPolicy(toolName).gated,
-    metadata: SERVER_TOOL_METADATA[toolName],
-  }
-}
-
-const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
-  ...(Object.fromEntries(
-    (Object.keys(SERVER_TOOL_METADATA) as (keyof typeof SERVER_TOOL_METADATA)[]).map((toolName) => [
-      toolName,
-      serverTool(toolName),
-    ])
-  ) as Record<keyof typeof SERVER_TOOL_METADATA, CopilotToolDefinition>),
-  run_workflow: clientTool(RunWorkflowClientTool),
-  plan: clientTool(PlanClientTool),
-  checkoff_todo: clientTool(CheckoffTodoClientTool),
-  mark_todo_in_progress: clientTool(MarkTodoInProgressClientTool),
-  gdrive_request_access: clientTool(GDriveRequestAccessClientTool),
-  oauth_request_access: clientTool(OAuthRequestAccessClientTool),
-  deploy_workflow: clientTool(DeployWorkflowClientTool),
-  sleep: clientTool(SleepClientTool),
+const CLIENT_TOOL_CONSTRUCTORS: Partial<Record<ToolId, ClientToolCtor>> = {
+  run_workflow: RunWorkflowClientTool,
+  plan: PlanClientTool,
+  checkoff_todo: CheckoffTodoClientTool,
+  mark_todo_in_progress: MarkTodoInProgressClientTool,
+  gdrive_request_access: GDriveRequestAccessClientTool,
+  oauth_request_access: OAuthRequestAccessClientTool,
+  deploy_workflow: DeployWorkflowClientTool,
+  sleep: SleepClientTool,
 }
 
 export function createExecutionContext(params: {
@@ -108,43 +76,31 @@ export function createExecutionContext(params: {
   }
 }
 
-export function getCopilotToolDefinition(
-  toolName: string | undefined
-): CopilotToolDefinition | undefined {
-  if (!toolName || !isToolId(toolName)) {
-    return undefined
-  }
-
-  return COPILOT_TOOL_REGISTRY[toolName]
-}
-
-export function isCopilotTool(toolName: string | undefined): boolean {
-  return !!getCopilotToolDefinition(toolName)
+export function isCopilotTool(toolName: string | undefined): toolName is ToolId {
+  return !!toolName && isToolId(toolName)
 }
 
 export function isGatedTool(toolName: string | undefined): boolean {
-  return getCopilotToolDefinition(toolName)?.gated ?? true
-}
-
-export function isClientManagedCopilotTool(toolName: string | undefined): boolean {
-  return getCopilotToolDefinition(toolName)?.execution === 'client'
+  return isCopilotTool(toolName) ? getCopilotToolPolicy(toolName).gated : true
 }
 
 export function isServerManagedCopilotTool(toolName: string | undefined): boolean {
-  return getCopilotToolDefinition(toolName)?.execution === 'server'
+  return isCopilotTool(toolName) && getCopilotToolPolicy(toolName).execution === 'server'
 }
 
 export function getCopilotToolMetadata(
   toolName: string | undefined
 ): BaseClientToolMetadata | undefined {
-  return getCopilotToolDefinition(toolName)?.metadata
+  if (!isCopilotTool(toolName)) return undefined
+  const Ctor = CLIENT_TOOL_CONSTRUCTORS[toolName]
+  return Ctor ? Ctor.metadata : SERVER_TOOL_METADATA[toolName as keyof typeof SERVER_TOOL_METADATA]
 }
 
 export function ensureClientToolInstance(
   toolName: string | undefined,
   toolCallId: string | undefined
 ): BaseClientTool | undefined {
-  if (!toolName || !toolCallId) {
+  if (!isCopilotTool(toolName) || !toolCallId) {
     return undefined
   }
 
@@ -153,12 +109,12 @@ export function ensureClientToolInstance(
     return existing
   }
 
-  const definition = getCopilotToolDefinition(toolName)
-  if (definition?.execution !== 'client' || !definition.createInstance) {
+  const Ctor = CLIENT_TOOL_CONSTRUCTORS[toolName]
+  if (!Ctor) {
     return undefined
   }
 
-  const instance = definition.createInstance(toolCallId)
+  const instance = new Ctor(toolCallId)
   registerClientTool(toolCallId, instance)
   return instance
 }

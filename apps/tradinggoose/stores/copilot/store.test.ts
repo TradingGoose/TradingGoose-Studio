@@ -85,6 +85,9 @@ const history = [
     parts: [{ type: 'text', text: 'canonical answer' }],
   },
 ]
+const historyResponse = (pending: Pending[]) =>
+  json({ status: 'history', threadId, items: history, pending })
+
 let commands: CopilotRequest[]
 let onCommand: (
   request: CopilotRequest,
@@ -119,12 +122,11 @@ function defaultResponse(request: CopilotRequest) {
     return json(
       result(request, {
         status: 'history',
+        pending: [],
         threadId: request.threadId,
         items: history,
       })
     )
-  if (request.command === 'pending.list')
-    return json(result(request, { status: 'pending_targets', items: [] }))
   if (request.command === 'threads.list')
     return json(
       result(request, {
@@ -406,7 +408,7 @@ describe('canonical browser conversation transport', () => {
     })
     expect(titleRequests).toEqual([])
   })
-  it('settles a genuine pending tool when cancellation follows', async () => {
+  it('settles a displayed tool when cancellation follows', async () => {
     setChat()
     const item = pending('approval')
     onCommand = (request) =>
@@ -414,8 +416,9 @@ describe('canonical browser conversation transport', () => {
         ? eventResponse(request, [
             { type: 'response.started', runId, threadId },
             {
-              type: 'tool.pending',
-              pending: item,
+              type: 'tool.display',
+              toolCallId: item.target.toolCallId,
+              toolName: item.target.toolName,
             },
             {
               type: 'response.cancel_requested',
@@ -437,7 +440,7 @@ describe('canonical browser conversation transport', () => {
     })
     expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
   })
-  it('settles pending tools during a UI abort and separate cancel acknowledgement', async () => {
+  it('settles display-only tools during a UI abort and waits for cancellation acknowledgement', async () => {
     setChat()
     const item = pending('approval')
     const acknowledgement = defer<Response>()
@@ -452,8 +455,9 @@ describe('canonical browser conversation transport', () => {
                   const frames = [
                     { type: 'response.started', runId, threadId },
                     {
-                      type: 'tool.pending',
-                      pending: item,
+                      type: 'tool.display',
+                      toolCallId: item.target.toolCallId,
+                      toolName: item.target.toolName,
                     },
                   ]
                   controller.enqueue(
@@ -473,11 +477,13 @@ describe('canonical browser conversation transport', () => {
           : undefined
     const sending = store().getState().sendMessage('Read')
     await vi.waitFor(() =>
-      expect(store().getState().toolCallsById[item.target.toolCallId]?.pending).toBeDefined()
+      expect(store().getState().toolCallsById[item.target.toolCallId]?.state).toBe(
+        ClientToolCallState.generating
+      )
     )
     store().getState().abortMessage()
     expect(store().getState().isAborting).toBe(true)
-    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(true)
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
     expect(await store().getState().sendMessage('Wait for cancellation')).toBe(false)
     const cancel = commands.find((request) => request.command === 'cancel')!
     acknowledgement.resolve(defaultResponse(cancel))
@@ -508,9 +514,7 @@ describe('canonical browser conversation transport', () => {
   it('cancels a restored suspended run without a new streaming response', async () => {
     const item = pending('approval')
     onCommand = (request) =>
-      request.command === 'pending.list'
-        ? json({ status: 'pending_targets', items: [item] })
-        : undefined
+      request.command === 'history.read' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
     expect(store().getState().currentRunId).toBe(runId)
     store().getState().abortMessage()
@@ -581,19 +585,12 @@ describe('canonical browser conversation transport', () => {
 })
 
 describe('local pending approval and preview decisions', () => {
-  const pendingResponse = (request: CopilotRequest, items: Pending[]) =>
-    json(
-      result(request, {
-        status: 'pending_targets',
-        items,
-      })
-    )
   it('keeps full-access approval explicit and sends no browser billing provenance', async () => {
     const item = pending('approval', 'make_api_request')
     installPending(item)
     store().setState({ accessLevel: 'full' })
     onCommand = (request) =>
-      request.command === 'pending.list' ? pendingResponse(request, [item]) : undefined
+      request.command === 'history.read' ? historyResponse([item]) : undefined
     expect(commands.some((request) => request.command === 'tool.approve')).toBe(false)
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
     const approval = commands.find((request) => request.command === 'tool.approve')
@@ -636,7 +633,7 @@ describe('local pending approval and preview decisions', () => {
     const item = pending('approval')
     installPending(item)
     onCommand = (request) =>
-      request.command === 'pending.list' ? pendingResponse(request, [item]) : undefined
+      request.command === 'history.read' ? historyResponse([item]) : undefined
     await store().getState().skipCopilotToolCall(item.target.toolCallId)
     expect(commands.some((request) => request.command === 'tool.decline')).toBe(true)
     expect(commands.some((request) => request.command === 'cancel')).toBe(false)
@@ -658,8 +655,8 @@ describe('local pending approval and preview decisions', () => {
     }))
     const gate = defer<Response>()
     onCommand = (request) =>
-      request.command === 'pending.list'
-        ? pendingResponse(request, [first, second])
+      request.command === 'history.read'
+        ? historyResponse([first, second])
         : request.command === 'tool.execute'
           ? gate.promise
           : undefined
@@ -692,6 +689,7 @@ describe('canonical history, edits and context', () => {
         ? json(
             result(request, {
               status: 'history',
+              pending: [],
               threadId,
               items: [
                 {
@@ -785,17 +783,13 @@ describe('actual bounded initial-title publication', () => {
       })
       let persisted = false
       onCommand = (request) => {
-        if (request.command === 'pending.list' && persisted && status === 'suspended')
-          return json(
-            result(request, {
-              status: 'pending_targets',
-              items: [pending('approval')],
-            })
-          )
+        if (request.command === 'history.read' && persisted && status === 'suspended')
+          return historyResponse([pending('approval')])
         if (request.command === 'history.read' && !persisted)
           return json(
             result(request, {
               status: 'history',
+              pending: [],
               threadId,
               items: [],
             })
@@ -992,6 +986,7 @@ describe('owned late history-edit refresh', () => {
           return json(
             result(request, {
               status: 'history',
+              pending: [],
               threadId: request.threadId,
               items: [
                 {
@@ -1087,6 +1082,7 @@ describe('owned late history-edit refresh', () => {
       json(
         result(original, {
           status: 'history',
+          pending: [],
           threadId,
           items: history,
         })
@@ -1188,14 +1184,7 @@ describe('reopened workflow pending cards', () => {
       originalArgs: { entityId: 'original-workflow', action: 'deploy', deployType: 'api' },
     }
     onCommand = (request) =>
-      request.command === 'pending.list'
-        ? json(
-            result(request, {
-              status: 'pending_targets',
-              items: [item],
-            })
-          )
-        : undefined
+      request.command === 'history.read' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat(null))
     commands = []
     expect(await store().getState().readPendingTool(item.target.toolCallId)).toEqual(item)
@@ -1327,14 +1316,7 @@ describe('explicit reopened Drive business choice', () => {
   const prepare = (item = drive()) => {
     installPending(item)
     onCommand = (request) =>
-      request.command === 'pending.list'
-        ? json(
-            result(request, {
-              status: 'pending_targets',
-              items: [item],
-            })
-          )
-        : undefined
+      request.command === 'history.read' ? historyResponse([item]) : undefined
     const original = vi.mocked(fetch).getMockImplementation()!
     vi.mocked(fetch).mockImplementation(async (url, init) =>
       String(url) === '/api/workspaces'
@@ -1503,13 +1485,7 @@ describe('R5 reopened OAuth workspace authorization', () => {
       { id: 'original-entity-workspace', name: 'Original business' },
     ]
     onCommand = (request) => {
-      if (request.command === 'pending.list')
-        return json(
-          result(request, {
-            status: 'pending_targets',
-            items: [item],
-          })
-        )
+      if (request.command === 'history.read') return historyResponse([item])
       if (request.command === 'tool.approve') {
         item.stage = 'result'
         return json(suspended(request, [item]))
@@ -1659,7 +1635,7 @@ describe('R5 reopened OAuth workspace authorization', () => {
 
 describe('R5 per-tool context at actual live call creation', () => {
   it.each(
-    (['display-first', 'pending-first', 'json'] as const).flatMap((order) =>
+    (['display', 'terminal'] as const).flatMap((order) =>
       [0, 1].map((index) => [order, index] as const)
     )
   )(
@@ -1678,26 +1654,17 @@ describe('R5 per-tool context at actual live call creation', () => {
       }
       const items = [layout, watchlist]
       onCommand = (request) => {
-        if (request.command === 'pending.list')
-          return json(
-            result(request, {
-              status: 'pending_targets',
-              items,
-            })
-          )
+        if (request.command === 'history.read') return historyResponse(items)
         if (request.command === 'message') {
-          if (order === 'json') return json(suspended(request, items))
+          if (order === 'terminal') return json(suspended(request, items))
           const displays = items.map((item) => ({
             type: 'tool.display',
             toolCallId: item.target.toolCallId,
             toolName: item.target.toolName,
           }))
-          const pendings = items.map((item) => ({ type: 'tool.pending', pending: item }))
           return eventResponse(request, [
             { type: 'response.started', threadId, runId },
-            ...(order === 'display-first'
-              ? [...displays, ...pendings]
-              : [...pendings, ...displays]),
+            ...displays,
             { type: 'response.suspended', result: suspended(request, items) },
           ])
         }
@@ -1784,14 +1751,7 @@ describe('owned workflow chat deployment UI', () => {
     installPending(item)
     store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
     onCommand = (request) =>
-      request.command === 'pending.list'
-        ? json(
-            result(request, {
-              status: 'pending_targets',
-              items: [item],
-            })
-          )
-        : undefined
+      request.command === 'history.read' ? historyResponse([item]) : undefined
     return item
   }
   const open = () =>
@@ -1931,13 +1891,6 @@ describe('owned workflow chat deployment UI', () => {
 })
 
 describe('built-in tool continuation', () => {
-  const pendingResponse = (request: CopilotRequest, items: Pending[]) =>
-    json(
-      result(request, {
-        status: 'pending_targets',
-        items,
-      })
-    )
   it.each(['limited', 'full'] as const)(
     'never automatically accepts a persisted preview under %s access',
     async (accessLevel) => {
@@ -1947,8 +1900,8 @@ describe('built-in tool continuation', () => {
       onCommand = (request) =>
         request.command === 'message'
           ? json(suspended(request, [item]))
-          : request.command === 'pending.list'
-            ? pendingResponse(request, [item])
+          : request.command === 'history.read'
+            ? historyResponse([item])
             : undefined
       expect(await store().getState().sendMessage('Prepare edit')).toBe(true)
       await new Promise<void>((resolve) => queueMicrotask(resolve))
@@ -1969,8 +1922,8 @@ describe('built-in tool continuation', () => {
     const other = { ...pending('approval'), target: { ...pending().target, toolCallId: 'other' } }
     installPending(item)
     onCommand = (request) =>
-      request.command === 'pending.list'
-        ? pendingResponse(request, [item, other])
+      request.command === 'history.read'
+        ? historyResponse([item, other])
         : request.command === 'tool.execute'
           ? json(suspended(request, [other]))
           : undefined
@@ -1992,8 +1945,8 @@ describe('built-in tool continuation', () => {
     onCommand = (request) =>
       request.command === 'tool.execute'
         ? json(suspended(request, [fresh]))
-        : request.command === 'pending.list'
-          ? pendingResponse(request, [fresh])
+        : request.command === 'history.read'
+          ? historyResponse([fresh])
           : undefined
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
     expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
@@ -2007,8 +1960,8 @@ describe('built-in tool continuation', () => {
     installPending(item)
     const gate = defer<Response>()
     onCommand = (request) =>
-      request.command === 'pending.list'
-        ? pendingResponse(request, [item])
+      request.command === 'history.read'
+        ? historyResponse([item])
         : request.command === 'tool.execute'
           ? gate.promise
           : undefined

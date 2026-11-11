@@ -21,7 +21,7 @@ describe('browser assertions cannot become authoritative business results', () =
     (toolName) => {
       expect(() =>
         validateNativeBrowserAssertion(pending(toolName), {
-          kind: 'selection.submitted',
+          kind: 'ui.opened',
           data: { success: true, granted: true },
         })
       ).toThrow('authoritative Studio')

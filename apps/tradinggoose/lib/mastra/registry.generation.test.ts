@@ -6,6 +6,7 @@ const auth = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/auth/hybrid', () => ({ checkSessionOrInternalAuth: auth }))
 
 import { GET } from '@/app/api/models/route'
+import * as registry from './registry'
 import {
   assertListedEmbeddingModel,
   assertListedModel,
@@ -30,7 +31,10 @@ beforeEach(() => {
   }
   vi.stubEnv('MASTRA_MODEL_PROVIDERS', JSON.stringify(providers))
 })
-afterEach(() => vi.unstubAllEnvs())
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.restoreAllMocks()
+})
 
 it('excludes every exact installed native embedding identity from generation and keeps embedding access', () => {
   const generation = new Set(getModelRegistry().flatMap(({ models }) => models.map(({ id }) => id)))
@@ -80,6 +84,16 @@ it('uses the same generation filter in the authenticated picker API and leaves e
   expect(JSON.stringify(body)).not.toMatch(/not-contacted|apiKey|headers/)
   const embeddingResponse = await GET(new NextRequest('http://localhost/api/models?type=embedding'))
   expect(await embeddingResponse.json()).toEqual({ models: getEmbeddingModelRegistry() })
-  auth.mockResolvedValue({ success: false })
-  expect((await GET(new NextRequest('http://localhost/api/models'))).status).toBe(401)
 })
+
+it.each(['', '?type=embedding'])(
+  'rejects unauthenticated discovery %s before reading the registry',
+  async (query) => {
+    const generation = vi.spyOn(registry, 'getModelRegistry')
+    const embeddings = vi.spyOn(registry, 'getEmbeddingModelRegistry')
+    auth.mockResolvedValue({ success: false })
+    expect((await GET(new NextRequest(`http://localhost/api/models${query}`))).status).toBe(401)
+    expect(generation).not.toHaveBeenCalled()
+    expect(embeddings).not.toHaveBeenCalled()
+  }
+)

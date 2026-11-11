@@ -53,9 +53,8 @@ export function TraceSpanItem({
   const spanId = span.id || `span-${span.name}-${span.startTime}`
   const expanded = expandedSpans.has(spanId)
   const hasChildren = span.children && span.children.length > 0
-  const hasToolCalls = span.toolCalls && span.toolCalls.length > 0
   const hasInputOutput = Boolean(span.input || span.output || span.agentHistory)
-  const hasNestedItems = hasChildren || hasToolCalls || hasInputOutput
+  const hasNestedItems = hasChildren || hasInputOutput
   const displayCost = span.cost
 
   const spanStartTime = new Date(span.startTime).getTime()
@@ -409,9 +408,6 @@ export function TraceSpanItem({
             )}
 
             {(() => {
-              const providerTiming = span.providerTiming
-              const hasSegs =
-                Array.isArray(providerTiming?.segments) && providerTiming.segments.length > 0
               const type = String(span.type || '').toLowerCase()
               const isDark =
                 typeof document !== 'undefined' &&
@@ -502,66 +498,6 @@ export function TraceSpanItem({
               return render
             })()}
 
-            {(() => {
-              const providerTiming = span.providerTiming
-              const segments: Array<{
-                type: string
-                startTime: string | number
-                endTime: string | number
-                name?: string
-              }> = []
-
-              const isWorkflow = String(span.type || '').toLowerCase() === 'workflow'
-
-              // For workflow rows, avoid duplicating model/streaming info on the base rail –
-              // those are already represented inside Agent. Only show provider timing if present.
-              if (
-                !hasChildren &&
-                providerTiming?.segments &&
-                Array.isArray(providerTiming.segments)
-              ) {
-                providerTiming.segments.forEach((seg) =>
-                  segments.push({
-                    type: seg.type || 'segment',
-                    startTime: seg.startTime,
-                    endTime: seg.endTime,
-                    name: seg.name,
-                  })
-                )
-              }
-              if (!segments.length || safeWidthPercent <= 0) return null
-
-              return segments
-                .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
-                .map((seg, index) => {
-                  const startMs = new Date(seg.startTime).getTime()
-                  const endMs = new Date(seg.endTime).getTime()
-                  const segDuration = endMs - startMs
-
-                  // Calculate position on the GLOBAL workflow timeline
-                  // This ensures overlay segments align with their corresponding child rows
-                  const segmentStartPercent =
-                    totalDuration > 0 ? ((startMs - workflowStartTime) / totalDuration) * 100 : 0
-                  const segmentWidthPercent =
-                    totalDuration > 0 ? (segDuration / totalDuration) * 100 : 0
-
-                  const color = seg.type === 'tool' ? getSpanColor('tool') : getSpanColor('model')
-
-                  return (
-                    <div
-                      key={`${seg.type}-${index}`}
-                      className='absolute h-full'
-                      style={{
-                        left: `${Math.max(0, Math.min(100, segmentStartPercent))}%`,
-                        width: `${Math.max(0.1, Math.min(100, segmentWidthPercent))}%`,
-                        backgroundColor: color,
-                        zIndex: 6,
-                      }}
-                      title={`${seg.type}${seg.name ? `: ${seg.name}` : ''} - ${Math.round(segDuration)}ms`}
-                    />
-                  )
-                })
-            })()}
             {hoveredPercent != null && (
               <div
                 className='dark: /45 pointer-events-none absolute top-[-10px] bottom-[-10px] w-px bg-black/30'
@@ -618,50 +554,6 @@ export function TraceSpanItem({
                 forwardHover={forwardHover}
                 gapBeforeMs={childGapMs}
                 gapBeforePercent={childGapPercent}
-                jsonDisplayMode={jsonDisplayMode}
-                jsonWrapText={jsonWrapText}
-                chipVisibility={chipVisibility}
-              />
-            )
-          })}
-        </div>
-      )}
-
-      {hasToolCalls && (
-        <div>
-          {span.toolCalls?.map((toolCall, index) => {
-            const toolStartTime = toolCall.startTime
-              ? new Date(toolCall.startTime).getTime()
-              : spanStartTime
-            const toolEndTime = toolCall.endTime
-              ? new Date(toolCall.endTime).getTime()
-              : toolStartTime + (toolCall.duration || 0)
-
-            const toolSpan: TraceSpan = {
-              id: `${spanId}-tool-${index}`,
-              name: toolCall.name,
-              type: 'tool',
-              duration: toolCall.duration || toolEndTime - toolStartTime,
-              startTime: new Date(toolStartTime).toISOString(),
-              endTime: new Date(toolEndTime).toISOString(),
-              status: toolCall.error ? 'error' : 'success',
-              input: toolCall.input,
-              output: toolCall.error
-                ? { error: toolCall.error, ...(toolCall.output || {}) }
-                : toolCall.output,
-            }
-
-            return (
-              <TraceSpanItem
-                key={`tool-${index}`}
-                span={toolSpan}
-                depth={depth + 1}
-                totalDuration={totalDuration}
-                parentStartTime={spanStartTime}
-                workflowStartTime={workflowStartTime}
-                onToggle={onToggle}
-                expandedSpans={expandedSpans}
-                forwardHover={forwardHover}
                 jsonDisplayMode={jsonDisplayMode}
                 jsonWrapText={jsonWrapText}
                 chipVisibility={chipVisibility}

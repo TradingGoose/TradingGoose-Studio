@@ -208,12 +208,12 @@ function suspended(result: CopilotResponse) {
 }
 async function pending(threadId: string) {
   const { result } = await command({
-    command: 'pending.list',
+    command: 'history.read',
     threadId,
   })
-  expect(result.status).toBe('pending_targets')
-  if (result.status !== 'pending_targets') throw new Error(JSON.stringify(result))
-  return result.items
+  expect(result.status).toBe('history')
+  if (result.status !== 'history') throw new Error(JSON.stringify(result))
+  return result.pending
 }
 
 beforeEach(() => {

@@ -13,18 +13,11 @@ interface AgentResponse extends ToolResponse {
   output: {
     content: string
     model: string
+    cost?: import('@/lib/mastra/usage').NativeCost
     tokens?: {
       prompt?: number
       completion?: number
       total?: number
-    }
-    toolResults?: any[]
-    toolCalls?: {
-      list: Array<{
-        name: string
-        arguments: Record<string, any>
-      }>
-      count: number
     }
   }
 }
@@ -39,7 +32,7 @@ export const AgentBlock: BlockConfig<AgentResponse> = {
   bestPractices: `
   - Cannot use core blocks like API, Webhook, Function, Workflow, Memory as tools. Only integrations or custom tools. 
   - Check custom tools examples for YAML syntax. Only construct these if there isn't an existing integration for that purpose.
-  - Response Format must be a JSON object containing a JSON Schema in its schema field. Returned fields can be accessed at root level by the following blocks: e.g. <agent1.field>. If response format is not present, the agent will return the standard outputs: content, model, tokens, toolCalls.
+  - Response Format must be a JSON object containing a JSON Schema in its schema field. Returned fields can be accessed at root level by the following blocks: e.g. <agent1.field>. If response format is not present, the agent will return the standard outputs: content, model, tokens, cost. Detailed inputs, turns, and tool results are available in the workflow execution’s Mastra history.
   `,
   docsLink: 'https://docs.tradinggoose.ai/blocks/agent',
   category: 'blocks',
@@ -374,7 +367,9 @@ Example 3 (Array Input):
     content: { type: 'string', description: 'Generated response content' },
     model: { type: 'string', description: 'Model used for generation' },
     tokens: { type: 'any', description: 'Token usage statistics' },
-    toolCalls: { type: 'any', description: 'Tool calls made' },
-    toolResults: { type: 'any', description: 'Tool results returned by the provider' },
+    cost: {
+      type: 'object',
+      description: 'Reported or estimated model cost in USD, with availability status',
+    },
   },
 }

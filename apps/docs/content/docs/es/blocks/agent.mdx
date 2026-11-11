@@ -113,7 +113,7 @@ Configura los mensajes del sistema y del usuario, las herramientas, las habilida
 
 Auto permite que el modelo elija una herramienta; Force exige cada herramienta marcada en el orden configurado y después vuelve a Auto; None excluye la herramienta. Una combinación no admitida o una secuencia forzada incompleta produce un error. Se conservan los argumentos fijos y el contexto autorizado del flujo.
 
-Sin formato estructurado, las salidas incluyen `content`, `model`, `tokens` y `toolCalls`. Response Format recibe un objeto con un JSON Schema en `schema`; sus campos se devuelven en la raíz para las referencias posteriores. Para persistir el historial, usa Memory Add y conecta Get Memory a Memories. La generación y el streaming usan Mastra. El ciclo independiente de creación y consulta de Gemini Interactions/Deep Research se ha eliminado.
+Sin formato estructurado, las salidas incluyen `content`, `model`, `tokens` y `cost`. Las entradas, los turnos, las llamadas a herramientas y sus resultados están disponibles en el historial de Mastra de la ejecución del flujo de trabajo. Response Format recibe un objeto con un JSON Schema en `schema`; sus campos se devuelven en la raíz para las referencias posteriores. Para persistir el historial, usa Memory Add y conecta Get Memory a Memories. La generación y el streaming usan Mastra. El ciclo independiente de creación y consulta de Gemini Interactions/Deep Research se ha eliminado.
 
 ## Uso y coste
 
