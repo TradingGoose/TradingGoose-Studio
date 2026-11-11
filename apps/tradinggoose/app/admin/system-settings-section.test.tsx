@@ -3,6 +3,7 @@ import { act } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import type { AdminSystemSettingsEditableFields } from '@/lib/admin/system-settings/types'
 import { useModelRegistry } from '@/stores/model-registry'
 import { AdminSystemSettingsSection } from './system-settings-section'
@@ -52,7 +53,7 @@ beforeEach(async () => {
   environment.IS_REACT_ACT_ENVIRONMENT = true
   vi.clearAllMocks()
   useModelRegistry.setState({
-    providers: [{ id: 'openai', name: 'OpenAI', models: [] }],
+    providers: [{ id: 'openai', name: 'OpenAI', models: [{ id: 'openai/current-model' }] }],
     isLoading: false,
     error: undefined,
     load: async () => {},
@@ -62,13 +63,16 @@ beforeEach(async () => {
     ...input,
   }))
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  queryClient.setQueryData(['provider-icons'], {})
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
   await act(async () =>
     root.render(
       <QueryClientProvider client={queryClient}>
-        <AdminSystemSettingsSection />
+        <TooltipProvider>
+          <AdminSystemSettingsSection />
+        </TooltipProvider>
       </QueryClientProvider>
     )
   )
@@ -87,14 +91,20 @@ it('saves the catalog atomically and refreshes public model and admin service qu
   expect(button('Save system settings')).toBeDisabled()
   await act(async () => button('Add model').click())
   expect(button('Save system settings')).toBeDisabled()
+  await act(async () => container.querySelector<HTMLButtonElement>('#copilot-model-1')!.click())
   await act(async () => {
-    const input = container.querySelector<HTMLInputElement>('#copilot-model-1')!
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Model"]')!
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
       input,
-      'future-model-not-in-registry'
+      'openai/future-model-not-in-registry'
     )
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
+  const candidate = [
+    ...document.querySelectorAll<HTMLButtonElement>('button[data-option-index]'),
+  ].find((button) => button.textContent?.trim() === 'openai/future-model-not-in-registry')!
+  expect(candidate).toBeDefined()
+  await act(async () => candidate.click())
   expect(button('Save system settings')).toBeEnabled()
   await act(async () => button('Save system settings').click())
   expect(fixture.update).toHaveBeenCalledOnce()
