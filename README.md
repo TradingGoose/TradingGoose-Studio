@@ -312,8 +312,10 @@ The chart drawing tools vendored in `apps/tradinggoose/widgets/widgets/data_char
 
 ### Built-in AI runtime
 
-Studio and Copilot share one Mastra runtime, PostgreSQL adapter, and Memory store in the application database configured by `DATABASE_URL`. Run `bun run db:migrate` to apply generated application migrations. Mastra initializes and upgrades its own tables in the `mastra` schema.
+Studio and Copilot share one Mastra runtime and Memory store in the application database configured by `DATABASE_URL`. The [shared runtime](apps/tradinggoose/lib/mastra/runtime.ts) combines only Mastra's native Memory and Workflows PostgreSQL adapters over one application-owned pool. Startup initializes their seven native tables in the `mastra` schema; no other Mastra domains are enabled. The pool owner closes it explicitly. Run `bun run db:migrate` separately for generated application migrations.
 
 Copilot and workflow Agents use Mastra's model/tool loop with their own instructions, tools, and permissions. All generation callers use the same [request preparation](apps/tradinggoose/lib/mastra/request.ts) for model connections, settings, processors, tracing, and accounting. Both histories use the same native message projection and ordered reader. Studio's executor still coordinates workflow blocks. See [built-in Copilot](apps/tradinggoose/lib/copilot/README.md) for configuration and verification.
 
 Studio's application billing services own usage checks and accrual. Model costs use provider-reported USD first, otherwise native token usage with the official `@opencode-ai/models` pricing snapshot. One shared calculator handles generation and embeddings; package updates refresh the rates. Custom endpoints never inherit another provider's prices. Unknown costs remain unavailable rather than becoming zero. Workflow logs and Copilot's native Mastra message metadata retain tokens, USD costs, and whether costs are reported or estimated.
+
+`bun run test` uses explicit database mocks and Mastra's native `InMemoryStore`. Test setup clears `DATABASE_URL` and rejects unmocked PostgreSQL drivers. Tests need no database configuration, containers, or migrations.
