@@ -249,6 +249,10 @@ describe('auth locale redirects', () => {
 
       expect(mockRefetchSession).not.toHaveBeenCalled()
       expect(mockFetch).not.toHaveBeenCalled()
+      expect(mockSendVerificationOtp).toHaveBeenCalledWith({
+        email: 'ada@example.com',
+        type: 'email-verification',
+      })
       expect(mockPush).toHaveBeenCalledWith('/verify?fromSignup=true')
     }
   )

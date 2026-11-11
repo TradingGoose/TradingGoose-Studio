@@ -746,6 +746,7 @@ export const auth = betterAuth({
     },
   },
   emailVerification: {
+    autoSignInAfterVerification: true,
     afterEmailVerification: async (user) => {
       await addVerifiedUserEmailToAudience(user)
     },
@@ -826,7 +827,9 @@ export const auth = betterAuth({
       }
 
       if (
-        (ctx.path.startsWith('/sign-in') || ctx.path.startsWith('/sign-up')) &&
+        (ctx.path.startsWith('/sign-in') ||
+          ctx.path.startsWith('/sign-up') ||
+          ctx.path === '/email-otp/verify-email') &&
         typeof ctx.body?.email === 'string' &&
         !isLoginEmailAllowed(ctx.body.email)
       ) {

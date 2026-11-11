@@ -47,7 +47,11 @@ vi.mock('@/lib/email/mailer', async (original) => ({
 
 import { auth as productionAuth } from '@/lib/auth'
 
-async function setup(email = 'owner@example.com', emailVerified = true) {
+async function setup(
+  email = 'owner@example.com',
+  emailVerified = true,
+  requireEmailVerification = false
+) {
   const productionOptions: BetterAuthOptions = productionAuth.options
   const productionOtp = productionAuth.options.plugins.find((plugin) => plugin.id === 'email-otp')
   if (!productionOtp) throw new Error('The email OTP plugin is required')
@@ -57,7 +61,10 @@ async function setup(email = 'owner@example.com', emailVerified = true) {
     baseURL: 'http://localhost:3000',
     secret: 'email-change-test-secret-that-is-long-enough',
     user: productionOptions.user,
-    emailAndPassword: productionAuth.options.emailAndPassword,
+    emailAndPassword: {
+      ...productionAuth.options.emailAndPassword,
+      requireEmailVerification,
+    },
     session: productionAuth.options.session,
     hooks: productionAuth.options.hooks,
     emailVerification: productionAuth.options.emailVerification,
@@ -129,6 +136,86 @@ describe('account email change through native Better Auth OTP', () => {
     policy.allowedDomains = ''
     policy.verificationEnabled = false
   })
+
+  it('preserves the signup password through email verification and subsequent password login', async () => {
+    policy.verificationEnabled = true
+    const fixture = await setup('owner@example.com', true, true)
+    const email = 'signup@example.com'
+    const password = 'signup-password-that-must-remain-valid'
+    const signup = await fixture.auth.api.signUpEmail({
+      body: { email, password, name: 'New user' },
+    })
+    expect(signup.token).toBeNull()
+    const accounts = await fixture.context.internalAdapter.findAccounts(signup.user.id)
+    expect(accounts).toEqual([
+      expect.objectContaining({ providerId: 'credential', password: expect.any(String) }),
+    ])
+    await fixture.auth.api.sendVerificationOTP({ body: { email, type: 'email-verification' } })
+    const verified = await fixture.auth.api.verifyEmailOTP({
+      body: { email, otp: deliveredCode(email) },
+      asResponse: true,
+    })
+    expect(verified.status).toBe(200)
+    const headers = new Headers({
+      cookie: verified.headers
+        .getSetCookie()
+        .map((value) => value.split(';')[0])
+        .join('; '),
+    })
+    await expect(fixture.auth.api.getSession({ headers })).resolves.toMatchObject({
+      user: { id: signup.user.id, email, emailVerified: true },
+    })
+    expect(await fixture.context.internalAdapter.findAccounts(signup.user.id)).toEqual(accounts)
+    expect(mail.audience).toHaveBeenCalledWith(
+      expect.objectContaining({ id: signup.user.id, emailVerified: true })
+    )
+    await fixture.auth.api.signOut({ headers })
+    await expect(
+      fixture.auth.api.signInEmail({ body: { email, password } })
+    ).resolves.toMatchObject({
+      user: { id: signup.user.id, emailVerified: true },
+      token: expect.any(String),
+    })
+  })
+
+  it('retains native credential revocation for passwordless sign-in to an unverified account', async () => {
+    policy.verificationEnabled = true
+    const fixture = await setup('owner@example.com', true, true)
+    const email = 'passwordless@example.com'
+    const password = 'unproven-password-that-must-be-revoked'
+    const signup = await fixture.auth.api.signUpEmail({
+      body: { email, password, name: 'New user' },
+    })
+    await fixture.auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } })
+    await fixture.auth.api.signInEmailOTP({ body: { email, otp: deliveredCode(email) } })
+    expect(await fixture.context.internalAdapter.findAccounts(signup.user.id)).toEqual([])
+    await expect(fixture.auth.api.signInEmail({ body: { email, password } })).rejects.toMatchObject(
+      {
+        body: { code: 'INVALID_EMAIL_OR_PASSWORD' },
+      }
+    )
+  })
+
+  it.each([true, false])(
+    'enforces the login allowlist before verification creates a session for verification=%s',
+    async (emailVerified) => {
+      policy.verificationEnabled = true
+      const fixture = await setup('owner@example.com', true, true)
+      const email = 'blocked@example.com'
+      const signup = await fixture.auth.api.signUpEmail({
+        body: { email, password: 'signup-password-that-must-remain-valid', name: 'New user' },
+      })
+      await fixture.context.internalAdapter.updateUser(signup.user.id, { emailVerified })
+      await fixture.auth.api.sendVerificationOTP({ body: { email, type: 'email-verification' } })
+      policy.allowedDomains = 'allowed.example.com'
+      await expect(
+        fixture.auth.api.verifyEmailOTP({ body: { email, otp: deliveredCode(email) } })
+      ).rejects.toThrow('Access restricted')
+      expect(await fixture.context.internalAdapter.listSessions(signup.user.id)).toEqual([])
+      expect(await storedUser(fixture, signup.user.id)).toMatchObject({ emailVerified })
+      expect(mail.audience).not.toHaveBeenCalled()
+    }
+  )
 
   it.each([true, false])(
     'requires both mailboxes and preserves identity when current verification is %s',

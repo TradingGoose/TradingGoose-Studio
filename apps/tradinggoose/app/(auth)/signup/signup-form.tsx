@@ -357,10 +357,10 @@ function SignupFormContent({
       try {
         await client.emailOtp.sendVerificationOtp({
           email: emailValue,
-          type: 'sign-in',
+          type: 'email-verification',
         })
       } catch (otpErr) {
-        logger.warn('Failed to send sign-in OTP after signup; user can press Resend', otpErr)
+        logger.warn('Failed to send verification OTP after signup; user can press Resend', otpErr)
       }
 
       router.push('/verify?fromSignup=true')
