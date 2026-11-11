@@ -10,6 +10,12 @@ const m = vi.hoisted(() => ({
   current: true,
   freshLoading: false,
   permissions: { isLoading: false, error: null as string | null, canEdit: true, canAdmin: true },
+  authPending: false,
+  authUser: { id: 'actor-a', email: 'synthetic@example.invalid', name: 'Synthetic' } as {
+    id: string
+    email: string
+    name: string
+  } | null,
   session: {
     workflowId: 'target-a',
     doc: {},
@@ -24,7 +30,10 @@ const m = vi.hoisted(() => ({
   >,
   read: vi.fn(),
   settle: vi.fn(),
-  providers: vi.fn(),
+  permissionReads: vi.fn(),
+  updatePermissions: vi.fn(),
+  refetchPermissions: vi.fn(),
+  router: { replace: vi.fn() },
   sessions: vi.fn(),
   routes: vi.fn(),
   modal: vi.fn(),
@@ -47,24 +56,31 @@ vi.mock('@/stores/copilot/store', () => ({
 }))
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => ({
-    isPending: false,
-    data: { user: { id: 'actor-a', email: 'synthetic@example.invalid', name: 'Synthetic' } },
+    isPending: m.authPending,
+    data: m.authUser ? { user: m.authUser } : null,
   }),
 }))
-vi.mock('@/app/workspace/[workspaceId]/providers/providers', () => ({
-  default: (props: {
-    children: ReactNode
-    workspaceId: string
-    inheritUser: boolean
-    requireFresh: boolean
-  }) => {
-    m.providers(props)
-    return m.freshLoading ? null : props.children
+vi.mock('@/hooks/use-workspace-permissions', () => ({
+  useWorkspacePermissions: (...args: unknown[]) => {
+    m.permissionReads(...args)
+    return {
+      permissions: {
+        users: [],
+        total: 0,
+        currentUserPermission: m.permissions.canAdmin
+          ? 'admin'
+          : m.permissions.canEdit
+            ? 'write'
+            : 'read',
+      },
+      loading: m.freshLoading || m.permissions.isLoading,
+      error: m.permissions.error,
+      updatePermissions: m.updatePermissions,
+      refetch: m.refetchPermissions,
+    }
   },
 }))
-vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
-  useUserPermissionsContext: () => m.permissions,
-}))
+vi.mock('@/i18n/navigation', () => ({ useRouter: () => m.router }))
 vi.mock('@/lib/yjs/workflow-session-host', () => ({
   useWorkflowSession: () => m.session,
   WorkflowSessionProvider: (props: {
@@ -121,7 +137,7 @@ const render = () =>
     root.render(
       <>
         <div data-visible-workflow='target-b'>Visible editor B remains selected</div>
-        <WorkflowChatDeploymentDialog />
+        <WorkflowChatDeploymentDialog ownerUserId='actor-a' />
       </>
     )
   )
@@ -131,6 +147,8 @@ beforeEach(() => {
   m.current = true
   m.freshLoading = false
   m.permissions = { isLoading: false, error: null, canEdit: true, canAdmin: true }
+  m.authPending = false
+  m.authUser = { id: 'actor-a', email: 'synthetic@example.invalid', name: 'Synthetic' }
   m.session = {
     workflowId: 'target-a',
     doc: {},
@@ -178,9 +196,7 @@ afterEach(() => {
 
 it('owns exact cold target A independently of visible B and waits for a committed panel before settlement', async () => {
   await render()
-  expect(m.providers.mock.lastCall?.[0]).toMatchObject({
-    workspaceId: 'workspace-a',
-    inheritUser: true,
+  expect(m.permissionReads).toHaveBeenLastCalledWith('workspace-a', 'actor-a', {
     requireFresh: true,
   })
   expect(m.sessions.mock.lastCall?.[0]).toMatchObject({
@@ -236,6 +252,33 @@ it('waits for exact synced session readiness before querying Pending or opening 
   m.session.isSynced = true
   await render()
   expect(m.read).toHaveBeenCalledOnce()
+})
+
+it('waits for the authenticated session before acquiring the workflow session', async () => {
+  m.authPending = true
+  m.authUser = null
+  await render()
+  expect(m.sessions).not.toHaveBeenCalled()
+  expect(m.read).not.toHaveBeenCalled()
+  expect(m.settle).not.toHaveBeenCalled()
+  m.authPending = false
+  m.authUser = { id: 'actor-a', email: 'synthetic@example.invalid', name: 'Synthetic' }
+  await render()
+  expect(m.sessions.mock.lastCall?.[0]).toMatchObject({ user: { id: 'actor-a' } })
+  expect(m.read).toHaveBeenCalledOnce()
+})
+
+it('closes the dialog when its authenticated session disappears', async () => {
+  await render()
+  expect(document.body.querySelector('[role="dialog"]')).not.toBeNull()
+  m.authUser = null
+  await render()
+  expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+  expect(m.settle).toHaveBeenCalledWith(
+    'dialog-a',
+    'error',
+    'Authenticated workflow session is missing'
+  )
 })
 
 it.each(['permission', 'session-error', 'wrong-session', 'missing-chat', 'stale'] as const)(

@@ -226,7 +226,7 @@ function AuthorizedChatDeployment({ request, container, fail }: TargetProps) {
 }
 
 /** One transient dialog owned by this exact authenticated Copilot store. */
-export function WorkflowChatDeploymentDialog() {
+export function WorkflowChatDeploymentDialog({ ownerUserId }: { ownerUserId: string }) {
   const request = useCopilotStore((state) => state.workflowChatDeployment)
   const settle = useCopilotStore((state) => state.settleWorkflowChatDeployment)
   const [container, setContainer] = useState<HTMLDivElement | null>(null)
@@ -259,7 +259,12 @@ export function WorkflowChatDeploymentDialog() {
       data-copilot-deployment={request.id}
       data-workflow-id={request.workflowId}
     >
-      <Providers workspaceId={request.workspaceId} inheritUser requireFresh onUnavailable={fail}>
+      <Providers
+        workspaceId={request.workspaceId}
+        userId={ownerUserId}
+        requireFresh
+        onUnavailable={fail}
+      >
         <AuthorizedChatDeployment
           key={request.id}
           request={request}

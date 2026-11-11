@@ -76,7 +76,7 @@ export function GlobalCopilotLayout({
           {shouldMountCopilot ? (
             <CopilotStoreProvider channelId={channelId}>
               <GlobalCopilotPanel workspaceId={workspaceId} ownerUserId={ownerUserId} />
-              <WorkflowChatDeploymentDialog />
+              <WorkflowChatDeploymentDialog ownerUserId={ownerUserId} />
             </CopilotStoreProvider>
           ) : null}
         </ResizablePanel>
