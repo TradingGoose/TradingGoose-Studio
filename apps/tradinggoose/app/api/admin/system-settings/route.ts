@@ -7,6 +7,7 @@ import {
 } from '@/lib/admin/system-settings/mutations'
 import { getBillingGateState, isBillingConfigurationReady } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getModelProviders } from '@/lib/mastra/registry'
 import {
   getResolvedSystemSettings,
   type ResolvedSystemSettings,
@@ -132,6 +133,21 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json()
     const payload = adminSystemSettingsMutationSchema.parse(body)
+    if (payload.copilot) {
+      const providers = new Set(getModelProviders().map(({ id }) => id))
+      const issues = payload.copilot.models.flatMap((row, index) =>
+        providers.has(row.provider)
+          ? []
+          : [
+              {
+                code: 'custom' as const,
+                message: 'Select a provider from the Mastra model registry',
+                path: ['copilot', 'models', index, 'provider'],
+              },
+            ]
+      )
+      if (issues.length) throw new ZodError(issues)
+    }
     const [currentSettings, billingGate, billingReady, triggerReady] = await Promise.all([
       getResolvedSystemSettings(),
       getBillingGateState(),

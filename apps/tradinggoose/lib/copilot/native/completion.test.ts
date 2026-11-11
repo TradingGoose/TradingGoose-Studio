@@ -146,6 +146,28 @@ describe('built-in stateless completions', () => {
       expect(state.requests).toHaveLength(0)
     }
   )
+  it('rejects later completions after key removal without reusing the warmed Agent model', async () => {
+    expect(await completeCopilot(input)).toMatchObject({ status: 'completed' })
+    const agent = state.agent
+    state.resolve.mockRejectedValue(
+      new NativeTargetError('The Copilot API key is not configured', 409)
+    )
+
+    expect(await completeCopilot(input)).toMatchObject({
+      status: 'refused',
+      error: { message: 'The Copilot API key is not configured' },
+    })
+    const response = await createCompletionResponse({ ...input, purpose: 'wand' })
+    const text = await response.text()
+    expect(text).toContain('"refusal":true')
+    expect(text).toContain('The Copilot API key is not configured')
+    expect(state.agent).toBe(agent)
+    expect(state.resolve).toHaveBeenCalledTimes(3)
+    expect(createConfiguredLanguageModel).toHaveBeenCalledExactlyOnceWith(input.model, 'admin-key')
+    expect(state.requests).toHaveLength(1)
+    expect(state.admit).toHaveBeenCalledOnce()
+    expect(state.accept).toHaveBeenCalledOnce()
+  })
   it('runs an administrator model without requiring installed registry or price metadata', async () => {
     const model = 'openai/new-admin-model'
     expect(await completeCopilot({ ...input, model })).toMatchObject({ status: 'completed' })

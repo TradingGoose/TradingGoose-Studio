@@ -1,19 +1,11 @@
 import { z } from 'zod'
 
-export const COPILOT_PROVIDERS = {
-  openai: { name: 'OpenAI', credentialKey: 'defaultApiKey' },
-  anthropic: { name: 'Anthropic', credentialKey: 'apiKey' },
-  deepseek: { name: 'DeepSeek', credentialKey: 'apiKey' },
-  xai: { name: 'xAI', credentialKey: 'apiKey' },
-  google: { name: 'Google', credentialKey: 'apiKey' },
-  mistral: { name: 'Mistral', credentialKey: 'apiKey' },
-  groq: { name: 'Groq', credentialKey: 'apiKey' },
-  openrouter: { name: 'OpenRouter', credentialKey: 'apiKey' },
-} as const
+export interface CopilotModelOption {
+  id: string
+  label: string
+}
 
-export type CopilotProvider = keyof typeof COPILOT_PROVIDERS
-
-export function getCopilotModelId(row: { provider: CopilotProvider; model: string }): string {
+export function getCopilotModelId(row: { provider: string; model: string }): string {
   return `${row.provider}/${row.model.trim()}`
 }
 
@@ -21,7 +13,13 @@ export const CopilotSettingsSchema = z
   .object({
     models: z.array(
       z.object({
-        provider: z.enum(Object.keys(COPILOT_PROVIDERS) as [CopilotProvider, ...CopilotProvider[]]),
+        provider: z
+          .string()
+          .trim()
+          .regex(
+            /^[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)*$/,
+            'Choose a valid native provider ID'
+          ),
         model: z.string().trim().min(1).regex(/^\S+$/, 'Model must not contain whitespace'),
       })
     ),

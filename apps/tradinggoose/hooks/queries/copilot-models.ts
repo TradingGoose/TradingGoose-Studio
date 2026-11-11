@@ -1,9 +1,10 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import type { CopilotModelOption } from '@/lib/copilot/settings'
 
 export interface CopilotModels {
-  models: string[]
+  models: CopilotModelOption[]
   defaultModel: string | null
 }
 

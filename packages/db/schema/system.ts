@@ -100,15 +100,7 @@ export const systemSettings = pgTable('system_settings', {
   copilot: jsonb('copilot')
     .$type<{
       models: {
-        provider:
-          | 'openai'
-          | 'anthropic'
-          | 'deepseek'
-          | 'xai'
-          | 'google'
-          | 'mistral'
-          | 'groq'
-          | 'openrouter'
+        provider: string
         model: string
       }[]
       defaultModel: string | null

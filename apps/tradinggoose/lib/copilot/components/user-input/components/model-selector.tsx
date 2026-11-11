@@ -22,9 +22,8 @@ interface ModelSelectorProps {
   panelWidth: number
 }
 
-function ModelLabel({ model, className }: { model: string; className?: string }) {
-  const modelName = model.split('/').pop() ?? model
-  const ProviderIcon = getModelIcon(model)
+function ModelLabel({ label, className }: { label: string; className?: string }) {
+  const ProviderIcon = getModelIcon(label)
 
   return (
     <span className={cn('flex min-w-0 items-center gap-1.5', className)}>
@@ -33,7 +32,7 @@ function ModelLabel({ model, className }: { model: string; className?: string })
           <ProviderIcon className='h-3 w-3' />
         </span>
       )}
-      <span className='truncate'>{modelName}</span>
+      <span className='truncate'>{label}</span>
     </span>
   )
 }
@@ -55,14 +54,15 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
 
   useEffect(() => {
     if (!catalog.data || busy) return
-    if (selectedModel && catalog.data.models.includes(selectedModel)) return
+    if (catalog.data.models.some(({ id }) => id === selectedModel)) return
     if (selectedModel !== catalog.data.defaultModel)
       void setSelectedModel(catalog.data.defaultModel)
   }, [busy, catalog.data, selectedModel, setSelectedModel])
 
+  const selected = catalog.data?.models.find(({ id }) => id === selectedModel)
   const unavailable = catalog.isPending
     ? copy.loading
-    : catalog.isError && !catalog.data
+    : selectedModel || (catalog.isError && !catalog.data)
       ? copy.loadError
       : copy.unconfigured
 
@@ -74,14 +74,15 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
             variant='outline'
             size='sm'
             disabled={busy || !catalog.data?.models.length}
-            aria-label={selectedModel ?? unavailable}
+            aria-label={selected?.label ?? unavailable}
+            title={selected?.label ?? unavailable}
             className='flex h-6 items-center gap-1.5 rounded-sm border bg-background px-2 py-1 font-medium text-xs hover:bg-muted/30'
           />
         }
       >
-        {selectedModel ? (
+        {selected ? (
           <ModelLabel
-            model={selectedModel}
+            label={selected.label}
             className={cn(panelWidth < 360 && 'max-w-[72px] truncate')}
           />
         ) : (
@@ -90,19 +91,20 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start' side={isNearTop ? 'bottom' : 'top'} className='p-0'>
         <div className='max-h-64 min-w-[160px] max-w-[min(360px,90vw)] overflow-y-auto p-1'>
-          {catalog.data?.models.map((model) => (
+          {catalog.data?.models.map(({ id, label }) => (
             <DropdownMenuItem
-              key={model}
-              title={model}
-              aria-label={model}
-              onClick={() => void setSelectedModel(model)}
+              key={id}
+              title={label}
+              aria-label={label}
+              disabled={busy}
+              onClick={() => void setSelectedModel(id)}
               className={cn(
                 'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
-                selectedModel === model && 'bg-muted/40'
+                selectedModel === id && 'bg-muted/40'
               )}
             >
-              <ModelLabel model={model} />
-              {selectedModel === model && <Check className='h-3 w-3 text-muted-foreground' />}
+              <ModelLabel label={label} />
+              {selectedModel === id && <Check className='h-3 w-3 text-muted-foreground' />}
             </DropdownMenuItem>
           ))}
         </div>

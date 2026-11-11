@@ -3,6 +3,7 @@ import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { CopilotSettings } from '@/lib/copilot/settings'
+import { useModelRegistry } from '@/stores/model-registry'
 import { CopilotSettingsFields } from './copilot-settings-fields'
 
 vi.mock('@/i18n/navigation', () => ({
@@ -13,6 +14,8 @@ let root: Root
 let container: HTMLDivElement
 let settings: CopilotSettings
 const environment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+const originalRegistry = useModelRegistry.getState()
+const loadRegistry = vi.fn(async () => {})
 
 function Harness({ initial }: { initial: CopilotSettings }) {
   const [value, setValue] = useState(initial)
@@ -40,6 +43,17 @@ async function click(label: string) {
 }
 
 beforeEach(() => {
+  loadRegistry.mockClear()
+  useModelRegistry.setState({
+    providers: [
+      { id: 'openai', name: 'OpenAI', models: [{ id: 'openai/listed-model' }] },
+      { id: 'anthropic', name: 'Anthropic', models: [] },
+      { id: 'deepseek', name: 'DeepSeek', models: [] },
+    ],
+    isLoading: false,
+    error: undefined,
+    load: loadRegistry,
+  })
   environment.IS_REACT_ACT_ENVIRONMENT = true
   container = document.createElement('div')
   document.body.appendChild(container)
@@ -50,6 +64,7 @@ afterEach(() => {
   act(() => root.unmount())
   container.remove()
   environment.IS_REACT_ACT_ENVIRONMENT = false
+  useModelRegistry.setState(originalRegistry)
 })
 
 it('adds an exact new model ID without requiring registry or pricing metadata', async () => {
@@ -64,6 +79,46 @@ it('adds an exact new model ID without requiring registry or pricing metadata', 
     defaultModel: 'openai/brand-new-model-2027',
   })
   expect(container.querySelector('[role="alert"]')).toBeNull()
+  expect(loadRegistry).toHaveBeenCalledOnce()
+})
+
+it('uses native provider choices and keeps namespaces in exact model suggestions', async () => {
+  useModelRegistry.setState({
+    providers: [
+      {
+        id: 'private/inference',
+        name: 'Private inference',
+        models: [{ id: 'private/inference/accounts/team/models/exact-model' }],
+      },
+    ],
+  })
+  await render({ models: [], defaultModel: null })
+  await click('Add model')
+  expect(settings.models[0].provider).toBe('private/inference')
+  expect(container.querySelector('#copilot-provider-0')).toHaveTextContent('Private inference')
+  expect(container.querySelector('#copilot-model-0')).toHaveAttribute('list', 'copilot-models-0')
+  expect(container.querySelector('datalist option')).toHaveAttribute(
+    'value',
+    'accounts/team/models/exact-model'
+  )
+  await changeModel(0, 'accounts/team/models/new-model')
+  expect(settings.defaultModel).toBe('private/inference/accounts/team/models/new-model')
+  expect(container.querySelector('[role="alert"]')).toBeNull()
+})
+
+it('shows registry loading and retry states without offering fixed providers', async () => {
+  useModelRegistry.setState({ providers: [], isLoading: true })
+  await render({ models: [], defaultModel: null })
+  expect(container.querySelector('[role="status"]')).toHaveTextContent('Loading models')
+  expect(container.querySelector('button')).toBeDisabled()
+  await act(async () => useModelRegistry.setState({ isLoading: false, error: 'Unavailable' }))
+  expect(container.querySelector('[role="alert"]')).toHaveTextContent(
+    'Model registry is unavailable'
+  )
+  await click('Try again')
+  expect(loadRegistry).toHaveBeenCalledTimes(2)
+  expect(settings.models).toEqual([])
+  expect(container.querySelectorAll('datalist option')).toHaveLength(0)
 })
 
 it('keeps the selected default when editing another row and follows edits to its own row', async () => {

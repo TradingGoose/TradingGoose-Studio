@@ -22,14 +22,20 @@ describe('authenticated Copilot model catalog', () => {
 
   it('returns only public dynamic identities and default to a signed-in member', async () => {
     m.models.mockResolvedValue({
-      models: ['openai/new-model', 'anthropic/claude-new'],
+      models: [
+        { id: 'openai/new-model', label: 'openai/new-model' },
+        { id: 'openrouter/anthropic/claude-new', label: 'anthropic/claude-new' },
+      ],
       defaultModel: 'openai/new-model',
       apiKey: 'must-remain-private',
       providers: { secret: 'must-remain-private' },
     })
     const response = await GET()
     expect(await response.json()).toEqual({
-      models: ['openai/new-model', 'anthropic/claude-new'],
+      models: [
+        { id: 'openai/new-model', label: 'openai/new-model' },
+        { id: 'openrouter/anthropic/claude-new', label: 'anthropic/claude-new' },
+      ],
       defaultModel: 'openai/new-model',
     })
     expect(response.headers.get('cache-control')).toBe('no-store')

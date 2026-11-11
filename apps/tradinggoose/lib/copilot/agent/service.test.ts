@@ -251,6 +251,34 @@ describe('built-in Copilot service bridge', () => {
       expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
     }
   )
+  it('rejects the next message after key removal even when the shared Agent is already warm', async () => {
+    setModel({ text: 'Finished before key removal' }, { text: 'Must not run' })
+    const initial = (await message()).result
+    if (initial.status !== 'completed') throw new Error(JSON.stringify(initial))
+    const agent = m.agent
+    const history = (await command({ command: 'history.read', threadId: initial.threadId })).result
+    const admissions = m.admit.mock.calls.length
+    const charges = m.accept.mock.calls.length
+    const models = vi.mocked(createConfiguredLanguageModel).mock.calls.length
+    m.resolve.mockRejectedValue(new NativeTargetError('The Copilot API key is not configured', 409))
+
+    expect((await message({ threadId: initial.threadId })).result).toMatchObject({
+      status: 'refused',
+      error: { code: 'STALE_TARGET', message: 'The Copilot API key is not configured' },
+    })
+    expect(m.agent).toBe(agent)
+    expect(m.resolve).toHaveBeenCalledTimes(2)
+    expect(m.contacts).toHaveLength(1)
+    expect(createConfiguredLanguageModel).toHaveBeenCalledTimes(models)
+    expect(m.admit).toHaveBeenCalledTimes(admissions)
+    expect(m.accept).toHaveBeenCalledTimes(charges)
+    expect(m.route).not.toHaveBeenCalled()
+    expect(m.effects.size).toBe(0)
+    expect(m.claims.size).toBe(0)
+    expect((await command({ command: 'history.read', threadId: initial.threadId })).result).toEqual(
+      history
+    )
+  })
   it('returns complete scoped native lists in their stored order', async () => {
     const store = (await m.storage.getStore('memory'))!
     const resourceId = nativeConversationIdentity(scope).resourceId
@@ -647,19 +675,49 @@ describe('built-in Copilot service bridge', () => {
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(m.claims.size).toBe(0)
   })
-  it('blocks revoked models on resume while preserving history and cancellation', async () => {
+  it.each(
+    [409, 422].flatMap((status) => ['approval', 'review'].map((stage) => ({ status, stage })))
+  )('blocks revoked configuration ($status) on cold $stage resume', async ({ status, stage }) => {
     setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Renamed' } })
-    const initial = suspended((await message({ accessLevel: 'limited' })).result)
+    let initial = suspended((await message({ accessLevel: 'limited' })).result)
+    if (stage === 'review') {
+      m.route.mockResolvedValueOnce({ requiresReview: true, reviewBaseStateHash: 'original-base' })
+      initial = suspended(
+        (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
+      )
+    }
+    const admissions = m.admit.mock.calls.length
     const charges = m.accept.mock.calls.length
-    m.resolve.mockRejectedValue(new NativeTargetError('Copilot model unavailable', 422))
+    const dispatches = m.route.mock.calls.length
+    const effects = m.effects.size
+    const models = vi.mocked(createConfiguredLanguageModel).mock.calls.length
+    const error = new NativeTargetError(
+      status === 409 ? 'The Copilot API key is not configured' : 'Copilot model unavailable',
+      status
+    )
+    m.resolve.mockRejectedValue(error)
     restart()
+
     expect(
-      (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
-    ).toMatchObject({ status: 'refused' })
+      (
+        await command({
+          command: stage === 'approval' ? 'tool.approve' : 'tool.execute',
+          target: initial.pending[0].target,
+          ...(stage === 'review' ? { action: 'review.accept' } : {}),
+        })
+      ).result
+    ).toMatchObject({
+      status: 'refused',
+      error: { code: status === 409 ? 'STALE_TARGET' : 'INVALID_REQUEST', message: error.message },
+    })
     expect(m.resolve).toHaveBeenLastCalledWith('configured/model')
-    expect(m.route).not.toHaveBeenCalled()
+    expect(m.route).toHaveBeenCalledTimes(dispatches)
+    expect(m.effects.size).toBe(effects)
     expect(m.contacts).toHaveLength(1)
+    expect(createConfiguredLanguageModel).toHaveBeenCalledTimes(models)
+    expect(m.admit).toHaveBeenCalledTimes(admissions)
     expect(m.accept).toHaveBeenCalledTimes(charges)
+    expect(await pending(initial.threadId)).toEqual(initial.pending)
     expect(
       (await command({ command: 'history.read', threadId: initial.threadId })).result
     ).toMatchObject({ status: 'history' })

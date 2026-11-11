@@ -1,12 +1,11 @@
 import {
   EMBEDDING_MODELS,
+  GatewayRegistry,
   getModelReasoningOptions,
-  getProviderConfig,
   type ModelReasoningOption,
   modelSupportsAttachments,
   modelSupportsStructuredOutput,
   modelSupportsTemperature,
-  PROVIDER_REGISTRY,
   parseModelString,
 } from '@mastra/core/llm'
 import { getConfiguredProviders } from './connections'
@@ -25,6 +24,15 @@ export interface RegistryProvider {
   models: RegistryModel[]
 }
 
+function getRegistryProviders() {
+  return { ...GatewayRegistry.getInstance().getProviders(), ...getConfiguredProviders() }
+}
+
+/** Provider identities without model capabilities or connection configuration. */
+export function getModelProviders(): Pick<RegistryProvider, 'id' | 'name'>[] {
+  return Object.entries(getRegistryProviders()).map(([id, { name }]) => ({ id, name }))
+}
+
 /** Exact native embedding identities are excluded only from generation. */
 function isListedGenerationModel(provider: string, modelId: string, models: string[]): boolean {
   return (
@@ -36,10 +44,9 @@ function isListedGenerationModel(provider: string, modelId: string, models: stri
 /** Validate only after workflow and environment references have resolved. */
 export function assertListedModel(model: string): void {
   const { provider, modelId } = parseModelString(model)
-  const connection = provider
-    ? (getConfiguredProviders()[provider] ??
-      (Object.keys(PROVIDER_REGISTRY).includes(provider) ? getProviderConfig(provider) : undefined))
-    : undefined
+  const providers = getRegistryProviders()
+  const connection =
+    provider && Object.hasOwn(providers, provider) ? providers[provider] : undefined
   if (!provider || !connection || !isListedGenerationModel(provider, modelId, connection.models)) {
     throw Object.assign(
       new Error(
@@ -52,31 +59,22 @@ export function assertListedModel(model: string): void {
 
 /** Project public picker data explicitly: provider auth configuration stays on the server. */
 export function getModelRegistry(): RegistryProvider[] {
-  const configuredProviders = getConfiguredProviders()
-  return Array.from(
-    new Set([...Object.keys(PROVIDER_REGISTRY), ...Object.keys(configuredProviders)])
-  ).flatMap((id) => {
-    const provider = configuredProviders[id] ?? getProviderConfig(id)
-    if (!provider) return []
-    return [
-      {
-        id,
-        name: provider.name,
-        models: provider.models
-          .filter((modelId) => isListedGenerationModel(id, modelId, provider.models))
-          .map((modelId) => {
-            const model = `${id}/${modelId}`
-            return {
-              id: model,
-              reasoning: getModelReasoningOptions(model),
-              temperature: modelSupportsTemperature(model),
-              structuredOutput: modelSupportsStructuredOutput(model),
-              attachments: modelSupportsAttachments(model),
-            }
-          }),
-      },
-    ]
-  })
+  return Object.entries(getRegistryProviders()).map(([id, provider]) => ({
+    id,
+    name: provider.name,
+    models: provider.models
+      .filter((modelId) => isListedGenerationModel(id, modelId, provider.models))
+      .map((modelId) => {
+        const model = `${id}/${modelId}`
+        return {
+          id: model,
+          reasoning: getModelReasoningOptions(model),
+          temperature: modelSupportsTemperature(model),
+          structuredOutput: modelSupportsStructuredOutput(model),
+          attachments: modelSupportsAttachments(model),
+        }
+      }),
+  }))
 }
 
 /** Server capability resolution does not depend on browser bootstrap state. */
@@ -99,11 +97,9 @@ export interface RegistryEmbeddingModel {
 }
 
 export function getEmbeddingModelRegistry(): RegistryEmbeddingModel[] {
-  const configured = getConfiguredProviders()
+  const providers = getRegistryProviders()
   return EMBEDDING_MODELS.flatMap(({ id, provider, dimensions, maxInputTokens }) => {
-    const connection =
-      configured[provider] ??
-      (Object.hasOwn(PROVIDER_REGISTRY, provider) ? getProviderConfig(provider) : undefined)
+    const connection = Object.hasOwn(providers, provider) ? providers[provider] : undefined
     return connection?.models.includes(id)
       ? [{ id: `${provider}/${id}`, provider, dimensions, maxInputTokens }]
       : []

@@ -57,6 +57,11 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => mockLogger,
 }))
 
+vi.mock('@/lib/mastra/registry', () => ({
+  getModelProviders: () =>
+    ['openai', 'deepseek', 'native-provider'].map((id) => ({ id, name: id })),
+}))
+
 vi.mock('@/lib/system-settings/service', () => ({
   getResolvedSystemSettings: mockGetResolvedSystemSettings,
   TriggerExecutionBusyError: MockTriggerExecutionBusyError,
@@ -420,25 +425,48 @@ describe('/api/admin/system-settings route', () => {
     })
   })
 
-  it('updates the Copilot catalogue independently without registry or credential prerequisites', async () => {
-    const copilot = {
-      models: [{ provider: 'deepseek', model: 'future-model' }],
-      defaultModel: 'deepseek/future-model',
-    }
-    mockUpsertSystemSettings.mockResolvedValueOnce({ copilot })
-    const { PATCH } = await import('./route')
+  it.each(['deepseek', 'native-provider'])(
+    'saves exact future model IDs for native provider %s without credential prerequisites',
+    async (provider) => {
+      const copilot = {
+        models: [{ provider, model: 'future-model' }],
+        defaultModel: `${provider}/future-model`,
+      }
+      mockUpsertSystemSettings.mockResolvedValueOnce({ copilot })
+      const { PATCH } = await import('./route')
 
+      const response = await PATCH(
+        new Request('http://localhost/api/admin/system-settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ copilot }),
+        }) as any
+      )
+
+      expect(response.status).toBe(200)
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
+      await expect(response.json()).resolves.toMatchObject({ copilot })
+      expect(mockUpsertSystemSettings).toHaveBeenCalledWith({ copilot })
+    }
+  )
+
+  it('rejects unknown providers before saving a Copilot model', async () => {
+    const { PATCH } = await import('./route')
     const response = await PATCH(
       new Request('http://localhost/api/admin/system-settings', {
         method: 'PATCH',
-        body: JSON.stringify({ copilot }),
+        body: JSON.stringify({
+          copilot: {
+            models: [{ provider: 'unknown-provider', model: 'model' }],
+            defaultModel: 'unknown-provider/model',
+          },
+        }),
       }) as any
     )
-
-    expect(response.status).toBe(200)
-    expect(response.headers.get('Cache-Control')).toBe('no-store')
-    await expect(response.json()).resolves.toMatchObject({ copilot })
-    expect(mockUpsertSystemSettings).toHaveBeenCalledWith({ copilot })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      details: [{ path: ['copilot', 'models', 0, 'provider'] }],
+    })
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
 
   it('rejects a default model outside the Copilot catalogue before saving', async () => {

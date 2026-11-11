@@ -7,6 +7,22 @@ const { mockGetResolvedSystemSettings, mockResolveSystemServiceConfig } = vi.hoi
   mockResolveSystemServiceConfig: vi.fn(),
 }))
 
+vi.mock('@/lib/mastra/registry', () => ({
+  getModelProviders: () => [
+    { id: 'openai', name: 'OpenAI' },
+    { id: 'anthropic', name: 'Anthropic' },
+    { id: 'openrouter', name: 'OpenRouter' },
+    { id: 'new-native-provider', name: 'New Native Provider' },
+  ],
+}))
+vi.mock('@opencode-ai/models/snapshot', () => ({
+  providers: {
+    openrouter: {
+      models: { 'vendor/known-model': { canonical_model_id: 'vendor/family/known-model' } },
+    },
+  },
+}))
+
 vi.mock('@/lib/system-settings/service', () => ({
   getResolvedSystemSettings: mockGetResolvedSystemSettings,
 }))
@@ -58,11 +74,79 @@ describe('server Copilot settings', () => {
 
   it('projects saved metadata without looking up or filtering on credentials', async () => {
     await expect(getPublicCopilotModels()).resolves.toEqual({
-      models: ['openai/new-model', 'anthropic/other-model'],
+      models: [
+        { id: 'openai/new-model', label: 'openai/new-model' },
+        { id: 'anthropic/other-model', label: 'anthropic/other-model' },
+      ],
       defaultModel: 'openai/new-model',
     })
     expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
   })
+
+  it('uses one native provider credential definition for an exact future model', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValue({
+      copilot: {
+        models: [{ provider: 'new-native-provider', model: 'namespace/future-model' }],
+        defaultModel: 'new-native-provider/namespace/future-model',
+      },
+    })
+    mockResolveSystemServiceConfig.mockResolvedValue({ apiKey: ' native-key ' })
+    await expect(resolveCopilotModel()).resolves.toEqual({
+      model: 'new-native-provider/namespace/future-model',
+      apiKey: 'native-key',
+    })
+    expect(mockResolveSystemServiceConfig).toHaveBeenCalledExactlyOnceWith('new-native-provider')
+  })
+
+  it('projects canonical model identities and preserves future model namespaces without gateway labels', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValue({
+      copilot: {
+        models: [
+          { provider: 'openrouter', model: 'vendor/known-model' },
+          { provider: 'openrouter', model: 'vendor/family/future-model' },
+          { provider: 'openai', model: 'future-model' },
+        ],
+        defaultModel: 'openrouter/vendor/known-model',
+      },
+    })
+    expect(await getPublicCopilotModels()).toEqual({
+      models: [
+        { id: 'openrouter/vendor/known-model', label: 'vendor/family/known-model' },
+        { id: 'openrouter/vendor/family/future-model', label: 'vendor/family/future-model' },
+        { id: 'openai/future-model', label: 'openai/future-model' },
+      ],
+      defaultModel: 'openrouter/vendor/known-model',
+    })
+    expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
+  })
+
+  it('keeps gateway configuration out of user-facing credential errors', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValue({
+      copilot: {
+        models: [{ provider: 'openrouter', model: 'vendor/known-model' }],
+        defaultModel: 'openrouter/vendor/known-model',
+      },
+    })
+    mockResolveSystemServiceConfig.mockResolvedValue({})
+    await expect(resolveCopilotModel()).rejects.toMatchObject({
+      status: 409,
+      message: 'The system API key for the selected Copilot model is not configured',
+    })
+  })
+
+  it.each(['unknown-provider', 'local_execution'])(
+    'refuses unavailable credential metadata for %s before key resolution',
+    async (provider) => {
+      mockGetResolvedSystemSettings.mockResolvedValue({
+        copilot: {
+          models: [{ provider, model: 'future-model' }],
+          defaultModel: `${provider}/future-model`,
+        },
+      })
+      await expect(resolveCopilotModel()).rejects.toMatchObject({ status: 409 })
+      expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
+    }
+  )
 
   it('reports an unconfigured Copilot with no built-in fallback', async () => {
     mockGetResolvedSystemSettings.mockResolvedValue({ copilot: DEFAULT_COPILOT_SETTINGS })

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { AdminSystemSettingsEditableFields } from '@/lib/admin/system-settings/types'
+import { useModelRegistry } from '@/stores/model-registry'
 import { AdminSystemSettingsSection } from './system-settings-section'
 
 const fixture = vi.hoisted(() => ({
@@ -41,6 +42,7 @@ let container: HTMLDivElement
 let root: Root
 let queryClient: QueryClient
 const environment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+const originalRegistry = useModelRegistry.getState()
 const button = (label: string) =>
   [...container.querySelectorAll<HTMLButtonElement>('button')].find(
     (candidate) => candidate.textContent === label || candidate.getAttribute('aria-label') === label
@@ -49,6 +51,12 @@ const button = (label: string) =>
 beforeEach(async () => {
   environment.IS_REACT_ACT_ENVIRONMENT = true
   vi.clearAllMocks()
+  useModelRegistry.setState({
+    providers: [{ id: 'openai', name: 'OpenAI', models: [] }],
+    isLoading: false,
+    error: undefined,
+    load: async () => {},
+  })
   fixture.update.mockImplementation(async (input: Partial<AdminSystemSettingsEditableFields>) => ({
     ...fixture.snapshot,
     ...input,
@@ -71,9 +79,10 @@ afterEach(() => {
   queryClient.clear()
   container.remove()
   environment.IS_REACT_ACT_ENVIRONMENT = false
+  useModelRegistry.setState(originalRegistry)
 })
 
-it('saves the edited catalog atomically and invalidates the public model query', async () => {
+it('saves the catalog atomically and refreshes public model and admin service queries', async () => {
   const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
   expect(button('Save system settings')).toBeDisabled()
   await act(async () => button('Add model').click())
@@ -99,6 +108,7 @@ it('saves the edited catalog atomically and invalidates the public model query',
     },
   })
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ['copilot-models'] })
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ['admin-services', 'snapshot'] })
   expect(button('Save system settings')).toBeDisabled()
 })
 

@@ -17,6 +17,7 @@ describe('Copilot settings', () => {
         { provider: 'openai', model: ' future-model ' },
         { provider: 'anthropic', model: 'future-model' },
         { provider: 'openrouter', model: 'vendor/new-model' },
+        { provider: 'native/new-provider', model: 'namespace/future-model' },
       ],
       defaultModel: ' openrouter/vendor/new-model ',
     })
@@ -25,6 +26,7 @@ describe('Copilot settings', () => {
       'openai/future-model',
       'anthropic/future-model',
       'openrouter/vendor/new-model',
+      'native/new-provider/namespace/future-model',
     ])
     expect(settings.defaultModel).toBe('openrouter/vendor/new-model')
   })
@@ -37,6 +39,22 @@ describe('Copilot settings', () => {
   })
 
   it.each([
+    'provider//other',
+    'provider/../other',
+    'provider?host=other',
+    'provider#other',
+    'provider%2Fother',
+    '/provider',
+  ])('rejects an unsafe provider path %s', (provider) => {
+    expect(
+      CopilotSettingsSchema.safeParse({
+        models: [{ provider, model: 'future-model' }],
+        defaultModel: `${provider}/future-model`,
+      }).success
+    ).toBe(false)
+  })
+
+  it.each([
     {
       models: [{ provider: 'openai', model: '' }],
       defaultModel: 'openai/',
@@ -46,8 +64,8 @@ describe('Copilot settings', () => {
       defaultModel: 'openai/model with spaces',
     },
     {
-      models: [{ provider: 'unknown', model: 'model' }],
-      defaultModel: 'unknown/model',
+      models: [{ provider: 'https://provider', model: 'model' }],
+      defaultModel: 'https://provider/model',
     },
     {
       models: [

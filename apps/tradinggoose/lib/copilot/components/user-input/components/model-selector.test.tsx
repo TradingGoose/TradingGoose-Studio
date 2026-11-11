@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 let state: any
 let catalog: any
+const { getModelIcon } = vi.hoisted(() => ({ getModelIcon: vi.fn() }))
 
 vi.mock('@/hooks/queries/copilot-models', () => ({ useCopilotModels: () => catalog }))
 vi.mock('@/stores/copilot/store', () => ({
@@ -20,7 +21,7 @@ vi.mock('@/i18n/workspace-widget-hooks', () => ({
     },
   }),
 }))
-vi.mock('@/lib/ui/model-icon', () => ({ getModelIcon: () => null }))
+vi.mock('@/lib/ui/model-icon', () => ({ getModelIcon }))
 vi.mock('@/components/ui', () => ({
   Button: ({ variant: _variant, size: _size, ...props }: any) => <button {...props} />,
   DropdownMenu: ({ children }: any) => <div>{children}</div>,
@@ -36,6 +37,11 @@ let root: Root
 const render = () => act(() => root.render(<ModelSelector isNearTop={false} panelWidth={400} />))
 
 beforeEach(() => {
+  getModelIcon
+    .mockReset()
+    .mockImplementation((label: string) => (props: any) => (
+      <svg data-model-icon={label} {...props} />
+    ))
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
   state = {
     selectedModel: null,
@@ -70,24 +76,65 @@ it('shows loading, unavailable, and unconfigured states without choosing a fixed
   expect(state.setSelectedModel).not.toHaveBeenCalled()
 })
 
-it('uses the administrator default and offers exact IDs outside the old catalog', () => {
+it('uses the administrator default and submits exact IDs while displaying only labels', () => {
   catalog.data = {
-    models: ['openai/future-model', 'openrouter/vendor/model-name'],
-    defaultModel: 'openrouter/vendor/model-name',
+    models: [
+      { id: 'openai/future-model', label: 'openai/future-model' },
+      { id: 'openrouter/anthropic/model-name', label: 'anthropic/model-name' },
+    ],
+    defaultModel: 'openrouter/anthropic/model-name',
   }
   render()
-  expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith('openrouter/vendor/model-name')
+  expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith('openrouter/anthropic/model-name')
+  state.selectedModel = catalog.data.defaultModel
+  render()
+  const trigger = container.querySelector('button')!
+  expect(trigger).toHaveTextContent('anthropic/model-name')
+  expect(trigger).toHaveAttribute('aria-label', 'anthropic/model-name')
+  expect(trigger).toHaveAttribute('title', 'anthropic/model-name')
+  expect(trigger.querySelector('svg')).toHaveAttribute('data-model-icon', 'anthropic/model-name')
+  expect(container.innerHTML).not.toContain('openrouter')
+  expect(getModelIcon).toHaveBeenCalledWith('anthropic/model-name')
+  expect(getModelIcon).not.toHaveBeenCalledWith('openrouter/anthropic/model-name')
   const choice = container.querySelector<HTMLButtonElement>('[title="openai/future-model"]')!
   act(() => choice.click())
   expect(state.setSelectedModel).toHaveBeenLastCalledWith('openai/future-model')
 })
 
+it('keeps distinct gateway routes selectable when they share a display label', () => {
+  catalog.data = {
+    models: [
+      { id: 'openrouter/anthropic/model', label: 'anthropic/model' },
+      { id: 'vercel/anthropic/model', label: 'anthropic/model' },
+    ],
+    defaultModel: 'openrouter/anthropic/model',
+  }
+  state.selectedModel = catalog.data.defaultModel
+  render()
+  const choices = [...container.querySelectorAll<HTMLButtonElement>('button')].slice(1)
+  expect(choices).toHaveLength(2)
+  for (const [index, choice] of choices.entries()) {
+    expect(choice).toHaveTextContent('anthropic/model')
+    expect(choice).toHaveAttribute('aria-label', 'anthropic/model')
+    expect(choice).toHaveAttribute('title', 'anthropic/model')
+    act(() => choice.click())
+    expect(state.setSelectedModel).toHaveBeenLastCalledWith(catalog.data.models[index].id)
+  }
+  expect(container.innerHTML).not.toMatch(/openrouter|vercel/)
+})
+
 it('preserves a valid selection and replaces a removed selection on catalog refresh', () => {
   state.selectedModel = 'openai/selected-model'
-  catalog.data = { models: [state.selectedModel], defaultModel: state.selectedModel }
+  catalog.data = {
+    models: [{ id: state.selectedModel, label: 'openai/selected-model' }],
+    defaultModel: state.selectedModel,
+  }
   render()
   expect(state.setSelectedModel).not.toHaveBeenCalled()
-  catalog.data = { models: ['deepseek/new-model'], defaultModel: 'deepseek/new-model' }
+  catalog.data = {
+    models: [{ id: 'deepseek/new-model', label: 'deepseek/new-model' }],
+    defaultModel: 'deepseek/new-model',
+  }
   render()
   expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith('deepseek/new-model')
   catalog.data = { models: [], defaultModel: null }
@@ -95,14 +142,30 @@ it('preserves a valid selection and replaces a removed selection on catalog refr
   expect(state.setSelectedModel).toHaveBeenLastCalledWith(null)
 })
 
-it('does not change a model selection while its turn is active', () => {
-  state.selectedModel = 'openai/original-model'
-  state.isAwaitingContinuation = true
-  catalog.data = { models: ['openai/replacement'], defaultModel: 'openai/replacement' }
-  render()
-  expect(state.setSelectedModel).not.toHaveBeenCalled()
-  expect(container.querySelector('button')?.disabled).toBe(true)
-  state.isAwaitingContinuation = false
-  render()
-  expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith('openai/replacement')
-})
+it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
+  'preserves the active selection and hides a removed route during %s',
+  (busyState) => {
+    state.selectedModel = 'openrouter/anthropic/original-model'
+    if (busyState === 'pending-tool') state.toolCallsById = { pending: { state: 'pending' } }
+    else state[busyState] = true
+    catalog.data = {
+      models: [{ id: 'openai/replacement', label: 'openai/replacement' }],
+      defaultModel: 'openai/replacement',
+    }
+    catalog.isPending = false
+    render()
+    expect(state.setSelectedModel).not.toHaveBeenCalled()
+    expect(container.querySelector('button')).toBeDisabled()
+    expect(container.querySelector('button')).toHaveTextContent('Unavailable')
+    expect(container.innerHTML).not.toContain('openrouter')
+    for (const button of container.querySelectorAll('button')) {
+      expect(button).toBeDisabled()
+      act(() => button.click())
+    }
+    expect(state.setSelectedModel).not.toHaveBeenCalled()
+    state.toolCallsById = {}
+    if (busyState !== 'pending-tool') state[busyState] = false
+    render()
+    expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith('openai/replacement')
+  }
+)

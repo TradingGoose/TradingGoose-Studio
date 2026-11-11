@@ -28,6 +28,7 @@ import { CopilotSettingsSchema, DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/s
 import { REGISTRATION_MODE_VALUES } from '@/lib/registration/shared'
 import { adminBillingKeys } from '@/hooks/queries/admin-billing'
 import { adminRegistrationKeys } from '@/hooks/queries/admin-registration'
+import { adminServicesKeys } from '@/hooks/queries/admin-services'
 import {
   adminSystemSettingsKeys,
   updateAdminSystemSettings,
@@ -67,6 +68,7 @@ export function AdminSystemSettingsSection() {
         queryClient.invalidateQueries({ queryKey: adminRegistrationKeys.snapshot() }),
         queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
         queryClient.invalidateQueries({ queryKey: copilotModelsKeys.all }),
+        queryClient.invalidateQueries({ queryKey: adminServicesKeys.snapshot() }),
       ])
     },
   })

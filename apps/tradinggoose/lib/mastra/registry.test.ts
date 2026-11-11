@@ -9,7 +9,7 @@ const provider = {
   headers: { Authorization: 'secret' },
 }
 vi.mock('@mastra/core/llm', () => ({
-  PROVIDER_REGISTRY: { configured: true },
+  GatewayRegistry: { getInstance: () => ({ getProviders: () => ({ configured: provider }) }) },
   EMBEDDING_MODELS: [
     {
       id: 'embedding',
@@ -20,7 +20,6 @@ vi.mock('@mastra/core/llm', () => ({
     },
     { id: 'unlisted', provider: 'configured', dimensions: 10, maxInputTokens: 100 },
   ],
-  getProviderConfig: (id: string) => (id === 'configured' ? provider : undefined),
   parseModelString: (id: string) => ({
     provider: id.includes('/') ? id.split('/')[0] : null,
     modelId: id.slice(id.indexOf('/') + 1),
@@ -35,12 +34,26 @@ import {
   assertListedEmbeddingModel,
   assertListedModel,
   getEmbeddingModelRegistry,
+  getModelProviders,
   getModelRegistry,
 } from './registry'
 
 afterEach(() => vi.unstubAllEnvs())
 
 describe('public Mastra registry transport', () => {
+  it('provides current native provider identities without connection configuration', () => {
+    expect(getModelProviders()).toEqual([{ id: 'configured', name: 'Configured Provider' }])
+    vi.stubEnv(
+      'MASTRA_MODEL_PROVIDERS',
+      JSON.stringify({
+        custom: { name: 'Custom', url: 'https://private.invalid', models: ['exact'] },
+      })
+    )
+    expect(getModelProviders()).toEqual([
+      { id: 'configured', name: 'Configured Provider' },
+      { id: 'custom', name: 'Custom' },
+    ])
+  })
   it('projects names, exact model IDs and helpers without serializing provider credentials or config', () => {
     const json = JSON.parse(JSON.stringify(getModelRegistry()))
     expect(json).toEqual([

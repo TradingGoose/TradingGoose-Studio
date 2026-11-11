@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import {
@@ -15,14 +16,13 @@ import {
   SelectValue,
 } from '@/components/ui'
 import {
-  COPILOT_PROVIDERS,
-  type CopilotProvider,
   type CopilotSettings,
   CopilotSettingsSchema,
   getCopilotModelId,
 } from '@/lib/copilot/settings'
 import { Link } from '@/i18n/navigation'
 import { formatTemplate } from '@/i18n/utils'
+import { useModelRegistry } from '@/stores/model-registry'
 
 export function CopilotSettingsFields({
   value,
@@ -31,7 +31,13 @@ export function CopilotSettingsFields({
   value: CopilotSettings
   onChange: (value: CopilotSettings) => void
 }) {
-  const copy = useMessages().admin.systemSettings.copilot
+  const messages = useMessages()
+  const copy = messages.admin.systemSettings.copilot
+  const registryCopy = messages.workspace.widgets.workflowLabels
+  const { providers, isLoading, error, load } = useModelRegistry()
+  useEffect(() => {
+    void load()
+  }, [load])
   const defaultIndex = value.models.findIndex(
     (row) => getCopilotModelId(row) === value.defaultModel
   )
@@ -70,6 +76,20 @@ export function CopilotSettingsFields({
         </Link>
       </div>
 
+      {isLoading ? (
+        <p role='status' className='text-muted-foreground text-sm'>
+          {registryCopy.loadingModels}
+        </p>
+      ) : null}
+      {error || (!isLoading && !providers.length) ? (
+        <div role='alert' className='space-y-2 text-destructive text-sm'>
+          <p>{registryCopy.modelRegistryUnavailable}</p>
+          <Button type='button' variant='outline' disabled={isLoading} onClick={() => void load()}>
+            {registryCopy.retryModels}
+          </Button>
+        </div>
+      ) : null}
+
       {value.models.length ? (
         <RadioGroup
           aria-label={copy.defaultModel}
@@ -89,17 +109,20 @@ export function CopilotSettingsFields({
                 <Label htmlFor={`copilot-provider-${index}`}>{copy.provider}</Label>
                 <Select
                   value={row.provider}
+                  disabled={isLoading || !providers.length}
                   onValueChange={(provider) => {
-                    if (provider) updateRow(index, { provider: provider as CopilotProvider })
+                    if (provider) updateRow(index, { provider })
                   }}
                 >
                   <SelectTrigger id={`copilot-provider-${index}`}>
-                    <SelectValue>{COPILOT_PROVIDERS[row.provider].name}</SelectValue>
+                    <SelectValue>
+                      {providers.find(({ id }) => id === row.provider)?.name ?? row.provider}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(COPILOT_PROVIDERS).map(([provider, configuration]) => (
-                      <SelectItem key={provider} value={provider}>
-                        {configuration.name}
+                    {providers.map(({ id, name }) => (
+                      <SelectItem key={id} value={id}>
+                        {name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -109,6 +132,7 @@ export function CopilotSettingsFields({
                 <Label htmlFor={`copilot-model-${index}`}>{copy.model}</Label>
                 <Input
                   id={`copilot-model-${index}`}
+                  list={`copilot-models-${index}`}
                   value={row.model}
                   placeholder={copy.modelPlaceholder}
                   autoComplete='off'
@@ -116,6 +140,13 @@ export function CopilotSettingsFields({
                   aria-describedby={!isValid ? 'copilot-models-validation' : undefined}
                   onChange={(event) => updateRow(index, { model: event.target.value })}
                 />
+                <datalist id={`copilot-models-${index}`}>
+                  {providers
+                    .find(({ id }) => id === row.provider)
+                    ?.models.map(({ id }) => (
+                      <option key={id} value={id.slice(row.provider.length + 1)} />
+                    ))}
+                </datalist>
               </div>
               <div className='flex items-center justify-between gap-3 sm:justify-end sm:pt-7'>
                 <Label
@@ -154,8 +185,9 @@ export function CopilotSettingsFields({
         <Button
           type='button'
           variant='outline'
+          disabled={isLoading || !providers.length}
           onClick={() => {
-            const row = { provider: 'openai' as const, model: '' }
+            const row = { provider: providers[0].id, model: '' }
             onChange({
               models: [...value.models, row],
               defaultModel: value.defaultModel ?? getCopilotModelId(row),

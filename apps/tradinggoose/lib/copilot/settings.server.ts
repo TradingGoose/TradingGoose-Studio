@@ -1,7 +1,9 @@
+import { providers } from '@opencode-ai/models/snapshot'
+import { getSystemServiceDefinition } from '@/lib/system-services/catalog'
 import { resolveSystemServiceConfig } from '@/lib/system-services/service'
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { NativeTargetError } from './native/errors'
-import { COPILOT_PROVIDERS, type CopilotSettings, getCopilotModelId } from './settings'
+import { type CopilotModelOption, type CopilotSettings, getCopilotModelId } from './settings'
 
 export async function getCopilotSettings(): Promise<CopilotSettings> {
   return (await getResolvedSystemSettings()).copilot
@@ -19,19 +21,36 @@ export async function resolveCopilotModel(
   if (!row) {
     throw new NativeTargetError('The selected Copilot model is no longer available', 422)
   }
-  const provider = COPILOT_PROVIDERS[row.provider]
+  const provider = getSystemServiceDefinition(row.provider)
+  const credential = provider?.credentialFields[0]
+  if (!provider || !credential)
+    throw new NativeTargetError('The selected Copilot provider is not available', 409)
   const config = await resolveSystemServiceConfig(row.provider)
-  const apiKey = config[provider.credentialKey]
+  const apiKey = config[credential.key]
   if (typeof apiKey !== 'string' || !apiKey.trim()) {
-    throw new NativeTargetError(`The Copilot API key for ${provider.name} is not configured`, 409)
+    throw new NativeTargetError(
+      'The system API key for the selected Copilot model is not configured',
+      409
+    )
   }
   return { model: selected, apiKey: apiKey.trim() }
 }
 
 export async function getPublicCopilotModels(): Promise<{
-  models: string[]
+  models: CopilotModelOption[]
   defaultModel: string | null
 }> {
   const settings = await getCopilotSettings()
-  return { models: settings.models.map(getCopilotModelId), defaultModel: settings.defaultModel }
+  return {
+    models: settings.models.map((row) => {
+      const id = getCopilotModelId(row)
+      return {
+        id,
+        label:
+          providers[row.provider]?.models[row.model]?.canonical_model_id ??
+          (row.model.includes('/') ? row.model : id),
+      }
+    }),
+    defaultModel: settings.defaultModel,
+  }
 }
