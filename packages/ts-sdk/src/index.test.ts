@@ -451,8 +451,8 @@ describe('TradingGooseClient', () => {
             authType: 'api',
           },
           usage: {
-            currentPeriodCost: '1.23',
-            limit: '100',
+            currentPeriodCost: 1.23,
+            limit: 100.0,
             tier: { id: 'tier-pro', displayName: 'Pro' },
           },
           storage: {
@@ -473,7 +473,7 @@ describe('TradingGooseClient', () => {
       expect(result.success).toBe(true)
       expect(result.rateLimit.sync.limit).toBe(100)
       expect(result.rateLimit.async.limit).toBe(50)
-      expect(result.usage.currentPeriodCost).toBe('1.23')
+      expect(result.usage.currentPeriodCost).toBe(1.23)
       expect(result.usage.tier).toEqual({ id: 'tier-pro', displayName: 'Pro' })
       expect(result.storage.usedBytes).toBe(1_000)
       expect(result.storage.limitBytes).toBe(10_000)
@@ -483,49 +483,6 @@ describe('TradingGooseClient', () => {
       const calls = fetchMock.mock.calls
       expect(calls[0][0]).toBe('https://test.tradinggoose.ai/api/users/me/usage-limits')
     })
-
-    it.each(['0.3', null])(
-      'preserves high-precision wire money and limit %s without touching counts',
-      async (limit) => {
-        const fetchMock = await getFetchMock()
-        const amount = '9007199254740993.30000000000000001'
-        const body = JSON.stringify({
-          success: true,
-          rateLimit: {
-            sync: { isLimited: false, limit: 100, remaining: 95, resetAt: 'time' },
-            async: { isLimited: false, limit: 50, remaining: 48, resetAt: 'time' },
-            authType: 'api',
-          },
-          usage: {
-            currentPeriodCost: amount,
-            limit,
-            tier: {
-              monthlyPriceUsd: '0.30000000000000001',
-              includedUsageLimitUsd: null,
-              workflowModelCostMultiplier: '1.00000000000000001',
-            },
-          },
-          storage: { usedBytes: 1000, limitBytes: 10000, percentUsed: 10 },
-        })
-        fetchMock.mockResolvedValue({
-          ok: true,
-          json: async () => JSON.parse(body),
-          headers: { get: () => null },
-        })
-        const result = await client.getUsageLimits()
-        expect(result.usage.currentPeriodCost).toBe(amount)
-        expect(result.usage.limit).toBe(limit)
-        expect(result.usage.tier.workflowModelCostMultiplier).toBe('1.00000000000000001')
-        expect(result.usage.tier.includedUsageLimitUsd).toBeNull()
-        expect(result.rateLimit.sync.limit).toBe(100)
-        expect(result.storage.usedBytes).toBe(1000)
-        expect(fetchMock.mock.calls[0][1]).toMatchObject({
-          method: 'GET',
-          headers: { 'X-API-Key': 'test-api-key' },
-          redirect: 'manual',
-        })
-      }
-    )
 
     it('should handle unauthorized error', async () => {
       const fetchMock = await getFetchMock()

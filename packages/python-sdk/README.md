@@ -165,24 +165,15 @@ class RateLimitInfo:
     reset: str  # ISO timestamp
     retry_after: Optional[int] = None  # milliseconds
 
-class UsageData(TypedDict):
-    currentPeriodCost: str  # exact USD decimal text
-    limit: Optional[str]  # None means unlimited
-    tier: Dict[str, Any]  # tier money remains decimal strings or None
-
 @dataclass
 class UsageLimits:
     success: bool
     rate_limit: Dict[str, Any]
-    usage: UsageData
+    usage: Dict[str, Any]
     storage: Dict[str, Any]
 ```
 
 Python does not export a separate retry-options type; retry settings are keyword arguments to `execute_with_retry`.
-
-### Breaking usage money contract
-
-Usage money now crosses JSON as exact decimal strings: `currentPeriodCost="9007199254740993.30000000000000001"` and `limit="100"` or `None` for an unlimited budget. Nested tier prices, allowances and billing multipliers remain strings (or configured `None`). This replaces the previous numeric money ABI. `UsageData` is a `TypedDict`; the client still returns the original dictionary without a wrapper or float conversion. Keep strings unchanged for storage; this client performs no monetary arithmetic. Do not convert these amounts with `float`. Rate-limit counts and storage byte/percentage fields remain numeric.
 
 ### WorkflowExecutionResult
 
