@@ -63,7 +63,8 @@ describe('built-in Copilot authenticated boundary', () => {
         workspaceId: null,
       },
       'actual-actor',
-      expect.any(AbortSignal)
+      expect.any(AbortSignal),
+      []
     )
   })
   it('refuses missing authentication before local execution', async () => {
@@ -165,30 +166,38 @@ describe('built-in Copilot authenticated boundary', () => {
           model: 'test/model',
           input: { content: 'Read both', contexts },
           toolContext: toolContexts[1],
-          toolContexts,
         })
       ).status
     ).toBe(200)
     expect(mocks.entity).toHaveBeenCalledTimes(2)
-    expect(mocks.execute.mock.calls[0]![0]).toMatchObject({
-      toolContexts,
-      toolContext: toolContexts[1],
-    })
+    expect(mocks.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ toolContext: toolContexts[1] }),
+      'actual-actor',
+      expect.any(AbortSignal),
+      toolContexts
+    )
+    expect(mocks.execute.mock.calls[0]![0]).not.toHaveProperty('toolContexts')
   })
-  it('refuses an execution-context hint absent from the submitted context list', async () => {
-    expect(
-      (
-        await post({
-          command: 'message',
-          workspaceId: null,
-          model: 'test/model',
-          input: { content: 'Read' },
-          toolContexts: [{ contextEntityKind: 'workflow', contextEntityId: 'hidden' }],
-        })
-      ).status
-    ).toBe(422)
-    expect(mocks.execute).not.toHaveBeenCalled()
-  })
+  it.each([
+    { toolContexts: [{ contextEntityKind: 'workflow', contextEntityId: 'hidden' }] },
+    { toolContext: { contextEntityKind: 'workflow', contextEntityId: 'hidden' } },
+  ])(
+    'refuses browser-authored tool authority absent from the submitted contexts: %j',
+    async (extra) => {
+      expect(
+        (
+          await post({
+            command: 'message',
+            workspaceId: null,
+            model: 'test/model',
+            input: { content: 'Read' },
+            ...extra,
+          })
+        ).status
+      ).toBe(422)
+      expect(mocks.execute).not.toHaveBeenCalled()
+    }
+  )
 })
 
 it('preserves ordered native text and image content through authenticated ingress', async () => {
@@ -211,7 +220,8 @@ it('preserves ordered native text and image content through authenticated ingres
   expect(mocks.execute).toHaveBeenCalledWith(
     expect.objectContaining({ workspaceId: 'workspace', input: { content, contexts: [] } }),
     'actual-actor',
-    expect.any(AbortSignal)
+    expect.any(AbortSignal),
+    []
   )
   expect(mocks.contexts).toHaveBeenCalledWith(
     [],

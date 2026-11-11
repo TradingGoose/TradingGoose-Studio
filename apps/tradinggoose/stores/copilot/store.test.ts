@@ -48,29 +48,22 @@ const defer = <T>() => {
   })
   return { promise, resolve }
 }
-const result = (request: CopilotRequest, value: object) => ({
-  ...value,
+const json = (value: unknown, status = 200) => Response.json(value, { status })
+const ready = (text = 'canonical answer') => ({ status: 'completed', threadId, runId, text })
+const suspended = (items: Pending[]) => ({
+  status: 'suspended',
+  threadId,
+  runId,
+  text: '',
+  pending: items,
 })
-const json = (value: unknown, status = 200): Response => {
-  if (
-    status === 200 &&
-    value &&
-    typeof value === 'object' &&
-    'status' in value &&
-    ['completed', 'suspended'].includes(String(value.status))
-  )
-    return eventResponse({} as CopilotRequest, [
-      {
-        type: value.status === 'completed' ? 'response.completed' : 'response.suspended',
-        result: value,
-      },
-    ])
-  return Response.json(value, { status })
-}
-const ready = (request: CopilotRequest, text = 'canonical answer') =>
-  result(request, { status: 'completed', threadId, runId, text })
-const suspended = (request: CopilotRequest, items: Pending[]) =>
-  result(request, { status: 'suspended', threadId, runId, text: '', pending: items })
+const terminalResponse = <T extends { status: string }>(value: T) =>
+  eventResponse([
+    {
+      type: value.status === 'completed' ? 'response.completed' : 'response.suspended',
+      result: value,
+    },
+  ])
 const history = [
   {
     id: 'user-native',
@@ -141,47 +134,39 @@ const installPending = (item: Pending) => {
 }
 function defaultResponse(request: CopilotRequest) {
   if (request.command === 'history.read')
-    return json(
-      result(request, {
-        status: 'history',
-        pending: [],
-        threadId: request.threadId,
-        items: history,
-      })
-    )
+    return json({
+      status: 'history',
+      pending: [],
+      threadId: request.threadId,
+      items: history,
+    })
   if (request.command === 'threads.list')
-    return json(
-      result(request, {
-        status: 'threads',
-        items: [{ id: threadId, title: 'verified title', createdAt: at, updatedAt: at }],
-      })
-    )
+    return json({
+      status: 'threads',
+      items: [{ id: threadId, title: 'verified title', createdAt: at, updatedAt: at }],
+    })
   if (
     request.command === 'thread.title' ||
     request.command === 'history.edit' ||
     request.command === 'thread.delete'
   )
-    return json(
-      result(request, {
-        status: 'updated',
-        operation: request.command,
-        threadId: request.threadId,
-        ...(request.command === 'history.edit' ? { messageId: request.messageId } : {}),
-      })
-    )
+    return json({
+      status: 'updated',
+      operation: request.command,
+      threadId: request.threadId,
+      ...(request.command === 'history.edit' ? { messageId: request.messageId } : {}),
+    })
   if (request.command === 'cancel')
-    return json(
-      result(request, {
-        status: 'cancel_requested',
-        runId: request.runId,
-      })
-    )
-  return json(ready(request))
+    return json({
+      status: 'cancel_requested',
+      runId: request.runId,
+    })
+  return terminalResponse(ready())
 }
-function eventResponse(request: CopilotRequest, events: object[]) {
+function eventResponse(events: object[]) {
   const encoder = new TextEncoder()
   const bytes = encoder.encode(
-    events.map((value) => `data: ${JSON.stringify(result(request, value))}\r\n\r\n`).join('')
+    events.map((value) => `data: ${JSON.stringify(value)}\r\n\r\n`).join('')
   )
   return new Response(
     new ReadableStream({
@@ -290,13 +275,13 @@ describe('canonical browser conversation transport', () => {
     onCommand = (request) =>
       request.command === 'message'
         ? json(
-            result(request, {
+            {
               status: 'refused',
               error: {
                 code: 'FORBIDDEN',
                 message: 'Source access denied',
               },
-            }),
+            },
             403
           )
         : undefined
@@ -348,11 +333,11 @@ describe('canonical browser conversation transport', () => {
     setChat()
     onCommand = (request) => {
       if (request.command !== 'message') return
-      const wrong = result(request, {
+      const wrong = {
         status: 'updated',
         threadId,
         operation: 'history.edit',
-      })
+      }
       return json(wrong)
     }
     expect(await store().getState().sendMessage('First')).toBe(false)
@@ -364,11 +349,11 @@ describe('canonical browser conversation transport', () => {
     setChat()
     onCommand = (request) =>
       request.command === 'message'
-        ? eventResponse(request, [
+        ? eventResponse([
             { type: 'response.started', runId, threadId },
             { type: 'reasoning.delta', text: 'thinking🦆' },
             { type: 'text.delta', text: 'preview' },
-            { type: 'response.completed', result: ready(request) },
+            { type: 'response.completed', result: ready() },
           ])
         : undefined
     expect(await store().getState().sendMessage('Hello')).toBe(true)
@@ -395,12 +380,12 @@ describe('canonical browser conversation transport', () => {
                 {
                   type: 'response.completed',
                   result: {
-                    ...ready(request),
+                    ...ready(),
                   },
                 },
                 ...(mode === 'trailing-data' ? [{ type: 'text.delta', text: 'extra' }] : []),
               ]
-        return eventResponse(request, events)
+        return eventResponse(events)
       }
       expect(await store().getState().sendMessage('Hello')).toBe(false)
       expect(store().getState().error).toBeTruthy()
@@ -411,16 +396,16 @@ describe('canonical browser conversation transport', () => {
     setChat()
     onCommand = (request) =>
       request.command === 'message'
-        ? eventResponse(request, [
+        ? eventResponse([
             {
               type: 'response.error',
-              result: result(request, {
+              result: {
                 status: 'failed',
                 error: {
                   code: 'NATIVE_FAILURE',
                   message: 'Output failed after acceptance',
                 },
-              }),
+              },
             },
           ])
         : undefined
@@ -435,7 +420,7 @@ describe('canonical browser conversation transport', () => {
     const item = pending('approval')
     onCommand = (request) =>
       request.command === 'message'
-        ? eventResponse(request, [
+        ? eventResponse([
             { type: 'response.started', runId, threadId },
             {
               type: 'tool.display',
@@ -444,10 +429,10 @@ describe('canonical browser conversation transport', () => {
             },
             {
               type: 'response.cancel_requested',
-              result: result(request, {
+              result: {
                 status: 'cancel_requested',
                 runId,
-              }),
+              },
             },
           ])
         : undefined
@@ -484,9 +469,7 @@ describe('canonical browser conversation transport', () => {
                   ]
                   controller.enqueue(
                     new TextEncoder().encode(
-                      frames
-                        .map((frame) => `data: ${JSON.stringify(result(request, frame))}\n\n`)
-                        .join('')
+                      frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join('')
                     )
                   )
                 },
@@ -588,7 +571,9 @@ describe('canonical browser conversation transport', () => {
   it('rejects a stale thread response without selecting it', async () => {
     setChat()
     onCommand = (request) =>
-      request.command === 'message' ? json({ ...ready(request), threadId: 'other' }) : undefined
+      request.command === 'message'
+        ? terminalResponse({ ...ready(), threadId: 'other' })
+        : undefined
     expect(await store().getState().sendMessage('Hello')).toBe(false)
     expect(store().getState().currentChat?.threadId).toBe(threadId)
   })
@@ -688,7 +673,7 @@ describe('local pending approval and preview decisions', () => {
     )
     const queued = store().getState().executeCopilotToolCall('second')
     await store().getState().createNewChat()
-    gate.resolve(json(ready(commands.find((request) => request.command === 'tool.execute')!)))
+    gate.resolve(terminalResponse(ready()))
     await Promise.all([active, queued])
     expect(commands.filter((request) => request.command === 'tool.execute')).toHaveLength(1)
   })
@@ -708,31 +693,29 @@ describe('canonical history, edits and context', () => {
     const item = pending()
     onCommand = (request) =>
       request.command === 'history.read'
-        ? json(
-            result(request, {
-              status: 'history',
-              pending: [],
-              threadId,
-              items: [
-                {
-                  id: 'assistant-history',
-                  role: 'assistant',
-                  createdAt: at,
-                  parts: [
-                    {
-                      type: 'tool-invocation',
-                      toolInvocation: {
-                        state: 'call',
-                        toolCallId: item.target.toolCallId,
-                        toolName: item.target.toolName,
-                        args: item.originalArgs,
-                      },
+        ? json({
+            status: 'history',
+            pending: [],
+            threadId,
+            items: [
+              {
+                id: 'assistant-history',
+                role: 'assistant',
+                createdAt: at,
+                parts: [
+                  {
+                    type: 'tool-invocation',
+                    toolInvocation: {
+                      state: 'call',
+                      toolCallId: item.target.toolCallId,
+                      toolName: item.target.toolName,
+                      args: item.originalArgs,
                     },
-                  ],
-                },
-              ],
-            })
-          )
+                  },
+                ],
+              },
+            ],
+          })
         : undefined
     await store().getState().selectChat(chat())
     expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
@@ -791,14 +774,9 @@ describe('actual bounded initial-title publication', () => {
     await store().getState().sendMessage('Second')
     expect(titleRequests).toHaveLength(1)
   })
-  it.each([
-    ['completed', false],
-    ['completed', true],
-    ['suspended', false],
-    ['suspended', true],
-  ] as const)(
-    'titles an existing canonical empty thread only after positive empty history and correlated %s terminal (stream=%s)',
-    async (status, stream) => {
+  it.each(['completed', 'suspended'] as const)(
+    'titles an existing canonical empty thread only after positive empty history and correlated %s terminal',
+    async (status) => {
       store().setState({
         currentChat: { ...chat(), title: '' },
         conversationWorkspaceId: workspaceId,
@@ -808,27 +786,22 @@ describe('actual bounded initial-title publication', () => {
         if (request.command === 'history.read' && persisted && status === 'suspended')
           return historyResponse([pending('approval')])
         if (request.command === 'history.read' && !persisted)
-          return json(
-            result(request, {
-              status: 'history',
-              pending: [],
-              threadId,
-              items: [],
-            })
-          )
+          return json({
+            status: 'history',
+            pending: [],
+            threadId,
+            items: [],
+          })
         if (request.command !== 'message') return
         persisted = true
-        const terminal =
-          status === 'completed' ? ready(request) : suspended(request, [pending('approval')])
-        return stream
-          ? eventResponse(request, [
-              { type: 'response.started', threadId, runId },
-              {
-                type: status === 'completed' ? 'response.completed' : 'response.suspended',
-                result: terminal,
-              },
-            ])
-          : json(terminal)
+        const terminal = status === 'completed' ? ready() : suspended([pending('approval')])
+        return eventResponse([
+          { type: 'response.started', threadId, runId },
+          {
+            type: status === 'completed' ? 'response.completed' : 'response.suspended',
+            result: terminal,
+          },
+        ])
       }
       onTitle = () => json({ title: 'Generated title', outcome: titleOutcome })
       const originalInput = ' \nOriginal prompt🔥\t '
@@ -870,23 +843,23 @@ describe('actual bounded initial-title publication', () => {
     )
     store().setState({ currentChat: { ...chat(null), title: 'Manual title' } })
     store().setState({ currentChat: { ...chat(null), title: '' } })
-    late.resolve(json(ready(commands.find((request) => request.command === 'message')!)))
+    late.resolve(terminalResponse(ready()))
     expect(await sending).toBe(true)
     expect(titleRequests).toEqual([])
   })
   it('keeps the completed outcome when history readback fails without replaying inference', async () => {
     onCommand = (request) =>
       request.command === 'message'
-        ? json({ ...ready(request) })
+        ? terminalResponse({ ...ready() })
         : request.command === 'history.read'
           ? json(
-              result(request, {
+              {
                 status: 'refused',
                 error: {
                   code: 'FORBIDDEN',
                   message: 'Current history access denied',
                 },
-              }),
+              },
               403
             )
           : undefined
@@ -908,13 +881,13 @@ describe('actual bounded initial-title publication', () => {
     onCommand = (request) =>
       request.command === 'thread.title'
         ? json(
-            result(request, {
+            {
               status: 'failed',
               error: {
                 code: 'UNCERTAIN',
                 message: 'Title publication outcome is uncertain',
               },
-            }),
+            },
             503
           )
         : undefined
@@ -978,9 +951,7 @@ describe('owned late history-edit refresh', () => {
     const text = 'new stream exact output 🔥\n'
     const emit = (value: object) => {
       if (!active || !controller) throw new Error('Controlled stream was not started')
-      controller.enqueue(
-        new TextEncoder().encode(`data: ${JSON.stringify(result(active, value))}\n\n`)
-      )
+      controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(value)}\n\n`))
     }
     return {
       text,
@@ -1005,39 +976,37 @@ describe('owned late history-edit refresh', () => {
           )
         }
         if (active && request.command === 'history.read' && request.threadId === active.threadId) {
-          return json(
-            result(request, {
-              status: 'history',
-              pending: [],
-              threadId: request.threadId,
-              items: [
-                {
-                  id: 'new-native-user',
-                  role: 'user',
-                  createdAt: at,
-                  parts: [{ type: 'text', text: 'New request' }],
-                },
-                {
-                  id: 'new-native-answer',
-                  role: 'assistant',
-                  createdAt: at,
-                  parts: [{ type: 'text', text }],
-                },
-              ],
-            })
-          )
+          return json({
+            status: 'history',
+            pending: [],
+            threadId: request.threadId,
+            items: [
+              {
+                id: 'new-native-user',
+                role: 'user',
+                createdAt: at,
+                parts: [{ type: 'text', text: 'New request' }],
+              },
+              {
+                id: 'new-native-answer',
+                role: 'assistant',
+                createdAt: at,
+                parts: [{ type: 'text', text }],
+              },
+            ],
+          })
         }
       },
       finish() {
         if (!active || !controller) throw new Error('Controlled stream was not started')
         emit({
           type: 'response.completed',
-          result: result(active, {
+          result: {
             status: 'completed',
             threadId: active.threadId,
             runId,
             text,
-          }),
+          },
         })
         controller.close()
       },
@@ -1056,14 +1025,12 @@ describe('owned late history-edit refresh', () => {
     await vi.waitFor(() => expect(store().getState().messages.at(-1)?.content).toBe(stream.text))
     const before = store().getState()
     late.resolve(
-      json(
-        result(original, {
-          status: 'updated',
-          operation: 'history.edit',
-          threadId,
-          messageId: 'message-A',
-        })
-      )
+      json({
+        status: 'updated',
+        operation: 'history.edit',
+        threadId,
+        messageId: 'message-A',
+      })
     )
     await editing
     expect(store().getState().currentChat).toEqual(chat(null, 'thread-B'))
@@ -1101,14 +1068,12 @@ describe('owned late history-edit refresh', () => {
     await vi.waitFor(() => expect(store().getState().messages.at(-1)?.content).toBe(stream.text))
     const before = store().getState()
     lateHistory.resolve(
-      json(
-        result(original, {
-          status: 'history',
-          pending: [],
-          threadId,
-          items: history,
-        })
-      )
+      json({
+        status: 'history',
+        pending: [],
+        threadId,
+        items: history,
+      })
     )
     await editing
     expect(store().getState().messages).toEqual(before.messages)
@@ -1184,7 +1149,7 @@ describe('requested conversation scope survives discovery failure', () => {
     expect(store().getState().isSendingMessage).toBe(true)
     expect(store().getState().conversationWorkspaceId).toBe(workspaceId)
     expect(commands.some((request) => request.command === 'cancel')).toBe(false)
-    message.resolve(json(ready(original!)))
+    message.resolve(terminalResponse(ready()))
     await sending
   })
   it('does not replace an active selected conversation on failed competing discovery', async () => {
@@ -1232,7 +1197,7 @@ describe('display-only terminal settlement and optional completed history', () =
       setChat()
       onCommand = (request) =>
         request.command === 'message'
-          ? eventResponse(request, [
+          ? eventResponse([
               {
                 type: 'tool.display',
                 toolName: 'read_workflow',
@@ -1241,20 +1206,20 @@ describe('display-only terminal settlement and optional completed history', () =
               kind === 'cancel'
                 ? {
                     type: 'response.cancel_requested',
-                    result: result(request, {
+                    result: {
                       status: 'cancel_requested',
                       runId,
-                    }),
+                    },
                   }
                 : {
                     type: kind === 'error' ? 'response.error' : 'response.refused',
-                    result: result(request, {
+                    result: {
                       status: kind === 'error' ? 'failed' : 'refused',
                       error: {
                         code: 'FAILED',
                         message: 'Actual terminal refusal',
                       },
-                    }),
+                    },
                   },
             ])
           : undefined
@@ -1280,11 +1245,11 @@ describe('display-only terminal settlement and optional completed history', () =
       onCommand = (request) =>
         request.command === 'message'
           ? transport === 'json'
-            ? json(ready(request, text))
-            : eventResponse(request, [
+            ? terminalResponse(ready(text))
+            : eventResponse([
                 { type: 'reasoning.delta', text: reasoning },
                 { type: 'text.delta', text },
-                { type: 'response.completed', result: ready(request, text) },
+                { type: 'response.completed', result: ready(text) },
               ])
           : request.command === 'history.read'
             ? json({ not: 'history' })
@@ -1486,7 +1451,7 @@ describe('submitted immutable draft ownership', () => {
     if (kind === 'abort') store().getState().abortMessage()
     const next = store().getState().draft
     const request = commands.find((request) => request.command === 'message')!
-    held.resolve(kind === 'failure' ? json({ error: 'failed' }, 500) : json(ready(request)))
+    held.resolve(kind === 'failure' ? json({ error: 'failed' }, 500) : terminalResponse(ready()))
     const accepted = await sending
     if (kind === 'unchanged') expect(store().getState().draft).toEqual({ text: '', contexts: [] })
     else expect(store().getState().draft).toBe(next)
@@ -1510,7 +1475,7 @@ describe('R5 reopened OAuth workspace authorization', () => {
       if (request.command === 'history.read') return historyResponse([item])
       if (request.command === 'tool.approve') {
         item.stage = 'result'
-        return json(suspended(request, [item]))
+        return terminalResponse(suspended([item]))
       }
       return undefined
     }
@@ -1678,16 +1643,16 @@ describe('R5 per-tool context at actual live call creation', () => {
       onCommand = (request) => {
         if (request.command === 'history.read') return historyResponse(items)
         if (request.command === 'message') {
-          if (order === 'terminal') return json(suspended(request, items))
+          if (order === 'terminal') return terminalResponse(suspended(items))
           const displays = items.map((item) => ({
             type: 'tool.display',
             toolCallId: item.target.toolCallId,
             toolName: item.target.toolName,
           }))
-          return eventResponse(request, [
+          return eventResponse([
             { type: 'response.started', threadId, runId },
             ...displays,
-            { type: 'response.suspended', result: suspended(request, items) },
+            { type: 'response.suspended', result: suspended(items) },
           ])
         }
         return undefined
@@ -1924,7 +1889,7 @@ describe('built-in tool continuation', () => {
       const item = { ...pending('result', toolName), originalArgs }
       onCommand = (request) =>
         request.command === 'message'
-          ? json(suspended(request, [item]))
+          ? terminalResponse(suspended([item]))
           : request.command === 'history.read'
             ? historyResponse([item])
             : undefined
@@ -1998,7 +1963,7 @@ describe('built-in tool continuation', () => {
         return json({ status: 'history', threadId, items: history, pending: items })
       if (request.command === 'tool.result') {
         items = [cold]
-        return json(suspended(request, items))
+        return terminalResponse(suspended(items))
       }
       return undefined
     }
@@ -2024,7 +1989,7 @@ describe('built-in tool continuation', () => {
       } else changed.target[field] = 'changed'
       onCommand = (request) =>
         request.command === 'message'
-          ? json(suspended(request, [item]))
+          ? terminalResponse(suspended([item]))
           : request.command === 'history.read'
             ? historyResponse([changed])
             : undefined
@@ -2046,7 +2011,7 @@ describe('built-in tool continuation', () => {
       store().setState({ conversationWorkspaceId: workspaceId, accessLevel })
       onCommand = (request) =>
         request.command === 'message'
-          ? json(suspended(request, [item]))
+          ? terminalResponse(suspended([item]))
           : request.command === 'history.read'
             ? historyResponse([item])
             : undefined
@@ -2072,7 +2037,7 @@ describe('built-in tool continuation', () => {
       request.command === 'history.read'
         ? historyResponse([item, other])
         : request.command === 'tool.execute'
-          ? json(suspended(request, [other]))
+          ? terminalResponse(suspended([other]))
           : undefined
     await store().getState().readPendingTool(item.target.toolCallId)
     await store().getState().skipCopilotToolCall(item.target.toolCallId)
@@ -2091,7 +2056,7 @@ describe('built-in tool continuation', () => {
     const fresh = { ...item, preview: { requiresReview: true, description: 'later preview' } }
     onCommand = (request) =>
       request.command === 'tool.execute'
-        ? json(suspended(request, [fresh]))
+        ? terminalResponse(suspended([fresh]))
         : request.command === 'history.read'
           ? historyResponse([fresh])
           : undefined
@@ -2120,7 +2085,7 @@ describe('built-in tool continuation', () => {
     await expect(store().getState().skipCopilotToolCall(item.target.toolCallId)).rejects.toThrow(
       'already in flight'
     )
-    gate.resolve(json(ready(commands.find((request) => request.command === 'tool.execute')!)))
+    gate.resolve(terminalResponse(ready()))
     await active
     expect(commands.filter((request) => request.command === 'tool.execute')).toHaveLength(1)
   })
@@ -2128,7 +2093,7 @@ describe('built-in tool continuation', () => {
     setChat()
     onCommand = (request) =>
       request.command === 'message'
-        ? eventResponse(request, [
+        ? eventResponse([
             {
               type: 'tool.display',
               toolCallId: 'automatic',
@@ -2140,7 +2105,7 @@ describe('built-in tool continuation', () => {
               toolName: 'search_online',
               result: { results: [] },
             },
-            { type: 'response.completed', result: ready(request) },
+            { type: 'response.completed', result: ready() },
           ])
         : undefined
     expect(await store().getState().sendMessage('Search')).toBe(true)
@@ -2169,7 +2134,7 @@ describe('built-in tool continuation', () => {
       })
       onCommand = (request) =>
         request.command === 'message'
-          ? eventResponse(request, [
+          ? eventResponse([
               {
                 type: 'tool.display',
                 toolCallId: 'failed',
@@ -2177,7 +2142,7 @@ describe('built-in tool continuation', () => {
                 args: { query: 'search' },
               },
               { ...failed },
-              { type: 'response.completed', result: ready(request) },
+              { type: 'response.completed', result: ready() },
             ])
           : undefined
       expect(await store().getState().sendMessage('Search')).toBe(true)

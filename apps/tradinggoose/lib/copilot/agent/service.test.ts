@@ -13,7 +13,7 @@ import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { createCopilotAgent } from './agent'
 import { readCopilotRun } from './context'
 import { executeCopilotCommand } from './service'
-import type { CopilotRun } from './state'
+import { claimCopilotThread, isCopilotRunCancelled, readCopilotThreadRun } from './state'
 
 const m = vi.hoisted(() => ({
   storage: undefined as unknown as MastraCompositeStore,
@@ -28,9 +28,7 @@ const m = vi.hoisted(() => ({
   route: vi.fn(),
   business: vi.fn(),
   resolve: vi.fn(),
-  claims: new Map<string, string>(),
-  cancelled: new Set<string>(),
-  effects: new Map<string, string>(),
+  receipts: new Map<string, { id: string; identifier: string; value: string }>(),
 }))
 vi.mock('@/lib/mastra/runtime', () => ({
   getMastra: async () => undefined,
@@ -60,69 +58,47 @@ vi.mock('@/lib/copilot/native/readback', () => ({ readbackNativeToolResult: vi.f
 vi.mock('@/lib/copilot/tools/server/router', () => ({
   routeExecution: (...args: unknown[]) => m.route(...args),
 }))
-vi.mock('./state', async () => {
-  const { NativeTargetError } = await import('@/lib/copilot/native/errors')
-  const json = (value: unknown) => JSON.stringify(value)
-  const claimKey = (scope: Scope, threadId: string) => json([scope, threadId])
-  return {
-    readCopilotThreadRun: async (scope: Scope, threadId: string) =>
-      m.claims.get(claimKey(scope, threadId)),
-    claimCopilotThread: async (scope: Scope, threadId: string, runId: string) => {
-      const key = claimKey(scope, threadId)
-      if (m.claims.has(key))
-        throw new NativeTargetError(
-          'This conversation has an unfinished turn. Start a new conversation if it was interrupted.',
-          409
-        )
-      m.claims.set(key, runId)
-    },
-    releaseCopilotThread: async (scope: Scope, threadId: string, runId: string) => {
-      const key = claimKey(scope, threadId)
-      if (m.claims.get(key) === runId) m.claims.delete(key)
-    },
-    deleteCopilotThread: async (scope: Scope, threadId: string) => {
-      const key = claimKey(scope, threadId)
-      if (m.claims.has(key)) throw new NativeTargetError('Thread already active', 409)
-      const workflows = (await m.storage.getStore('workflows'))!
-      const { runs } = await m.agent.listSuspendedRuns({
-        threadId,
-        resourceId: nativeConversationIdentity(scope).resourceId,
-      })
-      for (const run of runs) {
-        let snapshot = await workflows.getWorkflowRunById({ runId: run.runId })
-        while (snapshot) {
-          await workflows.deleteWorkflowRunById({
-            runId: run.runId,
-            workflowName: snapshot.workflowName,
-          })
-          snapshot = await workflows.getWorkflowRunById({ runId: run.runId })
-        }
-        m.cancelled.delete(run.runId)
-      }
-      await m.memory.deleteThread(threadId)
-    },
-    cancelCopilotRun: async (run: CopilotRun) => {
-      m.cancelled.add(run.runId)
-    },
-    isCopilotRunCancelled: async (runId: string) => m.cancelled.has(runId),
-    assertCopilotRunActive: async (runId: string) => {
-      if (m.cancelled.has(runId)) throw new NativeTargetError('Cancelled run', 409)
-    },
-    runCopilotEffectOnce: async (
-      run: CopilotRun,
-      toolCallId: string,
-      phase: string,
-      execute: () => Promise<unknown>
-    ) => {
-      const key = json([run.runId, toolCallId, phase])
-      if (m.effects.has(key)) throw new NativeTargetError('Previously dispatched action', 409)
-      m.effects.set(key, 'dispatched')
-      return execute()
-    },
-  }
-})
+vi.mock('@tradinggoose/db', () => ({
+  db: {
+    select: () => ({
+      from: () => ({
+        where: (matches: (row: unknown) => boolean) => ({
+          limit: async () => [...m.receipts.values()].filter(matches).slice(0, 1),
+        }),
+      }),
+    }),
+    insert: () => ({
+      values: (row: { id: string; identifier: string; value: string }) => ({
+        onConflictDoNothing: () => ({
+          returning: async () => {
+            if (m.receipts.has(row.id)) return []
+            m.receipts.set(row.id, row)
+            return [{ id: row.id }]
+          },
+        }),
+      }),
+    }),
+    delete: () => ({
+      where: async (matches: (row: unknown) => boolean) => {
+        for (const [id, row] of m.receipts) if (matches(row)) m.receipts.delete(id)
+      },
+    }),
+  },
+}))
+vi.mock('drizzle-orm', async (original) => ({
+  ...(await original<object>()),
+  eq: (field: { name: string }, value: unknown) => (row: Record<string, unknown>) =>
+    row[field.name] === value,
+  ne: (field: { name: string }, value: unknown) => (row: Record<string, unknown>) =>
+    row[field.name] !== value,
+  and:
+    (...conditions: Array<(row: unknown) => boolean>) =>
+    (row: unknown) =>
+      conditions.every((matches) => matches(row)),
+}))
 
 const scope: Scope = { actorUserId: 'actor', workspaceId: 'workspace' }
+const threadClaims = () => [...m.receipts.values()].filter((row) => row.id === row.identifier)
 function restart() {
   m.memory = new Memory({
     storage: m.storage,
@@ -224,9 +200,7 @@ beforeEach(() => {
     apiKey: 'admin-key',
   }))
   m.contacts.length = 0
-  m.claims.clear()
-  m.cancelled.clear()
-  m.effects.clear()
+  m.receipts.clear()
   m.access.mockResolvedValue({ hasAccess: true })
   m.fetch.mockRejectedValue(new Error('External Copilot is unavailable'))
   vi.stubGlobal('fetch', m.fetch)
@@ -246,7 +220,7 @@ describe('built-in Copilot service bridge', () => {
       setModel({ text: 'Must not run' })
       expect((await message()).result).toMatchObject({ status: 'refused' })
       expect(m.contacts).toHaveLength(0)
-      expect(m.claims.size).toBe(0)
+      expect(threadClaims()).toHaveLength(0)
       expect(m.admit).not.toHaveBeenCalled()
       expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
     }
@@ -273,8 +247,8 @@ describe('built-in Copilot service bridge', () => {
     expect(m.admit).toHaveBeenCalledTimes(admissions)
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(m.route).not.toHaveBeenCalled()
-    expect(m.effects.size).toBe(0)
-    expect(m.claims.size).toBe(0)
+    expect(m.receipts.size).toBe(0)
+    expect(threadClaims()).toHaveLength(0)
     expect((await command({ command: 'history.read', threadId: initial.threadId })).result).toEqual(
       history
     )
@@ -422,7 +396,7 @@ describe('built-in Copilot service bridge', () => {
     expect(m.contacts).toHaveLength(50)
     expect(m.route).toHaveBeenCalledTimes(49)
     expect(m.accept).toHaveBeenCalledTimes(50)
-    expect(m.claims.size).toBe(0)
+    expect(threadClaims()).toHaveLength(0)
   })
 
   it('reserves the last native step for an answer using existing tool results', async () => {
@@ -445,7 +419,7 @@ describe('built-in Copilot service bridge', () => {
     expect(m.contacts.at(-1)).toMatchObject({ toolChoice: { type: 'none' } })
     expect(m.route).toHaveBeenCalledTimes(49)
     expect(m.accept).toHaveBeenCalledTimes(50)
-    expect(m.claims.size).toBe(0)
+    expect(threadClaims()).toHaveLength(0)
   })
 
   it('does not accept earlier tool commentary as an answer when the final response is blank', async () => {
@@ -461,7 +435,7 @@ describe('built-in Copilot service bridge', () => {
       usage: { inputTokens: 6, outputTokens: 4, totalTokens: 10 },
     })
     expect(m.accept).toHaveBeenCalledTimes(2)
-    expect(m.claims.size).toBe(0)
+    expect(threadClaims()).toHaveLength(0)
   })
 
   it('gives the model current Studio context while persisting and editing only the visible input', async () => {
@@ -733,7 +707,7 @@ describe('built-in Copilot service bridge', () => {
     expect(m.route).not.toHaveBeenCalled()
     expect(m.contacts).toHaveLength(1)
     expect(m.accept).toHaveBeenCalledTimes(charges)
-    expect(m.claims.size).toBe(0)
+    expect(threadClaims()).toHaveLength(0)
   })
   it.each(
     [409, 422].flatMap((status) => ['approval', 'review'].map((stage) => ({ status, stage })))
@@ -749,7 +723,7 @@ describe('built-in Copilot service bridge', () => {
     const admissions = m.admit.mock.calls.length
     const charges = m.accept.mock.calls.length
     const dispatches = m.route.mock.calls.length
-    const effects = m.effects.size
+    const receipts = m.receipts.size
     const models = vi.mocked(createConfiguredLanguageModel).mock.calls.length
     const error = new NativeTargetError(
       status === 409 ? 'The Copilot API key is not configured' : 'Copilot model unavailable',
@@ -772,7 +746,7 @@ describe('built-in Copilot service bridge', () => {
     })
     expect(m.resolve).toHaveBeenLastCalledWith('configured/model')
     expect(m.route).toHaveBeenCalledTimes(dispatches)
-    expect(m.effects.size).toBe(effects)
+    expect(m.receipts.size).toBe(receipts)
     expect(m.contacts).toHaveLength(1)
     expect(createConfiguredLanguageModel).toHaveBeenCalledTimes(models)
     expect(m.admit).toHaveBeenCalledTimes(admissions)
@@ -785,7 +759,7 @@ describe('built-in Copilot service bridge', () => {
       (await command({ command: 'cancel', threadId: initial.threadId, runId: initial.runId }))
         .result
     ).toMatchObject({ status: 'cancel_requested' })
-    expect(m.claims.size).toBe(0)
+    expect(threadClaims()).toHaveLength(0)
   })
   it('rejects a claimed run mismatch and makes unclaimed cancellation a harmless no-op', async () => {
     setModel(
@@ -796,10 +770,10 @@ describe('built-in Copilot service bridge', () => {
     const second = suspended((await message()).result)
     const cancel = { command: 'cancel', threadId: first.threadId, runId: second.runId }
     expect((await command(cancel)).response.status).toBe(403)
-    expect(m.cancelled.size).toBe(0)
+    expect(await isCopilotRunCancelled(first.runId)).toBe(false)
     await command({ ...cancel, runId: first.runId })
     expect((await command(cancel)).result).toMatchObject({ status: 'cancel_requested' })
-    expect(m.cancelled.has(second.runId)).toBe(false)
+    expect(await isCopilotRunCancelled(second.runId)).toBe(false)
     expect(await pending(second.threadId)).toHaveLength(1)
   })
   it('deletes cancelled native suspensions and their application receipts with the conversation', async () => {
@@ -813,15 +787,15 @@ describe('built-in Copilot service bridge', () => {
     ).toMatchObject({ status: 'updated', operation: 'thread.delete' })
     expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
     expect(await m.memory.getThreadById({ threadId: initial.threadId })).toBeNull()
-    expect(m.cancelled.has(initial.runId)).toBe(false)
-    expect(m.claims.size).toBe(0)
+    expect(await isCopilotRunCancelled(initial.runId)).toBe(false)
+    expect(threadClaims()).toHaveLength(0)
   })
 
   it('allows a new conversation while refusing to unlock an interrupted ordinary writer', async () => {
     setModel({ text: 'Original answer' }, { text: 'New conversation' })
     const initial = (await message()).result
     if (initial.status !== 'completed') throw new Error(JSON.stringify(initial))
-    m.claims.set(JSON.stringify([scope, initial.threadId]), initial.runId)
+    await claimCopilotThread(scope, initial.threadId, initial.runId)
     await command({ command: 'cancel', threadId: initial.threadId, runId: initial.runId })
     const blocked = (await message({ threadId: initial.threadId })).result
     expect(blocked).toMatchObject({
@@ -835,7 +809,7 @@ describe('built-in Copilot service bridge', () => {
     expect(next).toMatchObject({ status: 'completed', text: 'New conversation' })
     if (next.status !== 'completed') throw new Error(JSON.stringify(next))
     expect(next.threadId).not.toBe(initial.threadId)
-    expect(m.claims.get(JSON.stringify([scope, initial.threadId]))).toBe(initial.runId)
+    expect(await readCopilotThreadRun(scope, initial.threadId)).toBe(initial.runId)
   })
   it('keeps thread ownership until native memory finishes after the HTTP observer disconnects', async () => {
     setModel({ text: 'Delayed persisted answer' })
@@ -877,7 +851,7 @@ describe('built-in Copilot service bridge', () => {
       const next = reader.read()
       await writing
       const closing = reader.cancel()
-      expect(m.claims.get(JSON.stringify([scope, first.threadId]))).toBe(first.runId)
+      expect(await readCopilotThreadRun(scope, first.threadId)).toBe(first.runId)
       expect(persisted).toBe(false)
       expect((await message({ threadId: first.threadId })).result).toMatchObject({
         status: 'refused',
@@ -886,7 +860,7 @@ describe('built-in Copilot service bridge', () => {
       await next
       await closing
       expect(persisted).toBe(true)
-      expect(m.claims.has(JSON.stringify([scope, first.threadId]))).toBe(false)
+      expect(await readCopilotThreadRun(scope, first.threadId)).toBeUndefined()
     } finally {
       release()
       spy.mockRestore()

@@ -40,17 +40,9 @@ export interface CopilotMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: string
-  citations?: { id: number; title: string; url: string; similarity?: number }[]
   contentBlocks?: Array<
-    | { type: 'text'; content: string; timestamp: number; itemId?: string }
-    | {
-        type: 'thinking'
-        content: string
-        timestamp: number
-        itemId?: string
-        duration?: number
-        startTime?: number
-      }
+    | { type: 'text'; content: string; timestamp: number }
+    | { type: 'thinking'; content: string; timestamp: number }
     | { type: 'tool_call'; toolCall: CopilotToolCall; timestamp: number }
     | { type: 'file'; file: NativeImageFile; timestamp: number }
   >
@@ -73,7 +65,6 @@ export interface CopilotChat {
   title: string | null
   createdAt: Date
   updatedAt: Date
-  latestTurnStatus?: string | null
 }
 
 export interface CopilotSendRuntimeContext {

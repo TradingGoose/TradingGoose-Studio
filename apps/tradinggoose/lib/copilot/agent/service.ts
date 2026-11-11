@@ -7,6 +7,7 @@ import type {
   CopilotEvent,
   CopilotRequest,
   CopilotResponse,
+  CopilotToolContext,
   ErrorResponse,
   Json,
   Pending,
@@ -253,7 +254,8 @@ function inputMessage(
 async function* generate(
   request: CopilotRequest,
   scope: Scope,
-  cancellation: AbortController
+  cancellation: AbortController,
+  toolContexts: CopilotToolContext[]
 ): AsyncGenerator<CopilotEvent> {
   let run: CopilotRun | undefined
   let watcher: ReturnType<typeof setInterval> | undefined
@@ -283,7 +285,7 @@ async function* generate(
           model: request.model,
           accessLevel: request.accessLevel ?? 'limited',
           toolContext: request.toolContext,
-          toolContexts: request.toolContexts,
+          toolContexts,
           workflowId: request.workflowId,
         }
         if (!request.threadId)
@@ -559,7 +561,8 @@ async function* generate(
 export async function executeCopilotCommand(
   request: CopilotRequest,
   actorUserId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  toolContexts: CopilotToolContext[] = []
 ): Promise<Response> {
   signal?.throwIfAborted()
   const scope = await authorizeNativeConversationScope(actorUserId, request.workspaceId)
@@ -574,7 +577,7 @@ export async function executeCopilotCommand(
   const cancellation = new AbortController()
   const abort = () => cancellation.abort(signal?.reason)
   signal?.addEventListener('abort', abort, { once: true })
-  const events = generate(request, scope, cancellation)
+  const events = generate(request, scope, cancellation, toolContexts)
   const encoder = new TextEncoder()
   return new Response(
     new ReadableStream<Uint8Array>({

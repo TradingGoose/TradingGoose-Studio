@@ -1,171 +1,59 @@
 import { describe, expect, it } from 'vitest'
-import {
-  hasAcceptedLiveMutationAfterMessage,
-  isAcceptedLiveMutationToolCall,
-  messageHasAcceptedLiveMutation,
-} from '@/lib/copilot/chat-replay-safety'
+import { hasToolActivityAfterMessage } from '@/lib/copilot/chat-replay-safety'
+import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import type { CopilotMessage } from '@/stores/copilot/types'
 
-describe('chat replay safety', () => {
-  it('recognizes accepted live mutation tool calls from tool state', () => {
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-1',
-        name: 'edit_workflow',
-        state: 'success',
-      })
-    ).toBe(true)
+const user: CopilotMessage = {
+  id: 'user',
+  role: 'user',
+  content: 'Hello',
+  timestamp: '2026-11-11T00:00:00Z',
+}
 
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-2',
-        name: 'edit_workflow',
-        state: 'accepted',
-      })
-    ).toBe(true)
-
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-3',
-        name: 'edit_workflow_block',
-        state: 'success',
-      })
-    ).toBe(true)
-
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-3b',
-        name: 'edit_workflow_variable',
-        state: 'success',
-      })
-    ).toBe(true)
-
-    for (const name of [
-      'create_skill',
-      'edit_skill',
-      'create_custom_tool',
-      'edit_custom_tool',
-      'create_indicator',
-      'edit_indicator',
-      'create_mcp_server',
-      'edit_mcp_server',
-    ]) {
-      expect(
-        isAcceptedLiveMutationToolCall({
-          id: `tool-${name}`,
-          name,
-          state: 'success',
-        })
-      ).toBe(true)
-    }
-
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-5',
-        name: 'edit_monitor',
-        state: 'success',
-      })
-    ).toBe(true)
-
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-5b',
-        name: 'rename_workflow',
-        state: 'accepted',
-      })
-    ).toBe(true)
-
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-5c',
-        name: 'set_environment_variables',
-        state: 'success',
-      })
-    ).toBe(true)
-
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-5d',
-        name: 'deploy_workflow',
-        state: 'success',
-      })
-    ).toBe(true)
-
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-6',
-        name: 'list_indicators',
-        state: 'success',
-      })
-    ).toBe(false)
-
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-7',
-        name: 'run_workflow',
-        state: 'success',
-      })
-    ).toBe(false)
-  })
-
-  it('detects accepted live mutations from assistant message tool blocks', () => {
-    expect(
-      messageHasAcceptedLiveMutation({
-        id: 'assistant-1',
+describe('native history edit safety', () => {
+  it.each([
+    ClientToolCallState.success,
+    ClientToolCallState.error,
+    ClientToolCallState.rejected,
+    ClientToolCallState.pending,
+  ])('preserves later tool activity regardless of outcome (%s)', (state) => {
+    const messages: CopilotMessage[] = [
+      user,
+      {
+        id: 'assistant',
+        role: 'assistant',
+        content: '',
+        timestamp: user.timestamp,
         contentBlocks: [
           {
             type: 'tool_call',
             timestamp: 1,
-            toolCall: {
-              id: 'tool-1',
-              name: 'edit_workflow',
-              state: 'success',
-            },
+            toolCall: { id: 'read', name: 'read_workflow', state },
           },
         ],
-      })
-    ).toBe(true)
-
-    expect(
-      messageHasAcceptedLiveMutation({
-        id: 'assistant-2',
-        contentBlocks: [
-          {
-            type: 'tool_call',
-            toolCall: {
-              id: 'tool-2',
-              name: 'list_custom_tools',
-              state: 'success',
-            },
-          },
-        ],
-      })
-    ).toBe(false)
-  })
-
-  it('blocks replay only when a later accepted live mutation would be removed', () => {
-    const messages = [
-      {
-        id: 'message-1',
-      },
-      {
-        id: 'message-2',
-        contentBlocks: [
-          {
-            type: 'tool_call',
-            toolCall: {
-              id: 'tool-1',
-              name: 'rename_mcp_server',
-              state: 'success',
-            },
-          },
-        ],
-      },
-      {
-        id: 'message-3',
       },
     ]
-
-    expect(hasAcceptedLiveMutationAfterMessage(messages, 'message-1')).toBe(true)
-    expect(hasAcceptedLiveMutationAfterMessage(messages, 'message-2')).toBe(false)
+    expect(hasToolActivityAfterMessage(messages, user.id)).toBe(true)
+    expect(hasToolActivityAfterMessage(messages, 'assistant')).toBe(false)
+    expect(hasToolActivityAfterMessage(messages, 'missing')).toBe(false)
+  })
+  it('allows editing when later messages contain only text or reasoning', () => {
+    expect(
+      hasToolActivityAfterMessage(
+        [
+          user,
+          {
+            ...user,
+            id: 'assistant',
+            role: 'assistant',
+            contentBlocks: [
+              { type: 'text', content: 'Reply', timestamp: 1 },
+              { type: 'thinking', content: 'Reasoning', timestamp: 1 },
+            ],
+          },
+        ],
+        user.id
+      )
+    ).toBe(false)
   })
 })

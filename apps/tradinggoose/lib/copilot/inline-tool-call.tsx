@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { DiffViewer } from '@/components/ui/diff-viewer'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import { parseEntityDocument } from '@/lib/copilot/entity-documents'
+import { isToolId } from '@/lib/copilot/registry'
 import { ToolAccessChoice } from '@/lib/copilot/tool-access-choice'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
@@ -20,7 +21,6 @@ import { useCopilotStore } from '@/stores/copilot/store'
 import {
   getCopilotToolMetadata,
   getToolInterruptDisplays,
-  isCopilotTool,
   isServerManagedCopilotTool,
 } from '@/stores/copilot/tool-registry'
 import type { CopilotToolCall } from '@/stores/copilot/types'
@@ -244,7 +244,7 @@ function shouldShowToolActionButtons(
   toolCall: CopilotToolCall,
   _accessLevel: CopilotAccessLevel
 ): boolean {
-  if (!isCopilotTool(toolCall.name)) {
+  if (!isToolId(toolCall.name)) {
     return false
   }
 
@@ -274,7 +274,7 @@ function isEntityReviewKind(entityKind: unknown): entityKind is string {
 }
 
 function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload | null {
-  if (!isCopilotTool(toolCall.name) || !isStagedPreviewState(toolCall.state)) {
+  if (!isToolId(toolCall.name) || !isStagedPreviewState(toolCall.state)) {
     return null
   }
 

@@ -16,7 +16,6 @@ import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
 import type { CopilotEvent, CopilotRequest, Pending } from '@/lib/copilot/native/contract'
 import { readNativeEvents } from '@/lib/copilot/native/stream'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
-import { collectCopilotToolContexts } from '@/lib/copilot/tool-context'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import {
   disposeAllClientTools,
@@ -58,7 +57,6 @@ import {
   createExecutionContext,
   ensureClientToolInstance,
   handleCopilotServerToolSuccess,
-  isCopilotTool,
   isGatedTool,
   isServerManagedCopilotTool,
   resolveToolDisplay,
@@ -148,7 +146,7 @@ function createCopilotStoreInstance(channelId: string) {
         const updated = {
           ...current,
           state,
-          display: resolveToolDisplay(current.name, state, id, current.params),
+          display: resolveToolDisplay(current.name, state, current.params),
           ...(result !== undefined ? { result } : {}),
         }
         set((currentState) => ({
@@ -540,7 +538,7 @@ function createCopilotStoreInstance(channelId: string) {
               throw new Error('Native pending target changed')
           }
           const call = get().toolCallsById[id]
-          if (!call || !isCopilotTool(call.name)) throw new Error('Unknown native tool')
+          if (!call || !isToolId(call.name)) throw new Error('Unknown native tool')
           if (call.name === 'gdrive_request_access')
             throw new Error(
               'Choose an authorized workspace and Google Drive credential in this tool card'
@@ -933,7 +931,6 @@ function createCopilotStoreInstance(channelId: string) {
               {
                 command: 'message',
                 toolContext: businessContext(turnProvenance),
-                toolContexts: collectCopilotToolContexts(contexts),
                 workspaceId,
                 ...(chat ? { threadId: chat.threadId } : {}),
                 model,

@@ -16,7 +16,6 @@ const thinkingBlock = (overrides: Partial<ThinkingBlock> = {}): ThinkingBlock =>
   type: 'thinking',
   content: 'Historical reasoning.',
   timestamp: 1,
-  itemId: 'thinking-1',
   ...overrides,
 })
 
@@ -43,11 +42,10 @@ describe('ThinkingGroup', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('shows a streaming header while thinking and a finalized duration after completion', async () => {
+  it('shows live reasoning and collapses after completion', async () => {
     const blocks = [
       thinkingBlock({
         content: 'Inspecting the workflow.\nPreparing the update.',
-        duration: 1250,
       }),
     ]
 
@@ -59,18 +57,8 @@ describe('ThinkingGroup', () => {
 
     await renderGroup(blocks)
 
-    expect(container.textContent).toContain('Thought for 1.3s')
-    expect(container.querySelector('button')?.getAttribute('aria-expanded')).toBe('false')
-  })
-
-  it.each([
-    ['without timing metadata', {}],
-    ['with only a stale start time', { startTime: 1 }],
-  ])('does not invent a finalized duration %s', async (_label, overrides) => {
-    await renderGroup([thinkingBlock(overrides)])
-
     expect(container.textContent).toContain('Finished thinking')
-    expect(container.textContent).not.toContain('Thought for')
+    expect(container.querySelector('button')?.getAttribute('aria-expanded')).toBe('false')
   })
 
   it('renders expanded thinking content as markdown', async () => {

@@ -76,22 +76,18 @@ export function createExecutionContext(params: {
   }
 }
 
-export function isCopilotTool(toolName: string | undefined): toolName is ToolId {
-  return !!toolName && isToolId(toolName)
-}
-
 export function isGatedTool(toolName: string | undefined): boolean {
-  return isCopilotTool(toolName) ? getCopilotToolPolicy(toolName).gated : true
+  return isToolId(toolName) ? getCopilotToolPolicy(toolName).gated : true
 }
 
 export function isServerManagedCopilotTool(toolName: string | undefined): boolean {
-  return isCopilotTool(toolName) && getCopilotToolPolicy(toolName).execution === 'server'
+  return isToolId(toolName) && getCopilotToolPolicy(toolName).execution === 'server'
 }
 
 export function getCopilotToolMetadata(
   toolName: string | undefined
 ): BaseClientToolMetadata | undefined {
-  if (!isCopilotTool(toolName)) return undefined
+  if (!isToolId(toolName)) return undefined
   const Ctor = CLIENT_TOOL_CONSTRUCTORS[toolName]
   return Ctor ? Ctor.metadata : SERVER_TOOL_METADATA[toolName as keyof typeof SERVER_TOOL_METADATA]
 }
@@ -100,7 +96,7 @@ export function ensureClientToolInstance(
   toolName: string | undefined,
   toolCallId: string | undefined
 ): BaseClientTool | undefined {
-  if (!isCopilotTool(toolName) || !toolCallId) {
+  if (!isToolId(toolName) || !toolCallId) {
     return undefined
   }
 
@@ -228,7 +224,6 @@ export function getToolInterruptDisplays(
 export function resolveToolDisplay(
   toolName: string | undefined,
   state: ClientToolCallState,
-  _toolCallId?: string,
   params?: Record<string, any>
 ): ClientToolDisplay | undefined {
   if (!toolName) {

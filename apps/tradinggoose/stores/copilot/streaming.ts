@@ -32,7 +32,7 @@ function settleTools(
             ...call,
             state: terminalState,
             pending: undefined,
-            display: resolveToolDisplay(call.name, terminalState, id, call.params),
+            display: resolveToolDisplay(call.name, terminalState, call.params),
           }
         : call,
     ])
@@ -162,7 +162,6 @@ export function displayNativePending(
     display: resolveToolDisplay(
       target.toolName,
       pending.preview ? ClientToolCallState.review : stateToDisplay,
-      target.toolCallId,
       pending.originalArgs
     ),
   }
@@ -223,7 +222,7 @@ export function applyNativeResponse(
   messageId: string
 ): Partial<CopilotStore> {
   const chat = verifyNativeThread(state, response)
-  const currentChat = { ...chat, latestTurnStatus: response.status, updatedAt: new Date() }
+  const currentChat = { ...chat, updatedAt: new Date() }
   const display = response.status === 'completed' ? settleDisplayOnlyTools(state, messageId) : state
   return {
     toolCallsById: display.toolCallsById,
@@ -276,12 +275,7 @@ export function applyNativeEvent(
           ...(event.args ? { params: event.args } : {}),
           state: ClientToolCallState.generating,
           historical: false,
-          display: resolveToolDisplay(
-            event.toolName,
-            ClientToolCallState.generating,
-            event.toolCallId,
-            event.args
-          ),
+          display: resolveToolDisplay(event.toolName, ClientToolCallState.generating, event.args),
         },
         provenance
       )
@@ -317,7 +311,7 @@ export function applyNativeEvent(
         state: nextState,
         historical: false,
         pending: undefined,
-        display: resolveToolDisplay(event.toolName, nextState, event.toolCallId, current?.params),
+        display: resolveToolDisplay(event.toolName, nextState, current?.params),
       }
       return {
         toolCallsById: { ...state.toolCallsById, [toolCall.id]: toolCall },

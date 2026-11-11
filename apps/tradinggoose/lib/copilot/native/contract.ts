@@ -60,7 +60,6 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
       workflowId: id.optional(),
       accessLevel: z.enum(['limited', 'full']).optional(),
       toolContext: ToolContextSchema.optional(),
-      toolContexts: z.array(ToolContextSchema).max(16).optional(),
     })
     .strict(),
   z.object({ ...base, command: z.literal('tool.approve'), target: TargetSchema }).strict(),

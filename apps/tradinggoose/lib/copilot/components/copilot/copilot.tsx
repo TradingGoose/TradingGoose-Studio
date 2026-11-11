@@ -72,7 +72,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     setAccessLevel,
     setDraft,
     loadChats,
-    currentChat,
     toolCallsById,
     error,
     historyRefreshError,
@@ -80,11 +79,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     refreshCurrentHistory,
   } = useCopilotStore()
   const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
-  const isTurnInProgress =
-    isSendingMessage ||
-    isAwaitingContinuation ||
-    currentChat?.latestTurnStatus === 'in_progress' ||
-    hasActiveToolCalls
+  const isTurnInProgress = isSendingMessage || isAwaitingContinuation || hasActiveToolCalls
 
   useEffect(() => {
     let cancelled = false

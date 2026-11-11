@@ -52,7 +52,6 @@ vi.mock('@/stores/copilot/store', () => ({
 vi.mock('@/stores/copilot/tool-registry', () => ({
   getCopilotToolMetadata: () => undefined,
   getToolInterruptDisplays: (...args: any[]) => mockGetToolInterruptDisplays(...args),
-  isCopilotTool: () => true,
   isServerManagedCopilotTool: (name: string) =>
     ![
       'run_workflow',

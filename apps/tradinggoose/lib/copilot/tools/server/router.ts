@@ -1,9 +1,9 @@
 import {
   CopilotTool,
-  getToolContract,
   isToolId,
-  ServerToolArgSchemas,
+  ToolArgSchemas,
   type ToolId,
+  ToolResultSchemas,
 } from '@/lib/copilot/registry'
 import {
   type BaseServerTool,
@@ -296,70 +296,35 @@ export async function routeExecution(
   const tool = await resolveServerTool(toolName)
   throwIfServerToolAborted(context)
 
-  const contract = getToolContract(toolName)
-  if (!tool || !contract) {
+  if (!tool) {
     throw new Error(`Unknown server tool: ${toolName}`)
   }
 
   logger.debug('Routing to tool', { toolName })
 
-  if (isWorkspaceAgnosticServerTool(toolName)) {
-    const args = ServerToolArgSchemas[toolName].parse(payload ?? {})
-    const executionContext: ServerToolExecutionContext | undefined = context
-      ? {
-          userId: context.userId,
-          accessLevel: context.accessLevel,
-          acceptedReviewBaseStateHash: context.acceptedReviewBaseStateHash,
-          signal: context.signal,
-        }
-      : undefined
-    throwIfServerToolAborted(executionContext)
-    const result = await tool.execute(args, executionContext)
-    const facts = getInferenceFacts(result)
-    try {
-      throwIfServerToolAborted(executionContext)
-      const parsed = contract.result.parse(result)
-      if (facts && !getInferenceFacts(parsed)) {
-        if (!parsed || typeof parsed !== 'object') {
-          throw new Error('Native tool result lost its structured accounting output')
-        }
-        return withInferenceFacts(parsed, facts)
+  const args = ToolArgSchemas[toolName].parse(payload ?? {})
+  const executionContext = isWorkspaceAgnosticServerTool(toolName)
+    ? context && {
+        userId: context.userId,
+        accessLevel: context.accessLevel,
+        acceptedReviewBaseStateHash: context.acceptedReviewBaseStateHash,
+        signal: context.signal,
       }
-      return parsed
-    } catch (error) {
-      if (!facts || getInferenceFacts(error)) throw error
-      const failure = error instanceof Error ? error : new Error(String(error))
-      Object.assign(failure, getFailureAccounting(facts))
-      throw withInferenceFacts(failure, facts)
-    }
-  }
-
-  let args: any
-  try {
-    args = ServerToolArgSchemas[toolName].parse(payload ?? {})
-  } catch (error) {
-    if (
-      context?.workspaceId &&
-      (!payload || (typeof payload === 'object' && !Array.isArray(payload)))
-    ) {
-      const payloadWithContextWorkspace = {
-        ...((payload as Record<string, unknown> | null | undefined) ?? {}),
-        workspaceId: context.workspaceId,
-      }
-      try {
-        args = ServerToolArgSchemas[toolName].parse(payloadWithContextWorkspace)
-      } catch {
-        throw error
-      }
-    } else {
-      throw error
-    }
-  }
-  const executionContext = withWorkspaceArgContext(context, args)
+    : withWorkspaceArgContext(
+        context,
+        'workspaceId' in args ? { workspaceId: args.workspaceId } : undefined
+      )
   throwIfServerToolAborted(executionContext)
-
   const result = await tool.execute(args, executionContext)
-  throwIfServerToolAborted(executionContext)
-
-  return contract.result.parse(result)
+  const facts = getInferenceFacts(result)
+  try {
+    throwIfServerToolAborted(executionContext)
+    const parsed = ToolResultSchemas[toolName].parse(result)
+    return facts ? withInferenceFacts(parsed, facts) : parsed
+  } catch (error) {
+    if (!facts || getInferenceFacts(error)) throw error
+    const failure = error instanceof Error ? error : new Error(String(error))
+    Object.assign(failure, getFailureAccounting(facts))
+    throw withInferenceFacts(failure, facts)
+  }
 }

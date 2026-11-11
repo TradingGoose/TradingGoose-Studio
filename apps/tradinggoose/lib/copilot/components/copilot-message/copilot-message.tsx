@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { extractExplicitCopilotContexts } from '@/lib/copilot/chat-contexts'
 import {
   EDIT_REPLAY_BLOCKED_MESSAGE,
-  hasAcceptedLiveMutationAfterMessage,
+  hasToolActivityAfterMessage,
 } from '@/lib/copilot/chat-replay-safety'
 import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import type { ImagePart } from '@/lib/copilot/native/contract'
@@ -170,11 +170,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
     const isTurnInProgress =
-      isStreaming ||
-      isSendingMessage ||
-      isAwaitingContinuation ||
-      currentChat?.latestTurnStatus === 'in_progress' ||
-      hasActiveToolCalls
+      isStreaming || isSendingMessage || isAwaitingContinuation || hasActiveToolCalls
     const isMessageTyping = typingSegmentKeys.length > 0
     const shouldHidePostTurnControls = isTurnInProgress || isMessageTyping
     const shouldShowActivityIndicator =
@@ -184,7 +180,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const userMessageContexts = extractExplicitCopilotContexts(message.contexts)
 
     const isReplayBlockedForEdit = useMemo(
-      () => hasAcceptedLiveMutationAfterMessage(messages, message.id),
+      () => hasToolActivityAfterMessage(messages, message.id),
       [message.id, messages]
     )
 
@@ -473,8 +469,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           )
         }
         if (segment.type === 'thinking') {
-          const isStreamingThinking =
-            Boolean(isStreaming) && segment.blocks.some((block) => block.duration == null)
+          const isStreamingThinking = Boolean(isStreaming)
 
           return (
             <div
@@ -639,28 +634,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                       ` (${message.cost.estimated ? 'estimated ' : ''}${formatCost(message.cost.availableTotal)} available)`}
                   </span>
                 )}
-              </div>
-            )}
-
-            {/* Citations if available */}
-            {message.citations && message.citations.length > 0 && (
-              <div className='pt-1'>
-                <div className='font-medium text-muted-foreground text-xs'>
-                  {copilotCopy.message.sources}
-                </div>
-                <div className='flex flex-wrap gap-2'>
-                  {message.citations.map((citation) => (
-                    <a
-                      key={citation.id}
-                      href={citation.url}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className='inline-flex max-w-full items-center rounded-md border bg-muted/50 px-2 py-1 text-muted-foreground text-xs transition-colors hover:bg-card hover:text-foreground'
-                    >
-                      <span className='truncate'>{citation.title}</span>
-                    </a>
-                  ))}
-                </div>
               </div>
             )}
 

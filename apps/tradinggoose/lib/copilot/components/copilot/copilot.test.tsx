@@ -108,7 +108,6 @@ function createAssistantMessage(overrides?: Partial<any>) {
         type: 'text' as const,
         content: 'Working through the request.',
         timestamp: 1,
-        itemId: 'text-1',
       },
     ],
     ...overrides,
@@ -185,8 +184,7 @@ describe('Copilot auto-scroll', () => {
       selectedModel: 'openai/gpt-5.6-sol',
       setSelectedModel: vi.fn(),
       currentChat: {
-        reviewSessionId: 'chat-1',
-        latestTurnStatus: 'in_progress',
+        threadId: 'chat-1',
       },
       toolCallsById: {},
     }
@@ -209,7 +207,7 @@ describe('Copilot auto-scroll', () => {
     mockStoreState = {
       ...mockStoreState,
       isSendingMessage: false,
-      currentChat: { threadId: 'owned-thread', latestTurnStatus: 'completed' },
+      currentChat: { threadId: 'owned-thread' },
       historyRefreshError: 'History read unavailable',
       isRefreshingHistory: false,
       refreshCurrentHistory: vi.fn(async () => {}),
@@ -273,7 +271,7 @@ describe('Copilot auto-scroll', () => {
     mockStoreState = {
       ...mockStoreState,
       isSendingMessage: false,
-      currentChat: { ...mockStoreState.currentChat, latestTurnStatus: 'completed' },
+      currentChat: { ...mockStoreState.currentChat },
       planTodos: [{ id: 'old-todo', content: 'Previous turn', completed: false }],
     }
 

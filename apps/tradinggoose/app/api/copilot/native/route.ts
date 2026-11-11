@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       )
     const command = CopilotRequestSchema.parse(await request.json())
     const scope = await authorizeNativeConversationScope(session.user.id, command.workspaceId)
+    const toolContexts: CopilotToolContext[] = []
     if (command.command === 'message') {
       if (command.workflowId) {
         const workflow = await authorizeWorkflowScope(
@@ -60,24 +61,8 @@ export async function POST(request: NextRequest) {
         .max(MAX_COPILOT_CONTEXTS_PER_TURN)
         .parse(command.input.contexts ?? [])
       const candidates = collectCopilotToolContexts(contexts)
-      for (const requested of command.toolContexts ?? []) {
-        if (
-          !candidates.some(
-            (candidate) =>
-              candidate.contextEntityKind === requested.contextEntityKind &&
-              candidate.contextEntityId === requested.contextEntityId &&
-              (!requested.workspaceId || requested.workspaceId === candidate.workspaceId)
-          )
-        )
-          throw new NativeTargetError(
-            'Tool context is outside the submitted conversation context',
-            422
-          )
-      }
-      const toolContexts: CopilotToolContext[] = []
       for (const candidate of candidates)
         toolContexts.push(await validateToolContext(candidate, scope.actorUserId))
-      command.toolContexts = toolContexts
       if (command.toolContext?.contextEntityId) {
         const primary = toolContexts.find(
           (candidate) =>
@@ -125,7 +110,7 @@ export async function POST(request: NextRequest) {
         contexts: resolvedContexts,
       }
     }
-    return await executeCopilotCommand(command, session.user.id, request.signal)
+    return await executeCopilotCommand(command, session.user.id, request.signal, toolContexts)
   } catch (error) {
     const status = error instanceof NativeTargetError ? error.status : 422
     return NextResponse.json(

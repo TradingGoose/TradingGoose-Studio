@@ -43,7 +43,7 @@ export function buildAssistantMessageSegments(
     const lastBlock = pendingThinkingBlocks[pendingThinkingBlocks.length - 1]
     segments.push({
       type: 'thinking',
-      key: `thinking-${segments.length}-${firstBlock.itemId ?? firstBlock.timestamp}-${lastBlock.itemId ?? lastBlock.timestamp}`,
+      key: `thinking-${segments.length}-${firstBlock.timestamp}-${lastBlock.timestamp}`,
       blocks: pendingThinkingBlocks,
     })
     pendingThinkingBlocks = []
@@ -60,7 +60,7 @@ export function buildAssistantMessageSegments(
     if (block.type === 'text') {
       segments.push({
         type: 'text',
-        key: `text-${segments.length}-${block.itemId ?? block.timestamp}`,
+        key: `text-${segments.length}-${block.timestamp}`,
         block,
       })
       continue

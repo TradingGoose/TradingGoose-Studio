@@ -121,9 +121,7 @@ const COPILOT_TOOL_IDS = [
 ] as const
 export const ToolIds = z.enum(COPILOT_TOOL_IDS)
 export type ToolId = (typeof COPILOT_TOOL_IDS)[number]
-export const CopilotTool = Object.fromEntries(COPILOT_TOOL_IDS.map((id) => [id, id])) as {
-  [K in ToolId]: K
-}
+export const CopilotTool = ToolIds.enum
 
 /**
  * Tools whose execution provenance targets one owner-scoped dashboard layout.
@@ -572,10 +570,6 @@ export const ToolArgSchemas = {
     entityId: RequiredId,
   }),
 } as const
-
-export const ServerToolArgSchemas = {
-  ...ToolArgSchemas,
-} satisfies Record<ToolId, z.ZodTypeAny>
 
 // Known result schemas per tool (what tool_result.result should conform to)
 const WorkflowTargetEnvelope = z.object({
@@ -1026,43 +1020,9 @@ export const ToolResultSchemas = {
     ),
     total: z.number().optional(),
   }),
-  [CopilotTool.read_credentials]: z.union([
-    z.object({
-      oauth: z.object({
-        connected: z.object({
-          credentials: z.array(
-            z.object({
-              id: z.string(),
-              provider: z.string(),
-              isDefault: z.boolean().optional(),
-            })
-          ),
-          total: z.number(),
-        }),
-        notConnected: z
-          .object({
-            services: z.array(
-              z.object({
-                providerId: z.string(),
-                name: z.string(),
-                description: z.string().optional(),
-                baseProvider: z.string().optional(),
-              })
-            ),
-            total: z.number(),
-          })
-          .optional(),
-      }),
-      environment: z.object({
-        variableNames: z.array(z.string()),
-        count: z.number(),
-        personalVariables: z.array(z.string()).optional(),
-        workspaceVariables: z.array(z.string()).optional(),
-        conflicts: z.array(z.string()).optional(),
-      }),
-    }),
-    z.object({
-      oauth: z.object({
+  [CopilotTool.read_credentials]: z.object({
+    oauth: z.object({
+      connected: z.object({
         credentials: z.array(
           z.object({
             id: z.string(),
@@ -1072,12 +1032,28 @@ export const ToolResultSchemas = {
         ),
         total: z.number(),
       }),
-      environment: z.object({
-        variableNames: z.array(z.string()),
-        count: z.number(),
-      }),
+      notConnected: z
+        .object({
+          services: z.array(
+            z.object({
+              providerId: z.string(),
+              name: z.string(),
+              description: z.string().optional(),
+              baseProvider: z.string().optional(),
+            })
+          ),
+          total: z.number(),
+        })
+        .optional(),
     }),
-  ]),
+    environment: z.object({
+      variableNames: z.array(z.string()),
+      count: z.number(),
+      personalVariables: z.array(z.string()).optional(),
+      workspaceVariables: z.array(z.string()).optional(),
+      conflicts: z.array(z.string()).optional(),
+    }),
+  }),
   gdrive_request_access: z.object({
     granted: z.boolean().optional(),
     credentialId: z.string().optional(),
@@ -1234,30 +1210,6 @@ export const ToolResultSchemas = {
   [CopilotTool.read_block_upstream_references]: ReadBlockUpstreamReferencesResult,
 } as const
 
-// Consolidated registry entry per tool
-export const ToolRegistry = Object.freeze(
-  ToolIds.options.reduce(
-    (acc, toolId) => {
-      const args = ToolArgSchemas[toolId]
-      const result = ToolResultSchemas[toolId]
-      acc[toolId] = { id: toolId, args, result }
-      return acc
-    },
-    {} as Record<
-      ToolId,
-      {
-        id: ToolId
-        args: z.ZodTypeAny
-        result: z.ZodTypeAny
-      }
-    >
-  )
-)
-
-export function isToolId(toolId: string): toolId is ToolId {
-  return Object.hasOwn(ToolRegistry, toolId)
-}
-
-export function getToolContract(toolId: string) {
-  return isToolId(toolId) ? ToolRegistry[toolId] : undefined
+export function isToolId(toolId: unknown): toolId is ToolId {
+  return typeof toolId === 'string' && Object.hasOwn(ToolArgSchemas, toolId)
 }

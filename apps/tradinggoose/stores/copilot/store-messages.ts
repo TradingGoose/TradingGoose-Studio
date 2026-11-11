@@ -133,12 +133,7 @@ export function updateMessagesForToolCallState(
             toolCall: {
               ...block.toolCall,
               state: nextState,
-              display: resolveToolDisplay(
-                block.toolCall?.name,
-                nextState,
-                toolCallId,
-                block.toolCall?.params
-              ),
+              display: resolveToolDisplay(block.toolCall?.name, nextState, block.toolCall?.params),
               ...(options?.result !== undefined ? { result: options.result } : {}),
             },
           }

@@ -32,10 +32,8 @@ const assistantMessage: CopilotMessageType = {
       type: 'text' as const,
       content: 'Plan is ready.',
       timestamp: 1,
-      itemId: 'text-1',
     },
   ],
-  citations: [{ id: 1, title: 'Source A', url: 'https://example.com/source-a' }],
 }
 
 const assistantOptionsMessage: CopilotMessageType = {
@@ -47,7 +45,6 @@ const assistantOptionsMessage: CopilotMessageType = {
       type: 'text' as const,
       content: 'Choose next.',
       timestamp: 1,
-      itemId: 'text-options',
     },
   ],
 }
@@ -68,11 +65,6 @@ const userMentionMessage: CopilotMessageType = {
   ],
 }
 
-vi.mock('@/lib/copilot/chat-replay-safety', () => ({
-  EDIT_REPLAY_BLOCKED_MESSAGE: 'blocked',
-  hasAcceptedLiveMutationAfterMessage: () => false,
-}))
-
 vi.mock('@/lib/copilot/inline-tool-call', () => ({
   InlineToolCall: () => <div data-testid='inline-tool-call' />,
 }))
@@ -83,10 +75,6 @@ vi.mock('@/stores/copilot/store', () => ({
     getState: () => mockStoreState,
     setState: vi.fn(),
   }),
-}))
-
-vi.mock('@/stores/copilot/store-state', () => ({
-  hasUiActiveToolCalls: () => false,
 }))
 
 vi.mock('../user-input/user-input', () => ({
@@ -144,6 +132,7 @@ vi.mock('./components/thinking-group', () => ({
   ThinkingGroup: () => <div data-testid='thinking-group' />,
 }))
 
+import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { CopilotMessage } from './copilot-message'
 
 describe('CopilotMessage', () => {
@@ -188,7 +177,6 @@ describe('CopilotMessage', () => {
     mockStoreState = {
       currentChat: {
         workspaceId: 'ws-1',
-        latestTurnStatus: 'completed',
       },
       messages: [assistantMessage],
       sendMessage: vi.fn(),
@@ -240,11 +228,10 @@ describe('CopilotMessage', () => {
     )
   })
 
-  it('renders assistant content and citations', async () => {
+  it('renders assistant content', async () => {
     await renderMessage(assistantMessage)
 
     expect(container.textContent).toContain('Plan is ready.')
-    expect(container.textContent).toContain('Source A')
   })
   it('renders canonical user images between exact text parts', async () => {
     const data =
@@ -279,7 +266,6 @@ describe('CopilotMessage', () => {
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg=='
     const message: CopilotMessageType = {
       ...assistantMessage,
-      citations: [],
       content: 'beforeafter',
       contentBlocks: [
         { type: 'text', content: 'before', timestamp: 1 },
@@ -318,9 +304,34 @@ describe('CopilotMessage', () => {
     expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
   })
 
+  it('preserves later native tool history when a user tries to edit its prompt', async () => {
+    mockStoreState.messages = [
+      userMentionMessage,
+      {
+        ...assistantMessage,
+        contentBlocks: [
+          {
+            type: 'tool_call',
+            timestamp: 1,
+            toolCall: {
+              id: 'read',
+              name: 'read_workflow',
+              state: ClientToolCallState.success,
+            },
+          },
+        ],
+      },
+    ]
+    await renderMessage(userMentionMessage)
+    await click('[data-message-box]')
+    expect(container.querySelector('[data-testid="user-input"]')).toBeNull()
+    expect(container.textContent).toContain('Start a new message after tool activity')
+    expect(mockStoreState.editMessage).not.toHaveBeenCalled()
+  })
+
   it('keeps stop out of the edit composer and aborts before a native history edit', async () => {
     vi.useFakeTimers()
-    mockStoreState.currentChat.latestTurnStatus = 'in_progress'
+    mockStoreState.isSendingMessage = true
     mockStoreState.messages = [userMentionMessage]
 
     await renderMessage(userMentionMessage)

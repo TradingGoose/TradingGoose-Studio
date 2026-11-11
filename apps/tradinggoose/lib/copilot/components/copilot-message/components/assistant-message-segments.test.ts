@@ -1,26 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { buildAssistantMessageSegments } from './assistant-message-segments'
 
-const thinking = (itemId: string, content: string) => ({
+const thinking = (content: string) => ({
   type: 'thinking' as const,
   content,
   timestamp: 1,
-  itemId,
 })
-const text = (itemId: string, content: string) => ({
+const text = (content: string) => ({
   type: 'text' as const,
   content,
   timestamp: 1,
-  itemId,
 })
 
 describe('buildAssistantMessageSegments', () => {
   it('groups consecutive thinking blocks and preserves text/tool order', () => {
     const segments = buildAssistantMessageSegments([
-      thinking('thinking-1', 'Inspecting the workflow.'),
-      thinking('thinking-2', 'Preparing the edit plan.'),
-      thinking('empty-thinking', '   '),
-      text('text-1', 'I found the workflow.'),
+      thinking('Inspecting the workflow.'),
+      thinking('Preparing the edit plan.'),
+      thinking('   '),
+      text('I found the workflow.'),
       {
         type: 'tool_call',
         timestamp: 1,
@@ -30,7 +28,7 @@ describe('buildAssistantMessageSegments', () => {
           state: 'success' as any,
         },
       },
-      text('text-2', 'I am ready to update it.'),
+      text('I am ready to update it.'),
     ])
 
     expect(segments.map((segment) => segment.type)).toEqual([
@@ -42,18 +40,15 @@ describe('buildAssistantMessageSegments', () => {
 
     expect(segments[0]).toMatchObject({
       type: 'thinking',
-      blocks: [
-        { itemId: 'thinking-1', content: 'Inspecting the workflow.' },
-        { itemId: 'thinking-2', content: 'Preparing the edit plan.' },
-      ],
+      blocks: [{ content: 'Inspecting the workflow.' }, { content: 'Preparing the edit plan.' }],
     })
   })
 
   it('creates a new thinking group after non-thinking content', () => {
     const segments = buildAssistantMessageSegments([
-      thinking('thinking-1', 'First pass.'),
-      text('text-1', 'Intermediate reply.'),
-      thinking('thinking-2', 'Second pass.'),
+      thinking('First pass.'),
+      text('Intermediate reply.'),
+      thinking('Second pass.'),
     ])
 
     expect(segments.map((segment) => segment.type)).toEqual(['thinking', 'text', 'thinking'])
@@ -68,10 +63,10 @@ describe('buildAssistantMessageSegments', () => {
       },
     }
     const segments = buildAssistantMessageSegments([
-      thinking('one', 'before'),
+      thinking('before'),
       image,
-      thinking('two', 'after'),
-      text('tail', 'tail'),
+      thinking('after'),
+      text('tail'),
     ])
     expect(segments.map((segment) => segment.type)).toEqual([
       'thinking',

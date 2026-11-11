@@ -219,14 +219,15 @@ vi.mock('@/lib/copilot/tools/server/workflow/read-workflow-logs', () => ({
     execute: readWorkflowLogsExecute,
   },
 }))
-let getToolContract: typeof import('@/lib/copilot/registry').getToolContract
+let ToolArgSchemas: typeof import('@/lib/copilot/registry').ToolArgSchemas
+let ToolResultSchemas: typeof import('@/lib/copilot/registry').ToolResultSchemas
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
 let getMcpServerToolIds: typeof import('@/lib/copilot/tools/server/router').getMcpServerToolIds
 let isWorkspaceAgnosticServerTool: typeof import('@/lib/copilot/tools/server/router').isWorkspaceAgnosticServerTool
 let routeExecution: typeof import('@/lib/copilot/tools/server/router').routeExecution
 
 beforeAll(async () => {
-  ;({ getToolContract, isToolId } = await import('@/lib/copilot/registry'))
+  ;({ ToolArgSchemas, ToolResultSchemas, isToolId } = await import('@/lib/copilot/registry'))
   ;({ getMcpServerToolIds, isWorkspaceAgnosticServerTool, routeExecution } = await import(
     '@/lib/copilot/tools/server/router'
   ))
@@ -257,7 +258,6 @@ describe('copilot contract registry', () => {
     expect(isToolId('get_indicator_catalog')).toBe(true)
     expect(isToolId('get_indicator_metadata')).toBe(true)
     expect(isToolId('unknown_tool')).toBe(false)
-    expect(getToolContract('unknown_tool')).toBeUndefined()
   })
 
   it('uses an explicit external MCP tool list', () => {
@@ -293,7 +293,7 @@ describe('copilot contract registry', () => {
       'read_credentials',
       'read_oauth_credentials',
     ] as const) {
-      const args = getToolContract(toolName)?.args
+      const args = ToolArgSchemas[toolName]
       expect(args?.parse({ scope: 'personal' })).toEqual({
         scope: 'personal',
       })
@@ -307,26 +307,28 @@ describe('copilot contract registry', () => {
   })
 
   it('reuses the shared block schemas in the central contract', () => {
-    const contract = getToolContract('get_available_blocks')
+    const args = ToolArgSchemas.get_available_blocks
+    const result = ToolResultSchemas.get_available_blocks
 
-    expect(contract?.args.parse({})).toEqual({})
-    expect(contract?.args.parse({ query: 'OHLCV indicator' })).toEqual({
+    expect(args.parse({})).toEqual({})
+    expect(args.parse({ query: 'OHLCV indicator' })).toEqual({
       query: 'OHLCV indicator',
     })
-    expect(contract?.args.parse({ category: 'tool' })).toEqual({ category: 'tool' })
-    expect(() => contract?.args.parse({ unsupported: true })).toThrow()
-    expect(contract?.result.parse({ blocks: [] })).toEqual({ blocks: [] })
+    expect(args.parse({ category: 'tool' })).toEqual({ category: 'tool' })
+    expect(() => args.parse({ unsupported: true })).toThrow()
+    expect(result.parse({ blocks: [] })).toEqual({ blocks: [] })
   })
 
   it('exposes the agent accessory catalog contract', () => {
-    const contract = getToolContract('get_agent_accessory_catalog')
+    const args = ToolArgSchemas.get_agent_accessory_catalog
+    const result = ToolResultSchemas.get_agent_accessory_catalog
 
-    expect(contract?.args.parse({ workspaceId: 'workspace-123' })).toEqual({
+    expect(args.parse({ workspaceId: 'workspace-123' })).toEqual({
       workspaceId: 'workspace-123',
     })
-    expect(contract?.result.parse(agentAccessoryCatalogResult)).toEqual(agentAccessoryCatalogResult)
-    expect(() => contract?.args.parse({})).toThrow()
-    expect(() => contract?.args.parse({ entityId: 'workflow-123' })).toThrow()
+    expect(result.parse(agentAccessoryCatalogResult)).toEqual(agentAccessoryCatalogResult)
+    expect(() => args.parse({})).toThrow()
+    expect(() => args.parse({ entityId: 'workflow-123' })).toThrow()
   })
 
   it('enforces workflow identity in workflow read/list results', () => {
@@ -345,19 +347,17 @@ describe('copilot contract registry', () => {
       },
     }
 
-    expect(getToolContract('read_workflow')?.result.parse(workflowReadResult)).toEqual(
-      workflowReadResult
-    )
+    expect(ToolResultSchemas.read_workflow.parse(workflowReadResult)).toEqual(workflowReadResult)
 
     expect(() =>
-      getToolContract('read_workflow')?.result.parse({
+      ToolResultSchemas.read_workflow.parse({
         ...workflowReadResult,
         workflowSummary: undefined,
       })
     ).toThrow()
 
     expect(() =>
-      getToolContract('read_workflow')?.result.parse({
+      ToolResultSchemas.read_workflow.parse({
         entityKind: 'workflow',
         entityId: 'workflow-123',
         entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
@@ -378,7 +378,7 @@ describe('copilot contract registry', () => {
     ).toThrow()
 
     expect(
-      getToolContract('list_workflows')?.result.parse({
+      ToolResultSchemas.list_workflows.parse({
         entityKind: 'workflow',
         entities: [{ entityId: 'workflow-123', entityName: 'Workflow 1' }],
         count: 1,
@@ -401,13 +401,13 @@ describe('copilot contract registry', () => {
       entityDocument: JSON.stringify({ layout: {}, widgets: {}, colorPairs: { pairs: [] } }),
     }
 
-    expect(getToolContract('read_layout')?.result.parse(envelope)).toEqual(envelope)
-    expect(getToolContract('create_layout')?.result.parse({ success: true, ...envelope })).toEqual({
+    expect(ToolResultSchemas.read_layout.parse(envelope)).toEqual(envelope)
+    expect(ToolResultSchemas.create_layout.parse({ success: true, ...envelope })).toEqual({
       success: true,
       ...envelope,
     })
     expect(() =>
-      getToolContract('create_layout')?.result.parse({
+      ToolResultSchemas.create_layout.parse({
         success: true,
         entityKind: 'dashboard_layout',
         entityId: 'layout-1',
@@ -417,7 +417,7 @@ describe('copilot contract registry', () => {
       })
     ).toThrow()
     for (const toolName of ['edit_layout', 'edit_widget'] as const) {
-      expect(getToolContract(toolName)?.result.parse({ success: true, ...envelope })).toEqual({
+      expect(ToolResultSchemas[toolName].parse({ success: true, ...envelope })).toEqual({
         success: true,
         ...envelope,
       })
@@ -433,17 +433,15 @@ describe('copilot contract registry', () => {
       workspaceId: 'workspace-123',
     }
 
-    expect(getToolContract('rename_workflow')?.result.parse(result)).toEqual(result)
+    expect(ToolResultSchemas.rename_workflow.parse(result)).toEqual(result)
   })
 
   it('accepts explicit entity ids on workflow execution tools', () => {
-    expect(() => getToolContract('run_workflow')?.args.parse({})).toThrow()
-    expect(() => getToolContract('read_workflow')?.args.parse({})).toThrow()
-    expect(() =>
-      getToolContract('run_workflow')?.args.parse({ entityId: 'workflow-123' })
-    ).toThrow()
+    expect(() => ToolArgSchemas.run_workflow.parse({})).toThrow()
+    expect(() => ToolArgSchemas.read_workflow.parse({})).toThrow()
+    expect(() => ToolArgSchemas.run_workflow.parse({ entityId: 'workflow-123' })).toThrow()
     expect(
-      getToolContract('run_workflow')?.args.parse({
+      ToolArgSchemas.run_workflow.parse({
         entityId: 'workflow-123',
         triggerBlockId: 'trigger-1',
       })
@@ -452,7 +450,7 @@ describe('copilot contract registry', () => {
       triggerBlockId: 'trigger-1',
     })
     expect(
-      getToolContract('edit_workflow_variable')?.args.parse({
+      ToolArgSchemas.edit_workflow_variable.parse({
         entityId: 'workflow-123',
         entityDocument: '{"variables":[]}',
         documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
@@ -485,11 +483,11 @@ describe('copilot contract registry', () => {
       embeddingDimension: 1536,
     }
 
+    expect(ToolArgSchemas.list_knowledge_bases.parse({ workspaceId: 'workspace-123' })).toEqual({
+      workspaceId: 'workspace-123',
+    })
     expect(
-      getToolContract('list_knowledge_bases')?.args.parse({ workspaceId: 'workspace-123' })
-    ).toEqual({ workspaceId: 'workspace-123' })
-    expect(
-      getToolContract('create_knowledge_base')?.args.parse({
+      ToolArgSchemas.create_knowledge_base.parse({
         workspaceId: 'workspace-123',
         name: 'Research',
         entityDocument,
@@ -502,15 +500,15 @@ describe('copilot contract registry', () => {
       documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
     })
     expect(
-      getToolContract('rename_knowledge_base')?.args.parse({
+      ToolArgSchemas.rename_knowledge_base.parse({
         entityId: 'kb-123',
         name: 'Research',
       })
     ).toEqual({ entityId: 'kb-123', name: 'Research' })
-    expect(() => getToolContract('rename_knowledge_base')?.args.parse(mutationArgs)).toThrow()
-    expect(getToolContract('read_knowledge_base')?.result.parse(envelope)).toEqual(envelope)
+    expect(() => ToolArgSchemas.rename_knowledge_base.parse(mutationArgs)).toThrow()
+    expect(ToolResultSchemas.read_knowledge_base.parse(envelope)).toEqual(envelope)
     expect(
-      getToolContract('edit_knowledge_base')?.result.parse({
+      ToolResultSchemas.edit_knowledge_base.parse({
         ...envelope,
         requiresReview: true,
         success: true,
@@ -528,7 +526,7 @@ describe('copilot contract registry', () => {
       success: true,
     })
     expect(
-      getToolContract('query_knowledge_base')?.result.parse({
+      ToolResultSchemas.query_knowledge_base.parse({
         entityKind: 'knowledge_base',
         entityId: 'kb-123',
         entityName: 'Research',
@@ -623,12 +621,12 @@ describe('routeExecution', () => {
       workspaceId: 'workspace-1',
     }
 
-    await expect(routeExecution('get_agent_accessory_catalog', {}, context)).resolves.toMatchObject(
-      {
-        tools: expect.any(Array),
-        skills: expect.any(Array),
-      }
-    )
+    await expect(
+      routeExecution('get_agent_accessory_catalog', { workspaceId: 'workspace-1' }, context)
+    ).resolves.toMatchObject({
+      tools: expect.any(Array),
+      skills: expect.any(Array),
+    })
 
     expect(getAgentAccessoryCatalogExecute).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1' },
@@ -696,24 +694,23 @@ describe('routeExecution', () => {
     expect(readWorkflowLogsExecute).not.toHaveBeenCalled()
   })
 
-  it('injects hosted workspace context for workspace-scoped writes', async () => {
-    const context = {
-      userId: 'user-1',
-      workspaceId: 'workspace-1',
-    }
-
+  it('requires the published workspace argument and rejects a conflicting execution context', async () => {
+    const context = { userId: 'user-1', workspaceId: 'workspace-1' }
+    const payload = { scope: 'workspace', variables: { API_KEY: 'secret' } }
+    await expect(routeExecution('set_environment_variables', payload, context)).rejects.toThrow()
+    await expect(
+      routeExecution('set_environment_variables', { ...payload, workspaceId: 'other' }, context)
+    ).rejects.toThrow('workspaceId does not match execution context')
+    expect(setEnvironmentVariablesExecute).not.toHaveBeenCalled()
     await expect(
       routeExecution(
         'set_environment_variables',
-        { scope: 'workspace', variables: { API_KEY: 'secret' } },
+        { ...payload, workspaceId: 'workspace-1' },
         context
       )
-    ).resolves.toMatchObject({
-      message: 'ok',
-    })
-
+    ).resolves.toMatchObject({ message: 'ok' })
     expect(setEnvironmentVariablesExecute).toHaveBeenCalledWith(
-      { scope: 'workspace', variables: { API_KEY: 'secret' }, workspaceId: 'workspace-1' },
+      { ...payload, workspaceId: 'workspace-1' },
       context
     )
   })
