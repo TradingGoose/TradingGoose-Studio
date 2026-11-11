@@ -426,43 +426,57 @@ describe('canonical browser conversation transport', () => {
     expect(store().getState().lastNativeOutcome).toMatchObject({
       status: 'cancel_requested',
     })
+    expect(store().getState().currentRunId).toBeNull()
+    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+      state: ClientToolCallState.aborted,
+      pending: undefined,
+    })
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
   })
   it('settles pending tools during a UI abort and separate cancel acknowledgement', async () => {
     setChat()
     const item = pending('approval')
+    const acknowledgement = defer<Response>()
     let streamCancelled = false
     onCommand = (request) =>
-      request.command === 'message'
-        ? new Response(
-            new ReadableStream({
-              start(controller) {
-                const frames = [
-                  { type: 'response.started', runId, threadId },
-                  {
-                    type: 'tool.pending',
-                    pending: item,
-                  },
-                ]
-                controller.enqueue(
-                  new TextEncoder().encode(
-                    frames
-                      .map((frame) => `data: ${JSON.stringify(result(request, frame))}\n\n`)
-                      .join('')
+      request.command === 'cancel'
+        ? acknowledgement.promise
+        : request.command === 'message'
+          ? new Response(
+              new ReadableStream({
+                start(controller) {
+                  const frames = [
+                    { type: 'response.started', runId, threadId },
+                    {
+                      type: 'tool.pending',
+                      pending: item,
+                    },
+                  ]
+                  controller.enqueue(
+                    new TextEncoder().encode(
+                      frames
+                        .map((frame) => `data: ${JSON.stringify(result(request, frame))}\n\n`)
+                        .join('')
+                    )
                   )
-                )
-              },
-              cancel() {
-                streamCancelled = true
-              },
-            }),
-            { headers: { 'content-type': 'text/event-stream' } }
-          )
-        : undefined
+                },
+                cancel() {
+                  streamCancelled = true
+                },
+              }),
+              { headers: { 'content-type': 'text/event-stream' } }
+            )
+          : undefined
     const sending = store().getState().sendMessage('Read')
     await vi.waitFor(() =>
       expect(store().getState().toolCallsById[item.target.toolCallId]?.pending).toBeDefined()
     )
     store().getState().abortMessage()
+    expect(store().getState().isAborting).toBe(true)
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(true)
+    expect(await store().getState().sendMessage('Wait for cancellation')).toBe(false)
+    const cancel = commands.find((request) => request.command === 'cancel')!
+    acknowledgement.resolve(defaultResponse(cancel))
     expect(await sending).toBe(false)
     await vi.waitFor(() =>
       expect(store().getState().lastNativeOutcome?.status).toBe('cancel_requested')
@@ -474,7 +488,73 @@ describe('canonical browser conversation transport', () => {
     expect(store().getState().lastNativeOutcome).toMatchObject({
       status: 'cancel_requested',
     })
+    expect(store().getState().isAborting).toBe(false)
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+    const call = store().getState().toolCallsById[item.target.toolCallId]
+    expect(call.state).toBe(ClientToolCallState.aborted)
+    expect(call.pending).toBeUndefined()
+    expect(
+      store()
+        .getState()
+        .messages.flatMap((message) => message.contentBlocks ?? [])
+    ).toContainEqual(expect.objectContaining({ type: 'tool_call', toolCall: call }))
+    onCommand = () => undefined
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
   })
+  it('cancels a restored suspended run without a new streaming response', async () => {
+    const item = pending('approval')
+    onCommand = (request) =>
+      request.command === 'pending.list'
+        ? json({ status: 'pending_targets', items: [item], page: request.page, hasMore: false })
+        : undefined
+    await store().getState().selectChat(chat())
+    expect(store().getState().currentRunId).toBe(runId)
+    store().getState().abortMessage()
+    await vi.waitFor(() =>
+      expect(store().getState().lastNativeOutcome?.status).toBe('cancel_requested')
+    )
+    expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+      { command: 'cancel', workspaceId, threadId, runId },
+    ])
+    expect(store().getState().currentRunId).toBeNull()
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+    onCommand = () => undefined
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
+  })
+  it.each([
+    [
+      { status: 'failed', error: { code: 'CANCEL_FAILED', message: 'Try Stop again' } },
+      503,
+      'Try Stop again',
+    ],
+    [
+      { status: 'cancel_requested', runId: 'different-run' },
+      200,
+      'Native cancellation was not verified',
+    ],
+  ] as const)(
+    'retains pending actions after an unsuccessful cancellation %j so Stop can retry',
+    async (body, status, error) => {
+      const item = pending('approval')
+      installPending(item)
+      store().setState({ isAwaitingContinuation: true })
+      onCommand = (request) => (request.command === 'cancel' ? json(body, status) : undefined)
+      store().getState().abortMessage()
+      await vi.waitFor(() => expect(store().getState().error).toBe(error))
+      expect(store().getState()).toMatchObject({
+        currentRunId: runId,
+        isAborting: false,
+        isAwaitingContinuation: true,
+      })
+      expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+      expect(await store().getState().sendMessage('Still suspended')).toBe(false)
+      onCommand = () => undefined
+      store().getState().abortMessage()
+      await vi.waitFor(() =>
+        expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+      )
+    }
+  )
   it('rejects a stale thread response without selecting it', async () => {
     setChat()
     onCommand = (request) =>

@@ -47,7 +47,9 @@ import {
   updateMessagesForToolCallState,
 } from './store-messages'
 import { buildTurnProvenanceFromContexts } from './store-provenance'
+import { hasUiActiveToolCalls } from './store-state'
 import {
+  applyNativeCancellation,
   applyNativeEvent,
   displayNativePending,
   replaceNativeText,
@@ -281,6 +283,9 @@ function createCopilotStoreInstance(channelId: string) {
         if (!current()) return
         const pending = await listNativePending(chat.workspaceId, chat.threadId)
         if (!current()) return
+        const currentRunId = pending[0]?.target.runId ?? null
+        if (pending.some((item) => item.target.runId !== currentRunId))
+          throw new Error('Copilot pending tools belong to different runs')
         const toolCallsById = Object.fromEntries(
           messages.flatMap((message) =>
             (message.contentBlocks ?? []).flatMap((block) =>
@@ -299,6 +304,7 @@ function createCopilotStoreInstance(channelId: string) {
           toolCallsById: projected.toolCallsById,
           planTodos: buildPlanTodosFromMessages(projected.messages),
           isAwaitingContinuation: pending.length > 0,
+          currentRunId,
         })
       }
       const scheduleBrowserTools = () => {
@@ -803,6 +809,7 @@ function createCopilotStoreInstance(channelId: string) {
             historyRefreshError: null,
             isRefreshingHistory: false,
             isAwaitingContinuation: false,
+            isAborting: false,
           })
           rememberCopilotWorkspaceSelection(chat.workspaceId, chat.threadId)
           const current = () => ownsChat(chat, id, interaction)
@@ -829,6 +836,7 @@ function createCopilotStoreInstance(channelId: string) {
             historyRefreshError: null,
             isRefreshingHistory: false,
             isAwaitingContinuation: false,
+            isAborting: false,
           })
         },
         deleteChat: async (threadId) => {
@@ -852,7 +860,9 @@ function createCopilotStoreInstance(channelId: string) {
           if (
             (!message.trim() && !options.images?.length) ||
             get().isSendingMessage ||
-            get().isAwaitingContinuation
+            get().isAwaitingContinuation ||
+            get().isAborting ||
+            hasUiActiveToolCalls(get().toolCallsById)
           )
             return false
           const chat = get().currentChat
@@ -957,8 +967,7 @@ function createCopilotStoreInstance(channelId: string) {
             ...settleDisplayOnlyTools(current),
             abortController: null,
             isSendingMessage: false,
-            isAwaitingContinuation: false,
-            isAborting: false,
+            isAborting: Boolean(current.currentChat && current.currentRunId),
             isRefreshingHistory: false,
           })
           if (current.currentChat && current.currentRunId)
@@ -970,15 +979,19 @@ function createCopilotStoreInstance(channelId: string) {
             })
               .then((result) => {
                 if (
-                  cancellationEpoch === epoch &&
-                  get().currentChat?.threadId === current.currentChat?.threadId &&
-                  result.status === 'cancel_requested' &&
-                  result.runId === current.currentRunId
+                  cancellationEpoch !== epoch ||
+                  get().currentChat?.threadId !== current.currentChat?.threadId
                 )
-                  set({ lastNativeOutcome: result })
+                  return
+                if (result.status !== 'cancel_requested' || result.runId !== current.currentRunId)
+                  throw new Error('Native cancellation was not verified')
+                set((state) => applyNativeCancellation(state, result))
               })
               .catch((error) => {
-                if (cancellationEpoch === epoch) fail(error)
+                if (cancellationEpoch === epoch) {
+                  set({ isAborting: false })
+                  fail(error)
+                }
               })
         },
         reset: () => {

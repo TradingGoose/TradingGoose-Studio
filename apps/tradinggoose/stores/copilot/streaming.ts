@@ -1,4 +1,5 @@
 import type {
+  CancelResponse,
   CopilotEvent,
   Pending,
   ReadyResponse,
@@ -18,6 +19,38 @@ import type {
 
 type ContentBlock = NonNullable<CopilotMessage['contentBlocks']>[number]
 
+function settleTools(
+  state: CopilotStore,
+  selected: (call: CopilotToolCall) => boolean,
+  terminalState: ClientToolCallState
+): Pick<CopilotStore, 'messages' | 'toolCallsById'> {
+  const updated = Object.fromEntries(
+    Object.entries(state.toolCallsById).map(([id, call]) => [
+      id,
+      !call.historical && selected(call)
+        ? {
+            ...call,
+            state: terminalState,
+            pending: undefined,
+            display: resolveToolDisplay(call.name, terminalState, id, call.params),
+          }
+        : call,
+    ])
+  )
+  return {
+    toolCallsById: updated,
+    messages: state.messages.map((message) => ({
+      ...message,
+      contentBlocks: message.contentBlocks?.map((block) =>
+        block.type === 'tool_call' &&
+        updated[block.toolCall.id] !== state.toolCallsById[block.toolCall.id]
+          ? { ...block, toolCall: updated[block.toolCall.id] }
+          : block
+      ),
+    })),
+  }
+}
+
 /** Display events never authorize work. Settle only their obsolete visual activity. */
 export function settleDisplayOnlyTools(
   state: CopilotStore,
@@ -35,33 +68,35 @@ export function settleDisplayOnlyTools(
         )
       : Object.keys(state.toolCallsById)
   )
-  const updated = Object.fromEntries(
-    Object.entries(state.toolCallsById).map(([id, call]) => [
-      id,
-      ids.has(id) &&
-      !call.historical &&
+  return settleTools(
+    state,
+    (call) =>
+      ids.has(call.id) &&
       !call.pending &&
       call.result === undefined &&
-      call.state === ClientToolCallState.generating
-        ? {
-            ...call,
-            state: terminalState,
-            display: resolveToolDisplay(call.name, terminalState, id, call.params),
-          }
-        : call,
-    ])
+      call.state === ClientToolCallState.generating,
+    terminalState
   )
+}
+
+export function applyNativeCancellation(
+  state: CopilotStore,
+  result: CancelResponse
+): Partial<CopilotStore> {
+  if (state.currentRunId !== result.runId) throw new Error('Native cancellation run differs')
   return {
-    toolCallsById: updated,
-    messages: state.messages.map((message) => ({
-      ...message,
-      contentBlocks: message.contentBlocks?.map((block) =>
-        block.type === 'tool_call' &&
-        updated[block.toolCall.id] !== state.toolCallsById[block.toolCall.id]
-          ? { ...block, toolCall: updated[block.toolCall.id] }
-          : block
-      ),
-    })),
+    ...settleTools(
+      state,
+      (call) =>
+        call.pending?.target.runId === result.runId ||
+        (!call.pending && call.state === ClientToolCallState.generating),
+      ClientToolCallState.aborted
+    ),
+    currentRunId: null,
+    lastNativeOutcome: result,
+    isAborting: false,
+    isSendingMessage: false,
+    isAwaitingContinuation: false,
   }
 }
 export function appendNativeText(message: CopilotMessage, type: 'text' | 'thinking', text: string) {
@@ -326,13 +361,7 @@ export function applyNativeEvent(
       }
     }
     case 'response.cancel_requested':
-      return {
-        ...settleDisplayOnlyTools(state, messageId),
-        lastNativeOutcome: event.result,
-        isAborting: false,
-        isSendingMessage: false,
-        isAwaitingContinuation: false,
-      }
+      return applyNativeCancellation(state, event.result)
     default:
       throw new Error('Unknown Copilot event')
   }
