@@ -74,8 +74,8 @@ Send a chat completion request to any supported LLM provider
 | --------- | ---- | ----------- |
 | `content` | string | The generated response content |
 | `model` | string | The model used for generation |
-| `tokens` | object | Available native token usage |
-| `cost` | object | Model cost in USD is unavailable |
+| `tokens` | object | Reported prompt, completion and total token counts |
+| `cost` | object | Reported or estimated USD cost, with availability status |
 
 ## Input
 
@@ -92,8 +92,8 @@ Send a chat completion request to any supported LLM provider
 | --------- | ---- | ----------- |
 | `prompt` | string | Routing prompt used |
 | `model` | string | Model used |
-| `tokens` | json | Token usage |
-| `cost` | json | Cost information |
+| `tokens` | json | Reported prompt, completion and total token counts |
+| `cost` | json | Reported or estimated USD cost, with availability status |
 | `selectedPath` | json | Selected routing path |
 
 

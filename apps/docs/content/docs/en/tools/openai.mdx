@@ -71,11 +71,14 @@ Generate embeddings from text using OpenAI's embedding models
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
 | `output` | object | Embeddings generation results |
+| `output.tokens` | object | Reported prompt and total token counts |
+| `output.cost` | object | Reported or estimated USD cost, with availability status |
+| `output.embeddingUsage` | object | Completed batch count and usage availability |
 
 
 ## Usage Instructions
 
-Generate embeddings from exact input text. Select a listed OpenAI embedding model using its full provider/model identifier. Inputs above the selected model limit are rejected. Native token counts appear when reported; model cost in USD is unavailable.
+Generate embeddings from exact input text. Select a listed OpenAI embedding model using its full provider/model identifier. Inputs above the selected model limit are rejected. Reported token counts and available USD costs accompany the vectors. Missing counters stay unknown; a later batch failure retains completed usage and marks incomplete cost coverage.
 
 
 

@@ -106,8 +106,8 @@ You can edit an earlier prompt to truncate and regenerate the messages that foll
 
 ## Billing
 
-Copilot model operations report their accepted applied charge as an exact canonical USD string. An unavailable model-USD value remains unavailable; token counts and estimates do not become a replacement price. Normal inference retains the selected plan multiplier and shared billing checks.
+Copilot shares Studio's usage checks and billing ledger. Provider-reported USD takes precedence; otherwise, costs are estimated from reported token usage and published models.dev prices. The selected plan's Copilot multiplier applies to the charge. Missing usage or prices remain unavailable when no cost can be established.
 
 <Callout type="info">
-  Studio can reserve a conservative amount before model contact. Automatic history trimming does not add a model call or charge.
+  Automatic context trimming does not make an additional model call.
 </Callout>

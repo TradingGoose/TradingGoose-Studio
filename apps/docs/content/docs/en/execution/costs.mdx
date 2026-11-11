@@ -5,27 +5,25 @@ title: Cost Calculation
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 
-TradingGoose records accepted product charges for the workspace's original user or organization billing owner. The shared financial policy preserves the original actor, billing period and pricing quote throughout execution and resume.
+TradingGoose applies charges to the user or organization billing owner of the authorized workspace. Workflows, Copilot and standalone model calls share Studio's usage ledger and billing limits.
 
 ## Applied Charges
 
-- **Workflow execution** uses the configured base charge and tier execution multiplier captured in the original quote. The same logical execution settles its base charge once. Child workflows settle independently.
-- **Function and custom-tool runtime** uses the captured per-second charge and tier Function multiplier multiplied by actual runtime milliseconds divided by 1000. A contacted runtime attempt can incur this charge even when its code fails.
-- **Model and embedding work** requires financial admission and verified acceptance for each actual step or batch. Generic native model USD is unavailable in the current integration. Token counts do not establish a dollar charge, and missing provider prices are never treated as known zero.
+- **Workflow execution** combines the configured base charge and tier execution multiplier with model costs and the tier model multiplier. Repeated settlement adds only newly completed usage. Child workflows settle independently.
+- **Function and custom-tool runtime** uses the configured per-second charge and tier Function multiplier multiplied by actual runtime milliseconds divided by 1000. A contacted runtime attempt can incur this charge even when its code fails.
+- **Model and embedding work** uses provider-reported USD when available. Otherwise, Studio estimates USD from reported token usage and published models.dev prices. Copilot applies its tier cost multiplier; workflow model charges settle with the workflow.
 
-Amounts, limits, allowances, multipliers and receipts use exact decimal strings. Function charges retain their full decimal precision; there is no six-decimal quantization. Currency display can round for readability. The invoice boundary converts USD to cents using the documented half-up rule; that conversion does not change the underlying usage ledger.
-
-Completion requires verified financial acceptance and authorized canonical output readback. A financial or readback failure can prevent successful delivery after work has finished; it does not authorize repeating that work. Resume reuses the original financial identity and accepted occurrences rather than charging the same completed work again. A human review checkpoint preserves that identity.
+Usage checks run before model contact. A request can fail after generation if billing cannot complete.
 
 <Callout type="info">
-  Read actual accepted usage and the execution's captured quote for billing facts. A configured, verified zero charge differs from unavailable model USD. Changing billing configuration does not rewrite an existing quote, original payer or original period.
+  Costs distinguish reported, estimated, partial and unavailable amounts. A published zero price is different from a missing price. Unknown costs never become free usage.
 </Callout>
 
-## Active Usage and Reloaded Logs
+## Usage and Reloaded History
 
-During an active request, native results can expose optional input, output or total token counts and the selected model. Missing counters remain unavailable. Generic USD is labelled unavailable; no manual price table or token-based estimate fills the gap.
+Reported prompt, completion and total token counts remain optional. Cost estimates account for reported token categories, including cache and reasoning tokens, and applicable context tiers.
 
-Reloaded Records retain functional inputs, outputs, tools and workflow execution details through authorized canonical storage. Provider diagnostics, model cost reports and per-turn token totals are not durable product reporting. Reload does not reconstruct a model-cost breakdown from traces or transcript size. Use **Settings → Subscription** for actual applied current-period usage; a visible model subtotal is not the financial ledger.
+Copilot conversations and Workflow Agent history use the same Mastra storage in Studio's database. Reloaded history retains message parts, tool calls and results, and available assistant usage and cost metadata. Workflow Records aggregate known model and tool costs; incomplete coverage remains marked partial or unavailable. Use **Settings → Subscription** for applied current-period usage.
 
 ## Pricing and Limits
 
@@ -83,7 +81,7 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 **Example Response:**
 
-**Breaking money ABI:** `currentPeriodCost` is exact USD decimal text, such as `"9007199254740993.30000000000000001"`; the monetary usage `limit` is a decimal string or `null` for unlimited. Nested tier prices, allowances and billing multipliers remain decimal strings or configured `null`. Preserve these values without `Number`/`float` conversion. Rate-limit counts, seats and storage fields remain numeric.
+Amounts and monetary limits are numbers in USD. Unset tier prices and allowances can be `null`.
 
 ```jsonc
 {
@@ -94,8 +92,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
     "authType": "api"
   },
   "usage": {
-    "currentPeriodCost": "12.34",
-    "limit": "100",
+    "currentPeriodCost": 12.34,
+    "limit": 100,
     "tier": {
       "id": "tier_example",
       "displayName": "Example Tier",
@@ -105,8 +103,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
       "asyncRateLimitPerMinute": 50,
       "apiEndpointRateLimitPerMinute": 60,
       "logRetentionDays": 30,
-      "workflowExecutionMultiplier": "1",
-      "workflowModelCostMultiplier": "1"
+      "workflowExecutionMultiplier": 1,
+      "workflowModelCostMultiplier": 1
       // The response includes the remaining BillingTierSummary fields.
     }
   },

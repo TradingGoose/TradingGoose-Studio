@@ -312,8 +312,8 @@ The chart drawing tools vendored in `apps/tradinggoose/widgets/widgets/data_char
 
 ### Built-in AI runtime
 
-Studio and Copilot share Mastra models and the `mastra` schema in the application PostgreSQL database configured by `DATABASE_URL`. Run `bun run db:migrate` to apply generated application migrations. The shared Mastra runtime initializes and upgrades its own tables through its PostgreSQL adapter using the same database connection.
+Studio and Copilot share one Mastra runtime, PostgreSQL adapter, and Memory store in the application database configured by `DATABASE_URL`. Run `bun run db:migrate` to apply generated application migrations. Mastra initializes and upgrades its own tables in the `mastra` schema.
 
-Copilot and workflow Agents share bounded conversational Memory. Agent execution details show the native message history, including turns, tool calls, and results. Reusable workflow Memory keeps its scoped reads and concurrency controls. See [built-in Copilot](apps/tradinggoose/lib/copilot/README.md) for configuration and verification.
+Copilot and workflow Agents use Mastra's model/tool loop with their own instructions, tools, and permissions. All generation callers use the same [request preparation](apps/tradinggoose/lib/mastra/request.ts) for model connections, settings, processors, tracing, and accounting. Both histories use the same native message projection and ordered reader. Studio's executor still coordinates workflow blocks. See [built-in Copilot](apps/tradinggoose/lib/copilot/README.md) for configuration and verification.
 
-Studio's application billing services own usage checks and accrual. Model cost remains unavailable when the provider does not report it; token counts are not treated as a price. Workflow logs and encrypted checkpoints contain their own payloads.
+Studio's application billing services own usage checks and accrual. Model costs use provider-reported USD first, otherwise native token usage with the official `@opencode-ai/models` pricing snapshot. One shared calculator handles generation and embeddings; package updates refresh the rates. Custom endpoints never inherit another provider's prices. Unknown costs remain unavailable rather than becoming zero. Workflow logs and Copilot's native Mastra message metadata retain tokens, USD costs, and whether costs are reported or estimated.
