@@ -24,7 +24,7 @@ vi.mock('@opencode-ai/models/snapshot', () => {
       },
       openrouter: { models: { model } },
       anthropic: { models: { 'claude-model': model } },
-      google: { models: { 'gemini-2.5-flash': model } },
+      google: { models: { 'gemini-2.5-flash': model, 'gemini-2.5-pro': model } },
     },
   }
 })
@@ -176,6 +176,69 @@ describe('native per-step USD pricing', () => {
     expect(cost.output).toBeCloseTo(0.132)
     expect(cost.total).toBeCloseTo(0.882)
   })
+  it.each([
+    [199_999, 0.25999875],
+    [200_000, 0.26],
+    [200_001, 0.5150025],
+  ])(
+    'prices Gemini Pro at %i input tokens using the documented exclusive threshold',
+    async (inputTokens, total) => {
+      catalogue.pricing.mockReturnValue({
+        input: 1.25,
+        output: 10,
+        tiers: [{ tier: { size: 200_000 }, input: 2.5, output: 15 }],
+      })
+      const cost = await calculateNativeCost('google/gemini-2.5-pro', {
+        inputTokens,
+        outputTokens: 1000,
+      })
+      expect(cost).toMatchObject({ status: 'estimated', currency: 'USD' })
+      expect(cost.total).toBeCloseTo(total, 10)
+    }
+  )
+  it.each([
+    [200_000, 0.201225],
+    [200_001, 0.609978],
+    [500_000, 1.509975],
+    [500_001, 3.019956],
+  ])(
+    'prices cache and reasoning consistently across context tiers at %i input tokens',
+    async (inputTokens, total) => {
+      catalogue.pricing.mockReturnValue({
+        input: 1,
+        output: 2,
+        cache_read: 0.1,
+        cache_write: 1.25,
+        reasoning: 3,
+        tiers: [
+          {
+            tier: { size: 500_000 },
+            input: 6,
+            output: 24,
+            cache_read: 0.6,
+            cache_write: 7.5,
+            reasoning: 36,
+          },
+          {
+            tier: { size: 200_000 },
+            input: 3,
+            output: 12,
+            cache_read: 0.3,
+            cache_write: 3.75,
+            reasoning: 18,
+          },
+        ],
+      })
+      const cost = await calculateNativeCost('native/model', {
+        inputTokens,
+        outputTokens: 1000,
+        cachedInputTokens: 1000,
+        cacheCreationInputTokens: 100,
+        reasoningTokens: 100,
+      })
+      expect(cost.total).toBeCloseTo(total, 10)
+    }
+  )
   it('prices native Anthropic cache metadata without dropping or double-counting cached input', async () => {
     const metadata = { anthropic: { cacheReadInputTokens: 800, cacheCreationInputTokens: 100 } }
     const uncached = { inputTokens: 100, outputTokens: 100 }

@@ -136,7 +136,7 @@ export async function calculateNativeCost(
           : 0)
   const rates =
     pricing.tiers
-      ?.filter((entry) => amount(inputTokens) && inputTokens >= entry.tier.size)
+      ?.filter((entry) => amount(inputTokens) && inputTokens > entry.tier.size)
       .sort((a, b) => b.tier.size - a.tier.size)[0] ?? pricing
   if (
     ![read, write, write5m, write1h, reasoning, inputAudio, outputAudio].every(amount) ||
