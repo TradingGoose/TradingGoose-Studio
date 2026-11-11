@@ -107,8 +107,11 @@ export function CustomToolEditor({
   }, [])
 
   const handleJsonSchemaChange = (value: string, completed = false) => {
-    if (readOnlyRef.current || schemaGeneration.isLoading || schemaGeneration.isStreaming) return
-    if (schemaGeneration.isStreaming && !completed) return
+    if (
+      readOnlyRef.current ||
+      (!completed && (schemaGeneration.isLoading || schemaGeneration.isStreaming))
+    )
+      return
     setJsonSchema(value)
 
     if (!value.trim()) {
