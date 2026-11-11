@@ -1,7 +1,6 @@
 /** @vitest-environment node */
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HistoryMessage } from '@/lib/copilot/native/contract'
 
 const m = vi.hoisted(() => ({
   session: vi.fn(),
@@ -29,7 +28,7 @@ vi.mock('@/lib/copilot/native/history', () => ({
 vi.mock('@/lib/copilot/agent/utils', () => ({ requestCopilotTitle: m.title }))
 vi.mock('@/lib/copilot/runtime-models', () => ({ COPILOT_RUNTIME_MODELS: ['test/model'] }))
 const scope = { actorUserId: 'actual-member', workspaceId: null }
-const first: HistoryMessage = {
+const first = {
   id: 'message',
   role: 'user',
   createdAt: '2026-11-08T00:00:00.000Z',

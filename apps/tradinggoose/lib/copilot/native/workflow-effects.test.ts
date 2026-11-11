@@ -86,10 +86,7 @@ describe('native business effect admission', () => {
     expect(m.pending).toHaveBeenCalledWith(scope, target, 'result', undefined)
     expect(m.access).toHaveBeenCalledWith(scope, pending())
     expect(m.active).toHaveBeenCalledWith(target.runId)
-    expect(m.claim).toHaveBeenCalledWith(target.runId, target.toolCallId, {
-      target,
-      args: pending().originalArgs,
-    })
+    expect(m.claim).toHaveBeenCalledWith({ ...target, scope }, target.toolCallId)
   })
   it.each([
     { executionId: 'other' },

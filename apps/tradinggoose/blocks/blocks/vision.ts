@@ -90,6 +90,6 @@ export const VisionBlock: BlockConfig<VisionResponse> = {
   outputs: {
     content: { type: 'string', description: 'Analysis result' },
     model: { type: 'string', description: 'Model used' },
-    tokens: { type: 'number', description: 'Token usage' },
+    tokens: { type: 'json', description: 'Reported prompt, completion and total tokens' },
   },
 }

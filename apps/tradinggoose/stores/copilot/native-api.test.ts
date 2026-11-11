@@ -8,32 +8,24 @@ import {
 
 const at = '2026-11-08T00:00:00.000Z'
 afterEach(() => vi.unstubAllGlobals())
-it('loads complete local conversation pages and deduplicates repeated rows', async () => {
+it('loads every native thread in one authenticated request', async () => {
+  const threads = Array.from({ length: 125 }, (_, i) => ({
+    id: `thread-${i}`,
+    title: '',
+    createdAt: at,
+    updatedAt: at,
+  }))
   const fetcher = vi.fn(async (_url, init) => {
-    const request = JSON.parse(init.body)
-    expect(request.workspaceId).toBeNull()
+    expect(JSON.parse(init.body)).toEqual({ command: 'threads.list', workspaceId: null })
     expect(init.credentials).toBe('include')
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
-    return Response.json({
-      status: 'threads',
-      page: request.page,
-      hasMore: request.page.page === 0,
-      items: [
-        { id: 'same', title: '', createdAt: at, updatedAt: at },
-        { id: `thread-${request.page.page}`, title: '', createdAt: at, updatedAt: at },
-      ],
-    })
+    return Response.json({ status: 'threads', items: threads })
   })
   vi.stubGlobal('fetch', fetcher)
-  expect((await listNativeThreads(null)).map((thread) => thread.id)).toEqual([
-    'same',
-    'thread-0',
-    'thread-1',
-  ])
-  expect(fetcher).toHaveBeenCalledTimes(2)
-  expect(fetcher.mock.calls.every(([url]) => url === '/api/copilot/native')).toBe(true)
+  expect(await listNativeThreads(null)).toEqual(threads)
+  expect(fetcher).toHaveBeenCalledExactlyOnceWith('/api/copilot/native', expect.any(Object))
 })
-it('loads native message parts and public pending cards through local pagination', async () => {
+it('loads native message parts and public pending cards through the local service', async () => {
   const pending = {
     target: {
       threadId: 'thread',
@@ -60,29 +52,11 @@ it('loads native message parts and public pending cards through local pagination
         status: request.command === 'history.read' ? 'history' : 'pending_targets',
         ...(request.command === 'history.read' ? { threadId: 'thread' } : {}),
         items: request.command === 'history.read' ? [message] : [pending],
-        page: request.page,
-        hasMore: false,
       })
     })
   )
   expect(await listNativeHistory(null, 'thread')).toEqual([message])
   expect(await listNativePending(null, 'thread')).toEqual([pending])
-})
-it('stops inconsistent empty pagination instead of looping', async () => {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (_url, init) => {
-      const request = JSON.parse(init.body)
-      return Response.json({
-        status: 'threads',
-        items: [],
-        page: request.page,
-        hasMore: true,
-      })
-    })
-  )
-  await expect(listNativeThreads(null)).rejects.toThrow('empty page')
-  expect(fetch).toHaveBeenCalledOnce()
 })
 it('does not contact the server after cancellation', async () => {
   const abort = new AbortController()
@@ -112,7 +86,6 @@ it('preserves local refusals as errors', async () => {
     readNativeCommand({
       command: 'threads.list',
       workspaceId: null,
-      page: { page: 0, perPage: 100 },
     })
   ).rejects.toThrow('Access denied')
 })

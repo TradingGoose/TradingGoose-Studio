@@ -5,7 +5,6 @@ import { embeddingsTool } from './embeddings'
 const output = {
   embeddings: [[0.1, 0.2]],
   model: 'openai/text-embedding-3-small',
-  usage: { prompt_tokens: 4, total_tokens: 4 },
   tokens: { prompt: 4, total: 4 },
   cost: { status: 'unavailable' },
   embeddingUsage: { status: 'reported', batches: 1 },
@@ -71,13 +70,11 @@ it('leaves absent native counters absent and rejects precontact route failures',
       success: true,
       output: {
         ...output,
-        usage: {},
         tokens: {},
         embeddingUsage: { status: 'unavailable', batches: 1 },
       },
     })
   )
-  expect(result.output.usage).toEqual({})
   expect(result.output.tokens).toEqual({})
   await expect(
     embeddingsTool.transformResponse!(

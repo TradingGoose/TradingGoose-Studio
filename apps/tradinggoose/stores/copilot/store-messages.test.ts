@@ -16,6 +16,23 @@ const native = (parts: any[], role: 'assistant' | 'user' | 'signal' = 'assistant
   parts,
 })
 describe('canonical native history display', () => {
+  it('retains native message usage and cost without treating unknown amounts as zero', () => {
+    const usage = { inputTokens: 12, outputTokens: 3, totalTokens: 15 }
+    const cost = {
+      status: 'partial' as const,
+      currency: 'USD',
+      estimated: true,
+      availableTotal: 0.002,
+    }
+    const message = projectNativeHistoryMessage({
+      ...native([{ type: 'text', text: 'Known answer' }]),
+      usage,
+      cost,
+    })!
+    expect(message.usage).toEqual(usage)
+    expect(message.cost).toEqual(cost)
+    expect(message.cost).not.toHaveProperty('total')
+  })
   it('preserves text bytes and explicit reasoning order without parsing user JSON as a control envelope', () => {
     const text = '{"reasoning":"business JSON","reply":"unchanged"}\n🦆'
     const message = projectNativeHistoryMessage(
@@ -169,7 +186,7 @@ describe('canonical native history display', () => {
         parts: [
           { type: 'text', text: 'Look' },
           ...images.map((image) => ({
-            type: 'file',
+            type: 'file' as const,
             data: image.image,
             mimeType: image.mediaType,
           })),

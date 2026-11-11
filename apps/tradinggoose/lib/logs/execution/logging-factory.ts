@@ -2,7 +2,13 @@ import { db } from '@tradinggoose/db'
 import { workflow, workflowFolder } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ExecutionEnvironment, ExecutionTrigger } from '@/lib/logs/types'
-import { getInferenceFacts } from '@/lib/mastra/result'
+import { getInferenceFacts, type InferenceFacts } from '@/lib/mastra/result'
+import {
+  type NativeCost,
+  resultAccounting,
+  sumNativeCosts,
+  sumNativeUsage,
+} from '@/lib/mastra/usage'
 import { isWorkflowBlockType } from '@/executor/consts'
 
 export function createTriggerObject(
@@ -81,134 +87,88 @@ export async function loadWorkflowSummaryForExecution(workflowId: string) {
 }
 
 export function calculateCostSummary(traceSpans: any[]) {
-  type ModelTotal = {
-    input?: number
-    output?: number
-    total?: number
-    availableTotal?: number
-    estimated?: boolean
-    status: 'reported' | 'estimated' | 'unavailable' | 'partial'
-    tokens: { prompt?: number; completion?: number; total?: number }
-  }
-  const models: Record<string, ModelTotal> = {}
+  const components: InferenceFacts[] = []
+  const modelComponents = new Map<string, InferenceFacts[]>()
+  const toolCharges: NativeCost[] = []
   const seen = new Set<string>()
-  let modelCost = 0
   let toolCost = 0
-  let inputCost: number | undefined
-  let outputCost: number | undefined
-  let totalTokens: number | undefined
-  let promptTokens: number | undefined
-  let completionTokens: number | undefined
-  let hasKnownCharge = false
   let unavailableComponents = 0
-  let estimated = false
-  const finite = (value: unknown): value is number =>
-    typeof value === 'number' && Number.isFinite(value) && value >= 0
-
-  const accumulate = (component: any, isTool = false) => {
-    if (!component || typeof component !== 'object') return
-    const original = component
-    // Only server-created spans may carry typed inference; nested payloads need their own brand.
-    const facts = getInferenceFacts(original) ?? (isTool ? undefined : original.inference)
-    if (!facts) return
-    component = {
-      ...facts,
-      ...(facts.cost || !(facts.model || facts.tokens) ? {} : { cost: { status: 'unavailable' } }),
+  const summarize = (facts: InferenceFacts[]) => {
+    const usage = sumNativeUsage(
+      facts.map(({ tokens }) => ({
+        usage: {
+          inputTokens: tokens?.prompt,
+          outputTokens: tokens?.completion,
+          totalTokens: tokens?.total,
+        },
+      }))
+    )
+    const cost = sumNativeCosts(facts.map((component) => component.cost!))
+    return {
+      ...cost,
+      availableTotal: cost.total ?? cost.availableTotal,
+      tokens: resultAccounting(usage).tokens,
     }
-    const fallbackId = isTool ? original.toolCallId : original.id
-    const identity = fallbackId ? [fallbackId] : []
-    if (identity.length > 0 && identity.every((id) => seen.has(id))) return
-    identity.forEach((id) => seen.add(id))
-    if (component.cost || component.tokens) {
-      const cost = component.cost ?? {}
-      const tokens = component.tokens ?? cost.tokens ?? {}
-      const prompt = tokens.prompt ?? tokens.input
-      const completion = tokens.completion ?? tokens.output
-      const total = typeof tokens === 'number' ? tokens : tokens.total
-      if (finite(prompt)) promptTokens = (promptTokens ?? 0) + prompt
-      if (finite(completion)) completionTokens = (completionTokens ?? 0) + completion
-      if (finite(total)) totalTokens = (totalTokens ?? 0) + total
-      const available = finite(cost.total)
-        ? cost.total
-        : finite(cost.availableTotal)
-          ? cost.availableTotal
-          : undefined
-      const known = finite(cost.total)
-      const missing = !known || cost.status === 'partial' || cost.status === 'unavailable'
-      const isEstimated = cost.status === 'estimated' || cost.estimated === true
-      if (missing) unavailableComponents += 1
-      estimated ||= isEstimated
-      if (available !== undefined) {
-        hasKnownCharge = true
-        if (isTool) toolCost += available
-        else modelCost += available
-      }
-      if (finite(cost.input)) inputCost = (inputCost ?? 0) + cost.input
-      if (finite(cost.output)) outputCost = (outputCost ?? 0) + cost.output
-      const modelName = component.model ?? cost.model
-      if (modelName) {
-        const model = (models[modelName] ??= {
-          status: 'reported',
-          tokens: {},
-        })
-        if (finite(cost.input)) model.input = (model.input ?? 0) + cost.input
-        if (finite(cost.output)) model.output = (model.output ?? 0) + cost.output
-        if (available !== undefined) model.availableTotal = (model.availableTotal ?? 0) + available
-        if (known) model.total = (model.total ?? 0) + cost.total
-        if (finite(prompt)) model.tokens.prompt = (model.tokens.prompt ?? 0) + prompt
-        if (finite(completion))
-          model.tokens.completion = (model.tokens.completion ?? 0) + completion
-        if (finite(total)) model.tokens.total = (model.tokens.total ?? 0) + total
-        model.estimated ||= isEstimated
-        if (missing || model.status === 'partial' || model.status === 'unavailable')
-          model.status = model.availableTotal === undefined ? 'unavailable' : 'partial'
-        else if (model.estimated) model.status = 'estimated'
+  }
+  const accumulate = (facts: InferenceFacts | undefined, id?: string) => {
+    if (!facts || (id && seen.has(id))) return
+    if (id) seen.add(id)
+    if (facts.cost || facts.tokens || facts.model) {
+      const cost = sumNativeCosts([facts.cost ?? { status: 'unavailable' }])
+      const component = { ...facts, cost }
+      components.push(component)
+      if (cost.status === 'partial' || cost.status === 'unavailable') unavailableComponents += 1
+      if (facts.model) {
+        const group = modelComponents.get(facts.model) ?? []
+        group.push(component)
+        modelComponents.set(facts.model, group)
       }
     }
-    if (Array.isArray(facts.toolResults) && facts.toolResults.length) {
-      for (const result of facts.toolResults) accumulate(result, true)
+    if (facts.toolResults?.length) {
+      for (const result of facts.toolResults) accumulate(result.inference, result.toolCallId)
     } else {
-      // Charge-only tools still require trusted facts. Child lists already include their subtotal.
-      if (finite(facts.toolCost)) {
+      // Child lists already contain their subtotal; only charge-only tools add one here.
+      if (
+        typeof facts.toolCost === 'number' &&
+        Number.isFinite(facts.toolCost) &&
+        facts.toolCost >= 0
+      ) {
         toolCost += facts.toolCost
-        hasKnownCharge = true
+        toolCharges.push({ total: facts.toolCost, status: 'reported' })
       }
-      unavailableComponents += facts.unavailableToolCosts ?? 0
+      if (facts.unavailableToolCosts) {
+        unavailableComponents += facts.unavailableToolCosts
+        toolCharges.push({ status: 'unavailable' })
+      }
     }
   }
   const visit = (spans: any[]) => {
     for (const span of spans ?? []) {
       // Child workflows settle their own usage. Their visible traces are inclusive.
       if (span.blockId && isWorkflowBlockType(span.type)) continue
-      accumulate(span)
+      accumulate(getInferenceFacts(span) ?? span.inference, span.id)
       if (Array.isArray(span.children)) visit(span.children)
     }
   }
   visit(traceSpans)
-  for (const model of Object.values(models)) {
-    if (model.status === 'partial' || model.status === 'unavailable') model.total = undefined
-  }
-  const availableTotal = modelCost + toolCost
-  const status: ModelTotal['status'] = unavailableComponents
-    ? hasKnownCharge
-      ? 'partial'
-      : 'unavailable'
-    : estimated
-      ? 'estimated'
-      : 'reported'
+  const model = summarize(components)
+  const costs = [...components.map((component) => component.cost!), ...toolCharges]
+  const cost = sumNativeCosts(costs.length ? costs : [{ total: 0, status: 'reported' }])
   return {
-    totalCost: unavailableComponents ? undefined : availableTotal,
-    availableTotal: unavailableComponents && !hasKnownCharge ? undefined : availableTotal,
-    totalInputCost: inputCost,
-    totalOutputCost: outputCost,
-    totalTokens,
-    totalPromptTokens: promptTokens,
-    totalCompletionTokens: completionTokens,
-    modelCost: unavailableComponents && modelCost === 0 ? undefined : modelCost,
-    status,
+    totalCost: cost.total,
+    availableTotal: cost.total ?? cost.availableTotal,
+    totalInputCost: model.input,
+    totalOutputCost: model.output,
+    totalTokens: model.tokens.total,
+    totalPromptTokens: model.tokens.prompt,
+    totalCompletionTokens: model.tokens.completion,
+    modelCost: model.total ?? model.availableTotal ?? (unavailableComponents ? undefined : 0),
+    status: cost.status,
     unavailableComponents,
-    estimated,
+    estimated: cost.estimated === true,
     toolCost,
-    models,
+    models: Object.fromEntries(
+      [...modelComponents].map(([name, facts]) => [name, summarize(facts)])
+    ),
   }
 }

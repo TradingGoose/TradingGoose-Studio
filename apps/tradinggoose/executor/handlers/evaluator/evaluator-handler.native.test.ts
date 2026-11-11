@@ -7,6 +7,7 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
     inputProcessors: [],
     outputProcessors: [],
     getUsage: () => state.usage,
+    getCost: () => ({ status: 'unavailable' as const }),
     verifyComplete: () => state.verify(),
   }),
 }))
@@ -15,7 +16,7 @@ vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getInferenceFacts } from '@/lib/mastra/result'
-import { resultAccounting, selectNativeUsage } from '@/lib/mastra/usage'
+import { resultAccounting } from '@/lib/mastra/usage'
 import { createMinimalWorkflow, createMockContext } from '@/executor/__test-utils__/executor-mocks'
 import { RouterBlockHandler } from '../router/router-handler'
 import { EvaluatorBlockHandler } from './evaluator-handler'
@@ -77,8 +78,8 @@ it('rejects the installed native engine resolving an aborted score-less structur
   )
   expect(failure).toBeInstanceOf(Error)
   expect(state.result).toMatchObject({ finishReason: 'aborted', object: undefined })
-  // The installed aborted result can omit usage. Preserve only counts it actually returned.
-  const expected = await resultAccounting(selectNativeUsage(state.result.totalUsage))
+  // An abort before any native response has no completed processor usage.
+  const expected = await resultAccounting(state.usage)
   expect(getInferenceFacts(failure)).toMatchObject({
     ...expected,
     generatedFields: ['model', 'tokens', 'cost'],
@@ -87,9 +88,9 @@ it('rejects the installed native engine resolving an aborted score-less structur
   expect(state.model.doGenerateCalls).toHaveLength(1)
 })
 
-describe('installed native returned usage before financial refusal', () => {
+describe('canonical processor usage before financial refusal', () => {
   it.each(['evaluator', 'router'] as const)(
-    'retains %s actual aggregate 17 over processor 7 without double counting',
+    'uses %s accepted processor counts without a parallel result-usage path',
     async (kind) => {
       let contacts = 0
       state.usage = { totalTokens: 7 }
@@ -152,7 +153,7 @@ describe('installed native returned usage before financial refusal', () => {
       })
       expect(getInferenceFacts(failure)).toMatchObject({
         model: 'openai/gpt-4.1',
-        tokens: { prompt: 11, completion: 6, total: 17 },
+        tokens: { total: 7 },
         cost: { status: 'unavailable' },
         generatedFields: ['model', 'tokens', 'cost'],
       })

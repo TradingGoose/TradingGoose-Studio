@@ -9,7 +9,7 @@ export interface InferenceFacts {
   embeddingUsage?: { status: 'reported' | 'partial' | 'unavailable'; batches: number }
   toolCost?: number
   unavailableToolCosts?: number
-  toolResults?: unknown[]
+  toolResults?: Array<{ toolCallId?: string; inference: InferenceFacts }>
   toolCalls?: { list: Array<Record<string, any>>; count: number }
   providerTiming?: ProviderTiming
   generatedFields: string[]

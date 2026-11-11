@@ -12,7 +12,7 @@ import type {
   Pending,
   Scope,
 } from '@/lib/copilot/native/contract'
-import { readNativeThread } from '@/lib/copilot/native/history'
+import { readNativeThread, readNativeThreadHistory } from '@/lib/copilot/native/history'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { readbackNativeToolResult } from '@/lib/copilot/native/readback'
 import {
@@ -25,11 +25,16 @@ import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
+import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion } from '@/lib/mastra/result'
 import { getAgentMemory, getCopilotAgent, getNativeMemoryStore } from '@/lib/mastra/runtime'
-import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { SSE_HEADERS } from '@/lib/utils'
-import { type CopilotDecision, CopilotSuspendSchema, createCopilotRequestContext } from './context'
+import {
+  type CopilotDecision,
+  CopilotSuspendSchema,
+  createCopilotRequestContext,
+  readCopilotRun,
+} from './context'
 import {
   assertCopilotRunActive,
   type CopilotRun,
@@ -37,9 +42,8 @@ import {
   claimCopilotThread,
   deleteCopilotThread,
   isCopilotRunCancelled,
-  readCopilotRun,
+  readCopilotThreadRun,
   releaseCopilotThread,
-  saveCopilotRun,
 } from './state'
 
 async function requireThread(scope: Scope, threadId: string, signal?: AbortSignal) {
@@ -61,9 +65,6 @@ export async function listCopilotPending(
   const pending: ServerPending[] = []
   for (const suspended of runs) {
     if (await isCopilotRunCancelled(suspended.runId)) continue
-    const run = await readCopilotRun(scope, suspended.runId)
-    if (run.threadId !== threadId)
-      throw new NativeTargetError('Suspended Copilot run context is unavailable', 409)
     for (const call of suspended.toolCalls) {
       if (!call.toolCallId || !call.toolName || !isToolId(call.toolName))
         throw new NativeTargetError('Suspended Copilot tool is unavailable', 409)
@@ -78,7 +79,7 @@ export async function listCopilotPending(
         target: {
           threadId,
           resourceId,
-          runId: run.runId,
+          runId: suspended.runId,
           toolCallId: call.toolCallId,
           toolName: call.toolName,
         },
@@ -125,7 +126,7 @@ async function readCommand(
   const resourceId = nativeConversationIdentity(scope).resourceId
   if (request.command === 'threads.list') {
     const result = await store.listThreads({
-      ...request.page,
+      perPage: false,
       filter: { resourceId },
       orderBy: { field: 'updatedAt', direction: 'DESC' },
     })
@@ -137,42 +138,20 @@ async function readCommand(
         createdAt: thread.createdAt.toISOString(),
         updatedAt: thread.updatedAt.toISOString(),
       })),
-      page: request.page,
-      hasMore: result.hasMore,
     }
   }
+  if (request.command === 'history.read')
+    return {
+      status: 'history',
+      threadId: request.threadId,
+      items: await readNativeThreadHistory(scope, request.threadId, signal),
+    }
   if (!('threadId' in request) || !request.threadId || request.command === 'message') return
   await requireThread(scope, request.threadId, signal)
   switch (request.command) {
-    case 'history.read': {
-      const result = await store.listMessages({
-        threadId: request.threadId,
-        resourceId,
-        ...request.page,
-        orderBy: { field: 'createdAt', direction: 'ASC' },
-      })
-      return {
-        status: 'history',
-        threadId: request.threadId,
-        items: result.messages.map((message) => ({
-          id: message.id,
-          role: message.role,
-          createdAt: message.createdAt.toISOString(),
-          parts: message.content.parts as never,
-        })),
-        page: request.page,
-        hasMore: result.hasMore,
-      }
-    }
     case 'pending.list': {
       const pending = await listCopilotPending(scope, request.threadId, signal)
-      const start = request.page.page * request.page.perPage
-      return {
-        status: 'pending_targets',
-        items: pending.slice(start, start + request.page.perPage).map(publicPending),
-        page: request.page,
-        hasMore: start + request.page.perPage < pending.length,
-      }
+      return { status: 'pending_targets', items: pending.map(publicPending) }
     }
     case 'thread.title':
       await store.updateThread({ id: request.threadId, title: request.title })
@@ -232,19 +211,19 @@ async function readCommand(
       }
     }
     case 'cancel': {
-      const run = await readCopilotRun(scope, request.runId)
-      if (run.threadId !== request.threadId)
+      const currentRunId = await readCopilotThreadRun(scope, request.threadId)
+      if (currentRunId && currentRunId !== request.runId)
         throw new NativeTargetError('Copilot cancellation target differs', 403)
-      const agent = await getCopilotAgent()
-      const pending = await agent.listSuspendedRuns({ threadId: run.threadId, resourceId })
-      await cancelCopilotRun(run.runId)
-      agent.abortThreadStream({ threadId: run.threadId, resourceId, expectedRunId: run.runId })
-      if (pending.runs.some((item) => item.runId === run.runId))
-        await releaseCopilotThread(scope, run.threadId, run.runId)
-      return {
-        status: 'cancel_requested',
-        runId: run.runId,
+      if (currentRunId) {
+        const run = { runId: currentRunId, threadId: request.threadId, scope }
+        const agent = await getCopilotAgent()
+        const pending = await agent.listSuspendedRuns({ threadId: run.threadId, resourceId })
+        await cancelCopilotRun(run)
+        agent.abortThreadStream({ threadId: run.threadId, resourceId, expectedRunId: run.runId })
+        if (pending.runs.some((item) => item.runId === run.runId))
+          await releaseCopilotThread(scope, run.threadId, run.runId)
       }
+      return { status: 'cancel_requested', runId: request.runId }
     }
   }
 }
@@ -282,7 +261,7 @@ async function* generate(
   let run: CopilotRun | undefined
   let watcher: ReturnType<typeof setInterval> | undefined
   let suspended = false
-  let usage: Awaited<ReturnType<typeof usageProcessors>> | undefined
+  let usage: Awaited<ReturnType<typeof prepareModelRequest>>['usage'] | undefined
   let ownsThread = false
   let nativeOutput: { getFullOutput(): Promise<unknown> } | undefined
   let drained = false
@@ -309,7 +288,6 @@ async function* generate(
           toolContexts: request.toolContexts,
           workflowId: request.workflowId,
         }
-        await saveCopilotRun(run)
         if (!request.threadId)
           await (await getAgentMemory()).createThread({
             threadId,
@@ -331,7 +309,7 @@ async function* generate(
           : 'result',
         signal
       )
-      run = await readCopilotRun(scope, pending.target.runId)
+      run = await readCopilotRun(scope, pending.target.threadId, pending.target.runId)
       await assertCopilotRunActive(run.runId)
       await authorizeNativeBusinessResult(scope, pending)
       if (request.command === 'tool.result') {
@@ -396,7 +374,8 @@ async function* generate(
           checking = false
         })
     }, 500)
-    usage = await usageProcessors({
+    const prepared = await prepareModelRequest({
+      model: run.model,
       actorUserId: run.scope.actorUserId,
       workspaceId: run.scope.workspaceId ?? undefined,
       workflowId: run.workflowId,
@@ -404,7 +383,14 @@ async function* generate(
       purpose: 'copilot',
       signal,
     })
-    const requestContext = createCopilotRequestContext({ run, usage, signal, pending, decision })
+    usage = prepared.usage
+    const requestContext = createCopilotRequestContext({
+      run,
+      model: prepared.model,
+      signal,
+      pending,
+      decision,
+    })
     const guard: InputProcessor = {
       id: 'studio-copilot-authorization',
       async processInputStep() {
@@ -415,7 +401,7 @@ async function* generate(
       },
     }
     const options: AgentExecutionOptions = {
-      runId: run.runId,
+      ...prepared.options,
       requestContext,
       ...(request.command === 'message' && request.input.contexts?.length
         ? {
@@ -428,11 +414,8 @@ async function* generate(
           }
         : {}),
       memory: { thread: run.threadId, resource: nativeConversationIdentity(run.scope).resourceId },
-      inputProcessors: [guard, ...usage.inputProcessors],
-      outputProcessors: usage.outputProcessors,
+      inputProcessors: [guard, ...prepared.options.inputProcessors],
       maxSteps: 50,
-      abortSignal: signal,
-      modelSettings: { maxRetries: 0 },
     }
     yield { type: 'response.started', runId: run.runId, threadId: run.threadId }
     const output = (nativeOutput =
@@ -553,7 +536,7 @@ async function* generate(
   } finally {
     if (cancellation.signal.aborted && run && !drained) {
       try {
-        await cancelCopilotRun(run.runId)
+        await cancelCopilotRun(run)
       } catch {
         ownsThread = false // Keep the claim when durable cancellation cannot be confirmed.
       }

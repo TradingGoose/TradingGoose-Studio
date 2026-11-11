@@ -1,11 +1,10 @@
 import type {
   CopilotRequest,
   CopilotResponse,
-  HistoryMessage,
-  Page,
   Pending,
   Thread,
 } from '@/lib/copilot/native/contract'
+import type { NativeHistoryMessage } from '@/lib/mastra/messages'
 
 export class NativeCommandError extends Error {
   constructor(readonly nativeOutcome: CopilotResponse) {
@@ -38,69 +37,29 @@ export async function readNativeCommand(command: CopilotRequest, signal?: AbortS
   return result
 }
 
-async function completePages<T>(
-  command: (page: Page) => CopilotRequest,
-  project: (result: CopilotResponse) => { items: T[]; page: Page; hasMore: boolean },
-  identity: (item: T) => string,
+export async function listNativeThreads(
+  workspaceId: string | null,
   signal?: AbortSignal
-): Promise<T[]> {
-  const items = new Map<string, T>()
-  for (let page = 0; ; page++) {
-    const result = project(await readNativeCommand(command({ page, perPage: 100 }), signal))
-    for (const item of result.items) items.set(identity(item), item)
-    if (!result.hasMore) return [...items.values()]
-    if (!result.items.length) throw new Error('Copilot returned an empty page with more results')
-  }
+): Promise<Thread[]> {
+  const result = await readNativeCommand({ command: 'threads.list', workspaceId }, signal)
+  if (result.status !== 'threads') throw new Error('Native threads unavailable')
+  return result.items
 }
-
-export function listNativeThreads(workspaceId: string | null, signal?: AbortSignal) {
-  return completePages<Thread>(
-    (page) => ({ command: 'threads.list', workspaceId, page }),
-    (result) => {
-      if (result.status !== 'threads') throw new Error('Native threads unavailable')
-      return result
-    },
-    (item) => item.id,
-    signal
-  )
-}
-export function listNativeHistory(
+export async function listNativeHistory(
   workspaceId: string | null,
   threadId: string,
   signal?: AbortSignal
-) {
-  return completePages<HistoryMessage>(
-    (page) => ({
-      command: 'history.read',
-      workspaceId,
-      threadId,
-      page,
-    }),
-    (result) => {
-      if (result.status !== 'history') throw new Error('Copilot history is unavailable')
-      return result
-    },
-    (item) => item.id,
-    signal
-  )
+): Promise<NativeHistoryMessage[]> {
+  const result = await readNativeCommand({ command: 'history.read', workspaceId, threadId }, signal)
+  if (result.status !== 'history') throw new Error('Copilot history is unavailable')
+  return result.items
 }
-export function listNativePending(
+export async function listNativePending(
   workspaceId: string | null,
   threadId: string,
   signal?: AbortSignal
-) {
-  return completePages<Pending>(
-    (page) => ({
-      command: 'pending.list',
-      workspaceId,
-      threadId,
-      page,
-    }),
-    (result) => {
-      if (result.status !== 'pending_targets') throw new Error('Native pending unavailable')
-      return result
-    },
-    (item) => JSON.stringify([item.target.threadId, item.target.runId, item.target.toolCallId]),
-    signal
-  )
+): Promise<Pending[]> {
+  const result = await readNativeCommand({ command: 'pending.list', workspaceId, threadId }, signal)
+  if (result.status !== 'pending_targets') throw new Error('Native pending unavailable')
+  return result.items
 }

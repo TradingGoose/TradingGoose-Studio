@@ -124,8 +124,8 @@ vi.mock('@/lib/execution/workflow-execution-stream', () => ({
 vi.mock('@/lib/copilot/agent/service', () => ({ listCopilotPending: m.pending }))
 vi.mock('@/lib/copilot/agent/state', () => ({
   assertCopilotRunActive: async () => undefined,
-  claimCopilotBrowserEffect: async (runId: string, callId: string) => {
-    const key = JSON.stringify([runId, callId])
+  claimCopilotBrowserEffect: async (run: { runId: string }, callId: string) => {
+    const key = JSON.stringify([run.runId, callId])
     if (m.claims.has(key)) throw new NativeTargetError('Already dispatched', 409)
     m.claims.add(key)
   },

@@ -212,6 +212,34 @@ describe('CopilotMessage', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
+  it('shows persisted message tokens and USD provenance and updates metrics on the same message', async () => {
+    await renderMessage({
+      ...assistantMessage,
+      usage: { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
+      cost: { status: 'estimated', total: 0.002, estimated: true, currency: 'USD' },
+    })
+    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
+      '15 tokens'
+    )
+    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
+      'Estimated $0.0020 USD'
+    )
+    await renderMessage({
+      ...assistantMessage,
+      usage: { totalTokens: 20 },
+      cost: { status: 'partial', estimated: true, availableTotal: 0.003, currency: 'USD' },
+    })
+    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
+      '20 tokens'
+    )
+    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
+      'Unavailable USD (estimated $0.0030 available)'
+    )
+    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).not.toContain(
+      '$0 USD'
+    )
+  })
+
   it('renders assistant content and citations', async () => {
     await renderMessage(assistantMessage)
 

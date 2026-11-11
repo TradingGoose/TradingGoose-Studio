@@ -69,7 +69,6 @@ export class BaseClientTool {
   readonly name: string
   protected state = ClientToolCallState.generating
   protected metadata: BaseClientToolMetadata
-  protected timeoutMs = DEFAULT_TOOL_TIMEOUT_MS
   private disposed = false
   private resultSubmitted = false
   private executionContext: ClientToolExecutionContext | null = null
@@ -79,13 +78,10 @@ export class BaseClientTool {
     this.name = name
     this.metadata = metadata
   }
-  setTimeoutMs(ms: number) {
-    this.timeoutMs = ms
-  }
   hasSubmittedResult() {
     return this.resultSubmitted
   }
-  async executeWithTimeout(execute: () => Promise<void>, timeoutMs = this.timeoutMs) {
+  async executeWithTimeout(execute: () => Promise<void>, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS) {
     let timer: ReturnType<typeof setTimeout> | undefined
     try {
       await Promise.race([
@@ -107,9 +103,6 @@ export class BaseClientTool {
   setExecutionContext(context: ClientToolExecutionContext) {
     if (!this.disposed) this.executionContext = context
   }
-  protected getExecutionContext() {
-    return this.executionContext
-  }
   protected requireExecutionContext() {
     if (!this.executionContext)
       throw new Error(`Missing execution context for tool call ${this.toolCallId}`)
@@ -122,9 +115,6 @@ export class BaseClientTool {
   }
   hydrateToolCall(call?: Record<string, any>) {
     if (!this.disposed) this.toolCall = call
-  }
-  protected resolveToolCall() {
-    return this.toolCall
   }
   protected resolveToolState() {
     return this.toolCall?.state as ClientToolCallState | undefined
@@ -170,23 +160,14 @@ export class BaseClientTool {
       ? this.state
       : (this.resolveToolState() ?? this.state)
   }
-  protected async getPendingUserAction(_args?: Record<string, any>): Promise<'accept' | 'execute'> {
-    return this.getInterruptDisplays() ? 'accept' : 'execute'
-  }
-  protected async prepareReviewAccept(_args?: Record<string, any>): Promise<boolean> {
-    return true
-  }
   async handleUserAction(args?: Record<string, any>) {
     if (this.disposed || this.resultSubmitted) return
     const state = this.resolveUserActionState()
     if (state === ClientToolCallState.review) {
-      if (await this.prepareReviewAccept(args)) await this.handleAccept(args)
+      await this.handleAccept(args)
       return
     }
-    if (
-      state === ClientToolCallState.pending &&
-      (await this.getPendingUserAction(args)) === 'accept'
-    ) {
+    if (state === ClientToolCallState.pending && this.getInterruptDisplays()) {
       await this.handleAccept(args)
       return
     }
@@ -198,9 +179,6 @@ export class BaseClientTool {
       .getState()
       .skipCopilotToolCall(this.toolCallId)
     this.setState(ClientToolCallState.rejected)
-  }
-  getDisplayState() {
-    return this.metadata.displayNames[this.state]
   }
   getInterruptDisplays() {
     return this.metadata.interrupt

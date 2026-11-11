@@ -18,8 +18,14 @@ const state = vi.hoisted(() => ({
   requests: [] as any[],
   storage: undefined as unknown as InMemoryStore,
 }))
-vi.mock('@/lib/mastra/runtime', () => ({ getCopilotAgent: async () => state.agent }))
-vi.mock('@/lib/mastra/connections', () => ({ createConfiguredLanguageModel: () => state.model }))
+vi.mock('@/lib/mastra/runtime', () => ({
+  getMastra: async () => undefined,
+  getCopilotAgent: async () => state.agent,
+}))
+vi.mock('@/lib/mastra/connections', async (original) => ({
+  ...(await original<object>()),
+  createConfiguredLanguageModel: () => state.model,
+}))
 vi.mock('@/lib/mastra/registry', () => ({
   assertListedModel: (...args: unknown[]) => state.listed(...args),
 }))
@@ -33,7 +39,7 @@ vi.mock('@/lib/billing/model-usage', () => ({
 const input: CompletionRequest = {
   scope: { actorUserId: 'actor', workspaceId: null },
   purpose: 'title',
-  model: 'fixture/model',
+  model: 'openai/gpt-4o',
   messages: [
     { role: 'system', content: 'Only a title' },
     { role: 'user', content: 'Exact first prompt' },
@@ -92,9 +98,15 @@ describe('built-in stateless completions', () => {
       text: 'Known title',
       usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
     })
-    expect(state.listed).toHaveBeenCalledWith('fixture/model')
+    expect(state.listed).toHaveBeenCalledWith(input.model)
     expect(state.admit).toHaveBeenCalledOnce()
     expect(state.accept).toHaveBeenCalledOnce()
+    expect(state.accept.mock.calls[0][0]).toMatchObject({ model: input.model, purpose: 'title' })
+    expect(state.accept.mock.calls[0][2]).toMatchObject({
+      total: expect.closeTo(0.000015, 12),
+      status: 'estimated',
+      currency: 'USD',
+    })
     expect(JSON.stringify(state.requests)).toContain('Exact first prompt')
     expect(
       (await (await state.storage.getStore('memory'))!.listThreads({ page: 0, perPage: 100 }))

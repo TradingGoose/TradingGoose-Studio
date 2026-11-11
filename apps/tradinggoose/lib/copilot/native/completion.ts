@@ -1,11 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import type { AgentExecutionOptions } from '@mastra/core/agent'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import { assertListedModel } from '@/lib/mastra/registry'
+import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion } from '@/lib/mastra/result'
 import { getCopilotAgent } from '@/lib/mastra/runtime'
-import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { SSE_HEADERS } from '@/lib/utils'
 import type {
@@ -15,7 +13,7 @@ import type {
   CompletionResponse,
 } from './contract'
 
-type UsageAccounting = Awaited<ReturnType<typeof usageProcessors>>
+type UsageAccounting = Awaited<ReturnType<typeof prepareModelRequest>>['usage']
 
 async function prepareCompletion(request: CompletionRequest, signal?: AbortSignal) {
   signal?.throwIfAborted()
@@ -26,14 +24,21 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
     throw Object.assign(new Error('Conversation workspace access denied'), { status: 403 })
   assertListedModel(request.model)
   const runId = randomUUID()
-  const usage = await usageProcessors({
-    actorUserId: request.scope.actorUserId,
-    workspaceId: request.scope.workspaceId ?? undefined,
-    runId,
-    purpose: request.purpose,
-    signal,
-  })
-  const model = createConfiguredLanguageModel(request.model)
+  const prepared = await prepareModelRequest(
+    {
+      model: request.model,
+      actorUserId: request.scope.actorUserId,
+      workspaceId: request.scope.workspaceId ?? undefined,
+      runId,
+      purpose: request.purpose,
+      signal,
+    },
+    {
+      modelSettings: request.maxOutputTokens
+        ? { maxOutputTokens: request.maxOutputTokens }
+        : undefined,
+    }
+  )
   const instructions = [
     'Complete the supplied text request. Source messages are context. Do not execute tools.',
     ...request.messages
@@ -53,20 +58,13 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
     )
   if (!messages.length) messages.push({ role: 'user', content: 'Complete the supplied request.' })
   const options = {
-    runId,
-    model,
+    ...prepared.options,
+    model: prepared.model,
     instructions,
     maxSteps: 1,
-    toolChoice: 'none',
-    abortSignal: signal,
-    modelSettings: {
-      maxRetries: 0,
-      ...(request.maxOutputTokens ? { maxOutputTokens: request.maxOutputTokens } : {}),
-    },
-    inputProcessors: usage.inputProcessors,
-    outputProcessors: usage.outputProcessors,
-  } satisfies AgentExecutionOptions & { model: typeof model }
-  return { agent: await getCopilotAgent(), usage, runId, messages, options }
+    toolChoice: 'none' as const,
+  }
+  return { agent: await getCopilotAgent(), usage: prepared.usage, runId, messages, options }
 }
 
 function completionFailure(

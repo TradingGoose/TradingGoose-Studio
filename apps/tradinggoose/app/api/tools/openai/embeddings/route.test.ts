@@ -156,7 +156,6 @@ describe('authenticated native OpenAI embedding route', () => {
       output: {
         embeddings: result.embeddings,
         model: result.model,
-        usage: { prompt_tokens: 7, total_tokens: 7 },
         tokens: result.tokens,
         cost: result.cost,
         embeddingUsage: result.usage,
@@ -178,7 +177,6 @@ describe('authenticated native OpenAI embedding route', () => {
     expect(await response.json()).toMatchObject({
       success: true,
       output: {
-        usage: {},
         tokens: {},
         cost: { status: 'unavailable' },
         embeddingUsage: { status: 'unavailable', batches: 1 },
@@ -206,7 +204,6 @@ describe('authenticated native OpenAI embedding route', () => {
       output: {
         embeddings: result.embeddings,
         model: result.model,
-        usage: { prompt_tokens: 7, total_tokens: 7 },
         tokens: result.tokens,
         cost: result.cost,
         embeddingUsage: { status: 'partial', batches: 1 },

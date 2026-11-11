@@ -1,9 +1,33 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { MastraDBMessage } from '@mastra/core/agent/message-list'
+import type { NativeCost, NativeUsage } from './usage'
 
 export const WORKFLOW_SYSTEM_PART = 'data-workflow-system-message' as const
 export type WorkflowMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 export type NativeMessageScope = { threadId: string; resourceId: string }
+
+export type NativeHistoryMessage = Pick<MastraDBMessage, 'id' | 'role'> & {
+  createdAt: string
+  parts: MastraDBMessage['content']['parts']
+  usage?: NativeUsage
+  cost?: NativeCost
+}
+
+/** Public native history keeps message parts and accounting, not internal runtime metadata. */
+export function projectNativeMessage(message: MastraDBMessage): NativeHistoryMessage {
+  return {
+    id: message.id,
+    role: message.role,
+    createdAt: message.createdAt.toISOString(),
+    parts: message.content.parts,
+    ...(message.role === 'assistant' && message.content.metadata?.usage
+      ? { usage: message.content.metadata.usage as NativeUsage }
+      : {}),
+    ...(message.role === 'assistant' && message.content.metadata?.cost
+      ? { cost: message.content.metadata.cost as NativeCost }
+      : {}),
+  }
+}
 
 export function workflowMemoryIdentity(workspaceId: string, workflowId: string, key: string) {
   return {

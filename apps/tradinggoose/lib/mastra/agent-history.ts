@@ -1,7 +1,27 @@
-import type { MastraDBMessage } from '@mastra/core/agent/message-list'
 import type { TraceSpan } from '@/lib/logs/types'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { isWorkflowBlockType } from '@/executor/consts'
+import {
+  type NativeHistoryMessage,
+  type NativeMessageScope,
+  projectNativeMessage,
+} from './messages'
+
+/** Callers authorize their product scope before reading its native conversation. */
+export async function readNativeHistory(
+  scope: NativeMessageScope,
+  signal?: AbortSignal
+): Promise<NativeHistoryMessage[]> {
+  signal?.throwIfAborted()
+  const { getNativeMemoryStore } = await import('./runtime')
+  const result = await (await getNativeMemoryStore()).listMessages({
+    ...scope,
+    perPage: false,
+    orderBy: { field: 'createdAt', direction: 'ASC' },
+  })
+  signal?.throwIfAborted()
+  return result.messages.map(projectNativeMessage)
+}
 
 type ExecutionLog = {
   id: string
@@ -27,7 +47,7 @@ export async function attachAgentHistory<T extends ExecutionLog>(
     // A child workflow owns its own execution log and native conversation scope.
     if (span.blockId && isWorkflowBlockType(span.type)) return span
     const history = span.inference?.history
-    let agentHistory: MastraDBMessage[] | undefined
+    let agentHistory: NativeHistoryMessage[] | undefined
     let systemMessages: unknown
     if (history) {
       await authorize()
@@ -58,13 +78,7 @@ export async function attachAgentHistory<T extends ExecutionLog>(
       )
         throw new Error('Agent history owner does not match its execution')
       systemMessages = thread.metadata?.systemMessages
-      const result = await store.listMessages({
-        threadId: history.threadId,
-        resourceId,
-        perPage: false,
-        orderBy: { field: 'createdAt', direction: 'ASC' },
-      })
-      agentHistory = result.messages
+      agentHistory = await readNativeHistory({ threadId: history.threadId, resourceId })
     }
     return {
       ...span,

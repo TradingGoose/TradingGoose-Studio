@@ -17,13 +17,6 @@ const m = vi.hoisted(() => ({
   business: vi.fn(),
   active: vi.fn(),
   effect: vi.fn(),
-  selected: vi.fn(),
-}))
-vi.mock('@/lib/mastra/connections', () => ({
-  createConfiguredLanguageModel: (model: string) => {
-    m.selected(model)
-    return m.model
-  },
 }))
 vi.mock('@/lib/copilot/native/target', async () => ({
   ...(await import('@/lib/copilot/native/errors')),
@@ -79,7 +72,7 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
       model: 'configured/model',
       accessLevel,
     },
-    usage: { verifyComplete: async () => {} } as CopilotExecution['usage'],
+    model: m.model,
     signal: new AbortController().signal,
   }
   const requestContext = createCopilotRequestContext(execution)
@@ -99,7 +92,7 @@ beforeEach(() => {
   m.authorize.mockResolvedValue({ actorUserId: 'actor', workspaceId: 'workspace' })
   m.business.mockResolvedValue(undefined)
   m.active.mockResolvedValue(undefined)
-  m.effect.mockImplementation(async (_run, _call, _phase, _input, execute) => execute())
+  m.effect.mockImplementation(async (_run, _call, _phase, execute) => execute())
 })
 describe('Studio-owned Copilot tools', () => {
   it('executes a real registered read schema through the local router and validates its result', async () => {
@@ -122,7 +115,10 @@ describe('Studio-owned Copilot tools', () => {
         accessLevel: 'full',
       })
     )
-    expect(m.selected).toHaveBeenCalledWith('configured/model')
+    expect(await h.agent.getModel({ requestContext: h.options.requestContext })).toMatchObject({
+      modelId: 'mock-model-id',
+      provider: 'mock-provider',
+    })
     expect(m.business).toHaveBeenLastCalledWith(
       h.execution.run.scope,
       expect.objectContaining({ originalArgs: { workspaceId: 'workspace' } }),
@@ -157,6 +153,7 @@ describe('Studio-owned Copilot tools', () => {
         .requiresApproval
     ).toBe(true)
     m.model = model()
+    h.execution.model = m.model
     expect(
       (await h.agent.approveToolCallGenerate({ ...h.options, toolCallId: 'business-call' }))
         .finishReason
@@ -208,6 +205,7 @@ describe('Studio-owned Copilot tools', () => {
     expect((await h.agent.generate('Rename workflow', h.options)).finishReason).toBe('suspended')
     m.authorize.mockRejectedValueOnce(new Error('Workspace access revoked'))
     m.model = model()
+    h.execution.model = m.model
     await h.agent.approveToolCallGenerate({ ...h.options, toolCallId: 'business-call' })
     expect(m.route).not.toHaveBeenCalled()
     expect(m.effect).not.toHaveBeenCalled()

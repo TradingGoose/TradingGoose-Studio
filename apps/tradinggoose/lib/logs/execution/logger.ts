@@ -383,7 +383,7 @@ export class ExecutionLogger {
       const cost = executionCost(data.traceSpans ?? [], quote)
       // Functions settle their own product charges. Only known model amounts and this
       // workflow's configured execution charge belong to its usage ledger.
-      const charge = cost.baseExecutionCharge + (cost.estimated ? 0 : (cost.modelCost ?? 0))
+      const charge = cost.baseExecutionCharge + (cost.modelCost ?? 0)
       const costDelta = Math.max(0, charge - (billing.accountedCost ?? 0))
       const tokenDelta = Math.max(0, (cost.tokens.total ?? 0) - (billing.accountedTokens ?? 0))
       let receipt: UsageReceipt | undefined

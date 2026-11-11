@@ -8,20 +8,19 @@ import {
   isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import { normalizeNativeToolResult } from '@/lib/mastra/media'
-import {
-  assertNativeToolArguments,
-  NATIVE_AGENT_POLICY,
-  parseProviderOptions,
-  trustedModelSettings,
-} from '@/lib/mastra/options'
+import { assertNativeToolArguments, NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
-import { assertNativeCompletion, getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
-import { getAgentMemory, getMastra } from '@/lib/mastra/runtime'
-import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
-import { usageProcessors } from '@/lib/mastra/usage-processors'
+import { prepareModelRequest } from '@/lib/mastra/request'
+import {
+  assertNativeCompletion,
+  getInferenceFacts,
+  type InferenceFacts,
+  withInferenceFacts,
+} from '@/lib/mastra/result'
+import { getAgentMemory } from '@/lib/mastra/runtime'
+import type { resultAccounting } from '@/lib/mastra/usage'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
@@ -32,7 +31,6 @@ import type {
   AgentInputs,
   AgentToolConfig,
   Message,
-  StreamingConfig,
   ToolInput,
 } from '@/executor/handlers/agent/types'
 import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
@@ -41,6 +39,7 @@ import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
 import { createLLMToolSchema } from '@/tools/params'
 import { getTool } from '@/tools/utils'
+import { watchExecutionCancellation } from './cancellation'
 import {
   buildLoadSkillTool,
   buildSkillsSystemPromptSection,
@@ -117,7 +116,7 @@ export class AgentBlockHandler implements BlockHandler {
       : undefined
     if (skillLoaderToolId) formattedTools.push(buildLoadSkillTool(skillLoaderToolId, skillMetadata))
 
-    const messages = this.buildMessages(inputs, skillMetadata, skillLoaderToolId) || []
+    const messages = this.buildMessages(inputs, skillMetadata, skillLoaderToolId)
     const selectedSystemMessages = messages.filter((message) => message.role === 'system')
     const modelMessages = messages.filter((message) => message.role !== 'system')
     const { blockData, blockNameMapping } = collectBlockData(context)
@@ -137,7 +136,6 @@ export class AgentBlockHandler implements BlockHandler {
       { signal, abort: (reason) => abortController.abort(reason) }
     )
     const policy = createForcedToolPolicy(formattedTools)
-    const mastra = await getMastra()
     const startedAt = new Date()
     const runId = crypto.randomUUID()
     if (
@@ -152,16 +150,34 @@ export class AgentBlockHandler implements BlockHandler {
       resourceId: `workflow-execution:${context.workspaceId}:${context.executionId}`,
       runId,
     }
-    const finance = await usageProcessors({
-      actorUserId: context.userId,
-      workspaceId: context.workspaceId,
-      workflowId: context.workflowId,
-      runId,
-      purpose: 'workflow-agent',
-      signal,
-    })
-    const admittedModel = createConfiguredLanguageModel(model, inputs.apiKey)
+    const work = await prepareModelRequest(
+      {
+        model,
+        actorUserId: context.userId,
+        workspaceId: context.workspaceId,
+        workflowId: context.workflowId,
+        runId,
+        purpose: 'workflow-agent',
+        signal,
+      },
+      {
+        apiKey: inputs.apiKey,
+        modelSettings: { temperature: inputs.temperature, maxOutputTokens: inputs.maxTokens },
+        providerOptions: inputs.providerOptions,
+      }
+    )
     const agent = new Agent({
+      ...NATIVE_AGENT_POLICY,
+      id: block.id,
+      name: block.metadata?.name || 'Workflow Agent',
+      instructions: '',
+      model: work.model,
+      tools,
+      memory: await getAgentMemory(),
+      mastra: work.mastra,
+    })
+    const options: AgentExecutionOptions<any> = {
+      ...work.options,
       inputProcessors: [
         {
           id: 'workflow-selected-systems',
@@ -169,35 +185,8 @@ export class AgentBlockHandler implements BlockHandler {
             systemMessages: selectedSystemMessages as Array<{ role: 'system'; content: string }>,
           }),
         },
-        ...finance.inputProcessors,
+        ...work.options.inputProcessors,
       ],
-      outputProcessors: finance.outputProcessors,
-      ...NATIVE_AGENT_POLICY,
-      id: block.id,
-      name: block.metadata?.name || 'Workflow Agent',
-      instructions: '',
-      model: admittedModel,
-      tools,
-      memory: await getAgentMemory(),
-      mastra,
-    })
-    const steps: any[] = []
-    let finished = false
-    let cancellationTimer: ReturnType<typeof setTimeout> | undefined
-    const checkCancellation = async () => {
-      try {
-        if (await context.shouldCancelExecution?.()) abortController.abort()
-      } catch (error) {
-        abortController.abort(error)
-      }
-      if (!finished && !signal.aborted) cancellationTimer = setTimeout(checkCancellation, 1000)
-    }
-    const stopCancellationCheck = () => {
-      finished = true
-      clearTimeout(cancellationTimer)
-    }
-    const options: AgentExecutionOptions<any> = {
-      runId,
       memory: {
         resource: history.resourceId,
         thread: {
@@ -214,23 +203,13 @@ export class AgentBlockHandler implements BlockHandler {
           },
         },
       },
-      abortSignal: signal,
       maxSteps: 20,
-      modelSettings: trustedModelSettings({
-        temperature: inputs.temperature,
-        maxOutputTokens: inputs.maxTokens,
-      }),
-      maxProcessorRetries: 0,
       structuredOutput: responseFormat
         ? { schema: toStandardSchema(responseFormat.schema), errorStrategy: 'strict' }
         : undefined,
-      tracingOptions: {
-        metadata: { userId: context.userId, resourceId: context.workspaceId, runId },
-      },
-      providerOptions: parseProviderOptions(inputs.providerOptions),
       activeTools: Object.keys(tools),
       prepareStep: async (step) => {
-        if (await context.shouldCancelExecution?.()) abortController.abort()
+        await cancellation.check()
         signal.throwIfAborted()
         validateNativeReasoning(model, inputs.reasoningEffort, step.model.specificationVersion)
         return {
@@ -240,21 +219,18 @@ export class AgentBlockHandler implements BlockHandler {
             : {}),
         }
       },
-      onStepFinish: (step) => {
-        steps.push(step)
-      },
-      onAbort: ({ steps: completed }) => {
-        if (completed.length > steps.length) steps.splice(0, steps.length, ...completed)
-      },
     }
-    let returnedUsage: Parameters<typeof resultAccounting>[0]
-    const capture = (usage = returnedUsage) =>
-      resultAccounting(selectNativeUsage(usage, finance.getUsage(), sumNativeUsage(steps)))
+    const cancellation = watchExecutionCancellation(context.shouldCancelExecution, REQUEST_TIMEOUT)
+    const abortFromWorkflow = () => abortController.abort(cancellation.signal.reason)
+    cancellation.signal.addEventListener('abort', abortFromWorkflow, { once: true })
+    const stopCancellationCheck = () => {
+      cancellation.stop()
+      cancellation.signal.removeEventListener('abort', abortFromWorkflow)
+    }
     const complete = async (result: any) => {
-      returnedUsage = selectNativeUsage(result.totalUsage, result.usage)
-      await finance.verifyComplete()
+      await work.usage.verifyComplete()
       stopCancellationCheck()
-      const accounting = await capture()
+      const accounting = work.accounting()
       policy.assertComplete(result.steps)
       const output = extractAgentOutput(
         result,
@@ -269,24 +245,25 @@ export class AgentBlockHandler implements BlockHandler {
     }
     const fail = async (error: unknown) => {
       stopCancellationCheck()
-      const accounting = await capture()
+      const accounting = work.accounting()
       const failure = new Error(safeInferenceError(error, inputs.apiKey))
+      const toolMetadata = extractCompletedToolMetadata(toolRuns)
       const owned = {
         model,
         ...accounting,
-        ...extractCompletedToolMetadata(toolRuns),
+        ...toolMetadata,
       }
       Object.assign(failure, owned)
       const facts = {
         ...owned,
+        toolResults: toolResultInference(toolMetadata.toolResults),
         history,
         generatedFields: Object.keys(owned),
       }
       return withInferenceFacts(failure, facts)
     }
-    if (!this.getStreamingConfig(block, context).shouldUseStreaming) {
+    if (!this.shouldStream(block, context)) {
       try {
-        if (context.shouldCancelExecution) cancellationTimer = setTimeout(checkCancellation, 1000)
         return await complete(
           options.structuredOutput
             ? await agent.generate(modelMessages, {
@@ -307,7 +284,6 @@ export class AgentBlockHandler implements BlockHandler {
       isStreaming: true,
     }
     try {
-      if (context.shouldCancelExecution) cancellationTimer = setTimeout(checkCancellation, 1000)
       const nativeStream = options.structuredOutput
         ? await agent.stream(modelMessages, {
             ...options,
@@ -391,39 +367,16 @@ export class AgentBlockHandler implements BlockHandler {
     inputTools: ToolInput[],
     context: ExecutionContext
   ): Promise<AgentToolConfig[]> {
-    if (!Array.isArray(inputTools)) return []
-
-    const tools = await Promise.all(
+    return Promise.all(
       inputTools
-        .filter((tool) => {
-          const usageControl = tool.usageControl || 'auto'
-          return usageControl !== 'none'
-        })
-        .map(async (tool) => {
-          try {
-            if (tool.type === 'custom-tool' && tool.schema) {
-              return await this.createCustomTool(tool, context)
-            }
-            if (tool.type === 'mcp') {
-              return await this.createMcpTool(tool, context)
-            }
-            return await this.transformBlockTool(tool, context)
-          } catch (error) {
-            if (tool.usageControl === 'force') {
-              throw new Error(
-                `Cannot prepare forced tool ${tool.title || tool.toolId || tool.type}: ${error instanceof Error ? error.message : String(error)}`
-              )
-            }
-            logger.warn(
-              `Skipping unavailable agent tool ${tool.title || tool.toolId || tool.type}:`,
-              error
-            )
-            return null
-          }
+        .filter((tool) => tool.usageControl !== 'none')
+        .map((tool) => {
+          if (tool.type === 'custom-tool' && tool.schema)
+            return this.createCustomTool(tool, context)
+          if (tool.type === 'mcp') return this.createMcpTool(tool, context)
+          return this.transformBlockTool(tool, context)
         })
     )
-
-    return tools.filter((tool): tool is NonNullable<typeof tool> => tool !== null)
   }
 
   private async createCustomTool(tool: ToolInput, context: ExecutionContext): Promise<any> {
@@ -635,28 +588,26 @@ export class AgentBlockHandler implements BlockHandler {
     }
   }
 
-  private getStreamingConfig(block: SerializedBlock, context: ExecutionContext): StreamingConfig {
+  private shouldStream(block: SerializedBlock, context: ExecutionContext): boolean {
     const selectedOutputs = context.selectedOutputs ?? []
-    const isBlockSelectedForOutput =
-      selectedOutputs.length === 0 ||
-      selectedOutputs.some((outputId) => {
-        if (outputId === block.id) return true
-        const firstUnderscoreIndex = outputId.indexOf('_')
-        return (
-          firstUnderscoreIndex !== -1 && outputId.substring(0, firstUnderscoreIndex) === block.id
-        )
-      })
-
-    const shouldUseStreaming = Boolean(context.stream) && isBlockSelectedForOutput
-
-    return { shouldUseStreaming, isBlockSelectedForOutput }
+    return (
+      Boolean(context.stream) &&
+      (selectedOutputs.length === 0 ||
+        selectedOutputs.some((outputId) => {
+          if (outputId === block.id) return true
+          const firstUnderscoreIndex = outputId.indexOf('_')
+          return (
+            firstUnderscoreIndex !== -1 && outputId.substring(0, firstUnderscoreIndex) === block.id
+          )
+        }))
+    )
   }
 
   private buildMessages(
     inputs: AgentInputs,
     skillMetadata: Array<{ id: string; name: string; description: string }> = [],
     skillLoaderToolId?: string | null
-  ): Message[] | undefined {
+  ): Message[] {
     let messages: Message[] = inputs.memories ? this.processMemories(inputs.memories) : []
 
     if (inputs.systemPrompt) {
@@ -683,7 +634,7 @@ export class AgentBlockHandler implements BlockHandler {
       }
     }
 
-    return messages.length > 0 ? messages : undefined
+    return messages
   }
 
   private processMemories(memories: any): Message[] {
@@ -928,10 +879,11 @@ export function extractAgentOutput(
   ) {
     throw new Error('Agent response format requires a valid JSON object')
   }
+  const toolMetadata = extractCompletedToolMetadata(toolRuns)
   const facts = {
     model,
     ...accounting,
-    ...extractCompletedToolMetadata(toolRuns),
+    ...toolMetadata,
     toolCalls: { list: toolRuns, count: toolRuns.length },
     providerTiming: {
       duration: Date.now() - startedAt.getTime(),
@@ -945,9 +897,18 @@ export function extractAgentOutput(
     { ...facts, ...business },
     {
       ...facts,
+      toolResults: toolResultInference(toolMetadata.toolResults),
       generatedFields: Object.keys(facts).filter((key) => !Object.hasOwn(business, key)),
     }
   )
+}
+
+/** Only producer-owned facts enter the JSON-safe execution tree; business results stay separate. */
+function toolResultInference(toolResults: any[]): NonNullable<InferenceFacts['toolResults']> {
+  return toolResults.flatMap((result) => {
+    const inference = getInferenceFacts(result)
+    return inference ? [{ toolCallId: result.toolCallId, inference }] : []
+  })
 }
 
 /** Completed tool charges remain separate from native model spend on every outcome. */

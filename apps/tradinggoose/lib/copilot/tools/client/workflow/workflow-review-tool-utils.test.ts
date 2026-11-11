@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  buildWorkflowSummary,
-  getReadableWorkflowState,
-  resolveWorkflowTarget,
-} from './workflow-review-tool-utils'
+import { getReadableWorkflowState, resolveWorkflowTarget } from './workflow-review-tool-utils'
 
 const mockGetRegisteredWorkflowSession = vi.hoisted(() => vi.fn())
 const mockAcquireWritableWorkflowSessionLease = vi.hoisted(() => vi.fn())
@@ -18,15 +14,6 @@ vi.mock('@/lib/yjs/workflow-shared-session', () => ({
 }))
 
 describe('workflow-review-tool-utils', () => {
-  const block = (id: string, type = 'function', name = id, x = 0) => ({
-    id,
-    type,
-    name,
-    position: { x, y: 0 },
-    enabled: true,
-    subBlocks: {},
-    outputs: {},
-  })
   const workflowDoc = (blocks: Record<string, any>, variables: Record<string, any> = {}) => ({
     getMap: vi.fn((key: string) => {
       const values: Record<string, unknown> = {
@@ -139,130 +126,6 @@ describe('workflow-review-tool-utils', () => {
     ).rejects.toThrow('Workflow target is required')
   })
 
-  it('surfaces invalid external edges into container end handles', async () => {
-    expect(
-      buildWorkflowSummary({
-        blocks: {
-          input: block('input', 'input_trigger', 'Input Form'),
-          parallel: block('parallel', 'parallel', 'Parallel', 200),
-        },
-        edges: [
-          {
-            id: 'edge-input-parallel-end',
-            source: 'input',
-            target: 'parallel',
-            targetHandle: 'parallel-end-target',
-          },
-        ],
-        loops: {},
-        parallels: {},
-      }).connectionIssues
-    ).toEqual([
-      {
-        edgeIndex: 0,
-        source: 'input',
-        target: 'parallel',
-        targetHandle: 'parallel-end-target',
-        message:
-          'Invalid container edge: parallel container input requires targetHandle "target" for incoming outer edges.',
-      },
-    ])
-  })
-
-  it('surfaces missing outer input handles on incoming container edges', async () => {
-    const summary = buildWorkflowSummary({
-      blocks: {
-        input: block('input', 'input_trigger', 'Input'),
-        orphan: block('orphan', 'function', 'Orphan', 400),
-        parallel: block('parallel', 'parallel', 'Parallel', 200),
-      },
-      edges: [
-        {
-          id: 'edge-input-parallel',
-          source: 'input',
-          target: 'parallel',
-        },
-        { id: 'missing-orphan', source: 'missing-source', target: 'orphan' },
-        { id: 'orphan-missing', source: 'orphan', target: 'missing-target' },
-      ],
-      loops: {},
-      parallels: {},
-    })
-
-    expect(summary.connectionIssues).toEqual([
-      {
-        edgeIndex: 0,
-        source: 'input',
-        target: 'parallel',
-        message:
-          'Invalid container edge: parallel container input requires targetHandle "target" for incoming outer edges.',
-      },
-    ])
-    expect(summary.edges).toEqual([
-      expect.objectContaining({ source: 'input', target: 'parallel', scope: 'external' }),
-      expect.objectContaining({ source: 'missing-source', target: 'orphan', scope: 'external' }),
-      expect.objectContaining({ source: 'orphan', target: 'missing-target', scope: 'external' }),
-    ])
-  })
-
-  it('marks container branch edges as internal so missing outer edges stay visible', async () => {
-    const child = {
-      ...block('child', 'function', 'Child'),
-      data: { parentId: 'parallel', extent: 'parent' as const },
-    }
-    const summary = buildWorkflowSummary({
-      blocks: {
-        agent: block('agent', 'agent', 'Agent'),
-        input: block('input', 'input_trigger', 'Input Form'),
-        parallel: block('parallel', 'parallel', 'Parallel'),
-        child,
-      },
-      edges: [
-        {
-          id: 'parallel-start-child',
-          source: 'parallel',
-          sourceHandle: 'parallel-start-source',
-          target: 'child',
-        },
-        {
-          id: 'child-parallel-end',
-          source: 'child',
-          target: 'parallel',
-          targetHandle: 'parallel-end-target',
-        },
-        {
-          id: 'parallel-end-agent',
-          source: 'parallel',
-          sourceHandle: 'parallel-end-source',
-          target: 'agent',
-        },
-      ],
-      loops: {},
-      parallels: {},
-    })
-
-    expect(summary.connectionIssues).toEqual([])
-    expect(summary.blocks).toContainEqual(
-      expect.objectContaining({
-        blockId: 'input',
-        connections: { externalIn: 0, externalOut: 0, internalIn: 0, internalOut: 0 },
-      })
-    )
-    expect(summary.blocks).toContainEqual(
-      expect.objectContaining({
-        blockId: 'parallel',
-        connections: { externalIn: 0, externalOut: 1, internalIn: 1, internalOut: 1 },
-      })
-    )
-    expect(summary.edges.some((edge) => edge.source === 'input' || edge.target === 'input')).toBe(
-      false
-    )
-    expect(summary.edges).toEqual([
-      expect.objectContaining({ source: 'parallel', target: 'child', scope: 'internal' }),
-      expect.objectContaining({ source: 'child', target: 'parallel', scope: 'internal' }),
-      expect.objectContaining({ source: 'parallel', target: 'agent', scope: 'external' }),
-    ])
-  })
   it('loads ordinary workflow metadata for a reopened deployment without a pinned workspace', async () => {
     vi.mocked(fetch).mockResolvedValue(
       Response.json({ data: { id: 'workflow', workspaceId: 'business-workspace' } })

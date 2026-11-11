@@ -9,6 +9,7 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
       inputProcessors: [],
       outputProcessors: [],
       getUsage: () => native.usage(),
+      getCost: () => native.cost(),
       verifyComplete: () => native.verify(),
     }
   },
@@ -22,6 +23,7 @@ import { RouterBlockHandler } from './router-handler'
 
 const native = vi.hoisted(() => ({
   finance: vi.fn(),
+  cost: vi.fn(),
   usage: vi.fn(),
   verify: vi.fn(),
   generate: vi.fn(),
@@ -56,7 +58,8 @@ const context = {
 } as any
 beforeEach(() => {
   vi.clearAllMocks()
-  native.usage.mockReset().mockReturnValue({})
+  native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
+  native.usage.mockReset().mockReturnValue({ totalTokens: 7 })
   native.verify.mockReset().mockResolvedValue(undefined)
   native.configurations.length = 0
   native.generate.mockResolvedValue({
@@ -67,6 +70,15 @@ beforeEach(() => {
 })
 describe('Router native generation', () => {
   it('retains selected-path workflow fields and native accounting independently of dollars', async () => {
+    const cost = {
+      input: 0.002,
+      output: 0.003,
+      total: 0.005,
+      currency: 'USD',
+      estimated: true,
+      status: 'estimated',
+    }
+    native.cost.mockReturnValue(cost)
     const result = await new RouterBlockHandler().execute(
       block,
       { model: 'openai/gpt-4.1', prompt: 'Route', apiKey: 'local-key', temperature: 0 },
@@ -76,12 +88,12 @@ describe('Router native generation', () => {
       model: 'openai/gpt-4.1',
       selectedPath: { blockId: 'target', blockType: 'agent', blockTitle: 'Answer' },
       tokens: { total: 7 },
-      cost: { status: 'unavailable' },
+      cost,
     })
     expect(getInferenceFacts(result)).toMatchObject({
       model: 'openai/gpt-4.1',
       tokens: { total: 7 },
-      cost: { status: 'unavailable' },
+      cost,
     })
     expect(result).toMatchObject({ tokens: { total: 7 } })
     expect(native.configurations[0].model).toEqual({ id: 'openai/gpt-4.1', apiKey: 'local-key' })
@@ -184,8 +196,7 @@ it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provide
   }
 )
 
-// Real accounting/projection helpers; only the public model result, finance and callback
-// boundaries below are controlled. These cases do not establish monetary acceptance.
+// Only the native model and usage processor boundaries are controlled.
 describe('router trusted failed accounting with real helpers', () => {
   it.each([
     'error',
@@ -194,7 +205,7 @@ describe('router trusted failed accounting with real helpers', () => {
     'tripwire',
     'financial refusal',
     'invalid routing decision',
-  ])('retains returned aggregate17 instead of finance7/step5 through %s', async (failure) => {
+  ])('retains canonical processor accounting through %s', async (failure) => {
     native.usage.mockReturnValue({ totalTokens: 7 })
     const returned: {
       finishReason: string
@@ -212,10 +223,7 @@ describe('router trusted failed accounting with real helpers', () => {
     if (failure === 'invalid routing decision') returned.text = 'unconnected'
     if (failure === 'financial refusal')
       native.verify.mockRejectedValueOnce(new Error('Financial acceptance refused'))
-    native.generate.mockImplementationOnce(async (_messages, options) => {
-      options.onStepFinish({ usage: { totalTokens: 5 } })
-      return returned
-    })
+    native.generate.mockResolvedValueOnce(returned)
     let failureValue: unknown
     try {
       await new RouterBlockHandler().execute(
@@ -230,7 +238,7 @@ describe('router trusted failed accounting with real helpers', () => {
     const facts = getInferenceFacts(failureValue)
     expect(facts).toMatchObject({
       model: 'openai/gpt-4.1',
-      tokens: { prompt: 11, completion: 6, total: 17 },
+      tokens: { total: 7 },
       cost: { status: 'unavailable' },
       generatedFields: ['model', 'tokens', 'cost'],
     })
@@ -240,61 +248,25 @@ describe('router trusted failed accounting with real helpers', () => {
       expect(failureValue).toMatchObject({ message: 'Financial acceptance refused' })
   })
   it.each([
-    {
-      label: 'partial aggregate',
-      aggregate: { inputTokens: 4, outputTokens: -2, totalTokens: Number.NaN },
-      finance: { totalTokens: 7 },
-      expected: { prompt: 4 },
-    },
-    {
-      label: 'empty aggregate',
-      aggregate: {},
-      finance: { totalTokens: 7 },
-      expected: { total: 7 },
-    },
-    {
-      label: 'invalid aggregate',
-      aggregate: { totalTokens: Number.POSITIVE_INFINITY },
-      finance: { totalTokens: 7 },
-      expected: { total: 7 },
-    },
-    {
-      label: 'absent aggregate with steps',
-      aggregate: undefined,
-      finance: {},
-      expected: { total: 5 },
-    },
-    {
-      label: 'genuine public zero',
-      aggregate: { totalTokens: 0 },
-      finance: { totalTokens: 7 },
-      expected: { total: 0 },
-    },
-  ])('selects ONE known representation: $label', async (sample) => {
-    native.usage.mockReturnValue(sample.finance)
-    native.verify.mockRejectedValueOnce(new Error('Financial acceptance refused'))
-    native.generate.mockImplementationOnce(async (_messages, options) => {
-      options.onStepFinish({ usage: { totalTokens: 5 } })
-      return { ...{ finishReason: 'stop', text: 'target' }, totalUsage: sample.aggregate }
-    })
-    let failure: unknown
-    try {
-      await new RouterBlockHandler().execute(
-        block,
-        { model: 'openai/gpt-4.1', prompt: 'Route' },
-        context
-      )
-    } catch (error) {
-      failure = error
+    { usage: {}, expected: {} },
+    { usage: { totalTokens: 0 }, expected: { total: 0 } },
+  ])(
+    'preserves actual processor counts $usage without reading a parallel result total',
+    async ({ usage, expected }) => {
+      native.usage.mockReturnValue(usage)
+      native.verify.mockRejectedValueOnce(new Error('Financial acceptance refused'))
+      native.generate.mockResolvedValueOnce({
+        finishReason: 'stop',
+        text: 'target',
+        totalUsage: { totalTokens: 17 },
+      })
+      const failure = await new RouterBlockHandler()
+        .execute(block, { model: 'openai/gpt-4.1', prompt: 'Route' }, context)
+        .catch((error) => error)
+      expect(getInferenceFacts(failure)?.tokens).toEqual(expected)
     }
-    expect(getInferenceFacts(failure)).toMatchObject({
-      tokens: sample.expected,
-      cost: { status: 'unavailable' },
-    })
-    expect(getInferenceFacts(failure)?.tokens).toEqual(sample.expected)
-    expect(native.generate).toHaveBeenCalledOnce()
-  })
-  it('uses latest actual finance fallback if no returned aggregate was available before refusal', async () => {
+  )
+  it('captures the latest processor observation when financial acceptance rejects', async () => {
     native.usage.mockReturnValue({ totalTokens: 7 })
     native.generate.mockResolvedValueOnce({ finishReason: 'stop', text: 'target' })
     native.verify.mockImplementationOnce(async () => {
@@ -314,7 +286,8 @@ describe('router trusted failed accounting with real helpers', () => {
     expect(getInferenceFacts(failure)?.tokens).toEqual({ total: 9 })
     expect(native.generate).toHaveBeenCalledOnce()
   })
-  it('does not invent a zero total when no public response, finance or callback count exists', async () => {
+  it('does not invent a zero total before any native response', async () => {
+    native.usage.mockReturnValue({})
     native.generate.mockRejectedValueOnce(new Error('No native response'))
     let failure: unknown
     try {

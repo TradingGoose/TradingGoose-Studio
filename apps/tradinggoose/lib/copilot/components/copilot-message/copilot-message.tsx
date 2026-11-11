@@ -12,6 +12,7 @@ import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import type { ImagePart } from '@/lib/copilot/native/contract'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { createLogger } from '@/lib/logs/console/logger'
+import { formatCost } from '@/lib/logs/cost'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
@@ -614,6 +615,33 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
             {shouldShowActivityIndicator && <StreamingIndicator />}
 
+            {(message.usage || message.cost) && (
+              <div
+                className='flex flex-wrap gap-x-2 pt-1 text-muted-foreground text-xs'
+                data-testid='message-usage'
+              >
+                {message.usage && (
+                  <span
+                    title={`Input: ${message.usage.inputTokens ?? 'Unavailable'}; output: ${message.usage.outputTokens ?? 'Unavailable'}`}
+                  >
+                    {message.usage.totalTokens?.toLocaleString() ?? 'Unavailable'} tokens
+                  </span>
+                )}
+                {message.cost && (
+                  <span>
+                    {message.cost.total !== undefined &&
+                    (message.cost.estimated || message.cost.status === 'estimated')
+                      ? 'Estimated '
+                      : ''}
+                    {formatCost(message.cost.total)} USD
+                    {message.cost.status === 'partial' &&
+                      message.cost.availableTotal !== undefined &&
+                      ` (${message.cost.estimated ? 'estimated ' : ''}${formatCost(message.cost.availableTotal)} available)`}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Citations if available */}
             {message.citations && message.citations.length > 0 && (
               <div className='pt-1'>
@@ -676,6 +704,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     if (prevProps.runtimeContext !== nextProps.runtimeContext) {
       return false
     }
+    if (prevMessage.usage !== nextMessage.usage || prevMessage.cost !== nextMessage.cost)
+      return false
 
     // If panel width changed, re-render
     if (prevProps.panelWidth !== nextProps.panelWidth) {

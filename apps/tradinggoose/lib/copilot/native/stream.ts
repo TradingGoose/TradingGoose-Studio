@@ -1,3 +1,4 @@
+import { EventSourceParserStream } from '@ai-sdk/provider-utils'
 import type { CompletionEvent, CopilotEvent } from './contract'
 
 /** Decode complete SSE frames from the built-in service. */
@@ -5,9 +6,10 @@ export async function* readNativeEvents<T extends CopilotEvent | CompletionEvent
   stream: ReadableStream<Uint8Array>,
   options: { signal?: AbortSignal } = {}
 ): AsyncGenerator<T> {
-  const reader = stream.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
+  const reader = stream
+    .pipeThrough(new TextDecoderStream() as TransformStream<Uint8Array, string>)
+    .pipeThrough(new EventSourceParserStream())
+    .getReader()
   let ended = false
   const abort = () => {
     void reader.cancel(options.signal?.reason).catch(() => {})
@@ -18,27 +20,11 @@ export async function* readNativeEvents<T extends CopilotEvent | CompletionEvent
       options.signal?.throwIfAborted()
       const { done, value } = await reader.read()
       options.signal?.throwIfAborted()
-      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true })
-      let separator = /\r?\n\r?\n/.exec(buffer)
-      while (separator) {
-        const frame = buffer.slice(0, separator.index)
-        buffer = buffer.slice(separator.index + separator[0].length)
-        const data = frame
-          .split(/\r?\n/)
-          .filter((line) => line.startsWith('data:'))
-          .map((line) => line.slice(5).replace(/^ /, ''))
-          .join('\n')
-        if (data) {
-          const event = JSON.parse(data) as T
-          yield event
-        }
-        separator = /\r?\n\r?\n/.exec(buffer)
-      }
       if (done) {
         ended = true
-        if (buffer.trim()) throw new Error('Native Copilot stream ended with an incomplete frame')
         break
       }
+      if (value.data) yield JSON.parse(value.data) as T
     }
   } finally {
     options.signal?.removeEventListener('abort', abort)

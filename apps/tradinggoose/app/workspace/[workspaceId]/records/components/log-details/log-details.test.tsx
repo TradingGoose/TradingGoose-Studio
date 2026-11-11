@@ -2,6 +2,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { projectNativeMessage } from '@/lib/mastra/messages'
+import { CollapsibleInputOutput } from './components/trace-spans/components/collapsible-input-output'
 import { LogDetails } from './log-details'
 
 vi.mock('next-intl', () => ({
@@ -67,4 +69,49 @@ it.each([
     (element) => element.firstElementChild?.textContent === 'total'
   )!
   expect(total.lastElementChild?.textContent).toBe(expected)
+})
+
+it('shows persisted Agent message tokens and USD without internal message metadata', async () => {
+  await act(async () =>
+    root.render(
+      <CollapsibleInputOutput
+        depth={0}
+        displayMode='raw'
+        wrapText
+        span={
+          {
+            agentHistory: [
+              projectNativeMessage({
+                id: 'message',
+                role: 'assistant',
+                createdAt: new Date(),
+                content: {
+                  format: 2,
+                  parts: [{ type: 'text', text: 'Known answer' }],
+                  metadata: {
+                    usage: { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
+                    cost: { total: 0.002, currency: 'USD', status: 'estimated', estimated: true },
+                    pendingToolApprovals: { private: 'private-approval-carrier' },
+                    providerMetadata: { secret: 'private-provider-carrier' },
+                  },
+                },
+              }),
+            ],
+          } as any
+        }
+      />
+    )
+  )
+  await act(async () =>
+    Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Agent history'))!
+      .click()
+  )
+  expect(container.textContent).toContain('Known answer')
+  expect(container.textContent).toContain('totalTokens')
+  expect(container.textContent).toContain('0.002')
+  expect(container.textContent).toContain('USD')
+  expect(container.textContent).toContain('estimated')
+  expect(container.textContent).not.toContain('private-approval-carrier')
+  expect(container.textContent).not.toContain('private-provider-carrier')
 })

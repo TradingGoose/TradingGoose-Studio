@@ -296,7 +296,12 @@ function createCopilotStoreInstance(channelId: string) {
         let projected = { ...get(), messages, toolCallsById }
         for (const item of pending) {
           verifyPending(item)
-          projected = { ...projected, ...displayNativePending(projected, item) }
+          const live = get().toolCallsById[item.target.toolCallId]
+          const provenance =
+            live?.pending?.target.runId === item.target.runId ? live.provenance : undefined
+          if (toolCallsById[item.target.toolCallId])
+            toolCallsById[item.target.toolCallId].provenance = provenance
+          projected = { ...projected, ...displayNativePending(projected, item, provenance) }
         }
         if (!current()) return
         set({
@@ -387,21 +392,13 @@ function createCopilotStoreInstance(channelId: string) {
           )
             return false
           publishInitialTitle()
-          if (get().lastNativeOutcome?.status === 'completed' && get().currentChat) {
+          if (
+            ['completed', 'suspended'].includes(get().lastNativeOutcome?.status ?? '') &&
+            get().currentChat
+          ) {
             const chat = get().currentChat!
             try {
-              const messages = projectNativeHistory(
-                await listNativeHistory(chat.workspaceId, chat.threadId, abort.signal)
-              )
-              if (!current() || abort.signal.aborted) return true
-              const toolCallsById = Object.fromEntries(
-                messages.flatMap((message) =>
-                  (message.contentBlocks ?? []).flatMap((block) =>
-                    block.type === 'tool_call' ? [[block.toolCall.id, block.toolCall]] : []
-                  )
-                )
-              )
-              set({ messages, toolCallsById, planTodos: buildPlanTodosFromMessages(messages) })
+              await refreshChatHistory(chat, current)
             } catch (error) {
               if (current() && !abort.signal.aborted)
                 set({

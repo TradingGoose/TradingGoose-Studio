@@ -1,5 +1,7 @@
+import { readNativeHistory } from '@/lib/mastra/agent-history'
+import type { NativeHistoryMessage } from '@/lib/mastra/messages'
 import { getNativeMemoryStore } from '@/lib/mastra/runtime'
-import type { HistoryMessage, Scope, Thread } from './contract'
+import type { Scope, Thread } from './contract'
 import { nativeConversationIdentity } from './identity'
 import { authorizeNativeConversationScope, NativeTargetError } from './target'
 
@@ -29,21 +31,14 @@ export async function readNativeThreadHistory(
   scope: Scope,
   threadId: string,
   signal?: AbortSignal
-): Promise<HistoryMessage[]> {
+): Promise<NativeHistoryMessage[]> {
   if (!(await readNativeThread(scope, threadId, signal)))
     throw new NativeTargetError('Copilot thread is unavailable', 404)
-  const store = await getNativeMemoryStore()
-  const result = await store.listMessages({
-    threadId,
-    resourceId: nativeConversationIdentity(scope).resourceId,
-    perPage: false,
-    orderBy: { field: 'createdAt', direction: 'ASC' },
-  })
-  signal?.throwIfAborted()
-  return result.messages.map((message) => ({
-    id: message.id,
-    role: message.role,
-    createdAt: message.createdAt.toISOString(),
-    parts: message.content.parts as HistoryMessage['parts'],
-  }))
+  return readNativeHistory(
+    {
+      threadId,
+      resourceId: nativeConversationIdentity(scope).resourceId,
+    },
+    signal
+  )
 }

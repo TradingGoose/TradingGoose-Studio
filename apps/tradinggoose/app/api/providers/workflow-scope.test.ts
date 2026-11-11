@@ -29,6 +29,15 @@ vi.mock('@/lib/billing/calculations/usage-monitor', () => ({
   checkServerSideUsageLimits: boundary.admit,
 }))
 vi.mock('@/lib/billing/usage-accrual', () => ({ accrueUserUsageCost: boundary.accept }))
+vi.mock('@/lib/billing/settings', () => ({ isBillingEnabledForRuntime: async () => true }))
+vi.mock('@/lib/billing/workspace-billing', () => ({
+  resolveWorkspaceBillingContext: async () => ({
+    billingUserId: 'authenticated-actor',
+    tier: {},
+    scopeType: 'user',
+    scopeId: 'authenticated-actor',
+  }),
+}))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<object>()),
@@ -206,12 +215,14 @@ it('accounts for an authorized standalone workspace request through the real Age
     })
   )
   expect(response.status).toBe(200)
-  expect(boundary.accept).toHaveBeenCalledExactlyOnceWith({
-    userId: context.userId,
-    workspaceId: context.workspaceId,
-    cost: 0,
-    extraUpdates: { totalTokensUsed: expect.anything() },
-  })
+  expect(boundary.accept).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      userId: context.userId,
+      workspaceId: context.workspaceId,
+      cost: expect.closeTo(0.000012, 10),
+      extraUpdates: { totalTokensUsed: expect.anything() },
+    })
+  )
   expect(boundary.access.mock.invocationCallOrder[0]).toBeLessThan(
     boundary.admit.mock.invocationCallOrder[0]
   )
@@ -235,7 +246,7 @@ it('retains filtered provider usage in the HTTP failure and records it once', as
   expect(response.status).toBe(500)
   expect(await response.json()).toMatchObject({
     tokens: { prompt: 12, completion: 3, total: 15 },
-    cost: { status: 'unavailable' },
+    cost: { status: 'estimated', total: expect.closeTo(0.000048, 10) },
   })
   expect(boundary.accept).toHaveBeenCalledOnce()
   expect(boundary.contact).toHaveBeenCalledOnce()

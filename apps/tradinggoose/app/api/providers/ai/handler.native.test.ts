@@ -7,6 +7,7 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
     inputProcessors: [],
     outputProcessors: [],
     getUsage: () => ({}),
+    getCost: () => ({ status: 'unavailable' as const }),
     verifyComplete: async () => {},
   }),
 }))

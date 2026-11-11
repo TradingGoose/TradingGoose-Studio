@@ -3,7 +3,13 @@ import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { validateHallucination } from './validate_hallucination'
 
-const native = vi.hoisted(() => ({ generate: vi.fn(), finance: vi.fn(), verify: vi.fn() }))
+const native = vi.hoisted(() => ({
+  generate: vi.fn(),
+  finance: vi.fn(),
+  verify: vi.fn(),
+  cost: vi.fn(),
+  usage: vi.fn(),
+}))
 vi.mock('@/lib/mastra/usage-processors', () => ({ usageProcessors: native.finance }))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 vi.mock('@mastra/core/agent', () => ({
@@ -33,10 +39,13 @@ const searchAccounting = {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
+  native.usage.mockReset().mockReturnValue(usage)
   native.finance.mockResolvedValue({
     inputProcessors: [],
     outputProcessors: [],
-    getUsage: () => ({}),
+    getUsage: () => native.usage(),
+    getCost: () => native.cost(),
     verifyComplete: native.verify,
   })
   native.verify.mockResolvedValue(undefined)
@@ -57,6 +66,22 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('hallucination search and scoring', () => {
+  it('retains priced scorer cost when the search component has no reported cost', async () => {
+    native.cost.mockReturnValue({
+      total: 0.005,
+      currency: 'USD',
+      estimated: true,
+      status: 'estimated',
+    })
+    const result = await validateHallucination(input)
+    expect(result.cost).toMatchObject({
+      status: 'partial',
+      availableTotal: 0.005,
+      estimated: true,
+      currency: 'USD',
+    })
+    expect(result.cost?.total).toBeUndefined()
+  })
   it('combines actual active usage while generic model USD remains unavailable', async () => {
     const result = await validateHallucination(input)
     expect(result).toMatchObject({
@@ -93,12 +118,14 @@ describe('hallucination search and scoring', () => {
     )
   })
   it('does not fabricate absent scorer token fields or a dollar zero', async () => {
+    native.usage.mockReturnValue({})
     native.generate.mockResolvedValue({ object: { score: 8 }, finishReason: 'stop' })
     const result = await validateHallucination(input)
     expect(result.tokens).toEqual({ prompt: 11, total: 11 })
     expect(result.cost).toEqual({ status: 'unavailable' })
   })
   it('preserves actual zero token fields without inventing model USD', async () => {
+    native.usage.mockReturnValue({ inputTokens: 0, outputTokens: 0, totalTokens: 0 })
     native.generate.mockResolvedValue({
       object: { score: 8 },
       finishReason: 'stop',
@@ -109,6 +136,7 @@ describe('hallucination search and scoring', () => {
     expect(result.cost).toEqual({ status: 'unavailable' })
   })
   it('retains completed search when scoring fails before usage is available', async () => {
+    native.usage.mockReturnValue({})
     native.generate.mockRejectedValue(new Error('Inference failed before response'))
     expect(await validateHallucination(input)).toMatchObject({
       passed: false,
@@ -119,12 +147,7 @@ describe('hallucination search and scoring', () => {
     expect(native.verify).not.toHaveBeenCalled()
   })
   it('retains completed active scorer steps when a later model operation fails', async () => {
-    native.generate.mockImplementation(
-      async (_messages, options: { onStepFinish: (step: { usage: typeof usage }) => void }) => {
-        options.onStepFinish({ usage })
-        throw new Error('Failure after a completed step')
-      }
-    )
+    native.generate.mockRejectedValue(new Error('Failure after a completed step'))
     expect(await validateHallucination(input)).toMatchObject({
       passed: false,
       tokens: { prompt: 14, completion: 2, total: 16 },

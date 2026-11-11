@@ -14,6 +14,7 @@ import type {
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
+import type { NativeCost, NativeUsage } from '@/lib/mastra/usage'
 
 export interface CopilotToolCall {
   id: string
@@ -56,6 +57,8 @@ export interface CopilotMessage {
   >
   contexts?: ChatContext[]
   isError?: boolean
+  usage?: NativeUsage
+  cost?: NativeCost
 }
 
 export interface CopilotDraft {

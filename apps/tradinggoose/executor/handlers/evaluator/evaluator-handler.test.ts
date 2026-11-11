@@ -5,6 +5,7 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
       inputProcessors: [],
       outputProcessors: [],
       getUsage: () => native.usage(),
+      getCost: () => native.cost(),
       verifyComplete: () => native.verify(),
     }
   },
@@ -18,6 +19,7 @@ import { EvaluatorBlockHandler } from './evaluator-handler'
 
 const native = vi.hoisted(() => ({
   finance: vi.fn(),
+  cost: vi.fn(),
   generate: vi.fn(),
   usage: vi.fn(),
   verify: vi.fn(),
@@ -31,7 +33,8 @@ const block = { id: 'evaluator', metadata: { id: 'evaluator' } } as any
 const context = { workspaceId: 'workspace', userId: 'user' } as any
 beforeEach(() => {
   vi.clearAllMocks()
-  native.usage.mockReset().mockReturnValue({})
+  native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
+  native.usage.mockReset().mockReturnValue({ totalTokens: 7 })
   native.verify.mockReset().mockResolvedValue(undefined)
   native.generate.mockResolvedValue({
     finishReason: 'stop',
@@ -41,6 +44,15 @@ beforeEach(() => {
 })
 describe('Evaluator native structured generation', () => {
   it('retains metric output references and configures actual metric bounds', async () => {
+    const cost = {
+      input: 0.002,
+      output: 0.003,
+      total: 0.005,
+      currency: 'USD',
+      estimated: true,
+      status: 'estimated',
+    }
+    native.cost.mockReturnValue(cost)
     const output = await new EvaluatorBlockHandler().execute(
       block,
       {
@@ -55,7 +67,7 @@ describe('Evaluator native structured generation', () => {
       accuracy: 8,
       content: { answer: 42 },
       tokens: { total: 7 },
-      cost: { status: 'unavailable' },
+      cost,
     })
     expect(native.generate.mock.calls[0][0]).toEqual([{ role: 'user', content: '{"answer":42}' }])
     expect(native.generate.mock.calls[0][1].structuredOutput.errorStrategy).toBe('strict')
@@ -199,8 +211,7 @@ it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provide
   }
 )
 
-// Real accounting/projection helpers; only the public model result, finance and callback
-// boundaries below are controlled. These cases do not establish monetary acceptance.
+// Only the native model and usage processor boundaries are controlled.
 describe('evaluator trusted failed accounting with real helpers', () => {
   it.each([
     'error',
@@ -209,7 +220,7 @@ describe('evaluator trusted failed accounting with real helpers', () => {
     'tripwire',
     'financial refusal',
     'missing structured result',
-  ])('retains returned aggregate17 instead of finance7/step5 through %s', async (failure) => {
+  ])('retains canonical processor accounting through %s', async (failure) => {
     native.usage.mockReturnValue({ totalTokens: 7 })
     const returned: {
       finishReason: string
@@ -227,10 +238,7 @@ describe('evaluator trusted failed accounting with real helpers', () => {
     if (failure === 'missing structured result') returned.object = undefined
     if (failure === 'financial refusal')
       native.verify.mockRejectedValueOnce(new Error('Financial acceptance refused'))
-    native.generate.mockImplementationOnce(async (_messages, options) => {
-      options.onStepFinish({ usage: { totalTokens: 5 } })
-      return returned
-    })
+    native.generate.mockResolvedValueOnce(returned)
     let failureValue: unknown
     try {
       await new EvaluatorBlockHandler().execute(
@@ -249,7 +257,7 @@ describe('evaluator trusted failed accounting with real helpers', () => {
     const facts = getInferenceFacts(failureValue)
     expect(facts).toMatchObject({
       model: 'openai/gpt-4.1',
-      tokens: { prompt: 11, completion: 6, total: 17 },
+      tokens: { total: 7 },
       cost: { status: 'unavailable' },
       generatedFields: ['model', 'tokens', 'cost'],
     })
@@ -259,65 +267,33 @@ describe('evaluator trusted failed accounting with real helpers', () => {
       expect(failureValue).toMatchObject({ message: 'Financial acceptance refused' })
   })
   it.each([
-    {
-      label: 'partial aggregate',
-      aggregate: { inputTokens: 4, outputTokens: -2, totalTokens: Number.NaN },
-      finance: { totalTokens: 7 },
-      expected: { prompt: 4 },
-    },
-    {
-      label: 'empty aggregate',
-      aggregate: {},
-      finance: { totalTokens: 7 },
-      expected: { total: 7 },
-    },
-    {
-      label: 'invalid aggregate',
-      aggregate: { totalTokens: Number.POSITIVE_INFINITY },
-      finance: { totalTokens: 7 },
-      expected: { total: 7 },
-    },
-    {
-      label: 'absent aggregate with steps',
-      aggregate: undefined,
-      finance: {},
-      expected: { total: 5 },
-    },
-    {
-      label: 'genuine public zero',
-      aggregate: { totalTokens: 0 },
-      finance: { totalTokens: 7 },
-      expected: { total: 0 },
-    },
-  ])('selects ONE known representation: $label', async (sample) => {
-    native.usage.mockReturnValue(sample.finance)
-    native.verify.mockRejectedValueOnce(new Error('Financial acceptance refused'))
-    native.generate.mockImplementationOnce(async (_messages, options) => {
-      options.onStepFinish({ usage: { totalTokens: 5 } })
-      return { ...{ finishReason: 'stop', object: { accuracy: 8 } }, totalUsage: sample.aggregate }
-    })
-    let failure: unknown
-    try {
-      await new EvaluatorBlockHandler().execute(
-        block,
-        {
-          model: 'openai/gpt-4.1',
-          content: 'evaluate',
-          metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
-        },
-        context
-      )
-    } catch (error) {
-      failure = error
+    { usage: {}, expected: {} },
+    { usage: { totalTokens: 0 }, expected: { total: 0 } },
+  ])(
+    'preserves actual processor counts $usage without reading a parallel result total',
+    async ({ usage, expected }) => {
+      native.usage.mockReturnValue(usage)
+      native.verify.mockRejectedValueOnce(new Error('Financial acceptance refused'))
+      native.generate.mockResolvedValueOnce({
+        finishReason: 'stop',
+        object: { accuracy: 8 },
+        totalUsage: { totalTokens: 17 },
+      })
+      const failure = await new EvaluatorBlockHandler()
+        .execute(
+          block,
+          {
+            model: 'openai/gpt-4.1',
+            content: 'evaluate',
+            metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
+          },
+          context
+        )
+        .catch((error) => error)
+      expect(getInferenceFacts(failure)?.tokens).toEqual(expected)
     }
-    expect(getInferenceFacts(failure)).toMatchObject({
-      tokens: sample.expected,
-      cost: { status: 'unavailable' },
-    })
-    expect(getInferenceFacts(failure)?.tokens).toEqual(sample.expected)
-    expect(native.generate).toHaveBeenCalledOnce()
-  })
-  it('uses latest actual finance fallback if no returned aggregate was available before refusal', async () => {
+  )
+  it('captures the latest processor observation when financial acceptance rejects', async () => {
     native.usage.mockReturnValue({ totalTokens: 7 })
     native.generate.mockResolvedValueOnce({ finishReason: 'stop', object: { accuracy: 8 } })
     native.verify.mockImplementationOnce(async () => {
@@ -341,7 +317,8 @@ describe('evaluator trusted failed accounting with real helpers', () => {
     expect(getInferenceFacts(failure)?.tokens).toEqual({ total: 9 })
     expect(native.generate).toHaveBeenCalledOnce()
   })
-  it('does not invent a zero total when no public response, finance or callback count exists', async () => {
+  it('does not invent a zero total before any native response', async () => {
+    native.usage.mockReturnValue({})
     native.generate.mockRejectedValueOnce(new Error('No native response'))
     let failure: unknown
     try {

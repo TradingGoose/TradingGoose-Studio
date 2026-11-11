@@ -69,10 +69,7 @@ export async function authorizeNativeWorkflowQueueEffect(
   await authorizeNativeBusinessResult(scope, pending)
   signal?.throwIfAborted()
   await assertCopilotRunActive(pending.target.runId)
-  await claimCopilotBrowserEffect(pending.target.runId, pending.target.toolCallId, {
-    target: pending.target,
-    args,
-  })
+  await claimCopilotBrowserEffect({ ...pending.target, scope }, pending.target.toolCallId)
 }
 
 export async function authorizeNativeWorkflowDeploymentEffect(
@@ -99,8 +96,5 @@ export async function authorizeNativeWorkflowDeploymentEffect(
   await authorizeNativeBusinessResult(scope, pending)
   signal?.throwIfAborted()
   await assertCopilotRunActive(pending.target.runId)
-  await claimCopilotBrowserEffect(pending.target.runId, pending.target.toolCallId, {
-    target: pending.target,
-    args,
-  })
+  await claimCopilotBrowserEffect({ ...pending.target, scope }, pending.target.toolCallId)
 }

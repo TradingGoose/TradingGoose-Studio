@@ -36,11 +36,6 @@ export type Message =
   | { role: 'user'; content: string }
   | { role: 'assistant'; content: string }
 
-export interface StreamingConfig {
-  shouldUseStreaming: boolean
-  isBlockSelectedForOutput: boolean
-}
-
 export interface AgentToolConfig {
   id: string
   name?: string

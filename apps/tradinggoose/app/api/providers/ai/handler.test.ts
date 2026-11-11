@@ -8,7 +8,8 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
     return {
       inputProcessors: [],
       outputProcessors: [],
-      getUsage: () => ({}),
+      getUsage: () => native.usage(),
+      getCost: () => native.cost(),
       verifyComplete: async () => {},
     }
   },
@@ -22,11 +23,12 @@ import { handleAIProviderRequest } from './handler'
 
 const native = vi.hoisted(() => ({
   finance: vi.fn(),
+  cost: vi.fn(),
   generate: vi.fn(),
   stream: vi.fn(),
   configurations: [] as any[],
   executeTool: vi.fn(),
-  accountingReads: vi.fn(),
+  usage: vi.fn(),
 }))
 vi.mock('@mastra/core/agent', () => ({
   Agent: class {
@@ -35,14 +37,6 @@ vi.mock('@mastra/core/agent', () => ({
     }
     generate = native.generate
     stream = native.stream
-  },
-}))
-vi.mock('@/lib/mastra/usage', async (original) => ({
-  ...(await original<typeof import('@/lib/mastra/usage')>()),
-  getMastra: async () => undefined,
-  resultAccounting: async (usage: any) => {
-    native.accountingReads(usage)
-    return { tokens: { total: usage?.totalTokens }, cost: { status: 'unavailable' } }
   },
 }))
 vi.mock('@/blocks', () => ({ getAllBlocks: vi.fn(() => []) }))
@@ -59,6 +53,8 @@ const result = {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
+  native.usage.mockReset().mockReturnValue(result.totalUsage)
   native.configurations.length = 0
   native.generate.mockResolvedValue(result)
   native.executeTool.mockResolvedValue({ success: true, output: { found: true } })
@@ -73,6 +69,8 @@ describe('native AI HTTP handler', () => {
     expect(native.generate).not.toHaveBeenCalled()
   })
   it('passes canonical Anthropic routing and request-local keys directly to Mastra', async () => {
+    const cost = { total: 0.005, currency: 'USD', status: 'estimated' }
+    native.cost.mockReturnValue(cost)
     const response = await handleAIProviderRequest({
       body: {
         model: 'anthropic/claude-sonnet-4-5',
@@ -90,7 +88,7 @@ describe('native AI HTTP handler', () => {
     expect(await response.json()).toMatchObject({
       content: '价格 📈',
       tokens: { total: 5 },
-      cost: { status: 'unavailable' },
+      cost,
     })
   })
   it('binds tool authorization to the authenticated actor and preserves configured arguments', async () => {
@@ -320,8 +318,7 @@ describe('public native stream errors and lifecycle', () => {
       ),
     })
     const error = new Error('Later native stream failure')
-    native.stream.mockImplementationOnce(async (_messages, options) => {
-      options.onStepFinish({ usage: { inputTokens: 2, outputTokens: 3, totalTokens: 5 } })
+    native.stream.mockImplementationOnce(async () => {
       await native.configurations[0].tools.lookup.execute({ query: 'generated' }, {})
       return {
         fullStream: new ReadableStream({
@@ -359,11 +356,7 @@ describe('public native stream errors and lifecycle', () => {
       toolCost: 0.006,
       unavailableToolCosts: 1,
     })
-    expect(native.accountingReads).toHaveBeenCalledWith({
-      inputTokens: 2,
-      outputTokens: 3,
-      totalTokens: 5,
-    })
+    expect(native.usage).toHaveBeenCalled()
   })
 
   it('aborts native work and captures completed usage when the HTTP reader cancels', async () => {
@@ -371,7 +364,6 @@ describe('public native stream errors and lifecycle', () => {
     let signal: AbortSignal | undefined
     native.stream.mockImplementationOnce(async (_messages, options) => {
       signal = options.abortSignal
-      options.onStepFinish({ usage: { inputTokens: 2, outputTokens: 3, totalTokens: 5 } })
       return {
         fullStream: new ReadableStream({
           start(controller) {
@@ -390,11 +382,7 @@ describe('public native stream errors and lifecycle', () => {
     await reader.cancel('Consumer stopped')
     expect(signal?.aborted).toBe(true)
     expect(cancel).toHaveBeenCalledWith('Consumer stopped')
-    expect(native.accountingReads).toHaveBeenCalledWith({
-      inputTokens: 2,
-      outputTokens: 3,
-      totalTokens: 5,
-    })
+    expect(native.usage).toHaveBeenCalled()
   })
 })
 
@@ -425,7 +413,7 @@ it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provide
       expect(native.stream).not.toHaveBeenCalled()
       expect(native.configurations).toEqual([])
       expect(native.executeTool).not.toHaveBeenCalled()
-      expect(native.accountingReads).not.toHaveBeenCalled()
+      expect(native.usage).not.toHaveBeenCalled()
     } finally {
       vi.unstubAllEnvs()
     }

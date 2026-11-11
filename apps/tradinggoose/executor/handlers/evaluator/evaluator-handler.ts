@@ -1,13 +1,10 @@
 import { Agent } from '@mastra/core/agent'
 import { toStandardSchema } from '@mastra/core/schema'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { NATIVE_AGENT_POLICY, trustedModelSettings } from '@/lib/mastra/options'
+import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
+import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion, withInferenceFacts } from '@/lib/mastra/result'
-import { getMastra } from '@/lib/mastra/runtime'
-import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
-import { usageProcessors } from '@/lib/mastra/usage-processors'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import { watchExecutionCancellation } from '@/executor/handlers/agent/cancellation'
@@ -45,38 +42,30 @@ export class EvaluatorBlockHandler implements BlockHandler {
     }
     const instructions = `Evaluate the content against these metrics and return scores as a JSON object.
 ${metrics.map((metric: any) => `${metric.name} (${metric.range.min}-${metric.range.max}): ${metric.description || ''}`).join('\n')}`
-    const mastra = await getMastra()
-    const startedAt = new Date()
     const runId = crypto.randomUUID()
-    const steps: Array<{
-      usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
-    }> = []
-    let returnedUsage: Parameters<typeof resultAccounting>[0]
-    let accounting: Awaited<ReturnType<typeof resultAccounting>> | undefined
-    let finance: Awaited<ReturnType<typeof usageProcessors>> | undefined
-    const capture = () =>
-      resultAccounting(selectNativeUsage(returnedUsage, finance?.getUsage(), sumNativeUsage(steps)))
+    let work: Awaited<ReturnType<typeof prepareModelRequest>> | undefined
     const cancellation = watchExecutionCancellation(context.shouldCancelExecution)
     try {
       await cancellation.check()
-      finance = await usageProcessors({
-        actorUserId: context.userId,
-        workspaceId: context.workspaceId,
-        workflowId: context.workflowId,
-        runId,
-        purpose: 'workflow-evaluator',
-        signal: cancellation.signal,
-      })
-      const admittedModel = createConfiguredLanguageModel(model, inputs.apiKey)
+      work = await prepareModelRequest(
+        {
+          model,
+          actorUserId: context.userId,
+          workspaceId: context.workspaceId,
+          workflowId: context.workflowId,
+          runId,
+          purpose: 'workflow-evaluator',
+          signal: cancellation.signal,
+        },
+        { apiKey: inputs.apiKey, modelSettings: { temperature: inputs.temperature } }
+      )
       const agent = new Agent({
-        inputProcessors: finance.inputProcessors,
-        outputProcessors: finance.outputProcessors,
         ...NATIVE_AGENT_POLICY,
         id: block.id,
         name: 'Workflow Evaluator',
         instructions,
-        model: admittedModel,
-        mastra,
+        model: work.model,
+        mastra: work.mastra,
       })
 
       const result = await agent.generate(
@@ -90,28 +79,14 @@ ${metrics.map((metric: any) => `${metric.name} (${metric.range.min}-${metric.ran
           },
         ],
         {
-          runId,
-          onStepFinish: (step) => {
-            steps.push(step)
-          },
-          modelSettings: trustedModelSettings({ temperature: inputs.temperature }),
-          maxProcessorRetries: 0,
+          ...work.options,
           structuredOutput: { schema: toStandardSchema(schema), errorStrategy: 'strict' },
-          abortSignal: cancellation.signal,
-          tracingOptions: {
-            metadata: { userId: context.userId, resourceId: context.workspaceId, runId },
-          },
         }
       )
-      // Snapshot only validated public counts before completion/financial checks can reject.
-      returnedUsage = selectNativeUsage(result.totalUsage)
       assertNativeCompletion(result)
-      await finance.verifyComplete()
-      accounting = await capture()
+      await work.usage.verifyComplete()
+      const accounting = work.accounting()
       cancellation.signal.throwIfAborted()
-      if (result.finishReason === 'aborted' || result.finishReason === 'error') {
-        throw new Error(`Evaluator generation ${result.finishReason}`)
-      }
       if (!result.object || typeof result.object !== 'object' || Array.isArray(result.object)) {
         throw new Error('Evaluator requires a valid structured result')
       }
@@ -126,7 +101,7 @@ ${metrics.map((metric: any) => `${metric.name} (${metric.range.min}-${metric.ran
       )
     } catch (error) {
       const failure = new Error(safeInferenceError(error, inputs.apiKey))
-      const facts = { model, ...(accounting ?? (await capture())) }
+      const facts = { model, ...work?.accounting() }
       Object.assign(failure, facts)
       throw withInferenceFacts(failure, { ...facts, generatedFields: Object.keys(facts) })
     } finally {

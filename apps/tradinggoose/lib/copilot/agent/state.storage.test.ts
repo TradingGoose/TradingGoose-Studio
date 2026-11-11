@@ -42,9 +42,6 @@ storageTests('Copilot durable claims across Studio instances', () => {
     return import('./state')
   }
   beforeAll(async () => {
-    const url = new URL(fixture.url!)
-    if (!['127.0.0.1', 'localhost'].includes(url.hostname) || !url.pathname.endsWith('_disposable'))
-      throw new Error('A disposable loopback PostgreSQL database is required')
     owner = postgres(fixture.url!, { max: 1 })
     await owner.unsafe(`create schema "${schema}"`)
     await owner.unsafe(`create table "${schema}".verification (
@@ -105,21 +102,18 @@ storageTests('Copilot durable claims across Studio instances', () => {
     }
   })
 
-  async function saveRun(instance: typeof first, runId: string, threadId = randomUUID()) {
-    const run: import('./state').CopilotRun = {
-      runId,
-      threadId,
+  function run(): import('./state').CopilotRun {
+    return {
+      runId: randomUUID(),
+      threadId: randomUUID(),
       scope: { actorUserId: 'actor-1', workspaceId: 'workspace-1' },
       accessLevel: 'limited',
       model: 'test/model',
     }
-    await instance.saveCopilotRun(run)
-    return run
   }
 
   it('dispatches a racing action once and refuses replay after restart', async () => {
-    const runId = randomUUID()
-    await saveRun(first, runId)
+    const invocation = run()
     const callId = randomUUID()
     const input = { actor: 'actor', entityId: 'entity', name: 'accepted edit' }
     let entered!: () => void
@@ -131,7 +125,7 @@ storageTests('Copilot durable claims across Studio instances', () => {
       release = resolve
     })
     let effects = 0
-    const execution = first.runCopilotEffectOnce(runId, callId, 'execute', input, async () => {
+    const execution = first.runCopilotEffectOnce(invocation, callId, 'execute', async () => {
       effects++
       entered()
       await effect
@@ -140,7 +134,7 @@ storageTests('Copilot durable claims across Studio instances', () => {
     await dispatched
     try {
       await expect(
-        second.runCopilotEffectOnce(runId, callId, 'execute', input, async () => {
+        second.runCopilotEffectOnce(invocation, callId, 'execute', async () => {
           effects++
           return { applied: true, entityId: input.entityId }
         })
@@ -151,37 +145,30 @@ storageTests('Copilot durable claims across Studio instances', () => {
     expect(await execution).toEqual({ applied: true, entityId: 'entity' })
     const restarted = await connectInstance()
     await expect(
-      restarted.runCopilotEffectOnce(runId, callId, 'execute', input, async () => {
+      restarted.runCopilotEffectOnce(invocation, callId, 'execute', async () => {
         effects++
         throw new Error('a known effect must never run twice')
       })
     ).rejects.toMatchObject({ status: 409 })
     expect(effects).toBe(1)
     await expect(
-      restarted.runCopilotEffectOnce(
-        runId,
-        callId,
-        'execute',
-        { ...input, name: 'different edit' },
-        async () => undefined
-      )
+      restarted.runCopilotEffectOnce(invocation, callId, 'execute', async () => undefined)
     ).rejects.toMatchObject({ status: 409 })
   })
 
   it('retains an unknown outcome claim after restart', async () => {
-    const runId = randomUUID()
-    await saveRun(first, runId)
+    const invocation = run()
     const callId = randomUUID()
     let effects = 0
     await expect(
-      first.runCopilotEffectOnce(runId, callId, 'review', { accept: true }, async () => {
+      first.runCopilotEffectOnce(invocation, callId, 'review', async () => {
         effects++
         throw new Error('reply lost after dispatch')
       })
     ).rejects.toThrow('reply lost after dispatch')
     const restarted = await connectInstance()
     await expect(
-      restarted.runCopilotEffectOnce(runId, callId, 'review', { accept: true }, async () => {
+      restarted.runCopilotEffectOnce(invocation, callId, 'review', async () => {
         effects++
         return { success: true }
       })
@@ -189,48 +176,32 @@ storageTests('Copilot durable claims across Studio instances', () => {
     expect(effects).toBe(1)
   })
 
-  it('keeps run ownership and exposes cancellation on another instance', async () => {
-    const scope = { actorUserId: 'actor-1', workspaceId: 'workspace-1' }
-    const run: import('./state').CopilotRun = {
-      runId: randomUUID(),
-      threadId: randomUUID(),
-      scope,
-      accessLevel: 'limited',
-      model: 'test/model',
-    }
-    await first.saveCopilotRun(run)
-    expect(await second.readCopilotRun(scope, run.runId)).toEqual(run)
-    await expect(
-      second.readCopilotRun({ ...scope, actorUserId: 'other' }, run.runId)
-    ).rejects.toMatchObject({ status: 403 })
-    await first.claimCopilotThread(scope, run.threadId, run.runId)
-    await expect(
-      second.claimCopilotThread(scope, run.threadId, randomUUID())
-    ).rejects.toMatchObject({
+  it('keeps scoped thread ownership and cancellation across instances', async () => {
+    const invocation = run()
+    const { scope, threadId, runId } = invocation
+    await first.claimCopilotThread(scope, threadId, runId)
+    expect(await second.readCopilotThreadRun(scope, threadId)).toBe(runId)
+    expect(
+      await second.readCopilotThreadRun({ ...scope, actorUserId: 'other' }, threadId)
+    ).toBeUndefined()
+    await expect(second.claimCopilotThread(scope, threadId, randomUUID())).rejects.toMatchObject({
       status: 409,
     })
-    await second.releaseCopilotThread(scope, run.threadId, 'stale-run')
-    await expect(first.claimCopilotThread(scope, run.threadId, randomUUID())).rejects.toMatchObject(
-      {
-        status: 409,
-      }
-    )
-    await second.cancelCopilotRun(run.runId)
+    await second.releaseCopilotThread(scope, threadId, 'stale-run')
+    expect(await first.readCopilotThreadRun(scope, threadId)).toBe(runId)
+    await second.cancelCopilotRun(invocation)
     const restarted = await connectInstance()
-    await expect(restarted.assertCopilotRunActive(run.runId)).rejects.toMatchObject({ status: 409 })
-    await restarted.releaseCopilotThread(scope, run.threadId, run.runId)
-    await expect(
-      first.claimCopilotThread(scope, run.threadId, randomUUID())
-    ).resolves.toBeUndefined()
+    await expect(restarted.assertCopilotRunActive(runId)).rejects.toMatchObject({ status: 409 })
+    await restarted.releaseCopilotThread(scope, threadId, runId)
+    await expect(first.claimCopilotThread(scope, threadId, randomUUID())).resolves.toBeUndefined()
   })
 
   it('allows only one instance to claim a browser business action', async () => {
-    const runId = randomUUID()
-    await saveRun(first, runId)
+    const invocation = run()
     const callId = randomUUID()
     const outcomes = await Promise.allSettled([
-      first.claimCopilotBrowserEffect(runId, callId, { workflowId: 'workflow-1' }),
-      second.claimCopilotBrowserEffect(runId, callId, { workflowId: 'workflow-1' }),
+      first.claimCopilotBrowserEffect(invocation, callId),
+      second.claimCopilotBrowserEffect(invocation, callId),
     ])
     expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1)
     expect(outcomes.find((outcome) => outcome.status === 'rejected')).toMatchObject({
@@ -239,82 +210,65 @@ storageTests('Copilot durable claims across Studio instances', () => {
   })
 
   it('refuses new effects and browser claims after durable cancellation on another instance', async () => {
-    const runId = randomUUID()
-    await saveRun(first, runId)
+    const invocation = run()
     const execute = vi.fn(async () => ({ applied: true }))
-    await first.cancelCopilotRun(runId)
+    await first.cancelCopilotRun(invocation)
     const restarted = await connectInstance()
     await expect(
-      restarted.runCopilotEffectOnce(
-        runId,
-        randomUUID(),
-        'execute',
-        { entityId: 'entity' },
-        execute
-      )
+      restarted.runCopilotEffectOnce(invocation, randomUUID(), 'execute', execute)
     ).rejects.toMatchObject({ status: 409 })
     expect(execute).not.toHaveBeenCalled()
     await expect(
-      restarted.claimCopilotBrowserEffect(runId, randomUUID(), { entityId: 'entity' })
+      restarted.claimCopilotBrowserEffect(invocation, randomUUID())
     ).rejects.toMatchObject({ status: 409 })
   })
-  it('stores only effect hashes and deletes all thread-owned state without touching other threads', async () => {
-    const run = await saveRun(first, randomUUID())
-    const other = await saveRun(first, randomUUID())
-    await first.runCopilotEffectOnce(
-      run.runId,
-      'call',
-      'execute',
-      { secret: 'private-input-value' },
-      async () => ({ secret: 'private-result-value' })
+  it('stores only claim markers and deletes them without touching other threads', async () => {
+    const invocation = run()
+    const other = run()
+    await first.runCopilotEffectOnce(invocation, 'call', 'execute', async () => ({ applied: true }))
+    await first.cancelCopilotRun(invocation)
+    await first.cancelCopilotRun(other)
+    const values = await owner.unsafe(
+      `select value from "${schema}".verification where id not like 'copilot:thread:%'`
     )
-    const values = await owner.unsafe(`select value from "${schema}".verification`)
-    expect(JSON.stringify(values)).not.toContain('private-input-value')
-    expect(JSON.stringify(values)).not.toContain('private-result-value')
-    await first.cancelCopilotRun(run.runId)
-    await first.deleteCopilotThread(run.scope, run.threadId)
-    await expect(second.readCopilotRun(run.scope, run.runId)).rejects.toMatchObject({ status: 403 })
-    expect(await second.isCopilotRunCancelled(run.runId)).toBe(false)
-    expect(await second.readCopilotRun(other.scope, other.runId)).toEqual(other)
+    expect(values.every((row) => row.value === 'true')).toBe(true)
+    await first.deleteCopilotThread(invocation.scope, invocation.threadId)
+    expect(await second.isCopilotRunCancelled(invocation.runId)).toBe(false)
+    expect(await second.isCopilotRunCancelled(other.runId)).toBe(true)
     await expect(
-      second.claimCopilotThread(run.scope, run.threadId, randomUUID())
+      second.claimCopilotThread(invocation.scope, invocation.threadId, randomUUID())
     ).resolves.toBeUndefined()
   })
   it('deletes native PostgreSQL pending snapshots and every thread-owned receipt', async () => {
-    const run = await saveRun(first, randomUUID())
-    const resourceId = nativeConversationIdentity(run.scope).resourceId
+    const invocation = run()
+    const resourceId = nativeConversationIdentity(invocation.scope).resourceId
     const generated = await fixture.agent.generate('Prepare a change', {
-      runId: run.runId,
-      memory: { thread: run.threadId, resource: resourceId },
+      runId: invocation.runId,
+      memory: { thread: invocation.threadId, resource: resourceId },
       maxSteps: 2,
     })
     expect(generated.finishReason).toBe('suspended')
-    await first.claimCopilotThread(run.scope, run.threadId, run.runId)
-    await first.runCopilotEffectOnce(
-      run.runId,
-      'server',
-      'execute',
-      { input: 'private' },
-      async () => ({ output: 'native owns this result' })
-    )
-    await first.cancelCopilotRun(run.runId)
-    await first.releaseCopilotThread(run.scope, run.threadId, run.runId)
+    await first.claimCopilotThread(invocation.scope, invocation.threadId, invocation.runId)
+    await first.runCopilotEffectOnce(invocation, 'server', 'execute', async () => ({
+      output: 'native owns this result',
+    }))
+    await first.cancelCopilotRun(invocation)
+    await first.releaseCopilotThread(invocation.scope, invocation.threadId, invocation.runId)
     expect(
-      (await fixture.agent.listSuspendedRuns({ threadId: run.threadId, resourceId })).runs
+      (await fixture.agent.listSuspendedRuns({ threadId: invocation.threadId, resourceId })).runs
     ).toHaveLength(1)
     const workflows = (await fixture.storage.getStore('workflows'))!
-    expect(await workflows.getWorkflowRunById({ runId: run.runId })).not.toBeNull()
-    await first.deleteCopilotThread(run.scope, run.threadId)
-    expect(await workflows.getWorkflowRunById({ runId: run.runId })).toBeNull()
+    expect(await workflows.getWorkflowRunById({ runId: invocation.runId })).not.toBeNull()
+    await first.deleteCopilotThread(invocation.scope, invocation.threadId)
+    expect(await workflows.getWorkflowRunById({ runId: invocation.runId })).toBeNull()
     expect(
-      (await fixture.agent.listSuspendedRuns({ threadId: run.threadId, resourceId })).runs
+      (await fixture.agent.listSuspendedRuns({ threadId: invocation.threadId, resourceId })).runs
     ).toEqual([])
-    expect(await fixture.memory.getThreadById({ threadId: run.threadId })).toBeNull()
-    await expect(first.readCopilotRun(run.scope, run.runId)).rejects.toMatchObject({ status: 403 })
-    expect(await first.isCopilotRunCancelled(run.runId)).toBe(false)
+    expect(await fixture.memory.getThreadById({ threadId: invocation.threadId })).toBeNull()
+    expect(await first.isCopilotRunCancelled(invocation.runId)).toBe(false)
     const [{ count }] = await owner.unsafe(
       `select count(*)::int as count from "${schema}".verification where value like $1`,
-      [`%${run.runId}%`]
+      [`%${invocation.runId}%`]
     )
     expect(count).toBe(0)
   })

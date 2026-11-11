@@ -10,7 +10,8 @@ vi.mock('@/lib/billing/model-usage', () => ({
   },
   recordModelUsage: mocks.accept,
 }))
-vi.mock('@/lib/mastra/connections', () => ({
+vi.mock('@/lib/mastra/connections', async (original) => ({
+  ...(await original<object>()),
   resolveConfiguredModel: (_model: string, apiKey?: string) => ({
     providerId: 'fixture',
     modelId: 'embedding',
@@ -63,11 +64,19 @@ describe('installed native direct embedding transport', () => {
     expect(fetch).toHaveBeenCalledTimes(2)
     expect(result.embeddings).toHaveLength(2049)
     expect(result.tokens).toEqual({ prompt: 2049, total: 2049 })
-    expect(result.cost).toEqual({ status: 'unavailable' })
+    expect(result.cost).toMatchObject({
+      status: 'estimated',
+      total: expect.closeTo(0.00004098, 12),
+      currency: 'USD',
+    })
     expect(mocks.order).toEqual(['admit', 'http', 'accept', 'admit', 'http', 'accept'])
     expect(mocks.accept.mock.calls.map((call) => call[1])).toEqual([
       { inputTokens: 2048, totalTokens: 2048 },
       { inputTokens: 1, totalTokens: 1 },
+    ])
+    expect(mocks.accept.mock.calls.map((call) => call[2].total)).toEqual([
+      expect.closeTo(0.00004096, 12),
+      expect.closeTo(0.00000002, 12),
     ])
   })
 

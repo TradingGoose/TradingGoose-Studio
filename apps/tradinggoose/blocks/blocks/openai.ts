@@ -8,7 +8,7 @@ export const OpenAIBlock: BlockConfig = {
   description: 'Generate Open AI embeddings',
   authMode: AuthMode.ApiKey,
   longDescription:
-    'Generate embeddings from exact input text. Select a listed OpenAI embedding model using its full provider/model identifier. Inputs above the selected model limit are rejected. Native token counts appear when reported; model cost in USD is unavailable.',
+    'Generate embeddings from exact input text. Select a listed OpenAI embedding model using its full provider/model identifier. Inputs above the selected model limit are rejected. Reported token counts and available USD costs accompany the vectors.',
   category: 'tools',
   docsLink: 'https://docs.tradinggoose.ai/tools/openai',
   bgColor: undefined,
@@ -58,6 +58,6 @@ export const OpenAIBlock: BlockConfig = {
   outputs: {
     embeddings: { type: 'json', description: 'Generated embeddings' },
     model: { type: 'string', description: 'Model used' },
-    usage: { type: 'json', description: 'Token usage' },
+    tokens: { type: 'json', description: 'Reported prompt and total tokens' },
   },
 }

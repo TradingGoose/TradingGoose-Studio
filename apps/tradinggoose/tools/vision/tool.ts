@@ -72,13 +72,9 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
       success: true,
       output: withInferenceFacts(data.output, {
         model: data.output.model,
-        tokens: {
-          prompt: data.output.usage?.input_tokens,
-          completion: data.output.usage?.output_tokens,
-          total: data.output.usage?.total_tokens,
-        },
+        tokens: data.output.tokens,
         cost: data.output.cost,
-        generatedFields: ['model', 'tokens', 'usage', 'cost'],
+        generatedFields: ['model', 'tokens', 'cost'],
       }),
     }
   },
@@ -94,24 +90,14 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
       optional: true,
     },
     tokens: {
-      type: 'number',
-      description: 'Total tokens used for the analysis',
+      type: 'object',
+      description: 'Reported prompt, completion and total tokens',
       optional: true,
     },
     cost: {
       type: 'object',
-      description: 'Model cost in USD is unavailable',
+      description: 'Reported or estimated model cost in USD, with availability status',
       optional: true,
-    },
-    usage: {
-      type: 'object',
-      description: 'Detailed token usage breakdown',
-      optional: true,
-      properties: {
-        input_tokens: { type: 'number', description: 'Tokens used for input processing' },
-        output_tokens: { type: 'number', description: 'Tokens used for response generation' },
-        total_tokens: { type: 'number', description: 'Total tokens consumed' },
-      },
     },
   },
 }

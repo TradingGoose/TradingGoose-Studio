@@ -23,7 +23,7 @@ describe('local failure accounting provenance', () => {
       model: 'native/model',
       tokens: { prompt: 11, completion: 6, total: 17 },
       cost: { status: 'unavailable' as const },
-      toolResults: [child],
+      toolResults: [{ toolCallId: 'child-call', inference: childFacts }],
       generatedFields: ['model', 'tokens', 'cost', 'toolResults'],
     }
     const failure = withInferenceFacts(
@@ -46,7 +46,7 @@ describe('local failure accounting provenance', () => {
     expect(getInferenceFacts(accounting)).toBe(facts)
     expect(getInferenceFacts({ ...accounting })).toBe(facts)
     expect(getInferenceFacts(Object.assign({}, accounting))).toBe(facts)
-    expect(getInferenceFacts(accounting)?.toolResults?.[0]).toBe(child)
+    expect(getInferenceFacts(accounting)?.toolResults?.[0].inference).toBe(childFacts)
     expect(getInferenceFacts(child)).toBe(childFacts)
     expect(getInferenceFacts(failure)).toBe(facts)
     expect(failure.message).toBe('apiKey=synthetic-r10-key')

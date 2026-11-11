@@ -82,7 +82,7 @@ export function CollapsibleInputOutput({
                     {index + 1}. {message.role}
                   </p>
                   <JsonDisplay
-                    data={message.content.parts}
+                    data={message}
                     mode={displayMode}
                     wrapText={wrapText}
                     className='max-h-96 text-xs'

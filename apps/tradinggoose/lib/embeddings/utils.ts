@@ -9,7 +9,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { resolveConfiguredModel } from '@/lib/mastra/connections'
 import { assertListedEmbeddingModel } from '@/lib/mastra/registry'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
-import type { NativeCost } from '@/lib/mastra/usage'
+import { calculateNativeCost, type NativeCost, sumNativeCosts } from '@/lib/mastra/usage'
 import { resolveOpenAIServiceConfig } from '@/lib/system-services/runtime'
 import { batchByTokenLimit, getAccurateTokenCount } from '@/lib/tokenization'
 
@@ -69,10 +69,12 @@ export async function generateEmbeddings(
     apiKey = (await resolveOpenAIServiceConfig()).defaultApiKey || undefined
   const embedder = new ModelRouterEmbeddingModel(resolveConfiguredModel(model, apiKey))
   const embeddings: number[][] = []
+  const costs: NativeCost[] = []
   let prompt: number | undefined
   let reportedBatches = 0
   const maxEmbeddings = await embedder.maxEmbeddingsPerCall
   let batchCount = 0
+  let awaitingUsage = false
   const accounting = (failed = false): EmbeddingAccounting => ({
     model,
     tokens: prompt !== undefined ? { prompt, total: prompt } : {},
@@ -85,8 +87,7 @@ export async function generateEmbeddings(
             : 'partial',
       batches: batchCount,
     },
-    // Standalone doEmbed results supply usage, not native generation cost metrics.
-    cost: { status: 'unavailable' },
+    cost: sumNativeCosts(costs),
   })
   try {
     const usageScope: ModelUsageScope = {
@@ -96,6 +97,7 @@ export async function generateEmbeddings(
       signal: scope.signal,
       runId: scope.runId ?? randomUUID(),
       purpose: 'embedding',
+      model,
     }
     for (const batch of batches) {
       const size =
@@ -105,6 +107,7 @@ export async function generateEmbeddings(
       for (let index = 0; index < batch.length; index += size) {
         const values = batch.slice(index, index + size)
         await assertModelUsageAllowed(usageScope)
+        awaitingUsage = true
         const result = await embedder.doEmbed({ values, abortSignal: scope.signal })
         batchCount += 1
         if (result.usage?.tokens !== undefined) {
@@ -112,12 +115,17 @@ export async function generateEmbeddings(
           reportedBatches += 1
         }
         embeddings.push(...result.embeddings)
-        await recordModelUsage(
-          usageScope,
+        const usage =
           result.usage?.tokens === undefined
             ? {}
-            : { inputTokens: result.usage.tokens, totalTokens: result.usage.tokens }
-        )
+            : {
+                inputTokens: result.usage.tokens,
+                totalTokens: result.usage.tokens,
+              }
+        const cost = await calculateNativeCost(model, usage, result.providerMetadata)
+        costs.push(cost)
+        awaitingUsage = false
+        await recordModelUsage(usageScope, usage, cost)
         scope.signal?.throwIfAborted()
         if (result.embeddings.length !== values.length) {
           throw new Error(
@@ -127,6 +135,7 @@ export async function generateEmbeddings(
       }
     }
   } catch (error) {
+    if (awaitingUsage) costs.push({ status: 'unavailable' })
     const failure = error instanceof Error ? error : new Error(String(error))
     // An already branded producer error owns its facts and readonly Symbol; retain it intact.
     if (getInferenceFacts(failure)) throw failure

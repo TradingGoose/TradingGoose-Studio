@@ -32,7 +32,6 @@ vi.mock('@/lib/copilot/runtime-models', () => ({ COPILOT_RUNTIME_MODELS: ['test/
 const listing = {
   workspaceId: null,
   command: 'threads.list',
-  page: { page: 0, perPage: 100 },
 }
 async function post(body: unknown) {
   const { POST } = await import('./route')
@@ -62,7 +61,6 @@ describe('built-in Copilot authenticated boundary', () => {
     expect(mocks.execute).toHaveBeenCalledWith(
       {
         command: 'threads.list',
-        page: listing.page,
         workspaceId: null,
       },
       'actual-actor',

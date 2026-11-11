@@ -81,6 +81,7 @@ function assertScope() {
   expect(boundary.admit).toHaveBeenCalledWith(
     expect.objectContaining({
       actorUserId: 'authenticated-actor',
+      model: 'openai/gpt-4.1',
       workflowId: context.workflowId,
       workspaceId: context.workspaceId,
       purpose: 'vision',
@@ -88,6 +89,11 @@ function assertScope() {
   )
   expect(boundary.admit).toHaveBeenCalledOnce()
   expect(boundary.accept).toHaveBeenCalledOnce()
+  expect(boundary.accept.mock.calls[0][2]).toMatchObject({
+    total: expect.closeTo(0.000012, 10),
+    currency: 'USD',
+    status: 'estimated',
+  })
   expect(boundary.contact).toHaveBeenCalledOnce()
 }
 it('carries the actual vision_tool URL-only scope through real route, Agent and usage processors', async () => {

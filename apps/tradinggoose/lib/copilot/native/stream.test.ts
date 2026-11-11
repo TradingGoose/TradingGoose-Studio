@@ -29,10 +29,12 @@ it('decodes split UTF8 and SSE frames in order', async () => {
   const parts = Array.from(encoded, (byte) => Uint8Array.of(byte))
   expect(await collect(readNativeEvents<CopilotEvent>(bytes(parts)))).toEqual(events)
 })
-it('rejects incomplete frames rather than treating partial text as completed work', async () => {
-  await expect(
-    collect(readNativeEvents(bytes([new TextEncoder().encode('data: {"type":"text.delta"}')])))
-  ).rejects.toThrow('incomplete frame')
+it('does not dispatch an incomplete SSE frame', async () => {
+  expect(
+    await collect(
+      readNativeEvents(bytes([new TextEncoder().encode('data: {"type":"text.delta"}')]))
+    )
+  ).toEqual([])
 })
 it('cancels the underlying read when its consumer aborts', async () => {
   const abort = new AbortController()

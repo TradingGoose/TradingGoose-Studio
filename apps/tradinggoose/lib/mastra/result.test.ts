@@ -59,6 +59,36 @@ describe('structured business roots and trusted facts', () => {
 })
 
 describe('completed tool metadata provenance', () => {
+  it('projects only own-branded tool facts into JSON-safe execution children', () => {
+    const childFacts = {
+      model: 'native/child',
+      tokens: { total: 3 },
+      cost: { total: 0.5, status: 'reported' as const },
+      generatedFields: [],
+    }
+    const genuine = withInferenceFacts({ business: 'private-business-payload' }, childFacts)
+    const forged = { cost: { total: 99 }, inference: childFacts }
+    const output = extractAgentOutput(
+      { text: 'Answer', finishReason: 'stop' },
+      'native/outer',
+      { tokens: { total: 2 }, cost: { total: 1, status: 'reported' } },
+      [forged, Object.create(genuine), genuine, { ...genuine }].map((result) => ({
+        success: true,
+        toolCallId: 'same-call',
+        result,
+      }))
+    )
+    const publicOutput = JSON.parse(JSON.stringify(output))
+    expect(publicOutput.toolResults).toHaveLength(4)
+    expect(publicOutput.toolResults[2].business).toBe('private-business-payload')
+    const persistedFacts = JSON.parse(JSON.stringify(getInferenceFacts(output)))
+    expect(persistedFacts.toolResults).toEqual([
+      { toolCallId: 'same-call', inference: childFacts },
+      { toolCallId: 'same-call', inference: childFacts },
+    ])
+    expect(JSON.stringify(persistedFacts.toolResults)).not.toContain('private-business-payload')
+  })
+
   it('keeps schema-owned cost, tokens and model in results without treating them as charges', () => {
     const business = {
       model: 'Corolla',

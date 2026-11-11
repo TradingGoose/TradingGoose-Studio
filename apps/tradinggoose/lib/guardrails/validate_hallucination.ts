@@ -1,19 +1,12 @@
 import { Agent } from '@mastra/core/agent'
 import { toStandardSchema } from '@mastra/core/schema'
 import { createLogger } from '@/lib/logs/console/logger'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { NATIVE_AGENT_POLICY, trustedModelSettings } from '@/lib/mastra/options'
+import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
+import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion } from '@/lib/mastra/result'
-import { getMastra } from '@/lib/mastra/runtime'
-import {
-  type NativeCost,
-  resultAccounting,
-  selectNativeUsage,
-  sumNativeUsage,
-} from '@/lib/mastra/usage'
-import { usageProcessors } from '@/lib/mastra/usage-processors'
+import { type NativeCost, sumNativeCosts } from '@/lib/mastra/usage'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('HallucinationValidator')
@@ -65,15 +58,7 @@ async function scoreHallucinationWithLLM(
   tokens?: { prompt?: number; completion?: number; total?: number }
   cost?: NativeCost
 }> {
-  let capture:
-    | ((usage?: {
-        inputTokens?: number
-        outputTokens?: number
-        totalTokens?: number
-      }) => Promise<Awaited<ReturnType<typeof resultAccounting>>>)
-    | undefined
-  let accounting: Awaited<ReturnType<typeof resultAccounting>> | undefined
-  let finance: Awaited<ReturnType<typeof usageProcessors>> | undefined
+  let work: Awaited<ReturnType<typeof prepareModelRequest>> | undefined
   try {
     const contextText = ragContext.join('\n\n---\n\n')
 
@@ -108,43 +93,32 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
     })
 
     assertListedModel(model)
-    const mastra = await getMastra()
-    const steps: Array<{
-      usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
-    }> = []
-    capture = async (usage) =>
-      resultAccounting(selectNativeUsage(usage, finance?.getUsage(), sumNativeUsage(steps)))
     const signal = AbortSignal.any([
       AbortSignal.timeout(120000),
       ...(externalSignal ? [externalSignal] : []),
     ])
-    finance = await usageProcessors({
-      actorUserId: userId,
-      workspaceId,
-      runId: requestId,
-      purpose: 'hallucination-scoring',
-      signal,
-      workflowId,
-    })
-    const admittedModel = createConfiguredLanguageModel(model, apiKey)
+    work = await prepareModelRequest(
+      {
+        model,
+        actorUserId: userId,
+        workspaceId,
+        runId: requestId,
+        purpose: 'hallucination-scoring',
+        signal,
+        workflowId,
+      },
+      { apiKey, modelSettings: { temperature: 0.1 } }
+    )
     const agent = new Agent({
-      inputProcessors: finance.inputProcessors,
-      outputProcessors: finance.outputProcessors,
       ...NATIVE_AGENT_POLICY,
       id: requestId,
       name: 'Hallucination Validator',
       instructions: systemPrompt,
-      model: admittedModel,
-      mastra,
+      model: work.model,
+      mastra: work.mastra,
     })
     const response = await agent.generate([{ role: 'user', content: userPrompt }], {
-      runId: requestId,
-      onStepFinish: (step) => {
-        steps.push(step)
-      },
-      tracingOptions: { metadata: { runId: requestId, userId, resourceId: workspaceId } },
-      modelSettings: trustedModelSettings({ temperature: 0.1 }),
-      maxProcessorRetries: 0,
+      ...work.options,
       structuredOutput: {
         schema: toStandardSchema({
           type: 'object',
@@ -157,16 +131,12 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
         }),
         errorStrategy: 'strict',
       },
-      abortSignal: signal,
     })
-    accounting = await capture(response.totalUsage)
     assertNativeCompletion(response)
-    await finance.verifyComplete()
+    await work.usage.verifyComplete()
+    const accounting = work.accounting()
     const result = response.object as { score: number; reasoning: string }
 
-    if (response.finishReason === 'aborted' || response.finishReason === 'error') {
-      throw new Error(`Hallucination scoring ${response.finishReason}`)
-    }
     if (!result || typeof result.score !== 'number' || result.score < 0 || result.score > 10) {
       throw new Error('Invalid score format from LLM')
     }
@@ -188,7 +158,7 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
       new Error(`Failed to score confidence: ${safeInferenceError(error, apiKey)}`),
       {
         model,
-        ...(accounting || (await capture?.())),
+        ...work?.accounting(),
       }
     )
   }
@@ -206,7 +176,9 @@ function combineAccounting(
         tokens[key] = (tokens[key] ?? 0) + count
     }
   }
-  const cost: NativeCost = { status: 'unavailable' }
+  const cost = sumNativeCosts(
+    parts.filter((part) => part !== undefined).map((part) => part.cost ?? { status: 'unavailable' })
+  )
   return { tokens, cost }
 }
 

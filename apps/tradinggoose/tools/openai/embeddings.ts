@@ -46,17 +46,17 @@ export const embeddingsTool: ToolConfig<OpenAIEmbeddingsParams> = {
   transformResponse: async (response) => {
     const data = await response.json()
     if (!response.ok || !data.output) throw new Error(data.error || 'Embedding request failed')
-    const { embeddings, model, usage, tokens, cost, embeddingUsage } = data.output
+    const { embeddings, model, tokens, cost, embeddingUsage } = data.output
     return {
       success: data.success === true,
       ...(data.success === false ? { error: data.error || 'Embedding request failed' } : {}),
       output: withInferenceFacts(
-        { embeddings, model, usage, tokens, cost, embeddingUsage },
+        { embeddings, model, tokens, cost, embeddingUsage },
         {
           model,
           tokens,
           cost,
-          generatedFields: ['model', 'usage', 'tokens', 'cost', 'embeddingUsage'],
+          generatedFields: ['model', 'tokens', 'cost', 'embeddingUsage'],
         }
       ),
     }
@@ -71,18 +71,13 @@ export const embeddingsTool: ToolConfig<OpenAIEmbeddingsParams> = {
         embeddings: { type: 'array', description: 'Array of embedding vectors' },
         model: { type: 'string', description: 'Model used for generating embeddings' },
         tokens: { type: 'object', description: 'Available native token counts' },
-        cost: { type: 'object', description: 'Model USD is unavailable' },
+        cost: {
+          type: 'object',
+          description: 'Reported or estimated model cost in USD, with availability status',
+        },
         embeddingUsage: {
           type: 'object',
           description: 'Completed batch count and reported usage status',
-        },
-        usage: {
-          type: 'object',
-          description: 'Token usage information',
-          properties: {
-            prompt_tokens: { type: 'number', description: 'Number of tokens in the prompt' },
-            total_tokens: { type: 'number', description: 'Total number of tokens used' },
-          },
         },
       },
     },

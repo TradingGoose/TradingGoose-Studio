@@ -1,7 +1,12 @@
 import { RequestContext } from '@mastra/core/request-context'
 import { z } from 'zod'
+import type { Scope } from '@/lib/copilot/native/contract'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
+import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import type { ServerPending } from '@/lib/copilot/native/target'
-import type { usageProcessors } from '@/lib/mastra/usage-processors'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
+import type { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import { getNativeWorkflowsStore } from '@/lib/mastra/runtime'
 import type { CopilotRun } from './state'
 
 export const CopilotSuspendSchema = z.object({
@@ -17,7 +22,7 @@ export type CopilotDecision =
 
 export interface CopilotExecution {
   run: CopilotRun
-  usage: Awaited<ReturnType<typeof usageProcessors>>
+  model: ReturnType<typeof createConfiguredLanguageModel>
   signal: AbortSignal
   pending?: ServerPending
   decision?: CopilotDecision
@@ -25,9 +30,31 @@ export interface CopilotExecution {
 
 /** Runtime-only execution values are omitted by RequestContext's JSON serializer. */
 export function createCopilotRequestContext(execution: CopilotExecution) {
-  const context = new RequestContext<{ 'copilot-execution': () => CopilotExecution }>()
+  const context = new RequestContext()
+  context.set('copilot-run', execution.run)
   context.set('copilot-execution', () => execution)
   return context
+}
+
+/** Mastra owns suspended run configuration together with its pending tools. */
+export async function readCopilotRun(
+  scope: Scope,
+  threadId: string,
+  runId: string
+): Promise<CopilotRun> {
+  const stored = await (await getNativeWorkflowsStore()).getWorkflowRunById({ runId })
+  const snapshot =
+    typeof stored?.snapshot === 'string' ? JSON.parse(stored.snapshot) : stored?.snapshot
+  const run = snapshot?.requestContext?.['copilot-run'] as CopilotRun | undefined
+  if (
+    !run ||
+    stored?.resourceId !== nativeConversationIdentity(scope).resourceId ||
+    run.runId !== runId ||
+    run.threadId !== threadId ||
+    stableStringifyJsonValue(run.scope) !== stableStringifyJsonValue(scope)
+  )
+    throw new NativeTargetError('Copilot run is unavailable in this conversation scope', 403)
+  return run
 }
 
 export function getCopilotExecution(context: RequestContext): CopilotExecution | undefined {

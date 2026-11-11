@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => ({
   admit: vi.fn(),
   accept: vi.fn(),
 }))
-vi.mock('@mastra/core/llm', () => ({
+vi.mock('@mastra/core/llm', async (original) => ({
+  ...(await original<object>()),
   ModelRouterEmbeddingModel: class {
     maxEmbeddingsPerCall = 2
     constructor(config: unknown) {
@@ -19,7 +20,8 @@ vi.mock('@mastra/core/llm', () => ({
     }
   },
 }))
-vi.mock('@/lib/mastra/connections', () => ({
+vi.mock('@/lib/mastra/connections', async (original) => ({
+  ...(await original<object>()),
   resolveConfiguredModel: (id: string, apiKey?: string) => ({ id, apiKey }),
 }))
 vi.mock('@/lib/mastra/registry', () => ({ assertListedEmbeddingModel: mocks.validate }))
@@ -56,7 +58,16 @@ describe('native embeddings', () => {
     expect(result.embeddings).toEqual([[1], [2], [3]])
     expect(result.tokens).toEqual({ prompt: 15, total: 15 })
     expect(result.usage).toEqual({ status: 'reported', batches: 2 })
-    expect(result.cost).toEqual({ status: 'unavailable' })
+    expect(result.cost).toMatchObject({
+      status: 'estimated',
+      input: expect.closeTo(0.0000003, 12),
+      total: expect.closeTo(0.0000003, 12),
+      currency: 'USD',
+    })
+    expect(mocks.accept.mock.calls.map((call) => call[2].total)).toEqual([
+      expect.closeTo(0.0000002, 12),
+      expect.closeTo(0.0000001, 12),
+    ])
     expect(mocks.configs).toEqual([
       { id: 'openai/text-embedding-3-small', apiKey: 'request-local' },
     ])
@@ -87,7 +98,7 @@ describe('native embeddings', () => {
     })
   })
 
-  it('retains completed native batches and unavailable USD when a later batch fails', async () => {
+  it('retains completed native usage and partial cost when a later batch fails', async () => {
     const failure = new Error('second batch failed')
     mocks.embed
       .mockResolvedValueOnce({ embeddings: [[1], [2]], usage: { tokens: 10 } })
@@ -97,7 +108,11 @@ describe('native embeddings', () => {
       model: 'openai/text-embedding-3-small',
       tokens: { prompt: 10, total: 10 },
       embeddingUsage: { status: 'partial', batches: 1 },
-      cost: { status: 'unavailable' },
+      cost: {
+        status: 'partial',
+        availableTotal: expect.closeTo(0.0000002, 12),
+        currency: 'USD',
+      },
       completedEmbeddings: [[1], [2]],
     })
   })
@@ -107,7 +122,7 @@ describe('native embeddings', () => {
     await expect(generateEmbeddings(['one'], scope)).rejects.toMatchObject({
       tokens: { prompt: 7, total: 7 },
       embeddingUsage: { status: 'partial', batches: 1 },
-      cost: { status: 'unavailable' },
+      cost: { status: 'estimated', total: expect.closeTo(0.00000014, 12), currency: 'USD' },
     })
   })
 
@@ -158,7 +173,11 @@ describe('native embeddings', () => {
   it('accepts completed known usage before vector validation and has no transport retry on failure', async () => {
     mocks.embed.mockResolvedValueOnce({ embeddings: [], usage: { tokens: 7 } })
     await expect(generateEmbeddings(['one'], scope)).rejects.toThrow(/vector count/)
-    expect(mocks.accept).toHaveBeenCalledWith(expect.anything(), { inputTokens: 7, totalTokens: 7 })
+    expect(mocks.accept).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'openai/text-embedding-3-small' }),
+      { inputTokens: 7, totalTokens: 7 },
+      expect.objectContaining({ status: 'estimated', total: expect.closeTo(0.00000014, 12) })
+    )
     expect(mocks.embed).toHaveBeenCalledOnce()
   })
 })
@@ -219,7 +238,7 @@ it('preserves vectors and completed facts when transaction acknowledgement is un
     completedEmbeddings: [[1]],
     tokens: { prompt: 3, total: 3 },
     embeddingUsage: { status: 'partial', batches: 1 },
-    cost: { status: 'unavailable' },
+    cost: { status: 'estimated', total: expect.closeTo(0.00000006, 12), currency: 'USD' },
   })
   expect(mocks.accept).toHaveBeenCalledOnce()
 })

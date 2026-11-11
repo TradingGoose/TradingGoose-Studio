@@ -1,17 +1,16 @@
 import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { withInferenceFacts } from '@/lib/mastra/result'
-import { selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
+import { sumNativeUsage } from '@/lib/mastra/usage'
 
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
   createConfiguredLanguageModel: vi.fn(() => state.model),
 }))
 vi.mock('@/lib/mastra/usage-processors', () => ({
-  usageProcessors: async (scope: unknown, captureResponse?: (observation: any) => void) => {
+  usageProcessors: async (scope: unknown) => {
     state.finance(scope)
     const signal = (scope as { signal: AbortSignal }).signal
-    let occurrence: { stepNumber: number; retryCount: number; runId?: string } | undefined
     const completed = new Map<string, { usage: any }>()
     return {
       inputProcessors: state.trackAdmissions
@@ -24,36 +23,22 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
                 runId?: string
               }) => {
                 signal.throwIfAborted()
-                occurrence = {
-                  stepNumber: args.stepNumber,
-                  retryCount: args.retryCount,
-                  runId: args.runId,
-                }
                 state.admissions(args.stepNumber)
               },
             },
           ]
         : [],
-      outputProcessors: state.trackAdmissions
-        ? [
-            {
-              id: 'fixture-live-tool-completed-response',
-              processOutputStep: (args: any) => {
-                if (!occurrence) throw new Error('Fixture response has no admitted occurrence')
-                const key = JSON.stringify(occurrence)
-                completed.set(key, {
-                  usage: { ...selectNativeUsage(args.usage), ...completed.get(key)?.usage },
-                })
-                captureResponse?.({
-                  key,
-                  occurrence: { ...occurrence },
-                  readResponse: () => args.messageList.get.response.db(),
-                })
-              },
-            },
-          ]
-        : [],
+      outputProcessors: [
+        {
+          id: 'fixture-live-tool-completed-response',
+          processOutputStep: (args: any) => {
+            const key = JSON.stringify([args.stepNumber, args.retryCount])
+            completed.set(key, { usage: args.usage })
+          },
+        },
+      ],
       getUsage: () => sumNativeUsage([...completed.values()]),
+      getCost: () => state.nativeCost,
       verifyComplete: async () => {
         if (state.trackAdmissions) signal.throwIfAborted()
         if (state.completionError) throw state.completionError
@@ -114,18 +99,6 @@ vi.mock('@mastra/core/agent', async (original) => {
     },
   }
 })
-vi.mock('@/lib/mastra/usage', async (original) => ({
-  ...(await original<typeof import('@/lib/mastra/usage')>()),
-  getMastra: async () => undefined,
-  resultAccounting: async (usage: any) => ({
-    tokens: {
-      prompt: usage?.inputTokens,
-      completion: usage?.outputTokens,
-      total: usage?.totalTokens,
-    },
-    cost: state.nativeCost,
-  }),
-}))
 vi.mock('@/blocks', () => ({ getAllBlocks: vi.fn(() => []), getBlock: vi.fn() }))
 vi.mock('@/tools', () => ({ executeTool: vi.fn(), getToolAsync: vi.fn() }))
 vi.mock('@/tools/utils', () => ({ getTool: vi.fn() }))
@@ -212,6 +185,25 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('native Agent workflow execution', () => {
+  it.each(['auto', 'force'] as const)(
+    'rejects an unavailable selected %s tool before model contact',
+    async (usageControl) => {
+      await expect(
+        new AgentBlockHandler().execute(
+          block,
+          {
+            model: 'openai/gpt-4.1',
+            tools: [{ type: 'missing-block', usageControl }],
+          },
+          context()
+        )
+      ).rejects.toThrow('Block definition not found')
+      expect(state.finance).not.toHaveBeenCalled()
+      expect(state.configurations).toEqual([])
+      expect(state.model.doGenerateCalls).toEqual([])
+    }
+  )
+
   it('preserves literal working-memory tags and surrounding code through actual native turns', async () => {
     const userText =
       ' \n\tBefore user\n```xml\n<working_memory>literal user 🔥</working_memory>\n```\nAfter user\t \n'

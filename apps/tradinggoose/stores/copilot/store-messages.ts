@@ -173,7 +173,7 @@ export function createUserMessage(
       parts: [
         { type: 'text', text: content },
         ...(images ?? []).map((image) => ({
-          type: 'file',
+          type: 'file' as const,
           data: image.image,
           mimeType: image.mediaType,
         })),

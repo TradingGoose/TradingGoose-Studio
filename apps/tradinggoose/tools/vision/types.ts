@@ -12,8 +12,7 @@ export interface VisionResponse extends ToolResponse {
   output: {
     content: string
     model?: string
-    tokens?: number
-    usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number }
+    tokens?: { prompt?: number; completion?: number; total?: number }
     cost?: import('@/lib/mastra/usage').NativeCost
   }
 }

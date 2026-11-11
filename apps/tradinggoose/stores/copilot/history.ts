@@ -1,7 +1,8 @@
 import type { MastraMessagePart } from '@mastra/core/agent/message-list'
-import type { HistoryMessage, Json } from '@/lib/copilot/native/contract'
+import type { Json } from '@/lib/copilot/native/contract'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
+import type { NativeHistoryMessage } from '@/lib/mastra/messages'
 import type { CopilotMessage, CopilotToolCall } from './types'
 
 const record = (value: unknown): value is Record<string, Json> =>
@@ -17,7 +18,7 @@ const invocationStates = new Set([
 ])
 
 /** Display only: native format2 parts never create an executable local tool or provider report. */
-export function projectNativeHistoryMessage(message: HistoryMessage): CopilotMessage | null {
+export function projectNativeHistoryMessage(message: NativeHistoryMessage): CopilotMessage | null {
   if (message.role === 'signal') return null
   const timestamp = new Date(message.createdAt).getTime()
   if (!Number.isFinite(timestamp) || !message.id || !Array.isArray(message.parts))
@@ -99,9 +100,11 @@ export function projectNativeHistoryMessage(message: HistoryMessage): CopilotMes
       .map((block) => block.content)
       .join(''),
     contentBlocks: blocks,
+    ...(message.usage ? { usage: message.usage } : {}),
+    ...(message.cost ? { cost: message.cost } : {}),
   }
 }
-export function projectNativeHistory(messages: HistoryMessage[]): CopilotMessage[] {
+export function projectNativeHistory(messages: NativeHistoryMessage[]): CopilotMessage[] {
   const seen = new Set<string>()
   return messages.flatMap((message) => {
     if (seen.has(message.id)) throw new Error('Native history message identity repeats')

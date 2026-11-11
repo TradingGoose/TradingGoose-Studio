@@ -1,10 +1,38 @@
 import { MessageList } from '@mastra/core/agent/message-list'
 import { describe, expect, it } from 'vitest'
-import { decodeWorkflowMessage, encodeWorkflowMessage } from './messages'
+import { decodeWorkflowMessage, encodeWorkflowMessage, projectNativeMessage } from './messages'
 
 const scope = { threadId: 'workflow-memory:test', resourceId: 'workflow-memory:scope' }
 
 describe('workflow Memory native message representation', () => {
+  it('projects one native history contract with exact parts and accounting without private metadata', () => {
+    const message = encodeWorkflowMessage(
+      { role: 'assistant', content: 'Exact reply' },
+      scope,
+      new Date(0)
+    )
+    const usage = { inputTokens: 12, outputTokens: 3, totalTokens: 15 }
+    const cost = { status: 'estimated', total: 0.002, currency: 'USD', estimated: true }
+    message.content.metadata = {
+      usage,
+      cost,
+      pendingToolApprovals: { private: true },
+      runtime: 'private',
+    }
+    const projected = projectNativeMessage(message)
+    expect(projected).toEqual({
+      id: message.id,
+      role: 'assistant',
+      createdAt: new Date(0).toISOString(),
+      parts: message.content.parts,
+      usage,
+      cost,
+    })
+    expect(projected.parts).toBe(message.content.parts)
+    expect(projected).not.toHaveProperty('content')
+    expect(projected).not.toHaveProperty('threadId')
+    expect(projected).not.toHaveProperty('resourceId')
+  })
   it('roundtrips exact roles and text through the public native MessageList', () => {
     const input = (['system', 'user', 'assistant'] as const).flatMap((role) =>
       ['', '  \n ', '<working_memory>literal</working_memory>', 'é🔥\n\t'].map((content) => ({

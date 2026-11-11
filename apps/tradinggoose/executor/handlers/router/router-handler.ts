@@ -1,13 +1,10 @@
 import { Agent } from '@mastra/core/agent'
 import { createLogger } from '@/lib/logs/console/logger'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { NATIVE_AGENT_POLICY, trustedModelSettings } from '@/lib/mastra/options'
+import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
+import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion, withInferenceFacts } from '@/lib/mastra/result'
-import { getMastra } from '@/lib/mastra/runtime'
-import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
-import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { generateRouterPrompt } from '@/blocks/blocks/router'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
@@ -36,60 +33,36 @@ export class RouterBlockHandler implements BlockHandler {
     if (!model) throw new Error('Model is required')
     assertListedModel(model)
 
-    const mastra = await getMastra()
-    const startedAt = new Date()
     const runId = crypto.randomUUID()
-    const steps: Array<{
-      usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
-    }> = []
-    let returnedUsage: Parameters<typeof resultAccounting>[0]
-    let accounting: Awaited<ReturnType<typeof resultAccounting>> | undefined
-    let finance: Awaited<ReturnType<typeof usageProcessors>> | undefined
-    const capture = () =>
-      resultAccounting(selectNativeUsage(returnedUsage, finance?.getUsage(), sumNativeUsage(steps)))
+    let work: Awaited<ReturnType<typeof prepareModelRequest>> | undefined
     const cancellation = watchExecutionCancellation(context.shouldCancelExecution)
     try {
       await cancellation.check()
-      finance = await usageProcessors({
-        actorUserId: context.userId,
-        workspaceId: context.workspaceId,
-        workflowId: context.workflowId,
-        runId,
-        purpose: 'workflow-router',
-        signal: cancellation.signal,
-      })
-      const admittedModel = createConfiguredLanguageModel(model, inputs.apiKey)
+      work = await prepareModelRequest(
+        {
+          model,
+          actorUserId: context.userId,
+          workspaceId: context.workspaceId,
+          workflowId: context.workflowId,
+          runId,
+          purpose: 'workflow-router',
+          signal: cancellation.signal,
+        },
+        { apiKey: inputs.apiKey, modelSettings: { temperature: inputs.temperature } }
+      )
       const agent = new Agent({
-        inputProcessors: finance.inputProcessors,
-        outputProcessors: finance.outputProcessors,
         ...NATIVE_AGENT_POLICY,
         id: block.id,
         name: 'Workflow Router',
         instructions: generateRouterPrompt(inputs.prompt, targetBlocks),
-        model: admittedModel,
-        mastra,
+        model: work.model,
+        mastra: work.mastra,
       })
-      const native = await agent.generate([{ role: 'user', content: inputs.prompt }], {
-        runId,
-        onStepFinish: (step) => {
-          steps.push(step)
-        },
-        modelSettings: trustedModelSettings({ temperature: inputs.temperature }),
-        maxProcessorRetries: 0,
-        abortSignal: cancellation.signal,
-        tracingOptions: {
-          metadata: { userId: context.userId, resourceId: context.workspaceId, runId },
-        },
-      })
-      // Snapshot only validated public counts before completion/financial checks can reject.
-      returnedUsage = selectNativeUsage(native.totalUsage)
+      const native = await agent.generate([{ role: 'user', content: inputs.prompt }], work.options)
       assertNativeCompletion(native)
-      await finance.verifyComplete()
-      accounting = await capture()
+      await work.usage.verifyComplete()
+      const accounting = work.accounting()
       cancellation.signal.throwIfAborted()
-      if (native.finishReason === 'aborted' || native.finishReason === 'error') {
-        throw new Error(`Router generation ${native.finishReason}`)
-      }
       const result = { content: native.text, model, ...accounting }
 
       const chosenBlockId = result.content.trim().toLowerCase()
@@ -120,7 +93,7 @@ export class RouterBlockHandler implements BlockHandler {
     } catch (error) {
       logger.error('Router execution failed:', safeInferenceError(error, inputs.apiKey))
       const failure = new Error(safeInferenceError(error, inputs.apiKey))
-      const facts = { model, ...(accounting ?? (await capture())) }
+      const facts = { model, ...work?.accounting() }
       Object.assign(failure, facts)
       throw withInferenceFacts(failure, { ...facts, generatedFields: Object.keys(facts) })
     } finally {
@@ -145,28 +118,12 @@ export class RouterBlockHandler implements BlockHandler {
           throw new Error(`Target block ${conn.target} not found`)
         }
 
-        // Extract system prompt for agent blocks
-        let systemPrompt = ''
-        if (targetBlock.metadata?.id === BlockType.AGENT) {
-          // Try to get system prompt from different possible locations
-          systemPrompt =
-            targetBlock.config?.params?.systemPrompt || targetBlock.inputs?.systemPrompt || ''
-
-          // If system prompt is still not found, check if we can extract it from inputs
-          if (!systemPrompt && targetBlock.inputs) {
-            systemPrompt = targetBlock.inputs.systemPrompt || ''
-          }
-        }
-
         return {
           id: targetBlock.id,
           type: targetBlock.metadata?.id,
           title: targetBlock.metadata?.name,
           description: targetBlock.metadata?.description,
-          subBlocks: {
-            ...targetBlock.config.params,
-            systemPrompt: systemPrompt,
-          },
+          subBlocks: targetBlock.config.params,
           currentState: context.blockStates.get(targetBlock.id)?.output,
         }
       })

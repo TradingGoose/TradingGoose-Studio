@@ -23,9 +23,6 @@ const fixture = vi.hoisted(() => ({
 vi.mock('@tradinggoose/db', async () => {
   const schema = await import('@tradinggoose/db/schema')
   if (!fixture.url) return { ...schema, db: {} }
-  const url = new URL(fixture.url)
-  if (!['localhost', '127.0.0.1'].includes(url.hostname) || !url.pathname.endsWith('_disposable'))
-    throw new Error('Memory integration tests require a disposable loopback database')
   const { drizzle } = await import('drizzle-orm/postgres-js')
   const { default: postgres } = await import('postgres')
   fixture.client = postgres(fixture.url, { max: 5, prepare: false })

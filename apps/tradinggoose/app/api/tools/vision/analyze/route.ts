@@ -3,15 +3,12 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { getFailureAccounting, safeInferenceError } from '@/lib/mastra/errors'
 import { normalizeNativeMediaMessages } from '@/lib/mastra/media'
-import { NATIVE_AGENT_POLICY, trustedModelSettings } from '@/lib/mastra/options'
+import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
+import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion } from '@/lib/mastra/result'
-import { getMastra } from '@/lib/mastra/runtime'
-import { resultAccounting, selectNativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
-import { usageProcessors } from '@/lib/mastra/usage-processors'
 import {
   downloadFileFromStorage,
   processSingleFileToUserFile,
@@ -142,72 +139,40 @@ export async function POST(request: NextRequest) {
       { actorUserId: authResult.userId, workspaceId: scope.workspaceId, signal: request.signal }
     )
 
-    const startedAt = new Date()
-    const mastra = await getMastra()
-    const finance = await usageProcessors({
-      actorUserId: authResult.userId,
-      workspaceId: scope.workspaceId,
-      workflowId: scope.workflowId,
-      runId: requestId,
-      purpose: 'vision',
-      signal: request.signal,
-    })
-    const admittedModel = createConfiguredLanguageModel(validatedData.model, validatedData.apiKey)
+    const work = await prepareModelRequest(
+      {
+        model: validatedData.model,
+        actorUserId: authResult.userId,
+        workspaceId: scope.workspaceId,
+        workflowId: scope.workflowId,
+        runId: requestId,
+        purpose: 'vision',
+        signal: request.signal,
+      },
+      { apiKey: validatedData.apiKey, modelSettings: { maxOutputTokens: 1024 } }
+    )
     const agent = new Agent({
-      inputProcessors: finance.inputProcessors,
-      outputProcessors: finance.outputProcessors,
       ...NATIVE_AGENT_POLICY,
-      mastra,
+      mastra: work.mastra,
       id: 'vision',
       name: 'Vision',
       instructions: 'Analyze the supplied image according to the user prompt.',
-      model: admittedModel,
+      model: work.model,
     })
-    const correlation = {
-      runId: requestId,
-      userId: authResult.userId,
-      workspaceId: scope.workspaceId,
-      workflowId: scope.workflowId,
-      startedAt,
-    }
-    const steps: any[] = []
-    let usage
     let result
     let accounting
     try {
-      result = await agent.generate(messages, {
-        runId: requestId,
-        abortSignal: request.signal,
-        modelSettings: trustedModelSettings({ maxOutputTokens: 1024 }),
-        maxProcessorRetries: 0,
-        tracingOptions: {
-          metadata: { userId: authResult.userId, resourceId: scope.workspaceId },
-        },
-        onStepFinish: (step) => {
-          steps.push(step)
-        },
-      })
-      usage = result.totalUsage || result.usage
+      result = await agent.generate(messages, work.options)
       assertNativeCompletion(result)
-      await finance.verifyComplete()
-      if (
-        request.signal.aborted ||
-        ['abort', 'aborted', 'error'].includes(result.finishReason || '') ||
-        result.error
-      ) {
-        throw new Error(
-          `Vision generation ${request.signal.aborted ? 'aborted' : result.finishReason || 'failed'}`
-        )
-      }
+      await work.usage.verifyComplete()
+      request.signal.throwIfAborted()
       if (typeof result.text !== 'string' || !result.text.trim()) {
         throw new Error(
           'Vision generation returned no analysis. Check the selected model and image support.'
         )
       }
     } finally {
-      accounting = await resultAccounting(
-        selectNativeUsage(usage, finance.getUsage(), sumNativeUsage(steps))
-      )
+      accounting = work.accounting()
       failureAccounting = { model: validatedData.model, ...accounting }
     }
 
@@ -218,12 +183,7 @@ export async function POST(request: NextRequest) {
       output: {
         content: result.text,
         model: validatedData.model,
-        tokens: accounting.tokens.total,
-        usage: {
-          input_tokens: accounting.tokens.prompt,
-          output_tokens: accounting.tokens.completion,
-          total_tokens: accounting.tokens.total,
-        },
+        tokens: accounting.tokens,
         cost: accounting.cost,
       },
     })

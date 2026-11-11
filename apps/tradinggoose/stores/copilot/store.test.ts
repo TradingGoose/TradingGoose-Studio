@@ -121,21 +121,15 @@ function defaultResponse(request: CopilotRequest) {
         status: 'history',
         threadId: request.threadId,
         items: history,
-        page: request.page,
-        hasMore: false,
       })
     )
   if (request.command === 'pending.list')
-    return json(
-      result(request, { status: 'pending_targets', items: [], page: request.page, hasMore: false })
-    )
+    return json(result(request, { status: 'pending_targets', items: [] }))
   if (request.command === 'threads.list')
     return json(
       result(request, {
         status: 'threads',
         items: [{ id: threadId, title: 'verified title', createdAt: at, updatedAt: at }],
-        page: request.page,
-        hasMore: false,
       })
     )
   if (
@@ -505,7 +499,7 @@ describe('canonical browser conversation transport', () => {
     const item = pending('approval')
     onCommand = (request) =>
       request.command === 'pending.list'
-        ? json({ status: 'pending_targets', items: [item], page: request.page, hasMore: false })
+        ? json({ status: 'pending_targets', items: [item] })
         : undefined
     await store().getState().selectChat(chat())
     expect(store().getState().currentRunId).toBe(runId)
@@ -582,8 +576,6 @@ describe('local pending approval and preview decisions', () => {
       result(request, {
         status: 'pending_targets',
         items,
-        page: 'page' in request ? request.page : { page: 0, perPage: 100 },
-        hasMore: false,
       })
     )
   it('keeps full-access approval explicit and sends no browser billing provenance', async () => {
@@ -691,8 +683,6 @@ describe('canonical history, edits and context', () => {
             result(request, {
               status: 'history',
               threadId,
-              page: request.page,
-              hasMore: false,
               items: [
                 {
                   id: 'assistant-history',
@@ -790,8 +780,6 @@ describe('actual bounded initial-title publication', () => {
             result(request, {
               status: 'pending_targets',
               items: [pending('approval')],
-              page: request.page,
-              hasMore: false,
             })
           )
         if (request.command === 'history.read' && !persisted)
@@ -800,8 +788,6 @@ describe('actual bounded initial-title publication', () => {
               status: 'history',
               threadId,
               items: [],
-              page: request.page,
-              hasMore: false,
             })
           )
         if (request.command !== 'message') return
@@ -1011,8 +997,6 @@ describe('owned late history-edit refresh', () => {
                   parts: [{ type: 'text', text }],
                 },
               ],
-              page: request.page,
-              hasMore: false,
             })
           )
         }
@@ -1095,8 +1079,6 @@ describe('owned late history-edit refresh', () => {
           status: 'history',
           threadId,
           items: history,
-          page: { page: 0, perPage: 100 },
-          hasMore: false,
         })
       )
     )
@@ -1201,8 +1183,6 @@ describe('reopened workflow pending cards', () => {
             result(request, {
               status: 'pending_targets',
               items: [item],
-              page: request.page,
-              hasMore: false,
             })
           )
         : undefined
@@ -1342,8 +1322,6 @@ describe('explicit reopened Drive business choice', () => {
             result(request, {
               status: 'pending_targets',
               items: [item],
-              page: request.page,
-              hasMore: false,
             })
           )
         : undefined
@@ -1520,8 +1498,6 @@ describe('R5 reopened OAuth workspace authorization', () => {
           result(request, {
             status: 'pending_targets',
             items: [item],
-            page: request.page,
-            hasMore: false,
           })
         )
       if (request.command === 'tool.approve') {
@@ -1697,8 +1673,6 @@ describe('R5 per-tool context at actual live call creation', () => {
             result(request, {
               status: 'pending_targets',
               items,
-              page: request.page,
-              hasMore: false,
             })
           )
         if (request.command === 'message') {
@@ -1805,8 +1779,6 @@ describe('owned workflow chat deployment UI', () => {
             result(request, {
               status: 'pending_targets',
               items: [item],
-              page: request.page,
-              hasMore: false,
             })
           )
         : undefined
@@ -1954,8 +1926,6 @@ describe('built-in tool continuation', () => {
       result(request, {
         status: 'pending_targets',
         items,
-        page: 'page' in request ? request.page : { page: 0, perPage: 100 },
-        hasMore: false,
       })
     )
   it.each(['limited', 'full'] as const)(
@@ -2010,7 +1980,11 @@ describe('built-in tool continuation', () => {
     installPending(item)
     const fresh = { ...item, preview: { requiresReview: true, description: 'later preview' } }
     onCommand = (request) =>
-      request.command === 'tool.execute' ? json(suspended(request, [fresh])) : undefined
+      request.command === 'tool.execute'
+        ? json(suspended(request, [fresh]))
+        : request.command === 'pending.list'
+          ? pendingResponse(request, [fresh])
+          : undefined
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
     expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
       expect.objectContaining({ action: 'execute', target: item.target }),

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
+import type { NativeHistoryMessage } from '@/lib/mastra/messages'
+import type { NativeUsage } from '@/lib/mastra/usage'
 
 export type Json = null | boolean | number | string | Json[] | JsonObject
 export interface JsonObject {
@@ -12,9 +14,6 @@ export interface Scope {
 const id = z.string().min(1)
 export const TargetSchema = z
   .object({ threadId: id, resourceId: id, runId: id, toolCallId: id, toolName: id })
-  .strict()
-export const PageSchema = z
-  .object({ page: z.number().int().nonnegative(), perPage: z.number().int().min(1).max(100) })
   .strict()
 export const InputSchema = z
   .object({
@@ -64,9 +63,7 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
       toolContexts: z.array(ToolContextSchema).max(16).optional(),
     })
     .strict(),
-  z
-    .object({ ...base, command: z.literal('pending.list'), threadId: id, page: PageSchema })
-    .strict(),
+  z.object({ ...base, command: z.literal('pending.list'), threadId: id }).strict(),
   z.object({ ...base, command: z.literal('tool.approve'), target: TargetSchema }).strict(),
   z
     .object({
@@ -97,10 +94,8 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
     })
     .strict(),
   z.object({ ...base, command: z.literal('cancel'), threadId: id, runId: id }).strict(),
-  z.object({ ...base, command: z.literal('threads.list'), page: PageSchema }).strict(),
-  z
-    .object({ ...base, command: z.literal('history.read'), threadId: id, page: PageSchema })
-    .strict(),
+  z.object({ ...base, command: z.literal('threads.list') }).strict(),
+  z.object({ ...base, command: z.literal('history.read'), threadId: id }).strict(),
   z
     .object({ ...base, command: z.literal('thread.title'), threadId: id, title: z.string() })
     .strict(),
@@ -122,13 +117,7 @@ export type CopilotToolTarget = { workspaceId: Scope['workspaceId']; target: Tar
 export type Input = z.infer<typeof InputSchema>
 export type TextPart = Extract<Exclude<Input['content'], string>[number], { type: 'text' }>
 export type ImagePart = Extract<Exclude<Input['content'], string>[number], { type: 'image' }>
-export type Page = z.infer<typeof PageSchema>
 export type BrowserAssertion = z.infer<typeof BrowserAssertionSchema>
-export interface Usage {
-  inputTokens?: number
-  outputTokens?: number
-  totalTokens?: number
-}
 export interface SafeError {
   code: string
   message: string
@@ -142,14 +131,14 @@ export interface Pending {
 export interface ErrorResponse {
   status: 'refused' | 'failed'
   error: SafeError
-  usage?: Usage
+  usage?: NativeUsage
 }
 export interface ReadyResponse {
   status: 'completed'
   runId: string
   threadId: string
   text: string
-  usage?: Usage
+  usage?: NativeUsage
 }
 export interface SuspendedResponse {
   status: 'suspended'
@@ -157,7 +146,7 @@ export interface SuspendedResponse {
   threadId: string
   text: string
   pending: Pending[]
-  usage?: Usage
+  usage?: NativeUsage
 }
 export interface CancelResponse {
   status: 'cancel_requested'
@@ -169,30 +158,18 @@ export interface Thread {
   createdAt: string
   updatedAt: string
 }
-export interface HistoryMessage {
-  id: string
-  role: 'user' | 'assistant' | 'system' | 'signal'
-  createdAt: string
-  parts: JsonObject[]
-}
 export interface ThreadsResponse {
   status: 'threads'
   items: Thread[]
-  page: Page
-  hasMore: boolean
 }
 export interface HistoryResponse {
   status: 'history'
   threadId: string
-  items: HistoryMessage[]
-  page: Page
-  hasMore: boolean
+  items: NativeHistoryMessage[]
 }
 export interface PendingResponse {
   status: 'pending_targets'
   items: Pending[]
-  page: Page
-  hasMore: boolean
 }
 export interface MutationResponse {
   status: 'updated'
@@ -241,12 +218,12 @@ export interface CompletionResponse {
   status: 'completed'
   runId: string
   text: string
-  usage?: Usage
+  usage?: NativeUsage
 }
 export interface CompletionFailureResponse {
   status: 'refused' | 'failed' | 'cancel_requested'
   error: SafeError
-  usage?: Usage
+  usage?: NativeUsage
 }
 export type CompletionEvent =
   | { chunk: string }

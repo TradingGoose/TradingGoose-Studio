@@ -14,10 +14,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ExecutionLogger } from '@/lib/logs/execution/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { getInferenceFacts } from '@/lib/mastra/result'
+import { type NativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
 import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
 import type { ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 import { attachAgentHistory, deleteAgentHistory } from './agent-history'
+import { projectNativeMessage } from './messages'
 
 const fixture = vi.hoisted(() => ({
   url: process.env.MASTRA_TEST_DATABASE_URL,
@@ -33,15 +35,11 @@ vi.mock('@tradinggoose/db', async () => {
   const { default: postgres } = await import('postgres')
   const schema = await import('@tradinggoose/db/schema')
   if (!fixture.url) return { ...schema, db: {} }
-  const url = new URL(fixture.url)
-  if (!['localhost', '127.0.0.1'].includes(url.hostname) || !url.pathname.endsWith('_disposable'))
-    throw new Error('Agent history tests require a disposable loopback database')
   fixture.client = postgres(fixture.url, { max: 10, prepare: false })
   fixture.db = drizzle(fixture.client, { schema })
   return { ...schema, db: fixture.db }
 })
-vi.mock('./runtime', async (original) => ({
-  ...(await original<typeof import('./runtime')>()),
+vi.mock('./runtime', () => ({
   getMastra: async () => undefined,
   getAgentMemory: async () => fixture.memory!,
   getNativeMemoryStore: async () => (await fixture.storage!.getStore('memory'))!,
@@ -51,12 +49,23 @@ vi.mock('./connections', async (original) => ({
   createConfiguredLanguageModel: () => fixture.model,
 }))
 vi.mock('./usage-processors', () => ({
-  usageProcessors: async () => ({
-    inputProcessors: [],
-    outputProcessors: [],
-    getUsage: () => ({}),
-    verifyComplete: async () => {},
-  }),
+  usageProcessors: async () => {
+    const steps: Array<{ usage: NativeUsage }> = []
+    return {
+      inputProcessors: [],
+      outputProcessors: [
+        {
+          id: 'history-test-usage',
+          processOutputStep: (args: { usage: NativeUsage }) => {
+            steps.push({ usage: args.usage })
+          },
+        },
+      ],
+      getUsage: () => sumNativeUsage(steps),
+      getCost: () => ({ status: 'unavailable' as const }),
+      verifyComplete: async () => {},
+    }
+  },
 }))
 vi.mock('@/lib/auth/hybrid', () => ({ AuthType: { API_KEY: 'api_key' } }))
 vi.mock('@/blocks', () => ({ getAllBlocks: () => [], getBlock: () => undefined }))
@@ -265,6 +274,7 @@ describe.runIf(Boolean(fixture.url))('workflow Agent canonical PostgreSQL histor
         output = streamed.execution.output
       } else output = executed as Record<string, any>
       const facts = getInferenceFacts(output)!
+      expect(facts.tokens).toEqual({ prompt: 4, completion: 6, total: 10 })
       expect(facts.history).toBeDefined()
       threads.add(facts.history!.threadId)
       const traceSpans = buildTraceSpans({
@@ -314,7 +324,7 @@ describe.runIf(Boolean(fixture.url))('workflow Agent canonical PostgreSQL histor
           orderBy: { field: 'createdAt', direction: 'ASC' },
         })
       ).messages
-      expect(agent.agentHistory).toEqual(nativeMessages)
+      expect(agent.agentHistory).toEqual(nativeMessages.map(projectNativeMessage))
       expect(agent.input.systemMessages).toEqual([
         { role: 'system', content: 'Exact selected policy' },
       ])

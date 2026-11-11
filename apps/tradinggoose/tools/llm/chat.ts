@@ -121,7 +121,7 @@ export const llmChatTool: ToolConfig<LLMChatParams, LLMChatResponse> = {
     tokens: { type: 'object', description: 'Available native token usage' },
     cost: {
       type: 'object',
-      description: 'Model cost in USD is unavailable',
+      description: 'Reported or estimated model cost in USD, with availability status',
     },
   },
 }

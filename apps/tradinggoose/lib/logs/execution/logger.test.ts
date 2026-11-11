@@ -385,6 +385,50 @@ describe('canonical workflow usage settlement', () => {
     expect(state.ledgers.user?.totalCost).toBe(0.25)
   })
 
+  it('settles published model tariffs once, including costs marked as estimates', async () => {
+    const original = span()
+    const priced = {
+      ...original,
+      inference: {
+        ...original.inference,
+        cost: { ...original.inference.cost, estimated: true, status: 'estimated' as const },
+      },
+    }
+    const result = await logger.completeWorkflowExecution({ ...completion, traceSpans: [priced] })
+    expect(result.cost).toMatchObject({ total: 2.25, modelCost: 2, estimated: true })
+    expect(state.ledgers.user).toMatchObject({ totalCost: 2.25, totalTokensUsed: 150 })
+    await logger.settleWorkflowExecutionUsage('execution')
+    expect(state.ledgers.user?.totalCost).toBe(2.25)
+  })
+
+  it('accrues nested native model costs once while keeping product tool charges separate', async () => {
+    const original = span()
+    const nested = {
+      toolCallId: 'native-tool',
+      inference: {
+        cost: { total: 0.5, status: 'estimated' as const, estimated: true },
+        tokens: { total: 30 },
+        generatedFields: ['cost', 'tokens'],
+      },
+    }
+    const toolProduct = {
+      toolCallId: 'product-tool',
+      inference: {
+        toolCost: 3,
+        generatedFields: ['toolCost'],
+      },
+    }
+    const priced = {
+      ...original,
+      inference: { ...original.inference, toolResults: [nested, nested, toolProduct] },
+    }
+    const result = await logger.completeWorkflowExecution({ ...completion, traceSpans: [priced] })
+    expect(result.cost).toMatchObject({ modelCost: 2.5, estimated: true })
+    expect(state.ledgers.user).toMatchObject({ totalCost: 2.75, totalTokensUsed: 180 })
+    await logger.settleWorkflowExecutionUsage('execution')
+    expect(state.ledgers.user?.totalCost).toBe(2.75)
+  })
+
   it.each([true, false])(
     'retains model costs and configured multiplier when billable=%s',
     async (billable) => {

@@ -49,6 +49,7 @@ beforeEach(() => {
         threadId: history.threadId,
         resourceId: history.resourceId,
         role: 'assistant',
+        createdAt: new Date(0),
         content: { format: 2, parts: [{ type: 'text', text: 'Exact reply' }] },
       },
     ],
@@ -58,7 +59,7 @@ beforeEach(() => {
 it('returns the official persisted messages and selected instructions for authorized details', async () => {
   const result = await attachAgentHistory(log(), 'actor')
   expect(result.executionData.traceSpans[0]).toMatchObject({
-    agentHistory: [{ id: 'message', content: { parts: [{ type: 'text', text: 'Exact reply' }] } }],
+    agentHistory: [{ id: 'message', parts: [{ type: 'text', text: 'Exact reply' }] }],
     input: { systemMessages: [{ role: 'system', content: 'Policy' }] },
   })
   expect(fixture.access).toHaveBeenCalledTimes(2)

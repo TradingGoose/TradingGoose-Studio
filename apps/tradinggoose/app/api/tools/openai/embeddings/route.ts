@@ -30,7 +30,6 @@ function output(embeddings: number[][], accounting: EmbeddingAccounting) {
   return {
     embeddings,
     model: accounting.model,
-    usage: { prompt_tokens: accounting.tokens.prompt, total_tokens: accounting.tokens.total },
     tokens: accounting.tokens,
     cost: accounting.cost,
     embeddingUsage: accounting.usage,

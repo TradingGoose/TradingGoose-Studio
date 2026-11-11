@@ -16,7 +16,14 @@ vi.mock('@mastra/pg', () => ({
     close = fixture.close
   },
 }))
-vi.mock('@mastra/core/mastra', () => ({ Mastra: class {} }))
+vi.mock('@mastra/core/mastra', () => ({
+  Mastra: class {
+    constructor(private config: { agents: Record<string, unknown> }) {}
+    getAgent(id: string) {
+      return this.config.agents[id]
+    }
+  },
+}))
 vi.mock('@mastra/memory', () => ({ Memory: class {} }))
 vi.mock('@/lib/copilot/agent/agent', () => ({ createCopilotAgent: fixture.createAgent }))
 vi.mock('./connections', () => ({ getConfiguredGateways: () => ({}) }))

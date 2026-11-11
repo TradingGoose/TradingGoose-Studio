@@ -26,7 +26,7 @@ async function createRuntime() {
       gateways: getConfiguredGateways(),
       recovery: { workflows: 'off', durableAgents: 'off' },
     })
-    return { storage, memory, copilotAgent, mastra }
+    return { storage, memory, mastra }
   } catch (error) {
     await storage.close()
     throw error
@@ -46,7 +46,7 @@ export async function getMastra() {
 }
 
 export async function getCopilotAgent() {
-  return (await getRuntime()).copilotAgent
+  return (await getRuntime()).mastra.getAgent('copilot')
 }
 
 export async function getAgentMemory() {

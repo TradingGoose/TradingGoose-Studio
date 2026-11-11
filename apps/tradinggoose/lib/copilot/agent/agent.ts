@@ -14,7 +14,6 @@ import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { routeExecution } from '@/lib/copilot/tools/server/router'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { type CopilotExecution, CopilotSuspendSchema, getCopilotExecution } from './context'
 import { COPILOT_INSTRUCTIONS } from './instructions'
@@ -53,7 +52,6 @@ function createCopilotTools(execution: CopilotExecution) {
             live.pending.target.threadId === run.threadId &&
             live.pending.target.toolCallId === context.agent.toolCallId &&
             live.pending.target.toolName === name
-          if (!resumed) await live.usage.verifyComplete()
           if (
             resumed &&
             stableStringifyJsonValue(live.pending!.originalArgs) !== stableStringifyJsonValue(args)
@@ -97,10 +95,9 @@ function createCopilotTools(execution: CopilotExecution) {
             )
               throw new NativeTargetError('A decision on the current preview is required', 409)
             result = await runCopilotEffectOnce(
-              run.runId,
+              run,
               context.agent.toolCallId,
               'review',
-              decision,
               async () =>
                 decision.action === 'review.accept'
                   ? routeExecution(name, args, {
@@ -111,12 +108,8 @@ function createCopilotTools(execution: CopilotExecution) {
                   : { success: false, rejected: true, toolName: name }
             )
           } else if (getCopilotToolPolicy(name).execution === 'server') {
-            result = await runCopilotEffectOnce(
-              run.runId,
-              context.agent.toolCallId,
-              'execute',
-              { args, scope: run.scope },
-              () => routeExecution(name, args, businessContext)
+            result = await runCopilotEffectOnce(run, context.agent.toolCallId, 'execute', () =>
+              routeExecution(name, args, businessContext)
             )
           } else {
             await context.agent.suspend({ originalArgs: args })
@@ -154,7 +147,7 @@ export function createCopilotAgent(memory: Memory) {
     model: ({ requestContext }) => {
       const execution = getCopilotExecution(requestContext)
       if (!execution) throw new Error('A server-selected Copilot model is required')
-      return createConfiguredLanguageModel(execution.run.model)
+      return execution.model
     },
     tools: ({ requestContext }) => {
       const execution = getCopilotExecution(requestContext)

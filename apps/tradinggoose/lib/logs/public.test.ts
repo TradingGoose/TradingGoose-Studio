@@ -22,11 +22,9 @@ describe('public Records and terminal event projection', () => {
       agentHistory: [
         {
           id: 'message',
-          threadId: 'private-thread',
-          resourceId: 'private-resource',
           role: 'assistant',
-          createdAt: new Date(),
-          content: { format: 2, parts: [{ type: 'text', text: 'Canonical Agent output' }] },
+          createdAt: new Date().toISOString(),
+          parts: [{ type: 'text', text: 'Canonical Agent output' }],
         },
       ],
       inference: {

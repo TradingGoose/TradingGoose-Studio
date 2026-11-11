@@ -10,7 +10,9 @@ import type { CopilotRequest, CopilotResponse, Scope } from '@/lib/copilot/nativ
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { readNativeEvents } from '@/lib/copilot/native/stream'
 import { assertAcceptedServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
+import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { createCopilotAgent } from './agent'
+import { readCopilotRun } from './context'
 import { executeCopilotCommand } from './service'
 import type { CopilotRun } from './state'
 
@@ -26,18 +28,21 @@ const m = vi.hoisted(() => ({
   accept: vi.fn(),
   route: vi.fn(),
   business: vi.fn(),
-  runs: new Map<string, CopilotRun>(),
   claims: new Map<string, string>(),
   cancelled: new Set<string>(),
   effects: new Map<string, string>(),
 }))
 vi.mock('@/lib/mastra/runtime', () => ({
+  getMastra: async () => undefined,
   getCopilotAgent: async () => m.agent,
   getAgentMemory: async () => m.memory,
   getNativeMemoryStore: async () => m.storage.getStore('memory'),
   getNativeWorkflowsStore: async () => m.storage.getStore('workflows'),
 }))
-vi.mock('@/lib/mastra/connections', () => ({ createConfiguredLanguageModel: () => m.model }))
+vi.mock('@/lib/mastra/connections', () => ({
+  createConfiguredLanguageModel: vi.fn(() => m.model),
+  getConfiguredProviders: () => ({}),
+}))
 vi.mock('@/lib/mastra/registry', () => ({ assertListedModel: vi.fn() }))
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => m.access(...args),
@@ -56,18 +61,10 @@ vi.mock('@/lib/copilot/tools/server/router', () => ({
 vi.mock('./state', async () => {
   const { NativeTargetError } = await import('@/lib/copilot/native/errors')
   const json = (value: unknown) => JSON.stringify(value)
-  const copy = <T>(value: T): T => JSON.parse(json(value))
   const claimKey = (scope: Scope, threadId: string) => json([scope, threadId])
   return {
-    saveCopilotRun: async (run: CopilotRun) => {
-      m.runs.set(run.runId, copy(run))
-    },
-    readCopilotRun: async (scope: Scope, runId: string) => {
-      const run = m.runs.get(runId)
-      if (!run || json(run.scope) !== json(scope))
-        throw new NativeTargetError('Foreign Copilot run', 403)
-      return copy(run)
-    },
+    readCopilotThreadRun: async (scope: Scope, threadId: string) =>
+      m.claims.get(claimKey(scope, threadId)),
     claimCopilotThread: async (scope: Scope, threadId: string, runId: string) => {
       const key = claimKey(scope, threadId)
       if (m.claims.has(key))
@@ -85,8 +82,11 @@ vi.mock('./state', async () => {
       const key = claimKey(scope, threadId)
       if (m.claims.has(key)) throw new NativeTargetError('Thread already active', 409)
       const workflows = (await m.storage.getStore('workflows'))!
-      for (const run of m.runs.values()) {
-        if (run.threadId !== threadId || json(run.scope) !== json(scope)) continue
+      const { runs } = await m.agent.listSuspendedRuns({
+        threadId,
+        resourceId: nativeConversationIdentity(scope).resourceId,
+      })
+      for (const run of runs) {
         let snapshot = await workflows.getWorkflowRunById({ runId: run.runId })
         while (snapshot) {
           await workflows.deleteWorkflowRunById({
@@ -95,35 +95,26 @@ vi.mock('./state', async () => {
           })
           snapshot = await workflows.getWorkflowRunById({ runId: run.runId })
         }
+        m.cancelled.delete(run.runId)
       }
       await m.memory.deleteThread(threadId)
-      for (const [runId, run] of m.runs) {
-        if (run.threadId === threadId && json(run.scope) === json(scope)) {
-          m.runs.delete(runId)
-          m.cancelled.delete(runId)
-          for (const key of m.effects.keys())
-            if (JSON.parse(key)[0] === runId) m.effects.delete(key)
-        }
-      }
     },
-    cancelCopilotRun: async (runId: string) => {
-      m.cancelled.add(runId)
+    cancelCopilotRun: async (run: CopilotRun) => {
+      m.cancelled.add(run.runId)
     },
     isCopilotRunCancelled: async (runId: string) => m.cancelled.has(runId),
     assertCopilotRunActive: async (runId: string) => {
       if (m.cancelled.has(runId)) throw new NativeTargetError('Cancelled run', 409)
     },
     runCopilotEffectOnce: async (
-      runId: string,
+      run: CopilotRun,
       toolCallId: string,
       phase: string,
-      input: unknown,
       execute: () => Promise<unknown>
     ) => {
-      const key = json([runId, toolCallId, phase])
-      const fingerprint = json(input)
+      const key = json([run.runId, toolCallId, phase])
       if (m.effects.has(key)) throw new NativeTargetError('Previously dispatched action', 409)
-      m.effects.set(key, fingerprint)
+      m.effects.set(key, 'dispatched')
       return execute()
     },
   }
@@ -217,7 +208,6 @@ async function pending(threadId: string) {
   const { result } = await command({
     command: 'pending.list',
     threadId,
-    page: { page: 0, perPage: 100 },
   })
   expect(result.status).toBe('pending_targets')
   if (result.status !== 'pending_targets') throw new Error(JSON.stringify(result))
@@ -228,7 +218,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   m.route.mockReset()
   m.contacts.length = 0
-  m.runs.clear()
   m.claims.clear()
   m.cancelled.clear()
   m.effects.clear()
@@ -244,6 +233,49 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('built-in Copilot service bridge', () => {
+  it('returns complete scoped native lists in their stored order', async () => {
+    const store = (await m.storage.getStore('memory'))!
+    const resourceId = nativeConversationIdentity(scope).resourceId
+    for (let i = 0; i < 125; i++)
+      await store.saveThread({
+        thread: {
+          id: `thread-${i}`,
+          resourceId,
+          title: '',
+          createdAt: new Date(i * 1000),
+          updatedAt: new Date(i * 1000),
+        },
+      })
+    await store.saveThread({
+      thread: {
+        id: 'foreign',
+        resourceId: 'another-resource',
+        title: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    })
+    const threads = (await command({ command: 'threads.list' })).result
+    if (threads.status !== 'threads') throw new Error(JSON.stringify(threads))
+    expect(threads.items.map((thread) => thread.id)).toEqual(
+      Array.from({ length: 125 }, (_, i) => `thread-${124 - i}`)
+    )
+    await store.saveMessages({
+      messages: Array.from({ length: 125 }, (_, i) => ({
+        id: `message-${i}`,
+        threadId: 'thread-0',
+        resourceId,
+        role: 'user' as const,
+        createdAt: new Date(i * 1000),
+        content: { format: 2 as const, parts: [{ type: 'text' as const, text: `Message ${i}` }] },
+      })),
+    })
+    const history = (await command({ command: 'history.read', threadId: 'thread-0' })).result
+    if (history.status !== 'history') throw new Error(JSON.stringify(history))
+    expect(history.items.map((message) => message.id)).toEqual(
+      Array.from({ length: 125 }, (_, i) => `message-${i}`)
+    )
+  })
   it('completes chat, native image history, and a later turn with the external service unavailable', async () => {
     setModel({ text: 'Known answer🔥' }, { text: 'Follow-up answer' })
     const { result } = await message({
@@ -268,7 +300,6 @@ describe('built-in Copilot service bridge', () => {
       await command({
         command: 'history.read',
         threadId: result.threadId,
-        page: { page: 0, perPage: 100 },
       })
     ).result
     expect(history.status).toBe('history')
@@ -311,7 +342,20 @@ describe('built-in Copilot service bridge', () => {
     )
     expect(m.admit).toHaveBeenCalledTimes(2)
     expect(m.accept).toHaveBeenCalledTimes(2)
+    expect(createConfiguredLanguageModel).toHaveBeenCalledExactlyOnceWith(
+      'configured/model',
+      undefined
+    )
     expect(m.fetch).not.toHaveBeenCalled()
+    if (result.status !== 'completed') throw new Error(JSON.stringify(result))
+    const history = (await command({ command: 'history.read', threadId: result.threadId })).result
+    if (history.status !== 'history') throw new Error(JSON.stringify(history))
+    expect(history.items.filter((item) => item.role === 'assistant')).toMatchObject([
+      {
+        usage: { inputTokens: 6, outputTokens: 4, totalTokens: 10 },
+        cost: { status: 'unavailable' },
+      },
+    ])
   })
 
   it('gives the model current Studio context while persisting and editing only the visible input', async () => {
@@ -325,7 +369,6 @@ describe('built-in Copilot service bridge', () => {
       await command({
         command: 'history.read',
         threadId: result.threadId,
-        page: { page: 0, perPage: 100 },
       })
     ).result
     if (history.status !== 'history') throw new Error(JSON.stringify(history))
@@ -411,6 +454,17 @@ describe('built-in Copilot service bridge', () => {
     expect(initial.pending[0].stage).toBe('approval')
     expect(m.route).not.toHaveBeenCalled()
     restart()
+    expect(await readCopilotRun(scope, initial.threadId, initial.runId)).toMatchObject({
+      scope,
+      model: 'configured/model',
+      accessLevel: 'limited',
+    })
+    await expect(
+      readCopilotRun({ ...scope, actorUserId: 'foreign' }, initial.threadId, initial.runId)
+    ).rejects.toMatchObject({ status: 403 })
+    await expect(readCopilotRun(scope, 'another-thread', initial.runId)).rejects.toMatchObject({
+      status: 403,
+    })
     const approved = suspended(
       (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
     )
@@ -491,7 +545,6 @@ describe('built-in Copilot service bridge', () => {
         await command({
           command: 'history.read',
           threadId: initial.threadId,
-          page: { page: 0, perPage: 100 },
         })
       ).result
       expect(JSON.stringify(history)).toContain(decision === 'reject' ? 'rejected' : 'stale')
@@ -535,6 +588,21 @@ describe('built-in Copilot service bridge', () => {
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(m.claims.size).toBe(0)
   })
+  it('rejects a claimed run mismatch and makes unclaimed cancellation a harmless no-op', async () => {
+    setModel(
+      { tool: 'rename_workflow', args: { entityId: 'first', name: 'First' } },
+      { tool: 'rename_workflow', args: { entityId: 'second', name: 'Second' } }
+    )
+    const first = suspended((await message()).result)
+    const second = suspended((await message()).result)
+    const cancel = { command: 'cancel', threadId: first.threadId, runId: second.runId }
+    expect((await command(cancel)).response.status).toBe(403)
+    expect(m.cancelled.size).toBe(0)
+    await command({ ...cancel, runId: first.runId })
+    expect((await command(cancel)).result).toMatchObject({ status: 'cancel_requested' })
+    expect(m.cancelled.has(second.runId)).toBe(false)
+    expect(await pending(second.threadId)).toHaveLength(1)
+  })
   it('deletes cancelled native suspensions and their application receipts with the conversation', async () => {
     setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Renamed' } })
     const initial = suspended((await message({ accessLevel: 'limited' })).result)
@@ -546,7 +614,6 @@ describe('built-in Copilot service bridge', () => {
     ).toMatchObject({ status: 'updated', operation: 'thread.delete' })
     expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
     expect(await m.memory.getThreadById({ threadId: initial.threadId })).toBeNull()
-    expect(m.runs.has(initial.runId)).toBe(false)
     expect(m.cancelled.has(initial.runId)).toBe(false)
     expect(m.claims.size).toBe(0)
   })
@@ -632,9 +699,6 @@ const databaseUrl = process.env.MASTRA_TEST_DATABASE_URL
 it.runIf(Boolean(databaseUrl))(
   'resumes the actual Studio service in a fresh context without persisting runtime callbacks',
   async () => {
-    const url = new URL(databaseUrl!)
-    if (!['127.0.0.1', 'localhost'].includes(url.hostname) || !url.pathname.endsWith('_disposable'))
-      throw new Error('A disposable loopback database is required')
     const schema = `copilot_context_${crypto.randomUUID().replaceAll('-', '')}`
     const storage = new PostgresStore({
       id: schema,
@@ -662,14 +726,28 @@ it.runIf(Boolean(databaseUrl))(
         (
           await message({
             accessLevel: 'limited',
+            model: 'openai/gpt-4.1',
             input: { content: 'Rename the workflow', contexts: [context] },
           })
         ).result
       )
       const workflows = (await storage.getStore('workflows'))!
+      expect(await readCopilotRun(scope, initial.threadId, initial.runId)).toMatchObject({
+        scope,
+        model: 'openai/gpt-4.1',
+        accessLevel: 'limited',
+      })
       expect(
         JSON.stringify(await workflows.getWorkflowRunById({ runId: initial.runId }))
       ).not.toContain('copilot-execution')
+      const initialHistory = (
+        await command({ command: 'history.read', threadId: initial.threadId })
+      ).result
+      if (initialHistory.status !== 'history') throw new Error(JSON.stringify(initialHistory))
+      expect(initialHistory.items.find((item) => item.role === 'assistant')).toMatchObject({
+        usage: { inputTokens: 3, outputTokens: 2, totalTokens: 5 },
+        cost: { status: 'estimated', currency: 'USD', total: 0.000022 },
+      })
       restart()
       const approved = suspended(
         (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
@@ -689,12 +767,20 @@ it.runIf(Boolean(databaseUrl))(
         await command({
           command: 'history.read',
           threadId: initial.threadId,
-          page: { page: 0, perPage: 100 },
         })
       ).result
       if (history.status !== 'history') throw new Error(JSON.stringify(history))
       expect(history.items[0].parts).toMatchObject([{ type: 'text', text: 'Rename the workflow' }])
       expect(JSON.stringify(history)).not.toContain(context.resolvedContent)
+      const assistants = history.items.filter((item) => item.role === 'assistant')
+      expect(assistants).toHaveLength(2)
+      for (const assistant of assistants) {
+        expect(assistant.usage).toEqual({ inputTokens: 3, outputTokens: 2, totalTokens: 5 })
+        expect(assistant.cost).toMatchObject({ status: 'estimated', currency: 'USD' })
+        expect(assistant.cost?.total).toBeCloseTo(0.000022)
+        expect(assistant).not.toHaveProperty('metadata')
+      }
+      expect(m.accept).toHaveBeenCalledTimes(2)
       expect(m.route).toHaveBeenLastCalledWith(
         'rename_workflow',
         args,

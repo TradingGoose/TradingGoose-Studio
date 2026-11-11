@@ -12,7 +12,8 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
     return {
       inputProcessors: [],
       outputProcessors: [],
-      getUsage: () => ({}),
+      getUsage: () => mocks.usage(),
+      getCost: () => mocks.cost(),
       verifyComplete: async () => {},
     }
   },
@@ -31,17 +32,8 @@ const mocks = vi.hoisted(() => ({
   configurations: [] as Array<Record<string, any>>,
   processFile: vi.fn(),
   download: vi.fn(),
-  accounting: vi.fn(),
-  sumUsage: vi.fn((steps) =>
-    steps.reduce(
-      (usage: any, step: any) => ({
-        inputTokens: (usage.inputTokens || 0) + (step.usage?.inputTokens || 0),
-        outputTokens: (usage.outputTokens || 0) + (step.usage?.outputTokens || 0),
-        totalTokens: (usage.totalTokens || 0) + (step.usage?.totalTokens || 0),
-      }),
-      {}
-    )
-  ),
+  usage: vi.fn(),
+  cost: vi.fn(),
   mediaFetch: vi.fn(),
 }))
 vi.mock('@mastra/core/agent', () => ({
@@ -55,12 +47,6 @@ vi.mock('@mastra/core/agent', () => ({
   },
 }))
 vi.mock('@/lib/auth/hybrid', () => ({ checkHybridAuth: mocks.auth }))
-vi.mock('@/lib/mastra/usage', async (original) => ({
-  ...(await original<typeof import('@/lib/mastra/usage')>()),
-  getMastra: vi.fn(async () => ({})),
-  resultAccounting: mocks.accounting,
-  sumNativeUsage: mocks.sumUsage,
-}))
 vi.mock('@/lib/uploads/utils/file-processing', () => ({
   processSingleFileToUserFile: mocks.processFile,
   downloadFileFromStorage: mocks.download,
@@ -82,16 +68,14 @@ function request(body: Record<string, unknown>, query = '') {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.cost.mockReset().mockReturnValue({ status: 'unavailable' })
+  mocks.usage.mockReset().mockReturnValue({ inputTokens: 12, outputTokens: 3, totalTokens: 15 })
   mocks.configurations.length = 0
   mocks.auth.mockResolvedValue({ success: true, userId: 'user-1', workspaceId: 'workspace-1' })
   mocks.generate.mockResolvedValue({
     finishReason: 'stop',
     text: 'A goose',
     usage: { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
-  })
-  mocks.accounting.mockResolvedValue({
-    tokens: { prompt: 12, completion: 3, total: 15 },
-    cost: { status: 'unavailable' },
   })
   mocks.mediaFetch.mockImplementation(
     async () =>
@@ -214,15 +198,11 @@ describe('native Vision input and authorization', () => {
       output: {
         content: 'A goose',
         model: 'anthropic/claude-opus-4-6',
-        tokens: 15,
+        tokens: { prompt: 12, completion: 3, total: 15 },
         cost: { status: 'unavailable' },
       },
     })
-    expect(mocks.accounting).toHaveBeenCalledWith({
-      inputTokens: 12,
-      outputTokens: 3,
-      totalTokens: 15,
-    })
+    expect(mocks.usage).toHaveBeenCalled()
     expect(mocks.mediaFetch).toHaveBeenCalledTimes(1)
     expect([...new Headers(mocks.mediaFetch.mock.calls[0][1].headers)]).toEqual([])
   })
@@ -333,22 +313,14 @@ describe('Vision failure accounting boundary', () => {
     }
   )
   it('retains completed step usage when later generation rejects', async () => {
-    mocks.generate.mockImplementation(async (_messages, options) => {
-      options.onStepFinish({ usage: { inputTokens: 10, outputTokens: 2, totalTokens: 12 } })
-      options.onStepFinish({ usage: { inputTokens: 5, outputTokens: 3, totalTokens: 8 } })
-      throw new Error('later step failed')
-    })
+    mocks.usage.mockReturnValue({ inputTokens: 15, outputTokens: 5, totalTokens: 20 })
+    mocks.generate.mockRejectedValue(new Error('later step failed'))
     const response = await POST(
       request({ model: 'openai/gpt-4o', imageUrl: 'https://example.com/image.png' })
     )
     expect(response.status).toBe(500)
-    expect(mocks.accounting).toHaveBeenCalledWith({
-      inputTokens: 15,
-      outputTokens: 5,
-      totalTokens: 20,
-    })
     expect(await response.json()).toMatchObject({
-      tokens: { total: 15 },
+      tokens: { prompt: 15, completion: 5, total: 20 },
       cost: { status: 'unavailable' },
     })
   })
@@ -388,7 +360,7 @@ it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provide
       expect(mocks.download).not.toHaveBeenCalled()
       expect(mocks.generate).not.toHaveBeenCalled()
       expect(mocks.configurations).toEqual([])
-      expect(mocks.accounting).not.toHaveBeenCalled()
+      expect(mocks.usage).not.toHaveBeenCalled()
     } finally {
       vi.unstubAllEnvs()
     }
