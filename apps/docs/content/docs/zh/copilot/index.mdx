@@ -13,7 +13,7 @@ Copilot 是一款 AI 助手，可在整个 TradingGoose 工作空间中工作—
 
 ## 上下文用量
 
-Copilot 可以移除符合条件的历史上下文，缩短发送给模型的提示。自动裁剪、上下文视图和手动裁剪使用同一临时投影；已存储的消息、有序内容部分及图像保持不变。裁剪不会增加模型调用或计费接受操作。普通聊天、标题和 wand 推理仍按原有方式记账。上下文视图区分实测、估算与不可用的 token 数量，不据此推断百分比或模型容量。成功的裁剪请求也可能没有变化。受保护的当前输入和待处理工具义务可能阻止进一步裁剪。
+Copilot 会自动限制发送给模型的近期历史记录。已存储的消息、工具结果、图像和提供商元数据保持不变。需要全新对话时，请新建聊天。
 
 ## 功能
 
@@ -77,7 +77,7 @@ Copilot 提供 Studio Mastra 模型注册表中的六个模型。Studio 使用�
     Copilot 在 Studio 内运行，复用其 Mastra 模型连接和应用数据库。
 
     1. 在 Studio 部署中配置所选模型提供商的凭证。自定义模型连接使用 `MASTRA_MODEL_PROVIDERS`；Azure OpenAI 连接使用 `MASTRA_AZURE_OPENAI`。
-    2. 在 `apps/tradinggoose` 下运行 `bun run native:init`，使用 `MASTRA_OWNER_DATABASE_URL` 完成共享 Mastra 存储的部署初始化。
+    2. 在仓库根目录运行 `bun run db:migrate`，使用 Studio 的 `DATABASE_URL` 应用数据库迁移。共享运行时启动时，Mastra 会在同一数据库中初始化自己的表。
     3. 打开工作区，选择已配置的模型并开始对话。
   </Step>
 </Steps>
@@ -107,5 +107,5 @@ Copilot 具备上下文感知能力。当前页面只会公开所选对象的身
 Copilot 模型操作以精确的规范 USD 字符串报告已接受的实际费用。模型 USD 不可用时仍保持不可用，不会将 token 数量或估算值转换为替代价格。普通推理保留所选套餐倍率和共享计费检查。
 
 <Callout type="info">
-  Studio 可以在联系模型前预留保守金额。确定性上下文裁剪不会创建单独的财务事实；已有的已接受费用仍是历史事实。
+  Studio 可以在联系模型前预留保守金额。自动裁剪历史记录不会增加模型调用或费用。
 </Callout>

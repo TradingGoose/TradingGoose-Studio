@@ -13,7 +13,7 @@ This page covers the built-in Studio assistant. To work on TradingGoose from you
 
 ## Context usage
 
-Copilot can shorten the prompt sent to the model by removing eligible historical context. Automatic pruning, the context view and manual pruning use the same transient projection; stored messages, ordered parts and images remain intact. Pruning makes no additional model call or billing acceptance. Ordinary chat, title and wand inference keep their normal accounting. The context display labels measured, estimated or unavailable token counts; it does not infer a percentage or model capacity. A successful pruning request can report no change. Protected current inputs and pending tool obligations can prevent further reduction.
+Copilot automatically bounds recent history sent to the model. Stored messages, tool results, images, and provider metadata remain intact. Start a new chat when you want a fresh conversation.
 
 ## Capabilities
 
@@ -77,7 +77,7 @@ Copilot offers six models from Studio’s Mastra model registry. Studio uses the
     Copilot runs inside Studio and uses its Mastra model connections and application database.
 
     1. Configure the selected model provider’s credentials in the Studio deployment. Custom model connections use `MASTRA_MODEL_PROVIDERS`; Azure OpenAI connections use `MASTRA_AZURE_OPENAI`.
-    2. Initialize the shared Mastra store with `bun run native:init` from `apps/tradinggoose`, using `MASTRA_OWNER_DATABASE_URL` for deployment initialization.
+    2. Run `bun run db:migrate` from the repository root with Studio’s `DATABASE_URL`. This applies application migrations. Mastra initializes its own tables in the same database when the shared runtime starts.
     3. Open a workspace, select a configured model, and start chatting.
   </Step>
 </Steps>
@@ -109,5 +109,5 @@ You can edit an earlier prompt to truncate and regenerate the messages that foll
 Copilot model operations report their accepted applied charge as an exact canonical USD string. An unavailable model-USD value remains unavailable; token counts and estimates do not become a replacement price. Normal inference retains the selected plan multiplier and shared billing checks.
 
 <Callout type="info">
-  Studio can reserve a conservative amount before model contact. Deterministic context pruning creates no separate financial fact; existing accepted charges remain historical facts.
+  Studio can reserve a conservative amount before model contact. Automatic history trimming does not add a model call or charge.
 </Callout>
