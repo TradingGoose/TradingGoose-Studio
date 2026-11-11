@@ -1,12 +1,12 @@
 /** @vitest-environment jsdom */
 
 import { act, cloneElement } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 let state: any
 let catalog: any
-const { getModelIcon } = vi.hoisted(() => ({ getModelIcon: vi.fn() }))
 
 vi.mock('@/hooks/queries/copilot-models', () => ({ useCopilotModels: () => catalog }))
 vi.mock('@/stores/copilot/store', () => ({
@@ -21,7 +21,6 @@ vi.mock('@/i18n/workspace-widget-hooks', () => ({
     },
   }),
 }))
-vi.mock('@/lib/ui/model-icon', () => ({ getModelIcon }))
 vi.mock('@/components/ui', () => ({
   Button: ({ variant: _variant, size: _size, ...props }: any) => <button {...props} />,
   DropdownMenu: ({ children }: any) => <div>{children}</div>,
@@ -34,15 +33,25 @@ import { ModelSelector } from './model-selector'
 
 let container: HTMLDivElement
 let root: Root
-const render = () => act(() => root.render(<ModelSelector isNearTop={false} panelWidth={400} />))
+let queryClient: QueryClient
+const render = () =>
+  act(() =>
+    root.render(
+      <QueryClientProvider client={queryClient}>
+        <ModelSelector isNearTop={false} panelWidth={400} />
+      </QueryClientProvider>
+    )
+  )
 
 beforeEach(() => {
-  getModelIcon
-    .mockReset()
-    .mockImplementation((label: string) => (props: any) => (
-      <svg data-model-icon={label} {...props} />
-    ))
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+  queryClient = new QueryClient()
+  queryClient.setQueryData(['provider-icons'], {
+    anthropic: {
+      src: 'https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.102.0/icons/anthropic.svg',
+      monochrome: true,
+    },
+  })
   state = {
     selectedModel: null,
     setSelectedModel: vi.fn(),
@@ -59,6 +68,7 @@ beforeEach(() => {
 
 afterEach(() => {
   act(() => root.unmount())
+  queryClient.clear()
   container.remove()
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = false
 })
@@ -92,10 +102,17 @@ it('uses the administrator default and submits exact IDs while displaying only l
   expect(trigger).toHaveTextContent('anthropic/model-name')
   expect(trigger).toHaveAttribute('aria-label', 'anthropic/model-name')
   expect(trigger).toHaveAttribute('title', 'anthropic/model-name')
-  expect(trigger.querySelector('svg')).toHaveAttribute('data-model-icon', 'anthropic/model-name')
+  expect(trigger.querySelector('img')).toHaveAttribute(
+    'src',
+    'https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.102.0/icons/anthropic.svg'
+  )
   expect(container.innerHTML).not.toContain('openrouter')
-  expect(getModelIcon).toHaveBeenCalledWith('anthropic/model-name')
-  expect(getModelIcon).not.toHaveBeenCalledWith('openrouter/anthropic/model-name')
+  act(() => trigger.querySelector('img')!.dispatchEvent(new Event('error')))
+  render()
+  expect(trigger.querySelector('img')).toHaveAttribute(
+    'src',
+    'https://models.dev/logos/anthropic.svg'
+  )
   const choice = container.querySelector<HTMLButtonElement>('[title="openai/future-model"]')!
   act(() => choice.click())
   expect(state.setSelectedModel).toHaveBeenLastCalledWith('openai/future-model')

@@ -1,4 +1,4 @@
-import { ElevenLabsIcon } from '@/components/icons/icons'
+import { getProviderIcon } from '@/lib/ui/provider-icon'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 import type { ElevenLabsBlockResponse } from '@/tools/elevenlabs/types'
 
@@ -11,7 +11,7 @@ export const ElevenLabsBlock: BlockConfig<ElevenLabsBlockResponse> = {
   docsLink: 'https://docs.tradinggoose.ai/tools/elevenlabs',
   category: 'tools',
   bgColor: '',
-  icon: ElevenLabsIcon,
+  icon: getProviderIcon('elevenlabs'),
 
   subBlocks: [
     {

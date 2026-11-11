@@ -1,4 +1,4 @@
-import { HuggingFaceIcon } from '@/components/icons/icons'
+import { getProviderIcon } from '@/lib/ui/provider-icon'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { HuggingFaceChatResponse } from '@/tools/huggingface/types'
@@ -13,7 +13,7 @@ export const HuggingFaceBlock: BlockConfig<HuggingFaceChatResponse> = {
   docsLink: 'https://docs.tradinggoose.ai/tools/huggingface',
   category: 'tools',
   bgColor: '#FFD21E',
-  icon: HuggingFaceIcon,
+  icon: getProviderIcon('huggingface'),
   subBlocks: [
     {
       id: 'systemPrompt',

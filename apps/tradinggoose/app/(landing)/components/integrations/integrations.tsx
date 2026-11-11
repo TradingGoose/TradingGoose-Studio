@@ -2,11 +2,11 @@
 
 import { useMessages } from 'next-intl'
 import * as Icons from '@/components/icons/icons'
-import * as ProviderIcons from '@/components/icons/provider-icons'
 import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
 import { Marquee } from '@/components/ui/marquee'
 import { MotionPreset } from '@/components/ui/motion-preset'
+import { getProviderIcon } from '@/lib/ui/provider-icon'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 
 type BrandLogo = {
@@ -17,12 +17,12 @@ type BrandLogo = {
 
 const brandLogos: BrandLogo[] = [
   // AI models and providers
-  { icon: ProviderIcons.OpenAIIcon, name: 'OpenAI' },
-  { icon: Icons.PerplexityIcon, name: 'Perplexity' },
-  { icon: ProviderIcons.MistralIcon, name: 'Mistral' },
-  { icon: ProviderIcons.xAIIcon, name: 'xAI' },
-  { icon: Icons.HuggingFaceIcon, name: 'HuggingFace' },
-  { icon: Icons.ElevenLabsIcon, name: 'ElevenLabs' },
+  { icon: getProviderIcon('openai'), name: 'OpenAI' },
+  { icon: getProviderIcon('perplexity'), name: 'Perplexity' },
+  { icon: getProviderIcon('mistral'), name: 'Mistral' },
+  { icon: getProviderIcon('xai'), name: 'xAI' },
+  { icon: getProviderIcon('huggingface'), name: 'HuggingFace' },
+  { icon: getProviderIcon('elevenlabs'), name: 'ElevenLabs' },
   { icon: Icons.CrewAIIcon, name: 'CrewAI' },
   { icon: Icons.VllmIcon, name: 'vLLM' },
   // Communication

@@ -1,4 +1,4 @@
-import { OpenAIIcon } from '@/components/icons/provider-icons'
+import { getProviderIcon } from '@/lib/ui/provider-icon'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 
@@ -12,7 +12,7 @@ export const OpenAIBlock: BlockConfig = {
   category: 'tools',
   docsLink: 'https://docs.tradinggoose.ai/tools/openai',
   bgColor: undefined,
-  icon: OpenAIIcon,
+  icon: getProviderIcon('openai'),
   subBlocks: [
     {
       id: 'input',

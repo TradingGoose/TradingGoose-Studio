@@ -58,6 +58,17 @@ describe('CSP helpers', () => {
     expect(tokens).not.toContain('wss:')
   })
 
+  it('allows provider logo sources only as images in both policies', async () => {
+    for (const policy of [getMainCSPPolicy(), await generateRuntimeCSP()]) {
+      const directives = policy.split(';').map((directive) => directive.trim().split(/\s+/))
+      for (const origin of ['https://models.dev', 'https://cdn.jsdelivr.net']) {
+        expect(directives.find(([name]) => name === 'img-src')).toContain(origin)
+        expect(directives.find(([name]) => name === 'connect-src')).not.toContain(origin)
+        expect(directives.find(([name]) => name === 'script-src')).not.toContain(origin)
+      }
+    }
+  })
+
   it('keeps the runtime policy on explicit origins without broad scheme relaxations', async () => {
     mockRuntimeEnv.NEXT_PUBLIC_APP_URL = 'https://app.example.com/dashboard'
     mockRuntimeEnv.NEXT_PUBLIC_SOCKET_URL = 'https://socket.example.com/realtime'

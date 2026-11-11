@@ -1,4 +1,4 @@
-import { MistralIcon } from '@/components/icons/provider-icons'
+import { getProviderIcon } from '@/lib/ui/provider-icon'
 import { AuthMode, type BlockConfig, type SubBlockLayout, type SubBlockType } from '@/blocks/types'
 import type { MistralParserOutput } from '@/tools/mistral/types'
 
@@ -11,7 +11,7 @@ export const MistralParseBlock: BlockConfig<MistralParserOutput> = {
   docsLink: 'https://docs.tradinggoose.ai/tools/mistral_parse',
   category: 'tools',
   bgColor: undefined,
-  icon: MistralIcon,
+  icon: getProviderIcon('mistral'),
   subBlocks: [
     // Show input method selection
     {

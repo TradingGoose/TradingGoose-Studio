@@ -62,7 +62,9 @@ describe('registry-backed model interaction', () => {
         searchLabel: 'example/effort Example Models',
       })
       const groups = typeof field.optionGroups === 'function' ? field.optionGroups() : []
-      expect(groups).toEqual([{ id: 'example', label: 'Example Models', icon: undefined }])
+      expect(groups).toEqual([
+        { id: 'example', label: 'Example Models', icon: expect.any(Function) },
+      ])
       expect(block.subBlocks.find(({ id }) => id === 'apiKey')?.password).toBe(true)
     }
   })

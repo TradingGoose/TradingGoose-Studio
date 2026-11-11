@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { act } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
@@ -352,6 +353,7 @@ describe('late registry defaults and registry feedback', () => {
   let container: HTMLDivElement
   let root: Root
   let doc: Y.Doc
+  let queryClient: QueryClient
   const environment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
   function ModelPicker() {
     useModelRegistry((state) => state.providers)
@@ -369,6 +371,8 @@ describe('late registry defaults and registry feedback', () => {
   }
   beforeEach(() => {
     environment.IS_REACT_ACT_ENVIRONMENT = true
+    queryClient = new QueryClient()
+    queryClient.setQueryData(['provider-icons'], {})
     useModelRegistry.setState({ providers: [], isLoading: false, error: undefined })
     doc = new Y.Doc()
     mocks.session = { doc, transactWorkflow: (fn, origin) => doc.transact(() => fn(doc), origin) }
@@ -378,6 +382,7 @@ describe('late registry defaults and registry feedback', () => {
   })
   afterEach(() => {
     act(() => root.unmount())
+    queryClient.clear()
     container.remove()
     doc.destroy()
     mocks.session = null
@@ -404,7 +409,13 @@ describe('late registry defaults and registry feedback', () => {
       loops: {},
       parallels: {},
     })
-    act(() => root.render(<ModelPicker />))
+    act(() =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ModelPicker />
+        </QueryClientProvider>
+      )
+    )
   }
   function loadModels() {
     act(() =>

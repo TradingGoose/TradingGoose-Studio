@@ -1,6 +1,6 @@
 import { createWithEqualityFn as create } from 'zustand/traditional'
 import type { RegistryModel, RegistryProvider } from '@/lib/mastra/registry'
-import { getModelIcon } from '@/lib/ui/model-icon'
+import { getProviderIcon } from '@/lib/ui/provider-icon'
 
 interface ModelRegistryState {
   providers: RegistryProvider[]
@@ -43,21 +43,22 @@ export function getModelProvider(model: string): string | undefined {
 }
 
 export function getModelOptions() {
-  return useModelRegistry.getState().providers.flatMap((provider) =>
-    provider.models.map(({ id }) => ({
+  return useModelRegistry.getState().providers.flatMap((provider) => {
+    const icon = getProviderIcon(provider.id)
+    return provider.models.map(({ id }) => ({
       id,
       label: id,
       group: provider.id,
       searchLabel: `${id} ${provider.name}`,
-      icon: getModelIcon(id),
+      icon,
     }))
-  )
+  })
 }
 
 export function getModelGroups() {
   return useModelRegistry
     .getState()
-    .providers.map(({ id, name }) => ({ id, label: name, icon: getModelIcon(`${id}/`) }))
+    .providers.map(({ id, name }) => ({ id, label: name, icon: getProviderIcon(id) }))
 }
 
 export function getDefaultModel() {

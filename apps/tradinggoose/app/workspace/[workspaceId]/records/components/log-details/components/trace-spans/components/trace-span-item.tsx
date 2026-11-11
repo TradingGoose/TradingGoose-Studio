@@ -1,11 +1,11 @@
 import type React from 'react'
 import { ChevronDown, ChevronRight, Code, RepeatIcon, SplitIcon, ToolCase } from 'lucide-react'
+import { ProviderIcon } from '@/components/icons/provider-icon'
 import type { JsonDisplayMode } from '@/components/json-display/json-display'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatCost } from '@/lib/logs/cost'
 import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
-import { getModelIcon } from '@/lib/ui/model-icon'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks/registry'
 import { isSkillLoaderToolId } from '@/executor/handlers/agent/skill-loader'
@@ -270,13 +270,10 @@ export function TraceSpanItem({
                   <TooltipTrigger
                     render={
                       <span className='inline-flex cursor-default items-center gap-1 rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums'>
-                        {(() => {
-                          const model = String(span.model) || ''
-                          const IconComp = getModelIcon(model) as React.ComponentType<{
-                            className?: string
-                          }> | null
-                          return IconComp ? <IconComp className='h-3 w-3' /> : null
-                        })()}
+                        <ProviderIcon
+                          provider={String(span.model).split('/')[0]}
+                          className='h-3 w-3'
+                        />
                         {String(span.model)}
                       </span>
                     }

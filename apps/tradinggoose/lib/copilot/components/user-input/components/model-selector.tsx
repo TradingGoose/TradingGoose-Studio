@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { Check } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
+import { ProviderIcon } from '@/components/icons/provider-icon'
 import {
   Button,
   DropdownMenu,
@@ -10,7 +11,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui'
-import { getModelIcon } from '@/lib/ui/model-icon'
 import { cn } from '@/lib/utils'
 import { useCopilotModels } from '@/hooks/queries/copilot-models'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
@@ -23,15 +23,9 @@ interface ModelSelectorProps {
 }
 
 function ModelLabel({ label, className }: { label: string; className?: string }) {
-  const ProviderIcon = getModelIcon(label)
-
   return (
     <span className={cn('flex min-w-0 items-center gap-1.5', className)}>
-      {ProviderIcon && (
-        <span className='shrink-0 text-muted-foreground' aria-hidden='true'>
-          <ProviderIcon className='h-3 w-3' />
-        </span>
-      )}
+      <ProviderIcon provider={label.split('/')[0]} className='h-3 w-3' />
       <span className='truncate'>{label}</span>
     </span>
   )
