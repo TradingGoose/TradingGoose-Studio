@@ -1,4 +1,5 @@
 import { providers } from '@opencode-ai/models/snapshot'
+import { isLanguageModel } from '@/lib/mastra/registry'
 import { getSystemServiceDefinition } from '@/lib/system-services/catalog'
 import { resolveSystemServiceConfig } from '@/lib/system-services/service'
 import { getCopilotSettings } from '@/lib/system-settings/service'
@@ -14,7 +15,7 @@ export async function resolveCopilotModel(
   }
   const selected = modelId ?? settings.defaultModel
   const row = settings.models.find((candidate) => getCopilotModelId(candidate) === selected)
-  if (!row) {
+  if (!row || !isLanguageModel(row.provider, row.model)) {
     throw new NativeTargetError('The selected Copilot model is no longer available', 422)
   }
   const provider = getSystemServiceDefinition(row.provider)
@@ -37,16 +38,21 @@ export async function getPublicCopilotModels(): Promise<{
   defaultModel: string | null
 }> {
   const settings = await getCopilotSettings()
-  return {
-    models: settings.models.map((row) => {
+  const models = settings.models
+    .filter((row) => isLanguageModel(row.provider, row.model))
+    .map((row) => {
       const id = getCopilotModelId(row)
       return {
         id,
         label:
-          providers[row.provider]?.models[row.model]?.canonical_model_id ??
+          providers[row.provider]?.models?.[row.model]?.canonical_model_id ??
           (row.model.includes('/') ? row.model : id),
       }
-    }),
-    defaultModel: settings.defaultModel,
+    })
+  return {
+    models,
+    defaultModel: models.some(({ id }) => id === settings.defaultModel)
+      ? settings.defaultModel
+      : null,
   }
 }

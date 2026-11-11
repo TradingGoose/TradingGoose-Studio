@@ -7,9 +7,11 @@ const { mockGetResolvedSystemSettings, mockResolveSystemServiceConfig } = vi.hoi
   mockResolveSystemServiceConfig: vi.fn(),
 }))
 
-vi.mock('@/lib/mastra/registry', () => ({
+vi.mock('@/lib/mastra/registry', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/mastra/registry')>()),
   getModelProviders: () => [
     { id: 'openai', name: 'OpenAI' },
+    { id: 'google', name: 'Google' },
     { id: 'anthropic', name: 'Anthropic' },
     { id: 'openrouter', name: 'OpenRouter' },
     { id: 'new-native-provider', name: 'New Native Provider' },
@@ -17,6 +19,13 @@ vi.mock('@/lib/mastra/registry', () => ({
 }))
 vi.mock('@opencode-ai/models/snapshot', () => ({
   providers: {
+    openai: {
+      models: {
+        'gpt-image-1.5': { type: 'image' },
+        'gpt-4.1': { type: 'chat', modalities: { input: ['text', 'image'] } },
+      },
+    },
+    google: { models: { 'gemini-embedding-2': { type: 'embedding' } } },
     openrouter: {
       models: { 'vendor/known-model': { canonical_model_id: 'vendor/family/known-model' } },
     },
@@ -96,6 +105,43 @@ describe('server Copilot settings', () => {
       apiKey: 'native-key',
     })
     expect(mockResolveSystemServiceConfig).toHaveBeenCalledExactlyOnceWith('new-native-provider')
+  })
+
+  it.each([
+    ['openai', 'gpt-image-1.5'],
+    ['google', 'gemini-embedding-2'],
+  ])(
+    'rejects the configured non-language model %s/%s before resolving credentials',
+    async (provider, model) => {
+      mockGetResolvedSystemSettings.mockResolvedValue({
+        copilot: { models: [{ provider, model }], defaultModel: `${provider}/${model}` },
+      })
+      mockResolveSystemServiceConfig.mockResolvedValue({ defaultApiKey: 'key', apiKey: 'key' })
+      await expect(resolveCopilotModel()).rejects.toMatchObject({ status: 422 })
+      expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
+    }
+  )
+
+  it('filters non-language models without replacing their default or excluding multimodal chat and future models', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValue({
+      copilot: {
+        models: [
+          { provider: 'openai', model: 'gpt-image-1.5' },
+          { provider: 'google', model: 'gemini-embedding-2' },
+          { provider: 'openai', model: 'gpt-4.1' },
+          { provider: 'new-native-provider', model: 'namespace/future-model' },
+        ],
+        defaultModel: 'openai/gpt-image-1.5',
+      },
+    })
+    expect(await getPublicCopilotModels()).toEqual({
+      models: [
+        { id: 'openai/gpt-4.1', label: 'openai/gpt-4.1' },
+        { id: 'new-native-provider/namespace/future-model', label: 'namespace/future-model' },
+      ],
+      defaultModel: null,
+    })
+    expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
   })
 
   it('projects canonical model identities and preserves future model namespaces without gateway labels', async () => {

@@ -57,9 +57,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => mockLogger,
 }))
 
-vi.mock('@/lib/mastra/registry', () => ({
+vi.mock('@/lib/mastra/registry', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/mastra/registry')>()),
   getModelProviders: () =>
-    ['openai', 'deepseek', 'native-provider'].map((id) => ({ id, name: id })),
+    ['openai', 'google', 'deepseek', 'native-provider'].map((id) => ({ id, name: id })),
 }))
 
 vi.mock('@/lib/system-settings/service', () => ({
@@ -467,6 +468,43 @@ describe('/api/admin/system-settings route', () => {
       details: [{ path: ['copilot', 'models', 0, 'provider'] }],
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['openai', 'gpt-image-1.5'],
+    ['google', 'gemini-embedding-2'],
+  ])('rejects non-language Copilot model %s/%s before saving', async (provider, model) => {
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          copilot: { models: [{ provider, model }], defaultModel: `${provider}/${model}` },
+        }),
+      }) as any
+    )
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      details: [{ path: ['copilot', 'models', 0, 'model'] }],
+    })
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+  })
+
+  it('accepts a published multimodal chat model', async () => {
+    const copilot = {
+      models: [{ provider: 'openai', model: 'gpt-4.1' }],
+      defaultModel: 'openai/gpt-4.1',
+    }
+    mockUpsertSystemSettings.mockResolvedValueOnce({ copilot })
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ copilot }),
+      }) as any
+    )
+    expect(response.status).toBe(200)
+    expect(mockUpsertSystemSettings).toHaveBeenCalledWith({ copilot })
   })
 
   it('rejects a default model outside the Copilot catalogue before saving', async () => {

@@ -5,6 +5,7 @@ import {
   modelSupportsTemperature,
   parseModelString,
 } from '@mastra/core/llm'
+import { providers as modelCatalog } from '@opencode-ai/models/snapshot'
 import { getConfiguredProviders } from './connections'
 
 export interface RegistryModel {
@@ -28,12 +29,16 @@ export function getModelProviders(): Pick<RegistryProvider, 'id' | 'name'>[] {
   return Object.entries(getRegistryProviders()).map(([id, { name }]) => ({ id, name }))
 }
 
-/** Exact native embedding identities are excluded only from generation. */
-function isListedGenerationModel(provider: string, modelId: string, models: string[]): boolean {
+/** models.dev omits type for chat models; model names and modalities do not establish API type. */
+export function isLanguageModel(provider: string, modelId: string): boolean {
   return (
-    models.includes(modelId) &&
+    (modelCatalog[provider]?.models?.[modelId]?.type ?? 'chat') === 'chat' &&
     !EMBEDDING_MODELS.some((entry) => entry.provider === provider && entry.id === modelId)
   )
+}
+
+function isListedGenerationModel(provider: string, modelId: string, models: string[]): boolean {
+  return models.includes(modelId) && isLanguageModel(provider, modelId)
 }
 
 /** Validate only after workflow and environment references have resolved. */
@@ -45,7 +50,7 @@ export function assertListedModel(model: string): void {
   if (!provider || !connection || !isListedGenerationModel(provider, modelId, connection.models)) {
     throw Object.assign(
       new Error(
-        `Model "${model}" is not listed by Mastra. Select a listed provider/model in the Model field.`
+        `Model "${model}" is not a listed Mastra language model. Select a listed provider/model in the Model field.`
       ),
       { status: 400 }
     )

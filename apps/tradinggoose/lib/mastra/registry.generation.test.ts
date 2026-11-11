@@ -1,4 +1,5 @@
-import { EMBEDDING_MODELS } from '@mastra/core/llm'
+import { EMBEDDING_MODELS, GatewayRegistry } from '@mastra/core/llm'
+import { providers as modelCatalog } from '@opencode-ai/models/snapshot'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
@@ -66,6 +67,28 @@ it('retains exact registered generation and custom identities without purpose na
   }
   expect(() => assertListedModel('openai/text-embedding-3-small-unlisted')).toThrow()
   expect(() => assertListedModel('gpt-4.1')).toThrow()
+})
+
+it('excludes every published non-chat API from native generation pickers and validation', () => {
+  vi.stubEnv('MASTRA_MODEL_PROVIDERS', '{}')
+  const generation = new Set(getModelRegistry().flatMap(({ models }) => models.map(({ id }) => id)))
+  const excluded = new Set<string>()
+  for (const [provider, config] of Object.entries(GatewayRegistry.getInstance().getProviders())) {
+    for (const modelId of config.models) {
+      const type = modelCatalog[provider]?.models[modelId]?.type
+      if (type === undefined || type === 'chat') continue
+      const id = `${provider}/${modelId}`
+      excluded.add(id)
+      expect(generation.has(id)).toBe(false)
+      expect(() => assertListedModel(id)).toThrowError(expect.objectContaining({ status: 400 }))
+    }
+  }
+  expect(excluded).toContain('openai/gpt-image-1.5')
+  expect(excluded).toContain('google/gemini-embedding-2')
+  for (const id of ['openai/gpt-5', 'google/gemini-2.5-pro']) {
+    expect(generation.has(id)).toBe(true)
+    expect(() => assertListedModel(id)).not.toThrow()
+  }
 })
 
 it('uses the same generation filter in the authenticated picker API and leaves embedding discovery separate', async () => {
