@@ -293,10 +293,22 @@ function createCopilotStoreInstance(channelId: string) {
         for (const item of pending) {
           verifyPending(item)
           const live = get().toolCallsById[item.target.toolCallId]
-          const provenance =
-            live?.pending?.target.runId === item.target.runId ? live.provenance : undefined
-          if (toolCallsById[item.target.toolCallId])
-            toolCallsById[item.target.toolCallId].provenance = provenance
+          const matchingLive = sameOrigin(live?.pending, item) ? live : undefined
+          const provenance = matchingLive?.provenance
+          const projectedCall = (projected.toolCallsById[item.target.toolCallId] ??= {
+            id: item.target.toolCallId,
+            name: item.target.toolName,
+            historical: true,
+            state: ClientToolCallState.aborted,
+          })
+          projectedCall.provenance = provenance
+          if (matchingLive)
+            Object.assign(projectedCall, {
+              historical: matchingLive.historical,
+              historyOrigin: matchingLive.historyOrigin,
+              state: matchingLive.state,
+              result: matchingLive.result,
+            })
           projected = { ...projected, ...displayNativePending(projected, item, provenance) }
         }
         if (!current()) return

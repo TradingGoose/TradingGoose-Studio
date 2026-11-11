@@ -86,7 +86,29 @@ const history = [
   },
 ]
 const historyResponse = (pending: Pending[]) =>
-  json({ status: 'history', threadId, items: history, pending })
+  json({
+    status: 'history',
+    threadId,
+    items: [
+      history[0],
+      {
+        ...history[1],
+        parts: [
+          ...history[1].parts,
+          ...pending.map((item) => ({
+            type: 'tool-invocation',
+            toolInvocation: {
+              state: 'call',
+              toolCallId: item.target.toolCallId,
+              toolName: item.target.toolName,
+              args: item.originalArgs,
+            },
+          })),
+        ],
+      },
+    ],
+    pending,
+  })
 
 let commands: CopilotRequest[]
 let onCommand: (
@@ -1891,6 +1913,131 @@ describe('owned workflow chat deployment UI', () => {
 })
 
 describe('built-in tool continuation', () => {
+  it.each<{ toolName: string; originalArgs: Pending['originalArgs'] }>([
+    { toolName: 'plan', originalArgs: { objective: 'Research', todoList: ['Inspect workflow'] } },
+    { toolName: 'sleep', originalArgs: { seconds: 0 } },
+    { toolName: 'checkoff_todo', originalArgs: { id: 'todo-1' } },
+    { toolName: 'mark_todo_in_progress', originalArgs: { id: 'todo-1' } },
+  ])(
+    'automatically executes a live $toolName invocation after persisted history refresh',
+    async ({ toolName, originalArgs }) => {
+      const item = { ...pending('result', toolName), originalArgs }
+      onCommand = (request) =>
+        request.command === 'message'
+          ? json(suspended(request, [item]))
+          : request.command === 'history.read'
+            ? historyResponse([item])
+            : undefined
+      expect(await store().getState().sendMessage('Continue')).toBe(true)
+      await vi.waitFor(() => expect(tools.browser).toHaveBeenCalledExactlyOnceWith(originalArgs))
+      const call = store().getState().toolCallsById[item.target.toolCallId]
+      expect(call.historical).toBe(false)
+      expect(call.historyOrigin).toBeUndefined()
+      const part = store()
+        .getState()
+        .messages.flatMap((message) => message.contentBlocks ?? [])
+        .find((block) => block.type === 'tool_call' && block.toolCall.id === item.target.toolCallId)
+      expect(part?.type === 'tool_call' && part.toolCall).toBe(call)
+      await store().getState().refreshCurrentHistory()
+      await store().getState().executeCopilotToolCall(item.target.toolCallId)
+      expect(tools.browser).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  it('keeps a reopened browser invocation ineligible through repeated history refreshes', async () => {
+    const item = { ...pending('result', 'plan'), originalArgs: { objective: 'Historical plan' } }
+    onCommand = (request) =>
+      request.command === 'history.read' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    expect(store().getState().toolCallsById[item.target.toolCallId].historyOrigin).toBe(true)
+    await store().getState().refreshCurrentHistory()
+    expect(await store().getState().sendMessage('Continue')).toBe(false)
+    await new Promise<void>((resolve) => queueMicrotask(resolve))
+    expect(tools.browser).not.toHaveBeenCalled()
+    expect(store().getState().toolCallsById[item.target.toolCallId].historyOrigin).toBe(true)
+  })
+
+  it.each([
+    { state: ClientToolCallState.executing, result: undefined },
+    { state: ClientToolCallState.error, result: { objective: 'Known browser result' } },
+  ])('preserves live $state state when history has no matching invocation', async (live) => {
+    const item = { ...pending('result', 'plan'), originalArgs: { objective: 'Live plan' } }
+    installPending(item)
+    store().setState((state) => ({
+      toolCallsById: {
+        ...state.toolCallsById,
+        [item.target.toolCallId]: {
+          ...state.toolCallsById[item.target.toolCallId],
+          ...live,
+          provenance: { workspaceId: 'pinned-workspace' },
+        },
+      },
+    }))
+    onCommand = (request) =>
+      request.command === 'history.read'
+        ? json({ status: 'history', threadId, items: history, pending: [item] })
+        : undefined
+    await store().getState().refreshCurrentHistory()
+    const call = store().getState().toolCallsById[item.target.toolCallId]
+    expect(call).toMatchObject({ ...live, provenance: { workspaceId: 'pinned-workspace' } })
+    expect(call.pending).toEqual(item)
+    expect(call.historyOrigin).toBeUndefined()
+    expect(tools.browser).not.toHaveBeenCalled()
+  })
+
+  it('never autoexecutes a cold pending tool omitted from history after another tool continues', async () => {
+    const cold = { ...pending('result', 'plan'), originalArgs: { objective: 'Reopened plan' } }
+    const other = {
+      ...cold,
+      target: { ...cold.target, toolCallId: 'other-call' },
+      originalArgs: { objective: 'Explicit plan' },
+    }
+    let items = [other, cold]
+    onCommand = (request) => {
+      if (request.command === 'history.read')
+        return json({ status: 'history', threadId, items: history, pending: items })
+      if (request.command === 'tool.result') {
+        items = [cold]
+        return json(suspended(request, items))
+      }
+      return undefined
+    }
+    await store().getState().selectChat(chat())
+    await store().getState().submitBrowserAssertion(other.target.toolCallId, {
+      kind: 'plan.updated',
+      data: other.originalArgs,
+    })
+    await new Promise<void>((resolve) => queueMicrotask(resolve))
+    expect(tools.browser).not.toHaveBeenCalled()
+    expect(store().getState().toolCallsById[cold.target.toolCallId].historyOrigin).toBe(true)
+  })
+
+  it.each(['runId', 'resourceId', 'toolName', 'originalArgs'] as const)(
+    'does not transfer live origin when authoritative pending %s changes',
+    async (field) => {
+      const item = { ...pending('result', 'plan'), originalArgs: { objective: 'Live plan' } }
+      const changed: Pending = structuredClone(item)
+      if (field === 'originalArgs') changed.originalArgs = { objective: 'Changed plan' }
+      else if (field === 'toolName') {
+        changed.target.toolName = 'checkoff_todo'
+        changed.originalArgs = { id: 'todo-1' }
+      } else changed.target[field] = 'changed'
+      onCommand = (request) =>
+        request.command === 'message'
+          ? json(suspended(request, [item]))
+          : request.command === 'history.read'
+            ? historyResponse([changed])
+            : undefined
+      expect(await store().getState().sendMessage('Continue')).toBe(true)
+      await new Promise<void>((resolve) => queueMicrotask(resolve))
+      expect(tools.browser).not.toHaveBeenCalled()
+      const call = store().getState().toolCallsById[item.target.toolCallId]
+      expect(call.pending).toEqual(changed)
+      expect(call.historyOrigin).toBe(true)
+      expect(call.provenance).toBeUndefined()
+    }
+  )
+
   it.each(['limited', 'full'] as const)(
     'never automatically accepts a persisted preview under %s access',
     async (accessLevel) => {
