@@ -609,6 +609,65 @@ describe('native Agent MCP integration', () => {
     },
     usageControl: 'force' as const,
   }
+  it.each(['auto', 'force'] as const)(
+    'dispatches a long MCP identity using Mastra-normalized %s selection',
+    async (usageControl) => {
+      const toolName = 'get_graphql_type_schema'
+      const nativeName = `mcp-${selected.params.serverId}-${toolName}`.slice(0, 63)
+      vi.mocked(mcpService.discoverServerTools).mockResolvedValue([
+        {
+          name: toolName,
+          serverId: selected.params.serverId,
+          serverName: 'Research',
+          inputSchema: { type: 'object' },
+        },
+      ])
+      let first = true
+      state.model = new MastraLanguageModelV2Mock({
+        doGenerate: async (options) => {
+          const callTool = first
+          first = false
+          return {
+            content: callTool
+              ? [
+                  {
+                    type: 'tool-call',
+                    toolCallId: 'schema-call',
+                    toolName: options.tools![0].name,
+                    input: '{}',
+                  },
+                ]
+              : [{ type: 'text', text: 'Schema answer' }],
+            finishReason: callTool ? 'tool-calls' : 'stop',
+            usage,
+            warnings: [],
+          }
+        },
+      })
+      const result = await new AgentBlockHandler().execute(
+        block,
+        {
+          model: 'openai/gpt-4.1',
+          tools: [{ ...selected, usageControl, params: { ...selected.params, toolName } }],
+        },
+        context()
+      )
+      expect(result).toMatchObject({ content: 'Schema answer' })
+      expect(state.model.doGenerateCalls[0].tools.map((tool: any) => tool.name)).toEqual([
+        nativeName,
+      ])
+      expect(state.model.doGenerateCalls[0].toolChoice).toEqual(
+        usageControl === 'force' ? { type: 'tool', toolName: nativeName } : { type: 'auto' }
+      )
+      expect(executeTool).toHaveBeenCalledExactlyOnceWith(
+        'mcp',
+        expect.objectContaining({ serverId: selected.params.serverId, toolName }),
+        false,
+        expect.anything(),
+        expect.anything()
+      )
+    }
+  )
   it.each([false, true])(
     'uses workspace-authorized discovery and the shared execution path (deployed=%s)',
     async (isDeployedContext) => {
@@ -689,6 +748,49 @@ describe('native Agent MCP integration', () => {
 
 describe('native named Force tools', () => {
   const schema = { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
+  it('uses the native name for invalid characters and a leading digit while dispatching the original ID', async () => {
+    const configured = [
+      { id: '9.lookup', description: 'Lookup', parameters: schema, usageControl: 'force' as const },
+    ]
+    const { tools } = createOwnedTestToolSet(configured, context())
+    const policy = createForcedToolPolicy(configured)
+    const result = await new Agent({
+      id: 'normalized',
+      name: 'Normalized',
+      instructions: '',
+      model: state.model,
+      tools,
+    }).generate('Lookup', { maxSteps: 2, prepareStep: policy.prepareStep })
+    policy.assertComplete(result.steps)
+    expect(state.model.doGenerateCalls[0].toolChoice).toEqual({
+      type: 'tool',
+      toolName: '_9_lookup',
+    })
+    expect(vi.mocked(executeTool).mock.calls[0][0]).toBe('9.lookup')
+  })
+
+  it('preserves Mastra rejection when distinct tool IDs normalize to the same name', async () => {
+    const configured = ['a', 'b'].map((suffix) => ({
+      id: `${'lookup_'.repeat(9)}${suffix}`,
+      description: 'Lookup',
+      parameters: schema,
+      usageControl: 'force' as const,
+    }))
+    const { tools } = createOwnedTestToolSet(configured, context())
+    const policy = createForcedToolPolicy(configured)
+    await expect(
+      new Agent({
+        id: 'collision',
+        name: 'Collision',
+        instructions: '',
+        model: state.model,
+        tools,
+      }).generate('Lookup', { prepareStep: policy.prepareStep })
+    ).rejects.toThrow('resolve to the same name')
+    expect(state.model.doGenerateCalls).toEqual([])
+    expect(executeTool).not.toHaveBeenCalled()
+  })
+
   it('runs two forced tools in configured order, then Auto; None stays unexposed and fixed args/context survive', async () => {
     const configured = [
       {
@@ -779,7 +881,7 @@ describe('native named Force tools', () => {
       { type: 'auto' },
     ])
     const auto = configured.map((tool) => ({ ...tool, usageControl: 'auto' as const }))
-    expect(createForcedToolPolicy(auto).prepareStep({ steps: [] }).activeTools).toEqual(
+    expect(createForcedToolPolicy(auto).prepareStep({ steps: [], tools }).activeTools).toEqual(
       Object.keys(tools)
     )
   })

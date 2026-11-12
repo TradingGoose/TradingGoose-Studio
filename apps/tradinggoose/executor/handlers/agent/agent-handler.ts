@@ -1,6 +1,6 @@
 import { Agent, type AgentExecutionOptions } from '@mastra/core/agent'
 import { toStandardSchema } from '@mastra/core/schema'
-import { createTool } from '@mastra/core/tools'
+import { type CoreTool, createTool } from '@mastra/core/tools'
 import {
   buildCustomToolModelDescription,
   getCustomToolEntityIdFromRuntimeId,
@@ -219,7 +219,6 @@ export class AgentBlockHandler implements BlockHandler {
       structuredOutput: responseFormat
         ? { schema: toStandardSchema(responseFormat.schema), errorStrategy: 'strict' }
         : undefined,
-      activeTools: Object.keys(tools),
       prepareStep: async (step) => {
         await cancellation.check()
         signal.throwIfAborted()
@@ -683,13 +682,11 @@ export function createAgentToolSet(
 
 /** Force names are selected from observed successful calls in configured order. */
 export function createForcedToolPolicy(tools: AgentToolConfig[]) {
-  const named = namedAgentTools(tools)
-  const activeTools = named
-    .filter(({ tool }) => tool.usageControl !== 'none')
-    .map(({ nativeName }) => nativeName)
-  const forced = named
+  const forcedIds = namedAgentTools(tools)
     .filter(({ tool }) => tool.usageControl === 'force')
     .map(({ nativeName }) => nativeName)
+  let forced = forcedIds
+  let namesResolved = false
   const completedCount = (steps: any[] = []) => {
     let count = 0
     const seenCalls = new Set<string>()
@@ -720,10 +717,21 @@ export function createForcedToolPolicy(tools: AgentToolConfig[]) {
     return count
   }
   return {
-    prepareStep({ steps }: { steps: any[] }) {
+    prepareStep({ steps, tools }: { steps: any[]; tools?: Record<string, unknown> }) {
+      // Mastra supplies normalized names while retaining each configured instance's ID.
+      const nativeTools = Object.entries(tools ?? {})
+      if (!namesResolved) {
+        const namesById = new Map(nativeTools.map(([name, tool]) => [(tool as CoreTool).id, name]))
+        forced = forcedIds.map((id) => {
+          const name = namesById.get(id)
+          if (!name) throw new Error(`Required Agent tool is unavailable: ${id}`)
+          return name
+        })
+        namesResolved = true
+      }
       const pending = forced[completedCount(steps)]
       return {
-        activeTools: pending ? [pending] : activeTools,
+        activeTools: pending ? [pending] : nativeTools.map(([name]) => name),
         toolChoice: pending ? { type: 'tool' as const, toolName: pending } : ('auto' as const),
       }
     },
