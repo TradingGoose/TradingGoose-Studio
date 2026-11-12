@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
-import { pendingExecution, systemServiceValue, systemSettings, user } from '@tradinggoose/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { pendingExecution, systemServiceValue, systemSettings } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import {
   type CopilotSettings,
   CopilotSettingsSchema,
@@ -149,14 +149,6 @@ export async function upsertSystemSettings(
         .from(pendingExecution)
         .limit(1)
       if (queuedOrRunning) throw new TriggerExecutionBusyError()
-    }
-
-    if (input.billingEnabled === true && !existing?.billingEnabled) {
-      // Keep new signups outside the scan until billing and its subscriptions commit together.
-      await tx.execute(sql`LOCK TABLE ${user} IN SHARE MODE`)
-      const users = await tx.select({ id: user.id }).from(user)
-      const { ensureDefaultUserSubscription } = await import('@/lib/billing/core/subscription')
-      for (const { id } of users) await ensureDefaultUserSubscription(id, tx)
     }
 
     if (Object.keys(input).some((key) => key !== 'copilot'))

@@ -164,35 +164,71 @@ describe('subscription billing helpers', () => {
     expect(snapshot.currentPeriodCost).toBe(12.5)
   })
 
-  it('leaves a missing subscription missing without writing during a read', async () => {
-    mockDb.select.mockImplementation(() => createSelectQueryMock([], 'where'))
+  it('restores the default subscription when a billed user has no entitled row', async () => {
+    // The reported failure: a missed Stripe cancellation leaves the user's only personal row
+    // non-entitled, so every billing read used to throw.
+    const restoredSubscription = {
+      id: 'sub_default_user_123',
+      referenceType: 'user',
+      referenceId: 'user_123',
+      status: 'active',
+      tier: { id: 'tier_default', isDefault: true },
+    }
+    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
+    const selectResults: unknown[] = [[], [], [restoredSubscription]]
+    mockDb.select.mockImplementation(() =>
+      createSelectQueryMock(selectResults.shift() ?? [], 'where')
+    )
+    mockDb.insert.mockImplementation(() => ({
+      values: vi.fn(() => ({ onConflictDoUpdate: vi.fn(() => Promise.resolve()) })),
+    }))
+
     const { getEffectiveSubscription } = await import('./subscription')
+
+    await expect(getEffectiveSubscription('user_123')).resolves.toBe(restoredSubscription)
+    expect(mockDb.insert).toHaveBeenCalled()
+  })
+
+  it('does not restore a subscription when billing is disabled', async () => {
+    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: false })
+    mockDb.select.mockImplementation(() => createSelectQueryMock([], 'where'))
+    mockDb.insert.mockImplementation(() => ({
+      values: vi.fn(() => ({ onConflictDoUpdate: vi.fn(() => Promise.resolve()) })),
+    }))
+
+    const { getEffectiveSubscription } = await import('./subscription')
+
     await expect(getEffectiveSubscription('user_123')).resolves.toBeNull()
     expect(mockDb.insert).not.toHaveBeenCalled()
   })
 
-  it.each([false, true])(
-    'preserves an existing personal subscription during initialization (default=%s)',
-    async (isDefault) => {
-      const existing = {
-        id: isDefault ? 'sub_default_user_123' : 'sub_paid_user_123',
-        referenceType: 'user',
-        referenceId: 'user_123',
-        status: 'active',
-        tier: { id: isDefault ? 'tier_default' : 'tier_paid', isDefault },
-      }
-      const store = {
-        select: vi.fn(() => createSelectQueryMock([existing], 'where')),
-        insert: vi.fn(),
-      }
-      const { ensureDefaultUserSubscription } = await import('./subscription')
+  it('throws when billing is enabled and entitlement cannot be restored', async () => {
+    mockGetResolvedBillingSettings.mockResolvedValue({
+      billingEnabled: true,
+    })
+    // Recovery runs, fails to provision a default subscription, and the original billing
+    // error surfaces rather than a new one.
+    mockDb.insert.mockImplementation(() => ({
+      values: vi.fn(() => ({ onConflictDoUpdate: vi.fn(() => Promise.resolve()) })),
+    }))
+    mockDb.select
+      .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+      .mockImplementationOnce(() =>
+        createSelectQueryMock([
+          {
+            currentPeriodCost: '12.50',
+            totalCost: '20.00',
+            customUsageLimit: null,
+            grantedOnboardingAllowanceUsd: '5.00',
+          },
+        ])
+      )
 
-      await expect(ensureDefaultUserSubscription('user_123', store as any)).resolves.toBe(existing)
-      expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([existing], store)
-      expect(store.insert).not.toHaveBeenCalled()
-      expect(mockRequireDefaultBillingTier).not.toHaveBeenCalled()
-    }
-  )
+    const { getPersonalBillingSnapshot } = await import('./subscription')
+    await expect(getPersonalBillingSnapshot('user_123')).rejects.toThrow(
+      'No active personal subscription found for billed user user_123'
+    )
+  })
 
   it('throws a typed error when a required active subscription is missing', async () => {
     mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'where'))
@@ -231,5 +267,100 @@ describe('subscription billing helpers', () => {
 
     await expect(getSubscriptionByStripeSubscriptionId('stripe_sub_missing')).resolves.toBe(null)
     expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([])
+  })
+
+  it('seeds onboarding allowance into user stats on billing-enable backfill', async () => {
+    const insertCalls: Array<{
+      values: Record<string, unknown>
+      conflict: 'update' | 'nothing'
+      target: unknown
+      set?: Record<string, unknown>
+    }> = []
+    const selectResults: Array<{
+      result: unknown
+      terminal: 'from' | 'limit' | 'where'
+    }> = [
+      { result: [{ id: 'user_123' }], terminal: 'from' },
+      { result: [], terminal: 'where' },
+      { result: [], terminal: 'where' },
+      {
+        result: [
+          {
+            id: 'sub_default_user_123',
+            referenceType: 'user',
+            referenceId: 'user_123',
+            status: 'active',
+            tier: {
+              id: 'tier_default',
+              isDefault: true,
+            },
+          },
+        ],
+        terminal: 'where',
+      },
+    ]
+
+    mockGetResolvedBillingSettings.mockResolvedValue({
+      onboardingAllowanceUsd: 25,
+    })
+    mockDb.select.mockImplementation(() => {
+      const nextResult = selectResults.shift() ?? { result: [], terminal: 'where' as const }
+      return createSelectQueryMock(nextResult.result, nextResult.terminal)
+    })
+    mockDb.insert.mockImplementation(() => ({
+      values: vi.fn((values) => ({
+        onConflictDoUpdate: vi.fn(({ target, set }) => {
+          insertCalls.push({ values, conflict: 'update', target, set })
+          return Promise.resolve()
+        }),
+        onConflictDoNothing: vi.fn(({ target }) => {
+          insertCalls.push({ values, conflict: 'nothing', target })
+          return Promise.resolve()
+        }),
+      })),
+    }))
+
+    const { backfillDefaultUserSubscriptions } = await import('./subscription')
+    const createdCount = await backfillDefaultUserSubscriptions()
+
+    expect(createdCount).toBe(1)
+    const { id, stripeCustomerId, ...resetValues } = insertCalls[0].values
+    expect(id).toBe('sub_default_user_123')
+    expect(stripeCustomerId).toBeNull()
+    expect(insertCalls[0].set).toEqual(resetValues)
+    expect(mockSql).toHaveBeenCalledTimes(1)
+    expect(insertCalls).toEqual([
+      expect.objectContaining({
+        conflict: 'update',
+        values: expect.objectContaining({
+          id: 'sub_default_user_123',
+          plan: 'tier_default',
+          billingTierId: 'tier_default',
+          referenceType: 'user',
+          referenceId: 'user_123',
+          status: 'active',
+        }),
+      }),
+      expect.objectContaining({
+        conflict: 'update',
+        values: expect.objectContaining({
+          userId: 'user_123',
+          grantedOnboardingAllowanceUsd: '25',
+          customUsageLimit: '25',
+        }),
+        set: expect.objectContaining({
+          grantedOnboardingAllowanceUsd: '25',
+          customUsageLimit: expect.objectContaining({
+            type: 'sql',
+            values: [
+              'userStats.customUsageLimit',
+              'userStats.grantedOnboardingAllowanceUsd',
+              '25',
+              'userStats.customUsageLimit',
+            ],
+          }),
+        }),
+      }),
+    ])
   })
 })

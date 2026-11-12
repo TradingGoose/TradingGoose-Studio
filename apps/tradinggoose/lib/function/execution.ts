@@ -246,6 +246,7 @@ export async function executeFunctionRequest(
             workspaceId,
             workflowId,
             cost: functionExecutionCost,
+            reason: 'function_execution',
           })
         }
       } catch (billingError) {

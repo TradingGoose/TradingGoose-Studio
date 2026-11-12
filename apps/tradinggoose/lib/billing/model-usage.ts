@@ -96,6 +96,7 @@ export async function recordModelUsage(
     workflowId: scope.workflowId,
     billingContext,
     cost: chargedCost,
+    reason: scope.purpose,
     skipThresholdBilling: usdCost === undefined,
     extraUpdates: {
       ...(tokens !== undefined ? { totalTokensUsed: sql`total_tokens_used + ${tokens}` } : {}),

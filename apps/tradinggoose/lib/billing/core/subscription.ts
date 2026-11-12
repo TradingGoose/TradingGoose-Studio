@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import type { BillingReference, SubscriptionWithTier } from '@/lib/billing/tiers'
@@ -77,6 +77,44 @@ export function getConfiguredPersonalUsageLimit(
 }
 
 /**
+ * Give a billed user back the default tier when they hold no entitled subscription.
+ *
+ * Personal Stripe subscriptions reuse the user's default subscription row, so a cancellation
+ * that Stripe reported but we failed to finish (a dropped `customer.subscription.deleted`,
+ * or a settlement error part-way through one) leaves that single row non-entitled and every
+ * billing read throwing. The local status is enough to act on: the row is not entitling
+ * anyone, and the default tier is the floor rather than a revocation.
+ *
+ * Never throws - callers use it behind a normal read, so a repair failure must surface as
+ * the original billing error rather than a new one.
+ */
+async function restorePersonalEntitlement(
+  userId: string,
+  dbClient: Pick<typeof db, 'insert' | 'select'> = db
+): Promise<SubscriptionWithTier | null> {
+  try {
+    // With billing disabled there is no default tier to grant, and callers already treat a
+    // missing subscription as unlimited.
+    const { billingEnabled } = await getResolvedBillingSettings(dbClient)
+    if (!billingEnabled) {
+      return null
+    }
+
+    const restoredSubscription = await ensureDefaultUserSubscription(userId, dbClient)
+
+    logger.warn('Restored default personal subscription for a user left without one', {
+      userId,
+      subscriptionId: restoredSubscription.id,
+    })
+
+    return restoredSubscription
+  } catch (error) {
+    logger.error('Failed to restore default personal subscription', { userId, error })
+    return null
+  }
+}
+
+/**
  * Get the active subscription that currently governs a billing reference.
  */
 export async function getActiveSubscriptionForReference(
@@ -95,7 +133,13 @@ export async function getActiveSubscriptionForReference(
     )
 
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows, dbClient)
-  return selectEffectiveSubscription(hydratedSubscriptions)
+  const effectiveSubscription = selectEffectiveSubscription(hydratedSubscriptions)
+
+  if (effectiveSubscription || reference.referenceType !== 'user') {
+    return effectiveSubscription
+  }
+
+  return restorePersonalEntitlement(reference.referenceId, dbClient)
 }
 
 export async function requireActiveSubscriptionForReference(
@@ -128,7 +172,8 @@ export async function getSubscriptionByStripeSubscriptionId(
 export async function getEffectiveSubscription(
   userId: string
 ): Promise<SubscriptionWithTier | null> {
-  return getPersonalEffectiveSubscription(userId)
+  const personalSubscription = await getPersonalEffectiveSubscription(userId)
+  return personalSubscription ?? restorePersonalEntitlement(userId)
 }
 
 export async function getPersonalEffectiveSubscription(
@@ -195,10 +240,65 @@ export async function ensureDefaultUserSubscription(
   return defaultSubscription
 }
 
+export async function backfillDefaultUserSubscriptions(): Promise<number> {
+  const [{ onboardingAllowanceUsd }, userRows, entitledSubscriptions] = await Promise.all([
+    getResolvedBillingSettings(),
+    db.select({ id: user.id }).from(user),
+    db
+      .select({ referenceId: subscription.referenceId })
+      .from(subscription)
+      .where(
+        and(
+          eq(subscription.referenceType, 'user'),
+          inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
+        )
+      ),
+  ])
+
+  const subscribedUserIds = new Set(entitledSubscriptions.map((row) => row.referenceId))
+  const usageLimit = onboardingAllowanceUsd.toString()
+  const usageLimitSeed = {
+    grantedOnboardingAllowanceUsd: usageLimit,
+    customUsageLimit: usageLimit,
+  }
+  let createdCount = 0
+
+  for (const row of userRows) {
+    if (subscribedUserIds.has(row.id)) {
+      continue
+    }
+
+    await ensureDefaultUserSubscription(row.id)
+    await db
+      .insert(userStats)
+      .values({
+        id: crypto.randomUUID(),
+        userId: row.id,
+        ...usageLimitSeed,
+      })
+      .onConflictDoUpdate({
+        target: userStats.userId,
+        set: {
+          grantedOnboardingAllowanceUsd: usageLimit,
+          customUsageLimit: sql`CASE
+            WHEN ${userStats.customUsageLimit} = ${userStats.grantedOnboardingAllowanceUsd}
+              THEN ${usageLimit}
+            ELSE ${userStats.customUsageLimit}
+          END`,
+        },
+      })
+    createdCount += 1
+  }
+
+  logger.info('Backfilled default user subscriptions', { createdCount })
+  return createdCount
+}
+
 export async function getPersonalBillingSnapshot(userId: string): Promise<PersonalBillingSnapshot> {
   try {
     const [{ billingEnabled }, subscription, statsRecords] = await Promise.all([
       getResolvedBillingSettings(),
+      // Not the raw personal read: this one repairs a user left without an entitled row.
       getEffectiveSubscription(userId),
       db
         .select({

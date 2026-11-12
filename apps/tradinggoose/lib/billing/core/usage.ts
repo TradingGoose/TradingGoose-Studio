@@ -166,7 +166,15 @@ export async function getUserUsageData(userId: string): Promise<UsageData> {
         getEffectiveSubscription(userId),
       ])
 
-    if (userStatsData.length === 0) throw new Error(`User stats not found for userId: ${userId}`)
+    if (userStatsData.length === 0) {
+      logger.warn('User stats not found, initializing defaults', { userId })
+      await handleNewUser(userId)
+      const seeded = await db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1)
+      if (seeded.length === 0) {
+        throw new Error(`Failed to initialize user stats for userId: ${userId}`)
+      }
+      userStatsData.push(seeded[0])
+    }
 
     const stats = userStatsData[0]
     const unbilledUsage = Number.parseFloat(stats.totalCost?.toString() ?? '0')

@@ -190,31 +190,6 @@ describe('getOrganizationMinimumUsageLimitUsd', () => {
   })
 })
 
-describe('billing ledger reads', () => {
-  beforeEach(() => {
-    vi.resetModules()
-    vi.clearAllMocks()
-  })
-
-  it('refuses a missing organization ledger without creating a replacement', async () => {
-    mockDb.select
-      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'org' }]))
-      .mockImplementationOnce(() => createSelectQueryMock([]))
-    const { getOrganizationBillingLedger } = await import('./organization')
-    await expect(getOrganizationBillingLedger('org')).rejects.toThrow('ledger is missing')
-    expect(mockDb.insert).not.toHaveBeenCalled()
-  })
-
-  it('refuses a missing member ledger without resetting its usage', async () => {
-    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([]))
-    const { getOrganizationMemberBillingLedger } = await import('./organization')
-    await expect(getOrganizationMemberBillingLedger('org', 'member')).rejects.toThrow(
-      'ledger is missing'
-    )
-    expect(mockDb.insert).not.toHaveBeenCalled()
-  })
-})
-
 describe('getOrganizationBillingData', () => {
   beforeEach(() => {
     vi.resetModules()

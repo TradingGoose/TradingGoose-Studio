@@ -6,6 +6,7 @@ import { DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/settings'
 import { ADMIN_ERROR_CODES } from '@/app/admin/constants'
 
 const {
+  mockBackfillDefaultUserSubscriptions,
   mockGetSystemAdminAccess,
   mockClaimFirstSystemAdmin,
   mockGetBillingGateState,
@@ -16,6 +17,7 @@ const {
   mockLogger,
   MockTriggerExecutionBusyError,
 } = vi.hoisted(() => ({
+  mockBackfillDefaultUserSubscriptions: vi.fn(),
   mockGetSystemAdminAccess: vi.fn(),
   mockClaimFirstSystemAdmin: vi.fn(),
   mockGetBillingGateState: vi.fn(),
@@ -42,6 +44,10 @@ const {
 vi.mock('@/lib/admin/access', () => ({
   claimFirstSystemAdmin: mockClaimFirstSystemAdmin,
   getSystemAdminAccess: mockGetSystemAdminAccess,
+}))
+
+vi.mock('@/lib/billing/core/subscription', () => ({
+  backfillDefaultUserSubscriptions: mockBackfillDefaultUserSubscriptions,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -109,6 +115,7 @@ describe('/api/admin/system-settings route', () => {
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
       copilot: DEFAULT_COPILOT_SETTINGS,
     })
+    mockBackfillDefaultUserSubscriptions.mockResolvedValue(3)
   })
 
   it('claims bootstrap ownership before returning the system settings snapshot', async () => {
@@ -154,7 +161,7 @@ describe('/api/admin/system-settings route', () => {
     expect(mockIsTriggerConfigurationReady).not.toHaveBeenCalled()
   })
 
-  it('enables billing after validating its configuration', async () => {
+  it('backfills default subscriptions only after enabling billing is saved', async () => {
     mockGetResolvedSystemSettings.mockResolvedValueOnce({
       settings: null,
       registrationMode: 'open',
@@ -187,6 +194,10 @@ describe('/api/admin/system-settings route', () => {
       triggerDevEnabled: true,
       triggerReady: true,
     })
+    expect(mockBackfillDefaultUserSubscriptions).toHaveBeenCalledTimes(1)
+    expect(mockUpsertSystemSettings.mock.invocationCallOrder[0]).toBeLessThan(
+      mockBackfillDefaultUserSubscriptions.mock.invocationCallOrder[0]
+    )
     expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
       registrationMode: 'open',
       billingEnabled: true,
@@ -195,7 +206,7 @@ describe('/api/admin/system-settings route', () => {
     })
   })
 
-  it('disables billing', async () => {
+  it('does not backfill subscriptions when disabling billing', async () => {
     mockGetResolvedSystemSettings.mockResolvedValueOnce({
       settings: null,
       registrationMode: 'open',
@@ -229,6 +240,7 @@ describe('/api/admin/system-settings route', () => {
     )
 
     expect(response.status).toBe(200)
+    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
   })
 
   it('rejects enabling billing before billing configuration is ready', async () => {
@@ -263,6 +275,7 @@ describe('/api/admin/system-settings route', () => {
       code: ADMIN_ERROR_CODES.BILLING_NOT_READY,
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
   })
 
   it('serializes billing as disabled when Stripe is not configured', async () => {
@@ -318,6 +331,7 @@ describe('/api/admin/system-settings route', () => {
       code: ADMIN_ERROR_CODES.BILLING_NOT_CONFIGURED,
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
   })
 
   it('rejects enabling Trigger.dev before trigger configuration is ready', async () => {
@@ -424,6 +438,7 @@ describe('/api/admin/system-settings route', () => {
     expect(mockUpsertSystemSettings).toHaveBeenCalledWith({
       emailDomain: 'support.tradinggoose.ai',
     })
+    expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
   })
 
   it.each(['deepseek', 'native-provider'])(

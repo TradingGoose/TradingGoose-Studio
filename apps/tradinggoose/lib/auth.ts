@@ -564,9 +564,19 @@ export const auth = betterAuth({
             })
           }
 
-          await handleNewUser(user.id)
-          const { billingEnabled } = await getBillingGateState()
-          if (billingEnabled) await ensureDefaultUserSubscription(user.id)
+          try {
+            await handleNewUser(user.id)
+
+            const { billingEnabled } = await getBillingGateState()
+            if (billingEnabled) {
+              await ensureDefaultUserSubscription(user.id)
+            }
+          } catch (error) {
+            logger.error('[databaseHooks.user.create.after] Failed to initialize user stats', {
+              userId: user.id,
+              error,
+            })
+          }
 
           if (hasStripeSecretKey()) {
             try {
@@ -1885,6 +1895,14 @@ export const auth = betterAuth({
       },
       // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
       membershipLimit: 50,
+      // Validate seat limits before sending invitations
+      beforeInvite: async ({ organization }: { organization: { id: string } }) => {
+        const seatValidation = await validateSeatAvailability(organization.id)
+
+        if (!seatValidation.canInvite) {
+          throw new Error(seatValidation.reason ?? 'Unable to invite member')
+        }
+      },
       sendInvitationEmail: async (data: any) => {
         try {
           const { invitation, organization, inviter } = data
@@ -1917,33 +1935,18 @@ export const auth = betterAuth({
           logger.error('Error sending invitation email', { error })
         }
       },
-      organizationHooks: {
-        beforeCreateInvitation: async ({ organization }) => {
-          const seats = await validateSeatAvailability(organization.id)
-          if (!seats.canInvite) throw new Error(seats.reason ?? 'Unable to invite member')
-        },
-        afterCreateOrganization: async ({ organization }) => {
-          await db
-            .insert(schema.organizationBillingLedger)
-            .values({ organizationId: organization.id })
-        },
-        afterAddMember: async ({ member }) => {
-          await db
-            .insert(schema.organizationMemberBillingLedger)
-            .values({
-              organizationId: member.organizationId,
-              userId: member.userId,
-            })
-            .onConflictDoNothing()
-        },
-        afterAcceptInvitation: async ({ member }) => {
-          await db
-            .insert(schema.organizationMemberBillingLedger)
-            .values({
-              organizationId: member.organizationId,
-              userId: member.userId,
-            })
-            .onConflictDoNothing()
+      organizationCreation: {
+        afterCreate: async ({
+          organization,
+          user,
+        }: {
+          organization: { id: string }
+          user: { id: string }
+        }) => {
+          logger.info('[organizationCreation.afterCreate] Organization created', {
+            organizationId: organization.id,
+            creatorId: user.id,
+          })
         },
       },
     }),

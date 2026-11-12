@@ -420,6 +420,7 @@ export class ExecutionLogger {
                 : {}),
             },
             skipThresholdBilling: true,
+            reason: 'workflow_execution',
           },
           tx
         )

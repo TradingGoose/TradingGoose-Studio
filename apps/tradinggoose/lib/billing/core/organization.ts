@@ -98,7 +98,28 @@ export async function getOrganizationBillingLedger(
     .where(eq(organizationBillingLedger.organizationId, organizationId))
     .limit(1)
 
-  if (ledgerRows.length === 0) throw new Error('Organization billing ledger is missing')
+  if (ledgerRows.length === 0) {
+    await db
+      .insert(organizationBillingLedger)
+      .values({
+        organizationId,
+      })
+      .onConflictDoNothing({
+        target: [organizationBillingLedger.organizationId],
+      })
+
+    const seededRows = await db
+      .select()
+      .from(organizationBillingLedger)
+      .where(eq(organizationBillingLedger.organizationId, organizationId))
+      .limit(1)
+
+    if (seededRows.length === 0) {
+      return null
+    }
+
+    return mapOrganizationBillingLedgerRow(seededRows[0])
+  }
 
   return mapOrganizationBillingLedgerRow(ledgerRows[0])
 }
@@ -145,7 +166,37 @@ export async function getOrganizationMemberBillingLedger(
     )
     .limit(1)
 
-  if (ledgerRows.length === 0) throw new Error('Organization member billing ledger is missing')
+  if (ledgerRows.length === 0) {
+    await db
+      .insert(organizationMemberBillingLedger)
+      .values({
+        organizationId,
+        userId,
+      })
+      .onConflictDoNothing({
+        target: [
+          organizationMemberBillingLedger.organizationId,
+          organizationMemberBillingLedger.userId,
+        ],
+      })
+
+    const seededRows = await db
+      .select()
+      .from(organizationMemberBillingLedger)
+      .where(
+        and(
+          eq(organizationMemberBillingLedger.organizationId, organizationId),
+          eq(organizationMemberBillingLedger.userId, userId)
+        )
+      )
+      .limit(1)
+
+    if (seededRows.length === 0) {
+      return null
+    }
+
+    return mapOrganizationMemberBillingLedgerRow(seededRows[0])
+  }
 
   return mapOrganizationMemberBillingLedgerRow(ledgerRows[0])
 }

@@ -12,6 +12,9 @@ import {
   resolveWorkspaceBillingContext,
   type WorkspaceBillingContext,
 } from '@/lib/billing/workspace-billing'
+import { createLogger } from '@/lib/logs/console/logger'
+
+const logger = createLogger('BillingUsageAccrual')
 export type UsageTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 export type UsageAccrual = { currentUsageBefore: number; currentUsageAfter: number }
 
@@ -24,10 +27,11 @@ export async function accrueUserUsageCost(
     extraUpdates?: Record<string, any>
     skipThresholdBilling?: boolean
     billingContext?: WorkspaceBillingContext
+    reason: string
   },
   transaction?: UsageTransaction
 ): Promise<UsageAccrual | null> {
-  const { userId, workspaceId, workflowId, cost, extraUpdates = {} } = params
+  const { userId, workspaceId, workflowId, cost, extraUpdates = {}, reason } = params
   if (
     (!params.billingContext && !(await isBillingEnabledForRuntime())) ||
     (cost <= 0 && Object.keys(extraUpdates).length === 0)
@@ -74,7 +78,15 @@ export async function accrueUserUsageCost(
         .from(target.table)
         .where(target.where)
         .for('update')
-      if (!row) throw new Error('Billing usage ledger is missing')
+      if (!row) {
+        logger.warn('Usage cost accrual skipped - billing ledger record not found', {
+          userId,
+          workspaceId,
+          workflowId,
+          reason,
+        })
+        return null
+      }
       usage.currentUsageBefore = Number(row.currentPeriodCost)
     }
     for (const target of targets) {

@@ -5,6 +5,7 @@ import {
   type AdminSystemSettingsMutationInput,
   adminSystemSettingsMutationSchema,
 } from '@/lib/admin/system-settings/mutations'
+import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
 import { getBillingGateState, isBillingConfigurationReady } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getModelProviders, isLanguageModel } from '@/lib/mastra/registry'
@@ -204,6 +205,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const snapshot = await upsertSystemSettings(payload)
+
+    if (isEnablingBilling) {
+      await backfillDefaultUserSubscriptions()
+    }
 
     return NextResponse.json(
       serializeSnapshot(snapshot, billingGate.stripeConfigured, billingReady, triggerReady),
