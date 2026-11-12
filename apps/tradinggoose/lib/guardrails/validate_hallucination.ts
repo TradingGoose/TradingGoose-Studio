@@ -133,6 +133,7 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
           additionalProperties: false,
         }),
         errorStrategy: 'strict',
+        jsonPromptInjection: true,
       },
     })
     assertNativeCompletion(response)

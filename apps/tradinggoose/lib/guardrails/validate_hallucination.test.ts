@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { validateHallucination } from './validate_hallucination'
 
 const native = vi.hoisted(() => ({
+  realAgent: false,
   generate: vi.fn(),
   finance: vi.fn(),
   verify: vi.fn(),
@@ -12,11 +13,19 @@ const native = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/mastra/usage-processors', () => ({ usageProcessors: native.finance }))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
-vi.mock('@mastra/core/agent', () => ({
-  Agent: class {
-    generate = native.generate
-  },
-}))
+vi.mock('@mastra/core/agent', async (original) => {
+  const actual = await original<typeof import('@mastra/core/agent')>()
+  return {
+    ...actual,
+    Agent: class extends actual.Agent {
+      generate(messages: any, options?: any): any {
+        return native.realAgent
+          ? super.generate(messages, options)
+          : native.generate(messages, options)
+      }
+    },
+  }
+})
 vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'http://localhost:3000' }))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ info: vi.fn(), error: vi.fn() }),
@@ -39,6 +48,7 @@ const searchAccounting = {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  native.realAgent = false
   native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
   native.usage.mockReset().mockReturnValue(usage)
   native.finance.mockResolvedValue({
@@ -66,6 +76,53 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('hallucination search and scoring', () => {
+  it.each([
+    [{ score: 9, reasoning: 'Supported' }, true],
+    [{ score: 9 }, false],
+    [{ score: 11, reasoning: 'Outside score range' }, false],
+  ] as const)(
+    'validates %j through native Groq without requiring strict schemas',
+    async (object, passed) => {
+      native.realAgent = true
+      const requests: any[] = []
+      vi.mocked(fetch).mockImplementation(async (url, init) => {
+        if (String(url).endsWith('/api/knowledge/search'))
+          return Response.json({ data: { results: [{ content: 'Reference' }] } })
+        expect(String(url)).toBe('https://api.groq.com/openai/v1/chat/completions')
+        const body = JSON.parse(init!.body as string)
+        requests.push(body)
+        if (body.response_format?.json_schema?.strict)
+          return Response.json(
+            { error: { message: 'Strict schemas are unsupported' } },
+            { status: 400 }
+          )
+        return Response.json({
+          id: 'completion',
+          object: 'chat.completion',
+          created: 0,
+          model: body.model,
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: JSON.stringify(object) },
+              finish_reason: 'stop',
+            },
+          ],
+          usage: { prompt_tokens: 20, completion_tokens: 3, total_tokens: 23 },
+        })
+      })
+      const result = await validateHallucination({
+        ...input,
+        model: 'groq/openai/gpt-oss-safeguard-20b',
+        apiKey: 'fixture-key',
+      })
+      expect(requests).toHaveLength(1)
+      expect(requests[0]).not.toHaveProperty('response_format')
+      expect(result.passed).toBe(passed)
+      if (passed) expect(result).toMatchObject(object)
+      else expect(result.error).toBeTruthy()
+    }
+  )
   it('retains priced scorer cost when the search component has no reported cost', async () => {
     native.cost.mockReturnValue({
       total: 0.005,
