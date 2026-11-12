@@ -75,6 +75,7 @@ describe('OAuth opened UI and native acknowledgement', () => {
       if (kind === 'isolation-failed')
         Object.defineProperty(popup, 'opener', { get: () => ({}), set: () => {} })
       const instance = tool()
+      instance.prepareWindow()
       await instance.handleAccept({ providerName: 'Google Drive' })
       expect(m.assertion).not.toHaveBeenCalled()
       expect(instance.hasSubmittedResult()).toBe(false)
@@ -92,6 +93,7 @@ describe('OAuth opened UI and native acknowledgement', () => {
       expect(popup.opener).toBeNull()
     })
     const instance = tool()
+    instance.prepareWindow()
     const completion = instance.handleAccept({ providerName: 'Google Drive' })
     await vi.waitFor(() => expect(m.assertion).toHaveBeenCalledOnce())
     expect(m.open).toHaveBeenCalledExactlyOnceWith('about:blank', '_blank')
@@ -122,6 +124,7 @@ describe('OAuth opened UI and native acknowledgement', () => {
   it('retains actual opened state on native ack failure without repeating the UI effect', async () => {
     m.assertion.mockRejectedValue(new Error('ack unavailable'))
     const instance = tool()
+    instance.prepareWindow()
     await instance.handleAccept({ providerName: 'Google Drive' })
     await instance.handleAccept({ providerName: 'Google Drive' })
     expect(m.open).toHaveBeenCalledOnce()

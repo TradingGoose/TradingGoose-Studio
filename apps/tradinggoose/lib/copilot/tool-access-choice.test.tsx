@@ -173,7 +173,7 @@ it.each(['en', 'es', 'zh'] as const)(
     expect(container.textContent).toContain(copy.oauthNewChoice)
     expect(container.textContent).not.toContain(copy.original)
     await act(async () => container.querySelector('button')!.click())
-    expect(seams.authorize).toHaveBeenNthCalledWith(2, 'original-call', 'business-b')
+    expect(seams.authorize).toHaveBeenCalledExactlyOnceWith('original-call', 'business-b')
     expect(seams.execute).toHaveBeenCalledExactlyOnceWith('original-call')
     expect(seams.readback).not.toHaveBeenCalled()
     expect(seams.selector).not.toHaveBeenCalled()
@@ -196,8 +196,24 @@ it('freshly authorizes genuine initial OAuth context without changing it or conn
   expect(seams.selector).not.toHaveBeenCalled()
   expect(seams.execute).not.toHaveBeenCalled()
   await act(async () => container.querySelector('button')!.click())
-  expect(seams.authorize).toHaveBeenNthCalledWith(2, 'original-call', 'business-a')
+  expect(seams.authorize).toHaveBeenCalledExactlyOnceWith('original-call')
   expect(seams.execute).toHaveBeenCalledExactlyOnceWith('original-call')
+})
+
+it('dispatches Connect during the click before any asynchronous work', async () => {
+  seams.authorize.mockResolvedValue('business-a')
+  await render({ ...oauth(), provenance: { workspaceId: 'business-a' } })
+  let activated = false
+  const activation: boolean[] = []
+  seams.execute.mockImplementation(async () => {
+    activation.push(activated)
+  })
+  await act(async () => {
+    activated = true
+    container.querySelector('button')!.click()
+    activated = false
+  })
+  expect(activation).toEqual([true])
 })
 
 it('keeps a denied OAuth choice actionable without Connect, credential or effect contact', async () => {
@@ -222,12 +238,12 @@ it('refuses OAuth Connect when fresh workspace authorization is revoked', async 
     select.value = 'business-a'
     select.dispatchEvent(new Event('change', { bubbles: true }))
   })
-  seams.authorize.mockRejectedValue(new Error('Workspace access was revoked'))
+  seams.execute.mockRejectedValue(new Error('Workspace access was revoked'))
   await act(async () => container.querySelector('button')!.click())
   expect(container.querySelector('[role="alert"]')?.textContent).toBe(
     'Workspace access was revoked'
   )
-  expect(seams.execute).not.toHaveBeenCalled()
+  expect(seams.execute).toHaveBeenCalledExactlyOnceWith('original-call')
   expect(seams.readback).not.toHaveBeenCalled()
 })
 
@@ -242,12 +258,19 @@ it.each(['choice', 'connect'] as const)(
         select.dispatchEvent(new Event('change', { bubbles: true }))
       })
     }
-    let authorize!: (workspace: string) => void
-    seams.authorize.mockReturnValueOnce(
-      new Promise<string>((resolve) => {
-        authorize = resolve
-      })
-    )
+    let settle!: () => void
+    if (stage === 'choice')
+      seams.authorize.mockReturnValueOnce(
+        new Promise<string>((resolve) => {
+          settle = () => resolve('business-a')
+        })
+      )
+    else
+      seams.execute.mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          settle = resolve
+        })
+      )
     await act(async () => {
       if (stage === 'choice') {
         const select = container.querySelector('select')!
@@ -256,9 +279,9 @@ it.each(['choice', 'connect'] as const)(
       } else container.querySelector('button')!.click()
     })
     act(() => root.render(<div>Another tool</div>))
-    await act(async () => authorize('business-a'))
+    await act(async () => settle())
     expect(container.textContent).toBe('Another tool')
-    expect(seams.execute).not.toHaveBeenCalled()
+    expect(seams.execute).toHaveBeenCalledTimes(stage === 'connect' ? 1 : 0)
     expect(seams.readback).not.toHaveBeenCalled()
   }
 )

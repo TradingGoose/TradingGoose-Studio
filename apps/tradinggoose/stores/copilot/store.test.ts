@@ -16,20 +16,29 @@ import { applyNativeEvent, displayNativePending } from './streaming'
 import type { CopilotChat } from './types'
 
 const tools = vi.hoisted(() => ({
+  actualOAuth: false,
   refresh: vi.fn(),
   browser: vi.fn(),
   bind: vi.fn(),
   hydrate: vi.fn(),
 }))
-vi.mock('./tool-registry', async (original) => ({
-  ...(await original<object>()),
-  handleCopilotServerToolSuccess: tools.refresh,
-  ensureClientToolInstance: () => ({
-    handleUserAction: tools.browser,
-    hydrateToolCall: tools.hydrate,
-  }),
-  bindClientToolExecutionContext: tools.bind,
-}))
+vi.mock('./tool-registry', async (original) => {
+  const registry = await original<typeof import('./tool-registry')>()
+  return {
+    ...registry,
+    handleCopilotServerToolSuccess: tools.refresh,
+    ensureClientToolInstance: (...args: Parameters<typeof registry.ensureClientToolInstance>) =>
+      tools.actualOAuth && args[0] === 'oauth_request_access'
+        ? registry.ensureClientToolInstance(...args)
+        : { handleUserAction: tools.browser, hydrateToolCall: tools.hydrate },
+    bindClientToolExecutionContext: (
+      ...args: Parameters<typeof registry.bindClientToolExecutionContext>
+    ) => {
+      tools.bind(...args)
+      if (tools.actualOAuth) registry.bindClientToolExecutionContext(...args)
+    },
+  }
+})
 const threadId = 'thread-fixture'
 const workspaceId = 'workspace-fixture'
 const actorUserId = 'actor-fixture'
@@ -181,6 +190,7 @@ function eventResponse(events: object[]) {
 }
 beforeEach(() => {
   resetCopilotStoreRegistry()
+  tools.actualOAuth = false
   store().setState({ selectedModel: 'anthropic/admin-selected-model' })
   commands = []
   titleRequests = []
@@ -1646,6 +1656,121 @@ describe('submitted immutable draft ownership', () => {
   })
 })
 
+describe('explicit OAuth popup activation', () => {
+  const item = (): Pending => ({
+    ...pending('result', 'oauth_request_access'),
+    originalArgs: { providerName: 'Google Drive' },
+    context: { workspaceId: 'chosen-business' },
+  })
+  const install = async () => {
+    const target = item()
+    onCommand = (request) =>
+      request.command === 'history.read' ? historyResponse([target]) : undefined
+    await store().getState().selectChat(chat())
+    onCommand = () => undefined
+    return target
+  }
+  const popup = () => ({
+    closed: false,
+    opener: {} as unknown,
+    location: { replace: vi.fn() },
+    close: vi.fn(),
+  })
+  const installWindow = (open: ReturnType<typeof vi.fn>) => {
+    tools.actualOAuth = true
+    vi.stubGlobal('window', { open, location: { origin: 'https://studio.example' } })
+  }
+  const workspaceResponse = (response: () => Promise<Response>) => {
+    const original = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation((url, init) =>
+      String(url) === '/api/workspaces' ? response() : original(url, init)
+    )
+  }
+  it('never automatically opens OAuth under full access', async () => {
+    const open = vi.fn().mockReturnValue(null)
+    installWindow(open)
+    workspaceResponse(async () => json({ workspaces: [{ id: 'chosen-business' }] }))
+    store().setState({ accessLevel: 'full' })
+    const target = item()
+    onCommand = (request) =>
+      request.command === 'message'
+        ? terminalResponse(suspended([target]))
+        : request.command === 'history.read'
+          ? historyResponse([target])
+          : undefined
+    await store().getState().sendMessage('Connect Google Drive')
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(open).not.toHaveBeenCalled()
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => url === '/api/workspaces')).toBe(false)
+    expect(store().getState().isAwaitingContinuation).toBe(true)
+  })
+  it('reserves an isolated window on the click before waiting for fresh workspace authorization', async () => {
+    const target = await install()
+    const opened = popup()
+    const open = vi.fn().mockReturnValue(opened)
+    installWindow(open)
+    const authorized = defer<Response>()
+    workspaceResponse(() => authorized.promise)
+    const connecting = store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(open).toHaveBeenCalledExactlyOnceWith('about:blank', '_blank')
+    expect(opened.opener).toBeNull()
+    expect(opened.location.replace).not.toHaveBeenCalled()
+    authorized.resolve(json({ workspaces: [{ id: 'chosen-business' }] }))
+    await connecting
+    expect(opened.location.replace).toHaveBeenCalledExactlyOnceWith(
+      'https://studio.example/workspace/chosen-business/integrations?connect=google-drive'
+    )
+    expect(opened.close).not.toHaveBeenCalled()
+    expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(1)
+  })
+  it('allows a blocked Connect retry but does not replay an opened window after acknowledgement failure', async () => {
+    const target = await install()
+    const opened = popup()
+    const open = vi.fn().mockReturnValueOnce(null).mockReturnValue(opened)
+    installWindow(open)
+    workspaceResponse(async () => json({ workspaces: [{ id: 'chosen-business' }] }))
+    onCommand = (request) =>
+      request.command === 'tool.result'
+        ? json({ status: 'refused', error: { code: 'STALE_TARGET', message: 'Ack failed' } }, 409)
+        : undefined
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(open).toHaveBeenCalledOnce()
+    expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(open).toHaveBeenCalledTimes(2)
+    expect(opened.location.replace).toHaveBeenCalledOnce()
+    expect(store().getState().toolCallsById[target.target.toolCallId].result).toMatchObject({
+      opened: true,
+    })
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(open).toHaveBeenCalledTimes(2)
+    expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(1)
+    expect(store().getState().isAwaitingContinuation).toBe(true)
+  })
+  it.each(['revoked', 'navigation'] as const)(
+    'closes the reserved window without navigation after %s authorization',
+    async (change) => {
+      const target = await install()
+      const opened = popup()
+      installWindow(vi.fn().mockReturnValue(opened))
+      const authorized = defer<Response>()
+      workspaceResponse(() => authorized.promise)
+      const connecting = store().getState().executeCopilotToolCall(target.target.toolCallId)
+      await vi.waitFor(() =>
+        expect(vi.mocked(fetch).mock.calls.some(([url]) => url === '/api/workspaces')).toBe(true)
+      )
+      if (change === 'navigation') await store().getState().createNewChat()
+      authorized.resolve(
+        json({ workspaces: change === 'revoked' ? [] : [{ id: 'chosen-business' }] })
+      )
+      await connecting
+      expect(opened.close).toHaveBeenCalled()
+      expect(opened.location.replace).not.toHaveBeenCalled()
+      expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
+    }
+  )
+})
+
 describe('R5 reopened OAuth workspace authorization', () => {
   const oauth = (scope: string | null = null) => ({
     ...pending('result', 'oauth_request_access'),
@@ -1682,6 +1807,17 @@ describe('R5 reopened OAuth workspace authorization', () => {
     expect(tools.browser).not.toHaveBeenCalled()
     expect(store().getState().error).toContain('Choose an authorized workspace')
     await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    tools.browser.mockImplementationOnce(async () => {
+      store().setState((state) => ({
+        toolCallsById: {
+          ...state.toolCallsById,
+          [item.target.toolCallId]: {
+            ...state.toolCallsById[item.target.toolCallId],
+            result: { opened: true, surface: 'integrations' },
+          },
+        },
+      }))
+    })
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
     expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
     expect(tools.bind).toHaveBeenLastCalledWith(

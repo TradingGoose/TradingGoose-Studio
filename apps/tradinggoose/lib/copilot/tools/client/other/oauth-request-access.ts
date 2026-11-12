@@ -44,6 +44,7 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
   private providerName?: string
   private opened = false
   private opening = false
+  private reservedWindow?: Window
 
   constructor(toolCallId: string) {
     super(toolCallId, OAuthRequestAccessClientTool.id, OAuthRequestAccessClientTool.metadata)
@@ -87,6 +88,37 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
       }
       return undefined
     },
+  }
+
+  /** Reserve only the blank UI during the click; native/workspace checks still precede navigation. */
+  prepareWindow(): (() => void) | undefined {
+    if (
+      this.opened ||
+      this.opening ||
+      this.reservedWindow ||
+      this.hasSubmittedResult() ||
+      this.resolveResult<{ opened?: boolean }>()?.opened
+    )
+      return
+    try {
+      this.getAbortSignal()?.throwIfAborted()
+      if (typeof window === 'undefined') throw new Error('Integration UI is unavailable')
+      // noopener returns null even on success. Disown the blank window before any await/navigation.
+      const opened = window.open('about:blank', '_blank')
+      if (!opened || opened.closed) throw new Error('Integration window was blocked')
+      this.reservedWindow = opened
+      opened.opener = null
+      if (opened.opener !== null) throw new Error('Integration window isolation failed')
+      return () => this.closeReservedWindow()
+    } catch (error) {
+      this.closeReservedWindow()
+      this.fail(error instanceof Error ? error.message : 'Failed to open integration window')
+    }
+  }
+
+  private closeReservedWindow() {
+    this.reservedWindow?.close()
+    this.reservedWindow = undefined
   }
 
   async handleAccept(args?: OAuthRequestAccessArgs): Promise<void> {
@@ -137,20 +169,17 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
           window.location.origin
         )
         url.searchParams.set('connect', serviceId)
-        // noopener's Window.open feature returns null even after successful opening. Obtain
-        // the blank, same-origin window, then disown it BEFORE any target navigation.
-        const opened = window.open('about:blank', '_blank')
-        if (!opened || opened.closed) throw new Error('Integration window was blocked')
+        const opened = this.reservedWindow
+        if (!opened || opened.closed) throw new Error('Use Connect to open an integration window')
         try {
-          opened.opener = null
-          if (opened.opener !== null) throw new Error('Integration window isolation failed')
           opened.location.replace(url.toString())
           if (opened.closed) throw new Error('Integration window was closed')
         } catch (error) {
-          opened.close()
+          this.closeReservedWindow()
           throw error
         }
         this.opened = true
+        this.reservedWindow = undefined
         const result = {
           opened: true,
           surface: 'integrations' as const,
@@ -184,5 +213,10 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
 
   async execute(args?: OAuthRequestAccessArgs): Promise<void> {
     await this.handleAccept(args)
+  }
+
+  override dispose() {
+    this.closeReservedWindow()
+    super.dispose()
   }
 }

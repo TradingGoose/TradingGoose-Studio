@@ -116,8 +116,6 @@ export function ToolAccessChoice({ toolCall }: { toolCall: CopilotToolCall }) {
             setBusy(true)
             setError(null)
             try {
-              await authorizeToolWorkspace(toolCall.id, workspaceId)
-              if (!active.current || request.current !== generation) return
               await executeCopilotToolCall(toolCall.id)
             } catch (failure) {
               if (active.current && request.current === generation)

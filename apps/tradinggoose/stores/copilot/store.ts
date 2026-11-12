@@ -27,6 +27,7 @@ import {
   registerToolStateSync,
   unregisterClientTool,
 } from '@/lib/copilot/tools/client/manager'
+import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
 import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/server-tool-response'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
@@ -464,6 +465,7 @@ function createCopilotStoreInstance(channelId: string) {
         const call = get().toolCallsById[pending.target.toolCallId]
         return (
           pending.stage === 'result' &&
+          pending.target.toolName !== 'oauth_request_access' &&
           !isServerManagedCopilotTool(pending.target.toolName) &&
           !!call &&
           !call.historical &&
@@ -484,6 +486,19 @@ function createCopilotStoreInstance(channelId: string) {
           return
         }
         if (intent.kind === 'automatic' && !automaticEligible(intent.pending)) return
+        let closeOAuthWindow: (() => void) | undefined
+        if (
+          intent.kind === 'initial' &&
+          intent.pending.stage === 'result' &&
+          intent.pending.target.toolName === 'oauth_request_access'
+        ) {
+          const instance = ensureClientToolInstance('oauth_request_access', id)
+          if (instance instanceof OAuthRequestAccessClientTool) {
+            instance.hydrateToolCall(get().toolCallsById[id])
+            closeOAuthWindow = instance.prepareWindow()
+            if (!closeOAuthWindow) return
+          }
+        }
         inFlightTools.add(id)
         const chat = get().currentChat
         const generation = epoch
@@ -530,7 +545,11 @@ function createCopilotStoreInstance(channelId: string) {
             })
             if (!current()) return
             if (!approved) throw new Error('Native approval was not verified')
-            if (isServerManagedCopilotTool(pending.target.toolName)) return
+            if (
+              isServerManagedCopilotTool(pending.target.toolName) ||
+              pending.target.toolName === 'oauth_request_access'
+            )
+              return
             const approvedPending = await get().readPendingTool(id)
             if (!current()) return
             if (approvedPending.stage !== 'result' || !sameOrigin(approvedPending, pending))
@@ -602,6 +621,11 @@ function createCopilotStoreInstance(channelId: string) {
             try {
               await instance.handleUserAction(originalArgs)
             } finally {
+              if (
+                call.name === 'oauth_request_access' &&
+                get().toolCallsById[id]?.result?.opened !== true
+              )
+                attemptedTools.delete(key)
               if (get().abortController === businessAbort) set({ abortController: null })
             }
           }
@@ -610,6 +634,7 @@ function createCopilotStoreInstance(channelId: string) {
             get().recordToolFailure(id, fail(error))
           if (['reject', 'decline'].includes(intent.kind)) throw error
         } finally {
+          closeOAuthWindow?.()
           if (ownedAbort && get().abortController === ownedAbort) set({ abortController: null })
           release()
           inFlightTools.delete(id)
