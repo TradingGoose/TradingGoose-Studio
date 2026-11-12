@@ -757,6 +757,7 @@ const MonitorListResult = z.object({
 
 const MonitorDocumentEnvelope = z.object({
   surfaceKind: z.literal('monitor'),
+  workspaceId: z.string(),
   monitorId: z.string(),
   monitorName: z.string().optional(),
   documentFormat: z.literal(MONITOR_DOCUMENT_FORMAT),
@@ -790,6 +791,7 @@ const DocumentDiffReviewMetadata = z.object({
 
 const EditEntityDocumentResultBase = DocumentDiffReviewMetadata.extend({
   success: z.boolean(),
+  workspaceId: z.string(),
 })
 
 const SavedEntityRenameResult = DocumentDiffReviewMetadata.extend({

@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CopilotRequest, Pending } from '@/lib/copilot/native/contract'
+import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
+import {
+  type CopilotRequest,
+  type Pending,
+} from '@/lib/copilot/native/contract'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { buildCopilotWorkspaceChannelId } from './channel-id'
@@ -2275,6 +2280,32 @@ describe('built-in tool continuation', () => {
         (request) => request.command === 'tool.execute' || request.command === 'tool.result'
       )
     ).toBe(false)
+  })
+  it('refreshes successful mutations in their actual workspace from a personal conversation', async () => {
+    store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
+    const result = ToolResultSchemas.edit_monitor.parse({
+      success: true,
+      surfaceKind: 'monitor',
+      monitorId: 'monitor',
+      documentFormat: MONITOR_DOCUMENT_FORMAT,
+      monitorDocument: '{}',
+      workspaceId: 'actual-business-workspace',
+    })
+    expect(result).toHaveProperty('workspaceId', 'actual-business-workspace')
+    onCommand = (request) =>
+      request.command === 'message'
+        ? eventResponse([
+            {
+              type: 'tool.result',
+              toolCallId: 'mutation',
+              toolName: 'edit_monitor',
+              result,
+            },
+            { type: 'response.completed', result: ready() },
+          ])
+        : undefined
+    expect(await store().getState().sendMessage('Update monitor')).toBe(true)
+    expect(tools.refresh).toHaveBeenCalledExactlyOnceWith('edit_monitor', result)
   })
   it.each(['error', 'denied'] as const)(
     'shows %s automatic tool results without success refresh effects',

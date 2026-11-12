@@ -1,9 +1,15 @@
 import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
-import { ToolArgSchemas, ToolIds } from '@/lib/copilot/registry'
+import {
+  CUSTOM_TOOL_DOCUMENT_FORMAT,
+  MCP_SERVER_DOCUMENT_FORMAT,
+} from '@/lib/copilot/entity-documents'
+import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
+import { ToolArgSchemas, ToolIds, ToolResultSchemas } from '@/lib/copilot/registry'
 import { MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
 import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
+import { customToolsKeys } from '@/hooks/queries/custom-tools'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { workflowKeys } from '@/hooks/queries/workflows'
@@ -212,54 +218,76 @@ describe('tool-registry', () => {
     expect(invalidateQueries).toHaveBeenCalledTimes(2)
   })
 
-  it('notifies monitor pages after server-managed monitor mutations', async () => {
-    class TestCustomEvent<T> {
-      type: string
-      detail: T | undefined
-
-      constructor(type: string, init?: CustomEventInit<T>) {
-        this.type = type
-        this.detail = init?.detail
+  it.each([
+    {
+      toolName: 'edit_monitor',
+      eventName: MONITOR_DATA_CHANGED_EVENT,
+      result: ToolResultSchemas.edit_monitor.parse({
+        success: true,
+        surfaceKind: 'monitor',
+        monitorId: 'monitor',
+        documentFormat: MONITOR_DOCUMENT_FORMAT,
+        monitorDocument: '{}',
+        workspaceId: 'target-workspace',
+      }),
+    },
+    {
+      toolName: 'edit_mcp_server',
+      eventName: MCP_TOOLS_CHANGED_EVENT,
+      result: ToolResultSchemas.edit_mcp_server.parse({
+        success: true,
+        entityKind: 'mcp_server',
+        entityId: 'mcp',
+        entityName: 'MCP',
+        documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
+        entityDocument: '{}',
+        workspaceId: 'target-workspace',
+      }),
+    },
+  ])(
+    'notifies $toolName consumers using the workspace preserved by the native result schema',
+    async ({ toolName, eventName, result }) => {
+      class TestCustomEvent<T> {
+        constructor(
+          readonly type: string,
+          readonly init?: CustomEventInit<T>
+        ) {}
+        get detail() {
+          return this.init?.detail
+        }
+      }
+      const dispatchEvent = vi.fn()
+      vi.stubGlobal('CustomEvent', TestCustomEvent)
+      vi.stubGlobal('window', { dispatchEvent })
+      try {
+        expect(result).toHaveProperty('workspaceId', 'target-workspace')
+        await handleCopilotServerToolSuccess(toolName, result)
+        const event = dispatchEvent.mock.calls[0]?.[0] as TestCustomEvent<{ workspaceId: string }>
+        expect(event.type).toBe(eventName)
+        expect(event.detail).toEqual({ workspaceId: 'target-workspace' })
+      } finally {
+        vi.unstubAllGlobals()
       }
     }
-    const dispatchEvent = vi.fn()
-    vi.stubGlobal('CustomEvent', TestCustomEvent)
-    vi.stubGlobal('window', { dispatchEvent })
-
-    try {
-      await handleCopilotServerToolSuccess('edit_monitor', { workspaceId: 'workspace-1' })
-
-      const event = dispatchEvent.mock.calls[0]?.[0] as TestCustomEvent<{ workspaceId: string }>
-      expect(event.type).toBe(MONITOR_DATA_CHANGED_EVENT)
-      expect(event.detail).toEqual({ workspaceId: 'workspace-1' })
-    } finally {
-      vi.unstubAllGlobals()
-    }
-  })
-
-  it('notifies MCP tool discovery after server-managed MCP mutations', async () => {
-    class TestCustomEvent<T> {
-      type: string
-      detail: T | undefined
-
-      constructor(type: string, init?: CustomEventInit<T>) {
-        this.type = type
-        this.detail = init?.detail
-      }
-    }
-    const dispatchEvent = vi.fn()
-    vi.stubGlobal('CustomEvent', TestCustomEvent)
-    vi.stubGlobal('window', { dispatchEvent })
-
-    try {
-      await handleCopilotServerToolSuccess('edit_mcp_server', { workspaceId: 'workspace-1' })
-
-      const event = dispatchEvent.mock.calls[0]?.[0] as TestCustomEvent<{ workspaceId: string }>
-      expect(event.type).toBe(MCP_TOOLS_CHANGED_EVENT)
-      expect(event.detail).toEqual({ workspaceId: 'workspace-1' })
-    } finally {
-      vi.unstubAllGlobals()
-    }
+  )
+  it('invalidates custom-tool catalogs using the workspace preserved by the native result schema', async () => {
+    const invalidateQueries = vi
+      .spyOn(QueryClient.prototype, 'invalidateQueries')
+      .mockResolvedValue(undefined)
+    const result = ToolResultSchemas.create_custom_tool.parse({
+      success: true,
+      entityKind: 'custom_tool',
+      entityId: 'custom-tool',
+      entityName: 'Custom tool',
+      documentFormat: CUSTOM_TOOL_DOCUMENT_FORMAT,
+      entityDocument: '{}',
+      workspaceId: 'target-workspace',
+    })
+    expect(result).toHaveProperty('workspaceId', 'target-workspace')
+    await handleCopilotServerToolSuccess('create_custom_tool', result)
+    expect(invalidateQueries).toHaveBeenCalledExactlyOnceWith({
+      queryKey: customToolsKeys.list('target-workspace'),
+    })
   })
 
   it('invalidates the matching environment query after server-managed environment mutations', async () => {

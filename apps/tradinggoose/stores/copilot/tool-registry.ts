@@ -123,26 +123,20 @@ export function bindClientToolExecutionContext(
   instance?.setExecutionContext(context)
 }
 
-type ServerToolSuccessContext = {
-  workspaceId?: string
-}
-
-function readResultWorkspaceId(result: unknown, context?: ServerToolSuccessContext) {
+function readResultWorkspaceId(result: unknown) {
   if (result && typeof result === 'object' && !Array.isArray(result)) {
     const workspaceId = (result as { workspaceId?: unknown }).workspaceId
     if (typeof workspaceId === 'string' && workspaceId.trim()) {
       return workspaceId
     }
   }
-  return context?.workspaceId
 }
 
 export async function handleCopilotServerToolSuccess(
   toolName: string | undefined,
-  result?: unknown,
-  context?: ServerToolSuccessContext
+  result?: unknown
 ): Promise<void> {
-  const workspaceId = readResultWorkspaceId(result, context)
+  const workspaceId = readResultWorkspaceId(result)
 
   try {
     const queryClient = getQueryClient()

@@ -433,6 +433,7 @@ export async function executeUpdateEntityDocumentMutation(
       requiresReview: true,
       success: true,
       reviewBaseStateHash: hashServerToolReviewBase(current.fields),
+      workspaceId,
       ...buildDocumentEnvelope(kind, entityId, current.entityName, fields),
       preview: {
         documentDiff: buildReviewDocumentDiff(kind, current.fields, fields),
