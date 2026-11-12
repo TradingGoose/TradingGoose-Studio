@@ -398,6 +398,7 @@ describe('canonical browser conversation transport', () => {
     onCommand = (request) =>
       request.command === 'message'
         ? eventResponse([
+            { type: 'response.started', runId, threadId },
             {
               type: 'response.error',
               result: {
@@ -414,7 +415,10 @@ describe('canonical browser conversation transport', () => {
     expect(store().getState().lastNativeOutcome).toMatchObject({
       status: 'failed',
     })
+    expect(store().getState().isAwaitingContinuation).toBe(false)
     expect(titleRequests).toEqual([])
+    onCommand = () => undefined
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
   })
   it('settles a displayed tool when cancellation follows', async () => {
     setChat()
@@ -664,6 +668,134 @@ describe('canonical browser conversation transport', () => {
     late.resolve(defaultResponse(cancel))
     await vi.waitFor(() => expect(store().getState().lastNativeOutcome).toBeNull())
     expect(store().getState().conversationWorkspaceId).toBe('another-workspace')
+  })
+})
+
+describe('failed pending continuations', () => {
+  it.each(
+    (['approval', 'result'] as const).flatMap((stage) =>
+      ['refused', 'error', 'http', 'transport'].map((failure) => ({ stage, failure }))
+    )
+  )('keeps a $stage run cancellable after a $failure continuation', async ({ stage, failure }) => {
+    const item = pending(stage, stage === 'approval' ? 'rename_workflow' : 'edit_workflow')
+    if (stage === 'result') item.preview = { requiresReview: true }
+    onCommand = (request) =>
+      request.command === 'history.read' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    commands = []
+    onCommand = (request) => {
+      if (request.command !== 'tool.approve' && request.command !== 'tool.execute') return
+      if (failure === 'transport') throw new Error('Continuation transport failed')
+      const result = {
+        status: failure === 'error' ? 'failed' : 'refused',
+        error: {
+          code: 'STALE_TARGET',
+          message: stage === 'approval' ? 'Copilot model unavailable' : 'Copilot API key removed',
+        },
+      }
+      return failure === 'http'
+        ? json(result, 409)
+        : eventResponse([
+            { type: failure === 'error' ? 'response.error' : 'response.refused', result },
+          ])
+    }
+
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(store().getState()).toMatchObject({
+      currentRunId: runId,
+      isSendingMessage: false,
+      isAwaitingContinuation: true,
+    })
+    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+      state: ClientToolCallState.error,
+      pending: item,
+    })
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+    const messages = store().getState().messages
+    expect(await store().getState().sendMessage('Blocked next turn')).toBe(false)
+    expect(store().getState().messages).toBe(messages)
+    expect(store().getState().currentRunId).toBe(runId)
+    expect(commands.some((request) => request.command === 'message')).toBe(false)
+
+    onCommand = (request) =>
+      request.command === 'cancel'
+        ? json(
+            { status: 'failed', error: { code: 'FAILED', message: 'Cancellation delayed' } },
+            503
+          )
+        : undefined
+    expect(await store().getState().abortMessage()).toBe(false)
+    expect(store().getState()).toMatchObject({
+      currentRunId: runId,
+      isAwaitingContinuation: true,
+      isAborting: false,
+    })
+    onCommand = () => undefined
+    expect(await store().getState().abortMessage()).toBe(true)
+    expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+      { command: 'cancel', workspaceId, threadId, runId },
+      { command: 'cancel', workspaceId, threadId, runId },
+    ])
+    expect(store().getState()).toMatchObject({
+      currentRunId: null,
+      isAwaitingContinuation: false,
+    })
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
+  })
+
+  it('releases the retained run when authoritative history confirms no pending work', async () => {
+    const item = pending('approval', 'rename_workflow')
+    onCommand = (request) =>
+      request.command === 'history.read' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    onCommand = (request) =>
+      request.command === 'tool.approve'
+        ? eventResponse([
+            {
+              type: 'response.refused',
+              result: {
+                status: 'refused',
+                error: { code: 'STALE_TARGET', message: 'Copilot API key removed' },
+              },
+            },
+          ])
+        : undefined
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(store().getState().isAwaitingContinuation).toBe(true)
+    await store().getState().refreshCurrentHistory()
+    expect(store().getState()).toMatchObject({
+      currentRunId: null,
+      isAwaitingContinuation: false,
+    })
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
+  })
+
+  it('keeps a completed continuation settled if later stream data is invalid', async () => {
+    const item = pending('approval', 'rename_workflow')
+    onCommand = (request) =>
+      request.command === 'history.read' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    onCommand = (request) =>
+      request.command === 'tool.approve'
+        ? eventResponse([
+            {
+              type: 'tool.result',
+              toolCallId: item.target.toolCallId,
+              toolName: item.target.toolName,
+              result: { message: 'Renamed' },
+            },
+            { type: 'response.completed', result: ready() },
+            { type: 'text.delta', text: 'Invalid trailing data' },
+          ])
+        : undefined
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(store().getState()).toMatchObject({
+      currentRunId: null,
+      isAwaitingContinuation: false,
+      lastNativeOutcome: { status: 'completed' },
+    })
+    onCommand = () => undefined
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
   })
 })
 

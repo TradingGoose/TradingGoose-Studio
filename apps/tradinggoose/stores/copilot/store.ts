@@ -433,7 +433,6 @@ function createCopilotStoreInstance(channelId: string) {
             set((state) => settleDisplayOnlyTools(state, messageId, ClientToolCallState.error))
             set((state) => ({
               isSendingMessage: false,
-              isAwaitingContinuation: false,
               messages: state.messages.map((item) =>
                 item.id === messageId
                   ? { ...replaceNativeText(item, item.content || message), isError: true }

@@ -350,7 +350,6 @@ export function applyNativeEvent(
         lastNativeOutcome: event.result,
         error: event.result.error.message,
         isSendingMessage: false,
-        isAwaitingContinuation: false,
         messages: display.messages.map((message) =>
           message.id === messageId
             ? {
