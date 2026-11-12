@@ -11,7 +11,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { deleteAgentHistory } from '@/lib/mastra/agent-history'
+import { deleteExecutionLogAssets } from '@/lib/logs/execution/cleanup'
 import { deleteWorkflowMemories } from '@/lib/mastra/workflow-memory'
 import {
   checkWorkspaceAccess,
@@ -187,7 +187,6 @@ export async function DELETE(
   try {
     logger.info(`Deleting workspace ${workspaceId} for user ${session.user.id}`)
 
-    const deletedLogs: Array<{ id: string; workspaceId: string; executionId: string }> = []
     const deleted = await runYjsDrainFencedTransaction(
       { workspaceIds: [workspaceId] },
       async (tx) => {
@@ -208,16 +207,15 @@ export async function DELETE(
           )
           .limit(1)
         if (active.length) return false
-        deletedLogs.push(
-          ...(await tx
-            .select({
-              id: workflowExecutionLogs.id,
-              workspaceId: workflowExecutionLogs.workspaceId,
-              executionId: workflowExecutionLogs.executionId,
-            })
-            .from(workflowExecutionLogs)
-            .where(eq(workflowExecutionLogs.workspaceId, workspaceId)))
-        )
+        const logs = await tx
+          .select({
+            id: workflowExecutionLogs.id,
+            workspaceId: workflowExecutionLogs.workspaceId,
+            executionId: workflowExecutionLogs.executionId,
+            files: workflowExecutionLogs.files,
+          })
+          .from(workflowExecutionLogs)
+          .where(eq(workflowExecutionLogs.workspaceId, workspaceId))
         for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
           await lockSavedEntityList(tx, entityKind, workspaceId)
         }
@@ -225,6 +223,8 @@ export async function DELETE(
         // Delete live workflow definitions first. Durable execution logs and snapshots
         // remain workspace-owned until the workspace row is deleted below.
         await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))
+        await deleteWorkflowMemories(workspaceId)
+        for (const log of logs) await deleteExecutionLogAssets(log)
 
         await tx.delete(knowledgeBase).where(eq(knowledgeBase.workspaceId, workspaceId))
 
@@ -243,15 +243,6 @@ export async function DELETE(
         { error: 'Stop active workflow executions before deleting the workspace' },
         { status: 409 }
       )
-    await deleteWorkflowMemories(workspaceId).catch((error) =>
-      logger.error('Failed to delete native workflow Memory', { workspaceId, error })
-    )
-    for (const log of deletedLogs) {
-      await deleteAgentHistory(log).catch((error) =>
-        logger.error('Failed to delete native execution history', { logId: log.id, error })
-      )
-    }
-
     return NextResponse.json({ success: true })
   } catch (error) {
     const realtimeResponse = createSavedEntityErrorResponse(error)

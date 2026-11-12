@@ -34,6 +34,9 @@ const drainHarness = vi.hoisted(() => ({
   delete: vi.fn(),
   fenced: vi.fn(),
   lockList: vi.fn(),
+  logs: [] as Array<{ id: string; workspaceId: string; executionId: string; files: unknown[] }>,
+  assets: vi.fn(),
+  memories: vi.fn(),
 }))
 
 const mockUpdateSet = vi.fn(() => ({
@@ -62,8 +65,8 @@ vi.mock('@tradinggoose/db', () => ({
   },
 }))
 
-vi.mock('@/lib/mastra/agent-history', () => ({ deleteAgentHistory: vi.fn() }))
-vi.mock('@/lib/mastra/workflow-memory', () => ({ deleteWorkflowMemories: vi.fn(async () => {}) }))
+vi.mock('@/lib/logs/execution/cleanup', () => ({ deleteExecutionLogAssets: drainHarness.assets }))
+vi.mock('@/lib/mastra/workflow-memory', () => ({ deleteWorkflowMemories: drainHarness.memories }))
 
 vi.mock('drizzle-orm', async () => {
   const actual = await vi.importActual<typeof import('drizzle-orm')>('drizzle-orm')
@@ -143,6 +146,9 @@ describe('Workspace by id PATCH route', () => {
     mockUpdateSet.mockClear()
     drainHarness.events.length = 0
     drainHarness.active = false
+    drainHarness.logs = []
+    drainHarness.assets.mockReset().mockResolvedValue(undefined)
+    drainHarness.memories.mockReset().mockResolvedValue(undefined)
     drainHarness.delete.mockReturnValue({ where: vi.fn() })
     drainHarness.lockList.mockResolvedValue(undefined)
     drainHarness.fenced.mockImplementation(async (_target, mutate) => {
@@ -152,7 +158,8 @@ describe('Workspace by id PATCH route', () => {
         where: () => query,
         for: async () => [],
         limit: async () => (drainHarness.active ? [{ id: 'active' }] : []),
-        then: (resolve: (rows: unknown[]) => unknown) => Promise.resolve([]).then(resolve),
+        then: (resolve: (rows: unknown[]) => unknown) =>
+          Promise.resolve(drainHarness.logs).then(resolve),
       }
       const result = await mutate({ delete: drainHarness.delete, select: () => query })
       drainHarness.events.push('fence-commit')
@@ -181,7 +188,35 @@ describe('Workspace by id PATCH route', () => {
     })
     expect(response.status).toBe(409)
     expect(drainHarness.delete).not.toHaveBeenCalled()
+    expect(drainHarness.assets).not.toHaveBeenCalled()
+    expect(drainHarness.memories).not.toHaveBeenCalled()
   })
+
+  it.each(['assets', 'memories'] as const)(
+    'keeps workspace ownership after failed %s cleanup and retries before cascade',
+    async (phase) => {
+      const log = { id: 'log', workspaceId: 'workspace-1', executionId: 'execution', files: [] }
+      drainHarness.logs = [log]
+      drainHarness[phase].mockRejectedValueOnce(new Error('Native storage unavailable'))
+      const { DELETE } = await import('./route')
+      const request = () =>
+        DELETE(new NextRequest('http://localhost/api/workspaces/workspace-1'), {
+          params: Promise.resolve({ id: 'workspace-1' }),
+        })
+      expect((await request()).status).toBe(500)
+      expect(drainHarness.events).toEqual(['fence-begin'])
+      // The workflow delete remains uncommitted; parent/cascading deletes were never reached.
+      expect(drainHarness.delete).toHaveBeenCalledTimes(1)
+      expect((await request()).status).toBe(200)
+      expect(drainHarness.events).toEqual(['fence-begin', 'fence-begin', 'fence-commit'])
+      expect(drainHarness.assets).toHaveBeenLastCalledWith(log)
+      expect(drainHarness.memories).toHaveBeenCalledWith('workspace-1')
+      expect(drainHarness.delete).toHaveBeenCalledTimes(5)
+      const cascade = drainHarness.delete.mock.invocationCallOrder.at(-1)!
+      expect(drainHarness.assets.mock.invocationCallOrder.at(-1)!).toBeLessThan(cascade)
+      expect(drainHarness.memories.mock.invocationCallOrder.at(-1)!).toBeLessThan(cascade)
+    }
+  )
 
   it('returns 500 when the workspace update fails unexpectedly', async () => {
     mockGetWorkspaceById.mockResolvedValue({

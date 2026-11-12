@@ -236,20 +236,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
+    const workspaceId = workflowData.workspaceId
     await runYjsDrainFencedTransaction({ sessionIds: [workflowId] }, async (tx) => {
-      if (workflowData.workspaceId) {
-        await lockSavedEntityList(tx, 'workflow', workflowData.workspaceId as string)
-      }
+      await lockSavedEntityList(tx, 'workflow', workspaceId)
       await tx.delete(workflow).where(eq(workflow.id, workflowId))
+      await deleteWorkflowMemories(workspaceId, workflowId)
     })
 
-    await deleteWorkflowMemories(workflowData.workspaceId, workflowId).catch((error) =>
-      logger.error('Failed to delete native workflow Memory', { workflowId, error })
-    )
-
-    if (workflowData.workspaceId) {
-      await refreshWorkflowList(workflowData.workspaceId)
-    }
+    await refreshWorkflowList(workspaceId)
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
 

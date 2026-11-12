@@ -180,7 +180,7 @@ export function deleteWorkflowMemory(
   })
 }
 
-/** Called after Studio deletes the owning workflow or workspace. */
+/** The caller holds the owning workflow or workspace until native deletion succeeds. */
 export async function deleteWorkflowMemories(workspaceId: string, workflowId?: string) {
   const store = await getNativeMemoryStore()
   const { threads } = await store.listThreads({
