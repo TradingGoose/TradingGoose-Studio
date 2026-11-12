@@ -212,7 +212,7 @@ export class AgentBlockHandler implements BlockHandler {
             workspaceId: context.workspaceId,
             executionId: context.executionId,
             workflowId: context.workflowId,
-            blockId: block.id,
+            blockId: context.currentVirtualBlockId ?? block.id,
             runId,
           },
         },

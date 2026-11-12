@@ -1,7 +1,11 @@
 import { EMBEDDING_MODELS } from '@mastra/core/llm'
+import { InMemoryStore } from '@mastra/core/storage'
+import { Memory } from '@mastra/memory'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import type { TraceSpan } from '@/lib/logs/types'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
-import { getAgentMemory } from '@/lib/mastra/runtime'
+import { getAgentMemory, getNativeMemoryStore } from '@/lib/mastra/runtime'
 import { sumNativeUsage } from '@/lib/mastra/usage'
 import { mcpService } from '@/lib/mcp/service'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
@@ -49,20 +53,11 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
     }
   },
 }))
-vi.mock('@/lib/mastra/runtime', async () => {
-  const { Memory } = await import('@mastra/memory')
-  const { InMemoryStore } = await import('@mastra/core/storage')
-  const memory = new Memory({
-    storage: new InMemoryStore(),
-    options: {
-      messageHistory: { maxTokens: 32000 },
-      semanticRecall: false,
-      workingMemory: { enabled: false },
-      generateTitle: false,
-    },
-  })
-  return { getMastra: async () => undefined, getAgentMemory: async () => memory }
-})
+vi.mock('@/lib/mastra/runtime', () => ({
+  getMastra: async () => undefined,
+  getAgentMemory: async () => state.memory,
+  getNativeMemoryStore: async () => state.storage.getStore('memory'),
+}))
 
 import { Agent } from '@mastra/core/agent'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
@@ -79,6 +74,8 @@ import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
 
 const state = vi.hoisted(() => ({
+  storage: undefined as unknown as InMemoryStore,
+  memory: undefined as unknown as Memory,
   finance: vi.fn(),
   trackAdmissions: false,
   admissions: vi.fn(),
@@ -177,6 +174,16 @@ function createOwnedTestToolSet(
 
 beforeEach(() => {
   vi.clearAllMocks()
+  state.storage = new InMemoryStore()
+  state.memory = new Memory({
+    storage: state.storage,
+    options: {
+      messageHistory: { maxTokens: 32000 },
+      semanticRecall: false,
+      workingMemory: { enabled: false },
+      generateTitle: false,
+    },
+  })
   state.model = fixture()
   state.trackAdmissions = false
   state.setupError = undefined
@@ -1136,6 +1143,62 @@ describe('native forced sequence failures and completion accounting', () => {
         }),
       })
     )
+  })
+})
+
+describe('native history for repeated workflow Agents', () => {
+  const flatten = (spans: TraceSpan[]): TraceSpan[] =>
+    spans.flatMap((span) => [span, ...flatten(span.children ?? [])])
+
+  it.each([
+    ['parallel', false],
+    ['parallel', true],
+    ['loop', false],
+    ['loop', true],
+  ] as const)('uses the logged block identity in %s history (stream=%s)', async (kind, stream) => {
+    const workflow = createMinimalWorkflow()
+    const agent = workflow.blocks[1]
+    agent.metadata!.id = 'agent'
+    agent.config.params = { model: 'openai/gpt-4.1', userPrompt: 'Reply' }
+    workflow.blocks.push({ ...agent, id: 'container', metadata: { id: kind, name: kind } })
+    workflow.connections = [
+      { source: 'trigger', target: 'container' },
+      { source: 'container', target: agent.id, sourceHandle: `${kind}-start-source` },
+    ]
+    if (kind === 'parallel')
+      workflow.parallels = {
+        container: { id: 'container', nodes: [agent.id], count: 2, parallelType: 'count' },
+      }
+    else
+      workflow.loops = {
+        container: { id: 'container', nodes: [agent.id], iterations: 2, loopType: 'for' },
+      }
+    const result = await new Executor({
+      workflow,
+      contextExtensions: {
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        workflowLogId: 'log-1',
+        executionId: 'execution-1',
+        stream,
+        selectedOutputs: [agent.id],
+      },
+    }).execute('workflow-1', 'trigger')
+    expect(result.success).toBe(true)
+    const agents = flatten(buildTraceSpans(result).traceSpans).filter(
+      (span) => span.inference?.history
+    )
+    expect(agents).toHaveLength(2)
+    expect(new Set(agents.map((span) => span.inference!.history!.threadId)).size).toBe(2)
+    for (const span of agents) {
+      const thread = await (await getNativeMemoryStore()).getThreadById(span.inference!.history!)
+      expect(thread?.metadata?.blockId).toBe(span.blockId)
+      const { messages } = await (await getAgentMemory()).recall({
+        ...span.inference!.history!,
+        perPage: false,
+      })
+      expect(messages.some((message) => message.role === 'assistant')).toBe(true)
+    }
   })
 })
 

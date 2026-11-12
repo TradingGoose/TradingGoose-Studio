@@ -1,14 +1,11 @@
+import { InMemoryStore } from '@mastra/core/storage'
 import { beforeEach, expect, it, vi } from 'vitest'
+import type { TraceSpan } from '@/lib/logs/types'
 import { attachAgentHistory } from './agent-history'
+import * as runtime from './runtime'
 
 const fixture = vi.hoisted(() => ({ access: vi.fn(), thread: vi.fn(), messages: vi.fn() }))
 vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: fixture.access }))
-vi.mock('./runtime', () => ({
-  getNativeMemoryStore: async () => ({
-    getThreadById: fixture.thread,
-    listMessages: fixture.messages,
-  }),
-}))
 const history = {
   threadId: 'workflow-agent:run',
   resourceId: 'workflow-execution:workspace:execution',
@@ -25,8 +22,12 @@ const log = () => ({
     ],
   },
 })
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks()
+  const store = (await new InMemoryStore().getStore('memory'))!
+  vi.spyOn(store, 'getThreadById').mockImplementation(fixture.thread)
+  vi.spyOn(store, 'listMessages').mockImplementation(fixture.messages)
+  vi.spyOn(runtime, 'getNativeMemoryStore').mockResolvedValue(store)
   fixture.access.mockResolvedValue({ hasAccess: true })
   fixture.thread.mockResolvedValue({
     id: history.threadId,
@@ -77,6 +78,44 @@ it('rejects a mismatched native thread owner before returning its messages', asy
   })
   await expect(attachAgentHistory(log(), 'actor')).rejects.toThrow('owner')
   expect(fixture.messages).not.toHaveBeenCalled()
+})
+it('hydrates nested parallel histories and rejects references to another iteration', async () => {
+  const children = [0, 1].map((iteration) => {
+    const runId = `run-${iteration}`
+    const blockId = `block_parallel_parallel_iteration_${iteration}`
+    return {
+      id: `occurrence-${iteration}`,
+      blockId,
+      type: 'agent',
+      inference: { history: { ...history, runId, threadId: `workflow-agent:${runId}` } },
+    }
+  })
+  const row = {
+    ...log(),
+    executionData: {
+      traceSpans: [{ id: 'parallel', type: 'parallel', children }] as TraceSpan[],
+    },
+  }
+  const owners = new Map(children.map((span) => [span.inference.history.threadId, span.blockId]))
+  fixture.thread.mockImplementation(async ({ threadId }) => ({
+    id: threadId,
+    resourceId: history.resourceId,
+    metadata: {
+      purpose: 'workflow-agent',
+      workspaceId: row.workspaceId,
+      executionId: row.executionId,
+      workflowId: row.workflowId,
+      logId: row.id,
+      blockId: owners.get(threadId),
+      runId: threadId.slice('workflow-agent:'.length),
+    },
+  }))
+  const hydrated = await attachAgentHistory(row, 'actor')
+  expect(
+    hydrated.executionData.traceSpans[0].children?.every((span) => span.agentHistory?.length)
+  ).toBe(true)
+  children[0].inference.history = children[1].inference.history
+  await expect(attachAgentHistory(row, 'actor')).rejects.toThrow('owner')
 })
 it('discards native results if workspace access is revoked during the read', async () => {
   fixture.access
