@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateInternalToken } from '@/lib/auth/internal'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBlock } from '@/blocks'
-import { createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
+import { AgentBlockHandler, createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
 import { buildLoadSkillTool } from '@/executor/handlers/agent/skill-loader'
 import { GenericBlockHandler } from '@/executor/handlers/generic/generic-handler'
 import type { ExecutionContext } from '@/executor/types'
@@ -28,8 +28,10 @@ const dbMocks = vi.hoisted(() => {
     rows = nextRows
   }
   const limit = vi.fn(() => Promise.resolve(rows))
+  const orderBy = vi.fn(() => Promise.resolve(rows))
   const whereResult = {
     limit,
+    orderBy,
     then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(rows).then(resolve, reject),
   }
@@ -37,7 +39,7 @@ const dbMocks = vi.hoisted(() => {
   const from = vi.fn(() => ({ where }))
   const select = vi.fn(() => ({ from }))
 
-  return { from, limit, select, setRows, where }
+  return { from, limit, orderBy, select, setRows, where }
 })
 
 vi.mock('@tradinggoose/db', () => ({
@@ -268,6 +270,7 @@ describe('executeTool Function', () => {
     dbMocks.from.mockImplementation(() => ({ where: dbMocks.where }))
     dbMocks.where.mockImplementation(() => ({
       limit: dbMocks.limit,
+      orderBy: dbMocks.orderBy,
       then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
         Promise.resolve([]).then(resolve, reject),
     }))
@@ -330,6 +333,126 @@ describe('executeTool Function', () => {
     expect(result.timing?.endTime).toBeDefined()
     expect(result.timing?.duration).toBeGreaterThanOrEqual(0)
   })
+
+  it.each([{ price: 123 }, false, 0])(
+    'preserves coded Agent tool arguments and its exact result through the real builder: %j',
+    async (value) => {
+      const originalWindow = global.window
+      const schema = {
+        type: 'function' as const,
+        function: {
+          description: 'Look up a quote',
+          parameters: {
+            type: 'object',
+            properties: {
+              symbol: { type: 'string' },
+              unit: { type: 'string' },
+              code: { type: 'string' },
+              method: { type: 'string' },
+            },
+            required: ['symbol', 'code', 'method'],
+          },
+        },
+      }
+      const savedCode = 'return params.symbol'
+      const context = createMockExecutionContext({
+        isDeployedContext: false,
+        environmentVariables: { SECRET: 'host-value' },
+        workflowVariables: { market: 'NASDAQ' },
+      })
+      yjsMocks.readSavedEntityFieldsForExecution.mockResolvedValue({
+        codeText: savedCode,
+        schemaText: JSON.stringify(schema),
+      })
+      dbMocks.orderBy.mockResolvedValue([{ id: 'quote', name: 'Quote' }])
+      global.fetch = createMockFetch({
+        success: true,
+        output: { result: value, stdout: 'private execution envelope' },
+      }) as typeof fetch
+      try {
+        Object.defineProperty(global, 'window', {
+          value: undefined,
+          writable: true,
+          configurable: true,
+        })
+        const selected = {
+          type: 'custom-tool',
+          toolId: 'custom_quote',
+          schema,
+          code: 'throw new Error("cached code")',
+          params: { unit: 'USD' },
+        }
+        // biome-ignore lint/complexity/useLiteralKeys: Exercise the production factory without exposing a test-only API.
+        const configured = await new AgentBlockHandler()['formatTools']([selected], context)
+        const { tools } = createAgentToolSet(configured, context, context, {
+          signal: new AbortController().signal,
+          abort: vi.fn(),
+        })
+        let step = 0
+        const model = new MastraLanguageModelV2Mock({
+          doGenerate: async () => ({
+            content:
+              step++ === 0
+                ? [
+                    {
+                      type: 'tool-call',
+                      toolCallId: 'quote-call',
+                      toolName: 'custom_quote',
+                      input: JSON.stringify({
+                        symbol: 'AAPL',
+                        code: 'business input',
+                        method: 'DELETE',
+                      }),
+                    },
+                  ]
+                : [{ type: 'text', text: 'Quote received' }],
+            finishReason: step === 1 ? 'tool-calls' : 'stop',
+            usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
+            warnings: [],
+          }),
+        })
+        await new Agent({ id: 'quote', name: 'Quote', instructions: '', model, tools }).generate(
+          'Quote',
+          { maxSteps: 2 }
+        )
+        expect(fetch).toHaveBeenCalledOnce()
+        const [url, request] = vi.mocked(fetch).mock.calls[0]
+        expect(String(url)).toContain('/api/function/execute')
+        expect(request?.method).toBe('POST')
+        expect(request?.signal).toBeInstanceOf(AbortSignal)
+        expect(JSON.parse(request!.body as string)).toMatchObject({
+          code: savedCode,
+          params: { symbol: 'AAPL', unit: 'USD', code: 'business input', method: 'DELETE' },
+          envVars: context.environmentVariables,
+          workflowVariables: context.workflowVariables,
+          workflowId: context.workflowId,
+          userId: context.userId,
+          isDeployedContext: false,
+          isCustomTool: true,
+        })
+        expect(yjsMocks.readSavedEntityFieldsForExecution).toHaveBeenCalledWith(
+          'custom_tool',
+          'quote',
+          context.workspaceId,
+          false
+        )
+        expect(model.doGenerateCalls[1].prompt).toContainEqual(
+          expect.objectContaining({
+            role: 'tool',
+            content: expect.arrayContaining([
+              expect.objectContaining({ output: { type: 'json', value } }),
+            ]),
+          })
+        )
+      } finally {
+        Object.defineProperty(global, 'window', {
+          value: originalWindow,
+          writable: true,
+          configurable: true,
+        })
+      }
+    }
+  )
 
   it('overwrites untrusted Memory context with the actual workflow execution scope', async () => {
     await executeTool(

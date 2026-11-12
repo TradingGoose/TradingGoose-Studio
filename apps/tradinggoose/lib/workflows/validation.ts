@@ -63,32 +63,19 @@ export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
       }
 
       const originalLength = value.length
-      const cleaned = value
-        .filter((tool: any) => {
-          // Allow non-custom tools to pass through as-is
-          if (!tool || typeof tool !== 'object') return false
-          if (tool.type !== 'custom-tool') return true
-          const ok = isValidAgentCustomTool(tool)
-          if (!ok) {
-            logger.warn('Removing invalid custom tool from workflow', {
-              blockId,
-              blockName: block.name,
-            })
-          }
-          return ok
-        })
-        .map((tool: any) => {
-          if (tool.type === 'custom-tool') {
-            // Ensure required defaults to avoid client crashes
-            if (!tool.code || typeof tool.code !== 'string') {
-              tool.code = ''
-            }
-            if (!tool.usageControl) {
-              tool.usageControl = 'auto'
-            }
-          }
-          return tool
-        })
+      const cleaned = value.filter((tool: any) => {
+        // Allow non-custom tools to pass through as-is
+        if (!tool || typeof tool !== 'object') return false
+        if (tool.type !== 'custom-tool') return true
+        const ok = isValidAgentCustomTool(tool)
+        if (!ok) {
+          logger.warn('Removing invalid custom tool from workflow', {
+            blockId,
+            blockName: block.name,
+          })
+        }
+        return ok
+      })
 
       if (cleaned.length !== originalLength) {
         toolSanitizationWarnings.push(

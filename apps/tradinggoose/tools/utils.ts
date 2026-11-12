@@ -367,7 +367,7 @@ export function createToolConfig(
 
       return {
         success: true,
-        output: data.output.result || data.output,
+        output: data.output.result,
         error: undefined,
       }
     },

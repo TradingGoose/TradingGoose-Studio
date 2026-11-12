@@ -1756,7 +1756,7 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
     }
     const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
     expect(executeTool).toHaveBeenCalledOnce()
-    expect(vi.mocked(executeTool).mock.calls[0][0]).toBe('function_execute')
+    expect(vi.mocked(executeTool).mock.calls[0][0]).toBe('custom_lookup')
     expect(state.finance).toHaveBeenCalledOnce()
     expect(state.admissions).toHaveBeenCalledTimes(allowed ? 2 : 1)
     expect(calls).toHaveLength(allowed ? 2 : 1)
@@ -1802,10 +1802,10 @@ it.each(['owner-cancel', 'native-cancel'])(
       },
       { cost: { total: 0.004, status: 'reported' }, generatedFields: [] }
     )
-    const effect = vi.fn(async () => {
+    const effect = vi.mocked(executeTool).mockImplementationOnce(async () => {
       if (failure === 'owner-cancel') owner.abort(new Error('Owner cancelled after effect'))
       if (failure === 'native-cancel') native.abort(new Error('Native cancelled after effect'))
-      return raw
+      return { success: true, output: raw }
     })
     const fetcher = vi.fn()
     vi.stubGlobal('fetch', fetcher)
@@ -1815,7 +1815,6 @@ it.each(['owner-cancel', 'native-cancel'])(
           id: 'image_result',
           description: 'Image result',
           parameters: { type: 'object', properties: {} },
-          executeFunction: effect,
         },
       ],
       context({ userId: 'user-1' }),

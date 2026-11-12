@@ -50,7 +50,6 @@ import { resolveSkillMetadata } from './skills-resolver'
 
 const logger = createLogger('AgentBlockHandler')
 
-const DEFAULT_FUNCTION_TIMEOUT = 600000
 const REQUEST_TIMEOUT = 120000
 
 /**
@@ -396,25 +395,24 @@ export class AgentBlockHandler implements BlockHandler {
       inputTools
         .filter((tool) => tool.usageControl !== 'none')
         .map((tool) => {
-          if (tool.type === 'custom-tool' && tool.schema)
-            return this.createCustomTool(tool, context)
+          if (tool.type === 'custom-tool' && tool.schema) return this.createCustomTool(tool)
           if (tool.type === 'mcp') return this.createMcpTool(tool, context)
           return this.transformBlockTool(tool, context)
         })
     )
   }
 
-  private async createCustomTool(tool: ToolInput, context: ExecutionContext): Promise<any> {
+  private async createCustomTool(tool: ToolInput): Promise<AgentToolConfig> {
     const userProvidedParams = tool.params || {}
 
-    const { filterSchemaForLLM, mergeToolParameters } = await import('@/tools/params')
+    const { filterSchemaForLLM } = await import('@/tools/params')
 
     const filteredSchema = filterSchemaForLLM(tool.schema.function.parameters, userProvidedParams)
 
     const toolId = tool.toolId
     getCustomToolEntityIdFromRuntimeId(toolId)
-    const base: any = {
-      id: toolId,
+    return {
+      id: toolId!,
       name: tool.title?.trim(),
       description: buildCustomToolModelDescription({
         title: tool.title,
@@ -427,40 +425,6 @@ export class AgentBlockHandler implements BlockHandler {
       },
       usageControl: tool.usageControl || 'auto',
     }
-
-    if (tool.code) {
-      base.executeFunction = async (callParams: Record<string, any>, signal?: AbortSignal) => {
-        // Merge user-provided parameters with LLM-generated parameters
-        const mergedParams = mergeToolParameters(userProvidedParams, callParams)
-
-        // Collect block outputs for tag resolution
-        const { blockData, blockNameMapping } = collectBlockData(context)
-
-        const result = await executeTool(
-          'function_execute',
-          {
-            code: tool.code,
-            ...mergedParams,
-            timeout: tool.timeout ?? DEFAULT_FUNCTION_TIMEOUT,
-            envVars: context.environmentVariables || {},
-            workflowVariables: context.workflowVariables || {},
-            blockData,
-            blockNameMapping,
-            isCustomTool: true,
-          },
-          false, // skipPostProcess
-          context, // execution context for file processing
-          { signal }
-        )
-
-        if (!result.success) {
-          throw new Error(result.error || 'Function execution failed')
-        }
-        return result.output
-      }
-    }
-
-    return base
   }
 
   private async createMcpTool(
@@ -661,32 +625,30 @@ export function createAgentToolSet(
             const params = { ...(inputData as Record<string, any>), ...tool.params }
             let inference: InferenceFacts | undefined
             try {
-              const result = tool.executeFunction
-                ? await tool.executeFunction(params, nativeContext?.abortSignal)
-                : await executeTool(
-                    tool.mcp ? 'mcp' : tool.id,
-                    {
-                      ...(tool.mcp ? { ...tool.mcp, arguments: params } : params),
-                      _context: {
-                        workflowId: scope.workflowId,
-                        workspaceId: scope.workspaceId,
-                        workflowLogId: scope.workflowLogId,
-                        toolExecutionId: scope.toolExecutionId,
-                        submissionSource: scope.submissionSource,
-                        userId: scope.userId,
-                        executionId: scope.executionId,
-                        isDeployedContext: scope.isDeployedContext !== false,
-                      },
-                      envVars: scope.environmentVariables,
-                      workflowVariables: scope.workflowVariables,
-                      blockData: scope.blockData,
-                      blockNameMapping: scope.blockNameMapping,
-                    },
-                    false,
-                    executionContext,
-                    { signal: nativeContext?.abortSignal }
-                  )
-              const output = tool.executeFunction ? result : result.output
+              const result = await executeTool(
+                tool.mcp ? 'mcp' : tool.id,
+                {
+                  ...(tool.mcp ? { ...tool.mcp, arguments: params } : params),
+                  _context: {
+                    workflowId: scope.workflowId,
+                    workspaceId: scope.workspaceId,
+                    workflowLogId: scope.workflowLogId,
+                    toolExecutionId: scope.toolExecutionId,
+                    submissionSource: scope.submissionSource,
+                    userId: scope.userId,
+                    executionId: scope.executionId,
+                    isDeployedContext: scope.isDeployedContext !== false,
+                  },
+                  envVars: scope.environmentVariables,
+                  workflowVariables: scope.workflowVariables,
+                  blockData: scope.blockData,
+                  blockNameMapping: scope.blockNameMapping,
+                },
+                false,
+                executionContext,
+                { signal: nativeContext?.abortSignal }
+              )
+              const output = result.output
               inference = getInferenceFacts(output)
               if (result?.success === false)
                 throw new Error(result.error || `Tool ${tool.id} failed`)

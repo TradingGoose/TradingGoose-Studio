@@ -98,7 +98,6 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
               params: {},
               isExpanded: true,
               schema: tool.schema,
-              code: tool.code,
               usageControl: 'auto',
             },
           })

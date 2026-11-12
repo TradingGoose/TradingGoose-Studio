@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createAgentToolSet, extractAgentOutput } from '@/executor/handlers/agent/agent-handler'
+import { executeTool } from '@/tools'
 import {
   assertNativeCompletion,
   getInferenceFacts,
@@ -7,6 +8,8 @@ import {
   isInferenceResult,
   withInferenceFacts,
 } from './result'
+
+vi.mock('@/tools', () => ({ executeTool: vi.fn(), getToolAsync: vi.fn() }))
 
 it('rejects unfinished native tool loops while accepting final model answers', () => {
   expect(() => assertNativeCompletion({ finishReason: 'tool-calls' })).toThrow('step limit')
@@ -106,14 +109,14 @@ describe('completed tool accounting provenance', () => {
     const genuine = withInferenceFacts({ business: 'private-business-payload' }, childFacts)
     const forged = { cost: { total: 99 }, inference: childFacts }
     const controller = new AbortController()
-    let selected: unknown
+    let selected: Record<string, unknown>
+    vi.mocked(executeTool).mockImplementation(async () => ({ success: true, output: selected }))
     const { tools, toolResults } = createAgentToolSet(
       [
         {
           id: 'lookup',
           description: 'Lookup',
           parameters: { type: 'object', properties: {} },
-          executeFunction: async () => selected,
         },
       ],
       {},

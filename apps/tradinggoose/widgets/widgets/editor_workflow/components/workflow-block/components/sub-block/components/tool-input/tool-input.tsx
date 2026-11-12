@@ -59,7 +59,6 @@ interface StoredTool {
   params: Record<string, any>
   isExpanded?: boolean
   schema?: any // For custom tools
-  code?: string // For custom tools implementation
   operation?: string // For tools with multiple operations
   usageControl?: 'auto' | 'force' | 'none'
 }
@@ -361,7 +360,6 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
       params: {},
       isExpanded: true,
       schema: customTool.schema,
-      code: customTool.code || '',
       usageControl: 'auto',
     }
 
@@ -645,6 +643,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
       ) : (
         <div className='flex min-h-[2.5rem] w-full flex-wrap gap-2 rounded-md border border-input bg-transparent p-2 text-sm ring-offset-background'>
           {selectedTools.map((tool, toolIndex) => {
+            const usageControl = tool.usageControl ?? 'auto'
             // Handle custom tools and MCP tools differently
             const isCustomTool = tool.type === 'custom-tool'
             const isMcpTool = tool.type === 'mcp'
@@ -806,11 +805,10 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                                 onClick={(e: React.MouseEvent) => {
                                   e.stopPropagation()
                                   // Cycle through the states: auto -> force -> none -> auto
-                                  const currentState = tool.usageControl || 'auto'
                                   const nextState =
-                                    currentState === 'auto'
+                                    usageControl === 'auto'
                                       ? 'force'
-                                      : currentState === 'force'
+                                      : usageControl === 'force'
                                         ? 'none'
                                         : 'auto'
                                   handleUsageControlChange(toolIndex, nextState)
@@ -819,7 +817,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                               >
                                 <span
                                   className={`font-medium text-xs ${
-                                    tool.usageControl === 'auto'
+                                    usageControl === 'auto'
                                       ? 'block text-muted-foreground'
                                       : 'hidden'
                                   }`}
@@ -827,12 +825,12 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                                   {copy.usageControl.auto}
                                 </span>
                                 <span
-                                  className={`font-medium text-xs ${tool.usageControl === 'force' ? 'block text-muted-foreground' : 'hidden'}`}
+                                  className={`font-medium text-xs ${usageControl === 'force' ? 'block text-muted-foreground' : 'hidden'}`}
                                 >
                                   {copy.usageControl.force}
                                 </span>
                                 <span
-                                  className={`font-medium text-xs ${tool.usageControl === 'none' ? 'block text-muted-foreground' : 'hidden'}`}
+                                  className={`font-medium text-xs ${usageControl === 'none' ? 'block text-muted-foreground' : 'hidden'}`}
                                 >
                                   {copy.usageControl.none}
                                 </span>
@@ -841,20 +839,20 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                           />
                           <TooltipContent className='max-w-[280px] p-2' side='top'>
                             <p className='text-xs'>
-                              {tool.usageControl === 'auto' && (
+                              {usageControl === 'auto' && (
                                 <span>
                                   {' '}
                                   <span className='font-medium'>{copy.usageControl.auto}:</span>{' '}
                                   {copy.usageControl.autoDescription}
                                 </span>
                               )}
-                              {tool.usageControl === 'force' && (
+                              {usageControl === 'force' && (
                                 <span>
                                   <span className='font-medium'>{copy.usageControl.force}:</span>{' '}
                                   {copy.usageControl.forceDescription}
                                 </span>
                               )}
-                              {tool.usageControl === 'none' && (
+                              {usageControl === 'none' && (
                                 <span>
                                   <span className='font-medium'>{copy.usageControl.deny}:</span>{' '}
                                   {copy.usageControl.denyDescription}

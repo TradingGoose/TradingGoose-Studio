@@ -42,7 +42,6 @@ const tool = (toolId?: string) => ({
   type: 'custom-tool',
   ...(toolId ? { toolId } : {}),
   schema: { function: { parameters: { type: 'object', properties: {} } } },
-  code: '',
 })
 
 it('validates the shared MCP operation without accepting opaque tool keys as executable IDs', () => {
@@ -102,9 +101,7 @@ describe('sanitizeAgentToolsInBlocks', () => {
     })
 
     expect(warnings).toEqual(['Block Agent: removed 2 invalid tool(s)'])
-    expect(blocks.agent_1.subBlocks.tools.value).toEqual([
-      { ...tool('custom_tool-1'), usageControl: 'auto' },
-    ])
+    expect(blocks.agent_1.subBlocks.tools.value).toEqual([tool('custom_tool-1')])
   })
 
   it('keeps unexpected validation details out of structured client errors', () => {
