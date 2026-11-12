@@ -182,3 +182,109 @@ it.each(['content-filter', 'error'] as const)(
     expect(billing.contact).toHaveBeenCalledOnce()
   }
 )
+
+it.each(
+  (['generate', 'stream'] as const).flatMap((mode) =>
+    (['abort', 'timeout', 'error', 'before-contact', 'after-accounted', 'pre-abort'] as const).map(
+      (outcome) => ({ mode, outcome })
+    )
+  )
+)('tracks contacted unfinished costs in $mode ($outcome)', async ({ mode, outcome }) => {
+  const abort = new AbortController()
+  const failure = new DOMException(
+    'Provider interrupted',
+    outcome === 'timeout' ? 'TimeoutError' : 'AbortError'
+  )
+  const reported = { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }
+  if (outcome === 'before-contact')
+    billing.admit.mockImplementation(async () => {
+      if (billing.contact.mock.calls.length) {
+        abort.abort(failure)
+        throw failure
+      }
+    })
+  if (outcome === 'after-accounted')
+    billing.record.mockImplementation(async () => {
+      abort.abort(failure)
+    })
+  if (outcome === 'pre-abort') abort.abort(failure)
+  const accounting = await usageProcessors(
+    outcome === 'timeout' ? scope : { ...scope, signal: abort.signal }
+  )
+  const contact = () => {
+    billing.contact()
+    if (billing.contact.mock.calls.length > 1) {
+      if (outcome === 'error') throw new Error('Provider failed')
+      abort.abort(failure)
+      throw failure
+    }
+  }
+  const agent = new Agent({
+    ...NATIVE_AGENT_POLICY,
+    id: 'interrupted-usage',
+    name: 'Interrupted usage',
+    instructions: '',
+    model: new MastraLanguageModelV2Mock({
+      doGenerate: async () => {
+        contact()
+        return {
+          content: [{ type: 'tool-call', toolCallId: 'lookup', toolName: 'lookup', input: '{}' }],
+          usage: reported,
+          finishReason: 'tool-calls',
+          warnings: [],
+        }
+      },
+      doStream: async () => {
+        contact()
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: 'stream-start', warnings: [] },
+              { type: 'tool-call', toolCallId: 'lookup', toolName: 'lookup', input: '{}' },
+              { type: 'finish', usage: reported, finishReason: 'tool-calls' },
+            ],
+          }),
+        }
+      },
+    }),
+    tools: {
+      lookup: createTool({
+        id: 'lookup',
+        description: 'Lookup',
+        inputSchema: z.object({}),
+        execute: async () => ({ success: true }),
+      }),
+    },
+  })
+  const options = {
+    runId: scope.runId,
+    maxSteps: 2,
+    abortSignal: abort.signal,
+    inputProcessors: accounting.inputProcessors,
+    outputProcessors: accounting.outputProcessors,
+  }
+  try {
+    if (mode === 'generate') await agent.generate('Look up', options)
+    else await (await agent.stream('Look up', options)).getFullOutput()
+  } catch {
+    // Native errors and cancellation both retain the accounting observed before failure.
+  }
+  await expect(accounting.verifyComplete()).rejects.toThrow(
+    outcome === 'timeout' ? 'unfinished provider request' : undefined
+  )
+  const incomplete = ['abort', 'timeout', 'error'].includes(outcome)
+  expect(billing.contact).toHaveBeenCalledTimes(outcome === 'pre-abort' ? 0 : incomplete ? 2 : 1)
+  expect(accounting.getUsage()).toEqual(outcome === 'pre-abort' ? {} : reported)
+  expect(billing.record).toHaveBeenCalledTimes(
+    outcome === 'pre-abort' ? 0 : outcome === 'error' ? 2 : 1
+  )
+  if (outcome === 'pre-abort') expect(accounting.getCost()).toEqual({ status: 'unavailable' })
+  else if (incomplete) {
+    expect(accounting.getCost()).toMatchObject({ status: 'partial', currency: 'USD' })
+    expect(accounting.getCost().availableTotal).toBeCloseTo(0.0028)
+    expect(accounting.getCost()).not.toHaveProperty('total')
+  } else {
+    expect(accounting.getCost()).toMatchObject({ status: 'estimated', currency: 'USD' })
+    expect(accounting.getCost().total).toBeCloseTo(0.0028)
+  }
+})

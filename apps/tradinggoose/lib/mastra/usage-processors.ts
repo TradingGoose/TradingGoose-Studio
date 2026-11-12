@@ -19,7 +19,7 @@ export async function usageProcessors(
 ) {
   if (!scope.actorUserId) throw new Error('An authenticated model actor is required')
   const actorScope: ModelUsageScope = { ...scope, actorUserId: scope.actorUserId }
-  const steps = new Map<string, { usage: NativeUsage; cost: NativeCost }>()
+  const steps = new Map<string, { usage?: NativeUsage; cost: NativeCost }>()
   let failure: unknown
   const input: InputProcessor = {
     id: 'studio-usage-admission',
@@ -32,6 +32,12 @@ export async function usageProcessors(
         throw error
       }
     },
+    processLLMRequest({ stepNumber, retryCount, abortSignal }) {
+      scope.signal?.throwIfAborted()
+      abortSignal?.throwIfAborted()
+      const key = `${scope.runId}:${stepNumber}:${retryCount}`
+      if (!steps.has(key)) steps.set(key, { cost: { status: 'unavailable' } })
+    },
     processAPIError({ error }) {
       failure = error
     },
@@ -42,7 +48,7 @@ export async function usageProcessors(
       try {
         if (failure) throw failure
         const key = `${scope.runId}:${args.stepNumber}:${args.retryCount}`
-        if (!steps.has(key)) {
+        if (!steps.get(key)?.usage) {
           const step = {
             usage: sumNativeUsage([{ usage: args.usage }]),
             cost: { status: 'unavailable' } as NativeCost,
@@ -98,6 +104,8 @@ export async function usageProcessors(
       if (failure) throw failure
       scope.signal?.throwIfAborted()
       if (!steps.size) throw new Error('Model generation has no completed steps')
+      if ([...steps.values()].some((step) => !step.usage))
+        throw new Error('Model generation has an unfinished provider request')
     },
   }
 }
