@@ -22,7 +22,6 @@ const SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES = ['/api/auth/callback/', '/api/auth/o
 const SUBSCRIPTION_UPGRADE_PATH = '/api/auth/subscription/upgrade'
 const ROBINHOOD_OAUTH_CALLBACK_PATH = '/api/auth/oauth2/callback/robinhood'
 const APP_OWNED_AUTH_POST_PATHS = new Set([
-  '/api/auth/organization/create',
   '/api/auth/organization/update',
   '/api/auth/organization/cancel-invitation',
   '/api/auth/subscription/cancel',
