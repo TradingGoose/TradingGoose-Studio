@@ -11,8 +11,8 @@ import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { getTierLogRetentionDays } from '@/lib/billing/tiers'
 import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
+import { deleteExecutionLogAssets } from '@/lib/logs/execution/cleanup'
 import { snapshotService } from '@/lib/logs/execution/snapshot/service'
-import { deleteAgentHistory } from '@/lib/mastra/agent-history'
 
 export const dynamic = 'force-dynamic'
 
@@ -197,13 +197,13 @@ export async function GET(request: NextRequest) {
 
         for (const log of oldEnhancedLogs) {
           try {
+            await deleteExecutionLogAssets(log)
             const deleted = await db
               .delete(workflowExecutionLogs)
               .where(and(eq(workflowExecutionLogs.id, log.id), completedLogReadyForRetention))
               .returning({ id: workflowExecutionLogs.id })
             if (!deleted.length) continue
             results.enhancedLogs.deleted++
-            await deleteAgentHistory(log)
           } catch (error) {
             results.enhancedLogs.deleteFailed++
             logger.error(`Failed to clean up execution ${log.id}`, { error })
@@ -240,7 +240,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       message: `Processed ${batchesProcessed} enhanced log batches (${results.enhancedLogs.total} logs) in ${timeElapsed.toFixed(2)}s${reachedLimit ? ' (batch limit reached)' : ''}`,
       results,
-      complete: !hasMoreLogs,
+      complete: !hasMoreLogs && results.enhancedLogs.deleteFailed === 0,
       batchLimitReached: reachedLimit,
     })
   } catch (error) {

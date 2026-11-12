@@ -92,7 +92,7 @@ export async function attachAgentHistory<T extends ExecutionLog>(
   return { ...row, executionData: { ...data, traceSpans } }
 }
 
-/** The caller supplies an execution log that its retention/delete operation actually removed. */
+/** The caller retains the owning log until native history deletion succeeds. */
 export async function deleteAgentHistory(
   row: Pick<ExecutionLog, 'id' | 'workspaceId' | 'executionId'>
 ): Promise<void> {
