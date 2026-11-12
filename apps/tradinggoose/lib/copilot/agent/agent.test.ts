@@ -1,10 +1,11 @@
 /** @vitest-environment node */
 import { randomUUID } from 'node:crypto'
+import { ModelRouterLanguageModel } from '@mastra/core/llm'
 import { Mastra } from '@mastra/core/mastra'
 import { InMemoryStore } from '@mastra/core/storage'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { Memory } from '@mastra/memory'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import type { ServerPending as Pending } from '@/lib/copilot/native/target'
 import { createCopilotAgent } from './agent'
@@ -94,6 +95,7 @@ beforeEach(() => {
   m.active.mockResolvedValue(undefined)
   m.effect.mockImplementation(async (_run, _call, _phase, execute) => execute())
 })
+afterEach(() => vi.unstubAllGlobals())
 describe('Studio-owned Copilot tools', () => {
   it('executes a real registered read schema through the local router and validates its result', async () => {
     m.model = model('list_workflows', { workspaceId: 'workspace' })
@@ -189,14 +191,90 @@ describe('Studio-owned Copilot tools', () => {
     expect(m.route).toHaveBeenCalledTimes(2)
   })
 
-  it('validates canonical tool arguments before dispatch', async () => {
-    m.model = model('list_workflows', { entityId: 'wrong surface' })
-    const h = harness()
-
-    await h.agent.generate('List workflows', h.options)
-    expect(m.route).not.toHaveBeenCalled()
-    expect(m.effect).not.toHaveBeenCalled()
-  })
+  it.each([true, false])(
+    'preserves dictionaries in actual OpenAI requests and validates arguments before dispatch (valid: %s)',
+    async (valid) => {
+      const args = {
+        url: 'https://example.com',
+        method: 'GET',
+        headers: { 'x-value': valid ? 'kept' : 7 },
+      }
+      const requests: any[] = []
+      vi.stubGlobal('fetch', async (url: RequestInfo | URL, init?: RequestInit) => {
+        expect(String(url)).toBe('https://api.openai.com/v1/responses')
+        const body = JSON.parse(String(init?.body))
+        requests.push(body)
+        return Response.json({
+          id: `resp_${requests.length}`,
+          object: 'response',
+          created_at: 0,
+          model: body.model,
+          status: 'completed',
+          output:
+            requests.length === 1
+              ? [
+                  {
+                    id: 'call',
+                    type: 'function_call',
+                    call_id: 'business-call',
+                    name: 'make_api_request',
+                    arguments: JSON.stringify(args),
+                    status: 'completed',
+                  },
+                ]
+              : [
+                  {
+                    id: 'answer',
+                    type: 'message',
+                    role: 'assistant',
+                    status: 'completed',
+                    content: [{ type: 'output_text', text: 'Done', annotations: [] }],
+                  },
+                ],
+          usage: { input_tokens: 3, output_tokens: 1, total_tokens: 4 },
+        })
+      })
+      m.model = new ModelRouterLanguageModel({
+        providerId: 'openai',
+        modelId: 'gpt-4.1',
+        apiKey: 'fixture-key',
+      })
+      m.route.mockResolvedValue({ status: 200, data: 'Read' })
+      const h = harness()
+      const result = await h.agent.generate('Send a request', h.options)
+      expect(result.text).toBe('Done')
+      expect(requests).toHaveLength(2)
+      const tool = (name: string) => requests[0].tools.find((item: any) => item.name === name)
+      expect(tool('make_api_request').strict).toBe(false)
+      expect(tool('make_api_request').parameters.properties.headers.additionalProperties).toEqual({
+        type: 'string',
+      })
+      expect(tool('edit_workflow_block').parameters.properties.subBlocks).toMatchObject({
+        type: 'object',
+        additionalProperties: {},
+      })
+      expect(tool('edit_widget').parameters.properties.params).toMatchObject({
+        type: 'object',
+        additionalProperties: {},
+      })
+      expect(
+        tool('set_environment_variables').parameters.oneOf.every(
+          (entry: any) => entry.properties.variables.additionalProperties.type === 'string'
+        )
+      ).toBe(true)
+      if (valid) {
+        expect(m.route).toHaveBeenCalledExactlyOnceWith(
+          'make_api_request',
+          args,
+          expect.objectContaining({ workspaceId: 'workspace', userId: 'actor' })
+        )
+        expect(m.effect).toHaveBeenCalledOnce()
+      } else {
+        expect(m.route).not.toHaveBeenCalled()
+        expect(m.effect).not.toHaveBeenCalled()
+      }
+    }
+  )
 
   it('rechecks workspace access after approval before dispatch', async () => {
     m.model = model('rename_workflow', { entityId: 'workflow', name: 'New name' })

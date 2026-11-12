@@ -609,6 +609,97 @@ describe('native Agent MCP integration', () => {
     },
     usageControl: 'force' as const,
   }
+  it.each(['custom', 'mcp'])(
+    'preserves %s dictionary schemas and arguments through the actual OpenAI request and shared dispatch',
+    async (kind) => {
+      const parameters = {
+        type: 'object',
+        properties: {
+          headers: { type: 'object', additionalProperties: { type: 'string' } },
+          payload: { type: 'object' },
+        },
+        required: ['headers', 'payload'],
+      }
+      const args = { headers: { 'x-value': 'kept' }, payload: { dynamic: { nested: true } } }
+      const requests: any[] = []
+      vi.stubGlobal('fetch', async (url: RequestInfo | URL, init?: RequestInit) => {
+        expect(String(url)).toBe('https://api.openai.com/v1/responses')
+        const body = JSON.parse(String(init?.body))
+        requests.push(body)
+        return Response.json({
+          id: `resp_${requests.length}`,
+          object: 'response',
+          created_at: 0,
+          model: body.model,
+          status: 'completed',
+          output:
+            requests.length === 1
+              ? [
+                  {
+                    id: 'call',
+                    type: 'function_call',
+                    call_id: 'dictionary-call',
+                    name: body.tools[0].name,
+                    arguments: JSON.stringify(args),
+                    status: 'completed',
+                  },
+                ]
+              : [
+                  {
+                    id: 'answer',
+                    type: 'message',
+                    role: 'assistant',
+                    status: 'completed',
+                    content: [{ type: 'output_text', text: 'Done', annotations: [] }],
+                  },
+                ],
+          usage: { input_tokens: 2, output_tokens: 3, total_tokens: 5 },
+        })
+      })
+      vi.mocked(mcpService.discoverServerTools).mockResolvedValue([
+        {
+          name: 'lookup',
+          serverId: selected.params.serverId,
+          serverName: 'Research',
+          inputSchema: parameters,
+        },
+      ])
+      const native = await vi.importActual<typeof import('@/lib/mastra/connections')>(
+        '@/lib/mastra/connections'
+      )
+      state.model = native.createConfiguredLanguageModel('openai/gpt-4.1', 'fixture-key')
+      const configured =
+        kind === 'mcp'
+          ? {
+              type: 'mcp',
+              params: { serverId: selected.params.serverId, toolName: 'lookup' },
+              usageControl: 'force' as const,
+            }
+          : {
+              type: 'custom-tool',
+              toolId: 'custom_dictionary',
+              title: 'Dictionary',
+              schema: { function: { description: 'Receive dictionaries', parameters } },
+              usageControl: 'force' as const,
+            }
+      const result = await new AgentBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', tools: [configured] },
+        context()
+      )
+      expect(result).toMatchObject({ content: 'Done', tokens: { total: 10 } })
+      expect(requests).toHaveLength(2)
+      expect(requests[0].tools[0]).toMatchObject({
+        strict: false,
+        parameters: { properties: parameters.properties },
+      })
+      const [id, dispatched] = vi.mocked(executeTool).mock.calls[0]
+      expect(id).toBe(kind === 'mcp' ? 'mcp' : 'custom_dictionary')
+      expect(kind === 'mcp' ? dispatched.arguments : dispatched).toMatchObject(args)
+      if (kind === 'mcp')
+        expect(dispatched).toMatchObject({ serverId: selected.params.serverId, toolName: 'lookup' })
+    }
+  )
   it.each(['auto', 'force'] as const)(
     'dispatches a long MCP identity using Mastra-normalized %s selection',
     async (usageControl) => {

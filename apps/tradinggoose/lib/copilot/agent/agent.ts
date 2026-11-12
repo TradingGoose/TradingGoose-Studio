@@ -29,6 +29,7 @@ function createCopilotTools(execution: CopilotExecution) {
       name,
       createTool({
         id: name,
+        strict: false,
         description: TOOL_PROMPT_METADATA[name].description,
         inputSchema: ToolArgSchemas[name] as z.ZodType<JsonObject>,
         // Only the server can produce resume data. Business schemas validate the final result.

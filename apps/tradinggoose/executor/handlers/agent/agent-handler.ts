@@ -620,6 +620,7 @@ export function createAgentToolSet(
         nativeName,
         createTool({
           id: nativeName,
+          strict: false,
           title: tool.name,
           description: tool.description,
           inputSchema: toStandardSchema(tool.parameters),
