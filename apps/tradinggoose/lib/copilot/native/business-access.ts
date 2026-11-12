@@ -40,6 +40,7 @@ export async function authorizeNativeCredential(
       403
     )
   }
+  return resolved
 }
 
 /** Fresh authorization only. Never re-executes a tool, refreshes credentials, or contacts a model. */

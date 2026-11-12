@@ -63,6 +63,13 @@ const searchListingExecute = vi.fn(async () => ({ results: [] }))
 const docsExecute = vi.fn(
   async (_args?: unknown, _context?: unknown): Promise<any> => ({ results: [] })
 )
+const docsSelect = vi.fn()
+const docsEmbedding = vi.fn()
+vi.mock('@tradinggoose/db', () => ({ db: { select: docsSelect } }))
+vi.mock('@/lib/embeddings/utils', () => ({ generateSearchEmbedding: docsEmbedding }))
+vi.mock('@/lib/copilot/config', () => ({
+  getCopilotConfig: () => ({ rag: { similarityThreshold: 0.3 } }),
+}))
 const noopEntityExecute = vi.fn(async () => ({}))
 
 const entityTool = (name: string, execute = noopEntityExecute) => ({ name, execute })
@@ -247,6 +254,8 @@ beforeEach(() => {
   setEnvironmentVariablesExecute.mockClear()
   searchListingExecute.mockClear()
   docsExecute.mockReset().mockResolvedValue({ results: [] })
+  docsSelect.mockReset()
+  docsEmbedding.mockReset()
   noopEntityExecute.mockClear()
 })
 
@@ -590,7 +599,7 @@ describe('routeExecution', () => {
     )
   })
 
-  it('routes listing search without workspace inheritance or workspace access checks', async () => {
+  it('keeps listing content global while retaining the execution workspace', async () => {
     await expect(
       routeExecution(
         'search_listing',
@@ -608,6 +617,7 @@ describe('routeExecution', () => {
       { query: 'AAPL' },
       {
         userId: 'user-1',
+        workspaceId: 'workspace-1',
         accessLevel: undefined,
         acceptedReviewBaseStateHash: undefined,
         signal: undefined,
@@ -800,6 +810,53 @@ describe('routeExecution', () => {
   )
 })
 
+it('meters the real global documentation search in its authorized billing workspace', async () => {
+  const { searchDocumentationServerTool } = await vi.importActual<
+    typeof import('@/lib/copilot/tools/server/docs/search-documentation')
+  >('@/lib/copilot/tools/server/docs/search-documentation')
+  docsExecute.mockImplementationOnce((args, context) =>
+    searchDocumentationServerTool.execute(
+      args as Parameters<typeof searchDocumentationServerTool.execute>[0],
+      context as Parameters<typeof searchDocumentationServerTool.execute>[1]
+    )
+  )
+  docsSelect
+    .mockReturnValueOnce({ from: () => ({ limit: async () => [{ chunkId: 'global-chunk' }] }) })
+    .mockReturnValueOnce({
+      from: () => ({
+        orderBy: () => ({
+          limit: async () => [{ similarity: 1, chunkText: 'Global documentation' }],
+        }),
+      }),
+    })
+  docsEmbedding.mockResolvedValue({
+    embedding: [1, 2],
+    model: 'openai/text-embedding-3-small',
+    tokens: { prompt: 2, total: 2 },
+    usage: { status: 'reported', batches: 1 },
+    cost: { status: 'unavailable' },
+  })
+  const signal = new AbortController().signal
+  const result = await routeExecution(
+    'search_documentation',
+    { query: 'docs' },
+    {
+      userId: 'actor',
+      workspaceId: 'organization-workspace',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'unrelated-workflow',
+      signal,
+    }
+  )
+  expect(docsEmbedding).toHaveBeenCalledExactlyOnceWith('docs', {
+    actorUserId: 'actor',
+    workspaceId: 'organization-workspace',
+    signal,
+  })
+  expect(result.results).toMatchObject([{ content: 'Global documentation' }])
+  expect(docsExecute.mock.calls[0][1]).not.toHaveProperty('contextEntityId')
+})
+
 it('preserves only genuine own completed docs facts after global result projection', async () => {
   const facts = {
     model: 'source/embedding',
@@ -814,12 +871,18 @@ it('preserves only genuine own completed docs facts after global result projecti
   const result = await routeExecution(
     'search_documentation',
     { query: 'docs' },
-    { userId: 'actor', workspaceId: 'resource-must-drop' }
+    {
+      userId: 'actor',
+      workspaceId: 'billing-workspace',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'unrelated-entity',
+    }
   )
   expect(Object.fromEntries(Object.entries(result))).toEqual({ results: [] })
   expect(getInferenceFacts(result)).toBe(facts)
   const context = docsExecute.mock.calls[0][1]
-  expect(context).not.toHaveProperty('workspaceId')
+  expect(context).toMatchObject({ workspaceId: 'billing-workspace' })
+  expect(context).not.toHaveProperty('contextEntityId')
   docsExecute.mockResolvedValueOnce({
     results: [],
     tokens: { total: 9000 },

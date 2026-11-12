@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
 import type { JsonObject, Scope } from './contract'
 import type { ServerPending as Pending } from './target'
 
@@ -60,6 +61,10 @@ function logRow(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   m.rows.mockResolvedValue([logRow()])
+  m.credential.mockReset().mockResolvedValue({
+    credentialId: 'actual-credential',
+    workspaceId: 'selected-workspace',
+  })
   m.workspace.mockReset().mockResolvedValue({ hasAccess: true, canWrite: false })
   m.executionAccess.mockResolvedValue({ userId: 'member', workspaceId: 'entity-workspace' })
   m.executionResult.mockReturnValue({
@@ -195,26 +200,36 @@ describe('authoritative native result readback', () => {
       readbackNativeToolResult(scope, pending(), { userId: 'member' })
     ).rejects.toMatchObject({ status: 409 })
   })
-  it('uses only authorized selected credential reference', async () => {
-    expect(
-      await readbackNativeToolResult(
-        scope,
-        pending('gdrive_request_access', {}),
-        { userId: 'member' },
-        { credentialId: 'actual-credential' }
-      )
-    ).toEqual({ granted: true, credentialId: 'actual-credential' })
-    expect(m.credential).toHaveBeenCalledWith(scope, 'actual-credential', undefined)
-    m.credential.mockRejectedValueOnce(new Error('Revoked'))
-    await expect(
-      readbackNativeToolResult(
-        scope,
-        pending('gdrive_request_access', {}),
-        { userId: 'member' },
-        { credentialId: 'forged' }
-      )
-    ).rejects.toThrow('Revoked')
-  })
+  it.each([undefined, 'selected-workspace'])(
+    'returns the authorized credential workspace independently of personal billing (%j)',
+    async (workspaceId) => {
+      expect(
+        ToolResultSchemas.gdrive_request_access.parse(
+          await readbackNativeToolResult(
+            scope,
+            pending('gdrive_request_access', {}),
+            { userId: 'member', workspaceId },
+            { credentialId: 'actual-credential' }
+          )
+        )
+      ).toEqual({
+        granted: true,
+        credentialId: 'actual-credential',
+        workspaceId: 'selected-workspace',
+      })
+      expect(scope.workspaceId).toBeNull()
+      expect(m.credential).toHaveBeenCalledWith(scope, 'actual-credential', workspaceId)
+      m.credential.mockRejectedValueOnce(new Error('Revoked'))
+      await expect(
+        readbackNativeToolResult(
+          scope,
+          pending('gdrive_request_access', {}),
+          { userId: 'member' },
+          { credentialId: 'forged' }
+        )
+      ).rejects.toThrow('Revoked')
+    }
+  )
   it('reads actual deployment postcondition without deploying or fabricating endpoints', async () => {
     expect(
       await readbackNativeToolResult(

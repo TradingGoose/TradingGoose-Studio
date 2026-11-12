@@ -18,6 +18,7 @@ const m = vi.hoisted(() => ({
   business: vi.fn(),
   active: vi.fn(),
   effect: vi.fn(),
+  global: vi.fn(),
 }))
 vi.mock('@/lib/copilot/native/target', async () => ({
   ...(await import('@/lib/copilot/native/errors')),
@@ -26,7 +27,10 @@ vi.mock('@/lib/copilot/native/target', async () => ({
 vi.mock('@/lib/copilot/native/business-access', () => ({
   authorizeNativeBusinessResult: m.business,
 }))
-vi.mock('@/lib/copilot/tools/server/router', () => ({ routeExecution: m.route }))
+vi.mock('@/lib/copilot/tools/server/router', () => ({
+  routeExecution: m.route,
+  isWorkspaceAgnosticServerTool: m.global,
+}))
 vi.mock('./state', () => ({
   assertCopilotRunActive: m.active,
   runCopilotEffectOnce: (...args: any[]) => m.effect(...args),
@@ -90,13 +94,41 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  m.route.mockReset()
   m.authorize.mockResolvedValue({ actorUserId: 'actor', workspaceId: 'workspace' })
   m.business.mockResolvedValue(undefined)
   m.active.mockResolvedValue(undefined)
+  m.global.mockReset().mockReturnValue(false)
   m.effect.mockImplementation(async (_run, _call, _phase, execute) => execute())
 })
 afterEach(() => vi.unstubAllGlobals())
 describe('Studio-owned Copilot tools', () => {
+  it.each(['conversation-workspace', null])(
+    'keeps global documentation billing in conversation scope %j instead of an attached entity',
+    async (workspaceId) => {
+      m.model = model('search_documentation', { query: 'workflow documentation' })
+      m.global.mockImplementation((name) => name === 'search_documentation')
+      m.route.mockResolvedValueOnce({ results: [] })
+      const h = harness()
+      h.execution.run.scope.workspaceId = workspaceId
+      h.options.memory.resource = nativeConversationIdentity(h.execution.run.scope).resourceId
+      h.execution.run.toolContext = {
+        workspaceId: 'attached-entity-workspace',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'attached-workflow',
+      }
+      await h.agent.generate('Search documentation', h.options)
+      expect(m.route).toHaveBeenCalledExactlyOnceWith(
+        'search_documentation',
+        { query: 'workflow documentation' },
+        expect.objectContaining({ userId: 'actor' })
+      )
+      expect(m.route.mock.calls[0][2].workspaceId).toBe(workspaceId ?? undefined)
+      expect(m.route.mock.calls[0][2]).not.toHaveProperty('contextEntityId')
+      expect(h.execution.run.scope.workspaceId).toBe(workspaceId)
+    }
+  )
+
   it('executes a real registered read schema through the local router and validates its result', async () => {
     m.model = model('list_workflows', { workspaceId: 'workspace' })
     m.route.mockResolvedValueOnce({

@@ -35,6 +35,7 @@ const m = vi.hoisted(() => ({
   business: vi.fn(),
   resolve: vi.fn(),
   contexts: vi.fn(),
+  credential: vi.fn(),
   receipts: new Map<string, { id: string; identifier: string; value: string }>(),
 }))
 vi.mock('@/lib/mastra/runtime', () => ({
@@ -61,10 +62,14 @@ vi.mock('@/lib/billing/model-usage', () => ({
 }))
 vi.mock('@/lib/copilot/native/business-access', () => ({
   authorizeNativeBusinessResult: (...args: unknown[]) => m.business(...args),
+  authorizeNativeCredential: (...args: unknown[]) => m.credential(...args),
 }))
-vi.mock('@/lib/copilot/native/readback', () => ({ readbackNativeToolResult: vi.fn() }))
+vi.mock('@/lib/copilot/tools/server/workflow/check-deployment-status', () => ({
+  checkDeploymentStatusServerTool: { execute: vi.fn() },
+}))
 vi.mock('@/lib/copilot/tools/server/router', () => ({
   routeExecution: (...args: unknown[]) => m.route(...args),
+  isWorkspaceAgnosticServerTool: () => false,
 }))
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -227,6 +232,7 @@ beforeEach(() => {
   m.accept.mockResolvedValue(undefined)
   m.business.mockResolvedValue(undefined)
   m.contexts.mockReset().mockResolvedValue([])
+  m.credential.mockReset()
   m.storage = new InMemoryStore()
   restart()
 })
@@ -622,6 +628,55 @@ describe('built-in Copilot service bridge', () => {
     expect(JSON.stringify(events)).not.toContain('Do not expose this prompt in raw transport')
     expect(m.fetch).not.toHaveBeenCalled()
   })
+
+  it.each([undefined, 'drive-workspace'])(
+    'keeps the authorized Drive workspace in a personal conversation continuation (selection: %s)',
+    async (selectedWorkspace) => {
+      const personal = { ...scope, workspaceId: null }
+      const workspaceId = 'drive-workspace'
+      const credentialId = 'drive-credential'
+      m.credential.mockResolvedValue({ credentialId, workspaceId, providerId: 'google-drive' })
+      setModel(
+        { tool: 'gdrive_request_access', args: {} },
+        { tool: 'list_gdrive_files', args: { workspaceId, credentialId } },
+        { text: 'Drive files are available' }
+      )
+      m.route.mockResolvedValue({ files: [] })
+      const initial = suspended((await message({ scope: personal, accessLevel: 'full' })).result)
+      expect(initial.pending[0]).toMatchObject({
+        stage: 'result',
+        target: { toolName: 'gdrive_request_access' },
+      })
+      restart()
+      const { result } = await command({
+        scope: personal,
+        command: 'tool.execute',
+        target: initial.pending[0].target,
+        action: 'readback',
+        ...(selectedWorkspace ? { context: { workspaceId: selectedWorkspace } } : {}),
+        readback: { credentialId },
+      })
+      expect(result).toMatchObject({ status: 'completed', text: 'Drive files are available' })
+      expect(m.credential).toHaveBeenCalledWith(personal, credentialId, selectedWorkspace)
+      expect(JSON.stringify(m.contacts[1])).toContain(credentialId)
+      expect(JSON.stringify(m.contacts[1])).toContain(workspaceId)
+      expect(m.route).toHaveBeenCalledWith(
+        'list_gdrive_files',
+        expect.objectContaining({ workspaceId, credentialId }),
+        expect.objectContaining({ workspaceId, userId: scope.actorUserId })
+      )
+      expect(m.admit.mock.calls.every(([usageScope]) => usageScope.workspaceId === undefined)).toBe(
+        true
+      )
+      expect(
+        m.accept.mock.calls.every(([usageScope]) => usageScope.workspaceId === undefined)
+      ).toBe(true)
+      const memory = await m.storage.getStore('memory')
+      expect((await memory!.getThreadById({ threadId: initial.threadId }))?.resourceId).toBe(
+        nativeConversationIdentity(personal).resourceId
+      )
+    }
+  )
 
   it.each(['missing', 'assistant', 'image', 'context', 'tool-history'])(
     'refuses an unsafe edited submission without changing native history (%s)',

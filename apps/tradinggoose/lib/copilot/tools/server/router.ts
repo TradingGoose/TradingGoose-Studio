@@ -306,6 +306,7 @@ export async function routeExecution(
   const executionContext = isWorkspaceAgnosticServerTool(toolName)
     ? context && {
         userId: context.userId,
+        workspaceId: context.workspaceId,
         accessLevel: context.accessLevel,
         acceptedReviewBaseStateHash: context.acceptedReviewBaseStateHash,
         signal: context.signal,

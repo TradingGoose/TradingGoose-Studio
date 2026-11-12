@@ -11,7 +11,7 @@ import { ToolArgSchemas, ToolIds, ToolResultSchemas } from '@/lib/copilot/regist
 import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
-import { routeExecution } from '@/lib/copilot/tools/server/router'
+import { isWorkspaceAgnosticServerTool, routeExecution } from '@/lib/copilot/tools/server/router'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import {
@@ -72,7 +72,11 @@ function createCopilotTools(execution: CopilotExecution) {
             },
             stage: 'result' as const,
             originalArgs: args,
-            context: resolveCopilotRunToolContext(run, name, args),
+            context: isWorkspaceAgnosticServerTool(name)
+              ? run.scope.workspaceId
+                ? { workspaceId: run.scope.workspaceId }
+                : undefined
+              : resolveCopilotRunToolContext(run, name, args),
             ...(resumed && live.pending?.preview ? { preview: live.pending.preview } : {}),
           }
           const businessContext: ServerToolExecutionContext = {
@@ -149,7 +153,7 @@ export function createCopilotAgent(memory: Memory) {
       return `${COPILOT_INSTRUCTIONS}
 
 Authorized conversation scope: ${JSON.stringify({ workspaceId: execution.run.scope.workspaceId })}
-Use the selected workspace for workspace-scoped tools unless the request identifies another authorized target. A null workspaceId means no workspace is selected; ask the user to select a workspace when one is required. Never invent workspace IDs.`
+Use authorized workspace IDs from the request context or tool results for workspace-scoped tools. A null conversation workspaceId means personal billing; ask the user to select a workspace only when no authorized business workspace is available. Never invent workspace IDs.`
     },
     model: ({ requestContext }) => {
       const execution = getCopilotExecution(requestContext)

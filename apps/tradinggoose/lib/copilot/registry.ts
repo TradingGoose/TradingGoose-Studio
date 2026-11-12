@@ -1057,9 +1057,9 @@ export const ToolResultSchemas = {
     }),
   }),
   gdrive_request_access: z.object({
-    granted: z.boolean().optional(),
-    credentialId: z.string().optional(),
-    message: z.string().optional(),
+    granted: z.literal(true),
+    credentialId: RequiredId,
+    workspaceId: RequiredId,
   }),
   list_gdrive_files: z.object({
     files: z.array(

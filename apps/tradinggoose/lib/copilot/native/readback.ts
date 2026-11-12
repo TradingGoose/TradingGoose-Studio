@@ -105,8 +105,16 @@ export async function readbackNativeToolResult(
     case 'gdrive_request_access': {
       if (!reference)
         throw new NativeTargetError('A selected credential reference is required', 422)
-      await authorizeNativeCredential(scope, reference.credentialId, context.workspaceId)
-      return { granted: true, credentialId: reference.credentialId }
+      const credential = await authorizeNativeCredential(
+        scope,
+        reference.credentialId,
+        context.workspaceId
+      )
+      return {
+        granted: true,
+        credentialId: credential.credentialId,
+        workspaceId: credential.workspaceId,
+      }
     }
     case 'deploy_workflow': {
       if (reference)
