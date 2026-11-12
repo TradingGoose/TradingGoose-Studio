@@ -19,6 +19,7 @@ import * as runtime from '@/lib/mastra/runtime'
 import { createCopilotAgent } from './agent'
 import { readCopilotRun } from './context'
 import { executeCopilotCommand } from './service'
+import * as runState from './state'
 import { claimCopilotThread, isCopilotRunCancelled, readCopilotThreadRun } from './state'
 
 const m = vi.hoisted(() => ({
@@ -36,6 +37,7 @@ const m = vi.hoisted(() => ({
   resolve: vi.fn(),
   contexts: vi.fn(),
   credential: vi.fn(),
+  cancelInsert: vi.fn(),
   receipts: new Map<string, { id: string; identifier: string; value: string }>(),
 }))
 vi.mock('@/lib/mastra/runtime', () => ({
@@ -84,9 +86,21 @@ vi.mock('@tradinggoose/db', () => ({
       values: (row: { id: string; identifier: string; value: string }) => ({
         onConflictDoNothing: () => ({
           returning: async () => {
+            if (row.id.startsWith('copilot:cancel:')) await m.cancelInsert()
             if (m.receipts.has(row.id)) return []
             m.receipts.set(row.id, row)
             return [{ id: row.id }]
+          },
+        }),
+      }),
+    }),
+    update: () => ({
+      set: (patch: Record<string, unknown>) => ({
+        where: (matches: (row: unknown) => boolean) => ({
+          returning: async () => {
+            const rows = [...m.receipts.values()].filter(matches)
+            for (const row of rows) Object.assign(row, patch)
+            return rows.map(({ id }) => ({ id }))
           },
         }),
       }),
@@ -112,6 +126,13 @@ vi.mock('drizzle-orm', async (original) => ({
 
 const scope: Scope = { actorUserId: 'actor', workspaceId: 'workspace' }
 const threadClaims = () => [...m.receipts.values()].filter((row) => row.id === row.identifier)
+function deferred() {
+  let resolve!: () => void
+  const promise = new Promise<void>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
 function restart() {
   m.memory = new Memory({
     storage: m.storage,
@@ -233,6 +254,7 @@ beforeEach(() => {
   m.business.mockResolvedValue(undefined)
   m.contexts.mockReset().mockResolvedValue([])
   m.credential.mockReset()
+  m.cancelInsert.mockReset().mockResolvedValue(undefined)
   m.storage = new InMemoryStore()
   restart()
 })
@@ -993,6 +1015,199 @@ describe('built-in Copilot service bridge', () => {
     expect(m.contacts).toHaveLength(1)
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(threadClaims()).toHaveLength(0)
+  })
+  it.each(['approval', 'review'])(
+    'retains a resumed %s writer until its approved effect settles despite cancellation',
+    async (stage) => {
+      setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
+      let initial = suspended((await message({ accessLevel: 'limited' })).result)
+      if (stage === 'review') {
+        m.route.mockResolvedValueOnce({ requiresReview: true, reviewBaseStateHash: 'base' })
+        initial = suspended(
+          (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
+        )
+      }
+      const entered = deferred()
+      const effect = deferred()
+      const cancelling = deferred()
+      const cancellation = deferred()
+      m.cancelInsert.mockImplementationOnce(async () => {
+        cancelling.resolve()
+        await cancellation.promise
+      })
+      let settled = false
+      let signal: AbortSignal | undefined
+      m.route.mockImplementationOnce(async (_name, _args, context) => {
+        signal = context.signal
+        entered.resolve()
+        await effect.promise
+        settled = true
+        return { entityId: 'workflow', entityName: 'Changed', workspaceId: scope.workspaceId }
+      })
+      let acknowledged = false
+      const stopping = command({
+        command: 'cancel',
+        threadId: initial.threadId,
+        runId: initial.runId,
+      }).then((result) => {
+        acknowledged = true
+        return result
+      })
+      await cancelling.promise
+      restart()
+      const continuing = command({
+        command: stage === 'approval' ? 'tool.approve' : 'tool.execute',
+        target: initial.pending[0].target,
+        ...(stage === 'review' ? { action: 'review.accept' } : {}),
+      })
+      await entered.promise
+      cancellation.resolve()
+      try {
+        await vi.waitFor(() => expect(signal?.aborted).toBe(true))
+        expect(settled).toBe(false)
+        expect(acknowledged).toBe(false)
+        expect(await readCopilotThreadRun(scope, initial.threadId)).toBe(initial.runId)
+        await expect(
+          claimCopilotThread(scope, initial.threadId, 'competing-run')
+        ).rejects.toMatchObject({
+          status: 409,
+        })
+      } finally {
+        effect.resolve()
+        await continuing
+        expect((await stopping).result).toMatchObject({ status: 'cancel_requested' })
+      }
+      expect(settled).toBe(true)
+      expect(await readCopilotThreadRun(scope, initial.threadId)).toBeUndefined()
+    }
+  )
+  it('refuses a stale resume preflight after cancellation admits a new run', async () => {
+    setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
+    const initial = suspended((await message({ accessLevel: 'limited' })).result)
+    const entered = deferred()
+    const preflight = deferred()
+    m.resolve.mockImplementationOnce(async () => {
+      entered.resolve()
+      await preflight.promise
+      return { apiKey: 'admin-key' }
+    })
+    const continuing = command({ command: 'tool.approve', target: initial.pending[0].target })
+    await entered.promise
+    try {
+      expect(
+        (await command({ command: 'cancel', threadId: initial.threadId, runId: initial.runId }))
+          .result
+      ).toMatchObject({ status: 'cancel_requested' })
+      await claimCopilotThread(scope, initial.threadId, 'next-run')
+    } finally {
+      preflight.resolve()
+    }
+    expect((await continuing).result).toMatchObject({ status: 'refused' })
+    expect(m.route).not.toHaveBeenCalled()
+    expect(await readCopilotThreadRun(scope, initial.threadId)).toBe('next-run')
+  })
+  it('admits only one of two continuations prepared from the same suspension', async () => {
+    setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
+    const initial = suspended((await message({ accessLevel: 'limited' })).result)
+    const ready = deferred()
+    const preflight = deferred()
+    const effect = deferred()
+    const executing = deferred()
+    let prepared = 0
+    m.resolve.mockImplementation(async () => {
+      if (++prepared === 2) ready.resolve()
+      await preflight.promise
+      return { apiKey: 'admin-key' }
+    })
+    m.route.mockImplementationOnce(async () => {
+      executing.resolve()
+      await effect.promise
+      return { entityId: 'workflow', entityName: 'Changed', workspaceId: scope.workspaceId }
+    })
+    const results: CopilotResponse[] = []
+    const attempts = [0, 1].map(() =>
+      command({ command: 'tool.approve', target: initial.pending[0].target }).then(({ result }) => {
+        results.push(result)
+      })
+    )
+    await ready.promise
+    preflight.resolve()
+    await executing.promise
+    try {
+      await vi.waitFor(() => expect(results).toHaveLength(1))
+      expect(results[0].status).toBe('refused')
+      expect(await readCopilotThreadRun(scope, initial.threadId)).toBe(initial.runId)
+      expect(m.route).toHaveBeenCalledOnce()
+    } finally {
+      effect.resolve()
+      await Promise.all(attempts)
+    }
+    expect(results.map(({ status }) => status).sort()).toEqual(['completed', 'refused'])
+  })
+  it('finishes cancellation that races a drained suspension handoff', async () => {
+    setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
+    const entered = deferred()
+    const handoff = deferred()
+    const pause = runState.suspendCopilotThread
+    const spy = vi
+      .spyOn(runState, 'suspendCopilotThread')
+      .mockImplementationOnce(async (...args) => {
+        entered.resolve()
+        await handoff.promise
+        return pause(...args)
+      })
+    const generating = message({ accessLevel: 'limited' })
+    await entered.promise
+    const [native] = (await m.agent.listSuspendedRuns()).runs
+    const stopping = command({ command: 'cancel', threadId: native.threadId, runId: native.runId })
+    try {
+      await vi.waitFor(async () => expect(await isCopilotRunCancelled(native.runId)).toBe(true))
+      expect(await readCopilotThreadRun(scope, native.threadId!)).toBe(native.runId)
+    } finally {
+      handoff.resolve()
+      await generating
+      expect((await stopping).result).toMatchObject({ status: 'cancel_requested' })
+      spy.mockRestore()
+    }
+    expect(await readCopilotThreadRun(scope, native.threadId!)).toBeUndefined()
+  })
+  it('retains an admitted writer when native resume throws without a settlement handle', async () => {
+    setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
+    const initial = suspended((await message({ accessLevel: 'limited' })).result)
+    const spy = vi
+      .spyOn(m.agent, 'approveToolCall')
+      .mockRejectedValueOnce(new Error('Unknown SDK start outcome'))
+    try {
+      expect(
+        (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
+      ).toMatchObject({ status: 'failed' })
+      expect(await readCopilotThreadRun(scope, initial.threadId)).toBe(initial.runId)
+      await expect(
+        claimCopilotThread(scope, initial.threadId, 'competing-run')
+      ).rejects.toMatchObject({ status: 409 })
+    } finally {
+      spy.mockRestore()
+    }
+  })
+  it('preserves a known native suspension when pending discovery fails', async () => {
+    setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
+    const spy = vi
+      .spyOn(m.agent, 'listSuspendedRuns')
+      .mockRejectedValueOnce(new Error('Storage unavailable'))
+    try {
+      expect((await message({ accessLevel: 'limited' })).result.status).toBe('failed')
+      const [native] = (await m.agent.listSuspendedRuns()).runs
+      expect(await readCopilotThreadRun(scope, native.threadId!)).toBe(native.runId)
+      await expect(
+        claimCopilotThread(scope, native.threadId!, 'competing-run')
+      ).rejects.toMatchObject({ status: 409 })
+      expect(
+        (await command({ command: 'cancel', threadId: native.threadId, runId: native.runId }))
+          .result
+      ).toMatchObject({ status: 'cancel_requested' })
+    } finally {
+      spy.mockRestore()
+    }
   })
   it.each(
     [409, 422].flatMap((status) => ['approval', 'review'].map((stage) => ({ status, stage })))

@@ -25,6 +25,7 @@ export interface CopilotRun {
 const receiptId = (kind: string, key: unknown) =>
   `copilot:${kind}:${createHash('sha256').update(stableStringifyJsonValue(key)).digest('hex')}`
 const expiresAt = new Date('9999-12-31T00:00:00.000Z')
+type ThreadPhase = 'active' | 'suspended'
 
 async function readReceipt<T>(id: string): Promise<T | undefined> {
   const [row] = await db
@@ -60,7 +61,7 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
   if (
     !(await insertReceipt(
       receiptId('thread', [scope, threadId]),
-      { runId },
+      { runId, phase: 'active' },
       receiptId('thread', [scope, threadId])
     ))
   )
@@ -70,15 +71,51 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
     )
 }
 
-export async function releaseCopilotThread(scope: Scope, threadId: string, runId: string) {
+export async function releaseCopilotThread(
+  scope: Scope,
+  threadId: string,
+  runId: string,
+  phase: ThreadPhase = 'active'
+) {
   await db
     .delete(verification)
     .where(
       and(
         eq(verification.id, receiptId('thread', [scope, threadId])),
-        eq(verification.value, JSON.stringify({ runId }))
+        eq(verification.value, JSON.stringify({ runId, phase }))
       )
     )
+}
+
+async function transitionCopilotThread(
+  scope: Scope,
+  threadId: string,
+  runId: string,
+  from: ThreadPhase,
+  phase: ThreadPhase
+) {
+  const rows = await db
+    .update(verification)
+    .set({ value: JSON.stringify({ runId, phase }), updatedAt: new Date() })
+    .where(
+      and(
+        eq(verification.id, receiptId('thread', [scope, threadId])),
+        eq(verification.value, JSON.stringify({ runId, phase: from }))
+      )
+    )
+    .returning({ id: verification.id })
+  if (rows.length !== 1)
+    throw new NativeTargetError('This Copilot turn is already running or cancelled', 409)
+}
+
+export async function resumeCopilotThread(scope: Scope, threadId: string, runId: string) {
+  await transitionCopilotThread(scope, threadId, runId, 'suspended', 'active')
+}
+
+export async function suspendCopilotThread(scope: Scope, threadId: string, runId: string) {
+  await transitionCopilotThread(scope, threadId, runId, 'active', 'suspended')
+  if (await isCopilotRunCancelled(runId))
+    await releaseCopilotThread(scope, threadId, runId, 'suspended')
 }
 
 type ScopedRun = Pick<CopilotRun, 'runId' | 'threadId' | 'scope'>
@@ -87,6 +124,7 @@ const runOwner = (run: ScopedRun) => receiptId('thread', [run.scope, run.threadI
 
 export async function cancelCopilotRun(run: ScopedRun) {
   await insertReceipt(receiptId('cancel', run.runId), true, runOwner(run))
+  await releaseCopilotThread(run.scope, run.threadId, run.runId, 'suspended')
 }
 
 export async function assertCopilotRunActive(runId: string) {

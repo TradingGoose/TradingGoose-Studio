@@ -50,6 +50,8 @@ import {
   isCopilotRunCancelled,
   readCopilotThreadRun,
   releaseCopilotThread,
+  resumeCopilotThread,
+  suspendCopilotThread,
 } from './state'
 
 const CANCELLATION_POLL_INTERVAL = 500
@@ -178,11 +180,8 @@ async function readCommand(
       if (currentRunId) {
         const run = { runId: currentRunId, threadId: request.threadId, scope }
         const agent = await getCopilotAgent()
-        const pending = await agent.listSuspendedRuns({ threadId: run.threadId, resourceId })
         await cancelCopilotRun(run)
         agent.abortThreadStream({ threadId: run.threadId, resourceId, expectedRunId: run.runId })
-        if (pending.runs.some((item) => item.runId === run.runId))
-          await releaseCopilotThread(scope, run.threadId, run.runId)
       }
       const waiting = AbortSignal.any(
         [signal, AbortSignal.timeout(CANCELLATION_TIMEOUT)].filter(
@@ -190,7 +189,7 @@ async function readCommand(
         )
       )
       try {
-        while (await readCopilotThreadRun(scope, request.threadId)) {
+        while ((await readCopilotThreadRun(scope, request.threadId)) === request.runId) {
           waiting.throwIfAborted()
           await delay(CANCELLATION_POLL_INTERVAL, undefined, { signal: waiting })
         }
@@ -246,7 +245,8 @@ async function* generate(
   let suspended = false
   let usage: Awaited<ReturnType<typeof prepareModelRequest>>['usage'] | undefined
   let ownsThread = false
-  let nativeOutput: { getFullOutput(): Promise<unknown> } | undefined
+  let nativeStarted = false
+  let nativeOutput: { getFullOutput(): Promise<{ finishReason?: string }> } | undefined
   let drained = false
   let finalization: Promise<void> | undefined
   const finalize = () =>
@@ -261,15 +261,18 @@ async function* generate(
       // Closing the HTTP observer does not stop the native writer. Keep ownership until it settles.
       if (nativeOutput && !drained) {
         try {
-          await nativeOutput.getFullOutput()
+          const result = await nativeOutput.getFullOutput()
           drained = true
+          suspended = result.finishReason === 'suspended'
         } catch {
           // An unknown native outcome must keep the claim, rather than admit a competing writer.
         }
       }
       if (watcher) clearInterval(watcher)
-      if (run && ownsThread && !suspended && (!nativeOutput || drained))
-        await releaseCopilotThread(run.scope, run.threadId, run.runId)
+      if (run && ownsThread && (!nativeStarted || drained)) {
+        if (suspended) await suspendCopilotThread(run.scope, run.threadId, run.runId)
+        else await releaseCopilotThread(run.scope, run.threadId, run.runId)
+      }
     })())
   try {
     const agent = await getCopilotAgent()
@@ -318,6 +321,7 @@ async function* generate(
           : 'result',
         signal
       )
+      suspended = true
       run = await readCopilotRun(scope, pending.target.threadId, pending.target.runId)
       await assertCopilotRunActive(run.runId)
       apiKey = (await resolveCopilotModel(run.model)).apiKey
@@ -501,12 +505,19 @@ async function* generate(
       memory: { thread: run.threadId, resource: nativeConversationIdentity(run.scope).resourceId },
       inputProcessors: [guard, ...prepared.options.inputProcessors],
     }
+    if (pending) {
+      await resumeCopilotThread(run.scope, run.threadId, run.runId)
+      ownsThread = true
+      await assertCopilotRunActive(run.runId)
+    }
     yield {
       type: 'response.started',
       runId: run.runId,
       threadId: run.threadId,
       ...(message ? { messageId: message.id } : {}),
     }
+    nativeStarted = true
+    suspended = false
     const output = (nativeOutput =
       request.command === 'message'
         ? await agent.stream([message!], options)
@@ -573,13 +584,13 @@ async function* generate(
     }
     const result = await output.getFullOutput()
     drained = true
+    suspended = result.finishReason === 'suspended'
     signal.throwIfAborted()
     if (streamError || result.error) throw streamError ?? result.error
     const items = await listCopilotPending(run.scope, run.threadId, signal)
     if (request.command === 'message' || result.finishReason !== 'suspended')
       await usage.verifyComplete()
     if (items.length) {
-      suspended = true
       yield {
         type: 'response.suspended',
         result: {
