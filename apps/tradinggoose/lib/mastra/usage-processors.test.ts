@@ -4,6 +4,7 @@ import { MastraLanguageModelV2Mock, simulateReadableStream } from '@mastra/core/
 import { createTool } from '@mastra/core/tools'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { z } from 'zod'
+import { projectNativeMessage } from './messages'
 import { NATIVE_AGENT_POLICY } from './options'
 import { usageProcessors } from './usage-processors'
 
@@ -65,6 +66,44 @@ it('checks Studio admission before contact and records actual native tokens once
   expect(accounting.getUsage()).toEqual(usage)
   expect(accounting.getCost().total).toBeCloseTo(0.000028)
 })
+
+it.each([false, true])(
+  'uses the same standard price for report and account record (BYOK=%s)',
+  async (isByok) => {
+    const nativeScope = { ...scope, model: 'openrouter/openai/gpt-4.1' }
+    const observed = { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }
+    const accounting = await usageProcessors(nativeScope)
+    const agent = new Agent({
+      ...NATIVE_AGENT_POLICY,
+      id: 'standard-cost-test',
+      name: 'Standard cost test',
+      instructions: '',
+      model: new MastraLanguageModelV2Mock({
+        doGenerate: async () => ({
+          content: [{ type: 'text', text: 'answer' }],
+          usage: observed,
+          finishReason: 'stop',
+          warnings: [],
+          providerMetadata: {
+            openrouter: {
+              usage: { cost: 99, isByok, costDetails: { upstreamInferenceCost: 25 } },
+            },
+          },
+        }),
+      }),
+      inputProcessors: accounting.inputProcessors,
+      outputProcessors: accounting.outputProcessors,
+    })
+    const result = await agent.generate('hello', { runId: nativeScope.runId, maxSteps: 1 })
+    await accounting.verifyComplete()
+    const cost = accounting.getCost()
+    expect(cost).toMatchObject({ total: 0.0028, currency: 'USD', status: 'estimated' })
+    const assistant = result.messages.find((message) => message.role === 'assistant')!
+    expect(projectNativeMessage(assistant).cost).toEqual(cost)
+    expect(billing.admit).toHaveBeenCalledExactlyOnceWith(nativeScope)
+    expect(billing.record).toHaveBeenCalledExactlyOnceWith(nativeScope, observed, cost)
+  }
+)
 
 it('stops model contact when Studio refuses admission', async () => {
   const failure = new Error('Usage allowance exhausted')

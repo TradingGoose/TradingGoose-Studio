@@ -98,7 +98,7 @@ Copilot 具备上下文感知能力。当前页面只会公开所选对象的身
 
 ## 计费
 
-Copilot 复用 Studio 的用量检查和计费账本。优先采用提供商报告的美元费用；否则根据报告的 token 用量和 models.dev 公布的价格进行估算。套餐的 Copilot 倍率适用于已知费用。无法确定费用时，Copilot、标题生成和 Wand 仍可完成：记录调用次数和报告的 token 用量，费用保持不可用，且不会将这部分未知价格的用量计入 Studio 的美元费用。
+Copilot 复用 Studio 的用量检查和计费账本。报告、用量计费和记录均使用 models.dev 公布的标准价格和报告的 token 用量。套餐的 Copilot 倍率适用于已知费用。无法确定费用时，Copilot、标题生成和 Wand 仍可完成：记录调用次数和报告的 token 用量，费用保持不可用，且不会将这部分未知价格的用量计入 Studio 的美元费用。
 
 <Callout type="info">
   自动裁剪上下文不会额外调用模型。

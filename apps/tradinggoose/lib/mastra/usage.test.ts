@@ -23,6 +23,7 @@ vi.mock('@opencode-ai/models/snapshot', () => {
         },
       },
       openrouter: { models: { model } },
+      vercel: { models: { 'openai/gpt-4o': model } },
       anthropic: { models: { 'claude-model': model } },
       google: { models: { 'gemini-2.5-flash': model, 'gemini-2.5-pro': model } },
     },
@@ -63,19 +64,38 @@ describe('public active result facts', () => {
 })
 
 describe('native per-step USD pricing', () => {
-  it('uses native Vercel Gateway USD ahead of published token prices', async () => {
-    for (const reported of [0, 0.25, '0.25']) {
-      expect(
-        await calculateNativeCost(
-          'vercel/openai/gpt-4o',
-          {},
+  it.each(['vercel/openai/gpt-4o', 'openrouter/model'])(
+    'uses standard catalog prices for %s independently of provider dollar and BYOK metadata',
+    async (model) => {
+      for (const reported of [0, 99, -1, 'not-a-dollar']) {
+        const cost = await calculateNativeCost(
+          model,
+          { inputTokens: 1000, outputTokens: 100 },
           {
             gateway: { cost: reported },
+            openrouter: {
+              usage: {
+                cost: reported,
+                isByok: true,
+                costDetails: { upstreamInferenceCost: 25 },
+              },
+            },
           }
         )
-      ).toEqual({ total: Number(reported), currency: 'USD', status: 'reported' })
+        expect(cost).toMatchObject({ total: 0.0028, currency: 'USD', status: 'estimated' })
+      }
     }
-    expect(catalogue.pricing).not.toHaveBeenCalled()
+  )
+  it('does not replace missing catalog prices or token counts with provider dollar totals', async () => {
+    const metadata = { gateway: { cost: 99 }, openrouter: { usage: { cost: 99 } } }
+    const usage = { inputTokens: 1000, outputTokens: 100 }
+    for (const model of ['vercel/openai/gpt-4o', 'openrouter/model']) {
+      expect(await calculateNativeCost(model, {}, metadata)).toEqual({ status: 'unavailable' })
+    }
+    catalogue.pricing.mockReturnValue(undefined)
+    for (const model of ['vercel/openai/gpt-4o', 'openrouter/model']) {
+      expect(await calculateNativeCost(model, usage, metadata)).toEqual({ status: 'unavailable' })
+    }
   })
   it('does not borrow published rates or billing metadata for an overridden endpoint', async () => {
     vi.stubEnv(
@@ -97,25 +117,6 @@ describe('native per-step USD pricing', () => {
     expect(cost).toEqual({ status: 'unavailable' })
     expect(catalogue.pricing).not.toHaveBeenCalled()
   })
-  it('uses reported OpenRouter USD, including genuine zero, without consulting catalogue rates', async () => {
-    for (const total of [0, 0.0123]) {
-      expect(
-        await calculateNativeCost(
-          'openrouter/model',
-          {},
-          {
-            openrouter: {
-              usage: { cost: total, isByok: false, costDetails: { upstreamInferenceCost: 99 } },
-            },
-          }
-        )
-      ).toEqual({ total, currency: 'USD', status: 'reported' })
-    }
-    expect(catalogue.pricing).not.toHaveBeenCalled()
-    await expect(
-      calculateNativeCost('openrouter/model', {}, { openrouter: { usage: { cost: -1 } } })
-    ).rejects.toThrow('Invalid provider-reported USD cost')
-  })
   it('prices actual input and output tokens at USD per million, without charging cached input twice', async () => {
     const cost = await calculateNativeCost('openai/model', {
       inputTokens: 1_000_000,
@@ -126,37 +127,6 @@ describe('native per-step USD pricing', () => {
     expect(cost.input).toBeCloseTo(0.56)
     expect(cost.output).toBeCloseTo(0.8)
     expect(cost.total).toBeCloseTo(1.36)
-  })
-  it('adds separately billed BYOK upstream USD and estimates ambiguous reports', async () => {
-    expect(
-      await calculateNativeCost(
-        'openrouter/model',
-        {},
-        {
-          openrouter: {
-            usage: { cost: 0.01, isByok: true, costDetails: { upstreamInferenceCost: 0.125 } },
-          },
-        }
-      )
-    ).toMatchObject({ total: 0.135, status: 'reported' })
-    expect(
-      await calculateNativeCost(
-        'openrouter/model',
-        {},
-        {
-          openrouter: { usage: { cost: 0, costDetails: { upstreamInferenceCost: 0.125 } } },
-        }
-      )
-    ).toMatchObject({ total: 0.125, status: 'reported' })
-    expect(
-      await calculateNativeCost(
-        'openrouter/model',
-        { inputTokens: 1000, outputTokens: 100 },
-        {
-          openrouter: { usage: { cost: 0.01, costDetails: { upstreamInferenceCost: 0.125 } } },
-        }
-      )
-    ).toMatchObject({ total: 0.0028, status: 'estimated' })
   })
   it('uses the reached context tier and published reasoning rate', async () => {
     catalogue.pricing.mockReturnValue({

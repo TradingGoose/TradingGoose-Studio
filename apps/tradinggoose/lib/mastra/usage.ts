@@ -34,7 +34,7 @@ export function sumNativeUsage(steps: Array<{ usage?: NativeUsage }>): NativeUsa
 const amount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0
 
-/** Provider USD takes precedence; otherwise estimate from the official models.dev snapshot. */
+/** Price observed usage from the pinned models.dev snapshot for reporting and account accrual. */
 export async function calculateNativeCost(
   model: string,
   usage: Partial<LanguageModelUsage>,
@@ -42,51 +42,8 @@ export async function calculateNativeCost(
 ): Promise<NativeCost> {
   const separator = model.indexOf('/')
   const provider = model.slice(0, separator)
-  // A custom endpoint cannot inherit another provider's published prices or billing metadata.
+  // A custom endpoint cannot inherit another provider's published prices.
   if (separator < 1 || getConfiguredProviders()[provider]) return { status: 'unavailable' }
-  if (provider === 'vercel') {
-    const reported = (providerMetadata?.gateway as { cost?: unknown } | undefined)?.cost
-    if (reported !== undefined) {
-      const total = typeof reported === 'string' && reported.trim() ? Number(reported) : reported
-      if (!amount(total)) throw new Error('Invalid provider-reported USD cost')
-      return { total, currency: 'USD', status: 'reported' }
-    }
-  }
-  if (provider === 'openrouter') {
-    const reported = (
-      providerMetadata?.openrouter as
-        | {
-            usage?: {
-              cost?: unknown
-              isByok?: boolean
-              costDetails?: { upstreamInferenceCost?: unknown }
-            }
-          }
-        | undefined
-    )?.usage
-    if (reported) {
-      const charge = reported.cost
-      const upstream = reported.costDetails?.upstreamInferenceCost
-      if (
-        (charge !== undefined && !amount(charge)) ||
-        (upstream !== undefined && !amount(upstream))
-      )
-        throw new Error('Invalid provider-reported USD cost')
-      // Follow Mastra's OpenRouter accounting: BYOK upstream charges are billed separately.
-      const byok =
-        reported.isByok ??
-        (upstream === undefined || upstream === 0 || upstream === charge
-          ? false
-          : charge === 0
-            ? true
-            : undefined)
-      if (byok !== undefined && (amount(charge) || (byok && amount(upstream)))) {
-        const total = (charge ?? 0) + (byok ? (upstream ?? 0) : 0)
-        if (!amount(total)) throw new Error('Invalid provider-reported USD cost')
-        return { total, currency: 'USD', status: 'reported' }
-      }
-    }
-  }
   const listed = providers[provider]?.models[model.slice(separator + 1)]
   const pricing = listed?.cost
   if (!pricing) return { status: 'unavailable' }

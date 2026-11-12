@@ -11,12 +11,12 @@ TradingGoose aplica los cargos al responsable de facturación, usuario u organiz
 
 - **Ejecución del flujo de trabajo**: combina el cargo base configurado y el multiplicador de ejecución del nivel con los costos de modelos y el multiplicador de modelos del nivel. Las liquidaciones repetidas solo añaden el uso recién completado. Los flujos hijos se liquidan por separado.
 - **Tiempo de Function y herramientas personalizadas**: usa el cargo por segundo configurado y el multiplicador de Function del nivel, multiplicados por los milisegundos reales de ejecución y divididos entre 1000. Un intento que haya contactado el entorno puede generar este cargo aunque el código falle.
-- **Trabajo de modelos y embeddings**: usa el costo en USD reportado por el proveedor cuando está disponible. En caso contrario, Studio estima los USD a partir del uso de tokens reportado y los precios publicados en models.dev. Copilot aplica el multiplicador de costos de su nivel; los cargos de modelos del flujo de trabajo se liquidan con el flujo.
+- **Trabajo de modelos y embeddings**: usa los tokens reportados y los precios estándar publicados en models.dev para los informes, la facturación del uso y los registros. Copilot aplica el multiplicador de costos de su nivel de suscripción de Studio al uso financiado por la cuenta; los cargos de modelos del flujo de trabajo se liquidan con el flujo.
 
 Las comprobaciones de uso se realizan antes de contactar al modelo. Una solicitud puede fallar después de la generación si no se puede completar la facturación.
 
 <Callout type="info">
-  Los costos distinguen importes reportados, estimados, parciales y no disponibles. Un precio publicado de cero es distinto de un precio ausente. Los costos desconocidos no se presentan como un cero conocido.
+  Los costos distinguen estimaciones, importes parciales y no disponibles. Un precio publicado de cero es distinto de un precio ausente. Los costos desconocidos no se presentan como un cero conocido.
 </Callout>
 
 ## Uso e historial recargado
