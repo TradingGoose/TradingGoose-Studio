@@ -264,12 +264,12 @@ function handleBodySizeLimitError(error: unknown, requestId: string, context: st
   return false
 }
 
-function throwIfToolRequestAborted(signal?: AbortSignal): void {
+function throwIfToolRequestAborted(signal?: AbortSignal, completedOutput?: unknown): void {
   if (!signal?.aborted) return
 
   const error = new Error('Aborted')
   error.name = 'AbortError'
-  throw error
+  throw Object.assign(error, getFailureAccounting(completedOutput))
 }
 
 function createToolRequestSignal(
@@ -550,7 +550,7 @@ export async function executeTool(
       throwIfToolRequestAborted(options?.signal)
       logger.info(`[${requestId}] Using directExecution for ${toolId}`)
       const result = await tool.directExecution(contextParams)
-      throwIfToolRequestAborted(options?.signal)
+      throwIfToolRequestAborted(options?.signal, result.output)
 
       // Apply post-processing if available and not skipped
       let finalResult = result
@@ -584,7 +584,7 @@ export async function executeTool(
 
     // Execute the tool request directly (internal routes use regular fetch)
     const result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
-    throwIfToolRequestAborted(options?.signal)
+    throwIfToolRequestAborted(options?.signal, result.output)
 
     // Apply post-processing if available and not skipped
     let finalResult = result
