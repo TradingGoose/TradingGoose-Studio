@@ -7,6 +7,7 @@ import {
   resolveMistralServiceConfig,
 } from '@/lib/system-services/runtime'
 import { StorageService } from '@/lib/uploads'
+import { getBaseUrl } from '@/lib/urls/utils'
 import { mistralParserTool } from '@/tools/mistral/parser'
 
 const logger = createLogger('DocumentProcessor')
@@ -56,6 +57,7 @@ export async function processDocument(
   fileUrl: string,
   filename: string,
   mimeType: string,
+  actorUserId: string,
   chunkSize = 1000,
   chunkOverlap = 200,
   minChunkSize = 1
@@ -75,7 +77,7 @@ export async function processDocument(
   logger.info(`Processing document: ${filename}`)
 
   try {
-    const parseResult = await parseDocument(fileUrl, filename, mimeType)
+    const parseResult = await parseDocument(fileUrl, filename, mimeType, actorUserId)
     const { content, processingMethod } = parseResult
     const cloudUrl = 'cloudUrl' in parseResult ? parseResult.cloudUrl : undefined
 
@@ -133,7 +135,8 @@ export async function processDocument(
 async function parseDocument(
   fileUrl: string,
   filename: string,
-  mimeType: string
+  mimeType: string,
+  actorUserId: string
 ): Promise<{
   content: string
   processingMethod: 'file-parser' | 'mistral-ocr'
@@ -152,20 +155,25 @@ async function parseDocument(
   if (isPDF && (hasAzureMistralOCR || hasMistralOCR)) {
     if (hasAzureMistralOCR) {
       logger.info(`Using Azure Mistral OCR: ${filename}`)
-      return parseWithAzureMistralOCR(fileUrl, filename, mimeType)
+      return parseWithAzureMistralOCR(fileUrl, filename, mimeType, actorUserId)
     }
 
     if (hasMistralOCR) {
       logger.info(`Using Mistral OCR: ${filename}`)
-      return parseWithMistralOCR(fileUrl, filename, mimeType)
+      return parseWithMistralOCR(fileUrl, filename, mimeType, actorUserId)
     }
   }
 
   logger.info(`Using file parser: ${filename}`)
-  return parseWithFileParser(fileUrl, filename, mimeType)
+  return parseWithFileParser(fileUrl, filename, mimeType, actorUserId)
 }
 
-async function handleFileForOCR(fileUrl: string, filename: string, mimeType: string) {
+async function handleFileForOCR(
+  fileUrl: string,
+  filename: string,
+  mimeType: string,
+  actorUserId: string
+) {
   const isExternalHttps = fileUrl.startsWith('https://') && !fileUrl.includes('/api/files/serve/')
 
   if (isExternalHttps) {
@@ -174,7 +182,7 @@ async function handleFileForOCR(fileUrl: string, filename: string, mimeType: str
 
   logger.info(`Uploading "${filename}" to cloud storage for OCR`)
 
-  const buffer = await downloadFileWithTimeout(fileUrl)
+  const buffer = await downloadFileWithTimeout(fileUrl, actorUserId)
 
   try {
     const cloudResult = await StorageService.uploadFile({
@@ -198,21 +206,27 @@ async function handleFileForOCR(fileUrl: string, filename: string, mimeType: str
   }
 }
 
-async function downloadFileWithTimeout(fileUrl: string): Promise<Buffer> {
+async function downloadFileWithTimeout(fileUrl: string, actorUserId: string): Promise<Buffer> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.FILE_DOWNLOAD)
 
   try {
-    const isInternalFileServe = fileUrl.includes('/api/files/serve/')
+    const url = new URL(fileUrl)
+    const isInternalFileServe =
+      url.origin === getBaseUrl() && url.pathname.startsWith('/api/files/serve/')
     const headers: HeadersInit = {}
 
     if (isInternalFileServe) {
       const { generateInternalToken } = await import('@/lib/auth/internal')
-      const token = await generateInternalToken()
+      const token = await generateInternalToken(actorUserId)
       headers.Authorization = `Bearer ${token}`
     }
 
-    const response = await fetch(fileUrl, { signal: controller.signal, headers })
+    const response = await fetch(fileUrl, {
+      signal: controller.signal,
+      headers,
+      ...(isInternalFileServe ? { redirect: 'error' } : {}),
+    })
     clearTimeout(timeoutId)
 
     if (!response.ok) {
@@ -229,7 +243,7 @@ async function downloadFileWithTimeout(fileUrl: string): Promise<Buffer> {
   }
 }
 
-async function downloadFileForBase64(fileUrl: string): Promise<Buffer> {
+async function downloadFileForBase64(fileUrl: string, actorUserId: string): Promise<Buffer> {
   if (fileUrl.startsWith('data:')) {
     const [, base64Data] = fileUrl.split(',')
     if (!base64Data) {
@@ -238,7 +252,7 @@ async function downloadFileForBase64(fileUrl: string): Promise<Buffer> {
     return Buffer.from(base64Data, 'base64')
   }
   if (fileUrl.startsWith('http')) {
-    return downloadFileWithTimeout(fileUrl)
+    return downloadFileWithTimeout(fileUrl, actorUserId)
   }
   const fs = await import('fs/promises')
   return fs.readFile(fileUrl)
@@ -314,7 +328,12 @@ async function makeOCRRequest(
   }
 }
 
-async function parseWithAzureMistralOCR(fileUrl: string, filename: string, mimeType: string) {
+async function parseWithAzureMistralOCR(
+  fileUrl: string,
+  filename: string,
+  mimeType: string,
+  actorUserId: string
+) {
   const azureOcrConfig = await resolveAzureMistralOcrServiceConfig()
   const azureApiKey = azureOcrConfig.apiKey || ''
 
@@ -325,7 +344,7 @@ async function parseWithAzureMistralOCR(fileUrl: string, filename: string, mimeT
     'Azure Mistral OCR'
   )
 
-  const fileBuffer = await downloadFileForBase64(fileUrl)
+  const fileBuffer = await downloadFileForBase64(fileUrl, actorUserId)
   const base64Data = fileBuffer.toString('base64')
   const dataUri = `data:${mimeType};base64,${base64Data}`
 
@@ -367,12 +386,17 @@ async function parseWithAzureMistralOCR(fileUrl: string, filename: string, mimeT
     const mistralConfig = await resolveMistralServiceConfig()
 
     return mistralConfig.apiKey
-      ? parseWithMistralOCR(fileUrl, filename, mimeType)
-      : parseWithFileParser(fileUrl, filename, mimeType)
+      ? parseWithMistralOCR(fileUrl, filename, mimeType, actorUserId)
+      : parseWithFileParser(fileUrl, filename, mimeType, actorUserId)
   }
 }
 
-async function parseWithMistralOCR(fileUrl: string, filename: string, mimeType: string) {
+async function parseWithMistralOCR(
+  fileUrl: string,
+  filename: string,
+  mimeType: string,
+  actorUserId: string
+) {
   const mistralConfig = await resolveMistralServiceConfig()
   const mistralApiKey = mistralConfig.apiKey || ''
 
@@ -384,7 +408,7 @@ async function parseWithMistralOCR(fileUrl: string, filename: string, mimeType: 
     throw new Error('Mistral parser tool not configured')
   }
 
-  const { httpsUrl, cloudUrl } = await handleFileForOCR(fileUrl, filename, mimeType)
+  const { httpsUrl, cloudUrl } = await handleFileForOCR(fileUrl, filename, mimeType, actorUserId)
   const params = { filePath: httpsUrl, apiKey: mistralApiKey, resultType: 'text' as const }
 
   try {
@@ -396,7 +420,6 @@ async function parseWithMistralOCR(fileUrl: string, filename: string, mimeType: 
             : mistralParserTool.request!.url
 
         if (url.startsWith('/')) {
-          const { getBaseUrl } = await import('@/lib/urls/utils')
           url = `${getBaseUrl()}${url}`
         }
 
@@ -407,7 +430,7 @@ async function parseWithMistralOCR(fileUrl: string, filename: string, mimeType: 
 
         if (url.includes('/api/tools/mistral/parse')) {
           const { generateInternalToken } = await import('@/lib/auth/internal')
-          const internalToken = await generateInternalToken()
+          const internalToken = await generateInternalToken(actorUserId)
           headers = {
             ...headers,
             Authorization: `Bearer ${internalToken}`,
@@ -430,11 +453,16 @@ async function parseWithMistralOCR(fileUrl: string, filename: string, mimeType: 
     })
 
     logger.info(`Falling back to file parser: ${filename}`)
-    return parseWithFileParser(fileUrl, filename, mimeType)
+    return parseWithFileParser(fileUrl, filename, mimeType, actorUserId)
   }
 }
 
-async function parseWithFileParser(fileUrl: string, filename: string, mimeType: string) {
+async function parseWithFileParser(
+  fileUrl: string,
+  filename: string,
+  mimeType: string,
+  actorUserId: string
+) {
   try {
     let content: string
     let metadata: any = {}
@@ -442,7 +470,7 @@ async function parseWithFileParser(fileUrl: string, filename: string, mimeType: 
     if (fileUrl.startsWith('data:')) {
       content = await parseDataURI(fileUrl, filename, mimeType)
     } else if (fileUrl.startsWith('http')) {
-      const result = await parseHttpFile(fileUrl, filename)
+      const result = await parseHttpFile(fileUrl, filename, actorUserId)
       content = result.content
       metadata = result.metadata || {}
     } else {
@@ -482,9 +510,10 @@ async function parseDataURI(fileUrl: string, filename: string, mimeType: string)
 
 async function parseHttpFile(
   fileUrl: string,
-  filename: string
+  filename: string,
+  actorUserId: string
 ): Promise<{ content: string; metadata?: any }> {
-  const buffer = await downloadFileWithTimeout(fileUrl)
+  const buffer = await downloadFileWithTimeout(fileUrl, actorUserId)
 
   const extension = filename.split('.').pop()?.toLowerCase()
   if (!extension) {

@@ -357,6 +357,7 @@ export async function processDocumentAsync(
           docData.fileUrl,
           docData.filename,
           docData.mimeType,
+          scope.actorUserId,
           processingOptions.chunkSize,
           processingOptions.chunkOverlap,
           processingOptions.minCharactersPerChunk

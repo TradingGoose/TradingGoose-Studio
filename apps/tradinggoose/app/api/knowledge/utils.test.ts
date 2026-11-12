@@ -184,6 +184,7 @@ vi.mock('@tradinggoose/db', () => {
   }
 })
 
+import { processDocument } from '@/lib/knowledge/documents/document-processor'
 import {
   markDocumentProcessingFailed,
   processDocumentAsync,
@@ -227,6 +228,15 @@ describe('Knowledge Utils', () => {
         { actorUserId: 'actor-1', workspaceId: 'workspace-1' }
       )
 
+      expect(processDocument).toHaveBeenCalledExactlyOnceWith(
+        'https://example.com/file.txt',
+        'file.txt',
+        'text/plain',
+        'actor-1',
+        512,
+        200,
+        1
+      )
       expect(dbOps.order).toEqual(['deleteEmbeddings', 'update', 'insert', 'update'])
 
       expect(dbOps.updatePayloads[0]).toMatchObject({
