@@ -539,6 +539,77 @@ describe('canonical browser conversation transport', () => {
     onCommand = () => undefined
     expect(await store().getState().sendMessage('Next turn')).toBe(true)
   })
+  it.each(['transport', 'server', 'wrong-run'] as const)(
+    'keeps a text-only run cancellable after a %s cancellation failure',
+    async (failure) => {
+      setChat()
+      let streamCancelled = false
+      const error = {
+        transport: 'Cancellation connection lost',
+        server: 'Try Stop again',
+        'wrong-run': 'Native cancellation was not verified',
+      }[failure]
+      onCommand = (request) => {
+        if (request.command === 'cancel') {
+          if (failure === 'transport') throw new TypeError(error)
+          return failure === 'server'
+            ? json({ status: 'failed', error: { code: 'CANCEL_FAILED', message: error } }, 503)
+            : json({ status: 'cancel_requested', runId: 'different-run' })
+        }
+        if (request.command !== 'message') return
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode(
+                  [
+                    { type: 'response.started', runId, threadId },
+                    { type: 'text.delta', text: 'Still writing' },
+                  ]
+                    .map((frame) => `data: ${JSON.stringify(frame)}\n\n`)
+                    .join('')
+                )
+              )
+            },
+            cancel() {
+              streamCancelled = true
+            },
+          }),
+          { headers: { 'content-type': 'text/event-stream' } }
+        )
+      }
+      const sending = store().getState().sendMessage('Write an answer')
+      await vi.waitFor(() =>
+        expect(store().getState().messages.at(-1)?.content).toBe('Still writing')
+      )
+      expect(store().getState().isAwaitingContinuation).toBe(false)
+      expect(await store().getState().abortMessage()).toBe(false)
+      expect(await sending).toBe(false)
+      expect(streamCancelled).toBe(true)
+      expect(store().getState()).toMatchObject({
+        currentRunId: runId,
+        isSendingMessage: false,
+        isAborting: false,
+        isAwaitingContinuation: true,
+        error,
+      })
+      expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+      expect(await store().getState().sendMessage('Must wait')).toBe(false)
+      expect(store().getState().currentRunId).toBe(runId)
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      onCommand = () => undefined
+      expect(await store().getState().abortMessage()).toBe(true)
+      expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+        { command: 'cancel', workspaceId, threadId, runId },
+        { command: 'cancel', workspaceId, threadId, runId },
+      ])
+      expect(store().getState()).toMatchObject({
+        currentRunId: null,
+        isAwaitingContinuation: false,
+      })
+      expect(await store().getState().sendMessage('Next turn')).toBe(true)
+    }
+  )
   it.each([
     [
       { status: 'failed', error: { code: 'CANCEL_FAILED', message: 'Try Stop again' } },

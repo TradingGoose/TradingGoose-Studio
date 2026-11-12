@@ -228,6 +228,19 @@ describe('Copilot auto-scroll', () => {
     expect(mockStoreState.abortMessage).not.toHaveBeenCalled()
   })
 
+  it('keeps Stop available while an unacknowledged text-only run awaits cancellation', async () => {
+    mockStoreState = {
+      ...mockStoreState,
+      isSendingMessage: false,
+      isAwaitingContinuation: true,
+      error: 'Try Stop again',
+    }
+    await renderCopilot()
+    expect(mockUserInputProps.isLoading).toBe(true)
+    expect(mockUserInputProps.isAborting).toBe(false)
+    expect(mockUserInputProps.onAbort).toBe(mockStoreState.abortMessage)
+  })
+
   it('keeps auto-scroll active when an in-flight programmatic scroll emits scroll events', async () => {
     await renderCopilot()
 

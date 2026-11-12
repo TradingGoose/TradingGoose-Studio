@@ -1002,6 +1002,7 @@ function createCopilotStoreInstance(channelId: string) {
             abortController: null,
             isSendingMessage: false,
             isAborting: Boolean(current.currentChat && current.currentRunId),
+            isAwaitingContinuation: Boolean(current.currentChat && current.currentRunId),
             isRefreshingHistory: false,
           })
           if (current.currentChat && current.currentRunId)
