@@ -4,7 +4,10 @@ import { Memory } from '@mastra/memory'
 import { MemoryPG, WorkflowsPG } from '@mastra/pg'
 import { Pool } from 'pg'
 import { createCopilotAgent } from '@/lib/copilot/agent/agent'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getConfiguredGateways } from './connections'
+
+const logger = createLogger('MastraRuntime')
 
 export const AGENT_MEMORY_OPTIONS = {
   messageHistory: { maxTokens: 32000 },
@@ -18,6 +21,7 @@ async function createRuntime() {
   const connectionString = process.env.DATABASE_URL
   if (!connectionString) throw new Error('DATABASE_URL is required for the shared Studio database')
   const pool = new Pool({ connectionString, max: 20 })
+  pool.on('error', (error) => logger.error('Unexpected Mastra PostgreSQL pool error', error))
   const storage = new MastraCompositeStore({
     id: 'studio',
     domains: {

@@ -1,10 +1,12 @@
+import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const fixture = vi.hoisted(() => ({
   memoryInit: vi.fn(),
   workflowInit: vi.fn(),
   end: vi.fn(),
-  pools: [] as unknown[],
+  error: vi.fn(),
+  pools: [] as EventEmitter[],
   poolOptions: [] as unknown[],
   domains: [] as Array<{ name: string; options: unknown }>,
   storage: undefined as unknown as import('@mastra/core/storage').MastraCompositeStore,
@@ -12,8 +14,9 @@ const fixture = vi.hoisted(() => ({
   createAgent: vi.fn(),
 }))
 vi.mock('pg', () => ({
-  Pool: class {
+  Pool: class extends EventEmitter {
     constructor(options: unknown) {
+      super()
       fixture.poolOptions.push(options)
       fixture.pools.push(this)
     }
@@ -51,6 +54,9 @@ vi.mock('@mastra/core/mastra', () => ({
 }))
 vi.mock('@mastra/memory', () => ({ Memory: class {} }))
 vi.mock('@/lib/copilot/agent/agent', () => ({ createCopilotAgent: fixture.createAgent }))
+vi.mock('@/lib/logs/console/logger', () => ({
+  createLogger: () => ({ error: fixture.error }),
+}))
 vi.mock('./connections', () => ({ getConfiguredGateways: () => ({}) }))
 
 let runtime: typeof import('./runtime')
@@ -98,6 +104,15 @@ it('ends the pool after failed initialization and permits a subsequent attempt',
   expect(fixture.end).toHaveBeenCalledOnce()
   await expect(runtime.getMastra()).resolves.toBeDefined()
   expect(fixture.poolOptions).toHaveLength(2)
+})
+it('handles idle connection errors without crashing or replacing the shared pool', async () => {
+  const mastra = await runtime.getMastra()
+  const error = new Error('Idle connection disconnected')
+  expect(() => fixture.pools[0].emit('error', error)).not.toThrow()
+  expect(fixture.error).toHaveBeenCalledWith('Unexpected Mastra PostgreSQL pool error', error)
+  expect(await runtime.getMastra()).toBe(mastra)
+  expect(fixture.poolOptions).toHaveLength(1)
+  expect(fixture.end).not.toHaveBeenCalled()
 })
 it('ends the pool when Agent construction fails after domain initialization', async () => {
   fixture.createAgent.mockImplementationOnce(() => {
