@@ -5,27 +5,25 @@ title: 费用计算
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 
-TradingGoose 为工作区原始的用户或组织账单负责人记录已接受的产品费用。共享财务策略在执行和恢复过程中保留原始操作者、计费周期和报价。
+TradingGoose 向已授权工作区的用户或组织账单负责人计费。工作流、Copilot 和独立模型调用共用 Studio 的用量账本和计费限制。
 
 ## 实际计入的费用
 
-- **工作流执行**：使用原始报价保存的基础费用和层级执行倍率。同一次逻辑执行只结算一次基础费用，子工作流单独结算。
-- **Function 和自定义工具运行**：使用已保存的每秒费用和 Function 倍率，乘以实际运行毫秒数再除以 1000。已接触运行环境的尝试即使代码失败，也可能产生这项费用。
-- **模型和嵌入工作**：每个实际步骤或批次都需要财务准入和已验证的接受结果。当前集成无法提供通用原生模型的美元费用。Token 数量不能证明美元费用，缺少提供商价格也不会被视为已知的零费用。
+- **工作流执行**：将配置的基础费用和层级执行倍率与模型费用和层级模型倍率相结合。重复结算仅增加新完成的用量。子工作流单独结算。
+- **Function 和自定义工具运行**：使用配置的每秒费用和层级 Function 倍率，乘以实际运行毫秒数再除以 1000。已接触运行环境的尝试即使代码失败，也可能产生这项费用。
+- **模型和嵌入工作**：优先使用提供商报告的美元费用；否则，Studio 根据报告的 token 用量和 models.dev 公布的价格估算美元费用。Copilot 应用其层级费用倍率；工作流模型费用随工作流结算。
 
-金额、限额、额度、倍率和收据均使用精确的十进制字符串。Function 费用保留完整的小数精度，不进行六位小数量化。金额显示可以为便于阅读而四舍五入。开票时按已规定的半入规则将美元转换为美分；此转换不会改写底层用量账本。
-
-完成要求已验证的财务接受结果和经过授权的规范输出读取。即使工作已经完成，财务或读取失败也可能阻止成功交付；这不允许重复执行该工作。恢复使用原始财务身份和已接受的操作，不会重复收取同一项已完成工作的费用。人工审核检查点也保留这一身份。
+用量检查在联系模型之前执行。如果无法完成计费，请求可能在生成之后失败。
 
 <Callout type="info">
-  计费事实以实际接受的用量和已保存的执行报价为准。配置并验证的零费用与无法提供的模型美元费用不同。修改配置不会改写现有报价、原始付款方或原始周期。
+  费用区分已报告、估算、部分和不可用的金额。公布的零价格与缺失价格不同。未知费用不会被显示为已知的零费用。
 </Callout>
 
-## 活跃用量与重新加载的日志
+## 用量与重新加载的历史
 
-活跃请求的原生结果可能包含可选的输入、输出或总 token 数量以及所选模型。缺失的计数仍不可用。通用美元费用标记为不可用，不使用手动价格表或基于 token 的估算填补。
+提供商报告的输入、输出和总 token 数量仍为可选项。费用估算考虑已报告的 token 类别，包括缓存和推理 token，以及适用的上下文价格层级。
 
-重新加载 Records 时，通过经过授权的规范存储保留功能性的输入、输出、工具和工作流执行详情。提供商诊断、模型费用报告和每轮 token 总量不是持久的产品报告。重新加载不会根据追踪或对话大小重建模型费用明细。请在**设置 → 订阅**中查看当前周期实际计入的用量；可见的模型小计不等于财务账本。
+Copilot 对话和 Workflow Agent 历史共用 Studio 数据库中的 Mastra 存储。重新加载后保留消息内容、工具调用及结果，以及助手消息已提供的用量和费用元数据。工作流 Records 汇总已知的模型和工具费用；不完整的覆盖仍标记为部分或不可用。请在**设置 → 订阅**中查看当前周期实际计入的用量。
 
 ## 价格与限制
 
@@ -85,7 +83,7 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 **示例响应：**
 
-**金额 ABI 不兼容变更：** `currentPeriodCost` 是精确的美元十进制字符串，例如 `"9007199254740993.30000000000000001"`；金额用量 `limit` 是十进制字符串，无上限时为 `null`。计费层级的价格、额度和倍率也保留为十进制字符串或配置的 `null`。请保留原值，不要转换为 `Number`/`float`。速率计数、席位和存储字段仍为数值。
+`currentPeriodCost` 和金额用量 `limit` 是以美元为单位的 JSON 数值。无上限用量以 `9007199254740991`（`Number.MAX_SAFE_INTEGER`）表示。层级价格和额度为数值，未配置时可为 `null`；计费倍率为数值。
 
 ```jsonc
 {
@@ -96,8 +94,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
     "authType": "api"
   },
   "usage": {
-    "currentPeriodCost": "12.34",
-    "limit": "100",
+    "currentPeriodCost": 12.34,
+    "limit": 100,
     "tier": {
       "id": "tier_example",
       "displayName": "Example Tier",
@@ -107,8 +105,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
       "asyncRateLimitPerMinute": 50,
       "apiEndpointRateLimitPerMinute": 60,
       "logRetentionDays": 30,
-      "workflowExecutionMultiplier": "1",
-      "workflowModelCostMultiplier": "1"
+      "workflowExecutionMultiplier": 1,
+      "workflowModelCostMultiplier": 1
       // The response includes the remaining BillingTierSummary fields.
     }
   },

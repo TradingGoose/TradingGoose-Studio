@@ -78,7 +78,7 @@ data: [DONE]
 
 每个 Logs API 响应都包含有关你的工作流执行限制和用量的信息：
 
-**金额 ABI 不兼容变更：** `currentPeriodCost` 是精确的美元十进制字符串，例如 `"9007199254740993.30000000000000001"`；金额用量 `limit` 是十进制字符串，无上限时为 `null`。计费层级的价格、额度和倍率也保留为十进制字符串或配置的 `null`。请保留原值，不要转换为 `Number`/`float`。速率计数、席位和存储字段仍为数值。
+`currentPeriodCost` 和金额用量 `limit` 是以美元为单位的 JSON 数值。无上限用量以 `9007199254740991`（`Number.MAX_SAFE_INTEGER`）表示。层级价格和额度为数值，未配置时可为 `null`；计费倍率为数值。
 
 ```jsonc
 {
@@ -96,8 +96,8 @@ data: [DONE]
       }
     },
     "usage": {
-      "currentPeriodCost": "1.234",  // Current billing period usage in USD
-      "limit": "10",                  // Usage limit in USD
+      "currentPeriodCost": 1.234,  // Current billing period usage in USD
+      "limit": 10,                  // Usage limit in USD
       "tier": {                     // Current billing tier summary
         "id": "tier_pro",
         "displayName": "Pro"
@@ -193,8 +193,8 @@ data: [DONE]
           }
         },
         "usage": {
-          "currentPeriodCost": "1.234",
-          "limit": "10",
+          "currentPeriodCost": 1.234,
+          "limit": 10,
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"
@@ -208,7 +208,7 @@ data: [DONE]
   </Tab>
 </Tabs>
 
-实际计入的产品费用通过共享财务收据和周期用量验证。日志的通用 `cost` 报告不是财务账本。原生历史保留功能性消息和工具结果，不保留每轮 token 或模型美元费用报告。重新加载后这些指标不可用。活跃请求期间的原生用量是可选的，不根据 token 估算价格。
+Copilot 和 Workflow Agent 历史在 Studio 的 Mastra 存储中保留助手消息已提供的 token 用量和美元费用元数据。重新加载后，这些报告仍然可用。优先使用提供商报告的美元费用；否则，Studio 根据已报告的 token 数量和 models.dev 公布的价格进行估算。缺失的用量或价格仍标记为不可用，不完整的总额标记为部分费用。请在**设置 → 订阅**中查看当前周期实际计入的用量。
 
 CSV 保留已提供的通用费用字段。缺失金额为空或不可用，不会当作零；已知的零仍为零，可用小计也不是完整费用。规范输出需要当前工作区和日志授权；内部引用和加密检查点不是公共下载权限。
 
@@ -273,8 +273,8 @@ CSV 保留已提供的通用费用字段。缺失金额为空或不可用，不�
             }
           },
           "usage": {
-            "currentPeriodCost": "1.234",
-            "limit": "10",
+            "currentPeriodCost": 1.234,
+            "limit": 10,
             "tier": {
               "id": "tier_pro",
               "displayName": "Pro"
@@ -333,8 +333,8 @@ CSV 保留已提供的通用费用字段。缺失金额为空或不可用，不�
           }
         },
         "usage": {
-          "currentPeriodCost": "1.234",
-          "limit": "10",
+          "currentPeriodCost": 1.234,
+          "limit": 10,
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"

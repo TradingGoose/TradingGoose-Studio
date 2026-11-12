@@ -78,7 +78,7 @@ Errors use the same envelope with `"event":"error"` and an `error` message.
 
 Every Logs API response includes information about your workflow execution limits and usage:
 
-**Breaking money ABI:** `currentPeriodCost` is exact USD decimal text, such as `"9007199254740993.30000000000000001"`; the monetary usage `limit` is a decimal string or `null` for unlimited. Nested tier prices, allowances and billing multipliers remain decimal strings or configured `null`. Preserve these values without `Number`/`float` conversion. Rate-limit counts, seats and storage fields remain numeric.
+`currentPeriodCost` and the monetary usage `limit` are JSON numbers in USD. Unlimited usage is represented by `9007199254740991` (`Number.MAX_SAFE_INTEGER`). Tier prices and allowances are numbers or configured `null`; billing multipliers are numbers.
 
 ```jsonc
 {
@@ -96,8 +96,8 @@ Every Logs API response includes information about your workflow execution limit
       }
     },
     "usage": {
-      "currentPeriodCost": "1.234",  // Current billing period usage in USD
-      "limit": "10",                  // Usage limit in USD
+      "currentPeriodCost": 1.234,  // Current billing period usage in USD
+      "limit": 10,                  // Usage limit in USD
       "tier": {                     // Current billing tier summary
         "id": "tier_pro",
         "displayName": "Pro"
@@ -191,8 +191,8 @@ Query workflow execution logs with extensive filtering options.
           }
         },
         "usage": {
-          "currentPeriodCost": "1.234",
-          "limit": "10",
+          "currentPeriodCost": 1.234,
+          "limit": 10,
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"
@@ -205,7 +205,7 @@ Query workflow execution logs with extensive filtering options.
   </Tab>
 </Tabs>
 
-Actual applied product charges are verified through shared financial receipts and period usage. The generic log `cost` report is not that ledger. Ordinary native history stores functional messages and tool results, without a durable per-turn token, model-dollar or estimate report. These metrics are **Unavailable** after reload. Native usage is optional during the active invocation; no token-to-price estimate is calculated.
+Copilot and Workflow Agent history persist available assistant token usage and USD cost metadata in Studio's Mastra storage. These reports remain available after reload. Costs use provider-reported USD when available; otherwise, Studio estimates USD from reported tokens and published models.dev prices. Missing usage or pricing remains unavailable, and incomplete totals are marked partial. Applied current-period usage is available in **Settings → Subscription**.
 
 The CSV preserves available generic cost fields when present. Missing model amounts remain blank or unavailable; they are never a reported zero. A supplied known zero remains zero, and an available subtotal is not a complete charge. Canonical payloads are hydrated through current workspace/log authorization; internal native/archive references and encrypted checkpoint sections are not public download capabilities.
 
@@ -267,8 +267,8 @@ Retrieve detailed information about a specific log entry.
             }
           },
           "usage": {
-            "currentPeriodCost": "1.234",
-            "limit": "10",
+            "currentPeriodCost": 1.234,
+            "limit": 10,
             "tier": {
               "id": "tier_pro",
               "displayName": "Pro"
@@ -323,8 +323,8 @@ Retrieve execution details including the workflow state snapshot.
           }
         },
         "usage": {
-          "currentPeriodCost": "1.234",
-          "limit": "10",
+          "currentPeriodCost": 1.234,
+          "limit": 10,
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"

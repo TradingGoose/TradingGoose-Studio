@@ -16,7 +16,7 @@ TradingGoose applies charges to the user or organization billing owner of the au
 Usage checks run before model contact. A request can fail after generation if billing cannot complete.
 
 <Callout type="info">
-  Costs distinguish reported, estimated, partial and unavailable amounts. A published zero price is different from a missing price. Unknown costs never become free usage.
+  Costs distinguish reported, estimated, partial and unavailable amounts. A published zero price is different from a missing price. Unknown costs are not reported as a known zero.
 </Callout>
 
 ## Usage and Reloaded History
@@ -81,7 +81,7 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 
 **Example Response:**
 
-Amounts and monetary limits are numbers in USD. Unset tier prices and allowances can be `null`.
+`currentPeriodCost` and the monetary usage `limit` are JSON numbers in USD. Unlimited usage is represented by `9007199254740991` (`Number.MAX_SAFE_INTEGER`). Tier prices and allowances are numbers or configured `null`; billing multipliers are numbers.
 
 ```jsonc
 {

@@ -78,7 +78,7 @@ Los errores utilizan el mismo sobre con `"event":"error"` y un mensaje `error`.
 
 Cada respuesta de la API de registros incluye información sobre los límites de ejecución y el uso de tu flujo de trabajo:
 
-**Cambio incompatible del ABI monetario:** `currentPeriodCost` es texto decimal exacto en USD, por ejemplo `"9007199254740993.30000000000000001"`; el `limit` monetario es una cadena decimal o `null` para un límite ilimitado. Los precios, asignaciones y multiplicadores del nivel también son cadenas decimales o `null` según la configuración. Conserva estos valores sin convertirlos con `Number`/`float`. Los contadores de velocidad, plazas y campos de almacenamiento siguen siendo numéricos.
+`currentPeriodCost` y el `limit` monetario son números JSON en USD. El uso sin límite se representa con `9007199254740991` (`Number.MAX_SAFE_INTEGER`). Los precios y las asignaciones del nivel son números o `null` según la configuración; los multiplicadores de facturación son números.
 
 ```jsonc
 {
@@ -96,8 +96,8 @@ Cada respuesta de la API de registros incluye información sobre los límites de
       }
     },
     "usage": {
-      "currentPeriodCost": "1.234",  // Current billing period usage in USD
-      "limit": "10",                  // Usage limit in USD
+      "currentPeriodCost": 1.234,  // Current billing period usage in USD
+      "limit": 10,                  // Usage limit in USD
       "tier": {                     // Current billing tier summary
         "id": "tier_pro",
         "displayName": "Pro"
@@ -193,8 +193,8 @@ Consulta los registros de ejecución de flujos de trabajo con amplias opciones d
           }
         },
         "usage": {
-          "currentPeriodCost": "1.234",
-          "limit": "10",
+          "currentPeriodCost": 1.234,
+          "limit": 10,
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"
@@ -208,7 +208,7 @@ Consulta los registros de ejecución de flujos de trabajo con amplias opciones d
   </Tab>
 </Tabs>
 
-Los cargos de producto realmente aplicados se verifican mediante recibos financieros compartidos y el uso del periodo. El informe genérico `cost` del registro no es ese libro financiero. El historial nativo conserva mensajes y resultados funcionales, sin informes duraderos de tokens o costos de modelos por turno. Al recargar, esas métricas no están disponibles. El uso nativo es opcional durante la solicitud activa; no se estima un precio a partir de tokens.
+El historial de Copilot y de Workflow Agent conserva los metadatos disponibles de uso de tokens y costos en USD de los mensajes del asistente en el almacenamiento Mastra de Studio. Estos informes siguen disponibles al recargar. Se usan los costos en USD reportados por el proveedor cuando están disponibles; en caso contrario, Studio los estima a partir de los tokens reportados y los precios publicados en models.dev. El uso o precio ausente sigue sin estar disponible, y los totales incompletos se marcan como parciales. El uso aplicado del periodo actual está disponible en **Configuración → Suscripción**.
 
 El CSV conserva los campos genéricos disponibles. Los importes ausentes quedan vacíos o no disponibles; no se interpretan como cero. Un cero conocido sigue siendo cero y un subtotal disponible no es un cargo completo. Las salidas canónicas requieren autorización actual del espacio de trabajo y registro; las referencias internas y los puntos de control cifrados no son permisos de descarga pública.
 
@@ -273,8 +273,8 @@ Recupera información detallada sobre una entrada de log específica.
             }
           },
           "usage": {
-            "currentPeriodCost": "1.234",
-            "limit": "10",
+            "currentPeriodCost": 1.234,
+            "limit": 10,
             "tier": {
               "id": "tier_pro",
               "displayName": "Pro"
@@ -333,8 +333,8 @@ Recupera los detalles de la ejecución, incluida la instantánea del estado del 
           }
         },
         "usage": {
-          "currentPeriodCost": "1.234",
-          "limit": "10",
+          "currentPeriodCost": 1.234,
+          "limit": 10,
           "tier": {
             "id": "tier_pro",
             "displayName": "Pro"
