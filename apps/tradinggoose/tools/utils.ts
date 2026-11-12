@@ -45,7 +45,10 @@ interface RequestParams {
 /**
  * Format request parameters based on tool configuration and provided params
  */
-export function formatRequestParams(tool: ToolConfig, params: Record<string, any>): RequestParams {
+export async function formatRequestParams(
+  tool: ToolConfig,
+  params: Record<string, any>
+): Promise<RequestParams> {
   // Process URL
   const url = typeof tool.request.url === 'function' ? tool.request.url(params) : tool.request.url
 
@@ -58,7 +61,7 @@ export function formatRequestParams(tool: ToolConfig, params: Record<string, any
 
   // Process body
   const hasBody = method !== 'GET' && method !== 'HEAD' && !!tool.request.body
-  const bodyResult = tool.request.body ? tool.request.body(params) : undefined
+  const bodyResult = await tool.request.body?.(params)
 
   // Special handling for NDJSON content type or 'application/x-www-form-urlencoded'
   const isPreformattedContent =

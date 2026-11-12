@@ -108,7 +108,14 @@ export interface ToolConfig<P = any, R = any> {
     url: string | ((params: P) => string)
     method: HttpMethod | ((params: P) => HttpMethod)
     headers: (params: P) => Record<string, string>
-    body?: (params: P) => Record<string, any> | string | FormData | undefined
+    body?: (
+      params: P
+    ) =>
+      | Record<string, any>
+      | string
+      | FormData
+      | undefined
+      | Promise<Record<string, any> | string | FormData | undefined>
   }
 
   // Post-processing (optional) - allows additional processing after the initial request

@@ -782,7 +782,7 @@ async function executeToolRequest(
   const requestId = generateRequestId()
   const scope = resolveExecutionScope(params, executionContext)
 
-  const requestParams = formatRequestParams(tool, params)
+  const requestParams = await formatRequestParams(tool, params)
 
   try {
     const baseUrl = getBaseUrl()
@@ -803,7 +803,7 @@ async function executeToolRequest(
     const fullUrl = fullUrlObj.toString()
 
     if (isCustomToolRuntimeId(toolId) && tool.request.body) {
-      const requestBody = tool.request.body(params)
+      const requestBody = await tool.request.body(params)
       if (
         typeof requestBody === 'object' &&
         requestBody !== null &&

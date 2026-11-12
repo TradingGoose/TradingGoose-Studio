@@ -113,7 +113,7 @@ describe('transformTable', () => {
   })
 })
 
-describe('formatRequestParams', () => {
+describe('formatRequestParams', async () => {
   let mockTool: ToolConfig
 
   beforeEach(() => {
@@ -134,9 +134,9 @@ describe('formatRequestParams', () => {
     }
   })
 
-  it.concurrent('should format request with static URL', () => {
+  it('should format request with static URL', async () => {
     const params = { foo: 'bar' }
-    const result = formatRequestParams(mockTool, params)
+    const result = await formatRequestParams(mockTool, params)
 
     expect(result).toEqual({
       url: 'https://api.example.com',
@@ -149,11 +149,11 @@ describe('formatRequestParams', () => {
     expect(mockTool.request.headers).toHaveBeenCalledWith(params)
   })
 
-  it.concurrent('should format request with dynamic URL function', () => {
+  it('should format request with dynamic URL function', async () => {
     mockTool.request.url = (params) => `https://api.example.com/${params.id}`
     const params = { id: '123' }
 
-    const result = formatRequestParams(mockTool, params)
+    const result = await formatRequestParams(mockTool, params)
 
     expect(result).toEqual({
       url: 'https://api.example.com/123',
@@ -164,18 +164,18 @@ describe('formatRequestParams', () => {
     })
   })
 
-  it.concurrent('keeps a static request method authoritative over business parameters', () => {
+  it('keeps a static request method authoritative over business parameters', async () => {
     const params = { method: 'DELETE' }
-    const result = formatRequestParams(mockTool, params)
+    const result = await formatRequestParams(mockTool, params)
 
     expect(result.method).toBe('GET')
     expect(result.body).toBeUndefined()
     expect(mockTool.request.body).toHaveBeenCalledWith(params)
   })
 
-  it.concurrent('uses an explicitly configured dynamic request method', () => {
+  it('uses an explicitly configured dynamic request method', async () => {
     const params = { method: 'POST' }
-    const result = formatRequestParams(
+    const result = await formatRequestParams(
       { ...mockTool, request: { ...mockTool.request, method: (input) => input.method } },
       params
     )
@@ -183,7 +183,7 @@ describe('formatRequestParams', () => {
     expect(result.body).toBe(JSON.stringify({ data: 'test-data' }))
   })
 
-  it.concurrent('should handle preformatted content types', () => {
+  it('should handle preformatted content types', async () => {
     // Set Content-Type to a preformatted type
     mockTool.request.headers = vi.fn().mockReturnValue({
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -193,7 +193,7 @@ describe('formatRequestParams', () => {
     mockTool.request.body = vi.fn().mockReturnValue('key1=value1&key2=value2')
 
     const params = { method: 'POST' }
-    const result = formatRequestParams(
+    const result = await formatRequestParams(
       { ...mockTool, request: { ...mockTool.request, method: 'POST' } },
       params
     )
@@ -201,7 +201,7 @@ describe('formatRequestParams', () => {
     expect(result.body).toBe('key1=value1&key2=value2')
   })
 
-  it.concurrent('should handle NDJSON content type', () => {
+  it('should handle NDJSON content type', async () => {
     // Set Content-Type to NDJSON
     mockTool.request.headers = vi.fn().mockReturnValue({
       'Content-Type': 'application/x-ndjson',
@@ -211,7 +211,7 @@ describe('formatRequestParams', () => {
     mockTool.request.body = vi.fn().mockReturnValue('{"prompt": "Hello"}\n{"prompt": "World"}')
 
     const params = { method: 'POST' }
-    const result = formatRequestParams(
+    const result = await formatRequestParams(
       { ...mockTool, request: { ...mockTool.request, method: 'POST' } },
       params
     )
