@@ -343,7 +343,7 @@ export function validateToolReference(
 
   // Check if it's a custom tool or MCP tool
   const isCustomTool = isCustomToolRuntimeId(toolId)
-  const isMcpTool = toolId.startsWith('mcp-')
+  const isMcpTool = toolId === 'mcp'
 
   if (!isCustomTool && !isMcpTool) {
     // For built-in tools, verify they exist

@@ -328,7 +328,6 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
           params: {
             serverId: mcpTool.serverId,
             toolName: mcpTool.name,
-            serverName: mcpTool.serverName,
           },
           isExpanded: true,
           usageControl: 'auto',

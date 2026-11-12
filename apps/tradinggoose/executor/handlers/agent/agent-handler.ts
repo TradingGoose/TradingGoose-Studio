@@ -491,6 +491,7 @@ export class AgentBlockHandler implements BlockHandler {
     const { filterSchemaForLLM } = await import('@/tools/params')
     return {
       id: createMcpToolId(serverId, toolName),
+      mcp: { serverId, toolName },
       name: toolName,
       description: mcpTool.description || `MCP tool ${toolName} from ${mcpTool.serverName}`,
       parameters: filterSchemaForLLM(
@@ -663,9 +664,9 @@ export function createAgentToolSet(
               const result = tool.executeFunction
                 ? await tool.executeFunction(params, nativeContext?.abortSignal)
                 : await executeTool(
-                    tool.id,
+                    tool.mcp ? 'mcp' : tool.id,
                     {
-                      ...(tool.id.startsWith('mcp-') ? { arguments: params } : params),
+                      ...(tool.mcp ? { ...tool.mcp, arguments: params } : params),
                       _context: {
                         workflowId: scope.workflowId,
                         workspaceId: scope.workspaceId,

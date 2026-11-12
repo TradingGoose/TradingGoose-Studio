@@ -6,9 +6,16 @@
  * This file contains unit tests for the tools registry and executeTool function,
  * which are the central pieces of infrastructure for executing tools.
  */
+
+import { Agent } from '@mastra/core/agent'
+import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateInternalToken } from '@/lib/auth/internal'
+import { createMcpToolId } from '@/lib/mcp/utils'
+import { getBlock } from '@/blocks'
+import { createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
 import { buildLoadSkillTool } from '@/executor/handlers/agent/skill-loader'
+import { GenericBlockHandler } from '@/executor/handlers/generic/generic-handler'
 import type { ExecutionContext } from '@/executor/types'
 import { createMockFetch, mockEnvironmentVariables } from '@/tools/__test-utils__/test-tools'
 import { executeTool } from '@/tools/index'
@@ -1140,6 +1147,7 @@ describe('Centralized Error Handling', () => {
 })
 
 describe('MCP Tool Execution', () => {
+  const serverId = '550e8400-e29b-41d4-a716-446655440000'
   const output = { content: [{ type: 'text', text: 'MCP result' }] }
   let cleanupEnvVars: () => void
 
@@ -1157,8 +1165,8 @@ describe('MCP Tool Execution', () => {
   it('executes the canonical MCP response with authenticated workflow scope', async () => {
     vi.stubGlobal('window', undefined)
     const result = await executeTool(
-      'mcp-123-list_files',
-      { arguments: { path: '/test' } },
+      'mcp',
+      { serverId, toolName: 'list_files', arguments: { path: '/test' } },
       false,
       createMockExecutionContext({ isDeployedContext: false })
     )
@@ -1179,7 +1187,7 @@ describe('MCP Tool Execution', () => {
       })
     )
     expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toEqual({
-      serverId: 'mcp-123',
+      serverId,
       toolName: 'list_files',
       arguments: { path: '/test' },
       workspaceId: 'workspace-456',
@@ -1188,16 +1196,112 @@ describe('MCP Tool Execution', () => {
     })
   })
 
+  it('preserves UUID server and hyphenated tool identities through native Agent dispatch', async () => {
+    const target = {
+      serverId: '550e8400-e29b-41d4-a716-446655440000',
+      toolName: 'search-with-hyphens',
+    }
+    const args = {
+      serverId: 'business-server',
+      toolName: 'business-tool',
+      arguments: 'business input',
+      _context: { userId: 'business-user' },
+    }
+    const id = createMcpToolId(target.serverId, target.toolName)
+    const context = createMockExecutionContext()
+    const { tools } = createAgentToolSet(
+      [
+        {
+          id,
+          mcp: target,
+          description: 'Search',
+          parameters: {
+            type: 'object',
+            properties: {
+              serverId: { type: 'string' },
+              toolName: { type: 'string' },
+              arguments: { type: 'string' },
+              _context: { type: 'object' },
+            },
+          },
+        },
+      ],
+      context,
+      context,
+      { signal: new AbortController().signal, abort: vi.fn() }
+    )
+    let step = 0
+    const model = new MastraLanguageModelV2Mock({
+      doGenerate: async () => ({
+        content:
+          step++ === 0
+            ? [
+                {
+                  type: 'tool-call',
+                  toolCallId: 'search-call',
+                  toolName: id,
+                  input: JSON.stringify(args),
+                },
+              ]
+            : [{ type: 'text', text: 'Found it' }],
+        finishReason: step === 1 ? 'tool-calls' : 'stop',
+        usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
+        warnings: [],
+      }),
+    })
+    const result = await new Agent({
+      id: 'uuid-mcp',
+      name: 'UUID MCP',
+      instructions: '',
+      model,
+      tools,
+    }).generate('Search', { maxSteps: 2 })
+    expect(result.text).toBe('Found it')
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({
+      ...target,
+      arguments: args,
+      workspaceId: context.workspaceId,
+      workflowId: context.workflowId,
+    })
+  })
+
+  it('dispatches a direct MCP block with the same UUID target contract', async () => {
+    const { McpBlock } = await import('@/blocks/blocks/mcp')
+    vi.mocked(getBlock).mockReturnValueOnce(McpBlock)
+    const inputs = { server: serverId, tool: 'search-with-hyphens', arguments: { query: 'Goose' } }
+    const result = await new GenericBlockHandler().execute(
+      {
+        id: 'direct-mcp',
+        position: { x: 0, y: 0 },
+        config: { tool: McpBlock.tools!.config!.tool!(inputs), params: {} },
+        metadata: { id: 'mcp', name: 'MCP', description: '', category: 'tools', color: '' },
+        inputs: {},
+        outputs: {},
+        enabled: true,
+      },
+      inputs,
+      createMockExecutionContext()
+    )
+    expect(result).toEqual(output)
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({
+      serverId,
+      toolName: inputs.tool,
+      arguments: inputs.arguments,
+    })
+  })
+
   it('preserves hyphens in canonical MCP tool identities', async () => {
     const result = await executeTool(
-      'mcp-timestamp123-complex-tool-name',
-      { arguments: { param: 'value' } },
+      'mcp',
+      { serverId, toolName: 'complex-tool-name', arguments: { param: 'value' } },
       false,
       createMockExecutionContext()
     )
     expect(result.success).toBe(true)
     expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({
-      serverId: 'mcp-timestamp123',
+      serverId,
       toolName: 'complex-tool-name',
       arguments: { param: 'value' },
     })
@@ -1213,15 +1317,15 @@ describe('MCP Tool Execution', () => {
         serverId: 'application server',
       }
       const result = await executeTool(
-        'mcp-123-search',
-        { arguments: json ? JSON.stringify(args) : args },
+        'mcp',
+        { serverId, toolName: 'search', arguments: json ? JSON.stringify(args) : args },
         false,
         createMockExecutionContext()
       )
       expect(result).toMatchObject({ success: true, output })
       expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({
         arguments: args,
-        serverId: 'mcp-123',
+        serverId,
         workspaceId: 'workspace-456',
         workflowId: 'test-workflow',
       })
@@ -1242,8 +1346,8 @@ describe('MCP Tool Execution', () => {
         })
     )
     const result = await executeTool(
-      'mcp-123-search',
-      { arguments: {} },
+      'mcp',
+      { serverId, toolName: 'search', arguments: {} },
       false,
       createMockExecutionContext(),
       { signal: controller.signal }
@@ -1258,8 +1362,8 @@ describe('MCP Tool Execution', () => {
       canWrite: false,
     })
     const result = await executeTool(
-      'mcp-123-search',
-      { arguments: {} },
+      'mcp',
+      { serverId, toolName: 'search', arguments: {} },
       false,
       createMockExecutionContext()
     )
@@ -1272,8 +1376,8 @@ describe('MCP Tool Execution', () => {
     'rejects invalid MCP arguments %s before execution',
     async (args) => {
       const result = await executeTool(
-        'mcp-123-search',
-        { arguments: args },
+        'mcp',
+        { serverId, toolName: 'search', arguments: args },
         false,
         createMockExecutionContext()
       )
@@ -1287,8 +1391,8 @@ describe('MCP Tool Execution', () => {
     async (response) => {
       vi.mocked(fetch).mockResolvedValue(Response.json({ success: true, ...response }))
       const result = await executeTool(
-        'mcp-123-search',
-        { arguments: {} },
+        'mcp',
+        { serverId, toolName: 'search', arguments: {} },
         false,
         createMockExecutionContext()
       )
@@ -1297,7 +1401,7 @@ describe('MCP Tool Execution', () => {
   )
 
   it('requires workspace execution context', async () => {
-    const result = await executeTool('mcp-123-test_tool', { arguments: {} })
+    const result = await executeTool('mcp', { serverId, toolName: 'test_tool', arguments: {} })
     expect(result.success).toBe(false)
     expect(result.error).toContain('requires workspace execution context')
     expect(fetch).not.toHaveBeenCalled()
@@ -1309,8 +1413,8 @@ describe('MCP Tool Execution', () => {
       new Error('Internal authentication failed')
     )
     const result = await executeTool(
-      'mcp-123-search',
-      { arguments: {} },
+      'mcp',
+      { serverId, toolName: 'search', arguments: {} },
       false,
       createMockExecutionContext()
     )
@@ -1325,8 +1429,8 @@ describe('MCP Tool Execution', () => {
       )
     else vi.mocked(fetch).mockRejectedValue(new Error('Network error'))
     const result = await executeTool(
-      'mcp-123-search',
-      { arguments: {} },
+      'mcp',
+      { serverId, toolName: 'search', arguments: {} },
       false,
       createMockExecutionContext()
     )

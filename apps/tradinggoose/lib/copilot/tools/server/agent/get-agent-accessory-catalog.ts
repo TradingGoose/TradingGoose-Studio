@@ -116,7 +116,6 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
               params: {
                 serverId: tool.serverId,
                 toolName: tool.name,
-                serverName: tool.serverName,
               },
               isExpanded: true,
               schema: tool.inputSchema,

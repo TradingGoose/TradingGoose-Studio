@@ -38,6 +38,7 @@ export type Message =
 
 export interface AgentToolConfig {
   id: string
+  mcp?: { serverId: string; toolName: string }
   name?: string
   description: string
   params?: Record<string, any>

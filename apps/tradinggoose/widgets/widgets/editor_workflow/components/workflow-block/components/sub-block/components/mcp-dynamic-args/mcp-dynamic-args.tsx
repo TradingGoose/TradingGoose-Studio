@@ -282,16 +282,19 @@ export function McpDynamicArgs({
   isConnecting = false,
 }: McpDynamicArgsProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useWorkspaceBlockEditorMessages().toolInput
+  const messages = useWorkspaceBlockEditorMessages()
+  const copy = messages.toolInput
   const workspaceId = useWorkspaceId()
-  const { mcpTools, isLoading } = useMcpTools(workspaceId)
+  const { mcpTools, isLoading, error } = useMcpTools(workspaceId)
+  const [selectedServer] = useSubBlockValue(blockId, 'server')
   const [selectedTool] = useSubBlockValue(blockId, 'tool')
-  const [cachedSchema] = useSubBlockValue(blockId, '_toolSchema')
   const [toolArgs, setToolArgs] = useSubBlockValue(blockId, subBlockId)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
-  const selectedToolConfig = mcpTools.find((tool) => tool.id === selectedTool)
-  const toolSchema = cachedSchema || selectedToolConfig?.inputSchema
+  const selectedToolConfig = mcpTools.find(
+    (tool) => tool.serverId === selectedServer && tool.name === selectedTool
+  )
+  const toolSchema = selectedToolConfig?.inputSchema
 
   const currentArgs = useCallback(() => {
     if (isPreview && previewValue) {
@@ -512,15 +515,16 @@ export function McpDynamicArgs({
     )
   }
 
-  if (
-    selectedTool &&
-    !cachedSchema &&
-    !selectedToolConfig &&
-    (isLoading || mcpTools.length === 0)
-  ) {
+  if (!selectedToolConfig) {
     return (
       <div className='rounded-lg border border-dashed p-8 text-center'>
-        <p className='text-muted-foreground text-sm'>{copy.loadingToolSchema}</p>
+        <p className='text-muted-foreground text-sm'>
+          {isLoading
+            ? copy.loadingToolSchema
+            : error
+              ? messages.mcpToolSelector.errorLoadingTools
+              : messages.mcpToolSelector.selectTool}
+        </p>
       </div>
     )
   }

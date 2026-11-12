@@ -189,7 +189,7 @@ beforeEach(() => {
     {
       name: 'lookup',
       description: 'MCP lookup',
-      serverId: 'mcp-123',
+      serverId: '550e8400-e29b-41d4-a716-446655440000',
       serverName: 'Research',
       inputSchema: {
         type: 'object',
@@ -594,7 +594,7 @@ describe('native Agent MCP integration', () => {
   const selected = {
     type: 'mcp',
     params: {
-      serverId: 'mcp-123',
+      serverId: '550e8400-e29b-41d4-a716-446655440000',
       toolName: 'lookup',
       query: 'fixed query',
       arguments: 'application input',
@@ -615,15 +615,17 @@ describe('native Agent MCP integration', () => {
       expect(getUserEntityPermissions).toHaveBeenCalledWith('user-1', 'workspace', 'workspace-1')
       expect(mcpService.discoverServerTools).toHaveBeenCalledWith(
         'user-1',
-        'mcp-123',
+        '550e8400-e29b-41d4-a716-446655440000',
         'workspace-1',
         isDeployedContext
       )
       expect(executeTool).toHaveBeenCalledOnce()
       const [toolId, params, skipPostProcess, execution, options] =
         vi.mocked(executeTool).mock.calls[0]
-      expect(toolId).toBe('mcp-123-lookup')
+      expect(toolId).toBe('mcp')
       expect(params).toMatchObject({
+        serverId: '550e8400-e29b-41d4-a716-446655440000',
+        toolName: 'lookup',
         arguments: {
           query: 'fixed query',
           arguments: 'application input',
@@ -648,7 +650,7 @@ describe('native Agent MCP integration', () => {
     vi.mocked(mcpService.discoverServerTools).mockResolvedValueOnce([
       {
         name: 'lookup',
-        serverId: 'mcp-123',
+        serverId: '550e8400-e29b-41d4-a716-446655440000',
         serverName: 'Research',
         inputSchema: { type: 'array' },
       },

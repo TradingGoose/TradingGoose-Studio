@@ -6,7 +6,6 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getFailureAccounting, restoreInferenceError } from '@/lib/mastra/errors'
-import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -387,7 +386,7 @@ export async function executeTool(
   try {
     throwIfToolRequestAborted(options?.signal)
     let tool: ToolConfig | undefined
-    const isMcpTool = toolId.startsWith('mcp-')
+    const isMcpTool = toolId === 'mcp'
 
     if (isSkillLoaderExecution(params)) {
       await assertExecutionWorkspaceAccess(toolId, scope, 'read')
@@ -1062,7 +1061,7 @@ function validateClientSideParams(
 /**
  * Execute an MCP tool via the server-side proxy
  *
- * @param toolId - MCP tool ID in format "mcp-serverId-toolName"
+ * @param toolId - Shared MCP operation ID
  * @param params - Tool parameters
  * @param scope - Authorized execution scope
  * @param requestId - Request ID for logging
@@ -1079,7 +1078,14 @@ async function executeMcpTool(
   try {
     logger.info(`[${requestId}] Executing MCP tool: ${toolId}`)
 
-    const { serverId, toolName } = parseMcpToolId(toolId)
+    const { serverId, toolName } = params
+    if (
+      typeof serverId !== 'string' ||
+      !serverId.trim() ||
+      typeof toolName !== 'string' ||
+      !toolName.trim()
+    )
+      throw new Error('MCP execution requires serverId and toolName')
 
     const baseUrl = getBaseUrl()
 

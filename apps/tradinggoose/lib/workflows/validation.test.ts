@@ -15,7 +15,11 @@ import { WaitBlock } from '@/blocks/blocks/wait'
 import { YouTubeBlock } from '@/blocks/blocks/youtube'
 import { ZepBlock } from '@/blocks/blocks/zep'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
-import { sanitizeAgentToolsInBlocks, validateWorkflowState } from './validation'
+import {
+  sanitizeAgentToolsInBlocks,
+  validateToolReference,
+  validateWorkflowState,
+} from './validation'
 
 const validationMocks = vi.hoisted(() => ({
   getBlock: vi.fn(),
@@ -39,6 +43,13 @@ const tool = (toolId?: string) => ({
   ...(toolId ? { toolId } : {}),
   schema: { function: { parameters: { type: 'object', properties: {} } } },
   code: '',
+})
+
+it('validates the shared MCP operation without accepting opaque tool keys as executable IDs', () => {
+  expect(validateToolReference('mcp', 'mcp')).toBeNull()
+  expect(validateToolReference('mcp-550e8400-e29b-41d4-a716-446655440000-search', 'mcp')).toContain(
+    'non-existent tool'
+  )
 })
 
 function workflowWithValues(

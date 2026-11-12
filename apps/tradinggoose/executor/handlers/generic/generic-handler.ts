@@ -25,7 +25,7 @@ export class GenericBlockHandler implements BlockHandler {
   ): Promise<any> {
     logger.info(`Executing block: ${block.id} (Type: ${block.metadata?.id})`)
 
-    const isMcpTool = block.config.tool?.startsWith('mcp-')
+    const isMcpTool = block.config.tool === 'mcp'
     let tool = null
 
     if (!isMcpTool) {
