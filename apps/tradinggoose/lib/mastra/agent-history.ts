@@ -61,7 +61,7 @@ export async function attachAgentHistory<T extends ExecutionLog>(
         history.threadId !== `workflow-agent:${history.runId}`
       )
         throw new Error('Agent history is outside the authorized execution')
-      const thread = await store.getThreadById({ threadId: history.threadId, resourceId })
+      const thread = await store.getThreadById({ threadId: history.threadId })
       const expected = {
         purpose: 'workflow-agent',
         workspaceId: row.workspaceId,
@@ -71,14 +71,16 @@ export async function attachAgentHistory<T extends ExecutionLog>(
         runId: history.runId,
         ...(row.workflowId ? { workflowId: row.workflowId } : {}),
       }
-      if (
-        !thread ||
-        thread.resourceId !== resourceId ||
-        Object.entries(expected).some(([key, value]) => thread.metadata?.[key] !== value)
-      )
-        throw new Error('Agent history owner does not match its execution')
-      systemMessages = thread.metadata?.systemMessages
-      agentHistory = await readNativeHistory({ threadId: history.threadId, resourceId })
+      // Native cleanup may succeed before the owning log's SQL transaction rolls back.
+      if (thread) {
+        if (
+          thread.resourceId !== resourceId ||
+          Object.entries(expected).some(([key, value]) => thread.metadata?.[key] !== value)
+        )
+          throw new Error('Agent history owner does not match its execution')
+        systemMessages = thread.metadata?.systemMessages
+        agentHistory = await readNativeHistory({ threadId: history.threadId, resourceId })
+      }
     }
     return {
       ...span,
