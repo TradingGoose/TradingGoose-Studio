@@ -1,28 +1,15 @@
 import { db } from '@tradinggoose/db'
-import {
-  type workflowExecutionLogs,
-  workflowLogWebhook,
-  workflowLogWebhookDelivery,
-} from '@tradinggoose/db/schema'
+import { workflowLogWebhook, workflowLogWebhookDelivery } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { WorkflowExecutionLog } from '@/lib/logs/types'
 import { logsWebhookDelivery } from '@/background/logs-webhook-delivery'
 
 const logger = createLogger('LogsEventEmitter')
 
-export async function emitWorkflowExecutionCompleted(
-  log: Pick<
-    typeof workflowExecutionLogs.$inferSelect,
-    'id' | 'workflowId' | 'workspaceId' | 'executionId' | 'level' | 'trigger' | 'workflowSummary'
-  >
-): Promise<void> {
-  const summary = log.workflowSummary
-  const workflowId =
-    log.workflowId ??
-    (summary && typeof summary === 'object' && 'id' in summary && typeof summary.id === 'string'
-      ? summary.id
-      : null)
+export async function emitWorkflowExecutionCompleted(log: WorkflowExecutionLog): Promise<void> {
+  const workflowId = log.workflowId ?? log.workflowSummary.id
 
   try {
     if (!workflowId) {
