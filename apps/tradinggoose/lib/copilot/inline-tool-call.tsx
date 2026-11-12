@@ -12,7 +12,6 @@ import { parseEntityDocument } from '@/lib/copilot/entity-documents'
 import { isToolId } from '@/lib/copilot/registry'
 import { ToolAccessChoice } from '@/lib/copilot/tool-access-choice'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { getClientTool } from '@/lib/copilot/tools/client/manager'
 import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/server-tool-response'
 import { getListingIdentityKey, getListingIdentitySymbol } from '@/lib/listing/identity'
 import type { WatchlistDocumentInputContent, WatchlistSettings } from '@/lib/watchlists/types'
@@ -56,7 +55,6 @@ type VisualReviewPayload<T> = {
 interface InlineToolCallProps {
   toolCall?: CopilotToolCall
   toolCallId?: string
-  onStateChange?: (state: ClientToolCallState) => void
 }
 
 function readToolFailureDetails(toolCall: CopilotToolCall) {
@@ -687,14 +685,9 @@ function WatchlistReview({
   )
 }
 
-export function InlineToolCall({
-  toolCall: toolCallProp,
-  toolCallId,
-  onStateChange,
-}: InlineToolCallProps) {
+export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToolCallProps) {
   const dashboardPreviewCopy = useMessages().workspace.dashboard.layoutPreview
   const tReview = useTranslations('workspace.widgets.copilot.review')
-  const [, forceUpdate] = useState({})
   const liveToolCall = useCopilotStore((s) =>
     toolCallId ? s.toolCallsById[toolCallId] : undefined
   )
@@ -738,8 +731,6 @@ export function InlineToolCall({
     (['run_workflow', 'deploy_workflow'].includes(toolCall.name) ||
       (toolCall.name === 'gdrive_request_access' &&
         typeof toolCall.result?.credentialId === 'string'))
-  const showMoveToBackground =
-    toolCall.name === 'run_workflow' && toolCall.state === ClientToolCallState.executing
 
   const displayName = getDisplayName(toolCall)
   const failureDetails = readToolFailureDetails(toolCall)
@@ -934,23 +925,6 @@ export function InlineToolCall({
             }}
           >
             Recover result
-          </Button>
-        ) : showMoveToBackground ? (
-          <Button
-            onClick={async () => {
-              try {
-                const instance = getClientTool(toolCall.id)
-                instance?.setState?.(ClientToolCallState.background)
-
-                forceUpdate({})
-                onStateChange?.(ClientToolCallState.background)
-              } catch {}
-            }}
-            size='sm'
-            variant='secondary'
-            title='Move to Background'
-          >
-            Move to Background
           </Button>
         ) : null}
       </div>

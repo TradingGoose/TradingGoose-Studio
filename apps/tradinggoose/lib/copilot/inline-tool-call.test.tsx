@@ -63,10 +63,6 @@ vi.mock('@/stores/copilot/tool-registry', () => ({
   isGatedTool: (name: string) => name !== 'edit_workflow' && name !== 'edit_workflow_block',
 }))
 
-vi.mock('@/lib/copilot/tools/client/manager', () => ({
-  getClientTool: () => undefined,
-}))
-
 vi.mock(
   '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-workflow',
   () => ({
@@ -109,6 +105,18 @@ describe('InlineToolCall', () => {
     container.remove()
     vi.unstubAllGlobals()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
+  })
+
+  it('does not offer a display-only background action for a running workflow', async () => {
+    await act(async () =>
+      renderLocalized(
+        { id: 'running-workflow', name: 'run_workflow', state: ClientToolCallState.executing },
+        'en'
+      )
+    )
+    expect(container.querySelector('button[title="Move to Background"]')).toBeNull()
+    expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
+    expect(mockUseCopilotStoreState.readbackCopilotToolCall).not.toHaveBeenCalled()
   })
 
   it('renders a workflow review preview card for staged edit_workflow results', async () => {

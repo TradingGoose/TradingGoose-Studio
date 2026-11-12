@@ -33,7 +33,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
       [ClientToolCallState.error]: { text: 'Errored running workflow', icon: XCircle },
       [ClientToolCallState.rejected]: { text: 'Workflow execution skipped', icon: MinusCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted workflow execution', icon: MinusCircle },
-      [ClientToolCallState.background]: { text: 'Running in background', icon: Play },
     },
     interrupt: {
       accept: { text: 'Run', icon: Play },
@@ -127,33 +126,9 @@ export class RunWorkflowClientTool extends BaseClientTool {
           triggerBlockId: params.triggerBlockId,
         })
 
-        // Determine success for both non-streaming and streaming executions
-        let succeeded = true
-        let errorMessage: string | undefined
-        try {
-          if (result && typeof result === 'object' && 'success' in (result as any)) {
-            succeeded = Boolean((result as any).success)
-            if (!succeeded) {
-              errorMessage = (result as any)?.error || (result as any)?.output?.error
-            }
-          } else if (
-            result &&
-            typeof result === 'object' &&
-            'execution' in (result as any) &&
-            (result as any).execution &&
-            typeof (result as any).execution === 'object'
-          ) {
-            succeeded = Boolean((result as any).execution.success)
-            if (!succeeded) {
-              errorMessage =
-                (result as any).execution?.error || (result as any).execution?.output?.error
-            }
-          }
-        } catch {}
-
         // Completion is attested from the actual canonical retained execution, including a real failed outcome.
         await this.completeAuthoritativeReadback()
-        this.setState(succeeded ? ClientToolCallState.success : ClientToolCallState.error, {
+        this.setState(result.success ? ClientToolCallState.success : ClientToolCallState.error, {
           result,
         })
       } catch (error: any) {
