@@ -1200,13 +1200,57 @@ describe('native forced sequence failures and completion accounting', () => {
     expect(executeTool).toHaveBeenCalledTimes(1)
   })
 
-  it('combines native named tools and validated structured workflow fields', async () => {
-    state.model = fixture('{"answer":42}')
-    const output = await new AgentBlockHandler().execute(
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true],
+  ])('uses native Gemini structured output with tools=%s, stream=%s', async (withTools, stream) => {
+    const requests: any[] = []
+    vi.stubGlobal('fetch', async (url: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(url)).toContain('generativelanguage.googleapis.com')
+      const body = JSON.parse(String(init?.body))
+      requests.push(body)
+      if (body.tools?.length && body.generationConfig?.responseMimeType === 'application/json')
+        return Response.json(
+          {
+            error: { code: 400, message: 'Function calling with application/json is unsupported' },
+          },
+          { status: 400 }
+        )
+      const callTool = withTools && requests.length === 1
+      const response = {
+        candidates: [
+          {
+            content: {
+              role: 'model',
+              parts: callTool
+                ? [
+                    { text: 'Searching...' },
+                    { functionCall: { name: 'custom_lookup', args: { query: 'generated' } } },
+                  ]
+                : [{ text: '{"answer":42}' }],
+            },
+            finishReason: 'STOP',
+          },
+        ],
+        usageMetadata: { promptTokenCount: 2, candidatesTokenCount: 3, totalTokenCount: 5 },
+      }
+      return stream
+        ? new Response(`data: ${JSON.stringify(response)}\n\n`, {
+            headers: { 'content-type': 'text/event-stream' },
+          })
+        : Response.json(response)
+    })
+    const native = await vi.importActual<typeof import('@/lib/mastra/connections')>(
+      '@/lib/mastra/connections'
+    )
+    state.model = native.createConfiguredLanguageModel('google/gemini-2.5-pro', 'fixture-key')
+    const result = await new AgentBlockHandler().execute(
       block,
       {
-        model: 'openai/gpt-4.1',
-        tools: [customTool],
+        model: 'google/gemini-2.5-pro',
+        tools: withTools ? [customTool] : [],
         userPrompt: 'Lookup then answer',
         responseFormat: {
           schema: {
@@ -1217,9 +1261,23 @@ describe('native forced sequence failures and completion accounting', () => {
           },
         },
       },
-      context()
+      context({ stream })
     )
-    expect(output).toMatchObject({ answer: 42, tokens: { total: 10 } })
+    if (stream) {
+      const streamed = result as StreamingExecution
+      expect(await new Response(streamed.stream).text()).toBe('{"answer":42}')
+      expect(streamed.execution.success).toBe(true)
+    }
+    const output = stream ? (result as StreamingExecution).execution.output : result
+    expect(output).toMatchObject({ answer: 42, tokens: { total: withTools ? 10 : 5 } })
+    expect(requests).toHaveLength(withTools ? 2 : 1)
+    expect(requests[0].generationConfig.responseMimeType).toBe(
+      withTools ? undefined : 'application/json'
+    )
+    if (withTools) {
+      expect(requests[0].tools[0].functionDeclarations[0].name).toBe('custom_lookup')
+      expect(JSON.stringify(requests[0].systemInstruction)).toContain('JSON schema:')
+    }
     expect(output).not.toHaveProperty('toolCalls')
     expect(output).not.toHaveProperty('toolResults')
     const history = getInferenceFacts(output)!.history!
@@ -1235,16 +1293,17 @@ describe('native forced sequence failures and completion accounting', () => {
           JSON.stringify(message.content.parts).includes('Lookup then answer')
       )
     ).toBe(true)
-    expect(messages.flatMap((message) => message.content.parts)).toContainEqual(
-      expect.objectContaining({
-        type: 'tool-invocation',
-        toolInvocation: expect.objectContaining({
-          toolName: 'custom_lookup',
-          state: 'result',
-          result: { found: true },
-        }),
-      })
-    )
+    if (withTools)
+      expect(messages.flatMap((message) => message.content.parts)).toContainEqual(
+        expect.objectContaining({
+          type: 'tool-invocation',
+          toolInvocation: expect.objectContaining({
+            toolName: 'custom_lookup',
+            state: 'result',
+            result: { found: true },
+          }),
+        })
+      )
   })
 })
 

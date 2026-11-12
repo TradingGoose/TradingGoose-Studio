@@ -217,7 +217,11 @@ export class AgentBlockHandler implements BlockHandler {
         },
       },
       structuredOutput: responseFormat
-        ? { schema: toStandardSchema(responseFormat.schema), errorStrategy: 'strict' }
+        ? {
+            schema: toStandardSchema(responseFormat.schema),
+            errorStrategy: 'strict',
+            jsonPromptInjection: Object.keys(tools).length > 0,
+          }
         : undefined,
       prepareStep: async (step) => {
         await cancellation.check()
