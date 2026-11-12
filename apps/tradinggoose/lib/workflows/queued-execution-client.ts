@@ -84,9 +84,9 @@ function waitForJobPollInterval(signal?: AbortSignal) {
 export async function queueWorkflowExecution(
   request: QueuedWorkflowExecutionRequest
 ): Promise<QueuedWorkflowExecutionHandle> {
+  // Admission must return its task ID before cancellation can DELETE the job.
   const response = await fetch(`/api/workflows/${request.workflowId}/queue`, {
     method: 'POST',
-    signal: request.signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       executionId: request.executionId,

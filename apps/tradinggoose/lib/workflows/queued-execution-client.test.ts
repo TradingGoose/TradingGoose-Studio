@@ -11,12 +11,12 @@ const runParams = {
   triggerType: 'manual' as const,
   executionTarget: 'live' as const,
 }
-const streamResponse = (body: ConstructorParameters<typeof Response>[0]) =>
+const streamResponse = (body: ConstructorParameters<typeof Response>[0], taskId = 'execution-1') =>
   new Response(body, {
     headers: {
       'Content-Type': 'text/event-stream',
       'X-Execution-Id': 'execution-1',
-      'X-Task-Id': 'execution-1',
+      'X-Task-Id': taskId,
     },
   })
 
@@ -70,53 +70,66 @@ describe('runQueuedWorkflowExecution', () => {
     )
   })
 
-  it('cancels when the signal aborts while enqueue is in flight', async () => {
-    const abortController = new AbortController()
-    let releaseQueue!: () => void
-    const queueStarted = new Promise<void>((resolve) => {
-      releaseQueue = resolve
-    })
-    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
-      if (init?.signal?.aborted) {
-        throw new DOMException('Aborted', 'AbortError')
-      }
-      const requestUrl = url.toString()
-
-      if (requestUrl === '/api/workflows/workflow-1/queue') {
-        expect(init?.signal).toBe(abortController.signal)
-        await queueStarted
-        return Response.json({
-          success: true,
-          taskId: 'execution-1',
-          executionId: 'execution-1',
-        })
-      }
-
-      if (requestUrl === '/api/jobs/execution-1' && init?.method === 'DELETE') {
-        return Response.json({ success: true, status: 'cancelling' })
-      }
-
-      throw new Error(`Unexpected fetch ${requestUrl} ${init?.method ?? 'GET'}`)
-    })
-    global.fetch = fetchMock as unknown as typeof fetch
-
-    const runPromise = runQueuedWorkflowExecution({
-      ...runParams,
-      signal: abortController.signal,
-    })
-
-    abortController.abort()
-    releaseQueue()
-
-    await expect(runPromise).rejects.toThrow('Aborted')
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/jobs/execution-1',
-      expect.objectContaining({
-        method: 'DELETE',
+  it.each([false, true])(
+    'cancels an admitted job after an in-flight enqueue abort (stream=%s)',
+    async (stream) => {
+      const abortController = new AbortController()
+      let releaseQueue!: () => void
+      const queueStarted = new Promise<void>((resolve) => {
+        releaseQueue = resolve
       })
-    )
-  })
+      const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+        if (init?.signal?.aborted) {
+          throw new DOMException('Aborted', 'AbortError')
+        }
+        const requestUrl = url.toString()
+
+        if (requestUrl === '/api/workflows/workflow-1/queue') {
+          // Fetch rejects on an abort while awaiting the admitted job's response.
+          await new Promise<void>((resolve, reject) => {
+            const onAbort = () => reject(new DOMException('Aborted', 'AbortError'))
+            init?.signal?.addEventListener('abort', onAbort, { once: true })
+            void queueStarted.then(() => {
+              init?.signal?.removeEventListener('abort', onAbort)
+              resolve()
+            })
+          })
+          return stream
+            ? streamResponse('', 'admitted-job')
+            : Response.json({
+                success: true,
+                taskId: 'admitted-job',
+                executionId: 'execution-1',
+              })
+        }
+
+        if (requestUrl === '/api/jobs/admitted-job' && init?.method === 'DELETE') {
+          return Response.json({ success: true, status: 'cancelling' })
+        }
+
+        throw new Error(`Unexpected fetch ${requestUrl} ${init?.method ?? 'GET'}`)
+      })
+      global.fetch = fetchMock as unknown as typeof fetch
+
+      const runPromise = runQueuedWorkflowExecution({
+        ...runParams,
+        stream,
+        signal: abortController.signal,
+      })
+
+      abortController.abort()
+      releaseQueue()
+
+      await expect(runPromise).rejects.toThrow('Aborted')
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/jobs/admitted-job',
+        expect.objectContaining({
+          method: 'DELETE',
+        })
+      )
+    }
+  )
 
   it.each([
     { status: 'completed', stream: false },
@@ -183,7 +196,7 @@ describe('runQueuedWorkflowExecution', () => {
       expect(fetchMock).toHaveBeenCalledTimes(stream ? 1 : 2)
     }
   )
-  it('preserves native target and actual cancellation signal on the single queue contact', async () => {
+  it('preserves the native target on admission and cancellation signal on job polling', async () => {
     const controller = new AbortController()
     const native = {
       workspaceId: null,
@@ -198,7 +211,6 @@ describe('runQueuedWorkflowExecution', () => {
     const result = { success: true, output: { value: 42 }, logs: [] }
     const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       if (url.toString() === '/api/workflows/workflow-1/queue') {
-        expect(init?.signal).toBe(controller.signal)
         expect(JSON.parse(String(init?.body))).toMatchObject({
           native,
           executionId: 'execution-1',
@@ -206,6 +218,7 @@ describe('runQueuedWorkflowExecution', () => {
         })
         return Response.json({ success: true, taskId: 'execution-1', executionId: 'execution-1' })
       }
+      expect(init?.signal).toBe(controller.signal)
       return Response.json({ success: true, status: 'completed', output: result })
     })
     vi.stubGlobal('fetch', fetchMock)
