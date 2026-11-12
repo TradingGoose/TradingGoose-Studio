@@ -1,6 +1,7 @@
 import {
   AzureOpenAIGateway,
   type AzureOpenAIGatewayConfig,
+  defaultGateways,
   type MastraModelGatewayInterface,
   ModelRouterLanguageModel,
   type OpenAICompatibleConfig,
@@ -13,6 +14,11 @@ export function getConfiguredProviders(): Record<string, ProviderConfig> {
   const providers: Record<string, ProviderConfig> = Object.create(null)
   const configured = JSON.parse(process.env.MASTRA_MODEL_PROVIDERS || '{}')
   for (const [id, value] of Object.entries(configured)) {
+    if (defaultGateways.some((gateway) => gateway.id === id)) {
+      throw new Error(
+        `Invalid MASTRA_MODEL_PROVIDERS provider "${id}": the ID is reserved by a native Mastra gateway. Choose a distinct provider ID.`
+      )
+    }
     const config = value as ProviderConfig
     if (
       !/^[a-z0-9][a-z0-9-]*$/.test(id) ||

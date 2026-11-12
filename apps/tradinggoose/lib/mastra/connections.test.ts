@@ -1,9 +1,14 @@
 import { Agent } from '@mastra/core/agent'
-import { ModelRouterEmbeddingModel, ModelRouterLanguageModel } from '@mastra/core/llm'
+import {
+  defaultGateways,
+  ModelRouterEmbeddingModel,
+  ModelRouterLanguageModel,
+} from '@mastra/core/llm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createConfiguredLanguageModel,
   getConfiguredGateways,
+  getConfiguredProviders,
   resolveConfiguredModel,
 } from './connections'
 import { NATIVE_AGENT_POLICY, parseProviderOptions, trustedModelSettings } from './options'
@@ -59,7 +64,36 @@ describe('configured native connections', () => {
     })
   })
 
-  it.each(['ollama', 'vllm'])(
+  it.each(defaultGateways.map(({ id }) => id))(
+    'rejects the native gateway ID %s at configured-provider admission',
+    (provider) => {
+      vi.stubEnv(
+        'MASTRA_MODEL_PROVIDERS',
+        JSON.stringify({
+          [provider]: {
+            name: 'Configured endpoint',
+            url: 'http://local.invalid/v1',
+            models: ['org/exact:model'],
+          },
+        })
+      )
+      const fetcher = vi.fn()
+      vi.stubGlobal('fetch', fetcher)
+      for (const admit of [
+        getConfiguredProviders,
+        getModelRegistry,
+        () => assertListedModel(`${provider}/org/exact:model`),
+        () => createConfiguredLanguageModel(`${provider}/org/exact:model`, 'caller-key'),
+      ]) {
+        expect(admit).toThrow(
+          `Invalid MASTRA_MODEL_PROVIDERS provider "${provider}": the ID is reserved by a native Mastra gateway. Choose a distinct provider ID.`
+        )
+      }
+      expect(fetcher).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['local', 'ollama', 'vllm', 'openai'])(
     'executes only configured %s IDs through native OpenAI-compatible routing',
     async (provider) => {
       vi.stubEnv(
@@ -84,9 +118,7 @@ describe('configured native connections', () => {
       const registry = getModelRegistry().find(({ id }) => id === provider)!
       expect(registry.models.map(({ id }) => id)).toEqual([`${provider}/org/exact:model`])
       expect(JSON.stringify(registry)).not.toMatch(/local.invalid|server-key|LOCAL_KEY/)
-      const native = new ModelRouterLanguageModel(
-        resolveConfiguredModel(`${provider}/org/exact:model`, 'caller-key')
-      )
+      const native = createConfiguredLanguageModel(`${provider}/org/exact:model`, 'caller-key')
       await native.doStream({
         prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
       })
