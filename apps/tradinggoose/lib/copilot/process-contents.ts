@@ -119,7 +119,7 @@ export async function processContextsServer(
           throwIfContextProcessingAborted(options.signal)
           return {
             type: entityContext.current ? 'current_knowledge_base' : 'knowledge_base',
-            tag: `@${entityContext.entityId}`,
+            tag: `@${ctx.label}`,
             content: stringifyBoundedContext(knowledgeBase, {
               entityId: entityContext.entityId,
             }),
@@ -127,7 +127,7 @@ export async function processContextsServer(
         }
         return {
           type: ctx.kind,
-          tag: `@${entityContext.entityId}`,
+          tag: `@${ctx.label}`,
           content: JSON.stringify({ entityId: entityContext.entityId }, null, 2),
         }
       }

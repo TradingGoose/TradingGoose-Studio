@@ -4,7 +4,12 @@ import { InMemoryStore, type MastraCompositeStore } from '@mastra/core/storage'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { Memory } from '@mastra/memory'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CopilotRequest, CopilotResponse, Scope } from '@/lib/copilot/native/contract'
+import {
+  COPILOT_CONTEXT_PART,
+  type CopilotRequest,
+  type CopilotResponse,
+  type Scope,
+} from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { readNativeEvents } from '@/lib/copilot/native/stream'
@@ -28,6 +33,7 @@ const m = vi.hoisted(() => ({
   route: vi.fn(),
   business: vi.fn(),
   resolve: vi.fn(),
+  contexts: vi.fn(),
   receipts: new Map<string, { id: string; identifier: string; value: string }>(),
 }))
 vi.mock('@/lib/mastra/runtime', () => ({
@@ -44,6 +50,7 @@ vi.mock('@/lib/mastra/connections', () => ({
   getConfiguredProviders: () => ({}),
 }))
 vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: m.resolve }))
+vi.mock('@/lib/copilot/process-contents', () => ({ processContextsServer: m.contexts }))
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => m.access(...args),
 }))
@@ -218,6 +225,7 @@ beforeEach(() => {
   m.admit.mockResolvedValue(undefined)
   m.accept.mockResolvedValue(undefined)
   m.business.mockResolvedValue(undefined)
+  m.contexts.mockReset().mockResolvedValue([])
   m.storage = new InMemoryStore()
   restart()
 })
@@ -464,12 +472,27 @@ describe('built-in Copilot service bridge', () => {
   })
 
   it('gives the model current Studio context while persisting and editing only the visible input', async () => {
-    setModel({ text: 'Initial answer' }, { text: 'Follow-up answer' })
-    const context = { entityId: 'workflow', resolvedContent: 'Private current Studio context' }
-    const { result } = await message({ input: { content: 'Hello', contexts: [context] } })
+    setModel(
+      { text: 'Initial answer' },
+      { text: 'Replacement answer' },
+      { text: 'Follow-up answer' }
+    )
+    const context = {
+      kind: 'workflow',
+      workflowId: 'original-workflow-unique-id',
+      label: 'My workflow',
+    }
+    const privateContext = 'Private current Studio context'
+    m.contexts.mockResolvedValueOnce([
+      { type: 'workflow', tag: '@My workflow', content: privateContext },
+    ])
+    const { result } = await message({
+      input: { content: 'Explain @My workflow', contexts: [context] },
+    })
     expect(result.status).toBe('completed')
     if (result.status !== 'completed') throw new Error(JSON.stringify(result))
-    expect(JSON.stringify(m.contacts[0])).toContain(context.resolvedContent)
+    expect(JSON.stringify(m.contacts[0])).toContain(privateContext)
+    expect(JSON.stringify(m.contacts[0])).toContain('Explain @My workflow')
     const history = (
       await command({
         command: 'history.read',
@@ -477,25 +500,43 @@ describe('built-in Copilot service bridge', () => {
       })
     ).result
     if (history.status !== 'history') throw new Error(JSON.stringify(history))
-    expect(history.items[0].parts).toMatchObject([{ type: 'text', text: 'Hello' }])
-    expect(JSON.stringify(history)).not.toContain(context.resolvedContent)
+    expect(history.items[0].parts).toMatchObject([
+      { type: 'text', text: 'Explain @My workflow' },
+      { type: COPILOT_CONTEXT_PART, data: [context] },
+    ])
+    expect(JSON.stringify(history)).not.toContain(privateContext)
     expect(JSON.stringify(history)).not.toContain('workspaceId')
     expect(
       (
         await command({
-          command: 'history.edit',
+          command: 'message',
+          model: 'configured/model',
           threadId: result.threadId,
           messageId: history.items[0].id,
-          text: 'Edited hello',
+          input: { content: 'Edited @My workflow', contexts: [context] },
         })
       ).result.status
-    ).toBe('updated')
+    ).toBe('completed')
+    expect(JSON.stringify(m.contacts[1])).toContain('Edited @My workflow')
+    expect(JSON.stringify(m.contacts[1])).not.toContain('Initial answer')
+    const edited = (await command({ command: 'history.read', threadId: result.threadId })).result
+    if (edited.status !== 'history') throw new Error(JSON.stringify(edited))
+    expect(edited.items).toHaveLength(2)
+    expect(edited.items[0]).toMatchObject({
+      id: history.items[0].id,
+      parts: [
+        { type: 'text', text: 'Edited @My workflow' },
+        { type: COPILOT_CONTEXT_PART, data: [context] },
+      ],
+    })
+    expect(edited.items[1].parts).toMatchObject([{ type: 'text', text: 'Replacement answer' }])
     restart()
     expect(
       (await message({ threadId: result.threadId, input: { content: 'Follow up' } })).result.status
     ).toBe('completed')
-    expect(JSON.stringify(m.contacts[1])).toContain('Edited hello')
-    expect(JSON.stringify(m.contacts[1])).not.toContain(context.resolvedContent)
+    expect(JSON.stringify(m.contacts[2])).toContain('Edited @My workflow')
+    expect(JSON.stringify(m.contacts[2])).toContain(context.workflowId)
+    expect(JSON.stringify(m.contacts[2])).not.toContain(privateContext)
   })
 
   it('streams validated Studio events through server-tool continuation', async () => {
@@ -537,6 +578,67 @@ describe('built-in Copilot service bridge', () => {
     expect(m.fetch).not.toHaveBeenCalled()
   })
 
+  it.each(['missing', 'assistant', 'image', 'context', 'tool-history'])(
+    'refuses an unsafe edited submission without changing native history (%s)',
+    async (kind) => {
+      setModel(
+        ...(kind === 'tool-history'
+          ? [{ tool: 'list_workflows', args: { workspaceId: 'workspace' } }]
+          : []),
+        { text: 'Original answer' }
+      )
+      m.route.mockResolvedValue({ entityKind: 'workflow', entities: [], count: 0 })
+      const initial = (await message({ accessLevel: 'full' })).result
+      if (initial.status !== 'completed') throw new Error(JSON.stringify(initial))
+      const store = (await m.storage.getStore('memory'))!
+      const lookup = {
+        threadId: initial.threadId,
+        resourceId: nativeConversationIdentity(scope).resourceId,
+        perPage: false as const,
+        orderBy: { field: 'createdAt' as const, direction: 'ASC' as const },
+      }
+      const stored = await store.listMessages(lookup)
+      if (kind === 'image')
+        await store.saveMessages({
+          messages: [
+            {
+              ...stored.messages[0],
+              content: {
+                format: 2,
+                parts: [
+                  { type: 'file', data: 'data:image/png;base64,aGVsbG8=', mimeType: 'image/png' },
+                ],
+              },
+            },
+          ],
+        })
+      const before = await store.listMessages(lookup)
+      const contacts = m.contacts.length
+      const charges = m.accept.mock.calls.length
+      expect(
+        (
+          await message({
+            threadId: initial.threadId,
+            messageId:
+              kind === 'missing'
+                ? 'foreign-message'
+                : kind === 'assistant'
+                  ? stored.messages.at(-1)!.id
+                  : stored.messages[0].id,
+            input: {
+              content: 'Edited',
+              ...(kind === 'context' ? { contexts: [{ kind: 'docs', label: 'New context' }] } : {}),
+            },
+          })
+        ).result.status
+      ).toBe('refused')
+      expect(await store.listMessages(lookup)).toEqual(before)
+      expect(m.contacts).toHaveLength(contacts)
+      expect(m.accept).toHaveBeenCalledTimes(charges)
+      expect(threadClaims()).toHaveLength(0)
+    }
+  )
+
   it('recovers the original preview after restart and applies a decision once', async () => {
     const originalCredential = 'first-synthetic-credential'
     const rotatedCredential = 'replacement-synthetic-credential'
@@ -554,7 +656,11 @@ describe('built-in Copilot service bridge', () => {
       entityId: 'workflow',
       entityName: 'Renamed',
     })
-    const context = { entityId: 'workflow', resolvedContent: 'Current rename context' }
+    const context = { kind: 'workflow', workflowId: 'workflow', label: 'Current workflow' }
+    const privateContext = 'Current rename context'
+    m.contexts.mockResolvedValueOnce([
+      { type: 'workflow', tag: '@Current workflow', content: privateContext },
+    ])
     const initial = suspended(
       (
         await message({
@@ -642,7 +748,7 @@ describe('built-in Copilot service bridge', () => {
     })
     expect(m.route).toHaveBeenCalledTimes(2)
     expectWorkspaceScope(m.contacts[1], scope.workspaceId)
-    expect(JSON.stringify(m.contacts[1])).toContain(context.resolvedContent)
+    expect(JSON.stringify(m.contacts[1])).toContain(privateContext)
     expect(m.route).toHaveBeenLastCalledWith(
       'rename_workflow',
       args,

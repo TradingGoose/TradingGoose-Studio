@@ -179,8 +179,7 @@ describe('CopilotMessage', () => {
         workspaceId: 'ws-1',
       },
       messages: [assistantMessage],
-      sendMessage: vi.fn(),
-      editMessage: vi.fn().mockResolvedValue(undefined),
+      sendMessage: vi.fn().mockResolvedValue(true),
       isSendingMessage: false,
       isAwaitingContinuation: false,
       isAborting: false,
@@ -258,7 +257,7 @@ describe('CopilotMessage', () => {
     await act(async () => (rendered.children[1] as HTMLImageElement).click())
     expect(container.querySelector('[data-testid="user-input"]')).toBeNull()
     await editAndSubmit()
-    expect(mockStoreState.editMessage).not.toHaveBeenCalled()
+    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
     expect(container.textContent).toContain('attachments and contexts were retained')
   })
   it('renders native assistant image parts in their canonical text order through the actual segmenter', async () => {
@@ -297,11 +296,11 @@ describe('CopilotMessage', () => {
     expect(container.textContent).toContain("what's the trigger of this workflow?")
     await editAndSubmit()
 
-    expect(mockStoreState.editMessage).toHaveBeenCalledWith(
-      userMentionMessage.id,
-      userMentionMessage.content
-    )
-    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+    expect(mockStoreState.sendMessage).toHaveBeenCalledWith(userMentionMessage.content, {
+      messageId: userMentionMessage.id,
+      contexts: userMentionMessage.contexts,
+      runtimeContext,
+    })
   })
 
   it('preserves later native tool history when a user tries to edit its prompt', async () => {
@@ -326,11 +325,16 @@ describe('CopilotMessage', () => {
     await click('[data-message-box]')
     expect(container.querySelector('[data-testid="user-input"]')).toBeNull()
     expect(container.textContent).toContain('Start a new message after tool activity')
-    expect(mockStoreState.editMessage).not.toHaveBeenCalled()
+    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
   })
 
-  it('keeps stop out of the edit composer and aborts before a native history edit', async () => {
-    vi.useFakeTimers()
+  it('keeps stop out of the edit composer and waits for cancellation before regeneration', async () => {
+    let finishCancellation!: () => void
+    mockStoreState.abortMessage.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishCancellation = resolve
+      })
+    )
     mockStoreState.isSendingMessage = true
     mockStoreState.messages = [userMentionMessage]
 
@@ -342,9 +346,19 @@ describe('CopilotMessage', () => {
     await click('[data-testid="user-input"]')
 
     expect(mockStoreState.abortMessage).toHaveBeenCalledOnce()
-    await act(async () => vi.advanceTimersByTimeAsync(100))
-    expect(mockStoreState.editMessage).toHaveBeenCalledOnce()
     expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+    await act(async () => finishCancellation())
+    expect(mockStoreState.sendMessage).toHaveBeenCalledOnce()
+  })
+
+  it('shows a failed regeneration instead of claiming that an edit completed', async () => {
+    mockStoreState.messages = [userMentionMessage]
+    mockStoreState.error = 'Selected model is unavailable'
+    mockStoreState.sendMessage.mockResolvedValue(false)
+    await renderMessage(userMentionMessage)
+    await editAndSubmit()
+    expect(container.textContent).toContain('Selected model is unavailable')
+    expect(container.querySelector('[data-testid="user-input"]')).not.toBeNull()
   })
 
   it('uses updated context identity when same-text mention props change', async () => {
@@ -367,11 +381,11 @@ describe('CopilotMessage', () => {
     await renderMessage(updatedMessage)
     await editAndSubmit()
 
-    expect(mockStoreState.editMessage).toHaveBeenCalledWith(
-      updatedMessage.id,
-      updatedMessage.content
-    )
-    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+    expect(mockStoreState.sendMessage).toHaveBeenCalledWith(updatedMessage.content, {
+      messageId: updatedMessage.id,
+      contexts: updatedMessage.contexts,
+      runtimeContext,
+    })
   })
 
   it('uses the current page context when selecting an option after navigation', async () => {

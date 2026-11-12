@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   scope: vi.fn(),
   execute: vi.fn(),
-  contexts: vi.fn(),
   workflow: vi.fn(),
   entity: vi.fn(),
 }))
@@ -23,7 +22,6 @@ vi.mock('@/lib/copilot/native/target', () => ({
   },
   authorizeNativeConversationScope: mocks.scope,
 }))
-vi.mock('@/lib/copilot/process-contents', () => ({ processContextsServer: mocks.contexts }))
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
   verifySavedEntityContext: mocks.entity,
 }))
@@ -48,7 +46,6 @@ beforeEach(() => {
     Promise.resolve({ actorUserId, workspaceId })
   )
   mocks.execute.mockResolvedValue(Response.json({ ok: true }))
-  mocks.contexts.mockResolvedValue([])
   mocks.workflow.mockResolvedValue({ ok: true, workspaceId: 'workspace' })
   mocks.entity.mockImplementation(async (context) => ({
     workspaceId: context.workspaceId ?? 'resolved-workspace',
@@ -218,17 +215,10 @@ it('preserves ordered native text and image content through authenticated ingres
     ).status
   ).toBe(200)
   expect(mocks.execute).toHaveBeenCalledWith(
-    expect.objectContaining({ workspaceId: 'workspace', input: { content, contexts: [] } }),
+    expect.objectContaining({ workspaceId: 'workspace', input: { content } }),
     'actual-actor',
     expect.any(AbortSignal),
     []
-  )
-  expect(mocks.contexts).toHaveBeenCalledWith(
-    [],
-    'actual-actor',
-    'First image\nSecond image',
-    'workspace',
-    { signal: expect.any(AbortSignal) }
   )
 })
 
@@ -247,6 +237,30 @@ it('rejects remote image locators before context resolution or model execution',
       })
     ).status
   ).toBe(422)
-  expect(mocks.contexts).not.toHaveBeenCalled()
   expect(mocks.execute).not.toHaveBeenCalled()
 })
+
+it.each([false, true])(
+  'retains original mention labels and UI locators (images: %s)',
+  async (images) => {
+    const contexts = [{ kind: 'workflow', workflowId: 'workflow-id', label: 'My workflow' }]
+    const text = 'Explain @My workflow'
+    const content = images
+      ? [
+          { type: 'text', text },
+          { type: 'image', image: 'data:image/png;base64,aGVsbG8=', mediaType: 'image/png' },
+        ]
+      : text
+    expect(
+      (
+        await post({
+          command: 'message',
+          workspaceId: 'workspace',
+          model: 'test/model',
+          input: { content, contexts },
+        })
+      ).status
+    ).toBe(200)
+    expect(mocks.execute.mock.calls[0][0].input).toEqual({ content, contexts })
+  }
+)

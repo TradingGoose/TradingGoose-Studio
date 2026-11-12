@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { COPILOT_CONTEXT_PART } from '@/lib/copilot/native/contract'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { projectNativeHistory, projectNativeHistoryMessage } from './history'
 import {
@@ -16,6 +17,25 @@ const native = (parts: any[], role: 'assistant' | 'user' | 'signal' = 'assistant
   parts,
 })
 describe('canonical native history display', () => {
+  it('restores mention locators from native UI data while preserving the original prompt', () => {
+    const contexts = [
+      { kind: 'workflow' as const, workflowId: 'workflow-id', label: 'My workflow' },
+    ]
+    const message = projectNativeHistoryMessage(
+      native(
+        [
+          { type: 'text', text: 'Explain @My workflow' },
+          { type: COPILOT_CONTEXT_PART, data: contexts },
+        ],
+        'user'
+      )
+    )!
+    expect(message.content).toBe('Explain @My workflow')
+    expect(message.contexts).toEqual(contexts)
+    expect(message.contentBlocks).toEqual([
+      { type: 'text', content: 'Explain @My workflow', timestamp: Date.parse(at) },
+    ])
+  })
   it('retains native message usage and cost without treating unknown amounts as zero', () => {
     const usage = { inputTokens: 12, outputTokens: 3, totalTokens: 15 }
     const cost = {

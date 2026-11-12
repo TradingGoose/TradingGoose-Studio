@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import {
+  COPILOT_CONTEXT_PART,
   type CopilotRequest,
   type Pending,
 } from '@/lib/copilot/native/contract'
@@ -150,16 +151,11 @@ function defaultResponse(request: CopilotRequest) {
       status: 'threads',
       items: [{ id: threadId, title: 'verified title', createdAt: at, updatedAt: at }],
     })
-  if (
-    request.command === 'thread.title' ||
-    request.command === 'history.edit' ||
-    request.command === 'thread.delete'
-  )
+  if (request.command === 'thread.title' || request.command === 'thread.delete')
     return json({
       status: 'updated',
       operation: request.command,
       threadId: request.threadId,
-      ...(request.command === 'history.edit' ? { messageId: request.messageId } : {}),
     })
   if (request.command === 'cancel')
     return json({
@@ -341,7 +337,7 @@ describe('canonical browser conversation transport', () => {
       const wrong = {
         status: 'updated',
         threadId,
-        operation: 'history.edit',
+        operation: 'thread.title',
       }
       return json(wrong)
     }
@@ -746,16 +742,98 @@ describe('canonical history, edits and context', () => {
     expect(store().getState().isSendingMessage).toBe(true)
     expect(commands.map((request) => request.command)).toEqual(['threads.list'])
   })
-  it('edits only the exact native message then reads history without a paid replay', async () => {
-    setChat()
-    await store().getState().editMessage('message', ' exact edit\n')
+  it('regenerates an edited prompt through the same message command and keeps one user row', async () => {
+    const originalContext = {
+      kind: 'current_monitor' as const,
+      label: 'Original monitor',
+      workspaceId,
+      monitorId: 'monitor-A',
+    }
+    const contextPart = { type: COPILOT_CONTEXT_PART, data: [originalContext] }
+    onCommand = (request) =>
+      request.command === 'history.read'
+        ? json({
+            status: 'history',
+            threadId,
+            pending: [],
+            items: [{ ...history[0], parts: [...history[0].parts, contextPart] }, history[1]],
+          })
+        : undefined
+    await store().getState().selectChat(chat())
+    commands.length = 0
+    const text = ' exact edit\n'
+    const answer = 'Replacement answer'
+    onCommand = (request) =>
+      request.command === 'message'
+        ? terminalResponse(ready(answer))
+        : request.command === 'history.read'
+          ? json({
+              status: 'history',
+              threadId,
+              pending: [],
+              items: [
+                { ...history[0], parts: [{ type: 'text', text }, contextPart] },
+                { ...history[1], parts: [{ type: 'text', text: answer }] },
+              ],
+            })
+          : undefined
+    expect(
+      await store()
+        .getState()
+        .sendMessage(text, {
+          messageId: history[0].id,
+          runtimeContext: {
+            workspaceId: 'different-ui-workspace',
+            implicitContexts: [
+              { ...originalContext, monitorId: 'monitor-B', label: 'Current monitor' },
+            ],
+          },
+        })
+    ).toBe(true)
+    expect(commands.map((request) => request.command)).toEqual(['message', 'history.read'])
     expect(commands[0]).toMatchObject({
-      command: 'history.edit',
+      command: 'message',
       threadId,
-      messageId: 'message',
-      text: ' exact edit\n',
+      messageId: history[0].id,
+      input: { content: text, contexts: [originalContext] },
+      toolContext: { workspaceId },
     })
-    expect(commands.some((request) => request.command === 'message')).toBe(false)
+    expect(
+      store()
+        .getState()
+        .messages.map(({ id, content }) => ({ id, content }))
+    ).toEqual([
+      { id: history[0].id, content: text },
+      { id: history[1].id, content: answer },
+    ])
+  })
+  it('refuses an edit that would erase native tool history before replacing its answer', async () => {
+    await store().getState().selectChat(chat())
+    store().setState({
+      messages: [
+        store().getState().messages[0],
+        {
+          ...store().getState().messages[1],
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              timestamp: 1,
+              toolCall: {
+                id: 'completed-tool',
+                name: 'read_workflow',
+                state: ClientToolCallState.success,
+              },
+            },
+          ],
+        },
+      ],
+    })
+    const before = store().getState().messages
+    commands.length = 0
+    expect(await store().getState().sendMessage('Edited', { messageId: history[0].id })).toBe(false)
+    expect(store().getState().messages).toEqual(before)
+    expect(commands).toEqual([])
+    expect(store().getState().error).toContain('Start a new message after tool activity')
   })
 })
 
@@ -947,146 +1025,18 @@ describe('actual bounded initial-title publication', () => {
   )
 })
 
-describe('owned late history-edit refresh', () => {
-  function controlledTurn() {
-    let active: Extract<CopilotRequest, { command: 'message' }> | undefined
-    let controller: ReadableStreamDefaultController<Uint8Array> | undefined
-    let signal: AbortSignal | null | undefined
-    const cancelled = vi.fn()
-    const text = 'new stream exact output 🔥\n'
-    const emit = (value: object) => {
-      if (!active || !controller) throw new Error('Controlled stream was not started')
-      controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(value)}\n\n`))
-    }
-    return {
-      text,
-      cancelled,
-      get signal() {
-        return signal
-      },
-      handle(request: CopilotRequest, init?: RequestInit) {
-        if (request.command === 'message') {
-          active = request
-          signal = init?.signal
-          return new Response(
-            new ReadableStream<Uint8Array>({
-              start(value) {
-                controller = value
-                emit({ type: 'response.started', threadId: request.threadId, runId })
-                emit({ type: 'text.delta', text })
-              },
-              cancel: cancelled,
-            }),
-            { headers: { 'content-type': 'text/event-stream' } }
-          )
-        }
-        if (active && request.command === 'history.read' && request.threadId === active.threadId) {
-          return json({
-            status: 'history',
-            pending: [],
-            threadId: request.threadId,
-            items: [
-              {
-                id: 'new-native-user',
-                role: 'user',
-                createdAt: at,
-                parts: [{ type: 'text', text: 'New request' }],
-              },
-              {
-                id: 'new-native-answer',
-                role: 'assistant',
-                createdAt: at,
-                parts: [{ type: 'text', text }],
-              },
-            ],
-          })
-        }
-      },
-      finish() {
-        if (!active || !controller) throw new Error('Controlled stream was not started')
-        emit({
-          type: 'response.completed',
-          result: {
-            status: 'completed',
-            threadId: active.threadId,
-            runId,
-            text,
-          },
-        })
-        controller.close()
-      },
-    }
-  }
-  it('ignores editA result after navigationB and a real new streaming turn', async () => {
-    setChat()
+describe('edited prompt ownership', () => {
+  it('does not apply a late edited answer after selecting another conversation', async () => {
+    await store().getState().selectChat(chat())
     const late = defer<Response>()
-    const stream = controlledTurn()
-    onCommand = (request, init) =>
-      request.command === 'history.edit' ? late.promise : stream.handle(request, init)
-    const editing = store().getState().editMessage('message-A', 'edited A')
-    const original = commands[0]
+    onCommand = (request) => (request.command === 'message' ? late.promise : undefined)
+    const editing = store().getState().sendMessage('edited A', { messageId: history[0].id })
     await store().getState().selectChat(chat(null, 'thread-B'))
-    const sending = store().getState().sendMessage('New request')
-    await vi.waitFor(() => expect(store().getState().messages.at(-1)?.content).toBe(stream.text))
-    const before = store().getState()
-    late.resolve(
-      json({
-        status: 'updated',
-        operation: 'history.edit',
-        threadId,
-        messageId: 'message-A',
-      })
-    )
-    await editing
-    expect(store().getState().currentChat).toEqual(chat(null, 'thread-B'))
-    expect(store().getState().messages).toEqual(before.messages)
-    expect(stream.signal?.aborted).toBe(false)
-    expect(stream.cancelled).not.toHaveBeenCalled()
-    expect(commands.filter((request) => request.command === 'cancel')).toEqual([])
-    expect(
-      commands.filter(
-        (request) => request.command === 'history.read' && request.threadId === threadId
-      )
-    ).toEqual([])
-    stream.finish()
-    expect(await sending).toBe(true)
-    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-  })
-  it('discards edit hydration already in flight when a later same-thread turn starts', async () => {
-    setChat()
-    const lateHistory = defer<Response>()
-    const stream = controlledTurn()
-    let firstHistory = true
-    onCommand = (request, init) => {
-      if (request.command === 'history.read' && firstHistory) {
-        firstHistory = false
-        return lateHistory.promise
-      }
-      return stream.handle(request, init)
-    }
-    const editing = store().getState().editMessage('message-A', 'edited A')
-    await vi.waitFor(() =>
-      expect(commands.some((request) => request.command === 'history.read')).toBe(true)
-    )
-    const original = commands.find((request) => request.command === 'history.read')!
-    const sending = store().getState().sendMessage('New request')
-    await vi.waitFor(() => expect(store().getState().messages.at(-1)?.content).toBe(stream.text))
-    const before = store().getState()
-    lateHistory.resolve(
-      json({
-        status: 'history',
-        pending: [],
-        threadId,
-        items: history,
-      })
-    )
-    await editing
-    expect(store().getState().messages).toEqual(before.messages)
-    expect(stream.signal?.aborted).toBe(false)
-    expect(stream.cancelled).not.toHaveBeenCalled()
-    expect(commands.filter((request) => request.command === 'cancel')).toEqual([])
-    stream.finish()
-    expect(await sending).toBe(true)
+    const before = store().getState().messages
+    late.resolve(terminalResponse(ready('Answer for A')))
+    expect(await editing).toBe(false)
+    expect(store().getState().currentChat?.threadId).toBe('thread-B')
+    expect(store().getState().messages).toEqual(before)
     expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
   })
 })

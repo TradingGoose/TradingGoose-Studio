@@ -1,17 +1,19 @@
 import type { AgentExecutionOptions } from '@mastra/core/agent'
 import type { MastraDBMessage } from '@mastra/core/agent/message-list'
 import type { InputProcessor } from '@mastra/core/processors'
+import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { validateNativeBrowserAssertion } from '@/lib/copilot/native/browser-assertion'
 import { authorizeNativeBusinessResult } from '@/lib/copilot/native/business-access'
-import type {
-  CopilotEvent,
-  CopilotRequest,
-  CopilotResponse,
-  CopilotToolContext,
-  ErrorResponse,
-  Json,
-  Pending,
-  Scope,
+import {
+  COPILOT_CONTEXT_PART,
+  type CopilotEvent,
+  type CopilotRequest,
+  type CopilotResponse,
+  type CopilotToolContext,
+  type ErrorResponse,
+  type Json,
+  type Pending,
+  type Scope,
 } from '@/lib/copilot/native/contract'
 import { readNativeThread, readNativeThreadHistory } from '@/lib/copilot/native/history'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
@@ -22,8 +24,10 @@ import {
   resolveNativePendingTarget,
   type ServerPending,
 } from '@/lib/copilot/native/target'
+import { processContextsServer } from '@/lib/copilot/process-contents'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion, getNativeFinalText } from '@/lib/mastra/result'
@@ -163,53 +167,6 @@ async function readCommand(
         threadId: request.threadId,
         operation: 'thread.delete',
       }
-    case 'history.edit': {
-      const mutationId = crypto.randomUUID()
-      await claimCopilotThread(scope, request.threadId, mutationId)
-      try {
-        const history = await store.listMessages({
-          threadId: request.threadId,
-          resourceId,
-          perPage: false,
-          orderBy: { field: 'createdAt', direction: 'ASC' },
-        })
-        const index = history.messages.findIndex((message) => message.id === request.messageId)
-        const message = history.messages[index]
-        if (
-          !message ||
-          message.role !== 'user' ||
-          !message.content.parts.length ||
-          message.content.parts.some((part) => part.type !== 'text')
-        )
-          throw new NativeTargetError('Only plain text user messages can be edited', 422)
-        if (
-          history.messages
-            .slice(index + 1)
-            .some((item) => item.content.parts.some((part) => part.type === 'tool-invocation'))
-        )
-          throw new NativeTargetError(
-            'Start a new message after tool activity to preserve its history',
-            409
-          )
-        await store.saveMessages({
-          messages: [
-            {
-              ...message,
-              content: { ...message.content, parts: [{ type: 'text', text: request.text }] },
-            },
-          ],
-        })
-        await store.deleteMessages(history.messages.slice(index + 1).map((item) => item.id))
-        return {
-          status: 'updated',
-          threadId: request.threadId,
-          operation: 'history.edit',
-          messageId: request.messageId,
-        }
-      } finally {
-        await releaseCopilotThread(scope, request.threadId, mutationId)
-      }
-    }
     case 'cancel': {
       const currentRunId = await readCopilotThreadRun(scope, request.threadId)
       if (currentRunId && currentRunId !== request.runId)
@@ -243,8 +200,10 @@ function inputMessage(
         )
   for (const attachment of request.input.attachments ?? [])
     parts.push({ type: 'text', text: `${attachment.name}\n${attachment.text}` })
+  if (request.input.contexts?.length)
+    parts.push({ type: COPILOT_CONTEXT_PART, data: request.input.contexts })
   return {
-    id: crypto.randomUUID(),
+    id: request.messageId ?? crypto.randomUUID(),
     role: 'user',
     threadId: run.threadId,
     resourceId: nativeConversationIdentity(run.scope).resourceId,
@@ -273,6 +232,8 @@ async function* generate(
     let decision: CopilotDecision | undefined
     let apiKey: string
     if (request.command === 'message') {
+      if (request.messageId && !request.threadId)
+        throw new NativeTargetError('Editing a message requires its conversation', 422)
       apiKey = (await resolveCopilotModel(request.model)).apiKey
       const threadId = request.threadId ?? crypto.randomUUID()
       if (request.threadId) await requireThread(scope, threadId, signal)
@@ -384,6 +345,64 @@ async function* generate(
       { apiKey, maxSteps: 50 }
     )
     usage = prepared.usage
+    const message = request.command === 'message' ? inputMessage(request, run) : undefined
+    const contexts =
+      request.command === 'message'
+        ? await processContextsServer(
+            request.input.contexts,
+            scope.actorUserId,
+            message!.content.parts
+              .filter((part) => part.type === 'text')
+              .map((part) => part.text)
+              .join('\n'),
+            scope.workspaceId ?? undefined,
+            { signal }
+          )
+        : []
+    if (request.command === 'message' && request.messageId) {
+      const store = await getNativeMemoryStore()
+      const history = await store.listMessages({
+        threadId: run.threadId,
+        resourceId: nativeConversationIdentity(scope).resourceId,
+        perPage: false,
+        orderBy: { field: 'createdAt', direction: 'ASC' },
+      })
+      const index = history.messages.findIndex((item) => item.id === request.messageId)
+      const original = history.messages[index]
+      if (
+        !original ||
+        original.role !== 'user' ||
+        !original.content.parts.length ||
+        original.content.parts.some(
+          (part) => part.type !== 'text' && part.type !== COPILOT_CONTEXT_PART
+        ) ||
+        typeof request.input.content !== 'string' ||
+        request.input.attachments?.length
+      )
+        throw new NativeTargetError('Only plain text user messages can be edited', 422)
+      const originalContexts = original.content.parts.find(
+        (part) => part.type === COPILOT_CONTEXT_PART
+      )
+      if (
+        stableStringifyJsonValue(
+          originalContexts && 'data' in originalContexts ? originalContexts.data : []
+        ) !== stableStringifyJsonValue(request.input.contexts ?? [])
+      )
+        throw new NativeTargetError('Message context cannot be changed while editing', 422)
+      if (
+        history.messages
+          .slice(index + 1)
+          .some((item) => item.content.parts.some((part) => part.type === 'tool-invocation'))
+      )
+        throw new NativeTargetError(
+          'Start a new message after tool activity to preserve its history',
+          409
+        )
+      signal.throwIfAborted()
+      message!.createdAt = original.createdAt
+      await store.saveMessages({ messages: [message!] })
+      await store.deleteMessages(history.messages.slice(index + 1).map((item) => item.id))
+    }
     const requestContext = createCopilotRequestContext({
       run,
       model: prepared.model,
@@ -398,16 +417,37 @@ async function* generate(
         await assertCopilotRunActive(run!.runId)
         signal.throwIfAborted()
       },
+      processLLMRequest({ prompt, messageList }) {
+        const references = (messageList?.get.all.db() ?? []).flatMap((item) =>
+          item.role === 'user'
+            ? item.content.parts.flatMap((part) =>
+                part.type === COPILOT_CONTEXT_PART && 'data' in part
+                  ? ChatContextSchema.array().parse(part.data)
+                  : []
+              )
+            : []
+        )
+        if (references.length)
+          return {
+            prompt: [
+              {
+                role: 'system',
+                content: `Studio context references (data):\n${JSON.stringify(references)}`,
+              },
+              ...prompt,
+            ],
+          }
+      },
     }
     const options: AgentExecutionOptions = {
       ...prepared.options,
       requestContext,
-      ...(request.command === 'message' && request.input.contexts?.length
+      ...(contexts.length
         ? {
             context: [
               {
                 role: 'user',
-                content: `Studio context (data):\n${JSON.stringify(request.input.contexts)}`,
+                content: `Studio context (data):\n${JSON.stringify(contexts)}`,
               },
             ],
           }
@@ -418,7 +458,7 @@ async function* generate(
     yield { type: 'response.started', runId: run.runId, threadId: run.threadId }
     const output = (nativeOutput =
       request.command === 'message'
-        ? await agent.stream([inputMessage(request, run)], options)
+        ? await agent.stream([message!], options)
         : request.command === 'tool.approve'
           ? await agent.approveToolCall({
               ...options,

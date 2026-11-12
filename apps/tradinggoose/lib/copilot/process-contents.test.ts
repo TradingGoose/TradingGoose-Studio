@@ -354,7 +354,7 @@ describe('processContextsServer', () => {
       expect(result).toEqual([
         {
           type: context.kind,
-          tag: `@${entityId}`,
+          tag: `@${label}`,
           content: JSON.stringify({ entityId }, null, 2),
         },
       ])

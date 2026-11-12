@@ -130,7 +130,7 @@ export interface CopilotActions {
       runtimeContext?: CopilotSendRuntimeContext
     }
   ) => Promise<boolean>
-  abortMessage: () => void
+  abortMessage: () => Promise<void>
 
   reset: () => void
 
@@ -140,7 +140,6 @@ export interface CopilotActions {
     todos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
   ) => void
   updatePlanTodoStatus: (id: string, status: 'executing' | 'completed') => void
-  editMessage: (messageId: string, text: string) => Promise<void>
   readPendingTool: (toolCallId: string) => Promise<Pending>
   authorizeToolWorkspace: (toolCallId: string, workspaceId?: string) => Promise<string>
   submitBrowserAssertion: (toolCallId: string, assertion: BrowserAssertion) => Promise<void>

@@ -1,5 +1,6 @@
 import type { MastraMessagePart } from '@mastra/core/agent/message-list'
-import type { Json } from '@/lib/copilot/native/contract'
+import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
+import { COPILOT_CONTEXT_PART, type Json } from '@/lib/copilot/native/contract'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import type { NativeHistoryMessage } from '@/lib/mastra/messages'
@@ -24,6 +25,7 @@ export function projectNativeHistoryMessage(message: NativeHistoryMessage): Copi
   if (!Number.isFinite(timestamp) || !message.id || !Array.isArray(message.parts))
     throw new Error('Native history message identity/time is invalid')
   const blocks: NonNullable<CopilotMessage['contentBlocks']> = []
+  let contexts: CopilotMessage['contexts']
   for (const part of message.parts) {
     if (part.type === 'text') {
       if (typeof part.text !== 'string') throw new Error('Native history text is invalid')
@@ -80,6 +82,8 @@ export function projectNativeHistoryMessage(message: NativeHistoryMessage): Copi
           'Native history image must contain valid inline bytes and matching media type'
         )
       blocks.push({ type: 'file', file: { data: part.data, mimeType: match[1] }, timestamp })
+    } else if (message.role === 'user' && part.type === COPILOT_CONTEXT_PART) {
+      contexts = ChatContextSchema.array().parse(part.data)
     } else if (
       typeof part.type !== 'string' ||
       !(
@@ -100,6 +104,7 @@ export function projectNativeHistoryMessage(message: NativeHistoryMessage): Copi
       .map((block) => block.content)
       .join(''),
     contentBlocks: blocks,
+    ...(contexts?.length ? { contexts } : {}),
     ...(message.usage ? { usage: message.usage } : {}),
     ...(message.cost ? { cost: message.cost } : {}),
   }

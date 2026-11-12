@@ -1,15 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import { executeCopilotCommand } from '@/lib/copilot/agent/service'
-import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
-import { replaceCopilotWorkspaceEntityMentionsWithIds } from '@/lib/copilot/chat-contexts'
-import { MAX_COPILOT_CONTEXTS_PER_TURN } from '@/lib/copilot/context-limits'
 import { CopilotRequestSchema, type CopilotToolContext } from '@/lib/copilot/native/contract'
 import { validateNativeImageParts } from '@/lib/copilot/native/images'
 import { authorizeNativeConversationScope, NativeTargetError } from '@/lib/copilot/native/target'
-import { processContextsServer } from '@/lib/copilot/process-contents'
 import { collectCopilotToolContexts } from '@/lib/copilot/tool-context'
 
 async function validateToolContext(
@@ -56,10 +51,7 @@ export async function POST(request: NextRequest) {
           )
         }
       }
-      const contexts = z
-        .array(ChatContextSchema)
-        .max(MAX_COPILOT_CONTEXTS_PER_TURN)
-        .parse(command.input.contexts ?? [])
+      const contexts = command.input.contexts ?? []
       const candidates = collectCopilotToolContexts(contexts)
       for (const candidate of candidates)
         toolContexts.push(await validateToolContext(candidate, scope.actorUserId))
@@ -79,36 +71,6 @@ export async function POST(request: NextRequest) {
         command.toolContext = await validateToolContext(command.toolContext, scope.actorUserId)
       }
       validateNativeImageParts(command.input.content)
-      const content =
-        typeof command.input.content === 'string'
-          ? replaceCopilotWorkspaceEntityMentionsWithIds(command.input.content, contexts)
-          : command.input.content.map((part) =>
-              part.type === 'text'
-                ? {
-                    ...part,
-                    text: replaceCopilotWorkspaceEntityMentionsWithIds(part.text, contexts),
-                  }
-                : part
-            )
-      const text =
-        typeof content === 'string'
-          ? content
-          : content
-              .filter((part) => part.type === 'text')
-              .map((part) => part.text)
-              .join('\n')
-      const resolvedContexts = await processContextsServer(
-        contexts,
-        session.user.id,
-        text,
-        scope.workspaceId ?? undefined,
-        { signal: request.signal }
-      )
-      command.input = {
-        ...command.input,
-        content,
-        contexts: resolvedContexts,
-      }
     }
     return await executeCopilotCommand(command, session.user.id, request.signal, toolContexts)
   } catch (error) {

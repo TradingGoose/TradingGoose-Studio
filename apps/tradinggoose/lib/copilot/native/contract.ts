@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
+import { MAX_COPILOT_CONTEXTS_PER_TURN } from '@/lib/copilot/context-limits'
 import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import type { NativeHistoryMessage } from '@/lib/mastra/messages'
 import type { NativeUsage } from '@/lib/mastra/usage'
@@ -11,6 +13,7 @@ export interface Scope {
   actorUserId: string
   workspaceId: string | null
 }
+export const COPILOT_CONTEXT_PART = 'data-copilot-contexts' as const
 const id = z.string().min(1)
 export const TargetSchema = z
   .object({ threadId: id, resourceId: id, runId: id, toolCallId: id, toolName: id })
@@ -28,7 +31,7 @@ export const InputSchema = z
         )
         .min(1),
     ]),
-    contexts: z.array(z.unknown()).optional(),
+    contexts: z.array(ChatContextSchema).max(MAX_COPILOT_CONTEXTS_PER_TURN).optional(),
     attachments: z.array(z.object({ name: z.string(), text: z.string() }).strict()).optional(),
   })
   .strict()
@@ -55,6 +58,7 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
       ...base,
       command: z.literal('message'),
       threadId: id.optional(),
+      messageId: id.optional(),
       input: InputSchema,
       model: id,
       workflowId: id.optional(),
@@ -94,15 +98,6 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
   z.object({ ...base, command: z.literal('history.read'), threadId: id }).strict(),
   z
     .object({ ...base, command: z.literal('thread.title'), threadId: id, title: z.string() })
-    .strict(),
-  z
-    .object({
-      ...base,
-      command: z.literal('history.edit'),
-      threadId: id,
-      messageId: id,
-      text: z.string(),
-    })
     .strict(),
   z.object({ ...base, command: z.literal('thread.delete'), threadId: id }).strict(),
 ])
@@ -167,8 +162,7 @@ export interface HistoryResponse {
 export interface MutationResponse {
   status: 'updated'
   threadId: string
-  operation: 'thread.title' | 'history.edit' | 'thread.delete'
-  messageId?: string
+  operation: 'thread.title' | 'thread.delete'
 }
 export type CopilotResponse =
   | ReadyResponse

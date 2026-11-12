@@ -13,6 +13,10 @@ import { devtools } from 'zustand/middleware'
 import { createWithEqualityFn as create, useStoreWithEqualityFn } from 'zustand/traditional'
 import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
+import {
+  EDIT_REPLAY_BLOCKED_MESSAGE,
+  hasToolActivityAfterMessage,
+} from '@/lib/copilot/chat-replay-safety'
 import type { CopilotEvent, CopilotRequest, Pending } from '@/lib/copilot/native/contract'
 import { readNativeEvents } from '@/lib/copilot/native/stream'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
@@ -856,6 +860,18 @@ function createCopilotStoreInstance(channelId: string) {
             return false
           }
           const chat = get().currentChat
+          const editing = options.messageId !== undefined
+          const editIndex = editing
+            ? get().messages.findIndex((item) => item.id === options.messageId)
+            : -1
+          if (editing && (!chat || editIndex < 0 || get().messages[editIndex].role !== 'user')) {
+            set({ error: 'Select an existing user message to edit.' })
+            return false
+          }
+          if (editing && hasToolActivityAfterMessage(get().messages, options.messageId!)) {
+            set({ error: EDIT_REPLAY_BLOCKED_MESSAGE })
+            return false
+          }
           const workspaceId = chat ? chat.workspaceId : get().conversationWorkspaceId
           const id = epoch
           const interaction = ++interactionGeneration
@@ -871,19 +887,21 @@ function createCopilotStoreInstance(channelId: string) {
             get().conversationWorkspaceId === workspaceId &&
             get().selectedModel === model &&
             !preflight.signal.aborted
-          const contexts = mergeCopilotContexts({
-            explicitContexts: options.contexts,
-            implicitContexts: options.runtimeContext?.implicitContexts,
-          })
+          const contexts = editing
+            ? (get().messages[editIndex].contexts ?? [])
+            : mergeCopilotContexts({
+                explicitContexts: options.contexts,
+                implicitContexts: options.runtimeContext?.implicitContexts,
+              })
           const toolContext = buildTurnProvenanceFromContexts(
             contexts,
-            options.runtimeContext?.workspaceId
+            editing ? workspaceId : options.runtimeContext?.workspaceId
           )
           try {
             const parsed = { content: message, contexts }
             if (!selected()) return false
-            let initial = !chat
-            if (chat?.title === '' && message.trim()) {
+            let initial = !chat && !editing
+            if (!editing && chat?.title === '' && message.trim()) {
               try {
                 initial =
                   (await listNativeHistory(workspaceId, chat.threadId, preflight.signal)).items
@@ -905,10 +923,14 @@ function createCopilotStoreInstance(channelId: string) {
                     ...(chat ? { threadId: chat.threadId } : {}),
                   }
                 : null
-            const user = createUserMessage(message, options.images, contexts)
+            const user = createUserMessage(message, options.images, contexts, options.messageId)
             const assistant = createStreamingMessage()
             set((state) => ({
-              messages: [...state.messages, user, assistant],
+              messages: [
+                ...(editing ? state.messages.slice(0, editIndex) : state.messages),
+                user,
+                assistant,
+              ],
               currentRunId: null,
               lastNativeOutcome: null,
             }))
@@ -918,6 +940,7 @@ function createCopilotStoreInstance(channelId: string) {
                 toolContext,
                 workspaceId,
                 ...(chat ? { threadId: chat.threadId } : {}),
+                ...(editing ? { messageId: options.messageId } : {}),
                 model,
                 input: {
                   ...parsed,
@@ -943,7 +966,7 @@ function createCopilotStoreInstance(channelId: string) {
               set({ abortController: null, isSendingMessage: false })
           }
         },
-        abortMessage: () => {
+        abortMessage: async () => {
           const dialog = get().workflowChatDeployment
           if (dialog)
             get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native tool selection changed')
@@ -961,7 +984,7 @@ function createCopilotStoreInstance(channelId: string) {
             isRefreshingHistory: false,
           })
           if (current.currentChat && current.currentRunId)
-            void readNativeCommand({
+            return readNativeCommand({
               command: 'cancel',
               workspaceId: current.currentChat.workspaceId,
               threadId: current.currentChat.threadId,
@@ -996,39 +1019,6 @@ function createCopilotStoreInstance(channelId: string) {
           inFlightTools.clear()
           attemptedTools.clear()
           set({ ...initialState, draft: emptyDraft() })
-        },
-        editMessage: async (messageId, text) => {
-          const dialog = get().workflowChatDeployment
-          if (dialog)
-            get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native history changed')
-          interactionGeneration++
-          titleAbort?.abort()
-          titleCandidate = null
-          const chat = get().currentChat
-          if (!chat) throw new Error('Native thread is required for an edit')
-          const id = epoch
-          const interaction = interactionGeneration
-          const current = () => ownsChat(chat, id, interaction)
-          const result = await readNativeCommand({
-            command: 'history.edit',
-            workspaceId: chat.workspaceId,
-            threadId: chat.threadId,
-            messageId,
-            text,
-          }).catch((error) => {
-            if (current()) throw error
-          })
-          if (!current() || !result) return
-          if (
-            result.status !== 'updated' ||
-            result.operation !== 'history.edit' ||
-            result.threadId !== chat.threadId ||
-            result.messageId !== messageId
-          )
-            throw new Error('Native history edit was not verified')
-          await refreshChatHistory(chat, current).catch((error) => {
-            if (current()) throw error
-          })
         },
         readPendingTool: async (toolCallId) => {
           const call = get().toolCallsById[toolCallId]

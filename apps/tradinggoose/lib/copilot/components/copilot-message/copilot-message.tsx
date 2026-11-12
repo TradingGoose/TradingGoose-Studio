@@ -11,7 +11,6 @@ import {
 import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import type { ImagePart } from '@/lib/copilot/native/contract'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { createLogger } from '@/lib/logs/console/logger'
 import { formatCost } from '@/lib/logs/cost'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
@@ -28,8 +27,6 @@ import { NativeFileDisplay } from './components/file-display'
 import { OptionsSelector, parseSpecialTags } from './components/options-selector'
 import { SmoothStreamingText, StreamingIndicator } from './components/smooth-streaming'
 import { ThinkingGroup } from './components/thinking-group'
-
-const logger = createLogger('CopilotMessage')
 
 const buildMessageEditDraft = (message: CopilotMessageType): CopilotDraft => ({
   text: message.content,
@@ -237,7 +234,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
       // If a stream is in progress, abort it first
       if (isTurnInProgress) {
-        abortMessage()
+        await abortMessage()
       }
 
       // Proceed with the edit
@@ -261,7 +258,15 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         return false
       }
       try {
-        await copilotStoreApi.getState().editMessage(message.id, editedMessage)
+        const completed = await sendMessage(editedMessage, {
+          messageId: message.id,
+          contexts,
+          runtimeContext,
+        })
+        if (!completed)
+          throw new Error(
+            copilotStoreApi.getState().error || 'Copilot regeneration did not complete'
+          )
         setIsEditMode(false)
         setEditBlockedReason(null)
         onEditModeChange(false)

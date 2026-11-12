@@ -3,7 +3,7 @@ import type { CopilotMessage } from '@/stores/copilot/types'
 export const EDIT_REPLAY_BLOCKED_MESSAGE =
   'Start a new message after tool activity to preserve its history.'
 
-/** Match native history.edit: removing any tool activity would invalidate its history. */
+/** Replacing an answer after tool activity would invalidate its execution history. */
 export function hasToolActivityAfterMessage(
   messages: CopilotMessage[],
   messageId: string
