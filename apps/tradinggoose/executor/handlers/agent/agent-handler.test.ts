@@ -9,6 +9,8 @@ import { getAgentMemory, getNativeMemoryStore } from '@/lib/mastra/runtime'
 import { sumNativeUsage } from '@/lib/mastra/usage'
 import { mcpService } from '@/lib/mcp/service'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { AgentBlock } from '@/blocks/blocks/agent'
+import { getBlock } from '@/blocks/index'
 
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
@@ -69,6 +71,7 @@ import {
   createAgentToolSet,
   createForcedToolPolicy,
 } from '@/executor/handlers/agent/agent-handler'
+import { InputResolver } from '@/executor/resolver/resolver'
 import type { ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
@@ -212,6 +215,90 @@ beforeEach(() => {
 })
 
 afterEach(() => vi.unstubAllGlobals())
+
+describe('configured endpoint response schemas', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.mocked(getBlock).mockReset()
+  })
+
+  it.each([
+    { provider: 'openai', valid: true },
+    { provider: 'custom', valid: true },
+    { provider: 'openai', valid: false },
+    { provider: 'custom', valid: false },
+  ])(
+    'preserves and validates the configured $provider schema (valid=$valid)',
+    async ({ provider, valid }) => {
+      const model = `${provider}/exact-schema-model`
+      vi.stubEnv(
+        'MASTRA_MODEL_PROVIDERS',
+        JSON.stringify({
+          [provider]: {
+            name: 'Configured',
+            url: 'https://endpoint.invalid/v1',
+            models: ['exact-schema-model'],
+          },
+        })
+      )
+      vi.stubEnv('MASTRA_AZURE_OPENAI', '')
+      const responseFormat = {
+        schema: {
+          type: 'object',
+          properties: { answer: { type: 'number' } },
+          required: ['answer'],
+          additionalProperties: false,
+        },
+      }
+      const workflow = createMinimalWorkflow()
+      const agentBlock = workflow.blocks[1]
+      agentBlock.metadata!.id = 'agent'
+      agentBlock.config = { tool: 'agent', params: { model, responseFormat, userPrompt: 'Answer' } }
+      vi.mocked(getBlock).mockReturnValue(AgentBlock)
+      const inputs = new InputResolver(workflow, {}, {}, new Map()).resolveInputs(
+        agentBlock,
+        context()
+      )
+      expect(inputs.responseFormat).toEqual(responseFormat)
+
+      const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+        expect(String(url)).toBe('https://endpoint.invalid/v1/chat/completions')
+        const body = JSON.parse(String(init?.body))
+        expect(body.model).toBe('exact-schema-model')
+        expect(body.response_format).toMatchObject({
+          type: 'json_schema',
+          json_schema: { schema: responseFormat.schema },
+        })
+        return Response.json({
+          id: 'chatcmpl_schema',
+          object: 'chat.completion',
+          created: 0,
+          model: body.model,
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: 'assistant',
+                content: JSON.stringify({ answer: valid ? 42 : 'invalid' }),
+              },
+              finish_reason: 'stop',
+            },
+          ],
+          usage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 },
+        })
+      })
+      vi.stubGlobal('fetch', fetcher)
+      const native = await vi.importActual<typeof import('@/lib/mastra/connections')>(
+        '@/lib/mastra/connections'
+      )
+      state.model = native.createConfiguredLanguageModel(model, 'fixture-key')
+      const execution = new AgentBlockHandler().execute(agentBlock, inputs, context())
+      if (valid) await expect(execution).resolves.toMatchObject({ answer: 42 })
+      else await expect(execution).rejects.toThrow()
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    }
+  )
+})
 
 describe('native Agent workflow execution', () => {
   it.each(

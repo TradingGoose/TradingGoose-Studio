@@ -70,6 +70,9 @@ export function getModelRegistry(): RegistryProvider[] {
 
 /** Server capability resolution does not depend on browser bootstrap state. */
 export function getNativeRegistryModel(model: string): RegistryModel {
+  const { provider } = parseModelString(model)
+  // A configured endpoint does not inherit the built-in provider's capability data.
+  if (provider && getConfiguredProviders()[provider]) return { id: model }
   return {
     id: model,
     temperature: modelSupportsTemperature(model),

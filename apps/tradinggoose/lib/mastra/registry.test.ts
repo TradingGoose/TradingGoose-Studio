@@ -9,6 +9,7 @@ const provider = {
   headers: { Authorization: 'secret' },
 }
 vi.mock('@mastra/core/llm', () => ({
+  defaultGateways: [],
   GatewayRegistry: { getInstance: () => ({ getProviders: () => ({ configured: provider }) }) },
   EMBEDDING_MODELS: [
     {
@@ -146,6 +147,6 @@ it('does not infer purpose from a different provider or a model name', () => {
   )
   expect(() => assertListedModel('custom/embedding')).not.toThrow()
   expect(getModelRegistry().find(({ id }) => id === 'custom')?.models).toEqual([
-    { id: 'custom/embedding', structuredOutput: true },
+    { id: 'custom/embedding' },
   ])
 })

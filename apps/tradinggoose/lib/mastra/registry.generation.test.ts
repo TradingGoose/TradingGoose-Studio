@@ -37,6 +37,22 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+it.each(['openai', 'custom'])(
+  'does not borrow built-in capabilities for the configured %s endpoint',
+  (provider) => {
+    vi.stubEnv(
+      'MASTRA_MODEL_PROVIDERS',
+      JSON.stringify({
+        [provider]: { name: 'Configured', url: 'https://not-contacted.invalid', models: ['exact'] },
+      })
+    )
+    const model = `${provider}/exact`
+    expect(() => assertListedModel(model)).not.toThrow()
+    expect(getNativeRegistryModel(model)).toEqual({ id: model })
+    expect(getModelRegistry().find(({ id }) => id === provider)?.models).toEqual([{ id: model }])
+  }
+)
+
 it('excludes every exact installed native embedding identity from generation and keeps embedding access', () => {
   const generation = new Set(getModelRegistry().flatMap(({ models }) => models.map(({ id }) => id)))
   const embeddings = getEmbeddingModelRegistry()
