@@ -619,7 +619,7 @@ describe('pending execution worker', () => {
   })
 
   it.each(['completed', 'failed'])(
-    'retries accounting before notifying parents of a %s execution without rerunning actions',
+    'retries accounting and parent completion of a %s execution without republishing webhooks',
     async (status) => {
       const row = processingRow({
         id: 'original:resume:1',
@@ -636,16 +636,23 @@ describe('pending execution worker', () => {
       expect(mocks.emit).not.toHaveBeenCalled()
       expect(mocks.completeWorkflowCheckpointChild).not.toHaveBeenCalled()
 
-      await finalizePendingExecutionFailure(row, 'Late failure', 50)
-      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenCalledTimes(2)
-      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenLastCalledWith('original')
-      expect(mocks.emit).toHaveBeenCalledOnce()
-      expect(mocks.emit.mock.invocationCallOrder[0]).toBeGreaterThan(
-        mocks.readWorkflowExecutionEventState.mock.invocationCallOrder[0]
+      mocks.completeWorkflowCheckpointChild.mockRejectedValueOnce(
+        new Error('Checkpoint unavailable')
       )
+      await expect(finalizePendingExecutionFailure(row, 'Late failure', 50)).rejects.toThrow(
+        'Checkpoint unavailable'
+      )
+      expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
+      expect(mocks.emit).not.toHaveBeenCalled()
+
+      await finalizePendingExecutionFailure(row, 'Late failure', 50)
+      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenCalledTimes(3)
+      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenLastCalledWith('original')
+      expect(mocks.emit).not.toHaveBeenCalled()
       expect(mocks.loggingComplete).not.toHaveBeenCalled()
       expect(mocks.executePendingExecutionJob).not.toHaveBeenCalled()
-      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledExactlyOnceWith({
+      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledTimes(2)
+      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenLastCalledWith({
         childExecutionId: 'original',
         input: result,
       })

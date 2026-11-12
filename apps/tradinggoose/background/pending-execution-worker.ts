@@ -17,7 +17,6 @@ import {
 } from '@/lib/execution/pending-execution'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
-import { emitWorkflowExecutionCompleted } from '@/lib/logs/events'
 import { executionLogger } from '@/lib/logs/execution/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
@@ -232,13 +231,6 @@ export async function terminalizeWorkflowExecution(
     .select({
       id: workflowExecutionLogs.id,
       endedAt: workflowExecutionLogs.endedAt,
-      executionId: workflowExecutionLogs.executionId,
-      workspaceId: workflowExecutionLogs.workspaceId,
-      workflowId: workflowExecutionLogs.workflowId,
-      workflowSummary: workflowExecutionLogs.workflowSummary,
-      executionData: workflowExecutionLogs.executionData,
-      level: workflowExecutionLogs.level,
-      trigger: workflowExecutionLogs.trigger,
     })
     .from(workflowExecutionLogs)
     .where(
@@ -255,7 +247,6 @@ export async function terminalizeWorkflowExecution(
       workflowId: row.workflowId,
     })
     if (terminal?.status === 'completed' || terminal?.status === 'failed') {
-      await emitWorkflowExecutionCompleted(existingLog)
       await completeWorkflowCheckpointChild({
         childExecutionId: executionId,
         input: { ...terminal.result },
