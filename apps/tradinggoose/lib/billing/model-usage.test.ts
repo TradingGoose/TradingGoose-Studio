@@ -9,7 +9,7 @@ import {
 } from '@tradinggoose/db/schema'
 import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
-import { beforeEach, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import type { NativeCost } from '@/lib/mastra/usage'
 import { usageProcessors } from '@/lib/mastra/usage-processors'
@@ -25,17 +25,36 @@ const fixture = vi.hoisted(() => ({
   transaction: vi.fn(),
   threshold: vi.fn(),
   execution: vi.fn(),
+  personalUsage: vi.fn(),
+  organizationLedger: vi.fn(),
+  memberLedger: vi.fn(),
   writes: [] as { table: unknown; where: SQL; values: Record<string, SQL> }[],
 }))
 vi.mock('@tradinggoose/db', () => ({
   db: {
     transaction: fixture.transaction,
     select: () => ({
-      from: () => ({ where: (query: SQL) => ({ limit: () => fixture.execution(query) }) }),
+      from: (table: unknown) => ({
+        where: (query: SQL) => ({
+          limit: () =>
+            table === userStats ? [{ billingBlocked: false }] : fixture.execution(query),
+        }),
+      }),
     }),
   },
 }))
-vi.mock('@/lib/billing/settings', () => ({ isBillingEnabledForRuntime: fixture.enabled }))
+vi.mock('@/lib/billing/settings', () => ({
+  isBillingEnabledForRuntime: fixture.enabled,
+  getResolvedBillingSettings: async () => ({
+    billingEnabled: await fixture.enabled(),
+    usageWarningThresholdPercent: 80,
+  }),
+}))
+vi.mock('@/lib/billing/core/usage', () => ({ getUserUsageData: fixture.personalUsage }))
+vi.mock('@/lib/billing/core/organization', () => ({
+  getOrganizationBillingLedger: fixture.organizationLedger,
+  getOrganizationMemberBillingLedger: fixture.memberLedger,
+}))
 vi.mock('@/lib/billing/calculations/usage-monitor', () => ({
   checkServerSideUsageLimits: fixture.limits,
 }))
@@ -70,7 +89,7 @@ const context = (overrides: Partial<WorkspaceBillingContext> = {}): WorkspaceBil
   billingUserId: 'owner',
   billingOwner: { type: 'user', userId: 'owner' },
   subscription: null,
-  tier: { copilotCostMultiplier: '3' } as BillingTierRecord,
+  tier: { copilotCostMultiplier: '3', includedUsageLimitUsd: '100' } as BillingTierRecord,
   scopeId: 'owner',
   scopeType: 'user',
   ...overrides,
@@ -85,6 +104,9 @@ beforeEach(() => {
   fixture.workflow.mockResolvedValue(context())
   fixture.threshold.mockResolvedValue(undefined)
   fixture.execution.mockReset().mockResolvedValue([])
+  fixture.personalUsage.mockReset()
+  fixture.organizationLedger.mockReset()
+  fixture.memberLedger.mockReset()
   fixture.transaction.mockImplementation(async (operation) =>
     operation({
       select: () => ({
@@ -314,11 +336,12 @@ it('completes successful native inference for a new unpriced Copilot model with 
   expect(fixture.writes[0].values).not.toHaveProperty('totalCopilotCost')
 })
 
-it('checks limits but skips accrual when billing is disabled', async () => {
+it('skips billing admission and accrual when billing is disabled', async () => {
   fixture.enabled.mockResolvedValue(false)
   await assertModelUsageAllowed(scope)
   await recordModelUsage(scope, usage, { status: 'unavailable' })
   expect(fixture.workspace).not.toHaveBeenCalled()
+  expect(fixture.limits).not.toHaveBeenCalled()
   expect(fixture.transaction).not.toHaveBeenCalled()
 })
 
@@ -326,8 +349,112 @@ it('rejects usage-limit exhaustion for the resolved scope before model admission
   fixture.limits.mockResolvedValue({ isExceeded: true, message: 'Allowance exhausted' })
   await expect(assertModelUsageAllowed(scope)).rejects.toMatchObject({ status: 402 })
   expect(fixture.limits).toHaveBeenCalledExactlyOnceWith({
-    userId: 'actor',
+    userId: 'owner',
     workspaceId: 'workspace',
     workflowId: undefined,
   })
+})
+
+describe('native inference admission through the existing usage monitor', () => {
+  beforeEach(async () => {
+    const monitor = await vi.importActual<typeof import('./calculations/usage-monitor')>(
+      './calculations/usage-monitor'
+    )
+    fixture.limits.mockImplementation(monitor.checkServerSideUsageLimits)
+    fixture.personalUsage.mockResolvedValue({ currentUsage: 0, limit: 100, percentUsed: 0 })
+    fixture.organizationLedger.mockResolvedValue({ currentPeriodCost: 0, billingBlocked: false })
+    fixture.memberLedger.mockResolvedValue({ currentPeriodCost: 0 })
+  })
+
+  it.each([
+    { ownerUsage: 100, collaboratorUsage: 0, exceeded: true },
+    { ownerUsage: 0, collaboratorUsage: 100, exceeded: false },
+  ])('checks the charged owner rather than the collaborator: %j', async (scenario) => {
+    fixture.personalUsage.mockImplementation(async (userId: string) => ({
+      currentUsage: userId === 'owner' ? scenario.ownerUsage : scenario.collaboratorUsage,
+      limit: 100,
+      percentUsed: userId === 'owner' ? scenario.ownerUsage : scenario.collaboratorUsage,
+    }))
+    const admission = assertModelUsageAllowed(scope)
+    if (scenario.exceeded) {
+      await expect(admission).rejects.toMatchObject({ status: 402 })
+      expect(fixture.writes).toHaveLength(0)
+    } else {
+      await admission
+      await recordModelUsage(scope, usage, cost)
+      expect(parameters(fixture.writes[0].where)).toEqual(['owner'])
+      expect(fixture.threshold).toHaveBeenCalledWith({
+        userId: 'actor',
+        workspaceId: 'workspace',
+        workflowId: undefined,
+      })
+    }
+    expect(fixture.personalUsage).toHaveBeenCalledExactlyOnceWith('owner')
+    expect(fixture.workspace).toHaveBeenCalledWith({
+      workspaceId: 'workspace',
+      actorUserId: 'actor',
+    })
+  })
+
+  it.each(['personal', 'workflow', 'organization', 'organization_member'] as const)(
+    'uses the existing %s billing scope for admission and accrual',
+    async (kind) => {
+      const request = {
+        ...scope,
+        workspaceId: kind === 'personal' || kind === 'workflow' ? undefined : scope.workspaceId,
+        ...(kind === 'workflow' ? { workflowId: 'workflow' } : {}),
+      }
+      const billing = context(
+        kind === 'personal'
+          ? {
+              workspaceId: null,
+              billingUserId: 'actor',
+              billingOwner: { type: 'user', userId: 'actor' },
+              scopeId: 'actor',
+            }
+          : kind.startsWith('organization')
+            ? {
+                billingUserId: 'member',
+                billingOwner: { type: 'organization', organizationId: 'org' },
+                scopeId: 'org',
+                scopeType: kind as 'organization' | 'organization_member',
+              }
+            : {}
+      )
+      fixture.workspace.mockResolvedValue(billing)
+      fixture.workflow.mockResolvedValue(billing)
+      await assertModelUsageAllowed(request)
+      await recordModelUsage(request, usage, cost)
+      if (kind.startsWith('organization')) {
+        expect(fixture.personalUsage).not.toHaveBeenCalled()
+        expect(fixture.organizationLedger).toHaveBeenCalledExactlyOnceWith('org')
+        expect(fixture.writes[0].table).toBe(organizationBillingLedger)
+        if (kind === 'organization_member') {
+          expect(fixture.memberLedger).toHaveBeenCalledExactlyOnceWith('org', 'member')
+          expect(parameters(fixture.writes[1].where)).toEqual(['org', 'member'])
+        } else expect(fixture.memberLedger).not.toHaveBeenCalled()
+      } else {
+        expect(fixture.personalUsage).toHaveBeenCalledExactlyOnceWith(billing.billingUserId)
+        expect(parameters(fixture.writes[0].where)).toEqual([billing.billingUserId])
+      }
+      expect(fixture.limits).toHaveBeenCalledExactlyOnceWith({
+        userId: billing.billingUserId,
+        workspaceId: request.workspaceId,
+        workflowId: request.workflowId,
+      })
+    }
+  )
+})
+
+it('does not admit an aborted request while resolving disabled billing', async () => {
+  const controller = new AbortController()
+  fixture.enabled.mockImplementationOnce(async () => {
+    controller.abort()
+    return false
+  })
+  await expect(assertModelUsageAllowed({ ...scope, signal: controller.signal })).rejects.toBe(
+    controller.signal.reason
+  )
+  expect(fixture.limits).not.toHaveBeenCalled()
+  expect(fixture.workspace).not.toHaveBeenCalled()
 })

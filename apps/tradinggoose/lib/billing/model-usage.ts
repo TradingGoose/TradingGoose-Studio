@@ -22,10 +22,27 @@ export interface ModelUsageScope {
   signal?: AbortSignal
 }
 
+function resolveModelBillingContext(scope: ModelUsageScope) {
+  return scope.workflowId
+    ? resolveWorkflowBillingContext({
+        workflowId: scope.workflowId,
+        actorUserId: scope.actorUserId,
+      })
+    : resolveWorkspaceBillingContext({
+        workspaceId: scope.workspaceId,
+        actorUserId: scope.actorUserId,
+      })
+}
+
 export async function assertModelUsageAllowed(scope: ModelUsageScope) {
   scope.signal?.throwIfAborted()
+  const billingEnabled = await isBillingEnabledForRuntime()
+  scope.signal?.throwIfAborted()
+  if (!billingEnabled) return
+  const billingContext = await resolveModelBillingContext(scope)
+  scope.signal?.throwIfAborted()
   const status = await checkServerSideUsageLimits({
-    userId: scope.actorUserId,
+    userId: billingContext.billingUserId,
     workspaceId: scope.workspaceId,
     workflowId: scope.workflowId,
   })
@@ -74,15 +91,7 @@ export async function recordModelUsage(
       : undefined)
   if (tokens !== undefined && (!Number.isSafeInteger(tokens) || tokens < 0))
     throw new Error('Model token usage must be a nonnegative safe integer')
-  const billingContext = scope.workflowId
-    ? await resolveWorkflowBillingContext({
-        workflowId: scope.workflowId,
-        actorUserId: scope.actorUserId,
-      })
-    : await resolveWorkspaceBillingContext({
-        workspaceId: scope.workspaceId,
-        actorUserId: scope.actorUserId,
-      })
+  const billingContext = await resolveModelBillingContext(scope)
   // Unknown model costs remain unknown; a zero ledger delta records only the usage counters.
   const chargedCost =
     usdCost === undefined
