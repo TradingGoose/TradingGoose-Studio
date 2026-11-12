@@ -13,26 +13,36 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 
 import { EMBEDDING_MODELS } from '@mastra/core/llm'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getInferenceFacts } from '@/lib/mastra/result'
 import { EvaluatorBlockHandler } from './evaluator-handler'
 
 const native = vi.hoisted(() => ({
+  realAgent: false,
   finance: vi.fn(),
   cost: vi.fn(),
   generate: vi.fn(),
   usage: vi.fn(),
   verify: vi.fn(),
 }))
-vi.mock('@mastra/core/agent', () => ({
-  Agent: class {
-    generate = native.generate
-  },
-}))
+vi.mock('@mastra/core/agent', async (original) => {
+  const actual = await original<typeof import('@mastra/core/agent')>()
+  return {
+    ...actual,
+    Agent: class extends actual.Agent {
+      generate(messages: any, options?: any): any {
+        return native.realAgent
+          ? super.generate(messages, options)
+          : native.generate(messages, options)
+      }
+    },
+  }
+})
 const block = { id: 'evaluator', metadata: { id: 'evaluator' } } as any
 const context = { workspaceId: 'workspace', userId: 'user' } as any
 beforeEach(() => {
   vi.clearAllMocks()
+  native.realAgent = false
   native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
   native.usage.mockReset().mockReturnValue({ totalTokens: 7 })
   native.verify.mockReset().mockResolvedValue(undefined)
@@ -42,7 +52,67 @@ beforeEach(() => {
     totalUsage: { totalTokens: 7 },
   })
 })
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+})
 describe('Evaluator native structured generation', () => {
+  it.each([
+    [{ accuracy: 8 }, true],
+    [{}, false],
+    [{ accuracy: '8' }, false],
+    [{ accuracy: 11 }, false],
+    [{ accuracy: 8, extra: 1 }, false],
+  ] as const)(
+    'validates %j through the actual Groq adapter without requiring native structured output',
+    async (object, valid) => {
+      native.realAgent = true
+      vi.stubEnv('MASTRA_MODEL_PROVIDERS', '{}')
+      vi.stubEnv('MASTRA_AZURE_OPENAI', '')
+      const requests: Record<string, any>[] = []
+      const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+        expect(String(url)).toBe('https://api.groq.com/openai/v1/chat/completions')
+        const body = JSON.parse(String(init?.body))
+        requests.push(body)
+        if (body.response_format?.type === 'json_schema')
+          return Response.json(
+            { error: { message: 'Native JSON schemas are unsupported by this model' } },
+            { status: 400 }
+          )
+        return Response.json({
+          id: 'chatcmpl_evaluator',
+          object: 'chat.completion',
+          created: 0,
+          model: body.model,
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: JSON.stringify(object) },
+              finish_reason: 'stop',
+            },
+          ],
+          usage: { prompt_tokens: 20, completion_tokens: 3, total_tokens: 23 },
+        })
+      })
+      vi.stubGlobal('fetch', fetcher)
+      const execution = new EvaluatorBlockHandler().execute(
+        block,
+        {
+          model: 'groq/llama-3.3-70b-versatile',
+          apiKey: 'fixture-key',
+          content: 'Evaluate this answer',
+          metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
+        },
+        context
+      )
+      if (valid) await expect(execution).resolves.toMatchObject({ accuracy: 8 })
+      else await expect(execution).rejects.toThrow()
+      expect(fetcher).toHaveBeenCalledTimes(1)
+      expect(requests[0].model).toBe('llama-3.3-70b-versatile')
+      expect(requests[0]).not.toHaveProperty('response_format')
+      expect(JSON.stringify(requests[0].messages)).toContain('JSON schema:')
+    }
+  )
   it('retains metric output references and configures actual metric bounds', async () => {
     const cost = {
       input: 0.002,
