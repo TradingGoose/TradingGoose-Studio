@@ -1,3 +1,4 @@
+import { setTimeout as delay } from 'node:timers/promises'
 import type { AgentExecutionOptions } from '@mastra/core/agent'
 import type { MastraDBMessage } from '@mastra/core/agent/message-list'
 import type { InputProcessor } from '@mastra/core/processors'
@@ -50,6 +51,9 @@ import {
   readCopilotThreadRun,
   releaseCopilotThread,
 } from './state'
+
+const CANCELLATION_POLL_INTERVAL = 500
+const CANCELLATION_TIMEOUT = 30_000
 
 async function requireThread(scope: Scope, threadId: string, signal?: AbortSignal) {
   const thread = await readNativeThread(scope, threadId, signal)
@@ -180,6 +184,25 @@ async function readCommand(
         if (pending.runs.some((item) => item.runId === run.runId))
           await releaseCopilotThread(scope, run.threadId, run.runId)
       }
+      const waiting = AbortSignal.any(
+        [signal, AbortSignal.timeout(CANCELLATION_TIMEOUT)].filter(
+          (item): item is AbortSignal => !!item
+        )
+      )
+      try {
+        while (await readCopilotThreadRun(scope, request.threadId)) {
+          waiting.throwIfAborted()
+          await delay(CANCELLATION_POLL_INTERVAL, undefined, { signal: waiting })
+        }
+        waiting.throwIfAborted()
+      } catch (error) {
+        signal?.throwIfAborted()
+        if (!waiting.aborted) throw error
+        throw new NativeTargetError(
+          'Copilot cancellation has not finished. Try stopping it again.',
+          503
+        )
+      }
       return { status: 'cancel_requested', runId: request.runId }
     }
   }
@@ -225,6 +248,29 @@ async function* generate(
   let ownsThread = false
   let nativeOutput: { getFullOutput(): Promise<unknown> } | undefined
   let drained = false
+  let finalization: Promise<void> | undefined
+  const finalize = () =>
+    (finalization ??= (async () => {
+      if (cancellation.signal.aborted && run && !drained) {
+        try {
+          await cancelCopilotRun(run)
+        } catch {
+          ownsThread = false // Keep the claim when durable cancellation cannot be confirmed.
+        }
+      }
+      // Closing the HTTP observer does not stop the native writer. Keep ownership until it settles.
+      if (nativeOutput && !drained) {
+        try {
+          await nativeOutput.getFullOutput()
+          drained = true
+        } catch {
+          // An unknown native outcome must keep the claim, rather than admit a competing writer.
+        }
+      }
+      if (watcher) clearInterval(watcher)
+      if (run && ownsThread && !suspended && (!nativeOutput || drained))
+        await releaseCopilotThread(run.scope, run.threadId, run.runId)
+    })())
   try {
     const agent = await getCopilotAgent()
     const signal = cancellation.signal
@@ -331,7 +377,7 @@ async function* generate(
         .finally(() => {
           checking = false
         })
-    }, 500)
+    }, CANCELLATION_POLL_INTERVAL)
     const prepared = await prepareModelRequest(
       {
         model: run.model,
@@ -455,7 +501,12 @@ async function* generate(
       memory: { thread: run.threadId, resource: nativeConversationIdentity(run.scope).resourceId },
       inputProcessors: [guard, ...prepared.options.inputProcessors],
     }
-    yield { type: 'response.started', runId: run.runId, threadId: run.threadId }
+    yield {
+      type: 'response.started',
+      runId: run.runId,
+      threadId: run.threadId,
+      ...(message ? { messageId: message.id } : {}),
+    }
     const output = (nativeOutput =
       request.command === 'message'
         ? await agent.stream([message!], options)
@@ -556,13 +607,18 @@ async function* generate(
     }
   } catch (error) {
     if (cancellation.signal.aborted && run) {
-      yield {
-        type: 'response.cancel_requested',
-        result: {
-          status: 'cancel_requested',
-          runId: run.runId,
-        },
-      }
+      await finalize()
+      const owner = await readCopilotThreadRun(run.scope, run.threadId)
+      if (owner)
+        yield {
+          type: 'response.error',
+          result: failure(new NativeTargetError('Copilot cancellation has not finished', 503)),
+        }
+      else
+        yield {
+          type: 'response.cancel_requested',
+          result: { status: 'cancel_requested', runId: run.runId },
+        }
     } else {
       const result = failure(error)
       if (usage) result.usage = usage.getUsage()
@@ -572,25 +628,7 @@ async function* generate(
       }
     }
   } finally {
-    if (cancellation.signal.aborted && run && !drained) {
-      try {
-        await cancelCopilotRun(run)
-      } catch {
-        ownsThread = false // Keep the claim when durable cancellation cannot be confirmed.
-      }
-    }
-    // Closing the HTTP observer does not stop the native writer. Keep ownership until it settles.
-    if (nativeOutput && !drained) {
-      try {
-        await nativeOutput.getFullOutput()
-        drained = true
-      } catch {
-        // An unknown native outcome must keep the claim, rather than admit a competing writer.
-      }
-    }
-    if (watcher) clearInterval(watcher)
-    if (run && ownsThread && !suspended && (!nativeOutput || drained))
-      await releaseCopilotThread(run.scope, run.threadId, run.runId)
+    await finalize()
   }
 }
 

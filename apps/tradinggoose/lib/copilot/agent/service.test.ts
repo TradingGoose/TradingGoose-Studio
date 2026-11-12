@@ -558,6 +558,10 @@ describe('built-in Copilot service bridge', () => {
     expect(response.headers.get('content-type')).toContain('text/event-stream')
     const events = []
     for await (const event of readNativeEvents(response.body!, {})) events.push(event)
+    expect(events[0]).toMatchObject({
+      type: 'response.started',
+      messageId: expect.any(String),
+    })
     expect(events.map((event) => event.type)).toEqual([
       'response.started',
       'tool.display',
@@ -976,79 +980,163 @@ describe('built-in Copilot service bridge', () => {
     expect(threadClaims()).toHaveLength(0)
   })
 
-  it('allows a new conversation while refusing to unlock an interrupted ordinary writer', async () => {
-    setModel({ text: 'Original answer' }, { text: 'New conversation' })
-    const initial = (await message()).result
-    if (initial.status !== 'completed') throw new Error(JSON.stringify(initial))
-    await claimCopilotThread(scope, initial.threadId, initial.runId)
-    await command({ command: 'cancel', threadId: initial.threadId, runId: initial.runId })
-    const blocked = (await message({ threadId: initial.threadId })).result
-    expect(blocked).toMatchObject({
-      status: 'refused',
-      error: { message: expect.stringContaining('new conversation') },
-    })
-    expect(
-      (await command({ command: 'thread.delete', threadId: initial.threadId })).result
-    ).toMatchObject({ status: 'refused' })
-    const next = (await message()).result
-    expect(next).toMatchObject({ status: 'completed', text: 'New conversation' })
-    if (next.status !== 'completed') throw new Error(JSON.stringify(next))
-    expect(next.threadId).not.toBe(initial.threadId)
-    expect(await readCopilotThreadRun(scope, initial.threadId)).toBe(initial.runId)
-  })
-  it('keeps thread ownership until native memory finishes after the HTTP observer disconnects', async () => {
-    setModel({ text: 'Delayed persisted answer' })
-    const memory = (await m.storage.getStore('memory'))!
-    const save = memory.saveMessages.bind(memory)
-    let entered!: () => void
-    const writing = new Promise<void>((resolve) => {
-      entered = resolve
-    })
-    let release!: () => void
-    const gate = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    let held = false
-    let persisted = false
-    const spy = vi.spyOn(memory, 'saveMessages').mockImplementation(async (args) => {
-      if (!held && args.messages.some((item) => item.role === 'assistant')) {
-        held = true
-        entered()
-        await gate
+  it.each(['timeout', 'aborted'])(
+    'does not unlock an interrupted writer when cancellation waiting is %s',
+    async (reason) => {
+      setModel({ text: 'Original answer' }, { text: 'New conversation' })
+      const initial = (await message()).result
+      if (initial.status !== 'completed') throw new Error(JSON.stringify(initial))
+      await claimCopilotThread(scope, initial.threadId, initial.runId)
+      const deadline = new AbortController()
+      const abort = new AbortController()
+      const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValueOnce(deadline.signal)
+      try {
+        const stopping = executeCopilotCommand(
+          {
+            command: 'cancel',
+            workspaceId: scope.workspaceId,
+            threadId: initial.threadId,
+            runId: initial.runId,
+          },
+          scope.actorUserId,
+          abort.signal
+        )
+        await vi.waitFor(async () => expect(await isCopilotRunCancelled(initial.runId)).toBe(true))
+        if (reason === 'timeout') deadline.abort(new DOMException('Timed out', 'TimeoutError'))
+        else abort.abort(new DOMException('Cancelled request', 'AbortError'))
+        const response = await stopping
+        expect(response.status).toBe(503)
+        expect(await response.json()).toMatchObject({ status: 'failed' })
+        expect(await readCopilotThreadRun(scope, initial.threadId)).toBe(initial.runId)
+      } finally {
+        timeout.mockRestore()
       }
-      const result = await save(args)
-      if (held) persisted = true
-      return result
-    })
-    try {
-      const response = await executeCopilotCommand(
-        {
-          workspaceId: scope.workspaceId,
-          command: 'message',
-          model: 'configured/model',
-          input: { content: 'Keep ownership until persisted' },
-        },
-        scope.actorUserId
-      )
-      const reader = response.body!.getReader()
-      const started = await reader.read()
-      const first = JSON.parse(new TextDecoder().decode(started.value).slice(6).trim())
-      const next = reader.read()
-      await writing
-      const closing = reader.cancel()
-      expect(await readCopilotThreadRun(scope, first.threadId)).toBe(first.runId)
-      expect(persisted).toBe(false)
-      expect((await message({ threadId: first.threadId })).result).toMatchObject({
+      const blocked = (await message({ threadId: initial.threadId })).result
+      expect(blocked).toMatchObject({
         status: 'refused',
+        error: { message: expect.stringContaining('new conversation') },
       })
-      release()
-      await next
-      await closing
-      expect(persisted).toBe(true)
-      expect(await readCopilotThreadRun(scope, first.threadId)).toBeUndefined()
-    } finally {
-      release()
-      spy.mockRestore()
+      expect(
+        (await command({ command: 'thread.delete', threadId: initial.threadId })).result
+      ).toMatchObject({ status: 'refused' })
+      const next = (await message()).result
+      expect(next).toMatchObject({ status: 'completed', text: 'New conversation' })
+      if (next.status !== 'completed') throw new Error(JSON.stringify(next))
+      expect(next.threadId).not.toBe(initial.threadId)
+      expect(await readCopilotThreadRun(scope, initial.threadId)).toBe(initial.runId)
     }
-  })
+  )
+  it.each([false, true])(
+    'waits for the native writer before cancelling and editing (other instance: %s)',
+    async (otherInstance) => {
+      setModel({ text: 'Original answer' }, { text: 'Delayed persisted answer' })
+      const initial = (await message()).result
+      if (initial.status !== 'completed') throw new Error(JSON.stringify(initial))
+      const memory = (await m.storage.getStore('memory'))!
+      const save = memory.saveMessages.bind(memory)
+      let entered!: () => void
+      const writing = new Promise<void>((resolve) => {
+        entered = resolve
+      })
+      let release!: () => void
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      let held = false
+      let persisted = false
+      const spy = vi.spyOn(memory, 'saveMessages').mockImplementation(async (args) => {
+        if (!held && args.messages.some((item) => item.role === 'assistant')) {
+          held = true
+          entered()
+          await gate
+        }
+        const result = await save(args)
+        if (held) persisted = true
+        return result
+      })
+      try {
+        const response = await executeCopilotCommand(
+          {
+            workspaceId: scope.workspaceId,
+            command: 'message',
+            model: 'configured/model',
+            threadId: initial.threadId,
+            input: { content: 'Keep ownership until persisted' },
+          },
+          scope.actorUserId
+        )
+        const reader = response.body!.getReader()
+        const started = await reader.read()
+        const first = JSON.parse(new TextDecoder().decode(started.value).slice(6).trim())
+        const next = reader.read()
+        await writing
+        let observed = ''
+        let closing: Promise<unknown>
+        if (otherInstance) {
+          restart()
+          closing = (async () => {
+            let chunk = await next
+            while (!chunk.done) {
+              observed += new TextDecoder().decode(chunk.value)
+              chunk = await reader.read()
+            }
+          })()
+        } else closing = reader.cancel()
+        let acknowledged = false
+        const stopping = executeCopilotCommand(
+          {
+            command: 'cancel',
+            workspaceId: scope.workspaceId,
+            threadId: first.threadId,
+            runId: first.runId,
+          },
+          scope.actorUserId
+        ).then((response) => {
+          acknowledged = true
+          return response
+        })
+        await vi.waitFor(async () => expect(await isCopilotRunCancelled(first.runId)).toBe(true))
+        if (otherInstance)
+          await vi.waitFor(() => expect((m.contacts.at(-1) as any).abortSignal.aborted).toBe(true))
+        expect(acknowledged).toBe(false)
+        expect(observed).not.toContain('response.cancel_requested')
+        expect(await readCopilotThreadRun(scope, first.threadId)).toBe(first.runId)
+        expect(persisted).toBe(false)
+        expect((await message({ threadId: first.threadId })).result).toMatchObject({
+          status: 'refused',
+        })
+        release()
+        await next
+        await closing
+        expect(await (await stopping).json()).toMatchObject({
+          status: 'cancel_requested',
+          runId: first.runId,
+        })
+        expect(persisted).toBe(true)
+        expect(await readCopilotThreadRun(scope, first.threadId)).toBeUndefined()
+        if (otherInstance) expect(observed).toContain('response.cancel_requested')
+        const history = await memory.listMessages({
+          threadId: first.threadId,
+          resourceId: nativeConversationIdentity(scope).resourceId,
+          perPage: false,
+          orderBy: { field: 'createdAt', direction: 'ASC' },
+        })
+        expect(
+          history.messages.some((item) => item.role === 'user' && item.id === first.messageId)
+        ).toBe(true)
+        expect(
+          (
+            await message({
+              threadId: first.threadId,
+              messageId: history.messages[0].id,
+              input: { content: 'Edited prompt' },
+            })
+          ).result
+        ).toMatchObject({ status: 'completed' })
+      } finally {
+        release()
+        spy.mockRestore()
+      }
+    }
+  )
 })

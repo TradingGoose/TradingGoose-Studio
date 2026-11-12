@@ -461,7 +461,7 @@ describe('canonical browser conversation transport', () => {
               new ReadableStream({
                 start(controller) {
                   const frames = [
-                    { type: 'response.started', runId, threadId },
+                    { type: 'response.started', runId, threadId, messageId: 'canonical-live-user' },
                     {
                       type: 'tool.display',
                       toolCallId: item.target.toolCallId,
@@ -487,12 +487,18 @@ describe('canonical browser conversation transport', () => {
         ClientToolCallState.generating
       )
     )
-    store().getState().abortMessage()
+    expect(
+      store()
+        .getState()
+        .messages.find((message) => message.role === 'user')?.id
+    ).toBe('canonical-live-user')
+    const stopping = store().getState().abortMessage()
     expect(store().getState().isAborting).toBe(true)
     expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
     expect(await store().getState().sendMessage('Wait for cancellation')).toBe(false)
     const cancel = commands.find((request) => request.command === 'cancel')!
     acknowledgement.resolve(defaultResponse(cancel))
+    expect(await stopping).toBe(true)
     expect(await sending).toBe(false)
     await vi.waitFor(() =>
       expect(store().getState().lastNativeOutcome?.status).toBe('cancel_requested')
@@ -523,10 +529,8 @@ describe('canonical browser conversation transport', () => {
       request.command === 'history.read' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
     expect(store().getState().currentRunId).toBe(runId)
-    store().getState().abortMessage()
-    await vi.waitFor(() =>
-      expect(store().getState().lastNativeOutcome?.status).toBe('cancel_requested')
-    )
+    expect(await store().getState().abortMessage()).toBe(true)
+    expect(store().getState().lastNativeOutcome?.status).toBe('cancel_requested')
     expect(commands.filter((request) => request.command === 'cancel')).toEqual([
       { command: 'cancel', workspaceId, threadId, runId },
     ])
@@ -553,8 +557,8 @@ describe('canonical browser conversation transport', () => {
       installPending(item)
       store().setState({ isAwaitingContinuation: true })
       onCommand = (request) => (request.command === 'cancel' ? json(body, status) : undefined)
-      store().getState().abortMessage()
-      await vi.waitFor(() => expect(store().getState().error).toBe(error))
+      expect(await store().getState().abortMessage()).toBe(false)
+      expect(store().getState().error).toBe(error)
       expect(store().getState()).toMatchObject({
         currentRunId: runId,
         isAborting: false,
@@ -765,7 +769,10 @@ describe('canonical history, edits and context', () => {
     const answer = 'Replacement answer'
     onCommand = (request) =>
       request.command === 'message'
-        ? terminalResponse(ready(answer))
+        ? eventResponse([
+            { type: 'response.started', runId, threadId, messageId: history[0].id },
+            { type: 'response.completed', result: ready(answer) },
+          ])
         : request.command === 'history.read'
           ? json({
               status: 'history',
@@ -806,6 +813,27 @@ describe('canonical history, edits and context', () => {
       { id: history[0].id, content: text },
       { id: history[1].id, content: answer },
     ])
+  })
+  it('retains the displayed answer until an edited request is admitted, including a refusal', async () => {
+    await store().getState().selectChat(chat())
+    const before = store().getState().messages
+    const admission = defer<Response>()
+    onCommand = (request) => (request.command === 'message' ? admission.promise : undefined)
+    const editing = store().getState().sendMessage('Edited', { messageId: history[0].id })
+    await vi.waitFor(() => expect(store().getState().isSendingMessage).toBe(true))
+    expect(store().getState().messages).toEqual(before)
+    admission.resolve(
+      json(
+        {
+          status: 'refused',
+          error: { code: 'STALE_TARGET', message: 'The previous turn is still finishing' },
+        },
+        409
+      )
+    )
+    expect(await editing).toBe(false)
+    expect(store().getState().messages).toEqual(before)
+    expect(store().getState().error).toBe('The previous turn is still finishing')
   })
   it('refuses an edit that would erase native tool history before replacing its answer', async () => {
     await store().getState().selectChat(chat())

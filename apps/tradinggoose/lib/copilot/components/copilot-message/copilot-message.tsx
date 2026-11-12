@@ -141,6 +141,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const {
       currentChat,
+      currentRunId,
       messages,
       sendMessage,
       isSendingMessage,
@@ -167,7 +168,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
     const isTurnInProgress =
-      isStreaming || isSendingMessage || isAwaitingContinuation || hasActiveToolCalls
+      isStreaming || isSendingMessage || isAwaitingContinuation || isAborting || hasActiveToolCalls
     const isMessageTyping = typingSegmentKeys.length > 0
     const shouldHidePostTurnControls = isTurnInProgress || isMessageTyping
     const shouldShowActivityIndicator =
@@ -182,6 +183,10 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     )
 
     const handleEditMessage = () => {
+      if (isSendingMessage && !currentRunId) {
+        setEditBlockedReason('Wait for the response to start before editing this message.')
+        return
+      }
       if (isReplayBlockedForEdit) {
         setIsEditMode(false)
         setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
@@ -225,6 +230,10 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       contexts?: ChatContext[]
     ) => {
       if (!editedMessage.trim()) return false
+      if (isSendingMessage && !currentRunId) {
+        setEditBlockedReason('Wait for the response to start before editing this message.')
+        return false
+      }
 
       if (isReplayBlockedForEdit) {
         handleCancelEdit()
@@ -234,7 +243,12 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
       // If a stream is in progress, abort it first
       if (isTurnInProgress) {
-        await abortMessage()
+        if (!(await abortMessage())) {
+          setEditBlockedReason(
+            copilotStoreApi.getState().error || 'The current response could not be stopped.'
+          )
+          return false
+        }
       }
 
       // Proceed with the edit
@@ -530,6 +544,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 onAccessLevelChange={setAccessLevel}
                 panelWidth={panelWidth}
                 clearOnSubmit={false}
+                isLoading={isAborting}
               />
             </div>
           ) : (

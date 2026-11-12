@@ -178,12 +178,13 @@ describe('CopilotMessage', () => {
       currentChat: {
         workspaceId: 'ws-1',
       },
+      currentRunId: null,
       messages: [assistantMessage],
       sendMessage: vi.fn().mockResolvedValue(true),
       isSendingMessage: false,
       isAwaitingContinuation: false,
       isAborting: false,
-      abortMessage: vi.fn(),
+      abortMessage: vi.fn().mockResolvedValue(true),
       accessLevel: 'full',
       setAccessLevel: vi.fn(),
       toolCallsById: {},
@@ -328,27 +329,48 @@ describe('CopilotMessage', () => {
     expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
   })
 
-  it('keeps stop out of the edit composer and waits for cancellation before regeneration', async () => {
-    let finishCancellation!: () => void
-    mockStoreState.abortMessage.mockReturnValue(
-      new Promise<void>((resolve) => {
-        finishCancellation = resolve
-      })
-    )
+  it.each([true, false])(
+    'regenerates only after confirmed cancellation (%s)',
+    async (cancelled) => {
+      let finishCancellation!: (value: boolean) => void
+      mockStoreState.abortMessage.mockReturnValue(
+        new Promise<boolean>((resolve) => {
+          finishCancellation = resolve
+        })
+      )
+      mockStoreState.isSendingMessage = true
+      mockStoreState.currentRunId = 'native-run'
+      mockStoreState.messages = [userMentionMessage]
+
+      await renderMessage(userMentionMessage)
+      await click('[data-message-box]')
+      expect(container.querySelector('[data-testid="abort-edit"]')).toBeNull()
+      expect(container.querySelector('[data-testid="user-input"]')).not.toBeDisabled()
+
+      await click('[data-testid="user-input"]')
+
+      expect(mockStoreState.abortMessage).toHaveBeenCalledOnce()
+      expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+      mockStoreState.error = cancelled ? null : 'The previous response is still stopping'
+      await act(async () => finishCancellation(cancelled))
+      if (cancelled) expect(mockStoreState.sendMessage).toHaveBeenCalledOnce()
+      else {
+        expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+        expect(container.textContent).toContain(mockStoreState.error)
+        expect(container.querySelector('[data-testid="user-input"]')).not.toBeNull()
+      }
+    }
+  )
+
+  it('waits for native admission before allowing an active prompt to be edited', async () => {
     mockStoreState.isSendingMessage = true
     mockStoreState.messages = [userMentionMessage]
-
     await renderMessage(userMentionMessage)
     await click('[data-message-box]')
-    expect(container.querySelector('[data-testid="abort-edit"]')).toBeNull()
-    expect(container.querySelector('[data-testid="user-input"]')).not.toBeDisabled()
-
-    await click('[data-testid="user-input"]')
-
-    expect(mockStoreState.abortMessage).toHaveBeenCalledOnce()
+    expect(container.querySelector('[data-testid="user-input"]')).toBeNull()
+    expect(container.textContent).toContain('Wait for the response to start')
+    expect(mockStoreState.abortMessage).not.toHaveBeenCalled()
     expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
-    await act(async () => finishCancellation())
-    expect(mockStoreState.sendMessage).toHaveBeenCalledOnce()
   })
 
   it('shows a failed regeneration instead of claiming that an edit completed', async () => {

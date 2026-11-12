@@ -178,9 +178,9 @@ export function createUserMessage(
   }
 }
 
-export function createStreamingMessage(): CopilotMessage {
+export function createStreamingMessage(id = crypto.randomUUID()): CopilotMessage {
   return {
-    id: crypto.randomUUID(),
+    id,
     role: 'assistant',
     content: '',
     timestamp: new Date().toISOString(),

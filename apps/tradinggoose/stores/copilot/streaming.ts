@@ -248,8 +248,20 @@ export function applyNativeEvent(
   messageId: string
 ): Partial<CopilotStore> {
   switch (event.type) {
-    case 'response.started':
-      return { currentChat: verifyNativeThread(state, event), currentRunId: event.runId }
+    case 'response.started': {
+      const index = state.messages.findIndex((message) => message.id === messageId) - 1
+      if (event.messageId && (index < 0 || state.messages[index]?.role !== 'user'))
+        throw new Error('Native response input message is unavailable')
+      return {
+        currentChat: verifyNativeThread(state, event),
+        currentRunId: event.runId,
+        messages: event.messageId
+          ? state.messages.map((message, position) =>
+              position === index ? { ...message, id: event.messageId! } : message
+            )
+          : state.messages,
+      }
+    }
     case 'text.delta':
     case 'reasoning.delta':
       return {

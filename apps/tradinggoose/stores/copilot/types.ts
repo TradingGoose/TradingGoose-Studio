@@ -130,7 +130,7 @@ export interface CopilotActions {
       runtimeContext?: CopilotSendRuntimeContext
     }
   ) => Promise<boolean>
-  abortMessage: () => Promise<void>
+  abortMessage: () => Promise<boolean>
 
   reset: () => void
 

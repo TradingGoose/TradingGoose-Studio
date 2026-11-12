@@ -356,7 +356,31 @@ function createCopilotStoreInstance(channelId: string) {
               if (!current() || abort.signal.aborted) return false
               if (terminal)
                 throw new Error('Native Copilot emitted data after its terminal outcome')
-              set((state) => applyNativeEvent(state, event, messageId))
+              set((state) => {
+                if (
+                  event.type === 'response.started' &&
+                  command.command === 'message' &&
+                  command.messageId
+                ) {
+                  const index = state.messages.findIndex((item) => item.id === command.messageId)
+                  if (index < 0 || typeof command.input.content !== 'string')
+                    throw new Error('The edited message is no longer selected')
+                  state = {
+                    ...state,
+                    messages: [
+                      ...state.messages.slice(0, index),
+                      createUserMessage(
+                        command.input.content,
+                        undefined,
+                        command.input.contexts,
+                        command.messageId
+                      ),
+                      createStreamingMessage(messageId),
+                    ],
+                  }
+                }
+                return applyNativeEvent(state, event, messageId)
+              })
               if (
                 event.type === 'tool.result' &&
                 !event.isError &&
@@ -926,11 +950,7 @@ function createCopilotStoreInstance(channelId: string) {
             const user = createUserMessage(message, options.images, contexts, options.messageId)
             const assistant = createStreamingMessage()
             set((state) => ({
-              messages: [
-                ...(editing ? state.messages.slice(0, editIndex) : state.messages),
-                user,
-                assistant,
-              ],
+              ...(!editing ? { messages: [...state.messages, user, assistant] } : {}),
               currentRunId: null,
               lastNativeOutcome: null,
             }))
@@ -967,6 +987,7 @@ function createCopilotStoreInstance(channelId: string) {
           }
         },
         abortMessage: async () => {
+          if (get().isAborting) return false
           const dialog = get().workflowChatDeployment
           if (dialog)
             get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native tool selection changed')
@@ -995,17 +1016,20 @@ function createCopilotStoreInstance(channelId: string) {
                   cancellationEpoch !== epoch ||
                   get().currentChat?.threadId !== current.currentChat?.threadId
                 )
-                  return
+                  return false
                 if (result.status !== 'cancel_requested' || result.runId !== current.currentRunId)
                   throw new Error('Native cancellation was not verified')
                 set((state) => applyNativeCancellation(state, result))
+                return true
               })
               .catch((error) => {
                 if (cancellationEpoch === epoch) {
                   set({ isAborting: false })
                   fail(error)
                 }
+                return false
               })
+          return !current.isSendingMessage
         },
         reset: () => {
           const dialog = get().workflowChatDeployment

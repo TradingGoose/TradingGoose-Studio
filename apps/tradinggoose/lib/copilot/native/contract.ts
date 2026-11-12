@@ -173,7 +173,7 @@ export type CopilotResponse =
   | MutationResponse
   | ErrorResponse
 export type CopilotEvent =
-  | { type: 'response.started'; runId: string; threadId: string }
+  | { type: 'response.started'; runId: string; threadId: string; messageId?: string }
   | { type: 'text.delta' | 'reasoning.delta'; text: string }
   | { type: 'tool.display'; toolCallId: string; toolName: string; args?: JsonObject }
   | {
