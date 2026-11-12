@@ -71,7 +71,7 @@ export function assertNativeToolArguments(value: unknown): void {
 }
 
 const RESERVED =
-  /^(?:model|models|fallbacks?|provider|route|routing|messages|prompt|input|stream|tools|tool_choice|toolChoice|parallel_tool_calls|url|baseURL|baseUrl|endpoint|apiKey|api_key|headers|fetch|transport|websocket|retries|maxRetries|streamRetries|errorProcessors|prepareStep|extraBody|extraHeaders|body|options|defaultOptions)$/i
+  /^(?:model|models|fallbacks?|provider|route|routing|messages|prompt|input|stream|tools|tool_choice|toolChoice|parallel_tool_calls|service_?tier|url|baseURL|baseUrl|endpoint|apiKey|api_key|headers|fetch|transport|websocket|retries|maxRetries|streamRetries|errorProcessors|prepareStep|extraBody|extraHeaders|body|options|defaultOptions)$/i
 
 /** Provider generation controls use native namespaces; connections remain server-owned. */
 export function parseProviderOptions(value?: string | Record<string, unknown>) {

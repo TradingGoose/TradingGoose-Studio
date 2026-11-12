@@ -18,6 +18,14 @@ it('keeps model selection, retry policy, and provider connections server-owned',
     openrouter: { provider: { allow_fallbacks: false } },
   })
 })
+it.each(['serviceTier', 'service_tier'])(
+  'rejects provider service-tier option %s before inference',
+  (key) => {
+    expect(() => parseProviderOptions({ openai: { [key]: 'flex' } })).toThrow(
+      `Provider option openai.${key} is controlled by the server`
+    )
+  }
+)
 it('normalizes numeric editor controls and omits unset values without supplying defaults', () => {
   expect(
     trustedModelSettings({
