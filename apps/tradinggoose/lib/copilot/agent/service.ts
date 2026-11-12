@@ -648,6 +648,7 @@ export async function executeCopilotCommand(
       status: error instanceof NativeTargetError ? error.status : 503,
     })
   }
+  signal?.throwIfAborted()
   const cancellation = new AbortController()
   const abort = () => cancellation.abort(signal?.reason)
   signal?.addEventListener('abort', abort, { once: true })

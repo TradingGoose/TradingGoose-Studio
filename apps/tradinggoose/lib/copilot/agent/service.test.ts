@@ -15,6 +15,7 @@ import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { readNativeEvents } from '@/lib/copilot/native/stream'
 import { assertAcceptedServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import * as runtime from '@/lib/mastra/runtime'
 import { createCopilotAgent } from './agent'
 import { readCopilotRun } from './context'
 import { executeCopilotCommand } from './service'
@@ -232,6 +233,46 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('built-in Copilot service bridge', () => {
+  it.each(['authorization', 'dispatch'])(
+    'does not start generation when cancelled during %s',
+    async (stage) => {
+      const controller = new AbortController()
+      const reason = new DOMException('Request cancelled', 'AbortError')
+      setModel({ text: 'Must not run' })
+      const stop = async () => {
+        controller.abort(reason)
+        return { hasAccess: true }
+      }
+      const dispatch =
+        stage === 'dispatch'
+          ? vi.spyOn(runtime, 'getNativeMemoryStore').mockImplementationOnce(async () => {
+              controller.abort(reason)
+              return (await m.storage.getStore('memory'))!
+            })
+          : undefined
+      if (stage === 'authorization') m.access.mockImplementationOnce(stop)
+      try {
+        await expect(
+          executeCopilotCommand(
+            {
+              command: 'message',
+              workspaceId: scope.workspaceId,
+              model: 'configured/model',
+              input: { content: 'Do not generate after cancellation' },
+            },
+            scope.actorUserId,
+            controller.signal
+          )
+        ).rejects.toBe(reason)
+        expect(m.contacts).toEqual([])
+        expect(m.admit).not.toHaveBeenCalled()
+        expect(m.accept).not.toHaveBeenCalled()
+        expect(threadClaims()).toHaveLength(0)
+      } finally {
+        dispatch?.mockRestore()
+      }
+    }
+  )
   it.each([409, 422])(
     'refuses unavailable admin configuration (%i) before claiming a thread or inference',
     async (status) => {
