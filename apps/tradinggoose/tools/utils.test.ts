@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getToolAsync } from '@/tools'
+import { mem0GetMemoriesTool } from '@/tools/mem0/get_memories'
 import type { ToolConfig } from '@/tools/types'
 import {
   createCustomToolRequestBody,
@@ -182,6 +183,33 @@ describe('formatRequestParams', async () => {
     expect(result.method).toBe('POST')
     expect(result.body).toBe(JSON.stringify({ data: 'test-data' }))
   })
+
+  it.each([
+    ['memory-id', 'https://api.mem0.ai/v1/memories/memory-id/', 'GET'],
+    [undefined, 'https://api.mem0.ai/v2/memories/', 'POST'],
+  ] as const)(
+    'formats Mem0 retrieval for %s through its configured method',
+    async (memoryId, url, method) => {
+      const params = {
+        memoryId,
+        userId: 'user-id',
+        apiKey: 'mem0-key',
+        limit: 3,
+        startDate: '2026-01-01',
+      }
+      const result = await formatRequestParams(mem0GetMemoriesTool, params)
+      expect(result).toMatchObject({ url, method, headers: { Authorization: 'Token mem0-key' } })
+      expect(result.body).toBe(
+        memoryId
+          ? undefined
+          : JSON.stringify({
+              page_size: 3,
+              filters: { AND: [{ user_id: 'user-id' }, { created_at: { gte: '2026-01-01' } }] },
+            })
+      )
+      expect(params).not.toHaveProperty('method')
+    }
+  )
 
   it('should handle preformatted content types', async () => {
     // Set Content-Type to a preformatted type
