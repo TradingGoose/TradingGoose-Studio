@@ -55,6 +55,7 @@ export async function usageProcessors(
           }
           steps.set(key, step)
           step.cost = await calculateNativeCost(scope.model, args.usage, args.providerMetadata)
+          step.cost = await recordModelUsage(actorScope, step.usage, step.cost)
           const response = args.messageList.get.response
             .db()
             .filter((message) => message.role === 'assistant')
@@ -82,7 +83,6 @@ export async function usageProcessors(
               'response'
             )
           }
-          await recordModelUsage(actorScope, step.usage, step.cost)
         }
         if (!args.finishReason || !['stop', 'tool-calls', 'length'].includes(args.finishReason))
           throw new Error('Model step did not complete successfully')
@@ -99,7 +99,10 @@ export async function usageProcessors(
     inputProcessors: [input],
     outputProcessors: [output],
     getUsage: () => sumNativeUsage([...steps.values()]),
-    getCost: () => sumNativeCosts([...steps.values()].map((step) => step.cost)),
+    getCost: () => {
+      const cost = sumNativeCosts([...steps.values()].map((step) => step.cost))
+      return scope.funding === 'byok' ? { ...cost, accountCost: null } : cost
+    },
     async verifyComplete() {
       if (failure) throw failure
       scope.signal?.throwIfAborted()

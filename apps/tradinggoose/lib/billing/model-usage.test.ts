@@ -10,6 +10,7 @@ import {
 import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { projectNativeMessage } from '@/lib/mastra/messages'
 import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import type { NativeCost } from '@/lib/mastra/usage'
 import { usageProcessors } from '@/lib/mastra/usage-processors'
@@ -68,6 +69,7 @@ vi.mock('@/lib/billing/threshold-billing', () => ({
 
 const scope: ModelUsageScope = {
   actorUserId: 'actor',
+  funding: 'account',
   workspaceId: 'workspace',
   runId: 'run',
   purpose: 'copilot',
@@ -129,7 +131,8 @@ beforeEach(() => {
 it.each(['copilot', 'title', 'wand'])(
   'accrues %s USD with the existing tier multiplier and Copilot subcounters',
   async (purpose) => {
-    await recordModelUsage({ ...scope, purpose }, usage, cost)
+    const reportedCost = await recordModelUsage({ ...scope, purpose }, usage, cost)
+    expect(reportedCost).toEqual({ ...cost, total: 3.75 })
     expect(fixture.workspace).toHaveBeenCalledExactlyOnceWith({
       workspaceId: 'workspace',
       actorUserId: 'actor',
@@ -218,11 +221,12 @@ it('charges workflow-scoped requests without a verified settlement execution', a
 
 it('defers only to an active execution matching the workflow, workspace and authenticated actor', async () => {
   fixture.execution.mockResolvedValue([{ id: 'active-log' }])
-  await recordModelUsage(
+  const reportedCost = await recordModelUsage(
     { ...scope, purpose: 'workflow-provider', workflowId: 'workflow', executionId: 'execution' },
     usage,
     cost
   )
+  expect(reportedCost).toBe(cost)
   expect(fixture.execution).toHaveBeenCalledOnce()
   const query = dialect.sqlToQuery(fixture.execution.mock.calls[0][0])
   expect(query.params).toEqual(['workflow', 'workspace', 'execution', 'actor'])
@@ -264,7 +268,7 @@ it.each(
 )(
   'records Copilot calls and tokens without unknown USD increments: %j',
   async ({ purpose, unknownCost }) => {
-    await recordModelUsage({ ...scope, purpose }, usage, unknownCost)
+    expect(await recordModelUsage({ ...scope, purpose }, usage, unknownCost)).toBe(unknownCost)
 
     expect(fixture.writes).toHaveLength(1)
     const write = fixture.writes[0]
@@ -339,10 +343,140 @@ it('completes successful native inference for a new unpriced Copilot model with 
 it('skips billing admission and accrual when billing is disabled', async () => {
   fixture.enabled.mockResolvedValue(false)
   await assertModelUsageAllowed(scope)
-  await recordModelUsage(scope, usage, { status: 'unavailable' })
+  expect(await recordModelUsage(scope, usage, cost)).toBe(cost)
   expect(fixture.workspace).not.toHaveBeenCalled()
   expect(fixture.limits).not.toHaveBeenCalled()
   expect(fixture.transaction).not.toHaveBeenCalled()
+})
+
+it('reports the same scaled components as the final account charge', async () => {
+  expect(
+    await recordModelUsage(scope, usage, {
+      input: 0.75,
+      output: 0.5,
+      total: 1.25,
+      estimated: true,
+      currency: 'USD',
+      status: 'estimated',
+    })
+  ).toEqual({
+    input: 2.25,
+    output: 1.5,
+    total: 3.75,
+    estimated: true,
+    currency: 'USD',
+    status: 'estimated',
+  })
+  expect(parameters(fixture.writes[0].values.currentPeriodCost)).toEqual([3.75])
+})
+
+it('uses the existing model-tier multiplier for direct account-funded model work', async () => {
+  fixture.workspace.mockResolvedValue(
+    context({ tier: { workflowModelCostMultiplier: '2' } as BillingTierRecord })
+  )
+  const report = await recordModelUsage({ ...scope, purpose: 'vision' }, usage, cost)
+  expect(report).toEqual({ ...cost, total: 2.5 })
+  expect(parameters(fixture.writes[0].values.currentPeriodCost)).toEqual([report.total])
+})
+
+it('reports BYOK standard estimates without checking or debiting the Studio model balance', async () => {
+  fixture.limits.mockResolvedValue({ isExceeded: true, message: 'Allowance exhausted' })
+  const byok = { ...scope, funding: 'byok' as const }
+  await expect(assertModelUsageAllowed(byok)).resolves.toBeUndefined()
+  expect(await recordModelUsage(byok, usage, cost)).toEqual({ ...cost, accountCost: null })
+  expect(await recordModelUsage(byok, usage, { status: 'unavailable' })).toEqual({
+    status: 'unavailable',
+    accountCost: null,
+  })
+  expect(fixture.enabled).not.toHaveBeenCalled()
+  expect(fixture.limits).not.toHaveBeenCalled()
+  expect(fixture.workspace).not.toHaveBeenCalled()
+  expect(fixture.transaction).not.toHaveBeenCalled()
+})
+
+it('persists native dollar reports using the same Studio-tier amount as account usage', async () => {
+  const observed = { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }
+  const accounting = await usageProcessors(scope)
+  const agent = new Agent({
+    ...NATIVE_AGENT_POLICY,
+    id: 'account-priced-native-report',
+    name: 'Account priced native report',
+    instructions: '',
+    model: new MastraLanguageModelV2Mock({
+      doGenerate: async () => ({
+        content: [{ type: 'text', text: 'Completed answer' }],
+        usage: observed,
+        finishReason: 'stop',
+        warnings: [],
+      }),
+    }),
+    inputProcessors: accounting.inputProcessors,
+    outputProcessors: accounting.outputProcessors,
+  })
+
+  const response = await agent.generate('hello', { runId: scope.runId, maxSteps: 1 })
+  await accounting.verifyComplete()
+  const report = accounting.getCost()
+  expect(report).toMatchObject({
+    input: expect.closeTo(0.006, 12),
+    output: expect.closeTo(0.0024, 12),
+    total: expect.closeTo(0.0084, 12),
+    status: 'estimated',
+    currency: 'USD',
+  })
+  const assistant = response.messages.find((message) => message.role === 'assistant')!
+  expect(projectNativeMessage(assistant).cost).toEqual(report)
+  expect(fixture.writes).toHaveLength(1)
+  for (const field of [
+    'totalCost',
+    'currentPeriodCost',
+    'totalCopilotCost',
+    'currentPeriodCopilotCost',
+  ]) {
+    expect(parameters(fixture.writes[0].values[field])).toEqual([report.total])
+  }
+})
+
+it('persists standard BYOK prices through native generation when the Studio balance is exhausted', async () => {
+  fixture.limits.mockResolvedValue({ isExceeded: true, message: 'Allowance exhausted' })
+  const nativeScope = { ...scope, funding: 'byok' as const }
+  const accounting = await usageProcessors(nativeScope)
+  const agent = new Agent({
+    ...NATIVE_AGENT_POLICY,
+    id: 'byok-priced-native-report',
+    name: 'BYOK priced native report',
+    instructions: '',
+    model: new MastraLanguageModelV2Mock({
+      doGenerate: async () => ({
+        content: [{ type: 'text', text: 'BYOK answer' }],
+        usage: { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 },
+        finishReason: 'stop',
+        warnings: [],
+      }),
+    }),
+    inputProcessors: accounting.inputProcessors,
+    outputProcessors: accounting.outputProcessors,
+  })
+  const response = await agent.generate('hello', { runId: nativeScope.runId, maxSteps: 1 })
+  await accounting.verifyComplete()
+  const report = accounting.getCost()
+  expect(report).toMatchObject({ total: 0.0028, status: 'estimated', accountCost: null })
+  const assistant = response.messages.find((message) => message.role === 'assistant')!
+  expect(projectNativeMessage(assistant).cost).toMatchObject({ total: 0.0028, status: 'estimated' })
+  expect(fixture.writes).toEqual([])
+  expect(fixture.limits).not.toHaveBeenCalled()
+  expect(fixture.workspace).not.toHaveBeenCalled()
+})
+
+it('does not claim an account charge when its required ledger is missing', async () => {
+  fixture.transaction.mockImplementationOnce(async (operation) =>
+    operation({
+      select: () => ({ from: () => ({ where: () => ({ for: async () => [] }) }) }),
+    })
+  )
+  await expect(recordModelUsage(scope, usage, cost)).rejects.toThrow('billing ledger is missing')
+  expect(fixture.writes).toEqual([])
+  expect(fixture.threshold).not.toHaveBeenCalled()
 })
 
 it('rejects usage-limit exhaustion for the resolved scope before model admission', async () => {

@@ -390,6 +390,7 @@ async function* generate(
         workflowId: run.workflowId,
         runId: run.runId,
         purpose: 'copilot',
+        funding: 'account',
         signal,
       },
       { apiKey, maxSteps: 50 }

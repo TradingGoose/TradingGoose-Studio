@@ -401,6 +401,54 @@ describe('canonical workflow usage settlement', () => {
     expect(state.ledgers.user?.totalCost).toBe(2.25)
   })
 
+  it('reports BYOK provider estimates without charging them to the Studio ledger', async () => {
+    const original = span()
+    const byok = {
+      ...original,
+      inference: { ...original.inference, cost: { ...original.inference.cost, accountCost: null } },
+    }
+    state.modelMultiplier.mockReturnValue(3)
+    const result = await logger.completeWorkflowExecution({ ...completion, traceSpans: [byok] })
+    expect(result.cost).toMatchObject({ total: 0.25, modelCost: 0, baseExecutionCharge: 0.25 })
+    expect(result.executionData.traceSpans?.[0].inference?.cost).toMatchObject({
+      total: 2,
+      accountCost: null,
+    })
+    expect(state.ledgers.user).toMatchObject({ totalCost: 0.25, totalTokensUsed: 150 })
+    await logger.settleWorkflowExecutionUsage('execution')
+    expect(state.ledgers.user?.totalCost).toBe(0.25)
+  })
+
+  it('charges mixed funding once using the saved Studio quote and preserves BYOK step estimates', async () => {
+    const byok = {
+      ...span(),
+      inference: { ...span().inference, cost: { ...span().inference.cost, accountCost: null } },
+    }
+    const account = { ...span(1, 100), id: 'account' }
+    state.log.executionData.traceSpans = [byok, account]
+    state.modelMultiplier.mockReturnValue(3)
+    await logger.settleWorkflowExecutionUsage('execution')
+    expect(state.ledgers.user?.totalCost).toBe(3.25)
+    state.modelMultiplier.mockReturnValue(9)
+    const result = await logger.completeWorkflowExecution({
+      ...completion,
+      traceSpans: [byok, { ...span(2, 200), id: 'account' }],
+    })
+    expect(result.cost).toMatchObject({
+      total: 6.25,
+      modelCost: 6,
+      baseExecutionCharge: 0.25,
+      models: { model: { total: 6, tokens: { total: 350 } } },
+    })
+    expect(state.ledgers.user).toMatchObject({
+      totalCost: result.cost?.total,
+      totalTokensUsed: 350,
+    })
+    expect(state.modelMultiplier).toHaveBeenCalledOnce()
+    await logger.settleWorkflowExecutionUsage('execution')
+    expect(state.ledgers.user?.totalCost).toBe(6.25)
+  })
+
   it('accrues nested native model costs once', async () => {
     const original = span()
     const nested = {

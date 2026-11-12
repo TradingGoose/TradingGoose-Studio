@@ -54,7 +54,7 @@ beforeEach(() => {
     apiKey: 'admin-key',
   }))
   state.admit.mockResolvedValue(undefined)
-  state.accept.mockResolvedValue(undefined)
+  state.accept.mockImplementation(async (_scope, _usage, cost) => cost)
   state.model = new MastraLanguageModelV2Mock({
     doGenerate: async (request) => {
       state.requests.push(request)
@@ -210,9 +210,9 @@ describe('built-in stateless completions', () => {
 
   it('keeps observed usage when cancellation wins after the model response', async () => {
     const controller = new AbortController()
-    state.accept.mockImplementationOnce(async () => {
+    state.accept.mockImplementationOnce(async (_scope, _usage, cost) => {
       controller.abort()
-      return undefined
+      return cost
     })
     expect(await completeCopilot(input, controller.signal)).toMatchObject({
       status: 'cancel_requested',

@@ -107,7 +107,9 @@ export function calculateCostSummary(traceSpans: any[]) {
     if (!facts || (id && seen.has(id))) return
     if (id) seen.add(id)
     if (facts.cost || facts.tokens || facts.model) {
-      const cost = sumNativeCosts([facts.cost ?? { status: 'unavailable' }])
+      const reference = sumNativeCosts([facts.cost ?? { status: 'unavailable' }])
+      // BYOK estimates remain on the span; workflow settlement prices account-funded usage.
+      const cost = reference.accountCost ?? reference
       const component = { ...facts, cost }
       components.push(component)
       if (cost.status === 'partial' || cost.status === 'unavailable') unavailableComponents += 1

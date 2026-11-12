@@ -169,6 +169,7 @@ export class AgentBlockHandler implements BlockHandler {
         workflowId: context.workflowId,
         runId,
         purpose: 'workflow-agent',
+        funding: inputs.apiKey ? 'byok' : 'account',
         executionId: context.executionId,
         signal,
       },

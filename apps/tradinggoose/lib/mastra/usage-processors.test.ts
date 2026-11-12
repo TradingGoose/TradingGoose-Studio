@@ -13,13 +13,19 @@ vi.mock('@/lib/billing/model-usage', () => ({
   assertModelUsageAllowed: billing.admit,
   recordModelUsage: billing.record,
 }))
-const scope = { actorUserId: 'actor', runId: 'run', purpose: 'copilot', model: 'openai/gpt-4.1' }
+const scope = {
+  actorUserId: 'actor',
+  funding: 'account' as const,
+  runId: 'run',
+  purpose: 'copilot',
+  model: 'openai/gpt-4.1',
+}
 const usage = { inputTokens: 2, outputTokens: 3, totalTokens: 5 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   billing.admit.mockResolvedValue(undefined)
-  billing.record.mockResolvedValue(undefined)
+  billing.record.mockImplementation(async (_scope, _usage, cost) => cost)
 })
 
 async function generate(
@@ -177,7 +183,7 @@ it.each(['generate', 'stream'] as const)(
     expect(execute).not.toHaveBeenCalled()
 
     // The same valid tool call runs when its centralized accounting succeeds.
-    billing.record.mockResolvedValue(undefined)
+    billing.record.mockImplementation(async (_scope, _usage, cost) => cost)
     const allowed = await usageProcessors({ ...scope, runId: `${scope.runId}-allowed` })
     const allowedOptions = {
       ...options,
@@ -243,8 +249,9 @@ it.each(
       }
     })
   if (outcome === 'after-accounted')
-    billing.record.mockImplementation(async () => {
+    billing.record.mockImplementation(async (_scope, _usage, cost) => {
       abort.abort(failure)
+      return cost
     })
   if (outcome === 'pre-abort') abort.abort(failure)
   const accounting = await usageProcessors(

@@ -52,6 +52,31 @@ beforeEach(() => {
   native.generate.mockResolvedValue(result)
 })
 describe('native AI HTTP handler', () => {
+  it.each([
+    { apiKey: undefined, funding: 'account' },
+    { apiKey: '', funding: 'account' },
+    { apiKey: 'caller-key', funding: 'byok' },
+  ])(
+    'derives $funding funding from the selected request key $apiKey',
+    async ({ apiKey, funding }) => {
+      const response = await handleAIProviderRequest({
+        body: {
+          model: 'openai/gpt-4.1',
+          apiKey,
+          funding: funding === 'byok' ? 'account' : 'byok',
+        } as any,
+        requestId: 'credential-origin',
+        authUserId: 'actor',
+      })
+
+      expect(response.status).toBe(200)
+      expect(native.finance).toHaveBeenCalledWith(
+        expect.objectContaining({ actorUserId: 'actor', funding })
+      )
+      expect(JSON.stringify(native.finance.mock.calls)).not.toContain('caller-key')
+    }
+  )
+
   it('requires and exactly validates the resolved canonical model', async () => {
     const missing = await handleAIProviderRequest({ body: {}, requestId: 'missing' })
     expect(missing.status).toBe(400)

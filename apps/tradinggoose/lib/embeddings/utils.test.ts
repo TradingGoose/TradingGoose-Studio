@@ -46,10 +46,32 @@ beforeEach(() => {
   })
   mocks.key.mockResolvedValue({ defaultApiKey: 'request-local' })
   mocks.admit.mockResolvedValue(undefined)
-  mocks.accept.mockResolvedValue(undefined)
+  mocks.accept.mockImplementation(async (_scope, _usage, cost) => cost)
 })
 
 describe('native embeddings', () => {
+  it('reports the authoritative account-funded amount returned by usage recording', async () => {
+    const charged = {
+      input: 0.00000006,
+      output: 0,
+      total: 0.00000006,
+      status: 'estimated' as const,
+      estimated: true,
+      currency: 'USD',
+    }
+    mocks.embed.mockResolvedValueOnce({ embeddings: [[1]], usage: { tokens: 1 } })
+    mocks.accept.mockResolvedValueOnce(charged)
+
+    const result = await generateEmbeddings(['one'], scope)
+
+    expect(result.cost).toEqual(charged)
+    expect(mocks.accept).toHaveBeenCalledWith(
+      expect.objectContaining({ ...scope, funding: 'account' }),
+      { inputTokens: 1, totalTokens: 1 },
+      expect.objectContaining({ total: expect.closeTo(0.00000002, 12) })
+    )
+  })
+
   it('keeps vectors ordered and accounts each native batch once', async () => {
     mocks.embed
       .mockResolvedValueOnce({ embeddings: [[1], [2]], usage: { tokens: 10 } })
@@ -181,15 +203,45 @@ describe('native embeddings', () => {
 it('uses explicit request-local credentials without resolving or mutating service/environment keys', async () => {
   const original = process.env.OPENAI_API_KEY
   mocks.embed.mockResolvedValue({ embeddings: [[1]] })
-  await generateEmbeddings(['first'], { ...scope, apiKey: 'first-key' })
-  await generateEmbeddings(['second'], { ...scope, apiKey: 'second-key' })
+  const first = await generateEmbeddings(['first'], { ...scope, apiKey: 'first-key' })
+  const second = await generateEmbeddings(['second'], { ...scope, apiKey: 'second-key' })
   expect(mocks.configs).toEqual([
     { id: 'openai/text-embedding-3-small', apiKey: 'first-key' },
     { id: 'openai/text-embedding-3-small', apiKey: 'second-key' },
   ])
   expect(mocks.key).not.toHaveBeenCalled()
+  expect(first.cost).toMatchObject({ accountCost: null })
+  expect(second.cost).toMatchObject({ accountCost: null })
+  for (const [usedScope] of mocks.admit.mock.calls) expect(usedScope.funding).toBe('byok')
   expect(process.env.OPENAI_API_KEY).toBe(original)
   expect(JSON.stringify(mocks.admit.mock.calls)).not.toMatch(/first-key|second-key|apiKey/)
+})
+
+it.each(['', '  '])(
+  'rejects a blank BYOK key %j before any account fallback or contact',
+  async (apiKey) => {
+    await expect(generateEmbeddings(['one'], { ...scope, apiKey })).rejects.toThrow(
+      'nonempty request-local embedding API key'
+    )
+    expect(mocks.key).not.toHaveBeenCalled()
+    expect(mocks.admit).not.toHaveBeenCalled()
+    expect(mocks.embed).not.toHaveBeenCalled()
+  }
+)
+
+it('keeps BYOK cost report-only after a later batch fails', async () => {
+  mocks.embed
+    .mockResolvedValueOnce({ embeddings: [[1], [2]], usage: { tokens: 10 } })
+    .mockRejectedValueOnce(new Error('second batch failed'))
+  await expect(
+    generateEmbeddings(['one', 'two', 'three'], { ...scope, apiKey: 'caller-key' })
+  ).rejects.toMatchObject({
+    cost: {
+      status: 'partial',
+      availableTotal: expect.closeTo(0.0000002, 12),
+      accountCost: null,
+    },
+  })
 })
 
 it('keeps a valid long native input beyond the grouping target byte-for-byte and rejects native-limit excess before credentials/admission', async () => {

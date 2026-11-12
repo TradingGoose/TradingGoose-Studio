@@ -34,8 +34,9 @@ import { generateEmbeddings } from '@/lib/embeddings/utils'
 beforeEach(() => {
   mocks.order.length = 0
   vi.clearAllMocks()
-  mocks.accept.mockImplementation(async () => {
+  mocks.accept.mockImplementation(async (_scope, _usage, cost) => {
     mocks.order.push('accept')
+    return cost
   })
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -78,6 +79,7 @@ describe('installed native direct embedding transport', () => {
       expect.closeTo(0.00004096, 12),
       expect.closeTo(0.00000002, 12),
     ])
+    expect(mocks.accept.mock.calls.every(([scope]) => scope.funding === 'account')).toBe(true)
   })
 
   it.each([429, 500])(
@@ -143,5 +145,8 @@ it('uses each request-owned credential and actual abort signal without changing 
   expect(one.tokens).toEqual({})
   expect(two.tokens).toEqual({})
   expect(one.usage.status).toBe('unavailable')
+  expect(one.cost).toMatchObject({ accountCost: null })
+  expect(two.cost).toMatchObject({ accountCost: null })
+  expect(mocks.accept.mock.calls.every(([scope]) => scope.funding === 'byok')).toBe(true)
   expect(fetch).toHaveBeenCalledTimes(2)
 })

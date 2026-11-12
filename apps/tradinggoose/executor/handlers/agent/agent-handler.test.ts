@@ -230,14 +230,14 @@ describe('configured endpoint response schemas', () => {
   ])(
     'preserves and validates the configured $provider schema (valid=$valid)',
     async ({ provider, valid }) => {
-      const model = `${provider}/exact-schema-model`
+      const model = `${provider}/gpt-3.5-turbo`
       vi.stubEnv(
         'MASTRA_MODEL_PROVIDERS',
         JSON.stringify({
           [provider]: {
             name: 'Configured',
             url: 'https://endpoint.invalid/v1',
-            models: ['exact-schema-model'],
+            models: ['gpt-3.5-turbo'],
           },
         })
       )
@@ -264,7 +264,7 @@ describe('configured endpoint response schemas', () => {
       const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
         expect(String(url)).toBe('https://endpoint.invalid/v1/chat/completions')
         const body = JSON.parse(String(init?.body))
-        expect(body.model).toBe('exact-schema-model')
+        expect(body.model).toBe('gpt-3.5-turbo')
         expect(body.response_format).toMatchObject({
           type: 'json_schema',
           json_schema: { schema: responseFormat.schema },
@@ -301,6 +301,25 @@ describe('configured endpoint response schemas', () => {
 })
 
 describe('native Agent workflow execution', () => {
+  it.each([
+    { apiKey: undefined, funding: 'account' },
+    { apiKey: '', funding: 'account' },
+    { apiKey: 'caller-key', funding: 'byok' },
+  ])(
+    'derives $funding workflow funding from the actual key override $apiKey',
+    async ({ apiKey, funding }) => {
+      await new AgentBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', apiKey, userPrompt: 'Answer' },
+        context()
+      )
+      expect(state.finance).toHaveBeenCalledWith(
+        expect.objectContaining({ funding, actorUserId: 'user-1', workflowId: 'workflow-1' })
+      )
+      expect(JSON.stringify(state.finance.mock.calls)).not.toContain('caller-key')
+    }
+  )
+
   it.each(
     [0, -1, 1.5, Number.POSITIVE_INFINITY, 'invalid', '0', false, [], {}].map((maxSteps) => ({
       maxSteps,

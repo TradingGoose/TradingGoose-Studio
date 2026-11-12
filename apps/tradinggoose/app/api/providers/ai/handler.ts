@@ -54,6 +54,7 @@ export async function handleAIProviderRequest({
       executionId,
       runId: requestId,
       purpose: 'workflow-provider',
+      funding: body.apiKey ? 'byok' : 'account',
       signal,
     },
     {

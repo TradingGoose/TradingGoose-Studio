@@ -66,6 +66,7 @@ export async function generateEmbeddings(
     throw Object.assign(new Error('A nonempty request-local embedding API key is required'), {
       status: 400,
     })
+  const funding: ModelUsageScope['funding'] = apiKey === undefined ? 'account' : 'byok'
   if (apiKey === undefined && model.startsWith('openai/'))
     apiKey = (await resolveOpenAIServiceConfig()).defaultApiKey || undefined
   const embedder = new ModelRouterEmbeddingModel(resolveConfiguredModel(model, apiKey))
@@ -88,7 +89,10 @@ export async function generateEmbeddings(
             : 'partial',
       batches: batchCount,
     },
-    cost: sumNativeCosts(costs),
+    cost: {
+      ...sumNativeCosts(costs),
+      ...(funding === 'byok' ? { accountCost: null } : {}),
+    },
   })
   try {
     const usageScope: ModelUsageScope = {
@@ -99,6 +103,7 @@ export async function generateEmbeddings(
       signal: scope.signal,
       runId: scope.runId ?? randomUUID(),
       purpose: 'embedding',
+      funding,
       model,
     }
     for (const batch of batches) {
@@ -124,10 +129,13 @@ export async function generateEmbeddings(
                 inputTokens: result.usage.tokens,
                 totalTokens: result.usage.tokens,
               }
-        const cost = await calculateNativeCost(model, usage, result.providerMetadata)
+        const cost: NativeCost = {
+          ...(await calculateNativeCost(model, usage, result.providerMetadata)),
+          ...(funding === 'byok' ? { accountCost: null } : {}),
+        }
         costs.push(cost)
         awaitingUsage = false
-        await recordModelUsage(usageScope, usage, cost)
+        costs[costs.length - 1] = await recordModelUsage(usageScope, usage, cost)
         scope.signal?.throwIfAborted()
         if (result.embeddings.length !== values.length) {
           throw new Error(

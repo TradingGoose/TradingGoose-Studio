@@ -106,6 +106,7 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
         workspaceId,
         runId: requestId,
         purpose: 'hallucination-scoring',
+        funding: apiKey ? 'byok' : 'account',
         signal,
         workflowId,
         executionId,

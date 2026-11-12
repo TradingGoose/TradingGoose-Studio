@@ -62,7 +62,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   boundary.requests.length = 0
   boundary.admit.mockResolvedValue(undefined)
-  boundary.accept.mockResolvedValue(undefined)
+  boundary.accept.mockImplementation(async (_scope, _usage, cost) => cost)
   boundary.owner.mockResolvedValue({
     ok: true,
     workflowId: context.workflowId,

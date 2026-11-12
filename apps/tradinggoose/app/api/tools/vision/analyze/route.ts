@@ -170,6 +170,7 @@ export async function POST(request: NextRequest) {
         executionId: scope.executionId,
         runId: requestId,
         purpose: 'vision',
+        funding: validatedData.apiKey ? 'byok' : 'account',
         signal: request.signal,
       },
       { apiKey: validatedData.apiKey, modelSettings: { maxOutputTokens: 1024 } }

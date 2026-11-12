@@ -108,7 +108,10 @@ beforeEach(() => {
   boundary.requests.length = 0
   boundary.finishReason = 'stop'
   boundary.admit.mockResolvedValue({ isExceeded: false })
-  boundary.accept.mockResolvedValue(undefined)
+  boundary.accept.mockImplementation(async ({ cost }) => ({
+    currentUsageBefore: 0,
+    currentUsageAfter: cost,
+  }))
   boundary.session.mockResolvedValue({ user: { id: context.userId } })
   boundary.activeExecution = {
     workflowId: context.workflowId,
@@ -385,6 +388,44 @@ it('accounts for an authorized standalone workspace request through the real Age
     boundary.contact.mock.invocationCallOrder[0]
   )
 })
+
+it.each([true, false])(
+  'retains workspace authorization for report-only BYOK usage (authorized=%s)',
+  async (authorized) => {
+    boundary.access.mockResolvedValue({ hasAccess: authorized })
+    boundary.admit.mockResolvedValue({ isExceeded: true })
+    const response = await POST(
+      new NextRequest('http://localhost/api/providers', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerNamespace: 'ai',
+          model: 'openai/gpt-4.1',
+          apiKey: 'caller-provider-key',
+          funding: 'account',
+          workspaceId: context.workspaceId,
+          messages: [{ role: 'user', content: 'hello' }],
+        }),
+      })
+    )
+
+    expect(response.status).toBe(authorized ? 200 : 403)
+    expect(boundary.access).toHaveBeenCalledExactlyOnceWith(context.workspaceId, context.userId)
+    expect(boundary.admit).not.toHaveBeenCalled()
+    expect(boundary.accept).not.toHaveBeenCalled()
+    expect(boundary.contact).toHaveBeenCalledTimes(authorized ? 1 : 0)
+    const body = await response.json()
+    if (authorized)
+      expect(body).toMatchObject({
+        content: 'exact scoped output',
+        cost: {
+          status: 'estimated',
+          total: expect.closeTo(0.000012, 10),
+          accountCost: null,
+        },
+      })
+    expect(JSON.stringify(body)).not.toContain('caller-provider-key')
+  }
+)
 
 it.each(['session', 'internal-without-execution', 'internal-without-settlement', 'other-workflow'])(
   'charges an authorized workflow request using %s even when its body claims an active execution',

@@ -63,6 +63,64 @@ describe('public active result facts', () => {
   })
 })
 
+describe('account-funded cost projection', () => {
+  const byok = {
+    input: 1.5,
+    output: 0.5,
+    total: 2,
+    currency: 'USD',
+    estimated: true,
+    status: 'estimated' as const,
+    accountCost: null,
+  }
+  const account = {
+    input: 0.75,
+    output: 0.25,
+    total: 1,
+    currency: 'USD',
+    status: 'estimated' as const,
+  }
+
+  it('retains standard reference dollars and the account subtotal through nested aggregation', () => {
+    const combined = sumNativeCosts([byok, account])
+    expect(combined).toMatchObject({
+      input: 2.25,
+      output: 0.75,
+      total: 3,
+      accountCost: { input: 0.75, output: 0.25, total: 1, status: 'estimated' },
+    })
+    const nested = sumNativeCosts([combined, byok])
+    expect(nested).toMatchObject({ total: 5, accountCost: { total: 1 } })
+    expect(sumNativeCosts(JSON.parse(JSON.stringify([combined, byok])))).toEqual(nested)
+    expect(byok.total).toBe(2)
+    expect(byok.accountCost).toBeNull()
+    expect(sumNativeCosts([account])).not.toHaveProperty('accountCost')
+  })
+
+  it('keeps unknown BYOK reference prices separate from a known account subtotal', () => {
+    const unknownByok = { status: 'unavailable' as const, accountCost: null }
+    expect(sumNativeCosts([unknownByok, account])).toMatchObject({
+      status: 'partial',
+      availableTotal: 1,
+      accountCost: { total: 1, status: 'estimated' },
+    })
+    expect(sumNativeCosts([unknownByok])).toMatchObject({
+      status: 'unavailable',
+      accountCost: { total: 0, status: 'reported' },
+    })
+  })
+
+  it('does not make unknown account prices known by adding a BYOK estimate', () => {
+    const cost = sumNativeCosts([byok, { status: 'unavailable' }])
+    expect(cost).toMatchObject({
+      status: 'partial',
+      availableTotal: 2,
+      accountCost: { status: 'partial', availableTotal: 0 },
+    })
+    expect(cost.accountCost).not.toHaveProperty('total')
+  })
+})
+
 describe('native per-step USD pricing', () => {
   it.each(['vercel/openai/gpt-4o', 'openrouter/model'])(
     'uses standard catalog prices for %s independently of provider dollar and BYOK metadata',

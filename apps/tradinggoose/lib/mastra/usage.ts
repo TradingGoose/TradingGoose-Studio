@@ -17,6 +17,8 @@ export interface NativeCost {
   availableTotal?: number
   currency?: string
   status: 'reported' | 'estimated' | 'unavailable' | 'partial'
+  /** BYOK is report-only; aggregates retain only their account-funded subtotal here. */
+  accountCost?: Omit<NativeCost, 'accountCost'> | null
 }
 
 export function sumNativeUsage(steps: Array<{ usage?: NativeUsage }>): NativeUsage {
@@ -152,8 +154,7 @@ export async function calculateNativeCost(
   }
 }
 
-/** One projection of the step costs used for accrual; unknown steps never become free steps. */
-export function sumNativeCosts(costs: NativeCost[]): NativeCost {
+function sumCostAmounts(costs: NativeCost[]): NativeCost {
   if (!costs.length) return { status: 'unavailable' }
   if (costs.some((cost) => cost.currency !== undefined && cost.currency !== 'USD'))
     return { status: 'unavailable' }
@@ -185,6 +186,21 @@ export function sumNativeCosts(costs: NativeCost[]): NativeCost {
       ? { output: costs.reduce((sum, cost) => sum + cost.output!, 0) }
       : {}),
   }
+}
+
+/** Preserve reference estimates and their account-funded subtotal using the same arithmetic. */
+export function sumNativeCosts(costs: NativeCost[]): NativeCost {
+  const cost = sumCostAmounts(costs)
+  if (costs.some((component) => component.accountCost !== undefined)) {
+    cost.accountCost = sumCostAmounts(
+      costs.map((component) =>
+        component.accountCost === null
+          ? { input: 0, output: 0, total: 0, currency: 'USD', status: 'reported' }
+          : (component.accountCost ?? component)
+      )
+    )
+  }
+  return cost
 }
 
 export function resultAccounting(

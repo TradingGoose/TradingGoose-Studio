@@ -31,6 +31,7 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
       workspaceId: request.scope.workspaceId ?? undefined,
       runId,
       purpose: request.purpose,
+      funding: 'account',
       signal,
     },
     {

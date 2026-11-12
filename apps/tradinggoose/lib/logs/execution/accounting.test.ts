@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { TraceSpan } from '@/lib/logs/types'
 import { type InferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
-import { resultAccounting } from '@/lib/mastra/usage'
+import { resultAccounting, sumNativeCosts } from '@/lib/mastra/usage'
 
 vi.mock('@tradinggoose/db', () => ({ db: {} }))
 
@@ -26,6 +26,53 @@ function callback(toolCallId: string, facts: Facts) {
 }
 
 describe('execution native accounting', () => {
+  it('retains BYOK reference estimates while summarizing only account-funded dollars', () => {
+    const byok = span('byok', {
+      model: 'native/shared',
+      tokens: { total: 15 },
+      cost: { input: 1.5, output: 0.5, total: 2, status: 'estimated', accountCost: null },
+    })
+    const account = span('account', {
+      model: 'native/shared',
+      tokens: { total: 10 },
+      cost: { input: 0.75, output: 0.25, total: 1, status: 'estimated' },
+    })
+    const result = calculateCostSummary([byok, account, { ...byok }])
+    expect(result).toMatchObject({
+      totalCost: 1,
+      modelCost: 1,
+      totalInputCost: 0.75,
+      totalOutputCost: 0.25,
+      totalTokens: 25,
+      models: { 'native/shared': { total: 1, tokens: { total: 25 } } },
+    })
+    expect(byok.inference?.cost).toMatchObject({ total: 2, accountCost: null })
+    expect(calculateCostSummary(JSON.parse(JSON.stringify([byok, account])))).toEqual(result)
+  })
+
+  it('keeps mixed guardrail funding through aggregation and JSON transport', () => {
+    const cost = sumNativeCosts([
+      { total: 1, status: 'estimated' },
+      { total: 2, status: 'estimated', accountCost: null },
+    ])
+    const guardrail = span('guardrail', { cost, tokens: { total: 30 } })
+    expect(cost.total).toBe(3)
+    expect(calculateCostSummary(JSON.parse(JSON.stringify([guardrail])))).toMatchObject({
+      totalCost: 1,
+      modelCost: 1,
+      totalTokens: 30,
+    })
+  })
+
+  it('does not make account charges unknown because a BYOK estimate is unavailable', () => {
+    expect(
+      calculateCostSummary([
+        span('byok', { cost: { status: 'unavailable', accountCost: null }, tokens: { total: 3 } }),
+        span('account', { cost: { total: 1, status: 'estimated' }, tokens: { total: 2 } }),
+      ])
+    ).toMatchObject({ totalCost: 1, totalTokens: 5, status: 'estimated', unavailableComponents: 0 })
+  })
+
   it('keeps execution-only workflows at zero without inventing model token counts', () => {
     expect(calculateCostSummary([])).toMatchObject({
       totalCost: 0,

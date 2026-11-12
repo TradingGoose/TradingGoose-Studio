@@ -250,7 +250,7 @@ beforeEach(() => {
   m.fetch.mockRejectedValue(new Error('External Copilot is unavailable'))
   vi.stubGlobal('fetch', m.fetch)
   m.admit.mockResolvedValue(undefined)
-  m.accept.mockResolvedValue(undefined)
+  m.accept.mockImplementation(async (_scope, _usage, cost) => cost)
   m.business.mockResolvedValue(undefined)
   m.contexts.mockReset().mockResolvedValue([])
   m.credential.mockReset()

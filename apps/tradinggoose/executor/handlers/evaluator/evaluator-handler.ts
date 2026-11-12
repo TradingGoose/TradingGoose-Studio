@@ -55,6 +55,7 @@ ${metrics.map((metric: any) => `${metric.name} (${metric.range.min}-${metric.ran
           workflowId: context.workflowId,
           runId,
           purpose: 'workflow-evaluator',
+          funding: inputs.apiKey ? 'byok' : 'account',
           executionId: context.executionId,
           signal: cancellation.signal,
         },

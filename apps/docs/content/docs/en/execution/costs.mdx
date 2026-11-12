@@ -11,7 +11,7 @@ TradingGoose applies charges to the user or organization billing owner of the au
 
 - **Workflow execution** combines the configured base charge and tier execution multiplier with model costs and the tier model multiplier. Repeated settlement adds only newly completed usage. Child workflows settle independently.
 - **Function and custom-tool runtime** uses the configured per-second charge and tier Function multiplier multiplied by actual runtime milliseconds divided by 1000. A contacted runtime attempt can incur this charge even when its code fails.
-- **Model and embedding work** uses reported token usage and standard published models.dev prices for reports, usage billing, and records. Copilot applies its Studio subscription-tier cost multiplier to account-funded usage; workflow model charges settle with the workflow.
+- **Model and embedding work** starts from reported token usage and standard published models.dev prices, including BYOK model estimates. BYOK estimates are report-only and do not debit the Studio model balance. For direct account-funded model calls, dollar reports and assistant records include the applicable Studio subscription-tier multiplier and match the accrued charge. Workflow steps retain standard estimates until settlement; the final workflow execution total applies its saved billing quote once to Studio-funded model usage, with existing execution fees unchanged.
 
 Usage checks run before model contact. A request can fail after generation if billing cannot complete.
 

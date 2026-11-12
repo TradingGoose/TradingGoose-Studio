@@ -3,7 +3,10 @@ import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { checkServerSideUsageLimits } from '@/lib/billing/calculations/usage-monitor'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
-import { getTierCopilotCostMultiplier } from '@/lib/billing/tiers'
+import {
+  getTierCopilotCostMultiplier,
+  getTierWorkflowModelCostMultiplier,
+} from '@/lib/billing/tiers'
 import { accrueUserUsageCost } from '@/lib/billing/usage-accrual'
 import {
   resolveWorkflowBillingContext,
@@ -13,6 +16,7 @@ import type { NativeCost, NativeUsage } from '@/lib/mastra/usage'
 
 export interface ModelUsageScope {
   actorUserId: string
+  funding: 'byok' | 'account'
   workspaceId?: string | null
   workflowId?: string | null
   executionId?: string
@@ -36,6 +40,7 @@ function resolveModelBillingContext(scope: ModelUsageScope) {
 
 export async function assertModelUsageAllowed(scope: ModelUsageScope) {
   scope.signal?.throwIfAborted()
+  if (scope.funding === 'byok') return
   const billingEnabled = await isBillingEnabledForRuntime()
   scope.signal?.throwIfAborted()
   if (!billingEnabled) return
@@ -56,9 +61,10 @@ export async function recordModelUsage(
   scope: ModelUsageScope,
   usage: NativeUsage,
   cost: NativeCost
-) {
+): Promise<NativeCost> {
+  if (scope.funding === 'byok') return { ...cost, accountCost: null }
   const copilot = ['copilot', 'title', 'wand'].includes(scope.purpose)
-  if (!(await isBillingEnabledForRuntime())) return
+  if (!(await isBillingEnabledForRuntime())) return cost
   if (!copilot && scope.workflowId && scope.workspaceId && scope.executionId) {
     const [execution] = await db
       .select({ id: workflowExecutionLogs.id })
@@ -73,7 +79,7 @@ export async function recordModelUsage(
         )
       )
       .limit(1)
-    if (execution) return
+    if (execution) return cost
   }
   if (cost.total !== undefined && (!Number.isFinite(cost.total) || cost.total < 0))
     throw new Error(`Model cost is unavailable for ${scope.model}`)
@@ -92,14 +98,14 @@ export async function recordModelUsage(
   if (tokens !== undefined && (!Number.isSafeInteger(tokens) || tokens < 0))
     throw new Error('Model token usage must be a nonnegative safe integer')
   const billingContext = await resolveModelBillingContext(scope)
+  const multiplier = copilot
+    ? getTierCopilotCostMultiplier(billingContext.tier)
+    : getTierWorkflowModelCostMultiplier(billingContext.tier)
   // Unknown model costs remain unknown; a zero ledger delta records only the usage counters.
-  const chargedCost =
-    usdCost === undefined
-      ? 0
-      : usdCost * (copilot ? getTierCopilotCostMultiplier(billingContext.tier) : 1)
+  const chargedCost = usdCost === undefined ? 0 : usdCost * multiplier
   if (!Number.isFinite(chargedCost) || chargedCost < 0)
     throw new Error('Model charge must be finite and nonnegative')
-  await accrueUserUsageCost({
+  const accrued = await accrueUserUsageCost({
     userId: scope.actorUserId,
     workspaceId: scope.workspaceId,
     workflowId: scope.workflowId,
@@ -125,4 +131,12 @@ export async function recordModelUsage(
         : {}),
     },
   })
+  if (!accrued) throw new Error('Model usage billing ledger is missing')
+  if (usdCost === undefined) return cost
+  const reportedCost = { ...cost, total: chargedCost }
+  for (const field of ['input', 'output', 'availableTotal'] as const) {
+    const amount = cost[field]
+    if (amount !== undefined) reportedCost[field] = amount * multiplier
+  }
+  return reportedCost
 }
