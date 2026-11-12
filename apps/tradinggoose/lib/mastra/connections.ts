@@ -4,6 +4,7 @@ import {
   defaultGateways,
   type MastraModelGatewayInterface,
   ModelRouterLanguageModel,
+  modelSupportsTemperature,
   type OpenAICompatibleConfig,
   type ProviderConfig,
   parseModelString,
@@ -92,8 +93,10 @@ export function resolveConfiguredModel(model: string, apiKey?: string): OpenAICo
 
 /** One request-owned public native model; final preparation preserves this exact selection. */
 export function createConfiguredLanguageModel(model: string, apiKey?: string) {
-  return new ModelRouterLanguageModel(
-    resolveConfiguredModel(model, apiKey),
-    Object.values(getConfiguredGateways())
-  )
+  const config = resolveConfiguredModel(model, apiKey)
+  if (config.url && modelSupportsTemperature(model) === false)
+    throw new Error(
+      `Configured model "${model}" conflicts with native Mastra sampling capabilities. Choose a distinct MASTRA_MODEL_PROVIDERS provider ID.`
+    )
+  return new ModelRouterLanguageModel(config, Object.values(getConfiguredGateways()))
 }

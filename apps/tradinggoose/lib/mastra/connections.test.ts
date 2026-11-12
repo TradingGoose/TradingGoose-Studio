@@ -93,16 +93,21 @@ describe('configured native connections', () => {
     }
   )
 
-  it.each(['local', 'ollama', 'vllm', 'openai'])(
-    'executes only configured %s IDs through native OpenAI-compatible routing',
-    async (provider) => {
+  it.each([
+    { provider: 'local', modelId: 'org/exact:model' },
+    { provider: 'ollama', modelId: 'org/exact:model' },
+    { provider: 'vllm', modelId: 'org/exact:model' },
+    { provider: 'openai', modelId: 'gpt-4.1' },
+  ])(
+    'preserves configured $provider/$modelId identity and sampling through native routing',
+    async ({ provider, modelId }) => {
       vi.stubEnv(
         'MASTRA_MODEL_PROVIDERS',
         JSON.stringify({
           [provider]: {
             name: 'Local',
             url: 'http://local.invalid/v1',
-            models: ['org/exact:model'],
+            models: [modelId],
             apiKeyEnvVar: ['LOCAL_KEY'],
           },
         })
@@ -113,22 +118,68 @@ describe('configured native connections', () => {
           new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } })
       )
       vi.stubGlobal('fetch', fetcher)
-      assertListedModel(`${provider}/org/exact:model`)
+      assertListedModel(`${provider}/${modelId}`)
       expect(() => assertListedModel(`${provider}/unlisted`)).toThrow('Select a listed')
       const registry = getModelRegistry().find(({ id }) => id === provider)!
-      expect(registry.models.map(({ id }) => id)).toEqual([`${provider}/org/exact:model`])
+      expect(registry.models.map(({ id }) => id)).toEqual([`${provider}/${modelId}`])
       expect(JSON.stringify(registry)).not.toMatch(/local.invalid|server-key|LOCAL_KEY/)
-      const native = createConfiguredLanguageModel(`${provider}/org/exact:model`, 'caller-key')
+      const native = createConfiguredLanguageModel(`${provider}/${modelId}`, 'caller-key')
       await native.doStream({
         prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+        temperature: 0.65,
+        topP: 0.8,
       })
       const [url, request] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
       expect(String(url)).toBe('http://local.invalid/v1/chat/completions')
-      expect(JSON.parse(request.body as string).model).toBe('org/exact:model')
+      expect(JSON.parse(request.body as string)).toMatchObject({
+        model: modelId,
+        temperature: 0.65,
+        top_p: 0.8,
+      })
       expect(new Headers(request.headers).get('authorization')).toBe('Bearer caller-key')
       expect(process.env.LOCAL_KEY).toBe('server-key')
     }
   )
+
+  it.each(['custom-chat', 'org/exact:model', 'gpt-5'])(
+    'rejects configured openai/%s when native sampling metadata would strip controls',
+    (modelId) => {
+      vi.stubEnv(
+        'MASTRA_MODEL_PROVIDERS',
+        JSON.stringify({
+          openai: { name: 'Configured', url: 'http://local.invalid/v1', models: [modelId] },
+        })
+      )
+      const fetcher = vi.fn()
+      vi.stubGlobal('fetch', fetcher)
+      expect(() => createConfiguredLanguageModel(`openai/${modelId}`, 'caller-key')).toThrow(
+        'Choose a distinct MASTRA_MODEL_PROVIDERS provider ID'
+      )
+      expect(fetcher).not.toHaveBeenCalled()
+    }
+  )
+
+  it('retains native sampling policy for a built-in model without a configured endpoint', async () => {
+    vi.stubEnv('MASTRA_MODEL_PROVIDERS', '{}')
+    vi.stubEnv('MASTRA_AZURE_OPENAI', '')
+    const fetcher = vi.fn(
+      async () =>
+        new Response('data: [DONE]\n\n', {
+          headers: { 'content-type': 'text/event-stream' },
+        })
+    )
+    vi.stubGlobal('fetch', fetcher)
+    await createConfiguredLanguageModel('openai/gpt-5', 'caller-key').doStream({
+      prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+      temperature: 0.65,
+      topP: 0.8,
+    })
+    const [, request] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
+    const body = JSON.parse(request.body as string)
+    expect(body.model).toBe('gpt-5')
+    expect(body).not.toHaveProperty('temperature')
+    expect(body).not.toHaveProperty('top_p')
+  })
 
   it('uses the native Azure gateway and exact configured deployment with a local key override', async () => {
     vi.stubEnv(
@@ -169,35 +220,41 @@ describe('configured native connections', () => {
   })
 })
 
-it('uses the same configured local connection for native embeddings', async () => {
-  vi.stubEnv(
-    'MASTRA_MODEL_PROVIDERS',
-    JSON.stringify({
-      local: {
-        name: 'Local',
-        url: 'http://local.invalid/v1',
-        models: ['org/embed'],
-        apiKeyEnvVar: ['LOCAL_KEY'],
-      },
-    })
-  )
-  vi.stubEnv('LOCAL_KEY', 'server-key')
-  const fetcher = vi.fn(async () =>
-    Response.json({
-      data: [{ index: 0, embedding: [1, 2] }],
-      usage: { prompt_tokens: 7, total_tokens: 7 },
-    })
-  )
-  vi.stubGlobal('fetch', fetcher)
-  const native = new ModelRouterEmbeddingModel(resolveConfiguredModel('local/org/embed'))
-  const result = await native.doEmbed({ values: ['hello'] })
-  expect(result.embeddings).toEqual([[1, 2]])
-  expect(result.usage?.tokens).toBe(7)
-  const [url, request] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
-  expect(String(url)).toBe('http://local.invalid/v1/embeddings')
-  expect(JSON.parse(request.body as string).model).toBe('org/embed')
-  expect(new Headers(request.headers).get('authorization')).toBe('Bearer server-key')
-})
+it.each([
+  { provider: 'local', modelId: 'org/embed' },
+  { provider: 'openai', modelId: 'text-embedding-3-small' },
+])(
+  'keeps configured $provider/$modelId in the separate native embedding lane',
+  async ({ provider, modelId }) => {
+    vi.stubEnv(
+      'MASTRA_MODEL_PROVIDERS',
+      JSON.stringify({
+        [provider]: {
+          name: 'Local',
+          url: 'http://local.invalid/v1',
+          models: [modelId],
+          apiKeyEnvVar: ['LOCAL_KEY'],
+        },
+      })
+    )
+    vi.stubEnv('LOCAL_KEY', 'server-key')
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        data: [{ index: 0, embedding: [1, 2] }],
+        usage: { prompt_tokens: 7, total_tokens: 7 },
+      })
+    )
+    vi.stubGlobal('fetch', fetcher)
+    const native = new ModelRouterEmbeddingModel(resolveConfiguredModel(`${provider}/${modelId}`))
+    const result = await native.doEmbed({ values: ['hello'] })
+    expect(result.embeddings).toEqual([[1, 2]])
+    expect(result.usage?.tokens).toBe(7)
+    const [url, request] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
+    expect(String(url)).toBe('http://local.invalid/v1/embeddings')
+    expect(JSON.parse(request.body as string).model).toBe(modelId)
+    expect(new Headers(request.headers).get('authorization')).toBe('Bearer server-key')
+  }
+)
 
 it.each([
   {
