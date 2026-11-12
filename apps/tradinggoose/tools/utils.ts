@@ -51,9 +51,7 @@ export function formatRequestParams(tool: ToolConfig, params: Record<string, any
 
   // Process method
   const method =
-    typeof tool.request.method === 'function'
-      ? tool.request.method(params)
-      : params.method || tool.request.method || 'GET'
+    typeof tool.request.method === 'function' ? tool.request.method(params) : tool.request.method
 
   // Process headers
   const headers = tool.request.headers ? tool.request.headers(params) : {}

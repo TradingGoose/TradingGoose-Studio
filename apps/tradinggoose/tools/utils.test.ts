@@ -164,13 +164,23 @@ describe('formatRequestParams', () => {
     })
   })
 
-  it.concurrent('should use method from params over tool default', () => {
-    const params = { method: 'POST' }
+  it.concurrent('keeps a static request method authoritative over business parameters', () => {
+    const params = { method: 'DELETE' }
     const result = formatRequestParams(mockTool, params)
 
+    expect(result.method).toBe('GET')
+    expect(result.body).toBeUndefined()
+    expect(mockTool.request.body).toHaveBeenCalledWith(params)
+  })
+
+  it.concurrent('uses an explicitly configured dynamic request method', () => {
+    const params = { method: 'POST' }
+    const result = formatRequestParams(
+      { ...mockTool, request: { ...mockTool.request, method: (input) => input.method } },
+      params
+    )
     expect(result.method).toBe('POST')
     expect(result.body).toBe(JSON.stringify({ data: 'test-data' }))
-    expect(mockTool.request.body).toHaveBeenCalledWith(params)
   })
 
   it.concurrent('should handle preformatted content types', () => {
@@ -183,7 +193,10 @@ describe('formatRequestParams', () => {
     mockTool.request.body = vi.fn().mockReturnValue('key1=value1&key2=value2')
 
     const params = { method: 'POST' }
-    const result = formatRequestParams(mockTool, params)
+    const result = formatRequestParams(
+      { ...mockTool, request: { ...mockTool.request, method: 'POST' } },
+      params
+    )
 
     expect(result.body).toBe('key1=value1&key2=value2')
   })
@@ -198,7 +211,10 @@ describe('formatRequestParams', () => {
     mockTool.request.body = vi.fn().mockReturnValue('{"prompt": "Hello"}\n{"prompt": "World"}')
 
     const params = { method: 'POST' }
-    const result = formatRequestParams(mockTool, params)
+    const result = formatRequestParams(
+      { ...mockTool, request: { ...mockTool.request, method: 'POST' } },
+      params
+    )
 
     expect(result.body).toBe('{"prompt": "Hello"}\n{"prompt": "World"}')
   })
