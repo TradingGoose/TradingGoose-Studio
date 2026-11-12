@@ -155,6 +155,17 @@ function setModel(...steps: ResponseStep[]) {
   })
 }
 
+function expectWorkspaceScope(request: unknown, workspaceId: string | null) {
+  expect(request).toMatchObject({
+    prompt: expect.arrayContaining([
+      expect.objectContaining({
+        role: 'system',
+        content: expect.stringContaining(JSON.stringify({ workspaceId })),
+      }),
+    ]),
+  })
+}
+
 async function command(input: Record<string, unknown>) {
   const selected = (input.scope ?? scope) as Scope
   const { scope: _scope, ...fields } = input
@@ -341,24 +352,23 @@ describe('built-in Copilot service bridge', () => {
   })
 
   it('executes a server read and continues generation within one local command', async () => {
-    setModel(
-      { tool: 'list_workflows', args: { workspaceId: 'workspace' } },
-      { text: 'One known workflow' }
-    )
+    const workspaceId = '550e8400-e29b-41d4-a716-446655440000'
+    setModel({ tool: 'list_workflows', args: { workspaceId } }, { text: 'One known workflow' })
     m.route.mockResolvedValueOnce({
       entityKind: 'workflow',
       entities: [{ entityId: 'workflow', entityName: 'Known' }],
       count: 1,
     })
-    const { result } = await message({ accessLevel: 'full' })
+    const { result } = await message({ scope: { ...scope, workspaceId }, accessLevel: 'full' })
+    expectWorkspaceScope(m.contacts[0], workspaceId)
     expect(result).toMatchObject({
       status: 'completed',
       text: 'One known workflow',
     })
     expect(m.route).toHaveBeenCalledExactlyOnceWith(
       'list_workflows',
-      { workspaceId: 'workspace' },
-      expect.objectContaining({ userId: 'actor', workspaceId: 'workspace' })
+      { workspaceId },
+      expect.objectContaining({ userId: 'actor', workspaceId })
     )
     expect(m.admit).toHaveBeenCalledTimes(2)
     expect(m.accept).toHaveBeenCalledTimes(2)
@@ -368,7 +378,13 @@ describe('built-in Copilot service bridge', () => {
     )
     expect(m.fetch).not.toHaveBeenCalled()
     if (result.status !== 'completed') throw new Error(JSON.stringify(result))
-    const history = (await command({ command: 'history.read', threadId: result.threadId })).result
+    const history = (
+      await command({
+        scope: { ...scope, workspaceId },
+        command: 'history.read',
+        threadId: result.threadId,
+      })
+    ).result
     if (history.status !== 'history') throw new Error(JSON.stringify(history))
     expect(history.items.filter((item) => item.role === 'assistant')).toMatchObject([
       {
@@ -376,6 +392,15 @@ describe('built-in Copilot service bridge', () => {
         cost: { status: 'unavailable' },
       },
     ])
+  })
+
+  it('identifies a personal conversation without inventing a selected workspace', async () => {
+    setModel({ text: 'Select a workspace to list its workflows.' })
+    const { result } = await message({ scope: { ...scope, workspaceId: null } })
+    expect(result.status).toBe('completed')
+    expectWorkspaceScope(m.contacts[0], null)
+    expect(JSON.stringify(m.contacts[0])).toContain('select a workspace')
+    expect(m.route).not.toHaveBeenCalled()
   })
 
   it('fails an exhausted native tool loop while retaining every step charge and releasing the conversation', async () => {
@@ -454,6 +479,7 @@ describe('built-in Copilot service bridge', () => {
     if (history.status !== 'history') throw new Error(JSON.stringify(history))
     expect(history.items[0].parts).toMatchObject([{ type: 'text', text: 'Hello' }])
     expect(JSON.stringify(history)).not.toContain(context.resolvedContent)
+    expect(JSON.stringify(history)).not.toContain('workspaceId')
     expect(
       (
         await command({
@@ -600,6 +626,7 @@ describe('built-in Copilot service bridge', () => {
       text: 'Renamed successfully',
     })
     expect(m.route).toHaveBeenCalledTimes(2)
+    expectWorkspaceScope(m.contacts[1], scope.workspaceId)
     expect(JSON.stringify(m.contacts[1])).toContain(context.resolvedContent)
     expect(m.route).toHaveBeenLastCalledWith(
       'rename_workflow',

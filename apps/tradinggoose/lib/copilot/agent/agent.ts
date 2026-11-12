@@ -143,7 +143,14 @@ export function createCopilotAgent(memory: Memory) {
     id: 'studio-copilot',
     name: 'Studio Copilot',
     memory,
-    instructions: COPILOT_INSTRUCTIONS,
+    instructions: ({ requestContext }) => {
+      const execution = getCopilotExecution(requestContext)
+      if (!execution) throw new Error('An active Studio invocation is required')
+      return `${COPILOT_INSTRUCTIONS}
+
+Authorized conversation scope: ${JSON.stringify({ workspaceId: execution.run.scope.workspaceId })}
+Use the selected workspace for workspace-scoped tools unless the request identifies another authorized target. A null workspaceId means no workspace is selected; ask the user to select a workspace when one is required. Never invent workspace IDs.`
+    },
     model: ({ requestContext }) => {
       const execution = getCopilotExecution(requestContext)
       if (!execution) throw new Error('A server-selected Copilot model is required')
