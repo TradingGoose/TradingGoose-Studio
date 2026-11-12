@@ -8,14 +8,18 @@ import type { JsonObject } from '@/lib/copilot/native/contract'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { authorizeNativeConversationScope, NativeTargetError } from '@/lib/copilot/native/target'
 import { ToolArgSchemas, ToolIds, ToolResultSchemas } from '@/lib/copilot/registry'
-import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { routeExecution } from '@/lib/copilot/tools/server/router'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
-import { type CopilotExecution, CopilotSuspendSchema, getCopilotExecution } from './context'
+import {
+  type CopilotExecution,
+  CopilotSuspendSchema,
+  getCopilotExecution,
+  resolveCopilotRunToolContext,
+} from './context'
 import { COPILOT_INSTRUCTIONS } from './instructions'
 import { assertCopilotRunActive, runCopilotEffectOnce } from './state'
 
@@ -67,16 +71,11 @@ function createCopilotTools(execution: CopilotExecution) {
             },
             stage: 'result' as const,
             originalArgs: args,
+            context: resolveCopilotRunToolContext(run, name, args),
             ...(resumed && live.pending?.preview ? { preview: live.pending.preview } : {}),
           }
           const businessContext: ServerToolExecutionContext = {
-            ...resolveCopilotToolContext(
-              name,
-              args,
-              run.toolContext ??
-                (run.scope.workspaceId ? { workspaceId: run.scope.workspaceId } : undefined),
-              run.toolContexts
-            ),
+            ...pending.context,
             userId: run.scope.actorUserId,
             accessLevel: run.accessLevel,
             signal,

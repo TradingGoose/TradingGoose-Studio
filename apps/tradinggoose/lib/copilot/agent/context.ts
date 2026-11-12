@@ -4,6 +4,7 @@ import type { Scope } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import type { ServerPending } from '@/lib/copilot/native/target'
+import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import type { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { getNativeWorkflowsStore } from '@/lib/mastra/runtime'
@@ -26,6 +27,19 @@ export interface CopilotExecution {
   signal: AbortSignal
   pending?: ServerPending
   decision?: CopilotDecision
+}
+
+export function resolveCopilotRunToolContext(
+  run: CopilotRun,
+  name: string,
+  args: Record<string, unknown>
+) {
+  return resolveCopilotToolContext(
+    name,
+    args,
+    run.toolContext ?? (run.scope.workspaceId ? { workspaceId: run.scope.workspaceId } : undefined),
+    run.toolContexts
+  )
 }
 
 /** Runtime-only execution values are omitted by RequestContext's JSON serializer. */

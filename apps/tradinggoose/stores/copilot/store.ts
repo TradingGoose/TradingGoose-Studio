@@ -61,12 +61,7 @@ import {
   isServerManagedCopilotTool,
   resolveToolDisplay,
 } from './tool-registry'
-import type {
-  CopilotChat,
-  CopilotDraft,
-  CopilotStore,
-  CopilotToolExecutionProvenance,
-} from './types'
+import type { CopilotChat, CopilotDraft, CopilotStore } from './types'
 import {
   getCopilotWorkspaceSelection,
   rememberCopilotWorkspaceSelection,
@@ -74,16 +69,6 @@ import {
 } from './workspace-selection'
 
 const emptyDraft = (): CopilotDraft => ({ text: '', contexts: [] })
-const businessContext = (provenance?: CopilotToolExecutionProvenance) =>
-  provenance
-    ? {
-        ...(provenance.contextEntityKind
-          ? { contextEntityKind: provenance.contextEntityKind }
-          : {}),
-        ...(provenance.contextEntityId ? { contextEntityId: provenance.contextEntityId } : {}),
-        ...(provenance.workspaceId ? { workspaceId: provenance.workspaceId } : {}),
-      }
-    : undefined
 const initialState = {
   accessLevel: 'limited' as const,
   selectedModel: null as string | null,
@@ -121,7 +106,6 @@ function createCopilotStoreInstance(channelId: string) {
     threadId?: string
   } | null = null
   let titleAbort: AbortController | null = null
-  let turnProvenance: CopilotToolExecutionProvenance = {}
   const inFlightTools = new Set<string>()
   const attemptedTools = new Set<string>()
   let toolQueue: Promise<void> = Promise.resolve()
@@ -307,7 +291,7 @@ function createCopilotStoreInstance(channelId: string) {
               state: matchingLive.state,
               result: matchingLive.result,
             })
-          projected = { ...projected, ...displayNativePending(projected, item, provenance) }
+          projected = { ...projected, ...displayNativePending(projected, item) }
         }
         if (!current()) return
         set({
@@ -341,7 +325,6 @@ function createCopilotStoreInstance(channelId: string) {
       const invoke = async (command: CopilotRequest, messageId = assistantForCommand()) => {
         const id = epoch
         const interaction = interactionGeneration
-        const provenance = turnProvenance
         const current = () => id === epoch && interaction === interactionGeneration
         const abort = new AbortController()
         get().abortController?.abort()
@@ -369,7 +352,7 @@ function createCopilotStoreInstance(channelId: string) {
               if (!current() || abort.signal.aborted) return false
               if (terminal)
                 throw new Error('Native Copilot emitted data after its terminal outcome')
-              set((state) => applyNativeEvent(state, event, messageId, provenance))
+              set((state) => applyNativeEvent(state, event, messageId))
               if (
                 event.type === 'tool.result' &&
                 !event.isError &&
@@ -446,7 +429,7 @@ function createCopilotStoreInstance(channelId: string) {
       }
       const sameOrigin = (left: Pending | undefined, right: Pending) =>
         !!left &&
-        (['target', 'originalArgs'] as const).every(
+        (['target', 'originalArgs', 'context'] as const).every(
           (field) =>
             stableStringifyJsonValue(left[field]) === stableStringifyJsonValue(right[field])
         )
@@ -561,7 +544,7 @@ function createCopilotStoreInstance(channelId: string) {
                   : intent.kind === 'accept'
                     ? 'review.accept'
                     : 'execute',
-              context: businessContext(call.provenance),
+              context: call.provenance,
             })
             if (!success) throw new Error('Copilot tool execution did not complete')
           } else {
@@ -892,8 +875,10 @@ function createCopilotStoreInstance(channelId: string) {
             explicitContexts: options.contexts,
             implicitContexts: options.runtimeContext?.implicitContexts,
           })
-          turnProvenance =
-            buildTurnProvenanceFromContexts(contexts, options.runtimeContext?.workspaceId) ?? {}
+          const toolContext = buildTurnProvenanceFromContexts(
+            contexts,
+            options.runtimeContext?.workspaceId
+          )
           try {
             const parsed = { content: message, contexts }
             if (!selected()) return false
@@ -930,7 +915,7 @@ function createCopilotStoreInstance(channelId: string) {
             const success = await invoke(
               {
                 command: 'message',
-                toolContext: businessContext(turnProvenance),
+                toolContext,
                 workspaceId,
                 ...(chat ? { threadId: chat.threadId } : {}),
                 model,
@@ -1128,7 +1113,7 @@ function createCopilotStoreInstance(channelId: string) {
           const pending = await get().readPendingTool(id)
           if (pending.stage !== 'result')
             throw new Error('Native approval is required before readback')
-          const context = businessContext(get().toolCallsById[id]?.provenance)
+          const context = get().toolCallsById[id]?.provenance
           if (
             pending.target.toolName === 'gdrive_request_access' &&
             (!context?.workspaceId || !readback?.credentialId?.trim())

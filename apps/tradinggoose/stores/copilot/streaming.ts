@@ -8,14 +8,8 @@ import type {
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { withPinnedToolExecutionProvenance } from './store-provenance'
 import { resolveToolDisplay } from './tool-registry'
-import type {
-  CopilotMessage,
-  CopilotStore,
-  CopilotToolCall,
-  CopilotToolExecutionProvenance,
-} from './types'
+import type { CopilotMessage, CopilotStore, CopilotToolCall } from './types'
 
 type ContentBlock = NonNullable<CopilotMessage['contentBlocks']>[number]
 
@@ -120,8 +114,7 @@ export function replaceNativeText(message: CopilotMessage, text: string) {
 /** Parts are transient rendering state; only native history owns persisted conversation content. */
 export function displayNativePending(
   state: CopilotStore,
-  pending: Pending,
-  provenance?: CopilotToolExecutionProvenance
+  pending: Pending
 ): Pick<CopilotStore, 'toolCallsById' | 'messages'> {
   const target = pending.target
   if (!state.currentChat || target.threadId !== state.currentChat.threadId)
@@ -130,13 +123,13 @@ export function displayNativePending(
   if (current && current.name !== target.toolName) throw new Error('Native tool identity differs')
   if (
     current?.pending &&
-    ['target', 'originalArgs'].some(
+    ['target', 'originalArgs', 'context'].some(
       (key) =>
         stableStringifyJsonValue(current.pending![key as keyof Pending]) !==
         stableStringifyJsonValue(pending[key as keyof Pending])
     )
   )
-    throw new Error('Original Copilot pending target or arguments changed')
+    throw new Error('Original Copilot pending target, arguments or context changed')
   // An unfinished historical invocation is display-only. Fresh Pending restores its
   // action card; current attempt/error/review state and any known result stay intact.
   const stateToDisplay =
@@ -165,9 +158,17 @@ export function displayNativePending(
       pending.originalArgs
     ),
   }
-  const toolCall = current
-    ? pendingCall
-    : withPinnedToolExecutionProvenance(pendingCall, provenance)
+  const selectedWorkspace =
+    !pending.context?.workspaceId &&
+    ['gdrive_request_access', 'oauth_request_access'].includes(target.toolName)
+      ? current?.provenance?.workspaceId
+      : undefined
+  const toolCall: CopilotToolCall = {
+    ...pendingCall,
+    provenance: selectedWorkspace
+      ? { ...pending.context, workspaceId: selectedWorkspace }
+      : pending.context,
+  }
   let found = false
   const messages = state.messages.map((message) => ({
     ...message,
@@ -244,8 +245,7 @@ export function applyNativeResponse(
 export function applyNativeEvent(
   state: CopilotStore,
   event: CopilotEvent,
-  messageId: string,
-  provenance?: CopilotToolExecutionProvenance
+  messageId: string
 ): Partial<CopilotStore> {
   switch (event.type) {
     case 'response.started':
@@ -268,17 +268,14 @@ export function applyNativeEvent(
       if (current && current.name !== event.toolName)
         throw new Error('Native tool identity differs')
       if (current) return {}
-      const toolCall = withPinnedToolExecutionProvenance(
-        {
-          id: event.toolCallId,
-          name: event.toolName,
-          ...(event.args ? { params: event.args } : {}),
-          state: ClientToolCallState.generating,
-          historical: false,
-          display: resolveToolDisplay(event.toolName, ClientToolCallState.generating, event.args),
-        },
-        provenance
-      )
+      const toolCall: CopilotToolCall = {
+        id: event.toolCallId,
+        name: event.toolName,
+        ...(event.args ? { params: event.args } : {}),
+        state: ClientToolCallState.generating,
+        historical: false,
+        display: resolveToolDisplay(event.toolName, ClientToolCallState.generating, event.args),
+      }
       return {
         toolCallsById: { ...state.toolCallsById, [toolCall.id]: toolCall },
         messages: state.messages.map((message) =>
@@ -330,7 +327,7 @@ export function applyNativeEvent(
     case 'response.suspended': {
       let next = { ...state, ...applyNativeResponse(state, event.result, messageId) }
       for (const pending of event.result.pending)
-        next = { ...next, ...displayNativePending(next, pending, provenance) }
+        next = { ...next, ...displayNativePending(next, pending) }
       return next
     }
     case 'response.refused':

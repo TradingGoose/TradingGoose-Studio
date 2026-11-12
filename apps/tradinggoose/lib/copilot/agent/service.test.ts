@@ -612,10 +612,25 @@ describe('built-in Copilot service bridge', () => {
       preview: { requiresReview: true },
     })
     expect(approved.pending[0]).not.toHaveProperty('reviewBaseStateHash')
+    expect(approved.pending[0].context).toEqual({
+      contextEntityKind: 'workflow',
+      contextEntityId: 'workflow',
+    })
     expect(approved.pending[0].preview).not.toHaveProperty('reviewBaseStateHash')
     expect(approved.pending[0].preview).not.toHaveProperty('reviewToken')
     expect(m.route).toHaveBeenCalledOnce()
     restart()
+    expect(
+      (
+        await command({
+          command: 'tool.execute',
+          target: approved.pending[0].target,
+          action: 'review.accept',
+          context: { contextEntityKind: 'workflow', contextEntityId: 'another-workflow' },
+        })
+      ).result
+    ).toMatchObject({ status: 'refused', error: { code: 'FORBIDDEN' } })
+    expect(m.route).toHaveBeenCalledOnce()
     const decision = {
       command: 'tool.execute',
       target: approved.pending[0].target,
@@ -650,6 +665,43 @@ describe('built-in Copilot service bridge', () => {
     expect(m.route).toHaveBeenCalledTimes(2)
     expect(m.contacts).toHaveLength(contacts)
   })
+
+  it.each([undefined, { contextEntityKind: 'workflow' as const, contextEntityId: 'workflow-B' }])(
+    'restores pending context from its native run and keeps it on new browser tools (%j)',
+    async (toolContext) => {
+      setModel(
+        { tool: 'make_api_request', args: { url: 'https://example.com', method: 'GET' } },
+        { tool: 'sleep', args: { seconds: 1 } },
+        { text: 'Done' }
+      )
+      m.route.mockResolvedValueOnce({ status: 200, data: 'Read' })
+      const initial = suspended((await message({ toolContext, accessLevel: 'limited' })).result)
+      const expected = toolContext ?? { workspaceId: scope.workspaceId }
+      expect(initial.pending[0]).toMatchObject({ stage: 'approval', context: expected })
+      restart()
+      expect(await pending(initial.threadId)).toEqual(initial.pending)
+      const resumed = suspended(
+        (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
+      )
+      expect(resumed.pending).toHaveLength(1)
+      expect(resumed.pending[0]).toMatchObject({
+        target: { threadId: initial.threadId, runId: initial.runId, toolName: 'sleep' },
+        stage: 'result',
+        context: expected,
+      })
+      restart()
+      expect(await pending(initial.threadId)).toEqual(resumed.pending)
+      expect(
+        (
+          await command({
+            command: 'tool.result',
+            target: resumed.pending[0].target,
+            assertion: { kind: 'timer.completed', data: { success: true, seconds: 1 } },
+          })
+        ).result
+      ).toMatchObject({ status: 'completed', text: 'Done' })
+    }
+  )
 
   it.each(['reject', 'stale'] as const)(
     'keeps native preview %s decisions from applying a mutation',

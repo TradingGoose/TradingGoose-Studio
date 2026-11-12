@@ -6,7 +6,6 @@ import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type { CopilotToolContext, Scope } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
-import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getAgentMemory, getCopilotAgent, getNativeWorkflowsStore } from '@/lib/mastra/runtime'
 
@@ -16,10 +15,7 @@ export interface CopilotRun {
   scope: Scope
   model: string
   accessLevel: CopilotAccessLevel
-  toolContext?: Pick<
-    ServerToolExecutionContext,
-    'workspaceId' | 'contextEntityKind' | 'contextEntityId'
-  >
+  toolContext?: CopilotToolContext
   toolContexts?: CopilotToolContext[]
   workflowId?: string
 }

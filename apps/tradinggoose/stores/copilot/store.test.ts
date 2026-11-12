@@ -1633,11 +1633,21 @@ describe('R5 per-tool context at actual live call creation', () => {
         ...pending('approval', 'read_layout'),
         target: { ...pending().target, toolCallId: 'layout-call', toolName: 'read_layout' },
         originalArgs: { entityId: 'dashboard-a' },
+        context: {
+          contextEntityKind: 'dashboard_layout' as const,
+          contextEntityId: 'dashboard-a',
+          workspaceId: 'workspace-a',
+        },
       }
       const watchlist = {
         ...pending('approval', 'read_watchlist'),
         target: { ...pending().target, toolCallId: 'watchlist-call', toolName: 'read_watchlist' },
         originalArgs: { entityId: 'watchlist-b' },
+        context: {
+          contextEntityKind: 'watchlist' as const,
+          contextEntityId: 'watchlist-b',
+          workspaceId: 'workspace-b',
+        },
       }
       const items = [layout, watchlist]
       onCommand = (request) => {
@@ -1710,8 +1720,7 @@ describe('R5 per-tool context at actual live call creation', () => {
             toolCallId: item.target.toolCallId,
             toolName: item.target.toolName,
           },
-          'unused',
-          { workspaceId: 'workspace-c' }
+          'unused'
         )
         expect(unchanged).toEqual({})
       }
@@ -1727,6 +1736,152 @@ describe('R5 per-tool context at actual live call creation', () => {
       expect(store().getState().conversationWorkspaceId).toBe(workspaceId)
     }
   )
+})
+
+describe('selected native run context', () => {
+  it.each([true, false])(
+    'restores conversation B context after A, including new review cards (context present: %s)',
+    async (hasContext) => {
+      setChat()
+      expect(
+        await store()
+          .getState()
+          .sendMessage('A', {
+            contexts: [
+              buildCopilotWorkspaceEntityContext({
+                entityKind: 'workflow',
+                entityId: 'workflow-A',
+                workspaceId,
+                label: 'A',
+              }),
+            ],
+            runtimeContext: { workspaceId, implicitContexts: [] },
+          })
+      ).toBe(true)
+      const b = chat(workspaceId, 'thread-B')
+      const context = hasContext
+        ? {
+            contextEntityKind: 'workflow' as const,
+            contextEntityId: 'workflow-B',
+            workspaceId,
+          }
+        : undefined
+      const first: Pending = {
+        target: {
+          threadId: b.threadId,
+          resourceId: 'resource-B',
+          runId: 'run-B',
+          toolCallId: 'request-B',
+          toolName: 'make_api_request',
+        },
+        stage: 'approval',
+        originalArgs: { url: 'https://example.com', method: 'GET' },
+        context,
+      }
+      const next: Pending = {
+        target: { ...first.target, toolCallId: 'layout-B', toolName: 'create_layout' },
+        stage: 'result',
+        originalArgs: { workspaceId, name: 'New layout' },
+        preview: { requiresReview: true, success: true },
+        context,
+      }
+      let continued = false
+      onCommand = (request) => {
+        if (request.command === 'history.read')
+          return json({
+            status: 'history',
+            threadId: b.threadId,
+            items: [],
+            pending: continued ? [next] : [first],
+          })
+        if (request.command === 'tool.approve') {
+          continued = true
+          return eventResponse([
+            {
+              type: 'tool.display',
+              toolCallId: next.target.toolCallId,
+              toolName: next.target.toolName,
+            },
+            {
+              type: 'response.suspended',
+              result: {
+                status: 'suspended',
+                threadId: b.threadId,
+                runId: first.target.runId,
+                text: '',
+                pending: [next],
+              },
+            },
+          ])
+        }
+        if (request.command === 'tool.execute')
+          return terminalResponse({
+            status: 'completed',
+            threadId: b.threadId,
+            runId: first.target.runId,
+            text: 'Done',
+          })
+      }
+      await store().getState().selectChat(b)
+      expect(store().getState().toolCallsById[first.target.toolCallId].provenance).toEqual(context)
+      await store().getState().executeCopilotToolCall(first.target.toolCallId)
+      expect(store().getState().toolCallsById[next.target.toolCallId].provenance).toEqual(context)
+      await store().getState().executeCopilotToolCall(next.target.toolCallId)
+      const accepted = commands.find((request) => request.command === 'tool.execute')
+      expect(accepted).toMatchObject({
+        command: 'tool.execute',
+        target: next.target,
+        action: 'review.accept',
+      })
+      expect(accepted && 'context' in accepted ? accepted.context : undefined).toEqual(context)
+      expect(store().getState().error).toBeNull()
+    }
+  )
+
+  it('binds a cold browser tool to its native run workspace', async () => {
+    const item: Pending = {
+      ...pending('result', 'deploy_workflow'),
+      originalArgs: { action: 'deploy', deployType: 'chat', entityId: 'workflow-B' },
+      context: {
+        workspaceId: 'workspace-B',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'workflow-B',
+      },
+    }
+    onCommand = (request) =>
+      request.command === 'history.read' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    expect(tools.browser).not.toHaveBeenCalled()
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
+    expect(tools.bind).toHaveBeenLastCalledWith(
+      item.target.toolCallId,
+      expect.objectContaining(item.context)
+    )
+  })
+
+  it('keeps an explicit OAuth workspace choice through native history refresh', async () => {
+    const item: Pending = {
+      ...pending('result', 'oauth_request_access'),
+      originalArgs: { providerName: 'Google Drive' },
+      context: { contextEntityKind: 'workflow', contextEntityId: 'workflow-B' },
+    }
+    onCommand = (request) =>
+      request.command === 'history.read' ? historyResponse([item]) : undefined
+    const original = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation((url, init) =>
+      String(url) === '/api/workspaces'
+        ? Promise.resolve(json({ workspaces: [{ id: 'chosen-business' }] }))
+        : original(url, init)
+    )
+    await store().getState().selectChat(chat(null))
+    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    await store().getState().refreshCurrentHistory()
+    expect(store().getState().toolCallsById[item.target.toolCallId].provenance).toEqual({
+      ...item.context,
+      workspaceId: 'chosen-business',
+    })
+  })
 })
 
 describe('owned workflow chat deployment UI', () => {
@@ -1926,7 +2081,11 @@ describe('built-in tool continuation', () => {
     { state: ClientToolCallState.executing, result: undefined },
     { state: ClientToolCallState.error, result: { objective: 'Known browser result' } },
   ])('preserves live $state state when history has no matching invocation', async (live) => {
-    const item = { ...pending('result', 'plan'), originalArgs: { objective: 'Live plan' } }
+    const item = {
+      ...pending('result', 'plan'),
+      originalArgs: { objective: 'Live plan' },
+      context: { workspaceId: 'pinned-workspace' },
+    }
     installPending(item)
     store().setState((state) => ({
       toolCallsById: {
@@ -1977,12 +2136,13 @@ describe('built-in tool continuation', () => {
     expect(store().getState().toolCallsById[cold.target.toolCallId].historyOrigin).toBe(true)
   })
 
-  it.each(['runId', 'resourceId', 'toolName', 'originalArgs'] as const)(
+  it.each(['runId', 'resourceId', 'toolName', 'originalArgs', 'context'] as const)(
     'does not transfer live origin when authoritative pending %s changes',
     async (field) => {
       const item = { ...pending('result', 'plan'), originalArgs: { objective: 'Live plan' } }
       const changed: Pending = structuredClone(item)
       if (field === 'originalArgs') changed.originalArgs = { objective: 'Changed plan' }
+      else if (field === 'context') changed.context = { workspaceId: 'changed-workspace' }
       else if (field === 'toolName') {
         changed.target.toolName = 'checkoff_todo'
         changed.originalArgs = { id: 'todo-1' }
@@ -1999,7 +2159,7 @@ describe('built-in tool continuation', () => {
       const call = store().getState().toolCallsById[item.target.toolCallId]
       expect(call.pending).toEqual(changed)
       expect(call.historyOrigin).toBe(true)
-      expect(call.provenance).toBeUndefined()
+      expect(call.provenance).toEqual(changed.context)
     }
   )
 

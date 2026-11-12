@@ -24,7 +24,6 @@ import {
 } from '@/lib/copilot/native/target'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
-import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion, getNativeFinalText } from '@/lib/mastra/result'
@@ -35,6 +34,7 @@ import {
   CopilotSuspendSchema,
   createCopilotRequestContext,
   readCopilotRun,
+  resolveCopilotRunToolContext,
 } from './context'
 import {
   assertCopilotRunActive,
@@ -66,6 +66,7 @@ export async function listCopilotPending(
   const pending: ServerPending[] = []
   for (const suspended of runs) {
     if (await isCopilotRunCancelled(suspended.runId)) continue
+    const run = await readCopilotRun(scope, threadId, suspended.runId)
     for (const call of suspended.toolCalls) {
       if (!call.toolCallId || !call.toolName || !isToolId(call.toolName))
         throw new NativeTargetError('Suspended Copilot tool is unavailable', 409)
@@ -86,6 +87,7 @@ export async function listCopilotPending(
         },
         stage: call.requiresApproval ? 'approval' : 'result',
         originalArgs,
+        context: resolveCopilotRunToolContext(run, call.toolName, originalArgs),
         ...(payload?.preview
           ? { preview: payload.preview, reviewBaseStateHash: payload.reviewBaseStateHash }
           : {}),
@@ -95,8 +97,8 @@ export async function listCopilotPending(
   return pending
 }
 
-function publicPending({ target, stage, originalArgs, preview }: ServerPending): Pending {
-  return { target, stage, originalArgs, ...(preview ? { preview } : {}) }
+function publicPending({ target, stage, originalArgs, context, preview }: ServerPending): Pending {
+  return { target, stage, originalArgs, context, ...(preview ? { preview } : {}) }
 }
 
 function failure(error: unknown): ErrorResponse {
@@ -327,13 +329,7 @@ async function* generate(
               : request.assertion.data,
         }
       } else if (request.command === 'tool.execute') {
-        const toolContext = resolveCopilotToolContext(
-          pending.target.toolName,
-          pending.originalArgs,
-          run.toolContext ??
-            (run.scope.workspaceId ? { workspaceId: run.scope.workspaceId } : undefined),
-          run.toolContexts
-        )
+        const toolContext = pending.context
         const businessContext = { ...toolContext, userId: run.scope.actorUserId, signal }
         for (const [key, value] of Object.entries(request.context ?? {})) {
           if (value === undefined || value === toolContext?.[key as keyof typeof toolContext])

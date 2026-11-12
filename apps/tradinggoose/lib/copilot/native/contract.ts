@@ -121,6 +121,7 @@ export interface Pending {
   target: Target
   stage: 'approval' | 'result'
   originalArgs: JsonObject
+  context?: CopilotToolContext
   preview?: JsonObject
 }
 export interface ErrorResponse {

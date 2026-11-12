@@ -1,3 +1,4 @@
+import type { CopilotToolContext } from '@/lib/copilot/native/contract'
 import { CopilotTool, isToolId, type ToolId } from '@/lib/copilot/registry'
 import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import type {
@@ -25,7 +26,6 @@ import { customToolsKeys } from '@/hooks/queries/custom-tools'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { workflowKeys } from '@/hooks/queries/workflows'
-import type { CopilotToolExecutionProvenance } from '@/stores/copilot/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('CopilotToolRegistry')
@@ -50,7 +50,7 @@ const CLIENT_TOOL_CONSTRUCTORS: Partial<Record<ToolId, ClientToolCtor>> = {
 export function createExecutionContext(params: {
   toolCallId: string
   toolName: string
-  provenance: Partial<CopilotToolExecutionProvenance>
+  provenance: CopilotToolContext
 }): ClientToolExecutionContext {
   const { toolCallId, toolName, provenance } = params
   const { contextEntityKind, contextEntityId, workspaceId } = provenance

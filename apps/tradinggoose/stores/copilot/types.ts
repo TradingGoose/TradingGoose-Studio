@@ -11,7 +11,6 @@ import type {
   ImagePart,
   Pending,
 } from '@/lib/copilot/native/contract'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
 import type { NativeCost, NativeUsage } from '@/lib/mastra/usage'
 
@@ -22,8 +21,8 @@ export interface CopilotToolCall {
   params?: Record<string, any>
   display?: ClientToolDisplay
   result?: any
-  // Immutable execution provenance captured when the tool call is created.
-  provenance?: CopilotToolExecutionProvenance
+  // Native run context, with an explicit workspace choice for unscoped access requests.
+  provenance?: CopilotToolContext
   pending?: Pending
   historical?: boolean
   /** Display provenance only: reopened native history is never fresh automatic work. */
@@ -70,23 +69,6 @@ export interface CopilotChat {
 export interface CopilotSendRuntimeContext {
   workspaceId: string | null
   implicitContexts: ChatContext[]
-}
-
-export interface CopilotToolExecutionProvenance {
-  toolContexts?: CopilotToolContext[]
-  contextEntityKind?: ReviewEntityKind
-  contextEntityId?: string
-  workspaceId?: string
-  /**
-   * Owner-scoped dashboard layout context candidate. Carried per turn and
-   * used only to pin the canonical layout identity for dashboard tools; the
-   * authenticated server session owns layout scope.
-   */
-  dashboardLayoutContext?: {
-    entityId: string
-    workspaceId: string
-    ownerUserId: string
-  }
 }
 
 /** Transient UI ownership only; never native, business or financial authority. */
