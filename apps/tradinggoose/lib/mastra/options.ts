@@ -21,26 +21,40 @@ export const NATIVE_AGENT_POLICY = {
   },
 }
 
-const MODEL_SETTINGS = new Set([
-  'temperature',
-  'maxOutputTokens',
-  'topP',
-  'topK',
-  'presencePenalty',
-  'frequencyPenalty',
-  'stopSequences',
-  'seed',
-  'reasoning',
-  'maxRetries',
-])
+const numericSetting = (schema = z.number()) =>
+  z.preprocess(
+    (value) =>
+      value == null || (typeof value === 'string' && !value.trim())
+        ? undefined
+        : typeof value === 'string'
+          ? Number(value)
+          : value,
+    schema.optional()
+  )
+
+const MODEL_SETTINGS = z
+  .object({
+    temperature: numericSetting(),
+    maxOutputTokens: numericSetting(z.number().int().min(1)),
+    topP: numericSetting(),
+    topK: numericSetting(),
+    presencePenalty: numericSetting(),
+    frequencyPenalty: numericSetting(),
+    stopSequences: z.array(z.string()).optional(),
+    seed: numericSetting(z.number().int()),
+    reasoning: z
+      .enum(['provider-default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
+      .optional(),
+    maxRetries: z.literal(0).optional(),
+  })
+  .strict()
 
 export function trustedModelSettings(value?: unknown): AgentExecutionOptions['modelSettings'] {
-  const settings = z.record(z.string(), z.json().optional()).parse(value === undefined ? {} : value)
-  for (const key of Object.keys(settings)) {
-    if (!MODEL_SETTINGS.has(key) || (key === 'maxRetries' && settings[key] !== 0))
-      throw new Error(`Model setting ${key} is controlled by the server`)
+  const settings = MODEL_SETTINGS.parse(value === undefined ? {} : value)
+  return {
+    ...Object.fromEntries(Object.entries(settings).filter(([, setting]) => setting !== undefined)),
+    maxRetries: 0,
   }
-  return { ...settings, maxRetries: 0 }
 }
 
 /** Mastra reserves these root arguments for resuming tools. */

@@ -6,7 +6,7 @@ import {
   getConfiguredGateways,
   resolveConfiguredModel,
 } from './connections'
-import { NATIVE_AGENT_POLICY, parseProviderOptions } from './options'
+import { NATIVE_AGENT_POLICY, parseProviderOptions, trustedModelSettings } from './options'
 import { assertListedModel, getModelRegistry } from './registry'
 
 afterEach(() => {
@@ -173,20 +173,41 @@ it.each([
     url: 'https://api.openai.com/v1/responses',
     providerOptions: { openai: { reasoningEffort: 'low' } },
     requestOptions: { reasoning: { effort: 'low' } },
+    modelSettings: {},
+    omitted: [],
   },
   {
     model: 'deepseek/deepseek-reasoner',
     url: 'https://api.deepseek.com/chat/completions',
     providerOptions: { deepseek: { reasoningEffort: 'low', thinking: { type: 'enabled' } } },
     requestOptions: { reasoning_effort: 'low', thinking: { type: 'enabled' } },
+    modelSettings: {},
+    omitted: [],
   },
-])('forwards native provider options through Agent and router for $model', async (fixture) => {
+  {
+    model: 'openai/gpt-4.1',
+    url: 'https://api.openai.com/v1/responses',
+    providerOptions: {},
+    modelSettings: { temperature: '', maxOutputTokens: '' },
+    requestOptions: {},
+    omitted: ['temperature', 'max_output_tokens'],
+  },
+  {
+    model: 'openai/gpt-4.1',
+    url: 'https://api.openai.com/v1/responses',
+    providerOptions: {},
+    modelSettings: { temperature: '0.5', maxOutputTokens: '128' },
+    requestOptions: { temperature: 0.5, max_output_tokens: 128 },
+    omitted: [],
+  },
+])('forwards native generation options through Agent and router for $model', async (fixture) => {
   vi.stubEnv('MASTRA_MODEL_PROVIDERS', '{}')
   vi.stubEnv('MASTRA_AZURE_OPENAI', '')
   const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     expect(String(input)).toBe(fixture.url)
     const body = JSON.parse(init!.body as string)
     expect(body).toMatchObject(fixture.requestOptions)
+    for (const field of fixture.omitted) expect(body).not.toHaveProperty(field)
     return Response.json(
       fixture.model.startsWith('openai/')
         ? {
@@ -228,6 +249,7 @@ it.each([
   })
   const result = await agent.generate('Hello', {
     providerOptions: parseProviderOptions(fixture.providerOptions),
+    modelSettings: trustedModelSettings(fixture.modelSettings),
   })
   expect(result.text).toBe('ok')
   expect(fetcher).toHaveBeenCalledTimes(1)

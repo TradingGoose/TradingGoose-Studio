@@ -88,9 +88,9 @@ it('rejects the installed native engine resolving an aborted score-less structur
   expect(state.model.doGenerateCalls).toHaveLength(1)
 })
 
-describe('canonical processor usage before financial refusal', () => {
+describe('canonical settings and processor usage before financial refusal', () => {
   it.each(['evaluator', 'router'] as const)(
-    'uses %s accepted processor counts without a parallel result-usage path',
+    'uses %s normalized settings and accepted processor counts',
     async (kind) => {
       let contacts = 0
       state.usage = { totalTokens: 7 }
@@ -130,12 +130,13 @@ describe('canonical processor usage before financial refusal', () => {
                 model: 'openai/gpt-4.1',
                 metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
                 content: 'Answer',
+                temperature: '0.1',
               },
               context
             )
           : new RouterBlockHandler().execute(
               block,
-              { model: 'openai/gpt-4.1', prompt: 'Select target' },
+              { model: 'openai/gpt-4.1', prompt: 'Select target', temperature: '0.1' },
               context
             )
       const failure = await operation.then(
@@ -159,6 +160,7 @@ describe('canonical processor usage before financial refusal', () => {
       })
       expect(state.verify).toHaveBeenCalledOnce()
       expect(contacts).toBe(1)
+      expect(state.model.doGenerateCalls[0].temperature).toBe(0.1)
     }
   )
 })
