@@ -27,6 +27,7 @@ export interface CopilotExecution {
   signal: AbortSignal
   pending?: ServerPending
   decision?: CopilotDecision
+  pendingTools: Set<Promise<void>>
 }
 
 export function resolveCopilotRunToolContext(
@@ -43,10 +44,11 @@ export function resolveCopilotRunToolContext(
 }
 
 /** Runtime-only execution values are omitted by RequestContext's JSON serializer. */
-export function createCopilotRequestContext(execution: CopilotExecution) {
+export function createCopilotRequestContext(execution: Omit<CopilotExecution, 'pendingTools'>) {
   const context = new RequestContext()
+  const live: CopilotExecution = { ...execution, pendingTools: new Set() }
   context.set('copilot-run', execution.run)
-  context.set('copilot-execution', () => execution)
+  context.set('copilot-execution', () => live)
   return context
 }
 

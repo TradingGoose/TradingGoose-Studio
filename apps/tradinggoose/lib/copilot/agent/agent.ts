@@ -41,99 +41,110 @@ function createCopilotTools(execution: CopilotExecution) {
           const live = getCopilotExecution(context.requestContext)
           if (!live || !context.agent)
             throw new NativeTargetError('An active Studio invocation is required', 403)
-          const { run, signal } = live
-          signal.throwIfAborted()
-          await authorizeNativeConversationScope(run.scope.actorUserId, run.scope.workspaceId)
-          await assertCopilotRunActive(run.runId)
-          const identity = nativeConversationIdentity(run.scope)
-          if (
-            context.agent.threadId !== run.threadId ||
-            context.agent.resourceId !== identity.resourceId
-          )
-            throw new NativeTargetError('Copilot tool scope has changed', 403)
-          const resumed =
-            live.pending?.target.runId === run.runId &&
-            live.pending.target.threadId === run.threadId &&
-            live.pending.target.toolCallId === context.agent.toolCallId &&
-            live.pending.target.toolName === name
-          if (
-            resumed &&
-            stableStringifyJsonValue(live.pending!.originalArgs) !== stableStringifyJsonValue(args)
-          )
-            throw new NativeTargetError('Suspended Copilot tool arguments have changed', 403)
-          const pending = {
-            target: {
-              threadId: run.threadId,
-              resourceId: identity.resourceId,
-              runId: run.runId,
-              toolCallId: context.agent.toolCallId,
-              toolName: name,
-            },
-            stage: 'result' as const,
-            originalArgs: args,
-            context: isWorkspaceAgnosticServerTool(name)
-              ? run.scope.workspaceId
-                ? { workspaceId: run.scope.workspaceId }
-                : undefined
-              : resolveCopilotRunToolContext(run, name, args),
-            ...(resumed && live.pending?.preview ? { preview: live.pending.preview } : {}),
-          }
-          const businessContext: ServerToolExecutionContext = {
-            ...pending.context,
-            userId: run.scope.actorUserId,
-            accessLevel: run.accessLevel,
-            signal,
-          }
-          await authorizeNativeBusinessResult(run.scope, pending, undefined, businessContext)
-          let result: unknown
-          if (resumed && live.decision?.action === 'result') {
-            result = live.decision.result
-          } else if (pending.preview) {
-            const decision = live.decision
-            const baseStateHash = live.pending?.reviewBaseStateHash
+          let settled!: () => void
+          const pendingTool = new Promise<void>((resolve) => {
+            settled = resolve
+          })
+          live.pendingTools.add(pendingTool)
+          try {
+            const { run, signal } = live
+            signal.throwIfAborted()
+            await authorizeNativeConversationScope(run.scope.actorUserId, run.scope.workspaceId)
+            await assertCopilotRunActive(run.runId)
+            const identity = nativeConversationIdentity(run.scope)
             if (
-              !decision ||
-              !['review.accept', 'review.reject'].includes(decision.action) ||
-              !baseStateHash
+              context.agent.threadId !== run.threadId ||
+              context.agent.resourceId !== identity.resourceId
             )
-              throw new NativeTargetError('A decision on the current preview is required', 409)
-            result = await runCopilotEffectOnce(
-              run,
-              context.agent.toolCallId,
-              'review',
-              async () =>
-                decision.action === 'review.accept'
-                  ? routeExecution(name, args, {
-                      ...businessContext,
-                      accessLevel: 'full',
-                      acceptedReviewBaseStateHash: baseStateHash,
-                    })
-                  : { success: false, rejected: true, toolName: name }
+              throw new NativeTargetError('Copilot tool scope has changed', 403)
+            const resumed =
+              live.pending?.target.runId === run.runId &&
+              live.pending.target.threadId === run.threadId &&
+              live.pending.target.toolCallId === context.agent.toolCallId &&
+              live.pending.target.toolName === name
+            if (
+              resumed &&
+              stableStringifyJsonValue(live.pending!.originalArgs) !==
+                stableStringifyJsonValue(args)
             )
-          } else if (getCopilotToolPolicy(name).execution === 'server') {
-            result = await runCopilotEffectOnce(run, context.agent.toolCallId, 'execute', () =>
-              routeExecution(name, args, businessContext)
-            )
-          } else {
-            await context.agent.suspend({ originalArgs: args })
-            return
+              throw new NativeTargetError('Suspended Copilot tool arguments have changed', 403)
+            const pending = {
+              target: {
+                threadId: run.threadId,
+                resourceId: identity.resourceId,
+                runId: run.runId,
+                toolCallId: context.agent.toolCallId,
+                toolName: name,
+              },
+              stage: 'result' as const,
+              originalArgs: args,
+              context: isWorkspaceAgnosticServerTool(name)
+                ? run.scope.workspaceId
+                  ? { workspaceId: run.scope.workspaceId }
+                  : undefined
+                : resolveCopilotRunToolContext(run, name, args),
+              ...(resumed && live.pending?.preview ? { preview: live.pending.preview } : {}),
+            }
+            const businessContext: ServerToolExecutionContext = {
+              ...pending.context,
+              userId: run.scope.actorUserId,
+              accessLevel: run.accessLevel,
+              signal,
+            }
+            await authorizeNativeBusinessResult(run.scope, pending, undefined, businessContext)
+            let result: unknown
+            if (resumed && live.decision?.action === 'result') {
+              result = live.decision.result
+            } else if (pending.preview) {
+              const decision = live.decision
+              const baseStateHash = live.pending?.reviewBaseStateHash
+              if (
+                !decision ||
+                !['review.accept', 'review.reject'].includes(decision.action) ||
+                !baseStateHash
+              )
+                throw new NativeTargetError('A decision on the current preview is required', 409)
+              result = await runCopilotEffectOnce(
+                run,
+                context.agent.toolCallId,
+                'review',
+                async () =>
+                  decision.action === 'review.accept'
+                    ? routeExecution(name, args, {
+                        ...businessContext,
+                        accessLevel: 'full',
+                        acceptedReviewBaseStateHash: baseStateHash,
+                      })
+                    : { success: false, rejected: true, toolName: name }
+              )
+            } else if (getCopilotToolPolicy(name).execution === 'server') {
+              result = await runCopilotEffectOnce(run, context.agent.toolCallId, 'execute', () =>
+                routeExecution(name, args, businessContext)
+              )
+            } else {
+              await context.agent.suspend({ originalArgs: args })
+              return
+            }
+            if (
+              result &&
+              typeof result === 'object' &&
+              'requiresReview' in result &&
+              result.requiresReview === true
+            ) {
+              const { reviewBaseStateHash, ...preview } = result as JsonObject
+              if (typeof reviewBaseStateHash !== 'string' || !reviewBaseStateHash)
+                throw new NativeTargetError('Tool preview is missing its current base state', 409)
+              await context.agent.suspend({ originalArgs: args, preview, reviewBaseStateHash })
+              return
+            }
+            const typed = ToolResultSchemas[name].parse(result)
+            await authorizeNativeBusinessResult(run.scope, pending, typed, businessContext)
+            signal.throwIfAborted()
+            return typed
+          } finally {
+            settled()
+            live.pendingTools.delete(pendingTool)
           }
-          if (
-            result &&
-            typeof result === 'object' &&
-            'requiresReview' in result &&
-            result.requiresReview === true
-          ) {
-            const { reviewBaseStateHash, ...preview } = result as JsonObject
-            if (typeof reviewBaseStateHash !== 'string' || !reviewBaseStateHash)
-              throw new NativeTargetError('Tool preview is missing its current base state', 409)
-            await context.agent.suspend({ originalArgs: args, preview, reviewBaseStateHash })
-            return
-          }
-          const typed = ToolResultSchemas[name].parse(result)
-          await authorizeNativeBusinessResult(run.scope, pending, typed, businessContext)
-          signal.throwIfAborted()
-          return typed
         },
       }),
     ])

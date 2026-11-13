@@ -1,6 +1,5 @@
 import { expect, it } from 'vitest'
-import type { CopilotEvent } from './contract'
-import { readNativeEvents } from './stream'
+import { readSseData } from './stream'
 
 async function collect<T>(values: AsyncIterable<T>): Promise<T[]> {
   const result: T[] = []
@@ -16,24 +15,16 @@ const bytes = (parts: Uint8Array[]) =>
     },
   })
 it('decodes split UTF8 and SSE frames in order', async () => {
-  const events: CopilotEvent[] = [
-    { type: 'text.delta', text: 'Hello🔥' },
-    {
-      type: 'response.completed',
-      result: { status: 'completed', runId: 'run', threadId: 'thread', text: 'Hello🔥' },
-    },
-  ]
+  const events = ['{"text":"Hello🔥"}', '{"complete":true}']
   const encoded = new TextEncoder().encode(
-    events.map((event) => `data: ${JSON.stringify(event)}\r\n\r\n`).join('')
+    [...events, '[DONE]'].map((event) => `data: ${event}\r\n\r\n`).join('')
   )
   const parts = Array.from(encoded, (byte) => Uint8Array.of(byte))
-  expect(await collect(readNativeEvents<CopilotEvent>(bytes(parts)))).toEqual(events)
+  expect(await collect(readSseData(bytes(parts)))).toEqual(events)
 })
 it('does not dispatch an incomplete SSE frame', async () => {
   expect(
-    await collect(
-      readNativeEvents(bytes([new TextEncoder().encode('data: {"type":"text.delta"}')]))
-    )
+    await collect(readSseData(bytes([new TextEncoder().encode('data: {"type":"text.delta"}')])))
   ).toEqual([])
 })
 it('cancels the underlying read when its consumer aborts', async () => {
@@ -44,7 +35,7 @@ it('cancels the underlying read when its consumer aborts', async () => {
       cancelled = true
     },
   })
-  const iterator = readNativeEvents(stream, { signal: abort.signal })
+  const iterator = readSseData(stream, { signal: abort.signal })
   const pending = iterator.next()
   abort.abort()
   await expect(pending).rejects.toThrow()

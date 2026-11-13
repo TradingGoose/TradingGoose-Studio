@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CompletionEvent, CompletionFailureResponse } from '@/lib/copilot/native/contract'
-import { readNativeEvents } from '@/lib/copilot/native/stream'
+import { readSseData } from '@/lib/events/stream'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WandConfig } from '@/blocks/types'
 
@@ -159,9 +159,10 @@ export function useWand(props: UseWandProps) {
       }
       if (!response.body) throw new Error('Completion stream body is missing')
       let complete = false
-      for await (const event of readNativeEvents<CompletionEvent>(response.body, {
+      for await (const data of readSseData(response.body, {
         signal: abort.signal,
       })) {
+        const event = JSON.parse(data) as CompletionEvent
         if (id !== generation.current || abort.signal.aborted) return
         if ('chunk' in event) {
           current.current.onStreamChunk?.(event.chunk)

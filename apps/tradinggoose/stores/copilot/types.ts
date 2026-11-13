@@ -131,6 +131,7 @@ export interface CopilotActions {
     }
   ) => Promise<boolean>
   abortMessage: () => Promise<boolean>
+  detachStream: () => void
 
   reset: () => void
 

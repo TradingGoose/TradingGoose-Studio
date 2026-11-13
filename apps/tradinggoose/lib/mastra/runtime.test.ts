@@ -12,6 +12,8 @@ const fixture = vi.hoisted(() => ({
   storage: undefined as unknown as import('@mastra/core/storage').MastraCompositeStore,
   agent: {},
   createAgent: vi.fn(),
+  pubsubOptions: [] as unknown[],
+  config: {} as Record<string, unknown>,
 }))
 vi.mock('pg', () => ({
   Pool: class extends EventEmitter {
@@ -46,9 +48,17 @@ vi.mock('@mastra/core/mastra', () => ({
       }
     ) {
       fixture.storage = config.storage
+      fixture.config = config
     }
     getAgent(id: string) {
       return this.config.agents[id]
+    }
+  },
+}))
+vi.mock('@mastra/redis-streams', () => ({
+  RedisStreamsPubSub: class {
+    constructor(options: unknown) {
+      fixture.pubsubOptions.push(options)
     }
   },
 }))
@@ -60,20 +70,27 @@ vi.mock('@/lib/logs/console/logger', () => ({
 vi.mock('./connections', () => ({ getConfiguredGateways: () => ({}) }))
 
 let runtime: typeof import('./runtime')
+const processRuntime = globalThis as typeof globalThis & { __studioMastraRuntime?: unknown }
 beforeEach(async () => {
+  processRuntime.__studioMastraRuntime = undefined
   vi.resetModules()
   vi.clearAllMocks()
   fixture.pools.length = 0
   fixture.poolOptions.length = 0
   fixture.domains.length = 0
+  fixture.pubsubOptions.length = 0
   fixture.memoryInit.mockResolvedValue(undefined)
   fixture.workflowInit.mockResolvedValue(undefined)
   fixture.end.mockResolvedValue(undefined)
   vi.stubEnv('DATABASE_URL', 'postgresql://studio@localhost/studio_disposable')
+  vi.stubEnv('REDIS_URL', '')
   fixture.createAgent.mockReturnValue(fixture.agent)
   runtime = await import('./runtime')
 })
-afterEach(() => vi.unstubAllEnvs())
+afterEach(() => {
+  processRuntime.__studioMastraRuntime = undefined
+  vi.unstubAllEnvs()
+})
 
 it('initializes only native memory and workflow domains on one shared pool', async () => {
   await runtime.getMastra()
@@ -97,6 +114,19 @@ it('initializes only native memory and workflow domains on one shared pool', asy
   expect(await runtime.getNativeWorkflowsStore()).toBe(fixture.storage.stores?.workflows)
   expect(fixture.poolOptions).toHaveLength(1)
   expect(fixture.end).not.toHaveBeenCalled()
+  expect(fixture.config).toMatchObject({ recovery: { workflows: 'off', durableAgents: 'off' } })
+  expect(fixture.pubsubOptions).toEqual([])
+})
+it('shares configured Redis transport and the active runtime across module reloads', async () => {
+  vi.stubEnv('REDIS_URL', 'redis://studio-test.invalid:6379')
+  const mastra = await runtime.getMastra()
+  vi.resetModules()
+  const reloaded = await import('./runtime')
+  expect(await reloaded.getMastra()).toBe(mastra)
+  expect(fixture.pubsubOptions).toEqual([{ url: 'redis://studio-test.invalid:6379' }])
+  expect(fixture.config.pubsub).toBeDefined()
+  expect(fixture.poolOptions).toHaveLength(1)
+  expect(fixture.createAgent).toHaveBeenCalledOnce()
 })
 it('ends the pool after failed initialization and permits a subsequent attempt', async () => {
   fixture.memoryInit.mockRejectedValueOnce(new Error('database unavailable'))

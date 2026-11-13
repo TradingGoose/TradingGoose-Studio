@@ -2,6 +2,7 @@ import { Mastra } from '@mastra/core/mastra'
 import { MastraCompositeStore } from '@mastra/core/storage'
 import { Memory } from '@mastra/memory'
 import { MemoryPG, WorkflowsPG } from '@mastra/pg'
+import { RedisStreamsPubSub } from '@mastra/redis-streams'
 import { Pool } from 'pg'
 import { createCopilotAgent } from '@/lib/copilot/agent/agent'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -36,6 +37,9 @@ async function createRuntime() {
     const mastra = new Mastra({
       agents: { copilot: copilotAgent },
       storage,
+      ...(process.env.REDIS_URL
+        ? { pubsub: new RedisStreamsPubSub({ url: process.env.REDIS_URL }) }
+        : {}),
       recovery: { workflows: 'off', durableAgents: 'off' },
     })
     return { storage, memory, mastra }
@@ -45,10 +49,12 @@ async function createRuntime() {
   }
 }
 
-let runtime: ReturnType<typeof createRuntime> | undefined
+const processRuntime = globalThis as typeof globalThis & {
+  __studioMastraRuntime?: ReturnType<typeof createRuntime>
+}
 function getRuntime() {
-  return (runtime ??= createRuntime().catch((error) => {
-    runtime = undefined
+  return (processRuntime.__studioMastraRuntime ??= createRuntime().catch((error) => {
+    processRuntime.__studioMastraRuntime = undefined
     throw error
   }))
 }

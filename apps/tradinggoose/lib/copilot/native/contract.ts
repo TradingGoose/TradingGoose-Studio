@@ -96,6 +96,7 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
   z.object({ ...base, command: z.literal('cancel'), threadId: id, runId: id }).strict(),
   z.object({ ...base, command: z.literal('threads.list') }).strict(),
   z.object({ ...base, command: z.literal('history.read'), threadId: id }).strict(),
+  z.object({ ...base, command: z.literal('thread.observe'), threadId: id }).strict(),
   z
     .object({ ...base, command: z.literal('thread.title'), threadId: id, title: z.string() })
     .strict(),
@@ -172,8 +173,7 @@ export type CopilotResponse =
   | HistoryResponse
   | MutationResponse
   | ErrorResponse
-export type CopilotEvent =
-  | { type: 'response.started'; runId: string; threadId: string; messageId?: string }
+export type CopilotOutputEvent =
   | { type: 'text.delta' | 'reasoning.delta'; text: string }
   | { type: 'tool.display'; toolCallId: string; toolName: string; args?: JsonObject }
   | {
@@ -184,6 +184,24 @@ export type CopilotEvent =
       isError?: boolean
       denied?: boolean
     }
+export type CopilotThreadEvent =
+  | { type: 'thread.started'; runId: string; messageId: string }
+  | { type: 'thread.output'; runId: string; event: CopilotOutputEvent }
+  | { type: 'thread.error'; runId: string; error: SafeError }
+  | {
+      type: 'thread.history'
+      result: HistoryResponse
+      activeRunId: string | null
+      interruptedRunId?: string
+    }
+  | {
+      type: 'thread.status'
+      runId: string
+      status: 'success' | 'failed' | 'aborted' | 'suspended'
+    }
+export type CopilotEvent =
+  | CopilotOutputEvent
+  | { type: 'response.started'; runId: string; threadId: string; messageId?: string }
   | { type: 'response.completed'; result: ReadyResponse }
   | { type: 'response.suspended'; result: SuspendedResponse }
   | { type: 'response.refused' | 'response.error'; result: ErrorResponse }

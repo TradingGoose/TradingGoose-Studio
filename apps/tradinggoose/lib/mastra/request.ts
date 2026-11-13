@@ -23,6 +23,7 @@ export async function prepareModelRequest(
   const model = await createConfiguredLanguageModel(scope.model, settings.apiKey)
   const options = {
     runId: scope.runId,
+    savePerStep: true,
     abortSignal: scope.signal,
     inputProcessors: usage.inputProcessors,
     outputProcessors: usage.outputProcessors,

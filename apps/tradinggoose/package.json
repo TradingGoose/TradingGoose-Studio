@@ -43,6 +43,7 @@
     "@mastra/core": "1.82.0",
     "@mastra/memory": "1.41.0",
     "@mastra/pg": "1.35.0",
+    "@mastra/redis-streams": "0.8.1",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@monaco-editor/react": "4.7.0",
     "@opencode-ai/models": "0.0.131",

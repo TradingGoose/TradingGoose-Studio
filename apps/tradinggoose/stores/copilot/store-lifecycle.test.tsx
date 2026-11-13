@@ -81,7 +81,7 @@ describe('Copilot store lifecycle', () => {
     expect(abortController.signal.aborted).toBe(true)
     expect(ownedStore.getState().draft).toEqual(EMPTY_DRAFT)
     expect(getCopilotStore(workspaceChannelId)).not.toBe(ownedStore)
-    expect(getCopilotWorkspaceSelection('workspace-1')).toBeUndefined()
+    expect(getCopilotWorkspaceSelection(workspaceChannelId, 'workspace-1')).toBeUndefined()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -125,6 +125,24 @@ describe('Copilot store lifecycle', () => {
       `No unique active Copilot store owns tool call ${toolCallId}`
     )
     await expect(tool.handleUserAction()).resolves.toBeUndefined()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('detaches the response transport on unmount without cancelling the active run', async () => {
+    const selectedChannel = channelId('user-a', 'workspace-1')
+    const ownedStore = getCopilotStore(selectedChannel)
+    const abortController = new AbortController()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    ownedStore.setState({ abortController, currentRunId: 'live-run', isSendingMessage: true })
+    await act(async () => {
+      root.render(<CopilotStoreProvider channelId={selectedChannel}>A</CopilotStoreProvider>)
+    })
+    await act(async () => {
+      root.render(null)
+    })
+    expect(abortController.signal.aborted).toBe(true)
+    expect(ownedStore.getState().currentRunId).toBe('live-run')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

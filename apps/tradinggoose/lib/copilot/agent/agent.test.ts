@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import type { ServerPending as Pending } from '@/lib/copilot/native/target'
 import { createCopilotAgent } from './agent'
-import { type CopilotExecution, createCopilotRequestContext } from './context'
+import { createCopilotRequestContext, getCopilotExecution } from './context'
 
 const m = vi.hoisted(() => ({
   model: undefined as any,
@@ -69,7 +69,7 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
     storage: memory.storage,
     recovery: { workflows: 'off', durableAgents: 'off' },
   })
-  const execution: CopilotExecution = {
+  const execution: Parameters<typeof createCopilotRequestContext>[0] = {
     run: {
       runId,
       threadId: `thread:${runId}`,
@@ -90,7 +90,7 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
     },
     maxSteps: 2,
   }
-  return { agent, execution, options }
+  return { agent, execution: getCopilotExecution(requestContext)!, options }
 }
 beforeEach(() => {
   vi.clearAllMocks()

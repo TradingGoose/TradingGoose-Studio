@@ -2,14 +2,17 @@ import { setTimeout as delay } from 'node:timers/promises'
 import type { AgentExecutionOptions } from '@mastra/core/agent'
 import type { MastraDBMessage } from '@mastra/core/agent/message-list'
 import type { InputProcessor } from '@mastra/core/processors'
+import type { ChunkType } from '@mastra/core/stream'
 import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { validateNativeBrowserAssertion } from '@/lib/copilot/native/browser-assertion'
 import { authorizeNativeBusinessResult } from '@/lib/copilot/native/business-access'
 import {
   COPILOT_CONTEXT_PART,
   type CopilotEvent,
+  type CopilotOutputEvent,
   type CopilotRequest,
   type CopilotResponse,
+  type CopilotThreadEvent,
   type CopilotToolContext,
   type ErrorResponse,
   type Json,
@@ -29,6 +32,7 @@ import { processContextsServer } from '@/lib/copilot/process-contents'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { projectNativeMessage } from '@/lib/mastra/messages'
 import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion, getNativeFinalText } from '@/lib/mastra/result'
@@ -38,6 +42,7 @@ import {
   type CopilotDecision,
   CopilotSuspendSchema,
   createCopilotRequestContext,
+  getCopilotExecution,
   readCopilotRun,
   resolveCopilotRunToolContext,
 } from './context'
@@ -130,6 +135,155 @@ function failure(error: unknown): ErrorResponse {
   }
 }
 
+/** Both the initial response and reconnects project the same native model events. */
+function projectChunk<T>(part: ChunkType<T>): CopilotOutputEvent | undefined {
+  if (part.type === 'text-delta' || part.type === 'reasoning-delta')
+    return {
+      type: part.type === 'text-delta' ? 'text.delta' : 'reasoning.delta',
+      text: part.payload.text,
+    }
+  if (part.type === 'tool-call') {
+    const args = isToolId(part.payload.toolName)
+      ? ToolArgSchemas[part.payload.toolName].safeParse(part.payload.args)
+      : undefined
+    return {
+      type: 'tool.display',
+      toolCallId: part.payload.toolCallId,
+      toolName: part.payload.toolName,
+      ...(args?.success ? { args: args.data } : {}),
+    }
+  }
+  if (part.type === 'tool-result')
+    return {
+      type: 'tool.result',
+      toolCallId: part.payload.toolCallId,
+      toolName: part.payload.toolName,
+      result: part.payload.isError
+        ? { error: 'This Studio tool did not complete successfully' }
+        : (part.payload.result as Json),
+      ...(part.payload.isError ? { isError: true } : {}),
+    }
+  if (part.type === 'tool-error' || part.type === 'tool-output-denied')
+    return {
+      type: 'tool.result',
+      toolCallId: part.payload.toolCallId,
+      toolName: part.payload.toolName,
+      result: {
+        error:
+          part.type === 'tool-error'
+            ? 'This Studio tool did not complete successfully'
+            : 'This tool call was declined',
+      },
+      ...(part.type === 'tool-error' ? { isError: true } : { denied: true }),
+    }
+}
+
+async function waitForRunRelease(
+  scope: Scope,
+  threadId: string,
+  runId: string,
+  signal: AbortSignal
+) {
+  while ((await readCopilotThreadRun(scope, threadId)) === runId) {
+    signal.throwIfAborted()
+    await delay(CANCELLATION_POLL_INTERVAL, undefined, { signal })
+  }
+  signal.throwIfAborted()
+}
+
+async function* observeThread(
+  scope: Scope,
+  threadId: string,
+  signal: AbortSignal
+): AsyncGenerator<CopilotThreadEvent> {
+  const agent = await getCopilotAgent()
+  const subscription = await agent.subscribeToThread({
+    ...nativeConversationIdentity(scope),
+    threadId,
+    withInitialHistory: { perPage: Number.MAX_SAFE_INTEGER },
+    withRunStatus: true,
+  })
+  const detach = () => subscription.unsubscribe()
+  signal.addEventListener('abort', detach, { once: true })
+  try {
+    if (signal.aborted) return
+    for await (const part of subscription.stream) {
+      if (signal.aborted) return
+      if (
+        part.type === 'error' ||
+        (part.type === 'thread-run-status' && part.payload.status !== 'suspended')
+      ) {
+        try {
+          // Native abort and lease loss can precede running tools draining. Only
+          // the producer releases Studio's claim after writes and accounting settle.
+          await waitForRunRelease(
+            scope,
+            threadId,
+            part.runId,
+            AbortSignal.any([signal, AbortSignal.timeout(CANCELLATION_TIMEOUT)])
+          )
+        } catch {
+          if (signal.aborted) return
+          yield {
+            type: 'thread.error',
+            runId: part.runId,
+            error: {
+              code: 'STREAM_INTERRUPTED',
+              message: 'The response outcome could not be confirmed. Saved history is preserved.',
+            },
+          }
+          continue
+        }
+      }
+      if (part.type === 'thread-history') {
+        const pending = (await listCopilotPending(scope, threadId, signal)).map(publicPending)
+        const claimedRunId = await readCopilotThreadRun(scope, threadId)
+        yield {
+          type: 'thread.history',
+          result: {
+            status: 'history',
+            threadId,
+            items: part.payload.messages.map(projectNativeMessage),
+            pending,
+          },
+          activeRunId: part.payload.activeRunId,
+          ...(!part.payload.activeRunId && !pending.length && claimedRunId
+            ? { interruptedRunId: claimedRunId }
+            : {}),
+        }
+      } else if (part.type === 'thread-run-status') {
+        yield { type: 'thread.status', runId: part.runId, status: part.payload.status }
+      } else if (
+        part.type === 'start' ||
+        (part.type === 'step-start' && typeof part.payload.messageId === 'string')
+      ) {
+        if (typeof part.payload.messageId !== 'string')
+          throw new Error('Native response is missing its assistant message ID')
+        yield {
+          type: 'thread.started',
+          runId: part.runId,
+          messageId: part.payload.messageId,
+        }
+      } else if (part.type === 'error') {
+        yield {
+          type: 'thread.error',
+          runId: part.runId,
+          error: {
+            code: 'STREAM_INTERRUPTED',
+            message: 'The response was interrupted. Saved history and usage are preserved.',
+          },
+        }
+      } else {
+        const event = projectChunk(part)
+        if (event) yield { type: 'thread.output', runId: part.runId, event }
+      }
+    }
+  } finally {
+    signal.removeEventListener('abort', detach)
+    detach()
+  }
+}
+
 async function readCommand(
   request: CopilotRequest,
   scope: Scope,
@@ -189,11 +343,7 @@ async function readCommand(
         )
       )
       try {
-        while ((await readCopilotThreadRun(scope, request.threadId)) === request.runId) {
-          waiting.throwIfAborted()
-          await delay(CANCELLATION_POLL_INTERVAL, undefined, { signal: waiting })
-        }
-        waiting.throwIfAborted()
+        await waitForRunRelease(scope, request.threadId, request.runId, waiting)
       } catch (error) {
         signal?.throwIfAborted()
         if (!waiting.aborted) throw error
@@ -247,6 +397,7 @@ async function* generate(
   let ownsThread = false
   let nativeStarted = false
   let nativeOutput: { getFullOutput(): Promise<{ finishReason?: string }> } | undefined
+  let requestContext: ReturnType<typeof createCopilotRequestContext> | undefined
   let drained = false
   let finalization: Promise<void> | undefined
   const finalize = () =>
@@ -268,6 +419,8 @@ async function* generate(
           // An unknown native outcome must keep the claim, rather than admit a competing writer.
         }
       }
+      // Mastra can stop waiting for an aborted tool before its execute promise settles.
+      if (requestContext) await Promise.all(getCopilotExecution(requestContext)!.pendingTools)
       if (watcher) clearInterval(watcher)
       if (run && ownsThread && (!nativeStarted || drained)) {
         if (suspended) await suspendCopilotThread(run.scope, run.threadId, run.runId)
@@ -454,7 +607,7 @@ async function* generate(
       await store.saveMessages({ messages: [message!] })
       await store.deleteMessages(history.messages.slice(index + 1).map((item) => item.id))
     }
-    const requestContext = createCopilotRequestContext({
+    requestContext = createCopilotRequestContext({
       run,
       model: prepared.model,
       signal,
@@ -511,12 +664,7 @@ async function* generate(
       ownsThread = true
       await assertCopilotRunActive(run.runId)
     }
-    yield {
-      type: 'response.started',
-      runId: run.runId,
-      threadId: run.threadId,
-      ...(message ? { messageId: message.id } : {}),
-    }
+    signal.throwIfAborted()
     nativeStarted = true
     suspended = false
     const output = (nativeOutput =
@@ -540,48 +688,18 @@ async function* generate(
                 toolCallId: pending!.target.toolCallId,
               }))
     ownsThread = true
+    yield {
+      type: 'response.started',
+      runId: run.runId,
+      threadId: run.threadId,
+      ...(message ? { messageId: message.id } : {}),
+    }
     let streamError: unknown
     for await (const part of output.fullStream) {
       if (part.type === 'error') streamError = part.payload.error
       if (signal.aborted) continue
-      if (part.type === 'text-delta' || part.type === 'reasoning-delta')
-        yield {
-          type: part.type === 'text-delta' ? 'text.delta' : 'reasoning.delta',
-          text: part.payload.text,
-        }
-      else if (part.type === 'tool-call') {
-        const args = isToolId(part.payload.toolName)
-          ? ToolArgSchemas[part.payload.toolName].safeParse(part.payload.args)
-          : undefined
-        yield {
-          type: 'tool.display',
-          toolCallId: part.payload.toolCallId,
-          toolName: part.payload.toolName,
-          ...(args?.success ? { args: args.data } : {}),
-        }
-      } else if (part.type === 'tool-result')
-        yield {
-          type: 'tool.result',
-          toolCallId: part.payload.toolCallId,
-          toolName: part.payload.toolName,
-          result: part.payload.isError
-            ? { error: 'This Studio tool did not complete successfully' }
-            : (part.payload.result as Json),
-          ...(part.payload.isError ? { isError: true } : {}),
-        }
-      else if (part.type === 'tool-error' || part.type === 'tool-output-denied')
-        yield {
-          type: 'tool.result',
-          toolCallId: part.payload.toolCallId,
-          toolName: part.payload.toolName,
-          result: {
-            error:
-              part.type === 'tool-error'
-                ? 'This Studio tool did not complete successfully'
-                : 'This tool call was declined',
-          },
-          ...(part.type === 'tool-error' ? { isError: true } : { denied: true }),
-        }
+      const event = projectChunk(part)
+      if (event) yield event
     }
     const result = await output.getFullOutput()
     drained = true
@@ -661,25 +779,42 @@ export async function executeCopilotCommand(
     })
   }
   signal?.throwIfAborted()
+  const observing = request.command === 'thread.observe'
   const cancellation = new AbortController()
-  const abort = () => cancellation.abort(signal?.reason)
-  signal?.addEventListener('abort', abort, { once: true })
-  const events = generate(request, scope, cancellation, toolContexts)
+  const events = observing
+    ? observeThread(scope, request.threadId, cancellation.signal)
+    : generate(request, scope, cancellation, toolContexts)
   const encoder = new TextEncoder()
+  let detached = false
+  let accepted = false
+  const detach = () => {
+    detached = true
+    // Before acceptance, Stop has no run ID and must cancel the request's preflight.
+    // Once accepted, closing an observer leaves the model/tool writer running.
+    if (observing || !accepted) cancellation.abort()
+  }
   return new Response(
     new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        const next = await events.next()
-        if (next.done) {
-          signal?.removeEventListener('abort', abort)
-          controller.close()
-        } else controller.enqueue(encoder.encode(`data: ${JSON.stringify(next.value)}\n\n`))
+      async start(controller) {
+        signal?.addEventListener('abort', detach, { once: true })
+        if (signal?.aborted) detach()
+        const heartbeat = setInterval(() => {
+          if (!detached) controller.enqueue(encoder.encode(': keep-alive\n\n'))
+        }, 25_000)
+        try {
+          for await (const event of events) {
+            if (event.type === 'response.started') accepted = true
+            if (!detached) controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+          }
+          if (!detached) controller.close()
+        } catch (error) {
+          if (!detached) controller.error(error)
+        } finally {
+          clearInterval(heartbeat)
+          signal?.removeEventListener('abort', detach)
+        }
       },
-      async cancel() {
-        cancellation.abort()
-        signal?.removeEventListener('abort', abort)
-        await events.return(undefined)
-      },
+      cancel: detach,
     }),
     { headers: SSE_HEADERS }
   )

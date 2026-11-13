@@ -1,16 +1,27 @@
 import { EventSourceParserStream } from '@ai-sdk/provider-utils'
-import type { CompletionEvent, CopilotEvent } from './contract'
 
-/** Decode complete SSE frames from the built-in service. */
-export async function* readNativeEvents<T extends CopilotEvent | CompletionEvent = CopilotEvent>(
+export function waitToReconnect(signal?: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    const finish = () => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', finish)
+      resolve()
+    }
+    const timer = setTimeout(finish, 1000)
+    signal?.addEventListener('abort', finish, { once: true })
+    if (signal?.aborted) finish()
+  })
+}
+
+/** Decode SSE data separately from JSON so consumers can distinguish transport failures. */
+export async function* readSseData(
   stream: ReadableStream<Uint8Array>,
   options: { signal?: AbortSignal } = {}
-): AsyncGenerator<T> {
+): AsyncGenerator<string, void> {
   const reader = stream
     .pipeThrough(new TextDecoderStream() as TransformStream<Uint8Array, string>)
     .pipeThrough(new EventSourceParserStream())
     .getReader()
-  let ended = false
   const abort = () => {
     void reader.cancel(options.signal?.reason).catch(() => {})
   }
@@ -20,15 +31,12 @@ export async function* readNativeEvents<T extends CopilotEvent | CompletionEvent
       options.signal?.throwIfAborted()
       const { done, value } = await reader.read()
       options.signal?.throwIfAborted()
-      if (done) {
-        ended = true
-        break
-      }
-      if (value.data) yield JSON.parse(value.data) as T
+      if (done) return
+      if (value.data && value.data !== '[DONE]') yield value.data
     }
   } finally {
     options.signal?.removeEventListener('abort', abort)
-    if (!ended) await reader.cancel().catch(() => {})
+    await reader.cancel().catch(() => {})
     reader.releaseLock()
   }
 }
