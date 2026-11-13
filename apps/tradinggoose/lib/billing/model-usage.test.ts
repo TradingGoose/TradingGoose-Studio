@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+
 import '@/lib/mastra/__test-utils__/managed-services'
 import { Agent } from '@mastra/core/agent'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
@@ -10,7 +11,9 @@ import {
 } from '@tradinggoose/db/schema'
 import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { generateEmbeddings } from '@/lib/embeddings/utils'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
 import { projectNativeMessage } from '@/lib/mastra/messages'
 import type { NativeCost } from '@/lib/mastra/usage'
 import { usageProcessors } from '@/lib/mastra/usage-processors'
@@ -148,6 +151,177 @@ beforeEach(() => {
       }),
     })
   )
+})
+
+afterEach(() => vi.unstubAllGlobals())
+
+async function nativeGeneration(scope: ModelUsageScope, mode: 'generate' | 'stream') {
+  const accounting = await usageProcessors(scope)
+  const contact = vi.fn()
+  const model = new MastraLanguageModelV2Mock({
+    doGenerate: async () => {
+      contact()
+      return {
+        content: [{ type: 'text', text: 'Completed answer' }],
+        usage,
+        finishReason: 'stop',
+        warnings: [],
+      }
+    },
+    doStream: async () => {
+      contact()
+      return {
+        stream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({ type: 'text-start', id: 'answer' })
+            controller.enqueue({ type: 'text-delta', id: 'answer', delta: 'Completed answer' })
+            controller.enqueue({ type: 'text-end', id: 'answer' })
+            controller.enqueue({ type: 'finish', usage, finishReason: 'stop' })
+            controller.close()
+          },
+        }),
+      }
+    },
+  })
+  const agent = new Agent({
+    id: 'workflow-admission',
+    name: 'Workflow admission',
+    instructions: '',
+    model,
+    inputProcessors: accounting.inputProcessors,
+    outputProcessors: accounting.outputProcessors,
+  })
+  return {
+    accounting,
+    contact,
+    async run() {
+      const options = { runId: scope.runId, maxSteps: 1 }
+      const result =
+        mode === 'generate'
+          ? await agent.generate('hello', options)
+          : await (await agent.stream('hello', options)).getFullOutput()
+      await accounting.verifyComplete()
+      return result
+    },
+  }
+}
+
+it.each(
+  (['generate', 'stream'] as const).flatMap((mode) =>
+    (['account', 'byok'] as const).flatMap((funding) =>
+      ['ended', 'missing'].map((execution) => ({ mode, funding, execution }))
+    )
+  )
+)(
+  'refuses $mode before provider contact for $execution workflow ownership ($funding)',
+  async ({ mode, funding, execution }) => {
+    fixture.execution.mockResolvedValue(
+      execution === 'ended' ? [{ id: 'ended-log', endedAt: new Date() }] : []
+    )
+    const request = await nativeGeneration(
+      {
+        ...scope,
+        purpose: 'workflow-agent',
+        workflowId: 'workflow',
+        executionId: 'execution',
+        funding,
+      },
+      mode
+    )
+    await expect(request.run()).rejects.toThrow(
+      'Workflow execution is not accepting model requests'
+    )
+    expect(request.contact).not.toHaveBeenCalled()
+    expect(request.accounting.getUsage()).toEqual({})
+    expect(fixture.executionData).toEqual({})
+    expect(fixture.writes).toHaveLength(0)
+  }
+)
+
+it.each(
+  (['generate', 'stream'] as const).flatMap((mode) =>
+    ['copilot', 'title', 'wand'].map((purpose) => ({ mode, purpose }))
+  )
+)('preserves ordinary $purpose $mode with contextual workflow IDs', async ({ mode, purpose }) => {
+  fixture.execution.mockResolvedValue([{ id: 'ended-log', endedAt: new Date() }])
+  const request = await nativeGeneration(
+    { ...scope, purpose, workflowId: 'workflow', executionId: 'execution' },
+    mode
+  )
+  expect((await request.run()).text).toBe('Completed answer')
+  expect(request.contact).toHaveBeenCalledOnce()
+  expect(request.accounting.getUsage()).toEqual(usage)
+  expect(fixture.execution).not.toHaveBeenCalled()
+  expect(fixture.writes).toHaveLength(1)
+})
+
+function nativeEmbeddingTransport() {
+  managedServices.credentials.openai = { defaultApiKey: 'fixture-managed-key' }
+  const fetch = vi.fn(async (_url: unknown, options: RequestInit) => {
+    const input = JSON.parse(String(options.body)).input as string[]
+    return Response.json({
+      object: 'list',
+      model: 'text-embedding-3-small',
+      data: input.map((_text, index) => ({ object: 'embedding', embedding: [1, 2], index })),
+      usage: { prompt_tokens: 3, total_tokens: 3 },
+    })
+  })
+  vi.stubGlobal('fetch', fetch)
+  return fetch
+}
+
+it.each(
+  (['account', 'byok'] as const).flatMap((funding) =>
+    ['ended', 'missing'].map((execution) => ({ funding, execution }))
+  )
+)(
+  'refuses native embedding contact for $execution workflow ownership ($funding)',
+  async ({ funding, execution }) => {
+    fixture.execution.mockResolvedValue(
+      execution === 'ended' ? [{ id: 'ended-log', endedAt: new Date() }] : []
+    )
+    const fetch = nativeEmbeddingTransport()
+    await expect(
+      generateEmbeddings(['hello'], {
+        actorUserId: scope.actorUserId,
+        workspaceId: 'workspace',
+        workflowId: 'workflow',
+        executionId: 'execution',
+        ...(funding === 'byok' ? { apiKey: 'fixture-user-key' } : {}),
+      })
+    ).rejects.toMatchObject({
+      message: 'Workflow execution is not accepting model requests',
+      tokens: {},
+      completedEmbeddings: [],
+      embeddingUsage: { batches: 0, status: 'unavailable' },
+    })
+    expect(fetch).not.toHaveBeenCalled()
+    expect(fixture.executionData).toEqual({})
+    expect(fixture.writes).toHaveLength(0)
+  }
+)
+
+it.each([
+  { name: 'standalone', funding: 'account', context: {} },
+  { name: 'workspace', funding: 'byok', context: { workspaceId: 'workspace' } },
+  {
+    name: 'workflow without execution ownership',
+    funding: 'account',
+    context: { workspaceId: 'workspace', workflowId: 'workflow' },
+  },
+])('preserves $name native embedding calls ($funding)', async ({ funding, context }) => {
+  const fetch = nativeEmbeddingTransport()
+  const result = await generateEmbeddings(['hello'], {
+    actorUserId: scope.actorUserId,
+    ...context,
+    ...(funding === 'byok' ? { apiKey: 'fixture-user-key' } : {}),
+  })
+  expect(result.embeddings).toEqual([[1, 2]])
+  expect(result.tokens).toEqual({ prompt: 3, total: 3 })
+  expect(fetch).toHaveBeenCalledOnce()
+  expect(fixture.execution).not.toHaveBeenCalled()
+  expect(fixture.writes).toHaveLength(funding === 'account' ? 1 : 0)
+  if (funding === 'byok') expect(result.cost.accountCost).toBeNull()
 })
 
 it.each(['copilot', 'title', 'wand'])(

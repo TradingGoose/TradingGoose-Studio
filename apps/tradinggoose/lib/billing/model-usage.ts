@@ -120,6 +120,8 @@ async function writeWorkflowModelUsage(
       .where(eq(workflowExecutionLogs.id, execution.id))
     return { cost, needsSettlement: Boolean(execution.endedAt || data.pause) }
   })
+  if (!completed && !observation)
+    throw new Error('Workflow execution is not accepting model requests')
   // Commit observations before billing: a ledger outage must not erase completed usage.
   if (observation?.needsSettlement) {
     const { executionLogger } = await import('@/lib/logs/execution/logger')
@@ -128,7 +130,7 @@ async function writeWorkflowModelUsage(
   return observation
 }
 
-/** Admit only new attempts owned by an active, authenticated workflow execution. */
+/** Refused workflow admissions throw; unscoped requests return false. */
 export async function beginWorkflowModelUsage(scope: ModelUsageScope, attemptId: string) {
   return Boolean(await writeWorkflowModelUsage(scope, attemptId))
 }

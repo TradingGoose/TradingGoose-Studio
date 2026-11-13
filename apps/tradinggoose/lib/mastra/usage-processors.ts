@@ -44,8 +44,8 @@ export async function usageProcessors(
         scope.signal?.throwIfAborted()
         abortSignal?.throwIfAborted()
         const key = `${scope.runId}:${invocationId}:${stepNumber}:${retryCount}`
-        if (!steps.has(key)) steps.set(key, { stepNumber, cost: { status: 'unavailable' } })
         await beginWorkflowModelUsage(actorScope, key)
+        if (!steps.has(key)) steps.set(key, { stepNumber, cost: { status: 'unavailable' } })
       } catch (error) {
         failure = error
         throw error

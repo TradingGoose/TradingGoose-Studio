@@ -441,7 +441,9 @@ describe('durable native observations', () => {
         'late'
       )
     ).toMatchObject({ total: 0.01 })
-    expect(await beginWorkflowModelUsage(usageScope, 'new-after-terminal')).toBe(false)
+    await expect(beginWorkflowModelUsage(usageScope, 'new-after-terminal')).rejects.toThrow(
+      'Workflow execution is not accepting model requests'
+    )
     expect(state.ledgers.user?.totalCost).toBeCloseTo(6.28, 12)
     expect(state.modelMultiplier).toHaveBeenCalledOnce()
     expect(state.emit).toHaveBeenCalledOnce()
@@ -562,9 +564,9 @@ describe('durable native observations', () => {
       Array.from({ length: 5 }, (_, index) => observe(`parallel-${index}`, span(1, 3).inference))
     )
     expect(Object.keys(state.log.executionData.billing.nativeUsage)).toHaveLength(6)
-    expect(
-      await beginWorkflowModelUsage({ ...usageScope, actorUserId: 'foreign' }, 'foreign')
-    ).toBe(false)
+    await expect(
+      beginWorkflowModelUsage({ ...usageScope, actorUserId: 'foreign' }, 'foreign')
+    ).rejects.toThrow('Workflow execution is not accepting model requests')
     expect(state.log.executionData.billing.nativeUsage.foreign).toBeUndefined()
     await expect(
       recordModelUsage(

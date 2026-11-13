@@ -409,9 +409,17 @@ it.each(['content-filter', 'error'] as const)(
 
 it.each(
   (['generate', 'stream'] as const).flatMap((mode) =>
-    (['abort', 'timeout', 'error', 'before-contact', 'after-accounted', 'pre-abort'] as const).map(
-      (outcome) => ({ mode, outcome })
-    )
+    (
+      [
+        'abort',
+        'timeout',
+        'error',
+        'before-contact',
+        'admission-refused',
+        'after-accounted',
+        'pre-abort',
+      ] as const
+    ).map((outcome) => ({ mode, outcome }))
   )
 )('tracks contacted unfinished costs in $mode ($outcome)', async ({ mode, outcome }) => {
   const abort = new AbortController()
@@ -426,6 +434,12 @@ it.each(
         abort.abort(failure)
         throw failure
       }
+    })
+  if (outcome === 'admission-refused')
+    billing.begin.mockImplementation(async () => {
+      if (billing.contact.mock.calls.length)
+        throw new Error('Workflow execution is not accepting model requests')
+      return true
     })
   if (outcome === 'after-accounted')
     billing.record.mockImplementation(async (_scope, _usage, cost) => {
