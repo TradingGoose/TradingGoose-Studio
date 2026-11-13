@@ -290,10 +290,8 @@ describe('Studio-owned Copilot tools', () => {
         additionalProperties: {},
       })
       expect(
-        tool('set_environment_variables').parameters.oneOf.every(
-          (entry: any) => entry.properties.variables.additionalProperties.type === 'string'
-        )
-      ).toBe(true)
+        tool('set_environment_variables').parameters.properties.variables.additionalProperties
+      ).toEqual({ type: 'string' })
       if (valid) {
         expect(m.route).toHaveBeenCalledExactlyOnceWith(
           'make_api_request',
@@ -304,6 +302,93 @@ describe('Studio-owned Copilot tools', () => {
       } else {
         expect(m.route).not.toHaveBeenCalled()
         expect(m.effect).not.toHaveBeenCalled()
+      }
+    }
+  )
+
+  it.each(
+    [
+      'read_environment_variables',
+      'set_environment_variables',
+      'read_oauth_credentials',
+      'read_credentials',
+    ].flatMap((name) =>
+      [
+        { scope: 'personal', valid: true },
+        { scope: 'workspace', workspaceId: 'workspace', valid: true },
+        { scope: 'workspace', valid: false },
+        { scope: 'personal', workspaceId: 'workspace', valid: false },
+        { scope: 'workspace', workspaceId: ' ', valid: false },
+      ].map(({ valid, ...args }) => ({
+        name,
+        valid,
+        args: {
+          ...args,
+          ...(name === 'set_environment_variables' ? { variables: { TOKEN: 'value' } } : {}),
+        },
+      }))
+    )
+  )(
+    'registers native Anthropic object tools and validates $name $args',
+    async ({ name, valid, args }) => {
+      const requests: any[] = []
+      vi.stubGlobal('fetch', async (url: RequestInfo | URL, init?: RequestInit) => {
+        expect(String(url)).toBe('https://api.anthropic.com/v1/messages')
+        const body = JSON.parse(String(init?.body))
+        requests.push(body)
+        return Response.json({
+          id: `message_${requests.length}`,
+          type: 'message',
+          role: 'assistant',
+          model: body.model,
+          content:
+            requests.length === 1
+              ? [{ type: 'tool_use', id: 'business-call', name, input: args }]
+              : [{ type: 'text', text: 'Done' }],
+          stop_reason: requests.length === 1 ? 'tool_use' : 'end_turn',
+          stop_sequence: null,
+          usage: { input_tokens: 3, output_tokens: 1 },
+        })
+      })
+      m.model = new ModelRouterLanguageModel({
+        providerId: 'anthropic',
+        modelId: 'claude-sonnet-4-5',
+        apiKey: 'fixture-key',
+      })
+      m.route.mockResolvedValue({
+        success: true,
+        scope: args.scope,
+        variableNames: ['TOKEN'],
+        personalVariableNames: [],
+        workspaceVariableNames: [],
+        conflicts: [],
+        count: 1,
+        credentials: [],
+        oauth: { connected: { credentials: [], total: 0 } },
+        environment: { variableNames: ['TOKEN'], count: 1 },
+      })
+      const h = harness()
+      const result = await h.agent.generate('Read or update the selected scope', h.options)
+      expect(result.text).toBe('Done')
+      expect(requests).toHaveLength(2)
+      for (const tool of requests[0].tools) {
+        expect(tool.input_schema.type, tool.name).toBe('object')
+        expect(tool.input_schema, tool.name).not.toHaveProperty('oneOf')
+      }
+      const setter = requests[0].tools.find(
+        (tool: any) => tool.name === 'set_environment_variables'
+      )
+      expect(setter.input_schema.properties.variables).toMatchObject({
+        type: 'object',
+        additionalProperties: { type: 'string' },
+      })
+      if (valid) {
+        expect(m.route).toHaveBeenCalledExactlyOnceWith(name, args, expect.any(Object))
+        expect(m.effect).toHaveBeenCalledOnce()
+      } else {
+        expect(m.route).not.toHaveBeenCalled()
+        expect(m.effect).not.toHaveBeenCalled()
+        expect(m.business).not.toHaveBeenCalled()
       }
     }
   )

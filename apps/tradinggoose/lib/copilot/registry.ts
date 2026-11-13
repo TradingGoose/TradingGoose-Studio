@@ -150,28 +150,22 @@ const RenameSavedEntityArgs = EntityTargetArgs.extend({
 const WorkspaceTargetArgs = z.object({
   workspaceId: RequiredId,
 })
-const PersonalOrWorkspaceReadArgs = z.discriminatedUnion('scope', [
-  z
-    .object({
-      scope: z.literal('personal'),
-    })
-    .strict(),
-  WorkspaceTargetArgs.extend({
-    scope: z.literal('workspace'),
-  }).strict(),
-])
-const SetEnvironmentVariablesArgs = z.discriminatedUnion('scope', [
-  z
-    .object({
-      scope: z.literal('personal'),
-      variables: z.record(z.string(), z.string()),
-    })
-    .strict(),
-  WorkspaceTargetArgs.extend({
-    scope: z.literal('workspace'),
-    variables: z.record(z.string(), z.string()),
-  }).strict(),
-])
+const PersonalOrWorkspaceReadArgs = z
+  .object({
+    scope: z.enum(['personal', 'workspace']),
+    workspaceId: RequiredId.optional().describe(
+      'Required when scope is workspace; omit when scope is personal.'
+    ),
+  })
+  .strict()
+  .refine(
+    (args) =>
+      args.scope === 'workspace' ? Boolean(args.workspaceId) : !Object.hasOwn(args, 'workspaceId'),
+    { path: ['workspaceId'], message: 'workspaceId is required only for workspace scope' }
+  )
+const SetEnvironmentVariablesArgs = PersonalOrWorkspaceReadArgs.safeExtend({
+  variables: z.record(z.string(), z.string()),
+})
 
 function buildEntityDocumentMutationArgs<TDocumentFormat extends string>(
   documentFormat: TDocumentFormat
