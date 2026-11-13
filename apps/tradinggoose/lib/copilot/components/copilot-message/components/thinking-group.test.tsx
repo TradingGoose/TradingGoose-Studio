@@ -55,6 +55,11 @@ describe('ThinkingGroup', () => {
     expect(container.textContent).toContain('Inspecting the workflow.')
     expect(container.querySelector('button')?.getAttribute('aria-expanded')).toBe('true')
 
+    await act(async () => container.querySelector('button')?.click())
+    await renderGroup([thinkingBlock({ content: 'More reasoning.' })], true)
+    expect(container.querySelector('button')?.getAttribute('aria-expanded')).toBe('false')
+    expect(container.textContent).not.toContain('More reasoning.')
+
     await renderGroup(blocks)
 
     expect(container.textContent).toContain('Finished thinking')

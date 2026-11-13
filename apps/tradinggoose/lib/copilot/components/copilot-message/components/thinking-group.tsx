@@ -39,7 +39,7 @@ export function ThinkingGroup({ blocks, isStreaming = false }: ThinkingGroupProp
     if (!userCollapsedRef.current) {
       setIsExpanded(true)
     }
-  }, [content, isStreaming])
+  }, [isStreaming])
 
   return (
     <div className='w-full rounded-md border border-border/60 bg-muted/30'>

@@ -439,18 +439,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       })
     }, [])
 
-    useEffect(() => {
-      const activeTextSegmentKeys = new Set(
-        assistantSegments
-          ?.filter((segment) => segment.type === 'text')
-          .map((segment) => segment.key) ?? []
-      )
-
-      setTypingSegmentKeys((currentKeys) =>
-        currentKeys.filter((key) => activeTextSegmentKeys.has(key))
-      )
-    }, [assistantSegments])
-
     // Memoize content blocks to avoid re-rendering unchanged blocks
     const memoizedContentBlocks = useMemo(() => {
       if (!visibleAssistantSegments) {
