@@ -151,6 +151,7 @@ function restart() {
 
 type ResponseStep =
   | { text: string | AsyncIterable<string> }
+  | { error: Error }
   | { tool: string; args: Record<string, unknown>; toolCallId?: string; text?: string }
 function setModel(...steps: ResponseStep[]) {
   let index = 0
@@ -174,9 +175,10 @@ function setModel(...steps: ResponseStep[]) {
                 toolName: step.tool,
                 input: JSON.stringify(step.args),
               })
+            if ('error' in step) controller.enqueue({ type: 'error', error: step.error })
             controller.enqueue({
               type: 'finish',
-              finishReason: 'tool' in step ? 'tool-calls' : 'stop',
+              finishReason: 'error' in step ? 'error' : 'tool' in step ? 'tool-calls' : 'stop',
               usage: { inputTokens: 3, outputTokens: 2, totalTokens: 5 },
             })
             controller.close()
@@ -371,22 +373,32 @@ describe('built-in Copilot service bridge', () => {
     }
   )
 
-  it('releases native startup failures so another message can use the same conversation', async () => {
-    const threadId = crypto.randomUUID()
-    await m.memory.createThread({ threadId, ...nativeConversationIdentity(scope) })
-    setModel({ text: 'Retry succeeded' })
-    vi.spyOn(m.agent, 'getDefaultOptions').mockRejectedValueOnce(new Error('Native startup failed'))
-    expect((await message({ threadId })).result.status).toBe('failed')
-    expect(m.contacts).toHaveLength(0)
-    expect(await readCopilotThreadRun(scope, threadId)).toBeUndefined()
-    expect((await message({ threadId })).result).toMatchObject({
-      status: 'completed',
-      threadId,
-      text: 'Retry succeeded',
-    })
-    expect(m.contacts).toHaveLength(1)
-    expect(m.accept).toHaveBeenCalledOnce()
-  })
+  it.each(['startup', 'provider'])(
+    'redacts a native %s failure and releases the conversation for another message',
+    async (phase) => {
+      const threadId = crypto.randomUUID()
+      await m.memory.createThread({ threadId, ...nativeConversationIdentity(scope) })
+      const error = Object.assign(new Error('Native failure: admin-key'), {
+        statusCode: 401,
+        isRetryable: false,
+      })
+      setModel(...(phase === 'provider' ? [{ error }] : []), { text: 'Retry succeeded' })
+      if (phase === 'startup') vi.spyOn(m.agent, 'getDefaultOptions').mockRejectedValueOnce(error)
+      expect((await message({ threadId })).result).toMatchObject({
+        status: 'failed',
+        error: { code: 'GENERATION_FAILED', message: 'Native failure: [redacted]' },
+      })
+      expect(m.contacts).toHaveLength(phase === 'provider' ? 1 : 0)
+      expect(await readCopilotThreadRun(scope, threadId)).toBeUndefined()
+      expect((await message({ threadId })).result).toMatchObject({
+        status: 'completed',
+        threadId,
+        text: 'Retry succeeded',
+      })
+      expect(m.contacts).toHaveLength(phase === 'provider' ? 2 : 1)
+      if (phase === 'startup') expect(m.accept).toHaveBeenCalledOnce()
+    }
+  )
 
   it('reconnects to a detached live response and saves its answer without another model call', async () => {
     const threadId = crypto.randomUUID()
@@ -700,19 +712,22 @@ describe('built-in Copilot service bridge', () => {
     expect(m.fetch).not.toHaveBeenCalled()
   })
 
-  it('executes a server read and continues generation within one local command', async () => {
+  it.each([false, true])('continues after a server read (failed=%s)', async (failed) => {
     const workspaceId = '550e8400-e29b-41d4-a716-446655440000'
-    setModel({ tool: 'list_workflows', args: { workspaceId } }, { text: 'One known workflow' })
-    m.route.mockResolvedValueOnce({
-      entityKind: 'workflow',
-      entities: [{ entityId: 'workflow', entityName: 'Known' }],
-      count: 1,
-    })
+    const text = failed ? 'The lookup failed.' : 'One known workflow'
+    setModel({ tool: 'list_workflows', args: { workspaceId } }, { text })
+    if (failed) m.route.mockRejectedValueOnce(new Error('Workflow service unavailable'))
+    else
+      m.route.mockResolvedValueOnce({
+        entityKind: 'workflow',
+        entities: [{ entityId: 'workflow', entityName: 'Known' }],
+        count: 1,
+      })
     const { result } = await message({ scope: { ...scope, workspaceId }, accessLevel: 'full' })
     expectWorkspaceScope(m.contacts[0], workspaceId)
     expect(result).toMatchObject({
       status: 'completed',
-      text: 'One known workflow',
+      text,
     })
     expect(m.route).toHaveBeenCalledExactlyOnceWith(
       'list_workflows',
@@ -721,6 +736,9 @@ describe('built-in Copilot service bridge', () => {
     )
     expect(m.admit).toHaveBeenCalledTimes(2)
     expect(m.accept).toHaveBeenCalledTimes(2)
+    expect(m.contacts).toHaveLength(2)
+    if (failed) expect(JSON.stringify(m.contacts[1])).toContain('Workflow service unavailable')
+    expect(await threadClaims()).toHaveLength(0)
     expect(createConfiguredLanguageModel).toHaveBeenCalledExactlyOnceWith(
       'configured/model',
       'admin-key'

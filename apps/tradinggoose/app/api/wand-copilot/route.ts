@@ -17,7 +17,7 @@ const WandRequestSchema = z
     history: z
       .array(
         z.object({
-          role: z.enum(['user', 'assistant', 'system', 'tool']),
+          role: z.enum(['user', 'assistant', 'system']),
           content: z.string(),
         })
       )
@@ -121,12 +121,9 @@ export async function POST(req: NextRequest) {
 
   const { prompt, systemPrompt, generationType, history } = parsed.data
   const finalSystemPrompt = buildWandSystemPrompt(systemPrompt, generationType)
-  const messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }> = [
+  const messages: CompletionRequest['messages'] = [
     ...(finalSystemPrompt ? [{ role: 'system' as const, content: finalSystemPrompt }] : []),
-    ...(history || []).map((message) => ({
-      role: message.role,
-      content: message.content,
-    })),
+    ...(history || []),
     { role: 'user' as const, content: prompt },
   ]
 
@@ -136,7 +133,7 @@ export async function POST(req: NextRequest) {
       scope: { actorUserId: session.user.id, workspaceId: null },
       purpose: 'wand',
       model,
-      messages: [messages[0]!, ...messages.slice(1)],
+      messages,
     }
     const response = await createCompletionResponse(nativeRequest, req.signal)
     return response

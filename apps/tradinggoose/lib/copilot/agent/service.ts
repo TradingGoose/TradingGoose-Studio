@@ -33,10 +33,11 @@ import { processContextsServer } from '@/lib/copilot/process-contents'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { safeInferenceError } from '@/lib/mastra/errors'
 import { projectNativeMessage } from '@/lib/mastra/messages'
 import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { prepareModelRequest } from '@/lib/mastra/request'
-import { assertNativeCompletion, getNativeFinalText } from '@/lib/mastra/result'
+import { getNativeFinalText } from '@/lib/mastra/result'
 import { getAgentMemory, getCopilotAgent, getNativeMemoryStore } from '@/lib/mastra/runtime'
 import { SSE_HEADERS } from '@/lib/utils'
 import {
@@ -117,7 +118,7 @@ function publicPending({ target, stage, originalArgs, context, preview }: Server
   return { target, stage, originalArgs, context, ...(preview ? { preview } : {}) }
 }
 
-function failure(error: unknown): ErrorResponse {
+function failure(error: unknown, apiKey?: string): ErrorResponse {
   const status = error instanceof NativeTargetError ? error.status : 503
   return {
     status: status < 500 ? 'refused' : 'failed',
@@ -130,8 +131,7 @@ function failure(error: unknown): ErrorResponse {
             : status < 500
               ? 'INVALID_REQUEST'
               : 'GENERATION_FAILED',
-      message:
-        error instanceof NativeTargetError ? error.message : 'Copilot generation did not complete',
+      message: safeInferenceError(error, apiKey),
     },
   }
 }
@@ -391,6 +391,7 @@ async function* generate(
   toolContexts: CopilotToolContext[]
 ): AsyncGenerator<CopilotEvent> {
   let run: CopilotRun | undefined
+  let apiKey: string | undefined
   let watcher: ReturnType<typeof setInterval> | undefined
   let usage: Awaited<ReturnType<typeof prepareModelRequest>>['usage'] | undefined
   let ownership: Awaited<ReturnType<typeof claimCopilotThread>> | undefined
@@ -449,7 +450,6 @@ async function* generate(
     const signal = cancellation.signal
     let pending: ServerPending | undefined
     let decision: CopilotDecision | undefined
-    let apiKey: string | undefined
     if (request.command === 'message') {
       if (request.messageId && !request.threadId)
         throw new NativeTargetError('Editing a message requires its conversation', 422)
@@ -693,20 +693,18 @@ async function* generate(
       threadId: run.threadId,
       ...(message ? { messageId: message.id } : {}),
     }
-    let streamError: unknown
     for await (const part of output.fullStream) {
-      if (part.type === 'error') streamError = part.payload.error
       if (signal.aborted) continue
       const event = projectChunk(part)
       if (event) yield event
     }
     const result = await output.getFullOutput()
     signal.throwIfAborted()
-    if (streamError || result.error) throw streamError ?? result.error
+    if (result.error) throw result.error
     const items = await listCopilotPending(run.scope, run.threadId, signal)
-    if (request.command === 'message' || result.finishReason !== 'suspended')
-      await usage.verifyComplete()
     if (items.length) {
+      if (request.command === 'message' || result.finishReason !== 'suspended')
+        await usage.verifyComplete()
       yield {
         type: 'response.suspended',
         result: {
@@ -719,7 +717,7 @@ async function* generate(
         },
       }
     } else {
-      assertNativeCompletion(result)
+      await prepared.complete(result)
       getNativeFinalText(result)
       yield {
         type: 'response.completed',
@@ -747,7 +745,7 @@ async function* generate(
           result: { status: 'cancel_requested', runId: run.runId },
         }
     } else {
-      const result = failure(error)
+      const result = failure(error, apiKey)
       if (usage) result.usage = usage.getUsage()
       yield {
         type: result.status === 'refused' ? 'response.refused' : 'response.error',

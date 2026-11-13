@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { prepareModelRequest } from '@/lib/mastra/request'
-import { assertNativeCompletion } from '@/lib/mastra/result'
 import { getCopilotAgent } from '@/lib/mastra/runtime'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { SSE_HEADERS } from '@/lib/utils'
@@ -37,9 +36,6 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
     {
       apiKey,
       maxSteps: 1,
-      modelSettings: request.maxOutputTokens
-        ? { maxOutputTokens: request.maxOutputTokens }
-        : undefined,
     }
   )
   const instructions = [
@@ -48,25 +44,21 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
       .filter((message) => message.role === 'system')
       .map((message) => message.content),
   ].join('\n\n')
-  const messages = request.messages
-    .filter((message) => message.role !== 'system')
-    .map((message) =>
-      message.role === 'assistant'
-        ? { role: 'assistant' as const, content: message.content }
-        : {
-            role: 'user' as const,
-            content:
-              message.role === 'tool' ? `Tool context:\n${message.content}` : message.content,
-          }
-    )
-  if (!messages.length) messages.push({ role: 'user', content: 'Complete the supplied request.' })
+  const messages = request.messages.filter((message) => message.role !== 'system')
   const options = {
     ...prepared.options,
     model: prepared.model,
     instructions,
     toolChoice: 'none' as const,
   }
-  return { agent: await getCopilotAgent(), usage: prepared.usage, runId, messages, options }
+  return {
+    agent: await getCopilotAgent(),
+    usage: prepared.usage,
+    complete: prepared.complete,
+    runId,
+    messages,
+    options,
+  }
 }
 
 function completionFailure(
@@ -115,8 +107,7 @@ export async function completeCopilot(
   try {
     work = await prepareCompletion(request, signal)
     const result = await work.agent.generate(work.messages, work.options)
-    assertNativeCompletion(result)
-    await work.usage.verifyComplete()
+    await work.complete(result)
     return completed(work, result.text)
   } catch (error) {
     return completionFailure(error, work?.usage, signal)
@@ -137,8 +128,7 @@ export async function createCompletionResponse(request: CompletionRequest, signa
         if (part.type === 'text-delta') yield { chunk: part.payload.text }
       }
       const result = await output.getFullOutput()
-      assertNativeCompletion(result)
-      await work.usage.verifyComplete()
+      await work.complete(result)
       yield { done: true, result: completed(work, result.text) }
     } catch (error) {
       const result = completionFailure(error, work?.usage, activeSignal)

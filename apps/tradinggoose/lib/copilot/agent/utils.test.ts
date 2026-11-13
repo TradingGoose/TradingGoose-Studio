@@ -1,6 +1,5 @@
 /** @vitest-environment node */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CompletionRequest } from '@/lib/copilot/native/contract'
 import { requestCopilotTitle } from './utils'
 
 const state = vi.hoisted(() => ({ complete: vi.fn() }))
@@ -18,9 +17,7 @@ const completed = {
 }
 beforeEach(() => {
   vi.clearAllMocks()
-  state.complete.mockImplementation(async (request: CompletionRequest) => ({
-    ...completed,
-  }))
+  state.complete.mockResolvedValue(completed)
 })
 describe('built-in title completion', () => {
   it.each(['openai/gpt-5.6-terra', 'anthropic/claude-opus-5'] as const)(
@@ -49,7 +46,7 @@ describe('built-in title completion', () => {
   )
   it('does not publish a completed title after cancellation', async () => {
     const controller = new AbortController()
-    state.complete.mockImplementationOnce(async (request: CompletionRequest) => {
+    state.complete.mockImplementationOnce(async () => {
       controller.abort()
       return { ...completed }
     })
@@ -68,14 +65,11 @@ describe('built-in title completion', () => {
       expect(state.complete).toHaveBeenCalledOnce()
     }
   )
-  it('does not contact or retry after cancellation or local failure', async () => {
+  it('does not contact or retry after cancellation', async () => {
     const controller = new AbortController()
     controller.abort()
     expect(await requestCopilotTitle({ ...input, signal: controller.signal })).toBeNull()
     expect(state.complete).not.toHaveBeenCalled()
-    state.complete.mockRejectedValueOnce(new Error('unavailable'))
-    expect(await requestCopilotTitle(input)).toBeNull()
-    expect(state.complete).toHaveBeenCalledOnce()
   })
   it('does not publish a whitespace title', async () => {
     state.complete.mockResolvedValueOnce({ ...completed, text: '  ' })

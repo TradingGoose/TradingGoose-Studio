@@ -205,16 +205,15 @@ export type CopilotEvent =
   | { type: 'response.suspended'; result: SuspendedResponse }
   | { type: 'response.refused' | 'response.error'; result: ErrorResponse }
   | { type: 'response.cancel_requested'; result: CancelResponse }
-export interface UtilityMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool'
-  content: string
-}
+export type UtilityMessage =
+  | { role: 'system'; content: string }
+  | { role: 'user'; content: string }
+  | { role: 'assistant'; content: string }
 export interface CompletionRequest {
   scope: Scope
   purpose: 'title' | 'wand'
   model: string
   messages: UtilityMessage[]
-  maxOutputTokens?: number
 }
 export interface CompletionResponse {
   status: 'completed'
