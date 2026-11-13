@@ -155,6 +155,7 @@ it('keeps composing available but refuses click and Enter submission without a c
 it('retains draft and attachments when native image delivery is blocked before contact', async () => {
   mocked.submit.mockResolvedValue(false)
   await render()
+  const submittedDraft = currentDraft
   await submit()
   expect(mocked.submit).toHaveBeenCalledWith(
     'Preserved draft',
@@ -170,6 +171,8 @@ it('retains draft and attachments when native image delivery is blocked before c
   )
   expect(mocked.clear).not.toHaveBeenCalled()
   expect(mocked.change).not.toHaveBeenCalled()
+  expect(currentDraft).toBe(submittedDraft)
+  expect(mocked.files.map((file) => file.id)).toEqual([descriptor.id])
 })
 it('clears only after accepted submission', async () => {
   mocked.submit.mockResolvedValue(true)

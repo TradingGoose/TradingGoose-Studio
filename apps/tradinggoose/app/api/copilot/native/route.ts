@@ -4,6 +4,7 @@ import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import { executeCopilotCommand } from '@/lib/copilot/agent/service'
 import { CopilotRequestSchema, type CopilotToolContext } from '@/lib/copilot/native/contract'
 import { validateNativeImageParts } from '@/lib/copilot/native/images'
+import { readCopilotRequestBody } from '@/lib/copilot/native/request-size'
 import { authorizeNativeConversationScope, NativeTargetError } from '@/lib/copilot/native/target'
 import { collectCopilotToolContexts } from '@/lib/copilot/tool-context'
 
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
         { status: 'refused', error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } },
         { status: 401 }
       )
-    const command = CopilotRequestSchema.parse(await request.json())
+    const command = CopilotRequestSchema.parse(await readCopilotRequestBody(request))
     const scope = await authorizeNativeConversationScope(session.user.id, command.workspaceId)
     const toolContexts: CopilotToolContext[] = []
     if (command.command === 'message') {

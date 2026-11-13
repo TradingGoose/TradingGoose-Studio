@@ -1,8 +1,9 @@
 'use client'
 
 import { type DragEvent, useEffect, useRef, useState } from 'react'
+import { assertCopilotAttachmentSize } from '@/lib/copilot/native/request-size'
 import { createLogger } from '@/lib/logs/console/logger'
-import { MAX_FILE_SIZE } from '@/lib/uploads/utils/validation'
+import type { CopilotDraft } from '@/stores/copilot/types'
 import type { AttachedFile } from '../types'
 
 const logger = createLogger('CopilotUserInputAttachments')
@@ -17,20 +18,30 @@ const revokePreviewUrls = (files: AttachedFile[]) => {
   files.forEach((file) => revokePreviewUrl(file))
 }
 
-export function useUserInputAttachments({ userId }: { userId?: string }) {
+export function useUserInputAttachments({
+  userId,
+  draft,
+}: {
+  userId?: string
+  draft: CopilotDraft
+}) {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const attachedFilesRef = useRef<AttachedFile[]>([])
+  const draftRef = useRef(draft)
   const dragDepthRef = useRef(0)
+  draftRef.current = draft
 
-  useEffect(() => {
-    attachedFilesRef.current = attachedFiles
-  }, [attachedFiles])
+  const updateFiles = (update: (current: AttachedFile[]) => AttachedFile[]) => {
+    attachedFilesRef.current = update(attachedFilesRef.current)
+    setAttachedFiles(attachedFilesRef.current)
+  }
 
   useEffect(() => {
     return () => {
       revokePreviewUrls(attachedFilesRef.current)
+      attachedFilesRef.current = []
     }
   }, [])
 
@@ -47,25 +58,20 @@ export function useUserInputAttachments({ userId }: { userId?: string }) {
     }
 
     for (const file of Array.from(fileList)) {
-      if (!file.type.startsWith('image/')) {
-        logger.warn(`File ${file.name} is not an image. Only image files are allowed.`)
-        continue
-      }
-
-      const previewUrl = URL.createObjectURL(file)
-      const tempFile: AttachedFile = {
-        id: crypto.randomUUID(),
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        uploading: true,
-        previewUrl,
-      }
-
-      setAttachedFiles((prev) => [...prev, tempFile])
-
+      let fileId: string | undefined
       try {
-        if (!file.size || file.size > MAX_FILE_SIZE) throw new Error('Image size is invalid')
+        if (!file.size) throw new Error('Image size is invalid')
+        assertCopilotAttachmentSize(draftRef.current, [...attachedFilesRef.current, file])
+        const tempFile: AttachedFile = {
+          id: crypto.randomUUID(),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          uploading: true,
+          previewUrl: URL.createObjectURL(file),
+        }
+        fileId = tempFile.id
+        updateFiles((current) => [...current, tempFile])
         const data = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = () =>
@@ -76,29 +82,28 @@ export function useUserInputAttachments({ userId }: { userId?: string }) {
           reader.readAsDataURL(file)
         })
 
-        setAttachedFiles((prev) =>
-          prev.map((attachedFile) =>
-            attachedFile.id === tempFile.id
-              ? {
-                  ...attachedFile,
-                  data,
-                  uploading: false,
-                }
-              : attachedFile
-          )
+        if (!attachedFilesRef.current.some((attachedFile) => attachedFile.id === fileId)) continue
+        const readyFiles = attachedFilesRef.current.map((attachedFile) =>
+          attachedFile.id === fileId ? { ...attachedFile, data, uploading: false } : attachedFile
         )
+        assertCopilotAttachmentSize(draftRef.current, readyFiles)
+        updateFiles(() => readyFiles)
       } catch (error) {
         setUploadError(error instanceof Error ? error.message : 'Image upload failed')
         logger.error(`File upload failed: ${error}`)
-        revokePreviewUrl(tempFile)
-        setAttachedFiles((prev) => prev.filter((attachedFile) => attachedFile.id !== tempFile.id))
+        if (fileId) {
+          updateFiles((current) => {
+            revokePreviewUrl(current.find((attachedFile) => attachedFile.id === fileId))
+            return current.filter((attachedFile) => attachedFile.id !== fileId)
+          })
+        }
       }
     }
   }
 
   const clearAttachedFiles = (submittedIds: string[]) => {
     const submitted = new Set(submittedIds)
-    setAttachedFiles((current) => {
+    updateFiles((current) => {
       const removed = current.filter((file) => submitted.has(file.id))
       revokePreviewUrls(removed)
       return current.filter((file) => !submitted.has(file.id))
@@ -106,7 +111,7 @@ export function useUserInputAttachments({ userId }: { userId?: string }) {
   }
 
   const removeFile = (fileId: string) => {
-    setAttachedFiles((prev) => {
+    updateFiles((prev) => {
       const file = prev.find((attachedFile) => attachedFile.id === fileId)
       revokePreviewUrl(file)
       return prev.filter((attachedFile) => attachedFile.id !== fileId)

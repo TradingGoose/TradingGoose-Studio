@@ -5,6 +5,7 @@ import {
   type CopilotRequest,
   type Pending,
 } from '@/lib/copilot/native/contract'
+import { MAX_COPILOT_REQUEST_BYTES } from '@/lib/copilot/native/request-size'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
@@ -240,6 +241,93 @@ afterEach(() => {
 })
 
 describe('canonical browser conversation transport', () => {
+  it('serializes the current access level after an untitled chat history preflight settles', async () => {
+    store().setState({
+      currentChat: { ...chat(), title: '' },
+      conversationWorkspaceId: workspaceId,
+      accessLevel: 'full',
+    })
+    const held = defer<Response>()
+    onCommand = (command) =>
+      command.command === 'history.read' && commands.length === 1 ? held.promise : undefined
+    const sending = store().getState().sendMessage('Describe')
+    await vi.waitFor(() =>
+      expect(commands.map((command) => command.command)).toEqual(['history.read'])
+    )
+    store().getState().setAccessLevel('limited')
+    held.resolve(json({ status: 'history', threadId, items: [], pending: [] }))
+    expect(await sending).toBe(true)
+    expect(commands.find((command) => command.command === 'message')).toMatchObject({
+      accessLevel: 'limited',
+    })
+  })
+
+  it.each(['message', 'edit'])(
+    'preserves the draft, run identity and displayed history when an oversized %s is refused locally',
+    async (mode) => {
+      await store().getState().selectChat(chat())
+      commands.length = 0
+      const messages = store().getState().messages
+      const submittedDraft = { text: 'Describe these images', contexts: [] }
+      store().setState({ draft: submittedDraft, currentRunId: 'retained-run' })
+      const images = [
+        {
+          type: 'image' as const,
+          image: `data:image/png;base64,${'A'.repeat(MAX_COPILOT_REQUEST_BYTES)}`,
+          mediaType: 'image/png',
+        },
+      ]
+      expect(
+        await store()
+          .getState()
+          .sendMessage(submittedDraft.text, {
+            images,
+            submittedDraft,
+            ...(mode === 'edit' ? { messageId: history[0].id } : {}),
+          })
+      ).toBe(false)
+      expect(commands).toEqual([])
+      expect(titleRequests).toEqual([])
+      expect(store().getState()).toMatchObject({
+        currentRunId: 'retained-run',
+        isSendingMessage: false,
+        abortController: null,
+        error: expect.stringContaining('10 MiB'),
+      })
+      expect(store().getState().draft).toBe(submittedDraft)
+      expect(store().getState().messages).toBe(messages)
+      expect(images).toHaveLength(1)
+    }
+  )
+
+  it('counts merged implicit context and UTF-8 bytes in the complete command before any request', async () => {
+    const submittedDraft = { text: 'Describe', contexts: [] }
+    store().setState({ draft: submittedDraft })
+    const messages = store().getState().messages
+    expect(
+      await store()
+        .getState()
+        .sendMessage(submittedDraft.text, {
+          submittedDraft,
+          images: [
+            {
+              type: 'image',
+              image: `data:image/png;base64,${'A'.repeat(MAX_COPILOT_REQUEST_BYTES - 1024)}`,
+              mediaType: 'image/png',
+            },
+          ],
+          runtimeContext: {
+            workspaceId,
+            implicitContexts: [{ kind: 'docs', label: '文'.repeat(1024) }],
+          },
+        })
+    ).toBe(false)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(store().getState().draft).toBe(submittedDraft)
+    expect(store().getState().messages).toBe(messages)
+    expect(store().getState().error).toContain('10 MiB')
+  })
+
   it('starts unconfigured and refuses to send without a selected administrator model', async () => {
     resetCopilotStoreRegistry()
     expect(store().getState().selectedModel).toBeNull()

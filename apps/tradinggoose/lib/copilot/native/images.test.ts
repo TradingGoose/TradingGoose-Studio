@@ -1,7 +1,6 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it } from 'vitest'
 import { validateNativeImageParts } from './images'
 
-vi.mock('@/lib/uploads/utils/validation', () => ({ MAX_FILE_SIZE: 16 }))
 const image = {
   type: 'image' as const,
   mediaType: 'image/png',
@@ -18,7 +17,7 @@ it.each([
   'data:text/plain;base64,aW1hZ2U=',
   'data:image/png;base64,',
   'data:image/png;base64,%%%',
-  `data:image/png;base64,${Buffer.alloc(17).toString('base64')}`,
-])('rejects unsupported or oversized image input %s', (data) => {
+  'data:image/png;base64,AB==',
+])('rejects unsupported or noncanonical image input %s', (data) => {
   expect(() => validateNativeImageParts([{ ...image, image: data }])).toThrow()
 })

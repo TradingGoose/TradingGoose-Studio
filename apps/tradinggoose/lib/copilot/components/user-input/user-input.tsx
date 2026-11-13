@@ -78,7 +78,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       processFiles,
       removeFile,
       uploadError,
-    } = useUserInputAttachments({ userId: session?.user?.id })
+    } = useUserInputAttachments({ userId: session?.user?.id, draft })
     const { ensureSubmenuLoaded, mentionFailed, mentionLoading, mentionSources } =
       useUserInputMentionSources({
         workspaceId,

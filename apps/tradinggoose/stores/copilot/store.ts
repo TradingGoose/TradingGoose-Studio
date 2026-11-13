@@ -18,6 +18,7 @@ import {
   hasToolActivityAfterMessage,
 } from '@/lib/copilot/chat-replay-safety'
 import type { CopilotEvent, CopilotRequest, Pending } from '@/lib/copilot/native/contract'
+import { serializeCopilotRequest } from '@/lib/copilot/native/request-size'
 import { readNativeEvents } from '@/lib/copilot/native/stream'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
@@ -328,7 +329,11 @@ function createCopilotStoreInstance(channelId: string) {
           })
         }
       }
-      const invoke = async (command: CopilotRequest, messageId = assistantForCommand()) => {
+      const invoke = async (
+        command: CopilotRequest,
+        messageId = assistantForCommand(),
+        body = serializeCopilotRequest(command)
+      ) => {
         const id = epoch
         const interaction = interactionGeneration
         const current = () => id === epoch && interaction === interactionGeneration
@@ -342,7 +347,7 @@ function createCopilotStoreInstance(channelId: string) {
           isRefreshingHistory: false,
         })
         try {
-          const response = await postNativeCommand(command, abort.signal)
+          const response = await postNativeCommand(body, abort.signal)
           if (!current()) return false
           if (!response.ok) await readNativeCommandResponse(response)
           if (
@@ -955,7 +960,6 @@ function createCopilotStoreInstance(channelId: string) {
             editing ? workspaceId : options.runtimeContext?.workspaceId
           )
           try {
-            const parsed = { content: message, contexts }
             if (!selected()) return false
             let initial = !chat && !editing
             if (!editing && chat?.title === '' && message.trim()) {
@@ -968,6 +972,22 @@ function createCopilotStoreInstance(channelId: string) {
               }
             }
             if (!selected()) return false
+            const command: CopilotRequest = {
+              command: 'message',
+              toolContext,
+              workspaceId,
+              ...(chat ? { threadId: chat.threadId } : {}),
+              ...(editing ? { messageId: options.messageId } : {}),
+              model,
+              input: {
+                contexts,
+                content: options.images?.length
+                  ? [{ type: 'text', text: message }, ...options.images]
+                  : message,
+              },
+              accessLevel: get().accessLevel,
+            }
+            const body = serializeCopilotRequest(command)
             titleCandidate =
               initial && message.trim() && titleEdit === titleEditGeneration
                 ? {
@@ -987,24 +1007,7 @@ function createCopilotStoreInstance(channelId: string) {
               currentRunId: null,
               lastNativeOutcome: null,
             }))
-            const success = await invoke(
-              {
-                command: 'message',
-                toolContext,
-                workspaceId,
-                ...(chat ? { threadId: chat.threadId } : {}),
-                ...(editing ? { messageId: options.messageId } : {}),
-                model,
-                input: {
-                  ...parsed,
-                  content: options.images?.length
-                    ? [{ type: 'text', text: message }, ...options.images]
-                    : message,
-                },
-                accessLevel: get().accessLevel,
-              },
-              assistant.id
-            )
+            const success = await invoke(command, assistant.id, body)
             const completedHere = success && id === epoch && interaction === interactionGeneration
             if (completedHere && options.submittedDraft)
               set((state) =>

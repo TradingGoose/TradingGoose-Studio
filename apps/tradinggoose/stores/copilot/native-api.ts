@@ -4,6 +4,10 @@ import type {
   HistoryResponse,
   Thread,
 } from '@/lib/copilot/native/contract'
+import {
+  assertCopilotRequestSize,
+  serializeCopilotRequest,
+} from '@/lib/copilot/native/request-size'
 
 export class NativeCommandError extends Error {
   constructor(readonly nativeOutcome: CopilotResponse) {
@@ -12,13 +16,14 @@ export class NativeCommandError extends Error {
 }
 
 /** Browser transport contains no service credential or upstream URL override. */
-export function postNativeCommand(command: CopilotRequest, signal?: AbortSignal) {
+export function postNativeCommand(body: string, signal?: AbortSignal) {
   signal?.throwIfAborted()
+  assertCopilotRequestSize(body)
   return fetch('/api/copilot/native', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify(command),
+    body,
     signal,
   })
 }
@@ -31,7 +36,9 @@ export async function readNativeCommandResponse(response: Response) {
 }
 
 export async function readNativeCommand(command: CopilotRequest, signal?: AbortSignal) {
-  const result = await readNativeCommandResponse(await postNativeCommand(command, signal))
+  const result = await readNativeCommandResponse(
+    await postNativeCommand(serializeCopilotRequest(command), signal)
+  )
   signal?.throwIfAborted()
   return result
 }
