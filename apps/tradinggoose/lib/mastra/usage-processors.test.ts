@@ -176,6 +176,8 @@ it.each(['account', 'byok'] as const)(
                 billing.contact.mock.calls.length === 1
                   ? [
                       { type: 'stream-start', warnings: [] },
+                      { type: 'text-start', id: 'failed-answer' },
+                      { type: 'text-delta', id: 'failed-answer', delta: 'Wrong partial. ' },
                       { type: 'error', error: transient },
                     ]
                   : [

@@ -298,11 +298,6 @@ export class AgentBlockHandler implements BlockHandler {
           })
         : await agent.stream(modelMessages, { ...options, structuredOutput: undefined })
       const reader = nativeStream.fullStream.getReader()
-      // Follow consumed native events: the producer may already be preparing a later step.
-      let streamedStep = -1
-      let completedSteps: any[] = []
-      let canStreamStepText = false
-      let stepTextStreamed = false
       const stream = new ReadableStream<Uint8Array>({
         async pull(controller) {
           try {
@@ -316,25 +311,9 @@ export class AgentBlockHandler implements BlockHandler {
                 const result = await nativeStream.getFullOutput()
                 Object.assign(execution.output, await complete(result))
                 execution.metadata!.duration = Date.now() - startedAt.getTime()
-                if (!stepTextStreamed)
-                  controller.enqueue(new TextEncoder().encode(result.steps.at(-1)!.text))
+                // Workflow chunks are append-only; native retries may discard earlier text.
+                controller.enqueue(new TextEncoder().encode(result.steps.at(-1)!.text))
                 controller.close()
-                return
-              }
-              if (value.type === 'step-start') {
-                streamedStep += 1
-                stepTextStreamed = false
-                canStreamStepText =
-                  !responseFormat &&
-                  (Object.keys(tools).length === 0 ||
-                    (streamedStep >= work.options.maxSteps - 1 &&
-                      policy.prepareStep({ steps: completedSteps }).toolChoice === 'auto'))
-              }
-              if (value.type === 'step-finish' && value.payload.output.steps)
-                completedSteps = value.payload.output.steps
-              if (value.type === 'text-delta' && canStreamStepText) {
-                stepTextStreamed = true
-                controller.enqueue(new TextEncoder().encode(value.payload.text))
                 return
               }
               if (value.type === 'error') throw value.payload.error

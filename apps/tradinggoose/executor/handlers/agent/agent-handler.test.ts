@@ -11,6 +11,7 @@ import { getAgentMemory, getNativeMemoryStore } from '@/lib/mastra/runtime'
 import { sumNativeUsage } from '@/lib/mastra/usage'
 import { mcpService } from '@/lib/mcp/service'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { getBlock } from '@/blocks/index'
 
@@ -526,7 +527,6 @@ describe('native Agent workflow execution', () => {
       tools: false,
       usageControl: 'auto',
       maxSteps: 5,
-      progressive: true,
       structured: false,
     },
     {
@@ -534,7 +534,6 @@ describe('native Agent workflow execution', () => {
       tools: true,
       usageControl: 'auto',
       maxSteps: 1,
-      progressive: true,
       structured: false,
     },
     {
@@ -542,7 +541,6 @@ describe('native Agent workflow execution', () => {
       tools: true,
       usageControl: 'force',
       maxSteps: 2,
-      progressive: true,
       structured: false,
     },
     {
@@ -550,7 +548,6 @@ describe('native Agent workflow execution', () => {
       tools: true,
       usageControl: 'auto',
       maxSteps: 5,
-      progressive: false,
       structured: false,
     },
     {
@@ -558,10 +555,9 @@ describe('native Agent workflow execution', () => {
       tools: false,
       usageControl: 'auto',
       maxSteps: 1,
-      progressive: false,
       structured: true,
     },
-  ] as const)('delivers $name with the appropriate native streaming boundary', async (scenario) => {
+  ] as const)('delivers $name after native completion and validation', async (scenario) => {
     const parts = scenario.structured ? ['{"answer":', '42}'] : ['Final ', 'answer']
     let finish: (() => void) | undefined
     state.model = new MastraLanguageModelV2Mock({
@@ -645,13 +641,8 @@ describe('native Agent workflow execution', () => {
     let text = ''
     try {
       await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
-      if (scenario.progressive) {
-        await vi.waitFor(() => expect(received).toBe(true), { timeout: 200 })
-        expect(decoder.decode((await firstRead).value)).toBe(parts[0])
-      } else {
-        await new Promise((resolve) => setTimeout(resolve, 25))
-        expect(received).toBe(false)
-      }
+      await new Promise((resolve) => setTimeout(resolve, 25))
+      expect(received).toBe(false)
       expect(result.execution.output).toEqual({})
     } finally {
       finish?.()
@@ -1783,9 +1774,112 @@ describe('native structured streams through the workflow executor', () => {
   })
 })
 
-it.each([false, true])(
-  'aborts a native stream and retains earlier work (progressive=%s)',
-  async (progressive) => {
+it.each(['no-tools', 'forced-tool', 'final-answer', 'terminal-error'])(
+  'publishes only validated native answers through workflow chat (%s)',
+  async (scenario) => {
+    const withTools = scenario === 'forced-tool' || scenario === 'final-answer'
+    let failed = false
+    const transient = Object.assign(new Error('Provider stream failed'), {
+      statusCode: scenario === 'terminal-error' ? 401 : 503,
+      isRetryable: scenario !== 'terminal-error',
+    })
+    state.nativeCost = { status: 'partial', availableTotal: 0.006 }
+    state.model = new MastraLanguageModelV2Mock({
+      doStream: async (options) => ({
+        stream: new ReadableStream({
+          start(controller) {
+            const forced = options.toolChoice?.type === 'tool'
+            const reject = !failed && (scenario !== 'final-answer' || !forced)
+            controller.enqueue({ type: 'stream-start', warnings: [] })
+            controller.enqueue({ type: 'text-start', id: 'answer' })
+            controller.enqueue({
+              type: 'text-delta',
+              id: 'answer',
+              delta: reject ? 'Wrong partial. ' : forced ? 'Searching. ' : 'Recovered answer',
+            })
+            if (reject) {
+              failed = true
+              controller.enqueue({ type: 'error', error: transient })
+            } else {
+              controller.enqueue({ type: 'text-end', id: 'answer' })
+              if (forced)
+                controller.enqueue({
+                  type: 'tool-call',
+                  toolCallId: 'completed-lookup',
+                  toolName: 'custom_lookup',
+                  input: '{}',
+                })
+              controller.enqueue({
+                type: 'finish',
+                finishReason: forced ? 'tool-calls' : 'stop',
+                usage,
+              })
+            }
+            controller.close()
+          },
+        }),
+      }),
+    })
+    const workflow = createMinimalWorkflow()
+    workflow.blocks[1].metadata!.id = 'agent'
+    workflow.blocks[1].config.params = {
+      model: 'openai/gpt-4.1',
+      userPrompt: 'Answer after any required tool',
+      maxSteps: withTools ? 2 : 1,
+      tools: withTools ? [liveCustomTool()] : [],
+    }
+    const chat = createChatOutputEventReader(['block1'])
+    const published: string[] = []
+    const chunks: string[] = []
+    const result = await new Executor({
+      workflow,
+      contextExtensions: {
+        workspaceId: 'workspace-1',
+        workflowLogId: 'log-1',
+        executionId: 'execution-1',
+        userId: 'user-1',
+        stream: true,
+        selectedOutputs: ['block1'],
+        onExecutionEvent: async (event) => {
+          if (event.type === 'stream:chunk') chunks.push(event.data.chunk)
+          for (const output of chat.readEvent({
+            ...event,
+            executionId: 'execution-1',
+            workflowId: 'workflow-1',
+            timestamp: event.timestamp ?? new Date().toISOString(),
+          }))
+            if (output.type === 'content') published.push(output.content)
+        },
+      },
+    }).execute('workflow-1', 'trigger')
+
+    const succeeded = scenario !== 'terminal-error'
+    expect(result.success).toBe(succeeded)
+    expect(chunks).toEqual(succeeded ? ['Recovered answer'] : [])
+    expect(published).toEqual(chunks)
+    expect(executeTool).toHaveBeenCalledTimes(withTools ? 1 : 0)
+    const calls = state.model.doStreamCalls
+    expect(calls.map((call: any) => call.toolChoice.type)).toEqual(
+      scenario === 'forced-tool'
+        ? ['tool', 'tool', 'none']
+        : scenario === 'final-answer'
+          ? ['tool', 'none', 'none']
+          : succeeded
+            ? ['none', 'none']
+            : ['none']
+    )
+    if (succeeded)
+      expect(result.output).toMatchObject({
+        content: 'Recovered answer',
+        tokens: { total: withTools ? 10 : 5 },
+        cost: { status: 'partial', availableTotal: 0.006 },
+      })
+  }
+)
+
+it.each([2, undefined])(
+  'aborts a native stream and retains earlier work (maxSteps=%s)',
+  async (maxSteps) => {
     let cancelled = false
     let cancelStep: (() => void) | undefined
     let started!: () => void
@@ -1839,7 +1933,7 @@ it.each([false, true])(
       block,
       {
         model: 'openai/gpt-4.1',
-        maxSteps: progressive ? 2 : undefined,
+        maxSteps,
         userPrompt: 'Lookup then stream',
         tools: [
           {
@@ -1855,10 +1949,8 @@ it.each([false, true])(
     const reader = result.stream.getReader()
     const firstRead = reader.read()
     await modelStepStarted
-    if (progressive)
-      expect(new TextDecoder().decode((await firstRead).value)).toBe('Partial answer')
     cancelStep!()
-    await expect(progressive ? reader.read() : firstRead).rejects.toThrow()
+    await expect(firstRead).rejects.toThrow()
     expect(result.execution.success).toBe(false)
     expect(result.execution.output.tokens).toMatchObject({ total: 5 })
     expect(result.execution.output.cost).toMatchObject({ status: 'unavailable' })
