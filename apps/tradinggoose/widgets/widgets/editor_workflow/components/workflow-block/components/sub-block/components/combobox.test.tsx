@@ -119,10 +119,10 @@ describe('late registry defaults and registry feedback', () => {
     mount()
     expect(readWorkflowSnapshot(doc)!.blocks.agent.subBlocks.model.value).toBeNull()
     loadModels()
-    expect(container.querySelector('input')!.value).toBe('openai/gpt-4.1')
+    expect(container.querySelector('input')!.value).toBe('gpt-4.1')
     expect(readWorkflowSnapshot(doc)!.blocks.agent.subBlocks.model.value).toBe('openai/gpt-4.1')
   })
-  it.each(['', '{{MODEL}}', '<upstream.model>'])(
+  it.each(['', '{{MODEL}}', '<upstream.model>', 'gpt-4.1'])(
     'preserves explicit %s when registry arrives',
     (initial) => {
       mount(initial)
@@ -130,6 +130,33 @@ describe('late registry defaults and registry feedback', () => {
       expect(readWorkflowSnapshot(doc)!.blocks.agent.subBlocks.model.value).toBe(initial)
     }
   )
+  it('restores an exact saved ID and distinguishes identical model names across providers', () => {
+    const saved = 'deepseek/deepseek-v4-pro'
+    mount(saved)
+    const input = container.querySelector('input')!
+    expect(input.value).toBe(saved)
+    act(() =>
+      useModelRegistry.setState({
+        providers: ['deepseek', 'opencode'].map((id) => ({
+          id,
+          name: id,
+          models: [{ id: `${id}/deepseek-v4-pro` }],
+        })),
+      })
+    )
+    expect(input.value).toBe('deepseek-v4-pro')
+    expect(readWorkflowSnapshot(doc)!.blocks.agent.subBlocks.model.value).toBe(saved)
+    act(() => input.focus())
+    expect(input.value).toBe(saved)
+    expect(container.querySelector('[data-option-index] .lucide-check')).not.toBeNull()
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="opencode"]')!.click())
+    expect(container.querySelector('[data-option-index] .lucide-check')).toBeNull()
+    act(() => container.querySelector<HTMLButtonElement>('[data-option-index]')!.click())
+    expect(input.value).toBe('deepseek-v4-pro')
+    expect(readWorkflowSnapshot(doc)!.blocks.agent.subBlocks.model.value).toBe(
+      'opencode/deepseek-v4-pro'
+    )
+  })
   it('refreshes provider group names and icons when the registry arrives after opening', () => {
     mount('')
     act(() => container.querySelector('input')!.focus())
@@ -153,7 +180,7 @@ describe('late registry defaults and registry feedback', () => {
       expect(group!.querySelector('svg, img')).not.toBeNull()
     }
     expect(container.querySelector('[data-option-index] > span.truncate')!.textContent).toBe(
-      'openai/gpt-4.1'
+      'gpt-4.1'
     )
     act(() =>
       container
@@ -161,8 +188,20 @@ describe('late registry defaults and registry feedback', () => {
         .dispatchEvent(new MouseEvent('click', { bubbles: true }))
     )
     expect(container.querySelector('[data-option-index] > span.truncate')!.textContent).toBe(
-      'anthropic/claude-sonnet-5-5'
+      'claude-sonnet-5-5'
     )
+  })
+  it('inserts dropped references into the stored value instead of a shortened label offset', async () => {
+    mount('openai/gpt-4.1')
+    loadModels()
+    const input = container.querySelector('input')!
+    expect(input.value).toBe('gpt-4.1')
+    const drop = new Event('drop', { bubbles: true })
+    Object.assign(drop, {
+      dataTransfer: { getData: () => JSON.stringify({ type: 'connectionBlock' }) },
+    })
+    await act(async () => input.dispatchEvent(drop))
+    expect(readWorkflowSnapshot(doc)!.blocks.agent.subBlocks.model.value).toBe('openai/gpt-4.1<')
   })
   it('announces loading and errors and retries through the existing registry action', () => {
     const load = vi.fn(async () => {})

@@ -60,7 +60,7 @@ function CopilotModelPicker({
     if (parsed.success) {
       filtered.push({
         id: getCopilotModelId(parsed.data),
-        label: getCopilotModelId(parsed.data),
+        label: parsed.data.model,
         group: enteredGroup.id,
         searchLabel: enteredId,
         icon: enteredGroup.icon,
@@ -111,7 +111,9 @@ function CopilotModelPicker({
             className='w-full min-w-0 justify-start'
           >
             {currentId ? <ProviderIcon provider={row.provider} /> : null}
-            <span className='min-w-0 flex-1 truncate text-left'>{currentId || placeholder}</span>
+            <span className='min-w-0 flex-1 truncate text-left'>
+              {row.model.trim() || placeholder}
+            </span>
             <ChevronDown aria-hidden='true' className='size-4 shrink-0 opacity-50' />
           </Button>
         }

@@ -47,7 +47,7 @@ export function getModelOptions() {
     const icon = getProviderIcon(provider.id)
     return provider.models.map(({ id }) => ({
       id,
-      label: id,
+      label: id.slice(provider.id.length + 1),
       group: provider.id,
       searchLabel: `${id} ${provider.name}`,
       icon,

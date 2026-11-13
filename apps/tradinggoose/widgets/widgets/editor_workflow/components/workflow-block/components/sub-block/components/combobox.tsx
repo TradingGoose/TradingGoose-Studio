@@ -76,6 +76,7 @@ export function ComboBox({
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
   const [open, setOpen] = useState(false)
+  const [focused, setFocused] = useState(false)
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [showTags, setShowTags] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -103,14 +104,11 @@ export function ComboBox({
   const selectedOption = useMemo(() => {
     if (value === null || value === undefined) return undefined
 
-    return evaluatedOptions.find((opt) => {
-      const optionValue = getOptionValue(opt)
-      const optionLabel = getOptionLabel(opt)
-      return optionValue === value || optionLabel === value
-    })
+    return evaluatedOptions.find((opt) => getOptionValue(opt) === value)
   }, [evaluatedOptions, value])
 
-  const displayValue = value?.toString() ?? ''
+  const displayValue =
+    selectedOption && !focused ? getOptionLabel(selectedOption) : (value?.toString() ?? '')
 
   // Get the explicit default or first option when automatic selection is enabled.
   const defaultOptionValue = useMemo(() => {
@@ -153,12 +151,8 @@ export function ComboBox({
     const currentValue = displayValue
     if (!currentValue) return evaluatedOptions
 
-    const exactMatch = evaluatedOptions.find(
-      (opt) => getOptionValue(opt) === currentValue || getOptionLabel(opt) === currentValue
-    )
-
     // If current value exactly matches an option and user hasn't typed, show all (fresh open)
-    if (!hasTyped && exactMatch) return evaluatedOptions
+    if (!hasTyped && selectedOption) return evaluatedOptions
 
     // Otherwise filter based on current input
     return evaluatedOptions.filter((option) => {
@@ -168,7 +162,7 @@ export function ComboBox({
       const search = currentValue.toLowerCase()
       return label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
     })
-  }, [displayValue, evaluatedOptions, open, hasTyped])
+  }, [displayValue, evaluatedOptions, open, hasTyped, selectedOption])
 
   const sidebarItems = useMemo<SidebarDropdownItem[]>(
     () =>
@@ -179,11 +173,11 @@ export function ComboBox({
           id: optionValue,
           groupId: getOptionGroup(option),
           label: getOptionLabel(option),
-          selected: displayValue === optionValue || displayValue === getOptionLabel(option),
+          selected: value === optionValue,
           icon: Icon ? <Icon className='h-3 w-3 shrink-0' /> : null,
         }
       }),
-    [displayValue, filteredOptions]
+    [value, filteredOptions]
   )
 
   const sidebarGroups = useMemo<SidebarDropdownGroup[]>(() => {
@@ -270,11 +264,13 @@ export function ComboBox({
   }
 
   const handleFocus = () => {
+    setFocused(true)
     setOpen(true)
     setHighlightedIndex(-1)
   }
 
   const handleBlur = () => {
+    setFocused(false)
     setShowEnvVars(false)
     setShowTags(false)
     setHasTyped(false)
@@ -348,8 +344,11 @@ export function ComboBox({
       const data = JSON.parse(e.dataTransfer.getData('application/json'))
       if (data.type !== 'connectionBlock') return
 
-      const dropPosition = inputRef.current?.selectionStart ?? value?.toString().length ?? 0
       const currentValue = value?.toString() ?? ''
+      const dropPosition =
+        selectedOption && !focused
+          ? currentValue.length
+          : (inputRef.current?.selectionStart ?? currentValue.length)
       const newValue = `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`
 
       inputRef.current?.focus()
@@ -431,7 +430,7 @@ export function ComboBox({
     if (inputRef.current && overlayRef.current) {
       overlayRef.current.scrollLeft = inputRef.current.scrollLeft
     }
-  }, [value])
+  }, [displayValue])
 
   // Reset highlighted index when filtered options change, but preserve if within bounds
   useEffect(() => {
@@ -479,10 +478,7 @@ export function ComboBox({
     }
   }, [open])
 
-  const SelectedIcon =
-    selectedOption && typeof selectedOption === 'object' && 'icon' in selectedOption
-      ? (selectedOption.icon as React.ComponentType<{ className?: string }>)
-      : null
+  const SelectedIcon = selectedOption ? getOptionIcon(selectedOption) : null
 
   // Render component
   return (
@@ -606,11 +602,8 @@ export function ComboBox({
                 filteredOptions.map((option, index) => {
                   const optionValue = getOptionValue(option)
                   const optionLabel = getOptionLabel(option)
-                  const OptionIcon =
-                    typeof option === 'object' && 'icon' in option
-                      ? (option.icon as React.ComponentType<{ className?: string }>)
-                      : null
-                  const isSelected = displayValue === optionValue || displayValue === optionLabel
+                  const OptionIcon = getOptionIcon(option)
+                  const isSelected = value === optionValue
                   const isHighlighted = index === highlightedIndex
 
                   return (

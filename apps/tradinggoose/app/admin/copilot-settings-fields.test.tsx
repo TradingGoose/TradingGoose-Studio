@@ -36,9 +36,9 @@ async function render(initial: CopilotSettings) {
 }
 
 const searchInput = () => document.querySelector<HTMLInputElement>('input[aria-label="Model"]')!
-const candidate = (id: string) =>
+const candidate = (label: string) =>
   [...document.querySelectorAll<HTMLButtonElement>('button[data-option-index]')].find(
-    (button) => button.textContent?.trim() === id
+    (button) => button.textContent?.trim() === label
   )!
 async function openPicker(index: number) {
   await act(async () =>
@@ -60,11 +60,11 @@ async function key(key: string) {
     )
   )
 }
-async function choose(index: number, id: string) {
+async function choose(index: number, id: string, label: string) {
   await openPicker(index)
   await search(id)
-  expect(candidate(id)).toBeDefined()
-  await act(async () => candidate(id).click())
+  expect(candidate(label)).toBeDefined()
+  await act(async () => candidate(label).click())
 }
 async function click(label: string) {
   const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
@@ -127,6 +127,11 @@ it('adds an exact future model through the searchable picker without registry or
   })
   expect(container.querySelector('[role="alert"]')).toBeNull()
   expect(container.querySelector('#copilot-model-0')).toHaveAttribute('aria-expanded', 'false')
+  expect(container.querySelector('#copilot-model-0')?.textContent).toBe('brand-new-model-2027')
+  expect(container.querySelector('#copilot-model-0')).toHaveAttribute(
+    'title',
+    'openai/brand-new-model-2027'
+  )
   expect(loadRegistry).toHaveBeenCalledOnce()
 })
 
@@ -136,11 +141,11 @@ it('uses native provider sidebar choices and searches provider names with full m
   expect(container.querySelector('datalist')).toBeNull()
   expect(container.querySelector('#copilot-provider-0')).toBeNull()
   await click('DeepSeek')
-  expect(candidate('deepseek/deepseek-chat')).toBeDefined()
+  expect(candidate('deepseek-chat')).toBeDefined()
   await search('Anthropic')
-  expect(candidate('anthropic/first')).toBeDefined()
-  expect(candidate('openai/first')).toBeUndefined()
-  await act(async () => candidate('anthropic/first').click())
+  expect(candidate('first')).toBeDefined()
+  expect(document.querySelector('button[aria-label="OpenAI"]')).toBeNull()
+  await act(async () => candidate('first').click())
   expect(settings).toEqual({
     models: [{ provider: 'anthropic', model: 'first' }],
   })
@@ -159,12 +164,20 @@ it('preserves namespaced provider and model IDs using the longest known provider
   })
   await render({ models: [] })
   await click('Add model')
-  await choose(0, 'private/inference/accounts/team/models/exact-model')
+  await choose(
+    0,
+    'private/inference/accounts/team/models/exact-model',
+    'accounts/team/models/exact-model'
+  )
   expect(settings.models[0]).toEqual({
     provider: 'private/inference',
     model: 'accounts/team/models/exact-model',
   })
-  await choose(0, 'private/inference/accounts/team/models/new-model')
+  await choose(
+    0,
+    'private/inference/accounts/team/models/new-model',
+    'accounts/team/models/new-model'
+  )
   expect(settings).toEqual({
     models: [{ provider: 'private/inference', model: 'accounts/team/models/new-model' }],
   })
@@ -190,8 +203,8 @@ it('commits the exact qualified native ID ahead of a longer matching gateway mod
     'data-active',
     'true'
   )
-  expect(candidate('anthropic/future-model')).toBeDefined()
-  expect(candidate('openrouter/anthropic/future-model-preview')).toBeUndefined()
+  expect(candidate('future-model')).toBeDefined()
+  expect(candidate('anthropic/future-model-preview')).toBeUndefined()
   await key('Enter')
   expect(settings).toEqual({
     models: [{ provider: 'anthropic', model: 'future-model' }],
@@ -239,10 +252,14 @@ it('keeps an unlisted saved choice visible and leaves settings unchanged on regi
   }
   await render(original)
   await openPicker(0)
-  expect(candidate('openai/future-model')).toBeDefined()
+  expect(candidate('future-model')).toBeDefined()
   await key('Escape')
   await act(async () => useModelRegistry.setState({ providers: [], error: 'Unavailable' }))
-  expect(container.querySelector('#copilot-model-0')).toHaveTextContent('openai/future-model')
+  expect(container.querySelector('#copilot-model-0')?.textContent).toBe('future-model')
+  expect(container.querySelector('#copilot-model-0')).toHaveAttribute(
+    'title',
+    'openai/future-model'
+  )
   expect(settings).toEqual(original)
   await click('Try again')
   expect(settings).toEqual(original)
@@ -255,9 +272,9 @@ it('edits rows independently while preserving their order', async () => {
       { provider: 'anthropic', model: 'second' },
     ],
   })
-  await choose(0, 'openai/listed-model')
+  await choose(0, 'openai/listed-model', 'listed-model')
   expect(settings.models[1]).toEqual({ provider: 'anthropic', model: 'second' })
-  await choose(1, 'deepseek/deepseek-chat')
+  await choose(1, 'deepseek/deepseek-chat', 'deepseek-chat')
   expect(settings).toEqual({
     models: [
       { provider: 'openai', model: 'listed-model' },
@@ -287,7 +304,7 @@ it('validates duplicate exact pairs while allowing the same model name under dif
     ],
   })
   expect(container.querySelector('[role="alert"]')).toBeNull()
-  await choose(1, 'openai/first')
+  await choose(1, 'openai/first', 'first')
   expect(container.querySelector('[role="alert"]')).toHaveTextContent('duplicate provider/model')
   expect(settings.models[1]).toEqual({ provider: 'openai', model: 'first' })
 })

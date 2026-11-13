@@ -101,7 +101,7 @@ it('saves the catalog atomically and refreshes public model and admin service qu
   })
   const candidate = [
     ...document.querySelectorAll<HTMLButtonElement>('button[data-option-index]'),
-  ].find((button) => button.textContent?.trim() === 'openai/future-model-not-in-registry')!
+  ].find((button) => button.textContent?.trim() === 'future-model-not-in-registry')!
   expect(candidate).toBeDefined()
   await act(async () => candidate.click())
   expect(button('Save system settings')).toBeEnabled()

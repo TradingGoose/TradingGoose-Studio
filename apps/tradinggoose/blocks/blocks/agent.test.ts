@@ -54,6 +54,7 @@ describe('registry-backed model interaction', () => {
       const options = typeof field.options === 'function' ? field.options() : []
       expect(options.map(({ id }) => id)).toEqual(providers[0].models.map(({ id }) => id))
       expect(options[0]).toMatchObject({
+        label: 'capable',
         group: 'example',
         searchLabel: 'example/capable Example Models',
       })
