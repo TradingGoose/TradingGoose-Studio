@@ -12,7 +12,7 @@ import {
   resolveConfiguredModel,
 } from './connections'
 import { safeInferenceError } from './errors'
-import { NATIVE_AGENT_POLICY, parseProviderOptions, trustedModelSettings } from './options'
+import { parseProviderOptions, trustedModelSettings } from './options'
 import { assertListedModel, getModelRegistry } from './registry'
 
 afterEach(() => {
@@ -352,7 +352,6 @@ it.each([
   })
   vi.stubGlobal('fetch', fetcher)
   const agent = new Agent({
-    ...NATIVE_AGENT_POLICY,
     id: 'native-provider-options',
     name: 'Native provider options',
     instructions: 'Reply briefly',

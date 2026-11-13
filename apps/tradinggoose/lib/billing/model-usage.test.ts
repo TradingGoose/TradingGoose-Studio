@@ -12,7 +12,6 @@ import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { projectNativeMessage } from '@/lib/mastra/messages'
-import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import type { NativeCost } from '@/lib/mastra/usage'
 import { usageProcessors } from '@/lib/mastra/usage-processors'
 import {
@@ -343,7 +342,6 @@ it.each([
 it('completes successful native inference for a new unpriced Copilot model with billing enabled', async () => {
   const accounting = await usageProcessors({ ...scope, model: 'openai/new-unpriced-model' })
   const agent = new Agent({
-    ...NATIVE_AGENT_POLICY,
     id: 'unpriced-copilot-test',
     name: 'Unpriced Copilot test',
     instructions: '',
@@ -428,7 +426,6 @@ it('persists native dollar reports using the same Studio-tier amount as account 
   const observed = { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }
   const accounting = await usageProcessors(scope)
   const agent = new Agent({
-    ...NATIVE_AGENT_POLICY,
     id: 'account-priced-native-report',
     name: 'Account priced native report',
     instructions: '',
@@ -472,7 +469,6 @@ it('persists standard BYOK prices through native generation when the Studio bala
   const nativeScope = { ...scope, funding: 'byok' as const }
   const accounting = await usageProcessors(nativeScope)
   const agent = new Agent({
-    ...NATIVE_AGENT_POLICY,
     id: 'byok-priced-native-report',
     name: 'BYOK priced native report',
     instructions: '',

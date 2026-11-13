@@ -13,7 +13,6 @@ import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { isWorkspaceAgnosticServerTool, routeExecution } from '@/lib/copilot/tools/server/router'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import {
   type CopilotExecution,
   CopilotSuspendSchema,
@@ -143,7 +142,6 @@ function createCopilotTools(execution: CopilotExecution) {
 
 export function createCopilotAgent(memory: Memory) {
   return new Agent({
-    ...NATIVE_AGENT_POLICY,
     id: 'studio-copilot',
     name: 'Studio Copilot',
     memory,

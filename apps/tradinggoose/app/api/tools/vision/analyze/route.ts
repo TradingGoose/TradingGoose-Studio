@@ -6,7 +6,6 @@ import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getFailureAccounting, safeInferenceError } from '@/lib/mastra/errors'
 import { normalizeNativeMediaMessages } from '@/lib/mastra/media'
-import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion } from '@/lib/mastra/result'
@@ -176,7 +175,6 @@ export async function POST(request: NextRequest) {
       { apiKey: validatedData.apiKey, modelSettings: { maxOutputTokens: 1024 } }
     )
     const agent = new Agent({
-      ...NATIVE_AGENT_POLICY,
       mastra: work.mastra,
       id: 'vision',
       name: 'Vision',

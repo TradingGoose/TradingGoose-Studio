@@ -2,7 +2,6 @@ import { Agent } from '@mastra/core/agent'
 import { toStandardSchema } from '@mastra/core/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion } from '@/lib/mastra/result'
@@ -114,7 +113,6 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
       { apiKey, modelSettings: { temperature: 0.1 } }
     )
     const agent = new Agent({
-      ...NATIVE_AGENT_POLICY,
       id: requestId,
       name: 'Hallucination Validator',
       instructions: systemPrompt,

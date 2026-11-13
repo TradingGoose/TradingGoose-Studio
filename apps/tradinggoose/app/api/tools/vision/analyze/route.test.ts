@@ -229,7 +229,7 @@ describe('native Vision input and authorization', () => {
         },
       ],
       expect.objectContaining({
-        modelSettings: { maxOutputTokens: 1024, maxRetries: 0 },
+        modelSettings: { maxOutputTokens: 1024 },
         abortSignal: expect.any(AbortSignal),
       })
     )

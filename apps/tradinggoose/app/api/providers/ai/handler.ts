@@ -2,7 +2,6 @@ import { Agent, type AgentExecutionOptions } from '@mastra/core/agent'
 import type { MessageInput } from '@mastra/core/agent/message-list'
 import { NextResponse } from 'next/server'
 import { normalizeNativeMediaMessages } from '@/lib/mastra/media'
-import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion } from '@/lib/mastra/result'
@@ -65,7 +64,6 @@ export async function handleAIProviderRequest({
   )
   try {
     const agent = new Agent({
-      ...NATIVE_AGENT_POLICY,
       id: requestId,
       name: 'LLM Chat',
       instructions: body.instructions || '',

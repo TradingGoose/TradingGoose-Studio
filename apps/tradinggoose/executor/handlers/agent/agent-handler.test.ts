@@ -1310,9 +1310,17 @@ describe('native forced sequence failures and completion accounting', () => {
       if (streamed) expect(streamed.execution.success).toBe(false)
     }
   )
-  it.each([false, true].flatMap((stream) => [1, 2, 5].map((maxSteps) => ({ stream, maxSteps }))))(
+  it.each(
+    [false, true].flatMap((stream) =>
+      [1, 2, 5, undefined, '', '  '].map((maxSteps) => ({
+        stream,
+        maxSteps,
+        steps: typeof maxSteps === 'number' ? maxSteps : 5,
+      }))
+    )
+  )(
     'reserves the final answer within native maxSteps $maxSteps (stream=$stream)',
-    async ({ stream, maxSteps }) => {
+    async ({ stream, maxSteps, steps }) => {
       const toolCall = () => ({
         type: 'tool-call' as const,
         toolCallId: crypto.randomUUID(),
@@ -1375,11 +1383,11 @@ describe('native forced sequence failures and completion accounting', () => {
       } else output = result
       expect(output).toMatchObject({
         content: 'Final answer from available results',
-        tokens: { prompt: maxSteps * 2, completion: maxSteps * 3, total: maxSteps * 5 },
+        tokens: { prompt: steps * 2, completion: steps * 3, total: steps * 5 },
       })
       const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
-      expect(calls).toHaveLength(maxSteps)
-      expect(executeTool).toHaveBeenCalledTimes(maxSteps - 1)
+      expect(calls).toHaveLength(steps)
+      expect(executeTool).toHaveBeenCalledTimes(steps - 1)
       expect(calls.at(-1)).toMatchObject({ toolChoice: { type: 'none' }, tools: undefined })
       const finalPrompt = JSON.stringify(calls.at(-1).prompt)
       expect(finalPrompt).toContain('Respect the original policy')

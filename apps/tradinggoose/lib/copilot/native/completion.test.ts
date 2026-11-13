@@ -7,7 +7,6 @@ import { Memory } from '@mastra/memory'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
-import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { completeCopilot, createCompletionResponse } from './completion'
 import type { CompletionRequest } from './contract'
 
@@ -88,7 +87,6 @@ beforeEach(() => {
   })
   state.storage = new InMemoryStore()
   state.agent = new Agent({
-    ...NATIVE_AGENT_POLICY,
     id: 'copilot',
     name: 'Copilot',
     instructions: '',

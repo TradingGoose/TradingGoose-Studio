@@ -1,26 +1,6 @@
 import type { AgentExecutionOptions } from '@mastra/core/agent'
 import { z } from 'zod'
 
-const PROVIDER_OPTIONS = {
-  openai: { transport: 'fetch' as const },
-  azure: { transport: 'fetch' as const },
-  openrouter: { provider: { allow_fallbacks: false } },
-}
-
-export const NATIVE_AGENT_POLICY = {
-  maxRetries: 0,
-  maxProcessorRetries: 0,
-  errorProcessorDefaults: false,
-  errorProcessors: [],
-  defaultOptions: {
-    maxSteps: 5,
-    errorProcessors: [],
-    eagerToolExecution: false,
-    modelSettings: { maxRetries: 0 },
-    providerOptions: PROVIDER_OPTIONS,
-  },
-}
-
 const numericSetting = (schema = z.number()) =>
   z.preprocess(
     (value) =>
@@ -45,16 +25,12 @@ const MODEL_SETTINGS = z
     reasoning: z
       .enum(['provider-default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
       .optional(),
-    maxRetries: z.literal(0).optional(),
   })
   .strict()
 
 export function trustedModelSettings(value?: unknown): AgentExecutionOptions['modelSettings'] {
   const settings = MODEL_SETTINGS.parse(value === undefined ? {} : value)
-  return {
-    ...Object.fromEntries(Object.entries(settings).filter(([, setting]) => setting !== undefined)),
-    maxRetries: 0,
-  }
+  return Object.fromEntries(Object.entries(settings).filter(([, setting]) => setting !== undefined))
 }
 
 /** Mastra reserves these root arguments for resuming tools. */
@@ -92,7 +68,5 @@ export function parseProviderOptions(value?: string | Record<string, unknown>) {
         throw new Error(`Provider option ${namespace}.${key} is controlled by the server`)
     }
   }
-  for (const [namespace, policy] of Object.entries(PROVIDER_OPTIONS))
-    options[namespace] = { ...options[namespace], ...policy }
   return options
 }

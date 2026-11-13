@@ -1,7 +1,6 @@
 import { Agent } from '@mastra/core/agent'
 import { toStandardSchema } from '@mastra/core/schema'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion, withInferenceFacts } from '@/lib/mastra/result'
@@ -62,7 +61,6 @@ ${metrics.map((metric: any) => `${metric.name} (${metric.range.min}-${metric.ran
         { apiKey: inputs.apiKey, modelSettings: { temperature: inputs.temperature } }
       )
       const agent = new Agent({
-        ...NATIVE_AGENT_POLICY,
         id: block.id,
         name: 'Workflow Evaluator',
         instructions,

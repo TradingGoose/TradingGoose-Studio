@@ -1,7 +1,6 @@
 import { Agent } from '@mastra/core/agent'
 import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { assertNativeCompletion, withInferenceFacts } from '@/lib/mastra/result'
@@ -53,7 +52,6 @@ export class RouterBlockHandler implements BlockHandler {
         { apiKey: inputs.apiKey, modelSettings: { temperature: inputs.temperature } }
       )
       const agent = new Agent({
-        ...NATIVE_AGENT_POLICY,
         id: block.id,
         name: 'Workflow Router',
         instructions: generateRouterPrompt(inputs.prompt, targetBlocks),

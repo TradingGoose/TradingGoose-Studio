@@ -9,7 +9,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import { normalizeNativeToolResult } from '@/lib/mastra/media'
-import { assertNativeToolArguments, NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
+import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import {
@@ -181,7 +181,6 @@ export class AgentBlockHandler implements BlockHandler {
       }
     )
     const agent = new Agent({
-      ...NATIVE_AGENT_POLICY,
       id: block.id,
       name: block.metadata?.name || 'Workflow Agent',
       instructions: '',
