@@ -4,6 +4,7 @@ import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import {
   buildCopilotContextIdentityKey,
   buildCopilotContextMentionRanges,
+  isHiddenCopilotContext,
 } from '@/lib/copilot/chat-contexts'
 import type { MonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import type { ChatContext } from '@/stores/copilot/types'
@@ -79,7 +80,7 @@ export function retainMentionContextsInText(
   )
   return contexts.filter(isChatContext).filter((context) => {
     const contextKey = readMentionContextIdentityKey(context)
-    return contextKey !== null && presentKeys.has(contextKey)
+    return isHiddenCopilotContext(context) || (contextKey !== null && presentKeys.has(contextKey))
   })
 }
 

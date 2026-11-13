@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import enMessages from '@/i18n/messages/en.json'
 import esMessages from '@/i18n/messages/es.json'
 import zhMessages from '@/i18n/messages/zh.json'
+import type { ChatContext } from '@/stores/copilot/types'
 import {
   getCopilotMentionCopy,
   getMentionOptionLabel,
@@ -46,6 +47,34 @@ describe('mention-utils', () => {
   const zhMentionCopy = getMentionCopy(zhMessages)
   const esMentionCopy = getMentionCopy(esMessages)
   const enMonitorCopy = (enMessages as any).workspace.monitor
+
+  it('retains implicit contexts in their original positions while removing absent mentions', () => {
+    const implicit: ChatContext[] = [
+      { kind: 'current_monitor', monitorId: 'monitor', workspaceId: 'workspace', label: 'Monitor' },
+      { kind: 'current_logs', logId: 'log', workspaceId: 'workspace', label: 'Logs' },
+      {
+        kind: 'current_knowledge_base',
+        knowledgeBaseId: 'knowledge',
+        workspaceId: 'workspace',
+        label: 'Knowledge',
+      },
+      {
+        kind: 'current_dashboard_layout',
+        dashboardLayoutId: 'layout',
+        ownerUserId: 'actor',
+        workspaceId: 'workspace',
+        label: 'Dashboard',
+      },
+    ]
+    const docs: ChatContext = { kind: 'docs', label: 'Docs' }
+    const absent: ChatContext = { kind: 'workflow', workflowId: 'workflow', label: 'Workflow' }
+    const contexts = [implicit[0], docs, implicit[1], absent, implicit[2], implicit[3]]
+    const retained = retainMentionContextsInText('Explain @Docs', contexts)
+    expect(retained).toEqual([implicit[0], docs, implicit[1], implicit[2], implicit[3]])
+    expect(retained.every((context) => contexts.includes(context))).toBe(true)
+    expect(buildMentionRanges('Explain @Docs', contexts)).toHaveLength(1)
+    expect(retainMentionContextsInText('', contexts)).toEqual(implicit)
+  })
 
   it('surfaces centralized workspace entity mention options in option filtering', () => {
     expect(filterMentionOptions('tool', enMentionCopy)).toContain('custom_tool')
