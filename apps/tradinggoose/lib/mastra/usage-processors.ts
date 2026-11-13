@@ -22,7 +22,11 @@ export async function usageProcessors(
   if (!scope.actorUserId) throw new Error('An authenticated model actor is required')
   const actorScope: ModelUsageScope = { ...scope, actorUserId: scope.actorUserId }
   const invocationId = randomUUID()
-  const steps = new Map<string, { usage?: NativeUsage; cost: NativeCost }>()
+  const steps = new Map<string, { stepNumber: number; usage?: NativeUsage; cost: NativeCost }>()
+  const aggregateCost = (costs: NativeCost[]) => {
+    const cost = sumNativeCosts(costs)
+    return scope.funding === 'byok' ? { ...cost, accountCost: null } : cost
+  }
   let failure: unknown
   const input: InputProcessor = {
     id: 'studio-usage-admission',
@@ -40,15 +44,12 @@ export async function usageProcessors(
         scope.signal?.throwIfAborted()
         abortSignal?.throwIfAborted()
         const key = `${scope.runId}:${invocationId}:${stepNumber}:${retryCount}`
-        if (!steps.has(key)) steps.set(key, { cost: { status: 'unavailable' } })
+        if (!steps.has(key)) steps.set(key, { stepNumber, cost: { status: 'unavailable' } })
         await beginWorkflowModelUsage(actorScope, key)
       } catch (error) {
         failure = error
         throw error
       }
-    },
-    processAPIError({ error }) {
-      failure = error
     },
   }
   const output: OutputProcessor = {
@@ -59,6 +60,7 @@ export async function usageProcessors(
         const key = `${scope.runId}:${invocationId}:${args.stepNumber}:${args.retryCount}`
         if (!steps.get(key)?.usage) {
           const step = {
+            stepNumber: args.stepNumber,
             usage: sumNativeUsage([{ usage: args.usage }]),
             cost: { status: 'unavailable' } as NativeCost,
           }
@@ -82,8 +84,13 @@ export async function usageProcessors(
                       { usage: metadata.usage as NativeUsage | undefined },
                       step,
                     ]),
-                    cost: sumNativeCosts([
+                    cost: aggregateCost([
                       ...(metadata.cost ? [metadata.cost as NativeCost] : []),
+                      ...[...steps.values()]
+                        .filter(
+                          (attempt) => attempt.stepNumber === args.stepNumber && !attempt.usage
+                        )
+                        .map((attempt) => attempt.cost),
                       step.cost,
                     ]),
                   },
@@ -108,15 +115,15 @@ export async function usageProcessors(
     inputProcessors: [input],
     outputProcessors: [output],
     getUsage: () => sumNativeUsage([...steps.values()]),
-    getCost: () => {
-      const cost = sumNativeCosts([...steps.values()].map((step) => step.cost))
-      return scope.funding === 'byok' ? { ...cost, accountCost: null } : cost
-    },
+    getCost: () => aggregateCost([...steps.values()].map((step) => step.cost)),
     async verifyComplete() {
       if (failure) throw failure
       scope.signal?.throwIfAborted()
       if (!steps.size) throw new Error('Model generation has no completed steps')
-      if ([...steps.values()].some((step) => !step.usage))
+      const completedSteps = new Set(
+        [...steps.values()].filter((step) => step.usage).map((step) => step.stepNumber)
+      )
+      if ([...steps.values()].some((step) => !completedSteps.has(step.stepNumber)))
         throw new Error('Model generation has an unfinished provider request')
     },
   }

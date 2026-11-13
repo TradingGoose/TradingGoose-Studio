@@ -2,12 +2,13 @@
 import './__test-utils__/managed-services'
 import { Agent } from '@mastra/core/agent'
 import type { OutputProcessor } from '@mastra/core/processors'
+import { InMemoryStore } from '@mastra/core/storage'
 import { MastraLanguageModelV2Mock, simulateReadableStream } from '@mastra/core/test-utils/llm-mock'
 import { createTool } from '@mastra/core/tools'
+import { Memory } from '@mastra/memory'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { projectNativeMessage } from './messages'
-import { NATIVE_AGENT_POLICY } from './options'
 import { usageProcessors } from './usage-processors'
 
 const billing = vi.hoisted(() => ({
@@ -29,6 +30,11 @@ const scope = {
   model: 'openai/gpt-4.1',
 }
 const usage = { inputTokens: 2, outputTokens: 3, totalTokens: 5 }
+type NativeStreamPart = Awaited<
+  ReturnType<MastraLanguageModelV2Mock['doStream']>
+>['stream'] extends ReadableStream<infer Part>
+  ? Part
+  : never
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -55,7 +61,6 @@ async function generate(
     },
   })
   const agent = new Agent({
-    ...NATIVE_AGENT_POLICY,
     id: 'usage-test',
     name: 'Usage test',
     instructions: '',
@@ -146,6 +151,89 @@ it('records duplicated native output processing only once for its owned attempt'
   expect(accounting.getCost().total).toBeCloseTo(0.000028)
 })
 
+it.each(['account', 'byok'] as const)(
+  'retains native recovered request usage and unknown attempts (%s)',
+  async (funding) => {
+    const accounting = await usageProcessors({ ...scope, funding })
+    const storage = new InMemoryStore()
+    const memory = new Memory({ storage, options: { generateTitle: false } })
+    const threadId = `native-recovery:${funding}`
+    const transient = Object.assign(new Error('Transient provider stream failure'), {
+      isRetryable: true,
+      statusCode: 503,
+    })
+    const agent = new Agent({
+      id: 'native-recovery',
+      name: 'Native recovery',
+      instructions: '',
+      memory,
+      model: new MastraLanguageModelV2Mock({
+        doStream: async () => {
+          billing.contact()
+          return {
+            stream: simulateReadableStream<NativeStreamPart>({
+              chunks:
+                billing.contact.mock.calls.length === 1
+                  ? [
+                      { type: 'stream-start', warnings: [] },
+                      { type: 'error', error: transient },
+                    ]
+                  : [
+                      { type: 'stream-start', warnings: [] },
+                      { type: 'text-start', id: 'answer' },
+                      { type: 'text-delta', id: 'answer', delta: 'Recovered answer' },
+                      { type: 'text-end', id: 'answer' },
+                      { type: 'finish', usage, finishReason: 'stop' },
+                    ],
+            }),
+          }
+        },
+      }),
+      inputProcessors: accounting.inputProcessors,
+      outputProcessors: accounting.outputProcessors.map(
+        (processor): OutputProcessor => ({
+          ...processor,
+          async processOutputStep(args) {
+            await processor.processOutputStep!(args)
+            return processor.processOutputStep!(args)
+          },
+        })
+      ),
+    })
+    const streamed = await agent.stream('hello', {
+      runId: scope.runId,
+      memory: { thread: threadId, resource: scope.actorUserId },
+    })
+    const result = await streamed.getFullOutput()
+    expect(result.text).toBe('Recovered answer')
+    await accounting.verifyComplete()
+    expect(billing.contact).toHaveBeenCalledTimes(2)
+    expect(billing.begin.mock.calls.map((call) => call[1])).toEqual([
+      expect.stringMatching(/^run:[0-9a-f-]{36}:0:0$/),
+      expect.stringMatching(/^run:[0-9a-f-]{36}:0:1$/),
+    ])
+    expect(accounting.getUsage()).toEqual(usage)
+    expect(accounting.getCost()).toMatchObject({
+      status: 'partial',
+      currency: 'USD',
+      availableTotal: 0.000028,
+      ...(funding === 'byok' ? { accountCost: null } : {}),
+    })
+    expect(billing.record).toHaveBeenCalledOnce()
+    expect(billing.record.mock.calls[0][0]).toMatchObject({ funding })
+    const persisted = await (await storage.getStore('memory'))!.listMessages({
+      threadId,
+      resourceId: scope.actorUserId,
+      perPage: false,
+      orderBy: { field: 'createdAt', direction: 'ASC' },
+    })
+    const assistant = persisted.messages.filter((message) => message.role === 'assistant').at(-1)!
+    const reloaded = projectNativeMessage(assistant)
+    expect(reloaded.usage).toEqual(accounting.getUsage())
+    expect(reloaded.cost).toEqual(accounting.getCost())
+  }
+)
+
 it('does not contact a provider when attempt persistence fails', async () => {
   const failure = new Error('Native attempt persistence failed')
   billing.begin.mockRejectedValue(failure)
@@ -162,7 +250,6 @@ it.each([false, true])(
     const observed = { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }
     const accounting = await usageProcessors(nativeScope)
     const agent = new Agent({
-      ...NATIVE_AGENT_POLICY,
       id: 'standard-cost-test',
       name: 'Standard cost test',
       instructions: '',
@@ -223,7 +310,6 @@ it.each(['generate', 'stream'] as const)(
     const accounting = await usageProcessors(scope)
     const execute = vi.fn(async () => ({ success: true }))
     const agent = new Agent({
-      ...NATIVE_AGENT_POLICY,
       id: 'usage-tool-test',
       name: 'Usage tool test',
       instructions: '',
@@ -359,7 +445,6 @@ it.each(
     }
   }
   const agent = new Agent({
-    ...NATIVE_AGENT_POLICY,
     id: 'interrupted-usage',
     name: 'Interrupted usage',
     instructions: '',
