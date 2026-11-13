@@ -31,10 +31,6 @@ vi.mock('@/lib/permissions/utils', () => ({
   getUserEntityPermissions: mockGetUserEntityPermissions,
 }))
 
-vi.mock('@/lib/knowledge/documents/utils', () => ({
-  retryWithExponentialBackoff: (fn: any) => fn(),
-}))
-
 vi.mock('@/lib/knowledge/documents/document-processor', () => ({
   processDocument: vi.fn().mockResolvedValue({
     chunks: [

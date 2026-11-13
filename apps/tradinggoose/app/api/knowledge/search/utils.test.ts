@@ -46,10 +46,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     embedding: 'embedding.embedding',
   },
 }))
-vi.mock('@/lib/knowledge/documents/utils', () => ({
-  retryWithExponentialBackoff: (fn: any) => fn(),
-}))
-
 const fetchSpy = vi.fn()
 vi.stubGlobal('fetch', fetchSpy)
 

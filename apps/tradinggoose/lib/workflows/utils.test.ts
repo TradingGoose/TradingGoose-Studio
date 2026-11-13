@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {},
-}))
-
 vi.mock('@tradinggoose/db/schema', () => ({
   apiKey: {},
   permissions: {},

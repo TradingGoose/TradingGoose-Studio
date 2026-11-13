@@ -10,19 +10,11 @@ interface HTTPError extends Error {
 type RetryableError = HTTPError | Error | { status?: number; message?: string }
 
 export interface RetryOptions {
-  signal?: AbortSignal
   maxRetries?: number
   initialDelayMs?: number
   maxDelayMs?: number
   backoffMultiplier?: number
   retryCondition?: (error: RetryableError) => boolean
-}
-
-export interface RetryResult<T> {
-  success: boolean
-  data?: T
-  error?: Error
-  attemptCount: number
 }
 
 function hasStatus(
@@ -69,7 +61,6 @@ export async function retryWithExponentialBackoff<T>(
   options: RetryOptions = {}
 ): Promise<T> {
   const {
-    signal,
     maxRetries = 5,
     initialDelayMs = 1000,
     maxDelayMs = 30000,
@@ -82,7 +73,6 @@ export async function retryWithExponentialBackoff<T>(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      signal?.throwIfAborted()
       logger.debug(`Executing operation attempt ${attempt + 1}/${maxRetries + 1}`)
       const result = await operation()
 
@@ -115,18 +105,7 @@ export async function retryWithExponentialBackoff<T>(
         `Retrying in ${Math.round(actualDelay)}ms (attempt ${attempt + 1}/${maxRetries + 1})`
       )
 
-      signal?.throwIfAborted()
-      await new Promise<void>((resolve, reject) => {
-        const abort = () => {
-          clearTimeout(timer)
-          reject(signal?.reason)
-        }
-        const timer = setTimeout(() => {
-          signal?.removeEventListener('abort', abort)
-          resolve()
-        }, actualDelay)
-        signal?.addEventListener('abort', abort, { once: true })
-      })
+      await new Promise((resolve) => setTimeout(resolve, actualDelay))
 
       // Exponential backoff
       delay = Math.min(delay * backoffMultiplier, maxDelayMs)
@@ -134,30 +113,4 @@ export async function retryWithExponentialBackoff<T>(
   }
 
   throw lastError || new Error('Retry operation failed')
-}
-
-/**
- * Wrapper for fetch requests with retry logic
- */
-export async function fetchWithRetry(
-  url: string,
-  options: RequestInit = {},
-  retryOptions: RetryOptions = {}
-): Promise<Response> {
-  return retryWithExponentialBackoff(async () => {
-    const response = await fetch(url, options)
-
-    // If response is not ok and status indicates rate limiting, throw an error
-    if (!response.ok && isRetryableError({ status: response.status })) {
-      const errorText = await response.text()
-      const error: HTTPError = new Error(
-        `HTTP ${response.status}: ${response.statusText} - ${errorText}`
-      )
-      error.status = response.status
-      error.statusText = response.statusText
-      throw error
-    }
-
-    return response
-  }, retryOptions)
 }

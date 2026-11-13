@@ -41,11 +41,6 @@ function createFileUtilsMock(
       })
     }),
     getContentType: vi.fn().mockReturnValue(contentType),
-    isS3Path: vi.fn().mockReturnValue(false),
-    isAzurePath: vi.fn().mockReturnValue(false),
-    extractS3Key: vi.fn().mockImplementation((path) => path.split('/').pop()),
-    extractAzureKey: vi.fn().mockImplementation((path) => path.split('/').pop()),
-    extractFilename: vi.fn().mockImplementation((path) => path.split('/').pop()),
     findLocalFile: vi.fn().mockReturnValue(localFilePath),
   }
 }
@@ -191,11 +186,6 @@ describe('File Serve API Route', () => {
         })
       }),
       getContentType: vi.fn().mockReturnValue('text/plain'),
-      isS3Path: vi.fn().mockReturnValue(false),
-      isAzurePath: vi.fn().mockReturnValue(false),
-      extractS3Key: vi.fn(),
-      extractAzureKey: vi.fn(),
-      extractFilename: vi.fn(),
       findLocalFile: vi.fn().mockReturnValue(null),
     }))
 
