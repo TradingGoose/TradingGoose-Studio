@@ -709,12 +709,14 @@ describe('native inference admission through the existing usage monitor', () => 
       limit: 100,
       percentUsed: userId === 'owner' ? scenario.ownerUsage : scenario.collaboratorUsage,
     }))
-    const admission = assertModelUsageAllowed(scope)
     if (scenario.exceeded) {
-      await expect(admission).rejects.toMatchObject({ status: 402 })
+      const native = await nativeGeneration(scope, 'stream')
+      await expect(native.run()).rejects.toThrow()
+      await expect(native.accounting.verifyComplete()).rejects.toMatchObject({ status: 402 })
+      expect(native.contact).not.toHaveBeenCalled()
       expect(fixture.writes).toHaveLength(0)
     } else {
-      await admission
+      await assertModelUsageAllowed(scope)
       await recordModelUsage(scope, usage, cost)
       expect(parameters(fixture.writes[0].where)).toEqual(['owner'])
       expect(fixture.threshold).toHaveBeenCalledWith({
