@@ -103,14 +103,6 @@ export function ensureClientToolInstance(
   return instance
 }
 
-export function bindClientToolExecutionContext(
-  toolCallId: string,
-  context: ClientToolExecutionContext
-): void {
-  const instance = getClientTool(toolCallId) as BaseClientTool | undefined
-  instance?.setExecutionContext(context)
-}
-
 function readResultWorkspaceId(result: unknown) {
   if (result && typeof result === 'object' && !Array.isArray(result)) {
     const workspaceId = (result as { workspaceId?: unknown }).workspaceId

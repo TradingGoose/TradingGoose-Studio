@@ -56,7 +56,7 @@ import {
   buildPlanTodosFromMessages,
   createStreamingMessage,
   createUserMessage,
-  updateMessagesForToolCallState,
+  updateToolCallState,
 } from './store-messages'
 import { buildTurnProvenanceFromContexts } from './store-provenance'
 import { hasUiActiveToolCalls } from './store-state'
@@ -68,13 +68,11 @@ import {
   settleDisplayOnlyTools,
 } from './streaming'
 import {
-  bindClientToolExecutionContext,
   createExecutionContext,
   ensureClientToolInstance,
   handleCopilotServerToolSuccess,
   isGatedTool,
   isServerManagedCopilotTool,
-  resolveToolDisplay,
 } from './tool-registry'
 import type { CopilotChat, CopilotDraft, CopilotStore } from './types'
 import {
@@ -158,27 +156,8 @@ function createCopilotStoreInstance(channelId: string) {
         set({ error: message, ...(outcome ? { lastNativeOutcome: outcome } : {}) })
         return message
       }
-      const updateTool = (id: string, state: ClientToolCallState, result?: unknown) => {
-        const current = get().toolCallsById[id]
-        if (!current) return
-        const updated = {
-          ...current,
-          state,
-          display: resolveToolDisplay(current.name, state, current.params),
-          ...(result !== undefined ? { result } : {}),
-        }
-        set((currentState) => ({
-          toolCallsById: { ...currentState.toolCallsById, [id]: updated },
-          messages: currentState.messages.map((message) => ({
-            ...message,
-            contentBlocks: message.contentBlocks?.map((block) =>
-              block.type === 'tool_call' && block.toolCall.id === id
-                ? { ...block, toolCall: updated }
-                : block
-            ),
-          })),
-        }))
-      }
+      const updateTool = (id: string, state: ClientToolCallState, result?: unknown) =>
+        set((current) => updateToolCallState(current, id, state, result))
       const publishInitialTitle = () => {
         const candidate = titleCandidate
         const chat = get().currentChat
@@ -767,8 +746,7 @@ function createCopilotStoreInstance(channelId: string) {
               throw new Error('This tool does not have a server preview decision')
             const instance = ensureClientToolInstance(call.name, id)
             if (!instance) throw new Error('Native browser tool is unavailable')
-            bindClientToolExecutionContext(
-              id,
+            instance.setExecutionContext(
               createExecutionContext({
                 toolCallId: id,
                 toolName: call.name,
@@ -1415,17 +1393,8 @@ registerToolStateSync((id, state, options) => {
     (item) => item.getState().toolCallsById[id]
   )
   const store = owners.length === 1 ? owners[0] : undefined
-  const call = store?.getState().toolCallsById[id]
-  if (!store || !call || !Object.values(ClientToolCallState).includes(state)) return
-  const next = {
-    ...call,
-    state,
-    ...(options?.result !== undefined ? { result: options.result } : {}),
-  }
-  store.setState((current) => ({
-    toolCallsById: { ...current.toolCallsById, [id]: next },
-    messages: updateMessagesForToolCallState(current.messages, id, state, options),
-  }))
+  if (!store || !Object.values(ClientToolCallState).includes(state)) return
+  store.setState((current) => updateToolCallState(current, id, state, options?.result))
 })
 const CopilotStoreContext = createContext<StoreApi<CopilotStore> | null>(null)
 export function CopilotStoreProvider({

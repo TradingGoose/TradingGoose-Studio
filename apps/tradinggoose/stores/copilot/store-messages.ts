@@ -1,6 +1,7 @@
 'use client'
 
 import type { ImagePart } from '@/lib/copilot/native/contract'
+import type { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { projectNativeHistoryMessage } from './history'
 import { resolveToolDisplay } from './tool-registry'
 import type { ChatContext, CopilotMessage, CopilotStore, CopilotToolCall } from './types'
@@ -100,58 +101,39 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
   return todos
 }
 
-export function updateMessagesForToolCallState(
+export function updateMessageToolCalls(
   messages: CopilotMessage[],
-  toolCallId: string,
-  nextState: any,
-  options?: { result?: any }
+  toolCallsById: CopilotStore['toolCallsById']
 ): CopilotMessage[] {
-  let found = false
-  const result: CopilotMessage[] = new Array(messages.length)
-  for (let i = 0; i < messages.length; i++) {
-    if (found) {
-      result[i] = messages[i]
-      continue
-    }
+  return messages.map((message) => {
+    let changed = false
+    const contentBlocks = message.contentBlocks?.map((block) => {
+      if (block.type !== 'tool_call') return block
+      const toolCall = toolCallsById[block.toolCall.id]
+      if (!toolCall || toolCall === block.toolCall) return block
+      changed = true
+      return { ...block, toolCall }
+    })
+    return changed ? { ...message, contentBlocks } : message
+  })
+}
 
-    const message = messages[i]
-    if (message.role !== 'assistant') {
-      result[i] = message
-      continue
-    }
-
-    let blocksChanged = false
-    const contentBlocks = Array.isArray(message.contentBlocks)
-      ? message.contentBlocks.map((block: any) => {
-          if (block?.type !== 'tool_call' || block.toolCall?.id !== toolCallId) {
-            return block
-          }
-
-          blocksChanged = true
-          return {
-            ...block,
-            toolCall: {
-              ...block.toolCall,
-              state: nextState,
-              display: resolveToolDisplay(block.toolCall?.name, nextState, block.toolCall?.params),
-              ...(options?.result !== undefined ? { result: options.result } : {}),
-            },
-          }
-        })
-      : message.contentBlocks
-
-    if (!blocksChanged) {
-      result[i] = message
-      continue
-    }
-
-    found = true
-    result[i] = {
-      ...message,
-      ...(contentBlocks ? { contentBlocks } : {}),
-    }
+export function updateToolCallState(
+  state: Pick<CopilotStore, 'messages' | 'toolCallsById'>,
+  toolCallId: string,
+  nextState: ClientToolCallState,
+  result?: unknown
+): Partial<Pick<CopilotStore, 'messages' | 'toolCallsById'>> {
+  const current = state.toolCallsById[toolCallId]
+  if (!current) return {}
+  const toolCall = {
+    ...current,
+    state: nextState,
+    display: resolveToolDisplay(current.name, nextState, current.params),
+    ...(result !== undefined ? { result } : {}),
   }
-  return result
+  const toolCallsById = { ...state.toolCallsById, [toolCallId]: toolCall }
+  return { toolCallsById, messages: updateMessageToolCalls(state.messages, toolCallsById) }
 }
 
 export function createUserMessage(

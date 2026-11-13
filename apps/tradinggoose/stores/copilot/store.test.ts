@@ -45,14 +45,11 @@ vi.mock('./tool-registry', async (original) => {
       (tools.actualOAuth && args[0] === 'oauth_request_access') ||
       (tools.actualRunWorkflow && args[0] === 'run_workflow')
         ? registry.ensureClientToolInstance(...args)
-        : { handleUserAction: tools.browser, hydrateToolCall: tools.hydrate },
-    bindClientToolExecutionContext: (
-      ...args: Parameters<typeof registry.bindClientToolExecutionContext>
-    ) => {
-      tools.bind(...args)
-      if (tools.actualOAuth || tools.actualRunWorkflow)
-        registry.bindClientToolExecutionContext(...args)
-    },
+        : {
+            handleUserAction: tools.browser,
+            hydrateToolCall: tools.hydrate,
+            setExecutionContext: tools.bind,
+          },
   }
 })
 const threadId = 'thread-fixture'
@@ -2407,7 +2404,6 @@ describe('R5 reopened OAuth workspace authorization', () => {
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
     expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
     expect(tools.bind).toHaveBeenLastCalledWith(
-      item.target.toolCallId,
       expect.objectContaining({ workspaceId: 'chosen-business' })
     )
     const call = store().getState().toolCallsById[item.target.toolCallId]
@@ -2758,10 +2754,7 @@ describe('selected native run context', () => {
     expect(tools.browser).not.toHaveBeenCalled()
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
     expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
-    expect(tools.bind).toHaveBeenLastCalledWith(
-      item.target.toolCallId,
-      expect.objectContaining(item.context)
-    )
+    expect(tools.bind).toHaveBeenLastCalledWith(expect.objectContaining(item.context))
   })
 
   it('keeps an explicit OAuth workspace choice through native history refresh', async () => {

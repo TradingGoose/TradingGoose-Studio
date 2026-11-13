@@ -5,7 +5,7 @@ import { projectNativeHistory, projectNativeHistoryMessage } from './history'
 import {
   buildPlanTodosFromMessages,
   createUserMessage,
-  updateMessagesForToolCallState,
+  updateToolCallState,
 } from './store-messages'
 import type { CopilotMessage } from './types'
 
@@ -253,9 +253,25 @@ describe('canonical native history display', () => {
       { id: 'two', content: 'Test', completed: false, executing: false },
     ])
     expect(buildPlanTodosFromMessages([message, createUserMessage('Next')])).toEqual([])
-    expect(
-      updateMessagesForToolCallState([message], 'plan', ClientToolCallState.error)[0]
-        .contentBlocks?.[0]
-    ).toMatchObject({ toolCall: { state: 'error' } })
+    const plan = message.contentBlocks![0]
+    if (plan.type !== 'tool_call') throw new Error('Expected plan tool call')
+    const unrelated = createUserMessage('Unchanged')
+    const updated = updateToolCallState(
+      { messages: [message, unrelated], toolCallsById: { plan: plan.toolCall } },
+      'plan',
+      ClientToolCallState.error,
+      { error: 'Planning failed' }
+    )
+    expect(updated.messages?.[0].contentBlocks?.[0]).toEqual({
+      ...plan,
+      toolCall: updated.toolCallsById?.plan,
+    })
+    expect(updated.toolCallsById?.plan).toMatchObject({
+      state: 'error',
+      display: { text: 'Failed to plan' },
+      result: { error: 'Planning failed' },
+    })
+    expect(updated.messages?.[1]).toBe(unrelated)
+    expect(updated.messages?.[0].contentBlocks?.[1]).toBe(message.contentBlocks![1])
   })
 })

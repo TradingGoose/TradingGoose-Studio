@@ -8,6 +8,7 @@ import type {
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { updateMessageToolCalls } from './store-messages'
 import { resolveToolDisplay } from './tool-registry'
 import type { CopilotMessage, CopilotStore, CopilotToolCall } from './types'
 
@@ -33,15 +34,7 @@ function settleTools(
   )
   return {
     toolCallsById: updated,
-    messages: state.messages.map((message) => ({
-      ...message,
-      contentBlocks: message.contentBlocks?.map((block) =>
-        block.type === 'tool_call' &&
-        updated[block.toolCall.id] !== state.toolCallsById[block.toolCall.id]
-          ? { ...block, toolCall: updated[block.toolCall.id] }
-          : block
-      ),
-    })),
+    messages: updateMessageToolCalls(state.messages, updated),
   }
 }
 
@@ -322,17 +315,8 @@ export function applyNativeEvent(
         pending: undefined,
         display: resolveToolDisplay(event.toolName, nextState, current?.params),
       }
-      return {
-        toolCallsById: { ...state.toolCallsById, [toolCall.id]: toolCall },
-        messages: state.messages.map((message) => ({
-          ...message,
-          contentBlocks: message.contentBlocks?.map((block) =>
-            block.type === 'tool_call' && block.toolCall.id === toolCall.id
-              ? { ...block, toolCall }
-              : block
-          ),
-        })),
-      }
+      const toolCallsById = { ...state.toolCallsById, [toolCall.id]: toolCall }
+      return { toolCallsById, messages: updateMessageToolCalls(state.messages, toolCallsById) }
     }
     case 'response.completed':
       return applyNativeResponse(state, event.result, messageId)
