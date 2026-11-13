@@ -1,6 +1,9 @@
+import '@/lib/mastra/__test-utils__/managed-services'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getBlocksMetadataServerTool } from '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
 import { GetBlocksMetadataResult } from '@/lib/copilot/tools/shared/schemas'
+import { managedServices, setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
+import { useModelRegistry } from '@/stores/model-registry'
 
 const mockGetOAuthProviderAvailability = vi.hoisted(() => vi.fn())
 
@@ -212,6 +215,39 @@ describe('getBlocksMetadataServerTool', () => {
         ['reasoningEffort', 'reasoningOptions', 'verbosity', 'thinkingLevel'].includes(field.id)
       )
     ).toBe(false)
+  })
+
+  it('discovers public native and configured language models without browser registry state', async () => {
+    setManagedProviders({
+      'private-models': {
+        name: 'Private models',
+        url: 'https://private-models.invalid/v1',
+        models: ['org/exact:model'],
+      },
+    })
+    managedServices.credentials.mastra_model_providers = {
+      apiKeys: JSON.stringify({ 'private-models': 'private-model-key' }),
+    }
+    expect(useModelRegistry.getState().providers).toEqual([])
+
+    const result = await getBlocksMetadataServerTool.execute({ blockTypes: ['agent'] })
+    const options = result.metadata.agent?.subBlocks?.find((field) => field.id === 'model')?.options
+    expect(options).toEqual(
+      expect.arrayContaining([
+        { id: 'openai/gpt-4.1', label: 'openai/gpt-4.1' },
+        { id: 'private-models/org/exact:model', label: 'private-models/org/exact:model' },
+      ])
+    )
+    expect(options).not.toContainEqual(
+      expect.objectContaining({ id: 'openai/text-embedding-3-small' })
+    )
+    expect(options).not.toContainEqual(expect.objectContaining({ id: 'openai/gpt-image-1' }))
+    expect(useModelRegistry.getState().providers).toEqual([])
+    expect(managedServices.readConfig).not.toHaveBeenCalled()
+    expect(managedServices.decrypt).not.toHaveBeenCalled()
+    expect(JSON.stringify(result)).not.toMatch(
+      /private-models\.invalid|private-model-key|apiKeyEnvVar/
+    )
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {

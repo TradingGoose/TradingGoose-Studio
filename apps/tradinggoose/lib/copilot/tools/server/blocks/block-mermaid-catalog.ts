@@ -7,6 +7,7 @@ import type {
   BlockMermaidProfileType,
 } from '@/lib/copilot/tools/shared/schemas'
 import { LISTING_IDENTITY_JSON_SCHEMA, LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import { getModelRegistry } from '@/lib/mastra/registry'
 import { getOAuthProviderAvailability } from '@/lib/oauth/provider-availability.server'
 import {
   getProviderIdsForBlocks,
@@ -20,6 +21,7 @@ import {
 import { WORKFLOW_FIELD_TYPES } from '@/lib/workflows/value-types'
 import { registry as blockRegistry } from '@/blocks/registry'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
+import { getModelOptions } from '@/stores/model-registry'
 
 type BlockAuthType = 'OAuth' | 'API Key' | 'Bot Token'
 
@@ -161,13 +163,18 @@ function toCatalogCategory(category: BlockConfig['category']): BlockCatalogCateg
   }
 }
 
-function resolveSubBlockOptions(subBlock: BlockConfig['subBlocks'][number]) {
+function resolveSubBlockOptions(
+  subBlock: BlockConfig['subBlocks'][number],
+  modelOptions: BlockSubBlockSummary['options']
+) {
   const options =
-    typeof subBlock.options === 'function'
-      ? subBlock.options.length === 0
-        ? subBlock.options()
-        : undefined
-      : subBlock.options
+    subBlock.options === getModelOptions
+      ? modelOptions
+      : typeof subBlock.options === 'function'
+        ? subBlock.options.length === 0
+          ? subBlock.options()
+          : undefined
+        : subBlock.options
   if (!Array.isArray(options) || options.length === 0) {
     return undefined
   }
@@ -188,15 +195,20 @@ function resolveSubBlockDescription(subBlock: BlockConfig['subBlocks'][number]) 
   return [subBlock.description, typeDescription].filter(Boolean).join(' ')
 }
 
-function buildSubBlockSummaries(
+async function buildSubBlockSummaries(
   blockConfig: BlockConfig | undefined
-): BlockProfile['subBlocks'] | undefined {
+): Promise<BlockProfile['subBlocks'] | undefined> {
   if (!blockConfig?.subBlocks?.length) {
     return undefined
   }
 
+  const modelOptions = blockConfig.subBlocks.some(({ options }) => options === getModelOptions)
+    ? (await getModelRegistry()).flatMap(({ models }) =>
+        models.map(({ id }) => ({ id, label: id }))
+      )
+    : undefined
   const subBlocks: BlockSubBlockSummary[] = blockConfig.subBlocks.map((subBlock) => {
-    const options = resolveSubBlockOptions(subBlock)
+    const options = resolveSubBlockOptions(subBlock, modelOptions)
     const description = resolveSubBlockDescription(subBlock)
     const condition =
       typeof subBlock.condition === 'function' ? subBlock.condition() : subBlock.condition
@@ -419,7 +431,7 @@ export async function readWorkflowBlockProfile(
   if (!definition) {
     throw new Error(`Block not found: ${blockType}`)
   }
-  const subBlocks = buildSubBlockSummaries(blockConfig)
+  const subBlocks = await buildSubBlockSummaries(blockConfig)
   const inputReferenceGrammar = buildInputReferenceGrammar(blockType, blockConfig)
 
   const shape = buildWorkflowBlockMermaidShape({
