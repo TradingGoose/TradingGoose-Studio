@@ -8,7 +8,6 @@ import { getFailureAccounting, safeInferenceError } from '@/lib/mastra/errors'
 import { normalizeNativeMediaMessages } from '@/lib/mastra/media'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
-import { assertNativeCompletion } from '@/lib/mastra/result'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import {
   downloadFileFromStorage,
@@ -185,8 +184,7 @@ export async function POST(request: NextRequest) {
     let accounting
     try {
       result = await agent.generate(messages, work.options)
-      assertNativeCompletion(result)
-      await work.usage.verifyComplete()
+      await work.complete(result)
       request.signal.throwIfAborted()
       if (typeof result.text !== 'string' || !result.text.trim()) {
         throw new Error(

@@ -100,8 +100,6 @@ export async function usageProcessors(
             )
           }
         }
-        if (!args.finishReason || !['stop', 'tool-calls', 'length'].includes(args.finishReason))
-          throw new Error('Model step did not complete successfully')
         for (const call of args.toolCalls ?? []) assertNativeToolArguments(call.args)
         scope.signal?.throwIfAborted()
         return args.messageList

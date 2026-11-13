@@ -9,6 +9,7 @@ import { Memory } from '@mastra/memory'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { projectNativeMessage } from './messages'
+import { assertNativeCompletion } from './result'
 import { usageProcessors } from './usage-processors'
 
 const billing = vi.hoisted(() => ({
@@ -45,8 +46,7 @@ beforeEach(() => {
 
 async function generate(
   finishReason: 'stop' | 'content-filter' | 'error' = 'stop',
-  reportedUsage = usage,
-  repeatOutput = false
+  reportedUsage = usage
 ) {
   const accounting = await usageProcessors(scope)
   const model = new MastraLanguageModelV2Mock({
@@ -66,27 +66,15 @@ async function generate(
     instructions: '',
     model,
     inputProcessors: accounting.inputProcessors,
-    outputProcessors: repeatOutput
-      ? accounting.outputProcessors.map(
-          (processor): OutputProcessor => ({
-            ...processor,
-            async processOutputStep(args) {
-              await processor.processOutputStep!(args)
-              return processor.processOutputStep!(args)
-            },
-          })
-        )
-      : accounting.outputProcessors,
+    outputProcessors: accounting.outputProcessors,
   })
-  try {
-    await agent.generate('hello', { runId: scope.runId, maxSteps: 1 })
-  } catch {
-    // Installed core can surface a processor failure directly or through its error result.
-  }
-  return accounting
+  const [outcome] = await Promise.allSettled([
+    agent.generate('hello', { runId: scope.runId, maxSteps: 1 }),
+  ])
+  return { ...accounting, outcome }
 }
 
-it('checks Studio admission before contact and records actual native tokens once', async () => {
+it('admits and bills each native attempt once', async () => {
   const accounting = await generate()
   await accounting.verifyComplete()
   expect(billing.admit).toHaveBeenCalledExactlyOnceWith(scope)
@@ -105,6 +93,7 @@ it('checks Studio admission before contact and records actual native tokens once
   )
   expect(accounting.getUsage()).toEqual(usage)
   expect(accounting.getCost().total).toBeCloseTo(0.000028)
+  expect(billing.record.mock.calls[0][3]).toBe(billing.begin.mock.calls[0][1])
 })
 
 it('awaits durable attempt ownership before native contact and completes the same occurrence', async () => {
@@ -139,16 +128,6 @@ it('separates provider invocations that reuse the same run label', async () => {
   expect(billing.record.mock.calls.map((call) => call[3])).toEqual(ids)
   expect(billing.begin.mock.calls.every(([selected]) => selected.runId === scope.runId)).toBe(true)
   expect(billing.record.mock.calls.every(([selected]) => selected.runId === scope.runId)).toBe(true)
-})
-
-it('records duplicated native output processing only once for its owned attempt', async () => {
-  const accounting = await generate('stop', usage, true)
-  await accounting.verifyComplete()
-  expect(billing.begin).toHaveBeenCalledOnce()
-  expect(billing.record).toHaveBeenCalledOnce()
-  expect(billing.record.mock.calls[0][3]).toBe(billing.begin.mock.calls[0][1])
-  expect(accounting.getUsage()).toEqual(usage)
-  expect(accounting.getCost().total).toBeCloseTo(0.000028)
 })
 
 it.each(['account', 'byok'] as const)(
@@ -236,9 +215,9 @@ it.each(['account', 'byok'] as const)(
   }
 )
 
-it('does not contact a provider when attempt persistence fails', async () => {
-  const failure = new Error('Native attempt persistence failed')
-  billing.begin.mockRejectedValue(failure)
+it.each(['admit', 'begin'] as const)('stops model contact when %s fails', async (operation) => {
+  const failure = new Error('Usage admission failed')
+  billing[operation].mockRejectedValue(failure)
   const accounting = await generate()
   await expect(accounting.verifyComplete()).rejects.toBe(failure)
   expect(billing.contact).not.toHaveBeenCalled()
@@ -286,23 +265,6 @@ it.each([false, true])(
     )
   }
 )
-
-it('stops model contact when Studio refuses admission', async () => {
-  const failure = new Error('Usage allowance exhausted')
-  billing.admit.mockRejectedValue(failure)
-  const accounting = await generate()
-  await expect(accounting.verifyComplete()).rejects.toBe(failure)
-  expect(billing.contact).not.toHaveBeenCalled()
-  expect(billing.record).not.toHaveBeenCalled()
-})
-
-it('retains observed usage and latches a deferred accounting error', async () => {
-  const failure = new Error('Usage write failed')
-  billing.record.mockRejectedValue(failure)
-  const accounting = await generate()
-  await expect(accounting.verifyComplete()).rejects.toBe(failure)
-  expect(accounting.getUsage()).toEqual(usage)
-})
 
 it.each(['generate', 'stream'] as const)(
   'blocks tool execution after failed billing in %s',
@@ -354,6 +316,7 @@ it.each(['generate', 'stream'] as const)(
       // Either native failure representation must stop execution before tool dispatch.
     }
     await expect(accounting.verifyComplete()).rejects.toBe(failure)
+    expect(accounting.getUsage()).toEqual(usage)
     expect(billing.record).toHaveBeenCalledOnce()
     expect(execute).not.toHaveBeenCalled()
 
@@ -392,11 +355,18 @@ it('prices cached input from the raw native step without counting it at the full
 })
 
 it.each(['content-filter', 'error'] as const)(
-  'accounts for reported usage before rejecting a %s outcome',
+  'accounts for reported usage without replacing a native %s outcome',
   async (finishReason) => {
     const reported = { inputTokens: 12, outputTokens: 3, totalTokens: 15 }
-    const accounting = await generate(finishReason, reported)
-    await expect(accounting.verifyComplete()).rejects.toThrow('did not complete successfully')
+    const { outcome, ...accounting } = await generate(finishReason, reported)
+    await accounting.verifyComplete()
+    expect(outcome.status).toBe(finishReason === 'error' ? 'rejected' : 'fulfilled')
+    if (outcome.status === 'rejected')
+      expect(outcome.reason).toMatchObject({ id: 'AGENT_STREAM_ERROR' })
+    else {
+      expect(outcome.value).toMatchObject({ finishReason })
+      expect(() => assertNativeCompletion(outcome.value)).toThrow('did not complete successfully')
+    }
     expect(accounting.getUsage()).toEqual(reported)
     expect(billing.record).toHaveBeenCalledExactlyOnceWith(
       scope,
@@ -503,15 +473,20 @@ it.each(
     inputProcessors: accounting.inputProcessors,
     outputProcessors: accounting.outputProcessors,
   }
+  let nativeError: unknown
   try {
     if (mode === 'generate') await agent.generate('Look up', options)
     else await (await agent.stream('Look up', options)).getFullOutput()
-  } catch {
-    // Native errors and cancellation both retain the accounting observed before failure.
+  } catch (error) {
+    nativeError = error
   }
-  await expect(accounting.verifyComplete()).rejects.toThrow(
-    outcome === 'timeout' ? 'unfinished provider request' : undefined
-  )
+  if (outcome === 'error') {
+    expect(nativeError).toMatchObject({ message: 'Provider failed' })
+    await accounting.verifyComplete()
+  } else
+    await expect(accounting.verifyComplete()).rejects.toThrow(
+      outcome === 'timeout' ? 'unfinished provider request' : undefined
+    )
   const incomplete = ['abort', 'timeout', 'error'].includes(outcome)
   expect(billing.contact).toHaveBeenCalledTimes(outcome === 'pre-abort' ? 0 : incomplete ? 2 : 1)
   expect(accounting.getUsage()).toEqual(outcome === 'pre-abort' ? {} : reported)

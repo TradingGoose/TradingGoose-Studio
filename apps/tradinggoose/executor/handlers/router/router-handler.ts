@@ -3,7 +3,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
-import { assertNativeCompletion, withInferenceFacts } from '@/lib/mastra/result'
+import { withInferenceFacts } from '@/lib/mastra/result'
 import { generateRouterPrompt } from '@/blocks/blocks/router'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
@@ -59,9 +59,7 @@ export class RouterBlockHandler implements BlockHandler {
         mastra: work.mastra,
       })
       const native = await agent.generate([{ role: 'user', content: inputs.prompt }], work.options)
-      assertNativeCompletion(native)
-      await work.usage.verifyComplete()
-      const accounting = work.accounting()
+      const accounting = await work.complete(native)
       cancellation.signal.throwIfAborted()
       const result = { content: native.text, model, ...accounting }
 

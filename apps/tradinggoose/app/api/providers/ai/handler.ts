@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server'
 import { normalizeNativeMediaMessages } from '@/lib/mastra/media'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
-import { assertNativeCompletion } from '@/lib/mastra/result'
 
 export interface ProviderRouteBody {
   providerNamespace?: 'ai'
@@ -71,9 +70,7 @@ export async function handleAIProviderRequest({
       mastra: work.mastra,
     })
     const result = await agent.generate(messages, work.options)
-    assertNativeCompletion(result)
-    await work.usage.verifyComplete()
-    return NextResponse.json({ content: result.text, model, ...work.accounting() })
+    return NextResponse.json({ content: result.text, model, ...(await work.complete(result)) })
   } catch (error) {
     const failure = error instanceof Error ? error : new Error(String(error))
     throw Object.assign(failure, { model, ...work.accounting() })

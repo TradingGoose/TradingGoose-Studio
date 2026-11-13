@@ -1,6 +1,7 @@
 import type { AgentExecutionOptions } from '@mastra/core/agent'
 import { createConfiguredLanguageModel } from './connections'
 import { parseProviderOptions, trustedModelSettings } from './options'
+import { assertNativeCompletion } from './result'
 import { getMastra } from './runtime'
 import { resultAccounting } from './usage'
 import { usageProcessors } from './usage-processors'
@@ -54,11 +55,17 @@ export async function prepareModelRequest(
       },
     },
   } satisfies AgentExecutionOptions
+  const accounting = () => resultAccounting(usage.getUsage(), usage.getCost())
   return {
     model,
     usage,
     options,
-    accounting: () => resultAccounting(usage.getUsage(), usage.getCost()),
+    accounting,
+    async complete(result: Parameters<typeof assertNativeCompletion>[0]) {
+      await usage.verifyComplete()
+      assertNativeCompletion(result)
+      return accounting()
+    },
     mastra,
   }
 }

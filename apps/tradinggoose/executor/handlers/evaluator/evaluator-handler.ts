@@ -3,7 +3,7 @@ import { toStandardSchema } from '@mastra/core/schema'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
-import { assertNativeCompletion, withInferenceFacts } from '@/lib/mastra/result'
+import { withInferenceFacts } from '@/lib/mastra/result'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import { watchExecutionCancellation } from '@/executor/handlers/agent/cancellation'
@@ -87,9 +87,7 @@ ${metrics.map((metric: any) => `${metric.name} (${metric.range.min}-${metric.ran
           },
         }
       )
-      assertNativeCompletion(result)
-      await work.usage.verifyComplete()
-      const accounting = work.accounting()
+      const accounting = await work.complete(result)
       cancellation.signal.throwIfAborted()
       if (!result.object || typeof result.object !== 'object' || Array.isArray(result.object)) {
         throw new Error('Evaluator requires a valid structured result')

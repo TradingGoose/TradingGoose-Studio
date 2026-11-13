@@ -4,7 +4,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
-import { assertNativeCompletion } from '@/lib/mastra/result'
 import { type NativeCost, sumNativeCosts } from '@/lib/mastra/usage'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -135,9 +134,7 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
         jsonPromptInjection: true,
       },
     })
-    assertNativeCompletion(response)
-    await work.usage.verifyComplete()
-    const accounting = work.accounting()
+    const accounting = await work.complete(response)
     const result = response.object as { score: number; reasoning: string }
 
     if (!result || typeof result.score !== 'number' || result.score < 0 || result.score > 10) {

@@ -13,7 +13,6 @@ import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import {
-  assertNativeCompletion,
   getInferenceFacts,
   getNativeFinalText,
   type InferenceFacts,
@@ -188,8 +187,17 @@ export class AgentBlockHandler implements BlockHandler {
       tools,
       memory: await getAgentMemory(),
       mastra: work.mastra,
+      defaultOptions: responseFormat
+        ? {
+            structuredOutput: {
+              schema: toStandardSchema<Record<string, unknown>>(responseFormat.schema),
+              errorStrategy: 'strict',
+              jsonPromptInjection: Object.keys(tools).length > 0,
+            },
+          }
+        : undefined,
     })
-    const options: AgentExecutionOptions<any> = {
+    const options: AgentExecutionOptions = {
       ...work.options,
       inputProcessors: [
         {
@@ -216,13 +224,6 @@ export class AgentBlockHandler implements BlockHandler {
           },
         },
       },
-      structuredOutput: responseFormat
-        ? {
-            schema: toStandardSchema(responseFormat.schema),
-            errorStrategy: 'strict',
-            jsonPromptInjection: Object.keys(tools).length > 0,
-          }
-        : undefined,
       prepareStep: async (step) => {
         await cancellation.check()
         signal.throwIfAborted()
@@ -237,9 +238,8 @@ export class AgentBlockHandler implements BlockHandler {
       cancellation.signal.removeEventListener('abort', abortFromWorkflow)
     }
     const complete = async (result: any) => {
-      await work.usage.verifyComplete()
+      const accounting = await work.complete(result)
       stopCancellationCheck()
-      const accounting = work.accounting()
       policy.assertComplete(result.steps)
       const output = extractAgentOutput(
         result,
@@ -270,14 +270,7 @@ export class AgentBlockHandler implements BlockHandler {
     }
     if (!this.shouldStream(block, context)) {
       try {
-        return await complete(
-          options.structuredOutput
-            ? await agent.generate(modelMessages, {
-                ...options,
-                structuredOutput: options.structuredOutput,
-              })
-            : await agent.generate(modelMessages, { ...options, structuredOutput: undefined })
-        )
+        return await complete(await agent.generate(modelMessages, options))
       } catch (error) {
         throw await fail(error)
       }
@@ -291,12 +284,7 @@ export class AgentBlockHandler implements BlockHandler {
       isStreaming: true,
     }
     try {
-      const nativeStream = options.structuredOutput
-        ? await agent.stream(modelMessages, {
-            ...options,
-            structuredOutput: options.structuredOutput,
-          })
-        : await agent.stream(modelMessages, { ...options, structuredOutput: undefined })
+      const nativeStream = await agent.stream(modelMessages, options)
       const reader = nativeStream.fullStream.getReader()
       const stream = new ReadableStream<Uint8Array>({
         async pull(controller) {
@@ -744,7 +732,6 @@ export function extractAgentOutput(
   toolResults: NonNullable<InferenceFacts['toolResults']> = [],
   structured = false
 ): BlockOutput {
-  assertNativeCompletion(result)
   if (!result.steps.length) throw new Error('Agent generation has no completed model steps')
   if (
     structured &&

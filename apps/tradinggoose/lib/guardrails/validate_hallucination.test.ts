@@ -225,7 +225,6 @@ describe('hallucination search and scoring', () => {
       tokens: { prompt: 14, completion: 2, total: 16 },
       cost: { status: 'unavailable' },
     })
-    expect(native.verify).not.toHaveBeenCalled()
   })
   it('retains active usage while refusing incomplete financial acceptance', async () => {
     native.verify.mockRejectedValue(new Error('Financial acceptance unavailable'))
