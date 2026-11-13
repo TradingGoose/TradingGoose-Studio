@@ -45,7 +45,6 @@ import { subscriptionKeys } from '@/hooks/queries/subscription'
 import { parseCopilotWorkspaceChannelId } from './channel-id'
 import { projectNativeHistory } from './history'
 import {
-  listNativeHistory,
   listNativeThreads,
   NativeCommandError,
   postNativeCommand,
@@ -123,8 +122,6 @@ const initialState = {
   toolCallsById: {} as CopilotStore['toolCallsById'],
   lastNativeOutcome: null,
   error: null,
-  historyRefreshError: null,
-  isRefreshingHistory: false,
 }
 
 function createCopilotStoreInstance(channelId: string) {
@@ -299,6 +296,8 @@ function createCopilotStoreInstance(channelId: string) {
         activeRunId: string | null = null,
         recoveredRunId?: string
       ) => {
+        if (history.threadId !== get().currentChat?.threadId)
+          throw new Error('Observed Copilot history belongs to another conversation')
         const messages = projectNativeHistory(history.items)
         const pending = history.pending
         const currentRunId = activeRunId ?? pending[0]?.target.runId ?? null
@@ -351,14 +350,6 @@ function createCopilotStoreInstance(channelId: string) {
           currentRunId,
         })
       }
-      const refreshChatHistory = async (
-        chat: CopilotChat,
-        current: () => boolean,
-        recoveredRunId?: string
-      ) => {
-        const history = await listNativeHistory(chat.workspaceId, chat.threadId)
-        if (current()) applyHistory(history, null, recoveredRunId)
-      }
       const observeChat = async (
         chat: CopilotChat,
         expectedRunId?: string,
@@ -400,26 +391,24 @@ function createCopilotStoreInstance(channelId: string) {
                 const event = JSON.parse(data) as CopilotThreadEvent
                 if (!current()) return false
                 if (event.type === 'thread.history') {
-                  if (event.result.threadId !== chat.threadId)
-                    throw new Error('Observed Copilot history belongs to another conversation')
                   applyHistory(event.result, event.activeRunId, expectedRunId)
                   messageId = undefined
                   set({
                     error: event.interruptedRunId
-                      ? 'The outcome of this response could not be confirmed. Saved history is preserved. Start a new conversation to continue.'
+                      ? 'The previous response was interrupted. You can continue this conversation.'
                       : null,
-                    ...(event.interruptedRunId ? { currentRunId: event.interruptedRunId } : {}),
-                    historyRefreshError: null,
                   })
-                  ready()
-                  if (event.interruptedRunId && expectedRunId === event.interruptedRunId)
+                  if (event.interruptedRunId && expectedRunId === event.interruptedRunId) {
+                    ready()
                     return false
+                  }
+                  if (onReady) expectedRunId = undefined
+                  ready()
                   continue
                 }
                 if (event.type === 'thread.status') {
                   if (event.runId !== (expectedRunId ?? get().currentRunId)) continue
-                  await refreshChatHistory(chat, current, expectedRunId)
-                  if (!current()) return false
+                  applyHistory(event.history, null, event.runId)
                   set({
                     isSendingMessage: false,
                     isAborting: false,
@@ -455,11 +444,9 @@ function createCopilotStoreInstance(channelId: string) {
                 }
                 if (event.runId !== (expectedRunId ?? get().currentRunId)) continue
                 if (event.type === 'thread.error') {
-                  await refreshChatHistory(chat, current)
-                  if (!current()) return false
+                  applyHistory(event.history, null, event.runId)
                   set({
                     error: event.error.message,
-                    currentRunId: event.runId,
                     isSendingMessage: false,
                     isAborting: false,
                   })
@@ -473,7 +460,6 @@ function createCopilotStoreInstance(channelId: string) {
                 set((state) => applyNativeEvent(state, event.event, messageId!))
                 await refreshServerToolResult(event.event)
               }
-              if (current()) throw new Error('Copilot connection closed; reconnecting')
             } catch (error) {
               if (!current()) return false
               if (!retryable) {
@@ -481,13 +467,8 @@ function createCopilotStoreInstance(channelId: string) {
                 set({ isSendingMessage: false, isAwaitingContinuation: false })
                 return false
               }
-              set({
-                historyRefreshError:
-                  'Connection interrupted. Reconnecting to the existing response…',
-              })
-              ready()
-              await waitToReconnect(abort.signal)
             }
+            await waitToReconnect(abort.signal)
           }
           return false
         } finally {
@@ -496,9 +477,9 @@ function createCopilotStoreInstance(channelId: string) {
           refreshBillingUsage()
         }
       }
-      const restoreChat = (chat: CopilotChat) =>
+      const restoreChat = (chat: CopilotChat, recoveredRunId?: string) =>
         new Promise<void>((resolve) => {
-          void observeChat(chat, undefined, resolve)
+          void observeChat(chat, recoveredRunId, resolve)
         })
       const scheduleBrowserTools = () => {
         const id = epoch
@@ -537,8 +518,6 @@ function createCopilotStoreInstance(channelId: string) {
           abortController: abort,
           isSendingMessage: true,
           error: null,
-          historyRefreshError: null,
-          isRefreshingHistory: false,
         })
         try {
           const response = await postNativeCommand(body, abort.signal)
@@ -604,23 +583,14 @@ function createCopilotStoreInstance(channelId: string) {
             get().lastNativeOutcome?.status === 'cancel_requested'
           )
             return false
-          publishInitialTitle()
+          const outcome = get().lastNativeOutcome
           if (
-            ['completed', 'suspended'].includes(get().lastNativeOutcome?.status ?? '') &&
+            (outcome?.status === 'completed' || outcome?.status === 'suspended') &&
             get().currentChat
-          ) {
-            const chat = get().currentChat!
-            try {
-              await refreshChatHistory(chat, current)
-            } catch (error) {
-              if (current() && !abort.signal.aborted)
-                set({
-                  historyRefreshError:
-                    error instanceof Error ? error.message : 'History refresh failed',
-                })
-            }
-          }
+          )
+            await restoreChat(get().currentChat!, outcome.runId)
           if (!current()) return true
+          publishInitialTitle()
           if (get().isAwaitingContinuation) scheduleBrowserTools()
           return true
         } catch (error) {
@@ -642,8 +612,7 @@ function createCopilotStoreInstance(channelId: string) {
           }
           return false
         } finally {
-          if (current() && get().abortController === abort)
-            set({ isSendingMessage: false, abortController: null })
+          if (current() && get().abortController === abort) set({ abortController: null })
           refreshBillingUsage()
         }
       }
@@ -946,26 +915,6 @@ function createCopilotStoreInstance(channelId: string) {
             )
           }
         },
-        refreshCurrentHistory: async () => {
-          const chat = get().currentChat
-          if (!chat) return
-          const id = epoch
-          const interaction = interactionGeneration
-          const current = () => ownsChat(chat, id, interaction)
-          set({ isRefreshingHistory: true })
-          try {
-            await refreshChatHistory(chat, current)
-            if (current()) set({ historyRefreshError: null })
-          } catch (error) {
-            if (current())
-              set({
-                historyRefreshError:
-                  error instanceof Error ? error.message : 'History refresh failed',
-              })
-          } finally {
-            if (current()) set({ isRefreshingHistory: false })
-          }
-        },
         draft: emptyDraft(),
         setAccessLevel: (accessLevel) => set({ accessLevel }),
         setDraft: (update) =>
@@ -1054,8 +1003,6 @@ function createCopilotStoreInstance(channelId: string) {
             toolCallsById: {},
             planTodos: [],
             error: null,
-            historyRefreshError: null,
-            isRefreshingHistory: false,
             isAwaitingContinuation: false,
             isAborting: false,
             isSendingMessage: false,
@@ -1078,8 +1025,6 @@ function createCopilotStoreInstance(channelId: string) {
             planTodos: [],
             draft: emptyDraft(),
             error: null,
-            historyRefreshError: null,
-            isRefreshingHistory: false,
             isAwaitingContinuation: false,
             isAborting: false,
             isSendingMessage: false,
@@ -1133,17 +1078,8 @@ function createCopilotStoreInstance(channelId: string) {
           const id = epoch
           const interaction = ++interactionGeneration
           const titleEdit = titleEditGeneration
-          const preflight = new AbortController()
           titleAbort?.abort()
           titleCandidate = null
-          set({ isSendingMessage: true, abortController: preflight, error: null })
-          const selected = () =>
-            id === epoch &&
-            interaction === interactionGeneration &&
-            get().currentChat?.threadId === chat?.threadId &&
-            get().conversationWorkspaceId === workspaceId &&
-            get().selectedModel === model &&
-            !preflight.signal.aborted
           const contexts = editing
             ? (get().messages[editIndex].contexts ?? [])
             : mergeCopilotContexts({
@@ -1155,18 +1091,8 @@ function createCopilotStoreInstance(channelId: string) {
             editing ? workspaceId : options.runtimeContext?.workspaceId
           )
           try {
-            if (!selected()) return false
-            let initial = !chat && !editing
-            if (!editing && chat?.title === '' && message.trim()) {
-              try {
-                initial =
-                  (await listNativeHistory(workspaceId, chat.threadId, preflight.signal)).items
-                    .length === 0
-              } catch {
-                initial = false
-              }
-            }
-            if (!selected()) return false
+            const initial =
+              !editing && (!chat || (chat.title === '' && get().messages.length === 0))
             const command: CopilotRequest = {
               command: 'message',
               toolContext,
@@ -1199,17 +1125,25 @@ function createCopilotStoreInstance(channelId: string) {
             const assistant = createStreamingMessage()
             set((state) => ({
               ...(!editing ? { messages: [...state.messages, user, assistant] } : {}),
+              isSendingMessage: true,
+              error: null,
               currentRunId: null,
               lastNativeOutcome: null,
             }))
+            if (id !== epoch || interaction !== interactionGeneration) return false
+            if (
+              get().currentChat?.threadId !== chat?.threadId ||
+              get().conversationWorkspaceId !== workspaceId ||
+              get().selectedModel !== model
+            ) {
+              set({ isSendingMessage: false })
+              return false
+            }
             const success = await invoke(command, assistant.id, body, options.onAccepted)
             return success && id === epoch && interaction === interactionGeneration
           } catch (error) {
             if (id === epoch) fail(error)
             return false
-          } finally {
-            if (get().abortController === preflight)
-              set({ abortController: null, isSendingMessage: false })
           }
         },
         abortMessage: async () => {
@@ -1230,7 +1164,6 @@ function createCopilotStoreInstance(channelId: string) {
             isSendingMessage: false,
             isAborting: Boolean(current.currentChat && current.currentRunId),
             isAwaitingContinuation: Boolean(current.currentChat && current.currentRunId),
-            isRefreshingHistory: false,
           })
           if (current.currentChat && current.currentRunId)
             return readNativeCommand({

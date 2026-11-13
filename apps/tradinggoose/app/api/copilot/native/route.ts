@@ -3,9 +3,10 @@ import { getSession } from '@/lib/auth'
 import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import { executeCopilotCommand } from '@/lib/copilot/agent/service'
 import { CopilotRequestSchema, type CopilotToolContext } from '@/lib/copilot/native/contract'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { validateNativeImageParts } from '@/lib/copilot/native/images'
 import { readCopilotRequestBody } from '@/lib/copilot/native/request-size'
-import { authorizeNativeConversationScope, NativeTargetError } from '@/lib/copilot/native/target'
+import { authorizeNativeConversationScope } from '@/lib/copilot/native/target'
 import { collectCopilotToolContexts } from '@/lib/copilot/tool-context'
 
 async function validateToolContext(

@@ -1,12 +1,9 @@
-import { NativeTargetError } from './errors'
-
-export { NativeTargetError } from './errors'
-
 import { listCopilotPending } from '@/lib/copilot/agent/service'
 import { isToolId } from '@/lib/copilot/registry'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import type { Pending, Scope, Target } from './contract'
+import { NativeTargetError } from './errors'
 import { nativeConversationIdentity } from './identity'
 
 /** Additional private preview state is read only from Mastra snapshots. */

@@ -11,14 +11,6 @@ const m = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/auth', () => ({ getSession: m.session }))
 vi.mock('@/lib/copilot/native/target', () => ({
-  NativeTargetError: class NativeTargetError extends Error {
-    constructor(
-      message: string,
-      public status = 409
-    ) {
-      super(message)
-    }
-  },
   authorizeNativeConversationScope: m.scope,
 }))
 vi.mock('@/lib/copilot/native/history', () => ({

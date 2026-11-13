@@ -17,14 +17,6 @@ vi.mock('@/lib/copilot/agent/state', () => ({
   claimCopilotBrowserEffect: m.claim,
 }))
 vi.mock('./target', () => ({
-  NativeTargetError: class NativeTargetError extends Error {
-    constructor(
-      message: string,
-      public status = 409
-    ) {
-      super(message)
-    }
-  },
   authorizeNativeConversationScope: m.scope,
   resolveNativePendingTarget: m.pending,
 }))

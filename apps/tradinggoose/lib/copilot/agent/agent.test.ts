@@ -79,6 +79,7 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
     },
     model: m.model,
     signal: new AbortController().signal,
+    assertOwnership: async () => {},
   }
   const requestContext = createCopilotRequestContext(execution)
   const options = {

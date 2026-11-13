@@ -5,8 +5,9 @@ import type { z } from 'zod'
 import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { authorizeNativeBusinessResult } from '@/lib/copilot/native/business-access'
 import type { JsonObject } from '@/lib/copilot/native/contract'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
-import { authorizeNativeConversationScope, NativeTargetError } from '@/lib/copilot/native/target'
+import { authorizeNativeConversationScope } from '@/lib/copilot/native/target'
 import { ToolArgSchemas, ToolIds, ToolResultSchemas } from '@/lib/copilot/registry'
 import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
@@ -51,6 +52,7 @@ function createCopilotTools(execution: CopilotExecution) {
             signal.throwIfAborted()
             await authorizeNativeConversationScope(run.scope.actorUserId, run.scope.workspaceId)
             await assertCopilotRunActive(run.runId)
+            await live.assertOwnership()
             const identity = nativeConversationIdentity(run.scope)
             if (
               context.agent.threadId !== run.threadId ||

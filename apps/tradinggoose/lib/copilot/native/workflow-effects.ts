@@ -8,11 +8,8 @@ import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runne
 import { resolveWorkflowRunTrigger } from '@/lib/workflows/triggers'
 import { authorizeNativeBusinessResult } from './business-access'
 import { TargetSchema } from './contract'
-import {
-  authorizeNativeConversationScope,
-  NativeTargetError,
-  resolveNativePendingTarget,
-} from './target'
+import { NativeTargetError } from './errors'
+import { authorizeNativeConversationScope, resolveNativePendingTarget } from './target'
 
 const nativeTargetSchema = z
   .object({ workspaceId: z.string().min(1).nullable(), target: TargetSchema })

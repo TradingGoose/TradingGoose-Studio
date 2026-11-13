@@ -15,16 +15,17 @@ import {
   type CopilotThreadEvent,
   type CopilotToolContext,
   type ErrorResponse,
+  type HistoryResponse,
   type Json,
   type Pending,
   type Scope,
 } from '@/lib/copilot/native/contract'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { readNativeThread, readNativeThreadHistory } from '@/lib/copilot/native/history'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { readbackNativeToolResult } from '@/lib/copilot/native/readback'
 import {
   authorizeNativeConversationScope,
-  NativeTargetError,
   resolveNativePendingTarget,
   type ServerPending,
 } from '@/lib/copilot/native/target'
@@ -48,15 +49,15 @@ import {
 } from './context'
 import {
   assertCopilotRunActive,
+  assertCopilotThreadReady,
   type CopilotRun,
   cancelCopilotRun,
   claimCopilotThread,
+  deleteCopilotRunSnapshot,
   deleteCopilotThread,
   isCopilotRunCancelled,
+  readCopilotThreadOwnership,
   readCopilotThreadRun,
-  releaseCopilotThread,
-  resumeCopilotThread,
-  suspendCopilotThread,
 } from './state'
 
 const CANCELLATION_POLL_INTERVAL = 500
@@ -184,11 +185,26 @@ async function waitForRunRelease(
   runId: string,
   signal: AbortSignal
 ) {
-  while ((await readCopilotThreadRun(scope, threadId)) === runId) {
+  while (true) {
+    const owner = await readCopilotThreadOwnership(scope, threadId)
+    if (!owner?.live || owner.ownerId !== runId) break
     signal.throwIfAborted()
     await delay(CANCELLATION_POLL_INTERVAL, undefined, { signal })
   }
   signal.throwIfAborted()
+}
+
+async function readCopilotHistory(
+  scope: Scope,
+  threadId: string,
+  signal?: AbortSignal
+): Promise<HistoryResponse> {
+  return {
+    status: 'history',
+    threadId,
+    items: await readNativeThreadHistory(scope, threadId, signal),
+    pending: (await listCopilotPending(scope, threadId, signal)).map(publicPending),
+  }
 }
 
 async function* observeThread(
@@ -209,35 +225,14 @@ async function* observeThread(
     if (signal.aborted) return
     for await (const part of subscription.stream) {
       if (signal.aborted) return
-      if (
-        part.type === 'error' ||
-        (part.type === 'thread-run-status' && part.payload.status !== 'suspended')
-      ) {
-        try {
-          // Native abort and lease loss can precede running tools draining. Only
-          // the producer releases Studio's claim after writes and accounting settle.
-          await waitForRunRelease(
-            scope,
-            threadId,
-            part.runId,
-            AbortSignal.any([signal, AbortSignal.timeout(CANCELLATION_TIMEOUT)])
-          )
-        } catch {
-          if (signal.aborted) return
-          yield {
-            type: 'thread.error',
-            runId: part.runId,
-            error: {
-              code: 'STREAM_INTERRUPTED',
-              message: 'The response outcome could not be confirmed. Saved history is preserved.',
-            },
-          }
-          continue
-        }
+      if (part.type === 'error' || part.type === 'thread-run-status') {
+        // A live writer renews through tool drainage; a crashed writer's lease expires.
+        await waitForRunRelease(scope, threadId, part.runId, signal)
       }
       if (part.type === 'thread-history') {
         const pending = (await listCopilotPending(scope, threadId, signal)).map(publicPending)
-        const claimedRunId = await readCopilotThreadRun(scope, threadId)
+        const owner = await readCopilotThreadOwnership(scope, threadId)
+        const activeRunId = owner?.live ? owner.ownerId : part.payload.activeRunId
         yield {
           type: 'thread.history',
           result: {
@@ -246,13 +241,21 @@ async function* observeThread(
             items: part.payload.messages.map(projectNativeMessage),
             pending,
           },
-          activeRunId: part.payload.activeRunId,
-          ...(!part.payload.activeRunId && !pending.length && claimedRunId
-            ? { interruptedRunId: claimedRunId }
+          activeRunId,
+          ...(!activeRunId && !pending.length && owner?.leaseExpiresAt
+            ? { interruptedRunId: owner.ownerId }
             : {}),
         }
+        // An idle native stream cannot report Studio preflight/drain completion.
+        // Resubscribe through the existing reconnect path to refresh its ownership.
+        if (owner?.live && !part.payload.activeRunId && !pending.length) return
       } else if (part.type === 'thread-run-status') {
-        yield { type: 'thread.status', runId: part.runId, status: part.payload.status }
+        yield {
+          type: 'thread.status',
+          runId: part.runId,
+          status: part.payload.status,
+          history: await readCopilotHistory(scope, threadId, signal),
+        }
       } else if (
         part.type === 'start' ||
         (part.type === 'step-start' && typeof part.payload.messageId === 'string')
@@ -268,6 +271,7 @@ async function* observeThread(
         yield {
           type: 'thread.error',
           runId: part.runId,
+          history: await readCopilotHistory(scope, threadId, signal),
           error: {
             code: 'STREAM_INTERRUPTED',
             message: 'The response was interrupted. Saved history and usage are preserved.',
@@ -307,13 +311,6 @@ async function readCommand(
       })),
     }
   }
-  if (request.command === 'history.read')
-    return {
-      status: 'history',
-      threadId: request.threadId,
-      items: await readNativeThreadHistory(scope, request.threadId, signal),
-      pending: (await listCopilotPending(scope, request.threadId, signal)).map(publicPending),
-    }
   if (!('threadId' in request) || !request.threadId || request.command === 'message') return
   await requireThread(scope, request.threadId, signal)
   switch (request.command) {
@@ -352,6 +349,9 @@ async function readCommand(
           503
         )
       }
+      // Resume rechecks the cancellation receipt after admission. Delete only this run;
+      // a newer turn may already own the conversation when cancellation finishes.
+      if (currentRunId) await deleteCopilotRunSnapshot(request.runId)
       return { status: 'cancel_requested', runId: request.runId }
     }
   }
@@ -392,39 +392,56 @@ async function* generate(
 ): AsyncGenerator<CopilotEvent> {
   let run: CopilotRun | undefined
   let watcher: ReturnType<typeof setInterval> | undefined
-  let suspended = false
   let usage: Awaited<ReturnType<typeof prepareModelRequest>>['usage'] | undefined
-  let ownsThread = false
+  let ownership: Awaited<ReturnType<typeof claimCopilotThread>> | undefined
   let nativeStarted = false
   let nativeOutput: { getFullOutput(): Promise<{ finishReason?: string }> } | undefined
   let requestContext: ReturnType<typeof createCopilotRequestContext> | undefined
-  let drained = false
   let finalization: Promise<void> | undefined
+  const assertOwnership = async () => {
+    cancellation.signal.throwIfAborted()
+    await ownership!.renew()
+    cancellation.signal.throwIfAborted()
+  }
+  const claim = async (threadId: string, runId: string) => {
+    ownership = await claimCopilotThread(scope, threadId, runId)
+    ownership.signal.addEventListener('abort', () => cancellation.abort(ownership!.signal.reason), {
+      once: true,
+    })
+    let checking = false
+    watcher = setInterval(() => {
+      if (checking) return
+      checking = true
+      void assertCopilotRunActive(runId)
+        .catch((error) => cancellation.abort(error))
+        .finally(() => {
+          checking = false
+        })
+    }, CANCELLATION_POLL_INTERVAL)
+  }
   const finalize = () =>
     (finalization ??= (async () => {
-      if (cancellation.signal.aborted && run && !drained) {
-        try {
+      try {
+        // stream() can reject during startup, including after it started asynchronous work.
+        if (ownership && run && nativeStarted && !nativeOutput) {
+          cancellation.abort()
+          ;(await getCopilotAgent()).abortThreadStream({
+            threadId: run.threadId,
+            resourceId: nativeConversationIdentity(scope).resourceId,
+            expectedRunId: run.runId,
+          })
+        }
+        // Rejection is also a settled native result. Keep the lease through actual tool drainage.
+        await nativeOutput?.getFullOutput().catch(() => undefined)
+        if (requestContext) await Promise.all(getCopilotExecution(requestContext)!.pendingTools)
+        if (ownership && run && cancellation.signal.aborted && !ownership.signal.aborted) {
+          await ownership.renew()
           await cancelCopilotRun(run)
-        } catch {
-          ownsThread = false // Keep the claim when durable cancellation cannot be confirmed.
+          await deleteCopilotRunSnapshot(run.runId)
         }
-      }
-      // Closing the HTTP observer does not stop the native writer. Keep ownership until it settles.
-      if (nativeOutput && !drained) {
-        try {
-          const result = await nativeOutput.getFullOutput()
-          drained = true
-          suspended = result.finishReason === 'suspended'
-        } catch {
-          // An unknown native outcome must keep the claim, rather than admit a competing writer.
-        }
-      }
-      // Mastra can stop waiting for an aborted tool before its execute promise settles.
-      if (requestContext) await Promise.all(getCopilotExecution(requestContext)!.pendingTools)
-      if (watcher) clearInterval(watcher)
-      if (run && ownsThread && (!nativeStarted || drained)) {
-        if (suspended) await suspendCopilotThread(run.scope, run.threadId, run.runId)
-        else await releaseCopilotThread(run.scope, run.threadId, run.runId)
+      } finally {
+        if (watcher) clearInterval(watcher)
+        await ownership?.release()
       }
     })())
   try {
@@ -440,30 +457,26 @@ async function* generate(
       const threadId = request.threadId ?? crypto.randomUUID()
       if (request.threadId) await requireThread(scope, threadId, signal)
       const runId = crypto.randomUUID()
-      await claimCopilotThread(scope, threadId, runId)
-      ownsThread = true
-      try {
-        run = {
-          runId,
+      await claim(threadId, runId)
+      run = {
+        runId,
+        threadId,
+        scope: scope,
+        model: request.model,
+        accessLevel: request.accessLevel ?? 'limited',
+        toolContext: request.toolContext,
+        toolContexts,
+        workflowId: request.workflowId,
+      }
+      if (request.threadId) {
+        await assertCopilotThreadReady(scope, threadId)
+      } else {
+        await (await getAgentMemory()).createThread({
           threadId,
-          scope: scope,
-          model: request.model,
-          accessLevel: request.accessLevel ?? 'limited',
-          toolContext: request.toolContext,
-          toolContexts,
-          workflowId: request.workflowId,
-        }
-        if (!request.threadId)
-          await (await getAgentMemory()).createThread({
-            threadId,
-            resourceId: nativeConversationIdentity(scope).resourceId,
-            title: '',
-            metadata: { product: 'copilot' },
-          })
-      } catch (error) {
-        await releaseCopilotThread(scope, threadId, runId)
-        ownsThread = false
-        throw error
+          resourceId: nativeConversationIdentity(scope).resourceId,
+          title: '',
+          metadata: { product: 'copilot' },
+        })
       }
     } else if ('target' in request) {
       pending = await resolveNativePendingTarget(
@@ -474,10 +487,11 @@ async function* generate(
           : 'result',
         signal
       )
-      suspended = true
       run = await readCopilotRun(scope, pending.target.threadId, pending.target.runId)
       await assertCopilotRunActive(run.runId)
       apiKey = (await resolveCopilotModel(run.model)).apiKey
+      await claim(run.threadId, run.runId)
+      await assertCopilotRunActive(run.runId)
       await authorizeNativeBusinessResult(scope, pending)
       if (request.command === 'tool.result') {
         validateNativeBrowserAssertion(pending, request.assertion)
@@ -525,16 +539,6 @@ async function* generate(
         } else decision = { action: 'execute' }
       }
     } else throw new NativeTargetError('This command does not generate a response', 422)
-    let checking = false
-    watcher = setInterval(() => {
-      if (checking) return
-      checking = true
-      void assertCopilotRunActive(run!.runId)
-        .catch((error) => cancellation.abort(error))
-        .finally(() => {
-          checking = false
-        })
-    }, CANCELLATION_POLL_INTERVAL)
     const prepared = await prepareModelRequest(
       {
         model: run.model,
@@ -602,7 +606,7 @@ async function* generate(
           'Start a new message after tool activity to preserve its history',
           409
         )
-      signal.throwIfAborted()
+      await assertOwnership()
       message!.createdAt = original.createdAt
       await store.saveMessages({ messages: [message!] })
       await store.deleteMessages(history.messages.slice(index + 1).map((item) => item.id))
@@ -613,13 +617,14 @@ async function* generate(
       signal,
       pending,
       decision,
+      assertOwnership,
     })
     const guard: InputProcessor = {
       id: 'studio-copilot-authorization',
       async processInputStep() {
         await requireThread(run!.scope, run!.threadId, signal)
         await assertCopilotRunActive(run!.runId)
-        signal.throwIfAborted()
+        await assertOwnership()
       },
       processLLMRequest({ prompt, messageList }) {
         const references = (messageList?.get.all.db() ?? []).flatMap((item) =>
@@ -659,14 +664,9 @@ async function* generate(
       memory: { thread: run.threadId, resource: nativeConversationIdentity(run.scope).resourceId },
       inputProcessors: [guard, ...prepared.options.inputProcessors],
     }
-    if (pending) {
-      await resumeCopilotThread(run.scope, run.threadId, run.runId)
-      ownsThread = true
-      await assertCopilotRunActive(run.runId)
-    }
-    signal.throwIfAborted()
+    await assertCopilotRunActive(run.runId)
+    await assertOwnership()
     nativeStarted = true
-    suspended = false
     const output = (nativeOutput =
       request.command === 'message'
         ? await agent.stream([message!], options)
@@ -687,7 +687,6 @@ async function* generate(
                 ...options,
                 toolCallId: pending!.target.toolCallId,
               }))
-    ownsThread = true
     yield {
       type: 'response.started',
       runId: run.runId,
@@ -702,8 +701,6 @@ async function* generate(
       if (event) yield event
     }
     const result = await output.getFullOutput()
-    drained = true
-    suspended = result.finishReason === 'suspended'
     signal.throwIfAborted()
     if (streamError || result.error) throw streamError ?? result.error
     const items = await listCopilotPending(run.scope, run.threadId, signal)

@@ -91,8 +91,6 @@ export interface CopilotState {
   workflowChatDeployment: WorkflowChatDeploymentRequest | null
   lastNativeOutcome: CopilotResponse | null
   error: string | null
-  historyRefreshError: string | null
-  isRefreshingHistory: boolean
   chats: CopilotChat[]
   messages: CopilotMessage[]
 
@@ -113,7 +111,6 @@ export interface CopilotState {
 export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
-  refreshCurrentHistory: () => Promise<void>
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>
@@ -159,7 +156,7 @@ export interface CopilotActions {
   ) => void
   recordToolFailure: (toolCallId: string, message: string) => void
 
-  executeCopilotToolCall: (toolCallId: string, actionArgs?: Record<string, any>) => Promise<void>
+  executeCopilotToolCall: (toolCallId: string) => Promise<void>
   skipCopilotToolCall: (toolCallId: string) => Promise<void>
 }
 

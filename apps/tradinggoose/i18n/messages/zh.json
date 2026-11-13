@@ -22403,11 +22403,6 @@
           "credential": "Google Drive 凭据",
           "unavailable": "无法验证工作区访问权限。请选择可用的工作区。",
           "stale": "此工具已不再被选中。"
-        },
-        "historyRefresh": {
-          "failed": "响应已完成，但无法刷新其历史记录。",
-          "retry": "刷新历史记录",
-          "loading": "正在刷新历史记录…"
         }
       }
     },

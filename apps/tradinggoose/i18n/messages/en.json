@@ -22416,11 +22416,6 @@
           "credential": "Google Drive credential",
           "unavailable": "Workspace access could not be verified. Choose an available workspace.",
           "stale": "This tool is no longer selected."
-        },
-        "historyRefresh": {
-          "failed": "The response is complete, but its history could not be refreshed.",
-          "retry": "Refresh history",
-          "loading": "Refreshing history…"
         }
       }
     },

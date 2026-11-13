@@ -84,30 +84,38 @@ it.each(['text.delta', 'reasoning.delta'] as const)(
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
         const command = JSON.parse(String(init?.body))
-        if (command.command === 'history.read')
-          return Response.json({
-            status: 'history',
-            pending: [],
-            threadId,
-            items: [
-              {
-                id: 'saved-answer',
-                role: 'assistant',
-                createdAt: new Date().toISOString(),
-                parts: [{ type: 'text', text }],
-              },
-            ],
-          })
-        expect(command.command).toBe('message')
+        expect(['message', 'thread.observe']).toContain(command.command)
+        const chunks =
+          command.command === 'thread.observe'
+            ? [
+                {
+                  type: 'thread.history',
+                  activeRunId: null,
+                  result: {
+                    status: 'history',
+                    pending: [],
+                    threadId,
+                    items: [
+                      {
+                        id: 'saved-answer',
+                        role: 'assistant',
+                        createdAt: new Date().toISOString(),
+                        parts: [{ type: 'text', text }],
+                      },
+                    ],
+                  },
+                },
+              ]
+            : events
         return new Response(
           new ReadableStream({
             start(controller) {
               controller.enqueue(
                 new TextEncoder().encode(
-                  events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('')
+                  chunks.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('')
                 )
               )
-              controller.close()
+              if (command.command === 'message') controller.close()
             },
           }),
           { headers: { 'content-type': 'text/event-stream' } }
@@ -118,7 +126,6 @@ it.each(['text.delta', 'reasoning.delta'] as const)(
     // Keep native scheduling: act() batches this burst and masks the update-depth failure.
     const success = await store.getState().sendMessage('Hello', { runtimeContext })
     expect(store.getState().error).toBeNull()
-    expect(store.getState().historyRefreshError).toBeNull()
     expect(success).toBe(true)
     await vi.waitFor(() => expect(container.textContent).toContain(text.trim()))
     expect(

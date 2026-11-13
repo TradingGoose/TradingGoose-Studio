@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
-import { and, eq, ne } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type { CopilotToolContext, Scope } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
@@ -20,12 +20,11 @@ export interface CopilotRun {
   workflowId?: string
 }
 
-// These are atomic mutation, cancellation and effect claims, never conversation history.
-// Primary keys make claims atomic across Studio processes. Unknown outcomes stay claimed.
+// Cancellation and effect receipts prevent replay after an uncertain interruption.
 const receiptId = (kind: string, key: unknown) =>
   `copilot:${kind}:${createHash('sha256').update(stableStringifyJsonValue(key)).digest('hex')}`
 const expiresAt = new Date('9999-12-31T00:00:00.000Z')
-type ThreadPhase = 'active' | 'suspended'
+const THREAD_LEASE_MS = 15_000
 
 async function readReceipt<T>(id: string): Promise<T | undefined> {
   const [row] = await db
@@ -53,69 +52,87 @@ async function insertReceipt(id: string, value: unknown, identifier: string) {
   return rows.length === 1
 }
 
+export async function readCopilotThreadOwnership(scope: Scope, threadId: string) {
+  return (await getNativeWorkflowsStore()).getRunOwnership({
+    runId: receiptId('thread', [scope, threadId]),
+  })
+}
+
 export async function readCopilotThreadRun(scope: Scope, threadId: string) {
-  return (await readReceipt<{ runId: string }>(receiptId('thread', [scope, threadId])))?.runId
+  const owner = await readCopilotThreadOwnership(scope, threadId)
+  if (owner?.live) return owner.ownerId
+  const { runs } = await (await getCopilotAgent()).listSuspendedRuns({
+    threadId,
+    resourceId: nativeConversationIdentity(scope).resourceId,
+  })
+  for (const run of runs) {
+    if (!(await isCopilotRunCancelled(run.runId))) return run.runId
+  }
 }
 
 export async function claimCopilotThread(scope: Scope, threadId: string, runId: string) {
-  if (
-    !(await insertReceipt(
-      receiptId('thread', [scope, threadId]),
-      { runId, phase: 'active' },
-      receiptId('thread', [scope, threadId])
-    ))
-  )
+  const workflows = await getNativeWorkflowsStore()
+  let leaseDeadline = performance.now() + THREAD_LEASE_MS
+  const claim = await workflows.claimRunOwnership({
+    runId: receiptId('thread', [scope, threadId]),
+    ownerId: runId,
+    leaseMs: THREAD_LEASE_MS,
+  })
+  if (!claim.acquired)
     throw new NativeTargetError(
-      'This conversation has an unfinished turn. Stop it, or start a new conversation if it was interrupted.',
+      'This conversation is still running. Stop it or wait for it to finish.',
       409
     )
-}
-
-export async function releaseCopilotThread(
-  scope: Scope,
-  threadId: string,
-  runId: string,
-  phase: ThreadPhase = 'active'
-) {
-  await db
-    .delete(verification)
-    .where(
-      and(
-        eq(verification.id, receiptId('thread', [scope, threadId])),
-        eq(verification.value, JSON.stringify({ runId, phase }))
-      )
+  const { generation, ownerId } = claim.record
+  const fence = { runId: claim.record.runId, generation, ownerId }
+  const cancellation = new AbortController()
+  const withinLease = async <T>(operation: Promise<T>) => {
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        operation,
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new NativeTargetError('Copilot conversation ownership expired', 409)),
+            Math.max(0, leaseDeadline - performance.now())
+          )
+        }),
+      ])
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+  let renewal: Promise<void> | undefined
+  const renew = async () => {
+    cancellation.signal.throwIfAborted()
+    const started = performance.now()
+    return (renewal ??= withinLease(
+      workflows.renewRunOwnership({ ...fence, leaseMs: THREAD_LEASE_MS })
     )
-}
-
-async function transitionCopilotThread(
-  scope: Scope,
-  threadId: string,
-  runId: string,
-  from: ThreadPhase,
-  phase: ThreadPhase
-) {
-  const rows = await db
-    .update(verification)
-    .set({ value: JSON.stringify({ runId, phase }), updatedAt: new Date() })
-    .where(
-      and(
-        eq(verification.id, receiptId('thread', [scope, threadId])),
-        eq(verification.value, JSON.stringify({ runId, phase: from }))
-      )
-    )
-    .returning({ id: verification.id })
-  if (rows.length !== 1)
-    throw new NativeTargetError('This Copilot turn is already running or cancelled', 409)
-}
-
-export async function resumeCopilotThread(scope: Scope, threadId: string, runId: string) {
-  await transitionCopilotThread(scope, threadId, runId, 'suspended', 'active')
-}
-
-export async function suspendCopilotThread(scope: Scope, threadId: string, runId: string) {
-  await transitionCopilotThread(scope, threadId, runId, 'active', 'suspended')
-  if (await isCopilotRunCancelled(runId))
-    await releaseCopilotThread(scope, threadId, runId, 'suspended')
+      .then((result) => {
+        if (!result.renewed)
+          throw new NativeTargetError('This Copilot turn no longer owns the conversation', 409)
+        leaseDeadline = started + THREAD_LEASE_MS
+      })
+      .catch((error) => {
+        cancellation.abort(error)
+        throw error
+      })
+      .finally(() => {
+        renewal = undefined
+      }))
+  }
+  const timer = setInterval(() => void renew().catch(() => {}), THREAD_LEASE_MS / 3)
+  timer.unref?.()
+  return {
+    signal: cancellation.signal,
+    renew,
+    async release() {
+      clearInterval(timer)
+      await renewal?.catch(() => {})
+      await withinLease(workflows.releaseRunOwnership(fence))
+    },
+  }
 }
 
 type ScopedRun = Pick<CopilotRun, 'runId' | 'threadId' | 'scope'>
@@ -124,7 +141,6 @@ const runOwner = (run: ScopedRun) => receiptId('thread', [run.scope, run.threadI
 
 export async function cancelCopilotRun(run: ScopedRun) {
   await insertReceipt(receiptId('cancel', run.runId), true, runOwner(run))
-  await releaseCopilotThread(run.scope, run.threadId, run.runId, 'suspended')
 }
 
 export async function assertCopilotRunActive(runId: string) {
@@ -154,33 +170,40 @@ export async function runCopilotEffectOnce<T>(
   return execute()
 }
 
-/** Delete the native conversation and all application claims together under its mutation claim. */
+export async function deleteCopilotRunSnapshot(runId: string) {
+  const workflows = await getNativeWorkflowsStore()
+  let snapshot = await workflows.getWorkflowRunById({ runId })
+  while (snapshot) {
+    await workflows.deleteWorkflowRunById({ runId, workflowName: snapshot.workflowName })
+    snapshot = await workflows.getWorkflowRunById({ runId })
+  }
+}
+
+/** Check suspensions under thread ownership before a new turn or deletion. */
+export async function assertCopilotThreadReady(scope: Scope, threadId: string) {
+  const { runs } = await (await getCopilotAgent()).listSuspendedRuns({
+    threadId,
+    resourceId: nativeConversationIdentity(scope).resourceId,
+  })
+  for (const run of runs) {
+    if (!(await isCopilotRunCancelled(run.runId)))
+      throw new NativeTargetError('Resolve the pending tool or stop this response first', 409)
+    await deleteCopilotRunSnapshot(run.runId)
+  }
+}
+
+/** Delete the native conversation and its receipts while holding thread ownership. */
 export async function deleteCopilotThread(scope: Scope, threadId: string) {
-  const mutationId = crypto.randomUUID()
-  await claimCopilotThread(scope, threadId, mutationId)
+  const claim = await claimCopilotThread(scope, threadId, crypto.randomUUID())
   try {
     const owner = receiptId('thread', [scope, threadId])
-    const { runs } = await (await getCopilotAgent()).listSuspendedRuns({
-      threadId,
-      resourceId: nativeConversationIdentity(scope).resourceId,
-    })
-    const workflows = await getNativeWorkflowsStore()
-    for (const run of runs) {
-      let snapshot = await workflows.getWorkflowRunById({ runId: run.runId })
-      while (snapshot) {
-        await workflows.deleteWorkflowRunById({
-          runId: run.runId,
-          workflowName: snapshot.workflowName,
-        })
-        snapshot = await workflows.getWorkflowRunById({ runId: run.runId })
-      }
-    }
-    await db
-      .delete(verification)
-      .where(and(eq(verification.identifier, owner), ne(verification.id, owner)))
+    await assertCopilotThreadReady(scope, threadId)
+    await claim.renew()
+    await db.delete(verification).where(eq(verification.identifier, owner))
+    await claim.renew()
     await (await getAgentMemory()).deleteThread(threadId)
   } finally {
-    await releaseCopilotThread(scope, threadId, mutationId)
+    await claim.release()
   }
 }
 

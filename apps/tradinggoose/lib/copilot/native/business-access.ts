@@ -10,7 +10,7 @@ import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { getMonitorRowById } from '@/app/api/monitors/shared'
 import type { Pending, Scope } from './contract'
-import { NativeTargetError } from './target'
+import { NativeTargetError } from './errors'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)

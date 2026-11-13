@@ -2,8 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { requestCopilotTitle } from '@/lib/copilot/agent/utils'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { readNativeThread, readNativeThreadHistory } from '@/lib/copilot/native/history'
-import { authorizeNativeConversationScope, NativeTargetError } from '@/lib/copilot/native/target'
+import { authorizeNativeConversationScope } from '@/lib/copilot/native/target'
 
 const inputSchema = z
   .object({

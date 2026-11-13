@@ -169,13 +169,10 @@ vi.unmock('@/blocks/registry')
 
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { POST as queuePost } from '@/app/api/workflows/[id]/queue/route'
+import { NativeTargetError } from './errors'
 import { nativeConversationIdentity } from './identity'
 import { readbackNativeToolResult } from './readback'
-import {
-  authorizeNativeConversationScope,
-  NativeTargetError,
-  resolveNativePendingTarget,
-} from './target'
+import { authorizeNativeConversationScope, resolveNativePendingTarget } from './target'
 
 const ACTOR = 'actor'
 const WORKFLOW = 'workflow-b'

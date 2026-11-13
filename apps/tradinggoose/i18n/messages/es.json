@@ -22416,11 +22416,6 @@
           "credential": "Credencial de Google Drive",
           "unavailable": "No se pudo verificar el acceso. Elige un espacio disponible.",
           "stale": "Esta herramienta ya no está seleccionada."
-        },
-        "historyRefresh": {
-          "failed": "La respuesta está completa, pero no se pudo actualizar su historial.",
-          "retry": "Actualizar historial",
-          "loading": "Actualizando historial…"
         }
       }
     },

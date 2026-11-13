@@ -12,8 +12,7 @@ const mocks = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/auth', () => ({ getSession: mocks.session }))
 vi.mock('@/lib/copilot/agent/service', () => ({ executeCopilotCommand: mocks.execute }))
-vi.mock('@/lib/copilot/native/target', async () => ({
-  NativeTargetError: (await import('@/lib/copilot/native/errors')).NativeTargetError,
+vi.mock('@/lib/copilot/native/target', () => ({
   authorizeNativeConversationScope: mocks.scope,
 }))
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({

@@ -2,8 +2,9 @@ import { readNativeHistory } from '@/lib/mastra/agent-history'
 import type { NativeHistoryMessage } from '@/lib/mastra/messages'
 import { getNativeMemoryStore } from '@/lib/mastra/runtime'
 import type { Scope, Thread } from './contract'
+import { NativeTargetError } from './errors'
 import { nativeConversationIdentity } from './identity'
-import { authorizeNativeConversationScope, NativeTargetError } from './target'
+import { authorizeNativeConversationScope } from './target'
 
 export async function readNativeThread(
   scope: Scope,

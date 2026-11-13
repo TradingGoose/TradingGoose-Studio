@@ -1,9 +1,4 @@
-import type {
-  CopilotRequest,
-  CopilotResponse,
-  HistoryResponse,
-  Thread,
-} from '@/lib/copilot/native/contract'
+import type { CopilotRequest, CopilotResponse, Thread } from '@/lib/copilot/native/contract'
 import {
   assertCopilotRequestSize,
   serializeCopilotRequest,
@@ -50,13 +45,4 @@ export async function listNativeThreads(
   const result = await readNativeCommand({ command: 'threads.list', workspaceId }, signal)
   if (result.status !== 'threads') throw new Error('Native threads unavailable')
   return result.items
-}
-export async function listNativeHistory(
-  workspaceId: string | null,
-  threadId: string,
-  signal?: AbortSignal
-): Promise<HistoryResponse> {
-  const result = await readNativeCommand({ command: 'history.read', workspaceId, threadId }, signal)
-  if (result.status !== 'history') throw new Error('Copilot history is unavailable')
-  return result
 }

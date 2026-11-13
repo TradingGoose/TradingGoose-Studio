@@ -74,9 +74,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     loadChats,
     toolCallsById,
     error,
-    historyRefreshError,
-    isRefreshingHistory,
-    refreshCurrentHistory,
   } = useCopilotStore()
   const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
   const isTurnInProgress = isSendingMessage || isAwaitingContinuation || hasActiveToolCalls
@@ -406,22 +403,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
 
           {/* Input area with integrated access selector */}
           <div className='pt-2'>
-            {historyRefreshError ? (
-              <div role='alert' className='space-y-1 px-3 py-2 text-sm'>
-                <p>{copilotCopy.historyRefresh.failed}</p>
-                <p className='text-muted-foreground'>{historyRefreshError}</p>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  disabled={isRefreshingHistory}
-                  onClick={() => void refreshCurrentHistory()}
-                >
-                  {isRefreshingHistory
-                    ? copilotCopy.historyRefresh.loading
-                    : copilotCopy.historyRefresh.retry}
-                </Button>
-              </div>
-            ) : null}
             {error && (
               <p role='alert' className='px-3 py-2 text-destructive text-sm'>
                 {error}

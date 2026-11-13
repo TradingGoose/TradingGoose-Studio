@@ -2,7 +2,7 @@ import { isToolId, ToolResultSchemas } from '@/lib/copilot/registry'
 import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import type { BrowserAssertion, Pending } from './contract'
-import { NativeTargetError } from './target'
+import { NativeTargetError } from './errors'
 
 /** UI assertions describe local actions. They never attest workflow/deployment/credential effects. */
 export function validateNativeBrowserAssertion(pending: Pending, assertion: BrowserAssertion) {

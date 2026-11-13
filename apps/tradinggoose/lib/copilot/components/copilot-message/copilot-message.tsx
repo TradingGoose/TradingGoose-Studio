@@ -33,19 +33,6 @@ const buildMessageEditDraft = (message: CopilotMessageType): CopilotDraft => ({
   contexts: message.contexts ?? [],
 })
 
-const haveSameMessageContexts = (
-  left: CopilotMessageType['contexts'],
-  right: CopilotMessageType['contexts']
-): boolean => {
-  if (left === right) return true
-  const leftContexts = left ?? []
-  const rightContexts = right ?? []
-  return (
-    leftContexts.length === rightContexts.length &&
-    leftContexts.every((context, index) => context === rightContexts[index])
-  )
-}
-
 const getMentionableContextLabels = (contexts: ChatContext[]) => {
   return Array.from(
     new Set(
@@ -661,119 +648,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     }
 
     return null
-  },
-  (prevProps, nextProps) => {
-    // Custom comparison function for better streaming performance
-    const prevMessage = prevProps.message
-    const nextMessage = nextProps.message
-
-    // If message IDs are different, always re-render
-    if (prevMessage.id !== nextMessage.id) {
-      return false
-    }
-
-    // If streaming state changed, re-render
-    if (prevProps.isStreaming !== nextProps.isStreaming) {
-      return false
-    }
-
-    // If dimmed state changed, re-render
-    if (prevProps.isDimmed !== nextProps.isDimmed) {
-      return false
-    }
-
-    if (prevProps.runtimeContext !== nextProps.runtimeContext) {
-      return false
-    }
-    if (prevMessage.usage !== nextMessage.usage || prevMessage.cost !== nextMessage.cost)
-      return false
-
-    // If panel width changed, re-render
-    if (prevProps.panelWidth !== nextProps.panelWidth) {
-      return false
-    }
-
-    if (!haveSameMessageContexts(prevMessage.contexts, nextMessage.contexts)) {
-      return false
-    }
-
-    // For streaming messages, check if content actually changed
-    if (nextProps.isStreaming) {
-      const prevBlocks = prevMessage.contentBlocks || []
-      const nextBlocks = nextMessage.contentBlocks || []
-
-      if (prevBlocks.length !== nextBlocks.length) {
-        return false // Content blocks changed
-      }
-
-      // Helper: get last block content by type
-      const getLastBlockContent = (blocks: any[], type: 'text' | 'thinking'): string | null => {
-        for (let i = blocks.length - 1; i >= 0; i--) {
-          const block = blocks[i]
-          if (block && block.type === type) {
-            return (block as any).content ?? ''
-          }
-        }
-        return null
-      }
-
-      // Re-render if the last text block content changed
-      const prevLastTextContent = getLastBlockContent(prevBlocks as any[], 'text')
-      const nextLastTextContent = getLastBlockContent(nextBlocks as any[], 'text')
-      if (
-        prevLastTextContent !== null &&
-        nextLastTextContent !== null &&
-        prevLastTextContent !== nextLastTextContent
-      ) {
-        return false
-      }
-
-      // Re-render if the last thinking block content changed
-      const prevLastThinkingContent = getLastBlockContent(prevBlocks as any[], 'thinking')
-      const nextLastThinkingContent = getLastBlockContent(nextBlocks as any[], 'thinking')
-      if (
-        prevLastThinkingContent !== null &&
-        nextLastThinkingContent !== null &&
-        prevLastThinkingContent !== nextLastThinkingContent
-      ) {
-        return false
-      }
-
-      return true
-    }
-
-    // For non-streaming messages, do a deeper comparison including tool call states
-    if (
-      prevMessage.content !== nextMessage.content ||
-      prevMessage.role !== nextMessage.role ||
-      (prevMessage.contentBlocks?.length || 0) !== (nextMessage.contentBlocks?.length || 0)
-    ) {
-      return false
-    }
-
-    // Check contentBlocks tool call states
-    const prevContentBlocks = prevMessage.contentBlocks || []
-    const nextContentBlocks = nextMessage.contentBlocks || []
-    for (let i = 0; i < nextContentBlocks.length; i++) {
-      const prevBlock = prevContentBlocks[i]
-      const nextBlock = nextContentBlocks[i]
-      if (
-        prevBlock?.type === 'file' &&
-        nextBlock?.type === 'file' &&
-        (prevBlock.file.data !== nextBlock.file.data ||
-          prevBlock.file.mimeType !== nextBlock.file.mimeType)
-      )
-        return false
-      if (
-        prevBlock?.type === 'tool_call' &&
-        nextBlock?.type === 'tool_call' &&
-        prevBlock.toolCall?.state !== nextBlock.toolCall?.state
-      ) {
-        return false // ContentBlock tool call state changed
-      }
-    }
-
-    return true
   }
 )
 

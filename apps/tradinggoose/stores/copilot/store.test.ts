@@ -115,30 +115,29 @@ const historyResult = (items: unknown[] = history, pending: Pending[] = [], id =
   items,
   pending,
 })
-const historyResponse = (pending: Pending[]) =>
-  json(
-    historyResult(
-      [
-        history[0],
-        {
-          ...history[1],
-          parts: [
-            ...history[1].parts,
-            ...pending.map((item) => ({
-              type: 'tool-invocation',
-              toolInvocation: {
-                state: 'call',
-                toolCallId: item.target.toolCallId,
-                toolName: item.target.toolName,
-                args: item.originalArgs,
-              },
-            })),
-          ],
-        },
-      ],
-      pending
-    )
+const pendingHistory = (pending: Pending[]) =>
+  historyResult(
+    [
+      history[0],
+      {
+        ...history[1],
+        parts: [
+          ...history[1].parts,
+          ...pending.map((item) => ({
+            type: 'tool-invocation',
+            toolInvocation: {
+              state: 'call',
+              toolCallId: item.target.toolCallId,
+              toolName: item.target.toolName,
+              args: item.originalArgs,
+            },
+          })),
+        ],
+      },
+    ],
+    pending
   )
+const historyResponse = (pending: Pending[]) => observingStream(pendingHistory(pending)).response
 
 let commands: CopilotRequest[]
 let onCommand: (
@@ -157,6 +156,10 @@ const store = () =>
   getCopilotStore(buildCopilotWorkspaceChannelId({ authenticatedUserId: actorUserId, workspaceId }))
 const setChat = () =>
   store().setState({ currentChat: chat(), conversationWorkspaceId: workspaceId })
+const reconnectSelectedChat = async () => {
+  store().getState().detachStream()
+  await store().getState().loadChats({ workspaceId: store().getState().currentChat!.workspaceId })
+}
 const installPending = (item: Pending) => {
   setChat()
   store().setState({
@@ -174,7 +177,8 @@ const installPending = (item: Pending) => {
   })
 }
 function defaultResponse(request: CopilotRequest) {
-  if (request.command === 'history.read') return json(historyResult(history, [], request.threadId))
+  if (request.command === 'thread.observe')
+    return observingStream(historyResult(history, [], request.threadId)).response
   if (request.command === 'threads.list')
     return json({
       status: 'threads',
@@ -246,15 +250,7 @@ beforeEach(() => {
   workflowRequests = []
   onWorkflow = (id) => json({ data: { id, workspaceId: 'original-entity-workspace' } })
   onCommand = () => undefined
-  onObserve = async (request, init) => {
-    const historyRequest = {
-      command: 'history.read' as const,
-      workspaceId: request.workspaceId,
-      threadId: request.threadId,
-    }
-    const response = (await onCommand(historyRequest, init)) ?? defaultResponse(historyRequest)
-    return response.ok ? observingStream(await response.json()).response : response
-  }
+  onObserve = async (request, init) => (await onCommand(request, init)) ?? defaultResponse(request)
   onTitle = () => json({ title: null })
   vi.clearAllMocks()
   vi.stubGlobal(
@@ -318,6 +314,25 @@ describe('canonical browser conversation transport', () => {
     ])
   })
 
+  it('keeps a newer observed run busy after the submitted response completes', async () => {
+    setChat()
+    const observer = observingStream(historyResult(), 'newer-run')
+    onObserve = () => observer.response
+    expect(await store().getState().sendMessage('First')).toBe(true)
+    expect(store().getState()).toMatchObject({ currentRunId: 'newer-run', isSendingMessage: true })
+    expect(await store().getState().sendMessage('Wait')).toBe(false)
+    observer.emit({
+      type: 'thread.status',
+      runId: 'newer-run',
+      status: 'success',
+      history: historyResult(),
+    })
+    await vi.waitFor(() =>
+      expect(store().getState()).toMatchObject({ currentRunId: null, isSendingMessage: false })
+    )
+    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+  })
+
   it('reconnects a lost admitted response, projects later output and never submits inference again', async () => {
     setChat()
     const generation = eventStream([
@@ -352,7 +367,12 @@ describe('canonical browser conversation transport', () => {
       expect(store().getState().messages.at(-1)?.content).toBe('Replayed and live output')
     )
     expect(store().getState().isSendingMessage).toBe(true)
-    observer.emit({ type: 'thread.status', runId: 'older-run', status: 'success' })
+    observer.emit({
+      type: 'thread.status',
+      runId: 'older-run',
+      status: 'success',
+      history: historyResult(),
+    })
     observer.emit({ type: 'thread.started', runId: 'older-run', messageId: 'older-assistant' })
     observer.emit({
       type: 'thread.output',
@@ -361,13 +381,14 @@ describe('canonical browser conversation transport', () => {
     })
     observer.emit({
       type: 'thread.error',
+      history: historyResult(),
       runId: 'older-run',
       error: { code: 'GENERATION_FAILED', message: 'Unrelated error' },
     })
     await Promise.resolve()
     expect(store().getState().currentRunId).toBe(runId)
     expect(store().getState().error).toBeNull()
-    observer.emit({ type: 'thread.status', runId, status: 'success' })
+    observer.emit({ type: 'thread.status', runId, status: 'success', history: historyResult() })
     expect(await sending).toBe(true)
     expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
     expect(store().getState().isSendingMessage).toBe(false)
@@ -375,7 +396,7 @@ describe('canonical browser conversation transport', () => {
     expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(1)
   })
 
-  it('marks an unknown interrupted run visibly without replaying it or keeping Stop busy', async () => {
+  it('continues the same conversation after an expired run without resuming or replaying it', async () => {
     onObserve = (request) =>
       eventResponse([
         {
@@ -389,13 +410,24 @@ describe('canonical browser conversation transport', () => {
     expect(store().getState()).toMatchObject({
       isSendingMessage: false,
       isAwaitingContinuation: false,
-      currentRunId: runId,
-      error: expect.stringContaining('could not be confirmed'),
+      currentRunId: null,
+      error: 'The previous response was interrupted. You can continue this conversation.',
     })
     expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
-    await store().getState().createNewChat()
+    expect(commands.map((request) => request.command)).toEqual(['thread.observe'])
+    expect(await store().getState().sendMessage('Continue here')).toBe(true)
+    expect(commands.filter((request) => request.command === 'message')).toEqual([
+      expect.objectContaining({
+        threadId,
+        workspaceId,
+        input: { content: 'Continue here', contexts: [] },
+      }),
+    ])
+    expect(store().getState()).toMatchObject({ currentChat: { threadId }, currentRunId: null })
     expect(
-      commands.some((request) => request.command === 'cancel' || request.command === 'message')
+      commands.some(
+        (request) => request.command === 'cancel' || request.command.startsWith('tool.')
+      )
     ).toBe(false)
   })
 
@@ -441,17 +473,16 @@ describe('canonical browser conversation transport', () => {
           .getState()
           .messages.filter((item) => item.id === assistantId)
       ).toHaveLength(1)
-      onCommand = (request) =>
-        request.command === 'history.read'
-          ? json(
-              historyResult([
-                ...history,
-                nextUser,
-                { ...nextAssistant, parts: [{ type: 'text', text: 'Final answer' }] },
-              ])
-            )
-          : undefined
-      observer.emit({ type: 'thread.status', runId, status: 'success' })
+      observer.emit({
+        type: 'thread.status',
+        runId,
+        status: 'success',
+        history: historyResult([
+          ...history,
+          nextUser,
+          { ...nextAssistant, parts: [{ type: 'text', text: 'Final answer' }] },
+        ]),
+      })
       await vi.waitFor(() =>
         expect(
           store()
@@ -482,23 +513,26 @@ describe('canonical browser conversation transport', () => {
     expect(commands).toHaveLength(1)
   })
 
-  it('shows a matching stream interruption without keeping the composer busy and still observes its outcome', async () => {
+  it('clears a stopped run identity when refreshed history has no pending continuation', async () => {
     const observer = observingStream(historyResult(), runId)
     onObserve = () => observer.response
     await store().getState().selectChat(chat())
     observer.emit({
       type: 'thread.error',
+      history: historyResult(),
       runId,
       error: { code: 'STREAM_INTERRUPTED', message: 'Response interrupted' },
     })
     await vi.waitFor(() =>
       expect(store().getState()).toMatchObject({
         isSendingMessage: false,
-        currentRunId: runId,
+        currentRunId: null,
         error: 'Response interrupted',
       })
     )
-    observer.emit({ type: 'thread.status', runId, status: 'success' })
+    observer.emit({ type: 'thread.started', runId, messageId: 'reconnected-assistant' })
+    await vi.waitFor(() => expect(store().getState().currentRunId).toBe(runId))
+    observer.emit({ type: 'thread.status', runId, status: 'success', history: historyResult() })
     await vi.waitFor(() =>
       expect(store().getState()).toMatchObject({
         isSendingMessage: false,
@@ -540,13 +574,13 @@ describe('canonical browser conversation transport', () => {
       .mockImplementation(() => observingStream(historyResult(), runId).response)
     onObserve = observing
     await store().getState().selectChat(chat())
-    expect(store().getState().historyRefreshError).toContain('Reconnecting')
+    expect(store().getState().error).toBeNull()
     await vi.waitFor(() => expect(observing).toHaveBeenCalledTimes(2), { timeout: 1500 })
     await vi.waitFor(() =>
       expect(store().getState()).toMatchObject({
         currentRunId: runId,
         isSendingMessage: true,
-        historyRefreshError: null,
+        error: null,
       })
     )
     await store().getState().createNewChat()
@@ -597,22 +631,21 @@ describe('canonical browser conversation transport', () => {
     }
   )
 
-  it('serializes the current access level after an untitled chat history preflight settles', async () => {
-    store().setState({
-      currentChat: { ...chat(), title: '' },
-      conversationWorkspaceId: workspaceId,
-      accessLevel: 'full',
-    })
+  it('serializes the current access level after native history hydration settles', async () => {
+    store().getState().setAccessLevel('full')
     const held = defer<Response>()
     onCommand = (command) =>
-      command.command === 'history.read' && commands.length === 1 ? held.promise : undefined
-    const sending = store().getState().sendMessage('Describe')
+      command.command === 'thread.observe' && commands.length === 1 ? held.promise : undefined
+    const selecting = store()
+      .getState()
+      .selectChat({ ...chat(), title: '' })
     await vi.waitFor(() =>
-      expect(commands.map((command) => command.command)).toEqual(['history.read'])
+      expect(commands.map((command) => command.command)).toEqual(['thread.observe'])
     )
     store().getState().setAccessLevel('limited')
-    held.resolve(json(historyResult([])))
-    expect(await sending).toBe(true)
+    held.resolve(observingStream(historyResult([])).response)
+    await selecting
+    expect(await store().getState().sendMessage('Describe')).toBe(true)
     expect(commands.find((command) => command.command === 'message')).toMatchObject({
       accessLevel: 'limited',
     })
@@ -985,7 +1018,7 @@ describe('canonical browser conversation transport', () => {
   it('cancels a restored suspended run without a new streaming response', async () => {
     const item = pending('approval')
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
     expect(store().getState().currentRunId).toBe(runId)
     queryClient.setQueryData(subscriptionKeys.user(), { current: 0.1 })
@@ -1121,7 +1154,7 @@ describe('failed pending continuations', () => {
     const item = pending(stage, stage === 'approval' ? 'rename_workflow' : 'edit_workflow')
     if (stage === 'result') item.preview = { requiresReview: true }
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
     commands = []
     onCommand = (request) => {
@@ -1187,7 +1220,7 @@ describe('failed pending continuations', () => {
   it('releases the retained run when authoritative history confirms no pending work', async () => {
     const item = pending('approval', 'rename_workflow')
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
     onCommand = (request) =>
       request.command === 'tool.approve'
@@ -1203,7 +1236,7 @@ describe('failed pending continuations', () => {
         : undefined
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
     expect(store().getState().isAwaitingContinuation).toBe(true)
-    await store().getState().refreshCurrentHistory()
+    await reconnectSelectedChat()
     expect(store().getState()).toMatchObject({
       currentRunId: null,
       isAwaitingContinuation: false,
@@ -1214,7 +1247,7 @@ describe('failed pending continuations', () => {
   it('keeps a completed continuation settled if later stream data is invalid', async () => {
     const item = pending('approval', 'rename_workflow')
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
     onCommand = (request) =>
       request.command === 'tool.approve'
@@ -1246,7 +1279,7 @@ describe('local pending approval and preview decisions', () => {
     installPending(item)
     store().setState({ accessLevel: 'full' })
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     expect(commands.some((request) => request.command === 'tool.approve')).toBe(false)
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
     const approval = commands.find((request) => request.command === 'tool.approve')
@@ -1289,7 +1322,7 @@ describe('local pending approval and preview decisions', () => {
     const item = pending('approval')
     installPending(item)
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().skipCopilotToolCall(item.target.toolCallId)
     expect(commands.some((request) => request.command === 'tool.decline')).toBe(true)
     expect(commands.some((request) => request.command === 'cancel')).toBe(false)
@@ -1311,7 +1344,7 @@ describe('local pending approval and preview decisions', () => {
     }))
     const gate = defer<Response>()
     onCommand = (request) =>
-      request.command === 'history.read'
+      request.command === 'thread.observe'
         ? historyResponse([first, second])
         : request.command === 'tool.execute'
           ? gate.promise
@@ -1341,8 +1374,8 @@ describe('canonical history, edits and context', () => {
   it('loads display-only tool history without execution or local transcript writes', async () => {
     const item = pending()
     onCommand = (request) =>
-      request.command === 'history.read'
-        ? json(
+      request.command === 'thread.observe'
+        ? observingStream(
             historyResult([
               {
                 id: 'assistant-history',
@@ -1361,7 +1394,7 @@ describe('canonical history, edits and context', () => {
                 ],
               },
             ])
-          )
+          ).response
         : undefined
     await store().getState().selectChat(chat())
     expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
@@ -1396,13 +1429,13 @@ describe('canonical history, edits and context', () => {
     }
     const contextPart = { type: COPILOT_CONTEXT_PART, data: [originalContext] }
     onCommand = (request) =>
-      request.command === 'history.read'
-        ? json(
+      request.command === 'thread.observe'
+        ? observingStream(
             historyResult([
               { ...history[0], parts: [...history[0].parts, contextPart] },
               history[1],
             ])
-          )
+          ).response
         : undefined
     await store().getState().selectChat(chat())
     commands.length = 0
@@ -1414,13 +1447,13 @@ describe('canonical history, edits and context', () => {
             { type: 'response.started', runId, threadId, messageId: history[0].id },
             { type: 'response.completed', result: ready(answer) },
           ])
-        : request.command === 'history.read'
-          ? json(
+        : request.command === 'thread.observe'
+          ? observingStream(
               historyResult([
                 { ...history[0], parts: [{ type: 'text', text }, contextPart] },
                 { ...history[1], parts: [{ type: 'text', text: answer }] },
               ])
-            )
+            ).response
           : undefined
     expect(
       await store()
@@ -1435,7 +1468,7 @@ describe('canonical history, edits and context', () => {
           },
         })
     ).toBe(true)
-    expect(commands.map((request) => request.command)).toEqual(['message', 'history.read'])
+    expect(commands.map((request) => request.command)).toEqual(['message', 'thread.observe'])
     expect(commands[0]).toMatchObject({
       command: 'message',
       threadId,
@@ -1530,15 +1563,12 @@ describe('actual bounded initial-title publication', () => {
   it.each(['completed', 'suspended'] as const)(
     'titles an existing canonical empty thread only after positive empty history and correlated %s terminal',
     async (status) => {
-      store().setState({
-        currentChat: { ...chat(), title: '' },
-        conversationWorkspaceId: workspaceId,
-      })
       let persisted = false
       onCommand = (request) => {
-        if (request.command === 'history.read' && persisted && status === 'suspended')
+        if (request.command === 'thread.observe' && persisted && status === 'suspended')
           return historyResponse([pending('approval')])
-        if (request.command === 'history.read' && !persisted) return json(historyResult([]))
+        if (request.command === 'thread.observe' && !persisted)
+          return observingStream(historyResult([])).response
         if (request.command !== 'message') return
         persisted = true
         const terminal = status === 'completed' ? ready() : suspended([pending('approval')])
@@ -1550,6 +1580,9 @@ describe('actual bounded initial-title publication', () => {
           },
         ])
       }
+      await store()
+        .getState()
+        .selectChat({ ...chat(), title: '' })
       onTitle = () => json({ title: 'Generated title', outcome: titleOutcome })
       const originalInput = ' \nOriginal prompt🔥\t '
       expect(
@@ -1560,7 +1593,7 @@ describe('actual bounded initial-title publication', () => {
           })
       ).toBe(true)
       await vi.waitFor(() => expect(store().getState().currentChat?.title).toBe('verified title'))
-      expect(commands[0].command).toBe('history.read')
+      expect(commands[0].command).toBe('thread.observe')
       expect(titleRequests).toEqual([
         { workspaceId, threadId, model: store().getState().selectedModel, originalInput },
       ])
@@ -1568,13 +1601,11 @@ describe('actual bounded initial-title publication', () => {
     }
   )
   it.each(['', ' ', 'Untitled', 'New Chat', null])(
-    'does not infer initial state from a display title %s or locally empty messages',
+    'does not infer initial state from a display title %s when native history exists',
     async (title) => {
-      store().setState({
-        currentChat: { ...chat(), title },
-        conversationWorkspaceId: workspaceId,
-        messages: [],
-      })
+      await store()
+        .getState()
+        .selectChat({ ...chat(), title })
       onTitle = () => json({ title: 'Generated title', outcome: titleOutcome })
       expect(await store().getState().sendMessage('A later native interaction')).toBe(true)
       expect(titleRequests).toEqual([]) // The default complete native history already contains a user.
@@ -1598,7 +1629,7 @@ describe('actual bounded initial-title publication', () => {
     onCommand = (request) =>
       request.command === 'message'
         ? terminalResponse({ ...ready() })
-        : request.command === 'history.read'
+        : request.command === 'thread.observe'
           ? json(
               {
                 status: 'refused',
@@ -1611,7 +1642,7 @@ describe('actual bounded initial-title publication', () => {
             )
           : undefined
     expect(await store().getState().sendMessage('First')).toBe(true)
-    expect(store().getState().historyRefreshError).toContain('Current history access denied')
+    expect(store().getState().error).toContain('Current history access denied')
     expect(
       store()
         .getState()
@@ -1790,7 +1821,7 @@ describe('reopened workflow pending cards', () => {
       originalArgs: { entityId: 'original-workflow', action: 'deploy', deployType: 'api' },
     }
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat(null))
     commands = []
     expect(await store().getState().readPendingTool(item.target.toolCallId)).toEqual(item)
@@ -1856,11 +1887,13 @@ describe('display-only terminal settlement and optional completed history', () =
     }
   )
   it.each(['json', 'sse'])(
-    'preserves completed %s output/parts/facts on malformed optional history and refreshes read-only later',
+    'preserves completed %s output and parts until native history arrives',
     async (transport) => {
       setChat()
       const text = ' exact completed🦆\n '
       const reasoning = ' exact reasoning '
+      const observer = eventStream()
+      onObserve = () => observer.response
       onCommand = (request) =>
         request.command === 'message'
           ? transport === 'json'
@@ -1870,10 +1903,9 @@ describe('display-only terminal settlement and optional completed history', () =
                 { type: 'text.delta', text },
                 { type: 'response.completed', result: ready(text) },
               ])
-          : request.command === 'history.read'
-            ? json({ not: 'history' })
-            : undefined
-      expect(await store().getState().sendMessage('once')).toBe(true)
+          : undefined
+      const sending = store().getState().sendMessage('once')
+      await vi.waitFor(() => expect(store().getState().lastNativeOutcome?.status).toBe('completed'))
       const before = store().getState()
       expect(before.messages.find((message) => message.role === 'assistant')?.content).toBe(text)
       if (transport === 'sse')
@@ -1881,16 +1913,16 @@ describe('display-only terminal settlement and optional completed history', () =
           expect.objectContaining({ type: 'thinking', content: reasoning })
         )
       expect(before.lastNativeOutcome?.status).toBe('completed')
-      expect(before.historyRefreshError).toBeTruthy()
-      onCommand = () => undefined
-      await store().getState().refreshCurrentHistory()
-      expect(store().getState().historyRefreshError).toBeNull()
+      expect(before.error).toBeNull()
+      observer.emit({ type: 'thread.history', result: historyResult(), activeRunId: null })
+      expect(await sending).toBe(true)
       expect(
         store()
           .getState()
           .messages.map((message) => message.content)
       ).toEqual(history.map((message) => message.parts[0].text))
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(1)
     }
   )
   it('keeps genuine pending obligations when Stop settles only display-only activity', () => {
@@ -1922,7 +1954,7 @@ describe('explicit reopened Drive business choice', () => {
   const prepare = (item = drive()) => {
     installPending(item)
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     const original = vi.mocked(fetch).getMockImplementation()!
     vi.mocked(fetch).mockImplementation(async (url, init) =>
       String(url) === '/api/workspaces'
@@ -2087,7 +2119,7 @@ describe('local workflow execution refusals', () => {
     tools.actualRunWorkflow = true
     const target = item()
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([target]) : undefined
+      request.command === 'thread.observe' ? historyResponse([target]) : undefined
     await store().getState().selectChat(chat())
     commands = []
     onCommand = () => undefined
@@ -2142,7 +2174,7 @@ describe('local workflow execution refusals', () => {
     let otherSettled = false
     onCommand = (request) => {
       if (request.command === 'message') return terminalResponse(suspended([target, other]))
-      if (request.command === 'history.read')
+      if (request.command === 'thread.observe')
         return historyResponse(otherSettled ? [target] : [target, other])
       if (request.command === 'tool.execute' && request.target.toolCallId === 'other') {
         otherSettled = true
@@ -2189,7 +2221,7 @@ describe('local workflow execution refusals', () => {
     const target = await install()
     tools.runWorkflow.mockRejectedValue(new Error('Execution response unavailable'))
     onCommand = (request) => {
-      if (request.command === 'history.read') return historyResponse([target])
+      if (request.command === 'thread.observe') return historyResponse([target])
       if (request.command === 'cancel')
         return json(
           { status: 'failed', error: { code: 'FAILED', message: 'Cancellation refused' } },
@@ -2219,7 +2251,7 @@ describe('explicit OAuth popup activation', () => {
   const install = async () => {
     const target = item()
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([target]) : undefined
+      request.command === 'thread.observe' ? historyResponse([target]) : undefined
     await store().getState().selectChat(chat())
     onCommand = () => undefined
     return target
@@ -2249,7 +2281,7 @@ describe('explicit OAuth popup activation', () => {
     onCommand = (request) =>
       request.command === 'message'
         ? terminalResponse(suspended([target]))
-        : request.command === 'history.read'
+        : request.command === 'thread.observe'
           ? historyResponse([target])
           : undefined
     await store().getState().sendMessage('Connect Google Drive')
@@ -2337,7 +2369,7 @@ describe('R5 reopened OAuth workspace authorization', () => {
       { id: 'original-entity-workspace', name: 'Original business' },
     ]
     onCommand = (request) => {
-      if (request.command === 'history.read') return historyResponse([item])
+      if (request.command === 'thread.observe') return historyResponse([item])
       if (request.command === 'tool.approve') {
         item.stage = 'result'
         return terminalResponse(suspended([item]))
@@ -2527,7 +2559,7 @@ describe('R5 per-tool context at actual live call creation', () => {
       }
       const items = [layout, watchlist]
       onCommand = (request) => {
-        if (request.command === 'history.read') return historyResponse(items)
+        if (request.command === 'thread.observe') return historyResponse(items)
         if (request.command === 'message') {
           if (order === 'terminal') return terminalResponse(suspended(items))
           const displays = items.map((item) => ({
@@ -2663,8 +2695,9 @@ describe('selected native run context', () => {
       }
       let continued = false
       onCommand = (request) => {
-        if (request.command === 'history.read')
-          return json(historyResult([], continued ? [next] : [first], b.threadId))
+        if (request.command === 'thread.observe')
+          return observingStream(historyResult([], continued ? [next] : [first], b.threadId))
+            .response
         if (request.command === 'tool.approve') {
           continued = true
           return eventResponse([
@@ -2720,7 +2753,7 @@ describe('selected native run context', () => {
       },
     }
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
     expect(tools.browser).not.toHaveBeenCalled()
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
@@ -2738,7 +2771,7 @@ describe('selected native run context', () => {
       context: { contextEntityKind: 'workflow', contextEntityId: 'workflow-B' },
     }
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     const original = vi.mocked(fetch).getMockImplementation()!
     vi.mocked(fetch).mockImplementation((url, init) =>
       String(url) === '/api/workspaces'
@@ -2747,7 +2780,7 @@ describe('selected native run context', () => {
     )
     await store().getState().selectChat(chat(null))
     await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
-    await store().getState().refreshCurrentHistory()
+    await reconnectSelectedChat()
     expect(store().getState().toolCallsById[item.target.toolCallId].provenance).toEqual({
       ...item.context,
       workspaceId: 'chosen-business',
@@ -2764,7 +2797,7 @@ describe('owned workflow chat deployment UI', () => {
     installPending(item)
     store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     return item
   }
   const open = () =>
@@ -2939,17 +2972,22 @@ describe('built-in tool continuation', () => {
           ? generation
             ? generation.response
             : terminalResponse(suspended([item]))
-          : request.command === 'history.read'
+          : request.command === 'thread.observe'
             ? historyResponse([item])
             : undefined
-      onObserve = async () =>
+      onObserve = () =>
         eventResponse([
           {
             type: 'thread.history',
-            result: await historyResponse([item]).json(),
+            result: pendingHistory([item]),
             activeRunId: null,
           },
-          { type: 'thread.status', runId, status: 'suspended' },
+          {
+            type: 'thread.status',
+            runId,
+            status: 'suspended',
+            history: pendingHistory([item]),
+          },
         ])
       const sending = store().getState().sendMessage('Continue')
       if (generation) {
@@ -2970,23 +3008,21 @@ describe('built-in tool continuation', () => {
         .messages.flatMap((message) => message.contentBlocks ?? [])
         .find((block) => block.type === 'tool_call' && block.toolCall.id === item.target.toolCallId)
       expect(part?.type === 'tool_call' && part.toolCall).toBe(call)
-      await store().getState().refreshCurrentHistory()
+      await reconnectSelectedChat()
       await store().getState().executeCopilotToolCall(item.target.toolCallId)
       expect(tools.browser).toHaveBeenCalledTimes(1)
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(
-        disconnected ? 1 : 0
-      )
+      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(2)
     }
   )
 
   it('keeps a reopened browser invocation ineligible through repeated history refreshes', async () => {
     const item = { ...pending('result', 'plan'), originalArgs: { objective: 'Historical plan' } }
     onCommand = (request) =>
-      request.command === 'history.read' ? historyResponse([item]) : undefined
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
     expect(store().getState().toolCallsById[item.target.toolCallId].historyOrigin).toBe(true)
-    await store().getState().refreshCurrentHistory()
+    await reconnectSelectedChat()
     expect(await store().getState().sendMessage('Continue')).toBe(false)
     await new Promise<void>((resolve) => queueMicrotask(resolve))
     expect(tools.browser).not.toHaveBeenCalled()
@@ -3014,8 +3050,10 @@ describe('built-in tool continuation', () => {
       },
     }))
     onCommand = (request) =>
-      request.command === 'history.read' ? json(historyResult(history, [item])) : undefined
-    await store().getState().refreshCurrentHistory()
+      request.command === 'thread.observe'
+        ? observingStream(historyResult(history, [item])).response
+        : undefined
+    await reconnectSelectedChat()
     const call = store().getState().toolCallsById[item.target.toolCallId]
     expect(call).toMatchObject({ ...live, provenance: { workspaceId: 'pinned-workspace' } })
     expect(call.pending).toEqual(item)
@@ -3032,7 +3070,8 @@ describe('built-in tool continuation', () => {
     }
     let items = [other, cold]
     onCommand = (request) => {
-      if (request.command === 'history.read') return json(historyResult(history, items))
+      if (request.command === 'thread.observe')
+        return observingStream(historyResult(history, items)).response
       if (request.command === 'tool.result') {
         items = [cold]
         return terminalResponse(suspended(items))
@@ -3063,7 +3102,7 @@ describe('built-in tool continuation', () => {
       onCommand = (request) =>
         request.command === 'message'
           ? terminalResponse(suspended([item]))
-          : request.command === 'history.read'
+          : request.command === 'thread.observe'
             ? historyResponse([changed])
             : undefined
       expect(await store().getState().sendMessage('Continue')).toBe(true)
@@ -3085,7 +3124,7 @@ describe('built-in tool continuation', () => {
       onCommand = (request) =>
         request.command === 'message'
           ? terminalResponse(suspended([item]))
-          : request.command === 'history.read'
+          : request.command === 'thread.observe'
             ? historyResponse([item])
             : undefined
       expect(await store().getState().sendMessage('Prepare edit')).toBe(true)
@@ -3107,7 +3146,7 @@ describe('built-in tool continuation', () => {
     const other = { ...pending('approval'), target: { ...pending().target, toolCallId: 'other' } }
     installPending(item)
     onCommand = (request) =>
-      request.command === 'history.read'
+      request.command === 'thread.observe'
         ? historyResponse([item, other])
         : request.command === 'tool.execute'
           ? terminalResponse(suspended([other]))
@@ -3130,7 +3169,7 @@ describe('built-in tool continuation', () => {
     onCommand = (request) =>
       request.command === 'tool.execute'
         ? terminalResponse(suspended([fresh]))
-        : request.command === 'history.read'
+        : request.command === 'thread.observe'
           ? historyResponse([fresh])
           : undefined
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
@@ -3145,7 +3184,7 @@ describe('built-in tool continuation', () => {
     installPending(item)
     const gate = defer<Response>()
     onCommand = (request) =>
-      request.command === 'history.read'
+      request.command === 'thread.observe'
         ? historyResponse([item])
         : request.command === 'tool.execute'
           ? gate.promise

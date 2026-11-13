@@ -66,7 +66,9 @@ const userMentionMessage: CopilotMessageType = {
 }
 
 vi.mock('@/lib/copilot/inline-tool-call', () => ({
-  InlineToolCall: () => <div data-testid='inline-tool-call' />,
+  InlineToolCall: ({ toolCall }: any) => (
+    <div data-testid='inline-tool-call'>{JSON.stringify(toolCall.result)}</div>
+  ),
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
@@ -233,6 +235,30 @@ describe('CopilotMessage', () => {
 
     expect(container.textContent).toContain('Plan is ready.')
   })
+  it('renders changed tool results and error state for the same message identity', async () => {
+    const resultMessage = (result: string, isError = false): CopilotMessageType => ({
+      ...assistantMessage,
+      isError,
+      contentBlocks: [
+        {
+          type: 'tool_call',
+          timestamp: 1,
+          toolCall: { id: 'tool', name: 'plan', state: ClientToolCallState.success, result },
+        },
+      ],
+    })
+    await renderMessage(resultMessage('First result'))
+    expect(container.querySelector('[data-testid="inline-tool-call"]')?.textContent).toContain(
+      'First result'
+    )
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+    await renderMessage(resultMessage('Updated result', true))
+    expect(container.querySelector('[data-testid="inline-tool-call"]')?.textContent).toContain(
+      'Updated result'
+    )
+    expect(container.querySelector('[role="alert"]')).not.toBeNull()
+  })
+
   it('renders canonical user images between exact text parts', async () => {
     const data =
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg=='

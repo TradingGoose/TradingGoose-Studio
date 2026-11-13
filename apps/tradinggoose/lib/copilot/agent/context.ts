@@ -25,6 +25,7 @@ export interface CopilotExecution {
   run: CopilotRun
   model: Awaited<ReturnType<typeof createConfiguredLanguageModel>>
   signal: AbortSignal
+  assertOwnership: () => Promise<void>
   pending?: ServerPending
   decision?: CopilotDecision
   pendingTools: Set<Promise<void>>

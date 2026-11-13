@@ -14,7 +14,7 @@ import {
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { authorizeNativeBusinessResult, authorizeNativeCredential } from './business-access'
 import type { Pending, Scope } from './contract'
-import { NativeTargetError } from './target'
+import { NativeTargetError } from './errors'
 
 /** Reconstruct existing authorized postconditions. No execution, mutation or financial posting. */
 export async function readbackNativeToolResult(
@@ -91,7 +91,6 @@ export async function readbackNativeToolResult(
         .limit(1)
       if (!row?.endedAt)
         throw new NativeTargetError('Original workflow execution has no terminal result', 409)
-      assertOriginalLog(row)
       await authorize(row)
       const state = createWorkflowExecutionResultFromLog(row)
       if (state.status !== 'completed' && state.status !== 'failed')

@@ -95,7 +95,6 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
     .strict(),
   z.object({ ...base, command: z.literal('cancel'), threadId: id, runId: id }).strict(),
   z.object({ ...base, command: z.literal('threads.list') }).strict(),
-  z.object({ ...base, command: z.literal('history.read'), threadId: id }).strict(),
   z.object({ ...base, command: z.literal('thread.observe'), threadId: id }).strict(),
   z
     .object({ ...base, command: z.literal('thread.title'), threadId: id, title: z.string() })
@@ -170,7 +169,6 @@ export type CopilotResponse =
   | SuspendedResponse
   | CancelResponse
   | ThreadsResponse
-  | HistoryResponse
   | MutationResponse
   | ErrorResponse
 export type CopilotOutputEvent =
@@ -187,7 +185,7 @@ export type CopilotOutputEvent =
 export type CopilotThreadEvent =
   | { type: 'thread.started'; runId: string; messageId: string }
   | { type: 'thread.output'; runId: string; event: CopilotOutputEvent }
-  | { type: 'thread.error'; runId: string; error: SafeError }
+  | { type: 'thread.error'; runId: string; error: SafeError; history: HistoryResponse }
   | {
       type: 'thread.history'
       result: HistoryResponse
@@ -198,6 +196,7 @@ export type CopilotThreadEvent =
       type: 'thread.status'
       runId: string
       status: 'success' | 'failed' | 'aborted' | 'suspended'
+      history: HistoryResponse
     }
 export type CopilotEvent =
   | CopilotOutputEvent

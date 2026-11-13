@@ -47,7 +47,7 @@ describe('built-in title completion', () => {
       )
     }
   )
-  it('exposes accepted outcome even when cancellation prevents publication', async () => {
+  it('does not publish a completed title after cancellation', async () => {
     const controller = new AbortController()
     state.complete.mockImplementationOnce(async (request: CompletionRequest) => {
       controller.abort()
@@ -57,7 +57,7 @@ describe('built-in title completion', () => {
     expect(state.complete).toHaveBeenCalledOnce()
   })
   it.each(['failed', 'refused', 'cancel_requested'])(
-    'publishes no title for %s and preserves the outcome',
+    'publishes no title for %s',
     async (status) => {
       const outcome = {
         status,
