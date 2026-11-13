@@ -1,3 +1,4 @@
+import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import {
@@ -9,6 +10,8 @@ import { MAX_COPILOT_REQUEST_BYTES } from '@/lib/copilot/native/request-size'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
+import { organizationKeys } from '@/hooks/queries/organization'
+import { subscriptionKeys } from '@/hooks/queries/subscription'
 import { useExecutionStore } from '@/stores/execution/store'
 import { buildCopilotWorkspaceChannelId } from './channel-id'
 import { getCopilotStore, resetCopilotStoreRegistry } from './store'
@@ -26,6 +29,8 @@ const tools = vi.hoisted(() => ({
   bind: vi.fn(),
   hydrate: vi.fn(),
 }))
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+vi.mock('@/app/query-provider', () => ({ getQueryClient: () => queryClient }))
 vi.unmock('@/stores/execution/store')
 vi.mock('@/lib/copilot/tools/client/workflow/workflow-execution-utils', () => ({
   executeWorkflowWithFullLogging: tools.runWorkflow,
@@ -199,6 +204,7 @@ function eventResponse(events: object[]) {
   )
 }
 beforeEach(() => {
+  queryClient.clear()
   resetCopilotStoreRegistry()
   tools.actualOAuth = false
   tools.actualRunWorkflow = false
@@ -237,10 +243,53 @@ beforeEach(() => {
 })
 afterEach(() => {
   resetCopilotStoreRegistry()
+  queryClient.clear()
   vi.unstubAllGlobals()
 })
 
 describe('canonical browser conversation transport', () => {
+  it.each(['completed', 'suspended', 'failed'] as const)(
+    'refreshes mounted personal and organization usage after a %s turn',
+    async (status) => {
+      let currentUsage = 0.1
+      const observers = [subscriptionKeys.user(), organizationKeys.billing('org')].map(
+        (queryKey) =>
+          new QueryObserver(queryClient, {
+            queryKey,
+            queryFn: async () => currentUsage,
+            staleTime: Number.POSITIVE_INFINITY,
+          })
+      )
+      const unsubscribe = observers.map((observer) => observer.subscribe(() => {}))
+      try {
+        await vi.waitFor(() =>
+          expect(observers.map((observer) => observer.getCurrentResult().data)).toEqual([0.1, 0.1])
+        )
+        setChat()
+        onCommand = (command) => {
+          if (command.command !== 'message') return
+          currentUsage = 0.18
+          return status === 'failed'
+            ? eventResponse([
+                {
+                  type: 'response.error',
+                  result: { status, error: { code: 'GENERATION_FAILED', message: 'Interrupted' } },
+                },
+              ])
+            : terminalResponse(status === 'completed' ? ready() : suspended([]))
+        }
+        expect(await store().getState().sendMessage('Describe')).toBe(status !== 'failed')
+        await vi.waitFor(() =>
+          expect(observers.map((observer) => observer.getCurrentResult().data)).toEqual([
+            0.18, 0.18,
+          ])
+        )
+      } finally {
+        unsubscribe.forEach((stop) => stop())
+      }
+    }
+  )
+
   it('serializes the current access level after an untitled chat history preflight settles', async () => {
     store().setState({
       currentChat: { ...chat(), title: '' },
@@ -647,7 +696,9 @@ describe('canonical browser conversation transport', () => {
       request.command === 'history.read' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
     expect(store().getState().currentRunId).toBe(runId)
+    queryClient.setQueryData(subscriptionKeys.user(), { current: 0.1 })
     expect(await store().getState().abortMessage()).toBe(true)
+    expect(queryClient.getQueryState(subscriptionKeys.user())?.isInvalidated).toBe(true)
     expect(store().getState().lastNativeOutcome?.status).toBe('cancel_requested')
     expect(commands.filter((request) => request.command === 'cancel')).toEqual([
       { command: 'cancel', workspaceId, threadId, runId },
@@ -1190,9 +1241,13 @@ describe('actual bounded initial-title publication', () => {
   }
   it('calls utility for the actual first thread/model/scope, then mutates and reads native title only after success', async () => {
     store().setState({ conversationWorkspaceId: workspaceId, selectedModel: 'openai/gpt-5.6-sol' })
-    onTitle = () => json({ title: 'Generated title', outcome: titleOutcome })
+    const titleResponse = defer<Response>()
+    onTitle = () => titleResponse.promise
     expect(await store().getState().sendMessage('First')).toBe(true)
+    queryClient.setQueryData(subscriptionKeys.user(), { current: 0.1 })
+    titleResponse.resolve(json({ title: 'Generated title', outcome: titleOutcome }))
     await vi.waitFor(() => expect(store().getState().currentChat?.title).toBe('verified title'))
+    expect(queryClient.getQueryState(subscriptionKeys.user())?.isInvalidated).toBe(true)
     expect(titleRequests).toEqual([
       { workspaceId, threadId, model: 'openai/gpt-5.6-sol', originalInput: 'First' },
     ])

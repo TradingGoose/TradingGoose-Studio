@@ -33,6 +33,9 @@ import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/serv
 import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { getQueryClient } from '@/app/query-provider'
+import { organizationKeys } from '@/hooks/queries/organization'
+import { subscriptionKeys } from '@/hooks/queries/subscription'
 import { parseCopilotWorkspaceChannelId } from './channel-id'
 import { projectNativeHistory } from './history'
 import {
@@ -76,6 +79,11 @@ import {
 } from './workspace-selection'
 
 const emptyDraft = (): CopilotDraft => ({ text: '', contexts: [] })
+const refreshBillingUsage = () => {
+  const queryClient = getQueryClient()
+  void queryClient.invalidateQueries({ queryKey: subscriptionKeys.all })
+  void queryClient.invalidateQueries({ queryKey: organizationKeys.all })
+}
 const initialState = {
   accessLevel: 'limited' as const,
   selectedModel: null as string | null,
@@ -244,6 +252,7 @@ function createCopilotStoreInstance(channelId: string) {
               fail(error)
           } finally {
             if (titleAbort === abort) titleAbort = null
+            refreshBillingUsage()
           }
         })()
       }
@@ -453,6 +462,7 @@ function createCopilotStoreInstance(channelId: string) {
         } finally {
           if (current() && get().abortController === abort)
             set({ isSendingMessage: false, abortController: null })
+          refreshBillingUsage()
         }
       }
       const requestForPending = (pending: Pending) => ({
@@ -1063,6 +1073,7 @@ function createCopilotStoreInstance(channelId: string) {
                 }
                 return false
               })
+              .finally(refreshBillingUsage)
           return !current.isSendingMessage
         },
         reset: () => {
