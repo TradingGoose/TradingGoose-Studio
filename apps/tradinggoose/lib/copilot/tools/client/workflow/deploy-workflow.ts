@@ -171,7 +171,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
     window.location.assign(`/workspace/${encodeURIComponent(workspaceId)}/api-keys`)
   }
 
-  async handleAccept(args?: DeployWorkflowArgs): Promise<void> {
+  async execute(args?: DeployWorkflowArgs): Promise<void> {
     const logger = createLogger('DeployWorkflowClientTool')
     try {
       const executionContext = this.requireExecutionContext()
@@ -282,16 +282,11 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       }
     } catch (e: any) {
       logger.error('Deploy/undeploy failed', { message: e?.message })
-      this.setState(ClientToolCallState.error)
       this.fail(
         this.chatOpened
           ? 'Chat deployment settings opened; native acknowledgement failed'
           : e?.message || 'Failed to deploy/undeploy workflow'
       )
     }
-  }
-
-  async execute(args?: DeployWorkflowArgs): Promise<void> {
-    await this.handleAccept(args)
   }
 }

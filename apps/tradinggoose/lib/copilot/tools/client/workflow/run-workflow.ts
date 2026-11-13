@@ -46,11 +46,11 @@ export class RunWorkflowClientTool extends BaseClientTool {
     },
   }
 
-  async handleAccept(args?: RunWorkflowArgs): Promise<void> {
+  async execute(args?: RunWorkflowArgs): Promise<void> {
     const logger = createLogger('RunWorkflowClientTool')
     await this.executeWithTimeout(async () => {
       const params = (args ?? {}) as Partial<RunWorkflowArgs>
-      logger.debug('handleAccept() called', {
+      logger.debug('execute() called', {
         toolCallId: this.toolCallId,
         state: this.getState(),
         hasArgs: !!args,
@@ -74,7 +74,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
         activeWorkflowId = requireCopilotEntityId(params)
       } catch {
         logger.debug('Execution prevented: no target workflow')
-        this.setState(ClientToolCallState.error)
         this.fail('entityId is required')
         return
       }
@@ -82,7 +81,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
 
       if (typeof params.triggerBlockId !== 'string' || params.triggerBlockId.length === 0) {
         logger.debug('Execution prevented: no trigger block selected')
-        this.setState(ClientToolCallState.error)
         this.fail('triggerBlockId is required')
         return
       }
@@ -142,7 +140,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
 
         logger.error('Run workflow failed', { message })
 
-        this.setState(ClientToolCallState.error)
         this.fail(message)
       } finally {
         if (shouldClearExecution) {
@@ -150,10 +147,5 @@ export class RunWorkflowClientTool extends BaseClientTool {
         }
       }
     }, WORKFLOW_EXECUTION_TIMEOUT_MS)
-  }
-
-  async execute(args?: RunWorkflowArgs): Promise<void> {
-    // Route explicit execute() calls through the same accept path.
-    await this.handleAccept(args)
   }
 }

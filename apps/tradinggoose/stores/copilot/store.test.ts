@@ -920,38 +920,6 @@ describe('canonical browser conversation transport', () => {
     onCommand = () => undefined
     expect(await store().getState().sendMessage('Next turn')).toBe(true)
   })
-  it('settles a displayed tool when cancellation follows', async () => {
-    setChat()
-    const item = pending('approval')
-    onCommand = (request) =>
-      request.command === 'message'
-        ? eventResponse([
-            { type: 'response.started', runId, threadId },
-            {
-              type: 'tool.display',
-              toolCallId: item.target.toolCallId,
-              toolName: item.target.toolName,
-            },
-            {
-              type: 'response.cancel_requested',
-              result: {
-                status: 'cancel_requested',
-                runId,
-              },
-            },
-          ])
-        : undefined
-    expect(await store().getState().sendMessage('Read')).toBe(false)
-    expect(store().getState().lastNativeOutcome).toMatchObject({
-      status: 'cancel_requested',
-    })
-    expect(store().getState().currentRunId).toBeNull()
-    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
-      state: ClientToolCallState.aborted,
-      pending: undefined,
-    })
-    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
-  })
   it('settles display-only tools during a UI abort and waits for cancellation acknowledgement', async () => {
     setChat()
     const item = pending('approval')
@@ -1287,15 +1255,6 @@ describe('local pending approval and preview decisions', () => {
         (request) => request.command === 'tool.execute' || request.command === 'tool.result'
       )
     ).toBe(false)
-  })
-  it('uses the displayed pending target without another discovery request', async () => {
-    const item = pending()
-    installPending(item)
-    const copy = await store().getState().readPendingTool(item.target.toolCallId)
-    expect(copy).toEqual(item)
-    copy.originalArgs.changed = true
-    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
-    expect(commands).toEqual([])
   })
   it('restores a persisted preview and accepts through one server-owned continuation', async () => {
     const item = pending('result', 'edit_workflow')
@@ -1821,7 +1780,10 @@ describe('reopened workflow pending cards', () => {
       request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat(null))
     commands = []
-    expect(await store().getState().readPendingTool(item.target.toolCallId)).toEqual(item)
+    const copy = await store().getState().readPendingTool(item.target.toolCallId)
+    expect(copy).toEqual(item)
+    copy.originalArgs.changed = true
+    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
     expect(commands).toEqual([])
     expect(workflowRequests).toEqual([])
     expect(tools.browser).not.toHaveBeenCalled()
@@ -1845,6 +1807,7 @@ describe('display-only terminal settlement and optional completed history', () =
       onCommand = (request) =>
         request.command === 'message'
           ? eventResponse([
+              { type: 'response.started', runId, threadId },
               {
                 type: 'tool.display',
                 toolName: 'read_workflow',
@@ -1870,10 +1833,17 @@ describe('display-only terminal settlement and optional completed history', () =
                   },
             ])
           : undefined
-      await store().getState().sendMessage('read')
+      expect(await store().getState().sendMessage('read')).toBe(false)
       const state = store().getState()
       expect(hasUiActiveToolCalls(state.toolCallsById)).toBe(false)
-      expect(state.toolCallsById['display-only'].state).not.toBe(ClientToolCallState.generating)
+      expect(state.toolCallsById['display-only']).toMatchObject({
+        state: kind === 'cancel' ? ClientToolCallState.aborted : ClientToolCallState.error,
+        pending: undefined,
+      })
+      expect(state.lastNativeOutcome?.status).toBe(
+        kind === 'cancel' ? 'cancel_requested' : kind === 'error' ? 'failed' : 'refused'
+      )
+      if (kind === 'cancel') expect(state.currentRunId).toBeNull()
       expect(
         state.messages
           .flatMap((message) => message.contentBlocks ?? [])

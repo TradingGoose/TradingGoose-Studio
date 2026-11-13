@@ -35,26 +35,18 @@ export class PlanClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
 
-      // Update store todos from args if present (client-side only)
-      try {
-        const todoList = args?.todoList
-        if (Array.isArray(todoList)) {
-          const todos = todoList.map((item: any, index: number) => ({
-            id: item?.id || `todo-${index}`,
-            content: typeof item === 'string' ? item : item.content,
-            completed: false,
-            executing: false,
-          }))
-          const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
-          const storeApi = getCopilotStoreForToolCall(this.toolCallId)
-          const store = storeApi.getState()
-          store.setPlanTodos(todos)
-        }
-      } catch (e) {
-        logger.warn('Failed to update plan todos in store', { message: (e as any)?.message })
+      const todoList = args?.todoList
+      if (Array.isArray(todoList)) {
+        const todos = todoList.map((item: any, index: number) => ({
+          id: item?.id || `todo-${index}`,
+          content: typeof item === 'string' ? item : item.content,
+          completed: false,
+          executing: false,
+        }))
+        const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
+        getCopilotStoreForToolCall(this.toolCallId).getState().setPlanTodos(todos)
       }
 
-      this.setState(ClientToolCallState.success)
       // Echo args back so store/tooling can parse todoList if needed
       await this.completeBrowserAssertion({
         kind: 'plan.updated',
@@ -63,7 +55,6 @@ export class PlanClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })
-      this.setState(ClientToolCallState.error)
       this.fail(e?.message || 'Failed to plan')
     }
   }

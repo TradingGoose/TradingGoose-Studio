@@ -64,7 +64,7 @@ export class SleepClientTool extends BaseClientTool {
     },
   }
 
-  async handleAccept(args?: SleepArgs): Promise<void> {
+  async execute(args?: SleepArgs): Promise<void> {
     const logger = createLogger('SleepClientTool')
 
     // Use a timeout slightly longer than max sleep (3 minutes + buffer)
@@ -72,7 +72,7 @@ export class SleepClientTool extends BaseClientTool {
 
     await this.executeWithTimeout(async () => {
       const params = args || {}
-      logger.debug('handleAccept() called', {
+      logger.debug('execute() called', {
         toolCallId: this.toolCallId,
         state: this.getState(),
         hasArgs: !!args,
@@ -114,13 +114,8 @@ export class SleepClientTool extends BaseClientTool {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         logger.error('Sleep failed', { error: message })
-        this.setState(ClientToolCallState.error)
         this.fail(message)
       }
     }, timeoutMs)
-  }
-
-  async execute(args?: SleepArgs): Promise<void> {
-    await this.handleAccept(args)
   }
 }

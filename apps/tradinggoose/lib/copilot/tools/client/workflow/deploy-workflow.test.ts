@@ -112,7 +112,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     expect(mockRegistryState.readWorkflowDeploymentStatus).toHaveBeenCalledWith('wf-explicit')
   })
 
-  it('handleAccept deploys using explicit entityId without default active workflow', async () => {
+  it('execute deploys using explicit entityId without default active workflow', async () => {
     mockRegistryState.getActiveWorkflowId.mockImplementation(() => {
       throw new Error('default active workflow must not be used')
     })
@@ -159,7 +159,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       workspaceId: 'ws-1',
     })
 
-    await tool.handleAccept({ action: 'deploy', deployType: 'api', entityId: 'wf-target' })
+    await tool.execute({ action: 'deploy', deployType: 'api', entityId: 'wf-target' })
 
     const deployRequest = fetchMock.mock.calls.find(([input]) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -207,7 +207,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       toolName: 'deploy_workflow',
       workspaceId: 'entity-workspace',
     })
-    const execution = tool.handleAccept({
+    const execution = tool.execute({
       action: 'deploy',
       deployType: 'chat',
       entityId: 'explicit-workflow',
@@ -252,8 +252,8 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       deployType: 'chat' as const,
       entityId: 'explicit-workflow',
     }
-    await tool.handleAccept(args)
-    await tool.handleAccept(args)
+    await tool.execute(args)
+    await tool.execute(args)
     expect(mockCopilotState.openWorkflowChatDeployment).toHaveBeenCalledOnce()
     expect(mockCopilotState.submitBrowserAssertion).toHaveBeenCalledOnce()
     expect(tool.getState()).toBe(ClientToolCallState.error)
@@ -282,7 +282,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
           new Error('Dialog closed before rendering')
         )
       if (kind === 'cancelled') mockCopilotState.abortController.abort()
-      await tool.handleAccept({
+      await tool.execute({
         action: 'deploy',
         deployType: 'chat',
         entityId: 'explicit-workflow',
@@ -304,7 +304,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       toolName: 'deploy_workflow',
       workspaceId: 'entity-workspace',
     })
-    await tool.handleAccept({
+    await tool.execute({
       action: 'undeploy',
       deployType: 'api',
       entityId: 'explicit-workflow',

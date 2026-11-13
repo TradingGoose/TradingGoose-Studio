@@ -57,7 +57,7 @@ beforeEach(() => {
 describe('native workflow client explicit scoping', () => {
   it('missing entity never falls back to channel workflow or submits a fabricated result', async () => {
     const instance = tool()
-    await instance.handleAccept()
+    await instance.execute()
     expect(m.execute).not.toHaveBeenCalled()
     expect(m.setExecuting).not.toHaveBeenCalled()
     expect(m.failure).toHaveBeenCalledWith('call', 'entityId is required')
@@ -66,7 +66,7 @@ describe('native workflow client explicit scoping', () => {
   })
   it('keeps explicit target independent of channel, fresh native scope, original call ID and actual abort signal', async () => {
     const instance = tool()
-    await instance.handleAccept({
+    await instance.execute({
       entityId: 'explicit-target',
       triggerBlockId: 'schedule-trigger',
       workflow_input: { symbol: 'AAPL' },
@@ -88,7 +88,7 @@ describe('native workflow client explicit scoping', () => {
   })
   it('requires native approval stage to complete before any queue request', async () => {
     m.pending.mockResolvedValueOnce({ stage: 'approval', target })
-    await tool().handleAccept({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
+    await tool().execute({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
     expect(m.execute).not.toHaveBeenCalled()
     expect(m.failure).toHaveBeenCalledWith('call', expect.stringContaining('Native approval'))
     expect(m.readback).not.toHaveBeenCalled()
@@ -101,21 +101,21 @@ describe('native workflow client explicit scoping', () => {
       logs: [],
     })
     const instance = tool()
-    await instance.handleAccept({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
+    await instance.execute({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
     expect(m.readback).toHaveBeenCalledOnce()
     expect(instance.getState()).toBe(ClientToolCallState.error)
   })
   it('lost proof/readback never repeats the execution effect', async () => {
     m.readback.mockRejectedValueOnce(new Error('Original accepted payload unavailable'))
     const instance = tool()
-    await instance.handleAccept({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
+    await instance.execute({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
     expect(m.execute).toHaveBeenCalledOnce()
     expect(m.failure).toHaveBeenCalledWith('call', 'Original accepted payload unavailable')
     expect(instance.getState()).toBe(ClientToolCallState.error)
   })
   it('preserves existing busy-execution guard before native discovery', async () => {
     m.isExecuting = true
-    await tool().handleAccept({ entityId: 'workflow', triggerBlockId: 'trigger' })
+    await tool().execute({ entityId: 'workflow', triggerBlockId: 'trigger' })
     expect(m.pending).not.toHaveBeenCalled()
     expect(m.execute).not.toHaveBeenCalled()
     expect(m.failure).toHaveBeenCalledWith('call', expect.stringContaining('already'))

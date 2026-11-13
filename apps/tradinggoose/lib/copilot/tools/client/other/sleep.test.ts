@@ -19,7 +19,7 @@ beforeEach(() => {
 describe('native local timer completion', () => {
   it('actual abort interrupts active sleep without a timer.completed assertion or later completion', async () => {
     const tool = new SleepClientTool('timer')
-    const running = tool.handleAccept({ seconds: 60 })
+    const running = tool.execute({ seconds: 60 })
     m.abort.abort(new DOMException('Cancelled by user', 'AbortError'))
     await running
     expect(tool.getState()).toBe(ClientToolCallState.error)
@@ -30,7 +30,7 @@ describe('native local timer completion', () => {
   it('already aborted execution never claims successful timer completion', async () => {
     m.abort.abort(new DOMException('Aborted', 'AbortError'))
     const tool = new SleepClientTool('already-aborted')
-    await tool.handleAccept({ seconds: 0 })
+    await tool.execute({ seconds: 0 })
     expect(m.assertion).not.toHaveBeenCalled()
     expect(tool.hasSubmittedResult()).toBe(false)
     expect(tool.getState()).toBe(ClientToolCallState.error)

@@ -121,7 +121,7 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
     this.reservedWindow = undefined
   }
 
-  async handleAccept(args?: OAuthRequestAccessArgs): Promise<void> {
+  async execute(args?: OAuthRequestAccessArgs): Promise<void> {
     if (
       this.opened ||
       this.opening ||
@@ -137,7 +137,6 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
 
       if (!this.providerName) {
         logger.error('No provider name provided')
-        this.setState(ClientToolCallState.error)
         this.fail('No provider name specified')
         return
       }
@@ -147,7 +146,6 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
         logger.error('Could not find OAuth service for provider', {
           providerName: this.providerName,
         })
-        this.setState(ClientToolCallState.error)
         this.fail(`Unknown provider: ${this.providerName}`)
         return
       }
@@ -195,7 +193,6 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
       throw new Error('Integration UI is unavailable')
     } catch (e) {
       logger.error('Failed to open OAuth connect flow', { error: e })
-      this.setState(ClientToolCallState.error)
       this.fail(
         this.opened
           ? 'Integration window opened; native acknowledgement failed'
@@ -204,10 +201,6 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
     } finally {
       this.opening = false
     }
-  }
-
-  async execute(args?: OAuthRequestAccessArgs): Promise<void> {
-    await this.handleAccept(args)
   }
 
   override dispose() {

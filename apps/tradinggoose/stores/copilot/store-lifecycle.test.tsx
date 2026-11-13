@@ -24,6 +24,8 @@ class DeferredClientTool extends BaseClientTool {
   constructor(toolCallId: string) {
     super(toolCallId, 'sleep', { displayNames: {} })
   }
+
+  async execute() {}
 }
 
 const channelId = (authenticatedUserId: string, workspaceId: string) =>

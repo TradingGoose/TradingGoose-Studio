@@ -57,7 +57,7 @@ export interface ClientToolExecutionContext {
   workspaceId?: string
 }
 
-export class BaseClientTool {
+export abstract class BaseClientTool {
   readonly toolCallId: string
   readonly name: string
   protected state = ClientToolCallState.generating
@@ -92,7 +92,7 @@ export class BaseClientTool {
       if (timer) clearTimeout(timer)
     }
   }
-  async execute(_args?: Record<string, any>): Promise<void> {}
+  abstract execute(args?: Record<string, any>): Promise<void>
   setExecutionContext(context: ClientToolExecutionContext) {
     if (!this.disposed) this.executionContext = context
   }
@@ -108,9 +108,6 @@ export class BaseClientTool {
   }
   hydrateToolCall(call?: Record<string, any>) {
     if (!this.disposed) this.toolCall = call
-  }
-  protected resolveToolState() {
-    return this.toolCall?.state as ClientToolCallState | undefined
   }
   protected resolveResult<T = unknown>() {
     return this.toolCall?.result as T | undefined
@@ -145,25 +142,8 @@ export class BaseClientTool {
       .getState()
       .recordToolFailure(this.toolCallId, message)
   }
-  async handleAccept(_args?: Record<string, any>): Promise<void> {
-    this.setState(ClientToolCallState.executing)
-  }
-  protected resolveUserActionState() {
-    return this.state === ClientToolCallState.pending || this.state === ClientToolCallState.review
-      ? this.state
-      : (this.resolveToolState() ?? this.state)
-  }
   async handleUserAction(args?: Record<string, any>) {
     if (this.disposed || this.resultSubmitted) return
-    const state = this.resolveUserActionState()
-    if (state === ClientToolCallState.review) {
-      await this.handleAccept(args)
-      return
-    }
-    if (state === ClientToolCallState.pending && this.getInterruptDisplays()) {
-      await this.handleAccept(args)
-      return
-    }
     await this.execute(args)
   }
   getInterruptDisplays() {
