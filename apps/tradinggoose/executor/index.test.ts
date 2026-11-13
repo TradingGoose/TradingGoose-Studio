@@ -1,3 +1,4 @@
+import '@/lib/mastra/__test-utils__/managed-services'
 /**
  * @vitest-environment node
  *

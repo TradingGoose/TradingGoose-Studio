@@ -1,3 +1,4 @@
+import '@/lib/mastra/__test-utils__/managed-services'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -23,10 +24,12 @@ vi.mock('@mastra/core/llm', async (original) => ({
 }))
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<object>()),
-  resolveConfiguredModel: (id: string, apiKey?: string) => ({ id, apiKey }),
+  resolveConfiguredModel: async (id: string, apiKey?: string) => ({
+    id,
+    apiKey: apiKey ?? (await mocks.key()).defaultApiKey,
+  }),
 }))
 vi.mock('@/lib/mastra/registry', () => ({ assertListedEmbeddingModel: mocks.validate }))
-vi.mock('@/lib/system-services/runtime', () => ({ resolveOpenAIServiceConfig: mocks.key }))
 vi.mock('@/lib/billing/model-usage', () => ({
   assertModelUsageAllowed: mocks.admit,
   beginWorkflowModelUsage: mocks.begin,

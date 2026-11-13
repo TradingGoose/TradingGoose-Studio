@@ -1,3 +1,5 @@
+import { managedServices, setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
+
 vi.mock('@/lib/mastra/usage-processors', () => ({
   usageProcessors: async (scope: unknown) => {
     native.finance(scope)
@@ -41,6 +43,7 @@ vi.mock('@mastra/core/agent', async (original) => {
 const block = { id: 'evaluator', metadata: { id: 'evaluator' } } as any
 const context = { workspaceId: 'workspace', userId: 'user' } as any
 beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'managed-fixture-key' }
   vi.clearAllMocks()
   native.realAgent = false
   native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
@@ -67,8 +70,8 @@ describe('Evaluator native structured generation', () => {
     'validates %j through the actual Groq adapter without requiring native structured output',
     async (object, valid) => {
       native.realAgent = true
-      vi.stubEnv('MASTRA_MODEL_PROVIDERS', '{}')
-      vi.stubEnv('MASTRA_AZURE_OPENAI', '')
+      setManagedProviders({})
+
       const requests: Record<string, any>[] = []
       const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
         expect(String(url)).toBe('https://api.groq.com/openai/v1/chat/completions')
@@ -251,16 +254,13 @@ it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provide
   'refuses native-known embedding model %s before generation admission or model contact',
   async (model, provider, modelId) => {
     // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
-    vi.stubEnv(
-      'MASTRA_MODEL_PROVIDERS',
-      JSON.stringify({
-        [provider]: {
-          name: 'Controlled registered provider',
-          url: 'https://not-contacted.invalid',
-          models: [modelId],
-        },
-      })
-    )
+    setManagedProviders({
+      [provider]: {
+        name: 'Controlled registered provider',
+        url: 'https://not-contacted.invalid',
+        models: [modelId],
+      },
+    })
     try {
       await expect(
         new EvaluatorBlockHandler().execute(

@@ -31,7 +31,7 @@ export class RouterBlockHandler implements BlockHandler {
 
     const model = inputs.model
     if (!model) throw new Error('Model is required')
-    assertListedModel(model)
+    await assertListedModel(model)
 
     const runId = crypto.randomUUID()
     let work: Awaited<ReturnType<typeof prepareModelRequest>> | undefined

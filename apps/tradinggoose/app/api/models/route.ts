@@ -6,6 +6,6 @@ export async function GET(request: NextRequest) {
   const auth = await checkSessionOrInternalAuth(request)
   if (!auth.success) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (request.nextUrl.searchParams.get('type') === 'embedding')
-    return NextResponse.json({ models: getEmbeddingModelRegistry() })
-  return NextResponse.json({ providers: getModelRegistry() })
+    return NextResponse.json({ models: await getEmbeddingModelRegistry() })
+  return NextResponse.json({ providers: await getModelRegistry() })
 }

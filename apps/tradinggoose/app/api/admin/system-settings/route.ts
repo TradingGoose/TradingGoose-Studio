@@ -135,7 +135,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const payload = adminSystemSettingsMutationSchema.parse(body)
     if (payload.copilot) {
-      const providers = new Set(getModelProviders().map(({ id }) => id))
+      const providers = new Set((await getModelProviders()).map(({ id }) => id))
       const issues = payload.copilot.models.flatMap((row, index) => {
         const field = !providers.has(row.provider)
           ? 'provider'

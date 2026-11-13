@@ -1,3 +1,4 @@
+import '@/lib/mastra/__test-utils__/managed-services'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -29,7 +30,6 @@ vi.mock('@/lib/mastra/registry', () => ({
     maxInputTokens: 8191,
   }),
 }))
-vi.mock('@/lib/system-services/runtime', () => ({ resolveOpenAIServiceConfig: async () => ({}) }))
 
 import { generateEmbeddings } from '@/lib/embeddings/utils'
 

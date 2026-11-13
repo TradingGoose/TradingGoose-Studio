@@ -34,7 +34,7 @@ export async function handleAIProviderRequest({
   signal?: AbortSignal
 }) {
   if (!body.model) return NextResponse.json({ error: 'Model is required' }, { status: 400 })
-  assertListedModel(body.model)
+  await assertListedModel(body.model)
   const model = body.model
   const signal = AbortSignal.any([
     AbortSignal.timeout(120000),

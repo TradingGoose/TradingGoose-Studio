@@ -94,7 +94,7 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
       contextChunks: ragContext.length,
     })
 
-    assertListedModel(model)
+    await assertListedModel(model)
     const signal = AbortSignal.any([
       AbortSignal.timeout(120000),
       ...(externalSignal ? [externalSignal] : []),

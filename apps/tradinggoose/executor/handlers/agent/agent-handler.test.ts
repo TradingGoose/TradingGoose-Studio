@@ -3,7 +3,9 @@ import { InMemoryStore } from '@mastra/core/storage'
 import { Memory } from '@mastra/memory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { TraceSpan } from '@/lib/logs/types'
+import { setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import { getNativeModelLookup } from '@/lib/mastra/registry'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import { getAgentMemory, getNativeMemoryStore } from '@/lib/mastra/runtime'
 import { sumNativeUsage } from '@/lib/mastra/usage'
@@ -231,17 +233,14 @@ describe('configured endpoint response schemas', () => {
     'preserves and validates the configured $provider schema (valid=$valid)',
     async ({ provider, valid }) => {
       const model = `${provider}/gpt-3.5-turbo`
-      vi.stubEnv(
-        'MASTRA_MODEL_PROVIDERS',
-        JSON.stringify({
-          [provider]: {
-            name: 'Configured',
-            url: 'https://endpoint.invalid/v1',
-            models: ['gpt-3.5-turbo'],
-          },
-        })
-      )
-      vi.stubEnv('MASTRA_AZURE_OPENAI', '')
+      setManagedProviders({
+        [provider]: {
+          name: 'Configured',
+          url: 'https://endpoint.invalid/v1',
+          models: ['gpt-3.5-turbo'],
+        },
+      })
+
       const responseFormat = {
         schema: {
           type: 'object',
@@ -257,7 +256,8 @@ describe('configured endpoint response schemas', () => {
       vi.mocked(getBlock).mockReturnValue(AgentBlock)
       const inputs = new InputResolver(workflow, {}, {}, new Map()).resolveInputs(
         agentBlock,
-        context()
+        context(),
+        await getNativeModelLookup()
       )
       expect(inputs.responseFormat).toEqual(responseFormat)
 
@@ -291,7 +291,7 @@ describe('configured endpoint response schemas', () => {
       const native = await vi.importActual<typeof import('@/lib/mastra/connections')>(
         '@/lib/mastra/connections'
       )
-      state.model = native.createConfiguredLanguageModel(model, 'fixture-key')
+      state.model = await native.createConfiguredLanguageModel(model, 'fixture-key')
       const execution = new AgentBlockHandler().execute(agentBlock, inputs, context())
       if (valid) await expect(execution).resolves.toMatchObject({ answer: 42 })
       else await expect(execution).rejects.toThrow()
@@ -848,7 +848,7 @@ describe('native Agent MCP integration', () => {
       const native = await vi.importActual<typeof import('@/lib/mastra/connections')>(
         '@/lib/mastra/connections'
       )
-      state.model = native.createConfiguredLanguageModel('openai/gpt-4.1', 'fixture-key')
+      state.model = await native.createConfiguredLanguageModel('openai/gpt-4.1', 'fixture-key')
       const configured =
         kind === 'mcp'
           ? {
@@ -1530,7 +1530,7 @@ describe('native forced sequence failures and completion accounting', () => {
     const native = await vi.importActual<typeof import('@/lib/mastra/connections')>(
       '@/lib/mastra/connections'
     )
-    state.model = native.createConfiguredLanguageModel('google/gemini-2.5-pro', 'fixture-key')
+    state.model = await native.createConfiguredLanguageModel('google/gemini-2.5-pro', 'fixture-key')
     const result = await new AgentBlockHandler().execute(
       block,
       {
@@ -2051,16 +2051,13 @@ it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provide
   'refuses native-known embedding model %s before generation admission or model contact',
   async (model, provider, modelId) => {
     // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
-    vi.stubEnv(
-      'MASTRA_MODEL_PROVIDERS',
-      JSON.stringify({
-        [provider]: {
-          name: 'Controlled registered provider',
-          url: 'https://not-contacted.invalid',
-          models: [modelId],
-        },
-      })
-    )
+    setManagedProviders({
+      [provider]: {
+        name: 'Controlled registered provider',
+        url: 'https://not-contacted.invalid',
+        models: [modelId],
+      },
+    })
     try {
       await expect(
         new AgentBlockHandler().execute(

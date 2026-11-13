@@ -24,7 +24,7 @@ export class EvaluatorBlockHandler implements BlockHandler {
   ): Promise<BlockOutput> {
     const model = inputs.model
     if (!model) throw new Error('Model is required')
-    assertListedModel(model)
+    await assertListedModel(model)
     const metrics = (Array.isArray(inputs.metrics) ? inputs.metrics : []).filter(
       (metric: any) => metric?.name && metric.range
     )

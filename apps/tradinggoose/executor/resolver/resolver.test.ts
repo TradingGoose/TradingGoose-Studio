@@ -1,6 +1,8 @@
+import '@/lib/mastra/__test-utils__/managed-services'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import { getNativeModelLookup } from '@/lib/mastra/registry'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
@@ -2250,7 +2252,7 @@ describe('InputResolver', () => {
 
     it.each(['openai/gpt-5', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
       'resolves model reference %s before applying native capability metadata',
-      (model) => {
+      async (model) => {
         useModelRegistry.setState({ providers: [] })
         mockGetBlock.mockReturnValue(AgentBlock)
         mockWorkflowVars.stringVar.value = 'openai/gpt-5'
@@ -2270,7 +2272,7 @@ describe('InputResolver', () => {
             },
           },
         }
-        expect(resolver.resolveInputs(block, mockContext)).toEqual({
+        expect(resolver.resolveInputs(block, mockContext, await getNativeModelLookup())).toEqual({
           model: 'openai/gpt-5',
           responseFormat: JSON.parse(responseFormat),
           maxTokens: 512,
@@ -2284,7 +2286,7 @@ describe('InputResolver', () => {
       ['unknown/model', true],
     ] as const)(
       'applies native temperature support for %s without browser metadata',
-      (model, supported) => {
+      async (model, supported) => {
         useModelRegistry.setState({ providers: [] })
         mockGetBlock.mockReturnValue(AgentBlock)
         mockWorkflowVars.stringVar.value = model
@@ -2296,7 +2298,7 @@ describe('InputResolver', () => {
             params: { temperature: 0, model: '<variable.stringVar>' },
           },
         }
-        expect(resolver.resolveInputs(block, mockContext)).toEqual({
+        expect(resolver.resolveInputs(block, mockContext, await getNativeModelLookup())).toEqual({
           model,
           ...(supported && { temperature: 0 }),
         })
@@ -2305,7 +2307,7 @@ describe('InputResolver', () => {
 
     it.each(['openai/gpt-3.5-turbo', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
       'excludes unsupported structured output after resolving %s',
-      (model) => {
+      async (model) => {
         useModelRegistry.setState({ providers: [] })
         mockGetBlock.mockReturnValue(AgentBlock)
         mockWorkflowVars.stringVar.value = 'openai/gpt-3.5-turbo'
@@ -2321,7 +2323,8 @@ describe('InputResolver', () => {
                 params: { model, responseFormat: '<disabled-block.result>', temperature: 0 },
               },
             },
-            mockContext
+            mockContext,
+            await getNativeModelLookup()
           )
         ).toEqual({ model: 'openai/gpt-3.5-turbo', temperature: 0 })
       }

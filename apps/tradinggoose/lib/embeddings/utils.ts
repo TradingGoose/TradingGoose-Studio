@@ -11,7 +11,6 @@ import { resolveConfiguredModel } from '@/lib/mastra/connections'
 import { assertListedEmbeddingModel } from '@/lib/mastra/registry'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import { calculateNativeCost, type NativeCost, sumNativeCosts } from '@/lib/mastra/usage'
-import { resolveOpenAIServiceConfig } from '@/lib/system-services/runtime'
 import { batchByTokenLimit, getAccurateTokenCount } from '@/lib/tokenization'
 
 const logger = createLogger('EmbeddingUtils')
@@ -49,7 +48,7 @@ export async function generateEmbeddings(
 ): Promise<EmbeddingResult> {
   if (!scope.actorUserId?.trim()) throw new Error('Authenticated embedding actor is required')
   scope.signal?.throwIfAborted()
-  const selected = assertListedEmbeddingModel(model)
+  const selected = await assertListedEmbeddingModel(model)
   // Existing batchByTokenLimit truncates oversized entries. Validate first and choose a
   // grouping ceiling that keeps every accepted input byte intact, including 8001–8191 tokens.
   const largestInput = texts.reduce((largest, text) => {
@@ -62,15 +61,13 @@ export async function generateEmbeddings(
     return Math.max(largest, count)
   }, 0)
   const batches = batchByTokenLimit(texts, Math.max(MAX_TOKENS_PER_REQUEST, largestInput), model)
-  let apiKey = scope.apiKey
+  const apiKey = scope.apiKey
   if (apiKey !== undefined && !apiKey.trim())
     throw Object.assign(new Error('A nonempty request-local embedding API key is required'), {
       status: 400,
     })
   const funding: ModelUsageScope['funding'] = apiKey === undefined ? 'account' : 'byok'
-  if (apiKey === undefined && model.startsWith('openai/'))
-    apiKey = (await resolveOpenAIServiceConfig()).defaultApiKey || undefined
-  const embedder = new ModelRouterEmbeddingModel(resolveConfiguredModel(model, apiKey))
+  const embedder = new ModelRouterEmbeddingModel(await resolveConfiguredModel(model, apiKey))
   const embeddings: number[][] = []
   const costs: NativeCost[] = []
   const invocationId = randomUUID()

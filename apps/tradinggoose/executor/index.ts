@@ -5,6 +5,7 @@ import {
 } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
+import { getNativeModelLookup } from '@/lib/mastra/registry'
 import { getInferenceFacts, isInferenceResult, withInferenceFacts } from '@/lib/mastra/result'
 import { getBlock } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
@@ -1628,7 +1629,11 @@ export class Executor {
       blockLog.input = block.config.params
 
       // Resolve inputs
-      const inputs = this.resolver.resolveInputs(block, context)
+      const inputs = this.resolver.resolveInputs(
+        block,
+        context,
+        block.config.params.model !== undefined ? await getNativeModelLookup() : undefined
+      )
 
       // Store input data in the block log
       blockLog.input = inputs

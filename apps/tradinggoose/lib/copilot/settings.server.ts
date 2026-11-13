@@ -1,14 +1,13 @@
 import { providers } from '@opencode-ai/models/snapshot'
+import { resolveConfiguredModel } from '@/lib/mastra/connections'
 import { isLanguageModel } from '@/lib/mastra/registry'
-import { getSystemServiceDefinition } from '@/lib/system-services/catalog'
-import { resolveSystemServiceConfig } from '@/lib/system-services/service'
 import { getCopilotSettings } from '@/lib/system-settings/service'
 import { NativeTargetError } from './native/errors'
 import { type CopilotModelOption, getCopilotModelId } from './settings'
 
 export async function resolveCopilotModel(
   modelId?: string
-): Promise<{ model: string; apiKey: string }> {
+): Promise<{ model: string; apiKey?: string }> {
   const settings = await getCopilotSettings()
   if (!settings.models.length || !settings.defaultModel) {
     throw new NativeTargetError('Copilot models have not been configured by a system admin', 409)
@@ -18,19 +17,15 @@ export async function resolveCopilotModel(
   if (!row || !isLanguageModel(row.provider, row.model)) {
     throw new NativeTargetError('The selected Copilot model is no longer available', 422)
   }
-  const provider = getSystemServiceDefinition(row.provider)
-  const credential = provider?.credentialFields[0]
-  if (!provider || !credential)
-    throw new NativeTargetError('The selected Copilot provider is not available', 409)
-  const config = await resolveSystemServiceConfig(row.provider)
-  const apiKey = config[credential.key]
-  if (typeof apiKey !== 'string' || !apiKey.trim()) {
+  try {
+    const { apiKey } = await resolveConfiguredModel(selected)
+    return { model: selected, apiKey: apiKey || undefined }
+  } catch {
     throw new NativeTargetError(
-      'The system API key for the selected Copilot model is not configured',
+      'The system connection for the selected Copilot model is not configured',
       409
     )
   }
-  return { model: selected, apiKey: apiKey.trim() }
 }
 
 export async function getPublicCopilotModels(): Promise<{

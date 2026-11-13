@@ -1,3 +1,4 @@
+import '@/lib/mastra/__test-utils__/managed-services'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'

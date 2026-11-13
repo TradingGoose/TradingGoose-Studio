@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { setManagedProviders } from './__test-utils__/managed-services'
 import { calculateNativeCost, resultAccounting, sumNativeCosts, sumNativeUsage } from './usage'
 
 const catalogue = vi.hoisted(() => ({ pricing: vi.fn() }))
@@ -156,19 +157,11 @@ describe('native per-step USD pricing', () => {
     }
   })
   it('does not borrow published rates or billing metadata for an overridden endpoint', async () => {
-    vi.stubEnv(
-      'MASTRA_MODEL_PROVIDERS',
-      JSON.stringify({
-        openrouter: {
-          name: 'Private endpoint',
-          url: 'https://private.invalid/v1',
-          models: ['model'],
-          apiKeyEnvVar: [],
-        },
-      })
-    )
+    setManagedProviders({
+      openai: { name: 'Private endpoint', url: 'https://private.invalid/v1', models: ['model'] },
+    })
     const cost = await calculateNativeCost(
-      'openrouter/model',
+      'openai/model',
       { inputTokens: 1000, outputTokens: 100 },
       { openrouter: { usage: { cost: 0 } } }
     )

@@ -1,3 +1,4 @@
+import '@/lib/mastra/__test-utils__/managed-services'
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
   createConfiguredLanguageModel: () => state.model,

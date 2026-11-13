@@ -1,13 +1,14 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { managedServices, setManagedProviders } from './__test-utils__/managed-services'
 
-const provider = {
+const provider = vi.hoisted(() => ({
   name: 'Configured Provider',
   models: ['listed', 'other', 'embedding'],
   apiKeyEnvVar: 'PRIVATE_KEY_NAME',
   apiKeyHeader: 'secret-header',
   url: 'https://private.invalid',
   headers: { Authorization: 'secret' },
-}
+}))
 vi.mock('@mastra/core/llm', () => ({
   defaultGateways: [],
   GatewayRegistry: { getInstance: () => ({ getProviders: () => ({ configured: provider }) }) },
@@ -37,24 +38,30 @@ import {
   getModelRegistry,
 } from './registry'
 
-afterEach(() => vi.unstubAllEnvs())
+beforeEach(() => {
+  managedServices.credentials.configured = { apiKey: 'managed-provider-secret' }
+  managedServices.credentials.mastra_model_providers = {
+    apiKeys: JSON.stringify({ custom: 'managed-custom-secret' }),
+  }
+})
+afterEach(() => {
+  expect(managedServices.readConfig).not.toHaveBeenCalled()
+  expect(managedServices.decrypt).not.toHaveBeenCalled()
+})
 
 describe('public Mastra registry transport', () => {
-  it('provides current native provider identities without connection configuration', () => {
-    expect(getModelProviders()).toEqual([{ id: 'configured', name: 'Configured Provider' }])
-    vi.stubEnv(
-      'MASTRA_MODEL_PROVIDERS',
-      JSON.stringify({
-        custom: { name: 'Custom', url: 'https://private.invalid', models: ['exact'] },
-      })
-    )
-    expect(getModelProviders()).toEqual([
+  it('provides current native provider identities without connection configuration', async () => {
+    expect(await getModelProviders()).toEqual([{ id: 'configured', name: 'Configured Provider' }])
+    setManagedProviders({
+      custom: { name: 'Custom', url: 'https://private.invalid', models: ['exact'] },
+    })
+    expect(await getModelProviders()).toEqual([
       { id: 'configured', name: 'Configured Provider' },
       { id: 'custom', name: 'Custom' },
     ])
   })
-  it('projects names, exact model IDs and helpers without serializing provider credentials or config', () => {
-    const json = JSON.parse(JSON.stringify(getModelRegistry()))
+  it('projects names, exact model IDs and helpers without serializing provider credentials or config', async () => {
+    const json = JSON.parse(JSON.stringify(await getModelRegistry()))
     expect(json).toEqual([
       {
         id: 'configured',
@@ -69,8 +76,8 @@ describe('public Mastra registry transport', () => {
       /PRIVATE_KEY_NAME|secret|private.invalid|apiKey|headers/
     )
   })
-  it('accepts exact listed canonical IDs and rejects aliases, drafts and unlisted names actionably', () => {
-    expect(() => assertListedModel('configured/listed')).not.toThrow()
+  it('accepts exact listed canonical IDs and rejects aliases, drafts and unlisted names actionably', async () => {
+    await expect(assertListedModel('configured/listed')).resolves.toBeUndefined()
     for (const id of [
       'listed',
       'configured/missing',
@@ -78,15 +85,14 @@ describe('public Mastra registry transport', () => {
       '{{MODEL}}',
       'configured/',
     ]) {
-      expect(() => assertListedModel(id)).toThrow('Select a listed provider/model')
+      await expect(assertListedModel(id)).rejects.toThrow('Select a listed provider/model')
     }
   })
 
   it.each(['unknown', 'constructor', 'toString', 'hasOwnProperty'])(
     'rejects the unlisted %s provider with an actionable 400',
-    (providerId) => {
-      vi.stubEnv('MASTRA_MODEL_PROVIDERS', '{}')
-      expect(() => assertListedModel(`${providerId}/missing`)).toThrowError(
+    async (providerId) => {
+      await expect(assertListedModel(`${providerId}/missing`)).rejects.toThrowError(
         expect.objectContaining({
           status: 400,
           message: expect.stringContaining('Select a listed provider/model'),
@@ -96,11 +102,13 @@ describe('public Mastra registry transport', () => {
   )
 })
 
-it('projects only native embedding metadata and exact current provider membership', () => {
-  expect(getEmbeddingModelRegistry()).toEqual([
+it('projects only native embedding metadata and exact current provider membership', async () => {
+  expect(await getEmbeddingModelRegistry()).toEqual([
     { id: 'configured/embedding', provider: 'configured', dimensions: 1536, maxInputTokens: 8191 },
   ])
-  expect(() => assertListedEmbeddingModel('configured/embedding')).not.toThrow()
+  await expect(assertListedEmbeddingModel('configured/embedding')).resolves.toMatchObject({
+    id: 'configured/embedding',
+  })
   for (const id of [
     'listed',
     'configured/other',
@@ -108,45 +116,41 @@ it('projects only native embedding metadata and exact current provider membershi
     '{{MODEL}}',
     'unknown/listed',
   ])
-    expect(() => assertListedEmbeddingModel(id)).toThrowError(
+    await expect(assertListedEmbeddingModel(id)).rejects.toThrowError(
       expect.objectContaining({ status: 400 })
     )
-  expect(JSON.stringify(getEmbeddingModelRegistry())).not.toMatch(
+  expect(JSON.stringify(await getEmbeddingModelRegistry())).not.toMatch(
     /PRIVATE_KEY_NAME|secret|private.invalid|apiKey|headers|private-native-extra-field/
   )
 })
-it('configured provider overrides remove embedding models that are no longer listed', () => {
-  vi.stubEnv(
-    'MASTRA_MODEL_PROVIDERS',
-    JSON.stringify({
-      configured: { name: 'Configured', url: 'https://private.invalid', models: ['other'] },
-    })
-  )
-  expect(getEmbeddingModelRegistry()).toEqual([])
-  expect(() => assertListedEmbeddingModel('configured/embedding')).toThrow(
+it('configured provider overrides remove embedding models that are no longer listed', async () => {
+  setManagedProviders({
+    configured: { name: 'Configured', url: 'https://private.invalid', models: ['other'] },
+  })
+  expect(await getEmbeddingModelRegistry()).toEqual([])
+  await expect(assertListedEmbeddingModel('configured/embedding')).rejects.toThrow(
     'Select a listed provider/model'
   )
 })
 
-it('rejects the exact native embedding identity for generation while keeping its embedding lane', () => {
-  expect(() => assertListedModel('configured/embedding')).toThrowError(
+it('rejects the exact native embedding identity for generation while keeping its embedding lane', async () => {
+  await expect(assertListedModel('configured/embedding')).rejects.toThrowError(
     expect.objectContaining({ status: 400 })
   )
-  expect(getModelRegistry().flatMap(({ models }) => models.map(({ id }) => id))).not.toContain(
-    'configured/embedding'
-  )
-  expect(() => assertListedEmbeddingModel('configured/embedding')).not.toThrow()
+  expect(
+    (await getModelRegistry()).flatMap(({ models }) => models.map(({ id }) => id))
+  ).not.toContain('configured/embedding')
+  await expect(assertListedEmbeddingModel('configured/embedding')).resolves.toMatchObject({
+    id: 'configured/embedding',
+  })
 })
 
-it('does not infer purpose from a different provider or a model name', () => {
-  vi.stubEnv(
-    'MASTRA_MODEL_PROVIDERS',
-    JSON.stringify({
-      custom: { name: 'Custom', url: 'https://private.invalid', models: ['embedding'] },
-    })
-  )
-  expect(() => assertListedModel('custom/embedding')).not.toThrow()
-  expect(getModelRegistry().find(({ id }) => id === 'custom')?.models).toEqual([
+it('does not infer purpose from a different provider or a model name', async () => {
+  setManagedProviders({
+    custom: { name: 'Custom', url: 'https://private.invalid', models: ['embedding'] },
+  })
+  await expect(assertListedModel('custom/embedding')).resolves.toBeUndefined()
+  expect((await getModelRegistry()).find(({ id }) => id === 'custom')?.models).toEqual([
     { id: 'custom/embedding' },
   ])
 })

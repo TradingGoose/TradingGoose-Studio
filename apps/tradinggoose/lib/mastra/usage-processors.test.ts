@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+import './__test-utils__/managed-services'
 import { Agent } from '@mastra/core/agent'
 import type { OutputProcessor } from '@mastra/core/processors'
 import { MastraLanguageModelV2Mock, simulateReadableStream } from '@mastra/core/test-utils/llm-mock'

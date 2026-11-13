@@ -279,7 +279,7 @@ async function* generate(
     const signal = cancellation.signal
     let pending: ServerPending | undefined
     let decision: CopilotDecision | undefined
-    let apiKey: string
+    let apiKey: string | undefined
     if (request.command === 'message') {
       if (request.messageId && !request.threadId)
         throw new NativeTargetError('Editing a message requires its conversation', 422)

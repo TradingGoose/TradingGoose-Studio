@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     const validatedData = VisionAnalyzeSchema.parse(body)
     requestApiKey = validatedData.apiKey
     try {
-      assertListedModel(validatedData.model)
+      await assertListedModel(validatedData.model)
     } catch (error) {
       return NextResponse.json(
         { success: false, error: error instanceof Error ? error.message : 'Select a listed model' },

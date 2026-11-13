@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { managedServices, setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
 import { validateHallucination } from './validate_hallucination'
 
 const native = vi.hoisted(() => ({
@@ -47,6 +48,7 @@ const searchAccounting = {
   embeddingUsage: { status: 'reported', batches: 1 },
 }
 beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'managed-fixture-key' }
   vi.clearAllMocks()
   native.realAgent = false
   native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
@@ -283,16 +285,13 @@ it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provide
   'refuses native-known embedding model %s before generation admission or model contact',
   async (model, provider, modelId) => {
     // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
-    vi.stubEnv(
-      'MASTRA_MODEL_PROVIDERS',
-      JSON.stringify({
-        [provider]: {
-          name: 'Controlled registered provider',
-          url: 'https://not-contacted.invalid',
-          models: [modelId],
-        },
-      })
-    )
+    setManagedProviders({
+      [provider]: {
+        name: 'Controlled registered provider',
+        url: 'https://not-contacted.invalid',
+        models: [modelId],
+      },
+    })
     try {
       const result = await validateHallucination({ ...input, model })
       expect(result).toMatchObject({

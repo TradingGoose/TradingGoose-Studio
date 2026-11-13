@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       )
     const data = schema.parse(await request.json())
     requestKey = data.apiKey
-    const model = assertListedEmbeddingModel(data.model)
+    const model = await assertListedEmbeddingModel(data.model)
     if (model.provider !== 'openai')
       return NextResponse.json(
         { success: false, error: 'Select a listed OpenAI embedding model' },

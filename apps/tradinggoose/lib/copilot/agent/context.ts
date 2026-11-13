@@ -23,7 +23,7 @@ export type CopilotDecision =
 
 export interface CopilotExecution {
   run: CopilotRun
-  model: ReturnType<typeof createConfiguredLanguageModel>
+  model: Awaited<ReturnType<typeof createConfiguredLanguageModel>>
   signal: AbortSignal
   pending?: ServerPending
   decision?: CopilotDecision

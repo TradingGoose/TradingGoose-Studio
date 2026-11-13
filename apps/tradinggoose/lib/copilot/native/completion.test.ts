@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+import '@/lib/mastra/__test-utils__/managed-services'
 import { Agent } from '@mastra/core/agent'
 import { InMemoryStore } from '@mastra/core/storage'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'

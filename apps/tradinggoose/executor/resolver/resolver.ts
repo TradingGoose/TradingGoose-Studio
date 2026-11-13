@@ -1,6 +1,5 @@
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getNativeRegistryModel } from '@/lib/mastra/registry'
 import { VariableManager } from '@/lib/variables/variable-manager'
 import {
   extractEnvironmentReferences,
@@ -74,7 +73,11 @@ export class InputResolver {
   }
 
   /** Resolves condition controllers before processing their active dependent inputs. */
-  resolveInputs(block: SerializedBlock, context: ExecutionContext): Record<string, any> {
+  resolveInputs(
+    block: SerializedBlock,
+    context: ExecutionContext,
+    getModel?: Parameters<typeof evaluateSubBlockCondition>[2]
+  ): Record<string, any> {
     const inputs = { ...block.config.params }
     const subBlocks = block.metadata?.id ? (getBlock(block.metadata.id)?.subBlocks ?? []) : []
     const result: Record<string, any> = {}
@@ -94,7 +97,7 @@ export class InputResolver {
         if (
           !matchingSubBlocks.length ||
           matchingSubBlocks.some((subBlock) =>
-            evaluateSubBlockCondition(subBlock.condition, resolveField, getNativeRegistryModel)
+            evaluateSubBlockCondition(subBlock.condition, resolveField, getModel)
           )
         ) {
           value = this.resolveInputValue(key, inputs[key], block, context)

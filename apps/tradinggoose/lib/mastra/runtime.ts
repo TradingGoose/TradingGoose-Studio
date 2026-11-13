@@ -5,7 +5,6 @@ import { MemoryPG, WorkflowsPG } from '@mastra/pg'
 import { Pool } from 'pg'
 import { createCopilotAgent } from '@/lib/copilot/agent/agent'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getConfiguredGateways } from './connections'
 
 const logger = createLogger('MastraRuntime')
 
@@ -37,7 +36,6 @@ async function createRuntime() {
     const mastra = new Mastra({
       agents: { copilot: copilotAgent },
       storage,
-      gateways: getConfiguredGateways(),
       recovery: { workflows: 'off', durableAgents: 'off' },
     })
     return { storage, memory, mastra }

@@ -16,7 +16,22 @@ const {
   mockResolvedSettings: vi.fn(),
 }))
 
-vi.mock('@/lib/mastra/registry', () => ({ getModelProviders: mockModelProviders }))
+vi.mock('@/lib/mastra/registry', () => ({
+  getModelProviders: async () => mockModelProviders(),
+}))
+vi.mock('@mastra/core/llm', () => ({
+  GatewayRegistry: {
+    getInstance: () => ({
+      getProviders: () =>
+        Object.fromEntries(
+          mockModelProviders().map(({ id, name }: { id: string; name: string }) => [
+            id,
+            { name, models: [] },
+          ])
+        ),
+    }),
+  },
+}))
 vi.mock('@/lib/system-settings/service', () => ({
   getCopilotSettings: async () => (await mockResolvedSettings()).copilot,
 }))
@@ -84,7 +99,7 @@ describe('admin system services', () => {
     })
   })
 
-  it('uses native provider identities without retired provider adapters or endpoint settings', async () => {
+  it('uses native provider identities and managed connection settings without retired adapters', async () => {
     mockResolvedSettings.mockResolvedValue({
       copilot: {
         models: [
@@ -100,8 +115,10 @@ describe('admin system services', () => {
     )
     const snapshot = await listAdminSystemServices()
     expect(snapshot.services.some(({ id }) => id === 'fireworks')).toBe(true)
-    expect(snapshot.services.some(({ id }) => id === 'azure-openai')).toBe(true)
-    expect(getSystemServiceDefinition('azure_openai')).toBeNull()
+    expect(snapshot.services.some(({ id }) => id === 'azure-openai')).toBe(false)
+    expect(snapshot.services.some(({ id }) => id === 'azure_openai')).toBe(true)
+    expect(isSystemServiceSettingKey('azure_openai', 'resourceName')).toBe(true)
+    expect(isSystemServiceSettingKey('ollama', 'baseUrl')).toBe(true)
     expect(isSystemServiceSettingKey('fireworks', 'baseUrl')).toBe(false)
     for (const id of ['openai', 'mistral'])
       expect(snapshot.services.filter((service) => service.id === id)).toHaveLength(1)
@@ -113,7 +130,10 @@ describe('admin system services', () => {
     const { getSystemServiceDefinition } = await import('@/lib/system-services/catalog')
     mockResolvedSettings.mockResolvedValue({
       copilot: {
-        models: getModelProviders().map(({ id }) => ({ provider: id, model: 'selected-model' })),
+        models: (await getModelProviders()).map(({ id }) => ({
+          provider: id,
+          model: 'selected-model',
+        })),
         defaultModel: 'openai/selected-model',
       },
     })
@@ -127,11 +147,12 @@ describe('admin system services', () => {
     const snapshot = await listAdminSystemServices()
     expect(JSON.stringify(snapshot)).not.toContain('stored-private-value')
 
-    for (const { id } of getModelProviders()) {
-      const service = snapshot.services.find((candidate) => candidate.id === id)
+    for (const { id } of await getModelProviders()) {
+      const serviceId = id === 'azure-openai' ? 'azure_openai' : id
+      const service = snapshot.services.find((candidate) => candidate.id === serviceId)
       expect(service?.credentials).toContainEqual(
         expect.objectContaining({
-          key: getSystemServiceDefinition(id)!.credentialFields[0].key,
+          key: getSystemServiceDefinition(serviceId)!.credentialFields[0].key,
           value: '',
           hasValue: id === 'openrouter',
         })

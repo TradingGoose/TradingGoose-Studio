@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+import '@/lib/mastra/__test-utils__/managed-services'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'

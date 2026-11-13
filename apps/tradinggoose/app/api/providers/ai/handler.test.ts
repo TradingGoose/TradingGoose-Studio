@@ -1,3 +1,5 @@
+import { setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
+
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
   createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
@@ -155,16 +157,13 @@ it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provide
   'refuses native-known embedding model %s before generation admission or model contact',
   async (model, provider, modelId) => {
     // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
-    vi.stubEnv(
-      'MASTRA_MODEL_PROVIDERS',
-      JSON.stringify({
-        [provider]: {
-          name: 'Controlled registered provider',
-          url: 'https://not-contacted.invalid',
-          models: [modelId],
-        },
-      })
-    )
+    setManagedProviders({
+      [provider]: {
+        name: 'Controlled registered provider',
+        url: 'https://not-contacted.invalid',
+        models: [modelId],
+      },
+    })
     try {
       await expect(
         handleAIProviderRequest({

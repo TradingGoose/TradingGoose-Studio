@@ -20,7 +20,7 @@ export async function prepareModelRequest(
   const maxSteps = settings.maxSteps ?? NATIVE_AGENT_POLICY.defaultOptions.maxSteps
   const mastra = await getMastra()
   const usage = await usageProcessors(scope)
-  const model = createConfiguredLanguageModel(scope.model, settings.apiKey)
+  const model = await createConfiguredLanguageModel(scope.model, settings.apiKey)
   const options = {
     runId: scope.runId,
     abortSignal: scope.signal,

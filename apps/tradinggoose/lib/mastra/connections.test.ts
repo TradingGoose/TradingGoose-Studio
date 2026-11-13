@@ -1,16 +1,17 @@
 import { Agent } from '@mastra/core/agent'
-import {
-  defaultGateways,
-  ModelRouterEmbeddingModel,
-  ModelRouterLanguageModel,
-} from '@mastra/core/llm'
+import { defaultGateways, ModelRouterEmbeddingModel } from '@mastra/core/llm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  managedServices,
+  setManagedAzure,
+  setManagedProviders,
+} from './__test-utils__/managed-services'
+import {
   createConfiguredLanguageModel,
-  getConfiguredGateways,
   getConfiguredProviders,
   resolveConfiguredModel,
 } from './connections'
+import { safeInferenceError } from './errors'
 import { NATIVE_AGENT_POLICY, parseProviderOptions, trustedModelSettings } from './options'
 import { assertListedModel, getModelRegistry } from './registry'
 
@@ -18,243 +19,266 @@ afterEach(() => {
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
 })
+const endpoint = (models = ['org/exact:model']) => ({
+  name: 'Managed',
+  url: 'http://local.invalid/v1',
+  models,
+})
+const stream = () =>
+  new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } })
 
-describe('configured native connections', () => {
-  it('accepts an exact built-in model through the installed registry', () => {
-    vi.stubEnv('MASTRA_MODEL_PROVIDERS', '{}')
-    expect(() => assertListedModel('openai/gpt-4o')).not.toThrow()
-  })
-
-  it.each(['unknown', 'constructor', 'toString', 'hasOwnProperty'])(
-    'rejects the unlisted %s provider through the installed registry',
-    (providerId) => {
-      vi.stubEnv('MASTRA_MODEL_PROVIDERS', '{}')
-      expect(() => assertListedModel(`${providerId}/missing`)).toThrowError(
-        expect.objectContaining({
-          status: 400,
-          message: expect.stringContaining('Select a listed provider/model'),
-        })
+describe('DB-managed native connections', () => {
+  it.each(['github', 'resend', 'e2b'])(
+    'rejects a custom provider using the unrelated %s service identity before reading its key',
+    async (id) => {
+      setManagedProviders({ [id]: endpoint() })
+      managedServices.credentials[id] = { apiKey: 'unrelated-secret', token: 'unrelated-token' }
+      await expect(resolveConfiguredModel(`${id}/org/exact:model`)).rejects.toThrow(
+        'non-model System Service'
       )
+      expect(managedServices.readConfig).not.toHaveBeenCalled()
+      expect(managedServices.decrypt).not.toHaveBeenCalled()
     }
   )
-
-  it('accepts an explicitly configured constructor provider with exact membership', () => {
-    vi.stubEnv(
-      'MASTRA_MODEL_PROVIDERS',
-      JSON.stringify({
-        constructor: {
-          name: 'Constructor',
-          url: 'http://local.invalid/v1',
-          models: ['listed'],
-        },
-      })
+  it('retains the native provider service as its credential owner', async () => {
+    setManagedProviders({ mistral: endpoint() })
+    managedServices.credentials.mistral = { apiKey: 'managed-model-key' }
+    expect((await resolveConfiguredModel('mistral/org/exact:model')).apiKey).toBe(
+      'managed-model-key'
     )
-    expect(() => assertListedModel('constructor/listed')).not.toThrow()
-    expect(() => assertListedModel('constructor/missing')).toThrowError(
-      expect.objectContaining({ status: 400 })
+  })
+  it.each([
+    'private-token-not-json',
+    '{"local":"private-token"',
+    '{"local":{"key":"private-token"}}',
+  ])('keeps malformed managed key bundles out of inference errors: %s', async (apiKeys) => {
+    setManagedProviders({ local: endpoint() })
+    managedServices.credentials.mastra_model_providers = { apiKeys }
+    const error = await resolveConfiguredModel('local/org/exact:model').catch((error) => error)
+    expect(safeInferenceError(error)).toBe(
+      'Managed model API keys must be a JSON object of provider IDs and keys in System Services'
     )
-    expect(getModelRegistry().find(({ id }) => id === 'constructor')).toMatchObject({
-      name: 'Constructor',
-      models: [{ id: 'constructor/listed' }],
-    })
-    expect(resolveConfiguredModel('constructor/listed')).toMatchObject({
+    expect(safeInferenceError(error)).not.toContain('private-token')
+  })
+  it('lists built-in identities without loading or exposing credentials', async () => {
+    await expect(assertListedModel('openai/gpt-4o')).resolves.toBeUndefined()
+    expect(await getModelRegistry()).not.toHaveLength(0)
+    expect(managedServices.readConfig).not.toHaveBeenCalled()
+    expect(managedServices.decrypt).not.toHaveBeenCalled()
+  })
+  it.each(['unknown', 'constructor', 'toString', 'hasOwnProperty'])(
+    'rejects unlisted %s membership',
+    async (provider) => {
+      await expect(assertListedModel(`${provider}/missing`)).rejects.toMatchObject({ status: 400 })
+    }
+  )
+  it('accepts exact explicitly managed prototype-like identities', async () => {
+    setManagedProviders({ constructor: endpoint(['listed']) })
+    await expect(assertListedModel('constructor/listed')).resolves.toBeUndefined()
+    await expect(assertListedModel('constructor/missing')).rejects.toMatchObject({ status: 400 })
+    expect(await resolveConfiguredModel('constructor/listed', 'request-key')).toMatchObject({
       providerId: 'constructor',
       modelId: 'listed',
       url: 'http://local.invalid/v1',
+      apiKey: 'request-key',
     })
   })
-
   it.each(defaultGateways.map(({ id }) => id))(
-    'rejects the native gateway ID %s at configured-provider admission',
-    (provider) => {
-      vi.stubEnv(
-        'MASTRA_MODEL_PROVIDERS',
-        JSON.stringify({
-          [provider]: {
-            name: 'Configured endpoint',
-            url: 'http://local.invalid/v1',
-            models: ['org/exact:model'],
-          },
-        })
-      )
-      const fetcher = vi.fn()
-      vi.stubGlobal('fetch', fetcher)
-      for (const admit of [
-        getConfiguredProviders,
-        getModelRegistry,
-        () => assertListedModel(`${provider}/org/exact:model`),
-        () => createConfiguredLanguageModel(`${provider}/org/exact:model`, 'caller-key'),
-      ]) {
-        expect(admit).toThrow(
-          `Invalid MASTRA_MODEL_PROVIDERS provider "${provider}": the ID is reserved by a native Mastra gateway. Choose a distinct provider ID.`
-        )
-      }
-      expect(fetcher).not.toHaveBeenCalled()
+    'rejects reserved gateway %s before model contact',
+    async (provider) => {
+      setManagedProviders({ [provider]: endpoint() })
+      vi.stubGlobal('fetch', vi.fn())
+      await expect(getConfiguredProviders()).rejects.toThrow('reserved')
+      await expect(
+        createConfiguredLanguageModel(`${provider}/org/exact:model`, 'caller-key')
+      ).rejects.toThrow('reserved')
+      expect(fetch).not.toHaveBeenCalled()
     }
   )
-
-  it.each([
-    { provider: 'local', modelId: 'org/exact:model' },
-    { provider: 'ollama', modelId: 'org/exact:model' },
-    { provider: 'vllm', modelId: 'org/exact:model' },
-    { provider: 'openai', modelId: 'gpt-4.1' },
-  ])(
-    'preserves configured $provider/$modelId identity and sampling through native routing',
-    async ({ provider, modelId }) => {
-      vi.stubEnv(
-        'MASTRA_MODEL_PROVIDERS',
-        JSON.stringify({
-          [provider]: {
-            name: 'Local',
-            url: 'http://local.invalid/v1',
-            models: [modelId],
-            apiKeyEnvVar: ['LOCAL_KEY'],
-          },
-        })
+  it.each(['local', 'ollama', 'vllm', 'openai'])(
+    'preserves exact %s identity, native sampling and BYOK precedence',
+    async (provider) => {
+      const modelId = provider === 'openai' ? 'gpt-4.1' : 'org/exact:model'
+      if (provider === 'ollama' || provider === 'vllm') {
+        managedServices.settings[provider] = {
+          baseUrl: 'http://local.invalid/v1',
+          models: JSON.stringify([modelId]),
+        }
+        managedServices.credentials[provider] = { apiKey: 'managed-key' }
+      } else setManagedProviders({ [provider]: endpoint([modelId]) })
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => stream())
       )
-      vi.stubEnv('LOCAL_KEY', 'server-key')
-      const fetcher = vi.fn(
-        async () =>
-          new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } })
-      )
-      vi.stubGlobal('fetch', fetcher)
-      assertListedModel(`${provider}/${modelId}`)
-      expect(() => assertListedModel(`${provider}/unlisted`)).toThrow('Select a listed')
-      const registry = getModelRegistry().find(({ id }) => id === provider)!
-      expect(registry.models.map(({ id }) => id)).toEqual([`${provider}/${modelId}`])
-      expect(JSON.stringify(registry)).not.toMatch(/local.invalid|server-key|LOCAL_KEY/)
-      const native = createConfiguredLanguageModel(`${provider}/${modelId}`, 'caller-key')
-      await native.doStream({
+      await assertListedModel(`${provider}/${modelId}`)
+      await expect(assertListedModel(`${provider}/unlisted`)).rejects.toThrow('Select a listed')
+      const metadata = (await getModelRegistry()).find(({ id }) => id === provider)!
+      expect(metadata.models).toEqual([{ id: `${provider}/${modelId}` }])
+      expect(JSON.stringify(metadata)).not.toMatch(/local.invalid|managed-key|apiKey|headers/)
+      const model = await createConfiguredLanguageModel(`${provider}/${modelId}`, 'caller-key')
+      await model.doStream({
         prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
         temperature: 0.65,
         topP: 0.8,
       })
-      const [url, request] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
+      const [url, init] = vi.mocked(fetch).mock.calls[0]
       expect(String(url)).toBe('http://local.invalid/v1/chat/completions')
-      expect(JSON.parse(request.body as string)).toMatchObject({
+      expect(JSON.parse(String(init!.body))).toMatchObject({
         model: modelId,
         temperature: 0.65,
         top_p: 0.8,
       })
-      expect(new Headers(request.headers).get('authorization')).toBe('Bearer caller-key')
-      expect(process.env.LOCAL_KEY).toBe('server-key')
+      expect(new Headers(init!.headers).get('authorization')).toBe('Bearer caller-key')
+      expect(managedServices.readConfig).not.toHaveBeenCalled()
     }
   )
-
   it.each(['custom-chat', 'org/exact:model', 'gpt-5'])(
-    'rejects configured openai/%s when native sampling metadata would strip controls',
-    (modelId) => {
-      vi.stubEnv(
-        'MASTRA_MODEL_PROVIDERS',
-        JSON.stringify({
-          openai: { name: 'Configured', url: 'http://local.invalid/v1', models: [modelId] },
-        })
+    'rejects sampling-incompatible openai/%s configuration',
+    async (modelId) => {
+      setManagedProviders({ openai: endpoint([modelId]) })
+      await expect(createConfiguredLanguageModel(`openai/${modelId}`, 'key')).rejects.toThrow(
+        'Choose a distinct managed provider ID'
       )
-      const fetcher = vi.fn()
-      vi.stubGlobal('fetch', fetcher)
-      expect(() => createConfiguredLanguageModel(`openai/${modelId}`, 'caller-key')).toThrow(
-        'Choose a distinct MASTRA_MODEL_PROVIDERS provider ID'
-      )
-      expect(fetcher).not.toHaveBeenCalled()
     }
   )
-
-  it('retains native sampling policy for a built-in model without a configured endpoint', async () => {
-    vi.stubEnv('MASTRA_MODEL_PROVIDERS', '{}')
-    vi.stubEnv('MASTRA_AZURE_OPENAI', '')
-    const fetcher = vi.fn(
-      async () =>
-        new Response('data: [DONE]\n\n', {
-          headers: { 'content-type': 'text/event-stream' },
-        })
+  it('keeps the native built-in sampling policy without a configured override', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => stream())
     )
-    vi.stubGlobal('fetch', fetcher)
-    await createConfiguredLanguageModel('openai/gpt-5', 'caller-key').doStream({
+    const model = await createConfiguredLanguageModel('openai/gpt-5', 'caller-key')
+    await model.doStream({
       prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
       temperature: 0.65,
       topP: 0.8,
     })
-    const [, request] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
-    const body = JSON.parse(request.body as string)
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]!.body))
     expect(body.model).toBe('gpt-5')
     expect(body).not.toHaveProperty('temperature')
     expect(body).not.toHaveProperty('top_p')
   })
-
-  it('uses the native Azure gateway and exact configured deployment with a local key override', async () => {
+  it('reads rotated DB keys without caching or provider environment fallback', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'poison-env')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => stream())
+    )
+    await expect(createConfiguredLanguageModel('openai/gpt-4.1')).rejects.toThrow(
+      'not configured in System Services'
+    )
+    expect(fetch).not.toHaveBeenCalled()
+    for (const key of ['first-key', 'rotated-key']) {
+      managedServices.credentials.openai = { defaultApiKey: key }
+      const model = await createConfiguredLanguageModel('openai/gpt-4.1')
+      await model.doStream({
+        prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+      })
+    }
+    expect(
+      vi.mocked(fetch).mock.calls.map(([, init]) => new Headers(init!.headers).get('authorization'))
+    ).toEqual(['Bearer first-key', 'Bearer rotated-key'])
+    vi.stubEnv('MASTRA_MODEL_PROVIDERS', JSON.stringify({ poison: endpoint() }))
     vi.stubEnv(
       'MASTRA_AZURE_OPENAI',
-      JSON.stringify({
-        resourceName: 'fixture-resource',
-        apiKey: 'server-key',
-        deployments: ['exact-deployment'],
-      })
+      JSON.stringify({ resourceName: 'poison', apiKey: 'poison', deployments: ['poison'] })
     )
-    const gateways = getConfiguredGateways()
-    expect((await gateways['azure-openai'].fetchProviders())['azure-openai'].models).toEqual([
-      'exact-deployment',
-    ])
-    expect(
-      getModelRegistry()
-        .find(({ id }) => id === 'azure-openai')!
-        .models.map(({ id }) => id)
-    ).toEqual(['azure-openai/exact-deployment'])
-    assertListedModel('azure-openai/exact-deployment')
-    expect(() => assertListedModel('azure-openai/wrong')).toThrow('Select a listed')
-    const fetcher = vi.fn(
-      async () =>
-        new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } })
-    )
-    vi.stubGlobal('fetch', fetcher)
-    const native = new ModelRouterLanguageModel(
-      resolveConfiguredModel('azure-openai/exact-deployment', 'caller-key'),
-      Object.values(gateways)
-    )
-    await native.doStream({
-      prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
-    })
-    const [url, request] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
-    expect(String(url)).toContain('fixture-resource.openai.azure.com')
-    expect(String(url)).toContain('exact-deployment')
-    expect(new Headers(request.headers).get('api-key')).toBe('caller-key')
+    expect(await getConfiguredProviders()).toEqual({})
   })
+  it('uses encrypted custom keys, while public registry metadata never decrypts them', async () => {
+    setManagedProviders({ local: endpoint() })
+    managedServices.credentials.mastra_model_providers = {
+      apiKeys: JSON.stringify({ local: 'managed-secret' }),
+    }
+    await getModelRegistry()
+    expect(managedServices.decrypt).not.toHaveBeenCalled()
+    expect((await resolveConfiguredModel('local/org/exact:model')).apiKey).toBe('managed-secret')
+    expect(managedServices.decrypt).toHaveBeenCalledOnce()
+  })
+  it.each(['ollama', 'vllm'])(
+    'allows a keyless managed %s endpoint without inheriting an environment key',
+    async (provider) => {
+      managedServices.settings[provider] = {
+        baseUrl: 'http://local.invalid/v1',
+        models: JSON.stringify(['exact']),
+      }
+      vi.stubEnv('OPENAI_API_KEY', 'poison')
+      const config = await resolveConfiguredModel(`${provider}/exact`)
+      expect(config.apiKey).toBe('')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => stream())
+      )
+      await (await createConfiguredLanguageModel(`${provider}/exact`)).doStream({
+        prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+      })
+      expect(
+        new Headers(vi.mocked(fetch).mock.calls[0][1]!.headers).get('authorization') ?? ''
+      ).not.toContain('poison')
+    }
+  )
+  it('uses the native Azure gateway, fresh managed key and request-local override', async () => {
+    setManagedAzure({
+      resourceName: 'fixture-resource',
+      deployments: ['exact-deployment'],
+      apiKey: 'managed-key',
+    })
+    await assertListedModel('azure-openai/exact-deployment')
+    await expect(assertListedModel('azure-openai/wrong')).rejects.toThrow('Select a listed')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => stream())
+    )
+    for (const key of ['caller-key', undefined]) {
+      const model = await createConfiguredLanguageModel('azure-openai/exact-deployment', key)
+      await model.doStream({
+        prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+      })
+    }
+    const calls = vi.mocked(fetch).mock.calls
+    expect(String(calls[0][0])).toContain('fixture-resource.openai.azure.com')
+    expect(String(calls[0][0])).toContain('exact-deployment')
+    expect(new Headers(calls[0][1]!.headers).get('api-key')).toBe('caller-key')
+    expect(new Headers(calls[1][1]!.headers).get('api-key')).toBe('managed-key')
+  })
+  it('ignores an unconfigured local default URL and rejects conflicting ownership/plaintext key fields', async () => {
+    managedServices.settings.ollama = { baseUrl: 'http://localhost:11434/v1' }
+    expect(await getConfiguredProviders()).toEqual({})
+    setManagedProviders({ ollama: endpoint() })
+    await expect(getConfiguredProviders()).rejects.toThrow('own System Service')
+    setManagedProviders({ local: { ...endpoint(), apiKey: 'plaintext' } })
+    await expect(getConfiguredProviders()).rejects.toThrow()
+  })
+  it.each(['local', 'openai'])(
+    'keeps exact managed %s embeddings on the native embedding lane',
+    async (provider) => {
+      setManagedProviders({ [provider]: endpoint(['org/embed']) })
+      if (provider === 'openai')
+        managedServices.credentials.openai = { defaultApiKey: 'server-key' }
+      else
+        managedServices.credentials.mastra_model_providers = {
+          apiKeys: JSON.stringify({ local: 'server-key' }),
+        }
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () =>
+          Response.json({
+            data: [{ index: 0, embedding: [1, 2] }],
+            usage: { prompt_tokens: 7, total_tokens: 7 },
+          })
+        )
+      )
+      const model = new ModelRouterEmbeddingModel(
+        await resolveConfiguredModel(`${provider}/org/embed`)
+      )
+      const result = await model.doEmbed({ values: ['hello'] })
+      expect(result.embeddings).toEqual([[1, 2]])
+      expect(String(vi.mocked(fetch).mock.calls[0][0])).toBe('http://local.invalid/v1/embeddings')
+      expect(new Headers(vi.mocked(fetch).mock.calls[0][1]!.headers).get('authorization')).toBe(
+        'Bearer server-key'
+      )
+    }
+  )
 })
-
-it.each([
-  { provider: 'local', modelId: 'org/embed' },
-  { provider: 'openai', modelId: 'text-embedding-3-small' },
-])(
-  'keeps configured $provider/$modelId in the separate native embedding lane',
-  async ({ provider, modelId }) => {
-    vi.stubEnv(
-      'MASTRA_MODEL_PROVIDERS',
-      JSON.stringify({
-        [provider]: {
-          name: 'Local',
-          url: 'http://local.invalid/v1',
-          models: [modelId],
-          apiKeyEnvVar: ['LOCAL_KEY'],
-        },
-      })
-    )
-    vi.stubEnv('LOCAL_KEY', 'server-key')
-    const fetcher = vi.fn(async () =>
-      Response.json({
-        data: [{ index: 0, embedding: [1, 2] }],
-        usage: { prompt_tokens: 7, total_tokens: 7 },
-      })
-    )
-    vi.stubGlobal('fetch', fetcher)
-    const native = new ModelRouterEmbeddingModel(resolveConfiguredModel(`${provider}/${modelId}`))
-    const result = await native.doEmbed({ values: ['hello'] })
-    expect(result.embeddings).toEqual([[1, 2]])
-    expect(result.usage?.tokens).toBe(7)
-    const [url, request] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
-    expect(String(url)).toBe('http://local.invalid/v1/embeddings')
-    expect(JSON.parse(request.body as string).model).toBe(modelId)
-    expect(new Headers(request.headers).get('authorization')).toBe('Bearer server-key')
-  }
-)
 
 it.each([
   {
@@ -290,8 +314,6 @@ it.each([
     omitted: [],
   },
 ])('forwards native generation options through Agent and router for $model', async (fixture) => {
-  vi.stubEnv('MASTRA_MODEL_PROVIDERS', '{}')
-  vi.stubEnv('MASTRA_AZURE_OPENAI', '')
   const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     expect(String(input)).toBe(fixture.url)
     const body = JSON.parse(init!.body as string)
@@ -334,7 +356,7 @@ it.each([
     id: 'native-provider-options',
     name: 'Native provider options',
     instructions: 'Reply briefly',
-    model: createConfiguredLanguageModel(fixture.model, 'request-key'),
+    model: await createConfiguredLanguageModel(fixture.model, 'request-key'),
   })
   const result = await agent.generate('Hello', {
     providerOptions: parseProviderOptions(fixture.providerOptions),

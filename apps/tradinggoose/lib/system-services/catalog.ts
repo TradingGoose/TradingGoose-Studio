@@ -1,5 +1,5 @@
+import { GatewayRegistry } from '@mastra/core/llm'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
-import { getModelProviders } from '@/lib/mastra/registry'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
 
@@ -40,6 +40,114 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
       },
     ],
     settingFields: [],
+  },
+  {
+    id: 'azure_openai',
+    displayName: 'Azure OpenAI',
+    description: 'Managed Azure OpenAI connection for native Mastra model requests.',
+    credentialFields: [
+      { key: 'apiKey', label: 'API Key', description: 'Azure OpenAI resource API key.' },
+    ],
+    settingFields: [
+      {
+        key: 'resourceName',
+        label: 'Resource Name',
+        description: 'Azure OpenAI resource name used by the native Mastra gateway.',
+        type: 'text',
+      },
+      {
+        key: 'apiVersion',
+        label: 'API Version',
+        description: 'Optional Azure API version; leave empty to use the native gateway default.',
+        type: 'text',
+        required: false,
+      },
+      {
+        key: 'deployments',
+        label: 'Deployments',
+        description: 'JSON array of exact Azure deployment IDs, for example ["chat-deployment"].',
+        type: 'text',
+      },
+    ],
+  },
+  {
+    id: 'ollama',
+    displayName: 'Ollama',
+    description: 'Managed OpenAI-compatible Ollama connection for native Mastra model requests.',
+    credentialFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        description: 'Optional bearer token for the configured Ollama endpoint.',
+        required: false,
+      },
+    ],
+    settingFields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        description: 'Full OpenAI-compatible API base URL, including /v1.',
+        type: 'url',
+        defaultValue: 'http://localhost:11434/v1',
+      },
+      {
+        key: 'models',
+        label: 'Models',
+        description: 'JSON array of exact model IDs, for example ["llama3.2"].',
+        type: 'text',
+      },
+    ],
+  },
+  {
+    id: 'vllm',
+    displayName: 'vLLM',
+    description: 'Managed OpenAI-compatible vLLM connection for native Mastra model requests.',
+    credentialFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        description: 'Optional bearer token for the configured vLLM endpoint.',
+        required: false,
+      },
+    ],
+    settingFields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        description: 'Full OpenAI-compatible API base URL, including /v1.',
+        type: 'url',
+      },
+      {
+        key: 'models',
+        label: 'Models',
+        description: 'JSON array of exact model IDs, for example ["org/exact:model"].',
+        type: 'text',
+      },
+    ],
+  },
+  {
+    id: 'mastra_model_providers',
+    displayName: 'Mastra Model Providers',
+    description: 'Additional managed OpenAI-compatible providers for native Mastra routing.',
+    credentialFields: [
+      {
+        key: 'apiKeys',
+        label: 'Provider API Keys',
+        description:
+          'Encrypted JSON object mapping custom provider IDs to API keys. Providers with their own system service use that service credential.',
+        required: false,
+      },
+    ],
+    settingFields: [
+      {
+        key: 'providers',
+        label: 'Providers',
+        description:
+          'JSON object keyed by provider ID, with name, url and exact models. Credentials belong in Provider API Keys, never in this setting.',
+        type: 'text',
+        required: false,
+      },
+    ],
   },
   {
     id: 'serper',
@@ -303,8 +411,9 @@ const SYSTEM_SERVICE_DEFINITIONS_BY_ID = new Map(
 export function getSystemServiceDefinitions(): SystemServiceDefinition[] {
   return [
     ...SYSTEM_SERVICE_DEFINITIONS,
-    ...getModelProviders()
-      .filter(({ id }) => !SYSTEM_SERVICE_DEFINITIONS_BY_ID.has(id))
+    ...Object.entries(GatewayRegistry.getInstance().getProviders())
+      .map(([id, { name }]) => ({ id, name }))
+      .filter(({ id }) => id !== 'azure-openai' && !SYSTEM_SERVICE_DEFINITIONS_BY_ID.has(id))
       .map(({ id, name }) => ({
         id,
         displayName: name,

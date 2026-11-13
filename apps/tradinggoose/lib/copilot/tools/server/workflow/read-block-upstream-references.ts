@@ -10,6 +10,7 @@ import {
   readWorkflowVariableOutputs,
 } from '@/lib/copilot/workflow/block-output-utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getNativeModelLookup } from '@/lib/mastra/registry'
 import { getLoopContextId } from '@/lib/workflows/references'
 import type { Loop, Parallel } from '@/stores/workflows/workflow/types'
 
@@ -38,6 +39,7 @@ export const readBlockUpstreamReferencesServerTool: BaseServerTool<
     const subBlockValues = extractSubBlockValuesFromBlocks(blocks)
     const ctx = { blocks, subBlockValues }
     const variableOutputs = readWorkflowVariableOutputs(variables)
+    const getModel = await getNativeModelLookup()
     const graphEdges = edges.map((edge) => ({ source: edge.source, target: edge.target }))
     const results: ReadBlockUpstreamReferencesResultType['results'] = []
 
@@ -125,9 +127,9 @@ export const readBlockUpstreamReferencesServerTool: BaseServerTool<
           accessContext = isInside ? 'inside' : 'outside'
           outputs = isInside
             ? getSubflowInsideOutputReferences(block.type, accessibleBlockId, loops, parallels)
-            : computeBlockOutputReferences(block, ctx, variableOutputs)
+            : computeBlockOutputReferences(block, ctx, variableOutputs, getModel)
         } else {
-          outputs = computeBlockOutputReferences(block, ctx, variableOutputs)
+          outputs = computeBlockOutputReferences(block, ctx, variableOutputs, getModel)
         }
 
         const entry: ReadBlockUpstreamReferencesResultType['results'][0]['accessibleBlocks'][0] = {

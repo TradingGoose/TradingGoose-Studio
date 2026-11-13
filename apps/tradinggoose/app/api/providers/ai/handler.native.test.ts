@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { afterEach, expect, it, vi } from 'vitest'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
 import { POST } from '../route'
 
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
@@ -27,7 +28,8 @@ it.each([401, 429, 500])(
   async (status) => {
     const credential = 'fixture-upstream-private-credential'
     const privateRequest = 'fixture-private-request-value'
-    vi.stubEnv('OPENAI_API_KEY', credential)
+    managedServices.credentials.openai = { defaultApiKey: credential }
+    vi.stubEnv('OPENAI_API_KEY', 'ignored-environment-credential')
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const fetcher = vi.fn(async () =>
       Response.json(

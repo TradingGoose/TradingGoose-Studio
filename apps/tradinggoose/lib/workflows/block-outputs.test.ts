@@ -1,5 +1,7 @@
+import '@/lib/mastra/__test-utils__/managed-services'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { computeBlockOutputReferences } from '@/lib/copilot/workflow/block-output-utils'
+import { getNativeModelLookup } from '@/lib/mastra/registry'
 import { getBlock } from '@/blocks'
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { TradingPortfolioDetailBlock } from '@/blocks/blocks/portfolio_detail'
@@ -77,7 +79,7 @@ describe('block output schema traversal', () => {
     ['openai/gpt-3.5-turbo', false],
   ] as const)(
     'uses native capabilities for Copilot references to %s without browser state',
-    (model, supported) => {
+    async (model, supported) => {
       vi.mocked(getBlock).mockReturnValue(AgentBlock)
       useModelRegistry.setState({ providers: [] })
       const block = {
@@ -86,10 +88,12 @@ describe('block output schema traversal', () => {
         name: 'Agent',
         subBlocks: { model: { value: model }, responseFormat: { value: schema } },
       } as unknown as BlockState
-      const outputs = computeBlockOutputReferences(block, {
-        blocks: { agent: block },
-        subBlockValues: {},
-      })
+      const outputs = computeBlockOutputReferences(
+        block,
+        { blocks: { agent: block }, subBlockValues: {} },
+        [],
+        await getNativeModelLookup()
+      )
       expect(outputs.some(({ path }) => path === 'agent.answer')).toBe(supported)
       expect(outputs.some(({ path }) => path === 'agent.content')).toBe(!supported)
     }

@@ -45,7 +45,7 @@ export async function calculateNativeCost(
   const separator = model.indexOf('/')
   const provider = model.slice(0, separator)
   // A custom endpoint cannot inherit another provider's published prices.
-  if (separator < 1 || getConfiguredProviders()[provider]) return { status: 'unavailable' }
+  if (separator < 1 || (await getConfiguredProviders())[provider]) return { status: 'unavailable' }
   const listed = providers[provider]?.models[model.slice(separator + 1)]
   const pricing = listed?.cost
   if (!pricing) return { status: 'unavailable' }

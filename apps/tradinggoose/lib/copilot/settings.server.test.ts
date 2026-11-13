@@ -2,21 +2,40 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { type CopilotSettings, DEFAULT_COPILOT_SETTINGS } from './settings'
 
-const { mockGetResolvedSystemSettings, mockResolveSystemServiceConfig } = vi.hoisted(() => ({
+const {
+  mockGetResolvedSystemSettings,
+  mockResolveSystemServiceConfig,
+  mockResolveSystemServiceSettingsConfig,
+} = vi.hoisted(() => ({
   mockGetResolvedSystemSettings: vi.fn(),
   mockResolveSystemServiceConfig: vi.fn(),
+  mockResolveSystemServiceSettingsConfig: vi.fn(),
 }))
 
-vi.mock('@/lib/mastra/registry', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/mastra/registry')>()),
-  getModelProviders: () => [
-    { id: 'openai', name: 'OpenAI' },
-    { id: 'google', name: 'Google' },
-    { id: 'anthropic', name: 'Anthropic' },
-    { id: 'openrouter', name: 'OpenRouter' },
-    { id: 'new-native-provider', name: 'New Native Provider' },
-  ],
-}))
+vi.mock('@/lib/system-services/catalog', async (importOriginal) => {
+  const catalog = await importOriginal<typeof import('@/lib/system-services/catalog')>()
+  return {
+    ...catalog,
+    getSystemServiceDefinition: (id: string) =>
+      id === 'new-native-provider'
+        ? { id, credentialFields: [{ key: 'apiKey' }] }
+        : catalog.getSystemServiceDefinition(id),
+  }
+})
+vi.mock('@mastra/core/llm', async (importOriginal) => {
+  const native = await importOriginal<typeof import('@mastra/core/llm')>()
+  return {
+    ...native,
+    GatewayRegistry: {
+      getInstance: () => ({
+        getProviders: () => ({
+          ...native.GatewayRegistry.getInstance().getProviders(),
+          'new-native-provider': { name: 'New Native Provider', models: [] },
+        }),
+      }),
+    },
+  }
+})
 vi.mock('@opencode-ai/models/snapshot', () => ({
   providers: {
     openai: {
@@ -37,8 +56,10 @@ vi.mock('@/lib/system-settings/service', () => ({
 }))
 vi.mock('@/lib/system-services/service', () => ({
   resolveSystemServiceConfig: mockResolveSystemServiceConfig,
+  resolveSystemServiceSettingsConfig: mockResolveSystemServiceSettingsConfig,
 }))
 
+import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { getPublicCopilotModels, resolveCopilotModel } from './settings.server'
 
 const configured: CopilotSettings = {
@@ -54,7 +75,26 @@ describe('server Copilot settings', () => {
     vi.clearAllMocks()
     mockGetResolvedSystemSettings.mockResolvedValue({ copilot: configured })
     mockResolveSystemServiceConfig.mockResolvedValue({ defaultApiKey: 'openai-key' })
+    mockResolveSystemServiceSettingsConfig.mockResolvedValue({})
   })
+
+  it.each(['ollama', 'vllm'])(
+    'preserves managed keyless %s through request-owned native preparation',
+    async (provider) => {
+      const model = `${provider}/org/exact:model`
+      mockGetResolvedSystemSettings.mockResolvedValue({
+        copilot: { models: [{ provider, model: 'org/exact:model' }], defaultModel: model },
+      })
+      mockResolveSystemServiceSettingsConfig.mockImplementation(async (id: string) =>
+        id === provider ? { baseUrl: 'http://local.invalid/v1', models: '["org/exact:model"]' } : {}
+      )
+      mockResolveSystemServiceConfig.mockResolvedValue({})
+      const selected = await resolveCopilotModel()
+      expect(selected).toEqual({ model, apiKey: undefined })
+      const native = await createConfiguredLanguageModel(selected.model, selected.apiKey)
+      expect(native.modelId).toBe('org/exact:model')
+    }
+  )
 
   it('resolves the configured default with the existing OpenAI credential', async () => {
     await expect(resolveCopilotModel()).resolves.toEqual({
@@ -176,7 +216,7 @@ describe('server Copilot settings', () => {
     mockResolveSystemServiceConfig.mockResolvedValue({})
     await expect(resolveCopilotModel()).rejects.toMatchObject({
       status: 409,
-      message: 'The system API key for the selected Copilot model is not configured',
+      message: 'The system connection for the selected Copilot model is not configured',
     })
   })
 
