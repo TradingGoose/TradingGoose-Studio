@@ -9,9 +9,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 /** Maximum sleep duration in seconds (3 minutes) */
 const MAX_SLEEP_SECONDS = 180
 
-/** Track sleep start times for calculating elapsed time on wake */
-const sleepStartTimes: Record<string, number> = {}
-
 interface SleepArgs {
   seconds?: number
 }
@@ -42,7 +39,6 @@ export class SleepClientTool extends BaseClientTool {
       [ClientToolCallState.error]: { text: 'Sleep interrupted', icon: XCircle },
       [ClientToolCallState.rejected]: { text: 'Sleep skipped', icon: MinusCircle },
       [ClientToolCallState.aborted]: { text: 'Sleep aborted', icon: MinusCircle },
-      [ClientToolCallState.background]: { text: 'Resumed', icon: Moon },
     },
     getDynamicText: (params, state) => {
       const seconds = params?.seconds
@@ -62,32 +58,10 @@ export class SleepClientTool extends BaseClientTool {
             return `Skipped sleeping for ${displayTime}`
           case ClientToolCallState.aborted:
             return `Aborted sleeping for ${displayTime}`
-          case ClientToolCallState.background: {
-            // Calculate elapsed time from when sleep started
-            const elapsedSeconds = params?._elapsedSeconds
-            if (typeof elapsedSeconds === 'number' && elapsedSeconds > 0) {
-              return `Resumed after ${formatDuration(Math.round(elapsedSeconds))}`
-            }
-            return 'Resumed early'
-          }
         }
       }
       return undefined
     },
-  }
-
-  /**
-   * Get elapsed seconds since sleep started
-   */
-  getElapsedSeconds(): number {
-    const startTime = sleepStartTimes[this.toolCallId]
-    if (!startTime) return 0
-    return (Date.now() - startTime) / 1000
-  }
-
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
   }
 
   async handleAccept(args?: SleepArgs): Promise<void> {
@@ -111,9 +85,6 @@ export class SleepClientTool extends BaseClientTool {
       if (seconds > MAX_SLEEP_SECONDS) seconds = MAX_SLEEP_SECONDS
 
       logger.debug('Starting sleep', { seconds })
-
-      // Track start time for elapsed calculation
-      sleepStartTimes[this.toolCallId] = Date.now()
 
       this.setState(ClientToolCallState.executing)
 
@@ -145,9 +116,6 @@ export class SleepClientTool extends BaseClientTool {
         logger.error('Sleep failed', { error: message })
         this.setState(ClientToolCallState.error)
         this.fail(message)
-      } finally {
-        // Clean up start time tracking
-        delete sleepStartTimes[this.toolCallId]
       }
     }, timeoutMs)
   }

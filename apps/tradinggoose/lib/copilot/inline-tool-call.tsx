@@ -7,7 +7,6 @@ import { DashboardLayoutPreviewCanvas } from '@/components/dashboard-layout-prev
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { Button } from '@/components/ui/button'
 import { DiffViewer } from '@/components/ui/diff-viewer'
-import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import { parseEntityDocument } from '@/lib/copilot/entity-documents'
 import { isToolId } from '@/lib/copilot/registry'
 import { ToolAccessChoice } from '@/lib/copilot/tool-access-choice'
@@ -171,14 +170,8 @@ function redactUrlQuery(value: unknown): string {
 
 function splitActionVerb(text: string): [string | null, string] {
   for (const verb of ACTION_VERBS) {
-    if (text.startsWith(`${verb} `)) {
+    if (text === verb || text.startsWith(`${verb} `)) {
       return [verb, text.slice(verb.length)]
-    }
-    if (text === verb || text.startsWith(verb)) {
-      const afterVerb = text.slice(verb.length)
-      if (afterVerb === '' || afterVerb.startsWith(' ')) {
-        return [verb, afterVerb]
-      }
     }
   }
   return [null, text]
@@ -238,10 +231,7 @@ function ShimmerOverlayText({
   )
 }
 
-function shouldShowToolActionButtons(
-  toolCall: CopilotToolCall,
-  _accessLevel: CopilotAccessLevel
-): boolean {
+function shouldShowToolActionButtons(toolCall: CopilotToolCall): boolean {
   if (!isToolId(toolCall.name)) {
     return false
   }
@@ -449,19 +439,6 @@ function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPay
     addedEdgesCount,
     removedEdgesCount,
   }
-}
-
-function getDisplayName(toolCall: CopilotToolCall): string {
-  // Prefer display resolved in the copilot store (SSOT) for client tools
-  const fromStore = (toolCall as any).display?.text
-  if (fromStore) return fromStore
-
-  try {
-    const byState = getCopilotToolMetadata(toolCall.name)?.displayNames?.[toolCall.state]
-    if (byState?.text) return byState.text
-  } catch {}
-
-  return toolCall.name
 }
 
 function ToolActionButtons({
@@ -692,24 +669,18 @@ export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToo
     toolCallId ? s.toolCallsById[toolCallId] : undefined
   )
   const toolCall = liveToolCall || toolCallProp
-  const toolName = toolCall?.name || ''
-  const toolState = toolCall?.state || (ClientToolCallState.pending as any)
-
-  const isExpandablePending =
-    toolState === 'pending' &&
-    (toolName === 'make_api_request' || toolName === 'set_environment_variables')
-
-  const [expanded, setExpanded] = useState(isExpandablePending)
-  const pendingDetailsId = useId()
   const isExpandableTool =
-    toolName === 'make_api_request' || toolName === 'set_environment_variables'
+    toolCall?.name === 'make_api_request' || toolCall?.name === 'set_environment_variables'
 
-  const accessLevel = useCopilotStore((s) => s.accessLevel)
+  const [expanded, setExpanded] = useState(
+    toolCall?.state === ClientToolCallState.pending && isExpandableTool
+  )
+  const pendingDetailsId = useId()
   const { readbackCopilotToolCall, recordToolFailure } = useCopilotStore()
 
   if (!toolCall) return null
 
-  const showButtons = shouldShowToolActionButtons(toolCall, accessLevel)
+  const showButtons = shouldShowToolActionButtons(toolCall)
   const showDriveChoice =
     !toolCall.historical &&
     toolCall.name === 'gdrive_request_access' &&
@@ -732,7 +703,9 @@ export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToo
       (toolCall.name === 'gdrive_request_access' &&
         typeof toolCall.result?.credentialId === 'string'))
 
-  const displayName = getDisplayName(toolCall)
+  const metadataDisplay = getCopilotToolMetadata(toolCall.name)?.displayNames[toolCall.state]
+  const displayName = toolCall.display?.text || metadataDisplay?.text || toolCall.name
+  const DisplayIcon = toolCall.display?.icon || metadataDisplay?.icon || Loader2
   const failureDetails = readToolFailureDetails(toolCall)
   const params = toolCall.params ?? {}
   const dashboardLayoutReviewPayload = readDashboardLayoutVisualReviewPayload(toolCall)
@@ -826,47 +799,19 @@ export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToo
     return null
   }
 
-  // Compute icon element from tool display metadata, defaulting to Loader2.
-  const renderDisplayIcon = () => {
-    try {
-      // Determine the icon component (prefer store, then registry, else Loader2)
-      const IconFromStore = (toolCall as any).display?.icon
-      let IconComp: any | undefined = IconFromStore
-      if (!IconComp) {
-        try {
-          IconComp = getCopilotToolMetadata(toolCall.name)?.displayNames?.[toolCall.state]?.icon
-        } catch {}
-      }
-      if (!IconComp) IconComp = Loader2
-
-      // Color by state
-      let colorClass = ''
-      const state = toolCall.state
-      if (state === ClientToolCallState.aborted) {
-        colorClass = 'text-yellow-500'
-      } else if (state === ClientToolCallState.error) {
-        colorClass = 'text-red-500'
-      } else if (state === ClientToolCallState.success) {
-        const isBuildOrEdit = toolCall.name === 'edit_workflow'
-        colorClass = isBuildOrEdit ? 'text-primary-hover' : 'text-green-600'
-      }
-
-      const isLoadingState =
-        toolCall.state === ClientToolCallState.pending ||
-        toolCall.state === ClientToolCallState.executing
-
-      // Only Loader2 should spin (while loading)
-      const spinClass = IconComp === Loader2 && isLoadingState ? 'animate-spin' : ''
-
-      return <IconComp className={`h-3 w-3 ${spinClass} ${colorClass}`} />
-    } catch {
-      return <Loader2 className='h-3 w-3 animate-spin' />
-    }
+  let colorClass = ''
+  if (toolCall.state === ClientToolCallState.aborted) {
+    colorClass = 'text-yellow-500'
+  } else if (toolCall.state === ClientToolCallState.error) {
+    colorClass = 'text-red-500'
+  } else if (toolCall.state === ClientToolCallState.success) {
+    colorClass = toolCall.name === 'edit_workflow' ? 'text-primary-hover' : 'text-green-600'
   }
 
   const isLoadingState =
     toolCall.state === ClientToolCallState.pending ||
     toolCall.state === ClientToolCallState.executing
+  const spinClass = DisplayIcon === Loader2 && isLoadingState ? 'animate-spin' : ''
   const terminalRole =
     toolCall.state === ClientToolCallState.error
       ? 'alert'
@@ -876,7 +821,9 @@ export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToo
 
   const toolNameContent = (
     <>
-      <div className='flex-shrink-0'>{renderDisplayIcon()}</div>
+      <div className='flex-shrink-0'>
+        <DisplayIcon className={`h-3 w-3 ${spinClass} ${colorClass}`} />
+      </div>
       <ShimmerOverlayText text={displayName} active={isLoadingState} className='text-sm' />
     </>
   )

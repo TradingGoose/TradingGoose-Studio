@@ -171,11 +171,6 @@ export class DeployWorkflowClientTool extends BaseClientTool {
     window.location.assign(`/workspace/${encodeURIComponent(workspaceId)}/api-keys`)
   }
 
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
-  }
-
   async handleAccept(args?: DeployWorkflowArgs): Promise<void> {
     const logger = createLogger('DeployWorkflowClientTool')
     try {

@@ -46,11 +46,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
     },
   }
 
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
-  }
-
   async handleAccept(args?: RunWorkflowArgs): Promise<void> {
     const logger = createLogger('RunWorkflowClientTool')
     await this.executeWithTimeout(async () => {

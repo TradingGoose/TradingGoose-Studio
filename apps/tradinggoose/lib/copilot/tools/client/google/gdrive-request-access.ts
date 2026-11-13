@@ -32,11 +32,6 @@ export class GDriveRequestAccessClientTool extends BaseClientTool {
     this.fail('Choose an authorized workspace and Google Drive credential in this tool card')
   }
 
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
-  }
-
   async execute(): Promise<void> {
     await this.handleAccept()
   }

@@ -17,7 +17,6 @@ export enum ClientToolCallState {
   success = 'success',
   error = 'error',
   review = 'review',
-  background = 'background',
 }
 
 // Display configuration for a given state
@@ -166,13 +165,6 @@ export class BaseClientTool {
       return
     }
     await this.execute(args)
-  }
-  async handleReject() {
-    if (this.disposed) return
-    await getCopilotStoreForToolCall(this.toolCallId)
-      .getState()
-      .skipCopilotToolCall(this.toolCallId)
-    this.setState(ClientToolCallState.rejected)
   }
   getInterruptDisplays() {
     return this.metadata.interrupt

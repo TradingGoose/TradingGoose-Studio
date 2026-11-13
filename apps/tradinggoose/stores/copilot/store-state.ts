@@ -7,7 +7,6 @@ const UI_ACTIVE_TOOL_STATES = new Set<ClientToolCallState>([
   ClientToolCallState.generating,
   ClientToolCallState.pending,
   ClientToolCallState.executing,
-  ClientToolCallState.background,
   ClientToolCallState.review,
 ])
 

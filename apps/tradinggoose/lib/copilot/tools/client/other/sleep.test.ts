@@ -26,7 +26,6 @@ describe('native local timer completion', () => {
     expect(m.failure).toHaveBeenCalledWith('timer', 'Cancelled by user')
     expect(m.assertion).not.toHaveBeenCalled()
     expect(tool.hasSubmittedResult()).toBe(false)
-    expect(tool.getElapsedSeconds()).toBe(0)
   })
   it('already aborted execution never claims successful timer completion', async () => {
     m.abort.abort(new DOMException('Aborted', 'AbortError'))

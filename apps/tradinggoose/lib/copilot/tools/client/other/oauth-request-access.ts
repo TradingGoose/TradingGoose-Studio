@@ -206,11 +206,6 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
     }
   }
 
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
-  }
-
   async execute(args?: OAuthRequestAccessArgs): Promise<void> {
     await this.handleAccept(args)
   }
