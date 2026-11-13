@@ -22880,16 +22880,14 @@
       },
       "copilot": {
         "title": "Copilot models",
-        "description": "Choose the models available to every Copilot user. Search the catalog or enter an exact provider/model ID.",
+        "description": "Choose the models available to every Copilot user. Search the catalog or enter an exact provider/model ID. Initial model selection and Wand use the first model.",
         "manageKeys": "Manage provider API keys",
         "model": "Model",
         "modelPlaceholder": "Search models or enter provider/model",
-        "defaultModel": "Default",
-        "defaultHint": "The default is used for the initial model selection and Wand.",
         "addModel": "Add model",
         "removeModel": "Remove model row {number}",
         "empty": "No models configured. Add a model and configure its provider API key to enable Copilot.",
-        "invalidModels": "Enter a model ID for every row, remove duplicate provider/model pairs, and choose a default."
+        "invalidModels": "Enter a model ID for every row and remove duplicate provider/model pairs."
       },
       "emailIdentity": {
         "title": "Email identity",

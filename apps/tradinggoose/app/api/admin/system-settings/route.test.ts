@@ -446,7 +446,6 @@ describe('/api/admin/system-settings route', () => {
     async (provider) => {
       const copilot = {
         models: [{ provider, model: 'future-model' }],
-        defaultModel: `${provider}/future-model`,
       }
       mockUpsertSystemSettings.mockResolvedValueOnce({ copilot })
       const { PATCH } = await import('./route')
@@ -473,7 +472,6 @@ describe('/api/admin/system-settings route', () => {
         body: JSON.stringify({
           copilot: {
             models: [{ provider: 'unknown-provider', model: 'model' }],
-            defaultModel: 'unknown-provider/model',
           },
         }),
       }) as any
@@ -494,7 +492,7 @@ describe('/api/admin/system-settings route', () => {
       new Request('http://localhost/api/admin/system-settings', {
         method: 'PATCH',
         body: JSON.stringify({
-          copilot: { models: [{ provider, model }], defaultModel: `${provider}/${model}` },
+          copilot: { models: [{ provider, model }] },
         }),
       }) as any
     )
@@ -508,7 +506,6 @@ describe('/api/admin/system-settings route', () => {
   it('accepts a published multimodal chat model', async () => {
     const copilot = {
       models: [{ provider: 'openai', model: 'gpt-4.1' }],
-      defaultModel: 'openai/gpt-4.1',
     }
     mockUpsertSystemSettings.mockResolvedValueOnce({ copilot })
     const { PATCH } = await import('./route')
@@ -520,24 +517,6 @@ describe('/api/admin/system-settings route', () => {
     )
     expect(response.status).toBe(200)
     expect(mockUpsertSystemSettings).toHaveBeenCalledWith({ copilot })
-  })
-
-  it('rejects a default model outside the Copilot catalogue before saving', async () => {
-    const { PATCH } = await import('./route')
-    const response = await PATCH(
-      new Request('http://localhost/api/admin/system-settings', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          copilot: {
-            models: [{ provider: 'openai', model: 'new-model' }],
-            defaultModel: 'openai/unconfigured-model',
-          },
-        }),
-      }) as any
-    )
-
-    expect(response.status).toBe(400)
-    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
 
   it.each([

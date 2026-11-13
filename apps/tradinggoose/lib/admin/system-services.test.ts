@@ -47,7 +47,7 @@ describe('admin system services', () => {
     vi.clearAllMocks()
     vi.resetModules()
     mockListSystemServices.mockResolvedValue([])
-    mockResolvedSettings.mockResolvedValue({ copilot: { models: [], defaultModel: null } })
+    mockResolvedSettings.mockResolvedValue({ copilot: { models: [] } })
     mockModelProviders.mockReturnValue([
       { id: 'openai', name: 'OpenAI' },
       { id: 'mistral', name: 'Mistral' },
@@ -106,7 +106,6 @@ describe('admin system services', () => {
           { provider: 'fireworks', model: 'future-model' },
           { provider: 'azure-openai', model: 'deployment' },
         ],
-        defaultModel: 'fireworks/future-model',
       },
     })
     const { listAdminSystemServices } = await import('./system-services')
@@ -134,7 +133,6 @@ describe('admin system services', () => {
           provider: id,
           model: 'selected-model',
         })),
-        defaultModel: 'openai/selected-model',
       },
     })
     mockListSystemServices.mockResolvedValue([
@@ -168,7 +166,6 @@ describe('admin system services', () => {
     mockResolvedSettings.mockResolvedValue({
       copilot: {
         models: [{ provider: 'new-native-provider', model: 'future-model' }],
-        defaultModel: 'new-native-provider/future-model',
       },
     })
     const service = (await listAdminSystemServices()).services.find(
@@ -200,7 +197,6 @@ describe('admin system services', () => {
           { provider: 'openrouter', model: 'vendor/first-model' },
           { provider: 'openrouter', model: 'vendor/second-model' },
         ],
-        defaultModel: 'openrouter/vendor/first-model',
       },
     }
     mockResolvedSettings.mockResolvedValue(selected)
@@ -210,7 +206,7 @@ describe('admin system services', () => {
     const first = await listAdminSystemServices()
     expect(first.services.filter(({ id }) => id === 'openrouter')).toHaveLength(1)
     expect(first.services.some(({ id }) => id === 'fireworks')).toBe(false)
-    mockResolvedSettings.mockResolvedValue({ copilot: { models: [], defaultModel: null } })
+    mockResolvedSettings.mockResolvedValue({ copilot: { models: [] } })
     expect((await listAdminSystemServices()).services.some(({ id }) => id === 'openrouter')).toBe(
       false
     )

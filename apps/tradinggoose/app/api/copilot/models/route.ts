@@ -11,8 +11,8 @@ export async function GET() {
   if (!session?.user?.id)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers })
   try {
-    const { models, defaultModel } = await getPublicCopilotModels()
-    return NextResponse.json({ models, defaultModel }, { headers })
+    const { models } = await getPublicCopilotModels()
+    return NextResponse.json({ models }, { headers })
   } catch {
     return NextResponse.json({ error: 'Copilot models are unavailable' }, { status: 503, headers })
   }

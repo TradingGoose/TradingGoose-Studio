@@ -8,10 +8,6 @@ import type { CopilotSettings } from '@/lib/copilot/settings'
 import { useModelRegistry } from '@/stores/model-registry'
 import { CopilotSettingsFields } from './copilot-settings-fields'
 
-vi.mock('@/i18n/navigation', () => ({
-  Link: ({ children, ...props }: React.ComponentProps<'a'>) => <a {...props}>{children}</a>,
-}))
-
 let root: Root
 let container: HTMLDivElement
 let queryClient: QueryClient
@@ -44,7 +40,7 @@ const candidate = (id: string) =>
   [...document.querySelectorAll<HTMLButtonElement>('button[data-option-index]')].find(
     (button) => button.textContent?.trim() === id
   )!
-async function open(index: number) {
+async function openPicker(index: number) {
   await act(async () =>
     container.querySelector<HTMLButtonElement>(`#copilot-model-${index}`)!.click()
   )
@@ -65,7 +61,7 @@ async function key(key: string) {
   )
 }
 async function choose(index: number, id: string) {
-  await open(index)
+  await openPicker(index)
   await search(id)
   expect(candidate(id)).toBeDefined()
   await act(async () => candidate(id).click())
@@ -118,18 +114,16 @@ afterEach(() => {
 })
 
 it('adds an exact future model through the searchable picker without registry or pricing membership', async () => {
-  await render({ models: [], defaultModel: null })
+  await render({ models: [] })
   expect(container.textContent).toContain('No models configured')
-  expect(container.querySelector('a')).toHaveAttribute('href', '/admin/services')
   await click('Add model')
   expect(container.querySelector('[role="alert"]')).not.toBeNull()
-  await open(0)
+  await openPicker(0)
   expect(searchInput()).toHaveAttribute('placeholder', 'Search models or enter provider/model')
   await search('openai/brand-new-model-2027')
   await key('Enter')
   expect(settings).toEqual({
     models: [{ provider: 'openai', model: 'brand-new-model-2027' }],
-    defaultModel: 'openai/brand-new-model-2027',
   })
   expect(container.querySelector('[role="alert"]')).toBeNull()
   expect(container.querySelector('#copilot-model-0')).toHaveAttribute('aria-expanded', 'false')
@@ -137,8 +131,8 @@ it('adds an exact future model through the searchable picker without registry or
 })
 
 it('uses native provider sidebar choices and searches provider names with full model IDs', async () => {
-  await render({ models: [{ provider: 'openai', model: 'first' }], defaultModel: 'openai/first' })
-  await open(0)
+  await render({ models: [{ provider: 'openai', model: 'first' }] })
+  await openPicker(0)
   expect(container.querySelector('datalist')).toBeNull()
   expect(container.querySelector('#copilot-provider-0')).toBeNull()
   await click('DeepSeek')
@@ -149,7 +143,6 @@ it('uses native provider sidebar choices and searches provider names with full m
   await act(async () => candidate('anthropic/first').click())
   expect(settings).toEqual({
     models: [{ provider: 'anthropic', model: 'first' }],
-    defaultModel: 'anthropic/first',
   })
 })
 
@@ -164,7 +157,7 @@ it('preserves namespaced provider and model IDs using the longest known provider
       },
     ],
   })
-  await render({ models: [], defaultModel: null })
+  await render({ models: [] })
   await click('Add model')
   await choose(0, 'private/inference/accounts/team/models/exact-model')
   expect(settings.models[0]).toEqual({
@@ -174,7 +167,6 @@ it('preserves namespaced provider and model IDs using the longest known provider
   await choose(0, 'private/inference/accounts/team/models/new-model')
   expect(settings).toEqual({
     models: [{ provider: 'private/inference', model: 'accounts/team/models/new-model' }],
-    defaultModel: 'private/inference/accounts/team/models/new-model',
   })
 })
 
@@ -191,9 +183,8 @@ it('commits the exact qualified native ID ahead of a longer matching gateway mod
   })
   await render({
     models: [{ provider: 'openrouter', model: 'anthropic/future-model-preview' }],
-    defaultModel: 'openrouter/anthropic/future-model-preview',
   })
-  await open(0)
+  await openPicker(0)
   await search('anthropic/future-model')
   expect(document.querySelector('button[aria-label="Anthropic"]')).toHaveAttribute(
     'data-active',
@@ -204,7 +195,6 @@ it('commits the exact qualified native ID ahead of a longer matching gateway mod
   await key('Enter')
   expect(settings).toEqual({
     models: [{ provider: 'anthropic', model: 'future-model' }],
-    defaultModel: 'anthropic/future-model',
   })
 })
 
@@ -220,20 +210,18 @@ it('commits the exact listed ID when a longer model appears first in the same pr
   })
   await render({
     models: [{ provider: 'openai', model: 'future-model-preview' }],
-    defaultModel: 'openai/future-model-preview',
   })
-  await open(0)
+  await openPicker(0)
   await search('openai/future-model')
   await key('Enter')
   expect(settings).toEqual({
     models: [{ provider: 'openai', model: 'future-model' }],
-    defaultModel: 'openai/future-model',
   })
 })
 
 it('shows loading and retry states without offering fixed providers', async () => {
   useModelRegistry.setState({ providers: [], isLoading: true })
-  await render({ models: [], defaultModel: null })
+  await render({ models: [] })
   expect(container.querySelector('[role="status"]')).toHaveTextContent('Loading models')
   expect(container.querySelector('button')).toBeDisabled()
   await act(async () => useModelRegistry.setState({ isLoading: false, error: 'Unavailable' }))
@@ -248,10 +236,9 @@ it('shows loading and retry states without offering fixed providers', async () =
 it('keeps an unlisted saved choice visible and leaves settings unchanged on registry failure', async () => {
   const original = {
     models: [{ provider: 'openai', model: 'future-model' }],
-    defaultModel: 'openai/future-model',
   }
   await render(original)
-  await open(0)
+  await openPicker(0)
   expect(candidate('openai/future-model')).toBeDefined()
   await key('Escape')
   await act(async () => useModelRegistry.setState({ providers: [], error: 'Unavailable' }))
@@ -261,35 +248,35 @@ it('keeps an unlisted saved choice visible and leaves settings unchanged on regi
   expect(settings).toEqual(original)
 })
 
-it('follows atomic edits to the default row while leaving edits to other rows independent', async () => {
+it('edits rows independently while preserving their order', async () => {
   await render({
     models: [
       { provider: 'openai', model: 'first' },
       { provider: 'anthropic', model: 'second' },
     ],
-    defaultModel: 'anthropic/second',
   })
   await choose(0, 'openai/listed-model')
-  expect(settings.defaultModel).toBe('anthropic/second')
+  expect(settings.models[1]).toEqual({ provider: 'anthropic', model: 'second' })
   await choose(1, 'deepseek/deepseek-chat')
-  expect(settings.models[1]).toEqual({ provider: 'deepseek', model: 'deepseek-chat' })
-  expect(settings.defaultModel).toBe('deepseek/deepseek-chat')
-  await act(async () => container.querySelector<HTMLButtonElement>('#copilot-default-0')!.click())
-  expect(settings.defaultModel).toBe('openai/listed-model')
+  expect(settings).toEqual({
+    models: [
+      { provider: 'openai', model: 'listed-model' },
+      { provider: 'deepseek', model: 'deepseek-chat' },
+    ],
+  })
 })
 
-it('moves the default when its row is removed and clears it when the list becomes empty', async () => {
+it('preserves the remaining order when removing rows and allows an empty list', async () => {
   await render({
     models: [
       { provider: 'openai', model: 'first' },
       { provider: 'deepseek', model: 'deepseek-chat' },
     ],
-    defaultModel: 'openai/first',
   })
   await click('Remove model row 1')
-  expect(settings.defaultModel).toBe('deepseek/deepseek-chat')
+  expect(settings).toEqual({ models: [{ provider: 'deepseek', model: 'deepseek-chat' }] })
   await click('Remove model row 1')
-  expect(settings).toEqual({ models: [], defaultModel: null })
+  expect(settings).toEqual({ models: [] })
 })
 
 it('validates duplicate exact pairs while allowing the same model name under different providers', async () => {
@@ -298,7 +285,6 @@ it('validates duplicate exact pairs while allowing the same model name under dif
       { provider: 'openai', model: 'first' },
       { provider: 'anthropic', model: 'first' },
     ],
-    defaultModel: 'openai/first',
   })
   expect(container.querySelector('[role="alert"]')).toBeNull()
   await choose(1, 'openai/first')
@@ -307,43 +293,40 @@ it('validates duplicate exact pairs while allowing the same model name under dif
 })
 
 it('canonicalizes pasted outer whitespace when committing an exact custom model', async () => {
-  await render({ models: [{ provider: 'openai', model: 'first' }], defaultModel: 'openai/first' })
-  await open(0)
+  await render({ models: [{ provider: 'openai', model: 'first' }] })
+  await openPicker(0)
   await search(' openai/future-model ')
   await key('Enter')
   expect(settings).toEqual({
     models: [{ provider: 'openai', model: 'future-model' }],
-    defaultModel: 'openai/future-model',
   })
 })
 
-it('navigates native options with arrows and Enter without moving the default radio', async () => {
+it('navigates native options with arrows and commits only the edited row on Enter', async () => {
   await render({
     models: [
       { provider: 'openai', model: 'first' },
       { provider: 'anthropic', model: 'second' },
     ],
-    defaultModel: 'anthropic/second',
   })
-  await open(0)
+  await openPicker(0)
   await key('ArrowDown')
   await key('ArrowDown')
-  expect(settings.defaultModel).toBe('anthropic/second')
+  expect(settings.models[0]).toEqual({ provider: 'openai', model: 'first' })
   await key('Enter')
   expect(settings.models[0]).toEqual({ provider: 'openai', model: 'second' })
-  expect(settings.defaultModel).toBe('anthropic/second')
+  expect(settings.models[1]).toEqual({ provider: 'anthropic', model: 'second' })
 })
 
-it('cancels search and preserves text-editing keys without changing saved choices or the default', async () => {
+it('cancels search and preserves text-editing keys without changing saved choices', async () => {
   const original = {
     models: [
       { provider: 'openai', model: 'first' },
       { provider: 'anthropic', model: 'second' },
     ],
-    defaultModel: 'anthropic/second',
   }
   await render(original)
-  await open(0)
+  await openPicker(0)
   await search('openai/uncommitted-model')
   for (const value of ['ArrowLeft', 'ArrowRight', 'Home', 'End']) await key(value)
   expect(settings).toEqual(original)

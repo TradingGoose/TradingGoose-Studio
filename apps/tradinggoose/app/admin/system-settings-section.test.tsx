@@ -22,7 +22,6 @@ const fixture = vi.hoisted(() => ({
     fromEmailAddress: '',
     copilot: {
       models: [{ provider: 'openai' as const, model: 'current-model' }],
-      defaultModel: 'openai/current-model',
     },
   },
 }))
@@ -114,7 +113,6 @@ it('saves the catalog atomically and refreshes public model and admin service qu
         { provider: 'openai', model: 'current-model' },
         { provider: 'openai', model: 'future-model-not-in-registry' },
       ],
-      defaultModel: 'openai/current-model',
     },
   })
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ['copilot-models'] })

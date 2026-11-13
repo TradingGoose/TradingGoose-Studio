@@ -10,23 +10,22 @@ import { GET } from './route'
 beforeEach(() => {
   vi.clearAllMocks()
   m.session.mockResolvedValue({ user: { id: 'member' } })
-  m.models.mockResolvedValue({ models: [], defaultModel: null })
+  m.models.mockResolvedValue({ models: [] })
 })
 
 describe('authenticated Copilot model catalog', () => {
   it('returns an empty unconfigured catalog without a hardcoded fallback', async () => {
     const response = await GET()
-    expect(await response.json()).toEqual({ models: [], defaultModel: null })
+    expect(await response.json()).toEqual({ models: [] })
     expect(response.headers.get('cache-control')).toBe('no-store')
   })
 
-  it('returns only public dynamic identities and default to a signed-in member', async () => {
+  it('returns only public dynamic identities in configured order to a signed-in member', async () => {
     m.models.mockResolvedValue({
       models: [
         { id: 'openai/new-model', label: 'openai/new-model' },
         { id: 'openrouter/anthropic/claude-new', label: 'anthropic/claude-new' },
       ],
-      defaultModel: 'openai/new-model',
       apiKey: 'must-remain-private',
       providers: { secret: 'must-remain-private' },
     })
@@ -36,7 +35,6 @@ describe('authenticated Copilot model catalog', () => {
         { id: 'openai/new-model', label: 'openai/new-model' },
         { id: 'openrouter/anthropic/claude-new', label: 'anthropic/claude-new' },
       ],
-      defaultModel: 'openai/new-model',
     })
     expect(response.headers.get('cache-control')).toBe('no-store')
   })

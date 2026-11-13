@@ -49,8 +49,8 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
   useEffect(() => {
     if (!catalog.data || busy) return
     if (catalog.data.models.some(({ id }) => id === selectedModel)) return
-    if (selectedModel !== catalog.data.defaultModel)
-      void setSelectedModel(catalog.data.defaultModel)
+    const firstModel = catalog.data.models[0]?.id ?? null
+    if (selectedModel !== firstModel) void setSelectedModel(firstModel)
   }, [busy, catalog.data, selectedModel, setSelectedModel])
 
   const selected = catalog.data?.models.find(({ id }) => id === selectedModel)

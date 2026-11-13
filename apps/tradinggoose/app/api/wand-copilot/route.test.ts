@@ -44,7 +44,7 @@ function stream(frames: unknown[], split = false) {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.session.mockResolvedValue({ user: { id: 'actual-actor' } })
-  mocks.resolve.mockResolvedValue({ model: 'openai/new-admin-default', apiKey: 'admin-key' })
+  mocks.resolve.mockResolvedValue({ model: 'openai/first-admin-model', apiKey: 'admin-key' })
   mocks.native.mockImplementation(async () =>
     stream([{ chunk: 'Preview🔥' }, { done: true, result: result() }], true)
   )
@@ -63,7 +63,7 @@ describe('built-in Wand completion route', () => {
     expect(input).toEqual({
       scope: { actorUserId: 'actual-actor', workspaceId: null },
       purpose: 'wand',
-      model: 'openai/new-admin-default',
+      model: 'openai/first-admin-model',
       messages: [
         { role: 'system', content: 'Only code' },
         { role: 'assistant', content: 'Earlier' },
@@ -163,7 +163,7 @@ describe('built-in Wand completion route', () => {
     expect(await response.json()).toEqual({ error: 'Wand generation is unavailable' })
     expect(mocks.native).toHaveBeenCalledOnce()
   })
-  it('refuses an unconfigured default without invoking a completion', async () => {
+  it('refuses an unconfigured model catalog without invoking a completion', async () => {
     mocks.resolve.mockRejectedValueOnce(new NativeTargetError('Configure Copilot first', 409))
     const response = await POST(request())
     expect(response.status).toBe(409)

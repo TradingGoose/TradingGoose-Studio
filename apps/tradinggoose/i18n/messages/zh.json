@@ -22867,16 +22867,14 @@
       },
       "copilot": {
         "title": "Copilot 模型",
-        "description": "选择所有 Copilot 用户可用的模型。搜索模型目录，或输入完整的提供商/模型 ID。",
+        "description": "选择所有 Copilot 用户可用的模型。搜索模型目录，或输入完整的提供商/模型 ID。初始模型选择和 Wand 使用第一个模型。",
         "manageKeys": "管理提供商 API 密钥",
         "model": "模型",
         "modelPlaceholder": "搜索模型或输入提供商/模型",
-        "defaultModel": "默认",
-        "defaultHint": "初始模型选择和 Wand 使用默认模型。",
         "addModel": "添加模型",
         "removeModel": "删除第 {number} 行模型",
         "empty": "尚未配置模型。添加模型并配置其提供商 API 密钥以启用 Copilot。",
-        "invalidModels": "请为每行填写模型 ID，删除重复的提供商/模型组合，并选择默认模型。"
+        "invalidModels": "请为每行填写模型 ID，并删除重复的提供商/模型组合。"
       },
       "emailIdentity": {
         "title": "邮件身份",

@@ -80,23 +80,22 @@ it('shows loading, unavailable, and unconfigured states without choosing a fixed
   catalog = { ...catalog, isPending: false, isError: true }
   render()
   expect(container.textContent).toContain('Unavailable')
-  catalog = { ...catalog, data: { models: [], defaultModel: null }, isError: false }
+  catalog = { ...catalog, data: { models: [] }, isError: false }
   render()
   expect(container.textContent).toContain('No models configured')
   expect(state.setSelectedModel).not.toHaveBeenCalled()
 })
 
-it('uses the administrator default and submits exact IDs while displaying only labels', () => {
+it('initially selects the first configured model and submits exact IDs while displaying only labels', () => {
   catalog.data = {
     models: [
-      { id: 'openai/future-model', label: 'openai/future-model' },
       { id: 'openrouter/anthropic/model-name', label: 'anthropic/model-name' },
+      { id: 'openai/future-model', label: 'openai/future-model' },
     ],
-    defaultModel: 'openrouter/anthropic/model-name',
   }
   render()
   expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith('openrouter/anthropic/model-name')
-  state.selectedModel = catalog.data.defaultModel
+  state.selectedModel = catalog.data.models[0].id
   render()
   const trigger = container.querySelector('button')!
   expect(trigger).toHaveTextContent('anthropic/model-name')
@@ -124,9 +123,8 @@ it('keeps distinct gateway routes selectable when they share a display label', (
       { id: 'openrouter/anthropic/model', label: 'anthropic/model' },
       { id: 'vercel/anthropic/model', label: 'anthropic/model' },
     ],
-    defaultModel: 'openrouter/anthropic/model',
   }
-  state.selectedModel = catalog.data.defaultModel
+  state.selectedModel = catalog.data.models[0].id
   render()
   const choices = [...container.querySelectorAll<HTMLButtonElement>('button')].slice(1)
   expect(choices).toHaveLength(2)
@@ -143,18 +141,19 @@ it('keeps distinct gateway routes selectable when they share a display label', (
 it('preserves a valid selection and replaces a removed selection on catalog refresh', () => {
   state.selectedModel = 'openai/selected-model'
   catalog.data = {
-    models: [{ id: state.selectedModel, label: 'openai/selected-model' }],
-    defaultModel: state.selectedModel,
+    models: [
+      { id: 'anthropic/first-model', label: 'anthropic/first-model' },
+      { id: state.selectedModel, label: 'openai/selected-model' },
+    ],
   }
   render()
   expect(state.setSelectedModel).not.toHaveBeenCalled()
   catalog.data = {
     models: [{ id: 'deepseek/new-model', label: 'deepseek/new-model' }],
-    defaultModel: 'deepseek/new-model',
   }
   render()
   expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith('deepseek/new-model')
-  catalog.data = { models: [], defaultModel: null }
+  catalog.data = { models: [] }
   render()
   expect(state.setSelectedModel).toHaveBeenLastCalledWith(null)
 })
@@ -167,7 +166,6 @@ it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-to
     else state[busyState] = true
     catalog.data = {
       models: [{ id: 'openai/replacement', label: 'openai/replacement' }],
-      defaultModel: 'openai/replacement',
     }
     catalog.isPending = false
     render()

@@ -54,7 +54,7 @@ El conmutador de nivel de acceso en la barra de entrada controla cuánta autonom
 
 ## Modelos compatibles
 
-El administrador del sistema elige los pares proveedor/modelo disponibles en **Admin → Configuración del sistema → Modelos de Copilot**. Puedes cambiar el modelo activo desde la barra de entrada. La selección inicial del modelo y Wand utilizan el modelo predeterminado.
+El administrador del sistema elige los pares proveedor/modelo disponibles en **Admin → Configuración del sistema → Modelos de Copilot**. Puedes cambiar el modelo activo desde la barra de entrada. La selección inicial del modelo y Wand utilizan el primer modelo configurado.
 
 Los administradores introducen los ID exactos que acepta cada proveedor; la lista no se limita al registro de modelos de Studio. Configura la clave de API de cada proveedor en **Admin → Servicios**. Las claves permanecen cifradas en el servidor y se comparten entre los modelos de Copilot del mismo proveedor. Copilot no está disponible hasta que se configuren un modelo y la clave de su proveedor.
 
@@ -72,7 +72,7 @@ Los administradores introducen los ID exactos que acepta cada proveedor; la list
     Copilot se ejecuta dentro de Studio y utiliza sus conexiones de modelos Mastra y su base de datos.
 
     1. Ejecuta `bun run db:migrate` desde la raíz del repositorio con el `DATABASE_URL` de Studio. El comando aplica las migraciones de la aplicación. Mastra inicializa sus propias tablas en la misma base de datos al iniciar el entorno compartido.
-    2. Configura las claves de API de los proveedores en **Admin → Servicios**. En **Admin → Configuración del sistema → Modelos de Copilot**, añade filas de proveedor/modelo, elige un modelo predeterminado y guarda los cambios.
+    2. Configura las claves de API de los proveedores en **Admin → Servicios**. En **Admin → Configuración del sistema → Modelos de Copilot**, añade filas de proveedor/modelo y guarda los cambios.
     3. Abre un espacio de trabajo, selecciona un modelo configurado y empieza a chatear.
   </Step>
 </Steps>

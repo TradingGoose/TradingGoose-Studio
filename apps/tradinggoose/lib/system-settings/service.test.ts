@@ -191,7 +191,6 @@ describe('system settings service', () => {
   it('persists a dynamic Copilot catalogue and preserves it when unrelated settings change', async () => {
     const copilot: CopilotSettings = {
       models: [{ provider: 'openai', model: 'future-model' }],
-      defaultModel: 'openai/future-model',
     }
     mockSelectLimit
       .mockResolvedValueOnce([])
@@ -240,7 +239,7 @@ describe('system settings service', () => {
     mockSelectLimit
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
-        { value: JSON.stringify({ models: [], defaultModel: 'openai/removed-model' }) },
+        { value: JSON.stringify({ models: [{ provider: 'openai', model: '' }] }) },
       ])
 
     await expect(getResolvedSystemSettings()).rejects.toThrow()

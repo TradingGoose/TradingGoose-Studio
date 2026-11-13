@@ -23,7 +23,6 @@ export const CopilotSettingsSchema = z
         model: z.string().trim().min(1).regex(/^\S+$/, 'Model must not contain whitespace'),
       })
     ),
-    defaultModel: z.string().trim().min(1).nullable(),
   })
   .superRefine((settings, context) => {
     const ids = new Set<string>()
@@ -38,19 +37,8 @@ export const CopilotSettingsSchema = z
       }
       ids.add(id)
     })
-    if (
-      settings.models.length === 0
-        ? settings.defaultModel !== null
-        : settings.defaultModel === null || !ids.has(settings.defaultModel)
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Choose a configured default model, or clear the default when no models remain',
-        path: ['defaultModel'],
-      })
-    }
   })
 
 export type CopilotSettings = z.infer<typeof CopilotSettingsSchema>
 
-export const DEFAULT_COPILOT_SETTINGS: CopilotSettings = { models: [], defaultModel: null }
+export const DEFAULT_COPILOT_SETTINGS: CopilotSettings = { models: [] }

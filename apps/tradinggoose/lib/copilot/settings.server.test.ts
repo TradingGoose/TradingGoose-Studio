@@ -67,7 +67,6 @@ const configured: CopilotSettings = {
     { provider: 'openai', model: 'new-model' },
     { provider: 'anthropic', model: 'other-model' },
   ],
-  defaultModel: 'openai/new-model',
 }
 
 describe('server Copilot settings', () => {
@@ -83,7 +82,7 @@ describe('server Copilot settings', () => {
     async (provider) => {
       const model = `${provider}/org/exact:model`
       mockGetResolvedSystemSettings.mockResolvedValue({
-        copilot: { models: [{ provider, model: 'org/exact:model' }], defaultModel: model },
+        copilot: { models: [{ provider, model: 'org/exact:model' }] },
       })
       mockResolveSystemServiceSettingsConfig.mockImplementation(async (id: string) =>
         id === provider ? { baseUrl: 'http://local.invalid/v1', models: '["org/exact:model"]' } : {}
@@ -96,12 +95,21 @@ describe('server Copilot settings', () => {
     }
   )
 
-  it('resolves the configured default with the existing OpenAI credential', async () => {
+  it('resolves the first configured model with its existing credential', async () => {
     await expect(resolveCopilotModel()).resolves.toEqual({
       model: 'openai/new-model',
       apiKey: 'openai-key',
     })
     expect(mockResolveSystemServiceConfig).toHaveBeenCalledWith('openai')
+    mockGetResolvedSystemSettings.mockResolvedValue({
+      copilot: { models: [...configured.models].reverse() },
+    })
+    mockResolveSystemServiceConfig.mockResolvedValue({ apiKey: 'anthropic-key' })
+    await expect(resolveCopilotModel()).resolves.toEqual({
+      model: 'anthropic/other-model',
+      apiKey: 'anthropic-key',
+    })
+    expect(mockResolveSystemServiceConfig).toHaveBeenLastCalledWith('anthropic')
   })
 
   it('resolves the selected provider key and reads fresh keys for subsequent requests', async () => {
@@ -127,7 +135,6 @@ describe('server Copilot settings', () => {
         { id: 'openai/new-model', label: 'openai/new-model' },
         { id: 'anthropic/other-model', label: 'anthropic/other-model' },
       ],
-      defaultModel: 'openai/new-model',
     })
     expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
   })
@@ -136,7 +143,6 @@ describe('server Copilot settings', () => {
     mockGetResolvedSystemSettings.mockResolvedValue({
       copilot: {
         models: [{ provider: 'new-native-provider', model: 'namespace/future-model' }],
-        defaultModel: 'new-native-provider/namespace/future-model',
       },
     })
     mockResolveSystemServiceConfig.mockResolvedValue({ apiKey: ' native-key ' })
@@ -154,7 +160,7 @@ describe('server Copilot settings', () => {
     'rejects the configured non-language model %s/%s before resolving credentials',
     async (provider, model) => {
       mockGetResolvedSystemSettings.mockResolvedValue({
-        copilot: { models: [{ provider, model }], defaultModel: `${provider}/${model}` },
+        copilot: { models: [{ provider, model }] },
       })
       mockResolveSystemServiceConfig.mockResolvedValue({ defaultApiKey: 'key', apiKey: 'key' })
       await expect(resolveCopilotModel()).rejects.toMatchObject({ status: 422 })
@@ -162,7 +168,7 @@ describe('server Copilot settings', () => {
     }
   )
 
-  it('filters non-language models without replacing their default or excluding multimodal chat and future models', async () => {
+  it('preserves model order while filtering non-language models', async () => {
     mockGetResolvedSystemSettings.mockResolvedValue({
       copilot: {
         models: [
@@ -171,7 +177,6 @@ describe('server Copilot settings', () => {
           { provider: 'openai', model: 'gpt-4.1' },
           { provider: 'new-native-provider', model: 'namespace/future-model' },
         ],
-        defaultModel: 'openai/gpt-image-1.5',
       },
     })
     expect(await getPublicCopilotModels()).toEqual({
@@ -179,7 +184,6 @@ describe('server Copilot settings', () => {
         { id: 'openai/gpt-4.1', label: 'openai/gpt-4.1' },
         { id: 'new-native-provider/namespace/future-model', label: 'namespace/future-model' },
       ],
-      defaultModel: null,
     })
     expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
   })
@@ -192,7 +196,6 @@ describe('server Copilot settings', () => {
           { provider: 'openrouter', model: 'vendor/family/future-model' },
           { provider: 'openai', model: 'future-model' },
         ],
-        defaultModel: 'openrouter/vendor/known-model',
       },
     })
     expect(await getPublicCopilotModels()).toEqual({
@@ -201,7 +204,6 @@ describe('server Copilot settings', () => {
         { id: 'openrouter/vendor/family/future-model', label: 'vendor/family/future-model' },
         { id: 'openai/future-model', label: 'openai/future-model' },
       ],
-      defaultModel: 'openrouter/vendor/known-model',
     })
     expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
   })
@@ -210,7 +212,6 @@ describe('server Copilot settings', () => {
     mockGetResolvedSystemSettings.mockResolvedValue({
       copilot: {
         models: [{ provider: 'openrouter', model: 'vendor/known-model' }],
-        defaultModel: 'openrouter/vendor/known-model',
       },
     })
     mockResolveSystemServiceConfig.mockResolvedValue({})
@@ -226,7 +227,6 @@ describe('server Copilot settings', () => {
       mockGetResolvedSystemSettings.mockResolvedValue({
         copilot: {
           models: [{ provider, model: 'future-model' }],
-          defaultModel: `${provider}/future-model`,
         },
       })
       await expect(resolveCopilotModel()).rejects.toMatchObject({ status: 409 })
@@ -248,7 +248,6 @@ describe('server Copilot settings', () => {
     mockGetResolvedSystemSettings.mockResolvedValueOnce({
       copilot: {
         models: [{ provider: 'anthropic', model: 'other-model' }],
-        defaultModel: 'anthropic/other-model',
       },
     })
     await expect(resolveCopilotModel('openai/new-model')).rejects.toMatchObject({ status: 422 })

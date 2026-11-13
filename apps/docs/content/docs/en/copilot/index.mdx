@@ -53,7 +53,7 @@ The access-level toggle in the input bar controls how much autonomy Copilot has.
 
 ## Supported Models
 
-Your system administrator chooses the available provider/model pairs in **Admin → System settings → Copilot models**. Switch the active model from the input bar. The configured default is used for the initial model selection and Wand.
+Your system administrator chooses the available provider/model pairs in **Admin → System settings → Copilot models**. Switch the active model from the input bar. The first configured model is used for the initial model selection and Wand.
 
 Administrators enter exact model IDs accepted by the selected provider; the list is not limited to Studio’s model registry. Configure each provider’s API key in **Admin → Services**. Keys stay encrypted on the server and are shared by that provider’s configured Copilot models. Copilot is unavailable until a model and its provider key are configured.
 
@@ -71,7 +71,7 @@ Administrators enter exact model IDs accepted by the selected provider; the list
     Copilot runs inside Studio and uses its Mastra model connections and application database.
 
     1. Run `bun run db:migrate` from the repository root with Studio’s `DATABASE_URL`. This applies application migrations. Mastra initializes its own tables in the same database when the shared runtime starts.
-    2. In **Admin → Services**, configure the API keys for the providers you want to use. In **Admin → System settings → Copilot models**, add provider/model rows, choose a default, and save.
+    2. In **Admin → Services**, configure the API keys for the providers you want to use. In **Admin → System settings → Copilot models**, add provider/model rows and save.
     3. Open a workspace, select a configured model, and start chatting.
   </Step>
 </Steps>

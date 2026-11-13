@@ -2,13 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { CopilotSettingsSchema, DEFAULT_COPILOT_SETTINGS, getCopilotModelId } from './settings'
 
 describe('Copilot settings', () => {
-  it('canonicalizes model IDs before a draft default is selected', () => {
+  it('canonicalizes model IDs', () => {
     const row = { provider: 'openai' as const, model: ' future-model ' }
     expect(getCopilotModelId(row)).toBe('openai/future-model')
-    expect(
-      CopilotSettingsSchema.parse({ models: [row], defaultModel: getCopilotModelId(row) })
-        .defaultModel
-    ).toBe('openai/future-model')
+    expect(CopilotSettingsSchema.parse({ models: [row] }).models).toEqual([
+      { provider: 'openai', model: 'future-model' },
+    ])
   })
 
   it('accepts exact new model IDs without an installed model catalogue', () => {
@@ -19,7 +18,6 @@ describe('Copilot settings', () => {
         { provider: 'openrouter', model: 'vendor/new-model' },
         { provider: 'native/new-provider', model: 'namespace/future-model' },
       ],
-      defaultModel: ' openrouter/vendor/new-model ',
     })
 
     expect(settings.models.map(getCopilotModelId)).toEqual([
@@ -28,13 +26,11 @@ describe('Copilot settings', () => {
       'openrouter/vendor/new-model',
       'native/new-provider/namespace/future-model',
     ])
-    expect(settings.defaultModel).toBe('openrouter/vendor/new-model')
   })
 
-  it('allows clearing the catalogue and default together', () => {
+  it('allows clearing the catalogue', () => {
     expect(CopilotSettingsSchema.parse(DEFAULT_COPILOT_SETTINGS)).toEqual({
       models: [],
-      defaultModel: null,
     })
   })
 
@@ -49,7 +45,6 @@ describe('Copilot settings', () => {
     expect(
       CopilotSettingsSchema.safeParse({
         models: [{ provider, model: 'future-model' }],
-        defaultModel: `${provider}/future-model`,
       }).success
     ).toBe(false)
   })
@@ -57,32 +52,19 @@ describe('Copilot settings', () => {
   it.each([
     {
       models: [{ provider: 'openai', model: '' }],
-      defaultModel: 'openai/',
     },
     {
       models: [{ provider: 'openai', model: 'model with spaces' }],
-      defaultModel: 'openai/model with spaces',
     },
     {
       models: [{ provider: 'https://provider', model: 'model' }],
-      defaultModel: 'https://provider/model',
     },
     {
       models: [
         { provider: 'openai', model: 'model' },
         { provider: 'openai', model: ' model ' },
       ],
-      defaultModel: 'openai/model',
     },
-    {
-      models: [{ provider: 'openai', model: 'model' }],
-      defaultModel: null,
-    },
-    {
-      models: [{ provider: 'openai', model: 'model' }],
-      defaultModel: 'openai/other-model',
-    },
-    { models: [], defaultModel: 'openai/model' },
   ])('rejects invalid settings %j', (settings) => {
     expect(CopilotSettingsSchema.safeParse(settings).success).toBe(false)
   })

@@ -5,7 +5,6 @@ import type { CopilotModelOption } from '@/lib/copilot/settings'
 
 export interface CopilotModels {
   models: CopilotModelOption[]
-  defaultModel: string | null
 }
 
 export const copilotModelsKeys = {

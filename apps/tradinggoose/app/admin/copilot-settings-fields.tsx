@@ -4,23 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Plus, Trash2 } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import { ProviderIcon } from '@/components/icons/provider-icon'
-import {
-  Button,
-  Input,
-  Label,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  RadioGroup,
-  RadioGroupItem,
-} from '@/components/ui'
+import { Button, Input, Popover, PopoverContent, PopoverTrigger } from '@/components/ui'
 import { SidebarDropdownMenuContent } from '@/components/ui/sidebar-dropdown-menu'
 import {
   type CopilotSettings,
   CopilotSettingsSchema,
   getCopilotModelId,
 } from '@/lib/copilot/settings'
-import { Link } from '@/i18n/navigation'
 import { formatTemplate } from '@/i18n/utils'
 import { getModelGroups, getModelOptions, useModelRegistry } from '@/stores/model-registry'
 
@@ -116,6 +106,7 @@ function CopilotModelPicker({
             type='button'
             variant='outline'
             disabled={disabled}
+            aria-label={label}
             title={currentId || placeholder}
             className='w-full min-w-0 justify-start'
           >
@@ -131,12 +122,6 @@ function CopilotModelPicker({
         initialFocus={inputRef}
         aria-label={label}
         className='w-[var(--anchor-width)] min-w-80 max-w-[calc(100vw-2rem)] p-0'
-        onKeyDown={(event) => {
-          if (
-            ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)
-          )
-            event.stopPropagation()
-        }}
       >
         <div className='border-b p-2'>
           <Input
@@ -220,30 +205,16 @@ export function CopilotSettingsFields({
   useEffect(() => {
     void load()
   }, [load])
-  const defaultIndex = value.models.findIndex(
-    (row) => getCopilotModelId(row) === value.defaultModel
-  )
   const isValid = CopilotSettingsSchema.safeParse(value).success
 
   function updateRow(index: number, update: CopilotSettings['models'][number]) {
-    const models = value.models.map((row, position) => (position === index ? update : row))
     onChange({
-      models,
-      defaultModel: index === defaultIndex ? getCopilotModelId(models[index]) : value.defaultModel,
+      models: value.models.map((row, position) => (position === index ? update : row)),
     })
   }
 
   function removeRow(index: number) {
-    const models = value.models.filter((_, position) => position !== index)
-    onChange({
-      models,
-      defaultModel:
-        index === defaultIndex
-          ? models[0]
-            ? getCopilotModelId(models[0])
-            : null
-          : value.defaultModel,
-    })
+    onChange({ models: value.models.filter((_, position) => position !== index) })
   }
 
   return (
@@ -251,9 +222,6 @@ export function CopilotSettingsFields({
       <div className='space-y-1'>
         <h3 className='font-medium text-sm'>{copy.title}</h3>
         <p className='text-muted-foreground text-xs leading-relaxed'>{copy.description}</p>
-        <Link href='/admin/services' className='inline-block text-sm underline underline-offset-4'>
-          {copy.manageKeys}
-        </Link>
       </div>
 
       {isLoading ? (
@@ -271,55 +239,32 @@ export function CopilotSettingsFields({
       ) : null}
 
       {value.models.length ? (
-        <RadioGroup
-          aria-label={copy.defaultModel}
-          value={defaultIndex < 0 ? '' : String(defaultIndex)}
-          onValueChange={(index) => {
-            const row = value.models[Number(index)]
-            if (row) onChange({ ...value, defaultModel: getCopilotModelId(row) })
-          }}
-          className='gap-3'
-        >
+        <div className='space-y-3'>
           {value.models.map((row, index) => (
-            <div
-              key={index}
-              className='grid gap-3 rounded-md border border-border/60 bg-muted/10 p-3 sm:grid-cols-[minmax(0,1fr)_auto]'
-            >
-              <div className='min-w-0 space-y-2'>
-                <Label htmlFor={`copilot-model-${index}`}>{copy.model}</Label>
-                <CopilotModelPicker
-                  id={`copilot-model-${index}`}
-                  row={row}
-                  options={options}
-                  groups={groups}
-                  label={copy.model}
-                  placeholder={copy.modelPlaceholder}
-                  emptyContent={registryCopy.noMatchingOptionsFound}
-                  disabled={isLoading || !providers.length}
-                  onChange={(selected) => updateRow(index, selected)}
-                />
-              </div>
-              <div className='flex items-center justify-between gap-3 sm:justify-end sm:pt-7'>
-                <Label
-                  htmlFor={`copilot-default-${index}`}
-                  className='flex cursor-pointer items-center gap-2'
-                >
-                  <RadioGroupItem id={`copilot-default-${index}`} value={String(index)} />
-                  {copy.defaultModel}
-                </Label>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  onClick={() => removeRow(index)}
-                  aria-label={formatTemplate(copy.removeModel, { number: String(index + 1) })}
-                >
-                  <Trash2 aria-hidden='true' className='size-4' />
-                </Button>
-              </div>
+            <div key={index} className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3'>
+              <CopilotModelPicker
+                id={`copilot-model-${index}`}
+                row={row}
+                options={options}
+                groups={groups}
+                label={copy.model}
+                placeholder={copy.modelPlaceholder}
+                emptyContent={registryCopy.noMatchingOptionsFound}
+                disabled={isLoading || !providers.length}
+                onChange={(selected) => updateRow(index, selected)}
+              />
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon'
+                onClick={() => removeRow(index)}
+                aria-label={formatTemplate(copy.removeModel, { number: String(index + 1) })}
+              >
+                <Trash2 aria-hidden='true' className='size-4' />
+              </Button>
             </div>
           ))}
-        </RadioGroup>
+        </div>
       ) : (
         <p className='rounded-md border border-dashed px-3 py-4 text-muted-foreground text-sm'>
           {copy.empty}
@@ -339,16 +284,12 @@ export function CopilotSettingsFields({
           disabled={isLoading || !providers.length}
           onClick={() => {
             const row = { provider: providers[0].id, model: '' }
-            onChange({
-              models: [...value.models, row],
-              defaultModel: value.defaultModel ?? getCopilotModelId(row),
-            })
+            onChange({ models: [...value.models, row] })
           }}
         >
           <Plus aria-hidden='true' className='mr-2 size-4' />
           {copy.addModel}
         </Button>
-        <p className='text-muted-foreground text-xs'>{copy.defaultHint}</p>
       </div>
     </section>
   )

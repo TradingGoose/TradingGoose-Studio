@@ -9,10 +9,11 @@ export async function resolveCopilotModel(
   modelId?: string
 ): Promise<{ model: string; apiKey?: string }> {
   const settings = await getCopilotSettings()
-  if (!settings.models.length || !settings.defaultModel) {
+  const first = settings.models[0]
+  if (!first) {
     throw new NativeTargetError('Copilot models have not been configured by a system admin', 409)
   }
-  const selected = modelId ?? settings.defaultModel
+  const selected = modelId ?? getCopilotModelId(first)
   const row = settings.models.find((candidate) => getCopilotModelId(candidate) === selected)
   if (!row || !isLanguageModel(row.provider, row.model)) {
     throw new NativeTargetError('The selected Copilot model is no longer available', 422)
@@ -30,7 +31,6 @@ export async function resolveCopilotModel(
 
 export async function getPublicCopilotModels(): Promise<{
   models: CopilotModelOption[]
-  defaultModel: string | null
 }> {
   const settings = await getCopilotSettings()
   const models = settings.models
@@ -44,10 +44,5 @@ export async function getPublicCopilotModels(): Promise<{
           (row.model.includes('/') ? row.model : id),
       }
     })
-  return {
-    models,
-    defaultModel: models.some(({ id }) => id === settings.defaultModel)
-      ? settings.defaultModel
-      : null,
-  }
+  return { models }
 }

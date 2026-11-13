@@ -22880,16 +22880,14 @@
       },
       "copilot": {
         "title": "Modelos de Copilot",
-        "description": "Elige los modelos disponibles para todos los usuarios de Copilot. Busca en el catálogo o introduce un ID exacto de proveedor/modelo.",
+        "description": "Elige los modelos disponibles para todos los usuarios de Copilot. Busca en el catálogo o introduce un ID exacto de proveedor/modelo. La selección inicial del modelo y Wand utilizan el primer modelo.",
         "manageKeys": "Gestionar claves de API de proveedores",
         "model": "Modelo",
         "modelPlaceholder": "Buscar modelos o introducir proveedor/modelo",
-        "defaultModel": "Predeterminado",
-        "defaultHint": "El modelo predeterminado se utiliza en la selección inicial del modelo y en Wand.",
         "addModel": "Añadir modelo",
         "removeModel": "Eliminar fila de modelo {number}",
         "empty": "No hay modelos configurados. Añade un modelo y configura la clave de API de su proveedor para habilitar Copilot.",
-        "invalidModels": "Introduce un ID de modelo en cada fila, elimina los pares proveedor/modelo duplicados y elige un modelo predeterminado."
+        "invalidModels": "Introduce un ID de modelo en cada fila y elimina los pares proveedor/modelo duplicados."
       },
       "emailIdentity": {
         "title": "Identidad de correo",
