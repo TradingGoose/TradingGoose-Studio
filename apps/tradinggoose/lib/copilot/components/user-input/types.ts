@@ -22,7 +22,7 @@ export interface UserInputProps {
     message: string,
     images?: ImagePart[],
     contexts?: ChatContext[],
-    submittedDraft?: CopilotDraft
+    onAccepted?: () => void
   ) => Promise<boolean> | boolean
   onAbort?: () => void
   isLoading?: boolean

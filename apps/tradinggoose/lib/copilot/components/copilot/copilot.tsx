@@ -11,7 +11,7 @@ import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
-import type { ChatContext, CopilotDraft, CopilotSendRuntimeContext } from '@/stores/copilot/types'
+import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { CopilotMessage } from '../copilot-message/copilot-message'
 import { TodoList } from '../todo-list/todo-list'
 import { UserInput } from '../user-input/user-input'
@@ -295,18 +295,18 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
       query: string,
       images?: ImagePart[],
       contexts?: ChatContext[],
-      submittedDraft?: CopilotDraft
+      onAccepted?: () => void
     ) => {
       if (!query || isTurnInProgress) return false
 
       try {
-        const accepted = await sendMessage(query, {
+        const completed = await sendMessage(query, {
           images,
           contexts,
-          submittedDraft,
+          onAccepted,
           runtimeContext: sendRuntimeContext,
         })
-        if (!accepted) return false
+        if (!completed) return false
         logger.info('Sent message:', query, images ? `with ${images.length} attachments` : '')
         return true
       } catch (error) {

@@ -203,6 +203,28 @@ describe('Copilot auto-scroll', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
+  it('forwards submission acceptance without waiting for the streaming response to finish', async () => {
+    mockStoreState.isSendingMessage = false
+    let finish!: (completed: boolean) => void
+    mockStoreState.sendMessage.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        finish = resolve
+      })
+    )
+    await renderCopilot()
+    const onAccepted = vi.fn()
+    const onCompleted = vi.fn()
+    const sending = mockUserInputProps.onSubmit('Hello', [], [], onAccepted).then(onCompleted)
+
+    mockStoreState.sendMessage.mock.calls[0][1].onAccepted()
+    expect(onAccepted).toHaveBeenCalledOnce()
+    expect(onCompleted).not.toHaveBeenCalled()
+
+    finish(true)
+    await sending
+    expect(onCompleted).toHaveBeenCalledWith(true)
+  })
+
   it('shows an optional history refresh error separately from the known completed message', async () => {
     mockStoreState = {
       ...mockStoreState,

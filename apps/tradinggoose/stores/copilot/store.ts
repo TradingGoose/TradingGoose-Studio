@@ -332,7 +332,8 @@ function createCopilotStoreInstance(channelId: string) {
       const invoke = async (
         command: CopilotRequest,
         messageId = assistantForCommand(),
-        body = serializeCopilotRequest(command)
+        body = serializeCopilotRequest(command),
+        onAccepted?: () => void
       ) => {
         const id = epoch
         const interaction = interactionGeneration
@@ -388,6 +389,7 @@ function createCopilotStoreInstance(channelId: string) {
                 }
                 return applyNativeEvent(state, event, messageId)
               })
+              if (event.type === 'response.started') onAccepted?.()
               if (
                 event.type === 'tool.result' &&
                 !event.isError &&
@@ -1007,13 +1009,8 @@ function createCopilotStoreInstance(channelId: string) {
               currentRunId: null,
               lastNativeOutcome: null,
             }))
-            const success = await invoke(command, assistant.id, body)
-            const completedHere = success && id === epoch && interaction === interactionGeneration
-            if (completedHere && options.submittedDraft)
-              set((state) =>
-                state.draft === options.submittedDraft ? { draft: emptyDraft() } : {}
-              )
-            return completedHere
+            const success = await invoke(command, assistant.id, body, options.onAccepted)
+            return success && id === epoch && interaction === interactionGeneration
           } catch (error) {
             if (id === epoch) fail(error)
             return false

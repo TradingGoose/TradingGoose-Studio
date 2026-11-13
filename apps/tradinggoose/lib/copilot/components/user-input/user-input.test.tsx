@@ -89,9 +89,11 @@ let updateDraft: Dispatch<SetStateAction<CopilotDraft>>
 function Harness({
   clear = true,
   submitDisabled = false,
+  isLoading = false,
 }: {
   clear?: boolean
   submitDisabled?: boolean
+  isLoading?: boolean
 }) {
   const [draft, setDraft] = useState<CopilotDraft>({ text: 'Preserved draft', contexts: [] })
   currentDraft = draft
@@ -100,6 +102,8 @@ function Harness({
     <UserInput
       workspaceId='workspace'
       onSubmit={mocked.submit}
+      onAbort={vi.fn()}
+      isLoading={isLoading}
       accessLevel='limited'
       onAccessLevelChange={vi.fn()}
       clearOnSubmit={clear}
@@ -124,6 +128,9 @@ beforeEach(() => {
   mocked.files = [descriptor]
   mocked.uploadError = null
   vi.clearAllMocks()
+  mocked.clear.mockImplementation((submittedIds: string[]) => {
+    mocked.files = mocked.files.filter((file) => !submittedIds.includes(file.id))
+  })
 })
 afterEach(() => {
   act(() => root.unmount())
@@ -167,22 +174,42 @@ it('retains draft and attachments when native image delivery is blocked before c
       },
     ],
     [],
-    currentDraft
+    expect.any(Function)
   )
   expect(mocked.clear).not.toHaveBeenCalled()
   expect(mocked.change).not.toHaveBeenCalled()
   expect(currentDraft).toBe(submittedDraft)
   expect(mocked.files.map((file) => file.id)).toEqual([descriptor.id])
 })
-it('clears only after accepted submission', async () => {
-  mocked.submit.mockResolvedValue(true)
-  await render()
-  await submit()
-  expect(mocked.clear).toHaveBeenCalledOnce()
-  expect(mocked.change).toHaveBeenCalledWith(expect.any(Function))
-  expect(currentDraft).toEqual({ text: '', contexts: [] })
-  expect(mocked.clear).toHaveBeenCalledWith([descriptor.id])
-})
+it.each([false, true])(
+  'clears accepted input while streaming and preserves the next draft after result %s',
+  async (completed) => {
+    const pending = heldSubmission()
+    await render()
+    await act(async () =>
+      updateDraft({
+        text: 'Preserved draft',
+        contexts: [{ kind: 'workflow', workflowId: 'workflow', label: 'Workflow' }],
+      })
+    )
+    await submit()
+    await act(async () => root.render(<Harness isLoading />))
+    expect(container.querySelector('textarea')).toHaveValue('Preserved draft')
+    await pending.accept()
+    expect(container.querySelector('[aria-label="Stop"]')).toBeEnabled()
+    expect(container.querySelector('textarea')).toHaveValue('')
+    expect(container.querySelector('pre')?.textContent?.trim()).toBe('')
+    expect(container.querySelector('[data-testid="files"]')).toBeEmptyDOMElement()
+    expect(currentDraft).toEqual({ text: '', contexts: [] })
+    expect(mocked.clear).toHaveBeenCalledExactlyOnceWith([descriptor.id])
+
+    await act(async () => updateDraft({ text: 'Next question', contexts: [] }))
+    await pending.finish(completed)
+    expect(container.querySelector('textarea')).toHaveValue('Next question')
+    expect(container.querySelector('pre')).toHaveTextContent('Next question')
+    expect(mocked.clear).toHaveBeenCalledOnce()
+  }
+)
 it('refuses missing image bytes before calling the native send handler', async () => {
   mocked.files = [{ ...descriptor, data: undefined }]
   await render()
@@ -193,21 +220,24 @@ it('refuses missing image bytes before calling the native send handler', async (
 })
 
 function heldSubmission() {
-  let resolve!: (accepted: boolean) => void
-  mocked.submit.mockReturnValue(
-    new Promise<boolean>((done) => {
-      resolve = done
-    })
-  )
-  return (accepted: boolean) =>
-    act(async () => {
-      resolve(accepted)
-    })
+  let resolve!: (completed: boolean) => void
+  let onAccepted!: () => void
+  const promise = new Promise<boolean>((done) => {
+    resolve = done
+  })
+  mocked.submit.mockImplementation((_message, _images, _contexts, accepted: () => void) => {
+    onAccepted = accepted
+    return promise
+  })
+  return {
+    accept: () => act(async () => onAccepted()),
+    finish: (completed: boolean) => act(async () => resolve(completed)),
+  }
 }
 it.each(['text', 'contexts', 'ABA'])(
   'preserves the later %s draft while selectively clearing submitted image IDs',
   async (kind) => {
-    const finish = heldSubmission()
+    const pending = heldSubmission()
     await render()
     await submit()
     const submitted = currentDraft
@@ -222,7 +252,8 @@ it.each(['text', 'contexts', 'ABA'])(
     if (kind === 'ABA') await act(async () => updateDraft({ ...submitted }))
     const newer = currentDraft
     mocked.files = [...mocked.files, { ...descriptor, id: 'new-image' }]
-    await finish(true)
+    await pending.accept()
+    await pending.finish(true)
     expect(currentDraft).toBe(newer)
     expect(mocked.clear).toHaveBeenCalledExactlyOnceWith([descriptor.id])
   }
@@ -230,20 +261,23 @@ it.each(['text', 'contexts', 'ABA'])(
 it.each([false, true])(
   'clearOnSubmit:false leaves the edit draft/files after result %s',
   async (accepted) => {
-    mocked.submit.mockResolvedValue(accepted)
+    const pending = heldSubmission()
     await render(false)
     const submitted = currentDraft
     await submit()
+    if (accepted) await pending.accept()
+    await pending.finish(accepted)
     expect(currentDraft).toBe(submitted)
     expect(mocked.clear).not.toHaveBeenCalled()
   }
 )
 it('unmounted old composer cannot clear its submitted files after navigation', async () => {
-  const finish = heldSubmission()
+  const pending = heldSubmission()
   await render()
   await submit()
   await act(async () => root.render(<div>new chat</div>))
-  await finish(true)
+  await pending.accept()
+  await pending.finish(true)
   expect(mocked.clear).not.toHaveBeenCalled()
   expect(mocked.change).not.toHaveBeenCalled()
 })

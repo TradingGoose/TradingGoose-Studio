@@ -337,17 +337,19 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       const submittedDraft = draft
       const submission = ++submissionGeneration.current
       const submittedFiles = attachedFiles.map((file) => file.id)
-      const accepted = await onSubmit(trimmedMessage, images, selectedContexts, submittedDraft)
-      if (!accepted || submission !== submissionGeneration.current) return
+      await onSubmit(trimmedMessage, images, selectedContexts, () => {
+        if (submission !== submissionGeneration.current) return
+        submissionGeneration.current += 1
 
-      if (clearOnSubmit) {
-        onDraftChange((current) =>
-          current === submittedDraft ? { text: '', contexts: [] } : current
-        )
-        clearAttachedFiles(submittedFiles)
-      }
+        if (clearOnSubmit) {
+          onDraftChange((current) =>
+            current === submittedDraft ? { text: '', contexts: [] } : current
+          )
+          clearAttachedFiles(submittedFiles)
+        }
 
-      closeMentionMenu()
+        closeMentionMenu()
+      })
     }
 
     const handleTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {

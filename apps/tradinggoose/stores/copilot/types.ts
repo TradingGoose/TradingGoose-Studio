@@ -125,7 +125,7 @@ export interface CopilotActions {
     options?: {
       images?: ImagePart[]
       contexts?: ChatContext[]
-      submittedDraft?: CopilotDraft
+      onAccepted?: () => void
       messageId?: string
       runtimeContext?: CopilotSendRuntimeContext
     }

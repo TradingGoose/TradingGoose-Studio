@@ -269,6 +269,7 @@ describe('canonical browser conversation transport', () => {
       commands.length = 0
       const messages = store().getState().messages
       const submittedDraft = { text: 'Describe these images', contexts: [] }
+      const onAccepted = vi.fn()
       store().setState({ draft: submittedDraft, currentRunId: 'retained-run' })
       const images = [
         {
@@ -282,11 +283,12 @@ describe('canonical browser conversation transport', () => {
           .getState()
           .sendMessage(submittedDraft.text, {
             images,
-            submittedDraft,
+            onAccepted,
             ...(mode === 'edit' ? { messageId: history[0].id } : {}),
           })
       ).toBe(false)
       expect(commands).toEqual([])
+      expect(onAccepted).not.toHaveBeenCalled()
       expect(titleRequests).toEqual([])
       expect(store().getState()).toMatchObject({
         currentRunId: 'retained-run',
@@ -302,13 +304,14 @@ describe('canonical browser conversation transport', () => {
 
   it('counts merged implicit context and UTF-8 bytes in the complete command before any request', async () => {
     const submittedDraft = { text: 'Describe', contexts: [] }
+    const onAccepted = vi.fn()
     store().setState({ draft: submittedDraft })
     const messages = store().getState().messages
     expect(
       await store()
         .getState()
         .sendMessage(submittedDraft.text, {
-          submittedDraft,
+          onAccepted,
           images: [
             {
               type: 'image',
@@ -323,6 +326,7 @@ describe('canonical browser conversation transport', () => {
         })
     ).toBe(false)
     expect(fetch).not.toHaveBeenCalled()
+    expect(onAccepted).not.toHaveBeenCalled()
     expect(store().getState().draft).toBe(submittedDraft)
     expect(store().getState().messages).toBe(messages)
     expect(store().getState().error).toContain('10 MiB')
@@ -1702,58 +1706,68 @@ describe('explicit reopened Drive business choice', () => {
   )
 })
 
-describe('submitted immutable draft ownership', () => {
-  it.each([
-    'unchanged',
-    'text',
-    'contexts',
-    'ABA',
-    'navigation',
-    'abort',
-    'failure',
-    'programmatic',
-  ])('preserves later draft ownership: %s', async (kind) => {
+describe('message acceptance', () => {
+  it('acknowledges the submitted message while its response is still streaming', async () => {
     setChat()
-    const submitted = { text: 'submitted', contexts: [] }
-    store().getState().setDraft(submitted)
-    const held = defer<Response>()
-    onCommand = (request) => (request.command === 'message' ? held.promise : undefined)
-    const sending = store()
-      .getState()
-      .sendMessage('submitted', kind === 'programmatic' ? {} : { submittedDraft: submitted })
-    await vi.waitFor(() =>
-      expect(commands.some((request) => request.command === 'message')).toBe(true)
-    )
-    if (kind === 'text')
-      store()
-        .getState()
-        .setDraft({ ...submitted, text: 'next draft' })
-    if (kind === 'contexts')
-      store()
-        .getState()
-        .setDraft({
-          ...submitted,
-          contexts: [{ kind: 'workflow', workflowId: 'next', label: 'Next workflow' }],
-        })
-    if (kind === 'ABA') {
-      store()
-        .getState()
-        .setDraft({ ...submitted, text: 'temporary' })
-      store()
-        .getState()
-        .setDraft({ ...submitted })
-    }
-    if (kind === 'navigation') await store().getState().selectChat(chat('other', 'other'))
-    if (kind === 'abort') store().getState().abortMessage()
-    const next = store().getState().draft
-    const request = commands.find((request) => request.command === 'message')!
-    held.resolve(kind === 'failure' ? json({ error: 'failed' }, 500) : terminalResponse(ready()))
-    const accepted = await sending
-    if (kind === 'unchanged') expect(store().getState().draft).toEqual({ text: '', contexts: [] })
-    else expect(store().getState().draft).toBe(next)
-    if (['navigation', 'abort', 'failure'].includes(kind)) expect(accepted).toBe(false)
-    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+    let controller!: ReadableStreamDefaultController<Uint8Array>
+    const encoder = new TextEncoder()
+    const emit = (event: object) =>
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\r\n\r\n`))
+    onCommand = (request) =>
+      request.command === 'message'
+        ? new Response(
+            new ReadableStream({
+              start(stream) {
+                controller = stream
+              },
+            }),
+            { headers: { 'content-type': 'text/event-stream' } }
+          )
+        : undefined
+    const onAccepted = vi.fn()
+    const finished = vi.fn()
+    const sending = store().getState().sendMessage('submitted', { onAccepted }).then(finished)
+    await vi.waitFor(() => expect(controller).toBeDefined())
+    expect(onAccepted).not.toHaveBeenCalled()
+    emit({ type: 'response.started', threadId, runId })
+    emit({ type: 'text.delta', text: 'Working' })
+    await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledOnce())
+    expect(store().getState().isSendingMessage).toBe(true)
+    expect(finished).not.toHaveBeenCalled()
+
+    emit({ type: 'response.completed', result: ready() })
+    controller.close()
+    await sending
+    expect(finished).toHaveBeenCalledWith(true)
+    expect(onAccepted).toHaveBeenCalledOnce()
   })
+
+  it.each(['navigation', 'abort', 'failure'])(
+    'does not acknowledge a message after pre-start %s',
+    async (kind) => {
+      setChat()
+      const held = defer<Response>()
+      onCommand = (request) => (request.command === 'message' ? held.promise : undefined)
+      const onAccepted = vi.fn()
+      const sending = store().getState().sendMessage('submitted', { onAccepted })
+      await vi.waitFor(() =>
+        expect(commands.some((request) => request.command === 'message')).toBe(true)
+      )
+      if (kind === 'navigation') await store().getState().selectChat(chat('other', 'other'))
+      if (kind === 'abort') await store().getState().abortMessage()
+      held.resolve(
+        kind === 'failure'
+          ? json({ error: 'failed' }, 500)
+          : eventResponse([
+              { type: 'response.started', threadId, runId },
+              { type: 'response.completed', result: ready() },
+            ])
+      )
+      expect(await sending).toBe(false)
+      expect(onAccepted).not.toHaveBeenCalled()
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+    }
+  )
 })
 
 describe('local workflow execution refusals', () => {
