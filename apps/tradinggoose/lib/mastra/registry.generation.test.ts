@@ -85,6 +85,7 @@ it('retains exact registered generation and custom identities without purpose na
   const lookup = await getNativeModelLookup()
   for (const id of [
     'openai/gpt-4.1',
+    'deepseek/deepseek-v4-pro',
     'custom/text-embedding-3-small',
     'custom/embedding-named-generation-model',
   ]) {
