@@ -312,7 +312,7 @@ The chart drawing tools vendored in `apps/tradinggoose/widgets/widgets/data_char
 
 ### Built-in AI runtime
 
-Studio and Copilot share one Mastra runtime and Memory store in the application database configured by `DATABASE_URL`. The [shared runtime](apps/tradinggoose/lib/mastra/runtime.ts) combines only Mastra's native Memory and Workflows PostgreSQL adapters over one application-owned pool. Startup initializes their seven native tables in the `mastra` schema; no other Mastra domains are enabled. The pool owner closes it explicitly. Run `bun run db:migrate` separately for generated application migrations.
+Studio and Copilot share one Mastra runtime and Memory store in the application database configured by `DATABASE_URL`. The [shared runtime](apps/tradinggoose/lib/mastra/runtime.ts) combines only Mastra's native Memory and Workflows PostgreSQL adapters over one application-owned pool. Startup initializes their seven native tables in the `mastra` schema; no other Mastra domains are enabled. Failed initialization closes the pool. Run `bun run db:migrate` separately for generated application migrations.
 
 Copilot and workflow Agents use Mastra's model/tool loop with their own instructions, tools, and permissions. The migrated LLM consumers use the same [request preparation](apps/tradinggoose/lib/mastra/request.ts) for model connections, settings, processors, tracing, and accounting. Both histories use the same native message projection and ordered reader. Studio's executor still coordinates workflow blocks. See [built-in Copilot](apps/tradinggoose/lib/copilot/README.md) for configuration and verification.
 
