@@ -588,19 +588,26 @@ export class AgentBlockHandler implements BlockHandler {
   }
 }
 
-/** Names identify configured instances; callbacks keep the original application tool ID. */
+/** Allocate unique names within Mastra's limits; callbacks keep the original application tool ID. */
 function namedAgentTools(configured: AgentToolConfig[]) {
-  const reserved = new Set(configured.map((tool) => tool.id))
+  const maxLength = 63
+  const named = configured.map((tool) => {
+    let baseName = tool.id.replace(/[^a-zA-Z0-9_-]/g, '_')
+    if (!/^[a-zA-Z_]/.test(baseName)) baseName = `_${baseName}`
+    return { tool, baseName: baseName.slice(0, maxLength) }
+  })
+  const reserved = new Set(named.map(({ baseName }) => baseName))
   const counts = new Map<string, number>()
-  return configured.map((tool) => {
-    const duplicate = configured.filter((candidate) => candidate.id === tool.id).length > 1
-    if (!duplicate) return { tool, nativeName: tool.id }
-    let index = counts.get(tool.id) ?? 0
+  return named.map(({ tool, baseName }) => {
+    const duplicate = named.filter((candidate) => candidate.baseName === baseName).length > 1
+    if (!duplicate) return { tool, nativeName: baseName }
+    let index = counts.get(baseName) ?? 0
     let nativeName: string
     do {
-      nativeName = `${tool.id}__instance_${++index}`
+      const suffix = `__instance_${++index}`
+      nativeName = `${baseName.slice(0, maxLength - suffix.length)}${suffix}`
     } while (reserved.has(nativeName))
-    counts.set(tool.id, index)
+    counts.set(baseName, index)
     reserved.add(nativeName)
     return { tool, nativeName }
   })

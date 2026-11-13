@@ -715,6 +715,81 @@ describe('native Agent MCP integration', () => {
     },
     usageControl: 'force' as const,
   }
+  it.each(['auto', 'force'] as const)(
+    'keeps colliding long MCP names and repeated instances distinct in %s mode',
+    async (usageControl) => {
+      const toolNames = ['get_customer_details_v1', 'get_customer_details_v2']
+      vi.mocked(mcpService.discoverServerTools).mockResolvedValue(
+        toolNames.map((name) => ({
+          name,
+          serverId: selected.params.serverId,
+          serverName: 'Customer service',
+          inputSchema: { type: 'object', properties: { query: { type: 'string' } } },
+        }))
+      )
+      const selections = [toolNames[0], toolNames[1], toolNames[0]].map((toolName, index) => ({
+        ...selected,
+        usageControl,
+        params: { serverId: selected.params.serverId, toolName, query: `customer-${index}` },
+      }))
+      let round = 0
+      state.model = new MastraLanguageModelV2Mock({
+        doGenerate: async (options) => {
+          const index = round++
+          const calling = index < selections.length
+          return {
+            content: calling
+              ? [
+                  {
+                    type: 'tool-call',
+                    toolCallId: `customer-call-${index}`,
+                    toolName: options.tools![usageControl === 'force' ? 0 : index].name,
+                    input: '{"query":"generated"}',
+                  },
+                ]
+              : [{ type: 'text', text: 'Customers found' }],
+            finishReason: calling ? 'tool-calls' : 'stop',
+            usage,
+            warnings: [],
+          }
+        },
+      })
+      const result = await new AgentBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', tools: selections },
+        context()
+      )
+      expect(result).toMatchObject({ content: 'Customers found' })
+      const names = Object.keys(state.configurations[0].tools)
+      expect(names).toHaveLength(3)
+      expect(new Set(names).size).toBe(3)
+      expect(names.every((name) => /^[a-zA-Z_][a-zA-Z0-9_-]{0,62}$/.test(name))).toBe(true)
+      const calls = state.model.doGenerateCalls
+      expect(calls).toHaveLength(4)
+      expect(calls.map((call: any) => call.toolChoice)).toEqual(
+        usageControl === 'force'
+          ? [...names.map((toolName) => ({ type: 'tool', toolName })), { type: 'auto' }]
+          : Array.from({ length: 4 }, () => ({ type: 'auto' }))
+      )
+      if (usageControl === 'auto')
+        expect(calls[0].tools.map((tool: any) => tool.name)).toEqual(names)
+      expect(
+        vi.mocked(executeTool).mock.calls.map(([id, args]) => ({
+          id,
+          serverId: args.serverId,
+          toolName: args.toolName,
+          query: args.arguments.query,
+        }))
+      ).toEqual(
+        selections.map(({ params }) => ({
+          id: 'mcp',
+          serverId: params.serverId,
+          toolName: params.toolName,
+          query: params.query,
+        }))
+      )
+    }
+  )
   it.each(['custom', 'mcp'])(
     'preserves %s dictionary schemas and arguments through the actual OpenAI request and shared dispatch',
     async (kind) => {
@@ -966,26 +1041,39 @@ describe('native named Force tools', () => {
     expect(vi.mocked(executeTool).mock.calls[0][0]).toBe('9.lookup')
   })
 
-  it('preserves Mastra rejection when distinct tool IDs normalize to the same name', async () => {
-    const configured = ['a', 'b'].map((suffix) => ({
-      id: `${'lookup_'.repeat(9)}${suffix}`,
+  it.each([
+    { ids: [`${'lookup_'.repeat(9)}a`, `${'lookup_'.repeat(9)}b`] },
+    { ids: ['lookup.value', 'lookup/value'] },
+    { ids: ['9.lookup', '_9_lookup'] },
+    { ids: ['same_operation', 'same_operation', 'same_operation__instance_1'] },
+  ])('allocates unique native names for $ids without changing dispatch', async ({ ids }) => {
+    const configured = ids.map((id, index) => ({
+      id,
       description: 'Lookup',
       parameters: schema,
+      params: { query: `fixed-${index}` },
       usageControl: 'force' as const,
     }))
     const { tools } = createOwnedTestToolSet(configured, context())
+    const names = Object.keys(tools)
     const policy = createForcedToolPolicy(configured)
-    await expect(
-      new Agent({
-        id: 'collision',
-        name: 'Collision',
-        instructions: '',
-        model: state.model,
-        tools,
-      }).generate('Lookup', { prepareStep: policy.prepareStep })
-    ).rejects.toThrow('resolve to the same name')
-    expect(state.model.doGenerateCalls).toEqual([])
-    expect(executeTool).not.toHaveBeenCalled()
+    const result = await new Agent({
+      id: 'collision',
+      name: 'Collision',
+      instructions: '',
+      model: state.model,
+      tools,
+    }).generate('Lookup', { maxSteps: ids.length + 1, prepareStep: policy.prepareStep })
+    policy.assertComplete(result.steps)
+    expect(names).toHaveLength(ids.length)
+    expect(names.every((name) => /^[a-zA-Z_][a-zA-Z0-9_-]{0,62}$/.test(name))).toBe(true)
+    expect(state.model.doGenerateCalls.map((call: any) => call.toolChoice)).toEqual([
+      ...names.map((toolName) => ({ type: 'tool', toolName })),
+      { type: 'auto' },
+    ])
+    expect(vi.mocked(executeTool).mock.calls.map(([id, params]) => [id, params.query])).toEqual(
+      ids.map((id, index) => [id, `fixed-${index}`])
+    )
   })
 
   it('runs two forced tools in configured order, then Auto; None stays unexposed and fixed args/context survive', async () => {
