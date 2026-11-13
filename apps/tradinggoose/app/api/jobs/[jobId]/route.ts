@@ -9,9 +9,10 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { type AuthResult, AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
 import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
+import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
 import { createLogger } from '@/lib/logs/console/logger'
-import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
-import { generateRequestId } from '@/lib/utils'
+import { buildWorkspaceAccessScope, checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import {
   createInternalWorkflowJobResult,
   createPublicExecutionResult,
@@ -53,9 +54,28 @@ export async function GET(
       return createErrorResponse('Workspace API key is missing its workspace scope', 403)
     }
 
+    const streaming = request.headers.get('accept')?.includes('text/event-stream')
+    const fromEventId = Number(request.headers.get('last-event-id') ?? 0)
+    if (streaming && (!Number.isSafeInteger(fromEventId) || fromEventId < 0)) {
+      return createErrorResponse('Invalid workflow execution event cursor', 400)
+    }
+    const streamExecution = async (workflowId: string) => {
+      const result = await openWorkflowExecutionEventStream({
+        pendingExecutionId: taskId,
+        workflowId,
+        fromEventId,
+        requestId,
+      })
+      return result.ok
+        ? new NextResponse(result.stream, { headers: SSE_HEADERS })
+        : createErrorResponse('Task not found', 404)
+    }
+
     const [pendingRow] = await db
       .select({
         id: pendingExecution.id,
+        workflowId: pendingExecution.workflowId,
+        workspaceId: pendingExecution.workspaceId,
         status: pendingExecution.status,
         createdAt: pendingExecution.createdAt,
         processingStartedAt: pendingExecution.processingStartedAt,
@@ -71,6 +91,15 @@ export async function GET(
       .limit(1)
 
     if (pendingRow) {
+      if (streaming) {
+        if (
+          !pendingRow.workflowId ||
+          !pendingRow.workspaceId ||
+          !(await checkWorkspaceAccess(pendingRow.workspaceId, auth.userId)).hasAccess
+        )
+          return createErrorResponse('Task not found', 404)
+        return await streamExecution(pendingRow.workflowId)
+      }
       return NextResponse.json({
         success: true,
         taskId,
@@ -110,6 +139,7 @@ export async function GET(
       .limit(1)
 
     if (logRow) {
+      if (streaming && logRow.workflowId) return await streamExecution(logRow.workflowId)
       const state = createWorkflowExecutionResultFromLog(logRow)
       const output = isExecutionResult(state.result)
         ? shouldIncludeInternalWorkflowTraceSpans(auth, state.result)

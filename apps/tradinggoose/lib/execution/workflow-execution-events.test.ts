@@ -48,6 +48,22 @@ beforeEach(() => {
   mocks.dbSelect.mockClear()
 })
 
+it('retains the local event buffer when the server module reloads', async () => {
+  mocks.storageMode = 'local'
+  mocks.pendingRows.push({ status: 'processing' })
+  const params = { pendingExecutionId: 'hmr-execution', workflowId: 'workflow-1' }
+  const writer = createWorkflowExecutionEventWriter(params)
+  await writer.write({ type: 'stream:chunk', data: { blockId: 'agent', chunk: 'before reload' } })
+  vi.resetModules()
+  const reloaded = await import('./workflow-execution-events')
+  await writer.write({ type: 'stream:chunk', data: { blockId: 'agent', chunk: 'after reload' } })
+  const state = await reloaded.readWorkflowExecutionEventState({ ...params, afterEventId: 0 })
+  expect(state?.events.map(({ event }) => event.data)).toEqual([
+    { blockId: 'agent', chunk: 'before reload' },
+    { blockId: 'agent', chunk: 'after reload' },
+  ])
+})
+
 it('prefers a finalized error log and otherwise uses pending state', async () => {
   mocks.pendingRows.push({ status: 'processing' })
   mocks.logRows.push({

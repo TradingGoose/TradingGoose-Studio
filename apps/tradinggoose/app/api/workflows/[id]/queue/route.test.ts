@@ -11,13 +11,11 @@ const {
   checkSessionOrInternalAuthMock,
   readWorkflowAccessContextMock,
   enqueuePendingExecutionMock,
-  openWorkflowExecutionEventStreamMock,
 } = vi.hoisted(() => ({
   nativeEffectMock: vi.fn(),
   checkSessionOrInternalAuthMock: vi.fn(),
   readWorkflowAccessContextMock: vi.fn(),
   enqueuePendingExecutionMock: vi.fn(),
-  openWorkflowExecutionEventStreamMock: vi.fn(),
 }))
 
 vi.mock('@/lib/copilot/native/workflow-effects', () => ({
@@ -38,10 +36,6 @@ vi.mock('@/lib/execution/pending-execution', () => ({
   isPendingExecutionLimitError: vi.fn(() => false),
 }))
 
-vi.mock('@/lib/execution/workflow-execution-stream', () => ({
-  openWorkflowExecutionEventStream: openWorkflowExecutionEventStreamMock,
-}))
-
 vi.mock('@/lib/trigger/settings', () => ({
   TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {
     statusCode = 409
@@ -56,7 +50,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/utils', () => ({
   generateRequestId: vi.fn(() => 'request-1'),
-  SSE_HEADERS: { 'Content-Type': 'text/event-stream' },
 }))
 
 vi.unmock('@/blocks/registry')
@@ -87,10 +80,6 @@ describe('POST /api/workflows/[id]/queue', () => {
       pendingExecutionId: 'pending-1',
       billingScopeId: 'scope-1',
       inserted: true,
-    })
-    openWorkflowExecutionEventStreamMock.mockResolvedValue({
-      ok: true,
-      stream: new ReadableStream(),
     })
   })
 
@@ -354,7 +343,7 @@ describe('POST /api/workflows/[id]/queue', () => {
     )
   })
 
-  it('returns the queued workflow event stream for live streaming executions', async () => {
+  it('returns an admission receipt while enabling live execution events', async () => {
     const response = await POST(
       new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
         method: 'POST',
@@ -375,15 +364,13 @@ describe('POST /api/workflows/[id]/queue', () => {
       }
     )
 
-    expect(response.status).toBe(200)
-    expect(response.headers.get('Content-Type')).toContain('text/event-stream')
-    expect(response.headers.get('X-Execution-Id')).toBe('execution-1')
-    expect(response.headers.get('X-Task-Id')).toBe('pending-1')
-    expect(openWorkflowExecutionEventStreamMock).toHaveBeenCalledWith({
-      pendingExecutionId: 'execution-1',
-      workflowId: 'workflow-1',
-      requestId: 'request-1',
-    })
+    expect(response.status).toBe(202)
+    expect(await response.json()).toMatchObject({ taskId: 'pending-1', executionId: 'execution-1' })
+    expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({ stream: true }),
+      })
+    )
   })
 
   it('rejects deployed executions with live workflow state', async () => {

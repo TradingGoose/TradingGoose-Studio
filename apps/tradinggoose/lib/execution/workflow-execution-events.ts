@@ -49,7 +49,13 @@ export type WorkflowExecutionAccessContext = {
   workspaceId: string | null
 }
 
-const memoryStreams = new Map<string, MemoryExecutionEventStream>()
+const executionEventState = globalThis as typeof globalThis & {
+  __TRADINGGOOSE_WORKFLOW_EVENT_STREAMS__?: Map<string, MemoryExecutionEventStream>
+}
+const memoryStreams = (executionEventState.__TRADINGGOOSE_WORKFLOW_EVENT_STREAMS__ ??= new Map<
+  string,
+  MemoryExecutionEventStream
+>())
 
 function eventsKey(pendingExecutionId: string) {
   return `${BUFFER_KEY_PREFIX}${pendingExecutionId}:events`

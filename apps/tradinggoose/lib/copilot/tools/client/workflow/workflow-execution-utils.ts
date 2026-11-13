@@ -17,10 +17,6 @@ type WorkflowExecutionOptions = {
   triggerBlockId: string
 }
 
-function createExecutionId() {
-  return globalThis.crypto.randomUUID()
-}
-
 export async function executeWorkflowWithFullLogging(
   options: WorkflowExecutionOptions
 ): Promise<ExecutionResult> {
@@ -60,7 +56,7 @@ export async function executeWorkflowWithFullLogging(
     workflowId: options.workflowId,
     native: options.native,
     signal: options.signal,
-    executionId: options.executionId ?? createExecutionId(),
+    executionId: options.executionId ?? globalThis.crypto.randomUUID(),
     input: start.input,
     triggerType: start.triggerType,
     executionTarget: 'live',
