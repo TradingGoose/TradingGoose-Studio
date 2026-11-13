@@ -589,11 +589,18 @@ it.each(['active', 'missing', 'ended', 'other-actor', 'other-workspace', 'other-
         }),
       })
     )
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(state === 'active' ? 200 : 500)
     expect(
       boundary.select.mock.calls.filter(([table]) => table === workflowExecutionLogs)
-    ).toHaveLength(2)
-    expect(boundary.accept).toHaveBeenCalledTimes(state === 'active' ? 0 : 1)
+    ).toHaveLength(state === 'active' ? 2 : 1)
+    expect(boundary.contact).toHaveBeenCalledTimes(state === 'active' ? 1 : 0)
+    expect(boundary.accept).not.toHaveBeenCalled()
+    if (state !== 'active') {
+      expect(await response.json()).toMatchObject({
+        error: 'Workflow execution is not accepting model requests',
+      })
+      expect(boundary.executionData).toEqual({ environment: { userId: context.userId } })
+    }
   }
 )
 
