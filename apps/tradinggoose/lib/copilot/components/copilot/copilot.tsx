@@ -404,7 +404,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
           {/* Input area with integrated access selector */}
           <div className='pt-2'>
             {error && (
-              <p role='alert' className='px-3 py-2 text-destructive text-sm'>
+              <p role='alert' className='px-3 pb-2 text-destructive text-sm'>
                 {error}
               </p>
             )}
