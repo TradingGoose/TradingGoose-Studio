@@ -29,6 +29,7 @@ import {
 } from '@/lib/copilot/tools/client/manager'
 import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
 import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/server-tool-response'
+import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { parseCopilotWorkspaceChannelId } from './channel-id'
@@ -607,7 +608,15 @@ function createCopilotStoreInstance(channelId: string) {
               })
             )
             const key = stableStringifyJsonValue(pending.target)
-            if (attemptedTools.has(key))
+            if (
+              attemptedTools.has(key) &&
+              !(
+                intent.kind === 'initial' &&
+                call.state === ClientToolCallState.pending &&
+                instance instanceof RunWorkflowClientTool &&
+                instance.hasAttemptedExecution() === false
+              )
+            )
               throw new Error(
                 'Browser tool execution was already attempted; use readback instead of replay'
               )

@@ -19,9 +19,15 @@ interface RunWorkflowArgs {
 
 export class RunWorkflowClientTool extends BaseClientTool {
   static readonly id = 'run_workflow'
+  // Only a local refusal proves false; a fresh instance cannot attest an older attempt.
+  private executionAttempted?: boolean
 
   constructor(toolCallId: string) {
     super(toolCallId, RunWorkflowClientTool.id, RunWorkflowClientTool.metadata)
+  }
+
+  hasAttemptedExecution() {
+    return this.executionAttempted
   }
 
   static readonly metadata: BaseClientToolMetadata = {
@@ -60,8 +66,11 @@ export class RunWorkflowClientTool extends BaseClientTool {
       const { isExecuting, setIsExecuting } = useExecutionStore.getState()
       if (isExecuting) {
         logger.debug('Execution prevented: already executing')
-        this.setState(ClientToolCallState.error)
         this.fail('The workflow is already in the middle of an execution. Try again later')
+        if (this.executionAttempted !== true) {
+          this.executionAttempted = false
+          this.setState(ClientToolCallState.pending)
+        }
         return
       }
 
@@ -117,6 +126,8 @@ export class RunWorkflowClientTool extends BaseClientTool {
         })
 
         const native = await this.requireNativeTarget()
+        // Once the execution path is entered, a later failure cannot prove that nothing ran.
+        this.executionAttempted = true
         const result = await executeWorkflowWithFullLogging({
           native,
           signal: this.getAbortSignal(),

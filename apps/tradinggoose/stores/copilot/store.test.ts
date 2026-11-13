@@ -8,6 +8,7 @@ import {
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
+import { useExecutionStore } from '@/stores/execution/store'
 import { buildCopilotWorkspaceChannelId } from './channel-id'
 import { getCopilotStore, resetCopilotStoreRegistry } from './store'
 import { getCopilotStoreForToolCall } from './store-access'
@@ -17,10 +18,16 @@ import type { CopilotChat } from './types'
 
 const tools = vi.hoisted(() => ({
   actualOAuth: false,
+  actualRunWorkflow: false,
+  runWorkflow: vi.fn(),
   refresh: vi.fn(),
   browser: vi.fn(),
   bind: vi.fn(),
   hydrate: vi.fn(),
+}))
+vi.unmock('@/stores/execution/store')
+vi.mock('@/lib/copilot/tools/client/workflow/workflow-execution-utils', () => ({
+  executeWorkflowWithFullLogging: tools.runWorkflow,
 }))
 vi.mock('./tool-registry', async (original) => {
   const registry = await original<typeof import('./tool-registry')>()
@@ -28,14 +35,16 @@ vi.mock('./tool-registry', async (original) => {
     ...registry,
     handleCopilotServerToolSuccess: tools.refresh,
     ensureClientToolInstance: (...args: Parameters<typeof registry.ensureClientToolInstance>) =>
-      tools.actualOAuth && args[0] === 'oauth_request_access'
+      (tools.actualOAuth && args[0] === 'oauth_request_access') ||
+      (tools.actualRunWorkflow && args[0] === 'run_workflow')
         ? registry.ensureClientToolInstance(...args)
         : { handleUserAction: tools.browser, hydrateToolCall: tools.hydrate },
     bindClientToolExecutionContext: (
       ...args: Parameters<typeof registry.bindClientToolExecutionContext>
     ) => {
       tools.bind(...args)
-      if (tools.actualOAuth) registry.bindClientToolExecutionContext(...args)
+      if (tools.actualOAuth || tools.actualRunWorkflow)
+        registry.bindClientToolExecutionContext(...args)
     },
   }
 })
@@ -191,6 +200,9 @@ function eventResponse(events: object[]) {
 beforeEach(() => {
   resetCopilotStoreRegistry()
   tools.actualOAuth = false
+  tools.actualRunWorkflow = false
+  tools.runWorkflow.mockReset().mockResolvedValue({ success: true, output: {}, logs: [] })
+  useExecutionStore.getState().reset()
   store().setState({ selectedModel: 'anthropic/admin-selected-model' })
   commands = []
   titleRequests = []
@@ -1653,6 +1665,138 @@ describe('submitted immutable draft ownership', () => {
     else expect(store().getState().draft).toBe(next)
     if (['navigation', 'abort', 'failure'].includes(kind)) expect(accepted).toBe(false)
     expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+  })
+})
+
+describe('local workflow execution refusals', () => {
+  const item = (): Pending => ({
+    ...pending('result', 'run_workflow'),
+    originalArgs: { entityId: 'original-workflow', triggerBlockId: 'original-trigger' },
+  })
+  const install = async () => {
+    tools.actualRunWorkflow = true
+    const target = item()
+    onCommand = (request) =>
+      request.command === 'history.read' ? historyResponse([target]) : undefined
+    await store().getState().selectChat(chat())
+    commands = []
+    onCommand = () => undefined
+    return target
+  }
+
+  it('keeps Run available after a local busy refusal and admits one later explicit attempt', async () => {
+    const target = await install()
+    useExecutionStore.getState().setIsExecuting(true)
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(tools.runWorkflow).not.toHaveBeenCalled()
+    expect(commands).toEqual([])
+    expect(store().getState().toolCallsById[target.target.toolCallId]).toMatchObject({
+      state: ClientToolCallState.pending,
+      pending: target,
+    })
+    expect(store().getState().error).toContain('Try again later')
+    expect(store().getState().isAwaitingContinuation).toBe(true)
+
+    useExecutionStore.getState().setIsExecuting(false)
+    const admitted = defer<{
+      success: boolean
+      output: Record<string, unknown>
+      logs: unknown[]
+    }>()
+    tools.runWorkflow.mockReturnValue(admitted.promise)
+    const retry = store().getState().executeCopilotToolCall(target.target.toolCallId)
+    await vi.waitFor(() => expect(tools.runWorkflow).toHaveBeenCalledOnce())
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(tools.runWorkflow).toHaveBeenCalledOnce()
+    admitted.resolve({ success: true, output: {}, logs: [] })
+    await retry
+    expect(tools.runWorkflow).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        executionId: target.target.toolCallId,
+        workflowId: 'original-workflow',
+        triggerBlockId: 'original-trigger',
+        native: { workspaceId, target: target.target },
+      })
+    )
+    expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
+      { command: 'tool.execute', workspaceId, target: target.target, action: 'readback' },
+    ])
+  })
+
+  it('keeps automatic replay blocked after a proven local refusal under full access', async () => {
+    tools.actualRunWorkflow = true
+    useExecutionStore.getState().setIsExecuting(true)
+    store().setState({ accessLevel: 'full' })
+    const target = item()
+    const other = { ...pending(), target: { ...pending().target, toolCallId: 'other' } }
+    let otherSettled = false
+    onCommand = (request) => {
+      if (request.command === 'message') return terminalResponse(suspended([target, other]))
+      if (request.command === 'history.read')
+        return historyResponse(otherSettled ? [target] : [target, other])
+      if (request.command === 'tool.execute' && request.target.toolCallId === 'other') {
+        otherSettled = true
+        return terminalResponse(suspended([target]))
+      }
+    }
+    await store().getState().sendMessage('Run the workflow')
+    await vi.waitFor(() => expect(store().getState().error).toContain('Try again later'))
+    expect(tools.runWorkflow).not.toHaveBeenCalled()
+    useExecutionStore.getState().setIsExecuting(false)
+    await store().getState().executeCopilotToolCall('other')
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(tools.runWorkflow).not.toHaveBeenCalled()
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(tools.runWorkflow).toHaveBeenCalledOnce()
+  })
+
+  it.each(['transport', 'readback'] as const)(
+    'retains replay protection after entering execution with an uncertain %s outcome',
+    async (failure) => {
+      const target = await install()
+      if (failure === 'transport')
+        tools.runWorkflow.mockRejectedValue(new Error('Execution response unavailable'))
+      onCommand = (request) =>
+        request.command === 'tool.execute'
+          ? json(
+              { status: 'refused', error: { code: 'STALE_TARGET', message: 'Readback failed' } },
+              409
+            )
+          : undefined
+      await store().getState().executeCopilotToolCall(target.target.toolCallId)
+      expect(tools.runWorkflow).toHaveBeenCalledOnce()
+      expect(store().getState().toolCallsById[target.target.toolCallId]).toMatchObject({
+        state: ClientToolCallState.error,
+        pending: target,
+      })
+      await store().getState().executeCopilotToolCall(target.target.toolCallId)
+      expect(tools.runWorkflow).toHaveBeenCalledOnce()
+      expect(store().getState().error).toContain('already attempted')
+    }
+  )
+
+  it('does not infer a safe retry from restored Pending after an uncertain execution', async () => {
+    const target = await install()
+    tools.runWorkflow.mockRejectedValue(new Error('Execution response unavailable'))
+    onCommand = (request) => {
+      if (request.command === 'history.read') return historyResponse([target])
+      if (request.command === 'cancel')
+        return json(
+          { status: 'failed', error: { code: 'FAILED', message: 'Cancellation refused' } },
+          503
+        )
+    }
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(tools.runWorkflow).toHaveBeenCalledOnce()
+    await store().getState().selectChat(chat())
+    expect(store().getState().toolCallsById[target.target.toolCallId]).toMatchObject({
+      state: ClientToolCallState.pending,
+      pending: target,
+      historyOrigin: true,
+    })
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(tools.runWorkflow).toHaveBeenCalledOnce()
+    expect(store().getState().error).toContain('already attempted')
   })
 })
 
