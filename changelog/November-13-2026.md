@@ -27,7 +27,8 @@
 ### Design Decisions
 
 - Mastra owns the model/tool loop and native conversation/suspension persistence. Studio continues to own workflow execution, permissions, Yjs collaboration and application billing; no second collaborative state or provider execution stack is introduced.
-- Runtime outbound connection settings and secrets use existing system-service rows and helpers. Deployment/framework/database configuration stays in environment variables; the superseded `MASTRA_MODEL_PROVIDERS` and `MASTRA_AZURE_OPENAI` connection path has no environment fallback.
+- Studio's Max Steps budget and final-answer reservation remain intact. Provider transport, fallback and error-recovery defaults are left to Mastra; native retries retain completed usage and unknown attempts through the shared accounting processors.
+- Studio-managed outbound connection settings and secrets use existing system-service rows and helpers. Deployment/framework/database configuration stays in environment variables. The superseded `MASTRA_MODEL_PROVIDERS` and `MASTRA_AZURE_OPENAI` connection path remains removed; Mastra's own provider environment handling and native routing remain unchanged.
 - Provider/model routing identities remain exact. Configured endpoints do not inherit unsupported capability claims or another provider's published price merely because their IDs resemble a built-in provider; public picker DTOs do not expose connection configuration or secrets.
 - Native tool names identify configured instances, not dispatch authority. Original tool IDs, MCP server IDs and tool names remain bound to the shared authorization/execution path. Edit-context equality, review base-state checks and browser business readback remain authoritative.
 - Cancellation retains ownership until the active writer settles and does not undo completed effects. Unknown dispatch outcomes remain claimed; ordinary interrupted runs are not recovered through lease expiry or forced unlock.
@@ -50,7 +51,7 @@
 
 ### Future Branch Guardrails
 
-- Keep managed outbound settings and credentials in the existing system-service layer, and keep native Mastra gateways/model parsing as the routing authority. Do not add browser endpoint overrides, secret-bearing model metadata, environment fallbacks or compatibility aliases for conflicting provider IDs.
+- Keep managed outbound settings and credentials in the existing system-service layer, and keep native Mastra gateways/model parsing and environment handling unchanged. Do not restore the retired Studio environment configuration, add browser endpoint overrides or secret-bearing model metadata, or create compatibility aliases for conflicting provider IDs.
 - Preserve native message ordering, original mention labels, configured tool-instance identity, pending-run ownership and exact saved edit/tool context. Extend shared contracts and authorization helpers instead of persisting a second transcript or accepting client-authored effect results.
 - Preserve completed native usage independently of HTTP completion. Unknown costs must remain partial/unavailable rather than zero; BYOK must not become an account model charge, and Studio subscription multipliers must be applied once through the existing billing path.
 - Apply application migrations separately from native storage initialization. This branch has no legacy backfill path; rollback after dropping retired persistence requires a database backup, as documented in `apps/tradinggoose/lib/copilot/README.md`.
