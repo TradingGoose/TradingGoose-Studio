@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto'
 import type { InputProcessor, OutputProcessor } from '@mastra/core/processors'
 import {
   assertModelUsageAllowed,
+  beginWorkflowModelUsage,
   type ModelUsageScope,
   recordModelUsage,
 } from '@/lib/billing/model-usage'
@@ -19,6 +21,7 @@ export async function usageProcessors(
 ) {
   if (!scope.actorUserId) throw new Error('An authenticated model actor is required')
   const actorScope: ModelUsageScope = { ...scope, actorUserId: scope.actorUserId }
+  const invocationId = randomUUID()
   const steps = new Map<string, { usage?: NativeUsage; cost: NativeCost }>()
   let failure: unknown
   const input: InputProcessor = {
@@ -32,11 +35,17 @@ export async function usageProcessors(
         throw error
       }
     },
-    processLLMRequest({ stepNumber, retryCount, abortSignal }) {
-      scope.signal?.throwIfAborted()
-      abortSignal?.throwIfAborted()
-      const key = `${scope.runId}:${stepNumber}:${retryCount}`
-      if (!steps.has(key)) steps.set(key, { cost: { status: 'unavailable' } })
+    async processLLMRequest({ stepNumber, retryCount, abortSignal }) {
+      try {
+        scope.signal?.throwIfAborted()
+        abortSignal?.throwIfAborted()
+        const key = `${scope.runId}:${invocationId}:${stepNumber}:${retryCount}`
+        if (!steps.has(key)) steps.set(key, { cost: { status: 'unavailable' } })
+        await beginWorkflowModelUsage(actorScope, key)
+      } catch (error) {
+        failure = error
+        throw error
+      }
     },
     processAPIError({ error }) {
       failure = error
@@ -47,7 +56,7 @@ export async function usageProcessors(
     async processOutputStep(args) {
       try {
         if (failure) throw failure
-        const key = `${scope.runId}:${args.stepNumber}:${args.retryCount}`
+        const key = `${scope.runId}:${invocationId}:${args.stepNumber}:${args.retryCount}`
         if (!steps.get(key)?.usage) {
           const step = {
             usage: sumNativeUsage([{ usage: args.usage }]),
@@ -55,7 +64,7 @@ export async function usageProcessors(
           }
           steps.set(key, step)
           step.cost = await calculateNativeCost(scope.model, args.usage, args.providerMetadata)
-          step.cost = await recordModelUsage(actorScope, step.usage, step.cost)
+          step.cost = await recordModelUsage(actorScope, step.usage, step.cost, key)
           const response = args.messageList.get.response
             .db()
             .filter((message) => message.role === 'assistant')

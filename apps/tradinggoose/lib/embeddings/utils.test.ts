@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   validate: vi.fn(),
   key: vi.fn(),
   admit: vi.fn(),
+  begin: vi.fn(),
   accept: vi.fn(),
 }))
 vi.mock('@mastra/core/llm', async (original) => ({
@@ -28,6 +29,7 @@ vi.mock('@/lib/mastra/registry', () => ({ assertListedEmbeddingModel: mocks.vali
 vi.mock('@/lib/system-services/runtime', () => ({ resolveOpenAIServiceConfig: mocks.key }))
 vi.mock('@/lib/billing/model-usage', () => ({
   assertModelUsageAllowed: mocks.admit,
+  beginWorkflowModelUsage: mocks.begin,
   recordModelUsage: mocks.accept,
 }))
 
@@ -46,10 +48,50 @@ beforeEach(() => {
   })
   mocks.key.mockResolvedValue({ defaultApiKey: 'request-local' })
   mocks.admit.mockResolvedValue(undefined)
+  mocks.begin.mockResolvedValue(false)
   mocks.accept.mockImplementation(async (_scope, _usage, cost) => cost)
 })
 
 describe('native embeddings', () => {
+  it('records distinct provider contacts when callers reuse a run label', async () => {
+    mocks.embed.mockResolvedValue({ embeddings: [[1]], usage: { tokens: 1 } })
+    await generateEmbeddings(['one'], scope)
+    await generateEmbeddings(['one'], scope)
+    const ids = mocks.begin.mock.calls.map((call) => call[1])
+    expect(ids).toEqual([
+      expect.stringMatching(/^embedding-run-1:embedding:[^:]+:0$/),
+      expect.stringMatching(/^embedding-run-1:embedding:[^:]+:0$/),
+    ])
+    expect(new Set(ids).size).toBe(2)
+    expect(mocks.accept.mock.calls.map((call) => call[3])).toEqual(ids)
+  })
+
+  it('awaits durable attempt ownership before embedding contact and completes its batch ID', async () => {
+    let admit!: (owned: boolean) => void
+    mocks.begin.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        admit = resolve
+      })
+    )
+    mocks.embed.mockResolvedValueOnce({ embeddings: [[1]], usage: { tokens: 1 } })
+    const generating = generateEmbeddings(['one'], scope)
+    await vi.waitFor(() => expect(mocks.begin).toHaveBeenCalledOnce())
+    expect(mocks.embed).not.toHaveBeenCalled()
+    expect(mocks.accept).not.toHaveBeenCalled()
+    admit(true)
+    await generating
+    expect(mocks.embed).toHaveBeenCalledOnce()
+    expect(mocks.accept.mock.calls[0][3]).toBe(mocks.begin.mock.calls[0][1])
+  })
+
+  it('does not contact embeddings when attempt persistence fails', async () => {
+    const failure = new Error('Native attempt persistence failed')
+    mocks.begin.mockRejectedValueOnce(failure)
+    await expect(generateEmbeddings(['one'], scope)).rejects.toBe(failure)
+    expect(mocks.embed).not.toHaveBeenCalled()
+    expect(mocks.accept).not.toHaveBeenCalled()
+  })
+
   it('reports the authoritative account-funded amount returned by usage recording', async () => {
     const charged = {
       input: 0.00000006,
@@ -68,7 +110,8 @@ describe('native embeddings', () => {
     expect(mocks.accept).toHaveBeenCalledWith(
       expect.objectContaining({ ...scope, funding: 'account' }),
       { inputTokens: 1, totalTokens: 1 },
-      expect.objectContaining({ total: expect.closeTo(0.00000002, 12) })
+      expect.objectContaining({ total: expect.closeTo(0.00000002, 12) }),
+      expect.stringMatching(/^embedding-run-1:embedding:[^:]+:0$/)
     )
   })
 
@@ -99,6 +142,9 @@ describe('native embeddings', () => {
         expect.objectContaining({ ...scope, purpose: 'embedding' })
       )
       expect(mocks.admit.mock.invocationCallOrder[stepNumber]).toBeLessThan(
+        mocks.begin.mock.invocationCallOrder[stepNumber]
+      )
+      expect(mocks.begin.mock.invocationCallOrder[stepNumber]).toBeLessThan(
         mocks.embed.mock.invocationCallOrder[stepNumber]
       )
       expect(mocks.embed.mock.invocationCallOrder[stepNumber]).toBeLessThan(
@@ -107,6 +153,13 @@ describe('native embeddings', () => {
     }
     expect(mocks.accept.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.admit.mock.invocationCallOrder[1]
+    )
+    expect(mocks.begin.mock.calls.map((call) => call[1])).toEqual([
+      expect.stringMatching(/^embedding-run-1:embedding:[^:]+:0$/),
+      expect.stringMatching(/^embedding-run-1:embedding:[^:]+:1$/),
+    ])
+    expect(mocks.accept.mock.calls.map((call) => call[3])).toEqual(
+      mocks.begin.mock.calls.map((call) => call[1])
     )
   })
 
@@ -150,7 +203,8 @@ describe('native embeddings', () => {
     expect(mocks.accept).toHaveBeenCalledWith(
       expect.objectContaining({ model: 'openai/text-embedding-3-small' }),
       { inputTokens: 7, totalTokens: 7 },
-      expect.objectContaining({ status: 'estimated', total: expect.closeTo(0.00000014, 12) })
+      expect.objectContaining({ status: 'estimated', total: expect.closeTo(0.00000014, 12) }),
+      expect.stringMatching(/^embedding-run-1:embedding:[^:]+:0$/)
     )
     expect(mocks.embed).toHaveBeenCalledOnce()
   })

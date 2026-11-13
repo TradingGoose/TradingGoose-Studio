@@ -34,6 +34,7 @@ import type {
   WorkflowExecutionSnapshot,
   WorkflowState,
 } from '@/lib/logs/types'
+import type { InferenceFacts } from '@/lib/mastra/result'
 
 const logger = createLogger('ExecutionLogger')
 
@@ -43,6 +44,7 @@ type ExecutionBilling = {
   accountedCost?: number
   accountedTokens?: number
   counted?: boolean
+  nativeUsage?: Record<string, InferenceFacts>
 }
 type UsageReceipt = UsageAccrual & {
   context: WorkspaceBillingContext
@@ -50,8 +52,11 @@ type UsageReceipt = UsageAccrual & {
   costDelta: number
 }
 
-function executionCost(traceSpans: TraceSpan[], quote?: ExecutionBilling['quote']) {
-  const summary = calculateCostSummary(traceSpans)
+function executionCost(billing: ExecutionBilling) {
+  const summary = calculateCostSummary(
+    Object.entries(billing.nativeUsage ?? {}).map(([id, inference]) => ({ id, inference }))
+  )
+  const quote = billing.quote
   const baseExecutionCharge = quote?.baseCharge ?? 0
   const multiplier = quote?.modelMultiplier ?? 1
   const scale = (value: number | undefined) =>
@@ -280,7 +285,7 @@ export class ExecutionLogger {
     if (!existingLog) throw new Error(`Workflow log not found for execution ${executionId}`)
 
     const existingData = existingLog.executionData as Record<string, any>
-    const cost = executionCost(traceSpans, existingData.billing?.quote)
+    const cost = executionCost(existingData.billing ?? {})
     const executionFiles = this.extractFilesFromExecution(traceSpans, finalOutput, workflowInput)
     const completedExecutionData = {
       ...(variables ? { environment: { ...existingData.environment, variables } } : {}),
@@ -380,7 +385,7 @@ export class ExecutionLogger {
           modelMultiplier: context ? getTierWorkflowModelCostMultiplier(context.tier) : 1,
         }
       }
-      const cost = executionCost(data.traceSpans ?? [], quote)
+      const cost = executionCost({ ...billing, quote })
       // Functions settle their own product charges. Only known model amounts and this
       // workflow's configured execution charge belong to its usage ledger.
       const charge = cost.baseExecutionCharge + (cost.modelCost ?? 0)

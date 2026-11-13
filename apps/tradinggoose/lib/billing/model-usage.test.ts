@@ -6,6 +6,7 @@ import {
   organizationBillingLedger,
   organizationMemberBillingLedger,
   userStats,
+  workflowExecutionLogs,
 } from '@tradinggoose/db/schema'
 import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
@@ -14,7 +15,12 @@ import { projectNativeMessage } from '@/lib/mastra/messages'
 import { NATIVE_AGENT_POLICY } from '@/lib/mastra/options'
 import type { NativeCost } from '@/lib/mastra/usage'
 import { usageProcessors } from '@/lib/mastra/usage-processors'
-import { assertModelUsageAllowed, type ModelUsageScope, recordModelUsage } from './model-usage'
+import {
+  assertModelUsageAllowed,
+  beginWorkflowModelUsage,
+  type ModelUsageScope,
+  recordModelUsage,
+} from './model-usage'
 import type { BillingTierRecord } from './tiers'
 import type { WorkspaceBillingContext } from './workspace-billing'
 
@@ -30,6 +36,7 @@ const fixture = vi.hoisted(() => ({
   organizationLedger: vi.fn(),
   memberLedger: vi.fn(),
   writes: [] as { table: unknown; where: SQL; values: Record<string, SQL> }[],
+  executionData: {} as Record<string, any>,
 }))
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -100,6 +107,7 @@ const context = (overrides: Partial<WorkspaceBillingContext> = {}): WorkspaceBil
 beforeEach(() => {
   vi.clearAllMocks()
   fixture.writes.length = 0
+  fixture.executionData = {}
   fixture.enabled.mockResolvedValue(true)
   fixture.limits.mockResolvedValue({ isExceeded: false })
   fixture.workspace.mockResolvedValue(context())
@@ -112,16 +120,31 @@ beforeEach(() => {
   fixture.transaction.mockImplementation(async (operation) =>
     operation({
       select: () => ({
-        from: () => ({ where: () => ({ for: async () => [{ currentPeriodCost: '0' }] }) }),
+        from: (table: unknown) => ({
+          where: (query: SQL) => {
+            const rows = async () =>
+              table === workflowExecutionLogs
+                ? (await fixture.execution(query)).map((row: any) => ({
+                    ...row,
+                    executionData: fixture.executionData,
+                  }))
+                : [{ currentPeriodCost: '0' }]
+            return { for: rows, limit: () => ({ for: rows }) }
+          },
+        }),
       }),
       update: (table: unknown) => ({
         set: (values: Record<string, SQL>) => ({
-          where: (where: SQL) => ({
-            returning: async () => {
-              fixture.writes.push({ table, where, values })
-              return [{ currentPeriodCost: '3.75' }]
-            },
-          }),
+          where: (where: SQL) => {
+            if (table === workflowExecutionLogs)
+              fixture.executionData = (values as any).executionData
+            return {
+              returning: async () => {
+                fixture.writes.push({ table, where, values })
+                return [{ currentPeriodCost: '3.75' }]
+              },
+            }
+          },
         }),
       }),
     })
@@ -219,22 +242,29 @@ it('charges workflow-scoped requests without a verified settlement execution', a
   expect(fixture.workflow).toHaveBeenCalledOnce()
 })
 
-it('defers only to an active execution matching the workflow, workspace and authenticated actor', async () => {
+it('persists owned attempts for the workflow, workspace and authenticated actor before deferring settlement', async () => {
   fixture.execution.mockResolvedValue([{ id: 'active-log' }])
-  const reportedCost = await recordModelUsage(
-    { ...scope, purpose: 'workflow-provider', workflowId: 'workflow', executionId: 'execution' },
-    usage,
-    cost
-  )
-  expect(reportedCost).toBe(cost)
-  expect(fixture.execution).toHaveBeenCalledOnce()
+  const ownedScope = {
+    ...scope,
+    purpose: 'workflow-provider',
+    workflowId: 'workflow',
+    executionId: 'execution',
+  }
+  expect(await beginWorkflowModelUsage(ownedScope, 'attempt')).toBe(true)
+  const reportedCost = await recordModelUsage(ownedScope, usage, cost, 'attempt')
+  expect(reportedCost).toEqual(cost)
+  expect(fixture.execution).toHaveBeenCalledTimes(2)
   const query = dialect.sqlToQuery(fixture.execution.mock.calls[0][0])
   expect(query.params).toEqual(['workflow', 'workspace', 'execution', 'actor'])
   expect(query.sql).toMatch(/"workflow_id" = \$1/)
   expect(query.sql).toMatch(/"workspace_id" = \$2/)
   expect(query.sql).toMatch(/"execution_id" = \$3/)
-  expect(query.sql).toMatch(/"ended_at" is null/)
   expect(query.sql).toContain("->'environment'->>'userId' = $4")
+  expect(fixture.executionData.billing.nativeUsage.attempt).toMatchObject({
+    model: scope.model,
+    cost,
+    tokens: { prompt: 12, completion: 3, total: 15 },
+  })
   expect(fixture.writes).toHaveLength(0)
   expect(fixture.workflow).not.toHaveBeenCalled()
 })

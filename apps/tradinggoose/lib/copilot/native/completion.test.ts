@@ -33,6 +33,7 @@ vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => state.access(...args),
 }))
 vi.mock('@/lib/billing/model-usage', () => ({
+  beginWorkflowModelUsage: async () => false,
   assertModelUsageAllowed: (...args: unknown[]) => state.admit(...args),
   recordModelUsage: (...args: unknown[]) => state.accept(...args),
 }))

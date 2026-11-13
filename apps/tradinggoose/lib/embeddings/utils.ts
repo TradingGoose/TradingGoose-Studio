@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { ModelRouterEmbeddingModel } from '@mastra/core/llm'
 import {
   assertModelUsageAllowed,
+  beginWorkflowModelUsage,
   type ModelUsageScope,
   recordModelUsage,
 } from '@/lib/billing/model-usage'
@@ -72,6 +73,7 @@ export async function generateEmbeddings(
   const embedder = new ModelRouterEmbeddingModel(resolveConfiguredModel(model, apiKey))
   const embeddings: number[][] = []
   const costs: NativeCost[] = []
+  const invocationId = randomUUID()
   let prompt: number | undefined
   let reportedBatches = 0
   const maxEmbeddings = await embedder.maxEmbeddingsPerCall
@@ -114,6 +116,8 @@ export async function generateEmbeddings(
       for (let index = 0; index < batch.length; index += size) {
         const values = batch.slice(index, index + size)
         await assertModelUsageAllowed(usageScope)
+        const attemptId = `${usageScope.runId}:embedding:${invocationId}:${batchCount}`
+        await beginWorkflowModelUsage(usageScope, attemptId)
         awaitingUsage = true
         const result = await embedder.doEmbed({ values, abortSignal: scope.signal })
         batchCount += 1
@@ -135,7 +139,7 @@ export async function generateEmbeddings(
         }
         costs.push(cost)
         awaitingUsage = false
-        costs[costs.length - 1] = await recordModelUsage(usageScope, usage, cost)
+        costs[costs.length - 1] = await recordModelUsage(usageScope, usage, cost, attemptId)
         scope.signal?.throwIfAborted()
         if (result.embeddings.length !== values.length) {
           throw new Error(

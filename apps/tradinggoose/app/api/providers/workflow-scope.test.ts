@@ -31,18 +31,39 @@ const boundary = vi.hoisted(() => ({
         ended: boolean
       }
     | undefined,
+  executionData: {} as Record<string, any>,
   finishReason: 'stop' as 'stop' | 'content-filter',
   requests: [] as NextRequest[],
 }))
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: () => ({
-      from: (table: unknown) => ({
-        where: (query: SQL) => ({ limit: () => boundary.select(table, query) }),
-      }),
+vi.mock('@tradinggoose/db', () => {
+  const select = () => ({
+    from: (table: unknown) => ({
+      where: (query: SQL) => ({ limit: () => boundary.select(table, query) }),
     }),
-  },
-}))
+  })
+  return {
+    db: {
+      select,
+      transaction: async (action: (tx: unknown) => Promise<unknown>) =>
+        action({
+          select: () => ({
+            from: (table: unknown) => ({
+              where: (query: SQL) => ({
+                limit: () => ({ for: () => boundary.select(table, query) }),
+              }),
+            }),
+          }),
+          update: () => ({
+            set: (values: { executionData: Record<string, unknown> }) => ({
+              where: async () => {
+                boundary.executionData = JSON.parse(JSON.stringify(values.executionData))
+              },
+            }),
+          }),
+        }),
+    },
+  }
+})
 vi.mock('@/lib/auth', () => ({ getSession: boundary.session }))
 vi.mock('@/lib/env', async (original) => ({
   ...(await original<object>()),
@@ -120,16 +141,22 @@ beforeEach(() => {
     actor: context.userId!,
     ended: false,
   }
+  boundary.executionData = { environment: { userId: context.userId } }
   boundary.select.mockImplementation((table, query: SQL) => {
     if (table === workflow) return [{ workspaceId: context.workspaceId }]
     expect(table).toBe(workflowExecutionLogs)
     const statement = new PgDialect().sqlToQuery(query)
     const row = boundary.activeExecution
     return row &&
-      !row.ended &&
       JSON.stringify(statement.params) ===
         JSON.stringify([row.workflowId, row.workspaceId, row.executionId, row.actor])
-      ? [{ id: 'active-log' }]
+      ? [
+          {
+            id: 'active-log',
+            endedAt: row.ended ? new Date() : null,
+            executionData: boundary.executionData,
+          },
+        ]
       : []
   })
   boundary.access.mockResolvedValue({ hasAccess: true })
@@ -164,7 +191,7 @@ function assertScope() {
   expect(boundary.contact).toHaveBeenCalledOnce()
 }
 
-function workflowCosts(output: unknown) {
+function traceDisplayCosts(output: unknown) {
   const { traceSpans } = buildTraceSpans({
     logs: [
       {
@@ -181,6 +208,14 @@ function workflowCosts(output: unknown) {
     ],
   } as unknown as ExecutionResult)
   return calculateCostSummary(traceSpans)
+}
+function recordedWorkflowCosts() {
+  return calculateCostSummary(
+    Object.entries(boundary.executionData.billing?.nativeUsage ?? {}).map(([id, inference]) => ({
+      id,
+      inference,
+    }))
+  )
 }
 it('carries the actual llm_chat URL-only scope through real route, Agent and usage processors', async () => {
   const output = await executeTool(
@@ -214,7 +249,11 @@ it('retains Translate generic execution scope through the same llm_chat path', a
     context
   )
   expect(output.content).toBe('exact scoped output')
-  expect(workflowCosts(output)).toMatchObject({
+  expect(traceDisplayCosts(output)).toMatchObject({
+    totalTokens: 3,
+    totalCost: expect.closeTo(0.000012, 10),
+  })
+  expect(recordedWorkflowCosts()).toMatchObject({
     totalTokens: 3,
     totalCost: expect.closeTo(0.000012, 10),
   })
@@ -243,7 +282,8 @@ it('charges an HTTP block that calls providers without claiming that its wrapped
   )
   expect(output.data).toMatchObject({ content: 'exact scoped output', tokens: { total: 3 } })
   expect(getInferenceFacts(output)).toBeUndefined()
-  expect(workflowCosts(output)).toMatchObject({ totalCost: 0 })
+  expect(traceDisplayCosts(output)).toMatchObject({ totalCost: 0 })
+  expect(recordedWorkflowCosts()).toMatchObject({ totalCost: 0 })
   expect(boundary.accept).toHaveBeenCalledOnce()
   expect(
     boundary.select.mock.calls.filter(([table]) => table === workflowExecutionLogs)
@@ -262,7 +302,7 @@ it('charges an HTTP block that calls providers without claiming that its wrapped
   expect(verification.workflowExecution).not.toHaveProperty('settlesModelUsage')
 })
 
-it('settles an internal inference producer HTTP failure once through its parent workflow facts', async () => {
+it('persists deferred usage independently of an internal producer HTTP failure', async () => {
   boundary.finishReason = 'content-filter'
   let failure: unknown
   try {
@@ -286,14 +326,52 @@ it('settles an internal inference producer HTTP failure once through its parent 
   expect(getInferenceFacts(failure)).toMatchObject({
     tokens: { prompt: 12, completion: 3, total: 15 },
   })
-  expect(workflowCosts(failure)).toMatchObject({
+  expect(traceDisplayCosts(failure)).toMatchObject({
+    totalTokens: 15,
+    totalCost: expect.closeTo(0.000048, 10),
+  })
+  expect(recordedWorkflowCosts()).toMatchObject({
     totalTokens: 15,
     totalCost: expect.closeTo(0.000048, 10),
   })
   expect(boundary.accept).not.toHaveBeenCalled()
   expect(
     boundary.select.mock.calls.filter(([table]) => table === workflowExecutionLogs)
-  ).toHaveLength(1)
+  ).toHaveLength(2)
+})
+
+it('retains completed native usage when cancellation loses the response before decoding', async () => {
+  const cancellation = new AbortController()
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const request = new NextRequest(String(url), { ...init, signal: init?.signal ?? undefined })
+      boundary.requests.push(request.clone() as NextRequest)
+      const response = await POST(request)
+      expect(response.status).toBe(200)
+      cancellation.abort()
+      throw new DOMException('Aborted before response delivery', 'AbortError')
+    })
+  )
+  const result = await executeTool(
+    'llm_chat',
+    {
+      model: 'openai/gpt-4.1',
+      context: 'Complete provider work, then cancel transport',
+      _context: { toolExecutionId: 'llm-block' },
+    },
+    false,
+    context,
+    { signal: cancellation.signal }
+  )
+  expect(result.success).toBe(false)
+  expect(getInferenceFacts(result.output)).toBeUndefined()
+  expect(recordedWorkflowCosts()).toMatchObject({
+    totalTokens: 3,
+    totalCost: expect.closeTo(0.000012, 10),
+    unavailableComponents: 0,
+  })
+  assertScope()
 })
 it('retains a nested native tool callback scope instead of trusting its input identity', async () => {
   const abortController = new AbortController()
@@ -513,7 +591,7 @@ it.each(['active', 'missing', 'ended', 'other-actor', 'other-workspace', 'other-
     expect(response.status).toBe(200)
     expect(
       boundary.select.mock.calls.filter(([table]) => table === workflowExecutionLogs)
-    ).toHaveLength(1)
+    ).toHaveLength(2)
     expect(boundary.accept).toHaveBeenCalledTimes(state === 'active' ? 0 : 1)
   }
 )

@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   order: [] as string[],
   accept: vi.fn(),
+  begin: vi.fn(),
 }))
 vi.mock('@/lib/billing/model-usage', () => ({
   assertModelUsageAllowed: async () => {
     mocks.order.push('admit')
   },
+  beginWorkflowModelUsage: mocks.begin,
   recordModelUsage: mocks.accept,
 }))
 vi.mock('@/lib/mastra/connections', async (original) => ({
@@ -34,6 +36,10 @@ import { generateEmbeddings } from '@/lib/embeddings/utils'
 beforeEach(() => {
   mocks.order.length = 0
   vi.clearAllMocks()
+  mocks.begin.mockImplementation(async () => {
+    mocks.order.push('begin')
+    return false
+  })
   mocks.accept.mockImplementation(async (_scope, _usage, cost) => {
     mocks.order.push('accept')
     return cost
@@ -70,7 +76,23 @@ describe('installed native direct embedding transport', () => {
       total: expect.closeTo(0.00004098, 12),
       currency: 'USD',
     })
-    expect(mocks.order).toEqual(['admit', 'http', 'accept', 'admit', 'http', 'accept'])
+    expect(mocks.order).toEqual([
+      'admit',
+      'begin',
+      'http',
+      'accept',
+      'admit',
+      'begin',
+      'http',
+      'accept',
+    ])
+    expect(mocks.begin.mock.calls.map((call) => call[1])).toEqual([
+      expect.stringMatching(/^native-embedding-run:embedding:[^:]+:0$/),
+      expect.stringMatching(/^native-embedding-run:embedding:[^:]+:1$/),
+    ])
+    expect(mocks.accept.mock.calls.map((call) => call[3])).toEqual(
+      mocks.begin.mock.calls.map((call) => call[1])
+    )
     expect(mocks.accept.mock.calls.map((call) => call[1])).toEqual([
       { inputTokens: 2048, totalTokens: 2048 },
       { inputTokens: 1, totalTokens: 1 },
@@ -97,7 +119,7 @@ describe('installed native direct embedding transport', () => {
         generateEmbeddings(['hello'], { actorUserId: 'member-1', runId: 'failed-native-embedding' })
       ).rejects.toThrow()
       expect(fetch).toHaveBeenCalledOnce()
-      expect(mocks.order).toEqual(['admit'])
+      expect(mocks.order).toEqual(['admit', 'begin'])
       expect(mocks.accept).not.toHaveBeenCalled()
     }
   )

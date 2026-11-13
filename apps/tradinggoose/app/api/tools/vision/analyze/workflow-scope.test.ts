@@ -23,6 +23,7 @@ vi.mock('@/lib/auth/internal', () => ({
 }))
 vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: boundary.owner }))
 vi.mock('@/lib/billing/model-usage', () => ({
+  beginWorkflowModelUsage: async () => false,
   assertModelUsageAllowed: boundary.admit,
   recordModelUsage: boundary.accept,
 }))
