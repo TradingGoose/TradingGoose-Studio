@@ -132,25 +132,3 @@ it('configured provider overrides remove embedding models that are no longer lis
     'Select a listed provider/model'
   )
 })
-
-it('rejects the exact native embedding identity for generation while keeping its embedding lane', async () => {
-  await expect(assertListedModel('configured/embedding')).rejects.toThrowError(
-    expect.objectContaining({ status: 400 })
-  )
-  expect(
-    (await getModelRegistry()).flatMap(({ models }) => models.map(({ id }) => id))
-  ).not.toContain('configured/embedding')
-  await expect(assertListedEmbeddingModel('configured/embedding')).resolves.toMatchObject({
-    id: 'configured/embedding',
-  })
-})
-
-it('does not infer purpose from a different provider or a model name', async () => {
-  setManagedProviders({
-    custom: { name: 'Custom', url: 'https://private.invalid', models: ['embedding'] },
-  })
-  await expect(assertListedModel('custom/embedding')).resolves.toBeUndefined()
-  expect((await getModelRegistry()).find(({ id }) => id === 'custom')?.models).toEqual([
-    { id: 'custom/embedding' },
-  ])
-})

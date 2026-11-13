@@ -44,17 +44,13 @@ export function isLanguageModel(provider: string, modelId: string): boolean {
   )
 }
 
-function isListedGenerationModel(provider: string, modelId: string, models: string[]): boolean {
-  return models.includes(modelId) && isLanguageModel(provider, modelId)
-}
-
 /** Validate only after workflow and environment references have resolved. */
 export async function assertListedModel(model: string): Promise<void> {
   const { provider, modelId } = parseModelString(model)
   const { providers } = await getRegistryProviders()
   const connection =
     provider && Object.hasOwn(providers, provider) ? providers[provider] : undefined
-  if (!provider || !connection || !isListedGenerationModel(provider, modelId, connection.models)) {
+  if (!provider || !connection?.models.includes(modelId) || !isLanguageModel(provider, modelId)) {
     throw Object.assign(
       new Error(
         `Model "${model}" is not a listed Mastra language model. Select a listed provider/model in the Model field.`
@@ -71,7 +67,7 @@ export async function getModelRegistry(): Promise<RegistryProvider[]> {
     id,
     name: provider.name,
     models: provider.models
-      .filter((modelId) => isListedGenerationModel(id, modelId, provider.models))
+      .filter((modelId) => isLanguageModel(id, modelId))
       .map((modelId) => projectNativeRegistryModel(`${id}/${modelId}`, configured)),
   }))
 }
