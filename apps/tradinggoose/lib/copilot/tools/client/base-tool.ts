@@ -53,15 +53,9 @@ export interface BaseClientToolMetadata {
 export interface ClientToolExecutionContext {
   toolCallId: string
   toolName: string
-  channelId?: string
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
   workspaceId?: string
-  log?: (
-    level: 'debug' | 'info' | 'warn' | 'error',
-    message: string,
-    extra?: Record<string, any>
-  ) => void
 }
 
 export class BaseClientTool {

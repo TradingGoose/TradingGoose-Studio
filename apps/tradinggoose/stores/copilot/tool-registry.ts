@@ -61,18 +61,6 @@ export function createExecutionContext(params: {
     ...(contextEntityKind ? { contextEntityKind } : {}),
     ...(contextEntityId ? { contextEntityId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
-    log: (level, message, extra) => {
-      try {
-        logger[level](message, {
-          toolCallId,
-          toolName,
-          contextEntityKind,
-          contextEntityId,
-          workspaceId,
-          ...(extra || {}),
-        })
-      } catch {}
-    },
   }
 }
 

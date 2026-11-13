@@ -80,10 +80,8 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     tool.setExecutionContext({
       toolCallId,
       toolName: 'deploy_workflow',
-      channelId: 'pair-red',
       contextEntityKind: 'workflow',
       contextEntityId: 'wf-context',
-      log: vi.fn(),
     })
 
     const displays = tool.getInterruptDisplays()
@@ -156,11 +154,9 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     tool.setExecutionContext({
       toolCallId,
       toolName: 'deploy_workflow',
-      channelId: 'pair-blue',
       contextEntityKind: 'workflow',
       contextEntityId: 'wf-context',
       workspaceId: 'ws-1',
-      log: vi.fn(),
     })
 
     await tool.handleAccept({ action: 'deploy', deployType: 'api', entityId: 'wf-target' })
