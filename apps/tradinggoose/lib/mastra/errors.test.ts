@@ -4,34 +4,18 @@ import { getInferenceFacts, withInferenceFacts } from './result'
 
 describe('local failure accounting provenance', () => {
   it('redacts the public copy while preserving only its existing private facts through generic wrappers', () => {
-    const childFacts = {
-      model: 'native/child',
-      tokens: { total: 5 },
-      cost: { status: 'unavailable' as const },
-      generatedFields: ['model', 'tokens', 'cost'],
-    }
-    const child = withInferenceFacts(
-      {
-        model: 'native/child',
-        tokens: { total: 5 },
-        cost: { status: 'unavailable' },
-        answer: 'done',
-      },
-      childFacts
-    )
     const facts = {
       model: 'native/model',
       tokens: { prompt: 11, completion: 6, total: 17 },
       cost: { status: 'unavailable' as const },
-      toolResults: [{ toolCallId: 'child-call', inference: childFacts }],
-      generatedFields: ['model', 'tokens', 'cost', 'toolResults'],
+      generatedFields: ['model', 'tokens', 'cost'],
     }
     const failure = withInferenceFacts(
       Object.assign(new Error('apiKey=synthetic-r10-key'), {
         model: facts.model,
         tokens: facts.tokens,
         cost: facts.cost,
-        toolResults: [{ result: child, apiKey: 'synthetic-r10-key' }],
+        toolResults: [{ result: 'done', apiKey: 'synthetic-r10-key' }],
         request: { headers: { authorization: 'Bearer synthetic-r10-key' } },
         response: { raw: 'private diagnostic' },
       }),
@@ -42,12 +26,11 @@ describe('local failure accounting provenance', () => {
     expect(accounting).toMatchObject({ model: facts.model, tokens: facts.tokens, cost: facts.cost })
     expect(accounting).not.toHaveProperty('request')
     expect(accounting).not.toHaveProperty('response')
+    expect(accounting).not.toHaveProperty('toolResults')
     expect(JSON.stringify(accounting)).not.toContain('synthetic-r10-key')
     expect(getInferenceFacts(accounting)).toBe(facts)
     expect(getInferenceFacts({ ...accounting })).toBe(facts)
     expect(getInferenceFacts(Object.assign({}, accounting))).toBe(facts)
-    expect(getInferenceFacts(accounting)?.toolResults?.[0].inference).toBe(childFacts)
-    expect(getInferenceFacts(child)).toBe(childFacts)
     expect(getInferenceFacts(failure)).toBe(facts)
     expect(failure.message).toBe('apiKey=synthetic-r10-key')
   })

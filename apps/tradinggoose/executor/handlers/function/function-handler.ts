@@ -1,38 +1,12 @@
 import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
 import { createLogger } from '@/lib/logs/console/logger'
 import { BlockType } from '@/executor/consts'
+import { collectBlockData } from '@/executor/handlers/tool-execution-context'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('FunctionBlockHandler')
-
-/**
- * Helper function to collect runtime block outputs and name mappings
- * for tag resolution in function execution
- */
-function collectBlockData(context: ExecutionContext): {
-  blockData: Record<string, any>
-  blockNameMapping: Record<string, string>
-} {
-  const blockData: Record<string, any> = {}
-  const blockNameMapping: Record<string, string> = {}
-
-  for (const [id, state] of context.blockStates.entries()) {
-    if (state.output !== undefined) {
-      blockData[id] = state.output
-      const workflowBlock = context.workflow?.blocks?.find((b) => b.id === id)
-      if (workflowBlock?.metadata?.name) {
-        // Map both the display name and normalized form
-        blockNameMapping[workflowBlock.metadata.name] = id
-        const normalized = workflowBlock.metadata.name.replace(/\s+/g, '').toLowerCase()
-        blockNameMapping[normalized] = id
-      }
-    }
-  }
-
-  return { blockData, blockNameMapping }
-}
 
 /**
  * Handler for Function blocks that execute custom code.

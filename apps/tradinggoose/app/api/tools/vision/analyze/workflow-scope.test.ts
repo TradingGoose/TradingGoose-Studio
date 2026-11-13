@@ -162,7 +162,7 @@ it('retains a nested native tool callback scope instead of trusting its input id
     context,
     { signal: abortController.signal, abort: (reason) => abortController.abort(reason) }
   )
-  const output = await native.tools.vision_tool.execute!({ prompt: 'nested literal' }, {})
+  const output = await native.vision_tool.execute!({ prompt: 'nested literal' }, {})
   expect(output).toMatchObject({ content: 'exact scoped output' })
   assertScope()
 })

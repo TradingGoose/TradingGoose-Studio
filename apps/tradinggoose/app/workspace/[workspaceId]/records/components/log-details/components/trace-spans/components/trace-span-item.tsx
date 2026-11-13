@@ -288,27 +288,18 @@ export function TraceSpanItem({
                   <TooltipTrigger
                     render={
                       <span className='cursor-default rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums'>
-                        {(() => {
-                          const t = span.tokens
-                          const total =
-                            typeof t === 'number'
-                              ? t
-                              : (t.total ?? (t.input || 0) + (t.output || 0))
-                          return `T:${total}`
-                        })()}
+                        T:{span.tokens.total ?? '—'}
                       </span>
                     }
                   />
                   <TooltipContent side='top'>
                     {(() => {
                       const t = span.tokens
-                      if (typeof t === 'number') return <span>{t} tokens</span>
-                      const hasIn = typeof t.input === 'number'
-                      const hasOut = typeof t.output === 'number'
-                      const input = hasIn ? t.input : undefined
-                      const output = hasOut ? t.output : undefined
-                      const total =
-                        t.total ?? (hasIn && hasOut ? (t.input || 0) + (t.output || 0) : undefined)
+                      const hasIn = typeof t.prompt === 'number'
+                      const hasOut = typeof t.completion === 'number'
+                      const input = hasIn ? t.prompt : undefined
+                      const output = hasOut ? t.completion : undefined
+                      const total = t.total
 
                       if (hasIn || hasOut) {
                         return (

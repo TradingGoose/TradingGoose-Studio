@@ -1,10 +1,8 @@
 /** @vitest-environment node */
 import { afterEach, expect, it, vi } from 'vitest'
-import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { getInferenceFacts } from '@/lib/mastra/result'
 import type { NativeCost } from '@/lib/mastra/usage'
-import { createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
 import { GenericBlockHandler } from '@/executor/handlers/generic/generic-handler'
 import type { ExecutionContext, ExecutionResult } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
@@ -21,7 +19,7 @@ const accounting = {
   cost: { total: 0.01, currency: 'USD', status: 'reported' },
 }
 
-it('retains trusted HTTP inference failures through generic workflow traces and settlement costs', async () => {
+it('retains trusted HTTP inference failures through generic workflow traces', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async () =>
@@ -67,11 +65,7 @@ it('retains trusted HTTP inference failures through generic workflow traces and 
       },
     ],
   } as unknown as ExecutionResult)
-  expect(calculateCostSummary(traceSpans)).toMatchObject({
-    totalCost: 0.01,
-    modelCost: 0.01,
-    totalTokens: 123,
-  })
+  expect(traceSpans[0].inference).toMatchObject(accounting)
 })
 
 it('does not trust matching cost fields returned by an ordinary HTTP tool', async () => {
@@ -115,79 +109,22 @@ it.each(
       return response
     })
     vi.stubGlobal('fetch', fetcher)
-    const { tools, toolResults } = createAgentToolSet(
-      [
-        {
-          id: 'llm_chat',
-          description: 'Completed inference',
-          parameters: { type: 'object', properties: {} },
-          params: { model: accounting.model, context: 'Generate an answer' },
-        },
-      ],
-      {
-        userId: 'actor',
-        workflowId: 'workflow',
-        workspaceId: 'workspace',
-        executionId: 'execution',
-        workflowLogId: 'log',
-        toolExecutionId: 'parent-block',
-      },
+    const result = await executeTool(
+      'llm_chat',
+      { model: accounting.model, context: 'Generate an answer' },
+      false,
       undefined,
-      { signal: cancelled.signal, abort: (reason) => cancelled.abort(reason) }
+      { signal: cancelled.signal }
     )
-    const nativeContext = {
-      abortSignal: cancelled.signal,
-      agent: {
-        agentId: 'parent-agent',
-        toolCallId: 'completed-call',
-        messages: [],
-        suspend: async () => {},
-      },
-    }
-    await expect(tools.llm_chat.execute?.({}, nativeContext)).rejects.toThrow('Aborted')
+    expect(result.success).toBe(false)
     expect(fetcher).toHaveBeenCalledOnce()
-    expect(toolResults).toEqual([
-      {
-        toolCallId: 'completed-call',
-        inference: {
-          model: accounting.model,
-          tokens: accounting.tokens,
-          cost,
-          generatedFields: ['model', 'tokens', 'cost'],
-        },
-      },
-    ])
-    expect(JSON.stringify(toolResults)).not.toContain(completed.content)
-    expect(JSON.stringify(toolResults)).not.toContain(completed.apiKey)
-
-    const { traceSpans } = buildTraceSpans({
-      logs: [
-        {
-          id: 'parent-occurrence',
-          blockId: 'parent-block',
-          blockType: 'agent',
-          blockName: 'Parent Agent',
-          startedAt: new Date().toISOString(),
-          endedAt: new Date().toISOString(),
-          durationMs: 1,
-          error: 'Aborted',
-          inference: {
-            model: 'native/parent',
-            tokens: { total: 7 },
-            cost: { total: 0.004, status: 'reported' },
-            toolResults,
-            generatedFields: ['model', 'tokens', 'cost', 'toolResults'],
-          },
-        },
-      ],
-    } as unknown as ExecutionResult)
-    const summary = calculateCostSummary(traceSpans)
-    expect(summary).toMatchObject({
-      totalTokens: 130,
-      status: unavailable && !byok ? 'partial' : 'reported',
-      unavailableComponents: unavailable && !byok ? 1 : 0,
+    expect(getInferenceFacts(result.output)).toMatchObject({
+      model: accounting.model,
+      tokens: accounting.tokens,
+      cost,
     })
-    expect(summary.availableTotal).toBeCloseTo(byok || unavailable ? 0.004 : 0.014)
+    expect(JSON.stringify(getInferenceFacts(result.output))).not.toContain(completed.content)
+    expect(JSON.stringify(getInferenceFacts(result.output))).not.toContain(completed.apiKey)
   }
 )
 

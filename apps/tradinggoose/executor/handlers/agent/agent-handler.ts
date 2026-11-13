@@ -1,6 +1,6 @@
 import { Agent, type AgentExecutionOptions } from '@mastra/core/agent'
 import { toStandardSchema } from '@mastra/core/schema'
-import { type CoreTool, createTool } from '@mastra/core/tools'
+import { createTool } from '@mastra/core/tools'
 import {
   buildCustomToolModelDescription,
   getCustomToolEntityIdFromRuntimeId,
@@ -12,12 +12,7 @@ import { normalizeNativeToolResult } from '@/lib/mastra/media'
 import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
-import {
-  getInferenceFacts,
-  getNativeFinalText,
-  type InferenceFacts,
-  withInferenceFacts,
-} from '@/lib/mastra/result'
+import { getInferenceFacts, getNativeFinalText, withInferenceFacts } from '@/lib/mastra/result'
 import { getAgentMemory } from '@/lib/mastra/runtime'
 import type { resultAccounting } from '@/lib/mastra/usage'
 import { mcpService } from '@/lib/mcp/service'
@@ -33,7 +28,10 @@ import type {
   Message,
   ToolInput,
 } from '@/executor/handlers/agent/types'
-import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
+import {
+  collectBlockData,
+  getBlockToolExecutionId,
+} from '@/executor/handlers/tool-execution-context'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
@@ -50,33 +48,6 @@ import { resolveSkillMetadata } from './skills-resolver'
 const logger = createLogger('AgentBlockHandler')
 
 const REQUEST_TIMEOUT = 120000
-
-/**
- * Helper function to collect runtime block outputs and name mappings
- * for tag resolution in custom tools and prompts
- */
-function collectBlockData(context: ExecutionContext): {
-  blockData: Record<string, any>
-  blockNameMapping: Record<string, string>
-} {
-  const blockData: Record<string, any> = {}
-  const blockNameMapping: Record<string, string> = {}
-
-  for (const [id, state] of context.blockStates.entries()) {
-    if (state.output !== undefined) {
-      blockData[id] = state.output
-      const workflowBlock = context.workflow?.blocks?.find((b) => b.id === id)
-      if (workflowBlock?.metadata?.name) {
-        // Map both the display name and normalized form
-        blockNameMapping[workflowBlock.metadata.name] = id
-        const normalized = workflowBlock.metadata.name.replace(/\s+/g, '').toLowerCase()
-        blockNameMapping[normalized] = id
-      }
-    }
-  }
-
-  return { blockData, blockNameMapping }
-}
 
 /**
  * Handler for Agent blocks that process LLM requests with optional tools.
@@ -133,7 +104,7 @@ export class AgentBlockHandler implements BlockHandler {
     const { blockData, blockNameMapping } = collectBlockData(context)
     const abortController = new AbortController()
     const signal = AbortSignal.any([abortController.signal, AbortSignal.timeout(REQUEST_TIMEOUT)])
-    const { tools, toolResults } = createAgentToolSet(
+    const tools = createAgentToolSet(
       formattedTools,
       {
         ...context,
@@ -241,13 +212,7 @@ export class AgentBlockHandler implements BlockHandler {
       const accounting = await work.complete(result)
       stopCancellationCheck()
       policy.assertComplete(result.steps)
-      const output = extractAgentOutput(
-        result,
-        model,
-        accounting,
-        toolResults,
-        responseFormat !== undefined
-      )
+      const output = extractAgentOutput(result, model, accounting, responseFormat !== undefined)
       getInferenceFacts(output)!.history = history
       return output
     }
@@ -262,7 +227,6 @@ export class AgentBlockHandler implements BlockHandler {
       Object.assign(failure, owned)
       const facts = {
         ...owned,
-        toolResults,
         history,
         generatedFields: Object.keys(owned),
       }
@@ -586,8 +550,7 @@ export function createAgentToolSet(
   executionContext: ExecutionContext | undefined,
   nativeMedia: { signal: AbortSignal; abort: (reason: unknown) => void }
 ) {
-  const toolResults: NonNullable<InferenceFacts['toolResults']> = []
-  const tools = Object.fromEntries(
+  return Object.fromEntries(
     namedAgentTools(configured)
       .filter(({ tool }) => tool.usageControl !== 'none')
       .map(({ tool, nativeName }) => [
@@ -601,62 +564,51 @@ export function createAgentToolSet(
           execute: async (inputData, nativeContext) => {
             assertNativeToolArguments(inputData)
             const params = { ...(inputData as Record<string, any>), ...tool.params }
-            let inference: InferenceFacts | undefined
-            try {
-              const result = await executeTool(
-                tool.mcp ? 'mcp' : tool.id,
-                {
-                  ...(tool.mcp ? { ...tool.mcp, arguments: params } : params),
-                  _context: {
-                    workflowId: scope.workflowId,
-                    workspaceId: scope.workspaceId,
-                    workflowLogId: scope.workflowLogId,
-                    toolExecutionId: scope.toolExecutionId,
-                    submissionSource: scope.submissionSource,
-                    userId: scope.userId,
-                    executionId: scope.executionId,
-                    isDeployedContext: scope.isDeployedContext !== false,
-                  },
-                  envVars: scope.environmentVariables,
-                  workflowVariables: scope.workflowVariables,
-                  blockData: scope.blockData,
-                  blockNameMapping: scope.blockNameMapping,
-                },
-                false,
-                executionContext,
-                { signal: nativeContext?.abortSignal }
-              )
-              const output = result.output
-              inference = getInferenceFacts(output)
-              if (result?.success === false)
-                throw new Error(result.error || `Tool ${tool.id} failed`)
-              const functional = inference ? { ...output } : output
-              if (inference) for (const field of inference.generatedFields) delete functional[field]
-              try {
-                return await normalizeNativeToolResult(functional, {
-                  actorUserId: scope.userId,
+            const result = await executeTool(
+              tool.mcp ? 'mcp' : tool.id,
+              {
+                ...(tool.mcp ? { ...tool.mcp, arguments: params } : params),
+                _context: {
+                  workflowId: scope.workflowId,
                   workspaceId: scope.workspaceId,
-                  signal: nativeContext?.abortSignal
-                    ? AbortSignal.any([nativeMedia.signal, nativeContext.abortSignal])
-                    : nativeMedia.signal,
-                })
-              } catch (error) {
-                // The effect is already complete; refuse unsafe model continuation.
-                nativeMedia.abort(error)
-                throw error
-              }
+                  workflowLogId: scope.workflowLogId,
+                  toolExecutionId: scope.toolExecutionId,
+                  submissionSource: scope.submissionSource,
+                  userId: scope.userId,
+                  executionId: scope.executionId,
+                  isDeployedContext: scope.isDeployedContext !== false,
+                },
+                envVars: scope.environmentVariables,
+                workflowVariables: scope.workflowVariables,
+                blockData: scope.blockData,
+                blockNameMapping: scope.blockNameMapping,
+              },
+              false,
+              executionContext,
+              { signal: nativeContext?.abortSignal }
+            )
+            const output = result.output
+            const inference = getInferenceFacts(output)
+            if (result?.success === false) throw new Error(result.error || `Tool ${tool.id} failed`)
+            const functional = inference ? { ...output } : output
+            if (inference) for (const field of inference.generatedFields) delete functional[field]
+            try {
+              return await normalizeNativeToolResult(functional, {
+                actorUserId: scope.userId,
+                workspaceId: scope.workspaceId,
+                signal: nativeContext?.abortSignal
+                  ? AbortSignal.any([nativeMedia.signal, nativeContext.abortSignal])
+                  : nativeMedia.signal,
+              })
             } catch (error) {
-              inference = getInferenceFacts(error) ?? inference
+              // The effect is already complete; refuse unsafe model continuation.
+              nativeMedia.abort(error)
               throw error
-            } finally {
-              if (inference)
-                toolResults.push({ toolCallId: nativeContext?.agent?.toolCallId, inference })
             }
           },
         }),
       ])
   )
-  return { tools, toolResults }
 }
 
 /** Force names are selected from observed successful calls in configured order. */
@@ -664,8 +616,6 @@ export function createForcedToolPolicy(tools: AgentToolConfig[]) {
   const forcedIds = namedAgentTools(tools)
     .filter(({ tool }) => tool.usageControl === 'force')
     .map(({ nativeName }) => nativeName)
-  let forced = forcedIds
-  let namesResolved = false
   const completedCount = (steps: any[] = []) => {
     let count = 0
     const seenCalls = new Set<string>()
@@ -675,10 +625,10 @@ export function createForcedToolPolicy(tools: AgentToolConfig[]) {
         const data = call.payload || call
         if (seenCalls.has(data.toolCallId)) continue
         seenCalls.add(data.toolCallId)
-        if (count >= forced.length) continue
-        if (data.toolName !== forced[count])
+        if (count >= forcedIds.length) continue
+        if (data.toolName !== forcedIds[count])
           throw new Error(
-            `Native named tool selection was not honored: expected forced tool ${forced[count]}, received ${data.toolName}. Select a compatible model/tool/schema/thinking configuration or change this tool to Auto.`
+            `Native named tool selection was not honored: expected forced tool ${forcedIds[count]}, received ${data.toolName}. Select a compatible model/tool/schema/thinking configuration or change this tool to Auto.`
           )
         if (
           (step.toolResults || []).some((result: any) => {
@@ -697,25 +647,17 @@ export function createForcedToolPolicy(tools: AgentToolConfig[]) {
   }
   return {
     prepareStep({ steps, tools }: { steps: any[]; tools?: Record<string, unknown> }) {
-      // Mastra supplies normalized names while retaining each configured instance's ID.
-      const nativeTools = Object.entries(tools ?? {})
-      if (!namesResolved) {
-        const namesById = new Map(nativeTools.map(([name, tool]) => [(tool as CoreTool).id, name]))
-        forced = forcedIds.map((id) => {
-          const name = namesById.get(id)
-          if (!name) throw new Error(`Required Agent tool is unavailable: ${id}`)
-          return name
-        })
-        namesResolved = true
-      }
-      const pending = forced[completedCount(steps)]
+      const names = Object.keys(tools ?? {})
+      const pending = forcedIds[completedCount(steps)]
+      if (pending && !names.includes(pending))
+        throw new Error(`Required Agent tool is unavailable: ${pending}`)
       return {
-        activeTools: pending ? [pending] : nativeTools.map(([name]) => name),
+        activeTools: pending ? [pending] : names,
         toolChoice: pending ? { type: 'tool' as const, toolName: pending } : ('auto' as const),
       }
     },
     assertComplete(steps: any[] = []) {
-      const pending = forced.slice(completedCount(steps))
+      const pending = forcedIds.slice(completedCount(steps))
       if (pending.length)
         throw new Error(
           `Agent did not complete forced tools: ${pending.join(', ')}. Select a model and tool/schema/thinking configuration that supports named tool calls, or change these tools to Auto.`
@@ -729,7 +671,6 @@ export function extractAgentOutput(
   result: any,
   model: string,
   accounting: Awaited<ReturnType<typeof resultAccounting>>,
-  toolResults: NonNullable<InferenceFacts['toolResults']> = [],
   structured = false
 ): BlockOutput {
   if (!result.steps.length) throw new Error('Agent generation has no completed model steps')
@@ -748,7 +689,6 @@ export function extractAgentOutput(
     { ...facts, ...business },
     {
       ...facts,
-      toolResults,
       generatedFields: Object.keys(facts).filter((key) => !Object.hasOwn(business, key)),
     }
   )

@@ -1,4 +1,5 @@
 import type { Edge } from '@xyflow/react'
+import type { InferenceFacts } from '@/lib/mastra/result'
 import type { NativeCost } from '@/lib/mastra/usage'
 import type { BlockLog, NormalizedBlockOutput } from '@/executor/types'
 import type { DeploymentStatus } from '@/stores/workflows/registry/types'
@@ -110,16 +111,8 @@ export interface WorkflowExecutionLog {
 export type WorkflowExecutionLogInsert = Omit<WorkflowExecutionLog, 'id' | 'createdAt'>
 export type WorkflowExecutionLogSelect = WorkflowExecutionLog
 
-export interface TokenInfo {
-  input?: number
-  output?: number
-  total?: number
-  prompt?: number
-  completion?: number
-}
-
 export interface TraceSpan {
-  inference?: import('@/lib/mastra/result').InferenceFacts
+  inference?: InferenceFacts
   agentHistory?: import('@/lib/mastra/messages').NativeHistoryMessage[]
   id: string
   name: string
@@ -129,7 +122,7 @@ export interface TraceSpan {
   endTime: string
   children?: TraceSpan[]
   status?: 'success' | 'error'
-  tokens?: number | TokenInfo
+  tokens?: InferenceFacts['tokens']
   relativeStartMs?: number
   blockId?: string
   input?: Record<string, unknown>

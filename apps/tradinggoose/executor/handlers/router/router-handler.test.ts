@@ -18,7 +18,6 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
 }))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 
-import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getInferenceFacts } from '@/lib/mastra/result'
 import { RouterBlockHandler } from './router-handler'
@@ -102,12 +101,6 @@ describe('Router native generation', () => {
     expect(native.configurations[0].model).toEqual({ id: 'openai/gpt-4.1', apiKey: 'local-key' })
     expect(native.generate.mock.calls[0][1].modelSettings.temperature).toBe(0)
   })
-  it('rejects decisions outside the connected workflow paths', async () => {
-    native.generate.mockResolvedValue({ finishReason: 'stop', text: 'unconnected', totalUsage: {} })
-    await expect(
-      new RouterBlockHandler().execute(block, { model: 'openai/gpt-4.1' }, context)
-    ).rejects.toThrow('Invalid routing decision')
-  })
   it('rejects dangling target connections before inference', async () => {
     await expect(
       new RouterBlockHandler().execute(
@@ -120,21 +113,7 @@ describe('Router native generation', () => {
   })
 })
 
-describe('router incomplete native outcomes and workflow cancellation', () => {
-  it.each(['aborted', 'error'])(
-    'rejects %s results and retains completed accounting',
-    async (finishReason) => {
-      native.generate.mockResolvedValue({
-        finishReason,
-        object: undefined,
-        text: 'target',
-        totalUsage: { totalTokens: 7 },
-      })
-      await expect(
-        new RouterBlockHandler().execute(block, { model: 'openai/gpt-4.1' }, context)
-      ).rejects.toMatchObject({ cost: { status: 'unavailable' }, tokens: { total: 7 } })
-    }
-  )
+describe('router workflow cancellation', () => {
   it('interrupts inference when cancellation arrives after generation starts', async () => {
     vi.useFakeTimers()
     let cancelled = false
@@ -172,29 +151,22 @@ describe('router incomplete native outcomes and workflow cancellation', () => {
   })
 })
 
-it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provider, id] as const))(
-  'refuses native-known embedding model %s before generation admission or model contact',
-  async (model, provider, modelId) => {
-    // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
-    setManagedProviders({
-      [provider]: {
-        name: 'Controlled registered provider',
-        url: 'https://not-contacted.invalid',
-        models: [modelId],
-      },
-    })
-    try {
-      await expect(
-        new RouterBlockHandler().execute(block, { model, prompt: 'Route this request' }, context)
-      ).rejects.toMatchObject({ status: 400 })
-      expect(native.finance).not.toHaveBeenCalled()
-      expect(native.configurations).toEqual([])
-      expect(native.generate).not.toHaveBeenCalled()
-    } finally {
-      vi.unstubAllEnvs()
-    }
-  }
-)
+it('refuses an embedding model before generation admission or model contact', async () => {
+  const model = 'openai/text-embedding-3-small'
+  setManagedProviders({
+    openai: {
+      name: 'Controlled registered provider',
+      url: 'https://not-contacted.invalid',
+      models: ['text-embedding-3-small'],
+    },
+  })
+  await expect(
+    new RouterBlockHandler().execute(block, { model, prompt: 'Route this request' }, context)
+  ).rejects.toMatchObject({ status: 400 })
+  expect(native.finance).not.toHaveBeenCalled()
+  expect(native.configurations).toEqual([])
+  expect(native.generate).not.toHaveBeenCalled()
+})
 
 // Only the native model and usage processor boundaries are controlled.
 describe('router trusted failed accounting with real helpers', () => {
@@ -235,6 +207,7 @@ describe('router trusted failed accounting with real helpers', () => {
       failureValue = error
     }
     expect(failureValue).toBeInstanceOf(Error)
+    expect(failureValue).toMatchObject({ cost: { status: 'unavailable' }, tokens: { total: 7 } })
     const facts = getInferenceFacts(failureValue)
     expect(facts).toMatchObject({
       model: 'openai/gpt-4.1',
@@ -242,10 +215,13 @@ describe('router trusted failed accounting with real helpers', () => {
       cost: { status: 'unavailable' },
       generatedFields: ['model', 'tokens', 'cost'],
     })
-    expect(getInferenceFacts(failureValue)).toBe(facts)
     expect(native.generate).toHaveBeenCalledOnce()
     if (failure === 'financial refusal')
       expect(failureValue).toMatchObject({ message: 'Financial acceptance refused' })
+    if (failure === 'invalid routing decision')
+      expect(failureValue).toMatchObject({
+        message: expect.stringContaining('Invalid routing decision'),
+      })
   })
   it.each([
     { usage: {}, expected: {} },

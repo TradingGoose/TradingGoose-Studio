@@ -384,7 +384,7 @@ describe('executeTool Function', () => {
         }
         // biome-ignore lint/complexity/useLiteralKeys: Exercise the production factory without exposing a test-only API.
         const configured = await new AgentBlockHandler()['formatTools']([selected], context)
-        const { tools } = createAgentToolSet(configured, context, context, {
+        const tools = createAgentToolSet(configured, context, context, {
           signal: new AbortController().signal,
           abort: vi.fn(),
         })
@@ -1332,7 +1332,7 @@ describe('MCP Tool Execution', () => {
     }
     const id = createMcpToolId(target.serverId, target.toolName)
     const context = createMockExecutionContext()
-    const { tools } = createAgentToolSet(
+    const tools = createAgentToolSet(
       [
         {
           id,

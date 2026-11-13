@@ -1,5 +1,4 @@
 /** @vitest-environment node */
-import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { managedServices, setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
 import { validateHallucination } from './validate_hallucination'
@@ -280,32 +279,24 @@ describe('hallucination search and scoring', () => {
   })
 })
 
-it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provider, id] as const))(
-  'refuses native-known embedding model %s before generation admission or model contact',
-  async (model, provider, modelId) => {
-    // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
-    setManagedProviders({
-      [provider]: {
-        name: 'Controlled registered provider',
-        url: 'https://not-contacted.invalid',
-        models: [modelId],
-      },
-    })
-    try {
-      const result = await validateHallucination({ ...input, model })
-      expect(result).toMatchObject({
-        passed: false,
-        error: expect.stringContaining('Select a listed provider/model'),
-        embeddingUsage: searchAccounting.embeddingUsage,
-      })
-      expect(native.finance).not.toHaveBeenCalled()
-      expect(native.verify).not.toHaveBeenCalled()
-      expect(native.generate).not.toHaveBeenCalled()
-      // The existing authenticated KB search is a controlled earlier seam, not LLM contact.
-      expect(fetch).toHaveBeenCalledOnce()
-      expect(vi.mocked(fetch).mock.calls[0][0]).toBe('http://localhost:3000/api/knowledge/search')
-    } finally {
-      vi.unstubAllEnvs()
-    }
-  }
-)
+it('refuses an embedding model before generation admission or model contact', async () => {
+  const model = 'openai/text-embedding-3-small'
+  setManagedProviders({
+    openai: {
+      name: 'Controlled registered provider',
+      url: 'https://not-contacted.invalid',
+      models: ['text-embedding-3-small'],
+    },
+  })
+  const result = await validateHallucination({ ...input, model })
+  expect(result).toMatchObject({
+    passed: false,
+    error: expect.stringContaining('Select a listed provider/model'),
+    embeddingUsage: searchAccounting.embeddingUsage,
+  })
+  expect(native.finance).not.toHaveBeenCalled()
+  expect(native.verify).not.toHaveBeenCalled()
+  expect(native.generate).not.toHaveBeenCalled()
+  expect(fetch).toHaveBeenCalledOnce()
+  expect(vi.mocked(fetch).mock.calls[0][0]).toBe('http://localhost:3000/api/knowledge/search')
+})

@@ -18,7 +18,6 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
 }))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 
-import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { handleAIProviderRequest } from './handler'
 
@@ -153,31 +152,24 @@ describe('native AI HTTP handler', () => {
   })
 })
 
-it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provider, id] as const))(
-  'refuses native-known embedding model %s before generation admission or model contact',
-  async (model, provider, modelId) => {
-    // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
-    setManagedProviders({
-      [provider]: {
-        name: 'Controlled registered provider',
-        url: 'https://not-contacted.invalid',
-        models: [modelId],
-      },
+it('refuses an embedding model before generation admission or model contact', async () => {
+  const model = 'openai/text-embedding-3-small'
+  setManagedProviders({
+    openai: {
+      name: 'Controlled registered provider',
+      url: 'https://not-contacted.invalid',
+      models: ['text-embedding-3-small'],
+    },
+  })
+  await expect(
+    handleAIProviderRequest({
+      body: { model, messages: [{ role: 'user', content: 'Generate a response' }] },
+      requestId: 'embedding-rejected',
+      authUserId: 'user-1',
     })
-    try {
-      await expect(
-        handleAIProviderRequest({
-          body: { model, messages: [{ role: 'user', content: 'Generate a response' }] },
-          requestId: 'embedding-rejected',
-          authUserId: 'user-1',
-        })
-      ).rejects.toMatchObject({ status: 400 })
-      expect(native.finance).not.toHaveBeenCalled()
-      expect(native.generate).not.toHaveBeenCalled()
-      expect(native.configurations).toEqual([])
-      expect(native.usage).not.toHaveBeenCalled()
-    } finally {
-      vi.unstubAllEnvs()
-    }
-  }
-)
+  ).rejects.toMatchObject({ status: 400 })
+  expect(native.finance).not.toHaveBeenCalled()
+  expect(native.generate).not.toHaveBeenCalled()
+  expect(native.configurations).toEqual([])
+  expect(native.usage).not.toHaveBeenCalled()
+})

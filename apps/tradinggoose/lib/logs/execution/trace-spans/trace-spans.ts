@@ -25,25 +25,13 @@ function flattenWorkflowChildren(spans: TraceSpan[]): TraceSpan[] {
   return flattened
 }
 
-function getTraceSpanKey(span: TraceSpan): string {
-  if (span.id) {
-    return span.id
-  }
-
-  const name = span.name || 'span'
-  const start = span.startTime || 'unknown-start'
-  const end = span.endTime || 'unknown-end'
-
-  return `${name}|${start}|${end}`
-}
-
 function mergeTraceSpanChildren(...childGroups: TraceSpan[][]): TraceSpan[] {
   const merged: TraceSpan[] = []
   const seen = new Set<string>()
 
   childGroups.forEach((group) => {
     group.forEach((child) => {
-      const key = getTraceSpanKey(child)
+      const key = child.id
       if (seen.has(key)) {
         return
       }
@@ -112,43 +100,9 @@ export function buildTraceSpans(result: ExecutionResult): {
 
     const facts = log.inference
 
-    if (facts?.cost) {
-      span.cost = facts.cost as {
-        input?: number
-        output?: number
-        total?: number
-      }
-    }
-
-    if (facts?.tokens) {
-      const t = facts.tokens as
-        | number
-        | {
-            input?: number
-            output?: number
-            total?: number
-            prompt?: number
-            completion?: number
-          }
-      if (typeof t === 'number') {
-        span.tokens = t
-      } else if (typeof t === 'object') {
-        const input = t.input ?? t.prompt
-        const output = t.output ?? t.completion
-        const total = t.total
-        span.tokens = {
-          ...(typeof input === 'number' ? { input } : {}),
-          ...(typeof output === 'number' ? { output } : {}),
-          ...(typeof total === 'number' ? { total } : {}),
-        }
-      } else {
-        span.tokens = t
-      }
-    }
-
-    if (facts?.model) {
-      span.model = facts.model as string
-    }
+    if (facts?.cost) span.cost = facts.cost
+    if (facts?.tokens) span.tokens = facts.tokens
+    if (facts?.model) span.model = facts.model
 
     if (
       isWorkflowBlockType(log.blockType) &&

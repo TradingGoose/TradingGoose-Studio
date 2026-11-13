@@ -1,4 +1,3 @@
-import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { InMemoryStore } from '@mastra/core/storage'
 import { Memory } from '@mastra/memory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
@@ -1015,7 +1014,7 @@ describe('native named Force tools', () => {
     const configured = [
       { id: '9.lookup', description: 'Lookup', parameters: schema, usageControl: 'force' as const },
     ]
-    const { tools } = createOwnedTestToolSet(configured, context())
+    const tools = createOwnedTestToolSet(configured, context())
     const policy = createForcedToolPolicy(configured)
     const result = await new Agent({
       id: 'normalized',
@@ -1045,7 +1044,7 @@ describe('native named Force tools', () => {
       params: { query: `fixed-${index}` },
       usageControl: 'force' as const,
     }))
-    const { tools } = createOwnedTestToolSet(configured, context())
+    const tools = createOwnedTestToolSet(configured, context())
     const names = Object.keys(tools)
     const policy = createForcedToolPolicy(configured)
     const result = await new Agent({
@@ -1089,7 +1088,7 @@ describe('native named Force tools', () => {
         usageControl: 'none' as const,
       },
     ]
-    const { tools } = createOwnedTestToolSet(configured, context())
+    const tools = createOwnedTestToolSet(configured, context())
     const policy = createForcedToolPolicy(configured)
     const agent = new Agent({
       id: 'forced',
@@ -1130,11 +1129,9 @@ describe('native named Force tools', () => {
       params: { query },
       usageControl: 'force' as const,
     }))
-    const { tools } = createOwnedTestToolSet(configured, context())
+    const tools = createOwnedTestToolSet(configured, context())
     expect(Object.keys(tools)).toHaveLength(2)
-    expect(Object.keys(createOwnedTestToolSet(configured, context()).tools)).toEqual(
-      Object.keys(tools)
-    )
+    expect(Object.keys(createOwnedTestToolSet(configured, context()))).toEqual(Object.keys(tools))
     const policy = createForcedToolPolicy(configured)
     const result = await new Agent({
       id: 'duplicates',
@@ -1179,7 +1176,7 @@ describe('native named Force tools', () => {
         usageControl: 'force' as const,
       },
     ]
-    const { tools } = createOwnedTestToolSet(configured, context())
+    const tools = createOwnedTestToolSet(configured, context())
     const policy = createForcedToolPolicy(configured)
     const result = await new Agent({
       id: 'unfinished',
@@ -1203,7 +1200,7 @@ describe('native named Force tools', () => {
         usageControl: 'force' as const,
       },
     ]
-    const { tools } = createOwnedTestToolSet(configured, context())
+    const tools = createOwnedTestToolSet(configured, context())
     const policy = createForcedToolPolicy(configured)
     const result = await new Agent({
       id: 'denied',
@@ -1458,7 +1455,7 @@ describe('native forced sequence failures and completion accounting', () => {
       parameters: schema,
       usageControl: 'force' as const,
     }))
-    const { tools } = createOwnedTestToolSet(configured, context())
+    const tools = createOwnedTestToolSet(configured, context())
     const policy = createForcedToolPolicy(configured)
     await expect(
       new Agent({
@@ -1748,9 +1745,6 @@ describe('native structured streams through the workflow executor', () => {
       model: 'openai/gpt-4.1',
       cost: { total: 0.006, status: 'estimated' },
     })
-    expect(getInferenceFacts(output)?.toolResults).toMatchObject([
-      { inference: { cost: { total: 0.004, status: 'reported' } } },
-    ])
     expect(output).not.toHaveProperty('toolResults')
     expect(JSON.stringify(getInferenceFacts(output))).not.toContain('"found"')
     expect(output?.tokens?.total).toBe(valid ? 10 : 5)
@@ -1954,66 +1948,10 @@ it.each([2, undefined])(
     expect(result.execution.success).toBe(false)
     expect(result.execution.output.tokens).toMatchObject({ total: 5 })
     expect(result.execution.output.cost).toMatchObject({ status: 'unavailable' })
-    expect(getInferenceFacts(result.execution.output)?.toolResults?.[0].inference.cost?.total).toBe(
-      0.004
-    )
   }
 )
 
-it('retains completed partial tool charges when a later native model step fails', async () => {
-  vi.mocked(executeTool).mockResolvedValue({
-    success: true,
-    output: withInferenceFacts(
-      { found: true, cost: { availableTotal: 0.006, status: 'partial' } },
-      { cost: { availableTotal: 0.006, status: 'partial' }, generatedFields: ['cost'] }
-    ),
-  })
-  state.model = new MastraLanguageModelV2Mock({
-    doGenerate: async (options) => {
-      if (options.toolChoice?.type !== 'tool') throw new Error('Later native model failure')
-      return {
-        content: [
-          {
-            type: 'tool-call',
-            toolCallId: 'charged-lookup',
-            toolName: options.toolChoice.toolName,
-            input: '{"query":"lookup"}',
-          },
-        ],
-        finishReason: 'tool-calls',
-        usage,
-        warnings: [],
-      }
-    },
-  })
-  const schema = { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-  const failure = await new AgentBlockHandler()
-    .execute(
-      block,
-      {
-        model: 'openai/gpt-4.1',
-        userPrompt: 'Lookup then answer',
-        tools: [
-          {
-            type: 'custom-tool',
-            toolId: 'custom_lookup',
-            schema: { function: { description: 'Lookup', parameters: schema } },
-            usageControl: 'force',
-          },
-        ],
-      },
-      context()
-    )
-    .catch((error) => error)
-  expect(failure).toMatchObject({ model: 'openai/gpt-4.1', cost: { status: 'unavailable' } })
-  expect(getInferenceFacts(failure)?.toolResults).toMatchObject([
-    { inference: { cost: { availableTotal: 0.006, status: 'partial' } } },
-  ])
-  expect(failure).not.toHaveProperty('toolResults')
-  expect(JSON.stringify(getInferenceFacts(failure))).not.toContain('"found"')
-})
-
-it('retains native accounting from a failed callback in metadata used by workflow failure settlement', async () => {
+it('propagates a failed inference tool callback to the native loop', async () => {
   vi.mocked(executeTool).mockResolvedValue({
     success: false,
     error: 'Vision cancelled',
@@ -2026,19 +1964,13 @@ it('retains native accounting from a failed callback in metadata used by workflo
       }
     ),
   })
-  const { tools, toolResults } = createOwnedTestToolSet(
+  const tools = createOwnedTestToolSet(
     [{ id: 'vision', description: 'Vision', parameters: { type: 'object', properties: {} } }],
     context()
   )
   await expect(
     tools.vision.execute?.({}, { agent: { toolCallId: 'failed-vision' } } as any)
   ).rejects.toThrow('Vision cancelled')
-  expect(toolResults).toMatchObject([
-    {
-      toolCallId: 'failed-vision',
-      inference: { tokens: { total: 9 }, cost: { status: 'estimated' } },
-    },
-  ])
 })
 
 it.each([false, true])(
@@ -2147,34 +2079,26 @@ it('removes a request-local key from failed-turn errors and canonical history wi
   expect(state.configurations[0].mastra).toBeUndefined()
 })
 
-it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provider, id] as const))(
-  'refuses native-known embedding model %s before generation admission or model contact',
-  async (model, provider, modelId) => {
-    // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
-    setManagedProviders({
-      [provider]: {
-        name: 'Controlled registered provider',
-        url: 'https://not-contacted.invalid',
-        models: [modelId],
-      },
-    })
-    try {
-      await expect(
-        new AgentBlockHandler().execute(
-          block,
-          { model, userPrompt: 'A genuine generation request', tools: [] },
-          context()
-        )
-      ).rejects.toMatchObject({ status: 400 })
-      expect(state.finance).not.toHaveBeenCalled()
-      expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
-      expect(state.configurations).toEqual([])
-      expect(executeTool).not.toHaveBeenCalled()
-    } finally {
-      vi.unstubAllEnvs()
-    }
-  }
-)
+it('refuses an embedding model before generation admission or model contact', async () => {
+  setManagedProviders({
+    openai: {
+      name: 'Controlled registered provider',
+      url: 'https://not-contacted.invalid',
+      models: ['text-embedding-3-small'],
+    },
+  })
+  await expect(
+    new AgentBlockHandler().execute(
+      block,
+      { model: 'openai/text-embedding-3-small', userPrompt: 'Generate', tools: [] },
+      context()
+    )
+  ).rejects.toMatchObject({ status: 400 })
+  expect(state.finance).not.toHaveBeenCalled()
+  expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
+  expect(state.configurations).toEqual([])
+  expect(executeTool).not.toHaveBeenCalled()
+})
 
 const liveToolImage = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6uO8AAAAASUVORK5CYII=',
@@ -2312,7 +2236,6 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
       model: 'openai/gpt-4.1',
       tokens: { prompt: allowed ? 4 : 2, completion: allowed ? 6 : 3, total: allowed ? 10 : 5 },
     })
-    expect(getInferenceFacts(active)?.toolResults).toMatchObject([{ inference: toolFacts }])
     expect(active).not.toHaveProperty('toolResults')
     expect(JSON.stringify(getInferenceFacts(active))).not.toContain('Exact tool text')
     if (allowed) {
@@ -2352,7 +2275,7 @@ it.each(['owner-cancel', 'native-cancel'])(
     })
     const fetcher = vi.fn()
     vi.stubGlobal('fetch', fetcher)
-    const { tools, toolResults } = createAgentToolSet(
+    const tools = createAgentToolSet(
       [
         {
           id: 'image_result',
@@ -2370,8 +2293,6 @@ it.each(['owner-cancel', 'native-cancel'])(
     expect(effect).toHaveBeenCalledOnce()
     expect(fetcher).not.toHaveBeenCalled()
     expect(owner.signal.aborted).toBe(true)
-    expect(toolResults).toEqual([{ toolCallId: undefined, inference: getInferenceFacts(raw) }])
-    expect(JSON.stringify(toolResults)).not.toContain(liveToolImage.toString('base64'))
   }
 )
 

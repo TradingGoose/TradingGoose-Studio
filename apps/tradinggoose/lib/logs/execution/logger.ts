@@ -53,9 +53,7 @@ type UsageReceipt = UsageAccrual & {
 }
 
 function executionCost(billing: ExecutionBilling) {
-  const summary = calculateCostSummary(
-    Object.entries(billing.nativeUsage ?? {}).map(([id, inference]) => ({ id, inference }))
-  )
+  const summary = calculateCostSummary(Object.values(billing.nativeUsage ?? {}))
   const quote = billing.quote
   const baseExecutionCharge = quote?.baseCharge ?? 0
   const multiplier = quote?.modelMultiplier ?? 1

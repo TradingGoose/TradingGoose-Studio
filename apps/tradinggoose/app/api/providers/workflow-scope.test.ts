@@ -192,7 +192,7 @@ function assertScope() {
   expect(boundary.contact).toHaveBeenCalledOnce()
 }
 
-function traceDisplayCosts(output: unknown) {
+function traceDisplayFacts(output: unknown) {
   const { traceSpans } = buildTraceSpans({
     logs: [
       {
@@ -208,15 +208,10 @@ function traceDisplayCosts(output: unknown) {
       },
     ],
   } as unknown as ExecutionResult)
-  return calculateCostSummary(traceSpans)
+  return traceSpans[0].inference
 }
 function recordedWorkflowCosts() {
-  return calculateCostSummary(
-    Object.entries(boundary.executionData.billing?.nativeUsage ?? {}).map(([id, inference]) => ({
-      id,
-      inference,
-    }))
-  )
+  return calculateCostSummary(Object.values(boundary.executionData.billing?.nativeUsage ?? {}))
 }
 it('carries the actual llm_chat URL-only scope through real route, Agent and usage processors', async () => {
   const output = await executeTool(
@@ -250,9 +245,9 @@ it('retains Translate generic execution scope through the same llm_chat path', a
     context
   )
   expect(output.content).toBe('exact scoped output')
-  expect(traceDisplayCosts(output)).toMatchObject({
-    totalTokens: 3,
-    totalCost: expect.closeTo(0.000012, 10),
+  expect(traceDisplayFacts(output)).toMatchObject({
+    tokens: { total: 3 },
+    cost: { total: expect.closeTo(0.000012, 10) },
   })
   expect(recordedWorkflowCosts()).toMatchObject({
     totalTokens: 3,
@@ -283,7 +278,7 @@ it('charges an HTTP block that calls providers without claiming that its wrapped
   )
   expect(output.data).toMatchObject({ content: 'exact scoped output', tokens: { total: 3 } })
   expect(getInferenceFacts(output)).toBeUndefined()
-  expect(traceDisplayCosts(output)).toMatchObject({ totalCost: 0 })
+  expect(traceDisplayFacts(output)).toBeUndefined()
   expect(recordedWorkflowCosts()).toMatchObject({ totalCost: 0 })
   expect(boundary.accept).toHaveBeenCalledOnce()
   expect(
@@ -327,9 +322,9 @@ it('persists deferred usage independently of an internal producer HTTP failure',
   expect(getInferenceFacts(failure)).toMatchObject({
     tokens: { prompt: 12, completion: 3, total: 15 },
   })
-  expect(traceDisplayCosts(failure)).toMatchObject({
-    totalTokens: 15,
-    totalCost: expect.closeTo(0.000048, 10),
+  expect(traceDisplayFacts(failure)).toMatchObject({
+    tokens: { total: 15 },
+    cost: { total: expect.closeTo(0.000048, 10) },
   })
   expect(recordedWorkflowCosts()).toMatchObject({
     totalTokens: 15,
@@ -398,7 +393,7 @@ it('retains a nested native tool callback scope instead of trusting its input id
     context,
     { signal: abortController.signal, abort: (reason) => abortController.abort(reason) }
   )
-  const output = await native.tools.llm_chat.execute!({ context: 'nested literal' }, {})
+  const output = await native.llm_chat.execute!({ context: 'nested literal' }, {})
   expect(output).toMatchObject({ content: 'exact scoped output' })
   assertScope()
 })

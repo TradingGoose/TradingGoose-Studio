@@ -399,10 +399,7 @@ describe('durable native observations', () => {
 
   it('uses persisted observations once even when returned traces contain their aggregates', async () => {
     await observe('child', span(0.5, 30).inference)
-    const aggregate = {
-      ...span(500, 999).inference,
-      toolResults: [{ toolCallId: 'child', inference: span(500, 999).inference }],
-    }
+    const aggregate = span(500, 999).inference
     const completed = await logger.completeWorkflowExecution({
       ...completion,
       traceSpans: [{ ...span(), inference: aggregate }],
@@ -780,22 +777,13 @@ describe('canonical workflow usage settlement', () => {
     expect(state.ledgers.user?.totalCost).toBe(6.25)
   })
 
-  it('accrues nested native model costs once', async () => {
-    const original = span()
-    const nested = {
-      toolCallId: 'native-tool',
-      inference: {
-        cost: { total: 0.5, status: 'estimated' as const, estimated: true },
-        tokens: { total: 30 },
-        generatedFields: ['cost', 'tokens'],
-      },
-    }
-    const priced = {
-      ...original,
-      inference: { ...original.inference, toolResults: [nested, nested] },
-    }
-    await observe('nested-native-step', nested.inference)
-    const result = await logger.completeWorkflowExecution({ ...completion, traceSpans: [priced] })
+  it('accrues each persisted native attempt once without requiring matching traces', async () => {
+    await observe('nested-native-step', {
+      cost: { total: 0.5, status: 'estimated', estimated: true },
+      tokens: { total: 30 },
+      generatedFields: ['cost', 'tokens'],
+    })
+    const result = await logger.completeWorkflowExecution(completion)
     expect(result.cost).toMatchObject({ modelCost: 2.5, estimated: true })
     expect(state.ledgers.user).toMatchObject({ totalCost: 2.75, totalTokensUsed: 180 })
     await logger.settleWorkflowExecutionUsage('execution')

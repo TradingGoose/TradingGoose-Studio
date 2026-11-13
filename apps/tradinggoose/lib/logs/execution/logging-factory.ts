@@ -2,9 +2,8 @@ import { db } from '@tradinggoose/db'
 import { workflow, workflowFolder } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ExecutionEnvironment, ExecutionTrigger } from '@/lib/logs/types'
-import { getInferenceFacts, type InferenceFacts } from '@/lib/mastra/result'
+import type { InferenceFacts } from '@/lib/mastra/result'
 import { resultAccounting, sumNativeCosts, sumNativeUsage } from '@/lib/mastra/usage'
-import { isWorkflowBlockType } from '@/executor/consts'
 
 export function createTriggerObject(
   type: ExecutionTrigger['type'],
@@ -81,10 +80,9 @@ export async function loadWorkflowSummaryForExecution(workflowId: string) {
   }
 }
 
-export function calculateCostSummary(traceSpans: any[]) {
+export function calculateCostSummary(usage: readonly InferenceFacts[]) {
   const components: InferenceFacts[] = []
   const modelComponents = new Map<string, InferenceFacts[]>()
-  const seen = new Set<string>()
   let unavailableComponents = 0
   const summarize = (facts: InferenceFacts[]) => {
     const usage = sumNativeUsage(
@@ -96,16 +94,16 @@ export function calculateCostSummary(traceSpans: any[]) {
         },
       }))
     )
-    const cost = sumNativeCosts(facts.map((component) => component.cost!))
+    const cost = sumNativeCosts(
+      facts.length ? facts.map((component) => component.cost!) : [{ total: 0, status: 'reported' }]
+    )
     return {
       ...cost,
       availableTotal: cost.total ?? cost.availableTotal,
       tokens: resultAccounting(usage).tokens,
     }
   }
-  const accumulate = (facts: InferenceFacts | undefined, id?: string) => {
-    if (!facts || (id && seen.has(id))) return
-    if (id) seen.add(id)
+  for (const facts of usage) {
     if (facts.cost || facts.tokens || facts.model) {
       const reference = sumNativeCosts([facts.cost ?? { status: 'unavailable' }])
       // BYOK estimates remain on the span; workflow settlement prices account-funded usage.
@@ -119,33 +117,21 @@ export function calculateCostSummary(traceSpans: any[]) {
         modelComponents.set(facts.model, group)
       }
     }
-    for (const result of facts.toolResults ?? []) accumulate(result.inference, result.toolCallId)
   }
 
-  const visit = (spans: any[]) => {
-    for (const span of spans ?? []) {
-      // Child workflows settle their own usage. Their visible traces are inclusive.
-      if (span.blockId && isWorkflowBlockType(span.type)) continue
-      accumulate(getInferenceFacts(span) ?? span.inference, span.id)
-      if (Array.isArray(span.children)) visit(span.children)
-    }
-  }
-  visit(traceSpans)
   const model = summarize(components)
-  const costs = components.map((component) => component.cost!)
-  const cost = sumNativeCosts(costs.length ? costs : [{ total: 0, status: 'reported' }])
   return {
-    totalCost: cost.total,
-    availableTotal: cost.total ?? cost.availableTotal,
+    totalCost: model.total,
+    availableTotal: model.availableTotal,
     totalInputCost: model.input,
     totalOutputCost: model.output,
     totalTokens: model.tokens.total,
     totalPromptTokens: model.tokens.prompt,
     totalCompletionTokens: model.tokens.completion,
-    modelCost: model.total ?? model.availableTotal ?? (unavailableComponents ? undefined : 0),
-    status: cost.status,
+    modelCost: model.total ?? model.availableTotal,
+    status: model.status,
     unavailableComponents,
-    estimated: cost.estimated === true,
+    estimated: model.estimated === true,
     models: Object.fromEntries(
       [...modelComponents].map(([name, facts]) => [name, summarize(facts)])
     ),

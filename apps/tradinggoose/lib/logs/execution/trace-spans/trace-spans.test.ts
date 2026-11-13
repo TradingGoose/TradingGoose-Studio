@@ -1,14 +1,11 @@
-import { describe, expect, test, vi } from 'vitest'
-import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
+import { describe, expect, test } from 'vitest'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { BlockType } from '@/executor/consts'
 import type { ExecutionResult } from '@/executor/types'
 
-vi.mock('@tradinggoose/db', () => ({ db: {} }))
-
 describe('buildTraceSpans', () => {
   test.each([BlockType.WORKFLOW, BlockType.WORKFLOW_INPUT])(
-    'retains %s child traces without billing their model usage again',
+    'retains %s child traces alongside the parent model usage',
     (blockType) => {
       const modelLog = {
         id: 'local-model-occurrence',
@@ -61,13 +58,7 @@ describe('buildTraceSpans', () => {
       const snapshot = structuredClone(parent)
 
       expect(parent[0].children?.[1].children).toMatchObject([{ blockId: 'child-agent' }])
-      expect(calculateCostSummary([{ type: 'parallel', children: parent }])).toMatchObject({
-        totalCost: 1,
-        modelCost: 1,
-        totalTokens: 10,
-        models: { 'test-model': { total: 1, tokens: { total: 10 } } },
-      })
-      expect(calculateCostSummary(child)).toMatchObject({ modelCost: 2, totalTokens: 20 })
+      expect(parent[0].children?.[0].inference).toEqual(modelLog.inference)
       expect(parent).toEqual(snapshot)
     }
   )
@@ -327,7 +318,7 @@ test('does not interpret schema-owned AI report names as internal trace facts', 
 })
 
 test.each([true, false])(
-  'keeps the native history reference and child accounting without rebuilding a transcript (success=%s)',
+  'keeps the native history reference and accounting without rebuilding a transcript (success=%s)',
   (success) => {
     const history = {
       threadId: 'workflow-agent:run',
@@ -337,19 +328,8 @@ test.each([true, false])(
     const inference = {
       history,
       model: 'native/outer',
-      tokens: { total: 2 },
+      tokens: { prompt: 0, completion: 2 },
       cost: { total: 0.004, status: 'reported' as const },
-      toolResults: [
-        {
-          toolCallId: 'inner',
-          inference: {
-            model: 'native/inner',
-            tokens: { total: 3 },
-            cost: { total: 0.002, status: 'reported' as const },
-            generatedFields: [],
-          },
-        },
-      ],
       generatedFields: [],
     }
     const built = buildTraceSpans({
@@ -377,9 +357,7 @@ test.each([true, false])(
     expect(agent.children).toEqual([])
     expect(agent).not.toHaveProperty('toolCalls')
     expect(agent).not.toHaveProperty('providerTiming')
-    expect(calculateCostSummary(built.traceSpans)).toMatchObject({
-      totalTokens: 5,
-      totalCost: 0.006,
-    })
+    expect(agent.tokens).toEqual(inference.tokens)
+    expect(agent.cost).toEqual(inference.cost)
   }
 )

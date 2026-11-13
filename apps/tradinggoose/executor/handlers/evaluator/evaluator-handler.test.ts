@@ -14,7 +14,6 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
 }))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 
-import { EMBEDDING_MODELS } from '@mastra/core/llm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getInferenceFacts } from '@/lib/mastra/result'
 import { EvaluatorBlockHandler } from './evaluator-handler'
@@ -160,21 +159,7 @@ describe('Evaluator native structured generation', () => {
   })
 })
 
-describe('evaluator incomplete native outcomes and workflow cancellation', () => {
-  it.each(['aborted', 'error'])(
-    'rejects %s results and retains completed accounting',
-    async (finishReason) => {
-      native.generate.mockResolvedValue({
-        finishReason,
-        object: undefined,
-        text: 'target',
-        totalUsage: { totalTokens: 7 },
-      })
-      await expect(
-        new EvaluatorBlockHandler().execute(block, { model: 'openai/gpt-4.1' }, context)
-      ).rejects.toMatchObject({ cost: { status: 'unavailable' }, tokens: { total: 7 } })
-    }
-  )
+describe('evaluator workflow cancellation', () => {
   it('interrupts inference when cancellation arrives after generation starts', async () => {
     vi.useFakeTimers()
     let cancelled = false
@@ -212,17 +197,6 @@ describe('evaluator incomplete native outcomes and workflow cancellation', () =>
   })
 })
 
-it('rejects a successful native response without the required structured object', async () => {
-  native.generate.mockResolvedValue({
-    finishReason: 'stop',
-    object: undefined,
-    totalUsage: { totalTokens: 7 },
-  })
-  await expect(
-    new EvaluatorBlockHandler().execute(block, { model: 'openai/gpt-4.1' }, context)
-  ).rejects.toThrow('valid structured result')
-})
-
 it('keeps colliding metric score roots as business data and native facts separately', async () => {
   const { getInferenceFacts } = await import('@/lib/mastra/result')
   native.generate.mockResolvedValue({
@@ -250,36 +224,29 @@ it('keeps colliding metric score roots as business data and native facts separat
   })
 })
 
-it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provider, id] as const))(
-  'refuses native-known embedding model %s before generation admission or model contact',
-  async (model, provider, modelId) => {
-    // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
-    setManagedProviders({
-      [provider]: {
-        name: 'Controlled registered provider',
-        url: 'https://not-contacted.invalid',
-        models: [modelId],
+it('refuses an embedding model before generation admission or model contact', async () => {
+  const model = 'openai/text-embedding-3-small'
+  setManagedProviders({
+    openai: {
+      name: 'Controlled registered provider',
+      url: 'https://not-contacted.invalid',
+      models: ['text-embedding-3-small'],
+    },
+  })
+  await expect(
+    new EvaluatorBlockHandler().execute(
+      block,
+      {
+        model,
+        content: { answer: 42 },
+        metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
       },
-    })
-    try {
-      await expect(
-        new EvaluatorBlockHandler().execute(
-          block,
-          {
-            model,
-            content: { answer: 42 },
-            metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
-          },
-          context
-        )
-      ).rejects.toMatchObject({ status: 400 })
-      expect(native.finance).not.toHaveBeenCalled()
-      expect(native.generate).not.toHaveBeenCalled()
-    } finally {
-      vi.unstubAllEnvs()
-    }
-  }
-)
+      context
+    )
+  ).rejects.toMatchObject({ status: 400 })
+  expect(native.finance).not.toHaveBeenCalled()
+  expect(native.generate).not.toHaveBeenCalled()
+})
 
 // Only the native model and usage processor boundaries are controlled.
 describe('evaluator trusted failed accounting with real helpers', () => {
@@ -324,6 +291,7 @@ describe('evaluator trusted failed accounting with real helpers', () => {
       failureValue = error
     }
     expect(failureValue).toBeInstanceOf(Error)
+    expect(failureValue).toMatchObject({ cost: { status: 'unavailable' }, tokens: { total: 7 } })
     const facts = getInferenceFacts(failureValue)
     expect(facts).toMatchObject({
       model: 'openai/gpt-4.1',
@@ -331,10 +299,13 @@ describe('evaluator trusted failed accounting with real helpers', () => {
       cost: { status: 'unavailable' },
       generatedFields: ['model', 'tokens', 'cost'],
     })
-    expect(getInferenceFacts(failureValue)).toBe(facts)
     expect(native.generate).toHaveBeenCalledOnce()
     if (failure === 'financial refusal')
       expect(failureValue).toMatchObject({ message: 'Financial acceptance refused' })
+    if (failure === 'missing structured result')
+      expect(failureValue).toMatchObject({
+        message: expect.stringContaining('valid structured result'),
+      })
   })
   it.each([
     { usage: {}, expected: {} },

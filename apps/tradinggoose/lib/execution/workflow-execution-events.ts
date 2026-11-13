@@ -34,9 +34,6 @@ type WorkflowExecutionEventState = WorkflowExecutionResultState & {
 }
 
 type WorkflowExecutionLogStateRow = {
-  id?: string
-  workspaceId?: string
-  executionId?: string | null
   level: string
   startedAt: Date
   endedAt: Date | null
@@ -395,11 +392,6 @@ export async function readWorkflowExecutionEventState(params: {
     readEvents(params.afterEventId ?? 0),
     db
       .select({
-        id: workflowExecutionLogs.id,
-        workflowId: workflowExecutionLogs.workflowId,
-        workflowSummary: workflowExecutionLogs.workflowSummary,
-        workspaceId: workflowExecutionLogs.workspaceId,
-        executionId: workflowExecutionLogs.executionId,
         level: workflowExecutionLogs.level,
         startedAt: workflowExecutionLogs.startedAt,
         endedAt: workflowExecutionLogs.endedAt,

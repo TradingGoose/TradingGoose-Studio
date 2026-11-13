@@ -7,7 +7,6 @@ export interface InferenceFacts {
   tokens?: { prompt?: number; completion?: number; total?: number }
   cost?: NativeCost
   embeddingUsage?: { status: 'reported' | 'partial' | 'unavailable'; batches: number }
-  toolResults?: Array<{ toolCallId?: string; inference: InferenceFacts }>
   generatedFields: string[]
 }
 

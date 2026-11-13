@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
 import type {
   WorkflowCheckpointSnapshot,
   WorkflowPausePoint,
@@ -473,12 +472,11 @@ describe('runPreparedWorkflowExecution', () => {
         totalDurationMs: 5000,
       })
     )
-    expect(calculateCostSummary(mocks.complete.mock.calls[0][0].traceSpans)).toMatchObject({
-      modelCost: 1,
-      totalCost: undefined,
-      totalTokens: 75,
-      status: 'partial',
-    })
+    expect(mocks.complete.mock.calls[0][0].traceSpans[0].children).toEqual(
+      expect.arrayContaining(
+        latestResult.logs.map((log) => expect.objectContaining({ inference: log.inference }))
+      )
+    )
     expect(mocks.dispatchWorkflowPauseNotifications).not.toHaveBeenCalled()
     expect(mocks.cancelPendingExecutionDescendants).toHaveBeenCalledExactlyOnceWith('execution-1')
   })
