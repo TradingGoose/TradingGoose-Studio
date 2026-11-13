@@ -20,11 +20,10 @@ import {
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
-  type ServiceApiKey,
-  type ServiceKeyKind,
-  serviceKeyMutationOptions,
-  useServiceKeys,
-} from '@/hooks/queries/service-keys'
+  type MarketApiKey,
+  marketKeyMutationOptions,
+  useMarketKeys,
+} from '@/hooks/queries/market-keys'
 
 const logger = createLogger('ServiceApiKeysSettings')
 
@@ -35,23 +34,23 @@ export function Service() {
 
   return (
     <div className='h-full px-6 py-4'>
-      <ServiceKeyPanel service='market' />
+      <MarketKeyPanel />
     </div>
   )
 }
 
-function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
+function MarketKeyPanel() {
   const t = useTranslations('workspace.settingsModal.service')
   const queryClient = useQueryClient()
-  const keysQuery = useServiceKeys(service)
+  const keysQuery = useMarketKeys()
   const keys = keysQuery.data ?? []
-  const generateKey = useMutation(serviceKeyMutationOptions.generate(queryClient, service))
-  const deleteKeyMutation = useMutation(serviceKeyMutationOptions.delete(queryClient, service))
+  const generateKey = useMutation(marketKeyMutationOptions.generate(queryClient))
+  const deleteKeyMutation = useMutation(marketKeyMutationOptions.delete(queryClient))
 
   const [showNewKeyDialog, setShowNewKeyDialog] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
   const [newKeyCopySuccess, setNewKeyCopySuccess] = useState(false)
-  const [deleteKey, setDeleteKey] = useState<ServiceApiKey | null>(null)
+  const [deleteKey, setDeleteKey] = useState<MarketApiKey | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [activeAction, setActiveAction] = useState<'generate' | 'delete' | null>(null)
   const [actionError, setActionError] = useState<{
@@ -74,7 +73,7 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
         setShowNewKeyDialog(true)
       }
     } catch (error) {
-      logger.error(`Failed to generate ${service} API key`, { error })
+      logger.error('Failed to generate Market API key', { error })
       setActionError({ action: 'generate', message: t('generateError') })
     } finally {
       actionLockRef.current = false
@@ -93,7 +92,7 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
       setShowDeleteDialog(false)
       setDeleteKey(null)
     } catch (error) {
-      logger.error(`Failed to delete ${service} API key`, { error })
+      logger.error('Failed to delete Market API key', { error })
       setActionError({ action: 'delete', message: t('deleteError') })
     } finally {
       actionLockRef.current = false
@@ -107,7 +106,7 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
       setNewKeyCopySuccess(true)
       setTimeout(() => setNewKeyCopySuccess(false), 1500)
     } catch (error) {
-      logger.error(`Failed to copy ${service} API key`, { error })
+      logger.error('Failed to copy Market API key', { error })
     }
   }
 
@@ -118,8 +117,8 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
     >
       <div className='flex items-center justify-between border-b px-4 py-3'>
         <div>
-          <h3 className='font-semibold text-foreground text-sm'>{t(`${service}.title`)}</h3>
-          <p className='text-muted-foreground text-xs'>{t(`${service}.description`)}</p>
+          <h3 className='font-semibold text-foreground text-sm'>{t('market.title')}</h3>
+          <p className='text-muted-foreground text-xs'>{t('market.description')}</p>
         </div>
         <Button
           onClick={onGenerate}
