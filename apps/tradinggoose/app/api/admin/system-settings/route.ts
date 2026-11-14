@@ -1,4 +1,3 @@
-import { GatewayRegistry } from '@mastra/core/llm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { claimFirstSystemAdmin, getSystemAdminAccess } from '@/lib/admin/access'
@@ -9,6 +8,7 @@ import {
 import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
 import { getBillingGateState, isBillingConfigurationReady } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getModelProviders } from '@/lib/mastra/providers'
 import { isLanguageModel } from '@/lib/mastra/registry'
 import {
   getResolvedSystemSettings,
@@ -136,7 +136,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const payload = adminSystemSettingsMutationSchema.parse(body)
     if (payload.copilot) {
-      const providers = GatewayRegistry.getInstance().getProviders()
+      const providers = getModelProviders()
       const issues = payload.copilot.models.flatMap((row, index) => {
         const field = !Object.hasOwn(providers, row.provider)
           ? 'provider'

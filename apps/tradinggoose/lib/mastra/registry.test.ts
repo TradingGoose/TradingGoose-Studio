@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { managedServices } from './__test-utils__/managed-services'
 
 const provider = vi.hoisted(() => ({
+  gateway: 'models.dev',
   name: 'Native Provider',
   models: ['listed', 'other', 'embedding'],
   apiKeyEnvVar: 'PRIVATE_KEY_NAME',

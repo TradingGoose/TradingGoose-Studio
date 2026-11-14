@@ -1,11 +1,11 @@
 import {
   EMBEDDING_MODELS,
-  GatewayRegistry,
   modelSupportsStructuredOutput,
   modelSupportsTemperature,
   parseModelString,
 } from '@mastra/core/llm'
 import { providers as modelCatalog } from '@opencode-ai/models/snapshot'
+import { getModelProviders } from '@/lib/mastra/providers'
 import { listSystemServices } from '@/lib/system-services/service'
 
 export interface RegistryModel {
@@ -36,7 +36,7 @@ export function isLanguageModel(provider: string, modelId: string): boolean {
 /** Validate only after workflow and environment references have resolved. */
 export async function assertListedModel(model: string): Promise<void> {
   const { provider, modelId } = parseModelString(model)
-  const providers = GatewayRegistry.getInstance().getProviders()
+  const providers = getModelProviders()
   const connection =
     provider && Object.hasOwn(providers, provider) ? providers[provider] : undefined
   if (!provider || !connection?.models.includes(modelId) || !isLanguageModel(provider, modelId)) {
@@ -54,7 +54,7 @@ export async function getModelRegistry(): Promise<{
   providers: RegistryProvider[]
   managedProviders: string[]
 }> {
-  const providers = GatewayRegistry.getInstance().getProviders()
+  const providers = getModelProviders()
   const services = await listSystemServices()
   return {
     providers: Object.entries(providers).map(([id, provider]) => ({
@@ -88,7 +88,7 @@ export interface RegistryEmbeddingModel {
 }
 
 export async function getEmbeddingModelRegistry(): Promise<RegistryEmbeddingModel[]> {
-  const providers = GatewayRegistry.getInstance().getProviders()
+  const providers = getModelProviders()
   return EMBEDDING_MODELS.flatMap(({ id, provider, dimensions, maxInputTokens }) => {
     const connection = Object.hasOwn(providers, provider) ? providers[provider] : undefined
     return connection?.models.includes(id)

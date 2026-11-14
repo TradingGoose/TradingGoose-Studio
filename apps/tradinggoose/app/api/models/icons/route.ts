@@ -1,5 +1,5 @@
-import { GatewayRegistry } from '@mastra/core/llm'
 import { NextResponse } from 'next/server'
+import { getModelProviders } from '@/lib/mastra/providers'
 import { type ProviderLogoCatalogEntry, resolveProviderLogo } from '@/lib/ui/provider-logos'
 
 export async function GET() {
@@ -20,7 +20,7 @@ export async function GET() {
         brand.id.toLowerCase(),
         resolveProviderLogo({ id: brand.id, name: brand.title }, catalog),
       ]),
-      ...Object.entries(GatewayRegistry.getInstance().getProviders()).map(([id, { name, url }]) => [
+      ...Object.entries(getModelProviders()).map(([id, { name, url }]) => [
         id,
         resolveProviderLogo({ id, name, url }, catalog),
       ]),

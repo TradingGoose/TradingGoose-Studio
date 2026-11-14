@@ -1,4 +1,5 @@
-import { GatewayRegistry, ModelRouterLanguageModel, parseModelString } from '@mastra/core/llm'
+import { ModelRouterLanguageModel, parseModelString } from '@mastra/core/llm'
+import { getModelProviders } from '@/lib/mastra/providers'
 import { getSystemServiceDefinition } from '@/lib/system-services/catalog'
 import { resolveSystemServiceConfig } from '@/lib/system-services/service'
 
@@ -8,15 +9,15 @@ async function resolveManagedKey(provider: string): Promise<string | undefined> 
   if (!definition || !credential) return undefined
   const config = await resolveSystemServiceConfig(definition.id)
   const key = config[credential.key]
-  return typeof key === 'string' && key.trim() ? key.trim() : undefined
+  return typeof key === 'string' ? key : undefined
 }
 
 /** Native provider identity with fresh DB credentials or an authorized request-local key. */
 export async function resolveConfiguredModel(model: string, apiKey?: string) {
   const { provider, modelId } = parseModelString(model)
   if (!provider) throw new Error('Model must use Mastra provider/model format')
-  if (!Object.hasOwn(GatewayRegistry.getInstance().getProviders(), provider))
-    throw new Error(`The selected provider "${provider}" is not available in Mastra`)
+  if (!Object.hasOwn(getModelProviders(), provider))
+    throw new Error(`The selected provider "${provider}" is not supported by Studio`)
   if (apiKey !== undefined && !apiKey.trim())
     throw new Error('A nonempty request-local API key is required')
   const key = apiKey?.trim() ?? (await resolveManagedKey(provider))

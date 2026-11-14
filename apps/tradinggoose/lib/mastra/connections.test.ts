@@ -22,16 +22,24 @@ const stream = () =>
 const requestScope = { actorUserId: 'actor', runId: 'request', purpose: 'workflow-agent' }
 
 describe('DB-managed native connections', () => {
-  it.each(['github', 'resend', 'e2b'])(
-    'rejects the unrelated %s service before reading its key',
-    async (id) => {
-      managedServices.credentials[id] = { apiKey: 'unrelated-secret', token: 'unrelated-token' }
-      await expect(resolveConfiguredModel(`${id}/missing`)).rejects.toThrow(
-        'not available in Mastra'
+  it.each([
+    'github',
+    'resend',
+    'e2b',
+    'netlify',
+    'databricks',
+    'snowflake-cortex',
+    'cloudflare-workers-ai',
+    'infomaniak',
+    'neon',
+  ])('rejects the unsupported %s service before reading its key', async (id) => {
+    managedServices.credentials[id] = { apiKey: 'unrelated-secret', token: 'unrelated-token' }
+    for (const apiKey of [undefined, 'request-key'])
+      await expect(resolveConfiguredModel(`${id}/missing`, apiKey)).rejects.toThrow(
+        'not supported by Studio'
       )
-      expect(managedServices.readConfig).not.toHaveBeenCalled()
-    }
-  )
+    expect(managedServices.readConfig).not.toHaveBeenCalled()
+  })
   it('reads native provider credentials only for inference, never for public registry metadata', async () => {
     managedServices.credentials.mistral = { apiKey: 'managed-model-key' }
     await getModelRegistry()

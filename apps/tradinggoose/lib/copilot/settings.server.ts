@@ -1,5 +1,6 @@
 import { providers } from '@opencode-ai/models/snapshot'
 import { resolveConfiguredModel } from '@/lib/mastra/connections'
+import { getModelProviders } from '@/lib/mastra/providers'
 import { isLanguageModel } from '@/lib/mastra/registry'
 import { getCopilotSettings } from '@/lib/system-settings/service'
 import { NativeTargetError } from './native/errors'
@@ -15,7 +16,11 @@ export async function resolveCopilotModel(
   }
   const selected = modelId ?? getCopilotModelId(first)
   const row = settings.models.find((candidate) => getCopilotModelId(candidate) === selected)
-  if (!row || !isLanguageModel(row.provider, row.model)) {
+  if (
+    !row ||
+    !Object.hasOwn(getModelProviders(), row.provider) ||
+    !isLanguageModel(row.provider, row.model)
+  ) {
     throw new NativeTargetError('The selected Copilot model is no longer available', 422)
   }
   try {
@@ -33,8 +38,11 @@ export async function getPublicCopilotModels(): Promise<{
   models: CopilotModelOption[]
 }> {
   const settings = await getCopilotSettings()
+  const available = getModelProviders()
   const models = settings.models
-    .filter((row) => isLanguageModel(row.provider, row.model))
+    .filter(
+      (row) => Object.hasOwn(available, row.provider) && isLanguageModel(row.provider, row.model)
+    )
     .map((row) => {
       const id = getCopilotModelId(row)
       return {

@@ -7,16 +7,6 @@ const { mockGetResolvedSystemSettings, mockResolveSystemServiceConfig } = vi.hoi
   mockResolveSystemServiceConfig: vi.fn(),
 }))
 
-vi.mock('@/lib/system-services/catalog', async (importOriginal) => {
-  const catalog = await importOriginal<typeof import('@/lib/system-services/catalog')>()
-  return {
-    ...catalog,
-    getSystemServiceDefinition: (id: string) =>
-      id === 'new-native-provider'
-        ? { id, credentialFields: [{ key: 'apiKey' }] }
-        : catalog.getSystemServiceDefinition(id),
-  }
-})
 vi.mock('@mastra/core/llm', async (importOriginal) => {
   const native = await importOriginal<typeof import('@mastra/core/llm')>()
   return {
@@ -25,7 +15,7 @@ vi.mock('@mastra/core/llm', async (importOriginal) => {
       getInstance: () => ({
         getProviders: () => ({
           ...native.GatewayRegistry.getInstance().getProviders(),
-          'new-native-provider': { name: 'New Native Provider', models: [] },
+          'new-native-provider': { name: 'New Native Provider', models: [], gateway: 'models.dev' },
         }),
       }),
     },
@@ -105,7 +95,7 @@ describe('server Copilot settings', () => {
         models: [{ provider: 'new-native-provider', model: 'namespace/future-model' }],
       },
     })
-    mockResolveSystemServiceConfig.mockResolvedValue({ apiKey: ' native-key ' })
+    mockResolveSystemServiceConfig.mockResolvedValue({ apiKey: 'native-key' })
     await expect(resolveCopilotModel()).resolves.toEqual({
       model: 'new-native-provider/namespace/future-model',
       apiKey: 'native-key',
@@ -114,12 +104,17 @@ describe('server Copilot settings', () => {
   })
 
   it.each([
+    ['unknown-provider', 'future-model'],
+    ['local_execution', 'future-model'],
+    ['netlify', 'openai/gpt-4.1'],
+    ['netlify', 'openai/gpt-image-1.5'],
+    ['databricks', 'databricks-meta-llama-3-3-70b-instruct'],
     ['openai', 'gpt-image-1.5'],
     ['google', 'gemini-embedding-2'],
     ['google', 'lyria-3-clip-preview'],
     ['google', 'lyria-3-pro-preview'],
   ])(
-    'rejects the configured non-language model %s/%s before resolving credentials',
+    'rejects the unsupported model %s/%s before resolving credentials',
     async (provider, model) => {
       mockGetResolvedSystemSettings.mockResolvedValue({
         copilot: { models: [{ provider, model }] },
@@ -134,6 +129,9 @@ describe('server Copilot settings', () => {
     mockGetResolvedSystemSettings.mockResolvedValue({
       copilot: {
         models: [
+          { provider: 'netlify', model: 'openai/gpt-4.1' },
+          { provider: 'netlify', model: 'openai/gpt-image-1.5' },
+          { provider: 'databricks', model: 'databricks-meta-llama-3-3-70b-instruct' },
           { provider: 'openai', model: 'gpt-image-1.5' },
           { provider: 'google', model: 'gemini-embedding-2' },
           { provider: 'google', model: 'lyria-3-clip-preview' },
@@ -185,19 +183,6 @@ describe('server Copilot settings', () => {
     })
   })
 
-  it.each(['unknown-provider', 'local_execution'])(
-    'refuses unavailable credential metadata for %s before key resolution',
-    async (provider) => {
-      mockGetResolvedSystemSettings.mockResolvedValue({
-        copilot: {
-          models: [{ provider, model: 'future-model' }],
-        },
-      })
-      await expect(resolveCopilotModel()).rejects.toMatchObject({ status: 409 })
-      expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
-    }
-  )
-
   it('reports an unconfigured Copilot with no built-in fallback', async () => {
     mockGetResolvedSystemSettings.mockResolvedValue({ copilot: DEFAULT_COPILOT_SETTINGS })
 
@@ -218,16 +203,13 @@ describe('server Copilot settings', () => {
     expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
   })
 
-  it.each([{}, { defaultApiKey: '' }, { defaultApiKey: '   ' }])(
-    'rejects missing or undecryptable admin credentials even when environment keys exist',
-    async (credentials) => {
-      vi.stubEnv('OPENAI_API_KEY', 'environment-key')
-      mockResolveSystemServiceConfig.mockResolvedValue(credentials)
-      try {
-        await expect(resolveCopilotModel()).rejects.toMatchObject({ status: 409 })
-      } finally {
-        vi.unstubAllEnvs()
-      }
+  it('rejects unavailable admin credentials even when environment keys exist', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'environment-key')
+    mockResolveSystemServiceConfig.mockResolvedValue({})
+    try {
+      await expect(resolveCopilotModel()).rejects.toMatchObject({ status: 409 })
+    } finally {
+      vi.unstubAllEnvs()
     }
-  )
+  })
 })

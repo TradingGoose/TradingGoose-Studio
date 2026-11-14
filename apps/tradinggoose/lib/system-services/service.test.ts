@@ -245,17 +245,23 @@ describe('system services service', () => {
     await expect(resolveSystemServiceConfig('browserbase')).rejects.toThrow('DB unavailable')
   })
 
-  it('does not reuse an earlier plaintext value when decryption fails', async () => {
-    const { resolveSystemServiceConfig } = await import('./service')
-    mockSelectWhere.mockResolvedValue([credentialRow])
-    mockDecryptSecret
-      .mockResolvedValueOnce({ decrypted: 'previous-key' })
-      .mockRejectedValueOnce(new Error('Decryption failed'))
+  it.each(['', '   ', new Error('Decryption failed')])(
+    'omits unusable credentials: %j',
+    async (value) => {
+      const { resolveSystemServiceConfig } = await import('./service')
+      mockSelectWhere.mockResolvedValue([credentialRow])
+      mockDecryptSecret
+        .mockResolvedValueOnce({ decrypted: 'previous-key' })
+        .mockImplementationOnce(async () => {
+          if (value instanceof Error) throw value
+          return { decrypted: value }
+        })
 
-    expect(await resolveSystemServiceConfig('browserbase')).toEqual({ apiKey: 'previous-key' })
-    expect(await resolveSystemServiceConfig('browserbase')).toEqual({})
-    expect(mockDecryptSecret).toHaveBeenCalledTimes(2)
-  })
+      expect(await resolveSystemServiceConfig('browserbase')).toEqual({ apiKey: 'previous-key' })
+      expect(await resolveSystemServiceConfig('browserbase')).toEqual({})
+      expect(mockDecryptSecret).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it('writes credentials and settings back into one table with kind-specific ids', async () => {
     const { upsertSystemServiceConfig } = await import('./service')

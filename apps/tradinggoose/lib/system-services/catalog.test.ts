@@ -4,8 +4,15 @@ vi.mock('@mastra/core/llm', () => ({
   GatewayRegistry: {
     getInstance: () => ({
       getProviders: () => ({
-        openai: { name: 'OpenAI' },
-        vendor: { name: 'Vendor', url: 'https://private.invalid', apiKey: 'private-secret' },
+        openai: { name: 'OpenAI', gateway: 'models.dev' },
+        vendor: {
+          name: 'Vendor',
+          gateway: 'models.dev',
+          url: 'https://private.invalid',
+          apiKey: 'private-secret',
+        },
+        netlify: { name: 'Netlify', gateway: 'netlify' },
+        configured: { name: 'Configured', gateway: 'models.dev', url: `https://\${HOST}/v1` },
       }),
     }),
   },
@@ -33,7 +40,14 @@ describe('native model service definitions', () => {
     })
     expect(isSystemServiceCredentialKey('vendor', 'apiKey')).toBe(true)
     expect(isSystemServiceSettingKey('vendor', 'baseUrl')).toBe(false)
-    for (const id of ['azure_openai', 'ollama', 'vllm', 'mastra_model_providers'])
+    for (const id of [
+      'azure_openai',
+      'ollama',
+      'vllm',
+      'mastra_model_providers',
+      'netlify',
+      'configured',
+    ])
       expect(getSystemServiceDefinition(id)).toBeNull()
     expect(JSON.stringify(definitions)).not.toMatch(/private\.invalid|private-secret/)
   })

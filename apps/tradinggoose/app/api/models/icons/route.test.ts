@@ -46,11 +46,17 @@ beforeEach(() => {
   m.providers.mockReset().mockReturnValue({
     'deep-seek': {
       name: 'DeepSeek',
+      gateway: 'models.dev',
       url: 'https://api.deepseek.com/v1',
       apiKey: 'private-key',
       models: ['private-model'],
     },
-    unlisted: { name: 'Unlisted', url: 'https://private-endpoint.example/v1' },
+    unlisted: {
+      name: 'Unlisted',
+      gateway: 'models.dev',
+      url: 'https://private-endpoint.example/v1',
+    },
+    netlify: { name: 'Netlify', gateway: 'netlify' },
   })
 })
 
@@ -79,7 +85,7 @@ describe('public provider icons', () => {
   })
 
   it('uses native metadata when it shares a key with a static catalog brand', async () => {
-    m.providers.mockReturnValue({ deepseek: { name: 'OpenAI' } })
+    m.providers.mockReturnValue({ deepseek: { name: 'OpenAI', gateway: 'models.dev' } })
     const response = await GET()
     expect((await response.json()).deepseek).toEqual({
       src: 'https://models.dev/logos/deepseek.svg',

@@ -23,7 +23,7 @@ vi.mock('@mastra/core/llm', () => ({
         Object.fromEntries(
           mockModelProviders().map(({ id, name }: { id: string; name: string }) => [
             id,
-            { name, models: [] },
+            { name, models: [], gateway: 'models.dev' },
           ])
         ),
     }),

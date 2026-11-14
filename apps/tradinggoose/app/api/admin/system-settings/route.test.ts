@@ -458,24 +458,27 @@ describe('/api/admin/system-settings route', () => {
     }
   )
 
-  it('rejects unknown providers before saving a Copilot model', async () => {
-    const { PATCH } = await import('./route')
-    const response = await PATCH(
-      new Request('http://localhost/api/admin/system-settings', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          copilot: {
-            models: [{ provider: 'unknown-provider', model: 'model' }],
-          },
-        }),
-      }) as any
-    )
-    expect(response.status).toBe(400)
-    expect(await response.json()).toMatchObject({
-      details: [{ path: ['copilot', 'models', 0, 'provider'] }],
-    })
-    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
-  })
+  it.each(['unknown-provider', 'netlify', 'databricks'])(
+    'rejects unsupported provider %s before saving a Copilot model',
+    async (provider) => {
+      const { PATCH } = await import('./route')
+      const response = await PATCH(
+        new Request('http://localhost/api/admin/system-settings', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            copilot: {
+              models: [{ provider, model: 'model' }],
+            },
+          }),
+        }) as any
+      )
+      expect(response.status).toBe(400)
+      expect(await response.json()).toMatchObject({
+        details: [{ path: ['copilot', 'models', 0, 'provider'] }],
+      })
+      expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+    }
+  )
 
   it.each([
     ['openai', 'gpt-image-1.5'],

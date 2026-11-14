@@ -1,5 +1,5 @@
-import { GatewayRegistry } from '@mastra/core/llm'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
+import { getModelProviders } from '@/lib/mastra/providers'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
 
@@ -296,17 +296,14 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   },
 ]
 
-const SYSTEM_SERVICE_DEFINITIONS_BY_ID = new Map(
-  SYSTEM_SERVICE_DEFINITIONS.map((definition) => [definition.id, definition])
-)
+const SYSTEM_SERVICE_IDS = new Set(SYSTEM_SERVICE_DEFINITIONS.map(({ id }) => id))
 
 export function getSystemServiceDefinitions(): SystemServiceDefinition[] {
   return [
     ...SYSTEM_SERVICE_DEFINITIONS,
-    ...Object.entries(GatewayRegistry.getInstance().getProviders())
-      .map(([id, { name }]) => ({ id, name }))
-      .filter(({ id }) => !SYSTEM_SERVICE_DEFINITIONS_BY_ID.has(id))
-      .map(({ id, name }) => ({
+    ...Object.entries(getModelProviders())
+      .filter(([id]) => !SYSTEM_SERVICE_IDS.has(id))
+      .map(([id, { name }]) => ({
         id,
         displayName: name,
         description: `API key for system-owned ${name} Copilot access.`,

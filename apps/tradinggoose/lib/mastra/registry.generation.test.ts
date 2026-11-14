@@ -67,11 +67,13 @@ it('retains exact native generation identities and capabilities', async () => {
   await expect(assertListedModel('gpt-4.1')).rejects.toThrow()
 })
 
-it('excludes every published non-chat API from native generation pickers and validation', async () => {
+it('excludes unsupported gateways and published non-chat APIs from generation', async () => {
   const generation = new Set(
     (await getModelRegistry()).providers.flatMap(({ models }) => models.map(({ id }) => id))
   )
   const excluded = new Set([
+    'netlify/openai/gpt-image-1.5',
+    'netlify/openai/gpt-4.1',
     'google/lyria-3-clip-preview',
     'google/lyria-3-pro-preview',
     'openrouter/google/lyria-3-clip-preview',
