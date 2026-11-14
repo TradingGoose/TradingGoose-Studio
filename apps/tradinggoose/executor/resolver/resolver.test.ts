@@ -2,7 +2,7 @@ import '@/lib/mastra/__test-utils__/managed-services'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
-import { getNativeModelLookup } from '@/lib/mastra/registry'
+import { getNativeModel } from '@/lib/mastra/registry'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
@@ -2272,7 +2272,7 @@ describe('InputResolver', () => {
             },
           },
         }
-        expect(resolver.resolveInputs(block, mockContext, await getNativeModelLookup())).toEqual({
+        expect(resolver.resolveInputs(block, mockContext, getNativeModel)).toEqual({
           model: 'openai/gpt-5',
           responseFormat: JSON.parse(responseFormat),
           maxTokens: 512,
@@ -2298,7 +2298,7 @@ describe('InputResolver', () => {
             params: { temperature: 0, model: '<variable.stringVar>' },
           },
         }
-        expect(resolver.resolveInputs(block, mockContext, await getNativeModelLookup())).toEqual({
+        expect(resolver.resolveInputs(block, mockContext, getNativeModel)).toEqual({
           model,
           ...(supported && { temperature: 0 }),
         })
@@ -2324,7 +2324,7 @@ describe('InputResolver', () => {
               },
             },
             mockContext,
-            await getNativeModelLookup()
+            getNativeModel
           )
         ).toEqual({ model: 'openai/gpt-3.5-turbo', temperature: 0 })
       }

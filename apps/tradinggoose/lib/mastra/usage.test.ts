@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { setManagedProviders } from './__test-utils__/managed-services'
 import { calculateNativeCost, resultAccounting, sumNativeCosts, sumNativeUsage } from './usage'
 
 const catalogue = vi.hoisted(() => ({ pricing: vi.fn() }))
@@ -155,18 +154,6 @@ describe('native per-step USD pricing', () => {
     for (const model of ['vercel/openai/gpt-4o', 'openrouter/model']) {
       expect(await calculateNativeCost(model, usage, metadata)).toEqual({ status: 'unavailable' })
     }
-  })
-  it('does not borrow published rates or billing metadata for an overridden endpoint', async () => {
-    setManagedProviders({
-      openai: { name: 'Private endpoint', url: 'https://private.invalid/v1', models: ['model'] },
-    })
-    const cost = await calculateNativeCost(
-      'openai/model',
-      { inputTokens: 1000, outputTokens: 100 },
-      { openrouter: { usage: { cost: 0 } } }
-    )
-    expect(cost).toEqual({ status: 'unavailable' })
-    expect(catalogue.pricing).not.toHaveBeenCalled()
   })
   it('prices actual input and output tokens at USD per million, without charging cached input twice', async () => {
     const cost = await calculateNativeCost('openai/model', {

@@ -1,4 +1,4 @@
-import { managedServices, setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
 
 vi.mock('@/lib/mastra/usage-processors', () => ({
   usageProcessors: async (scope: unknown) => {
@@ -69,7 +69,6 @@ describe('Evaluator native structured generation', () => {
     'validates %j through the actual Groq adapter without requiring native structured output',
     async (object, valid) => {
       native.realAgent = true
-      setManagedProviders({})
 
       const requests: Record<string, any>[] = []
       const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
@@ -226,13 +225,6 @@ it('keeps colliding metric score roots as business data and native facts separat
 
 it('refuses an embedding model before generation admission or model contact', async () => {
   const model = 'openai/text-embedding-3-small'
-  setManagedProviders({
-    openai: {
-      name: 'Controlled registered provider',
-      url: 'https://not-contacted.invalid',
-      models: ['text-embedding-3-small'],
-    },
-  })
   await expect(
     new EvaluatorBlockHandler().execute(
       block,

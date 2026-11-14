@@ -63,12 +63,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => mockLogger,
 }))
 
-vi.mock('@/lib/mastra/registry', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/mastra/registry')>()),
-  getModelProviders: () =>
-    ['openai', 'google', 'deepseek', 'native-provider'].map((id) => ({ id, name: id })),
-}))
-
 vi.mock('@/lib/system-settings/service', () => ({
   getResolvedSystemSettings: mockGetResolvedSystemSettings,
   TriggerExecutionBusyError: MockTriggerExecutionBusyError,
@@ -441,7 +435,7 @@ describe('/api/admin/system-settings route', () => {
     expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
   })
 
-  it.each(['deepseek', 'native-provider'])(
+  it.each(['deepseek', 'mistral'])(
     'saves exact future model IDs for native provider %s without credential prerequisites',
     async (provider) => {
       const copilot = {

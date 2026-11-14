@@ -1,3 +1,4 @@
+import { GatewayRegistry } from '@mastra/core/llm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { claimFirstSystemAdmin, getSystemAdminAccess } from '@/lib/admin/access'
@@ -8,7 +9,7 @@ import {
 import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
 import { getBillingGateState, isBillingConfigurationReady } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getModelProviders, isLanguageModel } from '@/lib/mastra/registry'
+import { isLanguageModel } from '@/lib/mastra/registry'
 import {
   getResolvedSystemSettings,
   type ResolvedSystemSettings,
@@ -135,9 +136,9 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const payload = adminSystemSettingsMutationSchema.parse(body)
     if (payload.copilot) {
-      const providers = new Set((await getModelProviders()).map(({ id }) => id))
+      const providers = GatewayRegistry.getInstance().getProviders()
       const issues = payload.copilot.models.flatMap((row, index) => {
-        const field = !providers.has(row.provider)
+        const field = !Object.hasOwn(providers, row.provider)
           ? 'provider'
           : !isLanguageModel(row.provider, row.model)
             ? 'model'

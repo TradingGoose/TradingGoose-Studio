@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { managedServices, setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
 import { validateHallucination } from './validate_hallucination'
 
 const native = vi.hoisted(() => ({
@@ -281,13 +281,6 @@ describe('hallucination search and scoring', () => {
 
 it('refuses an embedding model before generation admission or model contact', async () => {
   const model = 'openai/text-embedding-3-small'
-  setManagedProviders({
-    openai: {
-      name: 'Controlled registered provider',
-      url: 'https://not-contacted.invalid',
-      models: ['text-embedding-3-small'],
-    },
-  })
   const result = await validateHallucination({ ...input, model })
   expect(result).toMatchObject({
     passed: false,

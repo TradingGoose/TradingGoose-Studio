@@ -394,102 +394,20 @@ describe('system services service', () => {
     ])
   })
 
-  it.each<{
-    serviceId: string
-    credentialKey: string
-    credential: string
-    settings: Record<string, string>
-  }>([
-    {
-      serviceId: 'azure_openai',
-      credentialKey: 'apiKey',
-      credential: 'azure-key',
-      settings: {
-        resourceName: 'managed-resource',
-        apiVersion: '2024-10-21',
-        deployments: '["exact-deployment"]',
-      },
-    },
-    {
-      serviceId: 'ollama',
-      credentialKey: 'apiKey',
-      credential: 'local-key',
-      settings: { baseUrl: 'http://local.test:11434/v1', models: '["org/exact:model"]' },
-    },
-    {
-      serviceId: 'vllm',
-      credentialKey: 'apiKey',
-      credential: 'vllm-key',
-      settings: { baseUrl: 'https://vllm.test/v1', models: '["org/exact:model"]' },
-    },
-    {
-      serviceId: 'mastra_model_providers',
-      credentialKey: 'apiKeys',
-      credential: '{"local":"managed-key"}',
-      settings: {
-        providers:
-          '{"local":{"name":"Local","url":"https://local.test/v1","models":["org/exact:model"]}}',
-      },
-    },
-  ])(
-    'stores $serviceId native configuration through the existing encrypted credential and setting rows',
-    async ({ serviceId, credentialKey, credential, settings }) => {
-      const { resolveSystemServiceSettingsConfig, upsertSystemServiceConfig } = await import(
-        './service'
-      )
-      mockSelectWhere.mockResolvedValue([])
-      mockEncryptSecret.mockResolvedValue({ encrypted: 'encrypted-managed-key' })
-      await upsertSystemServiceConfig({
-        serviceId,
-        credentials: [{ key: credentialKey, value: credential, hasValue: false }],
-        settings: Object.entries(settings).map(([key, value]) => ({
-          key,
-          value,
-          hasValue: false,
-        })),
-      })
-      expect(mockEncryptSecret).toHaveBeenCalledExactlyOnceWith(credential)
-      const rows = mockInsertValues.mock.calls[0][0]
-      expect(rows).toHaveLength(Object.keys(settings).length + 1)
-      expect(rows[0]).toMatchObject({
-        id: `${serviceId}:credential:${credentialKey}`,
-        service: serviceId,
-        kind: 'credential',
-        key: credentialKey,
-        value: 'encrypted-managed-key',
-      })
-      expect(rows.slice(1)).toEqual(
-        Object.entries(settings).map(([key, value]) =>
-          expect.objectContaining({
-            id: `${serviceId}:setting:${key}`,
-            service: serviceId,
-            kind: 'setting',
-            key,
-            value,
-          })
-        )
-      )
-      mockSelectWhere.mockResolvedValueOnce(rows.filter((row: any) => row.kind === 'setting'))
-      expect(await resolveSystemServiceSettingsConfig(serviceId)).toEqual(settings)
-      expect(mockDecryptSecret).not.toHaveBeenCalled()
-      expect(mockGetCachedValue).not.toHaveBeenCalled()
-    }
-  )
-
-  it('requires one complete managed settings update and refuses credentials as settings', async () => {
+  it('requires one complete settings update and refuses credentials as settings', async () => {
     const { upsertSystemServiceConfig } = await import('./service')
     await expect(
       upsertSystemServiceConfig({
-        serviceId: 'azure_openai',
+        serviceId: 'browserbase',
         credentials: [{ key: 'apiKey', value: 'key', hasValue: false }],
-        settings: [{ key: 'resourceName', value: 'resource', hasValue: false }],
+        settings: [],
       })
     ).rejects.toThrow('must provide all setting fields')
     await expect(
       upsertSystemServiceConfig({
-        serviceId: 'mastra_model_providers',
-        credentials: [{ key: 'apiKeys', value: '{}', hasValue: false }],
-        settings: [{ key: 'apiKeys', value: '{"local":"plaintext-key"}', hasValue: false }],
+        serviceId: 'browserbase',
+        credentials: [{ key: 'apiKey', value: 'key', hasValue: false }],
+        settings: [{ key: 'apiKey', value: 'plaintext-key', hasValue: false }],
       })
     ).rejects.toThrow('Unknown setting key')
     expect(mockEncryptSecret).not.toHaveBeenCalled()

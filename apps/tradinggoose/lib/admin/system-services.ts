@@ -28,7 +28,6 @@ export const adminSystemServiceUpdateSchema = z.object({
   ),
 })
 
-export type AdminSystemServiceCredentialInput = z.infer<typeof adminSystemServiceCredentialSchema>
 export type AdminSystemServiceUpdateInput = z.infer<typeof adminSystemServiceUpdateSchema>
 
 export { SystemServiceValidationError }

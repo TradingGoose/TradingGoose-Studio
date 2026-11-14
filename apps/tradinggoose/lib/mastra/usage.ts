@@ -1,6 +1,5 @@
 import type { LanguageModelUsage } from '@mastra/core/stream'
 import { providers } from '@opencode-ai/models/snapshot'
-import { getConfiguredProviders } from './connections'
 
 /** Reported token fields; missing counts stay unknown in logs and native message metadata. */
 export interface NativeUsage {
@@ -44,8 +43,7 @@ export async function calculateNativeCost(
 ): Promise<NativeCost> {
   const separator = model.indexOf('/')
   const provider = model.slice(0, separator)
-  // A custom endpoint cannot inherit another provider's published prices.
-  if (separator < 1 || (await getConfiguredProviders())[provider]) return { status: 'unavailable' }
+  if (separator < 1) return { status: 'unavailable' }
   const listed = providers[provider]?.models[model.slice(separator + 1)]
   const pricing = listed?.cost
   if (!pricing) return { status: 'unavailable' }

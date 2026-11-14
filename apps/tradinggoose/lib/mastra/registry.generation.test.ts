@@ -2,7 +2,7 @@ import { EMBEDDING_MODELS, GatewayRegistry } from '@mastra/core/llm'
 import { providers as modelCatalog } from '@opencode-ai/models/snapshot'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { managedServices, setManagedProviders } from './__test-utils__/managed-services'
+import { managedServices } from './__test-utils__/managed-services'
 
 const auth = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/auth/hybrid', () => ({ checkSessionOrInternalAuth: auth }))
@@ -14,48 +14,18 @@ import {
   assertListedModel,
   getEmbeddingModelRegistry,
   getModelRegistry,
-  getNativeModelLookup,
+  getNativeModel,
 } from './registry'
 
 beforeEach(() => {
   auth.mockResolvedValue({ success: true })
-  const providers: Record<string, { name: string; url: string; models: string[] }> = {}
-  for (const { provider, id } of EMBEDDING_MODELS) {
-    providers[provider] ??= { name: provider, url: 'https://not-contacted.invalid', models: [] }
-    providers[provider].models.push(id)
-  }
-  providers.openai.models.push('gpt-4.1')
-  providers.custom = {
-    name: 'Custom',
-    url: 'https://not-contacted.invalid',
-    models: ['text-embedding-3-small', 'embedding-named-generation-model'],
-  }
-  setManagedProviders(providers)
   managedServices.credentials.openai = { defaultApiKey: 'managed-openai-secret' }
-  managedServices.credentials.mastra_model_providers = {
-    apiKeys: JSON.stringify({ custom: 'managed-custom-secret' }),
-  }
 })
 afterEach(() => {
+  expect(managedServices.readSettings).not.toHaveBeenCalled()
   expect(managedServices.readConfig).not.toHaveBeenCalled()
-  expect(managedServices.decrypt).not.toHaveBeenCalled()
   vi.restoreAllMocks()
 })
-
-it.each(['openai', 'custom'])(
-  'does not borrow built-in capabilities for the configured %s endpoint',
-  async (provider) => {
-    setManagedProviders({
-      [provider]: { name: 'Configured', url: 'https://not-contacted.invalid', models: ['exact'] },
-    })
-    const model = `${provider}/exact`
-    await expect(assertListedModel(model)).resolves.toBeUndefined()
-    expect((await getNativeModelLookup())(model)).toEqual({ id: model })
-    expect((await getModelRegistry()).providers.find(({ id }) => id === provider)?.models).toEqual([
-      { id: model },
-    ])
-  }
-)
 
 it('excludes every exact installed native embedding identity from generation and keeps embedding access', async () => {
   const generation = new Set(
@@ -80,24 +50,17 @@ it('excludes every exact installed native embedding identity from generation and
   }
 })
 
-it('retains exact registered generation and custom identities without purpose name heuristics', async () => {
+it('retains exact native generation identities and capabilities', async () => {
   const generation = (await getModelRegistry()).providers.flatMap(({ models }) => models)
-  const lookup = await getNativeModelLookup()
-  for (const id of [
-    'openai/gpt-4.1',
-    'deepseek/deepseek-v4-pro',
-    'custom/text-embedding-3-small',
-    'custom/embedding-named-generation-model',
-  ]) {
+  for (const id of ['openai/gpt-4.1', 'deepseek/deepseek-v4-pro']) {
     await expect(assertListedModel(id)).resolves.toBeUndefined()
-    expect(generation).toContainEqual(lookup(id))
+    expect(generation).toContainEqual(getNativeModel(id))
   }
   await expect(assertListedModel('openai/text-embedding-3-small-unlisted')).rejects.toThrow()
   await expect(assertListedModel('gpt-4.1')).rejects.toThrow()
 })
 
 it('excludes every published non-chat API from native generation pickers and validation', async () => {
-  setManagedProviders({})
   const generation = new Set(
     (await getModelRegistry()).providers.flatMap(({ models }) => models.map(({ id }) => id))
   )
@@ -122,7 +85,8 @@ it('excludes every published non-chat API from native generation pickers and val
   }
 })
 
-it('uses the same generation filter in the authenticated picker API and leaves embedding discovery separate', async () => {
+it('uses native generation and embedding discovery despite unrelated partial Azure settings', async () => {
+  managedServices.settings.azure_openai = { resourceName: 'partial-resource' }
   const response = await GET(new NextRequest('http://localhost/api/models'))
   expect(response.status).toBe(200)
   const body = await response.json()

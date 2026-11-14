@@ -1,4 +1,4 @@
-import { setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
+import '@/lib/mastra/__test-utils__/managed-services'
 
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
@@ -373,32 +373,20 @@ describe('Vision failure accounting boundary', () => {
   })
 })
 
-it.each(EMBEDDING_MODELS.map(({ provider, id }) => [`${provider}/${id}`, provider, id] as const))(
+it.each(EMBEDDING_MODELS.map(({ provider, id }) => `${provider}/${id}`))(
   'refuses native-known embedding model %s before generation admission or model contact',
-  async (model, provider, modelId) => {
-    // Trusted deployment membership is explicit; purpose rejection uses real installed native metadata.
-    setManagedProviders({
-      [provider]: {
-        name: 'Controlled registered provider',
-        url: 'https://not-contacted.invalid',
-        models: [modelId],
-      },
+  async (model) => {
+    const response = await POST(request({ model, imageUrl: 'https://example.com/image.png' }))
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: expect.stringContaining('Select a listed provider/model'),
     })
-    try {
-      const response = await POST(request({ model, imageUrl: 'https://example.com/image.png' }))
-      expect(response.status).toBe(400)
-      expect(await response.json()).toMatchObject({
-        success: false,
-        error: expect.stringContaining('Select a listed provider/model'),
-      })
-      expect(mocks.finance).not.toHaveBeenCalled()
-      expect(mocks.processFile).not.toHaveBeenCalled()
-      expect(mocks.download).not.toHaveBeenCalled()
-      expect(mocks.generate).not.toHaveBeenCalled()
-      expect(mocks.configurations).toEqual([])
-      expect(mocks.usage).not.toHaveBeenCalled()
-    } finally {
-      vi.unstubAllEnvs()
-    }
+    expect(mocks.finance).not.toHaveBeenCalled()
+    expect(mocks.processFile).not.toHaveBeenCalled()
+    expect(mocks.download).not.toHaveBeenCalled()
+    expect(mocks.generate).not.toHaveBeenCalled()
+    expect(mocks.configurations).toEqual([])
+    expect(mocks.usage).not.toHaveBeenCalled()
   }
 )

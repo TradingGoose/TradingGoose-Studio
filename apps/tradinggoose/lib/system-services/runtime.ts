@@ -41,10 +41,6 @@ function readApiKeyAndBaseUrlConfig(config: ServiceConfigRecord): ApiKeyAndBaseU
   }
 }
 
-export const resolveOpenAIServiceConfig = createServiceResolver('openai', (config) => ({
-  defaultApiKey: asString(config.defaultApiKey),
-}))
-
 export const resolveAzureMistralOcrServiceConfig = createServiceResolver(
   'azure_mistral_ocr',
   (config) => ({
