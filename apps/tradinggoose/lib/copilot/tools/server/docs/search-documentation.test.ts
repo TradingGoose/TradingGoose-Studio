@@ -15,9 +15,6 @@ vi.mock('drizzle-orm', () => ({ sql: () => 'sql' }))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }))
-vi.mock('@/lib/copilot/config', () => ({
-  getCopilotConfig: () => ({ rag: { similarityThreshold: 0.3 } }),
-}))
 vi.mock('@/lib/embeddings/utils', () => ({ generateSearchEmbedding: m.embedding }))
 
 import { searchDocumentationServerTool } from './search-documentation'
@@ -50,27 +47,39 @@ function mockIndexedSearch(queryResult: () => Promise<unknown[]> = async () => [
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('COPILOT_RAG_SIMILARITY_THRESHOLD', undefined)
   m.select.mockReset()
   m.embedding.mockReset()
 })
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllEnvs()
+})
 
 describe('documentation search accounting', () => {
-  it('returns one embedding charge across multiple matching chunks', async () => {
-    mockIndexedSearch(async () => [{ similarity: 0.9 }, { similarity: 0.8 }])
-    m.embedding.mockResolvedValue(ownedEmbedding())
-    const result = await searchDocumentationServerTool.execute(
-      { query: 'workflow docs' },
-      { userId: 'user-1' }
-    )
-    expect(result.totalResults).toBe(2)
-    expect(result.embeddingUsage).toEqual(completed)
-    expect(m.embedding).toHaveBeenCalledTimes(1)
-    expect(getInferenceFacts(result)).toMatchObject({
-      ...accounting,
-      generatedFields: expect.arrayContaining(['embeddingUsage']),
-    })
-  })
+  it.each([
+    [undefined, 2],
+    ['0.85', 1],
+    ['invalid', 2],
+  ] as const)(
+    'uses threshold %s with one embedding charge for all matching chunks',
+    async (threshold, count) => {
+      vi.stubEnv('COPILOT_RAG_SIMILARITY_THRESHOLD', threshold)
+      mockIndexedSearch(async () => [{ similarity: 0.9 }, { similarity: 0.8 }])
+      m.embedding.mockResolvedValue(ownedEmbedding())
+      const result = await searchDocumentationServerTool.execute(
+        { query: 'workflow docs' },
+        { userId: 'user-1' }
+      )
+      expect(result.totalResults).toBe(count)
+      expect(result.embeddingUsage).toEqual(completed)
+      expect(m.embedding).toHaveBeenCalledTimes(1)
+      expect(getInferenceFacts(result)).toMatchObject({
+        ...accounting,
+        generatedFields: expect.arrayContaining(['embeddingUsage']),
+      })
+    }
+  )
 
   it.each(['post-embedding abort', 'vector query rejection'] as const)(
     'preserves completed accounting on %s',

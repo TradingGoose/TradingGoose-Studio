@@ -14,14 +14,13 @@ import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 interface DocsSearchParams {
   query: string
   topK?: number
-  threshold?: number
 }
 
 export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any> = {
   name: 'search_documentation',
   async execute(params: DocsSearchParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('SearchDocumentationServerTool')
-    const { query, topK = 10, threshold } = params
+    const { query, topK = 10 } = params
     if (!query || typeof query !== 'string') throw new Error('query is required')
     if (!context?.userId) throw new Error('Authenticated embedding actor is required')
     throwIfServerToolAborted(context)
@@ -34,9 +33,14 @@ export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any
 
     logger.info('Executing docs search', { query, topK })
 
-    const { getCopilotConfig } = await import('@/lib/copilot/config')
-    const config = getCopilotConfig()
-    const similarityThreshold = threshold ?? config.rag.similarityThreshold
+    const configuredThreshold = process.env.COPILOT_RAG_SIMILARITY_THRESHOLD
+    const parsedThreshold = Number.parseFloat(configuredThreshold || '0.3')
+    const similarityThreshold = Number.isNaN(parsedThreshold) ? 0.3 : parsedThreshold
+    if (Number.isNaN(parsedThreshold)) {
+      logger.warn(
+        `Invalid COPILOT_RAG_SIMILARITY_THRESHOLD: ${configuredThreshold}. Expected a valid number.`
+      )
+    }
 
     const indexedChunks = await db
       .select({ chunkId: docsEmbeddings.chunkId })

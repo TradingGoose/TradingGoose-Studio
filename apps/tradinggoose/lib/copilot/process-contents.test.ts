@@ -150,10 +150,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
 vi.mock('@/lib/embeddings/utils', () => ({
   generateSearchEmbedding: mockGenerateSearchEmbedding,
 }))
-vi.mock('@/lib/copilot/config', () => ({
-  getCopilotConfig: () => ({ rag: { similarityThreshold: 0.3 } }),
-}))
-
 vi.mock('@/lib/copilot/native/history', () => ({
   readNativeThreadHistory: mockReadNativeThreadHistory,
 }))

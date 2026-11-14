@@ -67,9 +67,6 @@ const docsSelect = vi.fn()
 const docsEmbedding = vi.fn()
 vi.mock('@tradinggoose/db', () => ({ db: { select: docsSelect } }))
 vi.mock('@/lib/embeddings/utils', () => ({ generateSearchEmbedding: docsEmbedding }))
-vi.mock('@/lib/copilot/config', () => ({
-  getCopilotConfig: () => ({ rag: { similarityThreshold: 0.3 } }),
-}))
 const noopEntityExecute = vi.fn(async () => ({}))
 
 const entityTool = (name: string, execute = noopEntityExecute) => ({ name, execute })
