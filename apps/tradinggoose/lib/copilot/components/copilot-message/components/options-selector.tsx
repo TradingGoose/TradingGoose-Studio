@@ -106,8 +106,7 @@ export function OptionsSelector({
       })
       .map(([key, option]) => {
         const title = typeof option === 'string' ? option : option.title
-        const description = typeof option === 'string' ? undefined : option.description
-        return { key, title, description }
+        return { key, title }
       })
       .slice(0, 5)
   }, [options])
