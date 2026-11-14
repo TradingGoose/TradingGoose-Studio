@@ -14,7 +14,7 @@ vi.mock('@/lib/copilot/agent/context', () => ({ readCopilotRun: m.run }))
 vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: m.model }))
 vi.mock('@/lib/copilot/agent/state', () => ({
   assertCopilotRunActive: m.active,
-  claimCopilotBrowserEffect: m.claim,
+  claimCopilotEffect: m.claim,
 }))
 vi.mock('./target', () => ({
   authorizeNativeConversationScope: m.scope,
@@ -94,7 +94,7 @@ describe('native business effect admission', () => {
     expect(m.active).toHaveBeenCalledWith(target.runId)
     expect(m.run).toHaveBeenCalledWith(scope, target.threadId, target.runId)
     expect(m.model).toHaveBeenCalledWith(run.model)
-    expect(m.claim).toHaveBeenCalledWith(run, target.toolCallId)
+    expect(m.claim).toHaveBeenCalledWith(run, target.toolCallId, 'browser')
   })
   it.each([
     { executionId: 'other' },

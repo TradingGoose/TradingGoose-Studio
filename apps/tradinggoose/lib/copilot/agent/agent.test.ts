@@ -33,7 +33,7 @@ vi.mock('@/lib/copilot/tools/server/router', () => ({
 }))
 vi.mock('./state', () => ({
   assertCopilotRunActive: m.active,
-  runCopilotEffectOnce: (...args: any[]) => m.effect(...args),
+  claimCopilotEffect: m.effect,
 }))
 
 function model(name?: string, args: Record<string, unknown> = {}) {
@@ -100,7 +100,7 @@ beforeEach(() => {
   m.business.mockResolvedValue(undefined)
   m.active.mockResolvedValue(undefined)
   m.global.mockReset().mockReturnValue(false)
-  m.effect.mockImplementation(async (_run, _call, _phase, execute) => execute())
+  m.effect.mockResolvedValue(undefined)
 })
 afterEach(() => vi.unstubAllGlobals())
 describe('Studio-owned Copilot tools', () => {

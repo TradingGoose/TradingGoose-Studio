@@ -135,8 +135,8 @@ vi.mock('@/lib/copilot/settings.server', () => ({
 }))
 vi.mock('@/lib/copilot/agent/state', () => ({
   assertCopilotRunActive: async () => undefined,
-  claimCopilotBrowserEffect: async (run: { runId: string }, callId: string) => {
-    const key = JSON.stringify([run.runId, callId])
+  claimCopilotEffect: async (run: { runId: string }, callId: string, phase: string) => {
+    const key = JSON.stringify([run.runId, callId, phase])
     if (m.claims.has(key)) throw new NativeTargetError('Already dispatched', 409)
     m.claims.add(key)
   },

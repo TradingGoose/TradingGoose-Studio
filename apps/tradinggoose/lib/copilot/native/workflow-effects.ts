@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { readCopilotRun } from '@/lib/copilot/agent/context'
-import { assertCopilotRunActive, claimCopilotBrowserEffect } from '@/lib/copilot/agent/state'
+import { assertCopilotRunActive, claimCopilotEffect } from '@/lib/copilot/agent/state'
 import { ToolArgSchemas } from '@/lib/copilot/registry'
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
@@ -70,7 +70,7 @@ export async function authorizeNativeWorkflowQueueEffect(
   await assertCopilotRunActive(pending.target.runId)
   const run = await readCopilotRun(scope, pending.target.threadId, pending.target.runId)
   await resolveCopilotModel(run.model)
-  await claimCopilotBrowserEffect(run, pending.target.toolCallId)
+  await claimCopilotEffect(run, pending.target.toolCallId, 'browser')
 }
 
 export async function authorizeNativeWorkflowDeploymentEffect(
@@ -99,5 +99,5 @@ export async function authorizeNativeWorkflowDeploymentEffect(
   await assertCopilotRunActive(pending.target.runId)
   const run = await readCopilotRun(scope, pending.target.threadId, pending.target.runId)
   await resolveCopilotModel(run.model)
-  await claimCopilotBrowserEffect(run, pending.target.toolCallId)
+  await claimCopilotEffect(run, pending.target.toolCallId, 'browser')
 }

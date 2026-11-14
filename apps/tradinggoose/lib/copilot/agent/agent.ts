@@ -21,7 +21,7 @@ import {
   resolveCopilotRunToolContext,
 } from './context'
 import { COPILOT_INSTRUCTIONS } from './instructions'
-import { assertCopilotRunActive, runCopilotEffectOnce } from './state'
+import { assertCopilotRunActive, claimCopilotEffect } from './state'
 
 function createCopilotTools(execution: CopilotExecution) {
   return Object.fromEntries(
@@ -106,23 +106,18 @@ function createCopilotTools(execution: CopilotExecution) {
                 !baseStateHash
               )
                 throw new NativeTargetError('A decision on the current preview is required', 409)
-              result = await runCopilotEffectOnce(
-                run,
-                context.agent.toolCallId,
-                'review',
-                async () =>
-                  decision.action === 'review.accept'
-                    ? routeExecution(name, args, {
-                        ...businessContext,
-                        accessLevel: 'full',
-                        acceptedReviewBaseStateHash: baseStateHash,
-                      })
-                    : { success: false, rejected: true, toolName: name }
-              )
+              await claimCopilotEffect(run, context.agent.toolCallId, 'review')
+              result =
+                decision.action === 'review.accept'
+                  ? await routeExecution(name, args, {
+                      ...businessContext,
+                      accessLevel: 'full',
+                      acceptedReviewBaseStateHash: baseStateHash,
+                    })
+                  : { success: false, rejected: true, toolName: name }
             } else if (getCopilotToolPolicy(name).execution === 'server') {
-              result = await runCopilotEffectOnce(run, context.agent.toolCallId, 'execute', () =>
-                routeExecution(name, args, businessContext)
-              )
+              await claimCopilotEffect(run, context.agent.toolCallId, 'execute')
+              result = await routeExecution(name, args, businessContext)
             } else {
               await context.agent.suspend({ originalArgs: args })
               return

@@ -154,12 +154,11 @@ export async function isCopilotRunCancelled(runId: string) {
 }
 
 /** Mastra stores outcomes. This claim prevents repeating an effect after an uncertain interruption. */
-export async function runCopilotEffectOnce<T>(
+export async function claimCopilotEffect(
   run: ScopedRun,
   toolCallId: string,
-  phase: string,
-  execute: () => Promise<T>
-): Promise<T> {
+  phase: 'execute' | 'review' | 'browser'
+) {
   if (
     !(await insertReceipt(receiptId('effect', [run.runId, toolCallId, phase]), true, runOwner(run)))
   )
@@ -168,7 +167,6 @@ export async function runCopilotEffectOnce<T>(
       409
     )
   await assertCopilotRunActive(run.runId)
-  return execute()
 }
 
 export async function deleteCopilotRunSnapshot(runId: string) {
@@ -206,12 +204,4 @@ export async function deleteCopilotThread(scope: Scope, threadId: string) {
   } finally {
     await claim.release()
   }
-}
-
-/** Browser effect routes claim before dispatch; authoritative readback supplies their result. */
-export async function claimCopilotBrowserEffect(run: ScopedRun, toolCallId: string) {
-  const id = receiptId('effect', [run.runId, toolCallId, 'browser'])
-  if (!(await insertReceipt(id, true, runOwner(run))))
-    throw new NativeTargetError('This Copilot browser action was already dispatched', 409)
-  await assertCopilotRunActive(run.runId)
 }
