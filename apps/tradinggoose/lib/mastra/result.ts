@@ -27,10 +27,6 @@ export function getInferenceFacts(output: unknown): InferenceFacts | undefined {
     : undefined
 }
 
-export function isInferenceResult(output: unknown): boolean {
-  return getInferenceFacts(output) !== undefined
-}
-
 /** A completed text answer belongs to the final native step, not the concatenated transcript. */
 export function getNativeFinalText(result: {
   steps: Pick<FullOutput['steps'][number], 'text'>[]

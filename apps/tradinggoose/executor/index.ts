@@ -6,7 +6,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getNativeModelLookup } from '@/lib/mastra/registry'
-import { getInferenceFacts, isInferenceResult, withInferenceFacts } from '@/lib/mastra/result'
+import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import { getBlock } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
 import {
@@ -1921,7 +1921,7 @@ export class Executor {
       if (
         rawOutput &&
         typeof rawOutput === 'object' &&
-        !isInferenceResult(rawOutput) &&
+        !getInferenceFacts(rawOutput) &&
         'stream' in rawOutput &&
         'execution' in rawOutput
       ) {

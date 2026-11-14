@@ -4,7 +4,6 @@ import {
   assertNativeCompletion,
   getInferenceFacts,
   getNativeFinalText,
-  isInferenceResult,
   withInferenceFacts,
 } from './result'
 
@@ -69,7 +68,6 @@ describe('structured business roots and trusted facts', () => {
       cost: { status: 'unavailable' },
     })
     const streamed = Object.assign({}, output)
-    expect(isInferenceResult(streamed)).toBe(true)
     expect(getInferenceFacts(streamed)).toBe(getInferenceFacts(output))
     expect(JSON.parse(JSON.stringify(output))).toEqual(object)
   })
@@ -83,7 +81,6 @@ describe('structured business roots and trusted facts', () => {
     const output = withInferenceFacts({ business: true }, facts)
     const inherited = Object.create(output)
     expect(getInferenceFacts(inherited)).toBeUndefined()
-    expect(isInferenceResult(inherited)).toBe(false)
     expect(getInferenceFacts({ ...output })).toBe(facts)
     expect(getInferenceFacts(Object.assign({}, output))).toBe(facts)
     const cold = JSON.parse(JSON.stringify(output))
