@@ -143,12 +143,8 @@ export async function handleCopilotServerToolSuccess(
         useWorkflowRegistry.getState().loadWorkflows({ workspaceId }),
         queryClient.invalidateQueries({ queryKey: workflowKeys.list(workspaceId) }),
       ])
-    } else if (toolName.endsWith('_skill')) {
-      return
     } else if (toolName.endsWith('_custom_tool')) {
       await queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
-    } else if (toolName.endsWith('_indicator')) {
-      return
     } else if (toolName.endsWith('_knowledge_base')) {
       const entityId =
         result && typeof result === 'object' && !Array.isArray(result)
@@ -168,8 +164,6 @@ export async function handleCopilotServerToolSuccess(
           detail: { workspaceId },
         })
       )
-    } else if (toolName.endsWith('_watchlist')) {
-      return
     } else if (toolName === CopilotTool.edit_monitor) {
       window.dispatchEvent(
         new CustomEvent(MONITOR_DATA_CHANGED_EVENT, {
