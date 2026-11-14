@@ -10,7 +10,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import { assertNativeToolResult } from '@/lib/mastra/media'
 import type { WorkflowMessage } from '@/lib/mastra/messages'
-import { assertNativeToolArguments } from '@/lib/mastra/options'
+import { parseNativeToolArguments } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { getInferenceFacts, getNativeFinalText, withInferenceFacts } from '@/lib/mastra/result'
@@ -514,8 +514,7 @@ export function createAgentToolSet(
           description: tool.description,
           inputSchema: toStandardSchema(tool.parameters),
           execute: async (inputData, nativeContext) => {
-            assertNativeToolArguments(inputData)
-            const params = { ...(inputData as Record<string, any>), ...tool.params }
+            const params = { ...parseNativeToolArguments(inputData), ...tool.params }
             const result = await executeTool(
               tool.mcp ? 'mcp' : tool.id,
               {

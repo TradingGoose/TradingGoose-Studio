@@ -6,7 +6,7 @@ import {
   type ModelUsageScope,
   recordModelUsage,
 } from '@/lib/billing/model-usage'
-import { assertNativeToolArguments } from './options'
+import { parseNativeToolArguments } from './options'
 import {
   calculateNativeCost,
   type NativeCost,
@@ -100,7 +100,7 @@ export async function usageProcessors(
             )
           }
         }
-        for (const call of args.toolCalls ?? []) assertNativeToolArguments(call.args)
+        for (const call of args.toolCalls ?? []) parseNativeToolArguments(call.args)
         scope.signal?.throwIfAborted()
         return args.messageList
       } catch (error) {

@@ -34,7 +34,7 @@ export function trustedModelSettings(value?: unknown): AgentExecutionOptions['mo
 }
 
 /** Mastra reserves these root arguments for resuming tools. */
-export function assertNativeToolArguments(value: unknown): void {
+export function parseNativeToolArguments(value: unknown) {
   const args = z
     .record(z.string(), z.json())
     .parse(typeof value === 'string' ? JSON.parse(value) : value)
@@ -44,6 +44,7 @@ export function assertNativeToolArguments(value: unknown): void {
     )
   )
     throw new Error('Native execution fields cannot be model-authored tool arguments')
+  return args
 }
 
 const RESERVED =

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { assertNativeToolArguments, parseProviderOptions, trustedModelSettings } from './options'
+import { parseNativeToolArguments, parseProviderOptions, trustedModelSettings } from './options'
 
 it('keeps model selection and provider connections server-owned', () => {
   expect(() => trustedModelSettings({ maxRetries: 2 })).toThrow()
@@ -50,6 +50,7 @@ it.each([
   expect(() => trustedModelSettings(settings)).toThrow()
 })
 it('rejects native resume controls in model-authored tool arguments', () => {
-  expect(() => assertNativeToolArguments({ resumeData: {} })).toThrow('Native execution fields')
-  expect(() => assertNativeToolArguments({ body: { resumeData: 'business data' } })).not.toThrow()
+  expect(() => parseNativeToolArguments({ resumeData: {} })).toThrow('Native execution fields')
+  const args = { body: { resumeData: 'business data' } }
+  expect(parseNativeToolArguments(JSON.stringify(args))).toEqual(args)
 })

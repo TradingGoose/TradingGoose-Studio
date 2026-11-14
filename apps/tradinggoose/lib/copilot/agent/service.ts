@@ -35,7 +35,7 @@ import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import { projectNativeMessage } from '@/lib/mastra/messages'
-import { assertNativeToolArguments } from '@/lib/mastra/options'
+import { parseNativeToolArguments } from '@/lib/mastra/options'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { getNativeFinalText } from '@/lib/mastra/result'
 import { getAgentMemory, getCopilotAgent, getNativeMemoryStore } from '@/lib/mastra/runtime'
@@ -90,9 +90,9 @@ export async function listCopilotPending(
       const payload = call.requiresApproval
         ? undefined
         : CopilotSuspendSchema.parse(call.suspendPayload)
-      let args = call.requiresApproval ? call.args : payload!.originalArgs
-      assertNativeToolArguments(args)
-      if (typeof args === 'string') args = JSON.parse(args)
+      const args = parseNativeToolArguments(
+        call.requiresApproval ? call.args : payload!.originalArgs
+      )
       const originalArgs = ToolArgSchemas[call.toolName].parse(args)
       pending.push({
         target: {

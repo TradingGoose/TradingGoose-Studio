@@ -754,7 +754,6 @@ function createCopilotStoreInstance(channelId: string) {
               )
             attemptedTools.add(key)
             instance.hydrateToolCall(call)
-            if (!isToolId(call.name)) throw new Error('Unknown browser tool')
             const originalArgs = ToolArgSchemas[call.name].parse(pending.originalArgs)
             const businessAbort = new AbortController()
             ownedAbort = businessAbort
