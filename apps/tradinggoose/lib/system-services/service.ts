@@ -1,8 +1,6 @@
-import { createHash } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { systemServiceValue } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { readServerJsonCache, writeServerJsonCache } from '@/lib/cache/server-json-cache'
 import { createLogger } from '@/lib/logs/console/logger'
 import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 import {
@@ -408,16 +406,9 @@ function parseSettingValue(
 
 async function decryptStoredCredential(row: SystemServiceValueRecord) {
   try {
-    const cacheKey = `system-service-credential:${row.id}`
-    const fingerprint = createHash('sha256').update(row.value).digest('hex')
-    const cached = await readServerJsonCache<{ fingerprint: string; value: string }>(cacheKey)
-    // The current DB row authorizes cache reuse; removed or rotated keys cannot use old entries.
-    if (cached?.fingerprint === fingerprint && typeof cached.value === 'string') return cached.value
     const { decrypted } = await decryptSecret(row.value)
     const trimmed = decrypted.trim()
-    if (!trimmed) return null
-    await writeServerJsonCache(cacheKey, { fingerprint, value: trimmed }, 60)
-    return trimmed
+    return trimmed.length > 0 ? trimmed : null
   } catch (error) {
     logger.error('Failed to decrypt system service credential', {
       service: row.service,
