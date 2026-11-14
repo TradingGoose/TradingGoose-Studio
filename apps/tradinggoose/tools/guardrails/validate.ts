@@ -179,18 +179,6 @@ export const guardrailsValidateTool: ToolConfig<GuardrailsValidateInput, Guardra
     transformResponse: async (response: Response): Promise<GuardrailsValidateOutput> => {
       const result = await response.json()
 
-      if (!response.ok && !result.output) {
-        return {
-          success: true,
-          output: {
-            passed: false,
-            validationType: 'unknown',
-            content: '',
-            error: result.error || `Validation failed with status ${response.status}`,
-          },
-        }
-      }
-
       if (result.output?.tokens || result.output?.cost || result.output?.embeddingUsage) {
         result.output = withInferenceFacts(result.output, {
           tokens: result.output.tokens,

@@ -1,10 +1,6 @@
-import { createLogger } from '@/lib/logs/console/logger'
-import { getFailureAccounting } from '@/lib/mastra/errors'
 import { withInferenceFacts } from '@/lib/mastra/result'
 import type { NativeCost } from '@/lib/mastra/usage'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
-
-const logger = createLogger('LLMChatTool')
 
 interface LLMChatParams {
   model: string
@@ -88,13 +84,6 @@ export const llmChatTool: ToolConfig<LLMChatParams, LLMChatResponse> = {
   },
 
   transformResponse: async (response: Response) => {
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      const errorMessage = errorData.error || `LLM API error: ${response.status}`
-      logger.error('LLM chat request failed', { error: errorMessage })
-      throw Object.assign(new Error(errorMessage), getFailureAccounting(errorData))
-    }
-
     const data = await response.json()
 
     return {

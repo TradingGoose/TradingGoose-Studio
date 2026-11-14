@@ -545,45 +545,14 @@ export async function executeTool(
       }
     }
 
-    // Check for direct execution (no HTTP request needed)
+    let result: ToolResponse
     if (tool.directExecution) {
       throwIfToolRequestAborted(options?.signal)
       logger.info(`[${requestId}] Using directExecution for ${toolId}`)
-      const result = await tool.directExecution(contextParams)
-      throwIfToolRequestAborted(options?.signal, result.output)
-
-      // Apply post-processing if available and not skipped
-      let finalResult = result
-      if (tool.postProcess && !skipPostProcess && result.success) {
-        try {
-          finalResult = await tool.postProcess(result, contextParams, executeTool)
-        } catch (error) {
-          logger.error(`[${requestId}] Post-processing error for ${toolId}:`, {
-            error: error instanceof Error ? error.message : String(error),
-          })
-          finalResult = result
-        }
-      }
-
-      // Process file outputs if execution context is available
-      finalResult = await processFileOutputs(finalResult, tool, executionContext)
-
-      // Add timing data to the result
-      const endTime = new Date()
-      const endTimeISO = endTime.toISOString()
-      const duration = endTime.getTime() - startTime.getTime()
-      return {
-        ...finalResult,
-        timing: {
-          startTime: startTimeISO,
-          endTime: endTimeISO,
-          duration,
-        },
-      }
+      result = await tool.directExecution(contextParams)
+    } else {
+      result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
     }
-
-    // Execute the tool request directly (internal routes use regular fetch)
-    const result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
     throwIfToolRequestAborted(options?.signal, result.output)
 
     // Apply post-processing if available and not skipped
@@ -687,49 +656,6 @@ export async function executeTool(
       },
     }
   }
-}
-
-/**
- * Determines if a response or result represents an error condition
- */
-function isErrorResponse(
-  response: Response | any,
-  data?: any
-): { isError: boolean; errorInfo?: { status?: number; statusText?: string; data?: any } } {
-  // HTTP Response object
-  if (response && typeof response === 'object' && 'ok' in response) {
-    if (!response.ok) {
-      return {
-        isError: true,
-        errorInfo: {
-          status: response.status,
-          statusText: response.statusText,
-          data: data,
-        },
-      }
-    }
-    return { isError: false }
-  }
-
-  // ToolResponse object
-  if (response && typeof response === 'object' && 'success' in response) {
-    return {
-      isError: !response.success,
-      errorInfo: response.success ? undefined : { data: response },
-    }
-  }
-
-  // Check for error indicators in data
-  if (data && typeof data === 'object') {
-    if (data.error || data.success === false) {
-      return {
-        isError: true,
-        errorInfo: { data: data },
-      }
-    }
-  }
-
-  return { isError: false }
 }
 
 /**
@@ -837,49 +763,30 @@ async function executeToolRequest(
       validateRequestBodySize(requestParams.body, requestId, toolId)
     }
 
-    let response: Response
-
-    if (isInternalRoute) {
-      const timeout = requestParams.timeout || 300000
-      const requestSignal = createToolRequestSignal(timeout, options?.signal)
-
-      try {
-        response = await fetch(fullUrl, {
-          method: requestParams.method,
-          headers: headers,
-          body: requestParams.body,
-          signal: requestSignal.signal,
-        })
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
-          throw new Error(`Request timed out after ${timeout}ms`)
-        }
-        throw error
-      } finally {
-        requestSignal.cleanup()
-      }
-    } else {
+    if (!isInternalRoute) {
       const urlValidation = validateExternalUrl(fullUrl, 'toolUrl')
       if (!urlValidation.isValid) {
         throw new Error(`Invalid tool URL: ${urlValidation.error}`)
       }
+    }
 
-      const requestSignal = createToolRequestSignal(requestParams.timeout, options?.signal)
-      try {
-        response = await fetch(fullUrl, {
-          method: requestParams.method,
-          headers: headers,
-          body: requestParams.body,
-          signal: requestSignal.signal,
-        })
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
-          throw new Error(`Request timed out after ${requestParams.timeout}ms`)
-        }
-        throw error
-      } finally {
-        requestSignal.cleanup()
+    const timeout = requestParams.timeout ?? (isInternalRoute ? 300000 : undefined)
+    const requestSignal = createToolRequestSignal(timeout, options?.signal)
+    let response: Response
+    try {
+      response = await fetch(fullUrl, {
+        method: requestParams.method,
+        headers,
+        body: requestParams.body,
+        signal: requestSignal.signal,
+      })
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
+        throw new Error(`Request timed out after ${timeout}ms`)
       }
+      throw error
+    } finally {
+      requestSignal.cleanup()
     }
 
     if (!response.ok) {
@@ -935,19 +842,6 @@ async function executeToolRequest(
           throw new Error(`Failed to parse response from ${toolId}: ${jsonError}`)
         }
       }
-    }
-
-    const { isError, errorInfo } = isErrorResponse(response, responseData)
-
-    if (isError) {
-      const errorToTransform = createTransformedErrorFromErrorInfo(errorInfo, tool.errorExtractor)
-
-      logger.error(`[${requestId}] Internal API error for ${toolId}:`, {
-        status: errorInfo?.status,
-        errorData: errorInfo?.data,
-      })
-
-      throw tool.settlesModelUsage ? restoreInferenceError(errorToTransform) : errorToTransform
     }
 
     if (tool.transformResponse) {

@@ -46,7 +46,7 @@ export const embeddingsTool: ToolConfig<OpenAIEmbeddingsParams> = {
 
   transformResponse: async (response) => {
     const data = await response.json()
-    if (!response.ok || !data.output) throw new Error(data.error || 'Embedding request failed')
+    if (!data.output) throw new Error(data.error || 'Embedding request failed')
     const { embeddings, model, tokens, cost, embeddingUsage } = data.output
     return {
       success: data.success === true,

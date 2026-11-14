@@ -549,9 +549,10 @@ describe('executeTool Function', () => {
     expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith('user-123')
   })
 
-  it('hydrates execution provenance into built-in tool post-processing', async () => {
+  it.each([false, true])('hydrates post-processing provenance (direct: %s)', async (direct) => {
     const originalTool = (tools as any).test_context_tool
     const postProcess = vi.fn((result) => result)
+    const respond = vi.fn().mockResolvedValue({ success: true, output: { result: 'ok' } })
     ;(tools as any).test_context_tool = {
       id: 'test_context_tool',
       name: 'Test Context Tool',
@@ -562,10 +563,7 @@ describe('executeTool Function', () => {
         url: 'https://api.example.com/context',
         method: 'GET',
       },
-      transformResponse: vi.fn().mockResolvedValue({
-        success: true,
-        output: { result: 'ok' },
-      }),
+      ...(direct ? { directExecution: respond } : { transformResponse: respond }),
       postProcess,
     }
 
@@ -588,7 +586,7 @@ describe('executeTool Function', () => {
       }
     }
 
-    expect(postProcess).toHaveBeenCalledWith(
+    expect(postProcess).toHaveBeenCalledExactlyOnceWith(
       expect.any(Object),
       expect.objectContaining({
         _context: expect.objectContaining({
@@ -1564,7 +1562,7 @@ describe('MCP Tool Execution', () => {
     })
   })
 
-  it.each(['vision_tool', 'llm_chat'])(
+  it.each(['vision_tool', 'llm_chat', 'guardrails_validate', 'openai_embeddings'])(
     'preserves failed native accounting through HTTP execution for %s',
     async (toolId) => {
       const accounting = {
@@ -1580,7 +1578,14 @@ describe('MCP Tool Execution', () => {
       )
       const result = await executeTool(
         toolId,
-        { model: 'openai/gpt-4o', context: 'hello', imageUrl: 'https://example.com/image.png' },
+        {
+          model: 'openai/gpt-4o',
+          context: 'hello',
+          imageUrl: 'https://example.com/image.png',
+          input: 'hello',
+          validationType: 'hallucination',
+          apiKey: 'request-key',
+        },
         false,
         createMockExecutionContext()
       )

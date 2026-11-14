@@ -1,4 +1,3 @@
-import { getFailureAccounting } from '@/lib/mastra/errors'
 import { withInferenceFacts } from '@/lib/mastra/result'
 import type { ToolConfig } from '@/tools/types'
 import type { VisionParams, VisionResponse } from '@/tools/vision/types'
@@ -63,12 +62,6 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
 
   transformResponse: async (response: Response) => {
     const data = await response.json()
-    if (!data.success) {
-      throw Object.assign(
-        new Error(data.error || 'Failed to analyze image'),
-        getFailureAccounting(data)
-      )
-    }
     return {
       success: true,
       output: withInferenceFacts(data.output, {
