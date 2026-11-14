@@ -8,7 +8,7 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { assertNativeToolResult } from '@/lib/mastra/media'
+import { assertNativeToolResult, toolResultToModelOutput } from '@/lib/mastra/media'
 import type { WorkflowMessage } from '@/lib/mastra/messages'
 import { parseNativeToolArguments } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
@@ -134,7 +134,7 @@ export class AgentBlockHandler implements BlockHandler {
     const agent = new Agent({
       id: block.id,
       name: block.metadata?.name || 'Workflow Agent',
-      instructions: '',
+      instructions: selectedSystemMessages,
       model: work.model,
       tools,
       memory: await getAgentMemory(),
@@ -143,7 +143,6 @@ export class AgentBlockHandler implements BlockHandler {
         ? {
             structuredOutput: {
               schema: toStandardSchema<Record<string, unknown>>(responseFormat.schema),
-              errorStrategy: 'strict',
               jsonPromptInjection: Object.keys(tools).length > 0,
             },
           }
@@ -151,15 +150,6 @@ export class AgentBlockHandler implements BlockHandler {
     })
     const options: AgentExecutionOptions = {
       ...work.options,
-      inputProcessors: [
-        {
-          id: 'workflow-selected-systems',
-          processInputStep: () => ({
-            systemMessages: selectedSystemMessages as Array<{ role: 'system'; content: string }>,
-          }),
-        },
-        ...work.options.inputProcessors,
-      ],
       memory: {
         resource: history.resourceId,
         thread: {
@@ -504,6 +494,7 @@ export function createAgentToolSet(
           title: tool.name,
           description: tool.description,
           inputSchema: toStandardSchema(tool.parameters),
+          toModelOutput: toolResultToModelOutput,
           execute: async (inputData, nativeContext) => {
             const params = { ...parseNativeToolArguments(inputData), ...tool.params }
             const result = await executeTool(

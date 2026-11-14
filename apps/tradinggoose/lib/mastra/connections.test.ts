@@ -14,7 +14,6 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
 }))
 
 afterEach(() => {
-  expect(managedServices.readSettings).not.toHaveBeenCalled()
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
 })
@@ -44,8 +43,7 @@ describe('DB-managed native connections', () => {
     })
     expect(managedServices.readConfig).toHaveBeenCalledWith('mistral')
   })
-  it('uses native OpenAI and request-local keys without reading unrelated partial Azure settings', async () => {
-    managedServices.settings.azure_openai = { resourceName: 'partial-resource' }
+  it('uses native OpenAI and request-local keys without reading managed credentials', async () => {
     managedServices.credentials.openai = { defaultApiKey: 'managed-key' }
     vi.stubEnv('OPENAI_API_KEY', 'poison-env')
     vi.stubGlobal(

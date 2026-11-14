@@ -5,7 +5,6 @@ import { completeCopilot } from '@/lib/copilot/native/completion'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { readNativeThread, readNativeThreadHistory } from '@/lib/copilot/native/history'
 import { authorizeNativeConversationScope } from '@/lib/copilot/native/target'
-import { TITLE_GENERATION_SYSTEM_PROMPT, TITLE_GENERATION_USER_PROMPT } from '@/lib/copilot/prompts'
 
 const inputSchema = z
   .object({
@@ -35,8 +34,11 @@ export async function POST(request: NextRequest) {
         purpose: 'title',
         model: input.model,
         messages: [
-          { role: 'system', content: TITLE_GENERATION_SYSTEM_PROMPT },
-          { role: 'user', content: TITLE_GENERATION_USER_PROMPT(input.originalInput) },
+          {
+            role: 'system',
+            content: 'Generate a concise, descriptive chat title based on the user message.',
+          },
+          { role: 'user', content: `Create a short title for this: ${input.originalInput}` },
         ],
       },
       request.signal

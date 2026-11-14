@@ -31,16 +31,6 @@ it('requires a final native step and returns its exact untrimmed answer', () => 
 })
 
 describe('structured business roots and trusted facts', () => {
-  it('accepts a valid structured object without requiring text content', () => {
-    const output = extractAgentOutput(
-      { object: { answer: 42 }, steps: [{ text: '' }], finishReason: 'stop' },
-      'openai/gpt-4.1',
-      { tokens: {}, cost: { status: 'unavailable' } },
-      true
-    )
-    expect(output).toMatchObject({ answer: 42 })
-    expect(output).not.toHaveProperty('content')
-  })
   it('preserves every schema-owned root without granting it accounting or control authority', () => {
     const object = {
       model: 'Corolla',

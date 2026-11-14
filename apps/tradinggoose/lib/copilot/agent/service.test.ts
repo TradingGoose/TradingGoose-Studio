@@ -147,15 +147,12 @@ function deferred() {
   return { promise, resolve }
 }
 function restart() {
-  m.memory = new Memory({
-    storage: m.storage,
-    options: { messageHistory: { maxTokens: 32000 } },
-  })
+  m.memory = new Memory({ storage: m.storage })
   m.agent = createCopilotAgent(m.memory)
   new Mastra({
     agents: { copilot: m.agent },
     storage: m.storage,
-    recovery: { workflows: 'off', durableAgents: 'off' },
+    recovery: { workflows: 'off' },
   })
 }
 

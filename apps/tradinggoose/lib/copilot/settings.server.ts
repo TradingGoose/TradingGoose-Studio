@@ -7,7 +7,7 @@ import { type CopilotModelOption, getCopilotModelId } from './settings'
 
 export async function resolveCopilotModel(
   modelId?: string
-): Promise<{ model: string; apiKey?: string }> {
+): Promise<{ model: string; apiKey: string }> {
   const settings = await getCopilotSettings()
   const first = settings.models[0]
   if (!first) {
@@ -20,7 +20,7 @@ export async function resolveCopilotModel(
   }
   try {
     const { apiKey } = await resolveConfiguredModel(selected)
-    return { model: selected, apiKey: apiKey || undefined }
+    return { model: selected, apiKey }
   } catch {
     throw new NativeTargetError(
       'The system connection for the selected Copilot model is not configured',

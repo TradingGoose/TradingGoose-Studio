@@ -2,14 +2,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { type CopilotSettings, DEFAULT_COPILOT_SETTINGS } from './settings'
 
-const {
-  mockGetResolvedSystemSettings,
-  mockResolveSystemServiceConfig,
-  mockResolveSystemServiceSettingsConfig,
-} = vi.hoisted(() => ({
+const { mockGetResolvedSystemSettings, mockResolveSystemServiceConfig } = vi.hoisted(() => ({
   mockGetResolvedSystemSettings: vi.fn(),
   mockResolveSystemServiceConfig: vi.fn(),
-  mockResolveSystemServiceSettingsConfig: vi.fn(),
 }))
 
 vi.mock('@/lib/system-services/catalog', async (importOriginal) => {
@@ -56,10 +51,8 @@ vi.mock('@/lib/system-settings/service', () => ({
 }))
 vi.mock('@/lib/system-services/service', () => ({
   resolveSystemServiceConfig: mockResolveSystemServiceConfig,
-  resolveSystemServiceSettingsConfig: mockResolveSystemServiceSettingsConfig,
 }))
 
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { getPublicCopilotModels, resolveCopilotModel } from './settings.server'
 
 const configured: CopilotSettings = {
@@ -74,26 +67,7 @@ describe('server Copilot settings', () => {
     vi.clearAllMocks()
     mockGetResolvedSystemSettings.mockResolvedValue({ copilot: configured })
     mockResolveSystemServiceConfig.mockResolvedValue({ defaultApiKey: 'openai-key' })
-    mockResolveSystemServiceSettingsConfig.mockResolvedValue({})
   })
-
-  it.each(['ollama', 'vllm'])(
-    'preserves managed keyless %s through request-owned native preparation',
-    async (provider) => {
-      const model = `${provider}/org/exact:model`
-      mockGetResolvedSystemSettings.mockResolvedValue({
-        copilot: { models: [{ provider, model: 'org/exact:model' }] },
-      })
-      mockResolveSystemServiceSettingsConfig.mockImplementation(async (id: string) =>
-        id === provider ? { baseUrl: 'http://local.invalid/v1', models: '["org/exact:model"]' } : {}
-      )
-      mockResolveSystemServiceConfig.mockResolvedValue({})
-      const selected = await resolveCopilotModel()
-      expect(selected).toEqual({ model, apiKey: undefined })
-      const native = await createConfiguredLanguageModel(selected.model, selected.apiKey)
-      expect(native.modelId).toBe('org/exact:model')
-    }
-  )
 
   it('resolves the first configured model with its existing credential', async () => {
     await expect(resolveCopilotModel()).resolves.toEqual({

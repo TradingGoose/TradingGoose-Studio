@@ -19,10 +19,7 @@ async function createRuntime() {
   storage.stores = { memory: storage.stores.memory, workflows: storage.stores.workflows }
   try {
     await storage.init()
-    const memory = new Memory({
-      storage,
-      options: { messageHistory: { maxTokens: 32000 } },
-    })
+    const memory = new Memory({ storage })
     const copilotAgent = createCopilotAgent(memory)
     const mastra = new Mastra({
       agents: { copilot: copilotAgent },
@@ -30,7 +27,7 @@ async function createRuntime() {
       ...(process.env.REDIS_URL
         ? { pubsub: new RedisStreamsPubSub({ url: process.env.REDIS_URL }) }
         : {}),
-      recovery: { workflows: 'off', durableAgents: 'off' },
+      recovery: { workflows: 'off' },
     })
     return { storage, memory, mastra }
   } catch (error) {

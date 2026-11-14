@@ -118,9 +118,26 @@ export async function normalizeNativeMediaMessages(
   )
 }
 
-/** MCP image and audio content is base64 according to the protocol; the SDK handles its native projection. */
+/** MCP image and audio content must contain inline base64, never URLs. */
 export function assertNativeToolResult(value: any, signal: AbortSignal): void {
   signal.throwIfAborted()
   for (const part of Array.isArray(value?.content) ? value.content : [])
     if (part.type === 'image' || part.type === 'audio') inlineBytes(part.data)
+}
+
+/** Keep structured tool data alongside native media; execute's raw result remains in history. */
+export function toolResultToModelOutput(result: any) {
+  if (!Array.isArray(result?.content)) return
+  const media: { type: 'media'; data: string; mediaType: string }[] = []
+  const content = result.content.map((part: any) => {
+    if (part.type !== 'image' && part.type !== 'audio') return part
+    const { data, ...metadata } = part
+    media.push({ type: 'media', data, mediaType: part.mimeType })
+    return metadata
+  })
+  if (media.length)
+    return {
+      type: 'content',
+      value: [{ type: 'text', text: JSON.stringify({ ...result, content }) }, ...media],
+    }
 }

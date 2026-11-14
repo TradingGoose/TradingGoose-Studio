@@ -177,7 +177,10 @@ describe('hallucination search and scoring', () => {
   })
   it('does not fabricate absent scorer token fields or a dollar zero', async () => {
     native.usage.mockReturnValue({})
-    native.generate.mockResolvedValue({ object: { score: 8 }, finishReason: 'stop' })
+    native.generate.mockResolvedValue({
+      object: { score: 8, reasoning: 'Supported' },
+      finishReason: 'stop',
+    })
     const result = await validateHallucination(input)
     expect(result.tokens).toEqual({ prompt: 11, total: 11 })
     expect(result.cost).toEqual({ status: 'unavailable' })
@@ -185,7 +188,7 @@ describe('hallucination search and scoring', () => {
   it('preserves actual zero token fields without inventing model USD', async () => {
     native.usage.mockReturnValue({ inputTokens: 0, outputTokens: 0, totalTokens: 0 })
     native.generate.mockResolvedValue({
-      object: { score: 8 },
+      object: { score: 8, reasoning: 'Supported' },
       finishReason: 'stop',
       totalUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     })

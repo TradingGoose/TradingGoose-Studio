@@ -180,10 +180,7 @@ function createOwnedTestToolSet(
 beforeEach(() => {
   vi.clearAllMocks()
   state.storage = new InMemoryStore()
-  state.memory = new Memory({
-    storage: state.storage,
-    options: { messageHistory: { maxTokens: 32000 } },
-  })
+  state.memory = new Memory({ storage: state.storage })
   state.model = fixture()
   state.trackAdmissions = false
   state.setupError = undefined
@@ -2086,14 +2083,23 @@ function liveCustomTool() {
   }
 }
 
-it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stream, allowed }))))(
-  'validates canonical MCP image data before the next Agent step (stream=$stream,allowed=$allowed)',
-  async ({ stream, allowed }) => {
+it.each(
+  [false, true].flatMap((stream) =>
+    [false, true].flatMap((allowed) =>
+      ['image', 'audio'].map((type) => ({ stream, allowed, type }))
+    )
+  )
+)(
+  'preserves MCP media and business data in the next Agent step (stream=$stream,allowed=$allowed,type=$type)',
+  async ({ stream, allowed, type }) => {
     state.trackAdmissions = true
     state.model = liveToolModel()
     const data = allowed
-      ? liveToolImage.toString('base64')
+      ? type === 'image'
+        ? liveToolImage.toString('base64')
+        : 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='
       : 'https://example.invalid/not-base64.png'
+    const mimeType = type === 'image' ? 'image/png' : 'audio/wav'
     const toolFacts = {
       tokens: { total: 9 },
       cost: { total: 0.004, status: 'reported' as const },
@@ -2103,8 +2109,9 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
       {
         content: [
           { type: 'text', text: 'Exact tool text' },
-          { type: 'image', data, mimeType: 'image/png' },
+          { type, data, mimeType },
         ],
+        structuredContent: { measurement: 42 },
         business: { value: 17 },
         tokens: toolFacts.tokens,
         cost: toolFacts.cost,
@@ -2168,10 +2175,29 @@ it.each([false, true].flatMap((stream) => [false, true].map((allowed) => ({ stre
         perPage: false,
       })
       expect(JSON.stringify(messages)).toContain('Known before media delivery')
-      const prompt = JSON.stringify(calls[1].prompt)
-      expect(prompt).toContain(liveToolImage.toString('base64'))
-      expect(prompt).toContain('Exact tool text')
-      expect(prompt).not.toContain('"total":9')
+      const { tokens: _tokens, cost: _cost, ...functional } = raw
+      expect(messages.flatMap((message) => message.content.parts)).toContainEqual(
+        expect.objectContaining({
+          type: 'tool-invocation',
+          toolInvocation: expect.objectContaining({
+            state: 'result',
+            result: JSON.parse(JSON.stringify(functional)),
+          }),
+        })
+      )
+      const modelOutput = calls[1].prompt
+        .flatMap((message: any) => message.content)
+        .find((part: any) => part.type === 'tool-result').output
+      expect(JSON.stringify(modelOutput).split(data)).toHaveLength(2)
+      expect(modelOutput.value[1]).toEqual({ type: 'media', data, mediaType: mimeType })
+      expect(JSON.parse(modelOutput.value[0].text)).toEqual({
+        content: [
+          { type: 'text', text: 'Exact tool text' },
+          { type, mimeType },
+        ],
+        structuredContent: { measurement: 42 },
+        business: { value: 17 },
+      })
     } else expect(failure).toBeInstanceOf(Error)
   }
 )

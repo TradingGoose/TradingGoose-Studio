@@ -36,7 +36,6 @@ export async function prepareModelRequest(
       stepNumber >= maxSteps - 1
         ? {
             toolChoice: 'none',
-            activeTools: [],
             tools: {},
             systemMessages: [
               ...systemMessages,

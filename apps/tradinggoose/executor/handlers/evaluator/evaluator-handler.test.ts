@@ -141,7 +141,6 @@ describe('Evaluator native structured generation', () => {
       cost,
     })
     expect(native.generate.mock.calls[0][0]).toEqual([{ role: 'user', content: '{"answer":42}' }])
-    expect(native.generate.mock.calls[0][1].structuredOutput.errorStrategy).toBe('strict')
     expect(native.generate.mock.calls[0][1].modelSettings.temperature).toBe(0)
   })
   it('propagates native schema failures instead of synthesizing zero scores', async () => {

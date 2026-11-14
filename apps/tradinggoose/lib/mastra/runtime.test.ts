@@ -84,6 +84,8 @@ it('initializes only native memory and workflow domains on one shared pool', asy
   expect(await runtime.getCopilotAgent()).toBe(first.getAgent('copilot'))
   expect(await first.getAgent('copilot').getMemory()).toBe(await runtime.getAgentMemory())
   expect(fixture.createAgent).toHaveBeenCalledWith(await runtime.getAgentMemory())
+  expect((await runtime.getAgentMemory()).getConfig().options).toMatchObject({ lastMessages: 10 })
+  expect((await runtime.getAgentMemory()).getConfig().options?.messageHistory).toBeUndefined()
   expect(fixture.poolOptions).toEqual([
     expect.objectContaining({
       host: 'studio-test.invalid',

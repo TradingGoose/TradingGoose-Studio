@@ -1,5 +1,5 @@
 import { Agent } from '@mastra/core/agent'
-import { toStandardSchema } from '@mastra/core/schema'
+import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import { assertListedModel } from '@/lib/mastra/registry'
@@ -71,13 +71,7 @@ Score the input on a confidence scale from 0 to 10:
 - 7-8: High confidence - mostly supported, minor details not in context
 - 9-10: Very high confidence - fully supported by context, all claims verified
 
-Respond ONLY with valid JSON in this exact format:
-{
-  "score": <number between 0-10>,
-  "reasoning": "<brief explanation of your score>"
-}
-
-Do not include any other text, markdown formatting, or code blocks. Only output the raw JSON object. Be strict - only give high scores (7+) if the input is well-supported by the context.`
+Be strict - only give high scores (7+) if the input is well-supported by the context.`
 
     const userPrompt = `Reference Context:
 ${contextText}
@@ -85,7 +79,7 @@ ${contextText}
 User Input to Evaluate:
 ${userInput}
 
-Evaluate the consistency and provide your score and reasoning in JSON format.`
+Evaluate the consistency and provide your score and reasoning.`
 
     logger.info(`[${requestId}] Calling LLM for hallucination scoring`, {
       model,
@@ -121,33 +115,22 @@ Evaluate the consistency and provide your score and reasoning in JSON format.`
     const response = await agent.generate([{ role: 'user', content: userPrompt }], {
       ...work.options,
       structuredOutput: {
-        schema: toStandardSchema({
-          type: 'object',
-          properties: {
-            score: { type: 'number', minimum: 0, maximum: 10 },
-            reasoning: { type: 'string' },
-          },
-          required: ['score', 'reasoning'],
-          additionalProperties: false,
+        schema: z.strictObject({
+          score: z.number().min(0).max(10),
+          reasoning: z.string(),
         }),
-        errorStrategy: 'strict',
         jsonPromptInjection: true,
       },
     })
     const accounting = await work.complete(response)
-    const result = response.object as { score: number; reasoning: string }
-
-    if (!result || typeof result.score !== 'number' || result.score < 0 || result.score > 10) {
-      throw new Error('Invalid score format from LLM')
-    }
+    const result = response.object
 
     logger.info(`[${requestId}] Confidence score: ${result.score}/10`, {
       reasoning: result.reasoning,
     })
 
     return {
-      score: result.score,
-      reasoning: result.reasoning || 'No reasoning provided',
+      ...result,
       ...accounting,
     }
   } catch (error: any) {

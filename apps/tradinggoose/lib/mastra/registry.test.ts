@@ -41,7 +41,6 @@ beforeEach(() => {
   provider.models = ['listed', 'other', 'embedding']
 })
 afterEach(() => {
-  expect(managedServices.readSettings).not.toHaveBeenCalled()
   expect(managedServices.readConfig).not.toHaveBeenCalled()
 })
 

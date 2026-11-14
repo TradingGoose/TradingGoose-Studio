@@ -1,4 +1,6 @@
 import { Loader2, MinusCircle, Moon, XCircle } from 'lucide-react'
+import type { z } from 'zod'
+import type { ToolArgSchemas } from '@/lib/copilot/registry'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
@@ -6,12 +8,7 @@ import {
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 
-/** Maximum sleep duration in seconds (3 minutes) */
-const MAX_SLEEP_SECONDS = 180
-
-interface SleepArgs {
-  seconds?: number
-}
+type SleepArgs = z.infer<typeof ToolArgSchemas.sleep>
 
 /**
  * Format seconds into a human-readable duration string
@@ -62,26 +59,10 @@ export class SleepClientTool extends BaseClientTool {
     },
   }
 
-  async execute(args?: SleepArgs): Promise<void> {
+  async execute({ seconds }: SleepArgs): Promise<void> {
     const logger = createLogger('SleepClientTool')
 
-    // Use a timeout slightly longer than max sleep (3 minutes + buffer)
-    const timeoutMs = (MAX_SLEEP_SECONDS + 30) * 1000
-
     await this.executeWithTimeout(async () => {
-      const params = args || {}
-      logger.debug('execute() called', {
-        toolCallId: this.toolCallId,
-        state: this.getState(),
-        hasArgs: !!args,
-        seconds: params.seconds,
-      })
-
-      // Validate and clamp seconds
-      let seconds = typeof params.seconds === 'number' ? params.seconds : 0
-      if (seconds < 0) seconds = 0
-      if (seconds > MAX_SLEEP_SECONDS) seconds = MAX_SLEEP_SECONDS
-
       logger.debug('Starting sleep', { seconds })
 
       this.setState(ClientToolCallState.executing)
@@ -114,6 +95,6 @@ export class SleepClientTool extends BaseClientTool {
         logger.error('Sleep failed', { error: message })
         this.fail(message)
       }
-    }, timeoutMs)
+    }, 210_000)
   }
 }

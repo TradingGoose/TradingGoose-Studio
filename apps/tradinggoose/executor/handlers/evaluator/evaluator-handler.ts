@@ -82,7 +82,6 @@ ${metrics.map((metric: any) => `${metric.name} (${metric.range.min}-${metric.ran
           ...work.options,
           structuredOutput: {
             schema: toStandardSchema(schema),
-            errorStrategy: 'strict',
             jsonPromptInjection: true,
           },
         }

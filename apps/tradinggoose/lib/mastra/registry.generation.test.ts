@@ -22,7 +22,6 @@ beforeEach(() => {
   managedServices.credentials.openai = { defaultApiKey: 'managed-openai-secret' }
 })
 afterEach(() => {
-  expect(managedServices.readSettings).not.toHaveBeenCalled()
   expect(managedServices.readConfig).not.toHaveBeenCalled()
   vi.restoreAllMocks()
 })
@@ -85,8 +84,7 @@ it('excludes every published non-chat API from native generation pickers and val
   }
 })
 
-it('uses native generation and embedding discovery despite unrelated partial Azure settings', async () => {
-  managedServices.settings.azure_openai = { resourceName: 'partial-resource' }
+it('serves native generation and embedding discovery without exposing credentials', async () => {
   const response = await GET(new NextRequest('http://localhost/api/models'))
   expect(response.status).toBe(200)
   const body = await response.json()

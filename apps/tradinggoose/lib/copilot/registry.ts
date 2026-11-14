@@ -932,12 +932,8 @@ export const ToolResultSchemas = {
     objective: z.string().optional(),
     todoList: z.array(z.any()).optional(),
   }),
-  checkoff_todo: z.object({
-    id: z.string(),
-  }),
-  mark_todo_in_progress: z.object({
-    id: z.string(),
-  }),
+  checkoff_todo: ToolArgSchemas.checkoff_todo,
+  mark_todo_in_progress: ToolArgSchemas.mark_todo_in_progress,
   [CopilotTool.read_workflow]: WorkflowReadDocumentEnvelope,
   create_workflow: withServerToolReviewRejection('create_workflow', WorkflowCreateMutationResult),
   [CopilotTool.list_workflows]: GenericEntityListResult.extend({
