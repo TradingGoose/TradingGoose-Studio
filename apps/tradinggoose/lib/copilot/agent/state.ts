@@ -3,7 +3,7 @@ import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { CopilotToolContext, Scope } from '@/lib/copilot/native/contract'
+import type { CopilotRequest, CopilotToolContext, Scope } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
@@ -14,6 +14,7 @@ export interface CopilotRun {
   threadId: string
   scope: Scope
   model: string
+  providerOptions?: Extract<CopilotRequest, { command: 'message' }>['providerOptions']
   accessLevel: CopilotAccessLevel
   toolContext?: CopilotToolContext
   toolContexts?: CopilotToolContext[]

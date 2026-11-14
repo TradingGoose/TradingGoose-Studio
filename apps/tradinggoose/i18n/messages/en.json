@@ -22285,7 +22285,10 @@
         "models": {
           "loading": "Loading models…",
           "unconfigured": "Copilot is not configured",
-          "loadError": "Unable to load Copilot models"
+          "loadError": "Unable to load Copilot models",
+          "providerOptions": "Provider Options",
+          "apply": "Apply",
+          "invalidOptions": "Enter valid provider options JSON."
         },
         "welcome": {
           "subtitleLimited": "Ask questions and review tools before they run",

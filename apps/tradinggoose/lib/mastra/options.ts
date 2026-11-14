@@ -50,23 +50,29 @@ const RESERVED =
   /^(?:model|models|fallbacks?|provider|route|routing|messages|prompt|input|stream|tools|tool_choice|toolChoice|parallel_tool_calls|service_?tier|url|baseURL|baseUrl|endpoint|apiKey|api_key|headers|fetch|transport|websocket|retries|maxRetries|streamRetries|errorProcessors|prepareStep|extraBody|extraHeaders|body|options|defaultOptions)$/i
 
 /** Provider generation controls use native namespaces; connections remain server-owned. */
-export function parseProviderOptions(value?: string | Record<string, unknown>) {
-  const options = z
-    .record(z.string(), z.record(z.string(), z.json()))
-    .parse(
-      typeof value === 'string'
-        ? value.trim()
-          ? JSON.parse(value)
-          : {}
-        : value === undefined
-          ? {}
-          : value
-    )
-  for (const [namespace, fields] of Object.entries(options)) {
-    for (const key of Object.keys(fields)) {
-      if (RESERVED.test(key))
-        throw new Error(`Provider option ${namespace}.${key} is controlled by the server`)
+export const providerOptionsSchema = z
+  .record(z.string(), z.record(z.string(), z.json()))
+  .superRefine((options, context) => {
+    for (const [namespace, fields] of Object.entries(options)) {
+      for (const key of Object.keys(fields)) {
+        if (RESERVED.test(key))
+          context.addIssue({
+            code: 'custom',
+            path: [namespace, key],
+            message: `Provider option ${namespace}.${key} is controlled by the server`,
+          })
+      }
     }
-  }
-  return options
+  })
+
+export function parseProviderOptions(value?: string | Record<string, unknown>) {
+  return providerOptionsSchema.parse(
+    typeof value === 'string'
+      ? value.trim()
+        ? JSON.parse(value)
+        : {}
+      : value === undefined
+        ? {}
+        : value
+  )
 }

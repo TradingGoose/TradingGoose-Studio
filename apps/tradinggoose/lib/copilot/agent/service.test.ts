@@ -267,6 +267,29 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('built-in Copilot service bridge', () => {
+  it('keeps native provider options through suspension and restart', async () => {
+    const providerOptions = { openai: { reasoningEffort: 'low' } }
+    const plan = { todoList: ['Inspect the workflow'] }
+    setModel({ tool: 'plan', args: plan }, { text: 'Ready' })
+    const initial = suspended((await message({ model: 'openai/gpt-5', providerOptions })).result)
+    restart()
+    expect(await readCopilotRun(scope, initial.threadId, initial.runId)).toMatchObject({
+      model: 'openai/gpt-5',
+      providerOptions,
+    })
+    expect(
+      (
+        await command({
+          command: 'tool.result',
+          target: initial.pending[0].target,
+          assertion: { kind: 'plan.updated', data: plan },
+        })
+      ).result.status
+    ).toBe('completed')
+    expect(m.contacts).toHaveLength(2)
+    for (const request of m.contacts) expect(request).toMatchObject({ providerOptions })
+  })
+
   it.each(['Stop', 'ownership loss'])(
     'renews a live preflight beyond lease expiry and prevents inference after %s',
     async (interruption) => {

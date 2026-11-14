@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, cloneElement } from 'react'
+import { act, Children, cloneElement } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -18,6 +18,9 @@ vi.mock('@/i18n/workspace-widget-hooks', () => ({
       loading: 'Loading models',
       unconfigured: 'No models configured',
       loadError: 'Unavailable',
+      providerOptions: 'Provider Options',
+      apply: 'Apply',
+      invalidOptions: 'Enter valid provider options JSON.',
     },
   }),
 }))
@@ -27,6 +30,23 @@ vi.mock('@/components/ui', () => ({
   DropdownMenuTrigger: ({ render, children }: any) => cloneElement(render, {}, children),
   DropdownMenuContent: ({ align: _align, side: _side, ...props }: any) => <div {...props} />,
   DropdownMenuItem: (props: any) => <button {...props} />,
+  Popover: ({ children, open, onOpenChange }: any) => (
+    <div>
+      {Children.map(children, (child) =>
+        cloneElement(child, { popoverOpen: open, onPopoverOpenChange: onOpenChange })
+      )}
+    </div>
+  ),
+  PopoverTrigger: ({ render, children, onPopoverOpenChange }: any) =>
+    cloneElement(render, { onClick: () => onPopoverOpenChange(true) }, children),
+  PopoverContent: ({
+    popoverOpen,
+    onPopoverOpenChange: _change,
+    align: _align,
+    side: _side,
+    ...props
+  }: any) => (popoverOpen ? <div {...props} /> : null),
+  Textarea: (props: any) => <textarea {...props} />,
 }))
 
 import { ModelSelector } from './model-selector'
@@ -55,6 +75,8 @@ beforeEach(() => {
   state = {
     selectedModel: null,
     setSelectedModel: vi.fn(),
+    providerOptions: undefined,
+    setProviderOptions: vi.fn(),
     isSendingMessage: false,
     isAwaitingContinuation: false,
     isAborting: false,
@@ -126,7 +148,7 @@ it('keeps distinct gateway routes selectable when they share a display label', (
   }
   state.selectedModel = catalog.data.models[0].id
   render()
-  const choices = [...container.querySelectorAll<HTMLButtonElement>('button')].slice(1)
+  const choices = [...container.querySelectorAll<HTMLButtonElement>('button[title]')].slice(1)
   expect(choices).toHaveLength(2)
   for (const [index, choice] of choices.entries()) {
     expect(choice).toHaveTextContent('anthropic/model')
@@ -136,6 +158,65 @@ it('keeps distinct gateway routes selectable when they share a display label', (
     expect(state.setSelectedModel).toHaveBeenLastCalledWith(catalog.data.models[index].id)
   }
   expect(container.innerHTML).not.toMatch(/openrouter|vercel/)
+})
+
+it('edits native provider options, rejects invalid settings, and clears options with blank input', () => {
+  state.selectedModel = 'anthropic/selected-model'
+  state.providerOptions = { anthropic: { effort: 'low' } }
+  catalog.data = { models: [{ id: state.selectedModel, label: state.selectedModel }] }
+  render()
+  const open = () =>
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Provider Options"]')!.click()
+    )
+  const edit = (value: string) =>
+    act(() => {
+      const textarea = container.querySelector('textarea')!
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(
+        textarea,
+        value
+      )
+      textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  const apply = () =>
+    act(() =>
+      [...container.querySelectorAll('button')]
+        .find((button) => button.textContent === 'Apply')!
+        .click()
+    )
+  open()
+  expect(container.querySelector('textarea')).toHaveValue(
+    JSON.stringify(state.providerOptions, null, 2)
+  )
+  for (const invalid of ['{', '{"anthropic":{"apiKey":"forbidden"}}']) {
+    edit(invalid)
+    apply()
+    expect(container.querySelector('[role="alert"]')).not.toBeNull()
+    expect(state.setProviderOptions).not.toHaveBeenCalled()
+  }
+  edit('{"anthropic":{"effort":"high"}}')
+  apply()
+  expect(state.setProviderOptions).toHaveBeenLastCalledWith({ anthropic: { effort: 'high' } })
+  expect(container.querySelector('textarea')).toBeNull()
+  open()
+  edit('')
+  apply()
+  expect(state.setProviderOptions).toHaveBeenLastCalledWith(undefined)
+})
+
+it('disables an open options editor while a response is active', () => {
+  state.selectedModel = 'anthropic/selected-model'
+  catalog.data = { models: [{ id: state.selectedModel, label: state.selectedModel }] }
+  render()
+  act(() => container.querySelector<HTMLButtonElement>('[aria-label="Provider Options"]')!.click())
+  state.isSendingMessage = true
+  render()
+  expect(container.querySelector('textarea')).toBeDisabled()
+  for (const button of container.querySelectorAll('button')) {
+    expect(button).toBeDisabled()
+    act(() => button.click())
+  }
+  expect(state.setProviderOptions).not.toHaveBeenCalled()
 })
 
 it('preserves a valid selection and replaces a removed selection on catalog refresh', () => {

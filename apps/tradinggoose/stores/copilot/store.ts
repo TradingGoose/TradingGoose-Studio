@@ -59,7 +59,7 @@ import {
   updateToolCallState,
 } from './store-messages'
 import { buildTurnProvenanceFromContexts } from './store-provenance'
-import { hasUiActiveToolCalls } from './store-state'
+import { isCopilotBusy } from './store-state'
 import {
   applyNativeCancellation,
   applyNativeEvent,
@@ -105,6 +105,7 @@ function refreshServerToolResult(event: CopilotEvent) {
 const initialState = {
   accessLevel: 'limited' as const,
   selectedModel: null as string | null,
+  providerOptions: undefined as CopilotStore['providerOptions'],
   currentChat: null as CopilotChat | null,
   chats: [] as CopilotChat[],
   messages: [] as CopilotStore['messages'],
@@ -907,6 +908,7 @@ function createCopilotStoreInstance(channelId: string) {
             ),
           })),
         setSelectedModel: async (selectedModel) => {
+          if (isCopilotBusy(get()) || get().selectedModel === selectedModel) return
           const dialog = get().workflowChatDeployment
           if (dialog)
             get().settleWorkflowChatDeployment(
@@ -915,7 +917,11 @@ function createCopilotStoreInstance(channelId: string) {
               'Native model selection changed'
             )
           titleAbort?.abort()
-          set({ selectedModel })
+          set({ selectedModel, providerOptions: undefined })
+        },
+        setProviderOptions: (providerOptions) => {
+          if (isCopilotBusy(get()) || get().providerOptions === providerOptions) return
+          set({ providerOptions })
         },
         loadChats: async (options) => {
           const workspaceId =
@@ -1026,15 +1032,9 @@ function createCopilotStoreInstance(channelId: string) {
           if (get().currentChat?.threadId === threadId) await get().createNewChat(chat.workspaceId)
         },
         sendMessage: async (message, options = {}) => {
-          if (
-            (!message.trim() && !options.images?.length) ||
-            get().isSendingMessage ||
-            get().isAwaitingContinuation ||
-            get().isAborting ||
-            hasUiActiveToolCalls(get().toolCallsById)
-          )
-            return false
+          if ((!message.trim() && !options.images?.length) || isCopilotBusy(get())) return false
           const model = get().selectedModel
+          const providerOptions = get().providerOptions
           if (!model) {
             set({ error: 'Select an available Copilot model before sending a message.' })
             return false
@@ -1078,6 +1078,7 @@ function createCopilotStoreInstance(channelId: string) {
               ...(chat ? { threadId: chat.threadId } : {}),
               ...(editing ? { messageId: options.messageId } : {}),
               model,
+              ...(providerOptions ? { providerOptions } : {}),
               input: {
                 contexts,
                 content: options.images?.length
@@ -1112,7 +1113,8 @@ function createCopilotStoreInstance(channelId: string) {
             if (
               get().currentChat?.threadId !== chat?.threadId ||
               get().conversationWorkspaceId !== workspaceId ||
-              get().selectedModel !== model
+              get().selectedModel !== model ||
+              get().providerOptions !== providerOptions
             ) {
               set({ isSendingMessage: false })
               return false

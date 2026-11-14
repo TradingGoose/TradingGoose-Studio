@@ -12,6 +12,7 @@ import type {
   Pending,
 } from '@/lib/copilot/native/contract'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
+import type { parseProviderOptions } from '@/lib/mastra/options'
 import type { NativeCost, NativeUsage } from '@/lib/mastra/usage'
 
 export interface CopilotToolCall {
@@ -84,6 +85,7 @@ export interface WorkflowChatDeploymentRequest {
 export interface CopilotState {
   accessLevel: CopilotAccessLevel
   selectedModel: string | null
+  providerOptions: ReturnType<typeof parseProviderOptions> | undefined
 
   currentChat: CopilotChat | null
   conversationWorkspaceId: string | null
@@ -111,6 +113,7 @@ export interface CopilotState {
 export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
+  setProviderOptions: (options: CopilotStore['providerOptions']) => void
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>

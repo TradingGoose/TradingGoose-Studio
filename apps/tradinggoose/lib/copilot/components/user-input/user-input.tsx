@@ -517,8 +517,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             />
           </div>
 
-          <div className='flex items-center justify-between'>
-            <div className='flex items-center gap-1.5'>
+          <div className='flex items-end justify-between'>
+            <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
               <AccessLevelSelector
                 accessLevel={accessLevel}
                 isNearTop={isNearTop}
@@ -544,7 +544,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
               </Tooltip>
             </div>
 
-            <div className='flex items-center gap-1.5 pl-1.5'>
+            <div className='flex shrink-0 items-center gap-1.5 pl-1.5'>
               <Tooltip>
                 <TooltipTrigger
                   render={

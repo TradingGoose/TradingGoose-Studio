@@ -22272,7 +22272,10 @@
         "models": {
           "loading": "正在加载模型…",
           "unconfigured": "尚未配置 Copilot",
-          "loadError": "无法加载 Copilot 模型"
+          "loadError": "无法加载 Copilot 模型",
+          "providerOptions": "提供商选项",
+          "apply": "应用",
+          "invalidOptions": "请输入有效的提供商选项 JSON。"
         },
         "welcome": {
           "subtitleLimited": "提问并在工具执行前先审核",
