@@ -1,6 +1,10 @@
 /** @vitest-environment node */
 import { Mastra } from '@mastra/core/mastra'
-import { InMemoryStore, type MastraCompositeStore } from '@mastra/core/storage'
+import {
+  InMemoryStore,
+  type MastraCompositeStore,
+  RunFenceConflictError,
+} from '@mastra/core/storage'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { Memory } from '@mastra/memory'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -53,12 +57,29 @@ vi.mock('@/lib/mastra/runtime', () => ({
   getAgentMemory: async () => m.memory,
   getNativeMemoryStore: async () => m.storage.getStore('memory'),
   getNativeWorkflowsStore: async () => m.storage.getStore('workflows'),
+  deleteNativeThread: vi.fn(
+    async (
+      threadId: string,
+      _fence: unknown,
+      cleanup: (transaction: {
+        none: (query: string, values?: unknown[]) => Promise<null>
+      }) => Promise<unknown>
+    ) => {
+      await m.memory.deleteThread(threadId)
+      await cleanup({
+        none: async (_query, values) => {
+          for (const [id, row] of m.receipts)
+            if (row.identifier === values?.[0]) m.receipts.delete(id)
+          return null
+        },
+      })
+    }
+  ),
 }))
 vi.mock('@/lib/mastra/connections', () => ({
   createConfiguredLanguageModel: vi.fn((_model: string, apiKey?: string) =>
     Object.assign(m.model, { config: { apiKey } })
   ),
-  getConfiguredProviders: () => ({}),
 }))
 vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: m.resolve }))
 vi.mock('@/lib/copilot/process-contents', () => ({ processContextsServer: m.contexts }))
@@ -101,11 +122,6 @@ vi.mock('@tradinggoose/db', () => ({
           },
         }),
       }),
-    }),
-    delete: () => ({
-      where: async (matches: (row: unknown) => boolean) => {
-        for (const [id, row] of m.receipts) if (matches(row)) m.receipts.delete(id)
-      },
     }),
   },
 }))
@@ -367,28 +383,25 @@ describe('built-in Copilot service bridge', () => {
     }
   )
 
-  it.each(['renew', 'release'] as const)(
-    'bounds an unresponsive native lease %s',
-    async (operation) => {
-      vi.useFakeTimers()
-      const workflows = (await m.storage.getStore('workflows'))!
-      const ownership = await claimCopilotThread(scope, 'stalled-thread', 'stalled-run')
-      const stalled = vi
-        .spyOn(workflows, operation === 'renew' ? 'renewRunOwnership' : 'releaseRunOwnership')
-        .mockImplementationOnce(() => new Promise<never>(() => {}))
-      try {
-        const rejected = expect(ownership[operation]()).rejects.toMatchObject({ status: 409 })
-        await vi.advanceTimersByTimeAsync(15_001)
-        await rejected
-        if (operation === 'renew') expect(ownership.signal.aborted).toBe(true)
-      } finally {
-        stalled.mockRestore()
-        await ownership.release()
-        vi.useRealTimers()
-      }
-      expect((await readCopilotThreadOwnership(scope, 'stalled-thread'))?.leaseExpiresAt).toBeNull()
+  it('bounds an unresponsive native lease renewal', async () => {
+    vi.useFakeTimers()
+    const workflows = (await m.storage.getStore('workflows'))!
+    const ownership = await claimCopilotThread(scope, 'stalled-thread', 'stalled-run')
+    const stalled = vi
+      .spyOn(workflows, 'renewRunOwnership')
+      .mockImplementationOnce(() => new Promise<never>(() => {}))
+    try {
+      const rejected = expect(ownership.renew()).rejects.toMatchObject({ status: 409 })
+      await vi.advanceTimersByTimeAsync(15_001)
+      await rejected
+      expect(ownership.signal.aborted).toBe(true)
+    } finally {
+      stalled.mockRestore()
+      await ownership.release()
+      vi.useRealTimers()
     }
-  )
+    expect((await readCopilotThreadOwnership(scope, 'stalled-thread'))?.leaseExpiresAt).toBeNull()
+  })
 
   it.each(['startup', 'provider'])(
     'redacts a native %s failure and releases the conversation for another message',
@@ -1636,6 +1649,56 @@ describe('built-in Copilot service bridge', () => {
     expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
     expect(await m.memory.getThreadById({ threadId: initial.threadId })).toBeNull()
     expect(await isCopilotRunCancelled(initial.runId)).toBe(false)
+    expect(await threadClaims()).toHaveLength(0)
+  })
+
+  it('refuses to recreate a thread deleted after preflight but before writer admission', async () => {
+    setModel({ text: 'Must not run' })
+    const threadId = crypto.randomUUID()
+    await m.memory.createThread({ threadId, ...nativeConversationIdentity(scope) })
+    const memory = (await m.storage.getStore('memory'))!
+    const raiseFence = memory.raiseRunFence.bind(memory)
+    const spy = vi.spyOn(memory, 'raiseRunFence').mockImplementationOnce(async (fence) => {
+      await m.memory.deleteThread(threadId)
+      return raiseFence(fence)
+    })
+    try {
+      expect((await message({ threadId })).result).toMatchObject({
+        status: 'refused',
+        error: { code: 'INVALID_REQUEST', message: 'Copilot thread is unavailable' },
+      })
+      expect(m.admit).not.toHaveBeenCalled()
+      expect(m.contacts).toHaveLength(0)
+      expect(await m.memory.getThreadById({ threadId })).toBeNull()
+      expect(await memory.listMessages({ threadId, perPage: false })).toMatchObject({
+        messages: [],
+      })
+      expect(await threadClaims()).toHaveLength(0)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('returns HTTP 409 for stale deletion without changing native history or receipts', async () => {
+    setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Renamed' } })
+    const initial = suspended((await message({ accessLevel: 'limited' })).result)
+    await command({ command: 'cancel', threadId: initial.threadId, runId: initial.runId })
+    const memory = (await m.storage.getStore('memory'))!
+    const history = await memory.listMessages({ threadId: initial.threadId, perPage: false })
+    const receipts = new Map(m.receipts)
+    expect(receipts.size).toBeGreaterThan(0)
+    vi.mocked(runtime.deleteNativeThread).mockImplementationOnce(async (_threadId, fence) => {
+      throw new RunFenceConflictError(fence, 'deleteThread')
+    })
+
+    const outcome = await command({ command: 'thread.delete', threadId: initial.threadId })
+    expect(outcome.response.status).toBe(409)
+    expect(outcome.result).toMatchObject({ status: 'refused', error: { code: 'STALE_TARGET' } })
+    expect(await m.memory.getThreadById({ threadId: initial.threadId })).not.toBeNull()
+    expect(await memory.listMessages({ threadId: initial.threadId, perPage: false })).toEqual(
+      history
+    )
+    expect(m.receipts).toEqual(receipts)
     expect(await threadClaims()).toHaveLength(0)
   })
 

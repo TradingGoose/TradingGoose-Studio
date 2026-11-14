@@ -1,7 +1,7 @@
 import '@/lib/mastra/__test-utils__/managed-services'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { computeBlockOutputReferences } from '@/lib/copilot/workflow/block-output-utils'
-import { getNativeModelLookup } from '@/lib/mastra/registry'
+import { getNativeModel } from '@/lib/mastra/registry'
 import { getBlock } from '@/blocks'
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { TradingPortfolioDetailBlock } from '@/blocks/blocks/portfolio_detail'
@@ -92,7 +92,7 @@ describe('block output schema traversal', () => {
         block,
         { blocks: { agent: block }, subBlockValues: {} },
         [],
-        await getNativeModelLookup()
+        getNativeModel
       )
       expect(outputs.some(({ path }) => path === 'agent.answer')).toBe(supported)
       expect(outputs.some(({ path }) => path === 'agent.content')).toBe(!supported)

@@ -3,6 +3,7 @@ import { readCopilotRun } from '@/lib/copilot/agent/context'
 import { assertCopilotRunActive, claimCopilotEffect } from '@/lib/copilot/agent/state'
 import { ToolArgSchemas } from '@/lib/copilot/registry'
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
+import type { PendingExecutionTransaction } from '@/lib/execution/pending-execution'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import { resolveWorkflowRunTrigger } from '@/lib/workflows/triggers'
@@ -30,7 +31,6 @@ export async function authorizeNativeWorkflowQueueEffect(
   },
   signal?: AbortSignal
 ) {
-  if (body.native === undefined) return
   const native = nativeTargetSchema.parse(body.native)
   const scope = await authorizeNativeConversationScope(actorUserId, native.workspaceId)
   const pending = await resolveNativePendingTarget(scope, native.target, 'result', signal)
@@ -70,7 +70,10 @@ export async function authorizeNativeWorkflowQueueEffect(
   await assertCopilotRunActive(pending.target.runId)
   const run = await readCopilotRun(scope, pending.target.threadId, pending.target.runId)
   await resolveCopilotModel(run.model)
-  await claimCopilotEffect(run, pending.target.toolCallId, 'browser')
+  return async (transaction: PendingExecutionTransaction) => {
+    await claimCopilotEffect(run, pending.target.toolCallId, 'browser', transaction)
+    return true
+  }
 }
 
 export async function authorizeNativeWorkflowDeploymentEffect(
@@ -80,7 +83,6 @@ export async function authorizeNativeWorkflowDeploymentEffect(
   action: 'deploy' | 'undeploy',
   signal?: AbortSignal
 ) {
-  if (nativeContext === undefined) return
   const native = nativeTargetSchema.parse(nativeContext)
   const scope = await authorizeNativeConversationScope(actorUserId, native.workspaceId)
   const pending = await resolveNativePendingTarget(scope, native.target, 'result', signal)

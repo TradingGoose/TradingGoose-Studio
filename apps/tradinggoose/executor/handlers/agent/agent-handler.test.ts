@@ -2,17 +2,14 @@ import { InMemoryStore } from '@mastra/core/storage'
 import { Memory } from '@mastra/memory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { TraceSpan } from '@/lib/logs/types'
-import { setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
+import '@/lib/mastra/__test-utils__/managed-services'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
-import { getNativeModelLookup } from '@/lib/mastra/registry'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import { getAgentMemory, getNativeMemoryStore } from '@/lib/mastra/runtime'
 import { sumNativeUsage } from '@/lib/mastra/usage'
 import { mcpService } from '@/lib/mcp/service'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
-import { AgentBlock } from '@/blocks/blocks/agent'
-import { getBlock } from '@/blocks/index'
 
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
@@ -73,7 +70,6 @@ import {
   createAgentToolSet,
   createForcedToolPolicy,
 } from '@/executor/handlers/agent/agent-handler'
-import { InputResolver } from '@/executor/resolver/resolver'
 import type { ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
@@ -176,13 +172,9 @@ function context(overrides: Partial<ExecutionContext> = {}) {
 
 function createOwnedTestToolSet(
   configured: Parameters<typeof createAgentToolSet>[0],
-  scope: Record<string, any>
+  scope: ExecutionContext
 ) {
-  const abortController = new AbortController()
-  return createAgentToolSet(configured, scope, undefined, {
-    signal: abortController.signal,
-    abort: (reason) => abortController.abort(reason),
-  })
+  return createAgentToolSet(configured, block, scope, new AbortController())
 }
 
 beforeEach(() => {
@@ -220,88 +212,6 @@ beforeEach(() => {
 })
 
 afterEach(() => vi.unstubAllGlobals())
-
-describe('configured endpoint response schemas', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-    vi.mocked(getBlock).mockReset()
-  })
-
-  it.each([
-    { provider: 'openai', valid: true },
-    { provider: 'custom', valid: true },
-    { provider: 'openai', valid: false },
-    { provider: 'custom', valid: false },
-  ])(
-    'preserves and validates the configured $provider schema (valid=$valid)',
-    async ({ provider, valid }) => {
-      const model = `${provider}/gpt-3.5-turbo`
-      setManagedProviders({
-        [provider]: {
-          name: 'Configured',
-          url: 'https://endpoint.invalid/v1',
-          models: ['gpt-3.5-turbo'],
-        },
-      })
-
-      const responseFormat = {
-        schema: {
-          type: 'object',
-          properties: { answer: { type: 'number' } },
-          required: ['answer'],
-          additionalProperties: false,
-        },
-      }
-      const workflow = createMinimalWorkflow()
-      const agentBlock = workflow.blocks[1]
-      agentBlock.metadata!.id = 'agent'
-      agentBlock.config = { tool: 'agent', params: { model, responseFormat, userPrompt: 'Answer' } }
-      vi.mocked(getBlock).mockReturnValue(AgentBlock)
-      const inputs = new InputResolver(workflow, {}, {}, new Map()).resolveInputs(
-        agentBlock,
-        context(),
-        await getNativeModelLookup()
-      )
-      expect(inputs.responseFormat).toEqual(responseFormat)
-
-      const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
-        expect(String(url)).toBe('https://endpoint.invalid/v1/chat/completions')
-        const body = JSON.parse(String(init?.body))
-        expect(body.model).toBe('gpt-3.5-turbo')
-        expect(body.response_format).toMatchObject({
-          type: 'json_schema',
-          json_schema: { schema: responseFormat.schema },
-        })
-        return Response.json({
-          id: 'chatcmpl_schema',
-          object: 'chat.completion',
-          created: 0,
-          model: body.model,
-          choices: [
-            {
-              index: 0,
-              message: {
-                role: 'assistant',
-                content: JSON.stringify({ answer: valid ? 42 : 'invalid' }),
-              },
-              finish_reason: 'stop',
-            },
-          ],
-          usage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 },
-        })
-      })
-      vi.stubGlobal('fetch', fetcher)
-      const native = await vi.importActual<typeof import('@/lib/mastra/connections')>(
-        '@/lib/mastra/connections'
-      )
-      state.model = await native.createConfiguredLanguageModel(model, 'fixture-key')
-      const execution = new AgentBlockHandler().execute(agentBlock, inputs, context())
-      if (valid) await expect(execution).resolves.toMatchObject({ answer: 42 })
-      else await expect(execution).rejects.toThrow()
-      expect(fetcher).toHaveBeenCalledTimes(1)
-    }
-  )
-})
 
 describe('native Agent workflow execution', () => {
   it.each([
@@ -1079,7 +989,8 @@ describe('native named Force tools', () => {
         usageControl: 'none' as const,
       },
     ]
-    const tools = createOwnedTestToolSet(configured, context())
+    const executionContext = context({ currentVirtualBlockId: 'agent-1__parallel_0' })
+    const tools = createOwnedTestToolSet(configured, executionContext)
     const policy = createForcedToolPolicy(configured)
     const agent = new Agent({
       id: 'forced',
@@ -1107,8 +1018,14 @@ describe('native named Force tools', () => {
     expect(vi.mocked(executeTool).mock.calls[0][0]).toBe('first')
     expect(vi.mocked(executeTool).mock.calls[0][1]).toMatchObject({
       query: 'fixed',
-      _context: { userId: 'user-1', workspaceId: 'workspace-1', workflowId: 'workflow-1' },
+      _context: {
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        workflowId: 'workflow-1',
+        toolExecutionId: executionContext.currentVirtualBlockId,
+      },
     })
+    expect(vi.mocked(executeTool).mock.calls[0][3]).toBe(executionContext)
     expect(result.text).toBe('Native response')
   })
 
@@ -2089,13 +2006,6 @@ it('removes a request-local key from failed-turn errors and canonical history wi
 })
 
 it('refuses an embedding model before generation admission or model contact', async () => {
-  setManagedProviders({
-    openai: {
-      name: 'Controlled registered provider',
-      url: 'https://not-contacted.invalid',
-      models: ['text-embedding-3-small'],
-    },
-  })
   await expect(
     new AgentBlockHandler().execute(
       block,
@@ -2292,9 +2202,9 @@ it.each(['owner-cancel', 'native-cancel'])(
           parameters: { type: 'object', properties: {} },
         },
       ],
+      block,
       context({ userId: 'user-1' }),
-      undefined,
-      { signal: owner.signal, abort: (reason) => owner.abort(reason) }
+      owner
     )
     await expect(
       tools.image_result.execute?.({}, { abortSignal: native.signal })

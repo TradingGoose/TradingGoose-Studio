@@ -876,6 +876,9 @@ describe('enqueuePendingExecution', () => {
         expect(txInsertValuesMock).not.toHaveBeenCalled()
       }
       expect(beforeEnqueue).toHaveBeenCalledOnce()
+      expect(transactionMock.mock.settledResults[0]).toMatchObject({
+        type: continuation ? 'fulfilled' : 'rejected',
+      })
       expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
     }
   )
@@ -1199,6 +1202,7 @@ describe('enqueuePendingExecution', () => {
       selectLimitMock.mockResolvedValueOnce([{ ...claimed, status: 'processing' }])
     }
 
+    const beforeEnqueue = vi.fn(async () => true)
     const admission = enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId: 'pending-b',
@@ -1207,6 +1211,7 @@ describe('enqueuePendingExecution', () => {
       userId: 'user-1',
       source: 'workflow_api',
       payload: { executionId: 'pending-b' },
+      beforeEnqueue,
     })
 
     if (policy === 'permanent') {
@@ -1228,6 +1233,9 @@ describe('enqueuePendingExecution', () => {
       expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
     }
 
+    expect(beforeEnqueue).toHaveBeenCalledOnce()
+    // Dispatch errors follow a committed admission; its receipt must remain committed too.
+    expect(transactionMock.mock.settledResults[0]).toMatchObject({ type: 'fulfilled' })
     expect(txInsertValuesMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'pending-b' }))
     expect(triggerMock).toHaveBeenCalledTimes(policy === 'permanent' || policy === 'reset' ? 1 : 2)
     if (policy === 'reset') {

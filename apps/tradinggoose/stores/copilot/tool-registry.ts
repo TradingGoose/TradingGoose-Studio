@@ -31,7 +31,6 @@ const logger = createLogger('CopilotToolRegistry')
 type ClientToolCtor = {
   new (toolCallId: string): BaseClientTool
   metadata: BaseClientToolMetadata
-  id: ToolId
 }
 
 const CLIENT_TOOL_CONSTRUCTORS: Partial<Record<ToolId, ClientToolCtor>> = {

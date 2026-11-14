@@ -22,7 +22,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 
 class DeferredClientTool extends BaseClientTool {
   constructor(toolCallId: string) {
-    super(toolCallId, 'sleep', { displayNames: {} })
+    super(toolCallId, { displayNames: {} })
   }
 
   async execute() {}

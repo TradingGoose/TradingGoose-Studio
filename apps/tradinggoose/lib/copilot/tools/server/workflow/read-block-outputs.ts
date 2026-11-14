@@ -9,7 +9,7 @@ import {
   readWorkflowVariableOutputs,
 } from '@/lib/copilot/workflow/block-output-utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getNativeModelLookup } from '@/lib/mastra/registry'
+import { getNativeModel } from '@/lib/mastra/registry'
 
 const logger = createLogger('ReadBlockOutputsServerTool')
 
@@ -34,7 +34,6 @@ export const readBlockOutputsServerTool: BaseServerTool<
     const parallels = snapshot.parallels || {}
     const subBlockValues = extractSubBlockValuesFromBlocks(blocks)
     const variableOutputs = readWorkflowVariableOutputs(variables)
-    const getModel = await getNativeModelLookup()
     const ctx = { blocks, subBlockValues }
     const targetBlockIds =
       args.blockIds && args.blockIds.length > 0 ? args.blockIds : Object.keys(blocks)
@@ -50,7 +49,7 @@ export const readBlockOutputsServerTool: BaseServerTool<
         blockId,
         blockName,
         blockType: block.type,
-        outputs: computeBlockOutputReferences(block, ctx, variableOutputs, getModel),
+        outputs: computeBlockOutputReferences(block, ctx, variableOutputs, getNativeModel),
       }
 
       if (block.type === 'loop' || block.type === 'parallel') {

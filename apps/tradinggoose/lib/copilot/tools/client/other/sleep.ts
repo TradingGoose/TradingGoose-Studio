@@ -24,10 +24,8 @@ function formatDuration(seconds: number): string {
 }
 
 export class SleepClientTool extends BaseClientTool {
-  static readonly id = 'sleep'
-
   constructor(toolCallId: string) {
-    super(toolCallId, SleepClientTool.id, SleepClientTool.metadata)
+    super(toolCallId, SleepClientTool.metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {

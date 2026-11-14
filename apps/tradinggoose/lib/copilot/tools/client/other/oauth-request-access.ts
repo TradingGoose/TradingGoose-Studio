@@ -39,15 +39,13 @@ function findServiceByName(providerName: string): string | null {
 }
 
 export class OAuthRequestAccessClientTool extends BaseClientTool {
-  static readonly id = 'oauth_request_access'
-
   private providerName?: string
   private opened = false
   private opening = false
   private reservedWindow?: Window
 
   constructor(toolCallId: string) {
-    super(toolCallId, OAuthRequestAccessClientTool.id, OAuthRequestAccessClientTool.metadata)
+    super(toolCallId, OAuthRequestAccessClientTool.metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {

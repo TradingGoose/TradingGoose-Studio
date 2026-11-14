@@ -53,16 +53,14 @@ export interface ClientToolExecutionContext {
 
 export abstract class BaseClientTool {
   readonly toolCallId: string
-  readonly name: string
   protected state = ClientToolCallState.generating
   protected metadata: BaseClientToolMetadata
   private disposed = false
   private resultSubmitted = false
   private executionContext: ClientToolExecutionContext | null = null
   private toolCall: Record<string, any> | undefined
-  constructor(id: string, name: string, metadata: BaseClientToolMetadata) {
+  constructor(id: string, metadata: BaseClientToolMetadata) {
     this.toolCallId = id
-    this.name = name
     this.metadata = metadata
   }
   hasSubmittedResult() {

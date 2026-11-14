@@ -18,6 +18,7 @@ const m = vi.hoisted(() => {
     pendingValue: Pending | null
     pendingRows: Array<Record<string, unknown>>
     logRows: Array<Record<string, unknown>>
+    enqueueFailure: 'backlog' | 'insert' | 'dispatch' | null
   } = {
     conversationWorkspaceId: 'workspace-a',
     workflowWorkspaceId: 'workspace-b',
@@ -26,6 +27,7 @@ const m = vi.hoisted(() => {
     pendingValue: null,
     pendingRows: [],
     logRows: [],
+    enqueueFailure: null,
   }
   return {
     state,
@@ -112,9 +114,9 @@ vi.mock('@/lib/workflows/utils', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/workflows/utils')>()),
   readWorkflowAccessContext: m.workflowAccess,
 }))
-vi.mock('@/lib/execution/pending-execution', () => ({
+vi.mock('@/lib/execution/pending-execution', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/execution/pending-execution')>()),
   enqueuePendingExecution: m.enqueue,
-  isPendingExecutionLimitError: () => false,
 }))
 vi.mock('@/lib/execution/workflow-execution-stream', () => ({
   openWorkflowExecutionEventStream: () => {
@@ -135,10 +137,15 @@ vi.mock('@/lib/copilot/settings.server', () => ({
 }))
 vi.mock('@/lib/copilot/agent/state', () => ({
   assertCopilotRunActive: async () => undefined,
-  claimCopilotEffect: async (run: { runId: string }, callId: string, phase: string) => {
+  claimCopilotEffect: async (
+    run: { runId: string },
+    callId: string,
+    phase: string,
+    transaction: Set<string>
+  ) => {
     const key = JSON.stringify([run.runId, callId, phase])
-    if (m.claims.has(key)) throw new NativeTargetError('Already dispatched', 409)
-    m.claims.add(key)
+    if (transaction.has(key)) throw new NativeTargetError('Already dispatched', 409)
+    transaction.add(key)
   },
 }))
 vi.mock('@/lib/redis', () => ({ getRedisClient: () => null, getRedisStorageMode: () => 'local' }))
@@ -168,6 +175,7 @@ vi.mock('@/lib/env', () => ({
 vi.unmock('@/blocks/registry')
 
 import { ToolResultSchemas } from '@/lib/copilot/registry'
+import { PendingExecutionLimitError } from '@/lib/execution/pending-execution'
 import { POST as queuePost } from '@/app/api/workflows/[id]/queue/route'
 import { NativeTargetError } from './errors'
 import { nativeConversationIdentity } from './identity'
@@ -277,6 +285,7 @@ beforeEach(() => {
   m.state.allowedWorkspaces = new Set(['workspace-a', 'workspace-b', 'workspace-c'])
   m.state.pendingRows.length = 0
   m.state.logRows.length = 0
+  m.state.enqueueFailure = null
   m.state.pendingValue = originalPending()
   m.workspace.mockReset().mockImplementation(async (workspaceId, actorUserId) => ({
     exists: true,
@@ -306,6 +315,11 @@ beforeEach(() => {
     }
   })
   m.enqueue.mockReset().mockImplementation(async (input) => {
+    const transaction = new Set(m.claims)
+    await input.beforeEnqueue?.(transaction)
+    if (m.state.enqueueFailure === 'backlog')
+      throw new PendingExecutionLimitError({ pendingCount: 1, maxPendingCount: 1 })
+    if (m.state.enqueueFailure === 'insert') throw new Error('Queue insert failed')
     const inserted = !m.state.pendingRows.some((row) => row.id === input.pendingExecutionId)
     if (inserted)
       m.state.pendingRows.push({
@@ -315,6 +329,8 @@ beforeEach(() => {
         userId: input.userId,
         executionType: input.executionType,
       })
+    m.claims = transaction
+    if (m.state.enqueueFailure === 'dispatch') throw new Error('Dispatch failed after commit')
     return {
       pendingExecutionId: input.pendingExecutionId,
       inserted,
@@ -347,10 +363,40 @@ describe('local workflow execution and authoritative readback', () => {
       })
       expect(m.state.pendingValue).toEqual(original)
       expect((await queue()).status).toBe(409)
-      expect(m.enqueue).toHaveBeenCalledOnce()
+      expect(m.enqueue).toHaveBeenCalledTimes(2)
+      expect(m.state.pendingRows).toHaveLength(1)
+      expect(m.claims.size).toBe(1)
       expect(m.forbiddenEffect).not.toHaveBeenCalled()
     }
   )
+  it.each(['backlog', 'insert'] as const)(
+    'keeps the same native target retryable after %s rejects admission',
+    async (failure) => {
+      m.state.enqueueFailure = failure
+      const response = await queue()
+      expect(response.status).toBe(failure === 'backlog' ? 429 : 500)
+      if (failure === 'backlog')
+        expect(await response.json()).toMatchObject({ code: 'PENDING_EXECUTION_LIMIT' })
+      expect(m.claims.size).toBe(0)
+      expect(m.state.pendingRows).toEqual([])
+      m.state.enqueueFailure = null
+      expect((await queue()).status).toBe(202)
+      terminal()
+      expect(await readback()).toMatchObject({ executionId: EXECUTION, data: { success: true } })
+      expect(m.state.pendingRows).toHaveLength(1)
+      expect(m.claims.size).toBe(1)
+    }
+  )
+  it('retains the effect claim when dispatch fails after admission commits', async () => {
+    m.state.enqueueFailure = 'dispatch'
+    expect((await queue()).status).toBe(500)
+    expect(m.claims.size).toBe(1)
+    m.state.enqueueFailure = null
+    expect((await queue()).status).toBe(409)
+    expect(m.state.pendingRows).toHaveLength(1)
+    terminal()
+    expect(await readback()).toMatchObject({ executionId: EXECUTION, data: { success: true } })
+  })
   it.each([false, true])('preserves failed output after queue-row cleanup=%s', async (logOnly) => {
     expect((await queue()).status).toBe(202)
     terminal(true, logOnly)

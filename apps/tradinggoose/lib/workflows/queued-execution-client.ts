@@ -23,11 +23,6 @@ type QueuedWorkflowExecutionRequest = {
   signal?: AbortSignal
 }
 
-type QueueResponse = {
-  taskId?: string
-  executionId?: string
-}
-
 export type QueuedWorkflowExecutionHandle = {
   taskId: string
   executionId: string
@@ -36,6 +31,8 @@ export type QueuedWorkflowExecutionHandle = {
 export type QueuedWorkflowExecutionCallbacks = {
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
+
+export class WorkflowQueueAdmissionError extends Error {}
 
 async function readError(response: Response, defaultMessage: string) {
   const payload = await response.json().catch(() => null)
@@ -64,12 +61,18 @@ export async function queueWorkflowExecution(
   })
 
   if (!response.ok) {
-    throw new Error(
-      await readError(response, `Failed to queue workflow execution: ${response.status}`)
-    )
+    const payload = await response.json().catch(() => null)
+    const message =
+      typeof payload?.error === 'string'
+        ? payload.error
+        : `Failed to queue workflow execution: ${response.status}`
+    if (payload?.code === 'PENDING_EXECUTION_LIMIT') throw new WorkflowQueueAdmissionError(message)
+    throw new Error(message)
   }
 
-  const payload = (await response.json().catch(() => null)) as QueueResponse | null
+  const payload = (await response
+    .json()
+    .catch(() => null)) as Partial<QueuedWorkflowExecutionHandle> | null
   if (!payload?.taskId) {
     throw new Error('Workflow queue response is missing taskId')
   }

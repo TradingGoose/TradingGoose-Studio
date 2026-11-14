@@ -7,7 +7,7 @@ const fixture = vi.hoisted(() => ({
   memoryInit: vi.fn(),
   workflowInit: vi.fn(),
   end: vi.fn(),
-  query: vi.fn(async () => ({ rows: [] })),
+  query: vi.fn(async () => ({ rows: [] as unknown[] })),
   release: vi.fn(),
   connect: vi.fn(),
   poolOptions: [] as unknown[],
@@ -24,6 +24,7 @@ vi.mock('pg', async (importOriginal) => {
     }
     end = fixture.end
     connect = fixture.connect
+    query = fixture.query
   }
   const pg = { Pool, defaults, escapeIdentifier }
   return { ...pg, default: pg }
@@ -174,6 +175,73 @@ it('handles idle and transactional client errors through the native pool guards'
   expect(fixture.poolOptions).toHaveLength(1)
   expect(fixture.end).not.toHaveBeenCalled()
 })
+it.each([{ generation: 2, ownerId: 'owner' }, { generation: 1, ownerId: 'successor' }, null])(
+  'rejects thread deletion before mutation when the current fence is %j',
+  async (current) => {
+    await runtime.getMastra()
+    const { isRunFenceConflictError } = await import('@mastra/core/storage')
+    const query = vi.fn(async (sql: string) => ({
+      rows: sql.includes('FOR SHARE') && current ? [current] : [],
+    }))
+    fixture.connect.mockResolvedValueOnce({ query, release: fixture.release })
+    const cleanup = vi.fn()
+    await expect(
+      runtime.deleteNativeThread(
+        'thread',
+        { runId: 'claim', generation: 1, ownerId: 'owner' },
+        cleanup
+      )
+    ).rejects.toSatisfy(isRunFenceConflictError)
+    expect(query.mock.calls.map(([sql]) => sql)).toEqual([
+      'BEGIN',
+      expect.stringMatching(/SELECT generation,.*ownerId.*mastra_memory_run_fences.*FOR SHARE/s),
+      'ROLLBACK',
+    ])
+    expect(cleanup).not.toHaveBeenCalled()
+  }
+)
+it.each([false, true])(
+  'shares native thread deletion and receipt cleanup in one transaction (cleanup fails: %s)',
+  async (fails) => {
+    const mastra = await runtime.getMastra()
+    const clearTopic = vi.spyOn(mastra.pubsub, 'clearTopic')
+    const fence = { runId: 'claim', generation: 1, ownerId: 'owner' }
+    const query = vi.fn(async (sql: string) => ({ rows: sql.includes('FOR SHARE') ? [fence] : [] }))
+    fixture.query.mockClear().mockResolvedValueOnce({
+      rows: [{ id: 'thread', resourceId: 'resource', title: 'Conversation', metadata: {} }],
+    })
+    fixture.connect.mockClear().mockResolvedValueOnce({ query, release: fixture.release })
+    fixture.release.mockClear()
+    const deletion = runtime.deleteNativeThread('thread', fence, async (tx) => {
+      await tx.none('DELETE FROM verification WHERE identifier = $1', ['claim'])
+      if (fails) throw new Error('Cleanup unavailable')
+    })
+    if (fails) await expect(deletion).rejects.toThrow()
+    else await deletion
+    expect(query.mock.calls.map(([sql]) => sql)).toEqual([
+      'BEGIN',
+      expect.stringMatching(/SELECT generation,.*ownerId.*mastra_memory_run_fences.*FOR SHARE/s),
+      expect.stringMatching(/DELETE FROM .*mastra_messages.*thread_id/),
+      expect.stringContaining('FROM pg_tables'),
+      expect.stringMatching(/DELETE FROM .*mastra_threads.*id/),
+      'DELETE FROM verification WHERE identifier = $1',
+      fails ? 'ROLLBACK' : 'COMMIT',
+    ])
+    expect(fixture.connect).toHaveBeenCalledOnce()
+    expect(fixture.release).toHaveBeenCalledOnce()
+    expect(fixture.end).not.toHaveBeenCalled()
+    expect(clearTopic).toHaveBeenCalledTimes(fails ? 0 : 1)
+    if (!fails) {
+      expect(clearTopic).toHaveBeenCalledWith('agent.thread-stream.resource%00thread')
+      expect(fixture.query).toHaveBeenLastCalledWith(
+        expect.stringContaining('DELETE FROM "mastra"."mastra_observational_memory"'),
+        ['thread:thread']
+      )
+    }
+    expect(fixture.poolOptions).toHaveLength(1)
+    expect(fixture.memoryInit).toHaveBeenCalledOnce()
+  }
+)
 it('ends the pool when Agent construction fails after domain initialization', async () => {
   fixture.createAgent.mockImplementationOnce(() => {
     throw new Error('agent unavailable')

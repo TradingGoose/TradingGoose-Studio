@@ -12,13 +12,14 @@ import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool, registerClientTool } from '@/lib/copilot/tools/client/manager'
 import { SleepClientTool } from '@/lib/copilot/tools/client/other/sleep'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
+import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
 import { organizationKeys } from '@/hooks/queries/organization'
 import { subscriptionKeys } from '@/hooks/queries/subscription'
 import { useExecutionStore } from '@/stores/execution/store'
 import { buildCopilotWorkspaceChannelId } from './channel-id'
 import { getCopilotStore, resetCopilotStoreRegistry } from './store'
 import { getCopilotStoreForToolCall } from './store-access'
-import { hasUiActiveToolCalls } from './store-state'
+import { hasUiActiveToolCalls, isCopilotBusy } from './store-state'
 import { applyNativeEvent, displayNativePending } from './streaming'
 import type { CopilotChat } from './types'
 import { getCopilotWorkspaceSelection } from './workspace-selection'
@@ -2209,6 +2210,67 @@ describe('local workflow execution refusals', () => {
     return target
   }
 
+  it('allows explicit retry after rejected queue admission, then resumes and accepts a new message', async () => {
+    const target = await install()
+    const executionId = target.target.toolCallId
+    const result = { success: true, output: {}, logs: [] }
+    let attempts = 0
+    onWorkflow = (id) => {
+      expect(id).toBe('original-workflow/queue')
+      return ++attempts === 1
+        ? json({ error: 'Queue is full', code: 'PENDING_EXECUTION_LIMIT' }, 429)
+        : json({ taskId: executionId, executionId }, 202)
+    }
+    const fetchCopilot = globalThis.fetch
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+        String(input) === `/api/jobs/${executionId}`
+          ? Promise.resolve(
+              eventResponse([
+                {
+                  type: 'execution:completed',
+                  executionId,
+                  workflowId: 'original-workflow',
+                  timestamp: at,
+                  eventId: 1,
+                  data: { result },
+                },
+              ])
+            )
+          : fetchCopilot(input, init)
+      )
+    )
+    tools.runWorkflow.mockImplementation(({ workflowId, native, signal }) =>
+      runQueuedWorkflowExecution({
+        workflowId,
+        executionId: native.target.toolCallId,
+        native,
+        signal,
+        triggerType: 'manual',
+        executionTarget: 'live',
+      })
+    )
+    await store().getState().executeCopilotToolCall(executionId)
+    expect(store().getState().toolCallsById[executionId]).toMatchObject({
+      state: ClientToolCallState.pending,
+      pending: target,
+    })
+    expect(store().getState().error).toBe('Queue is full')
+    expect(commands).toEqual([])
+    expect(attempts).toBe(1)
+
+    await store().getState().executeCopilotToolCall(executionId)
+    expect(attempts).toBe(2)
+    expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
+      { command: 'tool.execute', workspaceId, target: target.target, action: 'readback' },
+    ])
+    expect(isCopilotBusy(store().getState())).toBe(false)
+    expect(await store().getState().sendMessage('Continue')).toBe(true)
+    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+    expect(commands.some((request) => request.command === 'cancel')).toBe(false)
+  })
+
   it('keeps Run available after a local busy refusal and admits one later explicit attempt', async () => {
     const target = await install()
     useExecutionStore.getState().setIsExecuting(true)
@@ -2237,7 +2299,6 @@ describe('local workflow execution refusals', () => {
     await retry
     expect(tools.runWorkflow).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
-        executionId: target.target.toolCallId,
         workflowId: 'original-workflow',
         triggerBlockId: 'original-trigger',
         native: { workspaceId, target: target.target },

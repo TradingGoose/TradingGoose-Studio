@@ -11,10 +11,8 @@ interface MarkTodoInProgressArgs {
 }
 
 export class MarkTodoInProgressClientTool extends BaseClientTool {
-  static readonly id = 'mark_todo_in_progress'
-
   constructor(toolCallId: string) {
-    super(toolCallId, MarkTodoInProgressClientTool.id, MarkTodoInProgressClientTool.metadata)
+    super(toolCallId, MarkTodoInProgressClientTool.metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {

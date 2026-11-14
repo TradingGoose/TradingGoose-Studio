@@ -1,6 +1,13 @@
 import { Mastra } from '@mastra/core/mastra'
+import {
+  MastraCompositeStore,
+  matchesRunFence,
+  type RunFence,
+  RunFenceConflictError,
+  TABLE_MEMORY_RUN_FENCES,
+} from '@mastra/core/storage'
 import { Memory } from '@mastra/memory'
-import { PostgresStore } from '@mastra/pg'
+import { MemoryPG, PoolAdapter, PostgresStore, type TxClient } from '@mastra/pg'
 import { RedisStreamsPubSub } from '@mastra/redis-streams'
 import { createCopilotAgent } from '@/lib/copilot/agent/agent'
 
@@ -52,6 +59,39 @@ export async function getCopilotAgent() {
 
 export async function getAgentMemory() {
   return (await getRuntime()).memory
+}
+
+/** Mastra excludes deleteThread from fencing; use its fenced-write transaction pattern. */
+export async function deleteNativeThread(
+  threadId: string,
+  fence: RunFence,
+  cleanup: (transaction: TxClient) => Promise<unknown>
+) {
+  const { storage, mastra } = await getRuntime()
+  const client = new PoolAdapter(storage.pool)
+  client.tx = (remove) =>
+    storage.db.tx(async (transaction) => {
+      const row = await transaction.oneOrNone<{ generation: string; ownerId: string }>(
+        `SELECT generation, "ownerId" FROM "mastra"."${TABLE_MEMORY_RUN_FENCES}"
+         WHERE "runId" = $1 FOR SHARE`,
+        [fence.runId]
+      )
+      if (!matchesRunFence(row && { ...row, generation: Number(row.generation) }, fence))
+        throw new RunFenceConflictError(fence, 'deleteThread')
+      const result = await remove(transaction)
+      await cleanup(transaction)
+      return result
+    })
+  // Scope the transaction adapter to this deletion; keep native SQL and stream cleanup.
+  const memory = new Memory({
+    storage: new MastraCompositeStore({
+      id: 'studio-thread-deletion',
+      domains: { memory: new MemoryPG({ client, schemaName: 'mastra' }) },
+      disableInit: true,
+    }),
+  })
+  memory.__registerMastra(mastra)
+  await memory.deleteThread(threadId)
 }
 
 export async function getNativeMemoryStore() {

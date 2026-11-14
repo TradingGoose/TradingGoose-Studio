@@ -17,13 +17,11 @@ interface DeployWorkflowArgs {
 }
 
 export class DeployWorkflowClientTool extends BaseClientTool {
-  static readonly id = 'deploy_workflow'
-
   private chatOpened = false
   private chatOpening = false
 
   constructor(toolCallId: string) {
-    super(toolCallId, DeployWorkflowClientTool.id, DeployWorkflowClientTool.metadata)
+    super(toolCallId, DeployWorkflowClientTool.metadata)
   }
 
   /**

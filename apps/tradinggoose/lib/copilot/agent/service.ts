@@ -474,6 +474,7 @@ async function* generate(
         workflowId: request.workflowId,
       }
       if (request.threadId) {
+        await requireThread(scope, threadId, signal)
         await assertCopilotThreadReady(scope, threadId)
       } else {
         await ownership!.run(async () =>
@@ -780,7 +781,11 @@ export async function executeCopilotCommand(
     if (result) return Response.json(result)
   } catch (error) {
     return Response.json(failure(error), {
-      status: error instanceof NativeTargetError ? error.status : 503,
+      status: isRunFenceConflictError(error)
+        ? 409
+        : error instanceof NativeTargetError
+          ? error.status
+          : 503,
     })
   }
   signal?.throwIfAborted()

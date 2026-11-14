@@ -46,6 +46,8 @@ describe('tool-registry', () => {
       'sleep',
     ])
     expect(server.filter(isGatedTool)).toHaveLength(20)
+    for (const name of server)
+      expect(ensureClientToolInstance(name, `server-${name}`)).toBeUndefined()
     expect(client.filter(isGatedTool).sort()).toEqual([
       'deploy_workflow',
       'gdrive_request_access',
@@ -108,48 +110,6 @@ describe('tool-registry', () => {
     expect(isGatedTool('get_blocks_metadata')).toBe(false)
     expect(isGatedTool('get_agent_accessory_catalog')).toBe(false)
     expect(isGatedTool('unknown_integration_tool')).toBe(true)
-  })
-
-  it('keeps saved entity and workflow document tools off the client-staged execution path', () => {
-    expect(ensureClientToolInstance('create_workflow', 'create-workflow-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('edit_workflow', 'edit-workflow-tool')).toBeUndefined()
-    expect(
-      ensureClientToolInstance('edit_workflow_block', 'edit-workflow-block-tool')
-    ).toBeUndefined()
-    expect(
-      ensureClientToolInstance('edit_workflow_variable', 'edit-workflow-variable-tool')
-    ).toBeUndefined()
-    expect(ensureClientToolInstance('rename_workflow', 'rename-workflow-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('read_workflow', 'read-workflow-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('list_workflows', 'list-workflows-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('edit_skill', 'edit-skill-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('edit_indicator', 'edit-indicator-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('edit_custom_tool', 'edit-custom-tool-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('edit_mcp_server', 'edit-mcp-server-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('list_watchlist', 'list-watchlist-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('read_watchlist', 'read-watchlist-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('edit_watchlist', 'edit-watchlist-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('list_knowledge_bases', 'list-kb-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('read_knowledge_base', 'read-kb-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('create_knowledge_base', 'create-kb-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('edit_knowledge_base', 'edit-kb-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('rename_knowledge_base', 'rename-kb-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('query_knowledge_base', 'query-kb-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('list_monitors', 'list-monitors-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('read_monitor', 'read-monitor-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('edit_monitor', 'edit-monitor-tool')).toBeUndefined()
-    expect(
-      ensureClientToolInstance('check_deployment_status', 'check-deployment-status-tool')
-    ).toBeUndefined()
-    expect(
-      ensureClientToolInstance('read_block_outputs', 'read-block-outputs-tool')
-    ).toBeUndefined()
-    expect(
-      ensureClientToolInstance(
-        'read_block_upstream_references',
-        'read-block-upstream-references-tool'
-      )
-    ).toBeUndefined()
   })
 
   it('refreshes workflow registry and list query after server-managed workflow mutations', async () => {

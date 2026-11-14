@@ -1,4 +1,6 @@
 import { Loader2, MinusCircle, Play, XCircle } from 'lucide-react'
+import type { z } from 'zod'
+import type { ToolArgSchemas } from '@/lib/copilot/registry'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
@@ -8,22 +10,17 @@ import {
 import { executeWorkflowWithFullLogging } from '@/lib/copilot/tools/client/workflow/workflow-execution-utils'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
+import { WorkflowQueueAdmissionError } from '@/lib/workflows/queued-execution-client'
 import { useExecutionStore } from '@/stores/execution/store'
 
-interface RunWorkflowArgs {
-  entityId: string
-  description?: string
-  triggerBlockId: string
-  workflow_input?: Record<string, any> | string
-}
+type RunWorkflowArgs = z.infer<typeof ToolArgSchemas.run_workflow>
 
 export class RunWorkflowClientTool extends BaseClientTool {
-  static readonly id = 'run_workflow'
-  // Only a local refusal proves false; a fresh instance cannot attest an older attempt.
+  // Only a proven refusal permits retry; a fresh instance cannot attest an older attempt.
   private executionAttempted?: boolean
 
   constructor(toolCallId: string) {
-    super(toolCallId, RunWorkflowClientTool.id, RunWorkflowClientTool.metadata)
+    super(toolCallId, RunWorkflowClientTool.metadata)
   }
 
   hasAttemptedExecution() {
@@ -49,18 +46,11 @@ export class RunWorkflowClientTool extends BaseClientTool {
   async execute(args?: RunWorkflowArgs): Promise<void> {
     const logger = createLogger('RunWorkflowClientTool')
     await this.executeWithTimeout(async () => {
-      const params = (args ?? {}) as Partial<RunWorkflowArgs>
-      logger.debug('execute() called', {
-        toolCallId: this.toolCallId,
-        state: this.getState(),
-        hasArgs: !!args,
-        argKeys: args ? Object.keys(args) : [],
-      })
+      const params: Partial<RunWorkflowArgs> = args ?? {}
 
       // prevent concurrent execution
       const { isExecuting, setIsExecuting } = useExecutionStore.getState()
       if (isExecuting) {
-        logger.debug('Execution prevented: already executing')
         this.fail('The workflow is already in the middle of an execution. Try again later')
         if (this.executionAttempted !== true) {
           this.executionAttempted = false
@@ -73,14 +63,11 @@ export class RunWorkflowClientTool extends BaseClientTool {
       try {
         activeWorkflowId = requireCopilotEntityId(params)
       } catch {
-        logger.debug('Execution prevented: no target workflow')
         this.fail('entityId is required')
         return
       }
-      logger.debug('Using target workflow', { workflowId: activeWorkflowId })
 
       if (typeof params.triggerBlockId !== 'string' || params.triggerBlockId.length === 0) {
-        logger.debug('Execution prevented: no trigger block selected')
         this.fail('triggerBlockId is required')
         return
       }
@@ -94,38 +81,17 @@ export class RunWorkflowClientTool extends BaseClientTool {
         }
       }
 
-      if (workflowInput?.input) {
-        logger.debug('Workflow input provided', {
-          inputPreview: String(workflowInput.input).slice(0, 120),
-        })
-      } else if (workflowInput) {
-        logger.debug('Workflow input provided', {
-          inputFields: Object.keys(workflowInput),
-          inputPreview: JSON.stringify(workflowInput).slice(0, 120),
-        })
-      }
-
-      let shouldClearExecution = false
+      setIsExecuting(true)
       try {
-        setIsExecuting(true)
-        shouldClearExecution = true
-        logger.debug('Set isExecuting(true) and switching state to executing')
         this.setState(ClientToolCallState.executing)
 
-        const executionStartTime = new Date().toISOString()
-        logger.debug('Starting workflow execution', {
-          executionStartTime,
-          executionId: this.toolCallId,
-        })
-
         const native = await this.requireNativeTarget()
-        // Once the execution path is entered, a later failure cannot prove that nothing ran.
+        // Keep replay blocked unless admission explicitly confirms that nothing was queued.
         this.executionAttempted = true
         const result = await executeWorkflowWithFullLogging({
           native,
           signal: this.getAbortSignal(),
           workflowInput,
-          executionId: this.toolCallId,
           workflowId: activeWorkflowId,
           triggerBlockId: params.triggerBlockId,
         })
@@ -135,16 +101,18 @@ export class RunWorkflowClientTool extends BaseClientTool {
         this.setState(result.success ? ClientToolCallState.success : ClientToolCallState.error, {
           result,
         })
-      } catch (error: any) {
+      } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
 
         logger.error('Run workflow failed', { message })
 
         this.fail(message)
-      } finally {
-        if (shouldClearExecution) {
-          setIsExecuting(false)
+        if (error instanceof WorkflowQueueAdmissionError) {
+          this.executionAttempted = false
+          this.setState(ClientToolCallState.pending)
         }
+      } finally {
+        setIsExecuting(false)
       }
     }, WORKFLOW_EXECUTION_TIMEOUT_MS)
   }

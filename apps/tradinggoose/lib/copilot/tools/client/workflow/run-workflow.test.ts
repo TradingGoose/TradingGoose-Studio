@@ -73,7 +73,6 @@ describe('native workflow client explicit scoping', () => {
       native: { workspaceId: null, target },
       signal: m.abort.signal,
       workflowInput: { symbol: 'AAPL' },
-      executionId: 'call',
       workflowId: 'explicit-target',
       triggerBlockId: 'schedule-trigger',
     })

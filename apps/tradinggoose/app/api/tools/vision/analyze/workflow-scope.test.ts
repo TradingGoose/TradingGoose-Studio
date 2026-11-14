@@ -3,6 +3,7 @@ import '@/lib/mastra/__test-utils__/managed-services'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { createMinimalWorkflow } from '@/executor/__test-utils__/executor-mocks'
 import { createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
 import { GenericBlockHandler } from '@/executor/handlers/generic/generic-handler'
 import type { ExecutionContext } from '@/executor/types'
@@ -158,9 +159,9 @@ it('retains a nested native tool callback scope instead of trusting its input id
         params: { model: 'openai/gpt-4.1', imageUrl: 'data:image/png;base64,aW1hZ2U=' },
       },
     ],
-    { workflowId: context.workflowId, workspaceId: context.workspaceId, userId: context.userId },
+    createMinimalWorkflow().blocks[1],
     context,
-    { signal: abortController.signal, abort: (reason) => abortController.abort(reason) }
+    abortController
   )
   const output = await native.vision_tool.execute!({ prompt: 'nested literal' }, {})
   expect(output).toMatchObject({ content: 'exact scoped output' })

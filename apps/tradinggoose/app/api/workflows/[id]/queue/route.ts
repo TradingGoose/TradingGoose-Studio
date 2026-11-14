@@ -161,11 +161,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 403 }
       )
     }
+    let beforeEnqueue: Parameters<typeof enqueuePendingExecution>[0]['beforeEnqueue']
     if (body.native !== undefined) {
       const { authorizeNativeWorkflowQueueEffect } = await import(
         '@/lib/copilot/native/workflow-effects'
       )
-      await authorizeNativeWorkflowQueueEffect(auth.userId, workflowId, body, request.signal)
+      beforeEnqueue = await authorizeNativeWorkflowQueueEffect(
+        auth.userId,
+        workflowId,
+        body,
+        request.signal
+      )
     }
     const createdAt = new Date().toISOString()
     const pendingExecutionId =
@@ -188,6 +194,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       userId: auth.userId,
       source,
       requestId,
+      beforeEnqueue,
       payload: {
         executionId: pendingExecutionId,
         workflowId,
@@ -240,7 +247,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: error.message, retryable: false }, { status: error.status })
     if (isPendingExecutionLimitError(error)) {
       return NextResponse.json(
-        { error: 'Pending execution backlog is full' },
+        { error: error.message, code: error.code },
         { status: error.statusCode }
       )
     }

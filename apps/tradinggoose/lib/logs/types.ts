@@ -12,7 +12,6 @@ export type { NormalizedBlockOutput, BlockLog }
 export interface CostMetadata extends Omit<NativeCost, 'status'> {
   status?: NativeCost['status']
   unavailableComponents?: number
-  availableTotal?: number
   modelCost?: number
   models?: Record<
     string,
@@ -30,9 +29,6 @@ export interface CostMetadata extends Omit<NativeCost, 'status'> {
       }
     }
   >
-  input?: number
-  output?: number
-  total?: number
   tokens?: {
     prompt?: number
     completion?: number
@@ -40,7 +36,6 @@ export interface CostMetadata extends Omit<NativeCost, 'status'> {
   }
 }
 
-export type BlockInputData = Record<string, any>
 export type BlockOutputData = NormalizedBlockOutput | null
 
 export interface ExecutionEnvironment {
@@ -68,7 +63,6 @@ export interface WorkflowExecutionSnapshot {
 }
 
 export type WorkflowExecutionSnapshotInsert = Omit<WorkflowExecutionSnapshot, 'createdAt'>
-export type WorkflowExecutionSnapshotSelect = WorkflowExecutionSnapshot
 
 export interface WorkflowExecutionLog {
   id: string
@@ -107,9 +101,6 @@ export interface WorkflowExecutionLog {
   durationMs?: number | null
   createdAt?: string
 }
-
-export type WorkflowExecutionLogInsert = Omit<WorkflowExecutionLog, 'id' | 'createdAt'>
-export type WorkflowExecutionLogSelect = WorkflowExecutionLog
 
 export interface TraceSpan {
   inference?: InferenceFacts
@@ -213,23 +204,6 @@ export class LogsServiceError extends Error {
     this.code = code
     this.details = details
   }
-}
-
-export interface DatabaseOperationResult<T> {
-  success: boolean
-  data?: T
-  error?: LogsServiceError
-}
-
-export interface BatchInsertResult<T> {
-  inserted: T[]
-  failed: Array<{
-    item: T
-    error: string
-  }>
-  totalAttempted: number
-  totalSucceeded: number
-  totalFailed: number
 }
 
 export interface SnapshotService {

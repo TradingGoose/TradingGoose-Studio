@@ -2,7 +2,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   observeQueuedWorkflowExecution,
+  queueWorkflowExecution,
   runQueuedWorkflowExecution,
+  WorkflowQueueAdmissionError,
 } from './queued-execution-client'
 
 const runParams = {
@@ -29,6 +31,31 @@ const started = {
 
 describe('queued workflow observation', () => {
   afterEach(() => vi.unstubAllGlobals())
+
+  it.each([
+    [429, 'PENDING_EXECUTION_LIMIT', true],
+    [429, undefined, false],
+    [429, 'DISPATCH_FAILED', false],
+    [503, undefined, false],
+  ] as const)(
+    'classifies admission HTTP %s, code %s without inferring safety from status',
+    async (status, code, refused) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(Response.json({ error: 'Queue unavailable', code }, { status }))
+      )
+      const error = await queueWorkflowExecution(runParams).catch((error: unknown) => error)
+      expect(error).toBeInstanceOf(Error)
+      expect(error).toMatchObject({ message: 'Queue unavailable' })
+      expect(error instanceof WorkflowQueueAdmissionError).toBe(refused)
+    }
+  )
+
+  it('preserves a lost admission response as an uncertain failure', async () => {
+    const error = new TypeError('Failed to fetch')
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(error))
+    await expect(queueWorkflowExecution(runParams)).rejects.toBe(error)
+  })
 
   it.each(['close', 'error'])(
     'reconnects after stream %s and skips replayed event IDs',

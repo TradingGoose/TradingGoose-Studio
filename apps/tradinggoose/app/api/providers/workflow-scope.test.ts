@@ -10,6 +10,7 @@ import { generateInternalToken, verifyInternalTokenDetailed } from '@/lib/auth/i
 import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { getInferenceFacts } from '@/lib/mastra/result'
+import { createMinimalWorkflow } from '@/executor/__test-utils__/executor-mocks'
 import { createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
 import { GenericBlockHandler } from '@/executor/handlers/generic/generic-handler'
 import type { ExecutionContext, ExecutionResult } from '@/executor/types'
@@ -384,14 +385,9 @@ it('retains a nested native tool callback scope instead of trusting its input id
         params: { model: 'openai/gpt-4.1' },
       },
     ],
-    {
-      workflowId: context.workflowId,
-      workspaceId: context.workspaceId,
-      userId: context.userId,
-      toolExecutionId: 'agent-block',
-    },
+    { ...createMinimalWorkflow().blocks[1], id: 'agent-block' },
     context,
-    { signal: abortController.signal, abort: (reason) => abortController.abort(reason) }
+    abortController
   )
   const output = await native.llm_chat.execute!({ context: 'nested literal' }, {})
   expect(output).toMatchObject({ content: 'exact scoped output' })

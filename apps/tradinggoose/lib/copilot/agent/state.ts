@@ -10,7 +10,7 @@ import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import {
-  getAgentMemory,
+  deleteNativeThread,
   getCopilotAgent,
   getNativeMemoryStore,
   getNativeWorkflowsStore,
@@ -40,9 +40,13 @@ const fenceContext = setRunFenceContext({
   run: (scope, operation) => fenceScope.run(scope, operation),
 })
 
-async function insertReceipt(id: string, identifier: string) {
+async function insertReceipt(
+  id: string,
+  identifier: string,
+  store: Pick<typeof db, 'insert'> = db
+) {
   const now = new Date()
-  const rows = await db
+  const rows = await store
     .insert(verification)
     .values({
       id,
@@ -112,7 +116,7 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
     if (!(await memory.raiseRunFence(fence)))
       throw new RunFenceConflictError(fence, 'claimCopilotThread')
   } catch (error) {
-    await withinLease(workflows.releaseRunOwnership(fence))
+    await workflows.releaseRunOwnership(fence)
     throw error
   }
   let renewal: Promise<void> | undefined
@@ -138,6 +142,7 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
   const timer = setInterval(() => void renew().catch(() => {}), THREAD_LEASE_MS / 3)
   timer.unref?.()
   return {
+    fence,
     run<T>(operation: () => T): T {
       return fenceContext.run(
         {
@@ -158,7 +163,7 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
       try {
         await memory.retireRunFence(fence)
       } finally {
-        await withinLease(workflows.releaseRunOwnership(fence))
+        await workflows.releaseRunOwnership(fence)
       }
     },
   }
@@ -190,9 +195,16 @@ export async function isCopilotRunCancelled(runId: string) {
 export async function claimCopilotEffect(
   run: ScopedRun,
   toolCallId: string,
-  phase: 'execute' | 'review' | 'browser'
+  phase: 'execute' | 'review' | 'browser',
+  store: Pick<typeof db, 'insert'> = db
 ) {
-  if (!(await insertReceipt(receiptId('effect', [run.runId, toolCallId, phase]), runOwner(run))))
+  if (
+    !(await insertReceipt(
+      receiptId('effect', [run.runId, toolCallId, phase]),
+      runOwner(run),
+      store
+    ))
+  )
     throw new NativeTargetError(
       'This Copilot action was already dispatched; verify its result before continuing',
       409
@@ -226,12 +238,12 @@ export async function assertCopilotThreadReady(scope: Scope, threadId: string) {
 export async function deleteCopilotThread(scope: Scope, threadId: string) {
   const claim = await claimCopilotThread(scope, threadId, crypto.randomUUID())
   try {
-    const owner = receiptId('thread', [scope, threadId])
     await assertCopilotThreadReady(scope, threadId)
-    await claim.renew()
-    await db.delete(verification).where(eq(verification.identifier, owner))
-    await claim.renew()
-    await (await getAgentMemory()).deleteThread(threadId)
+    await deleteNativeThread(threadId, claim.fence, (transaction) =>
+      transaction.none('DELETE FROM "public"."verification" WHERE identifier = $1', [
+        claim.fence.runId,
+      ])
+    )
   } finally {
     await claim.release()
   }

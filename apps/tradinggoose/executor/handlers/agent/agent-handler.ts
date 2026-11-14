@@ -95,20 +95,9 @@ export class AgentBlockHandler implements BlockHandler {
     const messages = this.buildMessages(inputs, skillMetadata, skillLoaderToolId)
     const selectedSystemMessages = messages.filter((message) => message.role === 'system')
     const modelMessages = messages.filter((message) => message.role !== 'system')
-    const { blockData, blockNameMapping } = collectBlockData(context)
     const abortController = new AbortController()
     const { signal } = abortController
-    const tools = createAgentToolSet(
-      formattedTools,
-      {
-        ...context,
-        toolExecutionId: getBlockToolExecutionId(block, context),
-        blockData,
-        blockNameMapping,
-      },
-      context,
-      abortController
-    )
+    const tools = createAgentToolSet(formattedTools, block, context, abortController)
     const policy = createForcedToolPolicy(formattedTools)
     const runId = crypto.randomUUID()
     if (
@@ -498,10 +487,12 @@ function namedAgentTools(configured: AgentToolConfig[]) {
 /** Native tools invoke the existing authorization and workflow execution path. */
 export function createAgentToolSet(
   configured: AgentToolConfig[],
-  scope: Record<string, any>,
-  executionContext: ExecutionContext | undefined,
-  nativeMedia: { signal: AbortSignal; abort: (reason: unknown) => void }
+  block: SerializedBlock,
+  context: ExecutionContext,
+  controller: AbortController
 ) {
+  const { blockData, blockNameMapping } = collectBlockData(context)
+  const toolExecutionId = getBlockToolExecutionId(block, context)
   return Object.fromEntries(
     namedAgentTools(configured)
       .filter(({ tool }) => tool.usageControl !== 'none')
@@ -520,22 +511,22 @@ export function createAgentToolSet(
               {
                 ...(tool.mcp ? { ...tool.mcp, arguments: params } : params),
                 _context: {
-                  workflowId: scope.workflowId,
-                  workspaceId: scope.workspaceId,
-                  workflowLogId: scope.workflowLogId,
-                  toolExecutionId: scope.toolExecutionId,
-                  submissionSource: scope.submissionSource,
-                  userId: scope.userId,
-                  executionId: scope.executionId,
-                  isDeployedContext: scope.isDeployedContext !== false,
+                  workflowId: context.workflowId,
+                  workspaceId: context.workspaceId,
+                  workflowLogId: context.workflowLogId,
+                  toolExecutionId,
+                  submissionSource: context.submissionSource,
+                  userId: context.userId,
+                  executionId: context.executionId,
+                  isDeployedContext: context.isDeployedContext !== false,
                 },
-                envVars: scope.environmentVariables,
-                workflowVariables: scope.workflowVariables,
-                blockData: scope.blockData,
-                blockNameMapping: scope.blockNameMapping,
+                envVars: context.environmentVariables,
+                workflowVariables: context.workflowVariables,
+                blockData,
+                blockNameMapping,
               },
               false,
-              executionContext,
+              context,
               { signal: nativeContext?.abortSignal }
             )
             const output = result.output
@@ -547,13 +538,13 @@ export function createAgentToolSet(
               assertNativeToolResult(
                 functional,
                 nativeContext?.abortSignal
-                  ? AbortSignal.any([nativeMedia.signal, nativeContext.abortSignal])
-                  : nativeMedia.signal
+                  ? AbortSignal.any([controller.signal, nativeContext.abortSignal])
+                  : controller.signal
               )
               return functional
             } catch (error) {
               // The effect is already complete; refuse unsafe model continuation.
-              nativeMedia.abort(error)
+              controller.abort(error)
               throw error
             }
           },

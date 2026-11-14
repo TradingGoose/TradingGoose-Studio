@@ -12,10 +12,8 @@ interface PlanArgs {
 }
 
 export class PlanClientTool extends BaseClientTool {
-  static readonly id = 'plan'
-
   constructor(toolCallId: string) {
-    super(toolCallId, PlanClientTool.id, PlanClientTool.metadata)
+    super(toolCallId, PlanClientTool.metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {

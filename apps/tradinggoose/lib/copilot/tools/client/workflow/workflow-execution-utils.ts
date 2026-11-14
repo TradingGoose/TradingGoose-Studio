@@ -12,7 +12,6 @@ type WorkflowExecutionOptions = {
   native: CopilotToolTarget
   signal?: AbortSignal
   workflowInput?: any
-  executionId?: string
   workflowId: string
   triggerBlockId: string
 }
@@ -50,7 +49,7 @@ export async function executeWorkflowWithFullLogging(
     workflowId: options.workflowId,
     native: options.native,
     signal: options.signal,
-    executionId: options.executionId ?? globalThis.crypto.randomUUID(),
+    executionId: options.native.target.toolCallId,
     input: start.input,
     triggerType: start.triggerType,
     executionTarget: 'live',

@@ -6,10 +6,8 @@ import {
 } from '@/lib/copilot/tools/client/base-tool'
 
 export class GDriveRequestAccessClientTool extends BaseClientTool {
-  static readonly id = 'gdrive_request_access'
-
   constructor(toolCallId: string) {
-    super(toolCallId, GDriveRequestAccessClientTool.id, GDriveRequestAccessClientTool.metadata)
+    super(toolCallId, GDriveRequestAccessClientTool.metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {

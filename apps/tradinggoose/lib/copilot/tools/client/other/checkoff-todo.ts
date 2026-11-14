@@ -11,10 +11,8 @@ interface CheckoffTodoArgs {
 }
 
 export class CheckoffTodoClientTool extends BaseClientTool {
-  static readonly id = 'checkoff_todo'
-
   constructor(toolCallId: string) {
-    super(toolCallId, CheckoffTodoClientTool.id, CheckoffTodoClientTool.metadata)
+    super(toolCallId, CheckoffTodoClientTool.metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {

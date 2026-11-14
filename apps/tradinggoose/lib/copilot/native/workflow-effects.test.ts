@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { PendingExecutionTransaction } from '@/lib/execution/pending-execution'
 import type { ServerPending as Pending } from './target'
 
 const m = vi.hoisted(() => ({
@@ -80,21 +81,26 @@ beforeEach(() => {
   m.model.mockReset().mockResolvedValue({ model: run.model, apiKey: 'admin-key' })
 })
 describe('native business effect admission', () => {
-  it('keeps ordinary explicitly authenticated manual workflows free of invented native context', async () => {
-    await authorizeNativeWorkflowQueueEffect('member', 'workflow', {})
-    await authorizeNativeWorkflowDeploymentEffect('member', 'workflow', undefined, 'deploy')
+  it('requires native context before admitting Copilot effects', async () => {
+    await expect(authorizeNativeWorkflowQueueEffect('member', 'workflow', {})).rejects.toThrow()
+    await expect(
+      authorizeNativeWorkflowDeploymentEffect('member', 'workflow', undefined, 'deploy')
+    ).rejects.toThrow()
     expect(m.pending).not.toHaveBeenCalled()
     expect(m.model).not.toHaveBeenCalled()
   })
   it('checks actual actor, original target/financial result stage and canonical trigger before enqueue', async () => {
-    await authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
+    const beforeEnqueue = await authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
     expect(m.scope).toHaveBeenCalledWith('member', null)
     expect(m.pending).toHaveBeenCalledWith(scope, target, 'result', undefined)
     expect(m.access).toHaveBeenCalledWith(scope, pending())
     expect(m.active).toHaveBeenCalledWith(target.runId)
     expect(m.run).toHaveBeenCalledWith(scope, target.threadId, target.runId)
     expect(m.model).toHaveBeenCalledWith(run.model)
-    expect(m.claim).toHaveBeenCalledWith(run, target.toolCallId, 'browser')
+    expect(m.claim).not.toHaveBeenCalled()
+    const transaction = {} as PendingExecutionTransaction
+    await expect(beforeEnqueue(transaction)).resolves.toBe(true)
+    expect(m.claim).toHaveBeenCalledExactlyOnceWith(run, target.toolCallId, 'browser', transaction)
   })
   it.each([
     { executionId: 'other' },
@@ -159,6 +165,7 @@ describe('native business effect admission', () => {
       'deploy'
     )
     expect(m.access).toHaveBeenCalledWith(scope, deploy)
+    expect(m.claim).toHaveBeenCalledExactlyOnceWith(run, target.toolCallId, 'browser')
     await expect(
       authorizeNativeWorkflowDeploymentEffect(
         'member',
@@ -196,9 +203,11 @@ describe('native business effect admission', () => {
     ).rejects.toMatchObject({ status: 409 })
     expect(m.claim).not.toHaveBeenCalled()
     m.claim.mockRejectedValueOnce(Object.assign(new Error('Already dispatched'), { status: 409 }))
-    await expect(
-      authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
-    ).rejects.toMatchObject({ status: 409 })
+    const beforeEnqueue = await authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
+    expect(m.claim).not.toHaveBeenCalled()
+    await expect(beforeEnqueue({} as PendingExecutionTransaction)).rejects.toMatchObject({
+      status: 409,
+    })
     expect(m.claim).toHaveBeenCalledOnce()
   })
   it.each([409, 422])(
