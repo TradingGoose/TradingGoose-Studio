@@ -31,7 +31,6 @@ export async function resolveNativePendingTarget(
   stage: Pending['stage'],
   signal?: AbortSignal
 ): Promise<ServerPending> {
-  await authorizeNativeConversationScope(scope.actorUserId, scope.workspaceId)
   if (
     !isToolId(target.toolName) ||
     target.resourceId !== nativeConversationIdentity(scope).resourceId
