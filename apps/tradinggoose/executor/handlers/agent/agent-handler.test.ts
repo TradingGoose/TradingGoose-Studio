@@ -310,12 +310,14 @@ describe('configured endpoint response schemas', () => {
 
 describe('native Agent workflow execution', () => {
   it.each([
-    { apiKey: undefined, funding: 'account' },
-    { apiKey: '', funding: 'account' },
-    { apiKey: 'caller-key', funding: 'byok' },
+    { apiKey: undefined, expectedKey: undefined, funding: 'account' },
+    { apiKey: '', expectedKey: undefined, funding: 'account' },
+    { apiKey: ' \t ', expectedKey: undefined, funding: 'account' },
+    { apiKey: 'caller-key', expectedKey: 'caller-key', funding: 'byok' },
+    { apiKey: ' caller-key ', expectedKey: 'caller-key', funding: 'byok' },
   ])(
     'derives $funding workflow funding from the actual key override $apiKey',
-    async ({ apiKey, funding }) => {
+    async ({ apiKey, expectedKey, funding }) => {
       await new AgentBlockHandler().execute(
         block,
         { model: 'openai/gpt-4.1', apiKey, userPrompt: 'Answer' },
@@ -324,6 +326,7 @@ describe('native Agent workflow execution', () => {
       expect(state.finance).toHaveBeenCalledWith(
         expect.objectContaining({ funding, actorUserId: 'user-1', workflowId: 'workflow-1' })
       )
+      expect(createConfiguredLanguageModel).toHaveBeenCalledWith('openai/gpt-4.1', expectedKey)
       expect(JSON.stringify(state.finance.mock.calls)).not.toContain('caller-key')
     }
   )

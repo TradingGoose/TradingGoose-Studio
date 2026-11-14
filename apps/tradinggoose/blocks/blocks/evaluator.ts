@@ -1,7 +1,7 @@
 import { ChartBarIcon } from '@/components/icons/icons'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockConfig, ParamType } from '@/blocks/types'
-import { getDefaultModel, getModelGroups, getModelOptions } from '@/stores/model-registry'
+import { modelApiKeyField, modelField } from '@/stores/model-registry'
 import type { ToolResponse } from '@/tools/types'
 
 const logger = createLogger('EvaluatorBlock')
@@ -167,29 +167,8 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       placeholder: 'Enter the content to evaluate',
       required: true,
     },
-    {
-      id: 'model',
-      title: 'Model',
-      type: 'combobox',
-      layout: 'half',
-      placeholder: 'Type or select a model...',
-      required: true,
-      dropdownMode: 'sidebar',
-      autoSelectFirstOption: false,
-      optionGroups: getModelGroups,
-      options: getModelOptions,
-      value: getDefaultModel,
-    },
-    {
-      id: 'apiKey',
-      title: 'API Key',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: 'Enter your API key',
-      password: true,
-      connectionDroppable: false,
-      description: 'Leave unset to use the configured Mastra connection.',
-    },
+    modelField,
+    modelApiKeyField,
     {
       id: 'temperature',
       title: 'Temperature',

@@ -1,6 +1,6 @@
 import { TranslateIcon } from '@/components/icons/icons'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
-import { getDefaultModel, getModelGroups, getModelOptions } from '@/stores/model-registry'
+import { modelApiKeyField, modelField } from '@/stores/model-registry'
 
 const getTranslationPrompt = (
   targetLanguage: string
@@ -41,29 +41,8 @@ export const TranslateBlock: BlockConfig = {
       placeholder: 'Enter language (e.g. Spanish, French, etc.)',
       required: true,
     },
-    {
-      id: 'model',
-      title: 'Model',
-      type: 'combobox',
-      layout: 'half',
-      placeholder: 'Type or select a model...',
-      required: true,
-      dropdownMode: 'sidebar',
-      autoSelectFirstOption: false,
-      optionGroups: getModelGroups,
-      options: getModelOptions,
-      value: getDefaultModel,
-    },
-    {
-      id: 'apiKey',
-      title: 'API Key',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: 'Enter your API key',
-      password: true,
-      connectionDroppable: false,
-      description: 'Leave unset to use the configured Mastra connection.',
-    },
+    modelField,
+    modelApiKeyField,
     {
       id: 'systemPrompt',
       title: 'System Prompt',

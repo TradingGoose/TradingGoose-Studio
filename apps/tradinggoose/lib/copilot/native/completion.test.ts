@@ -106,8 +106,13 @@ describe('built-in stateless completions', () => {
     expect(state.resolve).toHaveBeenCalledWith(input.model)
     expect(createConfiguredLanguageModel).toHaveBeenCalledWith(input.model, 'admin-key')
     expect(state.admit).toHaveBeenCalledOnce()
+    expect(state.admit).toHaveBeenCalledWith(expect.objectContaining({ funding: 'account' }))
     expect(state.accept).toHaveBeenCalledOnce()
-    expect(state.accept.mock.calls[0][0]).toMatchObject({ model: input.model, purpose: 'title' })
+    expect(state.accept.mock.calls[0][0]).toMatchObject({
+      model: input.model,
+      purpose: 'title',
+      funding: 'account',
+    })
     expect(state.accept.mock.calls[0][2]).toMatchObject({
       total: expect.closeTo(0.000015, 12),
       status: 'estimated',

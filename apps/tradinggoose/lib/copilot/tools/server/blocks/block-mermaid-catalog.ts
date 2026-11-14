@@ -203,7 +203,7 @@ async function buildSubBlockSummaries(
   }
 
   const modelOptions = blockConfig.subBlocks.some(({ options }) => options === getModelOptions)
-    ? (await getModelRegistry()).flatMap(({ models }) =>
+    ? (await getModelRegistry()).providers.flatMap(({ models }) =>
         models.map(({ id }) => ({ id, label: id }))
       )
     : undefined

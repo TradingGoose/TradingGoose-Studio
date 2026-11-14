@@ -16,12 +16,13 @@ export async function prepareModelRequest(
     providerOptions?: string | Record<string, unknown>
   } = {}
 ) {
+  const apiKey = settings.apiKey?.trim() || undefined
   const modelSettings = trustedModelSettings(settings.modelSettings)
   const providerOptions = parseProviderOptions(settings.providerOptions)
   const maxSteps = settings.maxSteps ?? 5
   const mastra = await getMastra()
-  const usage = await usageProcessors(scope)
-  const model = await createConfiguredLanguageModel(scope.model, settings.apiKey)
+  const usage = await usageProcessors({ ...scope, funding: apiKey ? scope.funding : 'account' })
+  const model = await createConfiguredLanguageModel(scope.model, apiKey)
   const options = {
     runId: scope.runId,
     savePerStep: true,

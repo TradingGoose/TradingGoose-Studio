@@ -51,7 +51,7 @@ it.each(['openai', 'custom'])(
     const model = `${provider}/exact`
     await expect(assertListedModel(model)).resolves.toBeUndefined()
     expect((await getNativeModelLookup())(model)).toEqual({ id: model })
-    expect((await getModelRegistry()).find(({ id }) => id === provider)?.models).toEqual([
+    expect((await getModelRegistry()).providers.find(({ id }) => id === provider)?.models).toEqual([
       { id: model },
     ])
   }
@@ -59,7 +59,7 @@ it.each(['openai', 'custom'])(
 
 it('excludes every exact installed native embedding identity from generation and keeps embedding access', async () => {
   const generation = new Set(
-    (await getModelRegistry()).flatMap(({ models }) => models.map(({ id }) => id))
+    (await getModelRegistry()).providers.flatMap(({ models }) => models.map(({ id }) => id))
   )
   const embeddings = await getEmbeddingModelRegistry()
   expect(EMBEDDING_MODELS).not.toHaveLength(0)
@@ -81,7 +81,7 @@ it('excludes every exact installed native embedding identity from generation and
 })
 
 it('retains exact registered generation and custom identities without purpose name heuristics', async () => {
-  const generation = (await getModelRegistry()).flatMap(({ models }) => models)
+  const generation = (await getModelRegistry()).providers.flatMap(({ models }) => models)
   const lookup = await getNativeModelLookup()
   for (const id of [
     'openai/gpt-4.1',
@@ -99,7 +99,7 @@ it('retains exact registered generation and custom identities without purpose na
 it('excludes every published non-chat API from native generation pickers and validation', async () => {
   setManagedProviders({})
   const generation = new Set(
-    (await getModelRegistry()).flatMap(({ models }) => models.map(({ id }) => id))
+    (await getModelRegistry()).providers.flatMap(({ models }) => models.map(({ id }) => id))
   )
   const excluded = new Set<string>()
   for (const [provider, config] of Object.entries(GatewayRegistry.getInstance().getProviders())) {
@@ -126,7 +126,7 @@ it('uses the same generation filter in the authenticated picker API and leaves e
   const response = await GET(new NextRequest('http://localhost/api/models'))
   expect(response.status).toBe(200)
   const body = await response.json()
-  expect(body).toEqual({ providers: await getModelRegistry() })
+  expect(body).toEqual(await getModelRegistry())
   const selected = new Set(
     body.providers.flatMap((provider: { models: { id: string }[] }) =>
       provider.models.map(({ id }) => id)

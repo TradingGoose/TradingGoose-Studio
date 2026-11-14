@@ -1,6 +1,6 @@
 import { ShieldCheckIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
-import { getDefaultModel, getModelGroups, getModelOptions } from '@/stores/model-registry'
+import { modelApiKeyField, modelField } from '@/stores/model-registry'
 import type { ToolResponse } from '@/tools/types'
 
 export interface GuardrailsResponse extends ToolResponse {
@@ -84,17 +84,7 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
       },
     },
     {
-      id: 'model',
-      title: 'Model',
-      type: 'combobox',
-      layout: 'half',
-      placeholder: 'Type or select a model...',
-      required: true,
-      dropdownMode: 'sidebar',
-      autoSelectFirstOption: false,
-      optionGroups: getModelGroups,
-      options: getModelOptions,
-      value: getDefaultModel,
+      ...modelField,
       condition: {
         field: 'validationType',
         value: ['hallucination'],
@@ -130,14 +120,7 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
       },
     },
     {
-      id: 'apiKey',
-      title: 'API Key',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: 'Enter your API key',
-      password: true,
-      connectionDroppable: false,
-      description: 'Leave unset to use the configured Mastra connection.',
+      ...modelApiKeyField,
       condition: { field: 'validationType', value: ['hallucination'] },
     },
     {

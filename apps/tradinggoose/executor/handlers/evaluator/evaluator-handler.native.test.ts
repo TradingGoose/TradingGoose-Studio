@@ -1,23 +1,25 @@
 import '@/lib/mastra/__test-utils__/managed-services'
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<typeof import('@/lib/mastra/connections')>()),
-  createConfiguredLanguageModel: () => state.model,
+  createConfiguredLanguageModel: vi.fn(() => state.model),
 }))
 vi.mock('@/lib/mastra/usage-processors', () => ({
-  usageProcessors: async () => ({
+  usageProcessors: vi.fn(async () => ({
     inputProcessors: [],
     outputProcessors: [],
     getUsage: () => state.usage,
     getCost: () => ({ status: 'unavailable' as const }),
     verifyComplete: () => state.verify(),
-  }),
+  })),
 }))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { getInferenceFacts } from '@/lib/mastra/result'
 import { resultAccounting } from '@/lib/mastra/usage'
+import { usageProcessors } from '@/lib/mastra/usage-processors'
 import { createMinimalWorkflow, createMockContext } from '@/executor/__test-utils__/executor-mocks'
 import { RouterBlockHandler } from '../router/router-handler'
 import { EvaluatorBlockHandler } from './evaluator-handler'
@@ -45,6 +47,7 @@ vi.mock('@mastra/core/agent', async (original) => {
   }
 })
 beforeEach(() => {
+  vi.clearAllMocks()
   state.result = undefined
   state.usage = {}
   state.verify.mockReset().mockResolvedValue(undefined)
@@ -135,12 +138,13 @@ describe('canonical settings and processor usage before financial refusal', () =
                 metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
                 content: 'Answer',
                 temperature: '0.1',
+                apiKey: '  ',
               },
               context
             )
           : new RouterBlockHandler().execute(
               block,
-              { model: 'openai/gpt-4.1', prompt: 'Select target', temperature: '0.1' },
+              { model: 'openai/gpt-4.1', prompt: 'Select target', temperature: '0.1', apiKey: '' },
               context
             )
       const failure = await operation.then(
@@ -150,6 +154,10 @@ describe('canonical settings and processor usage before financial refusal', () =
         (error: unknown) => error
       )
       expect(failure).toBeInstanceOf(Error)
+      expect(createConfiguredLanguageModel).toHaveBeenCalledWith('openai/gpt-4.1', undefined)
+      expect(usageProcessors).toHaveBeenCalledWith(
+        expect.objectContaining({ funding: 'account', actorUserId: 'actor' })
+      )
       expect(state.result.finishReason).toBe('stop')
       expect(state.result.totalUsage).toMatchObject({
         inputTokens: 11,

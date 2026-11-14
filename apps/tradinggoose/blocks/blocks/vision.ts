@@ -1,7 +1,7 @@
 import { EyeIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getDefaultModel, getModelGroups, getModelOptions } from '@/stores/model-registry'
+import { modelApiKeyField, modelField } from '@/stores/model-registry'
 import type { VisionResponse } from '@/tools/vision/types'
 
 export const VisionBlock: BlockConfig<VisionResponse> = {
@@ -48,15 +48,10 @@ export const VisionBlock: BlockConfig<VisionResponse> = {
       required: false,
     },
     {
-      id: 'model',
+      ...modelField,
       title: 'Vision Model',
-      type: 'combobox',
-      layout: 'half',
-      dropdownMode: 'sidebar',
-      autoSelectFirstOption: false,
-      optionGroups: getModelGroups,
-      options: getModelOptions,
-      value: getDefaultModel,
+      placeholder: undefined,
+      required: false,
     },
     {
       id: 'prompt',
@@ -66,15 +61,7 @@ export const VisionBlock: BlockConfig<VisionResponse> = {
       placeholder: 'Enter prompt for image analysis',
       required: true,
     },
-    {
-      id: 'apiKey',
-      title: 'API Key',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: 'Enter your API key',
-      password: true,
-      description: 'Leave unset to use the configured Mastra connection.',
-    },
+    { ...modelApiKeyField, connectionDroppable: true },
   ],
   tools: {
     access: ['vision_tool'],

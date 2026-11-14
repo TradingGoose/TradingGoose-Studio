@@ -10,7 +10,7 @@ import { RouterBlock } from './router'
 import { TranslateBlock } from './translate'
 import { VisionBlock } from './vision'
 
-const original = useModelRegistry.getState().providers
+const original = useModelRegistry.getState()
 const providers = [
   {
     id: 'example',
@@ -26,7 +26,7 @@ const providers = [
     ],
   },
 ]
-afterEach(() => useModelRegistry.setState({ providers: original }))
+afterEach(() => useModelRegistry.setState(original))
 const fields = (model: string) =>
   buildTriggerEditingLayout({
     inspectorCopy: getWorkflowInspectorCopy('en'),
@@ -62,7 +62,22 @@ describe('registry-backed model interaction', () => {
       expect(groups).toEqual([
         { id: 'example', label: 'Example Models', icon: expect.any(Function) },
       ])
-      expect(block.subBlocks.find(({ id }) => id === 'apiKey')?.password).toBe(true)
+      const apiKey = block.subBlocks.find(({ id }) => id === 'apiKey')!
+      expect(apiKey.password).toBe(true)
+      for (const managedProviders of [[], ['example'], ['other']]) {
+        useModelRegistry.setState({ managedProviders })
+        expect(evaluateSubBlockConditionValues(apiKey.required, { model: 'example/capable' })).toBe(
+          !managedProviders.includes('example')
+        )
+        expect(evaluateSubBlockConditionValues(apiKey.required, { model: 'unlisted/model' })).toBe(
+          true
+        )
+      }
+      useModelRegistry.setState({ providers: [], managedProviders: ['example'] })
+      expect(evaluateSubBlockConditionValues(apiKey.required, { model: 'example/capable' })).toBe(
+        true
+      )
+      useModelRegistry.setState({ providers, managedProviders: [] })
     }
   })
 

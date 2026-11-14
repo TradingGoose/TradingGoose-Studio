@@ -101,13 +101,16 @@ export async function getConfiguredProviders(): Promise<Record<string, ProviderC
   return providers
 }
 
+export function getManagedProviderService(provider: string) {
+  return getSystemServiceDefinition(provider === 'azure-openai' ? 'azure_openai' : provider)
+}
+
 async function resolveManagedKey(provider: string): Promise<string | undefined> {
-  const serviceId = provider === 'azure-openai' ? 'azure_openai' : provider
-  const definition = getSystemServiceDefinition(serviceId)
+  const definition = getManagedProviderService(provider)
   if (definition) {
     const credential = definition.credentialFields[0]
     if (!credential) return undefined
-    const config = await resolveSystemServiceConfig(serviceId)
+    const config = await resolveSystemServiceConfig(definition.id)
     const key = config[credential.key]
     return typeof key === 'string' && key.trim() ? key.trim() : undefined
   }

@@ -6,7 +6,8 @@ import {
   parseModelString,
 } from '@mastra/core/llm'
 import { providers as modelCatalog } from '@opencode-ai/models/snapshot'
-import { getConfiguredProviders } from './connections'
+import { listSystemServices } from '@/lib/system-services/service'
+import { getConfiguredProviders, getManagedProviderService } from './connections'
 
 export interface RegistryModel {
   id: string
@@ -61,15 +62,30 @@ export async function assertListedModel(model: string): Promise<void> {
 }
 
 /** Project public picker data explicitly: provider auth configuration stays on the server. */
-export async function getModelRegistry(): Promise<RegistryProvider[]> {
-  const { providers, configured } = await getRegistryProviders()
-  return Object.entries(providers).map(([id, provider]) => ({
-    id,
-    name: provider.name,
-    models: provider.models
-      .filter((modelId) => isLanguageModel(id, modelId))
-      .map((modelId) => projectNativeRegistryModel(`${id}/${modelId}`, configured)),
-  }))
+export async function getModelRegistry(): Promise<{
+  providers: RegistryProvider[]
+  managedProviders: string[]
+}> {
+  const [{ providers, configured }, services] = await Promise.all([
+    getRegistryProviders(),
+    listSystemServices(),
+  ])
+  return {
+    providers: Object.entries(providers).map(([id, provider]) => ({
+      id,
+      name: provider.name,
+      models: provider.models
+        .filter((modelId) => isLanguageModel(id, modelId))
+        .map((modelId) => projectNativeRegistryModel(`${id}/${modelId}`, configured)),
+    })),
+    managedProviders: Object.keys(providers).filter((id) => {
+      const serviceId = getManagedProviderService(id)?.id
+      return Boolean(
+        configured[id]?.url ||
+          services.find((service) => service.id === serviceId)?.credentials[0]?.hasValue
+      )
+    }),
+  }
 }
 
 /** Server capability resolution does not depend on browser bootstrap state. */

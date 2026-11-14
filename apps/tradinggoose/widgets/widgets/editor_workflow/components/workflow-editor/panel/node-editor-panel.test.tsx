@@ -6,7 +6,13 @@ import { act, createElement, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
+import { AgentBlock } from '@/blocks/blocks/agent'
+import type { SubBlockConfig } from '@/blocks/types'
 import { getPublicCopy } from '@/i18n/public-copy'
+import { useModelRegistry } from '@/stores/model-registry'
+
+const originalRegistry = useModelRegistry.getState()
 
 let mockSelectedBlock: any = {
   id: 'agent-1',
@@ -137,8 +143,10 @@ vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
 vi.mock('@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-edit-rows', () => ({
   SubBlockEditRows: ({
     rows,
+    stateToUse,
   }: {
-    rows: Array<Array<{ id: string; title?: string; placeholder?: string }>>
+    rows: SubBlockConfig[][]
+    stateToUse: Record<string, { value?: unknown }>
   }) =>
     createElement(
       'div',
@@ -151,6 +159,10 @@ vi.mock('@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-
             'data-testid': 'row',
             'data-title': subBlock.title,
             'data-placeholder': subBlock.placeholder ?? '',
+            'data-required': Boolean(
+              subBlock.required &&
+                evaluateSubBlockCondition(subBlock.required, (field) => stateToUse[field]?.value)
+            ),
           },
           `${subBlock.title ?? ''}|${subBlock.placeholder ?? ''}`
         )
@@ -180,6 +192,7 @@ describe('NodeEditorPanel', () => {
     mockCollaborativeToggleBlockAdvancedMode.mockReset()
     mockCollaborativeUpdateBlockName.mockImplementation(() => true)
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
+    useModelRegistry.setState(originalRegistry)
     mockSelectedBlock = {
       id: 'agent-1',
       type: 'agent',
@@ -240,6 +253,33 @@ describe('NodeEditorPanel', () => {
           placeholder: 'Enter JSON schema...',
         },
       ],
+    }
+  })
+
+  it('refreshes required credentials when managed connections load or are removed', () => {
+    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    mockBlockConfig.subBlocks = [AgentBlock.subBlocks.find(({ id }) => id === 'apiKey')!]
+    mockSelectedBlock.subBlocks = { model: { value: 'example/model' } }
+    useModelRegistry.setState({ providers: [], managedProviders: [] })
+    container = document.createElement('div')
+    root = createRoot(container)
+    act(() => root?.render(createElement(NodeEditorPanel, { selectedNodeId: 'agent-1' })))
+    expect(container.querySelector('[data-testid="row"]')?.getAttribute('data-required')).toBe(
+      'true'
+    )
+    for (const [managedProviders, required] of [
+      [['example'], false],
+      [[], true],
+    ] as const) {
+      act(() =>
+        useModelRegistry.setState({
+          managedProviders: [...managedProviders],
+          providers: [{ id: 'example', name: 'Example', models: [{ id: 'example/model' }] }],
+        })
+      )
+      expect(container.querySelector('[data-testid="row"]')?.getAttribute('data-required')).toBe(
+        String(required)
+      )
     }
   })
 

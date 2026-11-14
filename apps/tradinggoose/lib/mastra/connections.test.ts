@@ -14,6 +14,13 @@ import {
 import { safeInferenceError } from './errors'
 import { parseProviderOptions, trustedModelSettings } from './options'
 import { assertListedModel, getModelRegistry } from './registry'
+import { prepareModelRequest } from './request'
+import { usageProcessors } from './usage-processors'
+
+vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
+vi.mock('@/lib/mastra/usage-processors', () => ({
+  usageProcessors: vi.fn(async () => ({ inputProcessors: [], outputProcessors: [] })),
+}))
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -26,6 +33,8 @@ const endpoint = (models = ['org/exact:model']) => ({
 })
 const stream = () =>
   new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } })
+const blankKeys = [undefined, '', ' \t ']
+const requestScope = { actorUserId: 'actor', runId: 'request', purpose: 'workflow-agent' }
 
 describe('DB-managed native connections', () => {
   it.each(['github', 'resend', 'e2b'])(
@@ -62,7 +71,7 @@ describe('DB-managed native connections', () => {
   })
   it('lists built-in identities without loading or exposing credentials', async () => {
     await expect(assertListedModel('openai/gpt-4o')).resolves.toBeUndefined()
-    expect(await getModelRegistry()).not.toHaveLength(0)
+    expect((await getModelRegistry()).providers).not.toHaveLength(0)
     expect(managedServices.readConfig).not.toHaveBeenCalled()
     expect(managedServices.decrypt).not.toHaveBeenCalled()
   })
@@ -112,7 +121,7 @@ describe('DB-managed native connections', () => {
       )
       await assertListedModel(`${provider}/${modelId}`)
       await expect(assertListedModel(`${provider}/unlisted`)).rejects.toThrow('Select a listed')
-      const metadata = (await getModelRegistry()).find(({ id }) => id === provider)!
+      const metadata = (await getModelRegistry()).providers.find(({ id }) => id === provider)!
       expect(metadata.models).toEqual([{ id: `${provider}/${modelId}` }])
       expect(JSON.stringify(metadata)).not.toMatch(/local.invalid|managed-key|apiKey|headers/)
       const model = await createConfiguredLanguageModel(`${provider}/${modelId}`, 'caller-key')
@@ -157,33 +166,44 @@ describe('DB-managed native connections', () => {
     expect(body).not.toHaveProperty('temperature')
     expect(body).not.toHaveProperty('top_p')
   })
-  it('reads rotated DB keys without caching or provider environment fallback', async () => {
-    vi.stubEnv('OPENAI_API_KEY', 'poison-env')
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => stream())
-    )
-    await expect(createConfiguredLanguageModel('openai/gpt-4.1')).rejects.toThrow(
-      'not configured in System Services'
-    )
-    expect(fetch).not.toHaveBeenCalled()
-    for (const key of ['first-key', 'rotated-key']) {
-      managedServices.credentials.openai = { defaultApiKey: key }
-      const model = await createConfiguredLanguageModel('openai/gpt-4.1')
-      await model.doStream({
-        prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
-      })
+  it.each(blankKeys)(
+    'resolves blank override %j to fresh managed keys without environment credentials',
+    async (apiKey) => {
+      vi.stubEnv('OPENAI_API_KEY', 'poison-env')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => stream())
+      )
+      const scope = {
+        ...requestScope,
+        model: 'openai/gpt-4.1',
+        funding: apiKey ? ('byok' as const) : ('account' as const),
+      }
+      await expect(prepareModelRequest(scope, { apiKey })).rejects.toThrow(
+        'not configured in System Services'
+      )
+      expect(fetch).not.toHaveBeenCalled()
+      for (const key of ['first-key', 'rotated-key']) {
+        managedServices.credentials.openai = { defaultApiKey: key }
+        const { model } = await prepareModelRequest(scope, { apiKey })
+        await model.doStream({
+          prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+        })
+      }
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.map(([, init]) => new Headers(init!.headers).get('authorization'))
+      ).toEqual(['Bearer first-key', 'Bearer rotated-key'])
+      expect(usageProcessors).toHaveBeenLastCalledWith({ ...scope, funding: 'account' })
+      vi.stubEnv('MASTRA_MODEL_PROVIDERS', JSON.stringify({ poison: endpoint() }))
+      vi.stubEnv(
+        'MASTRA_AZURE_OPENAI',
+        JSON.stringify({ resourceName: 'poison', apiKey: 'poison', deployments: ['poison'] })
+      )
+      expect(await getConfiguredProviders()).toEqual({})
     }
-    expect(
-      vi.mocked(fetch).mock.calls.map(([, init]) => new Headers(init!.headers).get('authorization'))
-    ).toEqual(['Bearer first-key', 'Bearer rotated-key'])
-    vi.stubEnv('MASTRA_MODEL_PROVIDERS', JSON.stringify({ poison: endpoint() }))
-    vi.stubEnv(
-      'MASTRA_AZURE_OPENAI',
-      JSON.stringify({ resourceName: 'poison', apiKey: 'poison', deployments: ['poison'] })
-    )
-    expect(await getConfiguredProviders()).toEqual({})
-  })
+  )
   it('uses encrypted custom keys, while public registry metadata never decrypts them', async () => {
     setManagedProviders({ local: endpoint() })
     managedServices.credentials.mastra_model_providers = {
@@ -194,9 +214,11 @@ describe('DB-managed native connections', () => {
     expect((await resolveConfiguredModel('local/org/exact:model')).apiKey).toBe('managed-secret')
     expect(managedServices.decrypt).toHaveBeenCalledOnce()
   })
-  it.each(['ollama', 'vllm'])(
-    'allows a keyless managed %s endpoint without inheriting an environment key',
-    async (provider) => {
+  it.each(
+    ['ollama', 'vllm'].flatMap((provider) => blankKeys.map((apiKey) => ({ provider, apiKey })))
+  )(
+    'allows keyless managed $provider with blank override $apiKey without environment credentials',
+    async ({ provider, apiKey }) => {
       managedServices.settings[provider] = {
         baseUrl: 'http://local.invalid/v1',
         models: JSON.stringify(['exact']),
@@ -208,12 +230,19 @@ describe('DB-managed native connections', () => {
         'fetch',
         vi.fn(async () => stream())
       )
-      await (await createConfiguredLanguageModel(`${provider}/exact`)).doStream({
+      const { model } = await prepareModelRequest(
+        { ...requestScope, model: `${provider}/exact`, funding: apiKey ? 'byok' : 'account' },
+        { apiKey }
+      )
+      await model.doStream({
         prompt: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
       })
       expect(
         new Headers(vi.mocked(fetch).mock.calls[0][1]!.headers).get('authorization') ?? ''
       ).not.toContain('poison')
+      expect(usageProcessors).toHaveBeenLastCalledWith(
+        expect.objectContaining({ funding: 'account' })
+      )
     }
   )
   it('uses the native Azure gateway, fresh managed key and request-local override', async () => {

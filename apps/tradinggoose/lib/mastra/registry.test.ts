@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { managedServices, setManagedProviders } from './__test-utils__/managed-services'
+import {
+  managedServices,
+  setManagedAzure,
+  setManagedProviders,
+} from './__test-utils__/managed-services'
 
 const provider = vi.hoisted(() => ({
   name: 'Configured Provider',
@@ -36,6 +40,7 @@ import {
   getEmbeddingModelRegistry,
   getModelProviders,
   getModelRegistry,
+  getNativeModelLookup,
 } from './registry'
 
 beforeEach(() => {
@@ -59,22 +64,64 @@ describe('public Mastra registry transport', () => {
       { id: 'configured', name: 'Configured Provider' },
       { id: 'custom', name: 'Custom' },
     ])
+    await getNativeModelLookup()
+    expect(managedServices.listServices).not.toHaveBeenCalled()
   })
   it('projects names, exact model IDs and helpers without serializing provider credentials or config', async () => {
     const json = JSON.parse(JSON.stringify(await getModelRegistry()))
-    expect(json).toEqual([
-      {
-        id: 'configured',
-        name: 'Configured Provider',
-        models: [
-          { id: 'configured/listed', temperature: false, structuredOutput: true },
-          { id: 'configured/other', structuredOutput: true },
-        ],
-      },
-    ])
+    expect(json).toEqual({
+      providers: [
+        {
+          id: 'configured',
+          name: 'Configured Provider',
+          models: [
+            { id: 'configured/listed', temperature: false, structuredOutput: true },
+            { id: 'configured/other', structuredOutput: true },
+          ],
+        },
+      ],
+      managedProviders: ['configured'],
+    })
     expect(JSON.stringify(json)).not.toMatch(
       /PRIVATE_KEY_NAME|secret|private.invalid|apiKey|headers/
     )
+    expect(managedServices.listServices).toHaveBeenCalledOnce()
+  })
+  it('reads current managed credentials each time and does not treat native URLs as keyless', async () => {
+    for (const present of [true, false, true]) {
+      managedServices.credentials.configured = present ? { apiKey: 'rotated-secret' } : {}
+      expect((await getModelRegistry()).managedProviders).toEqual(present ? ['configured'] : [])
+    }
+  })
+  it.each(['configured', 'custom', 'ollama', 'vllm'])(
+    'recognizes the configured keyless %s endpoint without decrypting custom keys',
+    async (id) => {
+      managedServices.credentials.configured = {}
+      const endpoint = { name: id, url: 'https://private.invalid/v1', models: ['exact'] }
+      if (id === 'ollama' || id === 'vllm') {
+        managedServices.settings[id] = {
+          baseUrl: endpoint.url,
+          models: JSON.stringify(endpoint.models),
+        }
+      } else setManagedProviders({ [id]: endpoint })
+      const metadata = await getModelRegistry()
+      expect(metadata.managedProviders).toEqual([id])
+      expect(JSON.stringify(metadata)).not.toMatch(/private.invalid|secret|apiKeys/)
+    }
+  )
+  it.each([false, true])('uses the current Azure service credential (%s)', async (present) => {
+    managedServices.credentials.configured = {}
+    setManagedAzure({
+      resourceName: 'private-resource',
+      deployments: ['exact'],
+      ...(present ? { apiKey: 'azure-secret' } : {}),
+    })
+    const metadata = await getModelRegistry()
+    expect(metadata.managedProviders).toEqual(present ? ['azure-openai'] : [])
+    expect(metadata.providers.find(({ id }) => id === 'azure-openai')?.models).toEqual([
+      { id: 'azure-openai/exact' },
+    ])
+    expect(JSON.stringify(metadata)).not.toMatch(/private-resource|azure-secret|apiKey/)
   })
   it('accepts exact listed canonical IDs and rejects aliases, drafts and unlisted names actionably', async () => {
     await expect(assertListedModel('configured/listed')).resolves.toBeUndefined()

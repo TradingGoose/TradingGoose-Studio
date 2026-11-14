@@ -7,5 +7,5 @@ export async function GET(request: NextRequest) {
   if (!auth.success) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (request.nextUrl.searchParams.get('type') === 'embedding')
     return NextResponse.json({ models: await getEmbeddingModelRegistry() })
-  return NextResponse.json({ providers: await getModelRegistry() })
+  return NextResponse.json(await getModelRegistry(), { headers: { 'Cache-Control': 'no-store' } })
 }
