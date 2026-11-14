@@ -1,4 +1,3 @@
-import type { MastraMessagePart } from '@mastra/core/agent/message-list'
 import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { COPILOT_CONTEXT_PART, type Json } from '@/lib/copilot/native/contract'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
@@ -29,8 +28,7 @@ export function projectNativeHistoryMessage(message: NativeHistoryMessage): Copi
   for (const part of message.parts) {
     if (part.type === 'text') {
       if (typeof part.text !== 'string') throw new Error('Native history text is invalid')
-      const text: Extract<MastraMessagePart, { type: 'text' }> = { type: 'text', text: part.text }
-      blocks.push({ type: 'text', content: text.text, timestamp })
+      blocks.push({ type: 'text', content: part.text, timestamp })
     } else if (part.type === 'reasoning') {
       if (typeof part.reasoning !== 'string' || !Array.isArray(part.details))
         throw new Error('Native history reasoning is invalid')

@@ -14,7 +14,6 @@ import { environmentKeys } from '@/hooks/queries/environment'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { workflowKeys } from '@/hooks/queries/workflows'
 import {
-  createExecutionContext,
   ensureClientToolInstance,
   getCopilotToolMetadata,
   getToolInterruptDisplays,
@@ -69,17 +68,7 @@ describe('tool-registry', () => {
     expect(getToolInterruptDisplays('edit_workflow_variable', toolCallId)).toBeDefined()
   })
 
-  it('carries UI provenance separately and validates genuine original arguments without target injection', () => {
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'read_workflow_logs',
-      provenance: {
-        contextEntityKind: 'workflow',
-        contextEntityId: 'wf-current',
-        workspaceId: 'workspace',
-      },
-    })
-    expect(context.contextEntityId).toBe('wf-current')
+  it('validates genuine original arguments without target injection', () => {
     expect(() => ToolArgSchemas.read_workflow_logs.parse({})).toThrow()
     expect(ToolArgSchemas.read_workflow_logs.parse({ entityId: 'wf-explicit' })).toEqual({
       entityId: 'wf-explicit',

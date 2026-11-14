@@ -1,8 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import type { BrowserAssertion } from '@/lib/copilot/native/contract'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
-import { syncToolState } from './manager'
 
 const DEFAULT_TOOL_TIMEOUT_MS = 2 * 60 * 1000
 export const WORKFLOW_EXECUTION_TIMEOUT_MS = 10 * 60 * 1000
@@ -50,10 +48,6 @@ export interface BaseClientToolMetadata {
 }
 
 export interface ClientToolExecutionContext {
-  toolCallId: string
-  toolName: string
-  contextEntityKind?: ReviewEntityKind
-  contextEntityId?: string
   workspaceId?: string
 }
 
@@ -157,7 +151,9 @@ export abstract class BaseClientTool {
       state,
       ...(options?.result !== undefined ? { result: options.result } : {}),
     }
-    syncToolState(this.toolCallId, state, options)
+    getCopilotStoreForToolCall(this.toolCallId)
+      .getState()
+      .setToolState(this.toolCallId, state, options?.result)
   }
   getState() {
     return this.state

@@ -12,7 +12,6 @@ const m = vi.hoisted(() => ({
   sync: vi.fn(),
   abort: new AbortController(),
 }))
-vi.mock('../manager', () => ({ syncToolState: m.sync }))
 vi.mock('@/stores/copilot/store-access', () => ({
   getCopilotStoreForToolCall: () => ({
     getState: () => ({
@@ -21,7 +20,7 @@ vi.mock('@/stores/copilot/store-access', () => ({
       readPendingTool: m.pending,
       submitBrowserAssertion: m.assertion,
       recordToolFailure: m.failure,
-      syncToolState: m.sync,
+      setToolState: m.sync,
     }),
   }),
 }))
@@ -44,8 +43,6 @@ let popup: {
 function tool() {
   const instance = new OAuthRequestAccessClientTool('oauth')
   instance.setExecutionContext({
-    toolCallId: 'oauth',
-    toolName: target.toolName,
     workspaceId: 'original-business',
   })
   return instance
@@ -129,7 +126,7 @@ describe('OAuth opened UI and native acknowledgement', () => {
     await instance.execute({ providerName: 'Google Drive' })
     expect(m.open).toHaveBeenCalledOnce()
     expect(m.assertion).toHaveBeenCalledOnce()
-    expect(m.sync.mock.calls.some(([, , update]) => update?.result?.opened === true)).toBe(true)
+    expect(m.sync.mock.calls.some(([, , update]) => update?.opened === true)).toBe(true)
     expect(m.failure).toHaveBeenCalledWith(
       'oauth',
       'Integration window opened; native acknowledgement failed'

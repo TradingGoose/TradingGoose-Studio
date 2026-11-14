@@ -46,15 +46,7 @@ describe('workflow-review-tool-utils', () => {
       doc,
     })
 
-    const result = await getReadableWorkflowState(
-      {
-        toolCallId: 'tool-1',
-        toolName: 'read_workflow',
-        contextEntityKind: 'workflow',
-        contextEntityId: 'workflow-current',
-      },
-      'workflow-live'
-    )
+    const result = await getReadableWorkflowState({}, 'workflow-live')
     expect(result.workflowId).toBe('workflow-live')
     expect(result.workspaceId).toBe('workspace-live')
     expect(result.workflowState.blocks['block-1']).toMatchObject({
@@ -83,15 +75,7 @@ describe('workflow-review-tool-utils', () => {
       release,
     })
 
-    const result = await getReadableWorkflowState(
-      {
-        toolCallId: 'tool-1',
-        toolName: 'read_workflow',
-        contextEntityKind: 'workflow',
-        contextEntityId: 'workflow-current',
-      },
-      'workflow-db'
-    )
+    const result = await getReadableWorkflowState({}, 'workflow-db')
     expect(result.workflowId).toBe('workflow-db')
     expect(result.workspaceId).toBe('workspace-db')
     expect(mockAcquireWritableWorkflowSessionLease).toHaveBeenCalledWith({
@@ -116,45 +100,30 @@ describe('workflow-review-tool-utils', () => {
   })
 
   it('fails fast when workflow execution context is missing a workflow target', async () => {
-    await expect(
-      getReadableWorkflowState({
-        toolCallId: 'tool-1',
-        toolName: 'read_workflow',
-        contextEntityKind: 'workflow',
-        contextEntityId: 'workflow-current',
-      })
-    ).rejects.toThrow('Workflow target is required')
+    await expect(getReadableWorkflowState({})).rejects.toThrow('Workflow target is required')
   })
 
   it('loads ordinary workflow metadata for a reopened deployment without a pinned workspace', async () => {
     vi.mocked(fetch).mockResolvedValue(
       Response.json({ data: { id: 'workflow', workspaceId: 'business-workspace' } })
     )
-    expect(
-      await resolveWorkflowTarget(
-        { toolCallId: 'call', toolName: 'deploy_workflow' },
-        { entityId: 'workflow' }
-      )
-    ).toEqual({ workflowId: 'workflow', workspaceId: 'business-workspace' })
+    expect(await resolveWorkflowTarget({}, { entityId: 'workflow' })).toEqual({
+      workflowId: 'workflow',
+      workspaceId: 'business-workspace',
+    })
     expect(fetch).toHaveBeenCalledWith('/api/workflows/workflow', { signal: undefined })
   })
   it('rejects unavailable workflow metadata and canceled lookups', async () => {
     vi.mocked(fetch).mockResolvedValue(
       Response.json({ data: { id: 'foreign', workspaceId: 'business-workspace' } })
     )
-    await expect(
-      resolveWorkflowTarget(
-        { toolCallId: 'call', toolName: 'deploy_workflow' },
-        { entityId: 'workflow' }
-      )
-    ).rejects.toThrow('workspace is unavailable')
+    await expect(resolveWorkflowTarget({}, { entityId: 'workflow' })).rejects.toThrow(
+      'workspace is unavailable'
+    )
     const abort = new AbortController()
     abort.abort(new Error('Cancelled'))
     await expect(
-      resolveWorkflowTarget(
-        { toolCallId: 'call', toolName: 'deploy_workflow' },
-        { entityId: 'workflow', signal: abort.signal }
-      )
+      resolveWorkflowTarget({}, { entityId: 'workflow', signal: abort.signal })
     ).rejects.toThrow('Cancelled')
   })
 })

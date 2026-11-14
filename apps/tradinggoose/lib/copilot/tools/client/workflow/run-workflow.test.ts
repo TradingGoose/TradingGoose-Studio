@@ -26,6 +26,7 @@ vi.mock('@/stores/copilot/store-access', () => ({
       readPendingTool: m.pending,
       readbackCopilotToolCall: m.readback,
       recordToolFailure: m.failure,
+      setToolState: vi.fn(),
     }),
   }),
 }))
@@ -39,10 +40,6 @@ const target = {
 function tool() {
   const instance = new RunWorkflowClientTool('call')
   instance.setExecutionContext({
-    toolCallId: 'call',
-    toolName: 'run_workflow',
-    contextEntityKind: 'workflow',
-    contextEntityId: 'live-context',
     workspaceId: 'entity-workspace',
   })
   return instance

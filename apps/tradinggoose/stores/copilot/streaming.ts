@@ -104,6 +104,12 @@ export function replaceNativeText(message: CopilotMessage, text: string) {
   return { ...message, content: text, contentBlocks: [...retained, output] }
 }
 
+export const samePendingOrigin = (left: Pending | undefined, right: Pending) =>
+  !!left &&
+  (['target', 'originalArgs', 'context'] as const).every(
+    (field) => stableStringifyJsonValue(left[field]) === stableStringifyJsonValue(right[field])
+  )
+
 /** Parts are transient rendering state; only native history owns persisted conversation content. */
 export function displayNativePending(
   state: CopilotStore,
@@ -114,14 +120,7 @@ export function displayNativePending(
     throw new Error('Native pending target scope differs')
   const current = state.toolCallsById[target.toolCallId]
   if (current && current.name !== target.toolName) throw new Error('Native tool identity differs')
-  if (
-    current?.pending &&
-    ['target', 'originalArgs', 'context'].some(
-      (key) =>
-        stableStringifyJsonValue(current.pending![key as keyof Pending]) !==
-        stableStringifyJsonValue(pending[key as keyof Pending])
-    )
-  )
+  if (current?.pending && !samePendingOrigin(current.pending, pending))
     throw new Error('Original Copilot pending target, arguments or context changed')
   // An unfinished historical invocation is display-only. Fresh Pending restores its
   // action card; current attempt/error/review state and any known result stay intact.
@@ -135,7 +134,12 @@ export function displayNativePending(
     )
       ? current.state
       : ClientToolCallState.pending
-  const pendingCall: CopilotToolCall = {
+  const selectedWorkspace =
+    !pending.context?.workspaceId &&
+    ['gdrive_request_access', 'oauth_request_access'].includes(target.toolName)
+      ? current?.provenance?.workspaceId
+      : undefined
+  const toolCall: CopilotToolCall = {
     ...current,
     id: target.toolCallId,
     name: target.toolName,
@@ -150,14 +154,6 @@ export function displayNativePending(
       pending.preview ? ClientToolCallState.review : stateToDisplay,
       pending.originalArgs
     ),
-  }
-  const selectedWorkspace =
-    !pending.context?.workspaceId &&
-    ['gdrive_request_access', 'oauth_request_access'].includes(target.toolName)
-      ? current?.provenance?.workspaceId
-      : undefined
-  const toolCall: CopilotToolCall = {
-    ...pendingCall,
     provenance: selectedWorkspace
       ? { ...pending.context, workspaceId: selectedWorkspace }
       : pending.context,
@@ -328,12 +324,14 @@ export function applyNativeEvent(
     }
     case 'response.refused':
     case 'response.error': {
-      const display = settleDisplayOnlyTools(state, messageId, ClientToolCallState.error)
+      const display = state.currentRunId
+        ? state
+        : settleDisplayOnlyTools(state, messageId, ClientToolCallState.error)
       return {
         toolCallsById: display.toolCallsById,
         lastNativeOutcome: event.result,
         error: event.result.error.message,
-        isSendingMessage: false,
+        isSendingMessage: Boolean(state.currentRunId),
         messages: display.messages.map((message) =>
           message.id === messageId
             ? {

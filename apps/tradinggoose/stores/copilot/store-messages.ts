@@ -4,30 +4,9 @@ import type { ImagePart } from '@/lib/copilot/native/contract'
 import type { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { projectNativeHistoryMessage } from './history'
 import { resolveToolDisplay } from './tool-registry'
-import type { ChatContext, CopilotMessage, CopilotStore, CopilotToolCall } from './types'
+import type { ChatContext, CopilotMessage, CopilotStore } from './types'
 
 type PlanTodo = CopilotStore['planTodos'][number]
-
-function readToolCallsInMessageOrder(message: CopilotMessage): CopilotToolCall[] {
-  const toolCalls: CopilotToolCall[] = []
-  const seenToolCallIds = new Set<string>()
-  const appendToolCall = (toolCall: CopilotToolCall | undefined) => {
-    if (!toolCall?.id || seenToolCallIds.has(toolCall.id)) {
-      return
-    }
-
-    seenToolCallIds.add(toolCall.id)
-    toolCalls.push(toolCall)
-  }
-
-  for (const block of message.contentBlocks ?? []) {
-    if (block.type === 'tool_call' && block.toolCall) {
-      appendToolCall(block.toolCall)
-    }
-  }
-
-  return toolCalls
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
@@ -43,20 +22,19 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
   for (const message of messages) {
     if (message.role === 'user') todos = []
 
-    for (const toolCall of readToolCallsInMessageOrder(message)) {
+    const seen = new Set<string>()
+    for (const block of message.contentBlocks ?? []) {
+      if (block.type !== 'tool_call' || !block.toolCall.id || seen.has(block.toolCall.id)) continue
+      const toolCall = block.toolCall
+      seen.add(toolCall.id)
       if (toolCall.state !== 'success') {
         continue
       }
 
-      const args = toolCall.params ?? {}
       const result = isRecord(toolCall.result) ? toolCall.result : {}
 
       if (toolCall.name === 'plan') {
-        const todoList = Array.isArray(result.todoList)
-          ? result.todoList
-          : Array.isArray(args.todoList)
-            ? args.todoList
-            : null
+        const todoList = Array.isArray(result.todoList) ? result.todoList : null
         if (todoList) {
           todos = todoList
             .map<PlanTodo | null>((item: unknown, index: number) => {
@@ -81,7 +59,7 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
         continue
       }
 
-      const todoItemId = readCanonicalStringId(result.id) ?? readCanonicalStringId(args.id)
+      const todoItemId = readCanonicalStringId(result.id)
       if (!todoItemId) {
         continue
       }

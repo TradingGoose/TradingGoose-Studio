@@ -30,7 +30,6 @@ import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import {
   disposeAllClientTools,
   disposeClientToolsExcept,
-  registerToolStateSync,
   unregisterClientTool,
 } from '@/lib/copilot/tools/client/manager'
 import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
@@ -65,10 +64,10 @@ import {
   applyNativeEvent,
   displayNativePending,
   replaceNativeText,
+  samePendingOrigin,
   settleDisplayOnlyTools,
 } from './streaming'
 import {
-  createExecutionContext,
   ensureClientToolInstance,
   handleCopilotServerToolSuccess,
   isGatedTool,
@@ -292,10 +291,9 @@ function createCopilotStoreInstance(channelId: string) {
         )
         let projected = { ...get(), messages, toolCallsById }
         for (const item of pending) {
-          verifyPending(item)
           const live = get().toolCallsById[item.target.toolCallId]
           const matchingLive =
-            sameOrigin(live?.pending, item) ||
+            samePendingOrigin(live?.pending, item) ||
             (recoveredRunId === item.target.runId &&
               live &&
               !live.pending &&
@@ -321,6 +319,8 @@ function createCopilotStoreInstance(channelId: string) {
             })
           projected = { ...projected, ...displayNativePending(projected, item) }
         }
+        for (const id of Object.keys(get().toolCallsById))
+          if (!projected.toolCallsById[id]) unregisterClientTool(id)
         set({
           messages: projected.messages,
           toolCallsById: projected.toolCallsById,
@@ -444,7 +444,10 @@ function createCopilotStoreInstance(channelId: string) {
               if (!current()) return false
               if (!retryable) {
                 fail(error)
-                set({ isSendingMessage: false, isAwaitingContinuation: false })
+                set({
+                  isSendingMessage: false,
+                  isAwaitingContinuation: Boolean(get().currentRunId),
+                })
                 return false
               }
             }
@@ -557,21 +560,15 @@ function createCopilotStoreInstance(channelId: string) {
             }
             if (!terminal) throw new Error('Native Copilot ended without a terminal outcome')
           }
-          if (
-            get().lastNativeOutcome?.status === 'failed' ||
-            get().lastNativeOutcome?.status === 'refused' ||
-            get().lastNativeOutcome?.status === 'cancel_requested'
-          )
-            return false
           const outcome = get().lastNativeOutcome
-          if (
-            (outcome?.status === 'completed' || outcome?.status === 'suspended') &&
-            get().currentChat
-          )
-            await restoreChat(get().currentChat!, outcome.runId)
-          if (!current()) return true
-          publishInitialTitle()
+          if (outcome?.status === 'cancel_requested') return false
+          const runId = outcome && 'runId' in outcome ? outcome.runId : get().currentRunId
+          const chat = get().currentChat
+          if (chat && runId) await restoreChat(chat, runId)
+          if (!current()) return false
           if (get().isAwaitingContinuation) scheduleBrowserTools()
+          if (outcome?.status !== 'completed' && outcome?.status !== 'suspended') return false
+          publishInitialTitle()
           return true
         } catch (error) {
           if (current() && !abort.signal.aborted) {
@@ -604,12 +601,6 @@ function createCopilotStoreInstance(channelId: string) {
         kind: 'initial' | 'automatic' | 'accept' | 'reject' | 'decline'
         pending: Pending
       }
-      const sameOrigin = (left: Pending | undefined, right: Pending) =>
-        !!left &&
-        (['target', 'originalArgs', 'context'] as const).every(
-          (field) =>
-            stableStringifyJsonValue(left[field]) === stableStringifyJsonValue(right[field])
-        )
       const automaticEligible = (pending: Pending, ownsFlight = false) => {
         const call = get().toolCallsById[pending.target.toolCallId]
         return (
@@ -621,7 +612,7 @@ function createCopilotStoreInstance(channelId: string) {
           !call.historyOrigin &&
           call.state === ClientToolCallState.pending &&
           call.result === undefined &&
-          sameOrigin(call.pending, pending) &&
+          samePendingOrigin(call.pending, pending) &&
           call.pending?.stage === 'result' &&
           (ownsFlight || !inFlightTools.has(pending.target.toolCallId)) &&
           !attemptedTools.has(stableStringifyJsonValue(pending.target)) &&
@@ -669,7 +660,7 @@ function createCopilotStoreInstance(channelId: string) {
             intent.pending.stage === 'approval' &&
             pending.stage === 'result'
           if (
-            !sameOrigin(pending, intent.pending) ||
+            !samePendingOrigin(pending, intent.pending) ||
             (!alreadyApproved && pending.stage !== intent.pending.stage)
           )
             throw new Error('Original native action changed before dispatch')
@@ -701,7 +692,7 @@ function createCopilotStoreInstance(channelId: string) {
               return
             const approvedPending = await get().readPendingTool(id)
             if (!current()) return
-            if (approvedPending.stage !== 'result' || !sameOrigin(approvedPending, pending))
+            if (approvedPending.stage !== 'result' || !samePendingOrigin(approvedPending, pending))
               throw new Error('Approved native target/arguments/binding changed')
             pending = approvedPending
           }
@@ -747,13 +738,7 @@ function createCopilotStoreInstance(channelId: string) {
               throw new Error('This tool does not have a server preview decision')
             const instance = ensureClientToolInstance(call.name, id)
             if (!instance) throw new Error('Native browser tool is unavailable')
-            instance.setExecutionContext(
-              createExecutionContext({
-                toolCallId: id,
-                toolName: call.name,
-                provenance: call.provenance ?? {},
-              })
-            )
+            instance.setExecutionContext({ workspaceId: call.provenance?.workspaceId })
             const key = stableStringifyJsonValue(pending.target)
             if (
               attemptedTools.has(key) &&
@@ -786,7 +771,7 @@ function createCopilotStoreInstance(channelId: string) {
             }
           }
         } catch (error) {
-          if (current() && sameOrigin(get().toolCallsById[id]?.pending, intent.pending))
+          if (current() && samePendingOrigin(get().toolCallsById[id]?.pending, intent.pending))
             get().recordToolFailure(id, fail(error))
           if (['reject', 'decline'].includes(intent.kind)) throw error
         } finally {
@@ -1296,6 +1281,7 @@ function createCopilotStoreInstance(channelId: string) {
           if (!ownsChat(chat, generation, interaction)) return
           if (!success) throw new Error('Authoritative readback did not complete')
         },
+        setToolState: updateTool,
         recordToolFailure: (id, message) => {
           updateTool(
             id,
@@ -1389,14 +1375,6 @@ registerCopilotStoreForToolCallResolver((id) => {
   )
   if (stores.length !== 1) throw new Error(`No unique active Copilot store owns tool call ${id}`)
   return stores[0]
-})
-registerToolStateSync((id, state, options) => {
-  const owners = [...copilotStoreRegistry.values()].filter(
-    (item) => item.getState().toolCallsById[id]
-  )
-  const store = owners.length === 1 ? owners[0] : undefined
-  if (!store || !Object.values(ClientToolCallState).includes(state)) return
-  store.setState((current) => updateToolCallState(current, id, state, options?.result))
 })
 const CopilotStoreContext = createContext<StoreApi<CopilotStore> | null>(null)
 export function CopilotStoreProvider({

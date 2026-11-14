@@ -12,7 +12,6 @@ import { acquireWritableWorkflowSessionLease } from '@/lib/yjs/workflow-shared-s
 
 type WorkflowTarget = {
   workflowId: string
-  entityName?: string
   workspaceId?: string | null
 }
 
@@ -53,7 +52,6 @@ export async function getReadableWorkflowState(
   entityId?: string
 ): Promise<{
   workflowId: string
-  entityName?: string
   workflowState: WorkflowSnapshot
   workspaceId: string | null
   variables: Record<string, any>

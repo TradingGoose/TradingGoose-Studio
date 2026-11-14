@@ -228,7 +228,7 @@ describe('canonical native history display', () => {
             id: 'plan',
             name: 'plan',
             state: ClientToolCallState.success,
-            params: {
+            result: {
               todoList: [
                 { id: 'one', content: 'Inspect' },
                 { id: 'two', content: 'Test' },

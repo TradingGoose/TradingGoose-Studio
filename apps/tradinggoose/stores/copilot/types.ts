@@ -157,6 +157,7 @@ export interface CopilotActions {
     outcome: 'opened' | 'closed' | 'error',
     message?: string
   ) => void
+  setToolState: (toolCallId: string, state: ClientToolCallState, result?: unknown) => void
   recordToolFailure: (toolCallId: string, message: string) => void
 
   executeCopilotToolCall: (toolCallId: string) => Promise<void>

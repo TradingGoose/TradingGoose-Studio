@@ -17,6 +17,7 @@ const mockCopilotState = {
   submitBrowserAssertion: vi.fn(),
   openWorkflowChatDeployment: vi.fn(),
   recordToolFailure: vi.fn(),
+  setToolState: vi.fn(),
   abortController: new AbortController(),
 }
 
@@ -77,12 +78,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     }
 
     const tool = new DeployWorkflowClientTool(toolCallId)
-    tool.setExecutionContext({
-      toolCallId,
-      toolName: 'deploy_workflow',
-      contextEntityKind: 'workflow',
-      contextEntityId: 'wf-context',
-    })
+    tool.setExecutionContext({})
 
     const displays = tool.getInterruptDisplays()
 
@@ -152,10 +148,6 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     const toolCallId = 'deploy-tool-call-accept'
     const tool = new DeployWorkflowClientTool(toolCallId)
     tool.setExecutionContext({
-      toolCallId,
-      toolName: 'deploy_workflow',
-      contextEntityKind: 'workflow',
-      contextEntityId: 'wf-context',
       workspaceId: 'ws-1',
     })
 
@@ -203,8 +195,6 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = new DeployWorkflowClientTool('chat-ui-call')
     tool.setExecutionContext({
-      toolCallId: 'chat-ui-call',
-      toolName: 'deploy_workflow',
       workspaceId: 'entity-workspace',
     })
     const execution = tool.execute({
@@ -243,8 +233,6 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     mockCopilotState.submitBrowserAssertion.mockRejectedValue(new Error('ACK lost'))
     const tool = new DeployWorkflowClientTool('chat-failed-ack')
     tool.setExecutionContext({
-      toolCallId: 'chat-failed-ack',
-      toolName: 'deploy_workflow',
       workspaceId: 'entity-workspace',
     })
     const args = {
@@ -271,8 +259,6 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     async (kind) => {
       const tool = new DeployWorkflowClientTool('chat-refusal')
       tool.setExecutionContext({
-        toolCallId: 'chat-refusal',
-        toolName: 'deploy_workflow',
         workspaceId: 'entity-workspace',
       })
       if (kind === 'approval')
@@ -300,8 +286,6 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = new DeployWorkflowClientTool('undeploy-call')
     tool.setExecutionContext({
-      toolCallId: 'undeploy-call',
-      toolName: 'deploy_workflow',
       workspaceId: 'entity-workspace',
     })
     await tool.execute({

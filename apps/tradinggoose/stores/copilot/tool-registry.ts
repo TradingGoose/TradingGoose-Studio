@@ -1,4 +1,3 @@
-import type { CopilotToolContext } from '@/lib/copilot/native/contract'
 import { CopilotTool, isToolId, type ToolId } from '@/lib/copilot/registry'
 import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import type {
@@ -6,7 +5,6 @@ import type {
   BaseClientToolMetadata,
   ClientToolCallState,
   ClientToolDisplay,
-  ClientToolExecutionContext,
 } from '@/lib/copilot/tools/client/base-tool'
 import { GDriveRequestAccessClientTool } from '@/lib/copilot/tools/client/google/gdrive-request-access'
 import { getClientTool, registerClientTool } from '@/lib/copilot/tools/client/manager'
@@ -45,23 +43,6 @@ const CLIENT_TOOL_CONSTRUCTORS: Partial<Record<ToolId, ClientToolCtor>> = {
   oauth_request_access: OAuthRequestAccessClientTool,
   deploy_workflow: DeployWorkflowClientTool,
   sleep: SleepClientTool,
-}
-
-export function createExecutionContext(params: {
-  toolCallId: string
-  toolName: string
-  provenance: CopilotToolContext
-}): ClientToolExecutionContext {
-  const { toolCallId, toolName, provenance } = params
-  const { contextEntityKind, contextEntityId, workspaceId } = provenance
-
-  return {
-    toolCallId,
-    toolName,
-    ...(contextEntityKind ? { contextEntityKind } : {}),
-    ...(contextEntityId ? { contextEntityId } : {}),
-    ...(workspaceId ? { workspaceId } : {}),
-  }
 }
 
 export function isGatedTool(toolName: string | undefined): boolean {

@@ -27,26 +27,27 @@ describe('browser assertions cannot become authoritative business results', () =
       ).toThrow('authoritative Studio')
     }
   )
-  it('keeps local plan and timer assertions within their actual schemas', () => {
-    expect(() =>
-      validateNativeBrowserAssertion(pending('plan'), {
-        kind: 'plan.updated',
-        data: { todoList: [] },
-      })
-    ).not.toThrow()
-    expect(() =>
-      validateNativeBrowserAssertion(pending('sleep'), {
-        kind: 'timer.completed',
-        data: { success: true, seconds: 1 },
-      })
-    ).not.toThrow()
-    expect(() =>
-      validateNativeBrowserAssertion(pending('plan'), {
-        kind: 'plan.updated',
-        data: { granted: true },
-      })
-    ).toThrow('business schema')
-  })
+  it.each([
+    ['plan', { todoList: [] }],
+    ['checkoff_todo', { id: 'todo' }],
+    ['mark_todo_in_progress', { id: 'todo' }],
+    ['sleep', { success: true, seconds: 1 }],
+  ] satisfies [string, JsonObject][])(
+    'keeps %s assertions within their kind and business schema',
+    (toolName, data) => {
+      const kind = toolName === 'sleep' ? 'timer.completed' : 'plan.updated'
+      expect(() => validateNativeBrowserAssertion(pending(toolName), { kind, data })).not.toThrow()
+      expect(() =>
+        validateNativeBrowserAssertion(pending(toolName), { kind: 'ui.opened', data })
+      ).toThrow('Invalid local')
+      expect(() =>
+        validateNativeBrowserAssertion(pending(toolName), {
+          kind,
+          data: { ...data, granted: true },
+        })
+      ).toThrow('business schema')
+    }
+  )
   it.each(['oauth_request_access', 'deploy_workflow'])(
     'only describes opened UI for %s and denies fabricated grants/deployments',
     (toolName) => {

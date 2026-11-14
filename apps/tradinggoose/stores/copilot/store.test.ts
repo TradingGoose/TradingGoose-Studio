@@ -9,6 +9,8 @@ import {
 import { MAX_COPILOT_REQUEST_BYTES } from '@/lib/copilot/native/request-size'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import { getClientTool, registerClientTool } from '@/lib/copilot/tools/client/manager'
+import { SleepClientTool } from '@/lib/copilot/tools/client/other/sleep'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { organizationKeys } from '@/hooks/queries/organization'
 import { subscriptionKeys } from '@/hooks/queries/subscription'
@@ -927,33 +929,74 @@ describe('canonical browser conversation transport', () => {
       expect(titleRequests).toEqual([])
     }
   )
-  it('preserves an explicit failed outcome instead of reporting EOF success', async () => {
-    setChat()
-    onCommand = (request) =>
-      request.command === 'message'
-        ? eventResponse([
-            { type: 'response.started', runId, threadId },
-            {
-              type: 'response.error',
-              result: {
-                status: 'failed',
-                error: {
-                  code: 'NATIVE_FAILURE',
-                  message: 'Output failed after acceptance',
+  it.each(['pending', 'unavailable', 'navigation'])(
+    'reconciles an accepted failure before releasing its run (history=%s)',
+    async (historyState) => {
+      setChat()
+      const item = pending('approval', 'rename_workflow')
+      const observation = defer<Response>()
+      onObserve = () => observation.promise
+      onCommand = (request) =>
+        request.command === 'message'
+          ? eventResponse([
+              { type: 'response.started', runId, threadId },
+              {
+                type: 'tool.display',
+                toolCallId: item.target.toolCallId,
+                toolName: item.target.toolName,
+              },
+              {
+                type: 'response.error',
+                result: {
+                  status: 'failed',
+                  error: { code: 'FAILED', message: 'Pending discovery failed' },
                 },
               },
-            },
-          ])
-        : undefined
-    expect(await store().getState().sendMessage('Hello')).toBe(false)
-    expect(store().getState().lastNativeOutcome).toMatchObject({
-      status: 'failed',
-    })
-    expect(store().getState().isAwaitingContinuation).toBe(false)
-    expect(titleRequests).toEqual([])
-    onCommand = () => undefined
-    expect(await store().getState().sendMessage('Next turn')).toBe(true)
-  })
+            ])
+          : undefined
+      const sending = store().getState().sendMessage('Rename')
+      await vi.waitFor(() =>
+        expect(commands.some((request) => request.command === 'thread.observe')).toBe(true)
+      )
+      expect(store().getState()).toMatchObject({ currentRunId: runId, isSendingMessage: true })
+      expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe(
+        ClientToolCallState.generating
+      )
+      expect(await store().getState().sendMessage('Next')).toBe(false)
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      if (historyState === 'navigation') await store().getState().createNewChat()
+      observation.resolve(
+        historyState === 'unavailable'
+          ? json(
+              { status: 'refused', error: { code: 'FORBIDDEN', message: 'History unavailable' } },
+              403
+            )
+          : historyResponse([item])
+      )
+      expect(await sending).toBe(false)
+      if (historyState === 'navigation') {
+        expect(store().getState()).toMatchObject({
+          currentChat: null,
+          currentRunId: null,
+          toolCallsById: {},
+        })
+        return
+      }
+      expect(store().getState()).toMatchObject({
+        currentRunId: runId,
+        isAwaitingContinuation: true,
+        lastNativeOutcome: { status: historyState === 'unavailable' ? 'refused' : 'failed' },
+      })
+      if (historyState === 'pending')
+        expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+          pending: item,
+          state: ClientToolCallState.pending,
+        })
+      expect(await store().getState().abortMessage()).toBe(true)
+      expect(commands.at(-1)).toEqual({ command: 'cancel', workspaceId, threadId, runId })
+      expect(store().getState().currentRunId).toBeNull()
+    }
+  )
   it('settles display-only tools during a UI abort and waits for cancellation acknowledgement', async () => {
     setChat()
     const item = pending('approval')
@@ -1157,6 +1200,7 @@ describe('failed pending continuations', () => {
     await store().getState().selectChat(chat())
     commands = []
     onCommand = (request) => {
+      if (request.command === 'thread.observe') return historyResponse([item])
       if (request.command !== 'tool.approve' && request.command !== 'tool.execute') return
       if (failure === 'transport') throw new Error('Continuation transport failed')
       const result = {
@@ -1217,10 +1261,14 @@ describe('failed pending continuations', () => {
   })
 
   it('releases the retained run when authoritative history confirms no pending work', async () => {
-    const item = pending('approval', 'rename_workflow')
+    const item = pending('approval', 'sleep')
     onCommand = (request) =>
       request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
+    const instance = new SleepClientTool(item.target.toolCallId)
+    registerClientTool(item.target.toolCallId, instance)
+    instance.setState(ClientToolCallState.generating)
+    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe('generating')
     onCommand = (request) =>
       request.command === 'tool.approve'
         ? eventResponse([
@@ -1234,12 +1282,14 @@ describe('failed pending continuations', () => {
           ])
         : undefined
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    expect(store().getState().isAwaitingContinuation).toBe(true)
-    await reconnectSelectedChat()
+    expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(2)
     expect(store().getState()).toMatchObject({
       currentRunId: null,
       isAwaitingContinuation: false,
     })
+    expect(getClientTool(item.target.toolCallId)).toBeUndefined()
+    expect(() => instance.setState(ClientToolCallState.success)).not.toThrow()
+    expect(store().getState().toolCallsById[item.target.toolCallId]).toBeUndefined()
     expect(await store().getState().sendMessage('Next turn')).toBe(true)
   })
 
@@ -1834,19 +1884,28 @@ describe('reopened workflow pending cards', () => {
 })
 
 describe('display-only terminal settlement and optional completed history', () => {
-  it.each(['error', 'refused', 'cancel'])(
-    'settles tool.display on SSE %s while retaining its completed outcome',
-    async (kind) => {
+  it.each([
+    ['error', false],
+    ['error', true],
+    ['refused', true],
+    ['cancel', true],
+  ] as const)(
+    'settles SSE %s and reconciles only accepted runs (accepted=%s)',
+    async (kind, accepted) => {
       setChat()
       onCommand = (request) =>
         request.command === 'message'
           ? eventResponse([
-              { type: 'response.started', runId, threadId },
-              {
-                type: 'tool.display',
-                toolName: 'read_workflow',
-                toolCallId: 'display-only',
-              },
+              ...(accepted
+                ? [
+                    { type: 'response.started', runId, threadId },
+                    {
+                      type: 'tool.display',
+                      toolName: 'read_workflow',
+                      toolCallId: 'display-only',
+                    },
+                  ]
+                : []),
               kind === 'cancel'
                 ? {
                     type: 'response.cancel_requested',
@@ -1870,21 +1929,34 @@ describe('display-only terminal settlement and optional completed history', () =
       expect(await store().getState().sendMessage('read')).toBe(false)
       const state = store().getState()
       expect(hasUiActiveToolCalls(state.toolCallsById)).toBe(false)
-      expect(state.toolCallsById['display-only']).toMatchObject({
-        state: kind === 'cancel' ? ClientToolCallState.aborted : ClientToolCallState.error,
-        pending: undefined,
-      })
+      if (kind === 'cancel')
+        expect(state.toolCallsById['display-only']).toMatchObject({
+          state: ClientToolCallState.aborted,
+          pending: undefined,
+        })
+      else expect(state.toolCallsById['display-only']).toBeUndefined()
       expect(state.lastNativeOutcome?.status).toBe(
         kind === 'cancel' ? 'cancel_requested' : kind === 'error' ? 'failed' : 'refused'
       )
-      if (kind === 'cancel') expect(state.currentRunId).toBeNull()
+      expect(state).toMatchObject({
+        currentRunId: null,
+        isSendingMessage: false,
+        isAwaitingContinuation: false,
+      })
+      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(
+        accepted && kind !== 'cancel' ? 1 : 0
+      )
+      expect(titleRequests).toEqual([])
       expect(
         state.messages
           .flatMap((message) => message.contentBlocks ?? [])
           .find((block) => block.type === 'tool_call')?.toolCall.state
-      ).toBe(state.toolCallsById['display-only'].state)
+      ).toBe(state.toolCallsById['display-only']?.state)
       expect(tools.browser).not.toHaveBeenCalled()
       expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      onCommand = () => undefined
+      expect(await store().getState().sendMessage('Next turn')).toBe(true)
     }
   )
   it.each(['json', 'sse'])(
@@ -2758,7 +2830,7 @@ describe('selected native run context', () => {
     expect(tools.browser).not.toHaveBeenCalled()
     await store().getState().executeCopilotToolCall(item.target.toolCallId)
     expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
-    expect(tools.bind).toHaveBeenLastCalledWith(expect.objectContaining(item.context))
+    expect(tools.bind).toHaveBeenLastCalledWith({ workspaceId: item.context?.workspaceId })
   })
 
   it('keeps an explicit OAuth workspace choice through native history refresh', async () => {
@@ -2938,6 +3010,7 @@ describe('built-in tool continuation', () => {
     toolName: string
     originalArgs: Pending['originalArgs']
     disconnected: boolean
+    failed?: boolean
   }>([
     {
       toolName: 'plan',
@@ -2948,21 +3021,28 @@ describe('built-in tool continuation', () => {
     { toolName: 'checkoff_todo', originalArgs: { id: 'todo-1' }, disconnected: false },
     { toolName: 'mark_todo_in_progress', originalArgs: { id: 'todo-1' }, disconnected: false },
     { toolName: 'plan', originalArgs: { objective: 'Recovered live plan' }, disconnected: true },
+    {
+      toolName: 'plan',
+      originalArgs: { objective: 'Recovered suspended plan' },
+      disconnected: false,
+      failed: true,
+    },
   ])(
-    'automatically executes a live $toolName once after history refresh (disconnected=$disconnected)',
-    async ({ toolName, originalArgs, disconnected }) => {
+    'automatically executes a live $toolName once after history refresh (disconnected=$disconnected, failed=$failed)',
+    async ({ toolName, originalArgs, disconnected, failed }) => {
       const item = { ...pending('result', toolName), originalArgs }
-      const generation = disconnected
-        ? eventStream([
-            { type: 'response.started', threadId, runId },
-            {
-              type: 'tool.display',
-              toolCallId: item.target.toolCallId,
-              toolName,
-              args: originalArgs,
-            },
-          ])
-        : null
+      const generation =
+        disconnected || failed
+          ? eventStream([
+              { type: 'response.started', threadId, runId },
+              {
+                type: 'tool.display',
+                toolCallId: item.target.toolCallId,
+                toolName,
+                args: originalArgs,
+              },
+            ])
+          : null
       if (disconnected) setChat()
       onCommand = (request) =>
         request.command === 'message'
@@ -2993,9 +3073,18 @@ describe('built-in tool continuation', () => {
             ClientToolCallState.generating
           )
         )
-        generation.fail(new Error('Connection lost before suspension'))
+        if (failed) {
+          generation.emit({
+            type: 'response.error',
+            result: {
+              status: 'failed',
+              error: { code: 'FAILED', message: 'Pending discovery failed' },
+            },
+          })
+          generation.close()
+        } else generation.fail(new Error('Connection lost before suspension'))
       }
-      expect(await sending).toBe(true)
+      expect(await sending).toBe(!failed)
       await vi.waitFor(() => expect(tools.browser).toHaveBeenCalledExactlyOnceWith(originalArgs))
       const call = store().getState().toolCallsById[item.target.toolCallId]
       expect(call.historical).toBe(false)

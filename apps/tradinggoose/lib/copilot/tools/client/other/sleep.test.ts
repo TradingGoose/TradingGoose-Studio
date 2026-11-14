@@ -9,6 +9,7 @@ vi.mock('@/stores/copilot/store-access', () => ({
       abortController: m.abort,
       submitBrowserAssertion: m.assertion,
       recordToolFailure: m.failure,
+      setToolState: vi.fn(),
     }),
   }),
 }))
