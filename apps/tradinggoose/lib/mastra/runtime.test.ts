@@ -67,7 +67,6 @@ vi.mock('@/lib/copilot/agent/agent', () => ({ createCopilotAgent: fixture.create
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ error: fixture.error }),
 }))
-vi.mock('./connections', () => ({ getConfiguredGateways: () => ({}) }))
 
 let runtime: typeof import('./runtime')
 const processRuntime = globalThis as typeof globalThis & { __studioMastraRuntime?: unknown }

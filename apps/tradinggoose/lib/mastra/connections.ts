@@ -6,7 +6,6 @@ import {
   type MastraModelGatewayInterface,
   ModelRouterLanguageModel,
   modelSupportsTemperature,
-  type OpenAICompatibleConfig,
   type ProviderConfig,
   parseModelString,
 } from '@mastra/core/llm'
@@ -128,10 +127,7 @@ async function resolveManagedKey(provider: string): Promise<string | undefined> 
 }
 
 /** Native configuration preserves exact identity and authorized request-local BYOK precedence. */
-export async function resolveConfiguredModel(
-  model: string,
-  apiKey?: string
-): Promise<OpenAICompatibleConfig> {
+export async function resolveConfiguredModel(model: string, apiKey?: string) {
   const { provider, modelId } = parseModelString(model)
   if (!provider) throw new Error('Model must use Mastra provider/model format')
   const configured = await getConfiguredProviders()
@@ -151,21 +147,6 @@ export async function resolveConfiguredModel(
   return { providerId: provider, modelId, url: config?.url, apiKey: key ?? '' }
 }
 
-export async function getConfiguredGateways(
-  apiKey?: string
-): Promise<Record<string, MastraModelGatewayInterface>> {
-  const azure = await getAzureSettings()
-  if (!azure) return {}
-  const key = apiKey ?? (await resolveManagedKey('azure-openai'))
-  if (!key) throw new Error('The Azure OpenAI API key is not configured in System Services')
-  return {
-    'azure-openai': new AzureOpenAIGateway({
-      ...azure,
-      apiKey: key,
-    }) as MastraModelGatewayInterface,
-  }
-}
-
 /** Request-owned native models never rely on process environment credentials or stale gateway keys. */
 export async function createConfiguredLanguageModel(model: string, apiKey?: string) {
   const config = await resolveConfiguredModel(model, apiKey)
@@ -173,9 +154,11 @@ export async function createConfiguredLanguageModel(model: string, apiKey?: stri
     throw new Error(
       `Configured model "${model}" conflicts with native Mastra sampling capabilities. Choose a distinct managed provider ID.`
     )
-  const gateways =
-    parseModelString(model).provider === 'azure-openai'
-      ? await getConfiguredGateways(config.apiKey)
-      : {}
-  return new ModelRouterLanguageModel(config, Object.values(gateways))
+  const azure = config.providerId === 'azure-openai' ? await getAzureSettings() : undefined
+  return new ModelRouterLanguageModel(
+    config,
+    azure
+      ? [new AzureOpenAIGateway({ ...azure, apiKey: config.apiKey }) as MastraModelGatewayInterface]
+      : []
+  )
 }
