@@ -877,7 +877,10 @@ function createCopilotStoreInstance(channelId: string) {
           }
         },
         draft: emptyDraft(),
-        setAccessLevel: (accessLevel) => set({ accessLevel }),
+        setAccessLevel: (accessLevel) => {
+          if (isCopilotBusy(get()) || get().accessLevel === accessLevel) return
+          set({ accessLevel })
+        },
         setDraft: (update) =>
           set((state) => ({ draft: typeof update === 'function' ? update(state.draft) : update })),
         setSelectedModel: async (selectedModel) => {

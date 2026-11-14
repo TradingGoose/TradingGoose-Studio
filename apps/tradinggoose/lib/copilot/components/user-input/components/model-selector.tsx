@@ -73,11 +73,11 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
     <>
       <DropdownMenu onOpenChange={(open) => open && void catalog.refetch()}>
         <DropdownMenuTrigger
+          disabled={busy || !catalog.data?.models.length}
           render={
             <Button
               variant='outline'
               size='sm'
-              disabled={busy || !catalog.data?.models.length}
               aria-label={selected?.label ?? unavailable}
               title={selected?.label ?? unavailable}
               className='flex h-6 min-w-0 items-center gap-1.5 rounded-sm border bg-background px-2 py-1 font-medium text-xs hover:bg-muted/30'
@@ -125,11 +125,11 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
         }}
       >
         <PopoverTrigger
+          disabled={busy || !selected}
           render={
             <Button
               variant='outline'
               size='sm'
-              disabled={busy || !selected}
               aria-label={copy.providerOptions}
               className='flex h-6 shrink-0 items-center gap-1.5 rounded-sm border bg-background px-2 py-1 font-medium text-xs hover:bg-muted/30'
             />

@@ -11,7 +11,7 @@ import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { buildPlanTodosFromMessages } from '@/stores/copilot/store-messages'
-import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
+import { isCopilotBusy } from '@/stores/copilot/store-state'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { CopilotMessage } from '../copilot-message/copilot-message'
 import { TodoList } from '../todo-list/todo-list'
@@ -59,25 +59,21 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     }),
     [implicitContexts, workspaceId]
   )
+  const state = useCopilotStore()
   const {
     messages,
-    isSendingMessage,
-    isAwaitingContinuation,
     isAborting,
     selectedModel,
     accessLevel,
     draft,
     sendMessage,
     abortMessage,
-    setAccessLevel,
     setDraft,
     loadChats,
-    toolCallsById,
     error,
-  } = useCopilotStore()
+  } = state
   const planTodos = useMemo(() => buildPlanTodosFromMessages(messages), [messages])
-  const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
-  const isTurnInProgress = isSendingMessage || isAwaitingContinuation || hasActiveToolCalls
+  const isTurnInProgress = isCopilotBusy(state)
 
   useEffect(() => {
     let cancelled = false
@@ -416,8 +412,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
               isLoading={isTurnInProgress}
               submitDisabled={!selectedModel}
               isAborting={isAborting}
-              accessLevel={accessLevel}
-              onAccessLevelChange={setAccessLevel}
               draft={draft}
               onDraftChange={setDraft}
               panelWidth={panelWidth}

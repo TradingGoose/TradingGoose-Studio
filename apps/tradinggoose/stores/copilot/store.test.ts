@@ -769,19 +769,29 @@ describe('canonical browser conversation transport', () => {
     })
   })
   it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
-    'keeps model and provider options immutable during %s',
+    'keeps access, model and provider options immutable during %s',
     async (busyState) => {
       const selectedModel = store().getState().selectedModel
       const providerOptions = { openai: { reasoningEffort: 'high' } }
       store().getState().setProviderOptions(providerOptions)
+      store().getState().setAccessLevel('full')
       if (busyState === 'pending-tool')
         store().setState({
           toolCallsById: { pending: { name: 'plan', state: ClientToolCallState.pending } as any },
         })
       else store().setState({ [busyState]: true })
+      store().getState().setAccessLevel('limited')
       store().getState().setProviderOptions(undefined)
       await store().getState().setSelectedModel('openai/gpt-5.6-sol')
-      expect(store().getState()).toMatchObject({ selectedModel, providerOptions })
+      expect(store().getState()).toMatchObject({
+        selectedModel,
+        providerOptions,
+        accessLevel: 'full',
+      })
+      if (busyState === 'pending-tool') store().setState({ toolCallsById: {} })
+      else store().setState({ [busyState]: false })
+      store().getState().setAccessLevel('limited')
+      expect(store().getState().accessLevel).toBe('limited')
     }
   )
   it('merges live contexts without promoting UI workspace/entity locators to tool payload authority', async () => {

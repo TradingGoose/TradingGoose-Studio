@@ -15,12 +15,8 @@ import {
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import { cn } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
-
-interface AccessLevelSelectorProps {
-  accessLevel: CopilotAccessLevel
-  isNearTop: boolean
-  onAccessLevelChange: (accessLevel: CopilotAccessLevel) => void
-}
+import { useCopilotStore } from '@/stores/copilot/store'
+import { isCopilotBusy } from '@/stores/copilot/store-state'
 
 const getAccessLevelIcon = (accessLevel: CopilotAccessLevel) => {
   if (accessLevel === 'full') {
@@ -30,17 +26,17 @@ const getAccessLevelIcon = (accessLevel: CopilotAccessLevel) => {
   return <ShieldCheck className='h-3 w-3 text-muted-foreground' />
 }
 
-export function AccessLevelSelector({
-  accessLevel,
-  isNearTop,
-  onAccessLevelChange,
-}: AccessLevelSelectorProps) {
+export function AccessLevelSelector({ isNearTop }: { isNearTop: boolean }) {
+  const accessLevel = useCopilotStore((state) => state.accessLevel)
+  const setAccessLevel = useCopilotStore((state) => state.setAccessLevel)
+  const busy = useCopilotStore(isCopilotBusy)
   const accessLevelCopy = useCopilotMessages().accessLevel
   const buttonLabel = accessLevelCopy[accessLevel].label
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        disabled={busy}
         render={
           <Button
             variant='outline'
@@ -60,7 +56,8 @@ export function AccessLevelSelector({
                 <TooltipTrigger
                   render={
                     <DropdownMenuItem
-                      onClick={() => onAccessLevelChange(level)}
+                      disabled={busy}
+                      onClick={() => setAccessLevel(level)}
                       className={cn(
                         'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
                         accessLevel === level && 'bg-muted/40'

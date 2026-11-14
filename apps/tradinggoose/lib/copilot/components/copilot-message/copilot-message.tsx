@@ -14,7 +14,7 @@ import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { formatCost } from '@/lib/logs/cost'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
-import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
+import { isCopilotBusy } from '@/stores/copilot/store-state'
 import type {
   ChatContext,
   CopilotDraft,
@@ -126,19 +126,16 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const [needsExpansion, setNeedsExpansion] = useState(false)
     const [typingSegmentKeys, setTypingSegmentKeys] = useState<string[]>([])
 
+    const state = useCopilotStore()
     const {
       currentChat,
       currentRunId,
       messages,
       sendMessage,
       isSendingMessage,
-      isAwaitingContinuation,
       isAborting,
       abortMessage,
-      accessLevel,
-      setAccessLevel,
-      toolCallsById,
-    } = useCopilotStore()
+    } = state
     const copilotStoreApi = useCopilotStoreApi()
 
     // Check if this is the last user message (for showing abort button)
@@ -153,9 +150,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       return messages[messages.length - 1]?.id === message.id
     }, [messages, message.id])
 
-    const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
-    const isTurnInProgress =
-      isStreaming || isSendingMessage || isAwaitingContinuation || isAborting || hasActiveToolCalls
+    const isTurnInProgress = isStreaming || isCopilotBusy(state)
     const isMessageTyping = typingSegmentKeys.length > 0
     const shouldHidePostTurnControls = isTurnInProgress || isMessageTyping
     const shouldShowActivityIndicator =
@@ -515,8 +510,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 draft={editDraft}
                 onDraftChange={setEditDraft}
                 placeholder={copilotCopy.message.editPlaceholder}
-                accessLevel={accessLevel}
-                onAccessLevelChange={setAccessLevel}
                 panelWidth={panelWidth}
                 clearOnSubmit={false}
                 isLoading={isAborting}

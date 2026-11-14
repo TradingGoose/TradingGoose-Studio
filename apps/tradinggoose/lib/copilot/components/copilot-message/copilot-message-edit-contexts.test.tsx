@@ -6,7 +6,7 @@ import type { ChatContext, CopilotMessage as Message } from '@/stores/copilot/ty
 
 let store: any
 vi.mock('@/stores/copilot/store', () => ({
-  useCopilotStore: () => store,
+  useCopilotStore: (selector = (state: any) => state) => selector(store),
   useCopilotStoreApi: () => ({ getState: () => store }),
 }))
 vi.mock('@/lib/auth-client', () => ({ useSession: () => ({ data: { user: { id: 'actor' } } }) }))
@@ -89,7 +89,6 @@ beforeEach(() => {
     isAborting: false,
     abortMessage: vi.fn().mockResolvedValue(true),
     accessLevel: 'limited',
-    setAccessLevel: vi.fn(),
     toolCallsById: {},
   }
 })

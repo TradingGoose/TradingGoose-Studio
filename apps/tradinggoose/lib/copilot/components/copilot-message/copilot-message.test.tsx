@@ -75,7 +75,6 @@ vi.mock('@/stores/copilot/store', () => ({
   useCopilotStore: () => mockStoreState,
   useCopilotStoreApi: () => ({
     getState: () => mockStoreState,
-    setState: vi.fn(),
   }),
 }))
 
@@ -187,8 +186,6 @@ describe('CopilotMessage', () => {
       isAwaitingContinuation: false,
       isAborting: false,
       abortMessage: vi.fn().mockResolvedValue(true),
-      accessLevel: 'full',
-      setAccessLevel: vi.fn(),
       toolCallsById: {},
     }
   })

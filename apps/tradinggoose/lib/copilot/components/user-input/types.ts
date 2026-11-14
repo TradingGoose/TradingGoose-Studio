@@ -1,7 +1,6 @@
 'use client'
 
 import type { ComponentType, Dispatch, SetStateAction } from 'react'
-import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type { ImagePart } from '@/lib/copilot/native/contract'
 import type { ChatContext, CopilotDraft } from '@/stores/copilot/types'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
@@ -29,8 +28,6 @@ export interface UserInputProps {
   isAborting?: boolean
   submitDisabled?: boolean
   placeholder?: string
-  accessLevel: CopilotAccessLevel
-  onAccessLevelChange: (accessLevel: CopilotAccessLevel) => void
   draft: CopilotDraft
   onDraftChange: Dispatch<SetStateAction<CopilotDraft>>
   panelWidth: number

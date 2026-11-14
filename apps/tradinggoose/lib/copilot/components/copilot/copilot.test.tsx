@@ -51,20 +51,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/stores/copilot/store', () => ({
   useCopilotStore: () => mockStoreState,
-  useCopilotStoreApi: () => ({
-    getState: () => mockStoreState,
-    setState: (partial: any) => {
-      const nextState = typeof partial === 'function' ? partial(mockStoreState) : partial
-      mockStoreState = {
-        ...mockStoreState,
-        ...nextState,
-      }
-    },
-  }),
-}))
-
-vi.mock('@/stores/copilot/store-state', () => ({
-  hasUiActiveToolCalls: () => false,
 }))
 
 vi.mock('../copilot-message/copilot-message', () => ({
@@ -167,24 +153,16 @@ describe('Copilot auto-scroll', () => {
 
     mockStoreState = {
       messages: [createAssistantMessage()],
-      chats: [],
-      isLoadingChats: false,
       isSendingMessage: true,
       isAwaitingContinuation: false,
-      abortController: null,
       isAborting: false,
       accessLevel: 'full',
       draft: { text: '', contexts: [] },
       sendMessage: vi.fn(),
       abortMessage: vi.fn(),
-      setAccessLevel: vi.fn(),
       setDraft: vi.fn(),
       loadChats: vi.fn(async () => {}),
       selectedModel: 'openai/gpt-5.6-sol',
-      setSelectedModel: vi.fn(),
-      currentChat: {
-        threadId: 'chat-1',
-      },
       toolCallsById: {},
     }
   })

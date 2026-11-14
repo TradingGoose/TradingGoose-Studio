@@ -14,6 +14,10 @@ vi.mock('@/stores/copilot/store', () => ({
 }))
 vi.mock('@/i18n/workspace-widget-hooks', () => ({
   useCopilotMessages: () => ({
+    accessLevel: {
+      full: { label: 'Full', description: 'Full access' },
+      limited: { label: 'Limited', description: 'Limited access' },
+    },
     models: {
       loading: 'Loading models',
       unconfigured: 'No models configured',
@@ -27,9 +31,14 @@ vi.mock('@/i18n/workspace-widget-hooks', () => ({
 vi.mock('@/components/ui', () => ({
   Button: ({ variant: _variant, size: _size, ...props }: any) => <button {...props} />,
   DropdownMenu: ({ children }: any) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ render, children }: any) => cloneElement(render, {}, children),
+  DropdownMenuTrigger: ({ render, children, ...props }: any) =>
+    cloneElement(render, props, children),
   DropdownMenuContent: ({ align: _align, side: _side, ...props }: any) => <div {...props} />,
   DropdownMenuItem: (props: any) => <button {...props} />,
+  TooltipProvider: ({ children }: any) => children,
+  Tooltip: ({ children }: any) => children,
+  TooltipTrigger: ({ render }: any) => render,
+  TooltipContent: () => null,
   Popover: ({ children, open, onOpenChange }: any) => (
     <div>
       {Children.map(children, (child) =>
@@ -37,8 +46,8 @@ vi.mock('@/components/ui', () => ({
       )}
     </div>
   ),
-  PopoverTrigger: ({ render, children, onPopoverOpenChange }: any) =>
-    cloneElement(render, { onClick: () => onPopoverOpenChange(true) }, children),
+  PopoverTrigger: ({ render, children, onPopoverOpenChange, disabled }: any) =>
+    cloneElement(render, { disabled, onClick: () => onPopoverOpenChange(true) }, children),
   PopoverContent: ({
     popoverOpen,
     onPopoverOpenChange: _change,
@@ -49,6 +58,7 @@ vi.mock('@/components/ui', () => ({
   Textarea: (props: any) => <textarea {...props} />,
 }))
 
+import { AccessLevelSelector } from './access-level-selector'
 import { ModelSelector } from './model-selector'
 
 let container: HTMLDivElement
@@ -59,6 +69,7 @@ const render = () =>
     root.render(
       <QueryClientProvider client={queryClient}>
         <ModelSelector isNearTop={false} panelWidth={400} />
+        <AccessLevelSelector isNearTop={false} />
       </QueryClientProvider>
     )
   )
@@ -73,6 +84,8 @@ beforeEach(() => {
     },
   })
   state = {
+    accessLevel: 'full',
+    setAccessLevel: vi.fn(),
     selectedModel: null,
     setSelectedModel: vi.fn(),
     providerOptions: undefined,
@@ -204,21 +217,6 @@ it('edits native provider options, rejects invalid settings, and clears options 
   expect(state.setProviderOptions).toHaveBeenLastCalledWith(undefined)
 })
 
-it('disables an open options editor while a response is active', () => {
-  state.selectedModel = 'anthropic/selected-model'
-  catalog.data = { models: [{ id: state.selectedModel, label: state.selectedModel }] }
-  render()
-  act(() => container.querySelector<HTMLButtonElement>('[aria-label="Provider Options"]')!.click())
-  state.isSendingMessage = true
-  render()
-  expect(container.querySelector('textarea')).toBeDisabled()
-  for (const button of container.querySelectorAll('button')) {
-    expect(button).toBeDisabled()
-    act(() => button.click())
-  }
-  expect(state.setProviderOptions).not.toHaveBeenCalled()
-})
-
 it('preserves a valid selection and replaces a removed selection on catalog refresh', () => {
   state.selectedModel = 'openai/selected-model'
   catalog.data = {
@@ -240,28 +238,39 @@ it('preserves a valid selection and replaces a removed selection on catalog refr
 })
 
 it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
-  'preserves the active selection and hides a removed route during %s',
+  'locks access, model and open provider options and hides a removed route during %s',
   (busyState) => {
     state.selectedModel = 'openrouter/anthropic/original-model'
+    catalog.data = { models: [{ id: state.selectedModel, label: 'anthropic/original-model' }] }
+    render()
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Provider Options"]')!.click()
+    )
     if (busyState === 'pending-tool') state.toolCallsById = { pending: { state: 'pending' } }
     else state[busyState] = true
-    catalog.data = {
-      models: [{ id: 'openai/replacement', label: 'openai/replacement' }],
-    }
-    catalog.isPending = false
     render()
-    expect(state.setSelectedModel).not.toHaveBeenCalled()
-    expect(container.querySelector('button')).toBeDisabled()
-    expect(container.querySelector('button')).toHaveTextContent('Unavailable')
-    expect(container.innerHTML).not.toContain('openrouter')
+    expect(container.querySelector('textarea')).toBeDisabled()
     for (const button of container.querySelectorAll('button')) {
       expect(button).toBeDisabled()
       act(() => button.click())
     }
+    expect(state.setProviderOptions).not.toHaveBeenCalled()
+    expect(state.setAccessLevel).not.toHaveBeenCalled()
+    catalog.data = { models: [{ id: 'openai/replacement', label: 'openai/replacement' }] }
+    catalog.isPending = false
+    render()
+    expect(container.querySelector('button')).toHaveTextContent('Unavailable')
+    expect(container.innerHTML).not.toContain('openrouter')
     expect(state.setSelectedModel).not.toHaveBeenCalled()
     state.toolCallsById = {}
     if (busyState !== 'pending-tool') state[busyState] = false
     render()
     expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith('openai/replacement')
+    const limited = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Limited'
+    )!
+    expect(limited).toBeEnabled()
+    act(() => limited.click())
+    expect(state.setAccessLevel).toHaveBeenCalledExactlyOnceWith('limited')
   }
 )

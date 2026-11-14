@@ -25,6 +25,9 @@ vi.mock('@/components/ui', async () => {
   }
 })
 vi.mock('@/lib/auth-client', () => ({ useSession: () => ({ data: { user: { id: 'actor' } } }) }))
+vi.mock('@/stores/copilot/store', () => ({
+  useCopilotStore: (selector: (state: any) => unknown) => selector({ accessLevel: 'limited' }),
+}))
 vi.mock('@/i18n/workspace-widget-hooks', () => ({
   useCopilotMessages: () => ({
     input: {
@@ -104,8 +107,6 @@ function Harness({
       onSubmit={mocked.submit}
       onAbort={vi.fn()}
       isLoading={isLoading}
-      accessLevel='limited'
-      onAccessLevelChange={vi.fn()}
       clearOnSubmit={clear}
       submitDisabled={submitDisabled}
       draft={draft}

@@ -14,6 +14,7 @@ import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
+import { useCopilotStore } from '@/stores/copilot/store'
 import { AccessLevelSelector } from './components/access-level-selector'
 import { AttachedFilesGrid } from './components/attached-files-grid'
 import { MentionMenu } from './components/mention-menu'
@@ -38,8 +39,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       isAborting = false,
       submitDisabled = false,
       placeholder,
-      accessLevel,
-      onAccessLevelChange,
       draft,
       onDraftChange,
       panelWidth,
@@ -47,6 +46,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     },
     ref
   ) => {
+    const accessLevel = useCopilotStore((state) => state.accessLevel)
     const [isNearTop, setIsNearTop] = useState(false)
     const [mentionPortalStyle, setMentionPortalStyle] = useState<MentionPortalStyle | null>(null)
     const submissionGeneration = useRef(0)
@@ -519,11 +519,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
           <div className='flex items-end justify-between'>
             <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
-              <AccessLevelSelector
-                accessLevel={accessLevel}
-                isNearTop={isNearTop}
-                onAccessLevelChange={onAccessLevelChange}
-              />
+              <AccessLevelSelector isNearTop={isNearTop} />
               <ModelSelector isNearTop={isNearTop} panelWidth={panelWidth} />
               <Tooltip>
                 <TooltipTrigger
