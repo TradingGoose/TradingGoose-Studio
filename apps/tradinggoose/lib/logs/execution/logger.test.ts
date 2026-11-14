@@ -278,7 +278,11 @@ beforeEach(async () => {
     subscription: null,
     tier: {},
   }
-  state.contextLookup.mockImplementation(async () => state.context)
+  state.contextLookup.mockImplementation(async ({ workflowId }) => {
+    if (workflowId && state.log.workflowId === null)
+      throw new Error(`Workflow ${workflowId} not found`)
+    return state.context
+  })
   state.threshold.mockImplementation(async () => {
     expect(state.locked).toBe(false)
   })
@@ -409,9 +413,10 @@ describe('durable native observations', () => {
     expect(state.ledgers.user).toMatchObject({ totalCost: 2.75, totalTokensUsed: 180 })
   })
 
-  it('upgrades late completed work once using the frozen quote without emitting completion again', async () => {
+  it.each([false, true])('settles late work once (deleted=%s)', async (deleted) => {
     state.modelMultiplier.mockReturnValue(3)
     await beginWorkflowModelUsage(usageScope, 'late')
+    if (deleted) state.log.workflowId = null
     await logger.completeWorkflowExecution({ ...completion, success: false })
     expect(state.ledgers.user?.totalCost).toBe(6.25)
     state.modelMultiplier.mockReturnValue(9)
@@ -441,16 +446,29 @@ describe('durable native observations', () => {
     await expect(beginWorkflowModelUsage(usageScope, 'new-after-terminal')).rejects.toThrow(
       'Workflow execution is not accepting model requests'
     )
+    if (deleted) {
+      for (const field of ['actorUserId', 'workspaceId', 'executionId']) {
+        await expect(
+          recordModelUsage(
+            { ...usageScope, [field]: 'foreign' },
+            {},
+            { total: 999, status: 'estimated' },
+            'late'
+          )
+        ).rejects.toThrow('Workflow workflow not found')
+      }
+    }
     expect(state.ledgers.user?.totalCost).toBeCloseTo(6.28, 12)
     expect(state.modelMultiplier).toHaveBeenCalledOnce()
     expect(state.emit).toHaveBeenCalledOnce()
   })
 
-  it.each([false, true])(
-    'settles a late owned attempt immediately only while paused (paused=%s)',
-    async (paused) => {
+  it.each([false, true].flatMap((paused) => [false, true].map((deleted) => ({ paused, deleted }))))(
+    'settles a late owned attempt only while paused (paused=$paused, deleted=$deleted)',
+    async ({ paused, deleted }) => {
       state.modelMultiplier.mockReturnValue(3)
       await beginWorkflowModelUsage(usageScope, 'in-flight')
+      if (deleted) state.log.workflowId = null
       if (paused) state.log.executionData.pause = { revision: 2 }
       await logger.settleWorkflowExecutionUsage('execution')
       expect(state.ledgers.user?.totalCost).toBe(6.25)
@@ -487,6 +505,12 @@ describe('durable native observations', () => {
       expect(state.ledgers.user?.totalCost).toBeCloseTo(6.28, 12)
       expect(state.modelMultiplier).toHaveBeenCalledOnce()
       expect(state.log.endedAt).toBeNull()
+      if (deleted) {
+        await expect(beginWorkflowModelUsage(usageScope, 'new-after-delete')).rejects.toThrow(
+          'Workflow execution is not accepting model requests'
+        )
+        expect(state.log.executionData.billing.nativeUsage['new-after-delete']).toBeUndefined()
+      }
       expect(state.emit).not.toHaveBeenCalled()
     }
   )

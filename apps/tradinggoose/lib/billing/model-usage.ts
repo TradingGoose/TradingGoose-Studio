@@ -76,7 +76,8 @@ async function writeWorkflowModelUsage(
       .from(workflowExecutionLogs)
       .where(
         and(
-          eq(workflowExecutionLogs.workflowId, scope.workflowId!),
+          // Deletion clears the FK, but an admitted attempt still owns its completion.
+          completed ? undefined : eq(workflowExecutionLogs.workflowId, scope.workflowId!),
           eq(workflowExecutionLogs.workspaceId, scope.workspaceId!),
           eq(workflowExecutionLogs.executionId, scope.executionId!),
           sql`${workflowExecutionLogs.executionData}->'environment'->>'userId' = ${scope.actorUserId}`
