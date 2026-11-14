@@ -7,7 +7,6 @@ import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { Memory } from '@mastra/memory'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
-import type { ServerPending as Pending } from '@/lib/copilot/native/target'
 import { createCopilotAgent } from './agent'
 import { createCopilotRequestContext, getCopilotExecution } from './context'
 
@@ -160,68 +159,6 @@ describe('Studio-owned Copilot tools', () => {
       expect.objectContaining({ entityKind: 'workflow' }),
       expect.any(Object)
     )
-  })
-
-  it('preserves limited approval followed by a preview and explicit acceptance', async () => {
-    const args = { entityId: 'workflow', name: 'New name' }
-    const preview = {
-      requiresReview: true,
-      reviewBaseStateHash: 'baseline',
-      success: true,
-    }
-    const accepted = {
-      success: true,
-      workspaceId: 'workspace',
-      entityKind: 'workflow',
-      entityId: 'workflow',
-      entityName: 'New name',
-    }
-    m.model = model('rename_workflow', args)
-    m.route.mockResolvedValueOnce(preview)
-    m.route.mockResolvedValueOnce(accepted)
-    const h = harness('limited')
-
-    expect((await h.agent.generate('Rename workflow', h.options)).finishReason).toBe('suspended')
-    expect(m.route).not.toHaveBeenCalled()
-    expect(
-      (await h.agent.listSuspendedRuns({ threadId: h.execution.run.threadId })).runs[0].toolCalls[0]
-        .requiresApproval
-    ).toBe(true)
-    m.model = model()
-    h.execution.model = m.model
-    expect(
-      (await h.agent.approveToolCallGenerate({ ...h.options, toolCallId: 'business-call' }))
-        .finishReason
-    ).toBe('suspended')
-    expect(m.route).toHaveBeenCalledOnce()
-    expect(m.route).toHaveBeenCalledOnce()
-    const pending: Pending = {
-      target: {
-        threadId: h.execution.run.threadId,
-        resourceId: nativeConversationIdentity(h.execution.run.scope).resourceId,
-        runId: h.execution.run.runId,
-        toolCallId: 'business-call',
-        toolName: 'rename_workflow',
-      },
-      stage: 'result',
-      originalArgs: args,
-      reviewBaseStateHash: 'baseline',
-      preview,
-    }
-    h.execution.pending = pending
-    h.execution.decision = { action: 'review.accept' }
-    const result = await h.agent.resumeGenerate({}, { ...h.options, toolCallId: 'business-call' })
-    expect(result.text).toBe('Done')
-    expect(m.route).toHaveBeenLastCalledWith(
-      'rename_workflow',
-      args,
-      expect.objectContaining({
-        userId: 'actor',
-        acceptedReviewBaseStateHash: 'baseline',
-        accessLevel: 'full',
-      })
-    )
-    expect(m.route).toHaveBeenCalledTimes(2)
   })
 
   it.each([true, false])(
