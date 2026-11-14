@@ -8,7 +8,8 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { normalizeNativeToolResult } from '@/lib/mastra/media'
+import { assertNativeToolResult } from '@/lib/mastra/media'
+import type { WorkflowMessage } from '@/lib/mastra/messages'
 import { assertNativeToolArguments } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
@@ -22,12 +23,7 @@ import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { getAllBlocks } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
-import type {
-  AgentInputs,
-  AgentToolConfig,
-  Message,
-  ToolInput,
-} from '@/executor/handlers/agent/types'
+import type { AgentInputs, AgentToolConfig, ToolInput } from '@/executor/handlers/agent/types'
 import {
   collectBlockData,
   getBlockToolExecutionId,
@@ -35,7 +31,7 @@ import {
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
-import { createLLMToolSchema } from '@/tools/params'
+import { createLLMToolSchema, filterSchemaForLLM } from '@/tools/params'
 import { getTool } from '@/tools/utils'
 import { watchExecutionCancellation } from './cancellation'
 import {
@@ -46,8 +42,6 @@ import {
 import { resolveSkillMetadata } from './skills-resolver'
 
 const logger = createLogger('AgentBlockHandler')
-
-const REQUEST_TIMEOUT = 120000
 
 /**
  * Handler for Agent blocks that process LLM requests with optional tools.
@@ -103,19 +97,17 @@ export class AgentBlockHandler implements BlockHandler {
     const modelMessages = messages.filter((message) => message.role !== 'system')
     const { blockData, blockNameMapping } = collectBlockData(context)
     const abortController = new AbortController()
-    const signal = AbortSignal.any([abortController.signal, AbortSignal.timeout(REQUEST_TIMEOUT)])
+    const { signal } = abortController
     const tools = createAgentToolSet(
       formattedTools,
       {
         ...context,
         toolExecutionId: getBlockToolExecutionId(block, context),
-        environmentVariables: context.environmentVariables,
-        workflowVariables: context.workflowVariables,
         blockData,
         blockNameMapping,
       },
       context,
-      { signal, abort: (reason) => abortController.abort(reason) }
+      abortController
     )
     const policy = createForcedToolPolicy(formattedTools)
     const runId = crypto.randomUUID()
@@ -197,27 +189,20 @@ export class AgentBlockHandler implements BlockHandler {
       },
       prepareStep: async (step) => {
         await cancellation.check()
-        signal.throwIfAborted()
         return { ...policy.prepareStep(step), ...work.options.prepareStep(step) }
       },
     }
-    const cancellation = watchExecutionCancellation(context.shouldCancelExecution, REQUEST_TIMEOUT)
-    const abortFromWorkflow = () => abortController.abort(cancellation.signal.reason)
-    cancellation.signal.addEventListener('abort', abortFromWorkflow, { once: true })
-    const stopCancellationCheck = () => {
-      cancellation.stop()
-      cancellation.signal.removeEventListener('abort', abortFromWorkflow)
-    }
+    const cancellation = watchExecutionCancellation(context.shouldCancelExecution, abortController)
     const complete = async (result: any) => {
       const accounting = await work.complete(result)
-      stopCancellationCheck()
+      cancellation.stop()
       policy.assertComplete(result.steps)
       const output = extractAgentOutput(result, model, accounting, responseFormat !== undefined)
       getInferenceFacts(output)!.history = history
       return output
     }
-    const fail = async (error: unknown) => {
-      stopCancellationCheck()
+    const fail = (error: unknown) => {
+      cancellation.stop()
       const accounting = work.accounting()
       const failure = new Error(safeInferenceError(error, inputs.apiKey))
       const owned = {
@@ -236,7 +221,7 @@ export class AgentBlockHandler implements BlockHandler {
       try {
         return await complete(await agent.generate(modelMessages, options))
       } catch (error) {
-        throw await fail(error)
+        throw fail(error)
       }
     }
     const startedAt = new Date()
@@ -254,11 +239,9 @@ export class AgentBlockHandler implements BlockHandler {
         async pull(controller) {
           try {
             while (true) {
-              if (await context.shouldCancelExecution?.()) abortController.abort()
-              signal.throwIfAborted()
+              await cancellation.check()
               const { done, value } = await reader.read()
-              if (await context.shouldCancelExecution?.()) abortController.abort()
-              signal.throwIfAborted()
+              await cancellation.check()
               if (done) {
                 const result = await nativeStream.getFullOutput()
                 Object.assign(execution.output, await complete(result))
@@ -272,7 +255,7 @@ export class AgentBlockHandler implements BlockHandler {
               if (value.type === 'abort') throw new Error('Agent generation was cancelled')
             }
           } catch (error) {
-            const failure = await fail(error)
+            const failure = fail(error)
             execution.success = false
             execution.error = failure.message
             Object.assign(execution.output, failure)
@@ -282,7 +265,7 @@ export class AgentBlockHandler implements BlockHandler {
         async cancel(reason) {
           abortController.abort(reason)
           await reader.cancel(reason)
-          const failure = await fail(new Error('Agent generation was cancelled'))
+          const failure = fail(new Error('Agent generation was cancelled'))
           execution.success = false
           execution.error = failure.message
           Object.assign(execution.output, failure)
@@ -290,7 +273,7 @@ export class AgentBlockHandler implements BlockHandler {
       })
       return { stream, execution }
     } catch (error) {
-      throw await fail(error)
+      throw fail(error)
     }
   }
 
@@ -336,11 +319,8 @@ export class AgentBlockHandler implements BlockHandler {
     )
   }
 
-  private async createCustomTool(tool: ToolInput): Promise<AgentToolConfig> {
+  private createCustomTool(tool: ToolInput): AgentToolConfig {
     const userProvidedParams = tool.params || {}
-
-    const { filterSchemaForLLM } = await import('@/tools/params')
-
     const filteredSchema = filterSchemaForLLM(tool.schema.function.parameters, userProvidedParams)
 
     const toolId = tool.toolId
@@ -353,10 +333,7 @@ export class AgentBlockHandler implements BlockHandler {
         description: tool.schema.function.description,
       }),
       params: userProvidedParams,
-      parameters: {
-        ...filteredSchema,
-        type: tool.schema.function.parameters.type,
-      },
+      parameters: filteredSchema,
       usageControl: tool.usageControl || 'auto',
     }
   }
@@ -386,7 +363,6 @@ export class AgentBlockHandler implements BlockHandler {
     const mcpTool = discovered.find((candidate) => candidate.name === toolName)
     if (!mcpTool) throw new Error(`MCP tool ${toolName} not found on server ${serverId}`)
     if (mcpTool.inputSchema.type !== 'object') throw new Error('MCP input schema must be an object')
-    const { filterSchemaForLLM } = await import('@/tools/params')
     return {
       id: createMcpToolId(serverId, toolName),
       mcp: { serverId, toolName },
@@ -447,8 +423,8 @@ export class AgentBlockHandler implements BlockHandler {
     inputs: AgentInputs,
     skillMetadata: Array<{ id: string; name: string; description: string }> = [],
     skillLoaderToolId?: string | null
-  ): Message[] {
-    let messages: Message[] = inputs.memories ? this.processMemories(inputs.memories) : []
+  ): WorkflowMessage[] {
+    let messages = this.processMemories(inputs.memories)
 
     if (inputs.systemPrompt) {
       messages = messages.filter((message) => message.role !== 'system')
@@ -477,44 +453,20 @@ export class AgentBlockHandler implements BlockHandler {
     return messages
   }
 
-  private processMemories(memories: any): Message[] {
-    if (!memories) return []
-
-    let memoryArray: any[] = []
-    if (memories?.memories && Array.isArray(memories.memories)) {
-      memoryArray = memories.memories
-    } else if (Array.isArray(memories)) {
-      memoryArray = memories
-    }
-
-    const messages: Message[] = []
-    memoryArray.forEach((memory: any) => {
-      if (memory.data && Array.isArray(memory.data)) {
-        memory.data.forEach((msg: any) => {
-          if (
-            msg.role &&
-            typeof msg.content === 'string' &&
-            ['system', 'user', 'assistant'].includes(msg.role)
-          ) {
-            messages.push({
-              role: msg.role as 'system' | 'user' | 'assistant',
-              content: msg.content,
-            })
-          }
-        })
-      } else if (
-        memory.role &&
-        typeof memory.content === 'string' &&
-        ['system', 'user', 'assistant'].includes(memory.role)
-      ) {
-        messages.push({
-          role: memory.role as 'system' | 'user' | 'assistant',
-          content: memory.content,
-        })
-      }
-    })
-
-    return messages
+  private processMemories(memories: any): WorkflowMessage[] {
+    const records: any[] = Array.isArray(memories?.memories)
+      ? memories.memories
+      : Array.isArray(memories)
+        ? memories
+        : []
+    return records
+      .flatMap((memory) => (Array.isArray(memory.data) ? memory.data : [memory]))
+      .filter(
+        (message) =>
+          typeof message.content === 'string' &&
+          ['system', 'user', 'assistant'].includes(message.role)
+      )
+      .map(({ role, content }) => ({ role, content }))
   }
 }
 
@@ -593,13 +545,13 @@ export function createAgentToolSet(
             const functional = inference ? { ...output } : output
             if (inference) for (const field of inference.generatedFields) delete functional[field]
             try {
-              return await normalizeNativeToolResult(functional, {
-                actorUserId: scope.userId,
-                workspaceId: scope.workspaceId,
-                signal: nativeContext?.abortSignal
+              assertNativeToolResult(
+                functional,
+                nativeContext?.abortSignal
                   ? AbortSignal.any([nativeMedia.signal, nativeContext.abortSignal])
-                  : nativeMedia.signal,
-              })
+                  : nativeMedia.signal
+              )
+              return functional
             } catch (error) {
               // The effect is already complete; refuse unsafe model continuation.
               nativeMedia.abort(error)

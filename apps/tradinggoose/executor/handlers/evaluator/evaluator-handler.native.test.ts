@@ -15,7 +15,7 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getInferenceFacts } from '@/lib/mastra/result'
 import { resultAccounting } from '@/lib/mastra/usage'
 import { createMinimalWorkflow, createMockContext } from '@/executor/__test-utils__/executor-mocks'
@@ -49,17 +49,16 @@ beforeEach(() => {
   state.usage = {}
   state.verify.mockReset().mockResolvedValue(undefined)
 })
-afterEach(() => vi.restoreAllMocks())
 
 it('rejects the installed native engine resolving an aborted score-less structured result', async () => {
-  const timeout = AbortSignal.timeout.bind(AbortSignal)
-  vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => timeout(20))
+  let cancelled = false
   state.model = new MastraLanguageModelV2Mock({
     doGenerate: async (options) =>
       new Promise((_resolve, reject) => {
         options.abortSignal?.addEventListener('abort', () => reject(options.abortSignal?.reason), {
           once: true,
         })
+        cancelled = true
       }),
   })
   const outcome = new EvaluatorBlockHandler().execute(
@@ -69,7 +68,11 @@ it('rejects the installed native engine resolving an aborted score-less structur
       metrics: [{ name: 'Accuracy', range: { min: 0, max: 10 } }],
       content: 'Answer',
     },
-    { userId: 'actor', workspaceId: 'workspace' } as any
+    {
+      userId: 'actor',
+      workspaceId: 'workspace',
+      shouldCancelExecution: async () => cancelled,
+    } as any
   )
   const failure = await outcome.then(
     () => {

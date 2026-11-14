@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest'
-import { normalizeNativeMediaMessages, normalizeNativeToolResult } from './media'
+import { assertNativeToolResult, normalizeNativeMediaMessages } from './media'
 
 const fixture = vi.hoisted(() => ({ resolve: vi.fn(), download: vi.fn() }))
 vi.mock('@/lib/uploads/contexts/workspace', () => ({
@@ -63,20 +63,20 @@ it('reads workspace images from their authorized row and its storage context', a
     )
   ).rejects.toThrow('denied')
 })
-it('uses canonical MCP base64 image/audio content without a conversion layer', async () => {
+it('accepts canonical MCP base64 image/audio content', () => {
   const result = {
     content: [
       { type: 'image', data: 'aW1hZ2U=', mimeType: 'image/png' },
       { type: 'text', text: 'Result' },
     ],
   }
-  expect(await normalizeNativeToolResult(result, authority())).toBe(result)
-  await expect(
-    normalizeNativeToolResult(
+  expect(() => assertNativeToolResult(result, authority().signal)).not.toThrow()
+  expect(() =>
+    assertNativeToolResult(
       { content: [{ type: 'image', data: 'https://files.example/image.png' }] },
-      authority()
+      authority().signal
     )
-  ).rejects.toThrow('base64')
+  ).toThrow('base64')
 })
 it('rejects oversized inline data before model contact', async () => {
   await expect(

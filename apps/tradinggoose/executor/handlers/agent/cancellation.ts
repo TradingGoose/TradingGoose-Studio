@@ -1,10 +1,9 @@
 /** Poll the existing workflow cancellation hook while native inference is awaited. */
 export function watchExecutionCancellation(
   shouldCancel?: () => Promise<boolean>,
-  timeout = 120000
+  controller = new AbortController()
 ) {
-  const controller = new AbortController()
-  const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(timeout)])
+  const { signal } = controller
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | undefined
   const check = async () => {

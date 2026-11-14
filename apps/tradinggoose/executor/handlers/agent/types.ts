@@ -29,11 +29,6 @@ export interface ToolInput {
   operation?: string
 }
 
-export type Message =
-  | { role: 'system'; content: string }
-  | { role: 'user'; content: string }
-  | { role: 'assistant'; content: string }
-
 export interface AgentToolConfig {
   id: string
   mcp?: { serverId: string; toolName: string }

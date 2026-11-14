@@ -3,7 +3,10 @@ import type { MastraDBMessage } from '@mastra/core/agent/message-list'
 import type { NativeCost, NativeUsage } from './usage'
 
 export const WORKFLOW_SYSTEM_PART = 'data-workflow-system-message' as const
-export type WorkflowMessage = { role: 'system' | 'user' | 'assistant'; content: string }
+export type WorkflowMessage =
+  | { role: 'system'; content: string }
+  | { role: 'user'; content: string }
+  | { role: 'assistant'; content: string }
 export type NativeMessageScope = { threadId: string; resourceId: string }
 
 export type NativeHistoryMessage = Pick<MastraDBMessage, 'id' | 'role'> & {

@@ -1,5 +1,5 @@
 const SKILL_LOADER_MARKER = '__tradinggooseSkillLoader'
-export const SKILL_LOADER_TOOL_PREFIX = 'tradinggoose_internal_load_skill'
+const SKILL_LOADER_TOOL_PREFIX = 'tradinggoose_internal_load_skill'
 
 export interface SkillMetadata {
   id: string
@@ -35,9 +35,7 @@ export function createSkillLoaderToolId(existingToolIds: string[]): string {
 
 export function isSkillLoaderToolId(toolId: string): boolean {
   return (
-    toolId === 'load_skill' ||
-    toolId === SKILL_LOADER_TOOL_PREFIX ||
-    /^tradinggoose_internal_load_skill_\d+$/.test(toolId)
+    toolId === SKILL_LOADER_TOOL_PREFIX || /^tradinggoose_internal_load_skill_\d+$/.test(toolId)
   )
 }
 

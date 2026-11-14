@@ -119,12 +119,8 @@ export async function normalizeNativeMediaMessages(
 }
 
 /** MCP image and audio content is base64 according to the protocol; the SDK handles its native projection. */
-export async function normalizeNativeToolResult(
-  value: any,
-  authority: MediaAuthority
-): Promise<any> {
-  authority.signal.throwIfAborted()
+export function assertNativeToolResult(value: any, signal: AbortSignal): void {
+  signal.throwIfAborted()
   for (const part of Array.isArray(value?.content) ? value.content : [])
     if (part.type === 'image' || part.type === 'audio') inlineBytes(part.data)
-  return value
 }

@@ -116,6 +116,14 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 const usage = { inputTokens: 2, outputTokens: 3, totalTokens: 5 }
+const schema = { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
+const customTool = {
+  type: 'custom-tool',
+  toolId: 'custom_lookup',
+  title: 'Lookup',
+  schema: { function: { description: 'Lookup', parameters: schema } },
+  usageControl: 'force' as const,
+}
 function fixture(text = 'Native response') {
   return new MastraLanguageModelV2Mock({
     doGenerate: async (options) => ({
@@ -394,7 +402,11 @@ describe('native Agent workflow execution', () => {
     const laterMemories = [...firstSelected, { role: 'assistant', content: first.content }]
     const later = await handler.execute(
       block,
-      { model: 'openai/gpt-4.1', memories: laterMemories, userPrompt: nextUserText },
+      {
+        model: 'openai/gpt-4.1',
+        memories: { memories: [{ data: laterMemories }] },
+        userPrompt: nextUserText,
+      },
       context()
     )
     if (later === null || typeof later !== 'object' || !('content' in later))
@@ -598,25 +610,7 @@ describe('native Agent workflow execution', () => {
         model: 'openai/gpt-4.1',
         userPrompt: 'Answer using available information',
         maxSteps: scenario.maxSteps,
-        tools: scenario.tools
-          ? [
-              {
-                type: 'custom-tool',
-                toolId: 'custom_lookup',
-                usageControl: scenario.usageControl,
-                schema: {
-                  function: {
-                    description: 'Lookup',
-                    parameters: {
-                      type: 'object',
-                      properties: { query: { type: 'string' } },
-                      required: ['query'],
-                    },
-                  },
-                },
-              },
-            ]
-          : [],
+        tools: scenario.tools ? [{ ...customTool, usageControl: scenario.usageControl }] : [],
         responseFormat: scenario.structured
           ? {
               schema: {
@@ -1009,7 +1003,6 @@ describe('native Agent MCP integration', () => {
 })
 
 describe('native named Force tools', () => {
-  const schema = { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
   it('uses the native name for invalid characters and a leading digit while dispatching the original ID', async () => {
     const configured = [
       { id: '9.lookup', description: 'Lookup', parameters: schema, usageControl: 'force' as const },
@@ -1215,14 +1208,73 @@ describe('native named Force tools', () => {
 })
 
 describe('native forced sequence failures and completion accounting', () => {
-  const schema = { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-  const customTool = {
-    type: 'custom-tool',
-    toolId: 'custom_lookup',
-    title: 'Lookup',
-    schema: { function: { description: 'Lookup', parameters: schema } },
-    usageControl: 'force' as const,
-  }
+  it.each([false, true])(
+    'allows a 130-second tool unless the workflow is cancelled (cancel=%s)',
+    async (cancel) => {
+      vi.useFakeTimers()
+      // Node's native AbortSignal.timeout does not use Vitest's clock.
+      const timeout = vi.spyOn(AbortSignal, 'timeout').mockImplementation((delay) => {
+        const controller = new AbortController()
+        setTimeout(() => controller.abort(new DOMException('Timed out', 'TimeoutError')), delay)
+        return controller.signal
+      })
+      let cancelled = false
+      const shouldCancelExecution = vi.fn(async () => cancelled)
+      let toolSignal: AbortSignal | undefined
+      vi.mocked(executeTool).mockImplementationOnce(
+        async (_id, _params, _skip, _context, options) => {
+          toolSignal = options?.signal
+          return new Promise((resolve, reject) => {
+            const timer = setTimeout(
+              () => resolve({ success: true, output: { found: true } }),
+              130_000
+            )
+            toolSignal?.addEventListener(
+              'abort',
+              () => {
+                clearTimeout(timer)
+                reject(toolSignal?.reason)
+              },
+              { once: true }
+            )
+          })
+        }
+      )
+      try {
+        const result = new AgentBlockHandler()
+          .execute(
+            block,
+            { model: 'openai/gpt-4.1', maxSteps: 2, tools: [customTool], userPrompt: 'Lookup' },
+            context({ shouldCancelExecution })
+          )
+          .catch((error) => error)
+        await vi.waitFor(() => expect(executeTool).toHaveBeenCalledOnce())
+        await vi.advanceTimersByTimeAsync(120_000)
+        expect(toolSignal).toBeInstanceOf(AbortSignal)
+        expect(toolSignal!.aborted).toBe(false)
+        cancelled = cancel
+        await vi.advanceTimersByTimeAsync(10_000)
+        const output = await result
+        expect(toolSignal!.aborted).toBe(cancel)
+        expect(output).toMatchObject({ tokens: { total: cancel ? 5 : 10 } })
+        if (cancel) expect(output).toBeInstanceOf(Error)
+        else {
+          expect(output).toMatchObject({ content: 'Native response' })
+          expect(state.model.doGenerateCalls.map((call: any) => call.toolChoice)).toEqual([
+            { type: 'tool', toolName: 'custom_lookup' },
+            { type: 'none' },
+          ])
+        }
+        const checks = shouldCancelExecution.mock.calls.length
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(shouldCancelExecution).toHaveBeenCalledTimes(checks)
+      } finally {
+        timeout.mockRestore()
+        vi.clearAllTimers()
+        vi.useRealTimers()
+      }
+    }
+  )
   it.each([
     { stream: false, maxSteps: 1, steps: 1 },
     { stream: true, maxSteps: '1', steps: 1 },
@@ -1419,19 +1471,6 @@ describe('native forced sequence failures and completion accounting', () => {
     })
     expect(executeTool).not.toHaveBeenCalled()
     expect(state.model.doGenerateCalls).toHaveLength(1)
-  })
-  it('allows one Force tool round followed by a separate final answer', async () => {
-    const output = await new AgentBlockHandler().execute(
-      block,
-      { model: 'openai/gpt-4.1', maxSteps: 2, tools: [customTool] },
-      context()
-    )
-    expect(output).toMatchObject({ content: 'Native response', tokens: { total: 10 } })
-    expect(executeTool).toHaveBeenCalledOnce()
-    expect(state.model.doGenerateCalls.map((call: any) => call.toolChoice)).toEqual([
-      { type: 'tool', toolName: 'custom_lookup' },
-      { type: 'none' },
-    ])
   })
   it('rejects a native model that ignores the pending named Force choice', async () => {
     state.model = new MastraLanguageModelV2Mock({
@@ -1694,23 +1733,7 @@ describe('native structured streams through the workflow executor', () => {
       params: {
         model: 'openai/gpt-4.1',
         userPrompt: 'Lookup then answer',
-        tools: [
-          {
-            type: 'custom-tool',
-            toolId: 'custom_lookup',
-            schema: {
-              function: {
-                description: 'Lookup',
-                parameters: {
-                  type: 'object',
-                  properties: { query: { type: 'string' } },
-                  required: ['query'],
-                },
-              },
-            },
-            usageControl: 'force',
-          },
-        ],
+        tools: [customTool],
         responseFormat: {
           schema: {
             type: 'object',
@@ -1918,25 +1941,13 @@ it.each([2, undefined])(
         }),
       }),
     })
-    const schema = {
-      type: 'object',
-      properties: { query: { type: 'string' } },
-      required: ['query'],
-    }
     const result = (await new AgentBlockHandler().execute(
       block,
       {
         model: 'openai/gpt-4.1',
         maxSteps,
         userPrompt: 'Lookup then stream',
-        tools: [
-          {
-            type: 'custom-tool',
-            toolId: 'custom_lookup',
-            schema: { function: { description: 'Lookup', parameters: schema } },
-            usageControl: 'force',
-          },
-        ],
+        tools: [customTool],
       },
       context({ stream: true, shouldCancelExecution: async () => cancelled })
     )) as StreamingExecution

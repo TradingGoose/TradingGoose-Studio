@@ -61,14 +61,12 @@ export class RouterBlockHandler implements BlockHandler {
       const native = await agent.generate([{ role: 'user', content: inputs.prompt }], work.options)
       const accounting = await work.complete(native)
       cancellation.signal.throwIfAborted()
-      const result = { content: native.text, model, ...accounting }
-
-      const chosenBlockId = result.content.trim().toLowerCase()
+      const chosenBlockId = native.text.trim().toLowerCase()
       const chosenBlock = targetBlocks?.find((b) => b.id === chosenBlockId)
 
       if (!chosenBlock) {
         logger.error(
-          `Invalid routing decision. Response content: "${result.content}", available blocks:`,
+          `Invalid routing decision. Response content: "${native.text}", available blocks:`,
           targetBlocks?.map((b) => ({ id: b.id, title: b.title })) || []
         )
         throw new Error(`Invalid routing decision: ${chosenBlockId}`)
@@ -77,9 +75,8 @@ export class RouterBlockHandler implements BlockHandler {
       return withInferenceFacts(
         {
           prompt: inputs.prompt,
-          model: result.model,
-          tokens: result.tokens,
-          cost: result.cost,
+          model,
+          ...accounting,
           selectedPath: {
             blockId: chosenBlock.id,
             blockType: chosenBlock.type || 'unknown',
