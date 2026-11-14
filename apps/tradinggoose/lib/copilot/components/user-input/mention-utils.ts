@@ -16,7 +16,6 @@ import { MENTION_OPTIONS } from './constants'
 import {
   type CopilotMentionCopy,
   getLogMentionSearchText,
-  getMentionOptionLabel,
   getPastChatMentionLabel,
   getWorkspaceEntityMentionLabel,
 } from './mention-copy'
@@ -109,9 +108,7 @@ export function upsertMentionContextByTextOrder(
 }
 
 export function filterMentionOptions(query: string, copy: CopilotMentionCopy): MentionOption[] {
-  return MENTION_OPTIONS.filter((option) =>
-    includesNormalized(getMentionOptionLabel(copy, option), query)
-  )
+  return MENTION_OPTIONS.filter((option) => includesNormalized(copy.optionLabels[option], query))
 }
 
 export function filterPastChats(items: PastChatItem[], query: string, copy: CopilotMentionCopy) {

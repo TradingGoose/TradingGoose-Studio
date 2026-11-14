@@ -55,62 +55,35 @@ export function AccessLevelSelector({
       <DropdownMenuContent align='start' side={isNearTop ? 'bottom' : 'top'} className='p-0'>
         <TooltipProvider>
           <div className='w-[160px] p-1'>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <DropdownMenuItem
-                    onClick={() => onAccessLevelChange('limited')}
-                    className={cn(
-                      'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
-                      accessLevel === 'limited' && 'bg-muted/40'
-                    )}
-                  >
-                    <span className='flex items-center gap-1.5'>
-                      {getAccessLevelIcon('limited')}
-                      {accessLevelCopy.limited.label}
-                    </span>
-                    {accessLevel === 'limited' && (
-                      <Check className='h-3 w-3 text-muted-foreground' />
-                    )}
-                  </DropdownMenuItem>
-                }
-              />
-              <TooltipContent
-                side='right'
-                sideOffset={6}
-                align='center'
-                className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
-              >
-                {accessLevelCopy.limited.description}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <DropdownMenuItem
-                    onClick={() => onAccessLevelChange('full')}
-                    className={cn(
-                      'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
-                      accessLevel === 'full' && 'bg-muted/40'
-                    )}
-                  >
-                    <span className='flex items-center gap-1.5'>
-                      {getAccessLevelIcon('full')}
-                      {accessLevelCopy.full.label}
-                    </span>
-                    {accessLevel === 'full' && <Check className='h-3 w-3 text-muted-foreground' />}
-                  </DropdownMenuItem>
-                }
-              />
-              <TooltipContent
-                side='right'
-                sideOffset={6}
-                align='center'
-                className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
-              >
-                {accessLevelCopy.full.description}
-              </TooltipContent>
-            </Tooltip>
+            {(['limited', 'full'] as const).map((level) => (
+              <Tooltip key={level}>
+                <TooltipTrigger
+                  render={
+                    <DropdownMenuItem
+                      onClick={() => onAccessLevelChange(level)}
+                      className={cn(
+                        'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
+                        accessLevel === level && 'bg-muted/40'
+                      )}
+                    >
+                      <span className='flex items-center gap-1.5'>
+                        {getAccessLevelIcon(level)}
+                        {accessLevelCopy[level].label}
+                      </span>
+                      {accessLevel === level && <Check className='h-3 w-3 text-muted-foreground' />}
+                    </DropdownMenuItem>
+                  }
+                />
+                <TooltipContent
+                  side='right'
+                  sideOffset={6}
+                  align='center'
+                  className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
+                >
+                  {accessLevelCopy[level].description}
+                </TooltipContent>
+              </Tooltip>
+            ))}
           </div>
         </TooltipProvider>
       </DropdownMenuContent>

@@ -5,7 +5,6 @@ import zhMessages from '@/i18n/messages/zh.json'
 import type { ChatContext } from '@/stores/copilot/types'
 import {
   getCopilotMentionCopy,
-  getMentionOptionLabel,
   getPastChatMentionLabel,
   getWorkspaceEntityMentionLabel,
 } from './mention-copy'
@@ -227,7 +226,7 @@ describe('mention-utils', () => {
   })
 
   it('tracks the refreshed localized label for the same canonical context', () => {
-    const docsLabel = getMentionOptionLabel(esMentionCopy, 'docs')
+    const docsLabel = esMentionCopy.optionLabels.docs
     const ranges = buildMentionRanges(`@Docs @${docsLabel}`, [{ kind: 'docs', label: docsLabel }])
 
     expect(ranges.map((range) => range.contextKey)).toEqual(['docs'])

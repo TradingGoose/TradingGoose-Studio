@@ -11,7 +11,6 @@ import {
 } from '../../../workspace-entities'
 import { MENTION_SUBMENUS } from '../constants'
 import {
-  getMentionOptionLabel,
   getPastChatMentionLabel,
   getWorkspaceEntityMentionLabel,
   useCopilotMentionCopy,
@@ -365,7 +364,7 @@ export function useUserInputMentions({
   }
 
   const insertDocsMention = () => {
-    const label = getMentionOptionLabel(mentionCopy, 'docs')
+    const label = mentionCopy.optionLabels.docs
     insertMentionContext(label, { kind: 'docs', label })
     closeMentionMenu()
   }
