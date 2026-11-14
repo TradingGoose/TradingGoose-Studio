@@ -1,7 +1,6 @@
 import { Mastra } from '@mastra/core/mastra'
-import { MastraCompositeStore } from '@mastra/core/storage'
 import { Memory } from '@mastra/memory'
-import { MemoryPG, WorkflowsPG } from '@mastra/pg'
+import { PostgresStore } from '@mastra/pg'
 import { RedisStreamsPubSub } from '@mastra/redis-streams'
 import { Pool } from 'pg'
 import { createCopilotAgent } from '@/lib/copilot/agent/agent'
@@ -22,14 +21,9 @@ async function createRuntime() {
   if (!connectionString) throw new Error('DATABASE_URL is required for the shared Studio database')
   const pool = new Pool({ connectionString, max: 20 })
   pool.on('error', (error) => logger.error('Unexpected Mastra PostgreSQL pool error', error))
-  const storage = new MastraCompositeStore({
-    id: 'studio',
-    domains: {
-      memory: new MemoryPG({ pool, schemaName: 'mastra' }),
-      workflows: new WorkflowsPG({ pool, schemaName: 'mastra' }),
-      threadState: false,
-    },
-  })
+  const storage = new PostgresStore({ id: 'studio', pool, schemaName: 'mastra' })
+  // Keep native pinned initialization and deadlock retries for only the domains Studio uses.
+  storage.stores = { memory: storage.stores.memory, workflows: storage.stores.workflows }
   try {
     await storage.init()
     const memory = new Memory({ storage, options: AGENT_MEMORY_OPTIONS })
