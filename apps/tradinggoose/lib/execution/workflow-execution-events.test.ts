@@ -1,6 +1,9 @@
 /**
  * @vitest-environment node
  */
+import { pendingExecution } from '@tradinggoose/db/schema'
+import type { SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -8,20 +11,21 @@ const mocks = vi.hoisted(() => ({
   logRows: [] as unknown[],
   storageMode: 'redis' as 'redis' | 'local',
   dbSelect: vi.fn(),
+  where: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
-    select: mocks.dbSelect.mockImplementation((fields: Record<string, unknown>) => {
-      const rows = 'status' in fields ? mocks.pendingRows : mocks.logRows
-      return {
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue(rows),
-          })),
-        })),
-      }
-    }),
+    select: mocks.dbSelect.mockImplementation(() => ({
+      from: (table: unknown) => ({
+        where: (query: SQL) => {
+          mocks.where(query)
+          return {
+            limit: async () => (table === pendingExecution ? mocks.pendingRows : mocks.logRows),
+          }
+        },
+      }),
+    })),
   },
 }))
 
@@ -46,6 +50,7 @@ beforeEach(() => {
   mocks.logRows.length = 0
   mocks.storageMode = 'redis'
   mocks.dbSelect.mockClear()
+  mocks.where.mockClear()
 })
 
 it('retains the local event buffer when the server module reloads', async () => {
@@ -126,7 +131,7 @@ it('refuses a success event without its durable execution log', async () => {
 })
 
 it.each(['info', 'error'])(
-  'keeps the durable %s result when settlement emits a failure event',
+  'replays the durable %s result after workflow deletion despite a settlement failure event',
   async (level) => {
     mocks.storageMode = 'local'
     const params = {
@@ -142,6 +147,8 @@ it.each(['info', 'error'])(
       },
     })
     mocks.logRows.push({
+      workflowId: null,
+      workflowSummary: { id: params.workflowId },
       level,
       startedAt: new Date('2026-09-17T10:00:00Z'),
       endedAt: new Date('2026-09-17T11:00:03Z'),
@@ -166,6 +173,12 @@ it.each(['info', 'error'])(
     })
     expect(JSON.stringify(state)).not.toContain('accountedCost')
     expect(JSON.stringify(state)).not.toContain('Usage ledger unavailable')
+    expect(mocks.where).toHaveBeenCalledOnce()
+    const query = new PgDialect().sqlToQuery(mocks.where.mock.calls[0][0])
+    expect(query.sql).toBe(
+      '("workflow_execution_logs"."execution_id" = $1 and "workflow_execution_logs"."workflow_summary"->>\'id\' = $2)'
+    )
+    expect(query.params).toEqual([params.pendingExecutionId, params.workflowId])
   }
 )
 

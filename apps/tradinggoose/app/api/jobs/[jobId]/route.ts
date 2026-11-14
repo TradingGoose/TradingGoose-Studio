@@ -11,12 +11,12 @@ import { type AuthResult, AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
 import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
 import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { WorkflowLogWorkflowSummary } from '@/lib/logs/types'
 import { buildWorkspaceAccessScope, checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import {
   createInternalWorkflowJobResult,
   createPublicExecutionResult,
-  isExecutionResult,
 } from '@/lib/workflows/execution-result'
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import { createErrorResponse } from '@/app/api/workflows/utils'
@@ -73,7 +73,6 @@ export async function GET(
 
     const [pendingRow] = await db
       .select({
-        id: pendingExecution.id,
         workflowId: pendingExecution.workflowId,
         workspaceId: pendingExecution.workspaceId,
         status: pendingExecution.status,
@@ -121,10 +120,6 @@ export async function GET(
         : workspaceAccess.accessFilter
     const [logRow] = await db
       .select({
-        id: workflowExecutionLogs.id,
-        workspaceId: workflowExecutionLogs.workspaceId,
-        executionId: workflowExecutionLogs.executionId,
-        workflowId: workflowExecutionLogs.workflowId,
         workflowSummary: workflowExecutionLogs.workflowSummary,
         level: workflowExecutionLogs.level,
         startedAt: workflowExecutionLogs.startedAt,
@@ -139,9 +134,10 @@ export async function GET(
       .limit(1)
 
     if (logRow) {
-      if (streaming && logRow.workflowId) return await streamExecution(logRow.workflowId)
+      if (streaming)
+        return await streamExecution((logRow.workflowSummary as WorkflowLogWorkflowSummary).id)
       const state = createWorkflowExecutionResultFromLog(logRow)
-      const output = isExecutionResult(state.result)
+      const output = state.result
         ? shouldIncludeInternalWorkflowTraceSpans(auth, state.result)
           ? createInternalWorkflowJobResult(state.result)
           : createPublicExecutionResult(state.result)
@@ -197,7 +193,7 @@ export async function DELETE(
       pendingExecutionId: taskId,
       userId: auth.userId,
       ...(auth.authType === AuthType.API_KEY && auth.apiKeyType === 'workspace'
-        ? { workspaceId: auth.workspaceId ?? '' }
+        ? { workspaceId: auth.workspaceId! }
         : {}),
     })
 

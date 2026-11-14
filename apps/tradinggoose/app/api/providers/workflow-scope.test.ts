@@ -77,20 +77,15 @@ vi.mock('@/lib/billing/calculations/usage-monitor', () => ({
 }))
 vi.mock('@/lib/billing/usage-accrual', () => ({ accrueUserUsageCost: boundary.accept }))
 vi.mock('@/lib/billing/settings', () => ({ isBillingEnabledForRuntime: async () => true }))
-vi.mock('@/lib/billing/workspace-billing', () => ({
-  resolveWorkspaceBillingContext: async () => ({
+vi.mock('@/lib/billing/workspace-billing', () => {
+  const resolve = async () => ({
     billingUserId: 'authenticated-actor',
     tier: {},
     scopeType: 'user',
     scopeId: 'authenticated-actor',
-  }),
-  resolveWorkflowBillingContext: async () => ({
-    billingUserId: 'authenticated-actor',
-    tier: {},
-    scopeType: 'user',
-    scopeId: 'authenticated-actor',
-  }),
-}))
+  })
+  return { resolveWorkspaceBillingContext: resolve, resolveWorkflowBillingContext: resolve }
+})
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 vi.mock('@/lib/mastra/connections', async (original) => ({
   ...(await original<object>()),
@@ -151,7 +146,12 @@ beforeEach(() => {
     const row = boundary.activeExecution
     return row &&
       JSON.stringify(statement.params) ===
-        JSON.stringify([row.workflowId, row.workspaceId, row.executionId, row.actor])
+        JSON.stringify([
+          ...(statement.sql.includes('"workflow_id"') ? [row.workflowId] : []),
+          row.workspaceId,
+          row.executionId,
+          row.actor,
+        ])
       ? [
           {
             id: 'active-log',
@@ -180,14 +180,13 @@ function assertScope() {
   const url = new URL(boundary.requests[0].url)
   expect(url.searchParams.get('workflowId')).toBe(context.workflowId)
   expect(url.searchParams.get('workspaceId')).toBe(context.workspaceId)
-  expect(boundary.admit).toHaveBeenCalledWith(
+  expect(boundary.admit).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({
       userId: 'authenticated-actor',
       workflowId: context.workflowId,
       workspaceId: context.workspaceId,
     })
   )
-  expect(boundary.admit).toHaveBeenCalledOnce()
   // Workflow logs own these tokens; the provider must not accrue them a second time.
   expect(boundary.accept).not.toHaveBeenCalled()
   expect(boundary.contact).toHaveBeenCalledOnce()

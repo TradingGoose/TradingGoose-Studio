@@ -5,6 +5,9 @@
  * are controlled seams. No external Copilot server or provider is involved.
  */
 
+import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import type { SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ServerPending as Pending } from './target'
@@ -38,69 +41,35 @@ const m = vi.hoisted(() => {
     claims: new Set<string>(),
     workflowAccess: vi.fn(),
     forbiddenEffect: vi.fn(),
-    queries: vi.fn(),
-    tables: {
-      pending: {
-        id: 'pending.id',
-        workflowId: 'pending.workflowId',
-        executionType: 'pending.executionType',
-        userId: 'pending.userId',
-        workspaceId: 'pending.workspaceId',
-      },
-      logs: {
-        id: 'logs.id',
-        workflowId: 'logs.workflowId',
-        executionId: 'logs.executionId',
-        workspaceId: 'logs.workspaceId',
-        executionData: 'logs.executionData',
-      },
-    },
   }
 })
 
-function matches(row: Record<string, unknown>, condition: unknown): boolean {
-  if (Array.isArray(condition)) return condition.every((item) => matches(row, item))
-  if (
-    !condition ||
-    typeof condition !== 'object' ||
-    !('field' in condition) ||
-    !('value' in condition)
-  )
-    throw new Error('Unexpected DAL predicate in controlled source test')
-  const field = String(condition.field).split('.').at(-1)
-  if (!field) throw new Error('Missing DAL field')
-  return row[field] === condition.value
-}
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: () => ({
       from: (table: unknown) => ({
-        where: (condition: unknown) => ({
+        where: (query: SQL) => ({
           limit: async () => {
-            m.queries(table, condition)
-            const rows =
-              table === m.tables.pending
-                ? m.state.pendingRows
-                : table === m.tables.logs
-                  ? m.state.logRows
-                  : null
-            if (!rows) throw new Error('Unexpected table in controlled source test')
-            return rows.filter((row) => matches(row, condition)).slice(0, 1)
+            const statement = new PgDialect().sqlToQuery(query)
+            const pending = table === pendingExecution
+            if (!pending && table !== workflowExecutionLogs)
+              throw new Error('Unexpected table in controlled source test')
+            return (pending ? m.state.pendingRows : m.state.logRows)
+              .filter((row) => {
+                const workflowId = statement.sql.includes('"workflow_summary"')
+                  ? (row.workflowSummary as { id: string }).id
+                  : row.workflowId
+                const identity = pending
+                  ? [row.id, workflowId, row.executionType]
+                  : [row.executionId, workflowId]
+                return JSON.stringify(statement.params) === JSON.stringify(identity)
+              })
+              .slice(0, 1)
           },
         }),
       }),
     }),
   },
-}))
-vi.mock('@tradinggoose/db/schema', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tradinggoose/db/schema')>()),
-  pendingExecution: m.tables.pending,
-  workflowExecutionLogs: m.tables.logs,
-}))
-vi.mock('drizzle-orm', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('drizzle-orm')>()),
-  and: (...conditions: unknown[]) => conditions,
-  eq: (field: unknown, value: unknown) => ({ field, value }),
 }))
 vi.mock('@/lib/auth', () => ({ getSession: async () => ({ user: { id: 'actor' } }) }))
 vi.mock('@/lib/auth/hybrid', () => ({
@@ -176,6 +145,7 @@ vi.unmock('@/blocks/registry')
 
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { PendingExecutionLimitError } from '@/lib/execution/pending-execution'
+import { readWorkflowExecutionAccessContext } from '@/lib/execution/workflow-execution-events'
 import { POST as queuePost } from '@/app/api/workflows/[id]/queue/route'
 import { NativeTargetError } from './errors'
 import { nativeConversationIdentity } from './identity'
@@ -233,15 +203,14 @@ async function queue() {
     { params: Promise.resolve({ id: WORKFLOW }) }
   )
 }
-async function readback(context?: { workspaceId: string }, signal?: AbortSignal) {
+async function readback(context?: { workspaceId: string }) {
   const original = m.state.pendingValue
   if (!original) throw new Error('Missing Pending')
   const scope = await authorizeNativeConversationScope(ACTOR, m.state.conversationWorkspaceId)
-  const pending = await resolveNativePendingTarget(scope, original.target, 'result', signal)
+  const pending = await resolveNativePendingTarget(scope, original.target, 'result')
   const result = await readbackNativeToolResult(scope, pending, {
     userId: ACTOR,
     ...context,
-    signal,
   })
   return ToolResultSchemas.run_workflow.parse(result)
 }
@@ -399,11 +368,17 @@ describe('local workflow execution and authoritative readback', () => {
   })
   it.each([false, true])('preserves failed output after queue-row cleanup=%s', async (logOnly) => {
     expect((await queue()).status).toBe(202)
-    terminal(true, logOnly)
+    const row = terminal(true, logOnly)
     expect(await readback()).toMatchObject({
       data: { success: false, error: 'Original workflow failed after known work' },
     })
     expect(m.enqueue).toHaveBeenCalledOnce()
+    if (logOnly) {
+      row.workflowId = null
+      await expect(
+        readWorkflowExecutionAccessContext({ pendingExecutionId: EXECUTION, workflowId: WORKFLOW })
+      ).resolves.toEqual({ userId: ACTOR, workspaceId: 'workspace-b' })
+    }
   })
   it('permits current read access to a completed run while rejecting another write', async () => {
     expect((await queue()).status).toBe(202)

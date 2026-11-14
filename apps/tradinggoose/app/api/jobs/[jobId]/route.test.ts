@@ -58,6 +58,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
   workflowExecutionLogs: {
     executionId: 'workflowExecutionLogs.executionId',
     workspaceId: 'workflowExecutionLogs.workspaceId',
+    workflowSummary: 'workflowExecutionLogs.workflowSummary',
     level: 'workflowExecutionLogs.level',
     startedAt: 'workflowExecutionLogs.startedAt',
     endedAt: 'workflowExecutionLogs.endedAt',
@@ -159,20 +160,23 @@ describe('GET /api/jobs/[jobId]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     workspaceAccessMock.mockResolvedValue({ hasAccess: true })
-    queryChain.from.mockReturnThis()
-    queryChain.innerJoin.mockReturnThis()
-    queryChain.leftJoin.mockReturnThis()
-    queryChain.where.mockReturnThis()
     checkHybridAuthMock.mockResolvedValue({
       success: true,
       userId: 'user-1',
     })
   })
 
-  it('replays an authorized existing execution from its event cursor', async () => {
-    limitMock.mockResolvedValueOnce([
-      { id: 'job-1', workflowId: 'workflow-1', workspaceId: 'workspace-1', status: 'processing' },
-    ])
+  it.each([false, true])('replays execution (workflow deleted: %s)', async (deleted) => {
+    const pending = [{ workflowId: 'workflow-1', workspaceId: 'workspace-1' }]
+    limitMock.mockResolvedValueOnce(deleted ? [] : pending)
+    if (deleted)
+      limitMock.mockResolvedValueOnce([
+        {
+          ...createWorkflowResult({}),
+          workflowId: null,
+          workflowSummary: { id: 'workflow-1' },
+        },
+      ])
     openStreamMock.mockResolvedValueOnce({
       ok: true,
       stream: new Response('data: [DONE]\n\n').body,
@@ -186,7 +190,8 @@ describe('GET /api/jobs/[jobId]', () => {
       requestId: 'request-1',
     })
     expect(eqMock).toHaveBeenCalledWith('pendingExecution.userId', 'user-1')
-    expect(workspaceAccessMock).toHaveBeenCalledExactlyOnceWith('workspace-1', 'user-1')
+    if (!deleted)
+      expect(workspaceAccessMock).toHaveBeenCalledExactlyOnceWith('workspace-1', 'user-1')
   })
 
   it('refuses replay after the job owner loses workspace access', async () => {
@@ -220,7 +225,7 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(queryChain.where).not.toHaveBeenCalled()
   })
 
-  it('binds pending and paused job lookups to the API key workspace', async () => {
+  it.each([false, true])('scopes jobs to API key workspace (SSE: %s)', async (streaming) => {
     checkHybridAuthMock.mockResolvedValue({
       success: true,
       userId: 'user-1',
@@ -229,7 +234,7 @@ describe('GET /api/jobs/[jobId]', () => {
       workspaceId: 'workspace-1',
     })
     limitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([])
-    const response = await getJob()
+    const response = await (streaming ? getJobStream() : getJob())
     expect(response.status).toBe(404)
     expect(eqMock).toHaveBeenCalledWith('pendingExecution.workspaceId', 'workspace-1')
     expect(eqMock).toHaveBeenCalledWith('workflowExecutionLogs.workspaceId', 'workspace-1')
