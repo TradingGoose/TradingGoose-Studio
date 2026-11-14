@@ -41,11 +41,6 @@ export interface ToolSchema {
   required: string[]
 }
 
-export interface ValidationResult {
-  valid: boolean
-  missingParams: string[]
-}
-
 export interface ToolParameterConfig {
   id: string
   type: ToolParameterType
@@ -316,41 +311,6 @@ export function createLLMToolSchema(
 }
 
 /**
- * Creates a complete tool schema for execution with all parameters
- */
-export function createExecutionToolSchema(toolConfig: ToolConfig): ToolSchema {
-  const schema: ToolSchema = {
-    type: 'object',
-    properties: {},
-    required: [],
-  }
-
-  Object.entries(toolConfig.params).forEach(([paramId, param]) => {
-    schema.properties[paramId] = createSchemaProperty(param.type, param.description || '')
-
-    if (param.required) {
-      schema.required.push(paramId)
-    }
-  })
-
-  return schema
-}
-
-/**
- * Merges user-provided parameters with LLM-generated parameters
- */
-export function mergeToolParameters(
-  userProvidedParams: Record<string, unknown>,
-  llmGeneratedParams: Record<string, unknown>
-): Record<string, unknown> {
-  // User-provided parameters take precedence
-  return {
-    ...llmGeneratedParams,
-    ...userProvidedParams,
-  }
-}
-
-/**
  * Filters out user-provided parameters from tool schema for LLM
  */
 export function filterSchemaForLLM<
@@ -382,30 +342,6 @@ export function filterSchemaForLLM<
     ...originalSchema,
     properties: filteredProperties,
     required: filteredRequired,
-  }
-}
-
-/**
- * Validates that all required parameters are provided
- */
-export function validateToolParameters(
-  toolConfig: ToolConfig,
-  finalParams: Record<string, unknown>
-): ValidationResult {
-  const requiredParams = Object.entries(toolConfig.params)
-    .filter(([_, param]) => param.required)
-    .map(([paramId]) => paramId)
-
-  const missingParams = requiredParams.filter(
-    (paramId) =>
-      finalParams[paramId] === undefined ||
-      finalParams[paramId] === null ||
-      finalParams[paramId] === ''
-  )
-
-  return {
-    valid: missingParams.length === 0,
-    missingParams,
   }
 }
 

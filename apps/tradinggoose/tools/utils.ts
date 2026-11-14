@@ -2,13 +2,10 @@ import {
   getCustomToolEntityIdFromRuntimeId,
   isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
-import { createLogger } from '@/lib/logs/console/logger'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { tools } from '@/tools/registry'
-import type { TableRow, ToolConfig, ToolResponse } from '@/tools/types'
-
-const logger = createLogger('ToolsUtils')
+import type { TableRow, ToolConfig } from '@/tools/types'
 
 /**
  * Transforms a table from the store format to a key-value object
@@ -95,49 +92,6 @@ export async function formatRequestParams(
       : undefined
 
   return { url, method, headers, body, timeout: validTimeout }
-}
-
-/**
- * Execute the actual request and transform the response
- */
-export async function executeRequest(
-  toolId: string,
-  tool: ToolConfig,
-  requestParams: RequestParams
-): Promise<ToolResponse> {
-  try {
-    const { url, method, headers, body } = requestParams
-
-    const externalResponse = await fetch(url, { method, headers, body })
-
-    if (!externalResponse.ok) {
-      let errorContent
-      try {
-        errorContent = await externalResponse.json()
-      } catch (_e) {
-        errorContent = { message: externalResponse.statusText }
-      }
-
-      const error = errorContent.message || `${toolId} API error: ${externalResponse.statusText}`
-      logger.error(`${toolId} error:`, { error })
-      throw new Error(error)
-    }
-
-    const transformResponse =
-      tool.transformResponse ||
-      (async (resp: Response) => ({
-        success: true,
-        output: await resp.json(),
-      }))
-
-    return await transformResponse(externalResponse)
-  } catch (error: any) {
-    return {
-      success: false,
-      output: {},
-      error: error.message || 'Unknown error',
-    }
-  }
 }
 
 /**
