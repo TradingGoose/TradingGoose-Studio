@@ -26,19 +26,14 @@ export const memoryGetAllTool: ToolConfig<any, MemoryResponse> = {
   transformResponse: async (response): Promise<MemoryResponse> => {
     const { data } = await response.json()
 
-    // Transform memories to return them with their keys and types for better context
-    const memories = await Promise.all(
-      data.memories.map(async (memory: any) => ({
-        key: memory.key,
-        type: memory.type,
-        data: memory.data,
-      }))
-    )
-
     return {
       success: true,
       output: {
-        memories,
+        memories: data.memories.map((memory: any) => ({
+          key: memory.key,
+          type: memory.type,
+          data: memory.data,
+        })),
         message: 'Memories retrieved successfully',
       },
     }
