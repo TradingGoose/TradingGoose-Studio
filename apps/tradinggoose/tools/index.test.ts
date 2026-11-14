@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateInternalToken } from '@/lib/auth/internal'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBlock } from '@/blocks'
+import { createMinimalWorkflow } from '@/executor/__test-utils__/executor-mocks'
 import { AgentBlockHandler, createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
 import { buildLoadSkillTool } from '@/executor/handlers/agent/skill-loader'
 import { GenericBlockHandler } from '@/executor/handlers/generic/generic-handler'
@@ -384,10 +385,12 @@ describe('executeTool Function', () => {
         }
         // biome-ignore lint/complexity/useLiteralKeys: Exercise the production factory without exposing a test-only API.
         const configured = await new AgentBlockHandler()['formatTools']([selected], context)
-        const tools = createAgentToolSet(configured, context, context, {
-          signal: new AbortController().signal,
-          abort: vi.fn(),
-        })
+        const tools = createAgentToolSet(
+          configured,
+          createMinimalWorkflow().blocks[1],
+          context,
+          new AbortController()
+        )
         let step = 0
         const model = new MastraLanguageModelV2Mock({
           doGenerate: async () => ({
@@ -1347,9 +1350,9 @@ describe('MCP Tool Execution', () => {
           },
         },
       ],
+      createMinimalWorkflow().blocks[1],
       context,
-      context,
-      { signal: new AbortController().signal, abort: vi.fn() }
+      new AbortController()
     )
     let step = 0
     const model = new MastraLanguageModelV2Mock({
