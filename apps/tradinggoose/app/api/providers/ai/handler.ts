@@ -1,21 +1,23 @@
 import { Agent, type AgentExecutionOptions } from '@mastra/core/agent'
 import type { MessageInput } from '@mastra/core/agent/message-list'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { normalizeNativeMediaMessages } from '@/lib/mastra/media'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 
-export interface ProviderRouteBody {
-  providerNamespace?: 'ai'
-  model?: string
-  instructions?: string
-  messages?: MessageInput[]
-  modelSettings?: AgentExecutionOptions['modelSettings']
-  apiKey?: string
-  providerOptions?: Record<string, Record<string, any>>
-  workflowId?: string
-  workspaceId?: string
-}
+const requestSchema = z.strictObject({
+  providerNamespace: z.literal('ai').optional(),
+  model: z.string().min(1),
+  instructions: z.string().optional(),
+  messages: z.array(z.custom<MessageInput>()).optional(),
+  modelSettings: z.custom<AgentExecutionOptions['modelSettings']>().optional(),
+  apiKey: z.string().optional(),
+  workflowId: z.string().optional(),
+  workspaceId: z.string().optional(),
+})
+
+export type ProviderRouteBody = z.infer<typeof requestSchema>
 
 /** The LLM Chat tool uses the shared native request and accounting contract. */
 export async function handleAIProviderRequest({
@@ -31,7 +33,10 @@ export async function handleAIProviderRequest({
   executionId?: string
   signal?: AbortSignal
 }) {
-  if (!body.model) return NextResponse.json({ error: 'Model is required' }, { status: 400 })
+  const parsed = requestSchema.safeParse(body)
+  if (!parsed.success)
+    return NextResponse.json({ error: 'Invalid AI provider request' }, { status: 400 })
+  body = parsed.data
   await assertListedModel(body.model)
   const model = body.model
   const signal = AbortSignal.any([
@@ -58,7 +63,6 @@ export async function handleAIProviderRequest({
     {
       apiKey: body.apiKey,
       modelSettings: body.modelSettings,
-      providerOptions: body.providerOptions,
     }
   )
   try {

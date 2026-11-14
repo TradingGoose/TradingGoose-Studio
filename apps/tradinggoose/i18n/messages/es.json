@@ -22285,10 +22285,7 @@
         "models": {
           "loading": "Cargando modelos…",
           "unconfigured": "Copilot no está configurado",
-          "loadError": "No se pudieron cargar los modelos de Copilot",
-          "providerOptions": "Opciones del proveedor",
-          "apply": "Aplicar",
-          "invalidOptions": "Introduce opciones del proveedor en JSON válido."
+          "loadError": "No se pudieron cargar los modelos de Copilot"
         },
         "welcome": {
           "subtitleLimited": "Haz preguntas y revisa las herramientas antes de que se ejecuten",

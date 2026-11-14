@@ -56,15 +56,6 @@ Selecciona un identificador `proveedor/modelo` del registro de Mastra. El select
             "description": "Available in Additional Fields. Shown when model supports temperature."
         },
         {
-            "id": "providerOptions",
-            "type": "code",
-            "title": "Provider Options",
-            "layout": "full",
-            "placeholder": "Enter native provider options JSON...",
-            "description": "Native options for the selected provider, including supported thinking budgets or toggles. Unset uses the provider default. Available in Additional Fields.",
-            "language": "json"
-        },
-        {
             "id": "maxTokens",
             "type": "short-input",
             "title": "Max Output Tokens",
@@ -109,7 +100,7 @@ Selecciona un identificador `proveedor/modelo` del registro de Mastra. El select
 
 ## Uso y salidas
 
-Configura los mensajes del sistema y del usuario, las herramientas, las habilidades y el historial. En Campos adicionales puedes configurar el formato de respuesta, el máximo de tokens de salida y los ajustes nativos disponibles. Dejar un ajuste vacío conserva el valor predeterminado del proveedor. Los metadatos publicados del modelo se muestran como orientación. Este entorno de ejecución no admite un selector simplificado de esfuerzo de razonamiento; configura las opciones nativas admitidas mediante Provider Options, incluidos los presupuestos o interruptores de razonamiento que permita el proveedor.
+Configura los mensajes del sistema y del usuario, las herramientas, las habilidades y el historial. En Campos adicionales puedes configurar el formato de respuesta, el máximo de tokens de salida y los ajustes nativos disponibles. Dejar un ajuste vacío conserva el valor predeterminado del proveedor. Los metadatos publicados del modelo se muestran como orientación.
 
 Auto permite que el modelo elija una herramienta; Force exige cada herramienta marcada en el orden configurado y después vuelve a Auto; None excluye la herramienta. Una combinación no admitida o una secuencia forzada incompleta produce un error. Se conservan los argumentos fijos y el contexto autorizado del flujo.
 

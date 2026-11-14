@@ -64,8 +64,7 @@ describe('native AI HTTP handler', () => {
         body: {
           model: 'openai/gpt-4.1',
           apiKey,
-          funding: funding === 'byok' ? 'account' : 'byok',
-        } as any,
+        },
         requestId: 'credential-origin',
         authUserId: 'actor',
       })
@@ -79,7 +78,7 @@ describe('native AI HTTP handler', () => {
   )
 
   it('requires and exactly validates the resolved canonical model', async () => {
-    const missing = await handleAIProviderRequest({ body: {}, requestId: 'missing' })
+    const missing = await handleAIProviderRequest({ body: {} as any, requestId: 'missing' })
     expect(missing.status).toBe(400)
     await expect(
       handleAIProviderRequest({ body: { model: 'gpt-4.1' }, requestId: 'bare' })
@@ -109,7 +108,7 @@ describe('native AI HTTP handler', () => {
       cost,
     })
   })
-  it('returns only public completion/accounting fields and ignores unused Agent engine controls', async () => {
+  it('returns only public completion/accounting fields', async () => {
     native.generate.mockResolvedValue({
       ...result,
       request: { headers: { authorization: 'private-key' } },
@@ -120,10 +119,7 @@ describe('native AI HTTP handler', () => {
     const response = await handleAIProviderRequest({
       body: {
         model: 'openai/gpt-4.1',
-        tools: [{ id: 'forged-tool' }],
-        stream: true,
-        structuredOutput: { schema: { type: 'object' } },
-      } as any,
+      },
       requestId: 'public-result',
     })
     expect(await response.json()).toEqual({
@@ -134,6 +130,25 @@ describe('native AI HTTP handler', () => {
     })
     expect(native.configurations[0]).not.toHaveProperty('tools')
     expect(native.generate.mock.calls[0][1]).not.toHaveProperty('structuredOutput')
+  })
+
+  it.each([
+    { providerOptions: { openai: { reasoningEffort: 'low' } } },
+    { tools: [{ id: 'forged-tool' }] },
+    { structuredOutput: { model: 'other-provider/model' } },
+    { funding: 'byok' },
+    { executionId: 'forged-execution', settlesModelUsage: true },
+  ])('rejects unsupported execution controls before model admission: %j', async (controls) => {
+    const response = await handleAIProviderRequest({
+      body: { model: 'anthropic/claude-sonnet-4-5', ...controls } as any,
+      requestId: 'rejected-controls',
+      authUserId: 'actor',
+    })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Invalid AI provider request' })
+    expect(native.finance).not.toHaveBeenCalled()
+    expect(native.configurations).toEqual([])
+    expect(native.generate).not.toHaveBeenCalled()
   })
 
   it('retains completed native usage when generation fails', async () => {

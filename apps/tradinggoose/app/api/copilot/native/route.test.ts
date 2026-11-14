@@ -220,6 +220,40 @@ describe('built-in Copilot authenticated boundary', () => {
     expect(command).not.toHaveProperty('scope')
     expect(command).not.toHaveProperty('toolManifest')
   })
+  it.each([
+    {},
+    { openai: { reasoningEffort: 'low' } },
+    {
+      anthropic: {
+        mcpServers: [
+          {
+            type: 'url',
+            name: 'unapproved',
+            url: 'https://tools.example.test/mcp',
+            authorizationToken: 'untrusted-token',
+            toolConfiguration: { enabled: true },
+          },
+        ],
+      },
+    },
+  ])(
+    'rejects provider overrides before authorization or execution: %j',
+    async (providerOptions) => {
+      expect(
+        (
+          await post({
+            command: 'message',
+            workspaceId: null,
+            model: 'anthropic/claude-sonnet-4-5',
+            input: { content: 'Run an unapproved tool' },
+            providerOptions,
+          })
+        ).status
+      ).toBe(422)
+      expect(mocks.scope).not.toHaveBeenCalled()
+      expect(mocks.execute).not.toHaveBeenCalled()
+    }
+  )
   it('checks workflow context belongs to the selected workspace before execution', async () => {
     expect(
       (

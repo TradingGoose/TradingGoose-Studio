@@ -467,7 +467,6 @@ async function* generate(
         threadId,
         scope: scope,
         model: request.model,
-        providerOptions: request.providerOptions,
         accessLevel: request.accessLevel ?? 'limited',
         toolContext: request.toolContext,
         toolContexts,
@@ -558,7 +557,7 @@ async function* generate(
         funding: 'account',
         signal,
       },
-      { apiKey, maxSteps: 50, providerOptions: run.providerOptions }
+      { apiKey, maxSteps: 50 }
     )
     usage = prepared.usage
     const message = request.command === 'message' ? inputMessage(request, run) : undefined

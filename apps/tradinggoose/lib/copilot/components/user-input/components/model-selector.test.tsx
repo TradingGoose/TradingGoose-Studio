@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, Children, cloneElement } from 'react'
+import { act, cloneElement } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -22,9 +22,6 @@ vi.mock('@/i18n/workspace-widget-hooks', () => ({
       loading: 'Loading models',
       unconfigured: 'No models configured',
       loadError: 'Unavailable',
-      providerOptions: 'Provider Options',
-      apply: 'Apply',
-      invalidOptions: 'Enter valid provider options JSON.',
     },
   }),
 }))
@@ -39,23 +36,6 @@ vi.mock('@/components/ui', () => ({
   Tooltip: ({ children }: any) => children,
   TooltipTrigger: ({ render }: any) => render,
   TooltipContent: () => null,
-  Popover: ({ children, open, onOpenChange }: any) => (
-    <div>
-      {Children.map(children, (child) =>
-        cloneElement(child, { popoverOpen: open, onPopoverOpenChange: onOpenChange })
-      )}
-    </div>
-  ),
-  PopoverTrigger: ({ render, children, onPopoverOpenChange, disabled }: any) =>
-    cloneElement(render, { disabled, onClick: () => onPopoverOpenChange(true) }, children),
-  PopoverContent: ({
-    popoverOpen,
-    onPopoverOpenChange: _change,
-    align: _align,
-    side: _side,
-    ...props
-  }: any) => (popoverOpen ? <div {...props} /> : null),
-  Textarea: (props: any) => <textarea {...props} />,
 }))
 
 import { AccessLevelSelector } from './access-level-selector'
@@ -88,8 +68,6 @@ beforeEach(() => {
     setAccessLevel: vi.fn(),
     selectedModel: null,
     setSelectedModel: vi.fn(),
-    providerOptions: undefined,
-    setProviderOptions: vi.fn(),
     isSendingMessage: false,
     isAwaitingContinuation: false,
     isAborting: false,
@@ -173,50 +151,6 @@ it('keeps distinct gateway routes selectable when they share a display label', (
   expect(container.innerHTML).not.toMatch(/openrouter|vercel/)
 })
 
-it('edits native provider options, rejects invalid settings, and clears options with blank input', () => {
-  state.selectedModel = 'anthropic/selected-model'
-  state.providerOptions = { anthropic: { effort: 'low' } }
-  catalog.data = { models: [{ id: state.selectedModel, label: state.selectedModel }] }
-  render()
-  const open = () =>
-    act(() =>
-      container.querySelector<HTMLButtonElement>('[aria-label="Provider Options"]')!.click()
-    )
-  const edit = (value: string) =>
-    act(() => {
-      const textarea = container.querySelector('textarea')!
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(
-        textarea,
-        value
-      )
-      textarea.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-  const apply = () =>
-    act(() =>
-      [...container.querySelectorAll('button')]
-        .find((button) => button.textContent === 'Apply')!
-        .click()
-    )
-  open()
-  expect(container.querySelector('textarea')).toHaveValue(
-    JSON.stringify(state.providerOptions, null, 2)
-  )
-  for (const invalid of ['{', '{"anthropic":{"apiKey":"forbidden"}}']) {
-    edit(invalid)
-    apply()
-    expect(container.querySelector('[role="alert"]')).not.toBeNull()
-    expect(state.setProviderOptions).not.toHaveBeenCalled()
-  }
-  edit('{"anthropic":{"effort":"high"}}')
-  apply()
-  expect(state.setProviderOptions).toHaveBeenLastCalledWith({ anthropic: { effort: 'high' } })
-  expect(container.querySelector('textarea')).toBeNull()
-  open()
-  edit('')
-  apply()
-  expect(state.setProviderOptions).toHaveBeenLastCalledWith(undefined)
-})
-
 it('preserves a valid selection and replaces a removed selection on catalog refresh', () => {
   state.selectedModel = 'openai/selected-model'
   catalog.data = {
@@ -238,23 +172,18 @@ it('preserves a valid selection and replaces a removed selection on catalog refr
 })
 
 it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
-  'locks access, model and open provider options and hides a removed route during %s',
+  'locks access and model and hides a removed route during %s',
   (busyState) => {
     state.selectedModel = 'openrouter/anthropic/original-model'
     catalog.data = { models: [{ id: state.selectedModel, label: 'anthropic/original-model' }] }
     render()
-    act(() =>
-      container.querySelector<HTMLButtonElement>('[aria-label="Provider Options"]')!.click()
-    )
     if (busyState === 'pending-tool') state.toolCallsById = { pending: { state: 'pending' } }
     else state[busyState] = true
     render()
-    expect(container.querySelector('textarea')).toBeDisabled()
     for (const button of container.querySelectorAll('button')) {
       expect(button).toBeDisabled()
       act(() => button.click())
     }
-    expect(state.setProviderOptions).not.toHaveBeenCalled()
     expect(state.setAccessLevel).not.toHaveBeenCalled()
     catalog.data = { models: [{ id: 'openai/replacement', label: 'openai/replacement' }] }
     catalog.isPending = false

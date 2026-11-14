@@ -1,29 +1,13 @@
 import { expect, it } from 'vitest'
-import { parseNativeToolArguments, parseProviderOptions, trustedModelSettings } from './options'
+import { parseNativeToolArguments, trustedModelSettings } from './options'
 
 it('keeps model selection and provider connections server-owned', () => {
   expect(() => trustedModelSettings({ maxRetries: 2 })).toThrow()
   expect(() => trustedModelSettings({ model: 'other' })).toThrow()
-  expect(() => parseProviderOptions({ openai: { headers: {} } })).toThrow()
-  expect(() => parseProviderOptions('{')).toThrow()
-  expect(parseProviderOptions({ openai: { reasoningEffort: 'low' } })).toEqual({
-    openai: { reasoningEffort: 'low' },
-  })
 })
 it('leaves native defaults unset and preserves explicitly supplied generation options', () => {
   expect(trustedModelSettings()).toEqual({})
-  expect(parseProviderOptions()).toEqual({})
-  for (const store of [true, false])
-    expect(parseProviderOptions({ openai: { store } })).toEqual({ openai: { store } })
 })
-it.each(['serviceTier', 'service_tier'])(
-  'rejects provider service-tier option %s before inference',
-  (key) => {
-    expect(() => parseProviderOptions({ openai: { [key]: 'flex' } })).toThrow(
-      `Provider option openai.${key} is controlled by the server`
-    )
-  }
-)
 it('normalizes numeric editor controls and omits unset values without supplying defaults', () => {
   expect(
     trustedModelSettings({
@@ -46,6 +30,8 @@ it.each([
   { seed: '1.5' },
   { stopSequences: ['ok', 1] },
   { reasoning: 'invented' },
+  { anthropic: { mcpServers: [{ url: 'https://mcp.example.test' }] } },
+  { providerOptions: { anthropic: { mcpServers: [] } } },
 ])('rejects invalid native settings before inference: %j', (settings) => {
   expect(() => trustedModelSettings(settings)).toThrow()
 })

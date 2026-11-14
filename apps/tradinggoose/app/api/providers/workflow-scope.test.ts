@@ -270,8 +270,6 @@ it('charges an HTTP block that calls providers without claiming that its wrapped
       body: {
         providerNamespace: 'ai',
         model: 'openai/gpt-4.1',
-        executionId: context.executionId,
-        settlesModelUsage: true,
         messages: [{ role: 'user', content: 'hello' }],
       },
     },
@@ -471,7 +469,6 @@ it.each([true, false])(
           providerNamespace: 'ai',
           model: 'openai/gpt-4.1',
           apiKey: 'caller-provider-key',
-          funding: 'account',
           workspaceId: context.workspaceId,
           messages: [{ role: 'user', content: 'hello' }],
         }),
@@ -498,7 +495,7 @@ it.each([true, false])(
 )
 
 it.each(['session', 'internal-without-execution', 'internal-without-settlement', 'other-workflow'])(
-  'charges an authorized workflow request using %s even when its body claims an active execution',
+  'charges an authorized workflow request using %s without verified settlement',
   async (authentication) => {
     const token =
       authentication === 'session'
@@ -528,8 +525,6 @@ it.each(['session', 'internal-without-execution', 'internal-without-settlement',
           model: 'openai/gpt-4.1',
           workflowId: context.workflowId,
           workspaceId: context.workspaceId,
-          executionId: context.executionId,
-          settlesModelUsage: true,
           messages: [{ role: 'user', content: 'hello' }],
         }),
       })

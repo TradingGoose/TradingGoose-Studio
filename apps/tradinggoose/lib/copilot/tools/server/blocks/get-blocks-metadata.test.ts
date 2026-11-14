@@ -197,10 +197,6 @@ describe('getBlocksMetadataServerTool', () => {
         value: capability,
       })
     }
-    expect(agent?.subBlocks?.find((field) => field.id === 'providerOptions')).toMatchObject({
-      type: 'code',
-      language: 'json',
-    })
     const outputTokens = agent?.subBlocks?.find((field) => field.id === 'maxTokens')
     expect(outputTokens).toMatchObject({
       type: 'short-input',
@@ -217,7 +213,13 @@ describe('getBlocksMetadataServerTool', () => {
     })
     expect(
       agent?.subBlocks?.some((field) =>
-        ['reasoningEffort', 'reasoningOptions', 'verbosity', 'thinkingLevel'].includes(field.id)
+        [
+          'providerOptions',
+          'reasoningEffort',
+          'reasoningOptions',
+          'verbosity',
+          'thinkingLevel',
+        ].includes(field.id)
       )
     ).toBe(false)
   })

@@ -104,7 +104,6 @@ function refreshServerToolResult(event: CopilotEvent) {
 const initialState = {
   accessLevel: 'limited' as const,
   selectedModel: null as string | null,
-  providerOptions: undefined as CopilotStore['providerOptions'],
   currentChat: null as CopilotChat | null,
   chats: [] as CopilotChat[],
   messages: [] as CopilotStore['messages'],
@@ -893,11 +892,7 @@ function createCopilotStoreInstance(channelId: string) {
               'Native model selection changed'
             )
           titleAbort?.abort()
-          set({ selectedModel, providerOptions: undefined })
-        },
-        setProviderOptions: (providerOptions) => {
-          if (isCopilotBusy(get()) || get().providerOptions === providerOptions) return
-          set({ providerOptions })
+          set({ selectedModel })
         },
         loadChats: async (options) => {
           const workspaceId =
@@ -1008,7 +1003,6 @@ function createCopilotStoreInstance(channelId: string) {
         sendMessage: async (message, options = {}) => {
           if ((!message.trim() && !options.images?.length) || isCopilotBusy(get())) return false
           const model = get().selectedModel
-          const providerOptions = get().providerOptions
           if (!model) {
             set({ error: 'Select an available Copilot model before sending a message.' })
             return false
@@ -1052,7 +1046,6 @@ function createCopilotStoreInstance(channelId: string) {
               ...(chat ? { threadId: chat.threadId } : {}),
               ...(editing ? { messageId: options.messageId } : {}),
               model,
-              ...(providerOptions ? { providerOptions } : {}),
               input: {
                 contexts,
                 content: options.images?.length
@@ -1087,8 +1080,7 @@ function createCopilotStoreInstance(channelId: string) {
             if (
               get().currentChat?.threadId !== chat?.threadId ||
               get().conversationWorkspaceId !== workspaceId ||
-              get().selectedModel !== model ||
-              get().providerOptions !== providerOptions
+              get().selectedModel !== model
             ) {
               set({ isSendingMessage: false })
               return false

@@ -730,51 +730,32 @@ describe('canonical browser conversation transport', () => {
     expect(store().getState().isSendingMessage).toBe(false)
   })
 
-  it.each([undefined, { openai: { reasoningEffort: 'high' } }])(
-    'sends native provider options %j with exact input, then reads canonical history',
-    async (providerOptions) => {
-      store().setState({ currentChat: chat(null), selectedModel: 'openai/gpt-5.6-sol' })
-      store().getState().setProviderOptions(providerOptions)
-      expect(
-        await store()
-          .getState()
-          .sendMessage(' exact 🦆\n', { contexts: [{ kind: 'docs', label: 'Docs' }] })
-      ).toBe(true)
-      expect(commands[0]).toMatchObject({
-        command: 'message',
-        workspaceId: null,
-        threadId,
-        model: 'openai/gpt-5.6-sol',
-        input: { content: ' exact 🦆\n', contexts: [{ kind: 'docs', label: 'Docs' }] },
-      })
-      expect(
-        store()
-          .getState()
-          .messages.map((message) => message.id)
-      ).toEqual(['user-native', 'assistant-native'])
-      expect(titleRequests).toEqual([])
-      if (providerOptions === undefined) expect(commands[0]).not.toHaveProperty('providerOptions')
-      else expect(commands[0]).toHaveProperty('providerOptions', providerOptions)
-    }
-  )
-  it('preserves provider options on reselecting a model and clears them on a model change', async () => {
-    const selected = store().getState().selectedModel
-    const providerOptions = { openai: { reasoningEffort: 'high' } }
-    store().getState().setProviderOptions(providerOptions)
-    await store().getState().setSelectedModel(selected)
-    expect(store().getState().providerOptions).toBe(providerOptions)
-    await store().getState().setSelectedModel('openai/gpt-5.6-sol')
-    expect(store().getState()).toMatchObject({
-      selectedModel: 'openai/gpt-5.6-sol',
-      providerOptions: undefined,
+  it('sends exact input, then reads canonical history', async () => {
+    store().setState({ currentChat: chat(null), selectedModel: 'openai/gpt-5.6-sol' })
+    expect(
+      await store()
+        .getState()
+        .sendMessage(' exact 🦆\n', { contexts: [{ kind: 'docs', label: 'Docs' }] })
+    ).toBe(true)
+    expect(commands[0]).toEqual({
+      command: 'message',
+      workspaceId: null,
+      threadId,
+      model: 'openai/gpt-5.6-sol',
+      accessLevel: 'limited',
+      input: { content: ' exact 🦆\n', contexts: [{ kind: 'docs', label: 'Docs' }] },
     })
+    expect(
+      store()
+        .getState()
+        .messages.map((message) => message.id)
+    ).toEqual(['user-native', 'assistant-native'])
+    expect(titleRequests).toEqual([])
   })
   it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
-    'keeps access, model and provider options immutable during %s',
+    'keeps access and model immutable during %s',
     async (busyState) => {
       const selectedModel = store().getState().selectedModel
-      const providerOptions = { openai: { reasoningEffort: 'high' } }
-      store().getState().setProviderOptions(providerOptions)
       store().getState().setAccessLevel('full')
       if (busyState === 'pending-tool')
         store().setState({
@@ -782,11 +763,9 @@ describe('canonical browser conversation transport', () => {
         })
       else store().setState({ [busyState]: true })
       store().getState().setAccessLevel('limited')
-      store().getState().setProviderOptions(undefined)
       await store().getState().setSelectedModel('openai/gpt-5.6-sol')
       expect(store().getState()).toMatchObject({
         selectedModel,
-        providerOptions,
         accessLevel: 'full',
       })
       if (busyState === 'pending-tool') store().setState({ toolCallsById: {} })

@@ -52,7 +52,7 @@ describe('model editor credentials', () => {
     async ({ unresolved, reopen }) => {
       const tuning = {
         temperature: { id: 'temperature', type: 'short-input' as const, value: '0' },
-        providerOptions: { id: 'providerOptions', type: 'code' as const, value: '{}' },
+        responseFormat: { id: 'responseFormat', type: 'code' as const, value: '{}' },
         maxTokens: { id: 'maxTokens', type: 'short-input' as const, value: '4096' },
       }
       const { useModelRegistry } = await import('@/stores/model-registry')

@@ -139,7 +139,7 @@ describe('documentation regeneration boundaries', () => {
     expect(first['agent.mdx']).not.toContain('"defaultValue": undefined')
     expect(first['agent.mdx']).not.toContain('Available in Advanced mode.')
     expect(first['agent.mdx']).toContain('Available in Additional Fields.')
-    expect(first['agent.mdx']).toContain('"id": "providerOptions"')
+    expect(first['agent.mdx']).not.toContain('"id": "providerOptions"')
     expect(first['agent.mdx']).toContain('"id": "maxTokens"')
     expect(first['agent.mdx']).toContain('"id": "maxSteps"')
     expect(first['agent.mdx']).not.toContain('"id": "reasoningOptions"')

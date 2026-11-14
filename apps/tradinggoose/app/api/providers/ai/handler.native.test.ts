@@ -23,6 +23,38 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+it('rejects provider-hosted MCP tools through the real route before any provider contact', async () => {
+  const fetcher = vi.fn()
+  vi.stubGlobal('fetch', fetcher)
+  const response = await POST(
+    new NextRequest('http://localhost/api/providers', {
+      method: 'POST',
+      body: JSON.stringify({
+        providerNamespace: 'ai',
+        model: 'anthropic/claude-sonnet-4-5',
+        messages: [{ role: 'user', content: 'Run the remote tool' }],
+        providerOptions: {
+          anthropic: {
+            mcpServers: [
+              {
+                type: 'url',
+                name: 'unapproved',
+                url: 'https://mcp.example.test',
+                authorizationToken: 'private-token',
+                toolConfiguration: { enabled: true },
+              },
+            ],
+          },
+        },
+      }),
+    })
+  )
+  expect(response.status).toBe(400)
+  expect(await response.json()).toEqual({ error: 'Invalid AI provider request' })
+  expect(managedServices.readConfig).not.toHaveBeenCalled()
+  expect(fetcher).not.toHaveBeenCalled()
+})
+
 it.each([401, 429, 500])(
   'keeps installed native adapter diagnostics out of public HTTP %s errors',
   async (status) => {

@@ -149,7 +149,7 @@ describe('WorkflowBlock localization', () => {
         subBlocks: {
           model: { value: 'reasoning-model' },
           maxTokens: { value: 512 },
-          providerOptions: { value: 'high' },
+          maxSteps: { value: 5 },
           temperature: { value: '' },
         },
       }
@@ -172,9 +172,9 @@ describe('WorkflowBlock localization', () => {
                   additional: true,
                 },
                 {
-                  id: 'providerOptions',
-                  title: 'Unsupported thinking control',
-                  type: 'dropdown',
+                  id: 'maxSteps',
+                  title: 'Hidden step limit',
+                  type: 'short-input',
                   additional: true,
                   condition: { field: 'model', value: 'thinking-model' },
                 },
@@ -193,7 +193,7 @@ describe('WorkflowBlock localization', () => {
 
       expect(markup).toContain('reasoning-model')
       expect(markup).toContain('512')
-      expect(markup).not.toContain('Unsupported thinking control')
+      expect(markup).not.toContain('Hidden step limit')
       expect(markup).not.toContain('Temperature control')
     }
   )

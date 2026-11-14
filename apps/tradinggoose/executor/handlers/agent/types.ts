@@ -16,7 +16,6 @@ export interface AgentInputs {
   maxTokens?: number
   maxSteps?: number | string
   apiKey?: string
-  providerOptions?: string | Record<string, any>
 }
 
 export interface ToolInput {

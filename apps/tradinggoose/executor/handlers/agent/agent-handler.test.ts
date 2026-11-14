@@ -398,7 +398,7 @@ describe('native Agent workflow execution', () => {
     expect(state.configurations).toHaveLength(0)
   })
 
-  it('keeps request-local credentials isolated and forwards native provider options', async () => {
+  it('keeps request-local credentials isolated', async () => {
     const handler = new AgentBlockHandler()
     const original = process.env.OPENAI_API_KEY
     await handler.execute(
@@ -406,7 +406,6 @@ describe('native Agent workflow execution', () => {
       {
         model: 'openai/gpt-4.1',
         apiKey: 'tenant-one',
-        providerOptions: '{"openai":{"reasoningEffort":"low"}}',
       },
       context()
     )
@@ -414,9 +413,6 @@ describe('native Agent workflow execution', () => {
     expect(
       vi.mocked(createConfiguredLanguageModel).mock.calls.map(([_model, apiKey]) => apiKey)
     ).toEqual(['tenant-one', 'tenant-two'])
-    expect(state.model.doGenerateCalls[0].providerOptions).toMatchObject({
-      openai: { reasoningEffort: 'low' },
-    })
     expect(process.env.OPENAI_API_KEY).toBe(original)
   })
 
@@ -562,7 +558,7 @@ describe('native Agent workflow execution', () => {
     })
   })
 
-  it.each(['options', 'schema', 'native setup'])(
+  it.each(['model settings', 'schema', 'native setup'])(
     'does not start cancellation polling when %s rejects before generation',
     async (failure) => {
       vi.useFakeTimers()
@@ -574,7 +570,7 @@ describe('native Agent workflow execution', () => {
             block,
             {
               model: 'openai/gpt-4.1',
-              ...(failure === 'options' ? { providerOptions: '{"openai":null}' } : {}),
+              ...(failure === 'model settings' ? { temperature: 'invalid' as any } : {}),
               ...(failure === 'schema' ? { responseFormat: { schema: [] } } : {}),
             },
             context({ shouldCancelExecution })

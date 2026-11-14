@@ -164,8 +164,8 @@ describe('trigger-editing-layout', () => {
               condition: { field: 'model', value: 'reasoning-model' },
             },
             {
-              id: 'providerOptions',
-              type: 'dropdown',
+              id: 'maxSteps',
+              type: 'short-input',
               additional: true,
               condition: { field: 'model', value: 'other-model' },
             },

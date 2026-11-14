@@ -1,6 +1,6 @@
 import type { AgentExecutionOptions } from '@mastra/core/agent'
 import { createConfiguredLanguageModel } from './connections'
-import { parseProviderOptions, trustedModelSettings } from './options'
+import { trustedModelSettings } from './options'
 import { assertNativeCompletion } from './result'
 import { getMastra } from './runtime'
 import { resultAccounting } from './usage'
@@ -13,12 +13,10 @@ export async function prepareModelRequest(
     apiKey?: string
     maxSteps?: number
     modelSettings?: unknown
-    providerOptions?: string | Record<string, unknown>
   } = {}
 ) {
   const apiKey = settings.apiKey?.trim() || undefined
   const modelSettings = trustedModelSettings(settings.modelSettings)
-  const providerOptions = parseProviderOptions(settings.providerOptions)
   const maxSteps = settings.maxSteps ?? 5
   const mastra = await getMastra()
   const usage = await usageProcessors({ ...scope, funding: apiKey ? scope.funding : 'account' })
@@ -30,7 +28,6 @@ export async function prepareModelRequest(
     inputProcessors: usage.inputProcessors,
     outputProcessors: usage.outputProcessors,
     modelSettings,
-    providerOptions,
     maxSteps,
     prepareStep: ({ stepNumber, systemMessages }) =>
       stepNumber >= maxSteps - 1

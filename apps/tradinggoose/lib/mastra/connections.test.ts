@@ -3,7 +3,7 @@ import { ModelRouterEmbeddingModel } from '@mastra/core/llm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { managedServices } from './__test-utils__/managed-services'
 import { createConfiguredLanguageModel, resolveConfiguredModel } from './connections'
-import { parseProviderOptions, trustedModelSettings } from './options'
+import { trustedModelSettings } from './options'
 import { getModelRegistry } from './registry'
 import { prepareModelRequest } from './request'
 import { usageProcessors } from './usage-processors'
@@ -141,25 +141,8 @@ describe('DB-managed native connections', () => {
 
 it.each([
   {
-    model: 'openai/gpt-5',
-    url: 'https://api.openai.com/v1/responses',
-    providerOptions: { openai: { reasoningEffort: 'low' } },
-    requestOptions: { reasoning: { effort: 'low' } },
-    modelSettings: {},
-    omitted: [],
-  },
-  {
-    model: 'deepseek/deepseek-reasoner',
-    url: 'https://api.deepseek.com/chat/completions',
-    providerOptions: { deepseek: { reasoningEffort: 'low', thinking: { type: 'enabled' } } },
-    requestOptions: { reasoning_effort: 'low', thinking: { type: 'enabled' } },
-    modelSettings: {},
-    omitted: [],
-  },
-  {
     model: 'openai/gpt-4.1',
     url: 'https://api.openai.com/v1/responses',
-    providerOptions: {},
     modelSettings: { temperature: '', maxOutputTokens: '' },
     requestOptions: {},
     omitted: ['temperature', 'max_output_tokens'],
@@ -167,7 +150,6 @@ it.each([
   {
     model: 'openai/gpt-4.1',
     url: 'https://api.openai.com/v1/responses',
-    providerOptions: {},
     modelSettings: { temperature: '0.5', maxOutputTokens: '128' },
     requestOptions: { temperature: 0.5, max_output_tokens: 128 },
     omitted: [],
@@ -178,46 +160,32 @@ it.each([
     const body = JSON.parse(init!.body as string)
     expect(body).toMatchObject(fixture.requestOptions)
     for (const field of fixture.omitted) expect(body).not.toHaveProperty(field)
-    return Response.json(
-      fixture.model.startsWith('openai/')
-        ? {
-            id: 'resp_fixture',
-            object: 'response',
-            created_at: 0,
-            model: body.model,
-            status: 'completed',
-            output: [
-              {
-                id: 'msg_fixture',
-                type: 'message',
-                role: 'assistant',
-                status: 'completed',
-                content: [{ type: 'output_text', text: 'ok', annotations: [] }],
-              },
-            ],
-            usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
-          }
-        : {
-            id: 'chatcmpl_fixture',
-            object: 'chat.completion',
-            created: 0,
-            model: body.model,
-            choices: [
-              { index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' },
-            ],
-            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-          }
-    )
+    return Response.json({
+      id: 'resp_fixture',
+      object: 'response',
+      created_at: 0,
+      model: body.model,
+      status: 'completed',
+      output: [
+        {
+          id: 'msg_fixture',
+          type: 'message',
+          role: 'assistant',
+          status: 'completed',
+          content: [{ type: 'output_text', text: 'ok', annotations: [] }],
+        },
+      ],
+      usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+    })
   })
   vi.stubGlobal('fetch', fetcher)
   const agent = new Agent({
-    id: 'native-provider-options',
-    name: 'Native provider options',
+    id: 'native-model-settings',
+    name: 'Native model settings',
     instructions: 'Reply briefly',
     model: await createConfiguredLanguageModel(fixture.model, 'request-key'),
   })
   const result = await agent.generate('Hello', {
-    providerOptions: parseProviderOptions(fixture.providerOptions),
     modelSettings: trustedModelSettings(fixture.modelSettings),
   })
   expect(result.text).toBe('ok')

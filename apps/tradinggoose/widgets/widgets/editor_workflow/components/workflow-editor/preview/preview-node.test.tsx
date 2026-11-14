@@ -83,9 +83,9 @@ describe('PreviewNode', () => {
                 { id: 'maxTokens', title: 'Token limit', type: 'short-input', additional: true },
                 { id: 'skills', title: 'Unused skills', type: 'skill-input', additional: true },
                 {
-                  id: 'providerOptions',
-                  title: 'Unsupported thinking',
-                  type: 'dropdown',
+                  id: 'maxSteps',
+                  title: 'Hidden step limit',
+                  type: 'short-input',
                   additional: true,
                   condition: { field: 'model', value: 'thinking-model' },
                 },
@@ -96,7 +96,7 @@ describe('PreviewNode', () => {
               model: { value: 'reasoning-model' },
               maxTokens: { value: 512 },
               skills: { value: [] },
-              providerOptions: { value: 'high' },
+              maxSteps: { value: 5 },
             },
           },
         })
@@ -106,7 +106,7 @@ describe('PreviewNode', () => {
       expect(markup).toContain('Token limit')
       expect(markup).toContain('512')
       expect(markup).not.toContain('Unused skills')
-      expect(markup).not.toContain('Unsupported thinking')
+      expect(markup).not.toContain('Hidden step limit')
     }
   )
 

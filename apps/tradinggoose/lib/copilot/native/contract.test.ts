@@ -6,7 +6,6 @@ it('accepts the browser command with ordered native content parts', () => {
     command: 'message',
     workspaceId: 'workspace',
     model: 'openai/gpt-4.1',
-    providerOptions: { openai: { reasoningEffort: 'low' } },
     input: {
       content: [
         { type: 'text', text: 'Inspect this' },
@@ -20,9 +19,23 @@ it.each([
   { actorUserId: 'other' },
   { scope: { actorUserId: 'other', workspaceId: 'workspace' } },
   { stream: false },
-  { providerOptions: { openai: { headers: { Authorization: 'untrusted' } } } },
-  { providerOptions: { openai: { model: 'other-model' } } },
-  { providerOptions: { openai: { serviceTier: 'flex' } } },
+  { providerOptions: {} },
+  { providerOptions: { openai: { reasoningEffort: 'low' } } },
+  {
+    providerOptions: {
+      anthropic: {
+        mcpServers: [
+          {
+            type: 'url',
+            name: 'unapproved',
+            url: 'https://tools.example.test/mcp',
+            authorizationToken: 'untrusted-token',
+            toolConfiguration: { enabled: true },
+          },
+        ],
+      },
+    },
+  },
   { reasoningEffort: 'low' },
   { fileAttachments: [{ key: 'old-object-reference' }] },
 ])('rejects additional authority and retired transport fields: %j', (fields) => {

@@ -265,7 +265,7 @@ vi.mock('@/blocks', () => ({
           { id: 'userPrompt', type: 'long-input', title: 'User Prompt' }, // mode: 'both' (default)
           { id: 'memories', type: 'short-input', title: 'Memories', additional: true },
           { id: 'temperature', type: 'short-input', title: 'Temperature', additional: true },
-          { id: 'providerOptions', type: 'code', title: 'Provider Options', additional: true },
+          { id: 'responseFormat', type: 'code', title: 'Response Format', additional: true },
           { id: 'model', type: 'dropdown', title: 'Model' }, // mode: 'both' (default)
         ],
         inputs: {
@@ -273,7 +273,7 @@ vi.mock('@/blocks', () => ({
           userPrompt: { type: 'string' },
           memories: { type: 'array' },
           temperature: { type: 'number' },
-          providerOptions: { type: 'string' },
+          responseFormat: { type: 'string' },
           model: { type: 'string' },
         },
       },
@@ -1042,7 +1042,7 @@ describe('Serializer', () => {
             userPrompt: { value: 'Hello' },
             memories: { value: [{ role: 'user', content: 'My name is John' }] },
             temperature: { value: 0 },
-            providerOptions: { value: '{}' },
+            responseFormat: { value: '{}' },
             model: { value: 'anthropic/claude-sonnet-5-5' },
           },
           outputs: {},
@@ -1057,7 +1057,7 @@ describe('Serializer', () => {
           userPrompt: 'Hello',
           memories: [{ role: 'user', content: 'My name is John' }],
           temperature: 0,
-          providerOptions: '{}',
+          responseFormat: '{}',
           model: 'anthropic/claude-sonnet-5-5',
         })
       }
