@@ -175,7 +175,6 @@ describe('Copilot auto-scroll', () => {
       isAborting: false,
       accessLevel: 'full',
       draft: { text: '', contexts: [] },
-      planTodos: [],
       sendMessage: vi.fn(),
       abortMessage: vi.fn(),
       setAccessLevel: vi.fn(),
@@ -277,16 +276,31 @@ describe('Copilot auto-scroll', () => {
     expect(scrollToMock).toHaveBeenCalled()
   })
 
-  it('hides unfinished todos when no turn is active', async () => {
+  it('shows acknowledged plan results during a turn and hides them when the turn ends', async () => {
     mockStoreState = {
       ...mockStoreState,
-      isSendingMessage: false,
-      currentChat: { ...mockStoreState.currentChat },
-      planTodos: [{ id: 'old-todo', content: 'Previous turn', completed: false }],
+      messages: [
+        createAssistantMessage({
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              timestamp: 1,
+              toolCall: {
+                id: 'plan',
+                name: 'plan',
+                state: 'success',
+                result: { todoList: ['Inspect'] },
+              },
+            },
+          ],
+        }),
+      ],
     }
-
     await renderCopilot()
+    expect(container.querySelector('[data-testid="todo-list"]')).not.toBeNull()
 
+    mockStoreState = { ...mockStoreState, isSendingMessage: false }
+    await renderCopilot()
     expect(container.querySelector('[data-testid="todo-list"]')).toBeNull()
   })
 

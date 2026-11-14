@@ -35,19 +35,6 @@ export class PlanClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
 
-      const todoList = args?.todoList
-      if (Array.isArray(todoList)) {
-        const todos = todoList.map((item: any, index: number) => ({
-          id: item?.id || `todo-${index}`,
-          content: typeof item === 'string' ? item : item.content,
-          completed: false,
-          executing: false,
-        }))
-        const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
-        getCopilotStoreForToolCall(this.toolCallId).getState().setPlanTodos(todos)
-      }
-
-      // Echo args back so store/tooling can parse todoList if needed
       await this.completeBrowserAssertion({
         kind: 'plan.updated',
         data: JSON.parse(JSON.stringify(args || {})),

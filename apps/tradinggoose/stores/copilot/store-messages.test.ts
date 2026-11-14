@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { COPILOT_CONTEXT_PART } from '@/lib/copilot/native/contract'
+import { COPILOT_CONTEXT_PART, type Json } from '@/lib/copilot/native/contract'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { projectNativeHistory, projectNativeHistoryMessage } from './history'
 import {
   buildPlanTodosFromMessages,
+  createStreamingMessage,
   createUserMessage,
   updateToolCallState,
 } from './store-messages'
-import type { CopilotMessage } from './types'
+import { applyNativeEvent } from './streaming'
+import type { CopilotStore } from './types'
 
 const at = '2026-11-08T00:00:00.000Z'
 const native = (parts: any[], role: 'assistant' | 'user' | 'signal' = 'assistant') => ({
@@ -215,43 +217,49 @@ describe('canonical native history display', () => {
     )
   })
   it('rebuilds plan/todo display in actual message order and resets it at the next user turn', () => {
-    const message: CopilotMessage = {
-      id: 'plan',
-      role: 'assistant',
-      timestamp: at,
-      content: '',
-      contentBlocks: [
-        {
-          type: 'tool_call',
-          timestamp: 1,
-          toolCall: {
-            id: 'plan',
-            name: 'plan',
-            state: ClientToolCallState.success,
-            result: {
-              todoList: [
-                { id: 'one', content: 'Inspect' },
-                { id: 'two', content: 'Test' },
-              ],
-            },
-          },
+    const results: { toolCallId: string; toolName: string; result: Json }[] = [
+      {
+        toolCallId: 'plan',
+        toolName: 'plan',
+        result: {
+          todoList: [
+            { id: 'one', content: 'Inspect' },
+            { id: 'two', content: 'Test' },
+          ],
         },
-        {
-          type: 'tool_call',
-          timestamp: 2,
-          toolCall: {
-            id: 'done',
-            name: 'checkoff_todo',
-            state: ClientToolCallState.success,
-            result: { id: 'one' },
-          },
-        },
-      ],
+      },
+      { toolCallId: 'doing', toolName: 'mark_todo_in_progress', result: { id: 'two' } },
+      { toolCallId: 'done', toolName: 'checkoff_todo', result: { id: 'one' } },
+    ]
+    const history = projectNativeHistory([
+      native(
+        results.map((result) => ({
+          type: 'tool-invocation',
+          toolInvocation: { state: 'result', ...result },
+        }))
+      ),
+    ])
+    let state = {
+      messages: [createStreamingMessage('message')],
+      toolCallsById: {},
+    } as CopilotStore
+    for (const result of results) {
+      const event = { toolCallId: result.toolCallId, toolName: result.toolName }
+      state = {
+        ...state,
+        ...applyNativeEvent(state, { type: 'tool.display', ...event }, 'message'),
+      }
+      state = {
+        ...state,
+        ...applyNativeEvent(state, { type: 'tool.result', ...result }, 'message'),
+      }
     }
+    const message = state.messages[0]
     expect(buildPlanTodosFromMessages([message])).toEqual([
       { id: 'one', content: 'Inspect', completed: true, executing: false },
-      { id: 'two', content: 'Test', completed: false, executing: false },
+      { id: 'two', content: 'Test', completed: false, executing: true },
     ])
+    expect(buildPlanTodosFromMessages(history)).toEqual(buildPlanTodosFromMessages([message]))
     expect(buildPlanTodosFromMessages([message, createUserMessage('Next')])).toEqual([])
     const plan = message.contentBlocks![0]
     if (plan.type !== 'tool_call') throw new Error('Expected plan tool call')

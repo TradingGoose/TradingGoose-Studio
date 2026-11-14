@@ -52,9 +52,9 @@ import {
 } from './native-api'
 import { registerCopilotStoreForToolCallResolver } from './store-access'
 import {
-  buildPlanTodosFromMessages,
   createStreamingMessage,
   createUserMessage,
+  updateMessageToolCalls,
   updateToolCallState,
 } from './store-messages'
 import { buildTurnProvenanceFromContexts } from './store-provenance'
@@ -116,7 +116,6 @@ const initialState = {
   isAwaitingContinuation: false,
   isAborting: false,
   abortController: null as AbortController | null,
-  planTodos: [] as CopilotStore['planTodos'],
   toolCallsById: {} as CopilotStore['toolCallsById'],
   lastNativeOutcome: null,
   error: null,
@@ -324,7 +323,6 @@ function createCopilotStoreInstance(channelId: string) {
         set({
           messages: projected.messages,
           toolCallsById: projected.toolCallsById,
-          planTodos: buildPlanTodosFromMessages(projected.messages),
           isAwaitingContinuation: pending.length > 0,
           isSendingMessage: !!activeRunId && pending.length === 0,
           currentRunId,
@@ -882,15 +880,6 @@ function createCopilotStoreInstance(channelId: string) {
         setAccessLevel: (accessLevel) => set({ accessLevel }),
         setDraft: (update) =>
           set((state) => ({ draft: typeof update === 'function' ? update(state.draft) : update })),
-        setPlanTodos: (planTodos) => set({ planTodos }),
-        updatePlanTodoStatus: (id, status) =>
-          set((state) => ({
-            planTodos: state.planTodos.map((todo) =>
-              todo.id === id
-                ? { ...todo, completed: status === 'completed', executing: status === 'executing' }
-                : todo
-            ),
-          })),
         setSelectedModel: async (selectedModel) => {
           if (isCopilotBusy(get()) || get().selectedModel === selectedModel) return
           const dialog = get().workflowChatDeployment
@@ -969,7 +958,6 @@ function createCopilotStoreInstance(channelId: string) {
             currentRunId: null,
             messages: [],
             toolCallsById: {},
-            planTodos: [],
             error: null,
             isAwaitingContinuation: false,
             isAborting: false,
@@ -990,7 +978,6 @@ function createCopilotStoreInstance(channelId: string) {
             currentRunId: null,
             messages: [],
             toolCallsById: {},
-            planTodos: [],
             draft: emptyDraft(),
             error: null,
             isAwaitingContinuation: false,
@@ -1229,16 +1216,10 @@ function createCopilotStoreInstance(channelId: string) {
               ...state.toolCallsById[id],
               provenance: { ...provenance, workspaceId: selected },
             }
+            const toolCallsById = { ...state.toolCallsById, [id]: call }
             return {
-              toolCallsById: { ...state.toolCallsById, [id]: call },
-              messages: state.messages.map((message) => ({
-                ...message,
-                contentBlocks: message.contentBlocks?.map((block) =>
-                  block.type === 'tool_call' && block.toolCall.id === id
-                    ? { ...block, toolCall: call }
-                    : block
-                ),
-              })),
+              toolCallsById,
+              messages: updateMessageToolCalls(state.messages, toolCallsById),
             }
           })
           return selected

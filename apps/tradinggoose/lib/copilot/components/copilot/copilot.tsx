@@ -10,6 +10,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
+import { buildPlanTodosFromMessages } from '@/stores/copilot/store-messages'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { CopilotMessage } from '../copilot-message/copilot-message'
@@ -66,7 +67,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     selectedModel,
     accessLevel,
     draft,
-    planTodos,
     sendMessage,
     abortMessage,
     setAccessLevel,
@@ -75,6 +75,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     toolCallsById,
     error,
   } = useCopilotStore()
+  const planTodos = useMemo(() => buildPlanTodosFromMessages(messages), [messages])
   const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
   const isTurnInProgress = isSendingMessage || isAwaitingContinuation || hasActiveToolCalls
 

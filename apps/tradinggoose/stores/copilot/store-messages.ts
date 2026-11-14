@@ -6,7 +6,7 @@ import { projectNativeHistoryMessage } from './history'
 import { resolveToolDisplay } from './tool-registry'
 import type { ChatContext, CopilotMessage, CopilotStore } from './types'
 
-type PlanTodo = CopilotStore['planTodos'][number]
+type PlanTodo = { id: string; content: string; completed: boolean; executing: boolean }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))

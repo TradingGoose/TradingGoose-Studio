@@ -40,11 +40,6 @@ export class MarkTodoInProgressClientTool extends BaseClientTool {
         return
       }
 
-      const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
-      getCopilotStoreForToolCall(this.toolCallId)
-        .getState()
-        .updatePlanTodoStatus(todoItemId, 'executing')
-
       await this.completeBrowserAssertion({ kind: 'plan.updated', data: { id: todoItemId } })
       this.setState(ClientToolCallState.success)
     } catch (e: any) {

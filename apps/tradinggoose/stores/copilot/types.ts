@@ -104,8 +104,6 @@ export interface CopilotState {
   abortController: AbortController | null
   draft: CopilotDraft
 
-  planTodos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
-
   // Map of toolCallId -> CopilotToolCall for quick access during streaming
   toolCallsById: Record<string, CopilotToolCall>
 }
@@ -137,10 +135,6 @@ export interface CopilotActions {
 
   setDraft: (update: CopilotDraftUpdate) => void
 
-  setPlanTodos: (
-    todos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
-  ) => void
-  updatePlanTodoStatus: (id: string, status: 'executing' | 'completed') => void
   readPendingTool: (toolCallId: string) => Promise<Pending>
   authorizeToolWorkspace: (toolCallId: string, workspaceId?: string) => Promise<string>
   submitBrowserAssertion: (toolCallId: string, assertion: BrowserAssertion) => Promise<void>

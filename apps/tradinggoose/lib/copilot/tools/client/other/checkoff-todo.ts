@@ -37,11 +37,6 @@ export class CheckoffTodoClientTool extends BaseClientTool {
         return
       }
 
-      const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
-      getCopilotStoreForToolCall(this.toolCallId)
-        .getState()
-        .updatePlanTodoStatus(todoItemId, 'completed')
-
       await this.completeBrowserAssertion({ kind: 'plan.updated', data: { id: todoItemId } })
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
