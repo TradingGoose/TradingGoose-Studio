@@ -1,10 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import { requestCopilotTitle } from '@/lib/copilot/agent/utils'
+import { completeCopilot } from '@/lib/copilot/native/completion'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { readNativeThread, readNativeThreadHistory } from '@/lib/copilot/native/history'
 import { authorizeNativeConversationScope } from '@/lib/copilot/native/target'
+import { TITLE_GENERATION_SYSTEM_PROMPT, TITLE_GENERATION_USER_PROMPT } from '@/lib/copilot/prompts'
 
 const inputSchema = z
   .object({
@@ -28,15 +29,23 @@ export async function POST(request: NextRequest) {
     const users = history.filter((message) => message.role === 'user')
     if (users.length !== 1 || !input.originalInput.trim()) return NextResponse.json({ title: null })
     request.signal.throwIfAborted()
-    const title = await requestCopilotTitle({
-      message: input.originalInput,
-      userId: scope.actorUserId,
-      workspaceId: scope.workspaceId,
-      model: input.model,
-      signal: request.signal,
-    })
+    const outcome = await completeCopilot(
+      {
+        scope,
+        purpose: 'title',
+        model: input.model,
+        messages: [
+          { role: 'system', content: TITLE_GENERATION_SYSTEM_PROMPT },
+          { role: 'user', content: TITLE_GENERATION_USER_PROMPT(input.originalInput) },
+        ],
+      },
+      request.signal
+    )
     return NextResponse.json({
-      title: request.signal.aborted ? null : title,
+      title:
+        !request.signal.aborted && outcome.status === 'completed'
+          ? outcome.text.trim() || null
+          : null,
     })
   } catch (error) {
     return NextResponse.json(
