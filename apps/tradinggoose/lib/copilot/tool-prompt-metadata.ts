@@ -69,7 +69,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.get_blocks_metadata]: {
     description:
-      'Fetch detailed canonical profiles for workflow block types returned by `get_available_blocks`, including sub-block ids, option values, exact input reference grammar, the source tools to resolve valid `<...>` tags, auth requirements, best practices, operations, and Mermaid structure examples.',
+      'Fetch detailed canonical profiles for workflow block types returned by `get_available_blocks`, including sub-block ids, static option values, exact input reference grammar, auth requirements, best practices, operations, and Mermaid structure examples. Model fields omit the full catalog. Set modelQuery to search native provider/model IDs; modelSearch returns at most 20 matches with capabilities and the total matching count. Refine the query when needed.',
     entityKind: 'workflow',
   },
   [CopilotTool.get_agent_accessory_catalog]: {

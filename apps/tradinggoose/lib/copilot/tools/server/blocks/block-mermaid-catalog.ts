@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from 'fs'
-import { join } from 'path'
 import type {
   BlockCatalogCategory,
   BlockMermaidCatalogItemType,
@@ -7,7 +5,6 @@ import type {
   BlockMermaidProfileType,
 } from '@/lib/copilot/tools/shared/schemas'
 import { LISTING_IDENTITY_JSON_SCHEMA, LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
-import { getModelRegistry } from '@/lib/mastra/registry'
 import { getOAuthProviderAvailability } from '@/lib/oauth/provider-availability.server'
 import {
   getProviderIdsForBlocks,
@@ -34,7 +31,6 @@ type BlockRequiredCredentials = {
 type BlockOperationSummary = BlockMermaidOperationType
 type BlockCatalogItem = BlockMermaidCatalogItemType
 type BlockProfile = BlockMermaidProfileType
-type BlockSubBlockSummary = NonNullable<BlockProfile['subBlocks']>[number]
 
 type BlockCatalogDefinition = {
   blockType: string
@@ -44,7 +40,6 @@ type BlockCatalogDefinition = {
   bestPractices?: string
   authType?: BlockAuthType
   requiredCredentials?: BlockRequiredCredentials
-  yamlDocumentation?: string
   operationChoices: Array<{
     id: string
     name: string
@@ -87,33 +82,6 @@ function buildRequiredCredentials(
   }
 }
 
-function readBlockDocumentation(blockType: string): string | undefined {
-  try {
-    const workingDir = process.cwd()
-    const isInTradingGooseApp =
-      workingDir.endsWith('/apps/tradinggoose') || workingDir.endsWith('\\apps\\tradinggoose')
-    const basePath = isInTradingGooseApp ? join(workingDir, '..', '..') : workingDir
-    const docPath = join(
-      basePath,
-      'apps',
-      'docs',
-      'content',
-      'docs',
-      'yaml',
-      'blocks',
-      `${blockType}.mdx`
-    )
-
-    if (!existsSync(docPath)) {
-      return undefined
-    }
-
-    return readFileSync(docPath, 'utf-8')
-  } catch {
-    return undefined
-  }
-}
-
 function resolveOperationChoices(
   blockConfig: BlockConfig | undefined,
   toolsRegistry?: Record<string, { description?: string }>
@@ -123,15 +91,13 @@ function resolveOperationChoices(
     return []
   }
 
-  return operationSubBlock.options.map((option) => {
-    const operationId = typeof option === 'object' ? option.id : option
-    const operationName = typeof option === 'object' ? option.label || option.id : option
+  return operationSubBlock.options.map(({ id, label }) => {
     let description: string | undefined
 
     try {
       const toolSelector = blockConfig?.tools?.config?.tool
       if (toolsRegistry && typeof toolSelector === 'function') {
-        const toolId = toolSelector({ operation: operationId })
+        const toolId = toolSelector({ operation: id })
         const tool = typeof toolId === 'string' ? toolsRegistry[toolId] : undefined
         description = tool?.description
       }
@@ -140,8 +106,8 @@ function resolveOperationChoices(
     }
 
     return {
-      id: operationId,
-      name: operationName || operationId,
+      id,
+      name: label,
       ...(description ? { description } : {}),
     }
   })
@@ -163,29 +129,24 @@ function toCatalogCategory(category: BlockConfig['category']): BlockCatalogCateg
   }
 }
 
-function resolveSubBlockOptions(
-  subBlock: BlockConfig['subBlocks'][number],
-  modelOptions: BlockSubBlockSummary['options']
-) {
+function resolveSubBlockOptions(subBlock: BlockConfig['subBlocks'][number]) {
+  if (subBlock.options === getModelOptions) return undefined
   const options =
-    subBlock.options === getModelOptions
-      ? modelOptions
-      : typeof subBlock.options === 'function'
-        ? subBlock.options.length === 0
-          ? subBlock.options()
-          : undefined
-        : subBlock.options
+    typeof subBlock.options === 'function'
+      ? subBlock.options.length === 0
+        ? subBlock.options()
+        : undefined
+      : subBlock.options
   if (!Array.isArray(options) || options.length === 0) {
     return undefined
   }
 
-  return options.map((option) => ({
-    id: option.id,
-    label: option.label || option.id,
-  }))
+  return options.map(({ id, label }) => ({ id, label }))
 }
 
 function resolveSubBlockDescription(subBlock: BlockConfig['subBlocks'][number]) {
+  if (subBlock.options === getModelOptions)
+    return 'Use an exact native provider/model ID. Discover models with get_blocks_metadata modelQuery; modelSearch contains bounded matches and native capabilities. Narrow the query when total exceeds the returned count.'
   if (subBlock.type !== 'input-format') return subBlock.description
 
   const typeDescription = [
@@ -195,20 +156,15 @@ function resolveSubBlockDescription(subBlock: BlockConfig['subBlocks'][number]) 
   return [subBlock.description, typeDescription].filter(Boolean).join(' ')
 }
 
-async function buildSubBlockSummaries(
+function buildSubBlockSummaries(
   blockConfig: BlockConfig | undefined
-): Promise<BlockProfile['subBlocks'] | undefined> {
+): BlockProfile['subBlocks'] | undefined {
   if (!blockConfig?.subBlocks?.length) {
     return undefined
   }
 
-  const modelOptions = blockConfig.subBlocks.some(({ options }) => options === getModelOptions)
-    ? (await getModelRegistry()).providers.flatMap(({ models }) =>
-        models.map(({ id }) => ({ id, label: id }))
-      )
-    : undefined
-  const subBlocks: BlockSubBlockSummary[] = blockConfig.subBlocks.map((subBlock) => {
-    const options = resolveSubBlockOptions(subBlock, modelOptions)
+  return blockConfig.subBlocks.map((subBlock) => {
+    const options = resolveSubBlockOptions(subBlock)
     const description = resolveSubBlockDescription(subBlock)
     const condition =
       typeof subBlock.condition === 'function' ? subBlock.condition() : subBlock.condition
@@ -236,8 +192,6 @@ async function buildSubBlockSummaries(
       ...(options ? { options } : {}),
     }
   })
-
-  return subBlocks.length > 0 ? subBlocks : undefined
 }
 
 function blockHasInputSurface(blockConfig: BlockConfig | undefined): boolean {
@@ -314,10 +268,7 @@ function buildInputReferenceGrammar(
 
 function resolveBlockCatalogDefinition(
   blockType: string,
-  options: {
-    includeDocumentation?: boolean
-    toolsRegistry?: Record<string, { description?: string }>
-  } = {}
+  toolsRegistry?: Record<string, { description?: string }>
 ): BlockCatalogDefinition | null {
   const blockConfig = blockRegistry[blockType]
   if (!blockConfig || blockConfig.hideFromToolbar) {
@@ -327,18 +278,13 @@ function resolveBlockCatalogDefinition(
   const authType = resolveAuthType(blockConfig.authMode)
   return {
     blockType,
-    blockName: blockConfig.name || blockType,
+    blockName: blockConfig.name,
     category: toCatalogCategory(blockConfig.category),
     blockDescription: blockConfig.longDescription || blockConfig.description || undefined,
     bestPractices: blockConfig.bestPractices || undefined,
     authType,
-    requiredCredentials: buildRequiredCredentials(
-      authType,
-      blockType,
-      blockConfig.name || blockType
-    ),
-    yamlDocumentation: options.includeDocumentation ? readBlockDocumentation(blockType) : undefined,
-    operationChoices: resolveOperationChoices(blockConfig, options.toolsRegistry),
+    requiredCredentials: buildRequiredCredentials(authType, blockType, blockConfig.name),
+    operationChoices: resolveOperationChoices(blockConfig, toolsRegistry),
   }
 }
 
@@ -424,14 +370,11 @@ export async function readWorkflowBlockProfile(
   const toolsRegistry = hasOperationChoices(blockConfig)
     ? (await import('@/tools/registry')).tools
     : undefined
-  const definition = resolveBlockCatalogDefinition(blockType, {
-    includeDocumentation: true,
-    toolsRegistry,
-  })
+  const definition = resolveBlockCatalogDefinition(blockType, toolsRegistry)
   if (!definition) {
     throw new Error(`Block not found: ${blockType}`)
   }
-  const subBlocks = await buildSubBlockSummaries(blockConfig)
+  const subBlocks = buildSubBlockSummaries(blockConfig)
   const inputReferenceGrammar = buildInputReferenceGrammar(blockType, blockConfig)
 
   const shape = buildWorkflowBlockMermaidShape({
@@ -449,7 +392,6 @@ export async function readWorkflowBlockProfile(
     ...(definition.requiredCredentials
       ? { requiredCredentials: definition.requiredCredentials }
       : {}),
-    ...(definition.yamlDocumentation ? { yamlDocumentation: definition.yamlDocumentation } : {}),
     ...(subBlocks ? { subBlocks } : {}),
     ...(inputReferenceGrammar ? { inputReferenceGrammar } : {}),
     ...shape,

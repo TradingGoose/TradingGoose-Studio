@@ -1,3 +1,4 @@
+import { getEncoding } from 'js-tiktoken'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
 import { useModelRegistry } from '@/stores/model-registry'
@@ -10,11 +11,15 @@ vi.mock('@/lib/oauth/oauth.server', () => ({
 
 vi.mock('@/blocks/registry', async () => {
   const { AgentBlock } = await import('@/blocks/blocks/agent')
+  const { RouterBlock } = await import('@/blocks/blocks/router')
+  const { EvaluatorBlock } = await import('@/blocks/blocks/evaluator')
   const { HistoricalDataBlock } = await import('@/blocks/blocks/historical_data')
   const { LoopBlock } = await import('@/blocks/blocks/loop')
   const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
   const registry = {
     agent: AgentBlock,
+    router: RouterBlock,
+    evaluator: EvaluatorBlock,
     historical_data: HistoricalDataBlock,
     loop: LoopBlock,
     parallel: ParallelContainerBlock,
@@ -217,22 +222,71 @@ describe('getBlocksMetadataServerTool', () => {
     ).toBe(false)
   })
 
-  it('discovers public native language models without browser registry state', async () => {
-    managedServices.credentials.openai = { defaultApiKey: 'managed-model-key' }
-    expect(useModelRegistry.getState().providers).toEqual([])
+  it('keeps Agent, Router and Evaluator metadata within a bounded context', async () => {
+    const input = { blockTypes: ['agent', 'router', 'evaluator'] }
+    const result = await getBlocksMetadataServerTool.execute(input)
+    expect(Object.keys(result.metadata)).toEqual(input.blockTypes)
+    for (const block of Object.values(result.metadata)) {
+      const model = block.subBlocks?.find((field) => field.id === 'model')
+      expect(model?.description).toContain('modelQuery')
+      expect(model?.options).toBeUndefined()
+    }
+    expect(result.modelSearch).toBeUndefined()
+    expect(managedServices.listServices).not.toHaveBeenCalled()
+    const encoded = getEncoding('o200k_base')
+    const json = JSON.stringify(result)
+    expect(Buffer.byteLength(json)).toBeLessThan(32_000)
+    expect(encoded.encode(json).length).toBeLessThan(8_000)
+  })
 
-    const result = await getBlocksMetadataServerTool.execute({ blockTypes: ['agent'] })
-    const options = result.metadata.agent?.subBlocks?.find((field) => field.id === 'model')?.options
-    expect(options).toEqual(
-      expect.arrayContaining([{ id: 'openai/gpt-4.1', label: 'openai/gpt-4.1' }])
-    )
-    expect(options).not.toContainEqual(
-      expect.objectContaining({ id: 'openai/text-embedding-3-small' })
-    )
-    expect(options).not.toContainEqual(expect.objectContaining({ id: 'openai/gpt-image-1' }))
-    expect(useModelRegistry.getState().providers).toEqual([])
+  it('returns one bounded native model search without duplicating options or exposing credentials', async () => {
+    managedServices.credentials.openai = { defaultApiKey: 'managed-model-key' }
+    const result = await getBlocksMetadataServerTool.execute({
+      blockTypes: ['agent', 'router', 'evaluator'],
+      modelQuery: 'openai/',
+    })
+    expect(result.modelSearch?.models).toHaveLength(20)
+    expect(result.modelSearch?.total).toBeGreaterThan(20)
+    for (const model of result.modelSearch!.models) {
+      expect(model.id.toLowerCase()).toContain('openai/')
+      expect(model).not.toHaveProperty('label')
+    }
+    for (const block of Object.values(result.metadata))
+      expect(block.subBlocks?.find((field) => field.id === 'model')?.options).toBeUndefined()
+    expect(managedServices.listServices).toHaveBeenCalledOnce()
     expect(managedServices.readConfig).not.toHaveBeenCalled()
+    expect(useModelRegistry.getState().providers).toEqual([])
     expect(JSON.stringify(result)).not.toMatch(/managed-model-key|apiKeyEnvVar/)
+  })
+
+  it.each([
+    [' OPENAI/GPT-4.1 ', 'openai/gpt-4.1'],
+    ['openai/text-embedding-3-small', undefined],
+    ['missing-provider/nonexistent-model', undefined],
+  ])('searches the native language catalog for %s', async (modelQuery, firstId) => {
+    const result = await getBlocksMetadataServerTool.execute({ blockTypes: ['agent'], modelQuery })
+    expect(result.modelSearch?.models[0]?.id).toBe(firstId)
+    if (!firstId) expect(result.modelSearch).toEqual({ models: [], total: 0 })
+    else
+      expect(result.modelSearch?.models[0]).toMatchObject({
+        temperature: true,
+        structuredOutput: true,
+      })
+  })
+
+  it('excludes native entries published as image models', async () => {
+    const result = await getBlocksMetadataServerTool.execute({
+      blockTypes: ['agent'],
+      modelQuery: 'openai/gpt-image-1',
+    })
+    expect(result.modelSearch?.models.some(({ id }) => id === 'openai/gpt-image-1')).toBe(false)
+  })
+
+  it('rejects blank model queries instead of expanding the whole catalog', async () => {
+    await expect(
+      getBlocksMetadataServerTool.execute({ blockTypes: ['agent'], modelQuery: ' ' })
+    ).rejects.toThrow()
+    expect(managedServices.listServices).not.toHaveBeenCalled()
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {
