@@ -1691,6 +1691,84 @@ describe('built-in Copilot service bridge', () => {
       expect(await readCopilotThreadRun(scope, initial.threadId)).toBeUndefined()
     }
   )
+  it.each(['conflict', 'error'])(
+    'releases ownership when memory fence admission returns %s',
+    async (failure) => {
+      const threadId = crypto.randomUUID()
+      await m.memory.createThread({ threadId, ...nativeConversationIdentity(scope) })
+      const memory = (await m.storage.getStore('memory'))!
+      const spy = vi.spyOn(memory, 'raiseRunFence').mockImplementationOnce(async () => {
+        if (failure === 'error') throw new Error('Memory storage unavailable')
+        return false
+      })
+      try {
+        expect((await message({ threadId })).result.status).toBe(
+          failure === 'conflict' ? 'refused' : 'failed'
+        )
+        expect(await threadClaims()).toHaveLength(0)
+        expect(m.contacts).toHaveLength(0)
+        setModel({ text: 'Retry answer' })
+        expect((await message({ threadId })).result.status).toBe('completed')
+      } finally {
+        spy.mockRestore()
+      }
+    }
+  )
+
+  it.each(['saveMessages', 'deleteMessages'] as const)(
+    'rejects a stale edit delayed at %s after a successor completes',
+    async (operation) => {
+      setModel({ text: 'Original answer' }, { text: 'Successor answer' })
+      const initial = (await message()).result
+      if (initial.status !== 'completed') throw new Error(JSON.stringify(initial))
+      const memory = (await m.storage.getStore('memory'))!
+      const query = { threadId: initial.threadId, perPage: false as const }
+      const history = await memory.listMessages(query)
+      const messageId = history.messages.find((item) => item.role === 'user')!.id
+      const entered = deferred()
+      const gate = deferred()
+      const save = memory.saveMessages.bind(memory)
+      const remove = memory.deleteMessages.bind(memory)
+      const spy =
+        operation === 'saveMessages'
+          ? vi.spyOn(memory, operation).mockImplementationOnce(async (input) => {
+              entered.resolve()
+              await gate.promise
+              return save(input)
+            })
+          : vi.spyOn(memory, operation).mockImplementationOnce(async (...args) => {
+              entered.resolve()
+              await gate.promise
+              return remove(...args)
+            })
+      vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+      const editing = message({
+        threadId: initial.threadId,
+        messageId,
+        input: { content: 'Stale edited prompt' },
+      })
+      try {
+        await entered.promise
+        const owner = await readCopilotThreadOwnership(scope, initial.threadId)
+        vi.setSystemTime(owner!.leaseExpiresAt!.getTime() + 1)
+        expect(
+          (await message({ threadId: initial.threadId, input: { content: 'Successor prompt' } }))
+            .result
+        ).toMatchObject({ status: 'completed', text: 'Successor answer' })
+        const completedHistory = structuredClone(await memory.listMessages(query))
+        gate.resolve()
+        const edited = await editing
+        expect(await memory.listMessages(query)).toEqual(completedHistory)
+        expect(edited.result).toMatchObject({ status: 'refused', error: { code: 'STALE_TARGET' } })
+      } finally {
+        gate.resolve()
+        await editing
+        spy.mockRestore()
+        vi.useRealTimers()
+      }
+    }
+  )
+
   it.each([false, true])(
     'waits for the native writer before cancelling and editing (other instance: %s)',
     async (otherInstance) => {
@@ -1699,21 +1777,15 @@ describe('built-in Copilot service bridge', () => {
       if (initial.status !== 'completed') throw new Error(JSON.stringify(initial))
       const memory = (await m.storage.getStore('memory'))!
       const save = memory.saveMessages.bind(memory)
-      let entered!: () => void
-      const writing = new Promise<void>((resolve) => {
-        entered = resolve
-      })
-      let release!: () => void
-      const gate = new Promise<void>((resolve) => {
-        release = resolve
-      })
+      const writing = deferred()
+      const gate = deferred()
       let held = false
       let persisted = false
       const spy = vi.spyOn(memory, 'saveMessages').mockImplementation(async (args) => {
         if (!held && args.messages.some((item) => item.role === 'assistant')) {
           held = true
-          entered()
-          await gate
+          writing.resolve()
+          await gate.promise
         }
         const result = await save(args)
         if (held) persisted = true
@@ -1734,7 +1806,7 @@ describe('built-in Copilot service bridge', () => {
         const started = await reader.read()
         const first = JSON.parse(new TextDecoder().decode(started.value).slice(6).trim())
         const next = reader.read()
-        await writing
+        await writing.promise
         let observed = ''
         let closing: Promise<unknown>
         if (otherInstance) {
@@ -1770,7 +1842,7 @@ describe('built-in Copilot service bridge', () => {
         expect((await message({ threadId: first.threadId })).result).toMatchObject({
           status: 'refused',
         })
-        release()
+        gate.resolve()
         await next
         await closing
         expect(await (await stopping).json()).toMatchObject({
@@ -1799,7 +1871,7 @@ describe('built-in Copilot service bridge', () => {
           ).result
         ).toMatchObject({ status: 'completed' })
       } finally {
-        release()
+        gate.resolve()
         spy.mockRestore()
       }
     }

@@ -2,6 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import type { AgentExecutionOptions } from '@mastra/core/agent'
 import type { MastraDBMessage } from '@mastra/core/agent/message-list'
 import type { InputProcessor } from '@mastra/core/processors'
+import { isRunFenceConflictError } from '@mastra/core/storage'
 import type { ChunkType } from '@mastra/core/stream'
 import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { validateNativeBrowserAssertion } from '@/lib/copilot/native/browser-assertion'
@@ -119,7 +120,8 @@ function publicPending({ target, stage, originalArgs, context, preview }: Server
 }
 
 function failure(error: unknown, apiKey?: string): ErrorResponse {
-  const status = error instanceof NativeTargetError ? error.status : 503
+  const ownershipLost = isRunFenceConflictError(error)
+  const status = ownershipLost ? 409 : error instanceof NativeTargetError ? error.status : 503
   return {
     status: status < 500 ? 'refused' : 'failed',
     error: {
@@ -131,7 +133,9 @@ function failure(error: unknown, apiKey?: string): ErrorResponse {
             : status < 500
               ? 'INVALID_REQUEST'
               : 'GENERATION_FAILED',
-      message: safeInferenceError(error, apiKey),
+      message: ownershipLost
+        ? 'This conversation changed before the request completed.'
+        : safeInferenceError(error, apiKey),
     },
   }
 }
@@ -609,8 +613,11 @@ async function* generate(
         )
       await assertOwnership()
       message!.createdAt = original.createdAt
-      await store.saveMessages({ messages: [message!] })
-      await store.deleteMessages(history.messages.slice(index + 1).map((item) => item.id))
+      await store.saveMessages({ messages: [message!], fence: ownership!.fence })
+      await store.deleteMessages(
+        history.messages.slice(index + 1).map((item) => item.id),
+        { fence: ownership!.fence }
+      )
     }
     requestContext = createCopilotRequestContext({
       run,

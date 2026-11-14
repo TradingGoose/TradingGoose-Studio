@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { RunFenceConflictError } from '@mastra/core/storage'
 import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
@@ -7,7 +8,12 @@ import type { CopilotRequest, CopilotToolContext, Scope } from '@/lib/copilot/na
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { getAgentMemory, getCopilotAgent, getNativeWorkflowsStore } from '@/lib/mastra/runtime'
+import {
+  getAgentMemory,
+  getCopilotAgent,
+  getNativeMemoryStore,
+  getNativeWorkflowsStore,
+} from '@/lib/mastra/runtime'
 
 export interface CopilotRun {
   runId: string
@@ -27,23 +33,14 @@ const receiptId = (kind: string, key: unknown) =>
 const expiresAt = new Date('9999-12-31T00:00:00.000Z')
 const THREAD_LEASE_MS = 15_000
 
-async function readReceipt<T>(id: string): Promise<T | undefined> {
-  const [row] = await db
-    .select({ value: verification.value })
-    .from(verification)
-    .where(eq(verification.id, id))
-    .limit(1)
-  return row ? (JSON.parse(row.value) as T) : undefined
-}
-
-async function insertReceipt(id: string, value: unknown, identifier: string) {
+async function insertReceipt(id: string, identifier: string) {
   const now = new Date()
   const rows = await db
     .insert(verification)
     .values({
       id,
       identifier,
-      value: JSON.stringify(value),
+      value: 'true',
       expiresAt,
       createdAt: now,
       updatedAt: now,
@@ -72,7 +69,7 @@ export async function readCopilotThreadRun(scope: Scope, threadId: string) {
 }
 
 export async function claimCopilotThread(scope: Scope, threadId: string, runId: string) {
-  const workflows = await getNativeWorkflowsStore()
+  const [workflows, memory] = await Promise.all([getNativeWorkflowsStore(), getNativeMemoryStore()])
   let leaseDeadline = performance.now() + THREAD_LEASE_MS
   const claim = await workflows.claimRunOwnership({
     runId: receiptId('thread', [scope, threadId]),
@@ -103,6 +100,14 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
       clearTimeout(timeout)
     }
   }
+  try {
+    // Advance the thread's native memory fence before admitting its next writer.
+    if (!(await memory.raiseRunFence(fence)))
+      throw new RunFenceConflictError(fence, 'claimCopilotThread')
+  } catch (error) {
+    await withinLease(workflows.releaseRunOwnership(fence))
+    throw error
+  }
   let renewal: Promise<void> | undefined
   const renew = async () => {
     cancellation.signal.throwIfAborted()
@@ -126,12 +131,17 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
   const timer = setInterval(() => void renew().catch(() => {}), THREAD_LEASE_MS / 3)
   timer.unref?.()
   return {
+    fence,
     signal: cancellation.signal,
     renew,
     async release() {
       clearInterval(timer)
       await renewal?.catch(() => {})
-      await withinLease(workflows.releaseRunOwnership(fence))
+      try {
+        await memory.retireRunFence(fence)
+      } finally {
+        await withinLease(workflows.releaseRunOwnership(fence))
+      }
     },
   }
 }
@@ -141,7 +151,7 @@ type ScopedRun = Pick<CopilotRun, 'runId' | 'threadId' | 'scope'>
 const runOwner = (run: ScopedRun) => receiptId('thread', [run.scope, run.threadId])
 
 export async function cancelCopilotRun(run: ScopedRun) {
-  await insertReceipt(receiptId('cancel', run.runId), true, runOwner(run))
+  await insertReceipt(receiptId('cancel', run.runId), runOwner(run))
 }
 
 export async function assertCopilotRunActive(runId: string) {
@@ -150,7 +160,12 @@ export async function assertCopilotRunActive(runId: string) {
 }
 
 export async function isCopilotRunCancelled(runId: string) {
-  return Boolean(await readReceipt(receiptId('cancel', runId)))
+  const [row] = await db
+    .select({ id: verification.id })
+    .from(verification)
+    .where(eq(verification.id, receiptId('cancel', runId)))
+    .limit(1)
+  return Boolean(row)
 }
 
 /** Mastra stores outcomes. This claim prevents repeating an effect after an uncertain interruption. */
@@ -159,9 +174,7 @@ export async function claimCopilotEffect(
   toolCallId: string,
   phase: 'execute' | 'review' | 'browser'
 ) {
-  if (
-    !(await insertReceipt(receiptId('effect', [run.runId, toolCallId, phase]), true, runOwner(run)))
-  )
+  if (!(await insertReceipt(receiptId('effect', [run.runId, toolCallId, phase]), runOwner(run))))
     throw new NativeTargetError(
       'This Copilot action was already dispatched; verify its result before continuing',
       409
