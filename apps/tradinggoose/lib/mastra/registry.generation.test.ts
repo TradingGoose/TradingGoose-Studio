@@ -51,7 +51,15 @@ it('excludes every exact installed native embedding identity from generation and
 
 it('retains exact native generation identities and capabilities', async () => {
   const generation = (await getModelRegistry()).providers.flatMap(({ models }) => models)
-  for (const id of ['openai/gpt-4.1', 'deepseek/deepseek-v4-pro']) {
+  for (const id of [
+    'openai/gpt-4.1',
+    'deepseek/deepseek-v4-pro',
+    'openai/gpt-5',
+    'google/gemini-2.5-pro',
+    'openai/gpt-3.5-turbo',
+    'openrouter/openai/gpt-audio',
+    'poe/openai/gpt-5.4',
+  ]) {
     await expect(assertListedModel(id)).resolves.toBeUndefined()
     expect(generation).toContainEqual(getNativeModel(id))
   }
@@ -63,25 +71,27 @@ it('excludes every published non-chat API from native generation pickers and val
   const generation = new Set(
     (await getModelRegistry()).providers.flatMap(({ models }) => models.map(({ id }) => id))
   )
-  const excluded = new Set<string>()
+  const excluded = new Set([
+    'google/lyria-3-clip-preview',
+    'google/lyria-3-pro-preview',
+    'openrouter/google/lyria-3-clip-preview',
+    'poe/google/lyria',
+  ])
   for (const [provider, config] of Object.entries(GatewayRegistry.getInstance().getProviders())) {
     for (const modelId of config.models) {
       const type = modelCatalog[provider]?.models[modelId]?.type
       if (type === undefined || type === 'chat') continue
-      const id = `${provider}/${modelId}`
-      excluded.add(id)
-      expect(generation.has(id)).toBe(false)
-      await expect(assertListedModel(id)).rejects.toThrowError(
-        expect.objectContaining({ status: 400 })
-      )
+      excluded.add(`${provider}/${modelId}`)
     }
+  }
+  for (const id of excluded) {
+    expect(generation.has(id)).toBe(false)
+    await expect(assertListedModel(id)).rejects.toThrowError(
+      expect.objectContaining({ status: 400 })
+    )
   }
   expect(excluded).toContain('openai/gpt-image-1.5')
   expect(excluded).toContain('google/gemini-embedding-2')
-  for (const id of ['openai/gpt-5', 'google/gemini-2.5-pro']) {
-    expect(generation.has(id)).toBe(true)
-    await expect(assertListedModel(id)).resolves.toBeUndefined()
-  }
 })
 
 it('serves native generation and embedding discovery without exposing credentials', async () => {
@@ -89,14 +99,6 @@ it('serves native generation and embedding discovery without exposing credential
   expect(response.status).toBe(200)
   const body = await response.json()
   expect(body).toEqual(await getModelRegistry())
-  const selected = new Set(
-    body.providers.flatMap((provider: { models: { id: string }[] }) =>
-      provider.models.map(({ id }) => id)
-    )
-  )
-  for (const entry of EMBEDDING_MODELS)
-    expect(selected.has(`${entry.provider}/${entry.id}`)).toBe(false)
-  expect(selected.has('openai/gpt-4.1')).toBe(true)
   expect(JSON.stringify(body)).not.toMatch(/not-contacted|apiKey|headers/)
   const embeddingResponse = await GET(new NextRequest('http://localhost/api/models?type=embedding'))
   expect(await embeddingResponse.json()).toEqual({ models: await getEmbeddingModelRegistry() })

@@ -20,12 +20,17 @@ export interface RegistryProvider {
   models: RegistryModel[]
 }
 
-/** models.dev omits type for chat models; model names and modalities do not establish API type. */
+/** Untyped music/audio generators must not enter the text/tool execution path. */
 export function isLanguageModel(provider: string, modelId: string): boolean {
-  return (
-    (modelCatalog[provider]?.models?.[modelId]?.type ?? 'chat') === 'chat' &&
-    !EMBEDDING_MODELS.some((entry) => entry.provider === provider && entry.id === modelId)
+  const model = modelCatalog[provider]?.models?.[modelId]
+  if (model?.type) return model.type === 'chat'
+  if (
+    model &&
+    (!model.modalities.output.includes('text') ||
+      (model.modalities.output.includes('audio') && !model.tool_call))
   )
+    return false
+  return !EMBEDDING_MODELS.some((entry) => entry.provider === provider && entry.id === modelId)
 }
 
 /** Validate only after workflow and environment references have resolved. */

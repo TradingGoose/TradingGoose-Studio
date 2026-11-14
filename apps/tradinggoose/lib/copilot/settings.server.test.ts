@@ -31,20 +31,6 @@ vi.mock('@mastra/core/llm', async (importOriginal) => {
     },
   }
 })
-vi.mock('@opencode-ai/models/snapshot', () => ({
-  providers: {
-    openai: {
-      models: {
-        'gpt-image-1.5': { type: 'image' },
-        'gpt-4.1': { type: 'chat', modalities: { input: ['text', 'image'] } },
-      },
-    },
-    google: { models: { 'gemini-embedding-2': { type: 'embedding' } } },
-    openrouter: {
-      models: { 'vendor/known-model': { canonical_model_id: 'vendor/family/known-model' } },
-    },
-  },
-}))
 
 vi.mock('@/lib/system-settings/service', () => ({
   getCopilotSettings: async () => (await mockGetResolvedSystemSettings()).copilot,
@@ -130,6 +116,8 @@ describe('server Copilot settings', () => {
   it.each([
     ['openai', 'gpt-image-1.5'],
     ['google', 'gemini-embedding-2'],
+    ['google', 'lyria-3-clip-preview'],
+    ['google', 'lyria-3-pro-preview'],
   ])(
     'rejects the configured non-language model %s/%s before resolving credentials',
     async (provider, model) => {
@@ -148,7 +136,9 @@ describe('server Copilot settings', () => {
         models: [
           { provider: 'openai', model: 'gpt-image-1.5' },
           { provider: 'google', model: 'gemini-embedding-2' },
+          { provider: 'google', model: 'lyria-3-clip-preview' },
           { provider: 'openai', model: 'gpt-4.1' },
+          { provider: 'google', model: 'lyria-3-pro-preview' },
           { provider: 'new-native-provider', model: 'namespace/future-model' },
         ],
       },
@@ -166,7 +156,7 @@ describe('server Copilot settings', () => {
     mockGetResolvedSystemSettings.mockResolvedValue({
       copilot: {
         models: [
-          { provider: 'openrouter', model: 'vendor/known-model' },
+          { provider: 'openrouter', model: 'amazon/nova-premier-v1' },
           { provider: 'openrouter', model: 'vendor/family/future-model' },
           { provider: 'openai', model: 'future-model' },
         ],
@@ -174,7 +164,7 @@ describe('server Copilot settings', () => {
     })
     expect(await getPublicCopilotModels()).toEqual({
       models: [
-        { id: 'openrouter/vendor/known-model', label: 'vendor/family/known-model' },
+        { id: 'openrouter/amazon/nova-premier-v1', label: 'amazon/nova-premier' },
         { id: 'openrouter/vendor/family/future-model', label: 'vendor/family/future-model' },
         { id: 'openai/future-model', label: 'openai/future-model' },
       ],
@@ -185,7 +175,7 @@ describe('server Copilot settings', () => {
   it('keeps gateway configuration out of user-facing credential errors', async () => {
     mockGetResolvedSystemSettings.mockResolvedValue({
       copilot: {
-        models: [{ provider: 'openrouter', model: 'vendor/known-model' }],
+        models: [{ provider: 'openrouter', model: 'amazon/nova-premier-v1' }],
       },
     })
     mockResolveSystemServiceConfig.mockResolvedValue({})
