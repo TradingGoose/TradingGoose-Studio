@@ -10,14 +10,13 @@ export function validateNativeBrowserAssertion(pending: Pending, assertion: Brow
   if (!isToolId(name)) throw new NativeTargetError('Unknown browser tool', 422)
   const authority = getCopilotToolPolicy(name).resultAuthority
   if (authority === 'browser_local') {
-    const kind = name === 'sleep' ? 'timer' : 'plan'
-    if (assertion.kind !== (kind === 'timer' ? 'timer.completed' : 'plan.updated'))
-      throw new NativeTargetError(`Invalid local ${kind} assertion`, 422)
+    if (assertion.kind !== 'timer.completed')
+      throw new NativeTargetError('Invalid local timer assertion', 422)
     if (
       stableStringifyJsonValue(ToolResultSchemas[name].parse(assertion.data)) !==
       stableStringifyJsonValue(assertion.data)
     )
-      throw new NativeTargetError(`Local ${kind} assertion does not match its business schema`, 422)
+      throw new NativeTargetError('Local timer assertion does not match its business schema', 422)
     return
   }
   if (authority !== 'browser_ui' && authority !== 'workflow_deployment') {

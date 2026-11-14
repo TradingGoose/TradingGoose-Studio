@@ -93,7 +93,8 @@ function createCopilotTools(execution: CopilotExecution) {
               accessLevel: run.accessLevel,
               signal,
             }
-            await authorizeNativeBusinessResult(run.scope, pending, undefined, businessContext)
+            if (!(resumed && live.decision?.action === 'result'))
+              await authorizeNativeBusinessResult(run.scope, pending, undefined, businessContext)
             let result: unknown
             if (resumed && live.decision?.action === 'result') {
               result = live.decision.result

@@ -30,24 +30,23 @@ describe('tool-registry', () => {
     vi.restoreAllMocks()
   })
 
-  it('retains all 76 tools, 68 server/8 browser operations and existing limited-access gates', () => {
+  it('retains all 76 tools, 71 server/5 browser operations and existing limited-access gates', () => {
     const server = ToolIds.options.filter(isServerManagedCopilotTool)
     const client = ToolIds.options.filter((name) => !isServerManagedCopilotTool(name))
     expect(ToolIds.options).toHaveLength(76)
-    expect(server).toHaveLength(68)
+    expect(server).toHaveLength(71)
     expect(client.sort()).toEqual([
-      'checkoff_todo',
       'deploy_workflow',
       'gdrive_request_access',
-      'mark_todo_in_progress',
       'oauth_request_access',
-      'plan',
       'run_workflow',
       'sleep',
     ])
     expect(server.filter(isGatedTool)).toHaveLength(20)
     for (const name of server)
       expect(ensureClientToolInstance(name, `server-${name}`)).toBeUndefined()
+    expect(ensureClientToolInstance('gdrive_request_access', 'drive-access')).toBeUndefined()
+    expect(getToolInterruptDisplays('gdrive_request_access')?.accept.text).toBe('Select')
     expect(client.filter(isGatedTool).sort()).toEqual([
       'deploy_workflow',
       'gdrive_request_access',

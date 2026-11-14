@@ -24,7 +24,6 @@ export interface CopilotRun {
   accessLevel: CopilotAccessLevel
   toolContext?: CopilotToolContext
   toolContexts?: CopilotToolContext[]
-  workflowId?: string
 }
 
 // Cancellation and effect receipts prevent replay after an uncertain interruption.

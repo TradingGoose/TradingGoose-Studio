@@ -426,7 +426,6 @@ describe('processContextsServer', () => {
     mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue({
       snapshotBase64,
       descriptor: {},
-      runtime: { docState: 'active' },
     })
     mockReadWorkflowSnapshot.mockReturnValue({
       blocks: {

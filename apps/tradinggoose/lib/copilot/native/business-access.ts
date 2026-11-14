@@ -1,9 +1,12 @@
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
-import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
+import {
+  type ServerToolExecutionContext,
+  throwIfServerToolAborted,
+} from '@/lib/copilot/tools/server/base-tool'
 import { verifySavedEntityContext } from '@/lib/copilot/tools/server/entities/shared'
 import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
@@ -11,11 +14,42 @@ import { getMonitorRowById } from '@/app/api/monitors/shared'
 import type { Pending, Scope } from './contract'
 import { NativeTargetError } from './errors'
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
 function record(value: unknown): Record<string, unknown> {
-  return isRecord(value) ? value : {}
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+export async function readAuthorizedWorkflowExecutionLog(
+  scope: Scope,
+  pending: Pending,
+  context?: ServerToolExecutionContext
+) {
+  throwIfServerToolAborted(context)
+  const args = ToolArgSchemas.run_workflow.parse(pending.originalArgs)
+  const [row] = await db
+    .select()
+    .from(workflowExecutionLogs)
+    .where(
+      and(
+        eq(workflowExecutionLogs.executionId, pending.target.toolCallId),
+        eq(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, args.entityId)
+      )
+    )
+    .limit(1)
+  if (!row?.endedAt)
+    throw new NativeTargetError('Original workflow execution has no terminal result', 409)
+  const environment = record(record(row.executionData).environment)
+  if (
+    !row.workspaceId?.trim() ||
+    environment.workspaceId !== row.workspaceId ||
+    environment.userId !== scope.actorUserId ||
+    (context?.workspaceId !== undefined && context.workspaceId !== row.workspaceId) ||
+    !(await checkWorkspaceAccess(row.workspaceId, scope.actorUserId)).hasAccess
+  )
+    throw new NativeTargetError('Original execution workspace access has been revoked', 403)
+  throwIfServerToolAborted(context)
+  return row
 }
 
 export async function authorizeNativeCredential(
@@ -54,9 +88,13 @@ export async function authorizeNativeBusinessResult(
 ) {
   const toolName = pending.target.toolName
   if (!isToolId(toolName)) throw new NativeTargetError('Unknown native tool', 422)
+  const executionContext = { ...context, userId: scope.actorUserId }
+  if (toolName === 'run_workflow' && result !== undefined) {
+    await readAuthorizedWorkflowExecutionLog(scope, pending, executionContext)
+    return
+  }
   const args = record(ToolArgSchemas[toolName].parse(pending.originalArgs))
   const output = record(result)
-  const executionContext = { ...context, userId: scope.actorUserId }
   for (const workspaceId of new Set([args.workspaceId, output.workspaceId, context?.workspaceId])) {
     if (typeof workspaceId !== 'string') continue
     const access = await checkWorkspaceAccess(workspaceId, scope.actorUserId)

@@ -928,10 +928,7 @@ const EnvironmentVariablesMutationResult = DocumentDiffReviewMetadata.extend({
 })
 
 export const ToolResultSchemas = {
-  plan: z.object({
-    objective: z.string().optional(),
-    todoList: z.array(z.any()).optional(),
-  }),
+  plan: ToolArgSchemas.plan,
   checkoff_todo: ToolArgSchemas.checkoff_todo,
   mark_todo_in_progress: ToolArgSchemas.mark_todo_in_progress,
   [CopilotTool.read_workflow]: WorkflowReadDocumentEnvelope,

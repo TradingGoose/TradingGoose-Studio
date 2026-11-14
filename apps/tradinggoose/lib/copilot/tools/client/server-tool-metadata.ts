@@ -7,6 +7,7 @@ import {
   BookOpenText,
   Bot,
   Check,
+  CheckCircle,
   Code2,
   Database,
   FileJson,
@@ -21,6 +22,7 @@ import {
   KeyRound,
   ListChecks,
   ListFilter,
+  ListTodo,
   Loader2,
   MinusCircle,
   Rocket,
@@ -108,6 +110,46 @@ function createEntityMutationMetadata(
 }
 
 export const SERVER_TOOL_METADATA = {
+  [CopilotTool.plan]: {
+    displayNames: {
+      ...createProgressDisplayNames('Planning'),
+      [ClientToolCallState.executing]: { text: 'Planning an approach', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Finished planning', icon: ListTodo },
+      [ClientToolCallState.error]: { text: 'Failed to plan', icon: X },
+      [ClientToolCallState.aborted]: { text: 'Aborted planning', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped planning approach', icon: XCircle },
+    },
+  },
+  [CopilotTool.checkoff_todo]: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Marking todo', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Marking todo', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Todo marked complete', icon: Check },
+      [ClientToolCallState.error]: { text: 'Failed to mark todo', icon: XCircle },
+    },
+  },
+  [CopilotTool.mark_todo_in_progress]: {
+    displayNames: {
+      ...createProgressDisplayNames('Marking todo in progress'),
+      [ClientToolCallState.success]: { text: 'Todo marked in progress', icon: Loader2 },
+      [ClientToolCallState.error]: { text: 'Failed to mark in progress', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted marking in progress', icon: MinusCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped marking in progress', icon: MinusCircle },
+    },
+  },
+  [CopilotTool.gdrive_request_access]: {
+    displayNames: {
+      ...createProgressDisplayNames('Requesting GDrive access'),
+      [ClientToolCallState.rejected]: { text: 'Skipped GDrive access', icon: MinusCircle },
+      [ClientToolCallState.success]: { text: 'GDrive access granted', icon: CheckCircle },
+      [ClientToolCallState.error]: { text: 'Failed to request GDrive access', icon: X },
+      [ClientToolCallState.aborted]: { text: 'Aborted GDrive access request', icon: XCircle },
+    },
+    interrupt: {
+      accept: { text: 'Select', icon: FolderOpen },
+      reject: { text: 'Skip', icon: MinusCircle },
+    },
+  },
   [CopilotTool.read_workflow_logs]: {
     displayNames: {
       ...createProgressDisplayNames('Reading workflow logs'),

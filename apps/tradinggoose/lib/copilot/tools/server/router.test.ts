@@ -3,6 +3,7 @@ import {
   KNOWLEDGE_BASE_DOCUMENT_FORMAT,
   WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
+import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import { getFailureAccounting } from '@/lib/mastra/errors'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import {
@@ -224,6 +225,7 @@ vi.mock('@/lib/copilot/tools/server/workflow/read-workflow-logs', () => ({
   },
 }))
 let ToolArgSchemas: typeof import('@/lib/copilot/registry').ToolArgSchemas
+let ToolIds: typeof import('@/lib/copilot/registry').ToolIds
 let ToolResultSchemas: typeof import('@/lib/copilot/registry').ToolResultSchemas
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
 let getMcpServerToolIds: typeof import('@/lib/copilot/tools/server/router').getMcpServerToolIds
@@ -231,7 +233,9 @@ let isWorkspaceAgnosticServerTool: typeof import('@/lib/copilot/tools/server/rou
 let routeExecution: typeof import('@/lib/copilot/tools/server/router').routeExecution
 
 beforeAll(async () => {
-  ;({ ToolArgSchemas, ToolResultSchemas, isToolId } = await import('@/lib/copilot/registry'))
+  ;({ ToolArgSchemas, ToolIds, ToolResultSchemas, isToolId } = await import(
+    '@/lib/copilot/registry'
+  ))
   ;({ getMcpServerToolIds, isWorkspaceAgnosticServerTool, routeExecution } = await import(
     '@/lib/copilot/tools/server/router'
   ))
@@ -266,31 +270,16 @@ describe('copilot contract registry', () => {
     expect(isToolId('unknown_tool')).toBe(false)
   })
 
-  it('uses an explicit external MCP tool list', () => {
-    expect(getMcpServerToolIds()).toContain('list_workflows')
-    expect(getMcpServerToolIds()).toContain('edit_workflow')
-    expect(getMcpServerToolIds()).toContain('set_environment_variables')
-    expect(getMcpServerToolIds()).toContain('create_mcp_server')
-    expect(getMcpServerToolIds()).toEqual(
-      expect.arrayContaining([
-        'list_watchlist',
-        'read_watchlist',
-        'create_watchlist',
-        'edit_watchlist',
-        'rename_watchlist',
-        'search_listing',
-        'list_layout',
-        'read_layout',
-        'create_layout',
-        'edit_layout',
-        'rename_layout',
-        'edit_widget',
-        'get_available_widgets',
-        'get_widgets_metadata',
-      ])
+  it('exposes server tools except direct API requests and Copilot UI tools through MCP', () => {
+    const expected = ToolIds.options.filter(
+      (name) =>
+        getCopilotToolPolicy(name).execution === 'server' &&
+        name !== 'make_api_request' &&
+        name !== 'plan' &&
+        name !== 'checkoff_todo' &&
+        name !== 'mark_todo_in_progress'
     )
-    expect(getMcpServerToolIds()).toContain('get_available_blocks')
-    expect(getMcpServerToolIds()).not.toContain('make_api_request')
+    expect(getMcpServerToolIds().sort()).toEqual(expected.sort())
   })
 
   it('requires personal or workspace scope for credential and environment reads', () => {

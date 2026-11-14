@@ -145,8 +145,8 @@ vi.unmock('@/blocks/registry')
 
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { PendingExecutionLimitError } from '@/lib/execution/pending-execution'
-import { readWorkflowExecutionAccessContext } from '@/lib/execution/workflow-execution-events'
 import { POST as queuePost } from '@/app/api/workflows/[id]/queue/route'
+import { authorizeNativeBusinessResult } from './business-access'
 import { NativeTargetError } from './errors'
 import { nativeConversationIdentity } from './identity'
 import { readbackNativeToolResult } from './readback'
@@ -212,6 +212,7 @@ async function readback(context?: { workspaceId: string }) {
     userId: ACTOR,
     ...context,
   })
+  await authorizeNativeBusinessResult(scope, pending, result, context)
   return ToolResultSchemas.run_workflow.parse(result)
 }
 function terminal(failed = false, logOnly = false) {
@@ -366,19 +367,17 @@ describe('local workflow execution and authoritative readback', () => {
     terminal()
     expect(await readback()).toMatchObject({ executionId: EXECUTION, data: { success: true } })
   })
-  it.each([false, true])('preserves failed output after queue-row cleanup=%s', async (logOnly) => {
+  it.each([false, true])('recovers deleted workflow output (failed=%s)', async (failed) => {
     expect((await queue()).status).toBe(202)
-    const row = terminal(true, logOnly)
+    const row = terminal(failed, true)
+    row.workflowId = null
+    m.entity.mockRejectedValue(new NativeTargetError('Workflow no longer exists', 403))
     expect(await readback()).toMatchObject({
-      data: { success: false, error: 'Original workflow failed after known work' },
+      data: { success: !failed, output: row.executionData.finalOutput },
     })
     expect(m.enqueue).toHaveBeenCalledOnce()
-    if (logOnly) {
-      row.workflowId = null
-      await expect(
-        readWorkflowExecutionAccessContext({ pendingExecutionId: EXECUTION, workflowId: WORKFLOW })
-      ).resolves.toEqual({ userId: ACTOR, workspaceId: 'workspace-b' })
-    }
+    m.state.allowedWorkspaces.delete('workspace-b')
+    await expect(readback()).rejects.toMatchObject({ status: 403 })
   })
   it('permits current read access to a completed run while rejecting another write', async () => {
     expect((await queue()).status).toBe(202)
@@ -392,9 +391,10 @@ describe('local workflow execution and authoritative readback', () => {
     expect((await queue()).status).toBe(202)
     terminal()
     m.state.workflowWorkspaceId = 'workspace-c'
+    m.workspace.mockClear()
     expect(await readback()).toHaveProperty('executionId', EXECUTION)
     expect(m.workspace).toHaveBeenCalledWith('workspace-b', ACTOR)
-    expect(m.workspace).toHaveBeenCalledWith('workspace-c', ACTOR)
+    expect(m.workspace).not.toHaveBeenCalledWith('workspace-c', ACTOR)
     m.state.allowedWorkspaces.delete('workspace-b')
     await expect(readback()).rejects.toMatchObject({ status: 403 })
   })
@@ -404,14 +404,18 @@ describe('local workflow execution and authoritative readback', () => {
     m.state.allowedWorkspaces.delete('workspace-a')
     await expect(readback()).rejects.toMatchObject({ status: 403 })
   })
-  it.each(['workspace', 'actor'])(
+  it.each(['workspace', 'actor', 'workflow', 'execution'])(
     'rejects terminal log %s disagreement before payload access',
     async (field) => {
       expect((await queue()).status).toBe(202)
       const row = terminal()
       if (field === 'workspace') row.workspaceId = 'workspace-c'
-      else row.executionData.environment.userId = 'other-actor'
-      await expect(readback()).rejects.toMatchObject({ status: 403 })
+      if (field === 'actor') row.executionData.environment.userId = 'other-actor'
+      if (field === 'workflow') row.workflowSummary.id = 'foreign-workflow'
+      if (field === 'execution') row.executionId = 'foreign-execution'
+      await expect(readback()).rejects.toMatchObject({
+        status: field === 'workspace' || field === 'actor' ? 403 : 409,
+      })
     }
   )
   it('rejects a foreign actor after queue-row cleanup', async () => {

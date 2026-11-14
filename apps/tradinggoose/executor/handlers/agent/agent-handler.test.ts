@@ -271,6 +271,16 @@ describe('native Agent workflow execution', () => {
     }
   )
 
+  it('omits disabled tools before resolving or exposing them to the model', async () => {
+    await new AgentBlockHandler().execute(
+      block,
+      { model: 'openai/gpt-4.1', tools: [{ type: 'missing-block', usageControl: 'none' }] },
+      context()
+    )
+    expect(state.model.doGenerateCalls.every((call: any) => !call.tools?.length)).toBe(true)
+    expect(executeTool).not.toHaveBeenCalled()
+  })
+
   it('preserves literal working-memory tags and surrounding code through actual native turns', async () => {
     const userText =
       ' \n\tBefore user\n```xml\n<working_memory>literal user 🔥</working_memory>\n```\nAfter user\t \n'
@@ -960,7 +970,7 @@ describe('native named Force tools', () => {
     )
   })
 
-  it('runs two forced tools in configured order, then Auto; None stays unexposed and fixed args/context survive', async () => {
+  it('runs two forced tools in configured order, then Auto; fixed args/context survive', async () => {
     const configured = [
       {
         id: 'first',
@@ -974,12 +984,6 @@ describe('native named Force tools', () => {
         description: 'Second lookup',
         parameters: schema,
         usageControl: 'force' as const,
-      },
-      {
-        id: 'excluded',
-        description: 'Never expose',
-        parameters: schema,
-        usageControl: 'none' as const,
       },
     ]
     const executionContext = context({ currentVirtualBlockId: 'agent-1__parallel_0' })
@@ -1003,11 +1007,6 @@ describe('native named Force tools', () => {
       { type: 'tool', toolName: 'second' },
       { type: 'auto' },
     ])
-    expect(
-      state.model.doGenerateCalls.every((call: any) =>
-        call.tools.every((tool: any) => tool.name !== 'excluded')
-      )
-    ).toBe(true)
     expect(vi.mocked(executeTool).mock.calls[0][0]).toBe('first')
     expect(vi.mocked(executeTool).mock.calls[0][1]).toMatchObject({
       query: 'fixed',

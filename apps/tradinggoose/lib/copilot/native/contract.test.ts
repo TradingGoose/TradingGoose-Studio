@@ -19,6 +19,7 @@ it.each([
   { actorUserId: 'other' },
   { scope: { actorUserId: 'other', workspaceId: 'workspace' } },
   { stream: false },
+  { workflowId: 'workflow' },
   { providerOptions: {} },
   { providerOptions: { openai: { reasoningEffort: 'low' } } },
   {

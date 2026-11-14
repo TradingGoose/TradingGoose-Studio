@@ -759,7 +759,7 @@ describe('canonical browser conversation transport', () => {
       store().getState().setAccessLevel('full')
       if (busyState === 'pending-tool')
         store().setState({
-          toolCallsById: { pending: { name: 'plan', state: ClientToolCallState.pending } as any },
+          toolCallsById: { pending: { name: 'sleep', state: ClientToolCallState.pending } as any },
         })
       else store().setState({ [busyState]: true })
       store().getState().setAccessLevel('limited')
@@ -3056,31 +3056,15 @@ describe('owned workflow chat deployment UI', () => {
 })
 
 describe('built-in tool continuation', () => {
-  it.each<{
-    toolName: string
-    originalArgs: Pending['originalArgs']
-    disconnected: boolean
-    failed?: boolean
-  }>([
-    {
-      toolName: 'plan',
-      originalArgs: { objective: 'Research', todoList: ['Inspect workflow'] },
-      disconnected: false,
-    },
-    { toolName: 'sleep', originalArgs: { seconds: 0 }, disconnected: false },
-    { toolName: 'checkoff_todo', originalArgs: { id: 'todo-1' }, disconnected: false },
-    { toolName: 'mark_todo_in_progress', originalArgs: { id: 'todo-1' }, disconnected: false },
-    { toolName: 'plan', originalArgs: { objective: 'Recovered live plan' }, disconnected: true },
-    {
-      toolName: 'plan',
-      originalArgs: { objective: 'Recovered suspended plan' },
-      disconnected: false,
-      failed: true,
-    },
+  it.each([
+    { disconnected: false, failed: false },
+    { disconnected: true, failed: false },
+    { disconnected: false, failed: true },
   ])(
-    'automatically executes a live $toolName once after history refresh (disconnected=$disconnected, failed=$failed)',
-    async ({ toolName, originalArgs, disconnected, failed }) => {
-      const item = { ...pending('result', toolName), originalArgs }
+    'automatically executes a live browser tool once after history refresh (disconnected=$disconnected, failed=$failed)',
+    async ({ disconnected, failed }) => {
+      const originalArgs = { seconds: 0 }
+      const item = { ...pending('result', 'sleep'), originalArgs }
       const generation =
         disconnected || failed
           ? eventStream([
@@ -3088,7 +3072,7 @@ describe('built-in tool continuation', () => {
               {
                 type: 'tool.display',
                 toolCallId: item.target.toolCallId,
-                toolName,
+                toolName: 'sleep',
                 args: originalArgs,
               },
             ])
@@ -3153,7 +3137,7 @@ describe('built-in tool continuation', () => {
   )
 
   it('keeps a reopened browser invocation ineligible through repeated history refreshes', async () => {
-    const item = { ...pending('result', 'plan'), originalArgs: { objective: 'Historical plan' } }
+    const item = { ...pending('result', 'sleep'), originalArgs: { seconds: 0 } }
     onCommand = (request) =>
       request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
@@ -3167,11 +3151,11 @@ describe('built-in tool continuation', () => {
 
   it.each([
     { state: ClientToolCallState.executing, result: undefined },
-    { state: ClientToolCallState.error, result: { objective: 'Known browser result' } },
+    { state: ClientToolCallState.error, result: { success: true, seconds: 0 } },
   ])('preserves live $state state when history has no matching invocation', async (live) => {
     const item = {
-      ...pending('result', 'plan'),
-      originalArgs: { objective: 'Live plan' },
+      ...pending('result', 'sleep'),
+      originalArgs: { seconds: 0 },
       context: { workspaceId: 'pinned-workspace' },
     }
     installPending(item)
@@ -3198,11 +3182,10 @@ describe('built-in tool continuation', () => {
   })
 
   it('never autoexecutes a cold pending tool omitted from history after another tool continues', async () => {
-    const cold = { ...pending('result', 'plan'), originalArgs: { objective: 'Reopened plan' } }
+    const cold = { ...pending('result', 'sleep'), originalArgs: { seconds: 0 } }
     const other = {
       ...cold,
       target: { ...cold.target, toolCallId: 'other-call' },
-      originalArgs: { objective: 'Explicit plan' },
     }
     let items = [other, cold]
     onCommand = (request) => {
@@ -3215,10 +3198,12 @@ describe('built-in tool continuation', () => {
       return undefined
     }
     await store().getState().selectChat(chat())
-    await store().getState().submitBrowserAssertion(other.target.toolCallId, {
-      kind: 'plan.updated',
-      data: other.originalArgs,
-    })
+    await store()
+      .getState()
+      .submitBrowserAssertion(other.target.toolCallId, {
+        kind: 'timer.completed',
+        data: { success: true, seconds: 0 },
+      })
     await new Promise<void>((resolve) => queueMicrotask(resolve))
     expect(tools.browser).not.toHaveBeenCalled()
     expect(store().getState().toolCallsById[cold.target.toolCallId].historyOrigin).toBe(true)
@@ -3227,13 +3212,13 @@ describe('built-in tool continuation', () => {
   it.each(['runId', 'resourceId', 'toolName', 'originalArgs', 'context'] as const)(
     'does not transfer live origin when authoritative pending %s changes',
     async (field) => {
-      const item = { ...pending('result', 'plan'), originalArgs: { objective: 'Live plan' } }
+      const item = { ...pending('result', 'sleep'), originalArgs: { seconds: 0 } }
       const changed: Pending = structuredClone(item)
-      if (field === 'originalArgs') changed.originalArgs = { objective: 'Changed plan' }
+      if (field === 'originalArgs') changed.originalArgs = { seconds: 1 }
       else if (field === 'context') changed.context = { workspaceId: 'changed-workspace' }
       else if (field === 'toolName') {
-        changed.target.toolName = 'checkoff_todo'
-        changed.originalArgs = { id: 'todo-1' }
+        changed.target.toolName = 'run_workflow'
+        changed.originalArgs = { entityId: 'workflow-fixture' }
       } else changed.target[field] = 'changed'
       onCommand = (request) =>
         request.command === 'message'

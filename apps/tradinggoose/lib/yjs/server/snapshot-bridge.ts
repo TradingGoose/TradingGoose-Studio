@@ -10,7 +10,6 @@ import {
   INTERNAL_YJS_REQUEST_ID_HEADER,
   type ReviewEntityKind,
   type ReviewTargetDescriptor,
-  type ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
@@ -40,8 +39,6 @@ const REPLAY_RESERVE_MS = 5_000
 interface YjsSnapshotResponse {
   snapshotBase64: string
   descriptor: ReviewTargetDescriptor
-  runtime: ReviewTargetRuntimeState
-  touchedAt?: number | null
 }
 
 type WorkflowPatch = {

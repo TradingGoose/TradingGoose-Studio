@@ -5,9 +5,7 @@ import type { ServerPending as Pending } from './target'
 
 const m = vi.hoisted(() => ({
   rows: vi.fn(),
-  access: vi.fn(),
   credential: vi.fn(),
-  executionAccess: vi.fn(),
   executionResult: vi.fn(),
   deployment: vi.fn(),
   workspace: vi.fn(),
@@ -18,12 +16,11 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: m.workspace }))
 vi.mock('@/lib/api-key/service', () => ({ resolveApiKeyForDeployment: m.deploymentKey }))
-vi.mock('./business-access', () => ({
-  authorizeNativeBusinessResult: m.access,
+vi.mock('./business-access', async (original) => ({
+  ...(await original<typeof import('./business-access')>()),
   authorizeNativeCredential: m.credential,
 }))
 vi.mock('@/lib/execution/workflow-execution-events', () => ({
-  readWorkflowExecutionAccessContext: m.executionAccess,
   createWorkflowExecutionResultFromLog: m.executionResult,
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/check-deployment-status', () => ({
@@ -55,7 +52,7 @@ function logRow(overrides: Record<string, unknown> = {}) {
     executionId: 'original-execution',
     workflowId: 'workflow',
     workspaceId: 'entity-workspace',
-    executionData: { environment: { userId: 'member' } },
+    executionData: { environment: { userId: 'member', workspaceId: 'entity-workspace' } },
     endedAt: new Date('2026-11-09T00:00:00.000Z'),
     ...overrides,
   }
@@ -68,7 +65,6 @@ beforeEach(() => {
     workspaceId: 'selected-workspace',
   })
   m.workspace.mockReset().mockResolvedValue({ hasAccess: true, canWrite: false })
-  m.executionAccess.mockResolvedValue({ userId: 'member', workspaceId: 'entity-workspace' })
   m.executionResult.mockReturnValue({
     status: 'completed',
     result: { success: true, output: { value: 42 } },
@@ -91,25 +87,10 @@ describe('authoritative native result readback', () => {
       message: 'Workflow execution completed',
       data: { success: true, output: { value: 42 } },
     })
-    expect(m.executionAccess).toHaveBeenCalledWith({
-      pendingExecutionId: 'original-execution',
-      workflowId: 'workflow',
-    })
     expect(m.executionResult).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ executionId: 'original-execution' })
     )
-    expect(m.access).toHaveBeenCalledTimes(2)
   })
-  it.each(['other-member', null])(
-    'denies execution owned by %j without payload access',
-    async (userId) => {
-      m.executionAccess.mockResolvedValue({ userId, workspaceId: 'workspace' })
-      await expect(
-        readbackNativeToolResult(scope, pending(), { userId: 'member' })
-      ).rejects.toMatchObject({ status: 403 })
-      expect(m.executionResult).not.toHaveBeenCalled()
-    }
-  )
   it.each([null, 'entity-workspace', 'conversation-workspace'])(
     'reads an independently authorized execution from conversation %j without rewriting its scope',
     async (workspaceId) => {
@@ -129,13 +110,12 @@ describe('authoritative native result readback', () => {
     await expect(
       readbackNativeToolResult(scope, pending(), { userId: 'member' })
     ).rejects.toMatchObject({ status: 403 })
-    expect(m.rows).not.toHaveBeenCalled()
     expect(m.executionResult).not.toHaveBeenCalled()
   })
   it.each([null, ''])(
     'refuses absent or empty original execution workspace %j',
     async (workspaceId) => {
-      m.executionAccess.mockResolvedValue({ userId: 'member', workspaceId })
+      m.rows.mockResolvedValue([logRow({ workspaceId })])
       await expect(
         readbackNativeToolResult(scope, pending(), { userId: 'member' })
       ).rejects.toMatchObject({ status: 403 })
@@ -145,10 +125,9 @@ describe('authoritative native result readback', () => {
   )
   it.each([
     { workspaceId: 'foreign-workspace' },
-    { executionId: 'foreign-execution' },
-    { workflowId: 'foreign-workflow' },
-    { executionData: { environment: { userId: 'other-member' } } },
-    { executionData: { environment: { userId: null } } },
+    { executionData: { environment: { userId: 'other-member', workspaceId: 'entity-workspace' } } },
+    { executionData: { environment: { userId: null, workspaceId: 'entity-workspace' } } },
+    { executionData: { environment: { userId: 'member' } } },
     { executionData: {} },
   ])('refuses conflicting terminal log provenance %j before payload access', async (overrides) => {
     m.rows.mockResolvedValue([logRow(overrides)])
@@ -157,39 +136,19 @@ describe('authoritative native result readback', () => {
     ).rejects.toMatchObject({ status: 403 })
     expect(m.executionResult).not.toHaveBeenCalled()
   })
-  it('rechecks workspace read permission through the final authorization check', async () => {
-    m.workspace.mockResolvedValueOnce({ hasAccess: true }).mockResolvedValue({ hasAccess: false })
-    await expect(
-      readbackNativeToolResult(scope, pending(), { userId: 'member' })
-    ).rejects.toMatchObject({ status: 403 })
-    expect(m.workspace).toHaveBeenCalledTimes(2)
-  })
-  it.each([
-    { userId: 'other-member', workspaceId: 'entity-workspace' },
-    { userId: 'member', workspaceId: 'changed-workspace' },
-  ])('refuses access provenance drift before projecting the result %j', async (changedAccess) => {
-    m.executionAccess
-      .mockResolvedValueOnce({ userId: 'member', workspaceId: 'entity-workspace' })
-      .mockResolvedValue(changedAccess)
-    await expect(
-      readbackNativeToolResult(scope, pending(), { userId: 'member' })
-    ).rejects.toMatchObject({ status: 403 })
-  })
   it('preserves supplied business-workspace conflict refusal', async () => {
-    m.access.mockRejectedValueOnce(new Error('Workflow workspace mismatch'))
     await expect(
       readbackNativeToolResult(scope, pending(), { userId: 'member', workspaceId: 'foreign' })
-    ).rejects.toThrow('workspace mismatch')
-    expect(m.executionAccess).not.toHaveBeenCalled()
+    ).rejects.toMatchObject({ status: 403 })
     expect(m.executionResult).not.toHaveBeenCalled()
   })
-  it('checks cancellation before execution access and before projecting the result', async () => {
+  it('checks cancellation before loading the log and before projecting the result', async () => {
     const controller = new AbortController()
     controller.abort()
     await expect(
       readbackNativeToolResult(scope, pending(), { userId: 'member', signal: controller.signal })
     ).rejects.toMatchObject({ name: 'AbortError' })
-    expect(m.executionAccess).not.toHaveBeenCalled()
+    expect(m.rows).not.toHaveBeenCalled()
     const active = new AbortController()
     m.rows.mockImplementationOnce(async () => {
       active.abort()

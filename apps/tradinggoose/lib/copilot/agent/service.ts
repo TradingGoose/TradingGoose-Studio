@@ -374,8 +374,6 @@ function inputMessage(
             ? part
             : { type: 'file' as const, data: part.image, mimeType: part.mediaType }
         )
-  for (const attachment of request.input.attachments ?? [])
-    parts.push({ type: 'text', text: `${attachment.name}\n${attachment.text}` })
   if (request.input.contexts?.length)
     parts.push({ type: COPILOT_CONTEXT_PART, data: request.input.contexts })
   return {
@@ -470,7 +468,6 @@ async function* generate(
         accessLevel: request.accessLevel ?? 'limited',
         toolContext: request.toolContext,
         toolContexts,
-        workflowId: request.workflowId,
       }
       if (request.threadId) {
         await requireThread(scope, threadId, signal)
@@ -499,7 +496,7 @@ async function* generate(
       apiKey = (await resolveCopilotModel(run.model)).apiKey
       await claim(run.threadId, run.runId)
       await assertCopilotRunActive(run.runId)
-      await authorizeNativeBusinessResult(scope, pending)
+      if (request.command !== 'tool.execute') await authorizeNativeBusinessResult(scope, pending)
       if (request.command === 'tool.result') {
         validateNativeBrowserAssertion(pending, request.assertion)
         decision = {
@@ -527,7 +524,8 @@ async function* generate(
             businessContext.workspaceId = value
           } else throw new NativeTargetError('The original tool context has changed', 403)
         }
-        await authorizeNativeBusinessResult(run.scope, pending, undefined, businessContext)
+        if (request.action !== 'readback')
+          await authorizeNativeBusinessResult(run.scope, pending, undefined, businessContext)
         if (request.action === 'readback') {
           decision = {
             action: 'result',
@@ -550,7 +548,6 @@ async function* generate(
         model: run.model,
         actorUserId: run.scope.actorUserId,
         workspaceId: run.scope.workspaceId ?? undefined,
-        workflowId: run.workflowId,
         runId: run.runId,
         purpose: 'copilot',
         funding: 'account',
@@ -590,8 +587,7 @@ async function* generate(
         original.content.parts.some(
           (part) => part.type !== 'text' && part.type !== COPILOT_CONTEXT_PART
         ) ||
-        typeof request.input.content !== 'string' ||
-        request.input.attachments?.length
+        typeof request.input.content !== 'string'
       )
         throw new NativeTargetError('Only plain text user messages can be edited', 422)
       const originalContexts = original.content.parts.find(

@@ -32,7 +32,6 @@ export const InputSchema = z
         .min(1),
     ]),
     contexts: z.array(ChatContextSchema).max(MAX_COPILOT_CONTEXTS_PER_TURN).optional(),
-    attachments: z.array(z.object({ name: z.string(), text: z.string() }).strict()).optional(),
   })
   .strict()
 export const ToolContextSchema = z
@@ -45,7 +44,7 @@ export const ToolContextSchema = z
 export type CopilotToolContext = z.infer<typeof ToolContextSchema>
 export const BrowserAssertionSchema = z
   .object({
-    kind: z.enum(['plan.updated', 'timer.completed', 'ui.opened']),
+    kind: z.enum(['timer.completed', 'ui.opened']),
     data: z.json(),
   })
   .strict()
@@ -61,7 +60,6 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
       messageId: id.optional(),
       input: InputSchema,
       model: id,
-      workflowId: id.optional(),
       accessLevel: z.enum(['limited', 'full']).optional(),
       toolContext: ToolContextSchema.optional(),
     })

@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   scope: vi.fn(),
   execute: vi.fn(),
-  workflow: vi.fn(),
   entity: vi.fn(),
 }))
 vi.mock('@/lib/auth', () => ({ getSession: mocks.session }))
@@ -18,7 +17,6 @@ vi.mock('@/lib/copilot/native/target', () => ({
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
   verifySavedEntityContext: mocks.entity,
 }))
-vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: mocks.workflow }))
 const listing = {
   workspaceId: null,
   command: 'threads.list',
@@ -43,7 +41,6 @@ beforeEach(() => {
     Promise.resolve({ actorUserId, workspaceId })
   )
   mocks.execute.mockResolvedValue(Response.json({ ok: true }))
-  mocks.workflow.mockResolvedValue({ ok: true, workspaceId: 'workspace' })
   mocks.entity.mockImplementation(async (context) => ({
     workspaceId: context.workspaceId ?? 'resolved-workspace',
   }))
@@ -254,20 +251,6 @@ describe('built-in Copilot authenticated boundary', () => {
       expect(mocks.execute).not.toHaveBeenCalled()
     }
   )
-  it('checks workflow context belongs to the selected workspace before execution', async () => {
-    expect(
-      (
-        await post({
-          command: 'message',
-          workspaceId: 'other',
-          model: 'test/model',
-          workflowId: 'workflow',
-          input: { content: 'hello' },
-        })
-      ).status
-    ).toBe(403)
-    expect(mocks.execute).not.toHaveBeenCalled()
-  })
   it('transports a review decision without accepting business payloads from the browser', async () => {
     const body = {
       workspaceId: null,

@@ -138,9 +138,6 @@ function buildWorkflowSnapshotResponse(update: Uint8Array) {
       reviewSessionId: null,
       yjsSessionId: mockWorkflowId,
     },
-    runtime: {
-      docState: 'active' as const,
-    },
   }
 }
 
@@ -1103,9 +1100,6 @@ describe('Database Helpers', () => {
           draftSessionId: null,
           reviewSessionId: null,
           yjsSessionId: mockWorkflowId,
-        },
-        runtime: {
-          docState: 'expired',
         },
       })
 

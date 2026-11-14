@@ -44,17 +44,6 @@ export interface ReviewTargetDescriptor {
   yjsSessionId: string
 }
 
-export type ReviewTargetDocState = 'active' | 'expired'
-
-export interface ReviewTargetRuntimeState {
-  docState: ReviewTargetDocState
-}
-
-export interface ResolvedReviewTarget {
-  descriptor: ReviewTargetDescriptor
-  runtime: ReviewTargetRuntimeState
-}
-
 export const YJS_TARGET_KINDS = ['entity', 'entity_list'] as const
 
 export type YjsTargetKind = (typeof YJS_TARGET_KINDS)[number]

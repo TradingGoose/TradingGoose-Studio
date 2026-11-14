@@ -14,7 +14,6 @@ import {
   isEntityListSessionId,
   parseYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
-import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import {
   INTERNAL_YJS_ACTOR_HEADER,
   INTERNAL_YJS_DEADLINE_HEADER,
@@ -937,8 +936,6 @@ async function handleInternalYjsSnapshotRequest(
     const snapshot = await withBootstrappedDocument(descriptor, null, (doc) => ({
       snapshotBase64: Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64'),
       descriptor,
-      runtime: getReviewTargetRuntimeState(doc),
-      touchedAt: null,
     }))
     sendJson(res, 200, snapshot)
   } catch (error) {

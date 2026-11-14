@@ -45,6 +45,7 @@ const m = vi.hoisted(() => ({
   accept: vi.fn(),
   route: vi.fn(),
   business: vi.fn(),
+  executionLog: vi.fn(),
   resolve: vi.fn(),
   contexts: vi.fn(),
   credential: vi.fn(),
@@ -82,6 +83,7 @@ vi.mock('@/lib/mastra/connections', () => ({
   ),
 }))
 vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: m.resolve }))
+vi.mock('@/lib/auth', () => ({ auth: { api: { getSession: vi.fn() } } }))
 vi.mock('@/lib/copilot/process-contents', () => ({ processContextsServer: m.contexts }))
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => m.access(...args),
@@ -94,6 +96,7 @@ vi.mock('@/lib/billing/model-usage', () => ({
 vi.mock('@/lib/copilot/native/business-access', () => ({
   authorizeNativeBusinessResult: (...args: unknown[]) => m.business(...args),
   authorizeNativeCredential: (...args: unknown[]) => m.credential(...args),
+  readAuthorizedWorkflowExecutionLog: (...args: unknown[]) => m.executionLog(...args),
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/check-deployment-status', () => ({
   checkDeploymentStatusServerTool: { execute: vi.fn() },
@@ -264,6 +267,7 @@ beforeEach(async () => {
   m.admit.mockResolvedValue(undefined)
   m.accept.mockImplementation(async (_scope, _usage, cost) => cost)
   m.business.mockResolvedValue(undefined)
+  m.executionLog.mockReset()
   m.contexts.mockReset().mockResolvedValue([])
   m.credential.mockReset()
   m.cancelInsert.mockReset().mockResolvedValue(undefined)
@@ -902,6 +906,48 @@ describe('built-in Copilot service bridge', () => {
     expect(JSON.stringify(m.contacts[2])).not.toContain(privateContext)
   })
 
+  it.each(['limited', 'full'])(
+    'persists planning tools through native execution without browser continuation in %s mode',
+    async (accessLevel) => {
+      const { routeExecution } = await vi.importActual<
+        typeof import('@/lib/copilot/tools/server/router')
+      >('@/lib/copilot/tools/server/router')
+      m.route.mockImplementation(routeExecution)
+      const steps = [
+        { tool: 'plan', args: { todoList: [{ id: 'todo', content: 'Inspect workflow' }] } },
+        { tool: 'mark_todo_in_progress', args: { id: 'todo' } },
+        { tool: 'checkoff_todo', args: { id: 'todo' } },
+      ]
+      setModel(...steps.map((step) => ({ ...step, toolCallId: step.tool })), { text: 'Done' })
+      const { result } = await message({ accessLevel })
+      expect(result).toMatchObject({ status: 'completed', text: 'Done' })
+      if (result.status !== 'completed') throw new Error(JSON.stringify(result))
+      expect(m.route).toHaveBeenCalledTimes(3)
+      restart()
+      const { result: history } = await command({
+        command: 'thread.observe',
+        threadId: result.threadId,
+      })
+      if (history.status !== 'history') throw new Error(JSON.stringify(history))
+      expect(history.pending).toEqual([])
+      expect(history.items.flatMap((item) => item.parts)).toEqual(
+        expect.arrayContaining(
+          steps.map(({ tool, args }) =>
+            expect.objectContaining({
+              type: 'tool-invocation',
+              toolInvocation: expect.objectContaining({
+                toolName: tool,
+                state: 'result',
+                result: args,
+              }),
+            })
+          )
+        )
+      )
+    },
+    15_000
+  )
+
   it('streams validated Studio events through server-tool continuation', async () => {
     setModel(
       { tool: 'list_workflows', args: { workspaceId: 'workspace' } },
@@ -944,6 +990,66 @@ describe('built-in Copilot service bridge', () => {
     expect(JSON.stringify(events)).not.toContain('Do not expose this prompt in raw transport')
     expect(m.fetch).not.toHaveBeenCalled()
   })
+
+  it.each(['info', 'error'])(
+    'resumes a retained %s workflow result after deletion without live-workflow admission',
+    async (level) => {
+      const workflowId = 'deleted-workflow'
+      setModel(
+        { tool: 'run_workflow', args: { entityId: workflowId, triggerBlockId: 'trigger' } },
+        { text: 'Recovered execution result' }
+      )
+      const toolContext = {
+        contextEntityKind: 'workflow',
+        contextEntityId: workflowId,
+        workspaceId: 'execution-workspace',
+      }
+      const initial = suspended((await message({ toolContext, accessLevel: 'full' })).result)
+      const target = initial.pending[0].target
+      const output = { retained: 'Original workflow output' }
+      m.executionLog.mockResolvedValue({
+        id: 'retained-log',
+        executionId: target.toolCallId,
+        workflowId: null,
+        workflowSummary: { id: workflowId },
+        workspaceId: toolContext.workspaceId,
+        level,
+        startedAt: new Date('2026-01-01T00:00:00Z'),
+        endedAt: new Date('2026-01-01T00:00:01Z'),
+        totalDurationMs: 1000,
+        executionData: {
+          environment: { userId: scope.actorUserId, workspaceId: toolContext.workspaceId },
+          finalOutput: output,
+          ...(level === 'error' ? { errorMessage: 'Workflow failed' } : {}),
+        },
+      })
+      m.business.mockClear().mockImplementation(async (_scope, _pending, result) => {
+        if (result === undefined) throw new NativeTargetError('Workflow no longer exists', 403)
+      })
+      restart()
+      const { result } = await command({ command: 'tool.execute', target, action: 'readback' })
+      expect(result).toMatchObject({ status: 'completed', text: 'Recovered execution result' })
+      expect(m.business).toHaveBeenCalledExactlyOnceWith(
+        scope,
+        expect.objectContaining({ target }),
+        expect.objectContaining({
+          executionId: target.toolCallId,
+          data: expect.objectContaining({ success: level !== 'error', output }),
+        }),
+        expect.objectContaining({ userId: scope.actorUserId })
+      )
+      expect(JSON.stringify(m.contacts[1])).toContain(output.retained)
+      for (const calls of [m.admit.mock.calls, m.accept.mock.calls]) {
+        expect(calls).toHaveLength(2)
+        for (const [usageScope] of calls) {
+          expect(usageScope.workspaceId).toBe(scope.workspaceId)
+          expect(usageScope.workflowId).toBeUndefined()
+        }
+      }
+      expect(m.route).not.toHaveBeenCalled()
+      expect(await pending(initial.threadId)).toEqual([])
+    }
+  )
 
   it.each([undefined, 'drive-workspace'])(
     'keeps the authorized Drive workspace in a personal conversation continuation (selection: %s)',

@@ -536,8 +536,6 @@ describe('Socket Server Index Integration', () => {
     })
 
     it('should return the internal Yjs workflow snapshot through the generic session route', async () => {
-      const { getReviewTargetRuntimeState } = await import('@/lib/copilot/review-sessions/runtime')
-
       const { conn, doc: liveDoc } = await connectTestDocument('workflow-state-update')
 
       setWorkflowState(
@@ -585,8 +583,6 @@ describe('Socket Server Index Integration', () => {
           ownerUserId: null,
           yjsSessionId: 'workflow-state-update',
         },
-        runtime: getReviewTargetRuntimeState(liveDoc),
-        touchedAt: null,
       })
 
       const doc = new Y.Doc()

@@ -85,6 +85,12 @@ import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 const logger = createLogger('ServerToolRouter')
 
 const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
+  [CopilotTool.plan]: { name: CopilotTool.plan, execute: async (args) => args },
+  [CopilotTool.checkoff_todo]: { name: CopilotTool.checkoff_todo, execute: async (args) => args },
+  [CopilotTool.mark_todo_in_progress]: {
+    name: CopilotTool.mark_todo_in_progress,
+    execute: async (args) => args,
+  },
   [editWorkflowServerTool.name]: editWorkflowServerTool,
   [editWorkflowBlockServerTool.name]: editWorkflowBlockServerTool,
   [editWorkflowVariableServerTool.name]: editWorkflowVariableServerTool,
@@ -183,76 +189,6 @@ const lazyServerToolLoaders: Partial<Record<ToolId, () => Promise<BaseServerTool
   },
 }
 
-const mcpServerToolIds = [
-  editWorkflowServerTool.name,
-  editWorkflowBlockServerTool.name,
-  editWorkflowVariableServerTool.name,
-  createWorkflowServerTool.name,
-  renameWorkflowServerTool.name,
-  readWorkflowServerTool.name,
-  listWorkflowsServerTool.name,
-  readWorkflowLogsServerTool.name,
-  searchDocumentationServerTool.name,
-  searchOnlineServerTool.name,
-  readEnvironmentVariablesServerTool.name,
-  setEnvironmentVariablesServerTool.name,
-  listGDriveFilesServerTool.name,
-  readGDriveFileServerTool.name,
-  readOAuthCredentialsServerTool.name,
-  readCredentialsServerTool.name,
-  listKnowledgeBasesServerTool.name,
-  readKnowledgeBaseServerTool.name,
-  createKnowledgeBaseServerTool.name,
-  editKnowledgeBaseServerTool.name,
-  renameKnowledgeBaseServerTool.name,
-  queryKnowledgeBaseServerTool.name,
-  listMonitorsServerTool.name,
-  readMonitorServerTool.name,
-  editMonitorServerTool.name,
-  checkDeploymentStatusServerTool.name,
-  readBlockOutputsServerTool.name,
-  readBlockUpstreamReferencesServerTool.name,
-  listSkillsServerTool.name,
-  readSkillServerTool.name,
-  createSkillServerTool.name,
-  editSkillServerTool.name,
-  renameSkillServerTool.name,
-  listCustomToolsServerTool.name,
-  readCustomToolServerTool.name,
-  createCustomToolServerTool.name,
-  editCustomToolServerTool.name,
-  renameCustomToolServerTool.name,
-  listIndicatorsServerTool.name,
-  readIndicatorServerTool.name,
-  createIndicatorServerTool.name,
-  editIndicatorServerTool.name,
-  renameIndicatorServerTool.name,
-  listMcpServersServerTool.name,
-  readMcpServerServerTool.name,
-  createMcpServerServerTool.name,
-  editMcpServerServerTool.name,
-  renameMcpServerServerTool.name,
-  listWatchlistsServerTool.name,
-  readWatchlistServerTool.name,
-  createWatchlistServerTool.name,
-  editWatchlistServerTool.name,
-  renameWatchlistServerTool.name,
-  listLayoutsServerTool.name,
-  createLayoutServerTool.name,
-  readLayoutServerTool.name,
-  editLayoutServerTool.name,
-  renameLayoutServerTool.name,
-  editWidgetServerTool.name,
-  getAvailableWidgetsServerTool.name,
-  getWidgetsMetadataServerTool.name,
-  searchListingServerTool.name,
-  CopilotTool.get_available_blocks,
-  CopilotTool.get_blocks_metadata,
-  CopilotTool.get_agent_accessory_catalog,
-  CopilotTool.get_indicator_catalog,
-  CopilotTool.get_indicator_metadata,
-] satisfies ToolId[]
-
 const WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS = [
   CopilotTool.search_documentation,
   CopilotTool.search_listing,
@@ -273,7 +209,12 @@ export function isWorkspaceAgnosticServerTool(
 }
 
 export function getMcpServerToolIds(): ToolId[] {
-  return [...mcpServerToolIds]
+  return [
+    ...(Object.keys(serverToolRegistry) as ToolId[]),
+    ...(Object.keys(lazyServerToolLoaders) as ToolId[]),
+  ].filter(
+    (name) => !['make_api_request', 'plan', 'checkoff_todo', 'mark_todo_in_progress'].includes(name)
+  )
 }
 
 async function resolveServerTool(toolName: ToolId): Promise<BaseServerTool<any, any> | null> {

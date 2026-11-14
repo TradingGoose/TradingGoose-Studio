@@ -89,9 +89,9 @@ const policies = {
   read_gdrive_file: serverTool,
   read_oauth_credentials: serverTool,
   make_api_request: serverGated,
-  plan: browserLocal,
-  checkoff_todo: browserLocal,
-  mark_todo_in_progress: browserLocal,
+  plan: serverTool,
+  checkoff_todo: serverTool,
+  mark_todo_in_progress: serverTool,
   gdrive_request_access: {
     ...browserLocal,
     gated: true,

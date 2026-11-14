@@ -6,12 +6,8 @@ import type {
   ClientToolCallState,
   ClientToolDisplay,
 } from '@/lib/copilot/tools/client/base-tool'
-import { GDriveRequestAccessClientTool } from '@/lib/copilot/tools/client/google/gdrive-request-access'
 import { getClientTool, registerClientTool } from '@/lib/copilot/tools/client/manager'
-import { CheckoffTodoClientTool } from '@/lib/copilot/tools/client/other/checkoff-todo'
-import { MarkTodoInProgressClientTool } from '@/lib/copilot/tools/client/other/mark-todo-in-progress'
 import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
-import { PlanClientTool } from '@/lib/copilot/tools/client/other/plan'
 import { SleepClientTool } from '@/lib/copilot/tools/client/other/sleep'
 import { SERVER_TOOL_METADATA } from '@/lib/copilot/tools/client/server-tool-metadata'
 import { DeployWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/deploy-workflow'
@@ -35,10 +31,6 @@ type ClientToolCtor = {
 
 const CLIENT_TOOL_CONSTRUCTORS: Partial<Record<ToolId, ClientToolCtor>> = {
   run_workflow: RunWorkflowClientTool,
-  plan: PlanClientTool,
-  checkoff_todo: CheckoffTodoClientTool,
-  mark_todo_in_progress: MarkTodoInProgressClientTool,
-  gdrive_request_access: GDriveRequestAccessClientTool,
   oauth_request_access: OAuthRequestAccessClientTool,
   deploy_workflow: DeployWorkflowClientTool,
   sleep: SleepClientTool,

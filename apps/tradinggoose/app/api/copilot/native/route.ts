@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import { executeCopilotCommand } from '@/lib/copilot/agent/service'
 import { CopilotRequestSchema, type CopilotToolContext } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
@@ -39,20 +38,6 @@ export async function POST(request: NextRequest) {
     const scope = await authorizeNativeConversationScope(session.user.id, command.workspaceId)
     const toolContexts: CopilotToolContext[] = []
     if (command.command === 'message') {
-      if (command.workflowId) {
-        const workflow = await authorizeWorkflowScope(
-          { success: true, userId: session.user.id },
-          command.workflowId,
-          'read'
-        )
-        if (!workflow.ok) throw new NativeTargetError(workflow.error, workflow.status)
-        if (scope.workspaceId !== null && workflow.workspaceId !== scope.workspaceId) {
-          throw new NativeTargetError(
-            'Workflow is outside the selected conversation workspace',
-            403
-          )
-        }
-      }
       const contexts = command.input.contexts ?? []
       const candidates = collectCopilotToolContexts(contexts)
       for (const candidate of candidates)

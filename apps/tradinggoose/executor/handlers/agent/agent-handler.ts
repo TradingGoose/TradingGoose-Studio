@@ -10,7 +10,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import { assertNativeToolResult, toolResultToModelOutput } from '@/lib/mastra/media'
 import type { WorkflowMessage } from '@/lib/mastra/messages'
-import { parseNativeToolArguments } from '@/lib/mastra/options'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { getInferenceFacts, getNativeFinalText, withInferenceFacts } from '@/lib/mastra/result'
@@ -483,63 +482,61 @@ export function createAgentToolSet(
   const { blockData, blockNameMapping } = collectBlockData(context)
   const toolExecutionId = getBlockToolExecutionId(block, context)
   return Object.fromEntries(
-    namedAgentTools(configured)
-      .filter(({ tool }) => tool.usageControl !== 'none')
-      .map(({ tool, nativeName }) => [
-        nativeName,
-        createTool({
-          id: nativeName,
-          strict: false,
-          title: tool.name,
-          description: tool.description,
-          inputSchema: toStandardSchema(tool.parameters),
-          toModelOutput: toolResultToModelOutput,
-          execute: async (inputData, nativeContext) => {
-            const params = { ...parseNativeToolArguments(inputData), ...tool.params }
-            const result = await executeTool(
-              tool.mcp ? 'mcp' : tool.id,
-              {
-                ...(tool.mcp ? { ...tool.mcp, arguments: params } : params),
-                _context: {
-                  workflowId: context.workflowId,
-                  workspaceId: context.workspaceId,
-                  workflowLogId: context.workflowLogId,
-                  toolExecutionId,
-                  submissionSource: context.submissionSource,
-                  userId: context.userId,
-                  executionId: context.executionId,
-                  isDeployedContext: context.isDeployedContext !== false,
-                },
-                envVars: context.environmentVariables,
-                workflowVariables: context.workflowVariables,
-                blockData,
-                blockNameMapping,
+    namedAgentTools(configured).map(({ tool, nativeName }) => [
+      nativeName,
+      createTool({
+        id: nativeName,
+        strict: false,
+        title: tool.name,
+        description: tool.description,
+        inputSchema: toStandardSchema<Record<string, unknown>>(tool.parameters),
+        toModelOutput: toolResultToModelOutput,
+        execute: async (inputData, nativeContext) => {
+          const params = { ...inputData, ...tool.params }
+          const result = await executeTool(
+            tool.mcp ? 'mcp' : tool.id,
+            {
+              ...(tool.mcp ? { ...tool.mcp, arguments: params } : params),
+              _context: {
+                workflowId: context.workflowId,
+                workspaceId: context.workspaceId,
+                workflowLogId: context.workflowLogId,
+                toolExecutionId,
+                submissionSource: context.submissionSource,
+                userId: context.userId,
+                executionId: context.executionId,
+                isDeployedContext: context.isDeployedContext !== false,
               },
-              false,
-              context,
-              { signal: nativeContext?.abortSignal }
+              envVars: context.environmentVariables,
+              workflowVariables: context.workflowVariables,
+              blockData,
+              blockNameMapping,
+            },
+            false,
+            context,
+            { signal: nativeContext?.abortSignal }
+          )
+          const output = result.output
+          const inference = getInferenceFacts(output)
+          if (result?.success === false) throw new Error(result.error || `Tool ${tool.id} failed`)
+          const functional = inference ? { ...output } : output
+          if (inference) for (const field of inference.generatedFields) delete functional[field]
+          try {
+            assertNativeToolResult(
+              functional,
+              nativeContext?.abortSignal
+                ? AbortSignal.any([controller.signal, nativeContext.abortSignal])
+                : controller.signal
             )
-            const output = result.output
-            const inference = getInferenceFacts(output)
-            if (result?.success === false) throw new Error(result.error || `Tool ${tool.id} failed`)
-            const functional = inference ? { ...output } : output
-            if (inference) for (const field of inference.generatedFields) delete functional[field]
-            try {
-              assertNativeToolResult(
-                functional,
-                nativeContext?.abortSignal
-                  ? AbortSignal.any([controller.signal, nativeContext.abortSignal])
-                  : controller.signal
-              )
-              return functional
-            } catch (error) {
-              // The effect is already complete; refuse unsafe model continuation.
-              controller.abort(error)
-              throw error
-            }
-          },
-        }),
-      ])
+            return functional
+          } catch (error) {
+            // The effect is already complete; refuse unsafe model continuation.
+            controller.abort(error)
+            throw error
+          }
+        },
+      }),
+    ])
   )
 }
 
