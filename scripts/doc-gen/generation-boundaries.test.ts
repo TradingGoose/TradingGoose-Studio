@@ -245,7 +245,7 @@ describe('documentation regeneration boundaries', () => {
       updateContact.match(/"id": "first_name",[\s\S]*?\n {8}}/)?.[0] ?? ''
     expect(translateApiKey).not.toBe('')
     expect(translateApiKey).toContain(
-      '"description": "Leave unset to use the configured Mastra connection."'
+      '"description": "Required unless Studio has a configured connection for this provider. Using the Studio connection counts toward account usage."'
     )
     expect(translateApiKey).not.toContain('none of .')
     expect(translateModel).not.toBe('')
