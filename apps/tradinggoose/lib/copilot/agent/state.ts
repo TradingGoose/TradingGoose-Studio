@@ -1,5 +1,6 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { createHash } from 'node:crypto'
-import { RunFenceConflictError } from '@mastra/core/storage'
+import { RunFenceConflictError, type RunFenceScope, setRunFenceContext } from '@mastra/core/storage'
 import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
@@ -32,6 +33,12 @@ const receiptId = (kind: string, key: unknown) =>
   `copilot:${kind}:${createHash('sha256').update(stableStringifyJsonValue(key)).digest('hex')}`
 const expiresAt = new Date('9999-12-31T00:00:00.000Z')
 const THREAD_LEASE_MS = 15_000
+// Use Mastra's run-fence context so its native writes inherit the thread claim.
+const fenceScope = new AsyncLocalStorage<RunFenceScope | undefined>()
+const fenceContext = setRunFenceContext({
+  current: () => fenceScope.getStore(),
+  run: (scope, operation) => fenceScope.run(scope, operation),
+})
 
 async function insertReceipt(id: string, identifier: string) {
   const now = new Date()
@@ -131,7 +138,18 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
   const timer = setInterval(() => void renew().catch(() => {}), THREAD_LEASE_MS / 3)
   timer.unref?.()
   return {
-    fence,
+    run<T>(operation: () => T): T {
+      return fenceContext.run(
+        {
+          fenceFor: (store) => (store === memory || store === workflows ? fence : undefined),
+          onConflict: () =>
+            cancellation.abort(
+              new NativeTargetError('This Copilot turn no longer owns the conversation', 409)
+            ),
+        },
+        operation
+      )
+    },
     signal: cancellation.signal,
     renew,
     async release() {

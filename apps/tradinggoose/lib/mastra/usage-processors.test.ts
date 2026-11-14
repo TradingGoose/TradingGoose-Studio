@@ -135,7 +135,7 @@ it.each(['account', 'byok'] as const)(
   async (funding) => {
     const accounting = await usageProcessors({ ...scope, funding })
     const storage = new InMemoryStore()
-    const memory = new Memory({ storage, options: { generateTitle: false } })
+    const memory = new Memory({ storage })
     const threadId = `native-recovery:${funding}`
     const transient = Object.assign(new Error('Transient provider stream failure'), {
       isRetryable: true,

@@ -2,31 +2,20 @@ import { Mastra } from '@mastra/core/mastra'
 import { Memory } from '@mastra/memory'
 import { PostgresStore } from '@mastra/pg'
 import { RedisStreamsPubSub } from '@mastra/redis-streams'
-import { Pool } from 'pg'
 import { createCopilotAgent } from '@/lib/copilot/agent/agent'
-import { createLogger } from '@/lib/logs/console/logger'
-
-const logger = createLogger('MastraRuntime')
-
-export const AGENT_MEMORY_OPTIONS = {
-  messageHistory: { maxTokens: 32000 },
-  semanticRecall: false,
-  workingMemory: { enabled: false },
-  observationalMemory: false,
-  generateTitle: false,
-} as const
 
 async function createRuntime() {
   const connectionString = process.env.DATABASE_URL
   if (!connectionString) throw new Error('DATABASE_URL is required for the shared Studio database')
-  const pool = new Pool({ connectionString, max: 20 })
-  pool.on('error', (error) => logger.error('Unexpected Mastra PostgreSQL pool error', error))
-  const storage = new PostgresStore({ id: 'studio', pool, schemaName: 'mastra' })
+  const storage = new PostgresStore({ id: 'studio', connectionString, schemaName: 'mastra' })
   // Keep native pinned initialization and deadlock retries for only the domains Studio uses.
   storage.stores = { memory: storage.stores.memory, workflows: storage.stores.workflows }
   try {
     await storage.init()
-    const memory = new Memory({ storage, options: AGENT_MEMORY_OPTIONS })
+    const memory = new Memory({
+      storage,
+      options: { messageHistory: { maxTokens: 32000 } },
+    })
     const copilotAgent = createCopilotAgent(memory)
     const mastra = new Mastra({
       agents: { copilot: copilotAgent },
@@ -38,7 +27,7 @@ async function createRuntime() {
     })
     return { storage, memory, mastra }
   } catch (error) {
-    await pool.end()
+    await storage.close()
     throw error
   }
 }

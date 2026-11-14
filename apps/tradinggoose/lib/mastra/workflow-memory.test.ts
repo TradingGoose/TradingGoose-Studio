@@ -46,15 +46,7 @@ describe('workflow Memory with native in-memory storage', () => {
     fixture.owner.mockReset().mockResolvedValue([{ id: workflowId }])
     fixture.authorize.mockReset().mockResolvedValue({ ok: true, workspaceId, workflowId })
     fixture.storage = new InMemoryStore()
-    fixture.memory = new Memory({
-      storage: fixture.storage,
-      options: {
-        semanticRecall: false,
-        workingMemory: { enabled: false },
-        observationalMemory: false,
-        generateTitle: false,
-      },
-    })
+    fixture.memory = new Memory({ storage: fixture.storage })
   })
 
   it('preserves text and semantic roles and retrieves a complete native history', async () => {

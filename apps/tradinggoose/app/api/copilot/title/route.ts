@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const input = inputSchema.parse(await request.json())
     const scope = await authorizeNativeConversationScope(session.user.id, input.workspaceId)
     const thread = await readNativeThread(scope, input.threadId, request.signal)
-    if (!thread || thread.title !== '') return NextResponse.json({ title: null })
+    if (!thread || thread.title) return NextResponse.json({ title: null })
     const history = await readNativeThreadHistory(scope, input.threadId, request.signal)
     const users = history.filter((message) => message.role === 'user')
     if (users.length !== 1 || !input.originalInput.trim()) return NextResponse.json({ title: null })

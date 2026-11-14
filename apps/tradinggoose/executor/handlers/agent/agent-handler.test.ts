@@ -98,7 +98,7 @@ vi.mock('@mastra/core/agent', async (original) => {
       constructor(configuration: any) {
         state.configurations.push(configuration)
         if (state.setupError) throw state.setupError
-        super({ ...configuration, model: state.model })
+        super(configuration)
       }
     },
   }
@@ -190,12 +190,7 @@ beforeEach(() => {
   state.storage = new InMemoryStore()
   state.memory = new Memory({
     storage: state.storage,
-    options: {
-      messageHistory: { maxTokens: 32000 },
-      semanticRecall: false,
-      workingMemory: { enabled: false },
-      generateTitle: false,
-    },
+    options: { messageHistory: { maxTokens: 32000 } },
   })
   state.model = fixture()
   state.trackAdmissions = false

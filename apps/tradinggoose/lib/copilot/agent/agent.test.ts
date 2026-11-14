@@ -61,7 +61,7 @@ function model(name?: string, args: Record<string, unknown> = {}) {
 function harness(accessLevel: 'limited' | 'full' = 'full') {
   const runId = randomUUID()
   const scope = { actorUserId: 'actor', workspaceId: 'workspace' }
-  const memory = new Memory({ storage: new InMemoryStore(), options: { generateTitle: false } })
+  const memory = new Memory({ storage: new InMemoryStore() })
   const agent = createCopilotAgent(memory)
   new Mastra({
     agents: { copilot: agent },

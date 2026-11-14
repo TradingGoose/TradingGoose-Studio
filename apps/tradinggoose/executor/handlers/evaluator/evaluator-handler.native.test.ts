@@ -36,9 +36,6 @@ vi.mock('@mastra/core/agent', async (original) => {
   return {
     ...native,
     Agent: class extends native.Agent {
-      constructor(config: any) {
-        super({ ...config, model: state.model })
-      }
       async generate(...args: any[]) {
         state.result = await (super.generate as any)(...args)
         return state.result

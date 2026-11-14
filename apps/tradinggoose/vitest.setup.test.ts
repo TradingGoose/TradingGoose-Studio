@@ -1,3 +1,4 @@
+import { PostgresStore } from '@mastra/pg'
 import { db, user } from '@tradinggoose/db'
 import { user as userSchema } from '@tradinggoose/db/schema'
 import pg, { Client, DatabaseError, Pool } from 'pg'
@@ -22,4 +23,14 @@ it('blocks an unmocked postgres.js client and preserves driver error types', () 
   expect(() => postgres()).toThrow('Database connections are disabled in unit tests')
   expect(DatabaseError).toBeTypeOf('function')
   expect(PostgresError).toBeTypeOf('function')
+})
+
+it('blocks database constructors inside native Mastra storage', () => {
+  expect(
+    () =>
+      new PostgresStore({
+        id: 'test',
+        connectionString: 'postgresql://studio@studio-test.invalid/test',
+      })
+  ).toThrow('Database connections are disabled in unit tests')
 })

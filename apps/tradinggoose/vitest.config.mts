@@ -30,6 +30,8 @@ export default defineConfig({
       '.next/**',
     ],
     setupFiles: ['./vitest.setup.ts'],
+    // Apply the database-driver mocks inside Mastra's native storage implementation.
+    server: { deps: { inline: ['@mastra/pg'] } },
     alias: {
       '@tradinggoose/db': resolve(configDir, '../../packages/db'),
     },

@@ -92,7 +92,7 @@ beforeEach(() => {
     name: 'Copilot',
     instructions: '',
     model: state.model,
-    memory: new Memory({ storage: state.storage, options: { generateTitle: false } }),
+    memory: new Memory({ storage: state.storage }),
   })
 })
 describe('built-in stateless completions', () => {

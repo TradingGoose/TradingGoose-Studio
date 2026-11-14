@@ -428,7 +428,7 @@ async function* generate(
     (finalization ??= (async () => {
       try {
         // stream() can reject during startup, including after it started asynchronous work.
-        if (ownership && run && nativeStarted && !nativeOutput) {
+        if (ownership && !ownership.signal.aborted && run && nativeStarted && !nativeOutput) {
           cancellation.abort()
           ;(await getCopilotAgent()).abortThreadStream({
             threadId: run.threadId,
@@ -476,12 +476,14 @@ async function* generate(
       if (request.threadId) {
         await assertCopilotThreadReady(scope, threadId)
       } else {
-        await (await getAgentMemory()).createThread({
-          threadId,
-          resourceId: nativeConversationIdentity(scope).resourceId,
-          title: '',
-          metadata: { product: 'copilot' },
-        })
+        await ownership!.run(async () =>
+          (await getAgentMemory()).createThread({
+            threadId,
+            resourceId: nativeConversationIdentity(scope).resourceId,
+            title: '',
+            metadata: { product: 'copilot' },
+          })
+        )
       }
     } else if ('target' in request) {
       pending = await resolveNativePendingTarget(
@@ -613,11 +615,10 @@ async function* generate(
         )
       await assertOwnership()
       message!.createdAt = original.createdAt
-      await store.saveMessages({ messages: [message!], fence: ownership!.fence })
-      await store.deleteMessages(
-        history.messages.slice(index + 1).map((item) => item.id),
-        { fence: ownership!.fence }
-      )
+      await ownership!.run(async () => {
+        await store.saveMessages({ messages: [message!] })
+        await store.deleteMessages(history.messages.slice(index + 1).map((item) => item.id))
+      })
     }
     requestContext = createCopilotRequestContext({
       run,
@@ -675,26 +676,27 @@ async function* generate(
     await assertCopilotRunActive(run.runId)
     await assertOwnership()
     nativeStarted = true
-    const output = (nativeOutput =
+    const output = (nativeOutput = await ownership!.run(() =>
       request.command === 'message'
-        ? await agent.stream([message!], options)
+        ? agent.stream([message!], options)
         : request.command === 'tool.approve'
-          ? await agent.approveToolCall({
+          ? agent.approveToolCall({
               ...options,
-              runId: run.runId,
+              runId: run!.runId,
               toolCallId: pending!.target.toolCallId,
             })
           : request.command === 'tool.decline'
-            ? await agent.declineToolCall({
+            ? agent.declineToolCall({
                 ...options,
-                runId: run.runId,
+                runId: run!.runId,
                 toolCallId: pending!.target.toolCallId,
                 reason: request.reason,
               })
-            : await agent.resumeStream(decision, {
+            : agent.resumeStream(decision, {
                 ...options,
                 toolCallId: pending!.target.toolCallId,
-              }))
+              })
+    ))
     yield {
       type: 'response.started',
       runId: run.runId,
@@ -739,7 +741,7 @@ async function* generate(
       }
     }
   } catch (error) {
-    if (cancellation.signal.aborted && run) {
+    if (cancellation.signal.aborted && run && !ownership?.signal.aborted) {
       await finalize()
       const owner = await readCopilotThreadRun(run.scope, run.threadId)
       if (owner)
