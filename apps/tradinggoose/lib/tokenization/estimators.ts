@@ -50,46 +50,7 @@ export function getAccurateTokenCount(text: string, modelName = 'text-embedding-
   }
 }
 
-/**
- * Truncate text to a maximum token count
- * Useful for handling texts that exceed model limits
- */
-export function truncateToTokenLimit(
-  text: string,
-  maxTokens: number,
-  modelName = 'text-embedding-3-small'
-): string {
-  if (!text || maxTokens <= 0) {
-    return ''
-  }
-
-  try {
-    const encoding = getEncoding(modelName)
-    const tokens = encoding.encode(text)
-
-    if (tokens.length <= maxTokens) {
-      return text
-    }
-
-    const truncatedTokens = tokens.slice(0, maxTokens)
-    const truncatedText = encoding.decode(truncatedTokens)
-
-    logger.warn(
-      `Truncated text from ${tokens.length} to ${maxTokens} tokens (${text.length} to ${truncatedText.length} chars)`
-    )
-
-    return truncatedText
-  } catch (error) {
-    logger.error('Error truncating text:', error)
-    const maxChars = maxTokens * 4
-    return text.slice(0, maxChars)
-  }
-}
-
-/**
- * Batch texts by token count to stay within API limits
- * Returns array of batches where each batch's total tokens <= maxTokensPerBatch
- */
+/** Group whole inputs by token budget without modifying their contents. */
 export function batchByTokenLimit(
   texts: string[],
   maxTokensPerBatch: number,
@@ -101,18 +62,6 @@ export function batchByTokenLimit(
 
   for (const text of texts) {
     const tokenCount = getAccurateTokenCount(text, modelName)
-
-    if (tokenCount > maxTokensPerBatch) {
-      if (currentBatch.length > 0) {
-        batches.push(currentBatch)
-        currentBatch = []
-        currentTokenCount = 0
-      }
-
-      const truncated = truncateToTokenLimit(text, maxTokensPerBatch, modelName)
-      batches.push([truncated])
-      continue
-    }
 
     if (currentBatch.length > 0 && currentTokenCount + tokenCount > maxTokensPerBatch) {
       batches.push(currentBatch)

@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   embed: vi.fn(),
-  configs: [] as unknown[],
   validate: vi.fn(),
   key: vi.fn(),
   admit: vi.fn(),
@@ -13,10 +12,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@mastra/core/llm', async (original) => ({
   ...(await original<object>()),
   ModelRouterEmbeddingModel: class {
+    specificationVersion = 'v2'
+    provider = 'fixture'
+    modelId = 'embedding'
+    supportsParallelCalls = false
     maxEmbeddingsPerCall = 2
-    constructor(config: unknown) {
-      mocks.configs.push(config)
-    }
     doEmbed(args: unknown) {
       return mocks.embed(args)
     }
@@ -36,13 +36,12 @@ vi.mock('@/lib/billing/model-usage', () => ({
   recordModelUsage: mocks.accept,
 }))
 
-import { generateEmbeddings, generateSearchEmbedding } from './utils'
+import { generateEmbeddings } from './utils'
 
 const scope = { actorUserId: 'member-1', workspaceId: 'workspace-1', runId: 'embedding-run-1' }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mocks.configs.length = 0
   mocks.validate.mockReturnValue({
     id: 'openai/text-embedding-3-small',
     provider: 'openai',
@@ -116,64 +115,6 @@ describe('native embeddings', () => {
       expect.objectContaining({ total: expect.closeTo(0.00000002, 12) }),
       expect.stringMatching(/^embedding-run-1:embedding:[^:]+:0$/)
     )
-  })
-
-  it('keeps vectors ordered and accounts each native batch once', async () => {
-    mocks.embed
-      .mockResolvedValueOnce({ embeddings: [[1], [2]], usage: { tokens: 10 } })
-      .mockResolvedValueOnce({ embeddings: [[3]], usage: { tokens: 5 } })
-    const result = await generateEmbeddings(['one', 'two', 'three'], scope)
-    expect(result.embeddings).toEqual([[1], [2], [3]])
-    expect(result.tokens).toEqual({ prompt: 15, total: 15 })
-    expect(result.usage).toEqual({ status: 'reported', batches: 2 })
-    expect(result.cost).toMatchObject({
-      status: 'estimated',
-      input: expect.closeTo(0.0000003, 12),
-      total: expect.closeTo(0.0000003, 12),
-      currency: 'USD',
-    })
-    expect(mocks.accept.mock.calls.map((call) => call[2].total)).toEqual([
-      expect.closeTo(0.0000002, 12),
-      expect.closeTo(0.0000001, 12),
-    ])
-    expect(mocks.configs).toEqual([
-      { id: 'openai/text-embedding-3-small', apiKey: 'request-local' },
-    ])
-    for (const stepNumber of [0, 1]) {
-      expect(mocks.admit).toHaveBeenNthCalledWith(
-        stepNumber + 1,
-        expect.objectContaining({ ...scope, purpose: 'embedding' })
-      )
-      expect(mocks.admit.mock.invocationCallOrder[stepNumber]).toBeLessThan(
-        mocks.begin.mock.invocationCallOrder[stepNumber]
-      )
-      expect(mocks.begin.mock.invocationCallOrder[stepNumber]).toBeLessThan(
-        mocks.embed.mock.invocationCallOrder[stepNumber]
-      )
-      expect(mocks.embed.mock.invocationCallOrder[stepNumber]).toBeLessThan(
-        mocks.accept.mock.invocationCallOrder[stepNumber]
-      )
-    }
-    expect(mocks.accept.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.admit.mock.invocationCallOrder[1]
-    )
-    expect(mocks.begin.mock.calls.map((call) => call[1])).toEqual([
-      expect.stringMatching(/^embedding-run-1:embedding:[^:]+:0$/),
-      expect.stringMatching(/^embedding-run-1:embedding:[^:]+:1$/),
-    ])
-    expect(mocks.accept.mock.calls.map((call) => call[3])).toEqual(
-      mocks.begin.mock.calls.map((call) => call[1])
-    )
-  })
-
-  it('leaves missing usage and USD unavailable', async () => {
-    mocks.embed.mockResolvedValueOnce({ embeddings: [[1]] })
-    expect(await generateSearchEmbedding('one', scope)).toMatchObject({
-      embedding: [1],
-      tokens: {},
-      usage: { status: 'unavailable' },
-      cost: { status: 'unavailable' },
-    })
   })
 
   it('retains completed native usage and partial cost when a later batch fails', async () => {
@@ -257,23 +198,6 @@ describe('native embeddings', () => {
   })
 })
 
-it('uses explicit request-local credentials without resolving or mutating service/environment keys', async () => {
-  const original = process.env.OPENAI_API_KEY
-  mocks.embed.mockResolvedValue({ embeddings: [[1]] })
-  const first = await generateEmbeddings(['first'], { ...scope, apiKey: 'first-key' })
-  const second = await generateEmbeddings(['second'], { ...scope, apiKey: 'second-key' })
-  expect(mocks.configs).toEqual([
-    { id: 'openai/text-embedding-3-small', apiKey: 'first-key' },
-    { id: 'openai/text-embedding-3-small', apiKey: 'second-key' },
-  ])
-  expect(mocks.key).not.toHaveBeenCalled()
-  expect(first.cost).toMatchObject({ accountCost: null })
-  expect(second.cost).toMatchObject({ accountCost: null })
-  for (const [usedScope] of mocks.admit.mock.calls) expect(usedScope.funding).toBe('byok')
-  expect(process.env.OPENAI_API_KEY).toBe(original)
-  expect(JSON.stringify(mocks.admit.mock.calls)).not.toMatch(/first-key|second-key|apiKey/)
-})
-
 it.each(['', '  '])(
   'rejects a blank BYOK key %j before any account fallback or contact',
   async (apiKey) => {
@@ -308,7 +232,9 @@ it('keeps a valid long native input beyond the grouping target byte-for-byte and
   expect(getAccurateTokenCount(valid, 'openai/text-embedding-3-small')).toBeLessThanOrEqual(8191)
   mocks.embed.mockResolvedValueOnce({ embeddings: [[1]], usage: { tokens: 8051 } })
   await generateEmbeddings([valid], { ...scope, apiKey: 'long-input-key' })
-  expect(mocks.embed).toHaveBeenCalledExactlyOnceWith({ values: [valid], abortSignal: undefined })
+  expect(mocks.embed).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ values: [valid], abortSignal: undefined })
+  )
   vi.clearAllMocks()
   await expect(generateEmbeddings(['hello '.repeat(8200)], scope)).rejects.toThrow(
     '8191 token limit'

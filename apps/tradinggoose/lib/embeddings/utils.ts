@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { ModelRouterEmbeddingModel } from '@mastra/core/llm'
+import { embedMany } from 'ai'
 import {
   assertModelUsageAllowed,
   beginWorkflowModelUsage,
@@ -49,8 +50,7 @@ export async function generateEmbeddings(
   if (!scope.actorUserId?.trim()) throw new Error('Authenticated embedding actor is required')
   scope.signal?.throwIfAborted()
   const selected = await assertListedEmbeddingModel(model)
-  // Existing batchByTokenLimit truncates oversized entries. Validate first and choose a
-  // grouping ceiling that keeps every accepted input byte intact, including 8001–8191 tokens.
+  // Validate native limits before grouping; accepted inputs stay intact above the 8000-token target.
   const largestInput = texts.reduce((largest, text) => {
     const count = getAccurateTokenCount(text, model)
     if (count > selected.maxInputTokens)
@@ -116,24 +116,16 @@ export async function generateEmbeddings(
         const attemptId = `${usageScope.runId}:embedding:${invocationId}:${batchCount}`
         await beginWorkflowModelUsage(usageScope, attemptId)
         awaitingUsage = true
-        const result = await embedder.doEmbed({ values, abortSignal: scope.signal })
+        const result = await embedMany({ model: embedder, values, abortSignal: scope.signal })
+        const tokens = Number.isFinite(result.usage.tokens) ? result.usage.tokens : undefined
         batchCount += 1
-        if (result.usage?.tokens !== undefined) {
-          prompt = (prompt ?? 0) + result.usage.tokens
+        if (tokens !== undefined) {
+          prompt = (prompt ?? 0) + tokens
           reportedBatches += 1
         }
         embeddings.push(...result.embeddings)
-        const usage =
-          result.usage?.tokens === undefined
-            ? {}
-            : {
-                inputTokens: result.usage.tokens,
-                totalTokens: result.usage.tokens,
-              }
-        const cost: NativeCost = {
-          ...(await calculateNativeCost(model, usage, result.providerMetadata)),
-          ...(funding === 'byok' ? { accountCost: null } : {}),
-        }
+        const usage = tokens === undefined ? {} : { inputTokens: tokens, totalTokens: tokens }
+        const cost = await calculateNativeCost(model, usage, result.providerMetadata)
         costs.push(cost)
         awaitingUsage = false
         costs[costs.length - 1] = await recordModelUsage(usageScope, usage, cost, attemptId)
