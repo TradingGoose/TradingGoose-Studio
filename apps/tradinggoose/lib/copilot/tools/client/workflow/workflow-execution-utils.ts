@@ -24,7 +24,7 @@ export async function executeWorkflowWithFullLogging(
     workflowState,
     variables: workflowVariables,
     workspaceId,
-  } = await getReadableWorkflowState({}, options.workflowId)
+  } = await getReadableWorkflowState(options.workflowId)
 
   if (!workspaceId) {
     throw new Error('Workflow execution context requires workspaceId')
