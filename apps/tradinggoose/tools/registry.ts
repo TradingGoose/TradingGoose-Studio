@@ -24,7 +24,7 @@ import {
   exaResearchTool,
   exaSearchTool,
 } from '@/tools/exa'
-import { fileParseTool } from '@/tools/file'
+import { fileParserTool } from '@/tools/file'
 import { crawlTool, scrapeTool, searchTool } from '@/tools/firecrawl'
 import { functionExecuteTool } from '@/tools/function'
 import {
@@ -307,7 +307,7 @@ export const tools: Record<string, ToolConfig> = {
   huggingface_chat: huggingfaceChatTool,
   function_execute: functionExecuteTool,
   vision_tool: visionTool,
-  file_parser: fileParseTool,
+  file_parser: fileParserTool,
   firecrawl_scrape: scrapeTool,
   firecrawl_search: searchTool,
   firecrawl_crawl: crawlTool,

@@ -1,3 +1,1 @@
-import { fileParserTool } from '@/tools/file/parser'
-
-export const fileParseTool = fileParserTool
+export { fileParserTool } from './parser'

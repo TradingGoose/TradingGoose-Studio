@@ -1,9 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  downloadFile,
-  generatePresignedDownloadUrl,
-  uploadFile,
-} from '@/lib/uploads/core/storage-service'
+import { generatePresignedDownloadUrl, uploadFile } from '@/lib/uploads/core/storage-service'
 import type { UserFile } from '@/executor/types'
 import type { ExecutionContext } from './execution-file-helpers'
 import {
@@ -87,30 +83,6 @@ export async function uploadExecutionFile(
     logger.error(`Failed to upload execution file ${fileName}:`, error)
     throw new Error(
       `Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
-  }
-}
-
-/**
- * Download a file from execution-scoped storage
- */
-export async function downloadExecutionFile(userFile: UserFile): Promise<Buffer> {
-  logger.info(`Downloading execution file: ${userFile.name}`)
-
-  try {
-    const fileBuffer = await downloadFile({
-      key: userFile.key,
-      context: 'execution',
-    })
-
-    logger.info(
-      `Successfully downloaded execution file: ${userFile.name} (${fileBuffer.length} bytes)`
-    )
-    return fileBuffer
-  } catch (error) {
-    logger.error(`Failed to download execution file ${userFile.name}:`, error)
-    throw new Error(
-      `Failed to download file: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   }
 }

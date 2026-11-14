@@ -13,7 +13,7 @@ import {
 } from '@/lib/billing/storage'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { deleteFile, downloadFile, uploadFile } from '@/lib/uploads/core/storage-service'
+import { deleteFile, uploadFile } from '@/lib/uploads/core/storage-service'
 import {
   assertStorageReferenceAccess,
   extractStorageKey,
@@ -199,29 +199,6 @@ export async function getWorkspaceFile(
   } catch (error) {
     logger.error(`Failed to get workspace file ${fileId}:`, error)
     return null
-  }
-}
-
-/**
- * Download workspace file content
- */
-export async function downloadWorkspaceFile(fileRecord: WorkspaceFileRecord): Promise<Buffer> {
-  logger.info(`Downloading workspace file: ${fileRecord.name}`)
-
-  try {
-    const buffer = await downloadFile({
-      key: fileRecord.key,
-      context: 'workspace',
-    })
-    logger.info(
-      `Successfully downloaded workspace file: ${fileRecord.name} (${buffer.length} bytes)`
-    )
-    return buffer
-  } catch (error) {
-    logger.error(`Failed to download workspace file ${fileRecord.name}:`, error)
-    throw new Error(
-      `Failed to download file: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
   }
 }
 

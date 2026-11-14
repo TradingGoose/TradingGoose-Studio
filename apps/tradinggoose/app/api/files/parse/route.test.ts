@@ -21,6 +21,9 @@ vi.mock('@/lib/permissions/utils', () => ({
 }))
 
 import { POST } from '@/app/api/files/parse/route'
+import { FileBlock } from '@/blocks/blocks/file'
+import { fileParserTool } from '@/tools/file'
+import { formatRequestParams } from '@/tools/utils'
 
 const mockJoin = vi.fn((...args: string[]): string => {
   if (args[0] === '/test/uploads') {
@@ -432,5 +435,53 @@ describe('Files Parse API - Path Traversal Security', () => {
       expect(response.status).toBe(400)
       expect(result.error).toBe('No file path provided')
     })
+  })
+})
+
+describe('File tool contract', () => {
+  it.each([
+    [
+      { inputMethod: 'url', filePath: 'https://example.com/file.txt' },
+      'https://example.com/file.txt',
+    ],
+    [{ inputMethod: 'upload', file: { path: 'one.txt' } }, 'one.txt'],
+    [{ inputMethod: 'upload', file: [{ path: 'one.txt' }] }, 'one.txt'],
+    [
+      { inputMethod: 'upload', file: [{ path: 'one.txt' }, { path: 'two.txt' }] },
+      ['one.txt', 'two.txt'],
+    ],
+  ])('formats canonical block input %j', async (input, filePath) => {
+    const scope = { workspaceId: 'workspace', workflowId: 'workflow', executionId: 'execution' }
+    const params = FileBlock.tools.config!.params!(input)
+    const request = await formatRequestParams(fileParserTool, { ...params, _context: scope })
+    expect(JSON.parse(request.body as string)).toEqual({ filePath, fileType: 'auto', ...scope })
+  })
+
+  it.each([1, 2])('projects %i canonical parsed outputs', async (count) => {
+    const files = Array.from({ length: count }, (_, i) => ({
+      content: `content-${i}`,
+      name: `${i}.txt`,
+      fileType: 'text/plain',
+      size: 9,
+      binary: false,
+    }))
+    const results = files.map((output) => ({ success: true, output }))
+    const response = Response.json(count === 1 ? results[0] : { success: true, results })
+    expect(await fileParserTool.transformResponse!(response)).toEqual({
+      success: true,
+      output: {
+        files,
+        combinedContent: files.map((file) => file.content).join(`\n${'='.repeat(80)}\n\n`),
+      },
+    })
+  })
+
+  it.each([
+    [{ success: false, error: 'File access denied' }, 403],
+    [{ success: true, results: [{ success: false, error: 'File access denied' }] }, 200],
+  ])('propagates failed file responses', async (body, status) => {
+    await expect(
+      fileParserTool.transformResponse!(Response.json(body, { status }))
+    ).rejects.toThrow('File access denied')
   })
 })
