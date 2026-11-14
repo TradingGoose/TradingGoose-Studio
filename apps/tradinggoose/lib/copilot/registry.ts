@@ -1076,10 +1076,6 @@ export const ToolResultSchemas = {
     deployedAt: z.string().optional(),
     needsApiKey: z.boolean().optional(),
     message: z.string().optional(),
-    endpoint: z.string().optional(),
-    curlCommand: z.string().optional(),
-    apiKeyPlaceholder: z.string().optional(),
-    openedModal: z.boolean().optional(),
   }),
   check_deployment_status: z.object({
     isDeployed: z.boolean(),

@@ -25,7 +25,8 @@ export function validateNativeBrowserAssertion(pending: Pending, assertion: Brow
   }
   if (
     assertion.kind !== 'ui.opened' ||
-    (name === 'deploy_workflow' && pending.originalArgs.action === 'undeploy')
+    (name === 'deploy_workflow' &&
+      (pending.originalArgs.action !== 'deploy' || pending.originalArgs.deployType !== 'chat'))
   ) {
     throw new NativeTargetError('Only a dialog-opened acknowledgement is permitted', 422)
   }

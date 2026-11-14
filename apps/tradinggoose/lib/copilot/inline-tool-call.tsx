@@ -704,7 +704,10 @@ export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToo
         typeof toolCall.result?.credentialId === 'string'))
 
   const metadataDisplay = getCopilotToolMetadata(toolCall.name)?.displayNames[toolCall.state]
-  const displayName = toolCall.display?.text || metadataDisplay?.text || toolCall.name
+  const displayName =
+    toolCall.name === 'deploy_workflow' && toolCall.result?.needsApiKey === true
+      ? 'Deployment requires a valid API key'
+      : toolCall.display?.text || metadataDisplay?.text || toolCall.name
   const DisplayIcon = toolCall.display?.icon || metadataDisplay?.icon || Loader2
   const failureDetails = readToolFailureDetails(toolCall)
   const params = toolCall.params ?? {}

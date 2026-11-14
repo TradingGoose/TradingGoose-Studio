@@ -51,29 +51,30 @@ describe('browser assertions cannot become authoritative business results', () =
   it.each(['oauth_request_access', 'deploy_workflow'])(
     'only describes opened UI for %s and denies fabricated grants/deployments',
     (toolName) => {
+      const target = pending(toolName, { action: 'deploy', deployType: 'chat' })
       expect(() =>
-        validateNativeBrowserAssertion(pending(toolName), {
+        validateNativeBrowserAssertion(target, {
           kind: 'ui.opened',
           data: { opened: true, surface: 'settings' },
         })
       ).not.toThrow()
       expect(() =>
-        validateNativeBrowserAssertion(pending(toolName), {
+        validateNativeBrowserAssertion(target, {
           kind: 'ui.opened',
           data: { opened: true, granted: true, isDeployed: true },
         })
       ).toThrow('cannot assert')
       expect(() =>
-        validateNativeBrowserAssertion(pending(toolName), {
+        validateNativeBrowserAssertion(target, {
           kind: 'ui.opened',
           data: { opened: true, surface: { granted: true } },
         })
       ).toThrow('cannot assert')
     }
   )
-  it('undeployment requires authoritative readback instead of UI acknowledgement', () => {
+  it.each(['deploy', 'undeploy'])('API %s requires authoritative readback', (action) => {
     expect(() =>
-      validateNativeBrowserAssertion(pending('deploy_workflow', { action: 'undeploy' }), {
+      validateNativeBrowserAssertion(pending('deploy_workflow', { action, deployType: 'api' }), {
         kind: 'ui.opened',
         data: { opened: true },
       })

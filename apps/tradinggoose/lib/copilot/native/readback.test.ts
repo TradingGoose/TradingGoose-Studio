@@ -11,11 +11,13 @@ const m = vi.hoisted(() => ({
   executionResult: vi.fn(),
   deployment: vi.fn(),
   workspace: vi.fn(),
+  deploymentKey: vi.fn(),
 }))
 vi.mock('@tradinggoose/db', () => ({
   db: { select: () => ({ from: () => ({ where: () => ({ limit: m.rows }) }) }) },
 }))
 vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: m.workspace }))
+vi.mock('@/lib/api-key/service', () => ({ resolveApiKeyForDeployment: m.deploymentKey }))
 vi.mock('./business-access', () => ({
   authorizeNativeBusinessResult: m.access,
   authorizeNativeCredential: m.credential,
@@ -78,6 +80,9 @@ beforeEach(() => {
     isDeployed: true,
     deployedAt: '2026-11-08T00:00:00.000Z',
   })
+  m.deploymentKey
+    .mockReset()
+    .mockResolvedValue({ id: 'key', name: 'Selected key', type: 'personal' })
 })
 describe('authoritative native result readback', () => {
   it('reads the original self-contained execution result after fresh authorization', async () => {
@@ -259,6 +264,29 @@ describe('authoritative native result readback', () => {
       )
     ).rejects.toMatchObject({ status: 409 })
   })
+  it.each([false, true])(
+    'settles a missing deployment key even when already deployed=%s',
+    async (apiDeployed) => {
+      m.rows.mockResolvedValue([{ workspaceId: 'workflow-workspace', pinnedApiKeyId: 'expired' }])
+      m.deployment.mockResolvedValue({ apiDeployed, isDeployed: apiDeployed })
+      m.deploymentKey.mockResolvedValue(null)
+      const result = await readbackNativeToolResult(
+        scope,
+        pending('deploy_workflow', { entityId: 'workflow', action: 'deploy', deployType: 'api' }),
+        { userId: 'member' }
+      )
+      expect(ToolResultSchemas.deploy_workflow.parse(result)).toMatchObject({
+        needsApiKey: true,
+        message: expect.stringContaining('Select a valid API key'),
+      })
+      expect(result).not.toHaveProperty('isDeployed')
+      expect(m.deploymentKey).toHaveBeenCalledExactlyOnceWith(
+        'expired',
+        'member',
+        'workflow-workspace'
+      )
+    }
+  )
   it('unsupported result recovery never reexecutes an effect', async () => {
     await expect(
       readbackNativeToolResult(scope, pending('create_workflow'), { userId: 'member' })

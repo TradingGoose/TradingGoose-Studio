@@ -71,7 +71,10 @@ import {
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components/api-key-selector/api-key-selector'
 import { ChatDeploy } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/chat-deploy'
 import { DeployStatus } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/deploy-status/deploy-status'
-import { DeploymentInfo } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/deployment-info'
+import {
+  DeploymentInfo,
+  type WorkflowDeploymentInfo,
+} from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/deployment-info'
 import { DeployedWorkflowModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-modal'
 import {
   buildTriggerEditingLayout,
@@ -102,17 +105,6 @@ interface DeployModalProps {
   isLoadingDeployedState: boolean
   refetchDeployedState: () => Promise<void>
   refetchDeploymentStatus: () => Promise<boolean>
-}
-
-interface WorkflowDeploymentInfo {
-  isDeployed: boolean
-  deployedAt?: string
-  apiKey: string
-  pinnedApiKeyId?: string | null
-  endpoint: string
-  exampleCommand: string
-  needsRedeployment: boolean
-  hasReusableApiKey: boolean
 }
 
 interface PublishedChatDeployment {
@@ -586,10 +578,7 @@ export function DeployModal({
                       : copy.reviewTriggerBeforeDeployment,
                 }
               : null
-  const sharedApiKeyDisplay =
-    deploymentInfo?.apiKey && deploymentInfo.apiKey !== 'No API key found'
-      ? deploymentInfo.apiKey
-      : null
+  const sharedApiKeyDisplay = deploymentInfo?.apiKey
   const apiTriggerSharedKeyMessage = isWorkflowDeployed
     ? sharedApiKeyDisplay
       ? formatTemplate(copy.thisApiTriggerUsesTheSharedDeploymentApiKey, {
@@ -852,7 +841,6 @@ export function DeployModal({
         }
 
         const endpoint = `${getEnv('NEXT_PUBLIC_APP_URL')}/api/workflows/${workflowId}/execute`
-        const inputFormatExample = getInputFormatExample()
 
         setDeploymentInfo({
           isDeployed: data.isDeployed,
@@ -860,7 +848,6 @@ export function DeployModal({
           apiKey: data.apiKey,
           pinnedApiKeyId: data.pinnedApiKeyId ?? null,
           endpoint,
-          exampleCommand: `curl -X POST -H "X-API-Key: ${data.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${endpoint}`,
           needsRedeployment: Boolean(data.needsRedeployment),
           hasReusableApiKey: Boolean(data.hasReusableApiKey),
         })
@@ -924,7 +911,6 @@ export function DeployModal({
       if (deploymentInfoResponse.ok) {
         const deploymentData = await deploymentInfoResponse.json()
         const apiEndpoint = `${getEnv('NEXT_PUBLIC_APP_URL')}/api/workflows/${workflowId}/execute`
-        const inputFormatExample = getInputFormatExample()
 
         setDeploymentInfo({
           isDeployed: deploymentData.isDeployed,
@@ -932,7 +918,6 @@ export function DeployModal({
           apiKey: deploymentData.apiKey,
           pinnedApiKeyId: deploymentData.pinnedApiKeyId ?? null,
           endpoint: apiEndpoint,
-          exampleCommand: `curl -X POST -H "X-API-Key: ${deploymentData.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${apiEndpoint}`,
           needsRedeployment: Boolean(deploymentData.needsRedeployment),
           hasReusableApiKey: Boolean(deploymentData.hasReusableApiKey),
         })

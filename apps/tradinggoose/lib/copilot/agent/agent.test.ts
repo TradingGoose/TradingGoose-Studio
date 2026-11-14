@@ -343,4 +343,37 @@ describe('Studio-owned Copilot tools', () => {
     expect(m.route).not.toHaveBeenCalled()
     expect(m.effect).not.toHaveBeenCalled()
   })
+
+  it('settles deployment prerequisite results through native resume without leaving a suspended run', async () => {
+    const args = { entityId: 'workflow', action: 'deploy', deployType: 'api' }
+    m.model = model('deploy_workflow', args)
+    const h = harness()
+    expect((await h.agent.generate('Deploy workflow', h.options)).finishReason).toBe('suspended')
+    h.execution.pending = {
+      target: {
+        threadId: h.execution.run.threadId,
+        resourceId: h.options.memory.resource,
+        runId: h.execution.run.runId,
+        toolCallId: 'business-call',
+        toolName: 'deploy_workflow',
+      },
+      originalArgs: args,
+      stage: 'result',
+    }
+    h.execution.decision = {
+      action: 'result',
+      result: { needsApiKey: true, message: 'Select a valid API key before deploying.' },
+    }
+    const result = await h.agent.resumeGenerate(h.execution.decision, {
+      ...h.options,
+      toolCallId: 'business-call',
+    })
+    expect(result.finishReason).toBe('stop')
+    expect(result.text).toBe('Done')
+    expect((await h.agent.listSuspendedRuns({ threadId: h.execution.run.threadId })).runs).toEqual(
+      []
+    )
+    expect(m.effect).not.toHaveBeenCalled()
+    expect(m.route).not.toHaveBeenCalled()
+  })
 })

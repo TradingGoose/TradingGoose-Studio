@@ -6,16 +6,20 @@ import { ApiKey } from '@/widgets/widgets/editor_workflow/components/control-bar
 import { ExampleCommand } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/example-command/example-command'
 import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
-interface WorkflowDeploymentInfo {
-  apiKey: string
+export interface WorkflowDeploymentInfo {
+  isDeployed: boolean
+  deployedAt?: string
+  apiKey: string | null
+  pinnedApiKeyId?: string | null
   endpoint: string
-  exampleCommand: string
+  needsRedeployment: boolean
+  hasReusableApiKey: boolean
 }
 
 interface DeploymentInfoProps {
   isLoading: boolean
   deploymentInfo: WorkflowDeploymentInfo | null
-  getInputFormatExample?: () => string
+  getInputFormatExample: () => string
   showApiKeyInfo?: boolean
   showApiAccessInfo?: boolean
 }
@@ -63,8 +67,6 @@ export function DeploymentInfo({
           <>
             <ApiEndpoint endpoint={deploymentInfo.endpoint} />
             <ExampleCommand
-              command={deploymentInfo.exampleCommand}
-              apiKey={deploymentInfo.apiKey}
               endpoint={deploymentInfo.endpoint}
               getInputFormatExample={getInputFormatExample}
             />

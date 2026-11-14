@@ -1,6 +1,7 @@
 import { db } from '@tradinggoose/db'
-import { workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
+import { resolveApiKeyForDeployment } from '@/lib/api-key/service'
 import { ToolArgSchemas } from '@/lib/copilot/registry'
 import {
   type ServerToolExecutionContext,
@@ -126,6 +127,27 @@ export async function readbackNativeToolResult(
         { entityId: args.entityId },
         context
       )
+      if (args.action === 'deploy' && args.deployType === 'api') {
+        const [row] = await db
+          .select({ workspaceId: workflow.workspaceId, pinnedApiKeyId: workflow.pinnedApiKeyId })
+          .from(workflow)
+          .where(eq(workflow.id, args.entityId))
+          .limit(1)
+        if (!row) throw new NativeTargetError('Workflow not found', 404)
+        if (
+          !(await resolveApiKeyForDeployment(
+            row.pinnedApiKeyId,
+            scope.actorUserId,
+            row.workspaceId
+          ))
+        )
+          return {
+            action: args.action,
+            deployType: args.deployType,
+            needsApiKey: true,
+            message: 'Select a valid API key in the workflow deployment settings, then retry.',
+          }
+      }
       const deployed = args.deployType === 'chat' ? state.chatDeployed : state.apiDeployed
       if (deployed !== (args.action === 'deploy'))
         throw new NativeTargetError('The requested deployment postcondition is not present', 409)

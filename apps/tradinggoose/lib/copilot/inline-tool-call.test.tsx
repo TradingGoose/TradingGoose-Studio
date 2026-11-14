@@ -3,6 +3,7 @@
  */
 
 import { act } from 'react'
+import { Rocket } from 'lucide-react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -106,6 +107,28 @@ describe('InlineToolCall', () => {
     vi.unstubAllGlobals()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
+
+  it.each([false, true])(
+    'does not label a key refusal as deployed (historical: %s)',
+    async (historical) => {
+      await act(async () =>
+        renderLocalized(
+          {
+            id: 'deployment-key-refusal',
+            name: 'deploy_workflow',
+            state: ClientToolCallState.success,
+            historical,
+            display: { text: 'Deployed workflow', icon: Rocket },
+            result: { needsApiKey: true, message: 'Select a valid API key before deploying' },
+          },
+          'en'
+        )
+      )
+      expect(container.textContent).toContain('Deployment requires a valid API key')
+      expect(container.textContent).not.toContain('Deployed workflow')
+      expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
+    }
+  )
 
   it('does not offer a display-only background action for a running workflow', async () => {
     await act(async () =>

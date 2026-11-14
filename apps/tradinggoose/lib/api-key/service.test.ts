@@ -19,6 +19,7 @@ vi.mock('@tradinggoose/db', () => ({
 vi.mock('@tradinggoose/db/schema', () => ({
   apiKey: {
     id: 'apiKey.id',
+    name: 'apiKey.name',
     userId: 'apiKey.userId',
     workspaceId: 'apiKey.workspaceId',
     type: 'apiKey.type',
@@ -61,6 +62,31 @@ describe('API key service', () => {
     vi.clearAllMocks()
     mockEnv.API_ENCRYPTION_KEY = 'a'.repeat(64)
     mockApiKeyRows([])
+  })
+
+  it.each([
+    ['personal', 'actor', null, null, true],
+    ['personal', 'other', 'workspace', null, false],
+    ['workspace', 'other', 'workspace', null, true],
+    ['workspace', 'actor', 'other-workspace', null, false],
+    ['personal', 'actor', null, new Date(0), false],
+    ['workspace', 'actor', 'workspace', new Date(0), false],
+  ])(
+    'validates deployment key %s/%s/%s expiring %s',
+    async (type, userId, workspaceId, expiresAt, valid) => {
+      const { resolveApiKeyForDeployment } = await import('./service')
+      mockApiKeyRows([{ id: 'key', name: 'Selected key', type, userId, workspaceId, expiresAt }])
+      expect(await resolveApiKeyForDeployment('key', 'actor', 'workspace')).toEqual(
+        valid ? { id: 'key', name: 'Selected key', type } : null
+      )
+    }
+  )
+
+  it('refuses missing or deleted deployment keys', async () => {
+    const { resolveApiKeyForDeployment } = await import('./service')
+    expect(await resolveApiKeyForDeployment(null, 'actor', 'workspace')).toBeNull()
+    expect(mockDbSelect).not.toHaveBeenCalled()
+    expect(await resolveApiKeyForDeployment('deleted', 'actor', 'workspace')).toBeNull()
   })
 
   it('rejects malformed API keys before reading key records', async () => {

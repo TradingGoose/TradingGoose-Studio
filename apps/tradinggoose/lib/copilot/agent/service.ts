@@ -509,7 +509,6 @@ async function* generate(
               ? {
                   message:
                     'The requested Studio dialog was opened. User completion is still required.',
-                  ...(pending.target.toolName === 'deploy_workflow' ? { openedModal: true } : {}),
                 }
               : request.assertion.data,
         }

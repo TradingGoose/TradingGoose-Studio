@@ -1,6 +1,7 @@
-import { apiKey, db, workflow, workflowDeploymentVersion } from '@tradinggoose/db'
+import { db, workflow, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
+import { resolveApiKeyForDeployment } from '@/lib/api-key/service'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
@@ -30,6 +31,8 @@ export async function POST(
     if (error) {
       return createErrorResponse(error.message, error.status)
     }
+    const actorUserId = session?.user?.id
+    if (!actorUserId) return createErrorResponse('Unauthorized', 401)
 
     const versionNum = Number(version)
     if (!Number.isFinite(versionNum)) {
@@ -44,43 +47,12 @@ export async function POST(
       }
     } catch (_err) {}
 
-    let pinnedApiKeyId: string | null = null
-    if (providedApiKey) {
-      const currentUserId = session?.user?.id
-      if (currentUserId) {
-        const [personalKey] = await db
-          .select({ id: apiKey.id })
-          .from(apiKey)
-          .where(
-            and(
-              eq(apiKey.id, providedApiKey),
-              eq(apiKey.userId, currentUserId),
-              eq(apiKey.type, 'personal')
-            )
-          )
-          .limit(1)
-
-        if (personalKey) {
-          pinnedApiKeyId = personalKey.id
-        } else if (workflowData!.workspaceId) {
-          const [workspaceKey] = await db
-            .select({ id: apiKey.id })
-            .from(apiKey)
-            .where(
-              and(
-                eq(apiKey.id, providedApiKey),
-                eq(apiKey.workspaceId, workflowData!.workspaceId),
-                eq(apiKey.type, 'workspace')
-              )
-            )
-            .limit(1)
-
-          if (workspaceKey) {
-            pinnedApiKeyId = workspaceKey.id
-          }
-        }
-      }
-    }
+    const matchedKey = await resolveApiKeyForDeployment(
+      providedApiKey || workflowData!.pinnedApiKeyId,
+      actorUserId,
+      workflowData!.workspaceId
+    )
+    if (!matchedKey) return createErrorResponse('Select a valid API key before deploying.', 400)
 
     const now = new Date()
 
@@ -113,17 +85,15 @@ export async function POST(
         throw new Error('Deployment version not found')
       }
 
-      const updateData: Record<string, unknown> = {
-        isDeployed: true,
-        deployedAt: now,
-        deployedState: updated[0].state,
-      }
-
-      if (pinnedApiKeyId) {
-        updateData.pinnedApiKeyId = pinnedApiKeyId
-      }
-
-      await tx.update(workflow).set(updateData).where(eq(workflow.id, id))
+      await tx
+        .update(workflow)
+        .set({
+          isDeployed: true,
+          deployedAt: now,
+          deployedState: updated[0].state,
+          pinnedApiKeyId: matchedKey.id,
+        })
+        .where(eq(workflow.id, id))
 
       await reconcilePublishedChatsForDeploymentTx({
         tx,
