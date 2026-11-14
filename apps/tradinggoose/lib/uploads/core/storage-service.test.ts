@@ -10,6 +10,7 @@ describe('storage-service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
+    vi.doUnmock('@/lib/uploads/core/config-resolver')
   })
 
   it('returns a context-aware serve path for Vercel uploads', async () => {
@@ -50,4 +51,44 @@ describe('storage-service', () => {
     expect(uploadToVercelMock).toHaveBeenCalled()
     expect(result.path).toBe('/api/files/serve/vercel/workspace%2Freport.txt?context=workspace')
   })
+
+  it.each(['s3', 'azure', 'vercel'] as const)(
+    'deletes generated execution files through the configured %s storage scope',
+    async (provider) => {
+      const remove = vi.fn().mockResolvedValue(undefined)
+      vi.doMock('@/lib/uploads/core/setup', () => ({
+        USE_AZURE_STORAGE: provider === 'azure',
+        USE_S3_STORAGE: provider === 's3',
+        USE_VERCEL_STORAGE: provider === 'vercel',
+        S3_CONFIG: { bucket: 'general-bucket', region: 'general-region' },
+        S3_EXECUTION_FILES_CONFIG: { bucket: 'execution-bucket', region: 'execution-region' },
+        AZURE_CONFIG: { containerName: 'general-container', accountName: 'general-account' },
+        AZURE_EXECUTION_FILES_CONFIG: {
+          containerName: 'execution-container',
+          accountName: 'execution-account',
+          accountKey: 'execution-key',
+        },
+        VERCEL_BLOB_CONFIG: { token: 'execution-token', access: 'private' },
+      }))
+      vi.doMock('@/lib/uploads/providers/s3/s3-client', () => ({ deleteFromS3: remove }))
+      vi.doMock('@/lib/uploads/providers/azure/azure-client', () => ({ deleteFromAzure: remove }))
+      vi.doMock('@/lib/uploads/providers/vercel/vercel-client', () => ({
+        deleteFromVercel: remove,
+      }))
+      const { deleteFile } = await import('./storage-service')
+      const key = 'workspace/workflow/execution/report.pdf'
+      await deleteFile({ key, context: 'execution' })
+      const config = {
+        s3: { bucket: 'execution-bucket', region: 'execution-region' },
+        azure: {
+          containerName: 'execution-container',
+          accountName: 'execution-account',
+          accountKey: 'execution-key',
+          connectionString: undefined,
+        },
+        vercel: { token: 'execution-token', access: 'private' },
+      }
+      expect(remove).toHaveBeenCalledExactlyOnceWith(key, config[provider])
+    }
+  )
 })

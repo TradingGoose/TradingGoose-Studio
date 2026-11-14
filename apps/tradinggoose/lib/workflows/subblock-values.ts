@@ -97,6 +97,9 @@ export function resolveInitialSubBlockValue(
     return cloneSubBlockValue(subBlock.defaultValue)
   }
 
+  // An unresolved dynamic model default is distinct from a deliberate empty selection.
+  if (subBlock.id === 'model' && typeof subBlock.value === 'function') return null
+
   if (subBlock.type === 'table') {
     return []
   }

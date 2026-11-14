@@ -26,11 +26,14 @@ const WORKFLOW_BLOCK_CONTEXT = {
   label: 'Attached Block',
 } satisfies ChatContext
 
+const mockReadNativeThreadHistory = vi.fn()
 const mockGetBlocksMetadataExecute = vi.fn()
 const mockVerifyWorkflowAccess = vi.fn()
 const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
 const mockReadWorkflowSnapshot = vi.fn()
 const mockReadKnowledgeBaseExecute = vi.fn()
+const mockGenerateSearchEmbedding = vi.fn()
+const mockContextError = vi.fn()
 const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
 const mockOr = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' }))
@@ -83,6 +86,7 @@ mockSelectChain.from = vi.fn(() => mockSelectChain)
 mockSelectChain.leftJoin = vi.fn(() => mockSelectChain)
 mockSelectChain.innerJoin = vi.fn(() => mockSelectChain)
 mockSelectChain.where = vi.fn(() => mockSelectChain)
+mockSelectChain.orderBy = vi.fn(() => mockSelectChain)
 mockSelectChain.limit = vi.fn(() => Promise.resolve(mockLogRowsQueue.shift() ?? []))
 const mockDbSelect = vi.fn(() => mockSelectChain)
 
@@ -93,8 +97,15 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  copilotReviewItems: {},
-  copilotReviewSessions: {},
+  docsEmbeddings: {
+    chunkId: 'docsEmbeddings.chunkId',
+    chunkText: 'docsEmbeddings.chunkText',
+    sourceDocument: 'docsEmbeddings.sourceDocument',
+    sourceLink: 'docsEmbeddings.sourceLink',
+    headerText: 'docsEmbeddings.headerText',
+    headerLevel: 'docsEmbeddings.headerLevel',
+    embedding: 'docsEmbeddings.embedding',
+  },
   permissions: {
     entityType: 'permissions.entityType',
     entityId: 'permissions.entityId',
@@ -122,18 +133,25 @@ vi.mock('@tradinggoose/db/schema', () => ({
 
 vi.mock('drizzle-orm', () => ({
   and: mockAnd,
-  asc: vi.fn(),
   eq: mockEq,
   or: mockOr,
+  sql: vi.fn(() => 'controlled-vector-expression'),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
-    error: vi.fn(),
+    error: mockContextError,
     info: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn(),
   })),
+}))
+
+vi.mock('@/lib/embeddings/utils', () => ({
+  generateSearchEmbedding: mockGenerateSearchEmbedding,
+}))
+vi.mock('@/lib/copilot/native/history', () => ({
+  readNativeThreadHistory: mockReadNativeThreadHistory,
 }))
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
@@ -163,11 +181,24 @@ vi.mock('@/lib/yjs/workflow-session', () => ({
 describe('processContextsServer', () => {
   beforeEach(() => {
     vi.resetModules()
+    mockReadNativeThreadHistory.mockReset()
     mockGetBlocksMetadataExecute.mockReset()
     mockVerifyWorkflowAccess.mockReset()
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
     mockReadWorkflowSnapshot.mockReset()
     mockReadKnowledgeBaseExecute.mockReset()
+    mockGenerateSearchEmbedding.mockReset().mockResolvedValue({
+      embedding: [0.25, 0.5],
+      model: 'source-test/embedding',
+      tokens: { prompt: 12, total: 12 },
+      usage: { status: 'reported', batches: 1 },
+      cost: { status: 'unavailable' },
+    })
+    mockContextError.mockClear()
+    mockSelectChain.limit
+      .mockReset()
+      .mockImplementation(() => Promise.resolve(mockLogRowsQueue.shift() ?? []))
+    mockSelectChain.orderBy.mockClear()
     mockAnd.mockClear()
     mockEq.mockClear()
     mockOr.mockClear()
@@ -181,6 +212,85 @@ describe('processContextsServer', () => {
       workspaceId: 'workspace-1',
       isOwner: false,
     })
+  })
+
+  it.each([null, 'past-workspace'])(
+    'reads a past chat in its genuine %s scope independently of current workspace',
+    async (workspaceId) => {
+      mockReadNativeThreadHistory.mockResolvedValueOnce([
+        {
+          role: 'user',
+          parts: [
+            { type: 'text', text: '  first ' },
+            {
+              type: 'text',
+              text: '\nsecond  ',
+              providerMetadata: { secret: 'private-provider-marker' },
+            },
+          ],
+        },
+        {
+          role: 'assistant',
+          parts: [
+            { type: 'reasoning', reasoning: 'private-reasoning' },
+            { type: 'tool-invocation', toolInvocation: { result: 'private-tool-envelope' } },
+            { type: 'text', text: 'answer' },
+          ],
+        },
+      ])
+      const signal = new AbortController().signal
+      const result = await processContexts(
+        [{ kind: 'past_chat', threadId: 'past-thread', workspaceId, label: 'Past' }],
+        'different-current-workspace',
+        { signal }
+      )
+      expect(mockReadNativeThreadHistory).toHaveBeenCalledWith(
+        { actorUserId: 'user-1', workspaceId },
+        'past-thread',
+        signal
+      )
+      expect(result).toEqual([
+        { type: 'past_chat', tag: '@Past', content: 'user:   first \nsecond  \nassistant: answer' },
+      ])
+      expect(JSON.stringify(result)).not.toContain('private-')
+      expect(mockDbSelect).not.toHaveBeenCalled()
+    }
+  )
+
+  it('omits the whole past chat on failed readback or malformed text instead of a prefix', async () => {
+    const context: ChatContext = {
+      kind: 'past_chat',
+      threadId: 'past-thread',
+      workspaceId: null,
+      label: 'Past',
+    }
+    mockReadNativeThreadHistory.mockRejectedValueOnce(new Error('Page 2 unavailable'))
+    expect(await processContexts([context])).toEqual([])
+    mockReadNativeThreadHistory.mockResolvedValueOnce([
+      {
+        role: 'user',
+        parts: [
+          { type: 'text', text: 'prefix' },
+          { type: 'text', text: 17 },
+        ],
+      },
+    ])
+    expect(await processContexts([context])).toEqual([])
+    expect(mockDbSelect).not.toHaveBeenCalled()
+  })
+
+  it('omits oversized past-chat context without truncating it into success', async () => {
+    mockReadNativeThreadHistory.mockResolvedValueOnce([
+      {
+        role: 'user',
+        parts: [{ type: 'text', text: 'x'.repeat(MAX_COPILOT_CONTEXT_BYTES_PER_ITEM + 1) }],
+      },
+    ])
+    expect(
+      await processContexts([
+        { kind: 'past_chat', threadId: 'past-thread', workspaceId: null, label: 'Past' },
+      ])
+    ).toEqual([])
   })
 
   it('expands block contexts through the canonical blockTypes path', async () => {
@@ -240,7 +350,7 @@ describe('processContextsServer', () => {
       expect(result).toEqual([
         {
           type: context.kind,
-          tag: `@${entityId}`,
+          tag: `@${label}`,
           content: JSON.stringify({ entityId }, null, 2),
         },
       ])
@@ -444,5 +554,163 @@ describe('processContextsServer', () => {
     await expect(
       processContexts([buildMonitorContext()], 'workspace-1', { signal: controller.signal })
     ).rejects.toMatchObject({ name: 'AbortError', message: 'Aborted' })
+  })
+
+  describe('explicit docs through the real authenticated docs tool', () => {
+    // Only storage/config/embedding are controlled seams. The docs tool is NOT mocked.
+    const indexed = { chunkId: 'docs-indexed' }
+    const vectorRow = {
+      chunkId: 'docs-chunk',
+      chunkText: 'Actual source-tool projected documentation',
+      sourceDocument: 'source-test-document',
+      sourceLink: 'https://docs.example.test/cancellation',
+      headerText: 'Cancellation',
+      headerLevel: 2,
+      similarity: 0.9,
+    }
+    const expectedResult = {
+      id: 1,
+      title: 'Cancellation',
+      url: vectorRow.sourceLink,
+      content: vectorRow.chunkText,
+      similarity: 0.9,
+    }
+    function docsContext(): ChatContext {
+      return { kind: 'docs', label: 'Docs' }
+    }
+    function seedIndexedDocs() {
+      mockLogRowsQueue.push([indexed], [vectorRow])
+    }
+    it.each([undefined, 'trusted-workspace'])(
+      'forwards the trusted actor, %j scope and exact signal; ignores caller context scope',
+      async (workspaceId) => {
+        seedIndexedDocs()
+        const ctx = Object.assign(docsContext(), {
+          userId: 'forged-actor',
+          workspaceId: 'forged-workspace',
+          nativeReviewBinding: 'forged-marker',
+          financialSource: { namespace: 'forged-root', accepted: true },
+        })
+        const signal = new AbortController().signal
+        const { processContextsServer } = await import('./process-contents')
+        const result = await processContextsServer(
+          [ctx],
+          'user-1',
+          '@Docs How do I cancel?',
+          workspaceId,
+          { signal }
+        )
+        expect(mockGenerateSearchEmbedding).toHaveBeenCalledExactlyOnceWith('How do I cancel?', {
+          actorUserId: 'user-1',
+          workspaceId,
+          signal,
+        })
+        expect(mockGenerateSearchEmbedding.mock.calls[0][1]).not.toHaveProperty(
+          'nativeReviewBinding'
+        )
+        expect(mockGenerateSearchEmbedding.mock.calls[0][1]).not.toHaveProperty('financialSource')
+        expect(mockSelectChain.limit).toHaveBeenNthCalledWith(1, 1)
+        expect(mockSelectChain.limit).toHaveBeenNthCalledWith(2, 10)
+        expect(result).toEqual([
+          { type: 'docs', tag: '@Docs', content: JSON.stringify([expectedResult]) },
+        ])
+      }
+    )
+    it('deduplicates explicit docs instead of repeating embedding work', async () => {
+      seedIndexedDocs()
+      const result = await processContexts([docsContext(), docsContext()], 'workspace-1')
+      expect(result).toHaveLength(1)
+      expect(mockGenerateSearchEmbedding).toHaveBeenCalledOnce()
+      expect(mockDbSelect).toHaveBeenCalledTimes(2)
+    })
+    it('does not search without docs and preserves a genuine empty index without embedding', async () => {
+      expect(await processContexts([])).toEqual([])
+      expect(mockDbSelect).not.toHaveBeenCalled()
+      expect(mockGenerateSearchEmbedding).not.toHaveBeenCalled()
+      expect(await processContexts([docsContext()])).toEqual([
+        { type: 'docs', tag: '@Docs', content: '[]' },
+      ])
+      expect(mockDbSelect).toHaveBeenCalledOnce()
+      expect(mockGenerateSearchEmbedding).not.toHaveBeenCalled()
+    })
+    it('refuses a missing authenticated actor before index or embedding contact', async () => {
+      const { processContextsServer } = await import('./process-contents')
+      expect(await processContextsServer([docsContext()], '', 'docs')).toEqual([])
+      expect(mockDbSelect).not.toHaveBeenCalled()
+      expect(mockGenerateSearchEmbedding).not.toHaveBeenCalled()
+      expect(mockContextError).toHaveBeenCalledWith(
+        'Failed processing context (server)',
+        expect.objectContaining({
+          error: expect.objectContaining({ message: 'Authenticated embedding actor is required' }),
+        })
+      )
+    })
+    it('pre-abort prevents index and embedding contact', async () => {
+      const controller = new AbortController()
+      controller.abort()
+      await expect(
+        processContexts([docsContext()], undefined, { signal: controller.signal })
+      ).rejects.toMatchObject({ name: 'AbortError' })
+      expect(mockDbSelect).not.toHaveBeenCalled()
+      expect(mockGenerateSearchEmbedding).not.toHaveBeenCalled()
+    })
+    it('mid-embedding cancellation escapes the per-context catch with no retry', async () => {
+      mockLogRowsQueue.push([indexed])
+      const controller = new AbortController()
+      mockGenerateSearchEmbedding.mockImplementationOnce(async (_query, context) => {
+        expect(context.signal).toBe(controller.signal)
+        controller.abort()
+        const error = new Error('Aborted')
+        error.name = 'AbortError'
+        throw error
+      })
+      await expect(
+        processContexts([docsContext()], 'workspace-1', { signal: controller.signal })
+      ).rejects.toMatchObject({ name: 'AbortError' })
+      expect(mockGenerateSearchEmbedding).toHaveBeenCalledOnce()
+      expect(mockDbSelect).toHaveBeenCalledOnce()
+    })
+    it('post-search cancellation refuses context delivery after completed embedding', async () => {
+      const controller = new AbortController()
+      mockSelectChain.limit.mockResolvedValueOnce([indexed]).mockImplementationOnce(async () => {
+        controller.abort()
+        return [vectorRow]
+      })
+      await expect(
+        processContexts([docsContext()], 'workspace-1', { signal: controller.signal })
+      ).rejects.toMatchObject({ name: 'AbortError' })
+      expect(mockGenerateSearchEmbedding).toHaveBeenCalledOnce()
+      expect(mockDbSelect).toHaveBeenCalledTimes(2)
+    })
+    it('retains ordinary refusal log/skip behavior without retry or invented results', async () => {
+      mockLogRowsQueue.push([indexed])
+      const denial = new Error('Original embedding financial admission denied')
+      mockGenerateSearchEmbedding.mockRejectedValueOnce(denial)
+      expect(await processContexts([docsContext()], 'workspace-1')).toEqual([])
+      expect(mockGenerateSearchEmbedding).toHaveBeenCalledOnce()
+      expect(mockDbSelect).toHaveBeenCalledOnce()
+      expect(mockContextError).toHaveBeenCalledWith(
+        'Failed processing context (server)',
+        expect.objectContaining({ error: denial })
+      )
+    })
+    it('preserves real docs-tool completed embedding accounting on later vector failure', async () => {
+      const failure = new Error('Controlled vector read failed after embedding')
+      mockSelectChain.limit.mockResolvedValueOnce([indexed]).mockRejectedValueOnce(failure)
+      expect(await processContexts([docsContext()], 'workspace-1')).toEqual([])
+      expect(mockGenerateSearchEmbedding).toHaveBeenCalledOnce()
+      expect(mockContextError).toHaveBeenCalledWith(
+        'Failed processing context (server)',
+        expect.objectContaining({
+          error: expect.objectContaining({
+            model: 'source-test/embedding',
+            tokens: { prompt: 12, total: 12 },
+            cost: { status: 'unavailable' },
+            embeddingUsage: { status: 'reported', batches: 1 },
+            completedEmbeddings: [[0.25, 0.5]],
+          }),
+        })
+      )
+    })
   })
 })

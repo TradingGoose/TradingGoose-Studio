@@ -20,6 +20,9 @@ const mockUseCopilotStoreState = {
   accessLevel: 'limited' as 'limited' | 'full',
   executeCopilotToolCall: vi.fn(),
   skipCopilotToolCall: vi.fn(),
+  authorizeToolWorkspace: vi.fn(),
+  readbackCopilotToolCall: vi.fn(),
+  recordToolFailure: vi.fn(),
   toolCallsById: {},
 }
 
@@ -49,12 +52,15 @@ vi.mock('@/stores/copilot/store', () => ({
 vi.mock('@/stores/copilot/tool-registry', () => ({
   getCopilotToolMetadata: () => undefined,
   getToolInterruptDisplays: (...args: any[]) => mockGetToolInterruptDisplays(...args),
-  isCopilotTool: () => true,
+  isServerManagedCopilotTool: (name: string) =>
+    ![
+      'run_workflow',
+      'deploy_workflow',
+      'oauth_request_access',
+      'gdrive_request_access',
+      'sleep',
+    ].includes(name),
   isGatedTool: (name: string) => name !== 'edit_workflow' && name !== 'edit_workflow_block',
-}))
-
-vi.mock('@/lib/copilot/tools/client/manager', () => ({
-  getClientTool: () => undefined,
 }))
 
 vi.mock(
@@ -82,6 +88,9 @@ describe('InlineToolCall', () => {
     mockGetToolInterruptDisplays.mockReset()
     mockUseCopilotStoreState.executeCopilotToolCall.mockReset()
     mockUseCopilotStoreState.skipCopilotToolCall.mockReset()
+    mockUseCopilotStoreState.authorizeToolWorkspace.mockReset()
+    mockUseCopilotStoreState.readbackCopilotToolCall.mockReset()
+    mockUseCopilotStoreState.recordToolFailure.mockReset()
     mockUseCopilotStoreState.accessLevel = 'limited'
     mockUseCopilotStoreState.toolCallsById = {}
     container = document.createElement('div')
@@ -94,7 +103,20 @@ describe('InlineToolCall', () => {
       root.unmount()
     })
     container.remove()
+    vi.unstubAllGlobals()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
+  })
+
+  it('does not offer a display-only background action for a running workflow', async () => {
+    await act(async () =>
+      renderLocalized(
+        { id: 'running-workflow', name: 'run_workflow', state: ClientToolCallState.executing },
+        'en'
+      )
+    )
+    expect(container.querySelector('button[title="Move to Background"]')).toBeNull()
+    expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
+    expect(mockUseCopilotStoreState.readbackCopilotToolCall).not.toHaveBeenCalled()
   })
 
   it('renders a workflow review preview card for staged edit_workflow results', async () => {
@@ -105,7 +127,9 @@ describe('InlineToolCall', () => {
             id: 'tool-review-preview',
             name: 'edit_workflow',
             state: ClientToolCallState.review,
+            pending: { stage: 'result' } as any,
             result: {
+              requiresReview: true,
               workflowState: {
                 blocks: {
                   'trigger-1': {
@@ -240,6 +264,7 @@ describe('InlineToolCall', () => {
             id: 'tool-block-review',
             name: 'edit_workflow_block',
             state: ClientToolCallState.review,
+            pending: { stage: 'result' } as any,
             params: {
               workflowId: 'wf-1',
               blockId: 'fn1',
@@ -251,6 +276,7 @@ describe('InlineToolCall', () => {
               },
             },
             result: {
+              requiresReview: true,
               workflowState: {
                 blocks: {
                   fn1: {
@@ -288,6 +314,8 @@ describe('InlineToolCall', () => {
         id: toolCallId,
         name: 'edit_workflow',
         state: ClientToolCallState.review,
+        pending: { stage: 'result' } as any,
+        result: { requiresReview: true },
       },
     }
 
@@ -313,6 +341,7 @@ describe('InlineToolCall', () => {
             id: 'tool-pending-api',
             name: 'make_api_request',
             state: ClientToolCallState.pending,
+            pending: { stage: 'result' } as any,
           }}
         />
       )
@@ -336,7 +365,9 @@ describe('InlineToolCall', () => {
             id: 'tool-skill-review',
             name: 'edit_skill',
             state: ClientToolCallState.review,
+            pending: { stage: 'result' } as any,
             result: {
+              requiresReview: true,
               entityKind: 'skill',
               entityName: 'Updated skill',
               preview: {
@@ -373,7 +404,7 @@ describe('InlineToolCall', () => {
     expect(container.textContent).toContain('Original instructions')
     expect(container.textContent).toContain('Updated instructions')
     expect(container.textContent).toContain('Accept changes')
-    expect(container.textContent).toContain('Reject changes')
+    expect(container.textContent).toContain('Reject')
   })
 
   it.each([
@@ -557,4 +588,155 @@ describe('InlineToolCall', () => {
       expect(container.textContent).toContain('watchlist-1')
     }
   )
+
+  const oauthCall = (stage: 'approval' | 'result' = 'result'): CopilotToolCall => ({
+    id: 'oauth-access-call',
+    name: 'oauth_request_access',
+    state: ClientToolCallState.pending,
+    params: { providerName: 'Google Drive' },
+    pending: {
+      target: {
+        threadId: 'original-thread',
+        resourceId: 'original-resource',
+        runId: 'original-run',
+        toolCallId: 'oauth-access-call',
+        toolName: 'oauth_request_access',
+      },
+      stage,
+      originalArgs: { providerName: 'Google Drive' },
+    },
+  })
+
+  it('renders the OAuth workspace card with one separate Connect action and no duplicate ordinary accept', async () => {
+    mockGetToolInterruptDisplays.mockReturnValue({
+      accept: { text: 'Connect' },
+      reject: { text: 'Skip' },
+    })
+    const value = oauthCall()
+    const copy = getPublicCopy('en').workspace.widgets.copilot.driveChoice
+    mockUseCopilotStoreState.authorizeToolWorkspace.mockImplementation(
+      async (_id: string, workspaceId: string) => workspaceId
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ workspaces: [{ id: 'business-b', name: 'Business B' }] }))
+    )
+    await act(async () => renderLocalized(value, 'en'))
+    expect(container.textContent).toContain(copy.oauthTitle)
+    expect(container.textContent).toContain(copy.oauthNewChoice)
+    expect(container.querySelector('select')!.value).toBe('')
+    expect(
+      Array.from(container.querySelectorAll('button')).map((button) => button.textContent)
+    ).toEqual([])
+    expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
+    await act(async () => {
+      const select = container.querySelector('select')!
+      select.value = 'business-b'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    const buttons = Array.from(container.querySelectorAll('button'))
+    expect(buttons.filter((button) => button.textContent === copy.connect)).toHaveLength(1)
+    expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
+    await act(async () => buttons.find((button) => button.textContent === copy.connect)!.click())
+    expect(mockUseCopilotStoreState.executeCopilotToolCall).toHaveBeenCalledExactlyOnceWith(
+      value.id
+    )
+    expect(mockUseCopilotStoreState.readbackCopilotToolCall).not.toHaveBeenCalled()
+    expect(value.pending?.originalArgs).toEqual({ providerName: 'Google Drive' })
+    expect(value.pending).not.toHaveProperty('financialBinding')
+  })
+
+  it('keeps native approval separate from the OAuth result-stage workspace card', async () => {
+    mockGetToolInterruptDisplays.mockReturnValue({
+      accept: { text: 'Connect' },
+      reject: { text: 'Skip' },
+    })
+    vi.stubGlobal('fetch', vi.fn())
+    const value = oauthCall('approval')
+    await act(async () => renderLocalized(value, 'en'))
+    expect(container.querySelector('fieldset')).toBeNull()
+    expect(container.textContent).toContain('Allow')
+    expect(container.textContent).not.toContain('Connect')
+    expect(fetch).not.toHaveBeenCalled()
+    const allow = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Allow'
+    )!
+    await act(async () => allow.click())
+    expect(mockUseCopilotStoreState.executeCopilotToolCall).toHaveBeenCalledExactlyOnceWith(
+      value.id
+    )
+    expect(mockUseCopilotStoreState.authorizeToolWorkspace).not.toHaveBeenCalled()
+  })
+
+  it.each(['historical', 'success', 'opened', 'opened-ack-error'] as const)(
+    'offers no OAuth card or Connect replay for %s',
+    async (kind) => {
+      mockGetToolInterruptDisplays.mockReturnValue({
+        accept: { text: 'Connect' },
+        reject: { text: 'Skip' },
+      })
+      vi.stubGlobal('fetch', vi.fn())
+      const value = oauthCall()
+      if (kind === 'historical') value.historical = true
+      if (kind === 'success') value.state = ClientToolCallState.success
+      if (kind === 'opened' || kind === 'opened-ack-error') value.result = { opened: true }
+      if (kind === 'opened-ack-error') value.state = ClientToolCallState.error
+      await act(async () => renderLocalized(value, 'en'))
+      expect(container.querySelector('fieldset')).toBeNull()
+      expect(
+        Array.from(container.querySelectorAll('button')).some(
+          (button) => button.textContent === 'Connect'
+        )
+      ).toBe(false)
+      expect(fetch).not.toHaveBeenCalled()
+      expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
+    }
+  )
+  it('serializes both review buttons immediately and never reports a failed Reject as terminal', async () => {
+    let release!: () => void
+    const pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mockUseCopilotStoreState.skipCopilotToolCall.mockImplementation(async () => {
+      await pending
+      throw new Error('decision acknowledgement lost')
+    })
+    const value: CopilotToolCall = {
+      id: 'decision',
+      name: 'edit_workflow',
+      state: ClientToolCallState.review,
+      pending: { stage: 'result' } as any,
+      result: { requiresReview: true },
+    }
+    await act(async () => root.render(<InlineToolCall toolCall={value} />))
+    const reject = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Reject'
+    )!
+    const accept = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Accept'
+    )!
+    await act(async () => {
+      reject.click()
+      reject.click()
+      accept.click()
+    })
+    expect(mockUseCopilotStoreState.skipCopilotToolCall).toHaveBeenCalledExactlyOnceWith('decision')
+    expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
+    expect(reject.disabled).toBe(true)
+    await act(async () => release())
+    expect(reject.disabled).toBe(false)
+    expect(container.textContent).not.toContain('Changes were rejected.')
+  })
+  it('renders a known rejection without a browser result-delivery action', async () => {
+    const value: CopilotToolCall = {
+      id: 'retained',
+      name: 'edit_workflow',
+      state: ClientToolCallState.rejected,
+      result: { success: false, rejected: true, toolName: 'edit_workflow' },
+    }
+    await act(async () => root.render(<InlineToolCall toolCall={value} />))
+    expect(container.textContent).not.toContain('Retry result delivery')
+    expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
+    expect(mockUseCopilotStoreState.skipCopilotToolCall).not.toHaveBeenCalled()
+  })
 })

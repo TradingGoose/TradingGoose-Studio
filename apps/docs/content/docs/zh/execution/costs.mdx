@@ -5,41 +5,25 @@ title: 费用计算
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 
-TradingGoose 计量工作流执行、模型使用量以及 Function/自定义工具运行时间。费用根据工作区用户或组织账单负责人的计费配置和生效层级计算。
+TradingGoose 向已授权工作区的用户或组织账单负责人计费。工作流、Copilot 和独立模型调用共用 Studio 的用量账本和计费限制。
 
-## 费用如何计算
+## 实际计入的费用
 
-启用计费时，用量可包含三类费用：
+- **工作流执行**：将配置的基础费用和层级执行倍率与模型费用和层级模型倍率相结合。重复结算仅增加新完成的用量。子工作流单独结算。
+- **Function 和自定义工具运行**：使用配置的每秒费用和层级 Function 倍率，乘以实际运行毫秒数再除以 1000。已接触运行环境的尝试即使代码失败，也可能产生这项费用。
+- **模型和嵌入工作**：以报告的 token 用量和 models.dev 公布的标准价格为基础，BYOK 模型估算也使用这些价格，仅用于报告，不会扣除 Studio 的模型用量余额。直接使用账户余额调用模型时，美元报告和助手记录包含适用的 Studio 订阅层级倍率，并与实际计入的费用一致。工作流步骤在结算前保留标准估算；最终执行总额只对 Studio 支付的模型用量应用一次保存的计费报价，现有执行费用不变。
 
-- **执行费用**：配置的工作流费用乘以层级执行乘数，以该次执行保存的计费报价为准。
-- **AI 模型使用量**：每个执行跨度记录的提供商模型费用乘以该报价中保存的层级模型费用乘数。
-- **Function 运行费用**：配置的每秒 Function 费用乘以运行秒数和当前层级的 Function 执行乘数。Function/自定义工具运行费用单独累计，运行后失败的尝试也可能计费。
-
-```javascript
-executionCost = configuredWorkflowCharge * tierWorkflowExecutionMultiplier
-adjustedModelCost = recordedModelCost * tierWorkflowModelCostMultiplier
-workflowLogSubtotal = executionCost + sum(adjustedModelCost)
-functionCost = (executionTimeMs / 1000) * configuredFunctionChargePerSecond * tierFunctionExecutionMultiplier
-totalMeteredCost = workflowLogSubtotal + sum(functionCost)
-```
-
-此公式用于说明计算方式。每次 Function 运行费用保留六位小数。工作流日志的费用总额是执行与模型费用小计；单独累计的 Function 费用也会计入账单负责人的用量。它不是 AI 模型费用，无 AI 的工作流也可能产生此项费用。
-
-保存人工参与检查点时，已完成的模型工作会计入用量。恢复或取消执行不会对同一工作重复收费：同一次逻辑执行会复用已保存的执行与模型计费报价，基础执行费用只收取一次。子工作流的费用计入其自身日志，不会通过父工作流的嵌套追踪再次收费。
+用量检查在联系模型之前执行。如果无法完成计费，请求可能在生成之后失败。
 
 <Callout type="info">
-  如果某次执行首次保存计费报价时计费已禁用，其基础执行费用为零，记录的模型费用按乘数 1 计算。禁用计费期间不累计额外的工作流或 Function 计费用量，也不会改写此前保存的报价。费用和乘数应以计费配置为准，而不是本指南中的固定值。
+  费用区分估算、部分和不可用的金额。公布的零价格与缺失价格不同。未知费用不会被显示为已知的零费用。
 </Callout>
 
-## 日志中的模型明细
+## 用量与重新加载的历史
 
-对于使用 AI 模块的工作流，你可以在日志中查看详细的费用信息：
+提供商报告的输入、输出和总 token 数量仍为可选项。费用估算考虑已报告的 token 类别，包括缓存和推理 token，以及适用的上下文价格层级。
 
-日志详情侧边栏包含一个模型明细部分，显示：
-- **Token 使用量**：每个模型的输入和输出 token 数量
-- **费用明细**：每个模型的输入、输出和总费用
-- **使用的模型**：哪些模型计入了执行费用
-- **总费用**：日志中的执行/模型费用小计；单独累计的 Function 运行费用请在用量中查看
+Copilot 对话和 Workflow Agent 历史共用 Studio 数据库中的 Mastra 存储。重新加载后保留消息内容、工具调用及结果，以及助手消息已提供的用量和费用元数据。工作流 Records 汇总已知的模型和工具费用；不完整的覆盖仍标记为部分或不可用。请在**设置 → 订阅**中查看当前周期实际计入的用量。
 
 ## 价格与限制
 
@@ -60,9 +44,6 @@ totalMeteredCost = workflowLogSubtotal + sum(functionCost)
     结构良好、简洁的提示词可减少 token 用量，同时不牺牲质量。
   </Accordion>
 
-  <Accordion title="本地模型">
-    适合使用本地模型时，请使用 Ollama，以避免外部模型服务商的费用。工作流执行费用仍可能产生。
-  </Accordion>
 
   <Accordion title="缓存与复用">
     在一次运行中复用上游输出或工作流变量，而不是重复调用 AI 模型。
@@ -101,6 +82,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 ```
 
 **示例响应：**
+
+`currentPeriodCost` 和金额用量 `limit` 是以美元为单位的 JSON 数值。无上限用量以 `9007199254740991`（`Number.MAX_SAFE_INTEGER`）表示。层级价格和额度为数值，未配置时可为 `null`；计费倍率为数值。
 
 ```jsonc
 {

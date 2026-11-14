@@ -31,7 +31,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     <strong>获取全部记忆</strong>: 获取当前工作流最多 50 条记忆记录
   </Step>
   <Step>
-    <strong>删除记忆</strong>：按 ID 删除记忆条目
+    <strong>删除记忆</strong>：删除所选 ID 对话中的全部消息
   </Step>
 </Steps>
 
@@ -68,7 +68,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     返回当前工作流最多 50 条记忆记录。该块不提供分页，因此不能用来导出完整历史。
   </Tab>
   <Tab>
-    按 ID 删除记忆条目。
+    删除所选 ID 下的全部消息。删除成功后，Get Memory 将找不到该 ID，Get All 也不再列出它。下次 Add Memory 可以用同一 ID 重新创建对话。空字符串消息仍然是一条已存储的消息，不代表空对话。
 
     | 字段 | 必填 | 描述 |
     |---|---|---|
@@ -140,7 +140,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 |---|---|
 | Get Memory | `memories`：所选 ID 的消息数组；`message`：状态文本 |
 | Get All Memories | `memories`：最多 50 条 `{ key, type, data }` 记录；`message`：状态文本 |
-| Delete Memory | `message`：删除确认 |
+| Delete Memory | `message`：删除确认或错误信息 |
 | Add Memory | `memories`：追加消息后的对话消息数组 |
 
 Get All Memories 不返回一个扁平消息数组。将对话用作 Agent 记忆前，请先选择所需记录的 `data`。输出顶层不包含单独的 `id`。
@@ -148,4 +148,4 @@ Get All Memories 不返回一个扁平消息数组。将对话用作 Agent 记�
 ## 最佳实践
 
 - **使用一致的 ID** -- 记忆 ID 是将消息分组为对话的键。使用稳定的标识符（例如用户 ID 或会话 ID），以便记忆在多次运行中正确累积。
-- **需要时清理** -- 使用删除操作清除陈旧的对话，并防止记忆无限增长。
+- **确认操作结果** -- 删除成功后，对话将不再出现。如果操作报错或超时，请先读取当前状态，不要假定操作已经回滚。

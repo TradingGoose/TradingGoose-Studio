@@ -13,14 +13,46 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 
 describe('review target identity helpers', () => {
+  it('refuses retired conversation review transport before document lookup', () => {
+    expect(() =>
+      parseYjsTransportEnvelope({
+        targetKind: 'review_session',
+        sessionId: 'old-conversation',
+        entityKind: 'skill',
+        workspaceId: 'ws-1',
+      })
+    ).toThrow('Invalid or missing Yjs target kind')
+    for (const field of ['reviewSessionId', 'draftSessionId']) {
+      expect(() =>
+        parseYjsTransportEnvelope({
+          targetKind: 'entity',
+          sessionId: 'skill-1',
+          entityId: 'skill-1',
+          entityKind: 'skill',
+          workspaceId: 'ws-1',
+          [field]: 'old-conversation',
+        })
+      ).toThrow('Yjs transport does not accept conversation review fields')
+    }
+  })
+
+  it('refuses an entityless descriptor instead of creating a conversation target', () => {
+    expect(() =>
+      buildYjsTransportEnvelope({
+        entityId: null,
+        entityKind: 'skill',
+        workspaceId: 'ws-1',
+        yjsSessionId: 'old-conversation',
+      })
+    ).toThrow('Saved entity Yjs descriptor requires entityId')
+  })
+
   it('round-trips saved-entity transport envelopes through entityId', () => {
     const descriptor = {
       workspaceId: 'ws-1',
       entityKind: 'skill' as const,
       entityId: 'skill-1',
       ownerUserId: null,
-      draftSessionId: null,
-      reviewSessionId: null,
       yjsSessionId: 'skill-1',
     }
 
@@ -35,8 +67,6 @@ describe('review target identity helpers', () => {
       entityKind: 'workflow' as const,
       entityId: 'workflow-1',
       ownerUserId: null,
-      draftSessionId: null,
-      reviewSessionId: null,
       yjsSessionId: 'workflow-1',
     }
 
@@ -44,12 +74,10 @@ describe('review target identity helpers', () => {
     expect(envelope).toEqual({
       targetKind: 'entity',
       sessionId: 'workflow-1',
-      reviewSessionId: null,
       workspaceId: 'ws-1',
       ownerUserId: null,
       entityKind: 'workflow',
       entityId: 'workflow-1',
-      draftSessionId: null,
     })
     expect(buildReviewTargetDescriptorFromEnvelope(envelope)).toEqual(descriptor)
   })

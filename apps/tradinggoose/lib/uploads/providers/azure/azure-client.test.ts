@@ -34,7 +34,7 @@ describe('Azure Storage Client', () => {
     mockGetBlockBlobClient.mockReturnValue({
       upload: mockUpload,
       download: mockDownload,
-      delete: mockDelete,
+      deleteIfExists: mockDelete,
       url: 'https://test.blob.core.windows.net/container/test-file',
     })
 
@@ -182,6 +182,14 @@ describe('Azure Storage Client', () => {
 
       expect(mockGetBlockBlobClient).toHaveBeenCalledWith(testKey)
       expect(mockDelete).toHaveBeenCalled()
+    })
+
+    it('accepts already deleted blobs and propagates storage failures for retry', async () => {
+      const { deleteFromAzure } = await import('@/lib/uploads/providers/azure/azure-client')
+      mockDelete.mockResolvedValueOnce({ succeeded: false })
+      await expect(deleteFromAzure('deleted-file')).resolves.toBeUndefined()
+      mockDelete.mockRejectedValueOnce(new Error('Network unavailable'))
+      await expect(deleteFromAzure('pending-file')).rejects.toThrow('Network unavailable')
     })
   })
 

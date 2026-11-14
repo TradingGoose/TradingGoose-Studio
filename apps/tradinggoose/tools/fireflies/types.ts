@@ -135,6 +135,7 @@ export interface FirefliesGetUserParams {
 
 export interface FirefliesUploadAudioParams {
   apiKey: string
+  _context?: { userId?: string }
   audioUrl?: string
   audioFile?: {
     url?: string

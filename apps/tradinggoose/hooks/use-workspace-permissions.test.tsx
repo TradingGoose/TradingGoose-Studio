@@ -14,6 +14,7 @@ const mockHandleAuthError = vi.hoisted(() => vi.fn())
 let latestValue: ReturnType<typeof useWorkspacePermissions> | null = null
 let workspaceId = 'workspace-401'
 let userId = 'user-1'
+let requireFresh = false
 
 vi.mock('@/lib/auth/auth-error-handler', () => ({
   handleAuthError: mockHandleAuthError,
@@ -25,7 +26,7 @@ vi.mock('@/i18n/navigation', () => ({
 }))
 
 function WorkspacePermissionsProbe() {
-  latestValue = useWorkspacePermissions(workspaceId, userId)
+  latestValue = useWorkspacePermissions(workspaceId, userId, { requireFresh })
   return null
 }
 
@@ -41,6 +42,7 @@ describe('useWorkspacePermissions', () => {
     latestValue = null
     workspaceId = 'workspace-401'
     userId = 'user-1'
+    requireFresh = false
     mockHandleAuthError.mockResolvedValue(undefined)
     vi.stubGlobal(
       'fetch',
@@ -176,5 +178,72 @@ describe('useWorkspacePermissions', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(latestValue?.permissions?.currentUserPermission).toBe('read')
+  })
+  it('blocks a fresh mount over a cached positive until its own real refresh settles', async () => {
+    const admin = { users: [], total: 0, currentUserPermission: 'admin' }
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json(admin))
+    await act(async () => root.render(<WorkspacePermissionsProbe />))
+    expect(latestValue?.permissions).toEqual(admin)
+    act(() => root.unmount())
+    root = createRoot(container)
+    let finish!: (value: Response) => void
+    vi.mocked(fetch).mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        finish = resolve
+      })
+    )
+    requireFresh = true
+    await act(async () => root.render(<WorkspacePermissionsProbe />))
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(latestValue?.loading).toBe(true)
+    await act(async () => finish(new Response(null, { status: 403, statusText: 'Forbidden' })))
+    expect(latestValue?.loading).toBe(false)
+    expect(latestValue?.error).toContain('Forbidden')
+    expect(mockHandleAuthError).not.toHaveBeenCalled()
+  })
+
+  it('serializes simultaneous forced reads after an older in-flight positive', async () => {
+    const finishes: Array<(value: Response) => void> = []
+    vi.mocked(fetch).mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          finishes.push(resolve)
+        })
+    )
+    await act(async () => root.render(<WorkspacePermissionsProbe />))
+    let first!: Promise<void>
+    let second!: Promise<void>
+    act(() => {
+      first = latestValue!.refetch()
+      second = latestValue!.refetch()
+    })
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await act(async () =>
+      finishes[0](Response.json({ users: [], total: 0, currentUserPermission: 'admin' }))
+    )
+    expect(fetch).toHaveBeenCalledTimes(2)
+    await act(async () => finishes[1](new Response(null, { status: 403, statusText: 'Forbidden' })))
+    expect(fetch).toHaveBeenCalledTimes(3)
+    await act(async () => {
+      finishes[2](new Response(null, { status: 404, statusText: 'Not Found' }))
+      await Promise.all([first, second])
+    })
+    expect(latestValue?.loading).toBe(false)
+    expect(latestValue?.error).toContain('access denied')
+  })
+
+  it('releases the existing in-flight slot after a synchronous transport failure', async () => {
+    vi.mocked(fetch).mockImplementationOnce(() => {
+      throw new Error('Synchronous source failure')
+    })
+    await act(async () => root.render(<WorkspacePermissionsProbe />))
+    expect(latestValue?.error).toBe('Synchronous source failure')
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({ users: [], total: 0, currentUserPermission: 'admin' })
+    )
+    await act(async () => latestValue!.refetch())
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(latestValue?.permissions?.currentUserPermission).toBe('admin')
+    expect(latestValue?.error).toBeNull()
   })
 })

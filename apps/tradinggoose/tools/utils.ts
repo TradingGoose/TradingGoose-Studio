@@ -2,13 +2,10 @@ import {
   getCustomToolEntityIdFromRuntimeId,
   isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
-import { createLogger } from '@/lib/logs/console/logger'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { tools } from '@/tools/registry'
-import type { TableRow, ToolConfig, ToolResponse } from '@/tools/types'
-
-const logger = createLogger('ToolsUtils')
+import type { TableRow, ToolConfig } from '@/tools/types'
 
 /**
  * Transforms a table from the store format to a key-value object
@@ -45,22 +42,23 @@ interface RequestParams {
 /**
  * Format request parameters based on tool configuration and provided params
  */
-export function formatRequestParams(tool: ToolConfig, params: Record<string, any>): RequestParams {
+export async function formatRequestParams(
+  tool: ToolConfig,
+  params: Record<string, any>
+): Promise<RequestParams> {
   // Process URL
   const url = typeof tool.request.url === 'function' ? tool.request.url(params) : tool.request.url
 
   // Process method
   const method =
-    typeof tool.request.method === 'function'
-      ? tool.request.method(params)
-      : params.method || tool.request.method || 'GET'
+    typeof tool.request.method === 'function' ? tool.request.method(params) : tool.request.method
 
   // Process headers
   const headers = tool.request.headers ? tool.request.headers(params) : {}
 
   // Process body
   const hasBody = method !== 'GET' && method !== 'HEAD' && !!tool.request.body
-  const bodyResult = tool.request.body ? tool.request.body(params) : undefined
+  const bodyResult = await tool.request.body?.(params)
 
   // Special handling for NDJSON content type or 'application/x-www-form-urlencoded'
   const isPreformattedContent =
@@ -94,49 +92,6 @@ export function formatRequestParams(tool: ToolConfig, params: Record<string, any
       : undefined
 
   return { url, method, headers, body, timeout: validTimeout }
-}
-
-/**
- * Execute the actual request and transform the response
- */
-export async function executeRequest(
-  toolId: string,
-  tool: ToolConfig,
-  requestParams: RequestParams
-): Promise<ToolResponse> {
-  try {
-    const { url, method, headers, body } = requestParams
-
-    const externalResponse = await fetch(url, { method, headers, body })
-
-    if (!externalResponse.ok) {
-      let errorContent
-      try {
-        errorContent = await externalResponse.json()
-      } catch (_e) {
-        errorContent = { message: externalResponse.statusText }
-      }
-
-      const error = errorContent.message || `${toolId} API error: ${externalResponse.statusText}`
-      logger.error(`${toolId} error:`, { error })
-      throw new Error(error)
-    }
-
-    const transformResponse =
-      tool.transformResponse ||
-      (async (resp: Response) => ({
-        success: true,
-        output: await resp.json(),
-      }))
-
-    return await transformResponse(externalResponse)
-  } catch (error: any) {
-    return {
-      success: false,
-      output: {},
-      error: error.message || 'Unknown error',
-    }
-  }
 }
 
 /**
@@ -367,7 +322,7 @@ export function createToolConfig(
 
       return {
         success: true,
-        output: data.output.result || data.output,
+        output: data.output.result,
         error: undefined,
       }
     },

@@ -1,5 +1,3 @@
-export const AGENT_MODE_SYSTEM_PROMPT = `You are a helpful AI assistant for TradingGoose Studio, a powerful workflow automation platform.`
-
 export const TITLE_GENERATION_SYSTEM_PROMPT =
   'Generate a concise, descriptive chat title based on the user message.'
 

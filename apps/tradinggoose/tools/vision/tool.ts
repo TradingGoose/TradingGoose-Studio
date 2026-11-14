@@ -1,3 +1,4 @@
+import { withInferenceFacts } from '@/lib/mastra/result'
 import type { ToolConfig } from '@/tools/types'
 import type { VisionParams, VisionResponse } from '@/tools/vision/types'
 
@@ -7,11 +8,12 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
   description:
     'Process and analyze images using advanced vision models. Capable of understanding image content, extracting text, identifying objects, and providing detailed visual descriptions.',
   version: '1.0.0',
+  settlesModelUsage: true,
 
   params: {
     apiKey: {
       type: 'string',
-      required: true,
+      required: false,
       visibility: 'user-only',
       description: 'API key for the selected model provider',
     },
@@ -31,7 +33,7 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description: 'Vision model to use (gpt-4o, claude-3-opus-20240229, etc)',
+      description: 'Listed Mastra provider/model ID to use for image analysis',
     },
     prompt: {
       type: 'string',
@@ -52,7 +54,7 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
         apiKey: params.apiKey,
         imageUrl: params.imageUrl || null,
         imageFile: params.imageFile || null,
-        model: params.model || 'gpt-4o',
+        model: params.model || 'openai/gpt-4o',
         prompt: params.prompt || null,
       }
     },
@@ -60,12 +62,14 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
 
   transformResponse: async (response: Response) => {
     const data = await response.json()
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to analyze image')
-    }
     return {
       success: true,
-      output: data.output,
+      output: withInferenceFacts(data.output, {
+        model: data.output.model,
+        tokens: data.output.tokens,
+        cost: data.output.cost,
+        generatedFields: ['model', 'tokens', 'cost'],
+      }),
     }
   },
 
@@ -80,19 +84,14 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
       optional: true,
     },
     tokens: {
-      type: 'number',
-      description: 'Total tokens used for the analysis',
+      type: 'object',
+      description: 'Reported prompt, completion and total tokens',
       optional: true,
     },
-    usage: {
+    cost: {
       type: 'object',
-      description: 'Detailed token usage breakdown',
+      description: 'Reported or estimated model cost in USD, with availability status',
       optional: true,
-      properties: {
-        input_tokens: { type: 'number', description: 'Tokens used for input processing' },
-        output_tokens: { type: 'number', description: 'Tokens used for response generation' },
-        total_tokens: { type: 'number', description: 'Total tokens consumed' },
-      },
     },
   },
 }

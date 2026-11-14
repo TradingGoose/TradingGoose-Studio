@@ -349,8 +349,6 @@ export async function createSavedReviewTargetBootstrapUpdate(
       metadata.set('entityKind', descriptor.entityKind)
       metadata.set('entityId', descriptor.entityId)
       metadata.set('workspaceId', resolvedWorkspaceId)
-      metadata.set('draftSessionId', descriptor.draftSessionId)
-      metadata.set('reviewSessionId', descriptor.reviewSessionId)
     }
     const state = Y.encodeStateAsUpdate(doc)
 

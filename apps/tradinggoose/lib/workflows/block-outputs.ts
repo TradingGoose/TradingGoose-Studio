@@ -1,4 +1,5 @@
 import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
+import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
 import { getBlock } from '@/blocks'
 import { getTradingPortfolioOutputFields } from '@/providers/trading/providers'
 import { getTrigger } from '@/triggers'
@@ -11,7 +12,8 @@ import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 export function readBlockOutputs(
   blockType: string,
   subBlocks?: Record<string, any>,
-  triggerMode?: boolean
+  triggerMode?: boolean,
+  getModel?: Parameters<typeof evaluateSubBlockCondition>[2]
 ): Record<string, any> {
   const blockConfig = getBlock(blockType)
   if (!blockConfig) return {}
@@ -30,7 +32,16 @@ export function readBlockOutputs(
   // Start with the static outputs defined in the config
   let outputs = { ...(blockConfig.outputs || {}) }
 
-  if (blockType === 'agent') {
+  const responseFormatConfig = blockConfig.subBlocks?.find(({ id }) => id === 'responseFormat')
+  if (
+    blockType === 'agent' &&
+    responseFormatConfig &&
+    evaluateSubBlockCondition(
+      responseFormatConfig.condition,
+      (field) => subBlocks?.[field]?.value,
+      getModel
+    )
+  ) {
     const responseFormatValue = subBlocks?.responseFormat?.value
     if (responseFormatValue) {
       const parsed = parseResponseFormatSafely(responseFormatValue, 'agent')
@@ -84,9 +95,10 @@ export function readBlockOutputs(
 export function getBlockOutputPaths(
   blockType: string,
   subBlocks?: Record<string, any>,
-  triggerMode?: boolean
+  triggerMode?: boolean,
+  getModel?: Parameters<typeof evaluateSubBlockCondition>[2]
 ): string[] {
-  const outputs = readBlockOutputs(blockType, subBlocks, triggerMode)
+  const outputs = readBlockOutputs(blockType, subBlocks, triggerMode, getModel)
 
   // Recursively collect all paths from nested outputs
   const paths: string[] = []
@@ -145,7 +157,8 @@ export function getBlockOutputType(
   blockType: string,
   outputPath: string,
   subBlocks?: Record<string, any>,
-  triggerMode?: boolean
+  triggerMode?: boolean,
+  getModel?: Parameters<typeof evaluateSubBlockCondition>[2]
 ): string {
   if (blockType === 'portfolio_detail' && outputPath.startsWith('portfolioDetail.')) {
     return (
@@ -154,7 +167,7 @@ export function getBlockOutputType(
       ]?.type ?? 'any'
     )
   }
-  const outputs = readBlockOutputs(blockType, subBlocks, triggerMode)
+  const outputs = readBlockOutputs(blockType, subBlocks, triggerMode, getModel)
 
   const arrayIndexRegex = /\[(\d+)\]/g
   const cleanPath = outputPath.replace(arrayIndexRegex, '')

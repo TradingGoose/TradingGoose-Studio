@@ -55,60 +55,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         },
         {
             "id": "temperature",
-            "type": "slider",
+            "type": "short-input",
             "title": "Temperature",
             "layout": "half",
             "placeholder": "Use the provider default",
-            "min": 0,
-            "max": 1,
-            "step": 0.1,
-            "description": "Available in Additional Fields. Shown when model has a maximum temperature of 1."
+            "description": "Available in Additional Fields. Shown when model supports temperature."
         },
         {
-            "id": "temperature",
-            "type": "slider",
-            "title": "Temperature",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "min": 0,
-            "max": 1.5,
-            "step": 0.1,
-            "description": "Available in Additional Fields. Shown when model has a maximum temperature of 1.5."
-        },
-        {
-            "id": "temperature",
-            "type": "slider",
-            "title": "Temperature",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "min": 0,
-            "max": 2,
-            "step": 0.1,
-            "description": "Available in Additional Fields. Shown when model has a maximum temperature of 2."
-        },
-        {
-            "id": "reasoningEffort",
-            "type": "combobox",
-            "title": "Reasoning Effort",
-            "layout": "half",
-            "placeholder": "Auto (provider default)",
-            "description": "Available levels depend on the model. Unset or Auto uses the provider default. Available in Additional Fields. Shown when model supports reasoning effort."
-        },
-        {
-            "id": "verbosity",
-            "type": "combobox",
-            "title": "Verbosity",
-            "layout": "half",
-            "placeholder": "Auto (provider default)",
-            "description": "Available levels depend on the model. Unset or Auto uses the provider default. Available in Additional Fields. Shown when model supports verbosity."
-        },
-        {
-            "id": "thinkingLevel",
-            "type": "combobox",
-            "title": "Thinking Level",
-            "layout": "half",
-            "placeholder": "Auto (provider default)",
-            "description": "Available levels depend on the model. Unset or Auto uses the provider default. Available in Additional Fields. Shown when model supports thinking level."
+            "id": "providerOptions",
+            "type": "code",
+            "title": "Provider Options",
+            "layout": "full",
+            "placeholder": "Enter native provider options JSON...",
+            "description": "Mastra provider options JSON, keyed by provider namespace, including reasoning effort, thinking budgets, or toggles. Unset uses the provider default. Available in Additional Fields.",
+            "language": "json"
         },
         {
             "id": "maxTokens",
@@ -117,16 +77,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "half",
             "placeholder": "Use the provider default",
             "min": 1,
-            "description": "Available in Additional Fields. Shown when model is none of 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5-pro', 'gpt-5.5', 'gpt-5.4-pro', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.3-codex', 'gpt-5.2-pro', 'gpt-5.2', 'gpt-5.1', 'gpt-5-pro', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'chat-latest', 'o3-pro', 'azure/gpt-6.1-sol', 'azure/gpt-6-sol', 'azure/gpt-6-luna', 'azure/gpt-6-astra', 'azure/gpt-5.6-sol', 'azure/gpt-5.6-terra', 'azure/gpt-5.6-luna', 'azure/gpt-5.5', 'azure/gpt-5.4-pro', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano'."
+            "description": "Available in Additional Fields."
         },
         {
-            "id": "maxTokens",
+            "id": "maxSteps",
             "type": "short-input",
-            "title": "Max Output Tokens",
+            "title": "Max Steps",
             "layout": "half",
-            "placeholder": "Use the provider default",
-            "min": 16,
-            "description": "Available in Additional Fields. Shown when model is one of 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5-pro', 'gpt-5.5', 'gpt-5.4-pro', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.3-codex', 'gpt-5.2-pro', 'gpt-5.2', 'gpt-5.1', 'gpt-5-pro', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'chat-latest', 'o3-pro', 'azure/gpt-6.1-sol', 'azure/gpt-6-sol', 'azure/gpt-6-luna', 'azure/gpt-6-astra', 'azure/gpt-5.6-sol', 'azure/gpt-5.6-terra', 'azure/gpt-5.6-luna', 'azure/gpt-5.5', 'azure/gpt-5.4-pro', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano'."
+            "placeholder": "Use the default step budget",
+            "description": "Maximum model-generation steps, including tool-call rounds and the final answer. The last step disables tools and answers from available results. Unset uses the shared default step budget. An unfinished response still fails. Available in Additional Fields.",
+            "min": 1
         },
         {
             "id": "apiKey",
@@ -134,17 +94,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "API Key",
             "layout": "full",
             "placeholder": "Enter your API key",
-            "password": true,
-            "description": "Shown when applicable to the selected model at runtime."
-        },
-        {
-            "id": "azureEndpoint",
-            "type": "short-input",
-            "title": "Azure OpenAI Endpoint",
-            "layout": "full",
-            "placeholder": "https://your-resource.openai.azure.com",
-            "password": true,
-            "description": "Shown when model is one of 'azure/gpt-6.1-sol', 'azure/gpt-6-sol', 'azure/gpt-6-luna', 'azure/gpt-6-astra', 'azure/gpt-5.6-sol', 'azure/gpt-5.6-terra', 'azure/gpt-5.6-luna', 'azure/gpt-5.5', 'azure/gpt-5.4-pro', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano'."
+            "description": "Leave unset to use the configured Mastra connection.",
+            "password": true
         },
         {
             "id": "tools",
@@ -164,12 +115,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Response Format",
             "layout": "full",
             "placeholder": "Enter response format JSON...",
-            "description": "JSON object containing a JSON Schema in its schema field. Available in Additional Fields.",
+            "description": "JSON object containing a JSON Schema in its schema field. Available in Additional Fields. Shown when model supports structured output.",
             "language": "json"
         }
     ]}
   />
 </ShowcaseCard>
+
+## Tools
+
+### `llm_chat`
+
+Send a chat completion request to any supported LLM provider
+
+#### Input
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `model` | string | Yes | A listed Mastra provider/model identifier |
+| `systemPrompt` | string | No | System prompt to set the behavior of the assistant |
+| `context` | string | Yes | The user message or context to send to the model |
+| `temperature` | number | No | Temperature for response generation, where supported by the selected model |
+| `maxTokens` | number | No | Maximum tokens in the response |
+
+#### Output
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `content` | string | The generated response content |
+| `model` | string | The model used for generation |
+| `tokens` | object | Available native token usage |
+| `cost` | object | Reported or estimated model cost in USD, with availability status |
 
 ## Input
 
@@ -179,14 +155,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `userPrompt` | string | No | User message or context |
 | `memories` | json | No | Agent memory data |
 | `model` | string | Yes | AI model to use |
-| `apiKey` | string | No | Provider API key. Shown when applicable to the selected model at runtime. |
-| `azureEndpoint` | string | No | Azure OpenAI endpoint URL. Shown when model is one of 'azure/gpt-6.1-sol', 'azure/gpt-6-sol', 'azure/gpt-6-luna', 'azure/gpt-6-astra', 'azure/gpt-5.6-sol', 'azure/gpt-5.6-terra', 'azure/gpt-5.6-luna', 'azure/gpt-5.5', 'azure/gpt-5.4-pro', 'azure/gpt-5.4', 'azure/gpt-5.4-mini', 'azure/gpt-5.4-nano', 'azure/gpt-5.2', 'azure/gpt-5.1', 'azure/gpt-5.1-codex', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', 'azure/gpt-5-chat', 'azure/o3', 'azure/o4-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-mini', 'azure/gpt-4.1-nano'. |
-| `responseFormat` | json | No | JSON object containing a JSON Schema in its schema field |
-| `temperature` | number | No | Response randomness level |
+| `apiKey` | string | No | Provider API key |
+| `responseFormat` | json | No | JSON object containing a JSON Schema in its schema field. Shown when model supports structured output. |
+| `temperature` | number | No | Response randomness level. Shown when model supports temperature. |
 | `maxTokens` | number | No | Maximum output tokens |
-| `reasoningEffort` | string | No | Model-supported reasoning effort, or auto. Shown when model supports reasoning effort. |
-| `verbosity` | string | No | Model-supported response verbosity, or auto. Shown when model supports verbosity. |
-| `thinkingLevel` | string | No | Model-supported thinking level, or auto. Shown when model supports thinking level. |
+| `maxSteps` | number | No | Maximum model-generation steps, including the final answer |
+| `providerOptions` | json | No | Native provider options for the selected model |
 | `tools` | json | No | Available tools configuration |
 | `skills` | json | No | Selected skills configuration |
 
@@ -197,13 +171,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `content` | string | Generated response content |
 | `model` | string | Model used for generation |
 | `tokens` | any | Token usage statistics |
-| `toolCalls` | any | Tool calls made |
-| `toolResults` | any | Tool results returned by the provider |
+| `cost` | object | Reported or estimated model cost in USD, with availability status |
 
 
 ## Usage Instructions
 
-Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the deployment catalog and configured provider connections. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token limits, and model-supported temperature, reasoning effort, verbosity, or thinking levels without switching block modes. Unset tuning controls or Auto use the provider’s defaults. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
+Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the configured Mastra registry. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, and model-supported temperature and native Provider Options without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in Mastra history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
 
 
 

@@ -13,7 +13,8 @@ const {
   mockSnapshotCleanup,
   mockDeleteWhere,
   mockDeleteReturning,
-  mockArchive,
+  mockNativeCleanup,
+  mockDeleteFile,
 } = vi.hoisted(() => {
   const mockOrderHistoryTable = {
     logId: 'orderHistoryTable.logId',
@@ -35,7 +36,8 @@ const {
     mockSnapshotCleanup,
     mockDeleteWhere,
     mockDeleteReturning,
-    mockArchive: vi.fn(),
+    mockNativeCleanup: vi.fn(),
+    mockDeleteFile: vi.fn(),
   }
 })
 
@@ -121,13 +123,8 @@ vi.mock('@/lib/logs/execution/snapshot/service', () => ({
   },
 }))
 
-vi.mock('@/lib/uploads', () => ({
-  isUsingCloudStorage: vi.fn(() => false),
-  StorageService: {
-    deleteFile: vi.fn(),
-    uploadFile: mockArchive,
-  },
-}))
+vi.mock('@/lib/mastra/agent-history', () => ({ deleteAgentHistory: mockNativeCleanup }))
+vi.mock('@/lib/uploads/core/storage-service', () => ({ deleteFile: mockDeleteFile }))
 
 const collectConditions = (value: unknown): Array<Record<string, any>> => {
   if (!value || typeof value !== 'object') {
@@ -146,24 +143,17 @@ const collectConditions = (value: unknown): Array<Record<string, any>> => {
 describe('logs cleanup route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSelect
-      .mockReturnValueOnce({
-        from: vi.fn(async () => [
-          {
-            id: 'workspace-1',
-            ownerId: 'user-1',
-          },
-        ]),
-      })
-      .mockReturnValueOnce({
-        from: vi.fn(() => ({
-          where: mockOldLogsWhere,
-        })),
-      })
-    mockOldLogsLimit.mockResolvedValue([])
+    mockSelect.mockImplementation((fields) => ({
+      from: () =>
+        fields.id === 'workspace.id'
+          ? Promise.resolve([{ id: 'workspace-1', ownerId: 'user-1' }])
+          : { where: mockOldLogsWhere },
+    }))
+    mockOldLogsLimit.mockReset().mockResolvedValue([])
     mockSnapshotCleanup.mockResolvedValue(0)
-    mockArchive.mockResolvedValue({})
-    mockDeleteReturning.mockResolvedValue([{ id: 'finished-log' }])
+    mockNativeCleanup.mockReset().mockResolvedValue(undefined)
+    mockDeleteFile.mockReset().mockResolvedValue(undefined)
+    mockDeleteReturning.mockReset().mockResolvedValue([{ id: 'finished-log' }])
   })
 
   it('deletes by durable workspace scope while excluding order-linked logs', async () => {
@@ -257,12 +247,12 @@ describe('logs cleanup route', () => {
       const response = await GET(new NextRequest('http://localhost/api/logs/cleanup'))
 
       expect(response.status).toBe(200)
-      const archived = mockArchive.mock.calls.map(([upload]) => JSON.parse(upload.file.toString()))
+      const removed = mockNativeCleanup.mock.calls.map(([log]) => log)
       const expectedIds = parentFinished
         ? ['parent-log', 'finished-log', 'child-log']
         : ['finished-log']
-      expect(archived.map((log) => log.id)).toEqual(expectedIds)
-      expect(JSON.stringify(archived)).not.toContain('secret')
+      expect(removed.map((log) => log.id)).toEqual(expectedIds)
+      expect(JSON.stringify(removed)).not.toContain('secret')
       for (const [index, [where]] of mockDeleteWhere.mock.calls.entries()) {
         const deleteConditions = collectConditions(where)
         expect(deleteConditions).toEqual(
@@ -279,6 +269,57 @@ describe('logs cleanup route', () => {
         expect(parentGuard?.strings.join('')).toContain('retention_parent.ended_at IS NULL')
       }
       expect((await response.json()).results.enhancedLogs.deleted).toBe(expectedIds.length)
+    }
+  )
+
+  it.each(['file', 'history', 'log'])(
+    'retains cleanup ownership after a %s failure and retries next run',
+    async (failure) => {
+      const key = 'workspace-1/workflow-1/execution-1/report.pdf'
+      const log = {
+        id: 'finished-log',
+        workspaceId: 'workspace-1',
+        workflowId: null,
+        executionId: 'execution-1',
+        endedAt: new Date('2020-01-01'),
+        files: [
+          { key },
+          { key },
+          { key: 'workspace-1/123-input.pdf' },
+          { key: 'workspace-1/workflow-1/other-execution/shared.pdf' },
+          { key: 'other-workspace/workflow-1/execution-1/shared.pdf' },
+          { key: 'kb/input.pdf' },
+        ],
+      }
+      let retained = true
+      mockOldLogsLimit.mockImplementation(async () => (retained ? [log] : []))
+      mockDeleteReturning.mockImplementation(async () => {
+        retained = false
+        return [{ id: log.id }]
+      })
+      const unavailable = new Error('Temporary cleanup outage')
+      if (failure === 'file') mockDeleteFile.mockRejectedValueOnce(unavailable)
+      if (failure === 'history') mockNativeCleanup.mockRejectedValueOnce(unavailable)
+      if (failure === 'log') mockDeleteReturning.mockRejectedValueOnce(unavailable)
+      const { GET } = await import('./route')
+      const first = await GET(new NextRequest('http://localhost/api/logs/cleanup'))
+      const failed = await first.json()
+      expect(failed.results.enhancedLogs).toMatchObject({ deleted: 0, deleteFailed: 1 })
+      expect(failed.complete).toBe(false)
+      expect(retained).toBe(true)
+      if (failure !== 'log') expect(mockDeleteReturning).not.toHaveBeenCalled()
+      if (failure === 'file') expect(mockNativeCleanup).not.toHaveBeenCalled()
+
+      const second = await GET(new NextRequest('http://localhost/api/logs/cleanup'))
+      const finished = await second.json()
+      expect(finished.results.enhancedLogs).toMatchObject({ deleted: 1, deleteFailed: 0 })
+      expect(finished.complete).toBe(true)
+      expect(retained).toBe(false)
+      expect(mockDeleteFile.mock.calls).toEqual([
+        [{ key, context: 'execution' }],
+        [{ key, context: 'execution' }],
+      ])
+      expect(mockNativeCleanup).toHaveBeenLastCalledWith(log)
     }
   )
 })

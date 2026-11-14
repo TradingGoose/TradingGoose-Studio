@@ -104,7 +104,7 @@ export const systemSettings = pgTable('system_settings', {
 export const systemServiceValue = pgTable(
   'system_service_values',
   {
-    // Provider-owned runtime config. Credential rows are encrypted; setting rows are plain text.
+    // Service runtime config. Credential rows are encrypted; setting rows are plain text.
     id: text('id').primaryKey(),
     service: text('service').notNull(),
     kind: systemServiceValueKindEnum('kind').notNull(),

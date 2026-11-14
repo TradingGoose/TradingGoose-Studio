@@ -17,13 +17,6 @@ export interface RetryOptions {
   retryCondition?: (error: RetryableError) => boolean
 }
 
-export interface RetryResult<T> {
-  success: boolean
-  data?: T
-  error?: Error
-  attemptCount: number
-}
-
 function hasStatus(
   error: RetryableError
 ): error is HTTPError | { status?: number; message?: string } {
@@ -120,30 +113,4 @@ export async function retryWithExponentialBackoff<T>(
   }
 
   throw lastError || new Error('Retry operation failed')
-}
-
-/**
- * Wrapper for fetch requests with retry logic
- */
-export async function fetchWithRetry(
-  url: string,
-  options: RequestInit = {},
-  retryOptions: RetryOptions = {}
-): Promise<Response> {
-  return retryWithExponentialBackoff(async () => {
-    const response = await fetch(url, options)
-
-    // If response is not ok and status indicates rate limiting, throw an error
-    if (!response.ok && isRetryableError({ status: response.status })) {
-      const errorText = await response.text()
-      const error: HTTPError = new Error(
-        `HTTP ${response.status}: ${response.statusText} - ${errorText}`
-      )
-      error.status = response.status
-      error.statusText = response.statusText
-      throw error
-    }
-
-    return response
-  }, retryOptions)
 }

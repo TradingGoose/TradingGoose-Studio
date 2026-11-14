@@ -264,6 +264,88 @@ describe('logs export route', () => {
     expect(body).not.toContain('Workflow Beta')
   })
 
+  it('exports available financial fields without obsolete native telemetry columns or fake missing totals', async () => {
+    const costs = [
+      {
+        status: 'reported',
+        total: 0.004,
+        estimated: false,
+        availableTotal: 0.004,
+        unavailableComponents: 0,
+        currency: 'USD',
+      },
+      {
+        status: 'estimated',
+        total: 0.002,
+        estimated: true,
+        availableTotal: 0.002,
+        unavailableComponents: 0,
+        currency: 'USD',
+      },
+      { status: 'partial', estimated: false, availableTotal: 0.002, unavailableComponents: 1 },
+      {
+        status: 'partial',
+        estimated: true,
+        availableTotal: 0.003,
+        unavailableComponents: 2,
+        currency: 'USD',
+      },
+      { status: 'unavailable', unavailableComponents: 1 },
+      {
+        status: 'reported',
+        total: 0,
+        estimated: false,
+        availableTotal: 0,
+        unavailableComponents: 0,
+      },
+      {
+        status: 'partial',
+        estimated: true,
+        availableTotal: 0,
+        unavailableComponents: 1,
+      },
+      null,
+    ]
+    mockOffset.mockResolvedValue(
+      costs.map((cost, index) => ({
+        ...buildRow({ id: `cost-${index}`, folderName: 'Desk', workflowName: 'Workflow' }),
+        cost,
+      }))
+    )
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/logs/export?workspaceId=workspace-1')
+    )
+
+    expect(response.status).toBe(200)
+    const [header, ...lines] = (await response.text()).trimEnd().split('\n')
+    const columns = header.split(',')
+    const costColumns = [
+      'costTotal',
+      'costStatus',
+      'costEstimated',
+      'costAvailableTotal',
+      'costUnavailableComponents',
+      'costCurrency',
+    ]
+    expect(columns.filter((column) => column.startsWith('cost'))).toEqual(costColumns)
+    expect(
+      lines.map((line) => {
+        const values = line.split(',')
+        return costColumns.map((column) => values[columns.indexOf(column)])
+      })
+    ).toEqual([
+      ['0.004', 'reported', 'false', '0.004', '0', 'USD'],
+      ['0.002', 'estimated', 'true', '0.002', '0', 'USD'],
+      ['', 'partial', 'false', '0.002', '1', ''],
+      ['', 'partial', 'true', '0.003', '2', 'USD'],
+      ['', 'unavailable', '', '', '1', ''],
+      ['0', 'reported', 'false', '0', '0', ''],
+      ['', 'partial', 'true', '0', '1', ''],
+      ['', '', '', '', '', ''],
+    ])
+  })
+
   it('ignores all sentinel values for export level and trigger filters', async () => {
     const { GET } = await import('./route')
     const response = await GET(
@@ -442,6 +524,22 @@ describe('logs export route', () => {
         }),
       ])
     )
+  })
+
+  it('requires a numeric present total when filtering for zero cost', async () => {
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/logs/export?workspaceId=workspace-1&costMin=0&costMax=0'
+      )
+    )
+    expect(response.status).toBe(200)
+    const whereCall = mockWhere.mock.calls.at(-1) as [unknown] | undefined
+    const serialized = JSON.stringify(whereCall?.[0])
+    expect(serialized).toContain('CASE WHEN jsonb_typeof(')
+    expect(serialized).toContain(" = 'number' THEN (")
+    expect(serialized).toContain('::double precision END')
+    expect(serialized).not.toContain('::double precision, 0)')
   })
 
   it('pushes range-bound export qualifiers into the SQL condition tree', async () => {

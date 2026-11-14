@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
+import { formatCost } from '@/lib/logs/cost'
 import type { WorkflowLog } from '@/lib/logs/types'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import FolderFilter from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/folder'
@@ -14,7 +15,6 @@ import WorkflowFilter from '@/app/workspace/[workspaceId]/records/components/log
 import KPIs from '@/app/workspace/[workspaceId]/records/components/stats/components/kpis'
 import WorkflowDetails from '@/app/workspace/[workspaceId]/records/components/stats/components/workflow-details'
 import WorkflowsList from '@/app/workspace/[workspaceId]/records/components/stats/components/workflows-list'
-import { formatCost } from '@/providers/ai/utils'
 import { useFilterStore } from '@/stores/logs/filters/store'
 
 interface WorkflowExecution {

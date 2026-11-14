@@ -6,6 +6,31 @@ import { createDashboardLayoutValidationError } from '@/widgets/layout-document'
 import { createWidgetConfigValidationError } from '@/widgets/widget-mutations'
 
 describe('copilot server tool errors', () => {
+  it('projects completed accounting while redacting secrets and omitting other failure details', () => {
+    const error = Object.assign(new Error('private database error'), {
+      model: 'openai/text-embedding-3-small',
+      tokens: { prompt: 12, total: 12 },
+      embeddingUsage: { status: 'reported', batches: 1, apiKey: 'nested-private-key' },
+      cost: { status: 'unavailable' },
+      embedding: [1, 2],
+      apiKey: 'private-key',
+      request: { authorization: 'private-authorization' },
+    })
+    const response = buildCopilotServerToolErrorResponse('search_documentation', error)
+    expect(response).toEqual({
+      status: 500,
+      body: {
+        code: 'server_tool_execution_failed',
+        error: 'Server tool execution failed',
+        retryable: false,
+        model: error.model,
+        tokens: { prompt: 12, total: 12 },
+        embeddingUsage: { status: 'reported', batches: 1, apiKey: '[redacted]' },
+        cost: error.cost,
+      },
+    })
+  })
+
   it('returns container repair guidance for invalid canonical container edge handles', () => {
     const response = buildCopilotServerToolErrorResponse(
       'edit_workflow',

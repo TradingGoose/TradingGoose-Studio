@@ -1,8 +1,10 @@
 'use client'
 
+import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import {
   buildCopilotContextIdentityKey,
   buildCopilotContextMentionRanges,
+  isHiddenCopilotContext,
 } from '@/lib/copilot/chat-contexts'
 import type { MonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import type { ChatContext } from '@/stores/copilot/types'
@@ -14,7 +16,6 @@ import { MENTION_OPTIONS } from './constants'
 import {
   type CopilotMentionCopy,
   getLogMentionSearchText,
-  getMentionOptionLabel,
   getPastChatMentionLabel,
   getWorkspaceEntityMentionLabel,
 } from './mention-copy'
@@ -40,18 +41,21 @@ const normalize = (value: string) =>
 const includesNormalized = (value: string, query: string) =>
   normalize(value).includes(normalize(query))
 
-const readMentionContextIdentityKey = (context: ChatContext): string | null => {
+const isChatContext = (context: unknown): context is ChatContext =>
+  ChatContextSchema.safeParse(context).success
+const readMentionContextIdentityKey = (context: unknown): string | null => {
   try {
+    if (!isChatContext(context)) return null
     return buildCopilotContextIdentityKey(context)
   } catch {
     return null
   }
 }
 
-export function buildMentionRanges(text: string, contexts: ChatContext[]): MentionRange[] {
-  const validContexts = contexts.filter(
-    (context) => readMentionContextIdentityKey(context) !== null
-  )
+export function buildMentionRanges(text: string, contexts: readonly unknown[]): MentionRange[] {
+  const validContexts = contexts
+    .filter(isChatContext)
+    .filter((context) => readMentionContextIdentityKey(context) !== null)
   return buildCopilotContextMentionRanges(text, validContexts).map(
     ({ start, end, label, contextKey }) => ({ start, end, label, contextKey })
   )
@@ -59,7 +63,7 @@ export function buildMentionRanges(text: string, contexts: ChatContext[]): Menti
 
 export function retainMentionContextsInText(
   text: string,
-  contexts: ChatContext[],
+  contexts: readonly unknown[],
   rangeToExclude?: MentionRange
 ): ChatContext[] {
   const presentKeys = new Set(
@@ -73,9 +77,9 @@ export function retainMentionContextsInText(
       )
       .map((range) => range.contextKey)
   )
-  return contexts.filter((context) => {
+  return contexts.filter(isChatContext).filter((context) => {
     const contextKey = readMentionContextIdentityKey(context)
-    return contextKey !== null && presentKeys.has(contextKey)
+    return isHiddenCopilotContext(context) || (contextKey !== null && presentKeys.has(contextKey))
   })
 }
 
@@ -104,9 +108,7 @@ export function upsertMentionContextByTextOrder(
 }
 
 export function filterMentionOptions(query: string, copy: CopilotMentionCopy): MentionOption[] {
-  return MENTION_OPTIONS.filter((option) =>
-    includesNormalized(getMentionOptionLabel(copy, option), query)
-  )
+  return MENTION_OPTIONS.filter((option) => includesNormalized(copy.optionLabels[option], query))
 }
 
 export function filterPastChats(items: PastChatItem[], query: string, copy: CopilotMentionCopy) {
@@ -187,7 +189,7 @@ export function buildAggregatedMentionItems(
     })),
     ...filterPastChats(sources.pastChats, query, mentionCopy).map((value) => ({
       type: 'chats' as const,
-      id: value.reviewSessionId,
+      id: value.threadId,
       value,
     })),
     ...filterLogs(sources.logsList, query, monitorCopy).map((value) => ({

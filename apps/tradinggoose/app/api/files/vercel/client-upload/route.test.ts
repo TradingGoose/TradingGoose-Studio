@@ -250,53 +250,15 @@ describe('/api/files/vercel/client-upload', () => {
     expect(data.error).toContain('exceeds maximum allowed size')
   })
 
-  it('rejects non-image copilot uploads before generating a client token', async () => {
-    setupFileApiMocks({
-      cloudEnabled: true,
-      storageProvider: 'vercel',
-    })
-
-    const { handleUpload } = await import('@vercel/blob/client')
-    vi.mocked(handleUpload).mockImplementation(async ({ body, onBeforeGenerateToken }) => {
-      if (body.type !== 'blob.generate-client-token') {
-        throw new Error('Expected client token generation request')
-      }
-
-      await onBeforeGenerateToken(body.payload.pathname, body.payload.clientPayload, false)
-
-      return {
-        type: 'blob.generate-client-token',
-        clientToken: 'client-token',
-      }
-    })
-
+  it('rejects Copilot object uploads', async () => {
+    setupFileApiMocks({ cloudEnabled: true, storageProvider: 'vercel' })
     const { POST } = await import('@/app/api/files/vercel/client-upload/route')
-    const request = createTokenRequest('copilot', {
-      pathname: 'copilot/1712345678-notes.txt',
-      clientPayload: JSON.stringify({
-        clientUploadAuthorization: await createVercelUploadToken(
-          {
-            pathname: 'copilot/1712345678-notes.txt',
-            context: 'copilot',
-            contentType: 'text/plain',
-            size: 2048,
-            userId: 'user-123',
-          },
-          3600
-        ),
-        pathname: 'copilot/1712345678-notes.txt',
-        fileName: 'notes.txt',
-        contentType: 'text/plain',
-        fileSize: 2048,
-      }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
+    const response = await POST(
+      createTokenRequest('copilot', { pathname: 'image.png', clientPayload: null })
+    )
     expect(response.status).toBe(400)
-    expect(data.error).toBe(
-      'Only image files (JPEG, PNG, GIF, WebP, SVG) are allowed for copilot uploads'
+    expect((await response.json()).error).toBe(
+      'Copilot images are sent inline with the conversation'
     )
   })
 

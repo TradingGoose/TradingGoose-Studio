@@ -4,17 +4,22 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
 
 const {
+  nativeEffectMock,
   checkSessionOrInternalAuthMock,
   readWorkflowAccessContextMock,
   enqueuePendingExecutionMock,
-  openWorkflowExecutionEventStreamMock,
 } = vi.hoisted(() => ({
+  nativeEffectMock: vi.fn(),
   checkSessionOrInternalAuthMock: vi.fn(),
   readWorkflowAccessContextMock: vi.fn(),
   enqueuePendingExecutionMock: vi.fn(),
-  openWorkflowExecutionEventStreamMock: vi.fn(),
+}))
+
+vi.mock('@/lib/copilot/native/workflow-effects', () => ({
+  authorizeNativeWorkflowQueueEffect: nativeEffectMock,
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({
@@ -31,10 +36,6 @@ vi.mock('@/lib/execution/pending-execution', () => ({
   isPendingExecutionLimitError: vi.fn(() => false),
 }))
 
-vi.mock('@/lib/execution/workflow-execution-stream', () => ({
-  openWorkflowExecutionEventStream: openWorkflowExecutionEventStreamMock,
-}))
-
 vi.mock('@/lib/trigger/settings', () => ({
   TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {
     statusCode = 409
@@ -49,7 +50,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/utils', () => ({
   generateRequestId: vi.fn(() => 'request-1'),
-  SSE_HEADERS: { 'Content-Type': 'text/event-stream' },
 }))
 
 vi.unmock('@/blocks/registry')
@@ -59,6 +59,7 @@ import { POST } from './route'
 describe('POST /api/workflows/[id]/queue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    nativeEffectMock.mockReset()
     checkSessionOrInternalAuthMock.mockResolvedValue({
       success: true,
       userId: 'user-1',
@@ -79,10 +80,6 @@ describe('POST /api/workflows/[id]/queue', () => {
       pendingExecutionId: 'pending-1',
       billingScopeId: 'scope-1',
       inserted: true,
-    })
-    openWorkflowExecutionEventStreamMock.mockResolvedValue({
-      ok: true,
-      stream: new ReadableStream(),
     })
   })
 
@@ -346,7 +343,7 @@ describe('POST /api/workflows/[id]/queue', () => {
     )
   })
 
-  it('returns the queued workflow event stream for live streaming executions', async () => {
+  it('returns an admission receipt while enabling live execution events', async () => {
     const response = await POST(
       new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
         method: 'POST',
@@ -367,15 +364,13 @@ describe('POST /api/workflows/[id]/queue', () => {
       }
     )
 
-    expect(response.status).toBe(200)
-    expect(response.headers.get('Content-Type')).toContain('text/event-stream')
-    expect(response.headers.get('X-Execution-Id')).toBe('execution-1')
-    expect(response.headers.get('X-Task-Id')).toBe('pending-1')
-    expect(openWorkflowExecutionEventStreamMock).toHaveBeenCalledWith({
-      pendingExecutionId: 'execution-1',
-      workflowId: 'workflow-1',
-      requestId: 'request-1',
-    })
+    expect(response.status).toBe(202)
+    expect(await response.json()).toMatchObject({ taskId: 'pending-1', executionId: 'execution-1' })
+    expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({ stream: true }),
+      })
+    )
   })
 
   it('rejects deployed executions with live workflow state', async () => {
@@ -431,5 +426,80 @@ describe('POST /api/workflows/[id]/queue', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Workflow execution already exists',
     })
+  })
+  it('checks native finance/target at actual queue boundary and returns unchanged duplicate 409', async () => {
+    const native = {
+      workspaceId: null,
+      target: {
+        threadId: 'thread',
+        resourceId: 'resource',
+        runId: 'run',
+        toolCallId: 'native-call',
+        toolName: 'run_workflow',
+      },
+    }
+    enqueuePendingExecutionMock.mockResolvedValueOnce({ inserted: false })
+    const response = await POST(
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
+        method: 'POST',
+        body: JSON.stringify({
+          native,
+          executionId: 'native-call',
+          executionTarget: 'live',
+          triggerType: 'manual',
+        }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+    expect(nativeEffectMock).toHaveBeenCalledWith(
+      'user-1',
+      'workflow-1',
+      expect.objectContaining({ native, executionId: 'native-call' }),
+      expect.any(AbortSignal)
+    )
+    expect(nativeEffectMock.mock.invocationCallOrder[0]).toBeLessThan(
+      enqueuePendingExecutionMock.mock.invocationCallOrder[0]!
+    )
+    expect(response.status).toBe(409)
+  })
+  it.each([
+    new NativeTargetError('Stale target', 409),
+    new NativeTargetError('Actor/args revoked', 403),
+    new Error('Financial acceptance unavailable'),
+  ])('native refusal prevents any enqueue: %s', async (failure) => {
+    nativeEffectMock.mockRejectedValueOnce(failure)
+    const response = await POST(
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
+        method: 'POST',
+        body: JSON.stringify({
+          native: { workspaceId: null, target: {} },
+          executionTarget: 'live',
+          triggerType: 'manual',
+        }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+    expect(response.status).toBeGreaterThanOrEqual(400)
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
+  it('never permits internal JWT to impersonate a native browser session actor', async () => {
+    checkSessionOrInternalAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+      authType: 'internal_jwt',
+    })
+    const response = await POST(
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
+        method: 'POST',
+        body: JSON.stringify({
+          native: { workspaceId: null, target: {} },
+          executionTarget: 'live',
+        }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+    expect(response.status).toBe(403)
+    expect(nativeEffectMock).not.toHaveBeenCalled()
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })
 })

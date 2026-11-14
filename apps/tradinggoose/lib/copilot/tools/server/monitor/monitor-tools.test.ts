@@ -3,6 +3,7 @@ import {
   MONITOR_DOCUMENT_FORMAT,
   serializeMonitorDocument,
 } from '@/lib/copilot/monitor/monitor-documents'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { editMonitorServerTool } from '@/lib/copilot/tools/server/monitor/edit-monitor'
 import { listMonitorsServerTool } from '@/lib/copilot/tools/server/monitor/list-monitors'
 import { readMonitorServerTool } from '@/lib/copilot/tools/server/monitor/read-monitor'
@@ -141,6 +142,9 @@ describe('Copilot monitor presentation resolution', () => {
 
     expect(mocks.resolveListingIdentities).toHaveBeenCalledWith([LISTING_IDENTITY], signal)
     expect(result.monitorName).toBe('rsi on AAPL (1m)')
+    expect(ToolResultSchemas.read_monitor.parse(result)).toMatchObject({
+      workspaceId: 'workspace-1',
+    })
     expectIdentityOnlyDocument(result.monitorDocument)
   })
 
@@ -158,6 +162,9 @@ describe('Copilot monitor presentation resolution', () => {
     expect(mocks.resolveListingIdentities).toHaveBeenCalledWith([LISTING_IDENTITY], signal)
     expect(mocks.updateMonitorForUser).not.toHaveBeenCalled()
     expect(result.requiresReview).toBe(true)
+    expect(ToolResultSchemas.edit_monitor.parse(result)).toMatchObject({
+      workspaceId: 'workspace-1',
+    })
     expect(result.monitorName).toBe('rsi on AAPL (1m)')
     expectIdentityOnlyDocument(result.monitorDocument)
   })
@@ -176,6 +183,9 @@ describe('Copilot monitor presentation resolution', () => {
     expect(mocks.updateMonitorForUser).toHaveBeenCalledTimes(1)
     expect(mocks.resolveListingIdentities).toHaveBeenCalledWith([LISTING_IDENTITY], signal)
     expect(result.success).toBe(true)
+    expect(ToolResultSchemas.edit_monitor.parse(result)).toMatchObject({
+      workspaceId: 'workspace-1',
+    })
     expect(result.monitorName).toBe('rsi on AAPL (1m)')
     expectIdentityOnlyDocument(result.monitorDocument)
   })

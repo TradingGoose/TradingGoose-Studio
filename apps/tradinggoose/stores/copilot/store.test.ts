@@ -1,3161 +1,3386 @@
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
+import {
+  COPILOT_CONTEXT_PART,
+  type CopilotRequest,
+  type Pending,
+} from '@/lib/copilot/native/contract'
+import { MAX_COPILOT_REQUEST_BYTES } from '@/lib/copilot/native/request-size'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { registerClientTool, unregisterClientTool } from '@/lib/copilot/tools/client/manager'
-import { encodeSSE } from '@/lib/utils'
-import { environmentKeys } from '@/hooks/queries/environment'
-import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
-import { getCopilotStore } from '@/stores/copilot/store'
-import { resetStreamingQueue, updateStreamingMessage } from '@/stores/copilot/streaming'
-import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
-import { resetCopilotWorkspaceSelectionState } from '@/stores/copilot/workspace-selection'
+import { getClientTool, registerClientTool } from '@/lib/copilot/tools/client/manager'
+import { SleepClientTool } from '@/lib/copilot/tools/client/other/sleep'
+import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
+import { organizationKeys } from '@/hooks/queries/organization'
+import { subscriptionKeys } from '@/hooks/queries/subscription'
+import { useExecutionStore } from '@/stores/execution/store'
+import { buildCopilotWorkspaceChannelId } from './channel-id'
+import { getCopilotStore, resetCopilotStoreRegistry } from './store'
+import { getCopilotStoreForToolCall } from './store-access'
+import { hasUiActiveToolCalls } from './store-state'
+import { applyNativeEvent, displayNativePending } from './streaming'
+import type { CopilotChat } from './types'
+import { getCopilotWorkspaceSelection } from './workspace-selection'
 
-type FetchCall = readonly [input: RequestInfo | URL, init?: RequestInit]
-
-function withRelayTurnState(events: unknown[], options?: { includeInitial?: boolean }) {
-  const relayedEvents: unknown[] = []
-
-  if (options?.includeInitial !== false) {
-    relayedEvents.push({
-      type: 'turn_state',
-      status: 'in_progress',
-      phase: 'streaming',
-    })
-  }
-
-  for (const event of events as Array<Record<string, unknown>>) {
-    if (event?.type === 'awaiting_tools') {
-      relayedEvents.push({
-        type: 'turn_state',
-        status: 'in_progress',
-        phase: 'waiting_for_tools',
-      })
-    } else if (event?.type === 'response.completed') {
-      relayedEvents.push({
-        type: 'turn_state',
-        status: 'completed',
-        phase: 'completed',
-      })
-    } else if (event?.type === 'error') {
-      relayedEvents.push({
-        type: 'turn_state',
-        status: 'error',
-        phase: 'error',
-      })
-    }
-
-    relayedEvents.push(event)
-  }
-
-  return relayedEvents
-}
-
-function createSseStream(events: unknown[]): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      for (const event of withRelayTurnState(events)) {
-        controller.enqueue(encodeSSE(event))
-      }
-      controller.close()
-    },
-  })
-}
-
-function createDeferredSseStream() {
-  let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null
-  let resolveReady: (() => void) | null = null
-  const ready = new Promise<void>((resolve) => {
-    resolveReady = resolve
-  })
-
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controllerRef = controller
-      controller.enqueue(
-        encodeSSE({
-          type: 'turn_state',
-          status: 'in_progress',
-          phase: 'streaming',
-        })
-      )
-      resolveReady?.()
-    },
-  })
-
+const tools = vi.hoisted(() => ({
+  actualOAuth: false,
+  actualRunWorkflow: false,
+  runWorkflow: vi.fn(),
+  refresh: vi.fn(),
+  browser: vi.fn(),
+  bind: vi.fn(),
+  hydrate: vi.fn(),
+}))
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+vi.mock('@/app/query-provider', () => ({ getQueryClient: () => queryClient }))
+vi.unmock('@/stores/execution/store')
+vi.mock('@/lib/copilot/tools/client/workflow/workflow-execution-utils', () => ({
+  executeWorkflowWithFullLogging: tools.runWorkflow,
+}))
+vi.mock('./tool-registry', async (original) => {
+  const registry = await original<typeof import('./tool-registry')>()
   return {
-    stream,
-    ready,
-    push(event: unknown) {
-      for (const relayedEvent of withRelayTurnState([event], { includeInitial: false })) {
-        controllerRef?.enqueue(encodeSSE(relayedEvent))
-      }
+    ...registry,
+    handleCopilotServerToolSuccess: tools.refresh,
+    ensureClientToolInstance: (...args: Parameters<typeof registry.ensureClientToolInstance>) =>
+      (tools.actualOAuth && args[0] === 'oauth_request_access') ||
+      (tools.actualRunWorkflow && args[0] === 'run_workflow')
+        ? registry.ensureClientToolInstance(...args)
+        : {
+            handleUserAction: tools.browser,
+            hydrateToolCall: tools.hydrate,
+            setExecutionContext: tools.bind,
+          },
+  }
+})
+const threadId = 'thread-fixture'
+const workspaceId = 'workspace-fixture'
+const actorUserId = 'actor-fixture'
+const runId = 'run-fixture'
+const at = '2026-11-08T00:00:00.000Z'
+const chat = (workspace: string | null = workspaceId, id = threadId): CopilotChat => ({
+  threadId: id,
+  workspaceId: workspace,
+  title: 'Existing title',
+  createdAt: new Date(at),
+  updatedAt: new Date(at),
+})
+const pending = (stage: Pending['stage'] = 'result', toolName = 'read_workflow'): Pending => ({
+  target: { threadId, resourceId: 'resource-fixture', runId, toolCallId: 'call-fixture', toolName },
+  stage,
+  originalArgs: { workflowId: 'entity-fixture' },
+})
+const defer = <T>() => {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((r) => {
+    resolve = r
+  })
+  return { promise, resolve }
+}
+const json = (value: unknown, status = 200) => Response.json(value, { status })
+const ready = (text = 'canonical answer') => ({ status: 'completed', threadId, runId, text })
+const suspended = (items: Pending[]) => ({
+  status: 'suspended',
+  threadId,
+  runId,
+  text: '',
+  pending: items,
+})
+const terminalResponse = <T extends { status: string }>(value: T) =>
+  eventResponse([
+    {
+      type: value.status === 'completed' ? 'response.completed' : 'response.suspended',
+      result: value,
     },
-    close() {
-      controllerRef?.close()
-    },
-  }
-}
-
-function ensureRequestAnimationFrame() {
-  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-    callback(0)
-    return 0
-  })
-  vi.stubGlobal('cancelAnimationFrame', () => {})
-}
-
-afterEach(() => vi.unstubAllGlobals())
-
-function parseJsonRequestBody(request: FetchCall | undefined): Record<string, unknown> {
-  expect(request).toBeDefined()
-  if (!request) {
-    throw new Error('Expected fetch request')
-  }
-
-  const [, init] = request
-  expect(init).toBeDefined()
-  if (!init || typeof init.body !== 'string') {
-    throw new Error('Expected JSON request body')
-  }
-
-  return JSON.parse(init.body) as Record<string, unknown>
-}
-
-function createRuntimeContext({
-  workspaceId = null,
-  implicitContexts = [],
-}: {
-  workspaceId?: string | null
-  implicitContexts?: ChatContext[]
-} = {}): CopilotSendRuntimeContext {
-  return {
-    workspaceId,
-    implicitContexts,
-  }
-}
-
-describe('copilot tool execution provenance', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    ensureRequestAnimationFrame()
-    resetCopilotWorkspaceSelectionState()
-  })
-
-  it('parses JSON-string function call arguments before storing tool params', async () => {
-    const channelId = 'copilot-stringified-tool-args'
-    const toolCallId = 'copilot-stringified-tool-call'
-    const store = getCopilotStore(channelId)
-
-    store.setState({
-      currentChat: null,
-      chats: [],
-      messages: [
-        {
-          id: 'assistant-message-stringified',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-04-13T00:00:00.000Z',
-        },
-      ],
-      isSendingMessage: true,
-      abortController: null,
-      toolCallsById: {},
-    })
-
-    await store.getState().handleStreamingResponse(
-      createSseStream([
-        {
-          type: 'response.output_item.done',
-          item: {
-            type: 'function_call',
-            call_id: toolCallId,
-            name: 'read_workflow',
-            arguments: JSON.stringify({
-              entityId: 'entity-stringified-explicit',
-            }),
-          },
-        },
-        {
-          type: 'response.completed',
-          response: { id: 'response-stringified-args' },
-        },
-      ]),
-      'assistant-message-stringified'
-    )
-
-    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
-      params: {
-        entityId: 'entity-stringified-explicit',
-      },
-    })
-    expect(store.getState().toolCallsById[toolCallId].provenance).toBeUndefined()
-  })
-
-  it('marks streamed tool calls outside the curated Copilot registry as protocol errors', async () => {
-    const channelId = 'copilot-unsupported-tool'
-    const toolCallId = 'unsupported-tool-call'
-    const store = getCopilotStore(channelId)
-
-    await store.getState().handleStreamingResponse(
-      createSseStream([
-        {
-          type: 'response.output_item.done',
-          item: {
-            type: 'function_call',
-            call_id: toolCallId,
-            name: 'unknown_external_tool',
-            arguments: {},
-          },
-        },
-        {
-          type: 'response.completed',
-          response: { id: 'response-unsupported-tool' },
-        },
-      ]),
-      'assistant-message-unsupported-tool'
-    )
-
-    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
-      id: toolCallId,
-      name: 'unknown_external_tool',
-      state: ClientToolCallState.error,
-    })
-  })
-
-  it('does not pin ambient message contexts as tool targets when the tool omits a target id', async () => {
-    const channelId = 'copilot-mid-stream-target-switch'
-    const toolCallId = 'copilot-mid-stream-target-tool'
-    const store = getCopilotStore(channelId)
-    const deferredStream = createDeferredSseStream()
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat') {
-        return {
-          ok: true,
-          status: 200,
-          body: deferredStream.stream,
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId: 'review-panel-chat-mid-stream',
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        title: 'Generic workspace chat',
-        messages: [],
-        messageCount: 0,
-        conversationId: 'conversation-mid-stream',
-        createdAt: new Date('2026-04-13T00:00:00.000Z'),
-        updatedAt: new Date('2026-04-13T00:00:00.000Z'),
-      },
-      chats: [],
-    })
-
-    const sendPromise = store.getState().sendMessage('Inspect the attached workflow', {
-      contexts: [
-        { kind: 'workflow', workflowId: 'wf-message-context', label: 'Attached Workflow' },
-      ],
-      runtimeContext: createRuntimeContext({
-        workspaceId: 'workspace-1',
-        implicitContexts: [
-          {
-            kind: 'current_monitor',
-            monitorId: 'monitor-live-at-send',
-            workspaceId: 'workspace-1',
-            label: 'Current Monitor',
-          },
+  ])
+const history = [
+  {
+    id: 'user-native',
+    role: 'user',
+    createdAt: at,
+    parts: [{ type: 'text', text: 'actual native input' }],
+  },
+  {
+    id: 'assistant-native',
+    role: 'assistant',
+    createdAt: at,
+    parts: [{ type: 'text', text: 'canonical answer' }],
+  },
+]
+const historyResult = (items: unknown[] = history, pending: Pending[] = [], id = threadId) => ({
+  status: 'history',
+  threadId: id,
+  items,
+  pending,
+})
+const pendingHistory = (pending: Pending[]) =>
+  historyResult(
+    [
+      history[0],
+      {
+        ...history[1],
+        parts: [
+          ...history[1].parts,
+          ...pending.map((item) => ({
+            type: 'tool-invocation',
+            toolInvocation: {
+              state: 'call',
+              toolCallId: item.target.toolCallId,
+              toolName: item.target.toolName,
+              args: item.originalArgs,
+            },
+          })),
         ],
-      }),
-    })
-    await deferredStream.ready
-
-    const sendRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/chat'
-    })
-    const requestBody = parseJsonRequestBody(sendRequest)
-    expect(requestBody.workflowId).toBeUndefined()
-
-    deferredStream.push({
-      type: 'response.output_item.done',
-      item: {
-        type: 'function_call',
-        call_id: toolCallId,
-        name: 'read_workflow',
-        arguments: {},
       },
-    })
-    deferredStream.push({
-      type: 'response.completed',
-      response: { id: 'response-mid-stream-target' },
-    })
-    deferredStream.close()
+    ],
+    pending
+  )
+const historyResponse = (pending: Pending[]) => observingStream(pendingHistory(pending)).response
 
-    await sendPromise
-
-    expect(store.getState().toolCallsById[toolCallId].provenance).toEqual({
-      contextEntityKind: 'workflow',
-      contextEntityId: 'wf-message-context',
-      workspaceId: 'workspace-1',
-    })
-
-    const usageRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/usage'
-    })
-    expect(parseJsonRequestBody(usageRequest)).not.toHaveProperty('workflowId')
+let commands: CopilotRequest[]
+let onCommand: (
+  request: CopilotRequest,
+  init?: RequestInit
+) => Promise<Response> | Response | undefined
+let onTitle: (body: any, init?: RequestInit) => Promise<Response> | Response
+let onObserve: (
+  request: Extract<CopilotRequest, { command: 'thread.observe' }>,
+  init?: RequestInit
+) => Promise<Response> | Response
+let titleRequests: any[]
+let workflowRequests: string[]
+let onWorkflow: (id: string) => Response | Promise<Response>
+const store = () =>
+  getCopilotStore(buildCopilotWorkspaceChannelId({ authenticatedUserId: actorUserId, workspaceId }))
+const setChat = () =>
+  store().setState({ currentChat: chat(), conversationWorkspaceId: workspaceId })
+const reconnectSelectedChat = async () => {
+  store().getState().detachStream()
+  await store().getState().loadChats({ workspaceId: store().getState().currentChat!.workspaceId })
+}
+const installPending = (item: Pending) => {
+  setChat()
+  store().setState({
+    currentRunId: runId,
+    toolCallsById: {
+      [item.target.toolCallId]: {
+        id: item.target.toolCallId,
+        name: item.target.toolName,
+        state: item.preview ? ClientToolCallState.review : ClientToolCallState.pending,
+        ...(item.preview ? { result: item.preview } : {}),
+        params: item.originalArgs,
+        pending: item,
+      },
+    },
   })
+}
+function defaultResponse(request: CopilotRequest) {
+  if (request.command === 'thread.observe')
+    return observingStream(historyResult(history, [], request.threadId)).response
+  if (request.command === 'threads.list')
+    return json({
+      status: 'threads',
+      items: [{ id: threadId, title: 'verified title', createdAt: at, updatedAt: at }],
+    })
+  if (request.command === 'thread.title' || request.command === 'thread.delete')
+    return json({
+      status: 'updated',
+      operation: request.command,
+      threadId: request.threadId,
+    })
+  if (request.command === 'cancel')
+    return json({
+      status: 'cancel_requested',
+      runId: request.runId,
+    })
+  return terminalResponse(ready())
+}
+function eventStream(events: object[] = []) {
+  let controller!: ReadableStreamDefaultController<Uint8Array>
+  const encoder = new TextEncoder()
+  const cancelled = vi.fn()
+  const stream = new ReadableStream<Uint8Array>({
+    start(value) {
+      controller = value
+    },
+    cancel: cancelled,
+  })
+  const emit = (event: object) =>
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+  events.forEach(emit)
+  return {
+    response: new Response(stream, { headers: { 'content-type': 'text/event-stream' } }),
+    emit,
+    fail: (error: Error) => controller.error(error),
+    close: () => controller.close(),
+    cancelled,
+  }
+}
+function eventResponse(events: object[]) {
+  const stream = eventStream(events)
+  stream.close()
+  return stream.response
+}
+function observingStream(result = historyResult(), activeRunId: string | null = null) {
+  return eventStream([{ type: 'thread.history', result, activeRunId }])
+}
+beforeEach(() => {
+  const selections = new Map<string, string>()
+  vi.stubGlobal('sessionStorage', {
+    getItem: (key: string) => selections.get(key) ?? null,
+    setItem: (key: string, value: string) => selections.set(key, value),
+    removeItem: (key: string) => selections.delete(key),
+    clear: () => selections.clear(),
+    key: (index: number) => [...selections.keys()][index] ?? null,
+    get length() {
+      return selections.size
+    },
+  })
+  queryClient.clear()
+  resetCopilotStoreRegistry()
+  tools.actualOAuth = false
+  tools.actualRunWorkflow = false
+  tools.runWorkflow.mockReset().mockResolvedValue({ success: true, output: {}, logs: [] })
+  useExecutionStore.getState().reset()
+  store().setState({ selectedModel: 'anthropic/admin-selected-model' })
+  commands = []
+  titleRequests = []
+  workflowRequests = []
+  onWorkflow = (id) => json({ data: { id, workspaceId: 'original-entity-workspace' } })
+  onCommand = () => undefined
+  onObserve = async (request, init) => (await onCommand(request, init)) ?? defaultResponse(request)
+  onTitle = () => json({ title: null })
+  vi.clearAllMocks()
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).startsWith('/api/workflows/')) {
+        const id = decodeURIComponent(String(input).slice('/api/workflows/'.length))
+        workflowRequests.push(id)
+        return onWorkflow(id)
+      }
+      if (String(input) === '/api/copilot/title') {
+        const body = JSON.parse(String(init?.body))
+        titleRequests.push(body)
+        return onTitle(body, init)
+      }
+      expect(String(input)).toBe('/api/copilot/native')
+      const request = JSON.parse(String(init?.body)) as CopilotRequest
+      commands.push(request)
+      expect(Object.hasOwn(request, 'workspaceId')).toBe(true)
+      expect(request).not.toHaveProperty('scope')
+      expect(request).not.toHaveProperty('toolManifest')
+      if (request.command === 'thread.observe') return onObserve(request, init)
+      return (await onCommand(request, init)) ?? defaultResponse(request)
+    })
+  )
+})
+afterEach(() => {
+  resetCopilotStoreRegistry()
+  queryClient.clear()
+  vi.unstubAllGlobals()
 })
 
-describe('copilot streaming regressions', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    ensureRequestAnimationFrame()
-    resetCopilotWorkspaceSelectionState()
-  })
-
-  it('isolates batched streaming updates and resets between workspace stores', () => {
-    const frames: Array<FrameRequestCallback | undefined> = []
-    vi.stubGlobal(
-      'requestAnimationFrame',
-      (callback: FrameRequestCallback) => frames.push(callback) - 1
-    )
-    vi.stubGlobal('cancelAnimationFrame', (frameId: number) => (frames[frameId] = undefined))
-    const queue = (set: (update: any) => unknown, messageId: string) =>
-      updateStreamingMessage(set, { messageId, contentBlocks: [] } as any)
-    const flushFrames = () => frames.splice(0).forEach((callback) => callback?.(0))
-    const setA = vi.fn()
-    const setB = vi.fn()
-
-    queue(setB, 'assistant-b')
-    queue(setA, 'assistant-a')
-    flushFrames()
-    expect(setA).toHaveBeenCalledOnce()
-    expect(setB).toHaveBeenCalledOnce()
-
-    setA.mockClear()
-    setB.mockClear()
-    queue(setA, 'assistant-a')
-    queue(setB, 'assistant-b')
-    resetStreamingQueue(setB)
-    flushFrames()
-    expect(setA).toHaveBeenCalledOnce()
-    expect(setB).not.toHaveBeenCalled()
-  })
-
-  it('preserves thinking, text, tool, and continuation text ordering within one streamed assistant message', async () => {
-    const channelId = 'copilot-streaming-progress-order'
-    const store = getCopilotStore(channelId)
-
-    store.setState({
-      currentChat: null,
-      chats: [],
-      messages: [
-        {
-          id: 'assistant-message',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-04-13T00:00:00.000Z',
-        },
-      ],
+describe('canonical browser conversation transport', () => {
+  it('restores the selected conversation and active run after transient state is discarded', async () => {
+    onObserve = () => observingStream(historyResult(), runId).response
+    await store().getState().selectChat(chat())
+    const channelId = buildCopilotWorkspaceChannelId({
+      authenticatedUserId: actorUserId,
+      workspaceId,
+    })
+    expect(getCopilotWorkspaceSelection(channelId, workspaceId)).toBe(threadId)
+    store().getState().reset()
+    await store().getState().loadChats({ workspaceId })
+    expect(store().getState()).toMatchObject({
+      currentChat: { threadId },
+      currentRunId: runId,
       isSendingMessage: true,
-      abortController: null,
-      toolCallsById: {},
     })
-
-    await store.getState().handleStreamingResponse(
-      createSseStream([
-        {
-          type: 'response.output_item.added',
-          item: {
-            id: 'reasoning-1',
-            type: 'reasoning',
-            content: [{ type: 'reasoning_text', text: '' }],
-          },
-        },
-        {
-          type: 'response.reasoning_text.delta',
-          item_id: 'reasoning-1',
-          delta: 'Inspecting the current workflow and tool options.',
-        },
-        {
-          type: 'response.output_item.done',
-          item: {
-            id: 'reasoning-1',
-            type: 'reasoning',
-            content: [
-              {
-                type: 'reasoning_text',
-                text: 'Inspecting the current workflow and tool options.',
-              },
-            ],
-          },
-        },
-        {
-          type: 'response.output_item.added',
-          item: {
-            id: 'assistant-item-1',
-            type: 'message',
-            role: 'assistant',
-            content: [{ type: 'output_text', text: '' }],
-          },
-        },
-        {
-          type: 'response.output_text.delta',
-          item_id: 'assistant-item-1',
-          delta: "I'm checking the current workflow before I edit it.",
-        },
-        {
-          type: 'response.output_item.done',
-          item: {
-            id: 'assistant-item-1',
-            type: 'message',
-            role: 'assistant',
-            content: [
-              {
-                type: 'output_text',
-                text: "I'm checking the current workflow before I edit it.",
-              },
-            ],
-          },
-        },
-        {
-          type: 'response.output_item.done',
-          item: {
-            type: 'function_call',
-            call_id: 'tool-1',
-            name: 'read_workflow',
-            arguments: { entityId: 'wf-stream-order' },
-          },
-        },
-        {
-          type: 'tool_result',
-          toolCallId: 'tool-1',
-          success: true,
-          failedDependency: false,
-          result: { entityDocument: 'flowchart TD' },
-        },
-        {
-          type: 'response.output_item.added',
-          item: {
-            id: 'assistant-item-2',
-            type: 'message',
-            role: 'assistant',
-            content: [{ type: 'output_text', text: '' }],
-          },
-        },
-        {
-          type: 'response.output_text.delta',
-          item_id: 'assistant-item-2',
-          delta: "I found the current workflow and I'm preparing the edit now.",
-        },
-        {
-          type: 'response.output_item.done',
-          item: {
-            id: 'assistant-item-2',
-            type: 'message',
-            role: 'assistant',
-            content: [
-              {
-                type: 'output_text',
-                text: "I found the current workflow and I'm preparing the edit now.",
-              },
-            ],
-          },
-        },
-        { type: 'response.completed', response: { id: 'response-ordering' } },
-      ]),
-      'assistant-message'
-    )
-
-    const blocks = store.getState().messages[0]?.contentBlocks as any[]
-
-    expect(blocks.map((block) => block.type)).toEqual(['thinking', 'text', 'tool_call', 'text'])
-    expect(blocks[0]?.content).toContain('Inspecting the current workflow')
-    expect(blocks[1]?.content).toContain('checking the current workflow')
-    expect(blocks[2]?.toolCall?.id).toBe('tool-1')
-    expect(blocks[2]?.toolCall?.state).toBe(ClientToolCallState.success)
-    expect(blocks[2]?.toolCall?.result).toEqual({ entityDocument: 'flowchart TD' })
-    expect(blocks[3]?.content).toContain('preparing the edit now')
+    expect(
+      commands.some((request) => request.command === 'message' || request.command === 'cancel')
+    ).toBe(false)
+    expect(
+      getCopilotWorkspaceSelection(
+        buildCopilotWorkspaceChannelId({ authenticatedUserId: 'another-user', workspaceId }),
+        workspaceId
+      )
+    ).toBeUndefined()
+    expect(await store().getState().abortMessage()).toBe(true)
+    expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+      { command: 'cancel', workspaceId, threadId, runId },
+    ])
   })
 
-  it('hydrates plan todos from persisted successful plan and todo tool calls', async () => {
-    const channelId = 'copilot-plan-todo-hydration'
-    const store = getCopilotStore(channelId)
-    const toolBlock = (
-      name: string,
-      id: string,
-      params: Record<string, unknown>,
-      state = ClientToolCallState.success
-    ) => ({
-      type: 'tool_call',
-      toolCall: { id, name, state, params },
+  it('keeps a newer observed run busy after the submitted response completes', async () => {
+    setChat()
+    const observer = observingStream(historyResult(), 'newer-run')
+    onObserve = () => observer.response
+    expect(await store().getState().sendMessage('First')).toBe(true)
+    expect(store().getState()).toMatchObject({ currentRunId: 'newer-run', isSendingMessage: true })
+    expect(await store().getState().sendMessage('Wait')).toBe(false)
+    observer.emit({
+      type: 'thread.status',
+      runId: 'newer-run',
+      status: 'success',
+      history: historyResult(),
     })
-    const persistedMessages = [
-      {
-        id: 'assistant-plan-message',
-        role: 'assistant',
-        content: '',
-        timestamp: '2026-04-13T00:00:00.000Z',
-        contentBlocks: [
-          toolBlock('plan', 'plan-tool-1', {
-            todoList: [
-              { id: 'todo-1', content: 'Inspect the current workflow' },
-              { id: 'todo-2', content: 'Apply the workflow edit' },
-            ],
-          }),
-          toolBlock('checkoff_todo', 'todo-tool-1', { id: 'todo-1' }),
-          toolBlock(
-            'mark_todo_in_progress',
-            'todo-tool-pending-1',
-            { id: 'todo-1' },
-            ClientToolCallState.pending
-          ),
-          toolBlock(
-            'checkoff_todo',
-            'todo-tool-pending-2',
-            { id: 'todo-2' },
-            ClientToolCallState.pending
-          ),
-        ],
-      },
-      {
-        id: 'assistant-todo-collision-message',
-        role: 'assistant',
-        content: '',
-        timestamp: '2026-04-13T00:00:01.000Z',
-        contentBlocks: [toolBlock('checkoff_todo', 'todo-tool-collision', { id: 'todo-1' })],
-      },
-    ] as any
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          success: true,
-          chats: [
-            {
-              reviewSessionId: 'review-todos',
-              workspaceId: 'ws-1',
-              latestTurnStatus: 'completed',
-              messages: persistedMessages,
-            },
-          ],
-        }),
-      }))
+    await vi.waitFor(() =>
+      expect(store().getState()).toMatchObject({ currentRunId: null, isSendingMessage: false })
     )
+    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+  })
 
-    await store.getState().loadChats({ workspaceId: 'ws-1' })
-
-    expect(store.getState().planTodos).toEqual([
+  it('reconnects a lost admitted response, projects later output and never submits inference again', async () => {
+    setChat()
+    const generation = eventStream([
+      { type: 'response.started', threadId, runId },
+      { type: 'text.delta', text: 'Before disconnect' },
+    ])
+    const observer = eventStream([
       {
-        id: 'todo-1',
-        content: 'Inspect the current workflow',
-        completed: true,
-        executing: false,
+        type: 'thread.history',
+        result: historyResult([history[0]]),
+        activeRunId: runId,
       },
       {
-        id: 'todo-2',
-        content: 'Apply the workflow edit',
-        completed: false,
-        executing: false,
+        type: 'thread.started',
+        runId,
+        messageId: 'new-assistant',
+      },
+      {
+        type: 'thread.output',
+        runId,
+        event: { type: 'text.delta', text: 'Replayed and live output' },
       },
     ])
-
-    store.getState().updatePlanTodoStatus('todo-2', 'completed')
-    expect(store.getState().planTodos[1]).toMatchObject({
-      id: 'todo-2',
-      completed: true,
-      executing: false,
-    })
-
-    store.getState().updatePlanTodoStatus('todo-2', 'executing')
-    persistedMessages.push({
-      id: 'user-next-turn',
-      role: 'user',
-      content: 'Answer without a plan',
-      timestamp: '2026-04-13T00:00:02.000Z',
-    })
-    await store.getState().loadChats({ workspaceId: 'ws-1' })
-
-    expect(store.getState().planTodos).toEqual([])
-  })
-
-  it('uses the final output item text when it differs from streamed deltas', async () => {
-    const channelId = 'copilot-streaming-final-item-authority'
-    const store = getCopilotStore(channelId)
-
-    store.setState({
-      currentChat: null,
-      chats: [],
-      messages: [
-        {
-          id: 'assistant-message-final',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-04-13T00:00:00.000Z',
-        },
-      ],
-      isSendingMessage: true,
-      abortController: null,
-      toolCallsById: {},
-    })
-
-    await store.getState().handleStreamingResponse(
-      createSseStream([
-        {
-          type: 'response.output_item.added',
-          item: {
-            id: 'assistant-item-final',
-            type: 'message',
-            role: 'assistant',
-            content: [{ type: 'output_text', text: '' }],
-          },
-        },
-        {
-          type: 'response.output_text.delta',
-          item_id: 'assistant-item-final',
-          delta: 'Draft reply that should be replaced.',
-        },
-        {
-          type: 'response.output_item.done',
-          item: {
-            id: 'assistant-item-final',
-            type: 'message',
-            role: 'assistant',
-            content: [{ type: 'output_text', text: 'Final corrected reply.' }],
-          },
-        },
-        { type: 'response.completed', response: { id: 'response-final-authority' } },
-      ]),
-      'assistant-message-final'
+    onCommand = (request) => (request.command === 'message' ? generation.response : undefined)
+    onObserve = () => observer.response
+    const sending = store().getState().sendMessage('Read')
+    await vi.waitFor(() =>
+      expect(store().getState().messages.at(-1)?.content).toBe('Before disconnect')
     )
-
-    const message = store.getState().messages[0]
-    expect(message?.content).toBe('Final corrected reply.')
-    expect((message?.contentBlocks as any[])?.[0]?.content).toBe('Final corrected reply.')
-    expect(store.getState().isAwaitingContinuation).toBe(false)
-  })
-
-  it('treats awaiting_tools as a pause and skips terminal context usage refresh', async () => {
-    const channelId = 'copilot-awaiting-tools-pause'
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat/update-messages') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      if (url === '/api/copilot/usage') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ tokensUsed: 10, percentage: 1 }),
-        }
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId: 'review-awaiting-tools',
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        title: 'Awaiting tools',
-        messages: [],
-        messageCount: 0,
-        conversationId: 'conversation-awaiting-tools',
-        createdAt: new Date('2026-04-14T00:00:00.000Z'),
-        updatedAt: new Date('2026-04-14T00:00:00.000Z'),
-      },
-      chats: [],
-      messages: [
-        {
-          id: 'assistant-message-awaiting-tools',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-04-14T00:00:00.000Z',
-        },
-      ],
-      isSendingMessage: true,
-      abortController: null,
-      toolCallsById: {},
-    })
-
-    await store.getState().handleStreamingResponse(
-      createSseStream([
-        {
-          type: 'response.output_item.added',
-          item: {
-            id: 'assistant-awaiting-tools',
-            type: 'message',
-            role: 'assistant',
-            content: [{ type: 'output_text', text: '' }],
-          },
-        },
-        {
-          type: 'response.output_text.delta',
-          item_id: 'assistant-awaiting-tools',
-          delta: 'Checking the workflow before continuing.',
-        },
-        { type: 'awaiting_tools', data: { pendingToolCallIds: ['tool-await-1'] } },
-      ]),
-      'assistant-message-awaiting-tools'
+    generation.fail(new Error('Connection lost'))
+    await vi.waitFor(() =>
+      expect(store().getState().messages.at(-1)?.content).toBe('Replayed and live output')
     )
-
-    expect(
-      fetchMock.mock.calls.some(([input]) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        return url === '/api/copilot/usage'
-      })
-    ).toBe(false)
-    expect(store.getState().isSendingMessage).toBe(true)
-    expect(store.getState().isAwaitingContinuation).toBe(true)
-    expect(store.getState().messages[0]?.contentBlocks?.[0]?.type).toBe('text')
-  })
-
-  it('auto-executes limited-access non-gated server tools after awaiting_tools', async () => {
-    const channelId = 'copilot-awaiting-tools-pending-approval'
-    const assistantMessageId = 'assistant-message-awaiting-pending'
-    const reviewSessionId = 'review-awaiting-pending'
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat/update-messages') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      if (url === '/api/copilot/usage') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ tokensUsed: 10, percentage: 1 }),
-        }
-      }
-
-      if (url === '/api/copilot/execute-copilot-server-tool') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true, result: { tools: [] } }),
-        }
-      }
-
-      if (url === '/api/copilot/tools/mark-complete') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
+    expect(store().getState().isSendingMessage).toBe(true)
+    observer.emit({
+      type: 'thread.status',
+      runId: 'older-run',
+      status: 'success',
+      history: historyResult(),
     })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      accessLevel: 'limited',
-      currentChat: {
-        reviewSessionId,
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        title: 'Awaiting pending approval',
-        messages: [],
-        messageCount: 0,
-        conversationId: 'conversation-awaiting-pending',
-        latestTurnStatus: 'in_progress',
-        createdAt: new Date('2026-04-17T00:00:00.000Z'),
-        updatedAt: new Date('2026-04-17T00:00:00.000Z'),
-      } as any,
-      chats: [],
-      messages: [
-        {
-          id: assistantMessageId,
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-04-17T00:00:00.000Z',
-        },
-      ],
-      isSendingMessage: true,
-      abortController: null,
-      toolCallsById: {},
+    observer.emit({ type: 'thread.started', runId: 'older-run', messageId: 'older-assistant' })
+    observer.emit({
+      type: 'thread.output',
+      runId: 'older-run',
+      event: { type: 'text.delta', text: 'Unrelated output' },
     })
-
-    await store.getState().handleStreamingResponse(
-      createSseStream([
-        {
-          type: 'response.output_item.done',
-          item: {
-            type: 'function_call',
-            call_id: 'pending-approval-tool',
-            name: 'get_blocks_metadata',
-            arguments: { blockTypes: ['agent'] },
-          },
-        },
-        { type: 'awaiting_tools', data: { pendingToolCallIds: ['pending-approval-tool'] } },
-      ]),
-      assistantMessageId
-    )
-
-    const updateMessageCalls = fetchMock.mock.calls.filter(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/chat/update-messages'
+    observer.emit({
+      type: 'thread.error',
+      history: historyResult(),
+      runId: 'older-run',
+      error: { code: 'GENERATION_FAILED', message: 'Unrelated error' },
     })
-    const updateMessagesBody = parseJsonRequestBody(updateMessageCalls.at(-1))
-    const [persistedMessage] = updateMessagesBody.messages as any[]
-    expect(updateMessagesBody.latestTurnStatus).toBe('completed')
-    expect(persistedMessage.contentBlocks[0].toolCall.state).toBe(ClientToolCallState.success)
-
-    expect(
-      fetchMock.mock.calls.some(([input]) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        return url === '/api/copilot/execute-copilot-server-tool'
-      })
-    ).toBe(true)
-    expect(store.getState().currentChat?.latestTurnStatus).toBe('completed')
-    expect(store.getState().toolCallsById['pending-approval-tool']?.state).toBe(
-      ClientToolCallState.success
-    )
-    expect(store.getState().isSendingMessage).toBe(false)
-    expect(store.getState().isAwaitingContinuation).toBe(false)
-  })
-
-  it('keeps aborted server tools terminal after late completion', async () => {
-    const channelId = 'copilot-server-tool-abort-terminal'
-    const toolCallId = 'server-tool-abort-terminal'
-    const store = getCopilotStore(channelId)
-    const abortController = new AbortController()
-    let serverSignal: AbortSignal | undefined
-    let resolveServerResponse!: () => void
-    const serverResponse = new Promise<Response>((resolve) => {
-      resolveServerResponse = () =>
-        resolve(Response.json({ success: true, result: { blocks: [] } }))
-    })
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/execute-copilot-server-tool') {
-        serverSignal = init?.signal as AbortSignal | undefined
-        return serverResponse
-      }
-      if (url === '/api/copilot/tools/mark-complete') {
-        throw new Error('Aborted server tools must not be marked complete after late completion')
-      }
-      return Response.json({ success: true })
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      isSendingMessage: true,
-      abortController,
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'get_blocks_metadata',
-          state: ClientToolCallState.pending,
-          params: { blockTypes: ['agent'] },
-        } as any,
-      },
-    })
-
-    const executePromise = store.getState().executeCopilotToolCall(toolCallId)
     await Promise.resolve()
-
-    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.executing)
-    store.getState().abortMessage()
-    expect(serverSignal?.aborted).toBe(true)
-    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.aborted)
-
-    resolveServerResponse()
-    await executePromise
-
-    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.aborted)
-    expect(fetchMock.mock.calls.map(([input]) => input.toString())).not.toContain(
-      '/api/copilot/tools/mark-complete'
-    )
+    expect(store().getState().currentRunId).toBe(runId)
+    expect(store().getState().error).toBeNull()
+    observer.emit({ type: 'thread.status', runId, status: 'success', history: historyResult() })
+    expect(await sending).toBe(true)
+    expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
+    expect(store().getState().isSendingMessage).toBe(false)
+    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+    expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(1)
   })
 
-  it('cancels queued in-progress persistence after a send failure persists completed state', async () => {
-    vi.useFakeTimers()
-    const channelId = 'copilot-send-failure-persistence'
-    const reviewSessionId = 'review-send-failure-persistence'
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat') {
-        return {
-          ok: false,
-          status: 500,
-          json: async () => ({ error: 'backend unavailable' }),
-        }
-      }
-
-      if (url === '/api/copilot/chat/update-messages') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    try {
-      store.setState({
-        currentChat: {
-          reviewSessionId,
-          workspaceId: 'workspace-1',
-          entityKind: 'copilot',
-          entityId: null,
-          draftSessionId: null,
-          latestTurnStatus: 'completed',
-          title: 'Failed send persistence',
-          messages: [],
-          messageCount: 0,
-          conversationId: 'conversation-send-failure-persistence',
-          createdAt: new Date('2026-04-18T00:00:00.000Z'),
-          updatedAt: new Date('2026-04-18T00:00:00.000Z'),
-        },
-        chats: [],
-        messages: [],
-      })
-
-      await store.getState().sendMessage('Trigger a failed send', {
-        runtimeContext: createRuntimeContext({
-          workspaceId: 'workspace-1',
-        }),
-      })
-
-      const updateBodiesBeforeDelay = fetchMock.mock.calls
-        .filter(([input]) => {
-          const url = typeof input === 'string' ? input : input.toString()
-          return url === '/api/copilot/chat/update-messages'
-        })
-        .map((call) => parseJsonRequestBody(call))
-
-      expect(updateBodiesBeforeDelay).toHaveLength(1)
-      expect(updateBodiesBeforeDelay[0]?.latestTurnStatus).toBe('completed')
-
-      await vi.advanceTimersByTimeAsync(60)
-
-      const updateBodiesAfterDelay = fetchMock.mock.calls
-        .filter(([input]) => {
-          const url = typeof input === 'string' ? input : input.toString()
-          return url === '/api/copilot/chat/update-messages'
-        })
-        .map((call) => parseJsonRequestBody(call))
-
-      expect(updateBodiesAfterDelay).toHaveLength(1)
-      expect(updateBodiesAfterDelay[0]?.latestTurnStatus).toBe('completed')
-      expect(store.getState().currentChat?.latestTurnStatus).toBe('completed')
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('starts queued tool execution before chat persistence finishes', async () => {
-    vi.useFakeTimers()
-    const channelId = 'copilot-deferred-tool-auto-exec'
-    const toolCallId = 'copilot-deferred-mark-todo'
-    const store = getCopilotStore(channelId)
-    const deferredStream = createDeferredSseStream()
-    const fakeTool = {
-      execute: vi.fn(async () => {}),
-    }
-    let resolveSaveMessages!: (value: { ok: boolean; status: number }) => void
-
-    registerClientTool(toolCallId, fakeTool)
-
-    try {
-      store.setState({
-        accessLevel: 'full',
-        currentChat: null,
-        chats: [],
-        messages: [
-          {
-            id: 'assistant-message-deferred-tool',
-            role: 'assistant',
-            content: '',
-            timestamp: '2026-04-17T00:00:00.000Z',
-          },
-        ],
-        isSendingMessage: true,
-        abortController: null,
-        toolCallsById: {},
-      })
-
-      const saveMessagesResponse = new Promise<{ ok: boolean; status: number }>((resolve) => {
-        resolveSaveMessages = resolve
-      })
-
-      vi.stubGlobal(
-        'fetch',
-        vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
-          const url = typeof input === 'string' ? input : input.toString()
-          if (url === '/api/copilot/chat/update-messages') {
-            return saveMessagesResponse
-          }
-
-          if (url === '/api/copilot/usage') {
-            return {
-              ok: true,
-              status: 200,
-              json: async () => ({
-                tokensUsed: 0,
-                percentage: 0,
-                contextWindow: 0,
-                model: 'anthropic/claude-fable-5',
-              }),
-            }
-          }
-
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({ success: true }),
-          }
-        })
-      )
-
-      const responsePromise = store
-        .getState()
-        .handleStreamingResponse(deferredStream.stream, 'assistant-message-deferred-tool')
-
-      await deferredStream.ready
-      deferredStream.push({
-        type: 'response.output_item.done',
-        item: {
-          type: 'function_call',
-          call_id: toolCallId,
-          name: 'mark_todo_in_progress',
-          arguments: { id: 'todo-1' },
-        },
-      })
-
-      await Promise.resolve()
-      await Promise.resolve()
-      await vi.advanceTimersByTimeAsync(0)
-
-      expect(fakeTool.execute).not.toHaveBeenCalled()
-      deferredStream.push({
-        type: 'response.completed',
-        response: { id: 'response-deferred-tool' },
-      })
-      deferredStream.close()
-
-      await Promise.resolve()
-      await vi.advanceTimersByTimeAsync(0)
-
-      expect(fakeTool.execute).toHaveBeenCalledTimes(1)
-      resolveSaveMessages({ ok: true, status: 200 })
-      await responsePromise
-    } finally {
-      unregisterClientTool(toolCallId)
-      vi.useRealTimers()
-    }
-  })
-
-  it('auto-stages limited-access workflow edits for review approval', async () => {
-    vi.useFakeTimers()
-    const toolCallId = 'edit-workflow-limited-tool'
-    const assistantMessageId = 'assistant-message-limited-edit'
-    const reviewResult = {
-      requiresReview: true,
-      reviewToken: 'review-token-limited-edit',
-      entityKind: 'workflow',
-      entityId: 'wf-limited-edit',
-      entityDocument: 'flowchart TD',
-      documentFormat: 'tg-workflow-graph-mermaid-v1',
-      workflowState: {
-        blocks: {},
-        edges: [],
-        loops: {},
-        parallels: {},
-      },
-    }
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/execute-copilot-server-tool') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true, result: reviewResult }),
-        }
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    try {
-      const store = getCopilotStore('copilot-limited-access-edit-workflow')
-      store.setState({
-        accessLevel: 'limited',
-        messages: [
-          {
-            id: assistantMessageId,
-            role: 'assistant',
-            content: '',
-            timestamp: '2026-04-17T00:00:00.000Z',
-          },
-        ],
-        isSendingMessage: true,
-        toolCallsById: {},
-      })
-
-      await store.getState().handleStreamingResponse(
-        createSseStream([
-          {
-            type: 'response.output_item.done',
-            item: {
-              type: 'function_call',
-              call_id: toolCallId,
-              name: 'edit_workflow',
-              arguments: {
-                entityId: 'wf-limited-edit',
-                entityDocument: 'flowchart TD',
-              },
-            },
-          },
-          { type: 'awaiting_tools', data: { pendingToolCallIds: [toolCallId] } },
-        ]),
-        assistantMessageId
-      )
-      await vi.advanceTimersByTimeAsync(0)
-
-      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
-      expect(store.getState().toolCallsById[toolCallId]?.result).toEqual(reviewResult)
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/copilot/execute-copilot-server-tool',
-        expect.objectContaining({
-          method: 'POST',
-        })
-      )
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('leaves persisted review tools staged for full-access selected chats', async () => {
-    vi.useFakeTimers()
-    const toolCallId = 'edit-workflow-persisted-full-tool'
-    const pendingToolCallId = 'make-api-request-persisted-pending-tool'
-    const reviewResult = {
-      workflowState: {
-        blocks: {},
-        edges: [],
-        loops: {},
-        parallels: {},
-      },
-    }
-    let toolState = ClientToolCallState.review
-    const fakeTool: any = {
-      persistedToolCall: { result: reviewResult },
-      hydratePersistedToolCall: vi.fn((toolCall) => {
-        fakeTool.persistedToolCall = { result: toolCall.result }
-      }),
-      handleUserAction: vi.fn(async () => {
-        toolState = ClientToolCallState.success
-        fakeTool.persistedToolCall = { result: reviewResult }
-      }),
-      getState: vi.fn(() => toolState),
-    }
-    const chat: any = {
-      reviewSessionId: 'review-persisted-full-access',
-      workspaceId: 'workspace-1',
-      latestTurnStatus: 'completed' as const,
-      messages: [
+  it('continues the same conversation after an expired run without resuming or replaying it', async () => {
+    onObserve = (request) =>
+      eventResponse([
         {
-          id: 'assistant-persisted-review',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-04-17T00:00:00.000Z',
-          contentBlocks: [
-            {
-              type: 'tool_call',
-              toolCall: {
-                id: pendingToolCallId,
-                name: 'make_api_request',
-                state: ClientToolCallState.pending,
-              },
-            },
-            {
-              type: 'tool_call',
-              toolCall: {
-                id: toolCallId,
-                name: 'edit_workflow',
-                state: ClientToolCallState.review,
-                params: { entityId: 'wf-persisted-full-access' },
-                result: reviewResult,
-              },
-            },
-          ],
+          type: 'thread.history',
+          result: historyResult(history, [], request.threadId),
+          activeRunId: null,
+          interruptedRunId: runId,
         },
-      ],
-    }
-
-    registerClientTool(toolCallId, fakeTool)
-
-    try {
-      const store = getCopilotStore('copilot-persisted-full-access-review')
-      store.setState({ accessLevel: 'full', chats: [chat] })
-
-      const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        if (
-          url === `/api/copilot/chat?reviewSessionId=${encodeURIComponent(chat.reviewSessionId)}`
-        ) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({ success: true, chats: [chat] }),
-          }
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      })
-      vi.stubGlobal('fetch', fetchMock)
-
-      await store.getState().selectChat(chat)
-      await vi.advanceTimersByTimeAsync(0)
-
-      expect(fakeTool.handleUserAction).not.toHaveBeenCalled()
-      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
-      expect(store.getState().toolCallsById[toolCallId]?.result).toEqual(reviewResult)
-      expect(
-        fetchMock.mock.calls.some(([input]) => {
-          const url = typeof input === 'string' ? input : input.toString()
-          return url === '/api/copilot/execute-copilot-server-tool'
-        })
-      ).toBe(false)
-    } finally {
-      unregisterClientTool(toolCallId)
-      vi.useRealTimers()
-    }
-  })
-
-  it('starts a new generic copilot chat without deleting prior workspace history', async () => {
-    const channelId = 'copilot-new-chat-scope'
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat/update-messages') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
+      ])
+    await store().getState().selectChat(chat())
+    expect(store().getState()).toMatchObject({
+      isSendingMessage: false,
+      isAwaitingContinuation: false,
+      currentRunId: null,
+      error: 'The previous response was interrupted. You can continue this conversation.',
     })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    const scopedChat = {
-      reviewSessionId: 'review-scoped-chat',
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      title: 'Existing workspace copilot chat',
-      messages: [],
-      messageCount: 0,
-      conversationId: null,
-      createdAt: new Date('2026-03-30T00:00:00.000Z'),
-      updatedAt: new Date('2026-03-30T00:00:00.000Z'),
-    }
-
-    store.setState({
-      currentChat: scopedChat,
-      chats: [scopedChat],
-      messages: [
-        {
-          id: 'user-message',
-          role: 'user',
-          content: 'Hello',
-          timestamp: '2026-03-30T00:00:00.000Z',
-        },
-      ],
-    })
-
-    await store.getState().createNewChat()
-
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/copilot/chat/update-messages',
+    expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
+    expect(commands.map((request) => request.command)).toEqual(['thread.observe'])
+    expect(await store().getState().sendMessage('Continue here')).toBe(true)
+    expect(commands.filter((request) => request.command === 'message')).toEqual([
       expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({
-          reviewSessionId: 'review-scoped-chat',
-          messages: [
-            {
-              id: 'user-message',
-              role: 'user',
-              content: 'Hello',
-              timestamp: '2026-03-30T00:00:00.000Z',
-            },
-          ],
-          latestTurnStatus: 'completed',
-        }),
-      })
-    )
-    expect(store.getState().currentChat).toBeNull()
-    expect(store.getState().messages).toEqual([])
-    expect(store.getState().chats).toEqual([scopedChat])
+        threadId,
+        workspaceId,
+        input: { content: 'Continue here', contexts: [] },
+      }),
+    ])
+    expect(store().getState()).toMatchObject({ currentChat: { threadId }, currentRunId: null })
+    expect(
+      commands.some(
+        (request) => request.command === 'cancel' || request.command.startsWith('tool.')
+      )
+    ).toBe(false)
   })
 
-  it('persists a completed turn when selecting another chat after locally aborting active tools', async () => {
-    const channelId = 'copilot-select-chat-aborted-tools'
-    const store = getCopilotStore(channelId)
-    const nextChat = {
-      reviewSessionId: 'review-next-chat',
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      latestTurnStatus: 'completed' as const,
-      title: 'Next chat',
-      messages: [],
-      messageCount: 0,
-      conversationId: 'conversation-next-chat',
-      createdAt: new Date('2026-03-30T00:05:00.000Z'),
-      updatedAt: new Date('2026-03-30T00:05:00.000Z'),
+  it.each([false, true])(
+    'uses the native assistant identity when observing a new or saved response (saved=%s)',
+    async (saved) => {
+      const assistantId = 'next-assistant'
+      const nextUser = {
+        ...history[0],
+        id: 'next-user',
+        parts: [{ type: 'text', text: 'Question from another tab' }],
+      }
+      const nextAssistant = {
+        ...history[1],
+        id: assistantId,
+        parts: [{ type: 'text', text: 'First part' }],
+      }
+      const observer = observingStream(
+        historyResult(saved ? [...history, nextUser, nextAssistant] : history),
+        saved ? runId : null
+      )
+      onObserve = () => observer.response
+      await store().getState().selectChat(chat())
+      observer.emit({ type: 'thread.started', runId, messageId: assistantId })
+      observer.emit({
+        type: 'thread.output',
+        runId,
+        event: { type: 'text.delta', text: ' live output' },
+      })
+      await vi.waitFor(() =>
+        expect(store().getState().messages.at(-1)).toMatchObject({
+          id: assistantId,
+          content: saved ? 'First part live output' : ' live output',
+        })
+      )
+      expect(
+        store()
+          .getState()
+          .messages.find((item) => item.id === history[1].id)?.content
+      ).toBe('canonical answer')
+      expect(
+        store()
+          .getState()
+          .messages.filter((item) => item.id === assistantId)
+      ).toHaveLength(1)
+      observer.emit({
+        type: 'thread.status',
+        runId,
+        status: 'success',
+        history: historyResult([
+          ...history,
+          nextUser,
+          { ...nextAssistant, parts: [{ type: 'text', text: 'Final answer' }] },
+        ]),
+      })
+      await vi.waitFor(() =>
+        expect(
+          store()
+            .getState()
+            .messages.slice(-2)
+            .map((item) => item.content)
+        ).toEqual(['Question from another tab', 'Final answer'])
+      )
+      expect(
+        commands.some((request) => request.command === 'message' || request.command === 'cancel')
+      ).toBe(false)
     }
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat/update-messages') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
+  )
 
-      if (
-        url === `/api/copilot/chat?reviewSessionId=${encodeURIComponent(nextChat.reviewSessionId)}`
-      ) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true, chats: [nextChat] }),
-        }
-      }
-
-      if (url === '/api/copilot/usage') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ tokensUsed: 10, percentage: 1 }),
-        }
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
+  it('stops observation instead of appending unidentifiable output to a previous answer', async () => {
+    const observer = observingStream(historyResult(), runId)
+    observer.emit({
+      type: 'thread.output',
+      runId,
+      event: { type: 'text.delta', text: 'Unidentified' },
     })
+    onObserve = () => observer.response
+    await store().getState().selectChat(chat())
+    await vi.waitFor(() => expect(store().getState().isSendingMessage).toBe(false))
+    expect(store().getState().error).toContain('Response identity is unavailable')
+    expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
+    expect(observer.cancelled).toHaveBeenCalledOnce()
+    expect(commands).toHaveLength(1)
+  })
 
-    vi.stubGlobal('fetch', fetchMock)
-
-    const currentChat = {
-      reviewSessionId: 'review-active-chat',
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      latestTurnStatus: 'in_progress' as const,
-      title: 'Active chat',
-      messages: [],
-      messageCount: 1,
-      conversationId: 'conversation-active-chat',
-      createdAt: new Date('2026-03-30T00:00:00.000Z'),
-      updatedAt: new Date('2026-03-30T00:00:00.000Z'),
-    }
-
-    store.setState({
-      currentChat,
-      chats: [currentChat, nextChat],
-      messages: [
-        {
-          id: 'assistant-message-active-chat',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-03-30T00:00:00.000Z',
-          contentBlocks: [
-            {
-              type: 'tool_call',
-              timestamp: 1,
-              toolCall: {
-                id: 'tool-active-chat',
-                name: 'edit_indicator',
-                state: ClientToolCallState.executing,
-                params: { entityDocument: '{}' },
-              },
-            },
-          ],
-        },
-      ],
-      toolCallsById: {
-        'tool-active-chat': {
-          id: 'tool-active-chat',
-          name: 'edit_indicator',
-          state: ClientToolCallState.executing,
-          params: { entityDocument: '{}' },
-        },
-      },
+  it('clears a stopped run identity when refreshed history has no pending continuation', async () => {
+    const observer = observingStream(historyResult(), runId)
+    onObserve = () => observer.response
+    await store().getState().selectChat(chat())
+    observer.emit({
+      type: 'thread.error',
+      history: historyResult(),
+      runId,
+      error: { code: 'STREAM_INTERRUPTED', message: 'Response interrupted' },
     })
-
-    await store.getState().selectChat(nextChat)
-
-    const updateRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/chat/update-messages'
-    })
-
-    const requestBody = parseJsonRequestBody(updateRequest)
-    expect(requestBody).toMatchObject({
-      reviewSessionId: 'review-active-chat',
-      latestTurnStatus: 'completed',
-    })
-    expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
-      ClientToolCallState.aborted
+    await vi.waitFor(() =>
+      expect(store().getState()).toMatchObject({
+        isSendingMessage: false,
+        currentRunId: null,
+        error: 'Response interrupted',
+      })
+    )
+    observer.emit({ type: 'thread.started', runId, messageId: 'reconnected-assistant' })
+    await vi.waitFor(() => expect(store().getState().currentRunId).toBe(runId))
+    observer.emit({ type: 'thread.status', runId, status: 'success', history: historyResult() })
+    await vi.waitFor(() =>
+      expect(store().getState()).toMatchObject({
+        isSendingMessage: false,
+        currentRunId: null,
+        error: null,
+      })
     )
     expect(
-      store.getState().chats.find((chat) => chat.reviewSessionId === 'review-active-chat')
-        ?.latestTurnStatus
-    ).toBe('completed')
+      commands.some((request) => request.command === 'message' || request.command === 'cancel')
+    ).toBe(false)
   })
 
-  it('preserves review-state workflow edits when selecting another chat', async () => {
-    const channelId = 'copilot-select-chat-review-tools'
-    const store = getCopilotStore(channelId)
-    const nextChat = {
-      reviewSessionId: 'review-next-chat-review-tools',
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      latestTurnStatus: 'completed' as const,
-      title: 'Next chat',
-      messages: [],
-      messageCount: 0,
-      conversationId: 'conversation-next-chat-review-tools',
-      createdAt: new Date('2026-03-30T00:05:00.000Z'),
-      updatedAt: new Date('2026-03-30T00:05:00.000Z'),
+  it.each([403, 501])(
+    'does not retry a non-retryable observation response (%i)',
+    async (status) => {
+      const observing = vi.fn(() =>
+        json(
+          { status: 'refused', error: { code: 'FORBIDDEN', message: 'Observation unavailable' } },
+          status
+        )
+      )
+      onObserve = observing
+      await store().getState().selectChat(chat())
+      expect(observing).toHaveBeenCalledOnce()
+      expect(store().getState().error).toBe('Observation unavailable')
+      expect(store().getState().isSendingMessage).toBe(false)
     }
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat/update-messages') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
+  )
+
+  it('retries observation transport failures without starting another model request', async () => {
+    const observing = vi
+      .fn()
+      .mockResolvedValueOnce(
+        json(
+          { status: 'failed', error: { code: 'UNAVAILABLE', message: 'Temporary disconnect' } },
+          503
+        )
+      )
+      .mockImplementation(() => observingStream(historyResult(), runId).response)
+    onObserve = observing
+    await store().getState().selectChat(chat())
+    expect(store().getState().error).toBeNull()
+    await vi.waitFor(() => expect(observing).toHaveBeenCalledTimes(2), { timeout: 1500 })
+    await vi.waitFor(() =>
+      expect(store().getState()).toMatchObject({
+        currentRunId: runId,
+        isSendingMessage: true,
+        error: null,
+      })
+    )
+    await store().getState().createNewChat()
+    expect(
+      commands.some((request) => request.command === 'message' || request.command === 'cancel')
+    ).toBe(false)
+  })
+
+  it.each(['completed', 'suspended', 'failed'] as const)(
+    'refreshes mounted personal and organization usage after a %s turn',
+    async (status) => {
+      let currentUsage = 0.1
+      const observers = [subscriptionKeys.user(), organizationKeys.billing('org')].map(
+        (queryKey) =>
+          new QueryObserver(queryClient, {
+            queryKey,
+            queryFn: async () => currentUsage,
+            staleTime: Number.POSITIVE_INFINITY,
+          })
+      )
+      const unsubscribe = observers.map((observer) => observer.subscribe(() => {}))
+      try {
+        await vi.waitFor(() =>
+          expect(observers.map((observer) => observer.getCurrentResult().data)).toEqual([0.1, 0.1])
+        )
+        setChat()
+        onCommand = (command) => {
+          if (command.command !== 'message') return
+          currentUsage = 0.18
+          return status === 'failed'
+            ? eventResponse([
+                {
+                  type: 'response.error',
+                  result: { status, error: { code: 'GENERATION_FAILED', message: 'Interrupted' } },
+                },
+              ])
+            : terminalResponse(status === 'completed' ? ready() : suspended([]))
         }
+        expect(await store().getState().sendMessage('Describe')).toBe(status !== 'failed')
+        await vi.waitFor(() =>
+          expect(observers.map((observer) => observer.getCurrentResult().data)).toEqual([
+            0.18, 0.18,
+          ])
+        )
+      } finally {
+        unsubscribe.forEach((stop) => stop())
       }
-
-      if (
-        url === `/api/copilot/chat?reviewSessionId=${encodeURIComponent(nextChat.reviewSessionId)}`
-      ) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true, chats: [nextChat] }),
-        }
-      }
-
-      if (url === '/api/copilot/usage') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ tokensUsed: 10, percentage: 1 }),
-        }
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    const currentChat = {
-      reviewSessionId: 'review-active-chat-review-tools',
-      workspaceId: 'workspace-1',
-      entityKind: 'workflow',
-      entityId: 'wf-active-chat-review-tools',
-      draftSessionId: null,
-      latestTurnStatus: 'completed' as const,
-      title: 'Workflow edit review chat',
-      messages: [],
-      messageCount: 1,
-      conversationId: 'conversation-active-chat-review-tools',
-      createdAt: new Date('2026-03-30T00:00:00.000Z'),
-      updatedAt: new Date('2026-03-30T00:00:00.000Z'),
     }
+  )
 
-    store.setState({
+  it('serializes the current access level after native history hydration settles', async () => {
+    store().getState().setAccessLevel('full')
+    const held = defer<Response>()
+    onCommand = (command) =>
+      command.command === 'thread.observe' && commands.length === 1 ? held.promise : undefined
+    const selecting = store()
+      .getState()
+      .selectChat({ ...chat(), title: '' })
+    await vi.waitFor(() =>
+      expect(commands.map((command) => command.command)).toEqual(['thread.observe'])
+    )
+    store().getState().setAccessLevel('limited')
+    held.resolve(observingStream(historyResult([])).response)
+    await selecting
+    expect(await store().getState().sendMessage('Describe')).toBe(true)
+    expect(commands.find((command) => command.command === 'message')).toMatchObject({
       accessLevel: 'limited',
-      currentChat,
-      chats: [currentChat, nextChat],
-      messages: [
+    })
+  })
+
+  it.each(['message', 'edit'])(
+    'preserves the draft, run identity and displayed history when an oversized %s is refused locally',
+    async (mode) => {
+      await store().getState().selectChat(chat())
+      commands.length = 0
+      const messages = store().getState().messages
+      const submittedDraft = { text: 'Describe these images', contexts: [] }
+      const onAccepted = vi.fn()
+      store().setState({ draft: submittedDraft, currentRunId: 'retained-run' })
+      const images = [
         {
-          id: 'assistant-message-review-chat',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-03-30T00:00:00.000Z',
-          contentBlocks: [
+          type: 'image' as const,
+          image: `data:image/png;base64,${'A'.repeat(MAX_COPILOT_REQUEST_BYTES)}`,
+          mediaType: 'image/png',
+        },
+      ]
+      expect(
+        await store()
+          .getState()
+          .sendMessage(submittedDraft.text, {
+            images,
+            onAccepted,
+            ...(mode === 'edit' ? { messageId: history[0].id } : {}),
+          })
+      ).toBe(false)
+      expect(commands).toEqual([])
+      expect(onAccepted).not.toHaveBeenCalled()
+      expect(titleRequests).toEqual([])
+      expect(store().getState()).toMatchObject({
+        currentRunId: 'retained-run',
+        isSendingMessage: false,
+        abortController: null,
+        error: expect.stringContaining('10 MiB'),
+      })
+      expect(store().getState().draft).toBe(submittedDraft)
+      expect(store().getState().messages).toBe(messages)
+      expect(images).toHaveLength(1)
+    }
+  )
+
+  it('counts merged implicit context and UTF-8 bytes in the complete command before any request', async () => {
+    const submittedDraft = { text: 'Describe', contexts: [] }
+    const onAccepted = vi.fn()
+    store().setState({ draft: submittedDraft })
+    const messages = store().getState().messages
+    expect(
+      await store()
+        .getState()
+        .sendMessage(submittedDraft.text, {
+          onAccepted,
+          images: [
             {
-              type: 'tool_call',
-              timestamp: 1,
-              toolCall: {
-                id: 'tool-review-chat',
-                name: 'edit_workflow',
-                state: ClientToolCallState.review,
-                params: {
-                  entityDocument: 'workflow: {}',
-                  entityId: 'wf-active-chat-review-tools',
+              type: 'image',
+              image: `data:image/png;base64,${'A'.repeat(MAX_COPILOT_REQUEST_BYTES - 1024)}`,
+              mediaType: 'image/png',
+            },
+          ],
+          runtimeContext: {
+            workspaceId,
+            implicitContexts: [{ kind: 'docs', label: '文'.repeat(1024) }],
+          },
+        })
+    ).toBe(false)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(onAccepted).not.toHaveBeenCalled()
+    expect(store().getState().draft).toBe(submittedDraft)
+    expect(store().getState().messages).toBe(messages)
+    expect(store().getState().error).toContain('10 MiB')
+  })
+
+  it('starts unconfigured and refuses to send without a selected administrator model', async () => {
+    resetCopilotStoreRegistry()
+    expect(store().getState().selectedModel).toBeNull()
+    expect(await store().getState().sendMessage('Hello')).toBe(false)
+    expect(commands).toEqual([])
+    expect(titleRequests).toEqual([])
+    expect(store().getState().isSendingMessage).toBe(false)
+  })
+
+  it.each([undefined, { openai: { reasoningEffort: 'high' } }])(
+    'sends native provider options %j with exact input, then reads canonical history',
+    async (providerOptions) => {
+      store().setState({ currentChat: chat(null), selectedModel: 'openai/gpt-5.6-sol' })
+      store().getState().setProviderOptions(providerOptions)
+      expect(
+        await store()
+          .getState()
+          .sendMessage(' exact 🦆\n', { contexts: [{ kind: 'docs', label: 'Docs' }] })
+      ).toBe(true)
+      expect(commands[0]).toMatchObject({
+        command: 'message',
+        workspaceId: null,
+        threadId,
+        model: 'openai/gpt-5.6-sol',
+        input: { content: ' exact 🦆\n', contexts: [{ kind: 'docs', label: 'Docs' }] },
+      })
+      expect(
+        store()
+          .getState()
+          .messages.map((message) => message.id)
+      ).toEqual(['user-native', 'assistant-native'])
+      expect(titleRequests).toEqual([])
+      if (providerOptions === undefined) expect(commands[0]).not.toHaveProperty('providerOptions')
+      else expect(commands[0]).toHaveProperty('providerOptions', providerOptions)
+    }
+  )
+  it('preserves provider options on reselecting a model and clears them on a model change', async () => {
+    const selected = store().getState().selectedModel
+    const providerOptions = { openai: { reasoningEffort: 'high' } }
+    store().getState().setProviderOptions(providerOptions)
+    await store().getState().setSelectedModel(selected)
+    expect(store().getState().providerOptions).toBe(providerOptions)
+    await store().getState().setSelectedModel('openai/gpt-5.6-sol')
+    expect(store().getState()).toMatchObject({
+      selectedModel: 'openai/gpt-5.6-sol',
+      providerOptions: undefined,
+    })
+  })
+  it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
+    'keeps access, model and provider options immutable during %s',
+    async (busyState) => {
+      const selectedModel = store().getState().selectedModel
+      const providerOptions = { openai: { reasoningEffort: 'high' } }
+      store().getState().setProviderOptions(providerOptions)
+      store().getState().setAccessLevel('full')
+      if (busyState === 'pending-tool')
+        store().setState({
+          toolCallsById: { pending: { name: 'plan', state: ClientToolCallState.pending } as any },
+        })
+      else store().setState({ [busyState]: true })
+      store().getState().setAccessLevel('limited')
+      store().getState().setProviderOptions(undefined)
+      await store().getState().setSelectedModel('openai/gpt-5.6-sol')
+      expect(store().getState()).toMatchObject({
+        selectedModel,
+        providerOptions,
+        accessLevel: 'full',
+      })
+      if (busyState === 'pending-tool') store().setState({ toolCallsById: {} })
+      else store().setState({ [busyState]: false })
+      store().getState().setAccessLevel('limited')
+      expect(store().getState().accessLevel).toBe('limited')
+    }
+  )
+  it('merges live contexts without promoting UI workspace/entity locators to tool payload authority', async () => {
+    setChat()
+    await store()
+      .getState()
+      .sendMessage('Inspect', {
+        contexts: [{ kind: 'docs', label: 'Docs' }],
+        runtimeContext: {
+          workspaceId,
+          implicitContexts: [
+            { kind: 'current_monitor', monitorId: 'monitor', workspaceId, label: 'Monitor' },
+          ],
+        },
+      })
+    expect(commands[0]).not.toHaveProperty('workflowId')
+    expect(commands[0]).toMatchObject({
+      input: {
+        contexts: [
+          { kind: 'docs', label: 'Docs' },
+          { kind: 'current_monitor', monitorId: 'monitor', workspaceId, label: 'Monitor' },
+        ],
+      },
+    })
+  })
+  it('retains image descriptors and the draft when the authenticated server refuses the source', async () => {
+    store().getState().setDraft({ text: 'image prompt', contexts: [] })
+    onCommand = (request) =>
+      request.command === 'message'
+        ? json(
+            {
+              status: 'refused',
+              error: {
+                code: 'FORBIDDEN',
+                message: 'Source access denied',
+              },
+            },
+            403
+          )
+        : undefined
+    expect(
+      await store()
+        .getState()
+        .sendMessage('image prompt', {
+          images: [
+            {
+              type: 'image',
+              image: 'data:image/png;base64,cGl4ZWw=',
+              mediaType: 'image/png',
+            },
+          ],
+        })
+    ).toBe(false)
+    expect(commands).toEqual([
+      expect.objectContaining({
+        command: 'message',
+        input: {
+          content: [
+            { type: 'text', text: 'image prompt' },
+            { type: 'image', image: 'data:image/png;base64,cGl4ZWw=', mediaType: 'image/png' },
+          ],
+          contexts: [],
+        },
+      }),
+    ])
+    expect(titleRequests).toEqual([])
+    expect(store().getState().draft.text).toBe('image prompt')
+    expect(store().getState().error).toBe('Source access denied')
+  })
+  it('sends image-only selection in original order as Studio source descriptors without a caption or title utility', async () => {
+    const images = ['first', 'second'].map((id) => ({
+      type: 'image' as const,
+      image: `data:image/png;base64,${btoa(id)}`,
+      mediaType: 'image/png',
+    }))
+    expect(await store().getState().sendMessage(' \n\t ', { images })).toBe(true)
+    expect(commands.find((command) => command.command === 'message')).toMatchObject({
+      input: {
+        content: [{ type: 'text', text: ' \n\t ' }, ...images],
+        contexts: [],
+      },
+    })
+    expect(titleRequests).toEqual([])
+  })
+  it('refuses a wrong-command history mutation without inventing a model acceptance fact', async () => {
+    setChat()
+    onCommand = (request) => {
+      if (request.command !== 'message') return
+      const wrong = {
+        status: 'updated',
+        threadId,
+        operation: 'thread.title',
+      }
+      return json(wrong)
+    }
+    expect(await store().getState().sendMessage('First')).toBe(false)
+    expect(store().getState().error).toBe('Copilot stream is unavailable')
+    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+    expect(titleRequests).toEqual([])
+  })
+  it('preserves split UTF8, reasoning/text order and native final canonical content', async () => {
+    setChat()
+    onCommand = (request) =>
+      request.command === 'message'
+        ? eventResponse([
+            { type: 'response.started', runId, threadId },
+            { type: 'reasoning.delta', text: 'thinking🦆' },
+            { type: 'text.delta', text: 'preview' },
+            { type: 'response.completed', result: ready() },
+          ])
+        : undefined
+    expect(await store().getState().sendMessage('Hello')).toBe(true)
+    expect(store().getState().lastNativeOutcome).toMatchObject({
+      status: 'completed',
+      text: 'canonical answer',
+    })
+    expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
+  })
+  it.each(['missing-terminal', 'raw-openai', 'trailing-data'])(
+    'refuses %s streams without inventing success',
+    async (mode) => {
+      setChat()
+      onCommand = (request) => {
+        if (request.command !== 'message') return
+        if (mode === 'raw-openai')
+          return new Response('data: {"choices":[]}\n\n', {
+            headers: { 'content-type': 'text/event-stream' },
+          })
+        const events =
+          mode === 'missing-terminal'
+            ? [{ type: 'text.delta', text: 'unfinished' }]
+            : [
+                {
+                  type: 'response.completed',
+                  result: {
+                    ...ready(),
+                  },
+                },
+                ...(mode === 'trailing-data' ? [{ type: 'text.delta', text: 'extra' }] : []),
+              ]
+        return eventResponse(events)
+      }
+      expect(await store().getState().sendMessage('Hello')).toBe(false)
+      expect(store().getState().error).toBeTruthy()
+      expect(titleRequests).toEqual([])
+    }
+  )
+  it.each(['pending', 'unavailable', 'navigation'])(
+    'reconciles an accepted failure before releasing its run (history=%s)',
+    async (historyState) => {
+      setChat()
+      const item = pending('approval', 'rename_workflow')
+      const observation = defer<Response>()
+      onObserve = () => observation.promise
+      onCommand = (request) =>
+        request.command === 'message'
+          ? eventResponse([
+              { type: 'response.started', runId, threadId },
+              {
+                type: 'tool.display',
+                toolCallId: item.target.toolCallId,
+                toolName: item.target.toolName,
+              },
+              {
+                type: 'response.error',
+                result: {
+                  status: 'failed',
+                  error: { code: 'FAILED', message: 'Pending discovery failed' },
                 },
               },
-            },
-          ],
-        },
-      ],
-      toolCallsById: {
-        'tool-review-chat': {
-          id: 'tool-review-chat',
-          name: 'edit_workflow',
-          state: ClientToolCallState.review,
-          params: {
-            entityDocument: 'workflow: {}',
-            entityId: 'wf-active-chat-review-tools',
-          },
-        },
+            ])
+          : undefined
+      const sending = store().getState().sendMessage('Rename')
+      await vi.waitFor(() =>
+        expect(commands.some((request) => request.command === 'thread.observe')).toBe(true)
+      )
+      expect(store().getState()).toMatchObject({ currentRunId: runId, isSendingMessage: true })
+      expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe(
+        ClientToolCallState.generating
+      )
+      expect(await store().getState().sendMessage('Next')).toBe(false)
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      if (historyState === 'navigation') await store().getState().createNewChat()
+      observation.resolve(
+        historyState === 'unavailable'
+          ? json(
+              { status: 'refused', error: { code: 'FORBIDDEN', message: 'History unavailable' } },
+              403
+            )
+          : historyResponse([item])
+      )
+      expect(await sending).toBe(false)
+      if (historyState === 'navigation') {
+        expect(store().getState()).toMatchObject({
+          currentChat: null,
+          currentRunId: null,
+          toolCallsById: {},
+        })
+        return
+      }
+      expect(store().getState()).toMatchObject({
+        currentRunId: runId,
+        isAwaitingContinuation: true,
+        lastNativeOutcome: { status: historyState === 'unavailable' ? 'refused' : 'failed' },
+      })
+      if (historyState === 'pending')
+        expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+          pending: item,
+          state: ClientToolCallState.pending,
+        })
+      expect(await store().getState().abortMessage()).toBe(true)
+      expect(commands.at(-1)).toEqual({ command: 'cancel', workspaceId, threadId, runId })
+      expect(store().getState().currentRunId).toBeNull()
+    }
+  )
+  it('settles display-only tools during a UI abort and waits for cancellation acknowledgement', async () => {
+    setChat()
+    const item = pending('approval')
+    const acknowledgement = defer<Response>()
+    const stream = eventStream([
+      { type: 'response.started', runId, threadId, messageId: 'canonical-live-user' },
+      {
+        type: 'tool.display',
+        toolCallId: item.target.toolCallId,
+        toolName: item.target.toolName,
       },
-    })
-
-    await store.getState().selectChat(nextChat)
-
-    const updateRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/chat/update-messages'
-    })
-
-    const requestBody = parseJsonRequestBody(updateRequest)
-    expect(requestBody).toMatchObject({
-      reviewSessionId: 'review-active-chat-review-tools',
-      latestTurnStatus: 'completed',
-    })
-    expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
-      ClientToolCallState.review
+    ])
+    onCommand = (request) =>
+      request.command === 'cancel'
+        ? acknowledgement.promise
+        : request.command === 'message'
+          ? stream.response
+          : undefined
+    const sending = store().getState().sendMessage('Read')
+    await vi.waitFor(() =>
+      expect(store().getState().toolCallsById[item.target.toolCallId]?.state).toBe(
+        ClientToolCallState.generating
+      )
     )
     expect(
-      store
+      store()
         .getState()
-        .chats.find((chat) => chat.reviewSessionId === 'review-active-chat-review-tools')
-        ?.latestTurnStatus
-    ).toBe('completed')
-  })
-
-  it('persists a completed turn when creating a new chat after locally aborting active tools', async () => {
-    const channelId = 'copilot-new-chat-aborted-tools'
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat/update-messages') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
+        .messages.find((message) => message.role === 'user')?.id
+    ).toBe('canonical-live-user')
+    const stopping = store().getState().abortMessage()
+    expect(store().getState().isAborting).toBe(true)
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+    expect(await store().getState().sendMessage('Wait for cancellation')).toBe(false)
+    const cancel = commands.find((request) => request.command === 'cancel')!
+    acknowledgement.resolve(defaultResponse(cancel))
+    expect(await stopping).toBe(true)
+    expect(await sending).toBe(false)
+    await vi.waitFor(() =>
+      expect(store().getState().lastNativeOutcome?.status).toBe('cancel_requested')
+    )
+    expect(stream.cancelled).toHaveBeenCalledOnce()
+    expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+      expect.objectContaining({ threadId, runId, workspaceId }),
+    ])
+    expect(store().getState().lastNativeOutcome).toMatchObject({
+      status: 'cancel_requested',
     })
+    expect(store().getState().isAborting).toBe(false)
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+    const call = store().getState().toolCallsById[item.target.toolCallId]
+    expect(call.state).toBe(ClientToolCallState.aborted)
+    expect(call.pending).toBeUndefined()
+    expect(
+      store()
+        .getState()
+        .messages.flatMap((message) => message.contentBlocks ?? [])
+    ).toContainEqual(expect.objectContaining({ type: 'tool_call', toolCall: call }))
+    onCommand = () => undefined
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
+  })
+  it('cancels a restored suspended run without a new streaming response', async () => {
+    const item = pending('approval')
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    expect(store().getState().currentRunId).toBe(runId)
+    queryClient.setQueryData(subscriptionKeys.user(), { current: 0.1 })
+    expect(await store().getState().abortMessage()).toBe(true)
+    expect(queryClient.getQueryState(subscriptionKeys.user())?.isInvalidated).toBe(true)
+    expect(store().getState().lastNativeOutcome?.status).toBe('cancel_requested')
+    expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+      { command: 'cancel', workspaceId, threadId, runId },
+    ])
+    expect(store().getState().currentRunId).toBeNull()
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+    onCommand = () => undefined
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
+  })
+  it.each(['transport', 'server', 'wrong-run'] as const)(
+    'keeps a text-only run cancellable after a %s cancellation failure',
+    async (failure) => {
+      setChat()
+      const stream = eventStream([
+        { type: 'response.started', runId, threadId },
+        { type: 'text.delta', text: 'Still writing' },
+      ])
+      const error = {
+        transport: 'Cancellation connection lost',
+        server: 'Try Stop again',
+        'wrong-run': 'Native cancellation was not verified',
+      }[failure]
+      onCommand = (request) => {
+        if (request.command === 'cancel') {
+          if (failure === 'transport') throw new TypeError(error)
+          return failure === 'server'
+            ? json({ status: 'failed', error: { code: 'CANCEL_FAILED', message: error } }, 503)
+            : json({ status: 'cancel_requested', runId: 'different-run' })
+        }
+        if (request.command !== 'message') return
+        return stream.response
+      }
+      const sending = store().getState().sendMessage('Write an answer')
+      await vi.waitFor(() =>
+        expect(store().getState().messages.at(-1)?.content).toBe('Still writing')
+      )
+      expect(store().getState().isAwaitingContinuation).toBe(false)
+      expect(await store().getState().abortMessage()).toBe(false)
+      expect(await sending).toBe(false)
+      expect(stream.cancelled).toHaveBeenCalledOnce()
+      expect(store().getState()).toMatchObject({
+        currentRunId: runId,
+        isSendingMessage: false,
+        isAborting: false,
+        isAwaitingContinuation: true,
+        error,
+      })
+      expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+      expect(await store().getState().sendMessage('Must wait')).toBe(false)
+      expect(store().getState().currentRunId).toBe(runId)
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      onCommand = () => undefined
+      expect(await store().getState().abortMessage()).toBe(true)
+      expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+        { command: 'cancel', workspaceId, threadId, runId },
+        { command: 'cancel', workspaceId, threadId, runId },
+      ])
+      expect(store().getState()).toMatchObject({
+        currentRunId: null,
+        isAwaitingContinuation: false,
+      })
+      expect(await store().getState().sendMessage('Next turn')).toBe(true)
+    }
+  )
+  it.each([
+    [
+      { status: 'failed', error: { code: 'CANCEL_FAILED', message: 'Try Stop again' } },
+      503,
+      'Try Stop again',
+    ],
+    [
+      { status: 'cancel_requested', runId: 'different-run' },
+      200,
+      'Native cancellation was not verified',
+    ],
+  ] as const)(
+    'retains pending actions after an unsuccessful cancellation %j so Stop can retry',
+    async (body, status, error) => {
+      const item = pending('approval')
+      installPending(item)
+      store().setState({ isAwaitingContinuation: true })
+      onCommand = (request) => (request.command === 'cancel' ? json(body, status) : undefined)
+      expect(await store().getState().abortMessage()).toBe(false)
+      expect(store().getState().error).toBe(error)
+      expect(store().getState()).toMatchObject({
+        currentRunId: runId,
+        isAborting: false,
+        isAwaitingContinuation: true,
+      })
+      expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+      expect(await store().getState().sendMessage('Still suspended')).toBe(false)
+      onCommand = () => undefined
+      store().getState().abortMessage()
+      await vi.waitFor(() =>
+        expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+      )
+    }
+  )
+  it('rejects a stale thread response without selecting it', async () => {
+    setChat()
+    onCommand = (request) =>
+      request.command === 'message'
+        ? terminalResponse({ ...ready(), threadId: 'other' })
+        : undefined
+    expect(await store().getState().sendMessage('Hello')).toBe(false)
+    expect(store().getState().currentChat?.threadId).toBe(threadId)
+  })
+  it('does not overwrite a new selection with a late cancel acknowledgement', async () => {
+    setChat()
+    store().setState({ currentRunId: runId })
+    const late = defer<Response>()
+    onCommand = (request) => (request.command === 'cancel' ? late.promise : undefined)
+    store().getState().abortMessage()
+    await store().getState().createNewChat('another-workspace')
+    const cancel = commands.find((command) => command.command === 'cancel')!
+    late.resolve(defaultResponse(cancel))
+    await vi.waitFor(() => expect(store().getState().lastNativeOutcome).toBeNull())
+    expect(store().getState().conversationWorkspaceId).toBe('another-workspace')
+  })
+})
 
-    vi.stubGlobal('fetch', fetchMock)
-
-    const currentChat = {
-      reviewSessionId: 'review-new-chat-abort',
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      latestTurnStatus: 'in_progress' as const,
-      title: 'Abort before new chat',
-      messages: [],
-      messageCount: 1,
-      conversationId: 'conversation-new-chat-abort',
-      createdAt: new Date('2026-03-30T00:00:00.000Z'),
-      updatedAt: new Date('2026-03-30T00:00:00.000Z'),
+describe('failed pending continuations', () => {
+  it.each(
+    (['approval', 'result'] as const).flatMap((stage) =>
+      ['refused', 'error', 'http', 'transport'].map((failure) => ({ stage, failure }))
+    )
+  )('keeps a $stage run cancellable after a $failure continuation', async ({ stage, failure }) => {
+    const item = pending(stage, stage === 'approval' ? 'rename_workflow' : 'edit_workflow')
+    if (stage === 'result') item.preview = { requiresReview: true }
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    commands = []
+    onCommand = (request) => {
+      if (request.command === 'thread.observe') return historyResponse([item])
+      if (request.command !== 'tool.approve' && request.command !== 'tool.execute') return
+      if (failure === 'transport') throw new Error('Continuation transport failed')
+      const result = {
+        status: failure === 'error' ? 'failed' : 'refused',
+        error: {
+          code: 'STALE_TARGET',
+          message: stage === 'approval' ? 'Copilot model unavailable' : 'Copilot API key removed',
+        },
+      }
+      return failure === 'http'
+        ? json(result, 409)
+        : eventResponse([
+            { type: failure === 'error' ? 'response.error' : 'response.refused', result },
+          ])
     }
 
-    store.setState({
-      currentChat,
-      chats: [currentChat],
-      messages: [
-        {
-          id: 'assistant-message-new-chat-abort',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-03-30T00:00:00.000Z',
-          contentBlocks: [
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(store().getState()).toMatchObject({
+      currentRunId: runId,
+      isSendingMessage: false,
+      isAwaitingContinuation: true,
+    })
+    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+      state: ClientToolCallState.error,
+      pending: item,
+    })
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
+    const messages = store().getState().messages
+    expect(await store().getState().sendMessage('Blocked next turn')).toBe(false)
+    expect(store().getState().messages).toBe(messages)
+    expect(store().getState().currentRunId).toBe(runId)
+    expect(commands.some((request) => request.command === 'message')).toBe(false)
+
+    onCommand = (request) =>
+      request.command === 'cancel'
+        ? json(
+            { status: 'failed', error: { code: 'FAILED', message: 'Cancellation delayed' } },
+            503
+          )
+        : undefined
+    expect(await store().getState().abortMessage()).toBe(false)
+    expect(store().getState()).toMatchObject({
+      currentRunId: runId,
+      isAwaitingContinuation: true,
+      isAborting: false,
+    })
+    onCommand = () => undefined
+    expect(await store().getState().abortMessage()).toBe(true)
+    expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+      { command: 'cancel', workspaceId, threadId, runId },
+      { command: 'cancel', workspaceId, threadId, runId },
+    ])
+    expect(store().getState()).toMatchObject({
+      currentRunId: null,
+      isAwaitingContinuation: false,
+    })
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
+  })
+
+  it('releases the retained run when authoritative history confirms no pending work', async () => {
+    const item = pending('approval', 'sleep')
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    const instance = new SleepClientTool(item.target.toolCallId)
+    registerClientTool(item.target.toolCallId, instance)
+    instance.setState(ClientToolCallState.generating)
+    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe('generating')
+    onCommand = (request) =>
+      request.command === 'tool.approve'
+        ? eventResponse([
             {
-              type: 'tool_call',
-              timestamp: 1,
-              toolCall: {
-                id: 'tool-new-chat-abort',
-                name: 'edit_indicator',
-                state: ClientToolCallState.pending,
-                params: { entityDocument: '{}' },
+              type: 'response.refused',
+              result: {
+                status: 'refused',
+                error: { code: 'STALE_TARGET', message: 'Copilot API key removed' },
               },
             },
-          ],
-        },
-      ],
+          ])
+        : undefined
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(2)
+    expect(store().getState()).toMatchObject({
+      currentRunId: null,
+      isAwaitingContinuation: false,
+    })
+    expect(getClientTool(item.target.toolCallId)).toBeUndefined()
+    expect(() => instance.setState(ClientToolCallState.success)).not.toThrow()
+    expect(store().getState().toolCallsById[item.target.toolCallId]).toBeUndefined()
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
+  })
+
+  it('keeps a completed continuation settled if later stream data is invalid', async () => {
+    const item = pending('approval', 'rename_workflow')
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    onCommand = (request) =>
+      request.command === 'tool.approve'
+        ? eventResponse([
+            {
+              type: 'tool.result',
+              toolCallId: item.target.toolCallId,
+              toolName: item.target.toolName,
+              result: { message: 'Renamed' },
+            },
+            { type: 'response.completed', result: ready() },
+            { type: 'text.delta', text: 'Invalid trailing data' },
+          ])
+        : undefined
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(store().getState()).toMatchObject({
+      currentRunId: null,
+      isAwaitingContinuation: false,
+      lastNativeOutcome: { status: 'completed' },
+    })
+    onCommand = () => undefined
+    expect(await store().getState().sendMessage('Next turn')).toBe(true)
+  })
+})
+
+describe('local pending approval and preview decisions', () => {
+  it('keeps full-access approval explicit and sends no browser billing provenance', async () => {
+    const item = pending('approval', 'make_api_request')
+    installPending(item)
+    store().setState({ accessLevel: 'full' })
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    expect(commands.some((request) => request.command === 'tool.approve')).toBe(false)
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    const approval = commands.find((request) => request.command === 'tool.approve')
+    expect(approval).toMatchObject({ target: item.target, workspaceId })
+    expect(approval).not.toHaveProperty('financialBinding')
+    expect(
+      commands.some(
+        (request) => request.command === 'tool.execute' || request.command === 'tool.result'
+      )
+    ).toBe(false)
+  })
+  it('restores a persisted preview and accepts through one server-owned continuation', async () => {
+    const item = pending('result', 'edit_workflow')
+    item.preview = { requiresReview: true }
+    installPending(item)
+    store().setState((state) => displayNativePending(state, item))
+    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+      state: 'review',
+      result: item.preview,
+    })
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
+      expect.objectContaining({
+        target: item.target,
+        action: 'review.accept',
+      }),
+    ])
+    expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
+  })
+  it('declines approval without canceling unrelated work', async () => {
+    const item = pending('approval')
+    installPending(item)
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    await store().getState().skipCopilotToolCall(item.target.toolCallId)
+    expect(commands.some((request) => request.command === 'tool.decline')).toBe(true)
+    expect(commands.some((request) => request.command === 'cancel')).toBe(false)
+  })
+  it('serializes server actions and discards queued work after navigation', async () => {
+    const first = pending()
+    const second = { ...structuredClone(first), target: { ...first.target, toolCallId: 'second' } }
+    installPending(first)
+    store().setState((state) => ({
       toolCallsById: {
-        'tool-new-chat-abort': {
-          id: 'tool-new-chat-abort',
-          name: 'edit_indicator',
+        ...state.toolCallsById,
+        second: {
+          id: 'second',
+          name: second.target.toolName,
           state: ClientToolCallState.pending,
-          params: { entityDocument: '{}' },
+          pending: second,
         },
       },
-    })
-
-    await store.getState().createNewChat()
-
-    const updateRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/chat/update-messages'
-    })
-
-    const requestBody = parseJsonRequestBody(updateRequest)
-    expect(requestBody).toMatchObject({
-      reviewSessionId: 'review-new-chat-abort',
-      latestTurnStatus: 'completed',
-    })
-    expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
-      ClientToolCallState.aborted
-    )
-    expect(store.getState().currentChat).toBeNull()
-    expect(store.getState().messages).toEqual([])
-    expect(store.getState().toolCallsById).toEqual({})
-    expect(store.getState().chats[0]?.latestTurnStatus).toBe('completed')
-  })
-
-  it('merges explicit and live implicit contexts before sending a message', async () => {
-    const channelId = 'copilot-implicit-contexts'
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat') {
-        return {
-          ok: true,
-          status: 200,
-          body: createSseStream([{ type: 'response.completed', response: { id: 'response-1' } }]),
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-    store.setState({
-      planTodos: [{ id: 'old-todo', content: 'Previous turn', completed: false }],
-    })
-
-    await store.getState().sendMessage('Update the current setup', {
-      contexts: [
-        {
-          kind: 'workflow',
-          workflowId: 'workflow-1',
-          label: 'Quarterly Review',
-        },
-      ],
-      runtimeContext: createRuntimeContext({
-        workspaceId: 'workspace-1',
-        implicitContexts: [
-          {
-            kind: 'current_monitor',
-            monitorId: 'monitor-1',
-            workspaceId: 'workspace-1',
-            label: 'Current Monitor',
-          },
-        ],
-      }),
-    })
-
-    const sendRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/chat'
-    })
-
-    const requestBody = parseJsonRequestBody(sendRequest)
-    expect(requestBody.model).toBe('anthropic/claude-fable-5')
-    expect(requestBody).not.toHaveProperty('provider')
-    expect(requestBody.contexts).toEqual([
-      {
-        kind: 'workflow',
-        workflowId: 'workflow-1',
-        label: 'Quarterly Review',
-      },
-      {
-        kind: 'current_monitor',
-        monitorId: 'monitor-1',
-        workspaceId: 'workspace-1',
-        label: 'Current Monitor',
-      },
-    ])
-    expect(store.getState().planTodos).toEqual([])
-  })
-
-  it('does not send workflowId when only non-workflow live context is present', async () => {
-    const channelId = 'copilot-no-workflow-context'
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat') {
-        return {
-          ok: true,
-          status: 200,
-          body: createSseStream([{ type: 'response.completed', response: { id: 'response-3' } }]),
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId: 'review-panel-chat-2',
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        title: 'Monitor-first chat',
-        messages: [],
-        messageCount: 0,
-        conversationId: 'conversation-panel-chat-2',
-        createdAt: new Date('2026-03-30T00:00:00.000Z'),
-        updatedAt: new Date('2026-03-30T00:00:00.000Z'),
-      },
-    })
-
-    await store.getState().sendMessage('Help me inspect this monitor', {
-      runtimeContext: createRuntimeContext({
-        workspaceId: 'workspace-1',
-        implicitContexts: [
-          {
-            kind: 'current_monitor',
-            monitorId: 'monitor-1',
-            workspaceId: 'workspace-1',
-            label: 'Current Monitor',
-          },
-        ],
-      }),
-    })
-
-    const sendRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/chat'
-    })
-
-    const requestBody = parseJsonRequestBody(sendRequest)
-    expect(requestBody.workflowId).toBeUndefined()
-    expect(requestBody.contexts).toEqual([
-      {
-        kind: 'current_monitor',
-        monitorId: 'monitor-1',
-        workspaceId: 'workspace-1',
-        label: 'Current Monitor',
-      },
-    ])
-  })
-
-  it('pins workspace provenance for workspace-only turns', async () => {
-    const channelId = 'copilot-workspace-only-provenance'
-    const toolCallId = 'copilot-workspace-only-tool'
-    const store = getCopilotStore(channelId)
-    const deferredStream = createDeferredSseStream()
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat') {
-        return {
-          ok: true,
-          status: 200,
-          body: deferredStream.stream,
-        }
-      }
-
-      if (url === '/api/copilot/execute-copilot-server-tool') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            success: true,
-            result: {
-              entityKind: 'workflow',
-              entities: [],
-              count: 0,
-            },
-          }),
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId: 'review-workspace-only-chat',
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        title: 'Workspace-only chat',
-        messages: [],
-        messageCount: 0,
-        conversationId: 'conversation-workspace-only',
-        createdAt: new Date('2026-03-30T00:00:00.000Z'),
-        updatedAt: new Date('2026-03-30T00:00:00.000Z'),
-      },
-    })
-
-    const sendPromise = store.getState().sendMessage('List workflows in this workspace', {
-      runtimeContext: createRuntimeContext({
-        workspaceId: 'workspace-1',
-      }),
-    })
-    await deferredStream.ready
-
-    deferredStream.push({
-      type: 'response.output_item.done',
-      item: {
-        type: 'function_call',
-        call_id: toolCallId,
-        name: 'list_workflows',
-        arguments: {},
-      },
-    })
-    deferredStream.push({
-      type: 'response.completed',
-      response: { id: 'response-workspace-only' },
-    })
-    deferredStream.close()
-
-    await sendPromise
-
-    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
-      provenance: {
-        workspaceId: 'workspace-1',
-      },
-    })
-    expect(store.getState().toolCallsById[toolCallId]?.provenance).not.toHaveProperty('workflowId')
-
-    await store.getState().executeCopilotToolCall(toolCallId)
-
-    const executeRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/execute-copilot-server-tool'
-    })
-    expect(parseJsonRequestBody(executeRequest)).toEqual({
-      toolName: 'list_workflows',
-      payload: {
-        workspaceId: 'workspace-1',
-      },
-      context: {
-        workspaceId: 'workspace-1',
-      },
-    })
-  })
-
-  it('serializes authenticated current dashboard provenance for streamed dashboard tools', async () => {
-    const channelId = 'copilot-current-dashboard-context'
-    const toolCallId = 'edit-widget-current-dashboard'
-    const store = getCopilotStore(channelId)
-    const deferredStream = createDeferredSseStream()
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat') {
-        return {
-          ok: true,
-          status: 200,
-          body: deferredStream.stream,
-        }
-      }
-
-      if (url === '/api/copilot/execute-copilot-server-tool') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true, result: { success: true } }),
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId: 'review-current-dashboard-context',
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        title: 'Current dashboard context',
-        messages: [],
-        messageCount: 0,
-        conversationId: 'conversation-current-dashboard-context',
-        createdAt: new Date('2026-03-31T00:00:00.000Z'),
-        updatedAt: new Date('2026-03-31T00:00:00.000Z'),
-      },
-    })
-
-    const sendPromise = store.getState().sendMessage('Edit the current dashboard widget', {
-      runtimeContext: createRuntimeContext({
-        workspaceId: 'workspace-1',
-        implicitContexts: [
-          {
-            kind: 'current_dashboard_layout',
-            dashboardLayoutId: 'layout-current',
-            workspaceId: 'workspace-1',
-            ownerUserId: 'user-1',
-            label: 'Current Dashboard',
-          },
-        ],
-      }),
-    })
-    await deferredStream.ready
-
-    deferredStream.push({
-      type: 'response.output_item.done',
-      item: {
-        type: 'function_call',
-        call_id: toolCallId,
-        name: 'edit_widget',
-        arguments: {
-          entityId: 'layout-current',
-          panelId: 'panel-1',
-          params: { watchlistId: 'watchlist-1' },
-        },
-      },
-    })
-    deferredStream.push({
-      type: 'response.completed',
-      response: { id: 'response-current-dashboard-context' },
-    })
-    deferredStream.close()
-
-    await sendPromise
-
-    expect(store.getState().toolCallsById[toolCallId]?.provenance).toMatchObject({
-      contextEntityKind: 'dashboard_layout',
-      contextEntityId: 'layout-current',
-      workspaceId: 'workspace-1',
-    })
-
-    await store.getState().executeCopilotToolCall(toolCallId)
-
-    const executeRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/execute-copilot-server-tool'
-    })
-    expect(parseJsonRequestBody(executeRequest)).toEqual({
-      toolName: 'edit_widget',
-      payload: {
-        entityId: 'layout-current',
-        panelId: 'panel-1',
-        params: { watchlistId: 'watchlist-1' },
-      },
-      context: {
-        contextEntityKind: 'dashboard_layout',
-        contextEntityId: 'layout-current',
-        workspaceId: 'workspace-1',
-      },
-    })
-  })
-
-  it('updates the active chat title when a title_updated SSE event arrives', async () => {
-    const channelId = 'copilot-stream-title-updated'
-    const store = getCopilotStore(channelId)
-    const updateMessages = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({ success: true }),
     }))
-
-    vi.stubGlobal('fetch', updateMessages)
-
-    store.setState({
-      currentChat: null,
-      chats: [],
-      messages: [
-        {
-          id: 'user-message',
-          role: 'user',
-          content: 'Build a screener',
-          timestamp: '2026-03-30T00:00:00.000Z',
-        },
-        {
-          id: 'assistant-message',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-03-30T00:00:01.000Z',
-        },
-      ],
-      isSendingMessage: true,
-      abortController: null,
-    })
-
-    await store.getState().handleStreamingResponse(
-      createSseStream([
-        { type: 'review_session_id', reviewSessionId: 'review-stream-title' },
-        {
-          type: 'response.output_item.added',
-          item: {
-            id: 'assistant-title-item',
-            type: 'message',
-            role: 'assistant',
-            content: [{ type: 'output_text', text: '' }],
-          },
-        },
-        {
-          type: 'response.output_text.delta',
-          item_id: 'assistant-title-item',
-          delta: 'Done.',
-        },
-        { type: 'title_updated', title: 'Momentum Screener' },
-        {
-          type: 'response.output_item.done',
-          item: {
-            id: 'assistant-title-item',
-            type: 'message',
-            role: 'assistant',
-            content: [{ type: 'output_text', text: 'Done.' }],
-          },
-        },
-        { type: 'response.completed', response: { id: 'response-title' } },
-      ]),
-      'assistant-message'
+    const gate = defer<Response>()
+    onCommand = (request) =>
+      request.command === 'thread.observe'
+        ? historyResponse([first, second])
+        : request.command === 'tool.execute'
+          ? gate.promise
+          : undefined
+    const active = store().getState().executeCopilotToolCall(first.target.toolCallId)
+    await vi.waitFor(() =>
+      expect(commands.some((request) => request.command === 'tool.execute')).toBe(true)
     )
-
-    expect(store.getState().currentChat?.title).toBe('Momentum Screener')
-    expect(store.getState().chats[0]?.title).toBe('Momentum Screener')
+    const queued = store().getState().executeCopilotToolCall('second')
+    await store().getState().createNewChat()
+    gate.resolve(terminalResponse(ready()))
+    await Promise.all([active, queued])
+    expect(commands.filter((request) => request.command === 'tool.execute')).toHaveLength(1)
   })
+  it('refuses ambiguous tool IDs across stores', () => {
+    const item = pending()
+    installPending(item)
+    const other = getCopilotStore(
+      buildCopilotWorkspaceChannelId({ authenticatedUserId: actorUserId, workspaceId: 'other' })
+    )
+    other.setState({ toolCallsById: store().getState().toolCallsById })
+    expect(() => getCopilotStoreForToolCall(item.target.toolCallId)).toThrow('unique')
+  })
+})
 
-  it('preserves pending tool states but aborts stale in-flight tool states when reloading chats', async () => {
-    const channelId = 'copilot-tool-state-reload'
-    const store = getCopilotStore(channelId)
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        if (!url.startsWith('/api/copilot/chat?')) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({ success: true }),
-          }
-        }
-
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            success: true,
-            chats: [
+describe('canonical history, edits and context', () => {
+  it('loads display-only tool history without execution or local transcript writes', async () => {
+    const item = pending()
+    onCommand = (request) =>
+      request.command === 'thread.observe'
+        ? observingStream(
+            historyResult([
               {
-                reviewSessionId: 'review-reload',
-                workspaceId: null,
-                entityKind: 'workflow',
-                entityId: 'wf-reload',
-                draftSessionId: null,
-                latestTurnStatus: 'completed',
-                title: 'Reloaded chat',
-                conversationId: null,
-                messages: [
+                id: 'assistant-history',
+                role: 'assistant',
+                createdAt: at,
+                parts: [
                   {
-                    id: 'assistant-message',
-                    role: 'assistant',
-                    content: '',
-                    timestamp: '2026-03-30T00:00:00.000Z',
-                    contentBlocks: [
-                      {
-                        type: 'tool_call',
-                        timestamp: 1,
-                        toolCall: {
-                          id: 'pending-tool',
-                          name: 'edit_skill',
-                          state: ClientToolCallState.pending,
-                          params: { entityDocument: '{}' },
-                        },
-                      },
-                      {
-                        type: 'tool_call',
-                        timestamp: 2,
-                        toolCall: {
-                          id: 'executing-tool',
-                          name: 'edit_indicator',
-                          state: ClientToolCallState.executing,
-                          params: { entityDocument: '{}' },
-                        },
-                      },
-                    ],
+                    type: 'tool-invocation',
+                    toolInvocation: {
+                      state: 'call',
+                      toolCallId: item.target.toolCallId,
+                      toolName: item.target.toolName,
+                      args: item.originalArgs,
+                    },
                   },
                 ],
-                messageCount: 1,
-                createdAt: '2026-03-30T00:00:00.000Z',
-                updatedAt: '2026-03-30T00:00:00.000Z',
               },
-            ],
-          }),
-        }
-      })
-    )
-
-    store.setState({
-      currentChat: null,
-      chats: [],
-      messages: [],
-      toolCallsById: {},
-      isLoadingChats: false,
-      isSendingMessage: false,
-      abortController: null,
+            ])
+          ).response
+        : undefined
+    await store().getState().selectChat(chat())
+    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+      historical: true,
+      state: 'aborted',
     })
-
-    await store.getState().loadChats({ workspaceId: 'workspace-1' })
-
-    const pendingBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
-    const executingBlock = store.getState().messages[0]?.contentBlocks?.[1] as any
-
-    expect(pendingBlock?.toolCall?.state).toBe(ClientToolCallState.pending)
-    expect(executingBlock?.toolCall?.state).toBe(ClientToolCallState.aborted)
-    expect(store.getState().toolCallsById['pending-tool']?.state).toBe(ClientToolCallState.pending)
-    expect(store.getState().toolCallsById['executing-tool']?.state).toBe(
-      ClientToolCallState.aborted
-    )
+    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
   })
-
-  it('preserves running tool state and rehydrates the chat as active when the latest turn is still in progress', async () => {
-    const channelId = 'copilot-tool-state-reload-active-turn'
-    const store = getCopilotStore(channelId)
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        if (!url.startsWith('/api/copilot/chat?')) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({ success: true }),
-          }
-        }
-
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            success: true,
-            chats: [
-              {
-                reviewSessionId: 'review-reload-active',
-                workspaceId: 'workspace-1',
-                entityKind: 'copilot',
-                entityId: null,
-                draftSessionId: null,
-                latestTurnStatus: 'in_progress',
-                title: 'Reloaded active chat',
-                conversationId: null,
-                messages: [
-                  {
-                    id: 'assistant-message',
-                    role: 'assistant',
-                    content: '',
-                    timestamp: '2026-03-30T00:00:00.000Z',
-                    contentBlocks: [
-                      {
-                        type: 'tool_call',
-                        timestamp: 1,
-                        toolCall: {
-                          id: 'executing-tool',
-                          name: 'edit_indicator',
-                          state: ClientToolCallState.executing,
-                          params: { entityDocument: '{}' },
-                        },
-                      },
-                    ],
-                  },
-                ],
-                messageCount: 1,
-                createdAt: '2026-03-30T00:00:00.000Z',
-                updatedAt: '2026-03-30T00:00:00.000Z',
-              },
-            ],
-          }),
-        }
-      })
-    )
-
-    store.setState({
-      currentChat: null,
-      chats: [],
-      messages: [],
-      toolCallsById: {},
-      isLoadingChats: false,
-      isSendingMessage: false,
-      abortController: null,
-    })
-
-    await store.getState().loadChats({ workspaceId: 'workspace-1' })
-
-    const executingBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
-
-    expect(executingBlock?.toolCall?.state).toBe(ClientToolCallState.executing)
-    expect(store.getState().toolCallsById['executing-tool']?.state).toBe(
-      ClientToolCallState.executing
-    )
-    expect(store.getState().isSendingMessage).toBe(true)
-  })
-
-  it('aborts reviewed tool calls even when no stream is active', () => {
-    const channelId = 'copilot-abort-reviewed-tool'
-    const toolCallId = 'reviewed-tool'
-    const store = getCopilotStore(channelId)
-
-    store.setState({
-      messages: [
-        {
-          id: 'assistant-message',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-03-30T00:00:00.000Z',
-          contentBlocks: [
-            {
-              type: 'tool_call',
-              timestamp: 1,
-              toolCall: {
-                id: toolCallId,
-                name: 'edit_workflow',
-                state: ClientToolCallState.review,
-                params: { entityDocument: 'flowchart TD' },
-              },
-            },
-          ],
-        },
-      ],
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'edit_workflow',
-          state: ClientToolCallState.review,
-          params: { entityDocument: 'flowchart TD' },
-        } as any,
-      },
-      isSendingMessage: false,
-      abortController: null,
-    })
-
-    store.getState().abortMessage()
-
-    const reviewedBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
-
-    expect(reviewedBlock?.toolCall?.state).toBe(ClientToolCallState.aborted)
-    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.aborted)
-    expect(store.getState().isSendingMessage).toBe(false)
-    expect(store.getState().isAborting).toBe(false)
-  })
-
-  it('loads workspace history without erasing an active pre-session turn', async () => {
-    const channelId = 'copilot-workspace-scoped-history'
-    const store = getCopilotStore(channelId)
+  it('opens canonical history without cancelling or erasing an active first turn', async () => {
     const abortController = new AbortController()
     const messages = [
-      {
-        id: 'user-active-turn',
-        role: 'user' as const,
-        content: 'Start a new conversation',
-        timestamp: '2026-08-16T00:00:00.000Z',
-      },
-      {
-        id: 'assistant-active-turn',
-        role: 'assistant' as const,
-        content: '',
-        timestamp: '2026-08-16T00:00:01.000Z',
-      },
+      { id: 'active-user', role: 'user' as const, content: 'Working first turn', timestamp: at },
     ]
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (!url.startsWith('/api/copilot/chat?')) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          success: true,
-          chats: [],
-        }),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: null,
-      chats: [],
+    store().setState({
+      conversationWorkspaceId: workspaceId,
+      isSendingMessage: true,
+      abortController,
       messages,
-      toolCallsById: {},
-      isLoadingChats: false,
-      isSendingMessage: true,
-      abortController,
     })
-
-    await store.getState().loadChats({ workspaceId: 'workspace-1' })
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      `/api/copilot/chat?workspaceId=${encodeURIComponent('workspace-1')}`
-    )
-    expect(store.getState().messages).toBe(messages)
-    expect(store.getState().isLoadingChats).toBe(false)
-    expect(store.getState().isSendingMessage).toBe(true)
-    expect(store.getState().abortController).toBe(abortController)
+    await store().getState().loadChats({ workspaceId })
+    expect(abortController.signal.aborted).toBe(false)
+    expect(store().getState().messages).toEqual(messages)
+    expect(store().getState().isSendingMessage).toBe(true)
+    expect(commands.map((request) => request.command)).toEqual(['threads.list'])
   })
-
-  it('keeps stores isolated even when they reference the same review session', () => {
-    const reviewSessionId = 'review-isolated-session'
-    const primaryStore = getCopilotStore(
-      buildCopilotWorkspaceChannelId({
-        authenticatedUserId: 'user-isolated',
-        workspaceId: 'workspace-isolated-primary',
-      })
-    )
-    const secondaryStore = getCopilotStore(
-      buildCopilotWorkspaceChannelId({
-        authenticatedUserId: 'user-isolated',
-        workspaceId: 'workspace-isolated-secondary',
-      })
-    )
-    const sharedChat = {
-      reviewSessionId,
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      latestTurnStatus: 'completed',
-      title: 'Shared chat identity',
-      conversationId: 'conversation-isolated-session',
-      messages: [],
-      messageCount: 0,
-      createdAt: new Date('2026-04-17T00:00:00.000Z'),
-      updatedAt: new Date('2026-04-17T00:00:00.000Z'),
+  it('regenerates an edited prompt through the same message command and keeps one user row', async () => {
+    const originalContext = {
+      kind: 'current_monitor' as const,
+      label: 'Original monitor',
+      workspaceId,
+      monitorId: 'monitor-A',
     }
-
-    primaryStore.setState({ currentChat: sharedChat, chats: [sharedChat] })
-    secondaryStore.setState({ currentChat: sharedChat, chats: [sharedChat] })
-    expect(primaryStore.getState().draft).not.toBe(secondaryStore.getState().draft)
-    expect(primaryStore.getState().draft.contexts).not.toBe(
-      secondaryStore.getState().draft.contexts
-    )
-
-    primaryStore.getState().setDraft({
-      text: 'private @Documentation draft',
-      contexts: [{ kind: 'docs', label: 'Documentation' }],
-    })
-
-    expect(secondaryStore.getState().draft).toEqual({ text: '', contexts: [] })
-  })
-
-  it('cancels pending persistence when deleting a non-current chat', async () => {
-    vi.useFakeTimers()
-    try {
-      const deletedReviewSessionId = 'review-delete-pending'
-      const store = getCopilotStore(
-        buildCopilotWorkspaceChannelId({
-          authenticatedUserId: 'user-delete-pending',
-          workspaceId: 'workspace-delete-pending',
-        })
-      )
-      const saveChatMessages = vi.fn(async () => undefined)
-      const fetchMock = vi.fn(async () => Response.json({ success: true }))
-      vi.stubGlobal('fetch', fetchMock)
-
-      await store
+    const contextPart = { type: COPILOT_CONTEXT_PART, data: [originalContext] }
+    onCommand = (request) =>
+      request.command === 'thread.observe'
+        ? observingStream(
+            historyResult([
+              { ...history[0], parts: [...history[0].parts, contextPart] },
+              history[1],
+            ])
+          ).response
+        : undefined
+    await store().getState().selectChat(chat())
+    commands.length = 0
+    const text = ' exact edit\n'
+    const answer = 'Replacement answer'
+    onCommand = (request) =>
+      request.command === 'message'
+        ? eventResponse([
+            { type: 'response.started', runId, threadId, messageId: history[0].id },
+            { type: 'response.completed', result: ready(answer) },
+          ])
+        : request.command === 'thread.observe'
+          ? observingStream(
+              historyResult([
+                { ...history[0], parts: [{ type: 'text', text }, contextPart] },
+                { ...history[1], parts: [{ type: 'text', text: answer }] },
+              ])
+            ).response
+          : undefined
+    expect(
+      await store()
         .getState()
-        .handleNewReviewSessionCreation(deletedReviewSessionId, 'workspace-delete-pending')
-      const deletedChat = store.getState().currentChat
-      if (!deletedChat) throw new Error('Expected the pending chat')
-      const retainedChat = {
-        ...deletedChat,
-        reviewSessionId: 'review-current-retained',
-      }
-      const retainedAbortController = new AbortController()
-
-      store.setState({
-        currentChat: retainedChat,
-        chats: [deletedChat, retainedChat],
-        abortController: retainedAbortController,
-        saveChatMessages,
-      })
-
-      await store.getState().deleteChat(deletedReviewSessionId)
-      await vi.advanceTimersByTimeAsync(60)
-
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/copilot/chat/delete',
-        expect.objectContaining({ method: 'DELETE' })
-      )
-      expect(saveChatMessages).not.toHaveBeenCalled()
-      expect(retainedAbortController.signal.aborted).toBe(false)
-      expect(store.getState().currentChat?.reviewSessionId).toBe(retainedChat.reviewSessionId)
-    } finally {
-      vi.clearAllTimers()
-      vi.useRealTimers()
-    }
+        .sendMessage(text, {
+          messageId: history[0].id,
+          runtimeContext: {
+            workspaceId: 'different-ui-workspace',
+            implicitContexts: [
+              { ...originalContext, monitorId: 'monitor-B', label: 'Current monitor' },
+            ],
+          },
+        })
+    ).toBe(true)
+    expect(commands.map((request) => request.command)).toEqual(['message', 'thread.observe'])
+    expect(commands[0]).toMatchObject({
+      command: 'message',
+      threadId,
+      messageId: history[0].id,
+      input: { content: text, contexts: [originalContext] },
+      toolContext: { workspaceId },
+    })
+    expect(
+      store()
+        .getState()
+        .messages.map(({ id, content }) => ({ id, content }))
+    ).toEqual([
+      { id: history[0].id, content: text },
+      { id: history[1].id, content: answer },
+    ])
   })
-
-  it('keeps abort terminal when a live stream is still readable', async () => {
-    const channelId = 'copilot-stream-abort-terminal'
-    const store = getCopilotStore(channelId)
-    const abortController = new AbortController()
-    const deferredStream = createDeferredSseStream()
-    const fetchMock = vi.fn(async () => Response.json({ success: true }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId: 'review-abort-terminal',
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        conversationId: 'conversation-abort-terminal',
-        latestTurnStatus: 'in_progress',
-        title: null,
-        messages: [],
-        messageCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      chats: [],
+  it('retains the displayed answer until an edited request is admitted, including a refusal', async () => {
+    await store().getState().selectChat(chat())
+    const before = store().getState().messages
+    const admission = defer<Response>()
+    onCommand = (request) => (request.command === 'message' ? admission.promise : undefined)
+    const editing = store().getState().sendMessage('Edited', { messageId: history[0].id })
+    await vi.waitFor(() => expect(store().getState().isSendingMessage).toBe(true))
+    expect(store().getState().messages).toEqual(before)
+    admission.resolve(
+      json(
+        {
+          status: 'refused',
+          error: { code: 'STALE_TARGET', message: 'The previous turn is still finishing' },
+        },
+        409
+      )
+    )
+    expect(await editing).toBe(false)
+    expect(store().getState().messages).toEqual(before)
+    expect(store().getState().error).toBe('The previous turn is still finishing')
+  })
+  it('refuses an edit that would erase native tool history before replacing its answer', async () => {
+    await store().getState().selectChat(chat())
+    store().setState({
       messages: [
+        store().getState().messages[0],
         {
-          id: 'assistant-abort-terminal',
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-05-09T00:00:00.000Z',
-        },
-      ],
-      isSendingMessage: true,
-      isAwaitingContinuation: false,
-      abortController,
-      toolCallsById: {},
-    })
-
-    const streamPromise = store
-      .getState()
-      .handleStreamingResponse(
-        deferredStream.stream,
-        'assistant-abort-terminal',
-        false,
-        undefined,
-        abortController.signal
-      )
-
-    await deferredStream.ready
-    store.getState().abortMessage()
-    await streamPromise
-
-    expect(store.getState().messages[0]?.content).toBe('Message was aborted')
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/copilot/chat/abort',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({
-          chatId: 'review-abort-terminal',
-          conversationId: 'conversation-abort-terminal',
-          workspaceId: 'workspace-1',
-        }),
-      })
-    )
-  })
-})
-
-describe('copilot context usage', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    resetCopilotWorkspaceSelectionState()
-  })
-
-  it('fetches context usage for a generic chat without workflow context', async () => {
-    const channelId = 'copilot-context-usage-generic'
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/usage') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            tokensUsed: 1234,
-            percentage: 0.96,
-            model: 'anthropic/claude-fable-5',
-            contextWindow: 128000,
-            when: 'end',
-          }),
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId: 'review-context-usage-generic',
-        workspaceId: 'workspace-context-usage',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        title: 'Generic chat',
-        messages: [],
-        messageCount: 0,
-        conversationId: 'conversation-context-usage-generic',
-        createdAt: new Date('2026-04-05T00:00:00.000Z'),
-        updatedAt: new Date('2026-04-05T00:00:00.000Z'),
-      },
-      selectedModel: 'anthropic/claude-fable-5',
-      contextUsage: null,
-    })
-
-    await store.getState().fetchContextUsage()
-
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/copilot/usage',
-      expect.objectContaining({
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-    )
-
-    const requestBody = parseJsonRequestBody(fetchMock.mock.calls[0])
-    expect(requestBody).toEqual({
-      kind: 'context',
-      conversationId: 'conversation-context-usage-generic',
-      model: 'anthropic/claude-fable-5',
-      workspaceId: 'workspace-context-usage',
-    })
-    expect(store.getState().contextUsage).toEqual({
-      usage: 1234,
-      percentage: 0.96,
-      model: 'anthropic/claude-fable-5',
-      contextWindow: 128000,
-      when: 'end',
-      estimatedTokens: 1234,
-    })
-  })
-})
-
-describe('copilot tool user action delegation', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    resetCopilotWorkspaceSelectionState()
-  })
-
-  it('routes pending server-managed workflow edits through server tool execution', async () => {
-    const channelId = 'copilot-edit-workflow-order'
-    const toolCallId = 'edit-workflow-order-tool'
-    const store = getCopilotStore(channelId)
-    const reviewResult = {
-      requiresReview: true,
-      reviewToken: 'review-token-edit-workflow-order',
-      entityKind: 'workflow',
-      entityId: 'wf-edit-workflow-order',
-      entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-      documentFormat: 'tg-workflow-graph-mermaid-v1',
-      workflowState: {
-        blocks: {},
-        edges: [],
-        loops: {},
-        parallels: {},
-      },
-    }
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/execute-copilot-server-tool') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true, result: reviewResult }),
-        }
-      }
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId: 'review-edit-workflow-order',
-        workspaceId: null,
-        entityKind: 'workflow',
-        entityId: 'wf-edit-workflow-order',
-        draftSessionId: null,
-        title: null,
-        messages: [],
-        messageCount: 0,
-        conversationId: null,
-        createdAt: new Date('2026-03-30T00:00:00.000Z'),
-        updatedAt: new Date('2026-03-30T00:00:00.000Z'),
-      },
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'edit_workflow',
-          state: ClientToolCallState.pending,
-          params: {
-            entityDocument:
-              'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-            entityId: 'wf-edit-workflow-order',
-          },
-        } as any,
-      },
-    })
-
-    await store.getState().executeCopilotToolCall(toolCallId)
-
-    const executeRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/execute-copilot-server-tool'
-    })
-    expect(parseJsonRequestBody(executeRequest)).toEqual({
-      toolName: 'edit_workflow',
-      payload: {
-        entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-        entityId: 'wf-edit-workflow-order',
-      },
-    })
-    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
-  })
-
-  it('passes dashboard layout owner scope to pending server-managed layout tools', async () => {
-    const channelId = 'copilot-edit-widget-owner-scope'
-    const toolCallId = 'edit-widget-owner-scope-tool'
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/execute-copilot-server-tool') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true, result: { success: true } }),
-        }
-      }
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      accessLevel: 'full',
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'edit_widget',
-          state: ClientToolCallState.pending,
-          params: {
-            entityId: 'layout-1',
-            panelId: 'panel-1',
-            params: { workflowId: 'workflow-1' },
-          },
-          provenance: {
-            contextEntityKind: 'dashboard_layout',
-            contextEntityId: 'layout-1',
-            workspaceId: 'workspace-1',
-          },
-        } as any,
-      },
-    })
-
-    await store.getState().executeCopilotToolCall(toolCallId)
-
-    const executeRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/execute-copilot-server-tool'
-    })
-    expect(parseJsonRequestBody(executeRequest)).toEqual({
-      toolName: 'edit_widget',
-      accessLevel: 'full',
-      payload: {
-        entityId: 'layout-1',
-        panelId: 'panel-1',
-        params: { workflowId: 'workflow-1' },
-      },
-      context: {
-        contextEntityKind: 'dashboard_layout',
-        contextEntityId: 'layout-1',
-        workspaceId: 'workspace-1',
-      },
-    })
-    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
-  })
-
-  it('accepts review-state server-managed workflow edits through the review accept path', async () => {
-    const channelId = 'copilot-edit-workflow-review'
-    const toolCallId = 'edit-workflow-review-tool'
-    const store = getCopilotStore(channelId)
-    const reviewResult = {
-      requiresReview: true,
-      reviewToken: 'review-token-edit-workflow-review',
-      entityKind: 'workflow',
-      entityId: 'wf-edit-workflow-review',
-      entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-      documentFormat: 'tg-workflow-graph-mermaid-v1',
-      workflowState: {
-        blocks: {},
-        edges: [],
-        loops: {},
-        parallels: {},
-      },
-    }
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/execute-copilot-server-tool') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true, result: { ...reviewResult, success: true } }),
-        }
-      }
-      if (url === '/api/copilot/tools/mark-complete') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId: 'review-edit-workflow-review',
-        workspaceId: null,
-        entityKind: 'workflow',
-        entityId: 'wf-edit-workflow-review',
-        draftSessionId: null,
-        title: null,
-        messages: [],
-        messageCount: 0,
-        conversationId: null,
-        createdAt: new Date('2026-03-30T00:00:00.000Z'),
-        updatedAt: new Date('2026-03-30T00:00:00.000Z'),
-      },
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'edit_workflow',
-          state: ClientToolCallState.review,
-          params: {
-            entityDocument:
-              'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-            entityId: 'wf-edit-workflow-review',
-          },
-          result: reviewResult,
-        } as any,
-      },
-    })
-
-    await store.getState().executeCopilotToolCall(toolCallId)
-
-    const executeRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/execute-copilot-server-tool'
-    })
-    expect(parseJsonRequestBody(executeRequest)).toEqual({
-      toolName: 'edit_workflow',
-      reviewAction: 'accept',
-      reviewToken: 'review-token-edit-workflow-review',
-    })
-    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
-  })
-
-  it('auto-executes pending reviewed API tools when access switches to full', async () => {
-    vi.useFakeTimers()
-    try {
-      const channelId = 'copilot-api-request-access-switch'
-      const toolCallId = 'make-api-request-pending-tool'
-      const store = getCopilotStore(channelId)
-      const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        if (url === '/api/copilot/execute-copilot-server-tool') {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              success: true,
-              result: {
-                data: 'ok',
-                status: 200,
-                headers: {},
+          ...store().getState().messages[1],
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              timestamp: 1,
+              toolCall: {
+                id: 'completed-tool',
+                name: 'read_workflow',
+                state: ClientToolCallState.success,
               },
-            }),
-          }
-        }
-
-        if (url === '/api/copilot/tools/mark-complete') {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({ success: true, continued: true }),
-          }
-        }
-
-        throw new Error(`Unexpected fetch: ${url} ${init?.method || 'GET'}`)
-      })
-
-      vi.stubGlobal('fetch', fetchMock)
-
-      store.setState({
-        accessLevel: 'limited',
-        toolCallsById: {
-          [toolCallId]: {
-            id: toolCallId,
-            name: 'make_api_request',
-            state: ClientToolCallState.pending,
-            params: {
-              url: 'https://example.com/data',
-              method: 'GET',
             },
-            provenance: {
-              contextEntityKind: 'workflow',
-              contextEntityId: 'wf-api-request-access-switch',
-              workspaceId: 'workspace-1',
-            },
-          } as any,
-        },
-      })
-
-      store.getState().setAccessLevel('full')
-      await vi.runAllTimersAsync()
-
-      const executeRequest = fetchMock.mock.calls.find(([input]) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        return url === '/api/copilot/execute-copilot-server-tool'
-      })
-      expect(parseJsonRequestBody(executeRequest)).toEqual({
-        toolName: 'make_api_request',
-        accessLevel: 'full',
-        payload: {
-          url: 'https://example.com/data',
-          method: 'GET',
-        },
-        context: {
-          contextEntityKind: 'workflow',
-          contextEntityId: 'wf-api-request-access-switch',
-          workspaceId: 'workspace-1',
-        },
-      })
-      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('refreshes environment variables after server-managed environment updates', async () => {
-    const channelId = 'copilot-env-refresh'
-    const toolCallId = 'set-env-tool'
-    const store = getCopilotStore(channelId)
-    const invalidateQueries = vi
-      .spyOn(QueryClient.prototype, 'invalidateQueries')
-      .mockResolvedValue(undefined)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/execute-copilot-server-tool') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            success: true,
-            result: { success: true, scope: 'personal', message: 'ok' },
-          }),
-        }
-      }
-
-      if (url === '/api/copilot/tools/mark-complete') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      accessLevel: 'full',
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'set_environment_variables',
-          state: ClientToolCallState.pending,
-          params: { scope: 'personal', variables: { API_KEY: 'secret' } },
-        } as any,
-      },
-    })
-
-    await store.getState().executeCopilotToolCall(toolCallId)
-
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: environmentKeys.personal() })
-    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
-  })
-
-  it('persists completed server-managed tool states into assistant message blocks', async () => {
-    const channelId = 'copilot-server-managed-state-persist'
-    const toolCallId = 'make-api-request-tool'
-    const reviewSessionId = 'review-server-managed-state-persist'
-    const store = getCopilotStore(channelId)
-    const assistantMessage = {
-      id: 'assistant-message-server-managed',
-      role: 'assistant' as const,
-      content: '',
-      timestamp: '2026-04-10T00:00:00.000Z',
-      contentBlocks: [
-        {
-          type: 'tool_call' as const,
-          timestamp: 1,
-          toolCall: {
-            id: toolCallId,
-            name: 'make_api_request',
-            state: ClientToolCallState.pending,
-            params: {
-              url: 'https://example.com/data',
-              method: 'GET',
-            },
-          },
+          ],
         },
       ],
+    })
+    const before = store().getState().messages
+    commands.length = 0
+    expect(await store().getState().sendMessage('Edited', { messageId: history[0].id })).toBe(false)
+    expect(store().getState().messages).toEqual(before)
+    expect(commands).toEqual([])
+    expect(store().getState().error).toContain('Start a new message after tool activity')
+  })
+})
+
+describe('actual bounded initial-title publication', () => {
+  const titleOutcome = {
+    status: 'completed',
+    runId: 'title-run',
+    text: '  Generated title  ',
+  }
+  it('calls utility for the actual first thread/model/scope, then mutates and reads native title only after success', async () => {
+    store().setState({ conversationWorkspaceId: workspaceId, selectedModel: 'openai/gpt-5.6-sol' })
+    const titleResponse = defer<Response>()
+    onTitle = () => titleResponse.promise
+    expect(await store().getState().sendMessage('First')).toBe(true)
+    queryClient.setQueryData(subscriptionKeys.user(), { current: 0.1 })
+    titleResponse.resolve(json({ title: 'Generated title', outcome: titleOutcome }))
+    await vi.waitFor(() => expect(store().getState().currentChat?.title).toBe('verified title'))
+    expect(queryClient.getQueryState(subscriptionKeys.user())?.isInvalidated).toBe(true)
+    expect(titleRequests).toEqual([
+      { workspaceId, threadId, model: 'openai/gpt-5.6-sol', originalInput: 'First' },
+    ])
+    expect(commands.filter((request) => request.command === 'thread.title')).toEqual([
+      expect.objectContaining({ title: 'Generated title' }),
+    ])
+    await store().getState().sendMessage('Second')
+    expect(titleRequests).toHaveLength(1)
+  })
+  it.each(['completed', 'suspended'] as const)(
+    'titles an existing canonical empty thread only after positive empty history and correlated %s terminal',
+    async (status) => {
+      let persisted = false
+      onCommand = (request) => {
+        if (request.command === 'thread.observe' && persisted && status === 'suspended')
+          return historyResponse([pending('approval')])
+        if (request.command === 'thread.observe' && !persisted)
+          return observingStream(historyResult([])).response
+        if (request.command !== 'message') return
+        persisted = true
+        const terminal = status === 'completed' ? ready() : suspended([pending('approval')])
+        return eventResponse([
+          { type: 'response.started', threadId, runId },
+          {
+            type: status === 'completed' ? 'response.completed' : 'response.suspended',
+            result: terminal,
+          },
+        ])
+      }
+      await store()
+        .getState()
+        .selectChat({ ...chat(), title: '' })
+      onTitle = () => json({ title: 'Generated title', outcome: titleOutcome })
+      const originalInput = ' \nOriginal prompt🔥\t '
+      expect(
+        await store()
+          .getState()
+          .sendMessage(originalInput, {
+            contexts: [{ kind: 'docs', label: 'Inert context never becomes prompt' }],
+          })
+      ).toBe(true)
+      await vi.waitFor(() => expect(store().getState().currentChat?.title).toBe('verified title'))
+      expect(commands[0].command).toBe('thread.observe')
+      expect(titleRequests).toEqual([
+        { workspaceId, threadId, model: store().getState().selectedModel, originalInput },
+      ])
+      expect(commands.filter((request) => request.command === 'thread.title')).toHaveLength(1)
     }
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/execute-copilot-server-tool') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            success: true,
-            result: { message: 'ok' },
-          }),
-        }
-      }
-
-      if (url === '/api/copilot/tools/mark-complete') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      if (url === '/api/copilot/chat/update-messages') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      accessLevel: 'full',
-      currentChat: {
-        reviewSessionId,
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        title: 'Server managed tool persistence',
-        messages: [assistantMessage],
-        messageCount: 1,
-        conversationId: null,
-        createdAt: new Date('2026-04-10T00:00:00.000Z'),
-        updatedAt: new Date('2026-04-10T00:00:00.000Z'),
-      },
-      messages: [assistantMessage],
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'make_api_request',
-          state: ClientToolCallState.pending,
-          params: {
-            url: 'https://example.com/data',
-            method: 'GET',
-          },
-          provenance: {
-            contextEntityKind: 'workflow',
-            contextEntityId: 'wf-server-managed-state-persist',
-            workspaceId: 'workspace-1',
-          },
-        } as any,
-      },
-    })
-
-    await store.getState().executeCopilotToolCall(toolCallId)
-
-    const toolBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
-    const currentChatToolBlock = store.getState().currentChat?.messages[0]
-      ?.contentBlocks?.[0] as any
-    expect(toolBlock?.toolCall?.state).toBe(ClientToolCallState.success)
-    expect(currentChatToolBlock?.toolCall?.state).toBe(ClientToolCallState.success)
-
-    const persistRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/chat/update-messages'
-    })
-    const requestBody = parseJsonRequestBody(persistRequest)
-    const persistedMessages = requestBody.messages as any[]
-
-    expect(requestBody.latestTurnStatus).toBe('completed')
-    expect(persistedMessages[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
-      ClientToolCallState.success
+  )
+  it.each(['', ' ', 'Untitled', 'New Chat', null])(
+    'does not infer initial state from a display title %s when native history exists',
+    async (title) => {
+      await store()
+        .getState()
+        .selectChat({ ...chat(), title })
+      onTitle = () => json({ title: 'Generated title', outcome: titleOutcome })
+      expect(await store().getState().sendMessage('A later native interaction')).toBe(true)
+      expect(titleRequests).toEqual([]) // The default complete native history already contains a user.
+    }
+  )
+  it('invalidates the captured title generation even if a manual title is later restored to empty before main completion', async () => {
+    const late = defer<Response>()
+    onCommand = (request) => (request.command === 'message' ? late.promise : undefined)
+    onTitle = () => json({ title: 'Generated title', outcome: titleOutcome })
+    const sending = store().getState().sendMessage('First')
+    await vi.waitFor(() =>
+      expect(commands.some((request) => request.command === 'message')).toBe(true)
     )
+    store().setState({ currentChat: { ...chat(null), title: 'Manual title' } })
+    store().setState({ currentChat: { ...chat(null), title: '' } })
+    late.resolve(terminalResponse(ready()))
+    expect(await sending).toBe(true)
+    expect(titleRequests).toEqual([])
+  })
+  it('keeps the completed outcome when history readback fails without replaying inference', async () => {
+    onCommand = (request) =>
+      request.command === 'message'
+        ? terminalResponse({ ...ready() })
+        : request.command === 'thread.observe'
+          ? json(
+              {
+                status: 'refused',
+                error: {
+                  code: 'FORBIDDEN',
+                  message: 'Current history access denied',
+                },
+              },
+              403
+            )
+          : undefined
+    expect(await store().getState().sendMessage('First')).toBe(true)
+    expect(store().getState().error).toContain('Current history access denied')
+    expect(
+      store()
+        .getState()
+        .messages.find((message) => message.role === 'assistant')?.content
+    ).toBe('canonical answer')
+    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+  })
+  it('keeps the generated title outcome when publication fails without replay', async () => {
+    onTitle = () =>
+      json({
+        title: 'Generated title',
+        outcome: { ...titleOutcome },
+      })
+    onCommand = (request) =>
+      request.command === 'thread.title'
+        ? json(
+            {
+              status: 'failed',
+              error: {
+                code: 'UNCERTAIN',
+                message: 'Title publication outcome is uncertain',
+              },
+            },
+            503
+          )
+        : undefined
+    expect(await store().getState().sendMessage('First')).toBe(true)
+    await vi.waitFor(() =>
+      expect(store().getState().error).toContain('publication outcome is uncertain')
+    )
+    expect(store().getState().currentChat?.title).toBe('')
+    expect(titleRequests).toHaveLength(1)
+    expect(commands.filter((request) => request.command === 'thread.title')).toHaveLength(1)
+  })
+  it.each(['null', 'error', 'refused', 'cancel_requested'])(
+    'publishes no title on %s and never retries the utility',
+    async (mode) => {
+      store().setState({ conversationWorkspaceId: workspaceId })
+      const outcome =
+        mode === 'null'
+          ? undefined
+          : {
+              status: mode === 'error' ? 'failed' : mode,
+              error: {
+                code: 'NATIVE_FAILURE',
+                message: 'title unavailable',
+              },
+            }
+      onTitle = () => json({ title: null, ...(outcome ? { outcome } : {}) })
+      await store().getState().sendMessage('First')
+      await vi.waitFor(() => expect(titleRequests).toHaveLength(1))
+      expect(commands.some((request) => request.command === 'thread.title')).toBe(false)
+    }
+  )
+  it.each(['manual-title', 'thread-switch', 'model-switch', 'new-user-message'])(
+    'blocks late optional title publication after %s',
+    async (change) => {
+      store().setState({ conversationWorkspaceId: workspaceId })
+      const late = defer<Response>()
+      onTitle = () => late.promise
+      await store().getState().sendMessage('First')
+      await vi.waitFor(() => expect(titleRequests).toHaveLength(1))
+      if (change === 'manual-title')
+        store().setState({
+          currentChat: { ...store().getState().currentChat!, title: 'Manual title' },
+        })
+      if (change === 'thread-switch') await store().getState().createNewChat('other-workspace')
+      if (change === 'model-switch') await store().getState().setSelectedModel('openai/gpt-5.6-sol')
+      if (change === 'new-user-message') await store().getState().sendMessage('Second')
+      late.resolve(json({ title: 'Generated title', outcome: titleOutcome }))
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(commands.some((request) => request.command === 'thread.title')).toBe(false)
+      expect(titleRequests).toHaveLength(1)
+    }
+  )
+})
+
+describe('edited prompt ownership', () => {
+  it('does not apply a late edited answer after selecting another conversation', async () => {
+    await store().getState().selectChat(chat())
+    const late = defer<Response>()
+    onCommand = (request) => (request.command === 'message' ? late.promise : undefined)
+    const editing = store().getState().sendMessage('edited A', { messageId: history[0].id })
+    await store().getState().selectChat(chat(null, 'thread-B'))
+    const before = store().getState().messages
+    late.resolve(terminalResponse(ready('Answer for A')))
+    expect(await editing).toBe(false)
+    expect(store().getState().currentChat?.threadId).toBe('thread-B')
+    expect(store().getState().messages).toEqual(before)
+    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+  })
+})
+
+describe('requested conversation scope survives discovery failure', () => {
+  it.each([workspaceId, null])(
+    'keeps requested scope %s on failure then sends there',
+    async (requested) => {
+      onCommand = (request) => {
+        if (request.command === 'threads.list') throw new Error('discovery unavailable')
+        return undefined
+      }
+      await store().getState().loadChats({ workspaceId: requested })
+      expect(store().getState().conversationWorkspaceId).toBe(requested)
+      await store().getState().sendMessage('exact scoped request')
+      expect(commands.find((request) => request.command === 'message')?.workspaceId).toBe(requested)
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+    }
+  )
+  it('retries discovery in the retained requested scope', async () => {
+    onCommand = (request) => {
+      if (request.command === 'threads.list') throw new Error('first discovery unavailable')
+      return undefined
+    }
+    await store().getState().loadChats({ workspaceId })
+    onCommand = () => undefined
+    await store().getState().loadChats()
+    expect(
+      commands
+        .filter((request) => request.command === 'threads.list')
+        .map((request) => request.workspaceId)
+    ).toEqual([workspaceId, workspaceId])
+    expect(store().getState().conversationWorkspaceId).toBe(workspaceId)
+  })
+  it('keeps the newer explicit scope when the earlier discovery fails late', async () => {
+    const first = defer<Response>()
+    onCommand = (request) =>
+      request.command === 'threads.list' && request.workspaceId === workspaceId
+        ? first.promise
+        : undefined
+    const loading = store().getState().loadChats({ workspaceId })
+    await store().getState().loadChats({ workspaceId: null })
+    first.resolve(json({ error: 'unavailable' }, 503))
+    await loading
+    expect(store().getState().conversationWorkspaceId).toBeNull()
+  })
+  it('does not select a discovered chat after a new turn owns the requested scope', async () => {
+    const discovery = defer<Response>()
+    const message = defer<Response>()
+    let original: CopilotRequest | undefined
+    onCommand = (request) => {
+      if (request.command === 'threads.list') return discovery.promise
+      if (request.command === 'message') {
+        original = request
+        return message.promise
+      }
+    }
+    const loading = store().getState().loadChats({ workspaceId })
+    const sending = store().getState().sendMessage('new turn')
+    await vi.waitFor(() => expect(original).toBeDefined())
+    discovery.resolve(
+      defaultResponse(commands.find((request) => request.command === 'threads.list')!)
+    )
+    await loading
+    expect(store().getState().isSendingMessage).toBe(true)
+    expect(store().getState().conversationWorkspaceId).toBe(workspaceId)
+    expect(commands.some((request) => request.command === 'cancel')).toBe(false)
+    message.resolve(terminalResponse(ready()))
+    await sending
+  })
+  it('does not replace an active selected conversation on failed competing discovery', async () => {
+    setChat()
+    onCommand = (request) => {
+      if (request.command === 'threads.list') throw new Error('unavailable')
+      return undefined
+    }
+    await store().getState().loadChats({ workspaceId: 'other-workspace' })
+    expect(store().getState().currentChat).toEqual(chat())
+    expect(store().getState().conversationWorkspaceId).toBe(workspaceId)
+  })
+})
+
+describe('reopened workflow pending cards', () => {
+  it('restores public pending state and resolves the card locally without discovery', async () => {
+    const item = {
+      ...pending('result', 'deploy_workflow'),
+      originalArgs: { entityId: 'original-workflow', action: 'deploy', deployType: 'api' },
+    }
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat(null))
+    commands = []
+    const copy = await store().getState().readPendingTool(item.target.toolCallId)
+    expect(copy).toEqual(item)
+    copy.originalArgs.changed = true
+    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+    expect(commands).toEqual([])
+    expect(workflowRequests).toEqual([])
+    expect(tools.browser).not.toHaveBeenCalled()
+  })
+  it('rejects a displayed pending card belonging to a different thread', async () => {
+    const item = pending()
+    item.target.threadId = 'foreign-thread'
+    installPending(item)
+    await expect(store().getState().readPendingTool(item.target.toolCallId)).rejects.toThrow(
+      'selected thread'
+    )
+    expect(commands).toEqual([])
+  })
+})
+
+describe('display-only terminal settlement and optional completed history', () => {
+  it.each([
+    ['error', false],
+    ['error', true],
+    ['refused', true],
+    ['cancel', true],
+  ] as const)(
+    'settles SSE %s and reconciles only accepted runs (accepted=%s)',
+    async (kind, accepted) => {
+      setChat()
+      onCommand = (request) =>
+        request.command === 'message'
+          ? eventResponse([
+              ...(accepted
+                ? [
+                    { type: 'response.started', runId, threadId },
+                    {
+                      type: 'tool.display',
+                      toolName: 'read_workflow',
+                      toolCallId: 'display-only',
+                    },
+                  ]
+                : []),
+              kind === 'cancel'
+                ? {
+                    type: 'response.cancel_requested',
+                    result: {
+                      status: 'cancel_requested',
+                      runId,
+                    },
+                  }
+                : {
+                    type: kind === 'error' ? 'response.error' : 'response.refused',
+                    result: {
+                      status: kind === 'error' ? 'failed' : 'refused',
+                      error: {
+                        code: 'FAILED',
+                        message: 'Actual terminal refusal',
+                      },
+                    },
+                  },
+            ])
+          : undefined
+      expect(await store().getState().sendMessage('read')).toBe(false)
+      const state = store().getState()
+      expect(hasUiActiveToolCalls(state.toolCallsById)).toBe(false)
+      if (kind === 'cancel')
+        expect(state.toolCallsById['display-only']).toMatchObject({
+          state: ClientToolCallState.aborted,
+          pending: undefined,
+        })
+      else expect(state.toolCallsById['display-only']).toBeUndefined()
+      expect(state.lastNativeOutcome?.status).toBe(
+        kind === 'cancel' ? 'cancel_requested' : kind === 'error' ? 'failed' : 'refused'
+      )
+      expect(state).toMatchObject({
+        currentRunId: null,
+        isSendingMessage: false,
+        isAwaitingContinuation: false,
+      })
+      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(
+        accepted && kind !== 'cancel' ? 1 : 0
+      )
+      expect(titleRequests).toEqual([])
+      expect(
+        state.messages
+          .flatMap((message) => message.contentBlocks ?? [])
+          .find((block) => block.type === 'tool_call')?.toolCall.state
+      ).toBe(state.toolCallsById['display-only']?.state)
+      expect(tools.browser).not.toHaveBeenCalled()
+      expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      onCommand = () => undefined
+      expect(await store().getState().sendMessage('Next turn')).toBe(true)
+    }
+  )
+  it.each(['json', 'sse'])(
+    'preserves completed %s output and parts until native history arrives',
+    async (transport) => {
+      setChat()
+      const text = ' exact completed🦆\n '
+      const reasoning = ' exact reasoning '
+      const observer = eventStream()
+      onObserve = () => observer.response
+      onCommand = (request) =>
+        request.command === 'message'
+          ? transport === 'json'
+            ? terminalResponse(ready(text))
+            : eventResponse([
+                { type: 'reasoning.delta', text: reasoning },
+                { type: 'text.delta', text },
+                { type: 'response.completed', result: ready(text) },
+              ])
+          : undefined
+      const sending = store().getState().sendMessage('once')
+      await vi.waitFor(() => expect(store().getState().lastNativeOutcome?.status).toBe('completed'))
+      const before = store().getState()
+      expect(before.messages.find((message) => message.role === 'assistant')?.content).toBe(text)
+      if (transport === 'sse')
+        expect(before.messages.flatMap((message) => message.contentBlocks ?? [])).toContainEqual(
+          expect.objectContaining({ type: 'thinking', content: reasoning })
+        )
+      expect(before.lastNativeOutcome?.status).toBe('completed')
+      expect(before.error).toBeNull()
+      observer.emit({ type: 'thread.history', result: historyResult(), activeRunId: null })
+      expect(await sending).toBe(true)
+      expect(
+        store()
+          .getState()
+          .messages.map((message) => message.content)
+      ).toEqual(history.map((message) => message.parts[0].text))
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(1)
+    }
+  )
+  it('keeps genuine pending obligations when Stop settles only display-only activity', () => {
+    const item = pending()
+    installPending(item)
+    store().setState((state) => ({
+      ...applyNativeEvent(
+        state,
+        {
+          type: 'tool.display',
+          toolCallId: 'display-only',
+          toolName: 'read_workflow',
+        },
+        'unknown-message'
+      ),
+    }))
+    store().getState().abortMessage()
+    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe(
+      ClientToolCallState.pending
+    )
+    expect(store().getState().toolCallsById['display-only'].state).toBe(ClientToolCallState.aborted)
+    expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(true)
+  })
+})
+
+describe('explicit reopened Drive business choice', () => {
+  const drive = () => ({ ...pending('result', 'gdrive_request_access'), originalArgs: {} })
+  const prepare = (item = drive()) => {
+    installPending(item)
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    const original = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async (url, init) =>
+      String(url) === '/api/workspaces'
+        ? json({ workspaces: [{ id: 'chosen-business', name: 'Chosen business' }] })
+        : original(url, init)
+    )
+    return item
+  }
+  it('requires an explicit new workspace, distinct from personal conversation scope and original tool identity', async () => {
+    const item = drive()
+    prepare(item)
+    store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
+    await expect(store().getState().authorizeToolWorkspace(item.target.toolCallId)).rejects.toThrow(
+      'Choose an authorized workspace'
+    )
+    expect(
+      await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    ).toBe('chosen-business')
+    expect(store().getState().toolCallsById[item.target.toolCallId].provenance).toEqual({
+      workspaceId: 'chosen-business',
+    })
+    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+    expect(store().getState().currentChat?.workspaceId).toBeNull()
+    await expect(
+      store().getState().readbackCopilotToolCall(item.target.toolCallId)
+    ).rejects.toThrow('workspace and credential')
+    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
+  })
+  it('combines chosen credential readback and continuation in one authenticated command', async () => {
+    const item = prepare()
+    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    await store()
+      .getState()
+      .readbackCopilotToolCall(item.target.toolCallId, { credentialId: 'explicit-credential' })
+    expect(commands.filter((x) => x.command === 'tool.execute')).toEqual([
+      expect.objectContaining({
+        workspaceId,
+        target: item.target,
+        action: 'readback',
+        context: { workspaceId: 'chosen-business' },
+        readback: { credentialId: 'explicit-credential' },
+      }),
+    ])
+    expect(commands.some((x) => x.command === 'tool.result')).toBe(false)
+    expect(tools.browser).not.toHaveBeenCalled()
+  })
+  it('refuses the approval stage, unavailable or duplicate workspaces without losing Pending or contacting business services', async () => {
+    const item = prepare({ ...drive(), stage: 'approval' })
+    await expect(
+      store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    ).rejects.toThrow('Native approval')
+    item.stage = 'result'
+    await expect(
+      store().getState().authorizeToolWorkspace(item.target.toolCallId, 'foreign')
+    ).rejects.toThrow('unavailable or ambiguous')
+    const original = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async (url, init) =>
+      String(url) === '/api/workspaces'
+        ? json({ workspaces: [{ id: 'chosen-business' }, { id: 'chosen-business' }] })
+        : original(url, init)
+    )
+    await expect(
+      store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    ).rejects.toThrow('unavailable or ambiguous')
+    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
+  })
+  it.each(['navigation', 'pending-change'] as const)(
+    'refuses delayed workspace authorization after %s',
+    async (change) => {
+      const item = prepare()
+      const held = defer<Response>()
+      const original = vi.mocked(fetch).getMockImplementation()!
+      vi.mocked(fetch).mockImplementation(async (url, init) =>
+        String(url) === '/api/workspaces' ? held.promise : original(url, init)
+      )
+      const operation = store()
+        .getState()
+        .authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+      const outcome = expect(operation).rejects.toThrow('selection changed')
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/workspaces'))
+      if (change === 'navigation') store().getState().createNewChat()
+      else
+        store().setState((state) => ({
+          toolCallsById: {
+            ...state.toolCallsById,
+            [item.target.toolCallId]: {
+              ...state.toolCallsById[item.target.toolCallId],
+              pending: { ...item, stage: 'approval' },
+            },
+          },
+        }))
+      held.resolve(json({ workspaces: [{ id: 'chosen-business' }] }))
+      await outcome
+      expect(
+        store().getState().toolCallsById[item.target.toolCallId]?.provenance?.workspaceId
+      ).toBeUndefined()
+      expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
+    }
+  )
+})
+
+describe('message acceptance', () => {
+  it('acknowledges the submitted message while its response is still streaming', async () => {
+    setChat()
+    const stream = eventStream()
+    onCommand = (request) => (request.command === 'message' ? stream.response : undefined)
+    const onAccepted = vi.fn()
+    const finished = vi.fn()
+    const sending = store().getState().sendMessage('submitted', { onAccepted }).then(finished)
+    await vi.waitFor(() =>
+      expect(commands.some((request) => request.command === 'message')).toBe(true)
+    )
+    expect(onAccepted).not.toHaveBeenCalled()
+    stream.emit({ type: 'response.started', threadId, runId })
+    stream.emit({ type: 'text.delta', text: 'Working' })
+    await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledOnce())
+    expect(store().getState().isSendingMessage).toBe(true)
+    expect(finished).not.toHaveBeenCalled()
+
+    stream.emit({ type: 'response.completed', result: ready() })
+    stream.close()
+    await sending
+    expect(finished).toHaveBeenCalledWith(true)
+    expect(onAccepted).toHaveBeenCalledOnce()
   })
 
-  it('leaves review-state client tools staged when access switches to full', async () => {
-    vi.useFakeTimers()
-    try {
-      const channelId = 'copilot-review-access-switch'
-      const toolCallId = 'edit-workflow-access-switch-tool'
-      const store = getCopilotStore(channelId)
-      const calls: string[] = []
-      const fakeTool = {
-        setExecutionContext: vi.fn(),
-        handleUserAction: vi.fn(async () => {
-          calls.push('userAction')
-        }),
-        execute: vi.fn(async () => {
-          calls.push('execute')
-        }),
-        handleAccept: vi.fn(async () => {
-          calls.push('accept')
-        }),
+  it.each(['navigation', 'abort', 'failure'])(
+    'does not acknowledge a message after pre-start %s',
+    async (kind) => {
+      setChat()
+      const held = defer<Response>()
+      onCommand = (request) => (request.command === 'message' ? held.promise : undefined)
+      const onAccepted = vi.fn()
+      const sending = store().getState().sendMessage('submitted', { onAccepted })
+      await vi.waitFor(() =>
+        expect(commands.some((request) => request.command === 'message')).toBe(true)
+      )
+      if (kind === 'navigation') await store().getState().selectChat(chat('other', 'other'))
+      if (kind === 'abort') await store().getState().abortMessage()
+      held.resolve(
+        kind === 'failure'
+          ? json({ error: 'failed' }, 500)
+          : eventResponse([
+              { type: 'response.started', threadId, runId },
+              { type: 'response.completed', result: ready() },
+            ])
+      )
+      expect(await sending).toBe(false)
+      expect(onAccepted).not.toHaveBeenCalled()
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+    }
+  )
+})
+
+describe('local workflow execution refusals', () => {
+  const item = (): Pending => ({
+    ...pending('result', 'run_workflow'),
+    originalArgs: { entityId: 'original-workflow', triggerBlockId: 'original-trigger' },
+  })
+  const install = async () => {
+    tools.actualRunWorkflow = true
+    const target = item()
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([target]) : undefined
+    await store().getState().selectChat(chat())
+    commands = []
+    onCommand = () => undefined
+    return target
+  }
+
+  it('keeps Run available after a local busy refusal and admits one later explicit attempt', async () => {
+    const target = await install()
+    useExecutionStore.getState().setIsExecuting(true)
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(tools.runWorkflow).not.toHaveBeenCalled()
+    expect(commands).toEqual([])
+    expect(store().getState().toolCallsById[target.target.toolCallId]).toMatchObject({
+      state: ClientToolCallState.pending,
+      pending: target,
+    })
+    expect(store().getState().error).toContain('Try again later')
+    expect(store().getState().isAwaitingContinuation).toBe(true)
+
+    useExecutionStore.getState().setIsExecuting(false)
+    const admitted = defer<{
+      success: boolean
+      output: Record<string, unknown>
+      logs: unknown[]
+    }>()
+    tools.runWorkflow.mockReturnValue(admitted.promise)
+    const retry = store().getState().executeCopilotToolCall(target.target.toolCallId)
+    await vi.waitFor(() => expect(tools.runWorkflow).toHaveBeenCalledOnce())
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(tools.runWorkflow).toHaveBeenCalledOnce()
+    admitted.resolve({ success: true, output: {}, logs: [] })
+    await retry
+    expect(tools.runWorkflow).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        executionId: target.target.toolCallId,
+        workflowId: 'original-workflow',
+        triggerBlockId: 'original-trigger',
+        native: { workspaceId, target: target.target },
+      })
+    )
+    expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
+      { command: 'tool.execute', workspaceId, target: target.target, action: 'readback' },
+    ])
+  })
+
+  it('keeps automatic replay blocked after a proven local refusal under full access', async () => {
+    tools.actualRunWorkflow = true
+    useExecutionStore.getState().setIsExecuting(true)
+    store().setState({ accessLevel: 'full' })
+    const target = item()
+    const other = { ...pending(), target: { ...pending().target, toolCallId: 'other' } }
+    let otherSettled = false
+    onCommand = (request) => {
+      if (request.command === 'message') return terminalResponse(suspended([target, other]))
+      if (request.command === 'thread.observe')
+        return historyResponse(otherSettled ? [target] : [target, other])
+      if (request.command === 'tool.execute' && request.target.toolCallId === 'other') {
+        otherSettled = true
+        return terminalResponse(suspended([target]))
       }
+    }
+    await store().getState().sendMessage('Run the workflow')
+    await vi.waitFor(() => expect(store().getState().error).toContain('Try again later'))
+    expect(tools.runWorkflow).not.toHaveBeenCalled()
+    useExecutionStore.getState().setIsExecuting(false)
+    await store().getState().executeCopilotToolCall('other')
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(tools.runWorkflow).not.toHaveBeenCalled()
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(tools.runWorkflow).toHaveBeenCalledOnce()
+  })
 
-      registerClientTool(toolCallId, fakeTool)
+  it.each(['transport', 'readback'] as const)(
+    'retains replay protection after entering execution with an uncertain %s outcome',
+    async (failure) => {
+      const target = await install()
+      if (failure === 'transport')
+        tools.runWorkflow.mockRejectedValue(new Error('Execution response unavailable'))
+      onCommand = (request) =>
+        request.command === 'tool.execute'
+          ? json(
+              { status: 'refused', error: { code: 'STALE_TARGET', message: 'Readback failed' } },
+              409
+            )
+          : undefined
+      await store().getState().executeCopilotToolCall(target.target.toolCallId)
+      expect(tools.runWorkflow).toHaveBeenCalledOnce()
+      expect(store().getState().toolCallsById[target.target.toolCallId]).toMatchObject({
+        state: ClientToolCallState.error,
+        pending: target,
+      })
+      await store().getState().executeCopilotToolCall(target.target.toolCallId)
+      expect(tools.runWorkflow).toHaveBeenCalledOnce()
+      expect(store().getState().error).toContain('already attempted')
+    }
+  )
 
-      store.setState({
-        accessLevel: 'limited',
-        currentChat: {
-          reviewSessionId: 'review-access-switch',
-          workspaceId: null,
-          entityKind: 'workflow',
-          entityId: 'wf-review-access-switch',
-          draftSessionId: null,
-          title: null,
-          messages: [],
-          messageCount: 0,
-          conversationId: null,
-          createdAt: new Date('2026-03-30T00:00:00.000Z'),
-          updatedAt: new Date('2026-03-30T00:00:00.000Z'),
-        },
+  it('does not infer a safe retry from restored Pending after an uncertain execution', async () => {
+    const target = await install()
+    tools.runWorkflow.mockRejectedValue(new Error('Execution response unavailable'))
+    onCommand = (request) => {
+      if (request.command === 'thread.observe') return historyResponse([target])
+      if (request.command === 'cancel')
+        return json(
+          { status: 'failed', error: { code: 'FAILED', message: 'Cancellation refused' } },
+          503
+        )
+    }
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(tools.runWorkflow).toHaveBeenCalledOnce()
+    await store().getState().selectChat(chat())
+    expect(store().getState().toolCallsById[target.target.toolCallId]).toMatchObject({
+      state: ClientToolCallState.pending,
+      pending: target,
+      historyOrigin: true,
+    })
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(tools.runWorkflow).toHaveBeenCalledOnce()
+    expect(store().getState().error).toContain('already attempted')
+  })
+})
+
+describe('explicit OAuth popup activation', () => {
+  const item = (): Pending => ({
+    ...pending('result', 'oauth_request_access'),
+    originalArgs: { providerName: 'Google Drive' },
+    context: { workspaceId: 'chosen-business' },
+  })
+  const install = async () => {
+    const target = item()
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([target]) : undefined
+    await store().getState().selectChat(chat())
+    onCommand = () => undefined
+    return target
+  }
+  const popup = () => ({
+    closed: false,
+    opener: {} as unknown,
+    location: { replace: vi.fn() },
+    close: vi.fn(),
+  })
+  const installWindow = (open: ReturnType<typeof vi.fn>) => {
+    tools.actualOAuth = true
+    vi.stubGlobal('window', { open, location: { origin: 'https://studio.example' } })
+  }
+  const workspaceResponse = (response: () => Promise<Response>) => {
+    const original = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation((url, init) =>
+      String(url) === '/api/workspaces' ? response() : original(url, init)
+    )
+  }
+  it('never automatically opens OAuth under full access', async () => {
+    const open = vi.fn().mockReturnValue(null)
+    installWindow(open)
+    workspaceResponse(async () => json({ workspaces: [{ id: 'chosen-business' }] }))
+    store().setState({ accessLevel: 'full' })
+    const target = item()
+    onCommand = (request) =>
+      request.command === 'message'
+        ? terminalResponse(suspended([target]))
+        : request.command === 'thread.observe'
+          ? historyResponse([target])
+          : undefined
+    await store().getState().sendMessage('Connect Google Drive')
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(open).not.toHaveBeenCalled()
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => url === '/api/workspaces')).toBe(false)
+    expect(store().getState().isAwaitingContinuation).toBe(true)
+  })
+  it('reserves an isolated window on the click before waiting for fresh workspace authorization', async () => {
+    const target = await install()
+    const opened = popup()
+    const open = vi.fn().mockReturnValue(opened)
+    installWindow(open)
+    const authorized = defer<Response>()
+    workspaceResponse(() => authorized.promise)
+    const connecting = store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(open).toHaveBeenCalledExactlyOnceWith('about:blank', '_blank')
+    expect(opened.opener).toBeNull()
+    expect(opened.location.replace).not.toHaveBeenCalled()
+    authorized.resolve(json({ workspaces: [{ id: 'chosen-business' }] }))
+    await connecting
+    expect(opened.location.replace).toHaveBeenCalledExactlyOnceWith(
+      'https://studio.example/workspace/chosen-business/integrations?connect=google-drive'
+    )
+    expect(opened.close).not.toHaveBeenCalled()
+    expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(1)
+  })
+  it('allows a blocked Connect retry but does not replay an opened window after acknowledgement failure', async () => {
+    const target = await install()
+    const opened = popup()
+    const open = vi.fn().mockReturnValueOnce(null).mockReturnValue(opened)
+    installWindow(open)
+    workspaceResponse(async () => json({ workspaces: [{ id: 'chosen-business' }] }))
+    onCommand = (request) =>
+      request.command === 'tool.result'
+        ? json({ status: 'refused', error: { code: 'STALE_TARGET', message: 'Ack failed' } }, 409)
+        : undefined
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(open).toHaveBeenCalledOnce()
+    expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(open).toHaveBeenCalledTimes(2)
+    expect(opened.location.replace).toHaveBeenCalledOnce()
+    expect(store().getState().toolCallsById[target.target.toolCallId].result).toMatchObject({
+      opened: true,
+    })
+    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    expect(open).toHaveBeenCalledTimes(2)
+    expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(1)
+    expect(store().getState().isAwaitingContinuation).toBe(true)
+  })
+  it.each(['revoked', 'navigation'] as const)(
+    'closes the reserved window without navigation after %s authorization',
+    async (change) => {
+      const target = await install()
+      const opened = popup()
+      installWindow(vi.fn().mockReturnValue(opened))
+      const authorized = defer<Response>()
+      workspaceResponse(() => authorized.promise)
+      const connecting = store().getState().executeCopilotToolCall(target.target.toolCallId)
+      await vi.waitFor(() =>
+        expect(vi.mocked(fetch).mock.calls.some(([url]) => url === '/api/workspaces')).toBe(true)
+      )
+      if (change === 'navigation') await store().getState().createNewChat()
+      authorized.resolve(
+        json({ workspaces: change === 'revoked' ? [] : [{ id: 'chosen-business' }] })
+      )
+      await connecting
+      expect(opened.close).toHaveBeenCalled()
+      expect(opened.location.replace).not.toHaveBeenCalled()
+      expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
+    }
+  )
+})
+
+describe('R5 reopened OAuth workspace authorization', () => {
+  const oauth = (scope: string | null = null) => ({
+    ...pending('result', 'oauth_request_access'),
+    originalArgs: { providerName: 'Google Drive' },
+  })
+  let allowed: Array<{ id: string; name: string }>
+  async function reopen(item = oauth()) {
+    allowed = [
+      { id: 'chosen-business', name: 'Chosen business' },
+      { id: 'original-entity-workspace', name: 'Original business' },
+    ]
+    onCommand = (request) => {
+      if (request.command === 'thread.observe') return historyResponse([item])
+      if (request.command === 'tool.approve') {
+        item.stage = 'result'
+        return terminalResponse(suspended([item]))
+      }
+      return undefined
+    }
+    const original = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation((url, init) =>
+      String(url) === '/api/workspaces'
+        ? Promise.resolve(json({ workspaces: allowed }))
+        : original(url, init)
+    )
+    await store().getState().selectChat(chat(null))
+    return item
+  }
+  it('preserves a reopened personal Pending and permits an explicit choice after a proved missing-context refusal', async () => {
+    const item = await reopen()
+    expect(store().getState().toolCallsById[item.target.toolCallId].provenance).toBeUndefined()
+    expect(tools.browser).not.toHaveBeenCalled()
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(tools.browser).not.toHaveBeenCalled()
+    expect(store().getState().error).toContain('Choose an authorized workspace')
+    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    tools.browser.mockImplementationOnce(async () => {
+      store().setState((state) => ({
         toolCallsById: {
-          [toolCallId]: {
-            id: toolCallId,
-            name: 'edit_workflow',
-            state: ClientToolCallState.review,
-            params: {
-              entityDocument:
-                'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-              entityId: 'wf-review-access-switch',
+          ...state.toolCallsById,
+          [item.target.toolCallId]: {
+            ...state.toolCallsById[item.target.toolCallId],
+            result: { opened: true, surface: 'integrations' },
+          },
+        },
+      }))
+    })
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
+    expect(tools.bind).toHaveBeenLastCalledWith(
+      expect.objectContaining({ workspaceId: 'chosen-business' })
+    )
+    const call = store().getState().toolCallsById[item.target.toolCallId]
+    expect(call.pending).toEqual(item)
+    expect(call.params).toEqual({ providerName: 'Google Drive' })
+    expect(store().getState().currentChat?.workspaceId).toBeNull()
+    expect(store().getState().conversationWorkspaceId).toBeNull()
+    const block = store()
+      .getState()
+      .messages.flatMap((message) => message.contentBlocks ?? [])
+      .find((part) => part.type === 'tool_call' && part.toolCall.id === item.target.toolCallId)
+    expect(block?.type === 'tool_call' && block.toolCall.provenance).toEqual(call.provenance)
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(tools.browser).toHaveBeenCalledTimes(1)
+    expect(commands.some((request) => request.command === 'message')).toBe(false)
+  })
+  it('requires native approval before choosing, then authorizes the distinct business workspace', async () => {
+    const item = oauth()
+    item.stage = 'approval'
+    await reopen(item)
+    await expect(
+      store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    ).rejects.toThrow('Native approval')
+    expect(tools.browser).not.toHaveBeenCalled()
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(commands.filter((request) => request.command === 'tool.approve')).toHaveLength(1)
+    expect(tools.browser).not.toHaveBeenCalled()
+    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(tools.browser).toHaveBeenCalledExactlyOnceWith({ providerName: 'Google Drive' })
+    expect(store().getState().currentChat?.workspaceId).toBeNull()
+  })
+  it('requires an explicit business workspace when a reopened OAuth card has no workspace', async () => {
+    const item = await reopen()
+    store().setState((state) => ({
+      toolCallsById: {
+        ...state.toolCallsById,
+        [item.target.toolCallId]: {
+          ...state.toolCallsById[item.target.toolCallId],
+          provenance: { contextEntityKind: 'workflow', contextEntityId: 'original-workflow' },
+        },
+      },
+    }))
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(workflowRequests).toEqual([])
+    expect(tools.browser).not.toHaveBeenCalled()
+    expect(store().getState().error).toContain('Choose an authorized workspace')
+  })
+  it('refuses revoked or ambiguous choices before contact and retains a later explicitly authorized attempt', async () => {
+    const item = await reopen()
+    allowed = [
+      { id: 'chosen-business', name: 'A' },
+      { id: 'chosen-business', name: 'B' },
+    ]
+    await expect(
+      store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    ).rejects.toThrow('ambiguous')
+    allowed = [{ id: 'chosen-business', name: 'Business' }]
+    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    allowed = []
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(tools.browser).not.toHaveBeenCalled()
+    allowed = [{ id: 'chosen-business', name: 'Business' }]
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(tools.browser).toHaveBeenCalledTimes(1)
+  })
+  it.each(['navigation', 'stage'] as const)(
+    'refuses stale OAuth choice after %s without effects',
+    async (change) => {
+      const item = await reopen()
+      const held = defer<Response>()
+      const original = vi.mocked(fetch).getMockImplementation()!
+      vi.mocked(fetch).mockImplementation((url, init) =>
+        String(url) === '/api/workspaces' ? held.promise : original(url, init)
+      )
+      const choice = store()
+        .getState()
+        .authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+      const outcome = expect(choice).rejects.toThrow('selection changed')
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/workspaces'))
+      if (change === 'navigation') store().getState().createNewChat()
+      else
+        store().setState((state) => ({
+          toolCallsById: {
+            ...state.toolCallsById,
+            [item.target.toolCallId]: {
+              ...state.toolCallsById[item.target.toolCallId],
+              pending: { ...item, stage: 'approval' },
             },
-          } as any,
+          },
+        }))
+      held.resolve(json({ workspaces: allowed }))
+      await outcome
+      expect(tools.browser).not.toHaveBeenCalled()
+    }
+  )
+  it('keeps a known opened fact and refuses replay after acknowledgement failure', async () => {
+    const item = await reopen()
+    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    tools.browser.mockImplementation(async () => {
+      store().setState((state) => ({
+        toolCallsById: {
+          ...state.toolCallsById,
+          [item.target.toolCallId]: {
+            ...state.toolCallsById[item.target.toolCallId],
+            result: { opened: true, surface: 'integrations' },
+          },
+        },
+      }))
+      throw new Error('native acknowledgement failed')
+    })
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(tools.browser).toHaveBeenCalledTimes(1)
+    expect(store().getState().toolCallsById[item.target.toolCallId].result).toMatchObject({
+      opened: true,
+    })
+  })
+})
+
+describe('R5 per-tool context at actual live call creation', () => {
+  it.each(
+    (['display', 'terminal'] as const).flatMap((order) =>
+      [0, 1].map((index) => [order, index] as const)
+    )
+  )(
+    'pins dashboard A and ordinary watchlist B through %s, executing tool%s at the actual server boundary',
+    async (order, selectedIndex) => {
+      setChat()
+      const layout = {
+        ...pending('approval', 'read_layout'),
+        target: { ...pending().target, toolCallId: 'layout-call', toolName: 'read_layout' },
+        originalArgs: { entityId: 'dashboard-a' },
+        context: {
+          contextEntityKind: 'dashboard_layout' as const,
+          contextEntityId: 'dashboard-a',
+          workspaceId: 'workspace-a',
+        },
+      }
+      const watchlist = {
+        ...pending('approval', 'read_watchlist'),
+        target: { ...pending().target, toolCallId: 'watchlist-call', toolName: 'read_watchlist' },
+        originalArgs: { entityId: 'watchlist-b' },
+        context: {
+          contextEntityKind: 'watchlist' as const,
+          contextEntityId: 'watchlist-b',
+          workspaceId: 'workspace-b',
+        },
+      }
+      const items = [layout, watchlist]
+      onCommand = (request) => {
+        if (request.command === 'thread.observe') return historyResponse(items)
+        if (request.command === 'message') {
+          if (order === 'terminal') return terminalResponse(suspended(items))
+          const displays = items.map((item) => ({
+            type: 'tool.display',
+            toolCallId: item.target.toolCallId,
+            toolName: item.target.toolName,
+          }))
+          return eventResponse([
+            { type: 'response.started', threadId, runId },
+            ...displays,
+            { type: 'response.suspended', result: suspended(items) },
+          ])
+        }
+        return undefined
+      }
+      expect(
+        await store()
+          .getState()
+          .sendMessage('read both', {
+            contexts: [
+              buildCopilotWorkspaceEntityContext({
+                entityKind: 'watchlist',
+                entityId: 'watchlist-b',
+                workspaceId: 'workspace-b',
+                label: 'Explicit B',
+              }),
+            ],
+            runtimeContext: {
+              workspaceId: 'workspace-a',
+              implicitContexts: [
+                {
+                  kind: 'current_dashboard_layout',
+                  dashboardLayoutId: 'dashboard-a',
+                  workspaceId: 'workspace-a',
+                  ownerUserId: actorUserId,
+                  label: 'Dashboard A',
+                },
+              ],
+            },
+          })
+      ).toBe(true)
+      const expected = [
+        {
+          contextEntityKind: 'dashboard_layout',
+          contextEntityId: 'dashboard-a',
+          workspaceId: 'workspace-a',
+        },
+        {
+          contextEntityKind: 'watchlist',
+          contextEntityId: 'watchlist-b',
+          workspaceId: 'workspace-b',
+        },
+      ]
+      for (const [index, item] of items.entries()) {
+        const call = store().getState().toolCallsById[item.target.toolCallId]
+        expect(call.provenance).toEqual(expected[index])
+        const block = store()
+          .getState()
+          .messages.flatMap((message) => message.contentBlocks ?? [])
+          .find((part) => part.type === 'tool_call' && part.toolCall.id === item.target.toolCallId)
+        expect(block?.type === 'tool_call' && block.toolCall.provenance).toEqual(expected[index])
+        const unchanged = applyNativeEvent(
+          store().getState(),
+          {
+            type: 'tool.display',
+            toolCallId: item.target.toolCallId,
+            toolName: item.target.toolName,
+          },
+          'unused'
+        )
+        expect(unchanged).toEqual({})
+      }
+      const item = items[selectedIndex]
+      item.stage = 'result'
+      store().setState((state) => displayNativePending(state, item))
+      await store().getState().executeCopilotToolCall(item.target.toolCallId)
+      expect(commands.find((request) => request.command === 'tool.execute')).toMatchObject({
+        workspaceId,
+        target: item.target,
+        context: expected[selectedIndex],
+      })
+      expect(store().getState().conversationWorkspaceId).toBe(workspaceId)
+    }
+  )
+})
+
+describe('selected native run context', () => {
+  it.each([true, false])(
+    'restores conversation B context after A, including new review cards (context present: %s)',
+    async (hasContext) => {
+      setChat()
+      expect(
+        await store()
+          .getState()
+          .sendMessage('A', {
+            contexts: [
+              buildCopilotWorkspaceEntityContext({
+                entityKind: 'workflow',
+                entityId: 'workflow-A',
+                workspaceId,
+                label: 'A',
+              }),
+            ],
+            runtimeContext: { workspaceId, implicitContexts: [] },
+          })
+      ).toBe(true)
+      const b = chat(workspaceId, 'thread-B')
+      const context = hasContext
+        ? {
+            contextEntityKind: 'workflow' as const,
+            contextEntityId: 'workflow-B',
+            workspaceId,
+          }
+        : undefined
+      const first: Pending = {
+        target: {
+          threadId: b.threadId,
+          resourceId: 'resource-B',
+          runId: 'run-B',
+          toolCallId: 'request-B',
+          toolName: 'make_api_request',
+        },
+        stage: 'approval',
+        originalArgs: { url: 'https://example.com', method: 'GET' },
+        context,
+      }
+      const next: Pending = {
+        target: { ...first.target, toolCallId: 'layout-B', toolName: 'create_layout' },
+        stage: 'result',
+        originalArgs: { workspaceId, name: 'New layout' },
+        preview: { requiresReview: true, success: true },
+        context,
+      }
+      let continued = false
+      onCommand = (request) => {
+        if (request.command === 'thread.observe')
+          return observingStream(historyResult([], continued ? [next] : [first], b.threadId))
+            .response
+        if (request.command === 'tool.approve') {
+          continued = true
+          return eventResponse([
+            {
+              type: 'tool.display',
+              toolCallId: next.target.toolCallId,
+              toolName: next.target.toolName,
+            },
+            {
+              type: 'response.suspended',
+              result: {
+                status: 'suspended',
+                threadId: b.threadId,
+                runId: first.target.runId,
+                text: '',
+                pending: [next],
+              },
+            },
+          ])
+        }
+        if (request.command === 'tool.execute')
+          return terminalResponse({
+            status: 'completed',
+            threadId: b.threadId,
+            runId: first.target.runId,
+            text: 'Done',
+          })
+      }
+      await store().getState().selectChat(b)
+      expect(store().getState().toolCallsById[first.target.toolCallId].provenance).toEqual(context)
+      await store().getState().executeCopilotToolCall(first.target.toolCallId)
+      expect(store().getState().toolCallsById[next.target.toolCallId].provenance).toEqual(context)
+      await store().getState().executeCopilotToolCall(next.target.toolCallId)
+      const accepted = commands.find((request) => request.command === 'tool.execute')
+      expect(accepted).toMatchObject({
+        command: 'tool.execute',
+        target: next.target,
+        action: 'review.accept',
+      })
+      expect(accepted && 'context' in accepted ? accepted.context : undefined).toEqual(context)
+      expect(store().getState().error).toBeNull()
+    }
+  )
+
+  it('binds a cold browser tool to its native run workspace', async () => {
+    const item: Pending = {
+      ...pending('result', 'deploy_workflow'),
+      originalArgs: { action: 'deploy', deployType: 'chat', entityId: 'workflow-B' },
+      context: {
+        workspaceId: 'workspace-B',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'workflow-B',
+      },
+    }
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    expect(tools.browser).not.toHaveBeenCalled()
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
+    expect(tools.bind).toHaveBeenLastCalledWith({ workspaceId: item.context?.workspaceId })
+  })
+
+  it('keeps an explicit OAuth workspace choice through native history refresh', async () => {
+    const item: Pending = {
+      ...pending('result', 'oauth_request_access'),
+      originalArgs: { providerName: 'Google Drive' },
+      context: { contextEntityKind: 'workflow', contextEntityId: 'workflow-B' },
+    }
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    const original = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation((url, init) =>
+      String(url) === '/api/workspaces'
+        ? Promise.resolve(json({ workspaces: [{ id: 'chosen-business' }] }))
+        : original(url, init)
+    )
+    await store().getState().selectChat(chat(null))
+    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    await reconnectSelectedChat()
+    expect(store().getState().toolCallsById[item.target.toolCallId].provenance).toEqual({
+      ...item.context,
+      workspaceId: 'chosen-business',
+    })
+  })
+})
+
+describe('owned workflow chat deployment UI', () => {
+  const prepareChatDeployment = () => {
+    const item: Pending = {
+      ...pending('result', 'deploy_workflow'),
+      originalArgs: { action: 'deploy', deployType: 'chat', entityId: 'target-a' },
+    }
+    installPending(item)
+    store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    return item
+  }
+  const open = () =>
+    store().getState().openWorkflowChatDeployment('call-fixture', {
+      workflowId: 'target-a',
+      workspaceId: 'original-entity-workspace',
+    })
+
+  it('awaits the target form and records known opened before resolving, without changing tool scope', async () => {
+    const item = prepareChatDeployment()
+    const original = structuredClone(item)
+    let completed = false
+    const operation = open().then(() => {
+      completed = true
+    })
+    await vi.waitFor(() => expect(store().getState().workflowChatDeployment).not.toBeNull())
+    const request = store().getState().workflowChatDeployment!
+    expect(request).toMatchObject({
+      toolCallId: item.target.toolCallId,
+      workflowId: 'target-a',
+      workspaceId: 'original-entity-workspace',
+      opened: false,
+    })
+    expect(request.isCurrent()).toBe(true)
+    expect(completed).toBe(false)
+    expect(store().getState().toolCallsById[item.target.toolCallId].result).toBeUndefined()
+    store().getState().settleWorkflowChatDeployment(request.id, 'opened')
+    expect(store().getState().toolCallsById[item.target.toolCallId].result).toEqual({
+      opened: true,
+      surface: 'chat-deployment',
+      message: 'Opened chat deployment settings',
+    })
+    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe(
+      ClientToolCallState.executing
+    )
+    await operation
+    expect(completed).toBe(true)
+    expect(item).toEqual(original)
+    expect(store().getState().currentChat?.workspaceId).toBeNull()
+    expect(commands.filter((request) => request.command === 'tool.result')).toEqual([])
+    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
+    store().getState().settleWorkflowChatDeployment(request.id, 'closed')
+  })
+
+  it('keeps a rendered dialog across normal native ACK replacing the business signal and consuming Pending', async () => {
+    const item = prepareChatDeployment()
+    const business = new AbortController()
+    store().setState({ abortController: business })
+    const operation = open()
+    await vi.waitFor(() => expect(store().getState().workflowChatDeployment).not.toBeNull())
+    const request = store().getState().workflowChatDeployment!
+    store().getState().settleWorkflowChatDeployment(request.id, 'opened')
+    await operation
+    await store()
+      .getState()
+      .submitBrowserAssertion(item.target.toolCallId, {
+        kind: 'ui.opened',
+        data: {
+          opened: true,
+          surface: 'chat-deployment',
+          message: 'Opened chat deployment settings',
         },
       })
-
-      store.getState().setAccessLevel('full')
-      await vi.runAllTimersAsync()
-
-      expect(calls).toEqual([])
-      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
-
-      unregisterClientTool(toolCallId)
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(business.signal.aborted).toBe(true)
+    expect(store().getState().workflowChatDeployment?.opened).toBe(true)
+    expect(store().getState().workflowChatDeployment?.isCurrent()).toBe(true)
+    expect(commands.filter((value) => value.command === 'tool.result')).toHaveLength(1)
+    store().getState().settleWorkflowChatDeployment(request.id, 'closed')
   })
+
+  it.each(['closed', 'error'] as const)(
+    'refuses %s before a rendered UI without fabricating an opened result',
+    async (outcome) => {
+      prepareChatDeployment()
+      const operation = open()
+      const refused = expect(operation).rejects.toThrow('No target form rendered')
+      await vi.waitFor(() => expect(store().getState().workflowChatDeployment).not.toBeNull())
+      const id = store().getState().workflowChatDeployment!.id
+      store().getState().settleWorkflowChatDeployment(id, outcome, 'No target form rendered')
+      await refused
+      expect(store().getState().workflowChatDeployment).toBeNull()
+      expect(store().getState().toolCallsById['call-fixture'].result).toBeUndefined()
+    }
+  )
+
+  it('refuses a stale Pending change before a late rendered notification', async () => {
+    const item = prepareChatDeployment()
+    const operation = open()
+    const refused = expect(operation).rejects.toThrow('closed before rendering')
+    await vi.waitFor(() => expect(store().getState().workflowChatDeployment).not.toBeNull())
+    const request = store().getState().workflowChatDeployment!
+    store().setState((state) => ({
+      toolCallsById: {
+        ...state.toolCallsById,
+        [item.target.toolCallId]: {
+          ...state.toolCallsById[item.target.toolCallId],
+          pending: { ...item, stage: 'approval' },
+        },
+      },
+    }))
+    expect(request.isCurrent()).toBe(false)
+    store().getState().settleWorkflowChatDeployment(request.id, 'opened')
+    await refused
+    expect(store().getState().toolCallsById[item.target.toolCallId].result).toBeUndefined()
+  })
+
+  it.each(['approval', 'foreign-workspace', 'wrong-workflow', 'denied'] as const)(
+    'refuses %s before creating a UI request',
+    async (kind) => {
+      const item = prepareChatDeployment()
+      if (kind === 'approval') item.stage = 'approval'
+      if (kind === 'denied') onWorkflow = () => json({ error: 'Denied' }, 403)
+      const scope = {
+        workflowId: kind === 'wrong-workflow' ? 'other' : 'target-a',
+        workspaceId: kind === 'foreign-workspace' ? 'foreign' : 'original-entity-workspace',
+      }
+      await expect(
+        store().getState().openWorkflowChatDeployment(item.target.toolCallId, scope)
+      ).rejects.toThrow()
+      expect(store().getState().workflowChatDeployment).toBeNull()
+      expect(commands.filter((value) => value.command === 'tool.result')).toEqual([])
+    }
+  )
+
+  it('closes an unrendered request on actual owner cancellation and ignores its late notification', async () => {
+    prepareChatDeployment()
+    const operation = open()
+    const refused = expect(operation).rejects.toThrow('selection changed')
+    await vi.waitFor(() => expect(store().getState().workflowChatDeployment).not.toBeNull())
+    const id = store().getState().workflowChatDeployment!.id
+    store().getState().abortMessage()
+    await refused
+    store().getState().settleWorkflowChatDeployment(id, 'opened')
+    expect(store().getState().workflowChatDeployment).toBeNull()
+    expect(store().getState().toolCallsById['call-fixture'].result).toBeUndefined()
+  })
+})
+
+describe('built-in tool continuation', () => {
+  it.each<{
+    toolName: string
+    originalArgs: Pending['originalArgs']
+    disconnected: boolean
+    failed?: boolean
+  }>([
+    {
+      toolName: 'plan',
+      originalArgs: { objective: 'Research', todoList: ['Inspect workflow'] },
+      disconnected: false,
+    },
+    { toolName: 'sleep', originalArgs: { seconds: 0 }, disconnected: false },
+    { toolName: 'checkoff_todo', originalArgs: { id: 'todo-1' }, disconnected: false },
+    { toolName: 'mark_todo_in_progress', originalArgs: { id: 'todo-1' }, disconnected: false },
+    { toolName: 'plan', originalArgs: { objective: 'Recovered live plan' }, disconnected: true },
+    {
+      toolName: 'plan',
+      originalArgs: { objective: 'Recovered suspended plan' },
+      disconnected: false,
+      failed: true,
+    },
+  ])(
+    'automatically executes a live $toolName once after history refresh (disconnected=$disconnected, failed=$failed)',
+    async ({ toolName, originalArgs, disconnected, failed }) => {
+      const item = { ...pending('result', toolName), originalArgs }
+      const generation =
+        disconnected || failed
+          ? eventStream([
+              { type: 'response.started', threadId, runId },
+              {
+                type: 'tool.display',
+                toolCallId: item.target.toolCallId,
+                toolName,
+                args: originalArgs,
+              },
+            ])
+          : null
+      if (disconnected) setChat()
+      onCommand = (request) =>
+        request.command === 'message'
+          ? generation
+            ? generation.response
+            : terminalResponse(suspended([item]))
+          : request.command === 'thread.observe'
+            ? historyResponse([item])
+            : undefined
+      onObserve = () =>
+        eventResponse([
+          {
+            type: 'thread.history',
+            result: pendingHistory([item]),
+            activeRunId: null,
+          },
+          {
+            type: 'thread.status',
+            runId,
+            status: 'suspended',
+            history: pendingHistory([item]),
+          },
+        ])
+      const sending = store().getState().sendMessage('Continue')
+      if (generation) {
+        await vi.waitFor(() =>
+          expect(store().getState().toolCallsById[item.target.toolCallId]?.state).toBe(
+            ClientToolCallState.generating
+          )
+        )
+        if (failed) {
+          generation.emit({
+            type: 'response.error',
+            result: {
+              status: 'failed',
+              error: { code: 'FAILED', message: 'Pending discovery failed' },
+            },
+          })
+          generation.close()
+        } else generation.fail(new Error('Connection lost before suspension'))
+      }
+      expect(await sending).toBe(!failed)
+      await vi.waitFor(() => expect(tools.browser).toHaveBeenCalledExactlyOnceWith(originalArgs))
+      const call = store().getState().toolCallsById[item.target.toolCallId]
+      expect(call.historical).toBe(false)
+      expect(call.historyOrigin).toBeUndefined()
+      const part = store()
+        .getState()
+        .messages.flatMap((message) => message.contentBlocks ?? [])
+        .find((block) => block.type === 'tool_call' && block.toolCall.id === item.target.toolCallId)
+      expect(part?.type === 'tool_call' && part.toolCall).toBe(call)
+      await reconnectSelectedChat()
+      await store().getState().executeCopilotToolCall(item.target.toolCallId)
+      expect(tools.browser).toHaveBeenCalledTimes(1)
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(2)
+    }
+  )
+
+  it('keeps a reopened browser invocation ineligible through repeated history refreshes', async () => {
+    const item = { ...pending('result', 'plan'), originalArgs: { objective: 'Historical plan' } }
+    onCommand = (request) =>
+      request.command === 'thread.observe' ? historyResponse([item]) : undefined
+    await store().getState().selectChat(chat())
+    expect(store().getState().toolCallsById[item.target.toolCallId].historyOrigin).toBe(true)
+    await reconnectSelectedChat()
+    expect(await store().getState().sendMessage('Continue')).toBe(false)
+    await new Promise<void>((resolve) => queueMicrotask(resolve))
+    expect(tools.browser).not.toHaveBeenCalled()
+    expect(store().getState().toolCallsById[item.target.toolCallId].historyOrigin).toBe(true)
+  })
+
+  it.each([
+    { state: ClientToolCallState.executing, result: undefined },
+    { state: ClientToolCallState.error, result: { objective: 'Known browser result' } },
+  ])('preserves live $state state when history has no matching invocation', async (live) => {
+    const item = {
+      ...pending('result', 'plan'),
+      originalArgs: { objective: 'Live plan' },
+      context: { workspaceId: 'pinned-workspace' },
+    }
+    installPending(item)
+    store().setState((state) => ({
+      toolCallsById: {
+        ...state.toolCallsById,
+        [item.target.toolCallId]: {
+          ...state.toolCallsById[item.target.toolCallId],
+          ...live,
+          provenance: { workspaceId: 'pinned-workspace' },
+        },
+      },
+    }))
+    onCommand = (request) =>
+      request.command === 'thread.observe'
+        ? observingStream(historyResult(history, [item])).response
+        : undefined
+    await reconnectSelectedChat()
+    const call = store().getState().toolCallsById[item.target.toolCallId]
+    expect(call).toMatchObject({ ...live, provenance: { workspaceId: 'pinned-workspace' } })
+    expect(call.pending).toEqual(item)
+    expect(call.historyOrigin).toBeUndefined()
+    expect(tools.browser).not.toHaveBeenCalled()
+  })
+
+  it('never autoexecutes a cold pending tool omitted from history after another tool continues', async () => {
+    const cold = { ...pending('result', 'plan'), originalArgs: { objective: 'Reopened plan' } }
+    const other = {
+      ...cold,
+      target: { ...cold.target, toolCallId: 'other-call' },
+      originalArgs: { objective: 'Explicit plan' },
+    }
+    let items = [other, cold]
+    onCommand = (request) => {
+      if (request.command === 'thread.observe')
+        return observingStream(historyResult(history, items)).response
+      if (request.command === 'tool.result') {
+        items = [cold]
+        return terminalResponse(suspended(items))
+      }
+      return undefined
+    }
+    await store().getState().selectChat(chat())
+    await store().getState().submitBrowserAssertion(other.target.toolCallId, {
+      kind: 'plan.updated',
+      data: other.originalArgs,
+    })
+    await new Promise<void>((resolve) => queueMicrotask(resolve))
+    expect(tools.browser).not.toHaveBeenCalled()
+    expect(store().getState().toolCallsById[cold.target.toolCallId].historyOrigin).toBe(true)
+  })
+
+  it.each(['runId', 'resourceId', 'toolName', 'originalArgs', 'context'] as const)(
+    'does not transfer live origin when authoritative pending %s changes',
+    async (field) => {
+      const item = { ...pending('result', 'plan'), originalArgs: { objective: 'Live plan' } }
+      const changed: Pending = structuredClone(item)
+      if (field === 'originalArgs') changed.originalArgs = { objective: 'Changed plan' }
+      else if (field === 'context') changed.context = { workspaceId: 'changed-workspace' }
+      else if (field === 'toolName') {
+        changed.target.toolName = 'checkoff_todo'
+        changed.originalArgs = { id: 'todo-1' }
+      } else changed.target[field] = 'changed'
+      onCommand = (request) =>
+        request.command === 'message'
+          ? terminalResponse(suspended([item]))
+          : request.command === 'thread.observe'
+            ? historyResponse([changed])
+            : undefined
+      expect(await store().getState().sendMessage('Continue')).toBe(true)
+      await new Promise<void>((resolve) => queueMicrotask(resolve))
+      expect(tools.browser).not.toHaveBeenCalled()
+      const call = store().getState().toolCallsById[item.target.toolCallId]
+      expect(call.pending).toEqual(changed)
+      expect(call.historyOrigin).toBe(true)
+      expect(call.provenance).toEqual(changed.context)
+    }
+  )
+
+  it.each(['limited', 'full'] as const)(
+    'never automatically accepts a persisted preview under %s access',
+    async (accessLevel) => {
+      const item = pending('result', 'edit_workflow')
+      item.preview = { requiresReview: true }
+      store().setState({ conversationWorkspaceId: workspaceId, accessLevel })
+      onCommand = (request) =>
+        request.command === 'message'
+          ? terminalResponse(suspended([item]))
+          : request.command === 'thread.observe'
+            ? historyResponse([item])
+            : undefined
+      expect(await store().getState().sendMessage('Prepare edit')).toBe(true)
+      await new Promise<void>((resolve) => queueMicrotask(resolve))
+      expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+        state: 'review',
+        result: item.preview,
+      })
+      expect(
+        commands.some(
+          (request) => request.command === 'tool.execute' || request.command === 'tool.approve'
+        )
+      ).toBe(false)
+    }
+  )
+  it('rejects a preview through one local decision while preserving other pending work', async () => {
+    const item = pending('result', 'edit_workflow')
+    item.preview = { requiresReview: true }
+    const other = { ...pending('approval'), target: { ...pending().target, toolCallId: 'other' } }
+    installPending(item)
+    onCommand = (request) =>
+      request.command === 'thread.observe'
+        ? historyResponse([item, other])
+        : request.command === 'tool.execute'
+          ? terminalResponse(suspended([other]))
+          : undefined
+    await store().getState().readPendingTool(item.target.toolCallId)
+    await store().getState().skipCopilotToolCall(item.target.toolCallId)
+    expect(commands.find((request) => request.command === 'tool.execute')).toMatchObject({
+      target: item.target,
+      action: 'review.reject',
+    })
+    expect(
+      commands.some((request) => request.command === 'tool.result' || request.command === 'cancel')
+    ).toBe(false)
+    expect(store().getState().isAwaitingContinuation).toBe(true)
+  })
+  it('an initial action that discovers a new preview never accepts it implicitly', async () => {
+    const item = pending('result', 'edit_workflow')
+    installPending(item)
+    const fresh = { ...item, preview: { requiresReview: true, description: 'later preview' } }
+    onCommand = (request) =>
+      request.command === 'tool.execute'
+        ? terminalResponse(suspended([fresh]))
+        : request.command === 'thread.observe'
+          ? historyResponse([fresh])
+          : undefined
+    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
+      expect.objectContaining({ action: 'execute', target: item.target }),
+    ])
+    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe('review')
+  })
+  it('a concurrent rejection cannot claim success while acceptance is in flight', async () => {
+    const item = pending('result', 'edit_workflow')
+    item.preview = { requiresReview: true }
+    installPending(item)
+    const gate = defer<Response>()
+    onCommand = (request) =>
+      request.command === 'thread.observe'
+        ? historyResponse([item])
+        : request.command === 'tool.execute'
+          ? gate.promise
+          : undefined
+    await store().getState().readPendingTool(item.target.toolCallId)
+    const active = store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await vi.waitFor(() =>
+      expect(commands.some((request) => request.command === 'tool.execute')).toBe(true)
+    )
+    await expect(store().getState().skipCopilotToolCall(item.target.toolCallId)).rejects.toThrow(
+      'already in flight'
+    )
+    gate.resolve(terminalResponse(ready()))
+    await active
+    expect(commands.filter((request) => request.command === 'tool.execute')).toHaveLength(1)
+  })
+  it('renders authoritative automatic tool results without a browser round trip', async () => {
+    setChat()
+    onCommand = (request) =>
+      request.command === 'message'
+        ? eventResponse([
+            {
+              type: 'tool.display',
+              toolCallId: 'automatic',
+              toolName: 'search_online',
+            },
+            {
+              type: 'tool.result',
+              toolCallId: 'automatic',
+              toolName: 'search_online',
+              result: { results: [] },
+            },
+            { type: 'response.completed', result: ready() },
+          ])
+        : undefined
+    expect(await store().getState().sendMessage('Search')).toBe(true)
+    expect(tools.refresh).toHaveBeenCalledWith('search_online', { results: [] })
+    expect(
+      commands.some(
+        (request) => request.command === 'tool.execute' || request.command === 'tool.result'
+      )
+    ).toBe(false)
+  })
+  it('refreshes successful mutations in their actual workspace from a personal conversation', async () => {
+    store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
+    const result = ToolResultSchemas.edit_monitor.parse({
+      success: true,
+      surfaceKind: 'monitor',
+      monitorId: 'monitor',
+      documentFormat: MONITOR_DOCUMENT_FORMAT,
+      monitorDocument: '{}',
+      workspaceId: 'actual-business-workspace',
+    })
+    expect(result).toHaveProperty('workspaceId', 'actual-business-workspace')
+    onCommand = (request) =>
+      request.command === 'message'
+        ? eventResponse([
+            {
+              type: 'tool.result',
+              toolCallId: 'mutation',
+              toolName: 'edit_monitor',
+              result,
+            },
+            { type: 'response.completed', result: ready() },
+          ])
+        : undefined
+    expect(await store().getState().sendMessage('Update monitor')).toBe(true)
+    expect(tools.refresh).toHaveBeenCalledExactlyOnceWith('edit_monitor', result)
+  })
+  it.each(['error', 'denied'] as const)(
+    'shows %s automatic tool results without success refresh effects',
+    async (outcome) => {
+      setChat()
+      const failed = {
+        type: 'tool.result',
+        toolCallId: 'failed',
+        toolName: 'search_online',
+        result: { error: 'Tool failed' },
+        ...(outcome === 'error' ? { isError: true } : { denied: true }),
+      } as const
+      const projected = applyNativeEvent(store().getState(), failed, 'assistant')
+      expect(projected.toolCallsById?.failed).toMatchObject({
+        state: outcome === 'error' ? ClientToolCallState.error : ClientToolCallState.rejected,
+        result: { error: 'Tool failed' },
+      })
+      onCommand = (request) =>
+        request.command === 'message'
+          ? eventResponse([
+              {
+                type: 'tool.display',
+                toolCallId: 'failed',
+                toolName: 'search_online',
+                args: { query: 'search' },
+              },
+              { ...failed },
+              { type: 'response.completed', result: ready() },
+            ])
+          : undefined
+      expect(await store().getState().sendMessage('Search')).toBe(true)
+      expect(tools.refresh).not.toHaveBeenCalled()
+    }
+  )
 })

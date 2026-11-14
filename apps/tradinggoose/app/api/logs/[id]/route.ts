@@ -10,6 +10,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { attachAgentHistory } from '@/lib/mastra/agent-history'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { serializeWorkflowLog } from '@/app/api/logs/log-utils'
@@ -71,12 +72,15 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    return NextResponse.json({
-      data: {
-        ...serializeWorkflowLog(row, 'full'),
-        createdAt: undefined,
+    return NextResponse.json(
+      {
+        data: {
+          ...serializeWorkflowLog(await attachAgentHistory(row, userId), 'full'),
+          createdAt: undefined,
+        },
       },
-    })
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    )
   } catch (error: any) {
     logger.error(`[${requestId}] log details fetch error`, error)
     return NextResponse.json({ error: error.message }, { status: 500 })

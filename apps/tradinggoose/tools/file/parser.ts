@@ -120,6 +120,17 @@ export const fileParserTool: ToolConfig<FileParserInput, FileParserOutput> = {
     logger.info('Received response status:', response.status)
 
     const result = (await response.json()) as FileParseApiResponse | FileParseApiMultiResponse
+    if (!response.ok || !result.success) {
+      const message =
+        'error' in result && typeof result.error === 'string'
+          ? result.error
+          : 'File access or parsing is unavailable'
+      throw new Error(message)
+    }
+    if ('results' in result) {
+      const failure = result.results.find((file) => !file.success)
+      if (failure) throw new Error(failure.error || 'A requested file could not be parsed')
+    }
     logger.info('Response parsed successfully')
 
     // Handle multiple files response

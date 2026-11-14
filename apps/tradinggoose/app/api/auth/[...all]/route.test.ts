@@ -2,7 +2,8 @@
  * @vitest-environment node
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockAuthHandler,
@@ -49,6 +50,14 @@ vi.mock('@/lib/auth', () => ({
   },
   getSession: () => mockGetSession(),
 }))
+
+vi.mock('@/lib/auth-client', async () => {
+  const { createAuthClient } = await import('better-auth/react')
+  const { organizationClient } = await import('better-auth/client/plugins')
+  return {
+    client: createAuthClient({ baseURL: 'http://localhost', plugins: [organizationClient()] }),
+  }
+})
 
 vi.mock('@/lib/billing/private-tier-access', () => ({
   hasPrivateBillingTierAccess: (...args: unknown[]) => mockHasPrivateBillingTierAccess(...args),
@@ -123,6 +132,47 @@ describe('/api/auth/[...all] route', () => {
     mockRunWithSystemOAuthClientCredentials.mockImplementation(async (callback: () => Response) =>
       callback()
     )
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  async function createTeam() {
+    const { handleAuthRequest } = await import('./route')
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) =>
+      handleAuthRequest(new Request(input, init))
+    )
+    const { organizationMutationOptions } = await import('@/hooks/queries/organization')
+    const queryClient = new QueryClient()
+    try {
+      return await queryClient
+        .getMutationCache()
+        .build(queryClient, organizationMutationOptions.createOrganization(queryClient))
+        .execute({ name: 'Trading Desk', slug: 'trading-desk' })
+    } finally {
+      queryClient.clear()
+    }
+  }
+
+  it('creates and activates a team through the existing UI mutation and Better Auth client', async () => {
+    mockAuthHandler.mockImplementation(async () => Response.json({ id: 'org-1' }))
+    await expect(createTeam()).resolves.toEqual({ success: true, organizationId: 'org-1' })
+    const requests = mockAuthHandler.mock.calls.map(([request]) => request as Request)
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+      '/api/auth/organization/create',
+      '/api/auth/organization/set-active',
+    ])
+    await expect(requests[0].json()).resolves.toEqual({
+      name: 'Trading Desk',
+      slug: 'trading-desk',
+    })
+    await expect(requests[1].json()).resolves.toEqual({ organizationId: 'org-1' })
+  })
+
+  it('preserves Better Auth creation refusals and does not activate an organization', async () => {
+    mockAuthHandler.mockImplementation(async () =>
+      Response.json({ message: 'Organization creation is not allowed' }, { status: 403 })
+    )
+    await expect(createTeam()).rejects.toThrow('Organization creation is not allowed')
+    expect(mockAuthHandler).toHaveBeenCalledOnce()
   })
 
   it('delegates non-system-oauth routes directly to Better Auth', async () => {
@@ -518,6 +568,8 @@ describe('/api/auth/[...all] route', () => {
     'subscription/billing-portal',
     'subscription/cancel',
     'organization/invite-member',
+    'organization/update',
+    'organization/cancel-invitation',
     'organization/update-member-role',
     'organization/remove-member',
     'organization/leave',

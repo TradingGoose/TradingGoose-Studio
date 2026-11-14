@@ -117,6 +117,7 @@ const workflowSummary = {
 const buildLogRow = (executionData: Record<string, unknown>) => ({
   id: 'log-1',
   workflowId: null,
+  workflowSummary,
   workspaceId: 'workspace-1',
   executionId: 'execution-1',
   stateSnapshotId: 'snapshot-1',

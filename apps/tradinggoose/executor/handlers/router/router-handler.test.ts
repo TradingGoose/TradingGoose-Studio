@@ -1,243 +1,285 @@
-import '@/executor/__test-utils__/mock-dependencies'
+import { managedServices, setManagedProviders } from '@/lib/mastra/__test-utils__/managed-services'
 
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  type Mock,
-  type Mocked,
-  type MockedClass,
-  vi,
-} from 'vitest'
-import { generateRouterPrompt } from '@/blocks/blocks/router'
-import { BlockType } from '@/executor/consts'
-import { RouterBlockHandler } from '@/executor/handlers/router/router-handler'
-import { PathTracker } from '@/executor/path/path'
-import type { ExecutionContext } from '@/executor/types'
-import { getProviderFromModel } from '@/providers/ai/models'
-import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
-
-const mockGenerateRouterPrompt = generateRouterPrompt as Mock
-const mockGetProviderFromModel = getProviderFromModel as Mock
-const MockPathTracker = PathTracker as MockedClass<typeof PathTracker>
-const mockFetch = global.fetch as unknown as Mock
-
-describe('RouterBlockHandler', () => {
-  let handler: RouterBlockHandler
-  let mockBlock: SerializedBlock
-  let mockContext: ExecutionContext
-  let mockPathTracker: Mocked<PathTracker>
-  let mockWorkflow: Partial<SerializedWorkflow>
-  let mockTargetBlock1: SerializedBlock
-  let mockTargetBlock2: SerializedBlock
-
-  beforeEach(() => {
-    mockTargetBlock1 = {
-      id: 'target-block-1',
-      metadata: { id: 'target', name: 'Option A', description: 'Choose A' },
-      position: { x: 100, y: 100 },
-      config: { tool: 'tool_a', params: { p: 'a' } },
-      inputs: {},
-      outputs: {},
-      enabled: true,
+vi.mock('@/lib/mastra/connections', async (original) => ({
+  ...(await original<typeof import('@/lib/mastra/connections')>()),
+  createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
+}))
+vi.mock('@/lib/mastra/usage-processors', () => ({
+  usageProcessors: async (scope: unknown) => {
+    native.finance(scope)
+    return {
+      inputProcessors: [],
+      outputProcessors: [],
+      getUsage: () => native.usage(),
+      getCost: () => native.cost(),
+      verifyComplete: () => native.verify(),
     }
-    mockTargetBlock2 = {
-      id: 'target-block-2',
-      metadata: { id: 'target', name: 'Option B', description: 'Choose B' },
-      position: { x: 100, y: 150 },
-      config: { tool: 'tool_b', params: { p: 'b' } },
-      inputs: {},
-      outputs: {},
-      enabled: true,
+  },
+}))
+vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
+
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getInferenceFacts } from '@/lib/mastra/result'
+import { RouterBlockHandler } from './router-handler'
+
+const native = vi.hoisted(() => ({
+  finance: vi.fn(),
+  cost: vi.fn(),
+  usage: vi.fn(),
+  verify: vi.fn(),
+  generate: vi.fn(),
+  configurations: [] as any[],
+}))
+vi.mock('@mastra/core/agent', () => ({
+  Agent: class {
+    constructor(configuration: any) {
+      native.configurations.push(configuration)
     }
-    mockBlock = {
-      id: 'router-block-1',
-      metadata: { id: BlockType.ROUTER, name: 'Test Router' },
-      position: { x: 50, y: 50 },
-      config: { tool: BlockType.ROUTER, params: {} },
-      inputs: { prompt: 'string', model: 'string' }, // Using ParamType strings
-      outputs: {},
-      enabled: true,
-    }
-    mockWorkflow = {
-      blocks: [mockBlock, mockTargetBlock1, mockTargetBlock2],
-      connections: [
-        { source: mockBlock.id, target: mockTargetBlock1.id },
-        { source: mockBlock.id, target: mockTargetBlock2.id },
-      ],
-    }
-
-    mockPathTracker = new MockPathTracker(mockWorkflow as SerializedWorkflow) as Mocked<PathTracker>
-    handler = new RouterBlockHandler(mockPathTracker)
-
-    mockContext = {
-      workflowId: 'test-workflow-id',
-      workspaceId: 'test-workspace-id',
-      blockStates: new Map(),
-      blockLogs: [],
-      metadata: { duration: 0 },
-      environmentVariables: {},
-      decisions: { router: new Map(), condition: new Map() },
-      loopIterations: new Map(),
-      loopItems: new Map(),
-      completedLoops: new Set(),
-      executedBlocks: new Set(),
-      activeExecutionPath: new Set(),
-      workflow: mockWorkflow as SerializedWorkflow,
-    }
-
-    // Reset mocks using vi
-    vi.clearAllMocks()
-
-    // Default mock implementations
-    mockGetProviderFromModel.mockReturnValue('openai')
-    mockGenerateRouterPrompt.mockReturnValue('Generated System Prompt')
-
-    // Set up fetch mock to return a successful response
-    mockFetch.mockImplementation(() => {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            content: 'target-block-1',
-            model: 'mock-model',
-            tokens: { prompt: 100, completion: 5, total: 105 },
-            cost: { input: 0.002, output: 0.001, total: 0.003, pricing: null },
-            timing: { total: 300 },
-          }),
-      })
-    })
+    generate = native.generate
+  },
+}))
+vi.mock('@/blocks/blocks/router', () => ({
+  generateRouterPrompt: (_prompt: string, targets: any[]) =>
+    targets.map((target) => target.id).join(','),
+}))
+vi.mock('@/lib/logs/console/logger', () => ({
+  createLogger: () => ({ info: vi.fn(), error: vi.fn() }),
+}))
+const block = { id: 'router', metadata: { id: 'router' } } as any
+const target = {
+  id: 'target',
+  metadata: { id: 'agent', name: 'Answer' },
+  config: { params: { systemPrompt: 'Answer the question' } },
+}
+const context = {
+  workspaceId: 'workspace',
+  userId: 'user',
+  blockStates: new Map(),
+  workflow: { blocks: [target], connections: [{ source: 'router', target: 'target' }] },
+} as any
+beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'managed-fixture-key' }
+  vi.clearAllMocks()
+  native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
+  native.usage.mockReset().mockReturnValue({ totalTokens: 7 })
+  native.verify.mockReset().mockResolvedValue(undefined)
+  native.configurations.length = 0
+  native.generate.mockResolvedValue({
+    finishReason: 'stop',
+    text: ' TARGET ',
+    totalUsage: { totalTokens: 7 },
   })
-
-  it('should handle router blocks', () => {
-    expect(handler.canHandle(mockBlock)).toBe(true)
-    const nonRouterBlock: SerializedBlock = { ...mockBlock, metadata: { id: 'other' } }
-    expect(handler.canHandle(nonRouterBlock)).toBe(false)
-  })
-
-  it('should execute router block correctly and select a path', async () => {
-    const inputs = {
-      prompt: 'Choose the best option.',
-      model: 'gpt-4.1',
-      temperature: 0.1,
+})
+describe('Router native generation', () => {
+  it('retains selected-path workflow fields and native accounting independently of dollars', async () => {
+    const cost = {
+      input: 0.002,
+      output: 0.003,
+      total: 0.005,
+      currency: 'USD',
+      estimated: true,
+      status: 'estimated',
     }
-
-    const expectedTargetBlocks = [
-      {
-        id: 'target-block-1',
-        type: 'target',
-        title: 'Option A',
-        description: 'Choose A',
-        subBlocks: {
-          p: 'a',
-          systemPrompt: '',
-        },
-        currentState: undefined,
-      },
-      {
-        id: 'target-block-2',
-        type: 'target',
-        title: 'Option B',
-        description: 'Choose B',
-        subBlocks: {
-          p: 'b',
-          systemPrompt: '',
-        },
-        currentState: undefined,
-      },
-    ]
-
-    const result = await handler.execute(mockBlock, inputs, mockContext)
-
-    expect(mockGenerateRouterPrompt).toHaveBeenCalledWith(inputs.prompt, expectedTargetBlocks)
-    expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4.1')
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.any(Object),
-        body: expect.any(String),
-      })
+    native.cost.mockReturnValue(cost)
+    const result = await new RouterBlockHandler().execute(
+      block,
+      { model: 'openai/gpt-4.1', prompt: 'Route', apiKey: 'local-key', temperature: 0 },
+      context
     )
-
-    // Verify the request body contains the expected data
-    const fetchCallArgs = mockFetch.mock.calls[0]
-    const requestBody = JSON.parse(fetchCallArgs[1].body)
-    expect(requestBody).toMatchObject({
-      provider: 'openai',
-      model: 'gpt-4.1',
-      systemPrompt: 'Generated System Prompt',
-      context: JSON.stringify([{ role: 'user', content: 'Choose the best option.' }]),
-      temperature: 0.1,
+    expect(result).toMatchObject({
+      model: 'openai/gpt-4.1',
+      selectedPath: { blockId: 'target', blockType: 'agent', blockTitle: 'Answer' },
+      tokens: { total: 7 },
+      cost,
     })
-
-    expect(result).toEqual({
-      prompt: 'Choose the best option.',
-      model: 'mock-model',
-      tokens: { prompt: 100, completion: 5, total: 105 },
-      cost: { input: 0.002, output: 0.001, total: 0.003, pricing: null },
-      selectedPath: {
-        blockId: 'target-block-1',
-        blockType: 'target',
-        blockTitle: 'Option A',
-      },
+    expect(getInferenceFacts(result)).toMatchObject({
+      model: 'openai/gpt-4.1',
+      tokens: { total: 7 },
+      cost,
     })
+    expect(result).toMatchObject({ tokens: { total: 7 } })
+    expect(native.configurations[0].model).toEqual({ id: 'openai/gpt-4.1', apiKey: 'local-key' })
+    expect(native.generate.mock.calls[0][1].modelSettings.temperature).toBe(0)
   })
+  it('rejects dangling target connections before inference', async () => {
+    await expect(
+      new RouterBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1' },
+        { ...context, workflow: { ...context.workflow, blocks: [] } }
+      )
+    ).rejects.toThrow('Target block target not found')
+    expect(native.generate).not.toHaveBeenCalled()
+  })
+})
 
-  it('should throw error if target block is missing', async () => {
-    const inputs = { model: 'gpt-4.1', prompt: 'Test' }
-    mockContext.workflow!.blocks = [mockBlock, mockTargetBlock2]
-
-    // Expect execute to throw because getTargetBlocks (called internally) will throw
-    await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
-      'Target block target-block-1 not found'
+describe('router workflow cancellation', () => {
+  it('interrupts inference when cancellation arrives after generation starts', async () => {
+    vi.useFakeTimers()
+    let cancelled = false
+    const shouldCancelExecution = vi.fn(async () => cancelled)
+    native.generate.mockImplementation(
+      (_messages, options) =>
+        new Promise((_resolve, reject) => {
+          options.abortSignal.addEventListener('abort', () => reject(new Error('cancelled')), {
+            once: true,
+          })
+        })
     )
-    expect(mockFetch).not.toHaveBeenCalled()
-  })
-
-  it('should throw error if LLM response is not a valid target block ID', async () => {
-    const inputs = { model: 'gpt-4.1', prompt: 'Test' }
-
-    // Override fetch mock to return an invalid block ID
-    mockFetch.mockImplementationOnce(() => {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            content: 'invalid-block-id',
-            model: 'mock-model',
-            tokens: {},
-            cost: { input: 0, output: 0, total: 0, pricing: null },
-            timing: {},
-          }),
+    try {
+      const execution = new RouterBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1' },
+        { ...context, shouldCancelExecution }
+      )
+      const outcome = expect(execution).rejects.toMatchObject({
+        message: 'cancelled',
+        tokens: {},
       })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(native.generate).toHaveBeenCalledTimes(1)
+      cancelled = true
+      await vi.advanceTimersByTimeAsync(1000)
+      await outcome
+      expect(shouldCancelExecution).toHaveBeenCalledTimes(2)
+      const checks = shouldCancelExecution.mock.calls.length
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(shouldCancelExecution).toHaveBeenCalledTimes(checks)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+it('refuses an embedding model before generation admission or model contact', async () => {
+  const model = 'openai/text-embedding-3-small'
+  setManagedProviders({
+    openai: {
+      name: 'Controlled registered provider',
+      url: 'https://not-contacted.invalid',
+      models: ['text-embedding-3-small'],
+    },
+  })
+  await expect(
+    new RouterBlockHandler().execute(block, { model, prompt: 'Route this request' }, context)
+  ).rejects.toMatchObject({ status: 400 })
+  expect(native.finance).not.toHaveBeenCalled()
+  expect(native.configurations).toEqual([])
+  expect(native.generate).not.toHaveBeenCalled()
+})
+
+// Only the native model and usage processor boundaries are controlled.
+describe('router trusted failed accounting with real helpers', () => {
+  it.each([
+    'error',
+    'aborted',
+    'native error',
+    'tripwire',
+    'financial refusal',
+    'invalid routing decision',
+  ])('retains canonical processor accounting through %s', async (failure) => {
+    native.usage.mockReturnValue({ totalTokens: 7 })
+    const returned: {
+      finishReason: string
+      text: string
+      totalUsage: { inputTokens: number; outputTokens: number; totalTokens: number }
+      error?: unknown
+      tripwire?: unknown
+    } = {
+      ...{ finishReason: 'stop', text: 'target' },
+      totalUsage: { inputTokens: 11, outputTokens: 6, totalTokens: 17 },
+    }
+    if (failure === 'error' || failure === 'aborted') returned.finishReason = failure
+    if (failure === 'native error') returned.error = new Error('native failure')
+    if (failure === 'tripwire') returned.tripwire = { reason: 'controlled refusal' }
+    if (failure === 'invalid routing decision') returned.text = 'unconnected'
+    if (failure === 'financial refusal')
+      native.verify.mockRejectedValueOnce(new Error('Financial acceptance refused'))
+    native.generate.mockResolvedValueOnce(returned)
+    let failureValue: unknown
+    try {
+      await new RouterBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', prompt: 'Route' },
+        context
+      )
+    } catch (error) {
+      failureValue = error
+    }
+    expect(failureValue).toBeInstanceOf(Error)
+    expect(failureValue).toMatchObject({ cost: { status: 'unavailable' }, tokens: { total: 7 } })
+    const facts = getInferenceFacts(failureValue)
+    expect(facts).toMatchObject({
+      model: 'openai/gpt-4.1',
+      tokens: { total: 7 },
+      cost: { status: 'unavailable' },
+      generatedFields: ['model', 'tokens', 'cost'],
     })
-
-    await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
-      'Invalid routing decision: invalid-block-id'
-    )
-  })
-
-  it('requires a selected model', async () => {
-    await expect(handler.execute(mockBlock, { prompt: 'Choose.' }, mockContext)).rejects.toThrow(
-      'Model is required'
-    )
-    expect(mockFetch).not.toHaveBeenCalled()
-  })
-
-  it('should handle server error responses', async () => {
-    const inputs = { model: 'gpt-4.1', prompt: 'Test error handling.' }
-
-    // Override fetch mock to return an error
-    mockFetch.mockImplementationOnce(() => {
-      return Promise.resolve({
-        ok: false,
-        status: 500,
-        json: () => Promise.resolve({ error: 'Server error' }),
+    expect(native.generate).toHaveBeenCalledOnce()
+    if (failure === 'financial refusal')
+      expect(failureValue).toMatchObject({ message: 'Financial acceptance refused' })
+    if (failure === 'invalid routing decision')
+      expect(failureValue).toMatchObject({
+        message: expect.stringContaining('Invalid routing decision'),
       })
+  })
+  it.each([
+    { usage: {}, expected: {} },
+    { usage: { totalTokens: 0 }, expected: { total: 0 } },
+  ])(
+    'preserves actual processor counts $usage without reading a parallel result total',
+    async ({ usage, expected }) => {
+      native.usage.mockReturnValue(usage)
+      native.verify.mockRejectedValueOnce(new Error('Financial acceptance refused'))
+      native.generate.mockResolvedValueOnce({
+        finishReason: 'stop',
+        text: 'target',
+        totalUsage: { totalTokens: 17 },
+      })
+      const failure = await new RouterBlockHandler()
+        .execute(block, { model: 'openai/gpt-4.1', prompt: 'Route' }, context)
+        .catch((error) => error)
+      expect(getInferenceFacts(failure)?.tokens).toEqual(expected)
+    }
+  )
+  it('captures the latest processor observation when financial acceptance rejects', async () => {
+    native.usage.mockReturnValue({ totalTokens: 7 })
+    native.generate.mockResolvedValueOnce({ finishReason: 'stop', text: 'target' })
+    native.verify.mockImplementationOnce(async () => {
+      native.usage.mockReturnValue({ totalTokens: 9 })
+      throw new Error('Financial acceptance refused')
     })
-
-    await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow('Server error')
+    let failure: unknown
+    try {
+      await new RouterBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', prompt: 'Route' },
+        context
+      )
+    } catch (error) {
+      failure = error
+    }
+    expect(getInferenceFacts(failure)?.tokens).toEqual({ total: 9 })
+    expect(native.generate).toHaveBeenCalledOnce()
+  })
+  it('does not invent a zero total before any native response', async () => {
+    native.usage.mockReturnValue({})
+    native.generate.mockRejectedValueOnce(new Error('No native response'))
+    let failure: unknown
+    try {
+      await new RouterBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', prompt: 'Route' },
+        context
+      )
+    } catch (error) {
+      failure = error
+    }
+    expect(getInferenceFacts(failure)).toMatchObject({
+      tokens: {},
+      cost: { status: 'unavailable' },
+    })
+    expect(getInferenceFacts(failure)?.tokens).toEqual({})
+    expect(native.generate).toHaveBeenCalledOnce()
   })
 })

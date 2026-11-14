@@ -78,6 +78,8 @@ Errors use the same envelope with `"event":"error"` and an `error` message.
 
 Every Logs API response includes information about your workflow execution limits and usage:
 
+`currentPeriodCost` and the monetary usage `limit` are JSON numbers in USD. Unlimited usage is represented by `9007199254740991` (`Number.MAX_SAFE_INTEGER`). Tier prices and allowances are numbers or configured `null`; billing multipliers are numbers.
+
 ```jsonc
 {
   "limits": {
@@ -167,7 +169,9 @@ Query workflow execution logs with extensive filtering options.
           "endedAt": "2025-01-01T12:34:57.123Z",
           "totalDurationMs": 334,
           "cost": {
-            "total": 0.00234
+            "status": "unavailable",
+            "tokens": {},
+            "models": {}
           },
           "files": null
         }
@@ -200,6 +204,10 @@ Query workflow execution logs with extensive filtering options.
     ```
   </Tab>
 </Tabs>
+
+Copilot and Workflow Agent history persist available assistant token usage and USD cost metadata in Studio's Mastra storage. These reports remain available after reload. Studio calculates standard model estimates from reported tokens and published models.dev prices, including BYOK estimates. BYOK estimates are report-only and do not debit the Studio model balance. For direct Studio-account model calls, dollar reports and assistant records include the applicable Studio subscription-tier multiplier and match the accrued charge. Deferred Workflow Agent step history retains standard estimates; the final workflow execution total applies its saved billing quote to Studio-funded model usage, with existing execution fees unchanged. Missing usage or pricing remains unavailable, and incomplete totals are marked partial. Applied current-period usage is available in **Settings → Subscription**.
+
+The CSV preserves available generic cost fields when present. Missing model amounts remain blank or unavailable; they are never a reported zero. A supplied known zero remains zero, and an available subtotal is not a complete charge. Canonical payloads are hydrated through current workspace/log authorization; internal native/archive references and encrypted checkpoint sections are not public download capabilities.
 
 ### Get Log Details
 
@@ -239,24 +247,9 @@ Retrieve detailed information about a specific log entry.
           "finalOutput": {...}
         },
         "cost": {
-          "total": 0.00234,
-          "tokens": {
-            "prompt": 123,
-            "completion": 456,
-            "total": 579
-          },
-          "models": {
-            "gpt-4o": {
-              "input": 0.001,
-              "output": 0.00134,
-              "total": 0.00234,
-              "tokens": {
-                "prompt": 123,
-                "completion": 456,
-                "total": 579
-              }
-            }
-          }
+          "status": "unavailable",
+          "tokens": {},
+          "models": {}
         },
         "createdAt": "2025-01-01T12:34:57.200Z"
       },
@@ -384,24 +377,9 @@ When a workflow execution completes, TradingGoose sends a POST request to your w
     "endedAt": "2025-01-01T12:34:57.123Z",
     "totalDurationMs": 334,
     "cost": {
-      "total": 0.00234,
-      "tokens": {
-        "prompt": 123,
-        "completion": 456,
-        "total": 579
-      },
-      "models": {
-        "gpt-4o": {
-          "input": 0.001,
-          "output": 0.00134,
-          "total": 0.00234,
-          "tokens": {
-            "prompt": 123,
-            "completion": 456,
-            "total": 579
-          }
-        }
-      }
+      "status": "unavailable",
+      "tokens": {},
+      "models": {}
     },
     "files": null,
     "finalOutput": {...},  // Only if includeFinalOutput=true

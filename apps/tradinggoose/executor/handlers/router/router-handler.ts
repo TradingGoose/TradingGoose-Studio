@@ -1,11 +1,14 @@
+import { Agent } from '@mastra/core/agent'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getBaseUrl } from '@/lib/urls/utils'
+import { safeInferenceError } from '@/lib/mastra/errors'
+import { assertListedModel } from '@/lib/mastra/registry'
+import { prepareModelRequest } from '@/lib/mastra/request'
+import { withInferenceFacts } from '@/lib/mastra/result'
 import { generateRouterPrompt } from '@/blocks/blocks/router'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
-import type { PathTracker } from '@/executor/path/path'
+import { watchExecutionCancellation } from '@/executor/handlers/agent/cancellation'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
-import { getProviderFromModel } from '@/providers/ai/models'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('RouterBlockHandler')
@@ -14,11 +17,6 @@ const logger = createLogger('RouterBlockHandler')
  * Handler for Router blocks that dynamically select execution paths.
  */
 export class RouterBlockHandler implements BlockHandler {
-  /**
-   * @param pathTracker - Utility for tracking execution paths
-   */
-  constructor(private pathTracker: PathTracker) {}
-
   canHandle(block: SerializedBlock): boolean {
     return block.metadata?.id === BlockType.ROUTER
   }
@@ -32,79 +30,69 @@ export class RouterBlockHandler implements BlockHandler {
 
     const model = inputs.model
     if (!model) throw new Error('Model is required')
-    const providerId = getProviderFromModel(model)
+    await assertListedModel(model)
 
+    const runId = crypto.randomUUID()
+    let work: Awaited<ReturnType<typeof prepareModelRequest>> | undefined
+    const cancellation = watchExecutionCancellation(context.shouldCancelExecution)
     try {
-      const url = new URL('/api/providers', getBaseUrl())
-
-      // Create the provider request with proper message formatting
-      const messages = [{ role: 'user', content: inputs.prompt }]
-      const systemPrompt = generateRouterPrompt(inputs.prompt, targetBlocks)
-      const providerRequest = {
-        provider: providerId,
-        model,
-        systemPrompt: systemPrompt,
-        context: JSON.stringify(messages),
-        temperature: inputs.temperature,
-        apiKey: inputs.apiKey,
-        workflowId: context.workflowId,
-      }
-
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      await cancellation.check()
+      work = await prepareModelRequest(
+        {
+          model,
+          actorUserId: context.userId,
+          workspaceId: context.workspaceId,
+          workflowId: context.workflowId,
+          runId,
+          purpose: 'workflow-router',
+          funding: inputs.apiKey ? 'byok' : 'account',
+          executionId: context.executionId,
+          signal: cancellation.signal,
         },
-        body: JSON.stringify(providerRequest),
+        { apiKey: inputs.apiKey, modelSettings: { temperature: inputs.temperature } }
+      )
+      const agent = new Agent({
+        id: block.id,
+        name: 'Workflow Router',
+        instructions: generateRouterPrompt(inputs.prompt, targetBlocks),
+        model: work.model,
+        mastra: work.mastra,
       })
-
-      if (!response.ok) {
-        // Try to extract a helpful error message
-        let errorMessage = `Provider API request failed with status ${response.status}`
-        try {
-          const errorData = await response.json()
-          if (errorData.error) {
-            errorMessage = errorData.error
-          }
-        } catch (_e) {
-          // If JSON parsing fails, use the original error message
-        }
-        throw new Error(errorMessage)
-      }
-
-      const result = await response.json()
-
-      const chosenBlockId = result.content.trim().toLowerCase()
+      const native = await agent.generate([{ role: 'user', content: inputs.prompt }], work.options)
+      const accounting = await work.complete(native)
+      cancellation.signal.throwIfAborted()
+      const chosenBlockId = native.text.trim().toLowerCase()
       const chosenBlock = targetBlocks?.find((b) => b.id === chosenBlockId)
 
       if (!chosenBlock) {
         logger.error(
-          `Invalid routing decision. Response content: "${result.content}", available blocks:`,
+          `Invalid routing decision. Response content: "${native.text}", available blocks:`,
           targetBlocks?.map((b) => ({ id: b.id, title: b.title })) || []
         )
         throw new Error(`Invalid routing decision: ${chosenBlockId}`)
       }
 
-      const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-
-      return {
-        prompt: inputs.prompt,
-        model: result.model,
-        tokens: {
-          prompt: tokens.prompt || 0,
-          completion: tokens.completion || 0,
-          total: tokens.total || 0,
+      return withInferenceFacts(
+        {
+          prompt: inputs.prompt,
+          model,
+          ...accounting,
+          selectedPath: {
+            blockId: chosenBlock.id,
+            blockType: chosenBlock.type || 'unknown',
+            blockTitle: chosenBlock.title || 'Untitled Block',
+          },
         },
-        cost: result.cost,
-        selectedPath: {
-          blockId: chosenBlock.id,
-          blockType: chosenBlock.type || 'unknown',
-          blockTitle: chosenBlock.title || 'Untitled Block',
-        },
-      }
+        { model, ...accounting, generatedFields: ['model', 'tokens', 'cost'] }
+      )
     } catch (error) {
-      logger.error('Router execution failed:', error)
-      throw error
+      logger.error('Router execution failed:', safeInferenceError(error, inputs.apiKey))
+      const failure = new Error(safeInferenceError(error, inputs.apiKey))
+      const facts = { model, ...work?.accounting() }
+      Object.assign(failure, facts)
+      throw withInferenceFacts(failure, { ...facts, generatedFields: Object.keys(facts) })
+    } finally {
+      cancellation.stop()
     }
   }
 
@@ -125,28 +113,12 @@ export class RouterBlockHandler implements BlockHandler {
           throw new Error(`Target block ${conn.target} not found`)
         }
 
-        // Extract system prompt for agent blocks
-        let systemPrompt = ''
-        if (targetBlock.metadata?.id === BlockType.AGENT) {
-          // Try to get system prompt from different possible locations
-          systemPrompt =
-            targetBlock.config?.params?.systemPrompt || targetBlock.inputs?.systemPrompt || ''
-
-          // If system prompt is still not found, check if we can extract it from inputs
-          if (!systemPrompt && targetBlock.inputs) {
-            systemPrompt = targetBlock.inputs.systemPrompt || ''
-          }
-        }
-
         return {
           id: targetBlock.id,
           type: targetBlock.metadata?.id,
           title: targetBlock.metadata?.name,
           description: targetBlock.metadata?.description,
-          subBlocks: {
-            ...targetBlock.config.params,
-            systemPrompt: systemPrompt,
-          },
+          subBlocks: targetBlock.config.params,
           currentState: context.blockStates.get(targetBlock.id)?.output,
         }
       })

@@ -1,5 +1,4 @@
-import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
-import { isHosted } from '@/lib/environment'
+import { GatewayRegistry } from '@mastra/core/llm'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
@@ -32,12 +31,12 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   {
     id: 'openai',
     displayName: 'OpenAI',
-    description: 'Default API key for system-owned OpenAI embeddings.',
+    description: 'Default API key for system-owned OpenAI embeddings and Copilot.',
     credentialFields: [
       {
         key: 'defaultApiKey',
         label: 'Default API Key',
-        description: 'Used for system-owned OpenAI embeddings.',
+        description: 'Used for system-owned OpenAI embeddings and Copilot.',
       },
     ],
     settingFields: [],
@@ -45,33 +44,108 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   {
     id: 'azure_openai',
     displayName: 'Azure OpenAI',
-    description: 'Shared Azure OpenAI configuration for embeddings and Azure-hosted model calls.',
+    description: 'Managed Azure OpenAI connection for native Mastra model requests.',
     credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Used for platform-managed Azure OpenAI requests.',
-      },
+      { key: 'apiKey', label: 'API Key', description: 'Azure OpenAI resource API key.' },
     ],
     settingFields: [
       {
-        key: 'endpoint',
-        label: 'Endpoint',
-        description: 'Base Azure OpenAI endpoint.',
-        type: 'url',
+        key: 'resourceName',
+        label: 'Resource Name',
+        description: 'Azure OpenAI resource name used by the native Mastra gateway.',
+        type: 'text',
       },
       {
         key: 'apiVersion',
         label: 'API Version',
-        description: 'Azure OpenAI API version.',
+        description: 'Optional Azure API version; leave empty to use the native gateway default.',
         type: 'text',
-        defaultValue: '2024-07-01-preview',
+        required: false,
       },
       {
-        key: 'embeddingModel',
-        label: 'Embedding Model',
-        description: 'Azure deployment name used for knowledge embeddings.',
+        key: 'deployments',
+        label: 'Deployments',
+        description: 'JSON array of exact Azure deployment IDs, for example ["chat-deployment"].',
         type: 'text',
+      },
+    ],
+  },
+  {
+    id: 'ollama',
+    displayName: 'Ollama',
+    description: 'Managed OpenAI-compatible Ollama connection for native Mastra model requests.',
+    credentialFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        description: 'Optional bearer token for the configured Ollama endpoint.',
+        required: false,
+      },
+    ],
+    settingFields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        description: 'Full OpenAI-compatible API base URL, including /v1.',
+        type: 'url',
+        defaultValue: 'http://localhost:11434/v1',
+      },
+      {
+        key: 'models',
+        label: 'Models',
+        description: 'JSON array of exact model IDs, for example ["llama3.2"].',
+        type: 'text',
+      },
+    ],
+  },
+  {
+    id: 'vllm',
+    displayName: 'vLLM',
+    description: 'Managed OpenAI-compatible vLLM connection for native Mastra model requests.',
+    credentialFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        description: 'Optional bearer token for the configured vLLM endpoint.',
+        required: false,
+      },
+    ],
+    settingFields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        description: 'Full OpenAI-compatible API base URL, including /v1.',
+        type: 'url',
+      },
+      {
+        key: 'models',
+        label: 'Models',
+        description: 'JSON array of exact model IDs, for example ["org/exact:model"].',
+        type: 'text',
+      },
+    ],
+  },
+  {
+    id: 'mastra_model_providers',
+    displayName: 'Mastra Model Providers',
+    description: 'Additional managed OpenAI-compatible providers for native Mastra routing.',
+    credentialFields: [
+      {
+        key: 'apiKeys',
+        label: 'Provider API Keys',
+        description:
+          'Encrypted JSON object mapping custom provider IDs to API keys. Providers with their own system service use that service credential.',
+        required: false,
+      },
+    ],
+    settingFields: [
+      {
+        key: 'providers',
+        label: 'Providers',
+        description:
+          'JSON object keyed by provider ID, with name, url and exact models. Credentials belong in Provider API Keys, never in this setting.',
+        type: 'text',
+        required: false,
       },
     ],
   },
@@ -136,13 +210,13 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   },
   {
     id: 'mistral',
-    displayName: 'Mistral OCR',
-    description: 'API key for Mistral OCR document processing.',
+    displayName: 'Mistral',
+    description: 'API key for Mistral OCR document processing and Copilot.',
     credentialFields: [
       {
         key: 'apiKey',
         label: 'API Key',
-        description: 'Used for Mistral OCR document parsing.',
+        description: 'Used for Mistral OCR document parsing and Copilot.',
       },
     ],
     settingFields: [],
@@ -194,27 +268,6 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
     ],
   },
   {
-    id: 'copilot_api',
-    displayName: 'Copilot API',
-    description: 'Remote Copilot service endpoint and service authentication.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Used for TradingGoose-Copilot service authentication.',
-      },
-    ],
-    settingFields: [
-      {
-        key: 'baseUrl',
-        label: 'Base URL',
-        description: 'Base URL for the remote Copilot service.',
-        type: 'url',
-        defaultValue: COPILOT_API_URL_DEFAULT,
-      },
-    ],
-  },
-  {
     id: 'market_api',
     displayName: 'Market API',
     description: 'Remote market data service endpoint and authentication.',
@@ -235,57 +288,6 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
         defaultValue: MARKET_API_URL_DEFAULT,
       },
     ],
-  },
-  {
-    id: 'ollama',
-    displayName: 'Ollama',
-    description: 'Base URL for the local or remote Ollama service.',
-    credentialFields: [],
-    settingFields: [
-      {
-        key: 'baseUrl',
-        label: 'Base URL',
-        description: 'OpenAI-compatible Ollama host URL.',
-        type: 'url',
-        defaultValue: 'http://localhost:11434',
-      },
-    ],
-  },
-  {
-    id: 'vllm',
-    displayName: 'vLLM',
-    description: 'Base URL and optional bearer token for the OpenAI-compatible vLLM service.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Optional bearer token for the vLLM endpoint.',
-        required: false,
-      },
-    ],
-    settingFields: [
-      {
-        key: 'baseUrl',
-        label: 'Base URL',
-        description: 'Base URL for the OpenAI-compatible vLLM host.',
-        type: 'url',
-        required: false,
-      },
-    ],
-  },
-  {
-    id: 'fireworks',
-    displayName: 'Fireworks',
-    description: 'API key for Fireworks model discovery in the provider picker.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Used to fetch available Fireworks models.',
-        required: false,
-      },
-    ],
-    settingFields: [],
   },
   {
     id: 'elevenlabs',
@@ -403,17 +405,33 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
 ]
 
 const SYSTEM_SERVICE_DEFINITIONS_BY_ID = new Map(
-  SYSTEM_SERVICE_DEFINITIONS.filter((definition) => !isHosted || definition.id !== 'ollama').map(
-    (definition) => [definition.id, definition]
-  )
+  SYSTEM_SERVICE_DEFINITIONS.map((definition) => [definition.id, definition])
 )
 
-export function getSystemServiceDefinitions() {
-  return Array.from(SYSTEM_SERVICE_DEFINITIONS_BY_ID.values())
+export function getSystemServiceDefinitions(): SystemServiceDefinition[] {
+  return [
+    ...SYSTEM_SERVICE_DEFINITIONS,
+    ...Object.entries(GatewayRegistry.getInstance().getProviders())
+      .map(([id, { name }]) => ({ id, name }))
+      .filter(({ id }) => id !== 'azure-openai' && !SYSTEM_SERVICE_DEFINITIONS_BY_ID.has(id))
+      .map(({ id, name }) => ({
+        id,
+        displayName: name,
+        description: `API key for system-owned ${name} Copilot access.`,
+        credentialFields: [
+          {
+            key: 'apiKey',
+            label: 'API Key',
+            description: `Used for system-owned ${name} Copilot requests.`,
+          },
+        ],
+        settingFields: [],
+      })),
+  ]
 }
 
 export function getSystemServiceDefinition(serviceId: string) {
-  return SYSTEM_SERVICE_DEFINITIONS_BY_ID.get(serviceId) ?? null
+  return getSystemServiceDefinitions().find(({ id }) => id === serviceId) ?? null
 }
 
 export function isSystemServiceCredentialKey(serviceId: string, key: string) {

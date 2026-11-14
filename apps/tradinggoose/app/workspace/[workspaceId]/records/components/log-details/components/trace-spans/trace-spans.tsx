@@ -10,14 +10,9 @@ import { formatDurationDisplay } from './utils'
 interface TraceSpansProps {
   traceSpans?: TraceSpan[]
   totalDuration?: number
-  costMultiplier?: number
 }
 
-export function TraceSpans({
-  traceSpans = [],
-  totalDuration = 0,
-  costMultiplier = 1,
-}: TraceSpansProps) {
+export function TraceSpans({ traceSpans = [], totalDuration = 0 }: TraceSpansProps) {
   const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set())
   const [jsonDisplayMode, setJsonDisplayMode] = useState<JsonDisplayMode>('raw')
   const [jsonWrapText, setJsonWrapText] = useState(true)
@@ -66,7 +61,6 @@ export function TraceSpans({
           const id = s.id || `span-${s.name}-${s.startTime}`
           next.add(id)
           if (s.children?.length) collect(s.children)
-          if (s?.toolCalls?.length) next.add(`${id}-tools`)
         }
       }
       collect(traceSpans)
@@ -193,7 +187,6 @@ export function TraceSpans({
               expandedSpans={expandedSpans}
               hoveredPercent={hoveredPercent}
               forwardHover={forwardHover}
-              costMultiplier={costMultiplier}
               gapBeforeMs={gapMs}
               gapBeforePercent={gapPercent}
               jsonDisplayMode={jsonDisplayMode}

@@ -39,6 +39,43 @@ describe('openWorkflowExecutionEventStream', () => {
     })
   })
 
+  it('refuses an initial financial readback failure before opening the stream', async () => {
+    readWorkflowExecutionEventStateMock.mockRejectedValueOnce(
+      new Error('Financial acceptance could not be verified')
+    )
+
+    await expect(openWorkflowExecutionEventStream(params)).rejects.toThrow(
+      'Financial acceptance could not be verified'
+    )
+    expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('emits only the error when financial readback fails after the stream opens', async () => {
+    vi.useFakeTimers()
+    readWorkflowExecutionEventStateMock
+      .mockResolvedValueOnce({ status: 'processing', result: null, events: [] })
+      .mockRejectedValueOnce(new Error('Financial acceptance could not be verified'))
+
+    try {
+      const opened = await openWorkflowExecutionEventStream({
+        ...params,
+        formatError: () => 'data: {"event":"error","error":"Financial verification failed"}\n\n',
+      })
+      if (!opened.ok) throw new Error('Expected execution stream')
+      const textPromise = new Response(opened.stream).text()
+      await vi.advanceTimersByTimeAsync(500)
+      const text = await textPromise
+
+      expect(text).toContain('"event":"error"')
+      expect(text).not.toContain('execution:completed')
+      expect(text).not.toContain('execution:paused')
+      expect(text).not.toContain('[DONE]')
+      expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it.each([
     ['completed', false],
     ['failed', false],

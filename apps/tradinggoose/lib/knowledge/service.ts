@@ -344,7 +344,7 @@ export async function copyKnowledgeBaseToWorkspace(
   }
 
   if (processingJobs.length > 0) {
-    await enqueueDocumentProcessingJobs(processingJobs, requestId)
+    await enqueueDocumentProcessingJobs(processingJobs, requestId, userId)
   }
 
   logger.info(

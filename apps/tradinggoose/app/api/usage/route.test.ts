@@ -131,6 +131,7 @@ describe('/api/usage route', () => {
       error: 'Billing is not enabled.',
     })
     expect(mockUpdateUserUsageLimit).not.toHaveBeenCalled()
+    expect(mockUpdateOrganizationUsageLimit).not.toHaveBeenCalled()
   })
 
   it('returns 400 for personal usage updates when the limit change is rejected', async () => {

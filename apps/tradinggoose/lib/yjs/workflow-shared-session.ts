@@ -172,8 +172,6 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     workspaceId: entry.workspaceId,
     entityKind: 'workflow',
     entityId: entry.workflowId,
-    draftSessionId: null,
-    reviewSessionId: null,
     yjsSessionId: entry.workflowId,
   }
 

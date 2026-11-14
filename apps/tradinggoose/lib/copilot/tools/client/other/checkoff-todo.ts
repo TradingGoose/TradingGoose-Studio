@@ -33,26 +33,15 @@ export class CheckoffTodoClientTool extends BaseClientTool {
 
       const todoItemId = args?.id
       if (!todoItemId) {
-        this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'Missing todo id')
+        this.fail('Missing todo id')
         return
       }
 
-      try {
-        const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
-        const store = getCopilotStoreForToolCall(this.toolCallId).getState()
-        store.updatePlanTodoStatus(todoItemId, 'completed')
-      } catch (e) {
-        logger.warn('Failed to update todo status in store', { message: (e as any)?.message })
-      }
-
-      this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, 'Todo checked off', { id: todoItemId })
+      await this.completeBrowserAssertion({ kind: 'plan.updated', data: { id: todoItemId } })
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })
-      this.setState(ClientToolCallState.error)
-      await this.markToolComplete(500, e?.message || 'Failed to check off todo')
+      this.fail(e?.message || 'Failed to check off todo')
     }
   }
 }

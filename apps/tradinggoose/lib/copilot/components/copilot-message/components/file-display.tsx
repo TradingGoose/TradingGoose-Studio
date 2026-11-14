@@ -1,67 +1,24 @@
 import { memo, useState } from 'react'
-import { useLocale } from 'next-intl'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { formatFileSize } from '@/i18n/formatters'
-import type { MessageFileAttachment } from '@/stores/copilot/types'
-import { FileTypeIcon, isImageMediaType } from '../../file-type-icon'
+import type { NativeImageFile } from '@/stores/copilot/types'
 
-interface FileAttachmentDisplayProps {
-  fileAttachments: MessageFileAttachment[]
-}
-
-const getFileUrl = (file: MessageFileAttachment) =>
-  `/api/files/serve/${encodeURIComponent(file.key)}?context=copilot`
-
-export const FileAttachmentDisplay = memo(({ fileAttachments }: FileAttachmentDisplayProps) => {
-  const locale = useLocale()
-  const [failedImageIds, setFailedImageIds] = useState<Set<string>>(() => new Set())
-
-  const handleFileClick = (file: MessageFileAttachment) => {
-    const serveUrl = getFileUrl(file)
-    window.open(serveUrl, '_blank')
-  }
-
-  return (
-    <>
-      {fileAttachments.map((file) => (
-        <Tooltip key={file.id}>
-          <TooltipTrigger
-            render={
-              <button
-                type='button'
-                className='group relative h-16 w-16 cursor-pointer overflow-hidden rounded-md border border-border/50 bg-muted/20 transition-all hover:bg-card/40'
-                onClick={() => handleFileClick(file)}
-                aria-label={file.filename}
-              >
-                {isImageMediaType(file.media_type) && !failedImageIds.has(file.id) ? (
-                  <img
-                    src={getFileUrl(file)}
-                    alt={file.filename}
-                    className='h-full w-full object-cover'
-                    onError={() => {
-                      setFailedImageIds((current) => {
-                        if (current.has(file.id)) return current
-                        const next = new Set(current)
-                        next.add(file.id)
-                        return next
-                      })
-                    }}
-                  />
-                ) : (
-                  <span className='flex h-full w-full items-center justify-center bg-background/50'>
-                    <FileTypeIcon mediaType={file.media_type} />
-                  </span>
-                )}
-
-                <span className='pointer-events-none absolute inset-0 bg-black/10 opacity-0 transition-opacity group-hover:opacity-100' />
-              </button>
-            }
-          />
-          <TooltipContent side='top'>{`${file.filename} (${formatFileSize(locale, file.size)})`}</TooltipContent>
-        </Tooltip>
-      ))}
-    </>
+/** Image bytes are retained in authorized native conversation history. */
+export const NativeFileDisplay = memo(({ file }: { file: NativeImageFile }) => {
+  const [failed, setFailed] = useState(false)
+  return failed ||
+    !file.mimeType.startsWith('image/') ||
+    !file.data.startsWith(`data:${file.mimeType};base64,`) ? (
+    <span role='status' className='text-muted-foreground text-xs'>
+      Conversation image is unavailable.
+    </span>
+  ) : (
+    <img
+      data-native-image
+      src={file.data}
+      alt='Conversation image'
+      className='my-1 max-h-80 max-w-full rounded-md object-contain'
+      onError={() => setFailed(true)}
+    />
   )
 })
 
-FileAttachmentDisplay.displayName = 'FileAttachmentDisplay'
+NativeFileDisplay.displayName = 'NativeFileDisplay'

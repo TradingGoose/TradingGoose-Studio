@@ -1,9 +1,18 @@
-import { db, knowledgeBase, permissions, workflow, workspace } from '@tradinggoose/db'
-import { and, eq } from 'drizzle-orm'
+import {
+  db,
+  knowledgeBase,
+  permissions,
+  workflow,
+  workflowExecutionLogs,
+  workspace,
+} from '@tradinggoose/db'
+import { and, eq, isNull } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { deleteExecutionLogAssets } from '@/lib/logs/execution/cleanup'
+import { deleteWorkflowMemories } from '@/lib/mastra/workflow-memory'
 import {
   checkWorkspaceAccess,
   getUserEntityPermissions,
@@ -178,24 +187,62 @@ export async function DELETE(
   try {
     logger.info(`Deleting workspace ${workspaceId} for user ${session.user.id}`)
 
-    await runYjsDrainFencedTransaction({ workspaceIds: [workspaceId] }, async (tx) => {
-      for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
-        await lockSavedEntityList(tx, entityKind, workspaceId)
+    const deleted = await runYjsDrainFencedTransaction(
+      { workspaceIds: [workspaceId] },
+      async (tx) => {
+        // The parent lock closes admission through the execution log's workspace foreign key.
+        await tx
+          .select({ id: workspace.id })
+          .from(workspace)
+          .where(eq(workspace.id, workspaceId))
+          .for('update')
+        const active = await tx
+          .select({ id: workflowExecutionLogs.id })
+          .from(workflowExecutionLogs)
+          .where(
+            and(
+              eq(workflowExecutionLogs.workspaceId, workspaceId),
+              isNull(workflowExecutionLogs.endedAt)
+            )
+          )
+          .limit(1)
+        if (active.length) return false
+        const logs = await tx
+          .select({
+            id: workflowExecutionLogs.id,
+            workspaceId: workflowExecutionLogs.workspaceId,
+            executionId: workflowExecutionLogs.executionId,
+            files: workflowExecutionLogs.files,
+          })
+          .from(workflowExecutionLogs)
+          .where(eq(workflowExecutionLogs.workspaceId, workspaceId))
+        for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
+          await lockSavedEntityList(tx, entityKind, workspaceId)
+        }
+
+        // Delete live workflow definitions first. Durable execution logs and snapshots
+        // remain workspace-owned until the workspace row is deleted below.
+        await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))
+        await deleteWorkflowMemories(workspaceId)
+        for (const log of logs) await deleteExecutionLogAssets(log)
+
+        await tx.delete(knowledgeBase).where(eq(knowledgeBase.workspaceId, workspaceId))
+
+        await tx
+          .delete(permissions)
+          .where(
+            and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId))
+          )
+
+        await tx.delete(workspace).where(eq(workspace.id, workspaceId))
+        return true
       }
-
-      // Delete live workflow definitions first. Durable execution logs and snapshots
-      // remain workspace-owned until the workspace row is deleted below.
-      await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))
-
-      await tx.delete(knowledgeBase).where(eq(knowledgeBase.workspaceId, workspaceId))
-
-      await tx
-        .delete(permissions)
-        .where(and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId)))
-
-      await tx.delete(workspace).where(eq(workspace.id, workspaceId))
-    })
-
+    )
+    if (!deleted)
+      return NextResponse.json(
+        { error: 'Stop active workflow executions before deleting the workspace' },
+        { status: 409 }
+      )
     return NextResponse.json({ success: true })
   } catch (error) {
     const realtimeResponse = createSavedEntityErrorResponse(error)

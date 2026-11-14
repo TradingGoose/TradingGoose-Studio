@@ -1,5 +1,10 @@
 import path from 'path'
 import { NextRequest } from 'next/server'
+
+vi.mock('@/lib/uploads/contexts/workspace', () => ({
+  resolveAuthorizedWorkspaceFileReference: async () => null,
+}))
+
 /**
  * Tests for file parse API route
  *
@@ -7,6 +12,14 @@ import { NextRequest } from 'next/server'
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest, setupFileApiMocks } from '@/app/api/__test-utils__/utils'
+
+vi.mock('@/lib/auth/hybrid', () => ({
+  checkHybridAuth: async () => ({ success: true, userId: 'actor' }),
+}))
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: async () => ({ hasAccess: true }),
+}))
+
 import { POST } from '@/app/api/files/parse/route'
 
 const mockJoin = vi.fn((...args: string[]): string => {
@@ -261,7 +274,9 @@ describe('Files Parse API - Path Traversal Security', () => {
         const result = await response.json()
 
         expect(result.success).toBe(false)
-        expect(result.error).toMatch(/Access denied|Invalid path|Path outside allowed directory/)
+        expect(result.error).toMatch(
+          /File access denied|Access denied|Invalid path|Path outside allowed directory/
+        )
       }
     })
 
@@ -284,7 +299,7 @@ describe('Files Parse API - Path Traversal Security', () => {
         const result = await response.json()
 
         expect(result.success).toBe(false)
-        expect(result.error).toMatch(/Access denied|Invalid path/)
+        expect(result.error).toMatch(/File access denied|Access denied|Invalid path/)
       }
     })
 
@@ -309,7 +324,9 @@ describe('Files Parse API - Path Traversal Security', () => {
         const result = await response.json()
 
         expect(result.success).toBe(false)
-        expect(result.error).toMatch(/Access denied|Path outside allowed directory/)
+        expect(result.error).toMatch(
+          /File access denied|Access denied|Path outside allowed directory/
+        )
       }
     })
 
@@ -333,7 +350,7 @@ describe('Files Parse API - Path Traversal Security', () => {
 
         if (result.error) {
           expect(result.error).not.toMatch(
-            /Access denied|Path outside allowed directory|Invalid path/
+            /File access denied|Access denied|Path outside allowed directory|Invalid path/
           )
         }
       }
@@ -358,7 +375,9 @@ describe('Files Parse API - Path Traversal Security', () => {
         const result = await response.json()
 
         expect(result.success).toBe(false)
-        expect(result.error).toMatch(/Access denied|Invalid path|Path outside allowed directory/)
+        expect(result.error).toMatch(
+          /File access denied|Access denied|Invalid path|Path outside allowed directory/
+        )
       }
     })
 

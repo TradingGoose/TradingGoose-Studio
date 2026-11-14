@@ -1,4 +1,9 @@
-import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
+import type { CopilotToolTarget } from '@/lib/copilot/native/contract'
+import { readSseData, waitToReconnect } from '@/lib/events/stream'
+import {
+  isTerminalWorkflowExecutionEvent,
+  type WorkflowExecutionEvent,
+} from '@/lib/workflows/execution-events'
 import { isExecutionResult } from '@/lib/workflows/execution-result'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import type { ExecutionResult } from '@/executor/types'
@@ -6,6 +11,7 @@ import type { QueuedWorkflowTriggerType } from '@/services/queue'
 
 type QueuedWorkflowExecutionRequest = {
   workflowId: string
+  native?: CopilotToolTarget
   executionId?: string
   input?: unknown
   triggerType: QueuedWorkflowTriggerType
@@ -14,79 +20,38 @@ type QueuedWorkflowExecutionRequest = {
   workflowVariables?: Record<string, unknown>
   triggerBlockId?: string
   selectedOutputs?: string[]
-  stream?: boolean
   signal?: AbortSignal
 }
 
 type QueueResponse = {
-  success?: boolean
   taskId?: string
   executionId?: string
-  error?: string
 }
 
-type QueuedWorkflowExecutionHandle = {
+export type QueuedWorkflowExecutionHandle = {
   taskId: string
   executionId: string
-  stream?: ReadableStream<Uint8Array>
-}
-
-type JobStatusResponse = {
-  success?: boolean
-  status?: string
-  output?: unknown
-  error?: string
 }
 
 export type QueuedWorkflowExecutionCallbacks = {
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
 
-const JOB_STATUS_POLL_INTERVAL_MS = 1000
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
 async function readError(response: Response, defaultMessage: string) {
   const payload = await response.json().catch(() => null)
-  if (isRecord(payload)) {
-    if (typeof payload.error === 'string') return payload.error
-    if (typeof payload.message === 'string') return payload.message
-  }
-  return defaultMessage
-}
-
-function abortError() {
-  const error = new Error('Aborted')
-  error.name = 'AbortError'
-  return error
-}
-
-function waitForJobPollInterval(signal?: AbortSignal) {
-  if (signal?.aborted) return Promise.reject(abortError())
-
-  return new Promise<void>((resolve, reject) => {
-    const onAbort = () => {
-      globalThis.clearTimeout(timeout)
-      reject(abortError())
-    }
-    const timeout = globalThis.setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort)
-      resolve()
-    }, JOB_STATUS_POLL_INTERVAL_MS)
-    signal?.addEventListener('abort', onAbort, { once: true })
-  })
+  return typeof payload?.error === 'string' ? payload.error : defaultMessage
 }
 
 export async function queueWorkflowExecution(
   request: QueuedWorkflowExecutionRequest
 ): Promise<QueuedWorkflowExecutionHandle> {
+  // Admission must return its task ID before cancellation can DELETE the job.
   const response = await fetch(`/api/workflows/${request.workflowId}/queue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       executionId: request.executionId,
+      ...(request.native ? { native: request.native } : {}),
       input: request.input,
       triggerType: request.triggerType,
       executionTarget: request.executionTarget,
@@ -94,7 +59,7 @@ export async function queueWorkflowExecution(
       workflowVariables: request.workflowVariables,
       triggerBlockId: request.triggerBlockId,
       selectedOutputs: request.selectedOutputs,
-      stream: request.stream === true,
+      stream: true,
     }),
   })
 
@@ -102,22 +67,6 @@ export async function queueWorkflowExecution(
     throw new Error(
       await readError(response, `Failed to queue workflow execution: ${response.status}`)
     )
-  }
-
-  if (request.stream === true) {
-    const executionId = response.headers.get('X-Execution-Id') ?? request.executionId
-    if (!executionId) {
-      throw new Error('Workflow queue stream response is missing executionId')
-    }
-    if (!response.body) {
-      throw new Error('Workflow queue stream response is missing body')
-    }
-
-    return {
-      taskId: response.headers.get('X-Task-Id') ?? executionId,
-      executionId,
-      stream: response.body,
-    }
   }
 
   const payload = (await response.json().catch(() => null)) as QueueResponse | null
@@ -147,119 +96,62 @@ export async function cancelQueuedWorkflowExecution(taskId: string): Promise<voi
   }
 }
 
-async function readQueuedWorkflowExecutionJob(params: {
-  taskId: string
-  signal?: AbortSignal
-}): Promise<ExecutionResult> {
+/** Observe the admitted execution; reconnecting never submits another workflow. */
+export async function observeQueuedWorkflowExecution(
+  handle: QueuedWorkflowExecutionHandle,
+  { signal, callbacks }: { signal?: AbortSignal; callbacks?: QueuedWorkflowExecutionCallbacks } = {}
+): Promise<ExecutionResult> {
+  let lastEventId = 0
   while (true) {
-    const response = await fetch(`/api/jobs/${params.taskId}`, {
-      signal: params.signal,
-      cache: 'no-store',
-    })
-
+    signal?.throwIfAborted()
+    let response: Response
+    try {
+      response = await fetch(`/api/jobs/${handle.taskId}`, {
+        headers: { Accept: 'text/event-stream', 'Last-Event-ID': String(lastEventId) },
+        signal,
+        cache: 'no-store',
+      })
+    } catch {
+      await waitToReconnect(signal)
+      continue
+    }
     if (!response.ok) {
+      if (
+        (response.status >= 500 && response.status !== 501) ||
+        [408, 429].includes(response.status)
+      ) {
+        await waitToReconnect(signal)
+        continue
+      }
       throw new Error(
-        await readError(response, `Failed to read workflow execution job: ${response.status}`)
+        await readError(response, `Workflow execution is unavailable: ${response.status}`)
       )
     }
-
-    const payload = (await response.json().catch(() => null)) as JobStatusResponse | null
-    if (payload?.status === 'completed' || payload?.status === 'paused') {
-      if (isExecutionResult(payload.output)) return payload.output
-      throw new Error('Workflow execution job completed without a final result')
-    }
-
-    if (payload?.status === 'failed') {
-      if (isExecutionResult(payload.output)) return payload.output
-      return {
-        success: false,
-        output: {},
-        error: payload.error || 'Workflow execution failed',
-        logs: [],
-      }
-    }
-
-    await waitForJobPollInterval(params.signal)
-  }
-}
-
-async function readQueuedWorkflowExecutionStream(params: {
-  stream: ReadableStream<Uint8Array>
-  signal?: AbortSignal
-  callbacks?: QueuedWorkflowExecutionCallbacks
-}): Promise<ExecutionResult> {
-  if (params.signal?.aborted) {
-    throw abortError()
-  }
-
-  const reader = params.stream.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  let terminalResult: ExecutionResult | null = null
-  const cancelReader = () => {
-    void reader.cancel(abortError()).catch(() => {})
-  }
-
-  try {
-    params.signal?.addEventListener('abort', cancelReader, { once: true })
-    while (true) {
-      const { done, value } = await reader.read()
-      if (params.signal?.aborted) {
-        throw abortError()
-      }
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const messages = buffer.split('\n\n')
-      buffer = messages.pop() ?? ''
-
-      for (const message of messages) {
-        if (!message.trim() || !message.startsWith('data: ')) continue
-
-        const data = message.slice(6).trim()
-        if (data === '[DONE]') break
-
-        const event = JSON.parse(data) as WorkflowExecutionEvent
-        await params.callbacks?.onEvent?.(event)
-
-        if (event.type === 'execution:completed' || event.type === 'execution:paused') {
-          if (isExecutionResult(event.data.result)) {
-            terminalResult = event.data.result
-          }
-        } else if (event.type === 'execution:error') {
-          if (isExecutionResult(event.data.result)) {
-            terminalResult = event.data.result
-          } else {
-            throw new Error(event.data.error || 'Workflow execution failed')
-          }
-        } else if (event.type === 'execution:cancelled') {
-          if (isExecutionResult(event.data.result)) {
-            terminalResult = event.data.result
-          } else {
-            terminalResult = {
-              success: false,
-              output: {},
-              error: 'Workflow execution was cancelled',
-              logs: [],
-            }
-          }
+    if (!response.headers.get('content-type')?.includes('text/event-stream') || !response.body)
+      throw new Error('Workflow execution response is not an event stream')
+    const events = readSseData(response.body, { signal })
+    try {
+      while (true) {
+        const next = await events.next().catch(() => null)
+        signal?.throwIfAborted()
+        if (!next || next.done) break
+        const event = JSON.parse(next.value) as WorkflowExecutionEvent
+        if (event.executionId !== handle.executionId)
+          throw new Error('Workflow execution stream identity differs')
+        if (event.eventId !== undefined && event.eventId <= lastEventId) continue
+        await callbacks?.onEvent?.(event)
+        if (event.eventId !== undefined) lastEventId = event.eventId
+        if (isTerminalWorkflowExecutionEvent(event)) {
+          if (!isExecutionResult(event.data.result))
+            throw new Error('Workflow execution completed without a final result')
+          return event.data.result
         }
       }
+    } finally {
+      await events.return()
     }
-  } finally {
-    params.signal?.removeEventListener('abort', cancelReader)
-    reader.releaseLock()
+    await waitToReconnect(signal)
   }
-
-  if (params.signal?.aborted) {
-    throw abortError()
-  }
-
-  if (!terminalResult) {
-    throw new Error('Workflow execution stream ended without a final result')
-  }
-
-  return terminalResult
 }
 
 export async function runQueuedWorkflowExecution(
@@ -270,29 +162,12 @@ export async function runQueuedWorkflowExecution(
   const cancelQueuedExecution = () => {
     void cancelQueuedWorkflowExecution(queued.taskId).catch(() => {})
   }
-
-  if (request.signal?.aborted) {
-    cancelQueuedExecution()
-  } else {
-    request.signal?.addEventListener('abort', cancelQueuedExecution, { once: true })
-  }
-
+  if (request.signal?.aborted) cancelQueuedExecution()
+  else request.signal?.addEventListener('abort', cancelQueuedExecution, { once: true })
   try {
-    if (request.stream === true) {
-      if (!queued.stream) {
-        throw new Error('Workflow queue response is missing execution stream')
-      }
-
-      return await readQueuedWorkflowExecutionStream({
-        stream: queued.stream,
-        signal: request.signal,
-        callbacks,
-      })
-    }
-
-    return await readQueuedWorkflowExecutionJob({
-      taskId: queued.taskId,
+    return await observeQueuedWorkflowExecution(queued, {
       signal: request.signal,
+      callbacks,
     })
   } finally {
     request.signal?.removeEventListener('abort', cancelQueuedExecution)

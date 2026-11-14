@@ -23,6 +23,7 @@ export function CollapsibleInputOutput({
 }: CollapsibleInputOutputProps) {
   const [inputExpanded, setInputExpanded] = useState(false)
   const [outputExpanded, setOutputExpanded] = useState(false)
+  const [historyExpanded, setHistoryExpanded] = useState(false)
 
   const leftMargin = depth * 16 + 8 + 24
   const inputCopyText = useMemo(() => stringifyJsonDisplay(span.input), [span.input])
@@ -56,6 +57,39 @@ export function CollapsibleInputOutput({
                 />
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {span.agentHistory && (
+        <div>
+          <button
+            onClick={() => setHistoryExpanded(!historyExpanded)}
+            className='mb-2 flex items-center gap-2 font-medium text-muted-foreground text-xs transition-colors hover:text-foreground'
+          >
+            {historyExpanded ? (
+              <ChevronDown className='h-3 w-3' />
+            ) : (
+              <ChevronRight className='h-3 w-3' />
+            )}
+            Agent history ({span.agentHistory.length} messages)
+          </button>
+          {historyExpanded && (
+            <ol className='space-y-3'>
+              {span.agentHistory.map((message, index) => (
+                <li key={message.id} className='rounded-md bg-secondary/30 p-3'>
+                  <p className='mb-2 font-medium text-muted-foreground text-xs'>
+                    {index + 1}. {message.role}
+                  </p>
+                  <JsonDisplay
+                    data={message}
+                    mode={displayMode}
+                    wrapText={wrapText}
+                    className='max-h-96 text-xs'
+                  />
+                </li>
+              ))}
+            </ol>
           )}
         </div>
       )}

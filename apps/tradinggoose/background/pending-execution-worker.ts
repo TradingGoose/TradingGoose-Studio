@@ -1,7 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { AbortTaskRunError, task, timeout, wait } from '@trigger.dev/sdk'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import {
   cancelPendingExecutionTriggerRun,
   getProcessingPendingExecution,
@@ -233,7 +233,12 @@ export async function terminalizeWorkflowExecution(
       endedAt: workflowExecutionLogs.endedAt,
     })
     .from(workflowExecutionLogs)
-    .where(eq(workflowExecutionLogs.executionId, executionId))
+    .where(
+      and(
+        eq(workflowExecutionLogs.executionId, executionId),
+        eq(workflowExecutionLogs.workspaceId, row.workspaceId)
+      )
+    )
     .limit(1)
   if (existingLog?.endedAt) {
     await executionLogger.settleWorkflowExecutionUsage(executionId)
@@ -281,6 +286,7 @@ export async function terminalizeWorkflowExecution(
       userId: row.userId,
       workspaceId: row.workspaceId,
       workflowState: getWorkflowState(row),
+      billable,
       triggerData: metadata ? { ...(triggerData ?? {}), queuedExecution: metadata } : triggerData,
     })
   }

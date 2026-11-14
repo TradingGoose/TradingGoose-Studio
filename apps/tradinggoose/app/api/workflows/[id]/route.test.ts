@@ -5,6 +5,9 @@
  * @vitest-environment node
  */
 
+const cleanup = vi.hoisted(() => ({ memories: vi.fn() }))
+vi.mock('@/lib/mastra/workflow-memory', () => ({ deleteWorkflowMemories: cleanup.memories }))
+
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -40,6 +43,7 @@ describe('Workflow By ID API Route', () => {
 
   beforeEach(() => {
     vi.resetModules()
+    cleanup.memories.mockReset().mockResolvedValue(undefined)
 
     vi.stubGlobal('crypto', {
       randomUUID: vi.fn().mockReturnValue('mock-request-id-12345678'),
@@ -420,7 +424,7 @@ describe('Workflow By ID API Route', () => {
   })
 
   describe('DELETE /api/workflows/[id]', () => {
-    it('should fence the live document while deleting the workflow row', async () => {
+    it('retains workflow ownership when native cleanup fails and retries inside the deletion fence', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -428,6 +432,14 @@ describe('Workflow By ID API Route', () => {
         workspaceId: 'workspace-456',
       }
       const events: string[] = []
+      let committed = false
+      cleanup.memories.mockImplementation(async () => {
+        events.push('native-cleanup')
+      })
+      cleanup.memories.mockImplementationOnce(async () => {
+        events.push('native-cleanup')
+        throw new Error('Native storage unavailable')
+      })
       mockRunYjsDrainFencedTransaction.mockImplementation(async (_target, mutate) => {
         events.push('fence-begin')
         const { db } = await import('@tradinggoose/db')
@@ -443,17 +455,21 @@ describe('Workflow By ID API Route', () => {
       }))
 
       mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockReadWorkflowAccessContext.mockResolvedValueOnce({
-        workflow: mockWorkflow,
-        workspaceOwnerId: null,
-        workspacePermission: 'read',
-        isOwner: true,
-        isWorkspaceOwner: false,
-      })
+      mockReadWorkflowAccessContext.mockImplementation(async () =>
+        committed
+          ? null
+          : {
+              workflow: mockWorkflow,
+              workspaceOwnerId: null,
+              workspacePermission: 'read',
+              isOwner: true,
+              isWorkspaceOwner: false,
+            }
+      )
       vi.doMock('@tradinggoose/db', () => ({
         db: {
-          transaction: vi.fn(async (mutate) =>
-            mutate({
+          transaction: vi.fn(async (mutate) => {
+            const result = await mutate({
               delete: vi.fn().mockReturnValue({
                 where: vi.fn().mockImplementation(async () => {
                   events.push('db-delete')
@@ -461,7 +477,9 @@ describe('Workflow By ID API Route', () => {
                 }),
               }),
             })
-          ),
+            committed = true
+            return result
+          }),
         },
         workflow: {},
       }))
@@ -472,12 +490,26 @@ describe('Workflow By ID API Route', () => {
       const params = Promise.resolve({ id: 'workflow-123' })
 
       const { DELETE } = await import('@/app/api/workflows/[id]/route')
+      const failed = await DELETE(req, { params })
+      expect(failed.status).toBe(500)
+      expect(committed).toBe(false)
+      expect(mockRefreshWorkflowList).not.toHaveBeenCalled()
       const response = await DELETE(req, { params })
 
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
-      expect(events).toEqual(['fence-begin', 'db-delete', 'fence-commit'])
+      expect(committed).toBe(true)
+      expect(events).toEqual([
+        'fence-begin',
+        'db-delete',
+        'native-cleanup',
+        'fence-begin',
+        'db-delete',
+        'native-cleanup',
+        'fence-commit',
+      ])
+      expect(cleanup.memories).toHaveBeenLastCalledWith('workspace-456', 'workflow-123')
       expect(mockRunYjsDrainFencedTransaction.mock.calls[0]?.[0]).toEqual({
         sessionIds: ['workflow-123'],
       })

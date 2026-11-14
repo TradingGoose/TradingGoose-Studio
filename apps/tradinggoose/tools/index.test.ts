@@ -6,11 +6,18 @@
  * This file contains unit tests for the tools registry and executeTool function,
  * which are the central pieces of infrastructure for executing tools.
  */
+
+import { Agent } from '@mastra/core/agent'
+import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateInternalToken } from '@/lib/auth/internal'
+import { createMcpToolId } from '@/lib/mcp/utils'
+import { getBlock } from '@/blocks'
+import { AgentBlockHandler, createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
 import { buildLoadSkillTool } from '@/executor/handlers/agent/skill-loader'
+import { GenericBlockHandler } from '@/executor/handlers/generic/generic-handler'
 import type { ExecutionContext } from '@/executor/types'
-import { mockEnvironmentVariables } from '@/tools/__test-utils__/test-tools'
+import { createMockFetch, mockEnvironmentVariables } from '@/tools/__test-utils__/test-tools'
 import { executeTool } from '@/tools/index'
 import { tools } from '@/tools/registry'
 import { getTool } from '@/tools/utils'
@@ -21,8 +28,10 @@ const dbMocks = vi.hoisted(() => {
     rows = nextRows
   }
   const limit = vi.fn(() => Promise.resolve(rows))
+  const orderBy = vi.fn(() => Promise.resolve(rows))
   const whereResult = {
     limit,
+    orderBy,
     then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(rows).then(resolve, reject),
   }
@@ -30,7 +39,7 @@ const dbMocks = vi.hoisted(() => {
   const from = vi.fn(() => ({ where }))
   const select = vi.fn(() => ({ from }))
 
-  return { from, limit, select, setRows, where }
+  return { from, limit, orderBy, select, setRows, where }
 })
 
 vi.mock('@tradinggoose/db', () => ({
@@ -261,6 +270,7 @@ describe('executeTool Function', () => {
     dbMocks.from.mockImplementation(() => ({ where: dbMocks.where }))
     dbMocks.where.mockImplementation(() => ({
       limit: dbMocks.limit,
+      orderBy: dbMocks.orderBy,
       then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
         Promise.resolve([]).then(resolve, reject),
     }))
@@ -323,6 +333,126 @@ describe('executeTool Function', () => {
     expect(result.timing?.endTime).toBeDefined()
     expect(result.timing?.duration).toBeGreaterThanOrEqual(0)
   })
+
+  it.each([{ price: 123 }, false, 0])(
+    'preserves coded Agent tool arguments and its exact result through the real builder: %j',
+    async (value) => {
+      const originalWindow = global.window
+      const schema = {
+        type: 'function' as const,
+        function: {
+          description: 'Look up a quote',
+          parameters: {
+            type: 'object',
+            properties: {
+              symbol: { type: 'string' },
+              unit: { type: 'string' },
+              code: { type: 'string' },
+              method: { type: 'string' },
+            },
+            required: ['symbol', 'code', 'method'],
+          },
+        },
+      }
+      const savedCode = 'return params.symbol'
+      const context = createMockExecutionContext({
+        isDeployedContext: false,
+        environmentVariables: { SECRET: 'host-value' },
+        workflowVariables: { market: 'NASDAQ' },
+      })
+      yjsMocks.readSavedEntityFieldsForExecution.mockResolvedValue({
+        codeText: savedCode,
+        schemaText: JSON.stringify(schema),
+      })
+      dbMocks.orderBy.mockResolvedValue([{ id: 'quote', name: 'Quote' }])
+      global.fetch = createMockFetch({
+        success: true,
+        output: { result: value, stdout: 'private execution envelope' },
+      }) as typeof fetch
+      try {
+        Object.defineProperty(global, 'window', {
+          value: undefined,
+          writable: true,
+          configurable: true,
+        })
+        const selected = {
+          type: 'custom-tool',
+          toolId: 'custom_quote',
+          schema,
+          code: 'throw new Error("cached code")',
+          params: { unit: 'USD' },
+        }
+        // biome-ignore lint/complexity/useLiteralKeys: Exercise the production factory without exposing a test-only API.
+        const configured = await new AgentBlockHandler()['formatTools']([selected], context)
+        const tools = createAgentToolSet(configured, context, context, {
+          signal: new AbortController().signal,
+          abort: vi.fn(),
+        })
+        let step = 0
+        const model = new MastraLanguageModelV2Mock({
+          doGenerate: async () => ({
+            content:
+              step++ === 0
+                ? [
+                    {
+                      type: 'tool-call',
+                      toolCallId: 'quote-call',
+                      toolName: 'custom_quote',
+                      input: JSON.stringify({
+                        symbol: 'AAPL',
+                        code: 'business input',
+                        method: 'DELETE',
+                      }),
+                    },
+                  ]
+                : [{ type: 'text', text: 'Quote received' }],
+            finishReason: step === 1 ? 'tool-calls' : 'stop',
+            usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
+            warnings: [],
+          }),
+        })
+        await new Agent({ id: 'quote', name: 'Quote', instructions: '', model, tools }).generate(
+          'Quote',
+          { maxSteps: 2 }
+        )
+        expect(fetch).toHaveBeenCalledOnce()
+        const [url, request] = vi.mocked(fetch).mock.calls[0]
+        expect(String(url)).toContain('/api/function/execute')
+        expect(request?.method).toBe('POST')
+        expect(request?.signal).toBeInstanceOf(AbortSignal)
+        expect(JSON.parse(request!.body as string)).toMatchObject({
+          code: savedCode,
+          params: { symbol: 'AAPL', unit: 'USD', code: 'business input', method: 'DELETE' },
+          envVars: context.environmentVariables,
+          workflowVariables: context.workflowVariables,
+          workflowId: context.workflowId,
+          userId: context.userId,
+          isDeployedContext: false,
+          isCustomTool: true,
+        })
+        expect(yjsMocks.readSavedEntityFieldsForExecution).toHaveBeenCalledWith(
+          'custom_tool',
+          'quote',
+          context.workspaceId,
+          false
+        )
+        expect(model.doGenerateCalls[1].prompt).toContainEqual(
+          expect.objectContaining({
+            role: 'tool',
+            content: expect.arrayContaining([
+              expect.objectContaining({ output: { type: 'json', value } }),
+            ]),
+          })
+        )
+      } finally {
+        Object.defineProperty(global, 'window', {
+          value: originalWindow,
+          writable: true,
+          configurable: true,
+        })
+      }
+    }
+  )
 
   it('overwrites untrusted Memory context with the actual workflow execution scope', async () => {
     await executeTool(
@@ -419,9 +549,10 @@ describe('executeTool Function', () => {
     expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith('user-123')
   })
 
-  it('hydrates execution provenance into built-in tool post-processing', async () => {
+  it.each([false, true])('hydrates post-processing provenance (direct: %s)', async (direct) => {
     const originalTool = (tools as any).test_context_tool
     const postProcess = vi.fn((result) => result)
+    const respond = vi.fn().mockResolvedValue({ success: true, output: { result: 'ok' } })
     ;(tools as any).test_context_tool = {
       id: 'test_context_tool',
       name: 'Test Context Tool',
@@ -432,10 +563,7 @@ describe('executeTool Function', () => {
         url: 'https://api.example.com/context',
         method: 'GET',
       },
-      transformResponse: vi.fn().mockResolvedValue({
-        success: true,
-        output: { result: 'ok' },
-      }),
+      ...(direct ? { directExecution: respond } : { transformResponse: respond }),
       postProcess,
     }
 
@@ -458,7 +586,7 @@ describe('executeTool Function', () => {
       }
     }
 
-    expect(postProcess).toHaveBeenCalledWith(
+    expect(postProcess).toHaveBeenCalledExactlyOnceWith(
       expect.any(Object),
       expect.objectContaining({
         _context: expect.objectContaining({
@@ -1140,227 +1268,330 @@ describe('Centralized Error Handling', () => {
 })
 
 describe('MCP Tool Execution', () => {
+  const serverId = '550e8400-e29b-41d4-a716-446655440000'
+  const output = { content: [{ type: 'text', text: 'MCP result' }] }
   let cleanupEnvVars: () => void
 
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
-    cleanupEnvVars = mockEnvironmentVariables({
-      NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
-    })
+    cleanupEnvVars = mockEnvironmentVariables({ NEXT_PUBLIC_APP_URL: 'http://localhost:3000' })
+    vi.mocked(generateInternalToken).mockResolvedValue('mock-internal-token')
+    vi.stubGlobal('fetch', createMockFetch({ success: true, data: { success: true, output } }))
   })
-
   afterEach(() => {
     vi.resetAllMocks()
+    vi.unstubAllGlobals()
     cleanupEnvVars()
   })
 
-  it('should execute MCP tool with valid tool ID', async () => {
-    const originalWindow = global.window
-
-    Object.defineProperty(global, 'window', {
-      value: undefined,
-      writable: true,
-      configurable: true,
+  it('executes the canonical MCP response with authenticated workflow scope', async () => {
+    vi.stubGlobal('window', undefined)
+    const result = await executeTool(
+      'mcp',
+      { serverId, toolName: 'list_files', arguments: { path: '/test' } },
+      false,
+      createMockExecutionContext({ isDeployedContext: false })
+    )
+    expect(result).toMatchObject({
+      success: true,
+      output,
+      timing: { duration: expect.any(Number) },
     })
+    expect(generateInternalToken).toHaveBeenCalledWith('user-123')
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:3000/api/mcp/tools/execute',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer mock-internal-token',
+        },
+      })
+    )
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toEqual({
+      serverId,
+      toolName: 'list_files',
+      arguments: { path: '/test' },
+      workspaceId: 'workspace-456',
+      workflowId: 'test-workflow',
+      isDeployedContext: false,
+    })
+  })
 
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url, options) => {
-        expect(url).toBe('http://localhost:3000/api/mcp/tools/execute')
-        expect(options?.method).toBe('POST')
-
-        const body = JSON.parse(options?.body as string)
-        expect(body.serverId).toBe('mcp-123')
-        expect(body.toolName).toBe('list_files')
-        expect(body.arguments).toEqual({ path: '/test' })
-        expect(body.workspaceId).toBe('workspace-456')
-
-        return {
-          ok: true,
-          status: 200,
-          json: () =>
-            Promise.resolve({
-              success: true,
-              data: {
-                output: {
-                  content: [{ type: 'text', text: 'Files listed successfully' }],
+  it('preserves UUID server and hyphenated tool identities through native Agent dispatch', async () => {
+    const target = {
+      serverId: '550e8400-e29b-41d4-a716-446655440000',
+      toolName: 'search-with-hyphens',
+    }
+    const args = {
+      serverId: 'business-server',
+      toolName: 'business-tool',
+      arguments: 'business input',
+      _context: { userId: 'business-user' },
+    }
+    const id = createMcpToolId(target.serverId, target.toolName)
+    const context = createMockExecutionContext()
+    const tools = createAgentToolSet(
+      [
+        {
+          id,
+          mcp: target,
+          description: 'Search',
+          parameters: {
+            type: 'object',
+            properties: {
+              serverId: { type: 'string' },
+              toolName: { type: 'string' },
+              arguments: { type: 'string' },
+              _context: { type: 'object' },
+            },
+          },
+        },
+      ],
+      context,
+      context,
+      { signal: new AbortController().signal, abort: vi.fn() }
+    )
+    let step = 0
+    const model = new MastraLanguageModelV2Mock({
+      doGenerate: async () => ({
+        content:
+          step++ === 0
+            ? [
+                {
+                  type: 'tool-call',
+                  toolCallId: 'search-call',
+                  toolName: id,
+                  input: JSON.stringify(args),
                 },
-              },
-            }),
-        }
+              ]
+            : [{ type: 'text', text: 'Found it' }],
+        finishReason: step === 1 ? 'tool-calls' : 'stop',
+        usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
+        warnings: [],
       }),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
+    })
+    const result = await new Agent({
+      id: 'uuid-mcp',
+      name: 'UUID MCP',
+      instructions: '',
+      model,
+      tools,
+    }).generate('Search', { maxSteps: 2 })
+    expect(result.text).toBe('Found it')
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({
+      ...target,
+      arguments: args,
+      workspaceId: context.workspaceId,
+      workflowId: context.workflowId,
+    })
+  })
 
-    const mockContext = createMockExecutionContext({ userId: 'user-123' })
+  it('dispatches a direct MCP block with the same UUID target contract', async () => {
+    const { McpBlock } = await import('@/blocks/blocks/mcp')
+    vi.mocked(getBlock).mockReturnValueOnce(McpBlock)
+    const inputs = { server: serverId, tool: 'search-with-hyphens', arguments: { query: 'Goose' } }
+    const result = await new GenericBlockHandler().execute(
+      {
+        id: 'direct-mcp',
+        position: { x: 0, y: 0 },
+        config: { tool: McpBlock.tools!.config!.tool!(inputs), params: {} },
+        metadata: { id: 'mcp', name: 'MCP', description: '', category: 'tools', color: '' },
+        inputs: {},
+        outputs: {},
+        enabled: true,
+      },
+      inputs,
+      createMockExecutionContext()
+    )
+    expect(result).toEqual(output)
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({
+      serverId,
+      toolName: inputs.tool,
+      arguments: inputs.arguments,
+    })
+  })
 
-    try {
-      const result = await executeTool('mcp-123-list_files', { path: '/test' }, false, mockContext)
+  it('preserves hyphens in canonical MCP tool identities', async () => {
+    const result = await executeTool(
+      'mcp',
+      { serverId, toolName: 'complex-tool-name', arguments: { param: 'value' } },
+      false,
+      createMockExecutionContext()
+    )
+    expect(result.success).toBe(true)
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({
+      serverId,
+      toolName: 'complex-tool-name',
+      arguments: { param: 'value' },
+    })
+  })
 
-      expect(result.success).toBe(true)
-      expect(result.output).toBeDefined()
-      expect(result.output.content).toBeDefined()
-      expect(result.timing).toBeDefined()
-      expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith('user-123')
-    } finally {
-      Object.defineProperty(global, 'window', {
-        value: originalWindow,
-        writable: true,
-        configurable: true,
+  it.each([false, true])(
+    'keeps application arguments separate from Studio scope (JSON=%s)',
+    async (json) => {
+      const args = {
+        query: 'search term',
+        arguments: 'application input',
+        _context: { userId: 'application user' },
+        serverId: 'application server',
+      }
+      const result = await executeTool(
+        'mcp',
+        { serverId, toolName: 'search', arguments: json ? JSON.stringify(args) : args },
+        false,
+        createMockExecutionContext()
+      )
+      expect(result).toMatchObject({ success: true, output })
+      expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({
+        arguments: args,
+        serverId,
+        workspaceId: 'workspace-456',
+        workflowId: 'test-workflow',
       })
     }
-  })
+  )
 
-  it('should handle MCP tool ID parsing correctly', async () => {
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url, options) => {
-        const body = JSON.parse(options?.body as string)
-        expect(body.serverId).toBe('mcp-timestamp123')
-        expect(body.toolName).toBe('complex-tool-name')
-
-        return {
-          ok: true,
-          status: 200,
-          json: () =>
-            Promise.resolve({
-              success: true,
-              data: { output: { content: [{ type: 'text', text: 'Success' }] } },
-            }),
-        }
-      }),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
-
-    const mockContext2 = createMockExecutionContext()
-
-    await executeTool('mcp-timestamp123-complex-tool-name', { param: 'value' }, false, mockContext2)
-  })
-
-  it('should handle MCP block arguments format', async () => {
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url, options) => {
-        const body = JSON.parse(options?.body as string)
-        expect(body.arguments).toEqual({ file: 'test.txt', mode: 'read' })
-
-        return {
-          ok: true,
-          status: 200,
-          json: () =>
-            Promise.resolve({
-              success: true,
-              data: { output: { content: [{ type: 'text', text: 'File read' }] } },
-            }),
-        }
-      }),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
-
-    const mockContext3 = createMockExecutionContext()
-
-    await executeTool(
-      'mcp-123-read_file',
-      {
-        arguments: JSON.stringify({ file: 'test.txt', mode: 'read' }),
-        server: 'mcp-123',
-        tool: 'read_file',
-      },
-      false,
-      mockContext3
+  it('forwards native cancellation to the shared MCP request', async () => {
+    const controller = new AbortController()
+    let observedSignal: AbortSignal | undefined
+    vi.mocked(fetch).mockImplementation(
+      (_url, options) =>
+        new Promise((_resolve, reject) => {
+          observedSignal = options!.signal as AbortSignal
+          observedSignal.addEventListener('abort', () => reject(observedSignal!.reason), {
+            once: true,
+          })
+          controller.abort(new Error('MCP cancelled'))
+        })
     )
-  })
-
-  it('should handle agent block MCP arguments format', async () => {
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url, options) => {
-        const body = JSON.parse(options?.body as string)
-        expect(body.arguments).toEqual({ query: 'search term', limit: 10 })
-
-        return {
-          ok: true,
-          status: 200,
-          json: () =>
-            Promise.resolve({
-              success: true,
-              data: { output: { content: [{ type: 'text', text: 'Search results' }] } },
-            }),
-        }
-      }),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
-
-    const mockContext4 = createMockExecutionContext()
-
-    await executeTool(
-      'mcp-123-search',
-      {
-        query: 'search term',
-        limit: 10,
-        // These should be filtered out as system parameters
-        server: 'mcp-123',
-        tool: 'search',
-        workspaceId: 'workspace-456',
-        requestId: 'req-123',
-      },
-      false,
-      mockContext4
-    )
-  })
-
-  it('should handle MCP tool execution errors', async () => {
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async () => ({
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
-        json: () =>
-          Promise.resolve({
-            success: false,
-            error: 'Tool not found on server',
-          }),
-      })),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
-
-    const mockContext5 = createMockExecutionContext()
-
     const result = await executeTool(
-      'mcp-123-nonexistent_tool',
-      { param: 'value' },
+      'mcp',
+      { serverId, toolName: 'search', arguments: {} },
       false,
-      mockContext5
+      createMockExecutionContext(),
+      { signal: controller.signal }
     )
-
-    expect(result.success).toBe(false)
-    expect(result.error).toContain('Tool not found on server')
-    expect(result.timing).toBeDefined()
+    expect(observedSignal).toBe(controller.signal)
+    expect(result).toMatchObject({ success: false, error: 'MCP cancelled' })
   })
 
-  it('should require workspaceId for MCP tools', async () => {
-    const result = await executeTool('mcp-123-test_tool', { param: 'value' })
+  it('rejects revoked workspace access before an MCP request', async () => {
+    permissionMocks.checkWorkspaceAccess.mockResolvedValueOnce({
+      hasAccess: false,
+      canWrite: false,
+    })
+    const result = await executeTool(
+      'mcp',
+      { serverId, toolName: 'search', arguments: {} },
+      false,
+      createMockExecutionContext()
+    )
+    expect(result.error).toContain('requires read access')
+    expect(result.success).toBe(false)
+    expect(fetch).not.toHaveBeenCalled()
+  })
 
+  it.each(['{', '[]', 'null', '"scalar"'])(
+    'rejects invalid MCP arguments %s before execution',
+    async (args) => {
+      const result = await executeTool(
+        'mcp',
+        { serverId, toolName: 'search', arguments: args },
+        false,
+        createMockExecutionContext()
+      )
+      expect(result.success).toBe(false)
+      expect(fetch).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([{ output }, { data: output }, { data: null }])(
+    'rejects noncanonical successful response %j',
+    async (response) => {
+      vi.mocked(fetch).mockResolvedValue(Response.json({ success: true, ...response }))
+      const result = await executeTool(
+        'mcp',
+        { serverId, toolName: 'search', arguments: {} },
+        false,
+        createMockExecutionContext()
+      )
+      expect(result).toMatchObject({ success: false, error: 'Invalid MCP execution response' })
+    }
+  )
+
+  it('requires workspace execution context', async () => {
+    const result = await executeTool('mcp', { serverId, toolName: 'test_tool', arguments: {} })
     expect(result.success).toBe(false)
     expect(result.error).toContain('requires workspace execution context')
+    expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('should handle invalid MCP tool ID format', async () => {
-    const mockContext6 = createMockExecutionContext()
-
-    const result = await executeTool('invalid-mcp-id', { param: 'value' }, false, mockContext6)
-
-    expect(result.success).toBe(false)
-    expect(result.error).toContain('Tool not found')
+  it('fails before HTTP execution when internal authentication cannot be generated', async () => {
+    vi.stubGlobal('window', undefined)
+    vi.mocked(generateInternalToken).mockRejectedValueOnce(
+      new Error('Internal authentication failed')
+    )
+    const result = await executeTool(
+      'mcp',
+      { serverId, toolName: 'search', arguments: {} },
+      false,
+      createMockExecutionContext()
+    )
+    expect(result).toMatchObject({ success: false, error: 'Internal authentication failed' })
+    expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('should handle MCP API network errors', async () => {
-    global.fetch = Object.assign(vi.fn().mockRejectedValue(new Error('Network error')), {
-      preconnect: vi.fn(),
-    }) as typeof fetch
-
-    const mockContext7 = createMockExecutionContext()
-
-    const result = await executeTool('mcp-123-test_tool', { param: 'value' }, false, mockContext7)
-
-    expect(result.success).toBe(false)
-    expect(result.error).toContain('Network error')
-    expect(result.timing).toBeDefined()
+  it.each(['http', 'network'])('returns the MCP %s error with timing', async (kind) => {
+    if (kind === 'http')
+      vi.mocked(fetch).mockResolvedValue(
+        Response.json({ success: false, error: 'Tool not found on server' }, { status: 404 })
+      )
+    else vi.mocked(fetch).mockRejectedValue(new Error('Network error'))
+    const result = await executeTool(
+      'mcp',
+      { serverId, toolName: 'search', arguments: {} },
+      false,
+      createMockExecutionContext()
+    )
+    expect(result).toMatchObject({
+      success: false,
+      error: kind === 'http' ? 'Tool not found on server' : 'Network error',
+      timing: { duration: expect.any(Number) },
+    })
   })
+
+  it.each(['vision_tool', 'llm_chat', 'guardrails_validate', 'openai_embeddings'])(
+    'preserves failed native accounting through HTTP execution for %s',
+    async (toolId) => {
+      const accounting = {
+        model: 'openai/gpt-4o',
+        tokens: { total: 20 },
+        cost: { status: 'partial', availableTotal: 0.002, estimated: true },
+      }
+      vi.mocked(fetch).mockResolvedValue(
+        Response.json(
+          { success: false, error: 'generation aborted', ...accounting },
+          { status: 500 }
+        )
+      )
+      const result = await executeTool(
+        toolId,
+        {
+          model: 'openai/gpt-4o',
+          context: 'hello',
+          imageUrl: 'https://example.com/image.png',
+          input: 'hello',
+          validationType: 'hallucination',
+          apiKey: 'request-key',
+        },
+        false,
+        createMockExecutionContext()
+      )
+      expect(result.success).toBe(false)
+      expect(result.output).toMatchObject(accounting)
+      expect(result.error).toContain('generation aborted')
+    }
+  )
 })

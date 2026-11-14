@@ -3,8 +3,15 @@
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CompletionEvent } from '@/lib/copilot/native/contract'
 
-const mockRunQueuedWorkflowExecution = vi.hoisted(() => vi.fn())
+const mockQueueWorkflowExecution = vi.hoisted(() => vi.fn())
+const mockObserveQueuedWorkflowExecution = vi.hoisted(() => vi.fn())
+const mockCancelQueuedWorkflowExecution = vi.hoisted(() => vi.fn())
+const mockAuth = vi.hoisted(() => ({ userId: 'user-1' }))
+vi.mock('@/lib/auth-client', () => ({
+  useSession: () => ({ data: { user: { id: mockAuth.userId } } }),
+}))
 const mockWorkflowDoc = vi.hoisted(() => ({}))
 const mockReadWorkflowSnapshot = vi.hoisted(() => vi.fn())
 const mockUseWorkflowSession = vi.hoisted(() => vi.fn())
@@ -35,7 +42,9 @@ const mockExecutionState = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/workflows/queued-execution-client', () => ({
-  runQueuedWorkflowExecution: mockRunQueuedWorkflowExecution,
+  queueWorkflowExecution: mockQueueWorkflowExecution,
+  cancelQueuedWorkflowExecution: mockCancelQueuedWorkflowExecution,
+  observeQueuedWorkflowExecution: mockObserveQueuedWorkflowExecution,
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
@@ -82,6 +91,14 @@ import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand
 import { useWand } from './use-wand'
 import { useWorkflowExecution } from './use-workflow-execution'
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
+
 describe('useWorkflowExecution', () => {
   let container: HTMLDivElement | null = null
   let root: Root | null = null
@@ -118,23 +135,7 @@ describe('useWorkflowExecution', () => {
   }
 
   async function renderExecutionHook() {
-    const state: { execution: ReturnType<typeof useWorkflowExecution> | null } = {
-      execution: null,
-    }
-
-    function Harness() {
-      state.execution = useWorkflowExecution()
-      return null
-    }
-
-    container = document.createElement('div')
-    document.body.appendChild(container)
-    root = createRoot(container)
-
-    await act(async () => {
-      root?.render(React.createElement(Harness))
-    })
-
+    const { state } = await renderMutableExecutionHook()
     if (!state.execution) throw new Error('useWorkflowExecution did not render')
     return state.execution
   }
@@ -188,7 +189,21 @@ describe('useWorkflowExecution', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRunQueuedWorkflowExecution.mockResolvedValue({
+    const savedExecutions = new Map<string, string>()
+    vi.mocked(sessionStorage.getItem).mockImplementation((key) => savedExecutions.get(key) ?? null)
+    vi.mocked(sessionStorage.setItem).mockImplementation((key, value) => {
+      savedExecutions.set(key, value)
+    })
+    vi.mocked(sessionStorage.removeItem).mockImplementation((key) => {
+      savedExecutions.delete(key)
+    })
+    mockAuth.userId = 'user-1'
+    mockQueueWorkflowExecution.mockResolvedValue({
+      taskId: 'admitted-job',
+      executionId: 'admitted-execution',
+    })
+    mockCancelQueuedWorkflowExecution.mockResolvedValue(undefined)
+    mockObserveQueuedWorkflowExecution.mockResolvedValue({
       success: true,
       output: {},
       logs: [],
@@ -240,6 +255,62 @@ describe('useWorkflowExecution', () => {
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
   })
 
+  it('reconnects the persisted execution after reload without submitting another run', async () => {
+    const handle = { taskId: 'admitted-job', executionId: 'admitted-execution' }
+    sessionStorage.setItem('workflow-execution:user-1:workflow-1', JSON.stringify(handle))
+    const completion = deferred<unknown>()
+    mockObserveQueuedWorkflowExecution.mockReturnValueOnce(completion.promise)
+    const { state } = await renderMutableExecutionHook()
+    expect(mockObserveQueuedWorkflowExecution).toHaveBeenCalledWith(
+      handle,
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        callbacks: { onEvent: expect.any(Function) },
+      })
+    )
+    expect(mockQueueWorkflowExecution).not.toHaveBeenCalled()
+    expect(state.execution?.manualRunFeedback.state).toBe('running')
+    await act(async () =>
+      completion.resolve({ success: true, output: { answer: 'Restored' }, logs: [] })
+    )
+    expect(state.execution?.manualRunFeedback.state).toBe('success')
+    expect(sessionStorage.getItem('workflow-execution:user-1:workflow-1')).toBeNull()
+    expect(mockExecutionState.setIsExecuting).toHaveBeenLastCalledWith(false)
+    expect(mockConsoleState.addConsole).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executionId: 'admitted-execution',
+        output: { answer: 'Restored' },
+        success: true,
+      })
+    )
+  })
+
+  it("does not restore another authenticated user's execution handle", async () => {
+    sessionStorage.setItem(
+      'workflow-execution:another-user:workflow-1',
+      JSON.stringify({ taskId: 'private', executionId: 'private' })
+    )
+    await renderExecutionHook()
+    expect(mockObserveQueuedWorkflowExecution).not.toHaveBeenCalled()
+    expect(mockQueueWorkflowExecution).not.toHaveBeenCalled()
+  })
+
+  it('retains the admitted handle when observation fails without claiming the job settled', async () => {
+    const saved = JSON.stringify({ taskId: 'existing', executionId: 'existing' })
+    sessionStorage.setItem('workflow-execution:user-1:workflow-1', saved)
+    mockObserveQueuedWorkflowExecution.mockRejectedValueOnce(
+      new Error('Observation interrupted; execution outcome is unknown')
+    )
+    const { state } = await renderMutableExecutionHook()
+    expect(state.execution?.manualRunFeedback).toEqual({
+      state: 'error',
+      message: 'Observation interrupted; execution outcome is unknown',
+    })
+    expect(sessionStorage.getItem('workflow-execution:user-1:workflow-1')).toBe(saved)
+    expect(mockQueueWorkflowExecution).not.toHaveBeenCalled()
+    expect(mockExecutionState.setIsExecuting).toHaveBeenLastCalledWith(false)
+  })
+
   it('forwards chat selected outputs as queue metadata without adding them to workflow input', async () => {
     const execution = await renderExecutionHook()
 
@@ -254,7 +325,7 @@ describe('useWorkflowExecution', () => {
       })
     })
 
-    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledWith(
+    expect(mockQueueWorkflowExecution).toHaveBeenCalledWith(
       expect.objectContaining({
         workflowId: 'workflow-1',
         triggerType: 'chat',
@@ -264,9 +335,7 @@ describe('useWorkflowExecution', () => {
           conversationId: 'conversation-1',
         },
         selectedOutputs: ['agent-1_content'],
-        stream: true,
-      }),
-      expect.any(Object)
+      })
     )
   })
 
@@ -279,7 +348,7 @@ describe('useWorkflowExecution', () => {
       await execution.handleRunWorkflow({ triggerBlockId: 'chat-trigger' })
     })
 
-    expect(mockRunQueuedWorkflowExecution).not.toHaveBeenCalled()
+    expect(mockQueueWorkflowExecution).not.toHaveBeenCalled()
   })
 
   it('blocks retained execution callbacks for readers before any execution mutation', async () => {
@@ -290,7 +359,7 @@ describe('useWorkflowExecution', () => {
 
     expect(execution.isWorkflowSessionReady).toBe(false)
     expect(mockExecutionState.setIsExecuting).not.toHaveBeenCalled()
-    expect(mockRunQueuedWorkflowExecution).not.toHaveBeenCalled()
+    expect(mockQueueWorkflowExecution).not.toHaveBeenCalled()
   })
 
   it('forwards queued execution events to the workflow caller', async () => {
@@ -305,7 +374,7 @@ describe('useWorkflowExecution', () => {
         chunk: 'streamed content',
       },
     }
-    mockRunQueuedWorkflowExecution.mockImplementationOnce(async (_request, callbacks) => {
+    mockObserveQueuedWorkflowExecution.mockImplementationOnce(async (_handle, { callbacks }) => {
       await callbacks.onEvent(streamEvent)
       return {
         success: true,
@@ -323,14 +392,12 @@ describe('useWorkflowExecution', () => {
 
     expect(onEvent).toHaveBeenCalledWith(streamEvent)
     expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenCalledWith(streamEvent)
-    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledWith(
+    expect(mockQueueWorkflowExecution).toHaveBeenCalledWith(
       expect.objectContaining({
         triggerType: 'manual',
         triggerBlockId: 'schedule-trigger',
         selectedOutputs: undefined,
-        stream: true,
-      }),
-      expect.any(Object)
+      })
     )
   })
 
@@ -350,7 +417,7 @@ describe('useWorkflowExecution', () => {
         iterationTotal: 2,
       },
     }
-    mockRunQueuedWorkflowExecution.mockImplementationOnce(async (_request, callbacks) => {
+    mockObserveQueuedWorkflowExecution.mockImplementationOnce(async (_handle, { callbacks }) => {
       await callbacks.onEvent(blockStarted)
       const firstChunk = {
         type: 'stream:chunk',
@@ -429,65 +496,74 @@ describe('useWorkflowExecution', () => {
     )
   })
 
-  it('serializes owners and lets any owner cancel only the admitted execution', async () => {
-    let rejectRun: ((error: Error) => void) | undefined
-    mockRunQueuedWorkflowExecution.mockImplementationOnce(
-      ({ signal }: { signal: AbortSignal }) =>
-        new Promise((_resolve, reject) => {
-          rejectRun = reject
-          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
-        })
-    )
+  it('serializes owners and sends Stop only for the admitted job, waiting for its final result', async () => {
+    const completion = deferred<unknown>()
+    mockObserveQueuedWorkflowExecution.mockReturnValueOnce(completion.promise)
     const owners = await renderExecutionOwners()
-    const first = owners.first
-    const second = owners.second
-    if (!first || !second) throw new Error('Execution owners did not render')
-
     const admitted = vi.fn()
     const rejectedAdmission = vi.fn()
-    let admittedRun: ReturnType<typeof first.handleRunWorkflow>
+    let admittedRun: Promise<unknown> | undefined
     await act(async () => {
-      admittedRun = first.handleRunWorkflow({
+      admittedRun = owners.first?.handleRunWorkflow({
         triggerBlockId: 'manual-trigger',
         onAdmitted: admitted,
       })
-      void first.handleRunWorkflow({
+      void owners.second?.handleRunWorkflow({
         triggerBlockId: 'manual-trigger',
         onAdmitted: rejectedAdmission,
       })
-      void second.handleRunWorkflow({
-        triggerBlockId: 'manual-trigger',
-        onAdmitted: rejectedAdmission,
-      })
-      await Promise.resolve()
     })
-
     expect(admitted).toHaveBeenCalledOnce()
     expect(rejectedAdmission).not.toHaveBeenCalled()
-    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledOnce()
-    expect(owners.first?.manualRunFeedback).toEqual({ state: 'running' })
-    expect(owners.second?.manualRunFeedback).toEqual({ state: 'idle' })
+    expect(mockQueueWorkflowExecution).toHaveBeenCalledOnce()
+    expect(JSON.parse(sessionStorage.getItem('workflow-execution:user-1:workflow-1')!)).toEqual({
+      taskId: 'admitted-job',
+      executionId: 'admitted-execution',
+    })
+    expect(mockCancelQueuedWorkflowExecution).not.toHaveBeenCalled()
 
     await act(async () => {
-      second.handleCancelExecution()
-      void second.handleRunWorkflow({
-        triggerBlockId: 'manual-trigger',
-        onAdmitted: rejectedAdmission,
-      })
-      await admittedRun!
+      await owners.second?.handleCancelExecution()
     })
-
-    expect(rejectedAdmission).not.toHaveBeenCalled()
-    expect(mockConsoleState.cancelRunningEntries).toHaveBeenCalledWith('workflow-1')
-    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledOnce()
-    expect(rejectRun).toBeTypeOf('function')
-
+    expect(mockCancelQueuedWorkflowExecution).toHaveBeenCalledExactlyOnceWith('admitted-job')
+    expect(mockObserveQueuedWorkflowExecution.mock.calls[0][1].signal.aborted).toBe(false)
+    expect(owners.first?.manualRunFeedback).toEqual({ state: 'running' })
+    expect(mockConsoleState.cancelRunningEntries).not.toHaveBeenCalled()
+    await act(async () => {
+      completion.resolve({
+        success: false,
+        output: {},
+        error: 'Workflow execution was cancelled',
+        logs: [],
+      })
+      await admittedRun
+    })
+    expect(sessionStorage.getItem('workflow-execution:user-1:workflow-1')).toBeNull()
     await act(async () => {
       await owners.second?.handleRunWorkflow({ triggerBlockId: 'manual-trigger' })
     })
-    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledTimes(2)
+    expect(mockQueueWorkflowExecution).toHaveBeenCalledTimes(2)
     expect(owners.second?.manualRunFeedback).toEqual({ state: 'success' })
-    expect(owners.first?.manualRunFeedback).toEqual({ state: 'idle' })
+  })
+
+  it('sends Stop after admission returns its identity without dropping observation', async () => {
+    const admission = deferred<unknown>()
+    mockQueueWorkflowExecution.mockReturnValueOnce(admission.promise)
+    const execution = await renderExecutionHook()
+    let run: Promise<unknown> | undefined
+    await act(async () => {
+      run = execution.handleRunWorkflow({ triggerBlockId: 'manual-trigger' })
+    })
+    await act(async () => {
+      await execution.handleCancelExecution()
+    })
+    expect(mockCancelQueuedWorkflowExecution).not.toHaveBeenCalled()
+    await act(async () => {
+      admission.resolve({ taskId: 'late-admission', executionId: 'late-admission' })
+      await run
+    })
+    expect(mockCancelQueuedWorkflowExecution).toHaveBeenCalledExactlyOnceWith('late-admission')
+    expect(mockObserveQueuedWorkflowExecution.mock.calls[0][1].signal.aborted).toBe(false)
   })
 
   it.each([
@@ -504,7 +580,7 @@ describe('useWorkflowExecution', () => {
   ])(
     'does not restore settled $label feedback after workflow navigation',
     async ({ result, expected }) => {
-      mockRunQueuedWorkflowExecution.mockResolvedValueOnce(result)
+      mockObserveQueuedWorkflowExecution.mockResolvedValueOnce(result)
       const harness = await renderMutableExecutionHook()
 
       await act(async () => {
@@ -524,54 +600,71 @@ describe('useWorkflowExecution', () => {
     }
   )
 
-  it('keeps an old running lease cancellable while hiding it from a new workflow', async () => {
-    mockRunQueuedWorkflowExecution.mockImplementationOnce(
-      ({ signal }: { signal: AbortSignal }) =>
-        new Promise((_resolve, reject) => {
-          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
-        })
+  it('detaches on navigation and reconnects the admitted job when returning', async () => {
+    mockObserveQueuedWorkflowExecution.mockImplementationOnce(
+      (_handle, { signal }) =>
+        new Promise((_resolve, reject) =>
+          signal.addEventListener('abort', () => reject(signal.reason))
+        )
     )
     const harness = await renderMutableExecutionHook()
     let oldRun: Promise<unknown> | undefined
-
     await act(async () => {
-      oldRun = harness.state.execution?.handleRunWorkflow({
-        triggerBlockId: 'manual-trigger',
-      })
-      await Promise.resolve()
+      oldRun = harness.state.execution?.handleRunWorkflow({ triggerBlockId: 'manual-trigger' })
     })
     expect(harness.state.execution?.manualRunFeedback).toEqual({ state: 'running' })
-
     mockWorkflowRoute.workflowId = 'workflow-2'
     await harness.rerender()
+    await oldRun
     expect(harness.state.execution?.manualRunFeedback).toEqual({ state: 'idle' })
+    expect(mockObserveQueuedWorkflowExecution.mock.calls[0][1].signal.aborted).toBe(true)
+    expect(mockCancelQueuedWorkflowExecution).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('workflow-execution:user-1:workflow-1')).not.toBeNull()
 
-    await act(async () => {
-      await harness.state.execution?.handleRunWorkflow({
-        triggerBlockId: 'manual-trigger',
-      })
-    })
-    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledOnce()
-
-    await act(async () => {
-      harness.state.execution?.handleCancelExecution()
-      await oldRun
-    })
-    expect(mockConsoleState.cancelRunningEntries).toHaveBeenCalledWith('workflow-1')
-    expect(harness.state.execution?.manualRunFeedback).toEqual({ state: 'idle' })
-
-    await act(async () => {
-      await harness.state.execution?.handleRunWorkflow({
-        triggerBlockId: 'manual-trigger',
-      })
-    })
-    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledTimes(2)
-    expect(mockRunQueuedWorkflowExecution).toHaveBeenLastCalledWith(
-      expect.objectContaining({ workflowId: 'workflow-2' }),
-      expect.any(Object)
-    )
+    mockWorkflowRoute.workflowId = 'workflow-1'
+    await harness.rerender()
+    expect(mockObserveQueuedWorkflowExecution).toHaveBeenCalledTimes(2)
+    expect(mockQueueWorkflowExecution).toHaveBeenCalledOnce()
     expect(harness.state.execution?.manualRunFeedback).toEqual({ state: 'success' })
   })
+
+  it.each(['actor', 'unmount'])(
+    'ignores late events and results after %s detachment',
+    async (change) => {
+      const completion = deferred<unknown>()
+      mockObserveQueuedWorkflowExecution.mockReturnValueOnce(completion.promise)
+      const harness = await renderMutableExecutionHook()
+      let oldRun: Promise<unknown> | undefined
+      await act(async () => {
+        oldRun = harness.state.execution?.handleRunWorkflow({ triggerBlockId: 'manual-trigger' })
+      })
+      const observation = mockObserveQueuedWorkflowExecution.mock.calls[0][1]
+      if (change === 'actor') {
+        mockAuth.userId = 'user-2'
+        await harness.rerender()
+      } else {
+        await act(async () => root?.unmount())
+        root = null
+      }
+      expect(observation.signal.aborted).toBe(true)
+      mockConsoleState.ingestWorkflowExecutionEvent.mockClear()
+      mockConsoleState.addConsole.mockClear()
+      await act(async () => {
+        await observation.callbacks.onEvent({ type: 'stream:chunk', data: { chunk: 'private' } })
+        completion.resolve({ success: true, output: { private: true }, logs: [] })
+        await oldRun
+      })
+      expect(mockConsoleState.ingestWorkflowExecutionEvent).not.toHaveBeenCalled()
+      expect(mockConsoleState.addConsole).not.toHaveBeenCalled()
+      expect(mockCancelQueuedWorkflowExecution).not.toHaveBeenCalled()
+      if (change === 'actor') {
+        await act(async () => {
+          await harness.state.execution?.handleRunWorkflow({ triggerBlockId: 'manual-trigger' })
+        })
+        expect(mockQueueWorkflowExecution).toHaveBeenCalledTimes(2)
+      }
+    }
+  )
 })
 
 const generatedWandContent = vi.fn()
@@ -597,21 +690,27 @@ function WandHarness() {
   )
 }
 
-const wandStreamResponse = (payload: string) => ({
-  ok: true,
-  body: new ReadableStream({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode(payload))
-      controller.close()
-    },
-  }),
-})
+const wandStreamResponse = (events: CompletionEvent[]) =>
+  new Response(
+    new ReadableStream({
+      start(controller) {
+        for (const event of events)
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`))
+        controller.close()
+      },
+    }),
+    { headers: { 'content-type': 'text/event-stream' } }
+  )
 
 describe('useWand feedback', () => {
+  const reactEnvironment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  let previousActEnvironment: boolean | undefined
   let container: HTMLDivElement
   let root: Root
 
   beforeEach(() => {
+    previousActEnvironment = reactEnvironment.IS_REACT_ACT_ENVIRONMENT
+    reactEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     generatedWandContent.mockReset()
     currentWand = null
     container = document.createElement('div')
@@ -624,6 +723,7 @@ describe('useWand feedback', () => {
     act(() => root.unmount())
     container.remove()
     vi.unstubAllGlobals()
+    reactEnvironment.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
   })
 
   it('surfaces SSE failure safely, retains the prompt for retry, and clears it after success', async () => {
@@ -631,9 +731,27 @@ describe('useWand feedback', () => {
       'fetch',
       vi
         .fn()
-        .mockResolvedValueOnce(wandStreamResponse('data: {"error":"private upstream detail"}\n\n'))
         .mockResolvedValueOnce(
-          wandStreamResponse('data: {"chunk":"generated"}\n\ndata: {"done":true}\n\n')
+          wandStreamResponse([
+            {
+              error: 'private upstream detail',
+              code: 'NATIVE_FAILURE',
+              refusal: false,
+            },
+          ])
+        )
+        .mockResolvedValueOnce(
+          wandStreamResponse([
+            { chunk: 'uncommitted preview' },
+            {
+              done: true,
+              result: {
+                status: 'completed',
+                runId: 'wand-feedback-run',
+                text: 'generated',
+              },
+            },
+          ])
         )
     )
 
@@ -647,6 +765,8 @@ describe('useWand feedback', () => {
 
     expect(currentWand?.error).toBe('private upstream detail')
     expect(currentWand?.promptInputValue).toBe('Keep this prompt')
+    expect(generatedWandContent).not.toHaveBeenCalled()
+    expect(fetch).toHaveBeenCalledOnce()
     const alert = container.querySelector<HTMLElement>('[role="alert"]')
     expect(alert?.textContent).toBe('Generation failed. Your prompt is ready to retry.')
     expect(alert?.textContent).not.toContain('private upstream detail')
@@ -658,7 +778,8 @@ describe('useWand feedback', () => {
 
     expect(currentWand?.error).toBeNull()
     expect(currentWand?.promptInputValue).toBe('')
-    expect(generatedWandContent).toHaveBeenCalledWith('generated')
+    expect(generatedWandContent).toHaveBeenCalledExactlyOnceWith('generated')
+    expect(fetch).toHaveBeenCalledTimes(2)
     expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 })

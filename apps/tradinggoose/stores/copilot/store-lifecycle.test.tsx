@@ -24,6 +24,8 @@ class DeferredClientTool extends BaseClientTool {
   constructor(toolCallId: string) {
     super(toolCallId, 'sleep', { displayNames: {} })
   }
+
+  async execute() {}
 }
 
 const channelId = (authenticatedUserId: string, workspaceId: string) =>
@@ -61,7 +63,16 @@ describe('Copilot store lifecycle', () => {
       text: 'private @Documentation draft',
       contexts: [{ kind: 'docs', label: 'Documentation' }],
     })
-    await ownedStore.getState().handleNewReviewSessionCreation('review-session-1', 'workspace-1')
+    ownedStore.setState({
+      conversationWorkspaceId: 'workspace-1',
+      currentChat: {
+        threadId: 'thread-1',
+        workspaceId: 'workspace-1',
+        title: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    })
     ownedStore.setState({
       abortController,
       isSendingMessage: true,
@@ -72,7 +83,7 @@ describe('Copilot store lifecycle', () => {
     expect(abortController.signal.aborted).toBe(true)
     expect(ownedStore.getState().draft).toEqual(EMPTY_DRAFT)
     expect(getCopilotStore(workspaceChannelId)).not.toBe(ownedStore)
-    expect(getCopilotWorkspaceSelection('workspace-1')).toBeUndefined()
+    expect(getCopilotWorkspaceSelection(workspaceChannelId, 'workspace-1')).toBeUndefined()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -113,9 +124,27 @@ describe('Copilot store lifecycle', () => {
     expect(getClientTool(toolCallId)).toBeUndefined()
     expect(tool.getState()).toBe(ClientToolCallState.aborted)
     expect(() => getCopilotStoreForToolCall(toolCallId)).toThrow(
-      `No active Copilot store owns tool call ${toolCallId}`
+      `No unique active Copilot store owns tool call ${toolCallId}`
     )
-    await expect(tool.markToolComplete(200, 'late completion')).resolves.toBe(true)
+    await expect(tool.handleUserAction()).resolves.toBeUndefined()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('detaches the response transport on unmount without cancelling the active run', async () => {
+    const selectedChannel = channelId('user-a', 'workspace-1')
+    const ownedStore = getCopilotStore(selectedChannel)
+    const abortController = new AbortController()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    ownedStore.setState({ abortController, currentRunId: 'live-run', isSendingMessage: true })
+    await act(async () => {
+      root.render(<CopilotStoreProvider channelId={selectedChannel}>A</CopilotStoreProvider>)
+    })
+    await act(async () => {
+      root.render(null)
+    })
+    expect(abortController.signal.aborted).toBe(true)
+    expect(ownedStore.getState().currentRunId).toBe('live-run')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { replaceCopilotWorkspaceEntityMentionsWithIds } from '@/lib/copilot/chat-contexts'
 import enMessages from '@/i18n/messages/en.json'
 import esMessages from '@/i18n/messages/es.json'
 import zhMessages from '@/i18n/messages/zh.json'
+import type { ChatContext } from '@/stores/copilot/types'
 import {
   getCopilotMentionCopy,
-  getMentionOptionLabel,
   getPastChatMentionLabel,
   getWorkspaceEntityMentionLabel,
 } from './mention-copy'
@@ -48,6 +47,34 @@ describe('mention-utils', () => {
   const esMentionCopy = getMentionCopy(esMessages)
   const enMonitorCopy = (enMessages as any).workspace.monitor
 
+  it('retains implicit contexts in their original positions while removing absent mentions', () => {
+    const implicit: ChatContext[] = [
+      { kind: 'current_monitor', monitorId: 'monitor', workspaceId: 'workspace', label: 'Monitor' },
+      { kind: 'current_logs', logId: 'log', workspaceId: 'workspace', label: 'Logs' },
+      {
+        kind: 'current_knowledge_base',
+        knowledgeBaseId: 'knowledge',
+        workspaceId: 'workspace',
+        label: 'Knowledge',
+      },
+      {
+        kind: 'current_dashboard_layout',
+        dashboardLayoutId: 'layout',
+        ownerUserId: 'actor',
+        workspaceId: 'workspace',
+        label: 'Dashboard',
+      },
+    ]
+    const docs: ChatContext = { kind: 'docs', label: 'Docs' }
+    const absent: ChatContext = { kind: 'workflow', workflowId: 'workflow', label: 'Workflow' }
+    const contexts = [implicit[0], docs, implicit[1], absent, implicit[2], implicit[3]]
+    const retained = retainMentionContextsInText('Explain @Docs', contexts)
+    expect(retained).toEqual([implicit[0], docs, implicit[1], implicit[2], implicit[3]])
+    expect(retained.every((context) => contexts.includes(context))).toBe(true)
+    expect(buildMentionRanges('Explain @Docs', contexts)).toHaveLength(1)
+    expect(retainMentionContextsInText('', contexts)).toEqual(implicit)
+  })
+
   it('surfaces centralized workspace entity mention options in option filtering', () => {
     expect(filterMentionOptions('tool', enMentionCopy)).toContain('custom_tool')
     expect(filterMentionOptions('工具', zhMentionCopy)).toContain('custom_tool')
@@ -83,7 +110,7 @@ describe('mention-utils', () => {
 
   it('uses localized untitled labels for empty chat and workspace entity names', () => {
     const sources = createMentionSources()
-    sources.pastChats = [{ reviewSessionId: 'chat-1', title: null }]
+    sources.pastChats = [{ threadId: 'chat-1', workspaceId: null, title: null }]
     sources.workspaceEntities.custom_tool = [
       { entityKind: 'custom_tool', id: 'tool-empty', name: '', description: '' },
     ]
@@ -199,7 +226,7 @@ describe('mention-utils', () => {
   })
 
   it('tracks the refreshed localized label for the same canonical context', () => {
-    const docsLabel = getMentionOptionLabel(esMentionCopy, 'docs')
+    const docsLabel = esMentionCopy.optionLabels.docs
     const ranges = buildMentionRanges(`@Docs @${docsLabel}`, [{ kind: 'docs', label: docsLabel }])
 
     expect(ranges.map((range) => range.contextKey)).toEqual(['docs'])
@@ -224,16 +251,5 @@ describe('mention-utils', () => {
       'skill:skill-1',
       'workflow:workflow-1',
     ])
-  })
-
-  it('replaces ordered workspace-entity ranges with ids in model-bound text', () => {
-    const contexts = [
-      { kind: 'workflow' as const, workflowId: 'workflow-source', label: 'Shared' },
-      { kind: 'workflow' as const, workflowId: 'workflow-target', label: 'Shared' },
-    ]
-
-    expect(
-      replaceCopilotWorkspaceEntityMentionsWithIds('Copy (@Shared) into @Shared.', contexts)
-    ).toBe('Copy (@workflow-source) into @workflow-target.')
   })
 })

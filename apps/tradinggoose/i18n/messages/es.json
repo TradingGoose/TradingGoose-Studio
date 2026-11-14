@@ -1453,7 +1453,6 @@
         "toolCalls": "Llamadas de herramientas",
         "files": "Archivos",
         "costBreakdown": "Desglose de costos",
-        "baseExecution": "Ejecución base:",
         "modelInput": "Entrada del modelo:",
         "modelOutput": "Salida del modelo:",
         "total": "Total:",
@@ -1461,7 +1460,6 @@
         "modelBreakdown": "Desglose del modelo ({count})",
         "input": "Entrada:",
         "output": "Salida:",
-        "totalCostNote": "El costo total incluye un cargo base de ejecución de {amount} más los costos de uso del modelo.",
         "notAvailable": "No disponible",
         "unknownSize": "Tamaño desconocido",
         "unknownType": "Tipo desconocido",
@@ -1960,10 +1958,6 @@
         }
       },
       "service": {
-        "copilot": {
-          "title": "Copiloto",
-          "description": "Genere claves para el acceso a la API de Copilot."
-        },
         "market": {
           "title": "Mercado",
           "description": "Genere claves para el acceso a la API de Market."
@@ -3026,8 +3020,6 @@
         "payload": "Carga útil",
         "signingSecret": "Secreto de firma",
         "additionalHeaders": "Encabezados adicionales",
-        "reasoningEffort": "Esfuerzo de razonamiento",
-        "verbosity": "Nivel de detalle",
         "configured": "Configurado",
         "items": "Elementos",
         "fields": "Campos",
@@ -3294,8 +3286,6 @@
         "enterSystemPrompt": "Introduce el prompt del sistema...",
         "enterContextOrUserMessage": "Introduce contexto o mensaje de usuario...",
         "connectMemoryBlockOutput": "Conecta la salida del bloque de memoria...",
-        "selectReasoningEffort": "Selecciona el esfuerzo de razonamiento...",
-        "selectVerbosity": "Selecciona el nivel de detalle...",
         "systemPromptToGuideTheModelBehavior": "Prompt del sistema para guiar el comportamiento del modelo...",
         "enterYourPromptHere": "Introduce tu prompt aquí...",
         "Maximum number of tokens": "Número máximo de tokens",
@@ -3338,7 +3328,10 @@
         "pleaseSelectWealthboxCredentialsFirst": "Selecciona primero las credenciales de Wealthbox",
         "pleaseSelectGoogleDriveCredentialsFirst": "Selecciona primero las credenciales de Google Drive",
         "url": "URL",
-        "value": "Valor"
+        "value": "Valor",
+        "loadingModels": "Cargando modelos…",
+        "modelRegistryUnavailable": "El registro de modelos no está disponible. Inténtalo de nuevo.",
+        "retryModels": "Intentar de nuevo"
       },
       "blockEditor": {
         "blockNames": {
@@ -3659,7 +3652,6 @@
           "wait": "Pausa la ejecución del flujo de trabajo durante un intervalo de tiempo especificado. El bloque Wait ejecuta una espera simple por la duración configurada.",
           "workflow": "Este es un bloque central de flujo de trabajo. Ejecuta otro flujo de trabajo como un bloque en tu flujo de trabajo. Ingresa la variable de entrada para pasar al flujo de trabajo hijo.",
           "parallel_ai": "Integra IA paralela en el flujo de trabajo. Puede buscar en la web.",
-          "agent": "El bloque Agent es un bloque central del flujo de trabajo que actúa como un envoltorio para un LLM. Recibe prompts del sistema y del usuario, y llama a un proveedor de LLM. También puede realizar llamadas a herramientas al contenerlas directamente dentro de su entrada de herramientas. Además, puede devolver salida estructurada.",
           "perplexity": "Integra Perplexity en el flujo de trabajo. Puede generar completions usando modelos de chat de Perplexity AI.",
           "translate": "Integra Translate en el flujo de trabajo. Puede traducir texto a cualquier idioma.",
           "tts": "Genera voz de sonido natural a partir de texto usando voces de IA de última generación de OpenAI, Deepgram, ElevenLabs, Cartesia, Google Cloud, Azure y PlayHT. Soporta múltiples voces, idiomas y formatos de audio.",
@@ -5894,14 +5886,6 @@
             }
           },
           "evaluator": {
-            "azureApiVersion": {
-              "placeholder": "2024-07-01-vista previa",
-              "title": "Versión de API de Azure"
-            },
-            "azureEndpoint": {
-              "placeholder": "https://your-resource.openai.azure.com",
-              "title": "Endpoint de Azure OpenAI"
-            },
             "content": {
               "placeholder": "Introduce una contenido to evaluate"
             }
@@ -16898,14 +16882,6 @@
             }
           },
           "translate": {
-            "azureApiVersion": {
-              "placeholder": "2024-07-01-vista previa",
-              "title": "Versión de API de Azure"
-            },
-            "azureEndpoint": {
-              "placeholder": "https://your-resource.openai.azure.com",
-              "title": "Endpoint de Azure OpenAI"
-            },
             "targetLanguage": {
               "placeholder": "Introduce una language (e.g. Spanish, French, etc.)"
             }
@@ -17745,24 +17721,7 @@
               "title": "Referenciar imagen"
             }
           },
-          "vision": {
-            "model": {
-              "options": [
-                {
-                  "id": "gpt-4o",
-                  "label": "gpt-4o"
-                },
-                {
-                  "id": "claude-3-opus-20240229",
-                  "label": "claude-3-opus"
-                },
-                {
-                  "id": "claude-3-sonnet-20240229",
-                  "label": "claude-3-sonnet"
-                }
-              ]
-            }
-          },
+          "vision": {},
           "wealthbox": {
             "backgroundInformation": {
               "placeholder": "Introduce una Background Informatoion",
@@ -22323,6 +22282,14 @@
         "searchPlaceholder": "Buscar listados..."
       },
       "copilot": {
+        "models": {
+          "loading": "Cargando modelos…",
+          "unconfigured": "Copilot no está configurado",
+          "loadError": "No se pudieron cargar los modelos de Copilot",
+          "providerOptions": "Opciones del proveedor",
+          "apply": "Aplicar",
+          "invalidOptions": "Introduce opciones del proveedor en JSON válido."
+        },
         "welcome": {
           "subtitleLimited": "Haz preguntas y revisa las herramientas antes de que se ejecuten",
           "subtitleFull": "Haz preguntas y deja que las herramientas se ejecuten sin aprobación adicional",
@@ -22439,6 +22406,19 @@
         "model": {
           "choose": "Elegir modelo",
           "label": "Modelo"
+        },
+        "driveChoice": {
+          "title": "Acceso a Google Drive",
+          "oauthTitle": "Acceso a la integración",
+          "oauthNewChoice": "Elige un espacio de trabajo para esta solicitud. Es una nueva elección; no reconstruye el contexto original.",
+          "connect": "Conectar",
+          "original": "Usa el espacio de trabajo del contexto original de esta herramienta.",
+          "newChoice": "El espacio original no está disponible. Elige un espacio y una credencial para esta solicitud.",
+          "workspace": "Espacio para esta solicitud",
+          "chooseWorkspace": "Elige un espacio de trabajo",
+          "credential": "Credencial de Google Drive",
+          "unavailable": "No se pudo verificar el acceso. Elige un espacio disponible.",
+          "stale": "Esta herramienta ya no está seleccionada."
         }
       }
     },
@@ -22895,6 +22875,17 @@
         "allowPromotionCodesHint": "Controla si se permiten códigos promocionales durante el pago.",
         "triggerDevEnabled": "Trigger.dev habilitado",
         "triggerDevEnabledHint": "Dirige los trabajos asíncronos compatibles a Trigger.dev en lugar de ejecutarlos directamente en proceso."
+      },
+      "copilot": {
+        "title": "Modelos de Copilot",
+        "description": "Elige los modelos disponibles para todos los usuarios de Copilot. Busca en el catálogo o introduce un ID exacto de proveedor/modelo. La selección inicial del modelo y Wand utilizan el primer modelo.",
+        "manageKeys": "Gestionar claves de API de proveedores",
+        "model": "Modelo",
+        "modelPlaceholder": "Buscar modelos o introducir proveedor/modelo",
+        "addModel": "Añadir modelo",
+        "removeModel": "Eliminar fila de modelo {number}",
+        "empty": "No hay modelos configurados. Añade un modelo y configura la clave de API de su proveedor para habilitar Copilot.",
+        "invalidModels": "Introduce un ID de modelo en cada fila y elimina los pares proveedor/modelo duplicados."
       },
       "emailIdentity": {
         "title": "Identidad de correo",

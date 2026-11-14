@@ -1,13 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import { batchChunkOperation, createChunk, queryChunks } from '@/lib/knowledge/chunks/service'
 import { MAX_CHUNK_CONTENT_LENGTH } from '@/lib/knowledge/chunks/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserId } from '@/lib/oauth/tokens'
+import { getFailureAccounting } from '@/lib/mastra/errors'
 import { generateRequestId } from '@/lib/utils'
 import { checkDocumentAccess, checkDocumentWriteAccess } from '@/app/api/knowledge/utils'
-import { calculateCost } from '@/providers/ai/utils'
 
 const logger = createLogger('DocumentChunksAPI')
 
@@ -117,13 +118,19 @@ export async function POST(
     const body = await req.json()
     const { workflowId, ...searchParams } = body
 
-    const userId = await getUserId(requestId, workflowId)
-
-    if (!userId) {
-      const authenticationFailure = workflowId ? 'Workflow not found' : 'Unauthorized'
-      const statusCode = workflowId ? 404 : 401
-      logger.warn(`[${requestId}] Authentication failed: ${authenticationFailure}`)
-      return NextResponse.json({ error: authenticationFailure }, { status: statusCode })
+    const auth = await checkSessionOrInternalAuth(req, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId)
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId = auth.userId
+    let workflowWorkspaceId: string | undefined
+    let executionId: string | undefined
+    if (workflowId !== undefined) {
+      if (typeof workflowId !== 'string' || !workflowId.trim())
+        return NextResponse.json({ error: 'Invalid workflowId' }, { status: 400 })
+      const scope = await authorizeWorkflowScope(auth, workflowId, 'read')
+      if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status })
+      workflowWorkspaceId = scope.workspaceId
+      executionId = scope.executionId
     }
 
     const accessCheck = await checkDocumentWriteAccess(knowledgeBaseId, documentId, userId)
@@ -140,6 +147,11 @@ export async function POST(
       )
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (workflowWorkspaceId && workflowWorkspaceId !== accessCheck.knowledgeBase.workspaceId)
+      return NextResponse.json(
+        { error: 'Knowledge base is outside the workflow workspace' },
+        { status: 403 }
+      )
 
     const doc = accessCheck.document
     if (!doc) {
@@ -174,11 +186,15 @@ export async function POST(
         documentId,
         docTags,
         validatedData,
-        requestId
+        requestId,
+        {
+          actorUserId: userId,
+          workspaceId: accessCheck.knowledgeBase.workspaceId,
+          workflowId,
+          executionId,
+          signal: req.signal,
+        }
       )
-
-      const embeddingModel = accessCheck.knowledgeBase.embeddingModel
-      const cost = calculateCost(embeddingModel, newChunk.tokenCount, 0)
 
       return NextResponse.json({
         success: true,
@@ -186,18 +202,15 @@ export async function POST(
           ...newChunk,
           documentId,
           documentName: doc.filename,
-          cost: {
-            input: cost.input,
-            output: cost.output,
-            total: cost.total,
-            tokens: {
-              prompt: newChunk.tokenCount,
-              completion: 0,
-              total: newChunk.tokenCount,
-            },
-            model: embeddingModel,
-            pricing: cost.pricing,
-          },
+          ...(newChunk.embeddingUsage
+            ? {
+                cost: {
+                  ...newChunk.embeddingUsage.cost,
+                  tokens: newChunk.embeddingUsage.tokens,
+                  model: newChunk.embeddingUsage.model,
+                },
+              }
+            : {}),
         },
       })
     } catch (validationError) {
@@ -214,7 +227,10 @@ export async function POST(
     }
   } catch (error) {
     logger.error(`[${requestId}] Error creating chunk`, error)
-    return NextResponse.json({ error: 'Failed to create chunk' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to create chunk', ...getFailureAccounting(error) },
+      { status: 500 }
+    )
   }
 }
 

@@ -148,7 +148,8 @@ export async function PUT(
           knowledgeBaseId,
           documentId,
           docData,
-          requestId
+          requestId,
+          session.user.id
         )
 
         return NextResponse.json({

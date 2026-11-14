@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { CopilotFiles } from '@/lib/uploads'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 import { getStorageConfig } from '@/lib/uploads/core/config-resolver'
 import { getStorageProvider } from '@/lib/uploads/core/setup'
@@ -59,6 +58,8 @@ export async function POST(request: NextRequest) {
     if (uploadType === 'knowledge-base') {
       throw new ValidationError('Knowledge base uploads must use /api/files/upload')
     }
+    if (request.nextUrl.searchParams.get('type') === 'copilot')
+      throw new ValidationError('Copilot images are sent inline with the conversation')
 
     const validationError = validateUploadRequest({
       fileName,
@@ -94,40 +95,22 @@ export async function POST(request: NextRequest) {
 
     logger.info(`Generating ${uploadType} presigned URL for ${fileName}`)
 
-    let presignedUrlResponse
-
-    if (uploadType === 'copilot') {
-      try {
-        presignedUrlResponse = await CopilotFiles.generateCopilotUploadUrl({
-          fileName,
-          contentType,
-          fileSize,
-          userId: sessionUserId,
-          expirationSeconds: 3600,
-        })
-      } catch (error) {
+    if (uploadType === 'profile-pictures') {
+      if (!sessionUserId?.trim()) {
         throw new ValidationError(
-          error instanceof Error ? error.message : 'Copilot validation failed'
+          'Authenticated user session is required for profile picture uploads'
         )
       }
-    } else {
-      if (uploadType === 'profile-pictures') {
-        if (!sessionUserId?.trim()) {
-          throw new ValidationError(
-            'Authenticated user session is required for profile picture uploads'
-          )
-        }
-      }
-
-      presignedUrlResponse = await generatePresignedUploadUrl({
-        fileName,
-        contentType,
-        fileSize,
-        context: uploadType,
-        userId: sessionUserId,
-        expirationSeconds: 3600, // 1 hour
-      })
     }
+
+    const presignedUrlResponse = await generatePresignedUploadUrl({
+      fileName,
+      contentType,
+      fileSize,
+      context: uploadType,
+      userId: sessionUserId,
+      expirationSeconds: 3600, // 1 hour
+    })
 
     const storageProvider = getStorageProvider()
     const storageConfig = getStorageConfig(uploadType)

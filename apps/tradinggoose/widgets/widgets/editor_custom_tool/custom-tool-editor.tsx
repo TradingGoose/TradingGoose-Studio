@@ -13,6 +13,7 @@ import { exportCustomToolsAsJson } from '@/lib/custom-tools/import-export'
 import { CustomToolOpenAiSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { getEntityFields } from '@/lib/yjs/entity-session'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useWand } from '@/hooks/workflow/use-wand'
@@ -73,6 +74,9 @@ export function CustomToolEditor({
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [schemaParamSelectedIndex, setSchemaParamSelectedIndex] = useState(0)
   const readOnlyRef = useLatestRef(readOnly)
+  const targetRef = useLatestRef({ doc, toolId })
+  const [schemaPreview, setSchemaPreview] = useState<string | null>(null)
+  const [codePreview, setCodePreview] = useState<string | null>(null)
 
   useEffect(() => {
     setSchemaError(null)
@@ -102,8 +106,12 @@ export function CustomToolEditor({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleJsonSchemaChange = (value: string) => {
-    if (readOnlyRef.current || schemaGeneration.isLoading || schemaGeneration.isStreaming) return
+  const handleJsonSchemaChange = (value: string, completed = false) => {
+    if (
+      readOnlyRef.current ||
+      (!completed && (schemaGeneration.isLoading || schemaGeneration.isStreaming))
+    )
+      return
     setJsonSchema(value)
 
     if (!value.trim()) {
@@ -157,8 +165,9 @@ export function CustomToolEditor({
     setSchemaError(null)
   }
 
-  const handleFunctionCodeChange = (value: string) => {
+  const handleFunctionCodeChange = (value: string, completed = false) => {
     if (readOnlyRef.current) return
+    if (codeGeneration.isStreaming && !completed) return
     setFunctionCode(value)
     if (codeError) {
       setCodeError(null)
@@ -188,20 +197,28 @@ Do not include any explanations, markdown formatting, or other text outside the 
       generationType: 'custom-tool-schema',
     },
     currentValue: jsonSchema,
+    generationKey: `${doc?.guid ?? ''}:${toolId}:schema`,
+    getCurrentValue: () => (doc ? getEntityFields(doc, 'custom_tool').schemaText : jsonSchema),
+    onStreamStart: () => setSchemaPreview(''),
+    onGenerationEnd: () => setSchemaPreview(null),
     onGeneratedContent: (content) => {
-      if (readOnlyRef.current) return
-      handleJsonSchemaChange(content)
+      if (
+        readOnlyRef.current ||
+        targetRef.current.doc !== doc ||
+        targetRef.current.toolId !== toolId
+      )
+        return false
+      handleJsonSchemaChange(content, true)
       setSchemaError(null)
     },
     onStreamChunk: (chunk) => {
-      if (readOnlyRef.current) return
-      setJsonSchema((prev) => {
-        const nextSchema = prev + chunk
-        if (schemaError) {
-          setSchemaError(null)
-        }
-        return nextSchema
-      })
+      if (
+        readOnlyRef.current ||
+        targetRef.current.doc !== doc ||
+        targetRef.current.toolId !== toolId
+      )
+        return
+      setSchemaPreview((prev) => (prev ?? '') + chunk)
     },
   })
 
@@ -229,20 +246,28 @@ IMPORTANT FORMATTING RULES:
       generationType: 'javascript-function-body',
     },
     currentValue: functionCode,
+    generationKey: `${doc?.guid ?? ''}:${toolId}:code`,
+    getCurrentValue: () => (doc ? getEntityFields(doc, 'custom_tool').codeText : functionCode),
+    onStreamStart: () => setCodePreview(''),
+    onGenerationEnd: () => setCodePreview(null),
     onGeneratedContent: (content) => {
-      if (readOnlyRef.current) return
-      handleFunctionCodeChange(content)
+      if (
+        readOnlyRef.current ||
+        targetRef.current.doc !== doc ||
+        targetRef.current.toolId !== toolId
+      )
+        return false
+      handleFunctionCodeChange(content, true)
       setCodeError(null)
     },
     onStreamChunk: (chunk) => {
-      if (readOnlyRef.current) return
-      setFunctionCode((prev) => {
-        const nextCode = prev + chunk
-        if (codeError) {
-          setCodeError(null)
-        }
-        return nextCode
-      })
+      if (
+        readOnlyRef.current ||
+        targetRef.current.doc !== doc ||
+        targetRef.current.toolId !== toolId
+      )
+        return
+      setCodePreview((prev) => (prev ?? '') + chunk)
     },
   })
 
@@ -627,7 +652,7 @@ IMPORTANT FORMATTING RULES:
 
           <div className='min-h-0 flex-1'>
             <CodeEditor
-              value={jsonSchema}
+              value={schemaPreview ?? jsonSchema}
               onChange={handleJsonSchemaChange}
               language='json'
               height='100%'
@@ -719,7 +744,7 @@ IMPORTANT FORMATTING RULES:
 
         <div ref={codeEditorRef} className='relative min-h-0 flex-1 rounded-md'>
           <CodeEditor
-            value={functionCode}
+            value={codePreview ?? functionCode}
             onChange={handleFunctionCodeChange}
             language='javascript'
             editorHandleRef={codeEditorHandleRef}

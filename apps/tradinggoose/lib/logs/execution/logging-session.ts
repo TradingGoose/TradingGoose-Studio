@@ -14,6 +14,7 @@ export interface SessionStartParams {
   workspaceId: string
   workflowState: WorkflowState
   triggerData?: Record<string, unknown>
+  billable?: boolean
 }
 
 export interface SessionCompleteParams {
@@ -58,6 +59,7 @@ export class LoggingSession {
       environment,
       workflowState,
       workflowSummary,
+      billable: params.billable,
     })
     this.workflowLogId = workflowLog.id
 
@@ -117,7 +119,10 @@ export class LoggingSession {
             'execution.trigger': this.triggerType,
             'execution.blocks_executed': traceSpans.length,
             'execution.has_errors': failed,
-            'execution.total_cost': completed.cost.total,
+            ...(completed.cost.total !== undefined
+              ? { 'execution.total_cost': completed.cost.total }
+              : {}),
+            'execution.cost_status': completed.cost.status ?? 'unavailable',
             ...(failureReason ? { 'execution.error_message': failureReason } : {}),
           })
         } catch (_e) {

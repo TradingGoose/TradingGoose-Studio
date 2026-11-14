@@ -16,10 +16,12 @@ import { INDICATOR_EDITOR_ACTION_EVENT } from '@/widgets/events'
 import { emitEditorAction } from '@/widgets/utils/editor-actions'
 import { IndicatorCodePanel } from './pine-indicator-code-panel'
 
-const wandInputs = vi.hoisted(() => [] as Array<{ onStreamChunk?: (chunk: string) => void }>)
+const wandInputs = vi.hoisted(
+  () => [] as Array<Parameters<typeof import('@/hooks/workflow/use-wand').useWand>[0]>
+)
 
 vi.mock('@/hooks/workflow/use-wand', () => ({
-  useWand: (input: { onStreamChunk?: (chunk: string) => void }) => {
+  useWand: (input: Parameters<typeof import('@/hooks/workflow/use-wand').useWand>[0]) => {
     wandInputs.push(input)
     return {
       isLoading: false,
@@ -142,6 +144,35 @@ describe('IndicatorCodePanel', () => {
     act(() => retainedStreamChunk?.('\nplot(high)'))
 
     expect(getEntityFields(doc, 'indicator').pineCode).toBe('plot(open)')
+    doc.destroy()
+  })
+  it('keeps Pine drafts outside Yjs and discards them over a concurrent edit', async () => {
+    const doc = new Y.Doc()
+    seedEntitySession(doc, {
+      entityKind: 'indicator',
+      payload: { color: '#ffffff', pineCode: 'plot(close)' },
+    })
+    await act(async () =>
+      root.render(
+        <IndicatorCodePanel
+          indicatorId='indicator'
+          indicatorName='Indicator'
+          workspaceId='workspace'
+          doc={doc}
+          save={vi.fn()}
+        />
+      )
+    )
+    await act(async () => {
+      wandInputs.at(-1)!.onStreamStart?.()
+      wandInputs.at(-1)!.onStreamChunk?.('Partial preview')
+    })
+    expect(getEntityFields(doc, 'indicator').pineCode).toBe('plot(close)')
+    await act(async () => replaceEntityTextField(doc, 'pineCode', 'plot(open)'))
+    await act(async () => wandInputs.at(-1)!.onGenerationEnd?.())
+    expect(getEntityFields(doc, 'indicator').pineCode).toBe('plot(open)')
+    await act(async () => wandInputs.at(-1)!.onGeneratedContent('plot(high)'))
+    expect(getEntityFields(doc, 'indicator').pineCode).toBe('plot(high)')
     doc.destroy()
   })
 })

@@ -50,11 +50,22 @@ describe('model editor credentials', () => {
   )(
     'clears mismatched credentials after $unresolved model edits (reopen=$reopen)',
     async ({ unresolved, reopen }) => {
-      const tuning = Object.fromEntries(
-        Object.entries({ reasoningEffort: 'high', verbosity: 'low', thinkingLevel: 'high' }).map(
-          ([id, value]) => [id, { id, type: 'combobox' as const, value }]
-        )
-      )
+      const tuning = {
+        temperature: { id: 'temperature', type: 'short-input' as const, value: '0' },
+        providerOptions: { id: 'providerOptions', type: 'code' as const, value: '{}' },
+        maxTokens: { id: 'maxTokens', type: 'short-input' as const, value: '4096' },
+      }
+      const { useModelRegistry } = await import('@/stores/model-registry')
+      useModelRegistry.setState({
+        providers: [
+          {
+            id: 'openai',
+            name: 'OpenAI',
+            models: [{ id: 'openai/gpt-4.1' }, { id: 'openai/gpt-5.4' }],
+          },
+          { id: 'anthropic', name: 'Anthropic', models: [{ id: 'anthropic/claude-sonnet-4-6' }] },
+        ],
+      })
       const doc = new Y.Doc()
       setWorkflowState(
         doc,
@@ -69,7 +80,7 @@ describe('model editor credentials', () => {
               outputs: {},
               subBlocks: {
                 ...tuning,
-                model: { id: 'model', type: 'combobox', value: 'gpt-4.1' },
+                model: { id: 'model', type: 'combobox', value: 'openai/gpt-4.1' },
                 apiKey: { id: 'apiKey', type: 'short-input', value: 'openai-key' },
               },
             },
@@ -100,7 +111,7 @@ describe('model editor credentials', () => {
       await act(async () => root?.render(React.createElement(Harness)))
       const apiKey = () => readWorkflowSnapshot(doc).blocks['block-1'].subBlocks.apiKey.value
 
-      for (const value of [unresolved, 'gpt-5.4', unresolved]) {
+      for (const value of [unresolved, 'openai/gpt-5.4', unresolved]) {
         await act(async () => model[1](value))
         expect(model[0]).toBe(value)
         expect(apiKey()).toBe('openai-key')
@@ -112,7 +123,7 @@ describe('model editor credentials', () => {
         expect(apiKey()).toBe('openai-key')
         expect(readWorkflowSnapshot(doc).blocks['block-1'].subBlocks).toMatchObject(tuning)
       }
-      await act(async () => model[1]('claude-sonnet-5-5'))
+      await act(async () => model[1]('anthropic/claude-sonnet-4-6'))
       expect(apiKey()).toBe('')
     }
   )

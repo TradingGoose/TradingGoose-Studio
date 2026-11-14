@@ -1,10 +1,16 @@
 import { db } from '@tradinggoose/db'
-import { pendingExecution, systemSettings } from '@tradinggoose/db/schema'
+import { pendingExecution, systemServiceValue, systemSettings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
+import {
+  type CopilotSettings,
+  CopilotSettingsSchema,
+  DEFAULT_COPILOT_SETTINGS,
+} from '@/lib/copilot/settings'
 import { lockPendingExecutionMode } from '@/lib/execution/execution-mode-lock'
 import { DEFAULT_REGISTRATION_MODE, type RegistrationMode } from '@/lib/registration/shared'
 
 export const GLOBAL_SYSTEM_SETTINGS_ID = 'global'
+const COPILOT_SETTINGS_ID = 'copilot:setting:configuration'
 
 export const DEFAULT_SYSTEM_SETTINGS = {
   registrationMode: DEFAULT_REGISTRATION_MODE,
@@ -26,6 +32,7 @@ export type UpsertSystemSettingsInput = {
   allowPromotionCodes?: boolean
   emailDomain?: string
   fromEmailAddress?: string | null
+  copilot?: CopilotSettings
 }
 
 type ResolvedSystemSettingsFlags = {
@@ -45,6 +52,7 @@ export type ResolvedSystemSettings = {
   allowPromotionCodes: boolean
   emailDomain: string
   fromEmailAddress: string | null
+  copilot: CopilotSettings
 }
 
 export class TriggerExecutionBusyError extends Error {
@@ -66,6 +74,17 @@ export async function getSystemSettingsRecord(
     .limit(1)
 
   return row ?? null
+}
+
+export async function getCopilotSettings(
+  store: SystemSettingsReadStore = db
+): Promise<CopilotSettings> {
+  const [row] = await store
+    .select({ value: systemServiceValue.value })
+    .from(systemServiceValue)
+    .where(eq(systemServiceValue.id, COPILOT_SETTINGS_ID))
+    .limit(1)
+  return row ? CopilotSettingsSchema.parse(JSON.parse(row.value)) : DEFAULT_COPILOT_SETTINGS
 }
 
 export function resolveSystemSettingsFlags(
@@ -99,12 +118,16 @@ export function resolveSystemSettingsFlags(
 export async function getResolvedSystemSettings(
   store: SystemSettingsReadStore = db
 ): Promise<ResolvedSystemSettings> {
-  const settings = await getSystemSettingsRecord(store)
+  const [settings, copilot] = await Promise.all([
+    getSystemSettingsRecord(store),
+    getCopilotSettings(store),
+  ])
   const flags = resolveSystemSettingsFlags(settings)
 
   return {
     settings,
     ...flags,
+    copilot,
   }
 }
 
@@ -128,7 +151,24 @@ export async function upsertSystemSettings(
       if (queuedOrRunning) throw new TriggerExecutionBusyError()
     }
 
-    await writeSystemSettings(tx, input, existing)
+    if (Object.keys(input).some((key) => key !== 'copilot'))
+      await writeSystemSettings(tx, input, existing)
+    if (input.copilot !== undefined) {
+      const value = JSON.stringify(CopilotSettingsSchema.parse(input.copilot))
+      await tx
+        .insert(systemServiceValue)
+        .values({
+          id: COPILOT_SETTINGS_ID,
+          service: 'copilot',
+          kind: 'setting',
+          key: 'configuration',
+          value,
+        })
+        .onConflictDoUpdate({
+          target: systemServiceValue.id,
+          set: { value, updatedAt: new Date() },
+        })
+    }
     return getResolvedSystemSettings(tx)
   })
 }
@@ -164,7 +204,6 @@ async function writeSystemSettings(
         existing?.fromEmailAddress,
         DEFAULT_SYSTEM_SETTINGS.fromEmailAddress
       )
-
   await store
     .insert(systemSettings)
     .values({

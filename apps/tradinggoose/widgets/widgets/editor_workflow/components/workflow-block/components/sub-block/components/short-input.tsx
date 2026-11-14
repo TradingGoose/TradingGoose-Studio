@@ -75,7 +75,7 @@ export function ShortInput({
 }: ShortInputProps) {
   const copy = useWorkflowBlockEditorCopy().shortInput
   const [isFocused, setIsFocused] = useState(false)
-  const [streamingLock, setStreamingLock] = useState(false)
+  const [wandPreview, setWandPreview] = useState<string | null>(null)
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [showTags, setShowTags] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -105,15 +105,14 @@ export function ShortInput({
   const reactFlowInstance = useOptionalReactFlow()
 
   const baseValueString = stringifySubBlockValue(propValue)
-  const { value: fieldValue, setValue: setFieldValue } = useWorkflowField(
-    blockId,
-    subBlockId,
-    baseValueString,
-    {
-      enabled: isWorkflowManaged,
-      collaborative: !isNumericInput,
-    }
-  )
+  const {
+    value: fieldValue,
+    setValue: setFieldValue,
+    yText: sourceText,
+  } = useWorkflowField(blockId, subBlockId, baseValueString, {
+    enabled: isWorkflowManaged,
+    collaborative: !isNumericInput,
+  })
   const persistedValue = isWorkflowManaged ? fieldValue : baseValueString
   const commitValue = useCallback(
     (nextValue: string) => {
@@ -158,49 +157,38 @@ export function ShortInput({
     externalValue: persistedValue,
     onCommit: commitValue,
     delayMs: 300,
-    suspendExternalSync: streamingLock || isFocused,
+    suspendExternalSync: isFocused,
     commitOnUnmount: isWorkflowManaged,
   })
 
   const wandHook = useWand({
-    wandConfig: resolvedWandConfig,
+    wandConfig:
+      disabled || readOnly ? { ...resolvedWandConfig, enabled: false } : resolvedWandConfig,
     currentValue: localContent,
+    generationKey: `${workflowRoute?.workflowId ?? ''}:${blockId}:${subBlockId}`,
+    getCurrentValue: () => sourceText?.toString() ?? persistedValue,
     onStreamStart: () => {
-      setStreamingLock(true)
-      setLocalContent('')
+      cancelScheduledCommit()
+      setWandPreview('')
     },
-    onStreamChunk: (chunk) => {
-      setLocalContent((current) => current + chunk)
-    },
+    onStreamChunk: (chunk) => setWandPreview((current) => (current ?? '') + chunk),
     onGeneratedContent: (content) => {
+      if (disabled || readOnly) return false
       setLocalContent(content)
-      if (!disabled) {
-        commitValue(content)
-      }
+      commitValue(content)
     },
+    onGenerationEnd: () => setWandPreview(null),
   })
   const effectiveValue =
-    useWebhookUrl && webhookManagement.webhookUrl ? webhookManagement.webhookUrl : localContent
+    useWebhookUrl && webhookManagement.webhookUrl
+      ? webhookManagement.webhookUrl
+      : (wandPreview ?? localContent)
 
   const numericStep = isNumericInput ? (config.step ?? (config.integer ? 1 : undefined)) : undefined
   const numericInputMode =
     isNumericInput && (config.integer || numericStep === 1 || numericStep === undefined)
       ? 'numeric'
       : 'decimal'
-
-  useEffect(() => {
-    if (wandHook.isStreaming && localContent !== '') {
-      if (!disabled) {
-        commitValue(localContent)
-      }
-    }
-  }, [commitValue, disabled, localContent, wandHook.isStreaming])
-
-  useEffect(() => {
-    if (!wandHook.isStreaming) {
-      setStreamingLock(false)
-    }
-  }, [wandHook.isStreaming])
 
   // Check if this input is API key related
   const isApiKeyField = useMemo(() => {

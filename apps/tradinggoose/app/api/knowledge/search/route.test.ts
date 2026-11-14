@@ -17,8 +17,6 @@ const mocks = vi.hoisted(() => ({
   strategy: vi.fn(),
   embedding: vi.fn(),
   documentNames: vi.fn(),
-  tokenCount: vi.fn(),
-  cost: vi.fn(),
 }))
 
 vi.mock('@/tools/schema-enrichers', () => ({ enrichKBTagFiltersSchema: vi.fn() }))
@@ -27,8 +25,6 @@ vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: mocks.work
 vi.mock('@/app/api/knowledge/utils', () => ({ checkKnowledgeBaseAccess: mocks.access }))
 vi.mock('@/lib/knowledge/tags/service', () => ({ getDocumentTagDefinitions: mocks.tags }))
 vi.mock('@/lib/utils', () => ({ generateRequestId: () => 'test-request-id' }))
-vi.mock('@/lib/tokenization/estimators', () => ({ estimateTokenCount: mocks.tokenCount }))
-vi.mock('@/providers/ai/utils', () => ({ calculateCost: mocks.cost }))
 vi.mock('./utils', () => ({
   handleTagOnlySearch: mocks.tagSearch,
   handleVectorOnlySearch: mocks.vectorSearch,
@@ -43,7 +39,7 @@ const knowledgeBase = {
   id: 'kb-123',
   userId: 'user-123',
   workspaceId: 'workspace-123',
-  embeddingModel: 'text-embedding-3-small',
+  embeddingModel: 'openai/text-embedding-3-small',
   name: 'Test KB',
   deletedAt: null,
 }
@@ -93,7 +89,6 @@ const taggedResults = [
     knowledgeBaseId: 'kb-123',
   },
 ]
-const pricing = { input: 0.02, output: 0, updatedAt: '2025-07-10' }
 
 async function search(body: unknown = validSearchData) {
   const { POST } = await import('./route')
@@ -119,10 +114,14 @@ beforeEach(() => {
   mocks.vectorSearch.mockResolvedValue(searchResults)
   mocks.combinedSearch.mockResolvedValue(searchResults)
   mocks.strategy.mockReturnValue({ useParallel: false, distanceThreshold: 1 })
-  mocks.embedding.mockResolvedValue(embedding)
+  mocks.embedding.mockResolvedValue({
+    embedding,
+    model: knowledgeBase.embeddingModel,
+    tokens: { prompt: 521, total: 521 },
+    usage: { status: 'reported', batches: 1 },
+    cost: { status: 'unavailable' },
+  })
   mocks.documentNames.mockResolvedValue({ doc1: 'Document 1', doc2: 'Document 2' })
-  mocks.tokenCount.mockReturnValue({ count: 521 })
-  mocks.cost.mockReturnValue({ input: 0.00001042, output: 0, total: 0.00001042, pricing })
 })
 
 describe('Knowledge Search API Route', () => {
@@ -225,48 +224,28 @@ describe('Knowledge Search API Route', () => {
       expect(dependency).toHaveBeenCalled()
     })
 
-    describe('Cost tracking', () => {
-      it('includes cost information in a successful response', async () => {
+    describe('Native embedding accounting', () => {
+      it('returns reported tokens independently of unavailable dollars', async () => {
         const { response, data } = await search()
         expect(response.status).toBe(200)
-        expect(data.success).toBe(true)
-        expect(data.data.cost).toBeDefined()
-        expect(data.data.cost.input).toBe(0.00001042)
-        expect(data.data.cost.output).toBe(0)
-        expect(data.data.cost.total).toBe(0.00001042)
-        expect(data.data.cost.tokens).toEqual({ prompt: 521, completion: 0, total: 521 })
-        expect(data.data.cost.model).toBe('text-embedding-3-small')
-        expect(data.data.cost.pricing).toEqual(pricing)
+        expect(data.data.cost).toEqual({
+          status: 'unavailable',
+          tokens: { prompt: 521, total: 521 },
+          model: knowledgeBase.embeddingModel,
+        })
+        expect(data.data.embeddingUsage).toEqual({ status: 'reported', batches: 1 })
       })
-
-      it('calls cost calculation functions with the correct parameters', async () => {
+      it('passes the stored canonical model unchanged', async () => {
         mocks.access.mockResolvedValue({
           hasAccess: true,
-          knowledgeBase: { ...knowledgeBase, embeddingModel: 'text-embedding-ada-002' },
+          knowledgeBase: { ...knowledgeBase, embeddingModel: 'openai/text-embedding-ada-002' },
         })
         await search()
-        expect(mocks.tokenCount).toHaveBeenCalledWith('test search query', 'openai')
-        expect(mocks.embedding).toHaveBeenCalledWith('test search query', 'text-embedding-ada-002')
-        expect(mocks.cost).toHaveBeenCalledWith('text-embedding-ada-002', 521, 0)
-      })
-
-      it('handles cost calculation with a longer query', async () => {
-        mocks.tokenCount.mockReturnValue({
-          count: 1042,
-          confidence: 'high',
-          provider: 'openai',
-          method: 'precise',
-        })
-        mocks.cost.mockReturnValue({ input: 0.00002084, output: 0, total: 0.00002084, pricing })
-        const { response, data } = await search({
-          ...validSearchData,
-          query:
-            'This is a much longer search query with many more tokens to test cost calculation accuracy',
-        })
-        expect(response.status).toBe(200)
-        expect(data.data.cost.input).toBe(0.00002084)
-        expect(data.data.cost.tokens.prompt).toBe(1042)
-        expect(mocks.cost).toHaveBeenCalledWith('text-embedding-3-small', 1042, 0)
+        expect(mocks.embedding).toHaveBeenCalledWith(
+          'test search query',
+          expect.objectContaining({ actorUserId: 'user-123', workspaceId: 'workspace-123' }),
+          'openai/text-embedding-ada-002'
+        )
       })
     })
   })
@@ -555,6 +534,24 @@ describe('Knowledge Search API Route', () => {
       expect(data.data.results[0].documentName).toBe(documentName)
       expect(data.data.results[0].metadata).toEqual(result.tag1 ? { tag1: result.tag1 } : {})
       expect(data.data.results[0].similarity).toBe(1 - result.distance)
+    })
+  })
+  it('retains completed batch accounting through embedding HTTP failures', async () => {
+    mocks.embedding.mockRejectedValueOnce(
+      Object.assign(new Error('second batch failed'), {
+        model: knowledgeBase.embeddingModel,
+        tokens: { prompt: 10, total: 10 },
+        cost: { status: 'unavailable' },
+        embeddingUsage: { status: 'partial', batches: 1 },
+      })
+    )
+    const { POST } = await import('./route')
+    const response = await POST(createMockRequest('POST', validSearchData))
+    expect(response.status).toBe(500)
+    expect(await response.json()).toMatchObject({
+      tokens: { prompt: 10, total: 10 },
+      cost: { status: 'unavailable' },
+      embeddingUsage: { status: 'partial', batches: 1 },
     })
   })
 })

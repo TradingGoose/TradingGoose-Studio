@@ -51,20 +51,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/stores/copilot/store', () => ({
   useCopilotStore: () => mockStoreState,
-  useCopilotStoreApi: () => ({
-    getState: () => mockStoreState,
-    setState: (partial: any) => {
-      const nextState = typeof partial === 'function' ? partial(mockStoreState) : partial
-      mockStoreState = {
-        ...mockStoreState,
-        ...nextState,
-      }
-    },
-  }),
-}))
-
-vi.mock('@/stores/copilot/store-state', () => ({
-  hasUiActiveToolCalls: () => false,
 }))
 
 vi.mock('../copilot-message/copilot-message', () => ({
@@ -108,7 +94,6 @@ function createAssistantMessage(overrides?: Partial<any>) {
         type: 'text' as const,
         content: 'Working through the request.',
         timestamp: 1,
-        itemId: 'text-1',
       },
     ],
     ...overrides,
@@ -168,28 +153,17 @@ describe('Copilot auto-scroll', () => {
 
     mockStoreState = {
       messages: [createAssistantMessage()],
-      chats: [],
-      isLoadingChats: false,
       isSendingMessage: true,
       isAwaitingContinuation: false,
-      abortController: null,
       isAborting: false,
       accessLevel: 'full',
       draft: { text: '', contexts: [] },
-      planTodos: [],
       sendMessage: vi.fn(),
       abortMessage: vi.fn(),
-      setAccessLevel: vi.fn(),
       setDraft: vi.fn(),
       loadChats: vi.fn(async () => {}),
       selectedModel: 'openai/gpt-5.6-sol',
-      setSelectedModel: vi.fn(),
-      currentChat: {
-        reviewSessionId: 'chat-1',
-        latestTurnStatus: 'in_progress',
-      },
       toolCallsById: {},
-      fetchContextUsage: vi.fn(async () => {}),
     }
   })
 
@@ -204,6 +178,41 @@ describe('Copilot auto-scroll', () => {
     })
     vi.useRealTimers()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
+  })
+
+  it('forwards submission acceptance without waiting for the streaming response to finish', async () => {
+    mockStoreState.isSendingMessage = false
+    let finish!: (completed: boolean) => void
+    mockStoreState.sendMessage.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        finish = resolve
+      })
+    )
+    await renderCopilot()
+    const onAccepted = vi.fn()
+    const onCompleted = vi.fn()
+    const sending = mockUserInputProps.onSubmit('Hello', [], [], onAccepted).then(onCompleted)
+
+    mockStoreState.sendMessage.mock.calls[0][1].onAccepted()
+    expect(onAccepted).toHaveBeenCalledOnce()
+    expect(onCompleted).not.toHaveBeenCalled()
+
+    finish(true)
+    await sending
+    expect(onCompleted).toHaveBeenCalledWith(true)
+  })
+
+  it('keeps Stop available while an unacknowledged text-only run awaits cancellation', async () => {
+    mockStoreState = {
+      ...mockStoreState,
+      isSendingMessage: false,
+      isAwaitingContinuation: true,
+      error: 'Try Stop again',
+    }
+    await renderCopilot()
+    expect(mockUserInputProps.isLoading).toBe(true)
+    expect(mockUserInputProps.isAborting).toBe(false)
+    expect(mockUserInputProps.onAbort).toBe(mockStoreState.abortMessage)
   })
 
   it('keeps auto-scroll active when an in-flight programmatic scroll emits scroll events', async () => {
@@ -245,16 +254,31 @@ describe('Copilot auto-scroll', () => {
     expect(scrollToMock).toHaveBeenCalled()
   })
 
-  it('hides unfinished todos when no turn is active', async () => {
+  it('shows acknowledged plan results during a turn and hides them when the turn ends', async () => {
     mockStoreState = {
       ...mockStoreState,
-      isSendingMessage: false,
-      currentChat: { ...mockStoreState.currentChat, latestTurnStatus: 'completed' },
-      planTodos: [{ id: 'old-todo', content: 'Previous turn', completed: false }],
+      messages: [
+        createAssistantMessage({
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              timestamp: 1,
+              toolCall: {
+                id: 'plan',
+                name: 'plan',
+                state: 'success',
+                result: { todoList: ['Inspect'] },
+              },
+            },
+          ],
+        }),
+      ],
     }
-
     await renderCopilot()
+    expect(container.querySelector('[data-testid="todo-list"]')).not.toBeNull()
 
+    mockStoreState = { ...mockStoreState, isSendingMessage: false }
+    await renderCopilot()
     expect(container.querySelector('[data-testid="todo-list"]')).toBeNull()
   })
 

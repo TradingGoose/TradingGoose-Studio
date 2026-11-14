@@ -3,19 +3,13 @@ import { join, resolve, sep } from 'path'
 import { NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { UPLOAD_DIR } from '@/lib/uploads/core/setup'
-import { sanitizeFileKey } from '@/lib/uploads/utils/file-utils'
+import {
+  assertStorageReferenceAccess,
+  StorageAccessError,
+  sanitizeFileKey,
+} from '@/lib/uploads/utils/file-utils'
 
 const logger = createLogger('FilesUtils')
-
-export interface ApiSuccessResponse {
-  success: true
-  [key: string]: any
-}
-
-export interface ApiErrorResponse {
-  error: string
-  message?: string
-}
 
 export interface FileResponse {
   buffer: Buffer
@@ -71,105 +65,9 @@ export const contentTypeMap: Record<string, string> = {
   googleFolder: 'application/vnd.google-apps.folder',
 }
 
-export const binaryExtensions = [
-  'doc',
-  'docx',
-  'xls',
-  'xlsx',
-  'ppt',
-  'pptx',
-  'zip',
-  'png',
-  'jpg',
-  'jpeg',
-  'gif',
-  'pdf',
-]
-
 export function getContentType(filename: string): string {
   const extension = filename.split('.').pop()?.toLowerCase() || ''
   return contentTypeMap[extension] || 'application/octet-stream'
-}
-
-export function isS3Path(path: string): boolean {
-  return path.includes('/api/files/serve/s3/')
-}
-
-export function isAzurePath(path: string): boolean {
-  return path.includes('/api/files/serve/azure/')
-}
-
-export function isVercelPath(path: string): boolean {
-  return path.includes('/api/files/serve/vercel/')
-}
-
-export function isCloudPath(path: string): boolean {
-  return isS3Path(path) || isAzurePath(path) || isVercelPath(path)
-}
-
-export function extractStorageKey(path: string, storageType: 's3' | 'azure' | 'vercel'): string {
-  const prefixes = [`/api/files/serve/${storageType}/`]
-
-  for (const prefix of prefixes) {
-    if (path.includes(prefix)) {
-      const afterPrefix = path.split(prefix)[1]
-      const withoutQuery = afterPrefix.split('?')[0]
-      return decodeURIComponent(withoutQuery)
-    }
-  }
-
-  return path
-}
-
-export function extractS3Key(path: string): string {
-  return extractStorageKey(path, 's3')
-}
-
-export function extractAzureKey(path: string): string {
-  return extractStorageKey(path, 'azure')
-}
-
-export function extractVercelKey(path: string): string {
-  return extractStorageKey(path, 'vercel')
-}
-
-export function extractFilename(path: string): string {
-  let filename: string
-
-  if (path.startsWith('/api/files/serve/')) {
-    filename = path.substring('/api/files/serve/'.length)
-  } else {
-    filename = path.split('/').pop() || path
-  }
-
-  filename = filename
-    .replace(/\.\./g, '')
-    .replace(/\/\.\./g, '')
-    .replace(/\.\.\//g, '')
-
-  if (
-    filename.startsWith('s3/') ||
-    filename.startsWith('azure/') ||
-    filename.startsWith('vercel/')
-  ) {
-    const parts = filename.split('/')
-    const prefix = parts[0]
-    const keyParts = parts.slice(1)
-
-    const sanitizedKeyParts = keyParts
-      .map((part) => part.replace(/\.\./g, '').replace(/^\./g, '').trim())
-      .filter((part) => part.length > 0)
-
-    filename = `${prefix}/${sanitizedKeyParts.join('/')}`
-  } else {
-    filename = filename.replace(/[/\\]/g, '')
-  }
-
-  if (!filename || filename.trim().length === 0) {
-    throw new Error('Invalid or empty filename after sanitization')
-  }
-
-  return filename
 }
 
 function sanitizeFilename(filename: string): string {
@@ -203,6 +101,7 @@ function sanitizeFilename(filename: string): string {
 
 export function findLocalFile(filename: string): string | null {
   try {
+    assertStorageReferenceAccess(filename)
     const sanitizedFilename = sanitizeFilename(filename)
 
     const possiblePaths = [
@@ -300,7 +199,13 @@ export function createFileResponse(file: FileResponse): NextResponse {
 
 export function createErrorResponse(error: Error, status = 500): NextResponse {
   const statusCode =
-    error instanceof FileNotFoundError ? 404 : error instanceof InvalidRequestError ? 400 : status
+    error instanceof StorageAccessError
+      ? 403
+      : error instanceof FileNotFoundError
+        ? 404
+        : error instanceof InvalidRequestError
+          ? 400
+          : status
 
   return NextResponse.json(
     {
@@ -309,10 +214,6 @@ export function createErrorResponse(error: Error, status = 500): NextResponse {
     },
     { status: statusCode }
   )
-}
-
-export function createSuccessResponse(data: ApiSuccessResponse): NextResponse {
-  return NextResponse.json(data)
 }
 
 export function createOptionsResponse(): NextResponse {

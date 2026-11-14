@@ -38,12 +38,18 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 
+function createProgressDisplayNames(text: string) {
+  return {
+    [ClientToolCallState.generating]: { text, icon: Loader2 },
+    [ClientToolCallState.pending]: { text, icon: Loader2 },
+    [ClientToolCallState.executing]: { text, icon: Loader2 },
+  }
+}
+
 function createEntityListMetadata(pluralLabel: string, icon: LucideIcon): BaseClientToolMetadata {
   return {
     displayNames: {
-      [ClientToolCallState.generating]: { text: `Listing ${pluralLabel}`, icon: Loader2 },
-      [ClientToolCallState.pending]: { text: `Listing ${pluralLabel}`, icon: Loader2 },
-      [ClientToolCallState.executing]: { text: `Listing ${pluralLabel}`, icon: Loader2 },
+      ...createProgressDisplayNames(`Listing ${pluralLabel}`),
       [ClientToolCallState.success]: { text: `Listed ${pluralLabel}`, icon },
       [ClientToolCallState.error]: { text: `Failed to list ${pluralLabel}`, icon: XCircle },
       [ClientToolCallState.aborted]: { text: `Aborted listing ${pluralLabel}`, icon: XCircle },
@@ -55,9 +61,7 @@ function createEntityListMetadata(pluralLabel: string, icon: LucideIcon): BaseCl
 function createEntityReadMetadata(label: string): BaseClientToolMetadata {
   return {
     displayNames: {
-      [ClientToolCallState.generating]: { text: `Reading ${label} document`, icon: Loader2 },
-      [ClientToolCallState.pending]: { text: `Reading ${label} document`, icon: Loader2 },
-      [ClientToolCallState.executing]: { text: `Reading ${label} document`, icon: Loader2 },
+      ...createProgressDisplayNames(`Reading ${label} document`),
       [ClientToolCallState.success]: { text: `Read ${label} document`, icon: FileJson },
       [ClientToolCallState.error]: { text: `Failed to read ${label} document`, icon: XCircle },
       [ClientToolCallState.aborted]: { text: `Aborted reading ${label} document`, icon: XCircle },
@@ -80,9 +84,7 @@ function createEntityMutationMetadata(
 
   return {
     displayNames: {
-      [ClientToolCallState.generating]: { text: `${gerund} ${label} document`, icon: Loader2 },
-      [ClientToolCallState.pending]: { text: `${gerund} ${label} document`, icon: Loader2 },
-      [ClientToolCallState.executing]: { text: `${gerund} ${label} document`, icon: Loader2 },
+      ...createProgressDisplayNames(`${gerund} ${label} document`),
       [ClientToolCallState.review]: { text: `Review ${label} changes`, icon },
       [ClientToolCallState.success]: { text: `${past} ${label} document`, icon },
       [ClientToolCallState.error]: {
@@ -108,8 +110,7 @@ function createEntityMutationMetadata(
 export const SERVER_TOOL_METADATA = {
   [CopilotTool.read_workflow_logs]: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Reading workflow logs', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Reading workflow logs', icon: Loader2 },
+      ...createProgressDisplayNames('Reading workflow logs'),
       [ClientToolCallState.success]: { text: 'Read workflow logs', icon: TerminalSquare },
       [ClientToolCallState.error]: { text: 'Failed to read workflow logs', icon: XCircle },
       [ClientToolCallState.rejected]: {
@@ -120,14 +121,11 @@ export const SERVER_TOOL_METADATA = {
         text: 'Aborted reading workflow logs',
         icon: MinusCircle,
       },
-      [ClientToolCallState.pending]: { text: 'Reading workflow logs', icon: Loader2 },
     },
   },
   [CopilotTool.get_available_blocks]: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Exploring workflow blocks', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Exploring workflow blocks', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Exploring workflow blocks', icon: Loader2 },
+      ...createProgressDisplayNames('Exploring workflow blocks'),
       [ClientToolCallState.success]: { text: 'Explored workflow blocks', icon: Blocks },
       [ClientToolCallState.error]: { text: 'Failed to explore workflow blocks', icon: XCircle },
       [ClientToolCallState.aborted]: {
@@ -142,9 +140,7 @@ export const SERVER_TOOL_METADATA = {
   },
   [CopilotTool.get_blocks_metadata]: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Inspecting block shapes', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Inspecting block shapes', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Inspecting block shapes', icon: Loader2 },
+      ...createProgressDisplayNames('Inspecting block shapes'),
       [ClientToolCallState.success]: { text: 'Inspected block shapes', icon: ListFilter },
       [ClientToolCallState.error]: { text: 'Failed to inspect block shapes', icon: XCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted inspecting block shapes', icon: XCircle },
@@ -156,9 +152,7 @@ export const SERVER_TOOL_METADATA = {
   },
   [CopilotTool.get_agent_accessory_catalog]: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Exploring agent accessories', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Exploring agent accessories', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Exploring agent accessories', icon: Loader2 },
+      ...createProgressDisplayNames('Exploring agent accessories'),
       [ClientToolCallState.success]: { text: 'Explored agent accessories', icon: Bot },
       [ClientToolCallState.error]: { text: 'Failed to explore agent accessories', icon: XCircle },
       [ClientToolCallState.aborted]: {
@@ -173,9 +167,7 @@ export const SERVER_TOOL_METADATA = {
   },
   [CopilotTool.get_indicator_catalog]: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Exploring indicator catalog', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Exploring indicator catalog', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Exploring indicator catalog', icon: Loader2 },
+      ...createProgressDisplayNames('Exploring indicator catalog'),
       [ClientToolCallState.success]: { text: 'Explored indicator catalog', icon: BookOpenText },
       [ClientToolCallState.error]: { text: 'Failed to explore indicator catalog', icon: XCircle },
       [ClientToolCallState.aborted]: {
@@ -190,9 +182,7 @@ export const SERVER_TOOL_METADATA = {
   },
   [CopilotTool.get_indicator_metadata]: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Inspecting indicator metadata', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Inspecting indicator metadata', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Inspecting indicator metadata', icon: Loader2 },
+      ...createProgressDisplayNames('Inspecting indicator metadata'),
       [ClientToolCallState.success]: { text: 'Inspected indicator metadata', icon: FileSearch },
       [ClientToolCallState.error]: { text: 'Failed to inspect indicator metadata', icon: XCircle },
       [ClientToolCallState.aborted]: {
@@ -207,9 +197,7 @@ export const SERVER_TOOL_METADATA = {
   },
   search_online: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Searching online', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Searching online', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Searching online', icon: Loader2 },
+      ...createProgressDisplayNames('Searching online'),
       [ClientToolCallState.success]: { text: 'Online search complete', icon: Globe },
       [ClientToolCallState.error]: { text: 'Failed to search online', icon: XCircle },
       [ClientToolCallState.rejected]: { text: 'Skipped online search', icon: MinusCircle },
@@ -218,9 +206,7 @@ export const SERVER_TOOL_METADATA = {
   },
   search_documentation: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Searching documentation', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Searching documentation', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Searching documentation', icon: Loader2 },
+      ...createProgressDisplayNames('Searching documentation'),
       [ClientToolCallState.success]: { text: 'Documentation search complete', icon: BookOpen },
       [ClientToolCallState.error]: { text: 'Failed to search docs', icon: XCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted documentation search', icon: XCircle },
@@ -229,9 +215,7 @@ export const SERVER_TOOL_METADATA = {
   },
   search_listing: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Searching listings', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Searching listings', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Searching listings', icon: Loader2 },
+      ...createProgressDisplayNames('Searching listings'),
       [ClientToolCallState.success]: { text: 'Listing search complete', icon: BarChart3 },
       [ClientToolCallState.error]: { text: 'Failed to search listings', icon: XCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted listing search', icon: XCircle },
@@ -240,12 +224,7 @@ export const SERVER_TOOL_METADATA = {
   },
   [CopilotTool.read_environment_variables]: {
     displayNames: {
-      [ClientToolCallState.generating]: {
-        text: 'Reading environment variables',
-        icon: Loader2,
-      },
-      [ClientToolCallState.pending]: { text: 'Reading environment variables', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Reading environment variables', icon: Loader2 },
+      ...createProgressDisplayNames('Reading environment variables'),
       [ClientToolCallState.success]: { text: 'Read environment variables', icon: KeyRound },
       [ClientToolCallState.error]: { text: 'Failed to read environment variables', icon: XCircle },
       [ClientToolCallState.aborted]: {
@@ -284,9 +263,7 @@ export const SERVER_TOOL_METADATA = {
   },
   [CopilotTool.read_credentials]: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Reading connected integrations', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Reading connected integrations', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Reading connected integrations', icon: Loader2 },
+      ...createProgressDisplayNames('Reading connected integrations'),
       [ClientToolCallState.success]: { text: 'Read connected integrations', icon: Key },
       [ClientToolCallState.error]: {
         text: 'Failed to fetch connected integrations',
@@ -309,9 +286,7 @@ export const SERVER_TOOL_METADATA = {
   rename_knowledge_base: createEntityMutationMetadata('knowledge base', 'rename', Database),
   query_knowledge_base: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Querying knowledge base', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Querying knowledge base', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Querying knowledge base', icon: Loader2 },
+      ...createProgressDisplayNames('Querying knowledge base'),
       [ClientToolCallState.success]: { text: 'Queried knowledge base', icon: Database },
       [ClientToolCallState.error]: { text: 'Failed to query knowledge base', icon: XCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted querying knowledge base', icon: XCircle },
@@ -375,9 +350,7 @@ export const SERVER_TOOL_METADATA = {
   },
   edit_workflow: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Editing your workflow', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Editing your workflow', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Editing your workflow', icon: Loader2 },
+      ...createProgressDisplayNames('Editing your workflow'),
       [ClientToolCallState.success]: { text: 'Edited your workflow', icon: Grid2x2 },
       [ClientToolCallState.error]: { text: 'Failed to edit your workflow', icon: XCircle },
       [ClientToolCallState.review]: { text: 'Review your workflow changes', icon: Grid2x2 },
@@ -391,9 +364,7 @@ export const SERVER_TOOL_METADATA = {
   },
   edit_workflow_block: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Editing your workflow block', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Editing your workflow block', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Editing your workflow block', icon: Loader2 },
+      ...createProgressDisplayNames('Editing your workflow block'),
       [ClientToolCallState.success]: { text: 'Edited your workflow block', icon: Grid2x2 },
       [ClientToolCallState.error]: { text: 'Failed to edit workflow block', icon: XCircle },
       [ClientToolCallState.review]: { text: 'Review your workflow block changes', icon: Grid2x2 },
@@ -425,12 +396,7 @@ export const SERVER_TOOL_METADATA = {
   },
   check_deployment_status: {
     displayNames: {
-      [ClientToolCallState.generating]: {
-        text: 'Checking deployment status',
-        icon: Loader2,
-      },
-      [ClientToolCallState.pending]: { text: 'Checking deployment status', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Checking deployment status', icon: Loader2 },
+      ...createProgressDisplayNames('Checking deployment status'),
       [ClientToolCallState.success]: { text: 'Checked deployment status', icon: Rocket },
       [ClientToolCallState.error]: { text: 'Failed to check deployment status', icon: XCircle },
       [ClientToolCallState.aborted]: {
@@ -572,9 +538,7 @@ export const SERVER_TOOL_METADATA = {
   get_widgets_metadata: createEntityReadMetadata('dashboard widget metadata'),
   list_gdrive_files: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Listing GDrive files', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Listing GDrive files', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Listing GDrive files', icon: Loader2 },
+      ...createProgressDisplayNames('Listing GDrive files'),
       [ClientToolCallState.success]: { text: 'Listed GDrive files', icon: FolderOpen },
       [ClientToolCallState.error]: { text: 'Failed to list GDrive files', icon: XCircle },
       [ClientToolCallState.rejected]: { text: 'Skipped listing GDrive files', icon: MinusCircle },
@@ -582,9 +546,7 @@ export const SERVER_TOOL_METADATA = {
   },
   read_gdrive_file: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Reading Google Drive file', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Reading Google Drive file', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Reading Google Drive file', icon: Loader2 },
+      ...createProgressDisplayNames('Reading Google Drive file'),
       [ClientToolCallState.success]: { text: 'Read Google Drive file', icon: FileText },
       [ClientToolCallState.error]: { text: 'Failed to read Google Drive file', icon: XCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted reading Google Drive file', icon: XCircle },

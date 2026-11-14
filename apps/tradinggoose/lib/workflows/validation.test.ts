@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
-import { buildCopilotServerToolError } from '@/lib/copilot/tools/client/server-tool-response'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
@@ -16,7 +15,11 @@ import { WaitBlock } from '@/blocks/blocks/wait'
 import { YouTubeBlock } from '@/blocks/blocks/youtube'
 import { ZepBlock } from '@/blocks/blocks/zep'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
-import { sanitizeAgentToolsInBlocks, validateWorkflowState } from './validation'
+import {
+  sanitizeAgentToolsInBlocks,
+  validateToolReference,
+  validateWorkflowState,
+} from './validation'
 
 const validationMocks = vi.hoisted(() => ({
   getBlock: vi.fn(),
@@ -39,7 +42,13 @@ const tool = (toolId?: string) => ({
   type: 'custom-tool',
   ...(toolId ? { toolId } : {}),
   schema: { function: { parameters: { type: 'object', properties: {} } } },
-  code: '',
+})
+
+it('validates the shared MCP operation without accepting opaque tool keys as executable IDs', () => {
+  expect(validateToolReference('mcp', 'mcp')).toBeNull()
+  expect(validateToolReference('mcp-550e8400-e29b-41d4-a716-446655440000-search', 'mcp')).toContain(
+    'non-existent tool'
+  )
 })
 
 function workflowWithValues(
@@ -92,12 +101,10 @@ describe('sanitizeAgentToolsInBlocks', () => {
     })
 
     expect(warnings).toEqual(['Block Agent: removed 2 invalid tool(s)'])
-    expect(blocks.agent_1.subBlocks.tools.value).toEqual([
-      { ...tool('custom_tool-1'), usageControl: 'auto' },
-    ])
+    expect(blocks.agent_1.subBlocks.tools.value).toEqual([tool('custom_tool-1')])
   })
 
-  it('keeps unexpected validation details out of structured client errors', async () => {
+  it('keeps unexpected validation details out of structured client errors', () => {
     const cause = new Error('database password=raw-secret')
     validationMocks.getBlock.mockImplementation(() => {
       throw cause
@@ -118,14 +125,9 @@ describe('sanitizeAgentToolsInBlocks', () => {
       'edit_workflow',
       new Error(`Invalid edited workflow: ${result.errors.join('; ')}`)
     )
-    const clientError = await buildCopilotServerToolError(
-      Response.json(serverError.body, { status: serverError.status })
-    )
-
     expect(serverError.status).toBe(422)
-    expect(clientError.message).toContain('Workflow validation could not be completed')
+    expect(serverError.body.error).toContain('Workflow validation could not be completed')
     expect(JSON.stringify(serverError)).not.toContain('raw-secret')
-    expect(clientError.message).not.toContain('raw-secret')
   })
 })
 
@@ -291,13 +293,13 @@ describe('canonical sub-block validation', () => {
   )
 
   it.each([
-    ['gpt-4.1', 1, false],
-    ['gpt-4.1', 15, false],
+    ['openai/gpt-4.1', 1, true],
+    ['openai/gpt-4.1', 15, true],
     ['gpt-4.1', 16, true],
     ['gpt-4.1', '', true],
     ['claude-haiku-4-5', 1, true],
     ['openrouter/custom/manual', 1, true],
-  ])('uses the active output token minimum for %s: %s', (model, maxTokens, valid) => {
+  ])('uses native output token positivity for %s: %s', (model, maxTokens, valid) => {
     validationMocks.getBlock.mockReturnValue(AgentBlock)
     expect(validateWorkflowState(workflowWithValues('agent', { model, maxTokens })).valid).toBe(
       valid

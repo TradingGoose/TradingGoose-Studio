@@ -10,15 +10,6 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  copilotReviewSessions: {
-    id: 'copilot_review_sessions.id',
-    workspaceId: 'copilot_review_sessions.workspace_id',
-    entityKind: 'copilot_review_sessions.entity_kind',
-    entityId: 'copilot_review_sessions.entity_id',
-    draftSessionId: 'copilot_review_sessions.draft_session_id',
-    userId: 'copilot_review_sessions.user_id',
-    conversationId: 'copilot_review_sessions.conversation_id',
-  },
   permissions: {
     permissionType: 'permissions.permission_type',
     userId: 'permissions.user_id',
@@ -66,8 +57,6 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
 import { db } from '@tradinggoose/db'
 import { buildDashboardWidgetDescriptor } from '@/lib/copilot/review-sessions/identity'
 import {
-  loadReviewSessionForUser,
-  loadReviewSessionForUserByConversationId,
   verifyReviewTargetAccess,
   verifyWorkflowAccess,
 } from '@/lib/copilot/review-sessions/permissions'
@@ -100,7 +89,7 @@ function createMockChain(finalResult: any): MockChain {
   return chain
 }
 
-describe('review session permissions', () => {
+describe('review target permissions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -267,134 +256,45 @@ describe('review session permissions', () => {
     })
   })
 
-  it('rejects review-session targets that carry entity ids', async () => {
-    const reviewSessionRow = [
-      {
-        workspaceId: 'workspace-1',
-        entityKind: 'skill',
-        entityId: 'skill-1',
-        draftSessionId: null,
-        userId: 'creator-1',
-      },
-    ]
-
-    mockDb.select.mockReturnValueOnce(createMockChain(reviewSessionRow))
-
-    const result = await verifyReviewTargetAccess(
-      'creator-1',
-      {
-        entityKind: 'skill',
-        entityId: 'skill-1',
-        reviewSessionId: 'review-session-1',
-        workspaceId: 'workspace-1',
-      },
-      'read'
-    )
-
-    expect(result).toEqual({
-      hasAccess: false,
-      userPermission: null,
-      workspaceId: 'workspace-1',
-      isOwner: false,
-    })
-  })
-
-  it('keeps draft review sessions user-owned', async () => {
-    const reviewSessionRow = [
-      {
-        workspaceId: 'workspace-1',
-        entityKind: 'skill',
-        entityId: null,
-        draftSessionId: 'draft-1',
-        userId: 'creator-1',
-      },
-    ]
-
-    mockDb.select.mockReturnValueOnce(createMockChain(reviewSessionRow))
-
+  it('refuses an entityless target without reading conversation or workspace rows', async () => {
     const result = await verifyReviewTargetAccess(
       'collaborator-1',
-      {
-        entityKind: 'skill',
-        entityId: null,
-        draftSessionId: 'draft-1',
-        reviewSessionId: 'review-session-1',
-        workspaceId: 'workspace-1',
-      },
-      'read'
+      { entityKind: 'skill', entityId: null, workspaceId: 'workspace-1' },
+      'write'
     )
-
-    expect(result).toEqual({
-      hasAccess: false,
-      userPermission: null,
-      workspaceId: 'workspace-1',
-      isOwner: false,
-    })
+    expect(result.hasAccess).toBe(false)
+    expect(mockDb.select).not.toHaveBeenCalled()
+    expect(mockResolveEntityWorkspaceId).not.toHaveBeenCalled()
   })
 
-  it('keeps review sessions creator-owned when loading by reviewSessionId', async () => {
-    const reviewSessionRow = [
-      {
-        id: 'review-session-1',
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        userId: 'creator-1',
-        model: 'claude-4.5-sonnet',
-      },
-    ]
-
-    mockDb.select.mockReturnValueOnce(createMockChain(reviewSessionRow))
-
-    const result = await loadReviewSessionForUser('review-session-1', 'collaborator-1')
-
-    expect(result).toBeNull()
+  it('preserves read-only workspace permission for saved entity writes', async () => {
+    mockResolveEntityWorkspaceId.mockResolvedValueOnce('workspace-1')
+    mockDb.select
+      .mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
+      .mockReturnValueOnce(createMockChain([{ permissionType: 'read' }]))
+    await expect(
+      verifyReviewTargetAccess(
+        'collaborator-1',
+        { entityKind: 'skill', entityId: 'skill-1', workspaceId: 'workspace-1' },
+        'write'
+      )
+    ).resolves.toMatchObject({ hasAccess: false, userPermission: 'read' })
   })
 
-  it('loads an accessible review session by conversation id', async () => {
-    const reviewSessionRow = [
-      {
-        id: 'review-session-1',
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        userId: 'user-1',
-        model: 'claude-4.5-sonnet',
-        conversationId: 'conversation-1',
-      },
-    ]
-
-    mockDb.select.mockReturnValueOnce(createMockChain(reviewSessionRow))
-
-    const result = await loadReviewSessionForUserByConversationId(
-      'conversation-1',
-      'copilot',
-      'user-1'
-    )
-
-    expect(result).toEqual(reviewSessionRow[0])
-  })
-
-  it('keeps workflow review sessions creator-owned when loading by reviewSessionId', async () => {
-    const reviewSessionRow = [
-      {
-        id: 'review-session-1',
-        workspaceId: 'workspace-1',
-        entityKind: 'workflow',
-        entityId: 'workflow-1',
-        draftSessionId: null,
-        userId: 'creator-1',
-        model: 'claude-4.5-sonnet',
-      },
-    ]
-
-    mockDb.select.mockReturnValueOnce(createMockChain(reviewSessionRow))
-
-    const result = await loadReviewSessionForUser('review-session-1', 'collaborator-1')
-
-    expect(result).toBeNull()
+  it('refuses another actor dashboard target before reading any entity or workspace', async () => {
+    await expect(
+      verifyReviewTargetAccess(
+        'collaborator-1',
+        {
+          entityKind: 'dashboard_layout',
+          entityId: 'layout-1',
+          workspaceId: 'workspace-1',
+          ownerUserId: 'owner-1',
+        },
+        'read'
+      )
+    ).resolves.toMatchObject({ hasAccess: false })
+    expect(mockDb.select).not.toHaveBeenCalled()
   })
 
   it('treats canonical workspace owners as workflow admins without permission rows', async () => {

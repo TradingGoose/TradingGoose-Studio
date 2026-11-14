@@ -1,4 +1,9 @@
 import { NextRequest } from 'next/server'
+
+vi.mock('@/lib/uploads/contexts/workspace', () => ({
+  resolveAuthorizedWorkspaceFileReference: async () => null,
+}))
+
 /**
  * Tests for file serve API route
  *
@@ -36,11 +41,6 @@ function createFileUtilsMock(
       })
     }),
     getContentType: vi.fn().mockReturnValue(contentType),
-    isS3Path: vi.fn().mockReturnValue(false),
-    isAzurePath: vi.fn().mockReturnValue(false),
-    extractS3Key: vi.fn().mockImplementation((path) => path.split('/').pop()),
-    extractAzureKey: vi.fn().mockImplementation((path) => path.split('/').pop()),
-    extractFilename: vi.fn().mockImplementation((path) => path.split('/').pop()),
     findLocalFile: vi.fn().mockReturnValue(localFilePath),
   }
 }
@@ -186,11 +186,6 @@ describe('File Serve API Route', () => {
         })
       }),
       getContentType: vi.fn().mockReturnValue('text/plain'),
-      isS3Path: vi.fn().mockReturnValue(false),
-      isAzurePath: vi.fn().mockReturnValue(false),
-      extractS3Key: vi.fn(),
-      extractAzureKey: vi.fn(),
-      extractFilename: vi.fn(),
       findLocalFile: vi.fn().mockReturnValue(null),
     }))
 
@@ -278,48 +273,10 @@ describe('File Serve API Route', () => {
       })
     })
 
-    it('should serve a signed Vercel download without hybrid auth', async () => {
-      const downloadCopilotFileMock = vi.fn().mockResolvedValue(Buffer.from('signed file'))
-
-      vi.doMock('@/lib/uploads', () => ({
-        CopilotFiles: {
-          downloadCopilotFile: downloadCopilotFileMock,
-        },
-        isUsingCloudStorage: vi.fn().mockReturnValue(false),
-      }))
-
-      vi.doMock('@/lib/uploads/core/storage-service', () => ({
-        downloadFile: vi.fn(),
-      }))
-
-      const { createVercelDownloadToken } = await import(
-        '@/lib/uploads/providers/vercel/download-token'
-      )
-      const token = await createVercelDownloadToken(
-        { key: 'copilot-image.png', context: 'copilot' },
-        300
-      )
-
-      const req = new NextRequest(
-        `http://localhost:3000/api/files/serve/vercel/copilot-image.png?downloadToken=${encodeURIComponent(token)}&context=general`
-      )
-      const params = { path: ['vercel', 'copilot-image.png'] }
-      const { GET } = await import('@/app/api/files/serve/[...path]/route')
-
-      const response = await GET(req, { params: Promise.resolve(params) })
-
-      expect(response.status).toBe(200)
-      expect(checkHybridAuthMock).not.toHaveBeenCalled()
-      expect(downloadCopilotFileMock).toHaveBeenCalledWith('copilot-image.png')
-    })
-
     it('should serve a signed general Vercel download through storage service without hybrid auth', async () => {
       const downloadFileMock = vi.fn().mockResolvedValue(Buffer.from('signed file'))
 
       vi.doMock('@/lib/uploads', () => ({
-        CopilotFiles: {
-          downloadCopilotFile: vi.fn(),
-        },
         isUsingCloudStorage: vi.fn().mockReturnValue(false),
       }))
 
@@ -359,9 +316,6 @@ describe('File Serve API Route', () => {
       })
 
       vi.doMock('@/lib/uploads', () => ({
-        CopilotFiles: {
-          downloadCopilotFile: vi.fn(),
-        },
         isUsingCloudStorage: vi.fn().mockReturnValue(false),
       }))
 

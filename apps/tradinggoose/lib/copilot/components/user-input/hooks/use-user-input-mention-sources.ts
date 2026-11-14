@@ -8,6 +8,7 @@ import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import { getLocalizedBlockNameWithCopy } from '@/i18n/workflow-inspector-core'
 import { useWorkflowInspectorMessages } from '@/i18n/workspace-widget-hooks'
+import { listNativeThreads } from '@/stores/copilot/native-api'
 import {
   COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS,
   isCopilotWorkspaceEntityMentionOption,
@@ -139,28 +140,12 @@ export function useUserInputMentionSources({
     const targetWorkspaceId = workspaceId
     try {
       setPastChatsLoading(true)
-      const response = await fetch(
-        `/api/copilot/chat?workspaceId=${encodeURIComponent(targetWorkspaceId)}`
-      )
-
-      if (!response.ok) {
-        throw new Error(`Failed to load chats: ${response.status}`)
-      }
-
-      const data = await response.json()
-      const items = Array.isArray(data?.chats) ? data.chats : []
-
-      const mapped = items.flatMap((item: any) => {
-        const title = toTrimmedString(item.title)
-        return item.reviewSessionId
-          ? [
-              {
-                reviewSessionId: item.reviewSessionId,
-                title: title || null,
-              },
-            ]
-          : []
-      })
+      const threads = await listNativeThreads(targetWorkspaceId)
+      const mapped: PastChatItem[] = threads.map((thread) => ({
+        threadId: thread.id,
+        workspaceId: targetWorkspaceId,
+        title: toTrimmedString(thread.title) || null,
+      }))
       if (!workspaceScopeIsActive(targetScope)) return
       setLoadedPastChats(mapped)
     } catch (error) {

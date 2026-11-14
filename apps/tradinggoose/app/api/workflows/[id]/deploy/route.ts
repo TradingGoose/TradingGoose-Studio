@@ -5,6 +5,7 @@ import {
   hasChatTriggerBlocks,
   removePublishedChatsForWorkflowTx,
 } from '@/lib/chat/published-deployment'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { deployWorkflow, requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
@@ -122,6 +123,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       hasReusableApiKey,
     })
   } catch (error: any) {
+    if (error instanceof NativeTargetError) return createErrorResponse(error.message, error.status)
     logger.error(`[${requestId}] Error fetching deployment info: ${id}`, error)
     const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
     if (realtimeResponse) return realtimeResponse
@@ -147,14 +149,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const userId = workflowData!.userId
 
+    let nativeContext: unknown
     let providedApiKey: string | null = null
     try {
       const parsed = await request.json()
+      nativeContext = parsed?.native
       if (parsed && typeof parsed.apiKey === 'string' && parsed.apiKey.trim().length > 0) {
         providedApiKey = parsed.apiKey.trim()
       }
     } catch (_err) {}
 
+    if (nativeContext !== undefined) {
+      if (!session?.user?.id) return createErrorResponse('Unauthorized', 401)
+      const { authorizeNativeWorkflowDeploymentEffect } = await import(
+        '@/lib/copilot/native/workflow-effects'
+      )
+      await authorizeNativeWorkflowDeploymentEffect(
+        session.user.id,
+        id,
+        nativeContext,
+        'deploy',
+        request.signal
+      )
+    }
     logger.debug(`[${requestId}] Validating API key for deployment`)
 
     let keyInfo: { name: string; type: 'personal' | 'workspace' } | null = null
@@ -289,6 +306,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       deployedAt,
     })
   } catch (error: any) {
+    if (error instanceof NativeTargetError) return createErrorResponse(error.message, error.status)
     logger.error(`[${requestId}] Error deploying workflow: ${id}`, {
       error: error.message,
       stack: error.stack,
@@ -312,15 +330,30 @@ export async function DELETE(
   try {
     logger.debug(`[${requestId}] Undeploying workflow: ${id}`)
 
-    const { error, workflow: workflowData } = await validateWorkflowPermissions(
-      id,
-      requestId,
-      'admin'
-    )
+    const {
+      error,
+      session,
+      workflow: workflowData,
+    } = await validateWorkflowPermissions(id, requestId, 'admin')
     if (error) {
       return createErrorResponse(error.message, error.status)
     }
 
+    const raw = await request.text()
+    const nativeContext: unknown = raw ? JSON.parse(raw)?.native : undefined
+    if (nativeContext !== undefined) {
+      if (!session?.user?.id) return createErrorResponse('Unauthorized', 401)
+      const { authorizeNativeWorkflowDeploymentEffect } = await import(
+        '@/lib/copilot/native/workflow-effects'
+      )
+      await authorizeNativeWorkflowDeploymentEffect(
+        session.user.id,
+        id,
+        nativeContext,
+        'undeploy',
+        request.signal
+      )
+    }
     await db.transaction(async (tx) => {
       if (hasChatTriggerBlocks(workflowData?.deployedState)) {
         await removePublishedChatsForWorkflowTx(tx, id)
@@ -357,6 +390,7 @@ export async function DELETE(
       apiKey: null,
     })
   } catch (error: any) {
+    if (error instanceof NativeTargetError) return createErrorResponse(error.message, error.status)
     logger.error(`[${requestId}] Error undeploying workflow: ${id}`, error)
     return createErrorResponse(error.message || 'Failed to undeploy workflow', 500)
   }

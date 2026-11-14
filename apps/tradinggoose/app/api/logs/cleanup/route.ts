@@ -11,8 +11,8 @@ import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { getTierLogRetentionDays } from '@/lib/billing/tiers'
 import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
+import { deleteExecutionLogAssets } from '@/lib/logs/execution/cleanup'
 import { snapshotService } from '@/lib/logs/execution/snapshot/service'
-import { isUsingCloudStorage, StorageService } from '@/lib/uploads'
 
 export const dynamic = 'force-dynamic'
 
@@ -123,13 +123,6 @@ export async function GET(request: NextRequest) {
     const results = {
       enhancedLogs: {
         total: 0,
-        archived: 0,
-        archiveFailed: 0,
-        deleted: 0,
-        deleteFailed: 0,
-      },
-      files: {
-        total: 0,
         deleted: 0,
         deleteFailed: 0,
       },
@@ -167,6 +160,7 @@ export async function GET(request: NextRequest) {
         const oldEnhancedLogs = await db
           .select({
             id: workflowExecutionLogs.id,
+            workspaceId: workflowExecutionLogs.workspaceId,
             workflowId: workflowExecutionLogs.workflowId,
             executionId: workflowExecutionLogs.executionId,
             stateSnapshotId: workflowExecutionLogs.stateSnapshotId,
@@ -202,74 +196,17 @@ export async function GET(request: NextRequest) {
         results.enhancedLogs.total += oldEnhancedLogs.length
 
         for (const log of oldEnhancedLogs) {
-          const today = new Date().toISOString().split('T')[0]
-
-          const enhancedLogKey = `archived-enhanced-logs/${today}/${log.id}.json`
-          const enhancedLogData = JSON.stringify({
-            ...log,
-            archivedAt: new Date().toISOString(),
-            logType: 'enhanced',
-          })
-
           try {
-            await StorageService.uploadFile({
-              file: Buffer.from(enhancedLogData),
-              fileName: enhancedLogKey,
-              contentType: 'application/json',
-              context: 'general',
-              metadata: {
-                logId: String(log.id),
-                workflowId: String(log.workflowId),
-                executionId: String(log.executionId),
-                logType: 'enhanced',
-                archivedAt: new Date().toISOString(),
-              },
-            })
-
-            results.enhancedLogs.archived++
-
-            if (isUsingCloudStorage() && log.files && Array.isArray(log.files)) {
-              for (const file of log.files) {
-                if (file && typeof file === 'object' && file.key) {
-                  results.files.total++
-                  try {
-                    await StorageService.deleteFile({
-                      key: file.key,
-                      context: 'general',
-                    })
-                    results.files.deleted++
-                    logger.info(`Deleted file: ${file.key}`)
-                  } catch (fileError) {
-                    results.files.deleteFailed++
-                    logger.error(`Failed to delete file ${file.key}:`, { fileError })
-                  }
-                }
-              }
-            }
-
-            try {
-              const deleteResult = await db
-                .delete(workflowExecutionLogs)
-                .where(and(eq(workflowExecutionLogs.id, log.id), completedLogReadyForRetention))
-                .returning({ id: workflowExecutionLogs.id })
-
-              if (deleteResult.length > 0) {
-                results.enhancedLogs.deleted++
-              } else {
-                results.enhancedLogs.deleteFailed++
-                logger.warn(
-                  `Failed to delete enhanced log ${log.id} after archiving: No rows deleted`
-                )
-              }
-            } catch (deleteError) {
-              results.enhancedLogs.deleteFailed++
-              logger.error(`Error deleting enhanced log ${log.id} after archiving:`, {
-                deleteError,
-              })
-            }
-          } catch (archiveError) {
-            results.enhancedLogs.archiveFailed++
-            logger.error(`Failed to archive enhanced log ${log.id}:`, { archiveError })
+            await deleteExecutionLogAssets(log)
+            const deleted = await db
+              .delete(workflowExecutionLogs)
+              .where(and(eq(workflowExecutionLogs.id, log.id), completedLogReadyForRetention))
+              .returning({ id: workflowExecutionLogs.id })
+            if (!deleted.length) continue
+            results.enhancedLogs.deleted++
+          } catch (error) {
+            results.enhancedLogs.deleteFailed++
+            logger.error(`Failed to clean up execution ${log.id}`, { error })
           }
         }
 
@@ -301,9 +238,9 @@ export async function GET(request: NextRequest) {
     const reachedLimit = batchesProcessed >= MAX_BATCHES && hasMoreLogs
 
     return NextResponse.json({
-      message: `Processed ${batchesProcessed} enhanced log batches (${results.enhancedLogs.total} logs, ${results.files.total} files) in ${timeElapsed.toFixed(2)}s${reachedLimit ? ' (batch limit reached)' : ''}`,
+      message: `Processed ${batchesProcessed} enhanced log batches (${results.enhancedLogs.total} logs) in ${timeElapsed.toFixed(2)}s${reachedLimit ? ' (batch limit reached)' : ''}`,
       results,
-      complete: !hasMoreLogs,
+      complete: !hasMoreLogs && results.enhancedLogs.deleteFailed === 0,
       batchLimitReached: reachedLimit,
     })
   } catch (error) {

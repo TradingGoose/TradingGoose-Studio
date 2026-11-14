@@ -1,7 +1,12 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { generateEmbeddings } from '@/lib/embeddings/utils'
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  type EmbeddingScope,
+  generateEmbeddings,
+} from '@/lib/embeddings/utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getFailureAccounting } from '@/lib/mastra/errors'
 import { TextChunker } from './text-chunker'
 import type { DocChunk, DocsChunkerOptions } from './types'
 
@@ -42,7 +47,7 @@ export class DocsChunker {
   /**
    * Process all .mdx files in the docs directory
    */
-  async chunkAllDocs(docsPath: string): Promise<DocChunk[]> {
+  async chunkAllDocs(docsPath: string, scope: EmbeddingScope): Promise<DocChunk[]> {
     const allChunks: DocChunk[] = []
 
     try {
@@ -50,27 +55,29 @@ export class DocsChunker {
       logger.info(`Found ${mdxFiles.length} .mdx files to process`)
 
       for (const filePath of mdxFiles) {
-        try {
-          const chunks = await this.chunkMdxFile(filePath, docsPath)
-          allChunks.push(...chunks)
-          logger.info(`Processed ${filePath}: ${chunks.length} chunks`)
-        } catch (error) {
-          logger.error(`Error processing ${filePath}:`, error)
-        }
+        const chunks = await this.chunkMdxFile(filePath, docsPath, scope)
+        allChunks.push(...chunks)
+        logger.info(`Processed ${filePath}: ${chunks.length} chunks`)
       }
 
       logger.info(`Total chunks generated: ${allChunks.length}`)
       return allChunks
     } catch (error) {
-      logger.error('Error processing docs:', error)
-      throw error
+      logger.error('Error processing docs:', { error, ...getFailureAccounting(error) })
+      const failure = error instanceof Error ? error : new Error(String(error))
+      Object.assign(failure, { completedDocChunks: allChunks })
+      throw failure
     }
   }
 
   /**
    * Process a single .mdx file
    */
-  async chunkMdxFile(filePath: string, basePath: string): Promise<DocChunk[]> {
+  async chunkMdxFile(
+    filePath: string,
+    basePath: string,
+    scope: EmbeddingScope
+  ): Promise<DocChunk[]> {
     const content = await fs.readFile(filePath, 'utf-8')
     const relativePath = path.relative(basePath, filePath)
 
@@ -88,8 +95,22 @@ export class DocsChunker {
 
     // Generate embeddings for all chunks at once (batch processing)
     logger.info(`Generating embeddings for ${textChunks.length} chunks in ${relativePath}`)
-    const embeddings = textChunks.length > 0 ? await generateEmbeddings(textChunks) : []
-    const embeddingModel = 'text-embedding-3-small'
+    const result =
+      textChunks.length > 0
+        ? await generateEmbeddings(textChunks, {
+            ...scope,
+            runId: scope.runId ? `${scope.runId}:${relativePath}` : undefined,
+          })
+        : undefined
+    const embeddings = result?.embeddings ?? []
+    const embeddingModel = DEFAULT_EMBEDDING_MODEL
+    if (result)
+      logger.info('Documentation embedding usage', {
+        model: result.model,
+        tokens: result.tokens,
+        usage: result.usage,
+        cost: result.cost,
+      })
 
     // Convert to DocChunk objects with header context and embeddings
     const chunks: DocChunk[] = []

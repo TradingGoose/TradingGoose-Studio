@@ -1,4 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { getFailureAccounting } from '@/lib/mastra/errors'
+import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import { getBlock } from '@/blocks/index'
 import { withBlockToolExecutionContext } from '@/executor/handlers/tool-execution-context'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
@@ -23,7 +25,7 @@ export class GenericBlockHandler implements BlockHandler {
   ): Promise<any> {
     logger.info(`Executing block: ${block.id} (Type: ${block.metadata?.id})`)
 
-    const isMcpTool = block.config.tool?.startsWith('mcp-')
+    const isMcpTool = block.config.tool === 'mcp'
     let tool = null
 
     if (!isMcpTool) {
@@ -80,6 +82,7 @@ export class GenericBlockHandler implements BlockHandler {
           blockName: block.metadata?.name || 'Unnamed Block',
           output: result.output || {},
           timestamp: new Date().toISOString(),
+          ...getFailureAccounting(result.output),
         })
 
         throw error
@@ -93,16 +96,15 @@ export class GenericBlockHandler implements BlockHandler {
       }
 
       if (cost) {
-        return {
-          ...output,
-          cost: {
-            input: cost.input,
-            output: cost.output,
-            total: cost.total,
-          },
-          tokens: cost.tokens,
-          model: cost.model,
-        }
+        const { tokens, model, ...nativeCost } = cost
+        const normalized = { ...output, cost: nativeCost, tokens, model }
+        const facts = getInferenceFacts(output)
+        return facts
+          ? withInferenceFacts(normalized, {
+              ...facts,
+              generatedFields: [...facts.generatedFields, 'tokens', 'model'],
+            })
+          : normalized
       }
 
       return output

@@ -3,6 +3,8 @@ import {
   KNOWLEDGE_BASE_DOCUMENT_FORMAT,
   WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
+import { getFailureAccounting } from '@/lib/mastra/errors'
+import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
@@ -58,6 +60,13 @@ const setEnvironmentVariablesExecute = vi.fn(async () => ({
   message: 'ok',
 }))
 const searchListingExecute = vi.fn(async () => ({ results: [] }))
+const docsExecute = vi.fn(
+  async (_args?: unknown, _context?: unknown): Promise<any> => ({ results: [] })
+)
+const docsSelect = vi.fn()
+const docsEmbedding = vi.fn()
+vi.mock('@tradinggoose/db', () => ({ db: { select: docsSelect } }))
+vi.mock('@/lib/embeddings/utils', () => ({ generateSearchEmbedding: docsEmbedding }))
 const noopEntityExecute = vi.fn(async () => ({}))
 
 const entityTool = (name: string, execute = noopEntityExecute) => ({ name, execute })
@@ -95,7 +104,7 @@ vi.mock('@/lib/copilot/tools/server/indicators/get-indicator-metadata', () => ({
 vi.mock('@/lib/copilot/tools/server/docs/search-documentation', () => ({
   searchDocumentationServerTool: {
     name: 'search_documentation',
-    execute: vi.fn(async () => ({ results: [] })),
+    execute: docsExecute,
   },
 }))
 vi.mock('@/lib/copilot/tools/server/listing/search-listing', () => ({
@@ -214,14 +223,15 @@ vi.mock('@/lib/copilot/tools/server/workflow/read-workflow-logs', () => ({
     execute: readWorkflowLogsExecute,
   },
 }))
-let getToolContract: typeof import('@/lib/copilot/registry').getToolContract
+let ToolArgSchemas: typeof import('@/lib/copilot/registry').ToolArgSchemas
+let ToolResultSchemas: typeof import('@/lib/copilot/registry').ToolResultSchemas
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
 let getMcpServerToolIds: typeof import('@/lib/copilot/tools/server/router').getMcpServerToolIds
 let isWorkspaceAgnosticServerTool: typeof import('@/lib/copilot/tools/server/router').isWorkspaceAgnosticServerTool
 let routeExecution: typeof import('@/lib/copilot/tools/server/router').routeExecution
 
 beforeAll(async () => {
-  ;({ getToolContract, isToolId } = await import('@/lib/copilot/registry'))
+  ;({ ToolArgSchemas, ToolResultSchemas, isToolId } = await import('@/lib/copilot/registry'))
   ;({ getMcpServerToolIds, isWorkspaceAgnosticServerTool, routeExecution } = await import(
     '@/lib/copilot/tools/server/router'
   ))
@@ -240,6 +250,9 @@ beforeEach(() => {
   readOAuthCredentialsExecute.mockClear()
   setEnvironmentVariablesExecute.mockClear()
   searchListingExecute.mockClear()
+  docsExecute.mockReset().mockResolvedValue({ results: [] })
+  docsSelect.mockReset()
+  docsEmbedding.mockReset()
   noopEntityExecute.mockClear()
 })
 
@@ -251,7 +264,6 @@ describe('copilot contract registry', () => {
     expect(isToolId('get_indicator_catalog')).toBe(true)
     expect(isToolId('get_indicator_metadata')).toBe(true)
     expect(isToolId('unknown_tool')).toBe(false)
-    expect(getToolContract('unknown_tool')).toBeUndefined()
   })
 
   it('uses an explicit external MCP tool list', () => {
@@ -287,7 +299,7 @@ describe('copilot contract registry', () => {
       'read_credentials',
       'read_oauth_credentials',
     ] as const) {
-      const args = getToolContract(toolName)?.args
+      const args = ToolArgSchemas[toolName]
       expect(args?.parse({ scope: 'personal' })).toEqual({
         scope: 'personal',
       })
@@ -301,26 +313,28 @@ describe('copilot contract registry', () => {
   })
 
   it('reuses the shared block schemas in the central contract', () => {
-    const contract = getToolContract('get_available_blocks')
+    const args = ToolArgSchemas.get_available_blocks
+    const result = ToolResultSchemas.get_available_blocks
 
-    expect(contract?.args.parse({})).toEqual({})
-    expect(contract?.args.parse({ query: 'OHLCV indicator' })).toEqual({
+    expect(args.parse({})).toEqual({})
+    expect(args.parse({ query: 'OHLCV indicator' })).toEqual({
       query: 'OHLCV indicator',
     })
-    expect(contract?.args.parse({ category: 'tool' })).toEqual({ category: 'tool' })
-    expect(() => contract?.args.parse({ unsupported: true })).toThrow()
-    expect(contract?.result.parse({ blocks: [] })).toEqual({ blocks: [] })
+    expect(args.parse({ category: 'tool' })).toEqual({ category: 'tool' })
+    expect(() => args.parse({ unsupported: true })).toThrow()
+    expect(result.parse({ blocks: [] })).toEqual({ blocks: [] })
   })
 
   it('exposes the agent accessory catalog contract', () => {
-    const contract = getToolContract('get_agent_accessory_catalog')
+    const args = ToolArgSchemas.get_agent_accessory_catalog
+    const result = ToolResultSchemas.get_agent_accessory_catalog
 
-    expect(contract?.args.parse({ workspaceId: 'workspace-123' })).toEqual({
+    expect(args.parse({ workspaceId: 'workspace-123' })).toEqual({
       workspaceId: 'workspace-123',
     })
-    expect(contract?.result.parse(agentAccessoryCatalogResult)).toEqual(agentAccessoryCatalogResult)
-    expect(() => contract?.args.parse({})).toThrow()
-    expect(() => contract?.args.parse({ entityId: 'workflow-123' })).toThrow()
+    expect(result.parse(agentAccessoryCatalogResult)).toEqual(agentAccessoryCatalogResult)
+    expect(() => args.parse({})).toThrow()
+    expect(() => args.parse({ entityId: 'workflow-123' })).toThrow()
   })
 
   it('enforces workflow identity in workflow read/list results', () => {
@@ -339,19 +353,17 @@ describe('copilot contract registry', () => {
       },
     }
 
-    expect(getToolContract('read_workflow')?.result.parse(workflowReadResult)).toEqual(
-      workflowReadResult
-    )
+    expect(ToolResultSchemas.read_workflow.parse(workflowReadResult)).toEqual(workflowReadResult)
 
     expect(() =>
-      getToolContract('read_workflow')?.result.parse({
+      ToolResultSchemas.read_workflow.parse({
         ...workflowReadResult,
         workflowSummary: undefined,
       })
     ).toThrow()
 
     expect(() =>
-      getToolContract('read_workflow')?.result.parse({
+      ToolResultSchemas.read_workflow.parse({
         entityKind: 'workflow',
         entityId: 'workflow-123',
         entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
@@ -372,7 +384,7 @@ describe('copilot contract registry', () => {
     ).toThrow()
 
     expect(
-      getToolContract('list_workflows')?.result.parse({
+      ToolResultSchemas.list_workflows.parse({
         entityKind: 'workflow',
         entities: [{ entityId: 'workflow-123', entityName: 'Workflow 1' }],
         count: 1,
@@ -395,13 +407,13 @@ describe('copilot contract registry', () => {
       entityDocument: JSON.stringify({ layout: {}, widgets: {}, colorPairs: { pairs: [] } }),
     }
 
-    expect(getToolContract('read_layout')?.result.parse(envelope)).toEqual(envelope)
-    expect(getToolContract('create_layout')?.result.parse({ success: true, ...envelope })).toEqual({
+    expect(ToolResultSchemas.read_layout.parse(envelope)).toEqual(envelope)
+    expect(ToolResultSchemas.create_layout.parse({ success: true, ...envelope })).toEqual({
       success: true,
       ...envelope,
     })
     expect(() =>
-      getToolContract('create_layout')?.result.parse({
+      ToolResultSchemas.create_layout.parse({
         success: true,
         entityKind: 'dashboard_layout',
         entityId: 'layout-1',
@@ -411,7 +423,7 @@ describe('copilot contract registry', () => {
       })
     ).toThrow()
     for (const toolName of ['edit_layout', 'edit_widget'] as const) {
-      expect(getToolContract(toolName)?.result.parse({ success: true, ...envelope })).toEqual({
+      expect(ToolResultSchemas[toolName].parse({ success: true, ...envelope })).toEqual({
         success: true,
         ...envelope,
       })
@@ -427,17 +439,15 @@ describe('copilot contract registry', () => {
       workspaceId: 'workspace-123',
     }
 
-    expect(getToolContract('rename_workflow')?.result.parse(result)).toEqual(result)
+    expect(ToolResultSchemas.rename_workflow.parse(result)).toEqual(result)
   })
 
   it('accepts explicit entity ids on workflow execution tools', () => {
-    expect(() => getToolContract('run_workflow')?.args.parse({})).toThrow()
-    expect(() => getToolContract('read_workflow')?.args.parse({})).toThrow()
-    expect(() =>
-      getToolContract('run_workflow')?.args.parse({ entityId: 'workflow-123' })
-    ).toThrow()
+    expect(() => ToolArgSchemas.run_workflow.parse({})).toThrow()
+    expect(() => ToolArgSchemas.read_workflow.parse({})).toThrow()
+    expect(() => ToolArgSchemas.run_workflow.parse({ entityId: 'workflow-123' })).toThrow()
     expect(
-      getToolContract('run_workflow')?.args.parse({
+      ToolArgSchemas.run_workflow.parse({
         entityId: 'workflow-123',
         triggerBlockId: 'trigger-1',
       })
@@ -446,7 +456,7 @@ describe('copilot contract registry', () => {
       triggerBlockId: 'trigger-1',
     })
     expect(
-      getToolContract('edit_workflow_variable')?.args.parse({
+      ToolArgSchemas.edit_workflow_variable.parse({
         entityId: 'workflow-123',
         entityDocument: '{"variables":[]}',
         documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
@@ -479,11 +489,11 @@ describe('copilot contract registry', () => {
       embeddingDimension: 1536,
     }
 
+    expect(ToolArgSchemas.list_knowledge_bases.parse({ workspaceId: 'workspace-123' })).toEqual({
+      workspaceId: 'workspace-123',
+    })
     expect(
-      getToolContract('list_knowledge_bases')?.args.parse({ workspaceId: 'workspace-123' })
-    ).toEqual({ workspaceId: 'workspace-123' })
-    expect(
-      getToolContract('create_knowledge_base')?.args.parse({
+      ToolArgSchemas.create_knowledge_base.parse({
         workspaceId: 'workspace-123',
         name: 'Research',
         entityDocument,
@@ -496,15 +506,15 @@ describe('copilot contract registry', () => {
       documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
     })
     expect(
-      getToolContract('rename_knowledge_base')?.args.parse({
+      ToolArgSchemas.rename_knowledge_base.parse({
         entityId: 'kb-123',
         name: 'Research',
       })
     ).toEqual({ entityId: 'kb-123', name: 'Research' })
-    expect(() => getToolContract('rename_knowledge_base')?.args.parse(mutationArgs)).toThrow()
-    expect(getToolContract('read_knowledge_base')?.result.parse(envelope)).toEqual(envelope)
+    expect(() => ToolArgSchemas.rename_knowledge_base.parse(mutationArgs)).toThrow()
+    expect(ToolResultSchemas.read_knowledge_base.parse(envelope)).toEqual(envelope)
     expect(
-      getToolContract('edit_knowledge_base')?.result.parse({
+      ToolResultSchemas.edit_knowledge_base.parse({
         ...envelope,
         requiresReview: true,
         success: true,
@@ -522,7 +532,7 @@ describe('copilot contract registry', () => {
       success: true,
     })
     expect(
-      getToolContract('query_knowledge_base')?.result.parse({
+      ToolResultSchemas.query_knowledge_base.parse({
         entityKind: 'knowledge_base',
         entityId: 'kb-123',
         entityName: 'Research',
@@ -586,7 +596,7 @@ describe('routeExecution', () => {
     )
   })
 
-  it('routes listing search without workspace inheritance or workspace access checks', async () => {
+  it('keeps listing content global while retaining the execution workspace', async () => {
     await expect(
       routeExecution(
         'search_listing',
@@ -604,6 +614,7 @@ describe('routeExecution', () => {
       { query: 'AAPL' },
       {
         userId: 'user-1',
+        workspaceId: 'workspace-1',
         accessLevel: undefined,
         acceptedReviewBaseStateHash: undefined,
         signal: undefined,
@@ -617,12 +628,12 @@ describe('routeExecution', () => {
       workspaceId: 'workspace-1',
     }
 
-    await expect(routeExecution('get_agent_accessory_catalog', {}, context)).resolves.toMatchObject(
-      {
-        tools: expect.any(Array),
-        skills: expect.any(Array),
-      }
-    )
+    await expect(
+      routeExecution('get_agent_accessory_catalog', { workspaceId: 'workspace-1' }, context)
+    ).resolves.toMatchObject({
+      tools: expect.any(Array),
+      skills: expect.any(Array),
+    })
 
     expect(getAgentAccessoryCatalogExecute).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1' },
@@ -690,24 +701,23 @@ describe('routeExecution', () => {
     expect(readWorkflowLogsExecute).not.toHaveBeenCalled()
   })
 
-  it('injects hosted workspace context for workspace-scoped writes', async () => {
-    const context = {
-      userId: 'user-1',
-      workspaceId: 'workspace-1',
-    }
-
+  it('requires the published workspace argument and rejects a conflicting execution context', async () => {
+    const context = { userId: 'user-1', workspaceId: 'workspace-1' }
+    const payload = { scope: 'workspace', variables: { API_KEY: 'secret' } }
+    await expect(routeExecution('set_environment_variables', payload, context)).rejects.toThrow()
+    await expect(
+      routeExecution('set_environment_variables', { ...payload, workspaceId: 'other' }, context)
+    ).rejects.toThrow('workspaceId does not match execution context')
+    expect(setEnvironmentVariablesExecute).not.toHaveBeenCalled()
     await expect(
       routeExecution(
         'set_environment_variables',
-        { scope: 'workspace', variables: { API_KEY: 'secret' } },
+        { ...payload, workspaceId: 'workspace-1' },
         context
       )
-    ).resolves.toMatchObject({
-      message: 'ok',
-    })
-
+    ).resolves.toMatchObject({ message: 'ok' })
     expect(setEnvironmentVariablesExecute).toHaveBeenCalledWith(
-      { scope: 'workspace', variables: { API_KEY: 'secret' }, workspaceId: 'workspace-1' },
+      { ...payload, workspaceId: 'workspace-1' },
       context
     )
   })
@@ -795,4 +805,130 @@ describe('routeExecution', () => {
       )
     }
   )
+})
+
+it('meters the real global documentation search in its authorized billing workspace', async () => {
+  const { searchDocumentationServerTool } = await vi.importActual<
+    typeof import('@/lib/copilot/tools/server/docs/search-documentation')
+  >('@/lib/copilot/tools/server/docs/search-documentation')
+  docsExecute.mockImplementationOnce((args, context) =>
+    searchDocumentationServerTool.execute(
+      args as Parameters<typeof searchDocumentationServerTool.execute>[0],
+      context as Parameters<typeof searchDocumentationServerTool.execute>[1]
+    )
+  )
+  docsSelect
+    .mockReturnValueOnce({ from: () => ({ limit: async () => [{ chunkId: 'global-chunk' }] }) })
+    .mockReturnValueOnce({
+      from: () => ({
+        orderBy: () => ({
+          limit: async () => [{ similarity: 1, chunkText: 'Global documentation' }],
+        }),
+      }),
+    })
+  docsEmbedding.mockResolvedValue({
+    embedding: [1, 2],
+    model: 'openai/text-embedding-3-small',
+    tokens: { prompt: 2, total: 2 },
+    usage: { status: 'reported', batches: 1 },
+    cost: { status: 'unavailable' },
+  })
+  const signal = new AbortController().signal
+  const result = await routeExecution(
+    'search_documentation',
+    { query: 'docs' },
+    {
+      userId: 'actor',
+      workspaceId: 'organization-workspace',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'unrelated-workflow',
+      signal,
+    }
+  )
+  expect(docsEmbedding).toHaveBeenCalledExactlyOnceWith('docs', {
+    actorUserId: 'actor',
+    workspaceId: 'organization-workspace',
+    signal,
+  })
+  expect(result.results).toMatchObject([{ content: 'Global documentation' }])
+  expect(docsExecute.mock.calls[0][1]).not.toHaveProperty('contextEntityId')
+})
+
+it('preserves only genuine own completed docs facts after global result projection', async () => {
+  const facts = {
+    model: 'source/embedding',
+    tokens: { prompt: 3, total: 3 },
+    cost: { status: 'unavailable' as const },
+    embeddingUsage: { status: 'reported' as const, batches: 1 },
+    generatedFields: ['tokens', 'cost', 'embeddingUsage'],
+  }
+  docsExecute.mockResolvedValueOnce(
+    withInferenceFacts({ results: [], embeddingUsage: { literal: 'removed by schema' } }, facts)
+  )
+  const result = await routeExecution(
+    'search_documentation',
+    { query: 'docs' },
+    {
+      userId: 'actor',
+      workspaceId: 'billing-workspace',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'unrelated-entity',
+    }
+  )
+  expect(Object.fromEntries(Object.entries(result))).toEqual({ results: [] })
+  expect(getInferenceFacts(result)).toBe(facts)
+  const context = docsExecute.mock.calls[0][1]
+  expect(context).toMatchObject({ workspaceId: 'billing-workspace' })
+  expect(context).not.toHaveProperty('contextEntityId')
+  docsExecute.mockResolvedValueOnce({
+    results: [],
+    tokens: { total: 9000 },
+    embeddingUsage: { status: 'business' },
+  })
+  expect(
+    getInferenceFacts(
+      await routeExecution('search_documentation', { query: 'docs' }, { userId: 'actor' })
+    )
+  ).toBeUndefined()
+})
+it.each(['abort', 'schema'] as const)(
+  'retains completed docs facts when final router %s fails',
+  async (failure) => {
+    const controller = new AbortController()
+    const facts = {
+      model: 'source/embedding',
+      tokens: { prompt: 3, total: 3 },
+      cost: { status: 'unavailable' as const },
+      embeddingUsage: { status: 'reported' as const, batches: 1 },
+      generatedFields: ['tokens', 'cost', 'embeddingUsage'],
+    }
+    docsExecute.mockImplementationOnce(async () => {
+      if (failure === 'abort') controller.abort()
+      return withInferenceFacts({ results: failure === 'schema' ? 'invalid' : [] }, facts)
+    })
+    const error = await routeExecution(
+      'search_documentation',
+      { query: 'docs' },
+      { userId: 'actor', signal: controller.signal }
+    ).catch((error) => error)
+    expect(error).toBeInstanceOf(Error)
+    expect(getInferenceFacts(error)).toBe(facts)
+    expect(getFailureAccounting(error)).toMatchObject({
+      tokens: { total: 3 },
+      embeddingUsage: { status: 'reported', batches: 1 },
+    })
+    expect(docsExecute).toHaveBeenCalledOnce()
+  }
+)
+it('keeps an already branded docs Error without readonly Symbol assignment', async () => {
+  const facts = { tokens: { total: 3 }, generatedFields: ['tokens'] }
+  const failure = withInferenceFacts(
+    Object.assign(new Error('known docs failure'), { tokens: { total: 3 } }),
+    facts
+  )
+  docsExecute.mockRejectedValueOnce(failure)
+  await expect(
+    routeExecution('search_documentation', { query: 'docs' }, { userId: 'actor' })
+  ).rejects.toBe(failure)
+  expect(getInferenceFacts(failure)).toBe(facts)
 })

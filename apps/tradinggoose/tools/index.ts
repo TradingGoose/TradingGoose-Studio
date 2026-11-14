@@ -5,7 +5,7 @@ import {
   parseCustomToolSchemaText,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
-import { parseMcpToolId } from '@/lib/mcp/utils'
+import { getFailureAccounting, restoreInferenceError } from '@/lib/mastra/errors'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -199,14 +199,15 @@ export async function getToolAsync(
   return undefined
 }
 
-function generateScopedInternalToken(scope: ExecutionScope) {
+function generateScopedInternalToken(scope: ExecutionScope, settlesModelUsage?: true) {
   const workflowExecution =
-    !scope.userId && scope.workflowId && scope.toolExecutionId
+    scope.workflowId && scope.toolExecutionId
       ? {
           source: 'workflow_block' as const,
           parentWorkflowId: scope.workflowId,
           ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
           parentBlockId: scope.toolExecutionId,
+          ...(settlesModelUsage ? { settlesModelUsage } : {}),
         }
       : undefined
   return workflowExecution
@@ -263,12 +264,12 @@ function handleBodySizeLimitError(error: unknown, requestId: string, context: st
   return false
 }
 
-function throwIfToolRequestAborted(signal?: AbortSignal): void {
+function throwIfToolRequestAborted(signal?: AbortSignal, completedOutput?: unknown): void {
   if (!signal?.aborted) return
 
   const error = new Error('Aborted')
   error.name = 'AbortError'
-  throw error
+  throw Object.assign(error, getFailureAccounting(completedOutput))
 }
 
 function createToolRequestSignal(
@@ -308,21 +309,6 @@ function createToolRequestSignal(
 }
 
 /**
- * System parameters that should be filtered out when extracting tool arguments
- * These are internal parameters used by the execution framework, not tool inputs
- */
-const MCP_SYSTEM_PARAMETERS = new Set([
-  'serverId',
-  'toolName',
-  'serverName',
-  '_context',
-  'envVars',
-  'workflowVariables',
-  'blockData',
-  'blockNameMapping',
-])
-
-/**
  * Create an Error instance from errorInfo and attach useful context
  * Uses the error extractor registry to find the best error message
  */
@@ -333,6 +319,7 @@ function createTransformedErrorFromErrorInfo(errorInfo?: ErrorInfo, extractorId?
     status: errorInfo?.status,
     statusText: errorInfo?.statusText,
     data: errorInfo?.data,
+    ...getFailureAccounting(errorInfo?.data),
   })
   return transformed
 }
@@ -399,7 +386,7 @@ export async function executeTool(
   try {
     throwIfToolRequestAborted(options?.signal)
     let tool: ToolConfig | undefined
-    const isMcpTool = toolId.startsWith('mcp-')
+    const isMcpTool = toolId === 'mcp'
 
     if (isSkillLoaderExecution(params)) {
       await assertExecutionWorkspaceAccess(toolId, scope, 'read')
@@ -434,14 +421,7 @@ export async function executeTool(
       )
     } else if (isMcpTool) {
       await assertExecutionWorkspaceAccess(toolId, scope, 'read')
-      return await executeMcpTool(
-        toolId,
-        params,
-        executionContext,
-        requestId,
-        startTimeISO,
-        scope.userId
-      )
+      return await executeMcpTool(toolId, params, scope, requestId, startTimeISO, options?.signal)
     } else {
       // For built-in tools, use the synchronous version
       tool = getTool(toolId)
@@ -565,46 +545,15 @@ export async function executeTool(
       }
     }
 
-    // Check for direct execution (no HTTP request needed)
+    let result: ToolResponse
     if (tool.directExecution) {
       throwIfToolRequestAborted(options?.signal)
       logger.info(`[${requestId}] Using directExecution for ${toolId}`)
-      const result = await tool.directExecution(contextParams)
-      throwIfToolRequestAborted(options?.signal)
-
-      // Apply post-processing if available and not skipped
-      let finalResult = result
-      if (tool.postProcess && !skipPostProcess && result.success) {
-        try {
-          finalResult = await tool.postProcess(result, contextParams, executeTool)
-        } catch (error) {
-          logger.error(`[${requestId}] Post-processing error for ${toolId}:`, {
-            error: error instanceof Error ? error.message : String(error),
-          })
-          finalResult = result
-        }
-      }
-
-      // Process file outputs if execution context is available
-      finalResult = await processFileOutputs(finalResult, tool, executionContext)
-
-      // Add timing data to the result
-      const endTime = new Date()
-      const endTimeISO = endTime.toISOString()
-      const duration = endTime.getTime() - startTime.getTime()
-      return {
-        ...finalResult,
-        timing: {
-          startTime: startTimeISO,
-          endTime: endTimeISO,
-          duration,
-        },
-      }
+      result = await tool.directExecution(contextParams)
+    } else {
+      result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
     }
-
-    // Execute the tool request directly (internal routes use regular fetch)
-    const result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
-    throwIfToolRequestAborted(options?.signal)
+    throwIfToolRequestAborted(options?.signal, result.output)
 
     // Apply post-processing if available and not skipped
     let finalResult = result
@@ -698,7 +647,7 @@ export async function executeTool(
     const duration = endTime.getTime() - startTime.getTime()
     return {
       success: false,
-      output: errorDetails,
+      output: { ...errorDetails, ...getFailureAccounting(error) },
       error: errorMessage,
       timing: {
         startTime: startTimeISO,
@@ -707,49 +656,6 @@ export async function executeTool(
       },
     }
   }
-}
-
-/**
- * Determines if a response or result represents an error condition
- */
-function isErrorResponse(
-  response: Response | any,
-  data?: any
-): { isError: boolean; errorInfo?: { status?: number; statusText?: string; data?: any } } {
-  // HTTP Response object
-  if (response && typeof response === 'object' && 'ok' in response) {
-    if (!response.ok) {
-      return {
-        isError: true,
-        errorInfo: {
-          status: response.status,
-          statusText: response.statusText,
-          data: data,
-        },
-      }
-    }
-    return { isError: false }
-  }
-
-  // ToolResponse object
-  if (response && typeof response === 'object' && 'success' in response) {
-    return {
-      isError: !response.success,
-      errorInfo: response.success ? undefined : { data: response },
-    }
-  }
-
-  // Check for error indicators in data
-  if (data && typeof data === 'object') {
-    if (data.error || data.success === false) {
-      return {
-        isError: true,
-        errorInfo: { data: data },
-      }
-    }
-  }
-
-  return { isError: false }
 }
 
 /**
@@ -764,12 +670,13 @@ async function addInternalAuthIfNeeded(
   isInternalRoute: boolean,
   requestId: string,
   context: string,
-  scope: ExecutionScope
+  scope: ExecutionScope,
+  settlesModelUsage?: true
 ): Promise<void> {
   if (typeof window === 'undefined') {
     if (isInternalRoute) {
       try {
-        const internalToken = await generateScopedInternalToken(scope)
+        const internalToken = await generateScopedInternalToken(scope, settlesModelUsage)
         if (headers instanceof Headers) {
           headers.set('Authorization', `Bearer ${internalToken}`)
         } else {
@@ -801,7 +708,7 @@ async function executeToolRequest(
   const requestId = generateRequestId()
   const scope = resolveExecutionScope(params, executionContext)
 
-  const requestParams = formatRequestParams(tool, params)
+  const requestParams = await formatRequestParams(tool, params)
 
   try {
     const baseUrl = getBaseUrl()
@@ -822,7 +729,7 @@ async function executeToolRequest(
     const fullUrl = fullUrlObj.toString()
 
     if (isCustomToolRuntimeId(toolId) && tool.request.body) {
-      const requestBody = tool.request.body(params)
+      const requestBody = await tool.request.body(params)
       if (
         typeof requestBody === 'object' &&
         requestBody !== null &&
@@ -842,56 +749,44 @@ async function executeToolRequest(
     }
 
     const headers = new Headers(requestParams.headers)
-    await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId, scope)
+    await addInternalAuthIfNeeded(
+      headers,
+      isInternalRoute,
+      requestId,
+      toolId,
+      scope,
+      tool.settlesModelUsage
+    )
     throwIfToolRequestAborted(options?.signal)
 
     if (typeof requestParams.body === 'string') {
       validateRequestBodySize(requestParams.body, requestId, toolId)
     }
 
-    let response: Response
-
-    if (isInternalRoute) {
-      const timeout = requestParams.timeout || 300000
-      const requestSignal = createToolRequestSignal(timeout, options?.signal)
-
-      try {
-        response = await fetch(fullUrl, {
-          method: requestParams.method,
-          headers: headers,
-          body: requestParams.body,
-          signal: requestSignal.signal,
-        })
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
-          throw new Error(`Request timed out after ${timeout}ms`)
-        }
-        throw error
-      } finally {
-        requestSignal.cleanup()
-      }
-    } else {
+    if (!isInternalRoute) {
       const urlValidation = validateExternalUrl(fullUrl, 'toolUrl')
       if (!urlValidation.isValid) {
         throw new Error(`Invalid tool URL: ${urlValidation.error}`)
       }
+    }
 
-      const requestSignal = createToolRequestSignal(requestParams.timeout, options?.signal)
-      try {
-        response = await fetch(fullUrl, {
-          method: requestParams.method,
-          headers: headers,
-          body: requestParams.body,
-          signal: requestSignal.signal,
-        })
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
-          throw new Error(`Request timed out after ${requestParams.timeout}ms`)
-        }
-        throw error
-      } finally {
-        requestSignal.cleanup()
+    const timeout = requestParams.timeout ?? (isInternalRoute ? 300000 : undefined)
+    const requestSignal = createToolRequestSignal(timeout, options?.signal)
+    let response: Response
+    try {
+      response = await fetch(fullUrl, {
+        method: requestParams.method,
+        headers,
+        body: requestParams.body,
+        signal: requestSignal.signal,
+      })
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
+        throw new Error(`Request timed out after ${timeout}ms`)
       }
+      throw error
+    } finally {
+      requestSignal.cleanup()
     }
 
     if (!response.ok) {
@@ -927,7 +822,7 @@ async function executeToolRequest(
         errorData: errorInfo.data,
       })
 
-      throw errorToTransform
+      throw tool.settlesModelUsage ? restoreInferenceError(errorToTransform) : errorToTransform
     }
 
     let responseData
@@ -947,19 +842,6 @@ async function executeToolRequest(
           throw new Error(`Failed to parse response from ${toolId}: ${jsonError}`)
         }
       }
-    }
-
-    const { isError, errorInfo } = isErrorResponse(response, responseData)
-
-    if (isError) {
-      const errorToTransform = createTransformedErrorFromErrorInfo(errorInfo, tool.errorExtractor)
-
-      logger.error(`[${requestId}] Internal API error for ${toolId}:`, {
-        status: errorInfo?.status,
-        errorData: errorInfo?.data,
-      })
-
-      throw errorToTransform
     }
 
     if (tool.transformResponse) {
@@ -982,7 +864,9 @@ async function executeToolRequest(
         logger.error(`[${requestId}] Transform response error for ${toolId}:`, {
           error: transformError instanceof Error ? transformError.message : String(transformError),
         })
-        throw transformError
+        throw transformError instanceof Error && tool.settlesModelUsage
+          ? restoreInferenceError(transformError)
+          : transformError
       }
     }
 
@@ -1071,81 +955,45 @@ function validateClientSideParams(
 /**
  * Execute an MCP tool via the server-side proxy
  *
- * @param toolId - MCP tool ID in format "mcp-serverId-toolName"
+ * @param toolId - Shared MCP operation ID
  * @param params - Tool parameters
- * @param executionContext - Execution context
+ * @param scope - Authorized execution scope
  * @param requestId - Request ID for logging
  * @param startTimeISO - Start time for timing
  */
 async function executeMcpTool(
   toolId: string,
   params: Record<string, any>,
-  executionContext?: ExecutionContext,
-  requestId?: string,
-  startTimeISO?: string,
-  userId?: string
+  scope: ExecutionScope,
+  requestId: string,
+  startTimeISO: string,
+  signal?: AbortSignal
 ): Promise<ToolResponse> {
-  const actualRequestId = requestId || generateRequestId()
-  const actualStartTime = startTimeISO || new Date().toISOString()
-
   try {
-    logger.info(`[${actualRequestId}] Executing MCP tool: ${toolId}`)
+    logger.info(`[${requestId}] Executing MCP tool: ${toolId}`)
 
-    const { serverId, toolName } = parseMcpToolId(toolId)
+    const { serverId, toolName } = params
+    if (
+      typeof serverId !== 'string' ||
+      !serverId.trim() ||
+      typeof toolName !== 'string' ||
+      !toolName.trim()
+    )
+      throw new Error('MCP execution requires serverId and toolName')
 
     const baseUrl = getBaseUrl()
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
 
-    if (typeof window === 'undefined') {
-      try {
-        const internalToken = await generateInternalToken(userId ?? executionContext?.userId)
-        headers.Authorization = `Bearer ${internalToken}`
-      } catch (error) {
-        logger.error(`[${actualRequestId}] Failed to generate internal token:`, error)
-      }
-    }
+    if (typeof window === 'undefined')
+      headers.Authorization = `Bearer ${await generateInternalToken(scope.userId)}`
 
-    // Handle two different parameter structures:
-    // 1. Direct MCP blocks: arguments are stored as JSON string in 'arguments' field
-    // 2. Agent blocks: arguments are passed directly as top-level parameters
-    let toolArguments = {}
+    const toolArguments =
+      typeof params.arguments === 'string' ? JSON.parse(params.arguments) : (params.arguments ?? {})
+    if (typeof toolArguments !== 'object' || toolArguments === null || Array.isArray(toolArguments))
+      throw new Error('MCP arguments must be a JSON object')
 
-    // First check if we have the 'arguments' field (direct MCP block usage)
-    if (params.arguments) {
-      if (typeof params.arguments === 'string') {
-        try {
-          toolArguments = JSON.parse(params.arguments)
-        } catch (error) {
-          logger.warn(`[${actualRequestId}] Failed to parse MCP arguments JSON:`, params.arguments)
-          toolArguments = {}
-        }
-      } else {
-        toolArguments = params.arguments
-      }
-    } else {
-      // Agent block usage: extract MCP-specific arguments by filtering out system parameters
-      toolArguments = Object.fromEntries(
-        Object.entries(params).filter(([key]) => !MCP_SYSTEM_PARAMETERS.has(key))
-      )
-    }
-
-    const scope = resolveExecutionScope(params, executionContext)
-    const workspaceId = scope.workspaceId
-    const workflowId = scope.workflowId
-
-    if (!workspaceId) {
-      return {
-        success: false,
-        output: {},
-        error: `Missing workspaceId in execution context for MCP tool ${toolName}`,
-        timing: {
-          startTime: actualStartTime,
-          endTime: new Date().toISOString(),
-          duration: Date.now() - new Date(actualStartTime).getTime(),
-        },
-      }
-    }
+    const { workspaceId, workflowId } = scope
 
     const requestBody = {
       serverId,
@@ -1158,7 +1006,7 @@ async function executeMcpTool(
         : {}),
     }
 
-    logger.info(`[${actualRequestId}] Making MCP tool request to ${toolName} on ${serverId}`, {
+    logger.info(`[${requestId}] Making MCP tool request to ${toolName} on ${serverId}`, {
       hasWorkspaceId: !!workspaceId,
       hasWorkflowId: !!workflowId,
     })
@@ -1167,11 +1015,12 @@ async function executeMcpTool(
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
+      signal,
     })
 
     const endTime = new Date()
     const endTimeISO = endTime.toISOString()
-    const duration = endTime.getTime() - new Date(actualStartTime).getTime()
+    const duration = endTime.getTime() - new Date(startTimeISO).getTime()
 
     if (!response.ok) {
       let errorMessage = `MCP tool execution failed: ${response.status} ${response.statusText}`
@@ -1190,7 +1039,7 @@ async function executeMcpTool(
         output: {},
         error: errorMessage,
         timing: {
-          startTime: actualStartTime,
+          startTime: startTimeISO,
           endTime: endTimeISO,
           duration,
         },
@@ -1205,20 +1054,21 @@ async function executeMcpTool(
         output: {},
         error: result.error || 'MCP tool execution failed',
         timing: {
-          startTime: actualStartTime,
+          startTime: startTimeISO,
           endTime: endTimeISO,
           duration,
         },
       }
     }
 
-    logger.info(`[${actualRequestId}] MCP tool ${toolId} executed successfully`)
+    if (!result.data?.output) throw new Error('Invalid MCP execution response')
+    logger.info(`[${requestId}] MCP tool ${toolId} executed successfully`)
 
     return {
       success: true,
-      output: result.data?.output || result.output || result.data || {},
+      output: result.data.output,
       timing: {
-        startTime: actualStartTime,
+        startTime: startTimeISO,
         endTime: endTimeISO,
         duration,
       },
@@ -1226,9 +1076,9 @@ async function executeMcpTool(
   } catch (error) {
     const endTime = new Date()
     const endTimeISO = endTime.toISOString()
-    const duration = endTime.getTime() - new Date(actualStartTime).getTime()
+    const duration = endTime.getTime() - new Date(startTimeISO).getTime()
 
-    logger.error(`[${actualRequestId}] Error executing MCP tool ${toolId}:`, error)
+    logger.error(`[${requestId}] Error executing MCP tool ${toolId}:`, error)
 
     const errorMessage =
       error instanceof Error ? error.message : `Failed to execute MCP tool ${toolId}`
@@ -1238,7 +1088,7 @@ async function executeMcpTool(
       output: {},
       error: errorMessage,
       timing: {
-        startTime: actualStartTime,
+        startTime: startTimeISO,
         endTime: endTimeISO,
         duration,
       },

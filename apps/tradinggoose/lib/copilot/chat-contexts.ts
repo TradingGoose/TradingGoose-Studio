@@ -36,7 +36,7 @@ export const buildCopilotContextIdentityKey = (context: ChatContext): string => 
 
   switch (context.kind) {
     case 'past_chat':
-      return `past_chat:${context.reviewSessionId}`
+      return `past_chat:${JSON.stringify([context.workspaceId, context.threadId])}`
     case 'workflow_block':
       return `workflow_block:${context.workflowId}:${context.blockId}`
     case 'blocks':
@@ -110,21 +110,6 @@ export function buildCopilotContextMentionRanges(
   }
 
   return ranges.sort((left, right) => left.start - right.start)
-}
-
-export function replaceCopilotWorkspaceEntityMentionsWithIds(
-  message: string,
-  contexts: ChatContext[] | null | undefined
-): string {
-  const ranges = buildCopilotContextMentionRanges(message, contexts).filter(
-    (range) => readCopilotWorkspaceEntityContext(range.context)?.entityId
-  )
-  if (ranges.length === 0) return message
-
-  return [...ranges].reverse().reduce((text, range) => {
-    const entityId = readCopilotWorkspaceEntityContext(range.context)?.entityId
-    return entityId ? `${text.slice(0, range.start)}@${entityId}${text.slice(range.end)}` : text
-  }, message)
 }
 
 const dedupeCopilotContexts = (contexts: ChatContext[]): ChatContext[] => {

@@ -5,41 +5,25 @@ title: Cálculo de costos
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
 
-TradingGoose mide la ejecución de flujos de trabajo, el uso de modelos y el tiempo de ejecución de Function/herramientas personalizadas. Los cargos usan la configuración y el nivel efectivo del responsable de facturación del espacio de trabajo, sea usuario u organización.
+TradingGoose aplica los cargos al responsable de facturación, usuario u organización, del espacio de trabajo autorizado. Los flujos de trabajo, Copilot y las llamadas independientes a modelos comparten el registro de uso y los límites de facturación de Studio.
 
-## Cómo se calculan los costos
+## Cargos aplicados
 
-Cuando la facturación está habilitada, el uso puede incluir tres componentes de costo:
+- **Ejecución del flujo de trabajo**: combina el cargo base configurado y el multiplicador de ejecución del nivel con los costos de modelos y el multiplicador de modelos del nivel. Las liquidaciones repetidas solo añaden el uso recién completado. Los flujos hijos se liquidan por separado.
+- **Tiempo de Function y herramientas personalizadas**: usa el cargo por segundo configurado y el multiplicador de Function del nivel, multiplicados por los milisegundos reales de ejecución y divididos entre 1000. Un intento que haya contactado el entorno puede generar este cargo aunque el código falle.
+- **Trabajo de modelos y embeddings**: parte de los tokens reportados y los precios estándar publicados en models.dev, también para las estimaciones BYOK. Estas estimaciones son solo informativas y no se cargan al saldo de modelos de Studio. Para las llamadas directas a modelos financiadas por la cuenta, los informes en USD y los registros del asistente incluyen el multiplicador aplicable del nivel de suscripción de Studio y coinciden con el cargo contabilizado. Los pasos del flujo conservan las estimaciones estándar hasta la liquidación; el total final de la ejecución aplica una sola vez su cotización de facturación guardada al uso de modelos financiado por Studio, sin cambiar las tarifas existentes de ejecución.
 
-- **Cargo de ejecución**: el cargo de flujo de trabajo configurado multiplicado por el multiplicador de ejecución del nivel, según la cotización guardada para esa ejecución.
-- **Uso de modelos de IA**: el costo del modelo del proveedor registrado por cada span de ejecución, multiplicado por el multiplicador de costo de modelos del nivel guardado en esa cotización.
-- **Tiempo de ejecución de Function**: el cargo por segundo configurado, multiplicado por el tiempo de ejecución en segundos y el multiplicador de Function del nivel. Se acumula por separado para Function/herramientas personalizadas, incluidos los intentos de ejecución que fallan.
-
-```javascript
-executionCost = configuredWorkflowCharge * tierWorkflowExecutionMultiplier
-adjustedModelCost = recordedModelCost * tierWorkflowModelCostMultiplier
-workflowLogSubtotal = executionCost + sum(adjustedModelCost)
-functionCost = (executionTimeMs / 1000) * configuredFunctionChargePerSecond * tierFunctionExecutionMultiplier
-totalMeteredCost = workflowLogSubtotal + sum(functionCost)
-```
-
-Esta fórmula es ilustrativa. Cada cargo de Function se redondea a seis decimales. El total del registro del flujo de trabajo es el subtotal de ejecución/modelos; los cargos de Function acumulados por separado también contribuyen al uso del responsable de facturación. No son cargos de modelos de IA y pueden aplicarse a flujos de trabajo sin IA.
-
-El trabajo de modelos ya realizado se contabiliza al guardar un punto de control de human-in-the-loop. Reanudar o cancelar no vuelve a cobrar ese mismo trabajo: cada ejecución lógica reutiliza su cotización de ejecución/modelos y aplica el cargo base de ejecución una sola vez. Los costos de un flujo hijo se contabilizan en su propio registro, sin volver a cobrarlos mediante las trazas anidadas del padre.
+Las comprobaciones de uso se realizan antes de contactar al modelo. Una solicitud puede fallar después de la generación si no se puede completar la facturación.
 
 <Callout type="info">
-  Para las ejecuciones cuya cotización se guarda por primera vez con la facturación deshabilitada, el cargo base es cero y los costos de modelos registrados usan un multiplicador de uno. Mientras la facturación está deshabilitada, no se acumula uso facturable adicional de flujos de trabajo ni de Function; las cotizaciones guardadas anteriormente no se modifican. La configuración de facturación, y no los valores fijos de esta guía, es la fuente de verdad para los cargos y los multiplicadores.
+  Los costos distinguen estimaciones, importes parciales y no disponibles. Un precio publicado de cero es distinto de un precio ausente. Los costos desconocidos no se presentan como un cero conocido.
 </Callout>
 
-## Desglose de modelos en los registros
+## Uso e historial recargado
 
-En los flujos de trabajo que usan bloques de IA, puedes consultar información detallada de costos en los registros:
+Los recuentos reportados de tokens de entrada, salida y totales siguen siendo opcionales. Las estimaciones de costos tienen en cuenta las categorías reportadas de tokens, incluidos los tokens de caché y razonamiento, y los niveles de contexto aplicables.
 
-La barra lateral de detalle del registro incluye una sección de desglose de modelos que muestra:
-- **Uso de tokens**: recuento de tokens de entrada y de salida de cada modelo
-- **Desglose de costos**: costo de entrada, de salida y total de cada modelo
-- **Modelos utilizados**: qué modelos contribuyeron al costo de ejecución
-- **Costo total**: subtotal de ejecución/modelos del registro; consulta el uso para ver los cargos de Function acumulados por separado
+Las conversaciones de Copilot y el historial de Workflow Agent usan el mismo almacenamiento Mastra en la base de datos de Studio. Al recargar se conservan las partes de los mensajes, las llamadas a herramientas y sus resultados, y los metadatos disponibles de uso y costos del asistente. Records agrega los costos conocidos de modelos y herramientas; la cobertura incompleta sigue marcada como parcial o no disponible. Consulta **Configuración → Suscripción** para ver el uso aplicado del periodo actual.
 
 ## Precios y límites
 
@@ -60,9 +44,6 @@ Un nivel de facturación también puede imponer una duración máxima a cada eje
     Los prompts bien estructurados y concisos reducen el uso de tokens sin sacrificar la calidad.
   </Accordion>
 
-  <Accordion title="Modelos locales">
-    Usa Ollama cuando un modelo local sea adecuado para evitar los cargos del proveedor externo de modelos. El cargo por ejecución de flujo de trabajo puede seguir aplicándose.
-  </Accordion>
 
   <Accordion title="Caché y reutilización">
     Reutiliza las salidas de etapas anteriores o las variables del flujo de trabajo dentro de una ejecución en lugar de repetir llamadas al modelo de IA.
@@ -101,6 +82,8 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
 ```
 
 **Respuesta de ejemplo:**
+
+`currentPeriodCost` y el `limit` monetario son números JSON en USD. El uso sin límite se representa con `9007199254740991` (`Number.MAX_SAFE_INTEGER`). Los precios y las asignaciones del nivel son números o `null` según la configuración; los multiplicadores de facturación son números.
 
 ```jsonc
 {

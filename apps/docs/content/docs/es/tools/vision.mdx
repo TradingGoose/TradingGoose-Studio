@@ -3,20 +3,16 @@ title: Visión
 description: Analiza imágenes con modelos de visión
 ---
 
-import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-<BlockInfoCard
-  type="vision"
-  color="#4D5FFF"
-/>
+Selecciona un identificador `proveedor/modelo` del registro de Mastra. El selector mantiene la búsqueda y la agrupación por proveedor. Las referencias a variables de entorno y salidas de otros bloques se resuelven antes de validar el modelo; un identificador incompatible requiere una nueva selección. La clave de API pertenece a esta solicitud. Si la omites, se usa la conexión configurada de Mastra.
 
 ## Configuración
 
 <ShowcaseCard>
   <BlockConfigPreview
-    name="Visión"
+    name="Vision"
     type="vision"
     color="#4D5FFF"
     hideHeader
@@ -24,99 +20,58 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "imageFile",
             "type": "file-upload",
-            "title": "Archivo de imagen",
+            "title": "Image File",
             "layout": "full",
-            "placeholder": "Sube un archivo de imagen",
+            "placeholder": "Upload an image file",
             "required": false
         },
         {
             "id": "imageFileReference",
             "type": "short-input",
-            "title": "Referencia de archivo de imagen",
+            "title": "Image File Reference",
             "layout": "full",
-            "placeholder": "Referencia una imagen de bloques anteriores",
+            "placeholder": "Reference an image from previous blocks",
             "required": false
         },
         {
             "id": "imageUrl",
             "type": "short-input",
-            "title": "URL de imagen (alternativa)",
+            "title": "Image URL (alternative)",
             "layout": "full",
-            "placeholder": "O introduce una URL de imagen de acceso público",
+            "placeholder": "Or enter publicly accessible image URL",
             "required": false
         },
         {
             "id": "model",
-            "type": "dropdown",
-            "title": "Modelo de visión",
-            "layout": "half",
-            "defaultValue": "gpt-4o",
-            "options": [
-                {
-                    "id": "gpt-4o",
-                    "label": "gpt-4o"
-                },
-                {
-                    "id": "claude-3-opus-20240229",
-                    "label": "claude-3-opus"
-                },
-                {
-                    "id": "claude-3-sonnet-20240229",
-                    "label": "claude-3-sonnet"
-                }
-            ]
+            "type": "combobox",
+            "title": "Vision Model",
+            "layout": "half"
         },
         {
             "id": "prompt",
             "type": "long-input",
             "title": "Prompt",
             "layout": "full",
-            "placeholder": "Introduce el prompt para el análisis de la imagen",
+            "placeholder": "Enter prompt for image analysis",
             "required": true
         },
         {
             "id": "apiKey",
             "type": "short-input",
-            "title": "Clave de API",
+            "title": "API Key",
             "layout": "full",
-            "placeholder": "Introduce tu clave de API",
-            "password": true,
-            "required": true
+            "placeholder": "Enter your API key",
+            "description": "Leave unset to use the configured Mastra connection.",
+            "password": true
         }
     ]}
   />
 </ShowcaseCard>
 
-## Herramientas
+## Uso y salidas
 
-### `vision_tool`
+Proporciona una URL de imagen o un archivo cargado y escribe las instrucciones de análisis. Los archivos siguen el procesamiento autenticado y la descarga desde almacenamiento. Mastra recibe el contenido multimodal y selecciona el protocolo del proveedor a partir del identificador completo, también para Anthropic. Las salidas conservan `content`, `model`, `tokens` y el desglose nativo de uso disponible.
 
-Procesa y analiza imágenes con modelos de visión avanzados. Comprende el contenido de la imagen, extrae texto, identifica objetos y ofrece descripciones visuales detalladas.
+## Uso y coste
 
-#### Entrada
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Sí | Clave de API del proveedor del modelo seleccionado |
-| `imageUrl` | string | No | URL de imagen de acceso público |
-| `imageFile` | file | No | Archivo de imagen para analizar |
-| `model` | string | No | Modelo de visión que se usará \(gpt-4o, claude-3-opus-20240229, etc\) |
-| `prompt` | string | No | Prompt personalizado para el análisis de la imagen |
-
-#### Salida
-
-| Parámetro | Tipo | Descripción |
-| --------- | ---- | ----------- |
-| `content` | string | El contenido analizado y la descripción de la imagen |
-| `model` | string | El modelo de visión utilizado para el análisis |
-| `tokens` | number | Total de tokens utilizados para el análisis |
-| `usage` | object | Desglose detallado del uso de tokens |
-
-## Instrucciones de uso
-
-Integra Vision en el flujo de trabajo. Puede analizar imágenes con modelos de visión.
-
-## Notas
-
-- Categoría: `tools`
-- Tipo: `vision`
+Los registros distinguen el coste informado por el proveedor, la estimación nativa y el coste no disponible. Un coste ausente no es cero; los tokens conocidos se conservan aunque falten dólares. Los cargos propios del producto se calculan por separado. Las incrustaciones independientes conservan los vectores y el uso nativo disponible, pero su coste en USD se muestra como no disponible.

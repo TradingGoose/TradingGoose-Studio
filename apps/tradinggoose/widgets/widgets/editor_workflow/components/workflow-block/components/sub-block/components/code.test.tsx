@@ -29,6 +29,9 @@ const mocks = vi.hoisted(() => {
   let loadBinding!: () => void
   return {
     session: null as Pick<WorkflowSessionContextValue, 'doc' | 'transactWorkflow'> | null,
+    wand: undefined as
+      | Parameters<typeof import('@/hooks/workflow/use-wand').useWand>[0]
+      | undefined,
     model: null as ReturnType<typeof createModel> | null,
     bindingLoaded: new Promise<void>((resolve) => {
       loadBinding = resolve
@@ -188,7 +191,12 @@ vi.mock('@/hooks/use-tag-selection', () => ({ useTagSelection: () => vi.fn() }))
 vi.mock('@/hooks/workflow/use-accessible-reference-prefixes', () => ({
   useAccessibleReferencePrefixes: () => null,
 }))
-vi.mock('@/hooks/workflow/use-wand', () => ({ useWand: () => ({ isStreaming: false }) }))
+vi.mock('@/hooks/workflow/use-wand', () => ({
+  useWand: (input: Parameters<typeof import('@/hooks/workflow/use-wand').useWand>[0]) => {
+    mocks.wand = input
+    return { isStreaming: false }
+  },
+}))
 vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
   useWorkflowEditorActions: () => ({ collaborativeSetSubblockValue: vi.fn() }),
 }))
@@ -352,4 +360,18 @@ describe('Code workflow persistence', () => {
       expect(readWorkflowTextField(doc, 'agent', 'responseFormat')).toBeNull()
     }
   )
+  it('detaches wand preview from the collaborative text binding until explicit completion', async () => {
+    await mount(JSON.stringify(schema), { wandConfig: { enabled: true, prompt: '' } })
+    const before = stored()
+    await act(async () => {
+      mocks.wand!.onStreamStart?.()
+      mocks.wand!.onStreamChunk?.('Partial preview')
+    })
+    expect(stored()).toEqual(before)
+    await act(async () => mocks.wand!.onGenerationEnd?.())
+    expect(stored()).toEqual(before)
+    const generated = '{"name":"completed","schema":{"type":"object"}}'
+    await act(async () => mocks.wand!.onGeneratedContent(generated))
+    expect(readWorkflowTextField(doc, 'agent', 'responseFormat')!.toString()).toBe(generated)
+  })
 })

@@ -1,9 +1,6 @@
-import { createLogger } from '@/lib/logs/console/logger'
-import type { ToolCall, TraceSpan } from '@/lib/logs/types'
+import type { TraceSpan } from '@/lib/logs/types'
 import { isWorkflowBlockType } from '@/executor/consts'
-import type { ExecutionResult } from '@/executor/types'
-
-const logger = createLogger('TraceSpans')
+import { assertOccurrenceIds, type ExecutionResult } from '@/executor/types'
 
 function isSyntheticWorkflowWrapper(span: TraceSpan | undefined): boolean {
   if (!span || span.type !== 'workflow') return false
@@ -28,25 +25,13 @@ function flattenWorkflowChildren(spans: TraceSpan[]): TraceSpan[] {
   return flattened
 }
 
-function getTraceSpanKey(span: TraceSpan): string {
-  if (span.id) {
-    return span.id
-  }
-
-  const name = span.name || 'span'
-  const start = span.startTime || 'unknown-start'
-  const end = span.endTime || 'unknown-end'
-
-  return `${name}|${start}|${end}`
-}
-
 function mergeTraceSpanChildren(...childGroups: TraceSpan[][]): TraceSpan[] {
   const merged: TraceSpan[] = []
   const seen = new Set<string>()
 
   childGroups.forEach((group) => {
     group.forEach((child) => {
-      const key = getTraceSpanKey(child)
+      const key = child.id
       if (seen.has(key)) {
         return
       }
@@ -62,9 +47,9 @@ export function buildTraceSpans(result: ExecutionResult): {
   traceSpans: TraceSpan[]
   totalDuration: number
 } {
-  if (!result.logs || result.logs.length === 0) {
-    return { traceSpans: [], totalDuration: 0 }
-  }
+  if (result.logs === undefined) return { traceSpans: [], totalDuration: 0 }
+  assertOccurrenceIds(result.logs, 'Malformed block log occurrence')
+  if (result.logs.length === 0) return { traceSpans: [], totalDuration: 0 }
 
   const spanMap = new Map<string, TraceSpan>()
 
@@ -83,7 +68,7 @@ export function buildTraceSpans(result: ExecutionResult): {
   result.logs.forEach((log) => {
     if (!log.blockId || !log.blockType) return
 
-    const spanId = `${log.blockId}-${new Date(log.startedAt).getTime()}`
+    const spanId = log.id
 
     const duration = log.durationMs || 0
 
@@ -110,207 +95,14 @@ export function buildTraceSpans(result: ExecutionResult): {
       blockId: log.blockId,
       input: log.input || {},
       output: output,
+      ...(log.inference ? { inference: log.inference } : {}),
     }
 
-    if (log.output?.providerTiming) {
-      const providerTiming = log.output.providerTiming as {
-        duration: number
-        startTime: string
-        endTime: string
-        timeSegments?: Array<{
-          type: string
-          name?: string
-          startTime: string | number
-          endTime: string | number
-          duration: number
-        }>
-      }
+    const facts = log.inference
 
-      span.providerTiming = {
-        duration: providerTiming.duration,
-        startTime: providerTiming.startTime,
-        endTime: providerTiming.endTime,
-        segments: providerTiming.timeSegments || [],
-      }
-    }
-
-    if (log.output?.cost) {
-      span.cost = log.output.cost as {
-        input?: number
-        output?: number
-        total?: number
-      }
-    }
-
-    if (log.output?.tokens) {
-      const t = log.output.tokens as
-        | number
-        | {
-            input?: number
-            output?: number
-            total?: number
-            prompt?: number
-            completion?: number
-          }
-      if (typeof t === 'number') {
-        span.tokens = t
-      } else if (typeof t === 'object') {
-        const input = t.input ?? t.prompt
-        const output = t.output ?? t.completion
-        const total =
-          t.total ??
-          (typeof input === 'number' || typeof output === 'number'
-            ? (input || 0) + (output || 0)
-            : undefined)
-        span.tokens = {
-          ...(typeof input === 'number' ? { input } : {}),
-          ...(typeof output === 'number' ? { output } : {}),
-          ...(typeof total === 'number' ? { total } : {}),
-        }
-      } else {
-        span.tokens = t
-      }
-    }
-
-    if (log.output?.model) {
-      span.model = log.output.model as string
-    }
-
-    if (
-      !isWorkflowBlockType(log.blockType) &&
-      log.output?.providerTiming?.timeSegments &&
-      Array.isArray(log.output.providerTiming.timeSegments)
-    ) {
-      const timeSegments = log.output.providerTiming.timeSegments
-      const toolCallsData = log.output?.toolCalls?.list || log.output?.toolCalls || []
-
-      span.children = timeSegments.map(
-        (
-          segment: {
-            type: string
-            name?: string
-            startTime: string | number
-            endTime: string | number
-            duration: number
-          },
-          index: number
-        ) => {
-          const segmentStartTime = new Date(segment.startTime).toISOString()
-          let segmentEndTime = new Date(segment.endTime).toISOString()
-          let segmentDuration = segment.duration
-
-          if (segment.name?.toLowerCase().includes('streaming') && log.endedAt) {
-            const blockEndTime = new Date(log.endedAt).getTime()
-            const segmentEndTimeMs = new Date(segment.endTime).getTime()
-
-            if (blockEndTime > segmentEndTimeMs) {
-              segmentEndTime = log.endedAt
-              segmentDuration = blockEndTime - new Date(segment.startTime).getTime()
-            }
-          }
-
-          if (segment.type === 'tool') {
-            const matchingToolCall = toolCallsData.find(
-              (tc: { id?: string; name?: string; [key: string]: unknown }) =>
-                tc.id === segment.name || tc.name === segment.name
-            )
-
-            return {
-              id: `${span.id}-segment-${index}`,
-              name: matchingToolCall?.name || segment.name,
-              type: 'tool',
-              duration: segment.duration,
-              startTime: segmentStartTime,
-              endTime: segmentEndTime,
-              status: matchingToolCall?.error ? 'error' : 'success',
-              input: matchingToolCall?.arguments || matchingToolCall?.input,
-              output: matchingToolCall?.error
-                ? {
-                    error: matchingToolCall.error,
-                    ...(matchingToolCall.result || matchingToolCall.output || {}),
-                  }
-                : matchingToolCall?.result || matchingToolCall?.output,
-            }
-          }
-          return {
-            id: `${span.id}-segment-${index}`,
-            name: segment.name,
-            type: 'model',
-            duration: segmentDuration,
-            startTime: segmentStartTime,
-            endTime: segmentEndTime,
-            status: 'success',
-          }
-        }
-      )
-    } else {
-      let toolCallsList = null
-
-      try {
-        if (log.output?.toolCalls?.list) {
-          toolCallsList = log.output.toolCalls.list
-        }
-
-        if (toolCallsList && !Array.isArray(toolCallsList)) {
-          logger.warn(`toolCallsList is not an array: ${typeof toolCallsList}`, {
-            blockId: log.blockId,
-            blockType: log.blockType,
-          })
-          toolCallsList = []
-        }
-      } catch (error) {
-        logger.error(`Error extracting toolCalls from block ${log.blockId}:`, error)
-        toolCallsList = []
-      }
-
-      if (toolCallsList && toolCallsList.length > 0) {
-        const processedToolCalls: ToolCall[] = []
-
-        for (const tc of toolCallsList as Array<{
-          id?: string
-          name?: string
-          duration?: number
-          startTime?: string
-          endTime?: string
-          error?: string
-          arguments?: Record<string, unknown>
-          input?: Record<string, unknown>
-          result?: Record<string, unknown>
-          output?: Record<string, unknown>
-        }>) {
-          if (!tc) continue
-
-          try {
-            const toolCall: ToolCall = {
-              id: typeof tc.id === 'string' ? tc.id : undefined,
-              name: tc.name || 'unnamed-tool',
-              duration: tc.duration || 0,
-              startTime: tc.startTime || log.startedAt,
-              endTime: tc.endTime || log.endedAt,
-              status: tc.error ? 'error' : 'success',
-            }
-
-            if (tc.arguments || tc.input) {
-              toolCall.input = tc.arguments || tc.input
-            }
-
-            if (tc.result || tc.output) {
-              toolCall.output = tc.result || tc.output
-            }
-
-            if (tc.error) {
-              toolCall.error = tc.error
-            }
-
-            processedToolCalls.push(toolCall)
-          } catch (tcError) {
-            logger.error(`Error processing tool call in block ${log.blockId}:`, tcError)
-          }
-        }
-
-        span.toolCalls = processedToolCalls
-      }
-    }
+    if (facts?.cost) span.cost = facts.cost
+    if (facts?.tokens) span.tokens = facts.tokens
+    if (facts?.model) span.model = facts.model
 
     if (
       isWorkflowBlockType(log.blockType) &&
@@ -336,7 +128,7 @@ export function buildTraceSpans(result: ExecutionResult): {
   sortedLogs.forEach((log) => {
     if (!log.blockId) return
 
-    const spanId = `${log.blockId}-${new Date(log.startedAt).getTime()}`
+    const spanId = log.id
     const span = spanMap.get(spanId)
     if (span) {
       rootSpans.push(span)
@@ -349,7 +141,7 @@ export function buildTraceSpans(result: ExecutionResult): {
     sortedLogs.forEach((log) => {
       if (!log.blockId || !log.blockType) return
 
-      const spanId = `${log.blockId}-${new Date(log.startedAt).getTime()}`
+      const spanId = log.id
       const span = spanMap.get(spanId)
       if (!span) return
 

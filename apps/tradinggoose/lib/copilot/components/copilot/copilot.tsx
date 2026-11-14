@@ -5,16 +5,14 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import type { ImagePart } from '@/lib/copilot/native/contract'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
-import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
-import type {
-  ChatContext,
-  CopilotSendRuntimeContext,
-  MessageFileAttachment,
-} from '@/stores/copilot/types'
+import { buildPlanTodosFromMessages } from '@/stores/copilot/store-messages'
+import { isCopilotBusy } from '@/stores/copilot/store-state'
+import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { CopilotMessage } from '../copilot-message/copilot-message'
 import { TodoList } from '../todo-list/todo-list'
 import { UserInput } from '../user-input/user-input'
@@ -61,29 +59,21 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     }),
     [implicitContexts, workspaceId]
   )
+  const state = useCopilotStore()
   const {
     messages,
-    isSendingMessage,
-    isAwaitingContinuation,
     isAborting,
+    selectedModel,
     accessLevel,
     draft,
-    planTodos,
     sendMessage,
     abortMessage,
-    setAccessLevel,
     setDraft,
     loadChats,
-    currentChat,
-    toolCallsById,
-    fetchContextUsage,
-  } = useCopilotStore()
-  const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
-  const isTurnInProgress =
-    isSendingMessage ||
-    isAwaitingContinuation ||
-    currentChat?.latestTurnStatus === 'in_progress' ||
-    hasActiveToolCalls
+    error,
+  } = state
+  const planTodos = useMemo(() => buildPlanTodosFromMessages(messages), [messages])
+  const isTurnInProgress = isCopilotBusy(state)
 
   useEffect(() => {
     let cancelled = false
@@ -107,16 +97,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
       cancelled = true
     }
   }, [loadChats, workspaceId])
-
-  // Fetch context usage when component is initialized and has a current chat
-  useEffect(() => {
-    if (isInitialized && currentChat?.reviewSessionId) {
-      logger.info('[Copilot] Component initialized, fetching context usage')
-      fetchContextUsage().catch((err) => {
-        logger.warn('[Copilot] Failed to fetch context usage on mount', err)
-      })
-    }
-  }, [currentChat?.reviewSessionId, fetchContextUsage, isInitialized])
 
   const clearProgrammaticScrollLock = useCallback(() => {
     if (programmaticScrollResetTimerRef.current !== null) {
@@ -305,22 +285,27 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
 
   // Handle message submission
   const handleSubmit = useCallback(
-    async (query: string, fileAttachments?: MessageFileAttachment[], contexts?: ChatContext[]) => {
-      if (!query || isTurnInProgress) return
+    async (
+      query: string,
+      images?: ImagePart[],
+      contexts?: ChatContext[],
+      onAccepted?: () => void
+    ) => {
+      if (!query || isTurnInProgress) return false
 
       try {
-        await sendMessage(query, {
-          fileAttachments,
+        const completed = await sendMessage(query, {
+          images,
           contexts,
+          onAccepted,
           runtimeContext: sendRuntimeContext,
         })
-        logger.info(
-          'Sent message:',
-          query,
-          fileAttachments ? `with ${fileAttachments.length} attachments` : ''
-        )
+        if (!completed) return false
+        logger.info('Sent message:', query, images ? `with ${images.length} attachments` : '')
+        return true
       } catch (error) {
         logger.error('Failed to send message:', error)
+        return false
       }
     },
     [isTurnInProgress, sendMessage, sendRuntimeContext]
@@ -415,14 +400,18 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
 
           {/* Input area with integrated access selector */}
           <div className='pt-2'>
+            {error && (
+              <p role='alert' className='px-3 pb-2 text-destructive text-sm'>
+                {error}
+              </p>
+            )}
             <UserInput
               workspaceId={workspaceId}
               onSubmit={handleSubmit}
               onAbort={abortMessage}
               isLoading={isTurnInProgress}
+              submitDisabled={!selectedModel}
               isAborting={isAborting}
-              accessLevel={accessLevel}
-              onAccessLevelChange={setAccessLevel}
               draft={draft}
               onDraftChange={setDraft}
               panelWidth={panelWidth}

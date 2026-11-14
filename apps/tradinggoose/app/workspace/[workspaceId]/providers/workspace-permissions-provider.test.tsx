@@ -167,8 +167,12 @@ describe('WorkspacePermissionsProvider', () => {
       )
     })
 
-    expect(mockUseWorkspacePermissions).toHaveBeenCalledWith('ws-1', 'user-1')
-    expect(mockUseWorkspacePermissions).toHaveBeenCalledWith('ws-2', 'user-1')
+    expect(mockUseWorkspacePermissions).toHaveBeenCalledWith('ws-1', 'user-1', {
+      requireFresh: false,
+    })
+    expect(mockUseWorkspacePermissions).toHaveBeenCalledWith('ws-2', 'user-1', {
+      requireFresh: false,
+    })
     expect(container?.textContent).toBe('workspace')
   })
 
@@ -229,5 +233,68 @@ describe('WorkspacePermissionsProvider', () => {
     })
 
     expect(container?.textContent).toBe('workspace')
+  })
+  it('blocks an embedded session during fresh checking despite a cached positive', async () => {
+    mockUseWorkspacePermissions.mockReturnValue({
+      permissions: { currentUserPermission: 'admin' },
+      loading: true,
+      error: null,
+      updatePermissions: mockUpdatePermissions,
+      refetch: mockRefetchPermissions,
+    })
+    const { WorkspacePermissionsProvider } = await import('./workspace-permissions-provider')
+    const unavailable = vi.fn()
+    await act(async () =>
+      root?.render(
+        <WorkspacePermissionsProvider
+          workspaceId='target-a'
+          userId='user-1'
+          requireFresh
+          onUnavailable={unavailable}
+        >
+          <div data-testid='target-session'>Session A</div>
+        </WorkspacePermissionsProvider>
+      )
+    )
+    expect(container?.querySelector('[data-testid="target-session"]')).toBeNull()
+    expect(mockUseWorkspacePermissions).toHaveBeenCalledWith('target-a', 'user-1', {
+      requireFresh: true,
+    })
+    expect(unavailable).not.toHaveBeenCalled()
+    expect(mockReplace).not.toHaveBeenCalled()
+  })
+
+  it('reports an embedded target denial without navigating the visible page', async () => {
+    mockUseWorkspacePermissions.mockReturnValue({
+      permissions: null,
+      loading: false,
+      error: 'Workspace not found or access denied',
+      updatePermissions: mockUpdatePermissions,
+      refetch: mockRefetchPermissions,
+    })
+    mockUseUserPermissions.mockReturnValue({
+      canRead: false,
+      canEdit: false,
+      canAdmin: false,
+      isLoading: false,
+      error: 'Workspace not found or access denied',
+    })
+    const { WorkspacePermissionsProvider } = await import('./workspace-permissions-provider')
+    const unavailable = vi.fn()
+    await act(async () =>
+      root?.render(
+        <WorkspacePermissionsProvider
+          workspaceId='target-a'
+          userId='user-1'
+          requireFresh
+          onUnavailable={unavailable}
+        >
+          <div data-testid='target-session'>Session A</div>
+        </WorkspacePermissionsProvider>
+      )
+    )
+    expect(unavailable).toHaveBeenCalledExactlyOnceWith('Workspace not found or access denied')
+    expect(container?.querySelector('[data-testid="target-session"]')).toBeNull()
+    expect(mockReplace).not.toHaveBeenCalled()
   })
 })

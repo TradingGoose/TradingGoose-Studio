@@ -104,14 +104,6 @@ export function useCopilotMentionCopy(): CopilotMentionCopy {
   })
 }
 
-export function getMentionOptionLabel(copy: CopilotMentionCopy, option: MentionOption): string {
-  return copy.optionLabels[option]
-}
-
-export function getMentionSubmenuTitle(copy: CopilotMentionCopy, submenu: MentionSubmenu): string {
-  return copy.submenuTitles[submenu]
-}
-
 export function getWorkspaceEntityMentionLabel(
   copy: CopilotMentionCopy,
   item: Pick<WorkspaceEntityItem, 'entityKind' | 'name'>

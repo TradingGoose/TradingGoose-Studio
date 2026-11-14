@@ -11,6 +11,7 @@ import {
 } from '@/lib/copilot/entity-documents'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
+import { withServerToolReviewRejection } from '@/lib/copilot/tools/shared/review-result'
 import { ListingResolvedSchema } from '@/lib/listing/identity'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
@@ -120,9 +121,7 @@ const COPILOT_TOOL_IDS = [
 ] as const
 export const ToolIds = z.enum(COPILOT_TOOL_IDS)
 export type ToolId = (typeof COPILOT_TOOL_IDS)[number]
-export const CopilotTool = Object.fromEntries(COPILOT_TOOL_IDS.map((id) => [id, id])) as {
-  [K in ToolId]: K
-}
+export const CopilotTool = ToolIds.enum
 
 /**
  * Tools whose execution provenance targets one owner-scoped dashboard layout.
@@ -151,28 +150,22 @@ const RenameSavedEntityArgs = EntityTargetArgs.extend({
 const WorkspaceTargetArgs = z.object({
   workspaceId: RequiredId,
 })
-const PersonalOrWorkspaceReadArgs = z.discriminatedUnion('scope', [
-  z
-    .object({
-      scope: z.literal('personal'),
-    })
-    .strict(),
-  WorkspaceTargetArgs.extend({
-    scope: z.literal('workspace'),
-  }).strict(),
-])
-const SetEnvironmentVariablesArgs = z.discriminatedUnion('scope', [
-  z
-    .object({
-      scope: z.literal('personal'),
-      variables: z.record(z.string(), z.string()),
-    })
-    .strict(),
-  WorkspaceTargetArgs.extend({
-    scope: z.literal('workspace'),
-    variables: z.record(z.string(), z.string()),
-  }).strict(),
-])
+const PersonalOrWorkspaceReadArgs = z
+  .object({
+    scope: z.enum(['personal', 'workspace']),
+    workspaceId: RequiredId.optional().describe(
+      'Required when scope is workspace; omit when scope is personal.'
+    ),
+  })
+  .strict()
+  .refine(
+    (args) =>
+      args.scope === 'workspace' ? Boolean(args.workspaceId) : !Object.hasOwn(args, 'workspaceId'),
+    { path: ['workspaceId'], message: 'workspaceId is required only for workspace scope' }
+  )
+const SetEnvironmentVariablesArgs = PersonalOrWorkspaceReadArgs.safeExtend({
+  variables: z.record(z.string(), z.string()),
+})
 
 function buildEntityDocumentMutationArgs<TDocumentFormat extends string>(
   documentFormat: TDocumentFormat
@@ -572,10 +565,6 @@ export const ToolArgSchemas = {
   }),
 } as const
 
-export const ServerToolArgSchemas = {
-  ...ToolArgSchemas,
-} satisfies Record<ToolId, z.ZodTypeAny>
-
 // Known result schemas per tool (what tool_result.result should conform to)
 const WorkflowTargetEnvelope = z.object({
   entityKind: z.literal('workflow'),
@@ -762,6 +751,7 @@ const MonitorListResult = z.object({
 
 const MonitorDocumentEnvelope = z.object({
   surfaceKind: z.literal('monitor'),
+  workspaceId: z.string(),
   monitorId: z.string(),
   monitorName: z.string().optional(),
   documentFormat: z.literal(MONITOR_DOCUMENT_FORMAT),
@@ -795,6 +785,7 @@ const DocumentDiffReviewMetadata = z.object({
 
 const EditEntityDocumentResultBase = DocumentDiffReviewMetadata.extend({
   success: z.boolean(),
+  workspaceId: z.string(),
 })
 
 const SavedEntityRenameResult = DocumentDiffReviewMetadata.extend({
@@ -948,19 +939,25 @@ export const ToolResultSchemas = {
     id: z.string(),
   }),
   [CopilotTool.read_workflow]: WorkflowReadDocumentEnvelope,
-  create_workflow: WorkflowCreateMutationResult,
+  create_workflow: withServerToolReviewRejection('create_workflow', WorkflowCreateMutationResult),
   [CopilotTool.list_workflows]: GenericEntityListResult.extend({
     entityKind: z.literal('workflow'),
   }),
-  [CopilotTool.edit_workflow_variable]: EditWorkflowVariableResult,
+  [CopilotTool.edit_workflow_variable]: withServerToolReviewRejection(
+    'edit_workflow_variable',
+    EditWorkflowVariableResult
+  ),
   oauth_request_access: z.object({
     granted: z.boolean().optional(),
     message: z.string().optional(),
   }),
 
-  edit_workflow: EditWorkflowResult,
-  edit_workflow_block: EditWorkflowBlockResult,
-  rename_workflow: SavedEntityRenameResult,
+  edit_workflow: withServerToolReviewRejection('edit_workflow', EditWorkflowResult),
+  edit_workflow_block: withServerToolReviewRejection(
+    'edit_workflow_block',
+    EditWorkflowBlockResult
+  ),
+  rename_workflow: withServerToolReviewRejection('rename_workflow', SavedEntityRenameResult),
   run_workflow: z.object({
     executionId: z.string().optional(),
     message: z.any().optional(),
@@ -1005,7 +1002,10 @@ export const ToolResultSchemas = {
     conflicts: z.array(z.string()),
     count: z.number(),
   }),
-  set_environment_variables: EnvironmentVariablesMutationResult,
+  set_environment_variables: withServerToolReviewRejection(
+    'set_environment_variables',
+    EnvironmentVariablesMutationResult
+  ),
   [CopilotTool.read_oauth_credentials]: z.object({
     credentials: z.array(
       z.object({
@@ -1016,43 +1016,9 @@ export const ToolResultSchemas = {
     ),
     total: z.number().optional(),
   }),
-  [CopilotTool.read_credentials]: z.union([
-    z.object({
-      oauth: z.object({
-        connected: z.object({
-          credentials: z.array(
-            z.object({
-              id: z.string(),
-              provider: z.string(),
-              isDefault: z.boolean().optional(),
-            })
-          ),
-          total: z.number(),
-        }),
-        notConnected: z
-          .object({
-            services: z.array(
-              z.object({
-                providerId: z.string(),
-                name: z.string(),
-                description: z.string().optional(),
-                baseProvider: z.string().optional(),
-              })
-            ),
-            total: z.number(),
-          })
-          .optional(),
-      }),
-      environment: z.object({
-        variableNames: z.array(z.string()),
-        count: z.number(),
-        personalVariables: z.array(z.string()).optional(),
-        workspaceVariables: z.array(z.string()).optional(),
-        conflicts: z.array(z.string()).optional(),
-      }),
-    }),
-    z.object({
-      oauth: z.object({
+  [CopilotTool.read_credentials]: z.object({
+    oauth: z.object({
+      connected: z.object({
         credentials: z.array(
           z.object({
             id: z.string(),
@@ -1062,16 +1028,32 @@ export const ToolResultSchemas = {
         ),
         total: z.number(),
       }),
-      environment: z.object({
-        variableNames: z.array(z.string()),
-        count: z.number(),
-      }),
+      notConnected: z
+        .object({
+          services: z.array(
+            z.object({
+              providerId: z.string(),
+              name: z.string(),
+              description: z.string().optional(),
+              baseProvider: z.string().optional(),
+            })
+          ),
+          total: z.number(),
+        })
+        .optional(),
     }),
-  ]),
+    environment: z.object({
+      variableNames: z.array(z.string()),
+      count: z.number(),
+      personalVariables: z.array(z.string()).optional(),
+      workspaceVariables: z.array(z.string()).optional(),
+      conflicts: z.array(z.string()).optional(),
+    }),
+  }),
   gdrive_request_access: z.object({
-    granted: z.boolean().optional(),
-    credentialId: z.string().optional(),
-    message: z.string().optional(),
+    granted: z.literal(true),
+    credentialId: RequiredId,
+    workspaceId: RequiredId,
   }),
   list_gdrive_files: z.object({
     files: z.array(
@@ -1114,9 +1096,18 @@ export const ToolResultSchemas = {
     entityKind: z.literal('knowledge_base'),
   }),
   read_knowledge_base: KnowledgeBaseDocumentEnvelope,
-  create_knowledge_base: KnowledgeBaseDocumentMutationResult,
-  edit_knowledge_base: KnowledgeBaseDocumentMutationResult,
-  rename_knowledge_base: SavedEntityRenameResult,
+  create_knowledge_base: withServerToolReviewRejection(
+    'create_knowledge_base',
+    KnowledgeBaseDocumentMutationResult
+  ),
+  edit_knowledge_base: withServerToolReviewRejection(
+    'edit_knowledge_base',
+    KnowledgeBaseDocumentMutationResult
+  ),
+  rename_knowledge_base: withServerToolReviewRejection(
+    'rename_knowledge_base',
+    SavedEntityRenameResult
+  ),
   query_knowledge_base: QueryKnowledgeBaseResult,
   list_custom_tools: GenericEntityListResult.extend({
     entityKind: z.literal('custom_tool'),
@@ -1124,59 +1115,81 @@ export const ToolResultSchemas = {
   [CopilotTool.read_custom_tool]: CustomToolDocumentEnvelope.extend({
     entityKind: z.literal('custom_tool'),
   }),
-  create_custom_tool: CustomToolDocumentMutationResult,
-  edit_custom_tool: CustomToolDocumentMutationResult,
-  rename_custom_tool: SavedEntityRenameResult,
+  create_custom_tool: withServerToolReviewRejection(
+    'create_custom_tool',
+    CustomToolDocumentMutationResult
+  ),
+  edit_custom_tool: withServerToolReviewRejection(
+    'edit_custom_tool',
+    CustomToolDocumentMutationResult
+  ),
+  rename_custom_tool: withServerToolReviewRejection('rename_custom_tool', SavedEntityRenameResult),
   list_monitors: MonitorListResult,
   [CopilotTool.read_monitor]: MonitorDocumentEnvelope,
-  edit_monitor: z
-    .object({
-      success: z.boolean(),
-    })
-    .merge(DocumentDiffReviewMetadata)
-    .merge(MonitorDocumentEnvelope),
+  edit_monitor: withServerToolReviewRejection(
+    'edit_monitor',
+    z
+      .object({ success: z.boolean() })
+      .merge(DocumentDiffReviewMetadata)
+      .merge(MonitorDocumentEnvelope)
+  ),
   [CopilotTool.list_indicators]: IndicatorListResult,
   [CopilotTool.read_indicator]: IndicatorDocumentEnvelope.extend({
     entityKind: z.literal('indicator'),
   }),
-  create_indicator: IndicatorDocumentMutationResult,
-  edit_indicator: IndicatorDocumentMutationResult,
-  rename_indicator: SavedEntityRenameResult,
+  create_indicator: withServerToolReviewRejection(
+    'create_indicator',
+    IndicatorDocumentMutationResult
+  ),
+  edit_indicator: withServerToolReviewRejection('edit_indicator', IndicatorDocumentMutationResult),
+  rename_indicator: withServerToolReviewRejection('rename_indicator', SavedEntityRenameResult),
   list_skills: GenericEntityListResult.extend({
     entityKind: z.literal('skill'),
   }),
   [CopilotTool.read_skill]: SkillDocumentEnvelope.extend({
     entityKind: z.literal('skill'),
   }),
-  create_skill: SkillDocumentMutationResult,
-  edit_skill: SkillDocumentMutationResult,
-  rename_skill: SavedEntityRenameResult,
+  create_skill: withServerToolReviewRejection('create_skill', SkillDocumentMutationResult),
+  edit_skill: withServerToolReviewRejection('edit_skill', SkillDocumentMutationResult),
+  rename_skill: withServerToolReviewRejection('rename_skill', SavedEntityRenameResult),
   list_mcp_servers: GenericEntityListResult.extend({
     entityKind: z.literal('mcp_server'),
   }),
   [CopilotTool.read_mcp_server]: McpServerDocumentEnvelope.extend({
     entityKind: z.literal('mcp_server'),
   }),
-  create_mcp_server: McpServerDocumentMutationResult,
-  edit_mcp_server: McpServerDocumentMutationResult,
-  rename_mcp_server: SavedEntityRenameResult,
+  create_mcp_server: withServerToolReviewRejection(
+    'create_mcp_server',
+    McpServerDocumentMutationResult
+  ),
+  edit_mcp_server: withServerToolReviewRejection(
+    'edit_mcp_server',
+    McpServerDocumentMutationResult
+  ),
+  rename_mcp_server: withServerToolReviewRejection('rename_mcp_server', SavedEntityRenameResult),
   list_watchlist: GenericEntityListResult.extend({
     entityKind: z.literal('watchlist'),
   }),
   read_watchlist: WatchlistDocumentEnvelope.extend({
     entityKind: z.literal('watchlist'),
   }),
-  create_watchlist: WatchlistDocumentMutationResult,
-  edit_watchlist: WatchlistDocumentMutationResult,
-  rename_watchlist: SavedEntityRenameResult,
+  create_watchlist: withServerToolReviewRejection(
+    'create_watchlist',
+    WatchlistDocumentMutationResult
+  ),
+  edit_watchlist: withServerToolReviewRejection('edit_watchlist', WatchlistDocumentMutationResult),
+  rename_watchlist: withServerToolReviewRejection('rename_watchlist', SavedEntityRenameResult),
   list_layout: GenericEntityListResult.extend({
     entityKind: z.literal('dashboard_layout'),
   }),
-  create_layout: DashboardLayoutCreateMutationResult,
+  create_layout: withServerToolReviewRejection(
+    'create_layout',
+    DashboardLayoutCreateMutationResult
+  ),
   read_layout: DashboardLayoutDocumentEnvelope,
-  edit_layout: DashboardLayoutDocumentMutationResult,
-  rename_layout: SavedEntityRenameResult,
-  edit_widget: DashboardLayoutDocumentMutationResult,
+  edit_layout: withServerToolReviewRejection('edit_layout', DashboardLayoutDocumentMutationResult),
+  rename_layout: withServerToolReviewRejection('rename_layout', SavedEntityRenameResult),
+  edit_widget: withServerToolReviewRejection('edit_widget', DashboardLayoutDocumentMutationResult),
   get_available_widgets: z.object({
     widgets: z.array(WidgetCatalogItemSchema),
     count: z.number(),
@@ -1193,30 +1206,6 @@ export const ToolResultSchemas = {
   [CopilotTool.read_block_upstream_references]: ReadBlockUpstreamReferencesResult,
 } as const
 
-// Consolidated registry entry per tool
-export const ToolRegistry = Object.freeze(
-  ToolIds.options.reduce(
-    (acc, toolId) => {
-      const args = ToolArgSchemas[toolId]
-      const result = ToolResultSchemas[toolId]
-      acc[toolId] = { id: toolId, args, result }
-      return acc
-    },
-    {} as Record<
-      ToolId,
-      {
-        id: ToolId
-        args: z.ZodTypeAny
-        result: z.ZodTypeAny
-      }
-    >
-  )
-)
-
-export function isToolId(toolId: string): toolId is ToolId {
-  return Object.hasOwn(ToolRegistry, toolId)
-}
-
-export function getToolContract(toolId: string) {
-  return isToolId(toolId) ? ToolRegistry[toolId] : undefined
+export function isToolId(toolId: unknown): toolId is ToolId {
+  return typeof toolId === 'string' && Object.hasOwn(ToolArgSchemas, toolId)
 }

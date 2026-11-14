@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { AdminSystemSettingsMutationInput } from '@/lib/admin/system-settings/mutations'
 import type { AdminSystemSettingsSnapshot } from '@/lib/admin/system-settings/types'
+import { CopilotSettingsSchema, DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/settings'
 import { ADMIN_ERROR_CODES } from '@/app/admin/constants'
 
 const ADMIN_SYSTEM_SETTINGS_ENDPOINT = '/api/admin/system-settings'
@@ -41,6 +42,7 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
       allowPromotionCodes: true,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: '',
+      copilot: DEFAULT_COPILOT_SETTINGS,
     }
   }
 
@@ -65,6 +67,7 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
         ? data.emailDomain
         : 'tradinggoose.ai',
     fromEmailAddress: typeof data.fromEmailAddress === 'string' ? data.fromEmailAddress : '',
+    copilot: CopilotSettingsSchema.parse(data.copilot),
   }
 }
 

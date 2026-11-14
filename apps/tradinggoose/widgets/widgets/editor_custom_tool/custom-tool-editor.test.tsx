@@ -29,7 +29,7 @@ const editorMocks = vi.hoisted(() => ({
     | ((offset: number, coords: { top: number; left: number; height: number } | null) => void)
     | null,
   envVarOnSelect: null as ((value: string) => void) | null,
-  wandInputs: [] as Array<{ onStreamChunk?: (chunk: string) => void }>,
+  wandInputs: [] as Array<Parameters<typeof import('@/hooks/workflow/use-wand').useWand>[0]>,
 }))
 
 vi.mock('@/hooks/workflow/use-wand', () => ({
@@ -194,6 +194,7 @@ describe('CustomToolEditor', () => {
       root.unmount()
     })
     container.remove()
+    vi.unstubAllGlobals()
   })
 
   it('exports the current schema and code buffer using the unified envelope', async () => {
@@ -420,6 +421,108 @@ describe('CustomToolEditor', () => {
       retainedStreamChunk?.('return 3')
     })
     expect(getEntityFields(doc, 'custom_tool').codeText).toBe('return 1')
+    doc.destroy()
+  })
+  it('commits completed schema generation while the real Wand hook is still busy', async () => {
+    const { useWand } = await vi.importActual<typeof import('@/hooks/workflow/use-wand')>(
+      '@/hooks/workflow/use-wand'
+    )
+    let generation!: ReturnType<typeof useWand>
+    mockUseWand.mockImplementation((input) => {
+      const state = useWand(input)
+      if (input.wandConfig.generationType === 'custom-tool-schema') generation = state
+      return state
+    })
+    const doc = createCustomToolDoc({ schema: '{}', code: 'return 1' })
+    const schema = JSON.stringify({
+      type: 'function',
+      function: { description: 'Generated tool', parameters: { type: 'object', properties: {} } },
+    })
+    let stream!: ReadableStreamDefaultController<Uint8Array>
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            new ReadableStream<Uint8Array>({ start: (controller) => (stream = controller) })
+          )
+        )
+    )
+    await act(async () =>
+      root.render(
+        <CustomToolEditor
+          activeSection='schema'
+          blockId='editor'
+          toolId='tool'
+          toolTitle='Tool'
+          doc={doc}
+          save={vi.fn()}
+          onSectionChange={vi.fn()}
+        />
+      )
+    )
+    let pending!: Promise<void>
+    await act(async () => {
+      pending = generation.generateStream({ prompt: 'Generate schema' })
+    })
+    expect(generation.isLoading && generation.isStreaming).toBe(true)
+    await act(async () => {
+      stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ chunk: schema })}\n\n`))
+    })
+    expect(getEntityFields(doc, 'custom_tool').schemaText).toBe('{}')
+    await act(async () => {
+      stream.enqueue(
+        new TextEncoder().encode(
+          `data: ${JSON.stringify({ done: true, result: { status: 'completed', runId: 'run', text: schema } })}\n\n`
+        )
+      )
+      stream.close()
+      await pending
+    })
+    expect(getEntityFields(doc, 'custom_tool').schemaText).toBe(schema)
+    expect(container.querySelector<HTMLTextAreaElement>('textarea')?.value).toBe(schema)
+    expect(generation.isLoading || generation.isStreaming).toBe(false)
+    doc.destroy()
+  })
+
+  it('keeps schema/code previews local and discards them without overwriting current Yjs fields', async () => {
+    const doc = createCustomToolDoc({
+      schema: {
+        type: 'function',
+        function: { description: 'Original', parameters: { type: 'object', properties: {} } },
+      },
+      code: 'return 1',
+    })
+    await act(async () =>
+      root.render(
+        <CustomToolEditor
+          activeSection='schema'
+          blockId='editor'
+          toolId='tool'
+          toolTitle='Tool'
+          doc={doc}
+          save={vi.fn()}
+          onSectionChange={vi.fn()}
+        />
+      )
+    )
+    const before = getEntityFields(doc, 'custom_tool')
+    await act(async () => {
+      editorMocks.wandInputs[0].onStreamStart?.()
+      editorMocks.wandInputs[0].onStreamChunk?.('Partial schema')
+      editorMocks.wandInputs[1].onStreamStart?.()
+      editorMocks.wandInputs[1].onStreamChunk?.('Partial code')
+    })
+    expect(getEntityFields(doc, 'custom_tool')).toMatchObject(before)
+    await act(async () => replaceEntityTextField(doc, 'codeText', 'concurrent edit'))
+    await act(async () => {
+      editorMocks.wandInputs.at(-2)!.onGenerationEnd?.()
+      editorMocks.wandInputs.at(-1)!.onGenerationEnd?.()
+    })
+    expect(getEntityFields(doc, 'custom_tool').codeText).toBe('concurrent edit')
+    await act(async () => editorMocks.wandInputs.at(-1)!.onGeneratedContent('return 2'))
+    expect(getEntityFields(doc, 'custom_tool').codeText).toBe('return 2')
     doc.destroy()
   })
 })

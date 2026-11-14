@@ -1,13 +1,11 @@
 import {
   AZURE_CHAT_CONFIG,
   AZURE_CONFIG,
-  AZURE_COPILOT_CONFIG,
   AZURE_EXECUTION_FILES_CONFIG,
   AZURE_KB_CONFIG,
   AZURE_PROFILE_PICTURES_CONFIG,
   S3_CHAT_CONFIG,
   S3_CONFIG,
-  S3_COPILOT_CONFIG,
   S3_EXECUTION_FILES_CONFIG,
   S3_KB_CONFIG,
   S3_PROFILE_PICTURES_CONFIG,
@@ -22,7 +20,6 @@ export type StorageContext =
   | 'general'
   | 'knowledge-base'
   | 'chat'
-  | 'copilot'
   | 'execution'
   | 'workspace'
   | 'profile-pictures'
@@ -76,11 +73,6 @@ function getS3Config(context: StorageContext): StorageConfig {
         bucket: S3_CHAT_CONFIG.bucket,
         region: S3_CHAT_CONFIG.region,
       }
-    case 'copilot':
-      return {
-        bucket: S3_COPILOT_CONFIG.bucket,
-        region: S3_COPILOT_CONFIG.region,
-      }
     case 'execution':
       return {
         bucket: S3_EXECUTION_FILES_CONFIG.bucket,
@@ -123,13 +115,6 @@ function getAzureConfig(context: StorageContext): StorageConfig {
         accountKey: AZURE_CHAT_CONFIG.accountKey,
         connectionString: AZURE_CHAT_CONFIG.connectionString,
         containerName: AZURE_CHAT_CONFIG.containerName,
-      }
-    case 'copilot':
-      return {
-        accountName: AZURE_COPILOT_CONFIG.accountName,
-        accountKey: AZURE_COPILOT_CONFIG.accountKey,
-        connectionString: AZURE_COPILOT_CONFIG.connectionString,
-        containerName: AZURE_COPILOT_CONFIG.containerName,
       }
     case 'execution':
       return {

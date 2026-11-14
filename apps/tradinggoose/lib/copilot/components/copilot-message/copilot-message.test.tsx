@@ -32,10 +32,8 @@ const assistantMessage: CopilotMessageType = {
       type: 'text' as const,
       content: 'Plan is ready.',
       timestamp: 1,
-      itemId: 'text-1',
     },
   ],
-  citations: [{ id: 1, title: 'Source A', url: 'https://example.com/source-a' }],
 }
 
 const assistantOptionsMessage: CopilotMessageType = {
@@ -47,7 +45,6 @@ const assistantOptionsMessage: CopilotMessageType = {
       type: 'text' as const,
       content: 'Choose next.',
       timestamp: 1,
-      itemId: 'text-options',
     },
   ],
 }
@@ -68,24 +65,17 @@ const userMentionMessage: CopilotMessageType = {
   ],
 }
 
-vi.mock('@/lib/copilot/chat-replay-safety', () => ({
-  EDIT_REPLAY_BLOCKED_MESSAGE: 'blocked',
-  hasAcceptedLiveMutationAfterMessage: () => false,
-}))
-
 vi.mock('@/lib/copilot/inline-tool-call', () => ({
-  InlineToolCall: () => <div data-testid='inline-tool-call' />,
+  InlineToolCall: ({ toolCall }: any) => (
+    <div data-testid='inline-tool-call'>{JSON.stringify(toolCall.result)}</div>
+  ),
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
   useCopilotStore: () => mockStoreState,
   useCopilotStoreApi: () => ({
-    setState: vi.fn(),
+    getState: () => mockStoreState,
   }),
-}))
-
-vi.mock('@/stores/copilot/store-state', () => ({
-  hasUiActiveToolCalls: () => false,
 }))
 
 vi.mock('../user-input/user-input', () => ({
@@ -108,13 +98,10 @@ vi.mock('../user-input/user-input', () => ({
   ),
 }))
 
-vi.mock('./components/assistant-message-segments', () => ({
-  buildAssistantMessageSegments: (contentBlocks: any[] = []) =>
-    contentBlocks.map((block, index) => ({ type: 'text', key: `text-${index}`, block })),
-}))
-
 vi.mock('./components/file-display', () => ({
-  FileAttachmentDisplay: () => <div data-testid='file-attachments' />,
+  NativeFileDisplay: ({ file }: any) => (
+    <img data-native-image alt='Conversation image' src={file.data} />
+  ),
 }))
 
 vi.mock('./components/options-selector', () => ({
@@ -146,6 +133,7 @@ vi.mock('./components/thinking-group', () => ({
   ThinkingGroup: () => <div data-testid='thinking-group' />,
 }))
 
+import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { CopilotMessage } from './copilot-message'
 
 describe('CopilotMessage', () => {
@@ -190,16 +178,14 @@ describe('CopilotMessage', () => {
     mockStoreState = {
       currentChat: {
         workspaceId: 'ws-1',
-        latestTurnStatus: 'completed',
       },
+      currentRunId: null,
       messages: [assistantMessage],
-      sendMessage: vi.fn(),
+      sendMessage: vi.fn().mockResolvedValue(true),
       isSendingMessage: false,
       isAwaitingContinuation: false,
       isAborting: false,
-      abortMessage: vi.fn(),
-      accessLevel: 'full',
-      setAccessLevel: vi.fn(),
+      abortMessage: vi.fn().mockResolvedValue(true),
       toolCallsById: {},
     }
   })
@@ -213,11 +199,115 @@ describe('CopilotMessage', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('renders assistant content and citations', async () => {
+  it('shows persisted message tokens and USD provenance and updates metrics on the same message', async () => {
+    await renderMessage({
+      ...assistantMessage,
+      usage: { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
+      cost: { status: 'estimated', total: 0.002, estimated: true, currency: 'USD' },
+    })
+    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
+      '15 tokens'
+    )
+    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
+      'Estimated $0.0020 USD'
+    )
+    await renderMessage({
+      ...assistantMessage,
+      usage: { totalTokens: 20 },
+      cost: { status: 'partial', estimated: true, availableTotal: 0.003, currency: 'USD' },
+    })
+    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
+      '20 tokens'
+    )
+    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
+      'Unavailable USD (estimated $0.0030 available)'
+    )
+    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).not.toContain(
+      '$0 USD'
+    )
+  })
+
+  it('renders assistant content', async () => {
     await renderMessage(assistantMessage)
 
     expect(container.textContent).toContain('Plan is ready.')
-    expect(container.textContent).toContain('Source A')
+  })
+  it('renders changed tool results and error state for the same message identity', async () => {
+    const resultMessage = (result: string, isError = false): CopilotMessageType => ({
+      ...assistantMessage,
+      isError,
+      contentBlocks: [
+        {
+          type: 'tool_call',
+          timestamp: 1,
+          toolCall: { id: 'tool', name: 'plan', state: ClientToolCallState.success, result },
+        },
+      ],
+    })
+    await renderMessage(resultMessage('First result'))
+    expect(container.querySelector('[data-testid="inline-tool-call"]')?.textContent).toContain(
+      'First result'
+    )
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+    await renderMessage(resultMessage('Updated result', true))
+    expect(container.querySelector('[data-testid="inline-tool-call"]')?.textContent).toContain(
+      'Updated result'
+    )
+    expect(container.querySelector('[role="alert"]')).not.toBeNull()
+  })
+
+  it('renders canonical user images between exact text parts', async () => {
+    const data =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg=='
+    const message: CopilotMessageType = {
+      id: 'native-user',
+      role: 'user',
+      content: ' before\n\tafter ',
+      timestamp: '2026-11-08T00:00:00Z',
+      contentBlocks: [
+        { type: 'text', content: ' before\n', timestamp: 1 },
+        { type: 'file', file: { data, mimeType: 'image/png' }, timestamp: 1 },
+        { type: 'text', content: '\tafter ', timestamp: 1 },
+      ],
+    }
+    mockStoreState.messages = [message]
+    await renderMessage(message)
+    const rendered = container.querySelector('[data-message-box] > div')!
+    expect([...rendered.children].map((child) => child.tagName)).toEqual(['SPAN', 'IMG', 'SPAN'])
+    expect(rendered.children[0]).toHaveTextContent('before')
+    expect(rendered.children[1].getAttribute('src')).toBe(data)
+    expect(rendered.children[2]).toHaveTextContent('after')
+    expect((rendered as HTMLElement).style.maxHeight).toBe('none')
+    await act(async () => (rendered.children[1] as HTMLImageElement).click())
+    expect(container.querySelector('[data-testid="user-input"]')).toBeNull()
+    await editAndSubmit()
+    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+    expect(container.textContent).toContain('attachments and contexts were retained')
+  })
+  it('renders native assistant image parts in their canonical text order through the actual segmenter', async () => {
+    const data =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg=='
+    const message: CopilotMessageType = {
+      ...assistantMessage,
+      content: 'beforeafter',
+      contentBlocks: [
+        { type: 'text', content: 'before', timestamp: 1 },
+        { type: 'file', file: { data, mimeType: 'image/png' }, timestamp: 2 },
+        { type: 'text', content: 'after', timestamp: 3 },
+      ],
+    }
+    mockStoreState.messages = [message]
+    await renderMessage(message)
+    const image = container.querySelector('img')!
+    expect(image.getAttribute('src')).toBe(data)
+    const before = [...container.querySelectorAll('div')].find(
+      (element) => element.textContent === 'before'
+    )!
+    const after = [...container.querySelectorAll('div')].find(
+      (element) => element.textContent === 'after'
+    )!
+    expect(before.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(image.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('renders mentions inline and preserves their contexts when editing', async () => {
@@ -231,28 +321,89 @@ describe('CopilotMessage', () => {
     await editAndSubmit()
 
     expect(mockStoreState.sendMessage).toHaveBeenCalledWith(userMentionMessage.content, {
-      fileAttachments: undefined,
-      contexts: userMentionMessage.contexts,
       messageId: userMentionMessage.id,
+      contexts: userMentionMessage.contexts,
       runtimeContext,
     })
   })
 
-  it('keeps stop out of the edit composer and aborts before resending', async () => {
-    vi.useFakeTimers()
-    mockStoreState.currentChat.latestTurnStatus = 'in_progress'
-    mockStoreState.messages = [userMentionMessage]
-
+  it('preserves later native tool history when a user tries to edit its prompt', async () => {
+    mockStoreState.messages = [
+      userMentionMessage,
+      {
+        ...assistantMessage,
+        contentBlocks: [
+          {
+            type: 'tool_call',
+            timestamp: 1,
+            toolCall: {
+              id: 'read',
+              name: 'read_workflow',
+              state: ClientToolCallState.success,
+            },
+          },
+        ],
+      },
+    ]
     await renderMessage(userMentionMessage)
     await click('[data-message-box]')
-    expect(container.querySelector('[data-testid="abort-edit"]')).toBeNull()
-    expect(container.querySelector('[data-testid="user-input"]')).not.toBeDisabled()
+    expect(container.querySelector('[data-testid="user-input"]')).toBeNull()
+    expect(container.textContent).toContain('Start a new message after tool activity')
+    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+  })
 
-    await click('[data-testid="user-input"]')
+  it.each([true, false])(
+    'regenerates only after confirmed cancellation (%s)',
+    async (cancelled) => {
+      let finishCancellation!: (value: boolean) => void
+      mockStoreState.abortMessage.mockReturnValue(
+        new Promise<boolean>((resolve) => {
+          finishCancellation = resolve
+        })
+      )
+      mockStoreState.isSendingMessage = true
+      mockStoreState.currentRunId = 'native-run'
+      mockStoreState.messages = [userMentionMessage]
 
-    expect(mockStoreState.abortMessage).toHaveBeenCalledOnce()
-    await act(async () => vi.advanceTimersByTimeAsync(100))
-    expect(mockStoreState.sendMessage).toHaveBeenCalledOnce()
+      await renderMessage(userMentionMessage)
+      await click('[data-message-box]')
+      expect(container.querySelector('[data-testid="abort-edit"]')).toBeNull()
+      expect(container.querySelector('[data-testid="user-input"]')).not.toBeDisabled()
+
+      await click('[data-testid="user-input"]')
+
+      expect(mockStoreState.abortMessage).toHaveBeenCalledOnce()
+      expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+      mockStoreState.error = cancelled ? null : 'The previous response is still stopping'
+      await act(async () => finishCancellation(cancelled))
+      if (cancelled) expect(mockStoreState.sendMessage).toHaveBeenCalledOnce()
+      else {
+        expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+        expect(container.textContent).toContain(mockStoreState.error)
+        expect(container.querySelector('[data-testid="user-input"]')).not.toBeNull()
+      }
+    }
+  )
+
+  it('waits for native admission before allowing an active prompt to be edited', async () => {
+    mockStoreState.isSendingMessage = true
+    mockStoreState.messages = [userMentionMessage]
+    await renderMessage(userMentionMessage)
+    await click('[data-message-box]')
+    expect(container.querySelector('[data-testid="user-input"]')).toBeNull()
+    expect(container.textContent).toContain('Wait for the response to start')
+    expect(mockStoreState.abortMessage).not.toHaveBeenCalled()
+    expect(mockStoreState.sendMessage).not.toHaveBeenCalled()
+  })
+
+  it('shows a failed regeneration instead of claiming that an edit completed', async () => {
+    mockStoreState.messages = [userMentionMessage]
+    mockStoreState.error = 'Selected model is unavailable'
+    mockStoreState.sendMessage.mockResolvedValue(false)
+    await renderMessage(userMentionMessage)
+    await editAndSubmit()
+    expect(container.textContent).toContain('Selected model is unavailable')
+    expect(container.querySelector('[data-testid="user-input"]')).not.toBeNull()
   })
 
   it('uses updated context identity when same-text mention props change', async () => {
@@ -276,9 +427,8 @@ describe('CopilotMessage', () => {
     await editAndSubmit()
 
     expect(mockStoreState.sendMessage).toHaveBeenCalledWith(updatedMessage.content, {
-      fileAttachments: undefined,
-      contexts: updatedMessage.contexts,
       messageId: updatedMessage.id,
+      contexts: updatedMessage.contexts,
       runtimeContext,
     })
   })

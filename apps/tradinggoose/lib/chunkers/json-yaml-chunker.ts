@@ -1,19 +1,12 @@
 import * as yaml from 'js-yaml'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getAccurateTokenCount } from '@/lib/tokenization'
-import { estimateTokenCount } from '@/lib/tokenization/estimators'
 import type { Chunk, ChunkerOptions } from './types'
 
 const logger = createLogger('JsonYamlChunker')
 
 function getTokenCount(text: string): number {
-  try {
-    return getAccurateTokenCount(text, 'text-embedding-3-small')
-  } catch (error) {
-    logger.warn('Tiktoken failed, falling back to estimation')
-    const estimate = estimateTokenCount(text)
-    return estimate.count
-  }
+  return getAccurateTokenCount(text)
 }
 
 /**

@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   loggingComplete: vi.fn(),
   completeWorkflowExecution: vi.fn(),
   settleWorkflowExecutionUsage: vi.fn(),
+  emit: vi.fn(),
   loggingStart: vi.fn(),
   cancelPendingExecutionTriggerRun: vi.fn(),
   triggerAndWait: vi.fn(),
@@ -58,7 +59,8 @@ vi.mock('@tradinggoose/db/schema', () => ({
   },
 }))
 
-vi.mock('drizzle-orm', () => ({
+vi.mock('drizzle-orm', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('drizzle-orm')>()),
   eq: vi.fn((field, value) => ({ field, value })),
 }))
 
@@ -74,6 +76,8 @@ vi.mock('@/lib/execution/pending-execution', () => ({
   PENDING_EXECUTION_TIME_LIMIT_ERROR: 'Workflow execution time limit exceeded',
   wakePendingExecution: mocks.wakePendingExecution,
 }))
+
+vi.mock('@/lib/logs/events', () => ({ emitWorkflowExecutionCompleted: mocks.emit }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ error: mocks.loggerError }),
@@ -210,6 +214,7 @@ describe('pending execution worker', () => {
     mocks.logLimit.mockResolvedValue([])
     mocks.loggingComplete.mockResolvedValue(undefined)
     mocks.settleWorkflowExecutionUsage.mockResolvedValue(undefined)
+    mocks.emit.mockResolvedValue(undefined)
     mocks.loggingStart.mockResolvedValue('workflow-log-1')
     mocks.triggerAndWait.mockResolvedValue({
       ok: true,
@@ -479,7 +484,7 @@ describe('pending execution worker', () => {
     ['Workflow execution was cancelled', 500],
     ['Workflow execution was cancelled', 0],
   ] as const)(
-    'restores active duration and costs once after multiple pauses: %s (%sms current attempt)',
+    'restores active duration and functional prior work once after multiple pauses: %s (%sms current attempt)',
     async (message, durationMs) => {
       const row = processingRow({
         id: 'original:resume:2',
@@ -501,6 +506,7 @@ describe('pending execution worker', () => {
           context: {
             blockLogs: [
               {
+                id: 'pending-execution-worker.test.ts:saved-occurrence:1',
                 blockId: 'before-pause',
                 blockType: 'agent',
                 startedAt: '2026-09-01T00:00:00Z',
@@ -509,11 +515,11 @@ describe('pending execution worker', () => {
                 success: true,
                 output: {
                   model: 'test-model',
-                  cost: { total: 2 },
-                  tokens: { prompt: 100, completion: 50, total: 150 },
+                  content: 'completed paid work',
                 },
               },
               {
+                id: 'pending-execution-worker.test.ts:saved-occurrence:2',
                 blockId: 'between-pauses',
                 blockType: 'function',
                 startedAt: '2026-09-01T06:00:00Z',
@@ -539,7 +545,10 @@ describe('pending execution worker', () => {
               endTime: '2026-09-01T06:00:04.000Z',
               duration: 21_604_000,
               children: [
-                expect.objectContaining({ blockId: 'before-pause', cost: { total: 2 } }),
+                expect.objectContaining({
+                  blockId: 'before-pause',
+                  output: expect.objectContaining({ content: 'completed paid work' }),
+                }),
                 expect.objectContaining({ blockId: 'between-pauses', duration: 4000 }),
               ],
             }),
@@ -565,8 +574,7 @@ describe('pending execution worker', () => {
             expect.objectContaining({
               children: expect.arrayContaining([
                 expect.objectContaining({
-                  cost: { total: 2 },
-                  tokens: { input: 100, output: 50, total: 150 },
+                  output: expect.objectContaining({ content: 'completed paid work' }),
                 }),
               ]),
             }),
@@ -611,7 +619,7 @@ describe('pending execution worker', () => {
   })
 
   it.each(['completed', 'failed'])(
-    'retries accounting before notifying parents of a %s execution without rerunning actions',
+    'retries accounting and parent completion of a %s execution without republishing webhooks',
     async (status) => {
       const row = processingRow({
         id: 'original:resume:1',
@@ -625,14 +633,26 @@ describe('pending execution worker', () => {
         'Ledger unavailable'
       )
       expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
+      expect(mocks.emit).not.toHaveBeenCalled()
       expect(mocks.completeWorkflowCheckpointChild).not.toHaveBeenCalled()
 
+      mocks.completeWorkflowCheckpointChild.mockRejectedValueOnce(
+        new Error('Checkpoint unavailable')
+      )
+      await expect(finalizePendingExecutionFailure(row, 'Late failure', 50)).rejects.toThrow(
+        'Checkpoint unavailable'
+      )
+      expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
+      expect(mocks.emit).not.toHaveBeenCalled()
+
       await finalizePendingExecutionFailure(row, 'Late failure', 50)
-      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenCalledTimes(2)
+      expect(mocks.settleWorkflowExecutionUsage).toHaveBeenCalledTimes(3)
       expect(mocks.settleWorkflowExecutionUsage).toHaveBeenLastCalledWith('original')
+      expect(mocks.emit).not.toHaveBeenCalled()
       expect(mocks.loggingComplete).not.toHaveBeenCalled()
       expect(mocks.executePendingExecutionJob).not.toHaveBeenCalled()
-      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledExactlyOnceWith({
+      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledTimes(2)
+      expect(mocks.completeWorkflowCheckpointChild).toHaveBeenLastCalledWith({
         childExecutionId: 'original',
         input: result,
       })

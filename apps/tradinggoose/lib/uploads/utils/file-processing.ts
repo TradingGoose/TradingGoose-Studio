@@ -1,7 +1,12 @@
 import type { Logger } from '@/lib/logs/console/logger'
 import { type StorageContext, StorageService } from '@/lib/uploads'
-import { downloadExecutionFile, isExecutionFile } from '@/lib/uploads/contexts/execution'
-import { extractStorageKey } from '@/lib/uploads/utils/file-utils'
+import { isExecutionFile } from '@/lib/uploads/contexts/execution'
+import { resolveAuthorizedWorkspaceFileReference } from '@/lib/uploads/contexts/workspace'
+import {
+  assertStorageReferenceAccess,
+  extractStorageKey,
+  StorageAccessError,
+} from '@/lib/uploads/utils/file-utils'
 import type { UserFile } from '@/executor/types'
 
 /**
@@ -112,27 +117,22 @@ function inferContextFromKey(key: string): StorageContext {
 export async function downloadFileFromStorage(
   userFile: UserFile,
   requestId: string,
-  logger: Logger
+  logger: Logger,
+  authority: { actorUserId: string; workspaceId?: string; signal: AbortSignal }
 ): Promise<Buffer> {
-  let buffer: Buffer
-
-  if (isExecutionFile(userFile)) {
-    logger.info(`[${requestId}] Downloading from execution storage: ${userFile.key}`)
-    buffer = await downloadExecutionFile(userFile)
-  } else if (userFile.key) {
-    // Use explicit context from file if available, otherwise infer from key pattern.
-    const context = (userFile.context as StorageContext) || inferContextFromKey(userFile.key)
-    logger.info(
-      `[${requestId}] Downloading from ${context} storage (${userFile.context ? 'explicit' : 'inferred'}): ${userFile.key}`
-    )
-
-    buffer = await StorageService.downloadFile({
-      key: userFile.key,
-      context,
-    })
-  } else {
-    throw new Error('File has no key - cannot download')
+  authority.signal.throwIfAborted()
+  if (!authority.actorUserId) throw new StorageAccessError()
+  assertStorageReferenceAccess(userFile.key, userFile.context)
+  const file = await resolveAuthorizedWorkspaceFileReference(userFile.key, authority.actorUserId)
+  if (file) {
+    if (authority.workspaceId && file.workspaceId !== authority.workspaceId)
+      throw new StorageAccessError()
+    return StorageService.downloadFile({ key: file.key, context: 'workspace' })
   }
-
-  return buffer
+  const context = isExecutionFile(userFile)
+    ? 'execution'
+    : (userFile.context as StorageContext | undefined) || inferContextFromKey(userFile.key)
+  if (context === 'workspace') throw new StorageAccessError()
+  logger.info(`[${requestId}] Downloading from ${context} storage: ${userFile.key}`)
+  return StorageService.downloadFile({ key: userFile.key, context })
 }

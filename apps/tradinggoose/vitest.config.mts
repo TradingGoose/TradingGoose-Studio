@@ -11,9 +11,14 @@ const projectDir = process.cwd()
 const configDir = dirname(fileURLToPath(import.meta.url))
 loadEnvConfig(projectDir)
 
+process.env.DATABASE_URL = ''
+
 export default defineConfig({
   plugins: [react(), tsconfigPaths()] as any,
   test: {
+    env: { DATABASE_URL: '' },
+    // Bound SDK imports and whole-app catalog scans while retaining existing test deadlines.
+    maxWorkers: 2,
     globals: true,
     environment: 'node',
     include: ['**/*.test.{ts,tsx}'],
@@ -25,6 +30,8 @@ export default defineConfig({
       '.next/**',
     ],
     setupFiles: ['./vitest.setup.ts'],
+    // Apply the database-driver mocks inside Mastra's native storage implementation.
+    server: { deps: { inline: ['@mastra/pg'] } },
     alias: {
       '@tradinggoose/db': resolve(configDir, '../../packages/db'),
     },

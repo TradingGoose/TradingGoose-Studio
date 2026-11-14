@@ -14,11 +14,9 @@ export interface AgentInputs {
   memories?: any
   temperature?: number
   maxTokens?: number
+  maxSteps?: number | string
   apiKey?: string
-  azureEndpoint?: string
-  reasoningEffort?: string
-  verbosity?: string
-  thinkingLevel?: string
+  providerOptions?: string | Record<string, any>
 }
 
 export interface ToolInput {
@@ -26,20 +24,17 @@ export interface ToolInput {
   schema?: any
   title?: string
   toolId?: string
-  code?: string
   params?: Record<string, any>
-  timeout?: number
   usageControl?: 'auto' | 'force' | 'none'
   operation?: string
 }
 
-export interface Message {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
-
-export interface StreamingConfig {
-  shouldUseStreaming: boolean
-  isBlockSelectedForOutput: boolean
-  hasOutgoingConnections: boolean
+export interface AgentToolConfig {
+  id: string
+  mcp?: { serverId: string; toolName: string }
+  name?: string
+  description: string
+  params?: Record<string, any>
+  parameters: Record<string, any>
+  usageControl?: 'auto' | 'force' | 'none'
 }

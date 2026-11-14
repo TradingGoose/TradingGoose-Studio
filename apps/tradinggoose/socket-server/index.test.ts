@@ -583,8 +583,6 @@ describe('Socket Server Index Integration', () => {
           entityKind: 'workflow',
           entityId: 'workflow-state-update',
           ownerUserId: null,
-          draftSessionId: null,
-          reviewSessionId: null,
           yjsSessionId: 'workflow-state-update',
         },
         runtime: getReviewTargetRuntimeState(liveDoc),

@@ -104,7 +104,6 @@ function safeCreateEnv() {
     S3_KB_BUCKET_NAME: z.string().optional(),                  // S3 bucket for knowledge base files
     S3_EXECUTION_FILES_BUCKET_NAME: z.string().optional(),                  // S3 bucket for workflow execution files
     S3_CHAT_BUCKET_NAME: z.string().optional(),                  // S3 bucket for chat logos
-    S3_COPILOT_BUCKET_NAME: z.string().optional(),                  // S3 bucket for copilot files
     S3_PROFILE_PICTURES_BUCKET_NAME: z.string().optional(),                  // S3 bucket for profile pictures
 
     // Cloud Storage - Azure 
@@ -115,7 +114,6 @@ function safeCreateEnv() {
     AZURE_STORAGE_KB_CONTAINER_NAME: z.string().optional(),                  // Azure container for knowledge base files
     AZURE_STORAGE_EXECUTION_FILES_CONTAINER_NAME: z.string().optional(),          // Azure container for workflow execution files
     AZURE_STORAGE_CHAT_CONTAINER_NAME: z.string().optional(),                  // Azure container for chat logos
-    AZURE_STORAGE_COPILOT_CONTAINER_NAME: z.string().optional(),                  // Azure container for copilot files
     AZURE_STORAGE_PROFILE_PICTURES_CONTAINER_NAME: z.string().optional(),          // Azure container for profile pictures
 
     // Cloud Storage - Vercel Blob
@@ -125,10 +123,6 @@ function safeCreateEnv() {
 
     // Knowledge Base Processing Configuration - Shared across all processing methods
     KB_CONFIG_MAX_DURATION: z.number().optional().default(600),     // Max processing duration in seconds (10 minutes)
-    KB_CONFIG_MAX_ATTEMPTS: z.number().optional().default(3),       // Max retry attempts
-    KB_CONFIG_RETRY_FACTOR: z.number().optional().default(2),       // Retry backoff factor
-    KB_CONFIG_MIN_TIMEOUT: z.number().optional().default(1000),    // Min timeout in ms
-    KB_CONFIG_MAX_TIMEOUT: z.number().optional().default(10000),   // Max timeout in ms
     KB_CONFIG_CONCURRENCY_LIMIT: z.number().optional().default(20),      // Queue concurrency limit
 
     // Real-time Communication

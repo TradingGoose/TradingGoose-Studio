@@ -12,1579 +12,1354 @@ import type { StoreApi } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createWithEqualityFn as create, useStoreWithEqualityFn } from 'zustand/traditional'
 import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
-import { sendStreamingMessage } from '@/lib/copilot/api'
 import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
-import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
-import { COPILOT_SESSION_KIND } from '@/lib/copilot/session-scope'
 import {
-  ClientToolCallState,
-  REJECTED_TOOL_COMPLETION_STATUS,
-} from '@/lib/copilot/tools/client/base-tool'
+  EDIT_REPLAY_BLOCKED_MESSAGE,
+  hasToolActivityAfterMessage,
+} from '@/lib/copilot/chat-replay-safety'
+import type {
+  CopilotEvent,
+  CopilotRequest,
+  CopilotThreadEvent,
+  HistoryResponse,
+  Pending,
+} from '@/lib/copilot/native/contract'
+import { serializeCopilotRequest } from '@/lib/copilot/native/request-size'
+import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
+import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import {
   disposeAllClientTools,
   disposeClientToolsExcept,
-  registerToolStateSync,
   unregisterClientTool,
 } from '@/lib/copilot/tools/client/manager'
+import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
+import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/server-tool-response'
+import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
+import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
+import { readSseData, waitToReconnect } from '@/lib/events/stream'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { getQueryClient } from '@/app/query-provider'
+import { organizationKeys } from '@/hooks/queries/organization'
+import { subscriptionKeys } from '@/hooks/queries/subscription'
+import { parseCopilotWorkspaceChannelId } from './channel-id'
+import { projectNativeHistory } from './history'
 import {
-  acceptCopilotServerToolReview,
-  executeCopilotServerTool,
-  getCopilotServerToolErrorDetails,
-  getCopilotServerToolErrorStatus,
-  isCopilotServerToolReviewResult,
-} from '@/lib/copilot/tools/client/server-tool-response'
-import { createLogger } from '@/lib/logs/console/logger'
-import { parseCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
+  listNativeThreads,
+  NativeCommandError,
+  postNativeCommand,
+  readNativeCommand,
+  readNativeCommandResponse,
+} from './native-api'
+import { registerCopilotStoreForToolCallResolver } from './store-access'
 import {
-  maybeHandleCopilotMarkCompleteContinuation,
-  postCopilotMarkCompleteRequest,
-  registerCopilotMarkCompleteContinuationHandler,
-} from '@/stores/copilot/mark-complete'
-import {
-  getCopilotStoreForToolCall,
-  registerCopilotStoreForToolCallResolver,
-} from '@/stores/copilot/store-access'
-import {
-  buildPinnedToolCallsById,
-  buildPlanTodosFromMessages,
-  createErrorMessage,
   createStreamingMessage,
   createUserMessage,
-  normalizeMessagesForUI,
-  updateMessagesForToolCallState,
-  validateMessagesForLLM,
-} from '@/stores/copilot/store-messages'
+  updateMessageToolCalls,
+  updateToolCallState,
+} from './store-messages'
+import { buildTurnProvenanceFromContexts } from './store-provenance'
+import { isCopilotBusy } from './store-state'
 import {
-  buildTurnProvenanceFromContexts,
-  findAssistantMessageIdForToolCall,
-} from '@/stores/copilot/store-provenance'
+  applyNativeCancellation,
+  applyNativeEvent,
+  displayNativePending,
+  replaceNativeText,
+  samePendingOrigin,
+  settleDisplayOnlyTools,
+} from './streaming'
 import {
-  ACTIVE_TURN_STATUS,
-  buildChatTurnStatusState,
-  COMPLETED_TURN_STATUS,
-  hasUiActiveToolCalls,
-  isChatTurnInProgress,
-  isToolCallCompletionProtected,
-  isToolCallPersisted,
-  resolveStoreTurnActivityState,
-  resolveTurnStatusFromToolCalls,
-} from '@/stores/copilot/store-state'
-import {
-  createSSEHandlers,
-  flushPendingAutoExecutionToolCalls,
-  getStreamingAssistantContent,
-  hydrateStreamingBlockIndexes,
-  parseSSEStream,
-  resetStreamingQueue,
-  type StreamingContext,
-} from '@/stores/copilot/streaming'
-import { reportClientManagedToolFailure } from '@/stores/copilot/tool-failure'
-import {
-  bindClientToolExecutionContext,
-  createExecutionContext,
   ensureClientToolInstance,
   handleCopilotServerToolSuccess,
-  isCopilotTool,
   isGatedTool,
   isServerManagedCopilotTool,
-  prepareCopilotToolArgs,
-  resolveToolDisplay,
-} from '@/stores/copilot/tool-registry'
-import type {
-  ChatContext,
-  CopilotChat,
-  CopilotDraft,
-  CopilotMessage,
-  CopilotSendRuntimeContext,
-  CopilotStore,
-  CopilotToolCall,
-  CopilotToolExecutionProvenance,
-  MessageFileAttachment,
-} from '@/stores/copilot/types'
+} from './tool-registry'
+import type { CopilotChat, CopilotDraft, CopilotStore } from './types'
 import {
   getCopilotWorkspaceSelection,
   rememberCopilotWorkspaceSelection,
   resetCopilotWorkspaceSelectionState,
-} from '@/stores/copilot/workspace-selection'
+} from './workspace-selection'
 
-const logger = createLogger('CopilotStore')
-
-const pendingChatPersistence = new Map<string, ReturnType<typeof setTimeout>>()
-
-function clearPendingChatPersistence(reviewSessionId: string) {
-  const existing = pendingChatPersistence.get(reviewSessionId)
-  if (!existing) {
-    return
-  }
-
-  clearTimeout(existing)
-  pendingChatPersistence.delete(reviewSessionId)
+const emptyDraft = (): CopilotDraft => ({ text: '', contexts: [] })
+const refreshBillingUsage = () => {
+  const queryClient = getQueryClient()
+  void queryClient.invalidateQueries({ queryKey: subscriptionKeys.all })
+  void queryClient.invalidateQueries({ queryKey: organizationKeys.all })
 }
-
-function clearPendingChatPersistenceQueue() {
-  for (const timeout of pendingChatPersistence.values()) {
-    clearTimeout(timeout)
-  }
-  pendingChatPersistence.clear()
+async function requireCopilotStream(response: Response) {
+  if (!response.ok) await readNativeCommandResponse(response)
+  if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream'))
+    throw new Error('Copilot stream is unavailable')
+  return response.body
 }
-
-function schedulePersistCurrentChatState(
-  get: () => CopilotStore,
-  reviewSessionId: string,
-  latestTurnStatus: string
-) {
-  clearPendingChatPersistence(reviewSessionId)
-
-  pendingChatPersistence.set(
-    reviewSessionId,
-    setTimeout(() => {
-      pendingChatPersistence.delete(reviewSessionId)
-      void get().saveChatMessages(reviewSessionId, { latestTurnStatus })
-    }, 48)
-  )
-}
-
-function resolveFinalStreamTurnState(
-  context: Pick<StreamingContext, 'awaitingTools' | 'latestTurnStatus'>,
-  toolCallsById: Record<string, CopilotToolCall>
-) {
-  let latestTurnStatus = context.latestTurnStatus ?? ACTIVE_TURN_STATUS
-  let isAwaitingContinuation = context.awaitingTools === true
-
-  if (latestTurnStatus === ACTIVE_TURN_STATUS && isAwaitingContinuation) {
-    if (Object.keys(toolCallsById).length === 0) {
-      return {
-        latestTurnStatus,
-        isAwaitingContinuation,
-      }
-    }
-
-    if (!hasUiActiveToolCalls(toolCallsById)) {
-      latestTurnStatus = COMPLETED_TURN_STATUS
-      isAwaitingContinuation = false
-    }
-  }
-
-  return {
-    latestTurnStatus,
-    isAwaitingContinuation,
-  }
-}
-
-async function postCopilotMarkComplete(params: {
-  toolCallId: string
-  toolName: string
-  status: number
-  message?: unknown
-  data?: unknown
-}): Promise<Response> {
-  const targetStore = getCopilotStoreForToolCall(params.toolCallId)
+function refreshServerToolResult(event: CopilotEvent) {
   if (
-    targetStore.getState().toolCallsById[params.toolCallId]?.state === ClientToolCallState.aborted
-  ) {
-    return Response.json({ success: true, aborted: true })
-  }
-
-  const response = await postCopilotMarkCompleteRequest(
-    params,
-    targetStore.getState().abortController?.signal
+    event.type === 'tool.result' &&
+    !event.isError &&
+    !event.denied &&
+    !isServerToolReviewRejectedResult(event.toolName, event.result)
   )
-
-  let continued = false
-  if (response.ok) {
-    continued = await maybeHandleCopilotMarkCompleteContinuation({
-      toolCallId: params.toolCallId,
-      response,
-    })
-  }
-
-  if (!continued) {
-    const state = targetStore.getState()
-    if (state.isAwaitingContinuation) {
-      const latestTurnStatus = resolveTurnStatusFromToolCalls(state.toolCallsById)
-      if (latestTurnStatus !== ACTIVE_TURN_STATUS) {
-        targetStore.setState((currentState) => ({
-          ...buildChatTurnStatusState(currentState, latestTurnStatus),
-          isSendingMessage: false,
-          isAwaitingContinuation: false,
-        }))
-
-        const currentChat = targetStore.getState().currentChat
-        if (currentChat?.reviewSessionId) {
-          void targetStore.getState().saveChatMessages(currentChat.reviewSessionId, {
-            latestTurnStatus,
-          })
-        }
-      }
-    }
-  }
-
-  return response
+    return handleCopilotServerToolSuccess(event.toolName, event.result)
 }
-
-function postCopilotAbort(
-  chat: Pick<CopilotChat, 'reviewSessionId' | 'conversationId' | 'workspaceId'> | null | undefined
-) {
-  if (!chat?.reviewSessionId && !chat?.conversationId) return
-
-  void fetch('/api/copilot/chat/abort', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chatId: chat.reviewSessionId,
-      conversationId: chat.conversationId,
-      workspaceId: chat.workspaceId,
-    }),
-  }).catch((error) => {
-    logger.warn('Failed to abort copilot turn on service', {
-      error: error instanceof Error ? error.message : String(error),
-    })
-  })
-}
-
-// Helper: abort all in-progress client tools and keep message-level tool state aligned.
-function abortAllInProgressTools(
-  set: any,
-  get: () => CopilotStore,
-  options?: { includeReview?: boolean }
-) {
-  const { toolCallsById } = get()
-  const updatedMap = { ...toolCallsById }
-  const abortedIds: string[] = []
-  for (const [id, tc] of Object.entries(toolCallsById)) {
-    const st = tc.state as any
-    const isTerminal =
-      st === ClientToolCallState.success ||
-      st === ClientToolCallState.error ||
-      st === ClientToolCallState.rejected ||
-      st === ClientToolCallState.aborted ||
-      (!options?.includeReview && st === ClientToolCallState.review)
-    if (!isTerminal) {
-      abortedIds.push(id)
-      updatedMap[id] = {
-        ...tc,
-        state: ClientToolCallState.aborted,
-        display: resolveToolDisplay(tc.name, ClientToolCallState.aborted, id, (tc as any).params),
-      }
-    }
-  }
-  if (abortedIds.length > 0) {
-    set((s: CopilotStore) => {
-      const nextChatState = buildChatTurnStatusState(s, COMPLETED_TURN_STATUS)
-      let nextMessages = s.messages
-      for (const toolCallId of abortedIds) {
-        nextMessages = updateMessagesForToolCallState(
-          nextMessages,
-          toolCallId,
-          ClientToolCallState.aborted
-        )
-      }
-
-      const nextCurrentChat = nextChatState.currentChat
-        ? {
-            ...nextChatState.currentChat,
-            messages: nextMessages,
-          }
-        : null
-
-      return {
-        toolCallsById: updatedMap,
-        messages: nextMessages,
-        chats: nextChatState.chats,
-        currentChat: nextCurrentChat,
-      }
-    })
-  }
-}
-
-function autoExecutePendingToolsForAccessLevel(
-  accessLevel: CopilotStore['accessLevel'],
-  get: () => CopilotStore
-) {
-  const { toolCallsById } = get()
-  const copilotToolIds: string[] = []
-
-  for (const [id, toolCall] of Object.entries(toolCallsById)) {
-    if (toolCall.state !== ClientToolCallState.pending) {
-      continue
-    }
-
-    if (
-      isCopilotTool(toolCall.name) &&
-      !shouldRequireToolApproval(accessLevel, isGatedTool(toolCall.name))
-    ) {
-      copilotToolIds.push(id)
-    }
-  }
-
-  if (copilotToolIds.length === 0) {
-    return
-  }
-
-  logger.info('[copilot access] auto-executing queued pending tools', {
-    accessLevel,
-    copilotToolIds,
-  })
-
-  for (const toolCallId of copilotToolIds) {
-    setTimeout(() => {
-      const latest = get().toolCallsById[toolCallId]
-      if (!latest) return
-      if (latest.state !== ClientToolCallState.pending) {
-        return
-      }
-      void get().executeCopilotToolCall(toolCallId)
-    }, 0)
-  }
-}
-
-// Initial state (subset required for UI/streaming)
-const createEmptyCopilotDraft = (): CopilotDraft => ({ text: '', contexts: [] })
-
 const initialState = {
   accessLevel: 'limited' as const,
-  selectedModel: DEFAULT_COPILOT_RUNTIME_MODEL,
+  selectedModel: null as string | null,
+  providerOptions: undefined as CopilotStore['providerOptions'],
   currentChat: null as CopilotChat | null,
   chats: [] as CopilotChat[],
-  messages: [] as CopilotMessage[],
+  messages: [] as CopilotStore['messages'],
+  conversationWorkspaceId: null as string | null,
+  currentRunId: null as string | null,
+  workflowChatDeployment: null as CopilotStore['workflowChatDeployment'],
   isLoadingChats: false,
   isSendingMessage: false,
   isAwaitingContinuation: false,
   isAborting: false,
   abortController: null as AbortController | null,
-  planTodos: [] as Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>,
-  toolCallsById: {} as Record<string, CopilotToolCall>,
-  contextUsage: null,
+  toolCallsById: {} as CopilotStore['toolCallsById'],
+  lastNativeOutcome: null,
+  error: null,
 }
 
-const sseHandlers = createSSEHandlers({
-  logger,
-  schedulePersistCurrentChatState,
-})
-
-const createCopilotStoreInstance = (storeChannelId: string) => {
+function createCopilotStoreInstance(channelId: string) {
+  let epoch = 0
+  let threadsGeneration = 0
+  let interactionGeneration = 0
+  let titleEditGeneration = 0
+  let titleCandidate: {
+    epoch: number
+    interaction: number
+    workspaceId: string | null
+    model: string
+    originalInput: string
+    titleEdit: number
+    threadId?: string
+  } | null = null
+  let titleAbort: AbortController | null = null
+  let observation: AbortController | null = null
+  const inFlightTools = new Set<string>()
+  const attemptedTools = new Set<string>()
+  let toolQueue: Promise<void> = Promise.resolve()
+  let deploymentPromise: {
+    id: string
+    settled: boolean
+    resolve: () => void
+    reject: (error: Error) => void
+    removeAbort: () => void
+  } | null = null
   const store = create<CopilotStore>()(
-    devtools((set, get) => ({
-      ...initialState,
-      draft: createEmptyCopilotDraft(),
-
-      // Access policy controls
-      setAccessLevel: (accessLevel) => {
-        const previousAccessLevel = get().accessLevel
-        set({ accessLevel })
-        if (previousAccessLevel !== accessLevel) {
-          autoExecutePendingToolsForAccessLevel(accessLevel, get)
-        }
-      },
-
-      selectChat: async (chat: CopilotChat) => {
-        const { isSendingMessage, isAwaitingContinuation, currentChat } = get()
+    devtools((set, get) => {
+      const fail = (error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Native Copilot request failed'
+        const outcome = error instanceof NativeCommandError ? error.nativeOutcome : undefined
+        set({ error: message, ...(outcome ? { lastNativeOutcome: outcome } : {}) })
+        return message
+      }
+      const updateTool = (id: string, state: ClientToolCallState, result?: unknown) =>
+        set((current) => updateToolCallState(current, id, state, result))
+      const publishInitialTitle = () => {
+        const candidate = titleCandidate
+        const chat = get().currentChat
+        const outcome = get().lastNativeOutcome
         if (
-          currentChat &&
-          currentChat.reviewSessionId !== chat.reviewSessionId &&
-          (isSendingMessage || isAwaitingContinuation || isChatTurnInProgress(currentChat))
-        ) {
-          get().abortMessage()
-        }
-
-        // Abort in-progress tools and clear diff when changing chats
-        abortAllInProgressTools(set, get)
-
-        // Capture previous chat/messages for optimistic background save after local aborts have settled.
-        const previousChat = get().currentChat
-        const previousMessages = get().messages
-        const normalizedMessages = normalizeMessagesForUI(
-          chat.messages || [],
-          chat.latestTurnStatus
+          !candidate ||
+          candidate.epoch !== epoch ||
+          candidate.interaction !== interactionGeneration ||
+          get().selectedModel !== candidate.model ||
+          !chat ||
+          chat.workspaceId !== candidate.workspaceId ||
+          chat.title !== '' ||
+          candidate.titleEdit !== titleEditGeneration ||
+          (candidate.threadId !== undefined && candidate.threadId !== chat.threadId) ||
+          !outcome ||
+          !['completed', 'suspended'].includes(outcome.status) ||
+          !('threadId' in outcome) ||
+          outcome.threadId !== chat.threadId
         )
-        const optimisticToolCallsById = buildPinnedToolCallsById(normalizedMessages, {
+          return
+        titleCandidate = null // An optional title attempt never retries paid utility work.
+        const abort = new AbortController()
+        titleAbort = abort
+        const current = () =>
+          !abort.signal.aborted &&
+          candidate.epoch === epoch &&
+          candidate.interaction === interactionGeneration &&
+          get().currentChat?.threadId === chat.threadId &&
+          get().currentChat?.workspaceId === chat.workspaceId &&
+          get().selectedModel === candidate.model &&
+          get().currentChat?.title === '' &&
+          candidate.titleEdit === titleEditGeneration
+        const request = {
           workspaceId: chat.workspaceId,
-        })
-
-        rememberCopilotWorkspaceSelection(chat.workspaceId, chat.reviewSessionId)
-
-        // Optimistically set selected chat and normalize messages for UI
-        set({
-          currentChat: chat,
-          messages: normalizedMessages,
-          toolCallsById: optimisticToolCallsById,
-          planTodos: buildPlanTodosFromMessages(normalizedMessages),
-          contextUsage: null,
-          isSendingMessage: isChatTurnInProgress(chat),
-          isAwaitingContinuation: isChatTurnInProgress(chat),
-          abortController: null,
-        })
-
-        // Background-save the previous chat's latest messages before switching (optimistic)
-        try {
-          if (previousChat && previousChat.reviewSessionId !== chat.reviewSessionId) {
-            const dbMessages = validateMessagesForLLM(previousMessages)
-            fetch('/api/copilot/chat/update-messages', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                reviewSessionId: previousChat.reviewSessionId,
-                messages: dbMessages,
-                latestTurnStatus: previousChat.latestTurnStatus ?? COMPLETED_TURN_STATUS,
-              }),
-            }).catch(() => {})
-          }
-        } catch {}
-
-        // Refresh selected chat from server to ensure we have latest messages/tool calls
-        try {
-          const reviewSessionId = chat.reviewSessionId
-          const response = await fetch(
-            `/api/copilot/chat?reviewSessionId=${encodeURIComponent(reviewSessionId)}`
-          )
-          if (!response.ok) throw new Error(`Failed to fetch latest chat data: ${response.status}`)
-          const data = await response.json()
-          if (data.success && Array.isArray(data.chats)) {
-            const latestChat =
-              data.chats.find((c: CopilotChat) => c.reviewSessionId === chat.reviewSessionId) ??
-              data.chats[0] ??
-              null
-            if (latestChat) {
-              const normalizedMessages = normalizeMessagesForUI(
-                latestChat.messages || [],
-                latestChat.latestTurnStatus
-              )
-              const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
-                workspaceId: latestChat.workspaceId,
-              })
-
-              rememberCopilotWorkspaceSelection(latestChat.workspaceId, latestChat.reviewSessionId)
-
-              set({
-                currentChat: latestChat,
-                messages: normalizedMessages,
-                chats: (get().chats || []).map((c: CopilotChat) =>
-                  c.reviewSessionId === chat.reviewSessionId ? latestChat : c
-                ),
-                contextUsage: null,
-                toolCallsById,
-                planTodos: buildPlanTodosFromMessages(normalizedMessages),
-                isSendingMessage: isChatTurnInProgress(latestChat),
-                isAwaitingContinuation: isChatTurnInProgress(latestChat),
-                abortController: null,
-              })
-              logger.info('[Context Usage] Chat selected, fetching usage')
-              await get().fetchContextUsage()
-            }
-          }
-        } catch {}
-      },
-
-      createNewChat: async (workspaceId) => {
-        const { isSendingMessage, isAwaitingContinuation, currentChat: activeChat } = get()
-        if (isSendingMessage || isAwaitingContinuation || isChatTurnInProgress(activeChat)) {
-          get().abortMessage()
+          threadId: chat.threadId,
+          model: candidate.model,
+          originalInput: candidate.originalInput,
         }
-
-        // Abort in-progress tools and clear diff on new chat
-        abortAllInProgressTools(set, get)
-
-        const currentChat = get().currentChat
-        if (currentChat) {
+        void (async () => {
           try {
-            const currentMessages = get().messages
-            const dbMessages = validateMessagesForLLM(currentMessages)
-            fetch('/api/copilot/chat/update-messages', {
+            if (!current()) return
+            const response = await fetch('/api/copilot/title', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                reviewSessionId: currentChat.reviewSessionId,
-                messages: dbMessages,
-                latestTurnStatus: currentChat.latestTurnStatus ?? COMPLETED_TURN_STATUS,
-              }),
-            }).catch(() => {})
-          } catch {}
-        }
-
-        // Generic copilot keeps prior chats in workspace history. "New chat"
-        // only clears the active selection so the next send creates a fresh
-        // session in the same workspace bucket.
-        const selectionWorkspaceId = currentChat?.workspaceId ?? workspaceId ?? null
-        rememberCopilotWorkspaceSelection(selectionWorkspaceId, null)
-
-        logger.info('[Context Usage] New chat created, clearing context usage')
-        set(() => ({
-          currentChat: null,
-          messages: [],
-          toolCallsById: {},
-          isSendingMessage: false,
-          isAwaitingContinuation: false,
-          abortController: null,
-          planTodos: [],
-          contextUsage: null,
-        }))
-      },
-
-      deleteChat: async (reviewSessionId: string) => {
-        try {
-          // Call delete API
-          const response = await fetch('/api/copilot/chat/delete', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reviewSessionId }),
-          })
-
-          if (!response.ok) {
-            throw new Error(`Failed to delete chat: ${response.status}`)
-          }
-
-          const state = get()
-          const deletingCurrentChat = state.currentChat?.reviewSessionId === reviewSessionId
-          const selectionWorkspaceId = deletingCurrentChat
-            ? (state.currentChat?.workspaceId ?? null)
-            : undefined
-
-          clearPendingChatPersistence(reviewSessionId)
-          if (deletingCurrentChat) {
-            state.abortController?.abort()
-            for (const toolCallId of Object.keys(state.toolCallsById)) {
-              unregisterClientTool(toolCallId)
-            }
-          }
-
-          set((currentState) => ({
-            chats: currentState.chats.filter((chat) => chat.reviewSessionId !== reviewSessionId),
-            ...(deletingCurrentChat
-              ? {
-                  currentChat: null,
-                  messages: [],
-                  toolCallsById: {},
-                  isSendingMessage: false,
-                  isAwaitingContinuation: false,
-                  isAborting: false,
-                  abortController: null,
-                  draft: createEmptyCopilotDraft(),
-                  planTodos: [],
-                  contextUsage: null,
-                }
-              : {}),
-          }))
-
-          if (selectionWorkspaceId !== undefined) {
-            rememberCopilotWorkspaceSelection(selectionWorkspaceId, null)
-          }
-
-          logger.info('Chat deleted', { reviewSessionId })
-        } catch (error) {
-          logger.error('Failed to delete chat:', error)
-          throw error
-        }
-      },
-
-      loadChats: async (options) => {
-        const { currentChat } = get()
-        const resolvedWorkspaceId = options?.workspaceId ?? currentChat?.workspaceId ?? null
-
-        set({ isLoadingChats: true })
-        try {
-          const params = new URLSearchParams()
-          if (resolvedWorkspaceId) {
-            params.set('workspaceId', resolvedWorkspaceId)
-          }
-          const query = params.toString()
-          const response = await fetch(query ? `/api/copilot/chat?${query}` : '/api/copilot/chat')
-          if (!response.ok) {
-            throw new Error(`Failed to fetch chats: ${response.status}`)
-          }
-          const data = await response.json()
-          if (data.success && Array.isArray(data.chats)) {
-            set({
-              chats: data.chats,
-              isLoadingChats: false,
+              body: JSON.stringify(request),
+              signal: abort.signal,
+              credentials: 'include',
             })
-
-            if (data.chats.length > 0) {
-              const { currentChat, isSendingMessage } = get()
-              const preferredWorkspaceSelection = getCopilotWorkspaceSelection(resolvedWorkspaceId)
-              const currentChatStillExists =
-                currentChat &&
-                data.chats.some(
-                  (c: CopilotChat) => c.reviewSessionId === currentChat.reviewSessionId
-                )
-
-              if (currentChatStillExists) {
-                const updatedCurrentChat = data.chats.find(
-                  (c: CopilotChat) => c.reviewSessionId === currentChat!.reviewSessionId
-                )!
-                if (isSendingMessage) {
-                  const keepTurnActive =
-                    get().isAwaitingContinuation || isChatTurnInProgress(currentChat)
-                  set({
-                    currentChat: {
-                      ...updatedCurrentChat,
-                      messages: get().messages,
-                      latestTurnStatus: keepTurnActive
-                        ? ACTIVE_TURN_STATUS
-                        : updatedCurrentChat.latestTurnStatus,
-                    },
-                    isAwaitingContinuation: keepTurnActive,
-                  })
-                } else {
-                  const normalizedMessages = normalizeMessagesForUI(
-                    updatedCurrentChat.messages || [],
-                    updatedCurrentChat.latestTurnStatus
-                  )
-                  const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
-                    workspaceId: updatedCurrentChat.workspaceId,
-                  })
-
-                  set({
-                    currentChat: updatedCurrentChat,
-                    messages: normalizedMessages,
-                    toolCallsById,
-                    planTodos: buildPlanTodosFromMessages(normalizedMessages),
-                    isSendingMessage: isChatTurnInProgress(updatedCurrentChat),
-                    isAwaitingContinuation: isChatTurnInProgress(updatedCurrentChat),
-                    abortController: null,
-                  })
-                }
-              } else if (!isSendingMessage) {
-                const preferredChat =
-                  typeof preferredWorkspaceSelection === 'string'
-                    ? (data.chats.find(
-                        (chat: CopilotChat) => chat.reviewSessionId === preferredWorkspaceSelection
-                      ) ?? null)
-                    : null
-                const availableChat =
-                  preferredChat ??
-                  (preferredWorkspaceSelection === null ? null : (data.chats[0] ?? null))
-
-                if (availableChat) {
-                  const normalizedMessages = normalizeMessagesForUI(
-                    availableChat.messages || [],
-                    availableChat.latestTurnStatus
-                  )
-                  const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
-                    workspaceId: availableChat.workspaceId,
-                  })
-
-                  rememberCopilotWorkspaceSelection(
-                    availableChat.workspaceId,
-                    availableChat.reviewSessionId
-                  )
-
-                  set({
-                    currentChat: availableChat,
-                    messages: normalizedMessages,
-                    toolCallsById,
-                    planTodos: buildPlanTodosFromMessages(normalizedMessages),
-                    isSendingMessage: isChatTurnInProgress(availableChat),
-                    isAwaitingContinuation: isChatTurnInProgress(availableChat),
-                    abortController: null,
-                  })
-                } else {
-                  set({
-                    currentChat: null,
-                    messages: [],
-                    toolCallsById: {},
-                    planTodos: [],
-                    isSendingMessage: false,
-                    isAwaitingContinuation: false,
-                    abortController: null,
-                  })
-                }
-              }
-            } else if (!get().isSendingMessage) {
-              set({
-                currentChat: null,
-                messages: [],
-                toolCallsById: {},
-                planTodos: [],
-                isSendingMessage: false,
-                isAwaitingContinuation: false,
-                abortController: null,
-              })
-            }
-          } else {
-            throw new Error('Invalid response format')
-          }
-        } catch (error) {
-          set({
-            chats: [],
-            isLoadingChats: false,
-          })
-          logger.warn('Failed to load copilot chats', {
-            workspaceId: resolvedWorkspaceId,
-            error: error instanceof Error ? error.message : String(error),
-          })
-        }
-      },
-
-      // Send a message (streaming only)
-      sendMessage: async (message: string, options = {}) => {
-        const { currentChat } = get()
-        const { fileAttachments, contexts, messageId, runtimeContext } = options as {
-          fileAttachments?: MessageFileAttachment[]
-          contexts?: ChatContext[]
-          messageId?: string
-          runtimeContext?: CopilotSendRuntimeContext
-        }
-
-        if (!runtimeContext) {
-          logger.warn('Skipping copilot send without runtime context')
-          return
-        }
-
-        const { implicitContexts, workspaceId } = runtimeContext
-
-        const resolvedContexts = mergeCopilotContexts({
-          explicitContexts: contexts,
-          implicitContexts,
-        })
-        const turnProvenance = buildTurnProvenanceFromContexts(resolvedContexts, workspaceId)
-        const contextsToSend = resolvedContexts.length > 0 ? resolvedContexts : undefined
-
-        const abortController = new AbortController()
-        set({
-          isSendingMessage: true,
-          isAwaitingContinuation: false,
-          abortController,
-          planTodos: [],
-        })
-
-        const userMessage = createUserMessage(message, fileAttachments, contextsToSend, messageId)
-        const streamingMessage = createStreamingMessage()
-
-        const currentMessages = get().messages
-        const existingIndex = messageId
-          ? currentMessages.findIndex((existingMessage) => existingMessage.id === messageId)
-          : -1
-        const newMessages =
-          existingIndex !== -1
-            ? [...currentMessages.slice(0, existingIndex), userMessage, streamingMessage]
-            : [...currentMessages, userMessage, streamingMessage]
-
-        const isFirstMessage = get().messages.length === 0 && !currentChat?.title
-        set((state) => ({
-          messages: newMessages,
-          ...buildChatTurnStatusState(state, ACTIVE_TURN_STATUS),
-        }))
-
-        if (currentChat?.reviewSessionId) {
-          schedulePersistCurrentChatState(get, currentChat.reviewSessionId, ACTIVE_TURN_STATUS)
-        }
-
-        if (isFirstMessage) {
-          const optimisticTitle = message.length > 50 ? `${message.substring(0, 47)}...` : message
-          set((state) => ({
-            currentChat: state.currentChat
-              ? { ...state.currentChat, title: optimisticTitle }
-              : state.currentChat,
-          }))
-        }
-
-        try {
-          const requestReviewSessionId = currentChat?.reviewSessionId
-          const requestModel = get().selectedModel as CopilotStore['selectedModel']
-
-          const result = await sendStreamingMessage({
-            message,
-            userMessageId: userMessage.id,
-            reviewSessionId: requestReviewSessionId,
-            workspaceId: workspaceId ?? undefined,
-            model: requestModel,
-            fileAttachments,
-            contexts: contextsToSend,
-            abortSignal: abortController.signal,
-          })
-
-          if (result.success && result.stream) {
-            await get().handleStreamingResponse(
-              result.stream,
-              streamingMessage.id,
-              false,
-              turnProvenance,
-              abortController.signal
+            const body: unknown = await response.json()
+            if (
+              !body ||
+              typeof body !== 'object' ||
+              !('title' in body) ||
+              !(body.title === null || typeof body.title === 'string')
             )
-          } else {
-            if (result.error === 'Request was aborted') {
-              return
-            }
-
-            // Check for specific status codes and provide custom messages
-            let errorContent = result.error || 'Failed to send message'
-            if (result.status === 401) {
-              errorContent =
-                '_Unauthorized request. You need a valid API key to use the copilot. You can get one by going to [TradingGoose.ai](https://tradinggoose.ai) settings and generating one there._'
-            } else if (result.status === 402) {
-              errorContent =
-                '_Usage limit exceeded. To continue using this service, upgrade your plan or top up on credits._'
-            } else if (result.status === 403) {
-              errorContent = '_Request forbidden. Please verify your account access and try again._'
-            } else if (result.status === 426) {
-              errorContent =
-                '_Please upgrade to the latest version of the TradingGoose platform to continue using the copilot._'
-            } else if (result.status === 429) {
-              errorContent = '_AI service rate limit exceeded. Please try again later._'
-            }
-
-            const errorMessage = createErrorMessage(streamingMessage.id, errorContent)
+              throw new Error('Native initial title response is invalid')
+            if (!response.ok || typeof body.title !== 'string' || !body.title || !current()) return
+            const updated = await readNativeCommand(
+              {
+                command: 'thread.title',
+                workspaceId: chat.workspaceId,
+                threadId: chat.threadId,
+                title: body.title,
+              },
+              abort.signal
+            )
+            if (
+              updated.status !== 'updated' ||
+              updated.operation !== 'thread.title' ||
+              updated.threadId !== chat.threadId
+            )
+              throw new Error('Native title publication was not verified')
+            if (!current()) return
+            const threads = await listNativeThreads(chat.workspaceId, abort.signal)
+            const actual = threads.find((thread) => thread.id === chat.threadId)
+            if (!actual) throw new Error('Native title readback is unavailable')
+            if (!current()) return
             set((state) => ({
-              messages: state.messages.map((m) =>
-                m.id === streamingMessage.id ? errorMessage : m
+              currentChat: state.currentChat ? { ...state.currentChat, title: actual.title } : null,
+              chats: state.chats.map((item) =>
+                item.threadId === chat.threadId ? { ...item, title: actual.title } : item
               ),
-              ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
-              isSendingMessage: false,
-              isAwaitingContinuation: false,
-              abortController: null,
             }))
-
-            const failedChat = get().currentChat
-            if (failedChat?.reviewSessionId) {
-              await get().saveChatMessages(failedChat.reviewSessionId, {
-                latestTurnStatus: COMPLETED_TURN_STATUS,
-              })
-            }
-          }
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') return
-          const errorMessage = createErrorMessage(
-            streamingMessage.id,
-            'Sorry, I encountered an error while processing your message. Please try again.'
-          )
-          set((state) => ({
-            messages: state.messages.map((m) => (m.id === streamingMessage.id ? errorMessage : m)),
-            ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
-            isSendingMessage: false,
-            isAwaitingContinuation: false,
-            abortController: null,
-          }))
-
-          const failedChat = get().currentChat
-          if (failedChat?.reviewSessionId) {
-            await get().saveChatMessages(failedChat.reviewSessionId, {
-              latestTurnStatus: COMPLETED_TURN_STATUS,
-            })
-          }
-        }
-      },
-
-      // Abort streaming
-      abortMessage: () => {
-        const { abortController, currentChat, isSendingMessage, messages, toolCallsById } = get()
-        const hasActiveToolCalls = hasUiActiveToolCalls(toolCallsById)
-        if (!isSendingMessage && !isChatTurnInProgress(currentChat) && !hasActiveToolCalls) return
-        set({ isAborting: true })
-        abortController?.abort()
-        postCopilotAbort(currentChat)
-        const lastMessage = messages[messages.length - 1]
-        if (lastMessage && lastMessage.role === 'assistant') {
-          const textContent =
-            lastMessage.contentBlocks
-              ?.filter((b) => b.type === 'text')
-              .map((b: any) => b.content)
-              .join('') || ''
-          set((state) => ({
-            messages: state.messages.map((msg) =>
-              msg.id === lastMessage.id
-                ? { ...msg, content: textContent.trim() || 'Message was aborted' }
-                : msg
-            ),
-            ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
-            isSendingMessage: false,
-            isAwaitingContinuation: false,
-            isAborting: false,
-            abortController: null,
-          }))
-        } else {
-          set((state) => ({
-            ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
-            isSendingMessage: false,
-            isAwaitingContinuation: false,
-            isAborting: false,
-            abortController: null,
-          }))
-        }
-
-        abortAllInProgressTools(set, get, { includeReview: true })
-
-        const { currentChat: updatedChat } = get()
-        if (updatedChat) {
-          void get().saveChatMessages(updatedChat.reviewSessionId, {
-            latestTurnStatus: COMPLETED_TURN_STATUS,
-          })
-        }
-
-        logger.info('[Context Usage] Message aborted, fetching usage')
-        get()
-          .fetchContextUsage()
-          .catch((err) => {
-            logger.warn('[Context Usage] Failed to fetch after abort', err)
-          })
-      },
-
-      saveChatMessages: async (chatId: string, options) => {
-        const { currentChat, messages } = get()
-        const targetChatId = chatId || currentChat?.reviewSessionId
-        if (!targetChatId) return
-        if (currentChat?.reviewSessionId && currentChat.reviewSessionId !== targetChatId) return
-
-        try {
-          const dbMessages = validateMessagesForLLM(messages)
-          const latestTurnStatus =
-            options?.latestTurnStatus ??
-            currentChat?.latestTurnStatus ??
-            (get().isSendingMessage ? ACTIVE_TURN_STATUS : COMPLETED_TURN_STATUS)
-          if (latestTurnStatus !== ACTIVE_TURN_STATUS) {
-            clearPendingChatPersistence(targetChatId)
-          }
-          await fetch('/api/copilot/chat/update-messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              reviewSessionId: targetChatId,
-              messages: dbMessages,
-              latestTurnStatus,
-            }),
-          })
-        } catch (error) {
-          logger.warn('Failed to persist copilot chat messages', {
-            chatId: targetChatId,
-            latestTurnStatus: options?.latestTurnStatus,
-            error: error instanceof Error ? error.message : String(error),
-          })
-        }
-      },
-
-      // Handle streaming response
-      handleStreamingResponse: async (
-        stream: ReadableStream,
-        assistantMessageId: string,
-        isContinuation = false,
-        turnProvenance?: CopilotToolExecutionProvenance,
-        abortSignal?: AbortSignal
-      ) => {
-        const reader = stream.getReader()
-        const decoder = new TextDecoder()
-        const cancelReader = () => {
-          void reader.cancel().catch(() => {})
-        }
-
-        const timeoutId = setTimeout(() => {
-          logger.warn('Stream timeout reached, completing response')
-          reader.cancel()
-        }, 600000)
-
-        try {
-          if (abortSignal?.aborted) {
-            cancelReader()
-            return
-          }
-          abortSignal?.addEventListener('abort', cancelReader, { once: true })
-
-          const context: StreamingContext = {
-            messageId: assistantMessageId,
-            provenance: turnProvenance,
-            contentBlocks: [],
-            textBlocksByItemId: new Map(),
-            thinkingBlocksByItemId: new Map(),
-            latestTurnStatus: ACTIVE_TURN_STATUS,
-            awaitingTools: false,
-          }
-
-          if (isContinuation) {
-            const { messages } = get()
-            const existingMessage = messages.find((m) => m.id === assistantMessageId)
-            if (existingMessage) {
-              context.contentBlocks = existingMessage.contentBlocks
-                ? [...existingMessage.contentBlocks]
-                : []
-              hydrateStreamingBlockIndexes(context)
-            }
-          }
-
-          for await (const data of parseSSEStream(reader, decoder, logger)) {
-            if (abortSignal?.aborted) {
-              resetStreamingQueue(set)
-              return
-            }
-
-            const handler = sseHandlers[data.type] || sseHandlers.default
-            await handler(data, context, get, set)
-            if (context.streamComplete) break
-          }
-
-          if (abortSignal?.aborted) {
-            resetStreamingQueue(set)
-            return
-          }
-
-          if (sseHandlers.stream_end) sseHandlers.stream_end({}, context, get, set)
-
-          resetStreamingQueue(set)
-          const finalContent = getStreamingAssistantContent(context)
-          set((state) => ({
-            messages: state.messages.map((msg) =>
-              msg.id === assistantMessageId
-                ? (normalizeMessagesForUI(
-                    [{ ...msg, content: finalContent, contentBlocks: context.contentBlocks }],
-                    context.latestTurnStatus
-                  )[0] ?? msg)
-                : msg
-            ),
-          }))
-
-          if (context.newReviewSessionId && !get().currentChat) {
-            await get().handleNewReviewSessionCreation(
-              context.newReviewSessionId,
-              context.provenance?.workspaceId ?? null
-            )
-          }
-
-          await flushPendingAutoExecutionToolCalls(context, get, logger)
-
-          const { latestTurnStatus, isAwaitingContinuation } = resolveFinalStreamTurnState(
-            context,
-            get().toolCallsById
-          )
-          set((state) => ({
-            ...buildChatTurnStatusState(state, latestTurnStatus),
-            isSendingMessage: latestTurnStatus === ACTIVE_TURN_STATUS,
-            isAwaitingContinuation,
-            abortController: latestTurnStatus === ACTIVE_TURN_STATUS ? state.abortController : null,
-          }))
-
-          // Persist full message state (including contentBlocks) to database
-          const { currentChat } = get()
-          if (currentChat) {
-            await get().saveChatMessages(currentChat.reviewSessionId, {
-              latestTurnStatus,
-            })
-          }
-
-          // Fetch context usage after response completes
-          if (!context.awaitingTools) {
-            logger.info('[Context Usage] Stream completed, fetching usage')
-            await get().fetchContextUsage()
-          }
-        } finally {
-          abortSignal?.removeEventListener('abort', cancelReader)
-          clearTimeout(timeoutId)
-        }
-      },
-
-      // Handle new chat creation from stream
-      handleNewReviewSessionCreation: async (
-        newReviewSessionId: string,
-        workspaceId?: string | null
-      ) => {
-        const newChat: CopilotChat = {
-          reviewSessionId: newReviewSessionId,
-          workspaceId: workspaceId ?? null,
-          entityKind: COPILOT_SESSION_KIND,
-          entityId: null,
-          draftSessionId: null,
-          latestTurnStatus: ACTIVE_TURN_STATUS,
-          title: null,
-          messages: get().messages,
-          messageCount: get().messages.length,
-          conversationId: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }
-        // Abort any in-progress tools and clear diff on new chat creation
-        abortAllInProgressTools(set, get)
-
-        rememberCopilotWorkspaceSelection(newChat.workspaceId, newReviewSessionId)
-
-        set({
-          currentChat: newChat,
-          chats: [newChat, ...(get().chats || [])],
-          planTodos: [],
-        })
-
-        schedulePersistCurrentChatState(get, newReviewSessionId, ACTIVE_TURN_STATUS)
-      },
-
-      reset: () => {
-        const { abortController, currentChat, toolCallsById, accessLevel } = get()
-        abortController?.abort()
-        if (currentChat?.reviewSessionId) {
-          clearPendingChatPersistence(currentChat.reviewSessionId)
-        }
-        abortAllInProgressTools(set, get)
-        for (const toolCallId of Object.keys(toolCallsById)) {
-          unregisterClientTool(toolCallId)
-        }
-        resetStreamingQueue(set)
-        set({ ...initialState, accessLevel, draft: createEmptyCopilotDraft() })
-      },
-
-      setDraft: (update) =>
-        set((state) => ({
-          draft: typeof update === 'function' ? update(state.draft) : update,
-        })),
-
-      // Todo list (UI only)
-      setPlanTodos: (planTodos) => set({ planTodos }),
-      updatePlanTodoStatus: (id, status) => {
-        set((state) => {
-          const planTodos =
-            state.planTodos.length > 0
-              ? state.planTodos
-              : buildPlanTodosFromMessages(state.messages)
-          const updated = planTodos.map((t) =>
-            t.id === id
-              ? { ...t, completed: status === 'completed', executing: status === 'executing' }
-              : t
-          )
-          return { planTodos: updated }
-        })
-      },
-      setSelectedModel: async (model) => {
-        logger.info('[Context Usage] Model changed', { from: get().selectedModel, to: model })
-        set({ selectedModel: model })
-        // Fetch context usage after model switch
-        await get().fetchContextUsage()
-      },
-
-      // Fetch context usage from copilot API
-      fetchContextUsage: async () => {
-        try {
-          const { currentChat, selectedModel } = get()
-          logger.info('[Context Usage] Starting fetch', {
-            hasConversationId: !!currentChat?.conversationId,
-            conversationId: currentChat?.conversationId,
-            model: selectedModel,
-          })
-
-          if (!currentChat) {
-            set({ contextUsage: null })
-            logger.info('[Context Usage] Skipping: missing current chat')
-            return
-          }
-
-          if (!currentChat.conversationId) {
-            set({ contextUsage: null })
-            logger.info('[Context Usage] Skipping: missing conversationId', {
-              hasConversationId: !!currentChat?.conversationId,
-            })
-            return
-          }
-
-          const requestPayload: Record<string, any> = {
-            kind: 'context',
-            conversationId: currentChat.conversationId,
-            model: selectedModel,
-            ...(currentChat.workspaceId ? { workspaceId: currentChat.workspaceId } : {}),
-          }
-          logger.info('[Context Usage] Calling API', requestPayload)
-
-          // Call the backend API route which proxies to copilot
-          const response = await fetch('/api/copilot/usage', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestPayload),
-          })
-
-          logger.info('[Context Usage] API response', { status: response.status, ok: response.ok })
-
-          if (response.ok) {
-            const data = await response.json()
-            logger.info('[Context Usage] Received data', data)
-
-            // Check for either tokensUsed or usage field
-            if (
-              data.tokensUsed !== undefined ||
-              data.usage !== undefined ||
-              data.percentage !== undefined
-            ) {
-              const contextUsage = {
-                usage: data.tokensUsed || data.usage || 0,
-                percentage: data.percentage || 0,
-                model: data.model || selectedModel,
-                contextWindow: data.contextWindow || data.context_window || 0,
-                when: data.when || 'end',
-                estimatedTokens: data.tokensUsed || data.estimated_tokens || data.estimatedTokens,
-              }
-              set({ contextUsage })
-              logger.info('[Context Usage] Updated store', contextUsage)
-            } else {
-              logger.warn('[Context Usage] No usage data in response', data)
-            }
-          } else {
-            const errorText = await response.text().catch(() => 'Unable to read error')
-            logger.warn('[Context Usage] API call failed', {
-              status: response.status,
-              error: errorText,
-            })
-          }
-        } catch (err) {
-          logger.error('[Context Usage] Error fetching:', err)
-        }
-      },
-
-      executeCopilotToolCall: async (toolCallId: string, actionArgs?: Record<string, any>) => {
-        const { toolCallsById } = get()
-        const toolCall = toolCallsById[toolCallId]
-        const provenance = toolCall?.provenance
-        if (!toolCall) return
-        if (toolCall.state === ClientToolCallState.aborted) return
-
-        const { id, name, params } = toolCall
-        const executionContext = createExecutionContext({
-          toolCallId: id,
-          toolName: name,
-          provenance: provenance ?? {},
-        })
-        const targetStore = getCopilotStore(storeChannelId)
-        let preparedArgs: Record<string, any>
-
-        try {
-          preparedArgs = prepareCopilotToolArgs(
-            name,
-            {
-              ...(params || {}),
-              ...(actionArgs || {}),
-            },
-            executionContext
-          )
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
-          await postCopilotMarkComplete({
-            toolCallId: id,
-            toolName: name || 'unknown_tool',
-            status: 400,
-            message,
-          }).catch(() => {})
-          logger.error('Copilot tool argument validation failed', { id, name, error })
-          return
-        }
-
-        applyToolStateUpdate(targetStore, id, ClientToolCallState.executing)
-        logger.info('[toolCallsById] pending → executing (copilot tool)', { id, name })
-
-        if (isServerManagedCopilotTool(name)) {
-          const acceptingServerReview = toolCall.state === ClientToolCallState.review
-          try {
-            const serverContext = {
-              ...(provenance?.contextEntityKind && provenance?.contextEntityId
-                ? {
-                    contextEntityKind: provenance.contextEntityKind,
-                    contextEntityId: provenance.contextEntityId,
-                  }
-                : {}),
-              ...(provenance?.workspaceId ? { workspaceId: provenance.workspaceId } : {}),
-            }
-            const reviewResult = get().toolCallsById[id]?.result
-            const reviewToken =
-              acceptingServerReview && isCopilotServerToolReviewResult(reviewResult)
-                ? reviewResult.reviewToken
-                : undefined
-            if (acceptingServerReview && !reviewToken) {
-              throw new Error('Server tool review token is missing')
-            }
-            const result = acceptingServerReview
-              ? await acceptCopilotServerToolReview({
-                  toolName: name,
-                  reviewToken: reviewToken!,
-                  context: serverContext,
-                  signal: get().abortController?.signal,
-                })
-              : await executeCopilotServerTool({
-                  toolName: name,
-                  payload: preparedArgs,
-                  accessLevel: get().accessLevel,
-                  context: serverContext,
-                  signal: get().abortController?.signal,
-                })
-            const logicalSuccess =
-              !result ||
-              typeof result !== 'object' ||
-              !('success' in result) ||
-              (result as any).success !== false
-
-            const currentToolCall = get().toolCallsById[id]
-            if (isToolCallCompletionProtected(currentToolCall?.state) && !acceptingServerReview) {
-              return
-            }
-
-            if (
-              !acceptingServerReview &&
-              logicalSuccess &&
-              isCopilotServerToolReviewResult(result)
-            ) {
-              applyToolStateUpdate(targetStore, id, ClientToolCallState.review, { result })
-
-              if (!shouldRequireToolApproval(get().accessLevel, true)) {
-                await get().executeCopilotToolCall(id)
-              }
-              return
-            }
-
-            applyToolStateUpdate(
-              targetStore,
-              id,
-              logicalSuccess ? ClientToolCallState.success : ClientToolCallState.error
-            )
-
-            if (logicalSuccess) {
-              await handleCopilotServerToolSuccess(name, result, serverContext)
-            }
-
-            const completionMessage =
-              typeof (result as any)?.message === 'string'
-                ? (result as any).message
-                : resolveToolDisplay(
-                    name,
-                    logicalSuccess ? ClientToolCallState.success : ClientToolCallState.error,
-                    id,
-                    params
-                  )?.text
-
-            try {
-              await postCopilotMarkComplete({
-                toolCallId: id,
-                toolName: name || 'unknown_tool',
-                status: logicalSuccess ? 200 : 500,
-                message: completionMessage,
-                data: result,
-              })
-            } catch {}
-            return
           } catch (error) {
-            const errorMap = { ...get().toolCallsById }
-            if (isToolCallCompletionProtected(errorMap[id]?.state) && !acceptingServerReview) {
-              return
-            }
-
-            const message = error instanceof Error ? error.message : String(error)
-            const details = getCopilotServerToolErrorDetails(error)
-            applyToolStateUpdate(
-              targetStore,
-              id,
-              ClientToolCallState.error,
-              details ? { result: details } : undefined
+            if (
+              candidate.epoch === epoch &&
+              get().currentChat?.threadId === chat.threadId &&
+              !abort.signal.aborted
             )
-
-            try {
-              await postCopilotMarkComplete({
-                toolCallId: id,
-                toolName: name || 'unknown_tool',
-                status: getCopilotServerToolErrorStatus(error) ?? 500,
-                message,
-              })
-            } catch {}
-            logger.error('Copilot server tool execution failed', { id, name, error })
-            return
+              fail(error)
+          } finally {
+            if (titleAbort === abort) titleAbort = null
+            refreshBillingUsage()
           }
-        }
-
-        const instance = ensureClientToolInstance(name, id) as any
-        if (!instance) {
-          applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
-          await reportClientManagedToolFailure({
-            id,
-            name,
-            message: 'Client-managed copilot tool instance not found',
+        })()
+      }
+      const assistantForCommand = () => {
+        const last = get().messages.at(-1)
+        if (last?.role === 'assistant') return last.id
+        const message = createStreamingMessage()
+        set((state) => ({ messages: [...state.messages, message] }))
+        return message.id
+      }
+      const verifyPending = (pending: Pending) => {
+        if (!get().currentChat || pending.target.threadId !== get().currentChat!.threadId)
+          throw new Error('Copilot pending tool is outside the selected thread')
+      }
+      const ownsChat = (chat: CopilotChat, selectedEpoch: number, interaction: number) =>
+        selectedEpoch === epoch &&
+        interaction === interactionGeneration &&
+        get().currentChat?.threadId === chat.threadId &&
+        get().currentChat?.workspaceId === chat.workspaceId
+      const applyHistory = (
+        history: HistoryResponse,
+        activeRunId: string | null = null,
+        recoveredRunId?: string
+      ) => {
+        if (history.threadId !== get().currentChat?.threadId)
+          throw new Error('Observed Copilot history belongs to another conversation')
+        const messages = projectNativeHistory(history.items)
+        const pending = history.pending
+        const currentRunId = activeRunId ?? pending[0]?.target.runId ?? null
+        if (pending.some((item) => item.target.runId !== currentRunId))
+          throw new Error('Copilot pending tools belong to different runs')
+        const toolCallsById = Object.fromEntries(
+          messages.flatMap((message) =>
+            (message.contentBlocks ?? []).flatMap((block) =>
+              block.type === 'tool_call' ? [[block.toolCall.id, block.toolCall]] : []
+            )
+          )
+        )
+        let projected = { ...get(), messages, toolCallsById }
+        for (const item of pending) {
+          const live = get().toolCallsById[item.target.toolCallId]
+          const matchingLive =
+            samePendingOrigin(live?.pending, item) ||
+            (recoveredRunId === item.target.runId &&
+              live &&
+              !live.pending &&
+              !live.historical &&
+              !live.historyOrigin &&
+              live.name === item.target.toolName)
+              ? live
+              : undefined
+          const provenance = matchingLive?.provenance
+          const projectedCall = (projected.toolCallsById[item.target.toolCallId] ??= {
+            id: item.target.toolCallId,
+            name: item.target.toolName,
+            historical: true,
+            state: ClientToolCallState.aborted,
           })
-          logger.error('Client-managed copilot tool instance not found', { id, name })
+          projectedCall.provenance = provenance
+          if (matchingLive)
+            Object.assign(projectedCall, {
+              historical: matchingLive.historical,
+              historyOrigin: matchingLive.historyOrigin,
+              state: matchingLive.state,
+              result: matchingLive.result,
+            })
+          projected = { ...projected, ...displayNativePending(projected, item) }
+        }
+        for (const id of Object.keys(get().toolCallsById))
+          if (!projected.toolCallsById[id]) unregisterClientTool(id)
+        set({
+          messages: projected.messages,
+          toolCallsById: projected.toolCallsById,
+          isAwaitingContinuation: pending.length > 0,
+          isSendingMessage: !!activeRunId && pending.length === 0,
+          currentRunId,
+        })
+      }
+      const observeChat = async (
+        chat: CopilotChat,
+        expectedRunId?: string,
+        onReady?: () => void
+      ) => {
+        observation?.abort()
+        const abort = new AbortController()
+        observation = abort
+        const id = epoch
+        const interaction = interactionGeneration
+        const current = () => ownsChat(chat, id, interaction) && !abort.signal.aborted
+        const ready = () => {
+          onReady?.()
+          onReady = undefined
+        }
+        let messageId: string | undefined
+        try {
+          while (current()) {
+            let retryable = true
+            try {
+              const response = await postNativeCommand(
+                serializeCopilotRequest({
+                  command: 'thread.observe',
+                  workspaceId: chat.workspaceId,
+                  threadId: chat.threadId,
+                }),
+                abort.signal
+              )
+              if (!current()) return false
+              if (!response.ok) {
+                retryable =
+                  response.status !== 501 &&
+                  (response.status >= 500 || [408, 429].includes(response.status))
+              }
+              const stream = await requireCopilotStream(response)
+              for await (const data of readSseData(stream, {
+                signal: abort.signal,
+              })) {
+                const event = JSON.parse(data) as CopilotThreadEvent
+                if (!current()) return false
+                if (event.type === 'thread.history') {
+                  applyHistory(event.result, event.activeRunId, expectedRunId)
+                  messageId = undefined
+                  set({
+                    error: event.interruptedRunId
+                      ? 'The previous response was interrupted. You can continue this conversation.'
+                      : null,
+                  })
+                  if (event.interruptedRunId && expectedRunId === event.interruptedRunId) {
+                    ready()
+                    return false
+                  }
+                  if (onReady) expectedRunId = undefined
+                  ready()
+                  continue
+                }
+                if (event.type === 'thread.status') {
+                  if (event.runId !== (expectedRunId ?? get().currentRunId)) continue
+                  applyHistory(event.history, null, event.runId)
+                  set({
+                    isSendingMessage: false,
+                    isAborting: false,
+                    error: ['failed', 'aborted'].includes(event.status)
+                      ? 'This response was interrupted. Saved history and usage have been preserved.'
+                      : null,
+                  })
+                  refreshBillingUsage()
+                  if (expectedRunId) {
+                    if (event.status === 'suspended') scheduleBrowserTools()
+                    return ['success', 'suspended'].includes(event.status)
+                  }
+                  messageId = undefined
+                  continue
+                }
+                if (event.type === 'thread.started') {
+                  const runId = expectedRunId ?? get().currentRunId
+                  if (runId && runId !== event.runId) continue
+                  messageId = event.messageId
+                  const assistant = get().messages.find((item) => item.id === messageId)
+                  if (assistant && assistant.role !== 'assistant')
+                    throw new Error('Native assistant identity belongs to another message role')
+                  set((state) => ({
+                    currentRunId: event.runId,
+                    isSendingMessage: true,
+                    isAwaitingContinuation: false,
+                    error: null,
+                    messages: assistant
+                      ? state.messages
+                      : [...state.messages, createStreamingMessage(messageId)],
+                  }))
+                  continue
+                }
+                if (event.runId !== (expectedRunId ?? get().currentRunId)) continue
+                if (event.type === 'thread.error') {
+                  applyHistory(event.history, null, event.runId)
+                  set({
+                    error: event.error.message,
+                    isSendingMessage: false,
+                    isAborting: false,
+                  })
+                  if (expectedRunId) return false
+                  continue
+                }
+                if (!messageId) {
+                  retryable = false
+                  throw new Error('Response identity is unavailable. Reload to view saved history.')
+                }
+                set((state) => applyNativeEvent(state, event.event, messageId!))
+                await refreshServerToolResult(event.event)
+              }
+            } catch (error) {
+              if (!current()) return false
+              if (!retryable) {
+                fail(error)
+                set({
+                  isSendingMessage: false,
+                  isAwaitingContinuation: Boolean(get().currentRunId),
+                })
+                return false
+              }
+            }
+            await waitToReconnect(abort.signal)
+          }
+          return false
+        } finally {
+          ready()
+          if (observation === abort) observation = null
+          refreshBillingUsage()
+        }
+      }
+      const restoreChat = (chat: CopilotChat, recoveredRunId?: string) =>
+        new Promise<void>((resolve) => {
+          void observeChat(chat, recoveredRunId, resolve)
+        })
+      const scheduleBrowserTools = () => {
+        const id = epoch
+        const interaction = interactionGeneration
+        for (const call of Object.values(get().toolCallsById)) {
+          const pending = call.pending
+          if (!pending || !automaticEligible(pending)) continue
+          const selected = structuredClone(pending)
+          queueMicrotask(() => {
+            if (
+              id === epoch &&
+              interaction === interactionGeneration &&
+              automaticEligible(selected)
+            )
+              void performToolAction(selected.target.toolCallId, {
+                kind: 'automatic',
+                pending: selected,
+              })
+          })
+        }
+      }
+      const invoke = async (
+        command: CopilotRequest,
+        messageId = assistantForCommand(),
+        body = serializeCopilotRequest(command),
+        onAccepted?: () => void
+      ) => {
+        observation?.abort()
+        const id = epoch
+        const interaction = interactionGeneration
+        const current = () => id === epoch && interaction === interactionGeneration
+        const abort = new AbortController()
+        let started = false
+        get().abortController?.abort()
+        set({
+          abortController: abort,
+          isSendingMessage: true,
+          error: null,
+        })
+        try {
+          const response = await postNativeCommand(body, abort.signal)
+          if (!current()) return false
+          const stream = await requireCopilotStream(response)
+          {
+            let terminal = false
+            for await (const data of readSseData(stream, {
+              signal: abort.signal,
+            })) {
+              const event = JSON.parse(data) as CopilotEvent
+              if (!current() || abort.signal.aborted) return false
+              if (terminal)
+                throw new Error('Native Copilot emitted data after its terminal outcome')
+              set((state) => {
+                if (
+                  event.type === 'response.started' &&
+                  command.command === 'message' &&
+                  command.messageId
+                ) {
+                  const index = state.messages.findIndex((item) => item.id === command.messageId)
+                  if (index < 0 || typeof command.input.content !== 'string')
+                    throw new Error('The edited message is no longer selected')
+                  state = {
+                    ...state,
+                    messages: [
+                      ...state.messages.slice(0, index),
+                      createUserMessage(
+                        command.input.content,
+                        undefined,
+                        command.input.contexts,
+                        command.messageId
+                      ),
+                      createStreamingMessage(messageId),
+                    ],
+                  }
+                }
+                return applyNativeEvent(state, event, messageId)
+              })
+              if (event.type === 'response.started') {
+                started = true
+                rememberCopilotWorkspaceSelection(channelId, command.workspaceId, event.threadId)
+                onAccepted?.()
+              }
+              await refreshServerToolResult(event)
+              if (
+                [
+                  'response.completed',
+                  'response.suspended',
+                  'response.refused',
+                  'response.error',
+                  'response.cancel_requested',
+                ].includes(event.type)
+              ) {
+                terminal = true
+              }
+            }
+            if (!terminal) throw new Error('Native Copilot ended without a terminal outcome')
+          }
+          const outcome = get().lastNativeOutcome
+          if (outcome?.status === 'cancel_requested') return false
+          const runId = outcome && 'runId' in outcome ? outcome.runId : get().currentRunId
+          const chat = get().currentChat
+          if (chat && runId) await restoreChat(chat, runId)
+          if (!current()) return false
+          if (get().isAwaitingContinuation) scheduleBrowserTools()
+          if (outcome?.status !== 'completed' && outcome?.status !== 'suspended') return false
+          publishInitialTitle()
+          return true
+        } catch (error) {
+          if (current() && !abort.signal.aborted) {
+            const chat = get().currentChat
+            const runId = get().currentRunId
+            if (started && chat && runId && !(error instanceof NativeCommandError))
+              return await observeChat(chat, runId)
+            const message = fail(error)
+            set((state) => settleDisplayOnlyTools(state, messageId, ClientToolCallState.error))
+            set((state) => ({
+              isSendingMessage: false,
+              messages: state.messages.map((item) =>
+                item.id === messageId
+                  ? { ...replaceNativeText(item, item.content || message), isError: true }
+                  : item
+              ),
+            }))
+          }
+          return false
+        } finally {
+          if (current() && get().abortController === abort) set({ abortController: null })
+          refreshBillingUsage()
+        }
+      }
+      const requestForPending = (pending: Pending) => ({
+        workspaceId: get().currentChat!.workspaceId,
+        target: pending.target,
+      })
+      type ToolIntent = {
+        kind: 'initial' | 'automatic' | 'accept' | 'reject' | 'decline'
+        pending: Pending
+      }
+      const automaticEligible = (pending: Pending, ownsFlight = false) => {
+        const call = get().toolCallsById[pending.target.toolCallId]
+        return (
+          pending.stage === 'result' &&
+          pending.target.toolName !== 'oauth_request_access' &&
+          !isServerManagedCopilotTool(pending.target.toolName) &&
+          !!call &&
+          !call.historical &&
+          !call.historyOrigin &&
+          call.state === ClientToolCallState.pending &&
+          call.result === undefined &&
+          samePendingOrigin(call.pending, pending) &&
+          call.pending?.stage === 'result' &&
+          (ownsFlight || !inFlightTools.has(pending.target.toolCallId)) &&
+          !attemptedTools.has(stableStringifyJsonValue(pending.target)) &&
+          !shouldRequireToolApproval(get().accessLevel, isGatedTool(pending.target.toolName))
+        )
+      }
+      const performToolAction = async (id: string, intent: ToolIntent) => {
+        if (inFlightTools.has(id)) {
+          if (['reject', 'decline'].includes(intent.kind))
+            throw new Error('A decision or execution for this tool is already in flight')
           return
         }
-
+        if (intent.kind === 'automatic' && !automaticEligible(intent.pending)) return
+        let closeOAuthWindow: (() => void) | undefined
+        if (
+          intent.kind === 'initial' &&
+          intent.pending.stage === 'result' &&
+          intent.pending.target.toolName === 'oauth_request_access'
+        ) {
+          const instance = ensureClientToolInstance('oauth_request_access', id)
+          if (instance instanceof OAuthRequestAccessClientTool) {
+            instance.hydrateToolCall(get().toolCallsById[id])
+            closeOAuthWindow = instance.prepareWindow()
+            if (!closeOAuthWindow) return
+          }
+        }
+        inFlightTools.add(id)
+        const chat = get().currentChat
+        const generation = epoch
+        const interaction = interactionGeneration
+        const current = () => !!chat && ownsChat(chat, generation, interaction)
+        const previous = toolQueue
+        let release!: () => void
+        toolQueue = new Promise<void>((resolve) => {
+          release = resolve
+        })
+        await previous
+        let ownedAbort: AbortController | undefined
         try {
-          const stateBeforeUserAction = toolCallsById[id]?.state
-          if (typeof instance.hydratePersistedToolCall === 'function') {
-            instance.hydratePersistedToolCall(toolCallsById[id])
-          }
-          bindClientToolExecutionContext(id, executionContext)
-          if (typeof instance.handleUserAction === 'function') {
-            await instance.handleUserAction(preparedArgs)
-          } else if (
-            instance.getInterruptDisplays?.() &&
-            typeof instance.handleAccept === 'function'
-          ) {
-            await instance.handleAccept(preparedArgs)
-          } else {
-            await instance.execute(preparedArgs)
-          }
-          syncClientToolInstanceState(id, instance)
+          if (!current()) return
+          let pending = await get().readPendingTool(id)
+          if (!current()) return
+          const alreadyApproved =
+            intent.kind === 'initial' &&
+            intent.pending.stage === 'approval' &&
+            pending.stage === 'result'
           if (
-            stateBeforeUserAction !== ClientToolCallState.review &&
-            !shouldRequireToolApproval(get().accessLevel, true) &&
-            get().toolCallsById[id]?.state === ClientToolCallState.review &&
-            typeof instance.handleUserAction === 'function'
-          ) {
-            await instance.handleUserAction(preparedArgs)
-            syncClientToolInstanceState(id, instance)
+            !samePendingOrigin(pending, intent.pending) ||
+            (!alreadyApproved && pending.stage !== intent.pending.stage)
+          )
+            throw new Error('Original native action changed before dispatch')
+          if (intent.kind === 'automatic' && !automaticEligible(pending, true)) return
+          if (intent.kind === 'decline') {
+            if (pending.stage !== 'approval') throw new Error('Native approval stage changed')
+            const declined = await invoke({
+              command: 'tool.decline',
+              ...requestForPending(pending),
+              reason: 'Declined by user',
+            })
+            if (!current()) return
+            if (!declined) throw new Error('Native decline was not verified')
+            updateTool(id, ClientToolCallState.rejected)
+            return
+          }
+          if (pending.stage === 'approval') {
+            if (intent.kind !== 'initial') throw new Error('Explicit native approval is required')
+            const approved = await invoke({
+              command: 'tool.approve',
+              ...requestForPending(pending),
+            })
+            if (!current()) return
+            if (!approved) throw new Error('Native approval was not verified')
+            if (
+              isServerManagedCopilotTool(pending.target.toolName) ||
+              pending.target.toolName === 'oauth_request_access'
+            )
+              return
+            const approvedPending = await get().readPendingTool(id)
+            if (!current()) return
+            if (approvedPending.stage !== 'result' || !samePendingOrigin(approvedPending, pending))
+              throw new Error('Approved native target/arguments/binding changed')
+            pending = approvedPending
+          }
+          if (pending.stage !== 'result') throw new Error('Native result stage is required')
+          if (pending.target.toolName === 'oauth_request_access') {
+            await get().authorizeToolWorkspace(id)
+            if (!current()) return
+            if (
+              stableStringifyJsonValue(get().toolCallsById[id]?.pending ?? null) !==
+              stableStringifyJsonValue(pending)
+            )
+              throw new Error('Native pending target changed')
+          }
+          const call = get().toolCallsById[id]
+          if (!call || !isToolId(call.name)) throw new Error('Unknown native tool')
+          if (call.name === 'gdrive_request_access')
+            throw new Error(
+              'Choose an authorized workspace and Google Drive credential in this tool card'
+            )
+          if (isServerManagedCopilotTool(call.name)) {
+            const decision = intent.kind === 'accept' || intent.kind === 'reject'
+            if (
+              decision &&
+              (call.state !== ClientToolCallState.review ||
+                !isCopilotServerToolReviewResult(call.result))
+            )
+              throw new Error('The selected business preview changed')
+            if (!decision && isCopilotServerToolReviewResult(call.result)) return
+            const success = await invoke({
+              command: 'tool.execute',
+              ...requestForPending(pending),
+              action:
+                intent.kind === 'reject'
+                  ? 'review.reject'
+                  : intent.kind === 'accept'
+                    ? 'review.accept'
+                    : 'execute',
+              context: call.provenance,
+            })
+            if (!success) throw new Error('Copilot tool execution did not complete')
+          } else {
+            if (intent.kind === 'accept' || intent.kind === 'reject')
+              throw new Error('This tool does not have a server preview decision')
+            const instance = ensureClientToolInstance(call.name, id)
+            if (!instance) throw new Error('Native browser tool is unavailable')
+            instance.setExecutionContext({ workspaceId: call.provenance?.workspaceId })
+            const key = stableStringifyJsonValue(pending.target)
+            if (
+              attemptedTools.has(key) &&
+              !(
+                intent.kind === 'initial' &&
+                call.state === ClientToolCallState.pending &&
+                instance instanceof RunWorkflowClientTool &&
+                instance.hasAttemptedExecution() === false
+              )
+            )
+              throw new Error(
+                'Browser tool execution was already attempted; use readback instead of replay'
+              )
+            attemptedTools.add(key)
+            instance.hydrateToolCall(call)
+            const originalArgs = ToolArgSchemas[call.name].parse(pending.originalArgs)
+            const businessAbort = new AbortController()
+            ownedAbort = businessAbort
+            set({ abortController: businessAbort })
+            try {
+              await instance.handleUserAction(originalArgs)
+            } finally {
+              if (
+                call.name === 'oauth_request_access' &&
+                get().toolCallsById[id]?.result?.opened !== true
+              )
+                attemptedTools.delete(key)
+              if (get().abortController === businessAbort) set({ abortController: null })
+            }
           }
         } catch (error) {
-          const errorMap = { ...get().toolCallsById }
-          if (isToolCallCompletionProtected(errorMap[id]?.state)) {
+          if (current() && samePendingOrigin(get().toolCallsById[id]?.pending, intent.pending))
+            get().recordToolFailure(id, fail(error))
+          if (['reject', 'decline'].includes(intent.kind)) throw error
+        } finally {
+          closeOAuthWindow?.()
+          if (ownedAbort && get().abortController === ownedAbort) set({ abortController: null })
+          release()
+          inFlightTools.delete(id)
+        }
+      }
+      return {
+        ...initialState,
+        openWorkflowChatDeployment: async (toolCallId, scope) => {
+          if (get().workflowChatDeployment)
+            throw new Error('A workflow deployment dialog is already owned by this conversation')
+          const chat = get().currentChat
+          if (!chat) throw new Error('Native tool thread is missing')
+          const generation = epoch
+          const interaction = interactionGeneration
+          const model = get().selectedModel
+          const signal = get().abortController?.signal
+          const pending = await get().readPendingTool(toolCallId)
+          const args = ToolArgSchemas.deploy_workflow.parse(pending.originalArgs)
+          const id = crypto.randomUUID()
+          const isCurrent = () => {
+            if (!ownsChat(chat, generation, interaction) || get().selectedModel !== model)
+              return false
+            const dialog = get().workflowChatDeployment
+            // Normal native ACK replaces the business signal and consumes Pending.
+            // It cannot erase an already observed UI effect or close its settings.
+            if (dialog?.id === id && dialog.opened) return true
+            return (
+              !signal?.aborted &&
+              get().toolCallsById[toolCallId]?.name === 'deploy_workflow' &&
+              stableStringifyJsonValue(get().toolCallsById[toolCallId]?.pending ?? null) ===
+                stableStringifyJsonValue(pending)
+            )
+          }
+          if (!isCurrent()) throw new Error('Native tool selection changed')
+          if (
+            pending.stage !== 'result' ||
+            pending.target.toolName !== 'deploy_workflow' ||
+            args.action !== 'deploy' ||
+            args.deployType !== 'chat' ||
+            args.entityId !== scope.workflowId ||
+            typeof scope.workspaceId !== 'string' ||
+            !scope.workspaceId.trim() ||
+            scope.workspaceId !== scope.workspaceId.trim()
+          )
+            throw new Error('Original chat deployment target differs')
+          const response = await fetch(`/api/workflows/${encodeURIComponent(scope.workflowId)}`, {
+            signal,
+          })
+          if (!isCurrent()) throw new Error('Native tool selection changed')
+          if (!response.ok) throw new Error('Workflow target access could not be verified')
+          const { data } = await response.json()
+          if (!isCurrent()) throw new Error('Native tool selection changed')
+          if (data?.id !== scope.workflowId || data.workspaceId !== scope.workspaceId)
+            throw new Error('Original workflow workspace differs')
+          if (get().workflowChatDeployment)
+            throw new Error('A workflow deployment dialog is already owned by this conversation')
+          await new Promise<void>((resolve, reject) => {
+            const onAbort = () =>
+              get().settleWorkflowChatDeployment(
+                id,
+                'closed',
+                'Chat deployment opening was cancelled'
+              )
+            deploymentPromise = {
+              id,
+              settled: false,
+              resolve,
+              reject,
+              removeAbort: () => signal?.removeEventListener('abort', onAbort),
+            }
+            signal?.addEventListener('abort', onAbort, { once: true })
+            set({ workflowChatDeployment: { id, toolCallId, ...scope, opened: false, isCurrent } })
+            if (!isCurrent()) onAbort()
+          })
+        },
+        settleWorkflowChatDeployment: (id, outcome, message) => {
+          const request = get().workflowChatDeployment
+          const completion = deploymentPromise
+          if (!request || request.id !== id || !completion || completion.id !== id) return
+          if (outcome === 'opened' && request.isCurrent()) {
+            if (completion.settled) return
+            // The real target form committed. Preserve this UI fact before native ACK.
+            updateTool(request.toolCallId, ClientToolCallState.executing, {
+              opened: true,
+              surface: 'chat-deployment',
+              message: 'Opened chat deployment settings',
+            })
+            set({ workflowChatDeployment: { ...request, opened: true } })
+            completion.settled = true
+            completion.removeAbort()
+            completion.resolve()
             return
           }
-          const message = error instanceof Error ? error.message : String(error)
-          applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
-          await reportClientManagedToolFailure({
-            id,
-            name,
-            message,
-            instance,
+          completion.removeAbort()
+          deploymentPromise = null
+          set({ workflowChatDeployment: null })
+          if (!completion.settled) {
+            completion.settled = true
+            completion.reject(
+              new Error(message || 'Chat deployment dialog closed before rendering')
+            )
+          }
+        },
+        draft: emptyDraft(),
+        setAccessLevel: (accessLevel) => {
+          if (isCopilotBusy(get()) || get().accessLevel === accessLevel) return
+          set({ accessLevel })
+        },
+        setDraft: (update) =>
+          set((state) => ({ draft: typeof update === 'function' ? update(state.draft) : update })),
+        setSelectedModel: async (selectedModel) => {
+          if (isCopilotBusy(get()) || get().selectedModel === selectedModel) return
+          const dialog = get().workflowChatDeployment
+          if (dialog)
+            get().settleWorkflowChatDeployment(
+              dialog.id,
+              'closed',
+              'Native model selection changed'
+            )
+          titleAbort?.abort()
+          set({ selectedModel, providerOptions: undefined })
+        },
+        setProviderOptions: (providerOptions) => {
+          if (isCopilotBusy(get()) || get().providerOptions === providerOptions) return
+          set({ providerOptions })
+        },
+        loadChats: async (options) => {
+          const workspaceId =
+            options?.workspaceId !== undefined ? options.workspaceId : get().conversationWorkspaceId
+          const generation = ++threadsGeneration
+          const id = epoch
+          const interaction = interactionGeneration
+          set({
+            isLoadingChats: true,
+            ...(!get().currentChat && !get().isSendingMessage && !get().isAwaitingContinuation
+              ? { conversationWorkspaceId: workspaceId }
+              : {}),
           })
-          logger.error('Client-managed copilot tool execution failed', { id, name, error })
-        }
-      },
-
-      skipCopilotToolCall: async (toolCallId: string) => {
-        const { toolCallsById } = get()
-        const toolCall = toolCallsById[toolCallId]
-        if (!toolCall) return
-
-        const { id, name } = toolCall
-        const targetStore = getCopilotStore(storeChannelId)
-        const markSkipped = () =>
-          postCopilotMarkComplete({
-            toolCallId: id,
-            toolName: name || 'unknown_tool',
-            status: REJECTED_TOOL_COMPLETION_STATUS,
-            message: 'Tool execution was skipped by the user',
-            data: { rejected: true, skipped: true },
-          }).catch(() => {})
-
-        if (!isCopilotTool(name) || isServerManagedCopilotTool(name)) {
-          applyToolStateUpdate(targetStore, id, ClientToolCallState.rejected)
-          markSkipped()
-          return
-        }
-
-        const instance = ensureClientToolInstance(name, id) as any
-        if (instance?.handleReject) {
-          await instance.handleReject()
-          return
-        }
-
-        applyToolStateUpdate(targetStore, id, ClientToolCallState.rejected)
-        markSkipped()
-      },
-    }))
+          try {
+            const threads = await listNativeThreads(workspaceId)
+            if (
+              generation !== threadsGeneration ||
+              id !== epoch ||
+              interaction !== interactionGeneration
+            )
+              return
+            const chats: CopilotChat[] = threads.map((thread) => ({
+              threadId: thread.id,
+              title: thread.title,
+              workspaceId,
+              createdAt: new Date(thread.createdAt),
+              updatedAt: new Date(thread.updatedAt),
+            }))
+            set({ chats })
+            // Opening history must not cancel or erase an active first turn or current selection.
+            if (
+              get().conversationWorkspaceId === workspaceId &&
+              (get().currentChat || get().isSendingMessage || get().isAwaitingContinuation)
+            ) {
+              const currentChat = get().currentChat
+              if (currentChat && !get().abortController && !observation)
+                await restoreChat(currentChat)
+              return
+            }
+            const remembered = getCopilotWorkspaceSelection(channelId, workspaceId)
+            const selected = chats.find((chat) => chat.threadId === remembered)
+            if (selected) await get().selectChat(selected)
+            else await get().createNewChat(workspaceId)
+          } catch (error) {
+            if (
+              generation === threadsGeneration &&
+              id === epoch &&
+              interaction === interactionGeneration
+            )
+              fail(error)
+          } finally {
+            if (generation === threadsGeneration) set({ isLoadingChats: false })
+          }
+        },
+        selectChat: async (chat) => {
+          get().detachStream()
+          ++epoch
+          set({
+            currentChat: chat,
+            conversationWorkspaceId: chat.workspaceId,
+            currentRunId: null,
+            messages: [],
+            toolCallsById: {},
+            error: null,
+            isAwaitingContinuation: false,
+            isAborting: false,
+            isSendingMessage: false,
+            lastNativeOutcome: null,
+          })
+          rememberCopilotWorkspaceSelection(channelId, chat.workspaceId, chat.threadId)
+          await restoreChat(chat) // Restored history never autoexecutes a tool.
+        },
+        createNewChat: async (workspaceId) => {
+          get().detachStream()
+          ++epoch
+          const scope = workspaceId === undefined ? get().conversationWorkspaceId : workspaceId
+          rememberCopilotWorkspaceSelection(channelId, scope, null)
+          set({
+            currentChat: null,
+            conversationWorkspaceId: scope,
+            currentRunId: null,
+            messages: [],
+            toolCallsById: {},
+            draft: emptyDraft(),
+            error: null,
+            isAwaitingContinuation: false,
+            isAborting: false,
+            isSendingMessage: false,
+          })
+        },
+        deleteChat: async (threadId) => {
+          const chat = get().chats.find((item) => item.threadId === threadId)
+          if (!chat) throw new Error('Native thread ownership is unavailable')
+          const result = await readNativeCommand({
+            command: 'thread.delete',
+            workspaceId: chat.workspaceId,
+            threadId,
+          })
+          if (
+            result.status !== 'updated' ||
+            result.operation !== 'thread.delete' ||
+            result.threadId !== threadId
+          )
+            throw new Error('Native thread deletion was not verified')
+          set((state) => ({ chats: state.chats.filter((item) => item.threadId !== threadId) }))
+          if (get().currentChat?.threadId === threadId) await get().createNewChat(chat.workspaceId)
+        },
+        sendMessage: async (message, options = {}) => {
+          if ((!message.trim() && !options.images?.length) || isCopilotBusy(get())) return false
+          const model = get().selectedModel
+          const providerOptions = get().providerOptions
+          if (!model) {
+            set({ error: 'Select an available Copilot model before sending a message.' })
+            return false
+          }
+          const chat = get().currentChat
+          const editing = options.messageId !== undefined
+          const editIndex = editing
+            ? get().messages.findIndex((item) => item.id === options.messageId)
+            : -1
+          if (editing && (!chat || editIndex < 0 || get().messages[editIndex].role !== 'user')) {
+            set({ error: 'Select an existing user message to edit.' })
+            return false
+          }
+          if (editing && hasToolActivityAfterMessage(get().messages, options.messageId!)) {
+            set({ error: EDIT_REPLAY_BLOCKED_MESSAGE })
+            return false
+          }
+          const workspaceId = chat ? chat.workspaceId : get().conversationWorkspaceId
+          const id = epoch
+          const interaction = ++interactionGeneration
+          const titleEdit = titleEditGeneration
+          titleAbort?.abort()
+          titleCandidate = null
+          const contexts = editing
+            ? (get().messages[editIndex].contexts ?? [])
+            : mergeCopilotContexts({
+                explicitContexts: options.contexts,
+                implicitContexts: options.runtimeContext?.implicitContexts,
+              })
+          const toolContext = buildTurnProvenanceFromContexts(
+            contexts,
+            editing ? workspaceId : options.runtimeContext?.workspaceId
+          )
+          try {
+            const initial =
+              !editing && (!chat || (chat.title === '' && get().messages.length === 0))
+            const command: CopilotRequest = {
+              command: 'message',
+              toolContext,
+              workspaceId,
+              ...(chat ? { threadId: chat.threadId } : {}),
+              ...(editing ? { messageId: options.messageId } : {}),
+              model,
+              ...(providerOptions ? { providerOptions } : {}),
+              input: {
+                contexts,
+                content: options.images?.length
+                  ? [{ type: 'text', text: message }, ...options.images]
+                  : message,
+              },
+              accessLevel: get().accessLevel,
+            }
+            const body = serializeCopilotRequest(command)
+            titleCandidate =
+              initial && message.trim() && titleEdit === titleEditGeneration
+                ? {
+                    epoch,
+                    interaction,
+                    workspaceId,
+                    model,
+                    originalInput: message,
+                    titleEdit,
+                    ...(chat ? { threadId: chat.threadId } : {}),
+                  }
+                : null
+            const user = createUserMessage(message, options.images, contexts, options.messageId)
+            const assistant = createStreamingMessage()
+            set((state) => ({
+              ...(!editing ? { messages: [...state.messages, user, assistant] } : {}),
+              isSendingMessage: true,
+              error: null,
+              currentRunId: null,
+              lastNativeOutcome: null,
+            }))
+            if (id !== epoch || interaction !== interactionGeneration) return false
+            if (
+              get().currentChat?.threadId !== chat?.threadId ||
+              get().conversationWorkspaceId !== workspaceId ||
+              get().selectedModel !== model ||
+              get().providerOptions !== providerOptions
+            ) {
+              set({ isSendingMessage: false })
+              return false
+            }
+            const success = await invoke(command, assistant.id, body, options.onAccepted)
+            return success && id === epoch && interaction === interactionGeneration
+          } catch (error) {
+            if (id === epoch) fail(error)
+            return false
+          }
+        },
+        abortMessage: async () => {
+          if (get().isAborting) return false
+          const dialog = get().workflowChatDeployment
+          if (dialog)
+            get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native tool selection changed')
+          const current = get()
+          const cancellationEpoch = ++epoch
+          titleAbort?.abort()
+          titleCandidate = null
+          observation?.abort()
+          current.abortController?.abort()
+          for (const id of Object.keys(current.toolCallsById)) unregisterClientTool(id)
+          set({
+            ...settleDisplayOnlyTools(current),
+            abortController: null,
+            isSendingMessage: false,
+            isAborting: Boolean(current.currentChat && current.currentRunId),
+            isAwaitingContinuation: Boolean(current.currentChat && current.currentRunId),
+          })
+          if (current.currentChat && current.currentRunId)
+            return readNativeCommand({
+              command: 'cancel',
+              workspaceId: current.currentChat.workspaceId,
+              threadId: current.currentChat.threadId,
+              runId: current.currentRunId,
+            })
+              .then((result) => {
+                if (
+                  cancellationEpoch !== epoch ||
+                  get().currentChat?.threadId !== current.currentChat?.threadId
+                )
+                  return false
+                if (result.status !== 'cancel_requested' || result.runId !== current.currentRunId)
+                  throw new Error('Native cancellation was not verified')
+                set((state) => applyNativeCancellation(state, result))
+                return true
+              })
+              .catch((error) => {
+                if (cancellationEpoch === epoch) {
+                  set({ isAborting: false })
+                  fail(error)
+                }
+                return false
+              })
+              .finally(refreshBillingUsage)
+          return !current.isSendingMessage
+        },
+        detachStream: () => {
+          observation?.abort()
+          observation = null
+          get().abortController?.abort()
+          for (const id of Object.keys(get().toolCallsById)) unregisterClientTool(id)
+          set({ abortController: null })
+        },
+        reset: () => {
+          const dialog = get().workflowChatDeployment
+          if (dialog)
+            get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native tool owner changed')
+          ++epoch
+          titleAbort?.abort()
+          titleCandidate = null
+          threadsGeneration++
+          observation?.abort()
+          observation = null
+          get().abortController?.abort()
+          inFlightTools.clear()
+          attemptedTools.clear()
+          set({ ...initialState, draft: emptyDraft() })
+        },
+        readPendingTool: async (toolCallId) => {
+          const call = get().toolCallsById[toolCallId]
+          const pending = call?.pending
+          if (
+            !pending ||
+            pending.target.toolCallId !== toolCallId ||
+            pending.target.toolName !== call.name
+          )
+            throw new Error('Copilot tool is no longer pending')
+          verifyPending(pending)
+          return structuredClone(pending)
+        },
+        authorizeToolWorkspace: async (id, workspaceId) => {
+          const chat = get().currentChat
+          if (!chat) throw new Error('Native tool thread is missing')
+          const generation = epoch
+          const interaction = interactionGeneration
+          const pending = await get().readPendingTool(id)
+          const current = () =>
+            ownsChat(chat, generation, interaction) &&
+            stableStringifyJsonValue(get().toolCallsById[id]?.pending ?? null) ===
+              stableStringifyJsonValue(pending)
+          if (
+            !['gdrive_request_access', 'oauth_request_access'].includes(pending.target.toolName) ||
+            pending.stage !== 'result'
+          )
+            throw new Error('Native approval is required before choosing an access workspace')
+          const provenance = get().toolCallsById[id]?.provenance
+          if (provenance?.workspaceId && workspaceId && workspaceId !== provenance.workspaceId)
+            throw new Error('This tool workspace is already pinned')
+          const selected = workspaceId ?? provenance?.workspaceId
+          if (typeof selected !== 'string' || !selected.trim() || selected !== selected.trim())
+            throw new Error('Choose an authorized workspace for this access request')
+          const response = await fetch('/api/workspaces')
+          if (!current()) throw new Error('Native tool selection changed')
+          if (!response.ok) throw new Error('Workspace access could not be verified')
+          const { workspaces } = await response.json()
+          if (!current()) throw new Error('Native tool selection changed')
+          if (
+            !Array.isArray(workspaces) ||
+            workspaces.some((item) => !item || typeof item.id !== 'string' || !item.id.trim()) ||
+            new Set(workspaces.map((item) => item.id)).size !== workspaces.length ||
+            workspaces.filter((item) => item.id === selected).length !== 1
+          )
+            throw new Error('The selected workspace is unavailable or ambiguous')
+          set((state) => {
+            const call = {
+              ...state.toolCallsById[id],
+              provenance: { ...provenance, workspaceId: selected },
+            }
+            const toolCallsById = { ...state.toolCallsById, [id]: call }
+            return {
+              toolCallsById,
+              messages: updateMessageToolCalls(state.messages, toolCallsById),
+            }
+          })
+          return selected
+        },
+        submitBrowserAssertion: async (id, assertion) => {
+          const pending = await get().readPendingTool(id)
+          if (pending.stage !== 'result')
+            throw new Error('Native approval is required before a result')
+          const success = await invoke({
+            command: 'tool.result',
+            ...requestForPending(pending),
+            assertion,
+          })
+          if (!success) throw new Error('Native browser result delivery was not verified')
+        },
+        readbackCopilotToolCall: async (id, readback) => {
+          const chat = get().currentChat
+          if (!chat) throw new Error('Native tool thread is missing')
+          const generation = epoch
+          const interaction = interactionGeneration
+          const pending = await get().readPendingTool(id)
+          if (pending.stage !== 'result')
+            throw new Error('Native approval is required before readback')
+          const context = get().toolCallsById[id]?.provenance
+          if (
+            pending.target.toolName === 'gdrive_request_access' &&
+            (!context?.workspaceId || !readback?.credentialId?.trim())
+          )
+            throw new Error('Choose an authorized workspace and credential for this Drive request')
+          const success = await invoke({
+            command: 'tool.execute',
+            ...requestForPending(pending),
+            action: 'readback',
+            ...(context ? { context } : {}),
+            ...(readback?.credentialId
+              ? { readback: { credentialId: readback.credentialId } }
+              : {}),
+          })
+          if (!ownsChat(chat, generation, interaction)) return
+          if (!success) throw new Error('Authoritative readback did not complete')
+        },
+        setToolState: updateTool,
+        recordToolFailure: (id, message) => {
+          updateTool(
+            id,
+            ClientToolCallState.error,
+            get().toolCallsById[id]?.result === undefined ? { error: message } : undefined
+          )
+          set({ error: message })
+        },
+        executeCopilotToolCall: async (id) => {
+          const call = get().toolCallsById[id]
+          if (!call?.pending) {
+            get().recordToolFailure(id, 'A genuine native pending target is required')
+            return
+          }
+          const review =
+            call.state === ClientToolCallState.review &&
+            isCopilotServerToolReviewResult(call.result)
+          await performToolAction(id, {
+            kind: review ? 'accept' : 'initial',
+            pending: structuredClone(call.pending),
+          })
+        },
+        skipCopilotToolCall: async (id) => {
+          const call = get().toolCallsById[id]
+          if (!call?.pending) throw new Error('A genuine native pending target is required')
+          if (call.pending.stage === 'approval')
+            return performToolAction(id, {
+              kind: 'decline',
+              pending: structuredClone(call.pending),
+            })
+          if (
+            !isServerManagedCopilotTool(call.name) ||
+            call.state !== ClientToolCallState.review ||
+            !isCopilotServerToolReviewResult(call.result)
+          )
+            throw new Error(
+              'This pending action has no server preview to reject; use Stop to cancel the response'
+            )
+          await performToolAction(id, {
+            kind: 'reject',
+            pending: structuredClone(call.pending),
+          })
+        },
+      }
+    })
   )
-
+  store.subscribe((state, previous) => {
+    if (
+      state.currentChat?.threadId === previous.currentChat?.threadId &&
+      state.currentChat?.title !== previous.currentChat?.title
+    )
+      titleEditGeneration++
+  })
   return store
 }
 
 const copilotStoreRegistry = new Map<string, StoreApi<CopilotStore>>()
 let activeAuthenticatedUserId: string | null = null
-
-function resetCopilotStoreState(store: StoreApi<CopilotStore>) {
-  store.getState().reset()
-  store.setState({ accessLevel: initialState.accessLevel })
+export function getCopilotStore(channelId: string) {
+  if (!copilotStoreRegistry.has(channelId))
+    copilotStoreRegistry.set(channelId, createCopilotStoreInstance(channelId))
+  return copilotStoreRegistry.get(channelId)!
 }
-
 export function resetCopilotStoreRegistry() {
-  for (const [channelId, store] of copilotStoreRegistry) {
-    resetCopilotStoreState(store)
-    copilotStoreRegistry.delete(channelId)
-  }
-
+  for (const store of copilotStoreRegistry.values()) store.getState().reset()
+  copilotStoreRegistry.clear()
   disposeAllClientTools()
-  clearPendingChatPersistenceQueue()
   resetCopilotWorkspaceSelectionState()
   activeAuthenticatedUserId = null
 }
-
-function activateAuthenticatedCopilotUser(authenticatedUserId: string) {
-  if (activeAuthenticatedUserId === authenticatedUserId) {
-    return
-  }
-
-  for (const [channelId, store] of copilotStoreRegistry) {
-    const identity = parseCopilotWorkspaceChannelId(channelId)
-    if (identity?.authenticatedUserId === authenticatedUserId) {
-      continue
+function activateAuthenticatedCopilotUser(userId: string) {
+  if (activeAuthenticatedUserId === userId) return
+  for (const [channel, store] of copilotStoreRegistry)
+    if (parseCopilotWorkspaceChannelId(channel)?.authenticatedUserId !== userId) {
+      store.getState().reset()
+      copilotStoreRegistry.delete(channel)
     }
-    resetCopilotStoreState(store)
-    copilotStoreRegistry.delete(channelId)
-  }
-
-  const retainedToolCallIds = new Set<string>()
-  for (const store of copilotStoreRegistry.values()) {
-    for (const toolCallId of Object.keys(store.getState().toolCallsById)) {
-      retainedToolCallIds.add(toolCallId)
-    }
-  }
-  disposeClientToolsExcept(retainedToolCallIds)
-  clearPendingChatPersistenceQueue()
-  resetCopilotWorkspaceSelectionState()
-  activeAuthenticatedUserId = authenticatedUserId
-}
-
-export const getCopilotStore = (channelId: string) => {
-  if (!copilotStoreRegistry.has(channelId)) {
-    copilotStoreRegistry.set(channelId, createCopilotStoreInstance(channelId))
-  }
-
-  return copilotStoreRegistry.get(channelId)!
-}
-
-const findStoreForToolCall = (toolCallId: string) => {
-  for (const store of copilotStoreRegistry.values()) {
-    if (store.getState().toolCallsById[toolCallId]) {
-      return store
-    }
-  }
-  return undefined
-}
-
-registerCopilotStoreForToolCallResolver((toolCallId) => {
-  const store = findStoreForToolCall(toolCallId)
-  if (!store) {
-    throw new Error(`No active Copilot store owns tool call ${toolCallId}`)
-  }
-  return store
-})
-
-registerCopilotMarkCompleteContinuationHandler(async ({ toolCallId, response }) => {
-  const targetStore = findStoreForToolCall(toolCallId)
-  if (!targetStore) {
-    await response.body?.cancel().catch(() => {})
-    return
-  }
-  const state = targetStore.getState()
-  const turnProvenance = state.toolCallsById[toolCallId]?.provenance
-  const assistantMessageId = findAssistantMessageIdForToolCall(state.messages, toolCallId)
-
-  if (!assistantMessageId || !response.body) {
-    logger.warn('Skipping copilot continuation stream; assistant message not found', {
-      toolCallId,
-      hasBody: !!response.body,
-    })
-    return
-  }
-
-  if (!isChatTurnInProgress(state.currentChat)) {
-    await response.body.cancel().catch(() => {})
-    return
-  }
-
-  const abortController =
-    state.abortController && !state.abortController.signal.aborted
-      ? state.abortController
-      : new AbortController()
-  targetStore.setState({
-    abortController,
-    isSendingMessage: true,
-    isAwaitingContinuation: false,
-  })
-
-  await targetStore
-    .getState()
-    .handleStreamingResponse(
-      response.body,
-      assistantMessageId,
-      true,
-      turnProvenance,
-      abortController.signal
+  disposeClientToolsExcept(
+    new Set(
+      [...copilotStoreRegistry.values()].flatMap((store) =>
+        Object.keys(store.getState().toolCallsById)
+      )
     )
+  )
+  if (activeAuthenticatedUserId !== null) resetCopilotWorkspaceSelectionState()
+  activeAuthenticatedUserId = userId
+}
+registerCopilotStoreForToolCallResolver((id) => {
+  const stores = [...copilotStoreRegistry.values()].filter(
+    (store) => store.getState().toolCallsById[id]
+  )
+  if (stores.length !== 1) throw new Error(`No unique active Copilot store owns tool call ${id}`)
+  return stores[0]
 })
-
 const CopilotStoreContext = createContext<StoreApi<CopilotStore> | null>(null)
-
 export function CopilotStoreProvider({
   channelId,
   children,
@@ -1593,150 +1368,32 @@ export function CopilotStoreProvider({
   children: ReactNode
 }) {
   const identity = useMemo(() => {
-    const parsed = parseCopilotWorkspaceChannelId(channelId)
-    if (!parsed) {
-      throw new Error('CopilotStoreProvider requires an authenticated workspace channel')
-    }
-    return parsed
+    const value = parseCopilotWorkspaceChannelId(channelId)
+    if (!value) throw new Error('CopilotStoreProvider requires an authenticated workspace channel')
+    return value
   }, [channelId])
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
-  const authenticatedUserId = identity.authenticatedUserId
-
   useLayoutEffect(() => {
-    activateAuthenticatedCopilotUser(authenticatedUserId)
-  }, [authenticatedUserId])
-
+    activateAuthenticatedCopilotUser(identity.authenticatedUserId)
+    return () => store.getState().detachStream()
+  }, [identity.authenticatedUserId, store])
   return createElement(CopilotStoreContext.Provider, { value: store }, children)
 }
-
 const identitySelector = (state: CopilotStore) => state
-
 export function useCopilotStore<T = CopilotStore>(
   selector?: (state: CopilotStore) => T,
   equalityFn?: (a: T, b: T) => boolean
 ) {
   const store = useContext(CopilotStoreContext)
-  if (!store) {
-    throw new Error('useCopilotStore requires CopilotStoreProvider')
-  }
-  const resolvedSelector = selector ?? (identitySelector as unknown as (state: CopilotStore) => T)
-  return useStoreWithEqualityFn(store, resolvedSelector, equalityFn)
+  if (!store) throw new Error('useCopilotStore requires CopilotStoreProvider')
+  return useStoreWithEqualityFn(
+    store,
+    selector ?? (identitySelector as unknown as (state: CopilotStore) => T),
+    equalityFn
+  )
 }
-
 export function useCopilotStoreApi() {
   const store = useContext(CopilotStoreContext)
-  if (!store) {
-    throw new Error('useCopilotStoreApi requires CopilotStoreProvider')
-  }
+  if (!store) throw new Error('useCopilotStoreApi requires CopilotStoreProvider')
   return store
 }
-
-function applyToolStateUpdate(
-  targetStore: StoreApi<CopilotStore>,
-  toolCallId: string,
-  mapped: ClientToolCallState,
-  options?: { result?: any }
-) {
-  const state = targetStore.getState()
-  const current = state.toolCallsById[toolCallId]
-  if (!current) return
-
-  if (
-    (current.state === ClientToolCallState.aborted && mapped !== ClientToolCallState.aborted) ||
-    (isToolCallPersisted(current.state) && !isToolCallPersisted(mapped))
-  ) {
-    return
-  }
-
-  if (
-    (current.state === ClientToolCallState.executing && mapped === ClientToolCallState.pending) ||
-    (current.state === ClientToolCallState.pending && mapped === ClientToolCallState.generating)
-  ) {
-    return
-  }
-
-  const hasResultUpdate = options?.result !== undefined && current.result !== options.result
-  if (mapped === current.state && !hasResultUpdate) return
-
-  const updated = {
-    ...state.toolCallsById,
-    [toolCallId]: {
-      ...current,
-      state: mapped,
-      display: resolveToolDisplay(current.name, mapped, toolCallId, current.params),
-      ...(hasResultUpdate ? { result: options?.result } : {}),
-    },
-  }
-  const updatedMessages = updateMessagesForToolCallState(
-    state.messages,
-    toolCallId,
-    mapped,
-    options
-  )
-  const latestTurnStatus = resolveStoreTurnActivityState(state, updated)
-  const nextChatState = buildChatTurnStatusState(state, latestTurnStatus)
-  const nextCurrentChat = nextChatState.currentChat
-    ? {
-        ...nextChatState.currentChat,
-        messages: updatedMessages,
-      }
-    : nextChatState.currentChat
-
-  targetStore.setState({
-    toolCallsById: updated,
-    messages: updatedMessages,
-    chats: nextChatState.chats,
-    isSendingMessage: latestTurnStatus === ACTIVE_TURN_STATUS || state.isAwaitingContinuation,
-    ...(nextCurrentChat ? { currentChat: nextCurrentChat } : {}),
-  })
-
-  if (!isToolCallPersisted(mapped)) {
-    return
-  }
-
-  const currentChat = targetStore.getState().currentChat
-  if (currentChat?.reviewSessionId) {
-    void targetStore.getState().saveChatMessages(currentChat.reviewSessionId, {
-      latestTurnStatus,
-    })
-  }
-}
-
-function syncClientToolInstanceState(toolCallId: string, instance: any) {
-  const nextState = instance?.getState?.()
-  if (!nextState) {
-    return
-  }
-
-  const targetStore = findStoreForToolCall(toolCallId)
-  if (!targetStore) return
-  const result = instance?.persistedToolCall?.result
-  applyToolStateUpdate(
-    targetStore,
-    toolCallId,
-    nextState as ClientToolCallState,
-    result !== undefined ? { result } : undefined
-  )
-}
-
-// Sync class-based tool instance state changes back into the store map
-try {
-  registerToolStateSync((toolCallId: string, nextState: any, options?: { result?: any }) => {
-    const targetStore = findStoreForToolCall(toolCallId)
-    if (!targetStore) return
-    const current = targetStore.getState().toolCallsById[toolCallId]
-    if (!current) return
-    let mapped: ClientToolCallState = current.state
-    if (nextState === 'executing') mapped = ClientToolCallState.executing
-    else if (nextState === 'pending') mapped = ClientToolCallState.pending
-    else if (nextState === 'success' || nextState === 'accepted')
-      mapped = ClientToolCallState.success
-    else if (nextState === 'error' || nextState === 'errored') mapped = ClientToolCallState.error
-    else if (nextState === 'rejected') mapped = ClientToolCallState.rejected
-    else if (nextState === 'aborted') mapped = ClientToolCallState.aborted
-    else if (nextState === 'review') mapped = ClientToolCallState.review
-    else if (nextState === 'background') mapped = ClientToolCallState.background
-    else if (typeof nextState === 'number') mapped = nextState as unknown as ClientToolCallState
-    applyToolStateUpdate(targetStore, toolCallId, mapped, options)
-  })
-} catch {}

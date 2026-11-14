@@ -34,6 +34,7 @@ import type {
   WorkflowExecutionSnapshot,
   WorkflowState,
 } from '@/lib/logs/types'
+import type { InferenceFacts } from '@/lib/mastra/result'
 
 const logger = createLogger('ExecutionLogger')
 
@@ -43,6 +44,7 @@ type ExecutionBilling = {
   accountedCost?: number
   accountedTokens?: number
   counted?: boolean
+  nativeUsage?: Record<string, InferenceFacts>
 }
 type UsageReceipt = UsageAccrual & {
   context: WorkspaceBillingContext
@@ -50,24 +52,49 @@ type UsageReceipt = UsageAccrual & {
   costDelta: number
 }
 
-function executionCost(traceSpans: TraceSpan[], quote?: ExecutionBilling['quote']) {
-  const summary = calculateCostSummary(
-    traceSpans,
-    quote?.baseCharge ?? 0,
-    quote?.modelMultiplier ?? 1
-  )
+function executionCost(billing: ExecutionBilling) {
+  const summary = calculateCostSummary(Object.values(billing.nativeUsage ?? {}))
+  const quote = billing.quote
+  const baseExecutionCharge = quote?.baseCharge ?? 0
+  const multiplier = quote?.modelMultiplier ?? 1
+  const scale = (value: number | undefined) =>
+    value === undefined ? undefined : value * multiplier
+  const availableTotal = baseExecutionCharge + (summary.availableTotal ?? 0) * multiplier
   return {
-    total: summary.totalCost,
-    baseExecutionCharge: summary.baseExecutionCharge,
-    modelCost: summary.modelCost,
-    input: summary.totalInputCost,
-    output: summary.totalOutputCost,
+    total:
+      summary.totalCost === undefined
+        ? undefined
+        : baseExecutionCharge + summary.totalCost * multiplier,
+    availableTotal:
+      summary.availableTotal === undefined && baseExecutionCharge === 0
+        ? undefined
+        : availableTotal,
+    status:
+      summary.status === 'unavailable' && baseExecutionCharge > 0
+        ? ('partial' as const)
+        : summary.status,
+    estimated: summary.estimated,
+    baseExecutionCharge,
+    modelCost: scale(summary.modelCost),
+    input: scale(summary.totalInputCost),
+    output: scale(summary.totalOutputCost),
     tokens: {
       prompt: summary.totalPromptTokens,
       completion: summary.totalCompletionTokens,
       total: summary.totalTokens,
     },
-    models: summary.models,
+    models: Object.fromEntries(
+      Object.entries(summary.models).map(([model, cost]) => [
+        model,
+        {
+          ...cost,
+          input: scale(cost.input),
+          output: scale(cost.output),
+          total: scale(cost.total),
+          availableTotal: scale(cost.availableTotal),
+        },
+      ])
+    ),
   }
 }
 
@@ -89,6 +116,7 @@ export class ExecutionLogger {
     environment: ExecutionEnvironment
     workflowState: WorkflowState
     workflowSummary: WorkflowExecutionLog['workflowSummary']
+    billable?: boolean
   }): Promise<{
     workflowLog: WorkflowExecutionLog
     snapshot: WorkflowExecutionSnapshot
@@ -139,6 +167,7 @@ export class ExecutionLogger {
           executionData: {
             environment,
             trigger,
+            billing: { billable: params.billable ?? true },
             traceSpans: [],
             finalOutput: {},
             errorMessage: message,
@@ -162,6 +191,7 @@ export class ExecutionLogger {
           executionData: {
             environment,
             trigger,
+            billing: { billable: params.billable ?? true },
           },
         })
         .onConflictDoNothing({
@@ -253,7 +283,7 @@ export class ExecutionLogger {
     if (!existingLog) throw new Error(`Workflow log not found for execution ${executionId}`)
 
     const existingData = existingLog.executionData as Record<string, any>
-    const cost = executionCost(traceSpans, existingData.billing?.quote)
+    const cost = executionCost(existingData.billing ?? {})
     const executionFiles = this.extractFilesFromExecution(traceSpans, finalOutput, workflowInput)
     const completedExecutionData = {
       ...(variables ? { environment: { ...existingData.environment, variables } } : {}),
@@ -353,9 +383,12 @@ export class ExecutionLogger {
           modelMultiplier: context ? getTierWorkflowModelCostMultiplier(context.tier) : 1,
         }
       }
-      const cost = executionCost(data.traceSpans ?? [], quote)
-      const costDelta = Math.max(0, cost.total - (billing.accountedCost ?? 0))
-      const tokenDelta = Math.max(0, cost.tokens.total - (billing.accountedTokens ?? 0))
+      const cost = executionCost({ ...billing, quote })
+      // Functions settle their own product charges. Only known model amounts and this
+      // workflow's configured execution charge belong to its usage ledger.
+      const charge = cost.baseExecutionCharge + (cost.modelCost ?? 0)
+      const costDelta = Math.max(0, charge - (billing.accountedCost ?? 0))
+      const tokenDelta = Math.max(0, (cost.tokens.total ?? 0) - (billing.accountedTokens ?? 0))
       let receipt: UsageReceipt | undefined
       if (
         settings.billingEnabled &&

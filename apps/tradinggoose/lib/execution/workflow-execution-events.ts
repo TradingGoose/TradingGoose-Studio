@@ -2,6 +2,7 @@ import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
+import { publicTraceSpans } from '@/lib/logs/public'
 import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
 import type {
   WorkflowExecutionEvent,
@@ -45,7 +46,13 @@ export type WorkflowExecutionAccessContext = {
   workspaceId: string | null
 }
 
-const memoryStreams = new Map<string, MemoryExecutionEventStream>()
+const executionEventState = globalThis as typeof globalThis & {
+  __TRADINGGOOSE_WORKFLOW_EVENT_STREAMS__?: Map<string, MemoryExecutionEventStream>
+}
+const memoryStreams = (executionEventState.__TRADINGGOOSE_WORKFLOW_EVENT_STREAMS__ ??= new Map<
+  string,
+  MemoryExecutionEventStream
+>())
 
 function eventsKey(pendingExecutionId: string) {
   return `${BUFFER_KEY_PREFIX}${pendingExecutionId}:events`
@@ -214,7 +221,9 @@ export function createWorkflowExecutionResultFromLog(
 
   const finalOutput = readFinalOutput(executionData)
   const queuedExecution = readQueuedExecutionMetadata(executionData)
-  const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
+  const traceSpans = Array.isArray(executionData.traceSpans)
+    ? publicTraceSpans(executionData.traceSpans)
+    : []
   const hasResponseBlock = executionData.hasResponseBlock === true
   const failed = row.level === 'error'
   const failureReason =
@@ -404,20 +413,31 @@ export async function readWorkflowExecutionEventState(params: {
   const pause = isRecord(logData.pause) && !logRow?.endedAt ? logData.pause : null
   const visibleEvents = events.filter(({ event }) => {
     if (logRow?.endedAt) return !isTerminalWorkflowExecutionEvent(event)
-    return (
-      event.type !== 'execution:paused' ||
-      !logRow ||
-      (pause && event.data.result.output.revision === pause.revision)
-    )
+    if (pause && isTerminalWorkflowExecutionEvent(event))
+      return (
+        event.type === 'execution:paused' && event.data.result.output.revision === pause.revision
+      )
+    return event.type !== 'execution:paused' || !logRow
   })
   const terminalEvent = findTerminalEvent(visibleEvents)
+  if (logRow && (logRow.endedAt || pause)) {
+    return {
+      ...createWorkflowExecutionResultFromLog(logRow),
+      events: params.afterEventId === undefined ? [] : visibleEvents,
+    }
+  }
+  if (
+    visibleEvents.some(
+      ({ event }) => event.type === 'execution:completed' || event.type === 'execution:paused'
+    )
+  )
+    throw new Error('Completed workflow result has no durable execution log')
   if (terminalEvent) {
     return {
       ...createWorkflowExecutionStateFromTerminalEvent(terminalEvent),
       events: params.afterEventId === undefined ? [] : visibleEvents,
     }
   }
-
   if (logRow) {
     return {
       ...createWorkflowExecutionResultFromLog(logRow),

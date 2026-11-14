@@ -95,6 +95,8 @@ export async function POST(request: NextRequest) {
     const workspaceId = String(formData.get('workspaceId') ?? '').trim()
     const knowledgeBaseId = String(formData.get('knowledgeBaseId') ?? '').trim()
     const uploadContext = getUploadContext(request)
+    if (request.nextUrl.searchParams.get('type') === 'copilot')
+      throw new InvalidRequestError('Copilot images are sent inline with the conversation')
     const isExecutionUpload = formData.has('workflowId') || formData.has('executionId')
     let executionUploadContext:
       | { workflowId: string; executionId: string; workspaceId: string }

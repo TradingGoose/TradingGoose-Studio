@@ -1,4 +1,4 @@
-import { MistralIcon } from '@/components/icons/provider-icons'
+import { getProviderIcon } from '@/lib/ui/provider-icon'
 import { AuthMode, type BlockConfig, type SubBlockLayout, type SubBlockType } from '@/blocks/types'
 import type { MistralParserOutput } from '@/tools/mistral/types'
 
@@ -7,11 +7,11 @@ export const MistralParseBlock: BlockConfig<MistralParserOutput> = {
   name: 'Mistral Parser',
   description: 'Extract text from PDF documents',
   authMode: AuthMode.ApiKey,
-  longDescription: `Integrate Mistral Parse into the workflow. Can extract text from uploaded PDF documents, or from a URL.`,
+  longDescription: `Extract PDF content from accessible URLs or authorized workspace files. Private files require current access. If file access cannot be verified, the request fails before contacting the model.`,
   docsLink: 'https://docs.tradinggoose.ai/tools/mistral_parse',
   category: 'tools',
   bgColor: undefined,
-  icon: MistralIcon,
+  icon: getProviderIcon('mistral'),
   subBlocks: [
     // Show input method selection
     {

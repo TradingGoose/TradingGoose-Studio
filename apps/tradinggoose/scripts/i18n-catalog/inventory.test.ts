@@ -19,7 +19,11 @@ import {
   findBestMatchingRoutePattern,
   getRouteOwnedNamespaces,
 } from './ownership'
-import { scanCatalogProject } from './scan'
+import {
+  createCatalogProjectContext,
+  type scanCatalogProject,
+  scanCatalogProjectWithContext,
+} from './scan'
 
 const APP_PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const FRAMEWORK_ENTRY_BASENAME_CANDIDATES = new Set([
@@ -155,15 +159,12 @@ function getRealAppDashboardFixture(): RealAppDashboardFixture {
     return realAppDashboardFixture
   }
 
-  const routeScanResult = scanCatalogProject({
+  const context = createCatalogProjectContext(APP_PROJECT_ROOT)
+  const routeScanResult = scanCatalogProjectWithContext(context, {
     mode: 'route',
-    projectRoot: APP_PROJECT_ROOT,
     routePath: DASHBOARD_ROUTE_PATH,
   })
-  const globalScanResult = scanCatalogProject({
-    mode: 'all',
-    projectRoot: APP_PROJECT_ROOT,
-  })
+  const globalScanResult = scanCatalogProjectWithContext(context, { mode: 'all' })
   const report = buildCatalogReport({
     includeOrphans: true,
     projectRoot: APP_PROJECT_ROOT,
@@ -274,13 +275,30 @@ describe('i18n catalog route inventory guardrails', () => {
   }, 60000)
 
   it('keeps dashboard route scans materially narrower than all-mode widget coverage', () => {
-    const { routeScanResult, globalScanResult } = getRealAppDashboardFixture()
+    const { routeScanResult, globalScanResult, report } = getRealAppDashboardFixture()
 
-    expect(routeScanResult.scannedFiles).not.toContain(
-      'widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/file-selector/components/confluence-file-selector.tsx'
+    // The target-scoped deployment dialog is reachable from dashboard Copilot.
+    expect(routeScanResult.scannedFiles).toEqual(
+      expect.arrayContaining([
+        'global-navbar/workflow-chat-deployment-dialog.tsx',
+        'widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/deploy-modal.tsx',
+        'widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/chat-deploy.tsx',
+        'widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/file-selector/components/confluence-file-selector.tsx',
+        'widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/file-selector/components/jira-issue-selector.tsx',
+      ])
+    )
+    expect(report.usedKeys).toEqual(
+      expect.arrayContaining([
+        'workspace.widgets.deployment.chatDeploymentDescription',
+        'workspace.widgets.deployment.chat.chatTitle',
+        'workspace.widgets.deployment.chat.chatTitlePlaceholder',
+      ])
     )
     expect(routeScanResult.scannedFiles).not.toContain(
-      'widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/file-selector/components/jira-issue-selector.tsx'
+      'widgets/widgets/editor_workflow/components/workflow-editor-app.tsx'
+    )
+    expect(routeScanResult.scannedFiles).not.toContain(
+      'widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas.tsx'
     )
     expect(globalScanResult.scannedFiles).toEqual(
       expect.arrayContaining([

@@ -73,9 +73,6 @@ export function FileUpload({
   const [addMoreOpen, setAddMoreOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
 
-  // For file deletion status
-  const [deletingFiles, setDeletingFiles] = useState<Record<string, boolean>>({})
-
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -387,71 +384,19 @@ export function FileUpload({
     logger.info(`Selected workspace file: ${selectedFile.name}`, activeWorkflowId)
   }
 
-  /**
-   * Handles deletion of a single file
-   */
-  const handleRemoveFile = async (file: UploadedFile, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-
-    // Mark this file as being deleted
-    setDeletingFiles((prev) => ({ ...prev, [file.path || '']: true }))
-
-    try {
-      // Check if this is a workspace file (decoded path contains workspaceId pattern)
-      const decodedPath = file.path ? decodeURIComponent(file.path) : ''
-      const isWorkspaceFile =
-        workspaceId &&
-        (decodedPath.includes(`/${workspaceId}/`) || decodedPath.includes(`${workspaceId}/`))
-
-      if (!isWorkspaceFile) {
-        // Only delete from storage if it's NOT a workspace file
-        // Workspace files are permanent and managed through Settings
-        const response = await fetch('/api/files/delete', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ filePath: file.path }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: response.statusText }))
-          const errorMessage = errorData.error || `Failed to delete file: ${response.status}`
-          throw new Error(errorMessage)
-        }
-      }
-
-      // Update the UI state (remove from selection)
-      if (multiple) {
-        // For multiple files: Remove the specific file
-        const updatedFiles = toFileArray(value).filter((f) => f.path !== file.path)
-        persistSelection(updatedFiles)
-      } else {
-        // For single file: Clear the value
-        persistSelection([])
-      }
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error.message : 'Failed to remove file',
-        activeWorkflowId
-      )
-    } finally {
-      // Remove file from the deleting state
-      setDeletingFiles((prev) => {
-        const updated = { ...prev }
-        delete updated[file.path || '']
-        return updated
-      })
-    }
+  /** Remove a selected input reference; storage lifetime belongs to its canonical manager. */
+  const handleRemoveFile = (file: UploadedFile, e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    if (disabled) return
+    persistSelection(
+      multiple ? toFileArray(value).filter((selected) => selected.path !== file.path) : []
+    )
   }
 
   // Helper to render a single file item
   const renderFileItem = (file: UploadedFile) => {
     const fileKey = file.path || ''
-    const isDeleting = deletingFiles[fileKey]
 
     return (
       <div
@@ -470,13 +415,9 @@ export function FileUpload({
           size='icon'
           className='h-8 w-8 shrink-0'
           onClick={(e) => handleRemoveFile(file, e)}
-          disabled={isDeleting}
+          disabled={disabled}
         >
-          {isDeleting ? (
-            <div className='h-4 w-4 animate-spin rounded-full border-[1.5px] border-current border-t-transparent' />
-          ) : (
-            <X className='h-4 w-4' />
-          )}
+          <X className='h-4 w-4' />
         </Button>
       </div>
     )

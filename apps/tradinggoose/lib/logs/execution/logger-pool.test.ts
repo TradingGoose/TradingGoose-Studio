@@ -130,7 +130,14 @@ it.each(
     pool.rows.set(
       subscription,
       scope === 'default_tier'
-        ? []
+        ? [
+            {
+              id: 'sub_default_owner',
+              referenceType: 'user',
+              referenceId: 'owner',
+              billingTierId: 'tier',
+            },
+          ]
         : [{ referenceType: ownerType, referenceId: 'owner', billingTierId: 'tier' }]
     )
     pool.rows.set(systemBillingTier, [

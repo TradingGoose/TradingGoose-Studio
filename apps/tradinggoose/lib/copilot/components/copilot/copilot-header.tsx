@@ -144,12 +144,12 @@ function ChatHistoryItem({
 
   return (
     <div
-      className='group flex w-full items-center gap-1'
-      onMouseEnter={() => onHoverChat(chat.reviewSessionId)}
+      className='group flex w-full items-center'
+      onMouseEnter={() => onHoverChat(chat.threadId)}
       onMouseLeave={() => onHoverChat(null)}
     >
       <DropdownMenuItem
-        className='min-w-0 flex-1 rounded-xs py-2 text-left font-normal text-foreground text-sm transition-colors data-[highlighted]:bg-muted'
+        className='min-w-0 flex-1 justify-between rounded-xs py-2 text-left font-normal text-foreground text-sm transition-colors data-[highlighted]:bg-muted'
         closeOnClick={false}
         onClick={() => {
           void onSelect(chat)
@@ -161,23 +161,24 @@ function ChatHistoryItem({
           </p>
           <p className='text-muted-foreground text-xs'>{updatedLabel}</p>
         </div>
+
+        <button
+          type='button'
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            void onDelete(chat.threadId)
+          }}
+          disabled={isSendingMessage}
+          aria-label={historyCopy.deleteChatAria}
+          className={cn(
+            'inline-flex h-6 w-6 items-center justify-center gap-2 whitespace-nowrap rounded-md p-0 font-medium text-muted-foreground text-sm ring-offset-background transition-opacity hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+            isHovered ? 'opacity-100' : 'pointer-events-none opacity-0'
+          )}
+        >
+          <Trash2 className='h-3.5 w-3.5' />
+        </button>
       </DropdownMenuItem>
-      <button
-        type='button'
-        onClick={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          void onDelete(chat.reviewSessionId)
-        }}
-        disabled={isSendingMessage}
-        aria-label={historyCopy.deleteChatAria}
-        className={cn(
-          'inline-flex h-6 w-6 items-center justify-center gap-2 whitespace-nowrap rounded-md p-0 font-medium text-muted-foreground text-sm ring-offset-background transition-opacity hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
-          isHovered ? 'opacity-100' : 'pointer-events-none opacity-0'
-        )}
-      >
-        <Trash2 className='h-3.5 w-3.5' />
-      </button>
     </div>
   )
 }
@@ -199,12 +200,12 @@ function ChatHistoryGroup({
       <div className='space-y-1'>
         {chats.map((chat) => (
           <ChatHistoryItem
-            key={chat.reviewSessionId}
+            key={chat.threadId}
             chat={chat}
             onSelect={onSelect}
             onDelete={onDelete}
             isSendingMessage={isSendingMessage}
-            isHovered={hoveredChatId === chat.reviewSessionId}
+            isHovered={hoveredChatId === chat.threadId}
             onHoverChat={onHoverChat}
             locale={locale}
             historyCopy={historyCopy}
@@ -233,16 +234,14 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
   }
 
   const handleSelectChat = async (chat: CopilotChat) => {
-    if (currentChat?.reviewSessionId === chat.reviewSessionId) return
+    if (currentChat?.threadId === chat.threadId) return
     try {
       await store.getState().selectChat(chat)
-    } catch {}
+    } catch { }
   }
 
   const title = currentChat?.title || historyCopy.newChat
-  const deleteChat = deleteChatId
-    ? chats.find((chat) => chat.reviewSessionId === deleteChatId)
-    : null
+  const deleteChat = deleteChatId ? chats.find((chat) => chat.threadId === deleteChatId) : null
   const dropdownMenuBody = (() => {
     if (isLoadingChats) {
       return <div className='p-3 text-muted-foreground text-sm'>{historyCopy.loading}</div>
@@ -347,7 +346,7 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
                 if (!deleteChatId) return
                 try {
                   await store.getState().deleteChat(deleteChatId)
-                } catch {}
+                } catch { }
                 setDeleteChatId(null)
               }}
             >

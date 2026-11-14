@@ -429,9 +429,9 @@ export function WorkflowDetails({
 
                             <div>
                               <div className='font-[400] text-muted-foreground text-xs'>
-                                {typeof log.cost?.total === 'number' && log.cost.total > 0
-                                  ? formatCost(log.cost.total)
-                                  : '—'}
+                                {typeof log.cost?.total === 'number'
+                                  ? `${log.cost?.status === 'estimated' ? 'Estimated ' : ''}${formatCost(log.cost.total)}`
+                                  : 'Unavailable'}
                               </div>
                             </div>
 

@@ -13,6 +13,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 RUN mkdir -p apps
 COPY apps/tradinggoose/package.json ./apps/tradinggoose/package.json
+COPY packages/db/package.json ./packages/db/package.json
 
 RUN bun install --omit dev --ignore-scripts
 

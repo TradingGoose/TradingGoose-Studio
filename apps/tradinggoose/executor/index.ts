@@ -5,6 +5,8 @@ import {
 } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
+import { getNativeModelLookup } from '@/lib/mastra/registry'
+import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import { getBlock } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
 import {
@@ -30,7 +32,6 @@ import {
   WaitBlockHandler,
   WorkflowBlockHandler,
 } from '@/executor/handlers'
-import { parseAgentStructuredResponse } from '@/executor/handlers/agent/response-format'
 import { LoopManager } from '@/executor/loops/loops'
 import { ParallelManager } from '@/executor/parallels/parallels'
 import { ParallelRoutingUtils } from '@/executor/parallels/utils'
@@ -48,7 +49,6 @@ import type {
 } from '@/executor/types'
 import { PausedBlockExecution } from '@/executor/types'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
-import { toError } from '@/providers/ai/error'
 import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/serializer/types'
 
 const logger = createLogger('Executor')
@@ -191,8 +191,8 @@ export class Executor {
 
     this.blockHandlers = [
       new TriggerBlockHandler(),
-      new AgentBlockHandler(this.resolver),
-      new RouterBlockHandler(this.pathTracker),
+      new AgentBlockHandler(),
+      new RouterBlockHandler(),
       new ConditionBlockHandler(this.pathTracker, this.resolver),
       new EvaluatorBlockHandler(),
       new FunctionBlockHandler(),
@@ -1265,7 +1265,8 @@ export class Executor {
       return incomingConnections.every((conn) => {
         const sourceExecuted = executedBlocks.has(conn.source)
         const sourceBlockState = context.blockStates.get(conn.source)
-        const hasSourceError = sourceBlockState?.output?.error !== undefined
+        const hasSourceError =
+          sourceBlockState?.success !== true && sourceBlockState?.output?.error !== undefined
 
         // For error connections, check if the source had an error
         if (conn.sourceHandle === 'error') {
@@ -1309,7 +1310,8 @@ export class Executor {
       const sourceBlock = this.actualWorkflow.blocks.find((b) => b.id === conn.source)
       const sourceBlockState =
         context.blockStates.get(sourceId) || context.blockStates.get(conn.source)
-      const hasSourceError = sourceBlockState?.output?.error !== undefined
+      const hasSourceError =
+        sourceBlockState?.success !== true && sourceBlockState?.output?.error !== undefined
 
       // Special handling for loop-start-source connections
       if (conn.sourceHandle === 'loop-start-source') {
@@ -1361,6 +1363,8 @@ export class Executor {
 
       // For router blocks, check if this is the selected target
       if (sourceBlock?.metadata?.id === BlockType.ROUTER) {
+        // Failure takes the error edge without a successful normal routing decision.
+        if (conn.sourceHandle === 'error') return sourceExecuted && hasSourceError
         const selectedTarget = context.decisions.router.get(conn.source)
 
         // If source is executed and this is not the selected target, dependency is NOT met
@@ -1625,19 +1629,11 @@ export class Executor {
       blockLog.input = block.config.params
 
       // Resolve inputs
-      if (blockType === BlockType.AGENT) {
-        const { model } = this.resolver.resolveInputs(
-          { ...block, config: { ...block.config, params: { model: block.config.params.model } } },
-          context
-        )
-        if (typeof model === 'string' && model.startsWith('openrouter/')) {
-          const { getOpenRouterModels } = await import('@/providers/ai/openrouter/models')
-          await getOpenRouterModels().catch((error) => {
-            logger.warn('Unable to refresh OpenRouter model capabilities', { error })
-          })
-        }
-      }
-      const inputs = this.resolver.resolveInputs(block, context)
+      const inputs = this.resolver.resolveInputs(
+        block,
+        context,
+        block.config.params.model !== undefined ? await getNativeModelLookup() : undefined
+      )
 
       // Store input data in the block log
       blockLog.input = inputs
@@ -1671,6 +1667,7 @@ export class Executor {
       }) => {
         context.blockStates.set(blockId, {
           output,
+          success: true,
           executed: true,
           executionTime,
         })
@@ -1699,6 +1696,7 @@ export class Executor {
 
         blockLog.success = true
         blockLog.output = output
+        blockLog.inference = getInferenceFacts(output)
         blockLog.durationMs = Math.round(executionTime)
         blockLog.endedAt = new Date().toISOString()
 
@@ -1738,16 +1736,30 @@ export class Executor {
 
       /** Records failed block usage before emitting errors or following an error edge. */
       handleBlockFailure = async (error: any): Promise<NormalizedBlockOutput> => {
-        const providerError = toError(error)
-        if (providerError.cost) {
+        const inference = getInferenceFacts(error)
+        const failure = Object.assign(error instanceof Error ? error : new Error(String(error)), {
+          model: error?.model,
+          tokens: error?.tokens,
+          cost: error?.cost,
+        })
+        if (inference && !getInferenceFacts(failure)) withInferenceFacts(failure, inference)
+        const accounting = Object.fromEntries(
+          Object.entries({
+            model: failure.model,
+            tokens: failure.tokens,
+            cost: failure.cost,
+          }).filter(([, value]) => value !== undefined)
+        )
+        if (failure.tokens || failure.cost) {
           blockLog.output = {
             ...blockLog.output,
-            model: providerError.model,
-            tokens: providerError.tokens,
-            cost: providerError.cost,
+            ...accounting,
           }
+          if (inference && !getInferenceFacts(blockLog.output))
+            withInferenceFacts(blockLog.output, inference)
         }
         blockLog.success = false
+        blockLog.inference = inference
         blockLog.error =
           error.message ||
           `Error executing ${block.metadata?.id || 'unknown'} block: ${String(error)}`
@@ -1802,12 +1814,11 @@ export class Executor {
         const errorOutput: NormalizedBlockOutput = {
           error: this.extractErrorMessage(error),
           status: error.status || 500,
-          ...(providerError.cost && {
-            model: providerError.model,
-            tokens: providerError.tokens,
-            cost: providerError.cost,
+          ...((failure.tokens || failure.cost) && {
+            ...accounting,
           }),
         }
+        if (inference) withInferenceFacts(errorOutput, inference)
 
         if (isWorkflowBlockType(block.metadata?.id)) {
           this.attachChildWorkflowSpansToOutput(errorOutput, error)
@@ -1815,6 +1826,7 @@ export class Executor {
 
         context.blockStates.set(blockId, {
           output: errorOutput,
+          success: false,
           executed: true,
           executionTime: blockLog.durationMs,
         })
@@ -1847,7 +1859,7 @@ export class Executor {
           errorMessage: this.extractErrorMessage(error),
         })
 
-        const executionError = toError(new Error(errorMessage), providerError)
+        const executionError = Object.assign(new Error(errorMessage), failure)
         if (Array.isArray((error as { childTraceSpans?: TraceSpan[] } | null)?.childTraceSpans)) {
           ;(executionError as any).childTraceSpans = (
             error as { childTraceSpans?: TraceSpan[] }
@@ -1909,6 +1921,7 @@ export class Executor {
       if (
         rawOutput &&
         typeof rawOutput === 'object' &&
+        !getInferenceFacts(rawOutput) &&
         'stream' in rawOutput &&
         'execution' in rawOutput
       ) {
@@ -1926,7 +1939,6 @@ export class Executor {
 
         const reader = streamingExec.stream.getReader()
         const decoder = new TextDecoder()
-        let fullContent = ''
         let pendingStreamChunk = ''
         let lastStreamFlushAt = performance.now()
         const flushStreamChunk = async () => {
@@ -1954,7 +1966,6 @@ export class Executor {
             const chunk = decoder.decode(value, { stream: true })
             if (!chunk) continue
 
-            fullContent += chunk
             if (context.stream) {
               pendingStreamChunk += chunk
               if (
@@ -1968,26 +1979,32 @@ export class Executor {
           await flushStreamChunk()
         } catch (readerError: any) {
           logger.error('Error reading stream for executor:', readerError)
-          throw toError(readerError, {
-            model: output.model,
-            tokens: output.tokens,
-            cost: output.cost,
-          })
+          const readerFacts = getInferenceFacts(readerError)
+          const outputFacts = getInferenceFacts(output)
+          const inference = readerFacts ?? outputFacts
+          const source = readerFacts ? readerError : outputFacts ? output : undefined
+          const failure = Object.assign(
+            readerError instanceof Error ? readerError : new Error(String(readerError)),
+            source
+              ? {
+                  model: source.model,
+                  tokens: source.tokens,
+                  cost: source.cost,
+                }
+              : {
+                  model: readerError?.model ?? output.model,
+                  tokens: readerError?.tokens ?? output.tokens,
+                  cost: readerError?.cost ?? output.cost,
+                }
+          )
+          if (inference && !getInferenceFacts(failure)) withInferenceFacts(failure, inference)
+          throw failure
         } finally {
           await flushStreamChunk()
           try {
             reader.releaseLock()
           } catch {}
         }
-
-        const responseFormat =
-          typeof inputs.responseFormat === 'string'
-            ? inputs.responseFormat.trim()
-            : inputs.responseFormat
-        const { content: _content, model: _model, ...metadata } = output
-        const streamedOutput = responseFormat
-          ? { ...parseAgentStructuredResponse(fullContent), ...metadata }
-          : { ...output, content: fullContent }
 
         if (context.stream) {
           await this.emitExecutionEvent({
@@ -2002,10 +2019,10 @@ export class Executor {
         }
 
         await finalizeSuccessfulOutput({
-          output: streamedOutput,
+          output,
           executionTime: performance.now() - startTime,
         })
-        return streamedOutput
+        return output
       }
 
       // Handle error outputs and ensure object structure
@@ -2105,6 +2122,7 @@ export class Executor {
    */
   private createBlockLog(block: SerializedBlock): BlockLog {
     return {
+      id: crypto.randomUUID(),
       blockId: block.id,
       blockName: block.metadata?.name || '',
       blockType: block.metadata?.id || '',
@@ -2204,6 +2222,7 @@ export class Executor {
   ): void {
     if (blockOutput.files && Array.isArray(blockOutput.files) && blockOutput.files.length > 0) {
       const initBlockLog: BlockLog = {
+        id: crypto.randomUUID(),
         blockId: initBlock.id,
         blockName: initBlock.metadata?.name || 'Start',
         blockType: initBlock.metadata?.id || 'start',

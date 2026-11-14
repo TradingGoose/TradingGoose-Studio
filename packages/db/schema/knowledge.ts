@@ -42,7 +42,7 @@ export const knowledgeBase = pgTable(
     tokenCount: integer('token_count').notNull().default(0),
 
     // Embedding configuration
-    embeddingModel: text('embedding_model').notNull().default('text-embedding-3-small'),
+    embeddingModel: text('embedding_model').notNull().default('openai/text-embedding-3-small'),
     embeddingDimension: integer('embedding_dimension').notNull().default(1536),
 
     // Chunking configuration stored as JSON for flexibility
@@ -183,7 +183,7 @@ export const embedding = pgTable(
 
     // Vector embeddings - optimized for text-embedding-3-small with HNSW support
     embedding: vector('embedding', { dimensions: 1536 }), // For text-embedding-3-small
-    embeddingModel: text('embedding_model').notNull().default('text-embedding-3-small'),
+    embeddingModel: text('embedding_model').notNull().default('openai/text-embedding-3-small'),
 
     // Chunk boundaries and overlap
     startOffset: integer('start_offset').notNull(),
@@ -265,7 +265,7 @@ export const docsEmbeddings = pgTable(
 
     // Vector embedding - optimized for text-embedding-3-small with HNSW support
     embedding: vector('embedding', { dimensions: 1536 }).notNull(),
-    embeddingModel: text('embedding_model').notNull().default('text-embedding-3-small'),
+    embeddingModel: text('embedding_model').notNull().default('openai/text-embedding-3-small'),
 
     // Metadata for flexible filtering
     metadata: jsonb('metadata').notNull().default('{}'),

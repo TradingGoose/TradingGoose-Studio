@@ -1,185 +1,184 @@
-import { isRetryableError, retryWithExponentialBackoff } from '@/lib/knowledge/documents/utils'
-import { createLogger } from '@/lib/logs/console/logger'
+import { randomUUID } from 'node:crypto'
+import { ModelRouterEmbeddingModel } from '@mastra/core/llm'
 import {
-  resolveAzureOpenAIServiceConfig,
-  resolveOpenAIServiceConfig,
-} from '@/lib/system-services/runtime'
-import { batchByTokenLimit, getTotalTokenCount } from '@/lib/tokenization'
+  assertModelUsageAllowed,
+  beginWorkflowModelUsage,
+  type ModelUsageScope,
+  recordModelUsage,
+} from '@/lib/billing/model-usage'
+import { createLogger } from '@/lib/logs/console/logger'
+import { resolveConfiguredModel } from '@/lib/mastra/connections'
+import { assertListedEmbeddingModel } from '@/lib/mastra/registry'
+import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
+import { calculateNativeCost, type NativeCost, sumNativeCosts } from '@/lib/mastra/usage'
+import { batchByTokenLimit, getAccurateTokenCount } from '@/lib/tokenization'
 
 const logger = createLogger('EmbeddingUtils')
-
 const MAX_TOKENS_PER_REQUEST = 8000
+export const DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small'
 
-export class EmbeddingAPIError extends Error {
-  public status: number
-
-  constructor(message: string, status: number) {
-    super(message)
-    this.name = 'EmbeddingAPIError'
-    this.status = status
-  }
+export interface EmbeddingAccounting {
+  model: string
+  tokens: { prompt?: number; total?: number }
+  usage: { status: 'reported' | 'partial' | 'unavailable'; batches: number }
+  cost: NativeCost
 }
 
-interface EmbeddingConfig {
-  useAzure: boolean
-  apiUrl: string
-  headers: Record<string, string>
-  modelName: string
+export interface EmbeddingResult extends EmbeddingAccounting {
+  embeddings: number[][]
 }
 
-async function getEmbeddingConfig(
-  embeddingModel = 'text-embedding-3-small'
-): Promise<EmbeddingConfig> {
-  const [azureConfig, openaiConfig] = await Promise.all([
-    resolveAzureOpenAIServiceConfig(),
-    resolveOpenAIServiceConfig(),
-  ])
-  const azureApiKey = azureConfig.apiKey || ''
-  const azureEndpoint = azureConfig.endpoint
-  const azureApiVersion = azureConfig.apiVersion
-  const kbModelName = azureConfig.embeddingModel || embeddingModel
-  const openaiApiKey = openaiConfig.defaultApiKey || ''
-
-  const useAzure = !!(azureApiKey && azureEndpoint)
-
-  if (!useAzure && !openaiApiKey) {
-    throw new Error(
-      'Either the OpenAI default API key or Azure OpenAI service config must be configured'
-    )
-  }
-
-  const apiUrl = useAzure
-    ? `${azureEndpoint}/openai/deployments/${kbModelName}/embeddings?api-version=${azureApiVersion}`
-    : 'https://api.openai.com/v1/embeddings'
-
-  const headers: Record<string, string> = useAzure
-    ? {
-        'api-key': azureApiKey!,
-        'Content-Type': 'application/json',
-      }
-    : {
-        Authorization: `Bearer ${openaiApiKey!}`,
-        'Content-Type': 'application/json',
-      }
-
-  return {
-    useAzure,
-    apiUrl,
-    headers,
-    modelName: useAzure ? kbModelName : embeddingModel,
-  }
+export interface EmbeddingScope {
+  actorUserId: string
+  /** Request-local credential. */
+  apiKey?: string
+  workspaceId?: string | null
+  workflowId?: string | null
+  executionId?: string
+  signal?: AbortSignal
+  /** Server-issued and persisted by a background caller; never a client request field. */
+  runId?: string
 }
 
-async function callEmbeddingAPI(inputs: string[], config: EmbeddingConfig): Promise<number[][]> {
-  return retryWithExponentialBackoff(
-    async () => {
-      const requestBody = config.useAzure
-        ? {
-            input: inputs,
-            encoding_format: 'float',
-          }
-        : {
-            input: inputs,
-            model: config.modelName,
-            encoding_format: 'float',
-          }
-
-      const response = await fetch(config.apiUrl, {
-        method: 'POST',
-        headers: config.headers,
-        body: JSON.stringify(requestBody),
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new EmbeddingAPIError(
-          `Embedding API failed: ${response.status} ${response.statusText} - ${errorText}`,
-          response.status
-        )
-      }
-
-      const data = await response.json()
-      return data.data.map((item: any) => item.embedding)
-    },
-    {
-      maxRetries: 3,
-      initialDelayMs: 1000,
-      maxDelayMs: 10000,
-      retryCondition: (error: any) => {
-        if (error instanceof EmbeddingAPIError) {
-          return error.status === 429 || error.status >= 500
-        }
-        return isRetryableError(error)
-      },
-    }
-  )
-}
-
-/**
- * Generate embeddings for multiple texts with token-aware batching
- * Uses tiktoken for token counting
- */
+/** Token counts used for batching are metadata; only native response usage is accounting. */
 export async function generateEmbeddings(
   texts: string[],
-  embeddingModel = 'text-embedding-3-small'
-): Promise<number[][]> {
-  const config = await getEmbeddingConfig(embeddingModel)
-
-  logger.info(
-    `Using ${config.useAzure ? 'Azure OpenAI' : 'OpenAI'} for embeddings generation (${texts.length} texts)`
-  )
-
-  const batches = batchByTokenLimit(texts, MAX_TOKENS_PER_REQUEST, embeddingModel)
-
-  logger.info(
-    `Split ${texts.length} texts into ${batches.length} batches (max ${MAX_TOKENS_PER_REQUEST} tokens per batch)`
-  )
-
-  const allEmbeddings: number[][] = []
-
-  for (let i = 0; i < batches.length; i++) {
-    const batch = batches[i]
-    const batchTokenCount = getTotalTokenCount(batch, embeddingModel)
-
-    logger.info(
-      `Processing batch ${i + 1}/${batches.length}: ${batch.length} texts, ${batchTokenCount} tokens`
-    )
-
-    try {
-      const batchEmbeddings = await callEmbeddingAPI(batch, config)
-      allEmbeddings.push(...batchEmbeddings)
-
-      logger.info(
-        `Generated ${batchEmbeddings.length} embeddings for batch ${i + 1}/${batches.length}`
+  scope: EmbeddingScope,
+  model = DEFAULT_EMBEDDING_MODEL
+): Promise<EmbeddingResult> {
+  if (!scope.actorUserId?.trim()) throw new Error('Authenticated embedding actor is required')
+  scope.signal?.throwIfAborted()
+  const selected = await assertListedEmbeddingModel(model)
+  // Existing batchByTokenLimit truncates oversized entries. Validate first and choose a
+  // grouping ceiling that keeps every accepted input byte intact, including 8001–8191 tokens.
+  const largestInput = texts.reduce((largest, text) => {
+    const count = getAccurateTokenCount(text, model)
+    if (count > selected.maxInputTokens)
+      throw Object.assign(
+        new Error(`Embedding input exceeds ${model}'s ${selected.maxInputTokens} token limit.`),
+        { status: 400 }
       )
-    } catch (error) {
-      logger.error(`Failed to generate embeddings for batch ${i + 1}:`, error)
-      throw error
+    return Math.max(largest, count)
+  }, 0)
+  const batches = batchByTokenLimit(texts, Math.max(MAX_TOKENS_PER_REQUEST, largestInput), model)
+  const apiKey = scope.apiKey
+  if (apiKey !== undefined && !apiKey.trim())
+    throw Object.assign(new Error('A nonempty request-local embedding API key is required'), {
+      status: 400,
+    })
+  const funding: ModelUsageScope['funding'] = apiKey === undefined ? 'account' : 'byok'
+  const embedder = new ModelRouterEmbeddingModel(await resolveConfiguredModel(model, apiKey))
+  const embeddings: number[][] = []
+  const costs: NativeCost[] = []
+  const invocationId = randomUUID()
+  let prompt: number | undefined
+  let reportedBatches = 0
+  const maxEmbeddings = await embedder.maxEmbeddingsPerCall
+  let batchCount = 0
+  let awaitingUsage = false
+  const accounting = (failed = false): EmbeddingAccounting => ({
+    model,
+    tokens: prompt !== undefined ? { prompt, total: prompt } : {},
+    usage: {
+      status:
+        reportedBatches === 0
+          ? 'unavailable'
+          : !failed && reportedBatches === batchCount
+            ? 'reported'
+            : 'partial',
+      batches: batchCount,
+    },
+    cost: {
+      ...sumNativeCosts(costs),
+      ...(funding === 'byok' ? { accountCost: null } : {}),
+    },
+  })
+  try {
+    const usageScope: ModelUsageScope = {
+      actorUserId: scope.actorUserId,
+      workspaceId: scope.workspaceId,
+      workflowId: scope.workflowId,
+      executionId: scope.executionId,
+      signal: scope.signal,
+      runId: scope.runId ?? randomUUID(),
+      purpose: 'embedding',
+      funding,
+      model,
     }
-
-    if (i + 1 < batches.length) {
-      await new Promise((resolve) => setTimeout(resolve, 100))
+    for (const batch of batches) {
+      const size =
+        maxEmbeddings && Number.isSafeInteger(maxEmbeddings) && maxEmbeddings > 0
+          ? maxEmbeddings
+          : batch.length
+      for (let index = 0; index < batch.length; index += size) {
+        const values = batch.slice(index, index + size)
+        await assertModelUsageAllowed(usageScope)
+        const attemptId = `${usageScope.runId}:embedding:${invocationId}:${batchCount}`
+        await beginWorkflowModelUsage(usageScope, attemptId)
+        awaitingUsage = true
+        const result = await embedder.doEmbed({ values, abortSignal: scope.signal })
+        batchCount += 1
+        if (result.usage?.tokens !== undefined) {
+          prompt = (prompt ?? 0) + result.usage.tokens
+          reportedBatches += 1
+        }
+        embeddings.push(...result.embeddings)
+        const usage =
+          result.usage?.tokens === undefined
+            ? {}
+            : {
+                inputTokens: result.usage.tokens,
+                totalTokens: result.usage.tokens,
+              }
+        const cost: NativeCost = {
+          ...(await calculateNativeCost(model, usage, result.providerMetadata)),
+          ...(funding === 'byok' ? { accountCost: null } : {}),
+        }
+        costs.push(cost)
+        awaitingUsage = false
+        costs[costs.length - 1] = await recordModelUsage(usageScope, usage, cost, attemptId)
+        scope.signal?.throwIfAborted()
+        if (result.embeddings.length !== values.length) {
+          throw new Error(
+            'Embedding provider returned a different vector count than the input count'
+          )
+        }
+      }
     }
+  } catch (error) {
+    if (awaitingUsage) costs.push({ status: 'unavailable' })
+    const failure = error instanceof Error ? error : new Error(String(error))
+    // An already branded producer error owns its facts and readonly Symbol; retain it intact.
+    if (getInferenceFacts(failure)) throw failure
+    const { usage, ...completed } = accounting(true)
+    Object.assign(failure, completed, { embeddingUsage: usage, completedEmbeddings: embeddings })
+    withInferenceFacts(failure, {
+      ...completed,
+      embeddingUsage: usage,
+      generatedFields: ['model', 'tokens', 'cost', 'embeddingUsage'],
+    })
+    logger.error('Embedding generation failed', { ...completed, embeddingUsage: usage })
+    throw failure
   }
-
-  logger.info(`Successfully generated ${allEmbeddings.length} embeddings total`)
-
-  return allEmbeddings
+  const resultAccounting = accounting()
+  logger.info('Generated embedding batches', { count: embeddings.length, ...resultAccounting })
+  return withInferenceFacts(
+    { embeddings, ...resultAccounting },
+    {
+      model: resultAccounting.model,
+      tokens: resultAccounting.tokens,
+      cost: resultAccounting.cost,
+      embeddingUsage: resultAccounting.usage,
+      generatedFields: ['model', 'tokens', 'cost'],
+    }
+  )
 }
 
-/**
- * Generate embedding for a single search query
- */
 export async function generateSearchEmbedding(
   query: string,
-  embeddingModel = 'text-embedding-3-small'
-): Promise<number[]> {
-  const config = await getEmbeddingConfig(embeddingModel)
-
-  logger.info(
-    `Using ${config.useAzure ? 'Azure OpenAI' : 'OpenAI'} for search embedding generation`
-  )
-
-  const embeddings = await callEmbeddingAPI([query], config)
-  return embeddings[0]
+  scope: EmbeddingScope,
+  model = DEFAULT_EMBEDDING_MODEL
+) {
+  const { embeddings, ...accounting } = await generateEmbeddings([query], scope, model)
+  return { embedding: embeddings[0], ...accounting }
 }

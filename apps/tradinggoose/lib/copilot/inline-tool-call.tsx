@@ -7,10 +7,11 @@ import { DashboardLayoutPreviewCanvas } from '@/components/dashboard-layout-prev
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { Button } from '@/components/ui/button'
 import { DiffViewer } from '@/components/ui/diff-viewer'
-import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { parseEntityDocument } from '@/lib/copilot/entity-documents'
+import { isToolId } from '@/lib/copilot/registry'
+import { ToolAccessChoice } from '@/lib/copilot/tool-access-choice'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { getClientTool } from '@/lib/copilot/tools/client/manager'
+import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/server-tool-response'
 import { getListingIdentityKey, getListingIdentitySymbol } from '@/lib/listing/identity'
 import type { WatchlistDocumentInputContent, WatchlistSettings } from '@/lib/watchlists/types'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
@@ -18,8 +19,7 @@ import { useCopilotStore } from '@/stores/copilot/store'
 import {
   getCopilotToolMetadata,
   getToolInterruptDisplays,
-  isCopilotTool,
-  isGatedTool,
+  isServerManagedCopilotTool,
 } from '@/stores/copilot/tool-registry'
 import type { CopilotToolCall } from '@/stores/copilot/types'
 import type { LayoutNode } from '@/widgets/layout'
@@ -54,7 +54,6 @@ type VisualReviewPayload<T> = {
 interface InlineToolCallProps {
   toolCall?: CopilotToolCall
   toolCallId?: string
-  onStateChange?: (state: ClientToolCallState) => void
 }
 
 function readToolFailureDetails(toolCall: CopilotToolCall) {
@@ -171,14 +170,8 @@ function redactUrlQuery(value: unknown): string {
 
 function splitActionVerb(text: string): [string | null, string] {
   for (const verb of ACTION_VERBS) {
-    if (text.startsWith(`${verb} `)) {
+    if (text === verb || text.startsWith(`${verb} `)) {
       return [verb, text.slice(verb.length)]
-    }
-    if (text === verb || text.startsWith(verb)) {
-      const afterVerb = text.slice(verb.length)
-      if (afterVerb === '' || afterVerb.startsWith(' ')) {
-        return [verb, afterVerb]
-      }
     }
   }
   return [null, text]
@@ -238,23 +231,16 @@ function ShimmerOverlayText({
   )
 }
 
-function shouldShowToolActionButtons(
-  toolCall: CopilotToolCall,
-  accessLevel: CopilotAccessLevel
-): boolean {
-  if (!isCopilotTool(toolCall.name)) {
+function shouldShowToolActionButtons(toolCall: CopilotToolCall): boolean {
+  if (!isToolId(toolCall.name)) {
     return false
   }
 
-  const hasInterrupt = !!getToolInterruptDisplays(toolCall.name, toolCall.id)
-
-  if (hasInterrupt && toolCall.state === ClientToolCallState.review) {
-    return true
-  }
-
+  if (toolCall.historical || !toolCall.pending) return false
   return (
-    toolCall.state === ClientToolCallState.pending &&
-    shouldRequireToolApproval(accessLevel, isGatedTool(toolCall.name))
+    toolCall.pending.stage === 'approval' ||
+    toolCall.state === ClientToolCallState.review ||
+    toolCall.state === ClientToolCallState.pending
   )
 }
 
@@ -276,7 +262,7 @@ function isEntityReviewKind(entityKind: unknown): entityKind is string {
 }
 
 function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload | null {
-  if (!isCopilotTool(toolCall.name) || !isStagedPreviewState(toolCall.state)) {
+  if (!isToolId(toolCall.name) || !isStagedPreviewState(toolCall.state)) {
     return null
   }
 
@@ -455,33 +441,28 @@ function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPay
   }
 }
 
-function getDisplayName(toolCall: CopilotToolCall): string {
-  // Prefer display resolved in the copilot store (SSOT) for client tools
-  const fromStore = (toolCall as any).display?.text
-  if (fromStore) return fromStore
-
-  try {
-    const byState = getCopilotToolMetadata(toolCall.name)?.displayNames?.[toolCall.state]
-    if (byState?.text) return byState.text
-  } catch {}
-
-  return toolCall.name
-}
-
 function ToolActionButtons({
   toolCall,
-  onStateChange,
+  hideAccept = false,
 }: {
   toolCall: CopilotToolCall
-  onStateChange?: (state: ClientToolCallState) => void
+  hideAccept?: boolean
 }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const actionInProgressRef = useRef(false)
   const { executeCopilotToolCall, skipCopilotToolCall } = useCopilotStore()
   const interruptDisplays = getToolInterruptDisplays(toolCall.name, toolCall.id)
   const isReview = toolCall.state === ClientToolCallState.review
-  const acceptText = interruptDisplays?.accept?.text ?? (isReview ? 'Accept' : 'Allow')
-  const rejectText = interruptDisplays?.reject?.text ?? (isReview ? 'Reject' : 'Skip')
+  const acceptText =
+    toolCall.pending?.stage === 'approval'
+      ? 'Allow'
+      : (interruptDisplays?.accept?.text ?? (isReview ? 'Accept' : 'Execute'))
+  const canReject =
+    toolCall.pending?.stage === 'approval' ||
+    (isReview &&
+      isServerManagedCopilotTool(toolCall.name) &&
+      isCopilotServerToolReviewResult(toolCall.result))
+  const rejectText = toolCall.pending?.stage === 'approval' ? 'Decline' : 'Reject'
   const AcceptIcon = interruptDisplays?.accept?.icon
   const RejectIcon = interruptDisplays?.reject?.icon
 
@@ -490,7 +471,6 @@ function ToolActionButtons({
     actionInProgressRef.current = true
     setIsProcessing(true)
     try {
-      onStateChange?.(ClientToolCallState.executing)
       await executeCopilotToolCall(toolCall.id)
     } finally {
       setIsProcessing(false)
@@ -500,27 +480,39 @@ function ToolActionButtons({
 
   return (
     <div className='flex items-center gap-1.5'>
-      <Button onClick={onAccept} disabled={isProcessing} size='sm'>
-        {isProcessing ? (
-          <Loader2 className='mr-1 h-3 w-3 animate-spin' />
-        ) : AcceptIcon ? (
-          <AcceptIcon className='mr-1 h-3 w-3' />
-        ) : null}
-        {acceptText}
-      </Button>
-      <Button
-        onClick={async () => {
-          if (actionInProgressRef.current) return
-          await skipCopilotToolCall(toolCall.id)
-          onStateChange?.(ClientToolCallState.rejected)
-        }}
-        disabled={isProcessing}
-        size='sm'
-        variant='outline'
-      >
-        {RejectIcon ? <RejectIcon className='mr-1 h-3 w-3' /> : null}
-        {rejectText}
-      </Button>
+      {!hideAccept ? (
+        <Button onClick={onAccept} disabled={isProcessing} size='sm'>
+          {isProcessing ? (
+            <Loader2 className='mr-1 h-3 w-3 animate-spin' />
+          ) : AcceptIcon ? (
+            <AcceptIcon className='mr-1 h-3 w-3' />
+          ) : null}
+          {acceptText}
+        </Button>
+      ) : null}
+      {canReject ? (
+        <Button
+          onClick={async () => {
+            if (actionInProgressRef.current) return
+            actionInProgressRef.current = true
+            setIsProcessing(true)
+            try {
+              await skipCopilotToolCall(toolCall.id)
+            } catch {
+              // The store retains the actual decision/delivery error; never label a failure rejected.
+            } finally {
+              actionInProgressRef.current = false
+              setIsProcessing(false)
+            }
+          }}
+          disabled={isProcessing}
+          size='sm'
+          variant='outline'
+        >
+          {RejectIcon ? <RejectIcon className='mr-1 h-3 w-3' /> : null}
+          {rejectText}
+        </Button>
+      ) : null}
     </div>
   )
 }
@@ -670,44 +662,50 @@ function WatchlistReview({
   )
 }
 
-export function InlineToolCall({
-  toolCall: toolCallProp,
-  toolCallId,
-  onStateChange,
-}: InlineToolCallProps) {
+export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToolCallProps) {
   const dashboardPreviewCopy = useMessages().workspace.dashboard.layoutPreview
   const tReview = useTranslations('workspace.widgets.copilot.review')
-  const [, forceUpdate] = useState({})
   const liveToolCall = useCopilotStore((s) =>
     toolCallId ? s.toolCallsById[toolCallId] : undefined
   )
   const toolCall = liveToolCall || toolCallProp
-  const toolName = toolCall?.name || ''
-  const toolState = toolCall?.state || (ClientToolCallState.pending as any)
-
-  const isExpandablePending =
-    toolState === 'pending' &&
-    (toolName === 'make_api_request' || toolName === 'set_environment_variables')
-
-  const [expanded, setExpanded] = useState(isExpandablePending)
-  const pendingDetailsId = useId()
   const isExpandableTool =
-    toolName === 'make_api_request' || toolName === 'set_environment_variables'
+    toolCall?.name === 'make_api_request' || toolCall?.name === 'set_environment_variables'
 
-  const accessLevel = useCopilotStore((s) => s.accessLevel)
+  const [expanded, setExpanded] = useState(
+    toolCall?.state === ClientToolCallState.pending && isExpandableTool
+  )
+  const pendingDetailsId = useId()
+  const { readbackCopilotToolCall, recordToolFailure } = useCopilotStore()
 
   if (!toolCall) return null
 
-  const showButtons = shouldShowToolActionButtons(toolCall, accessLevel)
-  const showMoveToBackground =
-    toolCall.name === 'run_workflow' && toolCall.state === ClientToolCallState.executing
+  const showButtons = shouldShowToolActionButtons(toolCall)
+  const showDriveChoice =
+    !toolCall.historical &&
+    toolCall.name === 'gdrive_request_access' &&
+    toolCall.pending?.stage === 'result' &&
+    toolCall.state !== ClientToolCallState.success &&
+    !(toolCall.provenance?.workspaceId && typeof toolCall.result?.credentialId === 'string')
+  const oauthOpened = toolCall.name === 'oauth_request_access' && toolCall.result?.opened === true
+  const showOAuthChoice =
+    !toolCall.historical &&
+    toolCall.name === 'oauth_request_access' &&
+    toolCall.pending?.stage === 'result' &&
+    toolCall.state !== ClientToolCallState.success &&
+    !oauthOpened
+  const showAccessChoice = showDriveChoice || showOAuthChoice
+  const recoverable =
+    !toolCall.historical &&
+    toolCall.pending?.stage === 'result' &&
+    toolCall.state === ClientToolCallState.error &&
+    (['run_workflow', 'deploy_workflow'].includes(toolCall.name) ||
+      (toolCall.name === 'gdrive_request_access' &&
+        typeof toolCall.result?.credentialId === 'string'))
 
-  const handleStateChange = (state: ClientToolCallState) => {
-    forceUpdate({})
-    onStateChange?.(state)
-  }
-
-  const displayName = getDisplayName(toolCall)
+  const metadataDisplay = getCopilotToolMetadata(toolCall.name)?.displayNames[toolCall.state]
+  const displayName = toolCall.display?.text || metadataDisplay?.text || toolCall.name
+  const DisplayIcon = toolCall.display?.icon || metadataDisplay?.icon || Loader2
   const failureDetails = readToolFailureDetails(toolCall)
   const params = toolCall.params ?? {}
   const dashboardLayoutReviewPayload = readDashboardLayoutVisualReviewPayload(toolCall)
@@ -801,47 +799,19 @@ export function InlineToolCall({
     return null
   }
 
-  // Compute icon element from tool display metadata, defaulting to Loader2.
-  const renderDisplayIcon = () => {
-    try {
-      // Determine the icon component (prefer store, then registry, else Loader2)
-      const IconFromStore = (toolCall as any).display?.icon
-      let IconComp: any | undefined = IconFromStore
-      if (!IconComp) {
-        try {
-          IconComp = getCopilotToolMetadata(toolCall.name)?.displayNames?.[toolCall.state]?.icon
-        } catch {}
-      }
-      if (!IconComp) IconComp = Loader2
-
-      // Color by state
-      let colorClass = ''
-      const state = toolCall.state
-      if (state === ClientToolCallState.aborted) {
-        colorClass = 'text-yellow-500'
-      } else if (state === ClientToolCallState.error) {
-        colorClass = 'text-red-500'
-      } else if (state === ClientToolCallState.success) {
-        const isBuildOrEdit = toolCall.name === 'edit_workflow'
-        colorClass = isBuildOrEdit ? 'text-primary-hover' : 'text-green-600'
-      }
-
-      const isLoadingState =
-        toolCall.state === ClientToolCallState.pending ||
-        toolCall.state === ClientToolCallState.executing
-
-      // Only Loader2 should spin (while loading)
-      const spinClass = IconComp === Loader2 && isLoadingState ? 'animate-spin' : ''
-
-      return <IconComp className={`h-3 w-3 ${spinClass} ${colorClass}`} />
-    } catch {
-      return <Loader2 className='h-3 w-3 animate-spin' />
-    }
+  let colorClass = ''
+  if (toolCall.state === ClientToolCallState.aborted) {
+    colorClass = 'text-yellow-500'
+  } else if (toolCall.state === ClientToolCallState.error) {
+    colorClass = 'text-red-500'
+  } else if (toolCall.state === ClientToolCallState.success) {
+    colorClass = toolCall.name === 'edit_workflow' ? 'text-primary-hover' : 'text-green-600'
   }
 
   const isLoadingState =
     toolCall.state === ClientToolCallState.pending ||
     toolCall.state === ClientToolCallState.executing
+  const spinClass = DisplayIcon === Loader2 && isLoadingState ? 'animate-spin' : ''
   const terminalRole =
     toolCall.state === ClientToolCallState.error
       ? 'alert'
@@ -851,7 +821,9 @@ export function InlineToolCall({
 
   const toolNameContent = (
     <>
-      <div className='flex-shrink-0'>{renderDisplayIcon()}</div>
+      <div className='flex-shrink-0'>
+        <DisplayIcon className={`h-3 w-3 ${spinClass} ${colorClass}`} />
+      </div>
       <ShimmerOverlayText text={displayName} active={isLoadingState} className='text-sm' />
     </>
   )
@@ -863,7 +835,7 @@ export function InlineToolCall({
       aria-atomic={terminalRole ? 'true' : undefined}
       className='flex w-full flex-col gap-1 py-1'
     >
-      <div className='flex items-center justify-between gap-2'>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
         {isExpandableTool ? (
           <button
             type='button'
@@ -878,29 +850,37 @@ export function InlineToolCall({
           <div className='flex items-center gap-2 text-muted-foreground'>{toolNameContent}</div>
         )}
         {showButtons ? (
-          <ToolActionButtons toolCall={toolCall} onStateChange={handleStateChange} />
-        ) : showMoveToBackground ? (
+          <ToolActionButtons toolCall={toolCall} hideAccept={showAccessChoice || oauthOpened} />
+        ) : recoverable ? (
           <Button
-            onClick={async () => {
-              try {
-                const instance = getClientTool(toolCall.id)
-                instance?.setState?.(ClientToolCallState.background)
-                await instance?.markToolComplete?.(
-                  200,
-                  'The user has chosen to move the workflow execution to the background. Check back with them later to know when the workflow execution is complete'
-                )
-                forceUpdate({})
-                onStateChange?.(ClientToolCallState.background)
-              } catch {}
-            }}
             size='sm'
             variant='secondary'
-            title='Move to Background'
+            onClick={async () => {
+              try {
+                await readbackCopilotToolCall(
+                  toolCall.id,
+                  toolCall.name === 'gdrive_request_access'
+                    ? { credentialId: toolCall.result.credentialId }
+                    : undefined
+                )
+              } catch (error) {
+                recordToolFailure(
+                  toolCall.id,
+                  error instanceof Error ? error.message : 'Authoritative readback failed'
+                )
+              }
+            }}
           >
-            Move to Background
+            Recover result
           </Button>
         ) : null}
       </div>
+      {showAccessChoice ? (
+        <ToolAccessChoice
+          key={`${toolCall.id}:${toolCall.pending!.target.runId}`}
+          toolCall={toolCall}
+        />
+      ) : null}
       {failureDetails ? (
         <div className='space-y-1 px-5 text-destructive text-xs'>
           {failureDetails.issues.length > 0 ? (

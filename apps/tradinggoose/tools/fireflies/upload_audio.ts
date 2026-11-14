@@ -77,7 +77,7 @@ export const firefliesUploadAudioTool: ToolConfig<
         Authorization: `Bearer ${params.apiKey}`,
       }
     },
-    body: (params) => {
+    body: async (params) => {
       let url: string | undefined
 
       if (params.audioFile) {
@@ -90,6 +90,16 @@ export const firefliesUploadAudioTool: ToolConfig<
 
       if (!url) {
         throw new Error('Either an audio file or audio URL is required')
+      }
+
+      if (typeof window === 'undefined') {
+        const [{ resolveAuthorizedWorkspaceFileReference }, { generatePresignedDownloadUrl }] =
+          await Promise.all([
+            import('@/lib/uploads/contexts/workspace'),
+            import('@/lib/uploads/core/storage-service'),
+          ])
+        const file = await resolveAuthorizedWorkspaceFileReference(url, params._context?.userId)
+        if (file) url = await generatePresignedDownloadUrl(file.key, 'workspace', 24 * 60 * 60)
       }
 
       if (!url.startsWith('https://')) {

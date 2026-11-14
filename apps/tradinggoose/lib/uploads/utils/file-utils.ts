@@ -1,147 +1,12 @@
-export interface FileAttachment {
-  id: string
-  key: string
-  filename: string
-  media_type: string
-  size: number
-}
-
-export interface MessageContent {
-  type: 'text' | 'image' | 'document'
-  text?: string
-  source?: {
-    type: 'base64'
-    media_type: string
-    data: string
-  }
-}
-
-/**
- * Mapping of MIME types to content types
- */
-export const MIME_TYPE_MAPPING: Record<string, 'image' | 'document'> = {
-  // Images
-  'image/jpeg': 'image',
-  'image/jpg': 'image',
-  'image/png': 'image',
-  'image/gif': 'image',
-  'image/webp': 'image',
-  'image/svg+xml': 'image',
-
-  // Documents
-  'application/pdf': 'document',
-  'text/plain': 'document',
-  'text/csv': 'document',
-  'application/json': 'document',
-  'application/xml': 'document',
-  'text/xml': 'document',
-  'text/html': 'document',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'document', // .docx
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'document', // .xlsx
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'document', // .pptx
-  'application/msword': 'document', // .doc
-  'application/vnd.ms-excel': 'document', // .xls
-  'application/vnd.ms-powerpoint': 'document', // .ppt
-  'text/markdown': 'document',
-  'application/rtf': 'document',
-}
-
-/**
- * Get the content type for a given MIME type
- */
-export function getContentType(mimeType: string): 'image' | 'document' | null {
-  return MIME_TYPE_MAPPING[mimeType.toLowerCase()] || null
-}
-
-/**
- * Check if a MIME type is supported
- */
-export function isSupportedFileType(mimeType: string): boolean {
-  return mimeType.toLowerCase() in MIME_TYPE_MAPPING
-}
-
-/**
- * Check if a MIME type is an image type (for copilot uploads)
- */
-export function isImageFileType(mimeType: string): boolean {
-  const imageTypes = [
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'image/svg+xml',
-  ]
-  return imageTypes.includes(mimeType.toLowerCase())
-}
-
-/**
- * Convert a file buffer to base64
- */
-export function bufferToBase64(buffer: Buffer): string {
-  return buffer.toString('base64')
-}
-
-/**
- * Create message content from file data
- */
-export function createFileContent(fileBuffer: Buffer, mimeType: string): MessageContent | null {
-  const contentType = getContentType(mimeType)
-  if (!contentType) {
-    return null
-  }
-
-  return {
-    type: contentType,
-    source: {
-      type: 'base64',
-      media_type: mimeType,
-      data: bufferToBase64(fileBuffer),
-    },
-  }
-}
-
-/**
- * Extract file extension from filename
- */
-export function getFileExtension(filename: string): string {
-  const lastDot = filename.lastIndexOf('.')
-  return lastDot !== -1 ? filename.slice(lastDot + 1).toLowerCase() : ''
-}
-
-/**
- * Get MIME type from file extension when not provided.
- */
-export function getMimeTypeFromExtension(extension: string): string {
-  const extensionMimeMap: Record<string, string> = {
-    // Images
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    svg: 'image/svg+xml',
-
-    // Documents
-    pdf: 'application/pdf',
-    txt: 'text/plain',
-    csv: 'text/csv',
-    json: 'application/json',
-    xml: 'application/xml',
-    html: 'text/html',
-    htm: 'text/html',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    doc: 'application/msword',
-    xls: 'application/vnd.ms-excel',
-    ppt: 'application/vnd.ms-powerpoint',
-    md: 'text/markdown',
-    rtf: 'application/rtf',
-  }
-
-  return extensionMimeMap[extension.toLowerCase()] || 'application/octet-stream'
-}
+import dns from 'node:dns'
+import { isIP } from 'node:net'
+import {
+  DownloadError,
+  fetchWithValidatedRedirects,
+  validateDownloadUrl,
+} from '@ai-sdk/provider-utils'
+// The explicit package entry avoids Bun's built-in undici shim, which ignores connector hooks.
+import { Agent, fetch as undiciFetch } from 'undici/index.js'
 
 /**
  * Extract storage key from a file path
@@ -184,4 +49,91 @@ export function sanitizeFileKey(key: string): string {
       return segment.replace(pattern, '_')
     })
     .join('/')
+}
+
+const FILE_CONTEXTS = new Set([
+  'general',
+  'knowledge-base',
+  'chat',
+  'execution',
+  'workspace',
+  'profile-pictures',
+])
+
+export class StorageAccessError extends Error {
+  readonly status = 403
+  constructor() {
+    super('File access denied')
+  }
+}
+
+/** Validate storage paths and supported contexts before extracting a key. */
+export function assertStorageReferenceAccess(value: unknown, context?: unknown): void {
+  if (context !== undefined && (typeof context !== 'string' || !FILE_CONTEXTS.has(context)))
+    throw new StorageAccessError()
+  if (typeof value !== 'string') throw new StorageAccessError()
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(value)
+  } catch {
+    throw new StorageAccessError()
+  }
+  if (
+    decoded.includes(String.fromCharCode(0)) ||
+    decoded.includes(String.fromCharCode(92)) ||
+    /%(?:2f|5c|00|2e|25)/i.test(decoded) ||
+    decoded.toLowerCase().startsWith('file:') ||
+    decoded.split(/[/?#]/).some((part) => part === '.' || part === '..')
+  )
+    throw new StorageAccessError()
+}
+
+// Use the same pinned transport under Node and Bun. A pre-fetch DNS check followed by ordinary
+// fetch would resolve twice and allow DNS rebinding; the connector uses these exact records.
+const publicFileDispatcher = new Agent({
+  connect: {
+    lookup(hostname, options, callback) {
+      dns.lookup(hostname, { ...options, all: true }, (error, addresses) => {
+        if (error) return callback(error, '')
+        try {
+          if (!addresses.length) throw new StorageAccessError()
+          for (const { address, family } of addresses) {
+            if (isIP(address) !== family) throw new StorageAccessError()
+            validateDownloadUrl(`http://${family === 6 ? `[${address}]` : address}/`)
+          }
+        } catch (error) {
+          const failure = DownloadError.isInstance(error) ? new StorageAccessError() : error
+          callback(failure instanceof Error ? failure : new Error(String(failure)), '')
+          return
+        }
+        if (options.all) callback(null, addresses)
+        else callback(null, addresses[0].address, addresses[0].family)
+      })
+    },
+  },
+})
+
+/** The SDK validates each redirect; the transport validates DNS when opening the socket. */
+export async function fetchPublicStorageUrl(url: string, init?: RequestInit): Promise<Response> {
+  assertStorageReferenceAccess(url)
+  try {
+    return await fetchWithValidatedRedirects({
+      url,
+      headers: init?.headers,
+      abortSignal: init?.signal ?? undefined,
+      maxRedirects: 5,
+      fetch: (input, options) =>
+        undiciFetch(input as string, {
+          method: 'GET',
+          headers: Object.fromEntries(new Headers(options?.headers)),
+          signal: options?.signal,
+          redirect: 'manual',
+          dispatcher: publicFileDispatcher,
+        }) as unknown as Promise<Response>,
+    })
+  } catch (error) {
+    if (DownloadError.isInstance(error)) throw new StorageAccessError()
+    if (error instanceof Error && error.cause instanceof StorageAccessError) throw error.cause
+    throw error
+  }
 }

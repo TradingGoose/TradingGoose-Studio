@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
@@ -12,6 +12,8 @@ const {
   andMock,
   orMock,
   limitMock,
+  openStreamMock,
+  workspaceAccessMock,
 } = vi.hoisted(() => ({
   checkHybridAuthMock: vi.fn(),
   cancelPendingWorkflowExecutionMock: vi.fn(),
@@ -19,6 +21,8 @@ const {
   andMock: vi.fn((...args) => ({ args })),
   orMock: vi.fn((...args) => ({ args })),
   limitMock: vi.fn(),
+  openStreamMock: vi.fn(),
+  workspaceAccessMock: vi.fn(),
 }))
 
 const queryChain = {
@@ -38,6 +42,7 @@ vi.mock('@tradinggoose/db', () => ({
 vi.mock('@tradinggoose/db/schema', () => ({
   pendingExecution: {
     id: 'pendingExecution.id',
+    workflowId: 'pendingExecution.workflowId',
     userId: 'pendingExecution.userId',
     workspaceId: 'pendingExecution.workspaceId',
     status: 'pendingExecution.status',
@@ -84,6 +89,15 @@ vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
   cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
 }))
 
+vi.mock('@/lib/execution/workflow-execution-stream', () => ({
+  openWorkflowExecutionEventStream: openStreamMock,
+}))
+
+vi.mock('@/lib/permissions/utils', async (original) => ({
+  ...(await original<typeof import('@/lib/permissions/utils')>()),
+  checkWorkspaceAccess: workspaceAccessMock,
+}))
+
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
     debug: vi.fn(),
@@ -94,6 +108,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/utils', () => ({
   generateRequestId: vi.fn(() => 'request-1'),
+  SSE_HEADERS: { 'Content-Type': 'text/event-stream' },
 }))
 
 vi.mock('@/app/api/workflows/utils', () => ({
@@ -102,6 +117,14 @@ vi.mock('@/app/api/workflows/utils', () => ({
 }))
 
 import { DELETE, GET } from './route'
+
+const jobParams = { params: Promise.resolve({ jobId: 'job-1' }) }
+const getJob = (headers?: HeadersInit) =>
+  GET(new NextRequest('http://localhost/api/jobs/job-1', { headers }), jobParams)
+const deleteJob = () =>
+  DELETE(new NextRequest('http://localhost/api/jobs/job-1', { method: 'DELETE' }), jobParams)
+const getJobStream = (cursor = '0') =>
+  getJob({ Accept: 'text/event-stream', 'Last-Event-ID': cursor })
 
 const createWorkflowResult = (
   queuedExecution: Record<string, unknown>,
@@ -135,6 +158,7 @@ const mockCompletedWorkflowJob = (
 describe('GET /api/jobs/[jobId]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    workspaceAccessMock.mockResolvedValue({ hasAccess: true })
     queryChain.from.mockReturnThis()
     queryChain.innerJoin.mockReturnThis()
     queryChain.leftJoin.mockReturnThis()
@@ -145,6 +169,45 @@ describe('GET /api/jobs/[jobId]', () => {
     })
   })
 
+  it('replays an authorized existing execution from its event cursor', async () => {
+    limitMock.mockResolvedValueOnce([
+      { id: 'job-1', workflowId: 'workflow-1', workspaceId: 'workspace-1', status: 'processing' },
+    ])
+    openStreamMock.mockResolvedValueOnce({
+      ok: true,
+      stream: new Response('data: [DONE]\n\n').body,
+    })
+    const response = await getJobStream('7')
+    expect(response.headers.get('content-type')).toBe('text/event-stream')
+    expect(openStreamMock).toHaveBeenCalledExactlyOnceWith({
+      pendingExecutionId: 'job-1',
+      workflowId: 'workflow-1',
+      fromEventId: 7,
+      requestId: 'request-1',
+    })
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.userId', 'user-1')
+    expect(workspaceAccessMock).toHaveBeenCalledExactlyOnceWith('workspace-1', 'user-1')
+  })
+
+  it('refuses replay after the job owner loses workspace access', async () => {
+    limitMock.mockResolvedValueOnce([
+      { id: 'job-1', workflowId: 'workflow-1', workspaceId: 'workspace-1', status: 'processing' },
+    ])
+    workspaceAccessMock.mockResolvedValueOnce({ hasAccess: false })
+    const response = await getJobStream()
+    expect(response.status).toBe(404)
+    expect(openStreamMock).not.toHaveBeenCalled()
+  })
+
+  it('does not expose stream events for inaccessible jobs or invalid cursors', async () => {
+    limitMock.mockResolvedValue([])
+    for (const cursor of ['0', '-1', 'NaN']) {
+      const response = await getJobStream(cursor)
+      expect(response.status).toBe(cursor === '0' ? 404 : 400)
+    }
+    expect(openStreamMock).not.toHaveBeenCalled()
+  })
+
   it('rejects unscoped workspace keys before looking up jobs', async () => {
     checkHybridAuthMock.mockResolvedValue({
       success: true,
@@ -152,9 +215,7 @@ describe('GET /api/jobs/[jobId]', () => {
       authType: 'api_key',
       apiKeyType: 'workspace',
     })
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await getJob()
     expect(response.status).toBe(403)
     expect(queryChain.where).not.toHaveBeenCalled()
   })
@@ -168,9 +229,7 @@ describe('GET /api/jobs/[jobId]', () => {
       workspaceId: 'workspace-1',
     })
     limitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([])
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await getJob()
     expect(response.status).toBe(404)
     expect(eqMock).toHaveBeenCalledWith('pendingExecution.workspaceId', 'workspace-1')
     expect(eqMock).toHaveBeenCalledWith('workflowExecutionLogs.workspaceId', 'workspace-1')
@@ -182,9 +241,7 @@ describe('GET /api/jobs/[jobId]', () => {
       userId: null,
     })
 
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await getJob()
 
     expect(response.status).toBe(401)
     await expect(response.json()).resolves.toEqual({
@@ -202,9 +259,7 @@ describe('GET /api/jobs/[jobId]', () => {
       },
     ])
 
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await getJob()
 
     expect(eqMock).toHaveBeenNthCalledWith(1, 'pendingExecution.id', 'job-1')
     expect(eqMock).toHaveBeenNthCalledWith(2, 'pendingExecution.userId', 'user-1')
@@ -220,9 +275,7 @@ describe('GET /api/jobs/[jobId]', () => {
   it('returns workflow execution output for completed workflow jobs', async () => {
     mockCompletedWorkflowJob({ source: 'workflow_execute_api' })
 
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await getJob()
 
     expect(response.status).toBe(200)
     const body = await response.json()
@@ -257,9 +310,7 @@ describe('GET /api/jobs/[jobId]', () => {
       },
     ])
 
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await getJob()
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -280,9 +331,7 @@ describe('GET /api/jobs/[jobId]', () => {
   it('does not treat successful workflow output with error property as failed', async () => {
     mockCompletedWorkflowJob({ source: 'workflow_execute_api' }, { error: 'user output' })
 
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await getJob()
 
     expect(response.status).toBe(200)
     const body = await response.json()
@@ -315,9 +364,7 @@ describe('GET /api/jobs/[jobId]', () => {
       parentBlockId: 'workflow-block-1',
     })
 
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await getJob()
 
     expect(response.status).toBe(200)
     const body = await response.json()
@@ -356,9 +403,7 @@ describe('GET /api/jobs/[jobId]', () => {
       ),
     ])
 
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await getJob()
 
     const body = await response.json()
     expect(body).toMatchObject({
@@ -391,9 +436,7 @@ describe('GET /api/jobs/[jobId]', () => {
       parentBlockId: 'workflow-block-1',
     })
 
-    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await getJob()
 
     const body = await response.json()
     expect(body.output.traceSpans).toBeUndefined()
@@ -407,10 +450,6 @@ describe('DELETE /api/jobs/[jobId]', () => {
       success: true,
       userId: 'user-1',
     })
-    cancelPendingWorkflowExecutionMock.mockResolvedValue({
-      status: 'cancelling',
-      pendingExecutionId: 'job-1:resume:2',
-    })
   })
 
   it('requires authentication', async () => {
@@ -419,9 +458,7 @@ describe('DELETE /api/jobs/[jobId]', () => {
       userId: null,
     })
 
-    const response = await DELETE(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await deleteJob()
 
     expect(response.status).toBe(401)
     await expect(response.json()).resolves.toEqual({
@@ -429,44 +466,28 @@ describe('DELETE /api/jobs/[jobId]', () => {
     })
   })
 
-  it('cancels workflow jobs for the authenticated user', async () => {
-    const response = await DELETE(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+  it.each(['cancelling', 'finished'])(
+    'returns %s for cancellation by the authenticated user',
+    async (status) => {
+      cancelPendingWorkflowExecutionMock.mockResolvedValue({
+        status,
+        pendingExecutionId: 'job-1:resume:2',
+      })
+      const response = await deleteJob()
 
-    expect(cancelPendingWorkflowExecutionMock).toHaveBeenCalledWith({
-      pendingExecutionId: 'job-1',
-      userId: 'user-1',
-    })
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      success: true,
-      taskId: 'job-1',
-      status: 'cancelling',
-    })
-  })
-
-  it('treats already-finished workflow jobs as successfully cancelled', async () => {
-    cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'finished' })
-
-    const response = await DELETE(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
-
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      success: true,
-      taskId: 'job-1',
-      status: 'finished',
-    })
-  })
+      expect(cancelPendingWorkflowExecutionMock).toHaveBeenCalledWith({
+        pendingExecutionId: 'job-1',
+        userId: 'user-1',
+      })
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ success: true, taskId: 'job-1', status })
+    }
+  )
 
   it('returns not found when the job does not belong to the user', async () => {
     cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'not_found' })
 
-    const response = await DELETE(new Request('http://localhost/api/jobs/job-1') as any, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    })
+    const response = await deleteJob()
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({

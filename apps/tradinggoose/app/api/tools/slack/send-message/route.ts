@@ -107,7 +107,11 @@ export async function POST(request: NextRequest) {
     for (const userFile of userFiles) {
       logger.info(`[${requestId}] Uploading file: ${userFile.name}`)
 
-      const buffer = await downloadFileFromStorage(userFile, requestId, logger)
+      const buffer = await downloadFileFromStorage(userFile, requestId, logger, {
+        actorUserId: credential.requesterUserId,
+        workspaceId: credential.workspaceId,
+        signal: request.signal,
+      })
 
       const getUrlResponse = await fetch('https://slack.com/api/files.getUploadURLExternal', {
         method: 'POST',
@@ -205,6 +209,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && 'status' in error && error.status === 403) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 })
+    }
     logger.error(`[${requestId}] Error sending Slack message:`, error)
     return NextResponse.json(
       {

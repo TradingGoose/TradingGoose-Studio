@@ -362,7 +362,7 @@ describe('Copilot MCP route', () => {
 
   it('returns structured authorization denials as MCP tool errors', async () => {
     const { POST } = await import('./route')
-    const denial = { code: 'access_denied', error: 'Access denied', retryable: false }
+    const denial = { code: 'access_denied', error: 'Access denied' }
     mockGetMcpServerToolIds.mockReturnValue(['list_watchlist'])
     mockRouteExecution.mockRejectedValueOnce(
       new StructuredServerToolError({ status: 403, body: denial })

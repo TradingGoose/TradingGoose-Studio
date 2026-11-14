@@ -1,4 +1,6 @@
 import type { Edge } from '@xyflow/react'
+import type { InferenceFacts } from '@/lib/mastra/result'
+import type { NativeCost } from '@/lib/mastra/usage'
 import type { BlockLog, NormalizedBlockOutput } from '@/executor/types'
 import type { DeploymentStatus } from '@/stores/workflows/registry/types'
 import type { Loop, Parallel, WorkflowState } from '@/stores/workflows/workflow/types'
@@ -7,30 +9,20 @@ export type { WorkflowState, Loop, Parallel, DeploymentStatus }
 export type WorkflowEdge = Edge
 export type { NormalizedBlockOutput, BlockLog }
 
-export interface ToolCall {
-  id?: string
-  name: string
-  duration: number
-  startTime: string
-  endTime: string
-  status: 'success' | 'error'
-  input?: Record<string, unknown>
-  output?: Record<string, unknown>
-  error?: string
-}
-
-export interface ToolCallMetadata {
-  toolCalls?: ToolCall[]
-}
-
-export interface CostMetadata {
-  baseExecutionCharge?: number
+export interface CostMetadata extends Omit<NativeCost, 'status'> {
+  status?: NativeCost['status']
+  unavailableComponents?: number
+  availableTotal?: number
+  modelCost?: number
   models?: Record<
     string,
     {
       input?: number
       output?: number
       total?: number
+      availableTotal?: number
+      estimated?: boolean
+      status?: NativeCost['status']
       tokens?: {
         prompt?: number
         completion?: number
@@ -45,12 +37,6 @@ export interface CostMetadata {
     prompt?: number
     completion?: number
     total?: number
-  }
-  pricing?: {
-    input: number
-    output: number
-    cachedInput?: number
-    updatedAt: string
   }
 }
 
@@ -117,21 +103,7 @@ export interface WorkflowExecutionLog {
     finalOutput?: unknown
   }
   // Top-level cost information
-  cost?: {
-    input?: number
-    output?: number
-    total?: number
-    tokens?: { prompt?: number; completion?: number; total?: number }
-    models?: Record<
-      string,
-      {
-        input?: number
-        output?: number
-        total?: number
-        tokens?: { prompt?: number; completion?: number; total?: number }
-      }
-    >
-  }
+  cost?: CostMetadata
   durationMs?: number | null
   createdAt?: string
 }
@@ -139,28 +111,9 @@ export interface WorkflowExecutionLog {
 export type WorkflowExecutionLogInsert = Omit<WorkflowExecutionLog, 'id' | 'createdAt'>
 export type WorkflowExecutionLogSelect = WorkflowExecutionLog
 
-export interface TokenInfo {
-  input?: number
-  output?: number
-  total?: number
-  prompt?: number
-  completion?: number
-}
-
-export interface ProviderTiming {
-  duration: number
-  startTime: string
-  endTime: string
-  segments: Array<{
-    type: string
-    name?: string
-    startTime: string | number
-    endTime: string | number
-    duration: number
-  }>
-}
-
 export interface TraceSpan {
+  inference?: InferenceFacts
+  agentHistory?: import('@/lib/mastra/messages').NativeHistoryMessage[]
   id: string
   name: string
   type: string
@@ -168,20 +121,14 @@ export interface TraceSpan {
   startTime: string
   endTime: string
   children?: TraceSpan[]
-  toolCalls?: ToolCall[]
   status?: 'success' | 'error'
-  tokens?: number | TokenInfo
+  tokens?: InferenceFacts['tokens']
   relativeStartMs?: number
   blockId?: string
   input?: Record<string, unknown>
   output?: Record<string, unknown>
   model?: string
-  cost?: {
-    input?: number
-    output?: number
-    total?: number
-  }
-  providerTiming?: ProviderTiming
+  cost?: Omit<NativeCost, 'status'> & { status?: NativeCost['status'] }
 }
 
 export type WorkflowLogOutcome = 'running' | 'success' | 'error'
@@ -228,7 +175,7 @@ export interface WorkflowLog {
     bucketName?: string
   }>
   cost?: CostMetadata
-  executionData?: ToolCallMetadata & {
+  executionData?: {
     errorMessage?: string
     finalOutput?: unknown
     traceSpans?: TraceSpan[]

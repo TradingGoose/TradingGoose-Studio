@@ -62,27 +62,16 @@ function runGenerator(
 }
 
 describe('documentation regeneration boundaries', () => {
-  it.each([false, true])('describes maximum temperature conditions with not=%s', (not) => {
-    expect(
-      describeVisibilityCondition({
-        field: 'model',
-        operator: 'modelMaxTemperature',
-        value: 1.5,
-        not,
-      })
-    ).toBe(`model ${not ? 'does not have' : 'has'} a maximum temperature of 1.5`)
-  })
-
   it('describes negated capability conditions with literal dependencies', () => {
     expect(
       describeVisibilityCondition({
         field: 'model',
         operator: 'modelCapability',
-        value: 'thinkingLevel',
+        value: 'structuredOutput',
         not: true,
         and: { field: 'operation', value: 'send' },
       })
-    ).toBe("model does not support thinking level and operation is 'send'")
+    ).toBe("model does not support structured output and operation is 'send'")
   })
 
   it('regenerates every block, including stale and empty references, while preserving guides', () => {
@@ -150,16 +139,16 @@ describe('documentation regeneration boundaries', () => {
     expect(first['agent.mdx']).not.toContain('"defaultValue": undefined')
     expect(first['agent.mdx']).not.toContain('Available in Advanced mode.')
     expect(first['agent.mdx']).toContain('Available in Additional Fields.')
-    expect(first['agent.mdx']).toContain('"id": "thinkingLevel"')
+    expect(first['agent.mdx']).toContain('"id": "providerOptions"')
     expect(first['agent.mdx']).toContain('"id": "maxTokens"')
-    for (const [control, description] of [
-      ['thinkingLevel', 'thinking level'],
-      ['reasoningEffort', 'reasoning effort'],
-      ['verbosity', 'verbosity'],
-    ]) {
-      expect(first['agent.mdx']).toContain(`Shown when model supports ${description}.`)
-      expect(first['agent.mdx']).not.toContain(`model is '${control}'`)
-    }
+    expect(first['agent.mdx']).toContain('"id": "maxSteps"')
+    expect(first['agent.mdx']).not.toContain('"id": "reasoningOptions"')
+    expect(first['agent.mdx']).toContain('model supports structured output')
+    expect(first['agent.mdx']).not.toContain('\"id\": \"reasoningEffort\"')
+    expect(first['agent.mdx']).toContain('where supported by the selected model')
+    expect(first['agent.mdx']).not.toContain('Temperature for response generation (0-2)')
+    expect(first['agent.mdx']).not.toContain('"id": "thinkingLevel"')
+    expect(first['agent.mdx']).not.toContain('"id": "verbosity"')
     expect(first['loop.mdx']).toContain('"id": "doWhile"')
     expect(first['loop.mdx']).toContain('no fixed iteration cap')
     expect(first['loop.mdx']).toContain('| `results` | array |')
@@ -256,14 +245,14 @@ describe('documentation regeneration boundaries', () => {
       updateContact.match(/"id": "first_name",[\s\S]*?\n {8}}/)?.[0] ?? ''
     expect(translateApiKey).not.toBe('')
     expect(translateApiKey).toContain(
-      '"description": "Shown when applicable to the selected model at runtime."'
+      '"description": "Required unless Studio has a configured connection for this provider. Using the Studio connection counts toward account usage."'
     )
     expect(translateApiKey).not.toContain('none of .')
     expect(translateModel).not.toBe('')
     expect(translateModel).not.toContain('"options"')
     expect(translateApiKey).not.toContain('"required": true')
-    expect(first['translate.mdx']).toContain('| `apiKey` | string | No |')
-    expect(visionApiKey).toContain('"required": true')
+    expect(first['translate.mdx']).toContain('### `llm_chat`')
+    expect(visionApiKey).not.toContain('"required": true')
     expect(historicalApiKey).not.toContain('"required": true')
     expect(vaultExportName).toContain('"required": true')
     expect(watchlistId).toContain('"required": true')

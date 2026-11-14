@@ -148,8 +148,8 @@ describe('WorkflowBlock localization', () => {
         advancedMode,
         subBlocks: {
           model: { value: 'reasoning-model' },
-          reasoningEffort: { value: 'high' },
-          thinkingLevel: { value: 'high' },
+          maxTokens: { value: 512 },
+          providerOptions: { value: 'high' },
           temperature: { value: '' },
         },
       }
@@ -166,13 +166,13 @@ describe('WorkflowBlock localization', () => {
               subBlocks: [
                 { id: 'model', title: 'Model', type: 'combobox' },
                 {
-                  id: 'reasoningEffort',
-                  title: 'Effort control',
-                  type: 'dropdown',
+                  id: 'maxTokens',
+                  title: 'Output token limit',
+                  type: 'short-input',
                   additional: true,
                 },
                 {
-                  id: 'thinkingLevel',
+                  id: 'providerOptions',
                   title: 'Unsupported thinking control',
                   type: 'dropdown',
                   additional: true,
@@ -192,7 +192,7 @@ describe('WorkflowBlock localization', () => {
       )
 
       expect(markup).toContain('reasoning-model')
-      expect(markup).toContain('high')
+      expect(markup).toContain('512')
       expect(markup).not.toContain('Unsupported thinking control')
       expect(markup).not.toContain('Temperature control')
     }

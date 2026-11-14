@@ -41,6 +41,7 @@ interface ToolCredentialSelectorProps
   credentialSource?: 'workspace' | 'personal'
   value: string
   onChange: (value: string) => void
+  beforeSelect?: () => Promise<void>
   provider: OAuthProvider
   requiredScopes?: string[]
   label?: string
@@ -56,6 +57,7 @@ export function ToolCredentialSelector({
   credentialSource = 'workspace',
   value,
   onChange,
+  beforeSelect,
   provider,
   requiredScopes,
   label,
@@ -221,6 +223,19 @@ export function ToolCredentialSelector({
       requestGeneration === selectionRequest.current &&
       selectionContext === latestSelectionContext.current
     setSaveError(null)
+    if (beforeSelect) {
+      setIsSaving(true)
+      try {
+        await beforeSelect()
+        if (!ownsRequest()) return
+      } catch (error) {
+        if (ownsRequest())
+          setSaveError(error instanceof Error ? error.message : copy.failedToSaveConnection)
+        return
+      } finally {
+        if (ownsRequest()) setIsSaving(false)
+      }
+    }
     let credentialId = credential.id
     if (credential.connectionId) {
       setIsSaving(true)

@@ -59,7 +59,6 @@ type AgentBlockConfig = {
   systemPrompt: string
   userPrompt: string
   model?: string
-  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high'
   verbosity?: 'low' | 'medium' | 'high'
   height?: number
 } & ParentConfig
@@ -120,7 +119,6 @@ const createAgentBlock = ({
   systemPrompt,
   userPrompt,
   model = 'gpt-5.4-mini',
-  reasoningEffort = 'medium',
   verbosity = 'medium',
   height = 232,
   parentId,
@@ -138,7 +136,6 @@ const createAgentBlock = ({
       systemPrompt: createSubBlock('systemPrompt', 'long-input', systemPrompt),
       userPrompt: createSubBlock('userPrompt', 'long-input', userPrompt),
       model: createSubBlock('model', 'combobox', model),
-      reasoningEffort: createSubBlock('reasoningEffort', 'dropdown', reasoningEffort),
       verbosity: createSubBlock('verbosity', 'dropdown', verbosity),
     },
   })
@@ -511,7 +508,6 @@ function buildAnalystCoverageState(
         position: { x: 1570, y: 184 },
         systemPrompt: copy.marketAnalystSystemPrompt,
         userPrompt: copy.marketAnalystUserPrompt,
-        reasoningEffort: 'high',
         verbosity: 'low',
       }),
       slack: createSlackBlock({
@@ -585,7 +581,6 @@ function buildInvestmentDebateState(
         systemPrompt: copy.analystDossierSystemPrompt,
         userPrompt: copy.analystDossierUserPrompt,
         height: 218,
-        reasoningEffort: 'medium',
         verbosity: 'low',
       }),
       investmentDebate: createLoopBlock({
@@ -603,7 +598,6 @@ function buildInvestmentDebateState(
         systemPrompt: copy.bullResearcherSystemPrompt,
         userPrompt: copy.bullResearcherUserPrompt,
         height: 218,
-        reasoningEffort: 'high',
         verbosity: 'medium',
       }),
       bearResearcher: createAgentBlock({
@@ -614,7 +608,6 @@ function buildInvestmentDebateState(
         systemPrompt: copy.bearResearcherSystemPrompt,
         userPrompt: copy.bearResearcherUserPrompt,
         height: 218,
-        reasoningEffort: 'high',
         verbosity: 'medium',
       }),
       researchManager: createAgentBlock({
@@ -625,7 +618,6 @@ function buildInvestmentDebateState(
         userPrompt: copy.researchManagerUserPrompt,
         height: 226,
         model: 'gpt-5.4',
-        reasoningEffort: 'high',
         verbosity: 'medium',
       }),
       notion: createNotionBlock({
@@ -729,7 +721,6 @@ function buildRiskRoutingState(
         systemPrompt: copy.traderProposalSystemPrompt,
         userPrompt: copy.traderProposalUserPrompt,
         height: 218,
-        reasoningEffort: 'medium',
         verbosity: 'low',
       }),
       riskCommittee: createLoopBlock({
@@ -747,7 +738,6 @@ function buildRiskRoutingState(
         systemPrompt: copy.aggressiveAnalystSystemPrompt,
         userPrompt: copy.aggressiveAnalystUserPrompt,
         height: 214,
-        reasoningEffort: 'high',
         verbosity: 'medium',
       }),
       conservativeAnalyst: createAgentBlock({
@@ -758,7 +748,6 @@ function buildRiskRoutingState(
         systemPrompt: copy.conservativeAnalystSystemPrompt,
         userPrompt: copy.conservativeAnalystUserPrompt,
         height: 214,
-        reasoningEffort: 'high',
         verbosity: 'medium',
       }),
       neutralAnalyst: createAgentBlock({
@@ -769,7 +758,6 @@ function buildRiskRoutingState(
         systemPrompt: copy.neutralAnalystSystemPrompt,
         userPrompt: copy.neutralAnalystUserPrompt,
         height: 214,
-        reasoningEffort: 'medium',
         verbosity: 'medium',
       }),
       portfolioManager: createAgentBlock({
@@ -780,7 +768,6 @@ function buildRiskRoutingState(
         userPrompt: copy.portfolioManagerUserPrompt,
         height: 226,
         model: 'gpt-5.4',
-        reasoningEffort: 'high',
         verbosity: 'medium',
       }),
       decisionRouter: createConditionBlock({

@@ -45,6 +45,9 @@ result = client.execute_workflow(
 `execute_with_retry` 仅重试 `RATE_LIMIT_EXCEEDED`。其默认值为 `max_retries=3`、`initial_delay=1.0` 秒、`max_delay=30.0` 秒和 `backoff_multiplier=2.0`。当前工作流端点不发出 `Retry-After`，因此客户端使用带 ±25% 抖动的指数退避。提供该标头的兼容部署会覆盖该延迟。Python 将这些设置作为关键字参数公开，而不是单独的 retry-options 类型。
 
 - `get_rate_limit_info()` 通常返回 `None`，因为当前工作流和使用端点不发出速率限制标头。兼容的部署或代理可能提供 `limit`、`remaining`、ISO `reset` 时间戳以及可选的以毫秒存储的 `retry_after`。
+
+`currentPeriodCost` 和金额用量 `limit` 是以美元为单位的 JSON 数值。无上限用量以 `9007199254740991`（`Number.MAX_SAFE_INTEGER`）表示。层级价格和额度为数值，未配置时可为 `null`；计费倍率为数值。
+
 - `get_usage_limits()` 返回 `UsageLimits(success, rate_limit, usage, storage)`；速率限制、使用和存储负载是与 API 响应匹配的字典。
 
 ## 错误与结果

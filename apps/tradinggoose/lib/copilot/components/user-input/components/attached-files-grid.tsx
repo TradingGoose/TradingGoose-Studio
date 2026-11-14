@@ -1,10 +1,9 @@
 'use client'
 
-import { Loader2, X } from 'lucide-react'
+import { Image, Loader2, X } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { formatFileSize } from '@/i18n/formatters'
-import { FileTypeIcon, isImageMediaType } from '../../file-type-icon'
 import type { AttachedFile } from '../types'
 
 interface AttachedFilesGridProps {
@@ -37,17 +36,15 @@ export function AttachedFilesGrid({
                   aria-label={`Open ${file.name}`}
                   onClick={() => onFileClick(file)}
                 >
-                  {isImageMediaType(file.type) && file.previewUrl ? (
+                  {file.previewUrl ? (
                     <img
                       src={file.previewUrl}
                       alt={file.name}
                       className='h-full w-full object-cover'
                     />
-                  ) : isImageMediaType(file.type) && file.key ? (
-                    <img src={file.path} alt={file.name} className='h-full w-full object-cover' />
                   ) : (
                     <span className='flex h-full w-full items-center justify-center bg-background/50'>
-                      <FileTypeIcon mediaType={file.type} />
+                      <Image className='h-5 w-5 text-muted-foreground' />
                     </span>
                   )}
 

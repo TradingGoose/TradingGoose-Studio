@@ -1,3 +1,5 @@
+import type { EmbeddingAccounting } from '@/lib/embeddings/utils'
+
 export const MAX_CHUNK_CONTENT_LENGTH = 10_000
 
 export interface ChunkFilters {
@@ -8,6 +10,7 @@ export interface ChunkFilters {
 }
 
 export interface ChunkData {
+  embeddingUsage?: EmbeddingAccounting
   id: string
   chunkIndex: number
   content: string

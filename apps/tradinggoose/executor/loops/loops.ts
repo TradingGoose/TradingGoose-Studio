@@ -242,7 +242,7 @@ export class LoopManager {
   ): void {
     // For regular blocks, check if they had an error
     const blockState = context.blockStates.get(blockId)
-    const hasError = blockState?.output?.error !== undefined
+    const hasError = blockState?.success !== true && blockState?.output?.error !== undefined
 
     // Follow appropriate connections based on error state
     for (const conn of outgoing) {
