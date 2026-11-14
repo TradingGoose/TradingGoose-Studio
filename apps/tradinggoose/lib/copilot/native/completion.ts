@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
+import { authorizeNativeConversationScope } from '@/lib/copilot/native/target'
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { getCopilotAgent } from '@/lib/mastra/runtime'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { SSE_HEADERS } from '@/lib/utils'
 import type {
   CompletionEvent,
@@ -16,11 +16,7 @@ type UsageAccounting = Awaited<ReturnType<typeof prepareModelRequest>>['usage']
 
 async function prepareCompletion(request: CompletionRequest, signal?: AbortSignal) {
   signal?.throwIfAborted()
-  if (
-    request.scope.workspaceId !== null &&
-    !(await checkWorkspaceAccess(request.scope.workspaceId, request.scope.actorUserId)).hasAccess
-  )
-    throw Object.assign(new Error('Conversation workspace access denied'), { status: 403 })
+  await authorizeNativeConversationScope(request.scope.actorUserId, request.scope.workspaceId)
   const { apiKey } = await resolveCopilotModel(request.model)
   const runId = randomUUID()
   const prepared = await prepareModelRequest(

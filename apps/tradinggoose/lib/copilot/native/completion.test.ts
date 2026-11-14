@@ -29,6 +29,7 @@ vi.mock('@/lib/mastra/connections', async (original) => ({
   createConfiguredLanguageModel: vi.fn(() => state.model),
 }))
 vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: state.resolve }))
+vi.mock('@/lib/copilot/agent/service', () => ({ listCopilotPending: vi.fn() }))
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => state.access(...args),
 }))
