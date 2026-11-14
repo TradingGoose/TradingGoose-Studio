@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Brain, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CopilotMessage } from '@/stores/copilot/types'
@@ -18,7 +18,6 @@ interface ThinkingGroupProps {
 
 export function ThinkingGroup({ blocks, isStreaming = false }: ThinkingGroupProps) {
   const [isExpanded, setIsExpanded] = useState(isStreaming)
-  const userCollapsedRef = useRef(false)
 
   const content = useMemo(
     () =>
@@ -30,15 +29,7 @@ export function ThinkingGroup({ blocks, isStreaming = false }: ThinkingGroupProp
   )
 
   useEffect(() => {
-    if (!isStreaming) {
-      setIsExpanded(false)
-      userCollapsedRef.current = false
-      return
-    }
-
-    if (!userCollapsedRef.current) {
-      setIsExpanded(true)
-    }
+    setIsExpanded(isStreaming)
   }, [isStreaming])
 
   return (
@@ -46,18 +37,7 @@ export function ThinkingGroup({ blocks, isStreaming = false }: ThinkingGroupProp
       <button
         type='button'
         aria-expanded={isExpanded}
-        onClick={() => {
-          setIsExpanded((current) => {
-            const next = !current
-            if (!next && isStreaming) {
-              userCollapsedRef.current = true
-            }
-            if (next) {
-              userCollapsedRef.current = false
-            }
-            return next
-          })
-        }}
+        onClick={() => setIsExpanded((current) => !current)}
         className='flex w-full items-center gap-2 px-3 py-2 text-left'
       >
         <Brain className='h-3.5 w-3.5 flex-shrink-0 text-muted-foreground' />
