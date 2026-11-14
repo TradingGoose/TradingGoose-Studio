@@ -1,8 +1,9 @@
 import { CopilotTool, type ToolId } from '@/lib/copilot/registry'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 
 interface ToolPromptMetadata {
   description: string
-  entityKind?: string
+  entityKind?: ReviewEntityKind
 }
 
 const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
@@ -19,15 +20,12 @@ const DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE =
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
     description: 'Draft a plan or todo list for multi-step work.',
-    entityKind: 'planning',
   },
   checkoff_todo: {
     description: 'Mark a plan todo as completed.',
-    entityKind: 'planning',
   },
   mark_todo_in_progress: {
     description: 'Mark a plan todo as in progress.',
-    entityKind: 'planning',
   },
   [CopilotTool.read_workflow]: {
     description:
@@ -91,38 +89,30 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   search_documentation: {
     description: 'Search internal documentation.',
-    entityKind: 'documentation',
   },
   search_listing: {
     description:
       "Search companies, tickers, crypto pairs, and currencies. Each result is a resolved listing with display details and a strict canonical `listingIdentity` object for Copilot to use in listing inputs. Takes only `query`; in watchlist listing items, put the selected result's `listingIdentity` value under the `listing` key.",
-    entityKind: 'listing',
   },
   search_online: {
     description: 'Search web, news, places, or images.',
-    entityKind: 'external',
   },
   make_api_request: {
     description: 'Make an HTTP request.',
-    entityKind: 'external',
   },
   [CopilotTool.read_environment_variables]: {
     description:
       'Read environment variable names through an explicit personal or workspace scope. Use returned names with the exact `{{ENV_VAR_NAME}}` syntax in block inputs.',
-    entityKind: 'environment',
   },
   set_environment_variables: {
     description: 'Set personal or workspace environment variables using an explicit scope.',
-    entityKind: 'environment',
   },
   [CopilotTool.read_oauth_credentials]: {
     description: 'Read OAuth credentials through an explicit personal or workspace scope.',
-    entityKind: 'credential',
   },
   [CopilotTool.read_credentials]: {
     description:
       'Read OAuth credentials and related environment variable names through an explicit personal or workspace scope.',
-    entityKind: 'credential',
   },
   [CopilotTool.list_workflows]: {
     description:
@@ -136,7 +126,6 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   oauth_request_access: {
     description: 'Request OAuth access.',
-    entityKind: 'credential',
   },
   deploy_workflow: {
     description: 'Deploy or undeploy the target workflow.',
@@ -350,16 +339,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   gdrive_request_access: {
     description: 'Request Google Drive access and return the selected credentialId.',
-    entityKind: 'google_drive',
   },
   list_gdrive_files: {
     description:
       'List Google Drive files in the selected workspace using the credentialId returned by gdrive_request_access.',
-    entityKind: 'google_drive',
   },
   read_gdrive_file: {
     description:
       'Read a Google doc or sheet in the selected workspace using the credentialId returned by gdrive_request_access.',
-    entityKind: 'google_drive',
   },
 }

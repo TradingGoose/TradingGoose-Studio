@@ -2,7 +2,6 @@ import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
-import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { verifySavedEntityContext } from '@/lib/copilot/tools/server/entities/shared'
@@ -98,9 +97,7 @@ export async function authorizeNativeBusinessResult(
       return
     }
   }
-  const kind = REVIEW_ENTITY_KINDS.find(
-    (kind) => kind === TOOL_PROMPT_METADATA[toolName].entityKind
-  )
+  const kind = TOOL_PROMPT_METADATA[toolName].entityKind
   if (kind) {
     for (const entityId of new Set([args.entityId, output.entityId])) {
       if (typeof entityId === 'string')

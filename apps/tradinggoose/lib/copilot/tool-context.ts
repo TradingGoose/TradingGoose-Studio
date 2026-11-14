@@ -1,7 +1,6 @@
 import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type { CopilotToolContext } from '@/lib/copilot/native/contract'
 import { DASHBOARD_LAYOUT_TOOL_NAMES, isToolId } from '@/lib/copilot/registry'
-import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
 import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 
@@ -34,9 +33,7 @@ export function resolveCopilotToolContext(
   runContext?: CopilotToolContext,
   toolContexts: CopilotToolContext[] = []
 ): CopilotToolContext | undefined {
-  const entityKind = isToolId(name)
-    ? REVIEW_ENTITY_KINDS.find((kind) => kind === TOOL_PROMPT_METADATA[name].entityKind)
-    : undefined
+  const entityKind = isToolId(name) ? TOOL_PROMPT_METADATA[name].entityKind : undefined
   const entityId =
     typeof args.entityId === 'string' && args.entityId.trim() ? args.entityId.trim() : undefined
   const workspaceId =
