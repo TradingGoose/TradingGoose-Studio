@@ -146,7 +146,7 @@ it('retains Vision generic execution scope through the same vision_tool path', a
 })
 it('retains a nested native tool callback scope instead of trusting its input identity', async () => {
   const abortController = new AbortController()
-  const native = createAgentToolSet(
+  const { tools: native } = createAgentToolSet(
     [
       {
         id: 'vision_tool',

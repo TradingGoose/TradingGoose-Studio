@@ -174,7 +174,7 @@ function createOwnedTestToolSet(
   configured: Parameters<typeof createAgentToolSet>[0],
   scope: ExecutionContext
 ) {
-  return createAgentToolSet(configured, block, scope, new AbortController())
+  return createAgentToolSet(configured, block, scope, new AbortController()).tools
 }
 
 beforeEach(() => {
@@ -2015,6 +2015,16 @@ const liveToolImage = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6uO8AAAAASUVORK5CYII=',
   'base64'
 )
+const generatedFile = {
+  id: 'generated-file',
+  name: 'report.csv',
+  key: 'workspace-1/workflow-1/execution-1/report.csv',
+  url: 'https://storage.example.test/report.csv',
+  size: 42,
+  type: 'text/csv',
+  uploadedAt: '2026-11-14T00:00:00.000Z',
+  expiresAt: '2026-11-15T00:00:00.000Z',
+}
 function liveToolModel() {
   const first = (options: { toolChoice?: { type: string; toolName?: string } }) =>
     options.toolChoice?.type === 'tool'
@@ -2108,6 +2118,7 @@ it.each(
         ],
         structuredContent: { measurement: 42 },
         business: { value: 17 },
+        attachments: [generatedFile, generatedFile],
         tokens: toolFacts.tokens,
         cost: toolFacts.cost,
       },
@@ -2153,6 +2164,7 @@ it.each(
     expect(fetcher).not.toHaveBeenCalled()
     expect(raw.content[1].data).toBe(data)
     const active = allowed ? output : failure
+    expect(getInferenceFacts(active)?.files).toEqual([generatedFile])
     expect(active).toMatchObject({
       model: 'openai/gpt-4.1',
       tokens: { prompt: allowed ? 4 : 2, completion: allowed ? 6 : 3, total: allowed ? 10 : 5 },
@@ -2186,6 +2198,7 @@ it.each(
       expect(JSON.stringify(modelOutput).split(data)).toHaveLength(2)
       expect(modelOutput.value[1]).toEqual({ type: 'media', data, mediaType: mimeType })
       expect(JSON.parse(modelOutput.value[0].text)).toEqual({
+        attachments: [generatedFile, generatedFile],
         content: [
           { type: 'text', text: 'Exact tool text' },
           { type, mimeType },
@@ -2205,6 +2218,7 @@ it.each(['owner-cancel', 'native-cancel'])(
     const raw = withInferenceFacts(
       {
         content: [{ type: 'image', data: liveToolImage.toString('base64'), mimeType: 'image/png' }],
+        attachments: [generatedFile],
       },
       { cost: { total: 0.004, status: 'reported' }, generatedFields: [] }
     )
@@ -2215,7 +2229,7 @@ it.each(['owner-cancel', 'native-cancel'])(
     })
     const fetcher = vi.fn()
     vi.stubGlobal('fetch', fetcher)
-    const tools = createAgentToolSet(
+    const { tools, files } = createAgentToolSet(
       [
         {
           id: 'image_result',
@@ -2231,8 +2245,40 @@ it.each(['owner-cancel', 'native-cancel'])(
       tools.image_result.execute?.({}, { abortSignal: native.signal })
     ).rejects.toBeInstanceOf(Error)
     expect(effect).toHaveBeenCalledOnce()
+    expect([...files.values()]).toEqual([generatedFile])
     expect(fetcher).not.toHaveBeenCalled()
     expect(owner.signal.aborted).toBe(true)
+  }
+)
+
+it.each([false, true])(
+  'retains generated files after a later completion failure (stream=%s)',
+  async (stream) => {
+    state.model = liveToolModel()
+    state.completionError = new Error('Completion failed after tool execution')
+    vi.mocked(executeTool).mockResolvedValue({
+      success: true,
+      output: { nested: { report: generatedFile }, files: [generatedFile] },
+    })
+    let failure: unknown
+    try {
+      const result = await new AgentBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-4.1', userPrompt: 'Create a report', tools: [liveCustomTool()] },
+        context({ stream })
+      )
+      if (stream) {
+        const reader = (result as StreamingExecution).stream.getReader()
+        while (!(await reader.read()).done) {}
+      }
+    } catch (error) {
+      failure = error
+    }
+    expect(failure).toMatchObject({ message: state.completionError.message })
+    expect(getInferenceFacts(failure)?.files).toEqual([generatedFile])
+    expect(failure).not.toHaveProperty('toolResults')
+    expect(executeTool).toHaveBeenCalledOnce()
+    expect(stream ? state.model.doStreamCalls : state.model.doGenerateCalls).toHaveLength(2)
   }
 )
 

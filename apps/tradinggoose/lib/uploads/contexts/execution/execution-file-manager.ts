@@ -86,27 +86,3 @@ export async function uploadExecutionFile(
     )
   }
 }
-
-/**
- * Generate a short-lived presigned URL for file download (5 minutes)
- */
-export async function generateExecutionFileDownloadUrl(userFile: UserFile): Promise<string> {
-  logger.info(`Generating download URL for execution file: ${userFile.name}`)
-  logger.info(`File key: "${userFile.key}"`)
-
-  try {
-    const downloadUrl = await generatePresignedDownloadUrl(
-      userFile.key,
-      'execution',
-      5 * 60 // 5 minutes
-    )
-
-    logger.info(`Generated download URL for execution file: ${userFile.name}`)
-    return downloadUrl
-  } catch (error) {
-    logger.error(`Failed to generate download URL for ${userFile.name}:`, error)
-    throw new Error(
-      `Failed to generate download URL: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
-  }
-}

@@ -1,8 +1,10 @@
 import type { FullOutput } from '@mastra/core/stream'
+import type { WorkflowExecutionLog } from '@/lib/logs/types'
 import type { NativeCost } from './usage'
 
 export interface InferenceFacts {
   history?: { threadId: string; resourceId: string; runId: string }
+  files?: WorkflowExecutionLog['files']
   model?: string
   tokens?: { prompt?: number; completion?: number; total?: number }
   cost?: NativeCost

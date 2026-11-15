@@ -18,6 +18,7 @@ import type { resultAccounting } from '@/lib/mastra/usage'
 import { mcpService } from '@/lib/mcp/service'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { extractExecutionFiles } from '@/lib/uploads/contexts/execution/execution-file-helpers'
 import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
 import { getAllBlocks } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
@@ -96,7 +97,7 @@ export class AgentBlockHandler implements BlockHandler {
     const modelMessages = messages.filter((message) => message.role !== 'system')
     const abortController = new AbortController()
     const { signal } = abortController
-    const tools = createAgentToolSet(formattedTools, block, context, abortController)
+    const { tools, files } = createAgentToolSet(formattedTools, block, context, abortController)
     const policy = createForcedToolPolicy(formattedTools)
     const runId = crypto.randomUUID()
     if (
@@ -175,7 +176,7 @@ export class AgentBlockHandler implements BlockHandler {
       cancellation.stop()
       policy.assertComplete(result.steps)
       const output = extractAgentOutput(result, model, accounting, responseFormat !== undefined)
-      getInferenceFacts(output)!.history = history
+      Object.assign(getInferenceFacts(output)!, { history, files: [...files.values()] })
       return output
     }
     const fail = (error: unknown) => {
@@ -190,6 +191,7 @@ export class AgentBlockHandler implements BlockHandler {
       const facts = {
         ...owned,
         history,
+        files: [...files.values()],
         generatedFields: Object.keys(owned),
       }
       return withInferenceFacts(failure, facts)
@@ -481,7 +483,8 @@ export function createAgentToolSet(
 ) {
   const { blockData, blockNameMapping } = collectBlockData(context)
   const toolExecutionId = getBlockToolExecutionId(block, context)
-  return Object.fromEntries(
+  const files = new Map<string, ReturnType<typeof extractExecutionFiles>[number]>()
+  const tools = Object.fromEntries(
     namedAgentTools(configured).map(({ tool, nativeName }) => [
       nativeName,
       createTool({
@@ -518,6 +521,8 @@ export function createAgentToolSet(
           )
           const output = result.output
           const inference = getInferenceFacts(output)
+          for (const file of extractExecutionFiles(output, inference?.files))
+            files.set(file.id, file)
           if (result?.success === false) throw new Error(result.error || `Tool ${tool.id} failed`)
           const functional = inference ? { ...output } : output
           if (inference) for (const field of inference.generatedFields) delete functional[field]
@@ -538,6 +543,7 @@ export function createAgentToolSet(
       }),
     ])
   )
+  return { tools, files }
 }
 
 /** Force names are selected from observed successful calls in configured order. */

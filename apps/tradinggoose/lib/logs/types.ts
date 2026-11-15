@@ -153,18 +153,7 @@ export interface WorkflowLog {
   duration?: string | null
   outcome?: WorkflowLogOutcome
   workflow?: WorkflowLogWorkflowSummary | null
-  files?: Array<{
-    id: string
-    name: string
-    size: number
-    type: string
-    url: string
-    key: string
-    uploadedAt: string
-    expiresAt: string
-    storageProvider?: 's3' | 'azure' | 'vercel' | 'local'
-    bucketName?: string
-  }>
+  files?: WorkflowExecutionLog['files']
   cost?: CostMetadata
   executionData?: {
     errorMessage?: string

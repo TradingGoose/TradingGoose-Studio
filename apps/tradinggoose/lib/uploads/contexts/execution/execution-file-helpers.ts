@@ -1,3 +1,4 @@
+import type { WorkflowExecutionLog } from '@/lib/logs/types'
 import type { UserFile } from '@/executor/types'
 
 /**
@@ -9,10 +10,46 @@ export interface ExecutionContext {
   executionId: string
 }
 
-/**
- * File metadata stored in execution logs - now just uses UserFile directly
- */
-export type ExecutionFileMetadata = UserFile
+/** Collect file metadata independently of the surrounding output or tool transcript. */
+export function extractExecutionFiles(
+  ...values: unknown[]
+): NonNullable<WorkflowExecutionLog['files']> {
+  const files: NonNullable<WorkflowExecutionLog['files']> = []
+  const ids = new Set<string>()
+  const visited = new WeakSet<object>()
+  const visit = (value: unknown) => {
+    if (!value || typeof value !== 'object' || visited.has(value)) return
+    visited.add(value)
+    const file = value as (typeof files)[number]
+    if (
+      typeof file.id === 'string' &&
+      file.id &&
+      typeof file.name === 'string' &&
+      file.name &&
+      typeof file.key === 'string' &&
+      file.key &&
+      typeof file.size === 'number' &&
+      !ids.has(file.id)
+    ) {
+      ids.add(file.id)
+      files.push({
+        id: file.id,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: file.url,
+        key: file.key,
+        uploadedAt: file.uploadedAt,
+        expiresAt: file.expiresAt,
+        storageProvider: file.storageProvider,
+        bucketName: file.bucketName,
+      })
+    }
+    for (const child of Object.values(value)) visit(child)
+  }
+  for (const value of values) visit(value)
+  return files
+}
 
 /**
  * Generate execution-scoped storage key
@@ -25,26 +62,10 @@ export function generateExecutionFileKey(context: ExecutionContext, fileName: st
 }
 
 /**
- * Generate execution prefix for cleanup operations
- * Format: workspace_id/workflow_id/execution_id/
- */
-export function generateExecutionPrefix(context: ExecutionContext): string {
-  const { workspaceId, workflowId, executionId } = context
-  return `${workspaceId}/${workflowId}/${executionId}/`
-}
-
-/**
  * Generate unique file ID for execution files
  */
 export function generateFileId(): string {
   return `file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-}
-
-/**
- * Check if a user file is expired
- */
-export function isFileExpired(userFile: UserFile): boolean {
-  return new Date(userFile.expiresAt) < new Date()
 }
 
 /**

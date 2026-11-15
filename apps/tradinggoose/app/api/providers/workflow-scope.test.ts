@@ -369,7 +369,7 @@ it('retains completed native usage when cancellation loses the response before d
 })
 it('retains a nested native tool callback scope instead of trusting its input identity', async () => {
   const abortController = new AbortController()
-  const native = createAgentToolSet(
+  const { tools: native } = createAgentToolSet(
     [
       {
         id: 'llm_chat',

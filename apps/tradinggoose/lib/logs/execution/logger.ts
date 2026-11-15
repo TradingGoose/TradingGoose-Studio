@@ -35,6 +35,7 @@ import type {
   WorkflowState,
 } from '@/lib/logs/types'
 import type { InferenceFacts } from '@/lib/mastra/result'
+import { extractExecutionFiles } from '@/lib/uploads/contexts/execution/execution-file-helpers'
 
 const logger = createLogger('ExecutionLogger')
 
@@ -284,7 +285,7 @@ export class ExecutionLogger {
 
     const existingData = existingLog.executionData as Record<string, any>
     const cost = executionCost(existingData.billing ?? {})
-    const executionFiles = this.extractFilesFromExecution(traceSpans, finalOutput, workflowInput)
+    const executionFiles = extractExecutionFiles(traceSpans, finalOutput, workflowInput)
     const completedExecutionData = {
       ...(variables ? { environment: { ...existingData.environment, variables } } : {}),
       traceSpans,
@@ -506,125 +507,6 @@ export class ExecutionLogger {
     } catch (error) {
       logger.warn('Usage threshold notification check failed (non-fatal)', { error })
     }
-  }
-
-  /**
-   * Extract file references from execution trace spans, final output, and workflow input
-   */
-  private extractFilesFromExecution(
-    traceSpans?: any[],
-    finalOutput?: any,
-    workflowInput?: any
-  ): any[] {
-    const files: any[] = []
-    const seenFileIds = new Set<string>()
-
-    // Helper function to extract files from any object
-    const extractFilesFromObject = (obj: any, source: string) => {
-      if (!obj || typeof obj !== 'object') return
-
-      // Check if this object has files property
-      if (Array.isArray(obj.files)) {
-        for (const file of obj.files) {
-          if (file?.name && file.key && file.id) {
-            if (!seenFileIds.has(file.id)) {
-              seenFileIds.add(file.id)
-              files.push({
-                id: file.id,
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                url: file.url,
-                key: file.key,
-                uploadedAt: file.uploadedAt,
-                expiresAt: file.expiresAt,
-                storageProvider: file.storageProvider,
-                bucketName: file.bucketName,
-              })
-            }
-          }
-        }
-      }
-
-      // Check if this object has attachments property (for Gmail and other tools)
-      if (Array.isArray(obj.attachments)) {
-        for (const file of obj.attachments) {
-          if (file?.name && file.key && file.id) {
-            if (!seenFileIds.has(file.id)) {
-              seenFileIds.add(file.id)
-              files.push({
-                id: file.id,
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                url: file.url,
-                key: file.key,
-                uploadedAt: file.uploadedAt,
-                expiresAt: file.expiresAt,
-                storageProvider: file.storageProvider,
-                bucketName: file.bucketName,
-              })
-            }
-          }
-        }
-      }
-
-      // Check if this object itself is a file reference
-      if (obj.name && obj.key && typeof obj.size === 'number') {
-        if (!obj.id) {
-          logger.warn(`File object missing ID, skipping: ${obj.name}`)
-          return
-        }
-
-        if (!seenFileIds.has(obj.id)) {
-          seenFileIds.add(obj.id)
-          files.push({
-            id: obj.id,
-            name: obj.name,
-            size: obj.size,
-            type: obj.type,
-            url: obj.url,
-            key: obj.key,
-            uploadedAt: obj.uploadedAt,
-            expiresAt: obj.expiresAt,
-            storageProvider: obj.storageProvider,
-            bucketName: obj.bucketName,
-          })
-        }
-      }
-
-      // Recursively check nested objects and arrays
-      if (Array.isArray(obj)) {
-        obj.forEach((item, index) => extractFilesFromObject(item, `${source}[${index}]`))
-      } else if (typeof obj === 'object') {
-        Object.entries(obj).forEach(([key, value]) => {
-          extractFilesFromObject(value, `${source}.${key}`)
-        })
-      }
-    }
-
-    // Extract files from trace spans
-    if (traceSpans && Array.isArray(traceSpans)) {
-      traceSpans.forEach((span, index) => {
-        extractFilesFromObject(span, `trace_span_${index}`)
-      })
-    }
-
-    // Extract files from final output
-    if (finalOutput) {
-      extractFilesFromObject(finalOutput, 'final_output')
-    }
-
-    // Extract files from workflow input
-    if (workflowInput) {
-      extractFilesFromObject(workflowInput, 'workflow_input')
-    }
-
-    logger.debug(`Extracted ${files.length} file(s) from execution`, {
-      fileNames: files.map((f) => f.name),
-    })
-
-    return files
   }
 }
 

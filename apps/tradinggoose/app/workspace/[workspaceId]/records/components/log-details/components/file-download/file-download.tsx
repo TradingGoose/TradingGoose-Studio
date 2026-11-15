@@ -4,22 +4,12 @@ import { useState } from 'react'
 import { ArrowDown, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { WorkflowLog } from '@/lib/logs/types'
 
 const logger = createLogger('FileDownload')
 
 interface FileDownloadProps {
-  file: {
-    id?: string
-    name: string
-    size: number
-    type: string
-    key: string
-    url: string
-    uploadedAt: string
-    expiresAt: string
-    storageProvider?: 's3' | 'azure' | 'vercel' | 'local'
-    bucketName?: string
-  }
+  file: NonNullable<WorkflowLog['files']>[number]
   isExecutionFile?: boolean // Flag to indicate this is an execution file
   className?: string
 }

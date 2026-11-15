@@ -14,6 +14,7 @@ import {
   type ModelUsageScope,
   recordModelUsage,
 } from '@/lib/billing/model-usage'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { getInferenceFacts, type InferenceFacts } from '@/lib/mastra/result'
 import type { NativeUsage } from '@/lib/mastra/usage'
 import { createMockContext } from '@/executor/__test-utils__/executor-mocks'
@@ -327,6 +328,57 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('durable native observations', () => {
+  it.each([true, false])(
+    'keeps Agent file downloads in the durable log without a tool transcript (success=%s)',
+    async (success) => {
+      const generated = {
+        id: 'generated-file',
+        name: 'report.pdf',
+        size: 123,
+        type: 'application/pdf',
+        url: 'https://files.example.test/report.pdf',
+        key: 'workspace/workflow/execution/report.pdf',
+        uploadedAt: completion.endedAt,
+        expiresAt: '2026-09-18T12:00:01Z',
+        storageProvider: 's3' as const,
+        bucketName: 'execution-files',
+      }
+      const input = {
+        ...generated,
+        id: 'input-file',
+        name: 'input.pdf',
+        key: 'workspace/input.pdf',
+      }
+      const { traceSpans } = buildTraceSpans({
+        success,
+        output: {},
+        logs: [
+          {
+            id: 'agent-occurrence',
+            blockId: 'agent',
+            blockType: 'agent',
+            startedAt: completion.endedAt,
+            endedAt: completion.endedAt,
+            durationMs: 0,
+            success,
+            output: success ? { content: 'Report generated' } : {},
+            error: success ? undefined : 'Model failed after file upload',
+            inference: { ...span().inference, files: [generated, generated] },
+          },
+        ],
+      })
+      await logger.completeWorkflowExecution({
+        ...completion,
+        success,
+        traceSpans,
+        finalOutput: { attachments: [input] },
+        workflowInput: { files: [input] },
+      })
+      expect(state.log.files).toEqual([generated, input])
+      expect(JSON.stringify(state.log.executionData.traceSpans)).not.toContain('toolResults')
+    }
+  )
+
   it.each(
     (['account', 'byok'] as const).flatMap((funding) =>
       [false, true].map((unpriced) => ({ funding, unpriced }))
