@@ -35,7 +35,7 @@ export const llmChatTool: ToolConfig<LLMChatParams, LLMChatResponse> = {
     model: {
       type: 'string',
       required: true,
-      description: 'A listed Mastra provider/model identifier',
+      description: 'Provider/model identifier',
     },
     systemPrompt: {
       type: 'string',
@@ -51,7 +51,7 @@ export const llmChatTool: ToolConfig<LLMChatParams, LLMChatResponse> = {
       type: 'string',
       required: false,
       visibility: 'hidden',
-      description: 'Request-local API key; otherwise uses the configured Mastra connection',
+      description: 'API key; otherwise uses the configured Studio connection',
     },
     temperature: {
       type: 'number',

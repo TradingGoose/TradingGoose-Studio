@@ -18,8 +18,7 @@ export const TranslateBlock: BlockConfig = {
   name: 'Translate',
   description: 'Translate text to any language',
   authMode: AuthMode.ApiKey,
-  longDescription:
-    'Translate text to any language. The model list comes from the configured Mastra registry.',
+  longDescription: 'Translate text to any language.',
   docsLink: 'https://docs.tradinggoose.ai/tools/translate',
   category: 'tools',
   bgColor: '',

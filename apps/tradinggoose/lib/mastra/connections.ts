@@ -15,7 +15,7 @@ async function resolveManagedKey(provider: string): Promise<string | undefined> 
 /** Native provider identity with fresh DB credentials or an authorized request-local key. */
 export async function resolveConfiguredModel(model: string, apiKey?: string) {
   const { provider, modelId } = parseModelString(model)
-  if (!provider) throw new Error('Model must use Mastra provider/model format')
+  if (!provider) throw new Error('Model must use provider/model format')
   if (!Object.hasOwn(getModelProviders(), provider))
     throw new Error(`The selected provider "${provider}" is not supported by Studio`)
   if (apiKey !== undefined && !apiKey.trim())

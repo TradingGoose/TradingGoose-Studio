@@ -258,7 +258,7 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
     },
     model: {
       type: 'string',
-      description: 'Listed Mastra model for hallucination scoring',
+      description: 'Model for hallucination scoring',
     },
     apiKey: {
       type: 'string',

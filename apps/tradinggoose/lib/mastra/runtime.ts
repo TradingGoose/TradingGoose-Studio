@@ -93,12 +93,12 @@ export async function deleteNativeThread(
 
 export async function getNativeMemoryStore() {
   const store = await (await getRuntime()).storage.getStore('memory')
-  if (!store) throw new Error('Mastra memory storage is unavailable')
+  if (!store) throw new Error('Conversation storage is unavailable')
   return store
 }
 
 export async function getNativeWorkflowsStore() {
   const store = await (await getRuntime()).storage.getStore('workflows')
-  if (!store) throw new Error('Mastra workflow storage is unavailable')
+  if (!store) throw new Error('Agent state storage is unavailable')
   return store
 }

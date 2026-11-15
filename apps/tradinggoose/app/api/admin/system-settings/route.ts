@@ -149,7 +149,7 @@ export async function PATCH(request: NextRequest) {
                 code: 'custom' as const,
                 message:
                   field === 'provider'
-                    ? 'Select a provider from the Mastra model registry'
+                    ? 'Select an available model provider'
                     : 'Select a language model for Copilot',
                 path: ['copilot', 'models', index, field],
               },

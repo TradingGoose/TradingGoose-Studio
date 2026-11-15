@@ -97,7 +97,7 @@ export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any
             body: {
               code: 'search_documentation_backend_failed',
               error: 'Documentation search failed while generating the query embedding.',
-              hint: 'Check the configured Mastra embedding connection and retry the search.',
+              hint: 'Check the configured embedding provider connection and retry the search.',
               retryable: status === 429 || status >= 500,
             },
           })

@@ -519,7 +519,7 @@ describe('block-editor i18n helpers', () => {
     expect(agentMetadata.name).toBe('Agente')
     expect(agentMetadata.description).toBe('Crear un agente')
     expect(agentMetadata.longDescription).toBe(AgentBlock.longDescription)
-    expect(agentMetadata.longDescription).toContain('configured Mastra registry')
+    expect(agentMetadata.longDescription).toContain('execution history')
 
     const stagehandMetadata = getLocalizedBlockMetadata('es', {
       type: 'stagehand',

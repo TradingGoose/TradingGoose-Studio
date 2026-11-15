@@ -84,7 +84,7 @@ export const guardrailsValidateTool: ToolConfig<GuardrailsValidateInput, Guardra
         type: 'string',
         required: false,
         visibility: 'user-only',
-        description: 'Listed Mastra provider/model for confidence scoring',
+        description: 'Provider/model for confidence scoring',
       },
       apiKey: {
         type: 'string',

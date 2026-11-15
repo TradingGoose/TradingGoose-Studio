@@ -33,7 +33,7 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description: 'Listed Mastra provider/model ID to use for image analysis',
+      description: 'Provider/model ID for image analysis',
     },
     prompt: {
       type: 'string',
