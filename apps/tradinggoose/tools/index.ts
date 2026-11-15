@@ -148,9 +148,7 @@ async function getServerCustomTool(
       schema: parseCustomToolSchemaText(fields.schemaText),
       code: String(fields.codeText ?? ''),
     },
-    customToolId,
-    false,
-    workflowId
+    customToolId
   )
 }
 
@@ -192,7 +190,6 @@ export async function getToolAsync(
   if (builtInTool) return builtInTool
 
   if (isCustomToolRuntimeId(toolId)) {
-    if (typeof window !== 'undefined') return getTool(toolId)
     return getServerCustomTool(toolId, workflowId, workspaceId, isDeployedContext)
   }
 
@@ -369,14 +366,15 @@ async function processFileOutputs(
   }
 }
 
-// Execute a tool by making internal/external requests directly (no proxy indirection)
+// Execute an ID or an already resolved definition through the same authorized request path.
 export async function executeTool(
-  toolId: string,
+  toolOrId: string | ToolConfig,
   params: Record<string, any>,
   skipPostProcess = false,
   executionContext?: ExecutionContext,
   options?: ToolExecutionOptions
 ): Promise<ToolResponse> {
+  const toolId = typeof toolOrId === 'string' ? toolOrId : toolOrId.id
   // Capture start time for precise timing
   const startTime = new Date()
   const startTimeISO = startTime.toISOString()
@@ -385,7 +383,6 @@ export async function executeTool(
 
   try {
     throwIfToolRequestAborted(options?.signal)
-    let tool: ToolConfig | undefined
     const isMcpTool = toolId === 'mcp'
 
     if (isSkillLoaderExecution(params)) {
@@ -411,28 +408,23 @@ export async function executeTool(
       }
     }
 
-    // If it's a custom tool, use the async version with workflowId
-    if (isCustomToolRuntimeId(toolId)) {
-      tool = await getToolAsync(
-        toolId,
-        scope.workflowId,
-        scope.workspaceId,
-        scope.isDeployedContext !== false
-      )
-    } else if (isMcpTool) {
+    if (isMcpTool) {
       await assertExecutionWorkspaceAccess(toolId, scope, 'read')
       return await executeMcpTool(toolId, params, scope, requestId, startTimeISO, options?.signal)
-    } else {
-      // For built-in tools, use the synchronous version
-      tool = getTool(toolId)
-      if (tool && isWatchlistToolId(toolId)) {
-        tool = {
-          ...tool,
-          directExecution: (contextParams) => executeWatchlistTool(toolId, contextParams),
-        }
-      }
-      if (!tool) {
-        logger.error(`[${requestId}] Built-in tool not found: ${toolId}`)
+    }
+    let tool =
+      typeof toolOrId === 'string'
+        ? await getToolAsync(
+            toolId,
+            scope.workflowId,
+            scope.workspaceId,
+            scope.isDeployedContext !== false
+          )
+        : toolOrId
+    if (tool && isWatchlistToolId(toolId)) {
+      tool = {
+        ...tool,
+        directExecution: (contextParams) => executeWatchlistTool(toolId, contextParams),
       }
     }
 

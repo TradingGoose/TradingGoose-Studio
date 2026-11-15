@@ -1,3 +1,5 @@
+import type { ToolConfig } from '@/tools/types'
+
 export interface SkillInput {
   skillId: string
   name?: string
@@ -20,8 +22,6 @@ export interface AgentInputs {
 
 export interface ToolInput {
   type?: string
-  schema?: any
-  title?: string
   toolId?: string
   params?: Record<string, any>
   usageControl?: 'auto' | 'force' | 'none'
@@ -30,6 +30,7 @@ export interface ToolInput {
 
 export interface AgentToolConfig {
   id: string
+  definition?: ToolConfig
   mcp?: { serverId: string; toolName: string }
   name?: string
   description: string

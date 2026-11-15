@@ -1,9 +1,3 @@
-import {
-  getCustomToolEntityIdFromRuntimeId,
-  isCustomToolRuntimeId,
-} from '@/lib/custom-tools/schema'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
-import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { tools } from '@/tools/registry'
 import type { TableRow, ToolConfig } from '@/tools/types'
 
@@ -115,8 +109,7 @@ function formatParameterNameForError(paramName: string): string {
 export function validateRequiredParametersAfterMerge(
   toolId: string,
   tool: ToolConfig | undefined,
-  params: Record<string, any>,
-  parameterNameMap?: Record<string, string>
+  params: Record<string, any>
 ): void {
   if (!tool) {
     throw new Error(`Tool not found: ${toolId}`)
@@ -126,7 +119,7 @@ export function validateRequiredParametersAfterMerge(
   // user-only parameters should have been validated earlier during serialization
   for (const [paramName, paramConfig] of Object.entries(tool.params)) {
     if (
-      (paramConfig as any).visibility === 'user-or-llm' &&
+      paramConfig.visibility === 'user-or-llm' &&
       paramConfig.required &&
       (!(paramName in params) ||
         params[paramName] === null ||
@@ -135,8 +128,7 @@ export function validateRequiredParametersAfterMerge(
     ) {
       // Create a more user-friendly error message
       const toolName = tool.name || toolId
-      const friendlyParamName =
-        parameterNameMap?.[paramName] || formatParameterNameForError(paramName)
+      const friendlyParamName = formatParameterNameForError(paramName)
       throw new Error(`"${friendlyParamName}" is required for ${toolName}`)
     }
   }
@@ -176,52 +168,14 @@ export function createParamSchema(customTool: any): Record<string, any> {
   return params
 }
 
-/**
- * Get environment variables from store (client-side only)
- * @param getStore Optional function to get the store (useful for testing)
- */
-export function getClientEnvVars(getStore?: () => any): Record<string, string> {
-  if (typeof window === 'undefined') return {}
-
-  try {
-    // Allow injecting the store for testing
-    const envStore = getStore ? getStore() : useEnvironmentStore.getState()
-    const allEnvVars = envStore.getAllVariables()
-
-    // Convert environment variables to a simple key-value object
-    return Object.entries(allEnvVars).reduce(
-      (acc, [key, variable]: [string, any]) => {
-        acc[key] = variable.value
-        return acc
-      },
-      {} as Record<string, string>
-    )
-  } catch (_error) {
-    // In case of any errors (like in testing), return empty object
-    return {}
-  }
-}
-
-/**
- * Creates the request body configuration for custom tools
- * @param customTool The custom tool configuration
- * @param isClient Whether running on client side
- * @param workflowId Optional workflow ID for server-side
- * @param getStore Optional function to get the store (useful for testing)
- */
-export function createCustomToolRequestBody(
-  customTool: any,
-  isClient = true,
-  workflowId?: string,
-  getStore?: () => any
-) {
+/** Creates a custom tool request from its definition and explicit execution context. */
+export function createCustomToolRequestBody(customTool: any) {
   return (params: Record<string, any>) => {
     const context =
       params._context && typeof params._context === 'object'
         ? (params._context as Record<string, unknown>)
         : {}
-    // Get environment variables from explicit execution params or the client-side store.
-    const envVars = params.envVars || (isClient ? getClientEnvVars(getStore) : {})
+    const envVars = params.envVars || {}
 
     // Get workflow variables from params (passed from execution context)
     const workflowVariables = params.workflowVariables || {}
@@ -230,7 +184,7 @@ export function createCustomToolRequestBody(
     const blockData = params.blockData || {}
     const blockNameMapping = params.blockNameMapping || {}
     const scopedWorkflowId =
-      typeof context.workflowId === 'string' && context.workflowId ? context.workflowId : workflowId
+      typeof context.workflowId === 'string' && context.workflowId ? context.workflowId : ''
     const scopedWorkspaceId =
       typeof context.workspaceId === 'string' && context.workspaceId ? context.workspaceId : ''
 
@@ -265,34 +219,11 @@ export function createCustomToolRequestBody(
 
 // Get a tool by its ID
 export function getTool(toolId: string): ToolConfig | undefined {
-  // Check for built-in tools
-  const builtInTool = tools[toolId]
-  if (builtInTool) return builtInTool
-
-  // Check if it's a custom tool
-  if (isCustomToolRuntimeId(toolId) && typeof window !== 'undefined') {
-    // Only try to use the sync version on the client
-    const customToolsStore = useCustomToolsStore.getState()
-    const identifier = getCustomToolEntityIdFromRuntimeId(toolId)
-
-    const customTool = customToolsStore.getTool(identifier)
-
-    if (customTool) {
-      return createToolConfig(customTool, toolId)
-    }
-  }
-
-  // If not found or running on the server, return undefined
-  return undefined
+  return tools[toolId]
 }
 
 // Helper function to create a tool config from a custom tool
-export function createToolConfig(
-  customTool: any,
-  customToolId: string,
-  isClient = true,
-  workflowId?: string
-): ToolConfig {
+export function createToolConfig(customTool: any, customToolId: string): ToolConfig {
   // Create a parameter schema from the custom tool schema
   const params = createParamSchema(customTool)
 
@@ -303,13 +234,14 @@ export function createToolConfig(
     description: customTool.schema.function?.description || '',
     version: '1.0.0',
     params,
+    inputSchema: customTool.schema.function.parameters,
 
     // Request configuration - for custom tools we'll use the execute endpoint
     request: {
       url: '/api/function/execute',
       method: 'POST',
       headers: () => ({ 'Content-Type': 'application/json' }),
-      body: createCustomToolRequestBody(customTool, isClient, workflowId),
+      body: createCustomToolRequestBody(customTool),
     },
 
     // Standard response handling for custom tools

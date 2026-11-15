@@ -19,17 +19,6 @@ function isValidAgentCustomTool(tool: any): boolean {
     if (!tool || typeof tool !== 'object') return false
     if (tool.type !== 'custom-tool') return false
     getCustomToolEntityIdFromRuntimeId(tool.toolId)
-
-    const schema = tool.schema
-    if (!schema || typeof schema !== 'object') return false
-    const fn = schema.function
-    if (!fn || typeof fn !== 'object') return false
-
-    const params = fn.parameters
-    if (!params || typeof params !== 'object') return false
-    if (params.type !== 'object') return false
-    if (!params.properties || typeof params.properties !== 'object') return false
-
     return true
   } catch (_err) {
     return false

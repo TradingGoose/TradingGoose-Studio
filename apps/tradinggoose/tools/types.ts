@@ -1,3 +1,4 @@
+import type { CustomToolTransferRecord } from '@/lib/custom-tools/schema'
 import type { OAuthService } from '@/lib/oauth/oauth'
 import type { WorkflowSchemaType } from '@/lib/workflows/value-types'
 
@@ -72,7 +73,7 @@ export interface ToolConfig<P = any, R = any> {
     }
   >
 
-  schemaEnrichment?: Record<string, any>
+  inputSchema?: CustomToolTransferRecord['schema']['function']['parameters']
 
   // Output schema - what this tool produces
   outputs?: Record<

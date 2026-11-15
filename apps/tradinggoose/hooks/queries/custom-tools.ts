@@ -1,8 +1,6 @@
-import { useEffect, useRef } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { CustomToolsImportFile } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import type { CustomToolDefinition, CustomToolSchema } from '@/stores/custom-tools/types'
 
 const logger = createLogger('CustomToolsQueries')
@@ -20,8 +18,6 @@ export const customToolsKeys = {
 }
 
 export const customToolWriteScope = (workspaceId: string) => `custom-tools:${workspaceId}`
-
-export type CustomTool = CustomToolDefinition
 
 type ApiCustomTool = Partial<CustomToolDefinition> & {
   id: string
@@ -66,10 +62,6 @@ function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomTo
       },
     },
   }
-}
-
-function syncCustomToolsToStore(workspaceId: string, tools: CustomToolDefinition[]) {
-  useCustomToolsStore.getState().setTools(workspaceId, tools)
 }
 
 /**
@@ -138,37 +130,13 @@ async function fetchCustomTools(workspaceId: string): Promise<CustomToolDefiniti
  * Hook to fetch custom tools
  */
 export function useCustomTools(workspaceId: string) {
-  const query = useQuery<CustomToolDefinition[]>({
+  return useQuery<CustomToolDefinition[]>({
     queryKey: customToolsKeys.list(workspaceId),
     queryFn: () => fetchCustomTools(workspaceId),
     enabled: !!workspaceId,
     staleTime: 60 * 1000, // 1 minute - tools don't change frequently
     placeholderData: keepPreviousData,
   })
-
-  const lastSyncRef = useRef<string>('')
-
-  useEffect(() => {
-    if (!workspaceId) return
-    if (!query.data) return
-
-    const signature = query.data
-      .map((tool) => {
-        const updatedAt =
-          typeof tool.updatedAt === 'string' ? tool.updatedAt : (tool.createdAt ?? '')
-        return `${tool.id}:${updatedAt}:${tool.title}:${JSON.stringify(tool.schema?.function ?? {})}:${tool.code ?? ''}`
-      })
-      .join('|')
-
-    if (signature === lastSyncRef.current) {
-      return
-    }
-
-    lastSyncRef.current = signature
-    syncCustomToolsToStore(workspaceId, query.data)
-  }, [query.data, workspaceId])
-
-  return query
 }
 
 export interface CreateCustomToolInput {

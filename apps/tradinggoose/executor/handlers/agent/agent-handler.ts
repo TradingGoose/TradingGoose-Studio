@@ -29,7 +29,7 @@ import {
 } from '@/executor/handlers/tool-execution-context'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
-import { executeTool } from '@/tools'
+import { executeTool, getToolAsync } from '@/tools'
 import { createLLMToolSchema, filterSchemaForLLM } from '@/tools/params'
 import { getTool } from '@/tools/utils'
 import { watchExecutionCancellation } from './cancellation'
@@ -290,28 +290,37 @@ export class AgentBlockHandler implements BlockHandler {
       inputTools
         .filter((tool) => tool.usageControl !== 'none')
         .map((tool) => {
-          if (tool.type === 'custom-tool' && tool.schema) return this.createCustomTool(tool)
+          if (tool.type === 'custom-tool') return this.createCustomTool(tool, context)
           if (tool.type === 'mcp') return this.createMcpTool(tool, context)
           return this.transformBlockTool(tool)
         })
     )
   }
 
-  private createCustomTool(tool: ToolInput): AgentToolConfig {
+  private async createCustomTool(
+    tool: ToolInput,
+    context: ExecutionContext
+  ): Promise<AgentToolConfig> {
     const userProvidedParams = tool.params || {}
-    const filteredSchema = filterSchemaForLLM(tool.schema.function.parameters, userProvidedParams)
-
     const toolId = tool.toolId
     getCustomToolEntityIdFromRuntimeId(toolId)
+    const definition = await getToolAsync(
+      toolId!,
+      context.workflowId,
+      context.workspaceId,
+      context.isDeployedContext !== false
+    )
+    if (!definition?.inputSchema) throw new Error(`Custom tool ${toolId} could not be resolved`)
     return {
-      id: toolId!,
-      name: tool.title?.trim(),
+      id: definition.id,
+      definition,
+      name: definition.name,
       description: buildCustomToolModelDescription({
-        title: tool.title,
-        description: tool.schema.function.description,
+        title: definition.name,
+        description: definition.description,
       }),
       params: userProvidedParams,
-      parameters: filteredSchema,
+      parameters: filterSchemaForLLM(definition.inputSchema, userProvidedParams),
       usageControl: tool.usageControl || 'auto',
     }
   }
@@ -489,7 +498,7 @@ export function createAgentToolSet(
         execute: async (inputData, nativeContext) => {
           const params = { ...inputData, ...tool.params }
           const result = await executeTool(
-            tool.mcp ? 'mcp' : tool.id,
+            tool.mcp ? 'mcp' : (tool.definition ?? tool.id),
             {
               ...(tool.mcp ? { ...tool.mcp, arguments: params } : params),
               _context: {

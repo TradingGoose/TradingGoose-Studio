@@ -54,11 +54,11 @@ interface ToolInputProps {
 
 interface StoredTool {
   type: string
-  title: string
+  title?: string
   toolId: string
   params: Record<string, any>
   isExpanded?: boolean
-  schema?: any // For custom tools
+  schema?: any // For MCP tools
   operation?: string // For tools with multiple operations
   usageControl?: 'auto' | 'force' | 'none'
 }
@@ -355,11 +355,9 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
     const newTool: StoredTool = {
       type: 'custom-tool',
-      title: customTool.title,
       toolId: createCustomToolRuntimeId(customTool.id),
       params: {},
       isExpanded: true,
-      schema: customTool.schema,
       usageControl: 'auto',
     }
 
@@ -382,6 +380,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
     const dependentParamIds = (() => {
       const toolBlock = allToolBlocks.find((block) => block.type === tool.type)
+      if (!toolBlock) return []
       const toolParams = getLocalizedToolParametersConfig(locale, tool.toolId, toolBlock, {
         ...tool.params,
         operation: tool.operation,
@@ -647,6 +646,9 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
             // Handle custom tools and MCP tools differently
             const isCustomTool = tool.type === 'custom-tool'
             const isMcpTool = tool.type === 'mcp'
+            const customTool = isCustomTool
+              ? customTools.find((item) => createCustomToolRuntimeId(item.id) === tool.toolId)
+              : undefined
             const toolBlock =
               !isCustomTool && !isMcpTool
                 ? toolBlocks.find((block) => block.type === tool.type)
@@ -669,20 +671,19 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                   )
                 : null
 
-            // For custom tools, extract parameters from schema
-            const customToolParams =
-              isCustomTool && tool.schema && tool.schema.function?.parameters?.properties
-                ? Object.entries(tool.schema.function.parameters.properties || {}).map(
-                    ([paramId, param]: [string, any]) => ({
-                      id: paramId,
-                      type: param.type || 'string',
-                      description: param.description || '',
-                      visibility: (tool.schema.function.parameters.required?.includes(paramId)
-                        ? 'user-or-llm'
-                        : 'user-only') as 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden',
-                    })
-                  )
-                : []
+            const customToolSchema = customTool?.schema.function.parameters
+            const customToolParams = customToolSchema
+              ? Object.entries(customToolSchema.properties).map(
+                  ([paramId, param]: [string, any]) => ({
+                    id: paramId,
+                    type: param.type || 'string',
+                    description: param.description || '',
+                    visibility: (customToolSchema.required?.includes(paramId)
+                      ? 'user-or-llm'
+                      : 'user-only') as 'user-or-llm' | 'user-only' | 'llm-only' | 'hidden',
+                  })
+                )
+              : []
 
             // For MCP tools, extract parameters from input schema
             // Use cached schema from tool object if available, otherwise fetch from mcpTools
@@ -713,12 +714,11 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
             // Tools are always expandable so users can access the interface
             const isExpandedForDisplay = !!tool.isExpanded
-            const displayToolTitle =
-              isCustomTool || isMcpTool
-                ? tool.title
-                : toolBlock
-                  ? getLocalizedBlockName(locale, toolBlock)
-                  : tool.title
+            const displayToolTitle = isCustomTool
+              ? (customTool?.title ?? copy.customTools)
+              : toolBlock
+                ? getLocalizedBlockName(locale, toolBlock)
+                : tool.title
 
             return (
               <div

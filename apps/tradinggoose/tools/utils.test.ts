@@ -6,7 +6,6 @@ import {
   createCustomToolRequestBody,
   createParamSchema,
   formatRequestParams,
-  getClientEnvVars,
   transformTable,
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'
@@ -31,31 +30,12 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
   readEntityListMembersFromDb: readEntityListMembersFromDbMock,
 }))
 
-vi.mock('@/stores/settings/environment/store', () => {
-  const mockStore = {
-    getAllVariables: vi.fn().mockReturnValue({
-      API_KEY: { value: 'mock-api-key' },
-      BASE_URL: { value: 'https://example.com' },
-    }),
-  }
-
-  return {
-    useEnvironmentStore: {
-      getState: vi.fn().mockImplementation(() => mockStore),
-    },
-  }
-})
-
-const originalWindow = global.window
 beforeEach(() => {
-  global.window = {} as any
   readSavedEntityFieldsForExecutionMock.mockRejectedValue(new Error('not found'))
   readEntityListMembersFromDbMock.mockResolvedValue([])
 })
 
 afterEach(() => {
-  global.window = originalWindow
-
   vi.clearAllMocks()
 })
 
@@ -511,69 +491,7 @@ describe('createParamSchema', () => {
   })
 })
 
-describe('getClientEnvVars', () => {
-  it.concurrent('should return environment variables from store in browser environment', () => {
-    const mockStoreGetter = () => ({
-      getAllVariables: () => ({
-        API_KEY: { value: 'mock-api-key' },
-        BASE_URL: { value: 'https://example.com' },
-      }),
-    })
-
-    const result = getClientEnvVars(mockStoreGetter)
-
-    expect(result).toEqual({
-      API_KEY: 'mock-api-key',
-      BASE_URL: 'https://example.com',
-    })
-  })
-
-  it.concurrent('should return empty object in server environment', () => {
-    global.window = undefined as any
-
-    const result = getClientEnvVars()
-
-    expect(result).toEqual({})
-  })
-})
-
 describe('createCustomToolRequestBody', () => {
-  it.concurrent('should create request body function for client-side execution', () => {
-    const customTool = {
-      code: 'return a + b',
-      schema: {
-        function: {
-          parameters: { type: 'object', properties: {} },
-        },
-      },
-    }
-
-    const mockStoreGetter = () => ({
-      getAllVariables: () => ({
-        API_KEY: { value: 'mock-api-key' },
-        BASE_URL: { value: 'https://example.com' },
-      }),
-    })
-
-    const bodyFn = createCustomToolRequestBody(customTool, true, undefined, mockStoreGetter)
-    const result = bodyFn({ a: 5, b: 3 })
-
-    expect(result).toEqual({
-      code: 'return a + b',
-      params: { a: 5, b: 3 },
-      schema: { type: 'object', properties: {} },
-      envVars: {
-        API_KEY: 'mock-api-key',
-        BASE_URL: 'https://example.com',
-      },
-      userId: undefined,
-      workflowVariables: {},
-      blockData: {},
-      blockNameMapping: {},
-      isCustomTool: true,
-    })
-  })
-
   it.concurrent('should create request body function for server-side execution', () => {
     const customTool = {
       code: 'return a + b',
@@ -585,12 +503,13 @@ describe('createCustomToolRequestBody', () => {
     }
 
     const workflowId = 'test-workflow-123'
-    const bodyFn = createCustomToolRequestBody(customTool, false, workflowId)
-    const result = bodyFn({ a: 5, b: 3 })
+    const bodyFn = createCustomToolRequestBody(customTool)
+    const params = { a: 5, b: 3, _context: { workflowId } }
+    const result = bodyFn(params)
 
     expect(result).toEqual({
       code: 'return a + b',
-      params: { a: 5, b: 3 },
+      params,
       schema: { type: 'object', properties: {} },
       envVars: {},
       workflowId: 'test-workflow-123',
@@ -612,8 +531,9 @@ describe('createCustomToolRequestBody', () => {
       },
     }
 
-    const bodyFn = createCustomToolRequestBody(customTool, false, 'workflow-default')
+    const bodyFn = createCustomToolRequestBody(customTool)
     const result = bodyFn({
+      envVars: { API_KEY: 'explicit-environment' },
       _context: {
         submissionSource: 'copilot',
         userId: 'user-1',
@@ -625,6 +545,7 @@ describe('createCustomToolRequestBody', () => {
 
     expect(result).toEqual(
       expect.objectContaining({
+        envVars: { API_KEY: 'explicit-environment' },
         submissionSource: 'copilot',
         userId: 'user-1',
         workflowId: 'workflow-1',
@@ -635,7 +556,6 @@ describe('createCustomToolRequestBody', () => {
   })
 
   it('does not use the custom-tools API for server-side custom tool lookup', async () => {
-    const serverWindow = global.window
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     readSavedEntityFieldsForExecutionMock.mockResolvedValueOnce({
       codeText: 'return params',
@@ -652,8 +572,6 @@ describe('createCustomToolRequestBody', () => {
     ])
 
     try {
-      ;(global as any).window = undefined
-
       await expect(
         getToolAsync('custom_custom-tool-123', undefined, 'workspace-456')
       ).resolves.toBeDefined()
@@ -667,13 +585,11 @@ describe('createCustomToolRequestBody', () => {
       )
       expect(readEntityListMembersFromDbMock).toHaveBeenCalledWith('custom_tool', 'workspace-456')
     } finally {
-      global.window = serverWindow
       fetchSpy.mockRestore()
     }
   })
 
   it('uses workspaceId for server-side custom tool lookup when workflowId is also present', async () => {
-    const serverWindow = global.window
     readSavedEntityFieldsForExecutionMock.mockResolvedValueOnce({
       codeText: 'return params',
       schemaText: JSON.stringify({
@@ -688,39 +604,26 @@ describe('createCustomToolRequestBody', () => {
       { id: 'custom-tool-123', name: 'Custom Weather Tool' },
     ])
 
-    try {
-      ;(global as any).window = undefined
+    await expect(
+      getToolAsync('custom_custom-tool-123', 'workflow-123', 'workspace-456')
+    ).resolves.toBeDefined()
 
-      await expect(
-        getToolAsync('custom_custom-tool-123', 'workflow-123', 'workspace-456')
-      ).resolves.toBeDefined()
-
-      expect(readSavedEntityFieldsForExecutionMock).toHaveBeenCalledWith(
-        'custom_tool',
-        'custom-tool-123',
-        'workspace-456',
-        true
-      )
-      expect(readEntityListMembersFromDbMock).toHaveBeenCalledWith('custom_tool', 'workspace-456')
-    } finally {
-      global.window = serverWindow
-    }
+    expect(readSavedEntityFieldsForExecutionMock).toHaveBeenCalledWith(
+      'custom_tool',
+      'custom-tool-123',
+      'workspace-456',
+      true
+    )
+    expect(readEntityListMembersFromDbMock).toHaveBeenCalledWith('custom_tool', 'workspace-456')
   })
 
   it('surfaces execution-read failures instead of masking them as undefined', async () => {
-    const serverWindow = global.window
     readSavedEntityFieldsForExecutionMock.mockRejectedValueOnce(
       new Error('Saved custom_tool Custom Weather Tool was not found')
     )
 
-    try {
-      ;(global as any).window = undefined
-
-      await expect(
-        getToolAsync('custom_Custom Weather Tool', undefined, 'workspace-456')
-      ).rejects.toThrow('was not found')
-    } finally {
-      global.window = serverWindow
-    }
+    await expect(
+      getToolAsync('custom_Custom Weather Tool', undefined, 'workspace-456')
+    ).rejects.toThrow('was not found')
   })
 })

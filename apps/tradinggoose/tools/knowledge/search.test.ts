@@ -1,7 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
-
-vi.mock('@/tools/schema-enrichers', () => ({ enrichKBTagFiltersSchema: vi.fn() }))
-
+import { describe, expect, it } from 'vitest'
 import { knowledgeSearchTool } from './search'
 
 describe('Knowledge Search API request contract', () => {

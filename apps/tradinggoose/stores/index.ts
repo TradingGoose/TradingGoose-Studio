@@ -5,7 +5,6 @@ import { getQueryClient } from '@/app/query-provider'
 import { resetWorkspacePermissionsStore } from '@/hooks/use-workspace-permissions'
 import { useConsoleStore } from '@/stores/console/store'
 import { resetCopilotStoreRegistry } from '@/stores/copilot/store'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -38,13 +37,7 @@ export async function clearUserData(): Promise<void> {
 }
 
 // Export all stores
-export {
-  useWorkflowRegistry,
-  useEnvironmentStore,
-  useExecutionStore,
-  useConsoleStore,
-  useCustomToolsStore,
-}
+export { useWorkflowRegistry, useEnvironmentStore, useExecutionStore, useConsoleStore }
 
 // Helper function to reset all stores
 export const resetAllStores = () => {
@@ -66,7 +59,6 @@ export const resetAllStores = () => {
   useExecutionStore.getState().reset()
   useConsoleStore.setState({ entries: [] })
   resetCopilotStoreRegistry()
-  useCustomToolsStore.getState().resetAll()
   resetWorkspacePermissionsStore()
   // Variables store has no tracking to reset; registry hydrates
 }
@@ -78,7 +70,6 @@ export const logAllStores = () => {
     environment: useEnvironmentStore.getState(),
     execution: useExecutionStore.getState(),
     console: useConsoleStore.getState(),
-    customTools: useCustomToolsStore.getState(),
   }
 
   return state

@@ -41,7 +41,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
 const tool = (toolId?: string) => ({
   type: 'custom-tool',
   ...(toolId ? { toolId } : {}),
-  schema: { function: { parameters: { type: 'object', properties: {} } } },
 })
 
 it('validates the shared MCP operation without accepting opaque tool keys as executable IDs', () => {
@@ -87,7 +86,7 @@ describe('sanitizeAgentToolsInBlocks', () => {
     validationMocks.loggerWarn.mockClear()
   })
 
-  it('removes agent custom tools without canonical runtime tool ids', () => {
+  it('retains ID-only custom tool selections and removes noncanonical runtime IDs', () => {
     const { blocks, warnings } = sanitizeAgentToolsInBlocks({
       agent_1: {
         type: 'agent',

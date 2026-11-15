@@ -19,7 +19,6 @@ const mocks = vi.hoisted(() => ({
   documentNames: vi.fn(),
 }))
 
-vi.mock('@/tools/schema-enrichers', () => ({ enrichKBTagFiltersSchema: vi.fn() }))
 vi.mock('@/lib/auth/hybrid', () => ({ checkSessionOrInternalAuth: mocks.auth }))
 vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: mocks.workflowScope }))
 vi.mock('@/app/api/knowledge/utils', () => ({ checkKnowledgeBaseAccess: mocks.access }))

@@ -23,7 +23,6 @@ vi.mock('@/tools/utils', () => ({
   formatRequestParams: vi.fn(),
   transformTable: vi.fn(),
   createParamSchema: vi.fn(),
-  getClientEnvVars: vi.fn(),
   createCustomToolRequestBody: vi.fn(),
   validateRequiredParametersAfterMerge: vi.fn(),
 }))

@@ -73,7 +73,8 @@ import {
 } from '@/executor/handlers/agent/agent-handler'
 import type { ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
-import { executeTool } from '@/tools'
+import { executeTool, getToolAsync } from '@/tools'
+import type { ToolConfig } from '@/tools/types'
 import { getTool } from '@/tools/utils'
 
 const state = vi.hoisted(() => ({
@@ -104,7 +105,7 @@ vi.mock('@mastra/core/agent', async (original) => {
 vi.mock('@/lib/mcp/service', () => ({ mcpService: { discoverServerTools: vi.fn() } }))
 vi.mock('@/lib/permissions/utils', () => ({ getUserEntityPermissions: vi.fn() }))
 vi.mock('@/blocks', () => ({ getBlock: vi.fn() }))
-vi.mock('@/tools', () => ({ executeTool: vi.fn() }))
+vi.mock('@/tools', () => ({ executeTool: vi.fn(), getToolAsync: vi.fn() }))
 vi.mock('@/tools/utils', () => ({ getTool: vi.fn() }))
 vi.mock('@/executor/handlers/agent/skills-resolver', () => ({
   resolveSkillMetadata: vi.fn(async () => []),
@@ -114,13 +115,24 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 const usage = { inputTokens: 2, outputTokens: 3, totalTokens: 5 }
-const schema = { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
+const schema = {
+  type: 'object' as const,
+  properties: { query: { type: 'string' as const } },
+  required: ['query'],
+}
 const customTool = {
   type: 'custom-tool',
   toolId: 'custom_lookup',
-  title: 'Lookup',
-  schema: { function: { description: 'Lookup', parameters: schema } },
   usageControl: 'force' as const,
+}
+const customDefinition: ToolConfig = {
+  id: customTool.toolId,
+  name: 'Lookup',
+  description: 'Lookup',
+  version: '1.0.0',
+  params: {},
+  inputSchema: schema,
+  request: { url: '/api/function/execute', method: 'POST', headers: () => ({}) },
 }
 function fixture(text = 'Native response') {
   return new MastraLanguageModelV2Mock({
@@ -189,6 +201,7 @@ beforeEach(() => {
   state.completionError = undefined
   state.nativeCost = { status: 'unavailable' }
   state.configurations.length = 0
+  vi.mocked(getToolAsync).mockResolvedValue(customDefinition)
   vi.mocked(executeTool).mockResolvedValue({ success: true, output: { found: true } })
   vi.mocked(getUserEntityPermissions).mockResolvedValue('read')
   vi.mocked(mcpService.discoverServerTools).mockResolvedValue([
@@ -733,7 +746,7 @@ describe('native Agent MCP integration', () => {
   it.each(['custom', 'mcp'])(
     'preserves %s dictionary schemas and arguments through the actual OpenAI request and shared dispatch',
     async (kind) => {
-      const parameters = {
+      const parameters: NonNullable<ToolConfig['inputSchema']> = {
         type: 'object',
         properties: {
           headers: { type: 'object', additionalProperties: { type: 'string' } },
@@ -789,6 +802,13 @@ describe('native Agent MCP integration', () => {
         '@/lib/mastra/connections'
       )
       state.model = await native.createConfiguredLanguageModel('openai/gpt-4.1', 'fixture-key')
+      vi.mocked(getToolAsync).mockResolvedValue({
+        ...customDefinition,
+        id: 'custom_dictionary',
+        name: 'Dictionary',
+        description: 'Receive dictionaries',
+        inputSchema: parameters,
+      })
       const configured =
         kind === 'mcp'
           ? {
@@ -799,8 +819,6 @@ describe('native Agent MCP integration', () => {
           : {
               type: 'custom-tool',
               toolId: 'custom_dictionary',
-              title: 'Dictionary',
-              schema: { function: { description: 'Receive dictionaries', parameters } },
               usageControl: 'force' as const,
             }
       const result = await new AgentBlockHandler().execute(
@@ -815,7 +833,9 @@ describe('native Agent MCP integration', () => {
         parameters: { properties: parameters.properties },
       })
       const [id, dispatched] = vi.mocked(executeTool).mock.calls[0]
-      expect(id).toBe(kind === 'mcp' ? 'mcp' : 'custom_dictionary')
+      expect(id).toEqual(
+        kind === 'mcp' ? 'mcp' : expect.objectContaining({ id: 'custom_dictionary' })
+      )
       expect(kind === 'mcp' ? dispatched.arguments : dispatched).toMatchObject(args)
       if (kind === 'mcp')
         expect(dispatched).toMatchObject({ serverId: selected.params.serverId, toolName: 'lookup' })
@@ -2119,16 +2139,13 @@ function liveToolModel() {
   })
 }
 function liveCustomTool() {
+  vi.mocked(getToolAsync).mockResolvedValue({
+    ...customDefinition,
+    inputSchema: { type: 'object', properties: {} },
+  })
   return {
     type: 'custom-tool' as const,
     toolId: 'custom_lookup',
-    code: 'return {}',
-    schema: {
-      function: {
-        description: 'Return an authorized result',
-        parameters: { type: 'object', properties: {} },
-      },
-    },
     usageControl: 'force' as const,
   }
 }
@@ -2200,7 +2217,7 @@ it.each(
     }
     const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
     expect(executeTool).toHaveBeenCalledOnce()
-    expect(vi.mocked(executeTool).mock.calls[0][0]).toBe('custom_lookup')
+    expect(vi.mocked(executeTool).mock.calls[0][0]).toMatchObject({ id: 'custom_lookup' })
     expect(state.finance).toHaveBeenCalledOnce()
     expect(state.admissions).toHaveBeenCalledTimes(allowed ? 2 : 1)
     expect(calls).toHaveLength(allowed ? 2 : 1)

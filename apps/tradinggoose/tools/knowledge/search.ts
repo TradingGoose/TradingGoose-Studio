@@ -1,6 +1,5 @@
 import { withInferenceFacts } from '@/lib/mastra/result'
 import type { KnowledgeSearchResponse } from '@/tools/knowledge/types'
-import { enrichKBTagFiltersSchema } from '@/tools/schema-enrichers'
 import { parseTagFilters } from '@/tools/shared/tags'
 import type { ToolConfig } from '@/tools/types'
 
@@ -44,13 +43,6 @@ export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
           tagValue: { type: 'string' },
         },
       },
-    },
-  },
-
-  schemaEnrichment: {
-    tagFilters: {
-      dependsOn: 'knowledgeBaseId',
-      enrichSchema: enrichKBTagFiltersSchema,
     },
   },
 

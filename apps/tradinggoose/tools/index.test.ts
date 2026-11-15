@@ -21,6 +21,7 @@ import type { ExecutionContext } from '@/executor/types'
 import { createMockFetch, mockEnvironmentVariables } from '@/tools/__test-utils__/test-tools'
 import { executeTool } from '@/tools/index'
 import { tools } from '@/tools/registry'
+import type { ToolConfig } from '@/tools/types'
 import { getTool } from '@/tools/utils'
 
 const dbMocks = vi.hoisted(() => {
@@ -193,74 +194,6 @@ describe('Tools Registry', () => {
   })
 })
 
-vi.mock('@/stores/custom-tools/store', () => ({
-  useCustomToolsStore: {
-    getState: () => ({
-      activeWorkspaceId: 'workspace-456',
-      getTool: (id: string) => {
-        if (id === 'custom-tool-123') {
-          return {
-            id: 'custom-tool-123',
-            workspaceId: 'workspace-456',
-            userId: 'user-123',
-            title: 'Custom Weather Tool',
-            code: 'return { result: "Weather data" }',
-            schema: {
-              function: {
-                description: 'Get weather information',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    location: { type: 'string', description: 'City name' },
-                    unit: { type: 'string', description: 'Unit (metric/imperial)' },
-                  },
-                  required: ['location'],
-                },
-              },
-            },
-          }
-        }
-        return undefined
-      },
-    }),
-  },
-}))
-
-vi.mock('@/stores/settings/environment/store', () => ({
-  useEnvironmentStore: {
-    getState: () => ({
-      getAllVariables: () => ({
-        API_KEY: { value: 'test-api-key' },
-        BASE_URL: { value: 'https://test-base-url.com' },
-      }),
-    }),
-  },
-}))
-describe('Custom Tools', () => {
-  afterEach(() => {
-    vi.resetAllMocks()
-  })
-
-  it('should get custom tool by ID', () => {
-    const customTool = getTool('custom_custom-tool-123')
-    expect(customTool).toBeDefined()
-    expect(customTool?.name).toBe('Custom Weather Tool')
-    expect(customTool?.description).toBe('Get weather information')
-    expect(customTool?.params.location).toBeDefined()
-    expect(customTool?.params.location.required).toBe(true)
-  })
-
-  it('should handle non-existent custom tool', () => {
-    const nonExistentTool = getTool('custom_non-existent')
-    expect(nonExistentTool).toBeUndefined()
-  })
-
-  it('should not resolve custom tools by title', () => {
-    const customTool = getTool('custom_Custom Weather Tool')
-    expect(customTool).toBeUndefined()
-  })
-})
-
 describe('executeTool Function', () => {
   let cleanupEnvVars: () => void
 
@@ -280,34 +213,12 @@ describe('executeTool Function', () => {
       new Error('Saved entity was not found')
     )
 
-    // Mock fetch
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url, options) => {
-        const mockResponse = {
-          ok: true,
-          status: 200,
-          json: () =>
-            Promise.resolve({
-              success: true,
-              output: { result: 'Direct request successful' },
-            }),
-          headers: {
-            get: () => 'application/json',
-            forEach: () => {},
-          },
-          clone: function () {
-            return { ...this }
-          },
-        }
-
-        if (url.toString().includes('/api/proxy')) {
-          return mockResponse
-        }
-
-        return mockResponse
-      }),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({ success: true, output: { result: 'Direct request successful' } })
+      )
+    )
 
     // Set environment variables
     process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
@@ -336,7 +247,7 @@ describe('executeTool Function', () => {
   })
 
   it.each([{ price: 123 }, false, 0])(
-    'preserves coded Agent tool arguments and its exact result through the real builder: %j',
+    'uses one current custom-tool definition for native arguments and execution: %j',
     async (value) => {
       const originalWindow = global.window
       const schema = {
@@ -350,6 +261,7 @@ describe('executeTool Function', () => {
               unit: { type: 'string' },
               code: { type: 'string' },
               method: { type: 'string' },
+              market: { type: 'object', properties: { exchange: { enum: ['NASDAQ'] } } },
             },
             required: ['symbol', 'code', 'method'],
           },
@@ -379,12 +291,27 @@ describe('executeTool Function', () => {
         const selected = {
           type: 'custom-tool',
           toolId: 'custom_quote',
-          schema,
+          title: 'Old quote',
+          schema: {
+            type: 'function' as const,
+            function: {
+              description: 'Old quote schema',
+              parameters: {
+                type: 'object',
+                properties: { ticker: { type: 'string' } },
+                required: ['ticker'],
+              },
+            },
+          },
           code: 'throw new Error("cached code")',
           params: { unit: 'USD' },
         }
         // biome-ignore lint/complexity/useLiteralKeys: Exercise the production factory without exposing a test-only API.
         const configured = await new AgentBlockHandler()['formatTools']([selected], context)
+        yjsMocks.readSavedEntityFieldsForExecution.mockResolvedValue({
+          codeText: 'throw new Error("changed during the run")',
+          schemaText: JSON.stringify(selected.schema),
+        })
         const { tools } = createAgentToolSet(
           configured,
           createMinimalWorkflow().blocks[1],
@@ -393,7 +320,7 @@ describe('executeTool Function', () => {
         )
         let step = 0
         const model = new MastraLanguageModelV2Mock({
-          doGenerate: async () => ({
+          doGenerate: async (options) => ({
             content:
               step++ === 0
                 ? [
@@ -402,7 +329,8 @@ describe('executeTool Function', () => {
                       toolCallId: 'quote-call',
                       toolName: 'custom_quote',
                       input: JSON.stringify({
-                        symbol: 'AAPL',
+                        [(options.tools?.[0] as { inputSchema: { required: string[] } }).inputSchema
+                          .required[0]]: 'AAPL',
                         code: 'business input',
                         method: 'DELETE',
                       }),
@@ -418,6 +346,16 @@ describe('executeTool Function', () => {
           'Quote',
           { maxSteps: 2 }
         )
+        expect(configured[0].name).toBe('Quote')
+        expect(model.doGenerateCalls[0].tools?.[0]).toMatchObject({
+          inputSchema: {
+            required: schema.function.parameters.required,
+            properties: {
+              symbol: schema.function.parameters.properties.symbol,
+              market: schema.function.parameters.properties.market,
+            },
+          },
+        })
         expect(fetch).toHaveBeenCalledOnce()
         const [url, request] = vi.mocked(fetch).mock.calls[0]
         expect(String(url)).toContain('/api/function/execute')
@@ -425,6 +363,7 @@ describe('executeTool Function', () => {
         expect(request?.signal).toBeInstanceOf(AbortSignal)
         expect(JSON.parse(request!.body as string)).toMatchObject({
           code: savedCode,
+          schema: schema.function.parameters,
           params: { symbol: 'AAPL', unit: 'USD', code: 'business input', method: 'DELETE' },
           envVars: context.environmentVariables,
           workflowVariables: context.workflowVariables,
@@ -433,7 +372,7 @@ describe('executeTool Function', () => {
           isDeployedContext: false,
           isCustomTool: true,
         })
-        expect(yjsMocks.readSavedEntityFieldsForExecution).toHaveBeenCalledWith(
+        expect(yjsMocks.readSavedEntityFieldsForExecution).toHaveBeenCalledExactlyOnceWith(
           'custom_tool',
           'quote',
           context.workspaceId,
@@ -897,213 +836,72 @@ describe('Automatic Internal Route Detection', () => {
     cleanupEnvVars()
   })
 
-  it('should detect internal routes (URLs starting with /api/) and call them directly', async () => {
-    // Mock a tool with an internal route
-    const mockTool = {
-      id: 'test_internal_tool',
-      name: 'Test Internal Tool',
-      description: 'A test tool with internal route',
-      version: '1.0.0',
+  it.each<{
+    name: string
+    url: ToolConfig['request']['url']
+    method: 'GET' | 'POST'
+    params: ToolConfig['params']
+    input: Record<string, any>
+    expectedUrl: string
+  }>([
+    {
+      name: 'static internal',
+      url: '/api/test/endpoint',
+      method: 'POST',
       params: {},
-      request: {
-        url: '/api/test/endpoint',
-        method: 'POST',
-        headers: () => ({ 'Content-Type': 'application/json' }),
-      },
-      transformResponse: vi.fn().mockResolvedValue({
-        success: true,
-        output: { result: 'Internal route success' },
-      }),
-    }
-
-    // Mock the tool registry to include our test tool
-    const originalTools = { ...tools }
-    ;(tools as any).test_internal_tool = mockTool
-
-    // Mock fetch for the internal API call
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url) => {
-        // Should call the internal API directly, not the proxy
-        expect(url).toBe('http://localhost:3000/api/test/endpoint')
-        const responseData = { success: true, data: 'test' }
-        return {
-          ok: true,
-          status: 200,
-          statusText: 'OK',
-          headers: new Headers(),
-          json: () => Promise.resolve(responseData),
-          text: () => Promise.resolve(JSON.stringify(responseData)),
-          clone: vi.fn().mockReturnThis(),
-        }
-      }),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
-
-    const result = await executeTool('test_internal_tool', {}, false)
-
-    expect(result.success).toBe(true)
-    expect(result.output.result).toBe('Internal route success')
-    expect(mockTool.transformResponse).toHaveBeenCalled()
-
-    // Restore original tools
-    Object.assign(tools, originalTools)
-  })
-
-  it('should detect external routes (full URLs) and call them directly', async () => {
-    // Mock a tool with an external route
-    const mockTool = {
-      id: 'test_external_tool',
-      name: 'Test External Tool',
-      description: 'A test tool with external route',
-      version: '1.0.0',
+      input: {},
+      expectedUrl: 'http://localhost:3000/api/test/endpoint',
+    },
+    {
+      name: 'static external',
+      url: 'https://api.example.com/endpoint',
+      method: 'GET',
       params: {},
-      request: {
-        url: 'https://api.example.com/endpoint',
-        method: 'GET',
-        headers: () => ({ 'Content-Type': 'application/json' }),
-      },
-    }
-
-    // Mock the tool registry to include our test tool
-    const originalTools = { ...tools }
-    ;(tools as any).test_external_tool = mockTool
-
-    // Mock fetch for the external API call
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url) => {
-        expect(url).toBe('https://api.example.com/endpoint')
-        const responseData = {
-          success: true,
-          output: { result: 'External route direct' },
-        }
-        return {
-          ok: true,
-          status: 200,
-          statusText: 'OK',
-          headers: new Headers(),
-          json: () => Promise.resolve(responseData),
-          text: () => Promise.resolve(JSON.stringify(responseData)),
-        }
-      }),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
-
-    const result = await executeTool('test_external_tool', {}, false)
-
-    expect(result.success).toBe(true)
-    expect(result.output.result).toBe('External route direct')
-
-    // Restore original tools
-    Object.assign(tools, originalTools)
-  })
-
-  it('should handle dynamic URLs that resolve to internal routes', async () => {
-    // Mock a tool with a dynamic URL function that returns internal route
-    const mockTool = {
-      id: 'test_dynamic_internal',
-      name: 'Test Dynamic Internal Tool',
-      description: 'A test tool with dynamic internal route',
+      input: {},
+      expectedUrl: 'https://api.example.com/endpoint',
+    },
+    {
+      name: 'dynamic internal',
+      url: (params: Record<string, any>) => `/api/resources/${params.resourceId}?filter=active`,
+      method: 'GET',
+      params: { resourceId: { type: 'string', required: true } },
+      input: { resourceId: '123', _context: { workspaceId: 'workspace-1' } },
+      expectedUrl: 'http://localhost:3000/api/resources/123?filter=active&workspaceId=workspace-1',
+    },
+    {
+      name: 'dynamic external',
+      url: (params: Record<string, any>) => `https://api.external.com/${params.endpoint}`,
+      method: 'GET',
+      params: { endpoint: { type: 'string', required: true } },
+      input: { endpoint: 'users' },
+      expectedUrl: 'https://api.external.com/users',
+    },
+  ])('dispatches $name routes directly', async ({ url, method, params, input, expectedUrl }) => {
+    const internal = expectedUrl.startsWith('http://localhost:3000/')
+    const output = { result: 'Route success' }
+    const transformResponse = vi.fn().mockResolvedValue({ success: true, output })
+    tools.test_route = {
+      id: 'test_route',
+      name: 'Test route',
+      description: '',
       version: '1.0.0',
-      params: {
-        resourceId: { type: 'string', required: true },
-      },
-      request: {
-        url: (params: any) => `/api/resources/${params.resourceId}?filter=active`,
-        method: 'GET',
-        headers: () => ({ 'Content-Type': 'application/json' }),
-      },
-      transformResponse: vi.fn().mockResolvedValue({
-        success: true,
-        output: { result: 'Dynamic internal route success' },
-      }),
+      params,
+      request: { url, method, headers: () => ({ 'Content-Type': 'application/json' }) },
+      ...(internal ? { transformResponse } : {}),
     }
-
-    // Mock the tool registry to include our test tool
-    const originalTools = { ...tools }
-    ;(tools as any).test_dynamic_internal = mockTool
-
-    // Mock fetch for the internal API call
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url) => {
-        // Dynamic internal URLs use the same centralized context query handling as static URLs.
-        expect(url).toBe(
-          'http://localhost:3000/api/resources/123?filter=active&workspaceId=workspace-1'
-        )
-        const responseData = { success: true, data: 'test' }
-        return {
-          ok: true,
-          status: 200,
-          statusText: 'OK',
-          headers: new Headers(),
-          json: () => Promise.resolve(responseData),
-          text: () => Promise.resolve(JSON.stringify(responseData)),
-          clone: vi.fn().mockReturnThis(),
-        }
-      }),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
-
-    const result = await executeTool(
-      'test_dynamic_internal',
-      { resourceId: '123', _context: { workspaceId: 'workspace-1' } },
-      false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json(internal ? { success: true, data: 'test' } : { success: true, output })
+      )
     )
-
-    expect(result.success).toBe(true)
-    expect(result.output.result).toBe('Dynamic internal route success')
-    expect(mockTool.transformResponse).toHaveBeenCalled()
-
-    Object.assign(tools, originalTools)
-  })
-
-  it('should handle dynamic URLs that resolve to external routes', async () => {
-    // Mock a tool with a dynamic URL function that returns external route
-    const mockTool = {
-      id: 'test_dynamic_external',
-      name: 'Test Dynamic External Tool',
-      description: 'A test tool with dynamic external route',
-      version: '1.0.0',
-      params: {
-        endpoint: { type: 'string', required: true },
-      },
-      request: {
-        url: (params: any) => `https://api.external.com/${params.endpoint}`,
-        method: 'GET',
-        headers: () => ({ 'Content-Type': 'application/json' }),
-      },
+    try {
+      expect(await executeTool('test_route', input)).toMatchObject({ success: true, output })
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(expectedUrl, expect.anything())
+      expect(transformResponse).toHaveBeenCalledTimes(internal ? 1 : 0)
+    } finally {
+      Reflect.deleteProperty(tools, 'test_route')
     }
-
-    // Mock the tool registry to include our test tool
-    const originalTools = { ...tools }
-    ;(tools as any).test_dynamic_external = mockTool
-
-    // Mock fetch for the external API call
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url) => {
-        expect(url).toBe('https://api.external.com/users')
-        const responseData = {
-          success: true,
-          output: { result: 'Dynamic external route direct' },
-        }
-        return {
-          ok: true,
-          status: 200,
-          statusText: 'OK',
-          headers: new Headers(),
-          json: () => Promise.resolve(responseData),
-          text: () => Promise.resolve(JSON.stringify(responseData)),
-        }
-      }),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
-
-    const result = await executeTool('test_dynamic_external', { endpoint: 'users' }, false)
-
-    expect(result.success).toBe(true)
-    expect(result.output.result).toBe('Dynamic external route direct')
-
-    // Restore original tools
-    Object.assign(tools, originalTools)
   })
 })
 
@@ -1122,24 +920,11 @@ describe('Centralized Error Handling', () => {
     cleanupEnvVars()
   })
 
-  const testErrorFormat = async (name: string, errorResponse: any, expectedError: string) => {
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async () => ({
-        ok: false,
-        status: 400,
-        statusText: 'Bad Request',
-        headers: {
-          get: (key: string) => (key === 'content-type' ? 'application/json' : null),
-          forEach: (callback: (value: string, key: string) => void) => {
-            callback('application/json', 'content-type')
-          },
-        },
-        text: () => Promise.resolve(JSON.stringify(errorResponse)),
-        json: () => Promise.resolve(errorResponse),
-        clone: vi.fn().mockReturnThis(),
-      })),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
+  const testErrorFormat = async (errorResponse: unknown, expectedError: string) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json(errorResponse, { status: 400, statusText: 'Bad Request' }))
+    )
 
     const result = await executeTool('function_execute', { code: 'return { result: "test" }' })
 
@@ -1148,95 +933,60 @@ describe('Centralized Error Handling', () => {
   }
 
   it('should extract GraphQL error format (Linear API)', async () => {
-    await testErrorFormat(
-      'GraphQL',
-      { errors: [{ message: 'Invalid query field' }] },
-      'Invalid query field'
-    )
+    await testErrorFormat({ errors: [{ message: 'Invalid query field' }] }, 'Invalid query field')
   })
 
   it('should extract X/Twitter API error format', async () => {
-    await testErrorFormat(
-      'X/Twitter',
-      { errors: [{ detail: 'Rate limit exceeded' }] },
-      'Rate limit exceeded'
-    )
+    await testErrorFormat({ errors: [{ detail: 'Rate limit exceeded' }] }, 'Rate limit exceeded')
   })
 
   it('should extract Hunter API error format', async () => {
-    await testErrorFormat('Hunter', { errors: [{ details: 'Invalid API key' }] }, 'Invalid API key')
+    await testErrorFormat({ errors: [{ details: 'Invalid API key' }] }, 'Invalid API key')
   })
 
   it('should extract direct errors array (string)', async () => {
-    await testErrorFormat('Direct string array', { errors: ['Network timeout'] }, 'Network timeout')
+    await testErrorFormat({ errors: ['Network timeout'] }, 'Network timeout')
   })
 
   it('should extract direct errors array (object)', async () => {
-    await testErrorFormat(
-      'Direct object array',
-      { errors: [{ message: 'Validation failed' }] },
-      'Validation failed'
-    )
+    await testErrorFormat({ errors: [{ message: 'Validation failed' }] }, 'Validation failed')
   })
 
   it('should extract OAuth error description', async () => {
-    await testErrorFormat('OAuth', { error_description: 'Invalid grant' }, 'Invalid grant')
+    await testErrorFormat({ error_description: 'Invalid grant' }, 'Invalid grant')
   })
 
   it('should extract SOAP fault error', async () => {
-    await testErrorFormat(
-      'SOAP fault',
-      { fault: { faultstring: 'Server unavailable' } },
-      'Server unavailable'
-    )
+    await testErrorFormat({ fault: { faultstring: 'Server unavailable' } }, 'Server unavailable')
   })
 
   it('should extract simple SOAP faultstring', async () => {
-    await testErrorFormat(
-      'Simple SOAP',
-      { faultstring: 'Authentication failed' },
-      'Authentication failed'
-    )
+    await testErrorFormat({ faultstring: 'Authentication failed' }, 'Authentication failed')
   })
 
   it('should extract Notion/Discord message format', async () => {
-    await testErrorFormat('Notion/Discord', { message: 'Page not found' }, 'Page not found')
+    await testErrorFormat({ message: 'Page not found' }, 'Page not found')
   })
 
   it('should extract Airtable error object format', async () => {
-    await testErrorFormat(
-      'Airtable',
-      { error: { message: 'Invalid table ID' } },
-      'Invalid table ID'
-    )
+    await testErrorFormat({ error: { message: 'Invalid table ID' } }, 'Invalid table ID')
   })
 
   it('should extract simple error string format', async () => {
-    await testErrorFormat(
-      'Simple string',
-      { error: 'Simple error message' },
-      'Simple error message'
-    )
+    await testErrorFormat({ error: 'Simple error message' }, 'Simple error message')
   })
 
   it('should fall back to HTTP status when JSON parsing fails', async () => {
-    global.fetch = Object.assign(
-      vi.fn().mockImplementation(async () => ({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        headers: {
-          get: (key: string) => (key === 'content-type' ? 'text/plain' : null),
-          forEach: (callback: (value: string, key: string) => void) => {
-            callback('text/plain', 'content-type')
-          },
-        },
-        text: () => Promise.resolve('Invalid JSON response'),
-        json: () => Promise.reject(new Error('Invalid JSON')),
-        clone: vi.fn().mockReturnThis(),
-      })),
-      { preconnect: vi.fn() }
-    ) as typeof fetch
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('Invalid JSON response', {
+            status: 500,
+            statusText: 'Internal Server Error',
+          })
+      )
+    )
 
     const result = await executeTool('function_execute', { code: 'return { result: "test" }' })
 
@@ -1246,7 +996,6 @@ describe('Centralized Error Handling', () => {
 
   it('should handle complex nested error objects', async () => {
     await testErrorFormat(
-      'Complex nested',
       { error: { code: 400, message: 'Complex validation error', details: 'Field X is invalid' } },
       'Complex validation error'
     )
@@ -1254,7 +1003,6 @@ describe('Centralized Error Handling', () => {
 
   it('should handle error arrays with multiple entries (take first)', async () => {
     await testErrorFormat(
-      'Multiple errors',
       { errors: [{ message: 'First error' }, { message: 'Second error' }] },
       'First error'
     )
@@ -1262,11 +1010,7 @@ describe('Centralized Error Handling', () => {
 
   it('should stringify complex error objects when no message found', async () => {
     const complexError = { code: 500, type: 'ServerError', context: { requestId: '123' } }
-    await testErrorFormat(
-      'Complex object stringify',
-      { error: complexError },
-      JSON.stringify(complexError)
-    )
+    await testErrorFormat({ error: complexError }, JSON.stringify(complexError))
   })
 })
 
