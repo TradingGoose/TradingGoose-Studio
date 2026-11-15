@@ -113,6 +113,7 @@ describe('server Copilot settings', () => {
     ['google', 'gemini-embedding-2'],
     ['google', 'lyria-3-clip-preview'],
     ['google', 'lyria-3-pro-preview'],
+    ['tinfoil', 'nomic-embed-text'],
   ])(
     'rejects the unsupported model %s/%s before resolving credentials',
     async (provider, model) => {
@@ -137,6 +138,7 @@ describe('server Copilot settings', () => {
           { provider: 'google', model: 'lyria-3-clip-preview' },
           { provider: 'openai', model: 'gpt-4.1' },
           { provider: 'google', model: 'lyria-3-pro-preview' },
+          { provider: 'tinfoil', model: 'nomic-embed-text' },
           { provider: 'new-native-provider', model: 'namespace/future-model' },
         ],
       },

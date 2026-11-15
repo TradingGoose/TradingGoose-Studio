@@ -24,6 +24,8 @@ export interface RegistryProvider {
 export function isLanguageModel(provider: string, modelId: string): boolean {
   // Google Deep Research requires Interactions, not the adapter's generateContent API.
   if (provider === 'google' && modelId.startsWith('deep-research-')) return false
+  // Tinfoil's encoder lacks a catalog type: https://docs.tinfoil.sh/models/embedding
+  if (provider === 'tinfoil' && modelId === 'nomic-embed-text') return false
   const model = modelCatalog[provider]?.models?.[modelId]
   if (model?.type) return model.type === 'chat'
   if (
@@ -44,7 +46,7 @@ export async function assertListedModel(model: string): Promise<void> {
   if (!provider || !connection?.models.includes(modelId) || !isLanguageModel(provider, modelId)) {
     throw Object.assign(
       new Error(
-        `Model "${model}" is not a listed Mastra language model. Select a listed provider/model in the Model field.`
+        `Model "${model}" is not a listed language model. Select a listed provider/model in the Model field.`
       ),
       { status: 400 }
     )
@@ -105,7 +107,7 @@ export async function assertListedEmbeddingModel(model: string): Promise<Registr
   if (!listed)
     throw Object.assign(
       new Error(
-        `Embedding model "${model}" is not listed by Mastra. Select a listed provider/model in the Model field.`
+        `Embedding model "${model}" is not available. Select a listed provider/model in the Model field.`
       ),
       { status: 400 }
     )

@@ -60,6 +60,7 @@ it('retains exact native generation identities and capabilities', async () => {
     'openai/gpt-3.5-turbo',
     'openrouter/openai/gpt-audio',
     'poe/openai/gpt-5.4',
+    'tinfoil/gpt-oss-120b',
   ]) {
     await expect(assertListedModel(id)).resolves.toBeUndefined()
     expect(generation).toContainEqual(getNativeModel(id))
@@ -81,6 +82,7 @@ it('excludes unsupported gateways and published non-chat APIs from generation', 
     'google/lyria-3-pro-preview',
     'openrouter/google/lyria-3-clip-preview',
     'poe/google/lyria',
+    'tinfoil/nomic-embed-text',
   ])
   for (const [provider, config] of Object.entries(GatewayRegistry.getInstance().getProviders())) {
     for (const modelId of config.models) {

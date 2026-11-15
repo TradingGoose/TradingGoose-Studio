@@ -485,6 +485,7 @@ describe('/api/admin/system-settings route', () => {
     ['google', 'gemini-embedding-2'],
     ['google', 'lyria-3-clip-preview'],
     ['google', 'lyria-3-pro-preview'],
+    ['tinfoil', 'nomic-embed-text'],
   ])('rejects non-language Copilot model %s/%s before saving', async (provider, model) => {
     const { PATCH } = await import('./route')
     const response = await PATCH(
