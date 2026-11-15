@@ -91,13 +91,50 @@ const suspended = (items: Pending[]) => ({
   text: '',
   pending: items,
 })
-const terminalResponse = <T extends { status: string }>(value: T) =>
-  eventResponse([
-    {
-      type: value.status === 'completed' ? 'response.completed' : 'response.suspended',
-      result: value,
-    },
-  ])
+let admittedObservation: Response | undefined
+const acceptObservation = (
+  response: Response,
+  id = threadId,
+  messageId = 'user-native',
+  nativeRunId = runId
+) => {
+  admittedObservation = response
+  return json({ status: 'accepted', threadId: id, runId: nativeRunId, messageId }, 202)
+}
+const acceptTurn = (
+  value: ReturnType<typeof ready> | ReturnType<typeof suspended> = ready(),
+  events: object[] = []
+) => {
+  const result = {
+    ...('pending' in value
+      ? pendingHistory(value.pending)
+      : historyResult([
+          history[0],
+          { ...history[1], runId: value.runId, parts: [{ type: 'text', text: value.text }] },
+        ])),
+    threadId: value.threadId,
+  }
+  return acceptObservation(
+    eventResponse([
+      {
+        type: 'thread.history',
+        result: historyResult([history[0]], [], value.threadId),
+        activeRunId: value.runId,
+      },
+      { type: 'thread.started', runId: value.runId, messageId: history[1].id },
+      ...events.map((event) => ({ type: 'thread.output', runId: value.runId, event })),
+      {
+        type: 'thread.status',
+        runId: value.runId,
+        status: value.status === 'completed' ? 'success' : 'suspended',
+        history: result,
+      },
+    ]),
+    value.threadId,
+    'user-native',
+    value.runId
+  )
+}
 const history = [
   {
     id: 'user-native',
@@ -200,7 +237,7 @@ function defaultResponse(request: CopilotRequest) {
       status: 'cancel_requested',
       runId: request.runId,
     })
-  return terminalResponse(ready())
+  return acceptTurn(ready())
 }
 function eventStream(events: object[] = []) {
   let controller!: ReadableStreamDefaultController<Uint8Array>
@@ -223,13 +260,32 @@ function eventStream(events: object[] = []) {
     cancelled,
   }
 }
+function outputStream(events: object[] = []) {
+  return eventStream([
+    { type: 'thread.history', result: historyResult([history[0]]), activeRunId: runId },
+    { type: 'thread.started', runId, messageId: history[1].id },
+    ...events.map((event) => ({ type: 'thread.output', runId, event })),
+  ])
+}
 function eventResponse(events: object[]) {
   const stream = eventStream(events)
   stream.close()
   return stream.response
 }
 function observingStream(result = historyResult(), activeRunId: string | null = null) {
-  return eventStream([{ type: 'thread.history', result, activeRunId }])
+  return eventStream([
+    { type: 'thread.history', result, activeRunId },
+    ...(activeRunId
+      ? []
+      : [
+          {
+            type: 'thread.status',
+            runId: result.pending[0]?.target.runId ?? runId,
+            status: result.pending.length ? 'suspended' : 'success',
+            history: result,
+          },
+        ]),
+  ])
 }
 beforeEach(() => {
   const selections = new Map<string, string>()
@@ -255,7 +311,12 @@ beforeEach(() => {
   workflowRequests = []
   onWorkflow = (id) => json({ data: { id, workspaceId: 'original-entity-workspace' } })
   onCommand = () => undefined
-  onObserve = async (request, init) => (await onCommand(request, init)) ?? defaultResponse(request)
+  admittedObservation = undefined
+  onObserve = async (request, init) => {
+    const admitted = admittedObservation
+    admittedObservation = undefined
+    return (await onCommand(request, init)) ?? admitted ?? defaultResponse(request)
+  }
   onTitle = () => json({ title: null })
   vi.clearAllMocks()
   vi.stubGlobal(
@@ -319,31 +380,9 @@ describe('canonical browser conversation transport', () => {
     ])
   })
 
-  it('keeps a newer observed run busy after the submitted response completes', async () => {
-    setChat()
-    const observer = observingStream(historyResult(), 'newer-run')
-    onObserve = () => observer.response
-    expect(await store().getState().sendMessage('First')).toBe(true)
-    expect(store().getState()).toMatchObject({ currentRunId: 'newer-run', isSendingMessage: true })
-    expect(await store().getState().sendMessage('Wait')).toBe(false)
-    observer.emit({
-      type: 'thread.status',
-      runId: 'newer-run',
-      status: 'success',
-      history: historyResult(),
-    })
-    await vi.waitFor(() =>
-      expect(store().getState()).toMatchObject({ currentRunId: null, isSendingMessage: false })
-    )
-    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-  })
-
   it('reconnects a lost admitted response, projects later output and never submits inference again', async () => {
     setChat()
-    const generation = eventStream([
-      { type: 'response.started', threadId, runId },
-      { type: 'text.delta', text: 'Before disconnect' },
-    ])
+    const generation = outputStream([{ type: 'text.delta', text: 'Before disconnect' }])
     const observer = eventStream([
       {
         type: 'thread.history',
@@ -361,34 +400,24 @@ describe('canonical browser conversation transport', () => {
         event: { type: 'text.delta', text: 'Replayed and live output' },
       },
     ])
-    onCommand = (request) => (request.command === 'message' ? generation.response : undefined)
-    onObserve = () => observer.response
+    onCommand = (request) =>
+      request.command === 'message' ? acceptObservation(generation.response) : undefined
+    let observations = 0
+    onObserve = () => (++observations === 1 ? generation.response : observer.response)
     const sending = store().getState().sendMessage('Read')
     await vi.waitFor(() =>
       expect(store().getState().messages.at(-1)?.content).toBe('Before disconnect')
     )
     generation.fail(new Error('Connection lost'))
-    await vi.waitFor(() =>
-      expect(store().getState().messages.at(-1)?.content).toBe('Replayed and live output')
+    await vi.waitFor(
+      () => expect(store().getState().messages.at(-1)?.content).toBe('Replayed and live output'),
+      { timeout: 2500 }
     )
     expect(store().getState().isSendingMessage).toBe(true)
-    observer.emit({
-      type: 'thread.status',
-      runId: 'older-run',
-      status: 'success',
-      history: historyResult(),
-    })
-    observer.emit({ type: 'thread.started', runId: 'older-run', messageId: 'older-assistant' })
     observer.emit({
       type: 'thread.output',
       runId: 'older-run',
       event: { type: 'text.delta', text: 'Unrelated output' },
-    })
-    observer.emit({
-      type: 'thread.error',
-      history: historyResult(),
-      runId: 'older-run',
-      error: { code: 'GENERATION_FAILED', message: 'Unrelated error' },
     })
     await Promise.resolve()
     expect(store().getState().currentRunId).toBe(runId)
@@ -398,7 +427,7 @@ describe('canonical browser conversation transport', () => {
     expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
     expect(store().getState().isSendingMessage).toBe(false)
     expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-    expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(1)
+    expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(2)
   })
 
   it('continues the same conversation after an expired run without resuming or replaying it', async () => {
@@ -420,6 +449,7 @@ describe('canonical browser conversation transport', () => {
     })
     expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
     expect(commands.map((request) => request.command)).toEqual(['thread.observe'])
+    onObserve = () => observingStream(historyResult()).response
     expect(await store().getState().sendMessage('Continue here')).toBe(true)
     expect(commands.filter((request) => request.command === 'message')).toEqual([
       expect.objectContaining({
@@ -523,7 +553,8 @@ describe('canonical browser conversation transport', () => {
     onObserve = () => observer.response
     await store().getState().selectChat(chat())
     observer.emit({
-      type: 'thread.error',
+      type: 'thread.status',
+      status: 'failed',
       history: historyResult(),
       runId,
       error: { code: 'STREAM_INTERRUPTED', message: 'Response interrupted' },
@@ -616,13 +647,18 @@ describe('canonical browser conversation transport', () => {
           if (command.command !== 'message') return
           currentUsage = 0.18
           return status === 'failed'
-            ? eventResponse([
-                {
-                  type: 'response.error',
-                  result: { status, error: { code: 'GENERATION_FAILED', message: 'Interrupted' } },
-                },
-              ])
-            : terminalResponse(status === 'completed' ? ready() : suspended([]))
+            ? acceptObservation(
+                eventResponse([
+                  {
+                    type: 'thread.status',
+                    runId,
+                    status: 'failed',
+                    history: historyResult(),
+                    error: { code: 'GENERATION_FAILED', message: 'Interrupted' },
+                  },
+                ])
+              )
+            : acceptTurn(status === 'completed' ? ready() : suspended([]))
         }
         expect(await store().getState().sendMessage('Describe')).toBe(status !== 'failed')
         await vi.waitFor(() =>
@@ -873,7 +909,7 @@ describe('canonical browser conversation transport', () => {
       return json(wrong)
     }
     expect(await store().getState().sendMessage('First')).toBe(false)
-    expect(store().getState().error).toBe('Copilot stream is unavailable')
+    expect(store().getState().error).toBe('Copilot command was not accepted')
     expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
     expect(titleRequests).toEqual([])
   })
@@ -881,123 +917,20 @@ describe('canonical browser conversation transport', () => {
     setChat()
     onCommand = (request) =>
       request.command === 'message'
-        ? eventResponse([
-            { type: 'response.started', runId, threadId },
+        ? acceptTurn(ready(), [
             { type: 'reasoning.delta', text: 'thinking🦆' },
             { type: 'text.delta', text: 'preview' },
-            { type: 'response.completed', result: ready() },
           ])
         : undefined
     expect(await store().getState().sendMessage('Hello')).toBe(true)
-    expect(store().getState().lastNativeOutcome).toMatchObject({
-      status: 'completed',
-      text: 'canonical answer',
-    })
+    expect(store().getState().currentRunId).toBeNull()
     expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
   })
-  it.each(['missing-terminal', 'raw-openai', 'trailing-data'])(
-    'refuses %s streams without inventing success',
-    async (mode) => {
-      setChat()
-      onCommand = (request) => {
-        if (request.command !== 'message') return
-        if (mode === 'raw-openai')
-          return new Response('data: {"choices":[]}\n\n', {
-            headers: { 'content-type': 'text/event-stream' },
-          })
-        const events =
-          mode === 'missing-terminal'
-            ? [{ type: 'text.delta', text: 'unfinished' }]
-            : [
-                {
-                  type: 'response.completed',
-                  result: {
-                    ...ready(),
-                  },
-                },
-                ...(mode === 'trailing-data' ? [{ type: 'text.delta', text: 'extra' }] : []),
-              ]
-        return eventResponse(events)
-      }
-      expect(await store().getState().sendMessage('Hello')).toBe(false)
-      expect(store().getState().error).toBeTruthy()
-      expect(titleRequests).toEqual([])
-    }
-  )
-  it.each(['pending', 'unavailable', 'navigation'])(
-    'reconciles an accepted failure before releasing its run (history=%s)',
-    async (historyState) => {
-      setChat()
-      const item = pending('approval', 'rename_workflow')
-      const observation = defer<Response>()
-      onObserve = () => observation.promise
-      onCommand = (request) =>
-        request.command === 'message'
-          ? eventResponse([
-              { type: 'response.started', runId, threadId },
-              {
-                type: 'tool.display',
-                toolCallId: item.target.toolCallId,
-                toolName: item.target.toolName,
-              },
-              {
-                type: 'response.error',
-                result: {
-                  status: 'failed',
-                  error: { code: 'FAILED', message: 'Pending discovery failed' },
-                },
-              },
-            ])
-          : undefined
-      const sending = store().getState().sendMessage('Rename')
-      await vi.waitFor(() =>
-        expect(commands.some((request) => request.command === 'thread.observe')).toBe(true)
-      )
-      expect(store().getState()).toMatchObject({ currentRunId: runId, isSendingMessage: true })
-      expect(store().getState().toolCallsById[nativeToolCallId(item.target)].state).toBe(
-        ClientToolCallState.generating
-      )
-      expect(await store().getState().sendMessage('Next')).toBe(false)
-      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-      if (historyState === 'navigation') await store().getState().createNewChat()
-      observation.resolve(
-        historyState === 'unavailable'
-          ? json(
-              { status: 'refused', error: { code: 'FORBIDDEN', message: 'History unavailable' } },
-              403
-            )
-          : historyResponse([item])
-      )
-      expect(await sending).toBe(false)
-      if (historyState === 'navigation') {
-        expect(store().getState()).toMatchObject({
-          currentChat: null,
-          currentRunId: null,
-          toolCallsById: {},
-        })
-        return
-      }
-      expect(store().getState()).toMatchObject({
-        currentRunId: runId,
-        isAwaitingContinuation: true,
-        lastNativeOutcome: { status: historyState === 'unavailable' ? 'refused' : 'failed' },
-      })
-      if (historyState === 'pending')
-        expect(store().getState().toolCallsById[nativeToolCallId(item.target)]).toMatchObject({
-          pending: item,
-          state: ClientToolCallState.pending,
-        })
-      expect(await store().getState().abortMessage()).toBe(true)
-      expect(commands.at(-1)).toEqual({ command: 'cancel', workspaceId, threadId, runId })
-      expect(store().getState().currentRunId).toBeNull()
-    }
-  )
   it('settles display-only tools during a UI abort and waits for cancellation acknowledgement', async () => {
     setChat()
     const item = pending('approval')
     const acknowledgement = defer<Response>()
-    const stream = eventStream([
-      { type: 'response.started', runId, threadId, messageId: 'canonical-live-user' },
+    const stream = outputStream([
       {
         type: 'tool.display',
         toolCallId: item.target.toolCallId,
@@ -1008,7 +941,7 @@ describe('canonical browser conversation transport', () => {
       request.command === 'cancel'
         ? acknowledgement.promise
         : request.command === 'message'
-          ? stream.response
+          ? acceptObservation(stream.response, threadId, 'canonical-live-user')
           : undefined
     const sending = store().getState().sendMessage('Read')
     await vi.waitFor(() =>
@@ -1029,16 +962,10 @@ describe('canonical browser conversation transport', () => {
     acknowledgement.resolve(defaultResponse(cancel))
     expect(await stopping).toBe(true)
     expect(await sending).toBe(false)
-    await vi.waitFor(() =>
-      expect(store().getState().lastNativeOutcome?.status).toBe('cancel_requested')
-    )
     expect(stream.cancelled).toHaveBeenCalledOnce()
     expect(commands.filter((request) => request.command === 'cancel')).toEqual([
       expect.objectContaining({ threadId, runId, workspaceId }),
     ])
-    expect(store().getState().lastNativeOutcome).toMatchObject({
-      status: 'cancel_requested',
-    })
     expect(store().getState().isAborting).toBe(false)
     expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
     const call = store().getState().toolCallsById[nativeToolCallId(item.target)]
@@ -1061,7 +988,6 @@ describe('canonical browser conversation transport', () => {
     queryClient.setQueryData(subscriptionKeys.user(), { current: 0.1 })
     expect(await store().getState().abortMessage()).toBe(true)
     expect(queryClient.getQueryState(subscriptionKeys.user())?.isInvalidated).toBe(true)
-    expect(store().getState().lastNativeOutcome?.status).toBe('cancel_requested')
     expect(commands.filter((request) => request.command === 'cancel')).toEqual([
       { command: 'cancel', workspaceId, threadId, runId },
     ])
@@ -1074,10 +1000,7 @@ describe('canonical browser conversation transport', () => {
     'keeps a text-only run cancellable after a %s cancellation failure',
     async (failure) => {
       setChat()
-      const stream = eventStream([
-        { type: 'response.started', runId, threadId },
-        { type: 'text.delta', text: 'Still writing' },
-      ])
+      const stream = outputStream([{ type: 'text.delta', text: 'Still writing' }])
       const error = {
         transport: 'Cancellation connection lost',
         server: 'Try Stop again',
@@ -1091,7 +1014,7 @@ describe('canonical browser conversation transport', () => {
             : json({ status: 'cancel_requested', runId: 'different-run' })
         }
         if (request.command !== 'message') return
-        return stream.response
+        return acceptObservation(stream.response)
       }
       const sending = store().getState().sendMessage('Write an answer')
       await vi.waitFor(() =>
@@ -1162,9 +1085,7 @@ describe('canonical browser conversation transport', () => {
   it('rejects a stale thread response without selecting it', async () => {
     setChat()
     onCommand = (request) =>
-      request.command === 'message'
-        ? terminalResponse({ ...ready(), threadId: 'other' })
-        : undefined
+      request.command === 'message' ? acceptTurn({ ...ready(), threadId: 'other' }) : undefined
     expect(await store().getState().sendMessage('Hello')).toBe(false)
     expect(store().getState().currentChat?.threadId).toBe(threadId)
   })
@@ -1177,12 +1098,53 @@ describe('canonical browser conversation transport', () => {
     await store().getState().createNewChat('another-workspace')
     const cancel = commands.find((command) => command.command === 'cancel')!
     late.resolve(defaultResponse(cancel))
-    await vi.waitFor(() => expect(store().getState().lastNativeOutcome).toBeNull())
+    await vi.waitFor(() => expect(store().getState().currentRunId).toBeNull())
     expect(store().getState().conversationWorkspaceId).toBe('another-workspace')
   })
 })
 
 describe('failed pending continuations', () => {
+  it.each([false, true])(
+    'preserves an accepted failure and authoritative pending state (pending=%s)',
+    async (withPending) => {
+      setChat()
+      const item = pending('approval', 'rename_workflow')
+      const saved = withPending ? pendingHistory([item]) : historyResult([history[0]])
+      const error = { code: 'GENERATION_FAILED', message: 'Model request failed' }
+      onCommand = (request) =>
+        request.command === 'message'
+          ? acceptObservation(
+              eventResponse([
+                { type: 'thread.history', result: historyResult([history[0]]), activeRunId: runId },
+                { type: 'thread.started', runId, messageId: history[1].id },
+                {
+                  type: 'thread.output',
+                  runId,
+                  event: { type: 'text.delta', text: 'Unsaved partial answer' },
+                },
+                { type: 'thread.status', runId, status: 'failed', history: saved, error },
+              ])
+            )
+          : undefined
+      const accepted = vi.fn()
+      expect(await store().getState().sendMessage('Rename', { onAccepted: accepted })).toBe(false)
+      expect(accepted).toHaveBeenCalledOnce()
+      expect(store().getState()).toMatchObject({
+        error: error.message,
+        currentRunId: withPending ? runId : null,
+        isAwaitingContinuation: withPending,
+        isSendingMessage: false,
+      })
+      onObserve = () => observingStream(saved).response
+      await reconnectSelectedChat()
+      expect(store().getState().error).toBe(error.message)
+      if (withPending)
+        expect(store().getState().toolCallsById[nativeToolCallId(item.target)].pending).toEqual(
+          item
+        )
+    }
+  )
+
   it.each(
     (['approval', 'result'] as const).flatMap((stage) =>
       ['refused', 'error', 'http', 'transport'].map((failure) => ({ stage, failure }))
@@ -1205,11 +1167,7 @@ describe('failed pending continuations', () => {
           message: stage === 'approval' ? 'Copilot model unavailable' : 'Copilot API key removed',
         },
       }
-      return failure === 'http'
-        ? json(result, 409)
-        : eventResponse([
-            { type: failure === 'error' ? 'response.error' : 'response.refused', result },
-          ])
+      return json(result, failure === 'error' ? 503 : 409)
     }
 
     await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
@@ -1266,15 +1224,17 @@ describe('failed pending continuations', () => {
     expect(store().getState().toolCallsById[nativeToolCallId(item.target)].state).toBe('generating')
     onCommand = (request) =>
       request.command === 'tool.approve'
-        ? eventResponse([
-            {
-              type: 'response.refused',
-              result: {
-                status: 'refused',
+        ? acceptObservation(
+            eventResponse([
+              {
+                type: 'thread.status',
+                runId,
+                status: 'failed',
+                history: historyResult(),
                 error: { code: 'STALE_TARGET', message: 'Copilot API key removed' },
               },
-            },
-          ])
+            ])
+          )
         : undefined
     await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(2)
@@ -1285,35 +1245,6 @@ describe('failed pending continuations', () => {
     expect(getClientTool(nativeToolCallId(item.target))).toBeUndefined()
     expect(() => instance.setState(ClientToolCallState.success)).not.toThrow()
     expect(store().getState().toolCallsById[nativeToolCallId(item.target)]).toBeUndefined()
-    expect(await store().getState().sendMessage('Next turn')).toBe(true)
-  })
-
-  it('keeps a completed continuation settled if later stream data is invalid', async () => {
-    const item = pending('approval', 'rename_workflow')
-    onCommand = (request) =>
-      request.command === 'thread.observe' ? historyResponse([item]) : undefined
-    await store().getState().selectChat(chat())
-    onCommand = (request) =>
-      request.command === 'tool.approve'
-        ? eventResponse([
-            { type: 'response.started', runId, threadId },
-            {
-              type: 'tool.result',
-              toolCallId: item.target.toolCallId,
-              toolName: item.target.toolName,
-              result: { message: 'Renamed' },
-            },
-            { type: 'response.completed', result: ready() },
-            { type: 'text.delta', text: 'Invalid trailing data' },
-          ])
-        : undefined
-    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
-    expect(store().getState()).toMatchObject({
-      currentRunId: null,
-      isAwaitingContinuation: false,
-      lastNativeOutcome: { status: 'completed' },
-    })
-    onCommand = () => undefined
     expect(await store().getState().sendMessage('Next turn')).toBe(true)
   })
 })
@@ -1391,7 +1322,7 @@ describe('local pending approval and preview decisions', () => {
     )
     const queued = store().getState().executeCopilotToolCall(nativeToolCallId(second.target))
     await store().getState().createNewChat()
-    gate.resolve(terminalResponse(ready()))
+    gate.resolve(acceptTurn(ready()))
     await Promise.all([active, queued])
     expect(commands.filter((request) => request.command === 'tool.execute')).toHaveLength(1)
   })
@@ -1514,10 +1445,7 @@ describe('canonical history, edits and context', () => {
     const answer = 'Replacement answer'
     onCommand = (request) =>
       request.command === 'message'
-        ? eventResponse([
-            { type: 'response.started', runId, threadId, messageId: history[0].id },
-            { type: 'response.completed', result: ready(answer) },
-          ])
+        ? acceptTurn(ready(answer))
         : request.command === 'thread.observe'
           ? observingStream(
               historyResult([
@@ -1577,6 +1505,38 @@ describe('canonical history, edits and context', () => {
     expect(store().getState().messages).toEqual(before)
     expect(store().getState().error).toBe('The previous turn is still finishing')
   })
+  it('keeps an admitted edit when initial queued history still contains the old answer', async () => {
+    await store().getState().selectChat(chat())
+    const stream = observingStream(historyResult(), runId)
+    onCommand = (request) =>
+      request.command === 'message' ? acceptObservation(stream.response) : undefined
+    const accepted = vi.fn()
+    const editing = store()
+      .getState()
+      .sendMessage('Edited prompt', { messageId: history[0].id, onAccepted: accepted })
+    await vi.waitFor(() => expect(accepted).toHaveBeenCalledOnce())
+    await vi.waitFor(() =>
+      expect(commands.filter(({ command }) => command === 'thread.observe')).toHaveLength(2)
+    )
+    expect(
+      store()
+        .getState()
+        .messages.map(({ id, content }) => ({ id, content }))
+    ).toEqual([{ id: history[0].id, content: 'Edited prompt' }])
+    stream.emit({ type: 'thread.started', runId, messageId: 'edited-answer' })
+    const editedHistory = historyResult([
+      { ...history[0], parts: [{ type: 'text', text: 'Edited prompt' }] },
+      { ...history[1], id: 'edited-answer', parts: [{ type: 'text', text: 'New answer' }] },
+    ])
+    stream.emit({ type: 'thread.status', runId, status: 'success', history: editedHistory })
+    expect(await editing).toBe(true)
+    expect(
+      store()
+        .getState()
+        .messages.map(({ content }) => content)
+    ).toEqual(['Edited prompt', 'New answer'])
+  })
+
   it('refuses an edit that would erase native tool history before replacing its answer', async () => {
     await store().getState().selectChat(chat())
     store().setState({
@@ -1643,13 +1603,7 @@ describe('actual bounded initial-title publication', () => {
         if (request.command !== 'message') return
         persisted = true
         const terminal = status === 'completed' ? ready() : suspended([pending('approval')])
-        return eventResponse([
-          { type: 'response.started', threadId, runId },
-          {
-            type: status === 'completed' ? 'response.completed' : 'response.suspended',
-            result: terminal,
-          },
-        ])
+        return acceptTurn(terminal)
       }
       await store()
         .getState()
@@ -1692,34 +1646,9 @@ describe('actual bounded initial-title publication', () => {
     )
     store().setState({ currentChat: { ...chat(null), title: 'Manual title' } })
     store().setState({ currentChat: { ...chat(null), title: '' } })
-    late.resolve(terminalResponse(ready()))
+    late.resolve(acceptTurn(ready()))
     expect(await sending).toBe(true)
     expect(titleRequests).toEqual([])
-  })
-  it('keeps the completed outcome when history readback fails without replaying inference', async () => {
-    onCommand = (request) =>
-      request.command === 'message'
-        ? terminalResponse({ ...ready() })
-        : request.command === 'thread.observe'
-          ? json(
-              {
-                status: 'refused',
-                error: {
-                  code: 'FORBIDDEN',
-                  message: 'Current history access denied',
-                },
-              },
-              403
-            )
-          : undefined
-    expect(await store().getState().sendMessage('First')).toBe(true)
-    expect(store().getState().error).toContain('Current history access denied')
-    expect(
-      store()
-        .getState()
-        .messages.find((message) => message.role === 'assistant')?.content
-    ).toBe('canonical answer')
-    expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
   })
   it('keeps the generated title outcome when publication fails without replay', async () => {
     onTitle = () =>
@@ -1799,7 +1728,7 @@ describe('edited prompt ownership', () => {
     const editing = store().getState().sendMessage('edited A', { messageId: history[0].id })
     await store().getState().selectChat(chat(null, 'thread-B'))
     const before = store().getState().messages
-    late.resolve(terminalResponse(ready('Answer for A')))
+    late.resolve(acceptTurn(ready('Answer for A')))
     expect(await editing).toBe(false)
     expect(store().getState().currentChat?.threadId).toBe('thread-B')
     expect(store().getState().messages).toEqual(before)
@@ -1870,7 +1799,7 @@ describe('requested conversation scope survives discovery failure', () => {
     expect(store().getState().isSendingMessage).toBe(true)
     expect(store().getState().conversationWorkspaceId).toBe(workspaceId)
     expect(commands.some((request) => request.command === 'cancel')).toBe(false)
-    message.resolve(terminalResponse(ready()))
+    message.resolve(acceptTurn(ready()))
     await sending
   })
   it('does not replace an active selected conversation on failed competing discovery', async () => {
@@ -1914,188 +1843,7 @@ describe('reopened workflow pending cards', () => {
   })
 })
 
-describe('display-only terminal settlement and optional completed history', () => {
-  it.each([
-    ['error', false],
-    ['error', true],
-    ['refused', true],
-    ['cancel', true],
-  ] as const)(
-    'settles SSE %s and reconciles only accepted runs (accepted=%s)',
-    async (kind, accepted) => {
-      setChat()
-      onCommand = (request) =>
-        request.command === 'message'
-          ? eventResponse([
-              ...(accepted
-                ? [
-                    { type: 'response.started', runId, threadId },
-                    {
-                      type: 'tool.display',
-                      toolName: 'read_workflow',
-                      toolCallId: 'display-only',
-                    },
-                  ]
-                : []),
-              kind === 'cancel'
-                ? {
-                    type: 'response.cancel_requested',
-                    result: {
-                      status: 'cancel_requested',
-                      runId,
-                    },
-                  }
-                : {
-                    type: kind === 'error' ? 'response.error' : 'response.refused',
-                    result: {
-                      status: kind === 'error' ? 'failed' : 'refused',
-                      error: {
-                        code: 'FAILED',
-                        message: 'Actual terminal refusal',
-                      },
-                    },
-                  },
-            ])
-          : undefined
-      expect(await store().getState().sendMessage('read')).toBe(false)
-      const state = store().getState()
-      expect(hasUiActiveToolCalls(state.toolCallsById)).toBe(false)
-      expect(state.error).toBe(kind === 'cancel' ? null : 'Actual terminal refusal')
-      if (kind === 'cancel')
-        expect(
-          state.toolCallsById[nativeToolCallId({ runId, toolCallId: 'display-only' })]
-        ).toMatchObject({
-          state: ClientToolCallState.aborted,
-          pending: undefined,
-        })
-      else
-        expect(
-          state.toolCallsById[nativeToolCallId({ runId, toolCallId: 'display-only' })]
-        ).toBeUndefined()
-      expect(state.lastNativeOutcome?.status).toBe(
-        kind === 'cancel' ? 'cancel_requested' : kind === 'error' ? 'failed' : 'refused'
-      )
-      expect(state).toMatchObject({
-        currentRunId: null,
-        isSendingMessage: false,
-        isAwaitingContinuation: false,
-      })
-      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(
-        accepted && kind !== 'cancel' ? 1 : 0
-      )
-      expect(titleRequests).toEqual([])
-      expect(
-        state.messages
-          .flatMap((message) => message.contentBlocks ?? [])
-          .find((block) => block.type === 'tool_call')?.toolCall.state
-      ).toBe(state.toolCallsById[nativeToolCallId({ runId, toolCallId: 'display-only' })]?.state)
-      expect(tools.browser).not.toHaveBeenCalled()
-      expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
-      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-      onCommand = () => undefined
-      expect(await store().getState().sendMessage('Next turn')).toBe(true)
-      expect(store().getState().error).toBeNull()
-    }
-  )
-  it.each(
-    ['error', 'refused'].flatMap((kind) =>
-      ['status', 'error'].map((notification) => ({ kind, notification }))
-    )
-  )(
-    'keeps an accepted $kind visible through history and thread.$notification',
-    async ({ kind, notification }) => {
-      setChat()
-      const observer = observingStream(historyResult([history[0]]), runId)
-      onObserve = () => observer.response
-      onCommand = (request) =>
-        request.command === 'message'
-          ? eventResponse([
-              { type: 'response.started', runId, threadId },
-              { type: 'text.delta', text: 'Unsaved partial answer' },
-              {
-                type: `response.${kind}`,
-                result: {
-                  status: kind === 'error' ? 'failed' : 'refused',
-                  error: { code: 'FAILED', message: 'Actual terminal refusal' },
-                },
-              },
-            ])
-          : undefined
-      const onAccepted = vi.fn()
-      expect(await store().getState().sendMessage('Read', { onAccepted })).toBe(false)
-      expect(onAccepted).toHaveBeenCalledOnce()
-      expect(
-        store()
-          .getState()
-          .messages.map((message) => message.id)
-      ).toEqual([history[0].id])
-      expect(store().getState().error).toBe('Actual terminal refusal')
-      const saved = historyResult([
-        history[0],
-        { ...history[1], parts: [{ type: 'text', text: 'Saved partial answer' }] },
-      ])
-      observer.emit({
-        type: `thread.${notification}`,
-        runId,
-        history: saved,
-        ...(notification === 'status'
-          ? { status: 'success' }
-          : { error: { code: 'STREAM_INTERRUPTED', message: 'Generic interruption' } }),
-      })
-      await vi.waitFor(() => expect(store().getState().currentRunId).toBeNull())
-      expect(
-        store()
-          .getState()
-          .messages.map((message) => message.content)
-      ).toEqual(['actual native input', 'Saved partial answer'])
-      expect(store().getState().error).toBe('Actual terminal refusal')
-      onObserve = () => observingStream(saved).response
-      await reconnectSelectedChat()
-      expect(store().getState().error).toBe('Actual terminal refusal')
-      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-      await store().getState().createNewChat()
-      expect(store().getState().error).toBeNull()
-    }
-  )
-  it.each(['json', 'sse'])(
-    'preserves completed %s output and parts until native history arrives',
-    async (transport) => {
-      setChat()
-      const text = ' exact completed🦆\n '
-      const reasoning = ' exact reasoning '
-      const observer = eventStream()
-      onObserve = () => observer.response
-      onCommand = (request) =>
-        request.command === 'message'
-          ? transport === 'json'
-            ? terminalResponse(ready(text))
-            : eventResponse([
-                { type: 'reasoning.delta', text: reasoning },
-                { type: 'text.delta', text },
-                { type: 'response.completed', result: ready(text) },
-              ])
-          : undefined
-      const sending = store().getState().sendMessage('once')
-      await vi.waitFor(() => expect(store().getState().lastNativeOutcome?.status).toBe('completed'))
-      const before = store().getState()
-      expect(before.messages.find((message) => message.role === 'assistant')?.content).toBe(text)
-      if (transport === 'sse')
-        expect(before.messages.flatMap((message) => message.contentBlocks ?? [])).toContainEqual(
-          expect.objectContaining({ type: 'thinking', content: reasoning })
-        )
-      expect(before.lastNativeOutcome?.status).toBe('completed')
-      expect(before.error).toBeNull()
-      observer.emit({ type: 'thread.history', result: historyResult(), activeRunId: null })
-      expect(await sending).toBe(true)
-      expect(
-        store()
-          .getState()
-          .messages.map((message) => message.content)
-      ).toEqual(history.map((message) => message.parts[0].text))
-      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(1)
-    }
-  )
+describe('display-only tool settlement', () => {
   it('keeps genuine pending obligations when Stop settles only display-only activity', () => {
     const item = pending()
     installPending(item)
@@ -2236,10 +1984,97 @@ describe('explicit reopened Drive business choice', () => {
 })
 
 describe('message acceptance', () => {
-  it('acknowledges the submitted message while its response is still streaming', async () => {
+  it("shows a successor browser tool without executing another browser's turn", async () => {
     setChat()
-    const stream = eventStream()
-    onCommand = (request) => (request.command === 'message' ? stream.response : undefined)
+    const item = { ...pending('result', 'sleep'), originalArgs: { seconds: 0 } }
+    item.target = { ...item.target, runId: 'successor-run' }
+    const stream = eventResponse([
+      { type: 'thread.history', result: historyResult(), activeRunId: runId },
+      { type: 'thread.started', runId: item.target.runId, messageId: 'successor-answer' },
+      {
+        type: 'thread.output',
+        runId: item.target.runId,
+        event: {
+          type: 'tool.display',
+          toolCallId: item.target.toolCallId,
+          toolName: 'sleep',
+          args: item.originalArgs,
+        },
+      },
+      {
+        type: 'thread.status',
+        runId: item.target.runId,
+        status: 'suspended',
+        history: pendingHistory([item]),
+      },
+    ])
+    onCommand = (request) => (request.command === 'message' ? acceptObservation(stream) : undefined)
+    expect(await store().getState().sendMessage('Original request')).toBe(true)
+    expect(store().getState().currentRunId).toBe(item.target.runId)
+    expect(store().getState().isAwaitingContinuation).toBe(true)
+    expect(tools.browser).not.toHaveBeenCalled()
+    expect(commands.some((request) => request.command.startsWith('tool.'))).toBe(false)
+  })
+
+  it.each(['live', 'hydrated', 'completed'])(
+    'follows the authoritative successor when another browser starts a %s turn',
+    async (mode) => {
+      setChat()
+      const nextRunId = 'successor-run'
+      const nextHistory = historyResult([
+        ...history,
+        { ...history[0], id: 'successor-user', parts: [{ type: 'text', text: 'Another browser' }] },
+        {
+          ...history[1],
+          id: 'successor-answer',
+          runId: nextRunId,
+          parts: [{ type: 'text', text: 'Latest answer' }],
+        },
+      ])
+      const stream = eventStream([
+        {
+          type: 'thread.history',
+          result: mode === 'completed' ? nextHistory : historyResult(),
+          activeRunId: mode === 'completed' ? null : mode === 'hydrated' ? nextRunId : runId,
+        },
+      ])
+      onCommand = (request) =>
+        request.command === 'message' ? acceptObservation(stream.response) : undefined
+      const sending = store().getState().sendMessage('Original request')
+      await vi.waitFor(() =>
+        expect(commands.some((request) => request.command === 'thread.observe')).toBe(true)
+      )
+      if (mode !== 'completed') {
+        stream.emit({ type: 'thread.started', runId: nextRunId, messageId: 'successor-answer' })
+        stream.emit({
+          type: 'thread.output',
+          runId: nextRunId,
+          event: { type: 'text.delta', text: 'Latest answer' },
+        })
+        await vi.waitFor(() => {
+          expect(store().getState().currentRunId).toBe(nextRunId)
+          expect(store().getState().messages.at(-1)?.content).toBe('Latest answer')
+        })
+      }
+      stream.emit({
+        type: 'thread.status',
+        runId: nextRunId,
+        status: 'success',
+        history: nextHistory,
+      })
+      expect(await sending).toBe(true)
+      expect(store().getState().currentRunId).toBeNull()
+      expect(store().getState().isSendingMessage).toBe(false)
+      expect(store().getState().messages.at(-1)?.content).toBe('Latest answer')
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+    }
+  )
+
+  it('acknowledges admission and preserves the submitted user while the turn is queued', async () => {
+    setChat()
+    const admission = defer<Response>()
+    const stream = observingStream(historyResult([]), runId)
+    onCommand = (request) => (request.command === 'message' ? admission.promise : undefined)
     const onAccepted = vi.fn()
     const finished = vi.fn()
     const sending = store().getState().sendMessage('submitted', { onAccepted }).then(finished)
@@ -2247,14 +2082,24 @@ describe('message acceptance', () => {
       expect(commands.some((request) => request.command === 'message')).toBe(true)
     )
     expect(onAccepted).not.toHaveBeenCalled()
-    stream.emit({ type: 'response.started', threadId, runId })
-    stream.emit({ type: 'text.delta', text: 'Working' })
+    admission.resolve(acceptObservation(stream.response))
     await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledOnce())
+    expect(
+      store()
+        .getState()
+        .messages.map(({ role, content }) => ({ role, content }))
+    ).toEqual([{ role: 'user', content: 'submitted' }])
     expect(store().getState().isSendingMessage).toBe(true)
     expect(finished).not.toHaveBeenCalled()
-
-    stream.emit({ type: 'response.completed', result: ready() })
-    stream.close()
+    stream.emit({ type: 'thread.started', runId, messageId: 'native-assistant' })
+    stream.emit({ type: 'thread.output', runId, event: { type: 'text.delta', text: 'Working' } })
+    await vi.waitFor(() => expect(store().getState().messages.at(-1)?.content).toBe('Working'))
+    expect(
+      store()
+        .getState()
+        .messages.filter(({ role }) => role === 'assistant')
+    ).toHaveLength(1)
+    stream.emit({ type: 'thread.status', runId, status: 'success', history: historyResult() })
     await sending
     expect(finished).toHaveBeenCalledWith(true)
     expect(onAccepted).toHaveBeenCalledOnce()
@@ -2273,14 +2118,7 @@ describe('message acceptance', () => {
       )
       if (kind === 'navigation') await store().getState().selectChat(chat('other', 'other'))
       if (kind === 'abort') await store().getState().abortMessage()
-      held.resolve(
-        kind === 'failure'
-          ? json({ error: 'failed' }, 500)
-          : eventResponse([
-              { type: 'response.started', threadId, runId },
-              { type: 'response.completed', result: ready() },
-            ])
-      )
+      held.resolve(kind === 'failure' ? json({ error: 'failed' }, 500) : acceptTurn(ready()))
       expect(await sending).toBe(false)
       expect(onAccepted).not.toHaveBeenCalled()
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
@@ -2409,15 +2247,18 @@ describe('local workflow execution refusals', () => {
     store().setState({ accessLevel: 'full' })
     const target = item()
     const other = { ...pending(), target: { ...pending().target, toolCallId: 'other' } }
-    let otherSettled = false
     onCommand = (request) => {
-      if (request.command === 'message') return terminalResponse(suspended([target, other]))
-      if (request.command === 'thread.observe')
-        return historyResponse(otherSettled ? [target] : [target, other])
-      if (request.command === 'tool.execute' && request.target.toolCallId === 'other') {
-        otherSettled = true
-        return terminalResponse(suspended([target]))
-      }
+      if (request.command === 'message')
+        return acceptTurn(suspended([target, other]), [
+          {
+            type: 'tool.display',
+            toolName: target.target.toolName,
+            toolCallId: target.target.toolCallId,
+            args: target.originalArgs,
+          },
+        ])
+      if (request.command === 'tool.execute' && request.target.toolCallId === 'other')
+        return acceptTurn(suspended([target]))
     }
     await store().getState().sendMessage('Run the workflow')
     await vi.waitFor(() => expect(store().getState().error).toContain('Try again later'))
@@ -2518,7 +2359,7 @@ describe('explicit OAuth popup activation', () => {
     const target = item()
     onCommand = (request) =>
       request.command === 'message'
-        ? terminalResponse(suspended([target]))
+        ? acceptTurn(suspended([target]))
         : request.command === 'thread.observe'
           ? historyResponse([target])
           : undefined
@@ -2611,7 +2452,7 @@ describe('R5 reopened OAuth workspace authorization', () => {
       if (request.command === 'thread.observe') return historyResponse([item])
       if (request.command === 'tool.approve') {
         item.stage = 'result'
-        return terminalResponse(suspended([item]))
+        return acceptTurn(suspended([item]))
       }
       return undefined
     }
@@ -2811,17 +2652,13 @@ describe('R5 per-tool context at actual live call creation', () => {
       onCommand = (request) => {
         if (request.command === 'thread.observe') return historyResponse(items)
         if (request.command === 'message') {
-          if (order === 'terminal') return terminalResponse(suspended(items))
+          if (order === 'terminal') return acceptTurn(suspended(items))
           const displays = items.map((item) => ({
             type: 'tool.display',
             toolCallId: item.target.toolCallId,
             toolName: item.target.toolName,
           }))
-          return eventResponse([
-            { type: 'response.started', threadId, runId },
-            ...displays,
-            { type: 'response.suspended', result: suspended(items) },
-          ])
+          return acceptTurn(suspended(items), displays)
         }
         return undefined
       }
@@ -2953,26 +2790,25 @@ describe('selected native run context', () => {
             .response
         if (request.command === 'tool.approve') {
           continued = true
-          return eventResponse([
+          return acceptTurn(
             {
-              type: 'tool.display',
-              toolCallId: next.target.toolCallId,
-              toolName: next.target.toolName,
+              status: 'suspended',
+              threadId: b.threadId,
+              runId: first.target.runId,
+              text: '',
+              pending: [next],
             },
-            {
-              type: 'response.suspended',
-              result: {
-                status: 'suspended',
-                threadId: b.threadId,
-                runId: first.target.runId,
-                text: '',
-                pending: [next],
+            [
+              {
+                type: 'tool.display',
+                toolCallId: next.target.toolCallId,
+                toolName: next.target.toolName,
               },
-            },
-          ])
+            ]
+          )
         }
         if (request.command === 'tool.execute')
-          return terminalResponse({
+          return acceptTurn({
             status: 'completed',
             threadId: b.threadId,
             runId: first.target.runId,
@@ -3197,69 +3033,39 @@ describe('owned workflow chat deployment UI', () => {
 })
 
 describe('built-in tool continuation', () => {
-  it.each([
-    { disconnected: false, failed: false },
-    { disconnected: true, failed: false },
-    { disconnected: false, failed: true },
-  ])(
-    'automatically executes a live browser tool once after history refresh (disconnected=$disconnected, failed=$failed)',
-    async ({ disconnected, failed }) => {
+  it.each([false, true])(
+    'automatically executes a live browser tool once after suspension (disconnect=%s)',
+    async (disconnected) => {
       const originalArgs = { seconds: 0 }
       const item = { ...pending('result', 'sleep'), originalArgs }
-      const generation =
-        disconnected || failed
-          ? eventStream([
-              { type: 'response.started', threadId, runId },
-              {
-                type: 'tool.display',
-                toolCallId: item.target.toolCallId,
-                toolName: 'sleep',
-                args: originalArgs,
-              },
-            ])
-          : null
-      if (disconnected) setChat()
+      const generation = outputStream([
+        {
+          type: 'tool.display',
+          toolCallId: item.target.toolCallId,
+          toolName: 'sleep',
+          args: originalArgs,
+        },
+      ])
+      setChat()
       onCommand = (request) =>
-        request.command === 'message'
-          ? generation
-            ? generation.response
-            : terminalResponse(suspended([item]))
-          : request.command === 'thread.observe'
-            ? historyResponse([item])
-            : undefined
-      onObserve = () =>
-        eventResponse([
-          {
-            type: 'thread.history',
-            result: pendingHistory([item]),
-            activeRunId: null,
-          },
-          {
-            type: 'thread.status',
-            runId,
-            status: 'suspended',
-            history: pendingHistory([item]),
-          },
-        ])
+        request.command === 'message' ? acceptObservation(generation.response) : undefined
+      let observations = 0
+      onObserve = () => (++observations === 1 ? generation.response : historyResponse([item]))
       const sending = store().getState().sendMessage('Continue')
-      if (generation) {
-        await vi.waitFor(() =>
-          expect(store().getState().toolCallsById[nativeToolCallId(item.target)]?.state).toBe(
-            ClientToolCallState.generating
-          )
+      await vi.waitFor(() =>
+        expect(store().getState().toolCallsById[nativeToolCallId(item.target)]?.state).toBe(
+          ClientToolCallState.generating
         )
-        if (failed) {
-          generation.emit({
-            type: 'response.error',
-            result: {
-              status: 'failed',
-              error: { code: 'FAILED', message: 'Pending discovery failed' },
-            },
-          })
-          generation.close()
-        } else generation.fail(new Error('Connection lost before suspension'))
-      }
-      expect(await sending).toBe(!failed)
+      )
+      if (disconnected) generation.fail(new Error('Connection lost before suspension'))
+      else
+        generation.emit({
+          type: 'thread.status',
+          runId,
+          status: 'suspended',
+          history: pendingHistory([item]),
+        })
+      expect(await sending).toBe(true)
       await vi.waitFor(() => expect(tools.browser).toHaveBeenCalledExactlyOnceWith(originalArgs))
       const call = store().getState().toolCallsById[nativeToolCallId(item.target)]
       expect(call.historical).toBe(false)
@@ -3276,7 +3082,9 @@ describe('built-in tool continuation', () => {
       await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
       expect(tools.browser).toHaveBeenCalledTimes(1)
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
-      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(2)
+      expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(
+        disconnected ? 3 : 2
+      )
     }
   )
 
@@ -3337,7 +3145,7 @@ describe('built-in tool continuation', () => {
         return observingStream(historyResult(history, items)).response
       if (request.command === 'tool.result') {
         items = [cold]
-        return terminalResponse(suspended(items))
+        return acceptTurn(suspended(items))
       }
       return undefined
     }
@@ -3364,13 +3172,10 @@ describe('built-in tool continuation', () => {
         changed.target.toolName = 'run_workflow'
         changed.originalArgs = { entityId: 'workflow-fixture' }
       } else changed.target[field] = 'changed'
+      installPending(item)
       onCommand = (request) =>
-        request.command === 'message'
-          ? terminalResponse(suspended([item]))
-          : request.command === 'thread.observe'
-            ? historyResponse([changed])
-            : undefined
-      expect(await store().getState().sendMessage('Continue')).toBe(true)
+        request.command === 'thread.observe' ? historyResponse([changed]) : undefined
+      await reconnectSelectedChat()
       await new Promise<void>((resolve) => queueMicrotask(resolve))
       expect(tools.browser).not.toHaveBeenCalled()
       const call = store().getState().toolCallsById[nativeToolCallId(changed.target)]
@@ -3388,7 +3193,7 @@ describe('built-in tool continuation', () => {
       store().setState({ conversationWorkspaceId: workspaceId, accessLevel })
       onCommand = (request) =>
         request.command === 'message'
-          ? terminalResponse(suspended([item]))
+          ? acceptTurn(suspended([item]))
           : request.command === 'thread.observe'
             ? historyResponse([item])
             : undefined
@@ -3414,7 +3219,7 @@ describe('built-in tool continuation', () => {
       request.command === 'thread.observe'
         ? historyResponse([item, other])
         : request.command === 'tool.execute'
-          ? terminalResponse(suspended([other]))
+          ? acceptTurn(suspended([other]))
           : undefined
     await store().getState().readPendingTool(nativeToolCallId(item.target))
     await store().getState().skipCopilotToolCall(nativeToolCallId(item.target))
@@ -3433,7 +3238,7 @@ describe('built-in tool continuation', () => {
     const fresh = { ...item, preview: { requiresReview: true, description: 'later preview' } }
     onCommand = (request) =>
       request.command === 'tool.execute'
-        ? terminalResponse(suspended([fresh]))
+        ? acceptTurn(suspended([fresh]))
         : request.command === 'thread.observe'
           ? historyResponse([fresh])
           : undefined
@@ -3462,7 +3267,7 @@ describe('built-in tool continuation', () => {
     await expect(
       store().getState().skipCopilotToolCall(nativeToolCallId(item.target))
     ).rejects.toThrow('already in flight')
-    gate.resolve(terminalResponse(ready()))
+    gate.resolve(acceptTurn(ready()))
     await active
     expect(commands.filter((request) => request.command === 'tool.execute')).toHaveLength(1)
   })
@@ -3470,8 +3275,7 @@ describe('built-in tool continuation', () => {
     setChat()
     onCommand = (request) =>
       request.command === 'message'
-        ? eventResponse([
-            { type: 'response.started', runId, threadId },
+        ? acceptTurn(ready(), [
             {
               type: 'tool.display',
               toolCallId: 'automatic',
@@ -3483,7 +3287,6 @@ describe('built-in tool continuation', () => {
               toolName: 'search_online',
               result: { results: [] },
             },
-            { type: 'response.completed', result: ready() },
           ])
         : undefined
     expect(await store().getState().sendMessage('Search')).toBe(true)
@@ -3507,15 +3310,13 @@ describe('built-in tool continuation', () => {
     expect(result).toHaveProperty('workspaceId', 'actual-business-workspace')
     onCommand = (request) =>
       request.command === 'message'
-        ? eventResponse([
-            { type: 'response.started', runId, threadId },
+        ? acceptTurn(ready(), [
             {
               type: 'tool.result',
               toolCallId: 'mutation',
               toolName: 'edit_monitor',
               result,
             },
-            { type: 'response.completed', result: ready() },
           ])
         : undefined
     expect(await store().getState().sendMessage('Update monitor')).toBe(true)
@@ -3545,8 +3346,7 @@ describe('built-in tool continuation', () => {
       })
       onCommand = (request) =>
         request.command === 'message'
-          ? eventResponse([
-              { type: 'response.started', runId, threadId },
+          ? acceptTurn(ready(), [
               {
                 type: 'tool.display',
                 toolCallId: 'failed',
@@ -3554,7 +3354,6 @@ describe('built-in tool continuation', () => {
                 args: { query: 'search' },
               },
               { ...failed },
-              { type: 'response.completed', result: ready() },
             ])
           : undefined
       expect(await store().getState().sendMessage('Search')).toBe(true)

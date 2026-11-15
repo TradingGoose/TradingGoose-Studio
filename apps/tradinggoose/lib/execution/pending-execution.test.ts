@@ -9,7 +9,7 @@ const {
   runsListMock,
   runsCancelMock,
   idempotencyCreateMock,
-  executePendingExecutionJobMock,
+  dispatchBackgroundExecutionMock,
   deleteWhereMock,
   getTriggerExecutionStateMock,
   resolveServerExecutionBillingContextMock,
@@ -31,7 +31,7 @@ const {
   runsListMock: vi.fn(),
   runsCancelMock: vi.fn(),
   idempotencyCreateMock: vi.fn(),
-  executePendingExecutionJobMock: vi.fn(),
+  dispatchBackgroundExecutionMock: vi.fn(),
   deleteWhereMock: vi.fn(),
   getTriggerExecutionStateMock: vi.fn(),
   resolveServerExecutionBillingContextMock: vi.fn(),
@@ -169,8 +169,8 @@ vi.mock('@/lib/trigger/settings', () => ({
   },
 }))
 
-vi.mock('@/background/pending-execution-job', () => ({
-  executePendingExecutionJob: executePendingExecutionJobMock,
+vi.mock('@/lib/execution/background-execution', () => ({
+  dispatchBackgroundExecution: dispatchBackgroundExecutionMock,
 }))
 
 vi.mock('@/background/pending-execution-worker', () => ({
@@ -187,6 +187,7 @@ import {
   completePendingExecution,
   dispatchNextPendingExecution,
   enqueuePendingExecution,
+  isWorkflowPendingExecution,
   listChildPendingWorkflowExecutions,
   type PendingExecutionClaim,
   settlePendingExecutionOwner,
@@ -233,11 +234,13 @@ const createSupervisorPayload = (
 
 const createTriggerRun = (
   status: string,
+  isCompleted: boolean,
   overrides: Partial<{
     durationMs: number
   }> = {}
 ) => ({
   status,
+  isCompleted,
   durationMs: 1_000,
   ...overrides,
 })
@@ -284,7 +287,6 @@ describe('dispatchNextPendingExecution', () => {
     idempotencyCreateMock.mockResolvedValue('idempotency-key')
     triggerMock.mockResolvedValue(undefined)
     runsListMock.mockResolvedValue({ data: [] })
-    executePendingExecutionJobMock.mockResolvedValue({ success: true })
     txSelectLimitMock.mockResolvedValue([])
     txExecuteMock.mockResolvedValue(undefined)
     updateReturningMock.mockResolvedValue([])
@@ -295,8 +297,16 @@ describe('dispatchNextPendingExecution', () => {
     configureTransactionMock()
   })
 
-  it('passes a finite tier workflow limit to the durable supervisor payload', async () => {
-    const row = createPendingRow()
+  it.each([
+    { executionType: 'workflow', source: 'workflow_api', maxDuration: 45 },
+    { executionType: 'monitor', source: 'monitor:portfolio', maxDuration: 45 },
+    { executionType: 'monitor', source: 'monitor:indicator:calculation', maxDuration: 45 },
+    { executionType: 'document', source: 'document', maxDuration: undefined },
+  ] as const)('applies the duration policy for $source', async ({ maxDuration, ...overrides }) => {
+    const row = createPendingRow(overrides)
+    expect(isWorkflowPendingExecution(row)).toBe(
+      row.executionType === 'workflow' || row.source === 'monitor:portfolio'
+    )
     resolveServerExecutionBillingTierForScopeMock.mockResolvedValue({
       concurrencyLimit: null,
       displayName: 'Pro',
@@ -316,7 +326,7 @@ describe('dispatchNextPendingExecution', () => {
     expect(idempotencyCreateMock).toHaveBeenCalledWith(triggerKey, { scope: 'global' })
     expect(triggerMock).toHaveBeenCalledWith(
       'pending-execution',
-      createSupervisorPayload(row, 45),
+      createSupervisorPayload(row, maxDuration),
       {
         idempotencyKey: 'idempotency-key',
         tags: [triggerKey],
@@ -352,7 +362,7 @@ describe('dispatchNextPendingExecution', () => {
     mockClaimableRow(row)
     selectLimitMock.mockResolvedValueOnce([{ ...row, status: 'processing' }])
     triggerMock.mockRejectedValueOnce(error)
-    runsListMock.mockResolvedValueOnce({ data: [createTriggerRun('EXECUTING')] })
+    runsListMock.mockResolvedValueOnce({ data: [createTriggerRun('EXECUTING', false)] })
 
     await expect(
       dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
@@ -390,23 +400,6 @@ describe('dispatchNextPendingExecution', () => {
     expect(updateChain.set).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'pending' }))
   })
 
-  it('leaves indicator calculation on its existing intrinsic timeout', async () => {
-    const row = createPendingRow({
-      executionType: 'monitor',
-      source: 'monitor:indicator:calculation',
-      payload: { monitorId: 'indicator-monitor-1' },
-    })
-    mockClaimableRow(row)
-
-    await dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
-
-    const triggerKey = idempotencyCreateMock.mock.calls[0]?.[0]
-    expect(triggerMock).toHaveBeenCalledWith('pending-execution', createSupervisorPayload(row), {
-      idempotencyKey: 'idempotency-key',
-      tags: [triggerKey],
-    })
-  })
-
   it('does not inspect the Trigger queue in local mode', async () => {
     getTriggerExecutionStateMock.mockResolvedValue(directExecutionState)
 
@@ -431,7 +424,7 @@ describe('dispatchNextPendingExecution', () => {
 
     expect(updateReturningMock).not.toHaveBeenCalled()
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
-    expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+    expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
   })
 
@@ -449,7 +442,7 @@ describe('dispatchNextPendingExecution', () => {
       .mockResolvedValueOnce([{ id: processing.id, source: processing.source, payload: {} }])
     selectChain.orderBy.mockResolvedValueOnce([processing])
     runsListMock.mockResolvedValueOnce({
-      data: [createTriggerRun('WAITING')],
+      data: [createTriggerRun('WAITING', false)],
     })
 
     await expect(
@@ -461,7 +454,7 @@ describe('dispatchNextPendingExecution', () => {
 
     expect(updateReturningMock).not.toHaveBeenCalled()
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
-    expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+    expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
     expect(runsListMock).toHaveBeenCalledOnce()
     expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
@@ -507,21 +500,21 @@ describe('dispatchNextPendingExecution', () => {
     selectChain.orderBy.mockResolvedValueOnce([grandparent, parent, borrowedChild, processing])
     runsListMock
       .mockResolvedValueOnce({
-        data: [createTriggerRun('WAITING')],
+        data: [createTriggerRun('WAITING', false)],
       })
       .mockResolvedValueOnce({
-        data: [createTriggerRun('WAITING')],
+        data: [createTriggerRun('WAITING', false)],
       })
       .mockResolvedValueOnce({
         data: [
-          createTriggerRun('EXPIRED', {
+          createTriggerRun('EXPIRED', true, {
             durationMs: 10_000,
           }),
         ],
       })
       .mockResolvedValueOnce({
         data: [
-          createTriggerRun('SYSTEM_FAILURE', {
+          createTriggerRun('SYSTEM_FAILURE', true, {
             durationMs: 45_000,
           }),
         ],
@@ -623,7 +616,7 @@ describe('dispatchNextPendingExecution', () => {
       .mockResolvedValueOnce([child])
       .mockResolvedValueOnce([child])
     runsListMock.mockResolvedValueOnce({
-      data: [createTriggerRun('COMPLETED')],
+      data: [createTriggerRun('COMPLETED', true)],
     })
 
     await expect(
@@ -666,7 +659,7 @@ describe('dispatchNextPendingExecution', () => {
     ])
     selectChain.orderBy.mockResolvedValueOnce([processing]).mockResolvedValueOnce([])
     runsListMock.mockResolvedValueOnce({
-      data: [createTriggerRun('COMPLETED')],
+      data: [createTriggerRun('COMPLETED', true)],
     })
     deleteReturningMock.mockResolvedValueOnce([
       { billingScopeId: processing.billingScopeId, parentPendingExecutionId: null },
@@ -776,7 +769,7 @@ describe('processing-row reconciliation', () => {
     })
     selectChain.orderBy.mockResolvedValueOnce([cancelled])
     runsListMock.mockResolvedValueOnce({
-      data: [{ id: 'run-cancelled-1', status: 'EXECUTING', durationMs: 2_000 }],
+      data: [{ id: 'run-cancelled-1', status: 'EXECUTING', isCompleted: false, durationMs: 2_000 }],
     })
 
     await expect(
@@ -814,7 +807,6 @@ describe('enqueuePendingExecution', () => {
     resolveServerExecutionBillingTierForScopeMock.mockResolvedValue(null)
     idempotencyCreateMock.mockResolvedValue('idempotency-key')
     triggerMock.mockResolvedValue(undefined)
-    executePendingExecutionJobMock.mockResolvedValue({ success: true })
     txSelectLimitMock.mockResolvedValue([])
     selectLimitMock.mockResolvedValue([])
     txExecuteMock.mockResolvedValue(undefined)
@@ -840,7 +832,7 @@ describe('enqueuePendingExecution', () => {
     expect(beforeEnqueue).toHaveBeenCalledOnce()
     expect(beforeEnqueue).toHaveBeenCalledWith(expect.objectContaining({ execute: txExecuteMock }))
     expect(txInsertValuesMock).not.toHaveBeenCalled()
-    expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+    expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
   })
 
@@ -879,7 +871,7 @@ describe('enqueuePendingExecution', () => {
       expect(transactionMock.mock.settledResults[0]).toMatchObject({
         type: continuation ? 'fulfilled' : 'rejected',
       })
-      expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+      expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
     }
   )
 
@@ -925,7 +917,7 @@ describe('enqueuePendingExecution', () => {
       })
     ).rejects.toThrow('Stale checkpoint')
     expect(txInsertValuesMock).not.toHaveBeenCalled()
-    expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+    expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
   })
 
   it('runs checkpoint admission before duplicate checks without relaunching existing local work', async () => {
@@ -940,18 +932,10 @@ describe('enqueuePendingExecution', () => {
     })
     expect(result.inserted).toBe(false)
     expect(beforeEnqueue).toHaveBeenCalledOnce()
-    expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+    expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
   })
 
   it('starts one streamed local execution from a direct ownership marker', async () => {
-    let finishExecution = () => {}
-    executePendingExecutionJobMock.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          finishExecution = resolve
-        })
-    )
-
     const result = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId: 'pending-local-1',
@@ -972,13 +956,9 @@ describe('enqueuePendingExecution', () => {
     expect(triggerMock).not.toHaveBeenCalled()
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
     await vi.waitFor(() =>
-      expect(executePendingExecutionJobMock).toHaveBeenCalledWith(
-        {
-          id: 'pending-local-1',
-          executionType: 'workflow',
-          payload: { executionId: 'pending-local-1', stream: true },
-        },
-        { triggerRuntime: false }
+      expect(dispatchBackgroundExecutionMock).toHaveBeenCalledWith(
+        { pendingExecutionId: 'pending-local-1' },
+        'local'
       )
     )
     expect(transactionMock).toHaveBeenCalledOnce()
@@ -994,8 +974,6 @@ describe('enqueuePendingExecution', () => {
     )
     expect(resolveServerExecutionBillingContextMock).not.toHaveBeenCalled()
     expect(resolveServerExecutionBillingTierForScopeMock).not.toHaveBeenCalled()
-    finishExecution()
-    await vi.waitFor(() => expect(deleteWhereMock).toHaveBeenCalled())
   })
 
   it.each([
@@ -1016,7 +994,7 @@ describe('enqueuePendingExecution', () => {
     })
 
     expect(result).toEqual({ pendingExecutionId: 'pending-local-1', inserted: false })
-    expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+    expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
     expect(txInsertValuesMock).toHaveBeenCalledTimes(existingLogs.length ? 0 : 1)
     expect(resolveServerExecutionBillingContextMock).not.toHaveBeenCalled()
   })
@@ -1034,9 +1012,9 @@ describe('enqueuePendingExecution', () => {
     })
 
     await vi.waitFor(() =>
-      expect(executePendingExecutionJobMock).toHaveBeenCalledWith(
-        { id: 'document-local-1', executionType: 'document', payload },
-        { triggerRuntime: false }
+      expect(dispatchBackgroundExecutionMock).toHaveBeenCalledWith(
+        { pendingExecutionId: 'document-local-1' },
+        'local'
       )
     )
     expect(triggerMock).not.toHaveBeenCalled()
@@ -1080,7 +1058,7 @@ describe('enqueuePendingExecution', () => {
         billingScopeType: 'organization',
       })
     )
-    expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+    expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
   })
 
   it('wakes a duplicate pending execution through the normal scope drain', async () => {
@@ -1265,24 +1243,28 @@ describe('claimNextPendingExecution', () => {
     configureTransactionMock()
   })
 
-  it('claims the earliest pending row when the billing scope has capacity', async () => {
-    resolveServerExecutionBillingTierForScopeMock.mockResolvedValueOnce({
-      concurrencyLimit: 2,
-      displayName: 'Pro',
-    })
-    mockClaimableRow(pendingRow)
-    txSelectRowsMock.mockResolvedValueOnce([
-      { id: 'processing-1', source: 'workflow_api', payload: {} },
-    ])
-    await expect(claimNextPendingExecution('scope-1', 'user')).resolves.toEqual({
-      status: 'claimed',
-      row: expect.objectContaining({
-        id: 'pending-1',
-        payload: { workflowId: 'workflow-1' },
-        status: 'processing',
-      }),
-    })
-  })
+  it.each(['workflow', 'document'] as const)(
+    'claims %s jobs when the billing scope has capacity',
+    async (executionType) => {
+      const row = createPendingRow({ executionType, source: executionType, payload: {} })
+      resolveServerExecutionBillingTierForScopeMock.mockResolvedValueOnce({
+        concurrencyLimit: 2,
+        displayName: 'Pro',
+      })
+      mockClaimableRow(row)
+      txSelectRowsMock.mockResolvedValueOnce([
+        { id: 'processing-1', source: 'workflow_api', payload: {} },
+      ])
+      await expect(claimNextPendingExecution('scope-1', 'user')).resolves.toEqual({
+        status: 'claimed',
+        row: expect.objectContaining({
+          id: 'pending-1',
+          executionType,
+          status: 'processing',
+        }),
+      })
+    }
+  )
 
   it('claims pending rows without a capacity check when local billing tier resolution is unavailable', async () => {
     resolveServerExecutionBillingTierForScopeMock.mockResolvedValueOnce(null)
@@ -1303,22 +1285,27 @@ describe('claimNextPendingExecution', () => {
     expect(txSelectLimitMock).toHaveBeenCalledTimes(1)
   })
 
-  it('leaves the earliest pending row queued when the billing scope is full', async () => {
-    resolveServerExecutionBillingTierForScopeMock.mockResolvedValueOnce({
-      concurrencyLimit: 1,
-      displayName: 'Starter',
-    })
-    txSelectLimitMock.mockResolvedValueOnce([pendingRow])
-    txSelectRowsMock.mockResolvedValueOnce([
-      { id: 'processing-1', source: 'workflow_api', payload: {} },
-    ])
+  it.each(['workflow', 'document'] as const)(
+    'leaves %s jobs queued when the billing scope is full',
+    async (executionType) => {
+      resolveServerExecutionBillingTierForScopeMock.mockResolvedValueOnce({
+        concurrencyLimit: 1,
+        displayName: 'Starter',
+      })
+      txSelectLimitMock.mockResolvedValueOnce([
+        createPendingRow({ executionType, source: executionType, payload: {} }),
+      ])
+      txSelectRowsMock.mockResolvedValueOnce([
+        { id: 'processing-1', source: 'workflow_api', payload: {} },
+      ])
 
-    await expect(claimNextPendingExecution('scope-1', 'user')).resolves.toEqual({
-      status: 'capacity_blocked',
-      pendingExecutionId: 'pending-1',
-    })
-    expect(updateReturningMock).not.toHaveBeenCalled()
-  })
+      await expect(claimNextPendingExecution('scope-1', 'user')).resolves.toEqual({
+        status: 'capacity_blocked',
+        pendingExecutionId: 'pending-1',
+      })
+      expect(updateReturningMock).not.toHaveBeenCalled()
+    }
+  )
 
   it.each(['parent-1', 'parent-1:resume:2'])(
     'prioritizes and claims a child under capacity marker %s at concurrency one',
@@ -1467,7 +1454,7 @@ describe('completePendingExecution', () => {
     })
     expect(eqMock).toHaveBeenCalledWith('pendingExecution.billingScopeId', 'scope-1')
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
-    expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+    expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
   })
 
@@ -1894,7 +1881,7 @@ describe('cancelPendingWorkflowExecution', () => {
       expect(idempotencyCreateMock).not.toHaveBeenCalled()
       expect(resolveServerExecutionBillingTierForScopeMock).not.toHaveBeenCalled()
       expect(getTriggerExecutionStateMock).not.toHaveBeenCalled()
-      expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+      expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
       expect(triggerMock).not.toHaveBeenCalled()
       if (resuming) {
         expect(authorizeWorkflowScopeMock).toHaveBeenCalledOnce()

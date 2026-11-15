@@ -2,7 +2,7 @@
 import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { CopilotEvent } from '@/lib/copilot/native/contract'
+import type { CopilotThreadEvent, HistoryResponse } from '@/lib/copilot/native/contract'
 import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
 import {
   CopilotStoreProvider,
@@ -74,48 +74,48 @@ it.each(['text.delta', 'reasoning.delta'] as const)(
       conversationWorkspaceId: runtimeContext.workspaceId,
     })
     const text = type === 'text.delta' ? 'word '.repeat(150) : 'Completed answer'
-    const result = { status: 'completed' as const, threadId, runId, text }
-    const events: CopilotEvent[] = [
-      { type: 'response.started', runId, threadId },
-      ...Array.from({ length: 150 }, () => ({ type, text: 'word ' })),
-      { type: 'response.completed', result },
+    const history: HistoryResponse = {
+      status: 'history',
+      pending: [],
+      threadId,
+      items: [
+        {
+          id: 'saved-answer',
+          role: 'assistant',
+          runId,
+          createdAt: new Date().toISOString(),
+          parts: [{ type: 'text', text }],
+        },
+      ],
+    }
+    const events: CopilotThreadEvent[] = [
+      { type: 'thread.history', activeRunId: runId, result: { ...history, items: [] } },
+      { type: 'thread.started', runId, messageId: 'saved-answer' },
+      ...Array.from(
+        { length: 150 },
+        (): CopilotThreadEvent => ({ type: 'thread.output', runId, event: { type, text: 'word ' } })
+      ),
+      { type: 'thread.status', runId, status: 'success', history },
     ]
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
         const command = JSON.parse(String(init?.body))
         expect(['message', 'thread.observe']).toContain(command.command)
-        const chunks =
-          command.command === 'thread.observe'
-            ? [
-                {
-                  type: 'thread.history',
-                  activeRunId: null,
-                  result: {
-                    status: 'history',
-                    pending: [],
-                    threadId,
-                    items: [
-                      {
-                        id: 'saved-answer',
-                        role: 'assistant',
-                        createdAt: new Date().toISOString(),
-                        parts: [{ type: 'text', text }],
-                      },
-                    ],
-                  },
-                },
-              ]
-            : events
+        if (command.command === 'message')
+          return Response.json(
+            { status: 'accepted', threadId, runId, messageId: 'saved-user' },
+            { status: 202 }
+          )
         return new Response(
           new ReadableStream({
             start(controller) {
               controller.enqueue(
                 new TextEncoder().encode(
-                  chunks.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('')
+                  events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('')
                 )
               )
-              if (command.command === 'message') controller.close()
+              controller.close()
             },
           }),
           { headers: { 'content-type': 'text/event-stream' } }

@@ -2,10 +2,16 @@ import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { AbortTaskRunError, task, timeout, wait } from '@trigger.dev/sdk'
 import { and, eq } from 'drizzle-orm'
+import { finalizeCopilotJob } from '@/lib/copilot/agent/service'
+import {
+  BACKGROUND_EXECUTION_TASK_ID,
+  type BackgroundExecutionTaskPayload,
+  waitForBackgroundExecution,
+} from '@/lib/execution/background-execution'
 import {
   cancelPendingExecutionTriggerRun,
   getProcessingPendingExecution,
-  isTierLimitedPendingExecution,
+  isWorkflowPendingExecution,
   listChildPendingWorkflowExecutions,
   PENDING_EXECUTION_CANCELLATION_ERROR,
   PENDING_EXECUTION_FAILURE_ERROR,
@@ -28,13 +34,12 @@ import {
   recoverWorkflowCheckpointSegment,
 } from '@/lib/workflows/human-in-the-loop/service'
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
+import { executeBackgroundExecution } from './execution-job'
 import { markDocumentProcessingJobFailed } from './knowledge-processing'
-import { executePendingExecutionJob } from './pending-execution-job'
 import { isScheduleExecutionPayload, settleScheduleOccurrence } from './schedule-execution'
 
 const logger = createLogger('PendingExecutionWorker')
 const DESCENDANT_CANCELLATION_CONCURRENCY = 5
-const PENDING_EXECUTION_RUN_TASK_ID = 'pending-execution-run'
 const PENDING_EXECUTION_WAKE_RETRY_SECONDS = 30
 
 type PendingExecutionTaskPayload = {
@@ -42,10 +47,6 @@ type PendingExecutionTaskPayload = {
   billingScopeId: string
   billingScopeType: string
   executionMaxDuration?: number
-}
-
-type PendingExecutionRunTaskPayload = {
-  pendingExecutionId: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -84,29 +85,67 @@ function getWorkflowState(row: Pick<PendingExecutionClaim, 'payload'>): Workflow
   }
 }
 
-async function executePendingExecutionRun(payload: PendingExecutionRunTaskPayload) {
+export async function executeBackgroundExecutionRun(
+  payload: BackgroundExecutionTaskPayload,
+  options: { triggerRuntime: boolean; signal?: AbortSignal }
+) {
+  if ('executionType' in payload) return executeBackgroundExecution(payload, options)
   const row = await getProcessingPendingExecution(payload.pendingExecutionId)
   if (!row) {
     return { success: true, skipped: 'not_processing' as const }
   }
 
   if (!(await recoverPendingExecutionCheckpoint(row))) {
-    await executePendingExecutionJob(row, { triggerRuntime: true })
+    await executeBackgroundExecution(row, options)
     await settlePendingExecutionOwner(row, { wake: false })
   }
   return { success: true, pendingExecutionId: row.id }
 }
 
-export const pendingExecutionRunTask = task<
-  typeof PENDING_EXECUTION_RUN_TASK_ID,
-  PendingExecutionRunTaskPayload
+export const backgroundExecutionTask = task<
+  typeof BACKGROUND_EXECUTION_TASK_ID,
+  BackgroundExecutionTaskPayload
 >({
-  id: PENDING_EXECUTION_RUN_TASK_ID,
+  id: BACKGROUND_EXECUTION_TASK_ID,
   retry: {
     maxAttempts: 1,
   },
-  run: executePendingExecutionRun,
+  run: (payload, { signal }) =>
+    executeBackgroundExecutionRun(payload, { triggerRuntime: true, signal }),
+  onFailure: async ({ payload, error }) => {
+    if ('executionType' in payload) await finalizeBackgroundExecutionFailure(payload, error)
+  },
+  onCancel: async ({ payload, runPromise }) => {
+    if ('executionType' in payload) {
+      await runPromise.catch(() => undefined)
+      await finalizeBackgroundExecutionFailure(
+        payload,
+        new Error('Copilot execution was cancelled')
+      )
+    }
+  },
 })
+
+export async function finalizeBackgroundExecutionFailure(
+  payload: BackgroundExecutionTaskPayload,
+  error: unknown,
+  startedAt = Date.now()
+) {
+  if ('executionType' in payload) {
+    await finalizeCopilotJob(
+      payload.payload,
+      error instanceof Error ? error.message : 'Copilot execution failed'
+    )
+    return
+  }
+  const row = await getProcessingPendingExecution(payload.pendingExecutionId)
+  if (row)
+    await finalizePendingExecutionFailure(
+      row,
+      getPendingExecutionFailureMessage(error),
+      Math.max(1, Date.now() - startedAt)
+    )
+}
 
 function isMaxDurationError(error: unknown) {
   return error instanceof Error && error.name === 'MAX_DURATION_EXCEEDED'
@@ -176,14 +215,9 @@ async function executePendingExecution(payload: PendingExecutionTaskPayload) {
     await wakePendingExecutionUntilSuccessful(payload)
     return { success: true, pendingExecutionId: row.id, skipped: 'owner_completed' as const }
   }
-  const result = await pendingExecutionRunTask.triggerAndWait(
-    { pendingExecutionId: payload.pendingExecutionId },
-    {
-      idempotencyKey: `${PENDING_EXECUTION_RUN_TASK_ID}:${payload.pendingExecutionId}`,
-      ...(payload.executionMaxDuration === undefined
-        ? {}
-        : { maxDuration: payload.executionMaxDuration }),
-    }
+  const result = await waitForBackgroundExecution(
+    payload.pendingExecutionId,
+    payload.executionMaxDuration
   )
 
   const failureMessage = result.ok
@@ -215,7 +249,7 @@ export async function terminalizeWorkflowExecution(
   message: string,
   billable = true
 ) {
-  if (!isTierLimitedPendingExecution(row)) return
+  if (!isWorkflowPendingExecution(row)) return
   if (!row.workflowId || !row.workspaceId) {
     logger.error('Pending execution is missing workflow scope during failure finalization', {
       pendingExecutionId: row.id,
@@ -380,7 +414,7 @@ export async function cancelPendingExecutionDescendants(
 
 async function recoverPendingExecutionCheckpoint(row: PendingExecutionClaim) {
   if (
-    row.executionType !== 'document' &&
+    isWorkflowPendingExecution(row) &&
     (await recoverWorkflowCheckpointSegment({
       executionId:
         typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id,
@@ -410,10 +444,11 @@ export async function finalizePendingExecutionFailure(
     await markDocumentProcessingJobFailed(row.payload, message)
   }
 
-  await terminalizeWorkflowExecution(row, durationMs, message)
-
-  await cancelPendingExecutionDescendants(
-    typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id
-  )
+  if (isWorkflowPendingExecution(row)) {
+    await terminalizeWorkflowExecution(row, durationMs, message)
+    await cancelPendingExecutionDescendants(
+      typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id
+    )
+  }
   await settlePendingExecutionOwner(row, { wake: false })
 }

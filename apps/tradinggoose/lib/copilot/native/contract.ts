@@ -122,20 +122,11 @@ export interface ErrorResponse {
   error: SafeError
   usage?: NativeUsage
 }
-export interface ReadyResponse {
-  status: 'completed'
+export interface AcceptedResponse {
+  status: 'accepted'
   runId: string
   threadId: string
-  text: string
-  usage?: NativeUsage
-}
-export interface SuspendedResponse {
-  status: 'suspended'
-  runId: string
-  threadId: string
-  text: string
-  pending: Pending[]
-  usage?: NativeUsage
+  messageId?: string
 }
 export interface CancelResponse {
   status: 'cancel_requested'
@@ -163,8 +154,7 @@ export interface MutationResponse {
   operation: 'thread.title' | 'thread.delete'
 }
 export type CopilotResponse =
-  | ReadyResponse
-  | SuspendedResponse
+  | AcceptedResponse
   | CancelResponse
   | ThreadsResponse
   | MutationResponse
@@ -183,26 +173,20 @@ export type CopilotOutputEvent =
 export type CopilotThreadEvent =
   | { type: 'thread.started'; runId: string; messageId: string }
   | { type: 'thread.output'; runId: string; event: CopilotOutputEvent }
-  | { type: 'thread.error'; runId: string; error: SafeError; history: HistoryResponse }
   | {
       type: 'thread.history'
       result: HistoryResponse
       activeRunId: string | null
       interruptedRunId?: string
+      error?: SafeError
     }
   | {
       type: 'thread.status'
       runId: string
       status: 'success' | 'failed' | 'aborted' | 'suspended'
       history: HistoryResponse
+      error?: SafeError
     }
-export type CopilotEvent =
-  | CopilotOutputEvent
-  | { type: 'response.started'; runId: string; threadId: string; messageId?: string }
-  | { type: 'response.completed'; result: ReadyResponse }
-  | { type: 'response.suspended'; result: SuspendedResponse }
-  | { type: 'response.refused' | 'response.error'; result: ErrorResponse }
-  | { type: 'response.cancel_requested'; result: CancelResponse }
 export type UtilityMessage =
   | { role: 'system'; content: string }
   | { role: 'user'; content: string }

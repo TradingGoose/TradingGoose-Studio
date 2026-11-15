@@ -4,12 +4,6 @@ import {
   serializeCopilotRequest,
 } from '@/lib/copilot/native/request-size'
 
-export class NativeCommandError extends Error {
-  constructor(readonly nativeOutcome: CopilotResponse) {
-    super('error' in nativeOutcome ? nativeOutcome.error.message : 'Native command failed')
-  }
-}
-
 /** Browser transport contains no service credential or upstream URL override. */
 export function postNativeCommand(body: string, signal?: AbortSignal) {
   signal?.throwIfAborted()
@@ -26,7 +20,7 @@ export function postNativeCommand(body: string, signal?: AbortSignal) {
 export async function readNativeCommandResponse(response: Response) {
   const result: CopilotResponse = await response.json()
   if (!response.ok || result.status === 'failed' || result.status === 'refused')
-    throw new NativeCommandError(result)
+    throw new Error('error' in result ? result.error.message : 'Native command failed')
   return result
 }
 

@@ -6,7 +6,6 @@ export type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type {
   BrowserAssertion,
-  CopilotResponse,
   CopilotToolContext,
   ImagePart,
   Pending,
@@ -89,7 +88,6 @@ export interface CopilotState {
   conversationWorkspaceId: string | null
   currentRunId: string | null
   workflowChatDeployment: WorkflowChatDeploymentRequest | null
-  lastNativeOutcome: CopilotResponse | null
   error: string | null
   chats: CopilotChat[]
   messages: CopilotMessage[]

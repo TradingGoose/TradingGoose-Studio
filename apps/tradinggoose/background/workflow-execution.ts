@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid'
 import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution/pending-execution'
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -24,7 +23,7 @@ export type WorkflowExecutionPayload = {
   workflowId: string
   userId: string
   workspaceId?: string | null
-  executionId?: string
+  executionId: string
   input?: any
   triggerType?: TriggerType
   triggerBlockId?: string
@@ -55,12 +54,16 @@ export function isWorkflowExecutionPayload(
   }
 
   const candidate = value as Record<string, unknown>
-  return typeof candidate.workflowId === 'string' && typeof candidate.userId === 'string'
+  return (
+    typeof candidate.workflowId === 'string' &&
+    typeof candidate.userId === 'string' &&
+    typeof candidate.executionId === 'string'
+  )
 }
 
 export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const workflowId = payload.workflowId
-  const jobId = payload.executionId ?? uuidv4()
+  const jobId = payload.executionId
   const resumed =
     payload.resumeExecutionId && payload.checkpointRevision
       ? await claimWorkflowCheckpoint({

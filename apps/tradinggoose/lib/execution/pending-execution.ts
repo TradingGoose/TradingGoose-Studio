@@ -4,6 +4,7 @@ import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema
 import { ApiError, idempotencyKeys, runs, tasks, timeout } from '@trigger.dev/sdk'
 import { and, asc, eq, lte, ne, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
+import { dispatchBackgroundExecution } from '@/lib/execution/background-execution'
 import {
   resolveServerExecutionBillingContext,
   resolveServerExecutionBillingTierForScope,
@@ -160,7 +161,7 @@ const usesParentExecutionCapacity = (
   return parentPendingExecutionId !== null && activeExecutionIds.has(parentPendingExecutionId)
 }
 
-export function isTierLimitedPendingExecution(
+export function isWorkflowPendingExecution(
   row: Pick<PendingExecutionClaim, 'executionType' | 'source'>
 ) {
   return (
@@ -176,21 +177,10 @@ function getPendingExecutionTriggerKey(pendingExecutionId: string) {
   return `${PENDING_EXECUTION_TASK_ID}:${digest}`
 }
 
-function isTerminalPendingExecutionRunStatus(status: string) {
-  return (
-    status === 'COMPLETED' ||
-    status === 'CANCELED' ||
-    status === 'FAILED' ||
-    status === 'CRASHED' ||
-    status === 'SYSTEM_FAILURE' ||
-    status === 'EXPIRED' ||
-    status === 'TIMED_OUT'
-  )
-}
-
 type PendingExecutionTriggerRun = {
   status: string
   durationMs: number
+  isCompleted: boolean
 }
 
 type PendingExecutionTriggerRunResult =
@@ -210,12 +200,10 @@ export async function cancelPendingExecutionTriggerRun(
   })
   const run = page.data[0]
   if (!run) return { type: 'missing' }
-  if (isTerminalPendingExecutionRunStatus(run.status)) {
-    return { type: 'run', run: { status: run.status, durationMs: run.durationMs } }
-  }
+  if (run.isCompleted) return { type: 'run', run }
 
   await runs.cancel(run.id)
-  return { type: 'run', run: { status: 'CANCELED', durationMs: run.durationMs } }
+  return { type: 'run', run: { status: 'CANCELED', durationMs: run.durationMs, isCompleted: true } }
 }
 
 async function triggerPendingExecution(row: PendingExecutionClaim) {
@@ -224,14 +212,15 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
   try {
     const triggerKey = getPendingExecutionTriggerKey(row.id)
     const idempotencyKey = await idempotencyKeys.create(triggerKey, { scope: 'global' })
-    const maxDuration = isTierLimitedPendingExecution(row)
-      ? ((
-          await resolveServerExecutionBillingTierForScope({
-            scopeId: row.billingScopeId,
-            scopeType: row.billingScopeType,
-          })
-        )?.workflowExecutionTimeLimitSeconds ?? timeout.None)
-      : undefined
+    const maxDuration =
+      isWorkflowPendingExecution(row) || row.executionType === 'monitor'
+        ? ((
+            await resolveServerExecutionBillingTierForScope({
+              scopeId: row.billingScopeId,
+              scopeType: row.billingScopeType,
+            })
+          )?.workflowExecutionTimeLimitSeconds ?? timeout.None)
+        : undefined
 
     admissionStarted = true
     await tasks.trigger(
@@ -515,7 +504,8 @@ export async function enqueuePendingExecution(
   }
 
   if (queueResult.mode === 'local') {
-    if (queueResult.inserted) startLocalPendingExecution(params)
+    if (queueResult.inserted)
+      await dispatchBackgroundExecution({ pendingExecutionId: params.pendingExecutionId }, 'local')
     return {
       pendingExecutionId: params.pendingExecutionId,
       inserted: queueResult.inserted,
@@ -545,47 +535,6 @@ export async function enqueuePendingExecution(
     pendingExecutionId: params.pendingExecutionId,
     inserted,
   }
-}
-
-function startLocalPendingExecution(params: PendingExecutionInsert) {
-  const startedAt = Date.now()
-  void import('@/background/pending-execution-job')
-    .then(({ executePendingExecutionJob }) =>
-      executePendingExecutionJob(
-        {
-          id: params.pendingExecutionId,
-          executionType: params.executionType,
-          payload: params.payload,
-        },
-        { triggerRuntime: false }
-      )
-    )
-    .then(
-      () =>
-        completePendingExecution({
-          pendingExecutionId: params.pendingExecutionId,
-          wake: false,
-        }),
-      async (error) => {
-        logger.error('Local pending execution failed', {
-          pendingExecutionId: params.pendingExecutionId,
-          error,
-        })
-        const row = await getProcessingPendingExecution(params.pendingExecutionId)
-        if (!row) return
-        const { finalizePendingExecutionFailure } = await import(
-          '@/background/pending-execution-worker'
-        )
-        const message = error instanceof Error ? error.message : PENDING_EXECUTION_FAILURE_ERROR
-        await finalizePendingExecutionFailure(row, message, Math.max(1, Date.now() - startedAt))
-      }
-    )
-    .catch((error) => {
-      logger.error('Local pending execution lifecycle cleanup failed', {
-        pendingExecutionId: params.pendingExecutionId,
-        error,
-      })
-    })
 }
 
 export async function claimNextPendingExecution(
@@ -784,7 +733,7 @@ async function reconcileProcessingPendingExecution(
     await triggerPendingExecution(row)
     return false
   }
-  if (!isTerminalPendingExecutionRunStatus(run.status)) return false
+  if (!run.isCompleted) return false
 
   if (run.status === 'COMPLETED') {
     await settlePendingExecutionOwner(row, { wake: false })

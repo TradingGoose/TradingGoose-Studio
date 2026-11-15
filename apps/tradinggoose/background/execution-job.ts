@@ -1,3 +1,4 @@
+import { executeCopilotJob } from '@/lib/copilot/agent/service'
 import type {
   PendingExecutionPayload,
   PendingExecutionType,
@@ -12,46 +13,46 @@ import { executeScheduleJob, isScheduleExecutionPayload } from './schedule-execu
 import { executeWebhookJob, isWebhookExecutionPayload } from './webhook-execution'
 import { executeWorkflowJob, isWorkflowExecutionPayload } from './workflow-execution'
 
-type PendingExecutionJob = {
+export type BackgroundExecutionJob = {
   id: string
-  executionType: PendingExecutionType
+  executionType: PendingExecutionType | 'copilot'
   payload: PendingExecutionPayload
 }
 
-export async function executePendingExecutionJob(
-  job: PendingExecutionJob,
-  options: { triggerRuntime: boolean }
+export async function executeBackgroundExecution(
+  job: BackgroundExecutionJob,
+  options: { triggerRuntime: boolean; signal?: AbortSignal }
 ) {
   const payload = { ...job.payload, executionId: job.id }
-  let result: unknown
 
   switch (job.executionType) {
+    case 'copilot':
+      return executeCopilotJob(job.payload, options.signal)
     case 'workflow':
       if (!isWorkflowExecutionPayload(payload)) throw new Error('Invalid workflow pending payload')
-      result = await executeWorkflowJob(payload)
+      await executeWorkflowJob(payload)
       break
     case 'webhook':
       if (!isWebhookExecutionPayload(payload)) throw new Error('Invalid webhook pending payload')
-      result = await executeWebhookJob(payload, job.id)
+      await executeWebhookJob(payload)
       break
     case 'schedule':
       if (!isScheduleExecutionPayload(payload)) throw new Error('Invalid schedule pending payload')
-      result = await executeScheduleJob(payload)
+      await executeScheduleJob(payload)
       break
     case 'monitor':
       if (!isMonitorExecutionPayload(payload)) throw new Error('Invalid monitor pending payload')
-      result = await executeMonitorJob(payload)
+      await executeMonitorJob(payload)
       break
     case 'document':
       return options.triggerRuntime
         ? executeTriggeredDocumentProcessingJob(job.payload)
         : executeDocumentProcessingJob(job.payload)
     default:
-      throw new Error(`Unsupported pending execution type: ${job.executionType}`)
+      throw new Error(`Unsupported background execution type: ${job.executionType}`)
   }
   // Reconciliation is queue maintenance, outside each runner's terminal-error handling.
   await reconcileWorkflowCheckpointChildren(
     typeof job.payload.resumeExecutionId === 'string' ? job.payload.resumeExecutionId : job.id
   )
-  return result
 }

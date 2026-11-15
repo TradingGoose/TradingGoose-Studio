@@ -162,8 +162,10 @@ const chooseCandidate = ({
   )
 }
 
-export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecutionPayload) {
-  const requestId = (payload.executionId ?? payload.monitor.id).slice(0, 8)
+export async function executeIndicatorMonitorJob(
+  payload: IndicatorMonitorExecutionPayload & { executionId: string }
+) {
+  const requestId = payload.executionId.slice(0, 8)
   const workspaceId = payload.monitor.workspaceId.trim()
   if (!workspaceId) {
     throw new Error('Indicator monitor execution requires workspaceId')

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  executeCopilotJob: vi.fn(),
   executeDocumentProcessingJob: vi.fn(),
   executeMonitorJob: vi.fn(),
   executeScheduleJob: vi.fn(),
@@ -13,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   isWorkflowExecutionPayload: vi.fn(),
   reconcileWorkflowCheckpointChildren: vi.fn(),
 }))
+
+vi.mock('@/lib/copilot/agent/service', () => ({ executeCopilotJob: mocks.executeCopilotJob }))
 
 vi.mock('./knowledge-processing', () => ({
   executeDocumentProcessingJob: mocks.executeDocumentProcessingJob,
@@ -42,7 +45,7 @@ vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
   reconcileWorkflowCheckpointChildren: mocks.reconcileWorkflowCheckpointChildren,
 }))
 
-import { executePendingExecutionJob } from './pending-execution-job'
+import { executeBackgroundExecution } from './execution-job'
 
 const documentPayload = {
   knowledgeBaseId: 'knowledge-base-1',
@@ -63,7 +66,7 @@ const documentPayload = {
   requestId: 'request-1',
 }
 
-describe('pending execution job', () => {
+describe('background execution job', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.executeDocumentProcessingJob.mockResolvedValue(undefined)
@@ -75,7 +78,7 @@ describe('pending execution job', () => {
   })
 
   it('executes documents directly when Trigger is disabled', async () => {
-    await executePendingExecutionJob(
+    await executeBackgroundExecution(
       { id: 'document-job-1', executionType: 'document', payload: documentPayload },
       { triggerRuntime: false }
     )
@@ -84,8 +87,22 @@ describe('pending execution job', () => {
     expect(mocks.executeTriggeredDocumentProcessingJob).not.toHaveBeenCalled()
   })
 
+  it.each([false, true])(
+    'runs Copilot through the shared runner (Trigger: %s)',
+    async (triggerRuntime) => {
+      const payload = { runId: 'run-1' }
+      await executeBackgroundExecution(
+        { id: 'copilot-job', executionType: 'copilot', payload },
+        { triggerRuntime }
+      )
+
+      expect(mocks.executeCopilotJob).toHaveBeenCalledWith(payload, undefined)
+      expect(mocks.reconcileWorkflowCheckpointChildren).not.toHaveBeenCalled()
+    }
+  )
+
   it('uses the document Trigger task only inside the Trigger worker', async () => {
-    await executePendingExecutionJob(
+    await executeBackgroundExecution(
       { id: 'document-job-1', executionType: 'document', payload: documentPayload },
       { triggerRuntime: true }
     )
@@ -99,14 +116,14 @@ describe('pending execution job', () => {
     mocks.executeDocumentProcessingJob.mockRejectedValueOnce(error)
 
     await expect(
-      executePendingExecutionJob(
+      executeBackgroundExecution(
         { id: 'document-job-1', executionType: 'document', payload: documentPayload },
         { triggerRuntime: false }
       )
     ).rejects.toThrow(error.message)
   })
 
-  it('declares pending-row ownership for webhook execution', async () => {
+  it('passes the execution identity to webhook execution', async () => {
     const payload = {
       webhookId: 'webhook-1',
       workflowId: 'workflow-1',
@@ -115,22 +132,22 @@ describe('pending execution job', () => {
     }
     mocks.isWebhookExecutionPayload.mockReturnValue(true)
 
-    await executePendingExecutionJob(
+    await executeBackgroundExecution(
       { id: 'webhook-job-1', executionType: 'webhook', payload },
       { triggerRuntime: false }
     )
 
-    expect(mocks.executeWebhookJob).toHaveBeenCalledWith(
-      { ...payload, executionId: 'webhook-job-1' },
-      'webhook-job-1'
-    )
+    expect(mocks.executeWebhookJob).toHaveBeenCalledWith({
+      ...payload,
+      executionId: 'webhook-job-1',
+    })
   })
 
   it('passes the pending execution identifier to workflow execution', async () => {
     const payload = { workflowId: 'workflow-1' }
     mocks.isWorkflowExecutionPayload.mockReturnValue(true)
 
-    await executePendingExecutionJob(
+    await executeBackgroundExecution(
       { id: 'workflow-job-1', executionType: 'workflow', payload },
       { triggerRuntime: true }
     )
@@ -148,7 +165,7 @@ describe('pending execution job', () => {
       mocks.isWebhookExecutionPayload.mockReturnValue(true)
       mocks.isScheduleExecutionPayload.mockReturnValue(true)
       mocks.isMonitorExecutionPayload.mockReturnValue(true)
-      await executePendingExecutionJob(
+      await executeBackgroundExecution(
         { id: 'job', executionType, payload: { workflowId: 'workflow', userId: 'user' } },
         { triggerRuntime: false }
       )
@@ -160,7 +177,7 @@ describe('pending execution job', () => {
     mocks.isWorkflowExecutionPayload.mockReturnValue(true)
     mocks.reconcileWorkflowCheckpointChildren.mockRejectedValueOnce(new Error('Wake failed'))
     await expect(
-      executePendingExecutionJob(
+      executeBackgroundExecution(
         {
           id: 'original:resume:1',
           executionType: 'workflow',

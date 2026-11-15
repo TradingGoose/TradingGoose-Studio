@@ -49,8 +49,10 @@ export function isPortfolioMonitorExecutionPayload(
   )
 }
 
-export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecutionPayload) {
-  const executionId = payload.executionId ?? `portfolio_state:${payload.monitor.id}:${Date.now()}`
+export async function executePortfolioMonitorJob(
+  payload: PortfolioMonitorExecutionPayload & { executionId: string }
+) {
+  const executionId = payload.executionId
   const requestId = executionId.slice(0, 8)
   const workflowInput = {
     input: `Portfolio state condition matched for ${payload.portfolioIdentity.accountName ?? payload.portfolioIdentity.accountId}`,

@@ -86,10 +86,6 @@ export const processDocument = task({
   retry: {
     maxAttempts: 1,
   },
-  queue: {
-    concurrencyLimit: envNumber(env.KB_CONFIG_CONCURRENCY_LIMIT, 20),
-    name: 'document-processing-queue',
-  },
   run: (payload: DocumentProcessingPayload) => executeDocumentProcessingJob(payload),
 })
 

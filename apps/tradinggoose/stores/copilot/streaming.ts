@@ -1,10 +1,4 @@
-import type {
-  CancelResponse,
-  CopilotEvent,
-  Pending,
-  ReadyResponse,
-  SuspendedResponse,
-} from '@/lib/copilot/native/contract'
+import type { CancelResponse, CopilotOutputEvent, Pending } from '@/lib/copilot/native/contract'
 import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
@@ -81,7 +75,6 @@ export function applyNativeCancellation(
       ClientToolCallState.aborted
     ),
     currentRunId: null,
-    lastNativeOutcome: result,
     isAborting: false,
     isSendingMessage: false,
     isAwaitingContinuation: false,
@@ -189,70 +182,13 @@ export function displayNativePending(
   return { toolCallsById: { ...state.toolCallsById, [toolCall.id]: toolCall }, messages }
 }
 
-export function verifyNativeThread(
-  state: CopilotStore,
-  value: { threadId: string; runId: string }
-) {
-  if (state.currentChat && state.currentChat.threadId !== value.threadId)
-    throw new Error('Native response thread differs')
-  if (state.currentRunId && state.currentRunId !== value.runId)
-    throw new Error('Native response run differs')
-  return (
-    state.currentChat ?? {
-      threadId: value.threadId,
-      workspaceId: state.conversationWorkspaceId,
-      title: '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-  )
-}
-
-export function applyNativeResponse(
-  state: CopilotStore,
-  response: ReadyResponse | SuspendedResponse,
-  messageId: string
-): Partial<CopilotStore> {
-  const chat = verifyNativeThread(state, response)
-  const currentChat = { ...chat, updatedAt: new Date() }
-  const display = response.status === 'completed' ? settleDisplayOnlyTools(state, messageId) : state
-  return {
-    toolCallsById: display.toolCallsById,
-    currentChat,
-    chats: state.chats.some((item) => item.threadId === chat.threadId)
-      ? state.chats.map((item) => (item.threadId === chat.threadId ? currentChat : item))
-      : [currentChat, ...state.chats],
-    currentRunId: response.status === 'completed' ? null : response.runId,
-    messages: display.messages.map((message) =>
-      message.id === messageId ? replaceNativeText(message, response.text) : message
-    ),
-    isSendingMessage: false,
-    isAwaitingContinuation: response.status === 'suspended',
-    lastNativeOutcome: response,
-  }
-}
-
 /** Every variant is from the generated closed contract; tool.display never dispatches. */
 export function applyNativeEvent(
   state: CopilotStore,
-  event: CopilotEvent,
+  event: CopilotOutputEvent,
   messageId: string
 ): Partial<CopilotStore> {
   switch (event.type) {
-    case 'response.started': {
-      const index = state.messages.findIndex((message) => message.id === messageId) - 1
-      if (event.messageId && (index < 0 || state.messages[index]?.role !== 'user'))
-        throw new Error('Native response input message is unavailable')
-      return {
-        currentChat: verifyNativeThread(state, event),
-        currentRunId: event.runId,
-        messages: event.messageId
-          ? state.messages.map((message, position) =>
-              position === index ? { ...message, id: event.messageId! } : message
-            )
-          : state.messages,
-      }
-    }
     case 'text.delta':
     case 'reasoning.delta':
       return {
@@ -318,36 +254,6 @@ export function applyNativeEvent(
       const toolCallsById = { ...state.toolCallsById, [toolCall.id]: toolCall }
       return { toolCallsById, messages: updateMessageToolCalls(state.messages, toolCallsById) }
     }
-    case 'response.completed':
-      return applyNativeResponse(state, event.result, messageId)
-    case 'response.suspended': {
-      let next = { ...state, ...applyNativeResponse(state, event.result, messageId) }
-      for (const pending of event.result.pending)
-        next = { ...next, ...displayNativePending(next, pending) }
-      return next
-    }
-    case 'response.refused':
-    case 'response.error': {
-      const display = state.currentRunId
-        ? state
-        : settleDisplayOnlyTools(state, messageId, ClientToolCallState.error)
-      return {
-        toolCallsById: display.toolCallsById,
-        lastNativeOutcome: event.result,
-        error: event.result.error.message,
-        isSendingMessage: Boolean(state.currentRunId),
-        messages: display.messages.map((message) =>
-          message.id === messageId
-            ? {
-                ...replaceNativeText(message, message.content || event.result.error.message),
-                isError: true,
-              }
-            : message
-        ),
-      }
-    }
-    case 'response.cancel_requested':
-      return applyNativeCancellation(state, event.result)
     default:
       throw new Error('Unknown Copilot event')
   }

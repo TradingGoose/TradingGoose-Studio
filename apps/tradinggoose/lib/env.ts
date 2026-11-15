@@ -123,7 +123,6 @@ function safeCreateEnv() {
 
     // Knowledge Base Processing Configuration - Shared across all processing methods
     KB_CONFIG_MAX_DURATION: z.number().optional().default(600),     // Max processing duration in seconds (10 minutes)
-    KB_CONFIG_CONCURRENCY_LIMIT: z.number().optional().default(20),      // Queue concurrency limit
 
     // Real-time Communication
     SOCKET_PORT: z.number().optional(),                  // Port for the realtime socket server process

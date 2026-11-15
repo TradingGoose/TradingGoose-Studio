@@ -3,9 +3,10 @@ import { createHash } from 'node:crypto'
 import { RunFenceConflictError, type RunFenceScope, setRunFenceContext } from '@mastra/core/storage'
 import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
+import { runs } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { CopilotToolContext, Scope } from '@/lib/copilot/native/contract'
+import type { CopilotToolContext, SafeError, Scope } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
@@ -24,6 +25,30 @@ export interface CopilotRun {
   accessLevel: CopilotAccessLevel
   toolContext?: CopilotToolContext
   toolContexts?: CopilotToolContext[]
+}
+
+export interface CopilotJobState {
+  id: string
+  runId: string
+  triggerRunId?: string
+  admissionGeneration?: number
+  status?: 'success' | 'suspended' | 'failed' | 'aborted'
+  error?: SafeError
+}
+
+export async function readCopilotJob(scope: Scope, threadId: string) {
+  const thread = await (await getNativeMemoryStore()).getThreadById({
+    threadId,
+    resourceId: nativeConversationIdentity(scope).resourceId,
+  })
+  return thread?.metadata?.copilotJob as CopilotJobState | undefined
+}
+
+export async function isCopilotJobActive(job: CopilotJobState) {
+  // Admission holds native ownership until the Trigger handle is saved.
+  return !job.status && job.triggerRunId
+    ? !(await runs.retrieve(job.triggerRunId)).isCompleted
+    : false
 }
 
 // Cancellation and effect receipts prevent replay after an uncertain interruption.
@@ -68,6 +93,8 @@ export async function readCopilotThreadOwnership(scope: Scope, threadId: string)
 export async function readCopilotThreadRun(scope: Scope, threadId: string) {
   const owner = await readCopilotThreadOwnership(scope, threadId)
   if (owner?.live) return owner.ownerId
+  const job = await readCopilotJob(scope, threadId)
+  if (job && (await isCopilotJobActive(job))) return job.runId
   const { runs } = await (await getCopilotAgent()).listSuspendedRuns({
     threadId,
     resourceId: nativeConversationIdentity(scope).resourceId,
@@ -77,13 +104,20 @@ export async function readCopilotThreadRun(scope: Scope, threadId: string) {
   }
 }
 
-export async function claimCopilotThread(scope: Scope, threadId: string, runId: string) {
+export async function claimCopilotThread(
+  scope: Scope,
+  threadId: string,
+  runId: string,
+  jobId?: string,
+  expectedGeneration?: number
+) {
   const [workflows, memory] = await Promise.all([getNativeWorkflowsStore(), getNativeMemoryStore()])
   let leaseDeadline = performance.now() + THREAD_LEASE_MS
   const claim = await workflows.claimRunOwnership({
     runId: receiptId('thread', [scope, threadId]),
     ownerId: runId,
     leaseMs: THREAD_LEASE_MS,
+    ...(expectedGeneration === undefined ? {} : { force: true, expectedGeneration }),
   })
   if (!claim.acquired)
     throw new NativeTargetError(
@@ -110,6 +144,9 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
     }
   }
   try {
+    const job = await readCopilotJob(scope, threadId)
+    if (jobId ? job?.id !== jobId : job && (await isCopilotJobActive(job)))
+      throw new NativeTargetError('This conversation has another active response', 409)
     // Advance the thread's native memory fence before admitting its next writer.
     if (!(await memory.raiseRunFence(fence)))
       throw new RunFenceConflictError(fence, 'claimCopilotThread')
@@ -139,6 +176,10 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
   }
   const timer = setInterval(() => void renew().catch(() => {}), THREAD_LEASE_MS / 3)
   timer.unref?.()
+  const handoff = async () => {
+    clearInterval(timer)
+    await renewal?.catch(() => {})
+  }
   return {
     fence,
     run<T>(operation: () => T): T {
@@ -155,9 +196,9 @@ export async function claimCopilotThread(scope: Scope, threadId: string, runId: 
     },
     signal: cancellation.signal,
     renew,
+    handoff,
     async release() {
-      clearInterval(timer)
-      await renewal?.catch(() => {})
+      await handoff()
       try {
         await memory.retireRunFence(fence)
       } finally {
@@ -221,6 +262,10 @@ export async function deleteCopilotRunSnapshot(runId: string) {
 
 /** Check suspensions under thread ownership before a new turn or deletion. */
 export async function assertCopilotThreadReady(scope: Scope, threadId: string) {
+  const job = await readCopilotJob(scope, threadId)
+  const owner = await readCopilotThreadOwnership(scope, threadId)
+  if (job && !job.status && job.runId !== owner?.ownerId && !(await isCopilotJobActive(job)))
+    await cancelCopilotRun({ runId: job.runId, threadId, scope })
   const { runs } = await (await getCopilotAgent()).listSuspendedRuns({
     threadId,
     resourceId: nativeConversationIdentity(scope).resourceId,
