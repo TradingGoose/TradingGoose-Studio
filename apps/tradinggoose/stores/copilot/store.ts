@@ -73,7 +73,7 @@ import {
   isGatedTool,
   isServerManagedCopilotTool,
 } from './tool-registry'
-import type { CopilotChat, CopilotDraft, CopilotMessage, CopilotStore } from './types'
+import type { CopilotChat, CopilotDraft, CopilotStore } from './types'
 import {
   getCopilotWorkspaceSelection,
   rememberCopilotWorkspaceSelection,
@@ -264,22 +264,11 @@ function createCopilotStoreInstance(channelId: string) {
       const applyHistory = (
         history: HistoryResponse,
         activeRunId: string | null = null,
-        recoveredRunId?: string,
-        queuedInput?: CopilotMessage
+        submittedRunId?: string
       ) => {
         if (history.threadId !== get().currentChat?.threadId)
           throw new Error('Observed Copilot history belongs to another conversation')
-        let messages = projectNativeHistory(history.items)
-        if (
-          queuedInput &&
-          activeRunId === recoveredRunId &&
-          !messages.some(
-            (message) => message.id === queuedInput.id && message.content === queuedInput.content
-          )
-        ) {
-          const index = get().messages.findIndex((message) => message.id === queuedInput.id)
-          if (index >= 0) messages = [...get().messages.slice(0, index), queuedInput]
-        }
+        const messages = projectNativeHistory(history.items)
         const pending = history.pending
         const currentRunId = activeRunId ?? pending[0]?.target.runId ?? null
         if (pending.some((item) => item.target.runId !== currentRunId))
@@ -297,7 +286,7 @@ function createCopilotStoreInstance(channelId: string) {
           const live = get().toolCallsById[id]
           const matchingLive =
             samePendingOrigin(live?.pending, item) ||
-            (recoveredRunId === item.target.runId &&
+            (submittedRunId === item.target.runId &&
               live &&
               !live.pending &&
               !live.historical &&
@@ -305,21 +294,17 @@ function createCopilotStoreInstance(channelId: string) {
               live.name === item.target.toolName)
               ? live
               : undefined
-          const provenance = matchingLive?.provenance
-          const projectedCall = (projected.toolCallsById[id] ??= {
-            id,
-            name: item.target.toolName,
-            historical: true,
-            state: ClientToolCallState.aborted,
-          })
-          projectedCall.provenance = provenance
-          if (matchingLive)
-            Object.assign(projectedCall, {
-              historical: matchingLive.historical,
-              historyOrigin: matchingLive.historyOrigin,
-              state: matchingLive.state,
-              result: matchingLive.result,
+          const projectedCall = (projected.toolCallsById[id] = matchingLive ??
+            projected.toolCallsById[id] ?? {
+              id,
+              name: item.target.toolName,
+              historical: true,
+              state: ClientToolCallState.aborted,
             })
+          if (!live && submittedRunId === item.target.runId) {
+            projectedCall.historical = false
+            projectedCall.state = ClientToolCallState.pending
+          }
           projected = { ...projected, ...displayNativePending(projected, item) }
         }
         for (const id of Object.keys(get().toolCallsById))
@@ -334,14 +319,12 @@ function createCopilotStoreInstance(channelId: string) {
       }
       const observeChat = async (
         chat: CopilotChat,
-        expectedRunId?: string,
-        onReady?: () => void,
-        queuedInput?: CopilotMessage
+        submittedRunId?: string,
+        onReady?: () => void
       ) => {
         observation?.abort()
         const abort = new AbortController()
         observation = abort
-        const submittedRunId = expectedRunId
         const id = epoch
         const interaction = interactionGeneration
         const current = () => ownsChat(chat, id, interaction) && !abort.signal.aborted
@@ -375,11 +358,7 @@ function createCopilotStoreInstance(channelId: string) {
                 const event = JSON.parse(data) as CopilotThreadEvent
                 if (!current()) return false
                 if (event.type === 'thread.history') {
-                  if (expectedRunId && event.activeRunId && expectedRunId !== event.activeRunId) {
-                    expectedRunId = event.activeRunId
-                    queuedInput = undefined
-                  }
-                  applyHistory(event.result, event.activeRunId, expectedRunId, queuedInput)
+                  applyHistory(event.result, event.activeRunId, submittedRunId)
                   messageId = undefined
                   if (event.error) set({ error: event.error.message })
                   // History refresh does not clear a request failure.
@@ -388,18 +367,16 @@ function createCopilotStoreInstance(channelId: string) {
                       error:
                         'The previous response was interrupted. You can continue this conversation.',
                     })
-                  if (event.interruptedRunId && expectedRunId === event.interruptedRunId) {
+                  if (event.interruptedRunId && submittedRunId === event.interruptedRunId) {
                     ready()
                     return false
                   }
-                  if (onReady) expectedRunId = undefined
                   ready()
                   continue
                 }
                 if (event.type === 'thread.status') {
-                  applyHistory(event.history, null, event.runId)
+                  applyHistory(event.history, null, submittedRunId)
                   set({
-                    isSendingMessage: false,
                     isAborting: false,
                     error:
                       event.error?.message ??
@@ -409,7 +386,7 @@ function createCopilotStoreInstance(channelId: string) {
                         : null),
                   })
                   refreshBillingUsage()
-                  if (expectedRunId) {
+                  if (submittedRunId) {
                     if (event.status === 'suspended' && event.runId === submittedRunId)
                       scheduleBrowserTools()
                     return ['success', 'suspended'].includes(event.status)
@@ -418,10 +395,6 @@ function createCopilotStoreInstance(channelId: string) {
                   continue
                 }
                 if (event.type === 'thread.started') {
-                  if (expectedRunId && expectedRunId !== event.runId) {
-                    expectedRunId = event.runId
-                    queuedInput = undefined
-                  }
                   messageId = event.messageId
                   const assistant = get().messages.find((item) => item.id === messageId)
                   if (assistant && assistant.role !== 'assistant')
@@ -437,7 +410,7 @@ function createCopilotStoreInstance(channelId: string) {
                   }))
                   continue
                 }
-                if (event.runId !== (expectedRunId ?? get().currentRunId)) continue
+                if (event.runId !== get().currentRunId) continue
                 if (!messageId) {
                   retryable = false
                   throw new Error('Response identity is unavailable. Reload to view saved history.')
@@ -465,9 +438,9 @@ function createCopilotStoreInstance(channelId: string) {
           refreshBillingUsage()
         }
       }
-      const restoreChat = (chat: CopilotChat, recoveredRunId?: string) =>
+      const restoreChat = (chat: CopilotChat) =>
         new Promise<void>((resolve) => {
-          void observeChat(chat, recoveredRunId, resolve)
+          void observeChat(chat, undefined, resolve)
         })
       const scheduleBrowserTools = () => {
         const id = epoch
@@ -522,7 +495,6 @@ function createCopilotStoreInstance(channelId: string) {
             }),
             updatedAt: new Date(),
           }
-          let queuedInput: CopilotMessage | undefined
           set((state) => {
             let messages = state.messages
             if (command.command === 'message') {
@@ -534,7 +506,7 @@ function createCopilotStoreInstance(channelId: string) {
                 throw new Error('Native response input message is unavailable')
               if (command.messageId && typeof command.input.content !== 'string')
                 throw new Error('Edited Copilot input must be text')
-              queuedInput = command.messageId
+              const input = command.messageId
                 ? createUserMessage(
                     command.input.content as string,
                     undefined,
@@ -542,7 +514,7 @@ function createCopilotStoreInstance(channelId: string) {
                     result.messageId
                   )
                 : { ...messages[index], id: result.messageId }
-              messages = [...messages.slice(0, index), queuedInput]
+              messages = [...messages.slice(0, index), input]
             }
             return {
               messages,
@@ -555,7 +527,7 @@ function createCopilotStoreInstance(channelId: string) {
           })
           rememberCopilotWorkspaceSelection(channelId, command.workspaceId, result.threadId)
           onAccepted?.()
-          const success = await observeChat(chat, result.runId, undefined, queuedInput)
+          const success = await observeChat(chat, result.runId)
           if (success && current()) publishInitialTitle()
           return success && current()
         } catch (error) {

@@ -425,6 +425,13 @@ describe('Copilot background execution and native history', () => {
         (await readCopilotThreadOwnership(scope, accepted.threadId))!.generation
       ).toBeGreaterThan(admission!.generation)
       expect(m.contacts).toHaveLength(1)
+      const saved = await (await m.storage.getStore('memory'))!.listMessages({
+        threadId: accepted.threadId,
+        perPage: false,
+      })
+      expect(saved.messages.filter(({ role }) => role === 'user')).toHaveLength(1)
+      const { prompt } = m.contacts[0] as { prompt: { role: string }[] }
+      expect(prompt.filter(({ role }) => role === 'user')).toHaveLength(1)
       expect(m.accept).toHaveBeenCalledOnce()
       expect(await readCopilotThreadRun(scope, accepted.threadId)).toBeUndefined()
     }
@@ -548,46 +555,85 @@ describe('Copilot background execution and native history', () => {
     }
   )
 
-  it('rechecks managed credentials in the worker and persists failures before native streaming', async () => {
-    m.startJobs = false
-    setModel({ text: 'Must not run' })
-    const response = await executeCopilotCommand(
-      {
-        command: 'message',
-        workspaceId: scope.workspaceId,
-        model: 'configured/model',
-        input: { content: 'Use the current managed credential' },
-      },
-      scope.actorUserId
-    )
-    const accepted = await response.json()
-    expect(accepted.status).toBe('accepted')
-    const thread = await m.memory.getThreadById({ threadId: accepted.threadId })
-    const job = thread!.metadata!.copilotJob as { id: string }
-    m.resolve.mockRejectedValue(new NativeTargetError('Managed credential was removed', 409))
-    await executeJob(job.id)
-    const current = await m.memory.getThreadById({ threadId: accepted.threadId })
-    expect(current!.metadata!.copilotJob).toMatchObject({
-      status: 'failed',
-      error: { code: 'STALE_TARGET', message: 'Managed credential was removed' },
-    })
-    expect(m.contacts).toEqual([])
-    expect(await readCopilotThreadRun(scope, accepted.threadId)).toBeUndefined()
-    const observation = await executeCopilotCommand(
-      { command: 'thread.observe', workspaceId: scope.workspaceId, threadId: accepted.threadId },
-      scope.actorUserId
-    )
-    const events = readEvents(observation.body!)
-    try {
-      expect((await events.next()).value).toMatchObject({
-        type: 'thread.history',
-        activeRunId: null,
-        error: { message: 'Managed credential was removed' },
+  it.each(['new', 'edit'])(
+    'retains the accepted %s input when worker credentials disappear before native streaming',
+    async (kind) => {
+      const contexts = [{ kind: 'docs' as const, label: 'Docs' }]
+      let editing: { threadId: string; messageId: string } | undefined
+      if (kind === 'edit') {
+        setModel({ text: 'Previous answer' })
+        const initial = (await message({ input: { content: 'Previous prompt', contexts } })).result
+        if (initial.status !== 'success') throw new Error(JSON.stringify(initial))
+        const stored = await (await m.storage.getStore('memory'))!.listMessages({
+          threadId: initial.threadId,
+          perPage: false,
+        })
+        editing = { threadId: initial.threadId, messageId: stored.messages[0].id }
+        m.contacts.length = 0
+      }
+      m.startJobs = false
+      setModel({ text: 'Must not run' })
+      const text = 'Use the current managed credential'
+      const image = {
+        type: 'image' as const,
+        image: 'data:image/png;base64,aGVsbG8=',
+        mediaType: 'image/png',
+      }
+      const response = await executeCopilotCommand(
+        {
+          command: 'message',
+          ...editing,
+          workspaceId: scope.workspaceId,
+          model: 'configured/model',
+          input: { content: kind === 'edit' ? text : [{ type: 'text', text }, image], contexts },
+        },
+        scope.actorUserId
+      )
+      const accepted = await response.json()
+      expect(accepted.status).toBe('accepted')
+      const thread = await m.memory.getThreadById({ threadId: accepted.threadId })
+      const job = thread!.metadata!.copilotJob as { id: string }
+      const expectedInput = {
+        id: accepted.messageId,
+        role: 'user',
+        parts: [
+          { type: 'text', text },
+          ...(kind === 'edit'
+            ? []
+            : [{ type: 'file', data: image.image, mimeType: image.mediaType }]),
+          { type: COPILOT_CONTEXT_PART, data: contexts },
+        ],
+      }
+      expect(
+        (await command({ command: 'thread.observe', threadId: accepted.threadId })).result
+      ).toMatchObject({ items: [expectedInput] })
+      m.resolve.mockRejectedValue(new NativeTargetError('Managed credential was removed', 409))
+      await executeJob(job.id)
+      const current = await m.memory.getThreadById({ threadId: accepted.threadId })
+      expect(current!.metadata!.copilotJob).toMatchObject({
+        status: 'failed',
+        error: { code: 'STALE_TARGET', message: 'Managed credential was removed' },
       })
-    } finally {
-      await events.return(undefined)
+      expect(m.contacts).toEqual([])
+      expect(await readCopilotThreadRun(scope, accepted.threadId)).toBeUndefined()
+      restart()
+      const observation = await executeCopilotCommand(
+        { command: 'thread.observe', workspaceId: scope.workspaceId, threadId: accepted.threadId },
+        scope.actorUserId
+      )
+      const events = readEvents(observation.body!)
+      try {
+        expect((await events.next()).value).toMatchObject({
+          type: 'thread.history',
+          activeRunId: null,
+          error: { message: 'Managed credential was removed' },
+          result: { items: [expectedInput] },
+        })
+      } finally {
+        await events.return(undefined)
+      }
     }
-  })
+  )
 
   it.each(['Stop', 'ownership loss'])(
     'renews a live preflight beyond lease expiry and prevents inference after %s',
@@ -926,13 +972,14 @@ describe('Copilot background execution and native history', () => {
       expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
     }
   )
-  it('rejects the next message after key removal even when the shared Agent is already warm', async () => {
+  it('retains the next prompt but refuses inference after key removal even when the Agent is warm', async () => {
     setModel({ text: 'Finished before key removal' }, { text: 'Must not run' })
     const initial = (await message()).result
     if (initial.status !== 'success') throw new Error(JSON.stringify(initial))
     const agent = m.agent
     const history = (await command({ command: 'thread.observe', threadId: initial.threadId }))
       .result
+    if (history.status !== 'history') throw new Error(JSON.stringify(history))
     const admissions = m.admit.mock.calls.length
     const charges = m.accept.mock.calls.length
     const models = vi.mocked(createConfiguredLanguageModel).mock.calls.length
@@ -953,7 +1000,13 @@ describe('Copilot background execution and native history', () => {
     expect(await threadClaims()).toHaveLength(0)
     expect(
       (await command({ command: 'thread.observe', threadId: initial.threadId })).result
-    ).toEqual(history)
+    ).toMatchObject({
+      ...history,
+      items: [
+        ...history.items,
+        { role: 'user', parts: [{ type: 'text', text: 'Original request🔥' }] },
+      ],
+    })
   })
   it('returns complete scoped native lists in their stored order', async () => {
     const store = (await m.storage.getStore('memory'))!
@@ -1484,7 +1537,7 @@ describe('Copilot background execution and native history', () => {
             },
           })
         ).result.status
-      ).toBe('failed')
+      ).toBe('refused')
       expect(await store.listMessages(lookup)).toEqual(before)
       expect(m.contacts).toHaveLength(contacts)
       expect(m.accept).toHaveBeenCalledTimes(charges)
@@ -1678,7 +1731,7 @@ describe('Copilot background execution and native history', () => {
     }
     const contacts = m.contacts.length
     expect((await command(decision)).result).toMatchObject({
-      status: 'failed',
+      status: 'refused',
       error: { code: 'STALE_TARGET' },
     })
     expect(m.route).toHaveBeenCalledTimes(2)
@@ -1787,6 +1840,69 @@ describe('Copilot background execution and native history', () => {
     await expect(message()).rejects.toMatchObject({ status: 403 })
     expect(m.contacts).toHaveLength(0)
   })
+
+  it.each(
+    ['local', 'trigger'].flatMap((mode) =>
+      [
+        { command: 'tool.approve' },
+        { command: 'tool.decline', reason: 'Declined' },
+        { command: 'tool.execute', action: 'execute' },
+        { command: 'tool.result', assertion: { kind: 'timer.completed', data: {} } },
+      ].map((request) => ({ mode, request }))
+    )
+  )(
+    'rejects a foreign run before $request.command admission ($mode)',
+    async ({ mode, request }) => {
+      const victimScope = { ...scope, actorUserId: 'victim-actor' }
+      setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
+      const victim = suspended(
+        (await message({ scope: victimScope, accessLevel: 'limited' })).result
+      )
+      const threadId = crypto.randomUUID()
+      await m.memory.createThread({ threadId, ...nativeConversationIdentity(scope) })
+      const workflows = (await m.storage.getStore('workflows'))!
+      const snapshot = await workflows.getWorkflowRunById({ runId: victim.runId })
+      const victimThread = structuredClone(
+        await m.memory.getThreadById({ threadId: victim.threadId })
+      )
+      const victimOwner = structuredClone(
+        await readCopilotThreadOwnership(victimScope, victim.threadId)
+      )
+      const ownThread = structuredClone(await m.memory.getThreadById({ threadId }))
+      const receipts = new Map(m.receipts)
+      m.startJobs = false
+      m.triggerState.mockResolvedValue({ mode })
+      vi.stubEnv('REDIS_URL', 'redis://shared-streams.invalid')
+      m.dispatch.mockClear()
+      const response = await executeCopilotCommand(
+        {
+          ...request,
+          workspaceId: scope.workspaceId,
+          target: {
+            ...victim.pending[0].target,
+            threadId,
+            resourceId: nativeConversationIdentity(scope).resourceId,
+          },
+        } as CopilotRequest,
+        scope.actorUserId
+      )
+      await executeCopilotCommand(
+        { command: 'cancel', workspaceId: scope.workspaceId, threadId, runId: victim.runId },
+        scope.actorUserId
+      )
+      expect(await isCopilotRunCancelled(victim.runId)).toBe(false)
+      expect(m.receipts).toEqual(receipts)
+      expect(await workflows.getWorkflowRunById({ runId: victim.runId })).toEqual(snapshot)
+      expect(await m.memory.getThreadById({ threadId: victim.threadId })).toEqual(victimThread)
+      expect(await readCopilotThreadOwnership(victimScope, victim.threadId)).toEqual(victimOwner)
+      expect(await m.memory.getThreadById({ threadId })).toEqual(ownThread)
+      expect(await readCopilotThreadOwnership(scope, threadId)).toBeNull()
+      expect(m.dispatch).not.toHaveBeenCalled()
+      expect(m.jobs.size).toBe(0)
+      expect(m.contacts).toHaveLength(1)
+      expect(response.status).toBe(409)
+    }
+  )
 
   it('durably cancels pending work so another instance cannot resume generation or effects', async () => {
     setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Renamed' } })
@@ -2252,14 +2368,18 @@ describe('Copilot background execution and native history', () => {
     }
   )
 
-  it.each(['saveMessages', 'deleteMessages', 'user-save', 'assistant-save'] as const)(
+  it.each(['saveMessages', 'deleteMessages', 'new-message', 'assistant-save'] as const)(
     'rejects a stale writer delayed at %s after a successor completes',
     async (operation) => {
       const nativeAssistant = operation === 'assistant-save'
-      const nativeWriter = nativeAssistant || operation === 'user-save'
-      setModel({ text: 'Original answer' }, ...(nativeWriter ? [{ text: 'Stale answer' }] : []), {
-        text: 'Successor answer',
-      })
+      const newMessage = nativeAssistant || operation === 'new-message'
+      setModel(
+        { text: 'Original answer' },
+        ...(nativeAssistant ? [{ text: 'Stale answer' }] : []),
+        {
+          text: 'Successor answer',
+        }
+      )
       const initial = (await message()).result
       if (initial.status !== 'success') throw new Error(JSON.stringify(initial))
       const memory = (await m.storage.getStore('memory'))!
@@ -2292,7 +2412,7 @@ describe('Copilot background execution and native history', () => {
       vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
       const editing = message({
         threadId: initial.threadId,
-        ...(nativeWriter ? {} : { messageId }),
+        ...(newMessage ? {} : { messageId }),
         input: { content: 'Stale writer prompt' },
       })
       try {

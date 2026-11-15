@@ -422,7 +422,7 @@ async function readCommand(
 
 function inputMessage(
   request: Extract<CopilotRequest, { command: 'message' }>,
-  run: CopilotRun,
+  run: Pick<CopilotRun, 'threadId' | 'scope'>,
   messageId: string
 ): MastraDBMessage {
   const content = request.input.content
@@ -497,8 +497,18 @@ async function dispatchCopilotCommand(
   const runId = request.command === 'message' ? crypto.randomUUID() : request.target.runId
   const messageId =
     request.command === 'message' ? (request.messageId ?? crypto.randomUUID()) : undefined
-  if (request.command !== 'message' || request.threadId)
-    await requireThread(scope, threadId, signal)
+  if (request.command === 'message') {
+    if (request.threadId) await requireThread(scope, threadId, signal)
+  } else {
+    await resolveNativePendingTarget(
+      scope,
+      request.target,
+      request.command === 'tool.approve' || request.command === 'tool.decline'
+        ? 'approval'
+        : 'result',
+      signal
+    )
+  }
   const ownership = await claimCopilotThread(scope, threadId, runId)
   const job: CopilotJobState = {
     id: crypto.randomUUID(),
@@ -510,6 +520,7 @@ async function dispatchCopilotCommand(
     if (request.command === 'message') await assertCopilotThreadReady(scope, threadId)
     else await assertCopilotRunActive(runId)
     await ownership.run(async () => {
+      const store = await getNativeMemoryStore()
       if (request.command === 'message' && !request.threadId) {
         await (await getAgentMemory()).createThread({
           threadId,
@@ -519,10 +530,57 @@ async function dispatchCopilotCommand(
         })
       } else {
         const thread = await requireThread(scope, threadId, signal)
-        await (await getNativeMemoryStore()).updateThread({
+        await store.updateThread({
           id: threadId,
           metadata: { ...thread.metadata, copilotJob: job },
         })
+      }
+      if (request.command === 'message') {
+        const message = inputMessage(request, { threadId, scope }, messageId!)
+        let following: MastraDBMessage[] = []
+        if (request.messageId) {
+          const history = await store.listMessages({
+            threadId,
+            resourceId: nativeConversationIdentity(scope).resourceId,
+            perPage: false,
+            orderBy: { field: 'createdAt', direction: 'ASC' },
+          })
+          const index = history.messages.findIndex((item) => item.id === request.messageId)
+          const original = history.messages[index]
+          if (
+            !original ||
+            original.role !== 'user' ||
+            !original.content.parts.length ||
+            original.content.parts.some(
+              (part) => part.type !== 'text' && part.type !== COPILOT_CONTEXT_PART
+            ) ||
+            typeof request.input.content !== 'string'
+          )
+            throw new NativeTargetError('Only plain text user messages can be edited', 422)
+          const originalContexts = original.content.parts.find(
+            (part) => part.type === COPILOT_CONTEXT_PART
+          )
+          if (
+            stableStringifyJsonValue(
+              originalContexts && 'data' in originalContexts ? originalContexts.data : []
+            ) !== stableStringifyJsonValue(request.input.contexts ?? [])
+          )
+            throw new NativeTargetError('Message context cannot be changed while editing', 422)
+          following = history.messages.slice(index + 1)
+          if (
+            following.some((item) =>
+              item.content.parts.some((part) => part.type === 'tool-invocation')
+            )
+          )
+            throw new NativeTargetError(
+              'Start a new message after tool activity to preserve its history',
+              409
+            )
+          message.createdAt = original.createdAt
+        }
+        // Acceptance commits the input before any queued inference preparation can fail.
+        await store.saveMessages({ messages: [message] })
+        if (following.length) await store.deleteMessages(following.map((item) => item.id))
       }
     })
     signal?.throwIfAborted()
@@ -600,9 +658,9 @@ export async function finalizeCopilotJob(value: PendingExecutionPayload, message
 }
 
 export async function executeCopilotJob(value: PendingExecutionPayload, abortSignal?: AbortSignal) {
-  const job = CopilotJobSchema.parse(value)
-  const { request, toolContexts } = job
-  const scope: Scope = { actorUserId: job.actorUserId, workspaceId: request.workspaceId }
+  const { request, toolContexts, actorUserId, threadId, runId, jobId, messageId } =
+    CopilotJobSchema.parse(value)
+  const scope: Scope = { actorUserId, workspaceId: request.workspaceId }
   const cancellation = new AbortController()
   const abort = () => cancellation.abort(abortSignal?.reason)
   abortSignal?.addEventListener('abort', abort, { once: true })
@@ -616,16 +674,22 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
   let nativeStarted = false
   let nativeOutput: { getFullOutput(): Promise<{ finishReason?: string }> } | undefined
   let requestContext: ReturnType<typeof createCopilotRequestContext> | undefined
-  let finalization: Promise<void> | undefined
   const assertOwnership = async () => {
     cancellation.signal.throwIfAborted()
     await ownership!.renew()
     cancellation.signal.throwIfAborted()
   }
-  const claim = async (threadId: string, runId: string, admissionGeneration?: number) => {
+  try {
+    const currentJob = await readCopilotJob(scope, threadId)
+    if (currentJob?.id !== jobId) throw new NativeTargetError('This Copilot turn has changed', 409)
+    if (currentJob.status) {
+      outcome = currentJob
+      return
+    }
+    const { admissionGeneration } = currentJob
     if (admissionGeneration === undefined)
       await waitForRunRelease(scope, threadId, runId, cancellation.signal)
-    ownership = await claimCopilotThread(scope, threadId, runId, job.jobId, admissionGeneration)
+    ownership = await claimCopilotThread(scope, threadId, runId, jobId, admissionGeneration)
     ownership.signal.addEventListener('abort', () => cancellation.abort(ownership!.signal.reason), {
       once: true,
     })
@@ -639,64 +703,19 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
           checking = false
         })
     }, CANCELLATION_POLL_INTERVAL)
-  }
-  const finalize = () =>
-    (finalization ??= (async () => {
-      try {
-        // stream() can reject during startup, including after it started asynchronous work.
-        if (ownership && !ownership.signal.aborted && run && nativeStarted && !nativeOutput) {
-          cancellation.abort()
-          ;(await getCopilotAgent()).abortThreadStream({
-            threadId: run.threadId,
-            resourceId: nativeConversationIdentity(scope).resourceId,
-            expectedRunId: run.runId,
-          })
-        }
-        // Rejection is also a settled native result. Keep the lease through actual tool drainage.
-        await nativeOutput?.getFullOutput().catch(() => undefined)
-        if (requestContext) await Promise.all(getCopilotExecution(requestContext)!.pendingTools)
-        if (ownership && run && cancellation.signal.aborted && !ownership.signal.aborted) {
-          await ownership.renew()
-          await cancelCopilotRun(run)
-          await deleteCopilotRunSnapshot(run.runId)
-        }
-      } finally {
-        if (watcher) clearInterval(watcher)
-        try {
-          if (ownership && !ownership.signal.aborted) {
-            await ownership.run(() => saveCopilotJob(scope, job.threadId, job.jobId, outcome))
-          }
-        } finally {
-          await ownership?.release()
-          abortSignal?.removeEventListener('abort', abort)
-        }
-      }
-    })())
-  try {
-    const currentJob = await readCopilotJob(scope, job.threadId)
-    if (currentJob?.id !== job.jobId)
-      throw new NativeTargetError('This Copilot turn has changed', 409)
-    if (currentJob.status) {
-      outcome = currentJob
-      return
-    }
-    await claim(job.threadId, job.runId, currentJob.admissionGeneration)
     await authorizeNativeConversationScope(scope.actorUserId, scope.workspaceId)
-    await assertCopilotRunActive(job.runId)
+    await assertCopilotRunActive(runId)
     const agent = await getCopilotAgent()
     const signal = cancellation.signal
     let pending: ServerPending | undefined
     let decision: CopilotDecision | undefined
     if (request.command === 'message') {
-      if (request.messageId && !request.threadId)
-        throw new NativeTargetError('Editing a message requires its conversation', 422)
       apiKey = (await resolveCopilotModel(request.model)).apiKey
-      const { threadId, runId } = job
       await requireThread(scope, threadId, signal)
       run = {
         runId,
         threadId,
-        scope: scope,
+        scope,
         model: request.model,
         accessLevel: request.accessLevel ?? 'limited',
         toolContext: request.toolContext,
@@ -777,7 +796,12 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
     )
     usage = prepared.usage
     const message =
-      request.command === 'message' ? inputMessage(request, run, job.messageId!) : undefined
+      request.command === 'message'
+        ? (await (await getNativeMemoryStore()).listMessagesById({ messageIds: [messageId!] }))
+            .messages[0]
+        : undefined
+    if (request.command === 'message' && !message)
+      throw new NativeTargetError('Submitted Copilot message is unavailable', 409)
     const contexts =
       request.command === 'message'
         ? await processContextsServer(
@@ -791,51 +815,6 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
             { signal }
           )
         : []
-    if (request.command === 'message' && request.messageId) {
-      const store = await getNativeMemoryStore()
-      const history = await store.listMessages({
-        threadId: run.threadId,
-        resourceId: nativeConversationIdentity(scope).resourceId,
-        perPage: false,
-        orderBy: { field: 'createdAt', direction: 'ASC' },
-      })
-      const index = history.messages.findIndex((item) => item.id === request.messageId)
-      const original = history.messages[index]
-      if (
-        !original ||
-        original.role !== 'user' ||
-        !original.content.parts.length ||
-        original.content.parts.some(
-          (part) => part.type !== 'text' && part.type !== COPILOT_CONTEXT_PART
-        ) ||
-        typeof request.input.content !== 'string'
-      )
-        throw new NativeTargetError('Only plain text user messages can be edited', 422)
-      const originalContexts = original.content.parts.find(
-        (part) => part.type === COPILOT_CONTEXT_PART
-      )
-      if (
-        stableStringifyJsonValue(
-          originalContexts && 'data' in originalContexts ? originalContexts.data : []
-        ) !== stableStringifyJsonValue(request.input.contexts ?? [])
-      )
-        throw new NativeTargetError('Message context cannot be changed while editing', 422)
-      if (
-        history.messages
-          .slice(index + 1)
-          .some((item) => item.content.parts.some((part) => part.type === 'tool-invocation'))
-      )
-        throw new NativeTargetError(
-          'Start a new message after tool activity to preserve its history',
-          409
-        )
-      await assertOwnership()
-      message!.createdAt = original.createdAt
-      await ownership!.run(async () => {
-        await store.saveMessages({ messages: [message!] })
-        await store.deleteMessages(history.messages.slice(index + 1).map((item) => item.id))
-      })
-    }
     requestContext = createCopilotRequestContext({
       run,
       model: prepared.model,
@@ -936,7 +915,35 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
       : { status: 'failed', error: failure(error, apiKey).error }
     if (!ownership) throw error
   } finally {
-    await finalize()
+    try {
+      // stream() can reject during startup, including after it started asynchronous work.
+      if (ownership && !ownership.signal.aborted && run && nativeStarted && !nativeOutput) {
+        cancellation.abort()
+        ;(await getCopilotAgent()).abortThreadStream({
+          threadId: run.threadId,
+          resourceId: nativeConversationIdentity(scope).resourceId,
+          expectedRunId: run.runId,
+        })
+      }
+      // Rejection is also a settled native result. Keep the lease through actual tool drainage.
+      await nativeOutput?.getFullOutput().catch(() => undefined)
+      if (requestContext) await Promise.all(getCopilotExecution(requestContext)!.pendingTools)
+      if (ownership && run && cancellation.signal.aborted && !ownership.signal.aborted) {
+        await ownership.renew()
+        await cancelCopilotRun(run)
+        await deleteCopilotRunSnapshot(run.runId)
+      }
+    } finally {
+      if (watcher) clearInterval(watcher)
+      try {
+        if (ownership && !ownership.signal.aborted) {
+          await ownership.run(() => saveCopilotJob(scope, threadId, jobId, outcome))
+        }
+      } finally {
+        await ownership?.release()
+        abortSignal?.removeEventListener('abort', abort)
+      }
+    }
   }
 }
 

@@ -941,7 +941,7 @@ describe('canonical browser conversation transport', () => {
       request.command === 'cancel'
         ? acknowledgement.promise
         : request.command === 'message'
-          ? acceptObservation(stream.response, threadId, 'canonical-live-user')
+          ? acceptObservation(stream.response)
           : undefined
     const sending = store().getState().sendMessage('Read')
     await vi.waitFor(() =>
@@ -953,7 +953,7 @@ describe('canonical browser conversation transport', () => {
       store()
         .getState()
         .messages.find((message) => message.role === 'user')?.id
-    ).toBe('canonical-live-user')
+    ).toBe(history[0].id)
     const stopping = store().getState().abortMessage()
     expect(store().getState().isAborting).toBe(true)
     expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
@@ -1109,24 +1109,33 @@ describe('failed pending continuations', () => {
     async (withPending) => {
       setChat()
       const item = pending('approval', 'rename_workflow')
-      const saved = withPending ? pendingHistory([item]) : historyResult([history[0]])
-      const error = { code: 'GENERATION_FAILED', message: 'Model request failed' }
+      const input = { ...history[0], parts: [{ type: 'text', text: 'Rename' }] }
+      const saved = withPending ? pendingHistory([item]) : historyResult([input])
+      const error = {
+        code: 'GENERATION_FAILED',
+        message: withPending ? 'Model request failed' : 'Model credentials are unavailable',
+      }
       onCommand = (request) =>
         request.command === 'message'
           ? acceptObservation(
               eventResponse([
-                { type: 'thread.history', result: historyResult([history[0]]), activeRunId: runId },
-                { type: 'thread.started', runId, messageId: history[1].id },
-                {
-                  type: 'thread.output',
-                  runId,
-                  event: { type: 'text.delta', text: 'Unsaved partial answer' },
-                },
+                { type: 'thread.history', result: historyResult([input]), activeRunId: runId },
+                ...(withPending
+                  ? [
+                      { type: 'thread.started', runId, messageId: history[1].id },
+                      {
+                        type: 'thread.output',
+                        runId,
+                        event: { type: 'text.delta', text: 'Unsaved partial answer' },
+                      },
+                    ]
+                  : []),
                 { type: 'thread.status', runId, status: 'failed', history: saved, error },
               ])
             )
           : undefined
-      const accepted = vi.fn()
+      const draft = { text: 'Next request', contexts: [] }
+      const accepted = vi.fn(() => store().getState().setDraft(draft))
       expect(await store().getState().sendMessage('Rename', { onAccepted: accepted })).toBe(false)
       expect(accepted).toHaveBeenCalledOnce()
       expect(store().getState()).toMatchObject({
@@ -1134,14 +1143,21 @@ describe('failed pending continuations', () => {
         currentRunId: withPending ? runId : null,
         isAwaitingContinuation: withPending,
         isSendingMessage: false,
+        draft,
       })
       onObserve = () => observingStream(saved).response
       await reconnectSelectedChat()
       expect(store().getState().error).toBe(error.message)
-      if (withPending)
+      if (withPending) {
         expect(store().getState().toolCallsById[nativeToolCallId(item.target)].pending).toEqual(
           item
         )
+      } else {
+        expect(store().getState().messages).toMatchObject([{ id: input.id, content: 'Rename' }])
+        onCommand = () => undefined
+        onObserve = () => admittedObservation!
+        expect(await store().getState().sendMessage(draft.text)).toBe(true)
+      }
     }
   )
 
@@ -1505,9 +1521,10 @@ describe('canonical history, edits and context', () => {
     expect(store().getState().messages).toEqual(before)
     expect(store().getState().error).toBe('The previous turn is still finishing')
   })
-  it('keeps an admitted edit when initial queued history still contains the old answer', async () => {
+  it('reads the admitted edit from queued native history', async () => {
     await store().getState().selectChat(chat())
-    const stream = observingStream(historyResult(), runId)
+    const editedInput = { ...history[0], parts: [{ type: 'text', text: 'Edited prompt' }] }
+    const stream = observingStream(historyResult([editedInput]), runId)
     onCommand = (request) =>
       request.command === 'message' ? acceptObservation(stream.response) : undefined
     const accepted = vi.fn()
@@ -1525,7 +1542,7 @@ describe('canonical history, edits and context', () => {
     ).toEqual([{ id: history[0].id, content: 'Edited prompt' }])
     stream.emit({ type: 'thread.started', runId, messageId: 'edited-answer' })
     const editedHistory = historyResult([
-      { ...history[0], parts: [{ type: 'text', text: 'Edited prompt' }] },
+      editedInput,
       { ...history[1], id: 'edited-answer', parts: [{ type: 'text', text: 'New answer' }] },
     ])
     stream.emit({ type: 'thread.status', runId, status: 'success', history: editedHistory })
@@ -2073,7 +2090,8 @@ describe('message acceptance', () => {
   it('acknowledges admission and preserves the submitted user while the turn is queued', async () => {
     setChat()
     const admission = defer<Response>()
-    const stream = observingStream(historyResult([]), runId)
+    const input = { ...history[0], parts: [{ type: 'text', text: 'submitted' }] }
+    const stream = observingStream(historyResult([input]), runId)
     onCommand = (request) => (request.command === 'message' ? admission.promise : undefined)
     const onAccepted = vi.fn()
     const finished = vi.fn()
@@ -2099,7 +2117,12 @@ describe('message acceptance', () => {
         .getState()
         .messages.filter(({ role }) => role === 'assistant')
     ).toHaveLength(1)
-    stream.emit({ type: 'thread.status', runId, status: 'success', history: historyResult() })
+    stream.emit({
+      type: 'thread.status',
+      runId,
+      status: 'success',
+      history: historyResult([input, history[1]]),
+    })
     await sending
     expect(finished).toHaveBeenCalledWith(true)
     expect(onAccepted).toHaveBeenCalledOnce()
@@ -3033,38 +3056,49 @@ describe('owned workflow chat deployment UI', () => {
 })
 
 describe('built-in tool continuation', () => {
-  it.each([false, true])(
-    'automatically executes a live browser tool once after suspension (disconnect=%s)',
-    async (disconnected) => {
+  it.each(['stream', 'reconnect', 'initial-history', 'reconnect-before-display'])(
+    'automatically executes a submitted browser tool once after suspension (%s)',
+    async (delivery) => {
       const originalArgs = { seconds: 0 }
       const item = { ...pending('result', 'sleep'), originalArgs }
-      const generation = outputStream([
-        {
-          type: 'tool.display',
-          toolCallId: item.target.toolCallId,
-          toolName: 'sleep',
-          args: originalArgs,
-        },
-      ])
+      const generation =
+        delivery === 'initial-history'
+          ? observingStream(pendingHistory([item]))
+          : outputStream(
+              delivery === 'reconnect-before-display'
+                ? []
+                : [
+                    {
+                      type: 'tool.display',
+                      toolCallId: item.target.toolCallId,
+                      toolName: 'sleep',
+                      args: originalArgs,
+                    },
+                  ]
+            )
       setChat()
       onCommand = (request) =>
         request.command === 'message' ? acceptObservation(generation.response) : undefined
       let observations = 0
       onObserve = () => (++observations === 1 ? generation.response : historyResponse([item]))
       const sending = store().getState().sendMessage('Continue')
-      await vi.waitFor(() =>
-        expect(store().getState().toolCallsById[nativeToolCallId(item.target)]?.state).toBe(
-          ClientToolCallState.generating
-        )
-      )
-      if (disconnected) generation.fail(new Error('Connection lost before suspension'))
-      else
-        generation.emit({
-          type: 'thread.status',
-          runId,
-          status: 'suspended',
-          history: pendingHistory([item]),
-        })
+      if (delivery !== 'initial-history') {
+        await vi.waitFor(() => expect(observations).toBe(1))
+        if (delivery !== 'reconnect-before-display')
+          await vi.waitFor(() =>
+            expect(store().getState().toolCallsById[nativeToolCallId(item.target)]?.state).toBe(
+              ClientToolCallState.generating
+            )
+          )
+        if (delivery === 'stream')
+          generation.emit({
+            type: 'thread.status',
+            runId,
+            status: 'suspended',
+            history: pendingHistory([item]),
+          })
+        else generation.fail(new Error('Connection lost before suspension'))
+      }
       expect(await sending).toBe(true)
       await vi.waitFor(() => expect(tools.browser).toHaveBeenCalledExactlyOnceWith(originalArgs))
       const call = store().getState().toolCallsById[nativeToolCallId(item.target)]
@@ -3083,7 +3117,7 @@ describe('built-in tool continuation', () => {
       expect(tools.browser).toHaveBeenCalledTimes(1)
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
       expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(
-        disconnected ? 3 : 2
+        delivery.startsWith('reconnect') ? 3 : 2
       )
     }
   )
