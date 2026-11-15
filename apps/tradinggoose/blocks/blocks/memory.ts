@@ -39,31 +39,7 @@ export const MemoryBlock: BlockConfig = {
       placeholder: 'Enter memory identifier',
       condition: {
         field: 'operation',
-        value: 'add',
-      },
-      required: true,
-    },
-    {
-      id: 'id',
-      title: 'ID',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: 'Enter memory identifier to retrieve',
-      condition: {
-        field: 'operation',
-        value: 'get',
-      },
-      required: true,
-    },
-    {
-      id: 'id',
-      title: 'ID',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: 'Enter memory identifier to delete',
-      condition: {
-        field: 'operation',
-        value: 'delete',
+        value: ['add', 'get', 'delete'],
       },
       required: true,
     },
@@ -101,8 +77,7 @@ export const MemoryBlock: BlockConfig = {
     access: ['memory_add', 'memory_get', 'memory_get_all', 'memory_delete'],
     config: {
       tool: (params: Record<string, any>) => {
-        const operation = params.operation || 'add'
-        switch (operation) {
+        switch (params.operation) {
           case 'add':
             return 'memory_add'
           case 'get':
@@ -112,75 +87,8 @@ export const MemoryBlock: BlockConfig = {
           case 'delete':
             return 'memory_delete'
           default:
-            return 'memory_add'
+            throw new Error(`Unsupported Memory operation: ${params.operation}`)
         }
-      },
-      params: (params: Record<string, any>) => {
-        // Create detailed error information for any missing required fields
-        const errors: string[] = []
-
-        if (!params.operation) {
-          errors.push('Operation is required')
-        }
-
-        if (
-          params.operation === 'add' ||
-          params.operation === 'get' ||
-          params.operation === 'delete'
-        ) {
-          if (!params.id) {
-            errors.push(`Memory ID is required for ${params.operation} operation`)
-          }
-        }
-
-        if (params.operation === 'add') {
-          if (!params.role) {
-            errors.push('Role is required for agent memory')
-          }
-          if (!params.content) {
-            errors.push('Content is required for agent memory')
-          }
-        }
-
-        // Throw error if any required fields are missing
-        if (errors.length > 0) {
-          throw new Error(`Memory Block Error: ${errors.join(', ')}`)
-        }
-
-        // Base result object
-        const baseResult: Record<string, any> = {}
-
-        // For add operation
-        if (params.operation === 'add') {
-          const result: Record<string, any> = {
-            ...baseResult,
-            id: params.id,
-            type: 'agent', // Always agent type
-            role: params.role,
-            content: params.content,
-          }
-
-          return result
-        }
-
-        // For get operation
-        if (params.operation === 'get') {
-          return {
-            ...baseResult,
-            id: params.id,
-          }
-        }
-
-        // For delete operation
-        if (params.operation === 'delete') {
-          return {
-            ...baseResult,
-            id: params.id,
-          }
-        }
-
-        // For getAll operation
-        return baseResult
       },
     },
   },

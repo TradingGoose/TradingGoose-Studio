@@ -5,6 +5,12 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { WorkflowMemoryError } from '@/lib/mastra/errors'
 
 const logger = createLogger('MemoryAPI')
+export const MemoryQuerySchema = z
+  .object({
+    workflowId: z.string().trim().min(1),
+    workspaceId: z.string().trim().min(1).optional(),
+  })
+  .strict()
 export const MemoryMessageSchema = z
   .object({ role: z.enum(['user', 'assistant', 'system']), content: z.string() })
   .strict()

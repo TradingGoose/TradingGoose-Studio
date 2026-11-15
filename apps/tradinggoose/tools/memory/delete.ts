@@ -4,8 +4,7 @@ import type { ToolConfig } from '@/tools/types'
 export const memoryDeleteTool: ToolConfig<any, MemoryResponse> = {
   id: 'memory_delete',
   name: 'Delete Memory',
-  description:
-    'Delete the current logical memory and its captured messages. The empty backing container is retained.',
+  description: 'Delete the conversation and its messages from memory.',
   version: '1.0.0',
 
   params: {
@@ -17,17 +16,9 @@ export const memoryDeleteTool: ToolConfig<any, MemoryResponse> = {
   },
 
   request: {
-    url: (params) => {
-      const workflowId = params._context?.workflowId
-      if (!workflowId) {
-        throw new Error('workflowId is required in execution context')
-      }
-      return `/api/memory/${encodeURIComponent(params.id)}?workflowId=${encodeURIComponent(workflowId)}`
-    },
+    url: (params) => `/api/memory/${encodeURIComponent(params.id)}`,
     method: 'DELETE',
-    headers: () => ({
-      'Content-Type': 'application/json',
-    }),
+    headers: () => ({}),
   },
   transformResponse: async (): Promise<MemoryResponse> => {
     return {

@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { appendWorkflowMemory, getAllWorkflowMemory } from '@/lib/mastra/workflow-memory'
-import { MemoryMessageSchema, memoryError, requireMemoryAuth } from './utils'
+import { MemoryMessageSchema, MemoryQuerySchema, memoryError, requireMemoryAuth } from './utils'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -14,13 +14,12 @@ const CreateMemorySchema = z
     data: MemoryMessageSchema,
   })
   .strict()
-const ListMemorySchema = z.object({ workflowId: z.string().trim().min(1) }).strict()
 
 export async function GET(request: NextRequest) {
   try {
     const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
     requireMemoryAuth(auth)
-    const { workflowId } = ListMemorySchema.parse(
+    const { workflowId } = MemoryQuerySchema.parse(
       Object.fromEntries(new URL(request.url).searchParams)
     )
     const memories = await getAllWorkflowMemory(auth, workflowId, request.signal)
