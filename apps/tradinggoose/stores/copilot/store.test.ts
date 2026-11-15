@@ -10,7 +10,11 @@ import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { MAX_COPILOT_REQUEST_BYTES } from '@/lib/copilot/native/request-size'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { getClientTool, registerClientTool } from '@/lib/copilot/tools/client/manager'
+import {
+  getClientTool,
+  registerClientTool,
+  unregisterClientTool,
+} from '@/lib/copilot/tools/client/manager'
 import { SleepClientTool } from '@/lib/copilot/tools/client/other/sleep'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
@@ -32,7 +36,6 @@ const tools = vi.hoisted(() => ({
   refresh: vi.fn(),
   browser: vi.fn(),
   bind: vi.fn(),
-  hydrate: vi.fn(),
 }))
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 vi.mock('@/app/query-provider', () => ({ getQueryClient: () => queryClient }))
@@ -51,7 +54,6 @@ vi.mock('./tool-registry', async (original) => {
         ? registry.ensureClientToolInstance(...args)
         : {
             handleUserAction: tools.browser,
-            hydrateToolCall: tools.hydrate,
             setExecutionContext: tools.bind,
           },
   }
@@ -2564,6 +2566,7 @@ describe('explicit OAuth popup activation', () => {
     expect(store().getState().toolCallsById[nativeToolCallId(target.target)].result).toMatchObject({
       opened: true,
     })
+    unregisterClientTool(nativeToolCallId(target.target))
     await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     expect(open).toHaveBeenCalledTimes(2)
     expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(1)

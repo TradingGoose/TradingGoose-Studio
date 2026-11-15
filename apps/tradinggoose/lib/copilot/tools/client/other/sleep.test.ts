@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ClientToolCallState } from '../base-tool'
 import { SleepClientTool } from './sleep'
 
 const m = vi.hoisted(() => ({ assertion: vi.fn(), failure: vi.fn(), abort: new AbortController() }))
@@ -23,7 +22,6 @@ describe('native local timer completion', () => {
     const running = tool.execute({ seconds: 60 })
     m.abort.abort(new DOMException('Cancelled by user', 'AbortError'))
     await running
-    expect(tool.getState()).toBe(ClientToolCallState.error)
     expect(m.failure).toHaveBeenCalledWith('timer', 'Cancelled by user')
     expect(m.assertion).not.toHaveBeenCalled()
     expect(tool.hasSubmittedResult()).toBe(false)
@@ -32,8 +30,8 @@ describe('native local timer completion', () => {
     m.abort.abort(new DOMException('Aborted', 'AbortError'))
     const tool = new SleepClientTool('already-aborted')
     await tool.execute({ seconds: 0 })
+    expect(m.failure).toHaveBeenCalledWith('already-aborted', 'Aborted')
     expect(m.assertion).not.toHaveBeenCalled()
     expect(tool.hasSubmittedResult()).toBe(false)
-    expect(tool.getState()).toBe(ClientToolCallState.error)
   })
 })

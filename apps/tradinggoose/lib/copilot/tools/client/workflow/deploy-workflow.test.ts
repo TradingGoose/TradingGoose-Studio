@@ -53,6 +53,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     mockCopilotState.submitBrowserAssertion.mockReset().mockResolvedValue(undefined)
     mockCopilotState.openWorkflowChatDeployment.mockReset().mockResolvedValue(undefined)
     mockCopilotState.recordToolFailure.mockReset()
+    mockCopilotState.setToolState.mockReset()
   })
 
   it('getInterruptDisplays resolves deployment state only from explicit params', () => {
@@ -164,7 +165,6 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       expect(mockCopilotState.submitBrowserAssertion).not.toHaveBeenCalled()
       expect(mockRegistryState.setDeploymentStatus).not.toHaveBeenCalled()
       if (fails) {
-        expect(tool.getState()).toBe(ClientToolCallState.error)
         expect(mockCopilotState.recordToolFailure).toHaveBeenCalledWith(
           'key-refusal',
           'Readback unavailable'
@@ -191,7 +191,10 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
 
       await tool.execute({ action, deployType: 'api', entityId: 'wf-target' })
 
-      expect(tool.getState()).toBe(ClientToolCallState.error)
+      expect(mockCopilotState.recordToolFailure).toHaveBeenCalledWith(
+        tool.toolCallId,
+        expect.any(String)
+      )
       expect(tool.hasSubmittedResult()).toBe(false)
       expect(mockCopilotState.readbackCopilotToolCall).not.toHaveBeenCalled()
       expect(mockCopilotState.submitBrowserAssertion).not.toHaveBeenCalled()
@@ -225,10 +228,16 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       workspaceId: 'entity-workspace',
     })
     expect(mockCopilotState.submitBrowserAssertion).not.toHaveBeenCalled()
-    expect(tool.getState()).toBe(ClientToolCallState.executing)
+    expect(mockCopilotState.setToolState.mock.lastCall?.slice(0, 2)).toEqual([
+      tool.toolCallId,
+      ClientToolCallState.executing,
+    ])
     rendered()
     await execution
-    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockCopilotState.setToolState.mock.lastCall?.slice(0, 2)).toEqual([
+      tool.toolCallId,
+      ClientToolCallState.success,
+    ])
     expect(mockCopilotState.submitBrowserAssertion).toHaveBeenCalledExactlyOnceWith(
       'chat-ui-call',
       {
@@ -259,7 +268,6 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     await tool.execute(args)
     expect(mockCopilotState.openWorkflowChatDeployment).toHaveBeenCalledOnce()
     expect(mockCopilotState.submitBrowserAssertion).toHaveBeenCalledOnce()
-    expect(tool.getState()).toBe(ClientToolCallState.error)
     expect(tool.hasSubmittedResult()).toBe(false)
     expect(mockCopilotState.recordToolFailure).toHaveBeenCalledWith(
       'chat-failed-ack',
@@ -289,7 +297,10 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
         entityId: 'explicit-workflow',
       })
       expect(mockCopilotState.submitBrowserAssertion).not.toHaveBeenCalled()
-      expect(tool.getState()).toBe(ClientToolCallState.error)
+      expect(mockCopilotState.recordToolFailure).toHaveBeenCalledWith(
+        tool.toolCallId,
+        expect.any(String)
+      )
       if (kind !== 'closed')
         expect(mockCopilotState.openWorkflowChatDeployment).not.toHaveBeenCalled()
     }

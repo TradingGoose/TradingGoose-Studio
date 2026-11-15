@@ -2,7 +2,6 @@ import type { LucideIcon } from 'lucide-react'
 import type { BrowserAssertion } from '@/lib/copilot/native/contract'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
-const DEFAULT_TOOL_TIMEOUT_MS = 2 * 60 * 1000
 export const WORKFLOW_EXECUTION_TIMEOUT_MS = 10 * 60 * 1000
 
 // Client tool call states used by the new runtime
@@ -53,12 +52,10 @@ export interface ClientToolExecutionContext {
 
 export abstract class BaseClientTool {
   readonly toolCallId: string
-  protected state = ClientToolCallState.generating
   protected metadata: BaseClientToolMetadata
   private disposed = false
   private resultSubmitted = false
   private executionContext: ClientToolExecutionContext | null = null
-  private toolCall: Record<string, any> | undefined
   constructor(id: string, metadata: BaseClientToolMetadata) {
     this.toolCallId = id
     this.metadata = metadata
@@ -66,7 +63,7 @@ export abstract class BaseClientTool {
   hasSubmittedResult() {
     return this.resultSubmitted
   }
-  async executeWithTimeout(execute: () => Promise<void>, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS) {
+  async executeWithTimeout(execute: () => Promise<void>, timeoutMs: number) {
     let timer: ReturnType<typeof setTimeout> | undefined
     try {
       await Promise.race([
@@ -98,11 +95,10 @@ export abstract class BaseClientTool {
       ? AbortSignal.abort()
       : getCopilotStoreForToolCall(this.toolCallId).getState().abortController?.signal
   }
-  hydrateToolCall(call?: Record<string, any>) {
-    if (!this.disposed) this.toolCall = call
-  }
   protected resolveResult<T = unknown>() {
-    return this.toolCall?.result as T | undefined
+    if (this.disposed) return
+    return getCopilotStoreForToolCall(this.toolCallId).getState().toolCallsById[this.toolCallId]
+      ?.result as T | undefined
   }
   protected async requireNativeTarget() {
     if (this.disposed) throw new Error('Client tool is no longer active')
@@ -129,7 +125,6 @@ export abstract class BaseClientTool {
   }
   protected fail(message: string) {
     if (this.disposed) return
-    this.setState(ClientToolCallState.error)
     getCopilotStoreForToolCall(this.toolCallId)
       .getState()
       .recordToolFailure(this.toolCallId, message)
@@ -143,23 +138,12 @@ export abstract class BaseClientTool {
   }
   setState(state: ClientToolCallState, options?: { result?: unknown }) {
     if (this.disposed) return
-    this.state = state
-    this.toolCall = {
-      ...this.toolCall,
-      state,
-      ...(options?.result !== undefined ? { result: options.result } : {}),
-    }
     getCopilotStoreForToolCall(this.toolCallId)
       .getState()
       .setToolState(this.toolCallId, state, options?.result)
   }
-  getState() {
-    return this.state
-  }
   dispose() {
     this.disposed = true
-    this.state = ClientToolCallState.aborted
     this.executionContext = null
-    this.toolCall = undefined
   }
 }

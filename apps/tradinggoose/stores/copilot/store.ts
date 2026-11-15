@@ -637,7 +637,6 @@ function createCopilotStoreInstance(channelId: string) {
         ) {
           const instance = ensureClientToolInstance('oauth_request_access', id)
           if (instance instanceof OAuthRequestAccessClientTool) {
-            instance.hydrateToolCall(get().toolCallsById[id])
             closeOAuthWindow = instance.prepareWindow()
             if (!closeOAuthWindow) return
           }
@@ -756,7 +755,6 @@ function createCopilotStoreInstance(channelId: string) {
                 'Browser tool execution was already attempted; use readback instead of replay'
               )
             attemptedTools.add(key)
-            instance.hydrateToolCall(call)
             const originalArgs = ToolArgSchemas[call.name].parse(pending.originalArgs)
             const businessAbort = new AbortController()
             ownedAbort = businessAbort

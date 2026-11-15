@@ -16,6 +16,7 @@ vi.mock('@/stores/copilot/store-access', () => ({
   getCopilotStoreForToolCall: () => ({
     getState: () => ({
       currentChat: { workspaceId: null },
+      toolCallsById: {},
       abortController: m.abort,
       readPendingTool: m.pending,
       submitBrowserAssertion: m.assertion,
@@ -76,7 +77,7 @@ describe('OAuth opened UI and native acknowledgement', () => {
       await instance.execute({ providerName: 'Google Drive' })
       expect(m.assertion).not.toHaveBeenCalled()
       expect(instance.hasSubmittedResult()).toBe(false)
-      expect(instance.getState()).toBe(ClientToolCallState.error)
+      expect(m.failure).toHaveBeenCalledWith('oauth', expect.any(String))
     }
   )
   it('keeps origin alive and opener isolated while the ordinary native acknowledgement is deferred', async () => {
@@ -101,13 +102,13 @@ describe('OAuth opened UI and native acknowledgement', () => {
       m.assertion.mock.invocationCallOrder[0]!
     )
     expect(window.location.pathname).toBe('/workspace/unrelated')
-    expect(instance.getState()).toBe(ClientToolCallState.executing)
+    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['oauth', ClientToolCallState.executing])
     expect(instance.hasSubmittedResult()).toBe(false)
     await instance.execute({ providerName: 'Google Drive' })
     expect(m.open).toHaveBeenCalledOnce()
     acknowledge()
     await completion
-    expect(instance.getState()).toBe(ClientToolCallState.success)
+    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['oauth', ClientToolCallState.success])
     expect(instance.hasSubmittedResult()).toBe(true)
     expect(m.assertion).toHaveBeenCalledExactlyOnceWith('oauth', {
       kind: 'ui.opened',
@@ -132,7 +133,6 @@ describe('OAuth opened UI and native acknowledgement', () => {
       'Integration window opened; native acknowledgement failed'
     )
     expect(instance.hasSubmittedResult()).toBe(false)
-    expect(instance.getState()).toBe(ClientToolCallState.error)
   })
   it.each(['approval', 'missing-context', 'cancelled'])(
     'refuses %s before UI contact',

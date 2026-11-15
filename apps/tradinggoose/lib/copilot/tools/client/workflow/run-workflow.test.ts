@@ -7,6 +7,7 @@ const m = vi.hoisted(() => ({
   pending: vi.fn(),
   readback: vi.fn(),
   failure: vi.fn(),
+  sync: vi.fn(),
   isExecuting: false,
   setExecuting: vi.fn(),
   abort: new AbortController(),
@@ -26,7 +27,7 @@ vi.mock('@/stores/copilot/store-access', () => ({
       readPendingTool: m.pending,
       readbackCopilotToolCall: m.readback,
       recordToolFailure: m.failure,
-      setToolState: vi.fn(),
+      setToolState: m.sync,
     }),
   }),
 }))
@@ -59,7 +60,6 @@ describe('native workflow client explicit scoping', () => {
     expect(m.setExecuting).not.toHaveBeenCalled()
     expect(m.failure).toHaveBeenCalledWith('call', 'entityId is required')
     expect(m.readback).not.toHaveBeenCalled()
-    expect(instance.getState()).toBe(ClientToolCallState.error)
   })
   it('keeps explicit target independent of channel, fresh native scope, original call ID and actual abort signal', async () => {
     const instance = tool()
@@ -80,7 +80,7 @@ describe('native workflow client explicit scoping', () => {
     expect(m.execute.mock.invocationCallOrder[0]).toBeLessThan(
       m.readback.mock.invocationCallOrder[0]!
     )
-    expect(instance.getState()).toBe(ClientToolCallState.success)
+    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.success])
   })
   it('requires native approval stage to complete before any queue request', async () => {
     m.pending.mockResolvedValueOnce({ stage: 'approval', target })
@@ -99,7 +99,7 @@ describe('native workflow client explicit scoping', () => {
     const instance = tool()
     await instance.execute({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
     expect(m.readback).toHaveBeenCalledOnce()
-    expect(instance.getState()).toBe(ClientToolCallState.error)
+    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.error])
   })
   it('lost proof/readback never repeats the execution effect', async () => {
     m.readback.mockRejectedValueOnce(new Error('Original accepted payload unavailable'))
@@ -107,7 +107,6 @@ describe('native workflow client explicit scoping', () => {
     await instance.execute({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
     expect(m.execute).toHaveBeenCalledOnce()
     expect(m.failure).toHaveBeenCalledWith('call', 'Original accepted payload unavailable')
-    expect(instance.getState()).toBe(ClientToolCallState.error)
   })
   it('preserves existing busy-execution guard before native discovery', async () => {
     m.isExecuting = true

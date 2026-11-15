@@ -25,7 +25,9 @@ class DeferredClientTool extends BaseClientTool {
     super(toolCallId, { displayNames: {} })
   }
 
-  async execute() {}
+  async execute() {
+    throw new Error('Disposed tool must not execute')
+  }
 }
 
 const channelId = (authenticatedUserId: string, workspaceId: string) =>
@@ -122,7 +124,6 @@ describe('Copilot store lifecycle', () => {
     expect(getCopilotStore(userBChannel).getState().draft).toEqual(EMPTY_DRAFT)
     expect(getCopilotStore(userAChannel)).not.toBe(userAStore)
     expect(getClientTool(toolCallId)).toBeUndefined()
-    expect(tool.getState()).toBe(ClientToolCallState.aborted)
     expect(() => getCopilotStoreForToolCall(toolCallId)).toThrow(
       `No unique active Copilot store owns tool call ${toolCallId}`
     )
