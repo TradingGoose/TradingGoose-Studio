@@ -10,14 +10,18 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { PENDING_EXECUTION_CANCELLATION_ERROR } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import { deleteExecutionLogAssets } from '@/lib/logs/execution/cleanup'
+import { executionLogger } from '@/lib/logs/execution/logger'
+import type { WorkflowLogWorkflowSummary } from '@/lib/logs/types'
 import { deleteWorkflowMemories } from '@/lib/mastra/workflow-memory'
 import {
   checkWorkspaceAccess,
   getUserEntityPermissions,
   getWorkspaceById,
 } from '@/lib/permissions/utils'
+import type { WorkflowCheckpointLogData } from '@/lib/workflows/human-in-the-loop/types'
 import {
   resolveWorkspaceBillingOwnerUpdate,
   toWorkspaceApiRecord,
@@ -187,6 +191,41 @@ export async function DELETE(
   try {
     logger.info(`Deleting workspace ${workspaceId} for user ${session.user.id}`)
 
+    const retained = await db
+      .select()
+      .from(workflowExecutionLogs)
+      .where(
+        and(
+          eq(workflowExecutionLogs.workspaceId, workspaceId),
+          isNull(workflowExecutionLogs.workflowId)
+        )
+      )
+    for (const log of retained) {
+      const data = log.executionData as WorkflowCheckpointLogData
+      // A resumed writer retains its checkpoint but clears pause before running.
+      if (!log.endedAt && (!data.pause || !data.checkpoint)) continue
+      const workflowId = (log.workflowSummary as WorkflowLogWorkflowSummary).id
+      const userId = data.environment?.userId
+      if (!workflowId || !userId)
+        throw new Error('Retained execution is missing its original scope')
+      const { terminalizeWorkflowExecution } = await import('@/background/pending-execution-worker')
+      // Terminal retries also finish settlement and notify any waiting parent before log deletion.
+      await terminalizeWorkflowExecution(
+        {
+          id: log.executionId,
+          executionType: 'workflow',
+          source: 'human_in_the_loop',
+          workflowId,
+          workspaceId,
+          userId,
+          payload: { resumeExecutionId: log.executionId },
+        },
+        0,
+        PENDING_EXECUTION_CANCELLATION_ERROR,
+        (data.billing as { billable?: boolean } | undefined)?.billable !== false
+      )
+    }
+
     const deleted = await runYjsDrainFencedTransaction(
       { workspaceIds: [workspaceId] },
       async (tx) => {
@@ -216,6 +255,8 @@ export async function DELETE(
           })
           .from(workflowExecutionLogs)
           .where(eq(workflowExecutionLogs.workspaceId, workspaceId))
+        for (const log of logs)
+          await executionLogger.settleWorkflowExecutionUsage(log.executionId, tx)
         for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
           await lockSavedEntityList(tx, entityKind, workspaceId)
         }

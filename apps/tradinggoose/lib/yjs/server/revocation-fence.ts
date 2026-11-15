@@ -15,10 +15,7 @@ export type NormalizedYjsRevocationTarget = {
   workspaceIds: string[]
 }
 
-export type YjsRevocationTransaction = Pick<
-  typeof db,
-  'delete' | 'execute' | 'insert' | 'select' | 'update'
->
+export type YjsRevocationTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type YjsRevocationLockStore = Pick<typeof db, 'execute'>
 
 export class YjsSessionAdmissionError extends Error {

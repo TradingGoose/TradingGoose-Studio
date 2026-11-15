@@ -27,7 +27,6 @@ const mocks = vi.hoisted(() => ({
   completeWorkflowCheckpointChild: vi.fn(),
   readWorkflowCheckpointChildren: vi.fn(),
   readWorkflowCheckpointSnapshot: vi.fn(),
-  readWorkflowExecutionEventState: vi.fn(),
   recoverWorkflowCheckpointSegment: vi.fn(),
   settleScheduleOccurrence: vi.fn(),
 }))
@@ -109,9 +108,6 @@ vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
   readWorkflowCheckpointSnapshot: mocks.readWorkflowCheckpointSnapshot,
   recoverWorkflowCheckpointSegment: mocks.recoverWorkflowCheckpointSegment,
 }))
-vi.mock('@/lib/execution/workflow-execution-events', () => ({
-  readWorkflowExecutionEventState: mocks.readWorkflowExecutionEventState,
-}))
 
 vi.mock('./knowledge-processing', () => ({
   markDocumentProcessingJobFailed: mocks.markDocumentProcessingJobFailed,
@@ -149,6 +145,15 @@ const processingRow = (overrides: Partial<PendingExecutionClaim> = {}): PendingE
   createdAt: new Date('2026-08-13T15:59:00.000Z'),
   updatedAt: new Date('2026-08-13T16:00:00.000Z'),
   ...overrides,
+})
+
+const terminalLog = (failed = false) => ({
+  id: 'retained-log',
+  level: failed ? 'error' : 'info',
+  startedAt: new Date('2026-08-13T16:00:00.000Z'),
+  endedAt: new Date('2026-08-13T16:00:01.000Z'),
+  totalDurationMs: 1000,
+  executionData: { finalOutput: { result: 42 } },
 })
 
 function queuedChildScenario(resumed = false) {
@@ -226,7 +231,6 @@ describe('pending execution worker', () => {
     mocks.wakePendingExecution.mockResolvedValue({ status: 'empty' })
     mocks.readWorkflowCheckpointChildren.mockResolvedValue([])
     mocks.readWorkflowCheckpointSnapshot.mockResolvedValue(null)
-    mocks.readWorkflowExecutionEventState.mockResolvedValue(null)
     mocks.recoverWorkflowCheckpointSegment.mockResolvedValue(false)
   })
 
@@ -581,7 +585,7 @@ describe('pending execution worker', () => {
           ],
         })
       )
-      mocks.logLimit.mockResolvedValueOnce([{ id: 'original-log', endedAt: new Date() }])
+      mocks.logLimit.mockResolvedValueOnce([terminalLog()])
       await terminalizeWorkflowExecution(row, durationMs, message)
       expect(mocks.loggingComplete).toHaveBeenCalledOnce()
       expect(mocks.completeWorkflowExecution).toHaveBeenCalledOnce()
@@ -625,9 +629,8 @@ describe('pending execution worker', () => {
         id: 'original:resume:1',
         payload: { resumeExecutionId: 'original' },
       })
-      mocks.logLimit.mockResolvedValue([{ id: 'original-log', endedAt: new Date() }])
+      mocks.logLimit.mockResolvedValue([terminalLog(status === 'failed')])
       const result = { success: status === 'completed', output: { result: 42 } }
-      mocks.readWorkflowExecutionEventState.mockResolvedValue({ status, result })
       mocks.settleWorkflowExecutionUsage.mockRejectedValueOnce(new Error('Ledger unavailable'))
       await expect(finalizePendingExecutionFailure(row, 'Late failure', 50)).rejects.toThrow(
         'Ledger unavailable'
@@ -654,7 +657,7 @@ describe('pending execution worker', () => {
       expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledTimes(2)
       expect(mocks.completeWorkflowCheckpointChild).toHaveBeenLastCalledWith({
         childExecutionId: 'original',
-        input: result,
+        input: expect.objectContaining(result),
       })
       expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledExactlyOnceWith(row, {
         wake: false,
@@ -795,9 +798,8 @@ describe('pending execution worker', () => {
         type: 'run',
         run: { status: 'CANCELED', durationMs: 1_000 },
       })
-      mocks.logLimit.mockResolvedValue([{ id: 'child-log', endedAt: new Date() }])
+      mocks.logLimit.mockResolvedValue([terminalLog()])
       const result = { success: true, output: { result: 42 } }
-      mocks.readWorkflowExecutionEventState.mockResolvedValue({ status: 'completed', result })
 
       await cancelPendingExecutionDescendants(parent.id)
 
@@ -805,7 +807,7 @@ describe('pending execution worker', () => {
       expect(mocks.loggingComplete).not.toHaveBeenCalled()
       expect(mocks.completeWorkflowCheckpointChild).toHaveBeenCalledExactlyOnceWith({
         childExecutionId,
-        input: result,
+        input: expect.objectContaining(result),
       })
       expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledExactlyOnceWith(child, {
         wake: false,

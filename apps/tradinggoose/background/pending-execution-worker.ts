@@ -15,7 +15,7 @@ import {
   settlePendingExecutionOwner,
   wakePendingExecution,
 } from '@/lib/execution/pending-execution'
-import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
+import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { executionLogger } from '@/lib/logs/execution/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
@@ -230,7 +230,11 @@ export async function terminalizeWorkflowExecution(
   const [existingLog] = await db
     .select({
       id: workflowExecutionLogs.id,
+      level: workflowExecutionLogs.level,
+      startedAt: workflowExecutionLogs.startedAt,
       endedAt: workflowExecutionLogs.endedAt,
+      totalDurationMs: workflowExecutionLogs.totalDurationMs,
+      executionData: workflowExecutionLogs.executionData,
     })
     .from(workflowExecutionLogs)
     .where(
@@ -242,16 +246,11 @@ export async function terminalizeWorkflowExecution(
     .limit(1)
   if (existingLog?.endedAt) {
     await executionLogger.settleWorkflowExecutionUsage(executionId)
-    const terminal = await readWorkflowExecutionEventState({
-      pendingExecutionId: executionId,
-      workflowId: row.workflowId,
+    const { result } = createWorkflowExecutionResultFromLog(existingLog)
+    await completeWorkflowCheckpointChild({
+      childExecutionId: executionId,
+      input: { ...result },
     })
-    if (terminal?.status === 'completed' || terminal?.status === 'failed') {
-      await completeWorkflowCheckpointChild({
-        childExecutionId: executionId,
-        input: { ...terminal.result },
-      })
-    }
     return
   }
   const snapshot =
