@@ -75,38 +75,30 @@ export function ensureClientToolInstance(
   return instance
 }
 
-function readResultWorkspaceId(result: unknown) {
-  if (result && typeof result === 'object' && !Array.isArray(result)) {
-    const workspaceId = (result as { workspaceId?: unknown }).workspaceId
-    if (typeof workspaceId === 'string' && workspaceId.trim()) {
-      return workspaceId
-    }
-  }
-}
-
 export async function handleCopilotServerToolSuccess(
-  toolName: string | undefined,
-  result?: unknown
+  toolName: string,
+  result: unknown
 ): Promise<void> {
-  const workspaceId = readResultWorkspaceId(result)
+  const data =
+    result && typeof result === 'object' && !Array.isArray(result)
+      ? (result as Record<string, unknown>)
+      : undefined
+  const workspaceId =
+    typeof data?.workspaceId === 'string' && data.workspaceId.trim() ? data.workspaceId : undefined
 
   try {
     const queryClient = getQueryClient()
     if (toolName === CopilotTool.set_environment_variables) {
-      const scope =
-        result && typeof result === 'object' && !Array.isArray(result)
-          ? (result as { scope?: unknown }).scope
-          : undefined
-      if (scope === 'workspace' && workspaceId) {
+      if (data?.scope === 'workspace' && workspaceId) {
         await queryClient.invalidateQueries({ queryKey: environmentKeys.workspace(workspaceId) })
-      } else if (scope === 'personal') {
+      } else if (data?.scope === 'personal') {
         await queryClient.invalidateQueries({ queryKey: environmentKeys.personal() })
       }
       window.dispatchEvent(new CustomEvent(MCP_TOOLS_CHANGED_EVENT, { detail: { workspaceId } }))
       return
     }
 
-    if (!workspaceId || !toolName || !/^(create|edit|rename)_/.test(toolName)) {
+    if (!workspaceId || !/^(create|edit|rename)_/.test(toolName)) {
       return
     }
 
@@ -118,10 +110,7 @@ export async function handleCopilotServerToolSuccess(
     } else if (toolName.endsWith('_custom_tool')) {
       await queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
     } else if (toolName.endsWith('_knowledge_base')) {
-      const entityId =
-        result && typeof result === 'object' && !Array.isArray(result)
-          ? (result as { entityId?: unknown }).entityId
-          : undefined
+      const entityId = data?.entityId
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: knowledgeKeys.list(workspaceId) }),
         ...(toolName !== CopilotTool.create_knowledge_base &&

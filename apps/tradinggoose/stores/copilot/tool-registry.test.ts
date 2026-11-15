@@ -127,25 +127,18 @@ describe('tool-registry', () => {
     })
   })
 
-  it('does not invalidate React Query after server-managed skill mutations', async () => {
-    const invalidateQueries = vi
-      .spyOn(QueryClient.prototype, 'invalidateQueries')
-      .mockResolvedValue(undefined)
+  it.each(['edit_skill', 'edit_watchlist'])(
+    'does not invalidate React Query after server-managed %s',
+    async (toolName) => {
+      const invalidateQueries = vi
+        .spyOn(QueryClient.prototype, 'invalidateQueries')
+        .mockResolvedValue(undefined)
 
-    await handleCopilotServerToolSuccess('edit_skill', { workspaceId: 'workspace-1' })
+      await handleCopilotServerToolSuccess(toolName, { workspaceId: 'workspace-1' })
 
-    expect(invalidateQueries).not.toHaveBeenCalled()
-  })
-
-  it('does not invalidate React Query after server-managed watchlist mutations', async () => {
-    const invalidateQueries = vi
-      .spyOn(QueryClient.prototype, 'invalidateQueries')
-      .mockResolvedValue(undefined)
-
-    await handleCopilotServerToolSuccess('edit_watchlist', { workspaceId: 'workspace-1' })
-
-    expect(invalidateQueries).not.toHaveBeenCalled()
-  })
+      expect(invalidateQueries).not.toHaveBeenCalled()
+    }
+  )
 
   it('invalidates the selected knowledge base detail tree after server-managed knowledge mutations', async () => {
     const invalidateQueries = vi
@@ -195,24 +188,14 @@ describe('tool-registry', () => {
   ])(
     'notifies $toolName consumers using the workspace preserved by the native result schema',
     async ({ toolName, eventName, result }) => {
-      class TestCustomEvent<T> {
-        constructor(
-          readonly type: string,
-          readonly init?: CustomEventInit<T>
-        ) {}
-        get detail() {
-          return this.init?.detail
-        }
-      }
       const dispatchEvent = vi.fn()
-      vi.stubGlobal('CustomEvent', TestCustomEvent)
       vi.stubGlobal('window', { dispatchEvent })
       try {
         expect(result).toHaveProperty('workspaceId', 'target-workspace')
         await handleCopilotServerToolSuccess(toolName, result)
-        const event = dispatchEvent.mock.calls[0]?.[0] as TestCustomEvent<{ workspaceId: string }>
-        expect(event.type).toBe(eventName)
-        expect(event.detail).toEqual({ workspaceId: 'target-workspace' })
+        expect(dispatchEvent).toHaveBeenCalledWith(
+          expect.objectContaining({ type: eventName, detail: { workspaceId: 'target-workspace' } })
+        )
       } finally {
         vi.unstubAllGlobals()
       }

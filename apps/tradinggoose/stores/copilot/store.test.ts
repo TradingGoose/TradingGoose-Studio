@@ -1,6 +1,5 @@
 import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import {
   COPILOT_CONTEXT_PART,
   type CopilotRequest,
@@ -8,7 +7,6 @@ import {
 } from '@/lib/copilot/native/contract'
 import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { MAX_COPILOT_REQUEST_BYTES } from '@/lib/copilot/native/request-size'
-import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import {
   getClientTool,
@@ -156,27 +154,36 @@ const historyResult = (items: unknown[] = history, pending: Pending[] = [], id =
   items,
   pending,
 })
-const pendingHistory = (pending: Pending[]) =>
+const toolHistory = (
+  invocations: object[],
+  pending: Pending[] = [],
+  nativeRunId = pending[0]?.target.runId ?? runId
+) =>
   historyResult(
     [
       history[0],
       {
         ...history[1],
-        runId: pending[0]?.target.runId ?? runId,
+        runId: nativeRunId,
         parts: [
           ...history[1].parts,
-          ...pending.map((item) => ({
+          ...invocations.map((toolInvocation) => ({
             type: 'tool-invocation',
-            toolInvocation: {
-              state: 'call',
-              toolCallId: item.target.toolCallId,
-              toolName: item.target.toolName,
-              args: item.originalArgs,
-            },
+            toolInvocation,
           })),
         ],
       },
     ],
+    pending
+  )
+const pendingHistory = (pending: Pending[]) =>
+  toolHistory(
+    pending.map((item) => ({
+      state: 'call',
+      toolCallId: item.target.toolCallId,
+      toolName: item.target.toolName,
+      args: item.originalArgs,
+    })),
     pending
   )
 const historyResponse = (pending: Pending[]) => observingStream(pendingHistory(pending)).response
@@ -1390,30 +1397,17 @@ describe('canonical history, edits and context', () => {
   })
   it('loads display-only tool history without execution or local transcript writes', async () => {
     const item = pending()
-    onCommand = (request) =>
-      request.command === 'thread.observe'
-        ? observingStream(
-            historyResult([
-              {
-                id: 'assistant-history',
-                role: 'assistant',
-                runId,
-                createdAt: at,
-                parts: [
-                  {
-                    type: 'tool-invocation',
-                    toolInvocation: {
-                      state: 'call',
-                      toolCallId: item.target.toolCallId,
-                      toolName: item.target.toolName,
-                      args: item.originalArgs,
-                    },
-                  },
-                ],
-              },
-            ])
-          ).response
-        : undefined
+    onObserve = () =>
+      observingStream(
+        toolHistory([
+          {
+            state: 'call',
+            toolCallId: item.target.toolCallId,
+            toolName: item.target.toolName,
+            args: item.originalArgs,
+          },
+        ])
+      ).response
     await store().getState().selectChat(chat())
     expect(store().getState().toolCallsById[nativeToolCallId(item.target)]).toMatchObject({
       historical: true,
@@ -3437,30 +3431,81 @@ describe('built-in tool continuation', () => {
       )
     ).toBe(false)
   })
-  it('refreshes successful mutations in their actual workspace from a personal conversation', async () => {
-    store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
-    const result = ToolResultSchemas.edit_monitor.parse({
-      success: true,
-      surfaceKind: 'monitor',
-      monitorId: 'monitor',
-      documentFormat: MONITOR_DOCUMENT_FORMAT,
-      monitorDocument: '{}',
-      workspaceId: 'actual-business-workspace',
-    })
-    expect(result).toHaveProperty('workspaceId', 'actual-business-workspace')
-    onCommand = (request) =>
-      request.command === 'message'
-        ? acceptTurn(ready(), [
-            {
-              type: 'tool.result',
-              toolCallId: 'mutation',
-              toolName: 'edit_monitor',
-              result,
-            },
-          ])
-        : undefined
-    expect(await store().getState().sendMessage('Update monitor')).toBe(true)
-    expect(tools.refresh).toHaveBeenCalledExactlyOnceWith('edit_monitor', result)
+  it.each(['live', 'history', 'status'])(
+    'refreshes %s mutations once per native call in their actual workspace',
+    async (source) => {
+      const result = { success: true, workspaceId: 'actual-business-workspace' }
+      let nativeRunId = runId
+      const invocation = { toolCallId: 'mutation', toolName: 'edit_monitor', result }
+      const saved = () => toolHistory([{ state: 'result', ...invocation }], [], nativeRunId)
+      let observer = observingStream(
+        source === 'history' ? saved() : historyResult([history[0]]),
+        runId
+      )
+      onObserve = () => observer.response
+      await store().getState().selectChat(chat(null))
+      if (source === 'live') {
+        observer.emit({ type: 'thread.started', runId, messageId: history[1].id })
+        observer.emit({
+          type: 'thread.output',
+          runId,
+          event: { type: 'tool.result', ...invocation },
+        })
+      }
+      if (source !== 'status')
+        await vi.waitFor(() => expect(tools.refresh).toHaveBeenCalledTimes(1))
+      observer.emit({ type: 'thread.status', runId, status: 'success', history: saved() })
+      await vi.waitFor(() => expect(store().getState().currentRunId).toBeNull())
+      expect(tools.refresh).toHaveBeenCalledExactlyOnceWith('edit_monitor', result)
+      observer = observingStream(saved())
+      await reconnectSelectedChat()
+      expect(tools.refresh).toHaveBeenCalledTimes(1)
+      nativeRunId = 'another-native-run'
+      observer.emit({
+        type: 'thread.status',
+        runId: nativeRunId,
+        status: 'success',
+        history: saved(),
+      })
+      await vi.waitFor(() =>
+        expect(store().getState().toolCallsById).toHaveProperty(
+          nativeToolCallId({ runId: nativeRunId, toolCallId: invocation.toolCallId })
+        )
+      )
+      expect(tools.refresh).toHaveBeenCalledTimes(2)
+      expect(tools.browser).not.toHaveBeenCalled()
+      expect(
+        commands.some((request) => ['tool.execute', 'tool.result'].includes(request.command))
+      ).toBe(false)
+    }
+  )
+  it('does not refresh failed, denied, rejected or review-pending results recovered from history', async () => {
+    const item = pending('approval', 'edit_monitor')
+    item.preview = { success: true, workspaceId }
+    const invocations = [
+      { state: 'result', isError: true },
+      { state: 'output-error' },
+      { state: 'output-denied' },
+      { state: 'result', result: { success: false, rejected: true, toolName: 'edit_monitor' } },
+      { state: 'result', toolCallId: item.target.toolCallId, result: item.preview },
+    ]
+    onObserve = () =>
+      observingStream(
+        toolHistory(
+          invocations.map((invocation, index) => ({
+            toolName: 'edit_monitor',
+            toolCallId: String(index),
+            ...invocation,
+          })),
+          [item]
+        )
+      ).response
+    await store().getState().selectChat(chat())
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].state).toBe(
+      ClientToolCallState.review
+    )
+    expect(tools.refresh).not.toHaveBeenCalled()
+    expect(tools.browser).not.toHaveBeenCalled()
   })
   it.each(['error', 'denied'] as const)(
     'shows %s automatic tool results without success refresh effects',

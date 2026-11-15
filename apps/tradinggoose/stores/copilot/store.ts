@@ -18,7 +18,6 @@ import {
   hasToolActivityAfterMessage,
 } from '@/lib/copilot/chat-replay-safety'
 import type {
-  CopilotOutputEvent,
   CopilotRequest,
   CopilotThreadEvent,
   HistoryResponse,
@@ -36,7 +35,6 @@ import {
 import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
 import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/server-tool-response'
 import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
-import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { readSseData, waitToReconnect } from '@/lib/events/stream'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getQueryClient } from '@/app/query-provider'
@@ -73,7 +71,7 @@ import {
   isGatedTool,
   isServerManagedCopilotTool,
 } from './tool-registry'
-import type { CopilotChat, CopilotDraft, CopilotStore } from './types'
+import type { CopilotChat, CopilotDraft, CopilotStore, CopilotToolCall } from './types'
 import {
   getCopilotWorkspaceSelection,
   rememberCopilotWorkspaceSelection,
@@ -91,15 +89,6 @@ async function requireCopilotStream(response: Response) {
   if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream'))
     throw new Error('Copilot stream is unavailable')
   return response.body
-}
-function refreshServerToolResult(event: CopilotOutputEvent) {
-  if (
-    event.type === 'tool.result' &&
-    !event.isError &&
-    !event.denied &&
-    !isServerToolReviewRejectedResult(event.toolName, event.result)
-  )
-    return handleCopilotServerToolSuccess(event.toolName, event.result)
 }
 const initialState = {
   accessLevel: 'limited' as const,
@@ -134,6 +123,17 @@ function createCopilotStoreInstance(channelId: string) {
   let admission: ReturnType<typeof readNativeCommandResponse> | undefined
   const inFlightTools = new Set<string>()
   const attemptedTools = new Set<string>()
+  const refreshedTools = new Set<string>()
+  const refreshToolResult = (call: CopilotToolCall) => {
+    if (
+      call.state === ClientToolCallState.success &&
+      !call.pending &&
+      !refreshedTools.has(call.id)
+    ) {
+      refreshedTools.add(call.id)
+      return handleCopilotServerToolSuccess(call.name, call.result)
+    }
+  }
   let toolQueue: Promise<void> = Promise.resolve()
   let deploymentPromise: {
     id: string
@@ -293,6 +293,7 @@ function createCopilotStoreInstance(channelId: string) {
           isSendingMessage: !!activeRunId && pending.length === 0,
           currentRunId,
         })
+        for (const call of Object.values(projected.toolCallsById)) void refreshToolResult(call)
       }
       const observeChat = async (
         chat: CopilotChat,
@@ -390,7 +391,12 @@ function createCopilotStoreInstance(channelId: string) {
                   throw new Error('Response identity is unavailable. Reload to view saved history.')
                 }
                 set((state) => applyNativeEvent(state, event.event, messageId!))
-                await refreshServerToolResult(event.event)
+                if (event.event.type === 'tool.result')
+                  await refreshToolResult(
+                    get().toolCallsById[
+                      nativeToolCallId({ runId: event.runId, toolCallId: event.event.toolCallId })
+                    ]
+                  )
               }
             } catch (error) {
               if (!current()) return false
@@ -1071,6 +1077,7 @@ function createCopilotStoreInstance(channelId: string) {
           get().detachStream()
           inFlightTools.clear()
           attemptedTools.clear()
+          refreshedTools.clear()
           set({ ...initialState, draft: emptyDraft() })
         },
         readPendingTool: async (toolCallId) => {
