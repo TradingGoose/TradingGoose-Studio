@@ -111,6 +111,31 @@ it('initializes only native memory and workflow domains on one shared pool', asy
   expect(first.recoveryConfig).toMatchObject({ workflows: 'off', durableAgents: 'off' })
   expect(fixture.pubsubOptions).toEqual([])
 })
+it('saves a thread title without reading or rewriting the admitted Copilot job', async () => {
+  const memory = await runtime.getNativeMemoryStore()
+  fixture.query.mockClear().mockResolvedValueOnce({
+    rows: [
+      {
+        id: 'thread',
+        resourceId: 'user',
+        title: 'Initial title',
+        metadata: { copilotJob: { id: 'newly-admitted-job' } },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ],
+  })
+  await memory.updateThread({ id: 'thread', title: 'Initial title' })
+  expect(fixture.query).toHaveBeenCalledOnce()
+  expect(fixture.query).toHaveBeenCalledWith(
+    expect.stringMatching(/^\s*UPDATE[\s\S]*\btitle\s*=/),
+    expect.arrayContaining(['Initial title', 'thread'])
+  )
+  expect(fixture.query).not.toHaveBeenCalledWith(
+    expect.stringMatching(/\bmetadata"?\s*=/),
+    expect.any(Array)
+  )
+})
 it.each(['memoryInit', 'workflowInit'] as const)(
   'recovers a wrapped PostgreSQL deadlock in %s through native initialization',
   async (domain) => {
