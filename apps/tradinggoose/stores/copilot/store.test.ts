@@ -1919,6 +1919,7 @@ describe('display-only terminal settlement and optional completed history', () =
       expect(await store().getState().sendMessage('read')).toBe(false)
       const state = store().getState()
       expect(hasUiActiveToolCalls(state.toolCallsById)).toBe(false)
+      expect(state.error).toBe(kind === 'cancel' ? null : 'Actual terminal refusal')
       if (kind === 'cancel')
         expect(state.toolCallsById['display-only']).toMatchObject({
           state: ClientToolCallState.aborted,
@@ -1947,6 +1948,67 @@ describe('display-only terminal settlement and optional completed history', () =
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
       onCommand = () => undefined
       expect(await store().getState().sendMessage('Next turn')).toBe(true)
+      expect(store().getState().error).toBeNull()
+    }
+  )
+  it.each(
+    ['error', 'refused'].flatMap((kind) =>
+      ['status', 'error'].map((notification) => ({ kind, notification }))
+    )
+  )(
+    'keeps an accepted $kind visible through history and thread.$notification',
+    async ({ kind, notification }) => {
+      setChat()
+      const observer = observingStream(historyResult([history[0]]), runId)
+      onObserve = () => observer.response
+      onCommand = (request) =>
+        request.command === 'message'
+          ? eventResponse([
+              { type: 'response.started', runId, threadId },
+              { type: 'text.delta', text: 'Unsaved partial answer' },
+              {
+                type: `response.${kind}`,
+                result: {
+                  status: kind === 'error' ? 'failed' : 'refused',
+                  error: { code: 'FAILED', message: 'Actual terminal refusal' },
+                },
+              },
+            ])
+          : undefined
+      const onAccepted = vi.fn()
+      expect(await store().getState().sendMessage('Read', { onAccepted })).toBe(false)
+      expect(onAccepted).toHaveBeenCalledOnce()
+      expect(
+        store()
+          .getState()
+          .messages.map((message) => message.id)
+      ).toEqual([history[0].id])
+      expect(store().getState().error).toBe('Actual terminal refusal')
+      const saved = historyResult([
+        history[0],
+        { ...history[1], parts: [{ type: 'text', text: 'Saved partial answer' }] },
+      ])
+      observer.emit({
+        type: `thread.${notification}`,
+        runId,
+        history: saved,
+        ...(notification === 'status'
+          ? { status: 'success' }
+          : { error: { code: 'STREAM_INTERRUPTED', message: 'Generic interruption' } }),
+      })
+      await vi.waitFor(() => expect(store().getState().currentRunId).toBeNull())
+      expect(
+        store()
+          .getState()
+          .messages.map((message) => message.content)
+      ).toEqual(['actual native input', 'Saved partial answer'])
+      expect(store().getState().error).toBe('Actual terminal refusal')
+      onObserve = () => observingStream(saved).response
+      await reconnectSelectedChat()
+      expect(store().getState().error).toBe('Actual terminal refusal')
+      expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      await store().getState().createNewChat()
+      expect(store().getState().error).toBeNull()
     }
   )
   it.each(['json', 'sse'])(

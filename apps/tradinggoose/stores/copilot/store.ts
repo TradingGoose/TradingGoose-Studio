@@ -370,11 +370,12 @@ function createCopilotStoreInstance(channelId: string) {
                 if (event.type === 'thread.history') {
                   applyHistory(event.result, event.activeRunId, expectedRunId)
                   messageId = undefined
-                  set({
-                    error: event.interruptedRunId
-                      ? 'The previous response was interrupted. You can continue this conversation.'
-                      : null,
-                  })
+                  // History refresh does not clear a request failure.
+                  if (event.interruptedRunId && !get().error)
+                    set({
+                      error:
+                        'The previous response was interrupted. You can continue this conversation.',
+                    })
                   if (event.interruptedRunId && expectedRunId === event.interruptedRunId) {
                     ready()
                     return false
@@ -389,9 +390,11 @@ function createCopilotStoreInstance(channelId: string) {
                   set({
                     isSendingMessage: false,
                     isAborting: false,
-                    error: ['failed', 'aborted'].includes(event.status)
-                      ? 'This response was interrupted. Saved history and usage have been preserved.'
-                      : null,
+                    error:
+                      get().error ??
+                      (['failed', 'aborted'].includes(event.status)
+                        ? 'This response was interrupted. Saved history and usage have been preserved.'
+                        : null),
                   })
                   refreshBillingUsage()
                   if (expectedRunId) {
@@ -423,7 +426,7 @@ function createCopilotStoreInstance(channelId: string) {
                 if (event.type === 'thread.error') {
                   applyHistory(event.history, null, event.runId)
                   set({
-                    error: event.error.message,
+                    error: get().error ?? event.error.message,
                     isSendingMessage: false,
                     isAborting: false,
                   })
