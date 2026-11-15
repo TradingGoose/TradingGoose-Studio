@@ -130,17 +130,35 @@ describe('InlineToolCall', () => {
     }
   )
 
-  it('does not offer a display-only background action for a running workflow', async () => {
-    await act(async () =>
-      renderLocalized(
-        { id: 'running-workflow', name: 'run_workflow', state: ClientToolCallState.executing },
-        'en'
+  it.each([ClientToolCallState.executing, ClientToolCallState.error])(
+    'offers result recovery only after workflow execution is interrupted (%s)',
+    async (state) => {
+      await act(async () =>
+        renderLocalized(
+          {
+            id: 'running-workflow',
+            name: 'run_workflow',
+            state,
+            pending: { stage: 'result' } as any,
+          },
+          'en'
+        )
       )
-    )
-    expect(container.querySelector('button[title="Move to Background"]')).toBeNull()
-    expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
-    expect(mockUseCopilotStoreState.readbackCopilotToolCall).not.toHaveBeenCalled()
-  })
+      expect(container.querySelector('button[title="Move to Background"]')).toBeNull()
+      const recover = Array.from(container.querySelectorAll('button')).find(
+        (button) => button.textContent === 'Recover result'
+      )
+      expect(Boolean(recover)).toBe(state === ClientToolCallState.error)
+      if (recover) {
+        await act(async () => recover.click())
+        expect(mockUseCopilotStoreState.readbackCopilotToolCall).toHaveBeenCalledExactlyOnceWith(
+          'running-workflow',
+          undefined
+        )
+      }
+      expect(mockUseCopilotStoreState.executeCopilotToolCall).not.toHaveBeenCalled()
+    }
+  )
 
   it('renders a workflow review preview card for staged edit_workflow results', async () => {
     await act(async () => {

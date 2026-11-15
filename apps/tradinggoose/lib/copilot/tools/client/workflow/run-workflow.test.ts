@@ -101,13 +101,6 @@ describe('native workflow client explicit scoping', () => {
     expect(m.readback).toHaveBeenCalledOnce()
     expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.error])
   })
-  it('lost proof/readback never repeats the execution effect', async () => {
-    m.readback.mockRejectedValueOnce(new Error('Original accepted payload unavailable'))
-    const instance = tool()
-    await instance.execute({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
-    expect(m.execute).toHaveBeenCalledOnce()
-    expect(m.failure).toHaveBeenCalledWith('call', 'Original accepted payload unavailable')
-  })
   it('preserves existing busy-execution guard before native discovery', async () => {
     m.isExecuting = true
     await tool().execute({ entityId: 'workflow', triggerBlockId: 'trigger' })

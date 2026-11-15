@@ -2265,6 +2265,47 @@ describe('local workflow execution refusals', () => {
     return target
   }
 
+  it.each(['before-reconnect', 'after-reconnect'])(
+    'recovers an executing workflow after workspace detach settles %s',
+    async (timing) => {
+      const target = await install()
+      const id = nativeToolCallId(target.target)
+      const settle = defer<void>()
+      tools.runWorkflow.mockImplementation(async ({ signal }) => {
+        await new Promise<void>((resolve) =>
+          signal.addEventListener('abort', resolve, { once: true })
+        )
+        await settle.promise
+        throw new Error('Execution observation aborted')
+      })
+      const execution = store().getState().executeCopilotToolCall(id)
+      await vi.waitFor(() => expect(tools.runWorkflow).toHaveBeenCalledOnce())
+      expect(store().getState().toolCallsById[id].state).toBe(ClientToolCallState.executing)
+      store().getState().detachStream()
+      expect(getClientTool(id)).toBeUndefined()
+      if (timing === 'before-reconnect') {
+        settle.resolve()
+        await execution
+      }
+      onCommand = (request) =>
+        request.command === 'thread.observe' ? historyResponse([target]) : undefined
+      await store().getState().loadChats({ workspaceId })
+      const restored = store().getState().toolCallsById[id]
+      settle.resolve()
+      await execution
+      expect(restored).toMatchObject({ state: ClientToolCallState.error, pending: target })
+      await store().getState().executeCopilotToolCall(id)
+      expect(tools.runWorkflow).toHaveBeenCalledOnce()
+      onCommand = () => undefined
+      await store().getState().readbackCopilotToolCall(id)
+      expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
+        { command: 'tool.execute', workspaceId, target: target.target, action: 'readback' },
+      ])
+      expect(isCopilotBusy(store().getState())).toBe(false)
+      expect(await store().getState().sendMessage('Continue')).toBe(true)
+    }
+  )
+
   it('allows explicit retry after rejected queue admission, then resumes and accepts a new message', async () => {
     const target = await install()
     const executionId = nativeToolCallId(target.target)

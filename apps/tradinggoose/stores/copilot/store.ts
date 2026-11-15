@@ -30,6 +30,7 @@ import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import {
   disposeAllClientTools,
   disposeClientToolsExcept,
+  getClientTool,
   unregisterClientTool,
 } from '@/lib/copilot/tools/client/manager'
 import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
@@ -1064,7 +1065,11 @@ function createCopilotStoreInstance(channelId: string) {
           observation?.abort()
           observation = null
           get().abortController?.abort()
-          for (const id of Object.keys(get().toolCallsById)) unregisterClientTool(id)
+          for (const [id, call] of Object.entries(get().toolCallsById)) {
+            if (getClientTool(id) && call.pending && call.state === ClientToolCallState.executing)
+              updateTool(id, ClientToolCallState.error)
+            unregisterClientTool(id)
+          }
           set({ abortController: null, isLoadingChats: false })
         },
         reset: () => {
