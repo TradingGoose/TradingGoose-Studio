@@ -261,7 +261,7 @@ Example 3 (Array Input):
       },
     },
   ],
-  tools: { access: ['llm_chat'], config: { tool: () => 'llm_chat' } },
+  tools: { access: ['llm_chat'] },
   inputs: {
     systemPrompt: { type: 'string', description: 'Initial system instructions' },
     userPrompt: { type: 'string', description: 'User message or context' },

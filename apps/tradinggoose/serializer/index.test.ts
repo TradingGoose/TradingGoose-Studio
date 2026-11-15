@@ -70,12 +70,7 @@ vi.mock('@/blocks', () => ({
         description: 'AI Agent',
         category: 'ai',
         bgColor: '#2196F3',
-        tools: {
-          access: ['llm_chat'],
-          config: {
-            tool: () => 'llm_chat',
-          },
-        },
+        tools: { access: ['llm_chat'] },
         subBlocks: [
           { id: 'provider', type: 'dropdown', label: 'Provider' },
           { id: 'model', type: 'dropdown', label: 'Model' },
@@ -420,37 +415,27 @@ describe('Serializer', () => {
       expect(agentBlock?.outputs).toEqual(blocks.agent1.outputs)
     })
 
-    it.concurrent('should serialize agent block with custom tools correctly', () => {
-      const { blocks, edges, loops } = createAgentWithToolsWorkflowState()
-      const serializer = new Serializer()
-
-      const serialized = serializer.serializeWorkflow(blocks, edges, loops)
-
-      // Check agent block
-      const agentBlock = serialized.blocks.find((b) => b.id === 'agent1')
-      expect(agentBlock).toBeDefined()
-      // Model selection does not change the native chat tool identity
-      expect(agentBlock?.config.tool).toBe('llm_chat')
-      expect(agentBlock?.config.params.model).toBe('openai/gpt-4.1')
-
-      // Tools should be preserved as-is in params
-      const toolsParam = agentBlock?.config.params.tools
-      expect(toolsParam).toBeDefined()
-
-      // Parse tools to verify content
-      const tools = JSON.parse(toolsParam)
-      expect(tools).toHaveLength(2)
-
-      // Check custom tool
-      const customTool = tools.find((t: any) => t.type === 'custom-tool')
-      expect(customTool).toBeDefined()
-      expect(customTool.name).toBe('weather')
-
-      // Check function tool
-      const functionTool = tools.find((t: any) => t.type === 'function')
-      expect(functionTool).toBeDefined()
-      expect(functionTool.name).toBe('calculator')
-    })
+    it.concurrent.each(['mixed', 'custom-only', 'empty'])(
+      'preserves %s Agent tools without using them to select the block handler',
+      (selection) => {
+        const { blocks, edges, loops } = createAgentWithToolsWorkflowState()
+        const tools = JSON.parse(blocks.agent1.subBlocks.tools.value as string)
+        const selected =
+          selection === 'mixed'
+            ? tools
+            : selection === 'custom-only'
+              ? tools.filter((tool: { type: string }) => tool.type === 'custom-tool')
+              : []
+        const value = JSON.stringify(selected)
+        blocks.agent1.subBlocks.tools.value = value
+        const serializer = new Serializer()
+        const serialized = serializer.serializeWorkflow(blocks, edges, loops)
+        const agentBlock = serialized.blocks.find((b) => b.id === 'agent1')
+        expect(agentBlock?.config.tool).toBe('llm_chat')
+        expect(agentBlock?.config.params.model).toBe('openai/gpt-4.1')
+        expect(agentBlock?.config.params.tools).toBe(value)
+      }
+    )
 
     it.concurrent('should handle invalid block types gracefully', () => {
       const { blocks, edges, loops } = createInvalidWorkflowState()

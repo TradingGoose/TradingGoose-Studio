@@ -55,7 +55,7 @@ export const TranslateBlock: BlockConfig = {
       },
     },
   ],
-  tools: { access: ['llm_chat'], config: { tool: () => 'llm_chat' } },
+  tools: { access: ['llm_chat'] },
   inputs: {
     context: { type: 'string', description: 'Text to translate' },
     targetLanguage: { type: 'string', description: 'Target language' },

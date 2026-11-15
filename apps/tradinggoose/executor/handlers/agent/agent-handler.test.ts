@@ -63,6 +63,7 @@ vi.mock('@/lib/mastra/runtime', () => ({
 import { Agent } from '@mastra/core/agent'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getBlock } from '@/blocks'
 import { Executor } from '@/executor'
 import { createMinimalWorkflow } from '@/executor/__test-utils__/executor-mocks'
 import {
@@ -73,6 +74,7 @@ import {
 import type { ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
+import { getTool } from '@/tools/utils'
 
 const state = vi.hoisted(() => ({
   storage: undefined as unknown as InMemoryStore,
@@ -101,8 +103,8 @@ vi.mock('@mastra/core/agent', async (original) => {
 })
 vi.mock('@/lib/mcp/service', () => ({ mcpService: { discoverServerTools: vi.fn() } }))
 vi.mock('@/lib/permissions/utils', () => ({ getUserEntityPermissions: vi.fn() }))
-vi.mock('@/blocks', () => ({ getAllBlocks: vi.fn(() => []), getBlock: vi.fn() }))
-vi.mock('@/tools', () => ({ executeTool: vi.fn(), getToolAsync: vi.fn() }))
+vi.mock('@/blocks', () => ({ getBlock: vi.fn() }))
+vi.mock('@/tools', () => ({ executeTool: vi.fn() }))
 vi.mock('@/tools/utils', () => ({ getTool: vi.fn() }))
 vi.mock('@/executor/handlers/agent/skills-resolver', () => ({
   resolveSkillMetadata: vi.fn(async () => []),
@@ -280,6 +282,49 @@ describe('native Agent workflow execution', () => {
     expect(state.model.doGenerateCalls.every((call: any) => !call.tools?.length)).toBe(true)
     expect(executeTool).not.toHaveBeenCalled()
   })
+
+  it.each(['lookup', 'custom_lookup'])(
+    'resolves built-in operation %s only from its registry',
+    async (operation) => {
+      vi.mocked(getBlock).mockReturnValueOnce({
+        tools: {
+          access: ['lookup', 'other'],
+          config: { tool: ({ operation }: { operation: string }) => operation },
+        },
+      } as any)
+      if (operation === 'lookup')
+        vi.mocked(getTool).mockReturnValueOnce({
+          id: 'lookup',
+          name: 'Lookup',
+          description: 'Lookup',
+          params: { query: { type: 'string', required: true, visibility: 'user-or-llm' } },
+        } as any)
+      const result = new AgentBlockHandler().execute(
+        block,
+        {
+          model: 'openai/gpt-4.1',
+          tools: [{ type: 'search', operation, usageControl: 'force' }],
+        },
+        context()
+      )
+      if (operation === 'custom_lookup') {
+        await expect(result).rejects.toThrow('Agent tool custom_lookup could not be resolved')
+        expect(executeTool).not.toHaveBeenCalled()
+        expect(state.model.doGenerateCalls).toEqual([])
+      } else {
+        await expect(result).resolves.toMatchObject({ content: 'Native response' })
+        expect(executeTool).toHaveBeenCalledExactlyOnceWith(
+          'lookup',
+          expect.objectContaining({ query: 'generated' }),
+          false,
+          expect.anything(),
+          expect.anything()
+        )
+      }
+      expect(getBlock).toHaveBeenCalledWith('search')
+      expect(getTool).toHaveBeenCalledWith(operation)
+    }
+  )
 
   it('preserves literal working-memory tags and surrounding code through actual native turns', async () => {
     const userText =

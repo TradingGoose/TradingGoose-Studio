@@ -4,7 +4,6 @@ import { createTool } from '@mastra/core/tools'
 import {
   buildCustomToolModelDescription,
   getCustomToolEntityIdFromRuntimeId,
-  isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
@@ -20,7 +19,7 @@ import { createMcpToolId } from '@/lib/mcp/utils'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { extractExecutionFiles } from '@/lib/uploads/contexts/execution/execution-file-helpers'
 import { stringifySubBlockValue } from '@/lib/workflows/subblock-values'
-import { getAllBlocks } from '@/blocks'
+import { getBlock } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { AgentInputs, AgentToolConfig, ToolInput } from '@/executor/handlers/agent/types'
@@ -30,7 +29,7 @@ import {
 } from '@/executor/handlers/tool-execution-context'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
-import { executeTool, getToolAsync } from '@/tools'
+import { executeTool } from '@/tools'
 import { createLLMToolSchema, filterSchemaForLLM } from '@/tools/params'
 import { getTool } from '@/tools/utils'
 import { watchExecutionCancellation } from './cancellation'
@@ -293,7 +292,7 @@ export class AgentBlockHandler implements BlockHandler {
         .map((tool) => {
           if (tool.type === 'custom-tool' && tool.schema) return this.createCustomTool(tool)
           if (tool.type === 'mcp') return this.createMcpTool(tool, context)
-          return this.transformBlockTool(tool, context)
+          return this.transformBlockTool(tool)
         })
     )
   }
@@ -356,22 +355,15 @@ export class AgentBlockHandler implements BlockHandler {
     }
   }
 
-  private async transformBlockTool(tool: ToolInput, context: ExecutionContext) {
-    const blockDef = getAllBlocks().find((definition) => definition.type === tool.type)
+  private transformBlockTool(tool: ToolInput) {
+    const blockDef = tool.type && getBlock(tool.type)
     if (!blockDef) throw new Error(`Block definition not found for agent tool: ${tool.type}`)
     const toolId =
       (blockDef.tools?.access?.length || 0) > 1 && tool.operation && blockDef.tools?.config?.tool
         ? blockDef.tools.config.tool({ ...tool.params, operation: tool.operation })
         : blockDef.tools?.access?.[0]
     if (!toolId) throw new Error(`No tool configured for agent tool: ${tool.type}`)
-    const toolConfig = isCustomToolRuntimeId(toolId)
-      ? await getToolAsync(
-          toolId,
-          context.workflowId,
-          context.workspaceId,
-          context.isDeployedContext !== false
-        )
-      : getTool(toolId)
+    const toolConfig = getTool(toolId)
     if (!toolConfig) throw new Error(`Agent tool ${toolId} could not be resolved`)
     return {
       id: toolConfig.id,

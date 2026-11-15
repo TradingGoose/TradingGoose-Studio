@@ -137,7 +137,7 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       },
     },
   ],
-  tools: { access: ['llm_chat'], config: { tool: () => 'llm_chat' } },
+  tools: { access: ['llm_chat'] },
   inputs: {
     prompt: { type: 'string', description: 'Routing prompt content' },
     model: { type: 'string', description: 'AI model to use' },

@@ -226,7 +226,7 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       },
     },
   ],
-  tools: { access: ['llm_chat'], config: { tool: () => 'llm_chat' } },
+  tools: { access: ['llm_chat'] },
   inputs: {
     metrics: {
       type: 'json' as ParamType,
