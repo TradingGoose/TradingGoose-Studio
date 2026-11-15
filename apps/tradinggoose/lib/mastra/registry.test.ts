@@ -40,12 +40,34 @@ import {
 beforeEach(() => {
   managedServices.credentials.configured = { apiKey: 'managed-provider-secret' }
   provider.models = ['listed', 'other', 'embedding']
+  provider.url = 'https://private.invalid'
 })
 afterEach(() => {
   expect(managedServices.readConfig).not.toHaveBeenCalled()
 })
 
 describe('public Mastra registry transport', () => {
+  it.each([
+    'http://127.0.0.1:1234/v1',
+    'https://localhost/v1',
+    'https://127.1/v1',
+    'https://10.0.0.1/v1',
+    'https://169.254.169.254/v1',
+    'https://[::1]/v1',
+    'https://[::ffff:127.0.0.1]/v1',
+    'https://inference.internal/v1',
+    'data:text/plain,not-an-endpoint',
+  ])('excludes non-public endpoints from discovery and admission: %s', async (url) => {
+    provider.url = url
+    expect(await getModelRegistry()).toEqual({ providers: [], managedProviders: [] })
+    expect(await getEmbeddingModelRegistry()).toEqual([])
+    await expect(assertListedModel('configured/listed')).rejects.toThrowError(
+      expect.objectContaining({ status: 400 })
+    )
+    await expect(assertListedEmbeddingModel('configured/embedding')).rejects.toThrowError(
+      expect.objectContaining({ status: 400 })
+    )
+  })
   it('projects names, exact model IDs and helpers without serializing provider credentials or config', async () => {
     const json = JSON.parse(JSON.stringify(await getModelRegistry()))
     expect(json).toEqual({
@@ -65,6 +87,7 @@ describe('public Mastra registry transport', () => {
       /PRIVATE_KEY_NAME|secret|private.invalid|apiKey|headers/
     )
     expect(managedServices.listServices).toHaveBeenCalledOnce()
+    await expect(assertListedModel('configured/listed')).resolves.toBeUndefined()
   })
   it('reads current managed credentials each time and does not treat native URLs as keyless', async () => {
     for (const present of [true, false, true]) {
@@ -72,30 +95,23 @@ describe('public Mastra registry transport', () => {
       expect((await getModelRegistry()).managedProviders).toEqual(present ? ['configured'] : [])
     }
   })
-  it('accepts exact listed canonical IDs and rejects aliases, drafts and unlisted names actionably', async () => {
-    await expect(assertListedModel('configured/listed')).resolves.toBeUndefined()
-    for (const id of [
-      'listed',
-      'configured/missing',
-      'unknown/listed',
-      '{{MODEL}}',
-      'configured/',
-    ]) {
-      await expect(assertListedModel(id)).rejects.toThrow('Select a listed provider/model')
-    }
+  it.each([
+    'listed',
+    'configured/missing',
+    'unknown/listed',
+    '{{MODEL}}',
+    'configured/',
+    'constructor/missing',
+    'toString/missing',
+    'hasOwnProperty/missing',
+  ])('rejects the invalid model %s with an actionable 400', async (model) => {
+    await expect(assertListedModel(model)).rejects.toThrowError(
+      expect.objectContaining({
+        status: 400,
+        message: expect.stringContaining('Select a listed provider/model'),
+      })
+    )
   })
-
-  it.each(['unknown', 'constructor', 'toString', 'hasOwnProperty'])(
-    'rejects the unlisted %s provider with an actionable 400',
-    async (providerId) => {
-      await expect(assertListedModel(`${providerId}/missing`)).rejects.toThrowError(
-        expect.objectContaining({
-          status: 400,
-          message: expect.stringContaining('Select a listed provider/model'),
-        })
-      )
-    }
-  )
 })
 
 it('projects only native embedding metadata and exact current provider membership', async () => {

@@ -32,6 +32,10 @@ describe('DB-managed native connections', () => {
     'cloudflare-workers-ai',
     'infomaniak',
     'neon',
+    'lmstudio',
+    'privatemode-ai',
+    'lynkr',
+    'atomic-chat',
   ])('rejects the unsupported %s service before reading its key', async (id) => {
     managedServices.credentials[id] = { apiKey: 'unrelated-secret', token: 'unrelated-token' }
     for (const apiKey of [undefined, 'request-key'])

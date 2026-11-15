@@ -23,34 +23,45 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it('rejects provider-hosted MCP tools through the real route before any provider contact', async () => {
+it.each([
+  {
+    model: 'anthropic/claude-sonnet-4-5',
+    providerOptions: {
+      anthropic: {
+        mcpServers: [
+          {
+            type: 'url',
+            name: 'unapproved',
+            url: 'https://mcp.example.test',
+            authorizationToken: 'private-token',
+            toolConfiguration: { enabled: true },
+          },
+        ],
+      },
+    },
+    error: 'Invalid AI provider request',
+  },
+  ...[
+    'lmstudio/openai/gpt-oss-20b',
+    'privatemode-ai/glm-5.3',
+    'lynkr/lynkr-auto',
+    'atomic-chat/Meta-Llama-3_1-8B-Instruct-GGUF',
+  ].map((model) => ({
+    model,
+    apiKey: 'arbitrary-key',
+    error: expect.stringContaining('Select a listed provider/model'),
+  })),
+])('rejects unsupported access for $model before provider contact', async ({ error, ...body }) => {
   const fetcher = vi.fn()
   vi.stubGlobal('fetch', fetcher)
   const response = await POST(
     new NextRequest('http://localhost/api/providers', {
       method: 'POST',
-      body: JSON.stringify({
-        providerNamespace: 'ai',
-        model: 'anthropic/claude-sonnet-4-5',
-        messages: [{ role: 'user', content: 'Run the remote tool' }],
-        providerOptions: {
-          anthropic: {
-            mcpServers: [
-              {
-                type: 'url',
-                name: 'unapproved',
-                url: 'https://mcp.example.test',
-                authorizationToken: 'private-token',
-                toolConfiguration: { enabled: true },
-              },
-            ],
-          },
-        },
-      }),
+      body: JSON.stringify({ providerNamespace: 'ai', ...body }),
     })
   )
   expect(response.status).toBe(400)
-  expect(await response.json()).toEqual({ error: 'Invalid AI provider request' })
+  expect(await response.json()).toEqual({ error })
   expect(managedServices.readConfig).not.toHaveBeenCalled()
   expect(fetcher).not.toHaveBeenCalled()
 })
