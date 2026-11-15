@@ -2092,7 +2092,47 @@ describe('message acceptance', () => {
     expect(onAccepted).toHaveBeenCalledOnce()
   })
 
-  it.each(['navigation', 'failure'])(
+  it.each(['before-acceptance', 'after-acceptance', 'detached-again'])(
+    'restores a first turn after returning to its workspace (%s)',
+    async (timing) => {
+      store().setState({ conversationWorkspaceId: workspaceId })
+      const admission = defer<Response>()
+      const stream = observingStream(historyResult([history[0]]), runId)
+      onCommand = (request) => (request.command === 'message' ? admission.promise : undefined)
+      const onAccepted = vi.fn()
+      const sending = store().getState().sendMessage('submitted', { onAccepted })
+      await vi.waitFor(() =>
+        expect(commands.some(({ command }) => command === 'message')).toBe(true)
+      )
+      store().getState().detachStream()
+      let restoring =
+        timing === 'after-acceptance' ? undefined : store().getState().loadChats({ workspaceId })
+      if (timing === 'detached-again') store().getState().detachStream()
+      admission.resolve(acceptObservation(stream.response))
+      expect(await sending).toBe(false)
+      expect(store().getState()).toMatchObject({ currentChat: { threadId }, currentRunId: runId })
+      expect(onAccepted).toHaveBeenCalledOnce()
+      if (timing !== 'before-acceptance') {
+        await restoring
+        expect(commands.some(({ command }) => command === 'thread.observe')).toBe(false)
+        expect(store().getState().isLoadingChats).toBe(false)
+        restoring = store().getState().loadChats({ workspaceId })
+      }
+      await restoring
+      expect(commands.filter(({ command }) => command === 'thread.observe')).toEqual([
+        { command: 'thread.observe', workspaceId, threadId },
+      ])
+      expect(isCopilotBusy(store().getState())).toBe(true)
+      stream.emit({ type: 'thread.status', runId, status: 'success', history: historyResult() })
+      await vi.waitFor(() => expect(isCopilotBusy(store().getState())).toBe(false))
+      expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
+      expect(commands.filter(({ command }) => command === 'message')).toHaveLength(1)
+      expect(commands.some(({ command }) => command === 'cancel')).toBe(false)
+      expect(tools.browser).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['navigation', 'failure', 'detached-failure'])(
     'does not acknowledge a message after pre-start %s',
     async (kind) => {
       setChat()
@@ -2104,10 +2144,20 @@ describe('message acceptance', () => {
         expect(commands.some((request) => request.command === 'message')).toBe(true)
       )
       if (kind === 'navigation') await store().getState().selectChat(chat('other', 'other'))
-      held.resolve(kind === 'failure' ? json({ error: 'failed' }, 500) : acceptTurn(ready()))
+      if (kind === 'detached-failure') store().getState().detachStream()
+      held.resolve(
+        kind === 'navigation'
+          ? acceptTurn(ready())
+          : json(
+              { status: 'refused', error: { code: 'INVALID_REQUEST', message: 'Not admitted' } },
+              422
+            )
+      )
       expect(await sending).toBe(false)
       expect(onAccepted).not.toHaveBeenCalled()
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+      expect(isCopilotBusy(store().getState())).toBe(false)
+      if (kind !== 'navigation') expect(store().getState().error).toBe('Not admitted')
     }
   )
 

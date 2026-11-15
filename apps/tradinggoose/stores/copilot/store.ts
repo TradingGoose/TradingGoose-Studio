@@ -343,10 +343,8 @@ function createCopilotStoreInstance(channelId: string) {
                       error:
                         'The previous response was interrupted. You can continue this conversation.',
                     })
-                  if (event.interruptedRunId && submittedRunId === event.interruptedRunId) {
-                    ready()
+                  if (event.interruptedRunId && submittedRunId === event.interruptedRunId)
                     return false
-                  }
                   ready()
                   continue
                 }
@@ -451,7 +449,7 @@ function createCopilotStoreInstance(channelId: string) {
           admission = accepting = postNativeCommand(body).then(readNativeCommandResponse)
           const result = await accepting
           if (admission === accepting) admission = undefined
-          if (!current()) return false
+          if (id !== epoch) return false
           if (result.status !== 'accepted') throw new Error('Copilot command was not accepted')
           const selected = get().currentChat
           if (selected && selected.threadId !== result.threadId)
@@ -504,7 +502,7 @@ function createCopilotStoreInstance(channelId: string) {
           if (success && current()) publishInitialTitle()
           return success && current()
         } catch (error) {
-          if (current()) {
+          if (id === epoch) {
             const message = fail(error)
             set((state) => settleDisplayOnlyTools(state, messageId, ClientToolCallState.error))
             set((state) => ({
@@ -832,6 +830,7 @@ function createCopilotStoreInstance(channelId: string) {
               : {}),
           })
           try {
+            if (admission) await admission
             const threads = await listNativeThreads(workspaceId)
             if (generation !== threadsGeneration || id !== epoch) return
             const chats: CopilotChat[] = threads.map((thread) => ({
@@ -986,14 +985,6 @@ function createCopilotStoreInstance(channelId: string) {
               currentRunId: null,
             }))
             if (id !== epoch) return false
-            if (
-              get().currentChat?.threadId !== chat?.threadId ||
-              get().conversationWorkspaceId !== workspaceId ||
-              get().selectedModel !== model
-            ) {
-              set({ isSendingMessage: false })
-              return false
-            }
             const success = await invoke(command, assistant.id, body, options.onAccepted)
             return success && id === epoch
           } catch (error) {
@@ -1033,12 +1024,9 @@ function createCopilotStoreInstance(channelId: string) {
             }
             if (cancellationEpoch === epoch) {
               cancellationEpoch = ++epoch
-              observation?.abort()
-              get().abortController?.abort()
-              for (const id of Object.keys(get().toolCallsById)) unregisterClientTool(id)
+              get().detachStream()
               set((state) => ({
                 ...settleDisplayOnlyTools(state),
-                abortController: null,
                 currentRunId: target?.runId ?? null,
                 isSendingMessage: false,
                 isAborting: Boolean(target),
@@ -1066,11 +1054,12 @@ function createCopilotStoreInstance(channelId: string) {
           }
         },
         detachStream: () => {
+          ++threadsGeneration
           observation?.abort()
           observation = null
           get().abortController?.abort()
           for (const id of Object.keys(get().toolCallsById)) unregisterClientTool(id)
-          set({ abortController: null })
+          set({ abortController: null, isLoadingChats: false })
         },
         reset: () => {
           const dialog = get().workflowChatDeployment
@@ -1079,10 +1068,7 @@ function createCopilotStoreInstance(channelId: string) {
           ++epoch
           titleAbort?.abort()
           titleCandidate = null
-          threadsGeneration++
-          observation?.abort()
-          observation = null
-          get().abortController?.abort()
+          get().detachStream()
           inFlightTools.clear()
           attemptedTools.clear()
           set({ ...initialState, draft: emptyDraft() })
