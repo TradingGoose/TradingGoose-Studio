@@ -20,8 +20,10 @@ export interface RegistryProvider {
   models: RegistryModel[]
 }
 
-/** Untyped music/audio generators must not enter the text/tool execution path. */
+/** Only admit models compatible with the native text/tool execution path. */
 export function isLanguageModel(provider: string, modelId: string): boolean {
+  // Google Deep Research requires Interactions, not the adapter's generateContent API.
+  if (provider === 'google' && modelId.startsWith('deep-research-')) return false
   const model = modelCatalog[provider]?.models?.[modelId]
   if (model?.type) return model.type === 'chat'
   if (
