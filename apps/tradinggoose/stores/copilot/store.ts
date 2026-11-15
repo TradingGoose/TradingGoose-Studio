@@ -122,19 +122,16 @@ const initialState = {
 function createCopilotStoreInstance(channelId: string) {
   let epoch = 0
   let threadsGeneration = 0
-  let interactionGeneration = 0
-  let titleEditGeneration = 0
   let titleCandidate: {
     epoch: number
-    interaction: number
     workspaceId: string | null
     model: string
     originalInput: string
-    titleEdit: number
     threadId?: string
   } | null = null
   let titleAbort: AbortController | null = null
   let observation: AbortController | null = null
+  let admission: ReturnType<typeof readNativeCommandResponse> | undefined
   const inFlightTools = new Set<string>()
   const attemptedTools = new Set<string>()
   let toolQueue: Promise<void> = Promise.resolve()
@@ -145,7 +142,7 @@ function createCopilotStoreInstance(channelId: string) {
     reject: (error: Error) => void
     removeAbort: () => void
   } | null = null
-  const store = create<CopilotStore>()(
+  return create<CopilotStore>()(
     devtools((set, get) => {
       const fail = (error: unknown) => {
         const message = error instanceof Error ? error.message : 'Native Copilot request failed'
@@ -157,30 +154,19 @@ function createCopilotStoreInstance(channelId: string) {
       const publishInitialTitle = () => {
         const candidate = titleCandidate
         const chat = get().currentChat
-        if (
-          !candidate ||
-          candidate.epoch !== epoch ||
-          candidate.interaction !== interactionGeneration ||
-          get().selectedModel !== candidate.model ||
-          !chat ||
-          chat.workspaceId !== candidate.workspaceId ||
-          chat.title !== '' ||
-          candidate.titleEdit !== titleEditGeneration ||
-          (candidate.threadId !== undefined && candidate.threadId !== chat.threadId)
-        )
-          return
+        if (!candidate || !chat) return
         titleCandidate = null // An optional title attempt never retries paid utility work.
         const abort = new AbortController()
         titleAbort = abort
         const current = () =>
           !abort.signal.aborted &&
           candidate.epoch === epoch &&
-          candidate.interaction === interactionGeneration &&
+          candidate.workspaceId === chat.workspaceId &&
+          (candidate.threadId === undefined || candidate.threadId === chat.threadId) &&
           get().currentChat?.threadId === chat.threadId &&
           get().currentChat?.workspaceId === chat.workspaceId &&
           get().selectedModel === candidate.model &&
-          get().currentChat?.title === '' &&
-          candidate.titleEdit === titleEditGeneration
+          get().currentChat?.title === ''
         const request = {
           workspaceId: chat.workspaceId,
           threadId: chat.threadId,
@@ -205,13 +191,14 @@ function createCopilotStoreInstance(channelId: string) {
               !(body.title === null || typeof body.title === 'string')
             )
               throw new Error('Native initial title response is invalid')
-            if (!response.ok || typeof body.title !== 'string' || !body.title || !current()) return
+            const title = body.title
+            if (!response.ok || typeof title !== 'string' || !title || !current()) return
             const updated = await readNativeCommand(
               {
                 command: 'thread.title',
                 workspaceId: chat.workspaceId,
                 threadId: chat.threadId,
-                title: body.title,
+                title,
               },
               abort.signal
             )
@@ -222,23 +209,14 @@ function createCopilotStoreInstance(channelId: string) {
             )
               throw new Error('Native title publication was not verified')
             if (!current()) return
-            const threads = await listNativeThreads(chat.workspaceId, abort.signal)
-            const actual = threads.find((thread) => thread.id === chat.threadId)
-            if (!actual) throw new Error('Native title readback is unavailable')
-            if (!current()) return
             set((state) => ({
-              currentChat: state.currentChat ? { ...state.currentChat, title: actual.title } : null,
+              currentChat: state.currentChat ? { ...state.currentChat, title } : null,
               chats: state.chats.map((item) =>
-                item.threadId === chat.threadId ? { ...item, title: actual.title } : item
+                item.threadId === chat.threadId ? { ...item, title } : item
               ),
             }))
           } catch (error) {
-            if (
-              candidate.epoch === epoch &&
-              get().currentChat?.threadId === chat.threadId &&
-              !abort.signal.aborted
-            )
-              fail(error)
+            if (current()) fail(error)
           } finally {
             if (titleAbort === abort) titleAbort = null
             refreshBillingUsage()
@@ -256,9 +234,8 @@ function createCopilotStoreInstance(channelId: string) {
         if (!get().currentChat || pending.target.threadId !== get().currentChat!.threadId)
           throw new Error('Copilot pending tool is outside the selected thread')
       }
-      const ownsChat = (chat: CopilotChat, selectedEpoch: number, interaction: number) =>
+      const ownsChat = (chat: CopilotChat, selectedEpoch: number) =>
         selectedEpoch === epoch &&
-        interaction === interactionGeneration &&
         get().currentChat?.threadId === chat.threadId &&
         get().currentChat?.workspaceId === chat.workspaceId
       const applyHistory = (
@@ -326,8 +303,7 @@ function createCopilotStoreInstance(channelId: string) {
         const abort = new AbortController()
         observation = abort
         const id = epoch
-        const interaction = interactionGeneration
-        const current = () => ownsChat(chat, id, interaction) && !abort.signal.aborted
+        const current = () => ownsChat(chat, id) && !abort.signal.aborted
         const ready = () => {
           onReady?.()
           onReady = undefined
@@ -444,17 +420,12 @@ function createCopilotStoreInstance(channelId: string) {
         })
       const scheduleBrowserTools = () => {
         const id = epoch
-        const interaction = interactionGeneration
         for (const call of Object.values(get().toolCallsById)) {
           const pending = call.pending
           if (!pending || !automaticEligible(pending)) continue
           const selected = structuredClone(pending)
           queueMicrotask(() => {
-            if (
-              id === epoch &&
-              interaction === interactionGeneration &&
-              automaticEligible(selected)
-            )
+            if (id === epoch && automaticEligible(selected))
               void performToolAction(call.id, {
                 kind: 'automatic',
                 pending: selected,
@@ -470,16 +441,17 @@ function createCopilotStoreInstance(channelId: string) {
       ) => {
         observation?.abort()
         const id = epoch
-        const interaction = interactionGeneration
-        const current = () => id === epoch && interaction === interactionGeneration
         const abort = new AbortController()
+        const current = () => id === epoch && !abort.signal.aborted
         get().abortController?.abort()
         set({ abortController: abort, isSendingMessage: true, error: null })
+        let accepting: typeof admission
         try {
-          const result = await readNativeCommandResponse(
-            await postNativeCommand(body, abort.signal)
-          )
-          if (!current() || abort.signal.aborted) return false
+          // Keep admission alive so Stop can cancel the durable run it returns.
+          admission = accepting = postNativeCommand(body).then(readNativeCommandResponse)
+          const result = await accepting
+          if (admission === accepting) admission = undefined
+          if (!current()) return false
           if (result.status !== 'accepted') throw new Error('Copilot command was not accepted')
           const selected = get().currentChat
           if (selected && selected.threadId !== result.threadId)
@@ -527,11 +499,12 @@ function createCopilotStoreInstance(channelId: string) {
           })
           rememberCopilotWorkspaceSelection(channelId, command.workspaceId, result.threadId)
           onAccepted?.()
+          if (!current() || get().isAborting) return false
           const success = await observeChat(chat, result.runId)
           if (success && current()) publishInitialTitle()
           return success && current()
         } catch (error) {
-          if (current() && !abort.signal.aborted) {
+          if (current()) {
             const message = fail(error)
             set((state) => settleDisplayOnlyTools(state, messageId, ClientToolCallState.error))
             set((state) => ({
@@ -545,7 +518,8 @@ function createCopilotStoreInstance(channelId: string) {
           }
           return false
         } finally {
-          if (current() && get().abortController === abort) set({ abortController: null })
+          if (admission === accepting) admission = undefined
+          if (get().abortController === abort) set({ abortController: null })
           refreshBillingUsage()
         }
       }
@@ -598,15 +572,13 @@ function createCopilotStoreInstance(channelId: string) {
         inFlightTools.add(id)
         const chat = get().currentChat
         const generation = epoch
-        const interaction = interactionGeneration
-        const current = () => !!chat && ownsChat(chat, generation, interaction)
+        const current = () => !!chat && ownsChat(chat, generation)
         const previous = toolQueue
         let release!: () => void
         toolQueue = new Promise<void>((resolve) => {
           release = resolve
         })
         await previous
-        let ownedAbort: AbortController | undefined
         try {
           if (!current()) return
           let pending = await get().readPendingTool(id)
@@ -711,9 +683,8 @@ function createCopilotStoreInstance(channelId: string) {
             attemptedTools.add(key)
             const originalArgs = ToolArgSchemas[call.name].parse(pending.originalArgs)
             const businessAbort = new AbortController()
-            ownedAbort = businessAbort
-            set({ abortController: businessAbort })
             try {
+              set({ abortController: businessAbort })
               await instance.handleUserAction(originalArgs)
             } finally {
               if (
@@ -730,7 +701,6 @@ function createCopilotStoreInstance(channelId: string) {
           if (['reject', 'decline'].includes(intent.kind)) throw error
         } finally {
           closeOAuthWindow?.()
-          if (ownedAbort && get().abortController === ownedAbort) set({ abortController: null })
           release()
           inFlightTools.delete(id)
         }
@@ -743,15 +713,13 @@ function createCopilotStoreInstance(channelId: string) {
           const chat = get().currentChat
           if (!chat) throw new Error('Native tool thread is missing')
           const generation = epoch
-          const interaction = interactionGeneration
           const model = get().selectedModel
           const signal = get().abortController?.signal
           const pending = await get().readPendingTool(toolCallId)
           const args = ToolArgSchemas.deploy_workflow.parse(pending.originalArgs)
           const id = crypto.randomUUID()
           const isCurrent = () => {
-            if (!ownsChat(chat, generation, interaction) || get().selectedModel !== model)
-              return false
+            if (!ownsChat(chat, generation) || get().selectedModel !== model) return false
             const dialog = get().workflowChatDeployment
             // Normal native ACK replaces the business signal and consumes Pending.
             // It cannot erase an already observed UI effect or close its settings.
@@ -857,7 +825,6 @@ function createCopilotStoreInstance(channelId: string) {
             options?.workspaceId !== undefined ? options.workspaceId : get().conversationWorkspaceId
           const generation = ++threadsGeneration
           const id = epoch
-          const interaction = interactionGeneration
           set({
             isLoadingChats: true,
             ...(!get().currentChat && !get().isSendingMessage && !get().isAwaitingContinuation
@@ -866,12 +833,7 @@ function createCopilotStoreInstance(channelId: string) {
           })
           try {
             const threads = await listNativeThreads(workspaceId)
-            if (
-              generation !== threadsGeneration ||
-              id !== epoch ||
-              interaction !== interactionGeneration
-            )
-              return
+            if (generation !== threadsGeneration || id !== epoch) return
             const chats: CopilotChat[] = threads.map((thread) => ({
               threadId: thread.id,
               title: thread.title,
@@ -895,12 +857,7 @@ function createCopilotStoreInstance(channelId: string) {
             if (selected) await get().selectChat(selected)
             else await get().createNewChat(workspaceId)
           } catch (error) {
-            if (
-              generation === threadsGeneration &&
-              id === epoch &&
-              interaction === interactionGeneration
-            )
-              fail(error)
+            if (generation === threadsGeneration && id === epoch) fail(error)
           } finally {
             if (generation === threadsGeneration) set({ isLoadingChats: false })
           }
@@ -978,9 +935,7 @@ function createCopilotStoreInstance(channelId: string) {
             return false
           }
           const workspaceId = chat ? chat.workspaceId : get().conversationWorkspaceId
-          const id = epoch
-          const interaction = ++interactionGeneration
-          const titleEdit = titleEditGeneration
+          const id = ++epoch
           titleAbort?.abort()
           titleCandidate = null
           const contexts = editing
@@ -1013,14 +968,12 @@ function createCopilotStoreInstance(channelId: string) {
             }
             const body = serializeCopilotRequest(command)
             titleCandidate =
-              initial && message.trim() && titleEdit === titleEditGeneration
+              initial && message.trim()
                 ? {
                     epoch,
-                    interaction,
                     workspaceId,
                     model,
                     originalInput: message,
-                    titleEdit,
                     ...(chat ? { threadId: chat.threadId } : {}),
                   }
                 : null
@@ -1032,7 +985,7 @@ function createCopilotStoreInstance(channelId: string) {
               error: null,
               currentRunId: null,
             }))
-            if (id !== epoch || interaction !== interactionGeneration) return false
+            if (id !== epoch) return false
             if (
               get().currentChat?.threadId !== chat?.threadId ||
               get().conversationWorkspaceId !== workspaceId ||
@@ -1042,7 +995,7 @@ function createCopilotStoreInstance(channelId: string) {
               return false
             }
             const success = await invoke(command, assistant.id, body, options.onAccepted)
-            return success && id === epoch && interaction === interactionGeneration
+            return success && id === epoch
           } catch (error) {
             if (id === epoch) fail(error)
             return false
@@ -1054,46 +1007,63 @@ function createCopilotStoreInstance(channelId: string) {
           if (dialog)
             get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native tool selection changed')
           const current = get()
-          const cancellationEpoch = ++epoch
+          let cancellationEpoch = epoch
+          let target =
+            current.currentChat && current.currentRunId
+              ? {
+                  workspaceId: current.currentChat.workspaceId,
+                  threadId: current.currentChat.threadId,
+                  runId: current.currentRunId,
+                }
+              : undefined
           titleAbort?.abort()
           titleCandidate = null
-          observation?.abort()
-          current.abortController?.abort()
-          for (const id of Object.keys(current.toolCallsById)) unregisterClientTool(id)
-          set({
-            ...settleDisplayOnlyTools(current),
-            abortController: null,
-            isSendingMessage: false,
-            isAborting: Boolean(current.currentChat && current.currentRunId),
-            isAwaitingContinuation: Boolean(current.currentChat && current.currentRunId),
-          })
-          if (current.currentChat && current.currentRunId)
-            return readNativeCommand({
+          try {
+            if (!target && current.isSendingMessage && admission) {
+              set({ isAborting: true })
+              const result = await admission
+              if (result.status !== 'accepted') throw new Error('Copilot command was not accepted')
+              target = {
+                workspaceId: current.currentChat
+                  ? current.currentChat.workspaceId
+                  : current.conversationWorkspaceId,
+                threadId: result.threadId,
+                runId: result.runId,
+              }
+            }
+            if (cancellationEpoch === epoch) {
+              cancellationEpoch = ++epoch
+              observation?.abort()
+              get().abortController?.abort()
+              for (const id of Object.keys(get().toolCallsById)) unregisterClientTool(id)
+              set((state) => ({
+                ...settleDisplayOnlyTools(state),
+                abortController: null,
+                currentRunId: target?.runId ?? null,
+                isSendingMessage: false,
+                isAborting: Boolean(target),
+                isAwaitingContinuation: Boolean(target),
+              }))
+            }
+            if (!target) return !current.isSendingMessage
+            const result = await readNativeCommand({
               command: 'cancel',
-              workspaceId: current.currentChat.workspaceId,
-              threadId: current.currentChat.threadId,
-              runId: current.currentRunId,
+              ...target,
             })
-              .then((result) => {
-                if (
-                  cancellationEpoch !== epoch ||
-                  get().currentChat?.threadId !== current.currentChat?.threadId
-                )
-                  return false
-                if (result.status !== 'cancel_requested' || result.runId !== current.currentRunId)
-                  throw new Error('Native cancellation was not verified')
-                set((state) => applyNativeCancellation(state, result))
-                return true
-              })
-              .catch((error) => {
-                if (cancellationEpoch === epoch) {
-                  set({ isAborting: false })
-                  fail(error)
-                }
-                return false
-              })
-              .finally(refreshBillingUsage)
-          return !current.isSendingMessage
+            if (cancellationEpoch !== epoch) return false
+            if (result.status !== 'cancel_requested' || result.runId !== target.runId)
+              throw new Error('Native cancellation was not verified')
+            set((state) => applyNativeCancellation(state, result))
+            return true
+          } catch (error) {
+            if (cancellationEpoch === epoch) {
+              set({ isAborting: false, isSendingMessage: false })
+              fail(error)
+            }
+            return false
+          } finally {
+            refreshBillingUsage()
+          }
         },
         detachStream: () => {
           observation?.abort()
@@ -1133,10 +1103,9 @@ function createCopilotStoreInstance(channelId: string) {
           const chat = get().currentChat
           if (!chat) throw new Error('Native tool thread is missing')
           const generation = epoch
-          const interaction = interactionGeneration
           const pending = await get().readPendingTool(id)
           const current = () =>
-            ownsChat(chat, generation, interaction) &&
+            ownsChat(chat, generation) &&
             stableStringifyJsonValue(get().toolCallsById[id]?.pending ?? null) ===
               stableStringifyJsonValue(pending)
           if (
@@ -1190,7 +1159,6 @@ function createCopilotStoreInstance(channelId: string) {
           const chat = get().currentChat
           if (!chat) throw new Error('Native tool thread is missing')
           const generation = epoch
-          const interaction = interactionGeneration
           const pending = await get().readPendingTool(id)
           if (pending.stage !== 'result')
             throw new Error('Native approval is required before readback')
@@ -1209,7 +1177,7 @@ function createCopilotStoreInstance(channelId: string) {
               ? { readback: { credentialId: readback.credentialId } }
               : {}),
           })
-          if (!ownsChat(chat, generation, interaction)) return
+          if (!ownsChat(chat, generation)) return
           if (!success) throw new Error('Authoritative readback did not complete')
         },
         setToolState: updateTool,
@@ -1259,14 +1227,6 @@ function createCopilotStoreInstance(channelId: string) {
       }
     })
   )
-  store.subscribe((state, previous) => {
-    if (
-      state.currentChat?.threadId === previous.currentChat?.threadId &&
-      state.currentChat?.title !== previous.currentChat?.title
-    )
-      titleEditGeneration++
-  })
-  return store
 }
 
 const copilotStoreRegistry = new Map<string, StoreApi<CopilotStore>>()

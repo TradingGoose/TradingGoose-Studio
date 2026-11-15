@@ -1585,19 +1585,14 @@ describe('canonical history, edits and context', () => {
 })
 
 describe('actual bounded initial-title publication', () => {
-  const titleOutcome = {
-    status: 'completed',
-    runId: 'title-run',
-    text: '  Generated title  ',
-  }
-  it('calls utility for the actual first thread/model/scope, then mutates and reads native title only after success', async () => {
+  it('calls utility for the actual first thread/model/scope and applies the title after native acknowledgement', async () => {
     store().setState({ conversationWorkspaceId: workspaceId, selectedModel: 'openai/gpt-5.6-sol' })
     const titleResponse = defer<Response>()
     onTitle = () => titleResponse.promise
     expect(await store().getState().sendMessage('First')).toBe(true)
     queryClient.setQueryData(subscriptionKeys.user(), { current: 0.1 })
-    titleResponse.resolve(json({ title: 'Generated title', outcome: titleOutcome }))
-    await vi.waitFor(() => expect(store().getState().currentChat?.title).toBe('verified title'))
+    titleResponse.resolve(json({ title: 'Generated title' }))
+    await vi.waitFor(() => expect(store().getState().currentChat?.title).toBe('Generated title'))
     expect(queryClient.getQueryState(subscriptionKeys.user())?.isInvalidated).toBe(true)
     expect(titleRequests).toEqual([
       { workspaceId, threadId, model: 'openai/gpt-5.6-sol', originalInput: 'First' },
@@ -1625,7 +1620,7 @@ describe('actual bounded initial-title publication', () => {
       await store()
         .getState()
         .selectChat({ ...chat(), title: '' })
-      onTitle = () => json({ title: 'Generated title', outcome: titleOutcome })
+      onTitle = () => json({ title: 'Generated title' })
       const originalInput = ' \nOriginal prompt🔥\t '
       expect(
         await store()
@@ -1634,7 +1629,7 @@ describe('actual bounded initial-title publication', () => {
             contexts: [{ kind: 'docs', label: 'Inert context never becomes prompt' }],
           })
       ).toBe(true)
-      await vi.waitFor(() => expect(store().getState().currentChat?.title).toBe('verified title'))
+      await vi.waitFor(() => expect(store().getState().currentChat?.title).toBe('Generated title'))
       expect(commands[0].command).toBe('thread.observe')
       expect(titleRequests).toEqual([
         { workspaceId, threadId, model: store().getState().selectedModel, originalInput },
@@ -1648,31 +1643,13 @@ describe('actual bounded initial-title publication', () => {
       await store()
         .getState()
         .selectChat({ ...chat(), title })
-      onTitle = () => json({ title: 'Generated title', outcome: titleOutcome })
+      onTitle = () => json({ title: 'Generated title' })
       expect(await store().getState().sendMessage('A later native interaction')).toBe(true)
       expect(titleRequests).toEqual([]) // The default complete native history already contains a user.
     }
   )
-  it('invalidates the captured title generation even if a manual title is later restored to empty before main completion', async () => {
-    const late = defer<Response>()
-    onCommand = (request) => (request.command === 'message' ? late.promise : undefined)
-    onTitle = () => json({ title: 'Generated title', outcome: titleOutcome })
-    const sending = store().getState().sendMessage('First')
-    await vi.waitFor(() =>
-      expect(commands.some((request) => request.command === 'message')).toBe(true)
-    )
-    store().setState({ currentChat: { ...chat(null), title: 'Manual title' } })
-    store().setState({ currentChat: { ...chat(null), title: '' } })
-    late.resolve(acceptTurn(ready()))
-    expect(await sending).toBe(true)
-    expect(titleRequests).toEqual([])
-  })
-  it('keeps the generated title outcome when publication fails without replay', async () => {
-    onTitle = () =>
-      json({
-        title: 'Generated title',
-        outcome: { ...titleOutcome },
-      })
+  it('leaves the title unchanged when publication fails without replay', async () => {
+    onTitle = () => json({ title: 'Generated title' })
     onCommand = (request) =>
       request.command === 'thread.title'
         ? json(
@@ -1694,26 +1671,13 @@ describe('actual bounded initial-title publication', () => {
     expect(titleRequests).toHaveLength(1)
     expect(commands.filter((request) => request.command === 'thread.title')).toHaveLength(1)
   })
-  it.each(['null', 'error', 'refused', 'cancel_requested'])(
-    'publishes no title on %s and never retries the utility',
-    async (mode) => {
-      store().setState({ conversationWorkspaceId: workspaceId })
-      const outcome =
-        mode === 'null'
-          ? undefined
-          : {
-              status: mode === 'error' ? 'failed' : mode,
-              error: {
-                code: 'NATIVE_FAILURE',
-                message: 'title unavailable',
-              },
-            }
-      onTitle = () => json({ title: null, ...(outcome ? { outcome } : {}) })
-      await store().getState().sendMessage('First')
-      await vi.waitFor(() => expect(titleRequests).toHaveLength(1))
-      expect(commands.some((request) => request.command === 'thread.title')).toBe(false)
-    }
-  )
+  it('publishes no title when the utility returns null and never retries', async () => {
+    store().setState({ conversationWorkspaceId: workspaceId })
+    onTitle = () => json({ title: null })
+    await store().getState().sendMessage('First')
+    await vi.waitFor(() => expect(titleRequests).toHaveLength(1))
+    expect(commands.some((request) => request.command === 'thread.title')).toBe(false)
+  })
   it.each(['manual-title', 'thread-switch', 'model-switch', 'new-user-message'])(
     'blocks late optional title publication after %s',
     async (change) => {
@@ -1729,7 +1693,7 @@ describe('actual bounded initial-title publication', () => {
       if (change === 'thread-switch') await store().getState().createNewChat('other-workspace')
       if (change === 'model-switch') await store().getState().setSelectedModel('openai/gpt-5.6-sol')
       if (change === 'new-user-message') await store().getState().sendMessage('Second')
-      late.resolve(json({ title: 'Generated title', outcome: titleOutcome }))
+      late.resolve(json({ title: 'Generated title' }))
       await new Promise((resolve) => setTimeout(resolve, 10))
       expect(commands.some((request) => request.command === 'thread.title')).toBe(false)
       expect(titleRequests).toHaveLength(1)
@@ -2128,7 +2092,7 @@ describe('message acceptance', () => {
     expect(onAccepted).toHaveBeenCalledOnce()
   })
 
-  it.each(['navigation', 'abort', 'failure'])(
+  it.each(['navigation', 'failure'])(
     'does not acknowledge a message after pre-start %s',
     async (kind) => {
       setChat()
@@ -2140,11 +2104,103 @@ describe('message acceptance', () => {
         expect(commands.some((request) => request.command === 'message')).toBe(true)
       )
       if (kind === 'navigation') await store().getState().selectChat(chat('other', 'other'))
-      if (kind === 'abort') await store().getState().abortMessage()
       held.resolve(kind === 'failure' ? json({ error: 'failed' }, 500) : acceptTurn(ready()))
       expect(await sending).toBe(false)
       expect(onAccepted).not.toHaveBeenCalled()
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
+    }
+  )
+
+  it.each(['existing', 'fresh', 'failed-cancel', 'refused', 'navigation', 'on-accepted'])(
+    'retains admission until Stop can cancel its returned run (%s)',
+    async (kind) => {
+      if (kind === 'fresh') store().setState({ conversationWorkspaceId: workspaceId })
+      else setChat()
+      const admission = defer<Response>()
+      const acknowledgement = defer<Response>()
+      let admissionSignal: AbortSignal | null | undefined
+      onCommand = (request, init) => {
+        if (request.command === 'message') {
+          admissionSignal = init?.signal
+          return admission.promise
+        }
+        if (request.command === 'cancel') return acknowledgement.promise
+      }
+      let stopping: Promise<boolean> | undefined
+      const onAccepted = vi.fn(() => {
+        if (kind === 'on-accepted') stopping = store().getState().abortMessage()
+      })
+      const sending = store().getState().sendMessage('submitted', { onAccepted })
+      await vi.waitFor(() =>
+        expect(commands.some(({ command }) => command === 'message')).toBe(true)
+      )
+      if (kind !== 'on-accepted') {
+        stopping = store().getState().abortMessage()
+        expect(admissionSignal?.aborted).not.toBe(true)
+        expect(store().getState().isAborting).toBe(true)
+        expect(isCopilotBusy(store().getState())).toBe(true)
+        expect(await store().getState().abortMessage()).toBe(false)
+        expect(commands.some(({ command }) => command === 'cancel')).toBe(false)
+      }
+      if (kind === 'navigation') await store().getState().createNewChat('another-workspace')
+      admission.resolve(
+        kind === 'refused'
+          ? json(
+              { status: 'refused', error: { code: 'INVALID_REQUEST', message: 'Not admitted' } },
+              422
+            )
+          : json({ status: 'accepted', threadId, runId, messageId: 'accepted-user' }, 202)
+      )
+      if (kind === 'refused') {
+        expect(await stopping).toBe(false)
+        expect(await sending).toBe(false)
+        expect(onAccepted).not.toHaveBeenCalled()
+        expect(isCopilotBusy(store().getState())).toBe(false)
+        expect(commands.some(({ command }) => command === 'cancel')).toBe(false)
+        return
+      }
+      await vi.waitFor(() =>
+        expect(commands.filter(({ command }) => command === 'cancel')).toEqual([
+          { command: 'cancel', workspaceId, threadId, runId },
+        ])
+      )
+      expect(commands.some(({ command }) => command === 'thread.observe')).toBe(false)
+      if (kind === 'navigation') {
+        expect(onAccepted).not.toHaveBeenCalled()
+        expect(store().getState().conversationWorkspaceId).toBe('another-workspace')
+        expect(store().getState().currentChat).toBeNull()
+      } else {
+        expect(onAccepted).toHaveBeenCalledOnce()
+        expect(store().getState()).toMatchObject({ currentRunId: runId, isAborting: true })
+        expect(store().getState().messages[0]).toMatchObject({
+          id: 'accepted-user',
+          content: 'submitted',
+        })
+        expect(await store().getState().sendMessage('Must wait')).toBe(false)
+      }
+      acknowledgement.resolve(
+        kind === 'failed-cancel'
+          ? json({ status: 'failed', error: { code: 'CANCEL_FAILED', message: 'Retry Stop' } }, 503)
+          : json({ status: 'cancel_requested', runId })
+      )
+      expect(await stopping).toBe(kind !== 'failed-cancel' && kind !== 'navigation')
+      expect(await sending).toBe(false)
+      expect(tools.browser).not.toHaveBeenCalled()
+      if (kind === 'failed-cancel') {
+        expect(store().getState()).toMatchObject({
+          currentRunId: runId,
+          isAwaitingContinuation: true,
+          isAborting: false,
+        })
+        expect(await store().getState().sendMessage('Still running')).toBe(false)
+        onCommand = () => undefined
+        expect(await store().getState().abortMessage()).toBe(true)
+        expect(commands.filter(({ command }) => command === 'cancel')).toHaveLength(2)
+      }
+      expect(store().getState().currentRunId).toBeNull()
+      expect(isCopilotBusy(store().getState())).toBe(false)
+      if (kind === 'navigation')
+        expect(store().getState().conversationWorkspaceId).toBe('another-workspace')
     }
   )
 })

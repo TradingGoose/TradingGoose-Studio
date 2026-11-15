@@ -2502,7 +2502,7 @@ describe('Copilot background execution and native history', () => {
         })
         await vi.waitFor(async () => expect(await isCopilotRunCancelled(first.runId)).toBe(true))
         if (otherInstance)
-          await vi.waitFor(() => expect((m.contacts.at(-1) as any).abortSignal.aborted).toBe(true))
+          await vi.waitFor(() => expect(m.admit.mock.calls.at(-1)?.[0].signal.aborted).toBe(true))
         expect(acknowledged).toBe(false)
         expect(await readCopilotThreadRun(scope, first.threadId)).toBe(first.runId)
         expect(persisted).toBe(false)
