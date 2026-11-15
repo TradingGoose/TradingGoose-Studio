@@ -1,7 +1,7 @@
 import { AgentIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { modelApiKeyField, modelField } from '@/stores/model-registry'
+import { getModelOptions, modelApiKeyField, modelField } from '@/stores/model-registry'
 import type { ToolResponse } from '@/tools/types'
 
 interface AgentResponse extends ToolResponse {
@@ -114,7 +114,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
       placeholder: 'Connect memory block output...',
       additional: true,
     },
-    modelField,
+    { ...modelField, options: () => getModelOptions(true) },
     {
       id: 'temperature',
       title: 'Temperature',

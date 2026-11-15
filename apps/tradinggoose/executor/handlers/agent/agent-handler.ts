@@ -60,7 +60,7 @@ export class AgentBlockHandler implements BlockHandler {
 
     const model = inputs.model
     if (!model) throw new Error('Agent model is required')
-    await assertListedModel(model)
+    await assertListedModel(model, true)
     const maxSteps =
       inputs.maxSteps == null ||
       (typeof inputs.maxSteps === 'string' && inputs.maxSteps.trim() === '')

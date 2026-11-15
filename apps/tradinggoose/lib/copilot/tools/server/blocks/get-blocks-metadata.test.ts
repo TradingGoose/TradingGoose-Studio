@@ -5,143 +5,10 @@ import { useModelRegistry } from '@/stores/model-registry'
 
 const mockGetOAuthProviderAvailability = vi.hoisted(() => vi.fn())
 
+vi.unmock('@/blocks/registry')
+
 vi.mock('@/lib/oauth/oauth.server', () => ({
   getOAuthProviderAvailability: mockGetOAuthProviderAvailability,
-}))
-
-vi.mock('@/blocks/registry', async () => {
-  const { AgentBlock } = await import('@/blocks/blocks/agent')
-  const { RouterBlock } = await import('@/blocks/blocks/router')
-  const { EvaluatorBlock } = await import('@/blocks/blocks/evaluator')
-  const { HistoricalDataBlock } = await import('@/blocks/blocks/historical_data')
-  const { LoopBlock } = await import('@/blocks/blocks/loop')
-  const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
-  const registry = {
-    agent: AgentBlock,
-    router: RouterBlock,
-    evaluator: EvaluatorBlock,
-    historical_data: HistoricalDataBlock,
-    loop: LoopBlock,
-    parallel: ParallelContainerBlock,
-    github: {
-      name: 'GitHub',
-      longDescription: 'Interact with GitHub repositories.',
-      bestPractices: 'Use explicit repository owner and repo names.',
-      category: 'tools',
-      authMode: 'apiKey',
-      subBlocks: [
-        {
-          id: 'operation',
-          type: 'dropdown',
-          options: [
-            { id: 'github_pr', label: 'Get PR details' },
-            { id: 'github_comment', label: 'Create PR comment' },
-          ],
-        },
-      ],
-      tools: {
-        config: {
-          tool: ({ operation }: { operation: string }) => operation,
-        },
-      },
-    },
-    condition: {
-      name: 'Condition',
-      description: 'Branch on a condition.',
-      category: 'blocks',
-      subBlocks: [],
-      outputs: {},
-    },
-    input_trigger: {
-      name: 'Input Form',
-      description: 'Collect structured workflow input.',
-      category: 'triggers',
-      subBlocks: [
-        {
-          id: 'inputFormat',
-          type: 'input-format',
-        },
-      ],
-      outputs: {},
-    },
-    function: {
-      name: 'Function',
-      description: 'Run custom logic.',
-      longDescription: 'Execute custom code.',
-      category: 'blocks',
-      subBlocks: [
-        {
-          id: 'code',
-          type: 'code',
-        },
-      ],
-      inputs: {
-        code: { type: 'string', description: 'Code to execute' },
-      },
-      outputs: {},
-    },
-    reddit: {
-      name: 'Reddit',
-      description: 'Read Reddit posts.',
-      category: 'tools',
-      authMode: 'oauth',
-      subBlocks: [
-        {
-          id: 'credential',
-          type: 'oauth-input',
-          provider: 'reddit',
-          serviceId: 'reddit',
-          required: true,
-        },
-      ],
-      outputs: {},
-    },
-    slack: {
-      name: 'Slack',
-      description: 'Send Slack messages.',
-      category: 'tools',
-      authMode: 'oauth',
-      subBlocks: [
-        {
-          id: 'authMethod',
-          type: 'dropdown',
-          options: [
-            { id: 'oauth', label: 'TradingGoose Bot' },
-            { id: 'bot_token', label: 'Custom Bot' },
-          ],
-        },
-        {
-          id: 'credential',
-          type: 'oauth-input',
-          provider: 'slack',
-          serviceId: 'slack',
-          condition: { field: 'authMethod', value: 'oauth' },
-        },
-        {
-          id: 'botToken',
-          type: 'short-input',
-          condition: { field: 'authMethod', value: 'bot_token' },
-        },
-      ],
-      outputs: {},
-    },
-  }
-
-  return {
-    registry,
-    getBlock: (blockType: string) => registry[blockType as keyof typeof registry],
-    getAllBlocks: () => Object.values(registry),
-    getAllBlockTypes: () => Object.keys(registry),
-    getBlocksByCategory: () => [],
-    isValidBlockType: (blockType: string) => blockType in registry,
-  }
-})
-
-vi.mock('@/tools/registry', () => ({
-  tools: {
-    github_pr: { description: 'Fetch GitHub pull request details.' },
-    github_comment: { description: 'Create a GitHub pull request comment.' },
-  },
 }))
 
 import { getBlocksMetadataServerTool } from '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
@@ -151,7 +18,7 @@ describe('getBlocksMetadataServerTool', () => {
   beforeEach(() => {
     mockGetOAuthProviderAvailability.mockReset()
     mockGetOAuthProviderAvailability.mockImplementation(async (providerIds: string[]) =>
-      Object.fromEntries(providerIds.map((providerId) => [providerId, false]))
+      Object.fromEntries(providerIds.map((providerId) => [providerId, providerId === 'slack']))
     )
   })
 
@@ -252,6 +119,7 @@ describe('getBlocksMetadataServerTool', () => {
     for (const model of result.modelSearch!.models) {
       expect(model.id.toLowerCase()).toContain('openai/')
       expect(model).not.toHaveProperty('label')
+      expect(typeof model.toolCall).toBe('boolean')
     }
     for (const block of Object.values(result.metadata))
       expect(block.subBlocks?.find((field) => field.id === 'model')?.options).toBeUndefined()

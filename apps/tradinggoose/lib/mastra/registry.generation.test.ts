@@ -61,12 +61,15 @@ it('retains exact native generation identities and capabilities', async () => {
     'openrouter/openai/gpt-audio',
     'poe/openai/gpt-5.4',
     'tinfoil/gpt-oss-120b',
+    'xai/grok-4.20-multi-agent-0309',
   ]) {
     await expect(assertListedModel(id)).resolves.toBeUndefined()
     expect(generation).toContainEqual(getNativeModel(id))
   }
   await expect(assertListedModel('openai/text-embedding-3-small-unlisted')).rejects.toThrow()
   await expect(assertListedModel('gpt-4.1')).rejects.toThrow()
+  expect(getNativeModel('xai/grok-4.20-multi-agent-0309')).toMatchObject({ toolCall: false })
+  expect(getNativeModel('openai/gpt-4.1')).toMatchObject({ toolCall: true })
 })
 
 it('excludes unsupported gateways and published non-chat APIs from generation', async () => {

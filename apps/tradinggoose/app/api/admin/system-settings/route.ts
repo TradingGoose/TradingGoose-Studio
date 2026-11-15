@@ -140,7 +140,7 @@ export async function PATCH(request: NextRequest) {
       const issues = payload.copilot.models.flatMap((row, index) => {
         const field = !Object.hasOwn(providers, row.provider)
           ? 'provider'
-          : !isLanguageModel(row.provider, row.model)
+          : !isLanguageModel(row.provider, row.model, true)
             ? 'model'
             : undefined
         return field
@@ -150,7 +150,7 @@ export async function PATCH(request: NextRequest) {
                 message:
                   field === 'provider'
                     ? 'Select an available model provider'
-                    : 'Select a language model for Copilot',
+                    : 'Select a language model that supports function tools for Copilot',
                 path: ['copilot', 'models', index, field],
               },
             ]

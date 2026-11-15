@@ -19,7 +19,7 @@ export async function resolveCopilotModel(
   if (
     !row ||
     !Object.hasOwn(getModelProviders(), row.provider) ||
-    !isLanguageModel(row.provider, row.model)
+    !isLanguageModel(row.provider, row.model, true)
   ) {
     throw new NativeTargetError('The selected Copilot model is no longer available', 422)
   }
@@ -41,7 +41,8 @@ export async function getPublicCopilotModels(): Promise<{
   const available = getModelProviders()
   const models = settings.models
     .filter(
-      (row) => Object.hasOwn(available, row.provider) && isLanguageModel(row.provider, row.model)
+      (row) =>
+        Object.hasOwn(available, row.provider) && isLanguageModel(row.provider, row.model, true)
     )
     .map((row) => {
       const id = getCopilotModelId(row)

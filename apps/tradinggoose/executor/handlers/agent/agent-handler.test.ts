@@ -456,13 +456,14 @@ describe('native Agent workflow execution', () => {
     expect(output).not.toHaveProperty('content')
   })
 
-  it('rejects bare and unlisted resolved identifiers without silently substituting a model', async () => {
-    await expect(
-      new AgentBlockHandler().execute(block, { model: 'gpt-4.1' }, context())
-    ).rejects.toThrow()
-    await expect(
-      new AgentBlockHandler().execute(block, { model: 'openai/not-a-listed-model' }, context())
-    ).rejects.toThrow()
+  it.each([
+    'gpt-4.1',
+    'openai/not-a-listed-model',
+    'xai/grok-4.20-multi-agent-0309',
+    'perplexity/sonar-deep-research',
+  ])('rejects invalid or tool-incompatible model %s before admission', async (model) => {
+    await expect(new AgentBlockHandler().execute(block, { model }, context())).rejects.toThrow()
+    expect(state.finance).not.toHaveBeenCalled()
     expect(state.configurations).toHaveLength(0)
   })
 

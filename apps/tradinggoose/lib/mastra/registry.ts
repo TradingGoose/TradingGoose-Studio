@@ -12,6 +12,7 @@ export interface RegistryModel {
   id: string
   temperature?: boolean
   structuredOutput?: boolean
+  toolCall?: boolean
 }
 
 export interface RegistryProvider {
@@ -20,13 +21,14 @@ export interface RegistryProvider {
   models: RegistryModel[]
 }
 
-/** Only admit models compatible with the native text/tool execution path. */
-export function isLanguageModel(provider: string, modelId: string): boolean {
+/** Check native text generation compatibility, including function tools when required. */
+export function isLanguageModel(provider: string, modelId: string, requireTools = false): boolean {
   // Google Deep Research requires Interactions, not the adapter's generateContent API.
   if (provider === 'google' && modelId.startsWith('deep-research-')) return false
   // Tinfoil's encoder lacks a catalog type: https://docs.tinfoil.sh/models/embedding
   if (provider === 'tinfoil' && modelId === 'nomic-embed-text') return false
   const model = modelCatalog[provider]?.models?.[modelId]
+  if (requireTools && model?.tool_call === false) return false
   if (model?.type) return model.type === 'chat'
   if (
     model &&
@@ -38,15 +40,19 @@ export function isLanguageModel(provider: string, modelId: string): boolean {
 }
 
 /** Validate only after workflow and environment references have resolved. */
-export async function assertListedModel(model: string): Promise<void> {
+export async function assertListedModel(model: string, requireTools = false): Promise<void> {
   const { provider, modelId } = parseModelString(model)
   const providers = getModelProviders()
   const connection =
     provider && Object.hasOwn(providers, provider) ? providers[provider] : undefined
-  if (!provider || !connection?.models.includes(modelId) || !isLanguageModel(provider, modelId)) {
+  if (
+    !provider ||
+    !connection?.models.includes(modelId) ||
+    !isLanguageModel(provider, modelId, requireTools)
+  ) {
     throw Object.assign(
       new Error(
-        `Model "${model}" is not a listed language model. Select a listed provider/model in the Model field.`
+        `Model "${model}" is not a listed language model${requireTools ? ' with function tool support' : ''}. Select a listed provider/model in the Model field.`
       ),
       { status: 400 }
     )
@@ -74,12 +80,14 @@ export async function getModelRegistry(): Promise<{
   }
 }
 
-/** Capabilities come directly from Mastra's model catalog. */
+/** Native capabilities with function-tool support from the published model catalog. */
 export function getNativeModel(model: string): RegistryModel {
+  const { provider, modelId } = parseModelString(model)
   return {
     id: model,
     temperature: modelSupportsTemperature(model),
     structuredOutput: modelSupportsStructuredOutput(model),
+    toolCall: provider ? modelCatalog[provider]?.models?.[modelId]?.tool_call : undefined,
   }
 }
 

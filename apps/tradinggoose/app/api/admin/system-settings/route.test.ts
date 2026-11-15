@@ -486,7 +486,9 @@ describe('/api/admin/system-settings route', () => {
     ['google', 'lyria-3-clip-preview'],
     ['google', 'lyria-3-pro-preview'],
     ['tinfoil', 'nomic-embed-text'],
-  ])('rejects non-language Copilot model %s/%s before saving', async (provider, model) => {
+    ['xai', 'grok-4.20-multi-agent-0309'],
+    ['perplexity', 'sonar-deep-research'],
+  ])('rejects incompatible Copilot model %s/%s before saving', async (provider, model) => {
     const { PATCH } = await import('./route')
     const response = await PATCH(
       new Request('http://localhost/api/admin/system-settings', {

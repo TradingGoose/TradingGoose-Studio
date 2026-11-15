@@ -82,7 +82,12 @@ beforeEach(() => {
       {
         id: 'openai',
         name: 'OpenAI',
-        models: [{ id: 'openai/first' }, { id: 'openai/second' }, { id: 'openai/listed-model' }],
+        models: [
+          { id: 'openai/first', toolCall: true },
+          { id: 'openai/second' },
+          { id: 'openai/listed-model' },
+          { id: 'openai/no-tools', toolCall: false },
+        ],
       },
       {
         id: 'anthropic',
@@ -149,6 +154,17 @@ it('uses native provider sidebar choices and searches provider names with full m
   expect(settings).toEqual({
     models: [{ provider: 'anthropic', model: 'first' }],
   })
+})
+
+it('omits known models without function tools and does not reinsert them as manual choices', async () => {
+  await render({ models: [{ provider: 'openai', model: 'first' }] })
+  await openPicker(0)
+  expect(candidate('no-tools')).toBeUndefined()
+  expect(candidate('first')).toBeDefined()
+  await search('openai/no-tools')
+  expect(candidate('no-tools')).toBeUndefined()
+  await key('Enter')
+  expect(settings.models).toEqual([{ provider: 'openai', model: 'first' }])
 })
 
 it('preserves namespaced provider and model IDs using the longest known provider prefix', async () => {

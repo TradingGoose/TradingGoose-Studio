@@ -20,8 +20,9 @@ const providers = [
         id: 'example/capable',
         temperature: true,
         structuredOutput: true,
+        toolCall: true,
       },
-      { id: 'example/plain', temperature: false, structuredOutput: false },
+      { id: 'example/plain', temperature: false, structuredOutput: false, toolCall: false },
       { id: 'example/unknown' },
     ],
   },
@@ -52,7 +53,11 @@ describe('registry-backed model interaction', () => {
       expect(field.dropdownMode).toBe('sidebar')
       expect(typeof field.options).toBe('function')
       const options = typeof field.options === 'function' ? field.options() : []
-      expect(options.map(({ id }) => id)).toEqual(providers[0].models.map(({ id }) => id))
+      expect(options.map(({ id }) => id)).toEqual(
+        block === AgentBlock
+          ? ['example/capable', 'example/unknown']
+          : ['example/capable', 'example/plain', 'example/unknown']
+      )
       expect(options[0]).toMatchObject({
         label: 'capable',
         group: 'example',

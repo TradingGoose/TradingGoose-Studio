@@ -45,16 +45,18 @@ export function getModelProvider(model: string): string | undefined {
     .providers.find((provider) => provider.models.some(({ id }) => id === model))?.id
 }
 
-export function getModelOptions() {
+export function getModelOptions(requireTools = false) {
   return useModelRegistry.getState().providers.flatMap((provider) => {
     const icon = getProviderIcon(provider.id)
-    return provider.models.map(({ id }) => ({
-      id,
-      label: id.slice(provider.id.length + 1),
-      group: provider.id,
-      searchLabel: `${id} ${provider.name}`,
-      icon,
-    }))
+    return provider.models
+      .filter(({ toolCall }) => !requireTools || toolCall !== false)
+      .map(({ id }) => ({
+        id,
+        label: id.slice(provider.id.length + 1),
+        group: provider.id,
+        searchLabel: `${id} ${provider.name}`,
+        icon,
+      }))
   })
 }
 
@@ -74,7 +76,7 @@ export const modelField: SubBlockConfig = {
   dropdownMode: 'sidebar',
   autoSelectFirstOption: false,
   optionGroups: getModelGroups,
-  options: getModelOptions,
+  options: () => getModelOptions(),
   value: () => (getRegistryModel('openai/gpt-4.1') ? 'openai/gpt-4.1' : undefined),
 }
 

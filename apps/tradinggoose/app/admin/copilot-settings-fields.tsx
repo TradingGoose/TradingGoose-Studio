@@ -12,7 +12,12 @@ import {
   getCopilotModelId,
 } from '@/lib/copilot/settings'
 import { formatTemplate } from '@/i18n/utils'
-import { getModelGroups, getModelOptions, useModelRegistry } from '@/stores/model-registry'
+import {
+  getModelGroups,
+  getModelOptions,
+  getRegistryModel,
+  useModelRegistry,
+} from '@/stores/model-registry'
 
 function CopilotModelPicker({
   id,
@@ -52,7 +57,11 @@ function CopilotModelPicker({
   const enteredGroup = groups
     .filter((group) => enteredId.startsWith(`${group.id}/`))
     .sort((a, b) => b.id.length - a.id.length)[0]
-  if (enteredGroup && !options.some((option) => option.id === enteredId)) {
+  if (
+    enteredGroup &&
+    !options.some((option) => option.id === enteredId) &&
+    getRegistryModel(enteredId)?.toolCall !== false
+  ) {
     const parsed = CopilotSettingsSchema.shape.models.element.safeParse({
       provider: enteredGroup.id,
       model: enteredId.slice(enteredGroup.id.length + 1),
@@ -202,7 +211,7 @@ export function CopilotSettingsFields({
   const copy = messages.admin.systemSettings.copilot
   const registryCopy = messages.workspace.widgets.workflowLabels
   const { providers, isLoading, error, load } = useModelRegistry()
-  const options = useMemo(getModelOptions, [providers])
+  const options = useMemo(() => getModelOptions(true), [providers])
   const groups = useMemo(getModelGroups, [providers])
   useEffect(() => {
     void load()

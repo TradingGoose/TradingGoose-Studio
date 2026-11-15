@@ -114,6 +114,8 @@ describe('server Copilot settings', () => {
     ['google', 'lyria-3-clip-preview'],
     ['google', 'lyria-3-pro-preview'],
     ['tinfoil', 'nomic-embed-text'],
+    ['xai', 'grok-4.20-multi-agent-0309'],
+    ['perplexity', 'sonar-deep-research'],
   ])(
     'rejects the unsupported model %s/%s before resolving credentials',
     async (provider, model) => {
@@ -126,7 +128,7 @@ describe('server Copilot settings', () => {
     }
   )
 
-  it('preserves model order while filtering non-language models', async () => {
+  it('preserves model order while filtering incompatible Copilot models', async () => {
     mockGetResolvedSystemSettings.mockResolvedValue({
       copilot: {
         models: [
@@ -139,6 +141,8 @@ describe('server Copilot settings', () => {
           { provider: 'openai', model: 'gpt-4.1' },
           { provider: 'google', model: 'lyria-3-pro-preview' },
           { provider: 'tinfoil', model: 'nomic-embed-text' },
+          { provider: 'xai', model: 'grok-4.20-multi-agent-0309' },
+          { provider: 'perplexity', model: 'sonar-deep-research' },
           { provider: 'new-native-provider', model: 'namespace/future-model' },
         ],
       },

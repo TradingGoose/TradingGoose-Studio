@@ -184,6 +184,7 @@ export const GetBlocksMetadataResult = z.object({
             id: z.string(),
             temperature: z.boolean().optional(),
             structuredOutput: z.boolean().optional(),
+            toolCall: z.boolean().optional(),
           })
         )
         .max(MAX_MODEL_SEARCH_RESULTS),
