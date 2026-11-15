@@ -123,7 +123,7 @@ Send a chat completion request to any supported LLM provider
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `model` | string | Yes | A listed Mastra provider/model identifier |
+| `model` | string | Yes | Provider/model identifier |
 | `systemPrompt` | string | No | System prompt to set the behavior of the assistant |
 | `context` | string | Yes | The user message or context to send to the model |
 | `temperature` | number | No | Temperature for response generation, where supported by the selected model |
@@ -166,7 +166,7 @@ Send a chat completion request to any supported LLM provider
 
 ## Usage Instructions
 
-Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Available models come from the configured Mastra registry. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, and model-supported temperature without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in Mastra history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
+Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, and model-supported temperature without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
 
 
 

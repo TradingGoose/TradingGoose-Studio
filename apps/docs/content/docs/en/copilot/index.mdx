@@ -68,9 +68,9 @@ Administrators enter exact model IDs accepted by the selected provider; the list
   <Step>
     ### Self-hosted
 
-    Copilot runs inside Studio and uses its Mastra model connections and application database.
+    Copilot uses your configured model connections and Studio database.
 
-    1. Run `bun run db:migrate` from the repository root with Studio’s `DATABASE_URL`. This applies application migrations. Mastra initializes its own tables in the same database when the shared runtime starts.
+    1. Run `bun run db:migrate` from the repository root with Studio’s `DATABASE_URL`. This applies application migrations. Conversation storage is initialized automatically.
     2. In **Admin → Services**, configure the API keys for the providers you want to use. In **Admin → System settings → Copilot models**, add provider/model rows and save.
     3. Open a workspace, select a configured model, and start chatting.
   </Step>

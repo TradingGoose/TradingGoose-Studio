@@ -52,7 +52,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "API Key",
             "layout": "full",
             "placeholder": "Enter your API key",
-            "description": "Leave unset to use the configured Mastra connection.",
+            "description": "Required unless Studio has a configured connection for this provider. Using the Studio connection counts toward account usage.",
             "password": true
         }
     ]}
@@ -69,7 +69,7 @@ Send a chat completion request to any supported LLM provider
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `model` | string | Yes | A listed Mastra provider/model identifier |
+| `model` | string | Yes | Provider/model identifier |
 | `systemPrompt` | string | No | System prompt to set the behavior of the assistant |
 | `context` | string | Yes | The user message or context to send to the model |
 | `temperature` | number | No | Temperature for response generation, where supported by the selected model |

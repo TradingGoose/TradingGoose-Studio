@@ -6,7 +6,7 @@ description: Enruta solicitudes de forma inteligente con IA
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-Selecciona un identificador `proveedor/modelo` del registro de Mastra. El selector mantiene la búsqueda y la agrupación por proveedor. Las referencias a variables de entorno y salidas de otros bloques se resuelven antes de validar el modelo; un identificador incompatible requiere una nueva selección. La clave de API pertenece a esta solicitud. Si la omites, se usa la conexión configurada de Mastra.
+Selecciona un identificador `proveedor/modelo` de la lista de modelos disponibles. El selector mantiene la búsqueda y la agrupación por proveedor. Las referencias a variables de entorno y salidas de otros bloques se resuelven antes de validar el modelo; un identificador incompatible requiere una nueva selección. La clave de API es necesaria salvo que Studio tenga una conexión configurada para el proveedor. Usar la conexión de Studio cuenta para el uso de la cuenta.
 
 ## Configuración
 
@@ -39,7 +39,7 @@ Selecciona un identificador `proveedor/modelo` del registro de Mastra. El select
             "title": "API Key",
             "layout": "full",
             "placeholder": "Enter your API key",
-            "description": "Leave unset to use the configured Mastra connection.",
+            "description": "Required unless Studio has a configured connection for this provider. Using the Studio connection counts toward account usage.",
             "password": true
         }
     ]}

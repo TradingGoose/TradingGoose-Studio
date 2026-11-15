@@ -6,7 +6,7 @@ description: 将文本翻译成任意语言
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
 
-从 Mastra 注册表中选择 `提供方/模型` 标识符。选择器保留搜索和按提供方分组的功能。环境变量和上游输出引用先解析，再验证模型；不兼容的标识符需要重新选择。API 密钥仅用于当前请求；留空时使用已配置的 Mastra 连接。
+从可用模型列表中选择 `提供方/模型` 标识符。选择器保留搜索和按提供方分组的功能。环境变量和上游输出引用先解析，再验证模型；不兼容的标识符需要重新选择。除非 Studio 已为该提供方配置连接，否则必须填写 API 密钥。使用 Studio 连接会计入账户用量。
 
 ## 配置
 
@@ -47,7 +47,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "API Key",
             "layout": "full",
             "placeholder": "Enter your API key",
-            "description": "Leave unset to use the configured Mastra connection.",
+            "description": "Required unless Studio has a configured connection for this provider. Using the Studio connection counts toward account usage.",
             "password": true
         }
     ]}

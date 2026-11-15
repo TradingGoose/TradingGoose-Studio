@@ -69,9 +69,9 @@ Los administradores introducen los ID exactos que acepta cada proveedor; la list
   <Step>
     ### Autoalojado
 
-    Copilot se ejecuta dentro de Studio y utiliza sus conexiones de modelos Mastra y su base de datos.
+    Copilot utiliza las conexiones de modelos configuradas y la base de datos de Studio.
 
-    1. Ejecuta `bun run db:migrate` desde la raíz del repositorio con el `DATABASE_URL` de Studio. El comando aplica las migraciones de la aplicación. Mastra inicializa sus propias tablas en la misma base de datos al iniciar el entorno compartido.
+    1. Ejecuta `bun run db:migrate` desde la raíz del repositorio con el `DATABASE_URL` de Studio. El comando aplica las migraciones de la aplicación. El almacenamiento de conversaciones se inicializa automáticamente.
     2. Configura las claves de API de los proveedores en **Admin → Servicios**. En **Admin → Configuración del sistema → Modelos de Copilot**, añade filas de proveedor/modelo y guarda los cambios.
     3. Abre un espacio de trabajo, selecciona un modelo configurado y empieza a chatear.
   </Step>

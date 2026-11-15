@@ -67,7 +67,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "API Key",
             "layout": "full",
             "placeholder": "Enter your API key",
-            "description": "Leave unset to use the configured Mastra connection.",
+            "description": "Required unless Studio has a configured connection for this provider. Using the Studio connection counts toward account usage.",
             "password": true
         }
     ]}
@@ -87,7 +87,7 @@ Process and analyze images using advanced vision models. Capable of understandin
 | `apiKey` | string | No | API key for the selected model provider |
 | `imageUrl` | string | No | Publicly accessible image URL |
 | `imageFile` | file | No | Image file to analyze |
-| `model` | string | No | Listed Mastra provider/model ID to use for image analysis |
+| `model` | string | No | Provider/model ID for image analysis |
 | `prompt` | string | No | Custom prompt for image analysis |
 
 #### Output
