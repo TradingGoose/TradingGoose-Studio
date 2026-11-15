@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { nativeToolCallId } from '@/lib/copilot/native/identity'
+import { executeWorkflowWithFullLogging } from './workflow-execution-utils'
 import { getReadableWorkflowState, resolveWorkflowTarget } from './workflow-review-tool-utils'
 
 const mockGetRegisteredWorkflowSession = vi.hoisted(() => vi.fn())
 const mockAcquireWritableWorkflowSessionLease = vi.hoisted(() => vi.fn())
+const mockRunQueuedWorkflowExecution = vi.hoisted(() => vi.fn())
+
+vi.unmock('@/blocks/registry')
+vi.mock('@/lib/workflows/queued-execution-client', () => ({
+  runQueuedWorkflowExecution: mockRunQueuedWorkflowExecution,
+}))
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
   getRegisteredWorkflowSession: (...args: unknown[]) => mockGetRegisteredWorkflowSession(...args),
@@ -14,12 +22,16 @@ vi.mock('@/lib/yjs/workflow-shared-session', () => ({
 }))
 
 describe('workflow-review-tool-utils', () => {
-  const workflowDoc = (blocks: Record<string, any>, variables: Record<string, any> = {}) => ({
+  const workflowDoc = (
+    blocks: Record<string, any>,
+    variables: Record<string, any> = {},
+    edges: Array<{ source: string; target: string }> = []
+  ) => ({
     getMap: vi.fn((key: string) => {
       const values: Record<string, unknown> = {
         workflow: new Map([
           ['blocks', blocks],
-          ['edges', []],
+          ['edges', edges],
           ['loops', {}],
           ['parallels', {}],
         ]),
@@ -33,6 +45,38 @@ describe('workflow-review-tool-utils', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     global.fetch = vi.fn()
+  })
+
+  it('queues distinct native runs independently while preserving repeated target identity', async () => {
+    mockGetRegisteredWorkflowSession.mockReturnValue({
+      workspaceId: 'workspace-live',
+      doc: workflowDoc(
+        {
+          trigger: { type: 'manual_trigger', subBlocks: {}, outputs: {} },
+          output: { type: 'response', subBlocks: {}, outputs: {} },
+        },
+        {},
+        [{ source: 'trigger', target: 'output' }]
+      ),
+    })
+    const targets = ['run-a', 'run-b', 'run-a'].map((runId) => ({
+      threadId: 'thread',
+      resourceId: 'resource',
+      runId,
+      toolCallId: 'functions.run_workflow:0',
+      toolName: 'run_workflow',
+    }))
+    for (const target of targets)
+      await executeWorkflowWithFullLogging({
+        native: { workspaceId: 'workspace-live', target },
+        workflowId: 'workflow-live',
+        triggerBlockId: 'trigger',
+      })
+    const requests = mockRunQueuedWorkflowExecution.mock.calls.map(([request]) => request)
+    expect(requests.map((request) => request.executionId)).toEqual(targets.map(nativeToolCallId))
+    expect(requests[0].executionId).not.toBe(requests[1].executionId)
+    expect(requests[0].executionId).toBe(requests[2].executionId)
+    expect(requests.map((request) => request.native.target)).toEqual(targets)
   })
 
   it('uses the live Yjs session snapshot when one is registered', async () => {

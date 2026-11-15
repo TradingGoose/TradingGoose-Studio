@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import type { JsonObject, Scope } from './contract'
+import { nativeToolCallId } from './identity'
 import type { ServerPending as Pending } from './target'
 
 const m = vi.hoisted(() => ({
@@ -49,7 +50,7 @@ function pending(
 function logRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'original-log',
-    executionId: 'original-execution',
+    executionId: nativeToolCallId(pending().target),
     workflowId: 'workflow',
     workspaceId: 'entity-workspace',
     executionData: { environment: { userId: 'member', workspaceId: 'entity-workspace' } },
@@ -83,12 +84,12 @@ beforeEach(() => {
 describe('authoritative native result readback', () => {
   it('reads the original self-contained execution result after fresh authorization', async () => {
     expect(await readbackNativeToolResult(scope, pending(), { userId: 'member' })).toEqual({
-      executionId: 'original-execution',
+      executionId: nativeToolCallId(pending().target),
       message: 'Workflow execution completed',
       data: { success: true, output: { value: 42 } },
     })
     expect(m.executionResult).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ executionId: 'original-execution' })
+      expect.objectContaining({ executionId: nativeToolCallId(pending().target) })
     )
   })
   it.each([null, 'entity-workspace', 'conversation-workspace'])(
@@ -99,7 +100,7 @@ describe('authoritative native result readback', () => {
       const before = structuredClone(original)
       await expect(
         readbackNativeToolResult(conversation, original, { userId: 'member' })
-      ).resolves.toMatchObject({ executionId: 'original-execution' })
+      ).resolves.toMatchObject({ executionId: nativeToolCallId(pending().target) })
       expect(m.workspace).toHaveBeenCalledWith('entity-workspace', 'member')
       expect(original).toEqual(before)
       expect(conversation.workspaceId).toBe(workspaceId)

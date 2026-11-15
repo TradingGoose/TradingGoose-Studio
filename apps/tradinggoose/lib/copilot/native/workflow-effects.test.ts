@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PendingExecutionTransaction } from '@/lib/execution/pending-execution'
+import { nativeToolCallId } from './identity'
 import type { ServerPending as Pending } from './target'
 
 const m = vi.hoisted(() => ({
@@ -58,7 +59,7 @@ function pending(): Pending {
 function body() {
   return {
     native: { workspaceId: null, target },
-    executionId: 'call',
+    executionId: nativeToolCallId(target),
     executionTarget: 'live',
     triggerType: 'manual',
     triggerBlockId: 'trigger',
@@ -104,6 +105,7 @@ describe('native business effect admission', () => {
   })
   it.each([
     { executionId: 'other' },
+    { executionId: target.toolCallId },
     { triggerBlockId: 'other' },
     { executionTarget: 'deployed' },
     { input: { symbol: 'MSFT' } },

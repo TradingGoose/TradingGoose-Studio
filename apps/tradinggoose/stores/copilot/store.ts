@@ -24,6 +24,7 @@ import type {
   HistoryResponse,
   Pending,
 } from '@/lib/copilot/native/contract'
+import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { serializeCopilotRequest } from '@/lib/copilot/native/request-size'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
@@ -289,7 +290,8 @@ function createCopilotStoreInstance(channelId: string) {
         )
         let projected = { ...get(), messages, toolCallsById }
         for (const item of pending) {
-          const live = get().toolCallsById[item.target.toolCallId]
+          const id = nativeToolCallId(item.target)
+          const live = get().toolCallsById[id]
           const matchingLive =
             samePendingOrigin(live?.pending, item) ||
             (recoveredRunId === item.target.runId &&
@@ -301,8 +303,8 @@ function createCopilotStoreInstance(channelId: string) {
               ? live
               : undefined
           const provenance = matchingLive?.provenance
-          const projectedCall = (projected.toolCallsById[item.target.toolCallId] ??= {
-            id: item.target.toolCallId,
+          const projectedCall = (projected.toolCallsById[id] ??= {
+            id,
             name: item.target.toolName,
             historical: true,
             state: ClientToolCallState.aborted,
@@ -477,7 +479,7 @@ function createCopilotStoreInstance(channelId: string) {
               interaction === interactionGeneration &&
               automaticEligible(selected)
             )
-              void performToolAction(selected.target.toolCallId, {
+              void performToolAction(call.id, {
                 kind: 'automatic',
                 pending: selected,
               })
@@ -602,7 +604,8 @@ function createCopilotStoreInstance(channelId: string) {
         pending: Pending
       }
       const automaticEligible = (pending: Pending, ownsFlight = false) => {
-        const call = get().toolCallsById[pending.target.toolCallId]
+        const id = nativeToolCallId(pending.target)
+        const call = get().toolCallsById[id]
         return (
           pending.stage === 'result' &&
           pending.target.toolName !== 'oauth_request_access' &&
@@ -614,7 +617,7 @@ function createCopilotStoreInstance(channelId: string) {
           call.result === undefined &&
           samePendingOrigin(call.pending, pending) &&
           call.pending?.stage === 'result' &&
-          (ownsFlight || !inFlightTools.has(pending.target.toolCallId)) &&
+          (ownsFlight || !inFlightTools.has(id)) &&
           !attemptedTools.has(stableStringifyJsonValue(pending.target)) &&
           !shouldRequireToolApproval(get().accessLevel, isGatedTool(pending.target.toolName))
         )
@@ -1169,7 +1172,7 @@ function createCopilotStoreInstance(channelId: string) {
           const pending = call?.pending
           if (
             !pending ||
-            pending.target.toolCallId !== toolCallId ||
+            nativeToolCallId(pending.target) !== toolCallId ||
             pending.target.toolName !== call.name
           )
             throw new Error('Copilot tool is no longer pending')

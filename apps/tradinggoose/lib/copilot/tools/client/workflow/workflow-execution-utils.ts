@@ -1,4 +1,5 @@
 import type { CopilotToolTarget } from '@/lib/copilot/native/contract'
+import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
@@ -49,7 +50,7 @@ export async function executeWorkflowWithFullLogging(
     workflowId: options.workflowId,
     native: options.native,
     signal: options.signal,
-    executionId: options.native.target.toolCallId,
+    executionId: nativeToolCallId(options.native.target),
     input: start.input,
     triggerType: start.triggerType,
     executionTarget: 'live',

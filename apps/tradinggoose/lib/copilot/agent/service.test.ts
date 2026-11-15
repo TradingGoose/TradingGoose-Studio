@@ -18,7 +18,7 @@ import {
   type Scope,
 } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
-import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
+import { nativeConversationIdentity, nativeToolCallId } from '@/lib/copilot/native/identity'
 import { assertAcceptedServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import { readSseData } from '@/lib/events/stream'
 import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
@@ -1009,7 +1009,7 @@ describe('built-in Copilot service bridge', () => {
       const output = { retained: 'Original workflow output' }
       m.executionLog.mockResolvedValue({
         id: 'retained-log',
-        executionId: target.toolCallId,
+        executionId: nativeToolCallId(target),
         workflowId: null,
         workflowSummary: { id: workflowId },
         workspaceId: toolContext.workspaceId,
@@ -1033,7 +1033,7 @@ describe('built-in Copilot service bridge', () => {
         scope,
         expect.objectContaining({ target }),
         expect.objectContaining({
-          executionId: target.toolCallId,
+          executionId: nativeToolCallId(target),
           data: expect.objectContaining({ success: level !== 'error', output }),
         }),
         expect.objectContaining({ userId: scope.actorUserId })
@@ -1282,6 +1282,7 @@ describe('built-in Copilot service bridge', () => {
     const assistants = history.items.filter((item) => item.role === 'assistant')
     expect(assistants).toHaveLength(2)
     for (const assistant of assistants) {
+      expect(assistant.runId).toBe(initial.runId)
       expect(assistant.usage).toEqual({ inputTokens: 3, outputTokens: 2, totalTokens: 5 })
       expect(assistant.cost).toMatchObject({ status: 'estimated', currency: 'USD' })
       expect(assistant.cost?.total).toBeCloseTo(0.000022, 12)

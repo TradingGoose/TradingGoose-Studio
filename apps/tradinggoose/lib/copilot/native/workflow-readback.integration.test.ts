@@ -148,14 +148,15 @@ import { PendingExecutionLimitError } from '@/lib/execution/pending-execution'
 import { POST as queuePost } from '@/app/api/workflows/[id]/queue/route'
 import { authorizeNativeBusinessResult } from './business-access'
 import { NativeTargetError } from './errors'
-import { nativeConversationIdentity } from './identity'
+import { nativeConversationIdentity, nativeToolCallId } from './identity'
 import { readbackNativeToolResult } from './readback'
 import { authorizeNativeConversationScope, resolveNativePendingTarget } from './target'
 
 const ACTOR = 'actor'
 const WORKFLOW = 'workflow-b'
-const EXECUTION = 'original-tool-call'
+const TOOL_CALL = 'functions.run_workflow:0'
 const NATIVE_RUN = 'original-native-run'
+const EXECUTION = nativeToolCallId({ runId: NATIVE_RUN, toolCallId: TOOL_CALL })
 function conversation() {
   return { actorUserId: ACTOR, workspaceId: m.state.conversationWorkspaceId }
 }
@@ -165,7 +166,7 @@ function originalPending(): Pending {
       resourceId: nativeConversationIdentity(conversation()).resourceId,
       threadId: 'original-thread',
       runId: NATIVE_RUN,
-      toolCallId: EXECUTION,
+      toolCallId: TOOL_CALL,
       toolName: 'run_workflow',
     },
     originalArgs: {
@@ -181,7 +182,7 @@ function queueBody() {
   if (!pending) throw new Error('Source fixture must supply original Pending')
   return {
     native: { workspaceId: m.state.conversationWorkspaceId, target: pending.target },
-    executionId: EXECUTION,
+    executionId: nativeToolCallId(pending.target),
     executionTarget: 'live',
     triggerType: 'manual',
     triggerBlockId: 'trigger',
@@ -216,7 +217,7 @@ async function readback(context?: { workspaceId: string }) {
   return ToolResultSchemas.run_workflow.parse(result)
 }
 function terminal(failed = false, logOnly = false) {
-  const queued = m.state.pendingRows[0]
+  const queued = m.state.pendingRows.at(-1)
   if (!queued) throw new Error('Queue must run before the terminal source seam')
   const row = {
     id: 'original-log',
@@ -316,6 +317,31 @@ beforeEach(() => {
 })
 
 describe('local workflow execution and authoritative readback', () => {
+  it.each(['original-thread', 'another-thread'])(
+    'isolates repeated provider call IDs across runs in %s',
+    async (threadId) => {
+      const first = originalPending()
+      expect((await queue()).status).toBe(202)
+      const original = terminal()
+      m.state.pendingValue = {
+        ...first,
+        target: { ...first.target, threadId, runId: 'another-native-run' },
+      }
+      const nextId = nativeToolCallId(m.state.pendingValue.target)
+      expect(nextId).not.toBe(EXECUTION)
+      await expect(readback()).rejects.toMatchObject({ status: 409 })
+      expect((await queue()).status).toBe(202)
+      const next = terminal(true)
+      expect(await readback()).toMatchObject({ executionId: nextId, data: { success: false } })
+      expect((await queue()).status).toBe(409)
+      expect(m.state.pendingRows.map((row) => row.id)).toEqual([EXECUTION, nextId])
+      expect(m.claims.size).toBe(2)
+      expect(next.executionId).not.toBe(original.executionId)
+      m.state.pendingValue = first
+      expect(await readback()).toMatchObject({ executionId: EXECUTION, data: { success: true } })
+      expect(m.forbiddenEffect).not.toHaveBeenCalled()
+    }
+  )
   it.each([null, 'workspace-a', 'workspace-b'])(
     'queues once and reads canonical output from conversation %j',
     async (workspaceId) => {

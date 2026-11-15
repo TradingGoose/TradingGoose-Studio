@@ -24,7 +24,7 @@ export async function readbackNativeToolResult(
       const row = await readAuthorizedWorkflowExecutionLog(scope, pending, context)
       const state = createWorkflowExecutionResultFromLog(row)
       return {
-        executionId: pending.target.toolCallId,
+        executionId: row.executionId,
         message: state.failureReason ?? 'Workflow execution completed',
         data: state.result,
       }

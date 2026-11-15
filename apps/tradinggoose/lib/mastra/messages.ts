@@ -12,17 +12,21 @@ export type NativeMessageScope = { threadId: string; resourceId: string }
 export type NativeHistoryMessage = Pick<MastraDBMessage, 'id' | 'role'> & {
   createdAt: string
   parts: MastraDBMessage['content']['parts']
+  runId?: string
   usage?: NativeUsage
   cost?: NativeCost
 }
 
-/** Public native history keeps message parts and accounting, not internal runtime metadata. */
+/** Public native history keeps run identity, message parts and accounting. */
 export function projectNativeMessage(message: MastraDBMessage): NativeHistoryMessage {
   return {
     id: message.id,
     role: message.role,
     createdAt: message.createdAt.toISOString(),
     parts: message.content.parts,
+    ...(message.role === 'assistant' && typeof message.content.metadata?.runId === 'string'
+      ? { runId: message.content.metadata.runId }
+      : {}),
     ...(message.role === 'assistant' && message.content.metadata?.usage
       ? { usage: message.content.metadata.usage as NativeUsage }
       : {}),

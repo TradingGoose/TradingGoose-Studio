@@ -1,5 +1,6 @@
 import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { COPILOT_CONTEXT_PART, type Json } from '@/lib/copilot/native/contract'
+import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import type { NativeHistoryMessage } from '@/lib/mastra/messages'
@@ -45,7 +46,7 @@ export function projectNativeHistoryMessage(message: NativeHistoryMessage): Copi
       )
         throw new Error('Native history tool invocation is invalid')
       const call: CopilotToolCall = {
-        id: invocation.toolCallId,
+        id: nativeToolCallId({ runId: message.runId, toolCallId: invocation.toolCallId }),
         name: invocation.toolName,
         historical: true,
         state:

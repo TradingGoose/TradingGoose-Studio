@@ -10,6 +10,7 @@ import { resolveWorkflowRunTrigger } from '@/lib/workflows/triggers'
 import { authorizeNativeBusinessResult } from './business-access'
 import { TargetSchema } from './contract'
 import { NativeTargetError } from './errors'
+import { nativeToolCallId } from './identity'
 import { authorizeNativeConversationScope, resolveNativePendingTarget } from './target'
 
 const nativeTargetSchema = z
@@ -39,7 +40,7 @@ export async function authorizeNativeWorkflowQueueEffect(
   const args = ToolArgSchemas.run_workflow.parse(pending.originalArgs)
   if (
     args.entityId !== workflowId ||
-    body.executionId !== pending.target.toolCallId ||
+    body.executionId !== nativeToolCallId(pending.target) ||
     body.executionTarget !== 'live' ||
     args.triggerBlockId !== body.triggerBlockId ||
     !body.workflowData

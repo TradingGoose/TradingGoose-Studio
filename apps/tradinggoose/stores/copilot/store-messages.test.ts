@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { COPILOT_CONTEXT_PART, type Json } from '@/lib/copilot/native/contract'
+import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { projectNativeHistory, projectNativeHistoryMessage } from './history'
 import {
@@ -11,14 +12,53 @@ import {
 import { applyNativeEvent } from './streaming'
 import type { CopilotStore } from './types'
 
+const runId = 'run-fixture'
 const at = '2026-11-08T00:00:00.000Z'
 const native = (parts: any[], role: 'assistant' | 'user' | 'signal' = 'assistant') => ({
   id: 'message',
+  runId,
   role,
   createdAt: at,
   parts,
 })
 describe('canonical native history display', () => {
+  it('keeps repeated provider call IDs distinct across live runs and saved history', () => {
+    const toolCallId = 'functions.run_workflow:0'
+    const toolName = 'run_workflow'
+    let state = { messages: [], toolCallsById: {} } as unknown as CopilotStore
+    const saved = ['first-run', 'second-run'].map((runId) => {
+      const result = { output: runId }
+      state = {
+        ...state,
+        currentRunId: runId,
+        messages: [...state.messages, createStreamingMessage(runId)],
+      }
+      for (const event of [
+        { type: 'tool.display' as const, toolCallId, toolName },
+        { type: 'tool.result' as const, toolCallId, toolName, result },
+      ])
+        state = { ...state, ...applyNativeEvent(state, event, runId) }
+      return {
+        ...native([
+          {
+            type: 'tool-invocation',
+            toolInvocation: { state: 'result', toolCallId, toolName, result },
+          },
+        ]),
+        id: runId,
+        runId,
+      }
+    })
+    expect(Object.keys(state.toolCallsById)).toHaveLength(2)
+    const restored = projectNativeHistory(saved)
+    for (const [index, { runId }] of saved.entries()) {
+      const id = nativeToolCallId({ runId, toolCallId })
+      const expected = { toolCall: { id, result: { output: runId } } }
+      expect(state.messages[index].contentBlocks).toMatchObject([expected])
+      expect(restored[index].contentBlocks).toMatchObject([expected])
+      expect(state.toolCallsById[id].result).toEqual({ output: runId })
+    }
+  })
   it('restores mention locators from native UI data while preserving the original prompt', () => {
     const contexts = [
       { kind: 'workflow' as const, workflowId: 'workflow-id', label: 'My workflow' },
@@ -242,6 +282,7 @@ describe('canonical native history display', () => {
     let state = {
       messages: [createStreamingMessage('message')],
       toolCallsById: {},
+      currentRunId: runId,
     } as CopilotStore
     for (const result of results) {
       const event = { toolCallId: result.toolCallId, toolName: result.toolName }
@@ -265,16 +306,16 @@ describe('canonical native history display', () => {
     if (plan.type !== 'tool_call') throw new Error('Expected plan tool call')
     const unrelated = createUserMessage('Unchanged')
     const updated = updateToolCallState(
-      { messages: [message, unrelated], toolCallsById: { plan: plan.toolCall } },
-      'plan',
+      { messages: [message, unrelated], toolCallsById: { [plan.toolCall.id]: plan.toolCall } },
+      plan.toolCall.id,
       ClientToolCallState.error,
       { error: 'Planning failed' }
     )
     expect(updated.messages?.[0].contentBlocks?.[0]).toEqual({
       ...plan,
-      toolCall: updated.toolCallsById?.plan,
+      toolCall: updated.toolCallsById?.[plan.toolCall.id],
     })
-    expect(updated.toolCallsById?.plan).toMatchObject({
+    expect(updated.toolCallsById?.[plan.toolCall.id]).toMatchObject({
       state: 'error',
       display: { text: 'Failed to plan' },
       result: { error: 'Planning failed' },

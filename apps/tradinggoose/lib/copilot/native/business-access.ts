@@ -13,6 +13,7 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { getMonitorRowById } from '@/app/api/monitors/shared'
 import type { Pending, Scope } from './contract'
 import { NativeTargetError } from './errors'
+import { nativeToolCallId } from './identity'
 
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -32,7 +33,7 @@ export async function readAuthorizedWorkflowExecutionLog(
     .from(workflowExecutionLogs)
     .where(
       and(
-        eq(workflowExecutionLogs.executionId, pending.target.toolCallId),
+        eq(workflowExecutionLogs.executionId, nativeToolCallId(pending.target)),
         eq(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, args.entityId)
       )
     )

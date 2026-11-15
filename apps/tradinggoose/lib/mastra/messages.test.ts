@@ -14,6 +14,7 @@ describe('workflow Memory native message representation', () => {
     const usage = { inputTokens: 12, outputTokens: 3, totalTokens: 15 }
     const cost = { status: 'estimated', total: 0.002, currency: 'USD', estimated: true }
     message.content.metadata = {
+      runId: 'native-run',
       usage,
       cost,
       pendingToolApprovals: { private: true },
@@ -25,6 +26,7 @@ describe('workflow Memory native message representation', () => {
       role: 'assistant',
       createdAt: new Date(0).toISOString(),
       parts: message.content.parts,
+      runId: 'native-run',
       usage,
       cost,
     })

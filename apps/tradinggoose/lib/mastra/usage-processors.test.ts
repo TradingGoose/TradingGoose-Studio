@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 import './__test-utils__/managed-services'
 import { Agent } from '@mastra/core/agent'
+import { Mastra } from '@mastra/core/mastra'
 import type { OutputProcessor } from '@mastra/core/processors'
 import { InMemoryStore } from '@mastra/core/storage'
 import { MastraLanguageModelV2Mock, simulateReadableStream } from '@mastra/core/test-utils/llm-mock'
@@ -210,6 +211,7 @@ it.each(['account', 'byok'] as const)(
     })
     const assistant = persisted.messages.filter((message) => message.role === 'assistant').at(-1)!
     const reloaded = projectNativeMessage(assistant)
+    expect(reloaded.runId).toBe(scope.runId)
     expect(reloaded.usage).toEqual(accounting.getUsage())
     expect(reloaded.cost).toEqual(accounting.getCost())
   }
@@ -223,6 +225,111 @@ it.each(['admit', 'begin'] as const)('stops model contact when %s fails', async 
   expect(billing.contact).not.toHaveBeenCalled()
   expect(billing.record).not.toHaveBeenCalled()
 })
+
+it.each(['complete', 'suspend', 'abort'] as const)(
+  'persists native response run identity through %s',
+  async (outcome) => {
+    const storage = new InMemoryStore()
+    const memory = new Memory({ storage })
+    const abort = new AbortController()
+    const accounting = await usageProcessors(scope)
+    const step = vi.fn(accounting.outputProcessors[0].processOutputStep!)
+    const execute = vi.fn(async () => ({ success: true }))
+    const agent = new Agent({
+      id: 'run-identity',
+      name: 'Run identity',
+      instructions: '',
+      memory,
+      model: new MastraLanguageModelV2Mock({
+        doStream: async () => ({
+          stream: simulateReadableStream({
+            chunks: [
+              { type: 'stream-start', warnings: [] },
+              { type: 'text-start', id: 'commentary' },
+              { type: 'text-delta', id: 'commentary', delta: 'Looking up' },
+              { type: 'text-end', id: 'commentary' },
+              {
+                type: 'tool-call',
+                toolCallId: 'functions.lookup:0',
+                toolName: 'lookup',
+                input: '{}',
+              },
+              { type: 'finish', usage, finishReason: 'tool-calls' },
+            ],
+          }),
+        }),
+      }),
+      tools: {
+        lookup: createTool({
+          id: 'lookup',
+          description: 'Lookup',
+          inputSchema: z.object({}),
+          requireApproval: outcome === 'suspend',
+          execute,
+        }),
+      },
+      inputProcessors: accounting.inputProcessors,
+      outputProcessors: [{ ...accounting.outputProcessors[0], processOutputStep: step }],
+    })
+    new Mastra({
+      agents: { agent },
+      storage,
+      recovery: { workflows: 'off', durableAgents: 'off' },
+    })
+    const options = {
+      memory: { thread: 'run-identity', resource: scope.actorUserId },
+      savePerStep: true,
+      maxSteps: 1,
+      abortSignal: abort.signal,
+    }
+    await (
+      await agent.stream('Look up', {
+        ...options,
+        runId: scope.runId,
+        onChunk: async (chunk) => {
+          if (outcome === 'abort' && chunk.type === 'tool-call') abort.abort()
+        },
+      })
+    ).getFullOutput()
+    const readResponses = async () =>
+      (
+        await (await storage.getStore('memory'))!.listMessages({
+          threadId: 'run-identity',
+          resourceId: scope.actorUserId,
+          perPage: false,
+          orderBy: { field: 'createdAt', direction: 'ASC' },
+        })
+      ).messages.filter((message) => message.role === 'assistant')
+    const response = (await readResponses())[0]
+    expect(response).toBeDefined()
+    expect(projectNativeMessage(response).runId).toBe(scope.runId)
+    if (outcome !== 'abort')
+      expect(response.content.parts).toContainEqual(
+        expect.objectContaining({ type: 'tool-invocation' })
+      )
+    expect(step).toHaveBeenCalledTimes(outcome === 'abort' ? 0 : 1)
+    expect(execute).toHaveBeenCalledTimes(outcome === 'complete' ? 1 : 0)
+    if (outcome === 'complete') {
+      const runId = `${scope.runId}-next`
+      const next = await usageProcessors({ ...scope, runId })
+      await (
+        await agent.stream('Look up again', {
+          ...options,
+          runId,
+          inputProcessors: next.inputProcessors,
+          outputProcessors: next.outputProcessors,
+        })
+      ).getFullOutput()
+      const calls = (await readResponses()).filter((message) =>
+        message.content.parts.some((part) => part.type === 'tool-invocation')
+      )
+      expect(calls.map((message) => projectNativeMessage(message).runId)).toEqual([
+        scope.runId,
+        runId,
+      ])
+    }
+  }
+)
 
 it.each([false, true])(
   'uses the same standard price for report and account record (BYOK=%s)',

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import type { MessageList } from '@mastra/core/agent/message-list'
 import type { InputProcessor, OutputProcessor } from '@mastra/core/processors'
 import {
   assertModelUsageAllowed,
@@ -26,6 +27,22 @@ export async function usageProcessors(
   const aggregateCost = (costs: NativeCost[]) => {
     const cost = sumNativeCosts(costs)
     return scope.funding === 'byok' ? { ...cost, accountCost: null } : cost
+  }
+  const retainRunId = (messageList: MessageList) => {
+    for (const message of messageList.get.response.db()) {
+      if (message.role !== 'assistant' || message.content.metadata?.runId) continue
+      messageList.add(
+        {
+          ...message,
+          content: {
+            ...message.content,
+            metadata: { ...message.content.metadata, runId: scope.runId },
+          },
+        },
+        'response'
+      )
+    }
+    return messageList
   }
   let failure: unknown
   const input: InputProcessor = {
@@ -55,6 +72,7 @@ export async function usageProcessors(
   const output: OutputProcessor = {
     id: 'studio-usage-accounting',
     async processOutputStep(args) {
+      retainRunId(args.messageList)
       try {
         if (failure) throw failure
         const key = `${scope.runId}:${invocationId}:${args.stepNumber}:${args.retryCount}`
@@ -108,6 +126,7 @@ export async function usageProcessors(
         throw error
       }
     },
+    processOutputResult: ({ messageList }) => retainRunId(messageList),
   }
   return {
     inputProcessors: [input],

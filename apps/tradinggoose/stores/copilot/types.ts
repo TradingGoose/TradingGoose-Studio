@@ -102,7 +102,7 @@ export interface CopilotState {
   abortController: AbortController | null
   draft: CopilotDraft
 
-  // Map of toolCallId -> CopilotToolCall for quick access during streaming
+  // Native run + provider call identity -> CopilotToolCall
   toolCallsById: Record<string, CopilotToolCall>
 }
 

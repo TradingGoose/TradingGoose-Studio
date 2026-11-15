@@ -6,6 +6,7 @@ import {
   type CopilotRequest,
   type Pending,
 } from '@/lib/copilot/native/contract'
+import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { MAX_COPILOT_REQUEST_BYTES } from '@/lib/copilot/native/request-size'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
@@ -105,6 +106,7 @@ const history = [
   {
     id: 'assistant-native',
     role: 'assistant',
+    runId,
     createdAt: at,
     parts: [{ type: 'text', text: 'canonical answer' }],
   },
@@ -121,6 +123,7 @@ const pendingHistory = (pending: Pending[]) =>
       history[0],
       {
         ...history[1],
+        runId: pending[0]?.target.runId ?? runId,
         parts: [
           ...history[1].parts,
           ...pending.map((item) => ({
@@ -165,8 +168,8 @@ const installPending = (item: Pending) => {
   store().setState({
     currentRunId: runId,
     toolCallsById: {
-      [item.target.toolCallId]: {
-        id: item.target.toolCallId,
+      [nativeToolCallId(item.target)]: {
+        id: nativeToolCallId(item.target),
         name: item.target.toolName,
         state: item.preview ? ClientToolCallState.review : ClientToolCallState.pending,
         ...(item.preview ? { result: item.preview } : {}),
@@ -949,7 +952,7 @@ describe('canonical browser conversation transport', () => {
         expect(commands.some((request) => request.command === 'thread.observe')).toBe(true)
       )
       expect(store().getState()).toMatchObject({ currentRunId: runId, isSendingMessage: true })
-      expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe(
+      expect(store().getState().toolCallsById[nativeToolCallId(item.target)].state).toBe(
         ClientToolCallState.generating
       )
       expect(await store().getState().sendMessage('Next')).toBe(false)
@@ -978,7 +981,7 @@ describe('canonical browser conversation transport', () => {
         lastNativeOutcome: { status: historyState === 'unavailable' ? 'refused' : 'failed' },
       })
       if (historyState === 'pending')
-        expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+        expect(store().getState().toolCallsById[nativeToolCallId(item.target)]).toMatchObject({
           pending: item,
           state: ClientToolCallState.pending,
         })
@@ -1007,7 +1010,7 @@ describe('canonical browser conversation transport', () => {
           : undefined
     const sending = store().getState().sendMessage('Read')
     await vi.waitFor(() =>
-      expect(store().getState().toolCallsById[item.target.toolCallId]?.state).toBe(
+      expect(store().getState().toolCallsById[nativeToolCallId(item.target)]?.state).toBe(
         ClientToolCallState.generating
       )
     )
@@ -1036,7 +1039,7 @@ describe('canonical browser conversation transport', () => {
     })
     expect(store().getState().isAborting).toBe(false)
     expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(false)
-    const call = store().getState().toolCallsById[item.target.toolCallId]
+    const call = store().getState().toolCallsById[nativeToolCallId(item.target)]
     expect(call.state).toBe(ClientToolCallState.aborted)
     expect(call.pending).toBeUndefined()
     expect(
@@ -1145,7 +1148,7 @@ describe('canonical browser conversation transport', () => {
         isAborting: false,
         isAwaitingContinuation: true,
       })
-      expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+      expect(store().getState().toolCallsById[nativeToolCallId(item.target)].pending).toEqual(item)
       expect(await store().getState().sendMessage('Still suspended')).toBe(false)
       onCommand = () => undefined
       store().getState().abortMessage()
@@ -1207,13 +1210,13 @@ describe('failed pending continuations', () => {
           ])
     }
 
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(store().getState()).toMatchObject({
       currentRunId: runId,
       isSendingMessage: false,
       isAwaitingContinuation: true,
     })
-    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)]).toMatchObject({
       state: ClientToolCallState.error,
       pending: item,
     })
@@ -1255,10 +1258,10 @@ describe('failed pending continuations', () => {
     onCommand = (request) =>
       request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
-    const instance = new SleepClientTool(item.target.toolCallId)
-    registerClientTool(item.target.toolCallId, instance)
+    const instance = new SleepClientTool(nativeToolCallId(item.target))
+    registerClientTool(nativeToolCallId(item.target), instance)
     instance.setState(ClientToolCallState.generating)
-    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe('generating')
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].state).toBe('generating')
     onCommand = (request) =>
       request.command === 'tool.approve'
         ? eventResponse([
@@ -1271,15 +1274,15 @@ describe('failed pending continuations', () => {
             },
           ])
         : undefined
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(2)
     expect(store().getState()).toMatchObject({
       currentRunId: null,
       isAwaitingContinuation: false,
     })
-    expect(getClientTool(item.target.toolCallId)).toBeUndefined()
+    expect(getClientTool(nativeToolCallId(item.target))).toBeUndefined()
     expect(() => instance.setState(ClientToolCallState.success)).not.toThrow()
-    expect(store().getState().toolCallsById[item.target.toolCallId]).toBeUndefined()
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)]).toBeUndefined()
     expect(await store().getState().sendMessage('Next turn')).toBe(true)
   })
 
@@ -1291,6 +1294,7 @@ describe('failed pending continuations', () => {
     onCommand = (request) =>
       request.command === 'tool.approve'
         ? eventResponse([
+            { type: 'response.started', runId, threadId },
             {
               type: 'tool.result',
               toolCallId: item.target.toolCallId,
@@ -1301,7 +1305,7 @@ describe('failed pending continuations', () => {
             { type: 'text.delta', text: 'Invalid trailing data' },
           ])
         : undefined
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(store().getState()).toMatchObject({
       currentRunId: null,
       isAwaitingContinuation: false,
@@ -1320,7 +1324,7 @@ describe('local pending approval and preview decisions', () => {
     onCommand = (request) =>
       request.command === 'thread.observe' ? historyResponse([item]) : undefined
     expect(commands.some((request) => request.command === 'tool.approve')).toBe(false)
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     const approval = commands.find((request) => request.command === 'tool.approve')
     expect(approval).toMatchObject({ target: item.target, workspaceId })
     expect(approval).not.toHaveProperty('financialBinding')
@@ -1335,11 +1339,11 @@ describe('local pending approval and preview decisions', () => {
     item.preview = { requiresReview: true }
     installPending(item)
     store().setState((state) => displayNativePending(state, item))
-    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)]).toMatchObject({
       state: 'review',
       result: item.preview,
     })
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
       expect.objectContaining({
         target: item.target,
@@ -1353,7 +1357,7 @@ describe('local pending approval and preview decisions', () => {
     installPending(item)
     onCommand = (request) =>
       request.command === 'thread.observe' ? historyResponse([item]) : undefined
-    await store().getState().skipCopilotToolCall(item.target.toolCallId)
+    await store().getState().skipCopilotToolCall(nativeToolCallId(item.target))
     expect(commands.some((request) => request.command === 'tool.decline')).toBe(true)
     expect(commands.some((request) => request.command === 'cancel')).toBe(false)
   })
@@ -1364,8 +1368,8 @@ describe('local pending approval and preview decisions', () => {
     store().setState((state) => ({
       toolCallsById: {
         ...state.toolCallsById,
-        second: {
-          id: 'second',
+        [nativeToolCallId(second.target)]: {
+          id: nativeToolCallId(second.target),
           name: second.target.toolName,
           state: ClientToolCallState.pending,
           pending: second,
@@ -1379,11 +1383,11 @@ describe('local pending approval and preview decisions', () => {
         : request.command === 'tool.execute'
           ? gate.promise
           : undefined
-    const active = store().getState().executeCopilotToolCall(first.target.toolCallId)
+    const active = store().getState().executeCopilotToolCall(nativeToolCallId(first.target))
     await vi.waitFor(() =>
       expect(commands.some((request) => request.command === 'tool.execute')).toBe(true)
     )
-    const queued = store().getState().executeCopilotToolCall('second')
+    const queued = store().getState().executeCopilotToolCall(nativeToolCallId(second.target))
     await store().getState().createNewChat()
     gate.resolve(terminalResponse(ready()))
     await Promise.all([active, queued])
@@ -1396,11 +1400,45 @@ describe('local pending approval and preview decisions', () => {
       buildCopilotWorkspaceChannelId({ authenticatedUserId: actorUserId, workspaceId: 'other' })
     )
     other.setState({ toolCallsById: store().getState().toolCallsById })
-    expect(() => getCopilotStoreForToolCall(item.target.toolCallId)).toThrow('unique')
+    expect(() => getCopilotStoreForToolCall(nativeToolCallId(item.target))).toThrow('unique')
   })
 })
 
 describe('canonical history, edits and context', () => {
+  it('restores a repeated provider call as a separate pending card and resumes its raw target', async () => {
+    const item = pending('approval', 'rename_workflow')
+    item.target.toolCallId = 'functions.rename_workflow:0'
+    const result = pendingHistory([item])
+    const previous = structuredClone(result.items[1]) as any
+    previous.id = 'previous-assistant'
+    previous.runId = 'previous-run'
+    Object.assign(previous.parts[1].toolInvocation, {
+      state: 'result',
+      result: { message: 'Previous rename' },
+    })
+    result.items.unshift(previous)
+    onObserve = () => observingStream(result).response
+    await store().getState().selectChat(chat())
+    const id = nativeToolCallId(item.target)
+    const previousId = nativeToolCallId({ ...item.target, runId: previous.runId })
+    expect(Object.keys(store().getState().toolCallsById)).toHaveLength(2)
+    expect(store().getState().toolCallsById[previousId]).toMatchObject({
+      historical: true,
+      state: ClientToolCallState.success,
+      result: { message: 'Previous rename' },
+    })
+    expect(store().getState().toolCallsById[id]).toMatchObject({
+      state: ClientToolCallState.pending,
+      pending: item,
+    })
+    await store().getState().executeCopilotToolCall(id)
+    expect(commands.find((request) => request.command === 'tool.approve')).toMatchObject({
+      target: item.target,
+    })
+    expect(store().getState().toolCallsById[previousId].result).toEqual({
+      message: 'Previous rename',
+    })
+  })
   it('loads display-only tool history without execution or local transcript writes', async () => {
     const item = pending()
     onCommand = (request) =>
@@ -1410,6 +1448,7 @@ describe('canonical history, edits and context', () => {
               {
                 id: 'assistant-history',
                 role: 'assistant',
+                runId,
                 createdAt: at,
                 parts: [
                   {
@@ -1427,7 +1466,7 @@ describe('canonical history, edits and context', () => {
           ).response
         : undefined
     await store().getState().selectChat(chat())
-    expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)]).toMatchObject({
       historical: true,
       state: 'aborted',
     })
@@ -1854,10 +1893,10 @@ describe('reopened workflow pending cards', () => {
       request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat(null))
     commands = []
-    const copy = await store().getState().readPendingTool(item.target.toolCallId)
+    const copy = await store().getState().readPendingTool(nativeToolCallId(item.target))
     expect(copy).toEqual(item)
     copy.originalArgs.changed = true
-    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].pending).toEqual(item)
     expect(commands).toEqual([])
     expect(workflowRequests).toEqual([])
     expect(tools.browser).not.toHaveBeenCalled()
@@ -1866,7 +1905,7 @@ describe('reopened workflow pending cards', () => {
     const item = pending()
     item.target.threadId = 'foreign-thread'
     installPending(item)
-    await expect(store().getState().readPendingTool(item.target.toolCallId)).rejects.toThrow(
+    await expect(store().getState().readPendingTool(nativeToolCallId(item.target))).rejects.toThrow(
       'selected thread'
     )
     expect(commands).toEqual([])
@@ -1921,11 +1960,16 @@ describe('display-only terminal settlement and optional completed history', () =
       expect(hasUiActiveToolCalls(state.toolCallsById)).toBe(false)
       expect(state.error).toBe(kind === 'cancel' ? null : 'Actual terminal refusal')
       if (kind === 'cancel')
-        expect(state.toolCallsById['display-only']).toMatchObject({
+        expect(
+          state.toolCallsById[nativeToolCallId({ runId, toolCallId: 'display-only' })]
+        ).toMatchObject({
           state: ClientToolCallState.aborted,
           pending: undefined,
         })
-      else expect(state.toolCallsById['display-only']).toBeUndefined()
+      else
+        expect(
+          state.toolCallsById[nativeToolCallId({ runId, toolCallId: 'display-only' })]
+        ).toBeUndefined()
       expect(state.lastNativeOutcome?.status).toBe(
         kind === 'cancel' ? 'cancel_requested' : kind === 'error' ? 'failed' : 'refused'
       )
@@ -1942,7 +1986,7 @@ describe('display-only terminal settlement and optional completed history', () =
         state.messages
           .flatMap((message) => message.contentBlocks ?? [])
           .find((block) => block.type === 'tool_call')?.toolCall.state
-      ).toBe(state.toolCallsById['display-only']?.state)
+      ).toBe(state.toolCallsById[nativeToolCallId({ runId, toolCallId: 'display-only' })]?.state)
       expect(tools.browser).not.toHaveBeenCalled()
       expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
@@ -2065,11 +2109,14 @@ describe('display-only terminal settlement and optional completed history', () =
       ),
     }))
     store().getState().abortMessage()
-    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
-    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe(
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].pending).toEqual(item)
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].state).toBe(
       ClientToolCallState.pending
     )
-    expect(store().getState().toolCallsById['display-only'].state).toBe(ClientToolCallState.aborted)
+    expect(
+      store().getState().toolCallsById[nativeToolCallId({ runId, toolCallId: 'display-only' })]
+        .state
+    ).toBe(ClientToolCallState.aborted)
     expect(hasUiActiveToolCalls(store().getState().toolCallsById)).toBe(true)
   })
 })
@@ -2092,28 +2139,32 @@ describe('explicit reopened Drive business choice', () => {
     const item = drive()
     prepare(item)
     store().setState({ currentChat: chat(null), conversationWorkspaceId: null })
-    await expect(store().getState().authorizeToolWorkspace(item.target.toolCallId)).rejects.toThrow(
-      'Choose an authorized workspace'
-    )
+    await expect(
+      store().getState().authorizeToolWorkspace(nativeToolCallId(item.target))
+    ).rejects.toThrow('Choose an authorized workspace')
     expect(
-      await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+      await store()
+        .getState()
+        .authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
     ).toBe('chosen-business')
-    expect(store().getState().toolCallsById[item.target.toolCallId].provenance).toEqual({
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].provenance).toEqual({
       workspaceId: 'chosen-business',
     })
-    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].pending).toEqual(item)
     expect(store().getState().currentChat?.workspaceId).toBeNull()
     await expect(
-      store().getState().readbackCopilotToolCall(item.target.toolCallId)
+      store().getState().readbackCopilotToolCall(nativeToolCallId(item.target))
     ).rejects.toThrow('workspace and credential')
     expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
   })
   it('combines chosen credential readback and continuation in one authenticated command', async () => {
     const item = prepare()
-    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
     await store()
       .getState()
-      .readbackCopilotToolCall(item.target.toolCallId, { credentialId: 'explicit-credential' })
+      .authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
+    await store().getState().readbackCopilotToolCall(nativeToolCallId(item.target), {
+      credentialId: 'explicit-credential',
+    })
     expect(commands.filter((x) => x.command === 'tool.execute')).toEqual([
       expect.objectContaining({
         workspaceId,
@@ -2129,11 +2180,11 @@ describe('explicit reopened Drive business choice', () => {
   it('refuses the approval stage, unavailable or duplicate workspaces without losing Pending or contacting business services', async () => {
     const item = prepare({ ...drive(), stage: 'approval' })
     await expect(
-      store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+      store().getState().authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
     ).rejects.toThrow('Native approval')
     item.stage = 'result'
     await expect(
-      store().getState().authorizeToolWorkspace(item.target.toolCallId, 'foreign')
+      store().getState().authorizeToolWorkspace(nativeToolCallId(item.target), 'foreign')
     ).rejects.toThrow('unavailable or ambiguous')
     const original = vi.mocked(fetch).getMockImplementation()!
     vi.mocked(fetch).mockImplementation(async (url, init) =>
@@ -2142,9 +2193,9 @@ describe('explicit reopened Drive business choice', () => {
         : original(url, init)
     )
     await expect(
-      store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+      store().getState().authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
     ).rejects.toThrow('unavailable or ambiguous')
-    expect(store().getState().toolCallsById[item.target.toolCallId].pending).toEqual(item)
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].pending).toEqual(item)
     expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
   })
   it.each(['navigation', 'pending-change'] as const)(
@@ -2158,7 +2209,7 @@ describe('explicit reopened Drive business choice', () => {
       )
       const operation = store()
         .getState()
-        .authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+        .authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
       const outcome = expect(operation).rejects.toThrow('selection changed')
       await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/workspaces'))
       if (change === 'navigation') store().getState().createNewChat()
@@ -2166,8 +2217,8 @@ describe('explicit reopened Drive business choice', () => {
         store().setState((state) => ({
           toolCallsById: {
             ...state.toolCallsById,
-            [item.target.toolCallId]: {
-              ...state.toolCallsById[item.target.toolCallId],
+            [nativeToolCallId(item.target)]: {
+              ...state.toolCallsById[nativeToolCallId(item.target)],
               pending: { ...item, stage: 'approval' },
             },
           },
@@ -2175,7 +2226,7 @@ describe('explicit reopened Drive business choice', () => {
       held.resolve(json({ workspaces: [{ id: 'chosen-business' }] }))
       await outcome
       expect(
-        store().getState().toolCallsById[item.target.toolCallId]?.provenance?.workspaceId
+        store().getState().toolCallsById[nativeToolCallId(item.target)]?.provenance?.workspaceId
       ).toBeUndefined()
       expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
     }
@@ -2253,7 +2304,7 @@ describe('local workflow execution refusals', () => {
 
   it('allows explicit retry after rejected queue admission, then resumes and accepts a new message', async () => {
     const target = await install()
-    const executionId = target.target.toolCallId
+    const executionId = nativeToolCallId(target.target)
     const result = { success: true, output: {}, logs: [] }
     let attempts = 0
     onWorkflow = (id) => {
@@ -2285,7 +2336,7 @@ describe('local workflow execution refusals', () => {
     tools.runWorkflow.mockImplementation(({ workflowId, native, signal }) =>
       runQueuedWorkflowExecution({
         workflowId,
-        executionId: native.target.toolCallId,
+        executionId: nativeToolCallId(native.target),
         native,
         signal,
         triggerType: 'manual',
@@ -2315,10 +2366,10 @@ describe('local workflow execution refusals', () => {
   it('keeps Run available after a local busy refusal and admits one later explicit attempt', async () => {
     const target = await install()
     useExecutionStore.getState().setIsExecuting(true)
-    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     expect(tools.runWorkflow).not.toHaveBeenCalled()
     expect(commands).toEqual([])
-    expect(store().getState().toolCallsById[target.target.toolCallId]).toMatchObject({
+    expect(store().getState().toolCallsById[nativeToolCallId(target.target)]).toMatchObject({
       state: ClientToolCallState.pending,
       pending: target,
     })
@@ -2332,9 +2383,9 @@ describe('local workflow execution refusals', () => {
       logs: unknown[]
     }>()
     tools.runWorkflow.mockReturnValue(admitted.promise)
-    const retry = store().getState().executeCopilotToolCall(target.target.toolCallId)
+    const retry = store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     await vi.waitFor(() => expect(tools.runWorkflow).toHaveBeenCalledOnce())
-    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     expect(tools.runWorkflow).toHaveBeenCalledOnce()
     admitted.resolve({ success: true, output: {}, logs: [] })
     await retry
@@ -2373,7 +2424,7 @@ describe('local workflow execution refusals', () => {
     await store().getState().executeCopilotToolCall('other')
     await new Promise<void>((resolve) => setTimeout(resolve, 0))
     expect(tools.runWorkflow).not.toHaveBeenCalled()
-    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     expect(tools.runWorkflow).toHaveBeenCalledOnce()
   })
 
@@ -2390,13 +2441,13 @@ describe('local workflow execution refusals', () => {
               409
             )
           : undefined
-      await store().getState().executeCopilotToolCall(target.target.toolCallId)
+      await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
       expect(tools.runWorkflow).toHaveBeenCalledOnce()
-      expect(store().getState().toolCallsById[target.target.toolCallId]).toMatchObject({
+      expect(store().getState().toolCallsById[nativeToolCallId(target.target)]).toMatchObject({
         state: ClientToolCallState.error,
         pending: target,
       })
-      await store().getState().executeCopilotToolCall(target.target.toolCallId)
+      await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
       expect(tools.runWorkflow).toHaveBeenCalledOnce()
       expect(store().getState().error).toContain('already attempted')
     }
@@ -2413,15 +2464,15 @@ describe('local workflow execution refusals', () => {
           503
         )
     }
-    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     expect(tools.runWorkflow).toHaveBeenCalledOnce()
     await store().getState().selectChat(chat())
-    expect(store().getState().toolCallsById[target.target.toolCallId]).toMatchObject({
+    expect(store().getState().toolCallsById[nativeToolCallId(target.target)]).toMatchObject({
       state: ClientToolCallState.pending,
       pending: target,
       historyOrigin: true,
     })
-    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     expect(tools.runWorkflow).toHaveBeenCalledOnce()
     expect(store().getState().error).toContain('already attempted')
   })
@@ -2482,7 +2533,7 @@ describe('explicit OAuth popup activation', () => {
     installWindow(open)
     const authorized = defer<Response>()
     workspaceResponse(() => authorized.promise)
-    const connecting = store().getState().executeCopilotToolCall(target.target.toolCallId)
+    const connecting = store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     expect(open).toHaveBeenCalledExactlyOnceWith('about:blank', '_blank')
     expect(opened.opener).toBeNull()
     expect(opened.location.replace).not.toHaveBeenCalled()
@@ -2504,16 +2555,16 @@ describe('explicit OAuth popup activation', () => {
       request.command === 'tool.result'
         ? json({ status: 'refused', error: { code: 'STALE_TARGET', message: 'Ack failed' } }, 409)
         : undefined
-    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     expect(open).toHaveBeenCalledOnce()
     expect(commands.some((request) => request.command === 'tool.result')).toBe(false)
-    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     expect(open).toHaveBeenCalledTimes(2)
     expect(opened.location.replace).toHaveBeenCalledOnce()
-    expect(store().getState().toolCallsById[target.target.toolCallId].result).toMatchObject({
+    expect(store().getState().toolCallsById[nativeToolCallId(target.target)].result).toMatchObject({
       opened: true,
     })
-    await store().getState().executeCopilotToolCall(target.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
     expect(open).toHaveBeenCalledTimes(2)
     expect(commands.filter((request) => request.command === 'tool.result')).toHaveLength(1)
     expect(store().getState().isAwaitingContinuation).toBe(true)
@@ -2526,7 +2577,7 @@ describe('explicit OAuth popup activation', () => {
       installWindow(vi.fn().mockReturnValue(opened))
       const authorized = defer<Response>()
       workspaceResponse(() => authorized.promise)
-      const connecting = store().getState().executeCopilotToolCall(target.target.toolCallId)
+      const connecting = store().getState().executeCopilotToolCall(nativeToolCallId(target.target))
       await vi.waitFor(() =>
         expect(vi.mocked(fetch).mock.calls.some(([url]) => url === '/api/workspaces')).toBe(true)
       )
@@ -2572,29 +2623,33 @@ describe('R5 reopened OAuth workspace authorization', () => {
   }
   it('preserves a reopened personal Pending and permits an explicit choice after a proved missing-context refusal', async () => {
     const item = await reopen()
-    expect(store().getState().toolCallsById[item.target.toolCallId].provenance).toBeUndefined()
+    expect(
+      store().getState().toolCallsById[nativeToolCallId(item.target)].provenance
+    ).toBeUndefined()
     expect(tools.browser).not.toHaveBeenCalled()
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(tools.browser).not.toHaveBeenCalled()
     expect(store().getState().error).toContain('Choose an authorized workspace')
-    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    await store()
+      .getState()
+      .authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
     tools.browser.mockImplementationOnce(async () => {
       store().setState((state) => ({
         toolCallsById: {
           ...state.toolCallsById,
-          [item.target.toolCallId]: {
-            ...state.toolCallsById[item.target.toolCallId],
+          [nativeToolCallId(item.target)]: {
+            ...state.toolCallsById[nativeToolCallId(item.target)],
             result: { opened: true, surface: 'integrations' },
           },
         },
       }))
     })
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
     expect(tools.bind).toHaveBeenLastCalledWith(
       expect.objectContaining({ workspaceId: 'chosen-business' })
     )
-    const call = store().getState().toolCallsById[item.target.toolCallId]
+    const call = store().getState().toolCallsById[nativeToolCallId(item.target)]
     expect(call.pending).toEqual(item)
     expect(call.params).toEqual({ providerName: 'Google Drive' })
     expect(store().getState().currentChat?.workspaceId).toBeNull()
@@ -2602,9 +2657,11 @@ describe('R5 reopened OAuth workspace authorization', () => {
     const block = store()
       .getState()
       .messages.flatMap((message) => message.contentBlocks ?? [])
-      .find((part) => part.type === 'tool_call' && part.toolCall.id === item.target.toolCallId)
+      .find(
+        (part) => part.type === 'tool_call' && part.toolCall.id === nativeToolCallId(item.target)
+      )
     expect(block?.type === 'tool_call' && block.toolCall.provenance).toEqual(call.provenance)
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(tools.browser).toHaveBeenCalledTimes(1)
     expect(commands.some((request) => request.command === 'message')).toBe(false)
   })
@@ -2613,14 +2670,16 @@ describe('R5 reopened OAuth workspace authorization', () => {
     item.stage = 'approval'
     await reopen(item)
     await expect(
-      store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+      store().getState().authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
     ).rejects.toThrow('Native approval')
     expect(tools.browser).not.toHaveBeenCalled()
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(commands.filter((request) => request.command === 'tool.approve')).toHaveLength(1)
     expect(tools.browser).not.toHaveBeenCalled()
-    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store()
+      .getState()
+      .authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(tools.browser).toHaveBeenCalledExactlyOnceWith({ providerName: 'Google Drive' })
     expect(store().getState().currentChat?.workspaceId).toBeNull()
   })
@@ -2629,13 +2688,13 @@ describe('R5 reopened OAuth workspace authorization', () => {
     store().setState((state) => ({
       toolCallsById: {
         ...state.toolCallsById,
-        [item.target.toolCallId]: {
-          ...state.toolCallsById[item.target.toolCallId],
+        [nativeToolCallId(item.target)]: {
+          ...state.toolCallsById[nativeToolCallId(item.target)],
           provenance: { contextEntityKind: 'workflow', contextEntityId: 'original-workflow' },
         },
       },
     }))
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(workflowRequests).toEqual([])
     expect(tools.browser).not.toHaveBeenCalled()
     expect(store().getState().error).toContain('Choose an authorized workspace')
@@ -2647,15 +2706,17 @@ describe('R5 reopened OAuth workspace authorization', () => {
       { id: 'chosen-business', name: 'B' },
     ]
     await expect(
-      store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+      store().getState().authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
     ).rejects.toThrow('ambiguous')
     allowed = [{ id: 'chosen-business', name: 'Business' }]
-    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    await store()
+      .getState()
+      .authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
     allowed = []
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(tools.browser).not.toHaveBeenCalled()
     allowed = [{ id: 'chosen-business', name: 'Business' }]
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(tools.browser).toHaveBeenCalledTimes(1)
   })
   it.each(['navigation', 'stage'] as const)(
@@ -2669,7 +2730,7 @@ describe('R5 reopened OAuth workspace authorization', () => {
       )
       const choice = store()
         .getState()
-        .authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+        .authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
       const outcome = expect(choice).rejects.toThrow('selection changed')
       await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/workspaces'))
       if (change === 'navigation') store().getState().createNewChat()
@@ -2677,8 +2738,8 @@ describe('R5 reopened OAuth workspace authorization', () => {
         store().setState((state) => ({
           toolCallsById: {
             ...state.toolCallsById,
-            [item.target.toolCallId]: {
-              ...state.toolCallsById[item.target.toolCallId],
+            [nativeToolCallId(item.target)]: {
+              ...state.toolCallsById[nativeToolCallId(item.target)],
               pending: { ...item, stage: 'approval' },
             },
           },
@@ -2690,23 +2751,25 @@ describe('R5 reopened OAuth workspace authorization', () => {
   )
   it('keeps a known opened fact and refuses replay after acknowledgement failure', async () => {
     const item = await reopen()
-    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    await store()
+      .getState()
+      .authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
     tools.browser.mockImplementation(async () => {
       store().setState((state) => ({
         toolCallsById: {
           ...state.toolCallsById,
-          [item.target.toolCallId]: {
-            ...state.toolCallsById[item.target.toolCallId],
+          [nativeToolCallId(item.target)]: {
+            ...state.toolCallsById[nativeToolCallId(item.target)],
             result: { opened: true, surface: 'integrations' },
           },
         },
       }))
       throw new Error('native acknowledgement failed')
     })
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(tools.browser).toHaveBeenCalledTimes(1)
-    expect(store().getState().toolCallsById[item.target.toolCallId].result).toMatchObject({
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].result).toMatchObject({
       opened: true,
     })
   })
@@ -2798,12 +2861,15 @@ describe('R5 per-tool context at actual live call creation', () => {
         },
       ]
       for (const [index, item] of items.entries()) {
-        const call = store().getState().toolCallsById[item.target.toolCallId]
+        const call = store().getState().toolCallsById[nativeToolCallId(item.target)]
         expect(call.provenance).toEqual(expected[index])
         const block = store()
           .getState()
           .messages.flatMap((message) => message.contentBlocks ?? [])
-          .find((part) => part.type === 'tool_call' && part.toolCall.id === item.target.toolCallId)
+          .find(
+            (part) =>
+              part.type === 'tool_call' && part.toolCall.id === nativeToolCallId(item.target)
+          )
         expect(block?.type === 'tool_call' && block.toolCall.provenance).toEqual(expected[index])
         const unchanged = applyNativeEvent(
           store().getState(),
@@ -2819,7 +2885,7 @@ describe('R5 per-tool context at actual live call creation', () => {
       const item = items[selectedIndex]
       item.stage = 'result'
       store().setState((state) => displayNativePending(state, item))
-      await store().getState().executeCopilotToolCall(item.target.toolCallId)
+      await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
       expect(commands.find((request) => request.command === 'tool.execute')).toMatchObject({
         workspaceId,
         target: item.target,
@@ -2911,10 +2977,14 @@ describe('selected native run context', () => {
           })
       }
       await store().getState().selectChat(b)
-      expect(store().getState().toolCallsById[first.target.toolCallId].provenance).toEqual(context)
-      await store().getState().executeCopilotToolCall(first.target.toolCallId)
-      expect(store().getState().toolCallsById[next.target.toolCallId].provenance).toEqual(context)
-      await store().getState().executeCopilotToolCall(next.target.toolCallId)
+      expect(store().getState().toolCallsById[nativeToolCallId(first.target)].provenance).toEqual(
+        context
+      )
+      await store().getState().executeCopilotToolCall(nativeToolCallId(first.target))
+      expect(store().getState().toolCallsById[nativeToolCallId(next.target)].provenance).toEqual(
+        context
+      )
+      await store().getState().executeCopilotToolCall(nativeToolCallId(next.target))
       const accepted = commands.find((request) => request.command === 'tool.execute')
       expect(accepted).toMatchObject({
         command: 'tool.execute',
@@ -2940,7 +3010,7 @@ describe('selected native run context', () => {
       request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
     expect(tools.browser).not.toHaveBeenCalled()
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(tools.browser).toHaveBeenCalledExactlyOnceWith(item.originalArgs)
     expect(tools.bind).toHaveBeenLastCalledWith({ workspaceId: item.context?.workspaceId })
   })
@@ -2960,9 +3030,11 @@ describe('selected native run context', () => {
         : original(url, init)
     )
     await store().getState().selectChat(chat(null))
-    await store().getState().authorizeToolWorkspace(item.target.toolCallId, 'chosen-business')
+    await store()
+      .getState()
+      .authorizeToolWorkspace(nativeToolCallId(item.target), 'chosen-business')
     await reconnectSelectedChat()
-    expect(store().getState().toolCallsById[item.target.toolCallId].provenance).toEqual({
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].provenance).toEqual({
       ...item.context,
       workspaceId: 'chosen-business',
     })
@@ -2982,7 +3054,7 @@ describe('owned workflow chat deployment UI', () => {
     return item
   }
   const open = () =>
-    store().getState().openWorkflowChatDeployment('call-fixture', {
+    store().getState().openWorkflowChatDeployment(nativeToolCallId(pending().target), {
       workflowId: 'target-a',
       workspaceId: 'original-entity-workspace',
     })
@@ -2997,21 +3069,21 @@ describe('owned workflow chat deployment UI', () => {
     await vi.waitFor(() => expect(store().getState().workflowChatDeployment).not.toBeNull())
     const request = store().getState().workflowChatDeployment!
     expect(request).toMatchObject({
-      toolCallId: item.target.toolCallId,
+      toolCallId: nativeToolCallId(item.target),
       workflowId: 'target-a',
       workspaceId: 'original-entity-workspace',
       opened: false,
     })
     expect(request.isCurrent()).toBe(true)
     expect(completed).toBe(false)
-    expect(store().getState().toolCallsById[item.target.toolCallId].result).toBeUndefined()
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].result).toBeUndefined()
     store().getState().settleWorkflowChatDeployment(request.id, 'opened')
-    expect(store().getState().toolCallsById[item.target.toolCallId].result).toEqual({
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].result).toEqual({
       opened: true,
       surface: 'chat-deployment',
       message: 'Opened chat deployment settings',
     })
-    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe(
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].state).toBe(
       ClientToolCallState.executing
     )
     await operation
@@ -3034,7 +3106,7 @@ describe('owned workflow chat deployment UI', () => {
     await operation
     await store()
       .getState()
-      .submitBrowserAssertion(item.target.toolCallId, {
+      .submitBrowserAssertion(nativeToolCallId(item.target), {
         kind: 'ui.opened',
         data: {
           opened: true,
@@ -3060,7 +3132,9 @@ describe('owned workflow chat deployment UI', () => {
       store().getState().settleWorkflowChatDeployment(id, outcome, 'No target form rendered')
       await refused
       expect(store().getState().workflowChatDeployment).toBeNull()
-      expect(store().getState().toolCallsById['call-fixture'].result).toBeUndefined()
+      expect(
+        store().getState().toolCallsById[nativeToolCallId(pending().target)].result
+      ).toBeUndefined()
     }
   )
 
@@ -3073,8 +3147,8 @@ describe('owned workflow chat deployment UI', () => {
     store().setState((state) => ({
       toolCallsById: {
         ...state.toolCallsById,
-        [item.target.toolCallId]: {
-          ...state.toolCallsById[item.target.toolCallId],
+        [nativeToolCallId(item.target)]: {
+          ...state.toolCallsById[nativeToolCallId(item.target)],
           pending: { ...item, stage: 'approval' },
         },
       },
@@ -3082,7 +3156,7 @@ describe('owned workflow chat deployment UI', () => {
     expect(request.isCurrent()).toBe(false)
     store().getState().settleWorkflowChatDeployment(request.id, 'opened')
     await refused
-    expect(store().getState().toolCallsById[item.target.toolCallId].result).toBeUndefined()
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].result).toBeUndefined()
   })
 
   it.each(['approval', 'foreign-workspace', 'wrong-workflow', 'denied'] as const)(
@@ -3096,7 +3170,7 @@ describe('owned workflow chat deployment UI', () => {
         workspaceId: kind === 'foreign-workspace' ? 'foreign' : 'original-entity-workspace',
       }
       await expect(
-        store().getState().openWorkflowChatDeployment(item.target.toolCallId, scope)
+        store().getState().openWorkflowChatDeployment(nativeToolCallId(item.target), scope)
       ).rejects.toThrow()
       expect(store().getState().workflowChatDeployment).toBeNull()
       expect(commands.filter((value) => value.command === 'tool.result')).toEqual([])
@@ -3113,7 +3187,9 @@ describe('owned workflow chat deployment UI', () => {
     await refused
     store().getState().settleWorkflowChatDeployment(id, 'opened')
     expect(store().getState().workflowChatDeployment).toBeNull()
-    expect(store().getState().toolCallsById['call-fixture'].result).toBeUndefined()
+    expect(
+      store().getState().toolCallsById[nativeToolCallId(pending().target)].result
+    ).toBeUndefined()
   })
 })
 
@@ -3165,7 +3241,7 @@ describe('built-in tool continuation', () => {
       const sending = store().getState().sendMessage('Continue')
       if (generation) {
         await vi.waitFor(() =>
-          expect(store().getState().toolCallsById[item.target.toolCallId]?.state).toBe(
+          expect(store().getState().toolCallsById[nativeToolCallId(item.target)]?.state).toBe(
             ClientToolCallState.generating
           )
         )
@@ -3182,16 +3258,19 @@ describe('built-in tool continuation', () => {
       }
       expect(await sending).toBe(!failed)
       await vi.waitFor(() => expect(tools.browser).toHaveBeenCalledExactlyOnceWith(originalArgs))
-      const call = store().getState().toolCallsById[item.target.toolCallId]
+      const call = store().getState().toolCallsById[nativeToolCallId(item.target)]
       expect(call.historical).toBe(false)
       expect(call.historyOrigin).toBeUndefined()
       const part = store()
         .getState()
         .messages.flatMap((message) => message.contentBlocks ?? [])
-        .find((block) => block.type === 'tool_call' && block.toolCall.id === item.target.toolCallId)
+        .find(
+          (block) =>
+            block.type === 'tool_call' && block.toolCall.id === nativeToolCallId(item.target)
+        )
       expect(part?.type === 'tool_call' && part.toolCall).toBe(call)
       await reconnectSelectedChat()
-      await store().getState().executeCopilotToolCall(item.target.toolCallId)
+      await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
       expect(tools.browser).toHaveBeenCalledTimes(1)
       expect(commands.filter((request) => request.command === 'message')).toHaveLength(1)
       expect(commands.filter((request) => request.command === 'thread.observe')).toHaveLength(2)
@@ -3203,12 +3282,12 @@ describe('built-in tool continuation', () => {
     onCommand = (request) =>
       request.command === 'thread.observe' ? historyResponse([item]) : undefined
     await store().getState().selectChat(chat())
-    expect(store().getState().toolCallsById[item.target.toolCallId].historyOrigin).toBe(true)
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].historyOrigin).toBe(true)
     await reconnectSelectedChat()
     expect(await store().getState().sendMessage('Continue')).toBe(false)
     await new Promise<void>((resolve) => queueMicrotask(resolve))
     expect(tools.browser).not.toHaveBeenCalled()
-    expect(store().getState().toolCallsById[item.target.toolCallId].historyOrigin).toBe(true)
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].historyOrigin).toBe(true)
   })
 
   it.each([
@@ -3224,8 +3303,8 @@ describe('built-in tool continuation', () => {
     store().setState((state) => ({
       toolCallsById: {
         ...state.toolCallsById,
-        [item.target.toolCallId]: {
-          ...state.toolCallsById[item.target.toolCallId],
+        [nativeToolCallId(item.target)]: {
+          ...state.toolCallsById[nativeToolCallId(item.target)],
           ...live,
           provenance: { workspaceId: 'pinned-workspace' },
         },
@@ -3236,7 +3315,7 @@ describe('built-in tool continuation', () => {
         ? observingStream(historyResult(history, [item])).response
         : undefined
     await reconnectSelectedChat()
-    const call = store().getState().toolCallsById[item.target.toolCallId]
+    const call = store().getState().toolCallsById[nativeToolCallId(item.target)]
     expect(call).toMatchObject({ ...live, provenance: { workspaceId: 'pinned-workspace' } })
     expect(call.pending).toEqual(item)
     expect(call.historyOrigin).toBeUndefined()
@@ -3262,13 +3341,13 @@ describe('built-in tool continuation', () => {
     await store().getState().selectChat(chat())
     await store()
       .getState()
-      .submitBrowserAssertion(other.target.toolCallId, {
+      .submitBrowserAssertion(nativeToolCallId(other.target), {
         kind: 'timer.completed',
         data: { success: true, seconds: 0 },
       })
     await new Promise<void>((resolve) => queueMicrotask(resolve))
     expect(tools.browser).not.toHaveBeenCalled()
-    expect(store().getState().toolCallsById[cold.target.toolCallId].historyOrigin).toBe(true)
+    expect(store().getState().toolCallsById[nativeToolCallId(cold.target)].historyOrigin).toBe(true)
   })
 
   it.each(['runId', 'resourceId', 'toolName', 'originalArgs', 'context'] as const)(
@@ -3291,7 +3370,7 @@ describe('built-in tool continuation', () => {
       expect(await store().getState().sendMessage('Continue')).toBe(true)
       await new Promise<void>((resolve) => queueMicrotask(resolve))
       expect(tools.browser).not.toHaveBeenCalled()
-      const call = store().getState().toolCallsById[item.target.toolCallId]
+      const call = store().getState().toolCallsById[nativeToolCallId(changed.target)]
       expect(call.pending).toEqual(changed)
       expect(call.historyOrigin).toBe(true)
       expect(call.provenance).toEqual(changed.context)
@@ -3312,7 +3391,7 @@ describe('built-in tool continuation', () => {
             : undefined
       expect(await store().getState().sendMessage('Prepare edit')).toBe(true)
       await new Promise<void>((resolve) => queueMicrotask(resolve))
-      expect(store().getState().toolCallsById[item.target.toolCallId]).toMatchObject({
+      expect(store().getState().toolCallsById[nativeToolCallId(item.target)]).toMatchObject({
         state: 'review',
         result: item.preview,
       })
@@ -3334,8 +3413,8 @@ describe('built-in tool continuation', () => {
         : request.command === 'tool.execute'
           ? terminalResponse(suspended([other]))
           : undefined
-    await store().getState().readPendingTool(item.target.toolCallId)
-    await store().getState().skipCopilotToolCall(item.target.toolCallId)
+    await store().getState().readPendingTool(nativeToolCallId(item.target))
+    await store().getState().skipCopilotToolCall(nativeToolCallId(item.target))
     expect(commands.find((request) => request.command === 'tool.execute')).toMatchObject({
       target: item.target,
       action: 'review.reject',
@@ -3355,11 +3434,11 @@ describe('built-in tool continuation', () => {
         : request.command === 'thread.observe'
           ? historyResponse([fresh])
           : undefined
-    await store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
       expect.objectContaining({ action: 'execute', target: item.target }),
     ])
-    expect(store().getState().toolCallsById[item.target.toolCallId].state).toBe('review')
+    expect(store().getState().toolCallsById[nativeToolCallId(item.target)].state).toBe('review')
   })
   it('a concurrent rejection cannot claim success while acceptance is in flight', async () => {
     const item = pending('result', 'edit_workflow')
@@ -3372,14 +3451,14 @@ describe('built-in tool continuation', () => {
         : request.command === 'tool.execute'
           ? gate.promise
           : undefined
-    await store().getState().readPendingTool(item.target.toolCallId)
-    const active = store().getState().executeCopilotToolCall(item.target.toolCallId)
+    await store().getState().readPendingTool(nativeToolCallId(item.target))
+    const active = store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
     await vi.waitFor(() =>
       expect(commands.some((request) => request.command === 'tool.execute')).toBe(true)
     )
-    await expect(store().getState().skipCopilotToolCall(item.target.toolCallId)).rejects.toThrow(
-      'already in flight'
-    )
+    await expect(
+      store().getState().skipCopilotToolCall(nativeToolCallId(item.target))
+    ).rejects.toThrow('already in flight')
     gate.resolve(terminalResponse(ready()))
     await active
     expect(commands.filter((request) => request.command === 'tool.execute')).toHaveLength(1)
@@ -3389,6 +3468,7 @@ describe('built-in tool continuation', () => {
     onCommand = (request) =>
       request.command === 'message'
         ? eventResponse([
+            { type: 'response.started', runId, threadId },
             {
               type: 'tool.display',
               toolCallId: 'automatic',
@@ -3425,6 +3505,7 @@ describe('built-in tool continuation', () => {
     onCommand = (request) =>
       request.command === 'message'
         ? eventResponse([
+            { type: 'response.started', runId, threadId },
             {
               type: 'tool.result',
               toolCallId: 'mutation',
@@ -3448,14 +3529,21 @@ describe('built-in tool continuation', () => {
         result: { error: 'Tool failed' },
         ...(outcome === 'error' ? { isError: true } : { denied: true }),
       } as const
-      const projected = applyNativeEvent(store().getState(), failed, 'assistant')
-      expect(projected.toolCallsById?.failed).toMatchObject({
+      const projected = applyNativeEvent(
+        { ...store().getState(), currentRunId: runId },
+        failed,
+        'assistant'
+      )
+      expect(
+        projected.toolCallsById?.[nativeToolCallId({ runId, toolCallId: 'failed' })]
+      ).toMatchObject({
         state: outcome === 'error' ? ClientToolCallState.error : ClientToolCallState.rejected,
         result: { error: 'Tool failed' },
       })
       onCommand = (request) =>
         request.command === 'message'
           ? eventResponse([
+              { type: 'response.started', runId, threadId },
               {
                 type: 'tool.display',
                 toolCallId: 'failed',

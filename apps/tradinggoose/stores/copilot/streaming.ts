@@ -5,6 +5,7 @@ import type {
   ReadyResponse,
   SuspendedResponse,
 } from '@/lib/copilot/native/contract'
+import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
@@ -116,9 +117,10 @@ export function displayNativePending(
   pending: Pending
 ): Pick<CopilotStore, 'toolCallsById' | 'messages'> {
   const target = pending.target
+  const id = nativeToolCallId(target)
   if (!state.currentChat || target.threadId !== state.currentChat.threadId)
     throw new Error('Native pending target scope differs')
-  const current = state.toolCallsById[target.toolCallId]
+  const current = state.toolCallsById[id]
   if (current && current.name !== target.toolName) throw new Error('Native tool identity differs')
   if (current?.pending && !samePendingOrigin(current.pending, pending))
     throw new Error('Original Copilot pending target, arguments or context changed')
@@ -141,7 +143,7 @@ export function displayNativePending(
       : undefined
   const toolCall: CopilotToolCall = {
     ...current,
-    id: target.toolCallId,
+    id,
     name: target.toolName,
     params: pending.originalArgs,
     pending,
@@ -162,7 +164,7 @@ export function displayNativePending(
   const messages = state.messages.map((message) => ({
     ...message,
     contentBlocks: message.contentBlocks?.map((block) => {
-      if (block.type !== 'tool_call' || block.toolCall.id !== target.toolCallId) return block
+      if (block.type !== 'tool_call' || block.toolCall.id !== id) return block
       found = true
       return { ...block, toolCall }
     }),
@@ -265,12 +267,13 @@ export function applyNativeEvent(
         ),
       }
     case 'tool.display': {
-      const current = state.toolCallsById[event.toolCallId]
+      const id = nativeToolCallId({ runId: state.currentRunId, toolCallId: event.toolCallId })
+      const current = state.toolCallsById[id]
       if (current && current.name !== event.toolName)
         throw new Error('Native tool identity differs')
       if (current) return {}
       const toolCall: CopilotToolCall = {
-        id: event.toolCallId,
+        id,
         name: event.toolName,
         ...(event.args ? { params: event.args } : {}),
         state: ClientToolCallState.generating,
@@ -293,7 +296,8 @@ export function applyNativeEvent(
       }
     }
     case 'tool.result': {
-      const current = state.toolCallsById[event.toolCallId]
+      const id = nativeToolCallId({ runId: state.currentRunId, toolCallId: event.toolCallId })
+      const current = state.toolCallsById[id]
       if (current && current.name !== event.toolName)
         throw new Error('Copilot tool identity differs')
       const nextState = event.isError
@@ -303,7 +307,7 @@ export function applyNativeEvent(
           : ClientToolCallState.success
       const toolCall: CopilotToolCall = {
         ...current,
-        id: event.toolCallId,
+        id,
         name: event.toolName,
         result: event.result,
         state: nextState,
