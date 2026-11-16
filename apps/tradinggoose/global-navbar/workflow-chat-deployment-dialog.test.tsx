@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { act, type ReactNode } from 'react'
+import { useReactFlow } from '@xyflow/react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { WorkflowChatDeploymentRequest } from '@/stores/copilot/types'
@@ -120,7 +121,8 @@ vi.mock(
       onChatRendered: () => void
       onOpenChange: (open: boolean) => void
     }) => {
-      m.modal(props)
+      const flow = useReactFlow()
+      m.modal({ ...props, viewport: flow.getViewport() })
       return props.open ? (
         <div role='dialog' data-target={props.workflowId}>
           <button onClick={props.onChatRendered}>Commit target chat form seam</button>
@@ -210,7 +212,11 @@ it('owns exact cold target A independently of visible B and waits for a committe
   })
   expect(container.querySelector('[data-visible-workflow="target-b"]')).not.toBeNull()
   expect(document.body.querySelector('[role="dialog"]')).not.toBeNull()
-  expect(m.modal.mock.lastCall?.[0]).toMatchObject({ workflowId: 'target-a', initialTab: 'chat' })
+  expect(m.modal.mock.lastCall?.[0]).toMatchObject({
+    workflowId: 'target-a',
+    initialTab: 'chat',
+    viewport: { x: 0, y: 0, zoom: 1 },
+  })
   expect(m.modal.mock.lastCall?.[0].container.isConnected).toBe(true)
   expect(m.read).toHaveBeenCalledExactlyOnceWith('call-a')
   expect(m.settle).not.toHaveBeenCalled()

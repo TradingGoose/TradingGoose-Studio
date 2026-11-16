@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ReactFlowProvider } from '@xyflow/react'
 import { createPortal } from 'react-dom'
 import { useSession } from '@/lib/auth-client'
 import { ToolArgSchemas } from '@/lib/copilot/registry'
@@ -219,7 +220,9 @@ function AuthorizedChatDeployment({ request, container, fail }: TargetProps) {
         workflowId={request.workflowId}
         channelId={`copilot-chat-deployment:${request.id}`}
       >
-        <ReadyChatDeployment request={request} container={container} fail={fail} />
+        <ReactFlowProvider>
+          <ReadyChatDeployment request={request} container={container} fail={fail} />
+        </ReactFlowProvider>
       </WorkflowRouteProvider>
     </WorkflowSessionProvider>
   )
