@@ -10,6 +10,7 @@ const m = vi.hoisted(() => ({
     api: { id: 'api-a', name: 'API A', type: 'api_trigger', subBlocks: {} },
   } as Record<string, { id: string; name: string; type: string; subBlocks: object }>,
   rendered: vi.fn(),
+  keySelector: vi.fn(),
   setValue: vi.fn(),
   values: {} as Record<string, unknown>,
 }))
@@ -113,7 +114,12 @@ vi.mock('@/widgets/widgets/workflow_chat/components/output-select/output-select'
 }))
 vi.mock(
   '@/widgets/widgets/editor_workflow/components/control-bar/components/api-key-selector/api-key-selector',
-  () => ({ ApiKeySelector: () => null })
+  () => ({
+    ApiKeySelector: (props: unknown) => {
+      m.keySelector(props)
+      return null
+    },
+  })
 )
 vi.mock(
   '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/deploy-status/deploy-status',
@@ -296,6 +302,67 @@ it('retains ordinary default Billing behavior without an explicit chat request',
   expect(owned.querySelector('input#chat-title')).toBeNull()
   expect(m.rendered).not.toHaveBeenCalled()
 })
+
+it.each([
+  ['alice-key', 'shared-key', 'bob-key', 'activate'],
+  ['bob-key', 'bob-key', 'shared-key', 'activate'],
+  ['alice-key', 'shared-key', 'bob-key', 'redeploy'],
+  ['bob-key', 'bob-key', 'shared-key', 'redeploy'],
+])(
+  'preserves the chosen key for pin %s (default=%s, chosen=%s, action=%s)',
+  async (pin, initial, chosen, action) => {
+    const state = { blocks: {}, edges: [], loops: {}, parallels: {} }
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/api-keys'))
+        return Response.json({
+          keys: [{ id: url.includes('/workspaces/') ? 'shared-key' : 'bob-key' }],
+        })
+      if (url.endsWith('/deployments'))
+        return Response.json({
+          versions: [{ id: 'version-2', version: 2, name: 'Version 2', createdAt: '2026-11-15' }],
+        })
+      if (url.endsWith('/deployments/2')) return Response.json({ deployedState: state })
+      return Response.json({ isDeployed: true, pinnedApiKeyId: pin })
+    })
+    await act(async () =>
+      root.render(
+        <DeployModal
+          {...props()}
+          container={owned}
+          isDeployed
+          needsRedeployment
+          deployedState={state}
+        />
+      )
+    )
+    const click = (label: string) =>
+      act(async () => {
+        ;[...owned.querySelectorAll('button')]
+          .find((button) => button.textContent === label)!
+          .click()
+      })
+    await click('billing')
+    expect(m.keySelector.mock.lastCall?.[0].value).toBe(initial)
+    await act(async () => m.keySelector.mock.lastCall?.[0].onChange(chosen))
+    expect(m.keySelector.mock.lastCall?.[0].value).toBe(chosen)
+    if (action === 'activate') {
+      await click('versions')
+      await act(async () => owned.querySelector<HTMLTableRowElement>('tbody tr')!.click())
+      await click('activate')
+    }
+    await click(action === 'activate' ? 'deployVersion' : 'deployWorkflow')
+    expect(fetch).toHaveBeenCalledWith(
+      action === 'activate'
+        ? '/api/workflows/target-a/deployments/2/activate'
+        : '/api/workflows/target-a/deploy',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ apiKey: chosen }),
+      })
+    )
+  }
+)
 
 it('cannot acknowledge Chat when the actual target has no chat trigger', async () => {
   m.blocks = { api: m.blocks.api }

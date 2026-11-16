@@ -251,7 +251,7 @@ export function DeployModal({
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [activeTab, setActiveTab] = useState('versions')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [selectedApiKeyId, setSelectedApiKeyId] = useState<string>('')
+  const [apiKeySelection, setApiKeySelection] = useState('')
   const [apiDeployError, setApiDeployError] = useState<string | null>(null)
   const [publishedChat, setPublishedChat] = useState<PublishedChatDeployment | null>(null)
   const [isChatConfigBusy, setIsChatConfigBusy] = useState(false)
@@ -272,6 +272,11 @@ export function DeployModal({
   const [isRenaming, setIsRenaming] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<number | null>(null)
   const [versionToActivate, setVersionToActivate] = useState<number | null>(null)
+  const selectedApiKeyId =
+    apiKeys.find((key) => key.id === apiKeySelection)?.id ??
+    apiKeys.find((key) => key.id === deploymentInfo?.pinnedApiKeyId)?.id ??
+    apiKeys[0]?.id ??
+    ''
   const inputRef = useRef<HTMLInputElement>(null)
   const popupRef = useRef<HTMLDivElement>(null)
   const openedTargetRef = useRef<string | null>(null)
@@ -752,7 +757,7 @@ export function DeployModal({
       if (initialTab === undefined) setActiveTab(fallbackTab)
       setVersionToActivate(null)
     } else {
-      setSelectedApiKeyId('')
+      setApiKeySelection('')
       setDeploymentInfo(null)
       setPublishedChat(null)
       setVersionToActivate(null)
@@ -783,25 +788,6 @@ export function DeployModal({
       setActiveTab(fallbackTab)
     }
   }, [activeTab, showBillingTab, triggerTabItems, fallbackTab])
-
-  useEffect(() => {
-    if (deploymentInfo?.pinnedApiKeyId) {
-      const matchingKey = apiKeys.find((k) => k.id === deploymentInfo.pinnedApiKeyId)
-      if (matchingKey) {
-        setSelectedApiKeyId(matchingKey.id)
-        return
-      }
-
-      setSelectedApiKeyId(deploymentInfo.pinnedApiKeyId)
-      return
-    }
-
-    if (apiKeys.length === 0) return
-
-    if (!selectedApiKeyId) {
-      setSelectedApiKeyId(apiKeys[0].id)
-    }
-  }, [deploymentInfo?.pinnedApiKeyId, apiKeys, selectedApiKeyId])
 
   useEffect(() => {
     async function fetchDeploymentInfo() {
@@ -892,7 +878,7 @@ export function DeployModal({
         (k) => k.key === apiKeyFromResponse || k.id === normalizedApiKey
       )
       if (matchingKey) {
-        setSelectedApiKeyId(matchingKey.id)
+        setApiKeySelection(matchingKey.id)
       }
 
       setNeedsRedeployment(versionToActivate !== null)
@@ -1043,62 +1029,11 @@ export function DeployModal({
     }
   }
 
-  const handleRedeploy = async () => {
-    try {
-      setIsSubmitting(true)
-      const apiKeyToUse = selectedApiKeyId?.trim() ? selectedApiKeyId : undefined
-
-      const response = await fetch(`/api/workflows/${workflowId}/deploy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(apiKeyToUse ? { apiKey: apiKeyToUse } : {}),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to redeploy workflow')
-      }
-
-      await response.json()
-
-      setNeedsRedeployment(false)
-      await refetchDeploymentStatus()
-      await refetchDeployedState()
-      await fetchVersions()
-
-      setDeploymentInfo((prev) =>
-        prev
-          ? {
-              ...prev,
-              needsRedeployment: false,
-              pinnedApiKeyId: apiKeyToUse ?? prev.pinnedApiKeyId ?? null,
-              hasReusableApiKey: prev.hasReusableApiKey || Boolean(apiKeyToUse),
-            }
-          : prev
-      )
-    } catch (error: unknown) {
-      logger.error('Error redeploying workflow:', { error })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   const handleCloseModal = () => {
     setIsSubmitting(false)
     setIsViewingActiveDeployment(false)
     setShowUndeployConfirm(false)
     onOpenChange(false)
-  }
-
-  const handleFooterPrimaryAction = () => {
-    if (versionToActivate === null && isWorkflowDeployed && needsRedeployment) {
-      void handleRedeploy()
-      return
-    }
-
-    void handleDeploy()
   }
 
   const renderTriggerTab = (tab: TriggerDeployTab) => {
@@ -1456,7 +1391,7 @@ export function DeployModal({
                             </div>
                             <ApiKeySelector
                               value={selectedApiKeyId}
-                              onChange={setSelectedApiKeyId}
+                              onChange={setApiKeySelection}
                               apiKeys={apiKeys}
                               onApiKeyCreated={fetchApiKeys}
                               label={apiKeyCopy.selectApiKey}
@@ -1736,7 +1671,7 @@ export function DeployModal({
                       <Button
                         type='button'
                         disabled={footerPrimaryDisabled}
-                        onClick={handleFooterPrimaryAction}
+                        onClick={handleDeploy}
                         className={cn(
                           'gap-2 font-medium',
                           'bg-primary hover:bg-primary-hover',
