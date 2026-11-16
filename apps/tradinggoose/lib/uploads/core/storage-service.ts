@@ -1,10 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  type StorageProvider,
-  USE_AZURE_STORAGE,
-  USE_S3_STORAGE,
-  USE_VERCEL_STORAGE,
-} from '@/lib/uploads/core/setup'
+import { USE_AZURE_STORAGE, USE_S3_STORAGE, USE_VERCEL_STORAGE } from '@/lib/uploads/core/setup'
 import { sanitizeFileKey } from '@/lib/uploads/utils/file-utils'
 import { getStorageConfig, type StorageContext } from './config-resolver'
 import type { FileInfo } from './storage-client'
@@ -446,14 +441,4 @@ export async function generatePresignedDownloadUrl(
  */
 export function hasCloudStorage(): boolean {
   return USE_AZURE_STORAGE || USE_S3_STORAGE || USE_VERCEL_STORAGE
-}
-
-/**
- * Get the current storage provider name
- */
-export function getStorageProviderName(): StorageProvider {
-  if (USE_AZURE_STORAGE) return 'azure'
-  if (USE_S3_STORAGE) return 's3'
-  if (USE_VERCEL_STORAGE) return 'vercel'
-  return 'local'
 }

@@ -168,22 +168,3 @@ export function validateFileType(fileName: string, mimeType: string): FileValida
 
   return null
 }
-
-/**
- * Check if file extension is supported
- */
-export function isSupportedExtension(extension: string): extension is SupportedDocumentExtension {
-  return SUPPORTED_DOCUMENT_EXTENSIONS.includes(
-    extension.toLowerCase() as SupportedDocumentExtension
-  )
-}
-
-/**
- * Get supported MIME types for an extension
- */
-export function getSupportedMimeTypes(extension: string): string[] {
-  if (isSupportedExtension(extension)) {
-    return SUPPORTED_MIME_TYPES[extension as SupportedDocumentExtension]
-  }
-  return []
-}
