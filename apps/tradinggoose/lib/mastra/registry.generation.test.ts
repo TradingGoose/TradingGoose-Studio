@@ -86,12 +86,18 @@ it('excludes unsupported gateways and published non-chat APIs from generation', 
     'openrouter/google/lyria-3-clip-preview',
     'poe/google/lyria',
     'tinfoil/nomic-embed-text',
+    'nvidia/nvidia/synthetic-video-detector',
   ])
   for (const [provider, config] of Object.entries(GatewayRegistry.getInstance().getProviders())) {
     for (const modelId of config.models) {
-      const type = modelCatalog[provider]?.models[modelId]?.type
-      if (type === undefined || type === 'chat') continue
-      excluded.add(`${provider}/${modelId}`)
+      const model = modelCatalog[provider]?.models[modelId]
+      if (
+        model &&
+        ((model.type && model.type !== 'chat') ||
+          !model.modalities.input.includes('text') ||
+          !model.modalities.output.includes('text'))
+      )
+        excluded.add(`${provider}/${modelId}`)
     }
   }
   for (const id of excluded) {

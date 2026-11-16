@@ -29,10 +29,11 @@ export function isLanguageModel(provider: string, modelId: string, requireTools 
   if (provider === 'tinfoil' && modelId === 'nomic-embed-text') return false
   const model = modelCatalog[provider]?.models?.[modelId]
   if (requireTools && model?.tool_call === false) return false
-  if (model?.type) return model.type === 'chat'
   if (
     model &&
-    (!model.modalities.output.includes('text') ||
+    ((model.type && model.type !== 'chat') ||
+      !model.modalities.input.includes('text') ||
+      !model.modalities.output.includes('text') ||
       (model.modalities.output.includes('audio') && !model.tool_call))
   )
     return false
