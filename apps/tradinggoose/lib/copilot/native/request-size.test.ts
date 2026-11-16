@@ -41,10 +41,10 @@ describe('Copilot request byte budget', () => {
   it('reserves base64 expansion across all unread images before allocating their data', () => {
     const draft = { text: 'Describe', contexts: [] }
     const file = (size: number) => ({ size, type: 'image/png' })
-    expect(() => assertCopilotAttachmentSize(draft, [file(8 * 1024 * 1024)])).toThrow()
-    expect(() => assertCopilotAttachmentSize(draft, [file(4 * 1024 * 1024)])).not.toThrow()
+    expect(() => assertCopilotAttachmentSize(draft, [file(4 * 1024 * 1024)])).toThrow()
+    expect(() => assertCopilotAttachmentSize(draft, [file(3 * 1024 * 1024)])).not.toThrow()
     expect(() =>
-      assertCopilotAttachmentSize(draft, [file(4 * 1024 * 1024), file(4 * 1024 * 1024)])
+      assertCopilotAttachmentSize(draft, [file(2 * 1024 * 1024), file(2 * 1024 * 1024)])
     ).toThrow()
   })
 

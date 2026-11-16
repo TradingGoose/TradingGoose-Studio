@@ -2,14 +2,14 @@ import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type { CopilotRequest } from './contract'
 import { NativeTargetError } from './errors'
 
-// Next.js proxies buffer at most 10 MiB by default, including the complete JSON envelope.
-export const MAX_COPILOT_REQUEST_BYTES = 10 * 1024 * 1024
+// Vercel Functions accept at most 4.5 MB, including the complete JSON envelope.
+export const MAX_COPILOT_REQUEST_BYTES = 4_500_000
 const encoder = new TextEncoder()
 
 function assertRequestBytes(bytes: number): void {
   if (bytes > MAX_COPILOT_REQUEST_BYTES)
     throw new NativeTargetError(
-      'Copilot requests must fit within 10 MiB. Remove images or shorten the message and context.',
+      'Copilot requests must fit within 4.5 MB. Remove images or shorten the message and context.',
       413
     )
 }

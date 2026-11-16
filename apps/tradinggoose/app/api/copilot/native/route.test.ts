@@ -54,7 +54,7 @@ describe('Copilot raw request size boundary', () => {
     expect(response.status).toBe(413)
     expect(await response.json()).toMatchObject({
       status: 'refused',
-      error: { code: 'INVALID_REQUEST', message: expect.stringContaining('10 MiB') },
+      error: { code: 'INVALID_REQUEST', message: expect.stringContaining('4.5 MB') },
     })
     expect(mocks.scope).not.toHaveBeenCalled()
     expect(mocks.execute).not.toHaveBeenCalled()
@@ -89,8 +89,8 @@ describe('Copilot raw request size boundary', () => {
   )
 
   it.each([
-    { label: 'one 8 MiB image', sizes: [8] },
-    { label: 'two 4 MiB images', sizes: [4, 4] },
+    { label: 'one 4 MiB image', sizes: [4] },
+    { label: 'two 2 MiB images', sizes: [2, 2] },
   ])('refuses $label after base64 encoding before model dispatch', async ({ sizes }) => {
     const content = sizes.map((size) => ({
       type: 'image',
@@ -112,7 +112,7 @@ describe('Copilot raw request size boundary', () => {
     const image = {
       type: 'image',
       mediaType: 'image/png',
-      image: `data:image/png;base64,${Buffer.alloc(3 * 1024 * 1024).toString('base64')}`,
+      image: `data:image/png;base64,${Buffer.alloc(1024 * 1024).toString('base64')}`,
     }
     const body = JSON.stringify({
       command: 'message',

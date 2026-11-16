@@ -731,7 +731,7 @@ describe('canonical browser conversation transport', () => {
         currentRunId: 'retained-run',
         isSendingMessage: false,
         abortController: null,
-        error: expect.stringContaining('10 MiB'),
+        error: expect.stringContaining('4.5 MB'),
       })
       expect(store().getState().draft).toBe(submittedDraft)
       expect(store().getState().messages).toBe(messages)
@@ -766,7 +766,7 @@ describe('canonical browser conversation transport', () => {
     expect(onAccepted).not.toHaveBeenCalled()
     expect(store().getState().draft).toBe(submittedDraft)
     expect(store().getState().messages).toBe(messages)
-    expect(store().getState().error).toContain('10 MiB')
+    expect(store().getState().error).toContain('4.5 MB')
   })
 
   it('starts unconfigured and refuses to send without a selected administrator model', async () => {

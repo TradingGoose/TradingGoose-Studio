@@ -95,11 +95,11 @@ it('a removed submitted image cannot delete a newly uploaded image with the same
   expect(revoke).toHaveBeenCalledTimes(before)
 })
 
-it('rejects an 8 MiB image before allocating a preview or reading its oversized encoding', async () => {
+it('rejects a 4 MiB image before allocating a preview or reading its oversized encoding', async () => {
   const readers = controlledReads()
   let reading!: Promise<void>
   act(() => {
-    reading = state.processFiles(files(image('large.png', 8 * 1024 * 1024)))
+    reading = state.processFiles(files(image('large.png', 4 * 1024 * 1024)))
   })
   await act(async () => {
     readers.forEach((reader) => reader.finish())
@@ -108,7 +108,7 @@ it('rejects an 8 MiB image before allocating a preview or reading its oversized 
   expect(readers).toHaveLength(0)
   expect(preview).not.toHaveBeenCalled()
   expect(state.attachedFiles.length).toBe(0)
-  expect(state.uploadError).toContain('10 MiB')
+  expect(state.uploadError).toContain('4.5 MB')
 })
 
 it.each([
@@ -128,7 +128,7 @@ it('accounts for all images in one batch and preserves those that fit', async ()
   let reading!: Promise<void>
   act(() => {
     reading = state.processFiles(
-      files(image('first.png', 4 * 1024 * 1024), image('second.png', 4 * 1024 * 1024))
+      files(image('first.png', 2 * 1024 * 1024), image('second.png', 2 * 1024 * 1024))
     )
   })
   await act(async () => {
@@ -139,7 +139,7 @@ it('accounts for all images in one batch and preserves those that fit', async ()
   })
   expect(readers).toHaveLength(1)
   expect(state.attachedFiles.map((file) => file.name)).toEqual(['first.png'])
-  expect(state.uploadError).toContain('10 MiB')
+  expect(state.uploadError).toContain('4.5 MB')
 })
 
 it('reserves pending image bytes synchronously across concurrent selections', async () => {
@@ -147,8 +147,8 @@ it('reserves pending image bytes synchronously across concurrent selections', as
   let first!: Promise<void>
   let second!: Promise<void>
   act(() => {
-    first = state.processFiles(files(image('first.png', 4 * 1024 * 1024)))
-    second = state.processFiles(files(image('second.png', 4 * 1024 * 1024)))
+    first = state.processFiles(files(image('first.png', 2 * 1024 * 1024)))
+    second = state.processFiles(files(image('second.png', 2 * 1024 * 1024)))
   })
   await act(async () => {
     readers.forEach((reader) => reader.finish())
@@ -156,7 +156,7 @@ it('reserves pending image bytes synchronously across concurrent selections', as
   })
   expect(readers).toHaveLength(1)
   expect(state.attachedFiles.map((file) => file.name)).toEqual(['first.png'])
-  expect(state.uploadError).toContain('10 MiB')
+  expect(state.uploadError).toContain('4.5 MB')
 })
 
 it.each(['text', 'contexts'] as const)(
@@ -180,7 +180,7 @@ it.each(['text', 'contexts'] as const)(
     expect(readers).toHaveLength(0)
     expect(preview).not.toHaveBeenCalled()
     expect(state.attachedFiles.length).toBe(0)
-    expect(state.uploadError).toContain('10 MiB')
+    expect(state.uploadError).toContain('4.5 MB')
   }
 )
 
@@ -203,7 +203,7 @@ it.each(['text', 'contexts'] as const)(
       await reading
     })
     expect(state.attachedFiles.length).toBe(0)
-    expect(state.uploadError).toContain('10 MiB')
+    expect(state.uploadError).toContain('4.5 MB')
     expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:small.png')
   }
 )
@@ -213,11 +213,11 @@ it('releases reserved bytes on removal without restoring an image whose read fin
   let first!: Promise<void>
   let second!: Promise<void>
   act(() => {
-    first = state.processFiles(files(image('first.png', 4 * 1024 * 1024)))
+    first = state.processFiles(files(image('first.png', 2 * 1024 * 1024)))
   })
   act(() => state.removeFile(state.attachedFiles[0].id))
   act(() => {
-    second = state.processFiles(files(image('second.png', 4 * 1024 * 1024)))
+    second = state.processFiles(files(image('second.png', 2 * 1024 * 1024)))
   })
   await act(async () => {
     readers.forEach((reader) => reader.finish())
@@ -240,6 +240,6 @@ it('checks the actual encoded data before completing the attachment', async () =
     await reading
   })
   expect(state.attachedFiles.length).toBe(0)
-  expect(state.uploadError).toContain('10 MiB')
+  expect(state.uploadError).toContain('4.5 MB')
   expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:small.png')
 })
