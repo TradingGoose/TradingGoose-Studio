@@ -1,13 +1,14 @@
 /** @vitest-environment node */
 import './__test-utils__/managed-services'
 import { Agent } from '@mastra/core/agent'
+import { ModelRouterLanguageModel } from '@mastra/core/llm'
 import { Mastra } from '@mastra/core/mastra'
 import type { OutputProcessor } from '@mastra/core/processors'
 import { InMemoryStore } from '@mastra/core/storage'
 import { MastraLanguageModelV2Mock, simulateReadableStream } from '@mastra/core/test-utils/llm-mock'
 import { createTool } from '@mastra/core/tools'
 import { Memory } from '@mastra/memory'
-import { beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { projectNativeMessage } from './messages'
 import { assertNativeCompletion } from './result'
@@ -44,6 +45,7 @@ beforeEach(() => {
   billing.begin.mockResolvedValue(false)
   billing.record.mockImplementation(async (_scope, _usage, cost) => cost)
 })
+afterEach(() => vi.unstubAllGlobals())
 
 async function generate(
   finishReason: 'stop' | 'content-filter' | 'error' = 'stop',
@@ -331,42 +333,67 @@ it.each(['complete', 'suspend', 'abort'] as const)(
   }
 )
 
-it.each([false, true])(
-  'uses the same standard price for report and account record (BYOK=%s)',
-  async (isByok) => {
-    const nativeScope = { ...scope, model: 'openrouter/openai/gpt-4.1' }
-    const observed = { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }
+it.each([
+  { model: 'openai/gpt-4.1', isByok: false, audio: 0, total: 0.0028 },
+  { model: 'openai/gpt-4.1', isByok: true, audio: 0, total: 0.0028 },
+  { model: 'openai/gpt-audio', isByok: false, audio: 900, total: 0.03005 },
+])(
+  'bills and persists native standard usage for $model (BYOK=$isByok)',
+  async ({ model, isByok, audio, total }) => {
+    const nativeScope = { ...scope, model: `openrouter/${model}` }
     const accounting = await usageProcessors(nativeScope)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            `data: ${JSON.stringify({
+              id: 'usage-response',
+              choices: [{ index: 0, delta: { content: 'Answer' }, finish_reason: 'stop' }],
+              usage: {
+                prompt_tokens: 1000,
+                completion_tokens: 100,
+                total_tokens: 1100,
+                prompt_tokens_details: { cached_tokens: 0, audio_tokens: audio },
+                cost: 99,
+                is_byok: isByok,
+                cost_details: { upstream_inference_cost: 25 },
+              },
+            })}\n\ndata: [DONE]\n\n`,
+            { headers: { 'content-type': 'text/event-stream' } }
+          )
+      )
+    )
     const agent = new Agent({
       id: 'standard-cost-test',
       name: 'Standard cost test',
       instructions: '',
-      model: new MastraLanguageModelV2Mock({
-        doGenerate: async () => ({
-          content: [{ type: 'text', text: 'answer' }],
-          usage: observed,
-          finishReason: 'stop',
-          warnings: [],
-          providerMetadata: {
-            openrouter: {
-              usage: { cost: 99, isByok, costDetails: { upstreamInferenceCost: 25 } },
-            },
-          },
-        }),
+      model: new ModelRouterLanguageModel({
+        providerId: 'openrouter',
+        modelId: model,
+        apiKey: 'test-key',
       }),
       inputProcessors: accounting.inputProcessors,
       outputProcessors: accounting.outputProcessors,
     })
-    const result = await agent.generate('hello', { runId: nativeScope.runId, maxSteps: 1 })
+    const result = await (
+      await agent.stream('Answer', { runId: nativeScope.runId, maxSteps: 1 })
+    ).getFullOutput()
     await accounting.verifyComplete()
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(result.providerMetadata).toMatchObject({
+      openrouter: { usage: { cost: 99, costDetails: { upstreamInferenceCost: 25 } } },
+    })
+    expect(result.usage).toMatchObject({ raw: { raw: { is_byok: isByok } } })
     const cost = accounting.getCost()
-    expect(cost).toMatchObject({ total: 0.0028, currency: 'USD', status: 'estimated' })
+    expect(cost).toMatchObject({ currency: 'USD', status: 'estimated' })
+    expect(cost.total).toBeCloseTo(total)
     const assistant = result.messages.find((message) => message.role === 'assistant')!
     expect(projectNativeMessage(assistant).cost).toEqual(cost)
     expect(billing.admit).toHaveBeenCalledExactlyOnceWith(nativeScope)
     expect(billing.record).toHaveBeenCalledExactlyOnceWith(
       nativeScope,
-      observed,
+      expect.objectContaining({ inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }),
       cost,
       expect.stringMatching(/^run:[0-9a-f-]{36}:0:0$/)
     )

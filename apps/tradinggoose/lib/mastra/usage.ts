@@ -25,8 +25,7 @@ export function sumNativeUsage(steps: Array<{ usage?: NativeUsage }>): NativeUsa
   for (const step of steps) {
     for (const key of ['inputTokens', 'outputTokens', 'totalTokens'] as const) {
       const count = step.usage?.[key]
-      if (typeof count === 'number' && Number.isFinite(count) && count >= 0)
-        usage[key] = (usage[key] ?? 0) + count
+      if (amount(count)) usage[key] = (usage[key] ?? 0) + count
     }
   }
   return usage
@@ -66,8 +65,21 @@ export async function calculateNativeCost(
     (details ?? [])
       .filter((entry) => entry.modality === 'AUDIO')
       .reduce((sum, entry) => (amount(entry.tokenCount) ? sum + entry.tokenCount : Number.NaN), 0)
-  const inputAudio = audioTokens(googleUsage?.promptTokensDetails)
-  const outputAudio = audioTokens(googleUsage?.candidatesTokensDetails)
+  const rawUsage = usage.raw as
+    | {
+        inputTokens?: unknown
+        raw?: {
+          prompt_tokens_details?: { audio_tokens?: number }
+          completion_tokens_details?: { audio_tokens?: number }
+        }
+      }
+    | undefined
+  const inputAudio =
+    rawUsage?.raw?.prompt_tokens_details?.audio_tokens ??
+    audioTokens(googleUsage?.promptTokensDetails)
+  const outputAudio =
+    rawUsage?.raw?.completion_tokens_details?.audio_tokens ??
+    audioTokens(googleUsage?.candidatesTokensDetails)
   const read =
     usage.cachedInputTokens ??
     anthropic?.cacheReadInputTokens ??
@@ -80,7 +92,6 @@ export async function calculateNativeCost(
   const reasoning = usage.reasoningTokens ?? googleUsage?.thoughtsTokenCount ?? 0
   // Match Mastra's native usage semantics: V2 Anthropic prompt counts exclude cache tokens;
   // normalized top-level cache counts and V3 raw totals already include them.
-  const rawInput = (usage.raw as { inputTokens?: unknown } | undefined)?.inputTokens
   const inputTokens =
     usage.inputTokens === undefined
       ? undefined
@@ -88,7 +99,7 @@ export async function calculateNativeCost(
         (anthropic &&
         !(usage.cachedInputTokens !== undefined && usage.cachedInputTokens > 0) &&
         !(usage.cacheCreationInputTokens !== undefined && usage.cacheCreationInputTokens > 0) &&
-        typeof rawInput !== 'object'
+        typeof rawUsage?.inputTokens !== 'object'
           ? read + write
           : 0)
   const rates =
@@ -110,8 +121,7 @@ export async function calculateNativeCost(
       rates.input
     ),
     priced(read, rates.cache_read),
-    priced(write - write5m - write1h, rates.cache_write),
-    priced(write5m, rates.cache_write),
+    priced(write - write1h, rates.cache_write),
     priced(inputAudio, rates.input_audio),
     // models.dev publishes Claude's five-minute write rate; Mastra uses 1.6x for one hour.
     priced(

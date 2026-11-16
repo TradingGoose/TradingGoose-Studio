@@ -349,6 +349,38 @@ describe('native per-step USD pricing', () => {
       )
     ).toEqual({ status: 'unavailable' })
   })
+  it.each([
+    [900, 0, 0.03005],
+    [900, 50, 0.03275],
+    [0, 0, 0.0035],
+    [undefined, undefined, 0.0035],
+    [-1, 0, undefined],
+    [Number.NaN, 0, undefined],
+    [1001, 0, undefined],
+    [900, 101, undefined],
+  ])(
+    'prices native raw audio counts (%s input, %s output)',
+    async (inputAudio, outputAudio, total) => {
+      catalogue.pricing.mockReturnValue({
+        input: 2.5,
+        output: 10,
+        input_audio: 32,
+        output_audio: 64,
+      })
+      const cost = await calculateNativeCost('openrouter/model', {
+        inputTokens: 1000,
+        outputTokens: 100,
+        raw: {
+          raw: {
+            prompt_tokens_details: { audio_tokens: inputAudio },
+            completion_tokens_details: { audio_tokens: outputAudio },
+          },
+        },
+      })
+      if (total === undefined) expect(cost).toEqual({ status: 'unavailable' })
+      else expect(cost.total).toBeCloseTo(total)
+    }
+  )
   it('accumulates the same priced steps and preserves partial coverage', () => {
     const known = { total: 0.0123, currency: 'USD', status: 'reported' as const }
     const estimate = {
