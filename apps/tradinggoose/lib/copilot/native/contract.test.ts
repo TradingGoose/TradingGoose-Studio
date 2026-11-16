@@ -7,6 +7,7 @@ it('accepts the browser command with ordered native content parts', () => {
     requestId: crypto.randomUUID(),
     workspaceId: 'workspace',
     model: 'openai/gpt-4.1',
+    providerOptions: { openai: { reasoningEffort: 'high' } },
     input: {
       content: [
         { type: 'text', text: 'Inspect this' },
@@ -32,8 +33,6 @@ it.each([
   { scope: { actorUserId: 'other', workspaceId: 'workspace' } },
   { stream: false },
   { workflowId: 'workflow' },
-  { providerOptions: {} },
-  { providerOptions: { openai: { reasoningEffort: 'low' } } },
   {
     providerOptions: {
       anthropic: {

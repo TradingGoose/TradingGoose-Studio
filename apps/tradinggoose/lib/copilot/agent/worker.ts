@@ -90,6 +90,7 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
       },
       {
         model: new ModelRouterLanguageModel(preparedRun.model),
+        providerOptions: run.providerOptions,
         maxSteps: 50,
         accounting: {
           assertAllowed: () => studio.call('usage.allow', { fence: ownership!.fence }, signal),

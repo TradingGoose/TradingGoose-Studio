@@ -62,6 +62,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "description": "Available in Additional Fields. Shown when model supports temperature."
         },
         {
+            "id": "providerOptions",
+            "type": "code",
+            "title": "Thinking / Reasoning (Native Provider Options)",
+            "layout": "full",
+            "placeholder": "Enter native provider options JSON...",
+            "description": "Native provider options as JSON, grouped by provider namespace. Studio controls connections and tool execution. Leave unset to use provider defaults. Available in Additional Fields. Shown when model supports reasoning.",
+            "language": "json"
+        },
+        {
             "id": "maxTokens",
             "type": "short-input",
             "title": "Max Output Tokens",
@@ -147,6 +156,7 @@ Send a chat completion request to any supported LLM provider
 | `memories` | json | No | Agent memory data |
 | `model` | string | Yes | AI model to use |
 | `apiKey` | string | No | Provider API key |
+| `providerOptions` | json | No | Native provider options grouped by provider namespace. Shown when model supports reasoning. |
 | `responseFormat` | json | No | JSON object containing a JSON Schema in its schema field. Shown when model supports structured output. |
 | `temperature` | number | No | Response randomness level. Shown when model supports temperature. |
 | `maxTokens` | number | No | Maximum output tokens |
@@ -166,7 +176,7 @@ Send a chat completion request to any supported LLM provider
 
 ## Usage Instructions
 
-Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, and model-supported temperature without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
+Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, model-supported temperature, and native thinking/reasoning options without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
 
 
 

@@ -23,7 +23,7 @@ export const AgentBlock: BlockConfig<AgentResponse> = {
   description: 'Build an agent',
   authMode: AuthMode.ApiKey,
   longDescription:
-    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, and model-supported temperature without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
+    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, model-supported temperature, and native thinking/reasoning options without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
   bestPractices: `
   - Cannot use core blocks like API, Webhook, Function, Workflow, Memory as tools. Only integrations or custom tools. 
   - Check custom tools examples for YAML syntax. Only construct these if there isn't an existing integration for that purpose.
@@ -124,6 +124,18 @@ Create a system prompt appropriately detailed for the request, using clear langu
       placeholder: 'Use the provider default',
       additional: true,
       condition: { field: 'model', operator: 'modelCapability', value: 'temperature' },
+    },
+    {
+      id: 'providerOptions',
+      title: 'Thinking / Reasoning (Native Provider Options)',
+      type: 'code',
+      language: 'json',
+      layout: 'full',
+      placeholder: 'Enter native provider options JSON...',
+      description:
+        'Native provider options as JSON, grouped by provider namespace. Studio controls connections and tool execution. Leave unset to use provider defaults.',
+      additional: true,
+      condition: { field: 'model', operator: 'modelCapability', value: 'reasoning' },
     },
     {
       id: 'maxTokens',
@@ -268,6 +280,10 @@ Example 3 (Array Input):
     memories: { type: 'json', description: 'Agent memory data' },
     model: { type: 'string', description: 'AI model to use' },
     apiKey: { type: 'string', description: 'Provider API key' },
+    providerOptions: {
+      type: 'json',
+      description: 'Native provider options grouped by provider namespace',
+    },
     responseFormat: {
       type: 'json',
       description: 'JSON object containing a JSON Schema in its schema field',

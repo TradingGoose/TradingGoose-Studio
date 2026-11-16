@@ -1,5 +1,5 @@
 import type { AgentExecutionOptions } from '@mastra/core/agent'
-import { trustedModelSettings } from './options'
+import { parseProviderOptions, trustedModelSettings } from './options'
 import { assertNativeCompletion } from './result'
 import { resultAccounting } from './usage'
 import {
@@ -16,9 +16,11 @@ export async function prepareNativeModelRequest<TModel>(
     accounting: NativeUsageAccounting
     maxSteps?: number
     modelSettings?: unknown
+    providerOptions?: unknown
   }
 ) {
   const modelSettings = trustedModelSettings(settings.modelSettings)
+  const providerOptions = parseProviderOptions(settings.providerOptions)
   const maxSteps = settings.maxSteps ?? 5
   const usage = await usageProcessors(scope, settings.accounting)
   const options = {
@@ -28,6 +30,7 @@ export async function prepareNativeModelRequest<TModel>(
     inputProcessors: usage.inputProcessors,
     outputProcessors: usage.outputProcessors,
     modelSettings,
+    providerOptions,
     maxSteps,
     prepareStep: ({ stepNumber, systemMessages }) =>
       stepNumber >= maxSteps - 1

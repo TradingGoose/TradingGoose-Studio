@@ -22335,6 +22335,19 @@
         "searchPlaceholder": "Search listings..."
       },
       "copilot": {
+        "reasoning": {
+          "label": "Thinking / Reasoning",
+          "description": "Enter native Provider Options for the selected model.",
+          "providerOptions": "Provider Options (JSON)",
+          "effort": "Published effort values",
+          "budget": "Thinking-token budget",
+          "minimum": "minimum",
+          "maximum": "maximum",
+          "toggle": "On/off thinking control",
+          "unsupported": "This model does not publish reasoning controls.",
+          "invalid": "Enter a valid Provider Options JSON object.",
+          "apply": "Apply"
+        },
         "models": {
           "loading": "Loading models…",
           "unconfigured": "Copilot is not configured",

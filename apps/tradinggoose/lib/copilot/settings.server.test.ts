@@ -29,6 +29,7 @@ vi.mock('@/lib/system-services/service', () => ({
   resolveSystemServiceConfig: mockResolveSystemServiceConfig,
 }))
 
+import { getModelReasoningOptions } from '@mastra/core/llm'
 import { getPublicCopilotModels, resolveCopilotModel } from './settings.server'
 
 const configured: CopilotSettings = {
@@ -149,7 +150,7 @@ describe('server Copilot settings', () => {
     })
     expect(await getPublicCopilotModels()).toEqual({
       models: [
-        { id: 'openai/gpt-4.1', label: 'openai/gpt-4.1' },
+        { id: 'openai/gpt-4.1', label: 'openai/gpt-4.1', reasoning: false, reasoningOptions: [] },
         { id: 'new-native-provider/namespace/future-model', label: 'namespace/future-model' },
       ],
     })
@@ -168,7 +169,12 @@ describe('server Copilot settings', () => {
     })
     expect(await getPublicCopilotModels()).toEqual({
       models: [
-        { id: 'openrouter/amazon/nova-premier-v1', label: 'amazon/nova-premier' },
+        {
+          id: 'openrouter/amazon/nova-premier-v1',
+          label: 'amazon/nova-premier',
+          reasoning: false,
+          reasoningOptions: [],
+        },
         { id: 'openrouter/vendor/family/future-model', label: 'vendor/family/future-model' },
         { id: 'openai/future-model', label: 'openai/future-model' },
       ],
@@ -187,6 +193,25 @@ describe('server Copilot settings', () => {
       status: 409,
       message: 'The system connection for the selected Copilot model is not configured',
     })
+  })
+
+  it('projects native reasoning controls without changing provider option names or model order', async () => {
+    const models = [
+      { provider: 'openai', model: 'gpt-5.4' },
+      { provider: 'google', model: 'gemini-2.5-pro' },
+      { provider: 'deepseek', model: 'deepseek-v4-pro' },
+    ]
+    mockGetResolvedSystemSettings.mockResolvedValue({ copilot: { models } })
+    const result = await getPublicCopilotModels()
+    expect(result.models.map(({ id }) => id)).toEqual(
+      models.map(({ provider, model }) => `${provider}/${model}`)
+    )
+    for (const model of result.models) {
+      const native = getModelReasoningOptions(model.id)
+      expect(model.reasoningOptions).toEqual(native)
+      expect(model.reasoning).toBe(native === undefined ? undefined : native.length > 0)
+    }
+    expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
   })
 
   it('reports an unconfigured Copilot with no built-in fallback', async () => {

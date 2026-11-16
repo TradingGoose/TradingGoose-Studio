@@ -240,6 +240,36 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('native Agent workflow execution', () => {
+  it.each([false, true])(
+    'forwards native reasoning options without conversion (JSON editor: %s)',
+    async (json) => {
+      const providerOptions = { openai: { reasoningEffort: 'high' } } as const
+      let received: any
+      state.model = new MastraLanguageModelV2Mock({
+        doGenerate: async (options) => {
+          received = options
+          return {
+            content: [{ type: 'text', text: 'Native response' }],
+            finishReason: 'stop',
+            usage,
+            warnings: [],
+          }
+        },
+      })
+      await new AgentBlockHandler().execute(
+        block,
+        {
+          model: 'openai/gpt-5',
+          userPrompt: 'Answer',
+          providerOptions: json ? JSON.stringify(providerOptions) : providerOptions,
+        },
+        context()
+      )
+      expect(received.providerOptions).toEqual(providerOptions)
+      expect(received.reasoning).toBeUndefined()
+    }
+  )
+
   it.each([
     { apiKey: undefined, expectedKey: undefined, funding: 'account' },
     { apiKey: '', expectedKey: undefined, funding: 'account' },

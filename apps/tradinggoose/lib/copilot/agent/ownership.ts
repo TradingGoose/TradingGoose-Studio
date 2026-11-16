@@ -4,7 +4,12 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { RunFenceConflictError, type RunFenceScope, setRunFenceContext } from '@mastra/core/storage'
 import { runs } from '@trigger.dev/sdk'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { CopilotToolContext, SafeError, Scope } from '@/lib/copilot/native/contract'
+import type {
+  CopilotRequest,
+  CopilotToolContext,
+  SafeError,
+  Scope,
+} from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
@@ -15,6 +20,7 @@ export interface CopilotRun {
   threadId: string
   scope: Scope
   model: string
+  providerOptions?: Extract<CopilotRequest, { command: 'message' }>['providerOptions']
   accessLevel: CopilotAccessLevel
   toolContext?: CopilotToolContext
   toolContexts?: CopilotToolContext[]

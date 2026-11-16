@@ -1,6 +1,7 @@
 import { z } from 'zod'
+import type { RegistryModel } from '@/lib/mastra/registry'
 
-export interface CopilotModelOption {
+export interface CopilotModelOption extends Pick<RegistryModel, 'reasoning' | 'reasoningOptions'> {
   id: string
   label: string
 }

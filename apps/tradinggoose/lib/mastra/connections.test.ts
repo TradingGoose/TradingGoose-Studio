@@ -3,7 +3,6 @@ import { ModelRouterEmbeddingModel } from '@mastra/core/llm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { managedServices } from './__test-utils__/managed-services'
 import { createConfiguredLanguageModel, resolveConfiguredModel } from './connections'
-import { trustedModelSettings } from './options'
 import { getModelRegistry } from './registry'
 import { prepareModelRequest } from './request'
 import { usageProcessors } from './usage-processors'
@@ -19,7 +18,12 @@ afterEach(() => {
 })
 const stream = () =>
   new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } })
-const requestScope = { actorUserId: 'actor', runId: 'request', purpose: 'workflow-agent' }
+const requestScope = {
+  actorUserId: 'actor',
+  runId: 'request',
+  purpose: 'workflow-agent',
+  funding: 'byok' as const,
+}
 
 describe('DB-managed native connections', () => {
   it.each([
@@ -163,6 +167,7 @@ it.each([
     model: 'openai/gpt-4.1',
     url: 'https://api.openai.com/v1/responses',
     modelSettings: { temperature: '', maxOutputTokens: '' },
+    providerOptions: undefined,
     requestOptions: {},
     omitted: ['temperature', 'max_output_tokens'],
   },
@@ -170,7 +175,22 @@ it.each([
     model: 'openai/gpt-4.1',
     url: 'https://api.openai.com/v1/responses',
     modelSettings: { temperature: '0.5', maxOutputTokens: '128' },
+    providerOptions: undefined,
     requestOptions: { temperature: 0.5, max_output_tokens: 128 },
+    omitted: [],
+  },
+  {
+    model: 'openai/gpt-5.4',
+    url: 'https://api.openai.com/v1/responses',
+    modelSettings: {},
+    providerOptions: {
+      openai: { reasoningEffort: 'high', promptCacheKey: 'native-cache-key', textVerbosity: 'low' },
+    },
+    requestOptions: {
+      reasoning: { effort: 'high' },
+      prompt_cache_key: 'native-cache-key',
+      text: { verbosity: 'low' },
+    },
     omitted: [],
   },
 ])('forwards native generation options through Agent and router for $model', async (fixture) => {
@@ -198,17 +218,52 @@ it.each([
     })
   })
   vi.stubGlobal('fetch', fetcher)
+  const work = await prepareModelRequest(
+    { ...requestScope, model: fixture.model },
+    {
+      apiKey: 'request-key',
+      modelSettings: fixture.modelSettings,
+      providerOptions: fixture.providerOptions,
+    }
+  )
   const agent = new Agent({
     id: 'native-model-settings',
     name: 'Native model settings',
     instructions: 'Reply briefly',
-    model: await createConfiguredLanguageModel(fixture.model, 'request-key'),
+    model: work.model,
   })
-  const result = await agent.generate('Hello', {
-    modelSettings: trustedModelSettings(fixture.modelSettings),
-  })
+  const result = await agent.generate('Hello', work.options)
   expect(result.text).toBe('ok')
   expect(fetcher).toHaveBeenCalledTimes(1)
   const [, request] = fetcher.mock.calls[0]
   expect(new Headers(request?.headers).get('authorization')).toBe('Bearer request-key')
+})
+
+it.each([
+  {
+    model: 'anthropic/claude-sonnet-4-5',
+    providerOptions: { anthropic: { thinking: { type: 'enabled', budgetTokens: 4096 } } },
+    requestOptions: { thinking: { type: 'enabled', budget_tokens: 4096 } },
+  },
+  {
+    model: 'google/gemini-2.5-pro',
+    providerOptions: {
+      google: { thinkingConfig: { thinkingBudget: 4096, includeThoughts: true } },
+    },
+    requestOptions: {
+      generationConfig: { thinkingConfig: { thinkingBudget: 4096, includeThoughts: true } },
+    },
+  },
+])('delegates native thinking format to the installed $model adapter', async (fixture) => {
+  const fetcher = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) => stream())
+  vi.stubGlobal('fetch', fetcher)
+  const work = await prepareModelRequest(
+    { ...requestScope, model: fixture.model },
+    { apiKey: 'request-key', providerOptions: JSON.stringify(fixture.providerOptions) }
+  )
+  await work.model.doStream({
+    prompt: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
+    providerOptions: work.options.providerOptions,
+  })
+  expect(JSON.parse(String(fetcher.mock.calls[0][1]!.body))).toMatchObject(fixture.requestOptions)
 })

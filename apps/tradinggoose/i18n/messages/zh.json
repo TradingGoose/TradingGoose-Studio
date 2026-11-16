@@ -22335,6 +22335,19 @@
         "searchPlaceholder": "搜索标的..."
       },
       "copilot": {
+        "reasoning": {
+          "label": "思考 / 推理",
+          "description": "输入所选模型的原生提供商选项。",
+          "providerOptions": "提供商选项（JSON）",
+          "effort": "已公布的推理强度",
+          "budget": "思考令牌预算",
+          "minimum": "最小值",
+          "maximum": "最大值",
+          "toggle": "思考开关",
+          "unsupported": "此模型未公布推理控制选项。",
+          "invalid": "请输入有效的提供商选项 JSON 对象。",
+          "apply": "应用"
+        },
         "models": {
           "loading": "正在加载模型…",
           "unconfigured": "尚未配置 Copilot",

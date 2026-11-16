@@ -28,6 +28,12 @@ vi.mock('@mastra/core/llm', () => ({
   }),
   modelSupportsTemperature: (id: string) => (id.endsWith('/listed') ? false : undefined),
   modelSupportsStructuredOutput: () => true,
+  getModelReasoningOptions: (id: string) =>
+    id.endsWith('/listed')
+      ? [{ type: 'effort', values: ['low', 'high'] }]
+      : id.endsWith('/no-reasoning')
+        ? []
+        : undefined,
 }))
 
 import {
@@ -35,6 +41,7 @@ import {
   assertListedModel,
   getEmbeddingModelRegistry,
   getModelRegistry,
+  getNativeModel,
 } from './registry'
 
 beforeEach(() => {
@@ -76,7 +83,13 @@ describe('public Mastra registry transport', () => {
           id: 'configured',
           name: 'Native Provider',
           models: [
-            { id: 'configured/listed', temperature: false, structuredOutput: true },
+            {
+              id: 'configured/listed',
+              temperature: false,
+              structuredOutput: true,
+              reasoning: true,
+              reasoningOptions: [{ type: 'effort', values: ['low', 'high'] }],
+            },
             { id: 'configured/other', structuredOutput: true },
           ],
         },
@@ -112,6 +125,19 @@ describe('public Mastra registry transport', () => {
       })
     )
   })
+})
+
+it('distinguishes native reasoning controls, known absence, and missing metadata', () => {
+  expect(getNativeModel('configured/listed')).toMatchObject({
+    reasoning: true,
+    reasoningOptions: [{ type: 'effort', values: ['low', 'high'] }],
+  })
+  expect(getNativeModel('configured/no-reasoning')).toMatchObject({
+    reasoning: false,
+    reasoningOptions: [],
+  })
+  expect(getNativeModel('configured/unknown').reasoning).toBeUndefined()
+  expect(getNativeModel('configured/unknown').reasoningOptions).toBeUndefined()
 })
 
 it('projects only native embedding metadata and exact current provider membership', async () => {

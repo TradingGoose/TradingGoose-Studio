@@ -22,15 +22,49 @@ const MODEL_SETTINGS = z
     frequencyPenalty: numericSetting(),
     stopSequences: z.array(z.string()).optional(),
     seed: numericSetting(z.number().int()),
-    reasoning: z
-      .enum(['provider-default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
-      .optional(),
   })
   .strict()
 
 export function trustedModelSettings(value?: unknown): AgentExecutionOptions['modelSettings'] {
   const settings = MODEL_SETTINGS.parse(value === undefined ? {} : value)
   return Object.fromEntries(Object.entries(settings).filter(([, setting]) => setting !== undefined))
+}
+
+const executionControl =
+  /(?:mcp|tools?|functions?|skills?|search|container|websocket|transport|credentials?|headers?|api_?key|authorization|url|endpoint|body|fallback|routing|retries|service_?tier)/i
+const requestControl = /^(?:models?|messages?|prompts?|systemPrompt|instructions?|input|stream)$/i
+
+/** Native namespaced JSON; provider adapters own their supported generation fields. */
+export const providerOptionsSchema = z
+  .record(z.string().min(1), z.record(z.string(), z.json()))
+  .superRefine((options, context) => {
+    const check = (value: unknown, path: string[]) => {
+      if (!value || typeof value !== 'object') return
+      for (const [key, nested] of Object.entries(value)) {
+        const next = [...path, key]
+        if (executionControl.test(key) || (path.length === 1 && requestControl.test(key)))
+          context.addIssue({
+            code: 'custom',
+            path: next,
+            message: 'Connections and tool execution are controlled by Studio',
+          })
+        check(nested, next)
+      }
+    }
+    for (const [namespace, controls] of Object.entries(options)) check(controls, [namespace])
+  })
+
+/** Preserve native option names and values; the selected SDK validates their provider format. */
+export function parseProviderOptions(value?: unknown) {
+  return providerOptionsSchema.parse(
+    typeof value === 'string'
+      ? value.trim()
+        ? JSON.parse(value)
+        : {}
+      : value === undefined
+        ? {}
+        : value
+  )
 }
 
 /** Mastra reserves these root arguments for resuming tools. */

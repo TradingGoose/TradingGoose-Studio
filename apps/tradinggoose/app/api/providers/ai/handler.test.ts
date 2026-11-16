@@ -96,6 +96,7 @@ describe('native AI HTTP handler', () => {
         modelSettings: { maxOutputTokens: 51 },
       },
       requestId: 'anthropic',
+      authUserId: 'actor',
     })
     expect(native.configurations[0].model).toEqual({
       id: 'anthropic/claude-sonnet-4-5',
@@ -121,6 +122,7 @@ describe('native AI HTTP handler', () => {
         model: 'openai/gpt-4.1',
       },
       requestId: 'public-result',
+      authUserId: 'actor',
     })
     expect(await response.json()).toEqual({
       content: result.text,
@@ -157,6 +159,7 @@ describe('native AI HTTP handler', () => {
       handleAIProviderRequest({
         body: { model: 'openai/gpt-4.1' },
         requestId: 'failed-generation',
+        authUserId: 'actor',
       })
     ).rejects.toMatchObject({
       message: 'Native failure',

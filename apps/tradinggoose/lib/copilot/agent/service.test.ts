@@ -1741,6 +1741,7 @@ describe('Copilot background execution and native history', () => {
   it('recovers the original preview after restart and applies a decision once', async () => {
     const originalCredential = 'first-synthetic-credential'
     const rotatedCredential = 'replacement-synthetic-credential'
+    const providerOptions = { openai: { reasoningEffort: 'high' } }
     m.resolve.mockImplementation(async (model: string) => ({
       model,
       apiKey: originalCredential,
@@ -1765,11 +1766,13 @@ describe('Copilot background execution and native history', () => {
         await message({
           accessLevel: 'limited',
           model: 'openai/gpt-4.1',
+          providerOptions,
           input: { content: 'Rename the workflow', contexts: [context] },
         })
       ).result
     )
     expect(initial.pending[0].stage).toBe('approval')
+    expect(m.contacts[0]).toMatchObject({ providerOptions })
     expect(m.route).not.toHaveBeenCalled()
     const workflows = (await m.storage.getStore('workflows'))!
     expect(JSON.stringify(m.model).includes(originalCredential)).toBe(true)
@@ -1787,6 +1790,7 @@ describe('Copilot background execution and native history', () => {
       scope,
       model: 'openai/gpt-4.1',
       accessLevel: 'limited',
+      providerOptions,
     })
     await expect(
       readCopilotRun({ ...scope, actorUserId: 'foreign' }, initial.threadId, initial.runId)
@@ -1849,6 +1853,7 @@ describe('Copilot background execution and native history', () => {
     })
     expect(m.route).toHaveBeenCalledTimes(2)
     expectWorkspaceScope(m.contacts[1], scope.workspaceId)
+    expect(m.contacts[1]).toMatchObject({ providerOptions })
     expect(JSON.stringify(m.contacts[1])).toContain(privateContext)
     expect(m.route).toHaveBeenLastCalledWith(
       'rename_workflow',

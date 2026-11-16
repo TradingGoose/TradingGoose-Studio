@@ -22335,6 +22335,19 @@
         "searchPlaceholder": "Buscar listados..."
       },
       "copilot": {
+        "reasoning": {
+          "label": "Pensamiento / Razonamiento",
+          "description": "Introduce las opciones nativas del proveedor para el modelo seleccionado.",
+          "providerOptions": "Opciones del proveedor (JSON)",
+          "effort": "Niveles de esfuerzo publicados",
+          "budget": "Presupuesto de tokens de pensamiento",
+          "minimum": "mínimo",
+          "maximum": "máximo",
+          "toggle": "Control de pensamiento activado/desactivado",
+          "unsupported": "Este modelo no publica controles de razonamiento.",
+          "invalid": "Introduce un objeto JSON válido con opciones del proveedor.",
+          "apply": "Aplicar"
+        },
         "models": {
           "loading": "Cargando modelos…",
           "unconfigured": "Copilot no está configurado",

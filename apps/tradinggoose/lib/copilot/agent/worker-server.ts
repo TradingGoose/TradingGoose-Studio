@@ -102,6 +102,7 @@ async function runForJob(job: CopilotJob): Promise<CopilotRun> {
         threadId: job.threadId,
         scope,
         model: job.request.model,
+        providerOptions: job.request.providerOptions,
         accessLevel: job.request.accessLevel ?? 'limited',
         toolContext: job.request.toolContext,
         toolContexts: job.toolContexts,

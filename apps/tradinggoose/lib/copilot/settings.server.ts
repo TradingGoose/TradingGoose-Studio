@@ -1,7 +1,7 @@
 import { providers } from '@opencode-ai/models/snapshot'
 import { resolveConfiguredModel } from '@/lib/mastra/connections'
 import { getModelProviders } from '@/lib/mastra/providers'
-import { isLanguageModel } from '@/lib/mastra/registry'
+import { getNativeModel, isLanguageModel } from '@/lib/mastra/registry'
 import { getCopilotSettings } from '@/lib/system-settings/service'
 import { NativeTargetError } from './native/errors'
 import { type CopilotModelOption, getCopilotModelId } from './settings'
@@ -46,11 +46,14 @@ export async function getPublicCopilotModels(): Promise<{
     )
     .map((row) => {
       const id = getCopilotModelId(row)
+      const { reasoning, reasoningOptions } = getNativeModel(id)
       return {
         id,
         label:
           providers[row.provider]?.models?.[row.model]?.canonical_model_id ??
           (row.model.includes('/') ? row.model : id),
+        reasoning,
+        reasoningOptions,
       }
     })
   return { models }

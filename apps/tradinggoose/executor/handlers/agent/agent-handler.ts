@@ -126,6 +126,7 @@ export class AgentBlockHandler implements BlockHandler {
         apiKey: inputs.apiKey,
         maxSteps,
         modelSettings: { temperature: inputs.temperature, maxOutputTokens: inputs.maxTokens },
+        providerOptions: inputs.providerOptions,
       }
     )
     const agent = new Agent({

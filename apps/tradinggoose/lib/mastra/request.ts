@@ -30,6 +30,7 @@ export async function prepareModelRequest(
     apiKey?: string
     maxSteps?: number
     modelSettings?: unknown
+    providerOptions?: unknown
   } = {}
 ) {
   if (!scope.actorUserId) throw new Error('An authenticated model actor is required')
