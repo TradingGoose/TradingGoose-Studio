@@ -2,6 +2,8 @@ export * as ChatFiles from '@/lib/uploads/contexts/chat'
 export * as WorkspaceFiles from '@/lib/uploads/contexts/workspace'
 export { getStorageConfig, type StorageContext } from '@/lib/uploads/core/config-resolver'
 export {
+  getStorageProvider,
+  isUsingCloudStorage,
   UPLOAD_DIR,
   USE_AZURE_STORAGE,
   USE_LOCAL_STORAGE,
@@ -9,10 +11,7 @@ export {
   USE_VERCEL_STORAGE,
 } from '@/lib/uploads/core/setup'
 export {
-  type CustomStorageConfig,
   type FileInfo,
   getServePathPrefix,
-  getStorageProvider,
-  isUsingCloudStorage,
 } from '@/lib/uploads/core/storage-client'
 export * as StorageService from '@/lib/uploads/core/storage-service'

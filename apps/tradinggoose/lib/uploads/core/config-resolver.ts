@@ -157,29 +157,3 @@ function getVercelConfig(_context: StorageContext): StorageConfig {
     access: VERCEL_BLOB_CONFIG.access,
   }
 }
-
-/**
- * Check if a specific storage context is configured
- * Returns false if the context would fall back to general config but general isn't configured
- */
-export function isStorageContextConfigured(context: StorageContext): boolean {
-  const config = getStorageConfig(context)
-
-  if (USE_AZURE_STORAGE) {
-    return !!(
-      config.containerName &&
-      (config.connectionString || (config.accountName && config.accountKey))
-    )
-  }
-
-  if (USE_S3_STORAGE) {
-    return !!(config.bucket && config.region)
-  }
-
-  if (USE_VERCEL_STORAGE) {
-    return !!config.token
-  }
-
-  // Local storage is always available
-  return true
-}
