@@ -3,16 +3,19 @@ import { compileIndicator } from '@/lib/indicators/custom/compile'
 import type { BarMs } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 
-const runWithExecutionTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
-  Promise.race([
-    promise,
-    new Promise<T>((_resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        clearTimeout(timeoutId)
-        reject(new Error('Execution timed out'))
-      }, timeoutMs)
-    }),
-  ])
+const runWithExecutionTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_resolve, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Execution timed out')), timeoutMs)
+      }),
+    ])
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
 
 export const executeCompiledIndicator = async ({
   pineCode,

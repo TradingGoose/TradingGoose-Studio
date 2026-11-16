@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import { LOGS_QUERY_POLICY } from '@/lib/logs/query-policy'
 import type { FolderData, WorkflowData } from '@/lib/logs/search-suggestions'
 import {
@@ -50,7 +51,6 @@ import {
   useOrdersList,
 } from '@/hooks/queries/records-orders'
 import { useDebounce } from '@/hooks/use-debounce'
-import type { ChatContext } from '@/stores/copilot/types'
 import { useFolderStore } from '@/stores/folders/store'
 import { useFilterStore } from '@/stores/logs/filters/store'
 import type { WorkflowLog } from '@/stores/logs/filters/types'

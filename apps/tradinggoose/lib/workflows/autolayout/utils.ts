@@ -1,4 +1,3 @@
-import { TriggerUtils } from '@/lib/workflows/triggers'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import type { BlockMetrics, BoundingBox, GraphNode } from './types'
 
@@ -12,8 +11,6 @@ const DEFAULT_PADDING = 40
 export const CONTAINER_PADDING = 150
 export const CONTAINER_PADDING_X = 180
 export const CONTAINER_PADDING_Y = 100
-export const ROOT_PADDING_X = 150
-export const ROOT_PADDING_Y = 150
 
 function resolveNumeric(value: number | undefined, defaultValue: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : defaultValue
@@ -125,8 +122,4 @@ export function getBlocksByParent(blocks: Record<string, BlockState>): {
   }
 
   return { root, children }
-}
-
-export function isTriggerEntryBlock(block: BlockState): boolean {
-  return TriggerUtils.isTriggerBlock({ type: block.type, triggerMode: block.triggerMode })
 }

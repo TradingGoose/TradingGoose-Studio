@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { calculateNativeCost, resultAccounting, sumNativeCosts, sumNativeUsage } from './usage'
+import { calculateNativeCost } from './pricing'
+import { resultAccounting, sumNativeCosts, sumNativeUsage } from './usage'
 
 const catalogue = vi.hoisted(() => ({ pricing: vi.fn() }))
 vi.mock('@opencode-ai/models/snapshot', () => {

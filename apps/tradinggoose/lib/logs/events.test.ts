@@ -56,11 +56,7 @@ vi.mock('uuid', () => ({
   v4: vi.fn(() => 'delivery-1'),
 }))
 
-vi.mock('@/background/logs-webhook-delivery', () => ({
-  logsWebhookDelivery: {
-    trigger: mockTrigger,
-  },
-}))
+vi.mock('@trigger.dev/sdk', () => ({ tasks: { trigger: mockTrigger } }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
@@ -129,7 +125,7 @@ describe('emitWorkflowExecutionCompleted', () => {
         workspaceId: 'workspace-1',
       })
     )
-    expect(mockTrigger).toHaveBeenCalledWith({ deliveryId: 'delivery-1' })
-    expect(Object.keys(mockTrigger.mock.calls[0][0])).toEqual(['deliveryId'])
+    expect(mockTrigger).toHaveBeenCalledWith('logs-webhook-delivery', { deliveryId: 'delivery-1' })
+    expect(Object.keys(mockTrigger.mock.calls[0][1])).toEqual(['deliveryId'])
   })
 })

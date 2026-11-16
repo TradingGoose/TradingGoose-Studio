@@ -1,3 +1,4 @@
+import { DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT } from '@/lib/copilot/document-formats'
 import { CopilotTool } from '@/lib/copilot/registry'
 import {
   type BaseServerTool,
@@ -14,11 +15,7 @@ import { serializeDashboardLayoutForCopilot } from '@/lib/dashboard-layouts/read
 import { buildDashboardLayoutReviewBase } from '@/lib/dashboard-layouts/review-base'
 import { readBootstrappedDashboardLayoutProjection } from '@/lib/yjs/server/bootstrap-review-target'
 import { applyDashboardLayoutEditInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
-import {
-  applyDashboardLayoutEditPlan,
-  applyLayoutEditDocument,
-  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
-} from '@/widgets/layout-document'
+import { applyDashboardLayoutEditPlan, applyLayoutEditDocument } from '@/widgets/layout-document'
 
 type EditLayoutArgs = {
   entityId: string

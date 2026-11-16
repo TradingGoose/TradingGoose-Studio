@@ -203,6 +203,42 @@ describe('Knowledge Utils', () => {
   describe('processDocumentAsync', () => {
     beforeEach(() => mockGetUserEntityPermissions.mockResolvedValue('write'))
     afterEach(() => mockGetUserEntityPermissions.mockReset())
+    it('does not insert completed embeddings after native cancellation', async () => {
+      kbRows.push({ id: 'kb1', workspaceId: 'workspace-1', embeddingModel: 'kb-embedding-model' })
+      docRows.push({ id: 'doc1', deletedAt: null, processingStatus: 'processing' })
+      const controller = new AbortController()
+      const { generateEmbeddings } = await import('@/lib/embeddings/utils')
+      const generate = vi.mocked(generateEmbeddings).getMockImplementation()!
+      vi.mocked(generateEmbeddings).mockImplementationOnce(async (...args) => {
+        const result = await generate(...args)
+        controller.abort(new Error('Native task cancelled'))
+        return result
+      })
+      await expect(
+        processDocumentAsync(
+          'kb1',
+          'doc1',
+          {
+            filename: 'file.txt',
+            fileUrl: 'https://example.com/file.txt',
+            fileSize: 10,
+            mimeType: 'text/plain',
+          },
+          { chunkSize: 512, minCharactersPerChunk: 1, chunkOverlap: 200 },
+          {
+            actorUserId: 'actor-1',
+            workspaceId: 'workspace-1',
+            signal: controller.signal,
+          }
+        )
+      ).rejects.toThrow('Native task cancelled')
+      expect(dbOps.insertRecords).toEqual([])
+      expect(dbOps.updatePayloads.map((value) => value.processingStatus)).toEqual([
+        'processing',
+        'failed',
+      ])
+    })
+
     it('resets persisted embeddings before processing native batches', async () => {
       kbRows.push({ id: 'kb1', workspaceId: 'workspace-1', embeddingModel: 'kb-embedding-model' })
       docRows.push({ id: 'doc1', deletedAt: null })
@@ -231,7 +267,8 @@ describe('Knowledge Utils', () => {
         'actor-1',
         512,
         200,
-        1
+        1,
+        undefined
       )
       expect(dbOps.order).toEqual(['deleteEmbeddings', 'update', 'insert', 'update'])
 

@@ -120,7 +120,7 @@ describe('admin system services', () => {
       const service = snapshot.services.find((candidate) => candidate.id === id)
       expect(service?.credentials).toContainEqual(
         expect.objectContaining({
-          key: getSystemServiceDefinition(id)!.credentialFields[0].key,
+          key: (await getSystemServiceDefinition(id))!.credentialFields[0].key,
           value: '',
           hasValue: id === 'openrouter',
         })

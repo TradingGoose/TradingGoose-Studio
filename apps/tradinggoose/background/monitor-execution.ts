@@ -1,27 +1,27 @@
 import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
-import {
-  executeIndicatorMonitorJob,
-  type IndicatorMonitorExecutionPayload,
-  isIndicatorMonitorExecutionPayload,
-} from './indicator-monitor-execution'
-import {
-  executePortfolioMonitorJob,
-  isPortfolioMonitorExecutionPayload,
-  type PortfolioMonitorExecutionPayload,
-} from './portfolio-monitor-execution'
+import type { IndicatorMonitorExecutionPayload } from './indicator-monitor-execution'
+import type { PortfolioMonitorExecutionPayload } from './portfolio-monitor-execution'
 
 export type MonitorExecutionPayload =
   | IndicatorMonitorExecutionPayload
   | PortfolioMonitorExecutionPayload
 
-export function isMonitorExecutionPayload(value: unknown): value is MonitorExecutionPayload {
-  return isIndicatorMonitorExecutionPayload(value) || isPortfolioMonitorExecutionPayload(value)
-}
-
 export async function executeMonitorJob(
-  payload: MonitorExecutionPayload & { executionId: string }
+  payload: Record<string, unknown> & { executionId: string },
+  signal?: AbortSignal
 ) {
-  return payload.source === INDICATOR_MONITOR_PROVIDER
-    ? executeIndicatorMonitorJob(payload)
-    : executePortfolioMonitorJob(payload)
+  if (payload.source === INDICATOR_MONITOR_PROVIDER) {
+    const { executeIndicatorMonitorJob, isIndicatorMonitorExecutionPayload } = await import(
+      './indicator-monitor-execution'
+    )
+    if (!isIndicatorMonitorExecutionPayload(payload))
+      throw new Error('Invalid monitor pending payload')
+    return executeIndicatorMonitorJob(payload, signal)
+  }
+  const { executePortfolioMonitorJob, isPortfolioMonitorExecutionPayload } = await import(
+    './portfolio-monitor-execution'
+  )
+  if (!isPortfolioMonitorExecutionPayload(payload))
+    throw new Error('Invalid monitor pending payload')
+  return executePortfolioMonitorJob(payload, signal)
 }

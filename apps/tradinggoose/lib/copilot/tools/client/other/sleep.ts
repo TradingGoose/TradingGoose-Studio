@@ -62,39 +62,37 @@ export class SleepClientTool extends BaseClientTool {
   async execute({ seconds }: SleepArgs): Promise<void> {
     const logger = createLogger('SleepClientTool')
 
-    await this.executeWithTimeout(async () => {
-      logger.debug('Starting sleep', { seconds })
+    logger.debug('Starting sleep', { seconds })
 
-      this.setState(ClientToolCallState.executing)
+    this.setState(ClientToolCallState.executing)
 
-      try {
-        // Sleep for the specified duration
-        const signal = this.getAbortSignal()
-        signal?.throwIfAborted()
-        await new Promise<void>((resolve, reject) => {
-          const onAbort = () => {
-            clearTimeout(timer)
-            reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'))
-          }
-          const timer = setTimeout(() => {
-            signal?.removeEventListener('abort', onAbort)
-            resolve()
-          }, seconds * 1000)
-          signal?.addEventListener('abort', onAbort, { once: true })
-        })
-        signal?.throwIfAborted()
+    try {
+      // Sleep for the specified duration
+      const signal = this.getAbortSignal()
+      signal?.throwIfAborted()
+      await new Promise<void>((resolve, reject) => {
+        const onAbort = () => {
+          clearTimeout(timer)
+          reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'))
+        }
+        const timer = setTimeout(() => {
+          signal?.removeEventListener('abort', onAbort)
+          resolve()
+        }, seconds * 1000)
+        signal?.addEventListener('abort', onAbort, { once: true })
+      })
+      signal?.throwIfAborted()
 
-        logger.debug('Sleep completed successfully')
-        this.setState(ClientToolCallState.success)
-        await this.completeBrowserAssertion({
-          kind: 'timer.completed',
-          data: { success: true, seconds, message: `Slept for ${seconds} seconds` },
-        })
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        logger.error('Sleep failed', { error: message })
-        this.fail(message)
-      }
-    }, 210_000)
+      logger.debug('Sleep completed successfully')
+      this.setState(ClientToolCallState.success)
+      await this.completeBrowserAssertion({
+        kind: 'timer.completed',
+        data: { success: true, seconds, message: `Slept for ${seconds} seconds` },
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      logger.error('Sleep failed', { error: message })
+      this.fail(message)
+    }
   }
 }

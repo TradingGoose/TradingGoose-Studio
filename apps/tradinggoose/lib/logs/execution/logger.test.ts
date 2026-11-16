@@ -198,7 +198,9 @@ vi.mock('@/lib/billing/threshold-billing', () => ({
 }))
 vi.mock('@/lib/logs/events', () => ({ emitWorkflowExecutionCompleted: state.emit }))
 vi.mock('@/lib/logs/execution/snapshot/service', () => ({ snapshotService: {} }))
-vi.mock('@/lib/auth/internal', () => ({ generateInternalToken: async () => 'internal-fixture' }))
+vi.mock('@/lib/auth/internal-token', () => ({
+  generateInternalToken: async () => 'internal-fixture',
+}))
 
 const span = (cost = 2, tokens = 150) => ({
   id: 'agent',

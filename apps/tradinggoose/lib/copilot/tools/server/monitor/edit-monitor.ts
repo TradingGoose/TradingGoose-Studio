@@ -1,5 +1,5 @@
+import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/document-formats'
 import {
-  MONITOR_DOCUMENT_FORMAT,
   parseMonitorDocument,
   readMonitorDocumentName,
   serializeMonitorDocument,

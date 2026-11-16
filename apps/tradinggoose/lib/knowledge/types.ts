@@ -43,8 +43,3 @@ export interface CreateTagDefinitionData {
   displayName: string
   fieldType: string
 }
-
-export interface UpdateTagDefinitionData {
-  displayName?: string
-  fieldType?: string
-}

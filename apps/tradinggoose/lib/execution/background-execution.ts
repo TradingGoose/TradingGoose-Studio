@@ -1,24 +1,28 @@
 import { tasks } from '@trigger.dev/sdk'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { BackgroundExecutionJob } from '@/background/execution-job'
-import type { backgroundExecutionTask } from '@/background/pending-execution-worker'
+import type { createBackgroundExecutionTask } from '@/background/execution-job'
+import type { copilotExecutionTask } from '@/background/tasks/copilot-execution'
+import type { PendingExecutionPayload, PendingExecutionType } from './pending-execution'
 
-export const BACKGROUND_EXECUTION_TASK_ID = 'background-execution'
 export type BackgroundExecutionTaskPayload =
-  | { pendingExecutionId: string }
-  | (BackgroundExecutionJob & { executionType: 'copilot' })
+  | { pendingExecutionId: string; executionType: PendingExecutionType }
+  | { id: string; executionType: 'copilot'; payload: PendingExecutionPayload }
 
+type BackgroundTask = ReturnType<typeof createBackgroundExecutionTask> | typeof copilotExecutionTask
 const logger = createLogger('BackgroundExecution')
-const executionOptions = (id: string, maxDuration?: number) => ({
-  idempotencyKey: `${BACKGROUND_EXECUTION_TASK_ID}:${id}`,
+const executionOptions = (executionType: string, id: string, maxDuration?: number) => ({
+  idempotencyKey: `${executionType}-execution:${id}`,
   ...(maxDuration === undefined ? {} : { maxDuration }),
 })
 
-export function waitForBackgroundExecution(pendingExecutionId: string, maxDuration?: number) {
-  return tasks.triggerAndWait<typeof backgroundExecutionTask>(
-    BACKGROUND_EXECUTION_TASK_ID,
-    { pendingExecutionId },
-    executionOptions(pendingExecutionId, maxDuration)
+export function waitForBackgroundExecution(
+  job: { id: string; executionType: PendingExecutionType },
+  maxDuration?: number
+) {
+  return tasks.triggerAndWait<BackgroundTask>(
+    `${job.executionType}-execution`,
+    { pendingExecutionId: job.id, executionType: job.executionType },
+    executionOptions(job.executionType, job.id, maxDuration)
   )
 }
 
@@ -29,21 +33,39 @@ export async function dispatchBackgroundExecution(
 ): Promise<string | undefined> {
   const id = 'pendingExecutionId' in payload ? payload.pendingExecutionId : payload.id
   if (mode === 'trigger') {
-    const handle = await tasks.trigger<typeof backgroundExecutionTask>(
-      BACKGROUND_EXECUTION_TASK_ID,
+    const handle = await tasks.trigger<BackgroundTask>(
+      `${payload.executionType}-execution`,
       payload,
-      executionOptions(id)
+      executionOptions(payload.executionType, id)
     )
     return handle.id
   }
   const startedAt = Date.now()
-  void import('@/background/pending-execution-worker')
-    .then(async ({ executeBackgroundExecutionRun, finalizeBackgroundExecutionFailure }) => {
+  const execution =
+    payload.executionType === 'copilot'
+      ? import('@/lib/copilot/agent/worker').then(
+          ({ executeCopilotJob, finalizeCopilotExecution }) => ({
+            run: () => executeCopilotJob(payload.payload),
+            fail: (error: unknown) =>
+              finalizeCopilotExecution(
+                payload.payload,
+                error instanceof Error ? error.message : 'Copilot execution failed'
+              ),
+          })
+        )
+      : import('@/background/pending-execution-worker').then(
+          ({ executePendingExecutionRun, finalizePendingExecutionRunFailure }) => ({
+            run: () => executePendingExecutionRun(payload),
+            fail: (error: unknown) => finalizePendingExecutionRunFailure(payload, error, startedAt),
+          })
+        )
+  void execution
+    .then(async ({ run, fail }) => {
       try {
-        await executeBackgroundExecutionRun(payload, { triggerRuntime: false })
+        await run()
       } catch (error) {
         logger.error('Local execution failed', { id, error })
-        await finalizeBackgroundExecutionFailure(payload, error, startedAt)
+        await fail(error)
       }
     })
     .catch((error) => logger.error('Local execution cleanup failed', { id, error }))

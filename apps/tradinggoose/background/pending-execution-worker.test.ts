@@ -7,7 +7,6 @@ import type { PendingExecutionClaim } from '@/lib/execution/pending-execution'
 const mocks = vi.hoisted(() => ({
   cancelPendingWorkflowExecution: vi.fn(),
   executeBackgroundExecution: vi.fn(),
-  finalizeCopilotJob: vi.fn(),
   markDocumentProcessingJobFailed: vi.fn(),
   getProcessingPendingExecution: vi.fn(),
   isWorkflowPendingExecution: vi.fn(),
@@ -29,10 +28,9 @@ const mocks = vi.hoisted(() => ({
   readWorkflowCheckpointChildren: vi.fn(),
   readWorkflowCheckpointSnapshot: vi.fn(),
   recoverWorkflowCheckpointSegment: vi.fn(),
+  reconcileWorkflowCheckpointChildren: vi.fn(),
   settleScheduleOccurrence: vi.fn(),
 }))
-
-vi.mock('@/lib/copilot/agent/service', () => ({ finalizeCopilotJob: mocks.finalizeCopilotJob }))
 
 vi.mock('@trigger.dev/sdk', () => ({
   AbortTaskRunError: class AbortTaskRunError extends Error {
@@ -111,6 +109,7 @@ vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
   readWorkflowCheckpointChildren: mocks.readWorkflowCheckpointChildren,
   readWorkflowCheckpointSnapshot: mocks.readWorkflowCheckpointSnapshot,
   recoverWorkflowCheckpointSegment: mocks.recoverWorkflowCheckpointSegment,
+  reconcileWorkflowCheckpointChildren: mocks.reconcileWorkflowCheckpointChildren,
 }))
 
 vi.mock('./knowledge-processing', () => ({
@@ -126,12 +125,12 @@ vi.mock('./schedule-execution', () => ({
 }))
 
 import {
-  backgroundExecutionTask,
   cancelPendingExecutionDescendants,
+  executePendingExecutionRun,
   finalizePendingExecutionFailure,
-  pendingExecutionTask,
   terminalizeWorkflowExecution,
 } from './pending-execution-worker'
+import { pendingExecutionTask } from './tasks/pending-execution'
 
 const processingRow = (overrides: Partial<PendingExecutionClaim> = {}): PendingExecutionClaim => ({
   id: 'pending-workflow-1',
@@ -184,12 +183,10 @@ function queuedChildScenario(resumed = false) {
   return { parent, child, childExecutionId }
 }
 
-const runExecution = (pendingExecutionId: string) =>
-  (
-    backgroundExecutionTask as unknown as {
-      run: (payload: { pendingExecutionId: string }, options: object) => Promise<unknown>
-    }
-  ).run({ pendingExecutionId }, {})
+const runExecution = (
+  pendingExecutionId: string,
+  executionType: PendingExecutionClaim['executionType'] = 'workflow'
+) => executePendingExecutionRun({ pendingExecutionId, executionType })
 
 const runSupervisor = (pendingExecutionId: string, executionMaxDuration?: number) =>
   (
@@ -228,7 +225,7 @@ describe('pending execution worker', () => {
     mocks.triggerAndWait.mockResolvedValue({
       ok: true,
       id: 'run-background-execution',
-      taskIdentifier: 'background-execution',
+      taskIdentifier: 'workflow-execution',
       output: { success: true, pendingExecutionId: 'pending-workflow-1' },
     })
     mocks.waitFor.mockResolvedValue(undefined)
@@ -236,6 +233,7 @@ describe('pending execution worker', () => {
     mocks.readWorkflowCheckpointChildren.mockResolvedValue([])
     mocks.readWorkflowCheckpointSnapshot.mockResolvedValue(null)
     mocks.recoverWorkflowCheckpointSegment.mockResolvedValue(false)
+    mocks.reconcileWorkflowCheckpointChildren.mockResolvedValue(undefined)
   })
 
   it('executes exactly the claimed row and releases capacity', async () => {
@@ -247,53 +245,54 @@ describe('pending execution worker', () => {
       pendingExecutionId: row.id,
     })
 
-    expect(mocks.executeBackgroundExecution).toHaveBeenCalledWith(row, { triggerRuntime: true })
+    expect(mocks.executeBackgroundExecution).toHaveBeenCalledWith(row, undefined)
+    expect(mocks.reconcileWorkflowCheckpointChildren).toHaveBeenCalledWith(row.id)
+    expect(mocks.reconcileWorkflowCheckpointChildren.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.settlePendingExecutionOwner.mock.invocationCallOrder[0]
+    )
     expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
     expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
   })
 
-  it('runs Copilot without pending rows, capacity settlement, or a task duration override', async () => {
-    const payload = {
-      id: 'copilot-job',
-      executionType: 'copilot',
-      payload: { runId: 'native-run' },
+  it.each(['document', 'monitor'] as const)(
+    'passes cancellation to %s without loading workflow checkpoint state',
+    async (executionType) => {
+      const row = processingRow({ executionType, source: 'monitor:indicator:calculation' })
+      mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+      const signal = new AbortController().signal
+      await executePendingExecutionRun({ pendingExecutionId: row.id, executionType }, signal)
+      expect(mocks.executeBackgroundExecution).toHaveBeenCalledWith(row, signal)
+      expect(mocks.reconcileWorkflowCheckpointChildren).not.toHaveBeenCalled()
+      expect(mocks.recoverWorkflowCheckpointSegment).not.toHaveBeenCalled()
+      expect(mocks.logLimit).not.toHaveBeenCalled()
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
     }
-    const signal = new AbortController().signal
-    const task = backgroundExecutionTask as any
-    await task.run(payload, { signal })
-    expect(task).not.toHaveProperty('maxDuration')
-    expect(task.retry).toEqual({ maxAttempts: 1 })
-    expect(mocks.executeBackgroundExecution).toHaveBeenCalledWith(payload, {
-      triggerRuntime: true,
-      signal,
-    })
-    expect(mocks.getProcessingPendingExecution).not.toHaveBeenCalled()
-    expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
-  })
+  )
 
-  it('finalizes direct task failures and waits for cancellation drainage', async () => {
-    const payload = {
-      id: 'copilot-job',
-      executionType: 'copilot',
-      payload: { runId: 'native-run' },
+  it.each(['workflow', 'webhook', 'schedule', 'monitor'] as const)(
+    'retains the %s owner when resumed workflow checkpoint reconciliation fails',
+    async (executionType) => {
+      const row = processingRow({
+        id: 'original:resume:1',
+        executionType,
+        source: executionType === 'monitor' ? 'monitor:portfolio' : 'human_in_the_loop',
+        payload: { resumeExecutionId: 'original' },
+      })
+      mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+      mocks.reconcileWorkflowCheckpointChildren.mockRejectedValueOnce(new Error('Wake failed'))
+      await expect(runExecution(row.id, executionType)).rejects.toThrow('Wake failed')
+      expect(mocks.reconcileWorkflowCheckpointChildren).toHaveBeenCalledWith('original')
+      expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
     }
-    const task = backgroundExecutionTask as any
-    await task.onFailure({ payload, error: new Error('MAX_DURATION_EXCEEDED') })
-    expect(mocks.finalizeCopilotJob).toHaveBeenCalledWith(payload.payload, 'MAX_DURATION_EXCEEDED')
-    mocks.finalizeCopilotJob.mockClear()
-    let drain!: () => void
-    const runPromise = new Promise<void>((resolve) => {
-      drain = resolve
-    })
-    const cancellation = task.onCancel({ payload, runPromise })
-    expect(mocks.finalizeCopilotJob).not.toHaveBeenCalled()
-    drain()
-    await cancellation
-    expect(mocks.finalizeCopilotJob).toHaveBeenCalledWith(
-      payload.payload,
-      'Copilot execution was cancelled'
+  )
+
+  it('rejects a queued row belonging to another task before execution or settlement', async () => {
+    mocks.getProcessingPendingExecution.mockResolvedValueOnce(
+      processingRow({ executionType: 'document' })
     )
-    expect(mocks.getProcessingPendingExecution).not.toHaveBeenCalled()
+    await expect(runExecution('pending-workflow-1')).rejects.toThrow('Execution task type differs')
+    expect(mocks.executeBackgroundExecution).not.toHaveBeenCalled()
+    expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
   })
 
   it('keeps retrying a post-completion wake without repeating the completed execution', async () => {
@@ -322,7 +321,7 @@ describe('pending execution worker', () => {
       .mockResolvedValueOnce({
         ok: true,
         id: 'run-background-execution',
-        taskIdentifier: 'background-execution',
+        taskIdentifier: 'workflow-execution',
         output: { success: true, pendingExecutionId: row.id },
       })
 
@@ -331,9 +330,9 @@ describe('pending execution worker', () => {
 
     expect(mocks.triggerAndWait.mock.calls[1]).toEqual(mocks.triggerAndWait.mock.calls[0])
     expect(mocks.triggerAndWait).toHaveBeenCalledWith(
-      'background-execution',
-      { pendingExecutionId: row.id },
-      { idempotencyKey: `background-execution:${row.id}` }
+      'workflow-execution',
+      { pendingExecutionId: row.id, executionType: 'workflow' },
+      { idempotencyKey: `workflow-execution:${row.id}` }
     )
     expect(mocks.wakePendingExecution).toHaveBeenCalledOnce()
   })
@@ -368,9 +367,9 @@ describe('pending execution worker', () => {
       maxDuration: 2_147_483_647,
     })
     expect(mocks.triggerAndWait).toHaveBeenCalledWith(
-      'background-execution',
-      { pendingExecutionId: 'pending-workflow-1' },
-      { idempotencyKey: 'background-execution:pending-workflow-1', maxDuration: 45 }
+      'workflow-execution',
+      { pendingExecutionId: 'pending-workflow-1', executionType: 'workflow' },
+      { idempotencyKey: 'workflow-execution:pending-workflow-1', maxDuration: 45 }
     )
   })
 
@@ -387,7 +386,7 @@ describe('pending execution worker', () => {
       mocks.triggerAndWait.mockResolvedValueOnce({
         ok: false,
         id: 'run-background-execution',
-        taskIdentifier: 'background-execution',
+        taskIdentifier: 'workflow-execution',
         error: timeoutError,
       })
 
@@ -439,7 +438,7 @@ describe('pending execution worker', () => {
     mocks.triggerAndWait.mockResolvedValueOnce({
       ok: false,
       id: 'run-background-execution',
-      taskIdentifier: 'background-execution',
+      taskIdentifier: 'workflow-execution',
       error: new Error('Continuation admission failed'),
     })
 
@@ -513,7 +512,7 @@ describe('pending execution worker', () => {
     mocks.getProcessingPendingExecution.mockResolvedValue(row)
     mocks.triggerAndWait.mockImplementation(async () => {
       try {
-        return { ok: true, output: await runExecution(row.id) }
+        return { ok: true, output: await runExecution(row.id, row.executionType) }
       } catch (error) {
         return { ok: false, error }
       }

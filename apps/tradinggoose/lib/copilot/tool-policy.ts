@@ -1,4 +1,23 @@
-import type { ToolId } from './registry'
+import { CopilotTool, isToolId, type ToolId } from './registry'
+
+const WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS = [
+  CopilotTool.search_documentation,
+  CopilotTool.search_listing,
+  CopilotTool.get_available_widgets,
+  CopilotTool.get_widgets_metadata,
+] as const satisfies readonly ToolId[]
+
+type WorkspaceAgnosticServerToolId = (typeof WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS)[number]
+
+const WORKSPACE_AGNOSTIC_SERVER_TOOL_ID_SET: ReadonlySet<ToolId> = new Set(
+  WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS
+)
+
+export function isWorkspaceAgnosticServerTool(
+  toolName: string
+): toolName is WorkspaceAgnosticServerToolId {
+  return isToolId(toolName) && WORKSPACE_AGNOSTIC_SERVER_TOOL_ID_SET.has(toolName)
+}
 
 type ToolPolicy = {
   execution: 'client' | 'server'

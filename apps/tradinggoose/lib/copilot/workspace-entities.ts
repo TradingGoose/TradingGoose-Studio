@@ -1,3 +1,4 @@
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import {
   ENTITY_KIND_CUSTOM_TOOL,
   ENTITY_KIND_DASHBOARD_LAYOUT,
@@ -9,7 +10,6 @@ import {
   ENTITY_KIND_WORKFLOW,
 } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
-import type { ChatContext } from '@/stores/copilot/types'
 
 export const COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS = [
   ENTITY_KIND_WORKFLOW,

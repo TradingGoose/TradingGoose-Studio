@@ -14,7 +14,7 @@ const m = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/copilot/agent/context', () => ({ readCopilotRun: m.run }))
 vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: m.model }))
-vi.mock('@/lib/copilot/agent/state', () => ({
+vi.mock('@/lib/copilot/agent/receipts', () => ({
   assertCopilotRunActive: m.active,
   claimCopilotEffect: m.claim,
 }))

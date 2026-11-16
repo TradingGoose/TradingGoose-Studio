@@ -20,10 +20,6 @@ import {
   WIDGET_KEYS,
 } from '@/widgets/widget-contracts'
 
-export const DASHBOARD_LAYOUT_DOCUMENT_FORMAT = 'tg-dashboard-layout-document-v3' as const
-export const DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT =
-  'tg-dashboard-layout-structure-v3' as const
-
 export type DashboardWidgetDocument = {
   pairColor: PairColor
   params: Record<string, unknown> | null

@@ -190,7 +190,3 @@ export const DEFAULT_INDICATORS_META: DefaultIndicatorMeta[] = DEFAULT_INDICATOR
     name: indicator.name,
   })
 )
-
-export const isDefaultIndicatorId = (id: string) => DEFAULT_INDICATOR_MAP.has(id)
-
-export const getDefaultIndicator = (id: string) => DEFAULT_INDICATOR_MAP.get(id) ?? null

@@ -1,9 +1,9 @@
 'use client'
 
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type { CopilotToolContext } from '@/lib/copilot/native/contract'
 import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { normalizeOptionalString } from '@/lib/utils'
-import type { ChatContext } from './types'
 
 /** Select the primary context for a new turn; the server resolves every tool's context. */
 export function buildTurnProvenanceFromContexts(

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateInternalToken } from '@/lib/auth/internal'
+import { generateInternalToken } from '@/lib/auth/internal-token'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { TraceSpan } from '@/lib/logs/types'
 import { createMockContext } from '@/executor/__test-utils__/executor-mocks'
@@ -8,7 +8,7 @@ import { WorkflowBlockHandler } from '@/executor/handlers/workflow/workflow-hand
 import type { DeferredBlockExecution, ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 
-vi.mock('@/lib/auth/internal', () => ({
+vi.mock('@/lib/auth/internal-token', () => ({
   generateInternalToken: vi.fn().mockResolvedValue('test-token'),
 }))
 

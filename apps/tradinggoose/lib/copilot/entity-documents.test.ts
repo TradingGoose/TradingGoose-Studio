@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
-  parseEntityDocument,
-  serializeEntityDocument,
   WATCHLIST_DOCUMENT_FORMAT,
-} from '@/lib/copilot/entity-documents'
+} from '@/lib/copilot/document-formats'
+import { parseEntityDocument, serializeEntityDocument } from '@/lib/copilot/entity-documents'
 
 const watchlistDocument = {
   settings: { showLogo: true, showTicker: true, showDescription: true },

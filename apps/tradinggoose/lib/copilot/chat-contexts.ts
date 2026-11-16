@@ -1,5 +1,5 @@
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
-import type { ChatContext } from '@/stores/copilot/types'
 import { MAX_COPILOT_CONTEXTS_PER_TURN } from './context-limits'
 
 export const isHiddenCopilotContext = (

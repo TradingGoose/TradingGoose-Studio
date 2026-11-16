@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { WORKFLOW_VARIABLE_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
+import { WORKFLOW_VARIABLE_DOCUMENT_FORMAT } from '@/lib/copilot/document-formats'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import {
   editWorkflowVariableServerTool,
+  listWorkflowsServerTool,
   readWorkflowServerTool,
 } from '@/lib/copilot/tools/server/entities/workflow'
 import { createWorkflowSnapshot, setVariables, setWorkflowState } from '@/lib/yjs/workflow-session'
 
 const mockDbLimit = vi.hoisted(() => vi.fn())
+const mockDbOrderBy = vi.hoisted(() => vi.fn())
 const mockReadBootstrappedReviewTargetSnapshot = vi.hoisted(() => vi.fn())
 const mockVerifyReviewTargetAccess = vi.hoisted(() => vi.fn())
 const mockApplyWorkflowState = vi.hoisted(() => vi.fn())
@@ -20,6 +22,7 @@ vi.mock('@tradinggoose/db', () => ({
       from: vi.fn(() => ({
         where: vi.fn(() => ({
           limit: mockDbLimit,
+          orderBy: mockDbOrderBy,
         })),
       })),
     })),
@@ -56,11 +59,12 @@ function workflowSnapshotBase64(
   return encoded
 }
 
-describe('workflow variable server tools', () => {
+describe('workflow server tools', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.unstubAllGlobals()
     mockDbLimit.mockReset()
+    mockDbOrderBy.mockReset()
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
     mockVerifyReviewTargetAccess.mockReset()
     mockApplyWorkflowState.mockReset()
@@ -87,6 +91,33 @@ describe('workflow variable server tools', () => {
         },
       }),
     })
+  })
+
+  it('lists canonical workflow rows without fetching or mutating workflow documents', async () => {
+    mockDbLimit.mockResolvedValueOnce([{ id: 'workspace-1', ownerId: 'user-1' }])
+    mockDbOrderBy.mockResolvedValueOnce([
+      { id: 'wf-1', name: 'Strategy Workflow', description: 'Analyze prices', folderId: null },
+    ])
+
+    const result = await listWorkflowsServerTool.execute(
+      { workspaceId: 'workspace-1' },
+      { userId: 'user-1' }
+    )
+
+    expect(ToolResultSchemas.list_workflows.parse(result)).toEqual({
+      entityKind: 'workflow',
+      entities: [
+        {
+          entityId: 'wf-1',
+          entityName: 'Strategy Workflow',
+          entityDescription: 'Analyze prices',
+        },
+      ],
+      count: 1,
+    })
+    expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
+    expect(mockApplyWorkflowState).not.toHaveBeenCalled()
+    expect(mockApplyWorkflowPatchInSocketServer).not.toHaveBeenCalled()
   })
 
   it('returns workflow variables through read_workflow', async () => {

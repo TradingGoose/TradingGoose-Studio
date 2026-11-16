@@ -7,8 +7,6 @@ import {
 import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import { getPortfolioAccountLabel } from '@/providers/trading/portfolio-identity'
 
-export const MONITOR_DOCUMENT_FORMAT = 'tg-monitor-document-v1' as const
-
 const RequiredStringSchema = z.string().trim().min(1)
 
 const IndicatorMonitorDocumentSchema = z

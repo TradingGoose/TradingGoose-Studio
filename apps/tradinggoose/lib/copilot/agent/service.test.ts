@@ -22,19 +22,18 @@ import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity, nativeToolCallId } from '@/lib/copilot/native/identity'
 import { assertAcceptedServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import { readSseData } from '@/lib/events/stream'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import type { BackgroundExecutionTaskPayload } from '@/lib/execution/background-execution'
+import { resolveConfiguredModel } from '@/lib/mastra/connections'
 import * as runtime from '@/lib/mastra/runtime'
 import type { NativeUsage } from '@/lib/mastra/usage'
-import type { BackgroundExecutionJob } from '@/background/execution-job'
 import { createCopilotAgent } from './agent'
 import { readCopilotRun } from './context'
-import { executeCopilotCommand, executeCopilotJob, finalizeCopilotJob } from './service'
-import {
-  claimCopilotThread,
-  isCopilotRunCancelled,
-  readCopilotThreadOwnership,
-  readCopilotThreadRun,
-} from './state'
+import { claimCopilotThread, readCopilotThreadOwnership } from './ownership'
+import { cancelCopilotRun, isCopilotRunCancelled } from './receipts'
+import { executeCopilotCommand, finalizeCopilotJob } from './service'
+import { readCopilotThreadRun } from './state'
+import { executeCopilotJob } from './worker'
+import { handleCopilotWorkerOperation } from './worker-server'
 
 const m = vi.hoisted(() => ({
   storage: undefined as unknown as MastraCompositeStore,
@@ -56,7 +55,7 @@ const m = vi.hoisted(() => ({
   dispatch: vi.fn(),
   triggerState: vi.fn(),
   retrieveRun: vi.fn(),
-  jobs: new Map<string, BackgroundExecutionJob>(),
+  jobs: new Map<string, Extract<BackgroundExecutionTaskPayload, { executionType: 'copilot' }>>(),
   executions: new Map<string, Promise<void>>(),
   startJobs: true,
   receipts: new Map<string, { id: string; identifier: string; value: string }>(),
@@ -86,10 +85,46 @@ vi.mock('@/lib/mastra/runtime', () => ({
     }
   ),
 }))
+vi.mock('@/lib/copilot/agent/worker-client', () => ({
+  createCopilotWorkerClient: (job: any) => {
+    let model: string | undefined
+    const identity = {
+      actorUserId: job.actorUserId,
+      workspaceId: job.request.workspaceId,
+      threadId: job.threadId,
+      runId: job.runId,
+      jobId: job.jobId,
+    }
+    return {
+      call: async (operation: string, input: unknown, signal?: AbortSignal) => {
+        const { handleCopilotWorkerOperation } = await import('./worker-server')
+        const result = await handleCopilotWorkerOperation(
+          operation === 'prepare' || operation === 'finalize' ? job : { ...identity, model },
+          operation as any,
+          input as any,
+          signal
+        )
+        if (operation === 'prepare') model = (result as any).run.model
+        return result
+      },
+    }
+  },
+}))
+vi.mock('@mastra/core/llm', async (original) => ({
+  ...(await original<object>()),
+  ModelRouterLanguageModel: class {
+    constructor(config: unknown) {
+      // biome-ignore lint/correctness/noConstructorReturn: Return the real Mastra SDK test model.
+      return Object.assign(m.model, { config })
+    }
+  },
+}))
 vi.mock('@/lib/mastra/connections', () => ({
-  createConfiguredLanguageModel: vi.fn((_model: string, apiKey?: string) =>
-    Object.assign(m.model, { config: { apiKey } })
-  ),
+  resolveConfiguredModel: vi.fn(async (_model: string, apiKey?: string) => ({
+    providerId: 'configured',
+    modelId: 'model',
+    apiKey,
+  })),
 }))
 vi.mock('@/lib/execution/background-execution', () => ({
   dispatchBackgroundExecution: (...args: unknown[]) => m.dispatch(...args),
@@ -122,7 +157,6 @@ vi.mock('@/lib/copilot/tools/server/workflow/check-deployment-status', () => ({
 }))
 vi.mock('@/lib/copilot/tools/server/router', () => ({
   routeExecution: (...args: unknown[]) => m.route(...args),
-  isWorkspaceAgnosticServerTool: () => false,
 }))
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -599,6 +633,49 @@ describe('Copilot background execution and native history', () => {
     }
   )
 
+  it('settles contacted usage after cancellation and a successor without admitting more work', async () => {
+    setModel({ text: 'Completed answer' })
+    const initial = (await message()).result
+    if (initial.status !== 'success') throw new Error(JSON.stringify(initial))
+    const thread = (await m.memory.getThreadById({ threadId: initial.threadId }))!
+    const job = thread.metadata!.copilotJob as { id: string }
+    const identity = {
+      ...scope,
+      threadId: initial.threadId,
+      runId: initial.runId,
+      jobId: job.id,
+      model: 'configured/model',
+    }
+    await cancelCopilotRun({ scope, threadId: initial.threadId, runId: initial.runId })
+    await (await m.storage.getStore('memory'))!.updateThread({
+      id: initial.threadId,
+      metadata: {
+        ...thread.metadata,
+        copilotJob: { id: 'successor', runId: 'successor', status: 'success' },
+      },
+    })
+    const fence = { runId: 'expired-owner', ownerId: initial.runId, generation: 1 }
+    const count = m.accept.mock.calls.length
+    await handleCopilotWorkerOperation(identity, 'usage.record', {
+      attemptId: `${initial.runId}:delayed-attempt:0:0`,
+      usage: { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
+    })
+    expect(m.accept).toHaveBeenCalledTimes(count + 1)
+    expect(m.accept).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        runId: initial.runId,
+        actorUserId: scope.actorUserId,
+        workspaceId: scope.workspaceId,
+      }),
+      { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
+      expect.any(Object),
+      `${initial.runId}:delayed-attempt:0:0`
+    )
+    await expect(
+      handleCopilotWorkerOperation(identity, 'usage.allow', { fence })
+    ).rejects.toMatchObject({ status: 409 })
+  })
+
   it.each(['new', 'edit'])(
     'retains the accepted %s input when worker credentials disappear before native streaming',
     async (kind) => {
@@ -638,6 +715,10 @@ describe('Copilot background execution and native history', () => {
       expect(accepted.status).toBe('accepted')
       const thread = await m.memory.getThreadById({ threadId: accepted.threadId })
       const job = thread!.metadata!.copilotJob as { id: string }
+      const queued = m.jobs.get(job.id)!.payload
+      expect(queued).toMatchObject({ messageId: accepted.messageId })
+      expect(queued.request).not.toHaveProperty('input')
+      expect(JSON.stringify(queued)).not.toContain(image.image)
       const expectedInput = {
         id: accepted.messageId,
         role: 'user',
@@ -705,7 +786,10 @@ describe('Copilot background execution and native history', () => {
           workspaceId: scope.workspaceId,
           threadId,
           model: 'configured/model',
-          input: { content: 'Stop before acceptance' },
+          input: {
+            content: 'Stop before acceptance',
+            contexts: [{ kind: 'docs', label: 'Docs' }],
+          },
         },
         scope.actorUserId,
         request.signal
@@ -1017,7 +1101,7 @@ describe('Copilot background execution and native history', () => {
       expect(m.contacts).toHaveLength(0)
       expect(await threadClaims()).toHaveLength(0)
       expect(m.admit).not.toHaveBeenCalled()
-      expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
+      expect(resolveConfiguredModel).not.toHaveBeenCalled()
     }
   )
   it('retains the next prompt but refuses inference after key removal even when the Agent is warm', async () => {
@@ -1030,7 +1114,7 @@ describe('Copilot background execution and native history', () => {
     if (history.status !== 'history') throw new Error(JSON.stringify(history))
     const admissions = m.admit.mock.calls.length
     const charges = m.accept.mock.calls.length
-    const models = vi.mocked(createConfiguredLanguageModel).mock.calls.length
+    const models = vi.mocked(resolveConfiguredModel).mock.calls.length
     m.resolve.mockRejectedValue(new NativeTargetError('The Copilot API key is not configured', 409))
 
     expect((await message({ threadId: initial.threadId })).result).toMatchObject({
@@ -1040,7 +1124,7 @@ describe('Copilot background execution and native history', () => {
     expect(m.agent).toBe(agent)
     expect(m.resolve).toHaveBeenCalledTimes(2)
     expect(m.contacts).toHaveLength(1)
-    expect(createConfiguredLanguageModel).toHaveBeenCalledTimes(models)
+    expect(resolveConfiguredModel).toHaveBeenCalledTimes(models)
     expect(m.admit).toHaveBeenCalledTimes(admissions)
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(m.route).not.toHaveBeenCalled()
@@ -1170,10 +1254,7 @@ describe('Copilot background execution and native history', () => {
     expect(m.contacts).toHaveLength(2)
     if (failed) expect(JSON.stringify(m.contacts[1])).toContain('Workflow service unavailable')
     expect(await threadClaims()).toHaveLength(0)
-    expect(createConfiguredLanguageModel).toHaveBeenCalledExactlyOnceWith(
-      'configured/model',
-      'admin-key'
-    )
+    expect(resolveConfiguredModel).toHaveBeenCalledExactlyOnceWith('configured/model', 'admin-key')
     expect(m.fetch).not.toHaveBeenCalled()
     if (result.status !== 'success') throw new Error(JSON.stringify(result))
     const history = (
@@ -1721,10 +1802,7 @@ describe('Copilot background execution and native history', () => {
     const approved = suspended((await command(approval)).result)
     expect((await command(approval)).result).toMatchObject(approved)
     expect(m.resolve).toHaveBeenLastCalledWith('openai/gpt-4.1')
-    expect(createConfiguredLanguageModel).toHaveBeenLastCalledWith(
-      'openai/gpt-4.1',
-      rotatedCredential
-    )
+    expect(resolveConfiguredModel).toHaveBeenLastCalledWith('openai/gpt-4.1', rotatedCredential)
     expect(JSON.stringify(m.model).includes(rotatedCredential)).toBe(true)
     const resumedSnapshot = JSON.stringify(
       await workflows.getWorkflowRunById({ runId: initial.runId })
@@ -2255,7 +2333,7 @@ describe('Copilot background execution and native history', () => {
     const charges = m.accept.mock.calls.length
     const dispatches = m.route.mock.calls.length
     const receipts = m.receipts.size
-    const models = vi.mocked(createConfiguredLanguageModel).mock.calls.length
+    const models = vi.mocked(resolveConfiguredModel).mock.calls.length
     const error = new NativeTargetError(
       status === 409 ? 'The Copilot API key is not configured' : 'Copilot model unavailable',
       status
@@ -2279,7 +2357,7 @@ describe('Copilot background execution and native history', () => {
     expect(m.route).toHaveBeenCalledTimes(dispatches)
     expect(m.receipts.size).toBe(receipts + 1)
     expect(m.contacts).toHaveLength(1)
-    expect(createConfiguredLanguageModel).toHaveBeenCalledTimes(models)
+    expect(resolveConfiguredModel).toHaveBeenCalledTimes(models)
     expect(m.admit).toHaveBeenCalledTimes(admissions)
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(await pending(initial.threadId)).toEqual(initial.pending)

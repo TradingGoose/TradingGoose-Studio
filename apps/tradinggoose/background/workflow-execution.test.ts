@@ -10,7 +10,6 @@ const {
   buildTraceSpansMock,
   createWorkflowExecutionEventWriterMock,
   writeExecutionEventMock,
-  isPendingWorkflowExecutionCancellationRequestedMock,
   disableMonitorMock,
 } = vi.hoisted(() => ({
   runWorkflowExecutionMock: vi.fn(),
@@ -19,17 +18,11 @@ const {
   buildTraceSpansMock: vi.fn(),
   createWorkflowExecutionEventWriterMock: vi.fn(),
   writeExecutionEventMock: vi.fn(),
-  isPendingWorkflowExecutionCancellationRequestedMock: vi.fn(),
   disableMonitorMock: vi.fn(),
 }))
 
 vi.mock('@/lib/execution/workflow-execution-events', () => ({
   createWorkflowExecutionEventWriter: createWorkflowExecutionEventWriterMock,
-}))
-
-vi.mock('@/lib/execution/pending-execution', () => ({
-  isPendingWorkflowExecutionCancellationRequested:
-    isPendingWorkflowExecutionCancellationRequestedMock,
 }))
 
 vi.mock('@/lib/workflows/execution-runner', () => ({
@@ -81,7 +74,6 @@ describe('executeWorkflowJob', () => {
       write: writeExecutionEventMock,
     })
     writeExecutionEventMock.mockResolvedValue(undefined)
-    isPendingWorkflowExecutionCancellationRequestedMock.mockResolvedValue(false)
     claimWorkflowCheckpointMock.mockResolvedValue(null)
     runPreparedWorkflowExecutionMock.mockResolvedValue({
       result: { success: true, output: { resumed: true }, logs: [] },
@@ -104,7 +96,6 @@ describe('executeWorkflowJob', () => {
             pendingExecutionId: 'initial-execution',
             workflowDepth: 0,
             isChildExecution,
-            shouldCancelExecution: expect.any(Function),
             stream: false,
           }),
         })
@@ -197,13 +188,10 @@ describe('executeWorkflowJob', () => {
     )
   })
 
-  it('checks queued cancellation state through the execution id', async () => {
-    await executeWorkflowJob({ ...workflowJob, executionId: 'execution-1' })
-
-    const call = runWorkflowExecutionMock.mock.calls[0]?.[0] as any
-    await call.contextExtensions.shouldCancelExecution()
-
-    expect(isPendingWorkflowExecutionCancellationRequestedMock).toHaveBeenCalledWith('execution-1')
+  it('passes native cancellation into the shared workflow runner', async () => {
+    const signal = new AbortController().signal
+    await executeWorkflowJob(workflowJob, signal)
+    expect(runWorkflowExecutionMock.mock.calls[0][0].signal).toBe(signal)
   })
 
   it('disables monitor workflow sources after permanent dispatch failures', async () => {
@@ -304,9 +292,6 @@ describe('executeWorkflowJob', () => {
       pendingExecutionId: 'original-execution',
       workflowId: 'workflow-1',
     })
-    const params = runPreparedWorkflowExecutionMock.mock.calls[0][0]
-    await params.contextExtensions.shouldCancelExecution()
-    expect(isPendingWorkflowExecutionCancellationRequestedMock).toHaveBeenCalledWith('resume-job-2')
   })
 
   it('does not execute a revision that another job already claimed', async () => {

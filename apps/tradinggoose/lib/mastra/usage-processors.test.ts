@@ -11,6 +11,8 @@ import { Memory } from '@mastra/memory'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { projectNativeMessage } from './messages'
+import { prepareNativeModelRequest } from './native-request'
+import { createModelUsageAccounting } from './request'
 import { assertNativeCompletion } from './result'
 import { usageProcessors } from './usage-processors'
 
@@ -51,7 +53,6 @@ async function generate(
   finishReason: 'stop' | 'content-filter' | 'error' = 'stop',
   reportedUsage = usage
 ) {
-  const accounting = await usageProcessors(scope)
   const model = new MastraLanguageModelV2Mock({
     doGenerate: async () => {
       billing.contact()
@@ -63,18 +64,19 @@ async function generate(
       }
     },
   })
+  const request = await prepareNativeModelRequest(scope, {
+    model,
+    accounting: createModelUsageAccounting(scope),
+    maxSteps: 1,
+  })
   const agent = new Agent({
     id: 'usage-test',
     name: 'Usage test',
     instructions: '',
     model,
-    inputProcessors: accounting.inputProcessors,
-    outputProcessors: accounting.outputProcessors,
   })
-  const [outcome] = await Promise.allSettled([
-    agent.generate('hello', { runId: scope.runId, maxSteps: 1 }),
-  ])
-  return { ...accounting, outcome }
+  const [outcome] = await Promise.allSettled([agent.generate('hello', request.options)])
+  return { ...request.usage, outcome }
 }
 
 it('admits and bills each native attempt once', async () => {
@@ -136,7 +138,10 @@ it('separates provider invocations that reuse the same run label', async () => {
 it.each(['account', 'byok'] as const)(
   'retains native recovered request usage and unknown attempts (%s)',
   async (funding) => {
-    const accounting = await usageProcessors({ ...scope, funding })
+    const accounting = await usageProcessors(
+      { ...scope, funding },
+      createModelUsageAccounting({ ...scope, funding })
+    )
     const storage = new InMemoryStore()
     const memory = new Memory({ storage })
     const threadId = `native-recovery:${funding}`
@@ -234,7 +239,7 @@ it.each(['complete', 'suspend', 'abort'] as const)(
     const storage = new InMemoryStore()
     const memory = new Memory({ storage })
     const abort = new AbortController()
-    const accounting = await usageProcessors(scope)
+    const accounting = await usageProcessors(scope, createModelUsageAccounting(scope))
     const step = vi.fn(accounting.outputProcessors[0].processOutputStep!)
     const execute = vi.fn(async () => ({ success: true }))
     const agent = new Agent({
@@ -313,7 +318,10 @@ it.each(['complete', 'suspend', 'abort'] as const)(
     expect(execute).toHaveBeenCalledTimes(outcome === 'complete' ? 1 : 0)
     if (outcome === 'complete') {
       const runId = `${scope.runId}-next`
-      const next = await usageProcessors({ ...scope, runId })
+      const next = await usageProcessors(
+        { ...scope, runId },
+        createModelUsageAccounting({ ...scope, runId })
+      )
       await (
         await agent.stream('Look up again', {
           ...options,
@@ -341,7 +349,7 @@ it.each([
   'bills and persists native standard usage for $model (BYOK=$isByok)',
   async ({ model, isByok, audio, total }) => {
     const nativeScope = { ...scope, model: `openrouter/${model}` }
-    const accounting = await usageProcessors(nativeScope)
+    const accounting = await usageProcessors(nativeScope, createModelUsageAccounting(nativeScope))
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -405,7 +413,7 @@ it.each(['generate', 'stream'] as const)(
   async (mode) => {
     const failure = new Error('Usage write failed')
     billing.record.mockRejectedValue(failure)
-    const accounting = await usageProcessors(scope)
+    const accounting = await usageProcessors(scope, createModelUsageAccounting(scope))
     const execute = vi.fn(async () => ({ success: true }))
     const agent = new Agent({
       id: 'usage-tool-test',
@@ -456,7 +464,10 @@ it.each(['generate', 'stream'] as const)(
 
     // The same valid tool call runs when its centralized accounting succeeds.
     billing.record.mockImplementation(async (_scope, _usage, cost) => cost)
-    const allowed = await usageProcessors({ ...scope, runId: `${scope.runId}-allowed` })
+    const allowed = await usageProcessors(
+      { ...scope, runId: `${scope.runId}-allowed` },
+      createModelUsageAccounting({ ...scope, runId: `${scope.runId}-allowed` })
+    )
     const allowedOptions = {
       ...options,
       runId: `${scope.runId}-allowed`,
@@ -554,7 +565,8 @@ it.each(
     })
   if (outcome === 'pre-abort') abort.abort(failure)
   const accounting = await usageProcessors(
-    outcome === 'timeout' ? scope : { ...scope, signal: abort.signal }
+    outcome === 'timeout' ? scope : { ...scope, signal: abort.signal },
+    createModelUsageAccounting(outcome === 'timeout' ? scope : { ...scope, signal: abort.signal })
   )
   const contact = () => {
     billing.contact()

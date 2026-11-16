@@ -3,6 +3,7 @@
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import { extractExplicitCopilotContexts } from '@/lib/copilot/chat-contexts'
 import {
   EDIT_REPLAY_BLOCKED_MESSAGE,
@@ -16,7 +17,6 @@ import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { isCopilotBusy } from '@/stores/copilot/store-state'
 import type {
-  ChatContext,
   CopilotDraft,
   CopilotMessage as CopilotMessageType,
   CopilotSendRuntimeContext,

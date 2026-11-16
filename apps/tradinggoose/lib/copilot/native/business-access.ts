@@ -7,10 +7,7 @@ import {
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
-import { verifySavedEntityContext } from '@/lib/copilot/tools/server/entities/shared'
-import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { getMonitorRowById } from '@/app/api/monitors/shared'
 import type { Pending, Scope } from './contract'
 import { NativeTargetError } from './errors'
 import { nativeToolCallId } from './identity'
@@ -58,6 +55,7 @@ export async function authorizeNativeCredential(
   credentialId: string,
   businessWorkspaceId?: string
 ) {
+  const { resolveOAuthCredentialAccountForUser } = await import('@/lib/credentials/oauth')
   const resolved = await resolveOAuthCredentialAccountForUser({
     userId: scope.actorUserId,
     credentialId,
@@ -116,6 +114,7 @@ export async function authorizeNativeBusinessResult(
   if (toolName === 'read_monitor' || toolName === 'edit_monitor') {
     if (typeof args.monitorId !== 'string')
       throw new NativeTargetError('Monitor target is required', 422)
+    const { getMonitorRowById } = await import('@/app/api/monitors/shared')
     const monitor = await getMonitorRowById(args.monitorId)
     if (!monitor?.workflow.workspaceId)
       throw new NativeTargetError('Monitor is no longer available', 403)
@@ -139,8 +138,12 @@ export async function authorizeNativeBusinessResult(
   const kind = TOOL_PROMPT_METADATA[toolName].entityKind
   if (kind) {
     for (const entityId of new Set([args.entityId, output.entityId])) {
-      if (typeof entityId === 'string')
+      if (typeof entityId === 'string') {
+        const { verifySavedEntityContext } = await import(
+          '@/lib/copilot/tools/server/entities/shared'
+        )
         await verifySavedEntityContext(executionContext, kind, entityId, 'read')
+      }
     }
   }
 }

@@ -1,10 +1,11 @@
 'use client'
 
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type { ImagePart } from '@/lib/copilot/native/contract'
 import type { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { projectNativeHistoryMessage } from './history'
 import { resolveToolDisplay } from './tool-registry'
-import type { ChatContext, CopilotMessage, CopilotStore } from './types'
+import type { CopilotMessage, CopilotStore } from './types'
 
 type PlanTodo = { id: string; content: string; completed: boolean; executing: boolean }
 

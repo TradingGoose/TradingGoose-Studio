@@ -4,7 +4,6 @@ import { eq } from 'drizzle-orm'
 import { resolveApiKeyForDeployment } from '@/lib/api-key/service'
 import { ToolArgSchemas } from '@/lib/copilot/registry'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
-import { checkDeploymentStatusServerTool } from '@/lib/copilot/tools/server/workflow/check-deployment-status'
 import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
 import { authorizeNativeCredential, readAuthorizedWorkflowExecutionLog } from './business-access'
 import type { Pending, Scope } from './contract'
@@ -50,6 +49,9 @@ export async function readbackNativeToolResult(
           422
         )
       const args = ToolArgSchemas.deploy_workflow.parse(pending.originalArgs)
+      const { checkDeploymentStatusServerTool } = await import(
+        '@/lib/copilot/tools/server/workflow/check-deployment-status'
+      )
       const state = await checkDeploymentStatusServerTool.execute(
         { entityId: args.entityId },
         context

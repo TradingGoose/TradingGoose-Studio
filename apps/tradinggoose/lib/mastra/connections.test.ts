@@ -127,7 +127,14 @@ describe('DB-managed native connections', () => {
           .mocked(fetch)
           .mock.calls.map(([, init]) => new Headers(init!.headers).get('authorization'))
       ).toEqual(['Bearer first-key', 'Bearer rotated-key'])
-      expect(usageProcessors).toHaveBeenLastCalledWith({ ...scope, funding: 'account' })
+      expect(usageProcessors).toHaveBeenLastCalledWith(
+        { ...scope, funding: 'account' },
+        expect.objectContaining({
+          assertAllowed: expect.any(Function),
+          begin: expect.any(Function),
+          record: expect.any(Function),
+        })
+      )
     }
   )
   it('uses native OpenAI embeddings with the current managed credential', async () => {

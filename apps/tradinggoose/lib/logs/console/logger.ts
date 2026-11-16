@@ -5,7 +5,6 @@
  * It is separate from the user-facing logging system in logging.ts.
  */
 import chalk from 'chalk'
-import { env } from '@/lib/env'
 
 /**
  * LogLevel enum defines the severity levels for logging
@@ -36,11 +35,11 @@ export enum LogLevel {
  * - Test: ERROR (only show errors in tests)
  */
 const getMinLogLevel = (): LogLevel => {
-  if (env.LOG_LEVEL) {
-    return env.LOG_LEVEL as LogLevel
+  if (process.env.LOG_LEVEL) {
+    return process.env.LOG_LEVEL as LogLevel
   }
 
-  const ENV = (env.NODE_ENV || 'development') as string
+  const ENV = (process.env.NODE_ENV || 'development') as string
   switch (ENV) {
     case 'development':
       return LogLevel.DEBUG
@@ -80,7 +79,7 @@ const LOG_CONFIG = {
 }
 
 // Get current environment
-const ENV = (env.NODE_ENV || 'development') as keyof typeof LOG_CONFIG
+const ENV = (process.env.NODE_ENV || 'development') as keyof typeof LOG_CONFIG
 const config = LOG_CONFIG[ENV] || LOG_CONFIG.development
 
 // Format objects for logging

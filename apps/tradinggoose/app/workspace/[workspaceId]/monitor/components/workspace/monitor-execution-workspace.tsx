@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import {
   getMonitorBoardLabels,
   getMonitorExecutionGroupLabels,
@@ -17,7 +18,6 @@ import { LogDetails } from '@/app/workspace/[workspaceId]/records/components/log
 import { GlobalCopilotContextPublisher } from '@/global-navbar/copilot-context'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { formatTemplate } from '@/i18n/utils'
-import type { ChatContext } from '@/stores/copilot/types'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
 import { MonitorBoard } from '../board/monitor-board'

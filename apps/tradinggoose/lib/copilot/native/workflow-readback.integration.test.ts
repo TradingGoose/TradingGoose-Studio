@@ -104,7 +104,7 @@ vi.mock('@/lib/copilot/agent/context', () => ({
 vi.mock('@/lib/copilot/settings.server', () => ({
   resolveCopilotModel: async (model: string) => ({ model, apiKey: 'admin-key' }),
 }))
-vi.mock('@/lib/copilot/agent/state', () => ({
+vi.mock('@/lib/copilot/agent/receipts', () => ({
   assertCopilotRunActive: async () => undefined,
   claimCopilotEffect: async (
     run: { runId: string },

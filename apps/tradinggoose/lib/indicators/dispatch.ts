@@ -189,22 +189,6 @@ const resolveListingParts = (listing: ListingIdentity | null | undefined) => {
   }
 }
 
-export const resolveDispatchInterval = (
-  interval: string | undefined,
-  intervalMs: number | null | undefined
-): string | null => {
-  const trimmedInterval = typeof interval === 'string' ? interval.trim() : ''
-  if (trimmedInterval.length > 0) {
-    return trimmedInterval
-  }
-
-  if (typeof intervalMs !== 'number' || !Number.isFinite(intervalMs)) {
-    return null
-  }
-
-  return INTERVAL_MS_TO_LABEL[intervalMs] ?? null
-}
-
 export const resolveDispatchIntervalMs = (interval: string | null | undefined): number | null => {
   if (!interval) return null
   return INTERVAL_LABEL_TO_MS[interval] ?? null
@@ -234,21 +218,6 @@ export const createTriggerMarkerFromSignal = (
   time: signal.time,
   originTime: signal.time,
 })
-
-export const buildManualIndicatorTriggerEventId = ({
-  executeRequestId,
-  monitorId,
-  indicatorId,
-  barBucketMs,
-}: {
-  executeRequestId: string
-  monitorId: string
-  indicatorId: string
-  barBucketMs: number
-}) =>
-  toSha256Hex(
-    `indicator_trigger_manual|${executeRequestId}|${monitorId}|${indicatorId}|${barBucketMs}`
-  )
 
 export const buildLiveIndicatorTriggerEventId = ({
   monitorId,

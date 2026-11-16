@@ -7,13 +7,11 @@ import {
   workflowSubflows,
 } from '@tradinggoose/db'
 import type { Edge } from '@xyflow/react'
-import type { InferSelectModel } from 'drizzle-orm'
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
@@ -402,9 +400,6 @@ export async function ensureUniqueEdgeIds(
   }
 }
 
-// Database types
-export type WorkflowDeploymentVersion = InferSelectModel<typeof workflowDeploymentVersion>
-
 // API response types (dates are serialized as strings)
 export interface WorkflowDeploymentVersionResponse {
   id: string
@@ -644,6 +639,7 @@ export async function loadWorkflowFromNormalizedTables(
     blocksMap[block.id] = assembled
   })
 
+  const { sanitizeAgentToolsInBlocks } = await import('@/lib/workflows/validation')
   const { blocks: sanitizedBlocks } = sanitizeAgentToolsInBlocks(blocksMap)
 
   const edgesArray: Edge[] = edges.map((edge) => ({
@@ -717,6 +713,7 @@ export async function saveWorkflowToNormalizedTables(
     const { variables, ...graphState } = state
     const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, graphState)
     const stateWithUniqueEdgeIds = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
+    const { sanitizeAgentToolsInBlocks } = await import('@/lib/workflows/validation')
     const { blocks } = sanitizeAgentToolsInBlocks(stateWithUniqueEdgeIds.blocks || {})
     const normalizedState = { ...stateWithUniqueEdgeIds, blocks }
     const savedAt = new Date(state.lastSaved ?? Date.now())

@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { executeInE2B } from '@/lib/execution/e2b'
-import { CodeLanguage } from '@/lib/execution/languages'
 import { compileIndicator } from '@/lib/indicators/custom/compile'
 import { executeIndicatorInLocalVm } from '@/lib/indicators/execution/local-executor'
-import type { BarMs } from '@/lib/indicators/types'
+import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 
 vi.mock('@/lib/execution/e2b', () => ({
   executeInE2B: vi.fn(),
@@ -101,7 +100,6 @@ plot(close, 'MA');
 
     expect(mockExecuteInE2B).toHaveBeenCalledWith(
       expect.objectContaining({
-        language: CodeLanguage.JavaScript,
         timeoutMs: 9_999,
         template: 'tpl_indicator',
         keepWarmMs: 300_000,
@@ -136,6 +134,41 @@ plot(close, 'MA');
     expect(result.executionError?.message).toContain('RuntimeError: boom')
     expect(result.executionError?.message).toContain('Traceback details')
   })
+
+  it.each([false, true])(
+    'uses E2B trigger results without repeating evaluation (trigger: %s)',
+    async (triggered) => {
+      const signals: NormalizedPineSignal[] = triggered
+        ? [
+            {
+              event: 'cross',
+              input: 'Crossed',
+              signal: 'long',
+              position: 'aboveBar',
+              time: 2,
+              barIndex: 1,
+            },
+          ]
+        : []
+      const warnings = [{ code: 'indicator_trigger_invalid_input', message: 'Input required' }]
+      mockExecuteInE2B.mockResolvedValue({
+        result: { context: { plots: {} }, triggerSignals: signals, triggerWarnings: warnings },
+        stdout: '',
+      })
+
+      const result = await compileIndicator({
+        pineCode:
+          "trigger('cross', { condition: close > open, input: 'Crossed', signal: 'long' });",
+        barsMs: testBars,
+        useE2B: true,
+      })
+
+      expect(result.output?.triggers).toEqual(signals)
+      expect(result.warnings).toEqual(expect.arrayContaining(warnings))
+      expect(mockExecuteInE2B).toHaveBeenCalledTimes(1)
+      expect(mockExecuteIndicatorInLocalVm).not.toHaveBeenCalled()
+    }
+  )
 
   it('falls back to local VM when E2B warm pool limit is reached', async () => {
     mockExecuteInE2B.mockRejectedValue({

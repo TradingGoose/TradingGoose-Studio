@@ -108,7 +108,9 @@ describe('executeScheduleJob', () => {
 
   it('uses the admitted offset when advancing the configured local schedule', async () => {
     mocks.runPreparedWorkflowExecution.mockResolvedValue({ result: { success: true, output: {} } })
-    await executeScheduleJob({ ...payload, cronExpression: '0 9 * * *', utcOffset: -240 })
+    const signal = new AbortController().signal
+    await executeScheduleJob({ ...payload, cronExpression: '0 9 * * *', utcOffset: -240 }, signal)
+    expect(mocks.runPreparedWorkflowExecution.mock.calls[0][0].signal).toBe(signal)
     expect(mocks.set).toHaveBeenCalledExactlyOnceWith({
       updatedAt: new Date(payload.now),
       nextRunAt: new Date('2026-09-16T13:00:00.000Z'),

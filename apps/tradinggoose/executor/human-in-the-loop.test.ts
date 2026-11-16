@@ -18,7 +18,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 vi.mock('@/blocks', () => ({ getBlock: () => undefined }))
 vi.mock('@/blocks/index', () => ({ getBlock: () => undefined }))
 vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'http://localhost:3000' }))
-vi.mock('@/lib/auth/internal', () => ({
+vi.mock('@/lib/auth/internal-token', () => ({
   generateInternalToken: mocks.token,
 }))
 vi.mock('@/executor/handlers', async () => {

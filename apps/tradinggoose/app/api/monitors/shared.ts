@@ -12,7 +12,7 @@ import {
   type IndicatorMonitorProviderConfig,
   toPublicIndicatorMonitorProviderConfig,
 } from '@/lib/indicators/monitor-config'
-import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
+import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { ListingIdentitySchema } from '@/lib/listing/identity'
 import {
@@ -256,7 +256,7 @@ export const resolvePortfolioMonitorAccount = async ({
 export const ensureTriggerCapableIndicator = async (workspaceId: string, indicatorId: string) => {
   const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(indicatorId)
   if (defaultIndicator) {
-    if (!isIndicatorTriggerCapable(defaultIndicator.pineCode)) {
+    if (!detectTriggerUsage(defaultIndicator.pineCode)) {
       throw new Error(`Indicator ${indicatorId} does not use trigger(...).`)
     }
     return
@@ -276,7 +276,7 @@ export const ensureTriggerCapableIndicator = async (workspaceId: string, indicat
   if (!customIndicator) {
     throw new Error(`Indicator ${indicatorId} not found.`)
   }
-  if (!isIndicatorTriggerCapable(customIndicator.pineCode)) {
+  if (!detectTriggerUsage(customIndicator.pineCode)) {
     throw new Error(`Indicator ${indicatorId} does not use trigger(...).`)
   }
 }

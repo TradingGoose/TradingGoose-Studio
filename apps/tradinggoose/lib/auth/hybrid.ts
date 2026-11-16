@@ -4,12 +4,11 @@ import {
   authenticateApiKeyFromHeader,
   updateApiKeyLastUsed,
 } from '@/lib/api-key/service'
-import { getSession } from '@/lib/auth'
 import {
   type InternalTokenVerificationResult,
   type InternalWorkflowExecutionContext,
   verifyInternalTokenDetailed,
-} from '@/lib/auth/internal'
+} from '@/lib/auth/internal-token'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('HybridAuth')
@@ -19,11 +18,6 @@ export const AuthType = {
   API_KEY: 'api_key',
   INTERNAL_JWT: 'internal_jwt',
 } as const
-
-export function hasExternalApiCredentials(headers: Headers): boolean {
-  const authHeader = headers.get('authorization')
-  return headers.has('x-api-key') || authHeader?.startsWith('Bearer ') === true
-}
 
 export interface AuthResult {
   success: boolean
@@ -137,6 +131,7 @@ export async function checkSessionOrInternalAuth(
       }
     }
 
+    const { getSession } = await import('@/lib/auth')
     const session = await getSession()
     if (session?.user?.id) {
       return {
@@ -184,6 +179,7 @@ export async function checkHybridAuth(
       }
     }
 
+    const { getSession } = await import('@/lib/auth')
     const session = await getSession()
     if (session?.user?.id) {
       return {

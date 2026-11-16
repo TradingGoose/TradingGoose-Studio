@@ -3,12 +3,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import {
   MAX_COPILOT_CONTEXT_BYTES_PER_ITEM,
   MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
 } from '@/lib/copilot/context-limits'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
-import type { ChatContext } from '@/stores/copilot/types'
 
 const WORKSPACE_CONTEXT_ENTITY_KINDS = [
   'workflow',
@@ -375,6 +375,17 @@ describe('processContextsServer', () => {
     ],
     ['log', buildLogContext('current_logs'), 'log-1'],
     ['monitor', buildMonitorContext(), 'monitor-1'],
+    [
+      'dashboard layout',
+      {
+        kind: 'current_dashboard_layout',
+        dashboardLayoutId: 'layout-1',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        label: 'Current dashboard layout',
+      } satisfies ChatContext,
+      'layout-1',
+    ],
   ])('emits the current %s as an ID-only reference', async (_source, context, entityId) => {
     const result = await processWorkspaceContext(context)
 
@@ -387,6 +398,9 @@ describe('processContextsServer', () => {
     ])
     expect(mockReadKnowledgeBaseExecute).not.toHaveBeenCalled()
     expect(mockDbSelect).not.toHaveBeenCalled()
+    expect(mockVerifyWorkflowAccess).not.toHaveBeenCalled()
+    expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
+    expect(mockReadWorkflowSnapshot).not.toHaveBeenCalled()
   })
 
   it('bounds and redacts explicitly attached knowledge-base content', async () => {

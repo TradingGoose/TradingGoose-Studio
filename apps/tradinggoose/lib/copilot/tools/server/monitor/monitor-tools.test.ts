@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  MONITOR_DOCUMENT_FORMAT,
-  serializeMonitorDocument,
-} from '@/lib/copilot/monitor/monitor-documents'
+import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/document-formats'
+import { serializeMonitorDocument } from '@/lib/copilot/monitor/monitor-documents'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { editMonitorServerTool } from '@/lib/copilot/tools/server/monitor/edit-monitor'
 import { listMonitorsServerTool } from '@/lib/copilot/tools/server/monitor/list-monitors'

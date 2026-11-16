@@ -505,7 +505,10 @@ export async function enqueuePendingExecution(
 
   if (queueResult.mode === 'local') {
     if (queueResult.inserted)
-      await dispatchBackgroundExecution({ pendingExecutionId: params.pendingExecutionId }, 'local')
+      await dispatchBackgroundExecution(
+        { pendingExecutionId: params.pendingExecutionId, executionType: params.executionType },
+        'local'
+      )
     return {
       pendingExecutionId: params.pendingExecutionId,
       inserted: queueResult.inserted,

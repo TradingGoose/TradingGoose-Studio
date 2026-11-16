@@ -1,10 +1,11 @@
 import { db } from '@tradinggoose/db'
 import { workflowLogWebhook, workflowLogWebhookDelivery } from '@tradinggoose/db/schema'
+import { tasks } from '@trigger.dev/sdk'
 import { and, eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowExecutionLog } from '@/lib/logs/types'
-import { logsWebhookDelivery } from '@/background/logs-webhook-delivery'
+import type { logsWebhookDelivery } from '@/background/tasks/logs-webhook-delivery'
 
 const logger = createLogger('LogsEventEmitter')
 
@@ -71,7 +72,7 @@ export async function emitWorkflowExecutionCompleted(log: WorkflowExecutionLog):
         nextAttemptAt: new Date(),
       })
 
-      await logsWebhookDelivery.trigger({ deliveryId })
+      await tasks.trigger<typeof logsWebhookDelivery>('logs-webhook-delivery', { deliveryId })
 
       logger.info(`Enqueued webhook delivery ${deliveryId} for subscription ${subscription.id}`)
     }
