@@ -6,18 +6,14 @@ import { ImageGeneratorBlock } from '@/blocks/blocks/image_generator'
 import { OneDriveBlock } from '@/blocks/blocks/onedrive'
 import type { BlockConfig } from '@/blocks/types'
 import {
-  createExecutionToolSchema,
   createLLMToolSchema,
   filterSchemaForLLM,
   formatParameterLabel,
   getRenderableToolParameters,
   getToolParametersConfig,
   isPasswordParameter,
-  mergeToolParameters,
   type ToolParameterConfig,
   type ToolSchema,
-  type ValidationResult,
-  validateToolParameters,
 } from '@/tools/params'
 import { tools } from '@/tools/registry'
 import type { HttpMethod, ParameterVisibility, ToolConfig } from '@/tools/types'
@@ -282,75 +278,6 @@ describe('Tool Parameters Utils', () => {
       expect(listingSchema.type).toBe('object')
       expect(listingSchema.required).toEqual(['listing_id', 'base_id', 'quote_id', 'listing_type'])
       expect(listingSchema.properties?.listing_type.enum).toEqual(['default', 'crypto', 'currency'])
-      expect(createExecutionToolSchema(toolConfig).properties.listing).toMatchObject({
-        type: 'object',
-        properties: {
-          listing_id: { type: 'string' },
-        },
-      })
-    })
-  })
-
-  describe('createExecutionToolSchema', () => {
-    it.concurrent('should create complete schema with all parameters', () => {
-      const schema = createExecutionToolSchema(mockToolConfig)
-
-      expect(schema.properties).toHaveProperty('apiKey')
-      expect(schema.properties).toHaveProperty('message')
-      expect(schema.properties).toHaveProperty('channel')
-      expect(schema.properties).toHaveProperty('timeout')
-      expect(schema.required).toContain('apiKey')
-      expect(schema.required).toContain('message')
-      expect(schema.required).not.toContain('channel')
-      expect(schema.required).not.toContain('timeout')
-    })
-  })
-
-  describe('mergeToolParameters', () => {
-    it.concurrent('should merge parameters with user-provided taking precedence', () => {
-      const userProvided = {
-        apiKey: 'user-key',
-        channel: '#general',
-      }
-      const llmGenerated = {
-        message: 'Hello world',
-        channel: '#random',
-        timeout: 10000,
-      }
-
-      const merged = mergeToolParameters(userProvided, llmGenerated)
-
-      expect(merged.apiKey).toBe('user-key')
-      expect(merged.channel).toBe('#general')
-      expect(merged.message).toBe('Hello world')
-      expect(merged.timeout).toBe(10000)
-    })
-  })
-
-  describe('validateToolParameters', () => {
-    it.concurrent('should validate successfully with all required parameters', () => {
-      const finalParams = {
-        apiKey: 'test-key',
-        message: 'Hello world',
-        channel: '#general',
-      }
-
-      const result = validateToolParameters(mockToolConfig, finalParams)
-
-      expect(result.valid).toBe(true)
-      expect(result.missingParams).toHaveLength(0)
-    })
-
-    it.concurrent('should fail validation with missing required parameters', () => {
-      const finalParams = {
-        channel: '#general',
-      }
-
-      const result = validateToolParameters(mockToolConfig, finalParams)
-
-      expect(result.valid).toBe(false)
-      expect(result.missingParams).toContain('apiKey')
-      expect(result.missingParams).toContain('message')
     })
   })
 
@@ -421,14 +348,6 @@ describe('Tool Parameters Utils', () => {
         expect(typeof prop.type).toBe('string')
         expect(typeof prop.description).toBe('string')
       })
-    })
-
-    it.concurrent('should have properly typed ValidationResult', () => {
-      const result: ValidationResult = validateToolParameters(mockToolConfig, {})
-
-      expect(typeof result.valid).toBe('boolean')
-      expect(Array.isArray(result.missingParams)).toBe(true)
-      expect(result.missingParams.every((param) => typeof param === 'string')).toBe(true)
     })
 
     it.concurrent('should have properly typed ToolParameterConfig', () => {

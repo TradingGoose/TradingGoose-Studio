@@ -68,6 +68,13 @@ export async function POST(request: NextRequest) {
     let uploadContentType: string | undefined
 
     if (validatedData.file) {
+      if (!authResult.userId?.trim()) {
+        return NextResponse.json(
+          { success: false, error: 'File access requires an authenticated user' },
+          { status: 403 }
+        )
+      }
+
       const rawFile = validatedData.file
       logger.info(`[${requestId}] Processing file upload: ${rawFile.name}`)
 
@@ -75,6 +82,7 @@ export async function POST(request: NextRequest) {
       try {
         userFile = processSingleFileToUserFile(rawFile, requestId, logger)
       } catch (error) {
+        if (error instanceof Error && 'status' in error && error.status === 403) throw error
         return NextResponse.json(
           {
             success: false,
@@ -84,7 +92,11 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const buffer = await downloadFileFromStorage(userFile, requestId, logger)
+      const buffer = await downloadFileFromStorage(userFile, requestId, logger, {
+        actorUserId: authResult.userId,
+        workspaceId: authResult.workspaceId,
+        signal: request.signal,
+      })
 
       uploadBody = buffer
       uploadContentType = validatedData.contentType || userFile.type || 'application/octet-stream'
@@ -131,6 +143,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && 'status' in error && error.status === 403) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 })
+    }
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid request data`, { errors: error.issues })
       return NextResponse.json(

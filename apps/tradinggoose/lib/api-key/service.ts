@@ -33,6 +33,35 @@ export interface ApiKeyAuthResult {
   error?: string
 }
 
+/** Resolve a selected deployment key within the authenticated actor's workflow scope. */
+export async function resolveApiKeyForDeployment(
+  keyId: string | null | undefined,
+  userId: string,
+  workspaceId: string | null | undefined
+) {
+  if (!keyId) return null
+  const [key] = await db
+    .select({
+      id: apiKeyTable.id,
+      name: apiKeyTable.name,
+      type: apiKeyTable.type,
+      userId: apiKeyTable.userId,
+      workspaceId: apiKeyTable.workspaceId,
+      expiresAt: apiKeyTable.expiresAt,
+    })
+    .from(apiKeyTable)
+    .where(eq(apiKeyTable.id, keyId))
+    .limit(1)
+  if (!key || (key.expiresAt && key.expiresAt < new Date())) return null
+  if (
+    (key.type === 'personal' && key.userId === userId) ||
+    (key.type === 'workspace' && workspaceId && key.workspaceId === workspaceId)
+  ) {
+    return { id: key.id, name: key.name, type: key.type as ApiKeyType }
+  }
+  return null
+}
+
 export async function createApiKey(useStorage = true): Promise<{
   key: string
   storedKey?: string

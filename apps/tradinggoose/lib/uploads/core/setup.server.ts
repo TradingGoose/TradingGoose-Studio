@@ -118,14 +118,8 @@ if (typeof process !== 'undefined') {
   if (USE_AZURE_STORAGE && env.AZURE_STORAGE_KB_CONTAINER_NAME) {
     logger.info(`Azure knowledge base container: ${env.AZURE_STORAGE_KB_CONTAINER_NAME}`)
   }
-  if (USE_AZURE_STORAGE && env.AZURE_STORAGE_COPILOT_CONTAINER_NAME) {
-    logger.info(`Azure copilot container: ${env.AZURE_STORAGE_COPILOT_CONTAINER_NAME}`)
-  }
   if (USE_S3_STORAGE && env.S3_KB_BUCKET_NAME) {
     logger.info(`S3 knowledge base bucket: ${env.S3_KB_BUCKET_NAME}`)
-  }
-  if (USE_S3_STORAGE && env.S3_COPILOT_BUCKET_NAME) {
-    logger.info(`S3 copilot bucket: ${env.S3_COPILOT_BUCKET_NAME}`)
   }
 }
 

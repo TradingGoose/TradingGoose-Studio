@@ -1,4 +1,4 @@
-import { PerplexityIcon } from '@/components/icons/icons'
+import { getProviderIcon } from '@/lib/ui/provider-icon'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 import type { PerplexityChatResponse } from '@/tools/perplexity/types'
 
@@ -12,7 +12,7 @@ export const PerplexityBlock: BlockConfig<PerplexityChatResponse> = {
   docsLink: 'https://docs.tradinggoose.ai/tools/perplexity',
   category: 'tools',
   bgColor: '#21808D', // Perplexity turquoise color
-  icon: PerplexityIcon,
+  icon: getProviderIcon('perplexity'),
   subBlocks: [
     {
       id: 'systemPrompt',

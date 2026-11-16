@@ -2,7 +2,8 @@ import { db } from '@tradinggoose/db'
 import { workflow, workflowFolder } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ExecutionEnvironment, ExecutionTrigger } from '@/lib/logs/types'
-import { isWorkflowBlockType } from '@/executor/consts'
+import type { InferenceFacts } from '@/lib/mastra/result'
+import { resultAccounting, sumNativeCosts, sumNativeUsage } from '@/lib/mastra/usage'
 
 export function createTriggerObject(
   type: ExecutionTrigger['type'],
@@ -79,131 +80,60 @@ export async function loadWorkflowSummaryForExecution(workflowId: string) {
   }
 }
 
-export function calculateCostSummary(
-  traceSpans: any[],
-  workflowExecutionChargeUsd = 0,
-  workflowModelCostMultiplier = 1
-): {
-  totalCost: number
-  totalInputCost: number
-  totalOutputCost: number
-  totalTokens: number
-  totalPromptTokens: number
-  totalCompletionTokens: number
-  baseExecutionCharge: number
-  modelCost: number
-  models: Record<
-    string,
-    {
-      input: number
-      output: number
-      total: number
-      tokens: { prompt: number; completion: number; total: number }
-    }
-  >
-} {
-  if (!traceSpans || traceSpans.length === 0) {
+export function calculateCostSummary(usage: readonly InferenceFacts[]) {
+  const components: InferenceFacts[] = []
+  const modelComponents = new Map<string, InferenceFacts[]>()
+  let unavailableComponents = 0
+  const summarize = (facts: InferenceFacts[]) => {
+    const usage = sumNativeUsage(
+      facts.map(({ tokens }) => ({
+        usage: {
+          inputTokens: tokens?.prompt,
+          outputTokens: tokens?.completion,
+          totalTokens: tokens?.total,
+        },
+      }))
+    )
+    const cost = sumNativeCosts(
+      facts.length ? facts.map((component) => component.cost!) : [{ total: 0, status: 'reported' }]
+    )
     return {
-      totalCost: workflowExecutionChargeUsd,
-      totalInputCost: 0,
-      totalOutputCost: 0,
-      totalTokens: 0,
-      totalPromptTokens: 0,
-      totalCompletionTokens: 0,
-      baseExecutionCharge: workflowExecutionChargeUsd,
-      modelCost: 0,
-      models: {},
+      ...cost,
+      availableTotal: cost.total ?? cost.availableTotal,
+      tokens: resultAccounting(usage).tokens,
+    }
+  }
+  for (const facts of usage) {
+    if (facts.cost || facts.tokens || facts.model) {
+      const reference = sumNativeCosts([facts.cost ?? { status: 'unavailable' }])
+      // BYOK estimates remain on the span; workflow settlement prices account-funded usage.
+      const cost = reference.accountCost ?? reference
+      const component = { ...facts, cost }
+      components.push(component)
+      if (cost.status === 'partial' || cost.status === 'unavailable') unavailableComponents += 1
+      if (facts.model) {
+        const group = modelComponents.get(facts.model) ?? []
+        group.push(component)
+        modelComponents.set(facts.model, group)
+      }
     }
   }
 
-  // Child workflow traces are visible here but billed by their own execution.
-  const collectCostSpans = (spans: any[]): any[] => {
-    const costSpans: any[] = []
-
-    for (const span of spans) {
-      if (span.blockId && isWorkflowBlockType(span.type)) continue
-
-      if (span.cost) {
-        costSpans.push(span)
-      }
-
-      if (span.children && Array.isArray(span.children)) {
-        costSpans.push(...collectCostSpans(span.children))
-      }
-    }
-
-    return costSpans
-  }
-
-  const costSpans = collectCostSpans(traceSpans)
-  const modelCostMultiplier =
-    Number.isFinite(workflowModelCostMultiplier) && workflowModelCostMultiplier >= 0
-      ? workflowModelCostMultiplier
-      : 1
-
-  let totalCost = 0
-  let totalInputCost = 0
-  let totalOutputCost = 0
-  let totalTokens = 0
-  let totalPromptTokens = 0
-  let totalCompletionTokens = 0
-  const models: Record<
-    string,
-    {
-      input: number
-      output: number
-      total: number
-      tokens: { prompt: number; completion: number; total: number }
-    }
-  > = {}
-
-  for (const span of costSpans) {
-    const tokens = span.tokens || {}
-    const promptTokens = tokens.prompt ?? tokens.input ?? 0
-    const completionTokens = tokens.completion ?? tokens.output ?? 0
-    const totalSpanTokens = tokens.total ?? promptTokens + completionTokens
-    const scaledInputCost = (span.cost.input || 0) * modelCostMultiplier
-    const scaledOutputCost = (span.cost.output || 0) * modelCostMultiplier
-    const scaledTotalCost = (span.cost.total || 0) * modelCostMultiplier
-
-    totalCost += scaledTotalCost
-    totalInputCost += scaledInputCost
-    totalOutputCost += scaledOutputCost
-    totalTokens += totalSpanTokens
-    totalPromptTokens += promptTokens
-    totalCompletionTokens += completionTokens
-
-    if (span.model) {
-      const model = span.model
-      if (!models[model]) {
-        models[model] = {
-          input: 0,
-          output: 0,
-          total: 0,
-          tokens: { prompt: 0, completion: 0, total: 0 },
-        }
-      }
-      models[model].input += scaledInputCost
-      models[model].output += scaledOutputCost
-      models[model].total += scaledTotalCost
-      models[model].tokens.prompt += promptTokens
-      models[model].tokens.completion += completionTokens
-      models[model].tokens.total += totalSpanTokens
-    }
-  }
-
-  const modelCost = totalCost
-  totalCost += workflowExecutionChargeUsd
-
+  const model = summarize(components)
   return {
-    totalCost,
-    totalInputCost,
-    totalOutputCost,
-    totalTokens,
-    totalPromptTokens,
-    totalCompletionTokens,
-    baseExecutionCharge: workflowExecutionChargeUsd,
-    modelCost,
-    models,
+    totalCost: model.total,
+    availableTotal: model.availableTotal,
+    totalInputCost: model.input,
+    totalOutputCost: model.output,
+    totalTokens: model.tokens.total,
+    totalPromptTokens: model.tokens.prompt,
+    totalCompletionTokens: model.tokens.completion,
+    modelCost: model.total ?? model.availableTotal,
+    status: model.status,
+    unavailableComponents,
+    estimated: model.estimated === true,
+    models: Object.fromEntries(
+      [...modelComponents].map(([name, facts]) => [name, summarize(facts)])
+    ),
   }
 }

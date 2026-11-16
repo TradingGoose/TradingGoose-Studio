@@ -213,6 +213,7 @@ describe('/api/chat/[identifier]', () => {
                 output: { unselected: 'private output' },
                 logs: [
                   {
+                    id: 'route.test.ts:saved-occurrence:1',
                     blockId: 'secret-block',
                     output: { secret: 'private log' },
                   },

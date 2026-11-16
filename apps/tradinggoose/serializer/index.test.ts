@@ -8,7 +8,6 @@
  * used by the executor.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { getProviderFromModel } from '@/providers/ai/models'
 import {
   createAgentWithToolsWorkflowState,
   createComplexWorkflowState,
@@ -71,13 +70,7 @@ vi.mock('@/blocks', () => ({
         description: 'AI Agent',
         category: 'ai',
         bgColor: '#2196F3',
-        tools: {
-          access: ['anthropic_chat', 'openai_chat', 'google_chat'],
-          config: {
-            // Use the real getProviderFromModel that we imported
-            tool: (params: Record<string, any>) => getProviderFromModel(params.model || 'gpt-4.1'),
-          },
-        },
+        tools: { access: ['llm_chat'] },
         subBlocks: [
           { id: 'provider', type: 'dropdown', label: 'Provider' },
           { id: 'model', type: 'dropdown', label: 'Model' },
@@ -257,25 +250,25 @@ vi.mock('@/blocks', () => ({
         category: 'ai',
         bgColor: '#2196F3',
         tools: {
-          access: ['anthropic_chat'],
+          access: ['llm_chat'],
           config: {
-            tool: () => 'anthropic_chat',
+            tool: () => 'llm_chat',
           },
         },
         subBlocks: [
           { id: 'systemPrompt', type: 'long-input', title: 'System Prompt' }, // mode: 'both' (default)
           { id: 'userPrompt', type: 'long-input', title: 'User Prompt' }, // mode: 'both' (default)
           { id: 'memories', type: 'short-input', title: 'Memories', additional: true },
-          { id: 'reasoningEffort', type: 'dropdown', title: 'Reasoning Effort', additional: true },
-          { id: 'thinkingLevel', type: 'dropdown', title: 'Thinking Level', additional: true },
+          { id: 'temperature', type: 'short-input', title: 'Temperature', additional: true },
+          { id: 'responseFormat', type: 'code', title: 'Response Format', additional: true },
           { id: 'model', type: 'dropdown', title: 'Model' }, // mode: 'both' (default)
         ],
         inputs: {
           systemPrompt: { type: 'string' },
           userPrompt: { type: 'string' },
           memories: { type: 'array' },
-          reasoningEffort: { type: 'string' },
-          thinkingLevel: { type: 'string' },
+          temperature: { type: 'number' },
+          responseFormat: { type: 'string' },
           model: { type: 'string' },
         },
       },
@@ -321,7 +314,7 @@ describe('Serializer', () => {
       expect(agentBlock).toBeDefined()
       expect(agentBlock?.metadata?.id).toBe('agent')
       expect(agentBlock?.config.params.prompt).toBe('Hello, world!')
-      expect(agentBlock?.config.params.model).toBe('claude-sonnet-5-5')
+      expect(agentBlock?.config.params.model).toBe('anthropic/claude-sonnet-5-5')
 
       // Check if edges are correctly serialized
       expect(serialized.connections).toHaveLength(1)
@@ -414,42 +407,35 @@ describe('Serializer', () => {
       const agentBlock = serialized.blocks.find((b) => b.id === 'agent1')
       expect(agentBlock).toBeDefined()
       expect(agentBlock?.metadata?.id).toBe('agent')
-      expect(agentBlock?.config.tool).toBe('openai')
-      expect(agentBlock?.config.params.model).toBe('gpt-4.1')
-      expect(agentBlock?.outputs.responseFormat).toBeDefined()
+      expect(agentBlock?.config.tool).toBe('llm_chat')
+      expect(agentBlock?.config.params.model).toBe('openai/gpt-4.1')
+      expect(agentBlock?.config.params.responseFormat).toBe(
+        blocks.agent1.subBlocks.responseFormat.value
+      )
+      expect(agentBlock?.outputs).toEqual(blocks.agent1.outputs)
     })
 
-    it.concurrent('should serialize agent block with custom tools correctly', () => {
-      const { blocks, edges, loops } = createAgentWithToolsWorkflowState()
-      const serializer = new Serializer()
-
-      const serialized = serializer.serializeWorkflow(blocks, edges, loops)
-
-      // Check agent block
-      const agentBlock = serialized.blocks.find((b) => b.id === 'agent1')
-      expect(agentBlock).toBeDefined()
-      // The model used is 'gpt-4.1', so tool should be 'openai'
-      expect(agentBlock?.config.tool).toBe('openai')
-      expect(agentBlock?.config.params.model).toBe('gpt-4.1')
-
-      // Tools should be preserved as-is in params
-      const toolsParam = agentBlock?.config.params.tools
-      expect(toolsParam).toBeDefined()
-
-      // Parse tools to verify content
-      const tools = JSON.parse(toolsParam)
-      expect(tools).toHaveLength(2)
-
-      // Check custom tool
-      const customTool = tools.find((t: any) => t.type === 'custom-tool')
-      expect(customTool).toBeDefined()
-      expect(customTool.name).toBe('weather')
-
-      // Check function tool
-      const functionTool = tools.find((t: any) => t.type === 'function')
-      expect(functionTool).toBeDefined()
-      expect(functionTool.name).toBe('calculator')
-    })
+    it.concurrent.each(['mixed', 'custom-only', 'empty'])(
+      'preserves %s Agent tools without using them to select the block handler',
+      (selection) => {
+        const { blocks, edges, loops } = createAgentWithToolsWorkflowState()
+        const tools = JSON.parse(blocks.agent1.subBlocks.tools.value as string)
+        const selected =
+          selection === 'mixed'
+            ? tools
+            : selection === 'custom-only'
+              ? tools.filter((tool: { type: string }) => tool.type === 'custom-tool')
+              : []
+        const value = JSON.stringify(selected)
+        blocks.agent1.subBlocks.tools.value = value
+        const serializer = new Serializer()
+        const serialized = serializer.serializeWorkflow(blocks, edges, loops)
+        const agentBlock = serialized.blocks.find((b) => b.id === 'agent1')
+        expect(agentBlock?.config.tool).toBe('llm_chat')
+        expect(agentBlock?.config.params.model).toBe('openai/gpt-4.1')
+        expect(agentBlock?.config.params.tools).toBe(value)
+      }
+    )
 
     it.concurrent('should handle invalid block types gracefully', () => {
       const { blocks, edges, loops } = createInvalidWorkflowState()
@@ -492,7 +478,7 @@ describe('Serializer', () => {
       expect(agentBlock.type).toBe('agent')
       expect(agentBlock.name).toBe('Agent Block')
       expect(agentBlock.subBlocks.prompt.value).toBe('Hello, world!')
-      expect(agentBlock.subBlocks.model.value).toBe('claude-sonnet-5-5')
+      expect(agentBlock.subBlocks.model.value).toBe('anthropic/claude-sonnet-5-5')
 
       // Check edges
       expect(deserialized.edges).toHaveLength(1)
@@ -534,7 +520,7 @@ describe('Serializer', () => {
       const agentBlock = deserialized.blocks.agent1
       expect(agentBlock).toBeDefined()
       expect(agentBlock.type).toBe('agent')
-      expect(agentBlock.subBlocks.model.value).toBe('gpt-4.1')
+      expect(agentBlock.subBlocks.model.value).toBe('openai/gpt-4.1')
       expect(agentBlock.subBlocks.provider.value).toBe('openai')
     })
 
@@ -1040,9 +1026,9 @@ describe('Serializer', () => {
             systemPrompt: { value: 'You are helpful' },
             userPrompt: { value: 'Hello' },
             memories: { value: [{ role: 'user', content: 'My name is John' }] },
-            reasoningEffort: { value: 'auto' },
-            thinkingLevel: { value: 'high' },
-            model: { value: 'claude-sonnet-5-5' },
+            temperature: { value: 0 },
+            responseFormat: { value: '{}' },
+            model: { value: 'anthropic/claude-sonnet-5-5' },
           },
           outputs: {},
           enabled: true,
@@ -1055,9 +1041,9 @@ describe('Serializer', () => {
           systemPrompt: 'You are helpful',
           userPrompt: 'Hello',
           memories: [{ role: 'user', content: 'My name is John' }],
-          reasoningEffort: 'auto',
-          thinkingLevel: 'high',
-          model: 'claude-sonnet-5-5',
+          temperature: 0,
+          responseFormat: '{}',
+          model: 'anthropic/claude-sonnet-5-5',
         })
       }
     )

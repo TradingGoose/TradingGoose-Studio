@@ -45,6 +45,9 @@ El streaming hace que la Execution API devuelva `text/event-stream`. El SDK de v
 `execute_with_retry` solo reintenta `RATE_LIMIT_EXCEEDED`. Sus valores predeterminados son `max_retries=3`, `initial_delay=1.0` segundos, `max_delay=30.0` segundos y `backoff_multiplier=2.0`. El endpoint de workflow actual no emite `Retry-After`, por lo que el cliente usa retroceso exponencial con una fluctuación de ±25%. Una implementación compatible que proporcione el encabezado anula ese retraso. Python expone estas opciones como argumentos de palabra clave en lugar de un tipo separado de opciones de reintento.
 
 - `get_rate_limit_info()` normalmente devuelve `None` porque los endpoints actuales de workflow y de uso no emiten encabezados de límite de velocidad. Una implementación o proxy compatible puede proporcionar `limit`, `remaining`, una marca de tiempo ISO `reset` y un `retry_after` opcional almacenado en milisegundos.
+
+`currentPeriodCost` y el `limit` monetario son números JSON en USD. El uso sin límite se representa con `9007199254740991` (`Number.MAX_SAFE_INTEGER`). Los precios y las asignaciones del nivel son números o `null` según la configuración; los multiplicadores de facturación son números.
+
 - `get_usage_limits()` devuelve `UsageLimits(success, rate_limit, usage, storage)`; las cargas útiles de límite de velocidad, uso y almacenamiento son diccionarios que coinciden con la respuesta de la API.
 
 ## Errores y resultados

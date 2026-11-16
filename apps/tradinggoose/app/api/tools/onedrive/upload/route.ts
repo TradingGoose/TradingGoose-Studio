@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
       try {
         userFile = processSingleFileToUserFile(fileToProcess, requestId, logger)
       } catch (error) {
+        if (error instanceof Error && 'status' in error && error.status === 403) throw error
         return NextResponse.json(
           {
             success: false,
@@ -100,8 +101,13 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        fileBuffer = await downloadFileFromStorage(userFile, requestId, logger)
+        fileBuffer = await downloadFileFromStorage(userFile, requestId, logger, {
+          actorUserId: credential.requesterUserId,
+          workspaceId: credential.workspaceId,
+          signal: request.signal,
+        })
       } catch (error) {
+        if (error instanceof Error && 'status' in error && error.status === 403) throw error
         logger.error(`[${requestId}] Failed to download file from storage:`, error)
         return NextResponse.json(
           {
@@ -353,6 +359,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && 'status' in error && error.status === 403) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 })
+    }
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid request data`, { errors: error.issues })
       return NextResponse.json(

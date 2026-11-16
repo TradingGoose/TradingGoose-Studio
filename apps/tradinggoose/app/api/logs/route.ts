@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowLogOutcome } from '@/lib/logs/types'
+import { attachAgentHistory } from '@/lib/mastra/agent-history'
 import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId, normalizeOptionalString } from '@/lib/utils'
@@ -89,7 +90,7 @@ const QueryParamsSchema = z.object({
 
 const parseBooleanFlag = (value: string | undefined) => value === 'true' || value === '1'
 
-const TOTAL_COST_SQL = sql<number>`COALESCE((${workflowExecutionLogs.cost}->>'total')::double precision, 0)`
+const TOTAL_COST_SQL = sql<number>`CASE WHEN jsonb_typeof(${workflowExecutionLogs.cost}->'total') = 'number' THEN (${workflowExecutionLogs.cost}->>'total')::double precision END`
 const WORKFLOW_NAME_SQL = sql<string>`COALESCE(${workflow.name}, ${workflowExecutionLogs.workflowSummary}->>'name', 'Deleted workflow')`
 const WORKFLOW_FOLDER_ID_SQL = sql<string>`COALESCE(${workflow.folderId}, ${workflowExecutionLogs.workflowSummary}->>'folderId')`
 const WORKFLOW_FOLDER_NAME_SQL = sql<string>`COALESCE(${workflowFolder.name}, ${workflowExecutionLogs.workflowSummary}->>'folderName')`
@@ -537,13 +538,23 @@ export async function GET(request: NextRequest) {
 
     const total = Number(countRows[0]?.total ?? 0)
 
-    return NextResponse.json({
-      data: rows.map((row) => serializeWorkflowLog(row, params.details)),
-      total,
-      page: Math.floor(params.offset / params.limit) + 1,
-      pageSize: params.limit,
-      totalPages: Math.max(1, Math.ceil(total / params.limit)),
-    })
+    return NextResponse.json(
+      {
+        data: await Promise.all(
+          rows.map(async (row) =>
+            serializeWorkflowLog(
+              params.details === 'full' ? await attachAgentHistory(row, userId) : row,
+              params.details
+            )
+          )
+        ),
+        total,
+        page: Math.floor(params.offset / params.limit) + 1,
+        pageSize: params.limit,
+        totalPages: Math.max(1, Math.ceil(total / params.limit)),
+      },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    )
   } catch (error: any) {
     logger.error(`[${requestId}] logs fetch error`, error)
     return NextResponse.json({ error: error.message }, { status: 500 })

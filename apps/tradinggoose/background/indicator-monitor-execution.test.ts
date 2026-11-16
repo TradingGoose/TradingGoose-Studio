@@ -46,6 +46,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 const payload = {
+  executionId: 'execution-1',
   source: INDICATOR_MONITOR_PROVIDER,
   monitor: {
     id: 'monitor-1',

@@ -56,7 +56,7 @@ vi.mock('./monitor-disable', () => ({
 
 import { executeWorkflowJob } from './workflow-execution'
 
-const workflowJob = { workflowId: 'workflow-1', userId: 'user-1' }
+const workflowJob = { workflowId: 'workflow-1', userId: 'user-1', executionId: 'execution-1' }
 const resumeJob = {
   ...workflowJob,
   executionId: 'resume-job-2',

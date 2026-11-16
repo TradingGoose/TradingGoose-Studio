@@ -1,11 +1,5 @@
 import { z } from 'zod'
 
-// Generic envelope used by client to validate API responses
-export const ExecuteResponseSuccessSchema = z.object({
-  success: z.literal(true),
-  result: z.unknown(),
-})
-
 // dashboard widget catalog / metadata
 export const WidgetCatalogItemSchema = z.object({
   widgetKey: z.string(),
@@ -144,7 +138,6 @@ const BlockMermaidProfileSchema = BlockMermaidCatalogItemSchema.extend({
   bestPractices: z.string().optional(),
   authType: z.enum(['OAuth', 'API Key', 'Bot Token']).optional(),
   requiredCredentials: BlockRequiredCredentialsSchema.optional(),
-  yamlDocumentation: z.string().optional(),
   subBlocks: z.array(BlockMermaidSubBlockSchema).optional(),
   inputReferenceGrammar: BlockInputReferenceGrammarSchema.optional(),
   mermaidExamples: BlockMermaidExamplesSchema,
@@ -156,6 +149,7 @@ export const GetAvailableBlocksResult = z.object({
 })
 
 // get_blocks_metadata
+export const MAX_MODEL_SEARCH_RESULTS = 20
 export const GetBlocksMetadataInput = z.object({
   blockTypes: z
     .array(
@@ -170,9 +164,33 @@ export const GetBlocksMetadataInput = z.object({
     .describe(
       'Canonical workflow block type ids to inspect in detail. Use `get_available_blocks` first when the available built-in options are not yet known.'
     ),
+  modelQuery: z
+    .string()
+    .trim()
+    .min(1)
+    .max(256)
+    .optional()
+    .describe(
+      'Optional case-insensitive substring of a native provider/model ID. Returns up to 20 matching language models once in modelSearch. Exact IDs rank first. Refine the query if total exceeds the returned count.'
+    ),
 })
 export const GetBlocksMetadataResult = z.object({
   metadata: z.record(z.string(), BlockMermaidProfileSchema),
+  modelSearch: z
+    .object({
+      models: z
+        .array(
+          z.object({
+            id: z.string(),
+            temperature: z.boolean().optional(),
+            structuredOutput: z.boolean().optional(),
+            toolCall: z.boolean().optional(),
+          })
+        )
+        .max(MAX_MODEL_SEARCH_RESULTS),
+      total: z.number().int().nonnegative(),
+    })
+    .optional(),
 })
 
 // get_agent_accessory_catalog

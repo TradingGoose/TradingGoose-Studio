@@ -1,7 +1,8 @@
 import { db } from '@tradinggoose/db'
 import { environmentVariables } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { z } from 'zod'
+import type { z } from 'zod'
+import { ToolArgSchemas } from '@/lib/copilot/registry'
 import {
   assertAcceptedServerToolReviewBase,
   type BaseServerTool,
@@ -14,21 +15,7 @@ import {
 import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
 import { encryptSecret } from '@/lib/utils-server'
 
-const EnvVarSchema = z.discriminatedUnion('scope', [
-  z
-    .object({
-      scope: z.literal('personal'),
-      variables: z.record(z.string(), z.string()),
-    })
-    .strict(),
-  z
-    .object({
-      scope: z.literal('workspace'),
-      workspaceId: z.string().min(1),
-      variables: z.record(z.string(), z.string()),
-    })
-    .strict(),
-])
+const EnvVarSchema = ToolArgSchemas.set_environment_variables
 type SetEnvironmentVariablesParams = z.infer<typeof EnvVarSchema>
 
 function hashEnvironmentVariableBase(

@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from 'fs'
-import { join } from 'path'
 import type {
   BlockCatalogCategory,
   BlockMermaidCatalogItemType,
@@ -20,6 +18,7 @@ import {
 import { WORKFLOW_FIELD_TYPES } from '@/lib/workflows/value-types'
 import { registry as blockRegistry } from '@/blocks/registry'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
+import { getModelGroups } from '@/stores/model-registry'
 
 type BlockAuthType = 'OAuth' | 'API Key' | 'Bot Token'
 
@@ -29,20 +28,13 @@ type BlockRequiredCredentials = {
   description: string
 }
 
-type BlockOperationSummary = BlockMermaidOperationType
-type BlockCatalogItem = BlockMermaidCatalogItemType
-type BlockProfile = BlockMermaidProfileType
-type BlockSubBlockSummary = NonNullable<BlockProfile['subBlocks']>[number]
-
 type BlockCatalogDefinition = {
-  blockType: string
   blockName: string
   category: BlockCatalogCategory
   blockDescription?: string
   bestPractices?: string
   authType?: BlockAuthType
   requiredCredentials?: BlockRequiredCredentials
-  yamlDocumentation?: string
   operationChoices: Array<{
     id: string
     name: string
@@ -85,51 +77,22 @@ function buildRequiredCredentials(
   }
 }
 
-function readBlockDocumentation(blockType: string): string | undefined {
-  try {
-    const workingDir = process.cwd()
-    const isInTradingGooseApp =
-      workingDir.endsWith('/apps/tradinggoose') || workingDir.endsWith('\\apps\\tradinggoose')
-    const basePath = isInTradingGooseApp ? join(workingDir, '..', '..') : workingDir
-    const docPath = join(
-      basePath,
-      'apps',
-      'docs',
-      'content',
-      'docs',
-      'yaml',
-      'blocks',
-      `${blockType}.mdx`
-    )
-
-    if (!existsSync(docPath)) {
-      return undefined
-    }
-
-    return readFileSync(docPath, 'utf-8')
-  } catch {
-    return undefined
-  }
-}
-
 function resolveOperationChoices(
-  blockConfig: BlockConfig | undefined,
+  blockConfig: BlockConfig,
   toolsRegistry?: Record<string, { description?: string }>
 ): BlockCatalogDefinition['operationChoices'] {
-  const operationSubBlock = blockConfig?.subBlocks?.find((subBlock) => subBlock.id === 'operation')
+  const operationSubBlock = blockConfig.subBlocks.find((subBlock) => subBlock.id === 'operation')
   if (!operationSubBlock || !Array.isArray(operationSubBlock.options)) {
     return []
   }
 
-  return operationSubBlock.options.map((option) => {
-    const operationId = typeof option === 'object' ? option.id : option
-    const operationName = typeof option === 'object' ? option.label || option.id : option
+  return operationSubBlock.options.map(({ id, label }) => {
     let description: string | undefined
 
     try {
-      const toolSelector = blockConfig?.tools?.config?.tool
+      const toolSelector = blockConfig.tools.config?.tool
       if (toolsRegistry && typeof toolSelector === 'function') {
-        const toolId = toolSelector({ operation: operationId })
+        const toolId = toolSelector({ operation: id })
         const tool = typeof toolId === 'string' ? toolsRegistry[toolId] : undefined
         description = tool?.description
       }
@@ -138,15 +101,15 @@ function resolveOperationChoices(
     }
 
     return {
-      id: operationId,
-      name: operationName || operationId,
+      id,
+      name: label,
       ...(description ? { description } : {}),
     }
   })
 }
 
-function hasOperationChoices(blockConfig: BlockConfig | undefined): boolean {
-  const operationSubBlock = blockConfig?.subBlocks?.find((subBlock) => subBlock.id === 'operation')
+function hasOperationChoices(blockConfig: BlockConfig): boolean {
+  const operationSubBlock = blockConfig.subBlocks.find((subBlock) => subBlock.id === 'operation')
   return Array.isArray(operationSubBlock?.options)
 }
 
@@ -162,6 +125,7 @@ function toCatalogCategory(category: BlockConfig['category']): BlockCatalogCateg
 }
 
 function resolveSubBlockOptions(subBlock: BlockConfig['subBlocks'][number]) {
+  if (subBlock.optionGroups === getModelGroups) return undefined
   const options =
     typeof subBlock.options === 'function'
       ? subBlock.options.length === 0
@@ -172,13 +136,12 @@ function resolveSubBlockOptions(subBlock: BlockConfig['subBlocks'][number]) {
     return undefined
   }
 
-  return options.map((option) => ({
-    id: option.id,
-    label: option.label || option.id,
-  }))
+  return options.map(({ id, label }) => ({ id, label }))
 }
 
 function resolveSubBlockDescription(subBlock: BlockConfig['subBlocks'][number]) {
+  if (subBlock.optionGroups === getModelGroups)
+    return 'Use an exact native provider/model ID. Discover models with get_blocks_metadata modelQuery; modelSearch contains bounded matches and native capabilities. Narrow the query when total exceeds the returned count.'
   if (subBlock.type !== 'input-format') return subBlock.description
 
   const typeDescription = [
@@ -189,13 +152,13 @@ function resolveSubBlockDescription(subBlock: BlockConfig['subBlocks'][number]) 
 }
 
 function buildSubBlockSummaries(
-  blockConfig: BlockConfig | undefined
-): BlockProfile['subBlocks'] | undefined {
-  if (!blockConfig?.subBlocks?.length) {
+  blockConfig: BlockConfig
+): BlockMermaidProfileType['subBlocks'] | undefined {
+  if (!blockConfig.subBlocks.length) {
     return undefined
   }
 
-  const subBlocks: BlockSubBlockSummary[] = blockConfig.subBlocks.map((subBlock) => {
+  return blockConfig.subBlocks.map((subBlock) => {
     const options = resolveSubBlockOptions(subBlock)
     const description = resolveSubBlockDescription(subBlock)
     const condition =
@@ -224,29 +187,16 @@ function buildSubBlockSummaries(
       ...(options ? { options } : {}),
     }
   })
-
-  return subBlocks.length > 0 ? subBlocks : undefined
-}
-
-function blockHasInputSurface(blockConfig: BlockConfig | undefined): boolean {
-  if (!blockConfig) {
-    return false
-  }
-
-  if (Object.keys(blockConfig.inputs ?? {}).length > 0) {
-    return true
-  }
-
-  return (blockConfig.subBlocks ?? []).some(
-    (subBlock) => !NON_INPUT_SUBBLOCK_TYPES.has(subBlock.type)
-  )
 }
 
 function buildInputReferenceGrammar(
   blockType: string,
-  blockConfig: BlockConfig | undefined
-): BlockProfile['inputReferenceGrammar'] {
-  if (!blockHasInputSurface(blockConfig)) {
+  blockConfig: BlockConfig
+): BlockMermaidProfileType['inputReferenceGrammar'] {
+  if (
+    Object.keys(blockConfig.inputs).length === 0 &&
+    blockConfig.subBlocks.every((subBlock) => NON_INPUT_SUBBLOCK_TYPES.has(subBlock.type))
+  ) {
     return undefined
   }
 
@@ -302,31 +252,18 @@ function buildInputReferenceGrammar(
 
 function resolveBlockCatalogDefinition(
   blockType: string,
-  options: {
-    includeDocumentation?: boolean
-    toolsRegistry?: Record<string, { description?: string }>
-  } = {}
-): BlockCatalogDefinition | null {
-  const blockConfig = blockRegistry[blockType]
-  if (!blockConfig || blockConfig.hideFromToolbar) {
-    return null
-  }
-
+  blockConfig: BlockConfig,
+  toolsRegistry?: Record<string, { description?: string }>
+): BlockCatalogDefinition {
   const authType = resolveAuthType(blockConfig.authMode)
   return {
-    blockType,
-    blockName: blockConfig.name || blockType,
+    blockName: blockConfig.name,
     category: toCatalogCategory(blockConfig.category),
     blockDescription: blockConfig.longDescription || blockConfig.description || undefined,
     bestPractices: blockConfig.bestPractices || undefined,
     authType,
-    requiredCredentials: buildRequiredCredentials(
-      authType,
-      blockType,
-      blockConfig.name || blockType
-    ),
-    yamlDocumentation: options.includeDocumentation ? readBlockDocumentation(blockType) : undefined,
-    operationChoices: resolveOperationChoices(blockConfig, options.toolsRegistry),
+    requiredCredentials: buildRequiredCredentials(authType, blockType, blockConfig.name),
+    operationChoices: resolveOperationChoices(blockConfig, toolsRegistry),
   }
 }
 
@@ -336,10 +273,6 @@ export async function readWorkflowBlockCatalogAvailability(): Promise<ProviderAv
       Boolean(blockConfig && !blockConfig.hideFromToolbar)
     )
   )
-
-  if (providerIds.length === 0) {
-    return {}
-  }
 
   return getOAuthProviderAvailability(providerIds)
 }
@@ -357,7 +290,7 @@ function buildOperationSummaries(
   blockType: string,
   blockName: string,
   operationChoices: BlockCatalogDefinition['operationChoices']
-): BlockOperationSummary[] {
+): BlockMermaidOperationType[] {
   return operationChoices.map((operation) => ({
     ...operation,
     ...buildWorkflowBlockMermaidShape({
@@ -368,21 +301,13 @@ function buildOperationSummaries(
   }))
 }
 
-export async function listWorkflowBlockCatalogItems(): Promise<BlockCatalogItem[]> {
+export async function listWorkflowBlockCatalogItems(): Promise<BlockMermaidCatalogItemType[]> {
   const availability = await readWorkflowBlockCatalogAvailability()
-  const items = Object.keys(blockRegistry)
-    .filter((blockType) => !blockRegistry[blockType]?.hideFromToolbar)
+  return Object.keys(blockRegistry)
+    .filter((blockType) => isCatalogBlockAvailable(blockType, availability))
     .sort((left, right) => left.localeCompare(right))
     .map((blockType) => {
-      if (!isCatalogBlockAvailable(blockType, availability)) {
-        return null
-      }
-
-      const definition = resolveBlockCatalogDefinition(blockType)
-      if (!definition) {
-        return null
-      }
-
+      const definition = resolveBlockCatalogDefinition(blockType, blockRegistry[blockType])
       return {
         blockType,
         blockName: definition.blockName,
@@ -394,14 +319,12 @@ export async function listWorkflowBlockCatalogItems(): Promise<BlockCatalogItem[
           : {}),
       }
     })
-
-  return items.filter((item): item is BlockCatalogItem => item !== null)
 }
 
 export async function readWorkflowBlockProfile(
   blockType: string,
   availability?: ProviderAvailability
-): Promise<BlockProfile> {
+): Promise<BlockMermaidProfileType> {
   const resolvedAvailability = availability ?? (await readWorkflowBlockCatalogAvailability())
 
   if (!isCatalogBlockAvailable(blockType, resolvedAvailability)) {
@@ -412,13 +335,7 @@ export async function readWorkflowBlockProfile(
   const toolsRegistry = hasOperationChoices(blockConfig)
     ? (await import('@/tools/registry')).tools
     : undefined
-  const definition = resolveBlockCatalogDefinition(blockType, {
-    includeDocumentation: true,
-    toolsRegistry,
-  })
-  if (!definition) {
-    throw new Error(`Block not found: ${blockType}`)
-  }
+  const definition = resolveBlockCatalogDefinition(blockType, blockConfig, toolsRegistry)
   const subBlocks = buildSubBlockSummaries(blockConfig)
   const inputReferenceGrammar = buildInputReferenceGrammar(blockType, blockConfig)
 
@@ -437,7 +354,6 @@ export async function readWorkflowBlockProfile(
     ...(definition.requiredCredentials
       ? { requiredCredentials: definition.requiredCredentials }
       : {}),
-    ...(definition.yamlDocumentation ? { yamlDocumentation: definition.yamlDocumentation } : {}),
     ...(subBlocks ? { subBlocks } : {}),
     ...(inputReferenceGrammar ? { inputReferenceGrammar } : {}),
     ...shape,

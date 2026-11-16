@@ -68,7 +68,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | --------- | ---- | ----------- |
 | `files` | array | 已解析文件数组，包含内容和元数据 |
 | `combinedContent` | string | 所有已解析文件的合并内容 |
-| `processedFiles` | file[] | 供下游使用的 UserFile 对象数组 |
 
 </div>
 
@@ -127,7 +126,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | --------- | ---- | ----------- |
 | `files` | array | 已解析文件数组，包含内容和元数据 |
 | `combinedContent` | string | 所有已解析文件的合并内容 |
-| `processedFiles` | file[] | 供下游使用的 UserFile 对象数组 |
 
 </div>
 
@@ -135,7 +133,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ## 使用说明
 
-将 File 集成到工作流中。可手动上传文件，或插入文件 URL。
+上传文件或输入可访问的文件 URL。工作区文件使用你当前的权限。未经验证的私有来源会返回访问错误。从输入中移除文件只会清除选择，不会删除存储的文件。
 
 ## 说明
 

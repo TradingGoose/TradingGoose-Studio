@@ -42,13 +42,7 @@ function manualPersistenceHandler(
   accessMode: ReviewAccessMode,
   descriptor: ReviewTargetDescriptor
 ) {
-  if (
-    accessMode !== 'write' ||
-    !descriptor.entityId ||
-    !descriptor.workspaceId ||
-    descriptor.draftSessionId !== null ||
-    descriptor.reviewSessionId !== null
-  ) {
+  if (accessMode !== 'write' || !descriptor.entityId || !descriptor.workspaceId) {
     return undefined
   }
   switch (descriptor.entityKind) {
@@ -86,8 +80,6 @@ function livePersistenceHandler(accessMode: ReviewAccessMode, descriptor: Review
   if (
     accessMode !== 'write' ||
     !descriptor.entityId ||
-    descriptor.draftSessionId !== null ||
-    descriptor.reviewSessionId !== null ||
     (descriptor.entityKind !== 'workflow' &&
       descriptor.entityKind !== 'watchlist' &&
       descriptor.entityKind !== 'dashboard_widget' &&

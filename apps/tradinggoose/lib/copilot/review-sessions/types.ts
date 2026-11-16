@@ -41,33 +41,18 @@ export interface ReviewTargetDescriptor {
   ownerUserId?: string | null
   entityKind: YjsDocumentKind
   entityId: string | null
-  draftSessionId: string | null
-  reviewSessionId: string | null
   yjsSessionId: string
 }
 
-export type ReviewTargetDocState = 'active' | 'expired'
-
-export interface ReviewTargetRuntimeState {
-  docState: ReviewTargetDocState
-}
-
-export interface ResolvedReviewTarget {
-  descriptor: ReviewTargetDescriptor
-  runtime: ReviewTargetRuntimeState
-}
-
-export const YJS_TARGET_KINDS = ['entity', 'review_session', 'entity_list'] as const
+export const YJS_TARGET_KINDS = ['entity', 'entity_list'] as const
 
 export type YjsTargetKind = (typeof YJS_TARGET_KINDS)[number]
 
 export interface YjsTransportEnvelope {
   targetKind: YjsTargetKind
   sessionId: string
-  reviewSessionId: string | null
   workspaceId: string | null
   ownerUserId: string | null
   entityKind: YjsDocumentKind
   entityId: string | null
-  draftSessionId: string | null
 }

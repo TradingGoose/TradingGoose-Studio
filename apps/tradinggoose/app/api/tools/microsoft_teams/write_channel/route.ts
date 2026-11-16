@@ -49,7 +49,11 @@ export async function POST(request: NextRequest) {
         try {
           logger.info(`[${requestId}] Uploading file to Teams: ${file.name} (${file.size} bytes)`)
 
-          const buffer = await downloadFileFromStorage(file, requestId, logger)
+          const buffer = await downloadFileFromStorage(file, requestId, logger, {
+            actorUserId: credential.requesterUserId,
+            workspaceId: credential.workspaceId,
+            signal: request.signal,
+          })
 
           const uploadUrl =
             'https://graph.microsoft.com/v1.0/me/drive/root:/TeamsAttachments/' +
@@ -114,6 +118,7 @@ export async function POST(request: NextRequest) {
 
           logger.info(`[${requestId}] Created attachment reference for ${file.name}`)
         } catch (error) {
+          if (error instanceof Error && 'status' in error && error.status === 403) throw error
           logger.error(`[${requestId}] Failed to process file ${file.name}:`, error)
           throw new Error(
             `Failed to process file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -193,6 +198,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && 'status' in error && error.status === 403) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 })
+    }
     logger.error(`[${requestId}] Error sending Teams channel message:`, error)
     return NextResponse.json(
       {

@@ -19,10 +19,10 @@ import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createLogger } from '@/lib/logs/console/logger'
+import { formatCost } from '@/lib/logs/cost'
 import { deepRedactSecrets } from '@/lib/security/redaction'
 import { cn } from '@/lib/utils'
 import { WorkflowPreview } from '@/app/workspace/[workspaceId]/components/workflow-preview/workflow-preview'
-import { scaleLogCostBreakdown } from '@/app/workspace/[workspaceId]/records/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('FrozenCanvas')
@@ -106,10 +106,9 @@ function ExpandableDataSection({ title, data }: { title: string; data: any }) {
   )
 }
 
-function formatExecutionData(executionData: any, costMultiplier = 1) {
+function formatExecutionData(executionData: any) {
   const { inputData, outputData, cost, tokens, durationMs, status, blockName, blockType } =
     executionData
-  const scaledCost = scaleLogCostBreakdown(cost, costMultiplier)
 
   return {
     blockName: blockName || 'Unknown Block',
@@ -118,18 +117,12 @@ function formatExecutionData(executionData: any, costMultiplier = 1) {
     duration: durationMs ? `${durationMs}ms` : 'N/A',
     input: deepRedactSecrets(inputData || {}),
     output: deepRedactSecrets(outputData || {}),
-    cost: scaledCost
-      ? {
-          input: scaledCost.input || 0,
-          output: scaledCost.output || 0,
-          total: scaledCost.total || 0,
-        }
-      : null,
+    cost: cost ?? null,
     tokens: tokens
       ? {
-          prompt: tokens.prompt || 0,
-          completion: tokens.completion || 0,
-          total: tokens.total || 0,
+          prompt: tokens.prompt,
+          completion: tokens.completion,
+          total: tokens.total,
         }
       : null,
   }
@@ -158,13 +151,11 @@ function PinnedLogs({
   executionData,
   blockId,
   workflowState,
-  costMultiplier = 1,
   onClose,
 }: {
   executionData: any | null
   blockId: string
   workflowState: any
-  costMultiplier?: number
   onClose: () => void
 }) {
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
@@ -232,7 +223,7 @@ function PinnedLogs({
     currentIteration: currentIterationIndex,
   })
 
-  const formatted = formatExecutionData(iterationInfo.executionData, costMultiplier)
+  const formatted = formatExecutionData(iterationInfo.executionData)
   const totalIterations = executionData.iterations?.length || 1
 
   const goToPreviousIteration = () => {
@@ -310,14 +301,20 @@ function PinnedLogs({
             <span className='text-foreground text-sm'>{formatted.duration}</span>
           </div>
 
-          {formatted.cost && formatted.cost.total > 0 && (
+          {formatted.cost && (
             <div className='flex items-center gap-2'>
               <DollarSign className='h-4 w-4 text-muted-foreground' />
-              <span className='text-foreground text-sm'>${formatted.cost.total.toFixed(5)}</span>
+              <span className='text-foreground text-sm'>
+                {formatted.cost.estimated || formatted.cost.status === 'estimated'
+                  ? 'Estimated '
+                  : ''}
+                {formatCost(formatted.cost.total)}
+                {formatted.cost.status === 'partial' ? ' (partial)' : ''}
+              </span>
             </div>
           )}
 
-          {formatted.tokens && formatted.tokens.total > 0 && (
+          {formatted.tokens && typeof formatted.tokens.total === 'number' && (
             <div className='flex items-center gap-2'>
               <Hash className='h-4 w-4 text-muted-foreground' />
               <span className='text-foreground text-sm'>{formatted.tokens.total} tokens</span>
@@ -329,38 +326,58 @@ function PinnedLogs({
 
         <ExpandableDataSection title='Output' data={formatted.output} />
 
-        {formatted.cost && formatted.cost.total > 0 && (
+        {formatted.cost && (
           <div>
             <h4 className='mb-2 font-medium text-foreground text-sm'>Cost Breakdown</h4>
             <div className='space-y-1 text-sm'>
               <div className='flex justify-between text-foreground'>
                 <span>Input:</span>
-                <span>${formatted.cost.input.toFixed(5)}</span>
+                <span>{formatCost(formatted.cost.input)}</span>
               </div>
               <div className='flex justify-between text-foreground'>
                 <span>Output:</span>
-                <span>${formatted.cost.output.toFixed(5)}</span>
+                <span>{formatCost(formatted.cost.output)}</span>
               </div>
+              {formatted.cost.availableTotal !== undefined &&
+                formatted.cost.total === undefined && (
+                  <div className='flex justify-between text-foreground'>
+                    <span>Available subtotal:</span>
+                    <span>{formatCost(formatted.cost.availableTotal)}</span>
+                  </div>
+                )}
               <div className='flex justify-between border-border border-t pt-1 font-medium text-foreground'>
                 <span>Total:</span>
-                <span>${formatted.cost.total.toFixed(5)}</span>
+                <span>
+                  {formatted.cost.estimated || formatted.cost.status === 'estimated'
+                    ? 'Estimated '
+                    : ''}
+                  {formatCost(formatted.cost.total)}
+                  {formatted.cost.status === 'partial' ? ' (partial)' : ''}
+                </span>
               </div>
             </div>
           </div>
         )}
 
-        {formatted.tokens && formatted.tokens.total > 0 && (
+        {formatted.tokens && typeof formatted.tokens.total === 'number' && (
           <div>
             <h4 className='mb-2 font-medium text-foreground text-sm'>Token Usage</h4>
             <div className='space-y-1 text-sm'>
               <div className='flex justify-between text-foreground'>
                 <span>Prompt:</span>
-                <span>{formatted.tokens.prompt}</span>
+                <span>{formatted.tokens.prompt ?? 'Unavailable'}</span>
               </div>
               <div className='flex justify-between text-foreground'>
                 <span>Completion:</span>
-                <span>{formatted.tokens.completion}</span>
+                <span>{formatted.tokens.completion ?? 'Unavailable'}</span>
               </div>
+              {formatted.cost.availableTotal !== undefined &&
+                formatted.cost.total === undefined && (
+                  <div className='flex justify-between text-foreground'>
+                    <span>Available subtotal:</span>
+                    <span>{formatCost(formatted.cost.availableTotal)}</span>
+                  </div>
+                )}
               <div className='flex justify-between border-border border-t pt-1 font-medium text-foreground'>
                 <span>Total:</span>
                 <span>{formatted.tokens.total}</span>
@@ -381,7 +398,6 @@ interface FrozenCanvasData {
 interface FrozenCanvasProps {
   executionId: string
   traceSpans?: any[]
-  costMultiplier?: number
   className?: string
   height?: string | number
   width?: string | number
@@ -390,7 +406,6 @@ interface FrozenCanvasProps {
 export function FrozenCanvas({
   executionId,
   traceSpans,
-  costMultiplier = 1,
   className,
   height = '100%',
   width = '100%',
@@ -598,7 +613,6 @@ export function FrozenCanvas({
           executionData={blockExecutions[pinnedBlockId] || null}
           blockId={pinnedBlockId}
           workflowState={data.workflowState}
-          costMultiplier={costMultiplier}
           onClose={() => setPinnedBlockId(null)}
         />
       )}

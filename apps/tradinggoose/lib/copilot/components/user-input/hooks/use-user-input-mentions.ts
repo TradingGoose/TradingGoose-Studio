@@ -11,7 +11,6 @@ import {
 } from '../../../workspace-entities'
 import { MENTION_SUBMENUS } from '../constants'
 import {
-  getMentionOptionLabel,
   getPastChatMentionLabel,
   getWorkspaceEntityMentionLabel,
   useCopilotMentionCopy,
@@ -330,11 +329,14 @@ export function useUserInputMentions({
     restoreEditorSelection(caretPos, caretPos)
   }
 
-  const insertPastChatMention = (chat: Pick<PastChatItem, 'reviewSessionId' | 'title'>) => {
+  const insertPastChatMention = (
+    chat: Pick<PastChatItem, 'threadId' | 'workspaceId' | 'title'>
+  ) => {
     const label = getPastChatMentionLabel(mentionCopy, chat)
     insertMentionContext(label, {
       kind: 'past_chat',
-      reviewSessionId: chat.reviewSessionId,
+      threadId: chat.threadId,
+      workspaceId: chat.workspaceId,
       label,
     })
     closeMentionMenu()
@@ -362,7 +364,7 @@ export function useUserInputMentions({
   }
 
   const insertDocsMention = () => {
-    const label = getMentionOptionLabel(mentionCopy, 'docs')
+    const label = mentionCopy.optionLabels.docs
     insertMentionContext(label, { kind: 'docs', label })
     closeMentionMenu()
   }

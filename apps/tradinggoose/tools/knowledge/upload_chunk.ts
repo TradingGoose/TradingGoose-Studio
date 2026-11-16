@@ -1,3 +1,4 @@
+import { withInferenceFacts } from '@/lib/mastra/result'
 import type { KnowledgeUploadChunkResponse } from '@/tools/knowledge/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -6,6 +7,7 @@ export const knowledgeUploadChunkTool: ToolConfig<any, KnowledgeUploadChunkRespo
   name: 'Knowledge Upload Chunk',
   description: 'Upload a new chunk to a document in a knowledge base',
   version: '1.0.0',
+  settlesModelUsage: true,
 
   params: {
     knowledgeBaseId: {
@@ -51,22 +53,31 @@ export const knowledgeUploadChunkTool: ToolConfig<any, KnowledgeUploadChunkRespo
 
     return {
       success: true,
-      output: {
-        message: `Successfully uploaded chunk to document`,
-        data: {
-          chunkId: data.id,
-          chunkIndex: data.chunkIndex || 0,
-          content: data.content,
-          contentLength: data.contentLength || data.content?.length || 0,
-          tokenCount: data.tokenCount || 0,
-          enabled: data.enabled !== undefined ? data.enabled : true,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
+      output: withInferenceFacts(
+        {
+          message: `Successfully uploaded chunk to document`,
+          data: {
+            chunkId: data.id,
+            chunkIndex: data.chunkIndex || 0,
+            content: data.content,
+            contentLength: data.contentLength || data.content?.length || 0,
+            tokenCount: data.tokenCount || 0,
+            enabled: data.enabled !== undefined ? data.enabled : true,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+          },
+          documentId: data.documentId,
+          documentName: data.documentName,
+          cost: data.cost,
+          embeddingUsage: data.embeddingUsage,
         },
-        documentId: data.documentId,
-        documentName: data.documentName,
-        cost: data.cost,
-      },
+        {
+          model: data.cost?.model,
+          tokens: data.cost?.tokens,
+          cost: data.cost,
+          generatedFields: ['cost', 'embeddingUsage'],
+        }
+      ),
     }
   },
 
@@ -96,6 +107,11 @@ export const knowledgeUploadChunkTool: ToolConfig<any, KnowledgeUploadChunkRespo
     documentName: {
       type: 'string',
       description: 'Name of the document the chunk was added to',
+    },
+    embeddingUsage: {
+      type: 'object',
+      description: 'Native embedding usage, including unavailable cost',
+      optional: true,
     },
     cost: {
       type: 'object',

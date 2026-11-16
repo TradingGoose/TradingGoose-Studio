@@ -3,10 +3,11 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
-import { CopilotFiles, isUsingCloudStorage } from '@/lib/uploads'
+import { isUsingCloudStorage } from '@/lib/uploads'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 import { downloadFile } from '@/lib/uploads/core/storage-service'
 import { verifyVercelDownloadToken } from '@/lib/uploads/providers/vercel/download-token'
+import { assertStorageReferenceAccess } from '@/lib/uploads/utils/file-utils'
 import {
   createErrorResponse,
   createFileResponse,
@@ -30,6 +31,10 @@ export async function GET(
 
     logger.info('File serve request:', { path })
 
+    assertStorageReferenceAccess(
+      path.join('/'),
+      request.nextUrl.searchParams.get('context') ?? undefined
+    )
     const fullPath = path.join('/')
     const isS3Path = path[0] === 's3'
     const isAzurePath = path[0] === 'azure'
@@ -40,6 +45,8 @@ export async function GET(
     const signedVercelAccess = isVercelPath
       ? await resolveSignedVercelAccess(request, cloudKey)
       : { authorized: false as const }
+    if (signedVercelAccess.authorized)
+      assertStorageReferenceAccess(cloudKey, signedVercelAccess.context)
 
     let userId: string | undefined
 
@@ -52,6 +59,17 @@ export async function GET(
       }
 
       userId = authResult.userId
+    }
+
+    const { resolveAuthorizedWorkspaceFileReference } = await import(
+      '@/lib/uploads/contexts/workspace'
+    )
+    const file = signedVercelAccess.authorized
+      ? null
+      : await resolveAuthorizedWorkspaceFileReference(cloudKey, userId)
+    if (file) {
+      const buffer = await downloadFile({ key: file.key, context: 'workspace' })
+      return privateFileResponse({ buffer, contentType: file.type, filename: file.name })
     }
 
     const contextParam = signedVercelAccess.authorized
@@ -168,16 +186,10 @@ async function handleCloudProxy(
       logger.info(`Inferred context: ${context} from key pattern: ${cloudKey}`)
     }
 
-    let fileBuffer: Buffer
-
-    if (context === 'copilot') {
-      fileBuffer = await CopilotFiles.downloadCopilotFile(cloudKey)
-    } else {
-      fileBuffer = await downloadFile({
-        key: cloudKey,
-        context,
-      })
-    }
+    const fileBuffer = await downloadFile({
+      key: cloudKey,
+      context,
+    })
 
     const originalFilename = cloudKey.split('/').pop() || 'download'
     const contentType = getContentType(originalFilename)
@@ -198,4 +210,10 @@ async function handleCloudProxy(
     logger.error('Error downloading from cloud storage:', error)
     throw error
   }
+}
+
+function privateFileResponse(file: { buffer: Buffer; contentType: string; filename: string }) {
+  const response = createFileResponse(file)
+  response.headers.set('Cache-Control', 'private, no-store')
+  return response
 }

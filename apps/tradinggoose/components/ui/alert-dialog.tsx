@@ -13,11 +13,12 @@ const AlertDialogTrigger = AlertDialogPrimitive.Trigger
 
 type AlertDialogContentProps = StaticClassNameProps<AlertDialogPrimitive.Popup.Props> & {
   hideCloseButton?: boolean
+  container?: AlertDialogPrimitive.Portal.Props['container']
 }
 
 const AlertDialogContent = React.forwardRef<HTMLDivElement, AlertDialogContentProps>(
-  ({ className, children, hideCloseButton = false, ...props }, ref) => (
-    <AlertDialogPrimitive.Portal>
+  ({ className, children, hideCloseButton = false, container, ...props }, ref) => (
+    <AlertDialogPrimitive.Portal container={container}>
       <AlertDialogPrimitive.Backdrop
         data-slot='alert-dialog-backdrop'
         className='data-[ending-style]:fade-out-0 data-[starting-style]:fade-in-0 fixed inset-0 z-50 bg-black/50 backdrop-blur-[1.5px] data-[ending-style]:animate-out data-[starting-style]:animate-in'

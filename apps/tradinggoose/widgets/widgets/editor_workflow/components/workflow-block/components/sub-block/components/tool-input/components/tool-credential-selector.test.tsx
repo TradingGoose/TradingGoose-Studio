@@ -171,6 +171,58 @@ describe('ToolCredentialSelector workspace connections', () => {
     )
   })
 
+  it('refuses a stale approval check before any credential grant POST', async () => {
+    const beforeSelect = vi.fn().mockRejectedValue(new Error('Native approval is required'))
+    await act(async () =>
+      root.render(
+        <ToolCredentialSelector
+          provider='robinhood'
+          workspaceId='explicit-business'
+          value=''
+          onChange={onChange}
+          beforeSelect={beforeSelect}
+        />
+      )
+    )
+    await select('Personal')
+    expect(beforeSelect).toHaveBeenCalledOnce()
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toEqual([])
+    expect(onChange).not.toHaveBeenCalled()
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Native approval')
+  })
+  it('does not grant when explicit workspace changes during the approval check', async () => {
+    let release!: () => void
+    const beforeSelect = () =>
+      new Promise<void>((resolve) => {
+        release = resolve
+      })
+    await act(async () =>
+      root.render(
+        <ToolCredentialSelector
+          provider='robinhood'
+          workspaceId='explicit-a'
+          value=''
+          onChange={onChange}
+          beforeSelect={beforeSelect}
+        />
+      )
+    )
+    await select('Personal')
+    await act(async () =>
+      root.render(
+        <ToolCredentialSelector
+          provider='robinhood'
+          workspaceId='explicit-b'
+          value=''
+          onChange={onChange}
+          beforeSelect={beforeSelect}
+        />
+      )
+    )
+    await act(async () => release())
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toEqual([])
+    expect(onChange).not.toHaveBeenCalled()
+  })
   it('saves a personal connection before selecting its workspace credential', async () => {
     await render('workspace', 'robinhood', 'workspace-1')
     expect(fetchMock.mock.calls[0]?.[0]).toContain('workspaceId=workspace-1')

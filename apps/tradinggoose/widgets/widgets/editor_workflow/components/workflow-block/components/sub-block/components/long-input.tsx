@@ -16,7 +16,10 @@ import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-
 import { useWand } from '@/hooks/workflow/use-wand'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useBufferedStringValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-buffered-string-value'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import {
+  useOptionalWorkflowRoute,
+  useWorkspaceId,
+} from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('LongInput')
@@ -51,8 +54,9 @@ export function LongInput({
 }: LongInputProps) {
   const copy = useWorkflowBlockEditorCopy().longInput
   const workspaceId = useWorkspaceId()
+  const workflowRoute = useOptionalWorkflowRoute()
   const [isFocused, setIsFocused] = useState(false)
-  const [streamingLock, setStreamingLock] = useState(false)
+  const [wandPreview, setWandPreview] = useState<string | null>(null)
   const resolvedWandConfig = config.wandConfig ?? { enabled: false, prompt: '' }
   const isWorkflowManaged = onChange === undefined
 
@@ -69,14 +73,13 @@ export function LongInput({
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   const baseValueString = stringifySubBlockValue(propValue)
-  const { value: textFieldValue, setValue: setTextFieldValue } = useWorkflowField(
-    blockId,
-    subBlockId,
-    baseValueString,
-    {
-      enabled: isWorkflowManaged,
-    }
-  )
+  const {
+    value: textFieldValue,
+    setValue: setTextFieldValue,
+    yText: sourceText,
+  } = useWorkflowField(blockId, subBlockId, baseValueString, {
+    enabled: isWorkflowManaged,
+  })
   const persistedValue = isWorkflowManaged ? textFieldValue : baseValueString
   const commitValue = useCallback(
     (nextValue: string) => {
@@ -99,42 +102,27 @@ export function LongInput({
     externalValue: persistedValue,
     onCommit: commitValue,
     delayMs: 450,
-    suspendExternalSync: streamingLock || isFocused,
+    suspendExternalSync: isFocused,
     commitOnUnmount: isWorkflowManaged,
   })
 
   const wandHook = useWand({
-    wandConfig: resolvedWandConfig,
+    wandConfig: disabled ? { ...resolvedWandConfig, enabled: false } : resolvedWandConfig,
     currentValue: value,
+    generationKey: `${workflowRoute?.workflowId ?? ''}:${blockId}:${subBlockId}`,
+    getCurrentValue: () => sourceText?.toString() ?? persistedValue,
     onStreamStart: () => {
-      setStreamingLock(true)
-      setLocalContent('')
+      cancelScheduledCommit()
+      setWandPreview('')
     },
-    onStreamChunk: (chunk) => {
-      setLocalContent((current) => current + chunk)
-    },
+    onStreamChunk: (chunk) => setWandPreview((current) => (current ?? '') + chunk),
     onGeneratedContent: (content) => {
+      if (disabled) return false
       setLocalContent(content)
-      if (!disabled) {
-        commitValue(content)
-      }
+      commitValue(content)
     },
+    onGenerationEnd: () => setWandPreview(null),
   })
-
-  // Update store value during streaming (but won't persist until streaming ends)
-  useEffect(() => {
-    if (wandHook.isStreaming && value !== '') {
-      if (!disabled) {
-        commitValue(value)
-      }
-    }
-  }, [commitValue, disabled, value, wandHook.isStreaming])
-
-  useEffect(() => {
-    if (!wandHook.isStreaming) {
-      setStreamingLock(false)
-    }
-  }, [wandHook.isStreaming])
 
   // Calculate initial height based on rows prop with reasonable defaults
   const getInitialHeight = () => {
@@ -385,7 +373,7 @@ export function LongInput({
           )}
           rows={rows ?? DEFAULT_ROWS}
           placeholder={placeholder ?? ''}
-          value={value?.toString() ?? ''}
+          value={wandPreview ?? value?.toString() ?? ''}
           onChange={handleChange}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -423,7 +411,7 @@ export function LongInput({
             height: `${height}px`,
           }}
         >
-          {formatDisplayText(value?.toString() ?? '', {
+          {formatDisplayText(wandPreview ?? value?.toString() ?? '', {
             accessiblePrefixes,
             highlightAll: !accessiblePrefixes,
           })}

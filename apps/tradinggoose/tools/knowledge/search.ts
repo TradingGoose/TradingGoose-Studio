@@ -1,5 +1,5 @@
+import { withInferenceFacts } from '@/lib/mastra/result'
 import type { KnowledgeSearchResponse } from '@/tools/knowledge/types'
-import { enrichKBTagFiltersSchema } from '@/tools/schema-enrichers'
 import { parseTagFilters } from '@/tools/shared/tags'
 import type { ToolConfig } from '@/tools/types'
 
@@ -9,6 +9,7 @@ export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
   description:
     'Search a knowledge base by query, text tag equality, or both. Repeated values for one tag use OR; different tags use AND.',
   version: '1.0.0',
+  settlesModelUsage: true,
 
   params: {
     knowledgeBaseId: {
@@ -45,13 +46,6 @@ export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
     },
   },
 
-  schemaEnrichment: {
-    tagFilters: {
-      dependsOn: 'knowledgeBaseId',
-      enrichSchema: enrichKBTagFiltersSchema,
-    },
-  },
-
   request: {
     url: () => '/api/knowledge/search',
     method: 'POST',
@@ -83,12 +77,21 @@ export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
 
     return {
       success: true,
-      output: {
-        results: data.results || [],
-        query: data.query,
-        totalResults: data.totalResults || 0,
-        cost: data.cost,
-      },
+      output: withInferenceFacts(
+        {
+          results: data.results || [],
+          query: data.query,
+          totalResults: data.totalResults || 0,
+          cost: data.cost,
+          embeddingUsage: data.embeddingUsage,
+        },
+        {
+          model: data.cost?.model,
+          tokens: data.cost?.tokens,
+          cost: data.cost,
+          generatedFields: ['cost', 'embeddingUsage'],
+        }
+      ),
     }
   },
 
@@ -115,6 +118,11 @@ export const knowledgeSearchTool: ToolConfig<any, KnowledgeSearchResponse> = {
     totalResults: {
       type: 'number',
       description: 'Total number of results found',
+    },
+    embeddingUsage: {
+      type: 'object',
+      description: 'Native embedding usage status and batch count',
+      optional: true,
     },
     cost: {
       type: 'object',

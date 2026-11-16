@@ -372,7 +372,7 @@ export function seedEntitySession(
         setField('chunkingConfig', payload.chunkingConfig)
         if ('tokenCount' in payload) setField('tokenCount', payload.tokenCount ?? 0)
         if ('embeddingModel' in payload) {
-          setField('embeddingModel', payload.embeddingModel ?? 'text-embedding-3-small')
+          setField('embeddingModel', payload.embeddingModel ?? 'openai/text-embedding-3-small')
         }
         if ('embeddingDimension' in payload) {
           setField('embeddingDimension', payload.embeddingDimension ?? 1536)
@@ -436,7 +436,7 @@ export function getEntityFields(
       result.description = fields.get('description') ?? ''
       result.chunkingConfig = fields.get('chunkingConfig')
       result.tokenCount = fields.get('tokenCount') ?? 0
-      result.embeddingModel = fields.get('embeddingModel') ?? 'text-embedding-3-small'
+      result.embeddingModel = fields.get('embeddingModel') ?? 'openai/text-embedding-3-small'
       result.embeddingDimension = fields.get('embeddingDimension') ?? 1536
       break
 

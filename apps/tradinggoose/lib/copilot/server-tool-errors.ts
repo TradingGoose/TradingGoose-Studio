@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { getFailureAccounting } from '@/lib/mastra/errors'
 import { DashboardLayoutValidationError } from '@/widgets/layout-document'
 import { WidgetConfigValidationError } from '@/widgets/widget-mutations'
 
@@ -239,6 +240,7 @@ export function buildCopilotServerToolErrorResponse(
       code: 'server_tool_execution_failed',
       error: GENERIC_SERVER_TOOL_ERROR,
       retryable: false,
+      ...getFailureAccounting(error),
     },
   }
 }

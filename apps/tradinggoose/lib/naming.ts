@@ -2,7 +2,7 @@
  * Utility functions for generating names for all entities (workspaces, folders, workflows)
  */
 
-import type { Workspace } from '@/stores/organization/types'
+import type { Workspace } from '@/lib/organization/types'
 
 export interface NameableEntity {
   name: string

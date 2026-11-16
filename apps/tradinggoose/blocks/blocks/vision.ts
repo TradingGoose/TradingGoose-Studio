@@ -1,7 +1,7 @@
 import { EyeIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getProviderIcon } from '@/providers/ai/models'
+import { modelApiKeyField, modelField } from '@/stores/model-registry'
 import type { VisionResponse } from '@/tools/vision/types'
 
 export const VisionBlock: BlockConfig<VisionResponse> = {
@@ -48,28 +48,10 @@ export const VisionBlock: BlockConfig<VisionResponse> = {
       required: false,
     },
     {
-      id: 'model',
+      ...modelField,
       title: 'Vision Model',
-      type: 'dropdown',
-      layout: 'half',
-      options: () => {
-        const models = [
-          { label: 'gpt-4o', id: 'gpt-4o' },
-          { label: 'claude-3-opus', id: 'claude-3-opus-20240229' },
-          { label: 'claude-3-sonnet', id: 'claude-3-sonnet-20240229' },
-        ]
-
-        return models.map((model) => {
-          const icon = getProviderIcon(model.id)
-          return icon
-            ? {
-                ...model,
-                icon,
-              }
-            : model
-        })
-      },
-      value: () => 'gpt-4o',
+      placeholder: undefined,
+      required: false,
     },
     {
       id: 'prompt',
@@ -79,15 +61,7 @@ export const VisionBlock: BlockConfig<VisionResponse> = {
       placeholder: 'Enter prompt for image analysis',
       required: true,
     },
-    {
-      id: 'apiKey',
-      title: 'API Key',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: 'Enter your API key',
-      password: true,
-      required: true,
-    },
+    { ...modelApiKeyField, connectionDroppable: true },
   ],
   tools: {
     access: ['vision_tool'],
@@ -103,6 +77,6 @@ export const VisionBlock: BlockConfig<VisionResponse> = {
   outputs: {
     content: { type: 'string', description: 'Analysis result' },
     model: { type: 'string', description: 'Model used' },
-    tokens: { type: 'number', description: 'Token usage' },
+    tokens: { type: 'json', description: 'Reported prompt, completion and total tokens' },
   },
 }

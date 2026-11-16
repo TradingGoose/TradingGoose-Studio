@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import {
   Alert,
@@ -48,6 +48,7 @@ interface ChatDeployProps {
   blockId: string
   publishedChat: ExistingChat | null
   onBusyChange?: (busy: boolean) => void
+  onRendered?: () => void
 }
 
 const normalizeStringValue = (value: unknown, fallback = ''): string => {
@@ -90,7 +91,17 @@ const buildDraftConfig = (params: {
   }
 }
 
-export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }: ChatDeployProps) {
+export function ChatDeploy({
+  workflowId,
+  blockId,
+  publishedChat,
+  onBusyChange,
+  onRendered,
+}: ChatDeployProps) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (rootRef.current?.isConnected) onRendered?.()
+  }, [workflowId, blockId, onRendered])
   const deploymentCopy = useDeploymentCopy()
   const copy = deploymentCopy.chat
   const [identifierValue, setIdentifierValue] = useSubBlockValue<string>(
@@ -298,7 +309,12 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
   const alertMessage = generalError ?? (passwordSaveError ? copy.failedToSavePassword : null)
 
   return (
-    <div className='space-y-4'>
+    <div
+      ref={rootRef}
+      className='space-y-4'
+      data-workflow-id={workflowId}
+      data-chat-block-id={blockId}
+    >
       {publishedUrl ? (
         <div className='rounded-md border bg-muted/20 p-3 text-sm'>
           <div className='font-medium'>{copy.publishedChatTitle}</div>

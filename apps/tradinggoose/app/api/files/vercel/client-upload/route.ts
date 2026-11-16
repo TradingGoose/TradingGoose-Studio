@@ -47,6 +47,8 @@ export async function POST(request: Request) {
     }
 
     const url = new URL(request.url)
+    if (url.searchParams.get('type') === 'copilot')
+      throw new ClientUploadValidationError('Copilot images are sent inline with the conversation')
     const context: StorageContext = resolveUploadContext(url.searchParams.get('type'))
     const body = (await request.json()) as HandleUploadBody
     const config = getStorageConfig(context)

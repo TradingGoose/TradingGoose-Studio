@@ -34,21 +34,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "模型",
             "layout": "full",
-            "defaultValue": "text-embedding-3-small",
-            "options": [
-                {
-                    "id": "text-embedding-3-small",
-                    "label": "text-embedding-3-small"
-                },
-                {
-                    "id": "text-embedding-3-large",
-                    "label": "text-embedding-3-large"
-                },
-                {
-                    "id": "text-embedding-ada-002",
-                    "label": "text-embedding-ada-002"
-                }
-            ]
+            "defaultValue": "openai/text-embedding-3-small"
         },
         {
             "id": "apiKey",
@@ -92,3 +78,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 - 类别：`tools`
 - 类型：`openai`
+
+
+模型字段从原生注册表加载可用的 OpenAI 嵌入模型。请选择完整标识符，例如 `openai/text-embedding-3-small`。输入文本会原样保留；超过模型限制的文本将被拒绝。只有模型报告时才显示令牌用量；模型的美元成本不可用。

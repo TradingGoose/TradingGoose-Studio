@@ -1,285 +1,12 @@
 'use client'
 
-import {
-  buildTurnProvenanceFromContexts,
-  withPinnedToolExecutionProvenance,
-} from '@/stores/copilot/store-provenance'
-import { ACTIVE_TURN_STATUS, normalizeReloadedToolState } from '@/stores/copilot/store-state'
-import { ensureClientToolInstance, resolveToolDisplay } from '@/stores/copilot/tool-registry'
-import type {
-  ChatContext,
-  CopilotMessage,
-  CopilotStore,
-  CopilotToolCall,
-  CopilotToolExecutionProvenance,
-  MessageFileAttachment,
-} from '@/stores/copilot/types'
+import type { ImagePart } from '@/lib/copilot/native/contract'
+import type { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import { projectNativeHistoryMessage } from './history'
+import { resolveToolDisplay } from './tool-registry'
+import type { ChatContext, CopilotMessage, CopilotStore } from './types'
 
-type PlanTodo = CopilotStore['planTodos'][number]
-
-function parseJsonObjectPrefix(
-  value: string
-): { object: Record<string, unknown>; rest: string } | null {
-  let inString = false
-  let escaped = false
-  let depth = 0
-  const start = value.search(/\S/)
-  if (start < 0 || value[start] !== '{') return null
-
-  for (let index = start; index < value.length; index++) {
-    const char = value[index]
-
-    if (inString) {
-      if (escaped) {
-        escaped = false
-      } else if (char === '\\') {
-        escaped = true
-      } else if (char === '"') {
-        inString = false
-      }
-      continue
-    }
-
-    if (char === '"') {
-      inString = true
-      continue
-    }
-
-    if (char === '{') {
-      depth += 1
-      continue
-    }
-
-    if (char !== '}') continue
-    depth -= 1
-    if (depth !== 0) continue
-
-    try {
-      const parsed = JSON.parse(value.slice(start, index + 1))
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
-      return {
-        object: parsed as Record<string, unknown>,
-        rest: value.slice(index + 1),
-      }
-    } catch {
-      return null
-    }
-  }
-
-  return null
-}
-
-function normalizeAssistantReasoningContent(content: string): {
-  content: string
-  reasoning?: string
-} {
-  const parsed = parseJsonObjectPrefix(content)
-  if (!parsed || typeof parsed.object.reasoning !== 'string') {
-    return { content }
-  }
-
-  const explicitContent =
-    typeof parsed.object.reply === 'string'
-      ? parsed.object.reply
-      : typeof parsed.object.content === 'string'
-        ? parsed.object.content
-        : typeof parsed.object.message === 'string'
-          ? parsed.object.message
-          : typeof parsed.object.text === 'string'
-            ? parsed.object.text
-            : undefined
-
-  return {
-    content: (explicitContent ?? parsed.rest).trim(),
-    reasoning: parsed.object.reasoning.trim(),
-  }
-}
-
-function normalizeAssistantContentBlocks(blocks: any[]): any[] {
-  return blocks.flatMap((block) => {
-    if (block?.type !== 'text' || typeof block.content !== 'string') {
-      return [block]
-    }
-
-    const normalized = normalizeAssistantReasoningContent(block.content)
-    if (!normalized.reasoning) {
-      return [block]
-    }
-
-    const timestamp = typeof block.timestamp === 'number' ? block.timestamp : Date.now()
-    return [
-      {
-        type: 'thinking',
-        content: normalized.reasoning,
-        timestamp,
-        ...(typeof block.itemId === 'string' ? { itemId: `${block.itemId}-reasoning` } : {}),
-      },
-      ...(normalized.content
-        ? [
-            {
-              ...block,
-              content: normalized.content,
-            },
-          ]
-        : []),
-    ]
-  })
-}
-
-function getMessageBlockTimestamp(message: CopilotMessage): number {
-  const timestamp = Date.parse(message.timestamp)
-  return Number.isFinite(timestamp) ? timestamp : Date.now()
-}
-
-export function normalizeMessagesForUI(
-  messages: CopilotMessage[],
-  latestTurnStatus?: string | null
-): CopilotMessage[] {
-  try {
-    const normalizedMessages = messages.map((message) => {
-      if (message.role !== 'assistant') {
-        return message
-      }
-
-      const normalizedContent = normalizeAssistantReasoningContent(message.content || '')
-      const messageBlockTimestamp = getMessageBlockTimestamp(message)
-      const hydratedBlocks: any[] = Array.isArray(message.contentBlocks)
-        ? (message.contentBlocks as any[]).map((b: any) => {
-            if (b?.type === 'tool_call' && b.toolCall) {
-              const normalizedToolCall = {
-                ...b.toolCall,
-                state: normalizeReloadedToolState(b.toolCall?.state, latestTurnStatus),
-              }
-
-              const instance = ensureClientToolInstance(
-                normalizedToolCall?.name,
-                normalizedToolCall?.id
-              )
-              instance?.hydratePersistedToolCall?.(normalizedToolCall)
-
-              return {
-                ...b,
-                toolCall: {
-                  ...normalizedToolCall,
-                  display: resolveToolDisplay(
-                    normalizedToolCall?.name,
-                    normalizedToolCall.state,
-                    normalizedToolCall?.id,
-                    normalizedToolCall?.params
-                  ),
-                  ...(normalizedToolCall?.result !== undefined
-                    ? { result: normalizedToolCall.result }
-                    : {}),
-                },
-              }
-            }
-            return b
-          })
-        : []
-      const blocks = normalizeAssistantContentBlocks(hydratedBlocks)
-      const reasoningBlock =
-        normalizedContent.reasoning && !blocks.some((block: any) => block?.type === 'thinking')
-          ? {
-              type: 'thinking',
-              content: normalizedContent.reasoning,
-              timestamp: messageBlockTimestamp,
-            }
-          : null
-      const hasTextBlock = blocks.some(
-        (block: any) =>
-          block?.type === 'text' &&
-          typeof block.content === 'string' &&
-          block.content.trim().length > 0
-      )
-      const textBlock =
-        normalizedContent.content.trim() && !hasTextBlock
-          ? {
-              type: 'text',
-              content: normalizedContent.content,
-              timestamp: messageBlockTimestamp,
-            }
-          : null
-      const finalBlocks = [
-        ...(reasoningBlock ? [reasoningBlock] : []),
-        ...blocks,
-        ...(textBlock ? [textBlock] : []),
-      ]
-
-      return {
-        ...message,
-        content: normalizedContent.content,
-        ...(finalBlocks.length > 0 ? { contentBlocks: finalBlocks } : {}),
-      }
-    })
-
-    const lastMessage = normalizedMessages[normalizedMessages.length - 1]
-    return latestTurnStatus === ACTIVE_TURN_STATUS && lastMessage?.role !== 'assistant'
-      ? [...normalizedMessages, createStreamingMessage()]
-      : normalizedMessages
-  } catch {
-    return messages
-  }
-}
-
-export function buildPinnedToolCallsById(
-  messages: CopilotMessage[],
-  opts: {
-    workspaceId?: string | null
-  }
-): Record<string, CopilotToolCall> {
-  const toolCallsById: Record<string, CopilotToolCall> = {}
-  let turnProvenance: CopilotToolExecutionProvenance | undefined
-  const pinToolCall = (toolCall: CopilotToolCall | null | undefined) => {
-    if (!toolCall?.id) {
-      return
-    }
-
-    const baseProvenance =
-      turnProvenance ?? (opts.workspaceId ? { workspaceId: opts.workspaceId } : undefined)
-
-    toolCallsById[toolCall.id] = withPinnedToolExecutionProvenance(toolCall, baseProvenance)
-  }
-
-  for (const message of messages) {
-    if (message.role === 'user') {
-      turnProvenance = buildTurnProvenanceFromContexts(
-        Array.isArray(message.contexts) ? message.contexts : undefined,
-        opts.workspaceId
-      )
-      continue
-    }
-
-    if (!message.contentBlocks) continue
-
-    for (const block of message.contentBlocks as any[]) {
-      if (block?.type !== 'tool_call') continue
-      pinToolCall(block.toolCall)
-    }
-  }
-
-  return toolCallsById
-}
-
-function readToolCallsInMessageOrder(message: CopilotMessage): CopilotToolCall[] {
-  const toolCalls: CopilotToolCall[] = []
-  const seenToolCallIds = new Set<string>()
-  const appendToolCall = (toolCall: CopilotToolCall | undefined) => {
-    if (!toolCall?.id || seenToolCallIds.has(toolCall.id)) {
-      return
-    }
-
-    seenToolCallIds.add(toolCall.id)
-    toolCalls.push(toolCall)
-  }
-
-  for (const block of message.contentBlocks ?? []) {
-    if (block.type === 'tool_call' && block.toolCall) {
-      appendToolCall(block.toolCall)
-    }
-  }
-
-  return toolCalls
-}
+type PlanTodo = { id: string; content: string; completed: boolean; executing: boolean }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
@@ -295,20 +22,19 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
   for (const message of messages) {
     if (message.role === 'user') todos = []
 
-    for (const toolCall of readToolCallsInMessageOrder(message)) {
+    const seen = new Set<string>()
+    for (const block of message.contentBlocks ?? []) {
+      if (block.type !== 'tool_call' || !block.toolCall.id || seen.has(block.toolCall.id)) continue
+      const toolCall = block.toolCall
+      seen.add(toolCall.id)
       if (toolCall.state !== 'success') {
         continue
       }
 
-      const args = toolCall.params ?? {}
       const result = isRecord(toolCall.result) ? toolCall.result : {}
 
       if (toolCall.name === 'plan') {
-        const todoList = Array.isArray(result.todoList)
-          ? result.todoList
-          : Array.isArray(args.todoList)
-            ? args.todoList
-            : null
+        const todoList = Array.isArray(result.todoList) ? result.todoList : null
         if (todoList) {
           todos = todoList
             .map<PlanTodo | null>((item: unknown, index: number) => {
@@ -333,7 +59,7 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
         continue
       }
 
-      const todoItemId = readCanonicalStringId(args.id)
+      const todoItemId = readCanonicalStringId(result.id)
       if (!todoItemId) {
         continue
       }
@@ -353,150 +79,70 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
   return todos
 }
 
-export function updateMessagesForToolCallState(
+export function updateMessageToolCalls(
   messages: CopilotMessage[],
-  toolCallId: string,
-  nextState: any,
-  options?: { result?: any }
+  toolCallsById: CopilotStore['toolCallsById']
 ): CopilotMessage[] {
-  let found = false
-  const result: CopilotMessage[] = new Array(messages.length)
-  for (let i = 0; i < messages.length; i++) {
-    if (found) {
-      result[i] = messages[i]
-      continue
-    }
+  return messages.map((message) => {
+    let changed = false
+    const contentBlocks = message.contentBlocks?.map((block) => {
+      if (block.type !== 'tool_call') return block
+      const toolCall = toolCallsById[block.toolCall.id]
+      if (!toolCall || toolCall === block.toolCall) return block
+      changed = true
+      return { ...block, toolCall }
+    })
+    return changed ? { ...message, contentBlocks } : message
+  })
+}
 
-    const message = messages[i]
-    if (message.role !== 'assistant') {
-      result[i] = message
-      continue
-    }
-
-    let blocksChanged = false
-    const contentBlocks = Array.isArray(message.contentBlocks)
-      ? message.contentBlocks.map((block: any) => {
-          if (block?.type !== 'tool_call' || block.toolCall?.id !== toolCallId) {
-            return block
-          }
-
-          blocksChanged = true
-          return {
-            ...block,
-            toolCall: {
-              ...block.toolCall,
-              state: nextState,
-              display: resolveToolDisplay(
-                block.toolCall?.name,
-                nextState,
-                toolCallId,
-                block.toolCall?.params
-              ),
-              ...(options?.result !== undefined ? { result: options.result } : {}),
-            },
-          }
-        })
-      : message.contentBlocks
-
-    if (!blocksChanged) {
-      result[i] = message
-      continue
-    }
-
-    found = true
-    result[i] = {
-      ...message,
-      ...(contentBlocks ? { contentBlocks } : {}),
-    }
+export function updateToolCallState(
+  state: Pick<CopilotStore, 'messages' | 'toolCallsById'>,
+  toolCallId: string,
+  nextState: ClientToolCallState,
+  result?: unknown
+): Partial<Pick<CopilotStore, 'messages' | 'toolCallsById'>> {
+  const current = state.toolCallsById[toolCallId]
+  if (!current) return {}
+  const toolCall = {
+    ...current,
+    state: nextState,
+    display: resolveToolDisplay(current.name, nextState, current.params),
+    ...(result !== undefined ? { result } : {}),
   }
-  return result
+  const toolCallsById = { ...state.toolCallsById, [toolCallId]: toolCall }
+  return { toolCallsById, messages: updateMessageToolCalls(state.messages, toolCallsById) }
 }
 
 export function createUserMessage(
   content: string,
-  fileAttachments?: MessageFileAttachment[],
+  images?: ImagePart[],
   contexts?: ChatContext[],
   messageId?: string
 ): CopilotMessage {
   return {
-    id: messageId || crypto.randomUUID(),
-    role: 'user',
-    content,
-    timestamp: new Date().toISOString(),
-    ...(fileAttachments && fileAttachments.length > 0 && { fileAttachments }),
-    ...(contexts && contexts.length > 0 && { contexts }),
+    ...projectNativeHistoryMessage({
+      id: messageId || crypto.randomUUID(),
+      role: 'user',
+      createdAt: new Date().toISOString(),
+      parts: [
+        { type: 'text', text: content },
+        ...(images ?? []).map((image) => ({
+          type: 'file' as const,
+          data: image.image,
+          mimeType: image.mediaType,
+        })),
+      ],
+    })!,
+    ...(contexts?.length && { contexts }),
   }
 }
 
-export function createStreamingMessage(): CopilotMessage {
+export function createStreamingMessage(id = crypto.randomUUID()): CopilotMessage {
   return {
-    id: crypto.randomUUID(),
+    id,
     role: 'assistant',
     content: '',
     timestamp: new Date().toISOString(),
   }
-}
-
-export function createErrorMessage(messageId: string, content: string): CopilotMessage {
-  return {
-    id: messageId,
-    role: 'assistant',
-    content,
-    timestamp: new Date().toISOString(),
-    isError: true,
-    contentBlocks: [
-      {
-        type: 'text',
-        content,
-        timestamp: Date.now(),
-      },
-    ],
-  }
-}
-
-export function validateMessagesForLLM(messages: CopilotMessage[]): any[] {
-  return messages
-    .map((msg) => {
-      let content = msg.content || ''
-      if (msg.role === 'assistant' && !content.trim() && msg.contentBlocks?.length) {
-        content = msg.contentBlocks
-          .filter((b: any) => b?.type === 'text')
-          .map((b: any) => String(b.content || ''))
-          .join('')
-          .trim()
-      }
-
-      if (content) {
-        content = content.replace(/<thinking>[\s\S]*?<\/thinking>/g, '').trim()
-      }
-
-      return {
-        id: msg.id,
-        role: msg.role,
-        content,
-        timestamp: msg.timestamp,
-        ...(Array.isArray(msg.citations) &&
-          msg.citations.length > 0 && {
-            citations: msg.citations,
-          }),
-        ...(Array.isArray(msg.contentBlocks) &&
-          msg.contentBlocks.length > 0 && {
-            contentBlocks: msg.contentBlocks,
-          }),
-        ...(msg.fileAttachments &&
-          msg.fileAttachments.length > 0 && {
-            fileAttachments: msg.fileAttachments,
-          }),
-        ...(Array.isArray(msg.contexts) && { contexts: msg.contexts }),
-      }
-    })
-    .filter((m) => {
-      if (m.role === 'assistant') {
-        const hasText = typeof m.content === 'string' && m.content.trim().length > 0
-        const hasBlocks =
-          Array.isArray((m as any).contentBlocks) && (m as any).contentBlocks.length > 0
-        return hasText || hasBlocks
-      }
-      return true
-    })
 }

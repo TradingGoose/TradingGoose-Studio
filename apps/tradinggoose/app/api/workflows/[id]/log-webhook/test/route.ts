@@ -62,18 +62,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         startedAt: new Date(timestamp - 5000).toISOString(),
         endedAt: new Date(timestamp).toISOString(),
         totalDurationMs: 5000,
-        cost: {
-          total: 0.00123,
-          tokens: { prompt: 100, completion: 50, total: 150 },
-          models: {
-            'gpt-4o': {
-              input: 0.001,
-              output: 0.00023,
-              total: 0.00123,
-              tokens: { prompt: 100, completion: 50, total: 150 },
-            },
-          },
-        },
+        cost: { status: 'unavailable' },
         files: null,
       },
       links: {
@@ -120,8 +109,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (webhook.includeUsageData) {
       ;(payload.data as any).usage = {
-        currentPeriodCost: 2.45,
-        limit: 10,
+        currentPeriodCost: '2.45',
+        limit: '10',
         tier: {
           id: 'tier_user_fixed',
           displayName: 'Pro',

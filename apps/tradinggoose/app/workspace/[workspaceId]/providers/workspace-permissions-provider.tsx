@@ -33,10 +33,12 @@ const WorkspacePermissionsContext = createContext<WorkspacePermissionsContextTyp
 type WorkspacePermissionsProviderProps = {
   children: React.ReactNode
   workspaceId: string
+  requireFresh?: boolean
+  onUnavailable?: (message: string) => void
 } & ({ userId: string; inheritUser?: never } | { inheritUser: true; userId?: never })
 
 export function WorkspacePermissionsProvider(props: WorkspacePermissionsProviderProps) {
-  const { children, workspaceId } = props
+  const { children, workspaceId, requireFresh, onUnavailable } = props
   const inheritedUserId = useContext(WorkspaceAuthenticatedUserContext)
   const workspaceUserId = props.userId ?? inheritedUserId
 
@@ -47,7 +49,12 @@ export function WorkspacePermissionsProvider(props: WorkspacePermissionsProvider
   }
 
   return (
-    <WorkspacePermissionsProviderInner workspaceId={workspaceId} userId={workspaceUserId}>
+    <WorkspacePermissionsProviderInner
+      workspaceId={workspaceId}
+      userId={workspaceUserId}
+      requireFresh={requireFresh}
+      onUnavailable={onUnavailable}
+    >
       {children}
     </WorkspacePermissionsProviderInner>
   )
@@ -57,10 +64,14 @@ function WorkspacePermissionsProviderInner({
   children,
   workspaceId,
   userId,
+  requireFresh = false,
+  onUnavailable,
 }: {
   children: React.ReactNode
   workspaceId: string
   userId: string
+  requireFresh?: boolean
+  onUnavailable?: (message: string) => void
 }) {
   const router = useRouter()
   const t = useTranslations('workspace.permissionsFeedback')
@@ -76,7 +87,7 @@ function WorkspacePermissionsProviderInner({
     error: permissionsError,
     updatePermissions,
     refetch: refetchPermissions,
-  } = useWorkspacePermissions(workspaceId, userId)
+  } = useWorkspacePermissions(workspaceId, userId, { requireFresh })
 
   const baseUserPermissions = useUserPermissions(
     workspacePermissions,
@@ -139,9 +150,13 @@ function WorkspacePermissionsProviderInner({
   )
 
   useEffect(() => {
-    if (!shouldTriggerRedirect || hasRedirected) {
+    if (permissionsLoading || hasRedirected) return
+    if (onUnavailable && (combinedError || !userPermissions.canRead)) {
+      setRedirectedAccessKey(accessKey)
+      onUnavailable(combinedError || 'Workspace access is unavailable')
       return
     }
+    if (!shouldTriggerRedirect) return
 
     setRedirectedAccessKey(accessKey)
     logger.warn('Redirecting user without workspace access', {
@@ -149,9 +164,24 @@ function WorkspacePermissionsProviderInner({
       error: combinedError ?? 'missing read permissions',
     })
     router.replace('/workspace')
-  }, [accessKey, combinedError, hasRedirected, router, shouldTriggerRedirect, workspaceId])
+  }, [
+    accessKey,
+    combinedError,
+    hasRedirected,
+    router,
+    shouldTriggerRedirect,
+    workspaceId,
+    onUnavailable,
+    permissionsLoading,
+    userPermissions.canRead,
+  ])
 
-  const shouldBlockRender = isAuthRecoveryError || hasRedirected || shouldTriggerRedirect
+  const shouldBlockRender =
+    (requireFresh && permissionsLoading) ||
+    Boolean(onUnavailable && (permissionsLoading || combinedError || !userPermissions.canRead)) ||
+    isAuthRecoveryError ||
+    hasRedirected ||
+    shouldTriggerRedirect
 
   return (
     <WorkspaceAuthenticatedUserContext.Provider value={userId}>

@@ -26,7 +26,7 @@ import { registry as blockRegistry } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useProvidersStore } from '@/stores/providers/store'
+import { useModelRegistry } from '@/stores/model-registry'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 import { subscribeScheduleUpdated } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
 import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
@@ -68,7 +68,7 @@ export const WorkflowBlock = memo(
     const { formatWorkflowTemplate, localizeWorkflowSubBlockConfig, workflowLabelsCopy } =
       useWorkflowI18n()
     const displayName = name
-    const providers = useProvidersStore((state) => state.providers)
+    const providers = useModelRegistry((state) => state.providers)
 
     // State management
     const [, setIsConnecting] = useState(false)

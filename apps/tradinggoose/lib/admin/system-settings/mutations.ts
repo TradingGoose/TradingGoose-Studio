@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CopilotSettingsSchema } from '@/lib/copilot/settings'
 import { REGISTRATION_MODE_VALUES } from '@/lib/registration/shared'
 import { ADMIN_SYSTEM_SETTINGS_EDITABLE_FIELDS } from './types'
 
@@ -10,6 +11,7 @@ export const adminSystemSettingsMutationSchema = z
     allowPromotionCodes: z.boolean(),
     emailDomain: z.string().trim().min(1, 'Email domain is required'),
     fromEmailAddress: z.string().trim(),
+    copilot: CopilotSettingsSchema,
   })
   .partial()
   .refine(

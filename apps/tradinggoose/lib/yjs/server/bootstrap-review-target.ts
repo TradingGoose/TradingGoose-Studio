@@ -8,12 +8,7 @@ import {
   parseDashboardWidgetSessionId,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
-import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
-import type {
-  ResolvedReviewTarget,
-  ReviewEntityKind,
-  ReviewTargetDescriptor,
-} from '@/lib/copilot/review-sessions/types'
+import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import {
   DashboardLayoutOperationError,
   readPersistedDashboardColorPairDocument,
@@ -242,7 +237,11 @@ export async function readBootstrappedDashboardLayoutProjection(
 export async function createSavedReviewTargetBootstrapUpdate(
   descriptor: ReviewTargetDescriptor,
   readStore?: EntityListReadStore
-): Promise<ResolvedReviewTarget & { state: Uint8Array; validateDocument?: (doc: Y.Doc) => void }> {
+): Promise<{
+  descriptor: ReviewTargetDescriptor
+  state: Uint8Array
+  validateDocument?: (doc: Y.Doc) => void
+}> {
   if (!descriptor.entityId) {
     throw new ReviewTargetBootstrapError(404, 'Saved entity id is required')
   }
@@ -349,14 +348,11 @@ export async function createSavedReviewTargetBootstrapUpdate(
       metadata.set('entityKind', descriptor.entityKind)
       metadata.set('entityId', descriptor.entityId)
       metadata.set('workspaceId', resolvedWorkspaceId)
-      metadata.set('draftSessionId', descriptor.draftSessionId)
-      metadata.set('reviewSessionId', descriptor.reviewSessionId)
     }
     const state = Y.encodeStateAsUpdate(doc)
 
     return {
       descriptor: { ...descriptor, workspaceId: resolvedWorkspaceId },
-      runtime: getReviewTargetRuntimeState(doc),
       state,
       ...(validateDocument ? { validateDocument } : {}),
     }
@@ -378,9 +374,6 @@ export async function initializeSavedReviewTargetDocument(
   readStore?: EntityListReadStore
 ) {
   const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor, readStore)
-  if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
-    throw new ReviewTargetBootstrapError(410, 'Review target expired')
-  }
   return {
     state: bootstrapped.state,
     workspaceId: bootstrapped.descriptor.workspaceId,

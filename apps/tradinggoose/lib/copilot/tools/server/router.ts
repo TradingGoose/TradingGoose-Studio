@@ -1,9 +1,9 @@
 import {
   CopilotTool,
-  getToolContract,
   isToolId,
-  ServerToolArgSchemas,
+  ToolArgSchemas,
   type ToolId,
+  ToolResultSchemas,
 } from '@/lib/copilot/registry'
 import {
   type BaseServerTool,
@@ -79,10 +79,18 @@ import { readBlockOutputsServerTool } from '@/lib/copilot/tools/server/workflow/
 import { readBlockUpstreamReferencesServerTool } from '@/lib/copilot/tools/server/workflow/read-block-upstream-references'
 import { readWorkflowLogsServerTool } from '@/lib/copilot/tools/server/workflow/read-workflow-logs'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getFailureAccounting } from '@/lib/mastra/errors'
+import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 
 const logger = createLogger('ServerToolRouter')
 
 const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
+  [CopilotTool.plan]: { name: CopilotTool.plan, execute: async (args) => args },
+  [CopilotTool.checkoff_todo]: { name: CopilotTool.checkoff_todo, execute: async (args) => args },
+  [CopilotTool.mark_todo_in_progress]: {
+    name: CopilotTool.mark_todo_in_progress,
+    execute: async (args) => args,
+  },
   [editWorkflowServerTool.name]: editWorkflowServerTool,
   [editWorkflowBlockServerTool.name]: editWorkflowBlockServerTool,
   [editWorkflowVariableServerTool.name]: editWorkflowVariableServerTool,
@@ -181,76 +189,6 @@ const lazyServerToolLoaders: Partial<Record<ToolId, () => Promise<BaseServerTool
   },
 }
 
-const mcpServerToolIds = [
-  editWorkflowServerTool.name,
-  editWorkflowBlockServerTool.name,
-  editWorkflowVariableServerTool.name,
-  createWorkflowServerTool.name,
-  renameWorkflowServerTool.name,
-  readWorkflowServerTool.name,
-  listWorkflowsServerTool.name,
-  readWorkflowLogsServerTool.name,
-  searchDocumentationServerTool.name,
-  searchOnlineServerTool.name,
-  readEnvironmentVariablesServerTool.name,
-  setEnvironmentVariablesServerTool.name,
-  listGDriveFilesServerTool.name,
-  readGDriveFileServerTool.name,
-  readOAuthCredentialsServerTool.name,
-  readCredentialsServerTool.name,
-  listKnowledgeBasesServerTool.name,
-  readKnowledgeBaseServerTool.name,
-  createKnowledgeBaseServerTool.name,
-  editKnowledgeBaseServerTool.name,
-  renameKnowledgeBaseServerTool.name,
-  queryKnowledgeBaseServerTool.name,
-  listMonitorsServerTool.name,
-  readMonitorServerTool.name,
-  editMonitorServerTool.name,
-  checkDeploymentStatusServerTool.name,
-  readBlockOutputsServerTool.name,
-  readBlockUpstreamReferencesServerTool.name,
-  listSkillsServerTool.name,
-  readSkillServerTool.name,
-  createSkillServerTool.name,
-  editSkillServerTool.name,
-  renameSkillServerTool.name,
-  listCustomToolsServerTool.name,
-  readCustomToolServerTool.name,
-  createCustomToolServerTool.name,
-  editCustomToolServerTool.name,
-  renameCustomToolServerTool.name,
-  listIndicatorsServerTool.name,
-  readIndicatorServerTool.name,
-  createIndicatorServerTool.name,
-  editIndicatorServerTool.name,
-  renameIndicatorServerTool.name,
-  listMcpServersServerTool.name,
-  readMcpServerServerTool.name,
-  createMcpServerServerTool.name,
-  editMcpServerServerTool.name,
-  renameMcpServerServerTool.name,
-  listWatchlistsServerTool.name,
-  readWatchlistServerTool.name,
-  createWatchlistServerTool.name,
-  editWatchlistServerTool.name,
-  renameWatchlistServerTool.name,
-  listLayoutsServerTool.name,
-  createLayoutServerTool.name,
-  readLayoutServerTool.name,
-  editLayoutServerTool.name,
-  renameLayoutServerTool.name,
-  editWidgetServerTool.name,
-  getAvailableWidgetsServerTool.name,
-  getWidgetsMetadataServerTool.name,
-  searchListingServerTool.name,
-  CopilotTool.get_available_blocks,
-  CopilotTool.get_blocks_metadata,
-  CopilotTool.get_agent_accessory_catalog,
-  CopilotTool.get_indicator_catalog,
-  CopilotTool.get_indicator_metadata,
-] satisfies ToolId[]
-
 const WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS = [
   CopilotTool.search_documentation,
   CopilotTool.search_listing,
@@ -270,15 +208,13 @@ export function isWorkspaceAgnosticServerTool(
   return isToolId(toolName) && WORKSPACE_AGNOSTIC_SERVER_TOOL_ID_SET.has(toolName)
 }
 
-export function getServerToolIds(): ToolId[] {
+export function getMcpServerToolIds(): ToolId[] {
   return [
     ...(Object.keys(serverToolRegistry) as ToolId[]),
     ...(Object.keys(lazyServerToolLoaders) as ToolId[]),
-  ]
-}
-
-export function getMcpServerToolIds(): ToolId[] {
-  return [...mcpServerToolIds]
+  ].filter(
+    (name) => !['make_api_request', 'plan', 'checkoff_todo', 'mark_todo_in_progress'].includes(name)
+  )
 }
 
 async function resolveServerTool(toolName: ToolId): Promise<BaseServerTool<any, any> | null> {
@@ -301,56 +237,36 @@ export async function routeExecution(
   const tool = await resolveServerTool(toolName)
   throwIfServerToolAborted(context)
 
-  const contract = getToolContract(toolName)
-  if (!tool || !contract) {
+  if (!tool) {
     throw new Error(`Unknown server tool: ${toolName}`)
   }
 
   logger.debug('Routing to tool', { toolName })
 
-  if (isWorkspaceAgnosticServerTool(toolName)) {
-    const args = ServerToolArgSchemas[toolName].parse(payload ?? {})
-    const executionContext = context
-      ? {
-          userId: context.userId,
-          accessLevel: context.accessLevel,
-          acceptedReviewBaseStateHash: context.acceptedReviewBaseStateHash,
-          signal: context.signal,
-        }
-      : undefined
-    throwIfServerToolAborted(executionContext)
-    const result = await tool.execute(args, executionContext)
-    throwIfServerToolAborted(executionContext)
-
-    return contract.result.parse(result)
-  }
-
-  let args: any
-  try {
-    args = ServerToolArgSchemas[toolName].parse(payload ?? {})
-  } catch (error) {
-    if (
-      context?.workspaceId &&
-      (!payload || (typeof payload === 'object' && !Array.isArray(payload)))
-    ) {
-      const payloadWithContextWorkspace = {
-        ...((payload as Record<string, unknown> | null | undefined) ?? {}),
+  const args = ToolArgSchemas[toolName].parse(payload ?? {})
+  const executionContext = isWorkspaceAgnosticServerTool(toolName)
+    ? context && {
+        userId: context.userId,
         workspaceId: context.workspaceId,
+        accessLevel: context.accessLevel,
+        acceptedReviewBaseStateHash: context.acceptedReviewBaseStateHash,
+        signal: context.signal,
       }
-      try {
-        args = ServerToolArgSchemas[toolName].parse(payloadWithContextWorkspace)
-      } catch {
-        throw error
-      }
-    } else {
-      throw error
-    }
-  }
-  const executionContext = withWorkspaceArgContext(context, args)
+    : withWorkspaceArgContext(
+        context,
+        'workspaceId' in args ? { workspaceId: args.workspaceId } : undefined
+      )
   throwIfServerToolAborted(executionContext)
-
   const result = await tool.execute(args, executionContext)
-  throwIfServerToolAborted(executionContext)
-
-  return contract.result.parse(result)
+  const facts = getInferenceFacts(result)
+  try {
+    throwIfServerToolAborted(executionContext)
+    const parsed = ToolResultSchemas[toolName].parse(result)
+    return facts ? withInferenceFacts(parsed, facts) : parsed
+  } catch (error) {
+    if (!facts || getInferenceFacts(error)) throw error
+    const failure = error instanceof Error ? error : new Error(String(error))
+    Object.assign(failure, getFailureAccounting(facts))
+    throw withInferenceFacts(failure, facts)
+  }
 }

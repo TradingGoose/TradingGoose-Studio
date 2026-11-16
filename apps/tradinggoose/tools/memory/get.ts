@@ -16,17 +16,9 @@ export const memoryGetTool: ToolConfig<any, MemoryResponse> = {
   },
 
   request: {
-    url: (params) => {
-      const workflowId = params._context?.workflowId
-      if (!workflowId) {
-        throw new Error('workflowId is required in execution context')
-      }
-      return `/api/memory/${encodeURIComponent(params.id)}?workflowId=${encodeURIComponent(workflowId)}`
-    },
+    url: (params) => `/api/memory/${encodeURIComponent(params.id)}`,
     method: 'GET',
-    headers: () => ({
-      'Content-Type': 'application/json',
-    }),
+    headers: () => ({}),
   },
 
   transformResponse: async (response): Promise<MemoryResponse> => {

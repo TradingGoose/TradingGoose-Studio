@@ -87,7 +87,7 @@ const ExportParamsSchema = z.object({
 
 const parseBooleanFlag = (value: string | undefined) => value === 'true' || value === '1'
 
-const TOTAL_COST_SQL = sql<number>`COALESCE((${workflowExecutionLogs.cost}->>'total')::double precision, 0)`
+const TOTAL_COST_SQL = sql<number>`CASE WHEN jsonb_typeof(${workflowExecutionLogs.cost}->'total') = 'number' THEN (${workflowExecutionLogs.cost}->>'total')::double precision END`
 
 const applyDateLowerBound = (
   conditions: SQL | undefined,
@@ -368,6 +368,11 @@ export async function GET(request: NextRequest) {
       'trigger',
       'durationMs',
       'costTotal',
+      'costStatus',
+      'costEstimated',
+      'costAvailableTotal',
+      'costUnavailableComponents',
+      'costCurrency',
       'workflowId',
       'executionId',
     ].join(',')
@@ -408,6 +413,11 @@ export async function GET(request: NextRequest) {
                 escapeCsv(log.trigger),
                 escapeCsv(log.durationMs),
                 escapeCsv(log.cost?.total),
+                escapeCsv(log.cost?.status),
+                escapeCsv(log.cost?.estimated),
+                escapeCsv(log.cost?.availableTotal),
+                escapeCsv(log.cost?.unavailableComponents),
+                escapeCsv(log.cost?.currency),
                 escapeCsv(log.workflowId),
                 escapeCsv(log.executionId),
               ].join(',')

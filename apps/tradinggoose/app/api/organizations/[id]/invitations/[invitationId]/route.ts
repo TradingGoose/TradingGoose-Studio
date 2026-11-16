@@ -4,6 +4,7 @@ import {
   invitation,
   member,
   organization,
+  organizationMemberBillingLedger,
   user,
   type WorkspaceInvitationStatus,
   workspaceInvitation,
@@ -191,6 +192,14 @@ export async function PUT(
           role: orgInvitation.role,
           createdAt: new Date(),
         })
+
+        await tx
+          .insert(organizationMemberBillingLedger)
+          .values({
+            organizationId,
+            userId: session.user.id,
+          })
+          .onConflictDoNothing()
 
         const linkedWorkspaceInvitations = await tx
           .select()

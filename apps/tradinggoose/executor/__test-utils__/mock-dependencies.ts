@@ -23,7 +23,6 @@ vi.mock('@/tools/utils', () => ({
   formatRequestParams: vi.fn(),
   transformTable: vi.fn(),
   createParamSchema: vi.fn(),
-  getClientEnvVars: vi.fn(),
   createCustomToolRequestBody: vi.fn(),
   validateRequiredParametersAfterMerge: vi.fn(),
 }))
@@ -36,23 +35,7 @@ vi.mock('@/lib/utils', () => ({
 // Tools
 vi.mock('@/tools')
 
-// Providers
-vi.mock('@/providers/ai', () => ({
-  executeProviderRequest: vi.fn(),
-}))
-vi.mock('@/providers/ai/utils', async (importOriginal) => {
-  const actual = await importOriginal()
-  return {
-    // @ts-ignore
-    ...actual,
-    transformBlockTool: vi.fn(),
-  }
-})
-vi.mock('@/providers/ai/models', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/providers/ai/models')>()),
-  getProviderFromModel: vi.fn(),
-  getBaseModelProviders: vi.fn(() => ({})),
-}))
+// Native model calls are mocked by the tests that exercise them.
 
 // Executor utilities
 vi.mock('@/executor/path')

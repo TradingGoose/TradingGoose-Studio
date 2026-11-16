@@ -246,25 +246,28 @@ describe('Copilot MCP route', () => {
     expect(mockCheckApiEndpointRateLimit).not.toHaveBeenCalled()
   })
 
-  it('rejects tools outside the external MCP allow-list', async () => {
-    const { POST } = await import('./route')
+  it.each(['make_api_request', 'plan', 'checkoff_todo', 'mark_todo_in_progress'])(
+    'rejects %s outside the external MCP allow-list',
+    async (name) => {
+      const { POST } = await import('./route')
 
-    const response = await POST(
-      createMcpRequest({
-        jsonrpc: '2.0',
-        id: 3,
-        method: 'tools/call',
-        params: {
-          name: 'make_api_request',
-          arguments: { url: 'https://example.test', method: 'GET' },
-        },
-      })
-    )
-    const body = await response.json()
+      const response = await POST(
+        createMcpRequest({
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'tools/call',
+          params: {
+            name,
+            arguments: { url: 'https://example.test', method: 'GET' },
+          },
+        })
+      )
+      const body = await response.json()
 
-    expect(body.result.isError).toBe(true)
-    expect(mockRouteExecution).not.toHaveBeenCalled()
-  })
+      expect(body.result.isError).toBe(true)
+      expect(mockRouteExecution).not.toHaveBeenCalled()
+    }
+  )
 
   it('returns listing search results as MCP structured content', async () => {
     const { POST } = await import('./route')
@@ -362,7 +365,7 @@ describe('Copilot MCP route', () => {
 
   it('returns structured authorization denials as MCP tool errors', async () => {
     const { POST } = await import('./route')
-    const denial = { code: 'access_denied', error: 'Access denied', retryable: false }
+    const denial = { code: 'access_denied', error: 'Access denied' }
     mockGetMcpServerToolIds.mockReturnValue(['list_watchlist'])
     mockRouteExecution.mockRejectedValueOnce(
       new StructuredServerToolError({ status: 403, body: denial })

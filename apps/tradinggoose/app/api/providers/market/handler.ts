@@ -19,7 +19,6 @@ const logger = createLogger('ProvidersAPI:Market')
 export interface MarketProviderRouteBody {
   provider?: string
   providerNamespace?: 'market'
-  providerType?: 'market'
   workspaceId?: string
   kind?: MarketDataType
   listing?: ListingIdentity

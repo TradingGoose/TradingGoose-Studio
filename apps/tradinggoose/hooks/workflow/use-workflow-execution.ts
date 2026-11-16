@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
-import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
+import {
+  isTerminalWorkflowExecutionEvent,
+  type WorkflowExecutionEvent,
+} from '@/lib/workflows/execution-events'
+import {
+  cancelQueuedWorkflowExecution,
+  observeQueuedWorkflowExecution,
+  type QueuedWorkflowExecutionHandle,
+  queueWorkflowExecution,
+} from '@/lib/workflows/queued-execution-client'
 import { resolveWorkflowRunTrigger, TriggerUtils } from '@/lib/workflows/triggers'
 import { getVariablesSnapshot } from '@/lib/yjs/workflow-session'
 import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
@@ -26,7 +35,10 @@ type WorkflowExecutionRequest = {
 type ActiveWorkflowExecution = {
   owner: symbol
   controller: AbortController
+  userId: string
   workflowId: string
+  taskId?: string
+  cancelRequested?: boolean
 }
 
 type ManualRunFeedback =
@@ -40,96 +52,45 @@ type ManualFeedbackPresenter = {
 
 let activeExecution: ActiveWorkflowExecution | null = null
 let manualFeedbackPresenter: ManualFeedbackPresenter | null = null
+const pendingAdmissions = new Map<
+  string,
+  { executionId: string; promise: Promise<QueuedWorkflowExecutionHandle> }
+>()
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function sanitizeMessage(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  if (!trimmed || trimmed === 'undefined (undefined)') return undefined
-  return trimmed
-}
-
-function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const message = sanitizeMessage(error.message)
-    if (message) return message
-  } else if (typeof error === 'string') {
-    const message = sanitizeMessage(error)
-    if (message) return message
-  }
-
-  if (isRecord(error)) {
-    const directMessage = sanitizeMessage(error.message)
-    if (directMessage) return directMessage
-
-    const nestedError = error.error
-    if (isRecord(nestedError)) {
-      const nestedMessage = sanitizeMessage(nestedError.message)
-      if (nestedMessage) return nestedMessage
-    } else {
-      const nestedMessage = sanitizeMessage(nestedError)
-      if (nestedMessage) return nestedMessage
-    }
-  }
-
-  return WORKFLOW_EXECUTION_FAILURE_MESSAGE
-}
-
-function createExecutionId() {
-  return globalThis.crypto.randomUUID()
-}
+const executionStorageKey = (userId: string, workflowId: string) =>
+  `workflow-execution:${userId}:${workflowId}`
 
 export function useWorkflowExecution() {
+  const { data: session } = useSession()
+  const userId = session?.user?.id
   const { workflowId: activeWorkflowId, workspaceId } = useWorkflowRoute()
   const { canEdit, doc, error, isLoading, readWorkflowSnapshot } = useWorkflowSession()
-  const { cancelRunningEntries } = useConsoleStore()
   const { isExecuting, setIsExecuting, setIsDebugging, setPendingBlocks, setActiveBlocks } =
     useExecutionStore()
   const ownerRef = useRef(Symbol('workflow-execution-owner'))
-  const [manualRunResult, setManualRunResult] = useState<ExecutionResult | 'running' | null>(null)
+  const [manualRunFeedback, setManualRunFeedback] = useState<ManualRunFeedback>({ state: 'idle' })
   const isWorkflowSessionReady = canEdit && Boolean(doc) && !isLoading && !error
   const isWorkflowSessionReadyRef = useRef(isWorkflowSessionReady)
   isWorkflowSessionReadyRef.current = isWorkflowSessionReady
-
-  useEffect(() => {
-    const presenterWorkflowId = activeWorkflowId
-    return () => {
-      if (
-        manualFeedbackPresenter?.owner === ownerRef.current &&
-        manualFeedbackPresenter.workflowId === presenterWorkflowId
-      ) {
-        manualFeedbackPresenter = null
-      }
-    }
-  }, [activeWorkflowId])
 
   const applyExecutionEvent = useCallback(
     (event: WorkflowExecutionEvent) => {
       useConsoleStore.getState().ingestWorkflowExecutionEvent(event)
 
-      if (event.type === 'block:started') {
-        const activeBlockIds = new Set(useExecutionStore.getState().activeBlockIds)
-        activeBlockIds.add(event.data.blockId)
-        setActiveBlocks(activeBlockIds)
-        return
-      }
-
-      if (event.type === 'block:completed' || event.type === 'block:error') {
-        const activeBlockIds = new Set(useExecutionStore.getState().activeBlockIds)
-        activeBlockIds.delete(event.data.blockId)
-        setActiveBlocks(activeBlockIds)
-        return
-      }
-
       if (
-        event.type === 'execution:completed' ||
-        event.type === 'execution:paused' ||
-        event.type === 'execution:error' ||
-        event.type === 'execution:cancelled'
+        event.type === 'block:started' ||
+        event.type === 'block:completed' ||
+        event.type === 'block:error'
       ) {
+        const activeBlockIds = new Set(useExecutionStore.getState().activeBlockIds)
+        if (event.type === 'block:started') activeBlockIds.add(event.data.blockId)
+        else activeBlockIds.delete(event.data.blockId)
+        setActiveBlocks(activeBlockIds)
+      } else if (isTerminalWorkflowExecutionEvent(event)) {
         setActiveBlocks(new Set())
       }
     },
@@ -143,36 +104,141 @@ export function useWorkflowExecution() {
     setActiveBlocks(new Set())
   }, [setActiveBlocks, setIsDebugging, setIsExecuting, setPendingBlocks])
 
-  const handleExecutionError = useCallback(
-    (error: unknown, options?: { executionId?: string }) => {
-      const errorResult: ExecutionResult = {
-        success: false,
-        output: {},
-        error: normalizeErrorMessage(error),
-        logs: [],
+  useEffect(() => {
+    const owner = ownerRef.current
+    return () => {
+      if (
+        activeExecution?.owner === owner &&
+        activeExecution.userId === userId &&
+        activeExecution.workflowId === activeWorkflowId
+      ) {
+        activeExecution.controller.abort()
+        activeExecution = null
+        resetExecutionState()
       }
+      if (manualFeedbackPresenter?.owner === owner) manualFeedbackPresenter = null
+    }
+  }, [activeWorkflowId, resetExecutionState, userId])
 
-      if (activeWorkflowId) {
-        useConsoleStore.getState().addConsole({
-          input: {},
-          output: {},
-          success: false,
-          error: errorResult.error,
-          durationMs: 0,
-          startedAt: new Date().toISOString(),
-          endedAt: new Date().toISOString(),
-          workflowId: activeWorkflowId,
-          blockId: 'execution',
-          executionId: options?.executionId,
-          blockName: 'Workflow',
-          blockType: 'workflow',
+  const runExecution = useCallback(
+    async (
+      executionId: string,
+      request: WorkflowExecutionRequest,
+      admit: (
+        execution: ActiveWorkflowExecution
+      ) => Promise<QueuedWorkflowExecutionHandle | undefined>
+    ) => {
+      if (!userId || !activeWorkflowId || activeExecution) return
+      const owner = ownerRef.current
+      const controller = new AbortController()
+      const execution: ActiveWorkflowExecution = {
+        owner,
+        controller,
+        userId,
+        workflowId: activeWorkflowId,
+      }
+      activeExecution = execution
+      const manual = request.triggerType !== 'chat'
+      manualFeedbackPresenter = manual ? { owner, workflowId: activeWorkflowId } : null
+      if (manual) setManualRunFeedback({ state: 'running' })
+      setIsExecuting(true)
+      setIsDebugging(false)
+      setPendingBlocks([])
+      const key = executionStorageKey(userId, activeWorkflowId)
+      let saved: string | undefined
+      let settled = false
+      let result: ExecutionResult
+      try {
+        const handle = await admit(execution)
+        if (!handle) {
+          if (manual && !controller.signal.aborted) setManualRunFeedback({ state: 'idle' })
+          return
+        }
+        execution.taskId = handle.taskId
+        saved = JSON.stringify(handle)
+        if (execution.cancelRequested)
+          void cancelQueuedWorkflowExecution(handle.taskId).catch((error) => {
+            logger.error('Failed to cancel workflow execution', error)
+          })
+        if (controller.signal.aborted) return
+        result = await observeQueuedWorkflowExecution(handle, {
+          signal: controller.signal,
+          callbacks: {
+            onEvent: async (event) => {
+              if (controller.signal.aborted) return
+              applyExecutionEvent(event)
+              await request.onEvent?.(event)
+            },
+          },
         })
+        settled = true
+      } catch (error) {
+        result = {
+          success: false,
+          output: {},
+          error: error instanceof Error ? error.message : WORKFLOW_EXECUTION_FAILURE_MESSAGE,
+          logs: [],
+        }
+      } finally {
+        if (settled && sessionStorage.getItem(key) === saved) sessionStorage.removeItem(key)
+        if (activeExecution === execution) {
+          activeExecution = null
+          resetExecutionState()
+        }
       }
-
-      return errorResult
+      if (controller.signal.aborted) return
+      useConsoleStore.getState().addConsole({
+        workflowId: activeWorkflowId,
+        executionId,
+        blockId: 'execution',
+        blockName: 'Workflow',
+        blockType: 'workflow',
+        output: result.output,
+        success: result.success,
+        error: result.error,
+        isRunning: false,
+        endedAt: new Date().toISOString(),
+      })
+      if (manual)
+        setManualRunFeedback(
+          result.success
+            ? { state: 'success' }
+            : { state: 'error', message: result.error || WORKFLOW_EXECUTION_FAILURE_MESSAGE }
+        )
+      return result
     },
-    [activeWorkflowId]
+    [
+      activeWorkflowId,
+      applyExecutionEvent,
+      resetExecutionState,
+      setIsDebugging,
+      setIsExecuting,
+      setPendingBlocks,
+      userId,
+    ]
   )
+
+  useEffect(() => {
+    if (!userId || !activeWorkflowId || activeExecution) return
+    const key = executionStorageKey(userId, activeWorkflowId)
+    const pending = pendingAdmissions.get(key)
+    if (pending) {
+      void runExecution(pending.executionId, {}, () => pending.promise)
+      return
+    }
+    const saved = sessionStorage.getItem(key)
+    if (!saved) return
+    let handle: QueuedWorkflowExecutionHandle
+    try {
+      handle = JSON.parse(saved)
+      if (typeof handle.taskId !== 'string' || typeof handle.executionId !== 'string')
+        throw new Error('Invalid saved workflow execution')
+    } catch {
+      sessionStorage.removeItem(key)
+      return
+    }
+    void runExecution(handle.executionId, {}, async () => handle)
+  }, [activeWorkflowId, runExecution, userId])
 
   const buildExecutionRequest = useCallback(
     async (
@@ -289,7 +355,7 @@ export function useWorkflowExecution() {
         }
       } catch (error) {
         logger.error('Error uploading files:', error)
-        onUploadError?.(normalizeErrorMessage(error))
+        onUploadError?.(error instanceof Error ? error.message : WORKFLOW_EXECUTION_FAILURE_MESSAGE)
         throw error
       }
 
@@ -304,38 +370,15 @@ export function useWorkflowExecution() {
 
   const handleRunWorkflow = useCallback(
     async (request: WorkflowExecutionRequest = {}) => {
-      if (!activeWorkflowId || !isWorkflowSessionReadyRef.current) return
-      if (activeExecution) return
-
-      const triggerType = request.triggerType ?? 'manual'
-      const owner = ownerRef.current
-      const executionWorkflowId = activeWorkflowId
-      const controller = new AbortController()
-      const executionId = createExecutionId()
-      activeExecution = {
-        owner,
-        controller,
-        workflowId: executionWorkflowId,
-      }
-
-      if (triggerType === 'manual') {
-        manualFeedbackPresenter = {
-          owner,
-          workflowId: executionWorkflowId,
-        }
-        setManualRunResult('running')
-      } else {
-        manualFeedbackPresenter = null
-      }
-      setIsExecuting(true)
-      setIsDebugging(false)
-      setPendingBlocks([])
-
-      try {
+      if (!isWorkflowSessionReadyRef.current || !userId || !activeWorkflowId) return
+      const key = executionStorageKey(userId, activeWorkflowId)
+      if (pendingAdmissions.has(key)) return
+      const executionId = globalThis.crypto.randomUUID()
+      return runExecution(executionId, request, async (execution) => {
         request.onAdmitted?.()
         const executionRequest = await buildExecutionRequest(
           request.input,
-          triggerType,
+          request.triggerType ?? 'manual',
           request.triggerBlockId
         )
         const input =
@@ -346,92 +389,56 @@ export function useWorkflowExecution() {
                 executionRequest.workspaceId
               )
             : executionRequest.input
-
-        const result = await runQueuedWorkflowExecution(
-          {
-            workflowId: executionWorkflowId,
-            executionId,
-            input,
-            triggerType: executionRequest.triggerType,
-            executionTarget: 'live',
-            workflowData: executionRequest.workflowData,
-            workflowVariables: executionRequest.workflowVariables,
-            triggerBlockId: executionRequest.triggerBlockId,
-            selectedOutputs: request.selectedOutputs,
-            stream: true,
-            signal: controller.signal,
-          },
-          {
-            onEvent: async (event) => {
-              applyExecutionEvent(event)
-              await request.onEvent?.(event)
-            },
-          }
-        )
-
-        if (triggerType === 'manual') setManualRunResult(result)
-        return result
-      } catch (error) {
-        if ((error as Error)?.name === 'AbortError') {
-          if (triggerType === 'manual') setManualRunResult(null)
-          return {
-            success: false,
-            output: {},
-            error: 'Workflow execution was cancelled',
-            logs: [],
-          } satisfies ExecutionResult
-        }
-        const result = handleExecutionError(error, { executionId })
-        if (triggerType === 'manual') setManualRunResult(result)
-        return result
-      } finally {
-        if (activeExecution?.owner === owner && activeExecution.controller === controller) {
-          activeExecution = null
-          resetExecutionState()
-        }
-      }
+        execution.controller.signal.throwIfAborted()
+        if (execution.cancelRequested) return
+        const admission = queueWorkflowExecution({
+          workflowId: execution.workflowId,
+          executionId,
+          input,
+          triggerType: executionRequest.triggerType,
+          executionTarget: 'live',
+          workflowData: executionRequest.workflowData,
+          workflowVariables: executionRequest.workflowVariables,
+          triggerBlockId: executionRequest.triggerBlockId,
+          selectedOutputs: request.selectedOutputs,
+        })
+          .then((handle) => {
+            if (pendingAdmissions.get(key)?.promise === admission)
+              sessionStorage.setItem(key, JSON.stringify(handle))
+            return handle
+          })
+          .finally(() => {
+            if (pendingAdmissions.get(key)?.promise === admission) pendingAdmissions.delete(key)
+          })
+        pendingAdmissions.set(key, { executionId, promise: admission })
+        return admission
+      })
     },
-    [
-      activeWorkflowId,
-      applyExecutionEvent,
-      buildExecutionRequest,
-      handleExecutionError,
-      resetExecutionState,
-      setIsDebugging,
-      setIsExecuting,
-      setPendingBlocks,
-      uploadChatFiles,
-    ]
+    [activeWorkflowId, buildExecutionRequest, runExecution, uploadChatFiles, userId]
   )
 
-  const handleCancelExecution = useCallback(() => {
+  const handleCancelExecution = useCallback(async () => {
     const execution = activeExecution
-    if (!execution) return
-    execution.controller.abort()
-    cancelRunningEntries(execution.workflowId)
-  }, [cancelRunningEntries])
-
-  let manualRunFeedback: ManualRunFeedback = { state: 'idle' }
-  if (
-    manualFeedbackPresenter?.owner === ownerRef.current &&
-    manualFeedbackPresenter.workflowId === activeWorkflowId
-  ) {
-    if (manualRunResult === 'running') {
-      manualRunFeedback = { state: 'running' }
-    } else if (manualRunResult?.success) {
-      manualRunFeedback = { state: 'success' }
-    } else if (manualRunResult) {
-      manualRunFeedback = {
-        state: 'error',
-        message: manualRunResult.error || WORKFLOW_EXECUTION_FAILURE_MESSAGE,
+    if (!execution || execution.userId !== userId || execution.workflowId !== activeWorkflowId)
+      return
+    execution.cancelRequested = true
+    if (execution.taskId) {
+      try {
+        await cancelQueuedWorkflowExecution(execution.taskId)
+      } catch (error) {
+        logger.error('Failed to cancel workflow execution', error)
       }
     }
-  }
+  }, [activeWorkflowId, userId])
 
   return {
     isExecuting,
     isWorkflowSessionReady,
-    manualRunFeedback,
+    manualRunFeedback:
+      manualFeedbackPresenter?.owner === ownerRef.current &&
+      manualFeedbackPresenter.workflowId === activeWorkflowId
+        ? manualRunFeedback
+        : { state: 'idle' as const },
     handleRunWorkflow,
     handleCancelExecution,
   }

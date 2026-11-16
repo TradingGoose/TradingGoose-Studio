@@ -1,3 +1,6 @@
+import type { EmbeddingAccounting } from '@/lib/embeddings/utils'
+import type { NativeCost } from '@/lib/mastra/usage'
+
 export interface KnowledgeSearchResult {
   documentId: string
   documentName: string
@@ -13,22 +16,8 @@ export interface KnowledgeSearchResponse {
     results: KnowledgeSearchResult[]
     query: string
     totalResults: number
-    cost?: {
-      input: number
-      output: number
-      total: number
-      tokens: {
-        prompt: number
-        completion: number
-        total: number
-      }
-      model: string
-      pricing: {
-        input: number
-        output: number
-        updatedAt: string
-      }
-    }
+    embeddingUsage?: EmbeddingAccounting['usage']
+    cost?: NativeCost & { model: string; tokens: { prompt?: number; total?: number } }
   }
   error?: string
 }
@@ -57,22 +46,8 @@ export interface KnowledgeUploadChunkResponse {
     message: string
     documentId: string
     documentName: string
-    cost?: {
-      input: number
-      output: number
-      total: number
-      tokens: {
-        prompt: number
-        completion: number
-        total: number
-      }
-      model: string
-      pricing: {
-        input: number
-        output: number
-        updatedAt: string
-      }
-    }
+    embeddingUsage?: EmbeddingAccounting
+    cost?: NativeCost & { model: string; tokens: { prompt?: number; total?: number } }
   }
   error?: string
 }

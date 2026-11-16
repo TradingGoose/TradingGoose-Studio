@@ -3,6 +3,36 @@ import '@testing-library/jest-dom/vitest'
 import enMessages from './i18n/messages/en.json'
 import type { LocaleCode } from './i18n/utils'
 
+vi.mock('@tradinggoose/db', async () => ({
+  ...(await import('@tradinggoose/db/schema')),
+  db: {},
+}))
+
+vi.mock('pg', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('pg') & { default: typeof import('pg') }>()
+  class DisabledDatabaseClient {
+    constructor() {
+      throw new Error('Database connections are disabled in unit tests')
+    }
+  }
+  return {
+    ...actual,
+    Pool: DisabledDatabaseClient,
+    Client: DisabledDatabaseClient,
+    default: { ...actual.default, Pool: DisabledDatabaseClient, Client: DisabledDatabaseClient },
+  }
+})
+
+vi.mock('postgres', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('postgres')>()
+  return {
+    ...actual,
+    default: Object.assign(function disabledDatabaseClient() {
+      throw new Error('Database connections are disabled in unit tests')
+    }, actual.default),
+  }
+})
+
 global.fetch = vi.fn(() =>
   Promise.resolve({
     ok: true,

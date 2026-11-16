@@ -47,6 +47,12 @@ vi.mock('@/global-navbar/global-copilot-panel', () => ({
   },
 }))
 
+vi.mock('@/global-navbar/workflow-chat-deployment-dialog', () => ({
+  WorkflowChatDeploymentDialog: ({ ownerUserId }: { ownerUserId: string }) => (
+    <div data-testid='owned-chat-deployment-host' data-owner-user-id={ownerUserId} />
+  ),
+}))
+
 vi.mock('@/components/ui/resizable', () => ({
   ResizablePanelGroup: ({ children }: { children: ReactNode }) => (
     <div data-testid='copilot-split'>{children}</div>
@@ -152,6 +158,11 @@ describe('GlobalCopilotLayout', () => {
     expect(container.querySelector('[data-testid="workspace-copilot"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="workspace-page"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="page-content"]')).not.toBeNull()
+    expect(container.querySelectorAll('[data-testid="owned-chat-deployment-host"]')).toHaveLength(1)
+    expect(container.querySelector('[data-testid="owned-chat-deployment-host"]')).toHaveAttribute(
+      'data-owner-user-id',
+      'user-1'
+    )
     expect(container.querySelector('[data-testid="workspace-copilot"]')).toHaveAttribute(
       'data-min-size',
       '25'
@@ -183,6 +194,10 @@ describe('GlobalCopilotLayout', () => {
     )
 
     await renderLayout({ ownerUserId: 'user-2' })
+    expect(container.querySelector('[data-testid="owned-chat-deployment-host"]')).toHaveAttribute(
+      'data-owner-user-id',
+      'user-2'
+    )
     expect(container.querySelector('[data-testid="global-copilot-panel"]')).not.toHaveAttribute(
       'data-instance-id',
       initialInstanceId

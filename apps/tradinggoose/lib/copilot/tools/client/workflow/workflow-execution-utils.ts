@@ -1,3 +1,5 @@
+import type { CopilotToolTarget } from '@/lib/copilot/native/contract'
+import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
@@ -8,14 +10,11 @@ import { buildExecutableWorkflowData } from '@/stores/workflows/workflow/utils'
 const logger = createLogger('WorkflowExecutionUtils')
 
 type WorkflowExecutionOptions = {
+  native: CopilotToolTarget
+  signal?: AbortSignal
   workflowInput?: any
-  executionId?: string
   workflowId: string
   triggerBlockId: string
-}
-
-function createExecutionId() {
-  return globalThis.crypto.randomUUID()
 }
 
 export async function executeWorkflowWithFullLogging(
@@ -25,13 +24,7 @@ export async function executeWorkflowWithFullLogging(
     workflowState,
     variables: workflowVariables,
     workspaceId,
-  } = await getReadableWorkflowState(
-    {
-      toolCallId: 'workflow-execution-context',
-      toolName: 'run_workflow',
-    },
-    options.workflowId
-  )
+  } = await getReadableWorkflowState(options.workflowId)
 
   if (!workspaceId) {
     throw new Error('Workflow execution context requires workspaceId')
@@ -55,7 +48,9 @@ export async function executeWorkflowWithFullLogging(
 
   return runQueuedWorkflowExecution({
     workflowId: options.workflowId,
-    executionId: options.executionId ?? createExecutionId(),
+    native: options.native,
+    signal: options.signal,
+    executionId: nativeToolCallId(options.native.target),
     input: start.input,
     triggerType: start.triggerType,
     executionTarget: 'live',

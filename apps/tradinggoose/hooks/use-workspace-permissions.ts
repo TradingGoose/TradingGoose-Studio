@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { permissionTypeEnum } from '@tradinggoose/db/schema'
 import { createWithEqualityFn as create } from 'zustand/traditional'
 import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
@@ -82,12 +82,15 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
     }),
   fetchPermissions: async (recordKey, workspaceId, options) => {
     const { callbackPathname, force = false } = options
+    if (force) {
+      // A forced read follows every earlier request for this same canonical record.
+      // Recheck after each await so simultaneous forced readers cannot overlap.
+      while (get().inFlight[recordKey]) await get().inFlight[recordKey]
+    }
     const { records, inFlight, setRecord } = get()
 
     if (!force) {
-      if (inFlight[recordKey]) {
-        return inFlight[recordKey]
-      }
+      if (inFlight[recordKey]) return inFlight[recordKey]
 
       const existing = records[recordKey]
       if (isSessionRecoveryAuthError(existing?.error)) {
@@ -98,7 +101,8 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
       }
     }
 
-    const fetchPromise = (async () => {
+    // Register before starting even a synchronously failing transport.
+    const fetchPromise = Promise.resolve().then(async () => {
       try {
         setRecord(recordKey, { loading: true })
 
@@ -150,7 +154,7 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
           return { inFlight: next }
         })
       }
-    })()
+    })
 
     set((state) => ({
       inFlight: {
@@ -173,19 +177,30 @@ export function resetWorkspacePermissionsStore() {
 
 export function useWorkspacePermissions(
   workspaceId: string,
-  userId: string
+  userId: string,
+  options: { requireFresh?: boolean } = {}
 ): UseWorkspacePermissionsReturn {
   const callbackPathname = usePathname()
+  const requireFresh = options.requireFresh === true
+  const [freshRecordKey, setFreshRecordKey] = useState<string | null>(null)
   const recordKey = getRecordKey(workspaceId, userId)
   const record = useWorkspacePermissionsStore((state) => state.records[recordKey])
   const fetchPermissions = useWorkspacePermissionsStore((state) => state.fetchPermissions)
   const setRecord = useWorkspacePermissionsStore((state) => state.setRecord)
 
   useEffect(() => {
-    fetchPermissions(recordKey, workspaceId, { callbackPathname }).catch((error) => {
-      logger.error('Failed to load workspace permissions', { workspaceId, error })
-    })
-  }, [workspaceId, recordKey, callbackPathname, fetchPermissions])
+    let active = true
+    void fetchPermissions(recordKey, workspaceId, { callbackPathname, force: requireFresh })
+      .then(() => {
+        if (active && requireFresh) setFreshRecordKey(recordKey)
+      })
+      .catch((error) => {
+        logger.error('Failed to load workspace permissions', { workspaceId, error })
+      })
+    return () => {
+      active = false
+    }
+  }, [workspaceId, recordKey, callbackPathname, fetchPermissions, requireFresh])
 
   const refetch = useCallback(async () => {
     await fetchPermissions(recordKey, workspaceId, { callbackPathname, force: true })
@@ -204,7 +219,7 @@ export function useWorkspacePermissions(
 
   return {
     permissions: record?.permissions ?? null,
-    loading: record?.loading ?? true,
+    loading: (requireFresh && freshRecordKey !== recordKey) || (record?.loading ?? true),
     error: record?.error ?? null,
     updatePermissions,
     refetch,

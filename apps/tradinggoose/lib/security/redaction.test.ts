@@ -30,6 +30,12 @@ describe('security redaction', () => {
     })
   })
 
+  it('keeps unknown token metrics empty while redacting invalid metric payloads', () => {
+    expect(deepRedactSecrets({ tokens: {} })).toEqual({ tokens: {} })
+    for (const tokens of [{ total: 'secret' }, { apiKey: 'secret' }, ['secret'], 'secret'])
+      expect(deepRedactSecrets({ tokens })).toEqual({ tokens: '[redacted]' })
+  })
+
   it('redacts headers and inline values while preserving safe text', () => {
     expect(
       deepRedactSecrets({

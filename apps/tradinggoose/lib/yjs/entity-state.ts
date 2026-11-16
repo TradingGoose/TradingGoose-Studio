@@ -62,7 +62,7 @@ export function savedEntityRowToContent(
         description: row.description ?? '',
         chunkingConfig: row.chunkingConfig,
         tokenCount: row.tokenCount ?? 0,
-        embeddingModel: row.embeddingModel ?? 'text-embedding-3-small',
+        embeddingModel: row.embeddingModel ?? 'openai/text-embedding-3-small',
         embeddingDimension: row.embeddingDimension ?? 1536,
       }
     case 'mcp_server':

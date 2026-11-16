@@ -87,8 +87,6 @@ export function buildSavedEntityDescriptor(
     ownerUserId: normalizedOwnerUserId,
     entityKind,
     entityId,
-    draftSessionId: null,
-    reviewSessionId: null,
     yjsSessionId: entityId,
   }
 }
@@ -147,8 +145,6 @@ export function buildDashboardWidgetDescriptor(input: {
     ),
     entityKind: 'dashboard_widget',
     entityId: requireSessionPart(input.identityId, 'identityId'),
-    draftSessionId: null,
-    reviewSessionId: null,
     yjsSessionId: buildDashboardWidgetSessionId(input.layoutId, input.identityId),
   }
 }
@@ -168,8 +164,6 @@ export function buildDashboardColorPairDescriptor(input: {
     ),
     entityKind: 'dashboard_color_pair',
     entityId: requireSessionPart(input.color, 'color'),
-    draftSessionId: null,
-    reviewSessionId: null,
     yjsSessionId: buildDashboardColorPairSessionId(input.layoutId, input.color),
   }
 }
@@ -212,8 +206,6 @@ export function buildEntityListDescriptor(
     ownerUserId: normalizedOwnerUserId,
     entityKind,
     entityId: null,
-    draftSessionId: null,
-    reviewSessionId: null,
     yjsSessionId: buildEntityListSessionId(entityKind, workspaceId, normalizedOwnerUserId),
   }
 }
@@ -226,19 +218,18 @@ export function buildYjsTransportEnvelope(
 ): YjsTransportEnvelope {
   const targetKind: YjsTargetKind = isEntityListSessionId(descriptor.yjsSessionId)
     ? 'entity_list'
-    : descriptor.entityId
-      ? 'entity'
-      : 'review_session'
+    : 'entity'
+  if (targetKind === 'entity' && !descriptor.entityId) {
+    throw new Error('Saved entity Yjs descriptor requires entityId')
+  }
 
   return {
     targetKind,
     sessionId: descriptor.yjsSessionId,
-    reviewSessionId: targetKind === 'review_session' ? descriptor.reviewSessionId : null,
     workspaceId: descriptor.workspaceId,
     ownerUserId: descriptor.ownerUserId ?? null,
     entityKind: descriptor.entityKind,
     entityId: descriptor.entityId,
-    draftSessionId: targetKind === 'review_session' ? descriptor.draftSessionId : null,
   }
 }
 
@@ -260,10 +251,8 @@ export function buildReviewTargetDescriptorFromEnvelope(
       throw new Error('Entity-list Yjs envelope requires workspaceId')
     }
 
-    if (envelope.entityId || envelope.reviewSessionId || envelope.draftSessionId) {
-      throw new Error(
-        'Entity-list Yjs envelope cannot carry entityId, reviewSessionId, or draftSessionId'
-      )
+    if (envelope.entityId) {
+      throw new Error('Entity-list Yjs envelope cannot carry entityId')
     }
 
     const expectedSessionId = buildEntityListSessionId(
@@ -282,8 +271,6 @@ export function buildReviewTargetDescriptorFromEnvelope(
       ownerUserId,
       entityKind,
       entityId: null,
-      draftSessionId: null,
-      reviewSessionId: null,
       yjsSessionId: envelope.sessionId,
     }
   }
@@ -311,57 +298,16 @@ export function buildReviewTargetDescriptorFromEnvelope(
       throw new Error('Entity Yjs envelope sessionId must equal entityId')
     }
 
-    if (envelope.reviewSessionId || envelope.draftSessionId) {
-      throw new Error('Entity Yjs envelope cannot carry reviewSessionId or draftSessionId')
-    }
-
     return {
       workspaceId: envelope.workspaceId ?? null,
       ownerUserId,
       entityKind: envelope.entityKind,
       entityId: envelope.entityId,
-      draftSessionId: null,
-      reviewSessionId: null,
       yjsSessionId: envelope.sessionId,
     }
   }
 
-  const entityKind = requireReviewEntityKind(envelope.entityKind)
-
-  if (entityKind === 'workflow') {
-    throw new Error('Review-session Yjs envelope cannot use entityKind="workflow"')
-  }
-
-  const reviewSessionId = envelope.reviewSessionId ?? envelope.sessionId
-  if (!reviewSessionId) {
-    throw new Error('Review-session Yjs envelope requires reviewSessionId')
-  }
-
-  if (envelope.sessionId !== reviewSessionId) {
-    throw new Error('Review-session Yjs envelope sessionId must equal reviewSessionId')
-  }
-
-  if (!envelope.workspaceId) {
-    throw new Error('Review-session Yjs envelope requires workspaceId')
-  }
-
-  if (envelope.entityId) {
-    throw new Error('Review-session Yjs envelope cannot carry entityId')
-  }
-
-  if (!envelope.draftSessionId) {
-    throw new Error('Review-session Yjs envelope requires draftSessionId')
-  }
-
-  return {
-    workspaceId: envelope.workspaceId,
-    ownerUserId,
-    entityKind,
-    entityId: envelope.entityId,
-    draftSessionId: envelope.draftSessionId,
-    reviewSessionId,
-    yjsSessionId: envelope.sessionId,
-  }
+  throw new Error('Invalid Yjs target kind')
 }
 
 /**
@@ -377,11 +323,9 @@ export function serializeYjsTransportEnvelope(
     entityKind: envelope.entityKind,
   }
 
-  if (envelope.reviewSessionId != null) result.reviewSessionId = envelope.reviewSessionId
   if (envelope.workspaceId != null) result.workspaceId = envelope.workspaceId
   if (envelope.ownerUserId != null) result.ownerUserId = envelope.ownerUserId
   if (envelope.entityId != null) result.entityId = envelope.entityId
-  if (envelope.draftSessionId != null) result.draftSessionId = envelope.draftSessionId
 
   return result
 }
@@ -392,6 +336,9 @@ export function serializeYjsTransportEnvelope(
 export function parseYjsTransportEnvelope(
   payload: Record<string, string | undefined>
 ): YjsTransportEnvelope {
+  if (payload.reviewSessionId !== undefined || payload.draftSessionId !== undefined) {
+    throw new Error('Yjs transport does not accept conversation review fields')
+  }
   if (normalizeNullableString(payload.workflowId)) {
     throw new Error('Yjs transport envelope cannot carry workflowId; use entityId')
   }
@@ -403,12 +350,10 @@ export function parseYjsTransportEnvelope(
       (() => {
         throw new Error('Missing required transport envelope field: sessionId')
       })(),
-    reviewSessionId: normalizeNullableString(payload.reviewSessionId),
     workspaceId: normalizeNullableString(payload.workspaceId),
     ownerUserId: normalizeNullableString(payload.ownerUserId),
     entityKind: requireYjsDocumentKind(payload.entityKind),
     entityId: normalizeNullableString(payload.entityId),
-    draftSessionId: normalizeNullableString(payload.draftSessionId),
   }
 
   buildReviewTargetDescriptorFromEnvelope(envelope)

@@ -45,8 +45,8 @@ describe('SubBlockEditRows', () => {
       const config = localizeWorkflowSubBlockConfigWithCopy(
         getWorkflowInspectorCopy('es'),
         {
-          id: 'reasoningEffort',
-          title: 'Reasoning Effort',
+          id: 'modelSetting',
+          title: 'Model Setting',
           type,
           additional: true,
           options,

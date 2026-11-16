@@ -558,15 +558,12 @@ describe('Airtable payload durability', () => {
       executionId,
       executionId
     )
-  const execute = (overrides: Row = {}, pendingExecutionId = 'execution-a') =>
-    executeWebhookJob(
-      {
-        ...pending('execution-a').payload,
-        executionId: 'execution-a',
-        ...overrides,
-      } as any,
-      pendingExecutionId
-    )
+  const execute = (overrides: Row = {}) =>
+    executeWebhookJob({
+      ...pending('execution-a').payload,
+      executionId: 'execution-a',
+      ...overrides,
+    } as any)
   const queueTenPages = (payloads: unknown[] = [{ id: 'change' }]) => {
     state.pendingExecutions = [pending('execution-a')]
     fetchMock.mockImplementation(() => page(payloads, fetchMock.mock.calls.length, true))

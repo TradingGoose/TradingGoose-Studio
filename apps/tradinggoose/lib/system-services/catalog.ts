@@ -1,6 +1,5 @@
-import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
-import { isHosted } from '@/lib/environment'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
+import { getModelProviders } from '@/lib/mastra/providers'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
 
@@ -32,48 +31,15 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   {
     id: 'openai',
     displayName: 'OpenAI',
-    description: 'Default API key for system-owned OpenAI embeddings.',
+    description: 'Default API key for system-owned OpenAI embeddings and Copilot.',
     credentialFields: [
       {
         key: 'defaultApiKey',
         label: 'Default API Key',
-        description: 'Used for system-owned OpenAI embeddings.',
+        description: 'Used for system-owned OpenAI embeddings and Copilot.',
       },
     ],
     settingFields: [],
-  },
-  {
-    id: 'azure_openai',
-    displayName: 'Azure OpenAI',
-    description: 'Shared Azure OpenAI configuration for embeddings and Azure-hosted model calls.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Used for platform-managed Azure OpenAI requests.',
-      },
-    ],
-    settingFields: [
-      {
-        key: 'endpoint',
-        label: 'Endpoint',
-        description: 'Base Azure OpenAI endpoint.',
-        type: 'url',
-      },
-      {
-        key: 'apiVersion',
-        label: 'API Version',
-        description: 'Azure OpenAI API version.',
-        type: 'text',
-        defaultValue: '2024-07-01-preview',
-      },
-      {
-        key: 'embeddingModel',
-        label: 'Embedding Model',
-        description: 'Azure deployment name used for knowledge embeddings.',
-        type: 'text',
-      },
-    ],
   },
   {
     id: 'serper',
@@ -136,13 +102,13 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   },
   {
     id: 'mistral',
-    displayName: 'Mistral OCR',
-    description: 'API key for Mistral OCR document processing.',
+    displayName: 'Mistral',
+    description: 'API key for Mistral OCR document processing and Copilot.',
     credentialFields: [
       {
         key: 'apiKey',
         label: 'API Key',
-        description: 'Used for Mistral OCR document parsing.',
+        description: 'Used for Mistral OCR document parsing and Copilot.',
       },
     ],
     settingFields: [],
@@ -194,27 +160,6 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
     ],
   },
   {
-    id: 'copilot_api',
-    displayName: 'Copilot API',
-    description: 'Remote Copilot service endpoint and service authentication.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Used for TradingGoose-Copilot service authentication.',
-      },
-    ],
-    settingFields: [
-      {
-        key: 'baseUrl',
-        label: 'Base URL',
-        description: 'Base URL for the remote Copilot service.',
-        type: 'url',
-        defaultValue: COPILOT_API_URL_DEFAULT,
-      },
-    ],
-  },
-  {
     id: 'market_api',
     displayName: 'Market API',
     description: 'Remote market data service endpoint and authentication.',
@@ -235,57 +180,6 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
         defaultValue: MARKET_API_URL_DEFAULT,
       },
     ],
-  },
-  {
-    id: 'ollama',
-    displayName: 'Ollama',
-    description: 'Base URL for the local or remote Ollama service.',
-    credentialFields: [],
-    settingFields: [
-      {
-        key: 'baseUrl',
-        label: 'Base URL',
-        description: 'OpenAI-compatible Ollama host URL.',
-        type: 'url',
-        defaultValue: 'http://localhost:11434',
-      },
-    ],
-  },
-  {
-    id: 'vllm',
-    displayName: 'vLLM',
-    description: 'Base URL and optional bearer token for the OpenAI-compatible vLLM service.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Optional bearer token for the vLLM endpoint.',
-        required: false,
-      },
-    ],
-    settingFields: [
-      {
-        key: 'baseUrl',
-        label: 'Base URL',
-        description: 'Base URL for the OpenAI-compatible vLLM host.',
-        type: 'url',
-        required: false,
-      },
-    ],
-  },
-  {
-    id: 'fireworks',
-    displayName: 'Fireworks',
-    description: 'API key for Fireworks model discovery in the provider picker.',
-    credentialFields: [
-      {
-        key: 'apiKey',
-        label: 'API Key',
-        description: 'Used to fetch available Fireworks models.',
-        required: false,
-      },
-    ],
-    settingFields: [],
   },
   {
     id: 'elevenlabs',
@@ -402,18 +296,31 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   },
 ]
 
-const SYSTEM_SERVICE_DEFINITIONS_BY_ID = new Map(
-  SYSTEM_SERVICE_DEFINITIONS.filter((definition) => !isHosted || definition.id !== 'ollama').map(
-    (definition) => [definition.id, definition]
-  )
-)
+const SYSTEM_SERVICE_IDS = new Set(SYSTEM_SERVICE_DEFINITIONS.map(({ id }) => id))
 
-export function getSystemServiceDefinitions() {
-  return Array.from(SYSTEM_SERVICE_DEFINITIONS_BY_ID.values())
+export function getSystemServiceDefinitions(): SystemServiceDefinition[] {
+  return [
+    ...SYSTEM_SERVICE_DEFINITIONS,
+    ...Object.entries(getModelProviders())
+      .filter(([id]) => !SYSTEM_SERVICE_IDS.has(id))
+      .map(([id, { name }]) => ({
+        id,
+        displayName: name,
+        description: `API key for system-owned ${name} Copilot access.`,
+        credentialFields: [
+          {
+            key: 'apiKey',
+            label: 'API Key',
+            description: `Used for system-owned ${name} Copilot requests.`,
+          },
+        ],
+        settingFields: [],
+      })),
+  ]
 }
 
 export function getSystemServiceDefinition(serviceId: string) {
-  return SYSTEM_SERVICE_DEFINITIONS_BY_ID.get(serviceId) ?? null
+  return getSystemServiceDefinitions().find(({ id }) => id === serviceId) ?? null
 }
 
 export function isSystemServiceCredentialKey(serviceId: string, key: string) {

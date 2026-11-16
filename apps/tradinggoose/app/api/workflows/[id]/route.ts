@@ -8,6 +8,7 @@ import { getSession } from '@/lib/auth'
 import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
+import { deleteWorkflowMemories } from '@/lib/mastra/workflow-memory'
 import {
   renameSavedEntityIdentityInTx,
   SavedEntityIdentityError,
@@ -235,16 +236,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
+    const workspaceId = workflowData.workspaceId
     await runYjsDrainFencedTransaction({ sessionIds: [workflowId] }, async (tx) => {
-      if (workflowData.workspaceId) {
-        await lockSavedEntityList(tx, 'workflow', workflowData.workspaceId as string)
-      }
+      await lockSavedEntityList(tx, 'workflow', workspaceId)
       await tx.delete(workflow).where(eq(workflow.id, workflowId))
+      await deleteWorkflowMemories(workspaceId, workflowId)
     })
 
-    if (workflowData.workspaceId) {
-      await refreshWorkflowList(workflowData.workspaceId)
-    }
+    await refreshWorkflowList(workspaceId)
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
 

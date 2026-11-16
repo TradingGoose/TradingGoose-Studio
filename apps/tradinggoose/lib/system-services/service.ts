@@ -87,33 +87,9 @@ export async function listSystemServices(): Promise<SystemServiceState[]> {
   }))
 }
 
-async function resolveSystemServiceCredentials(serviceId: string): Promise<Record<string, string>> {
-  const definition = getSystemServiceDefinition(serviceId)
-  if (!definition) {
-    throw new SystemServiceValidationError(`Unknown system service "${serviceId}"`)
-  }
-
-  const rows = await db
-    .select()
-    .from(systemServiceValue)
-    .where(
-      and(eq(systemServiceValue.service, serviceId), eq(systemServiceValue.kind, 'credential'))
-    )
-
-  const resolvedEntries = await Promise.all(
-    rows.map(async (row) => {
-      const value = await decryptStoredCredential(row)
-      return value ? ([row.key, value] as const) : null
-    })
-  )
-
-  return Object.fromEntries(
-    resolvedEntries.filter((entry): entry is readonly [string, string] => !!entry)
-  )
-}
-
-async function resolveSystemServiceSettings(
-  serviceId: string
+async function resolveSystemServiceValues(
+  serviceId: string,
+  includeCredentials: boolean
 ): Promise<Record<string, SystemServiceResolvedValue>> {
   const definition = getSystemServiceDefinition(serviceId)
   if (!definition) {
@@ -123,11 +99,17 @@ async function resolveSystemServiceSettings(
   const rows = await db
     .select()
     .from(systemServiceValue)
-    .where(and(eq(systemServiceValue.service, serviceId), eq(systemServiceValue.kind, 'setting')))
+    .where(
+      includeCredentials
+        ? eq(systemServiceValue.service, serviceId)
+        : and(eq(systemServiceValue.service, serviceId), eq(systemServiceValue.kind, 'setting'))
+    )
 
-  const rowsByKey = new Map(rows.map((row) => [row.key, row.value]))
+  const rowsByKey = new Map(
+    rows.filter((row) => row.kind === 'setting').map((row) => [row.key, row.value])
+  )
 
-  return Object.fromEntries(
+  const settings = Object.fromEntries(
     definition.settingFields.flatMap((field) => {
       const storedValue = rowsByKey.get(field.key)
       if (storedValue !== undefined) {
@@ -141,26 +123,32 @@ async function resolveSystemServiceSettings(
       return []
     })
   )
+
+  if (!includeCredentials) return settings
+  const entries = await Promise.all(
+    rows
+      .filter((row) => row.kind === 'credential')
+      .map(async (row) => {
+        const value = await decryptStoredCredential(row)
+        return value ? ([row.key, value] as const) : null
+      })
+  )
+  return {
+    ...settings,
+    ...Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => !!entry)),
+  }
 }
 
 export async function resolveSystemServiceConfig(
   serviceId: string
 ): Promise<Record<string, SystemServiceResolvedValue>> {
-  const [credentials, settings] = await Promise.all([
-    resolveSystemServiceCredentials(serviceId),
-    resolveSystemServiceSettings(serviceId),
-  ])
-
-  return {
-    ...settings,
-    ...credentials,
-  }
+  return resolveSystemServiceValues(serviceId, true)
 }
 
 export async function resolveSystemServiceSettingsConfig(
   serviceId: string
 ): Promise<Record<string, SystemServiceResolvedValue>> {
-  return resolveSystemServiceSettings(serviceId)
+  return resolveSystemServiceValues(serviceId, false)
 }
 
 export async function upsertSystemServiceConfig(input: {

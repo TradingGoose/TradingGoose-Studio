@@ -126,7 +126,6 @@ export function buildCopilotWorkspaceEntityContext<K extends CopilotWorkspaceEnt
   }
   const baseContext = {
     ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
-    ...(entityKind === ENTITY_KIND_DASHBOARD_LAYOUT ? { ownerUserId: normalizedOwnerUserId } : {}),
     label: resolvedLabel,
   }
 
@@ -175,10 +174,14 @@ export function buildCopilotWorkspaceEntityContext<K extends CopilotWorkspaceEnt
         watchlistId: entityId,
       }
     case ENTITY_KIND_DASHBOARD_LAYOUT:
+      if (!normalizedWorkspaceId || !normalizedOwnerUserId)
+        throw new Error('Dashboard layout context requires workspaceId and ownerUserId')
       return {
         kind: 'dashboard_layout',
-        ...baseContext,
         dashboardLayoutId: entityId,
+        workspaceId: normalizedWorkspaceId,
+        ownerUserId: normalizedOwnerUserId,
+        label: resolvedLabel,
       }
   }
 }

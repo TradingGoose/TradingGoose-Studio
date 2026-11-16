@@ -346,7 +346,7 @@ export class PathTracker {
    * Check if a block has an error
    */
   private blockHasError(blockState: BlockState | undefined): boolean {
-    return blockState?.output?.error !== undefined
+    return blockState?.success !== true && blockState?.output?.error !== undefined
   }
 
   /**

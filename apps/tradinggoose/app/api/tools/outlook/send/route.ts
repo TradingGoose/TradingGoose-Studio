@@ -103,7 +103,11 @@ export async function POST(request: NextRequest) {
                 `[${requestId}] Downloading attachment: ${file.name} (${file.size} bytes)`
               )
 
-              const buffer = await downloadFileFromStorage(file, requestId, logger)
+              const buffer = await downloadFileFromStorage(file, requestId, logger, {
+                actorUserId: credential.requesterUserId,
+                workspaceId: credential.workspaceId,
+                signal: request.signal,
+              })
 
               const base64Content = buffer.toString('base64')
 
@@ -114,6 +118,7 @@ export async function POST(request: NextRequest) {
                 contentBytes: base64Content,
               }
             } catch (error) {
+              if (error instanceof Error && 'status' in error && error.status === 403) throw error
               logger.error(`[${requestId}] Failed to download attachment ${file.name}:`, error)
               throw new Error(
                 `Failed to download attachment "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -176,6 +181,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && 'status' in error && error.status === 403) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 })
+    }
     logger.error(`[${requestId}] Error sending Outlook email:`, error)
     return NextResponse.json(
       {

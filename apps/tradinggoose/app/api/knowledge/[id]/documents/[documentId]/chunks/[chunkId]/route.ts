@@ -5,6 +5,7 @@ import { getSession } from '@/lib/auth'
 import { deleteChunk, updateChunk } from '@/lib/knowledge/chunks/service'
 import { MAX_CHUNK_CONTENT_LENGTH } from '@/lib/knowledge/chunks/types'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getFailureAccounting } from '@/lib/mastra/errors'
 import { checkChunkAccess } from '@/app/api/knowledge/utils'
 
 const logger = createLogger('ChunkByIdAPI')
@@ -105,7 +106,11 @@ export async function PUT(
     try {
       const validatedData = UpdateChunkSchema.parse(body)
 
-      const updatedChunk = await updateChunk(chunkId, validatedData, requestId)
+      const updatedChunk = await updateChunk(chunkId, validatedData, requestId, {
+        actorUserId: session.user.id,
+        workspaceId: accessCheck.knowledgeBase.workspaceId,
+        signal: req.signal,
+      })
 
       logger.info(
         `[${requestId}] Chunk updated: ${chunkId} in document ${documentId} in knowledge base ${knowledgeBaseId}`
@@ -129,7 +134,10 @@ export async function PUT(
     }
   } catch (error) {
     logger.error(`[${requestId}] Error updating chunk`, error)
-    return NextResponse.json({ error: 'Failed to update chunk' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to update chunk', ...getFailureAccounting(error) },
+      { status: 500 }
+    )
   }
 }
 

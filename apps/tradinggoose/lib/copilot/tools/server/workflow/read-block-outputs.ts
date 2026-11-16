@@ -9,6 +9,7 @@ import {
   readWorkflowVariableOutputs,
 } from '@/lib/copilot/workflow/block-output-utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getNativeModel } from '@/lib/mastra/registry'
 
 const logger = createLogger('ReadBlockOutputsServerTool')
 
@@ -48,7 +49,7 @@ export const readBlockOutputsServerTool: BaseServerTool<
         blockId,
         blockName,
         blockType: block.type,
-        outputs: computeBlockOutputReferences(block, ctx, variableOutputs),
+        outputs: computeBlockOutputReferences(block, ctx, variableOutputs, getNativeModel),
       }
 
       if (block.type === 'loop' || block.type === 'parallel') {

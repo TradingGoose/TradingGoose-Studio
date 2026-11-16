@@ -4,7 +4,7 @@ import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { buildSubBlockPreviewRows } from '@/lib/workflows/sub-block-rows'
 import { getBlock } from '@/blocks'
-import { useProvidersStore } from '@/stores/providers/store'
+import { useModelRegistry } from '@/stores/model-registry'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 import {
   PrecomputedSubBlockSummaryRows,
@@ -100,7 +100,7 @@ function PreviewNodeCard({
 /** Rebuilds localized preview rows when workflow values or provider capabilities change. */
 function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
   const { localizeWorkflowSubBlockConfig } = useWorkflowI18n()
-  const providers = useProvidersStore((state) => state.providers)
+  const providers = useModelRegistry((state) => state.providers)
   const blockConfig = useMemo(
     () => getBlock(data.type) ?? data.config ?? null,
     [data.type, data.config]

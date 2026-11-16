@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { type ComponentProps, useRef, useState } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,35 +28,33 @@ import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 const logger = createLogger('DeployedWorkflowModal')
 
 interface DeployedWorkflowModalProps {
-  isOpen: boolean
+  container?: ComponentProps<typeof DialogContent>['container']
   onClose: () => void
   needsRedeployment: boolean
   activeDeployedState?: WorkflowState
   selectedDeployedState?: WorkflowState
   selectedVersion?: number
   onActivateVersion?: () => void
-  isActivating?: boolean
   selectedVersionLabel?: string
   workflowId: string
   isSelectedVersionActive?: boolean
 }
 
 export function DeployedWorkflowModal({
-  isOpen,
+  container,
   onClose,
   needsRedeployment,
   activeDeployedState,
   selectedDeployedState,
   selectedVersion,
   onActivateVersion,
-  isActivating,
   selectedVersionLabel,
   workflowId,
   isSelectedVersionActive,
 }: DeployedWorkflowModalProps) {
   const copy = useDeploymentCopy()
   const [showRevertDialog, setShowRevertDialog] = useState(false)
-  const resolvedWorkflowId = workflowId
+  const popupRef = useRef<HTMLDivElement>(null)
 
   // Get current workflow state to compare with deployed state
   const blocks = useWorkflowBlocks()
@@ -66,11 +64,6 @@ export function DeployedWorkflowModal({
   const currentWorkflowState = { blocks, edges, loops, parallels }
 
   const handleRevert = async () => {
-    if (!resolvedWorkflowId) {
-      logger.error('Cannot revert: no active workflow ID')
-      return
-    }
-
     try {
       const versionToRevert = selectedVersion !== undefined ? selectedVersion : 'active'
       const response = await fetch(
@@ -92,10 +85,11 @@ export function DeployedWorkflowModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open onOpenChange={onClose}>
       <DialogContent
+        ref={popupRef}
+        container={container}
         className='max-h-[100vh] overflow-y-auto sm:max-w-[1100px]'
-        style={{ zIndex: 1000 }}
         hideCloseButton={true}
       >
         <div className='sr-only'>
@@ -104,7 +98,7 @@ export function DeployedWorkflowModal({
           </DialogHeader>
         </div>
         <DeployedWorkflowCard
-          workflowId={resolvedWorkflowId}
+          workflowId={workflowId}
           currentWorkflowState={currentWorkflowState}
           activeDeployedWorkflowState={activeDeployedState}
           selectedDeployedWorkflowState={selectedDeployedState}
@@ -124,12 +118,8 @@ export function DeployedWorkflowModal({
                 </div>
               ) : (
                 <div className='flex items-center gap-0'>
-                  <Button
-                    variant='outline'
-                    disabled={!!isActivating}
-                    onClick={() => onActivateVersion?.()}
-                  >
-                    {isActivating ? copy.activating : copy.activate}
+                  <Button variant='outline' onClick={onActivateVersion}>
+                    {copy.activate}
                   </Button>
                 </div>
               ))}
@@ -141,7 +131,7 @@ export function DeployedWorkflowModal({
                 <AlertDialogTrigger
                   render={<Button variant='outline'>{copy.loadDeployment}</Button>}
                 />
-                <AlertDialogContent style={{ zIndex: 1001 }} className='sm:max-w-[425px]'>
+                <AlertDialogContent container={popupRef} className='sm:max-w-[425px]'>
                   <AlertDialogHeader>
                     <AlertDialogTitle>{copy.loadThisDeployment}</AlertDialogTitle>
                     <AlertDialogDescription>

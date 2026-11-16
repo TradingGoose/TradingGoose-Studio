@@ -1,10 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  deleteFile,
-  downloadFile,
-  generatePresignedDownloadUrl,
-  uploadFile,
-} from '@/lib/uploads/core/storage-service'
+import { generatePresignedDownloadUrl, uploadFile } from '@/lib/uploads/core/storage-service'
 import type { UserFile } from '@/executor/types'
 import type { ExecutionContext } from './execution-file-helpers'
 import {
@@ -88,75 +83,6 @@ export async function uploadExecutionFile(
     logger.error(`Failed to upload execution file ${fileName}:`, error)
     throw new Error(
       `Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
-  }
-}
-
-/**
- * Download a file from execution-scoped storage
- */
-export async function downloadExecutionFile(userFile: UserFile): Promise<Buffer> {
-  logger.info(`Downloading execution file: ${userFile.name}`)
-
-  try {
-    const fileBuffer = await downloadFile({
-      key: userFile.key,
-      context: 'execution',
-    })
-
-    logger.info(
-      `Successfully downloaded execution file: ${userFile.name} (${fileBuffer.length} bytes)`
-    )
-    return fileBuffer
-  } catch (error) {
-    logger.error(`Failed to download execution file ${userFile.name}:`, error)
-    throw new Error(
-      `Failed to download file: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
-  }
-}
-
-/**
- * Generate a short-lived presigned URL for file download (5 minutes)
- */
-export async function generateExecutionFileDownloadUrl(userFile: UserFile): Promise<string> {
-  logger.info(`Generating download URL for execution file: ${userFile.name}`)
-  logger.info(`File key: "${userFile.key}"`)
-
-  try {
-    const downloadUrl = await generatePresignedDownloadUrl(
-      userFile.key,
-      'execution',
-      5 * 60 // 5 minutes
-    )
-
-    logger.info(`Generated download URL for execution file: ${userFile.name}`)
-    return downloadUrl
-  } catch (error) {
-    logger.error(`Failed to generate download URL for ${userFile.name}:`, error)
-    throw new Error(
-      `Failed to generate download URL: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
-  }
-}
-
-/**
- * Delete a file from execution-scoped storage
- */
-export async function deleteExecutionFile(userFile: UserFile): Promise<void> {
-  logger.info(`Deleting execution file: ${userFile.name}`)
-
-  try {
-    await deleteFile({
-      key: userFile.key,
-      context: 'execution',
-    })
-
-    logger.info(`Successfully deleted execution file: ${userFile.name}`)
-  } catch (error) {
-    logger.error(`Failed to delete execution file ${userFile.name}:`, error)
-    throw new Error(
-      `Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   }
 }

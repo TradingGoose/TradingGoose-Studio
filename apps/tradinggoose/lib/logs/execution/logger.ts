@@ -34,6 +34,8 @@ import type {
   WorkflowExecutionSnapshot,
   WorkflowState,
 } from '@/lib/logs/types'
+import type { InferenceFacts } from '@/lib/mastra/result'
+import { extractExecutionFiles } from '@/lib/uploads/contexts/execution/execution-file-helpers'
 
 const logger = createLogger('ExecutionLogger')
 
@@ -43,6 +45,7 @@ type ExecutionBilling = {
   accountedCost?: number
   accountedTokens?: number
   counted?: boolean
+  nativeUsage?: Record<string, InferenceFacts>
 }
 type UsageReceipt = UsageAccrual & {
   context: WorkspaceBillingContext
@@ -50,24 +53,49 @@ type UsageReceipt = UsageAccrual & {
   costDelta: number
 }
 
-function executionCost(traceSpans: TraceSpan[], quote?: ExecutionBilling['quote']) {
-  const summary = calculateCostSummary(
-    traceSpans,
-    quote?.baseCharge ?? 0,
-    quote?.modelMultiplier ?? 1
-  )
+function executionCost(billing: ExecutionBilling) {
+  const summary = calculateCostSummary(Object.values(billing.nativeUsage ?? {}))
+  const quote = billing.quote
+  const baseExecutionCharge = quote?.baseCharge ?? 0
+  const multiplier = quote?.modelMultiplier ?? 1
+  const scale = (value: number | undefined) =>
+    value === undefined ? undefined : value * multiplier
+  const availableTotal = baseExecutionCharge + (summary.availableTotal ?? 0) * multiplier
   return {
-    total: summary.totalCost,
-    baseExecutionCharge: summary.baseExecutionCharge,
-    modelCost: summary.modelCost,
-    input: summary.totalInputCost,
-    output: summary.totalOutputCost,
+    total:
+      summary.totalCost === undefined
+        ? undefined
+        : baseExecutionCharge + summary.totalCost * multiplier,
+    availableTotal:
+      summary.availableTotal === undefined && baseExecutionCharge === 0
+        ? undefined
+        : availableTotal,
+    status:
+      summary.status === 'unavailable' && baseExecutionCharge > 0
+        ? ('partial' as const)
+        : summary.status,
+    estimated: summary.estimated,
+    baseExecutionCharge,
+    modelCost: scale(summary.modelCost),
+    input: scale(summary.totalInputCost),
+    output: scale(summary.totalOutputCost),
     tokens: {
       prompt: summary.totalPromptTokens,
       completion: summary.totalCompletionTokens,
       total: summary.totalTokens,
     },
-    models: summary.models,
+    models: Object.fromEntries(
+      Object.entries(summary.models).map(([model, cost]) => [
+        model,
+        {
+          ...cost,
+          input: scale(cost.input),
+          output: scale(cost.output),
+          total: scale(cost.total),
+          availableTotal: scale(cost.availableTotal),
+        },
+      ])
+    ),
   }
 }
 
@@ -89,6 +117,7 @@ export class ExecutionLogger {
     environment: ExecutionEnvironment
     workflowState: WorkflowState
     workflowSummary: WorkflowExecutionLog['workflowSummary']
+    billable?: boolean
   }): Promise<{
     workflowLog: WorkflowExecutionLog
     snapshot: WorkflowExecutionSnapshot
@@ -139,6 +168,7 @@ export class ExecutionLogger {
           executionData: {
             environment,
             trigger,
+            billing: { billable: params.billable ?? true },
             traceSpans: [],
             finalOutput: {},
             errorMessage: message,
@@ -162,6 +192,7 @@ export class ExecutionLogger {
           executionData: {
             environment,
             trigger,
+            billing: { billable: params.billable ?? true },
           },
         })
         .onConflictDoNothing({
@@ -253,8 +284,8 @@ export class ExecutionLogger {
     if (!existingLog) throw new Error(`Workflow log not found for execution ${executionId}`)
 
     const existingData = existingLog.executionData as Record<string, any>
-    const cost = executionCost(traceSpans, existingData.billing?.quote)
-    const executionFiles = this.extractFilesFromExecution(traceSpans, finalOutput, workflowInput)
+    const cost = executionCost(existingData.billing ?? {})
+    const executionFiles = extractExecutionFiles(traceSpans, finalOutput, workflowInput)
     const completedExecutionData = {
       ...(variables ? { environment: { ...existingData.environment, variables } } : {}),
       traceSpans,
@@ -353,9 +384,12 @@ export class ExecutionLogger {
           modelMultiplier: context ? getTierWorkflowModelCostMultiplier(context.tier) : 1,
         }
       }
-      const cost = executionCost(data.traceSpans ?? [], quote)
-      const costDelta = Math.max(0, cost.total - (billing.accountedCost ?? 0))
-      const tokenDelta = Math.max(0, cost.tokens.total - (billing.accountedTokens ?? 0))
+      const cost = executionCost({ ...billing, quote })
+      // Functions settle their own product charges. Only known model amounts and this
+      // workflow's configured execution charge belong to its usage ledger.
+      const charge = cost.baseExecutionCharge + (cost.modelCost ?? 0)
+      const costDelta = Math.max(0, charge - (billing.accountedCost ?? 0))
+      const tokenDelta = Math.max(0, (cost.tokens.total ?? 0) - (billing.accountedTokens ?? 0))
       let receipt: UsageReceipt | undefined
       if (
         settings.billingEnabled &&
@@ -473,125 +507,6 @@ export class ExecutionLogger {
     } catch (error) {
       logger.warn('Usage threshold notification check failed (non-fatal)', { error })
     }
-  }
-
-  /**
-   * Extract file references from execution trace spans, final output, and workflow input
-   */
-  private extractFilesFromExecution(
-    traceSpans?: any[],
-    finalOutput?: any,
-    workflowInput?: any
-  ): any[] {
-    const files: any[] = []
-    const seenFileIds = new Set<string>()
-
-    // Helper function to extract files from any object
-    const extractFilesFromObject = (obj: any, source: string) => {
-      if (!obj || typeof obj !== 'object') return
-
-      // Check if this object has files property
-      if (Array.isArray(obj.files)) {
-        for (const file of obj.files) {
-          if (file?.name && file.key && file.id) {
-            if (!seenFileIds.has(file.id)) {
-              seenFileIds.add(file.id)
-              files.push({
-                id: file.id,
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                url: file.url,
-                key: file.key,
-                uploadedAt: file.uploadedAt,
-                expiresAt: file.expiresAt,
-                storageProvider: file.storageProvider,
-                bucketName: file.bucketName,
-              })
-            }
-          }
-        }
-      }
-
-      // Check if this object has attachments property (for Gmail and other tools)
-      if (Array.isArray(obj.attachments)) {
-        for (const file of obj.attachments) {
-          if (file?.name && file.key && file.id) {
-            if (!seenFileIds.has(file.id)) {
-              seenFileIds.add(file.id)
-              files.push({
-                id: file.id,
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                url: file.url,
-                key: file.key,
-                uploadedAt: file.uploadedAt,
-                expiresAt: file.expiresAt,
-                storageProvider: file.storageProvider,
-                bucketName: file.bucketName,
-              })
-            }
-          }
-        }
-      }
-
-      // Check if this object itself is a file reference
-      if (obj.name && obj.key && typeof obj.size === 'number') {
-        if (!obj.id) {
-          logger.warn(`File object missing ID, skipping: ${obj.name}`)
-          return
-        }
-
-        if (!seenFileIds.has(obj.id)) {
-          seenFileIds.add(obj.id)
-          files.push({
-            id: obj.id,
-            name: obj.name,
-            size: obj.size,
-            type: obj.type,
-            url: obj.url,
-            key: obj.key,
-            uploadedAt: obj.uploadedAt,
-            expiresAt: obj.expiresAt,
-            storageProvider: obj.storageProvider,
-            bucketName: obj.bucketName,
-          })
-        }
-      }
-
-      // Recursively check nested objects and arrays
-      if (Array.isArray(obj)) {
-        obj.forEach((item, index) => extractFilesFromObject(item, `${source}[${index}]`))
-      } else if (typeof obj === 'object') {
-        Object.entries(obj).forEach(([key, value]) => {
-          extractFilesFromObject(value, `${source}.${key}`)
-        })
-      }
-    }
-
-    // Extract files from trace spans
-    if (traceSpans && Array.isArray(traceSpans)) {
-      traceSpans.forEach((span, index) => {
-        extractFilesFromObject(span, `trace_span_${index}`)
-      })
-    }
-
-    // Extract files from final output
-    if (finalOutput) {
-      extractFilesFromObject(finalOutput, 'final_output')
-    }
-
-    // Extract files from workflow input
-    if (workflowInput) {
-      extractFilesFromObject(workflowInput, 'workflow_input')
-    }
-
-    logger.debug(`Extracted ${files.length} file(s) from execution`, {
-      fileNames: files.map((f) => f.name),
-    })
-
-    return files
   }
 }
 

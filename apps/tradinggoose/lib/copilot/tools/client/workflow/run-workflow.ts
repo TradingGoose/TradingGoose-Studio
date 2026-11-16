@@ -1,4 +1,6 @@
 import { Loader2, MinusCircle, Play, XCircle } from 'lucide-react'
+import type { z } from 'zod'
+import type { ToolArgSchemas } from '@/lib/copilot/registry'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
@@ -8,20 +10,21 @@ import {
 import { executeWorkflowWithFullLogging } from '@/lib/copilot/tools/client/workflow/workflow-execution-utils'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
+import { WorkflowQueueAdmissionError } from '@/lib/workflows/queued-execution-client'
 import { useExecutionStore } from '@/stores/execution/store'
 
-interface RunWorkflowArgs {
-  entityId: string
-  description?: string
-  triggerBlockId: string
-  workflow_input?: Record<string, any> | string
-}
+type RunWorkflowArgs = z.infer<typeof ToolArgSchemas.run_workflow>
 
 export class RunWorkflowClientTool extends BaseClientTool {
-  static readonly id = 'run_workflow'
+  // Only a proven refusal permits retry; a fresh instance cannot attest an older attempt.
+  private executionAttempted?: boolean
 
   constructor(toolCallId: string) {
-    super(toolCallId, RunWorkflowClientTool.id, RunWorkflowClientTool.metadata)
+    super(toolCallId, RunWorkflowClientTool.metadata)
+  }
+
+  hasAttemptedExecution() {
+    return this.executionAttempted
   }
 
   static readonly metadata: BaseClientToolMetadata = {
@@ -33,7 +36,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
       [ClientToolCallState.error]: { text: 'Errored running workflow', icon: XCircle },
       [ClientToolCallState.rejected]: { text: 'Workflow execution skipped', icon: MinusCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted workflow execution', icon: MinusCircle },
-      [ClientToolCallState.background]: { text: 'Running in background', icon: Play },
     },
     interrupt: {
       accept: { text: 'Run', icon: Play },
@@ -41,31 +43,19 @@ export class RunWorkflowClientTool extends BaseClientTool {
     },
   }
 
-  async handleReject(): Promise<void> {
-    await super.handleReject()
-    this.setState(ClientToolCallState.rejected)
-  }
-
-  async handleAccept(args?: RunWorkflowArgs): Promise<void> {
+  async execute(args?: RunWorkflowArgs): Promise<void> {
     const logger = createLogger('RunWorkflowClientTool')
     await this.executeWithTimeout(async () => {
-      const params = (args ?? {}) as Partial<RunWorkflowArgs>
-      logger.debug('handleAccept() called', {
-        toolCallId: this.toolCallId,
-        state: this.getState(),
-        hasArgs: !!args,
-        argKeys: args ? Object.keys(args) : [],
-      })
+      const params: Partial<RunWorkflowArgs> = args ?? {}
 
       // prevent concurrent execution
       const { isExecuting, setIsExecuting } = useExecutionStore.getState()
       if (isExecuting) {
-        logger.debug('Execution prevented: already executing')
-        this.setState(ClientToolCallState.error)
-        await this.markToolComplete(
-          409,
-          'The workflow is already in the middle of an execution. Try again later'
-        )
+        this.fail('The workflow is already in the middle of an execution. Try again later')
+        if (this.executionAttempted !== true) {
+          this.executionAttempted = false
+          this.setState(ClientToolCallState.pending)
+        }
         return
       }
 
@@ -73,17 +63,12 @@ export class RunWorkflowClientTool extends BaseClientTool {
       try {
         activeWorkflowId = requireCopilotEntityId(params)
       } catch {
-        logger.debug('Execution prevented: no target workflow')
-        this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'entityId is required')
+        this.fail('entityId is required')
         return
       }
-      logger.debug('Using target workflow', { workflowId: activeWorkflowId })
 
       if (typeof params.triggerBlockId !== 'string' || params.triggerBlockId.length === 0) {
-        logger.debug('Execution prevented: no trigger block selected')
-        this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'triggerBlockId is required')
+        this.fail('triggerBlockId is required')
         return
       }
 
@@ -96,93 +81,39 @@ export class RunWorkflowClientTool extends BaseClientTool {
         }
       }
 
-      if (workflowInput?.input) {
-        logger.debug('Workflow input provided', {
-          inputPreview: String(workflowInput.input).slice(0, 120),
-        })
-      } else if (workflowInput) {
-        logger.debug('Workflow input provided', {
-          inputFields: Object.keys(workflowInput),
-          inputPreview: JSON.stringify(workflowInput).slice(0, 120),
-        })
-      }
-
-      let shouldClearExecution = false
+      setIsExecuting(true)
       try {
-        setIsExecuting(true)
-        shouldClearExecution = true
-        logger.debug('Set isExecuting(true) and switching state to executing')
         this.setState(ClientToolCallState.executing)
 
-        const executionStartTime = new Date().toISOString()
-        logger.debug('Starting workflow execution', {
-          executionStartTime,
-          executionId: this.toolCallId,
-        })
-
+        const native = await this.requireNativeTarget()
+        // Keep replay blocked unless admission explicitly confirms that nothing was queued.
+        this.executionAttempted = true
         const result = await executeWorkflowWithFullLogging({
+          native,
+          signal: this.getAbortSignal(),
           workflowInput,
-          executionId: this.toolCallId,
           workflowId: activeWorkflowId,
           triggerBlockId: params.triggerBlockId,
         })
 
-        // Determine success for both non-streaming and streaming executions
-        let succeeded = true
-        let errorMessage: string | undefined
-        try {
-          if (result && typeof result === 'object' && 'success' in (result as any)) {
-            succeeded = Boolean((result as any).success)
-            if (!succeeded) {
-              errorMessage = (result as any)?.error || (result as any)?.output?.error
-            }
-          } else if (
-            result &&
-            typeof result === 'object' &&
-            'execution' in (result as any) &&
-            (result as any).execution &&
-            typeof (result as any).execution === 'object'
-          ) {
-            succeeded = Boolean((result as any).execution.success)
-            if (!succeeded) {
-              errorMessage =
-                (result as any).execution?.error || (result as any).execution?.output?.error
-            }
-          }
-        } catch {}
-
-        if (succeeded) {
-          logger.debug('Workflow execution finished with success')
-          this.setState(ClientToolCallState.success)
-          await this.markToolComplete(
-            200,
-            `Workflow execution completed. Started at: ${executionStartTime}`
-          )
-        } else {
-          const msg = errorMessage || 'Workflow execution failed'
-          logger.error('Workflow execution finished with failure', { message: msg })
-          this.setState(ClientToolCallState.error)
-          await this.markToolComplete(500, msg)
-        }
-      } catch (error: any) {
+        // Completion is attested from the actual canonical retained execution, including a real failed outcome.
+        await this.completeAuthoritativeReadback()
+        this.setState(result.success ? ClientToolCallState.success : ClientToolCallState.error, {
+          result,
+        })
+      } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        const failedDependency = typeof message === 'string' && /dependency/i.test(message)
-        const status = failedDependency ? 424 : 500
 
         logger.error('Run workflow failed', { message })
 
-        this.setState(ClientToolCallState.error)
-        await this.markToolComplete(status, failedDependency ? undefined : message)
-      } finally {
-        if (shouldClearExecution) {
-          setIsExecuting(false)
+        this.fail(message)
+        if (error instanceof WorkflowQueueAdmissionError) {
+          this.executionAttempted = false
+          this.setState(ClientToolCallState.pending)
         }
+      } finally {
+        setIsExecuting(false)
       }
     }, WORKFLOW_EXECUTION_TIMEOUT_MS)
-  }
-
-  async execute(args?: RunWorkflowArgs): Promise<void> {
-    // Route explicit execute() calls through the same accept path.
-    await this.handleAccept(args)
   }
 }

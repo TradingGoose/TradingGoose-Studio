@@ -42,8 +42,6 @@ vi.mock('@/lib/webhooks/utils', () => ({
   verifyProviderWebhook: vi.fn().mockReturnValue(null),
 }))
 
-process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test'
-
 vi.mock('drizzle-orm/postgres-js', () => ({
   drizzle: vi.fn().mockReturnValue({}),
 }))

@@ -226,8 +226,6 @@ export async function loadWorkflowSnapshotForCopilot(
     ownerUserId: null,
     entityKind: ENTITY_KIND_WORKFLOW,
     entityId: workflowId,
-    draftSessionId: null,
-    reviewSessionId: null,
     yjsSessionId: workflowId,
   })
 

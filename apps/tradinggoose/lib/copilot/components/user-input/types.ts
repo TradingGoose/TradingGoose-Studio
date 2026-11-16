@@ -1,8 +1,8 @@
 'use client'
 
 import type { ComponentType, Dispatch, SetStateAction } from 'react'
-import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { ChatContext, CopilotDraft, MessageFileAttachment } from '@/stores/copilot/types'
+import type { ImagePart } from '@/lib/copilot/native/contract'
+import type { ChatContext, CopilotDraft } from '@/stores/copilot/types'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
 
 export interface AttachedFile {
@@ -10,8 +10,7 @@ export interface AttachedFile {
   name: string
   size: number
   type: string
-  path: string
-  key?: string
+  data?: string
   uploading: boolean
   previewUrl?: string
 }
@@ -20,19 +19,18 @@ export interface UserInputProps {
   workspaceId: string
   onSubmit: (
     message: string,
-    fileAttachments?: MessageFileAttachment[],
-    contexts?: ChatContext[]
-  ) => void
+    images?: ImagePart[],
+    contexts?: ChatContext[],
+    onAccepted?: () => void
+  ) => Promise<boolean> | boolean
   onAbort?: () => void
   isLoading?: boolean
   isAborting?: boolean
+  submitDisabled?: boolean
   placeholder?: string
-  accessLevel: CopilotAccessLevel
-  onAccessLevelChange: (accessLevel: CopilotAccessLevel) => void
   draft: CopilotDraft
   onDraftChange: Dispatch<SetStateAction<CopilotDraft>>
   panelWidth: number
-  hideContextUsage?: boolean
   clearOnSubmit?: boolean
 }
 
@@ -60,7 +58,8 @@ export interface MentionRange {
 }
 
 export interface PastChatItem {
-  reviewSessionId: string
+  threadId: string
+  workspaceId: string | null
   title: string | null
 }
 

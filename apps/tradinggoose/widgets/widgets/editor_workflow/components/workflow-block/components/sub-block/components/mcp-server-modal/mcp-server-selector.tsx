@@ -42,6 +42,8 @@ export function McpServerSelector({ blockId, subBlock, disabled = false }: McpSe
   )
 
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
+  const [, setTool] = useSubBlockValue(blockId, 'tool')
+  const [, setArguments] = useSubBlockValue(blockId, 'arguments')
 
   const label = subBlock.placeholder || copy.selectMcpServer
 
@@ -54,7 +56,11 @@ export function McpServerSelector({ blockId, subBlock, disabled = false }: McpSe
   }
 
   const handleSelect = (serverId: string) => {
-    setStoreValue(serverId)
+    if (serverId !== storeValue) {
+      setTool('')
+      setArguments({})
+      setStoreValue(serverId)
+    }
     setOpen(false)
   }
 

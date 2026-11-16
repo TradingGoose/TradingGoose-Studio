@@ -1,7 +1,6 @@
 import type { Edge } from '@xyflow/react'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { createLogger } from '@/lib/logs/console/logger'
-import { parseResponseFormatSafely } from '@/lib/response-format'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { buildConfiguredSubBlockParams } from '@/lib/workflows/subblock-values'
@@ -190,16 +189,11 @@ export class Serializer {
     // Extract parameters from UI state
     const params = this.extractParams(block)
 
-    try {
-      const isTriggerCategory = blockConfig.category === 'triggers'
-      if (block.triggerMode === true || isTriggerCategory) {
-        params.triggerMode = true
-      }
-      if (block.advancedMode === true) {
-        params.advancedMode = true
-      }
-    } catch (_) {
-      // no-op: conservative, avoid blocking serialization if blockConfig is unexpected
+    if (block.triggerMode === true || blockConfig.category === 'triggers') {
+      params.triggerMode = true
+    }
+    if (block.advancedMode === true) {
+      params.advancedMode = true
     }
 
     // Validate required fields that only users can provide (before execution starts)
@@ -207,47 +201,16 @@ export class Serializer {
       this.validateRequiredFieldsBeforeExecution(block, blockConfig, params)
     }
 
-    let toolId = ''
-
-    if (block.type === 'agent' && params.tools) {
-      // Process the tools in the agent block
-      try {
-        const tools = Array.isArray(params.tools) ? params.tools : JSON.parse(params.tools)
-
-        // If there are custom tools, we just keep them as is
-        // They'll be handled by the executor during runtime
-
-        // For non-custom tools, we determine the tool ID
-        const nonCustomTools = tools.filter((tool: any) => tool.type !== 'custom-tool')
-        if (nonCustomTools.length > 0) {
-          try {
-            toolId = blockConfig.tools.config?.tool
-              ? blockConfig.tools.config.tool(params)
-              : blockConfig.tools.access[0]
-          } catch (error) {
-            logger.warn('Tool selection failed during serialization, using default:', {
-              error: error instanceof Error ? error.message : String(error),
-            })
-            toolId = blockConfig.tools.access[0]
-          }
-        }
-      } catch (error) {
-        logger.error('Error processing tools in agent block:', { error })
-        // Default to the first tool if we can't process tools
-        toolId = blockConfig.tools.access[0]
-      }
-    } else {
-      // For non-agent blocks, get tool ID from block config as usual
-      try {
-        toolId = blockConfig.tools.config?.tool
-          ? blockConfig.tools.config.tool(params)
-          : blockConfig.tools.access[0]
-      } catch (error) {
-        logger.warn('Tool selection failed during serialization, using default:', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-        toolId = blockConfig.tools.access[0]
-      }
+    let toolId: string
+    try {
+      toolId = blockConfig.tools.config?.tool
+        ? blockConfig.tools.config.tool(params)
+        : blockConfig.tools.access[0]
+    } catch (error) {
+      logger.warn('Tool selection failed during serialization, using default:', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+      toolId = blockConfig.tools.access[0]
     }
 
     // Get inputs from block config
@@ -257,10 +220,6 @@ export class Serializer {
         inputs[key] = config.type
       })
     }
-    const responseFormat = params.responseFormat
-      ? parseResponseFormatSafely(params.responseFormat, block.id)
-      : null
-
     return {
       id: block.id,
       position: block.position,
@@ -269,10 +228,7 @@ export class Serializer {
         params,
       },
       inputs,
-      outputs: {
-        ...block.outputs,
-        ...(responseFormat ? { responseFormat } : {}),
-      },
+      outputs: block.outputs,
       metadata: {
         id: block.type,
         name: block.name,

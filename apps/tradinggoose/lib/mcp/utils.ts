@@ -10,14 +10,6 @@ export const MCP_CONSTANTS = {
   DEFAULT_CONNECTION_TIMEOUT: 30000,
 } as const
 
-/**
- * Client-safe MCP constants
- */
-export const MCP_CLIENT_CONSTANTS = {
-  CLIENT_TIMEOUT: 60000,
-  AUTO_REFRESH_INTERVAL: 5 * 60 * 1000,
-} as const
-
 export const MCP_TOOLS_CHANGED_EVENT = 'tradinggoose:mcp-tools-changed'
 
 /**
@@ -123,24 +115,8 @@ export function categorizeError(error: unknown): { message: string; status: numb
 }
 
 /**
- * Create standardized MCP tool ID from server ID and tool name
+ * Opaque UI/native tool key; execution carries serverId and toolName separately.
  */
 export function createMcpToolId(serverId: string, toolName: string): string {
-  const normalizedServerId = serverId.startsWith('mcp-') ? serverId : `mcp-${serverId}`
-  return `${normalizedServerId}-${toolName}`
-}
-
-/**
- * Parse MCP tool ID to extract server ID and tool name
- */
-export function parseMcpToolId(toolId: string): { serverId: string; toolName: string } {
-  const parts = toolId.split('-')
-  if (parts.length < 3 || parts[0] !== 'mcp') {
-    throw new Error(`Invalid MCP tool ID format: ${toolId}. Expected: mcp-serverId-toolName`)
-  }
-
-  const serverId = `${parts[0]}-${parts[1]}`
-  const toolName = parts.slice(2).join('-')
-
-  return { serverId, toolName }
+  return `mcp-${serverId}-${toolName}`
 }

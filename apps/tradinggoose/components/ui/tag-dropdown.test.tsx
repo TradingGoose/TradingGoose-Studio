@@ -11,9 +11,12 @@ import {
   useWorkflowEdges,
   useWorkflowLoops,
   useWorkflowParallels,
+  useWorkflowVariables,
 } from '@/lib/yjs/use-workflow-doc'
+import { AgentBlock } from '@/blocks/blocks/agent'
 import { LoopBlock } from '@/blocks/blocks/loop'
 import { ParallelContainerBlock } from '@/blocks/blocks/parallel_container'
+import { useModelRegistry } from '@/stores/model-registry'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 
@@ -893,6 +896,64 @@ describe('TagDropdown container references', () => {
       expect(onSelect).toHaveBeenLastCalledWith(`Use <${config.type}.index> after`)
     }
   )
+
+  it('refreshes saved Agent schema tags when model capabilities arrive without block changes', () => {
+    const previousProviders = useModelRegistry.getState().providers
+    const subBlocks = buildInitialSubBlockStates(AgentBlock.subBlocks, {
+      model: 'example/model',
+      responseFormat: JSON.stringify({
+        schema: { type: 'object', properties: { answer: { type: 'number' } } },
+      }),
+    }) as BlockState['subBlocks']
+    const agent: BlockState = {
+      id: 'agent',
+      type: 'agent',
+      name: 'Agent',
+      position: { x: 0, y: 0 },
+      subBlocks,
+      outputs: {},
+      enabled: true,
+    }
+    const blocks = { agent }
+    vi.mocked(useWorkflowBlocks).mockReturnValue(blocks)
+    vi.mocked(useWorkflowEdges).mockReturnValue([])
+    vi.mocked(useWorkflowLoops).mockReturnValue({})
+    vi.mocked(useWorkflowParallels).mockReturnValue({})
+    vi.mocked(useWorkflowVariables).mockReturnValue({})
+    useModelRegistry.setState({ providers: [] })
+    try {
+      act(() =>
+        root.render(
+          <TagDropdown
+            visible
+            onSelect={vi.fn()}
+            blockId='after'
+            activeSourceBlockId='agent'
+            inputValue='<'
+            cursorPosition={1}
+          />
+        )
+      )
+      expect(container.innerHTML).toContain('>answer<')
+      act(() =>
+        useModelRegistry.setState({
+          providers: [
+            {
+              id: 'example',
+              name: 'Example',
+              models: [{ id: 'example/model', structuredOutput: false }],
+            },
+          ],
+        })
+      )
+      expect(container.innerHTML).not.toContain('>answer<')
+      expect(container.innerHTML).toContain('>content<')
+      expect(vi.mocked(useWorkflowBlocks)()).toBe(blocks)
+      expect(subBlocks.responseFormat.value).toContain('answer')
+    } finally {
+      act(() => useModelRegistry.setState({ providers: previousProviders }))
+    }
+  })
 })
 
 describe('TagDropdown Variable Suggestions', () => {

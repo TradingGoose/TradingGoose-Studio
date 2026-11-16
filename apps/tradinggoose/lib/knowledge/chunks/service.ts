@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { document, embedding, knowledgeBase } from '@tradinggoose/db/schema'
 import { and, asc, eq, ilike, inArray, isNull, sql } from 'drizzle-orm'
-import { generateEmbeddings } from '@/lib/embeddings/utils'
+import { type EmbeddingScope, generateEmbeddings } from '@/lib/embeddings/utils'
 import type {
   BatchOperationResult,
   ChunkData,
@@ -11,7 +11,7 @@ import type {
   CreateChunkData,
 } from '@/lib/knowledge/chunks/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import { estimateTokenCount } from '@/lib/tokenization/estimators'
+import { getAccurateTokenCount } from '@/lib/tokenization/estimators'
 
 const logger = createLogger('ChunksService')
 
@@ -94,7 +94,8 @@ export async function createChunk(
   documentId: string,
   docTags: Record<string, string | null>,
   chunkData: CreateChunkData,
-  requestId: string
+  requestId: string,
+  scope: EmbeddingScope
 ): Promise<ChunkData> {
   // Generate embedding for the content first (outside transaction for performance)
   logger.info(`[${requestId}] Generating embedding for manual chunk`)
@@ -109,88 +110,108 @@ export async function createChunk(
   }
 
   const kbEmbeddingModel = kbRow.embeddingModel
-  const embeddings = await generateEmbeddings([chunkData.content], kbEmbeddingModel)
+  const embeddings = await generateEmbeddings([chunkData.content], scope, kbEmbeddingModel)
 
   // Calculate accurate token count
-  const tokenCount = estimateTokenCount(chunkData.content, 'openai')
+  const tokenCount = getAccurateTokenCount(chunkData.content)
 
   const chunkId = randomUUID()
   const now = new Date()
 
   // Use transaction to atomically get next index and insert chunk
-  const newChunk = await db.transaction(async (tx) => {
-    // Get the next chunk index atomically within the transaction
-    const lastChunk = await tx
-      .select({ chunkIndex: embedding.chunkIndex })
-      .from(embedding)
-      .where(eq(embedding.documentId, documentId))
-      .orderBy(sql`${embedding.chunkIndex} DESC`)
-      .limit(1)
+  const newChunk = await db
+    .transaction(async (tx) => {
+      // Get the next chunk index atomically within the transaction
+      const lastChunk = await tx
+        .select({ chunkIndex: embedding.chunkIndex })
+        .from(embedding)
+        .where(eq(embedding.documentId, documentId))
+        .orderBy(sql`${embedding.chunkIndex} DESC`)
+        .limit(1)
 
-    const nextChunkIndex = lastChunk.length > 0 ? lastChunk[0].chunkIndex + 1 : 0
+      const nextChunkIndex = lastChunk.length > 0 ? lastChunk[0].chunkIndex + 1 : 0
 
-    const chunkDBData = {
-      id: chunkId,
-      knowledgeBaseId,
-      documentId,
-      chunkIndex: nextChunkIndex,
-      chunkHash: createHash('sha256').update(chunkData.content).digest('hex'),
-      content: chunkData.content,
-      contentLength: chunkData.content.length,
-      tokenCount: tokenCount.count,
-      embedding: embeddings[0],
-      embeddingModel: kbEmbeddingModel,
-      startOffset: 0, // Manual chunks don't have document offsets
-      endOffset: chunkData.content.length,
-      // Inherit tags from parent document
-      tag1: docTags.tag1,
-      tag2: docTags.tag2,
-      tag3: docTags.tag3,
-      tag4: docTags.tag4,
-      tag5: docTags.tag5,
-      tag6: docTags.tag6,
-      tag7: docTags.tag7,
-      enabled: chunkData.enabled ?? true,
-      createdAt: now,
-      updatedAt: now,
-    }
+      const chunkDBData = {
+        id: chunkId,
+        knowledgeBaseId,
+        documentId,
+        chunkIndex: nextChunkIndex,
+        chunkHash: createHash('sha256').update(chunkData.content).digest('hex'),
+        content: chunkData.content,
+        contentLength: chunkData.content.length,
+        tokenCount: tokenCount,
+        embedding: embeddings.embeddings[0],
+        embeddingModel: kbEmbeddingModel,
+        startOffset: 0, // Manual chunks don't have document offsets
+        endOffset: chunkData.content.length,
+        // Inherit tags from parent document
+        tag1: docTags.tag1,
+        tag2: docTags.tag2,
+        tag3: docTags.tag3,
+        tag4: docTags.tag4,
+        tag5: docTags.tag5,
+        tag6: docTags.tag6,
+        tag7: docTags.tag7,
+        enabled: chunkData.enabled ?? true,
+        createdAt: now,
+        updatedAt: now,
+      }
 
-    await tx.insert(embedding).values(chunkDBData)
+      await tx.insert(embedding).values(chunkDBData)
 
-    // Update document statistics
-    await tx
-      .update(document)
-      .set({
-        chunkCount: sql`${document.chunkCount} + 1`,
-        tokenCount: sql`${document.tokenCount} + ${tokenCount.count}`,
-        characterCount: sql`${document.characterCount} + ${chunkData.content.length}`,
+      // Update document statistics
+      await tx
+        .update(document)
+        .set({
+          chunkCount: sql`${document.chunkCount} + 1`,
+          tokenCount: sql`${document.tokenCount} + ${tokenCount}`,
+          characterCount: sql`${document.characterCount} + ${chunkData.content.length}`,
+        })
+        .where(eq(document.id, documentId))
+
+      return {
+        id: chunkId,
+        chunkIndex: nextChunkIndex,
+        content: chunkData.content,
+        contentLength: chunkData.content.length,
+        tokenCount: tokenCount,
+        enabled: chunkData.enabled ?? true,
+        startOffset: 0,
+        endOffset: chunkData.content.length,
+        tag1: docTags.tag1,
+        tag2: docTags.tag2,
+        tag3: docTags.tag3,
+        tag4: docTags.tag4,
+        tag5: docTags.tag5,
+        tag6: docTags.tag6,
+        tag7: docTags.tag7,
+        createdAt: now,
+        updatedAt: now,
+      } as ChunkData
+    })
+    .catch((error) => {
+      const failure = error instanceof Error ? error : new Error(String(error))
+      Object.assign(failure, {
+        model: embeddings.model,
+        tokens: embeddings.tokens,
+        cost: embeddings.cost,
+        embeddingUsage: embeddings.usage,
+        completedEmbeddings: embeddings.embeddings,
       })
-      .where(eq(document.id, documentId))
-
-    return {
-      id: chunkId,
-      chunkIndex: nextChunkIndex,
-      content: chunkData.content,
-      contentLength: chunkData.content.length,
-      tokenCount: tokenCount.count,
-      enabled: chunkData.enabled ?? true,
-      startOffset: 0,
-      endOffset: chunkData.content.length,
-      tag1: docTags.tag1,
-      tag2: docTags.tag2,
-      tag3: docTags.tag3,
-      tag4: docTags.tag4,
-      tag5: docTags.tag5,
-      tag6: docTags.tag6,
-      tag7: docTags.tag7,
-      createdAt: now,
-      updatedAt: now,
-    } as ChunkData
-  })
+      throw failure
+    })
 
   logger.info(`[${requestId}] Created chunk ${chunkId} in document ${documentId}`)
 
-  return newChunk
+  return {
+    ...newChunk,
+    embeddingUsage: {
+      model: embeddings.model,
+      tokens: embeddings.tokens,
+      usage: embeddings.usage,
+      cost: embeddings.cost,
+    },
+  }
 }
 
 /**
@@ -299,8 +320,11 @@ export async function updateChunk(
     content?: string
     enabled?: boolean
   },
-  requestId: string
+  requestId: string,
+  scope: EmbeddingScope
 ): Promise<ChunkData> {
+  let embeddingUsage: ChunkData['embeddingUsage']
+  let completedEmbeddings: number[][] | undefined
   const dbUpdateData: {
     updatedAt: Date
     content?: string
@@ -316,121 +340,145 @@ export async function updateChunk(
 
   // Use transaction if content is being updated to ensure consistent document statistics
   if (updateData.content !== undefined && typeof updateData.content === 'string') {
-    return await db.transaction(async (tx) => {
-      // Get current chunk data for character count calculation and content comparison
-      const currentChunk = await tx
-        .select({
-          documentId: embedding.documentId,
-          knowledgeBaseId: embedding.knowledgeBaseId,
-          content: embedding.content,
-          contentLength: embedding.contentLength,
-          tokenCount: embedding.tokenCount,
-        })
-        .from(embedding)
-        .where(eq(embedding.id, chunkId))
-        .limit(1)
-
-      if (currentChunk.length === 0) {
-        throw new Error(`Chunk ${chunkId} not found`)
-      }
-
-      const oldContentLength = currentChunk[0].contentLength
-      const oldTokenCount = currentChunk[0].tokenCount
-      const content = updateData.content! // We know it's defined from the if check above
-      const newContentLength = content.length
-
-      // Only regenerate embedding if content actually changed
-      if (content !== currentChunk[0].content) {
-        logger.info(`[${requestId}] Content changed, regenerating embedding for chunk ${chunkId}`)
-
-        const [kbRow] = await tx
-          .select({ embeddingModel: knowledgeBase.embeddingModel })
-          .from(knowledgeBase)
-          .where(
-            and(
-              eq(knowledgeBase.id, currentChunk[0].knowledgeBaseId),
-              isNull(knowledgeBase.deletedAt)
-            )
-          )
+    return await db
+      .transaction(async (tx) => {
+        // Get current chunk data for character count calculation and content comparison
+        const currentChunk = await tx
+          .select({
+            documentId: embedding.documentId,
+            knowledgeBaseId: embedding.knowledgeBaseId,
+            content: embedding.content,
+            contentLength: embedding.contentLength,
+            tokenCount: embedding.tokenCount,
+          })
+          .from(embedding)
+          .where(eq(embedding.id, chunkId))
           .limit(1)
 
-        if (!kbRow) {
-          throw new Error('Knowledge base for chunk not found')
+        if (currentChunk.length === 0) {
+          throw new Error(`Chunk ${chunkId} not found`)
         }
 
-        const chunkEmbeddingModel = kbRow.embeddingModel
+        const oldContentLength = currentChunk[0].contentLength
+        const oldTokenCount = currentChunk[0].tokenCount
+        const content = updateData.content! // We know it's defined from the if check above
+        const newContentLength = content.length
 
-        // Generate new embedding for the updated content
-        const embeddings = await generateEmbeddings([content], chunkEmbeddingModel)
+        // Only regenerate embedding if content actually changed
+        if (content !== currentChunk[0].content) {
+          logger.info(`[${requestId}] Content changed, regenerating embedding for chunk ${chunkId}`)
 
-        // Calculate accurate token count
-        const tokenCount = estimateTokenCount(content, 'openai')
+          const [kbRow] = await tx
+            .select({ embeddingModel: knowledgeBase.embeddingModel })
+            .from(knowledgeBase)
+            .where(
+              and(
+                eq(knowledgeBase.id, currentChunk[0].knowledgeBaseId),
+                isNull(knowledgeBase.deletedAt)
+              )
+            )
+            .limit(1)
 
-        dbUpdateData.content = content
-        dbUpdateData.contentLength = newContentLength
-        dbUpdateData.tokenCount = tokenCount.count
-        dbUpdateData.chunkHash = createHash('sha256').update(content).digest('hex')
-        // Add the embedding field to the update data
-        dbUpdateData.embedding = embeddings[0]
-        dbUpdateData.embeddingModel = chunkEmbeddingModel
-      } else {
-        // Content hasn't changed, just update other fields if needed
-        dbUpdateData.content = content
-        dbUpdateData.contentLength = newContentLength
-        dbUpdateData.tokenCount = oldTokenCount // Keep the same token count if content is identical
-        dbUpdateData.chunkHash = createHash('sha256').update(content).digest('hex')
-      }
+          if (!kbRow) {
+            throw new Error('Knowledge base for chunk not found')
+          }
 
-      if (updateData.enabled !== undefined) {
-        dbUpdateData.enabled = updateData.enabled
-      }
+          const chunkEmbeddingModel = kbRow.embeddingModel
 
-      // Update the chunk
-      await tx.update(embedding).set(dbUpdateData).where(eq(embedding.id, chunkId))
+          // Generate new embedding for the updated content
+          const embeddings = await generateEmbeddings([content], scope, chunkEmbeddingModel)
+          completedEmbeddings = embeddings.embeddings
 
-      // Update document statistics for the character and token count changes
-      const charDiff = newContentLength - oldContentLength
-      const tokenDiff = dbUpdateData.tokenCount! - oldTokenCount
+          embeddingUsage = {
+            model: embeddings.model,
+            tokens: embeddings.tokens,
+            usage: embeddings.usage,
+            cost: embeddings.cost,
+          }
+          logger.info('Chunk embedding usage', {
+            requestId,
+            chunkId,
+            model: embeddings.model,
+            tokens: embeddings.tokens,
+            usage: embeddings.usage,
+            cost: embeddings.cost,
+          })
 
-      await tx
-        .update(document)
-        .set({
-          characterCount: sql`${document.characterCount} + ${charDiff}`,
-          tokenCount: sql`${document.tokenCount} + ${tokenDiff}`,
-        })
-        .where(eq(document.id, currentChunk[0].documentId))
+          // Calculate chunk sizing metadata
+          const tokenCount = getAccurateTokenCount(content)
 
-      // Fetch and return the updated chunk
-      const updatedChunk = await tx
-        .select({
-          id: embedding.id,
-          chunkIndex: embedding.chunkIndex,
-          content: embedding.content,
-          contentLength: embedding.contentLength,
-          tokenCount: embedding.tokenCount,
-          enabled: embedding.enabled,
-          startOffset: embedding.startOffset,
-          endOffset: embedding.endOffset,
-          tag1: embedding.tag1,
-          tag2: embedding.tag2,
-          tag3: embedding.tag3,
-          tag4: embedding.tag4,
-          tag5: embedding.tag5,
-          tag6: embedding.tag6,
-          tag7: embedding.tag7,
-          createdAt: embedding.createdAt,
-          updatedAt: embedding.updatedAt,
-        })
-        .from(embedding)
-        .where(eq(embedding.id, chunkId))
-        .limit(1)
+          dbUpdateData.content = content
+          dbUpdateData.contentLength = newContentLength
+          dbUpdateData.tokenCount = tokenCount
+          dbUpdateData.chunkHash = createHash('sha256').update(content).digest('hex')
+          // Add the embedding field to the update data
+          dbUpdateData.embedding = embeddings.embeddings[0]
+          dbUpdateData.embeddingModel = chunkEmbeddingModel
+        } else {
+          // Content hasn't changed, just update other fields if needed
+          dbUpdateData.content = content
+          dbUpdateData.contentLength = newContentLength
+          dbUpdateData.tokenCount = oldTokenCount // Keep the same token count if content is identical
+          dbUpdateData.chunkHash = createHash('sha256').update(content).digest('hex')
+        }
 
-      logger.info(
-        `[${requestId}] Updated chunk: ${chunkId}${updateData.content !== currentChunk[0].content ? ' (regenerated embedding)' : ''}`
-      )
+        if (updateData.enabled !== undefined) {
+          dbUpdateData.enabled = updateData.enabled
+        }
 
-      return updatedChunk[0] as ChunkData
-    })
+        // Update the chunk
+        await tx.update(embedding).set(dbUpdateData).where(eq(embedding.id, chunkId))
+
+        // Update document statistics for the character and token count changes
+        const charDiff = newContentLength - oldContentLength
+        const tokenDiff = dbUpdateData.tokenCount! - oldTokenCount
+
+        await tx
+          .update(document)
+          .set({
+            characterCount: sql`${document.characterCount} + ${charDiff}`,
+            tokenCount: sql`${document.tokenCount} + ${tokenDiff}`,
+          })
+          .where(eq(document.id, currentChunk[0].documentId))
+
+        // Fetch and return the updated chunk
+        const updatedChunk = await tx
+          .select({
+            id: embedding.id,
+            chunkIndex: embedding.chunkIndex,
+            content: embedding.content,
+            contentLength: embedding.contentLength,
+            tokenCount: embedding.tokenCount,
+            enabled: embedding.enabled,
+            startOffset: embedding.startOffset,
+            endOffset: embedding.endOffset,
+            tag1: embedding.tag1,
+            tag2: embedding.tag2,
+            tag3: embedding.tag3,
+            tag4: embedding.tag4,
+            tag5: embedding.tag5,
+            tag6: embedding.tag6,
+            tag7: embedding.tag7,
+            createdAt: embedding.createdAt,
+            updatedAt: embedding.updatedAt,
+          })
+          .from(embedding)
+          .where(eq(embedding.id, chunkId))
+          .limit(1)
+
+        logger.info(
+          `[${requestId}] Updated chunk: ${chunkId}${updateData.content !== currentChunk[0].content ? ' (regenerated embedding)' : ''}`
+        )
+
+        return { ...updatedChunk[0], ...(embeddingUsage ? { embeddingUsage } : {}) } as ChunkData
+      })
+      .catch((error) => {
+        if (!embeddingUsage) throw error
+        const failure = error instanceof Error ? error : new Error(String(error))
+        const { usage, ...completed } = embeddingUsage
+        Object.assign(failure, completed, { embeddingUsage: usage, completedEmbeddings })
+        throw failure
+      })
   }
 
   // If only enabled status is being updated, no need for transaction

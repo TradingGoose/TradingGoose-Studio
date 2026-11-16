@@ -62,6 +62,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!authResult.userId?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'File access requires an authenticated user' },
+        { status: 403 }
+      )
+    }
+
     const userFiles = processFilesToUserFiles(validatedData.files, requestId, logger)
 
     if (userFiles.length === 0) {
@@ -94,7 +101,11 @@ export async function POST(request: NextRequest) {
     const userFile = userFiles[0]
     logger.info(`[${requestId}] Uploading document: ${userFile.name}`)
 
-    const buffer = await downloadFileFromStorage(userFile, requestId, logger)
+    const buffer = await downloadFileFromStorage(userFile, requestId, logger, {
+      actorUserId: authResult.userId,
+      workspaceId: authResult.workspaceId,
+      signal: request.signal,
+    })
 
     logger.info(`[${requestId}] Downloaded file: ${buffer.length} bytes`)
 
@@ -140,6 +151,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && 'status' in error && error.status === 403) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 })
+    }
     logger.error(`[${requestId}] Error sending Telegram document:`, error)
     return NextResponse.json(
       {

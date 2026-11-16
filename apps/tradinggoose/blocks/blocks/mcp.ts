@@ -1,5 +1,4 @@
 import { ServerIcon } from '@/components/icons/icons'
-import { createMcpToolId } from '@/lib/mcp/utils'
 import type { BlockConfig } from '@/blocks/types'
 import type { ToolResponse } from '@/tools/types'
 
@@ -58,19 +57,12 @@ export const McpBlock: BlockConfig<McpResponse> = {
   tools: {
     access: [], // No static tool access needed - tools are dynamically resolved
     config: {
-      tool: (params: any) => {
-        if (params.server && params.tool) {
-          const serverId = params.server
-          let toolName = params.tool
-
-          if (toolName.startsWith(`${serverId}-`)) {
-            toolName = toolName.substring(`${serverId}-`.length)
-          }
-
-          return createMcpToolId(serverId, toolName)
-        }
-        return 'mcp-dynamic'
-      },
+      tool: () => 'mcp',
+      params: (params) => ({
+        serverId: params.server,
+        toolName: params.tool,
+        arguments: params.arguments,
+      }),
     },
   },
   inputs: {

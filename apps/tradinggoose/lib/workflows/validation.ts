@@ -19,17 +19,6 @@ function isValidAgentCustomTool(tool: any): boolean {
     if (!tool || typeof tool !== 'object') return false
     if (tool.type !== 'custom-tool') return false
     getCustomToolEntityIdFromRuntimeId(tool.toolId)
-
-    const schema = tool.schema
-    if (!schema || typeof schema !== 'object') return false
-    const fn = schema.function
-    if (!fn || typeof fn !== 'object') return false
-
-    const params = fn.parameters
-    if (!params || typeof params !== 'object') return false
-    if (params.type !== 'object') return false
-    if (!params.properties || typeof params.properties !== 'object') return false
-
     return true
   } catch (_err) {
     return false
@@ -63,32 +52,19 @@ export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
       }
 
       const originalLength = value.length
-      const cleaned = value
-        .filter((tool: any) => {
-          // Allow non-custom tools to pass through as-is
-          if (!tool || typeof tool !== 'object') return false
-          if (tool.type !== 'custom-tool') return true
-          const ok = isValidAgentCustomTool(tool)
-          if (!ok) {
-            logger.warn('Removing invalid custom tool from workflow', {
-              blockId,
-              blockName: block.name,
-            })
-          }
-          return ok
-        })
-        .map((tool: any) => {
-          if (tool.type === 'custom-tool') {
-            // Ensure required defaults to avoid client crashes
-            if (!tool.code || typeof tool.code !== 'string') {
-              tool.code = ''
-            }
-            if (!tool.usageControl) {
-              tool.usageControl = 'auto'
-            }
-          }
-          return tool
-        })
+      const cleaned = value.filter((tool: any) => {
+        // Allow non-custom tools to pass through as-is
+        if (!tool || typeof tool !== 'object') return false
+        if (tool.type !== 'custom-tool') return true
+        const ok = isValidAgentCustomTool(tool)
+        if (!ok) {
+          logger.warn('Removing invalid custom tool from workflow', {
+            blockId,
+            blockName: block.name,
+          })
+        }
+        return ok
+      })
 
       if (cleaned.length !== originalLength) {
         toolSanitizationWarnings.push(
@@ -343,7 +319,7 @@ export function validateToolReference(
 
   // Check if it's a custom tool or MCP tool
   const isCustomTool = isCustomToolRuntimeId(toolId)
-  const isMcpTool = toolId.startsWith('mcp-')
+  const isMcpTool = toolId === 'mcp'
 
   if (!isCustomTool && !isMcpTool) {
     // For built-in tools, verify they exist

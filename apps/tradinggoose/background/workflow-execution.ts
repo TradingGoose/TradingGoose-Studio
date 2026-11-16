@@ -1,8 +1,8 @@
-import { v4 as uuidv4 } from 'uuid'
 import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution/pending-execution'
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { publicTraceSpans } from '@/lib/logs/public'
 import { getMonitorProviderForTriggerId, isMonitorTriggerId } from '@/lib/monitors/sources'
 import { createWorkflowExecutionTerminalEventInput } from '@/lib/workflows/execution-events'
 import {
@@ -23,7 +23,7 @@ export type WorkflowExecutionPayload = {
   workflowId: string
   userId: string
   workspaceId?: string | null
-  executionId?: string
+  executionId: string
   input?: any
   triggerType?: TriggerType
   triggerBlockId?: string
@@ -54,12 +54,16 @@ export function isWorkflowExecutionPayload(
   }
 
   const candidate = value as Record<string, unknown>
-  return typeof candidate.workflowId === 'string' && typeof candidate.userId === 'string'
+  return (
+    typeof candidate.workflowId === 'string' &&
+    typeof candidate.userId === 'string' &&
+    typeof candidate.executionId === 'string'
+  )
 }
 
 export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const workflowId = payload.workflowId
-  const jobId = payload.executionId ?? uuidv4()
+  const jobId = payload.executionId
   const resumed =
     payload.resumeExecutionId && payload.checkpointRevision
       ? await claimWorkflowCheckpoint({
@@ -176,12 +180,10 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     const { traceSpans } = buildTraceSpans(result)
     const queuedResult = {
       ...result,
-      success: result.success,
       workflowId: payload.workflowId,
       executionId,
-      output: result.output,
-      error: result.error,
-      traceSpans: traceSpans || [],
+      logs: result.logs?.map(({ inference: _inference, ...log }) => log),
+      traceSpans: publicTraceSpans(traceSpans),
       executedAt: new Date().toISOString(),
       metadata: {
         ...(result.metadata ?? {}),

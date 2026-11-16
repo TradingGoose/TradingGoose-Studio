@@ -1,13 +1,13 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
+import { publicTraceSpans } from '@/lib/logs/public'
 import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
 import type {
   WorkflowExecutionEvent,
   WorkflowExecutionEventEntry,
   WorkflowExecutionEventInput,
-  WorkflowExecutionTerminalEvent,
 } from '@/lib/workflows/execution-events'
 import { isTerminalWorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import type { ExecutionResult } from '@/executor/types'
@@ -40,12 +40,13 @@ type WorkflowExecutionLogStateRow = {
   executionData: unknown
 }
 
-export type WorkflowExecutionAccessContext = {
-  userId: string | null
-  workspaceId: string | null
+const executionEventState = globalThis as typeof globalThis & {
+  __TRADINGGOOSE_WORKFLOW_EVENT_STREAMS__?: Map<string, MemoryExecutionEventStream>
 }
-
-const memoryStreams = new Map<string, MemoryExecutionEventStream>()
+const memoryStreams = (executionEventState.__TRADINGGOOSE_WORKFLOW_EVENT_STREAMS__ ??= new Map<
+  string,
+  MemoryExecutionEventStream
+>())
 
 function eventsKey(pendingExecutionId: string) {
   return `${BUFFER_KEY_PREFIX}${pendingExecutionId}:events`
@@ -124,73 +125,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
-function readFinalOutput(executionData: unknown): Record<string, unknown> {
-  if (!isRecord(executionData) || !isRecord(executionData.finalOutput)) {
-    return {}
-  }
-  return executionData.finalOutput
-}
-
 function readQueuedExecutionMetadata(executionData: Record<string, unknown>) {
   const trigger = isRecord(executionData.trigger) ? executionData.trigger : {}
   const data = isRecord(trigger.data) ? trigger.data : {}
   return isRecord(data.queuedExecution) ? data.queuedExecution : null
-}
-
-function readExecutionUserId(executionData: unknown) {
-  const data = isRecord(executionData) ? executionData : {}
-  const environment = isRecord(data.environment) ? data.environment : {}
-  return typeof environment.userId === 'string' && environment.userId.length > 0
-    ? environment.userId
-    : null
-}
-
-export async function readWorkflowExecutionAccessContext(params: {
-  pendingExecutionId: string
-  workflowId: string
-}): Promise<WorkflowExecutionAccessContext | null> {
-  const [pendingRow] = await db
-    .select({
-      userId: pendingExecution.userId,
-      workspaceId: pendingExecution.workspaceId,
-    })
-    .from(pendingExecution)
-    .where(
-      and(
-        eq(pendingExecution.id, params.pendingExecutionId),
-        eq(pendingExecution.workflowId, params.workflowId),
-        eq(pendingExecution.executionType, 'workflow')
-      )
-    )
-    .limit(1)
-
-  if (pendingRow) {
-    return {
-      userId: pendingRow.userId,
-      workspaceId: pendingRow.workspaceId,
-    }
-  }
-
-  const [logRow] = await db
-    .select({
-      workspaceId: workflowExecutionLogs.workspaceId,
-      executionData: workflowExecutionLogs.executionData,
-    })
-    .from(workflowExecutionLogs)
-    .where(
-      and(
-        eq(workflowExecutionLogs.executionId, params.pendingExecutionId),
-        eq(workflowExecutionLogs.workflowId, params.workflowId)
-      )
-    )
-    .limit(1)
-
-  if (!logRow) return null
-
-  return {
-    userId: readExecutionUserId(logRow.executionData),
-    workspaceId: logRow.workspaceId,
-  }
 }
 
 export function createWorkflowExecutionResultFromLog(
@@ -212,9 +150,10 @@ export function createWorkflowExecutionResultFromLog(
     }
   }
 
-  const finalOutput = readFinalOutput(executionData)
   const queuedExecution = readQueuedExecutionMetadata(executionData)
-  const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
+  const traceSpans = Array.isArray(executionData.traceSpans)
+    ? publicTraceSpans(executionData.traceSpans)
+    : []
   const hasResponseBlock = executionData.hasResponseBlock === true
   const failed = row.level === 'error'
   const failureReason =
@@ -228,7 +167,7 @@ export function createWorkflowExecutionResultFromLog(
   } as ExecutionResult['metadata'] & { queuedExecution?: Record<string, unknown> }
   const result: ExecutionResult & { traceSpans?: unknown[] } = {
     success: !failed,
-    output: finalOutput,
+    output: isRecord(executionData.finalOutput) ? executionData.finalOutput : {},
     ...(failureReason ? { error: failureReason } : {}),
     ...(traceSpans.length > 0 ? { traceSpans } : {}),
     logs: [],
@@ -238,27 +177,6 @@ export function createWorkflowExecutionResultFromLog(
   return {
     status: failed ? 'failed' : 'completed',
     result,
-    failureReason,
-  }
-}
-
-function createWorkflowExecutionStateFromTerminalEvent(event: WorkflowExecutionTerminalEvent) {
-  if (event.type === 'execution:paused') {
-    return { status: 'paused' as const, result: event.data.result, failureReason: null }
-  }
-  if (event.type === 'execution:completed') {
-    return {
-      status: 'completed' as const,
-      result: event.data.result,
-      failureReason: null,
-    }
-  }
-
-  const failureReason =
-    event.type === 'execution:cancelled' ? 'Workflow execution was cancelled' : event.data.error
-  return {
-    status: 'failed' as const,
-    result: event.data.result,
     failureReason,
   }
 }
@@ -393,7 +311,7 @@ export async function readWorkflowExecutionEventState(params: {
       .where(
         and(
           eq(workflowExecutionLogs.executionId, params.pendingExecutionId),
-          eq(workflowExecutionLogs.workflowId, params.workflowId)
+          eq(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, params.workflowId)
         )
       )
       .limit(1),
@@ -404,20 +322,35 @@ export async function readWorkflowExecutionEventState(params: {
   const pause = isRecord(logData.pause) && !logRow?.endedAt ? logData.pause : null
   const visibleEvents = events.filter(({ event }) => {
     if (logRow?.endedAt) return !isTerminalWorkflowExecutionEvent(event)
-    return (
-      event.type !== 'execution:paused' ||
-      !logRow ||
-      (pause && event.data.result.output.revision === pause.revision)
-    )
+    if (pause && isTerminalWorkflowExecutionEvent(event))
+      return (
+        event.type === 'execution:paused' && event.data.result.output.revision === pause.revision
+      )
+    return event.type !== 'execution:paused' || !logRow
   })
-  const terminalEvent = findTerminalEvent(visibleEvents)
-  if (terminalEvent) {
-    return {
-      ...createWorkflowExecutionStateFromTerminalEvent(terminalEvent),
-      events: params.afterEventId === undefined ? [] : visibleEvents,
+  if (!logRow?.endedAt && !pause) {
+    if (
+      visibleEvents.some(
+        ({ event }) => event.type === 'execution:completed' || event.type === 'execution:paused'
+      )
+    )
+      throw new Error('Completed workflow result has no durable execution log')
+    const terminalEvent = findTerminalEvent(visibleEvents)
+    if (
+      terminalEvent?.type === 'execution:error' ||
+      terminalEvent?.type === 'execution:cancelled'
+    ) {
+      return {
+        status: 'failed',
+        result: terminalEvent.data.result,
+        failureReason:
+          terminalEvent.type === 'execution:cancelled'
+            ? 'Workflow execution was cancelled'
+            : terminalEvent.data.error,
+        events: params.afterEventId === undefined ? [] : visibleEvents,
+      }
     }
   }
-
   if (logRow) {
     return {
       ...createWorkflowExecutionResultFromLog(logRow),

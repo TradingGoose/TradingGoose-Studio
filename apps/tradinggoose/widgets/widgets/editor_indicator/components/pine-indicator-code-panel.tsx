@@ -178,6 +178,8 @@ export function IndicatorCodePanel({
 }: IndicatorCodePanelProps) {
   const [pineCode, setPineCode] = useYjsStringField(doc, 'pineCode')
   const readOnlyRef = useLatestRef(readOnly)
+  const targetRef = useLatestRef({ doc, indicatorId })
+  const [wandPreview, setWandPreview] = useState<string | null>(null)
 
   const [verifyStatus, setVerifyStatus] = useState<
     | { state: 'idle' }
@@ -211,13 +213,27 @@ export function IndicatorCodePanel({
       placeholder: 'Describe the PineTS indicator logic to generate...',
     },
     currentValue: pineCode,
+    generationKey: `${doc?.guid ?? ''}:${indicatorId}`,
+    getCurrentValue: () => (doc ? getEntityFields(doc, 'indicator').pineCode : pineCode),
+    onStreamStart: () => setWandPreview(''),
+    onGenerationEnd: () => setWandPreview(null),
     onGeneratedContent: (content) => {
-      if (readOnlyRef.current) return
+      if (
+        readOnlyRef.current ||
+        targetRef.current.doc !== doc ||
+        targetRef.current.indicatorId !== indicatorId
+      )
+        return false
       setPineCode(content)
     },
     onStreamChunk: (chunk) => {
-      if (readOnlyRef.current) return
-      setPineCode((prev) => prev + chunk)
+      if (
+        readOnlyRef.current ||
+        targetRef.current.doc !== doc ||
+        targetRef.current.indicatorId !== indicatorId
+      )
+        return
+      setWandPreview((prev) => (prev ?? '') + chunk)
     },
   })
 
@@ -251,7 +267,7 @@ export function IndicatorCodePanel({
   }
 
   const handleCodeChange = (value: string) => {
-    if (readOnlyRef.current) return
+    if (readOnlyRef.current || calcWand.isStreaming) return
     setPineCode(value)
     const offset = codeEditorHandleRef.current?.getCursorOffset() ?? value.length
     const coords = codeEditorHandleRef.current?.getCursorCoords() ?? null
@@ -492,7 +508,7 @@ export function IndicatorCodePanel({
           className='!top-0 relative mb-2'
         />
         <CodeEditor
-          value={pineCode}
+          value={wandPreview ?? pineCode}
           onChange={handleCodeChange}
           language='typescript'
           placeholder='Write PineTS code here...'

@@ -9,6 +9,7 @@ import {
   useState,
   type WheelEvent,
 } from 'react'
+import { Dialog } from '@base-ui/react/dialog'
 import {
   Check,
   ChevronDown,
@@ -19,7 +20,6 @@ import {
   PanelLeft,
   X,
 } from 'lucide-react'
-import { createPortal } from 'react-dom'
 import {
   Button,
   DropdownMenu,
@@ -71,7 +71,10 @@ import {
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components/api-key-selector/api-key-selector'
 import { ChatDeploy } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/chat-deploy'
 import { DeployStatus } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/deploy-status/deploy-status'
-import { DeploymentInfo } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/deployment-info'
+import {
+  DeploymentInfo,
+  type WorkflowDeploymentInfo,
+} from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/deployment-info'
 import { DeployedWorkflowModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-modal'
 import {
   buildTriggerEditingLayout,
@@ -91,6 +94,9 @@ const logger = createLogger('DeployModal')
 interface DeployModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  container?: HTMLElement | null
+  initialTab?: 'chat'
+  onChatRendered?: () => void
   workflowId: string | null
   isDeployed: boolean
   needsRedeployment: boolean
@@ -99,17 +105,6 @@ interface DeployModalProps {
   isLoadingDeployedState: boolean
   refetchDeployedState: () => Promise<void>
   refetchDeploymentStatus: () => Promise<boolean>
-}
-
-interface WorkflowDeploymentInfo {
-  isDeployed: boolean
-  deployedAt?: string
-  apiKey: string
-  pinnedApiKeyId?: string | null
-  endpoint: string
-  exampleCommand: string
-  needsRedeployment: boolean
-  hasReusableApiKey: boolean
 }
 
 interface PublishedChatDeployment {
@@ -128,8 +123,6 @@ interface PublishedChatDeployment {
   isActive: boolean
   chatUrl?: string
 }
-
-type TabView = string
 
 const BILLING_TAB_KEY = 'billing'
 const API_TRIGGER_TAB_KEY = 'api-trigger'
@@ -231,6 +224,9 @@ function isTriggerDeployTabConfigured(tabState: TriggerDeployValidationState): b
 export function DeployModal({
   open,
   onOpenChange,
+  container,
+  initialTab,
+  onChatRendered,
   workflowId,
   isDeployed,
   needsRedeployment,
@@ -253,9 +249,9 @@ export function DeployModal({
   const [deploymentInfo, setDeploymentInfo] = useState<WorkflowDeploymentInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
-  const [activeTab, setActiveTab] = useState<TabView>('versions')
+  const [activeTab, setActiveTab] = useState('versions')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [selectedApiKeyId, setSelectedApiKeyId] = useState<string>('')
+  const [apiKeySelection, setApiKeySelection] = useState('')
   const [apiDeployError, setApiDeployError] = useState<string | null>(null)
   const [publishedChat, setPublishedChat] = useState<PublishedChatDeployment | null>(null)
   const [isChatConfigBusy, setIsChatConfigBusy] = useState(false)
@@ -267,7 +263,6 @@ export function DeployModal({
 
   const [versions, setVersions] = useState<WorkflowDeploymentVersionResponse[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
-  const activatingVersion: number | null = null
   const [previewVersion, setPreviewVersion] = useState<number | null>(null)
   const [previewDeployedState, setPreviewDeployedState] = useState<WorkflowState | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -277,12 +272,22 @@ export function DeployModal({
   const [isRenaming, setIsRenaming] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<number | null>(null)
   const [versionToActivate, setVersionToActivate] = useState<number | null>(null)
+  const selectedApiKeyId =
+    apiKeys.find((key) => key.id === apiKeySelection)?.id ??
+    apiKeys.find((key) => key.id === deploymentInfo?.pinnedApiKeyId)?.id ??
+    apiKeys[0]?.id ??
+    ''
   const inputRef = useRef<HTMLInputElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const openedTargetRef = useRef<string | null>(null)
   const overlayRootId = workflowId ? `workflow-editor-overlay-root-${workflowId}` : null
-  const overlayContainer =
-    open && overlayRootId && typeof document !== 'undefined'
-      ? document.getElementById(overlayRootId)
-      : null
+  const overlayContainer = !open
+    ? null
+    : container !== undefined
+      ? container
+      : overlayRootId && typeof document !== 'undefined'
+        ? document.getElementById(overlayRootId)
+        : null
   const isWorkflowDeployed =
     isDeployed || Boolean(deploymentInfo?.isDeployed) || Boolean(deployedState)
   const mergedBlocks = workflowId ? mergeSubblockState(currentBlocks, workflowId) : currentBlocks
@@ -292,7 +297,6 @@ export function DeployModal({
   const chatTriggerBlock =
     blockList.find((block) => resolveTriggerIdForBlock(block) === 'chat') ?? null
   const hasChatTrigger = Boolean(chatTriggerBlock)
-  const hasApiTriggerTab = hasApiTrigger
   const triggerDeployTabs: TriggerDeployTab[] = blockList
     .map((block) => {
       const blockConfig = getBlock(block.type)
@@ -353,7 +357,7 @@ export function DeployModal({
   const hasSelectedSharedApiKey = Boolean(
     selectedApiKeyId || deploymentInfo?.pinnedApiKeyId || deploymentInfo?.hasReusableApiKey
   )
-  const fallbackTab: TabView = hasApiTriggerTab
+  const fallbackTab = hasApiTrigger
     ? !isWorkflowDeployed && !hasSelectedSharedApiKey
       ? BILLING_TAB_KEY
       : API_TRIGGER_TAB_KEY
@@ -426,7 +430,7 @@ export function DeployModal({
         hasPasswordFallback: Boolean(publishedChat?.hasPassword),
       })
     : false
-  const isApiTriggerReady = hasApiTriggerTab
+  const isApiTriggerReady = hasApiTrigger
     ? Boolean(selectedApiKeyId || deploymentInfo?.apiKey || isWorkflowDeployed)
     : false
   const deployableTriggerStates: DeployableTriggerState[] = blockList
@@ -502,7 +506,7 @@ export function DeployModal({
           },
         ]
       : []),
-    ...(hasApiTriggerTab
+    ...(hasApiTrigger
       ? [
           {
             key: API_TRIGGER_TAB_KEY,
@@ -576,10 +580,7 @@ export function DeployModal({
                       : copy.reviewTriggerBeforeDeployment,
                 }
               : null
-  const sharedApiKeyDisplay =
-    deploymentInfo?.apiKey && deploymentInfo.apiKey !== 'No API key found'
-      ? deploymentInfo.apiKey
-      : null
+  const sharedApiKeyDisplay = deploymentInfo?.apiKey
   const apiTriggerSharedKeyMessage = isWorkflowDeployed
     ? sharedApiKeyDisplay
       ? formatTemplate(copy.thisApiTriggerUsesTheSharedDeploymentApiKey, {
@@ -609,7 +610,6 @@ export function DeployModal({
   const canViewActiveDeployment = !isLoadingDeployedState && !!deployedState
   const showFooterPrimaryAction =
     isVersionActivationAction || isInitialWorkflowDeployAction || isWorkflowRedeployAction
-  const footerPrimaryLabel = deployButtonLabel
   const footerPrimaryMissingApiKey =
     requiresApiKeyForDeployment &&
     ((isInitialWorkflowDeployAction && !selectedApiKeyId) ||
@@ -623,8 +623,6 @@ export function DeployModal({
     isChatConfigBusy ||
     footerPrimaryMissingApiKey ||
     footerPrimaryMissingConfiguredTrigger
-  const showViewDeploymentButton = isWorkflowDeployed && versionToActivate === null
-  const showUndeployButton = isWorkflowDeployed && versionToActivate === null
 
   const handleTriggerTabsWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
     if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
@@ -756,18 +754,31 @@ export function DeployModal({
       } else {
         setPublishedChat(null)
       }
-      setActiveTab(fallbackTab)
+      if (initialTab === undefined) setActiveTab(fallbackTab)
       setVersionToActivate(null)
     } else {
-      setSelectedApiKeyId('')
+      setApiKeySelection('')
       setDeploymentInfo(null)
       setPublishedChat(null)
       setVersionToActivate(null)
     }
-  }, [open, workflowId, requiresApiKeyForDeployment, hasChatTrigger, fallbackTab])
+  }, [open, workflowId, requiresApiKeyForDeployment, hasChatTrigger, fallbackTab, initialTab])
 
   useEffect(() => {
-    const availableTabs = new Set<TabView>([
+    if (!open) {
+      openedTargetRef.current = null
+      return
+    }
+    if (initialTab === undefined) return
+    const target = workflowId ?? ''
+    if (openedTargetRef.current !== target) {
+      openedTargetRef.current = target
+      setActiveTab(initialTab ?? fallbackTab)
+    }
+  }, [open, workflowId, initialTab, fallbackTab])
+
+  useEffect(() => {
+    const availableTabs = new Set<string>([
       'versions',
       ...(showBillingTab ? [BILLING_TAB_KEY] : []),
       ...triggerTabItems.map((tab) => tab.key),
@@ -777,25 +788,6 @@ export function DeployModal({
       setActiveTab(fallbackTab)
     }
   }, [activeTab, showBillingTab, triggerTabItems, fallbackTab])
-
-  useEffect(() => {
-    if (deploymentInfo?.pinnedApiKeyId) {
-      const matchingKey = apiKeys.find((k) => k.id === deploymentInfo.pinnedApiKeyId)
-      if (matchingKey) {
-        setSelectedApiKeyId(matchingKey.id)
-        return
-      }
-
-      setSelectedApiKeyId(deploymentInfo.pinnedApiKeyId)
-      return
-    }
-
-    if (apiKeys.length === 0) return
-
-    if (!selectedApiKeyId) {
-      setSelectedApiKeyId(apiKeys[0].id)
-    }
-  }, [deploymentInfo?.pinnedApiKeyId, apiKeys, selectedApiKeyId])
 
   useEffect(() => {
     async function fetchDeploymentInfo() {
@@ -829,7 +821,6 @@ export function DeployModal({
         }
 
         const endpoint = `${getEnv('NEXT_PUBLIC_APP_URL')}/api/workflows/${workflowId}/execute`
-        const inputFormatExample = getInputFormatExample()
 
         setDeploymentInfo({
           isDeployed: data.isDeployed,
@@ -837,7 +828,6 @@ export function DeployModal({
           apiKey: data.apiKey,
           pinnedApiKeyId: data.pinnedApiKeyId ?? null,
           endpoint,
-          exampleCommand: `curl -X POST -H "X-API-Key: ${data.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${endpoint}`,
           needsRedeployment: Boolean(data.needsRedeployment),
           hasReusableApiKey: Boolean(data.hasReusableApiKey),
         })
@@ -888,11 +878,10 @@ export function DeployModal({
         (k) => k.key === apiKeyFromResponse || k.id === normalizedApiKey
       )
       if (matchingKey) {
-        setSelectedApiKeyId(matchingKey.id)
+        setApiKeySelection(matchingKey.id)
       }
 
-      const isActivatingVersion = versionToActivate !== null
-      setNeedsRedeployment(isActivatingVersion)
+      setNeedsRedeployment(versionToActivate !== null)
       await refetchDeploymentStatus()
       await refetchDeployedState()
       await fetchVersions()
@@ -901,7 +890,6 @@ export function DeployModal({
       if (deploymentInfoResponse.ok) {
         const deploymentData = await deploymentInfoResponse.json()
         const apiEndpoint = `${getEnv('NEXT_PUBLIC_APP_URL')}/api/workflows/${workflowId}/execute`
-        const inputFormatExample = getInputFormatExample()
 
         setDeploymentInfo({
           isDeployed: deploymentData.isDeployed,
@@ -909,7 +897,6 @@ export function DeployModal({
           apiKey: deploymentData.apiKey,
           pinnedApiKeyId: deploymentData.pinnedApiKeyId ?? null,
           endpoint: apiEndpoint,
-          exampleCommand: `curl -X POST -H "X-API-Key: ${deploymentData.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${apiEndpoint}`,
           needsRedeployment: Boolean(deploymentData.needsRedeployment),
           hasReusableApiKey: Boolean(deploymentData.hasReusableApiKey),
         })
@@ -953,23 +940,19 @@ export function DeployModal({
   const handleActivateVersion = (version: number) => {
     setVersionToActivate(version)
     setActiveTab(
-      hasApiTriggerTab ? API_TRIGGER_TAB_KEY : showBillingTab ? BILLING_TAB_KEY : 'versions'
+      hasApiTrigger ? API_TRIGGER_TAB_KEY : showBillingTab ? BILLING_TAB_KEY : 'versions'
     )
   }
 
   const openVersionPreview = async (version: number) => {
     if (!workflowId) return
-    try {
-      setPreviewVersion(version)
-      const res = await fetch(`/api/workflows/${workflowId}/deployments/${version}`)
-      if (res.ok) {
-        const data = await res.json()
-        setPreviewDeployedState(data.deployedState || null)
-      } else {
-        setPreviewDeployedState(null)
-      }
-    } finally {
-      // keep modal open even if error; user can close
+    setPreviewVersion(version)
+    const res = await fetch(`/api/workflows/${workflowId}/deployments/${version}`)
+    if (res.ok) {
+      const data = await res.json()
+      setPreviewDeployedState(data.deployedState || null)
+    } else {
+      setPreviewDeployedState(null)
     }
   }
 
@@ -1046,90 +1029,11 @@ export function DeployModal({
     }
   }
 
-  const handleRedeploy = async () => {
-    try {
-      setIsSubmitting(true)
-      const apiKeyToUse = selectedApiKeyId?.trim() ? selectedApiKeyId : undefined
-
-      const response = await fetch(`/api/workflows/${workflowId}/deploy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(apiKeyToUse ? { apiKey: apiKeyToUse } : {}),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to redeploy workflow')
-      }
-
-      await response.json()
-
-      setNeedsRedeployment(false)
-      await refetchDeploymentStatus()
-      await refetchDeployedState()
-      await fetchVersions()
-
-      setDeploymentInfo((prev) =>
-        prev
-          ? {
-              ...prev,
-              needsRedeployment: false,
-              pinnedApiKeyId: apiKeyToUse ?? prev.pinnedApiKeyId ?? null,
-              hasReusableApiKey: prev.hasReusableApiKey || Boolean(apiKeyToUse),
-            }
-          : prev
-      )
-    } catch (error: unknown) {
-      logger.error('Error redeploying workflow:', { error })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   const handleCloseModal = () => {
     setIsSubmitting(false)
     setIsViewingActiveDeployment(false)
     setShowUndeployConfirm(false)
     onOpenChange(false)
-  }
-
-  useEffect(() => {
-    if (!open) {
-      return
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key !== 'Escape' ||
-        event.defaultPrevented ||
-        showUndeployConfirm ||
-        isViewingActiveDeployment ||
-        previewVersion !== null
-      ) {
-        return
-      }
-
-      event.preventDefault()
-      handleCloseModal()
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [open, showUndeployConfirm, isViewingActiveDeployment, previewVersion, onOpenChange])
-
-  const handleFooterPrimaryAction = () => {
-    if (versionToActivate === null && isWorkflowDeployed && needsRedeployment) {
-      void handleRedeploy()
-      return
-    }
-
-    void handleDeploy()
-  }
-
-  const handleFooterUndeploy = () => {
-    void handleUndeploy()
   }
 
   const renderTriggerTab = (tab: TriggerDeployTab) => {
@@ -1299,21 +1203,18 @@ export function DeployModal({
   }
 
   return (
-    <>
-      {open &&
-        overlayContainer &&
-        createPortal(
-          <div className='pointer-events-none absolute inset-0 z-999 flex items-center justify-center p-4 sm:p-6'>
-            <div
-              aria-hidden='true'
-              className='pointer-events-auto absolute inset-0 bg-background/60 backdrop-blur-[1.5px]'
-              onClick={handleCloseModal}
-            />
-
-            <div
-              role='dialog'
-              aria-modal='true'
-              aria-labelledby='deploy-workflow-title'
+    <Dialog.Root
+      open={open && Boolean(overlayContainer)}
+      onOpenChange={(next) => {
+        if (!next) handleCloseModal()
+      }}
+    >
+      {overlayContainer && (
+        <Dialog.Portal container={overlayContainer}>
+          <Dialog.Backdrop className='pointer-events-auto absolute inset-0 z-999 bg-background/60 backdrop-blur-[1.5px]' />
+          <Dialog.Viewport className='pointer-events-none absolute inset-0 z-999 flex items-center justify-center p-4 sm:p-6'>
+            <Dialog.Popup
+              ref={popupRef}
               className='pointer-events-auto relative flex h-full max-h-full w-full max-w-[920px] flex-col overflow-hidden rounded-xl border border-border bg-background/95 shadow-2xl'
             >
               <div className='justify-center gap-3 space-y-3 border-b p-3'>
@@ -1331,9 +1232,9 @@ export function DeployModal({
                         {isSidebarCollapsed ? copy.expandSidebar : copy.collapseSidebar}
                       </span>
                     </Button>
-                    <h2 id='deploy-workflow-title' className='font-medium text-lg'>
+                    <Dialog.Title className='font-medium text-lg'>
                       {copy.deployWorkflowTitle}
-                    </h2>
+                    </Dialog.Title>
                     {needsRedeployment && versions.length > 0 && versionToActivate === null && (
                       <span className='inline-flex items-center rounded-md bg-amber-500/10 px-2 py-1 font-medium text-amber-600 text-xs dark:text-amber-400'>
                         {versions.find((v) => v.isActive)?.name ||
@@ -1342,15 +1243,12 @@ export function DeployModal({
                       </span>
                     )}
                   </div>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-8 w-8 p-0'
-                    onClick={handleCloseModal}
+                  <Dialog.Close
+                    render={<Button variant='ghost' size='icon' className='h-8 w-8 p-0' />}
                   >
                     <X className='h-4 w-4' />
                     <span className='sr-only'>{copy.close}</span>
-                  </Button>
+                  </Dialog.Close>
                 </div>
                 {apiDeployError && (
                   <div
@@ -1493,7 +1391,7 @@ export function DeployModal({
                             </div>
                             <ApiKeySelector
                               value={selectedApiKeyId}
-                              onChange={setSelectedApiKeyId}
+                              onChange={setApiKeySelection}
                               apiKeys={apiKeys}
                               onApiKeyCreated={fetchApiKeys}
                               label={apiKeyCopy.selectApiKey}
@@ -1502,7 +1400,7 @@ export function DeployModal({
                         </>
                       )}
 
-                      {hasApiTriggerTab && activeTab === API_TRIGGER_TAB_KEY && (
+                      {hasApiTrigger && activeTab === API_TRIGGER_TAB_KEY && (
                         <>
                           <div className='mb-4 rounded-md border bg-muted/20 p-4 text-sm'>
                             <div className='font-medium'>{copy.sharedApiKey}</div>
@@ -1653,7 +1551,6 @@ export function DeployModal({
                                                     variant='ghost'
                                                     size='icon'
                                                     className='h-8 w-8'
-                                                    disabled={activatingVersion === v.version}
                                                   />
                                                 }
                                               >
@@ -1732,6 +1629,7 @@ export function DeployModal({
                           blockId={chatTriggerBlock.id}
                           publishedChat={publishedChat}
                           onBusyChange={setIsChatConfigBusy}
+                          onRendered={onChatRendered}
                         />
                       )}
                     </div>
@@ -1748,7 +1646,7 @@ export function DeployModal({
                   )}
 
                   <div className='flex items-center gap-2'>
-                    {showViewDeploymentButton && (
+                    {showFooterStatus && (
                       <Button
                         variant='outline'
                         size='sm'
@@ -1758,7 +1656,7 @@ export function DeployModal({
                         {copy.viewDeployment}
                       </Button>
                     )}
-                    {showUndeployButton && (
+                    {showFooterStatus && (
                       <Button
                         variant='outline'
                         size='sm'
@@ -1773,7 +1671,7 @@ export function DeployModal({
                       <Button
                         type='button'
                         disabled={footerPrimaryDisabled}
-                        onClick={handleFooterPrimaryAction}
+                        onClick={handleDeploy}
                         className={cn(
                           'gap-2 font-medium',
                           'bg-primary hover:bg-primary-hover',
@@ -1788,32 +1686,32 @@ export function DeployModal({
                             {copy.deploying}
                           </>
                         ) : (
-                          footerPrimaryLabel
+                          deployButtonLabel
                         )}
                       </Button>
                     )}
                   </div>
                 </div>
               )}
-            </div>
-          </div>,
-          overlayContainer
-        )}
+            </Dialog.Popup>
+          </Dialog.Viewport>
+        </Dialog.Portal>
+      )}
 
       <AlertDialog open={showUndeployConfirm} onOpenChange={setShowUndeployConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent container={popupRef}>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {hasApiTriggerTab ? copy.undeployApi : copy.undeployWorkflow}
+              {hasApiTrigger ? copy.undeployApi : copy.undeployWorkflow}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {hasApiTriggerTab ? copy.undeployApiConfirmation : copy.undeployWorkflowConfirmation}
+              {hasApiTrigger ? copy.undeployApiConfirmation : copy.undeployWorkflowConfirmation}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isUndeploying}>{copy.cancel}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleFooterUndeploy}
+              onClick={handleUndeploy}
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
               disabled={isUndeploying}
             >
@@ -1824,7 +1722,7 @@ export function DeployModal({
       </AlertDialog>
       {isViewingActiveDeployment && deployedState && workflowId && (
         <DeployedWorkflowModal
-          isOpen={true}
+          container={popupRef}
           onClose={() => setIsViewingActiveDeployment(false)}
           needsRedeployment={needsRedeployment}
           activeDeployedState={deployedState}
@@ -1833,21 +1731,20 @@ export function DeployModal({
       )}
       {previewVersion !== null && previewDeployedState && workflowId && (
         <DeployedWorkflowModal
-          isOpen={true}
+          container={popupRef}
           onClose={() => {
             setPreviewVersion(null)
             setPreviewDeployedState(null)
           }}
           needsRedeployment={true}
           activeDeployedState={deployedState ?? undefined}
-          selectedDeployedState={previewDeployedState as WorkflowState}
+          selectedDeployedState={previewDeployedState}
           selectedVersion={previewVersion}
           onActivateVersion={() => {
             handleActivateVersion(previewVersion)
             setPreviewVersion(null)
             setPreviewDeployedState(null)
           }}
-          isActivating={activatingVersion === previewVersion}
           selectedVersionLabel={
             versions.find((v) => v.version === previewVersion)?.name || `v${previewVersion}`
           }
@@ -1855,6 +1752,6 @@ export function DeployModal({
           isSelectedVersionActive={versions.find((v) => v.version === previewVersion)?.isActive}
         />
       )}
-    </>
+    </Dialog.Root>
   )
 }

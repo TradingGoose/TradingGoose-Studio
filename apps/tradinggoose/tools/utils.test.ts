@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getToolAsync } from '@/tools'
+import { mem0GetMemoriesTool } from '@/tools/mem0/get_memories'
 import type { ToolConfig } from '@/tools/types'
 import {
   createCustomToolRequestBody,
   createParamSchema,
-  executeRequest,
   formatRequestParams,
-  getClientEnvVars,
   transformTable,
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'
@@ -31,31 +30,12 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
   readEntityListMembersFromDb: readEntityListMembersFromDbMock,
 }))
 
-vi.mock('@/stores/settings/environment/store', () => {
-  const mockStore = {
-    getAllVariables: vi.fn().mockReturnValue({
-      API_KEY: { value: 'mock-api-key' },
-      BASE_URL: { value: 'https://example.com' },
-    }),
-  }
-
-  return {
-    useEnvironmentStore: {
-      getState: vi.fn().mockImplementation(() => mockStore),
-    },
-  }
-})
-
-const originalWindow = global.window
 beforeEach(() => {
-  global.window = {} as any
   readSavedEntityFieldsForExecutionMock.mockRejectedValue(new Error('not found'))
   readEntityListMembersFromDbMock.mockResolvedValue([])
 })
 
 afterEach(() => {
-  global.window = originalWindow
-
   vi.clearAllMocks()
 })
 
@@ -113,7 +93,7 @@ describe('transformTable', () => {
   })
 })
 
-describe('formatRequestParams', () => {
+describe('formatRequestParams', async () => {
   let mockTool: ToolConfig
 
   beforeEach(() => {
@@ -134,9 +114,9 @@ describe('formatRequestParams', () => {
     }
   })
 
-  it.concurrent('should format request with static URL', () => {
+  it('should format request with static URL', async () => {
     const params = { foo: 'bar' }
-    const result = formatRequestParams(mockTool, params)
+    const result = await formatRequestParams(mockTool, params)
 
     expect(result).toEqual({
       url: 'https://api.example.com',
@@ -149,11 +129,11 @@ describe('formatRequestParams', () => {
     expect(mockTool.request.headers).toHaveBeenCalledWith(params)
   })
 
-  it.concurrent('should format request with dynamic URL function', () => {
+  it('should format request with dynamic URL function', async () => {
     mockTool.request.url = (params) => `https://api.example.com/${params.id}`
     const params = { id: '123' }
 
-    const result = formatRequestParams(mockTool, params)
+    const result = await formatRequestParams(mockTool, params)
 
     expect(result).toEqual({
       url: 'https://api.example.com/123',
@@ -164,16 +144,53 @@ describe('formatRequestParams', () => {
     })
   })
 
-  it.concurrent('should use method from params over tool default', () => {
-    const params = { method: 'POST' }
-    const result = formatRequestParams(mockTool, params)
+  it('keeps a static request method authoritative over business parameters', async () => {
+    const params = { method: 'DELETE' }
+    const result = await formatRequestParams(mockTool, params)
 
-    expect(result.method).toBe('POST')
-    expect(result.body).toBe(JSON.stringify({ data: 'test-data' }))
+    expect(result.method).toBe('GET')
+    expect(result.body).toBeUndefined()
     expect(mockTool.request.body).toHaveBeenCalledWith(params)
   })
 
-  it.concurrent('should handle preformatted content types', () => {
+  it('uses an explicitly configured dynamic request method', async () => {
+    const params = { method: 'POST' }
+    const result = await formatRequestParams(
+      { ...mockTool, request: { ...mockTool.request, method: (input) => input.method } },
+      params
+    )
+    expect(result.method).toBe('POST')
+    expect(result.body).toBe(JSON.stringify({ data: 'test-data' }))
+  })
+
+  it.each([
+    ['memory-id', 'https://api.mem0.ai/v1/memories/memory-id/', 'GET'],
+    [undefined, 'https://api.mem0.ai/v2/memories/', 'POST'],
+  ] as const)(
+    'formats Mem0 retrieval for %s through its configured method',
+    async (memoryId, url, method) => {
+      const params = {
+        memoryId,
+        userId: 'user-id',
+        apiKey: 'mem0-key',
+        limit: 3,
+        startDate: '2026-01-01',
+      }
+      const result = await formatRequestParams(mem0GetMemoriesTool, params)
+      expect(result).toMatchObject({ url, method, headers: { Authorization: 'Token mem0-key' } })
+      expect(result.body).toBe(
+        memoryId
+          ? undefined
+          : JSON.stringify({
+              page_size: 3,
+              filters: { AND: [{ user_id: 'user-id' }, { created_at: { gte: '2026-01-01' } }] },
+            })
+      )
+      expect(params).not.toHaveProperty('method')
+    }
+  )
+
+  it('should handle preformatted content types', async () => {
     // Set Content-Type to a preformatted type
     mockTool.request.headers = vi.fn().mockReturnValue({
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -183,12 +200,15 @@ describe('formatRequestParams', () => {
     mockTool.request.body = vi.fn().mockReturnValue('key1=value1&key2=value2')
 
     const params = { method: 'POST' }
-    const result = formatRequestParams(mockTool, params)
+    const result = await formatRequestParams(
+      { ...mockTool, request: { ...mockTool.request, method: 'POST' } },
+      params
+    )
 
     expect(result.body).toBe('key1=value1&key2=value2')
   })
 
-  it.concurrent('should handle NDJSON content type', () => {
+  it('should handle NDJSON content type', async () => {
     // Set Content-Type to NDJSON
     mockTool.request.headers = vi.fn().mockReturnValue({
       'Content-Type': 'application/x-ndjson',
@@ -198,7 +218,10 @@ describe('formatRequestParams', () => {
     mockTool.request.body = vi.fn().mockReturnValue('{"prompt": "Hello"}\n{"prompt": "World"}')
 
     const params = { method: 'POST' }
-    const result = formatRequestParams(mockTool, params)
+    const result = await formatRequestParams(
+      { ...mockTool, request: { ...mockTool.request, method: 'POST' } },
+      params
+    )
 
     expect(result.body).toBe('{"prompt": "Hello"}\n{"prompt": "World"}')
   })
@@ -407,181 +430,6 @@ describe('validateRequiredParametersAfterMerge', () => {
   })
 })
 
-describe('executeRequest', () => {
-  let mockTool: ToolConfig
-  let mockFetch: any
-
-  beforeEach(() => {
-    mockFetch = vi.fn()
-    global.fetch = mockFetch
-
-    mockTool = {
-      id: 'test-tool',
-      name: 'Test Tool',
-      description: 'A test tool',
-      version: '1.0.0',
-      params: {},
-      request: {
-        url: 'https://api.example.com',
-        method: 'GET',
-        headers: () => ({ 'Content-Type': 'application/json' }),
-      },
-      transformResponse: vi.fn(async (response) => ({
-        success: true,
-        output: await response.json(),
-      })),
-    }
-  })
-
-  afterEach(() => {
-    vi.resetAllMocks()
-  })
-
-  it('should handle successful requests', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ result: 'success' }),
-    })
-
-    const result = await executeRequest('test-tool', mockTool, {
-      url: 'https://api.example.com',
-      method: 'GET',
-      headers: {},
-    })
-
-    expect(mockFetch).toHaveBeenCalledWith('https://api.example.com', {
-      method: 'GET',
-      headers: {},
-      body: undefined,
-    })
-    expect(mockTool.transformResponse).toHaveBeenCalled()
-    expect(result).toEqual({
-      success: true,
-      output: { result: 'success' },
-    })
-  })
-
-  it.concurrent('should use default transform response if not provided', async () => {
-    mockTool.transformResponse = undefined
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ result: 'success' }),
-    })
-
-    const result = await executeRequest('test-tool', mockTool, {
-      url: 'https://api.example.com',
-      method: 'GET',
-      headers: {},
-    })
-
-    expect(result).toEqual({
-      success: true,
-      output: { result: 'success' },
-    })
-  })
-
-  it('should handle error responses', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 400,
-      statusText: 'Bad Request',
-      json: async () => ({ message: 'Invalid input' }),
-    })
-
-    const result = await executeRequest('test-tool', mockTool, {
-      url: 'https://api.example.com',
-      method: 'GET',
-      headers: {},
-    })
-
-    expect(result).toEqual({
-      success: false,
-      output: {},
-      error: 'Invalid input',
-    })
-  })
-
-  it.concurrent('should handle network errors', async () => {
-    const networkError = new Error('Network error')
-    mockFetch.mockRejectedValueOnce(networkError)
-
-    const result = await executeRequest('test-tool', mockTool, {
-      url: 'https://api.example.com',
-      method: 'GET',
-      headers: {},
-    })
-
-    expect(result).toEqual({
-      success: false,
-      output: {},
-      error: 'Network error',
-    })
-  })
-
-  it('should handle JSON parse errors in error response', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      statusText: 'Server Error',
-      json: async () => {
-        throw new Error('Invalid JSON')
-      },
-    })
-
-    const result = await executeRequest('test-tool', mockTool, {
-      url: 'https://api.example.com',
-      method: 'GET',
-      headers: {},
-    })
-
-    expect(result).toEqual({
-      success: false,
-      output: {},
-      error: 'Server Error', // Should use statusText in the error message
-    })
-  })
-
-  it('should handle transformResponse with non-JSON response', async () => {
-    const toolWithTransform = {
-      ...mockTool,
-      transformResponse: async (response: Response) => {
-        const xmlText = await response.text()
-        return {
-          success: true,
-          output: {
-            parsedData: 'mocked xml parsing result',
-            originalXml: xmlText,
-          },
-        }
-      },
-    }
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      text: async () => '<xml><test>Mock XML response</test></xml>',
-    })
-
-    const result = await executeRequest('test-tool', toolWithTransform, {
-      url: 'https://api.example.com',
-      method: 'GET',
-      headers: {},
-    })
-
-    expect(result).toEqual({
-      success: true,
-      output: {
-        parsedData: 'mocked xml parsing result',
-        originalXml: '<xml><test>Mock XML response</test></xml>',
-      },
-    })
-  })
-})
-
 describe('createParamSchema', () => {
   it.concurrent('should create parameter schema from custom tool schema', () => {
     const customTool = {
@@ -643,69 +491,7 @@ describe('createParamSchema', () => {
   })
 })
 
-describe('getClientEnvVars', () => {
-  it.concurrent('should return environment variables from store in browser environment', () => {
-    const mockStoreGetter = () => ({
-      getAllVariables: () => ({
-        API_KEY: { value: 'mock-api-key' },
-        BASE_URL: { value: 'https://example.com' },
-      }),
-    })
-
-    const result = getClientEnvVars(mockStoreGetter)
-
-    expect(result).toEqual({
-      API_KEY: 'mock-api-key',
-      BASE_URL: 'https://example.com',
-    })
-  })
-
-  it.concurrent('should return empty object in server environment', () => {
-    global.window = undefined as any
-
-    const result = getClientEnvVars()
-
-    expect(result).toEqual({})
-  })
-})
-
 describe('createCustomToolRequestBody', () => {
-  it.concurrent('should create request body function for client-side execution', () => {
-    const customTool = {
-      code: 'return a + b',
-      schema: {
-        function: {
-          parameters: { type: 'object', properties: {} },
-        },
-      },
-    }
-
-    const mockStoreGetter = () => ({
-      getAllVariables: () => ({
-        API_KEY: { value: 'mock-api-key' },
-        BASE_URL: { value: 'https://example.com' },
-      }),
-    })
-
-    const bodyFn = createCustomToolRequestBody(customTool, true, undefined, mockStoreGetter)
-    const result = bodyFn({ a: 5, b: 3 })
-
-    expect(result).toEqual({
-      code: 'return a + b',
-      params: { a: 5, b: 3 },
-      schema: { type: 'object', properties: {} },
-      envVars: {
-        API_KEY: 'mock-api-key',
-        BASE_URL: 'https://example.com',
-      },
-      userId: undefined,
-      workflowVariables: {},
-      blockData: {},
-      blockNameMapping: {},
-      isCustomTool: true,
-    })
-  })
-
   it.concurrent('should create request body function for server-side execution', () => {
     const customTool = {
       code: 'return a + b',
@@ -717,12 +503,13 @@ describe('createCustomToolRequestBody', () => {
     }
 
     const workflowId = 'test-workflow-123'
-    const bodyFn = createCustomToolRequestBody(customTool, false, workflowId)
-    const result = bodyFn({ a: 5, b: 3 })
+    const bodyFn = createCustomToolRequestBody(customTool)
+    const params = { a: 5, b: 3, _context: { workflowId } }
+    const result = bodyFn(params)
 
     expect(result).toEqual({
       code: 'return a + b',
-      params: { a: 5, b: 3 },
+      params,
       schema: { type: 'object', properties: {} },
       envVars: {},
       workflowId: 'test-workflow-123',
@@ -744,8 +531,9 @@ describe('createCustomToolRequestBody', () => {
       },
     }
 
-    const bodyFn = createCustomToolRequestBody(customTool, false, 'workflow-default')
+    const bodyFn = createCustomToolRequestBody(customTool)
     const result = bodyFn({
+      envVars: { API_KEY: 'explicit-environment' },
       _context: {
         submissionSource: 'copilot',
         userId: 'user-1',
@@ -757,6 +545,7 @@ describe('createCustomToolRequestBody', () => {
 
     expect(result).toEqual(
       expect.objectContaining({
+        envVars: { API_KEY: 'explicit-environment' },
         submissionSource: 'copilot',
         userId: 'user-1',
         workflowId: 'workflow-1',
@@ -767,7 +556,6 @@ describe('createCustomToolRequestBody', () => {
   })
 
   it('does not use the custom-tools API for server-side custom tool lookup', async () => {
-    const serverWindow = global.window
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     readSavedEntityFieldsForExecutionMock.mockResolvedValueOnce({
       codeText: 'return params',
@@ -784,8 +572,6 @@ describe('createCustomToolRequestBody', () => {
     ])
 
     try {
-      ;(global as any).window = undefined
-
       await expect(
         getToolAsync('custom_custom-tool-123', undefined, 'workspace-456')
       ).resolves.toBeDefined()
@@ -799,13 +585,11 @@ describe('createCustomToolRequestBody', () => {
       )
       expect(readEntityListMembersFromDbMock).toHaveBeenCalledWith('custom_tool', 'workspace-456')
     } finally {
-      global.window = serverWindow
       fetchSpy.mockRestore()
     }
   })
 
   it('uses workspaceId for server-side custom tool lookup when workflowId is also present', async () => {
-    const serverWindow = global.window
     readSavedEntityFieldsForExecutionMock.mockResolvedValueOnce({
       codeText: 'return params',
       schemaText: JSON.stringify({
@@ -820,39 +604,26 @@ describe('createCustomToolRequestBody', () => {
       { id: 'custom-tool-123', name: 'Custom Weather Tool' },
     ])
 
-    try {
-      ;(global as any).window = undefined
+    await expect(
+      getToolAsync('custom_custom-tool-123', 'workflow-123', 'workspace-456')
+    ).resolves.toBeDefined()
 
-      await expect(
-        getToolAsync('custom_custom-tool-123', 'workflow-123', 'workspace-456')
-      ).resolves.toBeDefined()
-
-      expect(readSavedEntityFieldsForExecutionMock).toHaveBeenCalledWith(
-        'custom_tool',
-        'custom-tool-123',
-        'workspace-456',
-        true
-      )
-      expect(readEntityListMembersFromDbMock).toHaveBeenCalledWith('custom_tool', 'workspace-456')
-    } finally {
-      global.window = serverWindow
-    }
+    expect(readSavedEntityFieldsForExecutionMock).toHaveBeenCalledWith(
+      'custom_tool',
+      'custom-tool-123',
+      'workspace-456',
+      true
+    )
+    expect(readEntityListMembersFromDbMock).toHaveBeenCalledWith('custom_tool', 'workspace-456')
   })
 
   it('surfaces execution-read failures instead of masking them as undefined', async () => {
-    const serverWindow = global.window
     readSavedEntityFieldsForExecutionMock.mockRejectedValueOnce(
       new Error('Saved custom_tool Custom Weather Tool was not found')
     )
 
-    try {
-      ;(global as any).window = undefined
-
-      await expect(
-        getToolAsync('custom_Custom Weather Tool', undefined, 'workspace-456')
-      ).rejects.toThrow('was not found')
-    } finally {
-      global.window = serverWindow
-    }
+    await expect(
+      getToolAsync('custom_Custom Weather Tool', undefined, 'workspace-456')
+    ).rejects.toThrow('was not found')
   })
 })

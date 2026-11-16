@@ -532,7 +532,7 @@ export function getLocalizedBlockLongDescriptionWithCopy(
       ? (providedLongDescription ?? getBlock(blockType)?.longDescription)
       : (block.longDescription ?? providedLongDescription ?? getBlock(blockType)?.longDescription)
 
-  return getBlock(blockType) ? undefined : longDescription
+  return blockType === 'agent' || !getBlock(blockType) ? longDescription : undefined
 }
 
 export function getLocalizedBlockMetadataWithCopy(

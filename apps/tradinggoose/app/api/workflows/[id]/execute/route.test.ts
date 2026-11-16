@@ -142,6 +142,7 @@ describe('/api/workflows/[id]/execute', () => {
         output: { ok: true },
         logs: [
           {
+            id: 'route.test.ts:saved-occurrence:1',
             blockId: 'block-1',
             blockType: 'function',
             startedAt: '2026-01-01T00:00:00.000Z',
@@ -433,6 +434,7 @@ describe('/api/workflows/[id]/execute', () => {
       },
       logs: [
         {
+          id: 'route.test.ts:saved-occurrence:2',
           blockId: 'response-1',
           blockType: 'response',
           startedAt: '2026-01-01T00:00:00.000Z',
@@ -495,6 +497,49 @@ describe('/api/workflows/[id]/execute', () => {
       error: `Field "${field}" is not supported by the deployed API execute endpoint`,
     })
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
+  it('refuses an unverifiable financial result without cancelling or returning successful work', async () => {
+    readWorkflowExecutionEventStateMock.mockRejectedValueOnce(
+      new Error('Financial acceptance could not be verified')
+    )
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'key-1' },
+        body: JSON.stringify({ symbol: 'AAPL' }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toMatchObject({ error: 'Failed to execute workflow' })
+    expect(cancelPendingWorkflowExecutionMock).not.toHaveBeenCalled()
+    expect(createHttpResponseFromBlockMock).not.toHaveBeenCalled()
+    expect(enqueuePendingExecutionMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not open an API success stream when initial financial verification fails', async () => {
+    openWorkflowExecutionEventStreamMock.mockRejectedValueOnce(
+      new Error('Financial acceptance could not be verified')
+    )
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'key-1' },
+        body: JSON.stringify({ symbol: 'AAPL', stream: true }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+
+    expect(response.status).toBe(500)
+    const text = await response.text()
+    expect(text).toContain('Failed to execute workflow')
+    expect(text).not.toContain('[DONE]')
+    expect(text).not.toContain('execution:completed')
+    expect(cancelPendingWorkflowExecutionMock).not.toHaveBeenCalled()
   })
 
   it('waits for the queued terminal result for non-stream API executions', async () => {
@@ -639,6 +684,7 @@ describe('/api/workflows/[id]/execute', () => {
         output: { answer: 'done' },
         logs: [
           {
+            id: 'route.test.ts:saved-occurrence:3',
             blockId: 'agent-1',
             blockType: 'agent',
             startedAt: '2026-01-01T00:00:00.000Z',

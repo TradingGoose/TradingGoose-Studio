@@ -1,46 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import {
-  ACTIVE_TURN_STATUS,
-  COMPLETED_TURN_STATUS,
-  hasUiActiveToolCalls,
-  resolveTurnStatusFromToolCalls,
-} from '@/stores/copilot/store-state'
+import { hasUiActiveToolCalls } from './store-state'
 
-describe('copilot store state helpers', () => {
-  it('treats review tools as active for widget UI state', () => {
+describe('transient Copilot activity', () => {
+  it.each([ClientToolCallState.pending, ClientToolCallState.review, ClientToolCallState.executing])(
+    'shows %s as active only for live cards',
+    (state) => {
+      const call = { id: 'call', name: 'read_workflow', state }
+      expect(hasUiActiveToolCalls({ call })).toBe(true)
+      expect(hasUiActiveToolCalls({ call: { ...call, historical: true } })).toBe(false)
+    }
+  )
+  it('does not derive native completion from local tool state', () => {
     expect(
       hasUiActiveToolCalls({
-        'review-tool': {
-          id: 'review-tool',
-          name: 'edit_workflow',
-          state: ClientToolCallState.review,
-        },
-      } as any)
-    ).toBe(true)
-  })
-
-  it('keeps persisted turn status completed for review-only tools', () => {
-    expect(
-      resolveTurnStatusFromToolCalls({
-        'review-tool': {
-          id: 'review-tool',
-          name: 'edit_workflow',
-          state: ClientToolCallState.review,
-        },
-      } as any)
-    ).toBe(COMPLETED_TURN_STATUS)
-  })
-
-  it('keeps persisted turn status in progress for runtime-active tools', () => {
-    expect(
-      resolveTurnStatusFromToolCalls({
-        'pending-tool': {
-          id: 'pending-tool',
-          name: 'run_workflow',
-          state: ClientToolCallState.pending,
-        },
-      } as any)
-    ).toBe(ACTIVE_TURN_STATUS)
+        call: { id: 'call', name: 'read_workflow', state: ClientToolCallState.success },
+      })
+    ).toBe(false)
   })
 })

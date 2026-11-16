@@ -11,6 +11,9 @@ import { createLogger } from '@/lib/logs/console/logger'
 const logger = createLogger('ProcessDocs')
 
 interface ProcessingOptions {
+  /** Explicit operator-authorized financial actor; never inferred from a workspace owner. */
+  actorUserId: string
+  workspaceId?: string
   /** Clear existing docs embeddings before processing */
   clearExisting?: boolean
   /** Path to docs directory */
@@ -32,7 +35,9 @@ interface ProcessingOptions {
 /**
  * Process documentation files and optionally save embeddings to database
  */
-async function processDocs(options: ProcessingOptions = {}) {
+async function processDocs(options: ProcessingOptions) {
+  if (!options.actorUserId?.trim())
+    throw new Error('Documentation embedding requires --actor-user-id')
   const config = {
     docsPath: options.docsPath || path.join(process.cwd(), '../../apps/docs/content/docs'),
     baseUrl: options.baseUrl || (isDev ? 'http://localhost:4000' : 'https://docs.tradinggoose.ai'),
@@ -66,7 +71,10 @@ async function processDocs(options: ProcessingOptions = {}) {
 
     // Process all .mdx files
     logger.info(`📚 Processing docs from: ${config.docsPath}`)
-    const chunks = await chunker.chunkAllDocs(config.docsPath)
+    const chunks = await chunker.chunkAllDocs(config.docsPath, {
+      actorUserId: options.actorUserId,
+      workspaceId: options.workspaceId,
+    })
 
     if (chunks.length === 0) {
       logger.warn('⚠️ No chunks generated from docs')
@@ -186,6 +194,12 @@ async function main() {
   const args = process.argv.slice(2)
 
   const options: ProcessingOptions = {
+    actorUserId: args.includes('--actor-user-id')
+      ? (args[args.indexOf('--actor-user-id') + 1] ?? '')
+      : '',
+    workspaceId: args.includes('--workspace-id')
+      ? args[args.indexOf('--workspace-id') + 1]
+      : undefined,
     clearExisting: args.includes('--clear'),
     dryRun: args.includes('--dry-run'),
     verbose: args.includes('--verbose'),
@@ -217,6 +231,8 @@ async function main() {
 Usage: bun run process-docs.ts [options]
 
 Options:
+  --actor-user-id <id> Required operator-authorized financial actor for embedding contacts
+  --workspace-id <id> Optional authorized payer workspace
   --clear          Clear existing embeddings before processing
   --dry-run        Process and display results without saving to DB
   --verbose        Show detailed output including text previews
@@ -227,16 +243,16 @@ Options:
 
 Examples:
   # Dry run to test chunking
-  bun run process-docs.ts --dry-run
+  bun run process-docs.ts --actor-user-id <id> --dry-run
 
   # Process and save to database
-  bun run process-docs.ts
+  bun run process-docs.ts --actor-user-id <id>
 
   # Clear existing and reprocess
-  bun run process-docs.ts --clear
+  bun run process-docs.ts --actor-user-id <id> --clear
 
   # Custom path with verbose output
-  bun run process-docs.ts --path ./my-docs --verbose
+  bun run process-docs.ts --actor-user-id <id> --path ./my-docs --verbose
     `)
     process.exit(0)
   }

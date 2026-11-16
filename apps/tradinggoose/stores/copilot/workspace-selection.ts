@@ -1,18 +1,29 @@
 'use client'
 
-const workspaceSelectionByScope = new Map<string, string | null>()
+const PREFIX = 'copilot-selection:'
+const selectionKey = (channelId: string, workspaceId: string | null | undefined) =>
+  `${PREFIX}${JSON.stringify([channelId, workspaceId ?? null])}`
 
 export function rememberCopilotWorkspaceSelection(
+  channelId: string,
   workspaceId?: string | null,
-  reviewSessionId?: string | null
+  threadId?: string | null
 ) {
-  workspaceSelectionByScope.set(workspaceId ?? 'global', reviewSessionId ?? null)
+  const key = selectionKey(channelId, workspaceId)
+  if (threadId) sessionStorage.setItem(key, threadId)
+  else sessionStorage.removeItem(key)
 }
 
-export function getCopilotWorkspaceSelection(workspaceId: string | null | undefined) {
-  return workspaceSelectionByScope.get(workspaceId ?? 'global')
+export function getCopilotWorkspaceSelection(
+  channelId: string,
+  workspaceId: string | null | undefined
+) {
+  return sessionStorage.getItem(selectionKey(channelId, workspaceId)) ?? undefined
 }
 
 export function resetCopilotWorkspaceSelectionState() {
-  workspaceSelectionByScope.clear()
+  for (let index = sessionStorage.length - 1; index >= 0; index--) {
+    const key = sessionStorage.key(index)
+    if (key?.startsWith(PREFIX)) sessionStorage.removeItem(key)
+  }
 }

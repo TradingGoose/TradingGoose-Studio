@@ -6,8 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { Invitation, Member, Organization } from '@/lib/organization/types'
 import { formatUsd } from '@/i18n/formatters'
-import type { Invitation, Member, Organization } from '@/stores/organization'
 
 const logger = createLogger('TeamMembers')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { type CopilotSettings, DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/settings'
 
 const {
   mockEq,
@@ -44,6 +45,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
   systemSettings: {
     id: 'system_settings.id',
   },
+  systemServiceValue: {
+    id: 'system_service_values.id',
+    value: 'system_service_values.value',
+  },
   pendingExecution: {
     id: 'pending_execution.id',
   },
@@ -55,6 +60,7 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 import {
+  getCopilotSettings,
   getResolvedSystemSettings,
   TriggerExecutionBusyError,
   upsertSystemSettings,
@@ -74,6 +80,7 @@ describe('system settings service', () => {
     mockSelectWhere.mockImplementation(() => ({
       limit: mockSelectLimit,
     }))
+    mockSelectLimit.mockResolvedValue([])
     mockInsert.mockImplementation(() => ({
       values: mockInsertValues,
     }))
@@ -97,6 +104,7 @@ describe('system settings service', () => {
       allowPromotionCodes: true,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: null,
+      copilot: DEFAULT_COPILOT_SETTINGS,
     })
   })
 
@@ -178,6 +186,63 @@ describe('system settings service', () => {
     expect(mockSelect.mock.invocationCallOrder[0]).toBeLessThan(
       mockInsert.mock.invocationCallOrder[0]
     )
+  })
+
+  it('persists a dynamic Copilot catalogue and preserves it when unrelated settings change', async () => {
+    const copilot: CopilotSettings = {
+      models: [{ provider: 'openai', model: 'future-model' }],
+    }
+    mockSelectLimit
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'global' }])
+      .mockResolvedValueOnce([{ value: JSON.stringify(copilot) }])
+
+    await expect(upsertSystemSettings({ copilot })).resolves.toMatchObject({ copilot })
+    expect(mockInsertValues).toHaveBeenLastCalledWith({
+      id: 'copilot:setting:configuration',
+      service: 'copilot',
+      kind: 'setting',
+      key: 'configuration',
+      value: JSON.stringify(copilot),
+    })
+    expect(mockInsertOnConflictDoUpdate).toHaveBeenLastCalledWith({
+      target: 'system_service_values.id',
+      set: { value: JSON.stringify(copilot), updatedAt: expect.any(Date) },
+    })
+    mockInsert.mockClear()
+    mockInsertValues.mockClear()
+
+    mockSelectLimit
+      .mockResolvedValueOnce([{ id: 'global' }])
+      .mockResolvedValueOnce([{ id: 'global' }])
+      .mockResolvedValueOnce([{ value: JSON.stringify(copilot) }])
+    await expect(upsertSystemSettings({ emailDomain: 'example.com' })).resolves.toMatchObject({
+      copilot,
+    })
+
+    expect(mockInsert).toHaveBeenCalledExactlyOnceWith({ id: 'system_settings.id' })
+    expect(mockInsertValues.mock.calls[0][0]).not.toHaveProperty('copilot')
+  })
+
+  it('reads Copilot configuration directly from its service value without global settings', async () => {
+    mockSelectLimit.mockResolvedValueOnce([{ value: JSON.stringify(DEFAULT_COPILOT_SETTINGS) }])
+    await expect(getCopilotSettings()).resolves.toEqual(DEFAULT_COPILOT_SETTINGS)
+    expect(mockSelect).toHaveBeenCalledExactlyOnceWith({ value: 'system_service_values.value' })
+    expect(mockSelectWhere).toHaveBeenCalledWith({
+      kind: 'eq',
+      left: 'system_service_values.id',
+      right: 'copilot:setting:configuration',
+    })
+  })
+
+  it('does not replace invalid saved configuration with a built-in catalogue', async () => {
+    mockSelectLimit
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { value: JSON.stringify({ models: [{ provider: 'openai', model: '' }] }) },
+      ])
+
+    await expect(getResolvedSystemSettings()).rejects.toThrow()
   })
 
   it('rejects an execution-mode switch under the lock before writing when work exists', async () => {

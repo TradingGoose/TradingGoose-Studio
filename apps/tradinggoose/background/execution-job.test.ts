@@ -1,0 +1,192 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  executeCopilotJob: vi.fn(),
+  executeDocumentProcessingJob: vi.fn(),
+  executeMonitorJob: vi.fn(),
+  executeScheduleJob: vi.fn(),
+  executeTriggeredDocumentProcessingJob: vi.fn(),
+  executeWebhookJob: vi.fn(),
+  executeWorkflowJob: vi.fn(),
+  isMonitorExecutionPayload: vi.fn(),
+  isScheduleExecutionPayload: vi.fn(),
+  isWebhookExecutionPayload: vi.fn(),
+  isWorkflowExecutionPayload: vi.fn(),
+  reconcileWorkflowCheckpointChildren: vi.fn(),
+}))
+
+vi.mock('@/lib/copilot/agent/service', () => ({ executeCopilotJob: mocks.executeCopilotJob }))
+
+vi.mock('./knowledge-processing', () => ({
+  executeDocumentProcessingJob: mocks.executeDocumentProcessingJob,
+  executeTriggeredDocumentProcessingJob: mocks.executeTriggeredDocumentProcessingJob,
+}))
+
+vi.mock('./monitor-execution', () => ({
+  executeMonitorJob: mocks.executeMonitorJob,
+  isMonitorExecutionPayload: mocks.isMonitorExecutionPayload,
+}))
+
+vi.mock('./schedule-execution', () => ({
+  executeScheduleJob: mocks.executeScheduleJob,
+  isScheduleExecutionPayload: mocks.isScheduleExecutionPayload,
+}))
+
+vi.mock('./webhook-execution', () => ({
+  executeWebhookJob: mocks.executeWebhookJob,
+  isWebhookExecutionPayload: mocks.isWebhookExecutionPayload,
+}))
+
+vi.mock('./workflow-execution', () => ({
+  executeWorkflowJob: mocks.executeWorkflowJob,
+  isWorkflowExecutionPayload: mocks.isWorkflowExecutionPayload,
+}))
+vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
+  reconcileWorkflowCheckpointChildren: mocks.reconcileWorkflowCheckpointChildren,
+}))
+
+import { executeBackgroundExecution } from './execution-job'
+
+const documentPayload = {
+  knowledgeBaseId: 'knowledge-base-1',
+  documentId: 'document-1',
+  userId: 'user-1',
+  workspaceId: 'workspace-1',
+  docData: {
+    filename: 'document.pdf',
+    fileUrl: 'https://example.com/document.pdf',
+    fileSize: 100,
+    mimeType: 'application/pdf',
+  },
+  processingOptions: {
+    chunkSize: 512,
+    minCharactersPerChunk: 24,
+    chunkOverlap: 100,
+  },
+  requestId: 'request-1',
+}
+
+describe('background execution job', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.executeDocumentProcessingJob.mockResolvedValue(undefined)
+    mocks.executeTriggeredDocumentProcessingJob.mockResolvedValue(undefined)
+    mocks.executeWebhookJob.mockResolvedValue(undefined)
+    mocks.isWebhookExecutionPayload.mockReturnValue(false)
+    mocks.isWorkflowExecutionPayload.mockReturnValue(false)
+    mocks.reconcileWorkflowCheckpointChildren.mockResolvedValue(undefined)
+  })
+
+  it('executes documents directly when Trigger is disabled', async () => {
+    await executeBackgroundExecution(
+      { id: 'document-job-1', executionType: 'document', payload: documentPayload },
+      { triggerRuntime: false }
+    )
+
+    expect(mocks.executeDocumentProcessingJob).toHaveBeenCalledWith(documentPayload)
+    expect(mocks.executeTriggeredDocumentProcessingJob).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])(
+    'runs Copilot through the shared runner (Trigger: %s)',
+    async (triggerRuntime) => {
+      const payload = { runId: 'run-1' }
+      await executeBackgroundExecution(
+        { id: 'copilot-job', executionType: 'copilot', payload },
+        { triggerRuntime }
+      )
+
+      expect(mocks.executeCopilotJob).toHaveBeenCalledWith(payload, undefined)
+      expect(mocks.reconcileWorkflowCheckpointChildren).not.toHaveBeenCalled()
+    }
+  )
+
+  it('uses the document Trigger task only inside the Trigger worker', async () => {
+    await executeBackgroundExecution(
+      { id: 'document-job-1', executionType: 'document', payload: documentPayload },
+      { triggerRuntime: true }
+    )
+
+    expect(mocks.executeTriggeredDocumentProcessingJob).toHaveBeenCalledWith(documentPayload)
+    expect(mocks.executeDocumentProcessingJob).not.toHaveBeenCalled()
+  })
+
+  it('propagates direct document failures to the local caller', async () => {
+    const error = new Error('Document parsing failed')
+    mocks.executeDocumentProcessingJob.mockRejectedValueOnce(error)
+
+    await expect(
+      executeBackgroundExecution(
+        { id: 'document-job-1', executionType: 'document', payload: documentPayload },
+        { triggerRuntime: false }
+      )
+    ).rejects.toThrow(error.message)
+  })
+
+  it('passes the execution identity to webhook execution', async () => {
+    const payload = {
+      webhookId: 'webhook-1',
+      workflowId: 'workflow-1',
+      userId: 'user-1',
+      provider: 'airtable',
+    }
+    mocks.isWebhookExecutionPayload.mockReturnValue(true)
+
+    await executeBackgroundExecution(
+      { id: 'webhook-job-1', executionType: 'webhook', payload },
+      { triggerRuntime: false }
+    )
+
+    expect(mocks.executeWebhookJob).toHaveBeenCalledWith({
+      ...payload,
+      executionId: 'webhook-job-1',
+    })
+  })
+
+  it('passes the pending execution identifier to workflow execution', async () => {
+    const payload = { workflowId: 'workflow-1' }
+    mocks.isWorkflowExecutionPayload.mockReturnValue(true)
+
+    await executeBackgroundExecution(
+      { id: 'workflow-job-1', executionType: 'workflow', payload },
+      { triggerRuntime: true }
+    )
+
+    expect(mocks.executeWorkflowJob).toHaveBeenCalledWith({
+      ...payload,
+      executionId: 'workflow-job-1',
+    })
+  })
+
+  it.each(['workflow', 'webhook', 'schedule', 'monitor'] as const)(
+    'reconciles durable pauses for %s jobs even if the wrapper returns no status',
+    async (executionType) => {
+      mocks.isWorkflowExecutionPayload.mockReturnValue(true)
+      mocks.isWebhookExecutionPayload.mockReturnValue(true)
+      mocks.isScheduleExecutionPayload.mockReturnValue(true)
+      mocks.isMonitorExecutionPayload.mockReturnValue(true)
+      await executeBackgroundExecution(
+        { id: 'job', executionType, payload: { workflowId: 'workflow', userId: 'user' } },
+        { triggerRuntime: false }
+      )
+      expect(mocks.reconcileWorkflowCheckpointChildren).toHaveBeenCalledWith('job')
+    }
+  )
+
+  it('propagates reconciliation errors for worker recovery using the original resumed execution', async () => {
+    mocks.isWorkflowExecutionPayload.mockReturnValue(true)
+    mocks.reconcileWorkflowCheckpointChildren.mockRejectedValueOnce(new Error('Wake failed'))
+    await expect(
+      executeBackgroundExecution(
+        {
+          id: 'original:resume:1',
+          executionType: 'workflow',
+          payload: { workflowId: 'workflow', resumeExecutionId: 'original' },
+        },
+        { triggerRuntime: true }
+      )
+    ).rejects.toThrow('Wake failed')
+    expect(mocks.reconcileWorkflowCheckpointChildren).toHaveBeenCalledWith('original')
+    expect(mocks.executeWorkflowJob).toHaveBeenCalledOnce()
+  })
+})

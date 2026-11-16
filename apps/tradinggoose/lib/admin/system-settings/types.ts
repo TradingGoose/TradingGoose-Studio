@@ -1,3 +1,4 @@
+import type { CopilotSettings } from '@/lib/copilot/settings'
 import type { RegistrationMode } from '@/lib/registration/shared'
 
 export interface AdminSystemSettingsSnapshot {
@@ -10,6 +11,7 @@ export interface AdminSystemSettingsSnapshot {
   allowPromotionCodes: boolean
   emailDomain: string
   fromEmailAddress: string
+  copilot: CopilotSettings
 }
 
 export type AdminSystemSettingsEditableFields = Pick<
@@ -20,6 +22,7 @@ export type AdminSystemSettingsEditableFields = Pick<
   | 'allowPromotionCodes'
   | 'emailDomain'
   | 'fromEmailAddress'
+  | 'copilot'
 >
 
 export const ADMIN_SYSTEM_SETTINGS_EDITABLE_FIELDS = [
@@ -29,4 +32,5 @@ export const ADMIN_SYSTEM_SETTINGS_EDITABLE_FIELDS = [
   'allowPromotionCodes',
   'emailDomain',
   'fromEmailAddress',
+  'copilot',
 ] as const satisfies readonly (keyof AdminSystemSettingsEditableFields)[]

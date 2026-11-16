@@ -1,9 +1,6 @@
 export type {
   CostMetadata,
   LogsResponse,
-  ProviderTiming,
-  TokenInfo,
-  ToolCall,
   TraceSpan,
   WorkflowLog,
   WorkflowLogOutcome,

@@ -218,10 +218,8 @@ describe('GenericBlockHandler', () => {
                 total: 521,
               },
               model: 'text-embedding-3-small',
-              pricing: {
-                input: 0.02,
-                output: 0,
-              },
+              status: 'estimated',
+              estimated: true,
             },
           },
         }
@@ -239,6 +237,8 @@ describe('GenericBlockHandler', () => {
             input: 0.00001042,
             output: 0,
             total: 0.00001042,
+            status: 'estimated',
+            estimated: true,
           },
           tokens: {
             prompt: 521,
@@ -284,10 +284,7 @@ describe('GenericBlockHandler', () => {
               total: 260,
             },
             model: 'text-embedding-3-small',
-            pricing: {
-              input: 0.02,
-              output: 0,
-            },
+            status: 'reported',
           },
         },
       }
@@ -309,6 +306,7 @@ describe('GenericBlockHandler', () => {
           input: 0.00000521,
           output: 0,
           total: 0.00000521,
+          status: 'reported',
         },
         tokens: {
           prompt: 260,
@@ -317,6 +315,21 @@ describe('GenericBlockHandler', () => {
         },
         model: 'text-embedding-3-small',
       })
+    })
+
+    it('preserves native unavailable status and embedding usage on failure', async () => {
+      const accounting = {
+        model: 'openai/text-embedding-3-small',
+        tokens: { prompt: 10, total: 10 },
+        cost: { status: 'unavailable' },
+        embeddingUsage: { status: 'partial', batches: 1 },
+      }
+      mockExecuteTool.mockResolvedValue({
+        success: false,
+        error: 'batch failed',
+        output: accounting,
+      })
+      await expect(handler.execute(mockBlock, {}, mockContext)).rejects.toMatchObject(accounting)
     })
 
     it('should pass through output unchanged for knowledge tools without cost info', async () => {

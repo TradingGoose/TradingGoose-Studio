@@ -10,33 +10,22 @@ export const memoryGetAllTool: ToolConfig<any, MemoryResponse> = {
   params: {},
 
   request: {
-    url: (params) => {
-      const workflowId = params._context?.workflowId
-      if (!workflowId) {
-        throw new Error('workflowId is required in execution context')
-      }
-      return `/api/memory?workflowId=${encodeURIComponent(workflowId)}`
-    },
+    url: '/api/memory',
     method: 'GET',
-    headers: () => ({
-      'Content-Type': 'application/json',
-    }),
+    headers: () => ({}),
   },
 
   transformResponse: async (response): Promise<MemoryResponse> => {
     const { data } = await response.json()
 
-    // Transform memories to return them with their keys and types for better context
-    const memories = data.memories.map((memory: any) => ({
-      key: memory.key,
-      type: memory.type,
-      data: memory.data,
-    }))
-
     return {
       success: true,
       output: {
-        memories,
+        memories: data.memories.map((memory: any) => ({
+          key: memory.key,
+          type: memory.type,
+          data: memory.data,
+        })),
         message: 'Memories retrieved successfully',
       },
     }

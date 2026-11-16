@@ -110,7 +110,7 @@ beforeAll(() => {
       datadogSeriesPlaceholder: datadog.config.subBlocks.find(
         (field) => field.id === 'series'
       )?.placeholder,
-      visionModelOptions: vision.config.subBlocks.find((field) => field.id === 'model')?.options,
+      visionModelOptions: vision.config.subBlocks.find((field) => field.id === 'model')?.options ?? [],
       visionModelDefault: vision.config.subBlocks.find((field) => field.id === 'model')
         ?.defaultValue,
       translateModelOptions:
@@ -123,14 +123,14 @@ beforeAll(() => {
         translate.config.subBlocks.find((field) => field.id === 'model'),
         'defaultValue'
       ),
-      translateApiKeyRequired: translate.blockInfo.params.find(
+      translateApiKeyRequired: translate.toolInfo.get('llm_chat').params.find(
         (param) => param.name === 'apiKey'
       )?.required,
       invalidOperationMappings,
       undocumentedTools,
       translateToolIds: [...translate.toolInfo.keys()],
-      translateParams: translate.blockInfo.params.map((param) => param.name),
-      translateOutputs: Object.keys(translate.blockInfo.outputs),
+      translateParams: translate.toolInfo.get('llm_chat').params.map((param) => param.name),
+      translateOutputs: Object.keys(translate.toolInfo.get('llm_chat').outputs),
       historyOutputs: Object.keys(history.toolInfo.get('trading_order_history').outputs),
       detailOutputs: Object.keys(detail.toolInfo.get('trading_order_detail').outputs),
       triggerIds: triggers.map((trigger) => trigger.id),
@@ -184,23 +184,19 @@ describe('runtime documentation metadata', () => {
   })
 
   it('resolves safe runtime choices and defaults without inventing dynamic choices', () => {
-    expect(metadata.visionModelOptions).toEqual([
-      { id: 'gpt-4o', label: 'gpt-4o' },
-      { id: 'claude-3-opus-20240229', label: 'claude-3-opus' },
-      { id: 'claude-3-sonnet-20240229', label: 'claude-3-sonnet' },
-    ])
-    expect(metadata.visionModelDefault).toBe('gpt-4o')
+    expect(metadata.visionModelOptions).toEqual([])
+    expect(metadata.visionModelDefault).toBeUndefined()
     expect(metadata.translateModelOptions).toEqual([])
     expect(metadata.translateModelHasOptions).toBe(false)
     expect(metadata.translateModelHasDefault).toBe(false)
-    expect(metadata.translateApiKeyRequired).toBe(false)
+    expect(metadata.translateApiKeyRequired).not.toBe(true)
   })
 
-  it('renders dynamic AI dispatch from the block contract instead of fake tools', () => {
-    expect(metadata.translateToolIds).toEqual([])
+  it('documents the single native chat tool from its runtime contract', () => {
+    expect(metadata.translateToolIds).toEqual(['llm_chat'])
     expect(metadata.translateParams).toContain('model')
-    expect(metadata.translateParams).not.toContain('systemPrompt')
-    expect(metadata.translateOutputs).toEqual(['content', 'model', 'tokens'])
+    expect(metadata.translateParams).toContain('systemPrompt')
+    expect(metadata.translateOutputs).toEqual(['content', 'model', 'tokens', 'cost'])
   })
 
   it('uses complete runtime schemas for regression-sensitive trading tools', () => {

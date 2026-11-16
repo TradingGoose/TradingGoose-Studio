@@ -6,6 +6,7 @@ import {
   SKILL_DOCUMENT_FORMAT,
   WATCHLIST_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { hashServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import { SavedEntityIdentityError } from '@/lib/saved-entities/identity'
 import {
@@ -167,6 +168,7 @@ describe('entity document mutation helpers', () => {
     })
     expect(result).not.toHaveProperty('requiresReview')
     expect(result).not.toHaveProperty('preview')
+    expect(ToolResultSchemas.edit_skill.parse(result)).toMatchObject({ workspaceId: 'workspace-1' })
     expect(mockApplySavedEntityState.mock.calls[0]?.[4]).toEqual({
       description: 'Updated description',
       content: 'Use the updated process.',
@@ -184,21 +186,22 @@ describe('entity document mutation helpers', () => {
       content: 'Use the updated process.',
     }
     mockReadBootstrappedSavedEntityFields.mockResolvedValue(currentFields)
+    const args = {
+      entityId: 'skill-1',
+      documentFormat: SKILL_DOCUMENT_FORMAT,
+      entityDocument: JSON.stringify(nextFields),
+    }
+    const staged = await executeUpdateEntityDocumentMutation('skill', 'edit_skill', args, {
+      userId: 'user-1',
+      accessLevel: 'limited',
+    })
+    expect(ToolResultSchemas.edit_skill.parse(staged)).toMatchObject({ workspaceId: 'workspace-1' })
 
-    await executeUpdateEntityDocumentMutation(
-      'skill',
-      'edit_skill',
-      {
-        entityId: 'skill-1',
-        documentFormat: SKILL_DOCUMENT_FORMAT,
-        entityDocument: JSON.stringify(nextFields),
-      },
-      {
-        userId: 'user-1',
-        accessLevel: 'full',
-        acceptedReviewBaseStateHash: hashServerToolReviewBase(currentFields),
-      }
-    )
+    await executeUpdateEntityDocumentMutation('skill', 'edit_skill', args, {
+      userId: 'user-1',
+      accessLevel: 'full',
+      acceptedReviewBaseStateHash: hashServerToolReviewBase(currentFields),
+    })
 
     expect(mockApplySavedEntityState.mock.calls[0]?.[2]).toBe('workspace-1')
     expect(mockApplySavedEntityState.mock.calls[0]?.[5]).toEqual({
@@ -403,7 +406,7 @@ const length = input.int(14, 'Length', 1, 50, 1)
   })
 
   it('drops blank MCP server header rows before persisting state', async () => {
-    await executeUpdateEntityDocumentMutation(
+    const result = await executeUpdateEntityDocumentMutation(
       'mcp_server',
       'edit_mcp_server',
       {
@@ -424,6 +427,9 @@ const length = input.int(14, 'Length', 1, 50, 1)
       },
       { userId: 'user-1', accessLevel: 'full' }
     )
+    expect(ToolResultSchemas.edit_mcp_server.parse(result)).toMatchObject({
+      workspaceId: 'workspace-1',
+    })
 
     expect(mockApplySavedEntityState.mock.calls[0]?.[4]).toMatchObject({
       headers: { Authorization: 'Bearer token' },
@@ -453,6 +459,9 @@ const length = input.int(14, 'Length', 1, 50, 1)
       entityKind: 'skill',
       entityName: 'New Skill',
       documentFormat: SKILL_DOCUMENT_FORMAT,
+    })
+    expect(ToolResultSchemas.create_skill.parse(staged)).toMatchObject({
+      workspaceId: 'workspace-1',
     })
     expect('preview' in staged ? staged.preview.documentDiff.before : undefined).toBe('')
     expect('preview' in staged ? staged.preview.documentDiff.after : undefined).not.toContain(

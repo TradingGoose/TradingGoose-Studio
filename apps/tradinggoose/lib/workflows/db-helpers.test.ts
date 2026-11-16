@@ -138,9 +138,6 @@ function buildWorkflowSnapshotResponse(update: Uint8Array) {
       reviewSessionId: null,
       yjsSessionId: mockWorkflowId,
     },
-    runtime: {
-      docState: 'active' as const,
-    },
   }
 }
 
@@ -796,12 +793,12 @@ describe('Database Helpers', () => {
 
       expect(result.success).toBe(true)
       expect(savedTools).toEqual([
-        expect.objectContaining({
+        {
+          type: 'custom-tool',
           title: 'Valid tool',
           toolId: 'custom_valid-tool',
-          code: '',
-          usageControl: 'auto',
-        }),
+          schema: { function: { parameters: { type: 'object', properties: {} } } },
+        },
       ])
       expect(result.normalizedState?.blocks.agent.subBlocks?.tools.value).toEqual(savedTools)
     })
@@ -1084,8 +1081,6 @@ describe('Database Helpers', () => {
         workspaceId: null,
         entityKind: 'workflow',
         entityId: mockWorkflowId,
-        draftSessionId: null,
-        reviewSessionId: null,
         yjsSessionId: mockWorkflowId,
       })
       expect(result).toMatchObject({
@@ -1105,9 +1100,6 @@ describe('Database Helpers', () => {
           draftSessionId: null,
           reviewSessionId: null,
           yjsSessionId: mockWorkflowId,
-        },
-        runtime: {
-          docState: 'expired',
         },
       })
 

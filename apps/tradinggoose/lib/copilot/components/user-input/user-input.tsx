@@ -15,7 +15,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
-import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
 import { AccessLevelSelector } from './components/access-level-selector'
 import { AttachedFilesGrid } from './components/attached-files-grid'
 import { MentionMenu } from './components/mention-menu'
@@ -38,19 +37,25 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       onAbort,
       isLoading = false,
       isAborting = false,
+      submitDisabled = false,
       placeholder,
-      accessLevel,
-      onAccessLevelChange,
       draft,
       onDraftChange,
       panelWidth,
-      hideContextUsage = false,
       clearOnSubmit = true,
     },
     ref
   ) => {
+    const accessLevel = useCopilotStore((state) => state.accessLevel)
     const [isNearTop, setIsNearTop] = useState(false)
     const [mentionPortalStyle, setMentionPortalStyle] = useState<MentionPortalStyle | null>(null)
+    const submissionGeneration = useRef(0)
+    useEffect(
+      () => () => {
+        submissionGeneration.current += 1
+      },
+      []
+    )
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const overlayRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -60,7 +65,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const menuListRef = useRef<HTMLDivElement>(null)
     const { data: session } = useSession()
     const copilotCopy = useCopilotMessages()
-    const { contextUsage, createNewChat } = useCopilotStore()
     const message = draft.text
 
     const {
@@ -73,7 +77,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       isDragging,
       processFiles,
       removeFile,
-    } = useUserInputAttachments({ userId: session?.user?.id })
+      uploadError,
+    } = useUserInputAttachments({ userId: session?.user?.id, draft })
     const { ensureSubmenuLoaded, mentionFailed, mentionLoading, mentionSources } =
       useUserInputMentionSources({
         workspaceId,
@@ -311,35 +316,40 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
     const handleSubmit = async () => {
       const trimmedMessage = message.trim()
-      if (!trimmedMessage || isLoading) {
+      if (!trimmedMessage || isLoading || submitDisabled) {
         return
       }
 
-      const failedUploads = attachedFiles.filter((file) => !file.uploading && !file.key)
+      const failedUploads = attachedFiles.filter((file) => file.uploading || !file.data)
       if (failedUploads.length > 0) {
         logger.error(
           `Some files failed to upload: ${failedUploads.map((file) => file.name).join(', ')}`
         )
+        return
       }
 
-      const fileAttachments = attachedFiles
-        .filter((file) => !file.uploading && file.key)
-        .map((file) => ({
-          id: file.id,
-          key: file.key!,
-          filename: file.name,
-          media_type: file.type,
-          size: file.size,
-        }))
+      const images = attachedFiles.map((file) => ({
+        type: 'image' as const,
+        image: file.data!,
+        mediaType: file.type,
+      }))
 
-      onSubmit(trimmedMessage, fileAttachments, selectedContexts)
+      const submittedDraft = draft
+      const submission = ++submissionGeneration.current
+      const submittedFiles = attachedFiles.map((file) => file.id)
+      await onSubmit(trimmedMessage, images, selectedContexts, () => {
+        if (submission !== submissionGeneration.current) return
+        submissionGeneration.current += 1
 
-      if (clearOnSubmit) {
-        onDraftChange({ text: '', contexts: [] })
-        clearAttachedFiles()
-      }
+        if (clearOnSubmit) {
+          onDraftChange((current) =>
+            current === submittedDraft ? { text: '', contexts: [] } : current
+          )
+          clearAttachedFiles(submittedFiles)
+        }
 
-      closeMentionMenu()
+        closeMentionMenu()
+      })
     }
 
     const handleTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -384,14 +394,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     }
 
     const handleFileClick = (file: AttachedFile) => {
-      if (file.key) {
-        window.open(file.path, '_blank')
-      } else if (file.previewUrl) {
+      if (file.previewUrl) {
         window.open(file.previewUrl, '_blank')
       }
     }
 
-    const canSubmit = message.trim().length > 0 && !isLoading
+    const canSubmit = message.trim().length > 0 && !isLoading && !submitDisabled
     const abortAction = isLoading ? onAbort : undefined
 
     return (
@@ -407,15 +415,11 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {!hideContextUsage && contextUsage && contextUsage.percentage > 0 && (
-            <div className='absolute top-2 right-2 z-10'>
-              <ContextUsagePill
-                percentage={contextUsage.percentage}
-                onCreateNewChat={() => createNewChat(workspaceId)}
-              />
-            </div>
+          {uploadError && (
+            <p role='alert' className='mb-2 text-destructive text-xs'>
+              {uploadError}
+            </p>
           )}
-
           <AttachedFilesGrid
             attachedFiles={attachedFiles}
             onFileClick={handleFileClick}
@@ -513,13 +517,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             />
           </div>
 
-          <div className='flex items-center justify-between'>
-            <div className='flex items-center gap-1.5'>
-              <AccessLevelSelector
-                accessLevel={accessLevel}
-                isNearTop={isNearTop}
-                onAccessLevelChange={onAccessLevelChange}
-              />
+          <div className='flex items-end justify-between'>
+            <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
+              <AccessLevelSelector isNearTop={isNearTop} />
               <ModelSelector isNearTop={isNearTop} panelWidth={panelWidth} />
               <Tooltip>
                 <TooltipTrigger
@@ -540,7 +540,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
               </Tooltip>
             </div>
 
-            <div className='flex items-center gap-1.5 pl-1.5'>
+            <div className='flex shrink-0 items-center gap-1.5 pl-1.5'>
               <Tooltip>
                 <TooltipTrigger
                   render={

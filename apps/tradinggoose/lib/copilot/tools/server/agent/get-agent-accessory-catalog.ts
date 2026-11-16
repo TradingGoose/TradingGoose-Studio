@@ -93,12 +93,9 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
             title: tool.title,
             value: {
               type: 'custom-tool',
-              title: tool.title,
               toolId: createCustomToolRuntimeId(tool.id),
               params: {},
               isExpanded: true,
-              schema: tool.schema,
-              code: tool.code,
               usageControl: 'auto',
             },
           })
@@ -116,7 +113,6 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
               params: {
                 serverId: tool.serverId,
                 toolName: tool.name,
-                serverName: tool.serverName,
               },
               isExpanded: true,
               schema: tool.inputSchema,

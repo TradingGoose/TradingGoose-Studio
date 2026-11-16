@@ -14,6 +14,7 @@ import {
 import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { useModelRegistry } from '@/stores/model-registry'
 import type { Variable } from '@/stores/variables/types'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 
@@ -236,6 +237,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
   const edges = useWorkflowEdges()
   const loops = useWorkflowLoops()
   const parallels = useWorkflowParallels()
+  const providers = useModelRegistry((state) => state.providers)
 
   const readSub = (bId: string, key: string) => blocks[bId]?.subBlocks?.[key]?.value ?? null
 
@@ -685,6 +687,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     getMergedSubBlocks,
     loops,
     parallels,
+    providers,
     allowVariables,
     allowedOutputTypes,
     allowContextualTags,

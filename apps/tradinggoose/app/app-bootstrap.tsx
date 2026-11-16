@@ -5,7 +5,7 @@ import { useLocale } from 'next-intl'
 import { useSession } from '@/lib/auth-client'
 import { useGeneralSettings } from '@/hooks/queries/general-settings'
 import { replaceLocaleDocument, usePathname } from '@/i18n/navigation'
-import { bootstrapProviderModels } from '@/stores/providers/store'
+import { useModelRegistry } from '@/stores/model-registry'
 import { useGeneralStore } from '@/stores/settings/general/store'
 
 const USER_LOCALE_OWNED_ROUTE_PREFIXES = ['/workspace', '/admin', '/chat'] as const
@@ -42,18 +42,18 @@ export function AppBootstrap() {
   }, [locale, pathname, preferredLocale, userId])
 
   useEffect(() => {
-    if (!isUserLocaleOwnedRoute(pathname)) {
+    if (!userId || !isUserLocaleOwnedRoute(pathname)) {
       return
     }
 
     const timeoutId = window.setTimeout(() => {
-      bootstrapProviderModels()
+      void useModelRegistry.getState().load()
     }, PROVIDER_BOOTSTRAP_DELAY_MS)
 
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [pathname])
+  }, [pathname, userId])
 
   return null
 }

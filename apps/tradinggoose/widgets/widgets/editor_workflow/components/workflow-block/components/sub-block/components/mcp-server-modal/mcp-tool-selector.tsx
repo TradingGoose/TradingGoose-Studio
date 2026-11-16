@@ -35,32 +35,31 @@ export function McpToolSelector({ blockId, subBlock, disabled = false }: McpTool
   const { isLoading: toolsBusy, error, refreshTools, getToolsByServer } = useMcpTools(workspaceId)
 
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
-  const [, setSchemaCache] = useSubBlockValue(blockId, '_toolSchema')
 
   const [serverValue] = useSubBlockValue(blockId, 'server')
 
   const label = subBlock.placeholder || copy.selectTool
 
-  const selectedToolId = storeValue || ''
+  const selectedToolName = storeValue || ''
 
   const availableTools = useMemo(() => {
     if (!serverValue) return []
     return getToolsByServer(serverValue)
   }, [serverValue, getToolsByServer])
 
-  const selectedTool = availableTools.find((tool) => tool.id === selectedToolId)
+  const selectedTool = availableTools.find((tool) => tool.name === selectedToolName)
 
   useEffect(() => {
-    if (serverValue && selectedToolId && !selectedTool && availableTools.length === 0) {
+    if (serverValue && selectedToolName && !selectedTool && availableTools.length === 0) {
       refreshTools()
     }
-  }, [serverValue, selectedToolId, selectedTool, availableTools.length, refreshTools])
+  }, [serverValue, selectedToolName, selectedTool, availableTools.length, refreshTools])
 
   useEffect(() => {
     if (
       storeValue &&
       availableTools.length > 0 &&
-      !availableTools.find((tool) => tool.id === storeValue)
+      !availableTools.find((tool) => tool.name === storeValue)
     ) {
       if (!disabled) {
         setStoreValue('')
@@ -75,13 +74,8 @@ export function McpToolSelector({ blockId, subBlock, disabled = false }: McpTool
     }
   }
 
-  const handleSelect = (toolId: string) => {
-    setStoreValue(toolId)
-
-    const tool = availableTools.find((t) => t.id === toolId)
-    if (tool?.inputSchema) {
-      setSchemaCache(tool.inputSchema)
-    }
+  const handleSelect = (toolName: string) => {
+    setStoreValue(toolName)
     setOpen(false)
   }
 
@@ -170,13 +164,13 @@ export function McpToolSelector({ blockId, subBlock, disabled = false }: McpTool
                     <CommandItem
                       key={tool.id}
                       value={`tool-${tool.id}-${tool.name}`}
-                      onSelect={() => handleSelect(tool.id)}
+                      onSelect={() => handleSelect(tool.name)}
                       className='cursor-pointer'
                     >
                       <div className='flex items-center gap-1 overflow-hidden'>
                         <span className='truncate font-normal'>{tool.name}</span>
                       </div>
-                      {tool.id === selectedToolId && (
+                      {tool.name === selectedToolName && (
                         <Check aria-hidden='true' className='ml-auto h-4 w-4' />
                       )}
                     </CommandItem>

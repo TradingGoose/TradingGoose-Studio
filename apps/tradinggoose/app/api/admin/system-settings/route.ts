@@ -8,6 +8,8 @@ import {
 import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
 import { getBillingGateState, isBillingConfigurationReady } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getModelProviders } from '@/lib/mastra/providers'
+import { isLanguageModel } from '@/lib/mastra/registry'
 import {
   getResolvedSystemSettings,
   type ResolvedSystemSettings,
@@ -133,6 +135,29 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json()
     const payload = adminSystemSettingsMutationSchema.parse(body)
+    if (payload.copilot) {
+      const providers = getModelProviders()
+      const issues = payload.copilot.models.flatMap((row, index) => {
+        const field = !Object.hasOwn(providers, row.provider)
+          ? 'provider'
+          : !isLanguageModel(row.provider, row.model, true)
+            ? 'model'
+            : undefined
+        return field
+          ? [
+              {
+                code: 'custom' as const,
+                message:
+                  field === 'provider'
+                    ? 'Select an available model provider'
+                    : 'Select a language model that supports function tools for Copilot',
+                path: ['copilot', 'models', index, field],
+              },
+            ]
+          : []
+      })
+      if (issues.length) throw new ZodError(issues)
+    }
     const [currentSettings, billingGate, billingReady, triggerReady] = await Promise.all([
       getResolvedSystemSettings(),
       getBillingGateState(),
@@ -250,5 +275,6 @@ function serializeSnapshot(
     allowPromotionCodes: snapshot.allowPromotionCodes,
     emailDomain: snapshot.emailDomain,
     fromEmailAddress: snapshot.fromEmailAddress ?? '',
+    copilot: snapshot.copilot,
   }
 }

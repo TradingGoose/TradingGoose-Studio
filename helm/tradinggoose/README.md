@@ -131,7 +131,7 @@ aws iam attach-role-policy --role-name AmazonEKS_EBS_CSI_DriverRole \
 
 ## Configuration
 
-Configure service credentials and base URLs in Admin → Services, including the Ollama service URL when enabled.
+Configure service credentials in Admin → Services. See [Built-in AI runtime](../../README.md#built-in-ai-runtime) for model provider setup.
 
 The following table lists the configurable parameters and their default values.
 

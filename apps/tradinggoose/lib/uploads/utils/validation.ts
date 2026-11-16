@@ -79,8 +79,6 @@ export function resolveUploadContext(typeParam: string | null | undefined): Stor
       return 'knowledge-base'
     case 'chat':
       return 'chat'
-    case 'copilot':
-      return 'copilot'
     case 'profile-pictures':
       return 'profile-pictures'
     default:
@@ -135,10 +133,10 @@ export function validateUploadRequest(options: {
     }
   }
 
-  if ((context === 'copilot' || context === 'profile-pictures') && !isImageMimeType(contentType)) {
+  if (context === 'profile-pictures' && !isImageMimeType(contentType)) {
     return {
       code: 'VALIDATION_ERROR',
-      message: `Only image files (JPEG, PNG, GIF, WebP, SVG) are allowed for ${context === 'copilot' ? 'copilot' : 'profile picture'} uploads`,
+      message: `Only image files (JPEG, PNG, GIF, WebP, SVG) are allowed for profile picture uploads`,
     }
   }
 

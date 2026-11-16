@@ -45,10 +45,6 @@ function jsonRpcError(code: number, message: string, data?: unknown) {
   }
 }
 
-function mcpJsonResponse(body: unknown, init?: ResponseInit) {
-  return NextResponse.json(body, init)
-}
-
 function mcpRateLimitResponse(result: RateLimitResult) {
   const headers: Record<string, string> = {
     'X-RateLimit-Limit': result.limit.toString(),
@@ -65,7 +61,7 @@ function mcpRateLimitResponse(result: RateLimitResult) {
       ? result.error || 'Rate limit service unavailable'
       : result.error || 'Rate limit exceeded'
 
-  return mcpJsonResponse(jsonRpcError(-32029, message), { status, headers })
+  return NextResponse.json(jsonRpcError(-32029, message), { status, headers })
 }
 
 function getBearerToken(request: NextRequest) {
@@ -180,7 +176,7 @@ export async function POST(request: NextRequest) {
 
   const auth = await authenticateCopilotMcpRequest(request)
   if ('error' in auth) {
-    return mcpJsonResponse(jsonRpcError(-32001, auth.error), { status: 401 })
+    return NextResponse.json(jsonRpcError(-32001, auth.error), { status: 401 })
   }
 
   const rateLimit = await checkApiEndpointRateLimit(auth.userId, 'copilot-mcp')
@@ -193,7 +189,7 @@ export async function POST(request: NextRequest) {
     .json()
     .catch(() => undefined)
   if (Array.isArray(parsedBody) && parsedBody.length > MAX_JSON_RPC_BATCH_SIZE) {
-    return mcpJsonResponse(
+    return NextResponse.json(
       jsonRpcError(-32600, `JSON-RPC batch size cannot exceed ${MAX_JSON_RPC_BATCH_SIZE}`)
     )
   }
@@ -210,9 +206,12 @@ export async function POST(request: NextRequest) {
     return await transport.handleRequest(request, { parsedBody })
   } catch (error) {
     const structuredError = buildCopilotServerToolErrorResponse(undefined, error)
-    return mcpJsonResponse(jsonRpcError(-32603, structuredError.body.error, structuredError.body), {
-      status: 500,
-    })
+    return NextResponse.json(
+      jsonRpcError(-32603, structuredError.body.error, structuredError.body),
+      {
+        status: 500,
+      }
+    )
   } finally {
     await server?.close()
   }

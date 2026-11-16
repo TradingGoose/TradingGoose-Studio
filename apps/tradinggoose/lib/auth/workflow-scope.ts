@@ -5,7 +5,7 @@ import { type AuthResult, AuthType } from '@/lib/auth/hybrid'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 type WorkflowScopeResult =
-  | { ok: true; userId: string; workspaceId: string; workflowId: string }
+  | { ok: true; userId: string; workspaceId: string; workflowId: string; executionId?: string }
   | { ok: false; error: string; status: number }
 
 /** Resolve workflow scope only after authenticating the request, never from a supplied owner ID. */
@@ -37,5 +37,18 @@ export async function authorizeWorkflowScope(
   if (!permission.hasAccess || (access === 'write' && !permission.canWrite)) {
     return { ok: false, error: 'Workflow access denied', status: 403 }
   }
-  return { ok: true, userId, workspaceId: row.workspaceId, workflowId }
+  const execution = auth.internalWorkflowExecution
+  return {
+    ok: true,
+    userId,
+    workspaceId: row.workspaceId,
+    workflowId,
+    ...(auth.authType === AuthType.INTERNAL_JWT &&
+    execution?.settlesModelUsage === true &&
+    execution?.parentWorkflowId === workflowId &&
+    typeof execution.parentExecutionId === 'string' &&
+    execution.parentExecutionId
+      ? { executionId: execution.parentExecutionId }
+      : {}),
+  }
 }

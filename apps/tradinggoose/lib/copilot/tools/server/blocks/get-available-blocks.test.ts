@@ -6,59 +6,6 @@ vi.mock('@/lib/oauth/oauth.server', () => ({
   getOAuthProviderAvailability: mockGetOAuthProviderAvailability,
 }))
 
-vi.mock('@/lib/workflows/block-mermaid-contract', () => ({
-  buildWorkflowBlockMermaidContract: (blockType: string) => {
-    const renderKind =
-      blockType === 'loop'
-        ? 'loop_container'
-        : blockType === 'parallel'
-          ? 'parallel_container'
-          : 'standard'
-
-    return {
-      renderKind,
-      requiresSubgraph: renderKind !== 'standard',
-      childrenPlacement: renderKind === 'standard' ? 'none' : 'inside_container',
-      canonicalCommentPrefixes: {
-        workflow: 'TG_WORKFLOW:',
-        block: 'TG_BLOCK:',
-        edge: 'TG_EDGE:',
-      },
-    }
-  },
-  buildWorkflowBlockMermaidShape: ({
-    blockType,
-    blockName,
-  }: {
-    blockType: string
-    blockName: string
-  }) => {
-    const renderKind =
-      blockType === 'loop'
-        ? 'loop_container'
-        : blockType === 'parallel'
-          ? 'parallel_container'
-          : 'standard'
-
-    return {
-      mermaidContract: {
-        renderKind,
-        requiresSubgraph: renderKind !== 'standard',
-        childrenPlacement: renderKind === 'standard' ? 'none' : 'inside_container',
-        canonicalCommentPrefixes: {
-          workflow: 'TG_WORKFLOW:',
-          block: 'TG_BLOCK:',
-          edge: 'TG_EDGE:',
-        },
-      },
-      mermaidExamples: {
-        minimalDocument: `${blockName} minimal`,
-        connectedDocument: `${blockName} connected`,
-      },
-    }
-  },
-}))
-
 vi.mock('@/blocks/registry', async () => {
   const { LoopBlock } = await import('@/blocks/blocks/loop')
   const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')

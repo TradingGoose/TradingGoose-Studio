@@ -13,7 +13,7 @@ import {
   decrementStorageUsage,
   incrementStorageUsage,
 } from '@/lib/billing/storage'
-import { generateEmbeddings } from '@/lib/embeddings/utils'
+import { type EmbeddingScope, generateEmbeddings } from '@/lib/embeddings/utils'
 import { env } from '@/lib/env'
 import { enqueuePendingExecution } from '@/lib/execution/pending-execution'
 import { getSlotsForFieldType, type TAG_SLOT_CONFIG } from '@/lib/knowledge/consts'
@@ -21,6 +21,7 @@ import { processDocument } from '@/lib/knowledge/documents/document-processor'
 import { deleteKnowledgeDocumentFiles } from '@/lib/knowledge/documents/storage'
 import { getNextAvailableSlot } from '@/lib/knowledge/tags/service'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
 import type { DocumentProcessingPayload } from '@/background/knowledge-processing'
 import type { DocumentSortField, SortOrder } from './types'
 
@@ -315,9 +316,13 @@ export async function processDocumentAsync(
     chunkSize: number
     minCharactersPerChunk: number
     chunkOverlap: number
-  }
+  },
+  scope: EmbeddingScope
 ): Promise<void> {
   const startTime = Date.now()
+  const access = await checkKnowledgeBaseWriteAccess(knowledgeBaseId, scope.actorUserId)
+  if (!access.hasAccess || access.knowledgeBase?.workspaceId !== scope.workspaceId)
+    throw Object.assign(new Error('Knowledge base access denied'), { status: 403 })
   try {
     const [documentState] = await db
       .select({ deletedAt: document.deletedAt })
@@ -352,6 +357,7 @@ export async function processDocumentAsync(
           docData.fileUrl,
           docData.filename,
           docData.mimeType,
+          scope.actorUserId,
           processingOptions.chunkSize,
           processingOptions.chunkOverlap,
           processingOptions.minCharactersPerChunk
@@ -391,6 +397,7 @@ export async function processDocumentAsync(
 
             const batchEmbeddings = await generateEmbeddings(
               chunkBatch.map((chunk) => chunk.text),
+              { ...scope, runId: `embedding-document:${documentId}:${batchNum}` },
               kbEmbeddingModel
             )
 
@@ -427,7 +434,7 @@ export async function processDocumentAsync(
                   content: chunk.text,
                   contentLength: chunk.text.length,
                   tokenCount: Math.ceil(chunk.text.length / 4),
-                  embedding: batchEmbeddings[batchIndex] || null,
+                  embedding: batchEmbeddings.embeddings[batchIndex],
                   embeddingModel: kbEmbeddingModel,
                   startOffset: chunk.metadata.startIndex,
                   endOffset: chunk.metadata.endIndex,
@@ -532,22 +539,25 @@ export async function prepareDocumentForProcessing(documentId: string) {
 
 export async function enqueueDocumentProcessingJobs(
   documents: DocumentProcessingRequestPayload[],
-  requestId: string
+  requestId: string,
+  actorUserId: string
 ): Promise<string[]> {
+  if (!actorUserId?.trim()) throw new Error('Authenticated document processing actor is required')
   if (documents.length === 0) {
     return []
   }
 
-  const [knowledgeBaseOwner] = await db
+  if (documents.some((entry) => entry.knowledgeBaseId !== documents[0].knowledgeBaseId))
+    throw new Error('Document batch must use one knowledge base')
+  const [knowledgeBaseScope] = await db
     .select({
-      userId: knowledgeBase.userId,
       workspaceId: knowledgeBase.workspaceId,
     })
     .from(knowledgeBase)
     .where(eq(knowledgeBase.id, documents[0].knowledgeBaseId))
     .limit(1)
 
-  if (!knowledgeBaseOwner) {
+  if (!knowledgeBaseScope) {
     throw new Error('Knowledge base not found')
   }
 
@@ -559,14 +569,14 @@ export async function enqueueDocumentProcessingJobs(
       const job = await enqueuePendingExecution({
         executionType: 'document',
         pendingExecutionId,
-        workspaceId: knowledgeBaseOwner.workspaceId,
-        userId: knowledgeBaseOwner.userId,
+        workspaceId: knowledgeBaseScope.workspaceId,
+        userId: actorUserId,
         source: 'document_processing',
         requestId,
         payload: {
           ...document,
-          userId: knowledgeBaseOwner.userId,
-          workspaceId: knowledgeBaseOwner.workspaceId,
+          userId: actorUserId,
+          workspaceId: knowledgeBaseScope.workspaceId,
         },
       })
       return job.pendingExecutionId
@@ -1006,7 +1016,8 @@ export async function retryDocumentProcessing(
     fileSize: number
     mimeType: string
   },
-  requestId: string
+  requestId: string,
+  actorUserId: string
 ): Promise<{ success: boolean; status: string; message: string }> {
   const processingOptions = {
     chunkSize: 512,
@@ -1024,7 +1035,8 @@ export async function retryDocumentProcessing(
         requestId,
       },
     ],
-    requestId
+    requestId,
+    actorUserId
   )
 
   logger.info(`[${requestId}] Document retry initiated: ${documentId}`)

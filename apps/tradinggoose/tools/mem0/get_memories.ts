@@ -48,28 +48,16 @@ export const mem0GetMemoriesTool: ToolConfig = {
   },
 
   request: {
-    url: (params: Record<string, any>) => {
-      // For a specific memory ID, use the get single memory endpoint
-      if (params.memoryId) {
-        // Dynamically set method to GET for memory ID requests
-        params.method = 'GET'
-        return `https://api.mem0.ai/v1/memories/${params.memoryId}/`
-      }
-      // Otherwise use v2 memories endpoint with filters
-      return 'https://api.mem0.ai/v2/memories/'
-    },
-    method: 'POST', // Default to POST for filtering
+    url: (params) =>
+      params.memoryId
+        ? `https://api.mem0.ai/v1/memories/${params.memoryId}/`
+        : 'https://api.mem0.ai/v2/memories/',
+    method: (params) => (params.memoryId ? 'GET' : 'POST'),
     headers: (params) => ({
       'Content-Type': 'application/json',
       Authorization: `Token ${params.apiKey}`,
     }),
     body: (params: Record<string, any>) => {
-      // For specific memory ID, we'll use GET method instead and don't need a body
-      // But we still need to return an empty object to satisfy the type
-      if (params.memoryId) {
-        return {}
-      }
-
       // Build filters array for AND condition
       const andConditions = []
 

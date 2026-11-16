@@ -49,6 +49,9 @@ app:
   
   # Environment variables
   env:
+    # Mastra initializes its schema in the same DATABASE_URL at runtime.
+    # Configure API keys for supported native model providers in Admin Services.
+    # See the root README's Built-in AI runtime section for model provider setup.
     # Application URLs
     NEXT_PUBLIC_APP_URL: "http://localhost:3000"
     BETTER_AUTH_URL: "http://localhost:3000"

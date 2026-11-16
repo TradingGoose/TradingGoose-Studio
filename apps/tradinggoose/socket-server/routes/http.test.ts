@@ -32,7 +32,6 @@ const mocks = vi.hoisted(() => ({
   saveDashboard: vi.fn(),
   saveEntity: vi.fn(),
   initializeTarget: vi.fn(),
-  getRuntime: vi.fn(() => ({ docState: 'active' })),
   refreshActiveEntityList: vi.fn(),
   acquireDocument: vi.fn(),
   persistStaged: vi.fn(),
@@ -77,10 +76,6 @@ vi.mock('@/lib/yjs/server/mutation-idempotency', async (importOriginal) => ({
 
 vi.mock('@/socket-server/yjs/entity-list-session', () => ({
   refreshActiveEntityListSession: mocks.refreshActiveEntityList,
-}))
-
-vi.mock('@/lib/copilot/review-sessions/runtime', () => ({
-  getReviewTargetRuntimeState: mocks.getRuntime,
 }))
 
 vi.mock('@/socket-server/yjs/upstream-utils', async (importOriginal) => {

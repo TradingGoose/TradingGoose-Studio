@@ -75,11 +75,9 @@ type TestTarget = {
   sessionId: string
   entityKind: string
   entityId?: string | null
-  targetKind?: 'entity' | 'entity_list' | 'review_session'
+  targetKind?: 'entity' | 'entity_list'
   workspaceId?: string
   ownerUserId?: string | null
-  reviewSessionId?: string | null
-  draftSessionId?: string | null
 }
 
 const readStore = { select: vi.fn() }
@@ -94,12 +92,10 @@ function authentication(target: TestTarget) {
     envelope: {
       targetKind: target.targetKind ?? 'entity',
       sessionId: target.sessionId,
-      reviewSessionId: target.reviewSessionId ?? null,
       workspaceId: target.workspaceId ?? 'workspace-1',
       ownerUserId: target.ownerUserId ?? null,
       entityKind: target.entityKind,
       entityId: entityId(target),
-      draftSessionId: target.draftSessionId ?? null,
     },
   }
 }
@@ -116,8 +112,6 @@ function requestFor(target: TestTarget, accessMode: 'read' | 'write' = 'write') 
     entityId: entityId(target),
     workspaceId: target.workspaceId,
     ownerUserId: target.ownerUserId,
-    reviewSessionId: target.reviewSessionId,
-    draftSessionId: target.draftSessionId,
   })) {
     if (value) params.set(key, value)
   }
@@ -444,16 +438,14 @@ describe('handleYjsUpgrade', () => {
     )
   })
 
-  it('rejects missing non-entity review sessions', async () => {
+  it('rejects an unavailable saved entity bootstrap', async () => {
     await runUpgrade(
       {
-        sessionId: 'review-unbootstrapped',
+        sessionId: 'skill-unbootstrapped',
         entityKind: 'skill',
-        entityId: null,
-        targetKind: 'review_session',
+        entityId: 'skill-unbootstrapped',
+        targetKind: 'entity',
         workspaceId: 'workspace-3',
-        reviewSessionId: 'review-unbootstrapped',
-        draftSessionId: 'draft-1',
       },
       { bootstrap: null }
     )

@@ -9,4 +9,10 @@ describe('stable JSON helpers', () => {
     expect(sortJsonValue(left)).toEqual(right)
     expect(stableStringifyJsonValue(left)).toBe(stableStringifyJsonValue(right))
   })
+
+  it('preserves decoded JSON keys that also name prototype properties', () => {
+    const value = JSON.parse('{"__proto__":{"a":1},"constructor":"kept"}')
+    expect(JSON.parse(stableStringifyJsonValue(value))).toEqual(value)
+    expect(Object.getPrototypeOf(sortJsonValue(value))).toBeNull()
+  })
 })

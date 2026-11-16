@@ -1,12 +1,6 @@
 import { db } from '@tradinggoose/db'
-import {
-  copilotReviewItems,
-  copilotReviewSessions,
-  permissions,
-  workflowExecutionLogs,
-  workspace,
-} from '@tradinggoose/db/schema'
-import { and, asc, eq } from 'drizzle-orm'
+import { permissions, workflowExecutionLogs, workspace } from '@tradinggoose/db/schema'
+import { and, eq } from 'drizzle-orm'
 import * as Y from 'yjs'
 import { buildCopilotContextIdentityKey, isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import {
@@ -15,8 +9,8 @@ import {
   MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
 } from '@/lib/copilot/context-limits'
 import { projectExecutionLogContext } from '@/lib/copilot/execution-log-context'
+import { readNativeThreadHistory } from '@/lib/copilot/native/history'
 import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
-import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
 import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -125,7 +119,7 @@ export async function processContextsServer(
           throwIfContextProcessingAborted(options.signal)
           return {
             type: entityContext.current ? 'current_knowledge_base' : 'knowledge_base',
-            tag: `@${entityContext.entityId}`,
+            tag: `@${ctx.label}`,
             content: stringifyBoundedContext(knowledgeBase, {
               entityId: entityContext.entityId,
             }),
@@ -133,16 +127,18 @@ export async function processContextsServer(
         }
         return {
           type: ctx.kind,
-          tag: `@${entityContext.entityId}`,
+          tag: `@${ctx.label}`,
           content: JSON.stringify({ entityId: entityContext.entityId }, null, 2),
         }
       }
 
-      if (ctx.kind === 'past_chat' && ctx.reviewSessionId) {
+      if (ctx.kind === 'past_chat' && ctx.threadId) {
         return await processPastChatContext(
-          ctx.reviewSessionId,
+          ctx.threadId,
           userId,
-          ctx.label ? `@${ctx.label}` : '@'
+          ctx.workspaceId,
+          ctx.label ? `@${ctx.label}` : '@',
+          options.signal
         )
       }
       if (ctx.kind === 'blocks') {
@@ -165,7 +161,11 @@ export async function processContextsServer(
         )
         const rawQuery = (userMessage || '').trim() || ctx.label || 'TradingGoose Documentation'
         const query = sanitizeMessageForDocs(rawQuery, contexts)
-        const res = await searchDocumentationServerTool.execute({ query, topK: 10 })
+        const res = await searchDocumentationServerTool.execute(
+          { query, topK: 10 },
+          { userId, workspaceId, ...(options.signal ? { signal: options.signal } : {}) }
+        )
+        throwIfContextProcessingAborted(options.signal)
         const content = JSON.stringify(res?.results || [])
         return { type: 'docs', tag: ctx.label ? `@${ctx.label}` : '@', content }
       }
@@ -274,74 +274,34 @@ function sanitizeMessageForDocs(rawMessage: string, contexts: ChatContext[] | un
 }
 
 async function processPastChatContext(
-  reviewSessionId: string,
+  threadId: string,
   userId: string,
-  tag: string
+  workspaceId: string | null,
+  tag: string,
+  signal?: AbortSignal
 ): Promise<AgentContext | null> {
-  try {
-    // Run ownership check and message load in parallel since they are independent
-    const [sessionRows, messageRows] = await Promise.all([
-      db
-        .select({ id: copilotReviewSessions.id })
-        .from(copilotReviewSessions)
-        .where(
-          and(
-            eq(copilotReviewSessions.id, reviewSessionId),
-            eq(copilotReviewSessions.userId, userId)
-          )
-        )
-        .limit(1),
-      db
-        .select({
-          role: copilotReviewItems.messageRole,
-          content: copilotReviewItems.content,
-          contentBlocks: copilotReviewItems.contentBlocks,
+  const messages = await readNativeThreadHistory(
+    { actorUserId: userId, workspaceId },
+    threadId,
+    signal
+  )
+  const content = messages
+    .map((message) => {
+      const text = message.parts
+        .filter((part) => part.type === 'text')
+        .map((part) => {
+          if (typeof part.text !== 'string')
+            throw new Error('Native history text part is malformed')
+          return part.text
         })
-        .from(copilotReviewItems)
-        .where(
-          and(
-            eq(copilotReviewItems.sessionId, reviewSessionId),
-            eq(copilotReviewItems.kind, REVIEW_ITEM_KINDS.MESSAGE)
-          )
-        )
-        .orderBy(asc(copilotReviewItems.sequence)),
-    ])
-
-    if (!sessionRows.length) {
-      logger.warn('Past chat review session not found or not owned by user', {
-        reviewSessionId,
-        userId,
-      })
-      return null
-    }
-
-    const content = messageRows
-      .map((m) => {
-        const role = m.role || 'user'
-        let text = ''
-        if (Array.isArray(m.contentBlocks) && (m.contentBlocks as any[]).length > 0) {
-          text = (m.contentBlocks as any[])
-            .filter((b: any) => b?.type === 'text')
-            .map((b: any) => String(b.content || ''))
-            .join('')
-            .trim()
-        }
-        if (!text && typeof m.content === 'string') text = m.content
-        return `${role}: ${text}`.trim()
-      })
-      .filter((s: string) => s.length > 0)
-      .join('\n')
-
-    logger.info('Processed past_chat context', {
-      reviewSessionId,
-      length: content.length,
-      lines: content ? content.split('\n').length : 0,
+        .join('')
+      return text.length ? `${message.role}: ${text}` : ''
     })
-    return { type: 'past_chat', tag, content }
-  } catch (error) {
-    logger.error('Error processing past chat context', { reviewSessionId, error })
-    return null
-  }
+    .filter((text) => text.length > 0)
+    .join('\n')
+  if (Buffer.byteLength(content, 'utf8') > MAX_COPILOT_CONTEXT_BYTES_PER_ITEM)
+    throw new Error('Past chat exceeds the context byte limit')
+  return { type: 'past_chat', tag, content }
 }
 
 async function processBlocksMetadata(
@@ -416,8 +376,6 @@ async function readCopilotWorkflowStateFromYjs(
       ownerUserId: null,
       entityKind: 'workflow',
       entityId: workflowId,
-      draftSessionId: null,
-      reviewSessionId: null,
       yjsSessionId: workflowId,
     },
     readWorkflowSnapshot

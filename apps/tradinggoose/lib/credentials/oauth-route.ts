@@ -13,6 +13,8 @@ type OAuthRouteCredentialResult =
       ok: true
       accessToken: string
       credentialId: string
+      requesterUserId: string
+      workspaceId: string
     }
   | {
       ok: false
@@ -48,7 +50,13 @@ export async function resolveOAuthRouteCredential(
     workspaceId,
   })
 
-  if (!authz.ok || !authz.credentialOwnerUserId || !authz.resolvedTokenAccountId) {
+  if (
+    !authz.ok ||
+    !authz.requesterUserId?.trim() ||
+    !authz.workspaceId?.trim() ||
+    !authz.credentialOwnerUserId ||
+    !authz.resolvedTokenAccountId
+  ) {
     return {
       ok: false,
       response: NextResponse.json(
@@ -74,5 +82,11 @@ export async function resolveOAuthRouteCredential(
     }
   }
 
-  return { ok: true, accessToken, credentialId }
+  return {
+    ok: true,
+    accessToken,
+    credentialId,
+    requesterUserId: authz.requesterUserId,
+    workspaceId: authz.workspaceId,
+  }
 }

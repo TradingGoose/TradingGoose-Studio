@@ -30,8 +30,6 @@ import {
 import {
   type CopilotMentionCopy,
   getLogMentionTriggerLabel,
-  getMentionOptionLabel,
-  getMentionSubmenuTitle,
   getPastChatMentionLabel,
   getWorkspaceEntityMentionLabel,
   useCopilotMentionCopy,
@@ -304,7 +302,7 @@ export function MentionMenu({
         {openSubmenuFor ? (
           <>
             <div className='px-2 py-1.5 text-muted-foreground text-xs'>
-              {getMentionSubmenuTitle(mentionCopy, openSubmenuFor)}
+              {mentionCopy.submenuTitles[openSubmenuFor]}
             </div>
             <div ref={menuListRef} className='flex-1 overflow-auto overscroll-contain'>
               {loading[openSubmenuFor] ? (
@@ -325,7 +323,7 @@ export function MentionMenu({
               ) : (
                 submenuItems.map((item, index) => (
                   <div
-                    key={`${openSubmenuFor}-${(item as any).id || (item as any).reviewSessionId || index}`}
+                    key={`${openSubmenuFor}-${(item as any).id || (item as any).threadId || index}`}
                     data-idx={index}
                     className={cn(
                       'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-muted',
@@ -385,7 +383,7 @@ export function MentionMenu({
               >
                 <div className='flex items-center gap-1'>
                   {renderMainOptionIcon(option)}
-                  <span>{getMentionOptionLabel(mentionCopy, option)}</span>
+                  <span>{mentionCopy.optionLabels[option]}</span>
                 </div>
                 {option !== 'docs' && (
                   <ChevronRight className='h-3.5 w-3.5 text-muted-foreground' />

@@ -1,8 +1,5 @@
 const instances = new Map<string, any>()
 
-let syncStateFn: ((toolCallId: string, nextState: any, options?: { result?: any }) => void) | null =
-  null
-
 export function registerClientTool(toolCallId: string, instance: any) {
   if (instances.get(toolCallId) === instance) return
   if (instances.has(toolCallId)) {
@@ -34,14 +31,4 @@ export function disposeClientToolsExcept(retainedToolCallIds: ReadonlySet<string
 
 export function disposeAllClientTools() {
   disposeClientToolsExcept(new Set())
-}
-
-export function registerToolStateSync(
-  fn: (toolCallId: string, nextState: any, options?: { result?: any }) => void
-) {
-  syncStateFn = fn
-}
-
-export function syncToolState(toolCallId: string, nextState: any, options?: { result?: any }) {
-  syncStateFn?.(toolCallId, nextState, options)
 }

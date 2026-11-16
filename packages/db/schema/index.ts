@@ -1,6 +1,5 @@
 export * from './auth'
 export * from './billing'
-export * from './copilot'
 export * from './core'
 export * from './knowledge'
 export * from './system'

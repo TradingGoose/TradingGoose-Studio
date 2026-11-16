@@ -1,7 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { webhook, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { v4 as uuidv4 } from 'uuid'
 import { enqueuePendingExecution } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
@@ -66,7 +65,7 @@ export type WebhookExecutionPayload = {
   webhookId: string
   workflowId: string
   userId: string
-  executionId?: string
+  executionId: string
   provider: string
   body: any
   headers: Record<string, string>
@@ -85,6 +84,7 @@ export function isWebhookExecutionPayload(value: unknown): value is WebhookExecu
     typeof candidate.webhookId === 'string' &&
     typeof candidate.workflowId === 'string' &&
     typeof candidate.userId === 'string' &&
+    typeof candidate.executionId === 'string' &&
     typeof candidate.provider === 'string' &&
     typeof candidate.blockId === 'string'
   )
@@ -165,11 +165,8 @@ async function logWebhookFailure(params: {
   })
 }
 
-export async function executeWebhookJob(
-  payload: WebhookExecutionPayload,
-  pendingExecutionId: string
-) {
-  const executionId = payload.executionId ?? uuidv4()
+export async function executeWebhookJob(payload: WebhookExecutionPayload) {
+  const executionId = payload.executionId
   const requestId = executionId.slice(0, 8)
   const executionTarget = payload.executionTarget ?? 'deployed'
 
@@ -289,7 +286,7 @@ export async function executeWebhookJob(
       payload.body,
       mockRequest,
       requestId,
-      pendingExecutionId
+      executionId
     )
     const airtablePoll =
       payload.provider === 'airtable' ? (formattedInput as AirtablePollResult) : null

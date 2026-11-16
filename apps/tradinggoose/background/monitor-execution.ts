@@ -1,4 +1,4 @@
-import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import {
   executeIndicatorMonitorJob,
   type IndicatorMonitorExecutionPayload,
@@ -14,26 +14,14 @@ export type MonitorExecutionPayload =
   | IndicatorMonitorExecutionPayload
   | PortfolioMonitorExecutionPayload
 
-const monitorExecutionHandlers = {
-  [INDICATOR_MONITOR_PROVIDER]: {
-    isPayload: isIndicatorMonitorExecutionPayload,
-    execute: executeIndicatorMonitorJob,
-  },
-  [PORTFOLIO_MONITOR_PROVIDER]: {
-    isPayload: isPortfolioMonitorExecutionPayload,
-    execute: executePortfolioMonitorJob,
-  },
-} as const
-
 export function isMonitorExecutionPayload(value: unknown): value is MonitorExecutionPayload {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  const source = (value as { source?: unknown }).source
-  if (typeof source !== 'string') return false
-  const handler = monitorExecutionHandlers[source as keyof typeof monitorExecutionHandlers]
-  return handler ? handler.isPayload(value) : false
+  return isIndicatorMonitorExecutionPayload(value) || isPortfolioMonitorExecutionPayload(value)
 }
 
-export async function executeMonitorJob(payload: MonitorExecutionPayload) {
-  const handler = monitorExecutionHandlers[payload.source]
-  return handler.execute(payload as never)
+export async function executeMonitorJob(
+  payload: MonitorExecutionPayload & { executionId: string }
+) {
+  return payload.source === INDICATOR_MONITOR_PROVIDER
+    ? executeIndicatorMonitorJob(payload)
+    : executePortfolioMonitorJob(payload)
 }

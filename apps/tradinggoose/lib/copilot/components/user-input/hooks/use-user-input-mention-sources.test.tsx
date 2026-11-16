@@ -128,6 +128,17 @@ const startLoads = (...submenus: MentionSubmenu[]) => {
   return loads
 }
 
+const nativeThreads = (request: any, items: Array<{ id: string; title: string }>) => ({
+  status: 'threads',
+  page: request.page,
+  hasMore: false,
+  items: items.map((item) => ({
+    ...item,
+    createdAt: '2026-11-08T00:00:00.000Z',
+    updatedAt: '2026-11-08T00:00:00.000Z',
+  })),
+})
+
 it('keeps workspace generations isolated and treats an empty snapshot as loaded', async () => {
   const [oldA, oldB, emptyA] = [deferred(), deferred(), deferred()]
   m.bootstrapYjsProvider
@@ -174,11 +185,14 @@ it('keeps workspace generations isolated and treats an empty snapshot as loaded'
 })
 
 it('loads successful empty workspace mention sources only once per scope', async () => {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     return {
       ok: true,
-      json: async () => (url.startsWith('/api/copilot/chat') ? { chats: [] } : { data: [] }),
+      json: async () =>
+        url === '/api/copilot/native'
+          ? nativeThreads(JSON.parse(String(init?.body)), [])
+          : { data: [] },
     }
   })
   m.bootstrapYjsProvider.mockResolvedValue(providerResult([]))
@@ -204,11 +218,18 @@ it('keeps deferred past-chat and log results scoped to their originating workspa
   const logsA = deferred()
   const chatB = deferred()
   const logsB = deferred()
-  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
-    const workspace = new URL(url, 'http://localhost').searchParams.get('workspaceId')
-    if (url.startsWith('/api/copilot/chat')) {
-      return workspace === 'workspace-a' ? chatA.promise : chatB.promise
+    const request = url === '/api/copilot/native' ? JSON.parse(String(init?.body)) : undefined
+    const workspace =
+      request?.workspaceId ?? new URL(url, 'http://localhost').searchParams.get('workspaceId')
+    if (request) {
+      return (workspace === 'workspace-a' ? chatA.promise : chatB.promise).then(
+        async (response) => ({
+          ok: true,
+          json: async () => nativeThreads(request, await response.json()),
+        })
+      )
     }
     return workspace === 'workspace-a' ? logsA.promise : logsB.promise
   })
@@ -245,27 +266,23 @@ it('keeps deferred past-chat and log results scoped to their originating workspa
   const [chatBLoad, logsBLoad] = startLoads('chats', 'logs')
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
   await act(async () => {
-    chatB.resolve(response({ chats: [{ reviewSessionId: 'chat-b', title: 'Chat B' }] }))
+    chatB.resolve(response([{ id: 'chat-b', title: 'Chat B' }]))
     logsB.resolve(
       response({ data: [log('log-b', 'info', '2026-08-13T00:00:00.000Z', 'Workflow B')] })
     )
     await Promise.all([chatBLoad, logsBLoad])
   })
-  expect(current.mentionSources.pastChats.map(({ reviewSessionId }) => reviewSessionId)).toEqual([
-    'chat-b',
-  ])
+  expect(current.mentionSources.pastChats.map(({ threadId }) => threadId)).toEqual(['chat-b'])
   expect(current.mentionSources.logsList.map(({ id }) => id)).toEqual(['log-b'])
 
   await act(async () => {
-    chatA.resolve(response({ chats: [{ reviewSessionId: 'chat-a', title: 'Chat A' }] }))
+    chatA.resolve(response([{ id: 'chat-a', title: 'Chat A' }]))
     logsA.resolve(
       response({ data: [log('log-a', 'error', '2026-08-12T00:00:00.000Z', 'Workflow A')] })
     )
     await Promise.all([chatALoad, logsALoad])
   })
-  expect(current.mentionSources.pastChats.map(({ reviewSessionId }) => reviewSessionId)).toEqual([
-    'chat-b',
-  ])
+  expect(current.mentionSources.pastChats.map(({ threadId }) => threadId)).toEqual(['chat-b'])
   expect(current.mentionSources.logsList.map(({ id }) => id)).toEqual(['log-b'])
   expect(
     fetchMock.mock.calls
@@ -336,10 +353,11 @@ it('surfaces and retries a failed chat source load', async () => {
   const fetchMock = vi
     .fn()
     .mockResolvedValueOnce({ ok: false, status: 500 })
-    .mockResolvedValueOnce({
+    .mockImplementationOnce(async (_input: RequestInfo | URL, init?: RequestInit) => ({
       ok: true,
-      json: async () => ({ chats: [{ reviewSessionId: 'chat-1', title: 'Chat 1' }] }),
-    })
+      json: async () =>
+        nativeThreads(JSON.parse(String(init?.body)), [{ id: 'chat-1', title: 'Chat 1' }]),
+    }))
   vi.stubGlobal('fetch', fetchMock)
 
   await renderHarness('workspace-1')
@@ -348,7 +366,9 @@ it('surfaces and retries a failed chat source load', async () => {
 
   await act(async () => current.ensureSubmenuLoaded('chats'))
   expect(current.mentionFailed.chats).toBe(false)
-  expect(current.mentionSources.pastChats).toEqual([{ reviewSessionId: 'chat-1', title: 'Chat 1' }])
+  expect(current.mentionSources.pastChats).toEqual([
+    { threadId: 'chat-1', workspaceId: 'workspace-1', title: 'Chat 1' },
+  ])
 })
 
 it('discards a deferred block catalog load when the locale changes', async () => {

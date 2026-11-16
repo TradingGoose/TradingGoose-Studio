@@ -50,7 +50,7 @@ export function createMinimalWorkflowState(): WorkflowStateFixture {
         model: {
           id: 'model',
           type: 'dropdown',
-          value: 'claude-sonnet-5-5',
+          value: 'anthropic/claude-sonnet-5-5',
         },
         prompt: {
           id: 'prompt',
@@ -140,7 +140,7 @@ export function createConditionalWorkflowState(): WorkflowStateFixture {
         model: {
           id: 'model',
           type: 'dropdown',
-          value: 'claude-sonnet-5-5',
+          value: 'anthropic/claude-sonnet-5-5',
         },
         prompt: {
           id: 'prompt',
@@ -180,7 +180,7 @@ export function createConditionalWorkflowState(): WorkflowStateFixture {
         model: {
           id: 'model',
           type: 'dropdown',
-          value: 'claude-sonnet-5-5',
+          value: 'anthropic/claude-sonnet-5-5',
         },
         prompt: {
           id: 'prompt',
@@ -302,7 +302,7 @@ export function createLoopWorkflowState(): WorkflowStateFixture {
         model: {
           id: 'model',
           type: 'dropdown',
-          value: 'claude-sonnet-5-5',
+          value: 'anthropic/claude-sonnet-5-5',
         },
         prompt: {
           id: 'prompt',
@@ -454,7 +454,7 @@ export function createComplexWorkflowState(): WorkflowStateFixture {
         model: {
           id: 'model',
           type: 'dropdown',
-          value: 'gpt-4.1',
+          value: 'openai/gpt-4.1',
         },
         prompt: {
           id: 'prompt',
@@ -541,7 +541,7 @@ export function createAgentWithToolsWorkflowState(): WorkflowStateFixture {
         model: {
           id: 'model',
           type: 'dropdown',
-          value: 'gpt-4.1',
+          value: 'openai/gpt-4.1',
         },
         prompt: {
           id: 'prompt',

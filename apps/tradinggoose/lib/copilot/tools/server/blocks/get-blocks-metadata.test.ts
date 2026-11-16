@@ -1,149 +1,24 @@
+import { getEncoding } from 'js-tiktoken'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getBlocksMetadataServerTool } from '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
-import { GetBlocksMetadataResult } from '@/lib/copilot/tools/shared/schemas'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
+import { useModelRegistry } from '@/stores/model-registry'
 
 const mockGetOAuthProviderAvailability = vi.hoisted(() => vi.fn())
+
+vi.unmock('@/blocks/registry')
 
 vi.mock('@/lib/oauth/oauth.server', () => ({
   getOAuthProviderAvailability: mockGetOAuthProviderAvailability,
 }))
 
-vi.mock('@/blocks/registry', async () => {
-  const { AgentBlock } = await import('@/blocks/blocks/agent')
-  const { HistoricalDataBlock } = await import('@/blocks/blocks/historical_data')
-  const { LoopBlock } = await import('@/blocks/blocks/loop')
-  const { ParallelContainerBlock } = await import('@/blocks/blocks/parallel_container')
-  const registry = {
-    agent: AgentBlock,
-    historical_data: HistoricalDataBlock,
-    loop: LoopBlock,
-    parallel: ParallelContainerBlock,
-    github: {
-      name: 'GitHub',
-      longDescription: 'Interact with GitHub repositories.',
-      bestPractices: 'Use explicit repository owner and repo names.',
-      category: 'tools',
-      authMode: 'apiKey',
-      subBlocks: [
-        {
-          id: 'operation',
-          type: 'dropdown',
-          options: [
-            { id: 'github_pr', label: 'Get PR details' },
-            { id: 'github_comment', label: 'Create PR comment' },
-          ],
-        },
-      ],
-      tools: {
-        config: {
-          tool: ({ operation }: { operation: string }) => operation,
-        },
-      },
-    },
-    condition: {
-      name: 'Condition',
-      description: 'Branch on a condition.',
-      category: 'blocks',
-      subBlocks: [],
-      outputs: {},
-    },
-    input_trigger: {
-      name: 'Input Form',
-      description: 'Collect structured workflow input.',
-      category: 'triggers',
-      subBlocks: [
-        {
-          id: 'inputFormat',
-          type: 'input-format',
-        },
-      ],
-      outputs: {},
-    },
-    function: {
-      name: 'Function',
-      description: 'Run custom logic.',
-      longDescription: 'Execute custom code.',
-      category: 'blocks',
-      subBlocks: [
-        {
-          id: 'code',
-          type: 'code',
-        },
-      ],
-      inputs: {
-        code: { type: 'string', description: 'Code to execute' },
-      },
-      outputs: {},
-    },
-    reddit: {
-      name: 'Reddit',
-      description: 'Read Reddit posts.',
-      category: 'tools',
-      authMode: 'oauth',
-      subBlocks: [
-        {
-          id: 'credential',
-          type: 'oauth-input',
-          provider: 'reddit',
-          serviceId: 'reddit',
-          required: true,
-        },
-      ],
-      outputs: {},
-    },
-    slack: {
-      name: 'Slack',
-      description: 'Send Slack messages.',
-      category: 'tools',
-      authMode: 'oauth',
-      subBlocks: [
-        {
-          id: 'authMethod',
-          type: 'dropdown',
-          options: [
-            { id: 'oauth', label: 'TradingGoose Bot' },
-            { id: 'bot_token', label: 'Custom Bot' },
-          ],
-        },
-        {
-          id: 'credential',
-          type: 'oauth-input',
-          provider: 'slack',
-          serviceId: 'slack',
-          condition: { field: 'authMethod', value: 'oauth' },
-        },
-        {
-          id: 'botToken',
-          type: 'short-input',
-          condition: { field: 'authMethod', value: 'bot_token' },
-        },
-      ],
-      outputs: {},
-    },
-  }
-
-  return {
-    registry,
-    getBlock: (blockType: string) => registry[blockType as keyof typeof registry],
-    getAllBlocks: () => Object.values(registry),
-    getAllBlockTypes: () => Object.keys(registry),
-    getBlocksByCategory: () => [],
-    isValidBlockType: (blockType: string) => blockType in registry,
-  }
-})
-
-vi.mock('@/tools/registry', () => ({
-  tools: {
-    github_pr: { description: 'Fetch GitHub pull request details.' },
-    github_comment: { description: 'Create a GitHub pull request comment.' },
-  },
-}))
+import { getBlocksMetadataServerTool } from '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
+import { GetBlocksMetadataResult } from '@/lib/copilot/tools/shared/schemas'
 
 describe('getBlocksMetadataServerTool', () => {
   beforeEach(() => {
     mockGetOAuthProviderAvailability.mockReset()
     mockGetOAuthProviderAvailability.mockImplementation(async (providerIds: string[]) =>
-      Object.fromEntries(providerIds.map((providerId) => [providerId, false]))
+      Object.fromEntries(providerIds.map((providerId) => [providerId, providerId === 'slack']))
     )
   })
 
@@ -179,13 +54,109 @@ describe('getBlocksMetadataServerTool', () => {
     expect(agent?.bestPractices).toContain(
       'Response Format must be a JSON object containing a JSON Schema in its schema field.'
     )
-    for (const id of ['thinkingLevel', 'reasoningEffort', 'verbosity']) {
+    for (const [id, capability] of [
+      ['temperature', 'temperature'],
+      ['responseFormat', 'structuredOutput'],
+    ]) {
       expect(agent?.subBlocks?.find((field) => field.id === id)?.condition).toEqual({
         field: 'model',
         operator: 'modelCapability',
-        value: id,
+        value: capability,
       })
     }
+    const outputTokens = agent?.subBlocks?.find((field) => field.id === 'maxTokens')
+    expect(outputTokens).toMatchObject({
+      type: 'short-input',
+      inputType: 'number',
+      min: 1,
+      integer: true,
+    })
+    expect(outputTokens?.condition).toBeUndefined()
+    expect(agent?.subBlocks?.find((field) => field.id === 'maxSteps')).toMatchObject({
+      type: 'short-input',
+      inputType: 'number',
+      min: 1,
+      integer: true,
+    })
+    expect(
+      agent?.subBlocks?.some((field) =>
+        [
+          'providerOptions',
+          'reasoningEffort',
+          'reasoningOptions',
+          'verbosity',
+          'thinkingLevel',
+        ].includes(field.id)
+      )
+    ).toBe(false)
+  })
+
+  it('keeps Agent, Router and Evaluator metadata within a bounded context', async () => {
+    const input = { blockTypes: ['agent', 'router', 'evaluator'] }
+    const result = await getBlocksMetadataServerTool.execute(input)
+    expect(Object.keys(result.metadata)).toEqual(input.blockTypes)
+    for (const block of Object.values(result.metadata)) {
+      const model = block.subBlocks?.find((field) => field.id === 'model')
+      expect(model?.description).toContain('modelQuery')
+      expect(model?.options).toBeUndefined()
+    }
+    expect(result.modelSearch).toBeUndefined()
+    expect(managedServices.listServices).not.toHaveBeenCalled()
+    const encoded = getEncoding('o200k_base')
+    const json = JSON.stringify(result)
+    expect(Buffer.byteLength(json)).toBeLessThan(32_000)
+    expect(encoded.encode(json).length).toBeLessThan(8_000)
+  })
+
+  it('returns one bounded native model search without duplicating options or exposing credentials', async () => {
+    managedServices.credentials.openai = { defaultApiKey: 'managed-model-key' }
+    const result = await getBlocksMetadataServerTool.execute({
+      blockTypes: ['agent', 'router', 'evaluator'],
+      modelQuery: 'openai/',
+    })
+    expect(result.modelSearch?.models).toHaveLength(20)
+    expect(result.modelSearch?.total).toBeGreaterThan(20)
+    for (const model of result.modelSearch!.models) {
+      expect(model.id.toLowerCase()).toContain('openai/')
+      expect(model).not.toHaveProperty('label')
+      expect(typeof model.toolCall).toBe('boolean')
+    }
+    for (const block of Object.values(result.metadata))
+      expect(block.subBlocks?.find((field) => field.id === 'model')?.options).toBeUndefined()
+    expect(managedServices.listServices).toHaveBeenCalledOnce()
+    expect(managedServices.readConfig).not.toHaveBeenCalled()
+    expect(useModelRegistry.getState().providers).toEqual([])
+    expect(JSON.stringify(result)).not.toMatch(/managed-model-key|apiKeyEnvVar/)
+  })
+
+  it.each([
+    [' OPENAI/GPT-4.1 ', 'openai/gpt-4.1'],
+    ['openai/text-embedding-3-small', undefined],
+    ['missing-provider/nonexistent-model', undefined],
+  ])('searches the native language catalog for %s', async (modelQuery, firstId) => {
+    const result = await getBlocksMetadataServerTool.execute({ blockTypes: ['agent'], modelQuery })
+    expect(result.modelSearch?.models[0]?.id).toBe(firstId)
+    if (!firstId) expect(result.modelSearch).toEqual({ models: [], total: 0 })
+    else
+      expect(result.modelSearch?.models[0]).toMatchObject({
+        temperature: true,
+        structuredOutput: true,
+      })
+  })
+
+  it('excludes native entries published as image models', async () => {
+    const result = await getBlocksMetadataServerTool.execute({
+      blockTypes: ['agent'],
+      modelQuery: 'openai/gpt-image-1',
+    })
+    expect(result.modelSearch?.models.some(({ id }) => id === 'openai/gpt-image-1')).toBe(false)
+  })
+
+  it('rejects blank model queries instead of expanding the whole catalog', async () => {
+    await expect(
+      getBlocksMetadataServerTool.execute({ blockTypes: ['agent'], modelQuery: ' ' })
+    ).rejects.toThrow()
+    expect(managedServices.listServices).not.toHaveBeenCalled()
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {

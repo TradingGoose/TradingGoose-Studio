@@ -3,6 +3,7 @@ import {
   type ListingIdentity,
   ListingIdentitySchema,
 } from '@/lib/listing/identity'
+import { publicTraceSpans } from '@/lib/logs/public'
 import { splitQueryParamValues } from '@/lib/logs/query-parser'
 import type {
   TraceSpan,
@@ -151,7 +152,7 @@ export const buildPublicWorkflowLogExecutionData = (
 
   return {
     traceSpans: Array.isArray(row.executionData.traceSpans)
-      ? (row.executionData.traceSpans as TraceSpan[])
+      ? publicTraceSpans(row.executionData.traceSpans as TraceSpan[])
       : undefined,
     finalOutput: row.executionData.finalOutput,
     errorMessage:
@@ -502,16 +503,18 @@ export const matchesWorkflowLogFilters = (
     return false
   }
 
-  const totalCost = typeof log.cost?.total === 'number' ? log.cost.total : 0
+  const totalCost = typeof log.cost?.total === 'number' ? log.cost.total : undefined
   if (
     typeof filters.costMin === 'number' &&
-    (filters.costMinExclusive ? totalCost <= filters.costMin : totalCost < filters.costMin)
+    (totalCost === undefined ||
+      (filters.costMinExclusive ? totalCost <= filters.costMin : totalCost < filters.costMin))
   ) {
     return false
   }
   if (
     typeof filters.costMax === 'number' &&
-    (filters.costMaxExclusive ? totalCost >= filters.costMax : totalCost > filters.costMax)
+    (totalCost === undefined ||
+      (filters.costMaxExclusive ? totalCost >= filters.costMax : totalCost > filters.costMax))
   ) {
     return false
   }

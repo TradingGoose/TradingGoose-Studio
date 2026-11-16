@@ -15,15 +15,6 @@ import { shouldGenerateToolDoc } from './doc-pages'
 import type { BlockConfig, DocSubBlock, ToolDocSource, ToolInfo, TriggerConfig } from './types'
 import { appendSentence, describeVisibilityCondition } from './utils'
 
-const AI_DISPATCH_TOOL_IDS = new Set([
-  'anthropic_chat',
-  'deepseek_chat',
-  'deepseek_reasoner',
-  'google_chat',
-  'openai_chat',
-  'xai_chat',
-])
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
@@ -353,12 +344,10 @@ async function loadDocSources(rootDir: string, blocks: BlockConfig[]): Promise<T
   const unresolved: string[] = []
   const sources = blocks.map((config) => {
     const toolInfo = new Map<string, ToolInfo>()
-    let usesBlockInfo = false
 
     for (const toolId of config.tools?.access ?? []) {
       const tool = tools.get(toolId)
       if (tool) toolInfo.set(toolId, toToolInfo(tool))
-      else if (AI_DISPATCH_TOOL_IDS.has(toolId)) usesBlockInfo = true
       else unresolved.push(`${config.type}: ${toolId}`)
     }
     for (const [operation, toolId] of Object.entries(config.operationToolMap ?? {})) {
@@ -368,7 +357,7 @@ async function loadDocSources(rootDir: string, blocks: BlockConfig[]): Promise<T
     return {
       config,
       toolInfo,
-      blockInfo: usesBlockInfo || toolInfo.size === 0 ? toBlockInfo(config) : undefined,
+      blockInfo: toolInfo.size === 0 ? toBlockInfo(config) : undefined,
     }
   })
 

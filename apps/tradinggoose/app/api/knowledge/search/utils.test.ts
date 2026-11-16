@@ -8,11 +8,6 @@
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { resolveAzureOpenAIServiceConfig, resolveOpenAIServiceConfig } = vi.hoisted(() => ({
-  resolveAzureOpenAIServiceConfig: vi.fn(),
-  resolveOpenAIServiceConfig: vi.fn(),
-}))
-
 vi.mock('drizzle-orm', async () => await vi.importActual('drizzle-orm'))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
@@ -51,10 +46,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     embedding: 'embedding.embedding',
   },
 }))
-vi.mock('@/lib/knowledge/documents/utils', () => ({
-  retryWithExponentialBackoff: (fn: any) => fn(),
-}))
-
 const fetchSpy = vi.fn()
 vi.stubGlobal('fetch', fetchSpy)
 
@@ -65,25 +56,8 @@ vi.mock('@/lib/env', () => ({
     typeof value === 'string' ? value === 'true' || value === '1' : Boolean(value),
 }))
 
-vi.mock('@/lib/system-services/runtime', () => ({
-  resolveAzureOpenAIServiceConfig,
-  resolveOpenAIServiceConfig,
-}))
+import { handleTagAndVectorSearch, handleTagOnlySearch, handleVectorOnlySearch } from './utils'
 
-import {
-  generateSearchEmbedding,
-  handleTagAndVectorSearch,
-  handleTagOnlySearch,
-  handleVectorOnlySearch,
-} from './utils'
-
-const azureConfig = {
-  apiKey: 'test-azure-key',
-  endpoint: 'https://test.openai.azure.com',
-  apiVersion: '2024-12-01-preview',
-  embeddingModel: 'text-embedding-ada-002',
-}
-const openaiConfig = { defaultApiKey: 'test-openai-key' }
 const searchParams = {
   knowledgeBaseIds: ['kb-123'],
   topK: 10,
@@ -98,17 +72,6 @@ describe('Knowledge Search Utils', () => {
     fetchSpy.mockReset().mockResolvedValue({
       ok: true,
       json: async () => ({ data: [{ embedding: [0.1, 0.2, 0.3] }] }),
-    })
-    resolveAzureOpenAIServiceConfig.mockReset()
-    resolveOpenAIServiceConfig.mockReset()
-    resolveAzureOpenAIServiceConfig.mockResolvedValue({
-      apiKey: null,
-      endpoint: null,
-      apiVersion: '2024-07-01-preview',
-      embeddingModel: null,
-    })
-    resolveOpenAIServiceConfig.mockResolvedValue({
-      defaultApiKey: null,
     })
   })
 
@@ -240,95 +203,6 @@ describe('Knowledge Search Utils', () => {
     it.each(['queryVector', 'distanceThreshold'])('rejects missing %s', async (field) => {
       await expect(handler({ ...searchParams, [field]: undefined })).rejects.toThrow(
         `Query vector and distance threshold are required for ${mode} search`
-      )
-    })
-  })
-
-  describe('generateSearchEmbedding', () => {
-    it('uses Azure OpenAI when KB-specific config is provided', async () => {
-      resolveAzureOpenAIServiceConfig.mockResolvedValue(azureConfig)
-      resolveOpenAIServiceConfig.mockResolvedValue(openaiConfig)
-      expect(await generateSearchEmbedding('test query')).toEqual([0.1, 0.2, 0.3])
-      expect(fetchSpy).toHaveBeenCalledWith(
-        'https://test.openai.azure.com/openai/deployments/text-embedding-ada-002/embeddings?api-version=2024-12-01-preview',
-        expect.objectContaining({
-          headers: expect.objectContaining({ 'api-key': 'test-azure-key' }),
-        })
-      )
-    })
-
-    it('uses OpenAI when no KB Azure config is provided', async () => {
-      resolveOpenAIServiceConfig.mockResolvedValue(openaiConfig)
-      expect(await generateSearchEmbedding('test query')).toEqual([0.1, 0.2, 0.3])
-      expect(fetchSpy).toHaveBeenCalledWith(
-        'https://api.openai.com/v1/embeddings',
-        expect.objectContaining({
-          headers: expect.objectContaining({ Authorization: 'Bearer test-openai-key' }),
-        })
-      )
-    })
-
-    it('uses the default API version from Azure config', async () => {
-      resolveAzureOpenAIServiceConfig.mockResolvedValue({
-        ...azureConfig,
-        apiVersion: '2024-07-01-preview',
-        embeddingModel: 'custom-embedding-model',
-      })
-      resolveOpenAIServiceConfig.mockResolvedValue(openaiConfig)
-      await generateSearchEmbedding('test query')
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('api-version=2024-07-01-preview'),
-        expect.any(Object)
-      )
-    })
-
-    it('uses the custom model name from Azure config', async () => {
-      resolveAzureOpenAIServiceConfig.mockResolvedValue({
-        ...azureConfig,
-        embeddingModel: 'custom-embedding-model',
-      })
-      resolveOpenAIServiceConfig.mockResolvedValue(openaiConfig)
-      await generateSearchEmbedding('test query', 'text-embedding-3-small')
-      expect(fetchSpy).toHaveBeenCalledWith(
-        'https://test.openai.azure.com/openai/deployments/custom-embedding-model/embeddings?api-version=2024-12-01-preview',
-        expect.any(Object)
-      )
-    })
-
-    it('rejects missing API configuration', async () => {
-      await expect(generateSearchEmbedding('test query')).rejects.toThrow(
-        'Either the OpenAI default API key or Azure OpenAI service config must be configured'
-      )
-    })
-
-    it.each([
-      ['Azure OpenAI', 404, 'Not Found', 'Deployment not found'],
-      ['OpenAI', 429, 'Too Many Requests', 'Rate limit exceeded'],
-    ] as const)('handles %s API errors', async (provider, status, statusText, text) => {
-      if (provider === 'Azure OpenAI')
-        resolveAzureOpenAIServiceConfig.mockResolvedValue(azureConfig)
-      else resolveOpenAIServiceConfig.mockResolvedValue(openaiConfig)
-      fetchSpy.mockResolvedValueOnce({ ok: false, status, statusText, text: async () => text })
-      await expect(generateSearchEmbedding('test query')).rejects.toThrow('Embedding API failed')
-    })
-
-    it.each(['Azure OpenAI', 'OpenAI'])('sends the correct %s body', async (provider) => {
-      if (provider === 'Azure OpenAI')
-        resolveAzureOpenAIServiceConfig.mockResolvedValue(azureConfig)
-      else resolveOpenAIServiceConfig.mockResolvedValue(openaiConfig)
-      await generateSearchEmbedding(
-        'test query',
-        provider === 'Azure OpenAI' ? undefined : 'text-embedding-3-small'
-      )
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          body: JSON.stringify({
-            input: ['test query'],
-            ...(provider === 'OpenAI' ? { model: 'text-embedding-3-small' } : {}),
-            encoding_format: 'float',
-          }),
-        })
       )
     })
   })

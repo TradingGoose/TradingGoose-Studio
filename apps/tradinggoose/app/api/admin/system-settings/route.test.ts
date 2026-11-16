@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/settings'
 import { ADMIN_ERROR_CODES } from '@/app/admin/constants'
 
 const {
@@ -96,6 +97,7 @@ describe('/api/admin/system-settings route', () => {
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
+      copilot: DEFAULT_COPILOT_SETTINGS,
     })
     mockUpsertSystemSettings.mockResolvedValue({
       settings: null,
@@ -105,6 +107,7 @@ describe('/api/admin/system-settings route', () => {
       allowPromotionCodes: false,
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
+      copilot: DEFAULT_COPILOT_SETTINGS,
     })
     mockBackfillDefaultUserSubscriptions.mockResolvedValue(3)
   })
@@ -126,6 +129,7 @@ describe('/api/admin/system-settings route', () => {
       fromEmailAddress: 'TradingGoose <noreply@tradinggoose.ai>',
       billingReady: true,
       triggerReady: true,
+      copilot: DEFAULT_COPILOT_SETTINGS,
     })
     expect(payload).not.toHaveProperty('stripeSecretKey')
     expect(payload).not.toHaveProperty('stripeWebhookSecret')
@@ -429,6 +433,116 @@ describe('/api/admin/system-settings route', () => {
       emailDomain: 'support.tradinggoose.ai',
     })
     expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
+  })
+
+  it.each(['deepseek', 'mistral'])(
+    'saves exact future model IDs for native provider %s without credential prerequisites',
+    async (provider) => {
+      const copilot = {
+        models: [{ provider, model: 'future-model' }],
+      }
+      mockUpsertSystemSettings.mockResolvedValueOnce({ copilot })
+      const { PATCH } = await import('./route')
+
+      const response = await PATCH(
+        new Request('http://localhost/api/admin/system-settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ copilot }),
+        }) as any
+      )
+
+      expect(response.status).toBe(200)
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
+      await expect(response.json()).resolves.toMatchObject({ copilot })
+      expect(mockUpsertSystemSettings).toHaveBeenCalledWith({ copilot })
+    }
+  )
+
+  it.each(['unknown-provider', 'netlify', 'databricks'])(
+    'rejects unsupported provider %s before saving a Copilot model',
+    async (provider) => {
+      const { PATCH } = await import('./route')
+      const response = await PATCH(
+        new Request('http://localhost/api/admin/system-settings', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            copilot: {
+              models: [{ provider, model: 'model' }],
+            },
+          }),
+        }) as any
+      )
+      expect(response.status).toBe(400)
+      expect(await response.json()).toMatchObject({
+        details: [{ path: ['copilot', 'models', 0, 'provider'] }],
+      })
+      expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
+    ['openai', 'gpt-image-1.5'],
+    ['google', 'gemini-embedding-2'],
+    ['google', 'lyria-3-clip-preview'],
+    ['google', 'lyria-3-pro-preview'],
+    ['tinfoil', 'nomic-embed-text'],
+    ['xai', 'grok-4.20-multi-agent-0309'],
+    ['perplexity', 'sonar-deep-research'],
+  ])('rejects incompatible Copilot model %s/%s before saving', async (provider, model) => {
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          copilot: { models: [{ provider, model }] },
+        }),
+      }) as any
+    )
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      details: [{ path: ['copilot', 'models', 0, 'model'] }],
+    })
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+  })
+
+  it('accepts a published multimodal chat model', async () => {
+    const copilot = {
+      models: [{ provider: 'openai', model: 'gpt-4.1' }],
+    }
+    mockUpsertSystemSettings.mockResolvedValueOnce({ copilot })
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ copilot }),
+      }) as any
+    )
+    expect(response.status).toBe(200)
+    expect(mockUpsertSystemSettings).toHaveBeenCalledWith({ copilot })
+  })
+
+  it.each([
+    { isAuthenticated: false, isSystemAdmin: false, status: 401 },
+    { isAuthenticated: true, isSystemAdmin: false, status: 403 },
+  ])('denies Copilot settings reads and writes without admin access: %j', async (access) => {
+    mockGetSystemAdminAccess.mockResolvedValue({
+      userId: access.isAuthenticated ? 'ordinary-user' : null,
+      canBootstrapSystemAdmin: false,
+      ...access,
+    })
+    const { GET, PATCH } = await import('./route')
+    const readResponse = await GET()
+    const writeResponse = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ copilot: DEFAULT_COPILOT_SETTINGS }),
+      }) as any
+    )
+
+    expect(readResponse.status).toBe(access.status)
+    expect(writeResponse.status).toBe(access.status)
+    expect(mockGetResolvedSystemSettings).not.toHaveBeenCalled()
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
 
   it('rejects invalid request data', async () => {

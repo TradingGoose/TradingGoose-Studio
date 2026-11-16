@@ -6,12 +6,7 @@
  * This file contains unit tests for the knowledge base utility functions,
  * including access checks, document processing, and embedding generation.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const { resolveAzureOpenAIServiceConfig, resolveOpenAIServiceConfig } = vi.hoisted(() => ({
-  resolveAzureOpenAIServiceConfig: vi.fn(),
-  resolveOpenAIServiceConfig: vi.fn(),
-}))
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetUserEntityPermissions = vi.hoisted(() => vi.fn())
 
@@ -32,17 +27,8 @@ vi.mock('@/lib/env', () => ({
     typeof value === 'string' ? value === 'true' || value === '1' : Boolean(value),
 }))
 
-vi.mock('@/lib/system-services/runtime', () => ({
-  resolveAzureOpenAIServiceConfig,
-  resolveOpenAIServiceConfig,
-}))
-
 vi.mock('@/lib/permissions/utils', () => ({
   getUserEntityPermissions: mockGetUserEntityPermissions,
-}))
-
-vi.mock('@/lib/knowledge/documents/utils', () => ({
-  retryWithExponentialBackoff: (fn: any) => fn(),
 }))
 
 vi.mock('@/lib/knowledge/documents/document-processor', () => ({
@@ -91,18 +77,15 @@ function resetDatasets() {
   chunkRows = []
 }
 
-vi.stubGlobal(
-  'fetch',
-  vi.fn().mockResolvedValue({
-    ok: true,
-    json: async () => ({
-      data: [
-        { embedding: [0.1, 0.2], index: 0 },
-        { embedding: [0.3, 0.4], index: 1 },
-      ],
-    }),
-  })
-)
+vi.mock('@/lib/embeddings/utils', () => ({
+  generateEmbeddings: vi.fn(async (texts: string[], _scope: unknown, model: string) => ({
+    embeddings: texts.map((_, index) => [index + 0.1, index + 0.2]),
+    model,
+    tokens: { prompt: texts.length, total: texts.length },
+    usage: { status: 'reported', batches: 1 },
+    cost: { status: 'unavailable' },
+  })),
+}))
 
 vi.mock('@tradinggoose/db', () => {
   function resolveRows(table: any, n: number) {
@@ -197,7 +180,7 @@ vi.mock('@tradinggoose/db', () => {
   }
 })
 
-import { generateEmbeddings } from '@/lib/embeddings/utils'
+import { processDocument } from '@/lib/knowledge/documents/document-processor'
 import {
   markDocumentProcessingFailed,
   processDocumentAsync,
@@ -215,24 +198,13 @@ describe('Knowledge Utils', () => {
     dbOps.updatePayloads.length = 0
     resetDatasets()
     vi.clearAllMocks()
-    resolveAzureOpenAIServiceConfig.mockReset()
-    resolveOpenAIServiceConfig.mockReset()
-    resolveAzureOpenAIServiceConfig.mockResolvedValue({
-      apiKey: null,
-      endpoint: null,
-      apiVersion: '2024-07-01-preview',
-      embeddingModel: null,
-    })
-    resolveOpenAIServiceConfig.mockResolvedValue({
-      defaultApiKey: 'test-key',
-    })
-    mockGetUserEntityPermissions.mockReset()
-    mockGetUserEntityPermissions.mockResolvedValue('read')
   })
 
   describe('processDocumentAsync', () => {
-    it('should reset persisted embeddings before inserting new batches', async () => {
-      kbRows.push({ id: 'kb1', embeddingModel: 'kb-embedding-model' })
+    beforeEach(() => mockGetUserEntityPermissions.mockResolvedValue('write'))
+    afterEach(() => mockGetUserEntityPermissions.mockReset())
+    it('resets persisted embeddings before processing native batches', async () => {
+      kbRows.push({ id: 'kb1', workspaceId: 'workspace-1', embeddingModel: 'kb-embedding-model' })
       docRows.push({ id: 'doc1', deletedAt: null })
 
       await processDocumentAsync(
@@ -248,9 +220,19 @@ describe('Knowledge Utils', () => {
           chunkSize: 512,
           minCharactersPerChunk: 1,
           chunkOverlap: 200,
-        }
+        },
+        { actorUserId: 'actor-1', workspaceId: 'workspace-1' }
       )
 
+      expect(processDocument).toHaveBeenCalledExactlyOnceWith(
+        'https://example.com/file.txt',
+        'file.txt',
+        'text/plain',
+        'actor-1',
+        512,
+        200,
+        1
+      )
       expect(dbOps.order).toEqual(['deleteEmbeddings', 'update', 'insert', 'update'])
 
       expect(dbOps.updatePayloads[0]).toMatchObject({
@@ -264,6 +246,16 @@ describe('Knowledge Utils', () => {
 
       expect(dbOps.insertRecords[0].length).toBe(2)
       expect(dbOps.insertRecords[0][0].embeddingModel).toBe('kb-embedding-model')
+      const { generateEmbeddings } = await import('@/lib/embeddings/utils')
+      expect(generateEmbeddings).toHaveBeenCalledExactlyOnceWith(
+        ['alpha', 'beta'],
+        expect.objectContaining({
+          actorUserId: 'actor-1',
+          workspaceId: 'workspace-1',
+          runId: 'embedding-document:doc1:1',
+        }),
+        'kb-embedding-model'
+      )
     })
 
     it('should clear persisted embeddings when processing is marked failed', async () => {
@@ -343,80 +335,6 @@ describe('Knowledge Utils', () => {
       if ('chunk' in result) {
         expect(result.chunk.id).toBe('chunk1')
       }
-    })
-  })
-
-  describe('generateEmbeddings', () => {
-    it('should return same length as input', async () => {
-      const result = await generateEmbeddings(['a', 'b'])
-
-      expect(result.length).toBe(2)
-    })
-
-    it('should use Azure OpenAI when Azure config is provided', async () => {
-      resolveAzureOpenAIServiceConfig.mockResolvedValue({
-        apiKey: 'test-azure-key',
-        endpoint: 'https://test.openai.azure.com',
-        apiVersion: '2024-12-01-preview',
-        embeddingModel: 'text-embedding-ada-002',
-      })
-      resolveOpenAIServiceConfig.mockResolvedValue({
-        defaultApiKey: 'test-openai-key',
-      })
-
-      const fetchSpy = vi.mocked(fetch)
-      fetchSpy.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [{ embedding: [0.1, 0.2], index: 0 }],
-        }),
-      } as any)
-
-      await generateEmbeddings(['test text'])
-
-      expect(fetchSpy).toHaveBeenCalledWith(
-        'https://test.openai.azure.com/openai/deployments/text-embedding-ada-002/embeddings?api-version=2024-12-01-preview',
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'api-key': 'test-azure-key',
-          }),
-        })
-      )
-    })
-
-    it('should use OpenAI when no Azure config is provided', async () => {
-      resolveOpenAIServiceConfig.mockResolvedValue({
-        defaultApiKey: 'test-openai-key',
-      })
-
-      const fetchSpy = vi.mocked(fetch)
-      fetchSpy.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [{ embedding: [0.1, 0.2], index: 0 }],
-        }),
-      } as any)
-
-      await generateEmbeddings(['test text'])
-
-      expect(fetchSpy).toHaveBeenCalledWith(
-        'https://api.openai.com/v1/embeddings',
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-openai-key',
-          }),
-        })
-      )
-    })
-
-    it('should throw error when no API configuration provided', async () => {
-      resolveOpenAIServiceConfig.mockResolvedValue({
-        defaultApiKey: null,
-      })
-
-      await expect(generateEmbeddings(['test text'])).rejects.toThrow(
-        'Either the OpenAI default API key or Azure OpenAI service config must be configured'
-      )
     })
   })
 })

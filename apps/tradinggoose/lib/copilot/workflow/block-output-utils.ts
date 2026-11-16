@@ -1,5 +1,6 @@
 import { getBlockOutputPaths, getBlockOutputType } from '@/lib/workflows/block-outputs'
 import { getSubflowInsidePaths } from '@/lib/workflows/references'
+import type { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
 import type { Variable } from '@/stores/variables/types'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
@@ -117,7 +118,8 @@ export function getSubflowInsideOutputReferences(
 export function computeBlockOutputReferences(
   block: BlockState,
   ctx: WorkflowContext,
-  workflowVariables: VariableOutput[] = []
+  workflowVariables: VariableOutput[] = [],
+  getModel?: Parameters<typeof evaluateSubBlockCondition>[2]
 ): BlockOutputReference[] {
   const { blocks, subBlockValues } = ctx
   const blockName = block.name || block.type
@@ -152,9 +154,9 @@ export function computeBlockOutputReferences(
   }
 
   const mergedSubBlocks = getMergedSubBlocks(blocks, subBlockValues, block.id)
-  const outputPaths = getBlockOutputPaths(block.type, mergedSubBlocks, block.triggerMode)
+  const outputPaths = getBlockOutputPaths(block.type, mergedSubBlocks, block.triggerMode, getModel)
 
   return formatOutputReferencesWithPrefix(outputPaths, blockName, (path) =>
-    getBlockOutputType(block.type, path, mergedSubBlocks, block.triggerMode)
+    getBlockOutputType(block.type, path, mergedSubBlocks, block.triggerMode, getModel)
   )
 }

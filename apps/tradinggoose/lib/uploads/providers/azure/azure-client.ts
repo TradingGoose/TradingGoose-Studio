@@ -368,7 +368,7 @@ export async function deleteFromAzure(
   const containerClient = azureServiceClient.getContainerClient(containerName)
   const blockBlobClient = containerClient.getBlockBlobClient(key)
 
-  await blockBlobClient.delete()
+  await blockBlobClient.deleteIfExists()
 }
 
 /**

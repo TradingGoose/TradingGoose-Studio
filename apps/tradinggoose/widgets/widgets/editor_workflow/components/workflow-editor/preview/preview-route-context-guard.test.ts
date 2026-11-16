@@ -66,7 +66,6 @@ describe('preview route-context guards', () => {
     expect(() =>
       renderToStaticMarkup(
         createElement(DeployedWorkflowModal, {
-          isOpen: true,
           onClose: () => {},
           needsRedeployment: false,
           activeDeployedState: state,

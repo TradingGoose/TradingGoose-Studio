@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
     try {
       userFile = processSingleFileToUserFile(fileData, requestId, logger)
     } catch (error) {
+      if (error instanceof Error && 'status' in error && error.status === 403) throw error
       return NextResponse.json(
         {
           success: false,
@@ -107,8 +108,13 @@ export async function POST(request: NextRequest) {
     let fileBuffer: Buffer
 
     try {
-      fileBuffer = await downloadFileFromStorage(userFile, requestId, logger)
+      fileBuffer = await downloadFileFromStorage(userFile, requestId, logger, {
+        actorUserId: credential.requesterUserId,
+        workspaceId: credential.workspaceId,
+        signal: request.signal,
+      })
     } catch (error) {
+      if (error instanceof Error && 'status' in error && error.status === 403) throw error
       logger.error(`[${requestId}] Failed to download file:`, error)
       return NextResponse.json(
         {
@@ -140,6 +146,7 @@ export async function POST(request: NextRequest) {
           logger.info(`[${requestId}] Converted to CSV for Google Sheets upload`)
         }
       } catch (error) {
+        if (error instanceof Error && 'status' in error && error.status === 403) throw error
         logger.warn(`[${requestId}] Could not convert to CSV, uploading as-is:`, error)
       }
     }
@@ -260,6 +267,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && 'status' in error && error.status === 403) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 })
+    }
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid request data`, { errors: error.issues })
       return NextResponse.json(

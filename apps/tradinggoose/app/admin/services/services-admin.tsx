@@ -40,6 +40,7 @@ import {
 } from '@/hooks/queries/admin-services'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
+import { useModelRegistry } from '@/stores/model-registry'
 
 const EMPTY_SNAPSHOT: AdminSystemServicesSnapshot = {
   services: [],
@@ -74,6 +75,7 @@ export function AdminServices() {
   const writeLockRef = useRef(false)
   const saveServiceMutation = useMutation({
     mutationFn: ({ controlId: _controlId, ...input }: SaveServiceAction) => saveAdminService(input),
+    onSuccess: () => useModelRegistry.getState().load(),
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [draft, setDraft] = useState<AdminSystemServicesSnapshot | null>(null)

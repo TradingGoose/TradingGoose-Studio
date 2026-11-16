@@ -1,0 +1,83 @@
+import { describe, expect, it } from 'vitest'
+import { validateNativeBrowserAssertion } from './browser-assertion'
+import type { JsonObject, Pending } from './contract'
+
+function pending(toolName: string, originalArgs: JsonObject = {}): Pending {
+  return {
+    target: {
+      toolName,
+      toolCallId: 'call',
+      threadId: 'thread',
+      resourceId: 'resource',
+      runId: 'run',
+    },
+    originalArgs,
+    stage: 'result',
+  }
+}
+describe('browser assertions cannot become authoritative business results', () => {
+  it.each([
+    'run_workflow',
+    'gdrive_request_access',
+    'create_workflow',
+    'read_workflow',
+    'plan',
+    'checkoff_todo',
+    'mark_todo_in_progress',
+  ])('requires authoritative Studio readback for %s', (toolName) => {
+    expect(() =>
+      validateNativeBrowserAssertion(pending(toolName), {
+        kind: 'ui.opened',
+        data: { success: true, granted: true },
+      })
+    ).toThrow('authoritative Studio')
+  })
+  it('keeps timer assertions within their kind and business schema', () => {
+    const target = pending('sleep')
+    const data = { success: true, seconds: 1 }
+    expect(() =>
+      validateNativeBrowserAssertion(target, { kind: 'timer.completed', data })
+    ).not.toThrow()
+    expect(() => validateNativeBrowserAssertion(target, { kind: 'ui.opened', data })).toThrow(
+      'Invalid local'
+    )
+    expect(() =>
+      validateNativeBrowserAssertion(target, {
+        kind: 'timer.completed',
+        data: { ...data, granted: true },
+      })
+    ).toThrow('business schema')
+  })
+  it.each(['oauth_request_access', 'deploy_workflow'])(
+    'only describes opened UI for %s and denies fabricated grants/deployments',
+    (toolName) => {
+      const target = pending(toolName, { action: 'deploy', deployType: 'chat' })
+      expect(() =>
+        validateNativeBrowserAssertion(target, {
+          kind: 'ui.opened',
+          data: { opened: true, surface: 'settings' },
+        })
+      ).not.toThrow()
+      expect(() =>
+        validateNativeBrowserAssertion(target, {
+          kind: 'ui.opened',
+          data: { opened: true, granted: true, isDeployed: true },
+        })
+      ).toThrow('cannot assert')
+      expect(() =>
+        validateNativeBrowserAssertion(target, {
+          kind: 'ui.opened',
+          data: { opened: true, surface: { granted: true } },
+        })
+      ).toThrow('cannot assert')
+    }
+  )
+  it.each(['deploy', 'undeploy'])('API %s requires authoritative readback', (action) => {
+    expect(() =>
+      validateNativeBrowserAssertion(pending('deploy_workflow', { action, deployType: 'api' }), {
+        kind: 'ui.opened',
+        data: { opened: true },
+      })
+    ).toThrow('Only a dialog')
+  })
+})

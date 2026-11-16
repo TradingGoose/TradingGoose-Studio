@@ -7,7 +7,7 @@ import { useBlock, useBlockProtection } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { useProvidersStore } from '@/stores/providers/store'
+import { useModelRegistry } from '@/stores/model-registry'
 import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { SubBlockEditRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-edit-rows'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
@@ -30,7 +30,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const canEdit = useOptionalWorkflowSession()?.canEdit === true
   const selectedBlock = useBlock(selectedNodeId ?? '')
   const isSelectedBlockProtected = useBlockProtection(selectedNodeId ?? '')
-  const providers = useProvidersStore((state) => state.providers)
+  const providers = useModelRegistry((state) => state.providers)
 
   const blockConfig = useMemo(
     () => (selectedBlock ? getBlock(selectedBlock.type) : undefined),

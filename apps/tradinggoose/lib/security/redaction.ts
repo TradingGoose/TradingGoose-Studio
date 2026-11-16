@@ -61,7 +61,6 @@ function redactSensitiveText(value: string): string {
 function isTokenMetricValue(value: unknown): boolean {
   if (typeof value === 'number') return Number.isFinite(value)
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  let entryCount = 0
   const record = value as Record<string, unknown>
   for (const key in record) {
     if (!Object.hasOwn(record, key)) continue
@@ -72,9 +71,8 @@ function isTokenMetricValue(value: unknown): boolean {
       !Number.isFinite(entry)
     )
       return false
-    entryCount += 1
   }
-  return entryCount > 0
+  return true
 }
 
 function isSensitiveDataKey(key: string, value?: unknown): boolean {

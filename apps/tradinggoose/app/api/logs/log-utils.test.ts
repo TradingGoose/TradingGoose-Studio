@@ -225,3 +225,22 @@ describe('parseListingFilters', () => {
     ])
   })
 })
+
+describe('numeric log cost filters', () => {
+  it.each([{ costMin: 0 }, { costMax: 0 }, { costMin: 0, costMax: 0 }])(
+    'excludes unavailable native totals while retaining actual zero: %j',
+    (filters) => {
+      const unknown = serializeWorkflowLog(buildRow({ cost: { status: 'unavailable' } }), 'full')
+      const free = serializeWorkflowLog(
+        buildRow({ cost: { total: 0, status: 'reported' } }),
+        'full'
+      )
+      expect(matchesWorkflowLogFilters(unknown, filters)).toBe(false)
+      expect(matchesWorkflowLogFilters(free, filters)).toBe(true)
+    }
+  )
+  it('keeps missing costs when no numeric filter is requested', () => {
+    const unknown = serializeWorkflowLog(buildRow({ cost: { status: 'unavailable' } }), 'full')
+    expect(matchesWorkflowLogFilters(unknown, {})).toBe(true)
+  })
+})

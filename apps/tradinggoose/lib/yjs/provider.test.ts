@@ -120,8 +120,6 @@ describe('bootstrapYjsProvider', () => {
     workspaceId: 'workspace-1',
     entityKind: 'workflow',
     entityId: 'workflow-1',
-    draftSessionId: null,
-    reviewSessionId: null,
     yjsSessionId: 'workflow-1',
   }
 

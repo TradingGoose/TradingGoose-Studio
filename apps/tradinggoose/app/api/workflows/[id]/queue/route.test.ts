@@ -4,17 +4,23 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NativeTargetError } from '@/lib/copilot/native/errors'
+import { PendingExecutionLimitError } from '@/lib/execution/pending-execution'
 
 const {
+  nativeEffectMock,
   checkSessionOrInternalAuthMock,
   readWorkflowAccessContextMock,
   enqueuePendingExecutionMock,
-  openWorkflowExecutionEventStreamMock,
 } = vi.hoisted(() => ({
+  nativeEffectMock: vi.fn(),
   checkSessionOrInternalAuthMock: vi.fn(),
   readWorkflowAccessContextMock: vi.fn(),
   enqueuePendingExecutionMock: vi.fn(),
-  openWorkflowExecutionEventStreamMock: vi.fn(),
+}))
+
+vi.mock('@/lib/copilot/native/workflow-effects', () => ({
+  authorizeNativeWorkflowQueueEffect: nativeEffectMock,
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({
@@ -26,13 +32,9 @@ vi.mock('@/lib/workflows/utils', async (importOriginal) => ({
   readWorkflowAccessContext: readWorkflowAccessContextMock,
 }))
 
-vi.mock('@/lib/execution/pending-execution', () => ({
+vi.mock('@/lib/execution/pending-execution', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/execution/pending-execution')>()),
   enqueuePendingExecution: enqueuePendingExecutionMock,
-  isPendingExecutionLimitError: vi.fn(() => false),
-}))
-
-vi.mock('@/lib/execution/workflow-execution-stream', () => ({
-  openWorkflowExecutionEventStream: openWorkflowExecutionEventStreamMock,
 }))
 
 vi.mock('@/lib/trigger/settings', () => ({
@@ -49,16 +51,22 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/utils', () => ({
   generateRequestId: vi.fn(() => 'request-1'),
-  SSE_HEADERS: { 'Content-Type': 'text/event-stream' },
 }))
 
 vi.unmock('@/blocks/registry')
 
 import { POST } from './route'
 
+function queue(init?: ConstructorParameters<typeof NextRequest>[1]) {
+  return POST(new NextRequest('http://localhost/api/workflows/workflow-1/queue', init), {
+    params: Promise.resolve({ id: 'workflow-1' }),
+  })
+}
+
 describe('POST /api/workflows/[id]/queue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    nativeEffectMock.mockReset()
     checkSessionOrInternalAuthMock.mockResolvedValue({
       success: true,
       userId: 'user-1',
@@ -80,10 +88,6 @@ describe('POST /api/workflows/[id]/queue', () => {
       billingScopeId: 'scope-1',
       inserted: true,
     })
-    openWorkflowExecutionEventStreamMock.mockResolvedValue({
-      ok: true,
-      stream: new ReadableStream(),
-    })
   })
 
   it('requires authentication', async () => {
@@ -92,12 +96,7 @@ describe('POST /api/workflows/[id]/queue', () => {
       error: 'Unauthorized',
     })
 
-    const response = await POST(
-      new NextRequest('http://localhost/api/workflows/workflow-1/queue'),
-      {
-        params: Promise.resolve({ id: 'workflow-1' }),
-      }
-    )
+    const response = await queue()
 
     expect(response.status).toBe(401)
     await expect(response.json()).resolves.toEqual({
@@ -117,26 +116,21 @@ describe('POST /api/workflows/[id]/queue', () => {
       workspacePermission: 'read',
     })
 
-    const response = await POST(
-      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
-        method: 'POST',
-        body: JSON.stringify({
-          input: { symbol: 'AAPL' },
-          executionTarget: 'live',
-          triggerType: 'manual',
-          workflowDepth: 2,
-          parentWorkflowId: 'parent-1',
-          parentExecutionId: 'execution-1',
-          parentBlockId: 'block-1',
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+    const response = await queue({
+      method: 'POST',
+      body: JSON.stringify({
+        input: { symbol: 'AAPL' },
+        executionTarget: 'live',
+        triggerType: 'manual',
+        workflowDepth: 2,
+        parentWorkflowId: 'parent-1',
+        parentExecutionId: 'execution-1',
+        parentBlockId: 'block-1',
       }),
-      {
-        params: Promise.resolve({ id: 'workflow-1' }),
-      }
-    )
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
 
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' })
@@ -165,18 +159,13 @@ describe('POST /api/workflows/[id]/queue', () => {
       error: 'Invalid JSON in request body',
     },
   ])('rejects $name', async ({ body, error }) => {
-    const response = await POST(
-      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
-        method: 'POST',
-        body,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }),
-      {
-        params: Promise.resolve({ id: 'workflow-1' }),
-      }
-    )
+    const response = await queue({
+      method: 'POST',
+      body,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ error })
@@ -197,25 +186,20 @@ describe('POST /api/workflows/[id]/queue', () => {
       },
     })
 
-    const response = await POST(
-      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
-        method: 'POST',
-        body: JSON.stringify({
-          input: { symbol: 'AAPL' },
-          executionTarget: 'live',
-          triggerType: 'manual',
-          workflowDepth: 2,
-          parentPendingExecutionId: 'untrusted-body-owner',
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer internal-token',
-        },
+    const response = await queue({
+      method: 'POST',
+      body: JSON.stringify({
+        input: { symbol: 'AAPL' },
+        executionTarget: 'live',
+        triggerType: 'manual',
+        workflowDepth: 2,
+        parentPendingExecutionId: 'untrusted-body-owner',
       }),
-      {
-        params: Promise.resolve({ id: 'workflow-1' }),
-      }
-    )
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer internal-token',
+      },
+    })
 
     expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -277,20 +261,15 @@ describe('POST /api/workflows/[id]/queue', () => {
       workspacePermission: 'read',
     })
 
-    const response = await POST(
-      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
-        method: 'POST',
-        body: JSON.stringify({
-          input: { symbol: 'AAPL' },
-          executionTarget: 'live',
-          triggerType: 'manual',
-          workflowDepth: 2,
-        }),
+    const response = await queue({
+      method: 'POST',
+      body: JSON.stringify({
+        input: { symbol: 'AAPL' },
+        executionTarget: 'live',
+        triggerType: 'manual',
+        workflowDepth: 2,
       }),
-      {
-        params: Promise.resolve({ id: 'workflow-1' }),
-      }
-    )
+    })
 
     expect(response.status).toBe(403)
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
@@ -306,26 +285,21 @@ describe('POST /api/workflows/[id]/queue', () => {
       parallels: {},
     }
 
-    const response = await POST(
-      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
-        method: 'POST',
-        body: JSON.stringify({
-          executionId: 'execution-1',
-          input: { symbol: 'AAPL' },
-          executionTarget: 'live',
-          triggerType: 'manual',
-          workflowData,
-          workflowVariables: { risk: { value: 1 } },
-          triggerBlockId: 'trigger-1',
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+    const response = await queue({
+      method: 'POST',
+      body: JSON.stringify({
+        executionId: 'execution-1',
+        input: { symbol: 'AAPL' },
+        executionTarget: 'live',
+        triggerType: 'manual',
+        workflowData,
+        workflowVariables: { risk: { value: 1 } },
+        triggerBlockId: 'trigger-1',
       }),
-      {
-        params: Promise.resolve({ id: 'workflow-1' }),
-      }
-    )
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
 
     expect(response.status).toBe(202)
     expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
@@ -346,54 +320,42 @@ describe('POST /api/workflows/[id]/queue', () => {
     )
   })
 
-  it('returns the queued workflow event stream for live streaming executions', async () => {
-    const response = await POST(
-      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
-        method: 'POST',
-        body: JSON.stringify({
-          executionId: 'execution-1',
-          input: { symbol: 'AAPL' },
-          executionTarget: 'live',
-          triggerType: 'manual',
-          stream: true,
-          workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+  it('returns an admission receipt while enabling live execution events', async () => {
+    const response = await queue({
+      method: 'POST',
+      body: JSON.stringify({
+        executionId: 'execution-1',
+        input: { symbol: 'AAPL' },
+        executionTarget: 'live',
+        triggerType: 'manual',
+        stream: true,
+        workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
       }),
-      {
-        params: Promise.resolve({ id: 'workflow-1' }),
-      }
-    )
-
-    expect(response.status).toBe(200)
-    expect(response.headers.get('Content-Type')).toContain('text/event-stream')
-    expect(response.headers.get('X-Execution-Id')).toBe('execution-1')
-    expect(response.headers.get('X-Task-Id')).toBe('pending-1')
-    expect(openWorkflowExecutionEventStreamMock).toHaveBeenCalledWith({
-      pendingExecutionId: 'execution-1',
-      workflowId: 'workflow-1',
-      requestId: 'request-1',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     })
+
+    expect(response.status).toBe(202)
+    expect(await response.json()).toMatchObject({ taskId: 'pending-1', executionId: 'execution-1' })
+    expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({ stream: true }),
+      })
+    )
   })
 
   it('rejects deployed executions with live workflow state', async () => {
-    const response = await POST(
-      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
-        method: 'POST',
-        body: JSON.stringify({
-          executionTarget: 'deployed',
-          workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+    const response = await queue({
+      method: 'POST',
+      body: JSON.stringify({
+        executionTarget: 'deployed',
+        workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
       }),
-      {
-        params: Promise.resolve({ id: 'workflow-1' }),
-      }
-    )
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
@@ -402,15 +364,21 @@ describe('POST /api/workflows/[id]/queue', () => {
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })
 
-  it('returns conflict when the generated execution id already exists', async () => {
-    enqueuePendingExecutionMock.mockResolvedValueOnce({
-      pendingExecutionId: 'execution-1',
-      billingScopeId: 'scope-1',
-      inserted: false,
-    })
+  it.each(['duplicate', 'backlog'])(
+    'returns the canonical %s admission refusal',
+    async (reason) => {
+      if (reason === 'backlog')
+        enqueuePendingExecutionMock.mockRejectedValueOnce(
+          new PendingExecutionLimitError({ pendingCount: 1, maxPendingCount: 1 })
+        )
+      else
+        enqueuePendingExecutionMock.mockResolvedValueOnce({
+          pendingExecutionId: 'execution-1',
+          billingScopeId: 'scope-1',
+          inserted: false,
+        })
 
-    const response = await POST(
-      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
+      const response = await queue({
         method: 'POST',
         body: JSON.stringify({
           executionId: 'execution-1',
@@ -421,15 +389,86 @@ describe('POST /api/workflows/[id]/queue', () => {
         headers: {
           'Content-Type': 'application/json',
         },
-      }),
-      {
-        params: Promise.resolve({ id: 'workflow-1' }),
-      }
-    )
+      })
 
-    expect(response.status).toBe(409)
-    await expect(response.json()).resolves.toEqual({
-      error: 'Workflow execution already exists',
+      expect(response.status).toBe(reason === 'backlog' ? 429 : 409)
+      await expect(response.json()).resolves.toEqual(
+        reason === 'backlog'
+          ? { error: 'Pending execution backlog is full', code: 'PENDING_EXECUTION_LIMIT' }
+          : { error: 'Workflow execution already exists' }
+      )
+    }
+  )
+  it('checks native finance/target at actual queue boundary and returns unchanged duplicate 409', async () => {
+    const native = {
+      workspaceId: null,
+      target: {
+        threadId: 'thread',
+        resourceId: 'resource',
+        runId: 'run',
+        toolCallId: 'native-call',
+        toolName: 'run_workflow',
+      },
+    }
+    const admission = vi.fn(async () => true)
+    nativeEffectMock.mockResolvedValueOnce(admission)
+    enqueuePendingExecutionMock.mockResolvedValueOnce({ inserted: false })
+    const response = await queue({
+      method: 'POST',
+      body: JSON.stringify({
+        native,
+        executionId: 'native-call',
+        executionTarget: 'live',
+        triggerType: 'manual',
+      }),
     })
+    expect(nativeEffectMock).toHaveBeenCalledWith(
+      'user-1',
+      'workflow-1',
+      expect.objectContaining({ native, executionId: 'native-call' }),
+      expect.any(AbortSignal)
+    )
+    expect(nativeEffectMock.mock.invocationCallOrder[0]).toBeLessThan(
+      enqueuePendingExecutionMock.mock.invocationCallOrder[0]!
+    )
+    expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ beforeEnqueue: admission })
+    )
+    expect(admission).not.toHaveBeenCalled()
+    expect(response.status).toBe(409)
+  })
+  it.each([
+    new NativeTargetError('Stale target', 409),
+    new NativeTargetError('Actor/args revoked', 403),
+    new Error('Financial acceptance unavailable'),
+  ])('native refusal prevents any enqueue: %s', async (failure) => {
+    nativeEffectMock.mockRejectedValueOnce(failure)
+    const response = await queue({
+      method: 'POST',
+      body: JSON.stringify({
+        native: { workspaceId: null, target: {} },
+        executionTarget: 'live',
+        triggerType: 'manual',
+      }),
+    })
+    expect(response.status).toBeGreaterThanOrEqual(400)
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
+  it('never permits internal JWT to impersonate a native browser session actor', async () => {
+    checkSessionOrInternalAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+      authType: 'internal_jwt',
+    })
+    const response = await queue({
+      method: 'POST',
+      body: JSON.stringify({
+        native: { workspaceId: null, target: {} },
+        executionTarget: 'live',
+      }),
+    })
+    expect(response.status).toBe(403)
+    expect(nativeEffectMock).not.toHaveBeenCalled()
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })
 })

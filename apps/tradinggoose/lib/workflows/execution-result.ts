@@ -1,3 +1,4 @@
+import { publicTraceSpans } from '@/lib/logs/public'
 import type { ExecutionResult } from '@/executor/types'
 
 const PUBLIC_EXECUTION_METADATA_KEYS = ['duration', 'startTime', 'endTime'] as const
@@ -37,6 +38,8 @@ export function createPublicExecutionResult(result: ExecutionResult) {
 export function createInternalWorkflowJobResult(result: ExecutionResultWithTraceSpans) {
   return {
     ...createPublicExecutionResult(result),
-    ...(Array.isArray(result.traceSpans) ? { traceSpans: result.traceSpans } : {}),
+    ...(Array.isArray(result.traceSpans)
+      ? { traceSpans: publicTraceSpans(result.traceSpans) }
+      : {}),
   }
 }

@@ -5,10 +5,9 @@ import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import { TAG_SLOTS } from '@/lib/knowledge/consts'
 import { getDocumentTagDefinitions } from '@/lib/knowledge/tags/service'
 import { createLogger } from '@/lib/logs/console/logger'
-import { estimateTokenCount } from '@/lib/tokenization/estimators'
+import { getFailureAccounting } from '@/lib/mastra/errors'
 import { generateRequestId } from '@/lib/utils'
 import { checkKnowledgeBaseAccess } from '@/app/api/knowledge/utils'
-import { calculateCost } from '@/providers/ai/utils'
 import {
   generateSearchEmbedding,
   getDocumentNamesByIds,
@@ -61,6 +60,9 @@ const VectorSearchSchema = z
 
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
+  const embeddingState: { result: Awaited<ReturnType<typeof generateSearchEmbedding>> | null } = {
+    result: null,
+  }
 
   try {
     const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
     const { workflowId, ...searchParams } = body
     const userId = auth.userId
     let workflowWorkspaceId: string | undefined
+    let executionId: string | undefined
     if (workflowId !== undefined) {
       if (typeof workflowId !== 'string' || !workflowId.trim()) {
         return NextResponse.json({ error: 'Invalid workflowId' }, { status: 400 })
@@ -78,6 +81,7 @@ export async function POST(request: NextRequest) {
       const scope = await authorizeWorkflowScope(auth, workflowId, 'read')
       if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status })
       workflowWorkspaceId = scope.workspaceId
+      executionId = scope.executionId
     }
 
     try {
@@ -178,10 +182,27 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Start embedding generation early and await when needed
-      const queryEmbeddingPromise = hasQuery
-        ? generateSearchEmbedding(validatedData.query!, queryEmbeddingModel)
-        : Promise.resolve(null)
+      const workspaces = new Set(accessibleKnowledgeBases.map((kb) => kb.workspaceId))
+      if (hasQuery && workspaces.size !== 1) {
+        return NextResponse.json(
+          { error: 'Vector search requires knowledge bases in the same authorized workspace' },
+          { status: 400 }
+        )
+      }
+
+      embeddingState.result = hasQuery
+        ? await generateSearchEmbedding(
+            validatedData.query!,
+            {
+              actorUserId: userId,
+              workspaceId: accessibleKnowledgeBases[0].workspaceId,
+              workflowId,
+              executionId,
+              signal: request.signal,
+            },
+            queryEmbeddingModel
+          )
+        : null
 
       let results: SearchResult[]
 
@@ -199,7 +220,7 @@ export async function POST(request: NextRequest) {
         // Tag + Vector search
         logger.debug(`[${requestId}] Executing tag + vector search with filters:`, mappedFilters)
         const strategy = getQueryStrategy(accessibleKbIds.length, validatedData.topK)
-        const queryVector = JSON.stringify(await queryEmbeddingPromise)
+        const queryVector = JSON.stringify(embeddingState.result?.embedding)
 
         results = await handleTagAndVectorSearch({
           knowledgeBaseIds: accessibleKbIds,
@@ -212,7 +233,7 @@ export async function POST(request: NextRequest) {
         // Vector-only search
         logger.debug(`[${requestId}] Executing vector-only search`)
         const strategy = getQueryStrategy(accessibleKbIds.length, validatedData.topK)
-        const queryVector = JSON.stringify(await queryEmbeddingPromise)
+        const queryVector = JSON.stringify(embeddingState.result?.embedding)
 
         results = await handleVectorOnlySearch({
           knowledgeBaseIds: accessibleKbIds,
@@ -231,16 +252,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      let costInfo = null
-      if (hasQuery) {
-        try {
-          const tokenCount = estimateTokenCount(validatedData.query!, 'openai')
-          const cost = calculateCost(queryEmbeddingModel, tokenCount.count, 0)
-          costInfo = { cost, tokenCount }
-        } catch (error) {
-          logger.warn(`[${requestId}] Failed to calculate search cost:`, error)
-        }
-      }
+      const embeddingResult = embeddingState.result
 
       // Fetch tag definitions for display name mapping (reuse the same fetch from filtering)
       const tagDefsResults = await Promise.all(
@@ -308,20 +320,14 @@ export async function POST(request: NextRequest) {
           knowledgeBaseId: accessibleKbIds[0],
           topK: validatedData.topK,
           totalResults: results.length,
-          ...(costInfo
+          ...(embeddingResult
             ? {
                 cost: {
-                  input: costInfo.cost.input,
-                  output: costInfo.cost.output,
-                  total: costInfo.cost.total,
-                  tokens: {
-                    prompt: costInfo.tokenCount.count,
-                    completion: 0,
-                    total: costInfo.tokenCount.count,
-                  },
-                  model: queryEmbeddingModel,
-                  pricing: costInfo.cost.pricing,
+                  ...embeddingResult.cost,
+                  tokens: embeddingResult.tokens,
+                  model: embeddingResult.model,
                 },
+                embeddingUsage: embeddingResult.usage,
               }
             : {}),
         },
@@ -343,6 +349,11 @@ export async function POST(request: NextRequest) {
       {
         error: 'Failed to perform vector search',
         message: error instanceof Error ? error.message : 'Unknown error',
+        ...getFailureAccounting(
+          embeddingState.result
+            ? { ...embeddingState.result, embeddingUsage: embeddingState.result.usage }
+            : error
+        ),
       },
       { status: 500 }
     )
