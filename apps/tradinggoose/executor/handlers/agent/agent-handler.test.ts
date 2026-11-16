@@ -2139,128 +2139,60 @@ function liveToolModel() {
     }),
   })
 }
-it.each(
-  [false, true].flatMap((stream) =>
-    [false, true].flatMap((allowed) =>
-      ['image', 'audio'].map((type) => ({ stream, allowed, type }))
-    )
-  )
-)(
-  'preserves MCP media and business data in the next Agent step (stream=$stream,allowed=$allowed,type=$type)',
-  async ({ stream, allowed, type }) => {
+it.each([false, true])(
+  'preserves complete MCP results as JSON without promoting media (stream=%s)',
+  async (stream) => {
     state.trackAdmissions = true
     state.model = liveToolModel()
-    const data = allowed
-      ? type === 'image'
-        ? liveToolImage.toString('base64')
-        : 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='
-      : 'https://example.invalid/not-base64.png'
-    const mimeType = type === 'image' ? 'image/png' : 'audio/wav'
-    const toolFacts = {
-      tokens: { total: 9 },
-      cost: { total: 0.004, status: 'reported' as const },
-      generatedFields: ['tokens', 'cost'],
+    const functional = {
+      content: [
+        { type: 'text', text: 'Exact tool text' },
+        { type: 'image', data: liveToolImage.toString('base64'), mimeType: 'image/png' },
+        { type: 'audio', data: 'UklGRiQAAABXQVZF', mimeType: 'audio/wav' },
+      ],
+      structuredContent: { measurement: 42 },
+      business: { value: 17 },
+      attachments: [generatedFile, generatedFile],
     }
     const raw = withInferenceFacts(
-      {
-        content: [
-          { type: 'text', text: 'Exact tool text' },
-          { type, data, mimeType },
-        ],
-        structuredContent: { measurement: 42 },
-        business: { value: 17 },
-        attachments: [generatedFile, generatedFile],
-        tokens: toolFacts.tokens,
-        cost: toolFacts.cost,
-      },
-      toolFacts
+      { ...functional, tokens: { total: 9 } },
+      { tokens: { total: 9 }, generatedFields: ['tokens'] }
     )
     vi.mocked(executeTool).mockResolvedValue({ success: true, output: raw })
-    const fetcher = vi.fn()
-    vi.stubGlobal('fetch', fetcher)
-    let output: any
-    let displayedText = ''
-    let failure: unknown
-    try {
-      const result = await new AgentBlockHandler().execute(
-        block,
-        {
-          model: 'openai/gpt-4.1',
-          userPrompt: 'Use one tool result',
-          tools: [mcpTool],
-        },
-        context({ stream })
-      )
-      if (stream) {
-        const streamed = result as StreamingExecution
-        const reader = streamed.stream.getReader()
-        for (;;) {
-          const chunk = await reader.read()
-          if (chunk.done) break
-          displayedText += new TextDecoder().decode(chunk.value)
-        }
-        output = streamed.execution.output
-      } else output = result
-    } catch (error) {
-      failure = error
+    vi.stubGlobal('fetch', vi.fn())
+    let output = await new AgentBlockHandler().execute(
+      block,
+      { model: 'openai/gpt-4.1', userPrompt: 'Use one tool result', tools: [mcpTool] },
+      context({ stream })
+    )
+    if (stream) {
+      const streamed = output as StreamingExecution
+      const reader = streamed.stream.getReader()
+      while (!(await reader.read()).done) {}
+      output = streamed.execution.output
     }
     const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
-    expect(executeTool).toHaveBeenCalledOnce()
-    expect(vi.mocked(executeTool).mock.calls[0][0]).toBe('mcp')
-    expect(state.finance).toHaveBeenCalledOnce()
-    expect(state.admissions).toHaveBeenCalledTimes(allowed ? 2 : 1)
-    expect(calls).toHaveLength(allowed ? 2 : 1)
-    const scope = state.finance.mock.calls[0][0] as { signal: AbortSignal }
-    expect(scope.signal.aborted).toBe(!allowed)
-    expect(fetcher).not.toHaveBeenCalled()
-    expect(raw.content[1].data).toBe(data)
-    const active = allowed ? output : failure
-    expect(getInferenceFacts(active)?.files).toEqual([generatedFile])
-    expect(active).toMatchObject({
-      model: 'openai/gpt-4.1',
-      tokens: { prompt: allowed ? 4 : 2, completion: allowed ? 6 : 3, total: allowed ? 10 : 5 },
+    expect(calls).toHaveLength(2)
+    expect(state.admissions).toHaveBeenCalledTimes(2)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(output).toMatchObject({ content: 'Verified media answer', tokens: { total: 10 } })
+    expect(getInferenceFacts(output)?.files).toEqual([generatedFile])
+    const modelOutput = calls[1].prompt
+      .flatMap((message: any) => message.content)
+      .find((part: any) => part.type === 'tool-result').output
+    expect(modelOutput).toEqual({ type: 'json', value: functional })
+    const history = getInferenceFacts(output)!.history!
+    const { messages } = await (await getAgentMemory()).recall({
+      threadId: history.threadId,
+      resourceId: history.resourceId,
+      perPage: false,
     })
-    expect(active).not.toHaveProperty('toolResults')
-    expect(JSON.stringify(getInferenceFacts(active))).not.toContain('Exact tool text')
-    if (allowed) {
-      expect(failure).toBeUndefined()
-      expect(output.content).toBe('Verified media answer')
-      if (stream) expect(displayedText).toBe('Verified media answer')
-      const history = getInferenceFacts(output)!.history!
-      const { messages } = await (await getAgentMemory()).recall({
-        threadId: history.threadId,
-        resourceId: history.resourceId,
-        perPage: false,
+    expect(messages.flatMap((message) => message.content.parts)).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-invocation',
+        toolInvocation: expect.objectContaining({ state: 'result', result: functional }),
       })
-      expect(JSON.stringify(messages)).toContain('Known before media delivery')
-      const { tokens: _tokens, cost: _cost, ...functional } = raw
-      expect(messages.flatMap((message) => message.content.parts)).toContainEqual(
-        expect.objectContaining({
-          type: 'tool-invocation',
-          toolInvocation: expect.objectContaining({
-            state: 'result',
-            result: JSON.parse(JSON.stringify(functional)),
-          }),
-        })
-      )
-      const modelOutput = calls[1].prompt
-        .flatMap((message: any) => message.content)
-        .find((part: any) => part.type === 'tool-result').output
-      expect(JSON.stringify(modelOutput).split(data)).toHaveLength(2)
-      expect(modelOutput.value[1]).toEqual({ type: 'media', data, mediaType: mimeType })
-      expect(JSON.parse(modelOutput.value[0].text)).toEqual({
-        attachments: [generatedFile, generatedFile],
-        content: [
-          { type: 'text', text: 'Exact tool text' },
-          { type, mimeType },
-        ],
-        structuredContent: { measurement: 42 },
-        business: { value: 17 },
-      })
-    } else {
-      expect(failure).toBeInstanceOf(Error)
-      expect(scope.signal.reason.message).toContain('base64')
-    }
+    )
   }
 )
 

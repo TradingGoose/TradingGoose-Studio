@@ -7,7 +7,6 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { assertMcpToolResult, mcpToolResultToModelOutput } from '@/lib/mastra/media'
 import type { WorkflowMessage } from '@/lib/mastra/messages'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
@@ -494,9 +493,7 @@ export function createAgentToolSet(
         title: tool.name,
         description: tool.description,
         inputSchema: toStandardSchema<Record<string, unknown>>(tool.parameters),
-        toModelOutput: tool.mcp
-          ? mcpToolResultToModelOutput
-          : (output) => ({ type: 'json', value: output }),
+        toModelOutput: (output) => ({ type: 'json', value: output }),
         execute: async (inputData, nativeContext) => {
           const params = { ...inputData, ...tool.params }
           const result = await executeTool(
@@ -532,7 +529,6 @@ export function createAgentToolSet(
           try {
             controller.signal.throwIfAborted()
             nativeContext?.abortSignal?.throwIfAborted()
-            if (tool.mcp) assertMcpToolResult(functional)
             return functional
           } catch (error) {
             // The effect is already complete; refuse unsafe model continuation.
