@@ -21,8 +21,15 @@ const providers = [
         temperature: true,
         structuredOutput: true,
         toolCall: true,
+        reasoning: true,
       },
-      { id: 'example/plain', temperature: false, structuredOutput: false, toolCall: false },
+      {
+        id: 'example/plain',
+        temperature: false,
+        structuredOutput: false,
+        toolCall: false,
+        reasoning: false,
+      },
       { id: 'example/unknown' },
     ],
   },
@@ -89,7 +96,14 @@ describe('registry-backed model interaction', () => {
   it('uses unset native model settings', () => {
     useModelRegistry.setState({ providers })
     const available = fields('example/capable')
-    for (const id of ['memories', 'responseFormat', 'temperature', 'maxTokens', 'maxSteps']) {
+    for (const id of [
+      'memories',
+      'responseFormat',
+      'temperature',
+      'providerOptions',
+      'maxTokens',
+      'maxSteps',
+    ]) {
       const field = available.find((entry) => entry.id === id)!
       expect(field.additional).toBe(true)
       expect(field.defaultValue).toBeUndefined()
@@ -99,20 +113,19 @@ describe('registry-backed model interaction', () => {
     expect(temperature.type).toBe('short-input')
     expect(temperature.min).toBeUndefined()
     expect(temperature.max).toBeUndefined()
+    expect(available.find(({ id }) => id === 'providerOptions')).toMatchObject({
+      type: 'code',
+      language: 'json',
+      condition: { field: 'model', operator: 'modelCapability', value: 'reasoning' },
+    })
     expect(
       AgentBlock.subBlocks.some(({ id }) =>
-        [
-          'providerOptions',
-          'reasoningOptions',
-          'reasoningEffort',
-          'verbosity',
-          'thinkingLevel',
-        ].includes(id)
+        ['reasoningOptions', 'reasoningEffort', 'verbosity', 'thinkingLevel'].includes(id)
       )
     ).toBe(false)
   })
 
-  it.each(['temperature', 'responseFormat'])(
+  it.each(['temperature', 'responseFormat', 'providerOptions'])(
     'gates %s only on explicit native non-support',
     (id) => {
       useModelRegistry.setState({ providers })
@@ -129,7 +142,13 @@ describe('registry-backed model interaction', () => {
     (model) => {
       useModelRegistry.setState({ providers })
       expect(fields(model).map(({ id }) => id)).toEqual(
-        expect.arrayContaining(['responseFormat', 'temperature', 'maxTokens', 'maxSteps'])
+        expect.arrayContaining([
+          'responseFormat',
+          'temperature',
+          'providerOptions',
+          'maxTokens',
+          'maxSteps',
+        ])
       )
     }
   )

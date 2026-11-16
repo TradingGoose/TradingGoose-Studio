@@ -201,29 +201,34 @@ describe('built-in Copilot authenticated boundary', () => {
     expect((await post({ ...listing, ...extra })).status).toBe(422)
     expect(mocks.execute).not.toHaveBeenCalled()
   })
-  it('processes contexts and preserves model/access selection without an external manifest', async () => {
-    const body = {
-      command: 'message',
-      requestId: crypto.randomUUID(),
-      workspaceId: 'workspace',
-      model: 'test/model',
-      input: { content: 'hello', contexts: [] },
-      accessLevel: 'full',
+  it.each([{}, { openai: { reasoningEffort: 'low' } }])(
+    'preserves native reasoning options %j with model/access selection',
+    async (providerOptions) => {
+      const body = {
+        command: 'message',
+        requestId: crypto.randomUUID(),
+        workspaceId: 'workspace',
+        model: 'test/model',
+        input: { content: 'hello', contexts: [] },
+        accessLevel: 'full',
+        providerOptions,
+      }
+      expect((await post(body)).status).toBe(200)
+      const command = mocks.execute.mock.calls[0]![0]
+      expect(command).toMatchObject({
+        accessLevel: 'full',
+        providerOptions,
+        model: 'test/model',
+        workspaceId: 'workspace',
+        input: { content: 'hello', contexts: [] },
+      })
+      expect(command).not.toHaveProperty('scope')
+      expect(command).not.toHaveProperty('toolManifest')
     }
-    expect((await post(body)).status).toBe(200)
-    const command = mocks.execute.mock.calls[0]![0]
-    expect(command).toMatchObject({
-      accessLevel: 'full',
-      model: 'test/model',
-      workspaceId: 'workspace',
-      input: { content: 'hello', contexts: [] },
-    })
-    expect(command).not.toHaveProperty('scope')
-    expect(command).not.toHaveProperty('toolManifest')
-  })
+  )
   it.each([
-    {},
-    { openai: { reasoningEffort: 'low' } },
+    { anthropic: { thinking: { type: 'enabled', transport: 'websocket' } } },
+    { openai: { reasoning: { apiKey: 'untrusted-key' } } },
     {
       anthropic: {
         mcpServers: [

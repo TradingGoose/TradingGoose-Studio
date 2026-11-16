@@ -1,3 +1,4 @@
+import type { AgentExecutionOptions } from '@mastra/core/agent'
 import type { ToolConfig } from '@/tools/types'
 
 export interface SkillInput {
@@ -17,6 +18,7 @@ export interface AgentInputs {
   temperature?: number
   maxTokens?: number
   maxSteps?: number | string
+  providerOptions?: string | AgentExecutionOptions['providerOptions']
   apiKey?: string
 }
 

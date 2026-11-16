@@ -781,6 +781,8 @@ describe('canonical browser conversation transport', () => {
 
   it('sends exact input, then reads canonical history', async () => {
     store().setState({ currentChat: chat(null), selectedModel: 'openai/gpt-5.6-sol' })
+    const providerOptions = { openai: { reasoningEffort: 'high' } }
+    store().getState().setProviderOptions(providerOptions)
     expect(
       await store()
         .getState()
@@ -792,6 +794,7 @@ describe('canonical browser conversation transport', () => {
       workspaceId: null,
       threadId,
       model: 'openai/gpt-5.6-sol',
+      providerOptions,
       accessLevel: 'limited',
       input: { content: ' exact 🦆\n', contexts: [{ kind: 'docs', label: 'Docs' }] },
     })
@@ -803,10 +806,12 @@ describe('canonical browser conversation transport', () => {
     expect(titleRequests).toEqual([])
   })
   it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
-    'keeps access and model immutable during %s',
+    'keeps access, model and provider options immutable during %s',
     async (busyState) => {
       const selectedModel = store().getState().selectedModel
+      const providerOptions = { openai: { reasoningEffort: 'high' } }
       store().getState().setAccessLevel('full')
+      store().getState().setProviderOptions(providerOptions)
       if (busyState === 'pending-tool')
         store().setState({
           toolCallsById: { pending: { name: 'sleep', state: ClientToolCallState.pending } as any },
@@ -814,16 +819,31 @@ describe('canonical browser conversation transport', () => {
       else store().setState({ [busyState]: true })
       store().getState().setAccessLevel('limited')
       await store().getState().setSelectedModel('openai/gpt-5.6-sol')
+      store()
+        .getState()
+        .setProviderOptions({ openai: { reasoningEffort: 'low' } })
       expect(store().getState()).toMatchObject({
         selectedModel,
         accessLevel: 'full',
+        providerOptions,
       })
       if (busyState === 'pending-tool') store().setState({ toolCallsById: {} })
       else store().setState({ [busyState]: false })
       store().getState().setAccessLevel('limited')
+      store().getState().setProviderOptions(undefined)
       expect(store().getState().accessLevel).toBe('limited')
+      expect(store().getState().providerOptions).toBeUndefined()
     }
   )
+  it('clears provider options only when the selected model changes', async () => {
+    const model = store().getState().selectedModel
+    const providerOptions = { openai: { reasoningEffort: 'high' } }
+    store().getState().setProviderOptions(providerOptions)
+    await store().getState().setSelectedModel(model)
+    expect(store().getState().providerOptions).toBe(providerOptions)
+    await store().getState().setSelectedModel('openai/gpt-5.6-sol')
+    expect(store().getState().providerOptions).toBeUndefined()
+  })
   it('merges live contexts without promoting UI workspace/entity locators to tool payload authority', async () => {
     setChat()
     await store()

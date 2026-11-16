@@ -3,6 +3,7 @@ import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type {
   BrowserAssertion,
+  CopilotRequest,
   CopilotToolContext,
   ImagePart,
   Pending,
@@ -80,6 +81,7 @@ export interface WorkflowChatDeploymentRequest {
 export interface CopilotState {
   accessLevel: CopilotAccessLevel
   selectedModel: string | null
+  providerOptions?: Extract<CopilotRequest, { command: 'message' }>['providerOptions']
 
   currentChat: CopilotChat | null
   conversationWorkspaceId: string | null
@@ -104,6 +106,7 @@ export interface CopilotState {
 export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
+  setProviderOptions: (options: CopilotStore['providerOptions']) => void
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>

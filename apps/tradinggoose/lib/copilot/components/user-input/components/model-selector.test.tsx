@@ -23,20 +23,51 @@ vi.mock('@/i18n/workspace-widget-hooks', () => ({
       unconfigured: 'No models configured',
       loadError: 'Unavailable',
     },
+    reasoning: {
+      label: 'Thinking / Reasoning',
+      description: 'Native Provider Options for this model.',
+      providerOptions: 'Provider Options (JSON)',
+      effort: 'Published effort values',
+      budget: 'Thinking-token budget',
+      minimum: 'minimum',
+      maximum: 'maximum',
+      toggle: 'On/off thinking control',
+      unsupported: 'No reasoning controls',
+      invalid: 'Invalid Provider Options JSON',
+      apply: 'Apply',
+    },
   }),
 }))
-vi.mock('@/components/ui', () => ({
-  Button: ({ variant: _variant, size: _size, ...props }: any) => <button {...props} />,
-  DropdownMenu: ({ children }: any) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ render, children, ...props }: any) =>
-    cloneElement(render, props, children),
-  DropdownMenuContent: ({ align: _align, side: _side, ...props }: any) => <div {...props} />,
-  DropdownMenuItem: (props: any) => <button {...props} />,
-  TooltipProvider: ({ children }: any) => children,
-  Tooltip: ({ children }: any) => children,
-  TooltipTrigger: ({ render }: any) => render,
-  TooltipContent: () => null,
-}))
+vi.mock('@/components/ui', async () => {
+  const { createContext, useContext } = await import('react')
+  const OptionsContext = createContext<any>(null)
+  return {
+    Button: ({ variant: _variant, size: _size, ...props }: any) => <button {...props} />,
+    DropdownMenu: ({ children }: any) => <div>{children}</div>,
+    DropdownMenuTrigger: ({ render, children, ...props }: any) =>
+      cloneElement(render, props, children),
+    DropdownMenuContent: ({ align: _align, side: _side, ...props }: any) => <div {...props} />,
+    DropdownMenuItem: (props: any) => <button {...props} />,
+    TooltipProvider: ({ children }: any) => children,
+    Tooltip: ({ children }: any) => children,
+    TooltipTrigger: ({ render }: any) => render,
+    TooltipContent: () => null,
+    Popover: ({ children, open, onOpenChange }: any) => (
+      <OptionsContext.Provider value={{ open, onOpenChange }}>{children}</OptionsContext.Provider>
+    ),
+    PopoverTrigger: ({ render, children, ...props }: any) => {
+      const context = useContext(OptionsContext)
+      return cloneElement(
+        render,
+        { ...props, onClick: () => context.onOpenChange(!context.open) },
+        children
+      )
+    },
+    PopoverContent: ({ align: _align, side: _side, children, ...props }: any) =>
+      useContext(OptionsContext).open ? <div {...props}>{children}</div> : null,
+    Textarea: (props: any) => <textarea {...props} />,
+  }
+})
 
 import { AccessLevelSelector } from './access-level-selector'
 import { ModelSelector } from './model-selector'
@@ -68,6 +99,8 @@ beforeEach(() => {
     setAccessLevel: vi.fn(),
     selectedModel: null,
     setSelectedModel: vi.fn(),
+    providerOptions: undefined,
+    setProviderOptions: vi.fn(),
     isSendingMessage: false,
     isAwaitingContinuation: false,
     isAborting: false,
@@ -139,7 +172,9 @@ it('keeps distinct gateway routes selectable when they share a display label', (
   }
   state.selectedModel = catalog.data.models[0].id
   render()
-  const choices = [...container.querySelectorAll<HTMLButtonElement>('button[title]')].slice(1)
+  const choices = [
+    ...container.querySelectorAll<HTMLButtonElement>('button[title="anthropic/model"]'),
+  ].slice(1)
   expect(choices).toHaveLength(2)
   for (const [index, choice] of choices.entries()) {
     expect(choice).toHaveTextContent('anthropic/model')
@@ -169,6 +204,103 @@ it('preserves a valid selection and replaces a removed selection on catalog refr
   catalog.data = { models: [] }
   render()
   expect(state.setSelectedModel).toHaveBeenLastCalledWith(null)
+})
+
+it('applies native provider options without mutating drafts or translating fields', () => {
+  state.selectedModel = 'openai/reasoning-model'
+  state.providerOptions = { openai: { reasoningEffort: 'low' } }
+  catalog.data = {
+    models: [
+      {
+        id: state.selectedModel,
+        label: state.selectedModel,
+        reasoning: true,
+        reasoningOptions: [
+          { type: 'effort', values: ['low', 'high'] },
+          { type: 'budget_tokens', min: 1024, max: 32768 },
+          { type: 'toggle' },
+        ],
+      },
+    ],
+  }
+  render()
+  act(() =>
+    container.querySelector<HTMLButtonElement>('[aria-label="Thinking / Reasoning"]')!.click()
+  )
+  expect(container.textContent).toContain('Published effort values: low, high')
+  expect(container.textContent).toContain('Thinking-token budget · minimum 1024 · maximum 32768')
+  expect(container.textContent).toContain('On/off thinking control')
+
+  const field = container.querySelector('textarea')!
+  const edit = (value: string) =>
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(
+        field,
+        value
+      )
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  const apply = () =>
+    act(() =>
+      [...container.querySelectorAll('button')]
+        .find((button) => button.textContent === 'Apply')!
+        .click()
+    )
+  edit('{invalid')
+  apply()
+  expect(container.querySelector('[role="alert"]')).toHaveTextContent(
+    'Invalid Provider Options JSON'
+  )
+  expect(state.setProviderOptions).not.toHaveBeenCalled()
+  edit('{"anthropic":{"mcpServers":[{"type":"url","url":"https://tools.example.test"}]}}')
+  apply()
+  expect(container.querySelector('[role="alert"]')).toHaveTextContent(
+    'Invalid Provider Options JSON'
+  )
+  expect(state.setProviderOptions).not.toHaveBeenCalled()
+  const options = {
+    openai: {
+      reasoningEffort: 'high',
+      promptCacheKey: 'conversation-cache',
+      textVerbosity: 'low',
+      futureGenerationOption: { enabled: true },
+    },
+  }
+  edit(JSON.stringify(options))
+  expect(state.providerOptions).toEqual({ openai: { reasoningEffort: 'low' } })
+  apply()
+  expect(state.setProviderOptions).toHaveBeenCalledExactlyOnceWith(options)
+  expect(container.querySelector('textarea')).toBeNull()
+})
+
+it.each([{ reasoning: false }, { reasoningOptions: [] }])(
+  'disables reasoning for known unsupported metadata %j',
+  (metadata) => {
+    state.selectedModel = 'openai/text-model'
+    catalog.data = {
+      models: [{ id: state.selectedModel, label: state.selectedModel, ...metadata }],
+    }
+    render()
+    expect(container.querySelector('[aria-label="Thinking / Reasoning"]')).toBeDisabled()
+  }
+)
+
+it('allows unknown reasoning metadata and locks an open editor while the response is busy', () => {
+  state.selectedModel = 'openai/future-model'
+  catalog.data = { models: [{ id: state.selectedModel, label: state.selectedModel }] }
+  render()
+  const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Thinking / Reasoning"]')!
+  expect(trigger).toBeEnabled()
+  act(() => trigger.click())
+  state.isSendingMessage = true
+  render()
+  expect(container.querySelector('textarea')).toBeDisabled()
+  for (const button of container.querySelectorAll('button')) expect(button).toBeDisabled()
+  expect(state.setProviderOptions).not.toHaveBeenCalled()
+  state.isSendingMessage = false
+  catalog.data.models[0].reasoning = false
+  render()
+  expect(container.querySelector('textarea')).toBeDisabled()
 })
 
 it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
