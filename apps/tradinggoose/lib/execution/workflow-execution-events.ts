@@ -40,11 +40,6 @@ type WorkflowExecutionLogStateRow = {
   executionData: unknown
 }
 
-export type WorkflowExecutionAccessContext = {
-  userId: string | null
-  workspaceId: string | null
-}
-
 const executionEventState = globalThis as typeof globalThis & {
   __TRADINGGOOSE_WORKFLOW_EVENT_STREAMS__?: Map<string, MemoryExecutionEventStream>
 }
@@ -134,57 +129,6 @@ function readQueuedExecutionMetadata(executionData: Record<string, unknown>) {
   const trigger = isRecord(executionData.trigger) ? executionData.trigger : {}
   const data = isRecord(trigger.data) ? trigger.data : {}
   return isRecord(data.queuedExecution) ? data.queuedExecution : null
-}
-
-function readExecutionUserId(executionData: unknown) {
-  const data = isRecord(executionData) ? executionData : {}
-  const environment = isRecord(data.environment) ? data.environment : {}
-  return typeof environment.userId === 'string' && environment.userId.length > 0
-    ? environment.userId
-    : null
-}
-
-export async function readWorkflowExecutionAccessContext(params: {
-  pendingExecutionId: string
-  workflowId: string
-}): Promise<WorkflowExecutionAccessContext | null> {
-  const [pendingRow] = await db
-    .select({
-      userId: pendingExecution.userId,
-      workspaceId: pendingExecution.workspaceId,
-    })
-    .from(pendingExecution)
-    .where(
-      and(
-        eq(pendingExecution.id, params.pendingExecutionId),
-        eq(pendingExecution.workflowId, params.workflowId),
-        eq(pendingExecution.executionType, 'workflow')
-      )
-    )
-    .limit(1)
-
-  if (pendingRow) return pendingRow
-
-  const [logRow] = await db
-    .select({
-      workspaceId: workflowExecutionLogs.workspaceId,
-      executionData: workflowExecutionLogs.executionData,
-    })
-    .from(workflowExecutionLogs)
-    .where(
-      and(
-        eq(workflowExecutionLogs.executionId, params.pendingExecutionId),
-        eq(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, params.workflowId)
-      )
-    )
-    .limit(1)
-
-  if (!logRow) return null
-
-  return {
-    userId: readExecutionUserId(logRow.executionData),
-    workspaceId: logRow.workspaceId,
-  }
 }
 
 export function createWorkflowExecutionResultFromLog(
