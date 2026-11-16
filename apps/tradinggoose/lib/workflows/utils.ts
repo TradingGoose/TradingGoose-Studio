@@ -2,8 +2,6 @@ import { db } from '@tradinggoose/db'
 import { apiKey, permissions, workflow as workflowTable, workspace } from '@tradinggoose/db/schema'
 import type { InferSelectModel } from 'drizzle-orm'
 import { and, eq } from 'drizzle-orm'
-import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { PermissionType } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -530,7 +528,7 @@ export const workflowHasResponseBlock = (executionResult: ExecutionResult): bool
 }
 
 // Create a HTTP response from response block
-export const createHttpResponseFromBlock = (executionResult: ExecutionResult): NextResponse => {
+export const createHttpResponseFromBlock = (executionResult: ExecutionResult): Response => {
   const output = executionResult.output.response
   const { data = {}, status = 200, headers = {} } = output
 
@@ -539,7 +537,7 @@ export const createHttpResponseFromBlock = (executionResult: ExecutionResult): N
     ...headers,
   })
 
-  return NextResponse.json(data, {
+  return Response.json(data, {
     status: status,
     headers: responseHeaders,
   })
@@ -554,6 +552,7 @@ export async function validateWorkflowPermissions(
   requestId: string,
   action: 'read' | 'write' | 'admin' = 'read'
 ) {
+  const { getSession } = await import('@/lib/auth')
   const session = await getSession()
   if (!session?.user?.id) {
     logger.warn(`[${requestId}] No authenticated user session for workflow ${action}`)

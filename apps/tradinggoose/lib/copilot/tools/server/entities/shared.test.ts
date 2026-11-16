@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   INDICATOR_DOCUMENT_FORMAT,
   MCP_SERVER_DOCUMENT_FORMAT,
-  normalizeEntityFields,
   SKILL_DOCUMENT_FORMAT,
   WATCHLIST_DOCUMENT_FORMAT,
-} from '@/lib/copilot/entity-documents'
+} from '@/lib/copilot/document-formats'
+import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { hashServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import { SavedEntityIdentityError } from '@/lib/saved-entities/identity'

@@ -8,11 +8,6 @@ export type DocumentSortField =
   | 'processingStatus'
 export type SortOrder = 'asc' | 'desc'
 
-export interface DocumentSortOptions {
-  sortBy?: DocumentSortField
-  sortOrder?: SortOrder
-}
-
 export interface DocChunk {
   /** The chunk text content */
   text: string

@@ -1,16 +1,18 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
   KNOWLEDGE_BASE_DOCUMENT_FORMAT,
   WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
-} from '@/lib/copilot/entity-documents'
-import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
+} from '@/lib/copilot/document-formats'
+import { getCopilotToolPolicy, isWorkspaceAgnosticServerTool } from '@/lib/copilot/tool-policy'
 import { getFailureAccounting } from '@/lib/mastra/errors'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
-import { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
+
+const toolModuleLoads = vi.fn()
 
 const editWorkflowExecute = vi.fn(async () => ({
   entityKind: 'workflow',
@@ -120,32 +122,35 @@ vi.mock('@/lib/copilot/tools/server/gdrive/list-files', () => ({
 vi.mock('@/lib/copilot/tools/server/gdrive/read-file', () => ({
   readGDriveFileServerTool: { name: 'read_gdrive_file', execute: readGDriveFileExecute },
 }))
-vi.mock('@/lib/copilot/tools/server/knowledge/knowledge-base', () => ({
-  listKnowledgeBasesServerTool: {
-    name: 'list_knowledge_bases',
-    execute: vi.fn(async () => ({ entityKind: 'knowledge_base', entities: [], count: 0 })),
-  },
-  readKnowledgeBaseServerTool: {
-    name: 'read_knowledge_base',
-    execute: vi.fn(),
-  },
-  createKnowledgeBaseServerTool: {
-    name: 'create_knowledge_base',
-    execute: vi.fn(),
-  },
-  editKnowledgeBaseServerTool: {
-    name: 'edit_knowledge_base',
-    execute: vi.fn(),
-  },
-  renameKnowledgeBaseServerTool: {
-    name: 'rename_knowledge_base',
-    execute: vi.fn(),
-  },
-  queryKnowledgeBaseServerTool: {
-    name: 'query_knowledge_base',
-    execute: vi.fn(),
-  },
-}))
+vi.mock('@/lib/copilot/tools/server/knowledge/knowledge-base', () => {
+  toolModuleLoads('knowledge/knowledge-base')
+  return {
+    listKnowledgeBasesServerTool: {
+      name: 'list_knowledge_bases',
+      execute: vi.fn(async () => ({ entityKind: 'knowledge_base', entities: [], count: 0 })),
+    },
+    readKnowledgeBaseServerTool: {
+      name: 'read_knowledge_base',
+      execute: vi.fn(),
+    },
+    createKnowledgeBaseServerTool: {
+      name: 'create_knowledge_base',
+      execute: vi.fn(),
+    },
+    editKnowledgeBaseServerTool: {
+      name: 'edit_knowledge_base',
+      execute: vi.fn(),
+    },
+    renameKnowledgeBaseServerTool: {
+      name: 'rename_knowledge_base',
+      execute: vi.fn(),
+    },
+    queryKnowledgeBaseServerTool: {
+      name: 'query_knowledge_base',
+      execute: vi.fn(),
+    },
+  }
+})
 vi.mock('@/lib/copilot/tools/server/other/make-api-request', () => ({
   makeApiRequestServerTool: {
     name: 'make_api_request',
@@ -176,42 +181,57 @@ vi.mock('@/lib/copilot/tools/server/user/set-environment-variables', () => ({
     execute: setEnvironmentVariablesExecute,
   },
 }))
-vi.mock('@/lib/copilot/tools/server/entities', () => ({
+vi.mock('@/lib/copilot/tools/server/entities/custom-tool', () => ({
   createCustomToolServerTool: entityTool('create_custom_tool'),
-  createIndicatorServerTool: entityTool('create_indicator'),
-  createLayoutServerTool: entityTool('create_layout'),
-  createMcpServerServerTool: entityTool('create_mcp_server'),
-  createSkillServerTool: entityTool('create_skill'),
-  createWatchlistServerTool: entityTool('create_watchlist'),
-  createWorkflowServerTool: entityTool('create_workflow'),
   editCustomToolServerTool: entityTool('edit_custom_tool'),
-  editIndicatorServerTool: entityTool('edit_indicator'),
-  editMcpServerServerTool: entityTool('edit_mcp_server'),
-  editSkillServerTool: entityTool('edit_skill'),
-  editWatchlistServerTool: entityTool('edit_watchlist'),
-  editWorkflowVariableServerTool: entityTool('edit_workflow_variable'),
   listCustomToolsServerTool: entityTool('list_custom_tools'),
-  listIndicatorsServerTool: entityTool('list_indicators'),
-  listLayoutsServerTool: entityTool('list_layout'),
-  listMcpServersServerTool: entityTool('list_mcp_servers'),
-  listSkillsServerTool: entityTool('list_skills'),
-  listWatchlistsServerTool: entityTool('list_watchlist'),
-  listWorkflowsServerTool: entityTool('list_workflows'),
   readCustomToolServerTool: entityTool('read_custom_tool'),
+  renameCustomToolServerTool: entityTool('rename_custom_tool'),
+}))
+vi.mock('@/lib/copilot/tools/server/entities/indicator', () => ({
+  createIndicatorServerTool: entityTool('create_indicator'),
+  editIndicatorServerTool: entityTool('edit_indicator'),
+  listIndicatorsServerTool: entityTool('list_indicators'),
   readIndicatorServerTool: entityTool('read_indicator'),
+  renameIndicatorServerTool: entityTool('rename_indicator'),
+}))
+vi.mock('@/lib/copilot/tools/server/entities/dashboard-layout', () => ({
+  createLayoutServerTool: entityTool('create_layout'),
+  listLayoutsServerTool: entityTool('list_layout'),
   readLayoutServerTool: entityTool('read_layout'),
   renameLayoutServerTool: entityTool('rename_layout'),
-  readMcpServerServerTool: entityTool('read_mcp_server'),
-  readSkillServerTool: entityTool('read_skill'),
-  readWatchlistServerTool: entityTool('read_watchlist'),
-  readWorkflowServerTool: entityTool('read_workflow'),
-  renameCustomToolServerTool: entityTool('rename_custom_tool'),
-  renameIndicatorServerTool: entityTool('rename_indicator'),
-  renameMcpServerServerTool: entityTool('rename_mcp_server'),
-  renameSkillServerTool: entityTool('rename_skill'),
-  renameWatchlistServerTool: entityTool('rename_watchlist'),
-  renameWorkflowServerTool: entityTool('rename_workflow'),
 }))
+vi.mock('@/lib/copilot/tools/server/entities/mcp-server', () => ({
+  createMcpServerServerTool: entityTool('create_mcp_server'),
+  editMcpServerServerTool: entityTool('edit_mcp_server'),
+  listMcpServersServerTool: entityTool('list_mcp_servers'),
+  readMcpServerServerTool: entityTool('read_mcp_server'),
+  renameMcpServerServerTool: entityTool('rename_mcp_server'),
+}))
+vi.mock('@/lib/copilot/tools/server/entities/skill', () => ({
+  createSkillServerTool: entityTool('create_skill'),
+  editSkillServerTool: entityTool('edit_skill'),
+  listSkillsServerTool: entityTool('list_skills'),
+  readSkillServerTool: entityTool('read_skill'),
+  renameSkillServerTool: entityTool('rename_skill'),
+}))
+vi.mock('@/lib/copilot/tools/server/entities/watchlist', () => ({
+  createWatchlistServerTool: entityTool('create_watchlist'),
+  editWatchlistServerTool: entityTool('edit_watchlist'),
+  listWatchlistsServerTool: entityTool('list_watchlist'),
+  readWatchlistServerTool: entityTool('read_watchlist'),
+  renameWatchlistServerTool: entityTool('rename_watchlist'),
+}))
+vi.mock('@/lib/copilot/tools/server/entities/workflow', () => {
+  toolModuleLoads('entities/workflow')
+  return {
+    createWorkflowServerTool: entityTool('create_workflow'),
+    editWorkflowVariableServerTool: entityTool('edit_workflow_variable'),
+    listWorkflowsServerTool: entityTool('list_workflows'),
+    readWorkflowServerTool: entityTool('read_workflow'),
+    renameWorkflowServerTool: entityTool('rename_workflow'),
+  }
+})
 vi.mock('@/lib/copilot/tools/server/workflow/edit-workflow', () => ({
   editWorkflowServerTool: { name: 'edit_workflow', execute: editWorkflowExecute },
 }))
@@ -229,16 +249,13 @@ let ToolIds: typeof import('@/lib/copilot/registry').ToolIds
 let ToolResultSchemas: typeof import('@/lib/copilot/registry').ToolResultSchemas
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
 let getMcpServerToolIds: typeof import('@/lib/copilot/tools/server/router').getMcpServerToolIds
-let isWorkspaceAgnosticServerTool: typeof import('@/lib/copilot/tools/server/router').isWorkspaceAgnosticServerTool
 let routeExecution: typeof import('@/lib/copilot/tools/server/router').routeExecution
 
 beforeAll(async () => {
   ;({ ToolArgSchemas, ToolIds, ToolResultSchemas, isToolId } = await import(
     '@/lib/copilot/registry'
   ))
-  ;({ getMcpServerToolIds, isWorkspaceAgnosticServerTool, routeExecution } = await import(
-    '@/lib/copilot/tools/server/router'
-  ))
+  ;({ getMcpServerToolIds, routeExecution } = await import('@/lib/copilot/tools/server/router'))
 }, 30000)
 
 beforeEach(() => {
@@ -261,6 +278,15 @@ beforeEach(() => {
 })
 
 describe('copilot contract registry', () => {
+  it('discovers tools and executes plan without initializing unrelated implementations', async () => {
+    expect(getMcpServerToolIds()).toContain('list_workflows')
+    await expect(routeExecution('plan', { objective: 'Inspect' })).resolves.toEqual({
+      objective: 'Inspect',
+    })
+    await expect(routeExecution('read_knowledge_base', {})).rejects.toThrow()
+    expect(toolModuleLoads).not.toHaveBeenCalled()
+  })
+
   it('only exposes supported tool ids', () => {
     expect(isToolId('get_available_blocks')).toBe(true)
     expect(isToolId('get_blocks_metadata')).toBe(true)

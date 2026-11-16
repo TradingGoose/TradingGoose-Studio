@@ -1,7 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { account, workflow } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getMicrosoftRefreshTokenExpiry,
@@ -133,6 +132,7 @@ export async function getUserId(
     return workflows[0].userId
   }
   // This is a client-side request, use the session
+  const { getSession } = await import('@/lib/auth')
   const session = await getSession()
 
   // Check if the user is authenticated

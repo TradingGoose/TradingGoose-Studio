@@ -50,7 +50,8 @@ export function isPortfolioMonitorExecutionPayload(
 }
 
 export async function executePortfolioMonitorJob(
-  payload: PortfolioMonitorExecutionPayload & { executionId: string }
+  payload: PortfolioMonitorExecutionPayload & { executionId: string },
+  signal?: AbortSignal
 ) {
   const executionId = payload.executionId
   const requestId = executionId.slice(0, 8)
@@ -73,6 +74,7 @@ export async function executePortfolioMonitorJob(
   }
 
   const { result, dispatchFailureReason } = await runWorkflowExecution({
+    signal,
     workflowId: payload.monitor.workflowId,
     actorUserId: payload.monitor.actorUserId,
     requestId,

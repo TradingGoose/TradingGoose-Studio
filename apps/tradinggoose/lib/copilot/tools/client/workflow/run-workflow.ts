@@ -5,7 +5,6 @@ import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
-  WORKFLOW_EXECUTION_TIMEOUT_MS,
 } from '@/lib/copilot/tools/client/base-tool'
 import { executeWorkflowWithFullLogging } from '@/lib/copilot/tools/client/workflow/workflow-execution-utils'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
@@ -45,75 +44,73 @@ export class RunWorkflowClientTool extends BaseClientTool {
 
   async execute(args?: RunWorkflowArgs): Promise<void> {
     const logger = createLogger('RunWorkflowClientTool')
-    await this.executeWithTimeout(async () => {
-      const params: Partial<RunWorkflowArgs> = args ?? {}
+    const params: Partial<RunWorkflowArgs> = args ?? {}
 
-      // prevent concurrent execution
-      const { isExecuting, setIsExecuting } = useExecutionStore.getState()
-      if (isExecuting) {
-        this.fail('The workflow is already in the middle of an execution. Try again later')
-        if (this.executionAttempted !== true) {
-          this.executionAttempted = false
-          this.setState(ClientToolCallState.pending)
-        }
-        return
+    // prevent concurrent execution
+    const { isExecuting, setIsExecuting } = useExecutionStore.getState()
+    if (isExecuting) {
+      this.fail('The workflow is already in the middle of an execution. Try again later')
+      if (this.executionAttempted !== true) {
+        this.executionAttempted = false
+        this.setState(ClientToolCallState.pending)
       }
+      return
+    }
 
-      let activeWorkflowId: string
-      try {
-        activeWorkflowId = requireCopilotEntityId(params)
-      } catch {
-        this.fail('entityId is required')
-        return
+    let activeWorkflowId: string
+    try {
+      activeWorkflowId = requireCopilotEntityId(params)
+    } catch {
+      this.fail('entityId is required')
+      return
+    }
+
+    if (typeof params.triggerBlockId !== 'string' || params.triggerBlockId.length === 0) {
+      this.fail('triggerBlockId is required')
+      return
+    }
+
+    let workflowInput: Record<string, any> | undefined
+    if (params.workflow_input !== undefined) {
+      if (typeof params.workflow_input === 'string') {
+        workflowInput = { input: params.workflow_input }
+      } else if (params.workflow_input && typeof params.workflow_input === 'object') {
+        workflowInput = params.workflow_input
       }
+    }
 
-      if (typeof params.triggerBlockId !== 'string' || params.triggerBlockId.length === 0) {
-        this.fail('triggerBlockId is required')
-        return
+    setIsExecuting(true)
+    try {
+      this.setState(ClientToolCallState.executing)
+
+      const native = await this.requireNativeTarget()
+      // Keep replay blocked unless admission explicitly confirms that nothing was queued.
+      this.executionAttempted = true
+      const result = await executeWorkflowWithFullLogging({
+        native,
+        signal: this.getAbortSignal(),
+        workflowInput,
+        workflowId: activeWorkflowId,
+        triggerBlockId: params.triggerBlockId,
+      })
+
+      // Completion is attested from the actual canonical retained execution, including a real failed outcome.
+      await this.completeAuthoritativeReadback()
+      this.setState(result.success ? ClientToolCallState.success : ClientToolCallState.error, {
+        result,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+
+      logger.error('Run workflow failed', { message })
+
+      this.fail(message)
+      if (error instanceof WorkflowQueueAdmissionError) {
+        this.executionAttempted = false
+        this.setState(ClientToolCallState.pending)
       }
-
-      let workflowInput: Record<string, any> | undefined
-      if (params.workflow_input !== undefined) {
-        if (typeof params.workflow_input === 'string') {
-          workflowInput = { input: params.workflow_input }
-        } else if (params.workflow_input && typeof params.workflow_input === 'object') {
-          workflowInput = params.workflow_input
-        }
-      }
-
-      setIsExecuting(true)
-      try {
-        this.setState(ClientToolCallState.executing)
-
-        const native = await this.requireNativeTarget()
-        // Keep replay blocked unless admission explicitly confirms that nothing was queued.
-        this.executionAttempted = true
-        const result = await executeWorkflowWithFullLogging({
-          native,
-          signal: this.getAbortSignal(),
-          workflowInput,
-          workflowId: activeWorkflowId,
-          triggerBlockId: params.triggerBlockId,
-        })
-
-        // Completion is attested from the actual canonical retained execution, including a real failed outcome.
-        await this.completeAuthoritativeReadback()
-        this.setState(result.success ? ClientToolCallState.success : ClientToolCallState.error, {
-          result,
-        })
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-
-        logger.error('Run workflow failed', { message })
-
-        this.fail(message)
-        if (error instanceof WorkflowQueueAdmissionError) {
-          this.executionAttempted = false
-          this.setState(ClientToolCallState.pending)
-        }
-      } finally {
-        setIsExecuting(false)
-      }
-    }, WORKFLOW_EXECUTION_TIMEOUT_MS)
+    } finally {
+      setIsExecuting(false)
+    }
   }
 }

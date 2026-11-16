@@ -238,6 +238,17 @@ describe('File Parsers', () => {
     vi.restoreAllMocks()
   })
 
+  it('loads JSON without initializing unrelated document parsers', async () => {
+    for (const path of ['docx-parser', 'xlsx-parser', 'html-parser'])
+      vi.doMock(`@/lib/file-parsers/${path}`, () => {
+        throw new Error('Unrelated parser loaded')
+      })
+    const { parseBuffer } = await import('@/lib/file-parsers/index')
+    await expect(parseBuffer(Buffer.from('{}'), 'json')).resolves.toMatchObject({
+      content: expect.any(String),
+    })
+  })
+
   describe('parseFile', () => {
     it('should validate file existence', async () => {
       mockExistsSync.mockReturnValueOnce(false)

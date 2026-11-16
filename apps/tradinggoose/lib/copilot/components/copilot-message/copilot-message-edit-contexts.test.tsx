@@ -2,7 +2,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { ChatContext, CopilotMessage as Message } from '@/stores/copilot/types'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
+import type { CopilotMessage as Message } from '@/stores/copilot/types'
 
 let store: any
 vi.mock('@/stores/copilot/store', () => ({

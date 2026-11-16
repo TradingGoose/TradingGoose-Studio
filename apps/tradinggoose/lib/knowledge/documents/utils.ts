@@ -1,3 +1,4 @@
+import { setTimeout as delayForRetry } from 'node:timers/promises'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('RetryUtils')
@@ -10,6 +11,7 @@ interface HTTPError extends Error {
 type RetryableError = HTTPError | Error | { status?: number; message?: string }
 
 export interface RetryOptions {
+  signal?: AbortSignal
   maxRetries?: number
   initialDelayMs?: number
   maxDelayMs?: number
@@ -66,12 +68,14 @@ export async function retryWithExponentialBackoff<T>(
     maxDelayMs = 30000,
     backoffMultiplier = 2,
     retryCondition = isRetryableError,
+    signal,
   } = options
 
   let lastError: Error | undefined
   let delay = initialDelayMs
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    signal?.throwIfAborted()
     try {
       logger.debug(`Executing operation attempt ${attempt + 1}/${maxRetries + 1}`)
       const result = await operation()
@@ -82,6 +86,7 @@ export async function retryWithExponentialBackoff<T>(
 
       return result
     } catch (error) {
+      signal?.throwIfAborted()
       lastError = error instanceof Error ? error : new Error(String(error))
       logger.warn(`Operation failed on attempt ${attempt + 1}`, { error })
 
@@ -105,7 +110,7 @@ export async function retryWithExponentialBackoff<T>(
         `Retrying in ${Math.round(actualDelay)}ms (attempt ${attempt + 1}/${maxRetries + 1})`
       )
 
-      await new Promise((resolve) => setTimeout(resolve, actualDelay))
+      await delayForRetry(actualDelay, undefined, { signal })
 
       // Exponential backoff
       delay = Math.min(delay * backoffMultiplier, maxDelayMs)

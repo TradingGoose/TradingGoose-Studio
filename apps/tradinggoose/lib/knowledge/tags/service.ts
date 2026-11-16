@@ -8,11 +8,7 @@ import {
   type TAG_SLOT_CONFIG,
 } from '@/lib/knowledge/consts'
 import type { BulkTagDefinitionsData, DocumentTagDefinition } from '@/lib/knowledge/tags/types'
-import type {
-  CreateTagDefinitionData,
-  TagDefinition,
-  UpdateTagDefinitionData,
-} from '@/lib/knowledge/types'
+import type { CreateTagDefinitionData, TagDefinition } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('TagsService')
@@ -223,91 +219,6 @@ export async function createOrUpdateTagDefinitionsBulk(
 }
 
 /**
- * Get a single tag definition by ID
- */
-export async function getTagDefinitionById(
-  tagDefinitionId: string
-): Promise<DocumentTagDefinition | null> {
-  const result = await db
-    .select({
-      id: knowledgeBaseTagDefinitions.id,
-      knowledgeBaseId: knowledgeBaseTagDefinitions.knowledgeBaseId,
-      tagSlot: knowledgeBaseTagDefinitions.tagSlot,
-      displayName: knowledgeBaseTagDefinitions.displayName,
-      fieldType: knowledgeBaseTagDefinitions.fieldType,
-      createdAt: knowledgeBaseTagDefinitions.createdAt,
-      updatedAt: knowledgeBaseTagDefinitions.updatedAt,
-    })
-    .from(knowledgeBaseTagDefinitions)
-    .where(eq(knowledgeBaseTagDefinitions.id, tagDefinitionId))
-    .limit(1)
-
-  if (result.length === 0) {
-    return null
-  }
-
-  const def = result[0]
-  return {
-    ...def,
-    tagSlot: def.tagSlot as string,
-  }
-}
-
-/**
- * Update tags on all documents and chunks when a tag value is changed
- */
-export async function updateTagValuesInDocumentsAndChunks(
-  knowledgeBaseId: string,
-  tagSlot: string,
-  oldValue: string | null,
-  newValue: string | null,
-  requestId: string
-): Promise<{ documentsUpdated: number; chunksUpdated: number }> {
-  validateTagSlot(tagSlot)
-
-  let documentsUpdated = 0
-  let chunksUpdated = 0
-
-  await db.transaction(async (tx) => {
-    if (oldValue) {
-      await tx
-        .update(document)
-        .set({
-          [tagSlot]: newValue,
-        })
-        .where(
-          and(
-            eq(document.knowledgeBaseId, knowledgeBaseId),
-            eq(sql.raw(`${document}.${tagSlot}`), oldValue)
-          )
-        )
-      documentsUpdated = 1
-    }
-
-    if (oldValue) {
-      await tx
-        .update(embedding)
-        .set({
-          [tagSlot]: newValue,
-        })
-        .where(
-          and(
-            eq(embedding.knowledgeBaseId, knowledgeBaseId),
-            eq(sql.raw(`${embedding}.${tagSlot}`), oldValue)
-          )
-        )
-      chunksUpdated = 1
-    }
-  })
-
-  logger.info(
-    `[${requestId}] Updated tag values: ${documentsUpdated} documents, ${chunksUpdated} chunks`
-  )
-
-  return { documentsUpdated, chunksUpdated }
-}
-
-/**
  * Cleanup unused tag definitions for a knowledge base
  */
 export async function cleanupUnusedTagDefinitions(
@@ -470,58 +381,6 @@ export async function createTagDefinition(
 }
 
 /**
- * Update an existing tag definition
- */
-export async function updateTagDefinition(
-  tagDefinitionId: string,
-  data: UpdateTagDefinitionData,
-  requestId: string
-): Promise<TagDefinition> {
-  const now = new Date()
-
-  const updateData: {
-    updatedAt: Date
-    displayName?: string
-    fieldType?: string
-  } = {
-    updatedAt: now,
-  }
-
-  if (data.displayName !== undefined) {
-    updateData.displayName = data.displayName
-  }
-
-  if (data.fieldType !== undefined) {
-    updateData.fieldType = data.fieldType
-  }
-
-  const updatedRows = await db
-    .update(knowledgeBaseTagDefinitions)
-    .set(updateData)
-    .where(eq(knowledgeBaseTagDefinitions.id, tagDefinitionId))
-    .returning({
-      id: knowledgeBaseTagDefinitions.id,
-      tagSlot: knowledgeBaseTagDefinitions.tagSlot,
-      displayName: knowledgeBaseTagDefinitions.displayName,
-      fieldType: knowledgeBaseTagDefinitions.fieldType,
-      createdAt: knowledgeBaseTagDefinitions.createdAt,
-      updatedAt: knowledgeBaseTagDefinitions.updatedAt,
-    })
-
-  if (updatedRows.length === 0) {
-    throw new Error(`Tag definition ${tagDefinitionId} not found`)
-  }
-
-  const updated = updatedRows[0]
-  logger.info(`[${requestId}] Updated tag definition: ${tagDefinitionId}`)
-
-  return {
-    ...updated,
-    tagSlot: updated.tagSlot as string,
-  }
-}
-
-/**
  * Get tag usage with detailed document information (original format)
  */
 export async function getTagUsage(
@@ -572,58 +431,4 @@ export async function getTagUsage(
   logger.info(`[${requestId}] Retrieved detailed tag usage for ${usage.length} definitions`)
 
   return usage
-}
-
-/**
- * Get tag usage statistics
- */
-export async function getTagUsageStats(
-  knowledgeBaseId: string,
-  requestId: string
-): Promise<
-  Array<{
-    tagSlot: string
-    displayName: string
-    fieldType: string
-    documentCount: number
-    chunkCount: number
-  }>
-> {
-  const definitions = await getDocumentTagDefinitions(knowledgeBaseId)
-  const stats = []
-
-  for (const def of definitions) {
-    const tagSlot = def.tagSlot
-    validateTagSlot(tagSlot)
-
-    const docCountResult = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(document)
-      .where(
-        and(
-          eq(document.knowledgeBaseId, knowledgeBaseId),
-          isNull(document.deletedAt),
-          sql`${sql.raw(tagSlot)} IS NOT NULL`
-        )
-      )
-
-    const chunkCountResult = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(embedding)
-      .where(
-        and(eq(embedding.knowledgeBaseId, knowledgeBaseId), sql`${sql.raw(tagSlot)} IS NOT NULL`)
-      )
-
-    stats.push({
-      tagSlot: def.tagSlot,
-      displayName: def.displayName,
-      fieldType: def.fieldType,
-      documentCount: Number(docCountResult[0]?.count || 0),
-      chunkCount: Number(chunkCountResult[0]?.count || 0),
-    })
-  }
-
-  logger.info(`[${requestId}] Retrieved tag usage stats for ${stats.length} definitions`)
-
-  return stats
 }

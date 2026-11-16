@@ -3,11 +3,10 @@ import { fileURLToPath } from 'node:url'
 import { additionalPackages } from '@trigger.dev/build/extensions/core'
 import { defineConfig } from '@trigger.dev/sdk'
 import { config as loadDotEnv } from 'dotenv'
-import { env } from './lib/env'
 
 const configDir = dirname(fileURLToPath(import.meta.url))
 loadDotEnv({ path: resolve(configDir, '.env') })
-const triggerProjectId = env.TRIGGER_PROJECT_ID || process.env.TRIGGER_PROJECT_ID
+const triggerProjectId = process.env.TRIGGER_PROJECT_ID
 
 export default defineConfig({
   project: triggerProjectId!,
@@ -20,7 +19,7 @@ export default defineConfig({
       maxAttempts: 1,
     },
   },
-  dirs: ['./background'],
+  dirs: ['./background/tasks'],
   build: {
     extensions: [
       additionalPackages({

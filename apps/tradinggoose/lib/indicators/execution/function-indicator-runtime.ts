@@ -2,7 +2,6 @@ import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import type { MarketSeries } from '@/providers/market/types'
-import { executeIndicatorInLocalVm } from './local-executor'
 
 export type FunctionIndicatorRuntimeEntry = {
   id: string
@@ -88,6 +87,7 @@ const executeFunctionIndicator = async ({
   }
 
   try {
+    const { executeIndicatorInLocalVm } = await import('./local-executor')
     const inputsMap = buildInputsMapFromMeta(entry.inputMeta, inputOverrides)
     const runResult = await executeIndicatorInLocalVm({
       barsMs,

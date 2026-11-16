@@ -104,6 +104,30 @@ describe('executeIndicatorMonitorJob', () => {
     expect(mocks.enqueuePendingExecution).not.toHaveBeenCalled()
   })
 
+  it.each(['before', 'during'] as const)(
+    'does not dispatch workflows when cancelled %s evaluation',
+    async (when) => {
+      const { executeIndicatorMonitorJob } = await import('./indicator-monitor-execution')
+      const controller = new AbortController()
+      let finish!: (value: unknown) => void
+      mocks.executeCompiledIndicator.mockReturnValue(
+        new Promise((resolve) => {
+          finish = resolve
+        })
+      )
+      if (when === 'before') controller.abort(new Error('Monitor cancelled'))
+
+      const execution = executeIndicatorMonitorJob(payload, controller.signal)
+      const rejected = expect(execution).rejects.toThrow('Monitor cancelled')
+      if (when === 'during') controller.abort(new Error('Monitor cancelled'))
+      finish({ output: { triggers: [{ event: 'cross', signal: 'long', time: 1 }] } })
+
+      await rejected
+      expect(mocks.executeCompiledIndicator).toHaveBeenCalledTimes(when === 'during' ? 1 : 0)
+      expect(mocks.enqueuePendingExecution).not.toHaveBeenCalled()
+    }
+  )
+
   it('queues triggered workflow execution with the indicator event as the workflow dedupe key', async () => {
     const { executeIndicatorMonitorJob } = await import('./indicator-monitor-execution')
 

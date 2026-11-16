@@ -81,7 +81,14 @@ it('initializes only native memory and workflow domains on one shared pool', asy
   const storage = first.getStorage() as PostgresStore
   const { BackgroundTasksInMemory } = await import('@mastra/core/storage')
   expect(first).toBe(second)
-  expect(await runtime.getCopilotAgent()).toBe(first.getAgent('copilot'))
+  expect(fixture.createAgent).not.toHaveBeenCalled()
+  const [copilot, sameCopilot] = await Promise.all([
+    runtime.getCopilotAgent(),
+    runtime.getCopilotAgent(),
+  ])
+  expect(copilot).toBe(sameCopilot)
+  expect(copilot).toBe(first.getAgent('copilot'))
+  expect(fixture.createAgent).toHaveBeenCalledOnce()
   expect(await first.getAgent('copilot').getMemory()).toBe(await runtime.getAgentMemory())
   expect(fixture.createAgent).toHaveBeenCalledWith(await runtime.getAgentMemory())
   expect((await runtime.getAgentMemory()).getConfig().options).toMatchObject({ lastMessages: 10 })
@@ -160,7 +167,7 @@ it('shares configured Redis transport and the active runtime across module reloa
   expect(fixture.pubsubOptions).toEqual([{ url: 'redis://studio-test.invalid:6379' }])
   expect(mastra.pubsub).toBeDefined()
   expect(fixture.poolOptions).toHaveLength(1)
-  expect(fixture.createAgent).toHaveBeenCalledOnce()
+  expect(fixture.createAgent).not.toHaveBeenCalled()
 })
 it.each(['08006', '40P01'])(
   'releases connections after initialization fails with %s and permits another attempt',
@@ -269,14 +276,16 @@ it.each([false, true])(
     expect(fixture.memoryInit).toHaveBeenCalledOnce()
   }
 )
-it('ends the pool when Agent construction fails after domain initialization', async () => {
+it('keeps shared storage available when Copilot registration fails', async () => {
+  const mastra = await runtime.getMastra()
   fixture.createAgent.mockImplementationOnce(() => {
     throw new Error('agent unavailable')
   })
-  await expect(runtime.getMastra()).rejects.toThrow('agent unavailable')
-  expect(fixture.memoryInit).toHaveBeenCalledOnce()
-  expect(fixture.workflowInit).toHaveBeenCalledOnce()
-  expect(fixture.end).toHaveBeenCalledOnce()
+  await expect(runtime.getCopilotAgent()).rejects.toThrow('agent unavailable')
+  expect(fixture.end).not.toHaveBeenCalled()
+  expect(await runtime.getMastra()).toBe(mastra)
+  expect(await runtime.getCopilotAgent()).toBe(mastra.getAgent('copilot'))
+  expect(fixture.poolOptions).toHaveLength(1)
 })
 it('requires the Studio database before constructing storage', async () => {
   vi.stubEnv('DATABASE_URL', '')

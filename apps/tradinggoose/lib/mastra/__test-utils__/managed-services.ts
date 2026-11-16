@@ -19,7 +19,7 @@ vi.mock('@/lib/system-services/service', () => ({
 function resetManagedServices() {
   managedServices.credentials = {}
   managedServices.listServices.mockReset().mockImplementation(async () =>
-    getSystemServiceDefinitions().map((definition) => ({
+    (await getSystemServiceDefinitions()).map((definition) => ({
       id: definition.id,
       credentials: definition.credentialFields.map(({ key }) => ({
         key,

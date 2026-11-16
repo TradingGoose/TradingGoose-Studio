@@ -1,9 +1,6 @@
 import type { MastraMessagePart } from '@mastra/core/agent/message-list'
-import type { ChatContext } from '@/lib/copilot/chat-context-schema'
-
-export type { ChatContext } from '@/lib/copilot/chat-context-schema'
-
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type {
   BrowserAssertion,
   CopilotToolContext,

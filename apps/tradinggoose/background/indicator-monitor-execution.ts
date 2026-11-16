@@ -163,8 +163,10 @@ const chooseCandidate = ({
 }
 
 export async function executeIndicatorMonitorJob(
-  payload: IndicatorMonitorExecutionPayload & { executionId: string }
+  payload: IndicatorMonitorExecutionPayload & { executionId: string },
+  signal?: AbortSignal
 ) {
+  signal?.throwIfAborted()
   const requestId = payload.executionId.slice(0, 8)
   const workspaceId = payload.monitor.workspaceId.trim()
   if (!workspaceId) {
@@ -188,6 +190,7 @@ export async function executeIndicatorMonitorJob(
     executionTimeoutMs: 15_000,
     userId: payload.monitor.userId,
   })
+  signal?.throwIfAborted()
 
   if (!compiled.output) {
     return { success: true, skipped: 'no_output' as const }

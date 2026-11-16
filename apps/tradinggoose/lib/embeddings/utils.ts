@@ -9,9 +9,10 @@ import {
 } from '@/lib/billing/model-usage'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveConfiguredModel } from '@/lib/mastra/connections'
+import { calculateNativeCost } from '@/lib/mastra/pricing'
 import { assertListedEmbeddingModel } from '@/lib/mastra/registry'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
-import { calculateNativeCost, type NativeCost, sumNativeCosts } from '@/lib/mastra/usage'
+import { type NativeCost, sumNativeCosts } from '@/lib/mastra/usage'
 import { batchByTokenLimit, getAccurateTokenCount } from '@/lib/tokenization'
 
 const logger = createLogger('EmbeddingUtils')

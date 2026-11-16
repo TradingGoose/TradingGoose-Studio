@@ -20,7 +20,7 @@ const boundary = vi.hoisted(() => ({
 vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: async () => ({ success: true, userId: 'authenticated-actor' }),
 }))
-vi.mock('@/lib/auth/internal', () => ({
+vi.mock('@/lib/auth/internal-token', () => ({
   generateInternalToken: async () => 'synthetic-internal-auth',
 }))
 vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: boundary.owner }))

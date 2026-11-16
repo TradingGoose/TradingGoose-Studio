@@ -132,7 +132,7 @@ export const imageTool: ToolConfig = {
           }
 
           if (typeof window === 'undefined') {
-            const { generateInternalToken } = await import('@/lib/auth/internal')
+            const { generateInternalToken } = await import('@/lib/auth/internal-token')
             try {
               const token = await generateInternalToken()
               headers.Authorization = `Bearer ${token}`

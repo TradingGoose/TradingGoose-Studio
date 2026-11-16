@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { ChatContext } from '@/stores/copilot/types'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 
 type PublishedContext = { owner: symbol; value: ChatContext | null }
 

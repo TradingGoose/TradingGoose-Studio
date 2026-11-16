@@ -9,7 +9,7 @@ import {
 import { Memory } from '@mastra/memory'
 import { MemoryPG, PoolAdapter, PostgresStore, type TxClient } from '@mastra/pg'
 import { RedisStreamsPubSub } from '@mastra/redis-streams'
-import { createCopilotAgent } from '@/lib/copilot/agent/agent'
+import type { createCopilotAgent } from '@/lib/copilot/agent/agent'
 
 async function createRuntime() {
   const connectionString = process.env.DATABASE_URL
@@ -20,9 +20,7 @@ async function createRuntime() {
   try {
     await storage.init()
     const memory = new Memory({ storage })
-    const copilotAgent = createCopilotAgent(memory)
-    const mastra = new Mastra({
-      agents: { copilot: copilotAgent },
+    const mastra = new Mastra<{ copilot: ReturnType<typeof createCopilotAgent> }>({
       storage,
       ...(process.env.REDIS_URL
         ? { pubsub: new RedisStreamsPubSub({ url: process.env.REDIS_URL }) }
@@ -51,7 +49,11 @@ export async function getMastra() {
 }
 
 export async function getCopilotAgent() {
-  return (await getRuntime()).mastra.getAgent('copilot')
+  const { mastra, memory } = await getRuntime()
+  const { createCopilotAgent } = await import('@/lib/copilot/agent/agent')
+  if (!Object.hasOwn(mastra.listAgents(), 'copilot'))
+    mastra.addAgent(createCopilotAgent(memory), 'copilot')
+  return mastra.getAgent('copilot')
 }
 
 export async function getAgentMemory() {

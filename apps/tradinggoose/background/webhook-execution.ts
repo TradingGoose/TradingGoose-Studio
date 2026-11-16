@@ -165,7 +165,7 @@ async function logWebhookFailure(params: {
   })
 }
 
-export async function executeWebhookJob(payload: WebhookExecutionPayload) {
+export async function executeWebhookJob(payload: WebhookExecutionPayload, signal?: AbortSignal) {
   const executionId = payload.executionId
   const requestId = executionId.slice(0, 8)
   const executionTarget = payload.executionTarget ?? 'deployed'
@@ -188,6 +188,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
   let workflowState: WorkflowExecutionBlueprint['workflowData'] | null = null
 
   try {
+    signal?.throwIfAborted()
     const blueprint = await loadWorkflowExecutionBlueprint({
       workflowId: payload.workflowId,
       executionTarget,
@@ -202,8 +203,9 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
 
     const enqueueAirtableContinuation = (
       continuation: NonNullable<AirtablePollResult['continuation']>
-    ) =>
-      enqueuePendingExecution({
+    ) => {
+      signal?.throwIfAborted()
+      return enqueuePendingExecution({
         executionType: 'webhook',
         pendingExecutionId: getAirtableContinuationExecutionId(payload.webhookId, continuation),
         workflowId: payload.workflowId,
@@ -221,6 +223,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
           executionTarget: payload.executionTarget,
         },
       })
+    }
 
     const [completedExecution] = await db
       .select({
@@ -280,6 +283,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       headers: new Map(Object.entries(payload.headers ?? {})),
     } as any
 
+    signal?.throwIfAborted()
     const formattedInput = await formatWebhookInput(
       webhookRecord,
       workflowRef,
@@ -314,6 +318,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       return skippedExecution
     }
 
+    signal?.throwIfAborted()
     if (input && payload.blockId && blocks[payload.blockId]) {
       const triggerBlock = blocks[payload.blockId]
       const triggerId = resolveTriggerIdForBlock(triggerBlock)
@@ -342,6 +347,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       payload.blockId &&
       blocks[payload.blockId]
     ) {
+      signal?.throwIfAborted()
       const processedInput = await processWorkflowInputFormatFiles({
         input,
         blocks,
@@ -358,6 +364,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
 
     executionLogOwned = true
     const { result } = await runPreparedWorkflowExecution({
+      signal,
       blueprint,
       actorUserId: payload.userId,
       requestId,

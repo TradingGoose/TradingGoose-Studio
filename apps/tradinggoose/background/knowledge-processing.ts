@@ -1,5 +1,3 @@
-import { task } from '@trigger.dev/sdk'
-import { env } from '@/lib/env'
 import {
   markDocumentProcessingFailed,
   processDocumentAsync,
@@ -7,11 +5,6 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('KnowledgeProcessing')
-
-const envNumber = (value: unknown, fallback: number, min = 1) => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed >= min ? parsed : fallback
-}
 
 export type DocumentProcessingPayload = {
   knowledgeBaseId: string
@@ -58,7 +51,8 @@ function requireDocumentProcessingPayload(value: unknown): DocumentProcessingPay
   throw new Error('Invalid document pending payload')
 }
 
-export async function executeDocumentProcessingJob(value: unknown) {
+export async function executeDocumentProcessingJob(value: unknown, signal?: AbortSignal) {
+  signal?.throwIfAborted()
   const payload = requireDocumentProcessingPayload(value)
   const { knowledgeBaseId, documentId, docData, processingOptions, requestId } = payload
 
@@ -68,6 +62,7 @@ export async function executeDocumentProcessingJob(value: unknown) {
     await processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions, {
       actorUserId: payload.userId,
       workspaceId: payload.workspaceId,
+      signal,
     })
 
     logger.info(
@@ -77,21 +72,6 @@ export async function executeDocumentProcessingJob(value: unknown) {
     logger.error(`[${requestId}] Failed document pending execution: ${docData.filename}`, error)
     throw error
   }
-}
-
-export const processDocument = task({
-  id: 'knowledge-process-document',
-  maxDuration: envNumber(env.KB_CONFIG_MAX_DURATION, 600),
-  machine: 'large-1x',
-  retry: {
-    maxAttempts: 1,
-  },
-  run: (payload: DocumentProcessingPayload) => executeDocumentProcessingJob(payload),
-})
-
-export async function executeTriggeredDocumentProcessingJob(value: unknown) {
-  const payload = requireDocumentProcessingPayload(value)
-  await processDocument.triggerAndWait(payload).unwrap()
 }
 
 export async function markDocumentProcessingJobFailed(value: unknown, errorMessage: string) {

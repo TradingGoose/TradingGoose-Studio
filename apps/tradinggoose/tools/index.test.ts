@@ -10,7 +10,7 @@
 import { Agent } from '@mastra/core/agent'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateInternalToken } from '@/lib/auth/internal'
+import { generateInternalToken } from '@/lib/auth/internal-token'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBlock } from '@/blocks'
 import { createMinimalWorkflow } from '@/executor/__test-utils__/executor-mocks'
@@ -50,7 +50,7 @@ vi.mock('@tradinggoose/db', () => ({
   },
 }))
 
-vi.mock('@/lib/auth/internal', () => ({
+vi.mock('@/lib/auth/internal-token', () => ({
   generateInternalToken: vi.fn().mockResolvedValue('mock-internal-token'),
 }))
 

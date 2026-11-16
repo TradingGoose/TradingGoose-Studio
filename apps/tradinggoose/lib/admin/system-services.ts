@@ -38,7 +38,9 @@ export async function listAdminSystemServices() {
     ...SYSTEM_SERVICE_DEFINITIONS.map(({ id }) => id),
     ...copilot.models.map(({ provider }) => provider),
   ])
-  const definitions = getSystemServiceDefinitions().filter(({ id }) => visibleServiceIds.has(id))
+  const definitions = (await getSystemServiceDefinitions()).filter(({ id }) =>
+    visibleServiceIds.has(id)
+  )
   const stateById = new Map(state.map((service) => [service.id, service]))
 
   return {

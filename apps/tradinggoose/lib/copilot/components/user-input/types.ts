@@ -1,8 +1,9 @@
 'use client'
 
 import type { ComponentType, Dispatch, SetStateAction } from 'react'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type { ImagePart } from '@/lib/copilot/native/contract'
-import type { ChatContext, CopilotDraft } from '@/stores/copilot/types'
+import type { CopilotDraft } from '@/stores/copilot/types'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
 
 export interface AttachedFile {

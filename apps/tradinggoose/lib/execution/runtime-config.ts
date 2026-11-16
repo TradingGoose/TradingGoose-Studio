@@ -15,6 +15,5 @@ export const resolveExecutionRuntimeConfig = async () => {
     useE2B,
     e2bTemplate,
     e2bKeepWarmMs,
-    e2bApiKey: e2bConfig.apiKey,
   }
 }

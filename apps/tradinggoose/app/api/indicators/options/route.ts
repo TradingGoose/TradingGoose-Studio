@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { listIndicators } from '@/lib/indicators/custom/operations'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
-import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
+import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     const copilotSurface = surface === 'copilot'
 
     const defaultOptions: IndicatorOptionRecord[] = DEFAULT_INDICATOR_RUNTIME_ENTRIES.filter(
-      (entry) => copilotSurface || isIndicatorTriggerCapable(entry.pineCode)
+      (entry) => copilotSurface || detectTriggerUsage(entry.pineCode)
     ).map((entry) => {
       const inputMeta = entry.inputMeta
       const inputTitles = Object.keys(inputMeta ?? {})
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     const customRows = await listIndicators({ workspaceId })
 
     const customOptions: IndicatorOptionRecord[] = customRows
-      .filter((row) => copilotSurface || isIndicatorTriggerCapable(row.pineCode))
+      .filter((row) => copilotSurface || detectTriggerUsage(row.pineCode))
       .map((row) => {
         const inputMeta = row.inputMeta ?? undefined
         const inputTitles = Object.keys(inputMeta ?? {})

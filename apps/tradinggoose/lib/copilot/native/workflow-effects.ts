@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { readCopilotRun } from '@/lib/copilot/agent/context'
-import { assertCopilotRunActive, claimCopilotEffect } from '@/lib/copilot/agent/state'
+import { assertCopilotRunActive, claimCopilotEffect } from '@/lib/copilot/agent/receipts'
 import { ToolArgSchemas } from '@/lib/copilot/registry'
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import type { PendingExecutionTransaction } from '@/lib/execution/pending-execution'

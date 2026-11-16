@@ -171,46 +171,6 @@ export interface LogsResponse {
   totalPages: number
 }
 
-export interface LogsError {
-  code: 'EXECUTION_NOT_FOUND' | 'SNAPSHOT_NOT_FOUND' | 'INVALID_WORKFLOW_STATE' | 'STORAGE_ERROR'
-  message: string
-  details?: Record<string, unknown>
-}
-
-export interface ValidationError {
-  field: string
-  message: string
-  value: unknown
-}
-
-export class LogsServiceError extends Error {
-  public code: LogsError['code']
-  public details?: Record<string, unknown>
-
-  constructor(message: string, code: LogsError['code'], details?: Record<string, unknown>) {
-    super(message)
-    this.name = 'LogsServiceError'
-    this.code = code
-    this.details = details
-  }
-}
-
-export interface SnapshotService {
-  createSnapshot(params: {
-    workflowId: string
-    workspaceId: string
-    state: WorkflowState
-  }): Promise<WorkflowExecutionSnapshot>
-  getSnapshot(id: string): Promise<WorkflowExecutionSnapshot | null>
-  getSnapshotByHash(params: {
-    workflowId: string
-    workspaceId: string
-    hash: string
-  }): Promise<WorkflowExecutionSnapshot | null>
-  computeStateHash(state: WorkflowState): string
-  cleanupOrphanedSnapshots(olderThanDays: number): Promise<number>
-}
-
 export interface SnapshotCreationResult {
   snapshot: WorkflowExecutionSnapshot
   isNew: boolean

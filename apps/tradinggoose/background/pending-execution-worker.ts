@@ -1,10 +1,8 @@
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { AbortTaskRunError, task, timeout, wait } from '@trigger.dev/sdk'
+import { AbortTaskRunError, timeout, wait } from '@trigger.dev/sdk'
 import { and, eq } from 'drizzle-orm'
-import { finalizeCopilotJob } from '@/lib/copilot/agent/service'
 import {
-  BACKGROUND_EXECUTION_TASK_ID,
   type BackgroundExecutionTaskPayload,
   waitForBackgroundExecution,
 } from '@/lib/execution/background-execution'
@@ -15,7 +13,6 @@ import {
   listChildPendingWorkflowExecutions,
   PENDING_EXECUTION_CANCELLATION_ERROR,
   PENDING_EXECUTION_FAILURE_ERROR,
-  PENDING_EXECUTION_TASK_ID,
   PENDING_EXECUTION_TIME_LIMIT_ERROR,
   type PendingExecutionClaim,
   settlePendingExecutionOwner,
@@ -23,26 +20,14 @@ import {
 } from '@/lib/execution/pending-execution'
 import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
-import { executionLogger } from '@/lib/logs/execution/logger'
-import { LoggingSession } from '@/lib/logs/execution/logging-session'
-import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
-import {
-  completeWorkflowCheckpointChild,
-  readWorkflowCheckpointChildren,
-  readWorkflowCheckpointSnapshot,
-  recoverWorkflowCheckpointSegment,
-} from '@/lib/workflows/human-in-the-loop/service'
-import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import { executeBackgroundExecution } from './execution-job'
-import { markDocumentProcessingJobFailed } from './knowledge-processing'
-import { isScheduleExecutionPayload, settleScheduleOccurrence } from './schedule-execution'
 
 const logger = createLogger('PendingExecutionWorker')
 const DESCENDANT_CANCELLATION_CONCURRENCY = 5
 const PENDING_EXECUTION_WAKE_RETRY_SECONDS = 30
 
-type PendingExecutionTaskPayload = {
+export type PendingExecutionTaskPayload = {
   pendingExecutionId: string
   billingScopeId: string
   billingScopeType: string
@@ -85,66 +70,29 @@ function getWorkflowState(row: Pick<PendingExecutionClaim, 'payload'>): Workflow
   }
 }
 
-export async function executeBackgroundExecutionRun(
-  payload: BackgroundExecutionTaskPayload,
-  options: { triggerRuntime: boolean; signal?: AbortSignal }
+export async function executePendingExecutionRun(
+  payload: Exclude<BackgroundExecutionTaskPayload, { executionType: 'copilot' }>,
+  signal?: AbortSignal
 ) {
-  if ('executionType' in payload) return executeBackgroundExecution(payload, options)
   const row = await getProcessingPendingExecution(payload.pendingExecutionId)
   if (!row) {
     return { success: true, skipped: 'not_processing' as const }
   }
 
+  if (row.executionType !== payload.executionType) throw new Error('Execution task type differs')
   if (!(await recoverPendingExecutionCheckpoint(row))) {
-    await executeBackgroundExecution(row, options)
+    await executeBackgroundExecution(row, signal)
+    if (isWorkflowPendingExecution(row)) {
+      const { reconcileWorkflowCheckpointChildren } = await import(
+        '@/lib/workflows/human-in-the-loop/service'
+      )
+      await reconcileWorkflowCheckpointChildren(
+        typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id
+      )
+    }
     await settlePendingExecutionOwner(row, { wake: false })
   }
   return { success: true, pendingExecutionId: row.id }
-}
-
-export const backgroundExecutionTask = task<
-  typeof BACKGROUND_EXECUTION_TASK_ID,
-  BackgroundExecutionTaskPayload
->({
-  id: BACKGROUND_EXECUTION_TASK_ID,
-  retry: {
-    maxAttempts: 1,
-  },
-  run: (payload, { signal }) =>
-    executeBackgroundExecutionRun(payload, { triggerRuntime: true, signal }),
-  onFailure: async ({ payload, error }) => {
-    if ('executionType' in payload) await finalizeBackgroundExecutionFailure(payload, error)
-  },
-  onCancel: async ({ payload, runPromise }) => {
-    if ('executionType' in payload) {
-      await runPromise.catch(() => undefined)
-      await finalizeBackgroundExecutionFailure(
-        payload,
-        new Error('Copilot execution was cancelled')
-      )
-    }
-  },
-})
-
-export async function finalizeBackgroundExecutionFailure(
-  payload: BackgroundExecutionTaskPayload,
-  error: unknown,
-  startedAt = Date.now()
-) {
-  if ('executionType' in payload) {
-    await finalizeCopilotJob(
-      payload.payload,
-      error instanceof Error ? error.message : 'Copilot execution failed'
-    )
-    return
-  }
-  const row = await getProcessingPendingExecution(payload.pendingExecutionId)
-  if (row)
-    await finalizePendingExecutionFailure(
-      row,
-      getPendingExecutionFailureMessage(error),
-      Math.max(1, Date.now() - startedAt)
-    )
 }
 
 function isMaxDurationError(error: unknown) {
@@ -159,8 +107,8 @@ function getPendingExecutionFailureMessage(error: unknown) {
   return PENDING_EXECUTION_FAILURE_ERROR
 }
 
-async function finalizePendingExecutionRunFailure(
-  payload: PendingExecutionTaskPayload,
+export async function finalizePendingExecutionRunFailure(
+  payload: Pick<PendingExecutionTaskPayload, 'pendingExecutionId' | 'executionMaxDuration'>,
   error: unknown,
   startedAt: number
 ) {
@@ -204,7 +152,7 @@ async function wakePendingExecutionUntilSuccessful(payload: PendingExecutionTask
   }
 }
 
-async function executePendingExecution(payload: PendingExecutionTaskPayload) {
+export async function executePendingExecution(payload: PendingExecutionTaskPayload) {
   const startedAt = Date.now()
   const row = await getProcessingPendingExecution(payload.pendingExecutionId)
   if (!row) {
@@ -215,10 +163,7 @@ async function executePendingExecution(payload: PendingExecutionTaskPayload) {
     await wakePendingExecutionUntilSuccessful(payload)
     return { success: true, pendingExecutionId: row.id, skipped: 'owner_completed' as const }
   }
-  const result = await waitForBackgroundExecution(
-    payload.pendingExecutionId,
-    payload.executionMaxDuration
-  )
+  const result = await waitForBackgroundExecution(row, payload.executionMaxDuration)
 
   const failureMessage = result.ok
     ? undefined
@@ -227,18 +172,6 @@ async function executePendingExecution(payload: PendingExecutionTaskPayload) {
   if (failureMessage) throw new AbortTaskRunError(failureMessage)
   return result.ok ? result.output : { success: true, skipped: 'not_processing' as const }
 }
-
-export const pendingExecutionTask = task<
-  typeof PENDING_EXECUTION_TASK_ID,
-  PendingExecutionTaskPayload
->({
-  id: PENDING_EXECUTION_TASK_ID,
-  maxDuration: timeout.None,
-  retry: {
-    maxAttempts: 10,
-  },
-  run: executePendingExecution,
-})
 
 export async function terminalizeWorkflowExecution(
   row: Pick<
@@ -259,6 +192,14 @@ export async function terminalizeWorkflowExecution(
     return
   }
 
+  const [{ executionLogger }, { LoggingSession }, { buildTraceSpans }, checkpoints] =
+    await Promise.all([
+      import('@/lib/logs/execution/logger'),
+      import('@/lib/logs/execution/logging-session'),
+      import('@/lib/logs/execution/trace-spans/trace-spans'),
+      import('@/lib/workflows/human-in-the-loop/service'),
+    ])
+  const { completeWorkflowCheckpointChild, readWorkflowCheckpointSnapshot } = checkpoints
   const executionId =
     typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id
   const [existingLog] = await db
@@ -365,6 +306,11 @@ export async function cancelPendingExecutionDescendants(
   const queuedChildren = await listChildPendingWorkflowExecutions({
     executionId: parentExecutionId,
   })
+  const [{ readWorkflowCheckpointChildren }, { cancelPendingWorkflowExecution }] =
+    await Promise.all([
+      import('@/lib/workflows/human-in-the-loop/service'),
+      import('@/lib/workflows/queued-execution-cancellation'),
+    ])
   const checkpointChildren = await readWorkflowCheckpointChildren(parentExecutionId)
   const children = [
     ...new Map(
@@ -413,18 +359,24 @@ export async function cancelPendingExecutionDescendants(
 }
 
 async function recoverPendingExecutionCheckpoint(row: PendingExecutionClaim) {
+  if (!isWorkflowPendingExecution(row)) return false
+  const { recoverWorkflowCheckpointSegment } = await import(
+    '@/lib/workflows/human-in-the-loop/service'
+  )
   if (
-    isWorkflowPendingExecution(row) &&
-    (await recoverWorkflowCheckpointSegment({
+    await recoverWorkflowCheckpointSegment({
       executionId:
         typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id,
       userId: row.userId,
       workflowId: row.workflowId,
       checkpointRevision:
         typeof row.payload.checkpointRevision === 'number' ? row.payload.checkpointRevision : 0,
-    }))
+    })
   ) {
     if (row.executionType === 'schedule') {
+      const { isScheduleExecutionPayload, settleScheduleOccurrence } = await import(
+        './schedule-execution'
+      )
       if (!isScheduleExecutionPayload(row.payload)) throw new Error('Invalid schedule payload')
       await settleScheduleOccurrence(row.payload, 'success')
     }
@@ -441,6 +393,7 @@ export async function finalizePendingExecutionFailure(
 ) {
   if (await recoverPendingExecutionCheckpoint(row)) return true
   if (row.executionType === 'document') {
+    const { markDocumentProcessingJobFailed } = await import('./knowledge-processing')
     await markDocumentProcessingJobFailed(row.payload, message)
   }
 

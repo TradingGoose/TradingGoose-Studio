@@ -1,4 +1,7 @@
-import { generateInternalToken, type InternalWorkflowExecutionContext } from '@/lib/auth/internal'
+import {
+  generateInternalToken,
+  type InternalWorkflowExecutionContext,
+} from '@/lib/auth/internal-token'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBaseUrl } from '@/lib/urls/utils'

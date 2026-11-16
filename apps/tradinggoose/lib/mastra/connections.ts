@@ -4,7 +4,7 @@ import { getSystemServiceDefinition } from '@/lib/system-services/catalog'
 import { resolveSystemServiceConfig } from '@/lib/system-services/service'
 
 async function resolveManagedKey(provider: string): Promise<string | undefined> {
-  const definition = getSystemServiceDefinition(provider)
+  const definition = await getSystemServiceDefinition(provider)
   const credential = definition?.credentialFields[0]
   if (!definition || !credential) return undefined
   const config = await resolveSystemServiceConfig(definition.id)

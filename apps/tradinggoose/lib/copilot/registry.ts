@@ -2,14 +2,16 @@ import { z } from 'zod'
 import { MAX_WORKFLOW_LOGS_PER_READ } from '@/lib/copilot/context-limits'
 import {
   CUSTOM_TOOL_DOCUMENT_FORMAT,
+  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
   INDICATOR_DOCUMENT_FORMAT,
   KNOWLEDGE_BASE_DOCUMENT_FORMAT,
   MCP_SERVER_DOCUMENT_FORMAT,
+  MONITOR_DOCUMENT_FORMAT,
   SKILL_DOCUMENT_FORMAT,
   WATCHLIST_DOCUMENT_FORMAT,
   WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
-} from '@/lib/copilot/entity-documents'
-import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
+} from '@/lib/copilot/document-formats'
 import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import { withServerToolReviewRejection } from '@/lib/copilot/tools/shared/review-result'
 import { ListingResolvedSchema } from '@/lib/listing/identity'
@@ -17,10 +19,6 @@ import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
-import {
-  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
-  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
-} from '@/widgets/layout-document'
 import {
   GetAgentAccessoryCatalogInput,
   GetAgentAccessoryCatalogResult,

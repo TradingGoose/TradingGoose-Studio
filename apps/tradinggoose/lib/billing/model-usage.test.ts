@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateEmbeddings } from '@/lib/embeddings/utils'
 import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
 import { projectNativeMessage } from '@/lib/mastra/messages'
+import { createModelUsageAccounting } from '@/lib/mastra/request'
 import type { NativeCost } from '@/lib/mastra/usage'
 import { usageProcessors } from '@/lib/mastra/usage-processors'
 import {
@@ -156,7 +157,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 async function nativeGeneration(scope: ModelUsageScope, mode: 'generate' | 'stream') {
-  const accounting = await usageProcessors(scope)
+  const accounting = await usageProcessors(scope, createModelUsageAccounting(scope))
   const contact = vi.fn()
   const model = new MastraLanguageModelV2Mock({
     doGenerate: async () => {
@@ -514,7 +515,8 @@ it.each([
 )
 
 it('completes successful native inference for a new unpriced Copilot model with billing enabled', async () => {
-  const accounting = await usageProcessors({ ...scope, model: 'openai/new-unpriced-model' })
+  const nativeScope = { ...scope, model: 'openai/new-unpriced-model' }
+  const accounting = await usageProcessors(nativeScope, createModelUsageAccounting(nativeScope))
   const agent = new Agent({
     id: 'unpriced-copilot-test',
     name: 'Unpriced Copilot test',
@@ -598,7 +600,7 @@ it('reports BYOK standard estimates without checking or debiting the Studio mode
 
 it('persists native dollar reports using the same Studio-tier amount as account usage', async () => {
   const observed = { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }
-  const accounting = await usageProcessors(scope)
+  const accounting = await usageProcessors(scope, createModelUsageAccounting(scope))
   const agent = new Agent({
     id: 'account-priced-native-report',
     name: 'Account priced native report',
@@ -641,7 +643,7 @@ it('persists native dollar reports using the same Studio-tier amount as account 
 it('persists standard BYOK prices through native generation when the Studio balance is exhausted', async () => {
   fixture.limits.mockResolvedValue({ isExceeded: true, message: 'Allowance exhausted' })
   const nativeScope = { ...scope, funding: 'byok' as const }
-  const accounting = await usageProcessors(nativeScope)
+  const accounting = await usageProcessors(nativeScope, createModelUsageAccounting(nativeScope))
   const agent = new Agent({
     id: 'byok-priced-native-report',
     name: 'BYOK priced native report',

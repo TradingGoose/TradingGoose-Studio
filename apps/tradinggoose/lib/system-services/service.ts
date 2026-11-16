@@ -6,8 +6,7 @@ import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 import {
   getSystemServiceDefinition,
   getSystemServiceDefinitions,
-  isSystemServiceCredentialKey,
-  isSystemServiceSettingKey,
+  type SystemServiceDefinition,
   type SystemServiceSettingFieldDefinition,
 } from './catalog'
 
@@ -68,7 +67,7 @@ export async function listSystemServices(): Promise<SystemServiceState[]> {
     settingValues.set(compositeKey, row.value)
   }
 
-  return getSystemServiceDefinitions().map((definition) => ({
+  return (await getSystemServiceDefinitions()).map((definition) => ({
     id: definition.id,
     displayName: definition.displayName,
     description: definition.description,
@@ -91,7 +90,7 @@ async function resolveSystemServiceValues(
   serviceId: string,
   includeCredentials: boolean
 ): Promise<Record<string, SystemServiceResolvedValue>> {
-  const definition = getSystemServiceDefinition(serviceId)
+  const definition = await getSystemServiceDefinition(serviceId)
   if (!definition) {
     throw new SystemServiceValidationError(`Unknown system service "${serviceId}"`)
   }
@@ -156,13 +155,13 @@ export async function upsertSystemServiceConfig(input: {
   credentials: SystemServiceCredentialInput[]
   settings: SystemServiceSettingInput[]
 }) {
-  const definition = getSystemServiceDefinition(input.serviceId)
+  const definition = await getSystemServiceDefinition(input.serviceId)
   if (!definition) {
     throw new SystemServiceValidationError(`Unknown system service "${input.serviceId}"`)
   }
 
-  const nextCredentials = normalizeCredentials(input.serviceId, input.credentials)
-  const nextSettings = normalizeSettings(input.serviceId, input.settings)
+  const nextCredentials = normalizeCredentials(definition, input.credentials)
+  const nextSettings = normalizeSettings(definition, input.settings)
 
   const existingRows = await db
     .select()
@@ -273,10 +272,14 @@ function buildRowId(serviceId: string, kind: SystemServiceValueKind, key: string
   return `${serviceId}:${kind}:${key}`
 }
 
-function normalizeCredentials(serviceId: string, credentials: SystemServiceCredentialInput[]) {
+function normalizeCredentials(
+  definition: SystemServiceDefinition,
+  credentials: SystemServiceCredentialInput[]
+) {
+  const serviceId = definition.id
   const seenKeys = new Set<string>()
   const normalized = credentials.map((credential) => {
-    if (!isSystemServiceCredentialKey(serviceId, credential.key)) {
+    if (!definition.credentialFields.some((field) => field.key === credential.key)) {
       throw new SystemServiceValidationError(
         `Unknown credential key "${credential.key}" for service "${serviceId}"`
       )
@@ -294,8 +297,7 @@ function normalizeCredentials(serviceId: string, credentials: SystemServiceCrede
     }
   })
 
-  const expectedKeys =
-    getSystemServiceDefinition(serviceId)?.credentialFields.map((field) => field.key) ?? []
+  const expectedKeys = definition.credentialFields.map((field) => field.key)
   if (normalized.length !== expectedKeys.length || expectedKeys.some((key) => !seenKeys.has(key))) {
     throw new SystemServiceValidationError(
       `Service "${serviceId}" must provide all credential fields in a single update`
@@ -305,32 +307,24 @@ function normalizeCredentials(serviceId: string, credentials: SystemServiceCrede
   return normalized
 }
 
-function normalizeSettings(serviceId: string, settings: SystemServiceSettingInput[]) {
-  const definition = getSystemServiceDefinition(serviceId)
-  if (!definition) {
-    throw new SystemServiceValidationError(`Unknown system service "${serviceId}"`)
-  }
-
+function normalizeSettings(
+  definition: SystemServiceDefinition,
+  settings: SystemServiceSettingInput[]
+) {
+  const serviceId = definition.id
   const expectedFields = definition.settingFields
   const seenKeys = new Set<string>()
 
   const normalized = settings.map((setting) => {
-    if (!isSystemServiceSettingKey(serviceId, setting.key)) {
-      throw new SystemServiceValidationError(
-        `Unknown setting key "${setting.key}" for service "${serviceId}"`
-      )
-    }
-
-    if (seenKeys.has(setting.key)) {
-      throw new SystemServiceValidationError(
-        `Duplicate setting key "${setting.key}" for service "${serviceId}"`
-      )
-    }
-
     const field = expectedFields.find((item) => item.key === setting.key)
     if (!field) {
       throw new SystemServiceValidationError(
         `Unknown setting key "${setting.key}" for service "${serviceId}"`
+      )
+    }
+    if (seenKeys.has(setting.key)) {
+      throw new SystemServiceValidationError(
+        `Duplicate setting key "${setting.key}" for service "${serviceId}"`
       )
     }
 

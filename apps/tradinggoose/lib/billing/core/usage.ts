@@ -2,11 +2,6 @@ import { db } from '@tradinggoose/db'
 import { member, settings, user, userStats } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import {
-  getEmailSubject,
-  renderFreeTierUpgradeEmail,
-  renderUsageThresholdEmail,
-} from '@/components/emails/render-email'
-import {
   getConfiguredPersonalUsageLimit,
   getEffectiveSubscription,
   getSubscribedPersonalUsageMinimumLimit,
@@ -20,9 +15,6 @@ import {
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
 import type { BillingData, UsageData, UsageLimitInfo } from '@/lib/billing/types'
-import { resolveEmailLocale } from '@/lib/email/locale'
-import { sendEmail } from '@/lib/email/mailer'
-import { getEmailPreferences } from '@/lib/email/unsubscribe'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -588,6 +580,13 @@ export async function maybeSendUsageThresholdEmail(params: {
 
     // Skip if no thresholds crossed
     if (!crossesWarningThreshold && !crossesFreeTierUpgradeThreshold) return
+
+    const { getEmailSubject, renderFreeTierUpgradeEmail, renderUsageThresholdEmail } = await import(
+      '@/components/emails/render-email'
+    )
+    const { resolveEmailLocale } = await import('@/lib/email/locale')
+    const { sendEmail } = await import('@/lib/email/mailer')
+    const { getEmailPreferences } = await import('@/lib/email/unsubscribe')
 
     if (crossesWarningThreshold) {
       const ctaLink = `${baseUrl}/workspace?billing=usage`

@@ -1,7 +1,5 @@
-import {
-  getEntityDocumentSchema,
-  INDICATOR_DOCUMENT_FORMAT,
-} from '../../apps/tradinggoose/lib/copilot/entity-documents'
+import { INDICATOR_DOCUMENT_FORMAT } from '../../apps/tradinggoose/lib/copilot/document-formats'
+import { getEntityDocumentSchema } from '../../apps/tradinggoose/lib/copilot/entity-documents'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '../../apps/tradinggoose/lib/indicators/default/runtime'
 import {
   INDICATOR_DEFAULTS,

@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => {
     completeWorkflowCheckpointChild: vi.fn(),
     cancelPendingExecutionDescendants: vi.fn(),
     dispatchWorkflowPauseNotifications: vi.fn(),
+    isPendingWorkflowExecutionCancellationRequested: vi.fn(),
   }
 })
 
@@ -43,6 +44,10 @@ vi.mock('@tradinggoose/db/schema', () => ({ workflow: {} }))
 vi.mock('drizzle-orm', () => ({ eq: vi.fn() }))
 vi.mock('@/background/pending-execution-worker', () => ({
   cancelPendingExecutionDescendants: mocks.cancelPendingExecutionDescendants,
+}))
+vi.mock('@/lib/execution/pending-execution', () => ({
+  isPendingWorkflowExecutionCancellationRequested:
+    mocks.isPendingWorkflowExecutionCancellationRequested,
 }))
 
 vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
@@ -173,6 +178,53 @@ describe('runPreparedWorkflowExecution', () => {
     mocks.completeWorkflowCheckpointChild.mockResolvedValue(undefined)
     mocks.cancelPendingExecutionDescendants.mockResolvedValue(undefined)
     mocks.dispatchWorkflowPauseNotifications.mockResolvedValue(undefined)
+    mocks.isPendingWorkflowExecutionCancellationRequested.mockResolvedValue(false)
+  })
+
+  it.each(['manual', 'api', 'api-endpoint', 'chat', 'schedule', 'webhook'] as const)(
+    'observes cancellation of the active queued attempt for %s execution',
+    async (triggerType) => {
+      const signal = new AbortController()
+      await runPreparedWorkflowExecution({
+        ...baseRunParams,
+        triggerType,
+        signal: signal.signal,
+        contextExtensions: { pendingExecutionId: 'execution-1:resume:2' },
+      })
+      const { shouldCancelExecution } = mocks.executorConstructor.mock.calls[0][0].contextExtensions
+      await expect(shouldCancelExecution()).resolves.toBe(false)
+      expect(mocks.isPendingWorkflowExecutionCancellationRequested).toHaveBeenCalledWith(
+        'execution-1:resume:2'
+      )
+      mocks.isPendingWorkflowExecutionCancellationRequested.mockResolvedValueOnce(true)
+      await expect(shouldCancelExecution()).resolves.toBe(true)
+      signal.abort()
+      await expect(shouldCancelExecution()).resolves.toBe(true)
+      expect(mocks.isPendingWorkflowExecutionCancellationRequested).toHaveBeenCalledTimes(2)
+    }
+  )
+
+  it('retains caller cancellation without requiring a queued attempt', async () => {
+    const shouldCancelExecution = vi.fn().mockResolvedValue(true)
+    await runPreparedWorkflowExecution({
+      ...baseRunParams,
+      contextExtensions: { shouldCancelExecution },
+    })
+    const cancellation = mocks.executorConstructor.mock.calls[0][0].contextExtensions
+    await expect(cancellation.shouldCancelExecution()).resolves.toBe(true)
+    expect(shouldCancelExecution).toHaveBeenCalledOnce()
+    expect(mocks.isPendingWorkflowExecutionCancellationRequested).not.toHaveBeenCalled()
+  })
+
+  it('records cancellation before engine initialization through normal failure settlement', async () => {
+    const signal = AbortSignal.abort(new Error('Native execution cancelled'))
+    const { result } = await runPreparedWorkflowExecution({ ...baseRunParams, signal })
+    expect(result).toMatchObject({ success: false, error: 'Native execution cancelled' })
+    expect(mocks.executorConstructor).not.toHaveBeenCalled()
+    expect(mocks.checkServerSideUsageLimits).not.toHaveBeenCalled()
+    expect(mocks.complete).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, failureReason: 'Native execution cancelled' })
+    )
   })
 
   it('threads required workspace and workflow log context into executor runs without resetting workflow depth', async () => {
@@ -224,6 +276,9 @@ describe('runPreparedWorkflowExecution', () => {
       })
     )
     expect(mocks.cancelPendingExecutionDescendants).not.toHaveBeenCalled()
+    expect(
+      mocks.executorConstructor.mock.calls[0][0].contextExtensions.shouldCancelExecution
+    ).toBeUndefined()
     expect(result.result.success).toBe(true)
     expect(result.result.output).toEqual({ result: 'ok' })
   })

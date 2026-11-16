@@ -1,8 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 
 const m = vi.hoisted(() => ({ failed: vi.fn(), process: vi.fn() }))
-vi.mock('@trigger.dev/sdk', () => ({ task: (definition: unknown) => definition }))
-vi.mock('@/lib/env', () => ({ env: {} }))
 vi.mock('@/lib/knowledge/documents/service', () => ({
   markDocumentProcessingFailed: m.failed,
   processDocumentAsync: m.process,
@@ -29,13 +27,14 @@ const payload = {
 }
 beforeEach(() => vi.resetAllMocks())
 it('passes the queued actor to processing and the document ID to failure reporting', async () => {
-  await executeDocumentProcessingJob(payload)
+  const signal = new AbortController().signal
+  await executeDocumentProcessingJob(payload, signal)
   expect(m.process).toHaveBeenCalledExactlyOnceWith(
     'kb',
     'doc',
     payload.docData,
     payload.processingOptions,
-    { actorUserId: 'actor', workspaceId: 'workspace' }
+    { actorUserId: 'actor', workspaceId: 'workspace', signal }
   )
   await markDocumentProcessingJobFailed(payload, 'failed')
   expect(m.failed).toHaveBeenCalledExactlyOnceWith('doc', 'failed')

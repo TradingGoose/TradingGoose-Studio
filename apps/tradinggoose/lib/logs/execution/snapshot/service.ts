@@ -5,7 +5,6 @@ import { and, eq, lt, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'
 import type {
-  SnapshotService as ISnapshotService,
   SnapshotCreationResult,
   WorkflowExecutionSnapshot,
   WorkflowExecutionSnapshotInsert,
@@ -14,16 +13,7 @@ import type {
 
 const logger = createLogger('SnapshotService')
 
-export class SnapshotService implements ISnapshotService {
-  async createSnapshot(params: {
-    workflowId: string
-    workspaceId: string
-    state: WorkflowState
-  }): Promise<WorkflowExecutionSnapshot> {
-    const result = await this.createSnapshotWithDeduplication(params)
-    return result.snapshot
-  }
-
+export class SnapshotService {
   async createSnapshotWithDeduplication(params: {
     workflowId: string
     workspaceId: string
@@ -80,22 +70,6 @@ export class SnapshotService implements ISnapshotService {
         createdAt: newSnapshot.createdAt.toISOString(),
       },
       isNew: true,
-    }
-  }
-
-  async getSnapshot(id: string): Promise<WorkflowExecutionSnapshot | null> {
-    const [snapshot] = await db
-      .select()
-      .from(workflowExecutionSnapshots)
-      .where(eq(workflowExecutionSnapshots.id, id))
-      .limit(1)
-
-    if (!snapshot) return null
-
-    return {
-      ...snapshot,
-      stateData: snapshot.stateData as WorkflowState,
-      createdAt: snapshot.createdAt.toISOString(),
     }
   }
 

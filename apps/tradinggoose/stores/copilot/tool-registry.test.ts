@@ -4,8 +4,8 @@ import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import {
   CUSTOM_TOOL_DOCUMENT_FORMAT,
   MCP_SERVER_DOCUMENT_FORMAT,
-} from '@/lib/copilot/entity-documents'
-import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
+  MONITOR_DOCUMENT_FORMAT,
+} from '@/lib/copilot/document-formats'
 import { ToolArgSchemas, ToolIds, ToolResultSchemas } from '@/lib/copilot/registry'
 import { MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
 import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'

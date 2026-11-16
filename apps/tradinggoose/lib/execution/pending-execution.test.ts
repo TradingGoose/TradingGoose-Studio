@@ -957,7 +957,7 @@ describe('enqueuePendingExecution', () => {
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
     await vi.waitFor(() =>
       expect(dispatchBackgroundExecutionMock).toHaveBeenCalledWith(
-        { pendingExecutionId: 'pending-local-1' },
+        { pendingExecutionId: 'pending-local-1', executionType: 'workflow' },
         'local'
       )
     )
@@ -1013,7 +1013,7 @@ describe('enqueuePendingExecution', () => {
 
     await vi.waitFor(() =>
       expect(dispatchBackgroundExecutionMock).toHaveBeenCalledWith(
-        { pendingExecutionId: 'document-local-1' },
+        { pendingExecutionId: 'document-local-1', executionType: 'document' },
         'local'
       )
     )

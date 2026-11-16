@@ -1,7 +1,7 @@
+import { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/lib/copilot/document-formats'
 import { isEnvironmentReference } from '@/lib/workflows/references'
 import {
   collectDashboardTopologyReferences,
-  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
   type DashboardLayoutProjectionContent,
   normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'

@@ -1,4 +1,4 @@
-import { generateInternalToken } from '@/lib/auth/internal'
+import { generateInternalToken } from '@/lib/auth/internal-token'
 import {
   getCustomToolEntityIdFromRuntimeId,
   isCustomToolRuntimeId,

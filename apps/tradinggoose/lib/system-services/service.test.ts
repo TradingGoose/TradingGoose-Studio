@@ -98,10 +98,6 @@ vi.mock('./catalog', async (original) => {
   return {
     getSystemServiceDefinitions: () => [definition],
     getSystemServiceDefinition: getDefinition,
-    isSystemServiceCredentialKey: (serviceId: string, key: string) =>
-      getDefinition(serviceId)?.credentialFields.some((field) => field.key === key) ?? false,
-    isSystemServiceSettingKey: (serviceId: string, key: string) =>
-      getDefinition(serviceId)?.settingFields.some((field) => field.key === key) ?? false,
   }
 })
 

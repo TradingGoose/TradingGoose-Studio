@@ -153,7 +153,12 @@ describe('canonical settings and processor usage before financial refusal', () =
       expect(failure).toBeInstanceOf(Error)
       expect(createConfiguredLanguageModel).toHaveBeenCalledWith('openai/gpt-4.1', undefined)
       expect(usageProcessors).toHaveBeenCalledWith(
-        expect.objectContaining({ funding: 'account', actorUserId: 'actor' })
+        expect.objectContaining({ funding: 'account', actorUserId: 'actor' }),
+        expect.objectContaining({
+          assertAllowed: expect.any(Function),
+          begin: expect.any(Function),
+          record: expect.any(Function),
+        })
       )
       expect(state.result.finishReason).toBe('stop')
       expect(state.result.totalUsage).toMatchObject({

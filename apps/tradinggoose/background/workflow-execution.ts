@@ -1,15 +1,12 @@
-import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution/pending-execution'
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { publicTraceSpans } from '@/lib/logs/public'
 import { getMonitorProviderForTriggerId, isMonitorTriggerId } from '@/lib/monitors/sources'
 import { createWorkflowExecutionTerminalEventInput } from '@/lib/workflows/execution-events'
-import {
-  runPreparedWorkflowExecution,
-  runWorkflowExecution,
-  type WorkflowExecutionBlueprint,
-  type WorkflowTriggerTarget,
+import type {
+  WorkflowExecutionBlueprint,
+  WorkflowTriggerTarget,
 } from '@/lib/workflows/execution-runner'
 import { claimWorkflowCheckpoint } from '@/lib/workflows/human-in-the-loop/service'
 import type { TriggerType } from '@/services/queue'
@@ -61,7 +58,8 @@ export function isWorkflowExecutionPayload(
   )
 }
 
-export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
+export async function executeWorkflowJob(payload: WorkflowExecutionPayload, signal?: AbortSignal) {
+  signal?.throwIfAborted()
   const workflowId = payload.workflowId
   const jobId = payload.executionId
   const resumed =
@@ -118,12 +116,17 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   })
 
   try {
+    signal?.throwIfAborted()
+    const { runPreparedWorkflowExecution, runWorkflowExecution } = await import(
+      '@/lib/workflows/execution-runner'
+    )
     const triggerData =
       resumed?.snapshot.triggerData ??
       (payload.metadata === undefined
         ? payload.triggerData
         : { ...(payload.triggerData ?? {}), queuedExecution: payload.metadata })
     const runParams = {
+      signal,
       workflowId,
       actorUserId: payload.userId,
       requestId,
@@ -147,7 +150,6 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
         isChildExecution,
         stream: payload.stream === true || savedContext?.stream === true,
         selectedOutputs: savedContext?.selectedOutputs ?? payload.selectedOutputs ?? [],
-        shouldCancelExecution: () => isPendingWorkflowExecutionCancellationRequested(jobId),
         ...(eventWriter
           ? {
               onExecutionEvent: async (event: Parameters<typeof eventWriter.write>[0]) => {

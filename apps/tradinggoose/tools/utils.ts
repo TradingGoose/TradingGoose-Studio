@@ -1,29 +1,5 @@
 import { tools } from '@/tools/registry'
-import type { TableRow, ToolConfig } from '@/tools/types'
-
-/**
- * Transforms a table from the store format to a key-value object
- * @param table Array of table rows from the store
- * @returns Record of key-value pairs
- */
-export const transformTable = (table: TableRow[] | null): Record<string, any> => {
-  if (!table) return {}
-
-  return table.reduce(
-    (acc, row) => {
-      if (row.cells?.Key && row.cells?.Value !== undefined) {
-        // Extract the Value cell as is - it should already be properly resolved
-        // by the InputResolver based on variable type (number, string, boolean etc.)
-        const value = row.cells.Value
-
-        // Store the correctly typed value in the result object
-        acc[row.cells.Key] = value
-      }
-      return acc
-    },
-    {} as Record<string, any>
-  )
-}
+import type { ToolConfig } from '@/tools/types'
 
 interface RequestParams {
   url: string

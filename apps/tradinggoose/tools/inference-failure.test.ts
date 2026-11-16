@@ -8,7 +8,7 @@ import type { ExecutionContext, ExecutionResult } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from './index'
 
-vi.mock('@/lib/auth/internal', () => ({
+vi.mock('@/lib/auth/internal-token', () => ({
   generateInternalToken: vi.fn(async () => 'internal-fixture'),
 }))
 afterEach(() => vi.unstubAllGlobals())

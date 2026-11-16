@@ -1,68 +1,50 @@
-import type { AgentExecutionOptions } from '@mastra/core/agent'
+import {
+  assertModelUsageAllowed,
+  beginWorkflowModelUsage,
+  type ModelUsageScope,
+  recordModelUsage,
+} from '@/lib/billing/model-usage'
 import { createConfiguredLanguageModel } from './connections'
-import { trustedModelSettings } from './options'
-import { assertNativeCompletion } from './result'
+import { prepareNativeModelRequest } from './native-request'
+import { calculateNativeCost } from './pricing'
 import { getMastra } from './runtime'
-import { resultAccounting } from './usage'
-import { usageProcessors } from './usage-processors'
+import { sumNativeUsage } from './usage'
+import type { NativeUsageAccounting } from './usage-processors'
 
-/** One request-owned model and Studio usage ledger through native Mastra execution. */
+/** All native inference uses the same Studio admission, pricing and usage ledger. */
+export function createModelUsageAccounting(scope: ModelUsageScope): NativeUsageAccounting {
+  return {
+    assertAllowed: () => assertModelUsageAllowed(scope),
+    begin: (attemptId) => beginWorkflowModelUsage(scope, attemptId),
+    async record(usage, providerMetadata, attemptId) {
+      const cost = await calculateNativeCost(scope.model, usage, providerMetadata)
+      return recordModelUsage(scope, sumNativeUsage([{ usage }]), cost, attemptId)
+    },
+  }
+}
+
+/** Resolve current Studio credentials, then use the shared native request implementation. */
 export async function prepareModelRequest(
-  scope: Parameters<typeof usageProcessors>[0],
+  scope: Omit<ModelUsageScope, 'actorUserId'> & { actorUserId?: string },
   settings: {
     apiKey?: string
     maxSteps?: number
     modelSettings?: unknown
   } = {}
 ) {
+  if (!scope.actorUserId) throw new Error('An authenticated model actor is required')
   const apiKey = settings.apiKey?.trim() || undefined
-  const modelSettings = trustedModelSettings(settings.modelSettings)
-  const maxSteps = settings.maxSteps ?? 5
-  const mastra = await getMastra()
-  const usage = await usageProcessors({ ...scope, funding: apiKey ? scope.funding : 'account' })
-  const model = await createConfiguredLanguageModel(scope.model, apiKey)
-  const options = {
-    runId: scope.runId,
-    savePerStep: true,
-    abortSignal: scope.signal,
-    inputProcessors: usage.inputProcessors,
-    outputProcessors: usage.outputProcessors,
-    modelSettings,
-    maxSteps,
-    prepareStep: ({ stepNumber, systemMessages }) =>
-      stepNumber >= maxSteps - 1
-        ? {
-            toolChoice: 'none',
-            tools: {},
-            systemMessages: [
-              ...systemMessages,
-              {
-                role: 'system',
-                content:
-                  'No model steps remain after this one. Do not use tools. Give your final answer using available results; explain missing information instead of inventing it.',
-              },
-            ],
-          }
-        : {},
-    tracingOptions: {
-      metadata: {
-        userId: scope.actorUserId,
-        resourceId: scope.workspaceId ?? undefined,
-        runId: scope.runId,
-      },
-    },
-  } satisfies AgentExecutionOptions
-  const accounting = () => resultAccounting(usage.getUsage(), usage.getCost())
-  return {
-    model,
-    usage,
-    options,
-    accounting,
-    async complete(result: Parameters<typeof assertNativeCompletion>[0]) {
-      await usage.verifyComplete()
-      assertNativeCompletion(result)
-      return accounting()
-    },
-    mastra,
+  const actorScope: ModelUsageScope = {
+    ...scope,
+    actorUserId: scope.actorUserId,
+    funding: apiKey ? scope.funding : 'account',
   }
+  const mastra = await getMastra()
+  const model = await createConfiguredLanguageModel(scope.model, apiKey)
+  const prepared = await prepareNativeModelRequest(actorScope, {
+    ...settings,
+    model,
+    accounting: createModelUsageAccounting(actorScope),
+  })
+  return { ...prepared, mastra }
 }
