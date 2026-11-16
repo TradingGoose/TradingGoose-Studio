@@ -12,11 +12,12 @@ const DialogTrigger = DialogPrimitive.Trigger
 
 type DialogContentProps = StaticClassNameProps<DialogPrimitive.Popup.Props> & {
   hideCloseButton?: boolean
+  container?: DialogPrimitive.Portal.Props['container']
 }
 
 const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
-  ({ className, children, hideCloseButton = false, ...props }, ref) => (
-    <DialogPrimitive.Portal>
+  ({ className, children, hideCloseButton = false, container, ...props }, ref) => (
+    <DialogPrimitive.Portal container={container}>
       <DialogPrimitive.Backdrop className='data-[ending-style]:fade-out-0 data-[starting-style]:fade-in-0 fixed inset-0 z-50 bg-black/50 backdrop-blur-[1.5px] data-[ending-style]:animate-out data-[starting-style]:animate-in' />
       <DialogPrimitive.Viewport className='pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4'>
         <DialogPrimitive.Popup

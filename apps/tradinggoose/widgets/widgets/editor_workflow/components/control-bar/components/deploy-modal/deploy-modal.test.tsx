@@ -45,23 +45,12 @@ vi.mock('@/components/ui', async () => {
     ImageUpload: () => null,
   }
 })
-vi.mock('@/components/ui/alert-dialog', () => {
-  const Wrapper = ({ children, render }: { children?: ReactNode; render?: ReactNode }) => (
-    <>{render ?? children}</>
-  )
-  return {
-    AlertDialog: ({ open, children }: { open: boolean; children: ReactNode }) =>
-      open ? children : null,
-    AlertDialogAction: Wrapper,
-    AlertDialogCancel: Wrapper,
-    AlertDialogContent: Wrapper,
-    AlertDialogDescription: Wrapper,
-    AlertDialogFooter: Wrapper,
-    AlertDialogHeader: Wrapper,
-    AlertDialogTitle: Wrapper,
-  }
-})
-vi.mock('@/lib/yjs/use-workflow-doc', () => ({ useWorkflowBlocks: () => m.blocks }))
+vi.mock('@/lib/yjs/use-workflow-doc', () => ({
+  useWorkflowBlocks: () => m.blocks,
+  useWorkflowEdges: () => [],
+  useWorkflowLoops: () => ({}),
+  useWorkflowParallels: () => ({}),
+}))
 vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
   useUserPermissionsContext: () => ({ canEdit: true, canAdmin: true }),
 }))
@@ -135,8 +124,8 @@ vi.mock(
   () => ({ DeploymentInfo: () => null })
 )
 vi.mock(
-  '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-modal',
-  () => ({ DeployedWorkflowModal: () => null })
+  '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-card',
+  () => ({ DeployedWorkflowCard: () => <div>Workflow preview</div> })
 )
 vi.mock('@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-edit-rows', () => ({
   SubBlockEditRows: () => null,
@@ -245,6 +234,34 @@ it('renders the actual target ChatDeploy form into the explicit container before
     root.render(<DeployModal {...value} open={false} container={owned} initialTab='chat' />)
   )
   await vi.waitFor(() => expect(document.activeElement).toBe(newChat))
+})
+
+it('keeps confirmations and previews inside their parent popup stacking context', async () => {
+  await act(async () =>
+    root.render(
+      <DeployModal
+        {...props()}
+        container={owned}
+        isDeployed
+        needsRedeployment
+        deployedState={{ blocks: {}, edges: [], loops: {}, parallels: {} }}
+      />
+    )
+  )
+  const parent = owned.querySelector<HTMLElement>('[role="dialog"]')!
+  const click = async (scope: Element, label: string) =>
+    act(async () => {
+      ;[...scope.querySelectorAll('button')].find((button) => button.textContent === label)!.click()
+    })
+  await click(parent, 'undeploy')
+  const confirmation = document.querySelector('[role="alertdialog"]')!
+  expect(parent.contains(confirmation)).toBe(true)
+  await click(confirmation, 'cancel')
+  await click(parent, 'viewDeployment')
+  const preview = parent.querySelector('[role="dialog"]')!
+  expect(preview).not.toBeNull()
+  await click(preview, 'loadDeployment')
+  expect(preview.contains(document.querySelector('[role="alertdialog"]'))).toBe(true)
 })
 
 it('does not reset explicit Chat to Billing when asynchronous API keys change fallback selection', async () => {
