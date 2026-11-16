@@ -247,10 +247,6 @@ export function WorkflowChatDeploymentDialog({ ownerUserId }: { ownerUserId: str
         if (id) settle(id, 'closed', 'Chat deployment owner unmounted')
       })
   }, [id, settle])
-  useEffect(() => {
-    if (request && !request.isCurrent())
-      settle(request.id, 'closed', 'Native tool selection changed')
-  }, [request, settle])
   if (!request || typeof document === 'undefined') return null
   return createPortal(
     <div

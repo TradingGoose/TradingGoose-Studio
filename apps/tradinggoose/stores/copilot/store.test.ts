@@ -3098,31 +3098,54 @@ describe('owned workflow chat deployment UI', () => {
     store().getState().settleWorkflowChatDeployment(request.id, 'closed')
   })
 
-  it('keeps a rendered dialog across normal native ACK replacing the business signal and consuming Pending', async () => {
-    const item = prepareChatDeployment()
-    const business = new AbortController()
-    store().setState({ abortController: business })
-    const operation = open()
-    await vi.waitFor(() => expect(store().getState().workflowChatDeployment).not.toBeNull())
-    const request = store().getState().workflowChatDeployment!
-    store().getState().settleWorkflowChatDeployment(request.id, 'opened')
-    await operation
-    await store()
-      .getState()
-      .submitBrowserAssertion(nativeToolCallId(item.target), {
-        kind: 'ui.opened',
-        data: {
-          opened: true,
-          surface: 'chat-deployment',
-          message: 'Opened chat deployment settings',
-        },
-      })
-    expect(business.signal.aborted).toBe(true)
-    expect(store().getState().workflowChatDeployment?.opened).toBe(true)
-    expect(store().getState().workflowChatDeployment?.isCurrent()).toBe(true)
-    expect(commands.filter((value) => value.command === 'tool.result')).toHaveLength(1)
-    store().getState().settleWorkflowChatDeployment(request.id, 'closed')
-  })
+  it.each(['new chat', 'different chat', 'detachment', 'next turn'])(
+    'keeps a rendered dialog across native ACK, then releases ownership on %s',
+    async (action) => {
+      const item = prepareChatDeployment()
+      const business = new AbortController()
+      store().setState({ abortController: business })
+      const operation = open()
+      await vi.waitFor(() => expect(store().getState().workflowChatDeployment).not.toBeNull())
+      const request = store().getState().workflowChatDeployment!
+      store().getState().settleWorkflowChatDeployment(request.id, 'opened')
+      await operation
+      onCommand = () => undefined
+      await store()
+        .getState()
+        .submitBrowserAssertion(nativeToolCallId(item.target), {
+          kind: 'ui.opened',
+          data: {
+            opened: true,
+            surface: 'chat-deployment',
+            message: 'Opened chat deployment settings',
+          },
+        })
+      expect(business.signal.aborted).toBe(true)
+      expect(store().getState().workflowChatDeployment?.opened).toBe(true)
+      expect(store().getState().workflowChatDeployment?.isCurrent()).toBe(true)
+      expect(commands.filter((value) => value.command === 'tool.result')).toHaveLength(1)
+      expect(isCopilotBusy(store().getState())).toBe(false)
+      if (action === 'new chat') await store().getState().createNewChat()
+      if (action === 'different chat')
+        await store().getState().selectChat(chat(null, 'other-thread'))
+      if (action === 'detachment') store().getState().detachStream()
+      if (action === 'next turn') await store().getState().sendMessage('Continue')
+      expect(store().getState().workflowChatDeployment).toBeNull()
+      store().getState().settleWorkflowChatDeployment(request.id, 'opened')
+      expect(store().getState().workflowChatDeployment).toBeNull()
+
+      prepareChatDeployment()
+      const next = open()
+      await vi.waitFor(() => expect(store().getState().workflowChatDeployment).not.toBeNull())
+      const nextRequest = store().getState().workflowChatDeployment!
+      expect(nextRequest.id).not.toBe(request.id)
+      store().getState().settleWorkflowChatDeployment(request.id, 'closed')
+      expect(store().getState().workflowChatDeployment).toBe(nextRequest)
+      store().getState().settleWorkflowChatDeployment(nextRequest.id, 'opened')
+      await next
+      store().getState().settleWorkflowChatDeployment(nextRequest.id, 'closed')
+    }
+  )
 
   it.each(['closed', 'error'] as const)(
     'refuses %s before a rendered UI without fabricating an opened result',

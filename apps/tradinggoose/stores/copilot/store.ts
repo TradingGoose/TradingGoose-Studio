@@ -941,6 +941,7 @@ function createCopilotStoreInstance(channelId: string) {
             return false
           }
           const workspaceId = chat ? chat.workspaceId : get().conversationWorkspaceId
+          get().detachStream()
           const id = ++epoch
           titleAbort?.abort()
           titleCandidate = null
@@ -1061,6 +1062,9 @@ function createCopilotStoreInstance(channelId: string) {
           }
         },
         detachStream: () => {
+          const dialog = get().workflowChatDeployment
+          if (dialog)
+            get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native tool owner changed')
           ++threadsGeneration
           observation?.abort()
           observation = null
@@ -1073,9 +1077,6 @@ function createCopilotStoreInstance(channelId: string) {
           set({ abortController: null, isLoadingChats: false })
         },
         reset: () => {
-          const dialog = get().workflowChatDeployment
-          if (dialog)
-            get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native tool owner changed')
           ++epoch
           titleAbort?.abort()
           titleCandidate = null
