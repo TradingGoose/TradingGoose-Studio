@@ -7,7 +7,7 @@ import {
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
-import { assertNativeToolResult, toolResultToModelOutput } from '@/lib/mastra/media'
+import { assertMcpToolResult, mcpToolResultToModelOutput } from '@/lib/mastra/media'
 import type { WorkflowMessage } from '@/lib/mastra/messages'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
@@ -494,7 +494,9 @@ export function createAgentToolSet(
         title: tool.name,
         description: tool.description,
         inputSchema: toStandardSchema<Record<string, unknown>>(tool.parameters),
-        toModelOutput: toolResultToModelOutput,
+        toModelOutput: tool.mcp
+          ? mcpToolResultToModelOutput
+          : (output) => ({ type: 'json', value: output }),
         execute: async (inputData, nativeContext) => {
           const params = { ...inputData, ...tool.params }
           const result = await executeTool(
@@ -528,12 +530,9 @@ export function createAgentToolSet(
           const functional = inference ? { ...output } : output
           if (inference) for (const field of inference.generatedFields) delete functional[field]
           try {
-            assertNativeToolResult(
-              functional,
-              nativeContext?.abortSignal
-                ? AbortSignal.any([controller.signal, nativeContext.abortSignal])
-                : controller.signal
-            )
+            controller.signal.throwIfAborted()
+            nativeContext?.abortSignal?.throwIfAborted()
+            if (tool.mcp) assertMcpToolResult(functional)
             return functional
           } catch (error) {
             // The effect is already complete; refuse unsafe model continuation.

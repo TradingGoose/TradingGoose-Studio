@@ -125,6 +125,17 @@ const customTool = {
   toolId: 'custom_lookup',
   usageControl: 'force' as const,
 }
+const mcpTool = {
+  type: 'mcp',
+  params: {
+    serverId: '550e8400-e29b-41d4-a716-446655440000',
+    toolName: 'lookup',
+    query: 'fixed query',
+    arguments: 'application input',
+    _context: { userId: 'application user' },
+  },
+  usageControl: 'force' as const,
+}
 const customDefinition: ToolConfig = {
   id: customTool.toolId,
   name: 'Lookup',
@@ -658,17 +669,6 @@ describe('native Agent workflow execution', () => {
 })
 
 describe('native Agent MCP integration', () => {
-  const selected = {
-    type: 'mcp',
-    params: {
-      serverId: '550e8400-e29b-41d4-a716-446655440000',
-      toolName: 'lookup',
-      query: 'fixed query',
-      arguments: 'application input',
-      _context: { userId: 'application user' },
-    },
-    usageControl: 'force' as const,
-  }
   it.each(['auto', 'force'] as const)(
     'keeps colliding long MCP names and repeated instances distinct in %s mode',
     async (usageControl) => {
@@ -676,15 +676,15 @@ describe('native Agent MCP integration', () => {
       vi.mocked(mcpService.discoverServerTools).mockResolvedValue(
         toolNames.map((name) => ({
           name,
-          serverId: selected.params.serverId,
+          serverId: mcpTool.params.serverId,
           serverName: 'Customer service',
           inputSchema: { type: 'object', properties: { query: { type: 'string' } } },
         }))
       )
       const selections = [toolNames[0], toolNames[1], toolNames[0]].map((toolName, index) => ({
-        ...selected,
+        ...mcpTool,
         usageControl,
-        params: { serverId: selected.params.serverId, toolName, query: `customer-${index}` },
+        params: { serverId: mcpTool.params.serverId, toolName, query: `customer-${index}` },
       }))
       let round = 0
       state.model = new MastraLanguageModelV2Mock({
@@ -794,7 +794,7 @@ describe('native Agent MCP integration', () => {
       vi.mocked(mcpService.discoverServerTools).mockResolvedValue([
         {
           name: 'lookup',
-          serverId: selected.params.serverId,
+          serverId: mcpTool.params.serverId,
           serverName: 'Research',
           inputSchema: parameters,
         },
@@ -814,7 +814,7 @@ describe('native Agent MCP integration', () => {
         kind === 'mcp'
           ? {
               type: 'mcp',
-              params: { serverId: selected.params.serverId, toolName: 'lookup' },
+              params: { serverId: mcpTool.params.serverId, toolName: 'lookup' },
               usageControl: 'force' as const,
             }
           : {
@@ -839,18 +839,18 @@ describe('native Agent MCP integration', () => {
       )
       expect(kind === 'mcp' ? dispatched.arguments : dispatched).toMatchObject(args)
       if (kind === 'mcp')
-        expect(dispatched).toMatchObject({ serverId: selected.params.serverId, toolName: 'lookup' })
+        expect(dispatched).toMatchObject({ serverId: mcpTool.params.serverId, toolName: 'lookup' })
     }
   )
   it.each(['auto', 'force'] as const)(
     'dispatches a long MCP identity using Mastra-normalized %s selection',
     async (usageControl) => {
       const toolName = 'get_graphql_type_schema'
-      const nativeName = `mcp-${selected.params.serverId}-${toolName}`.slice(0, 63)
+      const nativeName = `mcp-${mcpTool.params.serverId}-${toolName}`.slice(0, 63)
       vi.mocked(mcpService.discoverServerTools).mockResolvedValue([
         {
           name: toolName,
-          serverId: selected.params.serverId,
+          serverId: mcpTool.params.serverId,
           serverName: 'Research',
           inputSchema: { type: 'object' },
         },
@@ -881,7 +881,7 @@ describe('native Agent MCP integration', () => {
         block,
         {
           model: 'openai/gpt-4.1',
-          tools: [{ ...selected, usageControl, params: { ...selected.params, toolName } }],
+          tools: [{ ...mcpTool, usageControl, params: { ...mcpTool.params, toolName } }],
         },
         context()
       )
@@ -894,7 +894,7 @@ describe('native Agent MCP integration', () => {
       )
       expect(executeTool).toHaveBeenCalledExactlyOnceWith(
         'mcp',
-        expect.objectContaining({ serverId: selected.params.serverId, toolName }),
+        expect.objectContaining({ serverId: mcpTool.params.serverId, toolName }),
         false,
         expect.anything(),
         expect.anything()
@@ -908,7 +908,7 @@ describe('native Agent MCP integration', () => {
       vi.stubGlobal('fetch', fetcher)
       await new AgentBlockHandler().execute(
         block,
-        { model: 'openai/gpt-4.1', tools: [selected] },
+        { model: 'openai/gpt-4.1', tools: [mcpTool] },
         context({ isDeployedContext })
       )
       expect(getUserEntityPermissions).toHaveBeenCalledWith('user-1', 'workspace', 'workspace-1')
@@ -957,7 +957,7 @@ describe('native Agent MCP integration', () => {
     await expect(
       new AgentBlockHandler().execute(
         block,
-        { model: 'openai/gpt-4.1', tools: [selected] },
+        { model: 'openai/gpt-4.1', tools: [mcpTool] },
         context()
       )
     ).rejects.toThrow('MCP input schema must be an object')
@@ -969,7 +969,7 @@ describe('native Agent MCP integration', () => {
     await expect(
       new AgentBlockHandler().execute(
         block,
-        { model: 'openai/gpt-4.1', tools: [selected] },
+        { model: 'openai/gpt-4.1', tools: [mcpTool] },
         context()
       )
     ).rejects.toThrow('Workspace access required')
@@ -1797,7 +1797,7 @@ it.each(['no-tools', 'forced-tool', 'final-answer', 'terminal-error'])(
                   type: 'tool-call',
                   toolCallId: 'completed-lookup',
                   toolName: 'custom_lookup',
-                  input: '{}',
+                  input: '{"query":"generated"}',
                 })
               controller.enqueue({
                 type: 'finish',
@@ -1816,7 +1816,7 @@ it.each(['no-tools', 'forced-tool', 'final-answer', 'terminal-error'])(
       model: 'openai/gpt-4.1',
       userPrompt: 'Answer after any required tool',
       maxSteps: withTools ? 2 : 1,
-      tools: withTools ? [liveCustomTool()] : [],
+      tools: withTools ? [customTool] : [],
     }
     const chat = createChatOutputEventReader(['block1'])
     const published: string[] = []
@@ -2102,8 +2102,8 @@ function liveToolModel() {
             {
               type: 'tool-call' as const,
               toolCallId: 'live-tool',
-              toolName: 'custom_lookup',
-              input: '{}',
+              toolName: options.tools![0].name,
+              input: '{"query":"generated"}',
             },
           ]
         : [{ type: 'text' as const, text: 'Verified media answer' }],
@@ -2125,8 +2125,8 @@ function liveToolModel() {
             controller.enqueue({
               type: 'tool-call',
               toolCallId: 'live-tool',
-              toolName: 'custom_lookup',
-              input: '{}',
+              toolName: options.tools![0].name,
+              input: '{"query":"generated"}',
             })
           controller.enqueue({
             type: 'finish',
@@ -2139,18 +2139,6 @@ function liveToolModel() {
     }),
   })
 }
-function liveCustomTool() {
-  vi.mocked(getToolAsync).mockResolvedValue({
-    ...customDefinition,
-    inputSchema: { type: 'object', properties: {} },
-  })
-  return {
-    type: 'custom-tool' as const,
-    toolId: 'custom_lookup',
-    usageControl: 'force' as const,
-  }
-}
-
 it.each(
   [false, true].flatMap((stream) =>
     [false, true].flatMap((allowed) =>
@@ -2199,7 +2187,7 @@ it.each(
         {
           model: 'openai/gpt-4.1',
           userPrompt: 'Use one tool result',
-          tools: [liveCustomTool()],
+          tools: [mcpTool],
         },
         context({ stream })
       )
@@ -2218,7 +2206,7 @@ it.each(
     }
     const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
     expect(executeTool).toHaveBeenCalledOnce()
-    expect(vi.mocked(executeTool).mock.calls[0][0]).toMatchObject({ id: 'custom_lookup' })
+    expect(vi.mocked(executeTool).mock.calls[0][0]).toBe('mcp')
     expect(state.finance).toHaveBeenCalledOnce()
     expect(state.admissions).toHaveBeenCalledTimes(allowed ? 2 : 1)
     expect(calls).toHaveLength(allowed ? 2 : 1)
@@ -2269,7 +2257,10 @@ it.each(
         structuredContent: { measurement: 42 },
         business: { value: 17 },
       })
-    } else expect(failure).toBeInstanceOf(Error)
+    } else {
+      expect(failure).toBeInstanceOf(Error)
+      expect(scope.signal.reason.message).toContain('base64')
+    }
   }
 )
 
@@ -2327,7 +2318,7 @@ it.each([false, true])(
     try {
       const result = await new AgentBlockHandler().execute(
         block,
-        { model: 'openai/gpt-4.1', userPrompt: 'Create a report', tools: [liveCustomTool()] },
+        { model: 'openai/gpt-4.1', userPrompt: 'Create a report', tools: [customTool] },
         context({ stream })
       )
       if (stream) {
@@ -2345,38 +2336,56 @@ it.each([false, true])(
   }
 )
 
-it.each(['ordinary-json', 'nested-mcp-wrapper'])(
-  'leaves unpromoted live Agent business %s literal without a source fetch',
-  async (shape) => {
+const businessUrl = 'https://private.fixture/api/files/serve/business.png?context=copilot'
+it.each(
+  [
+    {
+      shape: 'ordinary-json',
+      raw: { content: [{ type: 'text', text: 'Literal JSON' }], business: { url: businessUrl } },
+    },
+    {
+      shape: 'nested-mcp-wrapper',
+      raw: {
+        success: true,
+        output: { content: [{ type: 'image', data: businessUrl, mimeType: 'image/png' }] },
+      },
+    },
+    { shape: 'image-shaped-json', raw: { content: [{ type: 'image', url: businessUrl }] } },
+    { shape: 'null-content', raw: { content: [null] } },
+  ].flatMap((fixture) => [false, true].map((stream) => ({ ...fixture, stream })))
+)(
+  'preserves custom-tool $shape as JSON without a source fetch (stream=$stream)',
+  async ({ raw, stream }) => {
     state.trackAdmissions = true
     state.model = liveToolModel()
-    const url = 'https://private.fixture/api/files/serve/business.png?context=copilot'
-    const raw =
-      shape === 'nested-mcp-wrapper'
-        ? {
-            success: true,
-            output: { content: [{ type: 'image', data: url, mimeType: 'image/png' }] },
-          }
-        : { content: [{ type: 'text', text: 'Literal JSON' }], business: { url } }
     vi.mocked(executeTool).mockResolvedValue({ success: true, output: raw })
     const fetcher = vi.fn()
     vi.stubGlobal('fetch', fetcher)
-    const output = await new AgentBlockHandler().execute(
+    let output = await new AgentBlockHandler().execute(
       block,
       {
         model: 'openai/gpt-4.1',
         userPrompt: 'Use one result',
-        tools: [liveCustomTool()],
+        tools: [customTool],
       },
-      context()
+      context({ stream })
     )
-    if (!output || typeof output !== 'object' || !('content' in output))
-      throw new Error('Actual nonstream business response content is unavailable')
-    expect(output.content).toBe('Verified media answer')
-    expect(state.model.doGenerateCalls).toHaveLength(2)
+    if (stream) {
+      const streamed = output as StreamingExecution
+      const reader = streamed.stream.getReader()
+      while (!(await reader.read()).done) {}
+      output = streamed.execution.output
+    }
+    expect(output).toMatchObject({ content: 'Verified media answer' })
+    const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
+    expect(calls).toHaveLength(2)
     expect(state.admissions).toHaveBeenCalledTimes(2)
     expect(executeTool).toHaveBeenCalledOnce()
     expect(fetcher).not.toHaveBeenCalled()
-    expect(JSON.stringify(state.model.doGenerateCalls[1].prompt)).toContain(url)
+    expect(
+      calls[1].prompt
+        .flatMap((message: any) => message.content)
+        .find((part: any) => part.type === 'tool-result')?.output
+    ).toEqual({ type: 'json', value: raw })
   }
 )

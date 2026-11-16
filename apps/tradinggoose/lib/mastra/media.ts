@@ -119,14 +119,13 @@ export async function normalizeNativeMediaMessages(
 }
 
 /** MCP image and audio content must contain inline base64, never URLs. */
-export function assertNativeToolResult(value: any, signal: AbortSignal): void {
-  signal.throwIfAborted()
+export function assertMcpToolResult(value: any): void {
   for (const part of Array.isArray(value?.content) ? value.content : [])
     if (part.type === 'image' || part.type === 'audio') inlineBytes(part.data)
 }
 
 /** Keep structured tool data alongside native media; execute's raw result remains in history. */
-export function toolResultToModelOutput(result: any) {
+export function mcpToolResultToModelOutput(result: any) {
   if (!Array.isArray(result?.content)) return
   const media: { type: 'media'; data: string; mediaType: string }[] = []
   const content = result.content.map((part: any) => {
