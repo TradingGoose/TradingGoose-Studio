@@ -1922,11 +1922,7 @@ export class Executor {
         'execution' in rawOutput
       ) {
         const streamingExec = rawOutput as StreamingExecution
-        const streamingExecutionData = streamingExec.execution as any
-        if (parallelInfo || !streamingExecutionData?.blockId) {
-          streamingExecutionData.blockId = consoleBlockId
-        }
-        const output = (streamingExec.execution as any).output as NormalizedBlockOutput
+        const output = streamingExec.execution.output
         context.blockStates.set(blockId, {
           output,
           executed: false,

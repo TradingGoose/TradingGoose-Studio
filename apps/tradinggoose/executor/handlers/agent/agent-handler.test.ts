@@ -39,7 +39,8 @@ vi.mock('@/lib/mastra/usage-processors', () => ({
       outputProcessors: [
         {
           id: 'fixture-live-tool-completed-response',
-          processOutputStep: (args: any) => {
+          processOutputStep: async (args: any) => {
+            await state.outputStep(args)
             const key = JSON.stringify([args.stepNumber, args.retryCount])
             completed.set(key, { usage: args.usage })
           },
@@ -88,6 +89,7 @@ const state = vi.hoisted(() => ({
   setupError: undefined as Error | undefined,
   completionError: undefined as Error | undefined,
   nativeCost: { status: 'unavailable' } as Record<string, unknown>,
+  outputStep: vi.fn(),
 }))
 vi.mock('@mastra/core/agent', async (original) => {
   const native = await original<typeof import('@mastra/core/agent')>()
@@ -211,6 +213,7 @@ beforeEach(() => {
   state.setupError = undefined
   state.completionError = undefined
   state.nativeCost = { status: 'unavailable' }
+  state.outputStep.mockReset()
   state.configurations.length = 0
   vi.mocked(getToolAsync).mockResolvedValue(customDefinition)
   vi.mocked(executeTool).mockResolvedValue({ success: true, output: { found: true } })
@@ -629,7 +632,6 @@ describe('native Agent workflow execution', () => {
     }
     expect(text).toBe(parts.join(''))
     expect(text).not.toContain('Searching...')
-    expect(result.execution.success).toBe(true)
     expect(result.execution.output).toMatchObject(
       scenario.structured ? { answer: 42 } : { content: 'Final answer' }
     )
@@ -1320,7 +1322,6 @@ describe('native forced sequence failures and completion accounting', () => {
       expect(executeTool).toHaveBeenCalledTimes(steps - 1)
       const lastCall = (stream ? state.model.doStreamCalls : state.model.doGenerateCalls).at(-1)
       expect(lastCall).toMatchObject({ toolChoice: { type: 'none' }, tools: undefined })
-      if (streamed) expect(streamed.execution.success).toBe(false)
     }
   )
   it.each(
@@ -1391,7 +1392,6 @@ describe('native forced sequence failures and completion accounting', () => {
         expect(await new Response(streamed.stream).text()).toBe(
           'Final answer from available results'
         )
-        expect(streamed.execution.success).toBe(true)
         output = streamed.execution.output
       } else output = result
       expect(output).toMatchObject({
@@ -1426,7 +1426,6 @@ describe('native forced sequence failures and completion accounting', () => {
         const result = (await generate) as StreamingExecution
         await expect(new Response(result.stream).text()).rejects.toThrow('final answer')
         expect(result.execution.output.tokens).toMatchObject({ total: 5 })
-        expect(result.execution.success).toBe(false)
       } else await expect(generate).rejects.toMatchObject({ tokens: { total: 5 } })
     }
   )
@@ -1559,7 +1558,6 @@ describe('native forced sequence failures and completion accounting', () => {
     if (stream) {
       const streamed = result as StreamingExecution
       expect(await new Response(streamed.stream).text()).toBe('{"answer":42}')
-      expect(streamed.execution.success).toBe(true)
     }
     const output = stream ? (result as StreamingExecution).execution.output : result
     expect(output).toMatchObject({ answer: 42, tokens: { total: withTools ? 10 : 5 } })
@@ -1743,7 +1741,8 @@ describe('native structured streams through the workflow executor', () => {
     })
     expect(output).not.toHaveProperty('toolResults')
     expect(JSON.stringify(getInferenceFacts(output))).not.toContain('"found"')
-    expect(output?.tokens?.total).toBe(valid ? 10 : 5)
+    expect(state.model.doStreamCalls).toHaveLength(2)
+    expect(output?.tokens?.total).toBe(10)
     expect(contextSpy.mock.results[0].value.blockStates.get('block1').output).toMatchObject(output)
     if (valid) {
       expect(result.output).toMatchObject({ answer: 42, tokens: { total: 10 } })
@@ -1867,6 +1866,74 @@ it.each(['no-tools', 'forced-tool', 'final-answer', 'terminal-error'])(
   }
 )
 
+it.each(
+  ['accounting', 'history'].flatMap((phase) =>
+    ['workflow', 'consumer'].map((source) => ({ phase, source }))
+  )
+)(
+  'awaits native $phase settlement before terminalizing $source cancellation',
+  async ({ phase, source }) => {
+    let started!: () => void
+    let release!: () => void
+    const entered = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    const pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const hold = async () => {
+      started()
+      await pending
+    }
+    const store = await getNativeMemoryStore()
+    const save = store.saveMessages.bind(store)
+    const spy =
+      phase === 'history'
+        ? vi.spyOn(store, 'saveMessages').mockImplementation(async (args) => {
+            if (args.messages.some((message) => message.role === 'assistant')) await hold()
+            return save(args)
+          })
+        : undefined
+    if (phase === 'accounting') state.outputStep.mockImplementationOnce(hold)
+    const result = (await new AgentBlockHandler().execute(
+      block,
+      { model: 'openai/gpt-4.1', userPrompt: 'Finish the request', maxSteps: 1 },
+      context({
+        stream: true,
+        shouldCancelExecution: async () => {
+          if (source === 'workflow' && state.model.doStreamCalls.length) await entered
+          return source === 'workflow' && state.model.doStreamCalls.length > 0
+        },
+      })
+    )) as StreamingExecution
+    const reader = result.stream.getReader()
+    const reading = reader.read().catch((error: unknown) => error)
+    await entered
+    let terminal = false
+    const finished = (source === 'consumer' ? reader.cancel() : reading).finally(() => {
+      terminal = true
+    })
+    try {
+      const signal = (state.finance.mock.calls[0][0] as { signal: AbortSignal }).signal
+      await vi.waitFor(() => expect(signal.aborted).toBe(true), { timeout: 2000 })
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      expect(terminal).toBe(false)
+      expect(result.execution.output).toEqual({})
+    } finally {
+      release()
+      await finished
+      spy?.mockRestore()
+    }
+    if (source === 'workflow') expect(await reading).toBeInstanceOf(Error)
+    expect(result.execution.output.tokens).toMatchObject({ total: 5 })
+    if (phase === 'history') {
+      const history = getInferenceFacts(result.execution.output)!.history!
+      const saved = await store.listMessages({ threadId: history.threadId, perPage: false })
+      expect(saved.messages.some((message) => message.role === 'assistant')).toBe(true)
+    }
+  }
+)
+
 it.each([2, undefined])(
   'aborts a native stream and retains earlier work (maxSteps=%s)',
   async (maxSteps) => {
@@ -1883,37 +1950,30 @@ it.each([2, undefined])(
         { cost: { total: 0.004, status: 'reported' }, generatedFields: ['cost'] }
       ),
     })
-    state.model = new MastraLanguageModelV2Mock({
-      doStream: async (options) => ({
+    const model = liveToolModel()
+    const streamTool = model.doStream.bind(model)
+    vi.spyOn(model, 'doStream').mockImplementation(async (options) => {
+      if (options.toolChoice?.type === 'tool') return streamTool(options)
+      return {
         stream: new ReadableStream({
           start(controller) {
-            if (options.toolChoice?.type === 'tool') {
-              controller.enqueue({
-                type: 'tool-call',
-                toolCallId: 'completed-lookup',
-                toolName: options.toolChoice.toolName,
-                input: '{"query":"lookup"}',
-              })
-              controller.enqueue({ type: 'finish', finishReason: 'tool-calls', usage })
-              controller.close()
-            } else {
-              options.abortSignal?.addEventListener(
-                'abort',
-                () => controller.error(options.abortSignal?.reason),
-                { once: true }
-              )
-              controller.enqueue({ type: 'text-start', id: 'partial' })
-              controller.enqueue({ type: 'text-delta', id: 'partial', delta: 'Partial answer' })
-              cancelStep = () => {
-                cancelled = true
-                controller.enqueue({ type: 'text-end', id: 'partial' })
-              }
-              started()
+            options.abortSignal?.addEventListener(
+              'abort',
+              () => controller.error(options.abortSignal?.reason),
+              { once: true }
+            )
+            controller.enqueue({ type: 'text-start', id: 'partial' })
+            controller.enqueue({ type: 'text-delta', id: 'partial', delta: 'Partial answer' })
+            cancelStep = () => {
+              cancelled = true
+              controller.enqueue({ type: 'text-end', id: 'partial' })
             }
+            started()
           },
         }),
-      }),
+      }
     })
+    state.model = model
     const result = (await new AgentBlockHandler().execute(
       block,
       {
@@ -1929,7 +1989,6 @@ it.each([2, undefined])(
     await modelStepStarted
     cancelStep!()
     await expect(firstRead).rejects.toThrow()
-    expect(result.execution.success).toBe(false)
     expect(result.execution.output.tokens).toMatchObject({ total: 5 })
     expect(result.execution.output.cost).toMatchObject({ status: 'unavailable' })
   }

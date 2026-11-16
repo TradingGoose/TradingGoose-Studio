@@ -180,13 +180,10 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     const { traceSpans } = buildTraceSpans(result)
     const queuedResult = {
       ...result,
-      success: result.success,
       workflowId: payload.workflowId,
       executionId,
-      output: result.output,
       logs: result.logs?.map(({ inference: _inference, ...log }) => log),
-      error: result.error,
-      traceSpans: publicTraceSpans(traceSpans || []),
+      traceSpans: publicTraceSpans(traceSpans),
       executedAt: new Date().toISOString(),
       metadata: {
         ...(result.metadata ?? {}),

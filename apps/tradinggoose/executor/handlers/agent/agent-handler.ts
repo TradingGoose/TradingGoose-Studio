@@ -201,17 +201,20 @@ export class AgentBlockHandler implements BlockHandler {
         throw fail(error)
       }
     }
-    const startedAt = new Date()
     const execution: StreamingExecution['execution'] = {
-      success: true,
       output: {},
-      logs: [],
-      metadata: { duration: 0 },
-      isStreaming: true,
     }
     try {
       const nativeStream = await agent.stream(modelMessages, options)
       const reader = nativeStream.fullStream.getReader()
+      const failStream = async (error: unknown) => {
+        abortController.abort(error)
+        await reader.cancel(error).catch(() => undefined)
+        await nativeStream.getFullOutput().catch(() => undefined)
+        const failure = fail(error)
+        Object.assign(execution.output, failure)
+        return failure
+      }
       const stream = new ReadableStream<Uint8Array>({
         async pull(controller) {
           try {
@@ -222,7 +225,6 @@ export class AgentBlockHandler implements BlockHandler {
               if (done) {
                 const result = await nativeStream.getFullOutput()
                 Object.assign(execution.output, await complete(result))
-                execution.metadata!.duration = Date.now() - startedAt.getTime()
                 // Workflow chunks are append-only; native retries may discard earlier text.
                 controller.enqueue(new TextEncoder().encode(result.steps.at(-1)!.text))
                 controller.close()
@@ -232,20 +234,11 @@ export class AgentBlockHandler implements BlockHandler {
               if (value.type === 'abort') throw new Error('Agent generation was cancelled')
             }
           } catch (error) {
-            const failure = fail(error)
-            execution.success = false
-            execution.error = failure.message
-            Object.assign(execution.output, failure)
-            controller.error(failure)
+            controller.error(await failStream(error))
           }
         },
-        async cancel(reason) {
-          abortController.abort(reason)
-          await reader.cancel(reason)
-          const failure = fail(new Error('Agent generation was cancelled'))
-          execution.success = false
-          execution.error = failure.message
-          Object.assign(execution.output, failure)
+        async cancel() {
+          await failStream(new Error('Agent generation was cancelled'))
         },
       })
       return { stream, execution }
