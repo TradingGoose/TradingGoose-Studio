@@ -26,7 +26,7 @@ import {
 } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { readNativeThread, readNativeThreadHistory } from '@/lib/copilot/native/history'
-import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
+import { nativeAdmissionId, nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { readbackNativeToolResult } from '@/lib/copilot/native/readback'
 import {
   authorizeNativeConversationScope,
@@ -61,11 +61,13 @@ import {
   type CopilotJobState,
   type CopilotRun,
   cancelCopilotRun,
+  claimCopilotAdmission,
   claimCopilotThread,
   deleteCopilotRunSnapshot,
   deleteCopilotThread,
   isCopilotJobActive,
   isCopilotRunCancelled,
+  readCopilotAdmission,
   readCopilotJob,
   readCopilotThreadOwnership,
   readCopilotThreadRun,
@@ -481,42 +483,64 @@ async function dispatchCopilotCommand(
   toolContexts: CopilotToolContext[],
   signal?: AbortSignal
 ): Promise<CopilotResponse> {
-  if (request.command !== 'message' && !('target' in request))
+  if (!('requestId' in request))
     throw new NativeTargetError('This command does not generate a response', 422)
   if (request.command === 'message' && request.messageId && !request.threadId)
     throw new NativeTargetError('Editing a message requires its conversation', 422)
+  const jobId = nativeAdmissionId(scope, request.requestId)
+  const threadId =
+    request.command === 'message' ? (request.threadId ?? jobId) : request.target.threadId
+  const runId = request.command === 'message' ? jobId : request.target.runId
+  const messageId = request.command === 'message' ? (request.messageId ?? jobId) : undefined
+  const accepted = {
+    status: 'accepted' as const,
+    threadId,
+    runId,
+    ...(messageId ? { messageId } : {}),
+  }
+  const run = { scope, threadId, runId }
+  if (await readCopilotAdmission(run, request)) return accepted
   const { mode } = await getTriggerExecutionState()
   if (mode === 'unavailable')
     throw new NativeTargetError('Background execution is unavailable', 503)
   if (mode === 'trigger' && !process.env.REDIS_URL)
     throw new NativeTargetError('REDIS_URL is required for Copilot streaming across workers', 503)
-  const threadId =
-    request.command === 'message'
-      ? (request.threadId ?? crypto.randomUUID())
-      : request.target.threadId
-  const runId = request.command === 'message' ? crypto.randomUUID() : request.target.runId
-  const messageId =
-    request.command === 'message' ? (request.messageId ?? crypto.randomUUID()) : undefined
-  if (request.command === 'message') {
-    if (request.threadId) await requireThread(scope, threadId, signal)
-  } else {
-    await resolveNativePendingTarget(
-      scope,
-      request.target,
-      request.command === 'tool.approve' || request.command === 'tool.decline'
-        ? 'approval'
-        : 'result',
-      signal
-    )
+  let ownership: Awaited<ReturnType<typeof claimCopilotThread>>
+  try {
+    if (request.command === 'message') {
+      if (request.threadId) await requireThread(scope, threadId, signal)
+    } else {
+      await resolveNativePendingTarget(
+        scope,
+        request.target,
+        request.command === 'tool.approve' || request.command === 'tool.decline'
+          ? 'approval'
+          : 'result',
+        signal
+      )
+    }
+    ownership = await claimCopilotThread(scope, threadId, runId)
+  } catch (error) {
+    // A retry can arrive while the original admission still holds its native claim.
+    for (;;) {
+      if (await readCopilotAdmission(run, request)) return accepted
+      if (!(error instanceof NativeTargetError && error.status === 409)) break
+      const owner = await readCopilotThreadOwnership(scope, threadId)
+      if (!owner?.live || owner.ownerId !== runId) break
+      if (request.command !== 'message' && (await readCopilotJob(scope, threadId))?.id !== jobId)
+        break
+      await delay(CANCELLATION_POLL_INTERVAL, undefined, { signal })
+    }
+    throw error
   }
-  const ownership = await claimCopilotThread(scope, threadId, runId)
   const job: CopilotJobState = {
-    id: crypto.randomUUID(),
+    id: jobId,
     runId,
     ...(mode === 'local' ? { admissionGeneration: ownership.fence.generation } : {}),
   }
   let localDispatched = false
   try {
+    if (await readCopilotAdmission(run, request)) return accepted
     if (request.command === 'message') await assertCopilotThreadReady(scope, threadId)
     else await assertCopilotRunActive(runId)
     await ownership.run(async () => {
@@ -582,6 +606,7 @@ async function dispatchCopilotCommand(
         await store.saveMessages({ messages: [message] })
         if (following.length) await store.deleteMessages(following.map((item) => item.id))
       }
+      await claimCopilotAdmission(run, request)
     })
     signal?.throwIfAborted()
     const triggerRunId = await dispatchBackgroundExecution(
@@ -603,12 +628,7 @@ async function dispatchCopilotCommand(
     localDispatched = mode === 'local'
     if (triggerRunId)
       await ownership.run(() => saveCopilotJob(scope, threadId, job.id, { triggerRunId }))
-    return {
-      status: 'accepted',
-      threadId,
-      runId,
-      ...(messageId ? { messageId } : {}),
-    }
+    return accepted
   } catch (error) {
     if (!ownership.signal.aborted && (await readCopilotJob(scope, threadId))?.id === job.id)
       await ownership.run(() =>

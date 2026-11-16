@@ -258,6 +258,8 @@ async function command(
 ): Promise<{ response: Response; result: TestResult }> {
   const selected = (input.scope ?? scope) as Scope
   const { scope: _scope, ...fields } = input
+  if (fields.command === 'message' || String(fields.command).startsWith('tool.'))
+    fields.requestId ??= crypto.randomUUID()
   const response = await executeCopilotCommand(
     { workspaceId: selected.workspaceId, ...fields } as CopilotRequest,
     selected.actorUserId
@@ -370,24 +372,45 @@ afterEach(() => {
 })
 
 describe('Copilot background execution and native history', () => {
+  it('scopes admission identities to the authenticated actor', async () => {
+    m.startJobs = false
+    const request: CopilotRequest = {
+      command: 'message',
+      requestId: crypto.randomUUID(),
+      workspaceId: scope.workspaceId,
+      model: 'configured/model',
+      input: { content: 'Same request ID' },
+    }
+    const first = await (await executeCopilotCommand(request, scope.actorUserId)).json()
+    const second = await (await executeCopilotCommand(request, 'another-actor')).json()
+    expect(first.status).toBe('accepted')
+    expect(second.status).toBe('accepted')
+    expect(second.runId).not.toBe(first.runId)
+    expect(second.threadId).not.toBe(first.threadId)
+    expect(m.dispatch).toHaveBeenCalledTimes(2)
+  })
+
   it.each(['local', 'trigger'])(
-    'accepts a %s background turn without running inference in the HTTP request',
+    'admits and recovers one %s background turn across retries, restart and later turns',
     async (mode) => {
       m.triggerState.mockResolvedValue({ mode })
       vi.stubEnv('REDIS_URL', 'redis://shared-streams.invalid')
       m.startJobs = false
-      setModel({ text: 'Worker answer' })
-      const response = await executeCopilotCommand(
-        {
-          command: 'message',
-          workspaceId: scope.workspaceId,
-          model: 'configured/model',
-          input: { content: 'Run outside the request' },
-        },
-        scope.actorUserId
-      )
-      expect(response.status).toBe(202)
-      const accepted = await response.json()
+      setModel({ text: 'Worker answer' }, { text: 'Successor answer' })
+      const request: CopilotRequest = {
+        command: 'message',
+        requestId: crypto.randomUUID(),
+        workspaceId: scope.workspaceId,
+        model: 'configured/model',
+        input: { content: 'Run outside the request' },
+      }
+      const responses = await Promise.all([
+        executeCopilotCommand(request, scope.actorUserId),
+        executeCopilotCommand(request, scope.actorUserId),
+      ])
+      expect(responses.map((response) => response.status)).toEqual([202, 202])
+      const accepted = await responses[0].json()
+      expect(await responses[1].json()).toEqual(accepted)
       expect(accepted.status).toBe('accepted')
       expect(m.dispatch).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({ executionType: 'copilot' }),
@@ -434,6 +457,25 @@ describe('Copilot background execution and native history', () => {
       expect(prompt.filter(({ role }) => role === 'user')).toHaveLength(1)
       expect(m.accept).toHaveBeenCalledOnce()
       expect(await readCopilotThreadRun(scope, accepted.threadId)).toBeUndefined()
+      expect(await (await executeCopilotCommand(request, scope.actorUserId)).json()).toEqual(
+        accepted
+      )
+      m.startJobs = true
+      expect((await message({ threadId: accepted.threadId })).result.status).toBe('success')
+      expect(await (await executeCopilotCommand(request, scope.actorUserId)).json()).toEqual(
+        accepted
+      )
+      expect(m.dispatch).toHaveBeenCalledTimes(2)
+      expect(m.contacts).toHaveLength(2)
+      expect(m.accept).toHaveBeenCalledTimes(2)
+      expect(
+        (
+          await executeCopilotCommand(
+            { ...request, input: { content: 'Changed' } },
+            scope.actorUserId
+          )
+        ).status
+      ).toBe(409)
     }
   )
 
@@ -459,6 +501,7 @@ describe('Copilot background execution and native history', () => {
       const response = await executeCopilotCommand(
         {
           command: 'message',
+          requestId: crypto.randomUUID(),
           workspaceId: scope.workspaceId,
           model: 'configured/model',
           input: { content: 'Cancel before execution' },
@@ -492,6 +535,7 @@ describe('Copilot background execution and native history', () => {
     const response = await executeCopilotCommand(
       {
         command: 'message',
+        requestId: crypto.randomUUID(),
         workspaceId: scope.workspaceId,
         model: 'configured/model',
         input: { content: 'Delayed local dispatch' },
@@ -582,6 +626,7 @@ describe('Copilot background execution and native history', () => {
       const response = await executeCopilotCommand(
         {
           command: 'message',
+          requestId: crypto.randomUUID(),
           ...editing,
           workspaceId: scope.workspaceId,
           model: 'configured/model',
@@ -656,6 +701,7 @@ describe('Copilot background execution and native history', () => {
       const response = await executeCopilotCommand(
         {
           command: 'message',
+          requestId: crypto.randomUUID(),
           workspaceId: scope.workspaceId,
           threadId,
           model: 'configured/model',
@@ -785,6 +831,7 @@ describe('Copilot background execution and native history', () => {
     const response = await executeCopilotCommand(
       {
         command: 'message',
+        requestId: crypto.randomUUID(),
         workspaceId: scope.workspaceId,
         threadId,
         model: 'configured/model',
@@ -942,6 +989,7 @@ describe('Copilot background execution and native history', () => {
         const response = await executeCopilotCommand(
           {
             command: 'message',
+            requestId: crypto.randomUUID(),
             workspaceId: scope.workspaceId,
             model: 'configured/model',
             input: { content: 'Do not generate after cancellation' },
@@ -996,7 +1044,7 @@ describe('Copilot background execution and native history', () => {
     expect(m.admit).toHaveBeenCalledTimes(admissions)
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(m.route).not.toHaveBeenCalled()
-    expect(m.receipts.size).toBe(0)
+    expect([...m.receipts.keys()].every((id) => id.startsWith('copilot:admission:'))).toBe(true)
     expect(await threadClaims()).toHaveLength(0)
     expect(
       (await command({ command: 'thread.observe', threadId: initial.threadId })).result
@@ -1339,6 +1387,7 @@ describe('Copilot background execution and native history', () => {
       {
         workspaceId: scope.workspaceId,
         command: 'message',
+        requestId: crypto.randomUUID(),
         model: 'configured/model',
         input: { content: 'List workflows' },
         accessLevel: 'full',
@@ -1411,7 +1460,11 @@ describe('Copilot background execution and native history', () => {
         if (result === undefined) throw new NativeTargetError('Workflow no longer exists', 403)
       })
       restart()
-      const { result } = await command({ command: 'tool.execute', target, action: 'readback' })
+      const { result } = await command({
+        command: 'tool.execute',
+        target,
+        action: 'readback',
+      })
       expect(result).toMatchObject({ status: 'success', text: 'Recovered execution result' })
       expect(m.business).toHaveBeenCalledExactlyOnceWith(
         scope,
@@ -1560,6 +1613,7 @@ describe('Copilot background execution and native history', () => {
     const response = await executeCopilotCommand(
       {
         command: 'tool.approve',
+        requestId: crypto.randomUUID(),
         workspaceId: scope.workspaceId,
         target: initial.pending[0].target,
       },
@@ -1659,9 +1713,13 @@ describe('Copilot background execution and native history', () => {
     await expect(readCopilotRun(scope, 'another-thread', initial.runId)).rejects.toMatchObject({
       status: 403,
     })
-    const approved = suspended(
-      (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
-    )
+    const approval = {
+      command: 'tool.approve',
+      requestId: crypto.randomUUID(),
+      target: initial.pending[0].target,
+    }
+    const approved = suspended((await command(approval)).result)
+    expect((await command(approval)).result).toMatchObject(approved)
     expect(m.resolve).toHaveBeenLastCalledWith('openai/gpt-4.1')
     expect(createConfiguredLanguageModel).toHaveBeenLastCalledWith(
       'openai/gpt-4.1',
@@ -1703,6 +1761,7 @@ describe('Copilot background execution and native history', () => {
     expect(m.route).toHaveBeenCalledOnce()
     const decision = {
       command: 'tool.execute',
+      requestId: crypto.randomUUID(),
       target: approved.pending[0].target,
       action: 'review.accept',
     }
@@ -1730,12 +1789,12 @@ describe('Copilot background execution and native history', () => {
       expect(assistant.cost?.total).toBeCloseTo(0.000022, 12)
     }
     const contacts = m.contacts.length
-    expect((await command(decision)).result).toMatchObject({
-      status: 'refused',
-      error: { code: 'STALE_TARGET' },
-    })
+    const settlements = m.accept.mock.calls.length
+    expect((await command(approval)).result).toMatchObject({ status: 'success' })
+    expect((await command(decision)).result).toMatchObject({ status: 'success' })
     expect(m.route).toHaveBeenCalledTimes(2)
     expect(m.contacts).toHaveLength(contacts)
+    expect(m.accept).toHaveBeenCalledTimes(settlements)
   })
 
   it.each([undefined, { contextEntityKind: 'workflow' as const, contextEntityId: 'workflow-B' }])(
@@ -1753,7 +1812,12 @@ describe('Copilot background execution and native history', () => {
       restart()
       expect(await pending(initial.threadId)).toEqual(initial.pending)
       const resumed = suspended(
-        (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
+        (
+          await command({
+            command: 'tool.approve',
+            target: initial.pending[0].target,
+          })
+        ).result
       )
       expect(resumed.pending).toHaveLength(1)
       expect(resumed.pending[0]).toMatchObject({
@@ -1844,10 +1908,14 @@ describe('Copilot background execution and native history', () => {
   it.each(
     ['local', 'trigger'].flatMap((mode) =>
       [
-        { command: 'tool.approve' },
-        { command: 'tool.decline', reason: 'Declined' },
-        { command: 'tool.execute', action: 'execute' },
-        { command: 'tool.result', assertion: { kind: 'timer.completed', data: {} } },
+        { command: 'tool.approve', requestId: crypto.randomUUID() },
+        { command: 'tool.decline', requestId: crypto.randomUUID(), reason: 'Declined' },
+        { command: 'tool.execute', requestId: crypto.randomUUID(), action: 'execute' },
+        {
+          command: 'tool.result',
+          requestId: crypto.randomUUID(),
+          assertion: { kind: 'timer.completed', data: {} },
+        },
       ].map((request) => ({ mode, request }))
     )
   )(
@@ -1916,7 +1984,12 @@ describe('Copilot background execution and native history', () => {
     restart()
     expect(await pending(initial.threadId)).toEqual([])
     expect(
-      (await command({ command: 'tool.approve', target: original.target })).result
+      (
+        await command({
+          command: 'tool.approve',
+          target: original.target,
+        })
+      ).result
     ).toMatchObject({ status: 'refused' })
     expect(m.route).not.toHaveBeenCalled()
     expect(m.contacts).toHaveLength(1)
@@ -1931,7 +2004,12 @@ describe('Copilot background execution and native history', () => {
       if (stage === 'review') {
         m.route.mockResolvedValueOnce({ requiresReview: true, reviewBaseStateHash: 'base' })
         initial = suspended(
-          (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
+          (
+            await command({
+              command: 'tool.approve',
+              target: initial.pending[0].target,
+            })
+          ).result
         )
       }
       const entered = deferred()
@@ -2037,7 +2115,10 @@ describe('Copilot background execution and native history', () => {
       await preflight.promise
       return { apiKey: 'admin-key' }
     })
-    const continuing = command({ command: 'tool.approve', target: initial.pending[0].target })
+    const continuing = command({
+      command: 'tool.approve',
+      target: initial.pending[0].target,
+    })
     await entered.promise
     const stopping = command({
       command: 'cancel',
@@ -2078,7 +2159,10 @@ describe('Copilot background execution and native history', () => {
     })
     const statuses: string[] = []
     const attempts = [0, 1].map(() =>
-      command({ command: 'tool.approve', target: initial.pending[0].target }).then(({ result }) => {
+      command({
+        command: 'tool.approve',
+        target: initial.pending[0].target,
+      }).then(({ result }) => {
         statuses.push(result.status)
       })
     )
@@ -2102,12 +2186,22 @@ describe('Copilot background execution and native history', () => {
     const initial = suspended((await message({ accessLevel: 'limited' })).result)
     vi.spyOn(m.agent, 'approveToolCall').mockRejectedValueOnce(new Error('Native resume rejected'))
     expect(
-      (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
+      (
+        await command({
+          command: 'tool.approve',
+          target: initial.pending[0].target,
+        })
+      ).result
     ).toMatchObject({ status: 'failed' })
     expect((await readCopilotThreadOwnership(scope, initial.threadId))?.live).toBe(false)
     expect(await pending(initial.threadId)).toEqual([])
     expect(
-      (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
+      (
+        await command({
+          command: 'tool.approve',
+          target: initial.pending[0].target,
+        })
+      ).result
     ).toMatchObject({ status: 'refused' })
     expect((await message({ threadId: initial.threadId })).result).toMatchObject({
       status: 'success',
@@ -2149,7 +2243,12 @@ describe('Copilot background execution and native history', () => {
     if (stage === 'review') {
       m.route.mockResolvedValueOnce({ requiresReview: true, reviewBaseStateHash: 'original-base' })
       initial = suspended(
-        (await command({ command: 'tool.approve', target: initial.pending[0].target })).result
+        (
+          await command({
+            command: 'tool.approve',
+            target: initial.pending[0].target,
+          })
+        ).result
       )
     }
     const admissions = m.admit.mock.calls.length
@@ -2178,7 +2277,7 @@ describe('Copilot background execution and native history', () => {
     })
     expect(m.resolve).toHaveBeenLastCalledWith('configured/model')
     expect(m.route).toHaveBeenCalledTimes(dispatches)
-    expect(m.receipts.size).toBe(receipts)
+    expect(m.receipts.size).toBe(receipts + 1)
     expect(m.contacts).toHaveLength(1)
     expect(createConfiguredLanguageModel).toHaveBeenCalledTimes(models)
     expect(m.admit).toHaveBeenCalledTimes(admissions)
@@ -2477,6 +2576,7 @@ describe('Copilot background execution and native history', () => {
           {
             workspaceId: scope.workspaceId,
             command: 'message',
+            requestId: crypto.randomUUID(),
             model: 'configured/model',
             threadId: initial.threadId,
             input: { content: 'Keep ownership until persisted' },

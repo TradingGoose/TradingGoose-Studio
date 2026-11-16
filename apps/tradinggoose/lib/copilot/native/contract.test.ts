@@ -4,6 +4,7 @@ import { CopilotRequestSchema } from './contract'
 it('accepts the browser command with ordered native content parts', () => {
   const input = {
     command: 'message',
+    requestId: crypto.randomUUID(),
     workspaceId: 'workspace',
     model: 'openai/gpt-4.1',
     input: {
@@ -14,6 +15,17 @@ it('accepts the browser command with ordered native content parts', () => {
     },
   }
   expect(CopilotRequestSchema.parse(input)).toEqual(input)
+})
+it.each([undefined, '', 'not-a-uuid'])('requires a stable admission UUID: %s', (requestId) => {
+  expect(
+    CopilotRequestSchema.safeParse({
+      command: 'message',
+      workspaceId: null,
+      requestId,
+      model: 'openai/gpt-4.1',
+      input: { content: 'Hello' },
+    }).success
+  ).toBe(false)
 })
 it.each([
   { actorUserId: 'other' },
@@ -43,6 +55,7 @@ it.each([
   expect(() =>
     CopilotRequestSchema.parse({
       command: 'message',
+      requestId: crypto.randomUUID(),
       workspaceId: 'workspace',
       model: 'openai/gpt-4.1',
       input: { content: 'Hello' },
@@ -54,6 +67,7 @@ it('requires a concrete pending target for tool decisions', () => {
   expect(() =>
     CopilotRequestSchema.parse({
       command: 'tool.execute',
+      requestId: crypto.randomUUID(),
       workspaceId: 'workspace',
       action: 'review.accept',
     })

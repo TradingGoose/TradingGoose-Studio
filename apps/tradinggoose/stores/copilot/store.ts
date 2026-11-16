@@ -453,7 +453,16 @@ function createCopilotStoreInstance(channelId: string) {
         let accepting: typeof admission
         try {
           // Keep admission alive so Stop can cancel the durable run it returns.
-          admission = accepting = postNativeCommand(body).then(readNativeCommandResponse)
+          admission = accepting = (async (): ReturnType<typeof readNativeCommandResponse> => {
+            for (;;) {
+              try {
+                return await postNativeCommand(body).then(readNativeCommandResponse)
+              } catch (error) {
+                if (!(error instanceof TypeError || error instanceof SyntaxError)) throw error
+                await waitToReconnect()
+              }
+            }
+          })()
           const result = await accepting
           if (admission === accepting) admission = undefined
           if (id !== epoch) return false
@@ -529,6 +538,7 @@ function createCopilotStoreInstance(channelId: string) {
         }
       }
       const requestForPending = (pending: Pending) => ({
+        requestId: crypto.randomUUID(),
         workspaceId: get().currentChat!.workspaceId,
         target: pending.target,
       })
@@ -960,6 +970,7 @@ function createCopilotStoreInstance(channelId: string) {
               !editing && (!chat || (chat.title === '' && get().messages.length === 0))
             const command: CopilotRequest = {
               command: 'message',
+              requestId: crypto.randomUUID(),
               toolContext,
               workspaceId,
               ...(chat ? { threadId: chat.threadId } : {}),

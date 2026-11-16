@@ -49,12 +49,13 @@ export const BrowserAssertionSchema = z
   })
   .strict()
 const base = { workspaceId: id.nullable() }
+const admission = { ...base, requestId: z.uuid() }
 
 /** The authenticated Studio route validates this browser input once. */
 export const CopilotRequestSchema = z.discriminatedUnion('command', [
   z
     .object({
-      ...base,
+      ...admission,
       command: z.literal('message'),
       threadId: id.optional(),
       messageId: id.optional(),
@@ -64,10 +65,10 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
       toolContext: ToolContextSchema.optional(),
     })
     .strict(),
-  z.object({ ...base, command: z.literal('tool.approve'), target: TargetSchema }).strict(),
+  z.object({ ...admission, command: z.literal('tool.approve'), target: TargetSchema }).strict(),
   z
     .object({
-      ...base,
+      ...admission,
       command: z.literal('tool.decline'),
       target: TargetSchema,
       reason: z.string().optional(),
@@ -75,7 +76,7 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
     .strict(),
   z
     .object({
-      ...base,
+      ...admission,
       command: z.literal('tool.execute'),
       target: TargetSchema,
       action: z.enum(['execute', 'review.accept', 'review.reject', 'readback']),
@@ -85,7 +86,7 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
     .strict(),
   z
     .object({
-      ...base,
+      ...admission,
       command: z.literal('tool.result'),
       target: TargetSchema,
       assertion: BrowserAssertionSchema,

@@ -787,6 +787,7 @@ describe('canonical browser conversation transport', () => {
     ).toBe(true)
     expect(commands[0]).toEqual({
       command: 'message',
+      requestId: expect.any(String),
       workspaceId: null,
       threadId,
       model: 'openai/gpt-5.6-sol',
@@ -876,6 +877,7 @@ describe('canonical browser conversation transport', () => {
     expect(commands).toEqual([
       expect.objectContaining({
         command: 'message',
+        requestId: expect.any(String),
         input: {
           content: [
             { type: 'text', text: 'image prompt' },
@@ -1182,7 +1184,11 @@ describe('failed pending continuations', () => {
     onCommand = (request) => {
       if (request.command === 'thread.observe') return historyResponse([item])
       if (request.command !== 'tool.approve' && request.command !== 'tool.execute') return
-      if (failure === 'transport') throw new Error('Continuation transport failed')
+      if (
+        failure === 'transport' &&
+        commands.filter((request) => request.command.startsWith('tool.')).length === 1
+      )
+        throw new TypeError('Continuation transport failed')
       const result = {
         status: failure === 'error' ? 'failed' : 'refused',
         error: {
@@ -1480,6 +1486,7 @@ describe('canonical history, edits and context', () => {
     expect(commands.map((request) => request.command)).toEqual(['message', 'thread.observe'])
     expect(commands[0]).toMatchObject({
       command: 'message',
+      requestId: expect.any(String),
       threadId,
       messageId: history[0].id,
       input: { content: text, contexts: [originalContext] },
@@ -1959,6 +1966,35 @@ describe('explicit reopened Drive business choice', () => {
 })
 
 describe('message acceptance', () => {
+  it.each(['recover', 'stop'])(
+    'retains the same admission through a lost first response (%s)',
+    async (action) => {
+      store().setState({ conversationWorkspaceId: workspaceId })
+      let attempts = 0
+      onCommand = (request) => {
+        if (request.command !== 'message') return
+        if (++attempts === 1) throw new TypeError('Acceptance response lost')
+        return acceptTurn(ready())
+      }
+      const onAccepted = vi.fn()
+      const sending = store().getState().sendMessage('Submit once', { onAccepted })
+      await vi.waitFor(() => expect(attempts).toBe(1))
+      expect(isCopilotBusy(store().getState())).toBe(true)
+      expect(await store().getState().sendMessage('Duplicate')).toBe(false)
+      if (action === 'stop') expect(await store().getState().abortMessage()).toBe(true)
+      expect(await sending).toBe(action === 'recover')
+      const submissions = commands.filter((request) => request.command === 'message')
+      expect(submissions).toHaveLength(2)
+      expect(submissions[1]).toEqual(submissions[0])
+      expect(submissions[0].requestId).toMatch(/^[0-9a-f-]{36}$/)
+      expect(onAccepted).toHaveBeenCalledOnce()
+      expect(isCopilotBusy(store().getState())).toBe(false)
+      expect(commands.filter((request) => request.command === 'cancel')).toHaveLength(
+        action === 'stop' ? 1 : 0
+      )
+    }
+  )
+
   it("shows a successor browser tool without executing another browser's turn", async () => {
     setChat()
     const item = { ...pending('result', 'sleep'), originalArgs: { seconds: 0 } }
@@ -2299,7 +2335,13 @@ describe('local workflow execution refusals', () => {
       onCommand = () => undefined
       await store().getState().readbackCopilotToolCall(id)
       expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
-        { command: 'tool.execute', workspaceId, target: target.target, action: 'readback' },
+        {
+          command: 'tool.execute',
+          requestId: expect.any(String),
+          workspaceId,
+          target: target.target,
+          action: 'readback',
+        },
       ])
       expect(isCopilotBusy(store().getState())).toBe(false)
       expect(await store().getState().sendMessage('Continue')).toBe(true)
@@ -2359,7 +2401,13 @@ describe('local workflow execution refusals', () => {
     await store().getState().executeCopilotToolCall(executionId)
     expect(attempts).toBe(2)
     expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
-      { command: 'tool.execute', workspaceId, target: target.target, action: 'readback' },
+      {
+        command: 'tool.execute',
+        requestId: expect.any(String),
+        workspaceId,
+        target: target.target,
+        action: 'readback',
+      },
     ])
     expect(isCopilotBusy(store().getState())).toBe(false)
     expect(await store().getState().sendMessage('Continue')).toBe(true)
@@ -2401,7 +2449,13 @@ describe('local workflow execution refusals', () => {
       })
     )
     expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
-      { command: 'tool.execute', workspaceId, target: target.target, action: 'readback' },
+      {
+        command: 'tool.execute',
+        requestId: expect.any(String),
+        workspaceId,
+        target: target.target,
+        action: 'readback',
+      },
     ])
   })
 
@@ -2991,6 +3045,7 @@ describe('selected native run context', () => {
       const accepted = commands.find((request) => request.command === 'tool.execute')
       expect(accepted).toMatchObject({
         command: 'tool.execute',
+        requestId: expect.any(String),
         target: next.target,
         action: 'review.accept',
       })

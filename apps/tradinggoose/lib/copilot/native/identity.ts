@@ -17,3 +17,11 @@ export function nativeConversationIdentity(scope: Scope) {
     resourceId: JSON.stringify(['copilot', kind, owner, scope.actorUserId, scope.workspaceId]),
   }
 }
+
+/** Retried admissions reuse one identity without sharing it across authenticated scopes. */
+export function nativeAdmissionId(scope: Scope, requestId: string) {
+  return uuidv5(
+    JSON.stringify(['copilot-admission', nativeConversationIdentity(scope).resourceId, requestId]),
+    uuidv5.URL
+  )
+}

@@ -33,6 +33,7 @@ it('does not send oversized native commands or serialized bodies', async () => {
   await expect(
     readNativeCommand({
       command: 'message',
+      requestId: crypto.randomUUID(),
       workspaceId: null,
       model: 'model',
       input: { content: '🦆'.repeat(MAX_COPILOT_REQUEST_BYTES / 4) },

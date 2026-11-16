@@ -99,6 +99,7 @@ describe('Copilot raw request size boundary', () => {
     }))
     const response = await post({
       command: 'message',
+      requestId: crypto.randomUUID(),
       workspaceId: null,
       model: 'test/model',
       input: { content },
@@ -116,6 +117,7 @@ describe('Copilot raw request size boundary', () => {
     }
     const body = JSON.stringify({
       command: 'message',
+      requestId: crypto.randomUUID(),
       workspaceId: null,
       model: 'test/model',
       input: {
@@ -154,6 +156,7 @@ describe('Copilot raw request size boundary', () => {
   it('preserves UTF-8 prompt text split across streamed chunks', async () => {
     const body = {
       command: 'message',
+      requestId: crypto.randomUUID(),
       workspaceId: null,
       model: 'test/model',
       input: { content: 'Describe 🦆' },
@@ -201,6 +204,7 @@ describe('built-in Copilot authenticated boundary', () => {
   it('processes contexts and preserves model/access selection without an external manifest', async () => {
     const body = {
       command: 'message',
+      requestId: crypto.randomUUID(),
       workspaceId: 'workspace',
       model: 'test/model',
       input: { content: 'hello', contexts: [] },
@@ -240,6 +244,7 @@ describe('built-in Copilot authenticated boundary', () => {
         (
           await post({
             command: 'message',
+            requestId: crypto.randomUUID(),
             workspaceId: null,
             model: 'anthropic/claude-sonnet-4-5',
             input: { content: 'Run an unapproved tool' },
@@ -255,6 +260,7 @@ describe('built-in Copilot authenticated boundary', () => {
     const body = {
       workspaceId: null,
       command: 'tool.execute',
+      requestId: crypto.randomUUID(),
       target: {
         threadId: 'thread',
         resourceId: 'resource',
@@ -299,6 +305,7 @@ describe('built-in Copilot authenticated boundary', () => {
       (
         await post({
           command: 'message',
+          requestId: crypto.randomUUID(),
           workspaceId: null,
           model: 'test/model',
           input: { content: 'Read both', contexts },
@@ -325,6 +332,7 @@ describe('built-in Copilot authenticated boundary', () => {
         (
           await post({
             command: 'message',
+            requestId: crypto.randomUUID(),
             workspaceId: null,
             model: 'test/model',
             input: { content: 'Read' },
@@ -348,6 +356,7 @@ it('preserves ordered native text and image content through authenticated ingres
     (
       await post({
         command: 'message',
+        requestId: crypto.randomUUID(),
         workspaceId: 'workspace',
         model: 'test/model',
         input: { content },
@@ -367,6 +376,7 @@ it('rejects remote image locators before context resolution or model execution',
     (
       await post({
         command: 'message',
+        requestId: crypto.randomUUID(),
         workspaceId: null,
         model: 'test/model',
         input: {
@@ -395,6 +405,7 @@ it.each([false, true])(
       (
         await post({
           command: 'message',
+          requestId: crypto.randomUUID(),
           workspaceId: 'workspace',
           model: 'test/model',
           input: { content, contexts },

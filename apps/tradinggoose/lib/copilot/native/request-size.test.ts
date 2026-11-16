@@ -9,6 +9,7 @@ describe('Copilot request byte budget', () => {
   it('includes UTF-8, escaped JSON, contexts, inline data and the complete command envelope', () => {
     const command = {
       command: 'message' as const,
+      requestId: crypto.randomUUID(),
       workspaceId: 'workspace',
       threadId: 'thread',
       toolContext: { workspaceId: 'workspace' },
@@ -63,7 +64,13 @@ describe('Copilot request byte budget', () => {
     input.content[1] = { type: 'image', image: image.data, mediaType: image.type }
     expect(() => assertCopilotAttachmentSize(draft, [image])).not.toThrow()
     expect(() =>
-      serializeCopilotRequest({ command: 'message', workspaceId: null, model: 'model', input })
+      serializeCopilotRequest({
+        command: 'message',
+        requestId: crypto.randomUUID(),
+        workspaceId: null,
+        model: 'model',
+        input,
+      })
     ).toThrowError(expect.objectContaining({ status: 413 }))
     image.data += 'A'
     expect(() => assertCopilotAttachmentSize(draft, [image])).toThrow()
