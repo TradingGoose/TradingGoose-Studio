@@ -63,13 +63,25 @@ it.each([
     })
   ).toThrow()
 })
-it('requires a concrete pending target for tool decisions', () => {
+it.each([
+  { action: 'review.accept' },
+  {
+    action: 'execute',
+    target: {
+      threadId: 'thread',
+      resourceId: 'resource',
+      runId: 'run',
+      toolCallId: 'call',
+      toolName: 'rename_workflow',
+    },
+  },
+])('requires supported tool decisions with a concrete pending target: %j', (fields) => {
   expect(() =>
     CopilotRequestSchema.parse({
       command: 'tool.execute',
       requestId: crypto.randomUUID(),
       workspaceId: 'workspace',
-      action: 'review.accept',
+      ...fields,
     })
   ).toThrow()
 })

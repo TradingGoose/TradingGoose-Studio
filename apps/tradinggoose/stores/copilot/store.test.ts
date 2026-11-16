@@ -352,6 +352,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   resetCopilotStoreRegistry()
+  vi.useRealTimers()
   queryClient.clear()
   vi.unstubAllGlobals()
 })
@@ -1324,7 +1325,11 @@ describe('local pending approval and preview decisions', () => {
     expect(commands.some((request) => request.command === 'cancel')).toBe(false)
   })
   it('serializes server actions and discards queued work after navigation', async () => {
-    const first = pending()
+    const first = {
+      ...pending('result', 'rename_workflow'),
+      originalArgs: { entityId: 'entity-fixture', name: 'Renamed' },
+      preview: { requiresReview: true },
+    }
     const second = { ...structuredClone(first), target: { ...first.target, toolCallId: 'second' } }
     installPending(first)
     store().setState((state) => ({
@@ -1333,7 +1338,8 @@ describe('local pending approval and preview decisions', () => {
         [nativeToolCallId(second.target)]: {
           id: nativeToolCallId(second.target),
           name: second.target.toolName,
-          state: ClientToolCallState.pending,
+          state: ClientToolCallState.review,
+          result: second.preview,
           pending: second,
         },
       },
@@ -1353,7 +1359,9 @@ describe('local pending approval and preview decisions', () => {
     await store().getState().createNewChat()
     gate.resolve(acceptTurn(ready()))
     await Promise.all([active, queued])
-    expect(commands.filter((request) => request.command === 'tool.execute')).toHaveLength(1)
+    expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
+      expect.objectContaining({ action: 'review.accept', target: first.target }),
+    ])
   })
   it('refuses ambiguous tool IDs across stores', () => {
     const item = pending()
@@ -1966,6 +1974,47 @@ describe('explicit reopened Drive business choice', () => {
 })
 
 describe('message acceptance', () => {
+  it.each(['network', 'json'])(
+    'does not retry a private prompt under another account after a %s failure',
+    async (failure) => {
+      vi.useFakeTimers()
+      const original = store()
+      let actor = actorUserId
+      const submitted: Array<{ actor: string; content: unknown }> = []
+      let requestSignal: AbortSignal | null | undefined
+      onCommand = (request, init) => {
+        if (request.command !== 'message') return
+        submitted.push({ actor, content: request.input.content })
+        requestSignal = init?.signal
+        if (submitted.length === 1) {
+          if (failure === 'network') throw new TypeError('Connection lost')
+          return new Response('{', { headers: { 'content-type': 'application/json' } })
+        }
+        return acceptTurn(ready())
+      }
+      const onAccepted = vi.fn()
+      const sending = original.getState().sendMessage('Private A prompt', { onAccepted })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(submitted).toHaveLength(1)
+      resetCopilotStoreRegistry()
+      actor = 'account-b'
+      const next = getCopilotStore(
+        buildCopilotWorkspaceChannelId({ authenticatedUserId: actor, workspaceId })
+      )
+      next.setState({ selectedModel: 'anthropic/admin-selected-model' })
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(await sending).toBe(false)
+      expect(requestSignal?.aborted).toBe(true)
+      expect(onAccepted).not.toHaveBeenCalled()
+      expect(await next.getState().sendMessage('B prompt')).toBe(true)
+      expect(submitted).toEqual([
+        { actor: actorUserId, content: 'Private A prompt' },
+        { actor: 'account-b', content: 'B prompt' },
+      ])
+      expect(original.getState().messages).toEqual([])
+    }
+  )
+
   it.each(['recover', 'stop'])(
     'retains the same admission through a lost first response (%s)',
     async (action) => {
@@ -2191,11 +2240,21 @@ describe('message acceptance', () => {
     }
   )
 
-  it.each(['existing', 'fresh', 'failed-cancel', 'refused', 'navigation', 'on-accepted'])(
-    'retains admission until Stop can cancel its returned run (%s)',
+  it.each([
+    'existing',
+    'fresh',
+    'failed-cancel',
+    'refused',
+    'navigation',
+    'on-accepted',
+    'reset-before',
+    'reset-on-accepted',
+  ])(
+    'retains admission until Stop can cancel it and rejects stale account-reset responses (%s)',
     async (kind) => {
+      const resetting = kind.startsWith('reset-')
       if (kind === 'fresh') store().setState({ conversationWorkspaceId: workspaceId })
-      else setChat()
+      else if (!resetting) setChat()
       const admission = defer<Response>()
       const acknowledgement = defer<Response>()
       let admissionSignal: AbortSignal | null | undefined
@@ -2209,6 +2268,7 @@ describe('message acceptance', () => {
       let stopping: Promise<boolean> | undefined
       const onAccepted = vi.fn(() => {
         if (kind === 'on-accepted') stopping = store().getState().abortMessage()
+        if (kind === 'reset-on-accepted') store().getState().reset()
       })
       const sending = store().getState().sendMessage('submitted', { onAccepted })
       await vi.waitFor(() =>
@@ -2223,6 +2283,7 @@ describe('message acceptance', () => {
         expect(commands.some(({ command }) => command === 'cancel')).toBe(false)
       }
       if (kind === 'navigation') await store().getState().createNewChat('another-workspace')
+      if (kind === 'reset-before') store().getState().reset()
       admission.resolve(
         kind === 'refused'
           ? json(
@@ -2231,12 +2292,18 @@ describe('message acceptance', () => {
             )
           : json({ status: 'accepted', threadId, runId, messageId: 'accepted-user' }, 202)
       )
-      if (kind === 'refused') {
+      if (kind === 'refused' || resetting) {
         expect(await stopping).toBe(false)
         expect(await sending).toBe(false)
-        expect(onAccepted).not.toHaveBeenCalled()
+        expect(onAccepted).toHaveBeenCalledTimes(kind === 'reset-on-accepted' ? 1 : 0)
         expect(isCopilotBusy(store().getState())).toBe(false)
-        expect(commands.some(({ command }) => command === 'cancel')).toBe(false)
+        expect(commands.map(({ command }) => command)).toEqual(['message'])
+        if (resetting) {
+          expect(store().getState().messages).toEqual([])
+          store().setState({ selectedModel: 'anthropic/admin-selected-model' })
+          onCommand = () => undefined
+          expect(await store().getState().sendMessage('New lifetime')).toBe(true)
+        }
         return
       }
       await vi.waitFor(() =>
@@ -2843,13 +2910,14 @@ describe('R5 per-tool context at actual live call creation', () => {
       [0, 1].map((index) => [order, index] as const)
     )
   )(
-    'pins dashboard A and ordinary watchlist B through %s, executing tool%s at the actual server boundary',
+    'pins dashboard A and ordinary watchlist B through %s, accepting tool%s at the actual server boundary',
     async (order, selectedIndex) => {
       setChat()
       const layout = {
-        ...pending('approval', 'read_layout'),
-        target: { ...pending().target, toolCallId: 'layout-call', toolName: 'read_layout' },
-        originalArgs: { entityId: 'dashboard-a' },
+        ...pending('result', 'rename_layout'),
+        target: { ...pending().target, toolCallId: 'layout-call', toolName: 'rename_layout' },
+        originalArgs: { entityId: 'dashboard-a', name: 'Renamed dashboard' },
+        preview: { requiresReview: true },
         context: {
           contextEntityKind: 'dashboard_layout' as const,
           contextEntityId: 'dashboard-a',
@@ -2857,9 +2925,10 @@ describe('R5 per-tool context at actual live call creation', () => {
         },
       }
       const watchlist = {
-        ...pending('approval', 'read_watchlist'),
-        target: { ...pending().target, toolCallId: 'watchlist-call', toolName: 'read_watchlist' },
-        originalArgs: { entityId: 'watchlist-b' },
+        ...pending('result', 'rename_watchlist'),
+        target: { ...pending().target, toolCallId: 'watchlist-call', toolName: 'rename_watchlist' },
+        originalArgs: { entityId: 'watchlist-b', name: 'Renamed watchlist' },
+        preview: { requiresReview: true },
         context: {
           contextEntityKind: 'watchlist' as const,
           contextEntityId: 'watchlist-b',
@@ -2941,10 +3010,9 @@ describe('R5 per-tool context at actual live call creation', () => {
         expect(unchanged).toEqual({})
       }
       const item = items[selectedIndex]
-      item.stage = 'result'
-      store().setState((state) => displayNativePending(state, item))
       await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
       expect(commands.find((request) => request.command === 'tool.execute')).toMatchObject({
+        action: 'review.accept',
         workspaceId,
         target: item.target,
         context: expected[selectedIndex],
@@ -3485,20 +3553,28 @@ describe('built-in tool continuation', () => {
     ).toBe(false)
     expect(store().getState().isAwaitingContinuation).toBe(true)
   })
-  it('an initial action that discovers a new preview never accepts it implicitly', async () => {
-    const item = pending('result', 'edit_workflow')
+  it('native approval that produces a new preview never accepts it implicitly', async () => {
+    const item = {
+      ...pending('approval', 'rename_workflow'),
+      originalArgs: { entityId: 'entity-fixture', name: 'Renamed' },
+    }
     installPending(item)
-    const fresh = { ...item, preview: { requiresReview: true, description: 'later preview' } }
+    const fresh: Pending = {
+      ...item,
+      stage: 'result',
+      preview: { requiresReview: true, description: 'later preview' },
+    }
     onCommand = (request) =>
-      request.command === 'tool.execute'
+      request.command === 'tool.approve'
         ? acceptTurn(suspended([fresh]))
         : request.command === 'thread.observe'
           ? historyResponse([fresh])
           : undefined
     await store().getState().executeCopilotToolCall(nativeToolCallId(item.target))
-    expect(commands.filter((request) => request.command === 'tool.execute')).toEqual([
-      expect.objectContaining({ action: 'execute', target: item.target }),
+    expect(commands.filter((request) => request.command === 'tool.approve')).toEqual([
+      expect.objectContaining({ target: item.target }),
     ])
+    expect(commands.some((request) => request.command === 'tool.execute')).toBe(false)
     expect(store().getState().toolCallsById[nativeToolCallId(item.target)].state).toBe('review')
   })
   it('a concurrent rejection cannot claim success while acceptance is in flight', async () => {

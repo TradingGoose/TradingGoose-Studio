@@ -79,7 +79,7 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
       ...admission,
       command: z.literal('tool.execute'),
       target: TargetSchema,
-      action: z.enum(['execute', 'review.accept', 'review.reject', 'readback']),
+      action: z.enum(['review.accept', 'review.reject', 'readback']),
       context: ToolContextSchema.optional(),
       readback: z.object({ credentialId: id }).strict().optional(),
     })
@@ -121,7 +121,6 @@ export interface Pending {
 export interface ErrorResponse {
   status: 'refused' | 'failed'
   error: SafeError
-  usage?: NativeUsage
 }
 export interface AcceptedResponse {
   status: 'accepted'

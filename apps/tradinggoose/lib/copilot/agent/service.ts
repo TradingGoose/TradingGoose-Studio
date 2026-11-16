@@ -795,11 +795,11 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
               request.readback
             ),
           }
-        } else if (request.action === 'review.accept' || request.action === 'review.reject') {
+        } else {
           if (!pending.preview || !pending.reviewBaseStateHash)
             throw new NativeTargetError('The current tool preview is required', 409)
           decision = { action: request.action }
-        } else decision = { action: 'execute' }
+        }
       }
     } else throw new NativeTargetError('This command does not generate a response', 422)
     const prepared = await prepareModelRequest(

@@ -1910,7 +1910,7 @@ describe('Copilot background execution and native history', () => {
       [
         { command: 'tool.approve', requestId: crypto.randomUUID() },
         { command: 'tool.decline', requestId: crypto.randomUUID(), reason: 'Declined' },
-        { command: 'tool.execute', requestId: crypto.randomUUID(), action: 'execute' },
+        { command: 'tool.execute', requestId: crypto.randomUUID(), action: 'readback' },
         {
           command: 'tool.result',
           requestId: crypto.randomUUID(),

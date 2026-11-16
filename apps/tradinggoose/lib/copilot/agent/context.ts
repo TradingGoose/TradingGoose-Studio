@@ -17,7 +17,6 @@ export const CopilotSuspendSchema = z.object({
 })
 
 export type CopilotDecision =
-  | { action: 'execute' }
   | { action: 'review.accept' | 'review.reject' }
   | { action: 'result'; result: unknown }
 

@@ -111,6 +111,7 @@ const initialState = {
 
 function createCopilotStoreInstance(channelId: string) {
   let epoch = 0
+  let owner = new AbortController()
   let threadsGeneration = 0
   let titleCandidate: {
     epoch: number
@@ -446,6 +447,7 @@ function createCopilotStoreInstance(channelId: string) {
       ) => {
         observation?.abort()
         const id = epoch
+        const ownerSignal = owner.signal
         const abort = new AbortController()
         const current = () => id === epoch && !abort.signal.aborted
         get().abortController?.abort()
@@ -456,10 +458,14 @@ function createCopilotStoreInstance(channelId: string) {
           admission = accepting = (async (): ReturnType<typeof readNativeCommandResponse> => {
             for (;;) {
               try {
-                return await postNativeCommand(body).then(readNativeCommandResponse)
+                const result = await postNativeCommand(body, ownerSignal).then(
+                  readNativeCommandResponse
+                )
+                ownerSignal.throwIfAborted()
+                return result
               } catch (error) {
                 if (!(error instanceof TypeError || error instanceof SyntaxError)) throw error
-                await waitToReconnect()
+                await waitToReconnect(ownerSignal)
               }
             }
           })()
@@ -657,22 +663,16 @@ function createCopilotStoreInstance(channelId: string) {
             )
           if (isServerManagedCopilotTool(call.name)) {
             const decision = intent.kind === 'accept' || intent.kind === 'reject'
+            if (!decision) return
             if (
-              decision &&
-              (call.state !== ClientToolCallState.review ||
-                !isCopilotServerToolReviewResult(call.result))
+              call.state !== ClientToolCallState.review ||
+              !isCopilotServerToolReviewResult(call.result)
             )
               throw new Error('The selected business preview changed')
-            if (!decision && isCopilotServerToolReviewResult(call.result)) return
             const success = await invoke({
               command: 'tool.execute',
               ...requestForPending(pending),
-              action:
-                intent.kind === 'reject'
-                  ? 'review.reject'
-                  : intent.kind === 'accept'
-                    ? 'review.accept'
-                    : 'execute',
+              action: intent.kind === 'reject' ? 'review.reject' : 'review.accept',
               context: call.provenance,
             })
             if (!success) throw new Error('Copilot tool execution did not complete')
@@ -1013,6 +1013,7 @@ function createCopilotStoreInstance(channelId: string) {
         },
         abortMessage: async () => {
           if (get().isAborting) return false
+          const ownerSignal = owner.signal
           const dialog = get().workflowChatDeployment
           if (dialog)
             get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native tool selection changed')
@@ -1053,10 +1054,13 @@ function createCopilotStoreInstance(channelId: string) {
               }))
             }
             if (!target) return !current.isSendingMessage
-            const result = await readNativeCommand({
-              command: 'cancel',
-              ...target,
-            })
+            const result = await readNativeCommand(
+              {
+                command: 'cancel',
+                ...target,
+              },
+              ownerSignal
+            )
             if (cancellationEpoch !== epoch) return false
             if (result.status !== 'cancel_requested' || result.runId !== target.runId)
               throw new Error('Native cancellation was not verified')
@@ -1089,6 +1093,8 @@ function createCopilotStoreInstance(channelId: string) {
         },
         reset: () => {
           ++epoch
+          owner.abort()
+          owner = new AbortController()
           titleAbort?.abort()
           titleCandidate = null
           get().detachStream()

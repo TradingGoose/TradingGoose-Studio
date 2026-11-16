@@ -182,7 +182,6 @@ export function displayNativePending(
   return { toolCallsById: { ...state.toolCallsById, [toolCall.id]: toolCall }, messages }
 }
 
-/** Every variant is from the generated closed contract; tool.display never dispatches. */
 export function applyNativeEvent(
   state: CopilotStore,
   event: CopilotOutputEvent,
