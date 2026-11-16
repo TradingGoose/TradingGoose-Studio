@@ -550,7 +550,7 @@ async function dispatchCopilotCommand(
           threadId,
           resourceId: nativeConversationIdentity(scope).resourceId,
           title: '',
-          metadata: { product: 'copilot', copilotJob: job },
+          metadata: { copilotJob: job },
         })
       } else {
         const thread = await requireThread(scope, threadId, signal)
