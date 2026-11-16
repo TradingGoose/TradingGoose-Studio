@@ -184,11 +184,20 @@ afterEach(() => {
   owned.remove()
   globalRoot.remove()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = false
 })
 
 it('renders the actual target ChatDeploy form into the explicit container before notifying its committed callback', async () => {
+  // JSDOM has no layout; native focus guards need visible tabbable controls.
+  vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([
+    new DOMRect(0, 0, 100, 20),
+  ] as unknown as DOMRectList)
   const value = props()
+  const newChat = document.createElement('button')
+  newChat.textContent = 'New Chat'
+  globalRoot.append(newChat)
+  newChat.focus()
   await act(async () =>
     root.render(
       <DeployModal
@@ -213,10 +222,29 @@ it('renders the actual target ChatDeploy form into the explicit container before
   ).not.toBeNull()
   expect(owned.querySelector('input#chat-title')).not.toBeNull()
   expect(owned.querySelector('textarea#chat-description')).not.toBeNull()
+  const dialog = owned.querySelector<HTMLElement>('[role="dialog"]')!
+  await vi.waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+  expect(newChat.closest('[aria-hidden="true"]')).not.toBeNull()
+  const guards = owned.querySelectorAll<HTMLElement>('[data-base-ui-focus-guard]')
+  expect(guards).toHaveLength(2)
+  for (const guard of guards) {
+    await act(async () => guard.focus())
+    await vi.waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+  }
   expect(m.rendered).toHaveBeenCalledOnce()
   expect(
     vi.mocked(fetch).mock.calls.every(([, init]) => !init?.method || init.method === 'GET')
   ).toBe(true)
+  await act(async () =>
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+  )
+  expect(value.onOpenChange).toHaveBeenCalledExactlyOnceWith(false)
+  await act(async () =>
+    root.render(<DeployModal {...value} open={false} container={owned} initialTab='chat' />)
+  )
+  await vi.waitFor(() => expect(document.activeElement).toBe(newChat))
 })
 
 it('does not reset explicit Chat to Billing when asynchronous API keys change fallback selection', async () => {

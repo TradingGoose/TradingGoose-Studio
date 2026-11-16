@@ -9,6 +9,7 @@ import {
   useState,
   type WheelEvent,
 } from 'react'
+import { Dialog } from '@base-ui/react/dialog'
 import {
   Check,
   ChevronDown,
@@ -19,7 +20,6 @@ import {
   PanelLeft,
   X,
 } from 'lucide-react'
-import { createPortal } from 'react-dom'
 import {
   Button,
   DropdownMenu,
@@ -1103,30 +1103,6 @@ export function DeployModal({
     onOpenChange(false)
   }
 
-  useEffect(() => {
-    if (!open) {
-      return
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key !== 'Escape' ||
-        event.defaultPrevented ||
-        showUndeployConfirm ||
-        isViewingActiveDeployment ||
-        previewVersion !== null
-      ) {
-        return
-      }
-
-      event.preventDefault()
-      handleCloseModal()
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [open, showUndeployConfirm, isViewingActiveDeployment, previewVersion, onOpenChange])
-
   const handleFooterPrimaryAction = () => {
     if (versionToActivate === null && isWorkflowDeployed && needsRedeployment) {
       void handleRedeploy()
@@ -1307,23 +1283,17 @@ export function DeployModal({
   }
 
   return (
-    <>
-      {open &&
-        overlayContainer &&
-        createPortal(
-          <div className='pointer-events-none absolute inset-0 z-999 flex items-center justify-center p-4 sm:p-6'>
-            <div
-              aria-hidden='true'
-              className='pointer-events-auto absolute inset-0 bg-background/60 backdrop-blur-[1.5px]'
-              onClick={handleCloseModal}
-            />
-
-            <div
-              role='dialog'
-              aria-modal='true'
-              aria-labelledby='deploy-workflow-title'
-              className='pointer-events-auto relative flex h-full max-h-full w-full max-w-[920px] flex-col overflow-hidden rounded-xl border border-border bg-background/95 shadow-2xl'
-            >
+    <Dialog.Root
+      open={open && Boolean(overlayContainer)}
+      onOpenChange={(next) => {
+        if (!next) handleCloseModal()
+      }}
+    >
+      {overlayContainer && (
+        <Dialog.Portal container={overlayContainer}>
+          <Dialog.Backdrop className='pointer-events-auto absolute inset-0 z-999 bg-background/60 backdrop-blur-[1.5px]' />
+          <Dialog.Viewport className='pointer-events-none absolute inset-0 z-999 flex items-center justify-center p-4 sm:p-6'>
+            <Dialog.Popup className='pointer-events-auto relative flex h-full max-h-full w-full max-w-[920px] flex-col overflow-hidden rounded-xl border border-border bg-background/95 shadow-2xl'>
               <div className='justify-center gap-3 space-y-3 border-b p-3'>
                 <div className='flex flex-shrink-0 items-center justify-between'>
                   <div className='flex items-center gap-1'>
@@ -1339,9 +1309,9 @@ export function DeployModal({
                         {isSidebarCollapsed ? copy.expandSidebar : copy.collapseSidebar}
                       </span>
                     </Button>
-                    <h2 id='deploy-workflow-title' className='font-medium text-lg'>
+                    <Dialog.Title className='font-medium text-lg'>
                       {copy.deployWorkflowTitle}
-                    </h2>
+                    </Dialog.Title>
                     {needsRedeployment && versions.length > 0 && versionToActivate === null && (
                       <span className='inline-flex items-center rounded-md bg-amber-500/10 px-2 py-1 font-medium text-amber-600 text-xs dark:text-amber-400'>
                         {versions.find((v) => v.isActive)?.name ||
@@ -1350,15 +1320,12 @@ export function DeployModal({
                       </span>
                     )}
                   </div>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-8 w-8 p-0'
-                    onClick={handleCloseModal}
+                  <Dialog.Close
+                    render={<Button variant='ghost' size='icon' className='h-8 w-8 p-0' />}
                   >
                     <X className='h-4 w-4' />
                     <span className='sr-only'>{copy.close}</span>
-                  </Button>
+                  </Dialog.Close>
                 </div>
                 {apiDeployError && (
                   <div
@@ -1804,10 +1771,10 @@ export function DeployModal({
                   </div>
                 </div>
               )}
-            </div>
-          </div>,
-          overlayContainer
-        )}
+            </Dialog.Popup>
+          </Dialog.Viewport>
+        </Dialog.Portal>
+      )}
 
       <AlertDialog open={showUndeployConfirm} onOpenChange={setShowUndeployConfirm}>
         <AlertDialogContent>
@@ -1864,6 +1831,6 @@ export function DeployModal({
           isSelectedVersionActive={versions.find((v) => v.version === previewVersion)?.isActive}
         />
       )}
-    </>
+    </Dialog.Root>
   )
 }
