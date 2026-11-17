@@ -637,7 +637,7 @@ describe('account email change through native Better Auth OTP', () => {
   )
 
   it.each(['sign-in', 'forget-password', 'email-verification'] as const)(
-    'keeps an in-flight %s redemption on its captured owner after consumption',
+    'rejects an in-flight %s redemption after its mailbox changes during consumption',
     async (type) => {
       policy.verificationEnabled = true
       const fixture = await setup()
@@ -691,16 +691,22 @@ describe('account email change through native Better Auth OTP', () => {
       const user = await storedUser(fixture, second.user.id)
       const accounts = await fixture.context.internalAdapter.findAccounts(second.user.id)
       const sessions = await fixture.context.internalAdapter.listSessions(second.user.id)
+      const owner = await storedUser(fixture)
+      const ownerAccounts = await fixture.context.internalAdapter.findAccounts('owner')
+      const ownerSessions = await fixture.context.internalAdapter.listSessions('owner')
       resume()
       const [outcome] = await Promise.allSettled([operation])
       delayedConsume.mockRestore()
-      if (outcome.status === 'fulfilled' && 'user' in outcome.value) {
-        expect(outcome.value.user.id).toBe('owner')
-      }
+      expect(outcome).toMatchObject({
+        status: 'rejected',
+        reason: { body: { code: 'INVALID_OTP' } },
+      })
       expect(await storedUser(fixture, second.user.id)).toEqual(user)
       expect(await fixture.context.internalAdapter.findAccounts(second.user.id)).toEqual(accounts)
       expect(await fixture.context.internalAdapter.listSessions(second.user.id)).toEqual(sessions)
-      expect(await storedUser(fixture)).toMatchObject({ email: 'changed@example.com' })
+      expect(await storedUser(fixture)).toEqual(owner)
+      expect(await fixture.context.internalAdapter.findAccounts('owner')).toEqual(ownerAccounts)
+      expect(await fixture.context.internalAdapter.listSessions('owner')).toEqual(ownerSessions)
     }
   )
 

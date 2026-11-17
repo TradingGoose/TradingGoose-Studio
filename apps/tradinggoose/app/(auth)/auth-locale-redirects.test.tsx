@@ -177,7 +177,7 @@ describe('auth locale redirects', () => {
     mockSignInEmail.mockReset()
     mockSignInUsername.mockReset()
     mockSignOut.mockReset()
-    mockSendVerificationOtp.mockReset()
+    mockSendVerificationOtp.mockReset().mockResolvedValue({ data: { success: true }, error: null })
     mockRefetchSession.mockReset()
     mockUseVerification.mockReset()
     mockFetch.mockReset()
@@ -452,14 +452,52 @@ describe('auth locale redirects', () => {
   )
 
   it('redirects a returned email-verification failure using the actual email', async () => {
+    let finish!: (value: { error: null }) => void
+    mockSendVerificationOtp.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      })
+    )
     mockSignInEmail.mockResolvedValue({ error: { code: 'EMAIL_NOT_VERIFIED' } })
     await renderLogin()
     await setInputValue('#email', 'ADA@EXAMPLE.COM')
     await setInputValue('#password', 'Password1!')
     await submitRenderedForm()
+    expect(mockSendVerificationOtp).toHaveBeenCalledExactlyOnceWith({
+      email: 'ada@example.com',
+      type: 'email-verification',
+    })
+    expect(mockPush).not.toHaveBeenCalled()
+    expect(sessionStorage.setItem).not.toHaveBeenCalled()
+    await act(async () => finish({ error: null }))
+    expect(mockSendVerificationOtp.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPush.mock.invocationCallOrder[0]
+    )
     expect(sessionStorage.setItem).toHaveBeenCalledWith('verificationEmail', 'ada@example.com')
     expect(mockPush).toHaveBeenCalledWith('/verify')
   })
+
+  it.each(['returned', 'thrown'] as const)(
+    'keeps an unverified email login on the form when sending the code fails: %s',
+    async (failure) => {
+      mockSignInEmail.mockResolvedValue({ error: { code: 'EMAIL_NOT_VERIFIED' } })
+      if (failure === 'returned')
+        mockSendVerificationOtp.mockResolvedValue({ error: { code: 'SEND_FAILED' } })
+      else mockSendVerificationOtp.mockRejectedValue(new Error('Network failure'))
+      await renderLogin('es')
+      await setInputValue('#email', 'ADA@EXAMPLE.COM')
+      await setInputValue('#password', 'Password1!')
+      await submitRenderedForm()
+      expect(mockSendVerificationOtp).toHaveBeenCalledExactlyOnceWith({
+        email: 'ada@example.com',
+        type: 'email-verification',
+      })
+      expect(mockPush).not.toHaveBeenCalled()
+      expect(sessionStorage.setItem).not.toHaveBeenCalled()
+      expect(container.textContent).toContain(getPublicCopy('es').auth.verify.errors.resendFailed)
+      expect(container.querySelector('button[type="submit"]')).toBeEnabled()
+    }
+  )
 
   it.each([
     ['INVALID_USERNAME_OR_PASSWORD', 'invalidCredentials'],
@@ -665,7 +703,6 @@ describe('auth locale redirects', () => {
       'en',
       <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled />
     )
-
     const findButton = (label: string) =>
       Array.from(container.querySelectorAll('button')).find(
         (button) => button.textContent === label

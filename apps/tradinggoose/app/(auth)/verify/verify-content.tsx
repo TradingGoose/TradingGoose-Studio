@@ -103,6 +103,7 @@ function VerificationForm({
               </Label>
               <InputOTP
                 id='verification-code'
+                containerClassName='ph-no-capture'
                 maxLength={6}
                 value={otp}
                 onChange={handleOtpChange}

@@ -316,8 +316,19 @@ export default function LoginPage({
 
       const message = resolveLoginErrorMessage(err)
       if (message === null) {
-        sessionStorage.setItem('verificationEmail', email)
-        router.push('/verify')
+        try {
+          const { error } = await client.emailOtp.sendVerificationOtp({
+            email,
+            type: 'email-verification',
+          })
+          if (error) throw error
+          sessionStorage.setItem('verificationEmail', email)
+          router.push('/verify')
+        } catch (error) {
+          logger.error('Failed to send login verification code', error)
+          setPasswordErrors([copy.auth.verify.errors.resendFailed])
+          setShowValidationError(true)
+        }
         return
       }
       logger.error('Login error:', err)
