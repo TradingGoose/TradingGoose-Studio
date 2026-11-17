@@ -1,3 +1,4 @@
+import { getDocumentProcessingMaxDurationSeconds } from '@/lib/knowledge/documents/config'
 import {
   markDocumentProcessingFailed,
   processDocumentAsync,
@@ -55,15 +56,29 @@ export async function executeDocumentProcessingJob(value: unknown, signal?: Abor
   signal?.throwIfAborted()
   const payload = requireDocumentProcessingPayload(value)
   const { knowledgeBaseId, documentId, docData, processingOptions, requestId } = payload
-
-  logger.info(`[${requestId}] Starting document pending execution: ${docData.filename}`)
+  const duration = getDocumentProcessingMaxDurationSeconds()
+  const deadline = new AbortController()
+  const processingSignal = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal
+  const timer = setTimeout(
+    () => deadline.abort(new Error(`Document processing timed out after ${duration} seconds`)),
+    duration * 1_000
+  )
+  let onAbort!: () => void
+  const interrupted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(processingSignal.reason)
+    processingSignal.addEventListener('abort', onAbort, { once: true })
+  })
 
   try {
-    await processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions, {
-      actorUserId: payload.userId,
-      workspaceId: payload.workspaceId,
-      signal,
-    })
+    logger.info(`[${requestId}] Starting document pending execution: ${docData.filename}`)
+    await Promise.race([
+      processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions, {
+        actorUserId: payload.userId,
+        workspaceId: payload.workspaceId,
+        signal: processingSignal,
+      }),
+      interrupted,
+    ])
 
     logger.info(
       `[${requestId}] Successfully completed document pending execution: ${docData.filename}`
@@ -71,6 +86,9 @@ export async function executeDocumentProcessingJob(value: unknown, signal?: Abor
   } catch (error) {
     logger.error(`[${requestId}] Failed document pending execution: ${docData.filename}`, error)
     throw error
+  } finally {
+    clearTimeout(timer)
+    processingSignal.removeEventListener('abort', onAbort)
   }
 }
 

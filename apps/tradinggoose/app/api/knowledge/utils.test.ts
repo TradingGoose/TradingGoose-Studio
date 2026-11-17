@@ -203,6 +203,74 @@ describe('Knowledge Utils', () => {
   describe('processDocumentAsync', () => {
     beforeEach(() => mockGetUserEntityPermissions.mockResolvedValue('write'))
     afterEach(() => mockGetUserEntityPermissions.mockReset())
+    it('blocks late parser results after the local document job deadline', async () => {
+      kbRows.push({ id: 'kb1', workspaceId: 'workspace-1', embeddingModel: 'kb-embedding-model' })
+      docRows.push({ id: 'doc1', deletedAt: null, processingStatus: 'processing' })
+      const { executeDocumentProcessingJob, markDocumentProcessingJobFailed } = await import(
+        '@/background/knowledge-processing'
+      )
+      const service = await import('@/lib/knowledge/documents/service')
+      const processing = vi.spyOn(service, 'processDocumentAsync')
+      const parser = vi.mocked(processDocument)
+      const parse = parser.getMockImplementation()!
+      let entered!: () => void
+      let release!: () => void
+      const started = new Promise<void>((resolve) => {
+        entered = resolve
+      })
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      parser.mockImplementationOnce(async (...args) => {
+        entered()
+        await gate
+        return parse(...args)
+      })
+      vi.useFakeTimers()
+      vi.stubEnv('KB_CONFIG_MAX_DURATION', '5')
+      const payload = {
+        knowledgeBaseId: 'kb1',
+        documentId: 'doc1',
+        userId: 'actor-1',
+        workspaceId: 'workspace-1',
+        requestId: 'deadline',
+        docData: {
+          filename: 'file.txt',
+          fileUrl: 'https://example.com/file.txt',
+          fileSize: 10,
+          mimeType: 'text/plain',
+        },
+        processingOptions: { chunkSize: 512, chunkOverlap: 200, minCharactersPerChunk: 1 },
+      }
+      let settled = false
+      const execution = executeDocumentProcessingJob(payload).finally(() => {
+        settled = true
+      })
+      void execution.catch(() => undefined)
+      try {
+        await started
+        await vi.advanceTimersByTimeAsync(5_000)
+        expect(settled).toBe(true)
+        const signal = parser.mock.calls[0][7]!
+        expect(signal.aborted).toBe(true)
+        await expect(execution).rejects.toBe(signal.reason)
+        // The shared local failure finalizer reports failure before releasing queued capacity.
+        await markDocumentProcessingJobFailed(payload, signal.reason.message)
+        expect(dbOps.updatePayloads.at(-1)).toMatchObject({ processingStatus: 'failed' })
+        release()
+        await processing.mock.results[0].value.catch(() => undefined)
+        expect(dbOps.insertRecords).toEqual([])
+        expect(dbOps.updatePayloads.some((row) => row.processingStatus === 'completed')).toBe(false)
+      } finally {
+        release()
+        await execution.catch(() => undefined)
+        await processing.mock.results[0]?.value.catch(() => undefined)
+        processing.mockRestore()
+        vi.useRealTimers()
+        vi.unstubAllEnvs()
+      }
+    })
+
     it('does not insert completed embeddings after native cancellation', async () => {
       kbRows.push({ id: 'kb1', workspaceId: 'workspace-1', embeddingModel: 'kb-embedding-model' })
       docRows.push({ id: 'doc1', deletedAt: null, processingStatus: 'processing' })
