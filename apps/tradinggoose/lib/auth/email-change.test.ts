@@ -13,7 +13,9 @@ const { mail, policy } = vi.hoisted(() => ({
   policy: { allowedDomains: '', verificationEnabled: false },
 }))
 
-vi.mock('@tradinggoose/db', () => ({ db: {} }))
+vi.mock('@tradinggoose/db', () => ({
+  db: { select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }) },
+}))
 vi.mock('@/lib/billing/plans', () => ({ getBetterAuthPlansConfig: () => [] }))
 vi.mock('@/lib/environment', async (original) => ({
   ...(await original<typeof import('@/lib/environment')>()),
@@ -129,15 +131,15 @@ async function storedUser(fixture: Fixture, id = 'owner') {
   return fixture.context.internalAdapter.findUserById(id)
 }
 
-describe('account email change through native Better Auth OTP', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mail.available.mockReset().mockResolvedValue(true)
-    mail.send.mockReset().mockResolvedValue({ success: true })
-    policy.allowedDomains = ''
-    policy.verificationEnabled = false
-  })
+beforeEach(() => {
+  vi.clearAllMocks()
+  mail.available.mockReset().mockResolvedValue(true)
+  mail.send.mockReset().mockResolvedValue({ success: true })
+  policy.allowedDomains = ''
+  policy.verificationEnabled = false
+})
 
+describe('account email change through native Better Auth OTP', () => {
   it('preserves the signup password through email verification and subsequent password login', async () => {
     policy.verificationEnabled = true
     const fixture = await setup('owner@example.com', true, true)
@@ -766,5 +768,276 @@ describe('account email change through native Better Auth OTP', () => {
       body: { newEmail: attackerTarget, otp: newOtp },
     })
     expect(await storedUser(fixture, 'attacker')).toMatchObject({ email: attackerTarget })
+  })
+})
+
+describe('native email OTP ownership across issuance paths', () => {
+  const email = 'owner@example.com'
+  const signInQuery = { email: email.toUpperCase(), type: 'sign-in' as const }
+  const invalidOTP = { body: { code: 'INVALID_OTP' } }
+
+  async function setup(storeOTP: 'plain' | 'hashed' | 'encrypted' = 'plain') {
+    const delivered = new Map<string, string>()
+    let sequence = 100000
+    const auth = betterAuth({
+      baseURL: 'http://localhost:3000',
+      secret: 'native-otp-ownership-test-secret-long-enough',
+      emailAndPassword: { enabled: true },
+      plugins: [
+        emailOTP({
+          storeOTP,
+          resendStrategy: 'reuse',
+          sendVerificationOnSignUp: true,
+          allowedAttempts: 2,
+          generateOTP: () => String(++sequence),
+          sendVerificationOTP: async (data) => {
+            delivered.set(`${data.type}:${data.email}`, data.otp)
+          },
+        }),
+        testUtils(),
+      ],
+    })
+    const context = await auth.$context
+    await context.test.saveUser(context.test.createUser({ id: 'owner', email }))
+    const reassignEmail = async () => {
+      await context.internalAdapter.updateUser('owner', { email: 'moved@example.com' })
+      await context.test.saveUser(context.test.createUser({ id: 'replacement', email }))
+    }
+    return { auth, delivered, reassignEmail }
+  }
+
+  it.each(['plain', 'hashed', 'encrypted'] as const)(
+    'isolates create/get/check and redemption after reassignment with %s storage',
+    async (storeOTP) => {
+      const { auth, reassignEmail } = await setup(storeOTP)
+      const otp = await auth.api.createVerificationOTP({ body: signInQuery })
+      const getOTP = () => auth.api.getVerificationOTP({ query: signInQuery })
+      if (storeOTP === 'hashed') {
+        await expect(getOTP()).rejects.toMatchObject({ statusCode: 400 })
+      } else {
+        await expect(getOTP()).resolves.toEqual({ otp })
+      }
+      await expect(
+        auth.api.checkVerificationOTP({ body: { ...signInQuery, otp: '999999' } })
+      ).rejects.toMatchObject(invalidOTP)
+      await expect(
+        auth.api.checkVerificationOTP({ body: { ...signInQuery, otp } })
+      ).resolves.toEqual({ success: true })
+
+      await reassignEmail()
+      await expect(getOTP()).resolves.toEqual({ otp: null })
+      await expect(
+        auth.api.checkVerificationOTP({ body: { ...signInQuery, otp } })
+      ).rejects.toMatchObject(invalidOTP)
+      await expect(auth.api.signInEmailOTP({ body: { email, otp } })).rejects.toMatchObject(
+        invalidOTP
+      )
+      const replacementOTP = await auth.api.createVerificationOTP({ body: signInQuery })
+      await expect(
+        auth.api.signInEmailOTP({ body: { email, otp: replacementOTP } })
+      ).resolves.toMatchObject({ user: { id: 'replacement' } })
+      await expect(
+        auth.api.signInEmailOTP({ body: { email, otp: replacementOTP } })
+      ).rejects.toMatchObject(invalidOTP)
+    }
+  )
+
+  it('binds signup-hook verification to the newly created user', async () => {
+    const { auth, delivered } = await setup()
+    const created = await auth.api.signUpEmail({
+      body: { email: 'signup@example.com', name: 'Signup', password: 'signup-password-123' },
+    })
+    const otp = delivered.get('email-verification:signup@example.com')!
+    expect(otp).toMatch(/^\d{6}$/)
+    await expect(
+      auth.api.verifyEmailOTP({ body: { email: 'SIGNUP@EXAMPLE.COM', otp } })
+    ).resolves.toMatchObject({ user: { id: created.user.id, emailVerified: true } })
+  })
+
+  it('reuses codes and attempt budgets only for the same owner', async () => {
+    const { auth, delivered, reassignEmail } = await setup('encrypted')
+    const send = async () => {
+      await auth.api.sendVerificationOTP({ body: signInQuery })
+      return delivered.get(`sign-in:${email}`)!
+    }
+    const wrongAttempt = () => auth.api.signInEmailOTP({ body: { email, otp: '999999' } })
+    const ownerOTP = await send()
+    await expect(wrongAttempt()).rejects.toMatchObject(invalidOTP)
+    expect(await send()).toBe(ownerOTP)
+
+    await reassignEmail()
+    const replacementOTP = await send()
+    expect(replacementOTP).not.toBe(ownerOTP)
+    await expect(wrongAttempt()).rejects.toMatchObject(invalidOTP)
+    expect(await send()).toBe(replacementOTP)
+    await expect(wrongAttempt()).rejects.toMatchObject(invalidOTP)
+    await expect(
+      auth.api.signInEmailOTP({ body: { email, otp: replacementOTP } })
+    ).rejects.toMatchObject({ body: { code: 'TOO_MANY_ATTEMPTS' } })
+    await expect(auth.api.getVerificationOTP({ query: signInQuery })).resolves.toEqual({
+      otp: null,
+    })
+  })
+})
+
+describe('native username authentication', () => {
+  // Adapted from Better Auth v1.6.34 packages/better-auth/src/plugins/username/username.test.ts.
+  const email = 'owner@example.com'
+  const password = 'native-username-password-123'
+  const signupBody = { email, password, name: 'Account owner', username: 'Mixed.Name' }
+  const baseURL = 'http://localhost:3000'
+
+  async function setup(requireEmailVerification = false) {
+    const options: BetterAuthOptions = productionAuth.options
+    const plugin = options.plugins?.find((plugin) => plugin.id === 'username') as
+      | ReturnType<typeof username>
+      | undefined
+    if (!plugin) throw new Error('The production username plugin is required')
+    const auth = betterAuth({
+      baseURL,
+      secret: 'native-username-test-secret-long-enough',
+      user: options.user,
+      account: options.account,
+      session: options.session,
+      emailAndPassword: { ...productionAuth.options.emailAndPassword, requireEmailVerification },
+      emailVerification: options.emailVerification,
+      hooks: { before: options.hooks?.before },
+      databaseHooks: { session: options.databaseHooks?.session },
+      plugins: [plugin, testUtils()],
+    })
+    const { response: signup, headers: responseHeaders } = await auth.api.signUpEmail({
+      body: signupBody,
+      returnHeaders: true,
+    })
+    const headers = new Headers({
+      cookie: responseHeaders
+        .getSetCookie()
+        .map((value) => value.split(';')[0])
+        .join('; '),
+    })
+    const context = await auth.$context
+    const sessions = await context.internalAdapter.listSessions(signup.user.id)
+    return { auth, context, user: signup.user, headers, sessions }
+  }
+
+  it('preserves chosen casing while accepting username and email password login', async () => {
+    const { auth, user } = await setup()
+    expect(user).toMatchObject({ username: 'mixed.name', displayUsername: 'Mixed.Name' })
+    await expect(
+      auth.api.signInUsername({ body: { username: 'MIXED.NAME', password } })
+    ).resolves.toMatchObject({ user: { id: user.id }, token: expect.any(String) })
+    await expect(auth.api.signInEmail({ body: { email, password } })).resolves.toMatchObject({
+      user: { id: user.id },
+      token: expect.any(String),
+    })
+  })
+
+  it('rejects a wrong password without creating a session', async () => {
+    const { auth, context, user, sessions } = await setup()
+    await expect(
+      auth.api.signInUsername({
+        body: { username: signupBody.username, password: 'wrong-password' },
+      })
+    ).rejects.toMatchObject({ statusCode: 401, body: { code: 'INVALID_USERNAME_OR_PASSWORD' } })
+    await expect(context.internalAdapter.listSessions(user.id)).resolves.toEqual(sessions)
+  })
+
+  it.each([
+    ['MIXED.NAME', 'USERNAME_IS_ALREADY_TAKEN'],
+    ['invalid username', 'INVALID_USERNAME'],
+  ])('rejects signup username %s', async (username, code) => {
+    const { auth } = await setup()
+    await expect(
+      auth.api.signUpEmail({ body: { ...signupBody, email: 'other@example.com', username } })
+    ).rejects.toMatchObject({ statusCode: 400, body: { code } })
+  })
+
+  it('checks availability natively and treats existing usernames as taken regardless of case', async () => {
+    const { auth, headers } = await setup()
+    await expect(
+      auth.api.isUsernameAvailable({ body: { username: 'New.Handle' } })
+    ).resolves.toEqual({ available: true })
+    await expect(
+      auth.api.isUsernameAvailable({ headers, body: { username: 'MIXED.NAME' } })
+    ).resolves.toEqual({ available: false })
+  })
+
+  it('retains required email verification before username password login', async () => {
+    const { auth, context, user } = await setup(true)
+    await expect(
+      auth.api.signInUsername({ body: { username: signupBody.username, password } })
+    ).rejects.toMatchObject({ statusCode: 403, body: { code: 'EMAIL_NOT_VERIFIED' } })
+    await expect(context.internalAdapter.listSessions(user.id)).resolves.toEqual([])
+  })
+
+  it.each([undefined, 'allowed@allowed.example'])(
+    'enforces the stored email allowlist when the username request supplies email %s',
+    async (forgedEmail) => {
+      const { auth, context, user, sessions } = await setup()
+      policy.allowedDomains = 'allowed.example'
+      const response = await auth.handler(
+        new Request(`${baseURL}/api/auth/sign-in/username`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: signupBody.username, password, email: forgedEmail }),
+        })
+      )
+      expect(response.status).toBe(403)
+      await expect(context.internalAdapter.listSessions(user.id)).resolves.toEqual(sessions)
+    }
+  )
+
+  it('uses the current account email when enforcing username sign-in policy', async () => {
+    const { auth, context, user } = await setup()
+    await context.internalAdapter.updateUser(user.id, { email: 'changed@allowed.example' })
+    policy.allowedDomains = 'allowed.example'
+    await expect(
+      auth.api.signInUsername({ body: { username: signupBody.username, password } })
+    ).resolves.toMatchObject({ user: { id: user.id, email: 'changed@allowed.example' } })
+  })
+
+  it.each([undefined, ''])(
+    'requires a chosen username for password signup (%s)',
+    async (username) => {
+      const { auth } = await setup()
+      await expect(
+        auth.api.signUpEmail({ body: { ...signupBody, email: 'other@example.com', username } })
+      ).rejects.toMatchObject({ statusCode: 400, body: { code: 'USERNAME_REQUIRED' } })
+    }
+  )
+
+  it('does not derive a username for a social-style user record', async () => {
+    const { context } = await setup()
+    await context.test.saveUser(
+      context.test.createUser({ id: 'social', email: 'social@example.com' })
+    )
+    const stored = await context.internalAdapter.findUserById('social')
+    expect(stored).toMatchObject({ id: 'social' })
+    expect(stored).not.toHaveProperty('username', expect.anything())
+    expect(stored).not.toHaveProperty('displayUsername', expect.anything())
+  })
+
+  it('supports native authenticated username changes and rejects another account’s username', async () => {
+    const { auth, user, headers } = await setup()
+    await auth.api.updateUser({
+      headers,
+      body: { username: 'First.Choice', displayUsername: 'First.Choice' },
+    })
+    await auth.api.updateUser({
+      headers,
+      body: { username: 'Second.Choice', displayUsername: 'Second.Choice' },
+    })
+    await expect(
+      auth.api.signInUsername({ body: { username: 'SECOND.CHOICE', password } })
+    ).resolves.toMatchObject({
+      user: { id: user.id, username: 'second.choice', displayUsername: 'Second.Choice' },
+    })
+    await expect(
+      auth.api.signInUsername({ body: { username: 'first.choice', password } })
+    ).rejects.toMatchObject({ body: { code: 'INVALID_USERNAME_OR_PASSWORD' } })
+    await auth.api.signUpEmail({ body: { ...signupBody, email: 'other@example.com' } })
+    await expect(
+      auth.api.updateUser({ headers, body: { username: 'MIXED.NAME' } })
+    ).rejects.toMatchObject({ body: { code: 'USERNAME_IS_ALREADY_TAKEN' } })
   })
 })

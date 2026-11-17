@@ -575,7 +575,7 @@ describe('AccountSettings localization', () => {
       }
     )
 
-    it.each(['ADA.HANDLE', 'invalid username'])(
+    it.each(['', 'ADA.HANDLE', 'invalid username'])(
       'skips availability for the current username or invalid input: %s',
       async (value) => {
         setSession('Ada.Handle')
@@ -594,32 +594,95 @@ describe('AccountSettings localization', () => {
       }
     )
 
-    it('ignores a taken result for an abandoned username candidate', async () => {
-      let finish!: (value: { data: { available: boolean }; error: null }) => void
-      mocks.isUsernameAvailable.mockImplementation(({ username }) =>
-        username === 'old.handle'
-          ? new Promise((resolve) => {
-              finish = resolve
-            })
-          : Promise.resolve({ data: { available: true }, error: null })
+    it.each([false, true])(
+      'ignores an abandoned candidate result with availability %s',
+      async (oldAvailable) => {
+        let finish!: (value: { data: { available: boolean }; error: null }) => void
+        mocks.isUsernameAvailable.mockImplementation(({ username }) =>
+          username === 'old.handle'
+            ? new Promise((resolve) => {
+                finish = resolve
+              })
+            : Promise.resolve({ data: { available: !oldAvailable }, error: null })
+        )
+        setSession('Ada.Handle')
+        await render()
+        await edit('Old.Handle')
+        await waitForAvailability()
+        const signal = mocks.isUsernameAvailable.mock.calls[0][1].signal as AbortSignal
+        await act(async () => {
+          setInputValue(
+            container.querySelector<HTMLInputElement>('#accountUsername')!,
+            'New.Handle'
+          )
+        })
+        expect(signal.aborted).toBe(true)
+        await waitForAvailability()
+        await act(async () => {
+          finish({ data: { available: oldAvailable }, error: null })
+          await flush()
+        })
+        expect(
+          usernameRow().querySelector(oldAvailable ? '[role="alert"]' : '[role="status"]')
+            ?.textContent
+        ).toBe(oldAvailable ? copy.status.usernameTaken : copy.usernameAvailability.available)
+        expect(findButtonByText(container, copy.saveUsername).disabled).toBe(oldAvailable)
+      }
+    )
+
+    it('debounces typing and aborts checks when candidates, editing, or accounts change', async () => {
+      mocks.isUsernameAvailable.mockImplementation(
+        (_body, { signal }: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            signal.addEventListener('abort', () =>
+              reject(new DOMException('Aborted', 'AbortError'))
+            )
+          })
       )
       setSession('Ada.Handle')
       await render()
-      await edit('Old.Handle')
-      await waitForAvailability()
-      await act(async () => {
-        setInputValue(container.querySelector<HTMLInputElement>('#accountUsername')!, 'New.Handle')
-      })
-      await waitForAvailability()
-      await act(async () => {
-        finish({ data: { available: false }, error: null })
-        await flush()
-      })
-      expect(usernameRow().querySelector('[role="status"]')?.textContent).toBe(
-        copy.usernameAvailability.available
-      )
-      expect(usernameRow().querySelector('[role="alert"]')).toBeNull()
-      expect(findButtonByText(container, copy.saveUsername)).toBeEnabled()
+      await press(copy.editUsername)
+      vi.useFakeTimers()
+      try {
+        const input = container.querySelector<HTMLInputElement>('#accountUsername')!
+        act(() => setInputValue(input, 'First.Handle'))
+        await act(async () => vi.advanceTimersByTimeAsync(200))
+        act(() => setInputValue(input, 'Second.Handle'))
+        await act(async () => vi.advanceTimersByTimeAsync(299))
+        expect(mocks.isUsernameAvailable).not.toHaveBeenCalled()
+        await act(async () => vi.advanceTimersByTimeAsync(1))
+        expect(mocks.isUsernameAvailable).toHaveBeenCalledExactlyOnceWith(
+          { username: 'second.handle' },
+          { signal: expect.any(AbortSignal) }
+        )
+        const firstSignal = mocks.isUsernameAvailable.mock.calls[0][1].signal as AbortSignal
+        act(() => setInputValue(input, 'Third.Handle'))
+        expect(firstSignal.aborted).toBe(true)
+        await act(async () => vi.advanceTimersByTimeAsync(300))
+        const secondSignal = mocks.isUsernameAvailable.mock.calls[1][1].signal as AbortSignal
+        act(() => findButtonByText(container, copy.cancelEditingUsername).click())
+        expect(secondSignal.aborted).toBe(true)
+        expect(container.querySelector('#accountUsername')).toBeNull()
+
+        act(() => findButtonByText(container, copy.editUsername).click())
+        act(() =>
+          setInputValue(
+            container.querySelector<HTMLInputElement>('#accountUsername')!,
+            'Fourth.Handle'
+          )
+        )
+        await act(async () => vi.advanceTimersByTimeAsync(300))
+        const finalSignal = mocks.isUsernameAvailable.mock.calls[2][1].signal as AbortSignal
+        setSession('Bob.Handle', 'user-2')
+        act(() => renderAccountSettings(root, 'en'))
+        expect(finalSignal.aborted).toBe(true)
+        expect(usernameRow().textContent).toContain('Bob.Handle')
+        await act(async () => vi.advanceTimersByTimeAsync(500))
+        expect(mocks.isUsernameAvailable).toHaveBeenCalledTimes(3)
+        expect(mocks.updateUser).not.toHaveBeenCalled()
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('lets a user choose a username through the native update API, preserving display case', async () => {
