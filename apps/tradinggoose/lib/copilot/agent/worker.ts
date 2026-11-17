@@ -44,6 +44,13 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
   let nativeStarted = false
   let nativeOutput: { getFullOutput(): Promise<{ finishReason?: string }> } | undefined
   let requestContext: ReturnType<typeof createCopilotRequestContext> | undefined
+  let cancellationRequest: Promise<void> | undefined
+  const publishCancellation = () => {
+    if (ownership!.signal.aborted) return
+    cancellationRequest = studio.call('cancel', {})
+    // Retain the failure for cleanup without rejecting while native tools are still draining.
+    void cancellationRequest.catch(() => undefined)
+  }
   const assertOwnership = async () => {
     cancellation.signal.throwIfAborted()
     await ownership!.renew()
@@ -60,6 +67,8 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
     if (admissionGeneration === undefined)
       await waitForCopilotRunRelease(scope, threadId, runId, cancellation.signal)
     ownership = await claimCopilotThread(scope, threadId, runId, jobId, admissionGeneration)
+    cancellation.signal.addEventListener('abort', publishCancellation, { once: true })
+    if (cancellation.signal.aborted) publishCancellation()
     ownership.signal.addEventListener('abort', () => cancellation.abort(ownership!.signal.reason), {
       once: true,
     })
@@ -236,9 +245,9 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
       // Rejection is also a settled native result. Keep the lease through actual tool drainage.
       await nativeOutput?.getFullOutput().catch(() => undefined)
       if (requestContext) await Promise.all(getCopilotExecution(requestContext)!.pendingTools)
+      await cancellationRequest
       if (ownership && run && cancellation.signal.aborted && !ownership.signal.aborted) {
         await ownership.renew()
-        await studio.call('cancel', {})
         await deleteCopilotRunSnapshot(run.runId)
       }
     } finally {
@@ -249,6 +258,7 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
         }
       } finally {
         await ownership?.release()
+        cancellation.signal.removeEventListener('abort', publishCancellation)
         abortSignal?.removeEventListener('abort', abort)
       }
     }
