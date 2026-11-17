@@ -341,14 +341,14 @@ export async function executeLogsWebhookDelivery(
             })
           ).slice(0, 1000)
         }
+      } catch (error) {
+        logger.warn('Failed to read webhook response body', { deliveryId, error })
       } finally {
-        try {
-          await reader?.cancel()
-        } finally {
-          reader?.releaseLock()
-          clearTimeout(timeoutId)
-        }
+        await reader?.cancel().catch(() => {})
+        reader?.releaseLock()
+        clearTimeout(timeoutId)
       }
+      signal?.throwIfAborted()
 
       if (response.ok) {
         await db
