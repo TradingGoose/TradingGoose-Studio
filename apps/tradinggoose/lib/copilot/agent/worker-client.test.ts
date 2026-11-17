@@ -1,5 +1,7 @@
 /** @vitest-environment node */
+import { readFileSync } from 'node:fs'
 import { decodeJwt } from 'jose'
+import { transformSync } from 'next/dist/build/swc'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import * as internalTokens from '@/lib/auth/internal-token'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
@@ -50,6 +52,37 @@ afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
+})
+
+it('uses the deployment origin after Next compiles public environment variables', async () => {
+  const { code } = transformSync(
+    readFileSync(new URL('./worker-client.ts', import.meta.url), 'utf8'),
+    {
+      jsc: {
+        parser: { syntax: 'typescript' },
+        target: 'es2022',
+        transform: {
+          optimizer: {
+            globals: {
+              vars: { 'process.env.NEXT_PUBLIC_APP_URL': '"https://build.example.test"' },
+            },
+          },
+        },
+      },
+      module: { type: 'commonjs' },
+    }
+  )
+  const compiled = {} as typeof import('./worker-client')
+  new Function('require', 'exports', code)((specifier: string) => {
+    if (specifier === '@/lib/auth/internal-token') return internalTokens
+    if (specifier === '@/lib/copilot/native/errors') return { NativeTargetError }
+    throw new Error(`Unexpected worker import: ${specifier}`)
+  }, compiled)
+  const fetcher = vi.fn(async (_url: unknown) => Response.json({ result: null }))
+  vi.stubGlobal('fetch', fetcher)
+  vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://runtime.example.test')
+  await compiled.createCopilotWorkerClient(job).call('active', { fence })
+  expect(String(fetcher.mock.calls[0][0])).toBe('https://runtime.example.test/api/copilot/worker')
 })
 
 it('signs each callback for its saved-message job without transferring input or credentials', async () => {
