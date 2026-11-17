@@ -39,9 +39,8 @@ export function ChangeEmailForm({
 }) {
   const t = useTranslations('workspace.settingsModal.account.emailChange')
   const tAccount = useTranslations('workspace.settingsModal.account')
-  const { data: session, refetch } = useSession()
+  const { refetch } = useSession()
   const queryClient = useQueryClient()
-  const currentEmail = email || session?.user?.email || ''
   const [step, setStep] = useState<'email' | 'current' | 'new' | null>(null)
   const [newEmail, setNewEmail] = useState('')
   const [otp, setOtp] = useState('')
@@ -64,7 +63,7 @@ export function ChangeEmailForm({
     if (pendingRef.current) return
     const resend = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'resend'
     const targetEmail = newEmail.trim().toLowerCase()
-    if (step === 'email' && targetEmail === currentEmail.trim().toLowerCase()) {
+    if (step === 'email' && targetEmail === email.trim().toLowerCase()) {
       setError(t('errors.sameEmail'))
       return
     }
@@ -76,7 +75,7 @@ export function ChangeEmailForm({
     try {
       if (step === 'email' || resend) {
         const result = await client.emailOtp.sendVerificationOtp({
-          email: currentEmail,
+          email: email,
           type: 'email-verification',
         })
         if (result.error) throw result.error
@@ -125,13 +124,13 @@ export function ChangeEmailForm({
     <div className='space-y-1'>
       {step === null ? (
         <div className='flex items-center gap-2'>
-          <p className='font-medium'>{currentEmail || '—'}</p>
+          <p className='font-medium'>{email || '—'}</p>
           <button
             type='button'
             className='inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-            disabled={!currentEmail || isLoading}
+            disabled={!email || isLoading}
             onClick={() => {
-              setNewEmail(currentEmail)
+              setNewEmail(email)
               setIsSuccess(false)
               setStep('email')
             }}
@@ -166,7 +165,7 @@ export function ChangeEmailForm({
             <div className='space-y-2'>
               <p role='status' className='text-muted-foreground text-sm'>
                 {step === 'current'
-                  ? t('currentCodeSent', { email: currentEmail })
+                  ? t('currentCodeSent', { email: email })
                   : t('newCodeSent', { email: newEmail })}
               </p>
               <Label htmlFor='account-email-code'>

@@ -14,7 +14,7 @@ interface ProfilePictureUploadMessages {
 
 interface UseProfilePictureUploadProps {
   messages: ProfilePictureUploadMessages
-  onUpload?: (url: string | null) => void
+  onUpload?: (url: string | null) => void | Promise<void>
   onError?: (error: string) => void
   currentImage?: string | null
 }
@@ -26,19 +26,18 @@ export function useProfilePictureUpload({
   currentImage,
 }: UseProfilePictureUploadProps) {
   const previewRef = useRef<string | null>(null)
+  const activeRef = useRef(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null)
   const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
-    if (currentImage !== previewUrl) {
-      if (previewRef.current && previewRef.current !== currentImage) {
-        URL.revokeObjectURL(previewRef.current)
-        previewRef.current = null
-      }
-      setPreviewUrl(currentImage || null)
+    if (previewRef.current && previewRef.current !== currentImage) {
+      URL.revokeObjectURL(previewRef.current)
+      previewRef.current = null
     }
-  }, [currentImage, previewUrl])
+    setPreviewUrl(currentImage || null)
+  }, [currentImage])
 
   const validateFile = useCallback(
     (file: File): string | null => {
@@ -175,13 +174,15 @@ export function useProfilePictureUpload({
         setIsUploading(true)
         try {
           const serverUrl = await uploadFileToServer(file)
+          if (!activeRef.current) return
 
           URL.revokeObjectURL(newPreviewUrl)
           previewRef.current = null
           setPreviewUrl(serverUrl)
 
-          onUpload?.(serverUrl)
+          await onUpload?.(serverUrl)
         } catch (error) {
+          if (!activeRef.current) return
           const errorMessage = error instanceof Error ? error.message : messages.uploadFailed
           onError?.(errorMessage)
 
@@ -189,7 +190,7 @@ export function useProfilePictureUpload({
           previewRef.current = null
           setPreviewUrl(currentImage || null)
         } finally {
-          setIsUploading(false)
+          if (activeRef.current) setIsUploading(false)
         }
       }
     },
@@ -197,7 +198,9 @@ export function useProfilePictureUpload({
   )
 
   useEffect(() => {
+    activeRef.current = true
     return () => {
+      activeRef.current = false
       if (previewRef.current) {
         URL.revokeObjectURL(previewRef.current)
       }

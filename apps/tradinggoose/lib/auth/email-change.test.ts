@@ -1,6 +1,6 @@
 import { stripe } from '@better-auth/stripe'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
-import { emailOTP, testUtils } from 'better-auth/plugins'
+import { emailOTP, testUtils, username } from 'better-auth/plugins'
 import type Stripe from 'stripe'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -69,6 +69,7 @@ async function setup(
     hooks: productionAuth.options.hooks,
     emailVerification: productionAuth.options.emailVerification,
     plugins: [
+      username(),
       emailOTP({ ...productionOtp.options, generateOTP: () => String(++sequence) }),
       stripe({
         stripeClient: {
@@ -143,7 +144,7 @@ describe('account email change through native Better Auth OTP', () => {
     const email = 'signup@example.com'
     const password = 'signup-password-that-must-remain-valid'
     const signup = await fixture.auth.api.signUpEmail({
-      body: { email, password, name: 'New user' },
+      body: { email, password, name: 'New user', username: 'new.user' },
     })
     expect(signup.token).toBeNull()
     const accounts = await fixture.context.internalAdapter.findAccounts(signup.user.id)
@@ -184,7 +185,7 @@ describe('account email change through native Better Auth OTP', () => {
     const email = 'passwordless@example.com'
     const password = 'unproven-password-that-must-be-revoked'
     const signup = await fixture.auth.api.signUpEmail({
-      body: { email, password, name: 'New user' },
+      body: { email, password, name: 'New user', username: 'new.user' },
     })
     await fixture.auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } })
     await fixture.auth.api.signInEmailOTP({ body: { email, otp: deliveredCode(email) } })
@@ -203,7 +204,12 @@ describe('account email change through native Better Auth OTP', () => {
       const fixture = await setup('owner@example.com', true, true)
       const email = 'blocked@example.com'
       const signup = await fixture.auth.api.signUpEmail({
-        body: { email, password: 'signup-password-that-must-remain-valid', name: 'New user' },
+        body: {
+          email,
+          password: 'signup-password-that-must-remain-valid',
+          name: 'New user',
+          username: 'new.user',
+        },
       })
       await fixture.context.internalAdapter.updateUser(signup.user.id, { emailVerified })
       await fixture.auth.api.sendVerificationOTP({ body: { email, type: 'email-verification' } })
@@ -304,6 +310,24 @@ describe('account email change through native Better Auth OTP', () => {
     expect(mail.send).not.toHaveBeenCalled()
     expect(await storedUser(fixture)).toMatchObject({ email: fixture.email })
     expect(fixture.customerUpdate).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['request-password-reset', {}],
+    ['request-password-reset', { email: 'invalid' }],
+    ['reset-password', { token: 'invalid' }],
+    ['reset-password', { newPassword: 'new-password' }],
+  ])('rejects malformed %s requests through the native HTTP endpoint', async (path, body) => {
+    const { auth } = await setup()
+    const response = await auth.handler(
+      new Request(`http://localhost:3000/api/auth/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    )
+    expect(response.status).toBe(400)
+    expect(mail.send).not.toHaveBeenCalled()
   })
 
   it('invalidates this user’s old password reset links without removing other verifications', async () => {
@@ -506,7 +530,12 @@ describe('account email change through native Better Auth OTP', () => {
         body: { newEmail: 'changed@example.com', otp },
       })
       const second = await fixture.auth.api.signUpEmail({
-        body: { email: fixture.email, password: 'second-owner-password', name: 'Second owner' },
+        body: {
+          email: fixture.email,
+          password: 'second-owner-password',
+          name: 'Second owner',
+          username: 'second.owner',
+        },
       })
       const accounts = await fixture.context.internalAdapter.findAccounts(second.user.id)
       const sessions = await fixture.context.internalAdapter.listSessions(second.user.id)
@@ -579,7 +608,12 @@ describe('account email change through native Better Auth OTP', () => {
         body: { newEmail: 'changed@example.com', otp },
       })
       const second = await fixture.auth.api.signUpEmail({
-        body: { email: fixture.email, password: 'second-owner-password', name: 'Second owner' },
+        body: {
+          email: fixture.email,
+          password: 'second-owner-password',
+          name: 'Second owner',
+          username: 'second.owner',
+        },
       })
       const accounts = await fixture.context.internalAdapter.findAccounts(second.user.id)
       const sessions = await fixture.context.internalAdapter.listSessions(second.user.id)
@@ -645,7 +679,12 @@ describe('account email change through native Better Auth OTP', () => {
         body: { newEmail: 'changed@example.com', otp },
       })
       const second = await fixture.auth.api.signUpEmail({
-        body: { email: fixture.email, password: 'second-owner-password', name: 'Second owner' },
+        body: {
+          email: fixture.email,
+          password: 'second-owner-password',
+          name: 'Second owner',
+          username: 'second.owner',
+        },
       })
       const user = await storedUser(fixture, second.user.id)
       const accounts = await fixture.context.internalAdapter.findAccounts(second.user.id)
@@ -670,7 +709,12 @@ describe('account email change through native Better Auth OTP', () => {
     await fixture.auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } })
     const otp = deliveredCode(email)
     const second = await fixture.auth.api.signUpEmail({
-      body: { email, password: 'second-owner-password', name: 'Second owner' },
+      body: {
+        email,
+        password: 'second-owner-password',
+        name: 'Second owner',
+        username: 'second.owner',
+      },
     })
     const accounts = await fixture.context.internalAdapter.findAccounts(second.user.id)
     const sessions = await fixture.context.internalAdapter.listSessions(second.user.id)

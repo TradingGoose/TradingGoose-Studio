@@ -125,11 +125,9 @@ export default function Nav({
   const showStandaloneLogin = hasResolvedRegistrationMode && registrationPrimaryHref !== null
   const user = session?.user
   const isAuthenticated = Boolean(user?.id)
-  const userId = user?.id ?? null
   const userName = user?.name ?? brand.name
   const userEmail = user?.email ?? brand.supportEmail ?? 'support@tradinggoose.ai'
   const userAvatar = user?.image
-  const userAvatarVersion = user?.updatedAt ? new Date(user.updatedAt).getTime() : null
   const showStandaloneLanguageSwitcher = variant !== 'landing' || !isAuthenticated
   const { billingEnabled, canConfigureSso, canOpenTeamSettings } =
     useCurrentOrganizationAccessState({ enabled: isAuthenticated })
@@ -185,11 +183,9 @@ export default function Nav({
   const authenticatedProfileAction =
     !hideAuthButtons && isAuthenticated ? (
       <UserMenu
-        userId={userId}
         userName={userName}
         userEmail={userEmail}
         userAvatar={userAvatar}
-        userAvatarVersion={userAvatarVersion}
         onOpenSettings={openSettings}
         billingEnabled={billingEnabled}
         canOpenTeamSettings={canOpenTeamSettings}

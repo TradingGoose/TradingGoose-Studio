@@ -45,6 +45,7 @@ vi.mock('@/lib/auth-client', () => ({
 interface VerificationControls {
   handleOtpChange: (value: string) => void
   resendCode: () => void
+  failureMessage: string
 }
 
 interface VerificationHarnessProps {
@@ -225,6 +226,40 @@ describe('useVerification', () => {
       email: 'ada@example.com',
       type: 'email-verification',
     })
+  })
+
+  it.each([
+    [{ code: 'OTP_EXPIRED' }, 'expired'],
+    [{ code: 'INVALID_OTP' }, 'invalid'],
+    [{ code: 'TOO_MANY_ATTEMPTS' }, 'attempts'],
+    [{ status: 429 }, 'attempts'],
+    [{ code: 'UNEXPECTED_ERROR' }, 'generic'],
+  ] as const)('localizes returned verification failure %j', async (error, key) => {
+    sessionStore.set('verificationEmail', 'ada@example.com')
+    mockVerifyEmail.mockResolvedValue({ error })
+    let controls!: VerificationControls
+    await renderHarness('zh', (value) => {
+      controls = value
+    })
+
+    await act(async () => controls.handleOtpChange('123456'))
+    await act(async () => vi.advanceTimersByTimeAsync(300))
+
+    expect(controls.failureMessage).toBe(getPublicCopy('zh').auth.verify.errors[key])
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('reports a returned resend failure', async () => {
+    sessionStore.set('verificationEmail', 'ada@example.com')
+    mockSendVerificationOtp.mockResolvedValue({ error: { status: 429 } })
+    let controls!: VerificationControls
+    await renderHarness('en', (value) => {
+      controls = value
+    })
+
+    await act(async () => controls.resendCode())
+
+    expect(controls.failureMessage).toBe(getPublicCopy('en').auth.verify.errors.resendFailed)
   })
 
   it('persists locale before redirecting when verification is disabled', async () => {

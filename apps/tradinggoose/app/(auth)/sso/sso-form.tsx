@@ -11,7 +11,7 @@ import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getAuthRegistrationHref, type RegistrationMode } from '@/lib/registration/shared'
+import { getRegistrationPrimaryHref, type RegistrationMode } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
@@ -57,7 +57,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
   const [callbackUrl, setCallbackUrl] = useState(defaultCallbackPath)
-  const registrationHref = getAuthRegistrationHref(registrationMode)
+  const registrationHref = getRegistrationPrimaryHref(registrationMode)
   const registrationLabel = copy.registration[registrationMode].auth
   const callbackUrlParam = encodeURIComponent(callbackUrl)
 

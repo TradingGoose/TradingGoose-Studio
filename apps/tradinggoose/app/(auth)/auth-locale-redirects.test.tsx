@@ -7,6 +7,7 @@ import { act } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import ResetPasswordPage from '@/app/[locale]/(auth)/reset-password/page'
 import { getPublicCopy } from '@/i18n/public-copy'
 import LoginPage from './login/login-form'
 import SignupPage from './signup/signup-form'
@@ -15,7 +16,10 @@ import { VerifyContent } from './verify/verify-content'
 const mockPush = vi.hoisted(() => vi.fn())
 const mockSignUpEmail = vi.hoisted(() => vi.fn())
 const mockSignInEmail = vi.hoisted(() => vi.fn())
+const mockSignInUsername = vi.hoisted(() => vi.fn())
 const mockSignOut = vi.hoisted(() => vi.fn())
+const mockRequestPasswordReset = vi.hoisted(() => vi.fn())
+const mockResetPassword = vi.hoisted(() => vi.fn())
 const mockSendVerificationOtp = vi.hoisted(() => vi.fn())
 const mockRefetchSession = vi.hoisted(() => vi.fn())
 const mockUseVerification = vi.hoisted(() => vi.fn())
@@ -56,8 +60,11 @@ vi.mock('@/lib/auth-client', () => ({
     },
     signIn: {
       email: mockSignInEmail,
+      username: mockSignInUsername,
     },
     signOut: mockSignOut,
+    requestPasswordReset: mockRequestPasswordReset,
+    resetPassword: mockResetPassword,
     emailOtp: {
       sendVerificationOtp: mockSendVerificationOtp,
     },
@@ -136,7 +143,9 @@ vi.mock('@/lib/env', () => ({
     NODE_ENV: 'test',
     EMAIL_VERIFICATION_ENABLED: false,
   },
-  getEnv: vi.fn(() => undefined),
+  getEnv: vi.fn((key: string) =>
+    key === 'NEXT_PUBLIC_APP_URL' ? 'https://example.com' : undefined
+  ),
   isTruthy: vi.fn(() => false),
 }))
 
@@ -156,13 +165,19 @@ describe('auth locale redirects', () => {
     mockPush.mockReset()
     mockSignUpEmail.mockReset()
     mockSignInEmail.mockReset()
+    mockSignInUsername.mockReset()
     mockSignOut.mockReset()
     mockSendVerificationOtp.mockReset()
     mockRefetchSession.mockReset()
     mockUseVerification.mockReset()
     mockFetch.mockReset()
     mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
+    mockRequestPasswordReset.mockReset()
+    mockRequestPasswordReset.mockResolvedValue({ error: null })
+    mockResetPassword.mockReset()
+    mockResetPassword.mockResolvedValue({ error: null })
     global.fetch = mockFetch
+    vi.mocked(sessionStorage.setItem).mockClear()
   })
 
   afterEach(() => {
@@ -243,10 +258,20 @@ describe('auth locale redirects', () => {
       )
 
       await setInputValue('#name', 'Ada Lovelace')
+      await setInputValue('#username', 'Ada.Lovelace')
       await setInputValue('#email', 'ada@example.com')
       await setInputValue('#password', 'Password1!')
       await submitRenderedForm()
 
+      expect(mockSignUpEmail).toHaveBeenCalledWith(
+        {
+          name: 'Ada Lovelace',
+          username: 'Ada.Lovelace',
+          email: 'ada@example.com',
+          password: 'Password1!',
+        },
+        expect.any(Object)
+      )
       expect(mockRefetchSession).not.toHaveBeenCalled()
       expect(mockFetch).not.toHaveBeenCalled()
       expect(mockSendVerificationOtp).toHaveBeenCalledWith({
@@ -256,6 +281,166 @@ describe('auth locale redirects', () => {
       expect(mockPush).toHaveBeenCalledWith('/verify?fromSignup=true')
     }
   )
+
+  it('requires an entered username independently of the full name', async () => {
+    await renderWithLocale(
+      'en',
+      <SignupPage
+        githubAvailable={false}
+        googleAvailable={false}
+        isProduction={false}
+        registrationMode='open'
+      />
+    )
+    await setInputValue('#name', 'Ada Lovelace')
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'Password1!')
+    await submitRenderedForm()
+    expect(mockSignUpEmail).not.toHaveBeenCalled()
+    expect(container.querySelector('#signup-username-error')?.textContent).toBe(
+      getPublicCopy('en').auth.signup.validation.usernameRequired
+    )
+  })
+
+  it.each([
+    ['USERNAME_TOO_SHORT', 'usernameLength'],
+    ['USERNAME_TOO_LONG', 'usernameLength'],
+    ['INVALID_USERNAME', 'usernameInvalid'],
+    ['USERNAME_IS_ALREADY_TAKEN', 'usernameTaken'],
+  ] as const)('localizes native signup username error %s', async (code, key) => {
+    mockSignUpEmail.mockImplementation(async (_body, options) => {
+      const error = { code }
+      options.onError({ error })
+      return { error }
+    })
+    await renderWithLocale(
+      'es',
+      <SignupPage
+        githubAvailable={false}
+        googleAvailable={false}
+        isProduction={false}
+        registrationMode='open'
+      />
+    )
+    await setInputValue('#name', 'Ada Lovelace')
+    await setInputValue('#username', 'Ada.Lovelace')
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'Password1!')
+    await submitRenderedForm()
+    const signup = getPublicCopy('es').auth.signup
+    expect(container.querySelector('#signup-username-error')?.textContent).toBe(
+      key === 'usernameTaken' ? signup.errors.usernameTaken : signup.validation[key]
+    )
+    expect(mockSendVerificationOtp).not.toHaveBeenCalled()
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { identifier: 'ADA@EXAMPLE.COM', method: 'email', normalized: 'ada@example.com' },
+    { identifier: 'Ada.Lovelace', method: 'username', normalized: 'Ada.Lovelace' },
+  ] as const)(
+    'uses native $method login without an identity lookup',
+    async ({ identifier, method, normalized }) => {
+      const signIn = method === 'email' ? mockSignInEmail : mockSignInUsername
+      signIn.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
+      await renderLogin()
+      await setInputValue('#email', identifier)
+      await setInputValue('#password', 'Password1!')
+      await submitRenderedForm()
+      expect(signIn).toHaveBeenCalledWith({
+        [method]: normalized,
+        password: 'Password1!',
+        callbackURL: '/workspace',
+      })
+      expect(method === 'email' ? mockSignInUsername : mockSignInEmail).not.toHaveBeenCalled()
+      expect(mockFetch).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['returned', 'thrown'] as const)(
+    'keeps a username-only unverified %s failure on login without sending a username to email verification',
+    async (kind) => {
+      const error = { code: 'EMAIL_NOT_VERIFIED' }
+      if (kind === 'thrown') mockSignInUsername.mockRejectedValue(error)
+      else mockSignInUsername.mockResolvedValue({ error })
+      await renderLogin('zh')
+      await setInputValue('#email', 'Ada.Lovelace')
+      await setInputValue('#password', 'Password1!')
+      await submitRenderedForm()
+      expect(container.textContent).toContain(getPublicCopy('zh').auth.login.errors.verifyWithEmail)
+      expect(sessionStorage.setItem).not.toHaveBeenCalled()
+      expect(mockPush).not.toHaveBeenCalled()
+      expect(mockSendVerificationOtp).not.toHaveBeenCalled()
+    }
+  )
+
+  it('redirects a returned email-verification failure using the actual email', async () => {
+    mockSignInEmail.mockResolvedValue({ error: { code: 'EMAIL_NOT_VERIFIED' } })
+    await renderLogin()
+    await setInputValue('#email', 'ADA@EXAMPLE.COM')
+    await setInputValue('#password', 'Password1!')
+    await submitRenderedForm()
+    expect(sessionStorage.setItem).toHaveBeenCalledWith('verificationEmail', 'ada@example.com')
+    expect(mockPush).toHaveBeenCalledWith('/verify')
+  })
+
+  it.each([
+    ['INVALID_USERNAME_OR_PASSWORD', 'invalidCredentials'],
+    ['INVALID_USERNAME', 'usernameInvalid'],
+    ['USERNAME_TOO_SHORT', 'usernameLength'],
+    ['USERNAME_TOO_LONG', 'usernameLength'],
+  ] as const)('localizes native username login error %s', async (code, key) => {
+    mockSignInUsername.mockResolvedValue({ error: { code } })
+    await renderLogin('zh')
+    await setInputValue('#email', 'Ada.Lovelace')
+    await setInputValue('#password', 'Password1!')
+    await submitRenderedForm()
+    const auth = getPublicCopy('zh').auth
+    expect(container.textContent).toContain(
+      key === 'invalidCredentials'
+        ? auth.login.errors.invalidCredentials
+        : auth.signup.validation[key]
+    )
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('keeps password recovery addressed to email when the login identifier is a username', async () => {
+    await renderLogin()
+    await setInputValue('#email', 'Ada.Lovelace')
+    await setInputValue('#reset-email', 'ada@example.com')
+    const submit = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === getPublicCopy('en').auth.login.resetDialog.submit
+    )!
+    await act(async () => submit.click())
+    expect(mockRequestPasswordReset).toHaveBeenCalledWith({
+      email: 'ada@example.com',
+      redirectTo: expect.stringContaining('/reset-password'),
+    })
+    expect(mockSignInUsername).not.toHaveBeenCalled()
+  })
+
+  it('redeems the reset token through the native password endpoint', async () => {
+    vi.useFakeTimers()
+    testState.searchParams = new URLSearchParams('token=reset-token')
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+          <ResetPasswordPage />
+        </NextIntlClientProvider>
+      )
+    })
+    await setInputValue('#password', 'Password1!')
+    await setInputValue('#confirmPassword', 'Password1!')
+    await submitRenderedForm()
+
+    expect(mockResetPassword).toHaveBeenCalledWith({
+      token: 'reset-token',
+      newPassword: 'Password1!',
+    })
+    expect(container.textContent).toContain(getPublicCopy('en').auth.resetPassword.success)
+    await act(async () => vi.advanceTimersByTimeAsync(1500))
+    expect(mockPush).toHaveBeenCalledWith('/login?resetSuccess=true')
+  })
 
   it.each(['es', 'zh'] as const)(
     'pushes the canonical verify path after an unverified login for %s',
@@ -325,7 +510,7 @@ describe('auth locale redirects', () => {
 
   it('keeps invalid credential failures on the login form', async () => {
     mockSignInEmail.mockResolvedValue({
-      error: { code: 'INVALID_CREDENTIALS', status: 401 },
+      error: { code: 'INVALID_EMAIL_OR_PASSWORD', status: 401 },
     })
 
     await renderLogin()
@@ -339,6 +524,48 @@ describe('auth locale redirects', () => {
     expect(container.textContent).toContain(
       getPublicCopy('en').auth.login.errors.invalidCredentials
     )
+  })
+
+  it.each([
+    [
+      { code: 'INVALID_EMAIL_OR_PASSWORD', message: 'Invalid email or password' },
+      'invalidCredentials',
+    ],
+    [{ code: 'EMAIL_PASSWORD_DISABLED' }, 'emailPasswordDisabled'],
+    [{ status: 429, message: 'Too many requests. Please try again later.' }, 'rateLimit'],
+    [{ code: 'UNEXPECTED_ERROR' }, 'unableToSignInNow'],
+  ] as const)('localizes native email login failure %j', async (error, key) => {
+    mockSignInEmail.mockResolvedValue({ error })
+    await renderLogin('zh')
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'Password1!')
+    await submitRenderedForm()
+
+    expect(container.textContent).toContain(getPublicCopy('zh').auth.login.errors[key])
+    expect(mockSignOut).not.toHaveBeenCalled()
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('localizes a thrown fetch failure', async () => {
+    mockSignInEmail.mockRejectedValue(new TypeError('Failed to fetch'))
+    await renderLogin('zh')
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'Password1!')
+    await submitRenderedForm()
+
+    expect(container.textContent).toContain(getPublicCopy('zh').auth.login.errors.network)
+  })
+
+  it('preserves the server access restriction message', async () => {
+    const message = 'Access restricted. Please contact your administrator.'
+    mockSignInEmail.mockResolvedValue({ error: { status: 403, message } })
+    await renderLogin()
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'Password1!')
+    await submitRenderedForm()
+
+    expect(container.textContent).toContain(message)
+    expect(mockPush).not.toHaveBeenCalled()
   })
 
   it('pushes the canonical signup path from the verify screen back action', async () => {

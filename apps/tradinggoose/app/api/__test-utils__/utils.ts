@@ -856,30 +856,6 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
 }
 
 /**
- * Interface for auth API mock configuration with all auth operations
- */
-export interface AuthApiMockOptions {
-  operations?: {
-    requestPasswordReset?: {
-      success?: boolean
-      error?: string
-    }
-    resetPassword?: {
-      success?: boolean
-      error?: string
-    }
-    signIn?: {
-      success?: boolean
-      error?: string
-    }
-    signUp?: {
-      success?: boolean
-      error?: string
-    }
-  }
-}
-
-/**
  * Interface for comprehensive test setup options
  */
 export interface TestSetupOptions {
@@ -889,7 +865,6 @@ export interface TestSetupOptions {
   }
   database?: MockDatabaseOptions
   storage?: StorageProviderMockOptions
-  authApi?: AuthApiMockOptions
   features?: {
     workflowUtils?: boolean
     fileSystem?: boolean
@@ -903,7 +878,7 @@ export interface TestSetupOptions {
  * This is the preferred setup function for new tests
  */
 export function setupComprehensiveTestMocks(options: TestSetupOptions = {}) {
-  const { auth = { authenticated: true }, database = {}, storage, authApi, features = {} } = options
+  const { auth = { authenticated: true }, database = {}, storage, features = {} } = options
 
   setupCommonApiMocks()
   mockUuid()
@@ -921,11 +896,6 @@ export function setupComprehensiveTestMocks(options: TestSetupOptions = {}) {
   let storageMocks
   if (storage) {
     storageMocks = createStorageProviderMocks(storage)
-  }
-
-  let authApiMocks
-  if (authApi) {
-    authApiMocks = createAuthApiMocks(authApi)
   }
 
   const featureMocks: any = {}
@@ -946,7 +916,6 @@ export function setupComprehensiveTestMocks(options: TestSetupOptions = {}) {
     auth: authMocks,
     database: dbMocks,
     storage: storageMocks,
-    authApi: authApiMocks,
     features: featureMocks,
   }
 }
@@ -1071,48 +1040,6 @@ export function createMockDatabase(options: MockDatabaseOptions = {}) {
 }
 
 /**
- * Create comprehensive auth API mocks
- */
-export function createAuthApiMocks(options: AuthApiMockOptions = {}) {
-  const { operations = {} } = options
-
-  const defaultOperations = {
-    requestPasswordReset: { success: true, error: 'Request password reset error' },
-    resetPassword: { success: true, error: 'Reset password error' },
-    signIn: { success: true, error: 'Sign in error' },
-    signUp: { success: true, error: 'Sign up error' },
-    ...operations,
-  }
-
-  const createAuthMethod = (operation: string, config: { success?: boolean; error?: string }) => {
-    return vi.fn().mockImplementation(() => {
-      if (config.success) {
-        return Promise.resolve()
-      }
-      return Promise.reject(new Error(config.error))
-    })
-  }
-
-  vi.doMock('@/lib/auth', () => ({
-    auth: {
-      api: {
-        requestPasswordReset: createAuthMethod(
-          'requestPasswordReset',
-          defaultOperations.requestPasswordReset
-        ),
-        resetPassword: createAuthMethod('resetPassword', defaultOperations.resetPassword),
-        signIn: createAuthMethod('signIn', defaultOperations.signIn),
-        signUp: createAuthMethod('signUp', defaultOperations.signUp),
-      },
-    },
-  }))
-
-  return {
-    operations: defaultOperations,
-  }
-}
-
-/**
  * Mock workflow utilities and response helpers
  */
 export function mockWorkflowUtils() {
@@ -1208,16 +1135,6 @@ export function setupFileApiMocks(
     auth: authMocks,
     storage: storageMocks,
   }
-}
-
-/**
- * Setup for auth-related API routes
- */
-export function setupAuthApiMocks(options: { operations?: AuthApiMockOptions['operations'] } = {}) {
-  return setupComprehensiveTestMocks({
-    auth: { authenticated: false }, // Auth routes typically don't require authentication
-    authApi: { operations: options.operations },
-  })
 }
 
 export function setupApiTestMocks(

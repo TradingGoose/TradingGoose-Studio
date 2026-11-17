@@ -235,6 +235,7 @@ export const ssoProvider = pgTable(
     id: text('id').primaryKey(),
     issuer: text('issuer').notNull(),
     domain: text('domain').notNull(),
+    domainVerified: boolean('domain_verified').notNull().default(false),
     oidcConfig: text('oidc_config'),
     samlConfig: text('saml_config'),
     userId: text('user_id')

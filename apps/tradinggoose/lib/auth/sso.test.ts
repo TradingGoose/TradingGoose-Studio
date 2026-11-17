@@ -1,6 +1,8 @@
+import dns from 'node:dns/promises'
+import { syncBuiltinESMExports } from 'node:module'
 import { type SSOOptions, sso } from '@better-auth/sso'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
-import { testUtils } from 'better-auth/plugins'
+import { organization, testUtils } from 'better-auth/plugins'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@tradinggoose/db', () => ({ db: {} }))
@@ -13,26 +15,30 @@ vi.mock('@/lib/env', async (original) => {
 import { auth as productionAuth } from '@/lib/auth'
 import { SSO_PROVIDER_IDS } from '@/lib/sso/consts'
 
-// Adapted from Better Auth v1.6.34 packages/sso/src/oidc.test.ts.
+// Adapted from Better Auth v1.6.34 packages/sso/src/{oidc,domain-verification}.test.ts.
 const baseURL = 'http://localhost:3000'
 const issuer = 'https://93.184.215.14'
 const localEmail = 'local@example.com'
+const organizationId = 'org-sso'
 const profile = { sub: 'stable-subject', email: localEmail, name: 'SSO User', email_verified: true }
+const resolveTxt = vi.fn()
 
-async function setup() {
+async function setup(email = localEmail, emailVerified = true) {
+  profile.email = email
   const options: BetterAuthOptions = productionAuth.options
   const plugin = options.plugins?.find((plugin) => plugin.id === 'sso')
   if (!plugin) throw new Error('The production SSO plugin must be enabled')
-  const ssoOptions = plugin.options as SSOOptions | undefined
-  expect(ssoOptions?.domainVerification?.enabled).not.toBe(true)
-  expect(ssoOptions?.trustEmailVerified).not.toBe(true)
+  const ssoOptions = plugin.options as SSOOptions & { domainVerification: { enabled: true } }
+  expect(ssoOptions.domainVerification?.enabled).toBe(true)
+  expect(ssoOptions.trustEmailVerified).not.toBe(true)
+  expect(ssoOptions.organizationProvisioning?.disabled).toBe(true)
   const auth = betterAuth({
     baseURL,
     secret: 'native-sso-account-matching-test-secret-long-enough',
     user: options.user,
     account: options.account,
     trustedOrigins: options.trustedOrigins,
-    plugins: [sso(ssoOptions), testUtils()],
+    plugins: [sso(ssoOptions), organization(), testUtils()],
   })
   const context = await auth.$context
   expect(context.isTrustedOrigin(issuer)).toBe(false)
@@ -43,9 +49,9 @@ async function setup() {
       emailVerified: true,
     })
   )
-  await context.test.saveUser(
-    context.test.createUser({ id: 'local-user', email: localEmail, emailVerified: true })
-  )
+  await context.test.saveUser(context.test.createUser({ id: 'local-user', email, emailVerified }))
+  await context.test.saveOrganization!(context.test.createOrganization!({ id: organizationId }))
+  await context.test.addMember!({ userId: 'provider-owner', organizationId, role: 'owner' })
   const { headers } = await context.test.login({ userId: 'provider-owner' })
   const register = (providerId = 'okta', providerType: 'oidc' | 'saml' = 'oidc') =>
     auth.api.registerSSOProvider({
@@ -54,6 +60,7 @@ async function setup() {
         providerId,
         issuer,
         domain: 'example.com',
+        organizationId,
         ...(providerType === 'saml'
           ? {
               samlConfig: {
@@ -77,6 +84,17 @@ async function setup() {
             }),
       },
     })
+  const verify = async () => {
+    const { domainVerificationToken } = await auth.api.requestDomainVerification({
+      headers,
+      body: { providerId: 'okta' },
+    })
+    resolveTxt.mockResolvedValue([[domainVerificationToken]])
+    await expect(
+      auth.api.verifyDomain({ headers, body: { providerId: 'okta' }, asResponse: true })
+    ).resolves.toMatchObject({ status: 204 })
+    expect(resolveTxt).toHaveBeenCalledWith('_better-auth-token-okta.example.com')
+  }
   const callback = async () => {
     const start = await auth.api.signInSSO({
       body: { providerId: 'okta', callbackURL: `${baseURL}/workspace` },
@@ -91,7 +109,7 @@ async function setup() {
       )
     )
   }
-  return { auth, context, register, callback }
+  return { auth, context, headers, register, verify, callback }
 }
 
 function cookies(response: Response) {
@@ -102,6 +120,10 @@ function cookies(response: Response) {
 }
 
 beforeEach(() => {
+  profile.email = localEmail
+  resolveTxt.mockReset()
+  vi.spyOn(dns, 'resolveTxt').mockImplementation(resolveTxt)
+  syncBuiltinESMExports()
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string | URL | Request) => {
@@ -123,6 +145,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
+  syncBuiltinESMExports()
   vi.unstubAllGlobals()
 })
 
@@ -131,7 +155,10 @@ describe('native SSO registration and account matching', () => {
     'registers the offered %s provider without OAuth namespace trust',
     async (providerId) => {
       const { register } = await setup()
-      await expect(register(providerId)).resolves.toMatchObject({ providerId })
+      await expect(register(providerId)).resolves.toMatchObject({
+        providerId,
+        domainVerified: false,
+      })
     }
   )
 
@@ -143,28 +170,35 @@ describe('native SSO registration and account matching', () => {
     }
   })
 
-  it('does not first-link a verified local account using an untrusted IdP email claim', async () => {
-    const { auth, context, register, callback } = await setup()
+  it('refuses unverified providers and leaves failed DNS verification untrusted', async () => {
+    const { auth, context, headers, register } = await setup()
     await register()
-    const response = await callback()
-    expect(new URL(response.headers.get('location')!, baseURL).searchParams.get('error')).toBe(
-      'account not linked'
-    )
+    await expect(
+      auth.api.signInSSO({ body: { providerId: 'okta', callbackURL: '/workspace' } })
+    ).rejects.toMatchObject({ statusCode: 401 })
+    resolveTxt.mockResolvedValue([])
+    await expect(
+      auth.api.verifyDomain({ headers, body: { providerId: 'okta' } })
+    ).rejects.toMatchObject({ statusCode: 502, body: { code: 'DOMAIN_VERIFICATION_FAILED' } })
+    await expect(
+      auth.api.getSSOProvider({ headers, query: { providerId: 'okta' } })
+    ).resolves.toMatchObject({ domainVerified: false })
     await expect(context.internalAdapter.findAccounts('local-user')).resolves.toEqual([])
     await expect(context.internalAdapter.listSessions('local-user')).resolves.toEqual([])
-    await expect(
-      auth.api.getSession({ headers: { cookie: cookies(response) } })
-    ).resolves.toBeNull()
   })
 
-  it('keeps an existing linked subject on the same account after its local email changes', async () => {
-    const { auth, context, register, callback } = await setup()
+  it('first-links after native DNS verification and retains that subject after an email change', async () => {
+    const { auth, context, register, verify, callback } = await setup()
     await register()
-    await context.internalAdapter.linkAccount({
-      userId: 'local-user',
-      providerId: 'okta',
-      accountId: profile.sub,
-    })
+    await verify()
+    const first = await callback()
+    expect(first.headers.get('location')).toBe(`${baseURL}/workspace`)
+    await expect(
+      auth.api.getSession({ headers: { cookie: cookies(first) } })
+    ).resolves.toMatchObject({ user: { id: 'local-user', email: localEmail } })
+    await expect(context.internalAdapter.findAccounts('local-user')).resolves.toEqual([
+      expect.objectContaining({ userId: 'local-user', providerId: 'okta', accountId: profile.sub }),
+    ])
     await context.internalAdapter.updateUser('local-user', { email: 'moved@elsewhere.com' })
     const returning = await callback()
     await expect(
@@ -173,6 +207,84 @@ describe('native SSO registration and account matching', () => {
     expect(vi.mocked(fetch).mock.calls.map(([url]) => String(url))).toEqual([
       `${issuer}/token`,
       `${issuer}/userinfo`,
+      `${issuer}/token`,
+      `${issuer}/userinfo`,
     ])
   })
+
+  it.each([
+    [localEmail, false],
+    ['outside@elsewhere.com', true],
+  ] as const)(
+    'refuses first linking for %s with local verification %s',
+    async (email, emailVerified) => {
+      const { auth, context, register, verify, callback } = await setup(email, emailVerified)
+      await register()
+      await verify()
+      const response = await callback()
+      expect(new URL(response.headers.get('location')!, baseURL).searchParams.get('error')).toBe(
+        'account not linked'
+      )
+      await expect(context.internalAdapter.findAccounts('local-user')).resolves.toEqual([])
+      await expect(context.internalAdapter.listSessions('local-user')).resolves.toEqual([])
+      await expect(
+        auth.api.getSession({ headers: { cookie: cookies(response) } })
+      ).resolves.toBeNull()
+    }
+  )
+
+  it.each(['owner', 'member'])(
+    'first-links an existing organization %s without changing membership',
+    async (role) => {
+      const { auth, context, register, verify, callback } = await setup()
+      await context.test.addMember!({ userId: 'local-user', organizationId, role })
+      const members = () =>
+        context.adapter.findMany({
+          model: 'member',
+          where: [{ field: 'organizationId', value: organizationId }],
+        })
+      const before = await members()
+      await register()
+      await verify()
+      const response = await callback()
+      await expect(
+        auth.api.getSession({ headers: { cookie: cookies(response) } })
+      ).resolves.toMatchObject({ user: { id: 'local-user' } })
+      expect(await members()).toEqual(before)
+    }
+  )
+
+  it('does not provision organization membership when native SSO creates a new user', async () => {
+    const { auth, context, register, verify, callback } = await setup()
+    await context.test.deleteUser('local-user')
+    await register()
+    await verify()
+    const response = await callback()
+    await expect(
+      auth.api.getSession({ headers: { cookie: cookies(response) } })
+    ).resolves.toMatchObject({ user: { email: localEmail } })
+    await expect(context.adapter.findMany({ model: 'member' })).resolves.toEqual([
+      expect.objectContaining({ userId: 'provider-owner', organizationId, role: 'owner' }),
+    ])
+  })
+
+  it.each(['non-member', 'member'])(
+    'denies a %s domain verification access before DNS resolution',
+    async (role) => {
+      const { auth, context, headers, register } = await setup()
+      await register()
+      if (role === 'member')
+        await context.test.addMember!({ userId: 'local-user', organizationId, role })
+      const unauthorized = await context.test.getAuthHeaders({ userId: 'local-user' })
+      for (const endpoint of [auth.api.requestDomainVerification, auth.api.verifyDomain]) {
+        await expect(
+          endpoint({ headers: unauthorized, body: { providerId: 'okta' } })
+        ).rejects.toMatchObject({ statusCode: 403 })
+      }
+      expect(resolveTxt).not.toHaveBeenCalled()
+      await expect(
+        auth.api.getSSOProvider({ headers, query: { providerId: 'okta' } })
+      ).resolves.toMatchObject({ domainVerified: false })
+    }
+  )
 })

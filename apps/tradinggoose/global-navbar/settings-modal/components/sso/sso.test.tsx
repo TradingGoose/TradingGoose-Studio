@@ -1,15 +1,24 @@
+/** @vitest-environment jsdom */
+
 import type React from 'react'
+import { act } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockUseSession = vi.fn()
 const mockUseOrganizations = vi.fn()
 const mockUseOrganizationBilling = vi.fn()
+const mockRequestDomainVerification = vi.fn()
+const mockVerifyDomain = vi.fn()
 
 vi.mock('@/components/ui', () => ({
   Alert: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AlertDescription: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Button: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+  Button: ({
+    variant: _variant,
+    ...props
+  }: React.ComponentProps<'button'> & { variant?: string }) => <button {...props} />,
   Input: (props: React.ComponentProps<'input'>) => <input {...props} />,
   Label: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }))
@@ -20,6 +29,12 @@ vi.mock('@/components/ui/skeleton', () => ({
 
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => mockUseSession(),
+  client: {
+    sso: {
+      requestDomainVerification: (...args: unknown[]) => mockRequestDomainVerification(...args),
+      verifyDomain: (...args: unknown[]) => mockVerifyDomain(...args),
+    },
+  },
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -178,6 +193,165 @@ describe('SSO access guard', () => {
     expect(markup).not.toContain('Single Sign-On is not enabled for this billing tier.')
     expect(markup).not.toContain(
       'Only organization owners and admins can configure Single Sign-On settings.'
+    )
+  })
+
+  describe('native domain verification controls', () => {
+    let root: Root
+    let container: HTMLDivElement
+    const provider = {
+      id: 'provider-1',
+      providerId: 'okta',
+      domain: 'example.com',
+      domainVerified: false,
+      issuer: 'https://idp.example.com',
+      providerType: 'oidc',
+    }
+    const reactEnvironment = globalThis as typeof globalThis & {
+      IS_REACT_ACT_ENVIRONMENT?: boolean
+    }
+    let previousActEnvironment: boolean | undefined
+    function setOrganization(id: string) {
+      mockUseOrganizations.mockReturnValue({
+        data: {
+          activeOrganization: {
+            id,
+            members: [{ role: 'admin', user: { email: 'member@example.com' } }],
+          },
+        },
+      })
+    }
+    beforeEach(() => {
+      previousActEnvironment = reactEnvironment.IS_REACT_ACT_ENVIRONMENT
+      reactEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+      setOrganization('org-1')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({ ok: true, json: async () => ({ providers: [provider] }) })
+      )
+      mockRequestDomainVerification
+        .mockReset()
+        .mockResolvedValue({ data: { domainVerificationToken: 'dns-token' }, error: null })
+      mockVerifyDomain.mockReset().mockResolvedValue({ data: null, error: null })
+      container = document.createElement('div')
+      document.body.append(container)
+      root = createRoot(container)
+    })
+    afterEach(() => {
+      act(() => root.unmount())
+      container.remove()
+      reactEnvironment.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
+      vi.unstubAllGlobals()
+    })
+    async function renderSettings() {
+      const { SSO } = await import('./sso')
+      await act(async () => root.render(<SSO />))
+    }
+    async function click(label: string) {
+      const button = [...container.querySelectorAll('button')].find(
+        (candidate) => candidate.textContent === label
+      )
+      expect(button).toBeDefined()
+      await act(async () => button!.click())
+    }
+
+    it('requests native proof and lets failed request or DNS verification be retried', async () => {
+      await renderSettings()
+      expect(container.textContent).toContain('Domain verification required before sign-in')
+      mockRequestDomainVerification.mockResolvedValueOnce({ error: { message: 'Request failed' } })
+      await click('Get DNS record')
+      expect(container.textContent).toContain('Request failed')
+      await click('Get DNS record')
+      expect(mockRequestDomainVerification).toHaveBeenLastCalledWith({ providerId: 'okta' })
+      expect(container.querySelector<HTMLInputElement>('#dns-name-provider-1')?.value).toBe(
+        '_better-auth-token-okta.example.com'
+      )
+      expect(container.querySelector<HTMLInputElement>('#dns-value-provider-1')?.value).toBe(
+        'dns-token'
+      )
+      mockVerifyDomain.mockResolvedValueOnce({ error: { message: 'DNS not found' } })
+      await click('Verify domain')
+      expect(container.textContent).toContain('DNS not found')
+      expect(container.textContent).not.toContain('Domain verified')
+      await click('Refresh DNS record')
+      await click('Verify domain')
+      expect(mockVerifyDomain).toHaveBeenLastCalledWith({ providerId: 'okta' })
+      expect(container.textContent).toContain('Domain verified')
+      expect(container.textContent).not.toContain('Verify domain')
+      expect(container.textContent).not.toContain('Refresh DNS record')
+    })
+
+    it('keeps verified providers free of proof controls after loading', async () => {
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ providers: [{ ...provider, domainVerified: true }] }),
+      } as Response)
+      await renderSettings()
+      expect(container.textContent).toContain('Domain verified')
+      expect(container.textContent).not.toContain('Get DNS record')
+    })
+
+    it('shows one native TXT host per configured domain with a shared verification value', async () => {
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          providers: [{ ...provider, domain: 'company.com, subsidiary.com, ' }],
+        }),
+      } as Response)
+      await renderSettings()
+      await click('Get DNS record')
+      expect(container.querySelector<HTMLInputElement>('#dns-name-provider-1')?.value).toBe(
+        '_better-auth-token-okta.company.com'
+      )
+      expect(container.querySelector<HTMLInputElement>('#dns-name-provider-1-1')?.value).toBe(
+        '_better-auth-token-okta.subsidiary.com'
+      )
+      expect(container.querySelector<HTMLInputElement>('#dns-value-provider-1')?.value).toBe(
+        'dns-token'
+      )
+      expect(container.querySelectorAll('input[id^="dns-name-"]')).toHaveLength(2)
+      await click('Verify domain')
+      expect(mockVerifyDomain).toHaveBeenCalledExactlyOnceWith({ providerId: 'okta' })
+    })
+
+    it.each(['request', 'verify'] as const)(
+      'ignores a stale %s result after switching organizations and back',
+      async (action) => {
+        await renderSettings()
+        if (action === 'verify') await click('Get DNS record')
+        let finish!: () => void
+        const pending = action === 'request' ? mockRequestDomainVerification : mockVerifyDomain
+        pending.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finish = () =>
+                resolve({
+                  data: action === 'request' ? { domainVerificationToken: 'stale-token' } : null,
+                  error: null,
+                })
+            })
+        )
+        await click(action === 'request' ? 'Get DNS record' : 'Verify domain')
+        setOrganization('org-2')
+        vi.mocked(fetch).mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            providers: [{ ...provider, id: 'provider-2', providerId: 'azure-ad' }],
+          }),
+        } as Response)
+        await renderSettings()
+        expect(container.textContent).toContain('azure-ad')
+        setOrganization('org-1')
+        await renderSettings()
+        await act(async () => finish())
+        expect(container.textContent).not.toContain('Domain verified')
+        expect(container.querySelector('#dns-value-provider-1')).toBeNull()
+        expect(
+          [...container.querySelectorAll('button')].find(
+            (button) => button.textContent === 'Get DNS record'
+          )?.disabled
+        ).toBe(false)
+      }
     )
   })
 })

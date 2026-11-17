@@ -16,43 +16,12 @@ type OrganizationSession = {
   activeOrganizationId?: string | null
 }
 
-function getProviderType(provider: {
-  oidcConfig: string | null
-  samlConfig: string | null
-}): 'oidc' | 'saml' {
-  if (provider.oidcConfig) {
-    return 'oidc'
-  }
-
-  if (provider.samlConfig) {
-    return 'saml'
-  }
-
-  return 'oidc'
-}
-
 export async function GET() {
   try {
     const session = await getSession()
 
     if (!session?.user?.id) {
-      const results = await db
-        .select({
-          domain: ssoProvider.domain,
-        })
-        .from(ssoProvider)
-
-      const providers = results.map((provider) => ({
-        domain: provider.domain,
-      }))
-
-      logger.info('Fetched SSO providers', {
-        userId: null,
-        authenticated: false,
-        providerCount: providers.length,
-      })
-
-      return NextResponse.json({ providers })
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
     const activeOrganizationId = (session.session as OrganizationSession | undefined)
@@ -92,9 +61,9 @@ export async function GET() {
         id: ssoProvider.id,
         providerId: ssoProvider.providerId,
         domain: ssoProvider.domain,
+        domainVerified: ssoProvider.domainVerified,
         issuer: ssoProvider.issuer,
         oidcConfig: ssoProvider.oidcConfig,
-        samlConfig: ssoProvider.samlConfig,
         organizationId: ssoProvider.organizationId,
       })
       .from(ssoProvider)
@@ -104,11 +73,10 @@ export async function GET() {
       id: provider.id,
       providerId: provider.providerId,
       domain: provider.domain,
+      domainVerified: provider.domainVerified,
       issuer: provider.issuer,
       organizationId: provider.organizationId,
-      providerType: getProviderType(provider),
-      hasOidcConfig: Boolean(provider.oidcConfig),
-      hasSamlConfig: Boolean(provider.samlConfig),
+      providerType: provider.oidcConfig ? 'oidc' : 'saml',
     }))
 
     logger.info('Fetched SSO providers', {

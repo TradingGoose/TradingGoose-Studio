@@ -32,9 +32,9 @@ vi.mock('@tradinggoose/db', () => ({
     id: 'sso_provider.id',
     providerId: 'sso_provider.provider_id',
     domain: 'sso_provider.domain',
+    domainVerified: 'sso_provider.domain_verified',
     issuer: 'sso_provider.issuer',
     oidcConfig: 'sso_provider.oidc_config',
-    samlConfig: 'sso_provider.saml_config',
     userId: 'sso_provider.user_id',
     organizationId: 'sso_provider.organization_id',
   },
@@ -81,6 +81,7 @@ describe('SSO providers route', () => {
         id: 'provider-1',
         providerId: 'okta',
         domain: 'example.com',
+        domainVerified: false,
         issuer: 'https://issuer.example.com',
         oidcConfig: '{"clientId":"abc"}',
         samlConfig: null,
@@ -113,11 +114,10 @@ describe('SSO providers route', () => {
           id: 'provider-1',
           providerId: 'okta',
           domain: 'example.com',
+          domainVerified: false,
           issuer: 'https://issuer.example.com',
           organizationId: 'org-1',
           providerType: 'oidc',
-          hasOidcConfig: true,
-          hasSamlConfig: false,
         },
       ],
     })
@@ -223,27 +223,17 @@ describe('SSO providers route', () => {
     expect(mockSelect).not.toHaveBeenCalled()
   })
 
-  it('keeps unauthenticated requests limited to domain discovery for sign-in', async () => {
+  it('requires authentication before listing organization providers', async () => {
     mockGetSession.mockResolvedValue(null)
-    mockSelect.mockReturnValue({
-      from: vi.fn().mockResolvedValue([
-        {
-          domain: 'enabled.example.com',
-        },
-      ]),
-    })
 
     const { GET } = await import('./route')
     const response = await GET()
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(401)
     await expect(response.json()).resolves.toEqual({
-      providers: [
-        {
-          domain: 'enabled.example.com',
-        },
-      ],
+      error: 'Authentication required',
     })
+    expect(mockSelect).not.toHaveBeenCalled()
     expect(mockIsOrganizationOwnerOrAdmin).not.toHaveBeenCalled()
   })
 
@@ -283,8 +273,6 @@ describe('SSO providers route', () => {
         expect.objectContaining({
           providerId: 'okta-saml',
           providerType: 'saml',
-          hasOidcConfig: false,
-          hasSamlConfig: true,
         }),
       ],
     })

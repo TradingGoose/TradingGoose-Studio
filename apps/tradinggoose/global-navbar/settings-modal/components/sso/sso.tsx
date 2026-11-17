@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Copy, Eye, EyeOff } from 'lucide-react'
 import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useSession } from '@/lib/auth-client'
+import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
@@ -19,10 +19,9 @@ interface SSOProvider {
   id: string
   providerId: string
   domain: string
+  domainVerified: boolean
   issuer: string
   providerType: 'oidc' | 'saml'
-  hasOidcConfig: boolean
-  hasSamlConfig: boolean
 }
 
 const getSsoCallbackUrl = (providerId: string, providerType: 'oidc' | 'saml') =>
@@ -43,7 +42,11 @@ export function SSO() {
   const [copied, setCopied] = useState(false)
   const [providers, setProviders] = useState<SSOProvider[]>([])
   const [isLoadingProviders, setIsLoadingProviders] = useState(true)
-  const [showConfigForm, setShowConfigForm] = useState(false)
+  const [domainTokens, setDomainTokens] = useState<Record<string, string>>({})
+  const verificationScope = useRef({ organizationId: activeOrganizationId })
+  if (verificationScope.current.organizationId !== activeOrganizationId) {
+    verificationScope.current = { organizationId: activeOrganizationId }
+  }
 
   const [formData, setFormData] = useState({
     providerType: 'oidc' as 'oidc' | 'saml',
@@ -66,7 +69,6 @@ export function SSO() {
   })
 
   const [errors, setErrors] = useState<Record<string, string[]>>({
-    providerType: [],
     providerId: [],
     issuerUrl: [],
     domain: [],
@@ -75,8 +77,6 @@ export function SSO() {
     entryPoint: [],
     cert: [],
     scopes: [],
-    callbackUrl: [],
-    audience: [],
   })
   const [showErrors, setShowErrors] = useState(false)
 
@@ -97,6 +97,9 @@ export function SSO() {
 
   useEffect(() => {
     let cancelled = false
+    setDomainTokens({})
+    setError(null)
+    setIsLoading(false)
 
     const fetchProviders = async () => {
       if (!shouldFetchProviders) {
@@ -145,6 +148,40 @@ export function SSO() {
       cancelled = true
     }
   }, [activeOrganizationId, shouldFetchProviders])
+
+  const handleDomainVerification = async (providerId: string, action: 'request' | 'verify') => {
+    const scope = verificationScope.current
+    setIsLoading(true)
+    setError(null)
+    try {
+      if (action === 'request') {
+        const result = await client.sso.requestDomainVerification({ providerId })
+        if (result.error) throw new Error(result.error.message || 'Failed to request DNS record')
+        if (verificationScope.current === scope) {
+          setDomainTokens((tokens) => ({
+            ...tokens,
+            [providerId]: result.data.domainVerificationToken,
+          }))
+        }
+      } else {
+        const result = await client.sso.verifyDomain({ providerId })
+        if (result.error) throw new Error(result.error.message || 'Failed to verify domain')
+        if (verificationScope.current === scope) {
+          setProviders((current) =>
+            current.map((provider) =>
+              provider.providerId === providerId ? { ...provider, domainVerified: true } : provider
+            )
+          )
+        }
+      }
+    } catch (err) {
+      if (verificationScope.current === scope) {
+        setError(err instanceof Error ? err.message : 'Domain verification failed')
+      }
+    } finally {
+      if (verificationScope.current === scope) setIsLoading(false)
+    }
+  }
 
   if (!activeOrganization) {
     return (
@@ -219,7 +256,6 @@ export function SSO() {
 
   const validateAll = (data: typeof formData) => {
     const newErrors: Record<string, string[]> = {
-      providerType: [],
       providerId: validateProviderId(data.providerId),
       issuerUrl: validateIssuerUrl(data.issuerUrl),
       domain: validateDomain(data.domain),
@@ -228,8 +264,6 @@ export function SSO() {
       entryPoint: [],
       cert: [],
       scopes: [],
-      callbackUrl: [],
-      audience: [],
     }
 
     if (data.providerType === 'oidc') {
@@ -240,9 +274,6 @@ export function SSO() {
       }
     } else if (data.providerType === 'saml') {
       newErrors.entryPoint = validateIssuerUrl(data.entryPoint || '')
-      if (!newErrors.entryPoint.length && !data.entryPoint) {
-        newErrors.entryPoint = ['Entry Point URL is required for SAML providers']
-      }
       newErrors.cert = validateRequired('Certificate', data.cert)
     }
 
@@ -366,8 +397,6 @@ export function SSO() {
 
       const providersData = await providersResponse.json()
       setProviders(providersData.providers || [])
-
-      setShowConfigForm(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(message)
@@ -390,7 +419,6 @@ export function SSO() {
       if (field === 'providerType') {
         setShowErrors(false)
         setErrors({
-          providerType: [],
           providerId: [],
           issuerUrl: [],
           domain: [],
@@ -399,8 +427,6 @@ export function SSO() {
           entryPoint: [],
           cert: [],
           scopes: [],
-          callbackUrl: [],
-          audience: [],
         })
       } else {
         validateAll(next)
@@ -434,9 +460,6 @@ export function SSO() {
     )
   }
 
-  const hasProviders = providers.length > 0
-  const showStatus = hasProviders && !showConfigForm
-
   return (
     <div className='flex h-full flex-col'>
       <div className='flex-1 overflow-y-auto px-6 pt-4 pb-4'>
@@ -447,7 +470,7 @@ export function SSO() {
             </Alert>
           )}
 
-          {showStatus ? (
+          {providers.length > 0 ? (
             // SSO Provider Status View
             <div className='space-y-4'>
               {providers.map((provider) => (
@@ -458,8 +481,70 @@ export function SSO() {
                       <p className='mt-1 text-muted-foreground text-sm'>
                         {provider.providerId} • {provider.domain}
                       </p>
+                      <p className='mt-1 text-muted-foreground text-sm'>
+                        {provider.domainVerified
+                          ? 'Domain verified'
+                          : 'Domain verification required before sign-in'}
+                      </p>
                     </div>
                   </div>
+
+                  {!provider.domainVerified && (
+                    <div className='mt-4 space-y-3'>
+                      {domainTokens[provider.providerId] && (
+                        <div className='space-y-2'>
+                          <p className='text-muted-foreground text-sm'>
+                            Add a TXT record for each name below using the same value, then verify
+                            the domain.
+                          </p>
+                          {provider.domain
+                            .split(',')
+                            .map((domain) => domain.trim())
+                            .filter(Boolean)
+                            .map((domain, index) => {
+                              const id = `dns-name-${provider.id}${index ? `-${index}` : ''}`
+                              return (
+                                <div key={id} className='space-y-2'>
+                                  <Label htmlFor={id}>TXT record name</Label>
+                                  <Input
+                                    id={id}
+                                    readOnly
+                                    value={`_better-auth-token-${provider.providerId}.${domain}`}
+                                  />
+                                </div>
+                              )
+                            })}
+                          <Label htmlFor={`dns-value-${provider.id}`}>TXT record value</Label>
+                          <Input
+                            id={`dns-value-${provider.id}`}
+                            readOnly
+                            value={domainTokens[provider.providerId]}
+                          />
+                        </div>
+                      )}
+                      <div className='flex gap-2'>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          disabled={isLoading}
+                          onClick={() => handleDomainVerification(provider.providerId, 'request')}
+                        >
+                          {domainTokens[provider.providerId]
+                            ? 'Refresh DNS record'
+                            : 'Get DNS record'}
+                        </Button>
+                        {domainTokens[provider.providerId] && (
+                          <Button
+                            type='button'
+                            disabled={isLoading}
+                            onClick={() => handleDomainVerification(provider.providerId, 'verify')}
+                          >
+                            Verify domain
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className='mt-4 border-border border-t pt-4'>
                     <div className='grid grid-cols-2 gap-4 text-sm'>
@@ -610,7 +695,6 @@ export function SSO() {
                       <p>{errors.issuerUrl.join(' ')}</p>
                     </div>
                   )}
-                  <p className='text-muted-foreground text-xs' />
                 </div>
 
                 <div className='space-y-1'>
@@ -770,7 +854,6 @@ export function SSO() {
                           <p>{errors.entryPoint.join(' ')}</p>
                         </div>
                       )}
-                      <p className='text-muted-foreground text-xs' />
                     </div>
 
                     <div className='space-y-1'>
@@ -796,7 +879,6 @@ export function SSO() {
                           <p>{errors.cert.join(' ')}</p>
                         </div>
                       )}
-                      <p className='text-muted-foreground text-xs' />
                     </div>
 
                     {/* Advanced SAML Options */}

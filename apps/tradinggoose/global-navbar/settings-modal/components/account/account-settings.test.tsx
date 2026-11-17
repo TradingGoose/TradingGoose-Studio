@@ -9,7 +9,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 import { getGeneralSettingsResponsePatch } from '@/hooks/queries/general-settings'
 import { organizationKeys } from '@/hooks/queries/organization'
 import { workspaceKeys } from '@/hooks/queries/workspace'
-import { getPublicCopy } from '@/i18n/public-copy'
+import { getClientMessages, getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
 import { AccountSettings } from './account-settings'
@@ -21,6 +21,8 @@ const mocks = vi.hoisted(() => ({
   request: vi.fn(),
   change: vi.fn(),
   refetch: vi.fn(),
+  updateUser: vi.fn(),
+  requestPasswordReset: vi.fn(),
 }))
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 const generalState = {
@@ -48,9 +50,6 @@ vi.mock('next/image', () => ({
 vi.mock('@vercel/blob/client', () => ({
   upload: vi.fn(),
 }))
-vi.mock('@/components/icons/icons', () => ({
-  AgentIcon: (props: React.SVGProps<SVGSVGElement>) => <svg {...props} />,
-}))
 vi.mock('@/components/ui/tooltip', () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -65,6 +64,8 @@ vi.mock('@/components/ui/tooltip', () => ({
 }))
 vi.mock('@/lib/auth-client', () => ({
   client: {
+    updateUser: mocks.updateUser,
+    requestPasswordReset: mocks.requestPasswordReset,
     emailOtp: {
       sendVerificationOtp: mocks.send,
       requestEmailChange: mocks.request,
@@ -80,7 +81,7 @@ vi.mock('@/stores/settings/general/store', () => ({
 function renderAccountSettings(root: Root, locale: LocaleCode) {
   root.render(
     <QueryClientProvider client={queryClient}>
-      <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+      <NextIntlClientProvider locale={locale} messages={getClientMessages(locale, 'workspace')}>
         <AccountSettings />
       </NextIntlClientProvider>
     </QueryClientProvider>
@@ -134,7 +135,11 @@ describe('AccountSettings localization', () => {
     mocks.send.mockResolvedValue({ data: { success: true }, error: null })
     mocks.request.mockResolvedValue({ data: { success: true }, error: null })
     mocks.change.mockResolvedValue({ data: { success: true }, error: null })
-    mocks.refetch.mockResolvedValue(undefined)
+    mocks.refetch.mockReset().mockResolvedValue(undefined)
+    mocks.updateUser.mockReset().mockResolvedValue({ data: { status: true }, error: null })
+    mocks.requestPasswordReset
+      .mockReset()
+      .mockResolvedValue({ data: { status: true }, error: null })
     mockUseSession.mockReturnValue({
       refetch: mocks.refetch,
       data: {
@@ -148,32 +153,7 @@ describe('AccountSettings localization', () => {
       },
     })
 
-    vi.mocked(global.fetch).mockImplementation(async (input, init) => {
-      const url = String(input)
-      if (url === '/api/users/me/profile' && !init?.method) {
-        return {
-          ok: true,
-          json: async () => ({
-            user: {
-              name: 'Ada Lovelace',
-              email: 'ada@example.com',
-              image: null,
-              updatedAt: '2026-01-01T00:00:00.000Z',
-            },
-          }),
-        } as Response
-      }
-      if (url === '/api/auth/forget-password') {
-        return {
-          ok: true,
-          json: async () => ({}),
-        } as Response
-      }
-      return {
-        ok: true,
-        json: async () => ({}),
-      } as Response
-    })
+    vi.mocked(global.fetch).mockResolvedValue({ ok: true, json: async () => ({}) } as Response)
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -205,6 +185,7 @@ describe('AccountSettings localization', () => {
     expect(container.textContent).toContain(copy.telemetry.label)
     expect(container.textContent).toContain(copy.telemetry.tooltipBody)
     expect(container.textContent).toContain(copy.telemetry.body)
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   it('synchronizes each settings response around independent active mutations', async () => {
@@ -282,6 +263,318 @@ describe('AccountSettings localization', () => {
       await click(findButtonByText(container, copy.sendLink))
     })
     expect(container.textContent).toContain(copy.status.passwordResetSent)
+  })
+  describe('native profile updates', () => {
+    const copy = getPublicCopy('en').workspace.settingsModal.account
+    async function render() {
+      await act(async () => {
+        renderAccountSettings(root, 'en')
+        await flush()
+      })
+    }
+    async function press(text: string) {
+      await act(async () => {
+        await click(findButtonByText(container, text))
+      })
+    }
+    function changeSession(values: Record<string, string | null>) {
+      const previous = mockUseSession()
+      mockUseSession.mockReturnValue({
+        ...previous,
+        data: { ...previous.data, user: { ...previous.data.user, ...values } },
+      })
+    }
+    async function uploadImage(uploadResponse?: Promise<Response>) {
+      vi.stubGlobal(
+        'URL',
+        class extends URL {
+          static createObjectURL = vi.fn(() => 'blob:profile-preview')
+          static revokeObjectURL = vi.fn()
+        }
+      )
+      vi.mocked(global.fetch).mockImplementation(async (input) =>
+        uploadResponse && String(input) === '/api/files/upload'
+          ? uploadResponse
+          : ({
+              ok: true,
+              json: async () =>
+                String(input).includes('/presigned')
+                  ? { directUploadSupported: false }
+                  : { path: '/api/files/serve/new-avatar.png' },
+            } as Response)
+      )
+      await act(async () => {
+        const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
+        Object.defineProperty(input, 'files', {
+          configurable: true,
+          value: [new File(['avatar'], 'avatar.png', { type: 'image/png' })],
+        })
+        input.dispatchEvent(new Event('change', { bubbles: true }))
+        await flush()
+      })
+    }
+
+    it('updates a name natively and keeps the confirmed value until a fresh session replaces it', async () => {
+      mockUseSession.mockReturnValue({
+        ...mockUseSession(),
+        error: new Error('Session refresh failed'),
+      })
+      await render()
+      await press(copy.editName)
+      await act(async () => {
+        setInputValue(
+          container.querySelector<HTMLInputElement>('#accountName')!,
+          '  Grace Hopper  '
+        )
+      })
+      await press(copy.saveName)
+      expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({ name: 'Grace Hopper' })
+      expect(container.textContent).toContain('Grace Hopper')
+      expect(global.fetch).not.toHaveBeenCalled()
+
+      changeSession({ name: 'Updated elsewhere' })
+      await render()
+      expect(container.textContent).toContain('Updated elsewhere')
+      expect(container.textContent).not.toContain('Grace Hopper')
+    })
+
+    it('keeps a failed native name update editable with its translated error', async () => {
+      mocks.updateUser.mockResolvedValueOnce({ error: { code: 'UPDATE_FAILED' } })
+      await render()
+      await press(copy.editName)
+      await act(async () => {
+        setInputValue(container.querySelector<HTMLInputElement>('#accountName')!, 'Grace Hopper')
+      })
+      await press(copy.saveName)
+      expect(container.querySelector('#accountName')).toHaveValue('Grace Hopper')
+      expect(container.textContent).toContain(copy.status.unableToUpdateName)
+      expect(mocks.refetch).not.toHaveBeenCalled()
+    })
+
+    it('saves an uploaded image natively and accepts a later session image removal', async () => {
+      mockUseSession.mockReturnValue({
+        ...mockUseSession(),
+        error: new Error('Session refresh failed'),
+      })
+      await render()
+      await uploadImage()
+      expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({
+        image: '/api/files/serve/new-avatar.png',
+      })
+      expect(container.querySelector('img')).toHaveAttribute(
+        'src',
+        '/api/files/serve/new-avatar.png'
+      )
+      expect(container.querySelector('input[type="file"]')).toBeEnabled()
+
+      changeSession({ image: null })
+      await render()
+      expect(container.querySelector('img')).toHaveAttribute('src', '/profile/avatar.png')
+    })
+
+    it('awaits image persistence, reports a failed save and restores the existing preview', async () => {
+      let complete!: (value: { error: { code: string } }) => void
+      mocks.updateUser.mockReturnValueOnce(
+        new Promise((resolve) => {
+          complete = resolve
+        })
+      )
+      changeSession({ image: '/api/files/serve/original-avatar.png' })
+      await render()
+      await uploadImage()
+      expect(container.querySelector('input[type="file"]')).toBeDisabled()
+      expect(mocks.refetch).not.toHaveBeenCalled()
+      await act(async () => {
+        complete({ error: { code: 'UPDATE_FAILED' } })
+        await flush()
+      })
+      expect(container.textContent).toContain(copy.status.profilePictureUpdateError)
+      expect(container.querySelector('img')).toHaveAttribute(
+        'src',
+        '/api/files/serve/original-avatar.png'
+      )
+      expect(container.querySelector('input[type="file"]')).toBeEnabled()
+    })
+
+    it('does not save a finished upload after its account unmounts and another user signs in', async () => {
+      let complete!: (value: Response) => void
+      const uploadResponse = new Promise<Response>((resolve) => {
+        complete = resolve
+      })
+      await render()
+      await uploadImage(uploadResponse)
+      expect(mocks.updateUser).not.toHaveBeenCalled()
+      await act(async () => {
+        root.unmount()
+        root = createRoot(container)
+      })
+      changeSession({ id: 'user-2', name: 'Bob', email: 'bob@example.com' })
+      await render()
+      await act(async () => {
+        complete({
+          ok: true,
+          json: async () => ({ path: '/api/files/serve/ada-upload.png' }),
+        } as Response)
+        await flush()
+      })
+      expect(mocks.updateUser).not.toHaveBeenCalled()
+      expect(container.textContent).toContain('Bob')
+      expect(container.querySelector('img')).toHaveAttribute('src', '/profile/avatar.png')
+    })
+
+    it('sends native password-reset requests using the localized redirect', async () => {
+      await act(async () => {
+        renderAccountSettings(root, 'es')
+        await flush()
+      })
+      await press(getPublicCopy('es').workspace.settingsModal.account.sendLink)
+      expect(mocks.requestPasswordReset).toHaveBeenCalledExactlyOnceWith({
+        email: 'ada@example.com',
+        redirectTo: expect.stringContaining('/es/reset-password'),
+      })
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+  })
+  describe('username editing', () => {
+    const copy = getPublicCopy('en').workspace.settingsModal.account
+    function setSession(username: string | null, id = 'user-1') {
+      mockUseSession.mockReturnValue({
+        refetch: mocks.refetch,
+        data: {
+          user: {
+            id,
+            name: 'Ada Lovelace',
+            email: 'ada@example.com',
+            username: username?.toLowerCase() ?? null,
+            displayUsername: username,
+          },
+        },
+      })
+    }
+    async function render() {
+      await act(async () => {
+        renderAccountSettings(root, 'en')
+        await flush()
+      })
+    }
+    async function press(text: string) {
+      await act(async () => {
+        await click(findButtonByText(container, text))
+      })
+    }
+    async function edit(value: string) {
+      await press(copy.editUsername)
+      await act(async () => {
+        setInputValue(container.querySelector<HTMLInputElement>('#accountUsername')!, value)
+        await flush()
+      })
+    }
+    const usernameRow = () =>
+      container.querySelector('label[for="accountUsername"]')!.parentElement!
+
+    it('lets a user choose a username through the native update API, preserving display case', async () => {
+      setSession(null)
+      await render()
+      await edit('First.Handle')
+      await press(copy.saveUsername)
+
+      expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({
+        username: 'First.Handle',
+        displayUsername: 'First.Handle',
+      })
+      expect(usernameRow().textContent).toContain('First.Handle')
+      expect(container.querySelector('#accountUsername')).toBeNull()
+      expect(vi.mocked(global.fetch).mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(
+        false
+      )
+    })
+
+    it('retains a confirmed change when session refresh fails and allows cancelling another edit', async () => {
+      setSession('Ada.Handle')
+      mockUseSession.mockReturnValue({
+        ...mockUseSession(),
+        error: new Error('Session refresh failed'),
+      })
+      await render()
+      await edit('New.Handle')
+      await press(copy.saveUsername)
+
+      expect(usernameRow().textContent).toContain('New.Handle')
+      expect(usernameRow().querySelector('[role="alert"]')).toBeNull()
+      await edit('Discard.Handle')
+      await press(copy.cancelEditingUsername)
+      expect(usernameRow().textContent).toContain('New.Handle')
+      expect(usernameRow().textContent).not.toContain('Discard.Handle')
+      expect(mocks.updateUser).toHaveBeenCalledOnce()
+    })
+
+    it('shows duplicate errors inline and preserves the existing username after cancelling', async () => {
+      setSession('Ada.Handle')
+      mocks.updateUser.mockResolvedValueOnce({ error: { code: 'USERNAME_IS_ALREADY_TAKEN' } })
+      await render()
+      await edit('Taken.Handle')
+      await press(copy.saveUsername)
+
+      expect(usernameRow().querySelector('[role="alert"]')?.textContent).toBe(
+        copy.status.usernameTaken
+      )
+      expect(container.querySelector<HTMLInputElement>('#accountUsername')?.value).toBe(
+        'Taken.Handle'
+      )
+      expect(mocks.refetch).not.toHaveBeenCalled()
+      await press(copy.cancelEditingUsername)
+      expect(usernameRow().textContent).toContain('Ada.Handle')
+    })
+
+    it('ignores a completed update after the signed-in identity changes', async () => {
+      let complete!: (value: { error: null }) => void
+      mocks.updateUser.mockReturnValueOnce(
+        new Promise((resolve) => {
+          complete = resolve
+        })
+      )
+      setSession('Ada.Handle')
+      await render()
+      await edit('New.Handle')
+      await press(copy.saveUsername)
+      setSession('Bob.Handle', 'user-2')
+      await render()
+      await act(async () => {
+        complete({ error: null })
+        await flush()
+      })
+
+      expect(usernameRow().textContent).toContain('Bob.Handle')
+      expect(usernameRow().textContent).not.toContain('New.Handle')
+      expect(container.querySelector('#accountUsername')).toBeNull()
+      expect(mocks.refetch).not.toHaveBeenCalled()
+    })
+
+    it('submits a pending edit only once', async () => {
+      let complete!: (value: { error: null }) => void
+      mocks.updateUser.mockReturnValueOnce(
+        new Promise((resolve) => {
+          complete = resolve
+        })
+      )
+      setSession('Ada.Handle')
+      await render()
+      await edit('New.Handle')
+      await act(async () => {
+        const form = container.querySelector('#accountUsername')!.closest('form')!
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+        await flush()
+      })
+
+      expect(mocks.updateUser).toHaveBeenCalledOnce()
+      expect(container.querySelector<HTMLInputElement>('#accountUsername')?.disabled).toBe(true)
+      await act(async () => {
+        complete({ error: null })
+        await flush()
+      })
+      expect(usernameRow().textContent).toContain('New.Handle')
+    })
   })
   describe('email changes', () => {
     let copy: ReturnType<
@@ -470,13 +763,10 @@ describe('AccountSettings localization', () => {
       expect(container.textContent).toContain(copy.success)
       expect(container.querySelector('[role="alert"]')).toBeNull()
       await press(getPublicCopy('en').workspace.settingsModal.account.sendLink)
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/auth/forget-password',
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('"email":"new@example.com"'),
-        })
-      )
+      expect(mocks.requestPasswordReset).toHaveBeenCalledWith({
+        email: 'new@example.com',
+        redirectTo: expect.stringContaining('/reset-password'),
+      })
       await press(getPublicCopy('en').workspace.settingsModal.account.editEmail)
       expect(container.querySelector('#account-new-email')).toHaveValue('new@example.com')
     })

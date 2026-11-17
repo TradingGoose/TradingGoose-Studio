@@ -1,18 +1,25 @@
 'use client'
 
-import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
-import { AgentIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
-import { useSession } from '@/lib/auth-client'
+import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -21,18 +28,32 @@ import { ChangeEmailForm } from './change-email-form'
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
-const toEpochMillis = (value: string | Date | null | undefined): number | null => {
-  if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
-  const time = date.getTime()
-  return Number.isNaN(time) ? null : time
-}
-
 export function AccountSettings() {
   const { data: session } = useSession()
   const authRedirectUrls = useAuthRedirectUrls()
   const tAccount = useTranslations('workspace.settingsModal.account')
-  const userId = session?.user?.id ?? null
+  const sessionUser = session?.user
+  const userId = sessionUser?.id ?? null
+  const currentUserRef = useRef(sessionUser)
+  currentUserRef.current = sessionUser
+  const [confirmedProfile, setConfirmedProfile] = useState<{
+    user: NonNullable<typeof sessionUser>
+    values: { name?: string; email?: string; image?: string | null; displayUsername?: string }
+  } | null>(null)
+  const confirmed = confirmedProfile?.user === sessionUser ? confirmedProfile?.values : null
+  const name = confirmed?.name ?? sessionUser?.name ?? ''
+  const email = confirmed?.email ?? sessionUser?.email ?? ''
+  const userImage = confirmed?.image !== undefined ? confirmed.image : (sessionUser?.image ?? null)
+  const username =
+    confirmed?.displayUsername ?? sessionUser?.displayUsername ?? sessionUser?.username ?? ''
+  const confirmProfile = (values: NonNullable<typeof confirmedProfile>['values']) => {
+    const user = currentUserRef.current
+    if (!user || user.id !== userId) return
+    setConfirmedProfile((previous) => ({
+      user,
+      values: { ...(previous?.user === user ? previous.values : {}), ...values },
+    }))
+  }
 
   // Telemetry state from general store
   const storeIsLoading = useGeneralStore((state) => state.isLoading)
@@ -63,8 +84,6 @@ export function AccountSettings() {
     }
   }
 
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
   const [profilePictureError, setProfilePictureError] = useState<string | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
@@ -76,41 +95,72 @@ export function AccountSettings() {
   const [editingNameValue, setEditingNameValue] = useState('')
   const [isUpdatingName, setIsUpdatingName] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
-  const [userImage, setUserImage] = useState<string | null>(null)
-  const [avatarVersion, setAvatarVersion] = useState<number | null>(null)
+  const [usernameEdit, setUsernameEdit] = useState<{
+    userId: string
+    value: string
+    pending?: boolean
+    error?: string
+  } | null>(null)
+  const editingUsername = usernameEdit?.userId === userId ? usernameEdit : null
+  const usernameRequestRef = useRef<symbol | null>(null)
 
   const editNameInputRef = useRef<HTMLInputElement>(null)
   const nameEditActionRef = useRef<'save' | 'cancel' | null>(null)
 
-  const updateUserImage = async (imageUrl: string | null) => {
+  useEffect(() => {
+    setIsEditingName(false)
+    setIsUpdatingName(false)
+    setNameError(null)
+    setProfilePictureError(null)
+    setUsernameEdit(null)
+    usernameRequestRef.current = null
+  }, [userId])
+
+  const commitEditingUsername = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!userId || !editingUsername || usernameRequestRef.current) return
+    const value = editingUsername.value.trim()
+    if (!value) {
+      setUsernameEdit({ ...editingUsername, error: tAccount('status.usernameRequired') })
+      return
+    }
+    const request = Symbol()
+    usernameRequestRef.current = request
+    const isCurrent = () =>
+      currentUserRef.current?.id === userId && usernameRequestRef.current === request
+    setUsernameEdit({ ...editingUsername, value, pending: true, error: undefined })
     try {
-      const response = await fetch('/api/users/me/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageUrl }),
-      })
+      const result = await client.updateUser({ username: value, displayUsername: value })
+      if (result.error) throw result.error
+      if (!isCurrent()) return
+      confirmProfile({ displayUsername: value })
+      if (isCurrent()) setUsernameEdit(null)
+    } catch (cause) {
+      if (!isCurrent()) return
+      const code = normalizeAuthErrorCode((cause as { code?: string })?.code)
+      const error =
+        code === 'USERNAME_IS_ALREADY_TAKEN'
+          ? tAccount('status.usernameTaken')
+          : code === 'USERNAME_TOO_SHORT' || code === 'USERNAME_TOO_LONG'
+            ? tAccount('status.usernameLength')
+            : code === 'INVALID_USERNAME'
+              ? tAccount('status.usernameInvalid')
+              : tAccount('status.usernameUpdateError')
+      setUsernameEdit({ userId, value, error })
+    } finally {
+      if (isCurrent()) usernameRequestRef.current = null
+    }
+  }
 
-      if (!response.ok) {
-        throw new Error(
-          imageUrl
-            ? tAccount('status.profilePictureUpdateError')
-            : tAccount('status.profilePictureRemoveError')
-        )
-      }
-
-      setUserImage(imageUrl)
-      const version = Date.now()
-      setAvatarVersion(version)
-      if (typeof window !== 'undefined') {
-        if (userId) {
-          window.localStorage.setItem(`user-avatar-version-${userId}`, String(version))
-          window.localStorage.setItem(`user-avatar-url-${userId}`, imageUrl ?? '')
-        }
-        window.dispatchEvent(
-          new CustomEvent('user-avatar-updated', { detail: { url: imageUrl, version } })
-        )
-      }
+  const updateUserImage = async (imageUrl: string | null) => {
+    if (!userId || currentUserRef.current?.id !== userId) return
+    try {
+      const result = await client.updateUser({ image: imageUrl })
+      if (result.error) throw new Error(tAccount('status.profilePictureUpdateError'))
+      if (currentUserRef.current?.id !== userId) return
+      confirmProfile({ image: imageUrl })
     } catch (error) {
+      if (currentUserRef.current?.id !== userId) return
       logger.error('Failed to update profile picture', error)
       const errorMessage =
         error instanceof Error ? error.message : tAccount('status.unableToUpdateProfilePicture')
@@ -138,47 +188,6 @@ export function AccountSettings() {
       },
     })
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!session?.user) return
-
-      try {
-        const response = await fetch('/api/users/me/profile')
-        if (!response.ok) {
-          throw new Error('Failed to fetch profile')
-        }
-
-        const data = await response.json()
-        setName(data.user.name)
-        setEmail(data.user.email)
-        setUserImage(data.user.image || null)
-        setAvatarVersion(data.user.updatedAt ? new Date(data.user.updatedAt).getTime() : Date.now())
-        if (typeof window !== 'undefined' && userId) {
-          const version = toEpochMillis(data.user.updatedAt) ?? Date.now()
-          window.localStorage.setItem(`user-avatar-version-${userId}`, String(version))
-          window.localStorage.setItem(`user-avatar-url-${userId}`, data.user.image ?? '')
-          window.localStorage.setItem(`user-name-${userId}`, data.user.name ?? '')
-        }
-      } catch (error) {
-        logger.error('Error fetching profile:', error)
-        setName(session?.user?.name ?? '')
-        setEmail(session?.user?.email ?? '')
-        setUserImage(session?.user?.image ?? null)
-        setAvatarVersion(
-          session?.user?.updatedAt ? new Date(session.user.updatedAt).getTime() : Date.now()
-        )
-        if (typeof window !== 'undefined' && userId) {
-          const version = toEpochMillis(session?.user?.updatedAt) ?? Date.now()
-          window.localStorage.setItem(`user-avatar-version-${userId}`, String(version))
-          window.localStorage.setItem(`user-avatar-url-${userId}`, session?.user?.image ?? '')
-          window.localStorage.setItem(`user-name-${userId}`, session?.user?.name ?? '')
-        }
-      }
-    }
-
-    void fetchProfile()
-  }, [session?.user, userId])
-
   const startEditingName = () => {
     setEditingNameValue(name)
     setIsEditingName(true)
@@ -196,6 +205,7 @@ export function AccountSettings() {
   }
 
   const commitEditingName = async () => {
+    if (!userId || isUpdatingName) return
     const trimmedName = editingNameValue.trim()
     if (!trimmedName) {
       setNameError(tAccount('status.nameRequiredValidation'))
@@ -211,40 +221,23 @@ export function AccountSettings() {
     setIsUpdatingName(true)
     setNameError(null)
     try {
-      const response = await fetch('/api/users/me/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmedName }),
-      })
-
-      if (!response.ok) {
-        setNameError(tAccount('status.failedUpdateName'))
-        editNameInputRef.current?.focus()
-        return
-      }
-
-      setName(trimmedName)
+      const result = await client.updateUser({ name: trimmedName })
+      if (result.error) throw result.error
+      if (currentUserRef.current?.id !== userId) return
+      confirmProfile({ name: trimmedName })
       setIsEditingName(false)
-      if (typeof window !== 'undefined') {
-        if (userId) {
-          window.localStorage.setItem(`user-name-${userId}`, trimmedName)
-        }
-        window.dispatchEvent(
-          new CustomEvent('user-name-updated', { detail: { name: trimmedName } })
-        )
-      }
     } catch (error) {
+      if (currentUserRef.current?.id !== userId) return
       logger.error('Error updating name:', error)
       setNameError(tAccount('status.unableToUpdateName'))
       editNameInputRef.current?.focus()
     } finally {
-      setIsUpdatingName(false)
+      if (currentUserRef.current?.id === userId) setIsUpdatingName(false)
     }
   }
 
   const handlePasswordReset = async () => {
-    const targetEmail = email || session?.user?.email
-    if (!targetEmail) {
+    if (!email) {
       setPasswordResetStatus({
         type: 'error',
         message: tAccount('status.noEmail'),
@@ -255,27 +248,11 @@ export function AccountSettings() {
     setIsSendingReset(true)
     setPasswordResetStatus(null)
     try {
-      const response = await fetch('/api/auth/forget-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: targetEmail,
-          redirectTo: authRedirectUrls.passwordResetUrl(),
-        }),
+      const result = await client.requestPasswordReset({
+        email,
+        redirectTo: authRedirectUrls.passwordResetUrl(),
       })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const rawMessage = errorData?.message ?? errorData?.error?.message ?? errorData?.error
-        const normalizedError =
-          typeof rawMessage === 'string' ? rawMessage.trim().toLowerCase() : ''
-
-        if (normalizedError.includes('email is required')) {
-          throw new Error(tAccount('status.noEmail'))
-        }
-
-        throw new Error(tAccount('status.passwordResetFailed'))
-      }
+      if (result.error) throw new Error(tAccount('status.passwordResetFailed'))
 
       setPasswordResetStatus({
         type: 'success',
@@ -320,21 +297,7 @@ export function AccountSettings() {
     }
   }
 
-  const avatarSrc = useMemo(() => {
-    // Keep showing the local preview (blob URL) while uploading.
-    if (previewUrl?.startsWith('blob:')) return previewUrl
-
-    const base = userImage || session?.user?.image || previewUrl || DEFAULT_AVATAR_SRC
-    if (!base) return DEFAULT_AVATAR_SRC
-
-    const version =
-      avatarVersion ??
-      (session?.user?.updatedAt ? new Date(session.user.updatedAt).getTime() : null)
-
-    if (!version || base === DEFAULT_AVATAR_SRC) return base
-    const separator = base.includes('?') ? '&' : '?'
-    return `${base}${separator}v=${version}`
-  }, [avatarVersion, previewUrl, session?.user?.image, session?.user?.updatedAt, userImage])
+  const avatarSrc = previewUrl || userImage || DEFAULT_AVATAR_SRC
 
   return (
     <div className='bg-background px-6 py-6'>
@@ -364,17 +327,13 @@ export function AccountSettings() {
                 disabled={isUploading}
               />
               <div className='relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-md border bg-muted shadow-sm'>
-                {avatarSrc ? (
-                  <Image
-                    src={avatarSrc}
-                    alt={name || session?.user?.name || tAccount('profilePictureAlt')}
-                    width={96}
-                    height={96}
-                    className='h-full w-full object-cover'
-                  />
-                ) : (
-                  <AgentIcon className='h-10 w-10 text-muted-foreground' />
-                )}
+                <Image
+                  src={avatarSrc}
+                  alt={name || tAccount('profilePictureAlt')}
+                  width={96}
+                  height={96}
+                  className='h-full w-full object-cover'
+                />
                 {isUploading && (
                   <div className='absolute inset-0 flex items-center justify-center rounded-md bg-black/40 text-white'>
                     <Loader2 className='h-5 w-5 animate-spin' />
@@ -478,8 +437,92 @@ export function AccountSettings() {
                 )}
               </div>
               <div className='space-y-1'>
+                <Label htmlFor='accountUsername'>{tAccount('username')}</Label>
+                {editingUsername ? (
+                  <form onSubmit={commitEditingUsername} className='space-y-1 py-1.5'>
+                    <div className='flex max-w-md items-center gap-2'>
+                      <Input
+                        id='accountUsername'
+                        value={editingUsername.value}
+                        onChange={(event) =>
+                          setUsernameEdit({
+                            ...editingUsername,
+                            value: event.target.value,
+                            error: undefined,
+                          })
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape' && !editingUsername.pending) {
+                            event.preventDefault()
+                            setUsernameEdit(null)
+                          }
+                        }}
+                        required
+                        minLength={3}
+                        maxLength={30}
+                        pattern='[a-zA-Z0-9_.]+'
+                        title={tAccount('usernameHint')}
+                        autoComplete='username'
+                        disabled={editingUsername.pending}
+                        aria-invalid={Boolean(editingUsername.error)}
+                        aria-describedby='account-username-hint'
+                        className='h-8 min-w-0 flex-1'
+                      />
+                      <Button
+                        type='submit'
+                        variant='ghost'
+                        size='icon'
+                        className='h-7 w-7'
+                        disabled={editingUsername.pending}
+                      >
+                        <Check className='h-3.5 w-3.5' />
+                        <span className='sr-only'>{tAccount('saveUsername')}</span>
+                      </Button>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='icon'
+                        className='h-7 w-7'
+                        onClick={() => setUsernameEdit(null)}
+                        disabled={editingUsername.pending}
+                      >
+                        <X className='h-3.5 w-3.5' />
+                        <span className='sr-only'>{tAccount('cancelEditingUsername')}</span>
+                      </Button>
+                    </div>
+                    {editingUsername.error && (
+                      <p role='alert' className='text-destructive text-xs'>
+                        {editingUsername.error}
+                      </p>
+                    )}
+                  </form>
+                ) : (
+                  <div className='flex items-center gap-2'>
+                    <p className='font-medium'>{username || '—'}</p>
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='icon'
+                      className='h-7 w-7'
+                      disabled={!userId}
+                      onClick={() => userId && setUsernameEdit({ userId, value: username })}
+                    >
+                      <Pencil className='h-3.5 w-3.5' />
+                      <span className='sr-only'>{tAccount('editUsername')}</span>
+                    </Button>
+                  </div>
+                )}
+                <p id='account-username-hint' className='text-muted-foreground text-xs'>
+                  {tAccount('usernameHint')}
+                </p>
+              </div>
+              <div className='space-y-1'>
                 <Label>{tAccount('emailAddress')}</Label>
-                <ChangeEmailForm email={email} onEmailChanged={setEmail} />
+                <ChangeEmailForm
+                  key={userId}
+                  email={email}
+                  onEmailChanged={(value) => confirmProfile({ email: value })}
+                />
                 <p className='text-muted-foreground text-xs'>{tAccount('emailHint')}</p>
               </div>
             </div>

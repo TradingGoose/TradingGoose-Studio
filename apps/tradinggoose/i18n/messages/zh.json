@@ -81,6 +81,8 @@
       "email": "邮箱",
       "password": "密码",
       "fullName": "全名",
+      "username": "用户名",
+      "enterYourUsername": "输入用户名",
       "workEmail": "工作邮箱",
       "enterYourEmail": "输入邮箱",
       "enterYourPassword": "输入密码",
@@ -224,6 +226,8 @@
       "eyebrow": "登录",
       "title": "欢迎回来",
       "description": "请输入您的登录信息",
+      "identifierLabel": "邮箱或用户名",
+      "identifierPlaceholder": "输入邮箱或用户名",
       "submit": "登录",
       "submitting": "登录中...",
       "divider": "或继续使用",
@@ -240,24 +244,20 @@
         "submitting": "发送中..."
       },
       "validation": {
-        "emailRequired": "邮箱为必填项。",
+        "identifierRequired": "邮箱或用户名为必填项。",
         "emailInvalid": "请输入有效的邮箱地址。",
         "passwordRequired": "密码为必填项。",
         "passwordEmpty": "密码不能为空。"
       },
       "errors": {
         "sessionExpired": "您的会话已过期，请重新登录。",
-        "emailSignInDisabled": "邮箱登录目前已禁用。",
-        "invalidCredentials": "邮箱或密码无效，请重试。",
-        "noAccount": "此邮箱未找到账户，请先注册。",
-        "missingCredentials": "请输入邮箱和密码。",
+        "invalidCredentials": "登录信息无效，请重试。",
         "emailPasswordDisabled": "邮箱和密码登录已禁用。",
-        "tooManyAttempts": "登录尝试次数过多，请稍后重试或重置密码。",
-        "accountLocked": "出于安全原因，您的账户已被锁定，请重置密码。",
         "network": "网络错误，请检查连接后重试。",
         "rateLimit": "请求过于频繁，请稍候再试。",
         "unableToSignIn": "无法登录。",
-        "unableToSignInNow": "当前无法登录，请稍后重试。"
+        "unableToSignInNow": "当前无法登录，请稍后重试。",
+        "verifyWithEmail": "请使用邮箱地址登录以验证您的账户。"
       }
     },
     "resetPassword": {
@@ -292,6 +292,7 @@
       "submitting": "正在创建账户...",
       "divider": "或继续使用",
       "nameTitle": "名称只能包含字母、空格、连字符和撇号",
+      "usernameHint": "使用 3–30 个字母、数字、下划线或英文句点。",
       "validation": {
         "emailRequired": "需要电子邮件。",
         "emailInvalid": "请输入有效的电子邮件地址。",
@@ -300,6 +301,9 @@
         "nameCharacters": "名称只能包含字母、空格、连字符和撇号。",
         "nameSpaces": "名称不能包含连续空格。",
         "nameTooLong": "姓名将被截断为100个字符。请缩短您的姓名。",
+        "usernameRequired": "用户名为必填项。",
+        "usernameInvalid": "只能使用字母、数字、下划线和英文句点。",
+        "usernameLength": "用户名长度必须为 3–30 个字符。",
         "passwordMinLength": "密码长度至少为8个字符。",
         "passwordUppercase": "密码必须包含至少一个大写字母。",
         "passwordLowercase": "密码必须包含至少一个小写字母。",
@@ -309,6 +313,7 @@
       "errors": {
         "failedToCreateAccount": "创建账户失败",
         "accountExists": "该邮箱已注册账户，请直接登录。",
+        "usernameTaken": "此用户名已被使用，请选择其他用户名。",
         "emailSignupDisabled": "邮箱注册当前已禁用。",
         "signupNotEnabled": "邮箱和密码注册功能未启用。",
         "waitlistRequired": "该邮箱尚未获批注册，请先加入等候名单。",
@@ -1874,6 +1879,11 @@
         "profileDetails": "个人资料详情",
         "profileDetailsDescription": "更新您的姓名并管理访问权限。",
         "fullName": "姓名",
+        "username": "用户名",
+        "usernameHint": "使用 3–30 个字母、数字、下划线或英文句点。可使用用户名或邮箱地址登录。",
+        "editUsername": "编辑用户名",
+        "saveUsername": "保存用户名",
+        "cancelEditingUsername": "取消编辑用户名",
         "emailAddress": "电子邮箱",
         "emailHint": "验证当前邮箱和新邮箱后，即可更改账户邮箱。",
         "passwordReset": "重置密码",
@@ -1900,13 +1910,16 @@
           "profilePictureFileTooLarge": "文件 {name} 过大，最大允许 5MB。",
           "profilePictureUnsupportedFormat": "文件 {name} 不是受支持的图片格式。请使用 PNG 或 JPEG。",
           "profilePictureUpdateError": "更新个人资料图片失败",
-          "profilePictureRemoveError": "移除个人资料图片失败",
           "unableToUpdateProfilePicture": "无法更新个人资料图片。",
-          "failedUpdateName": "更新姓名失败",
           "unableToUpdateName": "无法更新姓名。请重试。",
           "noEmail": "未找到此账户的电子邮件地址。",
           "passwordResetSent": "密码重置链接已发送至您的收件箱。",
-          "passwordResetFailed": "无法发送密码重置电子邮件。"
+          "passwordResetFailed": "无法发送密码重置电子邮件。",
+          "usernameUpdateError": "无法更新用户名，请重试。",
+          "usernameRequired": "用户名为必填项。",
+          "usernameInvalid": "只能使用字母、数字、下划线和英文句点。",
+          "usernameLength": "用户名长度必须为 3–30 个字符。",
+          "usernameTaken": "此用户名已被使用，请选择其他用户名。"
         },
         "emailChange": {
           "title": "更改账户邮箱",

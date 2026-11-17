@@ -14,13 +14,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { isSessionRecoveryAuthError, normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
+import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getAuthRegistrationHref, type RegistrationMode } from '@/lib/registration/shared'
+import { getRegistrationPrimaryHref, type RegistrationMode } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
@@ -34,7 +34,7 @@ import { clearUserData } from '@/stores'
 const logger = createLogger('LoginForm')
 const REAUTH_CLEANUP_TIMEOUT_MS = 4000
 
-const validateEmailField = (
+const validateIdentifierField = (
   emailValue: string,
   messages: {
     required: string
@@ -48,7 +48,7 @@ const validateEmailField = (
     return validationMessages
   }
 
-  if (!quickValidateEmail(emailValue.trim().toLowerCase()).isValid) {
+  if (emailValue.includes('@') && !quickValidateEmail(emailValue.trim().toLowerCase()).isValid) {
     validationMessages.push(messages.invalid)
   }
 
@@ -213,8 +213,8 @@ export default function LoginPage({
     const newEmail = e.target.value
     setEmail(newEmail)
 
-    const errors = validateEmailField(newEmail, {
-      required: loginCopy.validation.emailRequired,
+    const errors = validateIdentifierField(newEmail, {
+      required: loginCopy.validation.identifierRequired,
       invalid: loginCopy.validation.emailInvalid,
     })
     setEmailErrors(errors)
@@ -234,80 +234,38 @@ export default function LoginPage({
   }
 
   const isSessionRecoveryError = (error: any) =>
-    [
-      error?.code,
-      error?.error,
-      error?.message,
-      error?.response?.data?.error,
-      error?.response?.data?.message,
-    ].some((value) => {
-      return isSessionRecoveryAuthError(value)
-    })
+    isSessionRecoveryAuthError(error?.code, error?.message)
 
   const resolveLoginErrorMessage = (error: any) => {
-    const rawMessage =
-      error?.message ??
-      error?.response?.statusText ??
-      error?.response?.data?.error ??
-      error?.response?.data?.message
-    const message = typeof rawMessage === 'string' && rawMessage.trim() ? rawMessage.trim() : null
-    const authErrorCode =
-      normalizeAuthErrorCode(error?.code) ??
-      normalizeAuthErrorCode(message) ??
-      normalizeAuthErrorCode(error?.error)
-    const searchable = [authErrorCode, message, error?.code, error?.error]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-
-    if (authErrorCode?.includes('EMAIL_NOT_VERIFIED')) {
-      return null
+    const authErrorCode = error?.code
+    if (error?.status === 429) {
+      return loginCopy.errors.rateLimit
+    }
+    if (authErrorCode === 'EMAIL_NOT_VERIFIED') {
+      return email.includes('@') ? null : loginCopy.errors.verifyWithEmail
+    }
+    if (authErrorCode === 'USERNAME_TOO_SHORT' || authErrorCode === 'USERNAME_TOO_LONG') {
+      return copy.auth.signup.validation.usernameLength
+    }
+    if (authErrorCode === 'INVALID_USERNAME') {
+      return copy.auth.signup.validation.usernameInvalid
+    }
+    if (authErrorCode === 'INVALID_EMAIL') {
+      return loginCopy.validation.emailInvalid
     }
     if (
-      authErrorCode === 'EMAIL_AND_PASSWORD_SIGN_IN_IS_NOT_ENABLED' ||
-      authErrorCode === 'BAD_REQUEST' ||
-      searchable.includes('email and password sign in is not enabled')
-    ) {
-      return loginCopy.errors.emailSignInDisabled
-    }
-    if (
-      authErrorCode === 'INVALID_CREDENTIALS' ||
-      authErrorCode === 'INVALID_PASSWORD' ||
-      searchable.includes('invalid password')
+      authErrorCode === 'INVALID_EMAIL_OR_PASSWORD' ||
+      authErrorCode === 'INVALID_USERNAME_OR_PASSWORD'
     ) {
       return loginCopy.errors.invalidCredentials
-    }
-    if (
-      authErrorCode === 'USER_NOT_FOUND' ||
-      authErrorCode === 'NOT_FOUND' ||
-      searchable.includes('not found')
-    ) {
-      return loginCopy.errors.noAccount
-    }
-    if (authErrorCode === 'MISSING_CREDENTIALS') {
-      return loginCopy.errors.missingCredentials
     }
     if (authErrorCode === 'EMAIL_PASSWORD_DISABLED') {
       return loginCopy.errors.emailPasswordDisabled
     }
-    if (authErrorCode === 'TOO_MANY_ATTEMPTS' || searchable.includes('too many attempts')) {
-      return loginCopy.errors.tooManyAttempts
-    }
-    if (authErrorCode === 'ACCOUNT_LOCKED' || searchable.includes('account locked')) {
-      return loginCopy.errors.accountLocked
-    }
-    if (authErrorCode === 'NETWORK_ERROR' || searchable.includes('network')) {
+    if (error instanceof Error && /network|fetch/i.test(error.message)) {
       return loginCopy.errors.network
     }
-    if (
-      authErrorCode === 'RATE_LIMIT' ||
-      authErrorCode === 'TOO_MANY_REQUESTS' ||
-      searchable.includes('rate limit')
-    ) {
-      return loginCopy.errors.rateLimit
-    }
-
-    return message ?? undefined
+    return typeof error?.message === 'string' ? error.message.trim() || undefined : undefined
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -316,10 +274,11 @@ export default function LoginPage({
 
     const formData = new FormData(e.currentTarget)
     const emailRaw = formData.get('email') as string
-    const email = emailRaw.trim().toLowerCase()
+    const isEmail = emailRaw.includes('@')
+    const email = isEmail ? emailRaw.trim().toLowerCase() : emailRaw.trim()
 
-    const emailValidationErrors = validateEmailField(email, {
-      required: loginCopy.validation.emailRequired,
+    const emailValidationErrors = validateIdentifierField(email, {
+      required: loginCopy.validation.identifierRequired,
       invalid: loginCopy.validation.emailInvalid,
     })
     setEmailErrors(emailValidationErrors)
@@ -340,68 +299,15 @@ export default function LoginPage({
     try {
       await prepareAuthStart()
 
-      let requiresReauthCleanup = false
-      const result = await client.signIn.email(
-        {
-          email,
-          password,
-          callbackURL: authRedirectUrls.providerCallbackPath(callbackUrl),
-        },
-        {
-          onError: (ctx) => {
-            console.error('Login error:', ctx.error)
-            if (isSessionRecoveryError(ctx.error)) {
-              requiresReauthCleanup = true
-              return
-            }
-
-            const errorMessage: string[] = []
-            const resolvedMessage = resolveLoginErrorMessage(ctx.error)
-
-            if (resolvedMessage === null) {
-              return
-            }
-
-            if (resolvedMessage) {
-              errorMessage.push(resolvedMessage)
-            }
-
-            if (errorMessage.length === 0) {
-              errorMessage.push(loginCopy.errors.unableToSignInNow)
-            }
-
-            setPasswordErrors(errorMessage)
-            setShowValidationError(true)
-          },
-        }
-      )
-
-      if (!result || result.error) {
-        if (requiresReauthCleanup || isSessionRecoveryError(result?.error)) {
-          shouldRunReauthCleanupRef.current = true
-          void runReauthCleanup()
-          setPasswordErrors([loginCopy.errors.unableToSignInNow])
-          setShowValidationError(true)
-          setIsLoading(false)
-          return
-        }
-
-        const message =
-          resolveLoginErrorMessage(result?.error) ?? loginCopy.errors.unableToSignInNow
-
-        setPasswordErrors([message])
-        setShowValidationError(true)
-        setIsLoading(false)
-        return
+      const credentials = {
+        password,
+        callbackURL: authRedirectUrls.providerCallbackPath(callbackUrl),
       }
+      const { error } = isEmail
+        ? await client.signIn.email({ email, ...credentials })
+        : await client.signIn.username({ username: email, ...credentials })
+      if (error) throw error
     } catch (err: any) {
-      if (err.message?.includes('not verified') || err.code?.includes('EMAIL_NOT_VERIFIED')) {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('verificationEmail', email)
-        }
-        router.push('/verify')
-        return
-      }
       if (isSessionRecoveryError(err)) {
         shouldRunReauthCleanupRef.current = true
         void runReauthCleanup()
@@ -410,7 +316,15 @@ export default function LoginPage({
         return
       }
 
-      console.error('Uncaught login error:', err)
+      const message = resolveLoginErrorMessage(err)
+      if (message === null) {
+        sessionStorage.setItem('verificationEmail', email)
+        router.push('/verify')
+        return
+      }
+      logger.error('Login error:', err)
+      setPasswordErrors([message ?? loginCopy.errors.unableToSignInNow])
+      setShowValidationError(true)
     } finally {
       setIsLoading(false)
     }
@@ -438,42 +352,12 @@ export default function LoginPage({
       setIsSubmittingReset(true)
       setResetStatus({ type: null, message: '' })
 
-      const response = await fetch('/api/auth/forget-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: forgotPasswordEmail,
-          redirectTo: authRedirectUrls.passwordResetUrl(),
-        }),
+      const { error } = await client.requestPasswordReset({
+        email: forgotPasswordEmail.trim().toLowerCase(),
+        redirectTo: authRedirectUrls.passwordResetUrl(),
       })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const rawMessage =
-          errorData?.message ??
-          errorData?.error?.message ??
-          errorData?.error ??
-          loginCopy.resetDialog.error
-        const errorMessage =
-          typeof rawMessage === 'string' ? rawMessage : loginCopy.resetDialog.error
-        const normalizedErrorMessage = errorMessage.toLowerCase()
-
-        if (
-          normalizedErrorMessage.includes('invalid body parameters') ||
-          normalizedErrorMessage.includes('invalid email')
-        ) {
-          throw new Error(loginCopy.resetDialog.emailInvalid)
-        }
-        if (normalizedErrorMessage.includes('email is required')) {
-          throw new Error(loginCopy.resetDialog.emailRequired)
-        }
-        if (normalizedErrorMessage.includes('user not found')) {
-          throw new Error(loginCopy.errors.noAccount)
-        }
-
-        throw new Error(errorMessage)
+      if (error) {
+        throw new Error(error.message || loginCopy.resetDialog.error)
       }
 
       setResetStatus({
@@ -503,7 +387,7 @@ export default function LoginPage({
   const showWaitlistNote = registrationMode === 'waitlist' && !isInviteFlow
   const registrationHref = isInviteFlow
     ? `/signup?invite_flow=true&callbackUrl=${encodeURIComponent(callbackUrl)}`
-    : getAuthRegistrationHref(registrationMode)
+    : getRegistrationPrimaryHref(registrationMode)
   const registrationLabel = isInviteFlow ? commonCopy.signUp : authRegistrationLabel
 
   return (
@@ -520,16 +404,16 @@ export default function LoginPage({
         <div className='space-y-6'>
           <div className='space-y-2' suppressHydrationWarning>
             <div className='flex items-center justify-between'>
-              <Label htmlFor='email'>{commonCopy.email}</Label>
+              <Label htmlFor='email'>{loginCopy.identifierLabel}</Label>
             </div>
             <Input
               id='email'
               name='email'
               suppressHydrationWarning
-              placeholder={commonCopy.enterYourEmail}
+              placeholder={loginCopy.identifierPlaceholder}
               required
               autoCapitalize='none'
-              autoComplete='email'
+              autoComplete='username'
               autoCorrect='off'
               value={email}
               onChange={handleEmailChange}

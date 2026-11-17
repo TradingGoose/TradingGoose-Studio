@@ -11,13 +11,7 @@ import {
   getOAuthState,
 } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
-import {
-  customSession,
-  emailOTP,
-  genericOAuth,
-  oneTimeToken,
-  organization,
-} from 'better-auth/plugins'
+import { emailOTP, genericOAuth, oneTimeToken, organization, username } from 'better-auth/plugins'
 import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
@@ -42,7 +36,6 @@ import { getBillingGateState } from '@/lib/billing/settings'
 import { createStripeUserCustomer } from '@/lib/billing/stripe-customers'
 import { hydrateSubscriptionsWithTiers } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
-import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { handleManualEnterpriseSubscription } from '@/lib/billing/webhooks/enterprise'
 import {
   handleInvoiceFinalized,
@@ -668,7 +661,15 @@ export const auth = betterAuth({
     },
     session: {
       create: {
-        before: async (session) => {
+        before: async (session, context) => {
+          if (context?.path === '/sign-in/username') {
+            const user = await context.context.internalAdapter.findUserById(session.userId)
+            if (!user || !isLoginEmailAllowed(user.email)) {
+              throw new APIError('FORBIDDEN', {
+                message: 'Access restricted. Please contact your administrator.',
+              })
+            }
+          }
           try {
             // Find the first organization this user is a member of
             const members = await db
@@ -724,9 +725,6 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: isEmailVerificationEnabled,
-    sendVerificationOnSignUp: false,
-    throwOnMissingCredentials: true,
-    throwOnInvalidCredentials: true,
     sendResetPassword: async ({ user, url, token }, request) => {
       const username = user.name || ''
       const locale = await resolveEmailLocale({ userId: user.id, email: user.email })
@@ -753,6 +751,15 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      if (
+        ctx.path === '/sign-up/email' &&
+        (typeof ctx.body?.username !== 'string' || !ctx.body.username.trim())
+      ) {
+        throw new APIError('BAD_REQUEST', {
+          code: 'USERNAME_REQUIRED',
+          message: 'Username is required',
+        })
+      }
       const isEmailChange =
         ctx.path === '/email-otp/request-email-change' || ctx.path === '/email-otp/change-email'
       const isCurrentEmailVerification =
@@ -860,13 +867,10 @@ export const auth = betterAuth({
     }),
   },
   plugins: [
+    username(),
     oneTimeToken({
       expiresIn: 24 * 60 * 60, // 24 hours - Socket.IO handles connection persistence with heartbeats
     }),
-    customSession(async ({ user, session }) => ({
-      user,
-      session,
-    })),
     emailOTP({
       // https://better-auth.com/docs/1.6/plugins/email-otp#confirming-with-current-email
       changeEmail: { enabled: true, verifyCurrentEmail: true },
@@ -1787,7 +1791,15 @@ export const auth = betterAuth({
       ] as SystemManagedGenericOAuthConfig[]),
     }),
     // Include SSO plugin when enabled
-    ...(env.SSO_ENABLED ? [sso()] : []),
+    ...(env.SSO_ENABLED
+      ? [
+          sso({
+            domainVerification: { enabled: true },
+            // Studio's invitations and seat checks own organization membership.
+            organizationProvisioning: { disabled: true },
+          }),
+        ]
+      : []),
     // Stripe is deployment-owned and env-backed; update it through deployment secrets.
     stripe({
       stripeClient,
@@ -1935,14 +1947,6 @@ export const auth = betterAuth({
       },
       // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
       membershipLimit: 50,
-      // Validate seat limits before sending invitations
-      beforeInvite: async ({ organization }: { organization: { id: string } }) => {
-        const seatValidation = await validateSeatAvailability(organization.id)
-
-        if (!seatValidation.canInvite) {
-          throw new Error(seatValidation.reason ?? 'Unable to invite member')
-        }
-      },
       sendInvitationEmail: async (data: any) => {
         try {
           const { invitation, organization, inviter } = data
@@ -1975,31 +1979,11 @@ export const auth = betterAuth({
           logger.error('Error sending invitation email', { error })
         }
       },
-      organizationCreation: {
-        afterCreate: async ({
-          organization,
-          user,
-        }: {
-          organization: { id: string }
-          user: { id: string }
-        }) => {
-          logger.info('[organizationCreation.afterCreate] Organization created', {
-            organizationId: organization.id,
-            creatorId: user.id,
-          })
-        },
-      },
     }),
     nextCookies(),
   ],
   onAPIError: {
     errorURL: '/error',
-  },
-  pages: {
-    signIn: '/login',
-    signUp: '/signup',
-    error: '/error',
-    verify: '/verify',
   },
 })
 
@@ -2014,6 +1998,3 @@ export async function getSession(headersOverride?: Headers) {
     return null
   }
 }
-
-export const signIn = auth.api.signInEmail
-export const signUp = auth.api.signUpEmail

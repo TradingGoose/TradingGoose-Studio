@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { Messages } from 'next-intl'
 import { useLocale } from 'next-intl'
-import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useRouter } from '@/i18n/navigation'
@@ -13,58 +12,21 @@ import { type LocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
 const logger = createLogger('useVerification')
 type VerifyCopy = Messages['auth']['verify']
 
-const VERIFICATION_ERROR_CODE_GROUPS = {
-  expired: new Set([
-    'TOKEN_EXPIRED',
-    'EXPIRED_TOKEN',
-    'VERIFICATION_CODE_EXPIRED',
-    'EXPIRED_VERIFICATION_CODE',
-    'OTP_EXPIRED',
-    'CODE_EXPIRED',
-  ]),
-  invalid: new Set([
-    'INVALID_TOKEN',
-    'INVALID_VERIFICATION_CODE',
-    'INVALID_OTP',
-    'OTP_INVALID',
-    'INVALID_CODE',
-  ]),
-  attempts: new Set([
-    'TOO_MANY_ATTEMPTS',
-    'TOO_MANY_FAILED_ATTEMPTS',
-    'MAX_ATTEMPTS_EXCEEDED',
-    'OTP_TOO_MANY_ATTEMPTS',
-    'RATE_LIMIT',
-  ]),
-} as const
-
-export function resolveVerificationFailureMessage(copy: VerifyCopy, error: unknown) {
+function resolveVerificationFailureMessage(copy: VerifyCopy, error: unknown) {
   const { errors: failureCopy } = copy
-  const code =
-    error && typeof error === 'object' && 'code' in error
-      ? String((error as { code?: unknown }).code ?? '')
-      : ''
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === 'string'
-        ? error
-        : error && typeof error === 'object' && 'message' in error
-          ? String((error as { message?: unknown }).message ?? '')
-          : ''
-
-  const normalizedErrorCode = normalizeAuthErrorCode(code) ?? normalizeAuthErrorCode(message)
-  if (normalizedErrorCode && VERIFICATION_ERROR_CODE_GROUPS.expired.has(normalizedErrorCode)) {
-    return failureCopy.expired
-  }
-  if (normalizedErrorCode && VERIFICATION_ERROR_CODE_GROUPS.invalid.has(normalizedErrorCode)) {
-    return failureCopy.invalid
-  }
-  if (normalizedErrorCode && VERIFICATION_ERROR_CODE_GROUPS.attempts.has(normalizedErrorCode)) {
+  if (error && typeof error === 'object' && 'status' in error && error.status === 429) {
     return failureCopy.attempts
   }
-
-  return failureCopy.generic
+  switch (error && typeof error === 'object' && 'code' in error ? error.code : null) {
+    case 'OTP_EXPIRED':
+      return failureCopy.expired
+    case 'INVALID_OTP':
+      return failureCopy.invalid
+    case 'TOO_MANY_ATTEMPTS':
+      return failureCopy.attempts
+    default:
+      return failureCopy.generic
+  }
 }
 
 interface UseVerificationParams {
@@ -105,7 +67,6 @@ export function useVerification({
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isVerified, setIsVerified] = useState(false)
-  const [isSendingInitialOtp, setIsSendingInitialOtp] = useState(false)
   const [isInvalidOtp, setIsInvalidOtp] = useState(false)
   const [failureMessage, setFailureMessage] = useState('')
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
@@ -158,12 +119,6 @@ export function useVerification({
     }
   }, [searchParams])
 
-  useEffect(() => {
-    if (email && !isSendingInitialOtp && hasEmailService) {
-      setIsSendingInitialOtp(true)
-    }
-  }, [email, isSendingInitialOtp, hasEmailService])
-
   const isOtpComplete = otp.length === 6
 
   async function persistPreferredLocale() {
@@ -192,49 +147,38 @@ export function useVerification({
 
     try {
       const normalizedEmail = email.trim().toLowerCase()
-      const response = await client.emailOtp.verifyEmail({
+      const { error } = await client.emailOtp.verifyEmail({
         email: normalizedEmail,
         otp,
       })
 
-      if (response && !response.error) {
-        setIsVerified(true)
+      if (error) throw error
+      setIsVerified(true)
 
-        try {
-          await refetchSession()
-        } catch (e) {
-          logger.warn('Failed to refetch session after verification', e)
-        }
-
-        await persistPreferredLocale()
-
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('verificationEmail')
-
-          if (isInviteFlow) {
-            sessionStorage.removeItem('inviteRedirectUrl')
-            sessionStorage.removeItem('isInviteFlow')
-          }
-        }
-
-        setTimeout(() => {
-          if (isInviteFlow && redirectUrl) {
-            router.push(redirectUrl)
-          } else {
-            router.push('/workspace')
-          }
-        }, 1000)
-      } else {
-        logger.info('Setting invalid OTP state - API error response')
-        const message = failureCopy.invalid
-        setIsInvalidOtp(true)
-        setFailureMessage(message)
-        logger.info('Error state after API error:', {
-          isInvalidOtp: true,
-          failureMessage: message,
-        })
-        setOtp('')
+      try {
+        await refetchSession()
+      } catch (e) {
+        logger.warn('Failed to refetch session after verification', e)
       }
+
+      await persistPreferredLocale()
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('verificationEmail')
+
+        if (isInviteFlow) {
+          sessionStorage.removeItem('inviteRedirectUrl')
+          sessionStorage.removeItem('isInviteFlow')
+        }
+      }
+
+      setTimeout(() => {
+        if (isInviteFlow && redirectUrl) {
+          router.push(redirectUrl)
+        } else {
+          router.push('/workspace')
+        }
+      }, 1000)
     } catch (error: unknown) {
       const message = resolveVerificationFailureMessage(copy, error)
 
@@ -263,6 +207,9 @@ export function useVerification({
       .sendVerificationOtp({
         email: normalizedEmail,
         type: 'email-verification',
+      })
+      .then(({ error }) => {
+        if (error) throw error
       })
       .catch(() => {
         setFailureMessage(failureCopy.resendFailed)

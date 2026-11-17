@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 
+import { inflateRawSync } from 'node:zlib'
 import { sso } from '@better-auth/sso'
 import { betterAuth } from 'better-auth'
 import { organization, testUtils } from 'better-auth/plugins'
@@ -65,6 +66,30 @@ vi.mock('@/lib/security/input-validation', () => ({
   validateExternalUrl: vi.fn(() => ({ isValid: true })),
 }))
 
+// Public IdP certificate from Better Auth v1.6.34 packages/sso/src/saml.test.ts.
+const certificate = `-----BEGIN CERTIFICATE-----
+MIIDlzCCAn+gAwIBAgIJAO1ymQc33+bWMA0GCSqGSIb3DQEBCwUAMGIxCzAJBgNV
+BAYTAkhLMRMwEQYDVQQIDApTb21lLVN0YXRlMRowGAYDVQQKDBFJZGVudGl0eSBQ
+cm92aWRlcjEUMBIGA1UECwwLRGV2ZWxvcG1lbnQxDDAKBgNVBAMMA0lEUDAeFw0x
+NTA3MDUxODAyMjdaFw0xODA3MDQxODAyMjdaMGIxCzAJBgNVBAYTAkhLMRMwEQYD
+VQQIDApTb21lLVN0YXRlMRowGAYDVQQKDBFJZGVudGl0eSBQcm92aWRlcjEUMBIG
+A1UECwwLRGV2ZWxvcG1lbnQxDDAKBgNVBAMMA0lEUDCCASIwDQYJKoZIhvcNAQEB
+BQADggEPADCCAQoCggEBAODZsWhCe+yG0PalQPTUoD7yko5MTWMCRxJ8hSm2k7mG
+3Eg/Y2v0EBdCmTw7iDCevRqUmbmFnq7MROyV4eriJzh0KabAdZf7/k6koghst3ZU
+tWOwzshyxkBtWDwGmBpQGTGsKxJ8M1js3aSqNRXBT4OBWM9w2Glt1+8ty30RhYv3
+pSF+/HHLH7Ac+vLSIAlokaFW34RWTcJ/8rADuRWlXih4GfnIu0W/ncm5nTSaJiRA
+vr3dGDRO/khiXoJdbbOj7dHPULxVGbH9IbPK76TCwLbF7ikIMsPovVbTrpyL6vsb
+VUKeEl/5GKppTwp9DLAOeoSYpCYkkDkYKu9TRQjF02MCAwEAAaNQME4wHQYDVR0O
+BBYEFP2ut2AQdy6D1dwdwK740IHmbh38MB8GA1UdIwQYMBaAFP2ut2AQdy6D1dwd
+wK740IHmbh38MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBANMZUoPN
+mHzgja2PYkbvBYMHmpvUkVoiuvQ9cJPlqGTB2CRfG68BNNs/Clz8P7cIrAdkhCUw
+i1rSBhDuslGFNrSaIpv6B10FpBuKwef3G7YrPWFNEN6khY7aHNWSTHqKgs1DrGef
+2B9hvkrnHWbQVSVXrBFKe1wTCqcgGcOpYoSK7L8C6iX6uIA/uZYnVQ4NgBrizJ0a
+zkjdegz3hwO/gt4malEURy8D85/AAVt6PAzhpb9VJUGxSXr/EfntVUEz3L2gUFWW
+k1CnZFyz0rIOEt/zPmeAY8BLyd/Tjxm4Y+gwNazKq5y9AJS+m858b/nM4QdCnUE4
+yyoWAJDUHiAmvFA=
+-----END CERTIFICATE-----`
+
 function oidcRegistrationRequest(headers: HeadersInit = { 'content-type': 'application/json' }) {
   return new NextRequest('http://localhost:3000/api/auth/sso/register', {
     method: 'POST',
@@ -76,6 +101,7 @@ function oidcRegistrationRequest(headers: HeadersInit = { 'content-type': 'appli
       providerType: 'oidc',
       clientId: 'client-id',
       clientSecret: 'client-secret',
+      scopes: ['openid', 'profile', 'email', 'offline_access'],
     }),
   })
 }
@@ -291,43 +317,70 @@ describe('SSO register route', () => {
     expect(mockRegisterSSOProvider).toHaveBeenCalled()
   })
 
-  it('rejects legacy manual oidc endpoint override fields', async () => {
-    mockGetSession.mockResolvedValue({
-      user: {
-        id: 'user-1',
+  it.each([
+    {
+      providerType: 'oidc',
+      config: {
+        clientId: 'client-id',
+        clientSecret: 'secret',
+        authorizationEndpoint: 'https://issuer.example.com/authorize',
       },
-      session: {
-        activeOrganizationId: 'org-1',
+      code: 'unrecognized_keys',
+    },
+    {
+      providerType: 'saml',
+      config: {
+        entryPoint: 'https://issuer.example.com/saml',
+        cert: 'certificate',
+        clientId: 'unsupported',
       },
-    })
-
-    const { POST } = await import('./route')
-    const response = await POST(
-      new NextRequest('http://localhost/api/auth/sso/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          providerId: 'okta',
-          issuer: 'https://issuer.example.com',
-          domain: 'example.com',
-          providerType: 'oidc',
-          clientId: 'client-id',
-          clientSecret: 'client-secret',
-          authorizationEndpoint: 'https://issuer.example.com/oauth2/v1/authorize',
-        }),
-        headers: {
-          'content-type': 'application/json',
+      code: 'unrecognized_keys',
+    },
+    {
+      providerType: 'oidc',
+      config: { clientId: 'client-id', clientSecret: 'secret', scopes: 'openid,profile,email' },
+      code: 'invalid_type',
+    },
+  ])(
+    'rejects unsupported $providerType registration input with $code before discovery',
+    async ({ providerType, config, code }) => {
+      mockGetSession.mockResolvedValue({
+        user: {
+          id: 'user-1',
+        },
+        session: {
+          activeOrganizationId: 'org-1',
         },
       })
-    )
 
-    expect(response.status).toBe(400)
-    await expect(response.json()).resolves.toEqual({
-      error:
-        'Manual OIDC endpoint overrides are not supported: authorizationEndpoint. Configure OIDC using the issuer URL only.',
-    })
-    expect(fetch).not.toHaveBeenCalled()
-    expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
-  })
+      const { POST } = await import('./route')
+      const response = await POST(
+        new NextRequest('http://localhost/api/auth/sso/register', {
+          method: 'POST',
+          body: JSON.stringify({
+            providerId: 'okta',
+            issuer: 'https://issuer.example.com',
+            domain: 'example.com',
+            providerType,
+            ...config,
+          }),
+          headers: {
+            'content-type': 'application/json',
+          },
+        })
+      )
+
+      expect(response.status).toBe(400)
+      await expect(response.json()).resolves.toEqual({
+        error: expect.any(String),
+      })
+      expect(mockLogger.warn).toHaveBeenCalledWith('Invalid SSO registration request', {
+        errors: expect.arrayContaining([expect.objectContaining({ code })]),
+      })
+      expect(fetch).not.toHaveBeenCalled()
+      expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
+    }
+  )
 
   it('registers oidc providers for the active organization via issuer discovery', async () => {
     mockGetSession.mockResolvedValue({
@@ -401,9 +454,7 @@ describe('SSO register route', () => {
           },
         }),
       }),
-      headers: expect.objectContaining({
-        'content-type': 'application/json',
-      }),
+      headers: expect.any(Headers),
     })
     expect(mockIsOrganizationOwnerOrAdmin).toHaveBeenCalledWith('user-1', 'org-1')
   })
@@ -448,9 +499,7 @@ describe('SSO register route', () => {
           callbackUrl: 'http://localhost:3000/api/auth/sso/saml2/sp/acs/okta-saml',
         }),
       }),
-      headers: expect.objectContaining({
-        'content-type': 'application/json',
-      }),
+      headers: expect.any(Headers),
     })
   })
 
@@ -538,9 +587,78 @@ describe('SSO register route', () => {
     })
     expect(JSON.parse(stored!.oidcConfig)).toMatchObject({
       tokenEndpointAuthentication: 'client_secret_post',
+      scopes: ['openid', 'profile', 'email'],
       authorizationEndpoint: `${issuer}/authorize`,
       tokenEndpoint: `${issuer}/token`,
       jwksEndpoint: `${issuer}/jwks`,
     })
+  })
+
+  it('lets native SAML generate SP metadata and an AuthnRequest for the registered ACS', async () => {
+    const baseURL = 'http://localhost:3000'
+    const issuer = 'https://idp.example.com'
+    const providerId = 'okta-saml'
+    const nativeAuth = betterAuth({
+      baseURL,
+      secret: 'saml-registration-integration-secret-long-enough',
+      plugins: [sso(), organization(), testUtils()],
+    })
+    const context = await nativeAuth.$context
+    await context.test.saveUser(
+      context.test.createUser({ id: 'owner', email: 'owner@example.com' })
+    )
+    const { headers } = await context.test.login({ userId: 'owner' })
+    const org = await nativeAuth.api.createOrganization({
+      headers,
+      body: { name: 'Example', slug: 'example' },
+    })
+    await nativeAuth.api.setActiveOrganization({ headers, body: { organizationId: org!.id } })
+    mockGetSession.mockImplementation((requestHeaders) =>
+      nativeAuth.api.getSession({ headers: requestHeaders })
+    )
+    mockRegisterSSOProvider.mockImplementation((input) => nativeAuth.api.registerSSOProvider(input))
+    headers.set('content-type', 'application/json')
+    headers.set('origin', baseURL)
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest(`${baseURL}/api/auth/sso/register`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          providerId,
+          issuer,
+          domain: 'example.com',
+          providerType: 'saml',
+          entryPoint: `${issuer}/sso`,
+          cert: certificate,
+          wantAssertionsSigned: true,
+        }),
+      })
+    )
+    expect(response.status).toBe(200)
+    const stored = await context.adapter.findOne<{ samlConfig: string }>({
+      model: 'ssoProvider',
+      where: [{ field: 'providerId', value: providerId }],
+    })
+    expect(JSON.parse(stored!.samlConfig).spMetadata).toEqual({})
+    expect(JSON.parse(stored!.samlConfig).wantAssertionsSigned).toBe(true)
+    const metadata = await nativeAuth.api.spMetadata({
+      query: { providerId, format: 'xml' },
+      asResponse: true,
+    })
+    const xml = await metadata.text()
+    const callbackUrl = `${baseURL}/api/auth/sso/saml2/sp/acs/${providerId}`
+    expect(xml).toContain(`entityID="${issuer}"`)
+    expect(xml).toContain(`Location="${callbackUrl}"`)
+    const login = await nativeAuth.api.signInSSO({
+      body: { providerId, callbackURL: `${baseURL}/workspace` },
+    })
+    const request = new URL(login.url)
+    expect(request.origin + request.pathname).toBe(`${issuer}/sso`)
+    const authn = inflateRawSync(
+      Buffer.from(request.searchParams.get('SAMLRequest')!, 'base64')
+    ).toString()
+    expect(authn).toContain(`AssertionConsumerServiceURL="${callbackUrl}"`)
+    expect(authn).toContain(issuer)
   })
 })

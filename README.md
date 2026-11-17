@@ -236,6 +236,16 @@ bun run dev:full
 
 Open [http://localhost:3000](http://localhost:3000). The realtime service runs on port `3002`.
 
+When upgrading a database that predates usernames, apply `bun run db:migrate`, then run
+`bun --cwd packages/db run scripts/migrate-usernames.ts` before deploying the updated application.
+The one-time script assigns unique six-character hex usernames to users without one and preserves
+chosen usernames. New password signups must choose a username; users can edit it in Account settings.
+An application rollback can leave these additive fields in place.
+
+With SSO enabled, organization admins must verify each provider's DNS TXT record in the existing SSO
+settings before sign-in. Better Auth then links verified local accounts in the verified domain.
+Studio's invitation and seat checks control organization membership; SSO does not enroll members automatically.
+
 </details>
 
 <details>

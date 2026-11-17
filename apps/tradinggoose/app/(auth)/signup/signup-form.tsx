@@ -90,13 +90,13 @@ function SignupFormContent({
   const defaultCallbackPath = '/workspace'
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
-  const [, setMounted] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState('')
   const [passwordErrors, setPasswordErrors] = useState<string[]>([])
   const [showValidationError, setShowValidationError] = useState(false)
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
+  const [usernameError, setUsernameError] = useState('')
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
@@ -109,7 +109,6 @@ function SignupFormContent({
   const [showNameValidationError, setShowNameValidationError] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
     const emailParam = searchParams.get('email')
     if (emailParam) {
       setEmail(emailParam)
@@ -234,6 +233,8 @@ function SignupFormContent({
     const emailValue = emailValueRaw.trim().toLowerCase()
     const passwordValue = formData.get('password') as string
     const nameValue = formData.get('name') as string
+    const usernameValue = (formData.get('username') as string).trim()
+    setUsernameError(usernameValue ? '' : signupCopy.validation.usernameRequired)
 
     const trimmedName = nameValue.trim()
 
@@ -255,6 +256,7 @@ function SignupFormContent({
 
     try {
       if (
+        !usernameValue ||
         nameValidationErrors.length > 0 ||
         emailValidationErrors.length > 0 ||
         passwordValidationErrors.length > 0
@@ -289,6 +291,7 @@ function SignupFormContent({
           email: emailValue,
           password: passwordValue,
           name: sanitizedName,
+          username: usernameValue,
         },
         {
           onError: (ctx) => {
@@ -297,7 +300,16 @@ function SignupFormContent({
             const authErrorCode =
               normalizeAuthErrorCode(ctx.error.code) ?? normalizeAuthErrorCode(ctx.error.message)
 
-            if (authErrorCode === 'USER_ALREADY_EXISTS') {
+            if (authErrorCode === 'USERNAME_IS_ALREADY_TAKEN') {
+              setUsernameError(signupCopy.errors.usernameTaken)
+            } else if (
+              authErrorCode === 'USERNAME_TOO_SHORT' ||
+              authErrorCode === 'USERNAME_TOO_LONG'
+            ) {
+              setUsernameError(signupCopy.validation.usernameLength)
+            } else if (authErrorCode === 'INVALID_USERNAME') {
+              setUsernameError(signupCopy.validation.usernameInvalid)
+            } else if (authErrorCode === 'USER_ALREADY_EXISTS') {
               errorMessage.push(signupCopy.errors.accountExists)
               setEmailError(errorMessage[errorMessage.length - 1])
             } else if (
@@ -432,6 +444,37 @@ function SignupFormContent({
                   <p key={index}>{error}</p>
                 ))}
               </div>
+            )}
+          </div>
+          <div className='space-y-2'>
+            <Label htmlFor='username'>{commonCopy.username}</Label>
+            <Input
+              id='username'
+              name='username'
+              placeholder={commonCopy.enterYourUsername}
+              required
+              minLength={3}
+              maxLength={30}
+              pattern='[a-zA-Z0-9_.]+'
+              autoCapitalize='none'
+              autoComplete='username'
+              autoCorrect='off'
+              onChange={() => setUsernameError('')}
+              aria-invalid={Boolean(usernameError)}
+              aria-describedby={usernameError ? 'signup-username-error' : 'signup-username-hint'}
+              className={cn(
+                'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
+                usernameError &&
+                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+              )}
+            />
+            <p id='signup-username-hint' className='text-muted-foreground text-xs'>
+              {signupCopy.usernameHint}
+            </p>
+            {usernameError && (
+              <p id='signup-username-error' role='alert' className='text-red-400 text-xs'>
+                {usernameError}
+              </p>
             )}
           </div>
           <div className='space-y-2'>

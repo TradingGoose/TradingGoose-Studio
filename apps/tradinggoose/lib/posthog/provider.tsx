@@ -3,9 +3,11 @@
 import { useEffect } from 'react'
 import posthog from 'posthog-js'
 import { PostHogProvider as PHProvider } from 'posthog-js/react'
+import { useSession } from '@/lib/auth-client'
 import { getEnv } from '../env'
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, isPending } = useSession()
   useEffect(() => {
     const posthogKey = getEnv('NEXT_PUBLIC_POSTHOG_KEY')
     const disabled = getEnv('NEXT_PUBLIC_POSTHOG_DISABLED') === '1'
@@ -39,6 +41,22 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       })
     }
   }, [])
+
+  useEffect(() => {
+    if (isPending || typeof posthog.identify !== 'function') return
+    try {
+      if (session?.user) {
+        posthog.identify(session.user.id, {
+          email: session.user.email,
+          name: session.user.name,
+          email_verified: session.user.emailVerified,
+          created_at: session.user.createdAt,
+        })
+      } else {
+        posthog.reset()
+      }
+    } catch {}
+  }, [session, isPending])
 
   return <PHProvider client={posthog}>{children}</PHProvider>
 }

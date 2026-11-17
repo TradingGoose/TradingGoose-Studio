@@ -14,13 +14,6 @@ import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('SSO-Register')
-const REDACTED_MARKER = '[REDACTED]'
-const LEGACY_OIDC_OVERRIDE_FIELDS = [
-  'authorizationEndpoint',
-  'tokenEndpoint',
-  'userInfoEndpoint',
-  'jwksEndpoint',
-] as const
 
 type OrganizationSession = {
   activeOrganizationId?: string | null
@@ -41,28 +34,18 @@ const mappingSchema = z
   })
 
 const ssoRegistrationSchema = z.discriminatedUnion('providerType', [
-  z.object({
-    providerType: z.literal('oidc').default('oidc'),
+  z.strictObject({
+    providerType: z.literal('oidc'),
     providerId: z.string().min(1, 'Provider ID is required'),
     issuer: z.string().url('Issuer must be a valid URL'),
     domain: z.string().min(1, 'Domain is required'),
     mapping: mappingSchema,
     clientId: z.string().min(1, 'Client ID is required for OIDC'),
     clientSecret: z.string().min(1, 'Client Secret is required for OIDC'),
-    scopes: z
-      .union([
-        z.string().transform((value) =>
-          value
-            .split(',')
-            .map((scope) => scope.trim())
-            .filter((scope) => scope !== '')
-        ),
-        z.array(z.string()),
-      ])
-      .default(['openid', 'profile', 'email']),
+    scopes: z.array(z.string()).default(['openid', 'profile', 'email']),
     pkce: z.boolean().default(true),
   }),
-  z.object({
+  z.strictObject({
     providerType: z.literal('saml'),
     providerId: z.string().min(1, 'Provider ID is required'),
     issuer: z.string().url('Issuer must be a valid URL'),
@@ -79,14 +62,6 @@ const ssoRegistrationSchema = z.discriminatedUnion('providerType', [
     idpMetadata: z.string().optional(),
   }),
 ])
-
-function getLegacyOidcOverrideFields(value: unknown): string[] {
-  if (!value || typeof value !== 'object') {
-    return []
-  }
-
-  return LEGACY_OIDC_OVERRIDE_FIELDS.filter((field) => field in value)
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -131,21 +106,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const rawBody = await request.json()
-    const rawProviderType = rawBody?.providerType === 'saml' ? 'saml' : 'oidc'
-    const legacyOidcOverrideFields =
-      rawProviderType === 'oidc' ? getLegacyOidcOverrideFields(rawBody) : []
-
-    if (legacyOidcOverrideFields.length > 0) {
-      return NextResponse.json(
-        {
-          error: `Manual OIDC endpoint overrides are not supported: ${legacyOidcOverrideFields.join(', ')}. Configure OIDC using the issuer URL only.`,
-        },
-        { status: 400 }
-      )
-    }
-
-    const parseResult = ssoRegistrationSchema.safeParse(rawBody)
+    const parseResult = ssoRegistrationSchema.safeParse(await request.json())
 
     if (!parseResult.success) {
       const firstError = parseResult.error.issues[0]
@@ -161,11 +122,6 @@ export async function POST(request: NextRequest) {
     const body = parseResult.data
     const { providerId, issuer, domain, providerType, mapping } = body
 
-    const headers: Record<string, string> = {}
-    request.headers.forEach((value, key) => {
-      headers[key] = value
-    })
-
     const providerConfig: any = {
       providerId,
       issuer,
@@ -179,10 +135,8 @@ export async function POST(request: NextRequest) {
       const oidcConfig: any = {
         clientId,
         clientSecret,
-        scopes: Array.isArray(scopes)
-          ? scopes.filter((scope) => scope !== 'offline_access')
-          : ['openid', 'profile', 'email'].filter((scope) => scope !== 'offline_access'),
-        pkce: pkce ?? true,
+        scopes: scopes.filter((scope) => scope !== 'offline_access'),
+        pkce,
         mapping,
         // Discovery is handled once here using the application's external URL policy.
         skipDiscovery: true,
@@ -226,38 +180,11 @@ export async function POST(request: NextRequest) {
       const computedCallbackUrl =
         callbackUrl || `${getBaseUrl()}/api/auth/sso/saml2/sp/acs/${providerId}`
 
-      const escapeXml = (value: string) =>
-        value.replace(/[<>&"']/g, (character) => {
-          switch (character) {
-            case '<':
-              return '&lt;'
-            case '>':
-              return '&gt;'
-            case '&':
-              return '&amp;'
-            case '"':
-              return '&quot;'
-            case "'":
-              return '&apos;'
-            default:
-              return character
-          }
-        })
-
-      const spMetadataXml = `<?xml version="1.0" encoding="UTF-8"?>
-<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="${escapeXml(issuer)}">
-  <md:SPSSODescriptor AuthnRequestsSigned="false" WantAssertionsSigned="false" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
-    <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${escapeXml(computedCallbackUrl)}" index="1"/>
-  </md:SPSSODescriptor>
-</md:EntityDescriptor>`
-
       const samlConfig: any = {
         entryPoint,
         cert,
         callbackUrl: computedCallbackUrl,
-        spMetadata: {
-          metadata: spMetadataXml,
-        },
+        spMetadata: {},
         mapping,
       }
 
@@ -275,36 +202,9 @@ export async function POST(request: NextRequest) {
       providerConfig.samlConfig = samlConfig
     }
 
-    logger.info('Calling Better Auth registerSSOProvider with config:', {
-      providerId: providerConfig.providerId,
-      domain: providerConfig.domain,
-      hasOidcConfig: !!providerConfig.oidcConfig,
-      hasSamlConfig: !!providerConfig.samlConfig,
-      samlConfigKeys: providerConfig.samlConfig ? Object.keys(providerConfig.samlConfig) : [],
-      fullConfig: JSON.stringify(
-        {
-          ...providerConfig,
-          oidcConfig: providerConfig.oidcConfig
-            ? {
-                ...providerConfig.oidcConfig,
-                clientSecret: REDACTED_MARKER,
-              }
-            : undefined,
-          samlConfig: providerConfig.samlConfig
-            ? {
-                ...providerConfig.samlConfig,
-                cert: REDACTED_MARKER,
-              }
-            : undefined,
-        },
-        null,
-        2
-      ),
-    })
-
     const registration = await auth.api.registerSSOProvider({
       body: providerConfig,
-      headers,
+      headers: request.headers,
     })
 
     logger.info('SSO provider registered successfully', {
@@ -324,15 +224,12 @@ export async function POST(request: NextRequest) {
     logger.error('Failed to register SSO provider', {
       error,
       registrationFailureMessage: error instanceof Error ? error.message : 'Unknown error',
-      errorStack: error instanceof Error ? error.stack : undefined,
-      errorDetails: JSON.stringify(error),
     })
 
     return NextResponse.json(
       {
         error: 'Failed to register SSO provider',
         details: error instanceof Error ? error.message : 'Unknown error',
-        fullError: JSON.stringify(error),
       },
       { status: 500 }
     )

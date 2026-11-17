@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useMessages } from 'next-intl'
+import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { SetNewPasswordForm } from '@/app/(auth)/reset-password/reset-password-form'
@@ -40,20 +41,12 @@ function ResetPasswordContent() {
       setIsSubmitting(true)
       setResetResult(null)
 
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token,
-          newPassword: password,
-        }),
+      const { error } = await client.resetPassword({
+        token: token ?? undefined,
+        newPassword: password,
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || resetCopy.failure)
+      if (error) {
+        throw new Error(error.message || resetCopy.failure)
       }
 
       setResetResult({

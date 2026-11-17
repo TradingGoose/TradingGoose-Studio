@@ -19,9 +19,11 @@ vi.mock('@tanstack/react-query', () => ({
 
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => ({ data: { user: { id: 'user-1' } } }),
-  useSubscription: () => ({
-    upgrade: (...args: unknown[]) => mockUpgrade(...args),
-  }),
+  client: {
+    subscription: {
+      upgrade: (...args: unknown[]) => mockUpgrade(...args),
+    },
+  },
 }))
 
 vi.mock('@/hooks/queries/organization', () => ({

@@ -19,14 +19,3 @@ export function getRegistrationPrimaryHref(mode: RegistrationMode) {
       return null
   }
 }
-
-export function getAuthRegistrationHref(mode: RegistrationMode) {
-  switch (mode) {
-    case 'open':
-      return '/signup'
-    case 'waitlist':
-      return '/waitlist'
-    case 'disabled':
-      return null
-  }
-}

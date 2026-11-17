@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useSession, useSubscription } from '@/lib/auth-client'
+import { client, useSession } from '@/lib/auth-client'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { createLogger } from '@/lib/logs/console/logger'
 import { organizationKeys } from '@/hooks/queries/organization'
@@ -18,7 +18,6 @@ export interface BillingUpgradeTarget {
 
 export function useSubscriptionUpgrade() {
   const { data: session } = useSession()
-  const betterAuthSubscription = useSubscription()
   const queryClient = useQueryClient()
 
   const handleUpgrade = useCallback(
@@ -85,7 +84,7 @@ export function useSubscriptionUpgrade() {
           referenceId,
         })
 
-        const upgradeResult = await betterAuthSubscription.upgrade(upgradeParams)
+        const upgradeResult = await client.subscription.upgrade(upgradeParams)
         if (upgradeResult.error) {
           throw new Error(upgradeResult.error.message || 'Failed to initiate subscription upgrade')
         }
@@ -122,7 +121,7 @@ export function useSubscriptionUpgrade() {
         )
       }
     },
-    [session?.user?.id, betterAuthSubscription, queryClient]
+    [session?.user?.id, queryClient]
   )
 
   return { handleUpgrade }

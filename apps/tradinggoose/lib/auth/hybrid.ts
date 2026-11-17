@@ -20,11 +20,6 @@ export const AuthType = {
   INTERNAL_JWT: 'internal_jwt',
 } as const
 
-export function hasExternalApiCredentials(headers: Headers): boolean {
-  const authHeader = headers.get('authorization')
-  return headers.has('x-api-key') || authHeader?.startsWith('Bearer ') === true
-}
-
 export interface AuthResult {
   success: boolean
   userId?: string

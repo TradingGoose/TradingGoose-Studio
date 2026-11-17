@@ -3,7 +3,6 @@ import { getLocale } from 'next-intl/server'
 import { PublicEnvScript } from 'next-runtime-env'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { PostHogProvider } from '@/lib/posthog/provider'
-import { SessionProvider } from '@/lib/session/session-context'
 import { AppBootstrap } from '@/app/app-bootstrap'
 import { AppCommandMenu, ThemedToaster } from '@/app/app-command-menu'
 import { QueryProvider } from '@/app/query-provider'
@@ -27,21 +26,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <PostHogProvider>
           <ThemeProvider>
             <QueryProvider>
-              <SessionProvider>
-                <NextIntlClientProvider
-                  key={locale}
-                  locale={locale}
-                  messages={getClientMessages(locale)}
-                >
-                  <AppBootstrap />
-                  <TooltipProvider delay={100} timeout={0}>
-                    <ZoomPrevention />
-                    <div className='isolate'>{children}</div>
-                    <AppCommandMenu />
-                    <ThemedToaster />
-                  </TooltipProvider>
-                </NextIntlClientProvider>
-              </SessionProvider>
+              <NextIntlClientProvider
+                key={locale}
+                locale={locale}
+                messages={getClientMessages(locale)}
+              >
+                <AppBootstrap />
+                <TooltipProvider delay={100} timeout={0}>
+                  <ZoomPrevention />
+                  <div className='isolate'>{children}</div>
+                  <AppCommandMenu />
+                  <ThemedToaster />
+                </TooltipProvider>
+              </NextIntlClientProvider>
             </QueryProvider>
           </ThemeProvider>
         </PostHogProvider>
