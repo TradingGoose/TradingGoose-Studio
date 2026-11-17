@@ -1,10 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { environmentVariables } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { createLogger } from '@/lib/logs/console/logger'
 import { decryptSecret } from '@/lib/utils-server'
-
-const logger = createLogger('EnvironmentUtils')
 
 function buildEncryptedMap(rows: Array<{ key: string; value: string }>): Record<string, string> {
   return Object.fromEntries(rows.map((row) => [row.key, row.value]))
@@ -21,32 +18,6 @@ async function decryptAll(src: Record<string, string>): Promise<Record<string, s
     }
   }
   return out
-}
-
-/**
- * Get environment variable keys for a user
- * Returns only the variable names, not their values
- */
-export async function getEnvironmentVariableKeys(userId: string): Promise<{
-  variableNames: string[]
-  count: number
-}> {
-  try {
-    const rows = await db
-      .select({ key: environmentVariables.key })
-      .from(environmentVariables)
-      .where(eq(environmentVariables.userId, userId))
-
-    const variableNames = rows.map((row) => row.key)
-
-    return {
-      variableNames,
-      count: variableNames.length,
-    }
-  } catch (error) {
-    logger.error('Error getting environment variable keys:', error)
-    throw new Error('Failed to get environment variables')
-  }
 }
 
 export async function getPersonalAndWorkspaceEnv(

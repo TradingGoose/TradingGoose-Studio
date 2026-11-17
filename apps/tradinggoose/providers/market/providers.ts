@@ -291,16 +291,6 @@ export function getMarketProviderExchangeCodes(providerId: string): string[] {
   return MARKET_PROVIDER_DEFINITIONS[providerId]?.config.exchangeCodes || []
 }
 
-export function getMarketProviderKinds(providerId: string): MarketDataType[] {
-  const availability = getMarketProviderAvailability(providerId)
-  const kinds = new Set<MarketDataType>()
-
-  if (availability.series) kinds.add('series')
-  if (availability.live) kinds.add('live')
-
-  return Array.from(kinds)
-}
-
 const toMarketProviderOption = (provider: MarketProviderDefinition): MarketProviderOption => ({
   id: provider.id,
   name: provider.name,
