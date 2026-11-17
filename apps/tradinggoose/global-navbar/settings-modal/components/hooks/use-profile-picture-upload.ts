@@ -14,9 +14,9 @@ interface ProfilePictureUploadMessages {
 
 interface UseProfilePictureUploadProps {
   messages: ProfilePictureUploadMessages
-  onUpload?: (url: string | null) => void | Promise<void>
-  onError?: (error: string) => void
-  currentImage?: string | null
+  onUpload: (url: string) => Promise<void>
+  onError: (error: string) => void
+  currentImage: string | null
 }
 
 export function useProfilePictureUpload({
@@ -28,7 +28,7 @@ export function useProfilePictureUpload({
   const previewRef = useRef<string | null>(null)
   const activeRef = useRef(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage)
   const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export function useProfilePictureUpload({
       URL.revokeObjectURL(previewRef.current)
       previewRef.current = null
     }
-    setPreviewUrl(currentImage || null)
+    setPreviewUrl(currentImage)
   }, [currentImage])
 
   const validateFile = useCallback(
@@ -157,7 +157,7 @@ export function useProfilePictureUpload({
       if (file) {
         const validationError = validateFile(file)
         if (validationError) {
-          onError?.(validationError)
+          onError(validationError)
           return
         }
 
@@ -179,15 +179,15 @@ export function useProfilePictureUpload({
           previewRef.current = null
           setPreviewUrl(serverUrl)
 
-          await onUpload?.(serverUrl)
+          await onUpload(serverUrl)
         } catch (error) {
           if (!activeRef.current) return
           const errorMessage = error instanceof Error ? error.message : messages.uploadFailed
-          onError?.(errorMessage)
+          onError(errorMessage)
 
           URL.revokeObjectURL(newPreviewUrl)
           previewRef.current = null
-          setPreviewUrl(currentImage || null)
+          setPreviewUrl(currentImage)
         } finally {
           if (activeRef.current) setIsUploading(false)
         }

@@ -5,6 +5,7 @@ import {
   type DragEvent,
   type FormEvent,
   type RefObject,
+  useEffect,
   useRef,
   useState,
 } from 'react'
@@ -55,22 +56,31 @@ function AccountSettingsForm({
   const tAccount = useTranslations('workspace.settingsModal.account')
   const userId = sessionUser?.id ?? null
   const [confirmedProfile, setConfirmedProfile] = useState<{
-    user: NonNullable<typeof sessionUser>
-    values: { name?: string; email?: string; image?: string | null; displayUsername?: string }
-  } | null>(null)
-  const confirmed = confirmedProfile?.user === sessionUser ? confirmedProfile?.values : null
-  const name = confirmed?.name ?? sessionUser?.name ?? ''
-  const email = confirmed?.email ?? sessionUser?.email ?? ''
-  const userImage = confirmed?.image !== undefined ? confirmed.image : (sessionUser?.image ?? null)
+    name?: string
+    email?: string
+    image?: string | null
+    displayUsername?: string
+  }>({})
+  useEffect(() => {
+    const fields = Object.keys(confirmedProfile) as (keyof typeof confirmedProfile)[]
+    setConfirmedProfile((previous) => {
+      const pending = { ...previous }
+      for (const field of fields) {
+        if (previous[field] === sessionUser?.[field]) delete pending[field]
+      }
+      return Object.keys(pending).length === Object.keys(previous).length ? previous : pending
+    })
+  }, [confirmedProfile, sessionUser])
+  const name = confirmedProfile.name ?? sessionUser?.name ?? ''
+  const email = confirmedProfile.email ?? sessionUser?.email ?? ''
+  const userImage =
+    confirmedProfile.image !== undefined ? confirmedProfile.image : (sessionUser?.image ?? null)
   const username =
-    confirmed?.displayUsername ?? sessionUser?.displayUsername ?? sessionUser?.username ?? ''
-  const confirmProfile = (values: NonNullable<typeof confirmedProfile>['values']) => {
+    confirmedProfile.displayUsername ?? sessionUser?.displayUsername ?? sessionUser?.username ?? ''
+  const confirmProfile = (values: typeof confirmedProfile) => {
     const user = currentUserRef.current
     if (!user || user.id !== userId) return
-    setConfirmedProfile((previous) => ({
-      user,
-      values: { ...(previous?.user === user ? previous.values : {}), ...values },
-    }))
+    setConfirmedProfile((previous) => ({ ...previous, ...values }))
   }
 
   // Telemetry state from general store
@@ -178,21 +188,13 @@ function AccountSettingsForm({
     }
   }
 
-  const updateUserImage = async (imageUrl: string | null) => {
+  const updateUserImage = async (imageUrl: string) => {
     if (!userId || currentUserRef.current?.id !== userId) return
-    try {
-      const result = await client.updateUser({ image: imageUrl })
-      if (result.error) throw new Error(tAccount('status.profilePictureUpdateError'))
-      if (currentUserRef.current?.id !== userId) return
-      confirmProfile({ image: imageUrl })
-    } catch (error) {
-      if (currentUserRef.current?.id !== userId) return
-      logger.error('Failed to update profile picture', error)
-      const errorMessage =
-        error instanceof Error ? error.message : tAccount('status.unableToUpdateProfilePicture')
-      setProfilePictureError(errorMessage)
-      throw new Error(errorMessage)
-    }
+    const result = await client.updateUser({ image: imageUrl })
+    if (result.error) throw new Error(tAccount('status.profilePictureUpdateError'))
+    if (currentUserRef.current?.id !== userId) return
+    confirmProfile({ image: imageUrl })
+    setProfilePictureError(null)
   }
 
   const { previewUrl, fileInputRef, handleThumbnailClick, handleFileChange, isUploading } =
@@ -205,13 +207,8 @@ function AccountSettingsForm({
         uploadFailed: tAccount('status.unableToUpdateProfilePicture'),
       },
       currentImage: userImage,
-      onUpload: async (url) => {
-        await updateUserImage(url)
-        setProfilePictureError(null)
-      },
-      onError: (error) => {
-        setProfilePictureError(error)
-      },
+      onUpload: updateUserImage,
+      onError: setProfilePictureError,
     })
 
   const startEditingName = () => {

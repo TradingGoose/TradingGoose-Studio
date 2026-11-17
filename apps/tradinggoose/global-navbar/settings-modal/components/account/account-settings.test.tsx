@@ -319,11 +319,7 @@ describe('AccountSettings localization', () => {
       })
     }
 
-    it('updates a name natively and keeps the confirmed value until a fresh session replaces it', async () => {
-      mockUseSession.mockReturnValue({
-        ...mockUseSession(),
-        error: new Error('Session refresh failed'),
-      })
+    it('retains a saved name through stale session responses and failed refresh until acknowledged', async () => {
       await render()
       await press(copy.editName)
       await act(async () => {
@@ -337,6 +333,69 @@ describe('AccountSettings localization', () => {
       expect(container.textContent).toContain('Grace Hopper')
       expect(global.fetch).not.toHaveBeenCalled()
 
+      changeSession({ name: 'Ada Lovelace' })
+      mockUseSession.mockReturnValue({
+        ...mockUseSession(),
+        error: new Error('Session refresh failed'),
+      })
+      await render()
+      expect(container.textContent).toContain('Grace Hopper')
+      expect(container.textContent).not.toContain('Ada Lovelace')
+      changeSession({ name: 'Grace Hopper' })
+      await render()
+      changeSession({ name: 'Updated elsewhere' })
+      await render()
+      expect(container.textContent).toContain('Updated elsewhere')
+      expect(container.textContent).not.toContain('Grace Hopper')
+    })
+
+    it('acknowledges confirmed profile fields independently while preserving other pending saves', async () => {
+      await render()
+      await press(copy.editName)
+      act(() =>
+        setInputValue(container.querySelector<HTMLInputElement>('#accountName')!, 'Grace Hopper')
+      )
+      await press(copy.saveName)
+      await press(copy.editUsername)
+      act(() =>
+        setInputValue(container.querySelector<HTMLInputElement>('#accountUsername')!, 'New.Handle')
+      )
+      await press(copy.saveUsername)
+
+      changeSession({ name: 'Ada Lovelace', username: 'new.handle', displayUsername: 'New.Handle' })
+      await render()
+      expect(container.textContent).toContain('Grace Hopper')
+      changeSession({ username: 'other.handle', displayUsername: 'Other.Handle' })
+      await render()
+      expect(container.textContent).toContain('Other.Handle')
+      expect(container.textContent).toContain('Grace Hopper')
+      changeSession({ name: 'Grace Hopper' })
+      await render()
+      changeSession({ name: 'Updated elsewhere' })
+      await render()
+      expect(container.textContent).toContain('Updated elsewhere')
+      expect(container.textContent).not.toContain('Grace Hopper')
+    })
+
+    it('releases a confirmed value when its session acknowledgment precedes the mutation callback', async () => {
+      let finish!: (value: { error: null }) => void
+      mocks.updateUser.mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve
+        })
+      )
+      await render()
+      await press(copy.editName)
+      act(() =>
+        setInputValue(container.querySelector<HTMLInputElement>('#accountName')!, 'Grace Hopper')
+      )
+      await press(copy.saveName)
+      changeSession({ name: 'Grace Hopper' })
+      await render()
+      await act(async () => {
+        finish({ error: null })
+        await flush()
+      })
       changeSession({ name: 'Updated elsewhere' })
       await render()
       expect(container.textContent).toContain('Updated elsewhere')
@@ -372,6 +431,14 @@ describe('AccountSettings localization', () => {
       )
       expect(container.querySelector('input[type="file"]')).toBeEnabled()
 
+      changeSession({ image: null })
+      await render()
+      expect(container.querySelector('img')).toHaveAttribute(
+        'src',
+        '/api/files/serve/new-avatar.png'
+      )
+      changeSession({ image: '/api/files/serve/new-avatar.png' })
+      await render()
       changeSession({ image: null })
       await render()
       expect(container.querySelector('img')).toHaveAttribute('src', '/profile/avatar.png')
@@ -862,6 +929,16 @@ describe('AccountSettings localization', () => {
     })
 
     it('rejects letters in real OTP inputs without blocking resend or restart', async () => {
+      const expectPrivateSlots = (digit: string) => {
+        const input = container.querySelector('#account-email-code')!
+        const protectedContainer = input.closest('.ph-no-capture')
+        expect(protectedContainer).not.toBeNull()
+        const slots = [...container.querySelectorAll('div')].filter(
+          (element) => element.childElementCount === 0 && element.textContent === digit
+        )
+        expect(slots).toHaveLength(6)
+        for (const slot of slots) expect(protectedContainer?.contains(slot)).toBe(true)
+      }
       await render()
       await start()
       for (const value of ['abcdef', '12ab34']) {
@@ -871,7 +948,9 @@ describe('AccountSettings localization', () => {
       }
       await press(copy.resend)
       expect(mocks.send).toHaveBeenCalledTimes(2)
-      await verifyCurrent()
+      await fill('#account-email-code', '111111')
+      expectPrivateSlots('1')
+      await press(copy.verifyCurrent)
       expect(mocks.request).toHaveBeenCalledWith({ newEmail: 'new@example.com', otp: '111111' })
       await fill('#account-email-code', '12ab34')
       expect(container.querySelector('#account-email-code')).toHaveValue('')
@@ -880,6 +959,7 @@ describe('AccountSettings localization', () => {
       expect(mocks.send).toHaveBeenCalledTimes(3)
       await verifyCurrent()
       await fill('#account-email-code', '222222')
+      expectPrivateSlots('2')
       expect(findButtonByText(container, copy.confirm)).toBeEnabled()
       await press(copy.confirm)
       expect(mocks.change).toHaveBeenCalledWith({ newEmail: 'new@example.com', otp: '222222' })
@@ -976,6 +1056,16 @@ describe('AccountSettings localization', () => {
       expect(container.textContent).toContain('new@example.com')
       expect(container.textContent).toContain(copy.success)
       expect(container.querySelector('[role="alert"]')).toBeNull()
+      const stale = mockUseSession()
+      mockUseSession.mockReturnValue({
+        ...stale,
+        data: { ...stale.data, user: { ...stale.data.user } },
+      })
+      await act(async () => {
+        renderAccountSettings(root, 'en')
+        await flush()
+      })
+      expect(container.textContent).toContain('new@example.com')
       await press(getPublicCopy('en').workspace.settingsModal.account.sendLink)
       expect(mocks.requestPasswordReset).toHaveBeenCalledWith({
         email: 'new@example.com',

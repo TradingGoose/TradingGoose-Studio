@@ -173,6 +173,7 @@ export function ChangeEmailForm({
               </Label>
               <InputOTP
                 key={step}
+                containerClassName='ph-no-capture'
                 id='account-email-code'
                 inputMode='numeric'
                 autoComplete='one-time-code'
