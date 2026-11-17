@@ -23,6 +23,7 @@ import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
+import { useUsernameAvailability } from '@/hooks/queries/username'
 import { Link, useRouter } from '@/i18n/navigation'
 import { type LocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
 
@@ -97,6 +98,17 @@ function SignupFormContent({
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
   const [usernameError, setUsernameError] = useState('')
+  const [usernameCandidate, setUsernameCandidate] = useState('')
+  const usernameAvailability = useUsernameAvailability(usernameCandidate)
+  const usernameFailure =
+    usernameError || (usernameAvailability === 'taken' ? signupCopy.errors.usernameTaken : '')
+  const usernameStatus =
+    !usernameFailure &&
+    (usernameAvailability === 'checking' ||
+      usernameAvailability === 'available' ||
+      usernameAvailability === 'error')
+      ? signupCopy.usernameAvailability[usernameAvailability]
+      : ''
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
@@ -257,6 +269,7 @@ function SignupFormContent({
     try {
       if (
         !usernameValue ||
+        usernameAvailability === 'taken' ||
         nameValidationErrors.length > 0 ||
         emailValidationErrors.length > 0 ||
         passwordValidationErrors.length > 0
@@ -459,21 +472,34 @@ function SignupFormContent({
               autoCapitalize='none'
               autoComplete='username'
               autoCorrect='off'
-              onChange={() => setUsernameError('')}
-              aria-invalid={Boolean(usernameError)}
-              aria-describedby={usernameError ? 'signup-username-error' : 'signup-username-hint'}
+              onChange={(event) => {
+                setUsernameError('')
+                setUsernameCandidate(event.target.validity.valid ? event.target.value : '')
+              }}
+              aria-invalid={Boolean(usernameFailure)}
+              aria-describedby={`signup-username-hint${usernameFailure ? ' signup-username-error' : usernameStatus ? ' signup-username-status' : ''}`}
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                usernameError &&
+                usernameFailure &&
                   'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
             <p id='signup-username-hint' className='text-muted-foreground text-xs'>
               {signupCopy.usernameHint}
             </p>
-            {usernameError && (
+            {usernameFailure && (
               <p id='signup-username-error' role='alert' className='text-red-400 text-xs'>
-                {usernameError}
+                {usernameFailure}
+              </p>
+            )}
+            {usernameStatus && (
+              <p
+                id='signup-username-status'
+                role='status'
+                aria-live='polite'
+                className='text-muted-foreground text-xs'
+              >
+                {usernameStatus}
               </p>
             )}
           </div>
@@ -576,7 +602,11 @@ function SignupFormContent({
           </div>
         </div>
 
-        <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
+        <Button
+          type='submit'
+          className={primaryButtonClasses}
+          disabled={isLoading || usernameAvailability === 'taken'}
+        >
           {isLoading ? signupCopy.submitting : signupCopy.submit}
         </Button>
       </form>

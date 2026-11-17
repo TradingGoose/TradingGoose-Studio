@@ -99,6 +99,16 @@ describe('native username authentication', () => {
     ).rejects.toMatchObject({ statusCode: 400, body: { code } })
   })
 
+  it('checks availability natively and treats existing usernames as taken regardless of case', async () => {
+    const { auth, headers } = await setup()
+    await expect(
+      auth.api.isUsernameAvailable({ body: { username: 'New.Handle' } })
+    ).resolves.toEqual({ available: true })
+    await expect(
+      auth.api.isUsernameAvailable({ headers, body: { username: 'MIXED.NAME' } })
+    ).resolves.toEqual({ available: false })
+  })
+
   it('retains required email verification before username password login', async () => {
     const { auth, context, user } = await setup(true)
     await expect(

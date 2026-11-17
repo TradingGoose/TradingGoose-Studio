@@ -293,6 +293,11 @@
       "divider": "Or continue with",
       "nameTitle": "Name can only contain letters, spaces, hyphens, and apostrophes",
       "usernameHint": "Use 3–30 letters, numbers, underscores, or dots.",
+      "usernameAvailability": {
+        "checking": "Checking username…",
+        "available": "Username is available.",
+        "error": "Unable to check username availability."
+      },
       "validation": {
         "emailRequired": "Email is required.",
         "emailInvalid": "Please enter a valid email address.",
@@ -1894,6 +1899,11 @@
         "fullName": "Full name",
         "username": "Username",
         "usernameHint": "Use 3–30 letters, numbers, underscores, or dots. You can sign in with your username or email.",
+        "usernameAvailability": {
+          "checking": "Checking username…",
+          "available": "Username is available.",
+          "error": "Unable to check username availability."
+        },
         "editUsername": "Edit username",
         "saveUsername": "Save username",
         "cancelEditingUsername": "Cancel editing username",

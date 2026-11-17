@@ -22,6 +22,7 @@ import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
+import { useUsernameAvailability } from '@/hooks/queries/username'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { ChangeEmailForm } from './change-email-form'
 
@@ -112,13 +113,25 @@ function AccountSettingsForm({
   const [editingNameValue, setEditingNameValue] = useState('')
   const [isUpdatingName, setIsUpdatingName] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
-  const [usernameEdit, setUsernameEdit] = useState<{
-    userId: string
+  const [editingUsername, setUsernameEdit] = useState<{
     value: string
+    valid: boolean
     pending?: boolean
     error?: string
   } | null>(null)
-  const editingUsername = usernameEdit?.userId === userId ? usernameEdit : null
+  const usernameAvailability = useUsernameAvailability(
+    editingUsername?.valid ? editingUsername.value : '',
+    username
+  )
+  const usernameError =
+    editingUsername?.error ??
+    (usernameAvailability === 'taken' ? tAccount('status.usernameTaken') : null)
+  const usernameStatus =
+    usernameAvailability === 'checking' ||
+    usernameAvailability === 'available' ||
+    usernameAvailability === 'error'
+      ? tAccount(`usernameAvailability.${usernameAvailability}`)
+      : null
   const usernameRequestRef = useRef<symbol | null>(null)
 
   const editNameInputRef = useRef<HTMLInputElement>(null)
@@ -126,7 +139,13 @@ function AccountSettingsForm({
 
   const commitEditingUsername = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!userId || !editingUsername || usernameRequestRef.current) return
+    if (
+      !userId ||
+      !editingUsername ||
+      usernameRequestRef.current ||
+      usernameAvailability === 'taken'
+    )
+      return
     const value = editingUsername.value.trim()
     if (!value) {
       setUsernameEdit({ ...editingUsername, error: tAccount('status.usernameRequired') })
@@ -154,7 +173,7 @@ function AccountSettingsForm({
             : code === 'INVALID_USERNAME'
               ? tAccount('status.usernameInvalid')
               : tAccount('status.usernameUpdateError')
-      setUsernameEdit({ userId, value, error })
+      setUsernameEdit({ value, valid: editingUsername.valid, error })
     } finally {
       if (isCurrent()) usernameRequestRef.current = null
     }
@@ -456,6 +475,7 @@ function AccountSettingsForm({
                           setUsernameEdit({
                             ...editingUsername,
                             value: event.target.value,
+                            valid: event.currentTarget.validity.valid,
                             error: undefined,
                           })
                         }
@@ -472,8 +492,12 @@ function AccountSettingsForm({
                         title={tAccount('usernameHint')}
                         autoComplete='username'
                         disabled={editingUsername.pending}
-                        aria-invalid={Boolean(editingUsername.error)}
-                        aria-describedby='account-username-hint'
+                        aria-invalid={Boolean(usernameError)}
+                        aria-describedby={
+                          usernameError || usernameStatus
+                            ? 'account-username-hint account-username-status'
+                            : 'account-username-hint'
+                        }
                         className='h-8 min-w-0 flex-1'
                       />
                       <Button
@@ -481,7 +505,7 @@ function AccountSettingsForm({
                         variant='ghost'
                         size='icon'
                         className='h-7 w-7'
-                        disabled={editingUsername.pending}
+                        disabled={editingUsername.pending || usernameAvailability === 'taken'}
                       >
                         <Check className='h-3.5 w-3.5' />
                         <span className='sr-only'>{tAccount('saveUsername')}</span>
@@ -498,9 +522,18 @@ function AccountSettingsForm({
                         <span className='sr-only'>{tAccount('cancelEditingUsername')}</span>
                       </Button>
                     </div>
-                    {editingUsername.error && (
-                      <p role='alert' className='text-destructive text-xs'>
-                        {editingUsername.error}
+                    {(usernameError || usernameStatus) && (
+                      <p
+                        id='account-username-status'
+                        role={usernameError ? 'alert' : 'status'}
+                        aria-live='polite'
+                        className={
+                          usernameError
+                            ? 'text-destructive text-xs'
+                            : 'text-muted-foreground text-xs'
+                        }
+                      >
+                        {usernameError ?? usernameStatus}
                       </p>
                     )}
                   </form>
@@ -513,7 +546,9 @@ function AccountSettingsForm({
                       size='icon'
                       className='h-7 w-7'
                       disabled={!userId}
-                      onClick={() => userId && setUsernameEdit({ userId, value: username })}
+                      onClick={() =>
+                        userId && setUsernameEdit({ value: username, valid: Boolean(username) })
+                      }
                     >
                       <Pencil className='h-3.5 w-3.5' />
                       <span className='sr-only'>{tAccount('editUsername')}</span>

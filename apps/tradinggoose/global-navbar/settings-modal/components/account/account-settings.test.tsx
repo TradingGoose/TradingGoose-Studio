@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   change: vi.fn(),
   refetch: vi.fn(),
   updateUser: vi.fn(),
+  isUsernameAvailable: vi.fn(),
   requestPasswordReset: vi.fn(),
 }))
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -65,6 +66,7 @@ vi.mock('@/components/ui/tooltip', () => ({
 vi.mock('@/lib/auth-client', () => ({
   client: {
     updateUser: mocks.updateUser,
+    isUsernameAvailable: mocks.isUsernameAvailable,
     requestPasswordReset: mocks.requestPasswordReset,
     emailOtp: {
       sendVerificationOtp: mocks.send,
@@ -137,6 +139,9 @@ describe('AccountSettings localization', () => {
     mocks.change.mockResolvedValue({ data: { success: true }, error: null })
     mocks.refetch.mockReset().mockResolvedValue(undefined)
     mocks.updateUser.mockReset().mockResolvedValue({ data: { status: true }, error: null })
+    mocks.isUsernameAvailable
+      .mockReset()
+      .mockResolvedValue({ data: { available: true }, error: null })
     mocks.requestPasswordReset
       .mockReset()
       .mockResolvedValue({ data: { status: true }, error: null })
@@ -514,6 +519,108 @@ describe('AccountSettings localization', () => {
     }
     const usernameRow = () =>
       container.querySelector('label[for="accountUsername"]')!.parentElement!
+    async function waitForAvailability() {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 350))
+      })
+      await act(async () => flush())
+    }
+
+    it.each(['available', 'taken', 'error'] as const)(
+      'shows native username availability %s while leaving server validation authoritative',
+      async (status) => {
+        mocks.isUsernameAvailable.mockResolvedValue(
+          status === 'error'
+            ? { data: null, error: { status: 503 } }
+            : { data: { available: status === 'available' }, error: null }
+        )
+        setSession('Ada.Handle')
+        await render()
+        await edit('New.Handle')
+        expect(usernameRow().querySelector('[role="status"]')?.textContent).toBe(
+          copy.usernameAvailability.checking
+        )
+        expect(findButtonByText(container, copy.saveUsername)).toBeEnabled()
+        await waitForAvailability()
+        expect(mocks.isUsernameAvailable).toHaveBeenCalledWith(
+          { username: 'new.handle' },
+          { signal: expect.any(AbortSignal) }
+        )
+        if (status === 'taken') {
+          expect(usernameRow().querySelector('[role="alert"]')?.textContent).toBe(
+            copy.status.usernameTaken
+          )
+          expect(container.querySelector('#accountUsername')).toHaveAttribute(
+            'aria-invalid',
+            'true'
+          )
+          expect(findButtonByText(container, copy.saveUsername)).toBeDisabled()
+          await act(async () => {
+            container
+              .querySelector('#accountUsername')!
+              .closest('form')!
+              .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+          })
+          expect(mocks.updateUser).not.toHaveBeenCalled()
+        } else {
+          expect(usernameRow().querySelector('[role="status"]')?.textContent).toBe(
+            copy.usernameAvailability[status]
+          )
+          await press(copy.saveUsername)
+          expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({
+            username: 'New.Handle',
+            displayUsername: 'New.Handle',
+          })
+        }
+      }
+    )
+
+    it.each(['ADA.HANDLE', 'invalid username'])(
+      'skips availability for the current username or invalid input: %s',
+      async (value) => {
+        setSession('Ada.Handle')
+        await render()
+        await edit(value)
+        await waitForAvailability()
+        expect(mocks.isUsernameAvailable).not.toHaveBeenCalled()
+        expect(usernameRow().querySelector('[role="status"]')).toBeNull()
+        if (value === 'ADA.HANDLE') {
+          await press(copy.saveUsername)
+          expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({
+            username: value,
+            displayUsername: value,
+          })
+        }
+      }
+    )
+
+    it('ignores a taken result for an abandoned username candidate', async () => {
+      let finish!: (value: { data: { available: boolean }; error: null }) => void
+      mocks.isUsernameAvailable.mockImplementation(({ username }) =>
+        username === 'old.handle'
+          ? new Promise((resolve) => {
+              finish = resolve
+            })
+          : Promise.resolve({ data: { available: true }, error: null })
+      )
+      setSession('Ada.Handle')
+      await render()
+      await edit('Old.Handle')
+      await waitForAvailability()
+      await act(async () => {
+        setInputValue(container.querySelector<HTMLInputElement>('#accountUsername')!, 'New.Handle')
+      })
+      await waitForAvailability()
+      await act(async () => {
+        finish({ data: { available: false }, error: null })
+        await flush()
+      })
+      expect(usernameRow().querySelector('[role="status"]')?.textContent).toBe(
+        copy.usernameAvailability.available
+      )
+      expect(usernameRow().querySelector('[role="alert"]')).toBeNull()
+      expect(findButtonByText(container, copy.saveUsername)).toBeEnabled()
+    })
 
     it('lets a user choose a username through the native update API, preserving display case', async () => {
       setSession(null)
@@ -556,6 +663,7 @@ describe('AccountSettings localization', () => {
       mocks.updateUser.mockResolvedValueOnce({ error: { code: 'USERNAME_IS_ALREADY_TAKEN' } })
       await render()
       await edit('Taken.Handle')
+      await waitForAvailability()
       await press(copy.saveUsername)
 
       expect(usernameRow().querySelector('[role="alert"]')?.textContent).toBe(

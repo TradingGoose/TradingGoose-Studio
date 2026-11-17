@@ -293,6 +293,11 @@
       "divider": "O continuar con",
       "nameTitle": "El nombre solo puede contener letras, espacios, guiones y apóstrofos",
       "usernameHint": "Use entre 3 y 30 letras, números, guiones bajos o puntos.",
+      "usernameAvailability": {
+        "checking": "Comprobando el nombre de usuario…",
+        "available": "El nombre de usuario está disponible.",
+        "error": "No se pudo comprobar la disponibilidad del nombre de usuario."
+      },
       "validation": {
         "emailRequired": "El correo electrónico es obligatorio.",
         "emailInvalid": "Introduzca un correo electrónico válido.",
@@ -1894,6 +1899,11 @@
         "fullName": "Nombre completo",
         "username": "Nombre de usuario",
         "usernameHint": "Use entre 3 y 30 letras, números, guiones bajos o puntos. Puede iniciar sesión con su nombre de usuario o correo electrónico.",
+        "usernameAvailability": {
+          "checking": "Comprobando el nombre de usuario…",
+          "available": "El nombre de usuario está disponible.",
+          "error": "No se pudo comprobar la disponibilidad del nombre de usuario."
+        },
         "editUsername": "Editar nombre de usuario",
         "saveUsername": "Guardar nombre de usuario",
         "cancelEditingUsername": "Cancelar edición del nombre de usuario",

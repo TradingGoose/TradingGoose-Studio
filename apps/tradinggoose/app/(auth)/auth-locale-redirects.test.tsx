@@ -4,6 +4,7 @@
 
 import type React from 'react'
 import { act } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,6 +16,7 @@ import { VerifyContent } from './verify/verify-content'
 
 const mockPush = vi.hoisted(() => vi.fn())
 const mockSignUpEmail = vi.hoisted(() => vi.fn())
+const mockIsUsernameAvailable = vi.hoisted(() => vi.fn())
 const mockSignInEmail = vi.hoisted(() => vi.fn())
 const mockSignInUsername = vi.hoisted(() => vi.fn())
 const mockSignOut = vi.hoisted(() => vi.fn())
@@ -55,6 +57,7 @@ vi.mock('@/i18n/navigation', () => ({
 
 vi.mock('@/lib/auth-client', () => ({
   client: {
+    isUsernameAvailable: mockIsUsernameAvailable,
     signUp: {
       email: mockSignUpEmail,
     },
@@ -152,6 +155,7 @@ vi.mock('@/lib/env', () => ({
 describe('auth locale redirects', () => {
   let container: HTMLDivElement
   let root: Root
+  let queryClient: QueryClient
   const reactActEnvironment = globalThis as typeof globalThis & {
     IS_REACT_ACT_ENVIRONMENT?: boolean
   }
@@ -161,9 +165,15 @@ describe('auth locale redirects', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Number.POSITIVE_INFINITY } },
+    })
     testState.searchParams = new URLSearchParams()
     mockPush.mockReset()
     mockSignUpEmail.mockReset()
+    mockIsUsernameAvailable
+      .mockReset()
+      .mockResolvedValue({ data: { available: true }, error: null })
     mockSignInEmail.mockReset()
     mockSignInUsername.mockReset()
     mockSignOut.mockReset()
@@ -185,6 +195,7 @@ describe('auth locale redirects', () => {
       root.unmount()
     })
     container.remove()
+    queryClient.clear()
     vi.useRealTimers()
     vi.restoreAllMocks()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
@@ -193,9 +204,11 @@ describe('auth locale redirects', () => {
   async function renderWithLocale(locale: 'en' | 'es' | 'zh', element: React.ReactElement) {
     await act(async () => {
       root.render(
-        <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-          {element}
-        </NextIntlClientProvider>
+        <QueryClientProvider client={queryClient}>
+          <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+            {element}
+          </NextIntlClientProvider>
+        </QueryClientProvider>
       )
     })
   }
@@ -300,6 +313,90 @@ describe('auth locale redirects', () => {
     expect(container.querySelector('#signup-username-error')?.textContent).toBe(
       getPublicCopy('en').auth.signup.validation.usernameRequired
     )
+  })
+
+  describe('signup username availability', () => {
+    beforeEach(() => vi.useFakeTimers())
+
+    async function renderSignup(locale: 'en' | 'es' | 'zh' = 'en') {
+      await renderWithLocale(
+        locale,
+        <SignupPage githubAvailable={false} googleAvailable={false} registrationMode='open' />
+      )
+      await setInputValue('#name', 'Ada Lovelace')
+      await setInputValue('#email', 'ada@example.com')
+      await setInputValue('#password', 'Password1!')
+    }
+
+    async function checkAvailability() {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300)
+      })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+    }
+
+    it('checks only the current browser-valid candidate and clears feedback when it is emptied', async () => {
+      const copy = getPublicCopy('es').auth.signup.usernameAvailability
+      await renderSignup('es')
+      await setInputValue('#username', 'invalid username')
+      await checkAvailability()
+      expect(mockIsUsernameAvailable).not.toHaveBeenCalled()
+      await setInputValue('#username', 'Ada.Name')
+      expect(container.querySelector('[role="status"]')?.textContent).toBe(copy.checking)
+      expect(container.querySelector('#username')).toHaveAttribute(
+        'aria-describedby',
+        'signup-username-hint signup-username-status'
+      )
+      await checkAvailability()
+      expect(mockIsUsernameAvailable).toHaveBeenCalledWith(
+        { username: 'ada.name' },
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
+      expect(container.querySelector('[role="status"]')?.textContent).toBe(copy.available)
+      await setInputValue('#username', '')
+      expect(container.querySelector('[role="status"]')).toBeNull()
+    })
+
+    it('blocks a known-taken candidate but still honors a native signup conflict after an available result', async () => {
+      mockIsUsernameAvailable.mockResolvedValueOnce({ data: { available: false }, error: null })
+      await renderSignup()
+      await setInputValue('#username', 'Taken.Name')
+      await checkAvailability()
+      const taken = getPublicCopy('en').auth.signup.errors.usernameTaken
+      expect(container.querySelector('#signup-username-error')?.textContent).toBe(taken)
+      await submitRenderedForm()
+      expect(mockSignUpEmail).not.toHaveBeenCalled()
+      await setInputValue('#username', 'Free.Name')
+      expect(container.querySelector('#signup-username-error')).toBeNull()
+      expect(container.querySelector('button[type="submit"]')).toBeEnabled()
+      await checkAvailability()
+      mockSignUpEmail.mockImplementation(async (_body, options) => {
+        const error = { code: 'USERNAME_IS_ALREADY_TAKEN' }
+        options.onError({ error })
+        return { error }
+      })
+      await submitRenderedForm()
+      expect(mockSignUpEmail).toHaveBeenCalledOnce()
+      expect(container.querySelector('#signup-username-error')?.textContent).toBe(taken)
+      expect(mockPush).not.toHaveBeenCalled()
+    })
+
+    it('shows a localized check failure while allowing authoritative signup', async () => {
+      mockIsUsernameAvailable.mockResolvedValueOnce({ data: null, error: { message: 'Offline' } })
+      mockSignUpEmail.mockResolvedValue({ user: { id: 'user-1' } })
+      await renderSignup('zh')
+      await setInputValue('#username', 'Ada.Name')
+      await checkAvailability()
+      expect(container.querySelector('[role="status"]')?.textContent).toBe(
+        getPublicCopy('zh').auth.signup.usernameAvailability.error
+      )
+      expect(container.querySelector('button[type="submit"]')).toBeEnabled()
+      await submitRenderedForm()
+      expect(mockSignUpEmail).toHaveBeenCalledOnce()
+      expect(mockPush).toHaveBeenCalledWith('/verify?fromSignup=true')
+    })
   })
 
   it.each([
