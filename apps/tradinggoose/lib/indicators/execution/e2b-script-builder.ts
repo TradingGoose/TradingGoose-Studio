@@ -14,7 +14,7 @@ const __tg_indicator_trigger_sentinel = '__tg_indicator_trigger__';
 const __tg_trigger_event_pattern = /^[a-z][a-z0-9_]{0,63}$/;
 const __tg_valid_trigger_signals = new Set(['long', 'short', 'flat']);
 const __tg_valid_trigger_positions = new Set(['aboveBar', 'belowBar', 'inBar']);
-const __tg_context_call_patch_flag = '__tg_indicator_trigger_call_patched__';
+const __tg_trigger_collector_storage_key = '__tg_indicator_trigger_collector_storage__';
 const __tg_trigger_call_id_pattern = /(^|[.$])trigger$/i;
 
 const __tg_push_trigger_warning = (collector, code, message) => {
@@ -169,10 +169,10 @@ const __tg_install_trigger_sentinel = (target) => {
   return sentinel;
 };
 
-const __tg_patch_context_call = (ContextCtor, collector) => {
-  const contextPrototype = ContextCtor?.prototype;
-  if (!contextPrototype || contextPrototype[__tg_context_call_patch_flag]) {
-    return;
+const __tg_patch_context_call = (ContextCtor, AsyncLocalStorage) => {
+  const contextPrototype = ContextCtor.prototype;
+  if (contextPrototype[__tg_trigger_collector_storage_key]) {
+    return contextPrototype[__tg_trigger_collector_storage_key];
   }
 
   const originalCall = contextPrototype.call;
@@ -180,6 +180,7 @@ const __tg_patch_context_call = (ContextCtor, collector) => {
     throw new Error('PineTS Context.call is unavailable for trigger bridge patching.');
   }
 
+  const collectorStorage = new AsyncLocalStorage();
   contextPrototype.call = function __tg_patched_context_call(fn, id, ...args) {
     const globalTrigger = globalThis?.trigger;
     const isSentinel =
@@ -188,19 +189,21 @@ const __tg_patch_context_call = (ContextCtor, collector) => {
     const triggerById = typeof id === 'string' && __tg_trigger_call_id_pattern.test(id.trim());
 
     if (isSentinel || triggerById) {
-      __tg_capture_trigger_call(collector, this, args);
+      const collector = collectorStorage.getStore();
+      if (collector) __tg_capture_trigger_call(collector, this, args);
       return undefined;
     }
 
     return originalCall.apply(this, [fn, id, ...args]);
   };
 
-  Object.defineProperty(contextPrototype, __tg_context_call_patch_flag, {
-    value: true,
+  Object.defineProperty(contextPrototype, __tg_trigger_collector_storage_key, {
+    value: collectorStorage,
     writable: false,
     enumerable: false,
     configurable: false,
   });
+  return collectorStorage;
 };
 
 const __tg_resolve_listing_symbol = (listing) => {
@@ -217,17 +220,18 @@ const __tg_resolve_listing_symbol = (listing) => {
 
 const __tg_run_pinets_indicator = async ({ bars, listing, interval, indicatorCode, inputs }) => {
   const { Indicator, PineTS, Context } = await import('pinets');
+  const { AsyncLocalStorage } = await import('node:async_hooks');
   if (typeof Indicator !== 'function' || typeof PineTS !== 'function' || typeof Context !== 'function') {
     throw new Error('Failed to initialize PineTS runtime in E2B sandbox');
   }
 
   const collector = { events: [], warnings: [] };
   __tg_install_trigger_sentinel(globalThis);
-  __tg_patch_context_call(Context, collector);
+  const collectorStorage = __tg_patch_context_call(Context, AsyncLocalStorage);
 
   const pine = new PineTS(bars, __tg_resolve_listing_symbol(listing), interval ?? undefined);
   await pine.ready();
-  const context = await pine.run(new Indicator(indicatorCode, inputs));
+  const context = await collectorStorage.run(collector, () => pine.run(new Indicator(indicatorCode, inputs)));
   return {
     context,
     transpiledCode: typeof pine.transpiledCode === 'string' ? pine.transpiledCode : null,
