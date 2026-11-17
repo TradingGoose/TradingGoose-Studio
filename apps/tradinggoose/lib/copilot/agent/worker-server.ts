@@ -22,9 +22,9 @@ import { getNativeMemoryStore, getNativeWorkflowsStore } from '@/lib/mastra/runt
 import { type CopilotDecision, readCopilotRun, resolveCopilotRunToolContext } from './context'
 import {
   type CopilotRun,
+  maintainCopilotThreadLease,
   readCopilotJob,
   readCopilotThreadOwnership,
-  THREAD_LEASE_MS,
 } from './ownership'
 import { assertCopilotRunActive, cancelCopilotRun, claimCopilotEffect } from './receipts'
 import {
@@ -92,7 +92,10 @@ async function validateFence(context: WorkerContext, value: unknown) {
     owner.generation !== fence.generation
   )
     throw new NativeTargetError('This Copilot turn no longer owns the conversation', 409)
-  return fence
+  return {
+    fence,
+    leaseDeadline: performance.now() + Math.max(0, owner.leaseExpiresAt!.getTime() - Date.now()),
+  }
 }
 
 async function runForJob(job: CopilotJob): Promise<CopilotRun> {
@@ -285,17 +288,14 @@ export async function executeCopilotWorkerTool(
 async function withToolLease<T>(
   runId: string,
   fence: RunFence,
+  leaseDeadline: number,
   signal: AbortSignal | undefined,
   operation: (signal: AbortSignal) => Promise<T>
 ) {
   const workflows = await getNativeWorkflowsStore()
+  const lease = maintainCopilotThreadLease(workflows, fence, leaseDeadline)
   const cancellation = new AbortController()
-  let renewal: Promise<void> | undefined
   let checking: Promise<void> | undefined
-  const renew = async () => {
-    const result = await workflows.renewRunOwnership({ ...fence, leaseMs: THREAD_LEASE_MS })
-    if (!result.renewed) throw new NativeTargetError('Copilot tool ownership changed', 409)
-  }
   const cancellationTimer = setInterval(() => {
     if (checking || cancellation.signal.aborted) return
     checking = assertCopilotRunActive(runId)
@@ -304,23 +304,14 @@ async function withToolLease<T>(
         checking = undefined
       })
   }, COPILOT_CANCELLATION_POLL_INTERVAL)
-  const timer = setInterval(() => {
-    if (renewal) return
-    renewal = renew()
-      .catch((error) => cancellation.abort(error))
-      .finally(() => {
-        renewal = undefined
-      })
-  }, THREAD_LEASE_MS / 3)
   try {
-    await renew()
+    await lease.renew()
     return await operation(
-      signal ? AbortSignal.any([signal, cancellation.signal]) : cancellation.signal
+      AbortSignal.any([lease.signal, cancellation.signal, ...(signal ? [signal] : [])])
     )
   } finally {
-    clearInterval(timer)
     clearInterval(cancellationTimer)
-    await Promise.all([renewal, checking])
+    await lease.handoff()
   }
 }
 
@@ -368,7 +359,7 @@ export async function handleCopilotWorkerOperation(
   }
   if (operation === 'cancel')
     return cancelCopilotRun({ scope, threadId: identity.threadId, runId: identity.runId })
-  const fence = await validateFence(context, fields.fence)
+  const { fence, leaseDeadline } = await validateFence(context, fields.fence)
   await assertCopilotRunActive(identity.runId)
   if (operation === 'prepare') {
     if (!('request' in context)) throw new NativeTargetError('The original job is required', 422)
@@ -384,7 +375,7 @@ export async function handleCopilotWorkerOperation(
       (!('request' in context) && context.model !== tool.run.model)
     )
       throw new NativeTargetError('The tool belongs to another Copilot run', 403)
-    return withToolLease(identity.runId, fence, signal, (toolSignal) =>
+    return withToolLease(identity.runId, fence, leaseDeadline, signal, (toolSignal) =>
       executeCopilotWorkerTool(tool, toolSignal)
     ).catch((error) => {
       if (error instanceof NativeTargetError) throw error

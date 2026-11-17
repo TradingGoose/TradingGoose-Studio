@@ -1,7 +1,13 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { createHash } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
-import { RunFenceConflictError, type RunFenceScope, setRunFenceContext } from '@mastra/core/storage'
+import {
+  type RunFence,
+  RunFenceConflictError,
+  type RunFenceScope,
+  setRunFenceContext,
+  type WorkflowsStorage,
+} from '@mastra/core/storage'
 import { runs } from '@trigger.dev/sdk'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type {
@@ -69,28 +75,12 @@ export async function readCopilotThreadOwnership(scope: Scope, threadId: string)
   })
 }
 
-export async function claimCopilotThread(
-  scope: Scope,
-  threadId: string,
-  runId: string,
-  jobId?: string,
-  expectedGeneration?: number
+export function maintainCopilotThreadLease(
+  workflows: WorkflowsStorage,
+  fence: RunFence,
+  initialDeadline: number
 ) {
-  const [workflows, memory] = await Promise.all([getNativeWorkflowsStore(), getNativeMemoryStore()])
-  let leaseDeadline = performance.now() + THREAD_LEASE_MS
-  const claim = await workflows.claimRunOwnership({
-    runId: copilotThreadOwnerId(scope, threadId),
-    ownerId: runId,
-    leaseMs: THREAD_LEASE_MS,
-    ...(expectedGeneration === undefined ? {} : { force: true, expectedGeneration }),
-  })
-  if (!claim.acquired)
-    throw new NativeTargetError(
-      'This conversation is still running. Stop it or wait for it to finish.',
-      409
-    )
-  const { generation, ownerId } = claim.record
-  const fence = { runId: claim.record.runId, generation, ownerId }
+  let leaseDeadline = Math.min(initialDeadline, performance.now() + THREAD_LEASE_MS)
   const cancellation = new AbortController()
   const withinLease = async <T>(operation: Promise<T>) => {
     let timeout: ReturnType<typeof setTimeout> | undefined
@@ -108,21 +98,14 @@ export async function claimCopilotThread(
       clearTimeout(timeout)
     }
   }
-  try {
-    const job = await readCopilotJob(scope, threadId)
-    if (jobId ? job?.id !== jobId : job && (await isCopilotJobActive(job)))
-      throw new NativeTargetError('This conversation has another active response', 409)
-    // Advance the thread's native memory fence before admitting its next writer.
-    if (!(await memory.raiseRunFence(fence)))
-      throw new RunFenceConflictError(fence, 'claimCopilotThread')
-  } catch (error) {
-    await workflows.releaseRunOwnership(fence)
-    throw error
-  }
   let renewal: Promise<void> | undefined
   const renew = async () => {
     cancellation.signal.throwIfAborted()
     const started = performance.now()
+    if (started >= leaseDeadline) {
+      cancellation.abort(new NativeTargetError('Copilot conversation ownership expired', 409))
+      cancellation.signal.throwIfAborted()
+    }
     return (renewal ??= withinLease(
       workflows.renewRunOwnership({ ...fence, leaseMs: THREAD_LEASE_MS })
     )
@@ -146,24 +129,66 @@ export async function claimCopilotThread(
     await renewal?.catch(() => {})
   }
   return {
+    signal: cancellation.signal,
+    abort: (reason: unknown) => cancellation.abort(reason),
+    renew,
+    handoff,
+  }
+}
+
+export async function claimCopilotThread(
+  scope: Scope,
+  threadId: string,
+  runId: string,
+  jobId?: string,
+  expectedGeneration?: number
+) {
+  const [workflows, memory] = await Promise.all([getNativeWorkflowsStore(), getNativeMemoryStore()])
+  const leaseDeadline = performance.now() + THREAD_LEASE_MS
+  const claim = await workflows.claimRunOwnership({
+    runId: copilotThreadOwnerId(scope, threadId),
+    ownerId: runId,
+    leaseMs: THREAD_LEASE_MS,
+    ...(expectedGeneration === undefined ? {} : { force: true, expectedGeneration }),
+  })
+  if (!claim.acquired)
+    throw new NativeTargetError(
+      'This conversation is still running. Stop it or wait for it to finish.',
+      409
+    )
+  const { generation, ownerId } = claim.record
+  const fence = { runId: claim.record.runId, generation, ownerId }
+  try {
+    const job = await readCopilotJob(scope, threadId)
+    if (jobId ? job?.id !== jobId : job && (await isCopilotJobActive(job)))
+      throw new NativeTargetError('This conversation has another active response', 409)
+    // Advance the thread's native memory fence before admitting its next writer.
+    if (!(await memory.raiseRunFence(fence)))
+      throw new RunFenceConflictError(fence, 'claimCopilotThread')
+  } catch (error) {
+    await workflows.releaseRunOwnership(fence)
+    throw error
+  }
+  const lease = maintainCopilotThreadLease(workflows, fence, leaseDeadline)
+  return {
     fence,
     run<T>(operation: () => T): T {
       return fenceContext.run(
         {
           fenceFor: (store) => (store === memory || store === workflows ? fence : undefined),
           onConflict: () =>
-            cancellation.abort(
+            lease.abort(
               new NativeTargetError('This Copilot turn no longer owns the conversation', 409)
             ),
         },
         operation
       )
     },
-    signal: cancellation.signal,
-    renew,
-    handoff,
+    signal: lease.signal,
+    renew: lease.renew,
+    handoff: lease.handoff,
     async release() {
-      await handoff()
+      await lease.handoff()
       try {
         await memory.retireRunFence(fence)
       } finally {
