@@ -3,13 +3,16 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Button, Input, Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
-import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
+import {
+  formatBillingPricePeriod,
+  type PublicBillingTierDisplay,
+} from '@/lib/billing/public-catalog'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import { generateSlug, getUserRole, isAdminOrOwner } from '@/lib/organization'
+import { generateSlug, getUserRole } from '@/lib/organization'
 import { getOrganizationAccessState } from '@/lib/organization/access'
-import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
+import { getUpgradeTierIssue, useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import {
   organizationMutationOptions,
   useAvailableOrganizationBillingWorkspaces,
@@ -21,7 +24,6 @@ import {
 } from '@/hooks/queries/organization'
 import { usePrivateTierAccessForm } from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
-import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { useAdminWorkspaces } from '@/hooks/queries/workspace'
 import { formatUsd } from '@/i18n/formatters'
 import type { LocaleCode } from '@/i18n/utils'
@@ -42,35 +44,6 @@ import {
 } from './components'
 
 const logger = createLogger('TeamManagement')
-const safeNumber = (value: number | null | undefined) =>
-  typeof value === 'number' && Number.isFinite(value) ? value : 0
-
-type TeamSubscriptionData = {
-  id: string
-  billingEnabled?: boolean
-  isPaid: boolean
-  status: string
-  seats?: number
-  referenceId: string
-  metadata: any
-  stripeSubscriptionId: string | null
-  periodEnd?: number | Date
-  cancelAtPeriodEnd: boolean
-  tier: BillingTierSummary | null
-  usage: {
-    current: number
-    limit: number
-    percentUsed: number
-    isWarning: boolean
-    isExceeded: boolean
-    billingPeriodStart: Date | null
-    billingPeriodEnd: Date | null
-    lastPeriodCost: number
-    lastPeriodCopilotCost: number
-    copilotCost: number
-  }
-  billingBlocked?: boolean
-}
 
 export function TeamManagement() {
   const { data: session } = useSession()
@@ -88,14 +61,9 @@ export function TeamManagement() {
   const { data: organization, isLoading, error: orgError } = useOrganization(activeOrgId || '')
   const displayOrganization = organization?.id === activeOrgId ? organization : activeOrganization
   const userRole = getUserRole(displayOrganization, session?.user?.email)
-  const adminOrOwner = isAdminOrOwner(displayOrganization, session?.user?.email)
+  const adminOrOwner = userRole === 'owner' || userRole === 'admin'
   const isOrganizationOwner = userRole === 'owner'
 
-  const {
-    data: userSubscriptionData,
-    isLoading: isLoadingPersonalSubscription,
-    error: subscriptionError,
-  } = useSubscriptionData()
   const {
     data: organizationBillingData,
     isLoading: isLoadingOrganizationBilling,
@@ -157,7 +125,6 @@ export function TeamManagement() {
   const [orgName, setOrgName] = useState('')
   const [orgSlug, setOrgSlug] = useState('')
   const [isAddSeatDialogOpen, setIsAddSeatDialogOpen] = useState(false)
-  const [newSeatCount, setNewSeatCount] = useState(1)
   const [pendingUpgradeTier, setPendingUpgradeTier] = useState<PublicBillingTierDisplay | null>(
     null
   )
@@ -197,65 +164,14 @@ export function TeamManagement() {
     [isPending, copy]
   )
 
-  const personalBillingPayload = (userSubscriptionData as any)?.data ?? userSubscriptionData
   const organizationBillingPayload =
     organizationBillingData?.organizationId === activeOrgId ? organizationBillingData : null
   const organizationBillingPending =
     isLoadingOrganizationBilling || Boolean(activeOrgId && isOrganizationBillingPlaceholder)
-  const organizationSubscriptionTier = organizationBillingPayload?.subscriptionTier ?? null
-  const organizationSubscriptionData: TeamSubscriptionData | null = organizationBillingPayload
-    ? {
-        id: organizationBillingPayload.organizationId,
-        billingEnabled: organizationBillingPayload.billingEnabled,
-        isPaid: Boolean(organizationSubscriptionTier),
-        status: organizationBillingPayload.subscriptionStatus,
-        seats: organizationBillingPayload.totalSeats,
-        referenceId: organizationBillingPayload.organizationId,
-        metadata: null,
-        stripeSubscriptionId: null,
-        periodEnd: organizationBillingPayload.billingPeriodEnd
-          ? new Date(organizationBillingPayload.billingPeriodEnd)
-          : undefined,
-        cancelAtPeriodEnd: false,
-        tier: organizationSubscriptionTier,
-        usage: {
-          current: organizationBillingPayload.totalCurrentUsage,
-          limit: organizationBillingPayload.totalUsageLimit,
-          percentUsed:
-            organizationBillingPayload.totalUsageLimit > 0
-              ? (organizationBillingPayload.totalCurrentUsage /
-                  organizationBillingPayload.totalUsageLimit) *
-                100
-              : 0,
-          isWarning:
-            organizationBillingPayload.totalUsageLimit > 0 &&
-            (organizationBillingPayload.totalCurrentUsage /
-              organizationBillingPayload.totalUsageLimit) *
-              100 >=
-              organizationBillingPayload.warningThresholdPercent,
-          isExceeded:
-            organizationBillingPayload.totalUsageLimit > 0 &&
-            organizationBillingPayload.totalCurrentUsage >=
-              organizationBillingPayload.totalUsageLimit,
-          billingPeriodStart: organizationBillingPayload.billingPeriodStart
-            ? new Date(organizationBillingPayload.billingPeriodStart)
-            : null,
-          billingPeriodEnd: organizationBillingPayload.billingPeriodEnd
-            ? new Date(organizationBillingPayload.billingPeriodEnd)
-            : null,
-          lastPeriodCost: organizationBillingPayload.lastPeriodCost ?? 0,
-          lastPeriodCopilotCost: organizationBillingPayload.lastPeriodCopilotCost ?? 0,
-          copilotCost: organizationBillingPayload.currentPeriodCopilotCost ?? 0,
-        },
-        billingBlocked: organizationBillingPayload.billingBlocked,
-      }
-    : null
-  const billingPayload = displayOrganization ? organizationSubscriptionData : personalBillingPayload
-  const subscriptionData = billingPayload as TeamSubscriptionData | null
-  const currentTier = subscriptionData?.tier ?? null
+  const currentTier = organizationBillingPayload?.subscriptionTier ?? null
+  const totalSeats = organizationBillingPayload?.totalSeats ?? 0
   const billingEnabled =
     organizationBillingPayload?.billingEnabled ??
-    personalBillingPayload?.billingEnabled ??
     organizationsData?.billingData?.data?.billingEnabled ??
     true
   const seatCountsEnabled = organizationBillingPayload?.billingEnabled === true
@@ -276,9 +192,9 @@ export function TeamManagement() {
   const organizationPlanSurface = getSubscriptionSurfaceState({
     subscription: {
       isFree: false,
-      isPaid: Boolean(organizationSubscriptionTier),
+      isPaid: Boolean(currentTier),
       tier:
-        organizationSubscriptionTier ??
+        currentTier ??
         ({
           ...EMPTY_BILLING_TIER_SUMMARY,
           ownerType: 'organization',
@@ -294,21 +210,14 @@ export function TeamManagement() {
     billingEnabled,
     hasOrganization: Boolean(displayOrganization),
     isOrganizationAdmin: adminOrOwner,
-    organizationTier: organizationSubscriptionTier,
+    organizationTier: currentTier,
   })
-  const isLoadingSubscription = displayOrganization
-    ? organizationBillingPending
-    : isLoadingPersonalSubscription
   const isAdjustableSeatTier =
     currentTier?.ownerType === 'organization' && currentTier.seatMode === 'adjustable'
-  const adjustableSeatTier =
-    publicBillingCatalog?.publicTiers.find(
-      (tier) => tier.ownerType === 'organization' && tier.seatMode === 'adjustable'
-    ) ?? null
-  const seatPriceUsd =
-    safeNumber(currentTier?.monthlyPriceUsd) || safeNumber(adjustableSeatTier?.monthlyPriceUsd)
-  const seatCount = currentTier?.seatCount ?? adjustableSeatTier?.seatCount ?? 1
-  const seatMaximum = currentTier?.seatMaximum ?? adjustableSeatTier?.seatMaximum ?? null
+  const seatPriceUsd = currentTier?.monthlyPriceUsd ?? currentTier?.yearlyPriceUsd ?? null
+  const seatPeriod = currentTier ? formatBillingPricePeriod(currentTier) : null
+  const seatCount = currentTier?.seatCount ?? 1
+  const seatMaximum = currentTier?.seatMaximum ?? null
   const organizationPlanCatalogPending =
     isLoadingPublicBillingCatalog || privateTierAccess.isLoading
   const canShowOrganizationPlans = Boolean(
@@ -469,29 +378,20 @@ export function TeamManagement() {
   )
 
   const handleReduceSeats = useCallback(async () => {
-    if (!session?.user || !activeOrgId || !subscriptionData || seatCountsUnavailable) return
-    if (
-      subscriptionData.tier?.ownerType !== 'organization' ||
-      subscriptionData.tier?.seatMode !== 'adjustable'
-    ) {
-      return
-    }
-
-    const currentSeats = subscriptionData.seats || 0
-    if (currentSeats <= 1) return
-
-    if (usedSeats >= currentSeats) return
+    if (!session?.user || !activeOrgId || !isAdjustableSeatTier || seatCountsUnavailable) return
+    if (totalSeats <= 1 || usedSeats >= totalSeats) return
 
     await runAction('reduce-seats', () =>
       updateSeatsMutation.mutateAsync({
         orgId: activeOrgId,
-        seats: currentSeats - 1,
+        seats: totalSeats - 1,
       })
     )
   }, [
     session?.user?.id,
     activeOrgId,
-    subscriptionData,
+    isAdjustableSeatTier,
+    totalSeats,
     usedSeats,
     seatCountsUnavailable,
     updateSeatsMutation,
@@ -500,47 +400,32 @@ export function TeamManagement() {
 
   const handleAddSeatDialog = useCallback(() => {
     if (
-      subscriptionData &&
+      seatPriceUsd !== null &&
+      seatPeriod !== null &&
       !seatCountsUnavailable &&
-      subscriptionData.tier?.ownerType === 'organization' &&
-      subscriptionData.tier?.seatMode === 'adjustable'
+      isAdjustableSeatTier
     ) {
-      setNewSeatCount((subscriptionData.seats || 1) + 1)
       setIsAddSeatDialogOpen(true)
     }
-  }, [subscriptionData, seatCountsUnavailable])
+  }, [isAdjustableSeatTier, seatCountsUnavailable, seatPriceUsd, seatPeriod])
 
   const confirmAddSeats = useCallback(
-    async (selectedSeats?: number) => {
-      if (
-        !subscriptionData ||
-        !activeOrgId ||
-        seatCountsUnavailable ||
-        subscriptionData.tier?.ownerType !== 'organization' ||
-        subscriptionData.tier?.seatMode !== 'adjustable'
-      ) {
+    async (selectedSeats: number) => {
+      if (!activeOrgId || seatCountsUnavailable || !isAdjustableSeatTier) {
         return
       }
 
-      const seatsToUse = selectedSeats || newSeatCount
       const succeeded = await runAction('update-seats', () =>
         updateSeatsMutation.mutateAsync({
           orgId: activeOrgId,
-          seats: seatsToUse,
+          seats: selectedSeats,
         })
       )
       if (succeeded) {
         setIsAddSeatDialogOpen(false)
       }
     },
-    [
-      subscriptionData,
-      activeOrgId,
-      newSeatCount,
-      updateSeatsMutation,
-      runAction,
-      seatCountsUnavailable,
-    ]
+    [isAdjustableSeatTier, activeOrgId, updateSeatsMutation, runAction, seatCountsUnavailable]
   )
 
   const handleAssignWorkspaceBilling = useCallback(
@@ -575,22 +460,7 @@ export function TeamManagement() {
     [activeOrgId, releaseWorkspaceFromOrganizationMutation, runAction]
   )
 
-  const confirmTeamUpgrade = useCallback(
-    async (seats: number) => {
-      if (seatCountsUnavailable) return
-      if (!session?.user || !adjustableSeatTier) {
-        alert(copy('noPublicAdjustableTier'))
-        return
-      }
-
-      setActionError(null)
-      setNewSeatCount(seats)
-      setPendingUpgradeTier(adjustableSeatTier)
-    },
-    [session?.user, adjustableSeatTier, copy, seatCountsUnavailable]
-  )
-
-  const queryError = orgError || organizationBillingError || subscriptionError
+  const queryError = orgError || organizationBillingError
   const queryFailure = queryError ? copy('errors.loadFailed') : null
   const actionFailure = (action: string) =>
     actionError?.action === action ? actionError.message : null
@@ -633,12 +503,15 @@ export function TeamManagement() {
             <div className='space-y-3'>
               <h4 className='font-medium text-sm'>{copy('howBillingWorks')}</h4>
               <ul className='ml-4 list-disc space-y-2 text-muted-foreground text-xs'>
-                <li>
-                  {copy('billingHowWorksSeatCost', {
-                    seats: subscriptionData?.seats || 0,
-                    amount: formatUsd(locale, (subscriptionData?.seats || 0) * seatPriceUsd),
-                  })}
-                </li>
+                {seatPriceUsd !== null && seatPeriod && (
+                  <li>
+                    {copy('billingHowWorksSeatCost', {
+                      seats: totalSeats,
+                      amount: formatUsd(locale, totalSeats * seatPriceUsd),
+                      interval: seatPeriod === '/yr' ? 'year' : 'month',
+                    })}
+                  </li>
+                )}
                 <li>{copy('billingHowWorksUsageTracked')}</li>
                 <li>{copy('billingHowWorksIncreaseLimit')}</li>
                 <li>{copy('billingHowWorksOverage')}</li>
@@ -687,15 +560,18 @@ export function TeamManagement() {
               <div className='flex flex-wrap gap-2'>
                 {organizationPlanTiers.map((tier) => {
                   const isCurrentTier = tier.id === organizationPlanSurface.currentTier?.id
+                  const issue = getUpgradeTierIssue(tier, usedSeats)
+                  const period = formatBillingPricePeriod(tier)
                   const planLabel = (
                     <>
-                      {tier.displayName} ·{' '}
-                      {formatUsd(locale, tier.monthlyPriceUsd ?? tier.yearlyPriceUsd ?? 0)}
-                      {tier.monthlyPriceUsd !== null
-                        ? copy('plans.monthly')
-                        : tier.yearlyPriceUsd !== null
-                          ? copy('plans.yearly')
-                          : null}
+                      {tier.displayName}
+                      {period && (
+                        <>
+                          {' '}
+                          · {formatUsd(locale, (tier.monthlyPriceUsd ?? tier.yearlyPriceUsd)!)}
+                          {period === '/mo' ? copy('plans.monthly') : copy('plans.yearly')}
+                        </>
+                      )}
                       {isCurrentTier ? ` · ${copy('plans.current')}` : null}
                     </>
                   )
@@ -709,32 +585,46 @@ export function TeamManagement() {
                       {planLabel}
                     </div>
                   ) : (
-                    <Button
-                      key={tier.id}
-                      variant='outline'
-                      disabled={
-                        isPending ||
-                        !activeOrgId ||
-                        (tier.seatMode === 'adjustable' && seatCountsUnavailable) ||
-                        !organizationPlanSurface.canManageOrganizationPlan
-                      }
-                      onClick={() => {
-                        if (tier.seatMode === 'adjustable') {
-                          setActionError(null)
-                          setNewSeatCount(subscriptionData?.seats ?? 1)
-                          setPendingUpgradeTier(tier)
-                          return
+                    <div key={tier.id} className='max-w-xs'>
+                      <Button
+                        variant='outline'
+                        disabled={
+                          isPending ||
+                          issue !== null ||
+                          !activeOrgId ||
+                          (tier.seatMode === 'adjustable' && seatCountsUnavailable) ||
+                          !organizationPlanSurface.canManageOrganizationPlan
                         }
-                        void runAction(`subscribe:${tier.id}`, () =>
-                          handleUpgrade(toUpgradeTarget(tier), {
-                            organizationId: activeOrgId,
-                            seats: Math.max(tier.seatCount ?? 1, 1),
-                          })
-                        )
-                      }}
-                    >
-                      {planLabel}
-                    </Button>
+                        onClick={() => {
+                          if (issue) return
+                          if (tier.seatMode === 'adjustable') {
+                            setActionError(null)
+                            setPendingUpgradeTier(tier)
+                            return
+                          }
+                          void runAction(`subscribe:${tier.id}`, () =>
+                            handleUpgrade(toUpgradeTarget(tier), {
+                              organizationId: activeOrgId,
+                              seats: Math.max(tier.seatCount ?? 1, 1),
+                              ...(period === '/yr' ? { annual: true } : {}),
+                            })
+                          )
+                        }}
+                      >
+                        {planLabel}
+                      </Button>
+                      {issue === 'capacity' && (
+                        <p className='mt-1 text-muted-foreground text-xs'>
+                          {copy('seatCapacityConflict', {
+                            minimum: Math.max(tier.seatCount ?? 1, usedSeats),
+                            maximum:
+                              tier.seatMode === 'fixed'
+                                ? (tier.seatCount ?? 1)
+                                : (tier.seatMaximum ?? 1),
+                          })}
+                        </p>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -792,14 +682,16 @@ export function TeamManagement() {
         {/* Team Seats Overview */}
         {isOrganizationOwner && isAdjustableSeatTier && (
           <TeamSeatsOverview
-            subscriptionData={subscriptionData}
-            isLoadingSubscription={isLoadingSubscription || seatCountsUnavailable}
+            totalSeats={totalSeats}
+            pricePerSeat={seatPriceUsd}
+            billingInterval={seatPeriod ? (seatPeriod === '/yr' ? 'year' : 'month') : null}
+            isLoadingSubscription={organizationBillingPending || seatCountsUnavailable}
             usedSeats={usedSeats}
-            isLoading={isLoading}
-            actionsDisabled={isPending || seatCountsUnavailable}
+            actionsDisabled={
+              isLoading || isPending || seatCountsUnavailable || seatPriceUsd === null
+            }
             isReducing={pendingAction === 'reduce-seats'}
             error={actionFailure('reduce-seats')}
-            onConfirmTeamUpgrade={confirmTeamUpgrade}
             onReduceSeats={handleReduceSeats}
             onAddSeatDialog={handleAddSeatDialog}
           />
@@ -914,59 +806,73 @@ export function TeamManagement() {
         }
       />
 
-      <TeamSeats
-        open={Boolean(pendingUpgradeTier) && isOrganizationOwner && !seatCountsUnavailable}
-        onOpenChange={(open) => {
-          if (!open) setPendingUpgradeTier(null)
-        }}
-        title={pendingUpgradeTier?.displayName ?? ''}
-        description={pendingUpgradeTier?.description || copy('plans.description')}
-        pricePerSeat={pendingUpgradeTier?.monthlyPriceUsd ?? 0}
-        minimumSeats={Math.max(pendingUpgradeTier?.seatCount ?? 1, usedSeats)}
-        maximumSeats={pendingUpgradeTier?.seatMaximum ?? null}
-        initialSeats={newSeatCount}
-        isLoading={pendingAction === `subscribe:${pendingUpgradeTier?.id}`}
-        error={pendingUpgradeTier ? actionFailure(`subscribe:${pendingUpgradeTier.id}`) : null}
-        onConfirm={async (seats) => {
-          if (!pendingUpgradeTier || !activeOrgId || seatCountsUnavailable) return
-          const succeeded = await runAction(`subscribe:${pendingUpgradeTier.id}`, () =>
-            handleUpgrade(toUpgradeTarget(pendingUpgradeTier), {
-              organizationId: activeOrgId,
-              seats,
-            })
-          )
-          if (succeeded) setPendingUpgradeTier(null)
-        }}
-        confirmButtonText={copy('setUpTeamSubscription')}
-      />
+      {pendingUpgradeTier && formatBillingPricePeriod(pendingUpgradeTier) && (
+        <TeamSeats
+          open={isOrganizationOwner && !seatCountsUnavailable}
+          onOpenChange={(open) => {
+            if (!open) setPendingUpgradeTier(null)
+          }}
+          title={pendingUpgradeTier.displayName}
+          description={pendingUpgradeTier.description || copy('plans.description')}
+          pricePerSeat={(pendingUpgradeTier.monthlyPriceUsd ?? pendingUpgradeTier.yearlyPriceUsd)!}
+          billingInterval={
+            formatBillingPricePeriod(pendingUpgradeTier) === '/yr' ? 'year' : 'month'
+          }
+          minimumSeats={Math.max(pendingUpgradeTier.seatCount ?? 1, usedSeats)}
+          maximumSeats={pendingUpgradeTier.seatMaximum}
+          initialSeats={totalSeats}
+          isLoading={pendingAction === `subscribe:${pendingUpgradeTier.id}`}
+          error={actionFailure(`subscribe:${pendingUpgradeTier.id}`)}
+          onConfirm={async (seats) => {
+            if (
+              !activeOrgId ||
+              seatCountsUnavailable ||
+              getUpgradeTierIssue(pendingUpgradeTier, usedSeats)
+            )
+              return
+            const succeeded = await runAction(`subscribe:${pendingUpgradeTier.id}`, () =>
+              handleUpgrade(toUpgradeTarget(pendingUpgradeTier), {
+                organizationId: activeOrgId,
+                seats,
+                ...(formatBillingPricePeriod(pendingUpgradeTier) === '/yr' ? { annual: true } : {}),
+              })
+            )
+            if (succeeded) setPendingUpgradeTier(null)
+          }}
+          confirmButtonText={copy('setUpTeamSubscription')}
+        />
+      )}
 
-      <TeamSeats
-        open={
-          isAddSeatDialogOpen &&
-          isOrganizationOwner &&
-          isAdjustableSeatTier &&
-          !seatCountsUnavailable
-        }
-        onOpenChange={setIsAddSeatDialogOpen}
-        title={copy('addSeats.title')}
-        description={copy('addSeats.description', { price: formatUsd(locale, seatPriceUsd) })}
-        pricePerSeat={seatPriceUsd}
-        minimumSeats={Math.max(seatCount, usedSeats)}
-        maximumSeats={seatMaximum}
-        currentSeats={subscriptionData?.seats || 1}
-        initialSeats={newSeatCount}
-        isLoading={
-          pendingAction === 'update-seats' || (isAddSeatDialogOpen && updateSeatsMutation.isPending)
-        }
-        error={actionFailure('update-seats')}
-        onConfirm={async (selectedSeats: number) => {
-          setNewSeatCount(selectedSeats)
-          await confirmAddSeats(selectedSeats)
-        }}
-        confirmButtonText={copy('addSeats.confirm')}
-        showCostBreakdown={true}
-        isCancelledAtPeriodEnd={subscriptionData?.cancelAtPeriodEnd}
-      />
+      {seatPriceUsd !== null && seatPeriod && (
+        <TeamSeats
+          open={
+            isAddSeatDialogOpen &&
+            isOrganizationOwner &&
+            isAdjustableSeatTier &&
+            !seatCountsUnavailable
+          }
+          onOpenChange={setIsAddSeatDialogOpen}
+          title={copy('addSeats.title')}
+          description={copy('addSeats.description', {
+            price: formatUsd(locale, seatPriceUsd),
+            interval: seatPeriod === '/yr' ? 'year' : 'month',
+          })}
+          pricePerSeat={seatPriceUsd}
+          billingInterval={seatPeriod === '/yr' ? 'year' : 'month'}
+          minimumSeats={Math.max(seatCount, usedSeats)}
+          maximumSeats={seatMaximum}
+          currentSeats={totalSeats}
+          initialSeats={totalSeats + 1}
+          isLoading={
+            pendingAction === 'update-seats' ||
+            (isAddSeatDialogOpen && updateSeatsMutation.isPending)
+          }
+          error={actionFailure('update-seats')}
+          onConfirm={confirmAddSeats}
+          confirmButtonText={copy('addSeats.confirm')}
+          showCostBreakdown={true}
+        />
+      )}
     </div>
   )
 }

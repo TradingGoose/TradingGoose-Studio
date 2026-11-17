@@ -1,7 +1,10 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { client, useSession } from '@/lib/auth-client'
-import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
+import {
+  formatBillingPricePeriod,
+  type PublicBillingTierDisplay,
+} from '@/lib/billing/public-catalog'
 import { createLogger } from '@/lib/logs/console/logger'
 import { organizationKeys } from '@/hooks/queries/organization'
 import { resolveOrganizationUpgradeReference } from './upgrade-target'
@@ -16,6 +19,14 @@ export interface BillingUpgradeTarget {
   seatCount?: number | null
 }
 
+export function getUpgradeTierIssue(tier: PublicBillingTierDisplay, occupiedSeats: number) {
+  if (formatBillingPricePeriod(tier) === null) return 'unpriced'
+  if (tier.ownerType !== 'organization') return null
+  const minimum = Math.max(tier.seatCount ?? 1, occupiedSeats, 1)
+  const maximum = tier.seatMode === 'fixed' ? Math.max(tier.seatCount ?? 1, 1) : tier.seatMaximum
+  return maximum !== null && minimum > maximum ? 'capacity' : null
+}
+
 export function useSubscriptionUpgrade() {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
@@ -26,6 +37,7 @@ export function useSubscriptionUpgrade() {
       options?: {
         seats?: number
         organizationId?: string
+        annual?: boolean
       }
     ) => {
       const userId = session?.user?.id
@@ -73,6 +85,7 @@ export function useSubscriptionUpgrade() {
           referenceId,
           successUrl: currentUrl,
           cancelUrl: currentUrl,
+          ...(options?.annual ? { annual: true } : {}),
           ...(targetTier.ownerType === 'organization' && { seats: initialSeats }),
         } as const
 

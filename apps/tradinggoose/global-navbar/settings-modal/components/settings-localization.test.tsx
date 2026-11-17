@@ -36,7 +36,8 @@ vi.mock('@/lib/auth-client', () => ({
   }),
 }))
 
-vi.mock('@/lib/subscription/upgrade', () => ({
+vi.mock('@/lib/subscription/upgrade', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/subscription/upgrade')>()),
   useSubscriptionUpgrade: () => ({ handleUpgrade: mocks.mutate }),
 }))
 
@@ -69,10 +70,6 @@ vi.mock('@/hooks/queries/workspace', () => ({
   workspaceMutationOptions: { updateSettings: () => ({ mutationFn: mocks.mutate }) },
 }))
 
-vi.mock('@/hooks/queries/subscription', () => ({
-  useSubscriptionData: () => ({ data: null, isLoading: false }),
-}))
-
 vi.mock('@/hooks/queries/public-billing-catalog', () => ({
   usePublicBillingCatalog: () => ({ data: { publicTiers: mocks.publicTiers }, isLoading: false }),
 }))
@@ -95,7 +92,9 @@ vi.mock('./team-management/components', async () => ({
   RemoveMemberDialog: () => null,
   TeamMembers: (await import('./team-management/components/team-members/team-members')).TeamMembers,
   TeamSeats: (await import('./team-management/components/team-seats/team-seats')).TeamSeats,
-  TeamSeatsOverview: () => null,
+  TeamSeatsOverview: (
+    await import('./team-management/components/team-seats-overview/team-seats-overview')
+  ).TeamSeatsOverview,
   TeamUsage: () => null,
   WorkspaceBilling: () => null,
 }))
@@ -394,6 +393,102 @@ describe('settings localization', () => {
       )
     })
 
+    it.each([
+      { monthly: null, yearly: 120, amount: '$6,000.00', interval: 'year', annual: true },
+      { monthly: 12.5, yearly: 120, amount: '$625.00', interval: 'month', annual: false },
+      { monthly: 0, yearly: 120, amount: '$0.00', interval: 'month', annual: false },
+    ])(
+      'uses the actual $interval quote and native interval for team upgrades ($monthly/$yearly)',
+      async ({ monthly, yearly, amount, interval, annual }) => {
+        mocks.publicTiers[0] = {
+          ...mocks.publicTiers[0],
+          monthlyPriceUsd: monthly,
+          yearlyPriceUsd: yearly,
+        }
+        await render('en', <TeamManagement />)
+        await act(async () => plan().click())
+        expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+          `${amount} per ${interval}`
+        )
+        await act(async () => confirm().click())
+        expect(mocks.mutate).toHaveBeenCalledWith(
+          expect.objectContaining({ billingTierId: 'tier-org' }),
+          { organizationId: 'org-1', seats: 50, ...(annual ? { annual: true } : {}) }
+        )
+      }
+    )
+
+    it('uses annual billing for fixed team tiers without a seat dialog', async () => {
+      mocks.publicTiers[0] = {
+        ...mocks.publicTiers[0],
+        monthlyPriceUsd: null,
+        yearlyPriceUsd: 120,
+        seatMode: 'fixed',
+        seatCount: 60,
+      }
+      await render('en', <TeamManagement />)
+      await act(async () => plan().click())
+      expect(document.querySelector('[role="dialog"]')).toBeNull()
+      expect(mocks.mutate).toHaveBeenCalledWith(
+        expect.objectContaining({ billingTierId: 'tier-org' }),
+        { organizationId: 'org-1', seats: 60, annual: true }
+      )
+    })
+
+    it.each(['capacity', 'unpriced'])('keeps an %s team tier unavailable', async (issue) => {
+      mocks.publicTiers[0] = {
+        ...mocks.publicTiers[0],
+        ...(issue === 'capacity'
+          ? { seatMaximum: 10 }
+          : { monthlyPriceUsd: null, yearlyPriceUsd: null }),
+      }
+      await render('en', <TeamManagement />)
+      expect(plan()).toBeDisabled()
+      await act(async () => plan().click())
+      expect(document.querySelector('[role="dialog"]')).toBeNull()
+      expect(mocks.mutate).not.toHaveBeenCalled()
+      if (issue === 'capacity')
+        expect(container.textContent).toContain('at most 10 seats, but 50 are required')
+    })
+
+    it('quotes add-seat changes from the current annual-only tier instead of a public monthly tier', async () => {
+      mocks.billing = {
+        ...mocks.billing,
+        totalSeats: 60,
+        subscriptionTier: {
+          ...EMPTY_BILLING_TIER_SUMMARY,
+          id: 'current-annual',
+          displayName: 'Annual current',
+          ownerType: 'organization',
+          usageScope: 'pooled',
+          seatMode: 'adjustable',
+          seatCount: 2,
+          seatMaximum: 80,
+          monthlyPriceUsd: null,
+          yearlyPriceUsd: 120,
+          hasStripeMonthlyPriceId: false,
+        },
+      }
+      await render('en', <TeamManagement />)
+      expect(container.textContent).toContain('a minimum of $7,200.00/year')
+      expect(container.textContent).not.toContain('$7,200.00/month')
+      expect(container.textContent).toContain('($120.00/year each)')
+      const copy = getClientMessages('en').workspace.settingsModal.team
+      const add = [...container.querySelectorAll('button')].find(
+        (button) => button.textContent === copy.addSeat
+      )!
+      await act(async () => add.click())
+      const dialog = document.querySelector('[role="dialog"]')!
+      expect(dialog.textContent).toContain('$7,320.00 per year')
+      expect(dialog.textContent).toContain('Annual cost change:')
+      expect(dialog.textContent).not.toContain('per month')
+      const update = [...dialog.querySelectorAll('button')].find(
+        (button) => button.textContent === copy.addSeats.confirm
+      )!
+      await act(async () => update.click())
+      expect(mocks.mutate.mock.calls[0]?.[0]).toEqual({ orgId: 'org-1', seats: 61 })
+    })
+
     it('keeps billing visible but blocks quotes until failed aggregate counts are retried', async () => {
       queryClient.removeQueries({ queryKey: organizationKeys.seats('org-1'), exact: true })
       let fail!: (error: Error) => void
@@ -499,6 +594,7 @@ describe('settings localization', () => {
         title='Seats'
         description='Select seats'
         pricePerSeat={10}
+        billingInterval='month'
         minimumSeats={4}
         maximumSeats={10}
         initialSeats={20}
@@ -530,7 +626,55 @@ describe('settings localization', () => {
     expect(seats()).toHaveValue(20)
     await render('en', cloneElement(dialog, { minimumSeats: 12 }))
     expect(seats()).toHaveValue(12)
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain(
+      'at most 10 seats, but 12 are required'
+    )
+    const confirm = () =>
+      [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
+        (button) => button.textContent === 'Confirm'
+      )!
+    expect(confirm()).toBeDisabled()
+    await act(async () => confirm().click())
+    expect(mocks.mutate).not.toHaveBeenCalled()
+    await render('en', dialog)
+    expect(document.querySelector('[role="alert"]')).toBeNull()
+    expect(confirm()).toBeEnabled()
   })
+
+  it.each([
+    ['en', 'per year', 'Annual cost change:'],
+    ['es', 'al año', 'Cambio de costo anual:'],
+    ['zh', '每年', '年度费用变动：'],
+  ] as const)(
+    'localizes annual seat totals and cost changes in %s',
+    async (locale, period, change) => {
+      await render(
+        locale,
+        <TeamSeats
+          open
+          onOpenChange={vi.fn()}
+          title='Seats'
+          description='Annual tier'
+          pricePerSeat={120}
+          billingInterval='year'
+          minimumSeats={4}
+          maximumSeats={10}
+          initialSeats={4}
+          currentSeats={2}
+          isLoading={false}
+          onConfirm={mocks.mutate}
+          confirmButtonText='Confirm'
+          showCostBreakdown
+        />
+      )
+      const dialog = document.querySelector('[role="dialog"]')!
+      expect(dialog.textContent).toContain(period)
+      expect(dialog.textContent).toContain(change)
+      expect(dialog.textContent).toContain(
+        new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(480)
+      )
+    }
+  )
 
   it.each([
     ['es', 'Equipo de Ana'],
@@ -650,24 +794,13 @@ describe('settings localization', () => {
           error={null}
         />
         <TeamSeatsOverview
-          subscriptionData={{
-            id: 'subscription-1',
-            status: 'active',
-            seats: 2,
-            referenceId: 'org-1',
-            tier: {
-              displayName: 'Organization Pro',
-              ownerType: 'organization',
-              seatMode: 'adjustable',
-              monthlyPriceUsd: 12.5,
-            },
-          }}
+          totalSeats={2}
+          pricePerSeat={12.5}
+          billingInterval='month'
           isLoadingSubscription={false}
           usedSeats={1}
-          isLoading={false}
           actionsDisabled={false}
           isReducing={false}
-          onConfirmTeamUpgrade={mocks.mutate}
           onReduceSeats={mocks.mutate}
           onAddSeatDialog={vi.fn()}
         />

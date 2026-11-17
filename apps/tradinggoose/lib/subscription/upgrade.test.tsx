@@ -112,4 +112,16 @@ describe('useSubscriptionUpgrade', () => {
     expect(mockUpgrade.mock.calls[0]?.[0]).not.toHaveProperty('customerType')
     expect(mockInvalidateQueries).not.toHaveBeenCalled()
   })
+
+  it.each([undefined, false, true])(
+    'forwards native annual billing only when selected: %s',
+    async (annual) => {
+      await handleUpgrade?.(organizationTarget, { organizationId: 'org-1', seats: 4, annual })
+      expect(mockUpgrade).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ plan: 'team-new', referenceId: 'org-1', seats: 4 })
+      )
+      if (annual) expect(mockUpgrade.mock.calls[0][0]).toHaveProperty('annual', true)
+      else expect(mockUpgrade.mock.calls[0][0]).not.toHaveProperty('annual')
+    }
+  )
 })
