@@ -2079,6 +2079,67 @@ describe('Copilot background execution and native history', () => {
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(await threadClaims()).toHaveLength(0)
   })
+
+  it('propagates worker cancellation before draining a dispatched Studio tool', async () => {
+    m.startJobs = false
+    setModel({ tool: 'search_online', args: { query: 'test' } })
+    const entered = deferred()
+    const finish = deferred()
+    let toolSignal: AbortSignal | undefined
+    m.route.mockImplementationOnce(async (_name, _args, context) => {
+      toolSignal = context.signal
+      entered.resolve()
+      await finish.promise
+      toolSignal?.throwIfAborted()
+      return { results: [], query: 'test', type: 'search', totalResults: 0, source: 'exa' }
+    })
+    const response = await executeCopilotCommand(
+      {
+        command: 'message',
+        requestId: crypto.randomUUID(),
+        workspaceId: scope.workspaceId,
+        model: 'configured/model',
+        input: { content: 'Search for test' },
+        accessLevel: 'full',
+      },
+      scope.actorUserId
+    )
+    const accepted = await response.json()
+    expect(accepted.status).toBe('accepted')
+    const controller = new AbortController()
+    let settled = false
+    const running = executeCopilotJob(
+      m.jobs.get(accepted.runId)!.payload,
+      controller.signal
+    ).finally(() => {
+      settled = true
+    })
+    try {
+      await entered.promise
+      controller.abort(new Error('Trigger run cancelled'))
+      await vi.waitFor(async () => {
+        expect(await isCopilotRunCancelled(accepted.runId)).toBe(true)
+        expect(toolSignal?.aborted).toBe(true)
+      })
+      expect(settled).toBe(false)
+      expect(await readCopilotThreadRun(scope, accepted.threadId)).toBe(accepted.runId)
+      await expect(
+        claimCopilotThread(scope, accepted.threadId, 'competing-run')
+      ).rejects.toMatchObject({ status: 409 })
+      finish.resolve()
+      await running
+      expect(
+        (await m.memory.getThreadById({ threadId: accepted.threadId }))!.metadata!.copilotJob
+      ).toMatchObject({ status: 'aborted' })
+      expect(await readCopilotThreadRun(scope, accepted.threadId)).toBeUndefined()
+    } finally {
+      // Unblock the baseline implementation even when it misses the parent cancellation.
+      await cancelCopilotRun({ scope, threadId: accepted.threadId, runId: accepted.runId })
+      finish.resolve()
+      await running
+    }
+  })
+
   it.each(['approval', 'review'])(
     'retains a resumed %s writer until its approved effect settles despite cancellation',
     async (stage) => {
