@@ -180,6 +180,47 @@ describe('logsWebhookDelivery task', () => {
     expect(saved.responseBody).toBe('😀'.repeat(500))
   })
 
+  it.each([
+    [200, 'read'],
+    [400, 'read'],
+    [503, 'read'],
+    [200, 'cancel'],
+    [400, 'cancel'],
+    [503, 'cancel'],
+  ] as const)('preserves HTTP %s policy when diagnostic body %s fails', async (status, failure) => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            if (failure === 'read') controller.error(new Error('Diagnostic body read failed'))
+            else controller.enqueue(new TextEncoder().encode('x'.repeat(1000)))
+          },
+          cancel() {
+            throw new Error('Diagnostic body cancellation failed')
+          },
+        }),
+        { status }
+      )
+    )
+    const { executeLogsWebhookDelivery } = await import('./logs-webhook-delivery')
+    const result = await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
+    expect(result).toEqual(
+      status === 200
+        ? { success: true }
+        : { success: false, ...(status === 503 && { retrying: true }) }
+    )
+    const saved = mockUpdate.mock.results.at(-1)!.value.set.mock.calls[0][0]
+    expect(saved).toMatchObject({
+      status: status === 200 ? 'success' : status === 503 ? 'pending' : 'failed',
+      responseStatus: status,
+      responseBody: failure === 'cancel' ? 'x'.repeat(1000) : '',
+      failureReason:
+        status === 200 ? null : `HTTP ${status}${status === 503 ? ' - will retry' : ''}`,
+    })
+    expect(mockFetch).toHaveBeenCalledOnce()
+    expect(mockTaskTrigger).toHaveBeenCalledTimes(status === 503 ? 1 : 0)
+  })
+
   it.each([503, 'network'] as const)(
     'schedules %s retry without waiting in the current worker',
     async (failure) => {
@@ -210,27 +251,35 @@ describe('logsWebhookDelivery task', () => {
     expect(saved.status).toBe('failed')
   })
 
-  it('keeps the response deadline active while reading a slow body', async () => {
-    vi.useFakeTimers()
-    mockFetch.mockImplementationOnce(
-      async (_url, init: RequestInit) =>
-        new Response(
-          new ReadableStream({
-            start(controller) {
-              init.signal!.addEventListener('abort', () =>
-                controller.error(new DOMException('Timed out', 'AbortError'))
-              )
-            },
-          })
-        )
-    )
-    const { executeLogsWebhookDelivery } = await import('./logs-webhook-delivery')
-    const delivery = executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
-    await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledOnce())
-    await vi.advanceTimersByTimeAsync(30_000)
-    await expect(delivery).resolves.toMatchObject({ retrying: true })
-    expect(vi.getTimerCount()).toBe(0)
-  })
+  it.each(['deadline', 'cancellation'] as const)(
+    'cleans up a stalled diagnostic body after %s without retrying delivery',
+    async (interruption) => {
+      vi.useFakeTimers()
+      const controller = new AbortController()
+      mockFetch.mockImplementationOnce(
+        async (_url, init: RequestInit) =>
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                init.signal!.addEventListener('abort', () =>
+                  controller.error(new DOMException('Timed out', 'AbortError'))
+                )
+              },
+            })
+          )
+      )
+      const { executeLogsWebhookDelivery } = await import('./logs-webhook-delivery')
+      const delivery = executeLogsWebhookDelivery({ deliveryId: 'delivery-1' }, controller.signal)
+      await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledOnce())
+      if (interruption === 'cancellation') controller.abort(new Error('Native task cancelled'))
+      else await vi.advanceTimersByTimeAsync(30_000)
+      await expect(delivery).resolves.toMatchObject({ success: interruption === 'deadline' })
+      const saved = mockUpdate.mock.results.at(-1)!.value.set.mock.calls[0][0]
+      expect(saved.status).toBe(interruption === 'deadline' ? 'success' : 'failed')
+      expect(mockTaskTrigger).not.toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(0)
+    }
+  )
 
   it('uses the stored subscription snapshot and log row before sending the webhook', async () => {
     const { executeLogsWebhookDelivery } = await import('./logs-webhook-delivery')
