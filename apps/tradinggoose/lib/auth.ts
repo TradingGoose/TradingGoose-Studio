@@ -892,12 +892,8 @@ export const auth = betterAuth({
             logger.warn('Email validation failed', {
               email: data.email,
               reason: validation.reason,
-              checks: validation.checks,
             })
-            throw new Error(
-              validation.reason ||
-                "We are unable to deliver the verification email to that address. Please make sure it's valid and able to receive emails."
-            )
+            throw new Error(validation.reason)
           }
 
           const locale = await resolveEmailLocale({ userId: session?.user.id, email: data.email })

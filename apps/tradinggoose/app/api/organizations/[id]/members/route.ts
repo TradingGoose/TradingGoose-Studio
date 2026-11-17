@@ -184,10 +184,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const normalizedEmail = email.trim().toLowerCase()
     const validation = quickValidateEmail(normalizedEmail)
     if (!validation.isValid) {
-      return NextResponse.json(
-        { error: validation.reason || 'Invalid email format' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: validation.reason }, { status: 400 })
     }
 
     const memberEntry = await db

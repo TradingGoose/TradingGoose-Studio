@@ -111,7 +111,7 @@ export async function addToWaitlist(email: string, locale?: string | null): Prom
   const normalizedEmail = normalizeEmail(email)
   const validation = quickValidateEmail(normalizedEmail)
   if (!validation.isValid) {
-    throw new Error(validation.reason || 'Invalid email address')
+    throw new Error(validation.reason)
   }
 
   const preferredLocale = normalizeEmailLocale(locale)
