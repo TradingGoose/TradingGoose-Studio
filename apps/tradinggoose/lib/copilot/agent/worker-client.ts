@@ -22,7 +22,7 @@ export function createCopilotWorkerClient(job: CopilotJob) {
       input: CopilotWorkerOperations[K]['input'],
       signal?: AbortSignal
     ): Promise<CopilotWorkerOperations[K]['output']> {
-      const origin = process.env.NEXT_PUBLIC_APP_URL
+      const { NEXT_PUBLIC_APP_URL: origin } = process.env
       if (!origin) throw new Error('NEXT_PUBLIC_APP_URL is required')
       const token = await generateCopilotWorkerToken({ ...identity, model })
       const response = await fetch(new URL('/api/copilot/worker', origin), {
