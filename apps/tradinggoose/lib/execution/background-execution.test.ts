@@ -63,13 +63,18 @@ describe('shared background dispatch', () => {
     expect(m.finalize).not.toHaveBeenCalled()
   })
 
-  it('finalizes a failed local execution', async () => {
+  it.each<BackgroundExecutionTaskPayload>([
+    { id: 'failed-turn', executionType: 'copilot', payload: {} },
+    { pendingExecutionId: 'failed-document', executionType: 'document' },
+  ])('finalizes a failed local $executionType execution', async (job) => {
     const error = new Error('Failed before inference')
-    m.copilot.mockRejectedValueOnce(error)
-    const job = { id: 'failed-turn', executionType: 'copilot' as const, payload: {} }
+    const execute = job.executionType === 'copilot' ? m.copilot : m.execute
+    execute.mockRejectedValueOnce(error)
     await dispatchBackgroundExecution(job, 'local')
-    await vi.waitFor(() =>
-      expect(m.copilotFailure).toHaveBeenCalledWith(job.payload, error.message)
-    )
+    await vi.waitFor(() => {
+      if (job.executionType === 'copilot')
+        expect(m.copilotFailure).toHaveBeenCalledWith(job.payload, error.message)
+      else expect(m.finalize).toHaveBeenCalledWith(job, error, expect.any(Number))
+    })
   })
 })
