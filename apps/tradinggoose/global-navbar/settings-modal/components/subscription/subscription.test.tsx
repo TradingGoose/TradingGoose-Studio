@@ -270,7 +270,7 @@ function workspaceBillingOwner(
   return {
     settings: {
       workspace: {
-        id: 'workspace-1',
+        id: mocks.workspaceId,
         ownerId: 'user-1',
         permissions: 'admin',
         billingOwner,
@@ -301,6 +301,7 @@ describe('Subscription billing subject', () => {
     mocks.privateTiers = []
     mocks.privateTierAccessError = null
     mocks.publicTiers = []
+    mocks.workspaceId = 'workspace-1'
     mocks.workspaceSettings = workspaceBillingOwner({ type: 'user', userId: 'user-1' })
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -472,6 +473,66 @@ describe('Subscription billing subject', () => {
       )
     }
   )
+
+  it.each([
+    ['workspace and organization', 'workspace-2', 'org-other'],
+    ['billing organization in the same workspace', 'workspace-1', 'org-other'],
+    ['workspace with the same billing organization', 'workspace-2', 'org-billing'],
+    ['organization billing to user billing', 'workspace-1', ''],
+  ])('discards an open upgrade when changing %s', async (_scope, workspaceId, organizationId) => {
+    mocks.publicTiers = [catalogTier('tier-org-public', 'Organization Public', 'organization', 1)]
+    const switchSubject = (workspaceId: string, organizationId: string, occupiedSeats: number) => {
+      mocks.workspaceId = workspaceId
+      mocks.workspaceSettings = workspaceBillingOwner(
+        organizationId
+          ? { type: 'organization', organizationId }
+          : { type: 'user', userId: 'user-1' }
+      )
+      mocks.organizationBilling = {
+        ...organizationPayload(),
+        organizationId,
+        subscriptionTier: null,
+        totalSeats: 0,
+        userRole: 'owner',
+      }
+      queryClient.setQueryData(organizationKeys.seats(organizationId), {
+        ...organizationSeats(occupiedSeats),
+        organizationId,
+      })
+      render()
+    }
+    switchSubject('workspace-1', 'org-billing', 4)
+    act(() => container.querySelector<HTMLButtonElement>('[data-testid="plan-card"]')!.click())
+    expect(document.querySelector('#seats')).toHaveValue(4)
+    await act(async () => {
+      const seats = document.querySelector<HTMLInputElement>('#seats')!
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(seats, '7')
+      seats.dispatchEvent(new Event('input', { bubbles: true }))
+      await queryClient.refetchQueries({ queryKey: organizationKeys.seats('org-billing') })
+    })
+    expect(document.querySelector('#seats')).toHaveValue(7)
+
+    switchSubject(workspaceId, organizationId, 2)
+    await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull())
+    switchSubject('workspace-1', 'org-billing', 4)
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    switchSubject(workspaceId, organizationId, 2)
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(mocks.handleUpgrade).not.toHaveBeenCalled()
+    if (!organizationId) return
+
+    act(() => container.querySelector<HTMLButtonElement>('[data-testid="plan-card"]')!.click())
+    expect(document.querySelector('#seats')).toHaveAttribute('min', '2')
+    expect(document.querySelector('#seats')).toHaveValue(2)
+    const confirm = [...document.querySelectorAll('[role="dialog"] button')].find(
+      (button) => button.textContent === 'Upgrade'
+    ) as HTMLButtonElement
+    await act(async () => confirm.click())
+    expect(mocks.handleUpgrade).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ billingTierId: 'tier-org-public' }),
+      { organizationId, seats: 2 }
+    )
+  })
 
   it('never quotes another organization from cached counts while preserving the billing surface', () => {
     mocks.workspaceSettings = workspaceBillingOwner({

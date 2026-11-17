@@ -317,6 +317,16 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const [isUpgradePending, setIsUpgradePending] = useState(false)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
+  const [upgradeContext, setUpgradeContext] = useState({ workspaceId, organizationBillingId })
+
+  if (
+    upgradeContext.workspaceId !== workspaceId ||
+    upgradeContext.organizationBillingId !== organizationBillingId
+  ) {
+    setUpgradeContext({ workspaceId, organizationBillingId })
+    setPendingUpgradeTier(null)
+    setUpgradeError(null)
+  }
 
   const availableTiers = mergeAccessibleBillingTiers(
     publicBillingCatalog?.publicTiers,
