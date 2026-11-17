@@ -4,7 +4,7 @@ import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { isDev } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { validateProxyUrl } from '@/lib/security/input-validation'
+import { validateExternalUrl } from '@/lib/security/input-validation'
 import { generateRequestId } from '@/lib/utils'
 import type { ExecutionContext } from '@/executor/types'
 import { executeTool } from '@/tools'
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
     return createErrorResponse("Missing 'url' parameter", 400)
   }
 
-  const urlValidation = validateProxyUrl(targetUrl)
+  const urlValidation = validateExternalUrl(targetUrl, 'proxyUrl')
   if (!urlValidation.isValid) {
     logger.warn(`[${requestId}] Blocked proxy request`, {
       url: targetUrl.substring(0, 100),

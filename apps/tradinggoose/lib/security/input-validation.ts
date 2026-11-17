@@ -342,7 +342,7 @@ export function validateEnum<T extends string>(
  * Validates a hostname to prevent SSRF attacks
  *
  * This function checks that a hostname is not a private IP, localhost, or other reserved address.
- * It complements the validateProxyUrl function by providing hostname-specific validation.
+ * It complements the validateExternalUrl function by providing hostname-specific validation.
  *
  * @param hostname - The hostname to validate
  * @param paramName - Name of the parameter for error messages
@@ -753,26 +753,4 @@ export function validateExternalUrl(
   }
 
   return { isValid: true }
-}
-
-/**
- * Validates an image URL to prevent SSRF attacks
- * Alias for validateExternalUrl for backward compatibility
- */
-export function validateImageUrl(
-  url: string | null | undefined,
-  paramName = 'imageUrl'
-): ValidationResult {
-  return validateExternalUrl(url, paramName)
-}
-
-/**
- * Validates a proxy URL to prevent SSRF attacks
- * Alias for validateExternalUrl for backward compatibility
- */
-export function validateProxyUrl(
-  url: string | null | undefined,
-  paramName = 'proxyUrl'
-): ValidationResult {
-  return validateExternalUrl(url, paramName)
 }

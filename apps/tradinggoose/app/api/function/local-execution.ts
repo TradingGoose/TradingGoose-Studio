@@ -4,7 +4,7 @@ import {
   createFunctionIndicatorRuntime,
   type FunctionIndicatorRuntimeManifest,
 } from '@/lib/indicators/execution/function-indicator-runtime'
-import { validateProxyUrl } from '@/lib/security/input-validation'
+import { validateExternalUrl } from '@/lib/security/input-validation'
 
 type LocalExecutionArgs = {
   requestId: string
@@ -34,7 +34,7 @@ const createSecureFetch = (
       throw new Error('Invalid URL provided to fetch')
     }
 
-    const validation = validateProxyUrl(url)
+    const validation = validateExternalUrl(url, 'proxyUrl')
     if (!validation.isValid) {
       onWarn(`[${requestId}] Blocked fetch request due to SSRF validation`, {
         url: url.substring(0, 100),
