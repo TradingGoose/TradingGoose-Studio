@@ -341,6 +341,22 @@ describe('SSO register route', () => {
       config: { clientId: 'client-id', clientSecret: 'secret', scopes: 'openid,profile,email' },
       code: 'invalid_type',
     },
+    ...[45, 47].flatMap((length) => [
+      {
+        providerType: 'oidc',
+        config: { providerId: 'x'.repeat(length), clientId: 'client-id', clientSecret: 'secret' },
+        code: 'too_big',
+      },
+      {
+        providerType: 'saml',
+        config: {
+          providerId: 'x'.repeat(length),
+          entryPoint: 'https://issuer.example.com/saml',
+          cert: 'certificate',
+        },
+        code: 'too_big',
+      },
+    ]),
   ])(
     'rejects unsupported $providerType registration input with $code before discovery',
     async ({ providerType, config, code }) => {
@@ -382,7 +398,8 @@ describe('SSO register route', () => {
     }
   )
 
-  it('registers oidc providers for the active organization via issuer discovery', async () => {
+  it('registers a 44-character OIDC provider via issuer discovery', async () => {
+    const providerId = 'x'.repeat(44)
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -392,7 +409,7 @@ describe('SSO register route', () => {
       },
     })
     mockRegisterSSOProvider.mockResolvedValue({
-      providerId: 'okta',
+      providerId,
     })
     vi.mocked(fetch).mockResolvedValue(
       new Response(
@@ -417,7 +434,7 @@ describe('SSO register route', () => {
       new NextRequest('http://localhost/api/auth/sso/register', {
         method: 'POST',
         body: JSON.stringify({
-          providerId: 'okta',
+          providerId,
           issuer: 'https://issuer.example.com',
           domain: 'example.com',
           providerType: 'oidc',
@@ -437,7 +454,7 @@ describe('SSO register route', () => {
     )
     expect(mockRegisterSSOProvider).toHaveBeenCalledWith({
       body: expect.objectContaining({
-        providerId: 'okta',
+        providerId,
         domain: 'example.com',
         organizationId: 'org-1',
         oidcConfig: expect.objectContaining({
@@ -459,7 +476,8 @@ describe('SSO register route', () => {
     expect(mockIsOrganizationOwnerOrAdmin).toHaveBeenCalledWith('user-1', 'org-1')
   })
 
-  it('registers saml providers for the active organization with Better Auth ACS callback url', async () => {
+  it('registers a 44-character SAML provider with Better Auth ACS callback URL', async () => {
+    const providerId = 'x'.repeat(44)
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -469,7 +487,7 @@ describe('SSO register route', () => {
       },
     })
     mockRegisterSSOProvider.mockResolvedValue({
-      providerId: 'okta-saml',
+      providerId,
     })
 
     const { POST } = await import('./route')
@@ -477,7 +495,7 @@ describe('SSO register route', () => {
       new NextRequest('http://localhost/api/auth/sso/register', {
         method: 'POST',
         body: JSON.stringify({
-          providerId: 'okta-saml',
+          providerId,
           issuer: 'https://issuer.example.com/metadata',
           domain: 'example.com',
           providerType: 'saml',
@@ -493,10 +511,10 @@ describe('SSO register route', () => {
     expect(response.status).toBe(200)
     expect(mockRegisterSSOProvider).toHaveBeenCalledWith({
       body: expect.objectContaining({
-        providerId: 'okta-saml',
+        providerId,
         organizationId: 'org-1',
         samlConfig: expect.objectContaining({
-          callbackUrl: 'http://localhost:3000/api/auth/sso/saml2/sp/acs/okta-saml',
+          callbackUrl: `http://localhost:3000/api/auth/sso/saml2/sp/acs/${providerId}`,
         }),
       }),
       headers: expect.any(Headers),

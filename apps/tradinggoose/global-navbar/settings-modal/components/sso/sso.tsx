@@ -8,7 +8,7 @@ import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
-import { SSO_PROVIDER_IDS } from '@/lib/sso/consts'
+import { SSO_PROVIDER_ID_MAX_LENGTH, SSO_PROVIDER_IDS } from '@/lib/sso/consts'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
@@ -215,6 +215,8 @@ export function SSO() {
   const validateProviderId = (value: string): string[] => {
     const out: string[] = []
     if (!value || !value.trim()) out.push('Provider ID is required.')
+    if (value.length > SSO_PROVIDER_ID_MAX_LENGTH)
+      out.push(`Provider ID must be at most ${SSO_PROVIDER_ID_MAX_LENGTH} characters.`)
     if (!/^[-a-z0-9]+$/i.test(value.trim())) out.push('Use letters, numbers, and dashes only.')
     return out
   }
@@ -623,7 +625,8 @@ export function SSO() {
                     </div>
                   )}
                   <p className='text-muted-foreground text-xs'>
-                    Select a provider ID for this SSO configuration.
+                    Select a provider ID with at most {SSO_PROVIDER_ID_MAX_LENGTH} characters for
+                    this SSO configuration.
                   </p>
                 </div>
 

@@ -1,3 +1,15 @@
+import { z } from 'zod'
+
+// Better Auth's default `_better-auth-token-` prefix uses 19 of the 63 DNS-label characters.
+export const SSO_PROVIDER_ID_MAX_LENGTH = 44
+export const ssoProviderIdSchema = z
+  .string()
+  .min(1, 'Provider ID is required')
+  .max(
+    SSO_PROVIDER_ID_MAX_LENGTH,
+    `Provider ID must be at most ${SSO_PROVIDER_ID_MAX_LENGTH} characters`
+  )
+
 export const SSO_PROVIDER_IDS = [
   'okta',
   'okta-saml',

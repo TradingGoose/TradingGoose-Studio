@@ -11,6 +11,7 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { validateExternalUrl } from '@/lib/security/input-validation'
+import { ssoProviderIdSchema } from '@/lib/sso/consts'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('SSO-Register')
@@ -36,7 +37,7 @@ const mappingSchema = z
 const ssoRegistrationSchema = z.discriminatedUnion('providerType', [
   z.strictObject({
     providerType: z.literal('oidc'),
-    providerId: z.string().min(1, 'Provider ID is required'),
+    providerId: ssoProviderIdSchema,
     issuer: z.string().url('Issuer must be a valid URL'),
     domain: z.string().min(1, 'Domain is required'),
     mapping: mappingSchema,
@@ -47,7 +48,7 @@ const ssoRegistrationSchema = z.discriminatedUnion('providerType', [
   }),
   z.strictObject({
     providerType: z.literal('saml'),
-    providerId: z.string().min(1, 'Provider ID is required'),
+    providerId: ssoProviderIdSchema,
     issuer: z.string().url('Issuer must be a valid URL'),
     domain: z.string().min(1, 'Domain is required'),
     mapping: mappingSchema,

@@ -74,6 +74,7 @@ import {
   REGISTRATION_DISABLED_REASON,
   REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
+import { ssoProviderIdSchema } from '@/lib/sso/consts'
 import {
   createStripeClientProxy,
   getStripeServiceConfig,
@@ -749,6 +750,15 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === '/sso/register') {
+        const providerId = ssoProviderIdSchema.safeParse(ctx.body?.providerId)
+        if (!providerId.success) {
+          throw new APIError('BAD_REQUEST', {
+            code: 'INVALID_PROVIDER_ID',
+            message: providerId.error.issues[0].message,
+          })
+        }
+      }
       if (
         ctx.path === '/sign-up/email' &&
         (typeof ctx.body?.username !== 'string' || !ctx.body.username.trim())

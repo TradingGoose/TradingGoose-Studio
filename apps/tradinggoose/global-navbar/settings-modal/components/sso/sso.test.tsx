@@ -255,6 +255,65 @@ describe('SSO access guard', () => {
       await act(async () => button!.click())
     }
 
+    it.each([44, 45, 47])(
+      'validates a %i-character provider ID before registration',
+      async (length) => {
+        vi.mocked(fetch).mockResolvedValue({
+          ok: true,
+          json: async () => ({ providers: [] }),
+        } as Response)
+        await renderSettings()
+        const providerId = 'p'.repeat(length)
+        const select = container.querySelector<HTMLSelectElement>('#provider-id')!
+        select.append(new Option(providerId, providerId))
+        await act(async () => {
+          select.value = providerId
+          select.dispatchEvent(new Event('change', { bubbles: true }))
+        })
+        for (const [id, value] of [
+          ['issuer-url', 'https://idp.example.com'],
+          ['domain', 'example.com'],
+          ['client-id', 'client-id'],
+          ['client-secret', 'client-secret'],
+        ]) {
+          await act(async () => {
+            const input = container.querySelector<HTMLInputElement>(`#${id}`)!
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
+              input,
+              value
+            )
+            input.dispatchEvent(new Event('input', { bubbles: true }))
+          })
+        }
+        const submit = container.querySelector<HTMLButtonElement>('button[type="submit"]')!
+        expect(submit.disabled).toBe(length > 44)
+        if (length === 44) {
+          await click('Configure SSO Provider')
+          expect(fetch).toHaveBeenCalledWith('/api/auth/sso/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              providerId,
+              issuer: 'https://idp.example.com',
+              domain: 'example.com',
+              providerType: 'oidc',
+              clientId: 'client-id',
+              clientSecret: 'client-secret',
+              scopes: ['openid', 'profile', 'email'],
+            }),
+          })
+        } else {
+          await act(async () => {
+            container
+              .querySelector('form')!
+              .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+          })
+          expect(container.textContent).toContain('Provider ID must be at most 44 characters.')
+          expect(fetch).not.toHaveBeenCalledWith('/api/auth/sso/register', expect.anything())
+        }
+      }
+    )
+
     it('requests native proof and lets failed request or DNS verification be retried', async () => {
       await renderSettings()
       expect(container.textContent).toContain('Domain verification required before sign-in')

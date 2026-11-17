@@ -38,6 +38,7 @@ async function setup(email = localEmail, emailVerified = true) {
     user: options.user,
     account: options.account,
     trustedOrigins: options.trustedOrigins,
+    hooks: options.hooks,
     plugins: [sso(ssoOptions), organization(), testUtils()],
   })
   const context = await auth.$context
@@ -53,47 +54,45 @@ async function setup(email = localEmail, emailVerified = true) {
   await context.test.saveOrganization!(context.test.createOrganization!({ id: organizationId }))
   await context.test.addMember!({ userId: 'provider-owner', organizationId, role: 'owner' })
   const { headers } = await context.test.login({ userId: 'provider-owner' })
+  const registrationBody = (providerId = 'okta', providerType: 'oidc' | 'saml' = 'oidc') => ({
+    providerId,
+    issuer,
+    domain: 'example.com',
+    organizationId,
+    ...(providerType === 'saml'
+      ? {
+          samlConfig: {
+            entryPoint: `${issuer}/saml`,
+            cert: 'test-certificate',
+            callbackUrl: `${baseURL}/api/auth/sso/saml2/sp/acs/${providerId}`,
+            spMetadata: {},
+          },
+        }
+      : {
+          oidcConfig: {
+            clientId: 'client',
+            clientSecret: 'secret',
+            pkce: true,
+            skipDiscovery: true,
+            authorizationEndpoint: `${issuer}/authorize`,
+            tokenEndpoint: `${issuer}/token`,
+            userInfoEndpoint: `${issuer}/userinfo`,
+            jwksEndpoint: `${issuer}/jwks`,
+          },
+        }),
+  })
   const register = (providerId = 'okta', providerType: 'oidc' | 'saml' = 'oidc') =>
-    auth.api.registerSSOProvider({
-      headers,
-      body: {
-        providerId,
-        issuer,
-        domain: 'example.com',
-        organizationId,
-        ...(providerType === 'saml'
-          ? {
-              samlConfig: {
-                entryPoint: `${issuer}/saml`,
-                cert: 'test-certificate',
-                callbackUrl: `${baseURL}/api/auth/sso/saml2/sp/acs/${providerId}`,
-                spMetadata: {},
-              },
-            }
-          : {
-              oidcConfig: {
-                clientId: 'client',
-                clientSecret: 'secret',
-                pkce: true,
-                skipDiscovery: true,
-                authorizationEndpoint: `${issuer}/authorize`,
-                tokenEndpoint: `${issuer}/token`,
-                userInfoEndpoint: `${issuer}/userinfo`,
-                jwksEndpoint: `${issuer}/jwks`,
-              },
-            }),
-      },
-    })
-  const verify = async () => {
+    auth.api.registerSSOProvider({ headers, body: registrationBody(providerId, providerType) })
+  const verify = async (providerId = 'okta') => {
     const { domainVerificationToken } = await auth.api.requestDomainVerification({
       headers,
-      body: { providerId: 'okta' },
+      body: { providerId },
     })
     resolveTxt.mockResolvedValue([[domainVerificationToken]])
     await expect(
-      auth.api.verifyDomain({ headers, body: { providerId: 'okta' }, asResponse: true })
+      auth.api.verifyDomain({ headers, body: { providerId }, asResponse: true })
     ).resolves.toMatchObject({ status: 204 })
-    expect(resolveTxt).toHaveBeenCalledWith('_better-auth-token-okta.example.com')
+    expect(resolveTxt).toHaveBeenCalledWith(`_better-auth-token-${providerId}.example.com`)
   }
   const callback = async () => {
     const start = await auth.api.signInSSO({
@@ -109,7 +108,7 @@ async function setup(email = localEmail, emailVerified = true) {
       )
     )
   }
-  return { auth, context, headers, register, verify, callback }
+  return { auth, context, headers, register, registrationBody, verify, callback }
 }
 
 function cookies(response: Response) {
@@ -151,6 +150,40 @@ afterEach(() => {
 })
 
 describe('native SSO registration and account matching', () => {
+  it.each([44, 45, 47])(
+    'enforces the DNS provider ID boundary at %i characters',
+    async (length) => {
+      const { auth, context, headers, register, registrationBody, verify } = await setup()
+      const providerId = 'a'.repeat(length)
+      if (length === 44) {
+        await register(providerId)
+        await verify(providerId)
+        await expect(
+          auth.api.getSSOProvider({ headers, query: { providerId } })
+        ).resolves.toMatchObject({ domainVerified: true })
+        return
+      }
+
+      await expect(register(providerId)).rejects.toMatchObject({
+        statusCode: 400,
+        body: { code: 'INVALID_PROVIDER_ID' },
+      })
+      const response = await auth.handler(
+        new Request(`${baseURL}/api/auth/sso/register`, {
+          method: 'POST',
+          headers: { ...Object.fromEntries(headers), 'content-type': 'application/json' },
+          body: JSON.stringify(registrationBody(providerId)),
+        })
+      )
+      expect(response.status).toBe(400)
+      expect(await response.json()).toMatchObject({ code: 'INVALID_PROVIDER_ID' })
+      for (const model of ['ssoProvider', 'verification']) {
+        await expect(context.adapter.findMany({ model })).resolves.toEqual([])
+      }
+      expect(resolveTxt).not.toHaveBeenCalled()
+    }
+  )
+
   it.each(SSO_PROVIDER_IDS)(
     'registers the offered %s provider without OAuth namespace trust',
     async (providerId) => {
