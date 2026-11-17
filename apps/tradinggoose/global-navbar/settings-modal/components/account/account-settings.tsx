@@ -74,11 +74,10 @@ function AccountSettingsForm({
   }
 
   // Telemetry state from general store
-  const storeIsLoading = useGeneralStore((state) => state.isLoading)
+  const isTelemetrySettingsLoading = useGeneralStore((state) => state.isLoading)
   const telemetryEnabled = useGeneralStore((state) => state.telemetryEnabled)
   const isTelemetryLoading = useGeneralStore((state) => state.isTelemetryLoading)
   const setTelemetryEnabled = useGeneralStore((state) => state.setTelemetryEnabled)
-  const isTelemetrySettingsLoading = storeIsLoading
 
   const handleTelemetryToggle = (checked: boolean) => {
     if (checked === telemetryEnabled || isTelemetryLoading) {
@@ -135,7 +134,7 @@ function AccountSettingsForm({
   const usernameRequestRef = useRef<symbol | null>(null)
 
   const editNameInputRef = useRef<HTMLInputElement>(null)
-  const nameEditActionRef = useRef<'save' | 'cancel' | null>(null)
+  const nameEditActionRef = useRef<'save' | null>(null)
 
   const commitEditingUsername = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -402,7 +401,6 @@ function AccountSettingsForm({
                           if (nameEditActionRef.current === 'save') {
                             return
                           }
-                          nameEditActionRef.current = null
                           cancelEditingName()
                         }}
                         onKeyDown={(event) => {
@@ -436,7 +434,7 @@ function AccountSettingsForm({
                       <button
                         type='button'
                         onMouseDown={() => {
-                          nameEditActionRef.current = 'cancel'
+                          nameEditActionRef.current = null
                         }}
                         className='inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
                         onClick={cancelEditingName}
