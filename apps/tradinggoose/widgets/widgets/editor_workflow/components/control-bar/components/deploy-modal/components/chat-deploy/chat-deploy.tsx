@@ -464,7 +464,6 @@ export function ChatDeploy({
             }}
             onError={setGeneralError}
             onUploadStart={setIsImageUploading}
-            uploadToServer={true}
             height='h-32'
           />
           {!draftConfig.imageUrl && !isImageUploading && (

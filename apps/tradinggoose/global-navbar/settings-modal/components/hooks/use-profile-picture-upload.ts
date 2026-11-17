@@ -78,7 +78,7 @@ export function useProfilePictureUpload({
 
           if (presignedData.storageProvider === 'vercel') {
             await uploadToVercelBlob(presignedData.fileInfo.key, file, {
-              access: presignedData.blobAccess || 'private',
+              access: presignedData.blobAccess,
               handleUploadUrl: '/api/files/vercel/client-upload?type=profile-pictures',
               clientPayload: JSON.stringify({
                 clientUploadAuthorization: presignedData.clientUploadAuthorization,
@@ -88,7 +88,6 @@ export function useProfilePictureUpload({
                 pathname: presignedData.fileInfo.key,
               }),
               contentType: file.type,
-              multipart: file.size > 8 * 1024 * 1024,
             })
 
             const publicUrl = presignedData.fileInfo.path

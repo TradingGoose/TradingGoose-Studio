@@ -34,17 +34,15 @@ interface ImageUploadProps {
   className?: string
   disabled?: boolean
   acceptedFormats?: string[]
-  uploadToServer?: boolean
   value?: string | null
 }
 
 interface UseImageUploadProps {
   onUpload?: (url: string | null) => void
   onError?: (error: string) => void
-  uploadToServer?: boolean
 }
 
-function useImageUpload({ onUpload, onError, uploadToServer = false }: UseImageUploadProps = {}) {
+function useImageUpload({ onUpload, onError }: UseImageUploadProps = {}) {
   const previewRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -108,7 +106,7 @@ function useImageUpload({ onUpload, onError, uploadToServer = false }: UseImageU
 
         if (presignedData.storageProvider === 'vercel') {
           await uploadToVercelBlob(presignedData.fileInfo.key, file, {
-            access: presignedData.blobAccess || 'private',
+            access: presignedData.blobAccess,
             handleUploadUrl: '/api/files/vercel/client-upload?type=chat',
             clientPayload: JSON.stringify({
               clientUploadAuthorization: presignedData.clientUploadAuthorization,
@@ -118,7 +116,6 @@ function useImageUpload({ onUpload, onError, uploadToServer = false }: UseImageU
               pathname: presignedData.fileInfo.key,
             }),
             contentType: file.type,
-            multipart: file.size > 8 * 1024 * 1024,
           })
           logger.info(
             `Image uploaded successfully via Vercel client upload: ${presignedData.fileInfo.path}`
@@ -126,7 +123,7 @@ function useImageUpload({ onUpload, onError, uploadToServer = false }: UseImageU
           return presignedData.fileInfo.path
         }
 
-        if (presignedData.directUploadSupported !== false) {
+        if (presignedData.directUploadSupported) {
           const uploadHeaders: Record<string, string> = {
             'Content-Type': file.type,
           }
@@ -135,8 +132,7 @@ function useImageUpload({ onUpload, onError, uploadToServer = false }: UseImageU
             Object.assign(uploadHeaders, presignedData.uploadHeaders)
           }
 
-          const uploadTarget = presignedData.uploadUrl || presignedData.presignedUrl
-          const uploadResponse = await fetch(uploadTarget, {
+          const uploadResponse = await fetch(presignedData.presignedUrl, {
             method: 'PUT',
             body: file,
             headers: uploadHeaders,
@@ -185,11 +181,6 @@ function useImageUpload({ onUpload, onError, uploadToServer = false }: UseImageU
       setPreviewUrl(previewUrl)
       previewRef.current = previewUrl
 
-      if (!uploadToServer) {
-        onUpload?.(previewUrl)
-        return
-      }
-
       setIsUploading(true)
       try {
         const serverUrl = await uploadFileToServer(file)
@@ -200,7 +191,7 @@ function useImageUpload({ onUpload, onError, uploadToServer = false }: UseImageU
         setIsUploading(false)
       }
     },
-    [onUpload, onError, uploadToServer, uploadFileToServer, validateFile]
+    [onUpload, onError, uploadFileToServer, validateFile]
   )
 
   const handleRemove = useCallback(() => {
@@ -247,7 +238,6 @@ export function ImageUpload({
   className,
   disabled = false,
   acceptedFormats = ['image/png', 'image/jpeg', 'image/jpg'],
-  uploadToServer = false,
   value,
 }: ImageUploadProps) {
   const {
@@ -261,7 +251,6 @@ export function ImageUpload({
   } = useImageUpload({
     onUpload,
     onError,
-    uploadToServer,
   })
 
   const [isDragging, setIsDragging] = useState(false)
