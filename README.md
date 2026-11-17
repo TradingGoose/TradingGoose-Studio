@@ -213,7 +213,7 @@ Yes. Run the repository locally or deploy it on your own infrastructure with you
 <details>
 <summary><strong>Installation</strong></summary>
 
-Requires Bun 1.4.4, Node.js 24.x, and Docker. The repository pins Bun `1.4.4`.
+Requires Bun 1.3.14, Node.js 24.x, and Docker. The repository pins Bun `1.3.14`.
 
 ```bash
 git clone https://github.com/TradingGoose/TradingGoose-Studio.git
@@ -235,16 +235,6 @@ bun run dev:full
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The realtime service runs on port `3002`.
-
-When upgrading a database that predates usernames, apply `bun run db:migrate`, then run
-`bun --cwd packages/db run scripts/migrate-usernames.ts` before deploying the updated application.
-The one-time script assigns unique six-character hex usernames to users without one and preserves
-chosen usernames. New password signups must choose a username; users can edit it in Account settings.
-An application rollback can leave these additive fields in place.
-
-With SSO enabled, organization admins must verify each provider's DNS TXT record in the existing SSO
-settings before sign-in. Better Auth then links verified local accounts in the verified domain.
-Studio's invitation and seat checks control organization membership; SSO does not enroll members automatically.
 
 </details>
 
@@ -319,17 +309,3 @@ The chart drawing tools vendored in `apps/tradinggoose/widgets/widgets/data_char
     <img alt="TradingGoose" src="apps/tradinggoose/public/static/footer-light.png">
   </picture>
 </p>
-
-### Built-in AI runtime
-
-Studio and Copilot share one Mastra runtime and Memory store in the application database configured by `DATABASE_URL`. The [shared runtime](apps/tradinggoose/lib/mastra/runtime.ts) uses Mastra's `PostgresStore` with only its Memory and Workflows domains enabled. Mastra owns the pool and handles idle and checked-out client errors. Startup initializes their seven native tables in the `mastra` schema. Failed initialization closes storage. Run `bun run db:migrate` separately for generated application migrations.
-
-Copilot and workflow Agents use Mastra's model/tool loop with their own instructions, tools, and permissions. The migrated LLM consumers use the same [request preparation](apps/tradinggoose/lib/mastra/request.ts) for model connections, settings, processors, tracing, and accounting. Both histories use the same native message projection and ordered reader. Studio's executor still coordinates workflow blocks. See [built-in Copilot](apps/tradinggoose/lib/copilot/README.md) for configuration and verification.
-
-Copilot uses the shared background executor with Trigger.dev or local execution. Each message or tool continuation inherits the Trigger project's default 600-second duration; Copilot bypasses the workflow pending queue and its tier limits. Workflow and indicator executions retain tier-backed admission and duration limits. For Trigger.dev, configure the same `DATABASE_URL` and `REDIS_URL` in Studio and its workers so Mastra can persist history and deliver native thread streams across processes. On Vercel, use Trigger.dev; local execution needs a long-running application process. This execution change requires no additional database migration.
-
-Studio supports API-key-only model providers from Mastra's native `GatewayRegistry` that do not require deployment-specific configuration or custom URLs. Configure their API keys in **Admin Services**, using the existing DB-backed system-service credentials. Keys are resolved for each request; authorized request-local BYOK keys override managed keys. Existing shared credentials, including `openai.defaultApiKey` and `mistral.apiKey`, remain authoritative. Public model metadata contains identities and capabilities without credentials.
-
-Studio's application billing services own usage checks and accrual. One shared calculator prices generation and embeddings from native token usage and standard rates in the pinned `@opencode-ai/models` snapshot; provider service tiers and provider-reported USD do not replace those rates. BYOK costs are reported without a Studio model debit. Account-funded usage uses the existing Studio subscription multiplier, and its reported final cost matches the charge; deferred workflow settlement applies that multiplier once. Unknown costs remain unavailable rather than becoming zero. Workflow logs and Copilot's native Mastra message metadata retain tokens, USD estimates, and cost status.
-
-`bun run test` uses explicit database mocks and Mastra's native `InMemoryStore`. Test setup clears `DATABASE_URL` and rejects unmocked PostgreSQL drivers. Tests need no database configuration, containers, or migrations.
