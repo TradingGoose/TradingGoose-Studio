@@ -4,7 +4,7 @@ import {
   type ChangeEvent,
   type DragEvent,
   type FormEvent,
-  useEffect,
+  type RefObject,
   useRef,
   useState,
 } from 'react'
@@ -27,15 +27,32 @@ import { ChangeEmailForm } from './change-email-form'
 
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
+type SessionUser = NonNullable<ReturnType<typeof useSession>['data']>['user']
 
 export function AccountSettings() {
   const { data: session } = useSession()
+  const currentUserRef = useRef(session?.user)
+  currentUserRef.current = session?.user
+
+  return (
+    <AccountSettingsForm
+      key={session?.user?.id}
+      sessionUser={session?.user}
+      currentUserRef={currentUserRef}
+    />
+  )
+}
+
+function AccountSettingsForm({
+  sessionUser,
+  currentUserRef,
+}: {
+  sessionUser: SessionUser | undefined
+  currentUserRef: RefObject<SessionUser | undefined>
+}) {
   const authRedirectUrls = useAuthRedirectUrls()
   const tAccount = useTranslations('workspace.settingsModal.account')
-  const sessionUser = session?.user
   const userId = sessionUser?.id ?? null
-  const currentUserRef = useRef(sessionUser)
-  currentUserRef.current = sessionUser
   const [confirmedProfile, setConfirmedProfile] = useState<{
     user: NonNullable<typeof sessionUser>
     values: { name?: string; email?: string; image?: string | null; displayUsername?: string }
@@ -106,15 +123,6 @@ export function AccountSettings() {
 
   const editNameInputRef = useRef<HTMLInputElement>(null)
   const nameEditActionRef = useRef<'save' | 'cancel' | null>(null)
-
-  useEffect(() => {
-    setIsEditingName(false)
-    setIsUpdatingName(false)
-    setNameError(null)
-    setProfilePictureError(null)
-    setUsernameEdit(null)
-    usernameRequestRef.current = null
-  }, [userId])
 
   const commitEditingUsername = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -519,7 +527,6 @@ export function AccountSettings() {
               <div className='space-y-1'>
                 <Label>{tAccount('emailAddress')}</Label>
                 <ChangeEmailForm
-                  key={userId}
                   email={email}
                   onEmailChanged={(value) => confirmProfile({ email: value })}
                 />

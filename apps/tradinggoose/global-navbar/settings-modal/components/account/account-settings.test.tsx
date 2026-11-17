@@ -396,31 +396,74 @@ describe('AccountSettings localization', () => {
       expect(container.querySelector('input[type="file"]')).toBeEnabled()
     })
 
-    it('does not save a finished upload after its account unmounts and another user signs in', async () => {
-      let complete!: (value: Response) => void
-      const uploadResponse = new Promise<Response>((resolve) => {
-        complete = resolve
-      })
-      await render()
-      await uploadImage(uploadResponse)
-      expect(mocks.updateUser).not.toHaveBeenCalled()
-      await act(async () => {
-        root.unmount()
-        root = createRoot(container)
-      })
-      changeSession({ id: 'user-2', name: 'Bob', email: 'bob@example.com' })
-      await render()
-      await act(async () => {
-        complete({
-          ok: true,
-          json: async () => ({ path: '/api/files/serve/ada-upload.png' }),
-        } as Response)
-        await flush()
-      })
-      expect(mocks.updateUser).not.toHaveBeenCalled()
-      expect(container.textContent).toContain('Bob')
-      expect(container.querySelector('img')).toHaveAttribute('src', '/profile/avatar.png')
-    })
+    it.each(['success', 'error'])(
+      'discards an old account upload %s after a session switch with the same empty avatar',
+      async (result) => {
+        let complete!: (value: Response) => void
+        let fail!: (error: Error) => void
+        const uploadResponse = new Promise<Response>((resolve, reject) => {
+          complete = resolve
+          fail = reject
+        })
+        await render()
+        await uploadImage(uploadResponse)
+        changeSession({ id: 'user-2', name: 'Bob', email: 'bob@example.com' })
+        await render()
+        expect(container.querySelector('img')).toHaveAttribute('src', '/profile/avatar.png')
+        expect(container.querySelector('input[type="file"]')).toBeEnabled()
+        await act(async () => {
+          if (result === 'error') fail(new Error('Old upload failed'))
+          else complete(Response.json({ path: '/api/files/serve/ada-upload.png' }))
+          await flush()
+        })
+        expect(mocks.updateUser).not.toHaveBeenCalled()
+        expect(container.textContent).toContain('Bob')
+        expect(container.textContent).not.toContain(copy.status.unableToUpdateProfilePicture)
+        expect(container.querySelector('img')).toHaveAttribute('src', '/profile/avatar.png')
+        expect(container.querySelector('input[type="file"]')).toBeEnabled()
+      }
+    )
+
+    it.each([false, true])(
+      'preserves a newer upload when an old account completes after switching back: %s',
+      async (returnToOriginal) => {
+        let finishOld!: (value: Response) => void
+        const oldUpload = new Promise<Response>((resolve) => {
+          finishOld = resolve
+        })
+        await render()
+        await uploadImage(oldUpload)
+        changeSession({ id: 'user-2', name: 'Bob', email: 'bob@example.com' })
+        await render()
+        if (returnToOriginal) {
+          changeSession({ id: 'user-1', name: 'Ada Lovelace', email: 'ada@example.com' })
+          await render()
+        }
+        let finishNew!: (value: Response) => void
+        const newUpload = new Promise<Response>((resolve) => {
+          finishNew = resolve
+        })
+        await uploadImage(newUpload)
+        await act(async () => {
+          finishOld(Response.json({ path: '/api/files/serve/old-avatar.png' }))
+          await flush()
+        })
+        expect(mocks.updateUser).not.toHaveBeenCalled()
+        expect(container.querySelector('input[type="file"]')).toBeDisabled()
+        await act(async () => {
+          finishNew(Response.json({ path: '/api/files/serve/new-avatar.png' }))
+          await flush()
+        })
+        expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({
+          image: '/api/files/serve/new-avatar.png',
+        })
+        expect(container.querySelector('img')).toHaveAttribute(
+          'src',
+          '/api/files/serve/new-avatar.png'
+        )
+        expect(container.querySelector('input[type="file"]')).toBeEnabled()
+      }
+    )
 
     it('sends native password-reset requests using the localized redirect', async () => {
       await act(async () => {
