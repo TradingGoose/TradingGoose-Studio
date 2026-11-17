@@ -2,7 +2,6 @@
 
 import type * as Y from 'yjs'
 import {
-  getVariablesSnapshot,
   readWorkflowSnapshot,
   readWorkflowSubBlockFieldValue,
   type WorkflowSnapshot,
@@ -84,16 +83,4 @@ export function readSubBlockValue(
   const session = getRegisteredWorkflowSession(workflowId)
   if (!session?.doc) return null
   return readWorkflowSubBlockFieldValue(session.doc, blockId, subBlockId) ?? null
-}
-
-/**
- * Returns the variables snapshot for a registered session, or null if no
- * active session exists for the given workflow.
- */
-export function getVariablesForWorkflow(
-  workflowId: string | null | undefined
-): Record<string, any> | null {
-  const session = getRegisteredWorkflowSession(workflowId)
-  if (!session?.doc) return null
-  return getVariablesSnapshot(session.doc)
 }

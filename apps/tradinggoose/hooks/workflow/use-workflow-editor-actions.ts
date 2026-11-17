@@ -69,18 +69,6 @@ export function useWorkflowEditorActions() {
     [mutations]
   )
 
-  const collaborativeUpdateBlockPositions = useCallback(
-    (
-      updates: Array<{ id: string; position: Position }>,
-      options?: {
-        origin?: YjsOrigin
-      }
-    ) => {
-      mutations.updateBlockPositions(updates, options)
-    },
-    [mutations]
-  )
-
   const collaborativeUpdateBlockPosition = useCallback(
     (
       id: string,
@@ -115,32 +103,10 @@ export function useWorkflowEditorActions() {
     [mutations]
   )
 
-  const collaborativeUpdateParentIds = useCallback(
-    (updates: Array<{ id: string; parentId: string; extent: 'parent' }>) => {
-      mutations.updateParentIds(updates)
-    },
-    [mutations]
-  )
-
-  const collaborativeToggleBlockWide = useCallback(
-    (id: string) => {
-      mutations.toggleBlockWide(id)
-    },
-    [mutations]
-  )
-
   const collaborativeToggleBlockAdvancedMode = useCallback(
     (id: string) => {
       const blocks = getBlocksSnapshot()
       mutations.setBlockAdvancedMode(id, !blocks[id]?.advancedMode)
-    },
-    [getBlocksSnapshot, mutations]
-  )
-
-  const collaborativeToggleBlockTriggerMode = useCallback(
-    (id: string) => {
-      const blocks = getBlocksSnapshot()
-      mutations.setBlockTriggerMode(id, !blocks[id]?.triggerMode)
     },
     [getBlocksSnapshot, mutations]
   )
@@ -326,15 +292,11 @@ export function useWorkflowEditorActions() {
     // Collaborative operations
     collaborativeAddBlock,
     collaborativeUpdateBlockPosition,
-    collaborativeUpdateBlockPositions,
     collaborativeUpdateBlockName,
     collaborativeRemoveBlock,
     collaborativeToggleBlockEnabled,
     collaborativeUpdateParentId,
-    collaborativeUpdateParentIds,
-    collaborativeToggleBlockWide,
     collaborativeToggleBlockAdvancedMode,
-    collaborativeToggleBlockTriggerMode,
     collaborativeToggleBlockHandles,
     collaborativeToggleBlockLocked,
     collaborativeDuplicateBlock,

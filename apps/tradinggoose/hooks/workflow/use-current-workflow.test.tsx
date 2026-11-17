@@ -100,10 +100,8 @@ describe('useCurrentWorkflow', () => {
     const currentWorkflow = currentWorkflowRef.current
 
     expect(currentWorkflow.blocks['block-1']?.name).toBe('Script')
-    expect(currentWorkflow.getBlockCount()).toBe(1)
-    expect(currentWorkflow.getEdgeCount()).toBe(1)
-    expect(currentWorkflow.hasBlocks()).toBe(true)
-    expect(currentWorkflow.hasEdges()).toBe(true)
+    expect(currentWorkflow.getBlockById('block-1')).toBe(currentWorkflow.blocks['block-1'])
+    expect(currentWorkflow.getBlockById('missing')).toBeUndefined()
     expect(currentWorkflow.lastSaved).toBe(new Date('2026-04-06T01:00:00.000Z').getTime())
   })
 })
