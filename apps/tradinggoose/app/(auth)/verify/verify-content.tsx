@@ -48,23 +48,18 @@ function VerificationForm({
   })
 
   const [countdown, setCountdown] = useState(0)
-  const [isResendDisabled, setIsResendDisabled] = useState(false)
 
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
       return () => clearTimeout(timer)
     }
-    if (countdown === 0 && isResendDisabled) {
-      setIsResendDisabled(false)
-    }
-  }, [countdown, isResendDisabled])
+  }, [countdown])
 
   const router = useRouter()
 
   const handleResend = () => {
     resendCode()
-    setIsResendDisabled(true)
     setCountdown(30)
   }
 
@@ -206,7 +201,7 @@ function VerificationForm({
                   <button
                     className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
                     onClick={handleResend}
-                    disabled={isLoading || isResendDisabled}
+                    disabled={isLoading}
                   >
                     {verifyCopy.resendButton}
                   </button>

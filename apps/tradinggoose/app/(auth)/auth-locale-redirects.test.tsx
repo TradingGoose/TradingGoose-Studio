@@ -645,7 +645,9 @@ describe('auth locale redirects', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('pushes the canonical signup path from the verify screen back action', async () => {
+  it('keeps the resend cooldown and canonical signup back action on the verify screen', async () => {
+    vi.useFakeTimers()
+    const resendCode = vi.fn()
     mockUseVerification.mockReturnValue({
       otp: '',
       email: 'ada@example.com',
@@ -655,7 +657,7 @@ describe('auth locale redirects', () => {
       failureMessage: '',
       isOtpComplete: false,
       verifyCode: vi.fn(),
-      resendCode: vi.fn(),
+      resendCode,
       handleOtpChange: vi.fn(),
     })
 
@@ -664,9 +666,26 @@ describe('auth locale redirects', () => {
       <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled />
     )
 
-    const backButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === getPublicCopy('en').auth.common.backToSignup
-    )
+    const findButton = (label: string) =>
+      Array.from(container.querySelectorAll('button')).find(
+        (button) => button.textContent === label
+      )
+    const resendLabel = getPublicCopy('en').auth.verify.resendButton
+    const resendButton = findButton(resendLabel)
+    if (!(resendButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected resend button to render')
+    }
+    await act(async () => resendButton.click())
+    expect(resendCode).toHaveBeenCalledTimes(1)
+    expect(findButton(resendLabel)).toBeUndefined()
+    for (let second = 0; second < 29; second++) {
+      await act(async () => vi.advanceTimersByTimeAsync(1000))
+    }
+    expect(findButton(resendLabel)).toBeUndefined()
+    await act(async () => vi.advanceTimersByTimeAsync(1000))
+    expect(findButton(resendLabel)?.disabled).toBe(false)
+
+    const backButton = findButton(getPublicCopy('en').auth.common.backToSignup)
 
     if (!(backButton instanceof HTMLButtonElement)) {
       throw new Error('Expected back to signup button to render')
