@@ -67,6 +67,8 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
     storage: memory.storage,
     recovery: { workflows: 'off', durableAgents: 'off' },
   })
+  const continuation: Pick<Parameters<typeof executeCopilotWorkerTool>[0], 'pending' | 'decision'> =
+    {}
   const execution: Parameters<typeof createCopilotRequestContext>[0] = {
     run: {
       runId,
@@ -82,8 +84,8 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
       executeCopilotWorkerTool(
         {
           run: live.run,
-          pending: live.pending,
-          decision: live.decision,
+          pending: continuation.pending,
+          decision: continuation.decision,
           toolName,
           args,
           toolCallId,
@@ -102,7 +104,7 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
     },
     maxSteps: 2,
   }
-  return { agent, execution: getCopilotExecution(requestContext)!, options }
+  return { agent, execution: getCopilotExecution(requestContext)!, continuation, options }
 }
 beforeEach(() => {
   vi.clearAllMocks()
@@ -359,7 +361,7 @@ describe('Studio-owned Copilot tools', () => {
     m.model = model('deploy_workflow', args)
     const h = harness()
     expect((await h.agent.generate('Deploy workflow', h.options)).finishReason).toBe('suspended')
-    h.execution.pending = {
+    h.continuation.pending = {
       target: {
         threadId: h.execution.run.threadId,
         resourceId: h.options.memory.resource,
@@ -370,11 +372,11 @@ describe('Studio-owned Copilot tools', () => {
       originalArgs: args,
       stage: 'result',
     }
-    h.execution.decision = {
+    h.continuation.decision = {
       action: 'result',
       result: { needsApiKey: true, message: 'Select a valid API key before deploying.' },
     }
-    const result = await h.agent.resumeGenerate(h.execution.decision, {
+    const result = await h.agent.resumeGenerate(h.continuation.decision, {
       ...h.options,
       toolCallId: 'business-call',
     })

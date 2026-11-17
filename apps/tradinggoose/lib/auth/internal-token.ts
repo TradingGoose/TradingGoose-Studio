@@ -1,4 +1,5 @@
 import { type JWTPayload, jwtVerify, SignJWT } from 'jose'
+import type { CopilotWorkerIdentity } from '@/lib/copilot/agent/worker-contract'
 
 const getJwtSecret = () => {
   const secret = process.env.INTERNAL_API_SECRET
@@ -108,22 +109,13 @@ export async function verifyInternalTokenDetailed(
   }
 }
 
-export interface CopilotWorkerTokenContext {
-  actorUserId: string
-  workspaceId: string | null
-  jobId: string
-  threadId: string
-  runId: string
-  model?: string
-}
-
-export function generateCopilotWorkerToken(context: CopilotWorkerTokenContext): Promise<string> {
+export function generateCopilotWorkerToken(context: CopilotWorkerIdentity): Promise<string> {
   return signPayload({ type: 'copilot-worker', ...context })
 }
 
 export async function verifyCopilotWorkerToken(
   token: string
-): Promise<CopilotWorkerTokenContext | undefined> {
+): Promise<CopilotWorkerIdentity | undefined> {
   const payload = await verifyPayload(token)
   if (
     payload?.type !== 'copilot-worker' ||

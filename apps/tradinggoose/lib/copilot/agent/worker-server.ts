@@ -12,6 +12,7 @@ import {
   resolveNativePendingTarget,
 } from '@/lib/copilot/native/target'
 import { isToolId, ToolArgSchemas, ToolResultSchemas } from '@/lib/copilot/registry'
+import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { getCopilotToolPolicy, isWorkspaceAgnosticServerTool } from '@/lib/copilot/tool-policy'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
@@ -291,6 +292,10 @@ async function withToolLease<T>(
   const cancellation = new AbortController()
   let renewal: Promise<void> | undefined
   let checking: Promise<void> | undefined
+  const renew = async () => {
+    const result = await workflows.renewRunOwnership({ ...fence, leaseMs: THREAD_LEASE_MS })
+    if (!result.renewed) throw new NativeTargetError('Copilot tool ownership changed', 409)
+  }
   const cancellationTimer = setInterval(() => {
     if (checking || cancellation.signal.aborted) return
     checking = assertCopilotRunActive(runId)
@@ -301,17 +306,14 @@ async function withToolLease<T>(
   }, COPILOT_CANCELLATION_POLL_INTERVAL)
   const timer = setInterval(() => {
     if (renewal) return
-    renewal = workflows
-      .renewRunOwnership({ ...fence, leaseMs: THREAD_LEASE_MS })
-      .then((result) => {
-        if (!result.renewed) throw new NativeTargetError('Copilot tool ownership changed', 409)
-      })
+    renewal = renew()
       .catch((error) => cancellation.abort(error))
       .finally(() => {
         renewal = undefined
       })
   }, THREAD_LEASE_MS / 3)
   try {
+    await renew()
     return await operation(
       signal ? AbortSignal.any([signal, cancellation.signal]) : cancellation.signal
     )
@@ -384,7 +386,11 @@ export async function handleCopilotWorkerOperation(
       throw new NativeTargetError('The tool belongs to another Copilot run', 403)
     return withToolLease(identity.runId, fence, signal, (toolSignal) =>
       executeCopilotWorkerTool(tool, toolSignal)
-    )
+    ).catch((error) => {
+      if (error instanceof NativeTargetError) throw error
+      const failure = buildCopilotServerToolErrorResponse(tool.toolName, error)
+      throw new NativeTargetError(failure.body.error, failure.status)
+    })
   }
   const model = identity.model
   if (!model) throw new NativeTargetError('The admitted model is required', 403)

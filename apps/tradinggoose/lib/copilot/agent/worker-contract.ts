@@ -28,14 +28,6 @@ export const CopilotJobSchema = z.object({
   messageId: z.string().min(1).optional(),
 })
 export type CopilotJob = z.infer<typeof CopilotJobSchema>
-export interface CopilotWorkerIdentity {
-  actorUserId: string
-  workspaceId: string | null
-  threadId: string
-  runId: string
-  jobId: string
-  model?: string
-}
 export type CopilotWorkerToolInput = {
   run: CopilotRun
   pending?: ServerPending
@@ -91,6 +83,9 @@ export const CopilotWorkerIdentitySchema = z
     jobId: z.string().min(1),
   })
   .strict()
+export type CopilotWorkerIdentity = z.infer<typeof CopilotWorkerIdentitySchema> & {
+  model?: string
+}
 export const CopilotWorkerRequestSchema = z
   .object({
     identity: CopilotWorkerIdentitySchema,
