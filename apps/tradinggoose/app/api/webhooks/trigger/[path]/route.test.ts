@@ -7,8 +7,6 @@ import {
   mockExecutionDependencies,
 } from '@/app/api/__test-utils__/utils'
 
-const hasProcessedMessageMock = vi.fn().mockResolvedValue(false)
-const markMessageAsProcessedMock = vi.fn().mockResolvedValue(true)
 const closeRedisConnectionMock = vi.fn().mockResolvedValue(undefined)
 const acquireLockMock = vi.fn().mockResolvedValue(true)
 const handleWhatsAppVerificationMock = vi.fn().mockResolvedValue(null)
@@ -29,8 +27,6 @@ const createWebhookProcessorMock = (findWebhookAndWorkflow: ReturnType<typeof vi
 })
 
 vi.mock('@/lib/redis', () => ({
-  hasProcessedMessage: hasProcessedMessageMock,
-  markMessageAsProcessed: markMessageAsProcessedMock,
   closeRedisConnection: closeRedisConnectionMock,
   acquireLock: acquireLockMock,
   getRedisClient: vi.fn().mockReturnValue(null),
@@ -109,8 +105,6 @@ describe('Webhook Trigger API Route', () => {
       blockExistsInDeployment: vi.fn().mockResolvedValue(true),
     }))
 
-    hasProcessedMessageMock.mockResolvedValue(false)
-    markMessageAsProcessedMock.mockResolvedValue(true)
     acquireLockMock.mockResolvedValue(true)
     handleWhatsAppVerificationMock.mockResolvedValue(null)
     enqueuePendingExecutionMock.mockReset()

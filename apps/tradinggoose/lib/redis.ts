@@ -21,16 +21,7 @@ let pingInFlight = false
 const PING_INTERVAL_MS = 15_000
 const MAX_PING_FAILURES = 2
 
-const reconnectListeners: Array<() => void> = []
-
-export function onRedisReconnect(cb: () => void): void {
-  reconnectListeners.push(cb)
-}
-
 const inMemoryCache = new Map<string, { value: string; expiry: number | null }>()
-const MAX_CACHE_SIZE = 1000
-const MESSAGE_ID_PREFIX = 'processed:'
-const MESSAGE_ID_EXPIRY = 60 * 60 * 24 * 7
 
 const RELEASE_LOCK_SCRIPT = `
 if redis.call("get", KEYS[1]) == ARGV[1] then
@@ -65,27 +56,6 @@ const setInMemoryCacheValue = (key: string, value: string, expirySeconds?: numbe
   })
 }
 
-const pruneInMemoryCache = () => {
-  if (inMemoryCache.size <= MAX_CACHE_SIZE) return
-  const now = Date.now()
-
-  for (const [cacheKey, entry] of inMemoryCache.entries()) {
-    if (entry.expiry && entry.expiry < now) {
-      inMemoryCache.delete(cacheKey)
-    }
-  }
-
-  if (inMemoryCache.size > MAX_CACHE_SIZE) {
-    const keysToDelete = Array.from(inMemoryCache.keys()).slice(
-      0,
-      inMemoryCache.size - MAX_CACHE_SIZE
-    )
-    for (const cacheKey of keysToDelete) {
-      inMemoryCache.delete(cacheKey)
-    }
-  }
-}
-
 const ensureRedisAvailable = (operation: string): Redis | null => {
   const redis = getRedisClient()
   if (redis) return redis
@@ -111,13 +81,6 @@ function startPingHealthCheck(redis: Redis): void {
 
       if (pingFailures >= MAX_PING_FAILURES) {
         pingFailures = 0
-        for (const cb of reconnectListeners) {
-          try {
-            cb()
-          } catch (callbackError) {
-            logger.error('Redis reconnect listener error', { error: callbackError })
-          }
-        }
         try {
           redis.disconnect(true)
         } catch (disconnectError) {
@@ -169,38 +132,6 @@ export function getRedisClient(): Redis | null {
     logger.error('Failed to initialize Redis client', { error })
     return null
   }
-}
-
-export async function hasProcessedMessage(key: string): Promise<boolean> {
-  const fullKey = `${MESSAGE_ID_PREFIX}${key}`
-  const redis = ensureRedisAvailable('hasProcessedMessage')
-  if (redis) {
-    return (await redis.exists(fullKey)) === 1
-  }
-  return readInMemoryCacheEntry(fullKey) !== null
-}
-
-export async function markMessageAsProcessed(
-  key: string,
-  expirySeconds: number = MESSAGE_ID_EXPIRY
-): Promise<void> {
-  const fullKey = `${MESSAGE_ID_PREFIX}${key}`
-  const redis = ensureRedisAvailable('markMessageAsProcessed')
-  if (redis) {
-    await redis.set(fullKey, '1', 'EX', expirySeconds)
-    return
-  }
-
-  setInMemoryCacheValue(fullKey, '1', expirySeconds)
-  pruneInMemoryCache()
-}
-
-export async function hasCachedValue(key: string): Promise<boolean> {
-  const redis = ensureRedisAvailable('hasCachedValue')
-  if (redis) {
-    return (await redis.exists(key)) === 1
-  }
-  return readInMemoryCacheEntry(key) !== null
 }
 
 export async function getCachedValue(key: string): Promise<string | null> {

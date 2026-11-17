@@ -15,8 +15,6 @@ export const recordsOrderKeys = {
     [...recordsOrderKeys.details(), 'provider', workspaceId ?? '', orderId ?? ''] as const,
 }
 
-export const orderKeys = recordsOrderKeys
-
 export type RecordsOrder = {
   id: string
   workspaceId: string
@@ -120,7 +118,7 @@ async function fetchOrdersPage(
   }
 }
 
-export function useRecordsOrdersList(
+export function useOrdersList(
   workspaceId: string | undefined,
   filters: OrdersFilterState,
   options?: { enabled?: boolean; limit?: number }
@@ -135,12 +133,7 @@ export function useRecordsOrdersList(
   })
 }
 
-export const useOrdersList = useRecordsOrdersList
-
-export function useRecordsOrderDetail(
-  workspaceId: string | undefined,
-  orderId: string | undefined
-) {
+export function useOrderDetail(workspaceId: string | undefined, orderId: string | undefined) {
   return useQuery({
     queryKey: recordsOrderKeys.detail(workspaceId, orderId),
     queryFn: async () => {
@@ -154,8 +147,6 @@ export function useRecordsOrderDetail(
     enabled: Boolean(workspaceId && orderId),
   })
 }
-
-export const useOrderDetail = useRecordsOrderDetail
 
 export function useProviderOrderDetail(params: {
   workspaceId: string | undefined
