@@ -1,7 +1,5 @@
 // Export helper functions
 export {
-  calculateSeatUsage as calculateSeatUsageHelper,
-  getUsedSeats,
   getUserRole,
   isAdminOrOwner,
 } from '@/lib/organization/helpers'
@@ -20,7 +18,6 @@ export type {
 } from '@/lib/organization/types'
 // Export utility functions
 export {
-  calculateSeatUsage,
   generateSlug,
   validateEmail,
   validateSlug,

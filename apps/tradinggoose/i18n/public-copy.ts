@@ -30,6 +30,7 @@ export function getClientMessages(
     workspace: {
       dashboard: { layoutPreview: workspace.dashboard.layoutPreview },
       nav: workspace.nav,
+      permissionsFeedback: workspace.permissionsFeedback,
       userMenu: workspace.userMenu,
       settingsModal: workspace.settingsModal,
       switcher: { roles: workspace.switcher.roles },

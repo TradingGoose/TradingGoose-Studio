@@ -7,7 +7,7 @@ import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import { generateSlug, getUsedSeats, getUserRole, isAdminOrOwner } from '@/lib/organization'
+import { generateSlug, getUserRole, isAdminOrOwner } from '@/lib/organization'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import {
@@ -16,6 +16,7 @@ import {
   useOrganization,
   useOrganizationBilling,
   useOrganizationBillingWorkspaces,
+  useOrganizationSeats,
   useOrganizations,
 } from '@/hooks/queries/organization'
 import { usePrivateTierAccessForm } from '@/hooks/queries/private-tier-access'
@@ -76,19 +77,16 @@ export function TeamManagement() {
   const { handleUpgrade } = useSubscriptionUpgrade()
   const locale = useLocale() as LocaleCode
   const copy = useTranslations('workspace.settingsModal.team')
+  const retryCopy = useTranslations('workspace.permissionsFeedback')
   const roles = useTranslations('workspace.switcher.roles')
   const privateAccessCopy = useTranslations('workspace.settingsModal.subscription.privateAccess')
   const queryClient = useQueryClient()
 
   const { data: organizationsData } = useOrganizations()
   const activeOrganization = organizationsData?.activeOrganization
-  const {
-    data: organization,
-    isLoading,
-    error: orgError,
-  } = useOrganization(activeOrganization?.id || '')
-  const displayOrganization = organization || activeOrganization || null
-  const activeOrgId = displayOrganization?.id
+  const activeOrgId = activeOrganization?.id
+  const { data: organization, isLoading, error: orgError } = useOrganization(activeOrgId || '')
+  const displayOrganization = organization?.id === activeOrgId ? organization : activeOrganization
   const userRole = getUserRole(displayOrganization, session?.user?.email)
   const adminOrOwner = isAdminOrOwner(displayOrganization, session?.user?.email)
   const isOrganizationOwner = userRole === 'owner'
@@ -260,6 +258,17 @@ export function TeamManagement() {
     personalBillingPayload?.billingEnabled ??
     organizationsData?.billingData?.data?.billingEnabled ??
     true
+  const seatCountsEnabled = organizationBillingPayload?.billingEnabled === true
+  const {
+    data: seatCounts,
+    isPending: isSeatCountsPending,
+    isError: isSeatCountsError,
+    isFetching: isSeatCountsFetching,
+    refetch: refetchSeatCounts,
+  } = useOrganizationSeats(activeOrgId || '', seatCountsEnabled)
+  const organizationSeats = seatCounts?.organizationId === activeOrgId ? seatCounts : undefined
+  const seatCountsUnavailable = isSeatCountsPending || isSeatCountsError || !organizationSeats
+  const usedSeats = organizationSeats?.usedSeats ?? 0
   const availableOrganizationTiers = mergeAccessibleBillingTiers(
     publicBillingCatalog?.publicTiers,
     privateTierAccess.data?.privateTiers
@@ -313,12 +322,17 @@ export function TeamManagement() {
   const showOrganizationBillingError = Boolean(
     billingEnabled && adminOrOwner && !organizationBillingPending && organizationBillingError
   )
+  const showSeatCountsError = seatCountsEnabled && isSeatCountsError
 
-  const usedSeats = getUsedSeats(displayOrganization)
   const canInviteMembers = Boolean(currentTier?.ownerType === 'organization')
   const seatLimited = canInviteMembers
   const inviteUnavailableMessage =
     displayOrganization && !canInviteMembers ? copy('inviteUnavailableMessage') : null
+
+  useEffect(() => {
+    setPendingUpgradeTier(null)
+    setIsAddSeatDialogOpen(false)
+  }, [activeOrgId])
 
   useEffect(() => {
     if (session?.user?.name && !orgName) {
@@ -356,7 +370,7 @@ export function TeamManagement() {
   }, [session?.user?.id, orgName, orgSlug, createOrgMutation, runAction])
 
   const handleInviteMember = useCallback(async () => {
-    if (!session?.user || !activeOrgId || !inviteEmail.trim()) return
+    if (!session?.user || !activeOrgId || !inviteEmail.trim() || seatCountsUnavailable) return
 
     const workspaceInvitations =
       selectedWorkspaces.length > 0
@@ -379,7 +393,15 @@ export function TeamManagement() {
       setSelectedWorkspaces([])
       setShowWorkspaceInvite(false)
     }
-  }, [session?.user?.id, activeOrgId, inviteEmail, selectedWorkspaces, inviteMutation, runAction])
+  }, [
+    session?.user?.id,
+    activeOrgId,
+    inviteEmail,
+    selectedWorkspaces,
+    inviteMutation,
+    runAction,
+    seatCountsUnavailable,
+  ])
 
   const handleWorkspaceToggle = useCallback((workspaceId: string, permission: string) => {
     setSelectedWorkspaces((prev) => {
@@ -447,7 +469,7 @@ export function TeamManagement() {
   )
 
   const handleReduceSeats = useCallback(async () => {
-    if (!session?.user || !activeOrgId || !subscriptionData) return
+    if (!session?.user || !activeOrgId || !subscriptionData || seatCountsUnavailable) return
     if (
       subscriptionData.tier?.ownerType !== 'organization' ||
       subscriptionData.tier?.seatMode !== 'adjustable'
@@ -458,7 +480,7 @@ export function TeamManagement() {
     const currentSeats = subscriptionData.seats || 0
     if (currentSeats <= 1) return
 
-    if (usedSeats.used >= currentSeats) return
+    if (usedSeats >= currentSeats) return
 
     await runAction('reduce-seats', () =>
       updateSeatsMutation.mutateAsync({
@@ -470,7 +492,8 @@ export function TeamManagement() {
     session?.user?.id,
     activeOrgId,
     subscriptionData,
-    usedSeats.used,
+    usedSeats,
+    seatCountsUnavailable,
     updateSeatsMutation,
     runAction,
   ])
@@ -478,19 +501,21 @@ export function TeamManagement() {
   const handleAddSeatDialog = useCallback(() => {
     if (
       subscriptionData &&
+      !seatCountsUnavailable &&
       subscriptionData.tier?.ownerType === 'organization' &&
       subscriptionData.tier?.seatMode === 'adjustable'
     ) {
       setNewSeatCount((subscriptionData.seats || 1) + 1)
       setIsAddSeatDialogOpen(true)
     }
-  }, [subscriptionData])
+  }, [subscriptionData, seatCountsUnavailable])
 
   const confirmAddSeats = useCallback(
     async (selectedSeats?: number) => {
       if (
         !subscriptionData ||
         !activeOrgId ||
+        seatCountsUnavailable ||
         subscriptionData.tier?.ownerType !== 'organization' ||
         subscriptionData.tier?.seatMode !== 'adjustable'
       ) {
@@ -508,7 +533,14 @@ export function TeamManagement() {
         setIsAddSeatDialogOpen(false)
       }
     },
-    [subscriptionData, activeOrgId, newSeatCount, updateSeatsMutation, runAction]
+    [
+      subscriptionData,
+      activeOrgId,
+      newSeatCount,
+      updateSeatsMutation,
+      runAction,
+      seatCountsUnavailable,
+    ]
   )
 
   const handleAssignWorkspaceBilling = useCallback(
@@ -545,6 +577,7 @@ export function TeamManagement() {
 
   const confirmTeamUpgrade = useCallback(
     async (seats: number) => {
+      if (seatCountsUnavailable) return
       if (!session?.user || !adjustableSeatTier) {
         alert(copy('noPublicAdjustableTier'))
         return
@@ -554,7 +587,7 @@ export function TeamManagement() {
       setNewSeatCount(seats)
       setPendingUpgradeTier(adjustableSeatTier)
     },
-    [session?.user, adjustableSeatTier, copy]
+    [session?.user, adjustableSeatTier, copy, seatCountsUnavailable]
   )
 
   const queryError = orgError || organizationBillingError || subscriptionError
@@ -682,6 +715,7 @@ export function TeamManagement() {
                       disabled={
                         isPending ||
                         !activeOrgId ||
+                        (tier.seatMode === 'adjustable' && seatCountsUnavailable) ||
                         !organizationPlanSurface.canManageOrganizationPlan
                       }
                       onClick={() => {
@@ -715,10 +749,21 @@ export function TeamManagement() {
           </div>
         ) : null}
 
-        {showOrganizationBillingError ? (
-          <p role='alert' className='text-destructive text-xs'>
-            {copy('errors.loadOrganizationBilling')}
-          </p>
+        {showOrganizationBillingError || showSeatCountsError ? (
+          <div role='alert' className='flex items-center gap-2 text-destructive text-xs'>
+            <p>{copy('errors.loadOrganizationBilling')}</p>
+            {showSeatCountsError && (
+              <Button
+                type='button'
+                size='sm'
+                variant='outline'
+                disabled={isSeatCountsFetching}
+                onClick={() => void refetchSeatCounts()}
+              >
+                {retryCopy('retry')}
+              </Button>
+            )}
+          </div>
         ) : null}
 
         <WorkspaceBilling
@@ -748,10 +793,10 @@ export function TeamManagement() {
         {isOrganizationOwner && isAdjustableSeatTier && (
           <TeamSeatsOverview
             subscriptionData={subscriptionData}
-            isLoadingSubscription={isLoadingSubscription}
-            usedSeats={usedSeats.used}
+            isLoadingSubscription={isLoadingSubscription || seatCountsUnavailable}
+            usedSeats={usedSeats}
             isLoading={isLoading}
-            actionsDisabled={isPending}
+            actionsDisabled={isPending || seatCountsUnavailable}
             isReducing={pendingAction === 'reduce-seats'}
             error={actionFailure('reduce-seats')}
             onConfirmTeamUpgrade={confirmTeamUpgrade}
@@ -795,7 +840,7 @@ export function TeamManagement() {
             inviteEmail={inviteEmail}
             setInviteEmail={setInviteEmail}
             isInviting={inviteMutation.isPending}
-            actionsDisabled={isPending}
+            actionsDisabled={isPending || seatCountsUnavailable}
             error={actionFailure('invite')}
             showWorkspaceInvite={showWorkspaceInvite}
             setShowWorkspaceInvite={setShowWorkspaceInvite}
@@ -810,7 +855,7 @@ export function TeamManagement() {
             canInviteMembers={canInviteMembers}
             inviteUnavailableMessage={inviteUnavailableMessage}
             seatLimited={seatLimited}
-            availableSeats={Math.max(0, (subscriptionData?.seats || 0) - usedSeats.used)}
+            availableSeats={organizationSeats?.availableSeats ?? 0}
           />
         )}
       </div>
@@ -870,20 +915,20 @@ export function TeamManagement() {
       />
 
       <TeamSeats
-        open={Boolean(pendingUpgradeTier) && isOrganizationOwner}
+        open={Boolean(pendingUpgradeTier) && isOrganizationOwner && !seatCountsUnavailable}
         onOpenChange={(open) => {
           if (!open) setPendingUpgradeTier(null)
         }}
         title={pendingUpgradeTier?.displayName ?? ''}
         description={pendingUpgradeTier?.description || copy('plans.description')}
         pricePerSeat={pendingUpgradeTier?.monthlyPriceUsd ?? 0}
-        minimumSeats={Math.max(pendingUpgradeTier?.seatCount ?? 1, usedSeats.used)}
+        minimumSeats={Math.max(pendingUpgradeTier?.seatCount ?? 1, usedSeats)}
         maximumSeats={pendingUpgradeTier?.seatMaximum ?? null}
         initialSeats={newSeatCount}
         isLoading={pendingAction === `subscribe:${pendingUpgradeTier?.id}`}
         error={pendingUpgradeTier ? actionFailure(`subscribe:${pendingUpgradeTier.id}`) : null}
         onConfirm={async (seats) => {
-          if (!pendingUpgradeTier || !activeOrgId) return
+          if (!pendingUpgradeTier || !activeOrgId || seatCountsUnavailable) return
           const succeeded = await runAction(`subscribe:${pendingUpgradeTier.id}`, () =>
             handleUpgrade(toUpgradeTarget(pendingUpgradeTier), {
               organizationId: activeOrgId,
@@ -896,12 +941,17 @@ export function TeamManagement() {
       />
 
       <TeamSeats
-        open={isAddSeatDialogOpen && isOrganizationOwner && isAdjustableSeatTier}
+        open={
+          isAddSeatDialogOpen &&
+          isOrganizationOwner &&
+          isAdjustableSeatTier &&
+          !seatCountsUnavailable
+        }
         onOpenChange={setIsAddSeatDialogOpen}
         title={copy('addSeats.title')}
         description={copy('addSeats.description', { price: formatUsd(locale, seatPriceUsd) })}
         pricePerSeat={seatPriceUsd}
-        minimumSeats={seatCount}
+        minimumSeats={Math.max(seatCount, usedSeats)}
         maximumSeats={seatMaximum}
         currentSeats={subscriptionData?.seats || 1}
         initialSeats={newSeatCount}

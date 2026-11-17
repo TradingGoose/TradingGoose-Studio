@@ -7,6 +7,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { Organization } from '@/lib/organization'
+import { type OrganizationSeats, organizationKeys } from '@/hooks/queries/organization'
 import type { WorkspaceSettingsResponse } from '@/hooks/queries/workspace'
 import { getClientMessages } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
@@ -22,6 +23,7 @@ vi.unmock('next-intl')
 
 const mocks = vi.hoisted(() => ({
   organization: null as Organization | null,
+  organizationDetail: undefined as Organization | null | undefined,
   billing: null as Record<string, unknown> | null,
   refetch: vi.fn(),
   mutate: vi.fn(),
@@ -38,11 +40,15 @@ vi.mock('@/lib/subscription/upgrade', () => ({
   useSubscriptionUpgrade: () => ({ handleUpgrade: mocks.mutate }),
 }))
 
-vi.mock('@/hooks/queries/organization', () => {
+vi.mock('@/hooks/queries/organization', async (importOriginal) => {
   const mutation = () => ({ mutationFn: mocks.mutate })
   return {
+    ...(await importOriginal<typeof import('@/hooks/queries/organization')>()),
     useOrganizations: () => ({ data: { activeOrganization: mocks.organization } }),
-    useOrganization: () => ({ data: mocks.organization, isLoading: false }),
+    useOrganization: () => ({
+      data: mocks.organizationDetail === undefined ? mocks.organization : mocks.organizationDetail,
+      isLoading: false,
+    }),
     useOrganizationBilling: () => ({ data: mocks.billing, isLoading: false }),
     useOrganizationBillingWorkspaces: () => ({ data: [], isLoading: false }),
     useAvailableOrganizationBillingWorkspaces: () => ({ data: [], isLoading: false }),
@@ -103,9 +109,26 @@ describe('settings localization', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.organization = null
+    mocks.organizationDetail = undefined
     mocks.billing = null
     mocks.publicTiers = []
     queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    queryClient.setQueryData(organizationKeys.seats('org-1'), {
+      organizationId: 'org-1',
+      maxSeats: 0,
+      usedSeats: 4,
+      memberSeats: 4,
+      pendingInvitations: 0,
+      availableSeats: 0,
+      tier: null,
+      canModifySeats: false,
+      seatMode: null,
+      seatMaximum: null,
+    } satisfies OrganizationSeats)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ data: [] }))
+    )
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
@@ -116,6 +139,7 @@ describe('settings localization', () => {
     await act(async () => root.unmount())
     queryClient.clear()
     container.remove()
+    vi.unstubAllGlobals()
     expect(onIntlError).not.toHaveBeenCalled()
   })
 
@@ -295,6 +319,176 @@ describe('settings localization', () => {
       expect.objectContaining({ billingTierId: 'tier-org', ownerType: 'organization' }),
       { organizationId: 'org-1', seats: expectedSeats }
     )
+  })
+
+  describe('team seat aggregate quotes', () => {
+    let counts: OrganizationSeats
+    const plan = () =>
+      [...container.querySelectorAll('button')].find((button) =>
+        button.textContent?.includes('Organization Pro')
+      )!
+    const confirm = () =>
+      [...document.querySelectorAll('[role="dialog"] button')].find(
+        (button) =>
+          button.textContent ===
+          getClientMessages('en').workspace.settingsModal.team.setUpTeamSubscription
+      ) as HTMLButtonElement
+
+    beforeEach(() => {
+      mocks.organization = {
+        id: 'org-1',
+        name: 'Design team',
+        slug: 'design-team',
+        createdAt: '2025-06-15T12:00:00Z',
+        members: [{ id: 'owner', role: 'owner', user: { email: 'ana@example.com' } }],
+        invitations: Array.from({ length: 100 }, (_, index) => ({
+          id: `canceled-${index}`,
+          email: `canceled-${index}@example.com`,
+          status: 'canceled',
+        })),
+      }
+      mocks.billing = {
+        organizationId: 'org-1',
+        billingEnabled: true,
+        subscriptionTier: null,
+        totalSeats: 0,
+        totalCurrentUsage: 0,
+        totalUsageLimit: 0,
+      }
+      mocks.publicTiers = [
+        {
+          ...EMPTY_BILLING_TIER_SUMMARY,
+          id: 'tier-org',
+          displayName: 'Organization Pro',
+          ownerType: 'organization',
+          usageScope: 'pooled',
+          seatMode: 'adjustable',
+          seatCount: 2,
+          seatMaximum: 80,
+          monthlyPriceUsd: 12.5,
+          yearlyPriceUsd: null,
+          pricingFeatures: [],
+          isDefault: false,
+        },
+      ]
+      counts = {
+        ...queryClient.getQueryData<OrganizationSeats>(organizationKeys.seats('org-1'))!,
+        memberSeats: 1,
+        pendingInvitations: 49,
+        usedSeats: 50,
+      }
+      queryClient.setQueryData(organizationKeys.seats('org-1'), counts)
+    })
+
+    it('quotes pending invitations omitted from a full canceled-invitation roster before the first plan', async () => {
+      await render('en', <TeamManagement />)
+      await act(async () => plan().click())
+      const dialog = document.querySelector('[role="dialog"]')!
+      expect(dialog.querySelector('#seats')).toHaveAttribute('min', '50')
+      expect(dialog.querySelector('#seats')).toHaveValue(50)
+      expect(dialog.textContent).toContain('$625.00')
+      await act(async () => confirm().click())
+      expect(mocks.mutate).toHaveBeenCalledWith(
+        expect.objectContaining({ billingTierId: 'tier-org' }),
+        { organizationId: 'org-1', seats: 50 }
+      )
+    })
+
+    it('keeps billing visible but blocks quotes until failed aggregate counts are retried', async () => {
+      queryClient.removeQueries({ queryKey: organizationKeys.seats('org-1'), exact: true })
+      let fail!: (error: Error) => void
+      const pending = new Promise<Response>((_resolve, reject) => {
+        fail = reject
+      })
+      vi.mocked(fetch).mockImplementation(async (input) =>
+        String(input).endsWith('/seats') ? pending : Response.json({ data: [] })
+      )
+      await render('en', <TeamManagement />)
+      expect(plan()).toBeDisabled()
+      expect(container.querySelector('#organization-private-tier-access-code')).not.toBeNull()
+      await act(async () => {
+        fail(new Error('Counts unavailable'))
+        await vi.waitFor(() =>
+          expect(queryClient.getQueryState(organizationKeys.seats('org-1'))?.status).toBe('error')
+        )
+      })
+      expect(plan()).toBeDisabled()
+      expect(container.querySelector('#organization-private-tier-access-code')).not.toBeNull()
+      expect(mocks.mutate).not.toHaveBeenCalled()
+      vi.mocked(fetch).mockResolvedValue(Response.json({ data: counts }))
+      const retry = [...container.querySelectorAll('button')].find(
+        (button) =>
+          button.textContent === getClientMessages('en').workspace.permissionsFeedback.retry
+      )!
+      await act(async () => {
+        retry.click()
+        await vi.waitFor(() => expect(plan()).toBeEnabled())
+      })
+      await act(async () => plan().click())
+      expect(document.querySelector('#seats')).toHaveValue(50)
+    })
+
+    it('discards the old quote while another organization has stale detail and pending counts', async () => {
+      await render('en', <TeamManagement />)
+      await act(async () => plan().click())
+      expect(document.querySelector('#seats')).toHaveValue(50)
+      mocks.organizationDetail = mocks.organization
+      mocks.organization = { ...mocks.organization!, id: 'org-2', name: 'Second team' }
+      mocks.billing = { ...mocks.billing, organizationId: 'org-2' }
+      let finish!: (response: Response) => void
+      const pending = new Promise<Response>((resolve) => {
+        finish = resolve
+      })
+      vi.mocked(fetch).mockImplementation(async (input) =>
+        String(input).endsWith('/seats') ? pending : Response.json({ data: [] })
+      )
+      await render('en', <TeamManagement />)
+      expect(fetch).toHaveBeenCalledWith('/api/organizations/org-2/seats')
+      expect(plan()).toBeDisabled()
+      await vi.waitFor(() => expect(document.querySelector('#seats')).toBeNull())
+      expect(mocks.mutate).not.toHaveBeenCalled()
+      mocks.organizationDetail = mocks.organization
+      await act(async () => {
+        finish(
+          Response.json({
+            data: { ...counts, organizationId: 'org-2', usedSeats: 2, pendingInvitations: 1 },
+          })
+        )
+        await vi.waitFor(() =>
+          expect(queryClient.getQueryState(organizationKeys.seats('org-2'))?.status).toBe('success')
+        )
+      })
+      await render('en', <TeamManagement />)
+      await act(async () => plan().click())
+      expect(document.querySelector('#seats')).toHaveAttribute('min', '2')
+      expect(document.querySelector('#seats')).toHaveValue(2)
+      await act(async () => confirm().click())
+      expect(mocks.mutate).toHaveBeenCalledWith(
+        expect.objectContaining({ billingTierId: 'tier-org' }),
+        { organizationId: 'org-2', seats: 2 }
+      )
+    })
+
+    it('does not fetch or surface retained seat errors without enabled organization billing', async () => {
+      queryClient.removeQueries({ queryKey: organizationKeys.seats('org-1'), exact: true })
+      await queryClient
+        .fetchQuery({
+          queryKey: organizationKeys.seats('org-1'),
+          queryFn: async () => {
+            throw new Error('Previous seat request failed')
+          },
+          retry: false,
+        })
+        .catch(() => {})
+      for (const billing of [null, { ...mocks.billing, billingEnabled: false }]) {
+        mocks.billing = billing
+        await render('en', <TeamManagement />)
+        expect(fetch).not.toHaveBeenCalledWith('/api/organizations/org-1/seats')
+        expect(container.textContent).not.toContain(
+          getClientMessages('en').workspace.settingsModal.team.errors.loadOrganizationBilling
+        )
+      }
+    })
   })
 
   it('bounds initial seats and resets them when reopening or constraints change', async () => {
