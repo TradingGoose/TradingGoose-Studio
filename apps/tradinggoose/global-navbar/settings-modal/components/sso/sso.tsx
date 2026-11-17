@@ -29,6 +29,34 @@ const getSsoCallbackUrl = (providerId: string, providerType: 'oidc' | 'saml') =>
     providerType === 'saml' ? 'sso/saml2/sp/acs' : 'sso/callback'
   }/${providerId}`
 
+const INITIAL_FORM_DATA = {
+  providerType: 'oidc' as 'oidc' | 'saml',
+  providerId: '',
+  issuerUrl: '',
+  domain: '',
+  clientId: '',
+  clientSecret: '',
+  scopes: 'openid,profile,email',
+  entryPoint: '',
+  cert: '',
+  callbackUrl: '',
+  audience: '',
+  wantAssertionsSigned: true,
+  idpMetadata: '',
+  showAdvanced: false,
+}
+
+const INITIAL_ERRORS: Record<string, string[]> = {
+  providerId: [],
+  issuerUrl: [],
+  domain: [],
+  clientId: [],
+  clientSecret: [],
+  entryPoint: [],
+  cert: [],
+  scopes: [],
+}
+
 export function SSO() {
   const { data: session } = useSession()
   const { data: organizationsData } = useOrganizations()
@@ -44,40 +72,12 @@ export function SSO() {
   const [isLoadingProviders, setIsLoadingProviders] = useState(true)
   const [domainTokens, setDomainTokens] = useState<Record<string, string>>({})
   const verificationScope = useRef({ organizationId: activeOrganizationId })
-  if (verificationScope.current.organizationId !== activeOrganizationId) {
+  useEffect(() => {
     verificationScope.current = { organizationId: activeOrganizationId }
-  }
+  }, [activeOrganizationId])
 
-  const [formData, setFormData] = useState({
-    providerType: 'oidc' as 'oidc' | 'saml',
-    providerId: '',
-    issuerUrl: '',
-    domain: '',
-    // OIDC fields
-    clientId: '',
-    clientSecret: '',
-    scopes: 'openid,profile,email',
-    // SAML fields
-    entryPoint: '',
-    cert: '',
-    callbackUrl: '',
-    audience: '',
-    wantAssertionsSigned: true,
-    idpMetadata: '', // Optional IDP metadata XML
-    // Advanced options
-    showAdvanced: false,
-  })
-
-  const [errors, setErrors] = useState<Record<string, string[]>>({
-    providerId: [],
-    issuerUrl: [],
-    domain: [],
-    clientId: [],
-    clientSecret: [],
-    entryPoint: [],
-    cert: [],
-    scopes: [],
-  })
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA)
+  const [errors, setErrors] = useState(INITIAL_ERRORS)
   const [showErrors, setShowErrors] = useState(false)
 
   const userEmail = session?.user?.email
@@ -114,17 +114,12 @@ export function SSO() {
         const response = await fetch('/api/auth/sso/providers')
         if (!response.ok) {
           const errorData = await response.json().catch(() => null)
-          throw new Error(
-            errorData?.details ||
-              errorData?.error ||
-              response.statusText ||
-              'Failed to load SSO providers'
-          )
+          throw new Error(errorData?.error || response.statusText || 'Failed to load SSO providers')
         }
 
         const data = await response.json()
         if (!cancelled) {
-          setProviders(data.providers || [])
+          setProviders(data.providers)
           setProviderLoadError(null)
         }
       } catch (error) {
@@ -256,14 +251,10 @@ export function SSO() {
 
   const validateAll = (data: typeof formData) => {
     const newErrors: Record<string, string[]> = {
+      ...INITIAL_ERRORS,
       providerId: validateProviderId(data.providerId),
       issuerUrl: validateIssuerUrl(data.issuerUrl),
       domain: validateDomain(data.domain),
-      clientId: [],
-      clientSecret: [],
-      entryPoint: [],
-      cert: [],
-      scopes: [],
     }
 
     if (data.providerType === 'oidc') {
@@ -324,12 +315,6 @@ export function SSO() {
         issuer: formData.issuerUrl,
         domain: formData.domain,
         providerType: formData.providerType,
-        mapping: {
-          id: 'sub',
-          email: 'email',
-          name: 'name',
-          image: 'picture',
-        },
       }
 
       if (formData.providerType === 'oidc') {
@@ -367,36 +352,18 @@ export function SSO() {
       const result = await response.json()
       logger.info('SSO provider configured', { providerId: result.providerId })
 
-      setFormData({
-        providerType: 'oidc',
-        providerId: '',
-        issuerUrl: '',
-        domain: '',
-        clientId: '',
-        clientSecret: '',
-        scopes: 'openid,profile,email',
-        entryPoint: '',
-        cert: '',
-        callbackUrl: '',
-        audience: '',
-        wantAssertionsSigned: true,
-        idpMetadata: '',
-        showAdvanced: false,
-      })
+      setFormData(INITIAL_FORM_DATA)
 
       const providersResponse = await fetch('/api/auth/sso/providers')
       if (!providersResponse.ok) {
         const errorData = await providersResponse.json().catch(() => null)
         throw new Error(
-          errorData?.details ||
-            errorData?.error ||
-            providersResponse.statusText ||
-            'Failed to reload SSO providers'
+          errorData?.error || providersResponse.statusText || 'Failed to reload SSO providers'
         )
       }
 
       const providersData = await providersResponse.json()
-      setProviders(providersData.providers || [])
+      setProviders(providersData.providers)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(message)
@@ -418,16 +385,7 @@ export function SSO() {
 
       if (field === 'providerType') {
         setShowErrors(false)
-        setErrors({
-          providerId: [],
-          issuerUrl: [],
-          domain: [],
-          clientId: [],
-          clientSecret: [],
-          entryPoint: [],
-          cert: [],
-          scopes: [],
-        })
+        setErrors(INITIAL_ERRORS)
       } else {
         validateAll(next)
       }

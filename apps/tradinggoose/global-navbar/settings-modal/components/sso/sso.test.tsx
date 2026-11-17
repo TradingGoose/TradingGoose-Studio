@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import type React from 'react'
-import { act } from 'react'
+import { act, Suspense, startTransition } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -353,5 +353,48 @@ describe('SSO access guard', () => {
         ).toBe(false)
       }
     )
+
+    it('retains the committed verification scope when an organization transition is abandoned', async () => {
+      const { SSO } = await import('./sso')
+      let finish!: () => void
+      mockRequestDomainVerification.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = () =>
+              resolve({ data: { domainVerificationToken: 'committed-token' }, error: null })
+          })
+      )
+      let suspend = false
+      let attempted = false
+      const blocked = new Promise<void>(() => {})
+      function PendingOrganization() {
+        if (suspend) {
+          attempted = true
+          throw blocked
+        }
+        return null
+      }
+      function Settings() {
+        return (
+          <Suspense fallback={<div>loading organization</div>}>
+            <SSO />
+            <PendingOrganization />
+          </Suspense>
+        )
+      }
+      await act(async () => root.render(<Settings />))
+      await click('Get DNS record')
+      setOrganization('org-2')
+      suspend = true
+      await act(async () => startTransition(() => root.render(<Settings />)))
+      expect(attempted).toBe(true)
+      setOrganization('org-1')
+      suspend = false
+      await act(async () => root.render(<Settings />))
+      await act(async () => finish())
+      expect(container.querySelector<HTMLInputElement>('#dns-value-provider-1')?.value).toBe(
+        'committed-token'
+      )
+    })
   })
 })
