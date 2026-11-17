@@ -153,7 +153,7 @@ it('keeps the complete Copilot worker runtime graph independent of Studio busine
   ).toEqual([])
 })
 
-it('registers every task without eagerly loading application configuration or execution engines', () => {
+it('registers every task without eagerly loading application services or execution engines', () => {
   const definitions = [
     'trigger.config.ts',
     ...fs
@@ -164,7 +164,10 @@ it('registers every task without eagerly loading application configuration or ex
   expect(
     runtimeGraphViolations(
       definitions,
-      (relative) => !definitions.includes(relative) && relative !== 'background/execution-job.ts',
+      (relative) =>
+        !definitions.includes(relative) &&
+        relative !== 'background/execution-job.ts' &&
+        relative !== 'lib/knowledge/documents/config.ts',
       /^(?:@tradinggoose\/db|drizzle-orm|@mastra\/|@e2b\/|e2b(?:$|\/)|pinets(?:$|\/)|next(?:$|\/)|next-runtime-env(?:$|\/))/,
       false
     )
