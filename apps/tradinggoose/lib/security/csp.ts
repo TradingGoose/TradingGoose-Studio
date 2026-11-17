@@ -252,26 +252,3 @@ export function getMainCSPPolicy(): string {
 export function readWorkflowExecutionCSPPolicy(): string {
   return "default-src * 'unsafe-inline' 'unsafe-eval'; connect-src *;"
 }
-
-/**
- * Add a source to a specific directive (modifies build-time directives)
- */
-export function addCSPSource(directive: keyof CSPDirectives, source: string): void {
-  if (!buildTimeCSPDirectives[directive]) {
-    buildTimeCSPDirectives[directive] = []
-  }
-  if (!buildTimeCSPDirectives[directive]!.includes(source)) {
-    buildTimeCSPDirectives[directive]!.push(source)
-  }
-}
-
-/**
- * Remove a source from a specific directive (modifies build-time directives)
- */
-export function removeCSPSource(directive: keyof CSPDirectives, source: string): void {
-  if (buildTimeCSPDirectives[directive]) {
-    buildTimeCSPDirectives[directive] = buildTimeCSPDirectives[directive]!.filter(
-      (s: string) => s !== source
-    )
-  }
-}
