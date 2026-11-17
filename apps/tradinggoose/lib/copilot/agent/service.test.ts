@@ -28,7 +28,7 @@ import * as runtime from '@/lib/mastra/runtime'
 import type { NativeUsage } from '@/lib/mastra/usage'
 import { createCopilotAgent } from './agent'
 import { readCopilotRun } from './context'
-import { claimCopilotThread, readCopilotThreadOwnership } from './ownership'
+import { claimCopilotThread, readCopilotThreadOwnership, THREAD_LEASE_MS } from './ownership'
 import { cancelCopilotRun, isCopilotRunCancelled } from './receipts'
 import { executeCopilotCommand, finalizeCopilotJob } from './service'
 import { readCopilotThreadRun } from './state'
@@ -1227,11 +1227,12 @@ describe('Copilot background execution and native history', () => {
     expect(m.fetch).not.toHaveBeenCalled()
   })
 
-  it.each([false, true])('continues after a server read (failed=%s)', async (failed) => {
+  it.each([false, true])('continues after a server read (refused=%s)', async (failed) => {
     const workspaceId = '550e8400-e29b-41d4-a716-446655440000'
     const text = failed ? 'The lookup failed.' : 'One known workflow'
     setModel({ tool: 'list_workflows', args: { workspaceId } }, { text })
-    if (failed) m.route.mockRejectedValueOnce(new Error('Workflow service unavailable'))
+    if (failed)
+      m.route.mockRejectedValueOnce(new NativeTargetError('Workflow service unavailable', 404))
     else
       m.route.mockResolvedValueOnce({
         entityKind: 'workflow',
@@ -1687,6 +1688,8 @@ describe('Copilot background execution and native history', () => {
     const initial = suspended((await message({ accessLevel: 'limited' })).result)
     m.startJobs = false
     m.route.mockResolvedValue({
+      success: true,
+      entityKind: 'workflow',
       entityId: 'workflow',
       entityName: 'Changed',
       workspaceId: scope.workspaceId,
@@ -2140,6 +2143,88 @@ describe('Copilot background execution and native history', () => {
     }
   })
 
+  it.each([
+    { failure: 'connection reset', error: new TypeError('fetch failed: ECONNRESET') },
+    { failure: 'gateway timeout', error: new NativeTargetError('Gateway timeout', 504) },
+  ])('retains an executing Studio tool after a $failure', async ({ error }) => {
+    m.startJobs = false
+    setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
+    const entered = deferred()
+    const finish = deferred()
+    let remote: Promise<unknown> | undefined
+    m.route.mockImplementationOnce(async () => {
+      entered.resolve()
+      await finish.promise
+      return {
+        success: true,
+        entityKind: 'workflow',
+        entityId: 'workflow',
+        entityName: 'Changed',
+        workspaceId: scope.workspaceId,
+      }
+    })
+    const studio = await import('./worker-server')
+    const handle = studio.handleCopilotWorkerOperation
+    const transport = vi
+      .spyOn(studio, 'handleCopilotWorkerOperation')
+      .mockImplementation((context, operation, input, signal) => {
+        const server = handle(context, operation, input, signal)
+        if (operation !== 'tool') return server
+        remote = server
+        void remote.catch(() => undefined)
+        return entered.promise.then(() => {
+          throw error
+        })
+      })
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    const response = await executeCopilotCommand(
+      {
+        command: 'message',
+        requestId: crypto.randomUUID(),
+        workspaceId: scope.workspaceId,
+        model: 'configured/model',
+        input: { content: 'Rename workflow' },
+        accessLevel: 'full',
+      },
+      scope.actorUserId
+    )
+    const accepted = await response.json()
+    const running = executeCopilotJob(m.jobs.get(accepted.runId)!.payload)
+    try {
+      await entered.promise
+      await running
+      const owner = await readCopilotThreadOwnership(scope, accepted.threadId)
+      expect(owner?.live).toBe(true)
+      expect(
+        (await m.memory.getThreadById({ threadId: accepted.threadId }))!.metadata!.copilotJob
+      ).toMatchObject({ status: 'failed' })
+      expect(m.contacts).toHaveLength(1)
+      expect((await message({ threadId: accepted.threadId })).result.status).toBe('refused')
+      const deadline = owner!.leaseExpiresAt!.getTime()
+      await vi.advanceTimersByTimeAsync(THREAD_LEASE_MS * 2)
+      const held = await readCopilotThreadOwnership(scope, accepted.threadId)
+      expect(held?.live).toBe(true)
+      expect(held!.leaseExpiresAt!.getTime()).toBeGreaterThan(deadline)
+      expect((await message({ threadId: accepted.threadId })).result.status).toBe('refused')
+      finish.resolve()
+      await remote!.catch(() => undefined)
+      const drained = await readCopilotThreadOwnership(scope, accepted.threadId)
+      vi.setSystemTime(drained!.leaseExpiresAt!.getTime() + 1)
+      m.startJobs = true
+      setModel({ text: 'Recovered answer' })
+      expect((await message({ threadId: accepted.threadId })).result).toMatchObject({
+        status: 'success',
+        text: 'Recovered answer',
+      })
+    } finally {
+      finish.resolve()
+      await remote?.catch(() => undefined)
+      await running
+      transport.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
   it.each(['approval', 'review'])(
     'retains a resumed %s writer until its approved effect settles despite cancellation',
     async (stage) => {
@@ -2171,7 +2256,13 @@ describe('Copilot background execution and native history', () => {
         entered.resolve()
         await effect.promise
         settled = true
-        return { entityId: 'workflow', entityName: 'Changed', workspaceId: scope.workspaceId }
+        return {
+          success: true,
+          entityKind: 'workflow',
+          entityId: 'workflow',
+          entityName: 'Changed',
+          workspaceId: scope.workspaceId,
+        }
       })
       let acknowledged = false
       const stopping = command({
@@ -2299,7 +2390,13 @@ describe('Copilot background execution and native history', () => {
     m.route.mockImplementationOnce(async () => {
       executing.resolve()
       await effect.promise
-      return { entityId: 'workflow', entityName: 'Changed', workspaceId: scope.workspaceId }
+      return {
+        success: true,
+        entityKind: 'workflow',
+        entityId: 'workflow',
+        entityName: 'Changed',
+        workspaceId: scope.workspaceId,
+      }
     })
     const statuses: string[] = []
     const attempts = [0, 1].map(() =>

@@ -4,7 +4,6 @@ import { z } from 'zod'
 import type { JsonObject, Scope } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
-import type { ServerPending } from '@/lib/copilot/native/target'
 import type { ToolId } from '@/lib/copilot/registry'
 import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
@@ -26,8 +25,6 @@ export interface CopilotExecution {
   model: ModelRouterLanguageModel
   signal: AbortSignal
   assertOwnership: () => Promise<void>
-  pending?: ServerPending
-  decision?: CopilotDecision
   executeTool: (
     name: ToolId,
     args: JsonObject,

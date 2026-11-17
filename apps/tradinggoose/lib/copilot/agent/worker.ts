@@ -45,6 +45,7 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
   let nativeOutput: { getFullOutput(): Promise<{ finishReason?: string }> } | undefined
   let requestContext: ReturnType<typeof createCopilotRequestContext> | undefined
   let cancellationRequest: Promise<void> | undefined
+  let uncertainToolFailure: { error: unknown } | undefined
   const publishCancellation = () => {
     if (ownership!.signal.aborted) return
     cancellationRequest = studio.call('cancel', {})
@@ -126,20 +127,26 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
       run,
       model: prepared.model,
       signal,
-      pending,
-      decision,
       assertOwnership,
-      // Drain a dispatched Studio effect before acknowledging cancellation.
-      executeTool: (toolName, args, toolCallId) =>
-        studio.call('tool', {
-          run: run!,
-          pending,
-          decision,
-          toolName,
-          args,
-          toolCallId,
-          fence: ownership!.fence,
-        }),
+      executeTool: async (toolName, args, toolCallId) => {
+        try {
+          return await studio.call('tool', {
+            run: run!,
+            pending,
+            decision,
+            toolName,
+            args,
+            toolCallId,
+            fence: ownership!.fence,
+          })
+        } catch (error) {
+          if (!(error instanceof NativeTargetError) || error.status >= 500) {
+            uncertainToolFailure ??= { error }
+            cancellation.abort(error)
+          }
+          throw error
+        }
+      },
     })
     const guard: InputProcessor = {
       id: 'studio-copilot-ownership',
@@ -242,7 +249,7 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
           expectedRunId: run.runId,
         })
       }
-      // Rejection is also a settled native result. Keep the lease through actual tool drainage.
+      // Drain native work and outstanding HTTP calls; a lost response cannot prove tool completion.
       await nativeOutput?.getFullOutput().catch(() => undefined)
       if (requestContext) await Promise.all(getCopilotExecution(requestContext)!.pendingTools)
       await cancellationRequest
@@ -254,10 +261,17 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
       if (watcher) clearInterval(watcher)
       try {
         if (ownership && !ownership.signal.aborted) {
+          if (uncertainToolFailure)
+            outcome = {
+              status: 'failed',
+              error: copilotFailure(uncertainToolFailure.error, apiKey).error,
+            }
           await ownership.run(() => saveCopilotJob(scope, threadId, jobId, outcome))
         }
       } finally {
-        await ownership?.release()
+        // Studio keeps renewing this fence until its actual operation settles.
+        if (uncertainToolFailure) await ownership?.handoff()
+        else await ownership?.release()
         cancellation.signal.removeEventListener('abort', publishCancellation)
         abortSignal?.removeEventListener('abort', abort)
       }
