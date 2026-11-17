@@ -18,7 +18,6 @@ const state = vi.hoisted(() => ({
   },
 }))
 vi.mock('@/lib/env', () => ({
-  env: { INTERNAL_API_SECRET: '01234567890123456789012345678901' },
   getEnv: () => 'https://studio.example',
 }))
 vi.mock('@tradinggoose/db', () => ({
@@ -64,6 +63,7 @@ vi.mock('@/lib/file-parsers', () => ({
 
 const fileUrl = 'https://studio.example/api/files/serve/s3/workspace/owned.txt?context=workspace'
 beforeEach(() => {
+  vi.stubEnv('INTERNAL_API_SECRET', '01234567890123456789012345678901')
   state.mode = 'parser'
   state.ocrConfigCalls = 0
   state.actors = []
@@ -86,7 +86,10 @@ beforeEach(() => {
     })
   )
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
+})
 
 it.each(['parser', 'azure', 'mistral'])(
   'preserves the queued actor through %s file downloads',
