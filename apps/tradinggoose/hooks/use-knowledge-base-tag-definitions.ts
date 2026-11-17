@@ -59,21 +59,6 @@ export function useKnowledgeBaseTagDefinitions(knowledgeBaseId: string | null) {
     }
   }, [knowledgeBaseId])
 
-  const getTagLabel = useCallback(
-    (tagSlot: string): string => {
-      const definition = tagDefinitions.find((def) => def.tagSlot === tagSlot)
-      return definition?.displayName || tagSlot
-    },
-    [tagDefinitions]
-  )
-
-  const getTagDefinition = useCallback(
-    (tagSlot: string): TagDefinition | undefined => {
-      return tagDefinitions.find((def) => def.tagSlot === tagSlot)
-    },
-    [tagDefinitions]
-  )
-
   // Auto-fetch on mount and when dependencies change
   useEffect(() => {
     fetchTagDefinitions()
@@ -84,7 +69,5 @@ export function useKnowledgeBaseTagDefinitions(knowledgeBaseId: string | null) {
     isLoading,
     error,
     fetchTagDefinitions,
-    getTagLabel,
-    getTagDefinition,
   }
 }
