@@ -52,7 +52,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           email_verified: session.user.emailVerified,
           created_at: session.user.createdAt,
         })
-      } else {
+      } else if (posthog.get_property('$user_state') === 'identified') {
         posthog.reset()
       }
     } catch {}
