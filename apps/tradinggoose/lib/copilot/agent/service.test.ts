@@ -870,6 +870,103 @@ describe('Copilot background execution and native history', () => {
     expect((await readCopilotThreadOwnership(scope, 'stalled-thread'))?.leaseExpiresAt).toBeNull()
   })
 
+  it.each(['initial', 'periodic'] as const)(
+    'bounds a stalled Studio tool lease renewal during %s',
+    async (phase) => {
+      vi.useFakeTimers()
+      const threadId = crypto.randomUUID()
+      const runId = crypto.randomUUID()
+      await m.memory.createThread({
+        threadId,
+        ...nativeConversationIdentity(scope),
+        metadata: { copilotJob: { id: runId, runId } },
+      })
+      const ownership = await claimCopilotThread(scope, threadId, runId, runId)
+      await ownership.handoff()
+      const elapsed = phase === 'initial' ? 10_000 : 0
+      await vi.advanceTimersByTimeAsync(elapsed)
+      const workflows = (await m.storage.getStore('workflows'))!
+      const renew = workflows.renewRunOwnership.bind(workflows)
+      const renewal = deferred()
+      const receipt = deferred()
+      const entered = deferred()
+      let initialRenewed = false
+      const stalled = vi.spyOn(workflows, 'renewRunOwnership').mockImplementation(async (args) => {
+        if (phase === 'periodic' && !initialRenewed) initialRenewed = true
+        else await renewal.promise
+        return renew(args)
+      })
+      let receiptCheck: { mockRestore(): void } | undefined
+      let toolSignal: AbortSignal | undefined
+      let mutated = false
+      m.route.mockImplementationOnce(async (_name, _args, context) => {
+        toolSignal = context.signal
+        entered.resolve()
+        await new Promise((resolve) => setTimeout(resolve, THREAD_LEASE_MS + 1000))
+        toolSignal!.throwIfAborted()
+        mutated = true
+        return {
+          success: true,
+          entityKind: 'workflow',
+          entityId: 'workflow',
+          entityName: 'Changed',
+          workspaceId: scope.workspaceId,
+        }
+      })
+      let settled = false
+      let failure: unknown
+      const execution = handleCopilotWorkerOperation(
+        { ...scope, threadId, runId, jobId: runId, model: 'configured/model' },
+        'tool',
+        {
+          run: { scope, threadId, runId, model: 'configured/model', accessLevel: 'full' },
+          toolName: 'rename_workflow',
+          toolCallId: 'held-tool',
+          args: { entityId: 'workflow', name: 'Changed' },
+          fence: ownership.fence,
+        }
+      )
+        .catch((error) => {
+          failure = error
+        })
+        .finally(() => {
+          settled = true
+        })
+      try {
+        if (phase === 'periodic') {
+          await entered.promise
+          receiptCheck = vi
+            .spyOn(await import('./receipts'), 'assertCopilotRunActive')
+            .mockReturnValue(receipt.promise)
+        }
+        await vi.advanceTimersByTimeAsync(THREAD_LEASE_MS - elapsed - 1)
+        expect(settled).toBe(false)
+        await vi.advanceTimersByTimeAsync(2)
+        if (phase === 'periodic') expect(toolSignal?.aborted).toBe(true)
+        else expect(settled).toBe(true)
+        expect(mutated).toBe(false)
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(mutated).toBe(false)
+        expect(settled).toBe(true)
+        expect(failure).toMatchObject({ status: 409 })
+        renewal.resolve()
+        receipt.resolve()
+        await vi.advanceTimersByTimeAsync(THREAD_LEASE_MS + 1000)
+        expect(m.route).toHaveBeenCalledTimes(phase === 'initial' ? 0 : 1)
+        expect(mutated).toBe(false)
+      } finally {
+        renewal.resolve()
+        receipt.resolve()
+        await vi.advanceTimersByTimeAsync(THREAD_LEASE_MS + 1000)
+        await execution
+        receiptCheck?.mockRestore()
+        stalled.mockRestore()
+        await ownership.release()
+        vi.useRealTimers()
+      }
+    }
+  )
+
   it.each(['startup', 'provider'])(
     'redacts a native %s failure and releases the conversation for another message',
     async (phase) => {
