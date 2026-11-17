@@ -57,6 +57,7 @@ describe('getBlocksMetadataServerTool', () => {
     for (const [id, capability] of [
       ['temperature', 'temperature'],
       ['responseFormat', 'structuredOutput'],
+      ['providerOptions', 'reasoning'],
     ]) {
       expect(agent?.subBlocks?.find((field) => field.id === id)?.condition).toEqual({
         field: 'model',
@@ -78,15 +79,13 @@ describe('getBlocksMetadataServerTool', () => {
       min: 1,
       integer: true,
     })
+    expect(agent?.subBlocks?.find((field) => field.id === 'providerOptions')).toMatchObject({
+      type: 'code',
+      language: 'json',
+    })
     expect(
       agent?.subBlocks?.some((field) =>
-        [
-          'providerOptions',
-          'reasoningEffort',
-          'reasoningOptions',
-          'verbosity',
-          'thinkingLevel',
-        ].includes(field.id)
+        ['reasoningEffort', 'reasoningOptions', 'verbosity', 'thinkingLevel'].includes(field.id)
       )
     ).toBe(false)
   })
