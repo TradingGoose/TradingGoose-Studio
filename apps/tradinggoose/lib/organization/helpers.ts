@@ -18,14 +18,3 @@ export function getUserRole(
   const currentMember = organization.members.find((m) => m.user?.email === userEmail)
   return currentMember?.role ?? 'member'
 }
-
-/**
- * Check if a user is an admin or owner in an organization
- */
-export function isAdminOrOwner(
-  organization: Organization | null | undefined,
-  userEmail?: string
-): boolean {
-  const role = getUserRole(organization, userEmail)
-  return role === 'owner' || role === 'admin'
-}

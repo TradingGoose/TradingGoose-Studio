@@ -1,8 +1,5 @@
 // Export helper functions
-export {
-  getUserRole,
-  isAdminOrOwner,
-} from '@/lib/organization/helpers'
+export { getUserRole } from '@/lib/organization/helpers'
 // Export types
 export type {
   Invitation,

@@ -22,7 +22,6 @@ import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import {
   getEmailSubject,
-  renderInvitationEmail,
   renderOTPEmail,
   renderPasswordResetEmail,
 } from '@/components/emails/render-email'
@@ -83,7 +82,6 @@ import {
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { createDefaultWorkspaceForUser } from '@/lib/workspaces/service'
-import { localizeUrl } from '@/i18n/utils'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import { resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 
@@ -725,7 +723,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: isEmailVerificationEnabled,
-    sendResetPassword: async ({ user, url, token }, request) => {
+    sendResetPassword: async ({ user, url }) => {
       const username = user.name || ''
       const locale = await resolveEmailLocale({ userId: user.id, email: user.email })
 
@@ -1943,38 +1941,6 @@ export const auth = betterAuth({
       },
       // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
       membershipLimit: 50,
-      sendInvitationEmail: async (data: any) => {
-        try {
-          const { invitation, organization, inviter } = data
-
-          const inviterName = inviter.user?.name || 'A team member'
-          const locale = await resolveEmailLocale({ email: invitation.email })
-          const inviteUrl = localizeUrl(getBaseUrl(), locale, `/invite/${invitation.id}`)
-
-          const html = await renderInvitationEmail(
-            inviterName,
-            organization.name,
-            inviteUrl,
-            invitation.email,
-            locale
-          )
-
-          const result = await sendEmail({
-            to: invitation.email,
-            subject: getEmailSubject('invitation', locale, {
-              organizationName: organization.name,
-            }),
-            html,
-            emailType: 'transactional',
-          })
-
-          if (!result.success) {
-            logger.error('Failed to send organization invitation email:', result.message)
-          }
-        } catch (error) {
-          logger.error('Error sending invitation email', { error })
-        }
-      },
     }),
     nextCookies(),
   ],
