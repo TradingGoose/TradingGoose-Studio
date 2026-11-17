@@ -17,10 +17,6 @@ export interface CurrentWorkflow {
   lastSaved?: number
   // Helper methods
   getBlockById: (blockId: string) => BlockState | undefined
-  getBlockCount: () => number
-  getEdgeCount: () => number
-  hasBlocks: () => boolean
-  hasEdges: () => boolean
 }
 
 /**
@@ -33,17 +29,12 @@ export function useCurrentWorkflow(): CurrentWorkflow {
 
   // Keep refs in sync so stable callbacks always read current data
   const blocksRef = useLatestRef(blocks)
-  const edgesRef = useLatestRef(edges)
 
   // Stable helper callbacks that read from refs — their identity never changes
   const getBlockById = useCallback((blockId: string) => blocksRef.current?.[blockId], [])
-  const getBlockCount = useCallback(() => Object.keys(blocksRef.current || {}).length, [])
-  const getEdgeCount = useCallback(() => (edgesRef.current || []).length, [])
-  const hasBlocks = useCallback(() => Object.keys(blocksRef.current || {}).length > 0, [])
-  const hasEdges = useCallback(() => (edgesRef.current || []).length > 0, [])
 
   // Create the abstracted interface - optimized to prevent unnecessary re-renders
-  // Note: stable callbacks (getBlockById, etc.) are intentionally omitted from deps
+  // Note: the stable getBlockById callback is intentionally omitted from deps
   // since their identity never changes (empty dep arrays on useCallback).
   const currentWorkflow = useMemo((): CurrentWorkflow => {
     const lastSaved = resolveStoredDateValue(rawLastSaved)?.getTime()
@@ -62,12 +53,8 @@ export function useCurrentWorkflow(): CurrentWorkflow {
       lastSaved,
       // Helper methods — stable references from useCallback above
       getBlockById,
-      getBlockCount,
-      getEdgeCount,
-      hasBlocks,
-      hasEdges,
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable callbacks (getBlockById, etc.) never change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- getBlockById never changes
   }, [blocks, edges, loops, parallels, rawLastSaved])
 
   return currentWorkflow
