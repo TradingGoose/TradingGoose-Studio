@@ -6,55 +6,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function convertScheduleOptionsToCron(
-  scheduleType: string,
-  options: Record<string, string>
-): string {
-  switch (scheduleType) {
-    case 'minutes': {
-      const interval = options.minutesInterval || '15'
-      // For example, if options.minutesStartingAt is provided, use that as the start minute.
-      return `*/${interval} * * * *`
-    }
-    case 'hourly': {
-      // When scheduling hourly, take the specified minute offset
-      return `${options.hourlyMinute || '00'} * * * *`
-    }
-    case 'daily': {
-      // Expected dailyTime in HH:mm or HH:mm:ss
-      const [minute, hour] = (options.dailyTime || '00:09').split(':')
-      return `${minute || '00'} ${hour || '09'} * * *`
-    }
-    case 'weekly': {
-      // Expected weeklyDay as MON, TUE, etc. and weeklyDayTime in HH:mm or HH:mm:ss
-      const dayMap: Record<string, number> = {
-        MON: 1,
-        TUE: 2,
-        WED: 3,
-        THU: 4,
-        FRI: 5,
-        SAT: 6,
-        SUN: 0,
-      }
-      const day = dayMap[options.weeklyDay || 'MON']
-      const [minute, hour] = (options.weeklyDayTime || '00:09').split(':')
-      return `${minute || '00'} ${hour || '09'} * * ${day}`
-    }
-    case 'monthly': {
-      // Expected monthlyDay and monthlyTime in HH:mm or HH:mm:ss
-      const day = options.monthlyDay || '1'
-      const [minute, hour] = (options.monthlyTime || '00:09').split(':')
-      return `${minute || '00'} ${hour || '09'} ${day} * *`
-    }
-    case 'custom': {
-      // Use the provided cron expression directly
-      return options.cronExpression
-    }
-    default:
-      throw new Error('Unsupported schedule type')
-  }
-}
-
 /**
  * Format a date into a human-readable format
  * @param date - The date to format
@@ -90,58 +41,6 @@ export function formatDateTime(date: Date, utcOffset?: string): string {
 }
 
 /**
- * Format a date into a short format
- * @param date - The date to format
- * @returns A formatted date string in the format "MMM D, YYYY"
- */
-export function formatDate(date: Date): string {
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-/**
- * Format a time into a short format
- * @param date - The date to format
- * @returns A formatted time string in the format "h:mm A"
- */
-export function formatTime(date: Date): string {
-  return date.toLocaleString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })
-}
-
-/**
- * Format a duration in milliseconds to a human-readable format
- * @param durationMs - The duration in milliseconds
- * @returns A formatted duration string
- */
-export function formatDuration(durationMs: number): string {
-  if (durationMs < 1000) {
-    return `${durationMs}ms`
-  }
-
-  const seconds = Math.floor(durationMs / 1000)
-  if (seconds < 60) {
-    return `${seconds}s`
-  }
-
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  if (minutes < 60) {
-    return `${minutes}m ${remainingSeconds}s`
-  }
-
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
-  return `${hours}h ${remainingMinutes}m`
-}
-
-/**
  * Generates a secure random password
  * @param length - The length of the password (default: 24)
  * @returns A new secure password string
@@ -170,16 +69,6 @@ export function validateName(name: string): string {
     .replace(/\s+/g, ' ') // Collapse multiple spaces into single spaces
 }
 
-/**
- * Checks if a name contains invalid characters
- *
- * @param name - The name to check
- * @returns True if the name is valid, false otherwise
- */
-export function isValidName(name: string): boolean {
-  return /^[a-zA-Z0-9_\s]*$/.test(name)
-}
-
 export const SSE_HEADERS = {
   'Content-Type': 'text/event-stream',
   'Cache-Control': 'no-cache',
@@ -197,17 +86,6 @@ export const SSE_HEADERS = {
  */
 export function encodeSSE(data: any): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`)
-}
-
-/**
- * Gets a list of invalid characters in a name
- *
- * @param name - The name to check
- * @returns Array of invalid characters found
- */
-export function getInvalidCharacters(name: string): string[] {
-  const invalidChars = name.match(/[^a-zA-Z0-9_\s]/g)
-  return invalidChars ? [...new Set(invalidChars)] : []
 }
 
 /**
