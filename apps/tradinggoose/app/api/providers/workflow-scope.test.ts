@@ -67,10 +67,6 @@ vi.mock('@tradinggoose/db', () => {
   }
 })
 vi.mock('@/lib/auth', () => ({ getSession: boundary.session }))
-vi.mock('@/lib/env', async (original) => ({
-  ...(await original<object>()),
-  env: { INTERNAL_API_SECRET: 'test-internal-signing-secret-123456' },
-}))
 vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: boundary.access }))
 vi.mock('@/lib/billing/calculations/usage-monitor', () => ({
   checkServerSideUsageLimits: boundary.admit,
@@ -122,6 +118,7 @@ const context: ExecutionContext = {
   activeExecutionPath: new Set(),
 }
 beforeEach(() => {
+  vi.stubEnv('INTERNAL_API_SECRET', 'test-internal-signing-secret-123456')
   vi.clearAllMocks()
   boundary.requests.length = 0
   boundary.finishReason = 'stop'
@@ -174,7 +171,10 @@ beforeEach(() => {
     )
   )
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
+})
 function assertScope() {
   expect(boundary.requests).toHaveLength(1)
   const url = new URL(boundary.requests[0].url)
