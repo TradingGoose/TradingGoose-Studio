@@ -121,46 +121,6 @@ export function useTagDefinitions(
     [knowledgeBaseId, documentId]
   )
 
-  const deleteTagDefinitions = useCallback(async () => {
-    if (!knowledgeBaseId || !documentId) {
-      throw new Error('Knowledge base ID and document ID are required')
-    }
-
-    try {
-      const response = await fetch(
-        `/api/knowledge/${knowledgeBaseId}/documents/${documentId}/tag-definitions`,
-        {
-          method: 'DELETE',
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete tag definitions: ${response.statusText}`)
-      }
-
-      // Refresh the definitions after deleting
-      await fetchTagDefinitions()
-    } catch (err) {
-      logger.error('Error deleting tag definitions:', err)
-      throw err
-    }
-  }, [knowledgeBaseId, documentId, fetchTagDefinitions])
-
-  const getTagLabel = useCallback(
-    (tagSlot: string): string => {
-      const definition = tagDefinitions.find((def) => def.tagSlot === tagSlot)
-      return definition?.displayName || tagSlot
-    },
-    [tagDefinitions]
-  )
-
-  const getTagDefinition = useCallback(
-    (tagSlot: string): TagDefinition | undefined => {
-      return tagDefinitions.find((def) => def.tagSlot === tagSlot)
-    },
-    [tagDefinitions]
-  )
-
   // Auto-fetch on mount and when dependencies change
   useEffect(() => {
     fetchTagDefinitions()
@@ -172,8 +132,5 @@ export function useTagDefinitions(
     error,
     fetchTagDefinitions,
     saveTagDefinitions,
-    deleteTagDefinitions,
-    getTagLabel,
-    getTagDefinition,
   }
 }
