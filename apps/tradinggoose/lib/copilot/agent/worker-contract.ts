@@ -7,10 +7,21 @@ import type { ServerPending } from '@/lib/copilot/native/target'
 import type { processContextsServer } from '@/lib/copilot/process-contents'
 import type { ToolId } from '@/lib/copilot/registry'
 import type { NativeCost } from '@/lib/mastra/usage'
-import type { CopilotDecision, CopilotSuspendSchema } from './context'
+import type { CopilotDecision } from './context'
 import type { CopilotRun } from './ownership'
 
 export const COPILOT_CANCELLATION_POLL_INTERVAL = 500
+
+export const CopilotSuspendSchema = z.object({
+  originalArgs: z.record(z.string(), z.json()),
+  preview: z.record(z.string(), z.json()).optional(),
+  reviewBaseStateHash: z.string().min(1).optional(),
+})
+export const CopilotWorkerToolResultSchema = z.union([
+  z.object({ result: z.unknown() }).strict(),
+  z.object({ suspend: CopilotSuspendSchema }).strict(),
+  z.object({ error: z.string().min(1) }).strict(),
+])
 
 const [messageCommand, ...otherCommands] = CopilotRequestSchema.options
 
@@ -37,10 +48,7 @@ export type CopilotWorkerToolInput = {
   toolCallId: string
   fence: RunFence
 }
-export type CopilotWorkerToolResult = {
-  result?: unknown
-  suspend?: z.infer<typeof CopilotSuspendSchema>
-}
+export type CopilotWorkerToolResult = z.infer<typeof CopilotWorkerToolResultSchema>
 export interface CopilotWorkerPrepared {
   run: CopilotRun
   pending?: ServerPending

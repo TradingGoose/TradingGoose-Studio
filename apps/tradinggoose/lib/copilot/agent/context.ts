@@ -1,6 +1,5 @@
 import type { ModelRouterLanguageModel } from '@mastra/core/llm'
 import { RequestContext } from '@mastra/core/request-context'
-import { z } from 'zod'
 import type { JsonObject, Scope } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
@@ -9,12 +8,7 @@ import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getNativeWorkflowsStore } from '@/lib/mastra/runtime'
 import type { CopilotRun } from './ownership'
-
-export const CopilotSuspendSchema = z.object({
-  originalArgs: z.record(z.string(), z.json()),
-  preview: z.record(z.string(), z.json()).optional(),
-  reviewBaseStateHash: z.string().min(1).optional(),
-})
+import type { CopilotWorkerToolResult } from './worker-contract'
 
 export type CopilotDecision =
   | { action: 'review.accept' | 'review.reject' }
@@ -29,7 +23,7 @@ export interface CopilotExecution {
     name: ToolId,
     args: JsonObject,
     toolCallId: string
-  ) => Promise<{ result?: unknown; suspend?: z.infer<typeof CopilotSuspendSchema> }>
+  ) => Promise<CopilotWorkerToolResult>
   pendingTools: Set<Promise<void>>
 }
 

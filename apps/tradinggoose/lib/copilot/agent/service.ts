@@ -1,5 +1,6 @@
 import { clearTimeout, setTimeout } from 'node:timers'
 import { setTimeout as delay } from 'node:timers/promises'
+import { publishAbortRequest } from '@mastra/core/agent/durable'
 import type { MastraDBMessage } from '@mastra/core/agent/message-list'
 import { isRunFenceConflictError } from '@mastra/core/storage'
 import type { ChunkType } from '@mastra/core/stream'
@@ -29,10 +30,15 @@ import type { PendingExecutionPayload } from '@/lib/execution/pending-execution'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { projectNativeMessage } from '@/lib/mastra/messages'
 import { parseNativeToolArguments } from '@/lib/mastra/options'
-import { getAgentMemory, getCopilotAgent, getNativeMemoryStore } from '@/lib/mastra/runtime'
+import {
+  getAgentMemory,
+  getCopilotAgent,
+  getMastra,
+  getNativeMemoryStore,
+} from '@/lib/mastra/runtime'
 import { getTriggerExecutionState } from '@/lib/trigger/settings'
 import { SSE_HEADERS } from '@/lib/utils'
-import { CopilotSuspendSchema, readCopilotRun, resolveCopilotRunToolContext } from './context'
+import { readCopilotRun, resolveCopilotRunToolContext } from './context'
 import { copilotFailure } from './errors'
 import {
   type CopilotJobState,
@@ -53,7 +59,7 @@ import {
   readCopilotAdmission,
 } from './receipts'
 import { assertCopilotThreadReady, deleteCopilotThread, readCopilotThreadRun } from './state'
-import { CopilotJobSchema } from './worker-contract'
+import { CopilotJobSchema, CopilotSuspendSchema } from './worker-contract'
 
 const CANCELLATION_POLL_INTERVAL = 500
 const CANCELLATION_TIMEOUT = 30_000
@@ -309,9 +315,8 @@ async function readCommand(
         throw new NativeTargetError('Copilot cancellation target differs', 403)
       if (currentRunId) {
         const run = { runId: currentRunId, threadId: request.threadId, scope }
-        const agent = await getCopilotAgent()
         await cancelCopilotRun(run)
-        agent.abortThreadStream({ threadId: run.threadId, resourceId, expectedRunId: run.runId })
+        await publishAbortRequest((await getMastra()).pubsub, run.runId)
       }
       const waiting = AbortSignal.any(
         [signal, AbortSignal.timeout(CANCELLATION_TIMEOUT)].filter(
