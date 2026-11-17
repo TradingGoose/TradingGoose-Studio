@@ -85,12 +85,10 @@ const validatePassword = (
 export default function LoginPage({
   githubAvailable,
   googleAvailable,
-  isProduction,
   registrationMode,
 }: {
   githubAvailable: boolean
   googleAvailable: boolean
-  isProduction: boolean
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
@@ -534,7 +532,6 @@ export default function LoginPage({
           <SocialLoginButtons
             googleAvailable={googleAvailable}
             githubAvailable={githubAvailable}
-            isProduction={isProduction}
             callbackURL={callbackUrl}
             beforeSignIn={prepareAuthStart}
           >

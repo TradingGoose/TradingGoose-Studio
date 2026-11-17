@@ -8,10 +8,6 @@ vi.mock('@/lib/oauth/provider-availability.server', () => ({
   getOAuthProviderAvailability: (...args: unknown[]) => mockGetOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/lib/environment', () => ({
-  isProd: true,
-}))
-
 describe('oauth provider checker', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -29,7 +25,6 @@ describe('oauth provider checker', () => {
     await expect(getOAuthProviderStatus()).resolves.toEqual({
       githubAvailable: true,
       googleAvailable: false,
-      isProduction: true,
     })
     expect(mockGetOAuthProviderAvailability).toHaveBeenCalledWith(['github', 'google'])
   })
@@ -42,7 +37,6 @@ describe('oauth provider checker', () => {
     await expect(getOAuthProviderStatus()).resolves.toEqual({
       githubAvailable: false,
       googleAvailable: false,
-      isProduction: true,
     })
     expect(mockGetOAuthProviderAvailability).toHaveBeenCalledWith(['github', 'google'])
   })

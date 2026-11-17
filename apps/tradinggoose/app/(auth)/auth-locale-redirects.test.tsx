@@ -244,12 +244,7 @@ describe('auth locale redirects', () => {
   async function renderLogin(locale: 'en' | 'es' | 'zh' = 'en') {
     await renderWithLocale(
       locale,
-      <LoginPage
-        githubAvailable={false}
-        googleAvailable={false}
-        isProduction={false}
-        registrationMode='open'
-      />
+      <LoginPage githubAvailable={false} googleAvailable={false} registrationMode='open' />
     )
   }
 
@@ -262,12 +257,7 @@ describe('auth locale redirects', () => {
 
       await renderWithLocale(
         locale,
-        <SignupPage
-          githubAvailable={false}
-          googleAvailable={false}
-          isProduction={false}
-          registrationMode='open'
-        />
+        <SignupPage githubAvailable={false} googleAvailable={false} registrationMode='open' />
       )
 
       await setInputValue('#name', 'Ada Lovelace')
@@ -298,12 +288,7 @@ describe('auth locale redirects', () => {
   it('requires an entered username independently of the full name', async () => {
     await renderWithLocale(
       'en',
-      <SignupPage
-        githubAvailable={false}
-        googleAvailable={false}
-        isProduction={false}
-        registrationMode='open'
-      />
+      <SignupPage githubAvailable={false} googleAvailable={false} registrationMode='open' />
     )
     await setInputValue('#name', 'Ada Lovelace')
     await setInputValue('#email', 'ada@example.com')
@@ -412,12 +397,7 @@ describe('auth locale redirects', () => {
     })
     await renderWithLocale(
       'es',
-      <SignupPage
-        githubAvailable={false}
-        googleAvailable={false}
-        isProduction={false}
-        registrationMode='open'
-      />
+      <SignupPage githubAvailable={false} googleAvailable={false} registrationMode='open' />
     )
     await setInputValue('#name', 'Ada Lovelace')
     await setInputValue('#username', 'Ada.Lovelace')
@@ -674,9 +654,6 @@ describe('auth locale redirects', () => {
       isInvalidOtp: false,
       failureMessage: '',
       isOtpComplete: false,
-      hasEmailService: true,
-      isProduction: false,
-      isEmailVerificationEnabled: true,
       verifyCode: vi.fn(),
       resendCode: vi.fn(),
       handleOtpChange: vi.fn(),

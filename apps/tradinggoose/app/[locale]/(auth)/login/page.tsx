@@ -24,7 +24,7 @@ export default async function LoginPage({
     redirect({ href: '/workspace', locale })
   }
 
-  const [{ githubAvailable, googleAvailable, isProduction }, registrationMode] = await Promise.all([
+  const [{ githubAvailable, googleAvailable }, registrationMode] = await Promise.all([
     getOAuthProviderStatus(),
     getRegistrationModeForRender(),
   ])
@@ -33,7 +33,6 @@ export default async function LoginPage({
     <LoginForm
       githubAvailable={githubAvailable}
       googleAvailable={googleAvailable}
-      isProduction={isProduction}
       registrationMode={registrationMode}
     />
   )

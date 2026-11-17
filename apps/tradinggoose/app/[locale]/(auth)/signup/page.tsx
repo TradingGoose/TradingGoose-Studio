@@ -22,7 +22,7 @@ export default async function SignupPage({
   }
 
   const providers = await Promise.all([getOAuthProviderStatus(), getRegistrationModeForRender()])
-  const [{ githubAvailable, googleAvailable, isProduction }, registrationMode] = providers
+  const [{ githubAvailable, googleAvailable }, registrationMode] = providers
   const copy = getPublicCopy(locale)
   const commonCopy = copy.auth.common
   const disabledCopy = copy.auth.disabled
@@ -53,7 +53,6 @@ export default async function SignupPage({
     <SignupForm
       githubAvailable={githubAvailable}
       googleAvailable={googleAvailable}
-      isProduction={isProduction}
       registrationMode={registrationMode}
     />
   )

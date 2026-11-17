@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { useMessages } from 'next-intl'
 import { GithubIcon, GoogleIcon } from '@/components/icons/icons'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -17,7 +17,6 @@ interface SocialLoginButtonsProps {
   githubAvailable: boolean
   googleAvailable: boolean
   callbackURL?: string
-  isProduction: boolean
   beforeSignIn?: () => Promise<void>
   children?: ReactNode
 }
@@ -26,38 +25,20 @@ export function SocialLoginButtons({
   githubAvailable,
   googleAvailable,
   callbackURL,
-  isProduction: _isProduction,
   beforeSignIn,
   children,
 }: SocialLoginButtonsProps) {
   const [isGithubLoading, setIsGithubLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [mounted, setMounted] = useState(false)
   const authRedirectUrls = useAuthRedirectUrls()
   const copy = useMessages()
   const socialCopy = copy.auth.social
   const resolvedCallbackURL = authRedirectUrls.providerCallbackPath(callbackURL)
   const errorCallbackURL = authRedirectUrls.providerErrorPath(resolvedCallbackURL)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) return null
-
   function resolveSocialErrorMessage(providerLabel: string, err: any) {
-    const errorText = [
-      err?.code,
-      err?.message,
-      err?.error,
-      err?.response?.statusText,
-      err?.response?.data?.error,
-      err?.response?.data?.message,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
+    const errorText = [err?.code, err?.message].filter(Boolean).join(' ').toLowerCase()
 
     if (
       errorText.includes('account exists') ||
@@ -79,53 +60,30 @@ export function SocialLoginButtons({
     return copy.auth.error.default.description
   }
 
-  async function signInWithGithub() {
-    if (!githubAvailable) return
+  async function signIn(provider: 'github' | 'google') {
+    if (provider === 'github' ? !githubAvailable : !googleAvailable) return
 
-    setIsGithubLoading(true)
+    const setIsLoading = provider === 'github' ? setIsGithubLoading : setIsGoogleLoading
+    const providerLabel = socialCopy[provider]
+    setIsLoading(true)
     setErrorMessage('')
     try {
       await beforeSignIn?.()
       const result = await client.signIn.social({
-        provider: 'github',
+        provider,
         callbackURL: resolvedCallbackURL,
         errorCallbackURL,
       })
 
       if (result?.error) {
-        logger.error('GitHub social sign-in failed', { error: result.error })
-        setErrorMessage(resolveSocialErrorMessage(socialCopy.github, result.error))
+        logger.error('Social sign-in failed', { provider, error: result.error })
+        setErrorMessage(resolveSocialErrorMessage(providerLabel, result.error))
       }
     } catch (err: any) {
-      logger.error('GitHub social sign-in failed', { error: err })
-      setErrorMessage(resolveSocialErrorMessage(socialCopy.github, err))
+      logger.error('Social sign-in failed', { provider, error: err })
+      setErrorMessage(resolveSocialErrorMessage(providerLabel, err))
     } finally {
-      setIsGithubLoading(false)
-    }
-  }
-
-  async function signInWithGoogle() {
-    if (!googleAvailable) return
-
-    setIsGoogleLoading(true)
-    setErrorMessage('')
-    try {
-      await beforeSignIn?.()
-      const result = await client.signIn.social({
-        provider: 'google',
-        callbackURL: resolvedCallbackURL,
-        errorCallbackURL,
-      })
-
-      if (result?.error) {
-        logger.error('Google social sign-in failed', { error: result.error })
-        setErrorMessage(resolveSocialErrorMessage(socialCopy.google, result.error))
-      }
-    } catch (err: any) {
-      logger.error('Google social sign-in failed', { error: err })
-      setErrorMessage(resolveSocialErrorMessage(socialCopy.google, err))
-    } finally {
-      setIsGoogleLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -134,7 +92,7 @@ export function SocialLoginButtons({
       variant='outline'
       className='w-full rounded-md shadow-sm hover:bg-muted'
       disabled={!githubAvailable || isGithubLoading}
-      onClick={signInWithGithub}
+      onClick={() => signIn('github')}
     >
       <GithubIcon className='!h-[18px] !w-[18px] mr-1' />
       {isGithubLoading ? socialCopy.connecting : socialCopy.github}
@@ -146,7 +104,7 @@ export function SocialLoginButtons({
       variant='outline'
       className='w-full rounded-md shadow-sm hover:bg-muted'
       disabled={!googleAvailable || isGoogleLoading}
-      onClick={signInWithGoogle}
+      onClick={() => signIn('google')}
     >
       <GoogleIcon className='!h-[18px] !w-[18px] mr-1' />
       {isGoogleLoading ? socialCopy.connecting : socialCopy.google}

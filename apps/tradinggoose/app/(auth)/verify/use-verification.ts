@@ -31,7 +31,6 @@ function resolveVerificationFailureMessage(copy: VerifyCopy, error: unknown) {
 
 interface UseVerificationParams {
   hasEmailService: boolean
-  isProduction: boolean
   isEmailVerificationEnabled: boolean
   copy: VerifyCopy
 }
@@ -44,9 +43,6 @@ interface UseVerificationReturn {
   isInvalidOtp: boolean
   failureMessage: string
   isOtpComplete: boolean
-  hasEmailService: boolean
-  isProduction: boolean
-  isEmailVerificationEnabled: boolean
   verifyCode: () => Promise<void>
   resendCode: () => void
   handleOtpChange: (value: string) => void
@@ -54,7 +50,6 @@ interface UseVerificationReturn {
 
 export function useVerification({
   hasEmailService,
-  isProduction,
   isEmailVerificationEnabled,
   copy,
 }: UseVerificationParams): UseVerificationReturn {
@@ -271,9 +266,6 @@ export function useVerification({
     isInvalidOtp,
     failureMessage,
     isOtpComplete,
-    hasEmailService,
-    isProduction,
-    isEmailVerificationEnabled,
     verifyCode,
     resendCode,
     handleOtpChange,

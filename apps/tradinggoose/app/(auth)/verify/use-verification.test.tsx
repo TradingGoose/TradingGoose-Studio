@@ -51,7 +51,6 @@ interface VerificationControls {
 interface VerificationHarnessProps {
   locale: 'en' | 'es' | 'zh'
   hasEmailService?: boolean
-  isProduction?: boolean
   isEmailVerificationEnabled?: boolean
   onReady: (controls: VerificationControls) => void
 }
@@ -59,13 +58,11 @@ interface VerificationHarnessProps {
 function VerificationHarness({
   locale,
   hasEmailService = true,
-  isProduction = false,
   isEmailVerificationEnabled = true,
   onReady,
 }: VerificationHarnessProps) {
   const controls = useVerification({
     hasEmailService,
-    isProduction,
     isEmailVerificationEnabled,
     copy: getPublicCopy(locale).auth.verify,
   })

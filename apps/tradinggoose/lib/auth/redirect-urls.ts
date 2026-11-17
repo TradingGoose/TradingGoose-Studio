@@ -9,9 +9,8 @@ export function useAuthRedirectUrls() {
   const locale = useLocale()
 
   return {
-    providerCallbackPath(callbackPath: string | null | undefined, fallbackPath = '/workspace') {
-      const canonicalFallbackPath = normalizeCallbackUrl(fallbackPath) ?? '/workspace'
-      return normalizeCallbackUrl(callbackPath) ?? canonicalFallbackPath
+    providerCallbackPath(callbackPath: string | null | undefined) {
+      return normalizeCallbackUrl(callbackPath) ?? '/workspace'
     },
     providerErrorPath(callbackPath: string | null | undefined) {
       return getAuthErrorCallbackPath(callbackPath) ?? '/error'

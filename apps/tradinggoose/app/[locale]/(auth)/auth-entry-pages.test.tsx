@@ -76,7 +76,6 @@ describe('localized auth entry pages', () => {
     mockGetOAuthProviderStatus.mockResolvedValue({
       githubAvailable: false,
       googleAvailable: false,
-      isProduction: false,
     })
     mockGetRegistrationModeForRender.mockResolvedValue('open')
     mockGetBrandConfig.mockReturnValue({ supportEmail: 'support@tradinggoose.ai' })

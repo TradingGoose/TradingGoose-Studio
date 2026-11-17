@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,7 +25,7 @@ import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
 import { useUsernameAvailability } from '@/hooks/queries/username'
 import { Link, useRouter } from '@/i18n/navigation'
-import { type LocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('SignupForm')
 
@@ -75,16 +75,13 @@ const validateEmailField = (
 function SignupFormContent({
   githubAvailable,
   googleAvailable,
-  isProduction,
   registrationMode,
 }: {
   githubAvailable: boolean
   googleAvailable: boolean
-  isProduction: boolean
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const copy = useMessages()
   const commonCopy = copy.auth.common
   const signupCopy = copy.auth.signup
@@ -630,7 +627,6 @@ function SignupFormContent({
             githubAvailable={githubAvailable}
             googleAvailable={googleAvailable}
             callbackURL={redirectUrl ?? defaultCallbackPath}
-            isProduction={isProduction}
           >
             {ssoEnabled && (
               <SSOLoginButton callbackURL={redirectUrl ?? defaultCallbackPath} variant='outline' />
@@ -682,12 +678,10 @@ function SignupFormContent({
 export default function SignupPage({
   githubAvailable,
   googleAvailable,
-  isProduction,
   registrationMode,
 }: {
   githubAvailable: boolean
   googleAvailable: boolean
-  isProduction: boolean
   registrationMode: RegistrationMode
 }) {
   return (
@@ -695,7 +689,6 @@ export default function SignupPage({
       <SignupFormContent
         githubAvailable={githubAvailable}
         googleAvailable={googleAvailable}
-        isProduction={isProduction}
         registrationMode={registrationMode}
       />
     </Suspense>

@@ -7,6 +7,7 @@ import { act } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAuthErrorCallbackPath } from '@/lib/auth/auth-error-copy'
 import { Integrations } from '@/app/workspace/[workspaceId]/integrations/integrations'
@@ -220,6 +221,18 @@ describe('auth provider callback routing', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
+  it('renders configured social sign-in buttons on the server', () => {
+    const markup = renderToStaticMarkup(
+      <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+        <SocialLoginButtons githubAvailable googleAvailable callbackURL='/workspace' />
+      </NextIntlClientProvider>
+    )
+
+    expect(markup).toContain('Google')
+    expect(markup).toContain('GitHub')
+    expect(mockSocialSignIn).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['Google', 'google'],
     ['GitHub', 'github'],
@@ -227,12 +240,7 @@ describe('auth provider callback routing', () => {
     await act(async () => {
       root.render(
         <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
-          <SocialLoginButtons
-            githubAvailable
-            googleAvailable
-            callbackURL='/workspace'
-            isProduction
-          />
+          <SocialLoginButtons githubAvailable googleAvailable callbackURL='/workspace' />
         </NextIntlClientProvider>
       )
     })
@@ -253,6 +261,20 @@ describe('auth provider callback routing', () => {
       callbackURL: '/workspace',
       errorCallbackURL: getAuthErrorCallbackPath('/workspace'),
     })
+
+    mockSocialSignIn.mockResolvedValue({
+      error: { code: 'USER_ALREADY_EXISTS', message: 'User already exists' },
+    })
+    await act(async () => button.click())
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      getPublicCopy('en').auth.signup.errors.accountExists
+    )
+
+    mockSocialSignIn.mockResolvedValue({ error: { code: 'UNKNOWN_ERROR', message: 'Unknown' } })
+    await act(async () => button.click())
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      getPublicCopy('en').auth.error.default.description
+    )
   })
 
   it('routes SSO callback failures to the auth error page', async () => {

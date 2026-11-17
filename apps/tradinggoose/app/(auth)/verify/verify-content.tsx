@@ -43,7 +43,6 @@ function VerificationForm({
     handleOtpChange,
   } = useVerification({
     hasEmailService,
-    isProduction,
     isEmailVerificationEnabled,
     copy: verifyCopy,
   })
