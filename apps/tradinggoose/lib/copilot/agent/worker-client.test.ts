@@ -6,7 +6,12 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import * as internalTokens from '@/lib/auth/internal-token'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { createCopilotWorkerClient } from './worker-client'
-import type { CopilotJob, CopilotWorkerPrepared, CopilotWorkerToolInput } from './worker-contract'
+import {
+  type CopilotJob,
+  type CopilotWorkerPrepared,
+  type CopilotWorkerToolInput,
+  CopilotWorkerToolResultSchema,
+} from './worker-contract'
 
 const job: CopilotJob = {
   request: {
@@ -76,6 +81,7 @@ it('uses the deployment origin after Next compiles public environment variables'
   new Function('require', 'exports', code)((specifier: string) => {
     if (specifier === '@/lib/auth/internal-token') return internalTokens
     if (specifier === '@/lib/copilot/native/errors') return { NativeTargetError }
+    if (specifier === './worker-contract') return { CopilotWorkerToolResultSchema }
     throw new Error(`Unexpected worker import: ${specifier}`)
   }, compiled)
   const fetcher = vi.fn(async (_url: unknown) => Response.json({ result: null }))
@@ -98,7 +104,14 @@ it('signs each callback for its saved-message job without transferring input or 
     })
     expect(await internalTokens.verifyInternalTokenDetailed(token)).toEqual({ valid: false })
     const { operation } = JSON.parse(init!.body as string)
-    return Response.json({ result: operation === 'prepare' ? prepared : null })
+    return Response.json({
+      result:
+        operation === 'prepare'
+          ? prepared
+          : operation === 'tool'
+            ? { result: { success: true } }
+            : null,
+    })
   })
   vi.stubGlobal('fetch', fetcher)
   const client = createCopilotWorkerClient(job)
@@ -172,3 +185,29 @@ it.each([403, 409, 503])(
     })
   }
 )
+
+it.each([
+  ['missing result', () => Response.json({}), { name: 'ZodError' }],
+  ['null result', () => Response.json({ result: null }), { name: 'ZodError' }],
+  ['malformed JSON', () => new Response('{'), { name: 'SyntaxError' }],
+  [
+    'HTTP failure',
+    () => Response.json({ error: { message: 'Unavailable' } }, { status: 503 }),
+    { name: NativeTargetError.name, status: 503 },
+  ],
+] as const)('rejects an unacknowledged tool outcome: %s', async (_name, response, expected) => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => response())
+  )
+  await expect(createCopilotWorkerClient(job).call('tool', tool)).rejects.toMatchObject(expected)
+})
+
+it('returns an acknowledged Studio tool error for native tool recovery', async () => {
+  const result = { error: 'Server tool execution failed' }
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => Response.json({ result }))
+  )
+  await expect(createCopilotWorkerClient(job).call('tool', tool)).resolves.toEqual(result)
+})

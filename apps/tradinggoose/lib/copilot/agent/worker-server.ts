@@ -375,12 +375,15 @@ export async function handleCopilotWorkerOperation(
       (!('request' in context) && context.model !== tool.run.model)
     )
       throw new NativeTargetError('The tool belongs to another Copilot run', 403)
-    return withToolLease(identity.runId, fence, leaseDeadline, signal, (toolSignal) =>
-      executeCopilotWorkerTool(tool, toolSignal)
-    ).catch((error) => {
-      if (error instanceof NativeTargetError) throw error
-      const failure = buildCopilotServerToolErrorResponse(tool.toolName, error)
-      throw new NativeTargetError(failure.body.error, failure.status)
+    return withToolLease(identity.runId, fence, leaseDeadline, signal, async (toolSignal) => {
+      try {
+        return await executeCopilotWorkerTool(tool, toolSignal)
+      } catch (error) {
+        toolSignal.throwIfAborted()
+        if (error instanceof NativeTargetError) throw error
+        const failure = buildCopilotServerToolErrorResponse(tool.toolName, error)
+        return { error: failure.body.error }
+      }
     })
   }
   const model = identity.model

@@ -9,8 +9,9 @@ import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { ToolArgSchemas, ToolIds } from '@/lib/copilot/registry'
 import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
-import { type CopilotExecution, CopilotSuspendSchema, getCopilotExecution } from './context'
+import { type CopilotExecution, getCopilotExecution } from './context'
 import { COPILOT_INSTRUCTIONS } from './instructions'
+import { CopilotSuspendSchema } from './worker-contract'
 
 function createCopilotTools(execution: CopilotExecution) {
   return Object.fromEntries(
@@ -47,7 +48,8 @@ function createCopilotTools(execution: CopilotExecution) {
             )
               throw new NativeTargetError('Copilot tool scope has changed', 403)
             const response = await live.executeTool(name, args, context.agent.toolCallId)
-            if (response.suspend) {
+            if ('error' in response) throw new Error(response.error)
+            if ('suspend' in response) {
               await context.agent.suspend(response.suspend)
               return
             }

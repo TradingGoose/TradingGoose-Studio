@@ -1,10 +1,11 @@
 import { generateCopilotWorkerToken } from '@/lib/auth/internal-token'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
-import type {
-  CopilotJob,
-  CopilotWorkerIdentity,
-  CopilotWorkerOperation,
-  CopilotWorkerOperations,
+import {
+  type CopilotJob,
+  type CopilotWorkerIdentity,
+  type CopilotWorkerOperation,
+  type CopilotWorkerOperations,
+  CopilotWorkerToolResultSchema,
 } from './worker-contract'
 
 export function createCopilotWorkerClient(job: CopilotJob) {
@@ -43,7 +44,9 @@ export function createCopilotWorkerClient(job: CopilotJob) {
           response.status
         )
       if (operation === 'prepare') model = body.result.run.model
-      return body.result as CopilotWorkerOperations[K]['output']
+      return (
+        operation === 'tool' ? CopilotWorkerToolResultSchema.parse(body.result) : body.result
+      ) as CopilotWorkerOperations[K]['output']
     },
   }
 }

@@ -1,4 +1,5 @@
 import type { AgentExecutionOptions } from '@mastra/core/agent'
+import { publishAbortRequest } from '@mastra/core/agent/durable'
 import { ModelRouterLanguageModel } from '@mastra/core/llm'
 import type { InputProcessor } from '@mastra/core/processors'
 import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
@@ -8,7 +9,7 @@ import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import type { PendingExecutionPayload } from '@/lib/execution/pending-execution'
 import { prepareNativeModelRequest } from '@/lib/mastra/native-request'
 import { getNativeFinalText } from '@/lib/mastra/result'
-import { getCopilotAgent, getNativeMemoryStore } from '@/lib/mastra/runtime'
+import { getCopilotAgent, getMastra, getNativeMemoryStore } from '@/lib/mastra/runtime'
 import { createCopilotRequestContext, getCopilotExecution } from './context'
 import { copilotFailure } from './errors'
 import {
@@ -21,7 +22,7 @@ import {
   waitForCopilotRunRelease,
 } from './ownership'
 import { createCopilotWorkerClient } from './worker-client'
-import { COPILOT_CANCELLATION_POLL_INTERVAL, CopilotJobSchema } from './worker-contract'
+import { CopilotJobSchema } from './worker-contract'
 
 export async function finalizeCopilotExecution(value: PendingExecutionPayload, message: string) {
   await createCopilotWorkerClient(CopilotJobSchema.parse(value)).call('finalize', { message })
@@ -39,7 +40,6 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
   let outcome: Pick<CopilotJobState, 'status' | 'error'> = { status: 'failed' }
   let run: CopilotRun | undefined
   let apiKey: string | undefined
-  let watcher: ReturnType<typeof setInterval> | undefined
   let ownership: Awaited<ReturnType<typeof claimCopilotThread>> | undefined
   let nativeStarted = false
   let nativeOutput: { getFullOutput(): Promise<{ finishReason?: string }> } | undefined
@@ -73,17 +73,6 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
     ownership.signal.addEventListener('abort', () => cancellation.abort(ownership!.signal.reason), {
       once: true,
     })
-    let checking = false
-    watcher = setInterval(() => {
-      if (checking) return
-      checking = true
-      void studio
-        .call('active', { fence: ownership!.fence })
-        .catch((error) => cancellation.abort(error))
-        .finally(() => {
-          checking = false
-        })
-    }, COPILOT_CANCELLATION_POLL_INTERVAL)
     const signal = cancellation.signal
     const preparedRun = await studio.call('prepare', { fence: ownership.fence }, signal)
     run = preparedRun.run
@@ -176,6 +165,7 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
     const options: AgentExecutionOptions = {
       ...prepared.options,
       requestContext,
+      onAbort: () => cancellation.abort(),
       ...(contexts.length
         ? {
             context: [
@@ -243,11 +233,7 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
       // stream() can reject during startup, including after it started asynchronous work.
       if (ownership && !ownership.signal.aborted && run && nativeStarted && !nativeOutput) {
         cancellation.abort()
-        ;(await getCopilotAgent()).abortThreadStream({
-          threadId: run.threadId,
-          resourceId: nativeConversationIdentity(scope).resourceId,
-          expectedRunId: run.runId,
-        })
+        await publishAbortRequest((await getMastra()).pubsub, run.runId)
       }
       // Drain native work and outstanding HTTP calls; a lost response cannot prove tool completion.
       await nativeOutput?.getFullOutput().catch(() => undefined)
@@ -258,7 +244,6 @@ export async function executeCopilotJob(value: PendingExecutionPayload, abortSig
         await deleteCopilotRunSnapshot(run.runId)
       }
     } finally {
-      if (watcher) clearInterval(watcher)
       try {
         if (ownership && !ownership.signal.aborted) {
           if (uncertainToolFailure)
