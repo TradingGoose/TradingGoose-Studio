@@ -58,28 +58,6 @@ export const normalizeChatAuthType = (value: unknown): ChatAuthType => {
     : 'public'
 }
 
-export const fromChatOutputConfigs = (value: unknown): string[] => {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return value
-    .map((entry) => {
-      if (!entry || typeof entry !== 'object') {
-        return null
-      }
-
-      const blockId = toTrimmedString((entry as Record<string, unknown>).blockId)
-      const path = toTrimmedString((entry as Record<string, unknown>).path)
-      if (!blockId || !path) {
-        return null
-      }
-
-      return `${blockId}_${path}`
-    })
-    .filter((entry): entry is string => Boolean(entry))
-}
-
 export const toChatOutputConfigs = (value: unknown): ChatOutputConfig[] => {
   const seen = new Set<string>()
 

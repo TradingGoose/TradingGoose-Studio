@@ -182,12 +182,6 @@ export interface DocumentData {
   tag7?: string | null
 }
 
-export interface ProcessingOptions {
-  chunkSize: number
-  minCharactersPerChunk: number
-  chunkOverlap: number
-}
-
 export interface DocumentTagData {
   tagName: string
   fieldType: string

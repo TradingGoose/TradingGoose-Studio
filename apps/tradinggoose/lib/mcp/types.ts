@@ -83,16 +83,6 @@ export interface McpVersionInfo {
   preferred: string // Preferred version to use
 }
 
-export interface McpVersionNegotiationError extends JsonRpcError {
-  code: -32000 // Custom error code for version negotiation failures
-  message: 'Version negotiation failed'
-  data: {
-    clientVersions: string[]
-    serverVersions: string[]
-    reason: string
-  }
-}
-
 export interface McpInitializeResult {
   protocolVersion: string
   capabilities: McpCapabilities
@@ -181,27 +171,6 @@ export interface McpResourceContent {
   blob?: string
 }
 
-// MCP Prompt Types
-export interface McpPrompt {
-  name: string
-  description?: string
-  arguments?: Array<{
-    name: string
-    description?: string
-    required?: boolean
-  }>
-}
-
-export interface McpPromptMessage {
-  role: 'user' | 'assistant'
-  content: {
-    type: 'text' | 'image' | 'resource'
-    text?: string
-    data?: string
-    mimeType?: string
-  }
-}
-
 // Connection and Error Types
 export interface McpConnectionStatus {
   connected: boolean
@@ -242,19 +211,6 @@ export interface McpToolInput {
   toolName: string
   params: Record<string, any>
   usageControl?: 'auto' | 'force' | 'none'
-}
-
-export interface McpServerSummary {
-  id: string
-  name: string
-  url?: string
-  transport?: McpTransport
-  status: 'connected' | 'disconnected' | 'error'
-  toolCount: number
-  resourceCount?: number
-  promptCount?: number
-  lastSeen?: Date
-  error?: string
 }
 
 // API Response Types
