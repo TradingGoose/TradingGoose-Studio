@@ -42,7 +42,7 @@ export const useMarketQuoteSnapshots = ({
   refreshKey,
   enabled = true,
 }: UseMarketQuoteSnapshotsArgs) => {
-  const { socket } = useSocket()
+  const socket = useSocket()
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.marketQuotes
   const records = useRef(new Map<string, QuoteSubscription>()).current

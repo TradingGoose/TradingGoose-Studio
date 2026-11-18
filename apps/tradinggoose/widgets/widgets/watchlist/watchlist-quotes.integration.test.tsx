@@ -18,7 +18,7 @@ const { socket } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/contexts/socket-context', () => ({
-  useSocket: () => ({ socket, isConnected: true, isConnecting: false }),
+  useSocket: () => socket,
 }))
 vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
   useUserPermissionsContext: () => ({ canEdit: true, isLoading: false }),

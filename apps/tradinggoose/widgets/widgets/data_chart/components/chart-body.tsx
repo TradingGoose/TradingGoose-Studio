@@ -107,7 +107,7 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
     chartReady,
     registerBeforeDestroy,
   } = useChartInstance(chartResetKey)
-  const { socket } = useSocket()
+  const socket = useSocket()
   const [dataVersion, setDataVersion] = useState(0)
   const lastLiveRefreshRef = useRef(0)
   const dataContext = useMemo<DataChartDataContext>(

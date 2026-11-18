@@ -92,17 +92,6 @@ io.on('connection', (socket: AuthenticatedSocket) => {
   setupAllHandlers(socket)
 })
 
-httpServer.on('request', (req, res) => {
-  logger.info(`🌐 HTTP Request: ${req.method} ${req.url}`, {
-    method: req.method,
-    url: req.url,
-    userAgent: req.headers['user-agent'],
-    origin: req.headers.origin,
-    host: req.headers.host,
-    timestamp: new Date().toISOString(),
-  })
-})
-
 const PORT = Number(env.PORT || env.SOCKET_PORT || 3002)
 
 logger.info('Starting Socket.IO server...', {

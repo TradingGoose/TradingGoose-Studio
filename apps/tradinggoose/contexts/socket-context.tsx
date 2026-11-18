@@ -28,29 +28,13 @@ const logSocketIssue = (
   }
 }
 
-interface User {
-  id: string
-  name?: string
-  email?: string
-}
-
-interface SocketContextType {
-  socket: Socket | null
-  isConnected: boolean
-  isConnecting: boolean
-}
-
-const SocketContext = createContext<SocketContextType>({
-  socket: null,
-  isConnected: false,
-  isConnecting: false,
-})
+const SocketContext = createContext<Socket | null>(null)
 
 export const useSocket = () => useContext(SocketContext)
 
 interface SocketProviderProps {
   children: ReactNode
-  user?: User
+  userId?: string
 }
 
 interface SocketRegistryEntry {
@@ -69,11 +53,9 @@ declare global {
   var __socketRegistry: Map<string, SocketRegistryEntry> | undefined
 }
 
-export function SocketProvider({ children, user }: SocketProviderProps) {
+export function SocketProvider({ children, userId }: SocketProviderProps) {
   const pathname = usePathname()
   const [socket, setSocket] = useState<Socket | null>(null)
-  const [isConnected, setIsConnected] = useState(false)
-  const [isConnecting, setIsConnecting] = useState(false)
   const callbackPathnameRef = useRef(pathname)
   callbackPathnameRef.current = pathname
 
@@ -100,27 +82,15 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
   }
 
   useEffect(() => {
-    if (!user?.id) {
+    if (!userId) {
       setSocket(null)
-      setIsConnected(false)
-      setIsConnecting(false)
       return
     }
 
     const registry = (globalThis.__socketRegistry ??= new Map())
-    let entry = registry.get(user.id)
-    if (entry) {
-      logger.info('Reusing existing shared socket connection', { userId: user.id })
-    } else {
-      logger.info('Initializing new socket connection for user:', user.id)
-
+    let entry = registry.get(userId)
+    if (!entry) {
       const socketUrl = getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
-
-      logger.info('Attempting to connect to Socket.IO server', {
-        url: socketUrl,
-        userId: user?.id || 'no-user',
-        timestamp: new Date().toISOString(),
-      })
 
       const socketInstance = io(socketUrl, {
         transports: ['websocket', 'polling'],
@@ -137,46 +107,31 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
             cb({ token: freshToken })
           } catch (error) {
             if (!socketInstance.active || socketInstance.io.engine !== engine) return
+            const message = error instanceof Error ? error.message : String(error)
             logSocketIssue(
               'Failed to generate fresh token for connection:',
-              {
-                message: error instanceof Error ? error.message : String(error),
-              },
+              { message },
               callbackPathnameRef.current
             )
             engine.close()
+            if (isSocketAuthError(message)) socketInstance.disconnect()
           }
         },
       })
 
       entry = { socket: socketInstance, owners: 0 }
-      registry.set(user.id, entry)
+      registry.set(userId, entry)
     }
 
     entry.owners += 1
     const socketInstance = entry.socket
     setSocket(socketInstance)
-    setIsConnected(socketInstance.connected)
-    setIsConnecting(!socketInstance.connected && socketInstance.active)
-
-    const onConnect = () => {
-      setIsConnected(true)
-      setIsConnecting(false)
-      logger.info('Socket connected successfully', {
-        socketId: socketInstance.id,
-        connected: socketInstance.connected,
-      })
-    }
 
     const onDisconnect = (reason: string) => {
-      setIsConnected(false)
-      setIsConnecting(false)
-      logger.info('Socket disconnected', { reason })
+      if (reason === 'io server disconnect' && !socketInstance.active) socketInstance.connect()
     }
 
     const onConnectError = (error: any) => {
-      setIsConnected(false)
-      setIsConnecting(false)
       logSocketIssue(
         'Socket connection error:',
         {
@@ -187,32 +142,19 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
       )
     }
 
-    socketInstance.on('connect', onConnect)
     socketInstance.on('disconnect', onDisconnect)
     socketInstance.on('connect_error', onConnectError)
 
     return () => {
-      socketInstance.off('connect', onConnect)
       socketInstance.off('disconnect', onDisconnect)
       socketInstance.off('connect_error', onConnectError)
       entry.owners -= 1
       if (entry.owners === 0) {
-        logger.info('Cleaning up socket connection after final provider release')
-        if (registry.get(user.id) === entry) registry.delete(user.id)
+        if (registry.get(userId) === entry) registry.delete(userId)
         socketInstance.disconnect()
       }
     }
-  }, [user?.id])
+  }, [userId])
 
-  return (
-    <SocketContext.Provider
-      value={{
-        socket,
-        isConnected,
-        isConnecting,
-      }}
-    >
-      {children}
-    </SocketContext.Provider>
-  )
+  return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
 }

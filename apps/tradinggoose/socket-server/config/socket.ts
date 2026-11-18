@@ -31,7 +31,7 @@ function getAllowedOrigins(): string[] {
 export function createSocketIOServer(httpServer: HttpServer): Server {
   const allowedOrigins = getAllowedOrigins()
 
-  const io = new Server(httpServer, {
+  return new Server(httpServer, {
     cors: {
       origin: allowedOrigins,
       methods: ['GET', 'POST', 'OPTIONS'],
@@ -39,8 +39,8 @@ export function createSocketIOServer(httpServer: HttpServer): Server {
       credentials: true, // Enable credentials to accept cookies
     },
     transports: ['websocket', 'polling'], // WebSocket first, polling second
-    pingTimeout: 60000, // Back to original conservative setting
-    pingInterval: 25000, // Back to original interval
+    pingTimeout: 60000,
+    pingInterval: 25000,
     maxHttpBufferSize: 1e6,
     cookie: {
       name: 'io',
@@ -50,16 +50,4 @@ export function createSocketIOServer(httpServer: HttpServer): Server {
       secure: isProd, // HTTPS in production
     },
   })
-
-  logger.info('Socket.IO server configured with:', {
-    allowedOrigins: allowedOrigins.length,
-    transports: ['websocket', 'polling'],
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    maxHttpBufferSize: 1e6,
-    cookieSecure: isProd,
-    corsCredentials: true,
-  })
-
-  return io
 }
