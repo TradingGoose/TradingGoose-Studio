@@ -5,7 +5,7 @@ import type {
   BlockMermaidProfileType,
 } from '@/lib/copilot/tools/shared/schemas'
 import { LISTING_IDENTITY_JSON_SCHEMA, LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
-import { getOAuthProviderAvailability } from '@/lib/oauth/provider-availability.server'
+import { getOAuthProviderAvailability } from '@/lib/oauth/oauth.server'
 import {
   getProviderIdsForBlocks,
   isBlockAvailable,

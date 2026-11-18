@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthProviderAvailability } from '@/lib/oauth/provider-availability.server'
+import { getOAuthProviderAvailability } from '@/lib/oauth/oauth.server'
 
 export const dynamic = 'force-dynamic'
 

@@ -1,6 +1,6 @@
 import { resolveOAuthConnectionAccountForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthProviderAvailability } from '@/lib/oauth/provider-availability.server'
+import { getOAuthProviderAvailability } from '@/lib/oauth/oauth.server'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { TradingServiceError } from '@/lib/trading/errors'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'

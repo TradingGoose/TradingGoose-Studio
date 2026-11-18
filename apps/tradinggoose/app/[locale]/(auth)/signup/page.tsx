@@ -1,9 +1,9 @@
 import { getLocale } from 'next-intl/server'
 import { buttonVariants } from '@/components/ui/button'
 import { getSession } from '@/lib/auth'
+import { getOAuthProviderAvailability } from '@/lib/oauth/oauth.server'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
-import { getOAuthProviderStatus } from '@/app/(auth)/components/oauth-provider-checker'
 import SignupForm from '@/app/(auth)/signup/signup-form'
 import { Link, redirect } from '@/i18n/navigation'
 import { getPublicCopy } from '@/i18n/public-copy'
@@ -21,8 +21,10 @@ export default async function SignupPage({
     redirect({ href: '/workspace', locale })
   }
 
-  const providers = await Promise.all([getOAuthProviderStatus(), getRegistrationModeForRender()])
-  const [{ githubAvailable, googleAvailable }, registrationMode] = providers
+  const [{ github, google }, registrationMode] = await Promise.all([
+    getOAuthProviderAvailability(['github', 'google']),
+    getRegistrationModeForRender(),
+  ])
   const copy = getPublicCopy(locale)
   const commonCopy = copy.auth.common
   const disabledCopy = copy.auth.disabled
@@ -51,8 +53,8 @@ export default async function SignupPage({
 
   return (
     <SignupForm
-      githubAvailable={githubAvailable}
-      googleAvailable={googleAvailable}
+      githubAvailable={github}
+      googleAvailable={google}
       registrationMode={registrationMode}
     />
   )

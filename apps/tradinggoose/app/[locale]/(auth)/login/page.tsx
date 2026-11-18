@@ -1,7 +1,7 @@
 import { getLocale } from 'next-intl/server'
 import { getSession } from '@/lib/auth'
+import { getOAuthProviderAvailability } from '@/lib/oauth/oauth.server'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
-import { getOAuthProviderStatus } from '@/app/(auth)/components/oauth-provider-checker'
 import LoginForm from '@/app/(auth)/login/login-form'
 import { redirect } from '@/i18n/navigation'
 
@@ -24,15 +24,15 @@ export default async function LoginPage({
     redirect({ href: '/workspace', locale })
   }
 
-  const [{ githubAvailable, googleAvailable }, registrationMode] = await Promise.all([
-    getOAuthProviderStatus(),
+  const [{ github, google }, registrationMode] = await Promise.all([
+    getOAuthProviderAvailability(['github', 'google']),
     getRegistrationModeForRender(),
   ])
 
   return (
     <LoginForm
-      githubAvailable={githubAvailable}
-      googleAvailable={googleAvailable}
+      githubAvailable={github}
+      googleAvailable={google}
       registrationMode={registrationMode}
     />
   )

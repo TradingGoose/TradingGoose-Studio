@@ -9,7 +9,7 @@ const mockRedirect = vi.fn((url: string) => {
   throw new Error(`redirect:${url}`)
 })
 const mockGetBrandConfig = vi.fn()
-const mockGetOAuthProviderStatus = vi.fn()
+const mockGetOAuthProviderAvailability = vi.fn()
 const mockGetRegistrationModeForRender = vi.fn()
 
 vi.mock('next-intl/server', () => ({
@@ -43,8 +43,8 @@ vi.mock('@/i18n/navigation', () => ({
   },
 }))
 
-vi.mock('@/app/(auth)/components/oauth-provider-checker', () => ({
-  getOAuthProviderStatus: () => mockGetOAuthProviderStatus(),
+vi.mock('@/lib/oauth/oauth.server', () => ({
+  getOAuthProviderAvailability: () => mockGetOAuthProviderAvailability(),
 }))
 
 vi.mock('@/lib/registration/service', () => ({
@@ -73,9 +73,9 @@ describe('localized auth entry pages', () => {
     vi.resetModules()
     mockGetLocale.mockResolvedValue('es')
     mockGetSession.mockResolvedValue(null)
-    mockGetOAuthProviderStatus.mockResolvedValue({
-      githubAvailable: false,
-      googleAvailable: false,
+    mockGetOAuthProviderAvailability.mockResolvedValue({
+      github: false,
+      google: false,
     })
     mockGetRegistrationModeForRender.mockResolvedValue('open')
     mockGetBrandConfig.mockReturnValue({ supportEmail: 'support@tradinggoose.ai' })
@@ -92,7 +92,7 @@ describe('localized auth entry pages', () => {
 
     await expect(LoginPage()).rejects.toThrow('redirect:/es/workspace')
     expect(mockGetSession).toHaveBeenCalledWith()
-    expect(mockGetOAuthProviderStatus).not.toHaveBeenCalled()
+    expect(mockGetOAuthProviderAvailability).not.toHaveBeenCalled()
     expect(mockGetRegistrationModeForRender).not.toHaveBeenCalled()
   })
 
@@ -137,7 +137,7 @@ describe('localized auth entry pages', () => {
       'redirect:/es/workspace'
     )
     expect(mockGetSession).toHaveBeenCalledWith()
-    expect(mockGetOAuthProviderStatus).not.toHaveBeenCalled()
+    expect(mockGetOAuthProviderAvailability).not.toHaveBeenCalled()
     expect(mockGetRegistrationModeForRender).not.toHaveBeenCalled()
   })
 

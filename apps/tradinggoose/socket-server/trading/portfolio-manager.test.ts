@@ -31,7 +31,7 @@ const {
 vi.mock('@/lib/oauth/tokens', () => ({
   refreshAccessTokenIfNeeded: (...args: unknown[]) => refreshAccessTokenIfNeededMock(...args),
 }))
-vi.mock('@/lib/oauth/provider-availability.server', () => ({
+vi.mock('@/lib/oauth/oauth.server', () => ({
   getOAuthProviderAvailability: async (serviceIds: string[]) =>
     Object.fromEntries(serviceIds.map((serviceId) => [serviceId, true])),
 }))
