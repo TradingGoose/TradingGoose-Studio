@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { useVerification } from '@/app/(auth)/verify/use-verification'
 import { inter } from '@/app/fonts/inter'
-import { useRouter } from '@/i18n/navigation'
 import { formatTemplate } from '@/i18n/utils'
 
 interface VerifyContentProps {
@@ -31,6 +30,8 @@ function VerificationForm({
   const verifyCopy = copy.auth.verify
   const commonCopy = copy.auth.common
   const {
+    fromSignup,
+    returnToAuth,
     otp,
     email,
     isLoading,
@@ -55,8 +56,6 @@ function VerificationForm({
       return () => clearTimeout(timer)
     }
   }, [countdown])
-
-  const router = useRouter()
 
   const handleResend = () => {
     resendCode()
@@ -171,13 +170,10 @@ function VerificationForm({
 
           <div className='text-center font-light text-[14px]'>
             <button
-              onClick={() => {
-                sessionStorage.removeItem('verificationEmail')
-                router.push('/signup')
-              }}
+              onClick={returnToAuth}
               className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
             >
-              {commonCopy.backToSignup}
+              {fromSignup ? commonCopy.backToSignup : commonCopy.backToLogin}
             </button>
           </div>
         </div>

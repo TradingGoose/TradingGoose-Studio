@@ -1,7 +1,3 @@
-import {
-  REGISTRATION_DISABLED_REASON,
-  REGISTRATION_WAITLIST_REASON,
-} from '@/lib/registration/shared'
 import type { PublicCopy } from '@/i18n/public-copy'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 
@@ -252,14 +248,4 @@ export function getAuthErrorContent(
       secondaryAction: actionCopy.home,
     },
   }
-}
-
-export function isRegistrationDisabledReason(value: string | null | undefined) {
-  const normalized = normalizeAuthErrorCode(value)
-  return normalized === normalizeAuthErrorCode(REGISTRATION_DISABLED_REASON)
-}
-
-export function isRegistrationWaitlistReason(value: string | null | undefined) {
-  const normalized = normalizeAuthErrorCode(value)
-  return normalized === normalizeAuthErrorCode(REGISTRATION_WAITLIST_REASON)
 }

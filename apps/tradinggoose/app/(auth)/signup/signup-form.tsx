@@ -7,16 +7,16 @@ import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  isRegistrationDisabledReason,
-  isRegistrationWaitlistReason,
-  normalizeAuthErrorCode,
-} from '@/lib/auth/auth-error-copy'
+import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { RegistrationMode } from '@/lib/registration/shared'
+import {
+  REGISTRATION_DISABLED_REASON,
+  REGISTRATION_WAITLIST_REASON,
+  type RegistrationMode,
+} from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
@@ -72,11 +72,9 @@ function SignupFormContent({
   const copy = useMessages()
   const commonCopy = copy.auth.common
   const signupCopy = copy.auth.signup
-  const defaultCallbackPath = '/workspace'
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [password, setPassword] = useState('')
   const [passwordErrors, setPasswordErrors] = useState<string[]>([])
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
@@ -92,12 +90,11 @@ function SignupFormContent({
       usernameAvailability === 'error')
       ? signupCopy.usernameAvailability[usernameAvailability]
       : ''
-  const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
+  const [destination, setDestination] = useState('/workspace')
   const [isInviteFlow, setIsInviteFlow] = useState(false)
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
-  const [name, setName] = useState('')
   const [nameError, setNameError] = useState('')
 
   useEffect(() => {
@@ -114,7 +111,7 @@ function SignupFormContent({
       )
 
       if (normalizedRedirectUrl) {
-        setRedirectUrl(normalizedRedirectUrl)
+        setDestination(normalizedRedirectUrl)
 
         const redirectPathname = new URL(normalizedRedirectUrl, 'http://tradinggoose.local')
           .pathname
@@ -167,16 +164,6 @@ function SignupFormContent({
     }
 
     return ''
-  }
-
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPassword(e.target.value)
-    setPasswordErrors([])
-  }
-
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setName(e.target.value)
-    setNameError('')
   }
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,8 +226,8 @@ function SignupFormContent({
           onError: (ctx) => {
             logger.error('Signup error:', ctx.error)
             const errorMessage: string[] = [signupCopy.errors.failedToCreateAccount]
-            const authErrorCode =
-              normalizeAuthErrorCode(ctx.error.code) ?? normalizeAuthErrorCode(ctx.error.message)
+            const messageCode = normalizeAuthErrorCode(ctx.error.message)
+            const authErrorCode = normalizeAuthErrorCode(ctx.error.code) ?? messageCode
 
             if (authErrorCode === 'USERNAME_IS_ALREADY_TAKEN') {
               setUsernameError(signupCopy.errors.usernameTaken)
@@ -253,19 +240,15 @@ function SignupFormContent({
               setUsernameError(signupCopy.validation.usernameInvalid)
             } else if (authErrorCode === 'USER_ALREADY_EXISTS') {
               setEmailError(signupCopy.errors.accountExists)
+            } else if (messageCode === REGISTRATION_DISABLED_REASON.toUpperCase()) {
+              setEmailError(signupCopy.errors.emailSignupDisabled)
+            } else if (messageCode === REGISTRATION_WAITLIST_REASON.toUpperCase()) {
+              setEmailError(signupCopy.errors.waitlistRequired)
             } else if (
               authErrorCode === 'EMAIL_AND_PASSWORD_SIGN_UP_IS_NOT_ENABLED' ||
-              authErrorCode === 'BAD_REQUEST' ||
-              isRegistrationDisabledReason(ctx.error.message) ||
-              isRegistrationWaitlistReason(ctx.error.message)
+              authErrorCode === 'BAD_REQUEST'
             ) {
-              if (isRegistrationDisabledReason(ctx.error.message)) {
-                setEmailError(signupCopy.errors.emailSignupDisabled)
-              } else if (isRegistrationWaitlistReason(ctx.error.message)) {
-                setEmailError(signupCopy.errors.waitlistRequired)
-              } else {
-                setEmailError(signupCopy.errors.signupNotEnabled)
-              }
+              setEmailError(signupCopy.errors.signupNotEnabled)
             } else if (authErrorCode === 'INVALID_EMAIL') {
               setEmailError(signupCopy.errors.invalidEmail)
             } else if (authErrorCode === 'PASSWORD_TOO_SHORT') {
@@ -292,7 +275,6 @@ function SignupFormContent({
         return
       }
 
-      const destination = redirectUrl ?? defaultCallbackPath
       if (!response.data?.token) {
         sessionStorage.setItem('verificationEmail', emailValue)
         try {
@@ -305,7 +287,9 @@ function SignupFormContent({
         }
       }
 
-      router.push(`/verify?fromSignup=true&redirectAfter=${encodeURIComponent(destination)}`)
+      router.push(
+        `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(destination)}${isInviteFlow ? '&invite_flow=true' : ''}`
+      )
     } catch (error) {
       logger.error('Signup error:', error)
       setIsLoading(false)
@@ -349,8 +333,7 @@ function SignupFormContent({
               autoCapitalize='words'
               autoComplete='name'
               title={signupCopy.nameTitle}
-              value={name}
-              onChange={handleNameChange}
+              onChange={() => setNameError('')}
               aria-invalid={Boolean(nameError)}
               aria-describedby={nameError ? 'signup-name-errors' : undefined}
               className={cn(
@@ -457,8 +440,7 @@ function SignupFormContent({
                 autoComplete='new-password'
                 placeholder={commonCopy.enterYourPassword}
                 autoCorrect='off'
-                value={password}
-                onChange={handlePasswordChange}
+                onChange={() => setPasswordErrors([])}
                 aria-invalid={passwordErrors.length > 0}
                 aria-describedby={passwordErrors.length > 0 ? 'signup-password-errors' : undefined}
                 className={cn(
@@ -517,11 +499,9 @@ function SignupFormContent({
           <SocialLoginButtons
             githubAvailable={githubAvailable}
             googleAvailable={googleAvailable}
-            callbackURL={redirectUrl ?? defaultCallbackPath}
+            callbackURL={destination}
           >
-            {ssoEnabled && (
-              <SSOLoginButton callbackURL={redirectUrl ?? defaultCallbackPath} variant='outline' />
-            )}
+            {ssoEnabled && <SSOLoginButton callbackURL={destination} variant='outline' />}
           </SocialLoginButtons>
         </div>
       )}
@@ -529,7 +509,7 @@ function SignupFormContent({
       <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
         <span className='font-normal'>{commonCopy.alreadyHaveAccount} </span>
         <Link
-          href={`/login?callbackUrl=${encodeURIComponent(redirectUrl ?? defaultCallbackPath)}${isInviteFlow ? '&invite_flow=true' : ''}`}
+          href={`/login?callbackUrl=${encodeURIComponent(destination)}${isInviteFlow ? '&invite_flow=true' : ''}`}
           className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
         >
           {commonCopy.signIn}

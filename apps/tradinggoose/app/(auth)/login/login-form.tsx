@@ -280,7 +280,9 @@ export default function LoginPage({
           })
           if (error) throw error
           sessionStorage.setItem('verificationEmail', email)
-          router.push(`/verify?redirectAfter=${encodeURIComponent(callbackUrl)}`)
+          router.push(
+            `/verify?redirectAfter=${encodeURIComponent(callbackUrl)}${isInviteFlow ? '&invite_flow=true' : ''}`
+          )
         } catch (error) {
           logger.error('Failed to send login verification code', error)
           setPasswordError(copy.auth.verify.errors.resendFailed)

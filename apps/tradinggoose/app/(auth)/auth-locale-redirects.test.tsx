@@ -320,7 +320,7 @@ describe('auth locale redirects', () => {
       )
       expect(mockRefetchSession).not.toHaveBeenCalled()
       expect(mockFetch).not.toHaveBeenCalled()
-      const verifyPath = `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(callbackUrl ?? '/workspace')}`
+      const verifyPath = `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(callbackUrl ?? '/workspace')}${callbackUrl?.startsWith('/invite/') ? '&invite_flow=true' : ''}`
       expect(mockPush).toHaveBeenCalledExactlyOnceWith(verifyPath)
       if (token) {
         expect(mockSendVerificationOtp).not.toHaveBeenCalled()
@@ -742,7 +742,7 @@ describe('auth locale redirects', () => {
         'ada@example.com'
       )
       expect(mockPush).toHaveBeenCalledWith(
-        `/verify?redirectAfter=${encodeURIComponent(callbackUrl)}`
+        `/verify?redirectAfter=${encodeURIComponent(callbackUrl)}&invite_flow=true`
       )
     }
   )
@@ -858,57 +858,60 @@ describe('auth locale redirects', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('keeps the resend cooldown and canonical signup back action on the verify screen', async () => {
-    vi.useFakeTimers()
-    sessionStore.set('verificationEmail', 'ada@example.com')
-    const resendCode = vi.fn()
-    mockUseVerification.mockReturnValue({
-      otp: '',
-      email: 'ada@example.com',
-      isLoading: false,
-      isVerified: false,
-      isInvalidOtp: false,
-      failureMessage: '',
-      isOtpComplete: false,
-      verifyCode: vi.fn(),
-      resendCode,
-      handleOtpChange: vi.fn(),
-    })
-
-    await renderWithLocale(
-      'en',
-      <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled />
-    )
-    const findButton = (label: string) =>
-      Array.from(container.querySelectorAll('button')).find(
-        (button) => button.textContent === label
+  it.each([
+    ['signup', '/invite/invitation?token=workspace-token#accept', '&invite_flow=true'],
+    ['login', '/chat/deployed-chat?view=thread#reply', ''],
+  ] as const)(
+    'keeps the resend cooldown and returns to %s with the destination',
+    async (path, destination, invite) => {
+      vi.useFakeTimers()
+      sessionStore.set('verificationEmail', 'ada@example.com')
+      testState.searchParams = new URLSearchParams(
+        `fromSignup=${path === 'signup'}&redirectAfter=${encodeURIComponent(destination)}${invite}`
       )
-    const resendLabel = getPublicCopy('en').auth.verify.resendButton
-    const resendButton = findButton(resendLabel)
-    if (!(resendButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected resend button to render')
-    }
-    await act(async () => resendButton.click())
-    expect(resendCode).toHaveBeenCalledTimes(1)
-    expect(findButton(resendLabel)).toBeUndefined()
-    for (let second = 0; second < 29; second++) {
+      const { useVerification } = await vi.importActual<typeof import('./verify/use-verification')>(
+        './verify/use-verification'
+      )
+      mockUseVerification.mockImplementation(useVerification)
+
+      await renderWithLocale(
+        'en',
+        <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled />
+      )
+      const findButton = (label: string) =>
+        Array.from(container.querySelectorAll('button')).find(
+          (button) => button.textContent === label
+        )
+      const resendLabel = getPublicCopy('en').auth.verify.resendButton
+      const resendButton = findButton(resendLabel)
+      if (!(resendButton instanceof HTMLButtonElement)) {
+        throw new Error('Expected resend button to render')
+      }
+      await act(async () => resendButton.click())
+      expect(mockSendVerificationOtp).toHaveBeenCalledOnce()
+      expect(findButton(resendLabel)).toBeUndefined()
+      for (let second = 0; second < 29; second++) {
+        await act(async () => vi.advanceTimersByTimeAsync(1000))
+      }
+      expect(findButton(resendLabel)).toBeUndefined()
       await act(async () => vi.advanceTimersByTimeAsync(1000))
+      expect(findButton(resendLabel)?.disabled).toBe(false)
+
+      const common = getPublicCopy('en').auth.common
+      const backButton = findButton(path === 'signup' ? common.backToSignup : common.backToLogin)
+
+      if (!(backButton instanceof HTMLButtonElement)) {
+        throw new Error(`Expected back to ${path} button to render`)
+      }
+
+      await act(async () => {
+        backButton.click()
+      })
+
+      expect(mockPush).toHaveBeenCalledExactlyOnceWith(
+        `/${path}?callbackUrl=${encodeURIComponent(destination)}${invite}`
+      )
+      expect(sessionStore.size).toBe(0)
     }
-    expect(findButton(resendLabel)).toBeUndefined()
-    await act(async () => vi.advanceTimersByTimeAsync(1000))
-    expect(findButton(resendLabel)?.disabled).toBe(false)
-
-    const backButton = findButton(getPublicCopy('en').auth.common.backToSignup)
-
-    if (!(backButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected back to signup button to render')
-    }
-
-    await act(async () => {
-      backButton.click()
-    })
-
-    expect(mockPush).toHaveBeenCalledWith('/signup')
-    expect(sessionStore.size).toBe(0)
-  })
+  )
 })

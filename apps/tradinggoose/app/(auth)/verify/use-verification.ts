@@ -42,10 +42,11 @@ export function useVerification({
 }: UseVerificationParams) {
   const router = useRouter()
   const locale = useLocale() as LocaleCode
-  const redirectAfter = useSearchParams().get('redirectAfter')
+  const searchParams = useSearchParams()
+  const fromSignup = searchParams.get('fromSignup') === 'true'
   const destination =
     normalizeCallbackUrl(
-      redirectAfter,
+      searchParams.get('redirectAfter'),
       typeof window !== 'undefined' ? window.location.origin : undefined
     ) ?? '/workspace'
   const { refetch: refetchSession } = useSession()
@@ -58,10 +59,7 @@ export function useVerification({
   const [failureMessage, setFailureMessage] = useState('')
 
   useEffect(() => {
-    const storedEmail = sessionStorage.getItem('verificationEmail')
-    if (storedEmail) {
-      setEmail(storedEmail)
-    }
+    setEmail(sessionStorage.getItem('verificationEmail')?.trim().toLowerCase() ?? '')
   }, [])
 
   const isOtpComplete = otp.length === 6
@@ -97,9 +95,8 @@ export function useVerification({
     setFailureMessage('')
 
     try {
-      const normalizedEmail = email.trim().toLowerCase()
       const { error } = await client.emailOtp.verifyEmail({
-        email: normalizedEmail,
+        email,
         otp,
       })
 
@@ -129,10 +126,9 @@ export function useVerification({
     setIsInvalidOtp(false)
     setFailureMessage('')
 
-    const normalizedEmail = email.trim().toLowerCase()
     client.emailOtp
       .sendVerificationOtp({
-        email: normalizedEmail,
+        email,
         type: 'email-verification',
       })
       .then(({ error }) => {
@@ -154,8 +150,15 @@ export function useVerification({
     setOtp(value)
   }
 
+  function returnToAuth() {
+    const path = fromSignup ? '/signup' : '/login'
+    const invite = searchParams.get('invite_flow') === 'true' ? '&invite_flow=true' : ''
+    sessionStorage.removeItem('verificationEmail')
+    router.push(`${path}?callbackUrl=${encodeURIComponent(destination)}${invite}`)
+  }
+
   useEffect(() => {
-    if (otp.length === 6 && email && !isLoading && !isVerified) {
+    if (isOtpComplete && email && !isLoading && !isVerified) {
       const timeoutId = setTimeout(() => {
         verifyCode()
       }, 300)
@@ -176,6 +179,8 @@ export function useVerification({
   }, [isEmailVerificationEnabled, destination, router])
 
   return {
+    fromSignup,
+    returnToAuth,
     otp,
     email,
     isLoading,
