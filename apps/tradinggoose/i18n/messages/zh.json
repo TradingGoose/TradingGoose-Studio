@@ -879,17 +879,6 @@
       "goBack": "返回",
       "immediateHelpPrefix": "需要即时帮助？请发送邮件至"
     },
-    "transactional": {
-      "title": "重要账户邮件",
-      "description": "此邮件包含关于您账户的重要信息",
-      "important": "事务性邮件",
-      "body": "密码重置、账户确认和安全提醒等事务性邮件无法取消订阅，因为它们包含保护您账户安全和正常运作的必要信息。",
-      "optionsPrefix": "如果您不再希望收到这些邮件，您可以：",
-      "closeAccount": "完全关闭您的账户",
-      "contactSupport": "联系我们的支持团队寻求帮助",
-      "contactButton": "联系支持",
-      "closeButton": "关闭"
-    },
     "success": {
       "title": "取消订阅成功",
       "description": "您已成功取消订阅我们的邮件。您将在48小时内停止接收邮件。",
@@ -914,7 +903,6 @@
       "missing-parameters": "缺少电子邮件或令牌参数",
       "invalid-link": "退订链接无效或已过期",
       "invalid-request-data": "请求数据无效",
-      "transactional": "事务性邮件包含重要的账户信息，无法退订。",
       "failed-processing": "处理退订请求失败",
       "internal-error": "内部服务器错误",
       "unknown": "发生了意外错误。"
@@ -23438,8 +23426,7 @@
       "copyright": "(c) {year} {brandName}，保留所有权利",
       "questions": "有问题？发送邮件至",
       "privacy": "隐私政策",
-      "terms": "服务条款",
-      "unsubscribe": "退订"
+      "terms": "服务条款"
     },
     "subjects": {
       "sign-in": "登录 {brandName}",

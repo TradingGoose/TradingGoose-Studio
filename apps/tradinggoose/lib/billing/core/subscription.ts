@@ -376,12 +376,13 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
       return
     }
 
-    const { getPlanWelcomeSubject, renderPlanWelcomeEmail } = await import(
+    const { getEmailSubject, renderPlanWelcomeEmail } = await import(
       '@/components/emails/render-email'
     )
     const { sendEmail } = await import('@/lib/email/mailer')
     const { resolveEmailLocale } = await import('@/lib/email/locale')
     const baseUrl = getBaseUrl()
+    const planName = getTierDisplayName(tier)
 
     if (hydratedSubscription.referenceType === 'user') {
       const users = await db
@@ -396,7 +397,7 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
 
       const locale = await resolveEmailLocale({ userId: users[0].id, email: users[0].email })
       const html = await renderPlanWelcomeEmail({
-        planName: getTierDisplayName(tier),
+        planName,
         userName: users[0].name || undefined,
         loginLink: `${baseUrl}/login`,
         locale,
@@ -404,7 +405,7 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
 
       await sendEmail({
         to: users[0].email,
-        subject: getPlanWelcomeSubject(getTierDisplayName(tier), locale),
+        subject: getEmailSubject('plan-welcome', locale, { planName }),
         html,
         emailType: 'updates',
       })
@@ -430,7 +431,7 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
 
       const locale = await resolveEmailLocale({ userId: recipient.id, email: recipient.email })
       const html = await renderPlanWelcomeEmail({
-        planName: getTierDisplayName(tier),
+        planName,
         userName: recipient.name || undefined,
         loginLink: `${baseUrl}/login`,
         locale,
@@ -438,7 +439,7 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
 
       await sendEmail({
         to: recipient.email,
-        subject: getPlanWelcomeSubject(getTierDisplayName(tier), locale),
+        subject: getEmailSubject('plan-welcome', locale, { planName }),
         html,
         emailType: 'updates',
       })

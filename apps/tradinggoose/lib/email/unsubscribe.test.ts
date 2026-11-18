@@ -26,11 +26,11 @@ describe('unsubscribe tokens', () => {
   it('signs the mailbox and email type with a unique salt', () => {
     const token = generateUnsubscribeToken(mailbox, 'marketing')
 
-    expect(verifyUnsubscribeToken(mailbox, token)).toBe('marketing')
+    expect(verifyUnsubscribeToken(mailbox, token)).toBe(true)
     expect(generateUnsubscribeToken(mailbox, 'marketing')).not.toBe(token)
-    expect(verifyUnsubscribeToken(mailbox, token.replace('marketing', 'updates'))).toBeNull()
-    expect(verifyUnsubscribeToken({ ...mailbox, email: 'other@example.com' }, token)).toBeNull()
-    expect(verifyUnsubscribeToken(mailbox, `${token}:extra`)).toBeNull()
+    expect(verifyUnsubscribeToken(mailbox, token.replace('marketing', 'updates'))).toBe(false)
+    expect(verifyUnsubscribeToken({ ...mailbox, email: 'other@example.com' }, token)).toBe(false)
+    expect(verifyUnsubscribeToken(mailbox, `${token}:extra`)).toBe(false)
   })
 })
 

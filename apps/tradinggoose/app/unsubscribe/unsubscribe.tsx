@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import { CheckCircle, Heart, Info, Loader2, XCircle } from 'lucide-react'
+import { CheckCircle, Heart, Loader2, XCircle } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useMessages } from 'next-intl'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
@@ -9,7 +9,6 @@ import { useBrandConfig } from '@/lib/branding/branding'
 
 interface UnsubscribeData {
   email: string
-  isTransactional: boolean
   currentPreferences: {
     unsubscribeAll?: boolean
     unsubscribeMarketing?: boolean
@@ -175,58 +174,6 @@ function UnsubscribeContent() {
                   {brand.supportEmail}
                 </a>
               </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Handle transactional emails
-  if (data?.isTransactional) {
-    return (
-      <div className='flex min-h-screen items-center justify-center bg-background p-4'>
-        <Card className='w-full max-w-md border shadow-sm'>
-          <CardHeader className='text-center'>
-            <Info className='mx-auto mb-2 h-12 w-12 text-blue-500' />
-            <CardTitle className='text-foreground'>{unsubscribeCopy.transactional.title}</CardTitle>
-            <CardDescription className='text-muted-foreground'>
-              {unsubscribeCopy.transactional.description}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className='space-y-4'>
-            <div className='rounded-lg border bg-blue-50 p-4'>
-              <p className='text-blue-800 text-sm'>
-                <strong>{unsubscribeCopy.transactional.important}</strong>{' '}
-                {unsubscribeCopy.transactional.body}
-              </p>
-            </div>
-
-            <div className='space-y-3'>
-              <p className='text-foreground text-sm'>
-                {unsubscribeCopy.transactional.optionsPrefix}
-              </p>
-              <ul className='ml-4 list-inside list-disc space-y-1 text-muted-foreground text-sm'>
-                <li>{unsubscribeCopy.transactional.closeAccount}</li>
-                <li>{unsubscribeCopy.transactional.contactSupport}</li>
-              </ul>
-            </div>
-
-            <div className='mt-6 flex flex-col gap-3'>
-              <Button
-                onClick={() =>
-                  window.open(
-                    `mailto:${brand.supportEmail}?subject=Account%20Help&body=Hi%2C%20I%20need%20help%20with%20my%20account%20emails.`,
-                    '_blank'
-                  )
-                }
-                className='w-full bg-blue-600 text-white hover:bg-blue-700'
-              >
-                {unsubscribeCopy.transactional.contactButton}
-              </Button>
-              <Button onClick={() => window.close()} variant='outline' className='w-full'>
-                {unsubscribeCopy.transactional.closeButton}
-              </Button>
             </div>
           </CardContent>
         </Card>

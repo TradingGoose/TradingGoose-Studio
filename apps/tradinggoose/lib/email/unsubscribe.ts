@@ -21,24 +21,23 @@ function signUnsubscribeToken(mailbox: Mailbox, salt: string, emailType: string)
     .digest()
 }
 
-export function generateUnsubscribeToken(mailbox: Mailbox, emailType: EmailType): string {
+export function generateUnsubscribeToken(
+  mailbox: Mailbox,
+  emailType: Exclude<EmailType, 'transactional'>
+): string {
   const salt = randomBytes(16).toString('hex')
   return `${salt}:${signUnsubscribeToken(mailbox, salt, emailType).toString('hex')}:${emailType}`
 }
 
-export function verifyUnsubscribeToken(mailbox: Mailbox | undefined, token: string) {
-  if (!mailbox) return null
-  const parts =
-    /^([a-f0-9]{32}):([a-f0-9]{64}):(transactional|marketing|updates|notifications)$/.exec(token)
-  if (!parts) return null
+export function verifyUnsubscribeToken(mailbox: Mailbox, token: string) {
+  const parts = /^([a-f0-9]{32}):([a-f0-9]{64}):(marketing|updates|notifications)$/.exec(token)
+  if (!parts) return false
 
   const [, salt, signature, emailType] = parts
   return timingSafeEqual(
     Buffer.from(signature, 'hex'),
     signUnsubscribeToken(mailbox, salt, emailType)
   )
-    ? emailType
-    : null
 }
 
 export async function getEmailRecipient(where: SQL, tx?: Transaction) {
@@ -54,8 +53,8 @@ export async function getEmailRecipient(where: SQL, tx?: Transaction) {
     .leftJoin(settings, eq(settings.userId, user.id))
     .where(where)
     .limit(1)
-  const [recipient] = await (tx ? query.for('update', { of: user }) : query)
-  return recipient
+  const recipients = await (tx ? query.for('update', { of: user }) : query)
+  return recipients.at(0)
 }
 
 /**

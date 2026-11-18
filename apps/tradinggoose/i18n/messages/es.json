@@ -892,17 +892,6 @@
       "goBack": "Volver",
       "immediateHelpPrefix": "¿Necesitas ayuda inmediata? Escríbenos a"
     },
-    "transactional": {
-      "title": "Correos importantes de la cuenta",
-      "description": "Este correo contiene información importante sobre tu cuenta",
-      "important": "Correos transaccionales",
-      "body": "Los correos transaccionales como restablecimientos de contraseña, confirmaciones de cuenta y alertas de seguridad no se pueden cancelar porque contienen información esencial para la seguridad y funcionalidad de tu cuenta.",
-      "optionsPrefix": "Si ya no deseas recibir estos correos, puedes:",
-      "closeAccount": "Cerrar toda tu cuenta",
-      "contactSupport": "Contactar a nuestro equipo de soporte para obtener ayuda",
-      "contactButton": "Contactar soporte",
-      "closeButton": "Cerrar"
-    },
     "success": {
       "title": "Cancelación completada",
       "description": "Te has dado de baja de nuestros correos. Dejarás de recibir correos dentro de 48 horas.",
@@ -927,7 +916,6 @@
       "missing-parameters": "Falta el parámetro de correo o token",
       "invalid-link": "Enlace de cancelación no válido o expirado",
       "invalid-request-data": "Datos de solicitud no válidos",
-      "transactional": "Los correos transaccionales no se pueden cancelar porque contienen información importante de la cuenta.",
       "failed-processing": "No se pudo procesar la solicitud de cancelación",
       "internal-error": "Error interno del servidor",
       "unknown": "Ocurrió un error inesperado."
@@ -23451,8 +23439,7 @@
       "copyright": "(c) {year} {brandName}, Todos los derechos reservados",
       "questions": "¿Preguntas? Escribe a",
       "privacy": "Política de privacidad",
-      "terms": "Términos de servicio",
-      "unsubscribe": "Cancelar suscripción"
+      "terms": "Términos de servicio"
     },
     "subjects": {
       "sign-in": "Inicia sesión en {brandName}",

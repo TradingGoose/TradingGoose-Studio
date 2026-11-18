@@ -49,23 +49,15 @@ export async function GET(req: NextRequest) {
     }
 
     const recipient = await getEmailRecipient(eq(user.email, email))
-    const emailType = verifyUnsubscribeToken(recipient, token)
-    if (!emailType) {
+    if (!recipient || !verifyUnsubscribeToken(recipient, token)) {
       logger.warn(`[${requestId}] Invalid unsubscribe token for email: ${email}`)
       return invalidLink()
     }
 
-    logger.info(
-      `[${requestId}] Valid unsubscribe GET request for email: ${email}, type: ${emailType}`
-    )
-
     return NextResponse.json({
       success: true,
       email,
-      token,
-      emailType,
-      isTransactional: emailType === 'transactional',
-      currentPreferences: recipient?.preferences ?? {},
+      currentPreferences: recipient.preferences ?? {},
     })
   } catch (error) {
     logger.error(`[${requestId}] Error processing unsubscribe GET request:`, error)
@@ -99,47 +91,20 @@ export async function POST(req: NextRequest) {
 
     const { email, token, type } = result.data
 
-    const emailType = await db.transaction(async (tx) => {
+    const updated = await db.transaction(async (tx) => {
       const recipient = await getEmailRecipient(eq(user.email, email), tx)
-      const emailType = verifyUnsubscribeToken(recipient, token)
-      if (recipient && emailType && emailType !== 'transactional') {
-        await updateEmailPreferences(tx, recipient.id, { [preferenceKeys[type]]: true })
-      }
-      return emailType
+      if (!recipient || !verifyUnsubscribeToken(recipient, token)) return false
+      await updateEmailPreferences(tx, recipient.id, { [preferenceKeys[type]]: true })
+      return true
     })
-    if (!emailType) {
+    if (!updated) {
       logger.warn(`[${requestId}] Invalid unsubscribe token for email: ${email}`)
       return invalidLink()
     }
 
-    // Prevent unsubscribing from transactional emails
-    if (emailType === 'transactional') {
-      logger.warn(`[${requestId}] Attempted to unsubscribe from transactional email: ${email}`)
-      return NextResponse.json(
-        {
-          error: 'cannot_unsubscribe_from_transactional_emails',
-          code: 'transactional',
-          isTransactional: true,
-          message: 'transactional_emails_unsubscribable',
-        },
-        { status: 400 }
-      )
-    }
-
     logger.info(`[${requestId}] Successfully unsubscribed ${email} from ${type}`)
 
-    // Return 200 for one-click unsubscribe compliance
-    return NextResponse.json(
-      {
-        success: true,
-        code: 'success',
-        message: `Successfully unsubscribed from ${type} emails`,
-        email,
-        type,
-        emailType,
-      },
-      { status: 200 }
-    )
+    return NextResponse.json({ success: true })
   } catch (error) {
     logger.error(`[${requestId}] Error processing unsubscribe POST request:`, error)
     return NextResponse.json(

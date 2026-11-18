@@ -892,17 +892,6 @@
       "goBack": "Go Back",
       "immediateHelpPrefix": "Need immediate help? Email us at"
     },
-    "transactional": {
-      "title": "Important Account Emails",
-      "description": "This email contains important information about your account",
-      "important": "Transactional emails",
-      "body": "Transactional emails like password resets, account confirmations, and security alerts cannot be unsubscribed from as they contain essential information for your account security and functionality.",
-      "optionsPrefix": "If you no longer wish to receive these emails, you can:",
-      "closeAccount": "Close your account entirely",
-      "contactSupport": "Contact our support team for assistance",
-      "contactButton": "Contact Support",
-      "closeButton": "Close"
-    },
     "success": {
       "title": "Successfully Unsubscribed",
       "description": "You have been unsubscribed from our emails. You will stop receiving emails within 48 hours.",
@@ -927,7 +916,6 @@
       "missing-parameters": "Missing email or token parameter",
       "invalid-link": "Invalid or expired unsubscribe link",
       "invalid-request-data": "Invalid request data",
-      "transactional": "Transactional emails cannot be unsubscribed from as they contain important account information.",
       "failed-processing": "Failed to process unsubscribe request",
       "internal-error": "Internal server error",
       "unknown": "An unexpected error occurred."
@@ -23451,8 +23439,7 @@
       "copyright": "(c) {year} {brandName}, All Rights Reserved",
       "questions": "Questions? Email",
       "privacy": "Privacy Policy",
-      "terms": "Terms of Service",
-      "unsubscribe": "Unsubscribe"
+      "terms": "Terms of Service"
     },
     "subjects": {
       "sign-in": "Sign in to {brandName}",

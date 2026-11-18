@@ -1,38 +1,23 @@
 import { Container, Img, Link, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
-import {
-  type EmailLocale,
-  emailText,
-  getEmailCopy,
-  normalizeEmailTemplateLocale,
-} from '@/components/emails/email-copy'
+import { emailText, getEmailCopy } from '@/components/emails/email-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { localizeUrl } from '@/i18n/utils'
-
-interface UnsubscribeOptions {
-  unsubscribeToken?: string
-  email?: string
-}
+import { type LocaleInput, localizeUrl, normalizeLocaleCode } from '@/i18n/utils'
 
 interface EmailFooterProps {
   baseUrl?: string
-  unsubscribe?: UnsubscribeOptions
-  locale?: EmailLocale
+  locale?: LocaleInput
 }
 
-export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: EmailFooterProps) => {
-  const resolvedLocale = normalizeEmailTemplateLocale(locale)
+export const EmailFooter = ({ baseUrl = getBaseUrl(), locale }: EmailFooterProps) => {
+  const resolvedLocale = normalizeLocaleCode(locale)
   const copy = getEmailCopy(resolvedLocale)
   const brand = getBrandConfig()
   const year = new Date().getFullYear()
   const privacyUrl = localizeUrl(baseUrl, resolvedLocale, '/privacy')
   const termsUrl = localizeUrl(baseUrl, resolvedLocale, '/terms')
-  const unsubscribeUrl =
-    unsubscribe?.unsubscribeToken && unsubscribe?.email
-      ? `${localizeUrl(baseUrl, resolvedLocale, '/unsubscribe')}?token=${unsubscribe.unsubscribeToken}&email=${encodeURIComponent(unsubscribe.email)}`
-      : '{{{RESEND_UNSUBSCRIBE_URL}}}'
 
   return (
     <Container style={baseStyles.footer}>
@@ -146,19 +131,6 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
                             rel='noopener noreferrer'
                           >
                             {copy.footer.terms}
-                          </a>{' '}
-                          |{' '}
-                          <a
-                            href={unsubscribeUrl}
-                            style={{
-                              color: baseStyles.link.color,
-                              textDecoration: 'underline',
-                              fontWeight: 600,
-                              fontFamily: baseStyles.fontFamily,
-                            }}
-                            rel='noopener noreferrer'
-                          >
-                            {copy.footer.unsubscribe}
                           </a>
                         </p>
                       </td>

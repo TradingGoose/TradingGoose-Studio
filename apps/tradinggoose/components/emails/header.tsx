@@ -1,20 +1,19 @@
 import { Img, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
-import { type EmailLocale, getEmailCopy } from '@/components/emails/email-copy'
+import { getEmailCopy } from '@/components/emails/email-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
+import type { LocaleInput } from '@/i18n/utils'
 
 interface EmailHeaderProps {
   baseUrl?: string
-  tagline?: string
-  locale?: EmailLocale
+  locale?: LocaleInput
 }
 
-export const EmailHeader = ({ baseUrl = getBaseUrl(), tagline, locale }: EmailHeaderProps) => {
+export const EmailHeader = ({ baseUrl = getBaseUrl(), locale }: EmailHeaderProps) => {
   const brand = getBrandConfig()
   const logoSrc = `${baseUrl}/favicon/goose.png`
-  const copy = getEmailCopy(locale)
-  const resolvedTagline = tagline ?? copy.shared.tagline
+  const { tagline } = getEmailCopy(locale).shared
 
   return (
     <Section style={baseStyles.header}>
@@ -34,7 +33,7 @@ export const EmailHeader = ({ baseUrl = getBaseUrl(), tagline, locale }: EmailHe
               <span style={{ ...baseStyles.brandName, display: 'inline-block', margin: 0 }}>
                 {brand.name}
               </span>
-              {resolvedTagline ? <Text style={baseStyles.tagline}>{resolvedTagline}</Text> : null}
+              <Text style={baseStyles.tagline}>{tagline}</Text>
             </td>
           </tr>
         </tbody>
