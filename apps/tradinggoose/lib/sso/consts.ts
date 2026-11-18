@@ -4,10 +4,16 @@ import { z } from 'zod'
 export const SSO_PROVIDER_ID_MAX_LENGTH = 44
 export const ssoProviderIdSchema = z
   .string()
-  .min(1, 'Provider ID is required')
+  .trim()
+  .toLowerCase()
+  .min(1, 'Provider ID is required.')
   .max(
     SSO_PROVIDER_ID_MAX_LENGTH,
-    `Provider ID must be at most ${SSO_PROVIDER_ID_MAX_LENGTH} characters`
+    `Provider ID must be at most ${SSO_PROVIDER_ID_MAX_LENGTH} characters.`
+  )
+  .regex(
+    /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/,
+    'Use letters and numbers with optional internal dashes.'
   )
 
 export const SSO_PROVIDER_IDS = [

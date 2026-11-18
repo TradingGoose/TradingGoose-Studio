@@ -169,12 +169,11 @@ afterEach(() => {
 })
 
 describe('native SSO registration and account matching', () => {
-  it.each([44, 45, 47])(
-    'enforces the DNS provider ID boundary at %i characters',
-    async (length) => {
+  it.each(['a'.repeat(44), 'a'.repeat(45), 'company/sso', 'team.sso', 'team_sso'])(
+    'validates DNS and callback boundaries for provider ID %s',
+    async (providerId) => {
       const { auth, context, headers, register, registrationBody, verify } = await setup()
-      const providerId = 'a'.repeat(length)
-      if (length === 44) {
+      if (providerId.length === 44) {
         await register(providerId)
         await verify(providerId)
         await expect(
@@ -216,7 +215,9 @@ describe('native SSO registration and account matching', () => {
 
   it('registers SAML while retaining the native reserved OAuth namespace restriction', async () => {
     const { register } = await setup()
-    await expect(register('okta-saml', 'saml')).resolves.toMatchObject({ providerId: 'okta-saml' })
+    await expect(register(' OKTA-SAML ', 'saml')).resolves.toMatchObject({
+      providerId: 'okta-saml',
+    })
     for (const providerId of ['credential', 'google', 'github-repo']) {
       await expect(register(providerId)).rejects.toMatchObject({ statusCode: 422 })
     }

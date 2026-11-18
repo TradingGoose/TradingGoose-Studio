@@ -789,6 +789,7 @@ export const auth = betterAuth({
             message: providerId.error.issues[0].message,
           })
         }
+        ctx.body.providerId = providerId.data
       }
       if (
         ctx.path === '/sign-up/email' &&
