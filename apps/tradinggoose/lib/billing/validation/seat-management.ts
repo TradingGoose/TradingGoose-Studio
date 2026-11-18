@@ -1,8 +1,7 @@
 import { db } from '@tradinggoose/db'
-import { invitation, member, user } from '@tradinggoose/db/schema'
+import { invitation, member } from '@tradinggoose/db/schema'
 import { and, count, eq } from 'drizzle-orm'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
-import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('SeatManagement')
@@ -111,84 +110,6 @@ export async function validateSeatAvailability(
       currentSeats: 0,
       maxSeats: 0,
       availableSeats: 0,
-    }
-  }
-}
-
-/**
- * Validate and reserve seats for bulk invitations
- */
-export async function validateBulkInvitations(
-  organizationId: string,
-  emailList: string[]
-): Promise<{
-  canInviteAll: boolean
-  validEmails: string[]
-  duplicateEmails: string[]
-  existingMembers: string[]
-  seatsNeeded: number
-  seatsAvailable: number
-  validationResult: SeatValidationResult
-}> {
-  try {
-    const uniqueEmails = [...new Set(emailList)]
-    const validEmails = uniqueEmails.filter(
-      (email) => quickValidateEmail(email.trim().toLowerCase()).isValid
-    )
-    const duplicateEmails = emailList.filter((email, index) => emailList.indexOf(email) !== index)
-
-    const existingMembers = await db
-      .select({ userEmail: user.email })
-      .from(member)
-      .innerJoin(user, eq(member.userId, user.id))
-      .where(eq(member.organizationId, organizationId))
-
-    const existingEmails = existingMembers.map((m) => m.userEmail)
-    const newEmails = validEmails.filter((email) => !existingEmails.includes(email))
-
-    const pendingInvitations = await db
-      .select({ email: invitation.email })
-      .from(invitation)
-      .where(and(eq(invitation.organizationId, organizationId), eq(invitation.status, 'pending')))
-
-    const pendingEmails = pendingInvitations.map((i) => i.email)
-    const finalEmailsToInvite = newEmails.filter((email) => !pendingEmails.includes(email))
-
-    const seatsNeeded = finalEmailsToInvite.length
-    const validationResult = await validateSeatAvailability(organizationId, seatsNeeded)
-
-    return {
-      canInviteAll: validationResult.canInvite && finalEmailsToInvite.length > 0,
-      validEmails: finalEmailsToInvite,
-      duplicateEmails,
-      existingMembers: validEmails.filter((email) => existingEmails.includes(email)),
-      seatsNeeded,
-      seatsAvailable: validationResult.availableSeats,
-      validationResult,
-    }
-  } catch (error) {
-    logger.error('Failed to validate bulk invitations', {
-      organizationId,
-      emailCount: emailList.length,
-      error,
-    })
-
-    const validationResult: SeatValidationResult = {
-      canInvite: false,
-      reason: 'Validation failed',
-      currentSeats: 0,
-      maxSeats: 0,
-      availableSeats: 0,
-    }
-
-    return {
-      canInviteAll: false,
-      validEmails: [],
-      duplicateEmails: [],
-      existingMembers: [],
-      seatsNeeded: 0,
-      seatsAvailable: 0,
-      validationResult,
     }
   }
 }

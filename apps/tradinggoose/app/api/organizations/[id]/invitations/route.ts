@@ -17,10 +17,7 @@ import {
   renderInvitationEmail,
 } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
-import {
-  validateBulkInvitations,
-  validateSeatAvailability,
-} from '@/lib/billing/validation/seat-management'
+import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -105,9 +102,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 /**
  * POST /api/organizations/[id]/invitations
- * Create organization invitations with optional validation and batch workspace invitations
+ * Create organization invitations with optional batch workspace invitations
  * Query parameters:
- * - ?validate=true - Only validate, don't send invitations
  * - ?batch=true - Include workspace invitations
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -120,7 +116,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const { id: organizationId } = await params
     const url = new URL(request.url)
-    const validateOnly = url.searchParams.get('validate') === 'true'
+    if ([...url.searchParams.keys()].some((key) => key !== 'batch')) {
+      return NextResponse.json({ error: 'Unsupported invitation query parameter' }, { status: 400 })
+    }
     const isBatch = url.searchParams.get('batch') === 'true'
 
     const body = await request.json()
@@ -151,24 +149,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (!['owner', 'admin'].includes(memberEntry[0].role)) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
-    }
-
-    if (validateOnly) {
-      const validationResult = await validateBulkInvitations(organizationId, invitationEmails)
-
-      logger.info('Invitation validation completed', {
-        organizationId,
-        userId: session.user.id,
-        emailCount: invitationEmails.length,
-        result: validationResult,
-      })
-
-      return NextResponse.json({
-        success: true,
-        data: validationResult,
-        validatedBy: session.user.id,
-        validatedAt: new Date().toISOString(),
-      })
     }
 
     const organizationEntry = await db
