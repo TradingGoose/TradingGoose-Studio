@@ -81,7 +81,11 @@ describe('localized auth entry pages', () => {
     mockGetBrandConfig.mockReturnValue({ supportEmail: 'support@tradinggoose.ai' })
   })
 
-  it('redirects login to the localized workspace when a session is present', async () => {
+  it.each([
+    [undefined, '/workspace'],
+    ['/invite/invitation?token=workspace-token', '/invite/invitation?token=workspace-token'],
+    ['https://external.example/redirect', '/workspace'],
+  ])('redirects authenticated login for callback %s', async (callbackUrl, destination) => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -90,7 +94,9 @@ describe('localized auth entry pages', () => {
 
     const LoginPage = (await import('./login/page')).default
 
-    await expect(LoginPage()).rejects.toThrow('redirect:/es/workspace')
+    await expect(LoginPage({ searchParams: Promise.resolve({ callbackUrl }) })).rejects.toThrow(
+      `redirect:/es${destination}`
+    )
     expect(mockGetSession).toHaveBeenCalledWith()
     expect(mockGetOAuthProviderAvailability).not.toHaveBeenCalled()
     expect(mockGetRegistrationModeForRender).not.toHaveBeenCalled()

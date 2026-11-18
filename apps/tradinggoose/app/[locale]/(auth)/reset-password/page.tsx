@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useMessages } from 'next-intl'
 import { client } from '@/lib/auth-client'
@@ -9,6 +9,7 @@ import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { SetNewPasswordForm } from '@/app/(auth)/reset-password/reset-password-form'
 import { inter } from '@/app/fonts/inter'
 import { Link, useRouter } from '@/i18n/navigation'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('ResetPasswordPage')
 
@@ -23,26 +24,22 @@ function ResetPasswordContent() {
   const resetCopy = copy.auth.resetPassword
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
+  const loginParams = new URLSearchParams()
+  const destination = normalizeCallbackUrl(searchParams.get('callbackUrl'))
+  if (destination) loginParams.set('callbackUrl', destination)
+  if (searchParams.get('invite_flow') === 'true') loginParams.set('invite_flow', 'true')
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [resetResult, setResetResult] = useState<ResetPasswordResult | null>(null)
 
-  useEffect(() => {
-    if (!token) {
-      setResetResult({
-        type: 'error',
-        message: resetCopy.invalidToken,
-      })
-    }
-  }, [resetCopy.invalidToken, token])
-
   const handleResetPassword = async (password: string) => {
+    if (!token) return
     try {
       setIsSubmitting(true)
       setResetResult(null)
 
       const { error } = await client.resetPassword({
-        token: token ?? undefined,
+        token,
         newPassword: password,
       })
       if (error) {
@@ -54,9 +51,8 @@ function ResetPasswordContent() {
         message: resetCopy.success,
       })
 
-      setTimeout(() => {
-        router.push('/login?resetSuccess=true')
-      }, 1500)
+      loginParams.set('resetSuccess', 'true')
+      setTimeout(() => router.push(`/login?${loginParams}`), 1500)
     } catch (error) {
       logger.error('Error resetting password:', { error })
       setResetResult({
@@ -81,13 +77,13 @@ function ResetPasswordContent() {
           token={token}
           onSubmit={handleResetPassword}
           isSubmitting={isSubmitting}
-          result={resetResult}
+          result={token ? resetResult : { type: 'error', message: resetCopy.invalidToken }}
         />
       </div>
 
       <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
         <Link
-          href='/login'
+          href={loginParams.size ? `/login?${loginParams}` : '/login'}
           className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
         >
           {resetCopy.backToLogin}

@@ -242,9 +242,8 @@ describe('native SSO registration and account matching', () => {
     await expect(context.internalAdapter.listSessions('local-user')).resolves.toEqual([])
   })
 
-  it('uses the verified domain match and supports explicit selection when multiple match', async () => {
+  it('discovers a provider from email and supports explicit provider selection', async () => {
     const { auth, register, verify } = await setup()
-    await register('okta')
     await register('okta-prod')
     await verify('okta-prod')
     const signIn = (providerId?: string) =>
@@ -253,15 +252,14 @@ describe('native SSO registration and account matching', () => {
 
     expect(redirectUri((await signIn()).url)).toBe(`${baseURL}/api/auth/sso/callback/okta-prod`)
 
-    await verify('okta')
-    await expect(signIn()).rejects.toMatchObject({
-      statusCode: 409,
-      body: { code: 'SSO_PROVIDER_AMBIGUOUS' },
-    })
-    expect(redirectUri((await signIn('okta')).url)).toBe(`${baseURL}/api/auth/sso/callback/okta`)
+    await register('okta')
+    await expect(signIn('okta')).rejects.toMatchObject({ statusCode: 401 })
+    expect(redirectUri((await signIn('okta-prod')).url)).toBe(
+      `${baseURL}/api/auth/sso/callback/okta-prod`
+    )
   })
 
-  it('first-links after native DNS verification and retains that subject after an email change', async () => {
+  it('signs in a linked SSO subject after their Studio email changes', async () => {
     const { auth, context, register, verify, callback } = await setup()
     await register()
     await verify()
@@ -273,11 +271,15 @@ describe('native SSO registration and account matching', () => {
     await expect(context.internalAdapter.findAccounts('local-user')).resolves.toEqual([
       expect.objectContaining({ userId: 'local-user', providerId: 'okta', accountId: profile.sub }),
     ])
-    await context.internalAdapter.updateUser('local-user', { email: 'moved@elsewhere.com' })
+    const mailbox = { email: 'moved@elsewhere.com', emailVerified: true }
+    await context.internalAdapter.updateUser('local-user', mailbox)
     const returning = await callback()
     await expect(
       auth.api.getSession({ headers: { cookie: cookies(returning) } })
-    ).resolves.toMatchObject({ user: { id: 'local-user', email: 'moved@elsewhere.com' } })
+    ).resolves.toMatchObject({
+      user: { id: 'local-user', email: mailbox.email },
+    })
+    await expect(context.internalAdapter.findUserById('local-user')).resolves.toMatchObject(mailbox)
     expect(vi.mocked(fetch).mock.calls.map(([url]) => String(url))).toEqual([
       `${issuer}/token`,
       `${issuer}/userinfo`,

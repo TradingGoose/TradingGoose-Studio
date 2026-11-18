@@ -6,7 +6,6 @@ WORKDIR /app
 
 # Copy only package files needed for migrations
 COPY package.json bun.lock ./
-COPY patches ./patches
 COPY packages/db/package.json ./packages/db/package.json
 
 # Install dependencies

@@ -15,8 +15,12 @@ export function useAuthRedirectUrls() {
     providerErrorPath(callbackPath: string | null | undefined) {
       return getAuthErrorCallbackPath(callbackPath) ?? '/error'
     },
-    passwordResetUrl() {
-      return localizeUrl(getBaseUrl(), locale, '/reset-password')
+    passwordResetUrl(callbackUrl?: string, isInviteFlow = false) {
+      const url = new URL(localizeUrl(getBaseUrl(), locale, '/reset-password'))
+      const destination = normalizeCallbackUrl(callbackUrl)
+      if (destination) url.searchParams.set('callbackUrl', destination)
+      if (isInviteFlow) url.searchParams.set('invite_flow', 'true')
+      return url.toString()
     },
   }
 }

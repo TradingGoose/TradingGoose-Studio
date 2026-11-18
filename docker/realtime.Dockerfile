@@ -11,7 +11,6 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json bun.lock ./
-COPY patches ./patches
 RUN mkdir -p apps
 COPY apps/tradinggoose/package.json ./apps/tradinggoose/package.json
 COPY packages/db/package.json ./packages/db/package.json

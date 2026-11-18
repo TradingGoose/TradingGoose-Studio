@@ -30,7 +30,6 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState<string | null>(null)
-  const [showProviderId, setShowProviderId] = useState(false)
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
   const callbackUrl =
@@ -50,7 +49,6 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value)
     setEmailError(null)
-    setShowProviderId(false)
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -87,7 +85,6 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
     if (!error) return
 
     logger.error('SSO sign-in failed', { error, email: emailValue })
-    if (error.code === 'SSO_PROVIDER_AMBIGUOUS') setShowProviderId(true)
     setEmailError(
       resolveSsoAuthErrorMessage(copy, error.code) ??
         resolveSsoAuthErrorMessage(copy, error.message) ??
@@ -147,12 +144,10 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
               </div>
             )}
           </div>
-          {showProviderId && (
-            <div className='space-y-2'>
-              <Label htmlFor='sso-provider-id'>{ssoCopy.providerId}</Label>
-              <Input id='sso-provider-id' name='providerId' autoCapitalize='none' />
-            </div>
-          )}
+          <div className='space-y-2'>
+            <Label htmlFor='sso-provider-id'>{ssoCopy.providerId}</Label>
+            <Input id='sso-provider-id' name='providerId' autoCapitalize='none' />
+          </div>
         </div>
 
         <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>

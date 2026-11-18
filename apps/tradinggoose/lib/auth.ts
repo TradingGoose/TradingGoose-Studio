@@ -10,6 +10,7 @@ import {
   createAuthMiddleware,
   getAuthoritativeSessionFromCtx,
   getOAuthState,
+  revokeOtherSessions,
 } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import { emailOTP, genericOAuth, oneTimeToken, organization, username } from 'better-auth/plugins'
@@ -47,8 +48,7 @@ import {
   handleSubscriptionCreated,
 } from '@/lib/billing/webhooks/subscription'
 import { resolveEmailLocale } from '@/lib/email/locale'
-import { addVerifiedUserEmailToAudience, hasEmailService, sendEmail } from '@/lib/email/mailer'
-import { quickValidateEmail } from '@/lib/email/validation'
+import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled, isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -604,6 +604,16 @@ export const auth = betterAuth({
           }
         },
       },
+      update: {
+        before: async (_user, ctx) => {
+          if (ctx?.path === '/email-otp/change-email') {
+            await revokeOtherSessions({
+              context: ctx.context,
+              headers: new Headers(ctx.headers ?? ctx.request?.headers),
+            })
+          }
+        },
+      },
     },
     account: {
       create: {
@@ -721,13 +731,9 @@ export const auth = betterAuth({
     },
   },
   socialProviders: buildSocialProviders(),
-  user: {
-    additionalFields: {
-      mailboxVersion: { type: 'number', input: false, returned: false, defaultValue: 0 },
-    },
-  },
   emailAndPassword: {
     enabled: true,
+    revokeSessionsOnPasswordReset: true,
     requireEmailVerification: isEmailVerificationEnabled,
     sendResetPassword: async ({ user, url }) => {
       const username = user.name || ''
@@ -749,12 +755,13 @@ export const auth = betterAuth({
   },
   emailVerification: {
     autoSignInAfterVerification: true,
-    afterEmailVerification: async (user, _request, previousEmail?: string) => {
-      await addVerifiedUserEmailToAudience(user, previousEmail)
-    },
+    afterEmailVerification: (user) => addVerifiedUserEmailToAudience(user),
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === '/change-password') {
+        return { context: { body: { ...ctx.body, revokeOtherSessions: true } } }
+      }
       if (
         (ctx.path === '/sso/request-domain-verification' || ctx.path === '/sso/verify-domain') &&
         typeof ctx.body?.providerId === 'string'
@@ -800,62 +807,16 @@ export const auth = betterAuth({
           message: 'Username is required',
         })
       }
-      const isEmailChange =
-        ctx.path === '/email-otp/request-email-change' || ctx.path === '/email-otp/change-email'
-      const isCurrentEmailVerification =
-        ctx.path === '/email-otp/send-verification-otp' && ctx.body?.type === 'email-verification'
-
-      if (isEmailChange || isCurrentEmailVerification) {
-        const session = await getAuthoritativeSessionFromCtx(ctx)
-        if (session) {
-          const currentEmail = session.user.email.trim().toLowerCase()
-          if (isCurrentEmailVerification) {
-            if (
-              typeof ctx.body?.email !== 'string' ||
-              ctx.body.email.trim().toLowerCase() !== currentEmail
-            ) {
-              throw new APIError('FORBIDDEN', {
-                code: 'EMAIL_CHANGE_NOT_ALLOWED',
-                message: 'Verification must be sent to your current email address',
-              })
-            }
-            ctx.body.email = currentEmail
-          } else {
-            const newEmail =
-              typeof ctx.body?.newEmail === 'string' ? ctx.body.newEmail.trim().toLowerCase() : ''
-            if (!quickValidateEmail(newEmail).isValid) {
-              throw new APIError('BAD_REQUEST', {
-                code: 'INVALID_EMAIL',
-                message: 'Enter a valid email address',
-              })
-            }
-            if (!isLoginEmailAllowed(newEmail)) {
-              throw new APIError('FORBIDDEN', {
-                code: 'EMAIL_CHANGE_NOT_ALLOWED',
-                message: 'This email address is not allowed to sign in',
-              })
-            }
-            if (
-              newEmail !== currentEmail &&
-              (await ctx.context.internalAdapter.findUserByEmail(newEmail))
-            ) {
-              throw new APIError('BAD_REQUEST', {
-                code: 'EMAIL_CHANGE_EMAIL_IN_USE',
-                message: 'This email address is already in use',
-              })
-            }
-            ctx.body.newEmail = newEmail
-          }
-          if (
-            (isCurrentEmailVerification || ctx.path === '/email-otp/request-email-change') &&
-            !(await hasEmailService())
-          ) {
-            throw new APIError('SERVICE_UNAVAILABLE', {
-              code: 'EMAIL_CHANGE_UNAVAILABLE',
-              message: 'Email delivery is unavailable. Please try again later',
-            })
-          }
-        }
+      if (
+        (ctx.path === '/email-otp/request-email-change' ||
+          ctx.path === '/email-otp/change-email') &&
+        typeof ctx.body?.newEmail === 'string' &&
+        !isLoginEmailAllowed(ctx.body.newEmail)
+      ) {
+        throw new APIError('FORBIDDEN', {
+          code: 'EMAIL_CHANGE_NOT_ALLOWED',
+          message: 'This email address is not allowed to sign in',
+        })
       }
 
       if (
@@ -894,51 +855,17 @@ export const auth = betterAuth({
     emailOTP({
       // https://better-auth.com/docs/1.6/plugins/email-otp#confirming-with-current-email
       changeEmail: { enabled: true, verifyCurrentEmail: true },
-      sendVerificationOTP: async (data, ctx) => {
-        const session = ctx?.context.session
-        const isEmailChange =
-          data.type === 'change-email' || (data.type === 'email-verification' && Boolean(session))
-        if (!isEmailChange && !isEmailVerificationEnabled) {
-          logger.info('Skipping email verification')
-          return
-        }
-        try {
-          const validation = quickValidateEmail(data.email)
-          if (!validation.isValid) {
-            logger.warn('Email validation failed', {
-              email: data.email,
-              reason: validation.reason,
-            })
-            throw new Error(validation.reason)
-          }
-
-          const locale = await resolveEmailLocale({ userId: session?.user.id, email: data.email })
-          const html = await renderOTPEmail(data.otp, data.email, data.type, undefined, locale)
-
-          const result = await sendEmail({
-            to: data.email,
-            subject: getEmailSubject(data.type, locale),
-            html,
-            text: `${getEmailSubject(data.type, locale)}\n\n${data.otp}`,
-            emailType: 'transactional',
-          })
-
-          if (!result.success) {
-            throw new Error(`Failed to send verification code: ${result.message}`)
-          }
-        } catch (error) {
-          logger.error('Error sending verification code:', {
-            error,
-            email: data.email,
-          })
-          if (isEmailChange) {
-            throw new APIError('SERVICE_UNAVAILABLE', {
-              code: 'EMAIL_CHANGE_SEND_FAILED',
-              message: 'Could not send the verification code',
-            })
-          }
-          throw error
-        }
+      sendVerificationOTP: async ({ email, otp, type }, ctx) => {
+        const locale = await resolveEmailLocale({ email, userId: ctx?.context.session?.user.id })
+        const subject = getEmailSubject(type, locale)
+        const result = await sendEmail({
+          to: email,
+          subject,
+          html: await renderOTPEmail(otp, email, type, undefined, locale),
+          text: `${subject}\n\n${otp}`,
+          emailType: 'transactional',
+        })
+        if (!result.success) throw new Error(result.message)
       },
       otpLength: 6, // Explicitly set the OTP length
       expiresIn: 15 * 60, // 15 minutes in seconds

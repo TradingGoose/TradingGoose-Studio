@@ -73,17 +73,19 @@ export default function LoginPage({
   const loginCopy = copy.auth.login
   const commonCopy = copy.auth.common
   const authRegistrationLabel = copy.registration[registrationMode].auth
-  const defaultCallbackPath = '/workspace'
   const searchParams = useSearchParams()
+  const callbackUrl =
+    normalizeCallbackUrl(
+      searchParams.get('callbackUrl'),
+      typeof window !== 'undefined' ? window.location.origin : undefined
+    ) ?? '/workspace'
+  const isInviteFlow = searchParams.get('invite_flow') === 'true'
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
-
-  const [callbackUrl, setCallbackUrl] = useState(defaultCallbackPath)
-  const [isInviteFlow, setIsInviteFlow] = useState(false)
 
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
@@ -139,27 +141,6 @@ export default function LoginPage({
       await runReauthCleanup()
     }
   }, [runReauthCleanup])
-
-  useEffect(() => {
-    if (searchParams) {
-      const callback = searchParams.get('callbackUrl')
-      if (callback) {
-        const normalizedCallback = normalizeCallbackUrl(
-          callback,
-          typeof window !== 'undefined' ? window.location.origin : undefined
-        )
-
-        if (normalizedCallback) {
-          setCallbackUrl(normalizedCallback)
-        } else {
-          logger.warn('Invalid callback URL detected and blocked:', { url: callback })
-        }
-      }
-
-      const inviteFlow = searchParams.get('invite_flow') === 'true'
-      setIsInviteFlow(inviteFlow)
-    }
-  }, [searchParams])
 
   useEffect(() => {
     shouldRunReauthCleanupRef.current = isReauth
@@ -257,7 +238,7 @@ export default function LoginPage({
 
       const credentials = {
         password,
-        callbackURL: authRedirectUrls.providerCallbackPath(callbackUrl),
+        callbackURL: callbackUrl,
       }
       const { error } = isEmail
         ? await client.signIn.email({ email, ...credentials })
@@ -320,7 +301,7 @@ export default function LoginPage({
 
       const { error } = await client.requestPasswordReset({
         email: forgotPasswordEmail.trim().toLowerCase(),
-        redirectTo: authRedirectUrls.passwordResetUrl(),
+        redirectTo: authRedirectUrls.passwordResetUrl(callbackUrl, isInviteFlow),
       })
       if (error) {
         throw new Error(error.message || loginCopy.resetDialog.error)

@@ -324,17 +324,8 @@ describe('auth provider callback routing', () => {
     )
     expect(form.querySelector('button[type="submit"]')).toBeEnabled()
 
-    mockSsoSignIn.mockResolvedValueOnce({
-      data: null,
-      error: { status: 409, code: 'SSO_PROVIDER_AMBIGUOUS' },
-    })
-    await act(async () => {
-      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    })
-    expect(container.querySelector('[role="alert"]')).toHaveTextContent(
-      getPublicCopy('en').auth.sso.errors.providerAmbiguous
-    )
     const providerId = form.querySelector<HTMLInputElement>('input[name="providerId"]')!
+    expect(providerId).not.toBeRequired()
     providerId.value = 'okta'
     await act(async () => {
       form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))

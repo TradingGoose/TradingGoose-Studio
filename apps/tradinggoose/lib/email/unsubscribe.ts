@@ -12,12 +12,12 @@ interface EmailPreferences {
   unsubscribeNotifications?: boolean
 }
 
-type Mailbox = Pick<typeof user.$inferSelect, 'id' | 'email' | 'mailboxVersion'>
+type Mailbox = Pick<typeof user.$inferSelect, 'id' | 'email'>
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 function signUnsubscribeToken(mailbox: Mailbox, salt: string, emailType: string) {
   return createHmac('sha256', env.BETTER_AUTH_SECRET)
-    .update(JSON.stringify([mailbox.id, mailbox.email, mailbox.mailboxVersion, salt, emailType]))
+    .update(JSON.stringify([mailbox.id, mailbox.email, salt, emailType]))
     .digest()
 }
 
@@ -46,7 +46,6 @@ export async function getEmailRecipient(where: SQL, tx?: Transaction) {
       id: user.id,
       email: user.email,
       emailVerified: user.emailVerified,
-      mailboxVersion: user.mailboxVersion,
       preferences: sql<EmailPreferences | null>`${settings.emailPreferences}`,
     })
     .from(user)

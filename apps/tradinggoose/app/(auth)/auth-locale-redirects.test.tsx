@@ -701,28 +701,44 @@ describe('auth locale redirects', () => {
     expect(mockSignInUsername).not.toHaveBeenCalled()
   })
 
-  it('redeems the reset token through the native password endpoint', async () => {
-    vi.useFakeTimers()
-    testState.searchParams = new URLSearchParams('token=reset-token')
-    await act(async () => {
-      root.render(
-        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
-          <ResetPasswordPage />
-        </NextIntlClientProvider>
-      )
-    })
-    await setInputValue('#password', 'Password1!')
-    await setInputValue('#confirmPassword', 'Password1!')
-    await submitRenderedForm()
+  it.each([
+    [null, null],
+    [
+      '/invite/invitation?token=workspace-token#accept',
+      '/invite/invitation?token=workspace-token#accept',
+    ],
+    ['https://external.example/redirect', null],
+  ])(
+    'redeems the native reset token and keeps the safe callback from %s',
+    async (callback, destination) => {
+      vi.useFakeTimers()
+      testState.searchParams = new URLSearchParams('token=reset-token')
+      if (callback) testState.searchParams.set('callbackUrl', callback)
+      if (destination) testState.searchParams.set('invite_flow', 'true')
+      await act(async () => {
+        root.render(
+          <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+            <ResetPasswordPage />
+          </NextIntlClientProvider>
+        )
+      })
+      await setInputValue('#password', 'Password1!')
+      await setInputValue('#confirmPassword', 'Password1!')
+      await submitRenderedForm()
 
-    expect(mockResetPassword).toHaveBeenCalledWith({
-      token: 'reset-token',
-      newPassword: 'Password1!',
-    })
-    expect(container.textContent).toContain(getPublicCopy('en').auth.resetPassword.success)
-    await act(async () => vi.advanceTimersByTimeAsync(1500))
-    expect(mockPush).toHaveBeenCalledWith('/login?resetSuccess=true')
-  })
+      expect(mockResetPassword).toHaveBeenCalledWith({
+        token: 'reset-token',
+        newPassword: 'Password1!',
+      })
+      expect(container.textContent).toContain(getPublicCopy('en').auth.resetPassword.success)
+      await act(async () => vi.advanceTimersByTimeAsync(1500))
+      const login = new URL(mockPush.mock.lastCall![0], window.location.origin)
+      expect(login.pathname).toBe('/login')
+      expect(login.searchParams.get('resetSuccess')).toBe('true')
+      expect(login.searchParams.get('callbackUrl')).toBe(destination)
+      expect(login.searchParams.get('invite_flow')).toBe(destination ? 'true' : null)
+    }
+  )
 
   it.each(['es', 'zh'] as const)(
     'pushes the canonical verify path after an unverified login for %s',
@@ -856,38 +872,6 @@ describe('auth locale redirects', () => {
 
     expect(container.textContent).toContain(message)
     expect(mockPush).not.toHaveBeenCalled()
-  })
-
-  it('offers the native reset link before continuing after verification discards a password', async () => {
-    vi.useFakeTimers()
-    const email = 'ada@example.com'
-    const destination = '/invite/invitation?token=workspace-token'
-    sessionStore.set('verificationEmail', email)
-    testState.searchParams = new URLSearchParams({ fromSignup: 'true', redirectAfter: destination })
-    mockVerifyEmail.mockResolvedValue({ data: { passwordResetRequired: true } })
-    const { useVerification } = await vi.importActual<typeof import('./verify/use-verification')>(
-      './verify/use-verification'
-    )
-    mockUseVerification.mockImplementation(useVerification)
-    await renderWithLocale(
-      'en',
-      <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled />
-    )
-    await setInputValue('#verification-code', '123456')
-    await act(async () => vi.advanceTimersByTimeAsync(1300))
-    const copy = getPublicCopy('en').auth
-    expect(mockPush).not.toHaveBeenCalled()
-    expect(container.textContent).toContain(copy.verify.passwordRecovery)
-    const findButton = (text: string) =>
-      [...container.querySelectorAll('button')].find((button) => button.textContent === text)!
-    await act(async () => findButton(copy.login.resetDialog.submit).click())
-    expect(mockRequestPasswordReset).toHaveBeenCalledExactlyOnceWith({
-      email,
-      redirectTo: expect.stringMatching(/\/reset-password$/),
-    })
-    expect(container.textContent).toContain(copy.login.resetDialog.success)
-    await act(async () => findButton(copy.verify.continue).click())
-    expect(mockPush).toHaveBeenCalledExactlyOnceWith(destination)
   })
 
   it.each([

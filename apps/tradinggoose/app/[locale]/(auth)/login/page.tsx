@@ -4,6 +4,7 @@ import { getOAuthProviderAvailability } from '@/lib/oauth/oauth.server'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
 import LoginForm from '@/app/(auth)/login/login-form'
 import { redirect } from '@/i18n/navigation'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 // Force dynamic rendering to avoid prerender errors with search params
 export const dynamic = 'force-dynamic'
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ reauth?: string }>
+  searchParams?: Promise<{ reauth?: string; callbackUrl?: string | string[] }>
 } = {}) {
   const query = await searchParams
   const isReauth = query?.reauth === '1'
@@ -21,7 +22,11 @@ export default async function LoginPage({
   ])
 
   if (session?.user?.id) {
-    redirect({ href: '/workspace', locale })
+    const callback = query?.callbackUrl
+    redirect({
+      href: normalizeCallbackUrl(Array.isArray(callback) ? callback[0] : callback) ?? '/workspace',
+      locale,
+    })
   }
 
   const [{ github, google }, registrationMode] = await Promise.all([

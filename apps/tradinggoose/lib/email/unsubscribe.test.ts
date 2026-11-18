@@ -18,7 +18,6 @@ const mailbox = {
   id: 'original-account',
   email: 'test@example.com',
   emailVerified: true,
-  mailboxVersion: 0,
   preferences: { unsubscribeUpdates: true },
 }
 
@@ -78,10 +77,8 @@ describe('unsubscribe route', () => {
     })
   })
 
-  it.each([
-    { ...mailbox, id: 'different-account' },
-    { ...mailbox, mailboxVersion: 2 },
-  ])('rejects links after address reuse or a mailbox round trip', async (currentMailbox) => {
+  it('rejects a link when a different account owns the address', async () => {
+    const currentMailbox = { ...mailbox, id: 'different-account' }
     select.mockReturnValue({
       from: () => ({ leftJoin: () => ({ where: () => ({ limit: () => [currentMailbox] }) }) }),
     })

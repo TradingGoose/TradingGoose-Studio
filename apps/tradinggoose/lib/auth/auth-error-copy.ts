@@ -63,7 +63,6 @@ const SSO_ERROR_COPY_BY_CODE: Partial<Record<string, SsoErrorCopyKey>> = {
   INVALID_PROVIDER: 'providerNotConfigured',
   NO_PROVIDER_FOUND: 'providerNotConfigured',
   PROVIDER_DOMAIN_HAS_NOT_BEEN_VERIFIED: 'domainNotVerified',
-  SSO_PROVIDER_AMBIGUOUS: 'providerAmbiguous',
   INVALID_EMAIL_DOMAIN: 'invalidEmailDomain',
   NETWORK_ERROR: 'network',
   RATE_LIMIT: 'rateLimit',

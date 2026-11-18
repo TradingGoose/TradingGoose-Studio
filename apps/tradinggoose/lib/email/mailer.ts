@@ -1,12 +1,7 @@
 import { EmailClient, type EmailMessage } from '@azure/communication-email'
 import { user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import {
-  type ErrorResponse,
-  type GetContactResponseSuccess,
-  Resend,
-  type Response as ResendResponse,
-} from 'resend'
+import { Resend } from 'resend'
 import {
   generateUnsubscribeToken,
   getEmailRecipient,
@@ -72,23 +67,6 @@ interface EmailClients {
   azureEmailClient: EmailClient | null
 }
 
-class ResendContactError extends Error {
-  constructor(
-    readonly details: ErrorResponse,
-    readonly retryAfter?: string
-  ) {
-    super(details.message)
-  }
-}
-
-async function readContactResult<T>(response: Promise<ResendResponse<T>>, allowedStatus?: number) {
-  const { data, error, headers } = await response
-  if (error && (allowedStatus === undefined || error.statusCode !== allowedStatus)) {
-    throw new ResendContactError(error, headers?.['retry-after'])
-  }
-  return data
-}
-
 /**
  * Check if any email service is configured and available
  */
@@ -98,103 +76,37 @@ export async function hasEmailService(): Promise<boolean> {
 }
 
 export async function addVerifiedUserEmailToAudience(
-  verifiedUser: Pick<typeof user.$inferSelect, 'id' | 'email'>,
-  previousEmail?: string
+  verifiedUser: Pick<typeof user.$inferSelect, 'id'>
 ): Promise<void> {
   try {
     const { apiKey, audienceId: segmentId } = await resolveResendServiceConfig()
     if (!apiKey || !segmentId) return
 
+    const recipient = await getEmailRecipient(eq(user.id, verifiedUser.id))
+    if (!recipient?.emailVerified) return
+
     const { contacts } = new Resend(apiKey)
-    const addresses = new Set([verifiedUser.email.trim().toLowerCase()])
-    if (previousEmail) addresses.add(previousEmail.trim().toLowerCase())
-    const mailboxFilter = eq(user.id, verifiedUser.id)
-    const getVerifiedOwner = async (email: string) => {
-      const owner = await getEmailRecipient(eq(user.email, email))
-      return owner?.emailVerified ? owner : undefined
+    const email = recipient.email.trim().toLowerCase()
+    const unsubscribed = isUnsubscribed(recipient.preferences, 'marketing')
+    const { data: contact, error: lookupError } = await contacts.get({ email })
+    if (lookupError && lookupError.statusCode !== 404) throw lookupError
+
+    if (!contact) {
+      const { error } = await contacts.create({
+        email,
+        unsubscribed,
+        segments: [{ id: segmentId }],
+      })
+      if (error) throw error
+      return
     }
-    const enroll = async (
-      email: string,
-      contact: GetContactResponseSuccess | null,
-      unsubscribed: boolean
-    ) => {
-      if (contact) {
-        if (unsubscribed && !contact.unsubscribed) {
-          await readContactResult(contacts.update({ id: contact.id, unsubscribed: true }))
-        }
-        await readContactResult(contacts.segments.add({ contactId: contact.id, segmentId }), 409)
-      } else {
-        await readContactResult(
-          contacts.create({ email, unsubscribed, segments: [{ id: segmentId }] })
-        )
-      }
+
+    if (unsubscribed && !contact.unsubscribed) {
+      const { error } = await contacts.update({ id: contact.id, unsubscribed: true })
+      if (error) throw error
     }
-    let attempt = 0
-    for (;;) {
-      try {
-        const mailbox = await getEmailRecipient(mailboxFilter)
-        if (!mailbox?.emailVerified) return
-        const email = mailbox.email.trim().toLowerCase()
-        addresses.add(email)
-
-        const previous = []
-        for (const address of addresses) {
-          if (address === email) continue
-          const owner = await getVerifiedOwner(address)
-          const contact = await readContactResult(contacts.get({ email: address }), 404)
-          previous.push({ address, contact, wasUnowned: !owner })
-        }
-        const unsubscribed =
-          previous.some(({ contact, wasUnowned }) => wasUnowned && contact?.unsubscribed) ||
-          isUnsubscribed(mailbox.preferences, 'marketing')
-        await enroll(email, await readContactResult(contacts.get({ email }), 404), unsubscribed)
-
-        for (const previousMailbox of previous) {
-          const { address } = previousMailbox
-          let { contact } = previousMailbox
-          let owner = await getVerifiedOwner(address)
-          for (let changes = 0; ; changes++) {
-            if (owner) {
-              await enroll(address, contact, isUnsubscribed(owner.preferences, 'marketing'))
-            } else if (contact) {
-              await readContactResult(
-                contacts.segments.remove({ contactId: contact.id, segmentId }),
-                404
-              )
-            }
-            // A new owner's enrollment may finish while a removal is still in flight.
-            const latest = await getVerifiedOwner(address)
-            if (latest?.id === owner?.id && latest?.mailboxVersion === owner?.mailboxVersion) break
-            if (changes === 2)
-              throw new Error('Verified address ownership changed during Resend sync')
-            owner = latest
-            contact = await readContactResult(contacts.get({ email: address }), 404)
-          }
-        }
-
-        // Reconcile again if a newer mailbox committed during the provider calls.
-        const latest = await getEmailRecipient(mailboxFilter)
-        if (!latest?.emailVerified || latest.mailboxVersion === mailbox.mailboxVersion) return
-        attempt = 0
-      } catch (error) {
-        if (!(error instanceof ResendContactError) || attempt === 2) throw error
-        const { statusCode, name } = error.details
-        const retryable =
-          statusCode === null
-            ? name === 'application_error'
-            : statusCode === 409 || statusCode === 429 || statusCode >= 500
-        if (!retryable) throw error
-
-        const minimumDelay = Number(error.retryAfter) * 1000
-        const delay = Math.max(
-          1000 * 2 ** attempt,
-          Number.isFinite(minimumDelay) ? minimumDelay : 0
-        )
-        if (delay > 2000) throw error
-        attempt++
-        await new Promise((resolve) => setTimeout(resolve, delay))
-      }
-    }
+    const { error } = await contacts.segments.add({ contactId: contact.id, segmentId })
+    if (error) throw error
   } catch (error) {
     logger.warn('Failed to synchronize verified user email with Resend', {
       userId: verifiedUser.id,
