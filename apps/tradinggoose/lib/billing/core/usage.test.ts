@@ -68,10 +68,6 @@ vi.mock('@/lib/email/mailer', () => ({
   sendEmail: vi.fn(),
 }))
 
-vi.mock('@/lib/email/unsubscribe', () => ({
-  getEmailPreferences: vi.fn(),
-}))
-
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
     error: vi.fn(),

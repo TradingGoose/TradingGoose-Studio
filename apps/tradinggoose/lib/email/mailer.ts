@@ -1,7 +1,13 @@
 import { EmailClient, type EmailMessage } from '@azure/communication-email'
+import { user } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import { type ErrorResponse, Resend, type Response as ResendResponse } from 'resend'
 import type { EmailLocale } from '@/components/emails/email-copy'
-import { generateUnsubscribeToken, isUnsubscribed } from '@/lib/email/unsubscribe'
+import {
+  generateUnsubscribeToken,
+  getEmailRecipient,
+  isUnsubscribed,
+} from '@/lib/email/unsubscribe'
 import { getFromEmailAddress } from '@/lib/email/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -62,11 +68,6 @@ interface EmailClients {
   azureEmailClient: EmailClient | null
 }
 
-type VerifiedUserEmail = {
-  id?: string | null
-  email?: string | null
-}
-
 class ResendContactError extends Error {
   constructor(
     readonly details: ErrorResponse,
@@ -93,25 +94,34 @@ export async function hasEmailService(): Promise<boolean> {
 }
 
 export async function addVerifiedUserEmailToAudience(
-  user: VerifiedUserEmail,
+  verifiedUser: Pick<typeof user.$inferSelect, 'id' | 'email'>,
   previousEmail?: string
 ): Promise<void> {
-  const email = user.email?.trim().toLowerCase()
-  if (!email) return
-
   try {
     const { apiKey, audienceId: segmentId } = await resolveResendServiceConfig()
     if (!apiKey || !segmentId) return
 
     const { contacts } = new Resend(apiKey)
-    const oldEmail = previousEmail?.trim().toLowerCase()
-    for (let attempt = 0; ; attempt++) {
+    const addresses = new Set([verifiedUser.email.trim().toLowerCase()])
+    if (previousEmail) addresses.add(previousEmail.trim().toLowerCase())
+    const mailboxFilter = eq(user.id, verifiedUser.id)
+    let attempt = 0
+    for (;;) {
       try {
-        const previous =
-          oldEmail && oldEmail !== email
-            ? await readContactResult(contacts.get({ email: oldEmail }), 404)
-            : null
-        const unsubscribed = previous?.unsubscribed || (await isUnsubscribed(email, 'marketing'))
+        const mailbox = await getEmailRecipient(mailboxFilter)
+        if (!mailbox?.emailVerified) return
+        const email = mailbox.email.trim().toLowerCase()
+        addresses.add(email)
+
+        const previous = []
+        for (const address of addresses) {
+          if (address === email) continue
+          const contact = await readContactResult(contacts.get({ email: address }), 404)
+          if (contact) previous.push(contact)
+        }
+        const unsubscribed =
+          previous.some((contact) => contact.unsubscribed) ||
+          isUnsubscribed(mailbox.preferences, 'marketing')
         const current = await readContactResult(contacts.get({ email }), 404)
 
         if (current) {
@@ -125,13 +135,17 @@ export async function addVerifiedUserEmailToAudience(
           )
         }
 
-        if (previous) {
+        for (const contact of previous) {
           await readContactResult(
-            contacts.segments.remove({ contactId: previous.id, segmentId }),
+            contacts.segments.remove({ contactId: contact.id, segmentId }),
             404
           )
         }
-        return
+
+        // Reconcile again if a newer mailbox committed during the provider calls.
+        const latest = await getEmailRecipient(mailboxFilter)
+        if (!latest?.emailVerified || latest.mailboxVersion === mailbox.mailboxVersion) return
+        attempt = 0
       } catch (error) {
         if (!(error instanceof ResendContactError) || attempt === 2) throw error
         const { statusCode, name } = error.details
@@ -147,12 +161,13 @@ export async function addVerifiedUserEmailToAudience(
           Number.isFinite(minimumDelay) ? minimumDelay : 0
         )
         if (delay > 2000) throw error
+        attempt++
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
   } catch (error) {
     logger.warn('Failed to synchronize verified user email with Resend', {
-      userId: user.id,
+      userId: verifiedUser.id,
       error,
     })
   }
@@ -161,27 +176,29 @@ export async function addVerifiedUserEmailToAudience(
 export async function sendEmail(options: EmailOptions): Promise<SendEmailResult> {
   try {
     const clients = await resolveEmailClients()
+    const { to, subject, html, text, from, emailType, attachments, replyTo, locale } = options
+    const headers: Record<string, string> = {}
 
-    // Check if user has unsubscribed (skip for critical transactional emails)
-    if (options.emailType !== 'transactional') {
-      // For arrays, check the first email address (batch emails typically go to similar recipients)
-      const primaryEmail = Array.isArray(options.to) ? options.to[0] : options.to
-      const hasUnsubscribed = await isUnsubscribed(primaryEmail, options.emailType)
-      if (hasUnsubscribed) {
-        logger.info('Email not sent (user unsubscribed):', {
-          to: options.to,
-          subject: options.subject,
-          emailType: options.emailType,
-        })
+    if (emailType !== 'transactional') {
+      const primaryEmail = Array.isArray(to) ? to[0] : to
+      const recipient = await getEmailRecipient(eq(user.email, primaryEmail))
+      if (isUnsubscribed(recipient?.preferences, emailType)) {
+        logger.info('Email not sent (user unsubscribed):', { to, subject, emailType })
         return {
           success: true,
           message: 'Email skipped (user unsubscribed)',
         }
       }
+      if (recipient) {
+        const token = generateUnsubscribeToken(recipient, emailType)
+        const unsubscribeUrl = `${localizeUrl(getBaseUrl(), locale, '/unsubscribe')}?token=${token}&email=${encodeURIComponent(primaryEmail)}`
+        headers['List-Unsubscribe'] = `<${unsubscribeUrl}>`
+        headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
+      }
     }
 
-    // Process email data with unsubscribe tokens and headers
-    const processedData = await processEmailData(options)
+    const senderEmail = from || (await getFromEmailAddress())
+    const processedData = { to, subject, html, text, senderEmail, headers, attachments, replyTo }
 
     // Try Resend first if configured
     if (clients.resend) {
@@ -208,10 +225,10 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
 
     // No email service configured
     logger.info('Email not sent (no email service configured):', {
-      to: options.to,
-      subject: options.subject,
-      from: processedData.senderEmail,
-      text: processedData.text,
+      to,
+      subject,
+      from: senderEmail,
+      text,
     })
     return {
       success: true,
@@ -223,46 +240,6 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
       success: false,
       message: 'Failed to send email',
     }
-  }
-}
-
-async function processEmailData(options: EmailOptions): Promise<ProcessedEmailData> {
-  const { to, subject, html, text, from, emailType, attachments, replyTo, locale } = options
-
-  const senderEmail = from || (await getFromEmailAddress())
-
-  // Generate unsubscribe token and add to content
-  let finalHtml = html
-  let finalText = text
-  const headers: Record<string, string> = {}
-
-  if (emailType !== 'transactional') {
-    // For arrays, use the first email for unsubscribe (batch emails typically go to similar recipients)
-    const primaryEmail = Array.isArray(to) ? to[0] : to
-    const unsubscribeToken = generateUnsubscribeToken(primaryEmail, emailType)
-    const baseUrl = getBaseUrl()
-    const unsubscribeUrl = `${localizeUrl(baseUrl, locale, '/unsubscribe')}?token=${unsubscribeToken}&email=${encodeURIComponent(primaryEmail)}`
-
-    headers['List-Unsubscribe'] = `<${unsubscribeUrl}>`
-    headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
-
-    if (html) {
-      finalHtml = html.replace(/\{\{UNSUBSCRIBE_TOKEN\}\}/g, unsubscribeToken)
-    }
-    if (text) {
-      finalText = text.replace(/\{\{UNSUBSCRIBE_TOKEN\}\}/g, unsubscribeToken)
-    }
-  }
-
-  return {
-    to,
-    subject,
-    html: finalHtml,
-    text: finalText,
-    senderEmail,
-    headers,
-    attachments,
-    replyTo,
   }
 }
 

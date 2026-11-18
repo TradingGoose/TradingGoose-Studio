@@ -22,7 +22,6 @@ import {
 import type { UsageData, UsageLimitInfo } from '@/lib/billing/types'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
-import { getEmailPreferences } from '@/lib/email/unsubscribe'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -460,8 +459,6 @@ export async function maybeSendUsageThresholdEmail(params: {
     if (crossesWarningThreshold) {
       const ctaLink = `${baseUrl}/workspace?billing=usage`
       const sendTo = async (email: string, name?: string, userId?: string) => {
-        const prefs = await getEmailPreferences(email)
-        if (prefs?.unsubscribeAll || prefs?.unsubscribeNotifications) return
         const locale = await resolveEmailLocale({ userId, email })
 
         const html = await renderUsageThresholdEmail({
@@ -518,8 +515,6 @@ export async function maybeSendUsageThresholdEmail(params: {
       const upgradeLink = `${baseUrl}/workspace?billing=upgrade`
       const recommendedTier = await getPrimaryPublicUserUpgradeTier()
       const sendFreeTierEmail = async (email: string, name?: string, userId?: string) => {
-        const prefs = await getEmailPreferences(email)
-        if (prefs?.unsubscribeAll || prefs?.unsubscribeNotifications) return
         const locale = await resolveEmailLocale({ userId, email })
 
         const html = await renderFreeTierUpgradeEmail({
@@ -543,13 +538,6 @@ export async function maybeSendUsageThresholdEmail(params: {
           subject: getEmailSubject('free-tier-upgrade', locale),
           html,
           emailType: 'notifications',
-        })
-
-        logger.info('Free tier upgrade email sent', {
-          email,
-          percentUsed: Math.round(params.percentAfter),
-          currentUsage: params.currentUsageAfter,
-          limit: params.limit,
         })
       }
 

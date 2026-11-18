@@ -1,106 +1,97 @@
-import { describe, expect, it, vi } from 'vitest'
+import { user } from '@tradinggoose/db/schema'
+import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateUnsubscribeToken, verifyUnsubscribeToken } from '@/lib/email/unsubscribe'
+import { GET, POST } from '@/app/api/users/me/settings/unsubscribe/route'
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {},
+const { select, lock, write, transaction } = vi.hoisted(() => ({
+  select: vi.fn(),
+  lock: vi.fn(),
+  write: vi.fn(),
+  transaction: vi.fn(),
 }))
 
-vi.mock('@tradinggoose/db/schema', () => ({
-  settings: {
-    emailPreferences: 'emailPreferences',
-    userId: 'userId',
-    updatedAt: 'updatedAt',
-  },
-  user: {
-    id: 'id',
-    email: 'email',
-  },
-}))
+vi.mock('@tradinggoose/db', () => ({ db: { select, transaction } }))
+vi.mock('@/lib/env', () => ({ env: { BETTER_AUTH_SECRET: 'test-secret-key' } }))
 
-vi.mock('@/lib/env', () => ({
-  env: {
-    BETTER_AUTH_SECRET: 'test-secret-key',
-  },
-  isTruthy: (value: string | boolean | number | undefined) =>
-    typeof value === 'string' ? value === 'true' || value === '1' : Boolean(value),
-  getEnv: (variable: string) => process.env[variable],
-}))
+const mailbox = {
+  id: 'original-account',
+  email: 'test@example.com',
+  emailVerified: true,
+  mailboxVersion: 0,
+  preferences: { unsubscribeUpdates: true },
+}
 
-describe('unsubscribe utilities', () => {
-  const testEmail = 'test@example.com'
-  const testEmailType = 'marketing'
+describe('unsubscribe tokens', () => {
+  it('signs the mailbox and email type with a unique salt', () => {
+    const token = generateUnsubscribeToken(mailbox, 'marketing')
 
-  describe('generateUnsubscribeToken', () => {
-    it.concurrent('should generate a token with salt:hash:emailType format', () => {
-      const token = generateUnsubscribeToken(testEmail, testEmailType)
-      const parts = token.split(':')
+    expect(verifyUnsubscribeToken(mailbox, token)).toBe('marketing')
+    expect(generateUnsubscribeToken(mailbox, 'marketing')).not.toBe(token)
+    expect(verifyUnsubscribeToken(mailbox, token.replace('marketing', 'updates'))).toBeNull()
+    expect(verifyUnsubscribeToken({ ...mailbox, email: 'other@example.com' }, token)).toBeNull()
+    expect(verifyUnsubscribeToken(mailbox, `${token}:extra`)).toBeNull()
+  })
+})
 
-      expect(parts).toHaveLength(3)
-      expect(parts[0]).toHaveLength(32) // Salt should be 32 chars (16 bytes hex)
-      expect(parts[1]).toHaveLength(64) // SHA256 hash should be 64 chars
-      expect(parts[2]).toBe(testEmailType)
-    })
-
-    it.concurrent(
-      'should generate different tokens for the same email (due to random salt)',
-      () => {
-        const token1 = generateUnsubscribeToken(testEmail, testEmailType)
-        const token2 = generateUnsubscribeToken(testEmail, testEmailType)
-
-        expect(token1).not.toBe(token2)
-      }
+describe('unsubscribe route', () => {
+  const url = 'http://localhost/api/users/me/settings/unsubscribe'
+  const token = generateUnsubscribeToken(mailbox, 'marketing')
+  const params = new URLSearchParams({ email: mailbox.email, token })
+  const get = () => GET(new NextRequest(`${url}?${params}`))
+  const post = () =>
+    POST(
+      new NextRequest(url, {
+        method: 'POST',
+        body: JSON.stringify({ email: mailbox.email, token, type: 'marketing' }),
+      })
     )
 
-    it.concurrent('should generate different tokens for different email types', () => {
-      const marketingToken = generateUnsubscribeToken(testEmail, 'marketing')
-      const updatesToken = generateUnsubscribeToken(testEmail, 'updates')
+  beforeEach(() => {
+    vi.clearAllMocks()
+    select.mockImplementation(() => ({
+      from: () => ({ leftJoin: () => ({ where: () => ({ limit: () => [mailbox] }) }) }),
+    }))
+    lock.mockResolvedValue([mailbox])
+    transaction.mockImplementation(async (run) =>
+      run({
+        select: () => ({
+          from: () => ({ leftJoin: () => ({ where: () => ({ limit: () => ({ for: lock }) }) }) }),
+        }),
+        insert: () => ({ values: write }),
+      })
+    )
+    write.mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(null) })
+  })
 
-      expect(marketingToken).not.toBe(updatesToken)
+  it('reads preferences and writes to the mailbox owner under the row lock', async () => {
+    const readResponse = await get()
+    const writeResponse = await post()
+
+    expect(await readResponse.json()).toMatchObject({ currentPreferences: mailbox.preferences })
+    expect(writeResponse.status).toBe(200)
+    expect(lock).toHaveBeenCalledWith('update', { of: user })
+    expect(write).toHaveBeenCalledWith({
+      id: mailbox.id,
+      userId: mailbox.id,
+      emailPreferences: { unsubscribeMarketing: true },
     })
   })
 
-  describe('verifyUnsubscribeToken', () => {
-    it.concurrent('should verify a valid token', () => {
-      const token = generateUnsubscribeToken(testEmail, testEmailType)
-      const result = verifyUnsubscribeToken(testEmail, token)
-
-      expect(result.valid).toBe(true)
-      expect(result.emailType).toBe(testEmailType)
+  it.each([
+    { ...mailbox, id: 'different-account' },
+    { ...mailbox, mailboxVersion: 2 },
+  ])('rejects links after address reuse or a mailbox round trip', async (currentMailbox) => {
+    select.mockReturnValue({
+      from: () => ({ leftJoin: () => ({ where: () => ({ limit: () => [currentMailbox] }) }) }),
     })
+    lock.mockResolvedValue([currentMailbox])
 
-    it.concurrent('should reject an invalid token', () => {
-      const invalidToken = 'invalid:token:format'
-      const result = verifyUnsubscribeToken(testEmail, invalidToken)
-
-      expect(result.valid).toBe(false)
-      expect(result.emailType).toBe('format')
-    })
-
-    it.concurrent('should reject a token for wrong email', () => {
-      const token = generateUnsubscribeToken(testEmail, testEmailType)
-      const result = verifyUnsubscribeToken('wrong@example.com', token)
-
-      expect(result.valid).toBe(false)
-    })
-
-    it.concurrent('rejects a signed token without an email type', () => {
-      const salt = 'abc123'
-      const secret = 'test-secret-key'
-      const { createHash } = require('crypto')
-      const hash = createHash('sha256').update(`${testEmail}:${salt}:${secret}`).digest('hex')
-      const legacyToken = `${salt}:${hash}`
-
-      expect(verifyUnsubscribeToken(testEmail, legacyToken).valid).toBe(false)
-    })
-
-    it.concurrent('should reject malformed tokens', () => {
-      const token = generateUnsubscribeToken(testEmail, testEmailType)
-      const malformedTokens = ['', 'single-part', `${token}:extra`, ':empty:parts:']
-
-      malformedTokens.forEach((token) => {
-        const result = verifyUnsubscribeToken(testEmail, token)
-        expect(result.valid).toBe(false)
-      })
-    })
+    for (const respond of [get, post]) {
+      const response = await respond()
+      expect(response.status).toBe(400)
+      expect(await response.json()).toMatchObject({ code: 'invalid-link' })
+    }
+    expect(write).not.toHaveBeenCalled()
   })
 })

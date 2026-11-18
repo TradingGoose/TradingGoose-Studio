@@ -1,7 +1,10 @@
+import { db } from '@tradinggoose/db'
+import { user } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import {
-  getEmailPreferences,
+  getEmailRecipient,
   updateEmailPreferences,
   verifyUnsubscribeToken,
 } from '@/lib/email/unsubscribe'
@@ -22,6 +25,13 @@ const unsubscribeSchema = z.object({
   type: z.enum(['all', 'marketing', 'updates', 'notifications']).optional().default('all'),
 })
 
+function invalidLink() {
+  return NextResponse.json(
+    { error: 'invalid_or_expired_unsubscribe_link', code: 'invalid-link' },
+    { status: 400 }
+  )
+}
+
 export async function GET(req: NextRequest) {
   const requestId = generateRequestId()
 
@@ -38,20 +48,12 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Verify token and get email type
-    const tokenVerification = verifyUnsubscribeToken(email, token)
-    if (!tokenVerification.valid) {
+    const recipient = await getEmailRecipient(eq(user.email, email))
+    const emailType = verifyUnsubscribeToken(recipient, token)
+    if (!emailType) {
       logger.warn(`[${requestId}] Invalid unsubscribe token for email: ${email}`)
-      return NextResponse.json(
-        { error: 'invalid_or_expired_unsubscribe_link', code: 'invalid-link' },
-        { status: 400 }
-      )
+      return invalidLink()
     }
-
-    const { emailType } = tokenVerification
-
-    // Get current preferences
-    const preferences = await getEmailPreferences(email)
 
     logger.info(
       `[${requestId}] Valid unsubscribe GET request for email: ${email}, type: ${emailType}`
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
       token,
       emailType,
       isTransactional: emailType === 'transactional',
-      currentPreferences: preferences || {},
+      currentPreferences: recipient?.preferences ?? {},
     })
   } catch (error) {
     logger.error(`[${requestId}] Error processing unsubscribe GET request:`, error)
@@ -97,17 +99,18 @@ export async function POST(req: NextRequest) {
 
     const { email, token, type } = result.data
 
-    // Verify token and get email type
-    const tokenVerification = verifyUnsubscribeToken(email, token)
-    if (!tokenVerification.valid) {
+    const emailType = await db.transaction(async (tx) => {
+      const recipient = await getEmailRecipient(eq(user.email, email), tx)
+      const emailType = verifyUnsubscribeToken(recipient, token)
+      if (recipient && emailType && emailType !== 'transactional') {
+        await updateEmailPreferences(tx, recipient.id, { [preferenceKeys[type]]: true })
+      }
+      return emailType
+    })
+    if (!emailType) {
       logger.warn(`[${requestId}] Invalid unsubscribe token for email: ${email}`)
-      return NextResponse.json(
-        { error: 'invalid_or_expired_unsubscribe_link', code: 'invalid-link' },
-        { status: 400 }
-      )
+      return invalidLink()
     }
-
-    const { emailType } = tokenVerification
 
     // Prevent unsubscribing from transactional emails
     if (emailType === 'transactional') {
@@ -120,16 +123,6 @@ export async function POST(req: NextRequest) {
           message: 'transactional_emails_unsubscribable',
         },
         { status: 400 }
-      )
-    }
-
-    const success = await updateEmailPreferences(email, { [preferenceKeys[type]]: true })
-
-    if (!success) {
-      logger.error(`[${requestId}] Failed to update unsubscribe preferences for: ${email}`)
-      return NextResponse.json(
-        { error: 'failed_to_process_unsubscribe_request', code: 'failed-processing' },
-        { status: 500 }
       )
     }
 

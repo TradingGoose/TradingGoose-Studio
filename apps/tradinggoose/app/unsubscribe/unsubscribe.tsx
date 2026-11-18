@@ -3,16 +3,12 @@
 import { Suspense, useEffect, useState } from 'react'
 import { CheckCircle, Heart, Info, Loader2, XCircle } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 import { useBrandConfig } from '@/lib/branding/branding'
-import type { LocaleCode } from '@/i18n/utils'
 
 interface UnsubscribeData {
-  success: boolean
   email: string
-  token: string
-  emailType: string
   isTransactional: boolean
   currentPreferences: {
     unsubscribeAll?: boolean
@@ -43,7 +39,6 @@ function UnsubscribeLoadingState({ label }: { label: string }) {
 }
 
 function UnsubscribeContent() {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages()
   const unsubscribeCopy = copy.unsubscribe
   const searchParams = useSearchParams()
@@ -107,34 +102,6 @@ function UnsubscribeContent() {
 
       if (result.success) {
         setUnsubscribed(true)
-        // Update the data to reflect the change
-        if (data) {
-          // Type-safe property construction with validation
-          const validTypes = ['all', 'marketing', 'updates', 'notifications'] as const
-          if (validTypes.includes(type)) {
-            if (type === 'all') {
-              setData({
-                ...data,
-                currentPreferences: {
-                  ...data.currentPreferences,
-                  unsubscribeAll: true,
-                },
-              })
-            } else {
-              const propertyKey = `unsubscribe${type.charAt(0).toUpperCase()}${type.slice(1)}` as
-                | 'unsubscribeMarketing'
-                | 'unsubscribeUpdates'
-                | 'unsubscribeNotifications'
-              setData({
-                ...data,
-                currentPreferences: {
-                  ...data.currentPreferences,
-                  [propertyKey]: true,
-                },
-              })
-            }
-          }
-        }
       } else {
         setError(result.code || result.error || 'failed-processing')
       }
