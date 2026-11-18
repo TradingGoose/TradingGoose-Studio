@@ -2,10 +2,6 @@ import { db, member, organization } from '@tradinggoose/db'
 import { and, eq, ne } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import {
-  getOrganizationSeatAnalytics,
-  getOrganizationSeatInfo,
-} from '@/lib/billing/validation/seat-management'
 import { createLogger } from '@/lib/logs/console/logger'
 import { assertOrganizationCanBeDeleted } from '@/lib/workspaces/billing-owner'
 
@@ -13,9 +9,9 @@ const logger = createLogger('OrganizationAPI')
 
 /**
  * GET /api/organizations/[id]
- * Get organization details including settings and seat information
+ * Get organization details and settings
  */
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession()
 
@@ -24,8 +20,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const { id: organizationId } = await params
-    const url = new URL(request.url)
-    const includeSeats = url.searchParams.get('include') === 'seats'
 
     // Verify user has access to this organization
     const memberEntry = await db
@@ -55,7 +49,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const userRole = memberEntry[0].role
     const hasAdminAccess = ['owner', 'admin'].includes(userRole)
 
-    const response: any = {
+    return NextResponse.json({
       success: true,
       data: {
         id: organizationEntry[0].id,
@@ -68,25 +62,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       },
       userRole,
       hasAdminAccess,
-    }
-
-    // Include seat information if requested
-    if (includeSeats) {
-      const seatInfo = await getOrganizationSeatInfo(organizationId)
-      if (seatInfo) {
-        response.data.seats = seatInfo
-      }
-
-      // Include analytics for admins
-      if (hasAdminAccess) {
-        const analytics = await getOrganizationSeatAnalytics(organizationId)
-        if (analytics) {
-          response.data.seatAnalytics = analytics
-        }
-      }
-    }
-
-    return NextResponse.json(response)
+    })
   } catch (error) {
     logger.error('Failed to get organization', {
       organizationId: (await params).id,

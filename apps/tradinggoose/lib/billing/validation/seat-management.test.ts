@@ -24,9 +24,7 @@ describe('validateSeatAvailability', () => {
       member: {
         organizationId: 'member.organizationId',
       },
-      organization: {},
       user: {},
-      userStats: {},
     }))
 
     vi.doMock('@/lib/billing/core/billing', () => ({
@@ -93,51 +91,6 @@ describe('validateSeatAvailability', () => {
       currentSeats: 3,
       maxSeats: 3,
       availableSeats: 0,
-    })
-  })
-
-  it('reports pending invitations in organization seat info', async () => {
-    getOrganizationSubscriptionMock.mockResolvedValue({
-      seats: 4,
-      tier: {
-        ownerType: 'organization',
-        seatCount: 4,
-        displayName: 'Team',
-        seatMode: 'adjustable',
-      },
-    })
-
-    const organizationChain: any = {
-      from: vi.fn(() => organizationChain),
-      where: vi.fn(() => ({
-        limit: vi.fn(() => Promise.resolve([{ id: 'org-1', name: 'TradingGoose' }])),
-      })),
-    }
-    const memberCountChain: any = {
-      from: vi.fn(() => memberCountChain),
-      where: vi.fn(() => Promise.resolve([{ count: 1 }])),
-    }
-    const invitationCountChain: any = {
-      from: vi.fn(() => invitationCountChain),
-      where: vi.fn(() => Promise.resolve([{ count: 2 }])),
-    }
-    selectMock
-      .mockReturnValueOnce(organizationChain)
-      .mockReturnValueOnce(memberCountChain)
-      .mockReturnValueOnce(invitationCountChain)
-
-    const { getOrganizationSeatInfo } = await import('./seat-management')
-
-    await expect(getOrganizationSeatInfo('org-1')).resolves.toEqual({
-      organizationId: 'org-1',
-      organizationName: 'TradingGoose',
-      currentSeats: 3,
-      memberSeats: 1,
-      pendingInvitations: 2,
-      maxSeats: 4,
-      availableSeats: 1,
-      subscriptionTierName: 'Team',
-      canAddSeats: true,
     })
   })
 })

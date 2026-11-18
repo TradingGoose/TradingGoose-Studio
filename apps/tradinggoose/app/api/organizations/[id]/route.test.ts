@@ -57,11 +57,6 @@ describe('Organization DELETE route', () => {
       getBillingGateState: mockGetBillingGateState,
     }))
 
-    vi.doMock('@/lib/billing/validation/seat-management', () => ({
-      getOrganizationSeatAnalytics: vi.fn(),
-      getOrganizationSeatInfo: vi.fn(),
-    }))
-
     vi.doMock('@/lib/logs/console/logger', () => ({
       createLogger: vi.fn(() => ({
         debug: vi.fn(),
