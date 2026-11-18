@@ -2166,8 +2166,6 @@
         "removeTeamMember": "Eliminar miembro del equipo",
         "leaveOrganizationDescription": "¿Estás seguro de que quieres salir de esta organización? Perderás el acceso a todos los recursos del equipo.",
         "removeMemberDescription": "¿Estás seguro de que quieres eliminar a {name} del equipo?",
-        "alsoReduceSeatCount": "Reducir también el número de asientos en mi suscripción",
-        "reduceSeatCountDescription": "Si se selecciona, el número de asientos de tu equipo se reducirá en 1, lo que disminuirá tu facturación mensual.",
         "thisActionCannotBeUndone": "Esta acción no se puede deshacer.",
         "cancel": "Cancelar",
         "remove": "Eliminar",

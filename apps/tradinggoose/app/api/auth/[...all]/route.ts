@@ -5,7 +5,10 @@ import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscripti
 import { hasPrivateBillingTierAccess } from '@/lib/billing/private-tier-access'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { getStoredStripeUserCustomerId } from '@/lib/billing/stripe-customers'
-import { ensurePlanChangePortalConfiguration } from '@/lib/billing/stripe-portal'
+import {
+  ensurePlanChangePortalConfiguration,
+  getValidatedStripeTierPrice,
+} from '@/lib/billing/stripe-portal'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { getBillingTierById } from '@/lib/billing/tiers'
 import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
@@ -208,6 +211,21 @@ async function prepareSubscriptionUpgrade(request: Request): Promise<Request | R
 
     if (authorizedSeats !== requestedSeats) {
       preparedBody = { ...preparedBody, seats: authorizedSeats }
+    }
+
+    if (!activeStripeSubscriptionId) {
+      try {
+        await getValidatedStripeTierPrice(
+          requireStripeClient(),
+          tier,
+          body.annual === true ? tier.stripeYearlyPriceId : tier.stripeMonthlyPriceId
+        )
+      } catch {
+        return Response.json(
+          { error: 'Organization Checkout requires an active licensed Stripe price' },
+          { status: 409 }
+        )
+      }
     }
   }
   if (activeStripeSubscriptionId) {

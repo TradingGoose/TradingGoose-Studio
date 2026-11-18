@@ -9,8 +9,28 @@ const PLAN_CHANGE_ALLOWED_UPDATES = ['price', 'quantity'] as const
 
 type PlanChangeTier = Pick<
   BillingTierRecord,
-  'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
+  'ownerType' | 'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
 >
+
+export async function getValidatedStripeTierPrice(
+  stripe: Stripe,
+  tier: Pick<PlanChangeTier, 'ownerType' | 'stripeProductId'>,
+  priceId: string | null
+) {
+  if (!priceId) throw new Error('Stripe price is required')
+  const price = await stripe.prices.retrieve(priceId)
+  if (!price.active || !price.recurring) {
+    throw new Error(`Stripe price ${price.id} must be an active recurring price`)
+  }
+  if (tier.ownerType === 'organization' && price.recurring.usage_type !== 'licensed') {
+    throw new Error(`Stripe price ${price.id} must be licensed for organization seats`)
+  }
+  const productId = typeof price.product === 'string' ? price.product : price.product.id
+  if (tier.stripeProductId && productId !== tier.stripeProductId) {
+    throw new Error(`Stripe price ${price.id} does not belong to ${tier.stripeProductId}`)
+  }
+  return { id: price.id, productId }
+}
 
 async function listPortalConfigurations(stripe: Stripe) {
   const configurations: Stripe.BillingPortal.Configuration[] = []
@@ -46,23 +66,13 @@ export async function buildPlanChangePortalCatalog(stripe: Stripe, tiers: PlanCh
     tiers.flatMap((tier) =>
       [tier.stripeMonthlyPriceId, tier.stripeYearlyPriceId]
         .filter((priceId): priceId is string => Boolean(priceId))
-        .map(async (priceId) => ({
-          tier,
-          price: await stripe.prices.retrieve(priceId),
-        }))
+        .map((priceId) => getValidatedStripeTierPrice(stripe, tier, priceId))
     )
   )
 
-  for (const { tier, price } of prices) {
-    if (!price.active || !price.recurring) {
-      throw new Error(`Stripe price ${price.id} must be an active recurring price`)
-    }
-    const productId = typeof price.product === 'string' ? price.product : price.product.id
-    if (tier.stripeProductId && productId !== tier.stripeProductId) {
-      throw new Error(`Stripe price ${price.id} does not belong to ${tier.stripeProductId}`)
-    }
+  for (const { id, productId } of prices) {
     const productPrices = pricesByProduct.get(productId) ?? []
-    productPrices.push(price.id)
+    productPrices.push(id)
     pricesByProduct.set(productId, productPrices)
   }
 

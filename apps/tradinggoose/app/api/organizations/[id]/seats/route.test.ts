@@ -9,8 +9,10 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   stripe: vi.fn(),
   retrieve: vi.fn(),
+  updateStripe: vi.fn(),
+  updateDb: vi.fn(),
 }))
-vi.mock('@tradinggoose/db', () => ({ db: { select: mocks.select } }))
+vi.mock('@tradinggoose/db', () => ({ db: { select: mocks.select, update: mocks.updateDb } }))
 vi.mock('@/lib/auth', () => ({ getSession: mocks.session }))
 vi.mock('@/lib/billing/core/billing', () => ({ getOrganizationSubscription: mocks.subscription }))
 vi.mock('@/lib/billing/settings', () => ({
@@ -24,10 +26,26 @@ import { GET, PUT } from './route'
 let membership: Array<{ role: string }>
 const tables: unknown[] = []
 const params = { params: Promise.resolve({ id: 'org-large' }) }
-const request = (method = 'GET', seats = 60) =>
+const subscriptionItem = {
+  id: 'si_team',
+  quantity: 60,
+  price: {
+    id: 'price_team',
+    currency: 'usd',
+    billing_scheme: 'per_unit',
+    recurring: { interval: 'year', interval_count: 1, usage_type: 'licensed' },
+    unit_amount: null,
+    unit_amount_decimal: '12000',
+  },
+}
+const quote = {
+  revision: JSON.stringify(['si_team', 'price_team', 60]),
+  estimate: { amountUsd: 120, interval: 'year' },
+}
+const request = (method = 'GET', seats = 60, quoteRevision = quote.revision) =>
   new NextRequest('http://localhost/api/organizations/org-large/seats', {
     method,
-    ...(method === 'PUT' ? { body: JSON.stringify({ seats }) } : {}),
+    ...(method === 'PUT' ? { body: JSON.stringify({ seats, quoteRevision }) } : {}),
   })
 
 beforeEach(() => {
@@ -36,23 +54,15 @@ beforeEach(() => {
   membership = [{ role: 'owner' }]
   mocks.session.mockResolvedValue({ user: { id: 'user-1' } })
   mocks.billing.mockResolvedValue({ billingEnabled: true })
-  mocks.stripe.mockReturnValue({ subscriptions: { retrieve: mocks.retrieve } })
+  mocks.stripe.mockReturnValue({
+    subscriptions: { retrieve: mocks.retrieve, update: mocks.updateStripe },
+  })
+  mocks.updateStripe.mockResolvedValue({ id: 'sub_organization', status: 'active' })
+  mocks.updateDb.mockReturnValue({ set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) })
   mocks.retrieve.mockResolvedValue({
     status: 'active',
     currency: 'usd',
-    items: {
-      data: [
-        {
-          price: {
-            currency: 'usd',
-            billing_scheme: 'per_unit',
-            recurring: { interval: 'year', interval_count: 1, usage_type: 'licensed' },
-            unit_amount: null,
-            unit_amount_decimal: '12000',
-          },
-        },
-      ],
-    },
+    items: { data: [subscriptionItem] },
   })
   mocks.subscription.mockResolvedValue({
     seats: 60,
@@ -90,11 +100,8 @@ describe('organization seat aggregate', () => {
           organizationId: 'org-large',
           maxSeats: 60,
           usedSeats: 56,
-          memberSeats: 53,
-          pendingInvitations: 3,
           availableSeats: 4,
-          canModifySeats: true,
-          seatPrice: role === 'owner' ? { amountUsd: 120, interval: 'year' } : null,
+          seatQuote: role === 'owner' ? quote : null,
         },
       })
       expect(tables).toEqual([member, member, invitation])
@@ -117,10 +124,7 @@ describe('organization seat aggregate', () => {
         usedSeats: 56,
         maxSeats: 0,
         availableSeats: 0,
-        tier: null,
-        seatMode: null,
-        seatMaximum: null,
-        canModifySeats: false,
+        seatQuote: null,
       },
     })
     expect((await PUT(request('PUT'), params)).status).toBe(404)
@@ -135,16 +139,16 @@ describe('organization seat aggregate', () => {
     const response = await GET(request(), params)
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
-      data: { maxSeats: 60, canModifySeats: false, seatPrice: null },
+      data: { maxSeats: 60, seatQuote: null },
     })
   })
 
-  it('keeps occupancy and seat changes available when Stripe pricing cannot be fetched', async () => {
+  it('keeps occupancy available when the active Stripe seat item cannot be fetched', async () => {
     mocks.retrieve.mockRejectedValueOnce(new Error('Stripe unavailable'))
     const response = await GET(request(), params)
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
-      data: { usedSeats: 56, canModifySeats: true, seatPrice: null },
+      data: { usedSeats: 56, seatQuote: null },
     })
   })
 
@@ -176,5 +180,39 @@ describe('organization seat aggregate', () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({ occupiedSeats: 56 })
     expect(mocks.stripe).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['si_old', 'price_team', 60],
+    ['si_team', 'price_old', 60],
+    ['si_team', 'price_team', 59],
+  ])(
+    'rejects stale quote [%s, %s, %s] before updating Stripe',
+    async (itemId, priceId, quantity) => {
+      const response = await PUT(
+        request('PUT', 61, JSON.stringify([itemId, priceId, quantity])),
+        params
+      )
+      expect(response.status).toBe(409)
+      expect(mocks.updateStripe).not.toHaveBeenCalled()
+      expect(mocks.updateDb).not.toHaveBeenCalled()
+    }
+  )
+
+  it('quotes and applies from the active Stripe quantity while webhooks catch up', async () => {
+    mocks.retrieve.mockResolvedValue({
+      status: 'active',
+      currency: 'usd',
+      items: { data: [{ ...subscriptionItem, quantity: 63 }] },
+    })
+    const { data } = await (await GET(request(), params)).json()
+    expect(data.maxSeats).toBe(63)
+    const response = await PUT(request('PUT', 60, data.seatQuote.revision), params)
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({ data: { seats: 60, previousSeats: 63 } })
+    expect(mocks.updateStripe).toHaveBeenCalledExactlyOnceWith('sub_organization', {
+      items: [{ id: 'si_team', quantity: 60 }],
+      proration_behavior: 'create_prorations',
+    })
   })
 })

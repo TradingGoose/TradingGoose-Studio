@@ -118,9 +118,8 @@ export function TeamManagement() {
     open: boolean
     memberId: string
     memberName: string
-    shouldReduceSeats: boolean
     isSelfRemoval?: boolean
-  }>({ open: false, memberId: '', memberName: '', shouldReduceSeats: false })
+  }>({ open: false, memberId: '', memberName: '' })
   const [orgName, setOrgName] = useState('')
   const [orgSlug, setOrgSlug] = useState('')
   const [isAddSeatDialogOpen, setIsAddSeatDialogOpen] = useState(false)
@@ -168,7 +167,6 @@ export function TeamManagement() {
   const organizationBillingPending =
     isLoadingOrganizationBilling || Boolean(activeOrgId && isOrganizationBillingPlaceholder)
   const currentTier = organizationBillingPayload?.subscriptionTier ?? null
-  const totalSeats = organizationBillingPayload?.totalSeats ?? 0
   const billingEnabled =
     organizationBillingPayload?.billingEnabled ??
     organizationsData?.billingData?.data?.billingEnabled ??
@@ -182,6 +180,9 @@ export function TeamManagement() {
     refetch: refetchSeatCounts,
   } = useOrganizationSeats(activeOrgId || '', seatCountsEnabled)
   const organizationSeats = seatCounts?.organizationId === activeOrgId ? seatCounts : undefined
+  const totalSeats = organizationSeats?.seatQuote
+    ? organizationSeats.maxSeats
+    : (organizationBillingPayload?.totalSeats ?? 0)
   const seatCountsUnavailable = isSeatCountsPending || isSeatCountsError || !organizationSeats
   const usedSeats = organizationSeats?.usedSeats ?? 0
   const availableOrganizationTiers = mergeAccessibleBillingTiers(
@@ -213,12 +214,11 @@ export function TeamManagement() {
   })
   const isAdjustableSeatTier =
     currentTier?.ownerType === 'organization' && currentTier.seatMode === 'adjustable'
-  const canModifyCurrentSeats =
-    isOrganizationOwner &&
-    isAdjustableSeatTier &&
-    !seatCountsUnavailable &&
-    organizationSeats?.canModifySeats === true
-  const seatPrice = isOrganizationOwner ? organizationSeats?.seatPrice : null
+  const seatQuote =
+    isOrganizationOwner && isAdjustableSeatTier && !seatCountsUnavailable
+      ? organizationSeats?.seatQuote
+      : null
+  const seatPrice = seatQuote?.estimate
   const seatCount = currentTier?.seatCount ?? 1
   const seatMaximum = currentTier?.seatMaximum ?? null
   const organizationPlanCatalogPending =
@@ -348,52 +348,47 @@ export function TeamManagement() {
         open: true,
         memberId: member.user.id,
         memberName: displayName,
-        shouldReduceSeats: false,
         isSelfRemoval: isLeavingSelf,
       })
     },
     [session?.user, activeOrgId, copy]
   )
 
-  const confirmRemoveMember = useCallback(
-    async (shouldReduceSeats = false) => {
-      const { memberId } = removeMemberDialog
-      if (!session?.user || !activeOrgId || !memberId) return
+  const confirmRemoveMember = useCallback(async () => {
+    const { memberId } = removeMemberDialog
+    if (!session?.user || !activeOrgId || !memberId) return
 
-      const succeeded = await runAction('remove', () =>
-        removeMemberMutation.mutateAsync({
-          memberId,
-          orgId: activeOrgId,
-          shouldReduceSeats,
-        })
-      )
-      if (succeeded) {
-        setRemoveMemberDialog({
-          open: false,
-          memberId: '',
-          memberName: '',
-          shouldReduceSeats: false,
-        })
-      }
-    },
-    [removeMemberDialog.memberId, session?.user?.id, activeOrgId, removeMemberMutation, runAction]
-  )
+    const succeeded = await runAction('remove', () =>
+      removeMemberMutation.mutateAsync({
+        memberId,
+        orgId: activeOrgId,
+      })
+    )
+    if (succeeded) {
+      setRemoveMemberDialog({
+        open: false,
+        memberId: '',
+        memberName: '',
+      })
+    }
+  }, [removeMemberDialog.memberId, session?.user?.id, activeOrgId, removeMemberMutation, runAction])
 
   const handleReduceSeats = useCallback(async () => {
-    if (!activeOrgId || !canModifyCurrentSeats) return
+    if (!activeOrgId || !seatQuote) return
     if (totalSeats <= 1 || usedSeats >= totalSeats) return
 
     await runAction('reduce-seats', () =>
       updateSeatsMutation.mutateAsync({
         orgId: activeOrgId,
         seats: totalSeats - 1,
+        quoteRevision: seatQuote.revision,
       })
     )
-  }, [activeOrgId, canModifyCurrentSeats, totalSeats, usedSeats, updateSeatsMutation, runAction])
+  }, [activeOrgId, seatQuote, totalSeats, usedSeats, updateSeatsMutation, runAction])
 
   const confirmAddSeats = useCallback(
     async (selectedSeats: number) => {
-      if (!activeOrgId || !canModifyCurrentSeats) {
+      if (!activeOrgId || !seatQuote) {
         return
       }
 
@@ -401,13 +396,14 @@ export function TeamManagement() {
         updateSeatsMutation.mutateAsync({
           orgId: activeOrgId,
           seats: selectedSeats,
+          quoteRevision: seatQuote.revision,
         })
       )
       if (succeeded) {
         setIsAddSeatDialogOpen(false)
       }
     },
-    [canModifyCurrentSeats, activeOrgId, updateSeatsMutation, runAction]
+    [seatQuote, activeOrgId, updateSeatsMutation, runAction]
   )
 
   const handleAssignWorkspaceBilling = useCallback(
@@ -673,7 +669,7 @@ export function TeamManagement() {
             billingInterval={seatPrice?.interval ?? null}
             isLoadingSubscription={organizationBillingPending || seatCountsUnavailable}
             usedSeats={usedSeats}
-            actionsDisabled={isLoading || isPending || !canModifyCurrentSeats}
+            actionsDisabled={isLoading || isPending || !seatQuote}
             isReducing={pendingAction === 'reduce-seats'}
             error={actionFailure('reduce-seats')}
             onReduceSeats={handleReduceSeats}
@@ -758,8 +754,6 @@ export function TeamManagement() {
       <RemoveMemberDialog
         open={removeMemberDialog.open}
         memberName={removeMemberDialog.memberName}
-        shouldReduceSeats={removeMemberDialog.shouldReduceSeats}
-        canReduceSeats={isAdjustableSeatTier}
         isSelfRemoval={removeMemberDialog.isSelfRemoval}
         isPending={pendingAction === 'remove' || removeMemberMutation.isPending}
         error={actionFailure('remove')}
@@ -768,22 +762,12 @@ export function TeamManagement() {
             setRemoveMemberDialog((prev) => (prev.open ? { ...prev, open: false } : prev))
           }
         }}
-        onShouldReduceSeatsChange={(shouldReduce: boolean) =>
-          setRemoveMemberDialog((prev) =>
-            prev.shouldReduceSeats === shouldReduce
-              ? prev
-              : { ...prev, shouldReduceSeats: shouldReduce }
-          )
-        }
-        onConfirmRemove={(shouldReduceSeats: boolean) =>
-          confirmRemoveMember(isAdjustableSeatTier ? shouldReduceSeats : false)
-        }
+        onConfirmRemove={confirmRemoveMember}
         onCancel={() =>
           setRemoveMemberDialog({
             open: false,
             memberId: '',
             memberName: '',
-            shouldReduceSeats: false,
             isSelfRemoval: false,
           })
         }
@@ -825,7 +809,7 @@ export function TeamManagement() {
 
       {isAdjustableSeatTier && (
         <TeamSeats
-          open={isAddSeatDialogOpen && canModifyCurrentSeats}
+          open={isAddSeatDialogOpen && Boolean(seatQuote)}
           onOpenChange={setIsAddSeatDialogOpen}
           title={copy('addSeats.title')}
           description={

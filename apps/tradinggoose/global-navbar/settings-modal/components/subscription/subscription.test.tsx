@@ -231,13 +231,8 @@ function organizationSeats(memberSeats = 4, pendingInvitations = 0) {
     organizationId: 'org-billing',
     maxSeats: 0,
     usedSeats: memberSeats + pendingInvitations,
-    memberSeats,
-    pendingInvitations,
     availableSeats: 0,
-    tier: null,
-    canModifySeats: false,
-    seatMode: null,
-    seatMaximum: null,
+    seatQuote: null,
   }
 }
 

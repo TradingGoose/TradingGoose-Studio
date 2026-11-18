@@ -108,14 +108,11 @@ export interface OrganizationSeats {
   organizationId: string
   maxSeats: number
   usedSeats: number
-  memberSeats: number
-  pendingInvitations: number
   availableSeats: number
-  tier: string | null
-  canModifySeats: boolean
-  seatPrice: { amountUsd: number; interval: 'month' | 'year' } | null
-  seatMode: 'fixed' | 'adjustable' | null
-  seatMaximum: number | null
+  seatQuote: {
+    revision: string
+    estimate: { amountUsd: number; interval: 'month' | 'year' } | null
+  } | null
 }
 
 export function useOrganizationSeats(orgId: string, enabled = true) {
@@ -232,7 +229,6 @@ interface InviteMemberParams {
 interface RemoveMemberParams {
   memberId: string
   orgId: string
-  shouldReduceSeats?: boolean
 }
 
 interface CancelInvitationParams {
@@ -243,6 +239,7 @@ interface CancelInvitationParams {
 interface UpdateSeatsParams {
   orgId: string
   seats: number
+  quoteRevision: string
 }
 
 interface CreateOrganizationParams {
@@ -352,13 +349,10 @@ export const organizationMutationOptions = {
 
   removeMember(queryClient: QueryClient) {
     return mutationOptions({
-      mutationFn: async ({ memberId, orgId, shouldReduceSeats }: RemoveMemberParams) => {
-        const response = await fetch(
-          `/api/organizations/${orgId}/members/${memberId}?shouldReduceSeats=${shouldReduceSeats}`,
-          {
-            method: 'DELETE',
-          }
-        )
+      mutationFn: async ({ memberId, orgId }: RemoveMemberParams) => {
+        const response = await fetch(`/api/organizations/${orgId}/members/${memberId}`, {
+          method: 'DELETE',
+        })
 
         if (!response.ok) {
           const error = await response.json()
@@ -403,14 +397,17 @@ export const organizationMutationOptions = {
 
   updateSeats(queryClient: QueryClient) {
     return mutationOptions({
-      mutationFn: async ({ seats, orgId }: UpdateSeatsParams) => {
+      mutationFn: async ({ seats, orgId, quoteRevision }: UpdateSeatsParams) => {
         const response = await fetch(`/api/organizations/${orgId}/seats`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ seats }),
+          body: JSON.stringify({ seats, quoteRevision }),
         })
 
         if (!response.ok) {
+          if (response.status === 409) {
+            await queryClient.invalidateQueries({ queryKey: organizationKeys.seats(orgId) })
+          }
           const error = await response.json()
           throw new Error(error.error || 'Failed to update seats')
         }
@@ -418,6 +415,7 @@ export const organizationMutationOptions = {
         return response.json()
       },
       onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({ queryKey: organizationKeys.seats(variables.orgId) })
         queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
         queryClient.invalidateQueries({ queryKey: organizationKeys.billing(variables.orgId) })
         queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })

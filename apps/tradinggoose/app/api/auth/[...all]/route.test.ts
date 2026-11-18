@@ -17,6 +17,7 @@ const {
   mockAuthorizeSubscriptionReference,
   mockGetStoredStripeUserCustomerId,
   mockEnsurePlanChangePortalConfiguration,
+  mockRetrieveStripePrice,
   mockGetOccupiedSeatCount,
   mockGetRobinhoodOAuthClientIdFromState,
 } = vi.hoisted(() => ({
@@ -33,6 +34,7 @@ const {
   mockAuthorizeSubscriptionReference: vi.fn(),
   mockGetStoredStripeUserCustomerId: vi.fn(),
   mockEnsurePlanChangePortalConfiguration: vi.fn(),
+  mockRetrieveStripePrice: vi.fn(),
   mockGetOccupiedSeatCount: vi.fn(),
   mockGetRobinhoodOAuthClientIdFromState: vi.fn(),
 }))
@@ -74,14 +76,15 @@ vi.mock('@/lib/billing/authorization', () => ({
 }))
 
 vi.mock('@/lib/billing/stripe-client', () => ({
-  requireStripeClient: () => ({ id: 'stripe-client' }),
+  requireStripeClient: () => ({ prices: { retrieve: mockRetrieveStripePrice } }),
 }))
 
 vi.mock('@/lib/billing/stripe-customers', () => ({
   getStoredStripeUserCustomerId: (...args: unknown[]) => mockGetStoredStripeUserCustomerId(...args),
 }))
 
-vi.mock('@/lib/billing/stripe-portal', () => ({
+vi.mock('@/lib/billing/stripe-portal', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/billing/stripe-portal')>()),
   ensurePlanChangePortalConfiguration: (...args: unknown[]) =>
     mockEnsurePlanChangePortalConfiguration(...args),
 }))
@@ -128,6 +131,12 @@ describe('/api/auth/[...all] route', () => {
     mockGetActiveSubscriptionForReference.mockResolvedValue(null)
     mockAuthorizeSubscriptionReference.mockResolvedValue(true)
     mockEnsurePlanChangePortalConfiguration.mockResolvedValue('bpc_default')
+    mockRetrieveStripePrice.mockResolvedValue({
+      id: 'price_team',
+      active: true,
+      product: 'prod_team',
+      recurring: { usage_type: 'licensed' },
+    })
     mockGetOccupiedSeatCount.mockResolvedValue(1)
     mockRunWithSystemOAuthClientCredentials.mockImplementation(async (callback: () => Response) =>
       callback()
@@ -380,6 +389,7 @@ describe('/api/auth/[...all] route', () => {
       status: 'active',
       isPublic: true,
       ownerType: 'organization',
+      stripeMonthlyPriceId: 'price_team',
       ...testCase.tier,
     })
     mockGetOccupiedSeatCount.mockResolvedValue(testCase.occupiedSeats)
@@ -398,12 +408,44 @@ describe('/api/auth/[...all] route', () => {
     )
 
     expect(response.status).toBe(204)
+    expect(mockRetrieveStripePrice).toHaveBeenCalledWith('price_team')
     expect(mockGetOccupiedSeatCount).toHaveBeenCalledWith('org-1')
     expect(mockAuthHandler).toHaveBeenCalledOnce()
     const delegatedRequest = mockAuthHandler.mock.calls[0]?.[0] as Request
     const delegatedBody = await delegatedRequest.json()
     expect(delegatedBody).toMatchObject({ seats: testCase.authorizedSeats })
     expect(delegatedBody).not.toHaveProperty('customerType')
+  })
+
+  it('rejects a metered annual organization Checkout before delegating to Stripe', async () => {
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'team-tier',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'organization',
+      seatMode: 'adjustable',
+      seatCount: 2,
+      seatMaximum: 10,
+      stripeMonthlyPriceId: 'price_team',
+      stripeYearlyPriceId: 'price_team_annual',
+    })
+    mockRetrieveStripePrice.mockResolvedValueOnce({
+      id: 'price_team_annual',
+      active: true,
+      recurring: { usage_type: 'metered' },
+    })
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({ plan: 'team-tier', referenceId: 'org-1', annual: true, seats: 4 }),
+      })
+    )
+
+    expect(response.status).toBe(409)
+    expect(mockRetrieveStripePrice).toHaveBeenCalledExactlyOnceWith('price_team_annual')
+    expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
   it.each([

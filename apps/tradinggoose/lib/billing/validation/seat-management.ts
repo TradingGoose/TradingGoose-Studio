@@ -14,11 +14,7 @@ interface SeatValidationResult {
   availableSeats: number
 }
 
-export async function getSeatOccupancy(organizationId: string): Promise<{
-  members: number
-  pending: number
-  occupied: number
-}> {
+export async function getOccupiedSeatCount(organizationId: string): Promise<number> {
   const [memberCount, pendingInvitationCount] = await Promise.all([
     db.select({ count: count() }).from(member).where(eq(member.organizationId, organizationId)),
     db
@@ -27,19 +23,7 @@ export async function getSeatOccupancy(organizationId: string): Promise<{
       .where(and(eq(invitation.organizationId, organizationId), eq(invitation.status, 'pending'))),
   ])
 
-  const members = memberCount[0]?.count || 0
-  const pending = pendingInvitationCount[0]?.count || 0
-
-  return {
-    members,
-    pending,
-    occupied: members + pending,
-  }
-}
-
-export async function getOccupiedSeatCount(organizationId: string): Promise<number> {
-  const { occupied } = await getSeatOccupancy(organizationId)
-  return occupied
+  return (memberCount[0]?.count ?? 0) + (pendingInvitationCount[0]?.count ?? 0)
 }
 
 /**
@@ -63,7 +47,7 @@ export async function validateSeatAvailability(
       }
     }
 
-    const { occupied: currentSeats } = await getSeatOccupancy(organizationId)
+    const currentSeats = await getOccupiedSeatCount(organizationId)
 
     if (subscription.tier.ownerType !== 'organization') {
       return {

@@ -37,7 +37,7 @@ function createStripe(configurations: unknown[]) {
   const retrievePrice = vi.fn().mockImplementation(async (id: string) => ({
     id,
     active: true,
-    recurring: { interval: 'month' },
+    recurring: { interval: 'month', usage_type: 'licensed' },
     product: 'prod_team',
   }))
 
@@ -62,6 +62,7 @@ describe('Stripe portal configurations', () => {
     getActiveStripeBillingTiers.mockResolvedValue([
       {
         id: 'private-team',
+        ownerType: 'organization',
         stripeProductId: null,
         stripeMonthlyPriceId: 'price_monthly',
         stripeYearlyPriceId: 'price_yearly',
@@ -113,6 +114,7 @@ describe('Stripe portal configurations', () => {
     const { stripe, retrievePrice } = createStripe([])
     const { buildPlanChangePortalCatalog } = await import('./stripe-portal')
     const tier = {
+      ownerType: 'organization' as const,
       stripeProductId: null,
       stripeMonthlyPriceId: 'price',
       stripeYearlyPriceId: null,
@@ -120,11 +122,14 @@ describe('Stripe portal configurations', () => {
     const price = {
       id: 'price',
       active: true,
-      recurring: { interval: 'month' },
+      recurring: { interval: 'month', usage_type: 'licensed' },
       product: 'prod_team',
     }
     retrievePrice.mockResolvedValueOnce({ ...price, recurring: null })
     await expect(buildPlanChangePortalCatalog(stripe, [tier])).rejects.toThrow('active recurring')
+
+    retrievePrice.mockResolvedValueOnce({ ...price, recurring: { usage_type: 'metered' } })
+    await expect(buildPlanChangePortalCatalog(stripe, [tier])).rejects.toThrow('must be licensed')
 
     retrievePrice.mockResolvedValueOnce({ ...price, product: 'prod_other' })
     await expect(

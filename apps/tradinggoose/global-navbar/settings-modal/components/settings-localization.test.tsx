@@ -117,14 +117,8 @@ describe('settings localization', () => {
       organizationId: 'org-1',
       maxSeats: 0,
       usedSeats: 4,
-      memberSeats: 4,
-      pendingInvitations: 0,
       availableSeats: 0,
-      tier: null,
-      canModifySeats: false,
-      seatPrice: null,
-      seatMode: null,
-      seatMaximum: null,
+      seatQuote: null,
     } satisfies OrganizationSeats)
     vi.stubGlobal(
       'fetch',
@@ -419,8 +413,6 @@ describe('settings localization', () => {
       ]
       counts = {
         ...queryClient.getQueryData<OrganizationSeats>(organizationKeys.seats('org-1'))!,
-        memberSeats: 1,
-        pendingInvitations: 49,
         usedSeats: 50,
       }
       queryClient.setQueryData(organizationKeys.seats('org-1'), counts)
@@ -495,8 +487,7 @@ describe('settings localization', () => {
           ...counts,
           maxSeats: 60,
           availableSeats: 10,
-          canModifySeats: true,
-          seatPrice,
+          seatQuote: { revision: 'active-seat-quote', estimate: seatPrice },
         })
         await render('en', <TeamManagement />)
         const copy = getClientMessages('en').workspace.settingsModal.team
@@ -512,7 +503,11 @@ describe('settings localization', () => {
         )!
         expect(remove).toBeEnabled()
         await act(async () => remove.click())
-        expect(mocks.mutate.mock.lastCall?.[0]).toEqual({ orgId: 'org-1', seats: 59 })
+        expect(mocks.mutate.mock.lastCall?.[0]).toEqual({
+          orgId: 'org-1',
+          seats: 59,
+          quoteRevision: 'active-seat-quote',
+        })
         const add = [...container.querySelectorAll('button')].find(
           (button) => button.textContent === copy.addSeat
         )!
@@ -535,7 +530,11 @@ describe('settings localization', () => {
           (button) => button.textContent === copy.addSeats.confirm
         )!
         await act(async () => update.click())
-        expect(mocks.mutate.mock.lastCall?.[0]).toEqual({ orgId: 'org-1', seats: 61 })
+        expect(mocks.mutate.mock.lastCall?.[0]).toEqual({
+          orgId: 'org-1',
+          seats: 61,
+          quoteRevision: 'active-seat-quote',
+        })
       }
     )
 

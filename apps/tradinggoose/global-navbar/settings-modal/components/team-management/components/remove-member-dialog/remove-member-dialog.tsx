@@ -13,24 +13,18 @@ import {
 interface RemoveMemberDialogProps {
   open: boolean
   memberName: string
-  shouldReduceSeats: boolean
-  canReduceSeats: boolean
   isSelfRemoval?: boolean
   isPending: boolean
   error?: string | null
   onOpenChange: (open: boolean) => void
-  onShouldReduceSeatsChange: (shouldReduce: boolean) => void
-  onConfirmRemove: (shouldReduceSeats: boolean) => Promise<void>
+  onConfirmRemove: () => Promise<void>
   onCancel: () => void
 }
 
 export function RemoveMemberDialog({
   open,
   memberName,
-  shouldReduceSeats,
-  canReduceSeats,
   onOpenChange,
-  onShouldReduceSeatsChange,
   onConfirmRemove,
   onCancel,
   isSelfRemoval = false,
@@ -60,25 +54,6 @@ export function RemoveMemberDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {!isSelfRemoval && canReduceSeats && (
-          <div className='py-4'>
-            <div className='flex items-center space-x-2'>
-              <input
-                type='checkbox'
-                id='reduce-seats'
-                className='rounded-sm'
-                checked={shouldReduceSeats}
-                onChange={(e) => onShouldReduceSeatsChange(e.target.checked)}
-                disabled={isPending}
-              />
-              <label htmlFor='reduce-seats' className='text-xs'>
-                {t('alsoReduceSeatCount')}
-              </label>
-            </div>
-            <p className='mt-1 text-muted-foreground text-xs'>{t('reduceSeatCountDescription')}</p>
-          </div>
-        )}
-
         {error ? (
           <Alert role='alert' variant='destructive'>
             <AlertDescription>{error}</AlertDescription>
@@ -96,7 +71,7 @@ export function RemoveMemberDialog({
           </Button>
           <Button
             variant='destructive'
-            onClick={() => onConfirmRemove(shouldReduceSeats)}
+            onClick={onConfirmRemove}
             disabled={isPending}
             focusableWhenDisabled={isPending}
             aria-busy={isPending || undefined}

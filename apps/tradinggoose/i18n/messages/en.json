@@ -2166,8 +2166,6 @@
         "removeTeamMember": "Remove Team Member",
         "leaveOrganizationDescription": "Are you sure you want to leave this organization? You will lose access to all team resources.",
         "removeMemberDescription": "Are you sure you want to remove {name} from the team?",
-        "alsoReduceSeatCount": "Also reduce seat count in my subscription",
-        "reduceSeatCountDescription": "If selected, your team seat count will be reduced by 1, lowering your monthly billing.",
         "thisActionCannotBeUndone": "This action cannot be undone.",
         "cancel": "Cancel",
         "remove": "Remove",

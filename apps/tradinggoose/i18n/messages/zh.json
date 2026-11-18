@@ -2153,8 +2153,6 @@
         "removeTeamMember": "移除团队成员",
         "leaveOrganizationDescription": "确定要退出此组织吗？您将失去所有团队资源的访问权限。",
         "removeMemberDescription": "确定要将 {name} 从团队中移除吗？",
-        "alsoReduceSeatCount": "同时减少订阅中的席位数量",
-        "reduceSeatCountDescription": "如果选中，您的团队席位数量将减少 1，从而降低您的月度费用。",
         "thisActionCannotBeUndone": "此操作无法撤销。",
         "cancel": "取消",
         "remove": "移除",
