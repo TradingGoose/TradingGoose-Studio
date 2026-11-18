@@ -4,8 +4,8 @@
 [Better Auth v1.7.16](https://github.com/better-auth/better-auth/blob/v1.7.16/packages/better-auth/src/plugins/email-otp/routes.ts#L1090).
 The installed Better Auth packages remain on 1.6.34.
 
-One identifier builder binds normal OTPs to `[userId, email]`, using an explicit
-`null` owner only when no account exists. Issuance, signup hooks, reuse, and all
+One identifier builder binds normal OTPs to `[userId, mailboxVersion, email]`, using
+`[null, null, email]` when no account exists. Issuance, signup hooks, reuse, and all
 verification utilities use that same scope. A pending ownerless signup proof
 cannot authenticate an account created independently afterward.
 The resolved account is carried through verification and mutation, following
@@ -14,15 +14,16 @@ Redemption never selects a replacement account by looking up the address again.
 
 Upstream 1.6.34 joins `oldEmail-newEmail`, allowing different address pairs to
 share a verification identifier. The patch uses a JSON-encoded tuple of
-`[userId, currentEmail, newEmail]` when creating, deleting, and verifying the
-challenge. Changing the current email invalidates pending challenges, while
-the user ID and JSON encoding prevent address-pair collisions. Both regressions are covered in
-`apps/tradinggoose/lib/auth/email-change.test.ts`.
+`[userId, mailboxVersion, currentEmail, newEmail]` when creating, deleting, and
+verifying the challenge. Successful changes increment `mailboxVersion`, so
+returning to a former email address leaves its old proofs invalid. The user ID
+and JSON encoding prevent address-pair collisions. The regressions are covered
+in `apps/tradinggoose/lib/auth/email-change.test.ts`.
 
-Password-reset records use strict JSON `{ userId, email }`, following
+Password-reset records use strict JSON `{ userId, email, mailboxVersion }`, following
 [Better Auth's JSON verification records](https://github.com/better-auth/better-auth/blob/v1.7.20/packages/better-auth/src/plugins/magic-link/index.ts)
 and [Django's email-bound reset tokens](https://github.com/django/django/blob/5.2/django/contrib/auth/tokens.py#L91-L115).
-One validator checks the current account email in both the link callback and
+One validator checks the account email and mailbox version in both the link callback and
 redemption after atomic token consumption. An issuance request that captured
 the old mailbox cannot create a usable reset link after the email changes.
 The opaque link and identifier stay unchanged; no post-change deletion is needed.

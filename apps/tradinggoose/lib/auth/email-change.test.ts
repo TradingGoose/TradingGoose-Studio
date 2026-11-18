@@ -1046,6 +1046,26 @@ describe('native username authentication', () => {
     await expect(context.internalAdapter.listSessions(user.id)).resolves.toEqual(sessions)
   })
 
+  it.each(['email', 'username'] as const)(
+    'requires the current mailbox version before a %s password session is created',
+    async (method) => {
+      const { auth, context, user, sessions } = await setup()
+      const verify = context.password.verify
+      vi.spyOn(context.password, 'verify').mockImplementationOnce(async (input) => {
+        const valid = await verify(input)
+        await context.internalAdapter.updateUser(user.id, { mailboxVersion: 1 })
+        return valid
+      })
+
+      const signIn =
+        method === 'email'
+          ? auth.api.signInEmail({ body: { email, password } })
+          : auth.api.signInUsername({ body: { username: signupBody.username, password } })
+      await expect(signIn).rejects.toMatchObject({ statusCode: 401 })
+      await expect(context.internalAdapter.listSessions(user.id)).resolves.toEqual(sessions)
+    }
+  )
+
   it.each([
     ['MIXED.NAME', 'USERNAME_IS_ALREADY_TAKEN'],
     ['invalid username', 'INVALID_USERNAME'],

@@ -77,7 +77,7 @@ index 72c5c80da3af4d0df6f4d8519c6ea37e68dec6c6..80fef70dfff10ce0b120614a54ae52d2
 -export { requestPasswordReset, requestPasswordResetCallback, resetPassword, verifyPassword };
 +export { requestPasswordReset, requestPasswordResetCallback, resetPassword, setCredentialPassword, verifyPassword };
 diff --git a/dist/api/routes/sign-in.mjs b/dist/api/routes/sign-in.mjs
-index 06759dd7481b308a5d57b9ae797099e15cbdcc05..a489296b124dfa033aefa3e0ae2aae0e6737957e 100644
+index 06759dd7481b308a5d57b9ae797099e15cbdcc05..f4c031aeedb4dbf830f56805660119d722d516dc 100644
 --- a/dist/api/routes/sign-in.mjs
 +++ b/dist/api/routes/sign-in.mjs
 @@ -7,6 +7,7 @@ import { handleOAuthUserInfo } from "../../oauth2/link-account.mjs";
@@ -96,6 +96,17 @@ index 06759dd7481b308a5d57b9ae797099e15cbdcc05..a489296b124dfa033aefa3e0ae2aae0e
  		if (!ctx.context.options?.emailVerification?.sendVerificationEmail) throw APIError.from("FORBIDDEN", BASE_ERROR_CODES.EMAIL_NOT_VERIFIED);
  		if (ctx.context.options?.emailVerification?.sendOnSignIn) {
  			const token = await createEmailVerificationToken(ctx.context.secret, user.user.email, void 0, ctx.context.options.emailVerification?.expiresIn);
+@@ -323,7 +325,9 @@ const signInEmail = () => createAuthEndpoint("/sign-in/email", {
+ 		}
+ 		throw APIError.from("FORBIDDEN", BASE_ERROR_CODES.EMAIL_NOT_VERIFIED);
+ 	}
+-	const session = await ctx.context.internalAdapter.createSession(user.user.id, ctx.body.rememberMe === false);
++	const session = await ctx.context.internalAdapter.withUserMailbox(user.user, APIError.from("UNAUTHORIZED", BASE_ERROR_CODES.INVALID_EMAIL_OR_PASSWORD), (lockedUser) =>
++		ctx.context.internalAdapter.createSession(lockedUser.id, ctx.body.rememberMe === false)
++	);
+ 	if (!session) {
+ 		ctx.context.logger.error("Failed to create session");
+ 		throw APIError.from("UNAUTHORIZED", BASE_ERROR_CODES.FAILED_TO_CREATE_SESSION);
 diff --git a/dist/api/routes/sign-up.mjs b/dist/api/routes/sign-up.mjs
 index 0b3e7336690cde29345938c8431934b4c8323fe4..511e852cf78b15a66d28b6c0c24eeaac3a15f60d 100644
 --- a/dist/api/routes/sign-up.mjs
@@ -582,3 +593,18 @@ index ca80ec3816d60133791731d1a47bafe132f0c2d7..949f09ee33a92fc87f66722674bdfb81
  }
  const defaultKeyHasher = async (otp) => {
  	const hash = await createHash("SHA-256").digest(new TextEncoder().encode(otp));
+diff --git a/dist/plugins/username/index.mjs b/dist/plugins/username/index.mjs
+index 92e19cb69f7a33cd0af205c5bbcb817746b38fdd..97eaa5d2996e4879bd82ce5d95299dcdba922c17 100644
+--- a/dist/plugins/username/index.mjs
++++ b/dist/plugins/username/index.mjs
+@@ -214,7 +214,9 @@ const username = (options) => {
+ 					}
+ 					throw APIError.from("FORBIDDEN", USERNAME_ERROR_CODES.EMAIL_NOT_VERIFIED);
+ 				}
+-				const session = await ctx.context.internalAdapter.createSession(user.id, ctx.body.rememberMe === false);
++				const session = await ctx.context.internalAdapter.withUserMailbox(user, APIError.from("UNAUTHORIZED", USERNAME_ERROR_CODES.INVALID_USERNAME_OR_PASSWORD), (lockedUser) =>
++					ctx.context.internalAdapter.createSession(lockedUser.id, ctx.body.rememberMe === false)
++				);
+ 				if (!session) throw APIError.from("INTERNAL_SERVER_ERROR", BASE_ERROR_CODES.FAILED_TO_CREATE_SESSION);
+ 				await setSessionCookie(ctx, {
+ 					session,
