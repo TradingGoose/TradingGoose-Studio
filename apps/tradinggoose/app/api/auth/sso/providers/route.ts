@@ -3,13 +3,8 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getHostname } from 'tldts'
 import { getSession } from '@/lib/auth'
-import {
-  getOrganizationBillingData,
-  isOrganizationOwnerOrAdmin,
-} from '@/lib/billing/core/organization'
-import { getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOrganizationAccessState } from '@/lib/organization/access'
+import { getSsoOrganizationAccess } from '@/lib/sso/access'
 
 const logger = createLogger('SSO-Providers')
 
@@ -44,17 +39,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Active organization is required' }, { status: 400 })
     }
 
-    const [{ billingEnabled }, canManageSso, organizationBillingData] = await Promise.all([
-      getBillingGateState(),
-      isOrganizationOwnerOrAdmin(session.user.id, activeOrganizationId),
-      getOrganizationBillingData(activeOrganizationId),
-    ])
-    const access = getOrganizationAccessState({
-      billingEnabled,
-      hasOrganization: true,
-      isOrganizationAdmin: canManageSso,
-      organizationTier: organizationBillingData?.subscriptionTier,
-    })
+    const access = await getSsoOrganizationAccess(session.user.id, activeOrganizationId)
 
     if (!access.canManageOrganization) {
       return NextResponse.json(

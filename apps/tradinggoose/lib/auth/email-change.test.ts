@@ -1,4 +1,6 @@
 import { stripe } from '@better-auth/stripe'
+import { db } from '@tradinggoose/db'
+import { member, systemSettings, waitlist } from '@tradinggoose/db/schema'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { emailOTP, testUtils, username } from 'better-auth/plugins'
 import type Stripe from 'stripe'
@@ -14,7 +16,10 @@ const { mail, policy } = vi.hoisted(() => ({
 }))
 
 vi.mock('@tradinggoose/db', () => ({
-  db: { select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }) },
+  db: {
+    select: vi.fn(() => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) })),
+    transaction: vi.fn(),
+  },
 }))
 vi.mock('@/lib/billing/plans', () => ({ getBetterAuthPlansConfig: () => [] }))
 vi.mock('@/lib/environment', async (original) => ({
@@ -161,9 +166,61 @@ beforeEach(() => {
 })
 
 describe('account email change through native Better Auth OTP', () => {
-  it.each([false, true])(
-    'preserves the password only with a genuine signup continuation (duplicate: %s)',
-    async (duplicate) => {
+  it('keeps registration and session hook reads on the auth transaction', async () => {
+    const { adapter } = await productionAuth.$context
+    const now = new Date()
+    const tx = {
+      select: vi.fn(() => ({
+        from: (table: unknown) => ({
+          where: () => ({
+            limit: async () =>
+              table === systemSettings
+                ? [{ registrationMode: 'waitlist' }]
+                : table === member
+                  ? [{ organizationId: 'organization' }]
+                  : table === waitlist
+                    ? [{ status: 'approved' }]
+                    : [],
+          }),
+        }),
+      })),
+    }
+    vi.mocked(db.transaction).mockImplementationOnce(async (run) =>
+      run(tx as unknown as Parameters<typeof run>[0])
+    )
+
+    await adapter.transaction(async () => {
+      const { user, session } = productionAuth.options.databaseHooks
+      await user.create.before({
+        id: 'user',
+        email: 'owner@example.com',
+        name: 'Owner',
+        emailVerified: true,
+        createdAt: now,
+        updatedAt: now,
+      })
+      await expect(
+        session.create.before(
+          {
+            id: 'session',
+            userId: 'user',
+            token: 'token',
+            expiresAt: now,
+            createdAt: now,
+            updatedAt: now,
+          },
+          null
+        )
+      ).resolves.toMatchObject({ data: { activeOrganizationId: 'organization' } })
+    })
+    expect(tx.select).toHaveBeenCalledTimes(5)
+    expect(db.select).not.toHaveBeenCalled()
+  })
+
+  it.each(['signup', 'password login', 'duplicate signup'] as const)(
+    'preserves the password only with validated credential proof (%s)',
+    async (source) => {
+      const duplicate = source === 'duplicate signup'
       policy.verificationEnabled = true
       const fixture = await setup('owner@example.com', true, true)
       const email = 'signup@example.com'
@@ -178,14 +235,23 @@ describe('account email change through native Better Auth OTP', () => {
         expect.objectContaining({ providerId: 'credential', password: expect.any(String) }),
       ])
       await fixture.auth.api.sendVerificationOTP({ body: { email, type: 'email-verification' } })
-      const proofHeaders = duplicate
-        ? (
-            await fixture.auth.api.signUpEmail({
-              body: { email, password, name: 'Other registration', username: 'other.user' },
-              returnHeaders: true,
-            })
-          ).headers
-        : signupHeaders
+      let proofHeaders = signupHeaders
+      if (duplicate) {
+        proofHeaders = (
+          await fixture.auth.api.signUpEmail({
+            body: { email, password, name: 'Other registration', username: 'other.user' },
+            returnHeaders: true,
+          })
+        ).headers
+      } else if (source === 'password login') {
+        const blocked = await fixture.auth.api.signInEmail({
+          body: { email, password },
+          asResponse: true,
+        })
+        expect(blocked.status).toBe(403)
+        expect(await blocked.json()).toMatchObject({ code: 'EMAIL_NOT_VERIFIED' })
+        proofHeaders = blocked.headers
+      }
       const verified = await fixture.auth.api.verifyEmailOTP({
         body: { email, otp: deliveredCode(email) },
         headers: cookieHeaders(proofHeaders),

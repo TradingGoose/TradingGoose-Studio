@@ -2,15 +2,10 @@ import { discoverOIDCConfig } from '@better-auth/sso'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { auth, getSession } from '@/lib/auth'
-import {
-  getOrganizationBillingData,
-  isOrganizationOwnerOrAdmin,
-} from '@/lib/billing/core/organization'
-import { getBillingGateState } from '@/lib/billing/settings'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOrganizationAccessState } from '@/lib/organization/access'
 import { validateExternalUrl } from '@/lib/security/input-validation'
+import { getSsoOrganizationAccess } from '@/lib/sso/access'
 import { ssoProviderIdSchema } from '@/lib/sso/consts'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -81,17 +76,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Active organization is required' }, { status: 400 })
     }
 
-    const [{ billingEnabled }, canManageSso, organizationBillingData] = await Promise.all([
-      getBillingGateState(),
-      isOrganizationOwnerOrAdmin(session.user.id, activeOrganizationId),
-      getOrganizationBillingData(activeOrganizationId),
-    ])
-    const access = getOrganizationAccessState({
-      billingEnabled,
-      hasOrganization: true,
-      isOrganizationAdmin: canManageSso,
-      organizationTier: organizationBillingData?.subscriptionTier,
-    })
+    const access = await getSsoOrganizationAccess(session.user.id, activeOrganizationId)
 
     if (!access.canManageOrganization) {
       return NextResponse.json(

@@ -13,43 +13,21 @@ import { createLogger } from '@/lib/logs/console/logger'
 import {
   getSystemSettingsRecord,
   resolveSystemSettingsFlags,
+  type SystemSettingsReadStore,
   upsertSystemSettings,
 } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { localizeUrl } from '@/i18n/utils'
-import { DEFAULT_REGISTRATION_MODE, type RegistrationMode, type WaitlistStatus } from './shared'
+import {
+  DEFAULT_REGISTRATION_MODE,
+  REGISTRATION_DISABLED_REASON,
+  REGISTRATION_WAITLIST_REASON,
+  type RegistrationMode,
+  type WaitlistStatus,
+} from './shared'
 
 const logger = createLogger('RegistrationService')
 const RESEND_BATCH_EMAIL_LIMIT = 100
-
-export type RegistrationEligibilityReason =
-  | 'open'
-  | 'invite'
-  | 'approved_waitlist'
-  | 'waitlist_required'
-  | 'rejected_waitlist'
-  | 'disabled'
-
-export interface RegistrationEligibility {
-  allowed: boolean
-  mode: RegistrationMode
-  reason: RegistrationEligibilityReason
-}
-
-export interface WaitlistRow {
-  id: string
-  email: string
-  status: WaitlistStatus
-  approvedAt: Date | null
-  approvedByUserId: string | null
-  rejectedAt: Date | null
-  rejectedByUserId: string | null
-  signedUpAt: Date | null
-  userId: string | null
-  preferredLocale: string
-  createdAt: Date
-  updatedAt: Date
-}
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
@@ -66,8 +44,10 @@ function invitationEmailEquals(
   return sql`lower(${column}) = ${normalizeEmail(email)}`
 }
 
-export async function getRegistrationMode(): Promise<RegistrationMode> {
-  const settings = await getSystemSettingsRecord()
+export async function getRegistrationMode(
+  store: SystemSettingsReadStore = db
+): Promise<RegistrationMode> {
+  const settings = await getSystemSettingsRecord(store)
   return resolveSystemSettingsFlags(settings).registrationMode
 }
 
@@ -83,31 +63,20 @@ export async function getRegistrationModeForRender(): Promise<RegistrationMode> 
 }
 
 export async function setRegistrationMode(registrationMode: RegistrationMode) {
-  const settings = await upsertSystemSettings({ registrationMode })
-  return settings.registrationMode
+  await upsertSystemSettings({ registrationMode })
 }
 
-export async function getWaitlistEntryByEmail(email: string): Promise<WaitlistRow | null> {
-  const normalizedEmail = normalizeEmail(email)
-  if (!normalizedEmail) {
-    return null
-  }
+async function getWaitlistEntryByEmail(email: string, store: SystemSettingsReadStore = db) {
+  const [row] = await store.select().from(waitlist).where(waitlistEmailEquals(email)).limit(1)
 
-  const [row] = await db
-    .select()
-    .from(waitlist)
-    .where(waitlistEmailEquals(normalizedEmail))
-    .limit(1)
-
-  return (row as WaitlistRow | undefined) ?? null
+  return row ?? null
 }
 
-export async function listWaitlistEntries(): Promise<WaitlistRow[]> {
-  const rows = await db.select().from(waitlist).orderBy(desc(waitlist.createdAt), desc(waitlist.id))
-  return rows as WaitlistRow[]
+export async function listWaitlistEntries() {
+  return db.select().from(waitlist).orderBy(desc(waitlist.createdAt), desc(waitlist.id))
 }
 
-export async function addToWaitlist(email: string, locale?: string | null): Promise<WaitlistRow> {
+export async function addToWaitlist(email: string, locale?: string | null) {
   const normalizedEmail = normalizeEmail(email)
   const validation = quickValidateEmail(normalizedEmail)
   if (!validation.isValid) {
@@ -234,52 +203,30 @@ export async function markWaitlistEntrySignedUp(email: string, userId: string) {
     .where(and(waitlistEmailEquals(normalizedEmail), ne(waitlist.status, 'signed_up')))
 }
 
-export async function getRegistrationEligibility(email: string): Promise<RegistrationEligibility> {
-  const mode = await getRegistrationMode()
+export async function getRegistrationDenialReason(
+  email: string,
+  store: SystemSettingsReadStore = db
+) {
+  const mode = await getRegistrationMode(store)
   const normalizedEmail = normalizeEmail(email)
-
-  if (!normalizedEmail) {
-    return {
-      allowed: false,
-      mode,
-      reason: mode === 'disabled' ? 'disabled' : 'waitlist_required',
-    }
-  }
-
-  if (await hasPendingRegistrationInvitation(normalizedEmail)) {
-    return { allowed: true, mode, reason: 'invite' }
-  }
-
-  if (mode === 'open') {
-    return { allowed: true, mode, reason: 'open' }
-  }
-
-  if (mode === 'disabled') {
-    return { allowed: false, mode, reason: 'disabled' }
-  }
-
-  const entry = await getWaitlistEntryByEmail(normalizedEmail)
-  if (entry?.status === 'approved') {
-    return { allowed: true, mode, reason: 'approved_waitlist' }
-  }
-
-  if (entry?.status === 'rejected') {
-    return { allowed: false, mode, reason: 'rejected_waitlist' }
-  }
-
-  return { allowed: false, mode, reason: 'waitlist_required' }
+  const denial = mode === 'disabled' ? REGISTRATION_DISABLED_REASON : REGISTRATION_WAITLIST_REASON
+  if (!normalizedEmail) return denial
+  if (mode === 'open' || (await hasPendingRegistrationInvitation(normalizedEmail, store)))
+    return null
+  if (mode === 'disabled') return denial
+  return (await getWaitlistEntryByEmail(normalizedEmail, store))?.status === 'approved'
+    ? null
+    : denial
 }
 
-export async function hasPendingRegistrationInvitation(email: string) {
-  const normalizedEmail = normalizeEmail(email)
-  if (!normalizedEmail) {
-    return false
-  }
-
+async function hasPendingRegistrationInvitation(
+  normalizedEmail: string,
+  store: SystemSettingsReadStore
+) {
   const now = new Date()
 
   const [workspaceRow, organizationRow] = await Promise.all([
-    db
+    store
       .select({ id: workspaceInvitation.id })
       .from(workspaceInvitation)
       .where(
@@ -290,7 +237,7 @@ export async function hasPendingRegistrationInvitation(email: string) {
         )
       )
       .limit(1),
-    db
+    store
       .select({ id: invitation.id })
       .from(invitation)
       .where(

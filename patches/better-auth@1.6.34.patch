@@ -76,11 +76,31 @@ index 72c5c80da3af4d0df6f4d8519c6ea37e68dec6c6..80fef70dfff10ce0b120614a54ae52d2
  //#endregion
 -export { requestPasswordReset, requestPasswordResetCallback, resetPassword, verifyPassword };
 +export { requestPasswordReset, requestPasswordResetCallback, resetPassword, setCredentialPassword, verifyPassword };
+diff --git a/dist/api/routes/sign-in.mjs b/dist/api/routes/sign-in.mjs
+index 06759dd7481b308a5d57b9ae797099e15cbdcc05..a489296b124dfa033aefa3e0ae2aae0e6737957e 100644
+--- a/dist/api/routes/sign-in.mjs
++++ b/dist/api/routes/sign-in.mjs
+@@ -7,6 +7,7 @@ import { handleOAuthUserInfo } from "../../oauth2/link-account.mjs";
+ import { generateState } from "../../oauth2/state.mjs";
+ import { safeCloneRequest } from "../../utils/request.mjs";
+ import { createEmailVerificationToken } from "./email-verification.mjs";
++import { setCredentialProof } from "./sign-up.mjs";
+ import { APIError, BASE_ERROR_CODES } from "@better-auth/core/error";
+ import { SocialProviderListEnum } from "@better-auth/core/social-providers";
+ import { createAuthEndpoint } from "@better-auth/core/api";
+@@ -310,6 +311,7 @@ const signInEmail = () => createAuthEndpoint("/sign-in/email", {
+ 		throw APIError.from("UNAUTHORIZED", BASE_ERROR_CODES.INVALID_EMAIL_OR_PASSWORD);
+ 	}
+ 	if (ctx.context.options?.emailAndPassword?.requireEmailVerification && !user.user.emailVerified) {
++		await setCredentialProof(ctx, user.user, currentPassword);
+ 		if (!ctx.context.options?.emailVerification?.sendVerificationEmail) throw APIError.from("FORBIDDEN", BASE_ERROR_CODES.EMAIL_NOT_VERIFIED);
+ 		if (ctx.context.options?.emailVerification?.sendOnSignIn) {
+ 			const token = await createEmailVerificationToken(ctx.context.secret, user.user.email, void 0, ctx.context.options.emailVerification?.expiresIn);
 diff --git a/dist/api/routes/sign-up.mjs b/dist/api/routes/sign-up.mjs
-index 0b3e7336690cde29345938c8431934b4c8323fe4..909f17ba9be4356d13c6bc905ffb047fdaf22844 100644
+index 0b3e7336690cde29345938c8431934b4c8323fe4..511e852cf78b15a66d28b6c0c24eeaac3a15f60d 100644
 --- a/dist/api/routes/sign-up.mjs
 +++ b/dist/api/routes/sign-up.mjs
-@@ -1,16 +1,31 @@
+@@ -1,16 +1,39 @@
  import { isAPIError } from "../../utils/is-api-error.mjs";
  import { formCsrfMiddleware } from "../middlewares/origin-check.mjs";
  import { buildSyntheticUserOutput, parseUserInput, parseUserOutput } from "../../db/schema.mjs";
@@ -94,48 +114,65 @@ index 0b3e7336690cde29345938c8431934b4c8323fe4..909f17ba9be4356d13c6bc905ffb047f
 +import { safeJSONParse } from "@better-auth/core/utils/json";
  import { generateId } from "@better-auth/core/utils/id";
  import { createAuthEndpoint } from "@better-auth/core/api";
++import { createHMAC } from "@better-auth/utils/hmac";
  import * as z from "zod";
  //#region src/api/routes/sign-up.ts
-+const SIGNUP_PROOF_MAX_AGE = 3600;
-+async function setSignupProof(ctx, userId) {
-+	const cookie = ctx.context.createAuthCookie("signup_proof", { maxAge: SIGNUP_PROOF_MAX_AGE });
-+	await ctx.setSignedCookie(cookie.name, JSON.stringify([userId, Date.now() + SIGNUP_PROOF_MAX_AGE * 1e3]), ctx.context.secret, cookie.attributes);
++const CREDENTIAL_PROOF_MAX_AGE = 3600;
++function credentialProofKey(ctx, passwordHash) {
++	return createHMAC("SHA-256", "base64urlnopad").sign(ctx.context.secret, `credential-proof:${passwordHash}`);
 +}
-+async function consumeSignupProof(ctx, user) {
-+	const cookie = ctx.context.createAuthCookie("signup_proof");
-+	const value = await ctx.getSignedCookie(cookie.name, ctx.context.secret);
++async function setCredentialProof(ctx, user, passwordHash) {
++	const cookie = ctx.context.createAuthCookie("credential_proof", { maxAge: CREDENTIAL_PROOF_MAX_AGE });
++	const proof = JSON.stringify([user.id, user.mailboxVersion, Date.now() + CREDENTIAL_PROOF_MAX_AGE * 1e3]);
++	await ctx.setSignedCookie(cookie.name, proof, await credentialProofKey(ctx, passwordHash), cookie.attributes);
++}
++async function consumeCredentialProof(ctx, user) {
++	const cookie = ctx.context.createAuthCookie("credential_proof");
++	if (!ctx.getCookie(cookie.name)) return false;
++	const account = (await ctx.context.internalAdapter.findAccounts(user.id)).find((account) => account.providerId === "credential");
++	if (!account?.password) return false;
++	const value = await ctx.getSignedCookie(cookie.name, await credentialProofKey(ctx, account.password));
 +	if (!value) return false;
 +	const proof = safeJSONParse(value);
-+	if (!Array.isArray(proof) || proof[0] !== user.id || typeof proof[1] !== "number" || proof[1] <= Date.now() || user.mailboxVersion !== 0) return false;
++	if (!Array.isArray(proof) || proof[0] !== user.id || proof[1] !== user.mailboxVersion || typeof proof[2] !== "number" || proof[2] <= Date.now()) return false;
 +	expireCookie(ctx, cookie);
 +	return true;
 +}
  const signUpEmailBodySchema = z.object({
  	name: z.string(),
  	email: z.email(),
-@@ -200,6 +215,8 @@ const signUpEmail = () => createAuthEndpoint("/sign-up/email", {
+@@ -171,7 +194,7 @@ const signUpEmail = () => createAuthEndpoint("/sign-up/email", {
+ 				* Hash the password to reduce timing differences
+ 				* between existing and non-existing emails.
+ 				*/
+-				await ctx.context.password.hash(password);
++				const syntheticPasswordHash = await ctx.context.password.hash(password);
+ 				if (ctx.context.options.emailAndPassword?.onExistingUserSignUp) await ctx.context.runInBackgroundOrAwait(ctx.context.options.emailAndPassword.onExistingUserSignUp({ user: dbUser.user }, safeCloneRequest(ctx.request)));
+ 				const now = /* @__PURE__ */ new Date();
+ 				const generatedId = ctx.context.generateId({ model: "user" }) || generateId();
+@@ -200,6 +223,8 @@ const signUpEmail = () => createAuthEndpoint("/sign-up/email", {
  					...additionalUserFields,
  					id: generatedId
  				});
 +				// Keep the duplicate response shape, including its cookie, indistinguishable.
-+				if (ctx.context.options.emailAndPassword.requireEmailVerification) await setSignupProof(ctx, syntheticUser.id);
++				if (ctx.context.options.emailAndPassword.requireEmailVerification) await setCredentialProof(ctx, { id: syntheticUser.id, mailboxVersion: 0 }, syntheticPasswordHash);
  				return ctx.json({
  					token: null,
  					user: parseUserOutput(ctx.context.options, syntheticUser)
-@@ -249,6 +266,7 @@ const signUpEmail = () => createAuthEndpoint("/sign-up/email", {
+@@ -249,6 +274,7 @@ const signUpEmail = () => createAuthEndpoint("/sign-up/email", {
  				token
  			}, safeCloneRequest(ctx.request)));
  		}
-+		if (ctx.context.options.emailAndPassword.requireEmailVerification) await setSignupProof(ctx, createdUser.id);
++		if (ctx.context.options.emailAndPassword.requireEmailVerification) await setCredentialProof(ctx, createdUser, hash);
  		if (shouldSkipAutoSignIn) return ctx.json({
  			token: null,
  			user: parseUserOutput(ctx.context.options, createdUser)
-@@ -266,4 +284,4 @@ const signUpEmail = () => createAuthEndpoint("/sign-up/email", {
+@@ -266,4 +292,4 @@ const signUpEmail = () => createAuthEndpoint("/sign-up/email", {
  	});
  });
  //#endregion
 -export { signUpEmail };
-+export { consumeSignupProof, signUpEmail };
++export { consumeCredentialProof, setCredentialProof, signUpEmail };
 diff --git a/dist/db/internal-adapter.mjs b/dist/db/internal-adapter.mjs
 index 6be443b0d0af9863445a51c9dd4fd53a89b46805..13f4bd4e9d55d237ad850c74eaea347458552366 100644
 --- a/dist/db/internal-adapter.mjs
@@ -188,14 +225,14 @@ index 546ff0495bec371cd98d833bedfb043e1601e692..687fb43218cb0948a31a04293b1bc0fa
  					});
  					await ctx.context.runInBackgroundOrAwait(options.sendVerificationOTP({
 diff --git a/dist/plugins/email-otp/routes.mjs b/dist/plugins/email-otp/routes.mjs
-index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..2b3ca226d83438a07f3bad0256a1039bb1fd78c4 100644
+index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30b24e6ea0 100644
 --- a/dist/plugins/email-otp/routes.mjs
 +++ b/dist/plugins/email-otp/routes.mjs
 @@ -5,6 +5,8 @@ import { generateRandomString } from "../../crypto/random.mjs";
  import { symmetricDecrypt } from "../../crypto/index.mjs";
  import { setCookieCache, setSessionCookie } from "../../cookies/index.mjs";
  import { revokeUnprovenAccountAccess } from "../../db/revoke-unproven-account-access.mjs";
-+import { consumeSignupProof } from "../../api/routes/sign-up.mjs";
++import { consumeCredentialProof } from "../../api/routes/sign-up.mjs";
 +import { setCredentialPassword } from "../../api/routes/password.mjs";
  import { getSessionFromCtx, sensitiveSessionMiddleware } from "../../api/routes/session.mjs";
  import { APIError as APIError$1 } from "../../api/index.mjs";
@@ -321,7 +358,7 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..2b3ca226d83438a07f3bad0256a1039b
 -		emailVerified: true
 +	const { updatedUser, session } = await ctx.context.internalAdapter.withUserMailbox(user, APIError$1.from("BAD_REQUEST", EMAIL_OTP_ERROR_CODES.INVALID_OTP), async (lockedUser) => {
 +		await ctx.context.options.emailVerification?.beforeEmailVerification?.(lockedUser, ctx.request);
-+		if (!lockedUser.emailVerified && !await consumeSignupProof(ctx, lockedUser)) await revokeUnprovenAccountAccess(ctx, lockedUser.id);
++		if (!lockedUser.emailVerified && !await consumeCredentialProof(ctx, lockedUser)) await revokeUnprovenAccountAccess(ctx, lockedUser.id);
 +		const updatedUser = await ctx.context.internalAdapter.updateUser(lockedUser.id, { emailVerified: true });
 +		const session = ctx.context.options.emailVerification?.autoSignInAfterVerification
 +			? await ctx.context.internalAdapter.createSession(updatedUser.id)

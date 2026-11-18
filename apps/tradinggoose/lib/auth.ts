@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { sso } from '@better-auth/sso'
 import { stripe } from '@better-auth/stripe'
 import { db } from '@tradinggoose/db'
@@ -69,11 +70,8 @@ import {
   setSystemOAuthClientIdForRequest,
 } from '@/lib/oauth/system-managed-config'
 import { getOrganizationAccessState } from '@/lib/organization/access'
-import { getRegistrationEligibility, markWaitlistEntrySignedUp } from '@/lib/registration/service'
-import {
-  REGISTRATION_DISABLED_REASON,
-  REGISTRATION_WAITLIST_REASON,
-} from '@/lib/registration/shared'
+import { getRegistrationDenialReason, markWaitlistEntrySignedUp } from '@/lib/registration/service'
+import { getSsoOrganizationAccess } from '@/lib/sso/access'
 import { ssoProviderIdSchema } from '@/lib/sso/consts'
 import {
   createStripeClientProxy,
@@ -87,6 +85,16 @@ import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import { resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 
 const logger = createLogger('Auth')
+
+type AuthTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+const authTransaction = new AsyncLocalStorage<AuthTransaction>()
+const authDb: typeof db = Object.create(db, {
+  transaction: {
+    // Better Auth's before hooks must share the connection held by its transaction.
+    value: <T>(run: (tx: AuthTransaction) => Promise<T>) =>
+      db.transaction((tx) => authTransaction.run(tx, run, tx)),
+  },
+})
 
 function isLoginEmailAllowed(email: string): boolean {
   if (!env.ALLOWED_LOGIN_EMAILS && !env.ALLOWED_LOGIN_DOMAINS) return true
@@ -532,7 +540,7 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: { enabled: false },
   },
-  database: drizzleAdapter(db, {
+  database: drizzleAdapter(authDb, {
     provider: 'pg',
     schema,
     transaction: true,
@@ -546,17 +554,8 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          const eligibility = await getRegistrationEligibility(user.email)
-          if (eligibility.allowed) {
-            return
-          }
-
-          throw new APIError('BAD_REQUEST', {
-            message:
-              eligibility.reason === 'disabled'
-                ? REGISTRATION_DISABLED_REASON
-                : REGISTRATION_WAITLIST_REASON,
-          })
+          const message = await getRegistrationDenialReason(user.email, authTransaction.getStore())
+          if (message) throw new APIError('BAD_REQUEST', { message })
         },
         after: async (user) => {
           logger.info('[databaseHooks.user.create.after] User created, initializing stats', {
@@ -672,7 +671,7 @@ export const auth = betterAuth({
           }
           try {
             // Find the first organization this user is a member of
-            const members = await db
+            const members = await (authTransaction.getStore() ?? db)
               .select()
               .from(schema.member)
               .where(eq(schema.member.userId, session.userId))
@@ -756,6 +755,32 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      if (
+        (ctx.path === '/sso/request-domain-verification' || ctx.path === '/sso/verify-domain') &&
+        typeof ctx.body?.providerId === 'string'
+      ) {
+        const session = await getAuthoritativeSessionFromCtx(ctx)
+        if (!session?.user.id) throw new APIError('UNAUTHORIZED', { message: 'Unauthorized' })
+
+        const provider = await ctx.context.adapter.findOne<{ organizationId?: string | null }>({
+          model: 'ssoProvider',
+          where: [{ field: 'providerId', value: ctx.body.providerId }],
+          select: ['organizationId'],
+        })
+        if (provider) {
+          const access = provider.organizationId
+            ? await getSsoOrganizationAccess(session.user.id, provider.organizationId)
+            : null
+          if (!access?.canConfigureSso) {
+            throw new APIError('FORBIDDEN', {
+              message:
+                access && !access.canManageOrganization
+                  ? "You don't have access to this provider"
+                  : 'Single Sign-On is not enabled for this organization',
+            })
+          }
+        }
+      }
       if (ctx.path === '/sso/register') {
         const providerId = ssoProviderIdSchema.safeParse(ctx.body?.providerId)
         if (!providerId.success) {

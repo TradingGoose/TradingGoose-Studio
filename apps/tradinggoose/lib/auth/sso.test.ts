@@ -5,8 +5,22 @@ import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { organization, testUtils } from 'better-auth/plugins'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const billingMocks = vi.hoisted(() => ({
+  getBillingGateState: vi.fn(),
+  getOrganizationBillingData: vi.fn(),
+  isOrganizationOwnerOrAdmin: vi.fn(),
+}))
+
 vi.mock('@tradinggoose/db', () => ({ db: {} }))
+vi.mock('@/lib/billing/core/organization', () => ({
+  getOrganizationBillingData: billingMocks.getOrganizationBillingData,
+  isOrganizationOwnerOrAdmin: billingMocks.isOrganizationOwnerOrAdmin,
+}))
 vi.mock('@/lib/billing/plans', () => ({ getBetterAuthPlansConfig: () => [] }))
+vi.mock('@/lib/billing/settings', async (original) => ({
+  ...(await original<typeof import('@/lib/billing/settings')>()),
+  getBillingGateState: billingMocks.getBillingGateState,
+}))
 vi.mock('@/lib/env', async (original) => {
   const actual = await original<typeof import('@/lib/env')>()
   return { ...actual, env: { ...actual.env, SSO_ENABLED: true } }
@@ -120,6 +134,11 @@ function cookies(response: Response) {
 
 beforeEach(() => {
   profile.email = localEmail
+  billingMocks.getBillingGateState.mockReset().mockResolvedValue({ billingEnabled: true })
+  billingMocks.getOrganizationBillingData.mockReset().mockResolvedValue({
+    subscriptionTier: { ownerType: 'organization', canConfigureSso: true },
+  })
+  billingMocks.isOrganizationOwnerOrAdmin.mockReset().mockResolvedValue(true)
   resolveTxt.mockReset()
   vi.spyOn(dns, 'resolveTxt').mockImplementation(resolveTxt)
   syncBuiltinESMExports()
@@ -320,6 +339,32 @@ describe('native SSO registration and account matching', () => {
     await expect(context.adapter.findMany({ model: 'member' })).resolves.toEqual([
       expect.objectContaining({ userId: 'provider-owner', organizationId, role: 'owner' }),
     ])
+  })
+
+  it('requires the provider organization to have SSO before requesting or verifying its DNS record', async () => {
+    const { auth, headers, register } = await setup()
+    await register()
+    billingMocks.getOrganizationBillingData.mockResolvedValue({
+      subscriptionTier: { ownerType: 'organization', canConfigureSso: false },
+    })
+
+    for (const endpoint of [auth.api.requestDomainVerification, auth.api.verifyDomain]) {
+      await expect(endpoint({ headers, body: { providerId: 'okta' } })).rejects.toMatchObject({
+        statusCode: 403,
+        body: { message: 'Single Sign-On is not enabled for this organization' },
+      })
+    }
+    expect(billingMocks.getOrganizationBillingData).toHaveBeenCalledWith(organizationId)
+    expect(resolveTxt).not.toHaveBeenCalled()
+  })
+
+  it('lets an organization administrator verify its provider with billing disabled', async () => {
+    const { register, verify } = await setup()
+    billingMocks.getBillingGateState.mockResolvedValue({ billingEnabled: false })
+    billingMocks.getOrganizationBillingData.mockResolvedValue(null)
+
+    await register()
+    await verify()
   })
 
   it.each(['non-member', 'member'])(
