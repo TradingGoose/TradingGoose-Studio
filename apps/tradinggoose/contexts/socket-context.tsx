@@ -11,8 +11,7 @@ const logger = createLogger('SocketContext')
 const isSocketAuthError = (message: string) =>
   message === 'Authentication required' ||
   message === 'Invalid session' ||
-  message === 'Token validation failed' ||
-  message === 'Failed to generate socket token: 401'
+  message === 'Token validation failed'
 const logSocketIssue = (
   event: string,
   details: {

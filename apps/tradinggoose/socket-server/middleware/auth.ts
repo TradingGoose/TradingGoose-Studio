@@ -4,72 +4,72 @@ import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('SocketAuth')
 
-// Extend Socket interface to include user data
 export interface AuthenticatedSocket extends Socket {
   userId?: string
-  userName?: string
-  userEmail?: string
-  activeOrganizationId?: string
 }
 
-// Enhanced authentication middleware
-export async function authenticateSocket(socket: AuthenticatedSocket, next: any) {
-  try {
-    // Extract authentication data from socket handshake
-    const token = socket.handshake.auth?.token
-    const origin = socket.handshake.headers.origin
-    const referer = socket.handshake.headers.referer
+export async function authenticateSocket(
+  socket: AuthenticatedSocket,
+  next: (error?: Error) => void
+) {
+  const token = socket.handshake.auth?.token
+  const { origin, referer } = socket.handshake.headers
 
-    logger.info(`Socket ${socket.id} authentication attempt:`, {
-      hasToken: !!token,
+  logger.info(`Socket ${socket.id} authentication attempt:`, {
+    hasToken: !!token,
+    origin,
+    referer,
+  })
+
+  if (!token) {
+    logger.warn(`Socket ${socket.id} rejected: No authentication token found`)
+    return next(new Error('Authentication required'))
+  }
+
+  try {
+    const session = await auth.api.verifyOneTimeToken({ body: { token } })
+    if (!session?.user?.id || !session.session.token) {
+      logger.warn(`Socket ${socket.id} rejected: Invalid session`)
+      return next(new Error('Invalid session'))
+    }
+
+    const userId = session.user.id
+    const sessionToken = session.session.token
+    socket.userId = userId
+    const { internalAdapter } = await auth.$context
+    const requireActiveSession = async () => {
+      try {
+        const current = await internalAdapter.findSession(sessionToken)
+        if (current?.user.id === userId && current.session.expiresAt.getTime() > Date.now()) {
+          return true
+        }
+      } catch {
+        logger.warn(`Socket ${socket.id} session lookup failed`)
+        socket.conn.close(true)
+        return false
+      }
+      socket.disconnect(true)
+      return false
+    }
+
+    socket.use(async (_packet, nextPacket) => {
+      if (await requireActiveSession()) nextPacket()
+      else nextPacket(new Error('Invalid session'))
+    })
+    const onHeartbeat = ({ type }: { type: string }) => {
+      if (type === 'pong') void requireActiveSession()
+    }
+    socket.conn.on('packet', onHeartbeat)
+    socket.once('disconnect', () => socket.conn.off('packet', onHeartbeat))
+
+    next()
+  } catch (tokenError) {
+    logger.warn(`Token validation failed for socket ${socket.id}:`, {
+      error: tokenError instanceof Error ? tokenError.message : String(tokenError),
+      stack: tokenError instanceof Error ? tokenError.stack : undefined,
       origin,
       referer,
     })
-
-    if (!token) {
-      logger.warn(`Socket ${socket.id} rejected: No authentication token found`)
-      return next(new Error('Authentication required'))
-    }
-
-    // Validate one-time token with Better Auth
-    try {
-      logger.debug(`Attempting token validation for socket ${socket.id}`, {
-        tokenLength: token?.length || 0,
-        origin,
-      })
-
-      const session = await auth.api.verifyOneTimeToken({
-        body: {
-          token,
-        },
-      })
-
-      if (!session?.user?.id) {
-        logger.warn(`Socket ${socket.id} rejected: Invalid token - no user found`)
-        return next(new Error('Invalid session'))
-      }
-
-      // Store user info in socket for later use
-      socket.userId = session.user.id
-      socket.userName = session.user.name || session.user.email || 'Unknown User'
-      socket.userEmail = session.user.email
-      socket.activeOrganizationId = session.session.activeOrganizationId || undefined
-
-      next()
-    } catch (tokenError) {
-      const errorMessage = tokenError instanceof Error ? tokenError.message : String(tokenError)
-      const errorStack = tokenError instanceof Error ? tokenError.stack : undefined
-
-      logger.warn(`Token validation failed for socket ${socket.id}:`, {
-        error: errorMessage,
-        stack: errorStack,
-        origin,
-        referer,
-      })
-      return next(new Error('Token validation failed'))
-    }
-  } catch (error) {
-    logger.error(`Socket authentication error for ${socket.id}:`, error)
-    next(new Error('Authentication failed'))
+    next(new Error('Token validation failed'))
   }
 }

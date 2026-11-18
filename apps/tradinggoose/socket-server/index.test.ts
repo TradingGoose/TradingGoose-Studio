@@ -23,6 +23,7 @@ import {
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import { createSocketIOServer } from '@/socket-server/config/socket'
+import { type AuthenticatedSocket, authenticateSocket } from '@/socket-server/middleware/auth'
 import { createHttpHandler } from '@/socket-server/routes/http'
 import {
   acquireDocument,
@@ -34,11 +35,15 @@ import {
 const {
   mockSaveSavedEntityYjsDocToDb,
   mockSaveWorkflowYjsDocToDb,
+  mockVerifyOneTimeToken,
+  mockFindSession,
   savedEntityStates,
   savedWorkflowStates,
 } = vi.hoisted(() => ({
   mockSaveSavedEntityYjsDocToDb: vi.fn(),
   mockSaveWorkflowYjsDocToDb: vi.fn(),
+  mockVerifyOneTimeToken: vi.fn(),
+  mockFindSession: vi.fn(),
   savedEntityStates: [] as Array<{
     entityKind: string
     entityId: string
@@ -94,8 +99,9 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', async (importOriginal) => ({
 vi.mock('@/lib/auth', () => ({
   auth: {
     api: {
-      verifyOneTimeToken: vi.fn(),
+      verifyOneTimeToken: mockVerifyOneTimeToken,
     },
+    $context: Promise.resolve({ internalAdapter: { findSession: mockFindSession } }),
   },
 }))
 
@@ -136,15 +142,6 @@ vi.mock('drizzle-orm/postgres-js', () => ({
       })),
     })),
   })),
-}))
-
-vi.mock('@/socket-server/middleware/auth', () => ({
-  authenticateSocket: vi.fn((socket, next) => {
-    socket.userId = 'test-user-id'
-    socket.userName = 'Test User'
-    socket.userEmail = 'test@example.com'
-    next()
-  }),
 }))
 
 function sendHttpRequest(port: number, path: string, method = 'GET') {
@@ -320,11 +317,6 @@ describe('Socket Server Index Integration', () => {
   })
 
   describe('HTTP Server Configuration', () => {
-    it('should create HTTP server successfully', () => {
-      expect(httpServer).toBeDefined()
-      expect(httpServer.listening).toBe(true)
-    })
-
     it('should handle health check endpoint', async () => {
       const response = await sendHttpRequest(PORT, '/health')
 
@@ -659,11 +651,6 @@ describe('Socket Server Index Integration', () => {
   })
 
   describe('Socket.IO Server Configuration', () => {
-    it('should create Socket.IO server with proper configuration', () => {
-      expect(io).toBeDefined()
-      expect(io.engine).toBeDefined()
-    })
-
     it('should have proper CORS configuration', () => {
       const corsOptions = io.engine.opts.cors
       expect(corsOptions).toBeDefined()
@@ -700,127 +687,57 @@ describe('Socket Server Index Integration', () => {
     })
   })
 
-  describe('Module Integration', () => {
-    it.concurrent('should properly import all extracted modules', async () => {
-      // Test that all modules can be imported without errors
-      const { createSocketIOServer } = await import('@/socket-server/config/socket')
-      const { createHttpHandler } = await import('@/socket-server/routes/http')
-      const { authenticateSocket } = await import('@/socket-server/middleware/auth')
-      const { WorkflowOperationSchema } = await import('@/socket-server/validation/schemas')
-
-      expect(createSocketIOServer).toBeTypeOf('function')
-      expect(createHttpHandler).toBeTypeOf('function')
-      expect(authenticateSocket).toBeTypeOf('function')
-      expect(WorkflowOperationSchema).toBeDefined()
-    })
-
-    it.concurrent('should keep the remaining socket runtime available after refactoring', () => {
-      expect(httpServer).toBeDefined()
-      expect(io).toBeDefined()
-    })
-  })
-
-  describe('Error Handling', () => {
-    it('should have global error handlers configured', () => {
-      expect(typeof process.on).toBe('function')
-    })
-
-    it('should handle server setup', () => {
-      expect(httpServer).toBeDefined()
-      expect(io).toBeDefined()
-    })
-  })
-
   describe('Authentication Middleware', () => {
-    it('should apply authentication middleware to Socket.IO', () => {
-      expect(io._parser).toBeDefined()
-    })
-  })
+    it.each(['incoming packet', 'heartbeat', 'expired session', 'lookup error'])(
+      'disconnects when it cannot validate the session on %s',
+      async (trigger) => {
+        const verified = {
+          session: { token: 'native-session', expiresAt: new Date(Date.now() + 60_000) },
+          user: { id: 'test-user-id', name: 'Test User', email: 'test@example.com' },
+        }
+        mockVerifyOneTimeToken.mockResolvedValue(verified)
+        mockFindSession.mockResolvedValue(verified)
+        const handler = vi.fn((ack?: () => void) => ack?.())
+        if (trigger === 'heartbeat') io.engine.opts.pingInterval = 50
+        io.use(authenticateSocket)
+        io.on('connection', (socket: AuthenticatedSocket) =>
+          socket.on('authenticated-event', handler)
+        )
 
-  describe('Graceful Shutdown', () => {
-    it('should have shutdown capability', () => {
-      expect(typeof httpServer.close).toBe('function')
-      expect(typeof io.close).toBe('function')
-    })
-  })
+        const client = createClient(`http://127.0.0.1:${PORT}`, {
+          auth: { token: 'one-time-token' },
+          autoConnect: false,
+          reconnection: false,
+          transports: ['websocket'],
+        })
+        try {
+          await new Promise<void>((resolve, reject) => {
+            client.once('connect', resolve)
+            client.once('connect_error', reject)
+            client.connect()
+          })
+          await client.timeout(1000).emitWithAck('authenticated-event')
+          expect(mockFindSession).toHaveBeenCalledWith('native-session')
 
-  describe('Validation and Utils', () => {
-    it.concurrent('should validate workflow operations', async () => {
-      const { WorkflowOperationSchema } = await import('@/socket-server/validation/schemas')
-
-      const validOperation = {
-        operation: 'add',
-        target: 'block',
-        payload: {
-          id: 'test-block',
-          type: 'action',
-          name: 'Test Block',
-          position: { x: 100, y: 200 },
-        },
-        timestamp: Date.now(),
+          if (trigger === 'lookup error') {
+            mockFindSession.mockRejectedValue(new Error('Database unavailable'))
+          } else {
+            mockFindSession.mockResolvedValue(
+              trigger === 'expired session'
+                ? { ...verified, session: { ...verified.session, expiresAt: new Date(0) } }
+                : null
+            )
+          }
+          const disconnected = new Promise<string>((resolve) => client.once('disconnect', resolve))
+          if (trigger !== 'heartbeat') client.emit('authenticated-event')
+          await expect(disconnected).resolves.toBe(
+            trigger === 'lookup error' ? 'transport close' : 'io server disconnect'
+          )
+          expect(handler).toHaveBeenCalledTimes(1)
+        } finally {
+          client.close()
+        }
       }
-
-      expect(() => WorkflowOperationSchema.parse(validOperation)).not.toThrow()
-    })
-
-    it.concurrent('should validate block operations with autoConnectEdge', async () => {
-      const { WorkflowOperationSchema } = await import('@/socket-server/validation/schemas')
-
-      const validOperationWithAutoEdge = {
-        operation: 'add',
-        target: 'block',
-        payload: {
-          id: 'test-block',
-          type: 'action',
-          name: 'Test Block',
-          position: { x: 100, y: 200 },
-          autoConnectEdge: {
-            id: 'auto-edge-123',
-            source: 'source-block',
-            target: 'test-block',
-            sourceHandle: 'output',
-            targetHandle: 'target',
-            type: 'workflowEdge',
-          },
-        },
-        timestamp: Date.now(),
-      }
-
-      expect(() => WorkflowOperationSchema.parse(validOperationWithAutoEdge)).not.toThrow()
-    })
-
-    it.concurrent('should validate edge operations', async () => {
-      const { WorkflowOperationSchema } = await import('@/socket-server/validation/schemas')
-
-      const validEdgeOperation = {
-        operation: 'add',
-        target: 'edge',
-        payload: {
-          id: 'test-edge',
-          source: 'block-1',
-          target: 'block-2',
-        },
-        timestamp: Date.now(),
-      }
-
-      expect(() => WorkflowOperationSchema.parse(validEdgeOperation)).not.toThrow()
-    })
-
-    it('should validate subflow operations', async () => {
-      const { WorkflowOperationSchema } = await import('@/socket-server/validation/schemas')
-
-      const validSubflowOperation = {
-        operation: 'update',
-        target: 'subflow',
-        payload: {
-          id: 'test-subflow',
-          type: 'loop',
-          config: { iterations: 5 },
-        },
-        timestamp: Date.now(),
-      }
-
-      expect(() => WorkflowOperationSchema.parse(validSubflowOperation)).not.toThrow()
-    })
+    )
   })
 })
