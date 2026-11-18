@@ -888,6 +888,31 @@ describe('AccountSettings localization', () => {
       await fill('#account-email-code', '111111')
       await press(copy.verifyCurrent)
     }
+    it('cancels OTP work when the email-change screen unmounts', async () => {
+      vi.useFakeTimers()
+      try {
+        const accountCopy = getPublicCopy('en').workspace.settingsModal.account
+        await act(async () => renderAccountSettings(root, 'en'))
+        await act(async () => findButtonByText(container, accountCopy.editEmail).click())
+        await act(async () =>
+          setInputValue(
+            container.querySelector<HTMLInputElement>('#account-new-email')!,
+            'new@example.com'
+          )
+        )
+        await act(async () => findButtonByText(container, accountCopy.emailChange.sendCode).click())
+        expect(container.querySelector('#account-email-code')).not.toBeNull()
+
+        act(() => root.render(null))
+        queryClient.clear()
+        await act(async () => vi.advanceTimersByTimeAsync(0))
+        expect(vi.getTimerCount()).toBe(0)
+      } finally {
+        vi.clearAllTimers()
+        vi.useRealTimers()
+      }
+    })
+
     it('changes the email only after both mailboxes are verified, then refreshes session and identity queries', async () => {
       const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
       await render()
