@@ -991,6 +991,22 @@ describe('AccountSettings localization', () => {
       }
     )
 
+    it('keeps the current-mailbox code after a rate limit and lets the user retry', async () => {
+      mocks.request.mockResolvedValueOnce({ error: { status: 429 } })
+      await openEmailEditor()
+      await start()
+      await verifyCurrent()
+      expect(container.querySelector('[role="alert"]')?.textContent).toBe(copy.errors.rateLimited)
+      expect(container.querySelector('#account-email-code')).toHaveValue('111111')
+
+      await press(copy.verifyCurrent)
+      expect(mocks.request).toHaveBeenLastCalledWith({ newEmail: 'new@example.com', otp: '111111' })
+      expect(mocks.send).toHaveBeenCalledOnce()
+      expect(container.querySelector('label[for="account-email-code"]')?.textContent).toBe(
+        copy.newCode
+      )
+    })
+
     it('retries failed new-mail delivery by requesting fresh current-mailbox proof', async () => {
       mocks.request.mockResolvedValueOnce({ error: { status: 500, message: 'Delivery failed' } })
       await openEmailEditor()

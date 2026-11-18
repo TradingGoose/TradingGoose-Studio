@@ -1968,6 +1968,7 @@
             "invalidCode": "The code is incorrect. Please try again.",
             "expiredCode": "The code has expired. Request new codes and try again.",
             "tooManyAttempts": "Too many attempts. Wait a minute, then request new codes.",
+            "rateLimited": "Too many requests. Wait a moment and try again.",
             "sessionExpired": "Your session has expired. Sign in again to change your email.",
             "sendFailed": "Unable to send the verification code. Request a new code and try again.",
             "changeFailed": "Unable to change your email. Please try again."

@@ -24,7 +24,7 @@ const ERROR_KEYS = {
   INVALID_OTP: 'invalidCode',
   OTP_EXPIRED: 'expiredCode',
   TOO_MANY_ATTEMPTS: 'tooManyAttempts',
-  TOO_MANY_REQUESTS: 'tooManyAttempts',
+  TOO_MANY_REQUESTS: 'rateLimited',
   UNAUTHORIZED: 'sessionExpired',
   SESSION_EXPIRED: 'sessionExpired',
   SESSION_NOT_FRESH: 'sessionExpired',
@@ -71,7 +71,7 @@ export function ChangeEmailForm({
     pendingRef.current = true
     setIsLoading(true)
     setError(null)
-    setIsSuccess(false)
+    let rateLimited = false
     try {
       if (step === 'email' || resend) {
         const result = await client.emailOtp.sendVerificationOtp({
@@ -100,8 +100,10 @@ export function ChangeEmailForm({
       }
     } catch (cause) {
       const failure = cause as { code?: string; message?: string; status?: number }
-      const code =
-        failure?.status === 401
+      rateLimited = failure?.status === 429
+      const code = rateLimited
+        ? 'TOO_MANY_REQUESTS'
+        : failure?.status === 401
           ? 'UNAUTHORIZED'
           : normalizeAuthErrorCode(failure?.code || failure?.message)
       const fallback = step === 'new' && !resend ? 'changeFailed' : 'sendFailed'
@@ -109,12 +111,12 @@ export function ChangeEmailForm({
       setError(t(`errors.${reason}`))
       if (
         (step === 'current' &&
-          !['invalidCode', 'expiredCode', 'tooManyAttempts'].includes(reason)) ||
+          !['invalidCode', 'expiredCode', 'tooManyAttempts', 'rateLimited'].includes(reason)) ||
         ['invalidEmail', 'sameEmail', 'inUse', 'notAllowed'].includes(reason)
       )
         setStep('email')
     } finally {
-      setOtp('')
+      if (!rateLimited) setOtp('')
       pendingRef.current = false
       setIsLoading(false)
     }

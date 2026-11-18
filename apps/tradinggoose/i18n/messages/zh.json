@@ -1955,6 +1955,7 @@
             "invalidCode": "验证码不正确，请重试。",
             "expiredCode": "验证码已过期，请请求新的验证码后重试。",
             "tooManyAttempts": "尝试次数过多，请等待一分钟后请求新的验证码。",
+            "rateLimited": "请求过多，请稍等片刻后重试。",
             "sessionExpired": "会话已过期，请重新登录后更改邮箱。",
             "sendFailed": "验证码发送失败，请重新请求后重试。",
             "changeFailed": "邮箱更改失败，请重试。"

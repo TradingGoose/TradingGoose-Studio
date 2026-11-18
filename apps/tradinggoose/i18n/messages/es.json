@@ -1968,6 +1968,7 @@
             "invalidCode": "El código es incorrecto. Inténtalo de nuevo.",
             "expiredCode": "El código ha caducado. Solicita nuevos códigos e inténtalo de nuevo.",
             "tooManyAttempts": "Demasiados intentos. Espera un minuto y solicita nuevos códigos.",
+            "rateLimited": "Demasiadas solicitudes. Espera un momento y vuelve a intentarlo.",
             "sessionExpired": "Tu sesión ha caducado. Inicia sesión de nuevo para cambiar tu correo.",
             "sendFailed": "No se pudo enviar el código de verificación. Solicita uno nuevo e inténtalo de nuevo.",
             "changeFailed": "No se pudo cambiar tu correo. Inténtalo de nuevo."
