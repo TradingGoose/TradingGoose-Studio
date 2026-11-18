@@ -1,17 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { upload as uploadToVercelBlob } from '@vercel/blob/client'
 import { ImagePlus, Loader2, Trash2, Upload, X } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { createLogger } from '@/lib/logs/console/logger'
+import {
+  IMAGE_UPLOAD_MIME_TYPES,
+  uploadImage,
+  validateImageUpload,
+} from '@/lib/uploads/client/image-upload'
 import { cn } from '@/lib/utils'
-
-const logger = createLogger('ImageUpload')
-const MAX_FILE_SIZE = 5 * 1024 * 1024
-const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg']
 
 interface ImageUploadProps {
   id: string
@@ -33,7 +32,6 @@ interface ImageUploadProps {
   height?: string
   className?: string
   disabled?: boolean
-  acceptedFormats?: string[]
   value?: string | null
 }
 
@@ -49,129 +47,22 @@ function useImageUpload({ onUpload, onError }: UseImageUploadProps = {}) {
   const [fileName, setFileName] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
-  const validateFile = useCallback((file: File): string | null => {
-    if (file.size > MAX_FILE_SIZE) {
-      return `File "${file.name}" is too large. Maximum size is 5MB.`
-    }
-    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      return `File "${file.name}" is not a supported image format. Please use PNG or JPEG.`
-    }
-    return null
-  }, [])
-
   const handleThumbnailClick = useCallback(() => {
     fileInputRef.current?.click()
   }, [])
-
-  const uploadThroughServer = useCallback(async (file: File): Promise<string> => {
-    const formData = new FormData()
-    formData.append('file', file)
-
-    const response = await fetch('/api/files/upload', {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: response.statusText }))
-      throw new Error(errorData.error || `Failed to upload file: ${response.status}`)
-    }
-
-    const data = await response.json()
-    logger.info(`Image uploaded successfully via server upload: ${data.path}`)
-    return data.path
-  }, [])
-
-  const uploadFileToServer = useCallback(
-    async (file: File): Promise<string> => {
-      try {
-        const presignedResponse = await fetch('/api/files/presigned?type=chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            fileName: file.name,
-            contentType: file.type,
-            fileSize: file.size,
-          }),
-        })
-
-        if (!presignedResponse.ok) {
-          return uploadThroughServer(file)
-        }
-
-        const presignedData = await presignedResponse.json()
-        logger.info('Presigned URL response:', presignedData)
-
-        if (presignedData.storageProvider === 'vercel') {
-          await uploadToVercelBlob(presignedData.fileInfo.key, file, {
-            access: presignedData.blobAccess,
-            handleUploadUrl: '/api/files/vercel/client-upload?type=chat',
-            clientPayload: JSON.stringify({
-              clientUploadAuthorization: presignedData.clientUploadAuthorization,
-              contentType: file.type,
-              fileName: file.name,
-              fileSize: file.size,
-              pathname: presignedData.fileInfo.key,
-            }),
-            contentType: file.type,
-          })
-          logger.info(
-            `Image uploaded successfully via Vercel client upload: ${presignedData.fileInfo.path}`
-          )
-          return presignedData.fileInfo.path
-        }
-
-        if (presignedData.directUploadSupported) {
-          const uploadHeaders: Record<string, string> = {
-            'Content-Type': file.type,
-          }
-
-          if (presignedData.uploadHeaders) {
-            Object.assign(uploadHeaders, presignedData.uploadHeaders)
-          }
-
-          const uploadResponse = await fetch(presignedData.presignedUrl, {
-            method: 'PUT',
-            body: file,
-            headers: uploadHeaders,
-          })
-
-          logger.info(`Upload response status: ${uploadResponse.status}`)
-          logger.info(
-            'Upload response headers:',
-            Object.fromEntries(uploadResponse.headers.entries())
-          )
-
-          if (!uploadResponse.ok) {
-            const responseText = await uploadResponse.text()
-            logger.error(`Direct upload failed: ${uploadResponse.status} - ${responseText}`)
-            throw new Error(`Direct upload failed: ${uploadResponse.status} - ${responseText}`)
-          }
-
-          logger.info(
-            `Image uploaded successfully via direct upload: ${presignedData.fileInfo.path}`
-          )
-          return presignedData.fileInfo.path
-        }
-
-        return uploadThroughServer(file)
-      } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to upload image')
-      }
-    },
-    [uploadThroughServer]
-  )
 
   const handleFileChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0]
       if (!file) return
 
-      const validationError = validateFile(file)
+      const validationError = validateImageUpload(file)
       if (validationError) {
-        onError?.(validationError)
+        onError?.(
+          validationError === 'fileTooLarge'
+            ? `File "${file.name}" is too large. Maximum size is 5MB.`
+            : `File "${file.name}" is not a supported image format. Please use PNG or JPEG.`
+        )
         return
       }
 
@@ -183,7 +74,7 @@ function useImageUpload({ onUpload, onError }: UseImageUploadProps = {}) {
 
       setIsUploading(true)
       try {
-        const serverUrl = await uploadFileToServer(file)
+        const serverUrl = await uploadImage(file, 'chat')
         onUpload?.(serverUrl)
       } catch (error) {
         onError?.(error instanceof Error ? error.message : 'Failed to upload image')
@@ -191,7 +82,7 @@ function useImageUpload({ onUpload, onError }: UseImageUploadProps = {}) {
         setIsUploading(false)
       }
     },
-    [onUpload, onError, uploadFileToServer, validateFile]
+    [onUpload, onError]
   )
 
   const handleRemove = useCallback(() => {
@@ -237,7 +128,6 @@ export function ImageUpload({
   height = 'h-64',
   className,
   disabled = false,
-  acceptedFormats = ['image/png', 'image/jpeg', 'image/jpg'],
   value,
 }: ImageUploadProps) {
   const {
@@ -307,7 +197,7 @@ export function ImageUpload({
       <Input
         id={`${id}-input`}
         type='file'
-        accept={acceptedFormats.join(',')}
+        accept={IMAGE_UPLOAD_MIME_TYPES.join(',')}
         className='hidden'
         ref={fileInputRef}
         onChange={handleFileChange}

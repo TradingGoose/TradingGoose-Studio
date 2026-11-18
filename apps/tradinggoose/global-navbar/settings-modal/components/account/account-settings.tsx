@@ -21,6 +21,7 @@ import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { IMAGE_UPLOAD_MIME_TYPES } from '@/lib/uploads/client/image-upload'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
 import { useUsernameAvailability } from '@/hooks/queries/username'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -343,7 +344,7 @@ function AccountSettingsForm({
             >
               <Input
                 type='file'
-                accept='image/png,image/jpeg,image/jpg'
+                accept={IMAGE_UPLOAD_MIME_TYPES.join(',')}
                 className='hidden'
                 ref={fileInputRef}
                 onChange={handleFileChange}
