@@ -127,6 +127,14 @@ async function requestChange(fixture: Fixture, newEmail: string) {
   return deliveredCode(newEmail.trim().toLowerCase())
 }
 
+async function completeEmailChange(fixture: Fixture, newEmail: string) {
+  const otp = await requestChange(fixture, newEmail)
+  await fixture.auth.api.changeEmailEmailOTP({
+    headers: fixture.login.headers,
+    body: { newEmail, otp },
+  })
+}
+
 async function storedUser(fixture: Fixture, id = 'owner') {
   return fixture.context.internalAdapter.findUserById(id)
 }
@@ -272,6 +280,26 @@ describe('account email change through native Better Auth OTP', () => {
     expect(await storedUser(fixture)).toMatchObject({ email: fixture.email })
   })
 
+  it('reports delivery failures for both mailbox checks and permits a fresh request', async () => {
+    const fixture = await setup()
+    const newEmail = 'new@example.com'
+    const rejected = { statusCode: 503, body: { code: 'EMAIL_CHANGE_SEND_FAILED' } }
+    mail.send.mockResolvedValueOnce({ success: false, message: 'Provider rejected delivery' })
+    await expect(sendCurrentCode(fixture)).rejects.toMatchObject(rejected)
+
+    const otp = await sendCurrentCode(fixture)
+    mail.send.mockResolvedValueOnce({ success: false, message: 'Provider rejected delivery' })
+    await expect(
+      fixture.auth.api.requestEmailChangeEmailOTP({
+        headers: fixture.login.headers,
+        body: { newEmail, otp },
+      })
+    ).rejects.toMatchObject(rejected)
+
+    expect(await storedUser(fixture)).toMatchObject({ email: fixture.email })
+    expect(await requestChange(fixture, newEmail)).toMatch(/^\d{6}$/)
+  })
+
   it.each([
     { target: 'someone@mailinator.com', code: 'INVALID_EMAIL' },
     { target: 'occupied@example.com', code: 'EMAIL_CHANGE_EMAIL_IN_USE' },
@@ -352,11 +380,7 @@ describe('account email change through native Better Auth OTP', () => {
       value: 'owner',
       expiresAt: new Date(Date.now() + 60_000),
     })
-    const otp = await requestChange(fixture, 'new@example.com')
-    await fixture.auth.api.changeEmailEmailOTP({
-      headers: fixture.login.headers,
-      body: { newEmail: 'new@example.com', otp },
-    })
+    await completeEmailChange(fixture, 'new@example.com')
     for (const token of ownerTokens) {
       await expect(
         fixture.auth.api.resetPassword({
@@ -407,11 +431,7 @@ describe('account email change through native Better Auth OTP', () => {
       })
     const resetRequest = fixture.auth.api.requestPasswordReset({ body: { email: fixture.email } })
     await reached
-    const otp = await requestChange(fixture, 'changed@example.com')
-    await fixture.auth.api.changeEmailEmailOTP({
-      headers: fixture.login.headers,
-      body: { newEmail: 'changed@example.com', otp },
-    })
+    await completeEmailChange(fixture, 'changed@example.com')
     resume()
     await resetRequest
     delayedCreate.mockRestore()
@@ -475,11 +495,7 @@ describe('account email change through native Better Auth OTP', () => {
       )
     }
     const other = await fixture.context.test.login({ userId: 'owner' })
-    const otp = await requestChange(fixture, 'new@example.com')
-    await fixture.auth.api.changeEmailEmailOTP({
-      headers: fixture.login.headers,
-      body: { newEmail: 'new@example.com', otp },
-    })
+    await completeEmailChange(fixture, 'new@example.com')
     expect(
       await fixture.context.adapter.count({
         model: 'session',
@@ -495,11 +511,7 @@ describe('account email change through native Better Auth OTP', () => {
   it('rejects a pending code after the current email changes and accepts a fresh request', async () => {
     const fixture = await setup()
     const staleOtp = await requestChange(fixture, 'pending@example.com')
-    const otp = await requestChange(fixture, 'changed@example.com')
-    await fixture.auth.api.changeEmailEmailOTP({
-      headers: fixture.login.headers,
-      body: { newEmail: 'changed@example.com', otp },
-    })
+    await completeEmailChange(fixture, 'changed@example.com')
     await expect(
       fixture.auth.api.changeEmailEmailOTP({
         headers: fixture.login.headers,
@@ -526,11 +538,7 @@ describe('account email change through native Better Auth OTP', () => {
       const fixture = await setup()
       await fixture.auth.api.sendVerificationOTP({ body: { email: fixture.email, type } })
       const oldOtp = deliveredCode(fixture.email)
-      const otp = await requestChange(fixture, 'changed@example.com')
-      await fixture.auth.api.changeEmailEmailOTP({
-        headers: fixture.login.headers,
-        body: { newEmail: 'changed@example.com', otp },
-      })
+      await completeEmailChange(fixture, 'changed@example.com')
       const second = await fixture.auth.api.signUpEmail({
         body: {
           email: fixture.email,
@@ -604,11 +612,7 @@ describe('account email change through native Better Auth OTP', () => {
           ? fixture.auth.api.sendVerificationOTP({ body: { email: fixture.email, type } })
           : fixture.auth.api.requestPasswordResetEmailOTP({ body: { email: fixture.email } })
       await reached
-      const otp = await requestChange(fixture, 'changed@example.com')
-      await fixture.auth.api.changeEmailEmailOTP({
-        headers: fixture.login.headers,
-        body: { newEmail: 'changed@example.com', otp },
-      })
+      await completeEmailChange(fixture, 'changed@example.com')
       const second = await fixture.auth.api.signUpEmail({
         body: {
           email: fixture.email,
@@ -675,11 +679,7 @@ describe('account email change through native Better Auth OTP', () => {
               })
             : fixture.auth.api.verifyEmailOTP({ body: { email: fixture.email, otp: oldOtp } })
       await reached
-      const otp = await requestChange(fixture, 'changed@example.com')
-      await fixture.auth.api.changeEmailEmailOTP({
-        headers: fixture.login.headers,
-        body: { newEmail: 'changed@example.com', otp },
-      })
+      await completeEmailChange(fixture, 'changed@example.com')
       const second = await fixture.auth.api.signUpEmail({
         body: {
           email: fixture.email,

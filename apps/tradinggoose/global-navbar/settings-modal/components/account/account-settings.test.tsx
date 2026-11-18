@@ -122,6 +122,28 @@ function setInputValue(input: HTMLInputElement, value: string) {
 describe('AccountSettings localization', () => {
   let container: HTMLDivElement
   let root: Root
+
+  async function render(locale: LocaleCode = 'en') {
+    await act(async () => {
+      renderAccountSettings(root, locale)
+      await flush()
+    })
+  }
+
+  async function press(text: string) {
+    await act(async () => {
+      await click(findButtonByText(container, text))
+    })
+  }
+
+  function changeSession(values: Record<string, string | null>) {
+    const previous = mockUseSession()
+    mockUseSession.mockReturnValue({
+      ...previous,
+      data: { ...previous.data, user: { ...previous.data.user, ...values } },
+    })
+  }
+
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     vi.stubGlobal(
@@ -179,10 +201,7 @@ describe('AccountSettings localization', () => {
   })
   it('renders translated account labels and telemetry copy in es', async () => {
     const copy = getPublicCopy('es').workspace.settingsModal.account
-    await act(async () => {
-      renderAccountSettings(root, 'es')
-      await flush()
-    })
+    await render('es')
     expect(container.textContent).toContain(copy.profilePicture)
     expect(container.textContent).toContain(copy.profileDetails)
     expect(container.textContent).toContain(copy.profileDetailsDescription)
@@ -227,13 +246,8 @@ describe('AccountSettings localization', () => {
   })
   it('localizes name validation, profile image validation, and password reset status in zh', async () => {
     const copy = getPublicCopy('zh').workspace.settingsModal.account
-    await act(async () => {
-      renderAccountSettings(root, 'zh')
-      await flush()
-    })
-    await act(async () => {
-      await click(findButtonByText(container, copy.editName))
-    })
+    await render('zh')
+    await press(copy.editName)
     const nameInput = container.querySelector('#accountName')
     if (!(nameInput instanceof HTMLInputElement)) {
       throw new Error('Expected editable name input to render')
@@ -243,9 +257,7 @@ describe('AccountSettings localization', () => {
       setInputValue(nameInput, '   ')
       await flush()
     })
-    await act(async () => {
-      await click(findButtonByText(container, copy.saveName))
-    })
+    await press(copy.saveName)
     expect(container.textContent).toContain(copy.status.nameRequiredValidation)
     const fileInput = container.querySelector('input[type="file"]')
     if (!(fileInput instanceof HTMLInputElement)) {
@@ -264,31 +276,11 @@ describe('AccountSettings localization', () => {
     expect(container.textContent).toContain(
       formatTemplate(copy.status.profilePictureFileTooLarge, { name: oversizedFile.name })
     )
-    await act(async () => {
-      await click(findButtonByText(container, copy.sendLink))
-    })
+    await press(copy.sendLink)
     expect(container.textContent).toContain(copy.status.passwordResetSent)
   })
   describe('native profile updates', () => {
     const copy = getPublicCopy('en').workspace.settingsModal.account
-    async function render() {
-      await act(async () => {
-        renderAccountSettings(root, 'en')
-        await flush()
-      })
-    }
-    async function press(text: string) {
-      await act(async () => {
-        await click(findButtonByText(container, text))
-      })
-    }
-    function changeSession(values: Record<string, string | null>) {
-      const previous = mockUseSession()
-      mockUseSession.mockReturnValue({
-        ...previous,
-        data: { ...previous.data, user: { ...previous.data.user, ...values } },
-      })
-    }
     async function uploadImage(uploadResponse?: Promise<Response>) {
       vi.stubGlobal(
         'URL',
@@ -549,10 +541,7 @@ describe('AccountSettings localization', () => {
     )
 
     it('sends native password-reset requests using the localized redirect', async () => {
-      await act(async () => {
-        renderAccountSettings(root, 'es')
-        await flush()
-      })
+      await render('es')
       await press(getPublicCopy('es').workspace.settingsModal.account.sendLink)
       expect(mocks.requestPasswordReset).toHaveBeenCalledExactlyOnceWith({
         email: 'ada@example.com',
@@ -575,17 +564,6 @@ describe('AccountSettings localization', () => {
             displayUsername: username,
           },
         },
-      })
-    }
-    async function render() {
-      await act(async () => {
-        renderAccountSettings(root, 'en')
-        await flush()
-      })
-    }
-    async function press(text: string) {
-      await act(async () => {
-        await click(findButtonByText(container, text))
       })
     }
     async function edit(value: string) {
@@ -872,18 +850,10 @@ describe('AccountSettings localization', () => {
     let copy: ReturnType<
       typeof getPublicCopy
     >['workspace']['settingsModal']['account']['emailChange']
-    async function render(locale: LocaleCode = 'en') {
+    async function openEmailEditor(locale: LocaleCode = 'en') {
       copy = getPublicCopy(locale).workspace.settingsModal.account.emailChange
-      await act(async () => {
-        renderAccountSettings(root, locale)
-        await flush()
-      })
+      await render(locale)
       await press(getPublicCopy(locale).workspace.settingsModal.account.editEmail)
-    }
-    async function press(text: string) {
-      await act(async () => {
-        await click(findButtonByText(container, text))
-      })
     }
     async function fill(selector: string, value: string) {
       await act(async () => {
@@ -926,7 +896,7 @@ describe('AccountSettings localization', () => {
 
     it('changes the email only after both mailboxes are verified, then refreshes session and identity queries', async () => {
       const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
-      await render()
+      await openEmailEditor()
       await start()
       expect(mocks.send).toHaveBeenCalledWith({
         email: 'ada@example.com',
@@ -949,7 +919,7 @@ describe('AccountSettings localization', () => {
     })
 
     it('restarts current-mailbox proof to resend the new-mailbox code while retaining its target', async () => {
-      await render()
+      await openEmailEditor()
       await start()
       await verifyCurrent()
       await press(copy.restart)
@@ -975,7 +945,7 @@ describe('AccountSettings localization', () => {
         expect(slots).toHaveLength(6)
         for (const slot of slots) expect(protectedContainer?.contains(slot)).toBe(true)
       }
-      await render()
+      await openEmailEditor()
       await start()
       for (const value of ['abcdef', '12ab34']) {
         await fill('#account-email-code', value)
@@ -1007,7 +977,7 @@ describe('AccountSettings localization', () => {
         mocks.request.mockResolvedValueOnce({
           error: { code: 'INVALID_OTP', message: 'Invalid OTP' },
         })
-        await render(locale)
+        await openEmailEditor(locale)
         await start()
         await verifyCurrent()
         expect(container.querySelector('[role="alert"]')?.textContent).toBe(copy.errors.invalidCode)
@@ -1023,7 +993,7 @@ describe('AccountSettings localization', () => {
 
     it('retries failed new-mail delivery by requesting fresh current-mailbox proof', async () => {
       mocks.request.mockResolvedValueOnce({ error: { status: 500, message: 'Delivery failed' } })
-      await render()
+      await openEmailEditor()
       await start()
       await verifyCurrent()
       expect(container.querySelector('[role="alert"]')?.textContent).toBe(copy.errors.sendFailed)
@@ -1042,7 +1012,7 @@ describe('AccountSettings localization', () => {
       ['UNAUTHORIZED', 'sessionExpired'],
     ] as const)('keeps a failed new-code confirmation recoverable for %s', async (code, key) => {
       mocks.change.mockResolvedValueOnce({ error: { code } })
-      await render()
+      await openEmailEditor()
       await start()
       await verifyCurrent()
       await fill('#account-email-code', '222222')
@@ -1062,7 +1032,7 @@ describe('AccountSettings localization', () => {
           finish = resolve
         })
       )
-      await render()
+      await openEmailEditor()
       await fill('#account-new-email', 'new@example.com')
       const form = container.querySelector('form')!
       await act(async () => {
@@ -1084,7 +1054,7 @@ describe('AccountSettings localization', () => {
       vi.spyOn(queryClient, 'invalidateQueries').mockRejectedValue(
         new Error('Cache refresh failed')
       )
-      await render()
+      await openEmailEditor()
       await start()
       await verifyCurrent()
       await fill('#account-email-code', '222222')
@@ -1092,15 +1062,8 @@ describe('AccountSettings localization', () => {
       expect(container.textContent).toContain('new@example.com')
       expect(container.textContent).toContain(copy.success)
       expect(container.querySelector('[role="alert"]')).toBeNull()
-      const stale = mockUseSession()
-      mockUseSession.mockReturnValue({
-        ...stale,
-        data: { ...stale.data, user: { ...stale.data.user } },
-      })
-      await act(async () => {
-        renderAccountSettings(root, 'en')
-        await flush()
-      })
+      changeSession({})
+      await render()
       expect(container.textContent).toContain('new@example.com')
       await press(getPublicCopy('en').workspace.settingsModal.account.sendLink)
       expect(mocks.requestPasswordReset).toHaveBeenCalledWith({
@@ -1109,6 +1072,16 @@ describe('AccountSettings localization', () => {
       })
       await press(getPublicCopy('en').workspace.settingsModal.account.editEmail)
       expect(container.querySelector('#account-new-email')).toHaveValue('new@example.com')
+      await press(copy.cancel)
+
+      changeSession({ email: 'other@example.com' })
+      await render()
+      expect(container.textContent).toContain('other@example.com')
+      await press(getPublicCopy('en').workspace.settingsModal.account.sendLink)
+      expect(mocks.requestPasswordReset).toHaveBeenLastCalledWith({
+        email: 'other@example.com',
+        redirectTo: expect.stringContaining('/reset-password'),
+      })
     })
   })
 })

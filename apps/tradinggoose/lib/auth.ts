@@ -535,6 +535,7 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema,
+    transaction: true,
   }),
   session: {
     expiresIn: 30 * 24 * 60 * 60, // 30 days (how long a session can last overall)
@@ -891,10 +892,6 @@ export const auth = betterAuth({
           return
         }
         try {
-          if (!data.email) {
-            throw new Error('Email is required')
-          }
-
           const validation = quickValidateEmail(data.email)
           if (!validation.isValid) {
             logger.warn('Email validation failed', {
@@ -923,10 +920,15 @@ export const auth = betterAuth({
             error,
             email: data.email,
           })
+          if (isEmailChange) {
+            throw new APIError('SERVICE_UNAVAILABLE', {
+              code: 'EMAIL_CHANGE_SEND_FAILED',
+              message: 'Could not send the verification code',
+            })
+          }
           throw error
         }
       },
-      sendVerificationOnSignUp: false,
       otpLength: 6, // Explicitly set the OTP length
       expiresIn: 15 * 60, // 15 minutes in seconds
     }),

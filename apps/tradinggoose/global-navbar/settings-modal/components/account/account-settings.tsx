@@ -5,7 +5,6 @@ import {
   type DragEvent,
   type FormEvent,
   type RefObject,
-  useEffect,
   useRef,
   useState,
 } from 'react'
@@ -55,24 +54,25 @@ function AccountSettingsForm({
   const authRedirectUrls = useAuthRedirectUrls()
   const tAccount = useTranslations('workspace.settingsModal.account')
   const userId = sessionUser?.id ?? null
+  const sessionEmail = sessionUser?.email ?? ''
   const [confirmedProfile, setConfirmedProfile] = useState<{
     name?: string
-    email?: string
+    email?: { previous: string; value: string }
     image?: string | null
     displayUsername?: string
   }>({})
-  useEffect(() => {
-    const fields = Object.keys(confirmedProfile) as (keyof typeof confirmedProfile)[]
-    setConfirmedProfile((previous) => {
-      const pending = { ...previous }
-      for (const field of fields) {
-        if (previous[field] === sessionUser?.[field]) delete pending[field]
-      }
-      return Object.keys(pending).length === Object.keys(previous).length ? previous : pending
-    })
-  }, [confirmedProfile, sessionUser])
+  const pending = { ...confirmedProfile }
+  const fields = Object.keys(confirmedProfile) as (keyof typeof confirmedProfile)[]
+  for (const field of fields) {
+    const acknowledged =
+      field === 'email'
+        ? sessionEmail && sessionEmail !== pending.email?.previous
+        : pending[field] === sessionUser?.[field]
+    if (acknowledged) delete pending[field]
+  }
+  if (Object.keys(pending).length !== fields.length) setConfirmedProfile(pending)
   const name = confirmedProfile.name ?? sessionUser?.name ?? ''
-  const email = confirmedProfile.email ?? sessionUser?.email ?? ''
+  const email = confirmedProfile.email?.value ?? sessionEmail
   const userImage =
     confirmedProfile.image !== undefined ? confirmedProfile.image : (sessionUser?.image ?? null)
   const username =
@@ -558,7 +558,9 @@ function AccountSettingsForm({
                 <Label>{tAccount('emailAddress')}</Label>
                 <ChangeEmailForm
                   email={email}
-                  onEmailChanged={(value) => confirmProfile({ email: value })}
+                  onEmailChanged={(value) =>
+                    confirmProfile({ email: { previous: sessionEmail, value } })
+                  }
                 />
                 <p className='text-muted-foreground text-xs'>{tAccount('emailHint')}</p>
               </div>
