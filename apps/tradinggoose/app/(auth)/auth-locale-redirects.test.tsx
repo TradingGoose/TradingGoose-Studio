@@ -451,35 +451,62 @@ describe('auth locale redirects', () => {
     }
   )
 
-  it('redirects a returned email-verification failure using the actual email', async () => {
-    let finish!: (value: { error: null }) => void
-    mockSendVerificationOtp.mockReturnValueOnce(
-      new Promise((resolve) => {
-        finish = resolve
+  it.each([
+    [null, null],
+    ['/invite/organization-invitation', '/invite/organization-invitation'],
+    [
+      '/invite/workspace-invitation?token=workspace-token',
+      '/invite/workspace-invitation?token=workspace-token',
+    ],
+    [
+      `${window.location.origin}/invite/workspace-invitation?token=workspace-token`,
+      '/invite/workspace-invitation?token=workspace-token',
+    ],
+    ['https://external.example/invite/invitation', '/workspace'],
+  ])(
+    'redirects a returned email-verification failure with callback %s',
+    async (callbackUrl, redirectUrl) => {
+      if (callbackUrl) {
+        testState.searchParams = new URLSearchParams({ callbackUrl, invite_flow: 'true' })
+      }
+      let finish!: (value: { error: null }) => void
+      mockSendVerificationOtp.mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve
+        })
+      )
+      mockSignInEmail.mockResolvedValue({ error: { code: 'EMAIL_NOT_VERIFIED' } })
+      await renderLogin()
+      await setInputValue('#email', 'ADA@EXAMPLE.COM')
+      await setInputValue('#password', 'Password1!')
+      await submitRenderedForm()
+      expect(mockSendVerificationOtp).toHaveBeenCalledExactlyOnceWith({
+        email: 'ada@example.com',
+        type: 'email-verification',
       })
-    )
-    mockSignInEmail.mockResolvedValue({ error: { code: 'EMAIL_NOT_VERIFIED' } })
-    await renderLogin()
-    await setInputValue('#email', 'ADA@EXAMPLE.COM')
-    await setInputValue('#password', 'Password1!')
-    await submitRenderedForm()
-    expect(mockSendVerificationOtp).toHaveBeenCalledExactlyOnceWith({
-      email: 'ada@example.com',
-      type: 'email-verification',
-    })
-    expect(mockPush).not.toHaveBeenCalled()
-    expect(sessionStorage.setItem).not.toHaveBeenCalled()
-    await act(async () => finish({ error: null }))
-    expect(mockSendVerificationOtp.mock.invocationCallOrder[0]).toBeLessThan(
-      mockPush.mock.invocationCallOrder[0]
-    )
-    expect(sessionStorage.setItem).toHaveBeenCalledWith('verificationEmail', 'ada@example.com')
-    expect(mockPush).toHaveBeenCalledWith('/verify')
-  })
+      expect(mockPush).not.toHaveBeenCalled()
+      expect(sessionStorage.setItem).not.toHaveBeenCalled()
+      await act(async () => finish({ error: null }))
+      expect(mockSendVerificationOtp.mock.invocationCallOrder[0]).toBeLessThan(
+        mockPush.mock.invocationCallOrder[0]
+      )
+      expect(sessionStorage.setItem).toHaveBeenCalledWith('verificationEmail', 'ada@example.com')
+      expect(sessionStorage.setItem).toHaveBeenCalledTimes(callbackUrl ? 3 : 1)
+      if (callbackUrl) {
+        expect(sessionStorage.setItem).toHaveBeenCalledWith('inviteRedirectUrl', redirectUrl)
+        expect(sessionStorage.setItem).toHaveBeenCalledWith('isInviteFlow', 'true')
+      }
+      expect(mockPush).toHaveBeenCalledWith('/verify')
+    }
+  )
 
   it.each(['returned', 'thrown'] as const)(
     'keeps an unverified email login on the form when sending the code fails: %s',
     async (failure) => {
+      testState.searchParams = new URLSearchParams({
+        callbackUrl: '/invite/invitation?token=workspace-token',
+        invite_flow: 'true',
+      })
       mockSignInEmail.mockResolvedValue({ error: { code: 'EMAIL_NOT_VERIFIED' } })
       if (failure === 'returned')
         mockSendVerificationOtp.mockResolvedValue({ error: { code: 'SEND_FAILED' } })
@@ -560,6 +587,8 @@ describe('auth locale redirects', () => {
   it.each(['es', 'zh'] as const)(
     'pushes the canonical verify path after an unverified login for %s',
     async (locale) => {
+      const callbackUrl = '/invite/invitation?token=workspace-token'
+      testState.searchParams = new URLSearchParams({ callbackUrl, invite_flow: 'true' })
       mockSignInEmail.mockRejectedValue({ code: 'EMAIL_NOT_VERIFIED' })
 
       await renderLogin(locale)
@@ -568,6 +597,8 @@ describe('auth locale redirects', () => {
       await setInputValue('#password', 'Password1!')
       await submitRenderedForm()
 
+      expect(sessionStorage.setItem).toHaveBeenCalledWith('inviteRedirectUrl', callbackUrl)
+      expect(sessionStorage.setItem).toHaveBeenCalledWith('isInviteFlow', 'true')
       expect(mockPush).toHaveBeenCalledWith('/verify')
     }
   )

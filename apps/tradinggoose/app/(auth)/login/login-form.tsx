@@ -323,6 +323,10 @@ export default function LoginPage({
           })
           if (error) throw error
           sessionStorage.setItem('verificationEmail', email)
+          if (isInviteFlow) {
+            sessionStorage.setItem('inviteRedirectUrl', callbackUrl)
+            sessionStorage.setItem('isInviteFlow', 'true')
+          }
           router.push('/verify')
         } catch (error) {
           logger.error('Failed to send login verification code', error)

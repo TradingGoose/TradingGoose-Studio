@@ -185,9 +185,13 @@ describe('useVerification', () => {
     expect(mockPush).toHaveBeenCalledWith('/workspace')
   })
 
-  it('pushes canonical invite redirects through generated navigation', async () => {
+  it.each([
+    '/workspace/ws-1/dashboard',
+    '/invite/organization-invitation',
+    '/invite/workspace-invitation?token=workspace-token',
+  ])('returns to %s after verification and clears the invitation handoff', async (redirectUrl) => {
     sessionStore.set('verificationEmail', 'ada@example.com')
-    sessionStore.set('inviteRedirectUrl', '/workspace/ws-1/dashboard')
+    sessionStore.set('inviteRedirectUrl', redirectUrl)
     sessionStore.set('isInviteFlow', 'true')
     mockVerifyEmail.mockResolvedValue({})
     mockRefetchSession.mockResolvedValue(undefined)
@@ -206,7 +210,8 @@ describe('useVerification', () => {
       await vi.advanceTimersByTimeAsync(1300)
     })
 
-    expect(mockPush).toHaveBeenCalledWith('/workspace/ws-1/dashboard')
+    expect(mockPush).toHaveBeenCalledWith(redirectUrl)
+    expect(sessionStore.size).toBe(0)
   })
 
   it('resends an email-verification OTP for the signup identity', async () => {
