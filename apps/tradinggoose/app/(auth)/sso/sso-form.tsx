@@ -21,116 +21,74 @@ import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('SSOForm')
 
-const validateEmailField = (
-  emailValue: string,
-  messages: {
-    required: string
-    invalid: string
-  }
-): string[] => {
-  const validationMessages: string[] = []
-
-  if (!emailValue || !emailValue.trim()) {
-    validationMessages.push(messages.required)
-    return validationMessages
-  }
-
-  const validation = quickValidateEmail(emailValue.trim().toLowerCase())
-  if (!validation.isValid) {
-    validationMessages.push(messages.invalid)
-  }
-
-  return validationMessages
-}
-
 export default function SSOForm({ registrationMode }: { registrationMode: RegistrationMode }) {
   const authRedirectUrls = useAuthRedirectUrls()
   const copy = useMessages()
   const commonCopy = copy.auth.common
   const ssoCopy = copy.auth.sso
-  const defaultCallbackPath = '/workspace'
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
-  const [emailErrors, setEmailErrors] = useState<string[]>([])
-  const [showEmailValidationError, setShowEmailValidationError] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
-  const [callbackUrl, setCallbackUrl] = useState(defaultCallbackPath)
+  const callbackUrl =
+    normalizeCallbackUrl(
+      searchParams?.get('callbackUrl'),
+      typeof window !== 'undefined' ? window.location.origin : undefined
+    ) ?? '/workspace'
   const registrationHref = getRegistrationPrimaryHref(registrationMode)
   const registrationLabel = copy.registration[registrationMode].auth
   const callbackUrlParam = encodeURIComponent(callbackUrl)
 
   useEffect(() => {
-    if (searchParams) {
-      const callback = searchParams.get('callbackUrl')
-      if (callback) {
-        const normalizedCallback = normalizeCallbackUrl(
-          callback,
-          typeof window !== 'undefined' ? window.location.origin : undefined
-        )
-
-        if (normalizedCallback) {
-          setCallbackUrl(normalizedCallback)
-        } else {
-          logger.warn('Invalid callback URL detected and blocked:', { url: callback })
-        }
-      }
-
-      const emailParam = searchParams.get('email')
-      if (emailParam) {
-        setEmail(emailParam)
-      }
-    }
+    const emailParam = searchParams?.get('email')
+    if (emailParam) setEmail(emailParam)
   }, [searchParams])
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newEmail = e.target.value
-    setEmail(newEmail)
-
-    const emailValidationMessages = validateEmailField(newEmail, {
-      required: ssoCopy.validation.emailRequired,
-      invalid: ssoCopy.validation.emailInvalid,
-    })
-    setEmailErrors(emailValidationMessages)
-    setShowEmailValidationError(false)
+    setEmail(e.target.value)
+    setEmailError(null)
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setIsLoading(true)
 
     const formData = new FormData(e.currentTarget)
-    const emailRaw = formData.get('email') as string
-    const emailValue = emailRaw.trim().toLowerCase()
-
-    const emailValidationErrors = validateEmailField(emailValue, {
-      required: ssoCopy.validation.emailRequired,
-      invalid: ssoCopy.validation.emailInvalid,
-    })
-    setEmailErrors(emailValidationErrors)
-    setShowEmailValidationError(emailValidationErrors.length > 0)
-
-    if (emailValidationErrors.length > 0) {
-      setIsLoading(false)
+    const emailValue = String(formData.get('email') ?? '')
+      .trim()
+      .toLowerCase()
+    if (!emailValue) {
+      setEmailError(ssoCopy.validation.emailRequired)
+      return
+    }
+    if (!quickValidateEmail(emailValue).isValid) {
+      setEmailError(ssoCopy.validation.emailInvalid)
       return
     }
 
+    setEmailError(null)
+    setIsLoading(true)
+    let error: { code?: string; message?: string } | null
     try {
-      await client.signIn.sso({
+      const result = await client.signIn.sso({
         email: emailValue,
         callbackURL: authRedirectUrls.providerCallbackPath(callbackUrl),
         errorCallbackURL: authRedirectUrls.providerErrorPath(callbackUrl),
       })
-    } catch (err) {
-      logger.error('SSO sign-in failed', { error: err, email: emailValue })
-      const errorMessage =
-        err instanceof Error ? resolveSsoAuthErrorMessage(copy, err.message) : null
-
-      setEmailErrors([errorMessage ?? ssoCopy.errors.failed])
-      setShowEmailValidationError(true)
-      setIsLoading(false)
+      error = result.error
+    } catch (cause) {
+      error = cause instanceof Error ? cause : {}
     }
+    if (!error) return
+
+    logger.error('SSO sign-in failed', { error, email: emailValue })
+    setEmailError(
+      resolveSsoAuthErrorMessage(copy, error.code) ??
+        resolveSsoAuthErrorMessage(copy, error.message) ??
+        ssoCopy.errors.failed
+    )
+    setIsLoading(false)
   }
 
   return (
@@ -166,26 +124,21 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
               autoFocus
               value={email}
               onChange={handleEmailChange}
-              aria-invalid={showEmailValidationError && emailErrors.length > 0}
-              aria-describedby={
-                showEmailValidationError && emailErrors.length > 0 ? 'sso-email-errors' : undefined
-              }
+              aria-invalid={Boolean(emailError)}
+              aria-describedby={emailError ? 'sso-email-error' : undefined}
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                showEmailValidationError &&
-                  emailErrors.length > 0 &&
+                emailError &&
                   'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
-            {showEmailValidationError && emailErrors.length > 0 && (
+            {emailError && (
               <div
-                id='sso-email-errors'
+                id='sso-email-error'
                 role='alert'
                 className='mt-1 space-y-1 text-red-400 text-xs'
               >
-                {emailErrors.map((error, index) => (
-                  <p key={index}>{error}</p>
-                ))}
+                <p>{emailError}</p>
               </div>
             )}
           </div>
@@ -209,7 +162,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
 
       <div className={`${inter.className} space-y-3`}>
         <Link
-          href={`/login${callbackUrl ? `?callbackUrl=${callbackUrlParam}` : ''}`}
+          href={`/login?callbackUrl=${callbackUrlParam}`}
           className={buttonVariants({
             variant: 'outline',
             className: 'w-full rounded-md shadow-sm hover:bg-gray-50',
@@ -223,7 +176,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
         <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
           <span className='font-normal'>{commonCopy.dontHaveAccount} </span>
           <Link
-            href={`${registrationHref}${callbackUrl ? `?callbackUrl=${callbackUrlParam}` : ''}`}
+            href={`${registrationHref}?callbackUrl=${callbackUrlParam}`}
             className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
           >
             {registrationLabel}

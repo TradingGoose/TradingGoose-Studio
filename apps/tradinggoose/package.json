@@ -123,6 +123,7 @@
     "tailwind-merge": "3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "three": "0.177.0",
+    "tldts": "6.1.86",
     "typescript": "^5.7.3",
     "undici": "6.29.1",
     "unpdf": "1.4.0",

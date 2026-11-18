@@ -204,6 +204,7 @@ describe('SSO access guard', () => {
       providerId: 'okta',
       domain: 'example.com',
       domainVerified: false,
+      dnsRecordNames: ['_better-auth-token-okta.example.com'],
       issuer: 'https://idp.example.com',
       providerType: 'oidc',
     }
@@ -354,7 +355,16 @@ describe('SSO access guard', () => {
       vi.mocked(fetch).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          providers: [{ ...provider, domain: 'company.com, subsidiary.com, ' }],
+          providers: [
+            {
+              ...provider,
+              domain: 'https://company.com/path, subsidiary.com, ',
+              dnsRecordNames: [
+                '_better-auth-token-okta.company.com',
+                '_better-auth-token-okta.subsidiary.com',
+              ],
+            },
+          ],
         }),
       } as Response)
       await renderSettings()

@@ -277,8 +277,12 @@ describe('auth provider callback routing', () => {
     )
   })
 
-  it('routes SSO callback failures to the auth error page', async () => {
+  it('configures the SSO callback destination and shows an unverified-domain response inline', async () => {
     testState.searchParams = new URLSearchParams({ callbackUrl: '/workspace' })
+    mockSsoSignIn.mockResolvedValueOnce({
+      data: null,
+      error: { status: 401, message: 'Provider domain has not been verified' },
+    })
 
     await act(async () => {
       root.render(
@@ -314,6 +318,11 @@ describe('auth provider callback routing', () => {
       callbackURL: '/workspace',
       errorCallbackURL: getAuthErrorCallbackPath('/workspace'),
     })
+
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent(
+      'Ask your organization administrator to verify the SSO domain.'
+    )
+    expect(form.querySelector('button[type="submit"]')).toBeEnabled()
   })
 })
 

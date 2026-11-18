@@ -362,6 +362,7 @@
         "accountNotFound": "未找到账户。请联系管理员以设置SSO访问。",
         "ssoFailed": "SSO身份验证失败。请重试。",
         "providerNotConfigured": "SSO提供商配置不正确。",
+        "domainNotVerified": "请联系组织管理员验证 SSO 域名。",
         "invalidEmailDomain": "邮箱域名未配置SSO。请联系管理员。",
         "network": "网络错误。请检查网络连接后重试。",
         "rateLimit": "请求过于频繁。请稍候再试。",

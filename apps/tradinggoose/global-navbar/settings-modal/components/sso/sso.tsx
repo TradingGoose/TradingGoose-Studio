@@ -20,6 +20,7 @@ interface SSOProvider {
   providerId: string
   domain: string
   domainVerified: boolean
+  dnsRecordNames: string[]
   issuer: string
   providerType: 'oidc' | 'saml'
 }
@@ -46,15 +47,14 @@ const INITIAL_FORM_DATA = {
   showAdvanced: false,
 }
 
-const INITIAL_ERRORS: Record<string, string[]> = {
-  providerId: [],
-  issuerUrl: [],
-  domain: [],
-  clientId: [],
-  clientSecret: [],
-  entryPoint: [],
-  cert: [],
-  scopes: [],
+async function fetchProviders() {
+  const response = await fetch('/api/auth/sso/providers')
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new Error(data?.error || response.statusText || 'Failed to load SSO providers')
+  }
+  const data: { providers: SSOProvider[] } = await response.json()
+  return data.providers
 }
 
 export function SSO() {
@@ -77,7 +77,6 @@ export function SSO() {
   }, [activeOrganizationId])
 
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
-  const [errors, setErrors] = useState(INITIAL_ERRORS)
   const [showErrors, setShowErrors] = useState(false)
 
   const userEmail = session?.user?.email
@@ -101,7 +100,7 @@ export function SSO() {
     setError(null)
     setIsLoading(false)
 
-    const fetchProviders = async () => {
+    const loadProviders = async () => {
       if (!shouldFetchProviders) {
         setProviders([])
         setProviderLoadError(null)
@@ -111,15 +110,9 @@ export function SSO() {
 
       try {
         setIsLoadingProviders(true)
-        const response = await fetch('/api/auth/sso/providers')
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null)
-          throw new Error(errorData?.error || response.statusText || 'Failed to load SSO providers')
-        }
-
-        const data = await response.json()
+        const loadedProviders = await fetchProviders()
         if (!cancelled) {
-          setProviders(data.providers)
+          setProviders(loadedProviders)
           setProviderLoadError(null)
         }
       } catch (error) {
@@ -137,7 +130,7 @@ export function SSO() {
       }
     }
 
-    fetchProviders()
+    loadProviders()
 
     return () => {
       cancelled = true
@@ -251,66 +244,26 @@ export function SSO() {
     return out
   }
 
-  const validateAll = (data: typeof formData) => {
-    const newErrors: Record<string, string[]> = {
-      ...INITIAL_ERRORS,
-      providerId: validateProviderId(data.providerId),
-      issuerUrl: validateIssuerUrl(data.issuerUrl),
-      domain: validateDomain(data.domain),
-    }
-
-    if (data.providerType === 'oidc') {
-      newErrors.clientId = validateRequired('Client ID', data.clientId)
-      newErrors.clientSecret = validateRequired('Client Secret', data.clientSecret)
-      if (!data.scopes || !data.scopes.trim()) {
-        newErrors.scopes = ['Scopes are required for OIDC providers']
-      }
-    } else if (data.providerType === 'saml') {
-      newErrors.entryPoint = validateIssuerUrl(data.entryPoint || '')
-      newErrors.cert = validateRequired('Certificate', data.cert)
-    }
-
-    setErrors(newErrors)
-    return newErrors
+  const isOidc = formData.providerType === 'oidc'
+  const errors = {
+    providerId: validateProviderId(formData.providerId),
+    issuerUrl: validateIssuerUrl(formData.issuerUrl),
+    domain: validateDomain(formData.domain),
+    clientId: isOidc ? validateRequired('Client ID', formData.clientId) : [],
+    clientSecret: isOidc ? validateRequired('Client Secret', formData.clientSecret) : [],
+    scopes: isOidc && !formData.scopes.trim() ? ['Scopes are required for OIDC providers'] : [],
+    entryPoint: isOidc ? [] : validateIssuerUrl(formData.entryPoint),
+    cert: isOidc ? [] : validateRequired('Certificate', formData.cert),
   }
-
-  const hasAnyErrors = (errs: Record<string, string[]>) =>
-    Object.values(errs).some((l) => l.length > 0)
-
-  const isFormValid = () => {
-    const requiredFields = ['providerId', 'issuerUrl', 'domain']
-    const hasRequiredFields = requiredFields.every((field) => {
-      const value = formData[field as keyof typeof formData]
-      return typeof value === 'string' && value.trim() !== ''
-    })
-
-    if (formData.providerType === 'oidc') {
-      return (
-        hasRequiredFields &&
-        formData.clientId.trim() !== '' &&
-        formData.clientSecret.trim() !== '' &&
-        formData.scopes.trim() !== ''
-      )
-    }
-    if (formData.providerType === 'saml') {
-      return hasRequiredFields && formData.entryPoint.trim() !== '' && formData.cert.trim() !== ''
-    }
-
-    return false
-  }
+  const hasErrors = Object.values(errors).some((messages) => messages.length > 0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setError(null)
-
     setShowErrors(true)
-    const validation = validateAll(formData)
-    if (hasAnyErrors(validation)) {
-      setIsLoading(false)
-      return
-    }
+    if (hasErrors) return
 
+    setIsLoading(true)
     try {
       const requestBody: any = {
         providerId: formData.providerId,
@@ -356,16 +309,7 @@ export function SSO() {
 
       setFormData(INITIAL_FORM_DATA)
 
-      const providersResponse = await fetch('/api/auth/sso/providers')
-      if (!providersResponse.ok) {
-        const errorData = await providersResponse.json().catch(() => null)
-        throw new Error(
-          errorData?.error || providersResponse.statusText || 'Failed to reload SSO providers'
-        )
-      }
-
-      const providersData = await providersResponse.json()
-      setProviders(providersData.providers)
+      setProviders(await fetchProviders())
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(message)
@@ -375,25 +319,12 @@ export function SSO() {
     }
   }
 
-  const handleInputChange = (field: keyof typeof formData, value: string) => {
-    setFormData((prev) => {
-      let processedValue: any = value
-
-      if (field === 'wantAssertionsSigned' || field === 'showAdvanced') {
-        processedValue = value === 'true'
-      }
-
-      const next = { ...prev, [field]: processedValue }
-
-      if (field === 'providerType') {
-        setShowErrors(false)
-        setErrors(INITIAL_ERRORS)
-      } else {
-        validateAll(next)
-      }
-
-      return next
-    })
+  const handleInputChange = <Field extends keyof typeof formData>(
+    field: Field,
+    value: (typeof formData)[Field]
+  ) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    if (field === 'providerType') setShowErrors(false)
   }
 
   const callbackUrl = getSsoCallbackUrl(formData.providerId, formData.providerType)
@@ -457,23 +388,15 @@ export function SSO() {
                             Add a TXT record for each name below using the same value, then verify
                             the domain.
                           </p>
-                          {provider.domain
-                            .split(',')
-                            .map((domain) => domain.trim())
-                            .filter(Boolean)
-                            .map((domain, index) => {
-                              const id = `dns-name-${provider.id}${index ? `-${index}` : ''}`
-                              return (
-                                <div key={id} className='space-y-2'>
-                                  <Label htmlFor={id}>TXT record name</Label>
-                                  <Input
-                                    id={id}
-                                    readOnly
-                                    value={`_better-auth-token-${provider.providerId}.${domain}`}
-                                  />
-                                </div>
-                              )
-                            })}
+                          {provider.dnsRecordNames.map((name, index) => {
+                            const id = `dns-name-${provider.id}${index ? `-${index}` : ''}`
+                            return (
+                              <div key={name} className='space-y-2'>
+                                <Label htmlFor={id}>TXT record name</Label>
+                                <Input id={id} readOnly value={name} />
+                              </div>
+                            )
+                          })}
                           <Label htmlFor={`dns-value-${provider.id}`}>TXT record value</Label>
                           <Input
                             id={`dns-value-${provider.id}`}
@@ -846,12 +769,7 @@ export function SSO() {
                     <div className='space-y-3'>
                       <button
                         type='button'
-                        onClick={() =>
-                          handleInputChange(
-                            'showAdvanced',
-                            formData.showAdvanced ? 'false' : 'true'
-                          )
-                        }
+                        onClick={() => handleInputChange('showAdvanced', !formData.showAdvanced)}
                         className='flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground'
                       >
                         <ChevronDown
@@ -907,10 +825,7 @@ export function SSO() {
                               id='want-assertions-signed'
                               checked={formData.wantAssertionsSigned}
                               onChange={(e) =>
-                                handleInputChange(
-                                  'wantAssertionsSigned',
-                                  e.target.checked ? 'true' : 'false'
-                                )
+                                handleInputChange('wantAssertionsSigned', e.target.checked)
                               }
                               className='rounded'
                             />
@@ -946,7 +861,7 @@ export function SSO() {
                 <Button
                   type='submit'
                   className='w-full rounded-md'
-                  disabled={isLoading || hasAnyErrors(errors) || !isFormValid()}
+                  disabled={isLoading || hasErrors}
                 >
                   {isLoading ? 'Configuring...' : 'Configure SSO Provider'}
                 </Button>

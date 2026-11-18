@@ -5,12 +5,12 @@ import {
 import type { PublicCopy } from '@/i18n/public-copy'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 
-export interface AuthErrorAction {
+interface AuthErrorAction {
   href: string
   label: string
 }
 
-export interface AuthErrorContent {
+interface AuthErrorContent {
   title: string
   description: string
   primaryAction: AuthErrorAction
@@ -66,6 +66,7 @@ const SSO_ERROR_COPY_BY_CODE: Partial<Record<string, SsoErrorCopyKey>> = {
   SSO_FAILED: 'ssoFailed',
   INVALID_PROVIDER: 'providerNotConfigured',
   NO_PROVIDER_FOUND: 'providerNotConfigured',
+  PROVIDER_DOMAIN_HAS_NOT_BEEN_VERIFIED: 'domainNotVerified',
   INVALID_EMAIL_DOMAIN: 'invalidEmailDomain',
   NETWORK_ERROR: 'network',
   RATE_LIMIT: 'rateLimit',
@@ -167,11 +168,18 @@ function isSessionRecoveryGroup(groupKey: AuthErrorGroupKey) {
   )
 }
 
+function resolveAuthErrorGroup(code: string | null, descriptionCode: string | null) {
+  return resolveAuthErrorGroupKey(code) ?? resolveAuthErrorGroupKey(descriptionCode)
+}
+
 export function isSessionRecoveryAuthError(
   error: string | null | undefined,
   errorDescription?: string | null
 ) {
-  const groupKey = resolveAuthErrorGroup(error, errorDescription)
+  const groupKey = resolveAuthErrorGroup(
+    normalizeAuthErrorCode(error),
+    normalizeAuthErrorCode(errorDescription)
+  )
   return Boolean(groupKey && isSessionRecoveryGroup(groupKey))
 }
 
@@ -190,7 +198,7 @@ export function getAuthErrorContent(
 ) {
   const code = normalizeAuthErrorCode(error)
   const descriptionCode = normalizeAuthErrorCode(errorDescription)
-  const groupKey = resolveAuthErrorGroupKey(code) ?? resolveAuthErrorGroupKey(descriptionCode)
+  const groupKey = resolveAuthErrorGroup(code, descriptionCode)
   const actionCopy = getAuthErrorActionCopy(copy, callbackUrl)
   const normalizedDescription = errorDescription?.trim() || null
   const ssoErrorDescription =
@@ -243,16 +251,6 @@ export function getAuthErrorContent(
       secondaryAction: actionCopy.home,
     },
   }
-}
-
-export function resolveAuthErrorGroup(
-  error: string | null | undefined,
-  errorDescription?: string | null
-) {
-  const code = normalizeAuthErrorCode(error)
-  const descriptionCode = normalizeAuthErrorCode(errorDescription)
-
-  return resolveAuthErrorGroupKey(code) ?? resolveAuthErrorGroupKey(descriptionCode)
 }
 
 export function isRegistrationDisabledReason(value: string | null | undefined) {

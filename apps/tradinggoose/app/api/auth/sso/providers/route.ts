@@ -1,6 +1,7 @@
 import { db, ssoProvider } from '@tradinggoose/db'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
+import { getHostname } from 'tldts'
 import { getSession } from '@/lib/auth'
 import {
   getOrganizationBillingData,
@@ -14,6 +15,19 @@ const logger = createLogger('SSO-Providers')
 
 type OrganizationSession = {
   activeOrganizationId?: string | null
+}
+
+function getDnsRecordNames(providerId: string, domain: string) {
+  // Use the same hostname parser as Better Auth's domain verifier.
+  const hostnames = new Set<string>()
+  for (const entry of domain.split(',')) {
+    const value = entry.trim()
+    if (!value) continue
+    const hostname = getHostname(value)
+    if (!hostname) return []
+    hostnames.add(hostname.toLowerCase())
+  }
+  return Array.from(hostnames, (hostname) => `_better-auth-token-${providerId}.${hostname}`)
 }
 
 export async function GET() {
@@ -74,6 +88,7 @@ export async function GET() {
       providerId: provider.providerId,
       domain: provider.domain,
       domainVerified: provider.domainVerified,
+      dnsRecordNames: getDnsRecordNames(provider.providerId, provider.domain),
       issuer: provider.issuer,
       organizationId: provider.organizationId,
       providerType: provider.oidcConfig ? 'oidc' : 'saml',

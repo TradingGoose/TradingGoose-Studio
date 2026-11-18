@@ -80,7 +80,7 @@ describe('SSO providers route', () => {
       {
         id: 'provider-1',
         providerId: 'okta',
-        domain: 'example.com',
+        domain: 'https://Example.com/path, example.com, subsidiary.example.org, ',
         domainVerified: false,
         issuer: 'https://issuer.example.com',
         oidcConfig: '{"clientId":"abc"}',
@@ -113,8 +113,12 @@ describe('SSO providers route', () => {
         {
           id: 'provider-1',
           providerId: 'okta',
-          domain: 'example.com',
+          domain: 'https://Example.com/path, example.com, subsidiary.example.org, ',
           domainVerified: false,
+          dnsRecordNames: [
+            '_better-auth-token-okta.example.com',
+            '_better-auth-token-okta.subsidiary.example.org',
+          ],
           issuer: 'https://issuer.example.com',
           organizationId: 'org-1',
           providerType: 'oidc',

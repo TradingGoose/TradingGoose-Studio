@@ -362,6 +362,7 @@
         "accountNotFound": "No se encontró ninguna cuenta. Contacta a tu administrador para configurar el acceso SSO.",
         "ssoFailed": "La autenticación SSO falló. Inténtalo de nuevo.",
         "providerNotConfigured": "El proveedor SSO no está configurado correctamente.",
+        "domainNotVerified": "Pide al administrador de tu organización que verifique el dominio de SSO.",
         "invalidEmailDomain": "El dominio de correo no está configurado para SSO. Contacta a tu administrador.",
         "network": "Error de red. Verifica tu conexión e inténtalo de nuevo.",
         "rateLimit": "Demasiadas solicitudes. Espera un momento antes de intentarlo de nuevo.",
