@@ -1,3 +1,4 @@
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockSend = vi.fn()
@@ -273,9 +274,16 @@ describe('mailer', () => {
 
   describe('addVerifiedUserEmailToAudience', () => {
     const verifiedUser = { ...recipient, email: ' User@Example.com ' }
+    const recipients = new Map<string, typeof recipient>()
+    const dialect = new PgDialect()
 
     beforeEach(() => {
-      vi.mocked(getEmailRecipient).mockResolvedValue(verifiedUser)
+      recipients.clear()
+      recipients.set(verifiedUser.id, verifiedUser)
+      vi.mocked(getEmailRecipient).mockImplementation(async (where) => {
+        const [key] = dialect.sqlToQuery(where).params
+        return [...recipients.values()].find(({ id, email }) => id === key || email === key)
+      })
     })
 
     it('does nothing when the Resend audience is not configured', async () => {
@@ -460,15 +468,50 @@ describe('mailer', () => {
         return { error: null }
       })
 
-      vi.mocked(getEmailRecipient).mockResolvedValue(first)
+      recipients.set(first.id, first)
       const firstSync = addVerifiedUserEmailToAudience(first, previousEmail)
       await vi.waitFor(() => expect(mockContactsCreate).toHaveBeenCalledOnce())
-      vi.mocked(getEmailRecipient).mockResolvedValue(latest)
+      recipients.set(latest.id, latest)
       await addVerifiedUserEmailToAudience(latest, first.email)
       finishEnrollment()
       await firstSync
 
       expect([...members]).toEqual([latest.email])
+      expect(mockLoggerWarn).not.toHaveBeenCalled()
+    })
+
+    it('restores the current verified owner after an in-flight removal', async () => {
+      const previousEmail = 'previous@example.com'
+      const newOwner = { ...recipient, id: 'new-owner', email: previousEmail }
+      const members = new Set([previousEmail])
+      let finishRemoval!: () => void
+      const removal = new Promise<void>((resolve) => {
+        finishRemoval = resolve
+      })
+      mockContactsGet.mockImplementation(async ({ email }) =>
+        email === previousEmail
+          ? { data: { id: email, unsubscribed: false }, error: null }
+          : { data: null, error: { statusCode: 404 } }
+      )
+      mockContactSegmentRemove.mockImplementation(async ({ contactId }) => {
+        await removal
+        members.delete(contactId)
+        return { error: null }
+      })
+      mockContactSegmentAdd.mockImplementation(async ({ contactId }) => {
+        members.add(contactId)
+        return { error: null }
+      })
+
+      const sync = addVerifiedUserEmailToAudience(verifiedUser, previousEmail)
+      await vi.waitFor(() => expect(mockContactSegmentRemove).toHaveBeenCalledOnce())
+      recipients.set(newOwner.id, newOwner)
+      await addVerifiedUserEmailToAudience(newOwner)
+      finishRemoval()
+      await sync
+
+      expect(members.has(previousEmail)).toBe(true)
+      expect(mockContactSegmentAdd).toHaveBeenCalledTimes(2)
       expect(mockLoggerWarn).not.toHaveBeenCalled()
     })
   })

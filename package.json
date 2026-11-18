@@ -83,6 +83,7 @@
   },
   "patchedDependencies": {
     "@better-auth/sso@1.6.34": "patches/@better-auth%2Fsso@1.6.34.patch",
+    "@better-auth/stripe@1.6.34": "patches/@better-auth%2Fstripe@1.6.34.patch",
     "better-auth@1.6.34": "patches/better-auth@1.6.34.patch"
   }
 }

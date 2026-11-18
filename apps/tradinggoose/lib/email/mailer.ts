@@ -1,8 +1,12 @@
 import { EmailClient, type EmailMessage } from '@azure/communication-email'
 import { user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { type ErrorResponse, Resend, type Response as ResendResponse } from 'resend'
-import type { EmailLocale } from '@/components/emails/email-copy'
+import {
+  type ErrorResponse,
+  type GetContactResponseSuccess,
+  Resend,
+  type Response as ResendResponse,
+} from 'resend'
 import {
   generateUnsubscribeToken,
   getEmailRecipient,
@@ -15,7 +19,7 @@ import {
   resolveResendServiceConfig,
 } from '@/lib/system-services/runtime'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { localizeUrl } from '@/i18n/utils'
+import { type LocaleInput, localizeUrl } from '@/i18n/utils'
 
 const logger = createLogger('Mailer')
 
@@ -37,7 +41,7 @@ interface EmailOptions {
   emailType: EmailType
   attachments?: EmailAttachment[]
   replyTo?: string
-  locale?: EmailLocale
+  locale?: LocaleInput
 }
 
 export type TransactionalBatchEmail = Pick<
@@ -105,6 +109,26 @@ export async function addVerifiedUserEmailToAudience(
     const addresses = new Set([verifiedUser.email.trim().toLowerCase()])
     if (previousEmail) addresses.add(previousEmail.trim().toLowerCase())
     const mailboxFilter = eq(user.id, verifiedUser.id)
+    const getVerifiedOwner = async (email: string) => {
+      const owner = await getEmailRecipient(eq(user.email, email))
+      return owner?.emailVerified ? owner : undefined
+    }
+    const enroll = async (
+      email: string,
+      contact: GetContactResponseSuccess | null,
+      unsubscribed: boolean
+    ) => {
+      if (contact) {
+        if (unsubscribed && !contact.unsubscribed) {
+          await readContactResult(contacts.update({ id: contact.id, unsubscribed: true }))
+        }
+        await readContactResult(contacts.segments.add({ contactId: contact.id, segmentId }), 409)
+      } else {
+        await readContactResult(
+          contacts.create({ email, unsubscribed, segments: [{ id: segmentId }] })
+        )
+      }
+    }
     let attempt = 0
     for (;;) {
       try {
@@ -116,30 +140,36 @@ export async function addVerifiedUserEmailToAudience(
         const previous = []
         for (const address of addresses) {
           if (address === email) continue
+          const owner = await getVerifiedOwner(address)
           const contact = await readContactResult(contacts.get({ email: address }), 404)
-          if (contact) previous.push(contact)
+          previous.push({ address, contact, wasUnowned: !owner })
         }
         const unsubscribed =
-          previous.some((contact) => contact.unsubscribed) ||
+          previous.some(({ contact, wasUnowned }) => wasUnowned && contact?.unsubscribed) ||
           isUnsubscribed(mailbox.preferences, 'marketing')
-        const current = await readContactResult(contacts.get({ email }), 404)
+        await enroll(email, await readContactResult(contacts.get({ email }), 404), unsubscribed)
 
-        if (current) {
-          if (unsubscribed && !current.unsubscribed) {
-            await readContactResult(contacts.update({ id: current.id, unsubscribed: true }))
+        for (const previousMailbox of previous) {
+          const { address } = previousMailbox
+          let { contact } = previousMailbox
+          let owner = await getVerifiedOwner(address)
+          for (let changes = 0; ; changes++) {
+            if (owner) {
+              await enroll(address, contact, isUnsubscribed(owner.preferences, 'marketing'))
+            } else if (contact) {
+              await readContactResult(
+                contacts.segments.remove({ contactId: contact.id, segmentId }),
+                404
+              )
+            }
+            // A new owner's enrollment may finish while a removal is still in flight.
+            const latest = await getVerifiedOwner(address)
+            if (latest?.id === owner?.id && latest?.mailboxVersion === owner?.mailboxVersion) break
+            if (changes === 2)
+              throw new Error('Verified address ownership changed during Resend sync')
+            owner = latest
+            contact = await readContactResult(contacts.get({ email: address }), 404)
           }
-          await readContactResult(contacts.segments.add({ contactId: current.id, segmentId }), 409)
-        } else {
-          await readContactResult(
-            contacts.create({ email, unsubscribed, segments: [{ id: segmentId }] })
-          )
-        }
-
-        for (const contact of previous) {
-          await readContactResult(
-            contacts.segments.remove({ contactId: contact.id, segmentId }),
-            404
-          )
         }
 
         // Reconcile again if a newer mailbox committed during the provider calls.

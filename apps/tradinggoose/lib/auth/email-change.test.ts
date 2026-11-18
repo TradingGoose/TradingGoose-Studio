@@ -63,6 +63,7 @@ async function setup(
   const productionOtp = productionAuth.options.plugins.find((plugin) => plugin.id === 'email-otp')
   if (!productionOtp) throw new Error('The email OTP plugin is required')
   let sequence = 100000
+  const customerRetrieve = vi.fn().mockResolvedValue({ id: 'cus-owner', email })
   const customerUpdate = vi.fn().mockResolvedValue({ id: 'cus-owner' })
   const auth = betterAuth({
     baseURL: 'http://localhost:3000',
@@ -81,7 +82,7 @@ async function setup(
       stripe({
         stripeClient: {
           customers: {
-            retrieve: async () => ({ id: 'cus-owner', email }),
+            retrieve: customerRetrieve,
             update: customerUpdate,
           },
         } as unknown as Stripe,
@@ -99,7 +100,7 @@ async function setup(
     update: { stripeCustomerId: 'cus-owner' },
   })
   const login = await context.test.login({ userId: 'owner' })
-  return { auth, context, login, customerUpdate, email }
+  return { auth, context, login, customerRetrieve, customerUpdate, email }
 }
 
 type Fixture = Awaited<ReturnType<typeof setup>>
@@ -372,6 +373,55 @@ describe('account email change through native Better Auth OTP', () => {
       expect(await fixture.auth.api.getSession({ headers: otherLogin.headers })).toBeNull()
     }
   )
+
+  it('corrects a stale Stripe update after a newer mailbox has synced', async () => {
+    const fixture = await setup()
+    const interimEmail = 'interim@example.com'
+    const finalEmail = 'final@example.com'
+    let stripeEmail = fixture.email
+    let finishUpdate!: () => void
+    const pendingUpdate = new Promise<void>((resolve) => {
+      finishUpdate = resolve
+    })
+    fixture.customerRetrieve.mockImplementation(async () => ({
+      id: 'cus-owner',
+      email: stripeEmail,
+    }))
+    fixture.customerUpdate
+      .mockImplementationOnce(async (_customerId, { email }) => {
+        await pendingUpdate
+        stripeEmail = email
+      })
+      .mockImplementation(async (_customerId, { email }) => {
+        stripeEmail = email
+      })
+
+    const first = completeEmailChange(fixture, interimEmail)
+    await vi.waitFor(() => expect(fixture.customerUpdate).toHaveBeenCalledOnce())
+    try {
+      await completeEmailChange(fixture, finalEmail, interimEmail)
+      expect(stripeEmail).toBe(finalEmail)
+    } finally {
+      finishUpdate()
+    }
+    await first
+    expect(stripeEmail).toBe(finalEmail)
+    expect(fixture.customerUpdate).toHaveBeenCalledTimes(3)
+  })
+
+  it('retries a transient Stripe error after committing the email change', async () => {
+    const fixture = await setup()
+    fixture.customerUpdate.mockRejectedValueOnce(
+      Object.assign(new Error('Unavailable'), { statusCode: 503 })
+    )
+
+    await completeEmailChange(fixture, 'new@example.com')
+
+    expect(fixture.customerUpdate.mock.calls).toEqual([
+      ['cus-owner', { email: 'new@example.com' }],
+      ['cus-owner', { email: 'new@example.com' }],
+    ])
+  })
 
   it('keeps core email links disabled and requires proof of the current mailbox', async () => {
     const fixture = await setup()
