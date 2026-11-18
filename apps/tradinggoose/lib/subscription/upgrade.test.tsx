@@ -114,9 +114,9 @@ describe('useSubscriptionUpgrade', () => {
   })
 
   it('uses the monthly Stripe price for new starts', async () => {
-    await handleUpgrade?.(organizationTarget, { organizationId: 'org-1', seats: 4 })
+    await handleUpgrade?.(organizationTarget, { organizationId: 'org-1' })
     expect(mockUpgrade).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ plan: 'team-new', referenceId: 'org-1', seats: 4 })
+      expect.objectContaining({ plan: 'team-new', referenceId: 'org-1', seats: 2 })
     )
     expect(mockUpgrade.mock.calls[0][0]).not.toHaveProperty('annual')
   })

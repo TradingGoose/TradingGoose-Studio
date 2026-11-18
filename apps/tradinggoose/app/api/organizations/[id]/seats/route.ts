@@ -14,7 +14,6 @@ const logger = createLogger('OrganizationSeatsAPI')
 
 const updateSeatsSchema = z.object({
   seats: z.number().int().min(1, 'Minimum 1 seat required'),
-  quoteRevision: z.string().min(1),
 })
 
 async function getStripeSeatSubscription(stripeSubscriptionId: string) {
@@ -35,30 +34,27 @@ async function getStripeSeatSubscription(stripeSubscriptionId: string) {
     itemId: id,
     price,
     quantity,
-    revision: JSON.stringify([id, price.id, quantity]),
   }
 }
 
-async function getSeatQuote(stripeSubscriptionId: string) {
+async function getSeatPrice(stripeSubscriptionId: string) {
   try {
     const current = await getStripeSeatSubscription(stripeSubscriptionId)
     if (!current) return null
-    const { currency, price, quantity, revision } = current
+    const { currency, price } = current
     const interval = price.recurring?.interval
     const amount = price.unit_amount_decimal ?? price.unit_amount
-    const estimate =
-      currency === 'usd' &&
+    return currency === 'usd' &&
       price.currency === 'usd' &&
       price.billing_scheme === 'per_unit' &&
       !price.transform_quantity &&
       price.recurring?.interval_count === 1 &&
       (interval === 'month' || interval === 'year') &&
       amount != null
-        ? { amountUsd: Number(amount) / 100, interval }
-        : null
-    return { quantity, quote: { revision, estimate } }
+      ? { amountUsd: Number(amount) / 100, interval }
+      : null
   } catch (error) {
-    logger.warn('Failed to get Stripe seat quote', { stripeSubscriptionId, error })
+    logger.warn('Failed to get Stripe seat price', { stripeSubscriptionId, error })
     return null
   }
 }
@@ -89,7 +85,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: firstError.message }, { status: 400 })
     }
 
-    const { seats: newSeatCount, quoteRevision } = validation.data
+    const { seats: newSeatCount } = validation.data
 
     const memberEntry = await db
       .select()
@@ -165,10 +161,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const current = await getStripeSeatSubscription(orgSubscription.stripeSubscriptionId)
-    if (current?.revision !== quoteRevision) {
+    if (!current) {
       return NextResponse.json(
-        { error: 'Organization seat quote changed. Review the updated seats and price.' },
-        { status: 409 }
+        { error: 'Stripe subscription has no active licensed seat item' },
+        { status: 400 }
       )
     }
     const { stripe, itemId, quantity: currentSeats } = current
@@ -308,17 +304,15 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       orgSubscription.tier.seatMode === 'adjustable'
         ? orgSubscription.stripeSubscriptionId
         : null
-    const [usedSeats, stripeSeats] = await Promise.all([
+    const [usedSeats, seatPrice] = await Promise.all([
       getOccupiedSeatCount(organizationId),
       stripeSeatSubscriptionId && memberEntry[0].role === 'owner'
-        ? getSeatQuote(stripeSeatSubscriptionId)
+        ? getSeatPrice(stripeSeatSubscriptionId)
         : null,
     ])
-    const maxSeats =
-      stripeSeats?.quantity ??
-      (orgSubscription
-        ? Math.max(orgSubscription.seats || orgSubscription.tier.seatCount || 1, 1)
-        : 0)
+    const maxSeats = orgSubscription
+      ? Math.max(orgSubscription.seats || orgSubscription.tier.seatCount || 1, 1)
+      : 0
     const availableSeats = Math.max(0, maxSeats - usedSeats)
 
     return NextResponse.json({
@@ -328,7 +322,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         maxSeats,
         usedSeats,
         availableSeats,
-        seatQuote: stripeSeats?.quote ?? null,
+        seatPrice,
       },
     })
   } catch (error) {

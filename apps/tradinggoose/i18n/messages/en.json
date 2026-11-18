@@ -2170,7 +2170,7 @@
         "thisMember": "this member",
         "addSeats": {
           "title": "Add Team Seats",
-          "description": "Each seat costs {price} per {interval, select, year {year} other {month}}. Adjust the number of licensed seats for your team.",
+          "description": "Estimated at {price} per seat per {interval, select, year {year} other {month}}. Changes use the subscription price in effect when you confirm.",
           "quoteUnavailable": "A seat price estimate is unavailable. Seat changes use your current subscription price.",
           "confirm": "Update Seats"
         },

@@ -109,10 +109,7 @@ export interface OrganizationSeats {
   maxSeats: number
   usedSeats: number
   availableSeats: number
-  seatQuote: {
-    revision: string
-    estimate: { amountUsd: number; interval: 'month' | 'year' } | null
-  } | null
+  seatPrice: { amountUsd: number; interval: 'month' | 'year' } | null
 }
 
 export function useOrganizationSeats(orgId: string, enabled = true) {
@@ -239,7 +236,6 @@ interface CancelInvitationParams {
 interface UpdateSeatsParams {
   orgId: string
   seats: number
-  quoteRevision: string
 }
 
 interface CreateOrganizationParams {
@@ -397,17 +393,14 @@ export const organizationMutationOptions = {
 
   updateSeats(queryClient: QueryClient) {
     return mutationOptions({
-      mutationFn: async ({ seats, orgId, quoteRevision }: UpdateSeatsParams) => {
+      mutationFn: async ({ seats, orgId }: UpdateSeatsParams) => {
         const response = await fetch(`/api/organizations/${orgId}/seats`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ seats, quoteRevision }),
+          body: JSON.stringify({ seats }),
         })
 
         if (!response.ok) {
-          if (response.status === 409) {
-            await queryClient.invalidateQueries({ queryKey: organizationKeys.seats(orgId) })
-          }
           const error = await response.json()
           throw new Error(error.error || 'Failed to update seats')
         }

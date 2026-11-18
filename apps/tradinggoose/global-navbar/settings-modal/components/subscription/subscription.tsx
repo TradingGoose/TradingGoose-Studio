@@ -16,14 +16,14 @@ import {
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
-import { getUpgradeTierIssue, useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
+import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import { cn } from '@/lib/utils'
 import {
   type GeneralSettings,
   generalSettingsKeys,
   patchBillingUsageNotifications,
 } from '@/hooks/queries/general-settings'
-import { useOrganizationBilling, useOrganizationSeats } from '@/hooks/queries/organization'
+import { useOrganizationBilling } from '@/hooks/queries/organization'
 import { usePrivateTierAccessForm } from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
@@ -31,7 +31,6 @@ import { useWorkspaceSettings } from '@/hooks/queries/workspace'
 import { formatUsd } from '@/i18n/formatters'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { UsageHeader } from '../shared/usage-header'
-import { TeamSeats } from '../team-management/components/team-seats/team-seats'
 import { PlanCard, UsageLimit, type UsageLimitRef, WorkspaceBillingOwnerEditor } from './components'
 import {
   getPersonalPaygUiState,
@@ -240,8 +239,6 @@ function openContactUrl(url: string | null) {
 
 export function Subscription({ onOpenChange }: SubscriptionProps) {
   const copy = useTranslations('workspace.settingsModal.subscription')
-  const teamCopy = useTranslations('workspace.settingsModal.team')
-  const retryCopy = useTranslations('workspace.permissionsFeedback')
   const locale = useLocale()
   const { data: session } = useSession()
   const { handleUpgrade } = useSubscriptionUpgrade()
@@ -297,39 +294,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     organizationBillingData?.organizationId === organizationBillingId
       ? organizationBillingData
       : null
-  const seatCountsEnabled = organizationBillingPayload?.billingEnabled === true
-  const {
-    data: organizationSeats,
-    isPending: isSeatCountsPending,
-    isError: isSeatCountsError,
-    isFetching: isSeatCountsFetching,
-    refetch: refetchSeatCounts,
-  } = useOrganizationSeats(organizationBillingId, seatCountsEnabled)
-  const occupiedSeats =
-    organizationSeats?.organizationId === organizationBillingId ? organizationSeats.usedSeats : 0
-  const seatCountsUnavailable =
-    Boolean(organizationBillingId) &&
-    (isSeatCountsPending ||
-      isSeatCountsError ||
-      organizationSeats?.organizationId !== organizationBillingId)
-
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
-  const [pendingUpgradeTier, setPendingUpgradeTier] = useState<PublicBillingTierDisplay | null>(
-    null
-  )
   const [isUpgradePending, setIsUpgradePending] = useState(false)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
-  const [upgradeContext, setUpgradeContext] = useState({ workspaceId, organizationBillingId })
-
-  if (
-    upgradeContext.workspaceId !== workspaceId ||
-    upgradeContext.organizationBillingId !== organizationBillingId
-  ) {
-    setUpgradeContext({ workspaceId, organizationBillingId })
-    setPendingUpgradeTier(null)
-    setUpgradeError(null)
-  }
 
   const availableTiers = mergeAccessibleBillingTiers(
     publicBillingCatalog?.publicTiers,
@@ -479,21 +447,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     !isOrganizationPlan && Boolean(billingPayload?.cancelAtPeriodEnd)
 
   const handleUpgradeWithErrorHandling = useCallback(
-    async (targetTier: PublicBillingTierDisplay, seats?: number) => {
-      if (getUpgradeTierIssue(targetTier, occupiedSeats)) {
+    async (targetTier: PublicBillingTierDisplay) => {
+      if (!targetTier.hasStripeMonthlyPriceId) {
         setUpgradeError(targetTier.id)
         return
-      }
-      if (targetTier.ownerType === 'organization' && targetTier.seatMode === 'adjustable') {
-        if (seatCountsUnavailable) {
-          setUpgradeError(targetTier.id)
-          return
-        }
-        if (seats === undefined) {
-          setUpgradeError(null)
-          setPendingUpgradeTier(targetTier)
-          return
-        }
       }
       setIsUpgradePending(true)
       try {
@@ -501,17 +458,15 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           ...(targetTier.ownerType === 'organization' && organizationBillingId
             ? { organizationId: organizationBillingId }
             : {}),
-          ...(seats !== undefined ? { seats } : {}),
         })
-        setPendingUpgradeTier(null)
       } catch {
         setUpgradeError(targetTier.id)
-        if (seats === undefined) alert(copy('errors.unknown'))
+        alert(copy('errors.unknown'))
       } finally {
         setIsUpgradePending(false)
       }
     },
-    [copy, handleUpgrade, organizationBillingId, seatCountsUnavailable, occupiedSeats]
+    [copy, handleUpgrade, organizationBillingId]
   )
 
   const handleOpenBillingPortal = () =>
@@ -743,20 +698,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
         {hasVisiblePlanCards && (
           <div className='flex flex-col gap-2'>
-            {seatCountsEnabled && isSeatCountsError && (
-              <div role='alert' className='flex items-center gap-2 text-destructive text-xs'>
-                <p>{copy('errors.unknown')}</p>
-                <Button
-                  type='button'
-                  size='sm'
-                  variant='outline'
-                  disabled={isSeatCountsFetching}
-                  onClick={() => void refetchSeatCounts()}
-                >
-                  {retryCopy('retry')}
-                </Button>
-              </div>
-            )}
             {surfaceState.visiblePlanTiers.length > 0 && (
               <div
                 className={cn(
@@ -766,7 +707,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               >
                 {surfaceState.visiblePlanTiers.map((tier) => {
                   const isCurrentTier = tier.id === surfaceState.currentTier?.id
-                  const issue = isCurrentTier ? null : getUpgradeTierIssue(tier, occupiedSeats)
                   const price = isCurrentTier
                     ? (tier.monthlyPriceUsd ?? tier.yearlyPriceUsd)
                     : tier.hasStripeMonthlyPriceId
@@ -779,50 +719,35 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                       : null
 
                   return (
-                    <div key={tier.id}>
-                      <PlanCard
-                        name={tier.displayName}
-                        price={price === null ? copy('titles.custom') : formatUsd(locale, price)}
-                        priceSubtext={
-                          period === '/mo'
-                            ? copy('periods.monthly')
-                            : period === '/yr'
-                              ? copy('periods.yearly')
-                              : undefined
-                        }
-                        features={toPlanFeatures(tier.pricingFeatures)}
-                        buttonText={
-                          isCurrentTier
-                            ? copy('titles.current')
-                            : subscription.isFree
-                              ? copy('titles.upgrade')
-                              : copy('actions.changeTo', { name: tier.displayName })
-                        }
-                        onButtonClick={() => handleUpgradeWithErrorHandling(tier)}
-                        buttonDisabled={
-                          !canManageSelectedPlan ||
-                          issue !== null ||
-                          isUpgradePending ||
-                          (tier.ownerType === 'organization' &&
-                            tier.seatMode === 'adjustable' &&
-                            seatCountsUnavailable)
-                        }
-                        isCurrent={isCurrentTier}
-                        isError={!isCurrentTier && upgradeError === tier.id}
-                        layout='vertical'
-                      />
-                      {issue === 'capacity' && (
-                        <p className='mt-1 text-muted-foreground text-xs'>
-                          {teamCopy('seatCapacityConflict', {
-                            minimum: Math.max(tier.seatCount ?? 1, occupiedSeats),
-                            maximum:
-                              tier.seatMode === 'fixed'
-                                ? (tier.seatCount ?? 1)
-                                : (tier.seatMaximum ?? 1),
-                          })}
-                        </p>
-                      )}
-                    </div>
+                    <PlanCard
+                      key={tier.id}
+                      name={tier.displayName}
+                      price={price === null ? copy('titles.custom') : formatUsd(locale, price)}
+                      priceSubtext={
+                        period === '/mo'
+                          ? copy('periods.monthly')
+                          : period === '/yr'
+                            ? copy('periods.yearly')
+                            : undefined
+                      }
+                      features={toPlanFeatures(tier.pricingFeatures)}
+                      buttonText={
+                        isCurrentTier
+                          ? copy('titles.current')
+                          : subscription.isFree
+                            ? copy('titles.upgrade')
+                            : copy('actions.changeTo', { name: tier.displayName })
+                      }
+                      onButtonClick={() => handleUpgradeWithErrorHandling(tier)}
+                      buttonDisabled={
+                        !canManageSelectedPlan ||
+                        (!isCurrentTier && !tier.hasStripeMonthlyPriceId) ||
+                        isUpgradePending
+                      }
+                      isCurrent={isCurrentTier}
+                      isError={!isCurrentTier && upgradeError === tier.id}
+                      layout='vertical'
+                    />
                   )
                 })}
               </div>
@@ -894,27 +819,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
       </div>
-      {pendingUpgradeTier && (
-        <TeamSeats
-          open={!seatCountsUnavailable}
-          onOpenChange={(open) => {
-            if (!open) setPendingUpgradeTier(null)
-          }}
-          title={pendingUpgradeTier.displayName}
-          description={pendingUpgradeTier.description || teamCopy('plans.description')}
-          pricePerSeat={pendingUpgradeTier.monthlyPriceUsd}
-          billingInterval='month'
-          minimumSeats={Math.max(pendingUpgradeTier.seatCount ?? 1, occupiedSeats)}
-          maximumSeats={pendingUpgradeTier.seatMaximum}
-          initialSeats={organizationBillingPayload?.totalSeats ?? 1}
-          isLoading={isUpgradePending}
-          error={upgradeError === pendingUpgradeTier.id ? copy('errors.unknown') : null}
-          onConfirm={async (seats) => {
-            await handleUpgradeWithErrorHandling(pendingUpgradeTier, seats)
-          }}
-          confirmButtonText={copy('titles.upgrade')}
-        />
-      )}
     </div>
   )
 }

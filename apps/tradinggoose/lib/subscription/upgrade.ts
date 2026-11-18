@@ -25,13 +25,7 @@ export function useSubscriptionUpgrade() {
   const queryClient = useQueryClient()
 
   const handleUpgrade = useCallback(
-    async (
-      targetTier: BillingUpgradeTarget,
-      options?: {
-        seats?: number
-        organizationId?: string
-      }
-    ) => {
+    async (targetTier: BillingUpgradeTarget, options?: { organizationId?: string }) => {
       const userId = session?.user?.id
       if (!userId) {
         throw new Error('User not authenticated')
@@ -69,7 +63,6 @@ export function useSubscriptionUpgrade() {
       }
 
       const currentUrl = `${window.location.origin}${window.location.pathname}`
-      const initialSeats = Math.max(options?.seats ?? 0, targetTier.seatCount ?? 1, 1)
 
       try {
         const upgradeParams = {
@@ -77,7 +70,9 @@ export function useSubscriptionUpgrade() {
           referenceId,
           successUrl: currentUrl,
           cancelUrl: currentUrl,
-          ...(targetTier.ownerType === 'organization' && { seats: initialSeats }),
+          ...(targetTier.ownerType === 'organization' && {
+            seats: Math.max(targetTier.seatCount ?? 1, 1),
+          }),
         } as const
 
         logger.info('Requesting subscription upgrade', {
