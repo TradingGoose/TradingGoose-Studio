@@ -5,20 +5,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('validateSeatAvailability', () => {
   const selectMock = vi.fn()
-  const updateMock = vi.fn()
   const getOrganizationSubscriptionMock = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
     selectMock.mockReset()
-    updateMock.mockReset()
     getOrganizationSubscriptionMock.mockReset()
 
     vi.doMock('@tradinggoose/db', () => ({
       db: {
         select: selectMock,
-        update: updateMock,
       },
     }))
 
@@ -28,7 +25,6 @@ describe('validateSeatAvailability', () => {
         organizationId: 'member.organizationId',
       },
       organization: {},
-      subscription: {},
       user: {},
       userStats: {},
     }))
@@ -98,36 +94,6 @@ describe('validateSeatAvailability', () => {
       maxSeats: 3,
       availableSeats: 0,
     })
-  })
-
-  it('prevents reducing seats below the occupied seat count', async () => {
-    getOrganizationSubscriptionMock.mockResolvedValue({
-      id: 'sub-1',
-      seats: 3,
-      tier: {
-        ownerType: 'organization',
-        seatMode: 'adjustable',
-        seatCount: 1,
-      },
-    })
-
-    const memberCountChain: any = {
-      from: vi.fn(() => memberCountChain),
-      where: vi.fn(() => Promise.resolve([{ count: 1 }])),
-    }
-    const invitationCountChain: any = {
-      from: vi.fn(() => invitationCountChain),
-      where: vi.fn(() => Promise.resolve([{ count: 2 }])),
-    }
-    selectMock.mockReturnValueOnce(memberCountChain).mockReturnValueOnce(invitationCountChain)
-
-    const { updateOrganizationSeats } = await import('./seat-management')
-
-    await expect(updateOrganizationSeats('org-1', 2, 'user-1')).resolves.toEqual({
-      success: false,
-      error: 'Cannot reduce seats below current occupied seat count (3)',
-    })
-    expect(updateMock).not.toHaveBeenCalled()
   })
 
   it('reports pending invitations in organization seat info', async () => {

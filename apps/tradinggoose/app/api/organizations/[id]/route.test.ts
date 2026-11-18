@@ -60,7 +60,6 @@ describe('Organization DELETE route', () => {
     vi.doMock('@/lib/billing/validation/seat-management', () => ({
       getOrganizationSeatAnalytics: vi.fn(),
       getOrganizationSeatInfo: vi.fn(),
-      updateOrganizationSeats: vi.fn(),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({

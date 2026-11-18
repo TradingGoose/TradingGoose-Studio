@@ -4,7 +4,6 @@ import {
   organization,
   organizationMemberBillingLedger,
   subscription,
-  user,
   userStats,
 } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
@@ -120,49 +119,6 @@ export function getBillingTierPricing(
   return {
     basePrice: getTierBasePrice(tier),
     usageAllowance: getSubscriptionUsageAllowanceUsd(source),
-  }
-}
-
-/**
- * Calculate overage billing for a user
- * Returns only the amount that exceeds their subscription base price
- */
-export async function calculateUserOverage(userId: string): Promise<{
-  basePrice: number
-  actualUsage: number
-  overageAmount: number
-  tier: BillingTierSummary
-} | null> {
-  try {
-    // Get user's subscription and usage data
-    const [{ billingEnabled }, subscription, usageData, userRecord] = await Promise.all([
-      getResolvedBillingSettings(),
-      getEffectiveSubscription(userId),
-      getUserUsageData(userId),
-      db.select().from(user).where(eq(user.id, userId)).limit(1),
-    ])
-
-    if (userRecord.length === 0) {
-      logger.warn('User not found for overage calculation', { userId })
-      return null
-    }
-
-    const tier = toBillingTierSummary(subscription?.tier)
-    const { basePrice, usageAllowance } = getBillingTierPricing(subscription ?? null)
-    const actualUsage = usageData.currentUsage
-
-    const overageAmount =
-      billingEnabled && subscription ? Math.max(0, actualUsage - usageAllowance) : 0
-
-    return {
-      basePrice,
-      actualUsage,
-      overageAmount,
-      tier,
-    }
-  } catch (error) {
-    logger.error('Failed to calculate user overage', { userId, error })
-    return null
   }
 }
 

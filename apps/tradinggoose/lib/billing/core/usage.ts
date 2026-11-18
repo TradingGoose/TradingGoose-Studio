@@ -19,7 +19,7 @@ import {
   getTierUsageAllowanceUsd,
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
-import type { BillingData, UsageData, UsageLimitInfo } from '@/lib/billing/types'
+import type { UsageData, UsageLimitInfo } from '@/lib/billing/types'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { getEmailPreferences } from '@/lib/email/unsubscribe'
@@ -366,7 +366,7 @@ export async function updateUserUsageLimit(
 }
 
 /**
- * Get usage limit for a user (used by checkUsageStatus for server-side checks).
+ * Get the personal usage limit for server-side checks.
  */
 export async function getUserUsageLimit(userId: string): Promise<number> {
   const [{ billingEnabled }, subscription, userStatsQuery] = await Promise.all([
@@ -405,33 +405,6 @@ export async function getUserUsageLimit(userId: string): Promise<number> {
 }
 
 /**
- * Check usage status with warning thresholds
- */
-export async function checkUsageStatus(userId: string): Promise<{
-  status: 'ok' | 'warning' | 'exceeded'
-  usageData: UsageData
-}> {
-  try {
-    const usageData = await getUserUsageData(userId)
-
-    let status: 'ok' | 'warning' | 'exceeded' = 'ok'
-    if (usageData.isExceeded) {
-      status = 'exceeded'
-    } else if (usageData.isWarning) {
-      status = 'warning'
-    }
-
-    return {
-      status,
-      usageData,
-    }
-  } catch (error) {
-    logger.error('Failed to check usage status', { userId, error })
-    throw error
-  }
-}
-
-/**
  * Sync usage limits based on subscription changes
  */
 export async function syncUsageLimitsFromSubscription(userId: string): Promise<void> {
@@ -446,111 +419,6 @@ export async function syncUsageLimitsFromSubscription(userId: string): Promise<v
   }
 
   logger.info('Verified user stats for tier-backed usage limits', { userId })
-}
-
-/**
- * Get usage limit information for team members (for admin dashboard)
- */
-export async function getTeamUsageLimits(organizationId: string): Promise<
-  Array<{
-    userId: string
-    userName: string
-    userEmail: string
-    currentLimit: number
-    currentUsage: number
-    totalCost: number
-    lastActive: Date | null
-  }>
-> {
-  try {
-    const teamMembers = await db
-      .select({
-        userId: member.userId,
-        userName: user.name,
-        userEmail: user.email,
-        currentLimit: userStats.customUsageLimit,
-        currentPeriodCost: userStats.currentPeriodCost,
-        totalCost: userStats.totalCost,
-        lastActive: userStats.lastActive,
-      })
-      .from(member)
-      .innerJoin(user, eq(member.userId, user.id))
-      .leftJoin(userStats, eq(member.userId, userStats.userId))
-      .where(eq(member.organizationId, organizationId))
-
-    return teamMembers.map((memberData) => ({
-      userId: memberData.userId,
-      userName: memberData.userName,
-      userEmail: memberData.userEmail,
-      currentLimit: Number.parseFloat(memberData.currentLimit || '0'),
-      currentUsage: Number.parseFloat(memberData.currentPeriodCost || '0'),
-      totalCost: Number.parseFloat(memberData.totalCost || '0'),
-      lastActive: memberData.lastActive,
-    }))
-  } catch (error) {
-    logger.error('Failed to get team usage limits', { organizationId, error })
-    return []
-  }
-}
-
-/**
- * Returns the current billing-period usage cost for a user.
- */
-export async function getEffectiveCurrentPeriodCost(userId: string): Promise<number> {
-  const rows = await db
-    .select({ current: userStats.currentPeriodCost })
-    .from(userStats)
-    .where(eq(userStats.userId, userId))
-    .limit(1)
-
-  if (rows.length === 0) return 0
-  return rows[0].current ? Number.parseFloat(rows[0].current.toString()) : 0
-}
-
-/**
- * Calculate billing projection based on current usage
- */
-export async function calculateBillingProjection(userId: string): Promise<BillingData> {
-  try {
-    const usageData = await getUserUsageData(userId)
-
-    if (!usageData.billingPeriodStart || !usageData.billingPeriodEnd) {
-      return {
-        currentPeriodCost: usageData.currentUsage,
-        projectedCost: usageData.currentUsage,
-        limit: usageData.limit,
-        billingPeriodStart: null,
-        billingPeriodEnd: null,
-        daysRemaining: 0,
-      }
-    }
-
-    const now = new Date()
-    const periodStart = new Date(usageData.billingPeriodStart)
-    const periodEnd = new Date(usageData.billingPeriodEnd)
-
-    const totalDays = Math.ceil(
-      (periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)
-    )
-    const daysElapsed = Math.ceil((now.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24))
-    const daysRemaining = Math.max(0, totalDays - daysElapsed)
-
-    // Project cost based on daily usage rate
-    const dailyRate = daysElapsed > 0 ? usageData.currentUsage / daysElapsed : 0
-    const projectedCost = dailyRate * totalDays
-
-    return {
-      currentPeriodCost: usageData.currentUsage,
-      projectedCost: Math.min(projectedCost, usageData.limit), // Cap at limit
-      limit: usageData.limit,
-      billingPeriodStart: usageData.billingPeriodStart,
-      billingPeriodEnd: usageData.billingPeriodEnd,
-      daysRemaining,
-    }
-  } catch (error) {
-    logger.error('Failed to calculate billing projection', { userId, error })
-    throw error
-  }
 }
 
 /**

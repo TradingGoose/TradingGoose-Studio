@@ -1,7 +1,5 @@
 import type { BillingTierSummary } from '@/lib/billing/types'
 
-export type { BillingTierSummary } from '@/lib/billing/types'
-
 export interface UsageData {
   current: number
   limit: number
