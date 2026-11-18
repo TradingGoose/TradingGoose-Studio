@@ -73,10 +73,6 @@ type VerifiedUserEmail = {
   email?: string | null
 }
 
-function isExistingContactError(error: { message?: string; statusCode?: number | null }): boolean {
-  return error.statusCode === 409 || /already (exists|added)|duplicate/i.test(error.message ?? '')
-}
-
 /**
  * Check if any email service is configured and available
  */
@@ -85,45 +81,52 @@ export async function hasEmailService(): Promise<boolean> {
   return Boolean(clients.resend || clients.azureEmailClient)
 }
 
-export async function addVerifiedUserEmailToAudience(user: VerifiedUserEmail): Promise<void> {
+export async function addVerifiedUserEmailToAudience(
+  user: VerifiedUserEmail,
+  previousEmail?: string
+): Promise<void> {
   const email = user.email?.trim().toLowerCase()
   if (!email) return
 
   try {
-    const resendConfig = await resolveResendServiceConfig()
-    if (!resendConfig.apiKey || !resendConfig.audienceId) return
+    const { apiKey, audienceId: segmentId } = await resolveResendServiceConfig()
+    if (!apiKey || !segmentId) return
 
-    const resend = new Resend(resendConfig.apiKey)
-    const result = await resend.contacts.create({
-      audienceId: resendConfig.audienceId,
-      email,
-      unsubscribed: false,
-    })
-
-    if (result.error) {
-      if (isExistingContactError(result.error)) {
-        logger.info('Verified user email already exists in Resend audience', {
-          userId: user.id,
-          audienceId: resendConfig.audienceId,
-        })
-        return
+    const { contacts } = new Resend(apiKey)
+    const oldEmail = previousEmail?.trim().toLowerCase()
+    let wasUnsubscribed = false
+    if (oldEmail && oldEmail !== email) {
+      const previous = await contacts.get({ email: oldEmail })
+      if (previous.error && previous.error.statusCode !== 404) throw previous.error
+      if (previous.data) {
+        wasUnsubscribed = previous.data.unsubscribed
+        const { error } = await contacts.segments.remove({ contactId: previous.data.id, segmentId })
+        if (error && error.statusCode !== 404) throw error
       }
+    }
 
-      logger.warn('Failed to add verified user email to Resend audience', {
-        userId: user.id,
-        audienceId: resendConfig.audienceId,
-        error: result.error,
+    const unsubscribed = wasUnsubscribed || (await isUnsubscribed(email, 'marketing'))
+    const current = await contacts.get({ email })
+    if (current.error && current.error.statusCode !== 404) throw current.error
+    if (!current.data) {
+      const { error } = await contacts.create({
+        email,
+        unsubscribed,
+        segments: [{ id: segmentId }],
       })
+      if (error) throw error
       return
     }
 
-    logger.info('Added verified user email to Resend audience', {
-      userId: user.id,
-      audienceId: resendConfig.audienceId,
-      contactId: result.data?.id,
-    })
+    const contactId = current.data.id
+    if (unsubscribed && !current.data.unsubscribed) {
+      const { error } = await contacts.update({ id: contactId, unsubscribed: true })
+      if (error) throw error
+    }
+    const { error } = await contacts.segments.add({ contactId, segmentId })
+    if (error && error.statusCode !== 409) throw error
   } catch (error) {
-    logger.warn('Failed to add verified user email to Resend audience', {
+    logger.warn('Failed to synchronize verified user email with Resend', {
       userId: user.id,
       error,
     })

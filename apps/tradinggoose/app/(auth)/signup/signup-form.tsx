@@ -293,20 +293,16 @@ function SignupFormContent({
       }
 
       const destination = redirectUrl ?? defaultCallbackPath
-      if (response.data?.token) {
-        router.push(destination)
-        return
-      }
-
-      sessionStorage.setItem('verificationEmail', emailValue)
-
-      try {
-        await client.emailOtp.sendVerificationOtp({
-          email: emailValue,
-          type: 'email-verification',
-        })
-      } catch (otpErr) {
-        logger.warn('Failed to send verification OTP after signup; user can press Resend', otpErr)
+      if (!response.data?.token) {
+        sessionStorage.setItem('verificationEmail', emailValue)
+        try {
+          await client.emailOtp.sendVerificationOtp({
+            email: emailValue,
+            type: 'email-verification',
+          })
+        } catch (otpErr) {
+          logger.warn('Failed to send verification OTP after signup; user can press Resend', otpErr)
+        }
       }
 
       router.push(`/verify?fromSignup=true&redirectAfter=${encodeURIComponent(destination)}`)

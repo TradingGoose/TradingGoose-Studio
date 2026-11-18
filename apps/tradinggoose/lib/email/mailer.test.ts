@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 const mockSend = vi.fn()
 const mockBatchSend = vi.fn()
 const mockContactsCreate = vi.fn()
+const mockContactsGet = vi.fn()
+const mockContactsUpdate = vi.fn()
+const mockContactSegmentAdd = vi.fn()
+const mockContactSegmentRemove = vi.fn()
 const mockAzureBeginSend = vi.fn()
 const mockAzurePollUntilDone = vi.fn()
 const {
@@ -32,6 +36,9 @@ vi.mock('resend', () => {
         },
         contacts: {
           create: (...args: any[]) => mockContactsCreate(...args),
+          get: (...args: any[]) => mockContactsGet(...args),
+          update: (...args: any[]) => mockContactsUpdate(...args),
+          segments: { add: mockContactSegmentAdd, remove: mockContactSegmentRemove },
         },
       }
     }),
@@ -118,6 +125,10 @@ describe('mailer', () => {
       error: null,
       headers: null,
     })
+    mockContactsGet.mockResolvedValue({ data: null, error: { statusCode: 404 } })
+    mockContactsUpdate.mockResolvedValue({ error: null })
+    mockContactSegmentAdd.mockResolvedValue({ error: null })
+    mockContactSegmentRemove.mockResolvedValue({ error: null })
 
     // Mock successful Azure response
     mockAzurePollUntilDone.mockResolvedValue({
@@ -338,11 +349,66 @@ describe('mailer', () => {
       })
 
       expect(mockContactsCreate).toHaveBeenCalledWith({
-        audienceId: 'audience-123',
         email: 'user@example.com',
         unsubscribed: false,
+        segments: [{ id: 'audience-123' }],
       })
     })
+
+    it.each([
+      [false, false],
+      [true, false],
+      [false, true],
+    ])('moves the mailbox and carries either opt-out (%s, %s)', async (appOptOut, resendOptOut) => {
+      vi.mocked(isUnsubscribed).mockResolvedValue(appOptOut)
+      mockContactsGet.mockResolvedValueOnce({
+        data: { id: 'old-contact', unsubscribed: resendOptOut },
+        error: null,
+      })
+
+      await addVerifiedUserEmailToAudience({ email: ' User@Example.com ' }, ' Old@Example.com ')
+
+      expect(mockContactsGet).toHaveBeenNthCalledWith(1, { email: 'old@example.com' })
+      expect(mockContactSegmentRemove).toHaveBeenCalledExactlyOnceWith({
+        contactId: 'old-contact',
+        segmentId: 'audience-123',
+      })
+      expect(mockContactsCreate).toHaveBeenCalledExactlyOnceWith({
+        email: 'user@example.com',
+        unsubscribed: appOptOut || resendOptOut,
+        segments: [{ id: 'audience-123' }],
+      })
+    })
+
+    it.each([
+      [true, false],
+      [false, true],
+    ])(
+      'preserves opt-outs when the new contact already exists (%s, %s)',
+      async (appOptOut, existingOptOut) => {
+        vi.mocked(isUnsubscribed).mockResolvedValue(appOptOut)
+        mockContactsGet.mockResolvedValueOnce({
+          data: { id: 'new-contact', unsubscribed: existingOptOut },
+          error: null,
+        })
+
+        await addVerifiedUserEmailToAudience({ email: 'user@example.com' })
+
+        expect(mockContactsCreate).not.toHaveBeenCalled()
+        if (appOptOut) {
+          expect(mockContactsUpdate).toHaveBeenCalledExactlyOnceWith({
+            id: 'new-contact',
+            unsubscribed: true,
+          })
+        } else {
+          expect(mockContactsUpdate).not.toHaveBeenCalled()
+        }
+        expect(mockContactSegmentAdd).toHaveBeenCalledExactlyOnceWith({
+          contactId: 'new-contact',
+          segmentId: 'audience-123',
+        })
+      }
+    )
 
     it('does not throw when Resend rejects the contact write', async () => {
       mockContactsCreate.mockResolvedValue({

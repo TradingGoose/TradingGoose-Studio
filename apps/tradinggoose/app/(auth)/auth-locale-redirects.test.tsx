@@ -320,10 +320,34 @@ describe('auth locale redirects', () => {
       )
       expect(mockRefetchSession).not.toHaveBeenCalled()
       expect(mockFetch).not.toHaveBeenCalled()
+      const verifyPath = `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(callbackUrl ?? '/workspace')}`
+      expect(mockPush).toHaveBeenCalledExactlyOnceWith(verifyPath)
       if (token) {
         expect(mockSendVerificationOtp).not.toHaveBeenCalled()
         expect(sessionStorage.setItem).not.toHaveBeenCalled()
-        expect(mockPush).toHaveBeenCalledExactlyOnceWith(callbackUrl)
+        const { useVerification } = await vi.importActual<
+          typeof import('./verify/use-verification')
+        >('./verify/use-verification')
+        mockUseVerification.mockImplementation(useVerification)
+        testState.searchParams = new URL(verifyPath, window.location.origin).searchParams
+        await renderWithLocale(
+          locale,
+          <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled={false} />
+        )
+        expect(mockRefetchSession).toHaveBeenCalledOnce()
+        expect(mockFetch).toHaveBeenCalledExactlyOnceWith(
+          '/api/users/me/settings',
+          expect.objectContaining({
+            method: 'PATCH',
+            body: JSON.stringify({ preferredLocale: locale }),
+          })
+        )
+        expect(mockFetch.mock.invocationCallOrder[0]).toBeLessThan(
+          mockPush.mock.invocationCallOrder[1]
+        )
+        expect(mockPush).toHaveBeenLastCalledWith(callbackUrl)
+        expect(mockVerifyEmail).not.toHaveBeenCalled()
+        expect(mockSendVerificationOtp).not.toHaveBeenCalled()
         return
       }
       expect(mockSendVerificationOtp).toHaveBeenCalledWith({
@@ -333,9 +357,6 @@ describe('auth locale redirects', () => {
       expect(sessionStorage.setItem).toHaveBeenCalledExactlyOnceWith(
         'verificationEmail',
         'ada@example.com'
-      )
-      expect(mockPush).toHaveBeenCalledWith(
-        `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(callbackUrl ?? '/workspace')}`
       )
     }
   )

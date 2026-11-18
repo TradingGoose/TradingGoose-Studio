@@ -66,7 +66,13 @@ export function useVerification({
 
   const isOtpComplete = otp.length === 6
 
-  async function persistPreferredLocale() {
+  async function refreshSessionAndPersistLocale() {
+    try {
+      await refetchSession()
+    } catch (error) {
+      logger.warn('Failed to refetch session after verification', error)
+    }
+
     try {
       const response = await fetch('/api/users/me/settings', {
         method: 'PATCH',
@@ -100,13 +106,7 @@ export function useVerification({
       if (error) throw error
       setIsVerified(true)
 
-      try {
-        await refetchSession()
-      } catch (e) {
-        logger.warn('Failed to refetch session after verification', e)
-      }
-
-      await persistPreferredLocale()
+      await refreshSessionAndPersistLocale()
 
       sessionStorage.removeItem('verificationEmail')
 
@@ -170,19 +170,9 @@ export function useVerification({
     setIsVerified(true)
     sessionStorage.removeItem('verificationEmail')
 
-    const handleRedirect = async () => {
-      try {
-        await refetchSession()
-      } catch (error) {
-        logger.warn('Failed to refetch session during verification skip:', error)
-      }
-
-      await persistPreferredLocale()
-
+    void refreshSessionAndPersistLocale().then(() => {
       router.push(destination)
-    }
-
-    handleRedirect()
+    })
   }, [isEmailVerificationEnabled, destination, router])
 
   return {

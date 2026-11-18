@@ -56,13 +56,6 @@ describe('unsubscribe utilities', () => {
       }
     )
 
-    it.concurrent('should default to marketing email type', () => {
-      const token = generateUnsubscribeToken(testEmail)
-      const parts = token.split(':')
-
-      expect(parts[2]).toBe('marketing')
-    })
-
     it.concurrent('should generate different tokens for different email types', () => {
       const marketingToken = generateUnsubscribeToken(testEmail, 'marketing')
       const updatesToken = generateUnsubscribeToken(testEmail, 'updates')
@@ -95,22 +88,19 @@ describe('unsubscribe utilities', () => {
       expect(result.valid).toBe(false)
     })
 
-    it.concurrent('should handle legacy tokens (2 parts) and default to marketing', () => {
-      // Generate a real legacy token using the actual hashing logic to ensure backward compatibility
+    it.concurrent('rejects a signed token without an email type', () => {
       const salt = 'abc123'
       const secret = 'test-secret-key'
       const { createHash } = require('crypto')
       const hash = createHash('sha256').update(`${testEmail}:${salt}:${secret}`).digest('hex')
       const legacyToken = `${salt}:${hash}`
 
-      // This should return valid since we're using the actual legacy format properly
-      const result = verifyUnsubscribeToken(testEmail, legacyToken)
-      expect(result.valid).toBe(true)
-      expect(result.emailType).toBe('marketing') // Should default to marketing for legacy tokens
+      expect(verifyUnsubscribeToken(testEmail, legacyToken).valid).toBe(false)
     })
 
     it.concurrent('should reject malformed tokens', () => {
-      const malformedTokens = ['', 'single-part', 'too:many:parts:here:invalid', ':empty:parts:']
+      const token = generateUnsubscribeToken(testEmail, testEmailType)
+      const malformedTokens = ['', 'single-part', `${token}:extra`, ':empty:parts:']
 
       malformedTokens.forEach((token) => {
         const result = verifyUnsubscribeToken(testEmail, token)

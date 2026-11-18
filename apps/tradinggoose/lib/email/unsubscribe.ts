@@ -18,7 +18,7 @@ export interface EmailPreferences {
 /**
  * Generate a secure unsubscribe token for an email address
  */
-export function generateUnsubscribeToken(email: string, emailType = 'marketing'): string {
+export function generateUnsubscribeToken(email: string, emailType: EmailType): string {
   const salt = randomBytes(16).toString('hex')
   const hash = createHash('sha256')
     .update(`${email}:${salt}:${emailType}:${env.BETTER_AUTH_SECRET}`)
@@ -36,19 +36,8 @@ export function verifyUnsubscribeToken(
 ): { valid: boolean; emailType?: string } {
   try {
     const parts = token.split(':')
-    if (parts.length < 2) return { valid: false }
+    if (parts.length !== 3) return { valid: false }
 
-    // Handle legacy tokens (without email type)
-    if (parts.length === 2) {
-      const [salt, expectedHash] = parts
-      const hash = createHash('sha256')
-        .update(`${email}:${salt}:${env.BETTER_AUTH_SECRET}`)
-        .digest('hex')
-
-      return { valid: hash === expectedHash, emailType: 'marketing' }
-    }
-
-    // Handle new tokens (with email type)
     const [salt, expectedHash, emailType] = parts
     if (!salt || !expectedHash || !emailType) return { valid: false }
 

@@ -722,6 +722,11 @@ export const auth = betterAuth({
     },
   },
   socialProviders: buildSocialProviders(),
+  user: {
+    additionalFields: {
+      mailboxVersion: { type: 'number', input: false, returned: false, defaultValue: 0 },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: isEmailVerificationEnabled,
@@ -745,8 +750,8 @@ export const auth = betterAuth({
   },
   emailVerification: {
     autoSignInAfterVerification: true,
-    afterEmailVerification: async (user) => {
-      await addVerifiedUserEmailToAudience(user)
+    afterEmailVerification: async (user, _request, previousEmail?: string) => {
+      await addVerifiedUserEmailToAudience(user, previousEmail)
     },
   },
   hooks: {
@@ -853,26 +858,6 @@ export const auth = betterAuth({
       }
 
       return
-    }),
-    after: createAuthMiddleware(async (ctx) => {
-      if (
-        ctx.path !== '/email-otp/change-email' ||
-        !ctx.context.session ||
-        !ctx.context.returned ||
-        typeof ctx.context.returned !== 'object' ||
-        !('success' in ctx.context.returned) ||
-        ctx.context.returned.success !== true
-      ) {
-        return
-      }
-      const { user, session } = ctx.context.session
-      while (true) {
-        const otherSessions = (await ctx.context.internalAdapter.listSessions(user.id)).filter(
-          (other) => other.token !== session.token
-        )
-        if (!otherSessions.length) break
-        await ctx.context.internalAdapter.deleteSessions(otherSessions.map((other) => other.token))
-      }
     }),
   },
   plugins: [
