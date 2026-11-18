@@ -214,11 +214,7 @@ function VerificationForm({
           <div className='text-center font-light text-[14px]'>
             <button
               onClick={() => {
-                if (typeof window !== 'undefined') {
-                  sessionStorage.removeItem('verificationEmail')
-                  sessionStorage.removeItem('inviteRedirectUrl')
-                  sessionStorage.removeItem('isInviteFlow')
-                }
+                sessionStorage.removeItem('verificationEmail')
                 router.push('/signup')
               }}
               className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'

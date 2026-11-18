@@ -323,11 +323,7 @@ export default function LoginPage({
           })
           if (error) throw error
           sessionStorage.setItem('verificationEmail', email)
-          if (isInviteFlow) {
-            sessionStorage.setItem('inviteRedirectUrl', callbackUrl)
-            sessionStorage.setItem('isInviteFlow', 'true')
-          }
-          router.push('/verify')
+          router.push(`/verify?redirectAfter=${encodeURIComponent(callbackUrl)}`)
         } catch (error) {
           logger.error('Failed to send login verification code', error)
           setPasswordErrors([copy.auth.verify.errors.resendFailed])
@@ -398,9 +394,11 @@ export default function LoginPage({
   const showBottomSection = hasSocial || ssoEnabled
   const showDivider = showBottomSection
   const showWaitlistNote = registrationMode === 'waitlist' && !isInviteFlow
-  const registrationHref = isInviteFlow
-    ? `/signup?invite_flow=true&callbackUrl=${encodeURIComponent(callbackUrl)}`
-    : getRegistrationPrimaryHref(registrationMode)
+  const registrationPath = isInviteFlow ? '/signup' : getRegistrationPrimaryHref(registrationMode)
+  const registrationHref =
+    registrationPath === '/signup'
+      ? `/signup?callbackUrl=${encodeURIComponent(callbackUrl)}${isInviteFlow ? '&invite_flow=true' : ''}`
+      : registrationPath
   const registrationLabel = isInviteFlow ? commonCopy.signUp : authRegistrationLabel
 
   return (

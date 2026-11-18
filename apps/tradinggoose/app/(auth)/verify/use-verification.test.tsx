@@ -10,6 +10,7 @@ import { getPublicCopy } from '@/i18n/public-copy'
 import { useVerification } from './use-verification'
 
 const mockPush = vi.hoisted(() => vi.fn())
+const mockRouter = vi.hoisted(() => ({ push: mockPush }))
 const mockVerifyEmail = vi.hoisted(() => vi.fn())
 const mockSendVerificationOtp = vi.hoisted(() => vi.fn())
 const mockRefetchSession = vi.hoisted(() => vi.fn())
@@ -25,9 +26,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  useRouter: () => ({
-    push: mockPush,
-  }),
+  useRouter: () => mockRouter,
 }))
 
 vi.mock('@/lib/auth-client', () => ({
@@ -139,12 +138,13 @@ describe('useVerification', () => {
 
   async function renderHarness(
     locale: 'en' | 'es' | 'zh',
-    onReady: (controls: VerificationControls) => void
+    onReady: (controls: VerificationControls) => void,
+    options: Pick<VerificationHarnessProps, 'hasEmailService' | 'isEmailVerificationEnabled'> = {}
   ) {
     await act(async () => {
       root.render(
         <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-          <VerificationHarness locale={locale} onReady={onReady} />
+          <VerificationHarness locale={locale} onReady={onReady} {...options} />
         </NextIntlClientProvider>
       )
     })
@@ -186,33 +186,37 @@ describe('useVerification', () => {
   })
 
   it.each([
-    '/workspace/ws-1/dashboard',
-    '/invite/organization-invitation',
-    '/invite/workspace-invitation?token=workspace-token',
-  ])('returns to %s after verification and clears the invitation handoff', async (redirectUrl) => {
-    sessionStore.set('verificationEmail', 'ada@example.com')
-    sessionStore.set('inviteRedirectUrl', redirectUrl)
-    sessionStore.set('isInviteFlow', 'true')
-    mockVerifyEmail.mockResolvedValue({})
-    mockRefetchSession.mockResolvedValue(undefined)
+    ['/workspace/ws-1/dashboard', '/workspace/ws-1/dashboard'],
+    ['/invite/organization-invitation', '/invite/organization-invitation'],
+    [
+      '/invite/workspace-invitation?token=workspace-token#accept',
+      '/invite/workspace-invitation?token=workspace-token#accept',
+    ],
+    ['/chat/chat-1?source=email#reply', '/chat/chat-1?source=email#reply'],
+    [
+      `${window.location.origin}/workspace/ws-1?tab=integrations#oauth`,
+      '/workspace/ws-1?tab=integrations#oauth',
+    ],
+    ['https://external.example/secret', '/workspace'],
+    ['//external.example/secret', '/workspace'],
+  ])(
+    'returns to safe redirectAfter %s after verification without an invitation flag',
+    async (redirectAfter, destination) => {
+      sessionStore.set('verificationEmail', 'ada@example.com')
+      testState.searchParams.set('redirectAfter', redirectAfter)
+      mockVerifyEmail.mockResolvedValue({})
+      mockRefetchSession.mockResolvedValue(undefined)
+      let controls!: VerificationControls
+      await renderHarness('zh', (value) => {
+        controls = value
+      })
+      await act(async () => controls.handleOtpChange('123456'))
+      await act(async () => vi.advanceTimersByTimeAsync(1300))
 
-    let controls!: VerificationControls
-
-    await renderHarness('zh', (value) => {
-      controls = value
-    })
-
-    await act(async () => {
-      controls.handleOtpChange('123456')
-    })
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1300)
-    })
-
-    expect(mockPush).toHaveBeenCalledWith(redirectUrl)
-    expect(sessionStore.size).toBe(0)
-  })
+      expect(mockPush).toHaveBeenCalledExactlyOnceWith(destination)
+      expect(sessionStore.size).toBe(0)
+    }
+  )
 
   it('resends an email-verification OTP for the signup identity', async () => {
     sessionStore.set('verificationEmail', 'ADA@EXAMPLE.COM')
@@ -238,6 +242,7 @@ describe('useVerification', () => {
     [{ code: 'UNEXPECTED_ERROR' }, 'generic'],
   ] as const)('localizes returned verification failure %j', async (error, key) => {
     sessionStore.set('verificationEmail', 'ada@example.com')
+    testState.searchParams.set('redirectAfter', '/chat/chat-1#reply')
     mockVerifyEmail.mockResolvedValue({ error })
     let controls!: VerificationControls
     await renderHarness('zh', (value) => {
@@ -249,6 +254,7 @@ describe('useVerification', () => {
 
     expect(controls.failureMessage).toBe(getPublicCopy('zh').auth.verify.errors[key])
     expect(mockPush).not.toHaveBeenCalled()
+    expect(sessionStore.get('verificationEmail')).toBe('ada@example.com')
   })
 
   it('reports a returned resend failure', async () => {
@@ -264,33 +270,36 @@ describe('useVerification', () => {
     expect(controls.failureMessage).toBe(getPublicCopy('en').auth.verify.errors.resendFailed)
   })
 
-  it('persists locale before redirecting when verification is disabled', async () => {
-    mockRefetchSession.mockResolvedValue(undefined)
-
-    await act(async () => {
-      root.render(
-        <NextIntlClientProvider locale='es' messages={getPublicCopy('es')}>
-          <VerificationHarness
-            locale='es'
-            hasEmailService={false}
-            isEmailVerificationEnabled={false}
-            onReady={() => {}}
-          />
-        </NextIntlClientProvider>
-      )
-    })
-
-    await act(async () => {})
-
-    expect(mockRefetchSession).toHaveBeenCalled()
-    expect(mockFetch).toHaveBeenCalledWith(
-      '/api/users/me/settings',
-      expect.objectContaining({
-        method: 'PATCH',
-        credentials: 'include',
-        body: JSON.stringify({ preferredLocale: 'es' }),
+  it.each([
+    [null, '/workspace'],
+    ['/chat/chat-1?token=reply-token#reply', '/chat/chat-1?token=reply-token#reply'],
+    ['//external.example/secret', '/workspace'],
+  ])(
+    'persists locale before a single verification-disabled redirect to %s',
+    async (redirectAfter, destination) => {
+      sessionStore.set('verificationEmail', 'ada@example.com')
+      if (redirectAfter) testState.searchParams.set('redirectAfter', redirectAfter)
+      mockRefetchSession.mockImplementation(async () => {
+        expect(sessionStore.size).toBe(0)
       })
-    )
-    expect(mockPush).toHaveBeenCalledWith('/workspace')
-  })
+      const options = { hasEmailService: false, isEmailVerificationEnabled: false }
+      await renderHarness('es', () => {}, options)
+      await renderHarness('es', () => {}, options)
+
+      expect(mockRefetchSession).toHaveBeenCalledOnce()
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/users/me/settings',
+        expect.objectContaining({
+          method: 'PATCH',
+          credentials: 'include',
+          body: JSON.stringify({ preferredLocale: 'es' }),
+        })
+      )
+      expect(mockFetch.mock.invocationCallOrder[0]).toBeLessThan(
+        mockPush.mock.invocationCallOrder[0]
+      )
+      expect(mockPush).toHaveBeenCalledExactlyOnceWith(destination)
+      expect(sessionStore.size).toBe(0)
+    }
+  )
 })

@@ -368,13 +368,7 @@ function SignupFormContent({
         return
       }
 
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('verificationEmail', emailValue)
-        if (isInviteFlow && redirectUrl) {
-          sessionStorage.setItem('inviteRedirectUrl', redirectUrl)
-          sessionStorage.setItem('isInviteFlow', 'true')
-        }
-      }
+      sessionStorage.setItem('verificationEmail', emailValue)
 
       try {
         await client.emailOtp.sendVerificationOtp({
@@ -385,7 +379,9 @@ function SignupFormContent({
         logger.warn('Failed to send verification OTP after signup; user can press Resend', otpErr)
       }
 
-      router.push('/verify?fromSignup=true')
+      router.push(
+        `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(redirectUrl ?? defaultCallbackPath)}`
+      )
     } catch (error) {
       logger.error('Signup error:', error)
       setIsLoading(false)
@@ -638,11 +634,7 @@ function SignupFormContent({
       <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
         <span className='font-normal'>{commonCopy.alreadyHaveAccount} </span>
         <Link
-          href={
-            isInviteFlow
-              ? `/login?invite_flow=true&callbackUrl=${encodeURIComponent(redirectUrl ?? defaultCallbackPath)}`
-              : '/login'
-          }
+          href={`/login?callbackUrl=${encodeURIComponent(redirectUrl ?? defaultCallbackPath)}${isInviteFlow ? '&invite_flow=true' : ''}`}
           className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
         >
           {commonCopy.signIn}
