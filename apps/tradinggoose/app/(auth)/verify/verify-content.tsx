@@ -28,10 +28,14 @@ function VerificationForm({
 }) {
   const copy = useMessages()
   const verifyCopy = copy.auth.verify
+  const resetCopy = copy.auth.login.resetDialog
   const commonCopy = copy.auth.common
   const {
     fromSignup,
     returnToAuth,
+    passwordRecovery,
+    sendPasswordResetLink,
+    continueAfterVerification,
     otp,
     email,
     isLoading,
@@ -73,7 +77,11 @@ function VerificationForm({
           title={isVerified ? verifyCopy.verifiedTitle : verifyCopy.pendingTitle}
           description={
             isVerified
-              ? verifyCopy.verifiedDescription
+              ? passwordRecovery === 'required'
+                ? verifyCopy.passwordRecovery
+                : passwordRecovery === 'sent'
+                  ? resetCopy.success
+                  : verifyCopy.verifiedDescription
               : !isEmailVerificationEnabled
                 ? verifyCopy.disabledDescription
                 : hasEmailService
@@ -86,6 +94,24 @@ function VerificationForm({
           }
         />
       </div>
+
+      {passwordRecovery && (
+        <div className='mt-8 space-y-3'>
+          {failureMessage && (
+            <p role='alert' className='text-destructive text-xs'>
+              {failureMessage}
+            </p>
+          )}
+          {passwordRecovery === 'required' && (
+            <Button onClick={sendPasswordResetLink} disabled={isLoading} className='w-full'>
+              {isLoading ? resetCopy.submitting : resetCopy.submit}
+            </Button>
+          )}
+          <Button onClick={continueAfterVerification} variant='outline' className='w-full'>
+            {verifyCopy.continue}
+          </Button>
+        </div>
+      )}
 
       {!isVerified && isEmailVerificationEnabled && (
         <div className={`${inter.className} mt-8 space-y-8`}>

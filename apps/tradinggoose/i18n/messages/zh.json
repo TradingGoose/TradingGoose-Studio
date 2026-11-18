@@ -202,6 +202,8 @@
       "pendingTitle": "验证您的邮箱",
       "verifiedTitle": "邮箱已验证！",
       "verifiedDescription": "您的邮箱已验证。正在重定向到仪表盘...",
+      "passwordRecovery": "您的邮箱已验证。发送重置链接以设置今后登录使用的密码。",
+      "continue": "继续",
       "disabledDescription": "邮箱验证已禁用。正在重定向到仪表盘...",
       "codeSent": "验证码已发送至 {email}",
       "developmentDescription": "开发模式：请查看控制台日志以获取验证码",

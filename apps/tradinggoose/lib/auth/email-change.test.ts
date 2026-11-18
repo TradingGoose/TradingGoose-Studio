@@ -217,10 +217,12 @@ describe('account email change through native Better Auth OTP', () => {
     expect(db.select).not.toHaveBeenCalled()
   })
 
-  it.each(['signup', 'password login', 'duplicate signup'] as const)(
+  it.each(['signup', 'password login', 'duplicate signup', 'expired signup'] as const)(
     'preserves the password only with validated credential proof (%s)',
     async (source) => {
       const duplicate = source === 'duplicate signup'
+      const expired = source === 'expired signup'
+      const needsPassword = duplicate || expired
       policy.verificationEnabled = true
       const fixture = await setup('owner@example.com', true, true)
       const email = 'signup@example.com'
@@ -252,18 +254,30 @@ describe('account email change through native Better Auth OTP', () => {
         expect(await blocked.json()).toMatchObject({ code: 'EMAIL_NOT_VERIFIED' })
         proofHeaders = blocked.headers
       }
-      const verified = await fixture.auth.api.verifyEmailOTP({
-        body: { email, otp: deliveredCode(email) },
-        headers: cookieHeaders(proofHeaders),
-        asResponse: true,
-      })
+      const clock = expired ? vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 3601_000) : null
+      let verified: Response
+      try {
+        if (expired) {
+          await fixture.auth.api.sendVerificationOTP({
+            body: { email, type: 'email-verification' },
+          })
+        }
+        verified = await fixture.auth.api.verifyEmailOTP({
+          body: { email, otp: deliveredCode(email) },
+          headers: cookieHeaders(proofHeaders),
+          asResponse: true,
+        })
+      } finally {
+        clock?.mockRestore()
+      }
       expect(verified.status).toBe(200)
+      expect(await verified.json()).toMatchObject({ passwordResetRequired: needsPassword })
       const headers = cookieHeaders(verified.headers)
       await expect(fixture.auth.api.getSession({ headers })).resolves.toMatchObject({
         user: { id: signup.user.id, email, emailVerified: true },
       })
       expect(await fixture.context.internalAdapter.findAccounts(signup.user.id)).toEqual(
-        duplicate ? [] : accounts
+        needsPassword ? [] : accounts
       )
       expect(mail.audience).toHaveBeenCalledWith(
         expect.objectContaining({ id: signup.user.id, emailVerified: true }),
@@ -271,7 +285,7 @@ describe('account email change through native Better Auth OTP', () => {
       )
       await fixture.auth.api.signOut({ headers })
       const login = fixture.auth.api.signInEmail({ body: { email, password } })
-      if (duplicate) {
+      if (needsPassword) {
         await expect(login).rejects.toMatchObject({ body: { code: 'INVALID_EMAIL_OR_PASSWORD' } })
       } else {
         await expect(login).resolves.toMatchObject({

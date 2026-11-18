@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { Messages } from 'next-intl'
 import { useLocale } from 'next-intl'
+import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useRouter } from '@/i18n/navigation'
@@ -41,6 +42,7 @@ export function useVerification({
   copy,
 }: UseVerificationParams) {
   const router = useRouter()
+  const { passwordResetUrl } = useAuthRedirectUrls()
   const locale = useLocale() as LocaleCode
   const searchParams = useSearchParams()
   const fromSignup = searchParams.get('fromSignup') === 'true'
@@ -55,6 +57,7 @@ export function useVerification({
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isVerified, setIsVerified] = useState(false)
+  const [passwordRecovery, setPasswordRecovery] = useState<'required' | 'sent' | null>(null)
   const [isInvalidOtp, setIsInvalidOtp] = useState(false)
   const [failureMessage, setFailureMessage] = useState('')
 
@@ -95,21 +98,21 @@ export function useVerification({
     setFailureMessage('')
 
     try {
-      const { error } = await client.emailOtp.verifyEmail({
+      const { data, error } = await client.emailOtp.verifyEmail({
         email,
         otp,
       })
 
       if (error) throw error
+      const needsPassword = data?.passwordResetRequired === true
+      if (needsPassword) setPasswordRecovery('required')
       setIsVerified(true)
 
       await refreshSessionAndPersistLocale()
 
       sessionStorage.removeItem('verificationEmail')
 
-      setTimeout(() => {
-        router.push(destination)
-      }, 1000)
+      if (!needsPassword) setTimeout(continueAfterVerification, 1000)
     } catch (error: unknown) {
       setIsInvalidOtp(true)
       setFailureMessage(resolveVerificationFailureMessage(copy, error))
@@ -140,6 +143,24 @@ export function useVerification({
       .finally(() => {
         setIsLoading(false)
       })
+  }
+
+  async function sendPasswordResetLink() {
+    setIsLoading(true)
+    setFailureMessage('')
+    try {
+      const { error } = await client.requestPasswordReset({ email, redirectTo: passwordResetUrl() })
+      if (error) throw error
+      setPasswordRecovery('sent')
+    } catch {
+      setFailureMessage(failureCopy.generic)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  function continueAfterVerification() {
+    router.push(destination)
   }
 
   function handleOtpChange(value: string) {
@@ -181,6 +202,9 @@ export function useVerification({
   return {
     fromSignup,
     returnToAuth,
+    passwordRecovery,
+    sendPasswordResetLink,
+    continueAfterVerification,
     otp,
     email,
     isLoading,

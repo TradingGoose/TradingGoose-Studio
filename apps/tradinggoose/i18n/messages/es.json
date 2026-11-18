@@ -202,6 +202,8 @@
       "pendingTitle": "Verifica tu correo electrónico",
       "verifiedTitle": "¡Correo electrónico verificado!",
       "verifiedDescription": "Tu correo electrónico ha sido verificado. Redirigiendo al panel...",
+      "passwordRecovery": "Tu correo está verificado. Envía un enlace de restablecimiento para establecer una contraseña para futuros inicios de sesión.",
+      "continue": "Continuar",
       "disabledDescription": "Verificación de correo desactivada. Redirigiendo al panel…",
       "codeSent": "Se ha enviado un código de verificación a {email}",
       "developmentDescription": "Modo de desarrollo: Revisa los registros de la consola para obtener el código de verificación",

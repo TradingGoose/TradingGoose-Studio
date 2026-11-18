@@ -211,6 +211,43 @@ index 6be443b0d0af9863445a51c9dd4fd53a89b46805..13f4bd4e9d55d237ad850c74eaea3474
  		updatePassword: async (userId, password) => {
  			await updateManyWithHooks({ password }, [{
  				field: "userId",
+diff --git a/dist/plugins/email-otp/index.d.mts b/dist/plugins/email-otp/index.d.mts
+index 765bcb13599afbeae917b4ac5af17c8ab46d5acd..218287d409f0faeb394a5e52c1b6d8441e252727 100644
+--- a/dist/plugins/email-otp/index.d.mts
++++ b/dist/plugins/email-otp/index.d.mts
+@@ -204,6 +204,10 @@ declare const emailOTP: (options: EmailOTPOptions) => {
+                         nullable: boolean;
+                         description: string;
+                       };
++                      passwordResetRequired: {
++                        type: string;
++                        description: string;
++                      };
+                       user: {
+                         $ref: string;
+                       };
+@@ -218,19 +222,8 @@ declare const emailOTP: (options: EmailOTPOptions) => {
+       };
+     }, {
+       status: boolean;
+-      token: string;
+-      user: {
+-        id: string;
+-        createdAt: Date;
+-        updatedAt: Date;
+-        email: string;
+-        emailVerified: boolean;
+-        name: string;
+-        image?: string | null | undefined;
+-      } & Record<string, any>;
+-    } | {
+-      status: boolean;
+-      token: null;
++      token: string | null;
++      passwordResetRequired: boolean;
+       user: {
+         id: string;
+         createdAt: Date;
 diff --git a/dist/plugins/email-otp/index.mjs b/dist/plugins/email-otp/index.mjs
 index 546ff0495bec371cd98d833bedfb043e1601e692..687fb43218cb0948a31a04293b1bc0fa82bed2bb 100644
 --- a/dist/plugins/email-otp/index.mjs
@@ -236,7 +273,7 @@ index 546ff0495bec371cd98d833bedfb043e1601e692..687fb43218cb0948a31a04293b1bc0fa
  					});
  					await ctx.context.runInBackgroundOrAwait(options.sendVerificationOTP({
 diff --git a/dist/plugins/email-otp/routes.mjs b/dist/plugins/email-otp/routes.mjs
-index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30b24e6ea0 100644
+index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..ed7e9065456c8903c15c4c5f573f505d3d21c37b 100644
 --- a/dist/plugins/email-otp/routes.mjs
 +++ b/dist/plugins/email-otp/routes.mjs
 @@ -5,6 +5,8 @@ import { generateRandomString } from "../../crypto/random.mjs";
@@ -350,7 +387,27 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30
   /**
  	* safe to leak the existence of a user, given the user has already the OTP from the
  	* email
-@@ -315,22 +332,24 @@ const verifyEmailOTP = (opts) => createAuthEndpoint("/email-otp/verify-email", {
+@@ -302,12 +319,17 @@ const verifyEmailOTP = (opts) => createAuthEndpoint("/email-otp/verify-email", {
+ 						nullable: true,
+ 						description: "Session token if autoSignInAfterVerification is enabled, otherwise null"
+ 					},
+-					user: { $ref: "#/components/schemas/User" }
++					user: { $ref: "#/components/schemas/User" },
++					passwordResetRequired: {
++						type: "boolean",
++						description: "Whether verification discarded unproven credentials"
++					}
+ 				},
+ 				required: [
+ 					"status",
+ 					"token",
+-					"user"
++					"user",
++					"passwordResetRequired"
+ 				]
+ 			} } }
+ 		} }
+@@ -315,47 +337,47 @@ const verifyEmailOTP = (opts) => createAuthEndpoint("/email-otp/verify-email", {
  }, async (ctx) => {
  	const email = ctx.body.email.toLowerCase();
  	if (!z.email().safeParse(email).success) throw APIError$1.from("BAD_REQUEST", BASE_ERROR_CODES.INVALID_EMAIL);
@@ -367,14 +424,15 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30
 -	const updatedUser = await ctx.context.internalAdapter.updateUser(user.user.id, {
 -		email,
 -		emailVerified: true
-+	const { updatedUser, session } = await ctx.context.internalAdapter.withUserMailbox(user, APIError$1.from("BAD_REQUEST", EMAIL_OTP_ERROR_CODES.INVALID_OTP), async (lockedUser) => {
++	const { updatedUser, session, passwordResetRequired } = await ctx.context.internalAdapter.withUserMailbox(user, APIError$1.from("BAD_REQUEST", EMAIL_OTP_ERROR_CODES.INVALID_OTP), async (lockedUser) => {
 +		await ctx.context.options.emailVerification?.beforeEmailVerification?.(lockedUser, ctx.request);
-+		if (!lockedUser.emailVerified && !await consumeCredentialProof(ctx, lockedUser)) await revokeUnprovenAccountAccess(ctx, lockedUser.id);
++		const passwordResetRequired = !lockedUser.emailVerified && !await consumeCredentialProof(ctx, lockedUser);
++		if (passwordResetRequired) await revokeUnprovenAccountAccess(ctx, lockedUser.id);
 +		const updatedUser = await ctx.context.internalAdapter.updateUser(lockedUser.id, { emailVerified: true });
 +		const session = ctx.context.options.emailVerification?.autoSignInAfterVerification
 +			? await ctx.context.internalAdapter.createSession(updatedUser.id)
 +			: null;
-+		return { updatedUser, session };
++		return { updatedUser, session, passwordResetRequired };
  	});
  	await ctx.context.options.emailVerification?.afterEmailVerification?.(updatedUser, ctx.request);
 -	if (ctx.context.options.emailVerification?.autoSignInAfterVerification) {
@@ -383,7 +441,47 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30
  		await setSessionCookie(ctx, {
  			session,
  			user: updatedUser
-@@ -406,10 +425,9 @@ const signInEmailOTP = (opts) => createAuthEndpoint("/sign-in/email-otp", {
+ 		});
+-		return ctx.json({
+-			status: true,
+-			token: session.token,
+-			user: parseUserOutput(ctx.context.options, updatedUser)
+-		});
+-	}
+-	const currentSession = await getSessionFromCtx(ctx);
+-	if (currentSession && updatedUser.emailVerified && currentSession.user.id === updatedUser.id) {
+-		const dontRememberMeCookie = await ctx.getSignedCookie(ctx.context.authCookies.dontRememberToken.name, ctx.context.secret);
+-		await setCookieCache(ctx, {
+-			session: currentSession.session,
+-			user: {
+-				...currentSession.user,
+-				emailVerified: true
+-			}
+-		}, !!dontRememberMeCookie);
++	} else {
++		const currentSession = await getSessionFromCtx(ctx);
++		if (currentSession && currentSession.user.id === updatedUser.id) {
++			const dontRememberMeCookie = await ctx.getSignedCookie(ctx.context.authCookies.dontRememberToken.name, ctx.context.secret);
++			await setCookieCache(ctx, {
++				session: currentSession.session,
++				user: {
++					...currentSession.user,
++					emailVerified: true
++				}
++			}, !!dontRememberMeCookie);
++		}
+ 	}
+ 	return ctx.json({
+ 		status: true,
+-		token: null,
+-		user: parseUserOutput(ctx.context.options, updatedUser)
++		token: session?.token ?? null,
++		user: parseUserOutput(ctx.context.options, updatedUser),
++		passwordResetRequired
+ 	});
+ });
+ const signInEmailOTPBodySchema = z.object({
+@@ -406,10 +428,9 @@ const signInEmailOTP = (opts) => createAuthEndpoint("/sign-in/email-otp", {
  }, async (ctx) => {
  	const { email: rawEmail, otp, name, image, ...rest } = ctx.body;
  	const email = rawEmail.toLowerCase();
@@ -396,7 +494,7 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30
  		const additionalFields = parseUserInput(ctx.context.options, rest, "create");
  		const newUser = await ctx.context.internalAdapter.createUser({
  			...additionalFields,
-@@ -428,18 +446,19 @@ const signInEmailOTP = (opts) => createAuthEndpoint("/sign-in/email-otp", {
+@@ -428,18 +449,19 @@ const signInEmailOTP = (opts) => createAuthEndpoint("/sign-in/email-otp", {
  			user: parseUserOutput(ctx.context.options, newUser)
  		});
  	}
@@ -425,7 +523,7 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30
  	});
  });
  const requestPasswordResetEmailOTPBodySchema = z.object({ email: z.string().meta({ description: "Email address to send the OTP" }) });
-@@ -477,9 +496,9 @@ const requestPasswordResetEmailOTP = (opts) => createAuthEndpoint("/email-otp/re
+@@ -477,9 +499,9 @@ const requestPasswordResetEmailOTP = (opts) => createAuthEndpoint("/email-otp/re
  	} }
  }, async (ctx) => {
  	const email = ctx.body.email.toLowerCase();
@@ -438,7 +536,7 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30
  		await ctx.context.internalAdapter.deleteVerificationByIdentifier(identifier);
  		return ctx.json({ success: true });
  	}
-@@ -529,9 +548,9 @@ const forgetPasswordEmailOTP = (opts) => {
+@@ -529,9 +551,9 @@ const forgetPasswordEmailOTP = (opts) => {
  	}, async (ctx) => {
  		warnDeprecation();
  		const email = ctx.body.email.toLowerCase();
@@ -451,7 +549,7 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30
  			await ctx.context.internalAdapter.deleteVerificationByIdentifier(identifier);
  			return ctx.json({ success: true });
  		}
-@@ -583,20 +602,15 @@ const resetPasswordEmailOTP = (opts) => createAuthEndpoint("/email-otp/reset-pas
+@@ -583,20 +605,15 @@ const resetPasswordEmailOTP = (opts) => createAuthEndpoint("/email-otp/reset-pas
  	if (ctx.body.password.length < minPasswordLength) throw APIError$1.from("BAD_REQUEST", BASE_ERROR_CODES.PASSWORD_TOO_SHORT);
  	const maxPasswordLength = ctx.context.password.config.maxPasswordLength;
  	if (ctx.body.password.length > maxPasswordLength) throw APIError$1.from("BAD_REQUEST", BASE_ERROR_CODES.PASSWORD_TOO_LONG);
@@ -478,7 +576,7 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30
  	return ctx.json({ success: true });
  });
  const requestEmailChangeEmailOTPBodySchema = z.object({
-@@ -638,7 +652,8 @@ const requestEmailChangeEmailOTP = (opts) => createAuthEndpoint("/email-otp/requ
+@@ -638,7 +655,8 @@ const requestEmailChangeEmailOTP = (opts) => createAuthEndpoint("/email-otp/requ
  		ctx.context.logger.error("Change email with OTP is disabled.");
  		throw APIError$1.fromStatus("BAD_REQUEST", { message: "Change email with OTP is disabled" });
  	}
@@ -488,7 +586,7 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30
  	const newEmail = ctx.body.newEmail.toLowerCase();
  	if (!z.email().safeParse(newEmail).success) throw APIError$1.from("BAD_REQUEST", BASE_ERROR_CODES.INVALID_EMAIL);
  	if (newEmail === email) {
-@@ -647,27 +662,24 @@ const requestEmailChangeEmailOTP = (opts) => createAuthEndpoint("/email-otp/requ
+@@ -647,27 +665,24 @@ const requestEmailChangeEmailOTP = (opts) => createAuthEndpoint("/email-otp/requ
  	}
  	if (opts.changeEmail?.verifyCurrentEmail) {
  		if (!ctx.body.otp) throw APIError$1.fromStatus("BAD_REQUEST", { message: "OTP is required to verify current email" });
@@ -521,7 +619,7 @@ index 1cda0f7f03174e18436f0fbe04342e0e2e24ef97..3ff6ceeab6176e537f297d0f173dbc30
  	return ctx.json({ success: true });
  });
  const changeEmailEmailOTPBodySchema = z.object({
-@@ -710,39 +722,37 @@ const changeEmailEmailOTP = (opts) => createAuthEndpoint("/email-otp/change-emai
+@@ -710,39 +725,37 @@ const changeEmailEmailOTP = (opts) => createAuthEndpoint("/email-otp/change-emai
  		throw APIError$1.fromStatus("BAD_REQUEST", { message: "Change email with OTP is disabled" });
  	}
  	const session = ctx.context.session;

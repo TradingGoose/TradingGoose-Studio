@@ -91,7 +91,7 @@ vi.mock('@/app/(auth)/components/sso-login-button', () => ({
 }))
 
 vi.mock('@/app/(auth)/components/auth-page-header', () => ({
-  AuthPageHeader: () => null,
+  AuthPageHeader: ({ description }: { description: string }) => <p>{description}</p>,
 }))
 
 vi.mock('@/app/(auth)/components/auth-waitlist-note', () => ({
@@ -856,6 +856,38 @@ describe('auth locale redirects', () => {
 
     expect(container.textContent).toContain(message)
     expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('offers the native reset link before continuing after verification discards a password', async () => {
+    vi.useFakeTimers()
+    const email = 'ada@example.com'
+    const destination = '/invite/invitation?token=workspace-token'
+    sessionStore.set('verificationEmail', email)
+    testState.searchParams = new URLSearchParams({ fromSignup: 'true', redirectAfter: destination })
+    mockVerifyEmail.mockResolvedValue({ data: { passwordResetRequired: true } })
+    const { useVerification } = await vi.importActual<typeof import('./verify/use-verification')>(
+      './verify/use-verification'
+    )
+    mockUseVerification.mockImplementation(useVerification)
+    await renderWithLocale(
+      'en',
+      <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled />
+    )
+    await setInputValue('#verification-code', '123456')
+    await act(async () => vi.advanceTimersByTimeAsync(1300))
+    const copy = getPublicCopy('en').auth
+    expect(mockPush).not.toHaveBeenCalled()
+    expect(container.textContent).toContain(copy.verify.passwordRecovery)
+    const findButton = (text: string) =>
+      [...container.querySelectorAll('button')].find((button) => button.textContent === text)!
+    await act(async () => findButton(copy.login.resetDialog.submit).click())
+    expect(mockRequestPasswordReset).toHaveBeenCalledExactlyOnceWith({
+      email,
+      redirectTo: expect.stringMatching(/\/reset-password$/),
+    })
+    expect(container.textContent).toContain(copy.login.resetDialog.success)
+    await act(async () => findButton(copy.verify.continue).click())
+    expect(mockPush).toHaveBeenCalledExactlyOnceWith(destination)
   })
 
   it.each([

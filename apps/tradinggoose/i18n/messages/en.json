@@ -202,6 +202,8 @@
       "pendingTitle": "Verify Your Email",
       "verifiedTitle": "Email Verified!",
       "verifiedDescription": "Your email has been verified. Redirecting to dashboard...",
+      "passwordRecovery": "Your email is verified. Send a reset link to set a password for future sign-ins.",
+      "continue": "Continue",
       "disabledDescription": "Email verification is disabled. Redirecting to dashboard...",
       "codeSent": "A verification code has been sent to {email}",
       "developmentDescription": "Development mode: Check your console logs for the verification code",
