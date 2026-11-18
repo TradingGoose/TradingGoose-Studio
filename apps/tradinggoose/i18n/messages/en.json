@@ -349,11 +349,10 @@
     "sso": {
       "eyebrow": "SSO",
       "title": "Sign in with SSO",
+      "providerId": "Provider ID",
       "description": "Enter your work email to continue",
-      "submit": "Continue with SSO",
       "submitting": "Redirecting to SSO provider...",
       "divider": "Or",
-      "emailButton": "Sign in with email",
       "validation": {
         "emailRequired": "Email is required.",
         "emailInvalid": "Please enter a valid email address."
@@ -363,6 +362,7 @@
         "ssoFailed": "SSO authentication failed. Please try again.",
         "providerNotConfigured": "SSO provider not configured correctly.",
         "domainNotVerified": "Ask your organization administrator to verify the SSO domain.",
+        "providerAmbiguous": "Multiple SSO providers match this email domain. Enter the provider ID from your organization administrator.",
         "invalidEmailDomain": "Email domain not configured for SSO. Please contact your administrator.",
         "network": "Network error. Please check your connection and try again.",
         "rateLimit": "Too many requests. Please wait a moment before trying again.",

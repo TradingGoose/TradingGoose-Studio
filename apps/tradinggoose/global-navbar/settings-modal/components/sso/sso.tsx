@@ -71,37 +71,32 @@ export function SSO() {
   const [providers, setProviders] = useState<SSOProvider[]>([])
   const [isLoadingProviders, setIsLoadingProviders] = useState(true)
   const [domainTokens, setDomainTokens] = useState<Record<string, string>>({})
-  const verificationScope = useRef({ organizationId: activeOrganizationId })
-  useEffect(() => {
-    verificationScope.current = { organizationId: activeOrganizationId }
-  }, [activeOrganizationId])
+  const organizationScope = useRef<object | null>(null)
 
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
   const [showErrors, setShowErrors] = useState(false)
 
   const userEmail = session?.user?.email
   const userRole = getUserRole(activeOrganization, userEmail)
-  const isOwner = userRole === 'owner'
-  const isAdmin = userRole === 'admin'
-  const organizationAccess = getOrganizationAccessState({
+  const { canConfigureSso, canManageOrganization } = getOrganizationAccessState({
     billingEnabled:
       organizationBillingData?.billingEnabled ??
       organizationsData?.billingData?.data?.billingEnabled ??
       true,
     hasOrganization: Boolean(activeOrganizationId),
-    isOrganizationAdmin: isOwner || isAdmin,
+    isOrganizationAdmin: userRole === 'owner' || userRole === 'admin',
     organizationTier: organizationBillingData?.subscriptionTier,
   })
-  const shouldFetchProviders = Boolean(activeOrganizationId && organizationAccess.canConfigureSso)
 
   useEffect(() => {
-    let cancelled = false
+    const scope = {}
+    organizationScope.current = scope
     setDomainTokens({})
     setError(null)
     setIsLoading(false)
 
     const loadProviders = async () => {
-      if (!shouldFetchProviders) {
+      if (!canConfigureSso) {
         setProviders([])
         setProviderLoadError(null)
         setIsLoadingProviders(false)
@@ -111,20 +106,20 @@ export function SSO() {
       try {
         setIsLoadingProviders(true)
         const loadedProviders = await fetchProviders()
-        if (!cancelled) {
+        if (organizationScope.current === scope) {
           setProviders(loadedProviders)
           setProviderLoadError(null)
         }
       } catch (error) {
         logger.error('Failed to fetch SSO providers', { error })
-        if (!cancelled) {
+        if (organizationScope.current === scope) {
           setProviders([])
           setProviderLoadError(
             error instanceof Error ? error.message : 'Failed to load SSO provider configuration'
           )
         }
       } finally {
-        if (!cancelled) {
+        if (organizationScope.current === scope) {
           setIsLoadingProviders(false)
         }
       }
@@ -133,19 +128,19 @@ export function SSO() {
     loadProviders()
 
     return () => {
-      cancelled = true
+      organizationScope.current = null
     }
-  }, [activeOrganizationId, shouldFetchProviders])
+  }, [activeOrganizationId, canConfigureSso])
 
   const handleDomainVerification = async (providerId: string, action: 'request' | 'verify') => {
-    const scope = verificationScope.current
+    const scope = organizationScope.current
     setIsLoading(true)
     setError(null)
     try {
       if (action === 'request') {
         const result = await client.sso.requestDomainVerification({ providerId })
         if (result.error) throw new Error(result.error.message || 'Failed to request DNS record')
-        if (verificationScope.current === scope) {
+        if (organizationScope.current === scope) {
           setDomainTokens((tokens) => ({
             ...tokens,
             [providerId]: result.data.domainVerificationToken,
@@ -154,7 +149,7 @@ export function SSO() {
       } else {
         const result = await client.sso.verifyDomain({ providerId })
         if (result.error) throw new Error(result.error.message || 'Failed to verify domain')
-        if (verificationScope.current === scope) {
+        if (organizationScope.current === scope) {
           setProviders((current) =>
             current.map((provider) =>
               provider.providerId === providerId ? { ...provider, domainVerified: true } : provider
@@ -163,43 +158,27 @@ export function SSO() {
         }
       }
     } catch (err) {
-      if (verificationScope.current === scope) {
+      if (organizationScope.current === scope) {
         setError(err instanceof Error ? err.message : 'Domain verification failed')
       }
     } finally {
-      if (verificationScope.current === scope) setIsLoading(false)
+      if (organizationScope.current === scope) setIsLoading(false)
     }
   }
 
+  let accessError: string | undefined
   if (!activeOrganization) {
-    return (
-      <div className='flex h-full items-center justify-center p-6'>
-        <Alert>
-          <AlertDescription>
-            You must be part of an organization to configure Single Sign-On.
-          </AlertDescription>
-        </Alert>
-      </div>
-    )
+    accessError = 'You must be part of an organization to configure Single Sign-On.'
+  } else if (!canManageOrganization) {
+    accessError = 'Only organization owners and admins can configure Single Sign-On settings.'
+  } else if (!canConfigureSso) {
+    accessError = 'Single Sign-On is not enabled for this billing tier.'
   }
-
-  if (!organizationAccess.canManageOrganization) {
+  if (accessError) {
     return (
       <div className='flex h-full items-center justify-center p-6'>
         <Alert>
-          <AlertDescription>
-            Only organization owners and admins can configure Single Sign-On settings.
-          </AlertDescription>
-        </Alert>
-      </div>
-    )
-  }
-
-  if (!organizationAccess.canConfigureSso) {
-    return (
-      <div className='flex h-full items-center justify-center p-6'>
-        <Alert>
-          <AlertDescription>Single Sign-On is not enabled for this billing tier.</AlertDescription>
+          <AlertDescription>{accessError}</AlertDescription>
         </Alert>
       </div>
     )
@@ -263,6 +242,7 @@ export function SSO() {
     setShowErrors(true)
     if (hasErrors) return
 
+    const scope = organizationScope.current
     setIsLoading(true)
     try {
       const requestBody: any = {
@@ -304,18 +284,18 @@ export function SSO() {
         throw new Error(errorData.details || errorData.error || 'Failed to configure SSO provider')
       }
 
-      const result = await response.json()
-      logger.info('SSO provider configured', { providerId: result.providerId })
-
+      if (organizationScope.current !== scope) return
       setFormData(INITIAL_FORM_DATA)
 
-      setProviders(await fetchProviders())
+      const loadedProviders = await fetchProviders()
+      if (organizationScope.current === scope) setProviders(loadedProviders)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error occurred'
-      setError(message)
+      if (organizationScope.current === scope) {
+        setError(err instanceof Error ? err.message : 'Unknown error occurred')
+      }
       logger.error('Failed to configure SSO provider', { error: err })
     } finally {
-      setIsLoading(false)
+      if (organizationScope.current === scope) setIsLoading(false)
     }
   }
 
@@ -329,9 +309,9 @@ export function SSO() {
 
   const callbackUrl = getSsoCallbackUrl(formData.providerId, formData.providerType)
 
-  const copyCallback = async () => {
+  const copyCallback = async (url: string) => {
     try {
-      await navigator.clipboard.writeText(callbackUrl)
+      await navigator.clipboard.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {}
@@ -456,15 +436,11 @@ export function SSO() {
                         />
                         <button
                           type='button'
-                          onClick={() => {
-                            const url = getSsoCallbackUrl(
-                              provider.providerId,
-                              provider.providerType
+                          onClick={() =>
+                            copyCallback(
+                              getSsoCallbackUrl(provider.providerId, provider.providerType)
                             )
-                            navigator.clipboard.writeText(url)
-                            setCopied(true)
-                            setTimeout(() => setCopied(false), 1500)
-                          }}
+                          }
                           aria-label='Copy callback URL'
                           className='-translate-y-1/2 absolute top-1/2 right-3 rounded p-1 text-muted-foreground transition hover:text-foreground'
                         >
@@ -885,7 +861,7 @@ export function SSO() {
                   />
                   <button
                     type='button'
-                    onClick={copyCallback}
+                    onClick={() => copyCallback(callbackUrl)}
                     aria-label='Copy callback URL'
                     className='-translate-y-1/2 absolute top-1/2 right-3 rounded p-1 text-muted-foreground transition hover:text-foreground'
                   >

@@ -255,6 +255,29 @@ describe('SSO access guard', () => {
       expect(button).toBeDefined()
       await act(async () => button!.click())
     }
+    async function fillRegistrationForm(providerId: string) {
+      const select = container.querySelector<HTMLSelectElement>('#provider-id')!
+      select.append(new Option(providerId, providerId))
+      await act(async () => {
+        select.value = providerId
+        select.dispatchEvent(new Event('change', { bubbles: true }))
+      })
+      for (const [id, value] of [
+        ['issuer-url', 'https://idp.example.com'],
+        ['domain', 'example.com'],
+        ['client-id', 'client-id'],
+        ['client-secret', 'client-secret'],
+      ]) {
+        await act(async () => {
+          const input = container.querySelector<HTMLInputElement>(`#${id}`)!
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
+            input,
+            value
+          )
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+        })
+      }
+    }
 
     it.each([44, 45, 47])(
       'validates a %i-character provider ID before registration',
@@ -265,27 +288,7 @@ describe('SSO access guard', () => {
         } as Response)
         await renderSettings()
         const providerId = 'p'.repeat(length)
-        const select = container.querySelector<HTMLSelectElement>('#provider-id')!
-        select.append(new Option(providerId, providerId))
-        await act(async () => {
-          select.value = providerId
-          select.dispatchEvent(new Event('change', { bubbles: true }))
-        })
-        for (const [id, value] of [
-          ['issuer-url', 'https://idp.example.com'],
-          ['domain', 'example.com'],
-          ['client-id', 'client-id'],
-          ['client-secret', 'client-secret'],
-        ]) {
-          await act(async () => {
-            const input = container.querySelector<HTMLInputElement>(`#${id}`)!
-            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
-              input,
-              value
-            )
-            input.dispatchEvent(new Event('input', { bubbles: true }))
-          })
-        }
+        await fillRegistrationForm(providerId)
         const submit = container.querySelector<HTMLButtonElement>('button[type="submit"]')!
         expect(submit.disabled).toBe(length > 44)
         if (length === 44) {
@@ -312,6 +315,39 @@ describe('SSO access guard', () => {
           expect(container.textContent).toContain('Provider ID must be at most 44 characters.')
           expect(fetch).not.toHaveBeenCalledWith('/api/auth/sso/register', expect.anything())
         }
+      }
+    )
+
+    it.each([false, true])(
+      'ignores a stale registration refresh after switching organizations (switch back: %s)',
+      async (switchBack) => {
+        let finishRefresh!: (response: Response) => void
+        const refresh = new Promise<Response>((resolve) => {
+          finishRefresh = resolve
+        })
+        vi.mocked(fetch)
+          .mockResolvedValueOnce(Response.json({ providers: [] }))
+          .mockResolvedValueOnce(Response.json({ providerId: provider.providerId }))
+          .mockReturnValueOnce(refresh)
+        await renderSettings()
+        await fillRegistrationForm(provider.providerId)
+        await click('Configure SSO Provider')
+        expect(fetch).toHaveBeenLastCalledWith('/api/auth/sso/providers')
+
+        setOrganization('org-2')
+        vi.mocked(fetch).mockResolvedValueOnce(
+          Response.json({ providers: [{ ...provider, id: 'provider-2', providerId: 'azure-ad' }] })
+        )
+        await renderSettings()
+        if (switchBack) {
+          setOrganization('org-1')
+          vi.mocked(fetch).mockResolvedValueOnce(
+            Response.json({ providers: [{ ...provider, providerId: 'okta-prod' }] })
+          )
+          await renderSettings()
+        }
+        await act(async () => finishRefresh(Response.json({ providers: [provider] })))
+        expect(container.textContent).toContain(switchBack ? 'okta-prod' : 'azure-ad')
       }
     )
 

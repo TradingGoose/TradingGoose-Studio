@@ -277,7 +277,7 @@ describe('auth provider callback routing', () => {
     )
   })
 
-  it('configures the SSO callback destination and shows an unverified-domain response inline', async () => {
+  it('keeps the SSO callback destination through domain feedback and explicit provider selection', async () => {
     testState.searchParams = new URLSearchParams({ callbackUrl: '/workspace' })
     mockSsoSignIn.mockResolvedValueOnce({
       data: null,
@@ -323,6 +323,28 @@ describe('auth provider callback routing', () => {
       'Ask your organization administrator to verify the SSO domain.'
     )
     expect(form.querySelector('button[type="submit"]')).toBeEnabled()
+
+    mockSsoSignIn.mockResolvedValueOnce({
+      data: null,
+      error: { status: 409, code: 'SSO_PROVIDER_AMBIGUOUS' },
+    })
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent(
+      getPublicCopy('en').auth.sso.errors.providerAmbiguous
+    )
+    const providerId = form.querySelector<HTMLInputElement>('input[name="providerId"]')!
+    providerId.value = 'okta'
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+    expect(mockSsoSignIn).toHaveBeenLastCalledWith({
+      email: 'user@example.com',
+      providerId: 'okta',
+      callbackURL: '/workspace',
+      errorCallbackURL: getAuthErrorCallbackPath('/workspace'),
+    })
   })
 })
 

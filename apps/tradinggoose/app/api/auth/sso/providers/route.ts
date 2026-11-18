@@ -78,7 +78,6 @@ export async function GET() {
         domainVerified: ssoProvider.domainVerified,
         issuer: ssoProvider.issuer,
         oidcConfig: ssoProvider.oidcConfig,
-        organizationId: ssoProvider.organizationId,
       })
       .from(ssoProvider)
       .where(eq(ssoProvider.organizationId, activeOrganizationId))
@@ -90,7 +89,6 @@ export async function GET() {
       domainVerified: provider.domainVerified,
       dnsRecordNames: getDnsRecordNames(provider.providerId, provider.domain),
       issuer: provider.issuer,
-      organizationId: provider.organizationId,
       providerType: provider.oidcConfig ? 'oidc' : 'saml',
     }))
 

@@ -206,9 +206,11 @@ describe('native SSO registration and account matching', () => {
   it('refuses unverified providers and leaves failed DNS verification untrusted', async () => {
     const { auth, context, headers, register } = await setup()
     await register()
-    await expect(
-      auth.api.signInSSO({ body: { providerId: 'okta', callbackURL: '/workspace' } })
-    ).rejects.toMatchObject({ statusCode: 401 })
+    for (const identifier of [{ providerId: 'okta' }, { email: localEmail }]) {
+      await expect(
+        auth.api.signInSSO({ body: { ...identifier, callbackURL: '/workspace' } })
+      ).rejects.toMatchObject({ statusCode: 401 })
+    }
     resolveTxt.mockResolvedValue([])
     await expect(
       auth.api.verifyDomain({ headers, body: { providerId: 'okta' } })
@@ -218,6 +220,25 @@ describe('native SSO registration and account matching', () => {
     ).resolves.toMatchObject({ domainVerified: false })
     await expect(context.internalAdapter.findAccounts('local-user')).resolves.toEqual([])
     await expect(context.internalAdapter.listSessions('local-user')).resolves.toEqual([])
+  })
+
+  it('uses the verified domain match and supports explicit selection when multiple match', async () => {
+    const { auth, register, verify } = await setup()
+    await register('okta')
+    await register('okta-prod')
+    await verify('okta-prod')
+    const signIn = (providerId?: string) =>
+      auth.api.signInSSO({ body: { email: localEmail, providerId, callbackURL: '/workspace' } })
+    const redirectUri = (url: string) => new URL(url).searchParams.get('redirect_uri')
+
+    expect(redirectUri((await signIn()).url)).toBe(`${baseURL}/api/auth/sso/callback/okta-prod`)
+
+    await verify('okta')
+    await expect(signIn()).rejects.toMatchObject({
+      statusCode: 409,
+      body: { code: 'SSO_PROVIDER_AMBIGUOUS' },
+    })
+    expect(redirectUri((await signIn('okta')).url)).toBe(`${baseURL}/api/auth/sso/callback/okta`)
   })
 
   it('first-links after native DNS verification and retains that subject after an email change', async () => {

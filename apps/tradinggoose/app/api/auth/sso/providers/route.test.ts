@@ -85,7 +85,6 @@ describe('SSO providers route', () => {
         issuer: 'https://issuer.example.com',
         oidcConfig: '{"clientId":"abc"}',
         samlConfig: null,
-        organizationId: 'org-1',
       },
     ])
 
@@ -120,7 +119,6 @@ describe('SSO providers route', () => {
             '_better-auth-token-okta.subsidiary.example.org',
           ],
           issuer: 'https://issuer.example.com',
-          organizationId: 'org-1',
           providerType: 'oidc',
         },
       ],

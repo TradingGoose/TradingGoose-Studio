@@ -349,11 +349,10 @@
     "sso": {
       "eyebrow": "SSO",
       "title": "Iniciar sesión con SSO",
+      "providerId": "ID del proveedor",
       "description": "Introduce tu correo laboral para continuar",
-      "submit": "Continuar con SSO",
       "submitting": "Redirigiendo al proveedor de SSO...",
       "divider": "O",
-      "emailButton": "Iniciar sesión con correo electrónico",
       "validation": {
         "emailRequired": "El correo electrónico es obligatorio.",
         "emailInvalid": "Ingrese un correo electrónico válido."
@@ -363,6 +362,7 @@
         "ssoFailed": "La autenticación SSO falló. Inténtalo de nuevo.",
         "providerNotConfigured": "El proveedor SSO no está configurado correctamente.",
         "domainNotVerified": "Pide al administrador de tu organización que verifique el dominio de SSO.",
+        "providerAmbiguous": "Varios proveedores de SSO coinciden con este dominio de correo. Introduce el ID del proveedor que te indicó el administrador de tu organización.",
         "invalidEmailDomain": "El dominio de correo no está configurado para SSO. Contacta a tu administrador.",
         "network": "Error de red. Verifica tu conexión e inténtalo de nuevo.",
         "rateLimit": "Demasiadas solicitudes. Espera un momento antes de intentarlo de nuevo.",
