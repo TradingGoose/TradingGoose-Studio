@@ -26,12 +26,14 @@ export function useProfilePictureUpload({
   currentImage,
 }: UseProfilePictureUploadProps) {
   const previewRef = useRef<string | null>(null)
+  const currentImageRef = useRef(currentImage)
   const activeRef = useRef(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage)
   const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
+    currentImageRef.current = currentImage
     if (previewRef.current && previewRef.current !== currentImage) {
       URL.revokeObjectURL(previewRef.current)
       previewRef.current = null
@@ -187,13 +189,13 @@ export function useProfilePictureUpload({
 
           URL.revokeObjectURL(newPreviewUrl)
           previewRef.current = null
-          setPreviewUrl(currentImage)
+          setPreviewUrl(currentImageRef.current)
         } finally {
           if (activeRef.current) setIsUploading(false)
         }
       }
     },
-    [onUpload, onError, uploadFileToServer, validateFile, currentImage]
+    [onUpload, onError, uploadFileToServer, validateFile]
   )
 
   useEffect(() => {

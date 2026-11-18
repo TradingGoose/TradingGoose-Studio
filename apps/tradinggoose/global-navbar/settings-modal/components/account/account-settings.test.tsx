@@ -444,29 +444,40 @@ describe('AccountSettings localization', () => {
       expect(container.querySelector('img')).toHaveAttribute('src', '/profile/avatar.png')
     })
 
-    it('awaits image persistence, reports a failed save and restores the existing preview', async () => {
-      let complete!: (value: { error: { code: string } }) => void
-      mocks.updateUser.mockReturnValueOnce(
-        new Promise((resolve) => {
-          complete = resolve
+    it.each([undefined, '/api/files/serve/newer-avatar.png', null])(
+      'awaits image persistence, reports a failed save and retains the latest confirmed image: %s',
+      async (latestImage) => {
+        let complete!: (value: { error: { code: string } }) => void
+        mocks.updateUser.mockReturnValueOnce(
+          new Promise((resolve) => {
+            complete = resolve
+          })
+        )
+        const originalImage = '/api/files/serve/original-avatar.png'
+        const confirmedSrc =
+          latestImage === undefined ? originalImage : (latestImage ?? '/profile/avatar.png')
+        changeSession({ image: originalImage })
+        await render()
+        await uploadImage()
+        expect(container.querySelector('input[type="file"]')).toBeDisabled()
+        expect(mocks.refetch).not.toHaveBeenCalled()
+        if (latestImage !== undefined) {
+          changeSession({ image: latestImage })
+          await render()
+        }
+        expect(container.querySelector('img')).toHaveAttribute(
+          'src',
+          latestImage === undefined ? '/api/files/serve/new-avatar.png' : confirmedSrc
+        )
+        await act(async () => {
+          complete({ error: { code: 'UPDATE_FAILED' } })
+          await flush()
         })
-      )
-      changeSession({ image: '/api/files/serve/original-avatar.png' })
-      await render()
-      await uploadImage()
-      expect(container.querySelector('input[type="file"]')).toBeDisabled()
-      expect(mocks.refetch).not.toHaveBeenCalled()
-      await act(async () => {
-        complete({ error: { code: 'UPDATE_FAILED' } })
-        await flush()
-      })
-      expect(container.textContent).toContain(copy.status.profilePictureUpdateError)
-      expect(container.querySelector('img')).toHaveAttribute(
-        'src',
-        '/api/files/serve/original-avatar.png'
-      )
-      expect(container.querySelector('input[type="file"]')).toBeEnabled()
-    })
+        expect(container.textContent).toContain(copy.status.profilePictureUpdateError)
+        expect(container.querySelector('img')).toHaveAttribute('src', confirmedSrc)
+        expect(container.querySelector('input[type="file"]')).toBeEnabled()
+      }
+    )
 
     it.each(['success', 'error'])(
       'discards an old account upload %s after a session switch with the same empty avatar',
