@@ -69,14 +69,22 @@ describe('Stripe portal configurations', () => {
     ])
   })
 
-  it('enrolls every active tier price in the default plan-change catalog', async () => {
+  it('enrolls active prices and permits preset quantities in the default plan-change catalog', async () => {
     const { stripe, update } = createStripe([
       {
         id: 'bpc_default',
         is_default: true,
         business_profile: {},
         login_page: { enabled: false },
-        features: defaultFeatures,
+        features: {
+          ...defaultFeatures,
+          subscription_update: {
+            enabled: true,
+            default_allowed_updates: ['price'],
+            proration_behavior: 'create_prorations',
+            products: [{ product: 'prod_team', prices: ['price_monthly', 'price_yearly'] }],
+          },
+        },
       },
     ])
     const { ensurePlanChangePortalConfiguration } = await import('./stripe-portal')
@@ -88,7 +96,7 @@ describe('Stripe portal configurations', () => {
       features: {
         subscription_update: {
           enabled: true,
-          default_allowed_updates: ['price'],
+          default_allowed_updates: ['price', 'quantity'],
           proration_behavior: 'create_prorations',
           products: [
             {

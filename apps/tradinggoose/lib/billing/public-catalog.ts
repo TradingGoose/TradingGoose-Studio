@@ -8,6 +8,7 @@ export interface PublicBillingTierDisplay {
   displayOrder: number
   monthlyPriceUsd: number | null
   yearlyPriceUsd: number | null
+  checkoutInterval: 'month' | 'year' | null
   seatCount: number | null
   seatMaximum: number | null
   canEditUsageLimit: boolean

@@ -16,7 +16,11 @@ import {
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
-import { getUpgradeTierIssue, useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
+import {
+  getUpgradePrice,
+  getUpgradeTierIssue,
+  useSubscriptionUpgrade,
+} from '@/lib/subscription/upgrade'
 import { cn } from '@/lib/utils'
 import {
   type GeneralSettings,
@@ -38,7 +42,7 @@ import {
   type PaygActivationErrorPayload,
   shouldOpenBillingPortalForPaygActivationError,
 } from './payg-ui'
-import { toPlanFeatures, toUpgradeTarget } from './plan-configs'
+import { toPlanFeatures } from './plan-configs'
 import {
   getSubscriptionSurfaceState,
   mergeAccessibleBillingTiers,
@@ -497,12 +501,11 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
       }
       setIsUpgradePending(true)
       try {
-        await handleUpgrade(toUpgradeTarget(targetTier), {
+        await handleUpgrade(targetTier, {
           ...(targetTier.ownerType === 'organization' && organizationBillingId
             ? { organizationId: organizationBillingId }
             : {}),
           ...(seats !== undefined ? { seats } : {}),
-          ...(formatBillingPricePeriod(targetTier) === '/yr' ? { annual: true } : {}),
         })
         setPendingUpgradeTier(null)
       } catch {
@@ -767,18 +770,23 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               >
                 {surfaceState.visiblePlanTiers.map((tier) => {
                   const isCurrentTier = tier.id === surfaceState.currentTier?.id
-                  const issue = getUpgradeTierIssue(tier, occupiedSeats)
-                  const period = formatBillingPricePeriod(tier)
+                  const issue = isCurrentTier ? null : getUpgradeTierIssue(tier, occupiedSeats)
+                  const price = isCurrentTier
+                    ? (tier.monthlyPriceUsd ?? tier.yearlyPriceUsd)
+                    : getUpgradePrice(tier)
+                  const period = isCurrentTier
+                    ? formatBillingPricePeriod(tier)
+                    : tier.checkoutInterval === 'month'
+                      ? '/mo'
+                      : tier.checkoutInterval === 'year'
+                        ? '/yr'
+                        : null
 
                   return (
                     <div key={tier.id}>
                       <PlanCard
                         name={tier.displayName}
-                        price={
-                          period
-                            ? formatUsd(locale, tier.monthlyPriceUsd ?? tier.yearlyPriceUsd ?? 0)
-                            : copy('titles.custom')
-                        }
+                        price={price === null ? copy('titles.custom') : formatUsd(locale, price)}
                         priceSubtext={
                           period === '/mo'
                             ? copy('periods.monthly')
@@ -890,7 +898,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
       </div>
-      {pendingUpgradeTier && formatBillingPricePeriod(pendingUpgradeTier) && (
+      {pendingUpgradeTier?.checkoutInterval && (
         <TeamSeats
           open={!seatCountsUnavailable}
           onOpenChange={(open) => {
@@ -898,10 +906,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           }}
           title={pendingUpgradeTier.displayName}
           description={pendingUpgradeTier.description || teamCopy('plans.description')}
-          pricePerSeat={(pendingUpgradeTier.monthlyPriceUsd ?? pendingUpgradeTier.yearlyPriceUsd)!}
-          billingInterval={
-            formatBillingPricePeriod(pendingUpgradeTier) === '/yr' ? 'year' : 'month'
-          }
+          pricePerSeat={getUpgradePrice(pendingUpgradeTier)}
+          billingInterval={pendingUpgradeTier.checkoutInterval}
           minimumSeats={Math.max(pendingUpgradeTier.seatCount ?? 1, occupiedSeats)}
           maximumSeats={pendingUpgradeTier.seatMaximum}
           initialSeats={organizationBillingPayload?.totalSeats ?? 1}

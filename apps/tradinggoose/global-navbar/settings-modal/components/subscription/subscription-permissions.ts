@@ -3,7 +3,7 @@ import type {
   PublicBillingTierDisplay,
 } from '@/lib/billing/public-catalog'
 import { canTierEditUsageLimit } from '@/lib/billing/tier-summary'
-import type { BillingTierSummary } from '@/lib/subscription/types'
+import type { BillingTierSummary } from '@/lib/billing/types'
 
 export interface SubscriptionState {
   isFree: boolean
@@ -68,6 +68,7 @@ function getCurrentTier(
       ...subscription.tier,
       id: subscription.tier.id,
       description: '',
+      checkoutInterval: null,
       isDefault: subscription.isFree,
     }
   }

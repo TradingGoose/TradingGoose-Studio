@@ -257,6 +257,7 @@ function catalogTier(
     displayOrder,
     monthlyPriceUsd: 12.5,
     yearlyPriceUsd: null,
+    checkoutInterval: 'month',
     seatCount: ownerType === 'organization' ? 2 : null,
     seatMaximum: null,
     canEditUsageLimit: false,
@@ -469,7 +470,7 @@ describe('Subscription billing subject', () => {
       )!
       await act(async () => confirm.click())
       expect(mocks.handleUpgrade).toHaveBeenCalledWith(
-        expect.objectContaining({ billingTierId: 'tier-org-public' }),
+        expect.objectContaining({ id: 'tier-org-public' }),
         { organizationId: 'org-billing', seats: occupied }
       )
     }
@@ -530,7 +531,7 @@ describe('Subscription billing subject', () => {
     ) as HTMLButtonElement
     await act(async () => confirm.click())
     expect(mocks.handleUpgrade).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ billingTierId: 'tier-org-public' }),
+      expect.objectContaining({ id: 'tier-org-public' }),
       { organizationId, seats: 2 }
     )
   })
@@ -667,12 +668,14 @@ describe('Subscription billing subject', () => {
   })
 
   it.each([
-    { monthly: null, yearly: 120, amount: '$480.00', interval: 'year', annual: true },
-    { monthly: 12.5, yearly: 120, amount: '$50.00', interval: 'month', annual: false },
-    { monthly: 0, yearly: 120, amount: '$0.00', interval: 'month', annual: false },
+    { monthly: null, yearly: 120, amount: '$480.00', interval: 'year' },
+    { monthly: 12.5, yearly: 120, amount: '$50.00', interval: 'month' },
+    { monthly: 0, yearly: 120, amount: '$0.00', interval: 'month' },
+    { monthly: null, yearly: 120, amount: null, interval: 'month' },
+    { monthly: null, yearly: null, amount: null, interval: 'month' },
   ])(
     'quotes the $interval price and submits its native interval ($monthly/$yearly)',
-    async ({ monthly, yearly, amount, interval, annual }) => {
+    async ({ monthly, yearly, amount, interval }) => {
       mocks.workspaceSettings = workspaceBillingOwner({
         type: 'organization',
         organizationId: 'org-billing',
@@ -683,28 +686,29 @@ describe('Subscription billing subject', () => {
         totalSeats: 0,
         userRole: 'owner',
       }
-      mocks.publicTiers = [
+      mocks.privateTiers = [
         {
           ...catalogTier('tier-priced', 'Priced tier', 'organization', 1),
           monthlyPriceUsd: monthly,
           yearlyPriceUsd: yearly,
+          checkoutInterval: interval,
         },
       ]
       render()
       act(() => container.querySelector<HTMLButtonElement>('[data-testid="plan-card"]')!.click())
       const dialog = document.querySelector('[role="dialog"]')!
-      expect(dialog.textContent).toContain(`${amount} per ${interval}`)
+      if (amount === null) expect(dialog.textContent).not.toContain('$')
+      else expect(dialog.textContent).toContain(`${amount} per ${interval}`)
       expect(dialog.querySelector('#seats')).toHaveValue(4)
       const confirm = [...dialog.querySelectorAll('button')].find(
         (button) => button.textContent === 'Upgrade'
       )!
       await act(async () => confirm.click())
       expect(mocks.handleUpgrade).toHaveBeenCalledWith(
-        expect.objectContaining({ billingTierId: 'tier-priced' }),
+        expect.objectContaining({ id: 'tier-priced', checkoutInterval: interval }),
         {
           organizationId: 'org-billing',
           seats: 4,
-          ...(annual ? { annual: true } : {}),
         }
       )
     }
@@ -728,6 +732,7 @@ describe('Subscription billing subject', () => {
         seatCount: 4,
         monthlyPriceUsd: null,
         yearlyPriceUsd: 120,
+        checkoutInterval: 'year',
       },
     ]
     render()
@@ -736,8 +741,8 @@ describe('Subscription billing subject', () => {
     )
     expect(document.querySelector('[role="dialog"]')).toBeNull()
     expect(mocks.handleUpgrade).toHaveBeenCalledWith(
-      expect.objectContaining({ billingTierId: 'tier-fixed' }),
-      { organizationId: 'org-billing', annual: true }
+      expect.objectContaining({ id: 'tier-fixed', checkoutInterval: 'year' }),
+      { organizationId: 'org-billing' }
     )
   })
 
@@ -755,9 +760,7 @@ describe('Subscription billing subject', () => {
     mocks.publicTiers = [
       {
         ...catalogTier('tier-blocked', 'Blocked tier', 'organization', 1),
-        ...(issue === 'capacity'
-          ? { seatMaximum: 3 }
-          : { monthlyPriceUsd: null, yearlyPriceUsd: null }),
+        ...(issue === 'capacity' ? { seatMaximum: 3 } : { checkoutInterval: null }),
       },
     ]
     render()
@@ -831,7 +834,7 @@ describe('Subscription billing subject', () => {
     await act(async () => confirm.click())
 
     expect(mocks.handleUpgrade).toHaveBeenCalledWith(
-      expect.objectContaining({ billingTierId: 'tier-org-private', ownerType: 'organization' }),
+      expect.objectContaining({ id: 'tier-org-private', ownerType: 'organization' }),
       { organizationId: 'org-billing', seats: expectedSeats }
     )
   })

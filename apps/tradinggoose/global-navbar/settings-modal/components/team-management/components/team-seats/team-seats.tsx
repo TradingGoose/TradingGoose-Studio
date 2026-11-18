@@ -19,7 +19,7 @@ interface TeamSeatsProps {
   onOpenChange: (open: boolean) => void
   title: string
   description: string
-  pricePerSeat: number
+  pricePerSeat: number | null
   billingInterval: 'month' | 'year'
   minimumSeats: number
   maximumSeats: number | null
@@ -64,9 +64,7 @@ export function TeamSeats({
     }
   }, [open, initialSeats, clampSeats])
 
-  const totalCost = selectedSeats * pricePerSeat
   const invalidRange = maximumSeats !== null && minimumSeats > maximumSeats
-  const costChange = currentSeats ? (selectedSeats - currentSeats) * pricePerSeat : 0
   const handleConfirm = async () => {
     if (invalidRange) return
     await onConfirm(selectedSeats)
@@ -107,13 +105,15 @@ export function TeamSeats({
             disabled={isLoading}
           />
 
-          <p className='mt-2 text-muted-foreground text-sm'>
-            {t('yourTeamWillHave', {
-              count: selectedSeats,
-              cost: formatUsd(locale, totalCost),
-              interval: billingInterval,
-            })}
-          </p>
+          {pricePerSeat !== null && (
+            <p className='mt-2 text-muted-foreground text-sm'>
+              {t('yourTeamWillHave', {
+                count: selectedSeats,
+                cost: formatUsd(locale, selectedSeats * pricePerSeat),
+                interval: billingInterval,
+              })}
+            </p>
+          )}
           {!invalidRange && (
             <p className='mt-1 text-muted-foreground text-xs'>
               {maximumSeats === null
@@ -127,7 +127,7 @@ export function TeamSeats({
             </p>
           )}
 
-          {showCostBreakdown && currentSeats !== undefined && (
+          {showCostBreakdown && currentSeats !== undefined && pricePerSeat !== null && (
             <div className='mt-3 rounded-md bg-muted/50 p-3'>
               <div className='flex justify-between text-sm'>
                 <span>{t('currentSeats')}</span>
@@ -139,7 +139,11 @@ export function TeamSeats({
               </div>
               <div className='mt-2 flex justify-between border-t pt-2 font-medium text-sm'>
                 <span>{t('costChange', { interval: billingInterval })}</span>
-                <span>{formatUsd(locale, costChange, { signDisplay: 'exceptZero' })}</span>
+                <span>
+                  {formatUsd(locale, (selectedSeats - currentSeats) * pricePerSeat, {
+                    signDisplay: 'exceptZero',
+                  })}
+                </span>
               </div>
             </div>
           )}

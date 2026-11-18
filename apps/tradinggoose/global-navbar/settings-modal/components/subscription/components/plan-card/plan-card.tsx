@@ -1,6 +1,5 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui'
@@ -11,9 +10,9 @@ export interface PlanFeature {
   text: string
 }
 
-export interface PlanCardProps {
+interface PlanCardProps {
   name: string
-  price: string | ReactNode
+  price: string
   priceSubtext?: string
   features: PlanFeature[]
   buttonText: string
@@ -21,9 +20,7 @@ export interface PlanCardProps {
   buttonDisabled?: boolean
   isCurrent?: boolean
   isError?: boolean
-  variant?: 'default' | 'compact'
   layout?: 'vertical' | 'horizontal'
-  className?: string
 }
 
 /**
@@ -40,27 +37,11 @@ export function PlanCard({
   buttonDisabled = false,
   isCurrent = false,
   isError = false,
-  variant = 'default',
   layout = 'vertical',
-  className,
 }: PlanCardProps) {
   const copy = useTranslations('workspace.settingsModal.subscription.planCard')
   const isHorizontal = layout === 'horizontal'
   const actionText = isError ? copy('error') : buttonText
-
-  const renderPrice = () => {
-    if (typeof price === 'string') {
-      return (
-        <>
-          <span className='font-semibold text-xl'>{price}</span>
-          {priceSubtext && (
-            <span className='ml-1 text-muted-foreground text-xs'>{priceSubtext}</span>
-          )}
-        </>
-      )
-    }
-    return price
-  }
 
   const renderFeatures = () => {
     if (isHorizontal) {
@@ -100,13 +81,17 @@ export function PlanCard({
       className={cn(
         'relative flex rounded-md border p-4 transition-colors',
         isCurrent ? 'border-primary' : 'hover:border-muted-foreground/20',
-        isHorizontal ? 'flex-row items-center justify-between' : 'flex-col',
-        className
+        isHorizontal ? 'flex-row items-center justify-between' : 'flex-col'
       )}
     >
       <header className={isHorizontal ? undefined : 'mb-4'}>
         <h3 className='mb-2 font-semibold text-sm'>{name}</h3>
-        <div className='flex items-baseline'>{renderPrice()}</div>
+        <div className='flex items-baseline'>
+          <span className='font-semibold text-xl'>{price}</span>
+          {priceSubtext && (
+            <span className='ml-1 text-muted-foreground text-xs'>{priceSubtext}</span>
+          )}
+        </div>
         {isHorizontal && renderFeatures()}
       </header>
 

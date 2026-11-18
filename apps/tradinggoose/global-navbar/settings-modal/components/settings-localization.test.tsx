@@ -291,6 +291,7 @@ describe('settings localization', () => {
         seatMaximum: 10,
         monthlyPriceUsd: 12.5,
         yearlyPriceUsd: null,
+        checkoutInterval: 'month',
         displayOrder: 0,
         pricingFeatures: [],
         canEditUsageLimit: false,
@@ -315,7 +316,7 @@ describe('settings localization', () => {
     await act(async () => confirm.click())
 
     expect(mocks.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ billingTierId: 'tier-org', ownerType: 'organization' }),
+      expect.objectContaining({ id: 'tier-org', ownerType: 'organization' }),
       { organizationId: 'org-1', seats: expectedSeats }
     )
   })
@@ -366,6 +367,7 @@ describe('settings localization', () => {
           seatMaximum: 80,
           monthlyPriceUsd: 12.5,
           yearlyPriceUsd: null,
+          checkoutInterval: 'month',
           pricingFeatures: [],
           isDefault: false,
         },
@@ -387,42 +389,35 @@ describe('settings localization', () => {
       expect(dialog.querySelector('#seats')).toHaveValue(50)
       expect(dialog.textContent).toContain('$625.00')
       await act(async () => confirm().click())
+      expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'tier-org' }), {
+        organizationId: 'org-1',
+        seats: 50,
+      })
+    })
+
+    it('uses the annual quote and checkout interval for adjustable team tiers', async () => {
+      mocks.publicTiers[0] = {
+        ...mocks.publicTiers[0],
+        monthlyPriceUsd: null,
+        yearlyPriceUsd: 120,
+        checkoutInterval: 'year',
+      }
+      await render('en', <TeamManagement />)
+      await act(async () => plan().click())
+      expect(document.querySelector('[role="dialog"]')?.textContent).toContain('$6,000.00 per year')
+      await act(async () => confirm().click())
       expect(mocks.mutate).toHaveBeenCalledWith(
-        expect.objectContaining({ billingTierId: 'tier-org' }),
+        expect.objectContaining({ id: 'tier-org', checkoutInterval: 'year' }),
         { organizationId: 'org-1', seats: 50 }
       )
     })
-
-    it.each([
-      { monthly: null, yearly: 120, amount: '$6,000.00', interval: 'year', annual: true },
-      { monthly: 12.5, yearly: 120, amount: '$625.00', interval: 'month', annual: false },
-      { monthly: 0, yearly: 120, amount: '$0.00', interval: 'month', annual: false },
-    ])(
-      'uses the actual $interval quote and native interval for team upgrades ($monthly/$yearly)',
-      async ({ monthly, yearly, amount, interval, annual }) => {
-        mocks.publicTiers[0] = {
-          ...mocks.publicTiers[0],
-          monthlyPriceUsd: monthly,
-          yearlyPriceUsd: yearly,
-        }
-        await render('en', <TeamManagement />)
-        await act(async () => plan().click())
-        expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
-          `${amount} per ${interval}`
-        )
-        await act(async () => confirm().click())
-        expect(mocks.mutate).toHaveBeenCalledWith(
-          expect.objectContaining({ billingTierId: 'tier-org' }),
-          { organizationId: 'org-1', seats: 50, ...(annual ? { annual: true } : {}) }
-        )
-      }
-    )
 
     it('uses annual billing for fixed team tiers without a seat dialog', async () => {
       mocks.publicTiers[0] = {
         ...mocks.publicTiers[0],
         monthlyPriceUsd: null,
         yearlyPriceUsd: 120,
+        checkoutInterval: 'year',
         seatMode: 'fixed',
         seatCount: 60,
       }
@@ -430,25 +425,19 @@ describe('settings localization', () => {
       await act(async () => plan().click())
       expect(document.querySelector('[role="dialog"]')).toBeNull()
       expect(mocks.mutate).toHaveBeenCalledWith(
-        expect.objectContaining({ billingTierId: 'tier-org' }),
-        { organizationId: 'org-1', seats: 60, annual: true }
+        expect.objectContaining({ id: 'tier-org', checkoutInterval: 'year' }),
+        { organizationId: 'org-1', seats: 60 }
       )
     })
 
-    it.each(['capacity', 'unpriced'])('keeps an %s team tier unavailable', async (issue) => {
-      mocks.publicTiers[0] = {
-        ...mocks.publicTiers[0],
-        ...(issue === 'capacity'
-          ? { seatMaximum: 10 }
-          : { monthlyPriceUsd: null, yearlyPriceUsd: null }),
-      }
+    it('keeps a team tier with insufficient capacity unavailable', async () => {
+      mocks.publicTiers[0] = { ...mocks.publicTiers[0], seatMaximum: 10 }
       await render('en', <TeamManagement />)
       expect(plan()).toBeDisabled()
       await act(async () => plan().click())
       expect(document.querySelector('[role="dialog"]')).toBeNull()
       expect(mocks.mutate).not.toHaveBeenCalled()
-      if (issue === 'capacity')
-        expect(container.textContent).toContain('at most 10 seats, but 50 are required')
+      expect(container.textContent).toContain('at most 10 seats, but 50 are required')
     })
 
     it('quotes add-seat changes from the current annual-only tier instead of a public monthly tier', async () => {
@@ -558,10 +547,10 @@ describe('settings localization', () => {
       expect(document.querySelector('#seats')).toHaveAttribute('min', '2')
       expect(document.querySelector('#seats')).toHaveValue(2)
       await act(async () => confirm().click())
-      expect(mocks.mutate).toHaveBeenCalledWith(
-        expect.objectContaining({ billingTierId: 'tier-org' }),
-        { organizationId: 'org-2', seats: 2 }
-      )
+      expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'tier-org' }), {
+        organizationId: 'org-2',
+        seats: 2,
+      })
     })
 
     it('does not fetch or surface retained seat errors without enabled organization billing', async () => {
@@ -758,7 +747,7 @@ describe('settings localization', () => {
           onWorkspaceToggle={vi.fn()}
           invitedWorkspaceCount={count}
           canInviteMembers
-          seatLimited={false}
+          availableSeats={1}
         />
       )
 

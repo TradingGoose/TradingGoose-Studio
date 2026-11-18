@@ -12,7 +12,11 @@ import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateSlug, getUserRole } from '@/lib/organization'
 import { getOrganizationAccessState } from '@/lib/organization/access'
-import { getUpgradeTierIssue, useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
+import {
+  getUpgradePrice,
+  getUpgradeTierIssue,
+  useSubscriptionUpgrade,
+} from '@/lib/subscription/upgrade'
 import {
   organizationMutationOptions,
   useAvailableOrganizationBillingWorkspaces,
@@ -27,7 +31,6 @@ import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useAdminWorkspaces } from '@/hooks/queries/workspace'
 import { formatUsd } from '@/i18n/formatters'
 import type { LocaleCode } from '@/i18n/utils'
-import { toUpgradeTarget } from '../subscription/plan-configs'
 import {
   getSubscriptionSurfaceState,
   mergeAccessibleBillingTiers,
@@ -234,7 +237,6 @@ export function TeamManagement() {
   const showSeatCountsError = seatCountsEnabled && isSeatCountsError
 
   const canInviteMembers = Boolean(currentTier?.ownerType === 'organization')
-  const seatLimited = canInviteMembers
   const inviteUnavailableMessage =
     displayOrganization && !canInviteMembers ? copy('inviteUnavailableMessage') : null
 
@@ -560,16 +562,21 @@ export function TeamManagement() {
               <div className='flex flex-wrap gap-2'>
                 {organizationPlanTiers.map((tier) => {
                   const isCurrentTier = tier.id === organizationPlanSurface.currentTier?.id
-                  const issue = getUpgradeTierIssue(tier, usedSeats)
-                  const period = formatBillingPricePeriod(tier)
+                  const issue = isCurrentTier ? null : getUpgradeTierIssue(tier, usedSeats)
+                  const price = isCurrentTier
+                    ? (tier.monthlyPriceUsd ?? tier.yearlyPriceUsd)
+                    : getUpgradePrice(tier)
+                  const isMonthly = isCurrentTier
+                    ? formatBillingPricePeriod(tier) === '/mo'
+                    : tier.checkoutInterval === 'month'
                   const planLabel = (
                     <>
                       {tier.displayName}
-                      {period && (
+                      {price !== null && (
                         <>
                           {' '}
-                          · {formatUsd(locale, (tier.monthlyPriceUsd ?? tier.yearlyPriceUsd)!)}
-                          {period === '/mo' ? copy('plans.monthly') : copy('plans.yearly')}
+                          · {formatUsd(locale, price)}
+                          {isMonthly ? copy('plans.monthly') : copy('plans.yearly')}
                         </>
                       )}
                       {isCurrentTier ? ` · ${copy('plans.current')}` : null}
@@ -603,10 +610,9 @@ export function TeamManagement() {
                             return
                           }
                           void runAction(`subscribe:${tier.id}`, () =>
-                            handleUpgrade(toUpgradeTarget(tier), {
+                            handleUpgrade(tier, {
                               organizationId: activeOrgId,
                               seats: Math.max(tier.seatCount ?? 1, 1),
-                              ...(period === '/yr' ? { annual: true } : {}),
                             })
                           )
                         }}
@@ -746,7 +752,6 @@ export function TeamManagement() {
             invitedWorkspaceCount={invitedWorkspaceCount}
             canInviteMembers={canInviteMembers}
             inviteUnavailableMessage={inviteUnavailableMessage}
-            seatLimited={seatLimited}
             availableSeats={organizationSeats?.availableSeats ?? 0}
           />
         )}
@@ -806,7 +811,7 @@ export function TeamManagement() {
         }
       />
 
-      {pendingUpgradeTier && formatBillingPricePeriod(pendingUpgradeTier) && (
+      {pendingUpgradeTier?.checkoutInterval && (
         <TeamSeats
           open={isOrganizationOwner && !seatCountsUnavailable}
           onOpenChange={(open) => {
@@ -814,10 +819,8 @@ export function TeamManagement() {
           }}
           title={pendingUpgradeTier.displayName}
           description={pendingUpgradeTier.description || copy('plans.description')}
-          pricePerSeat={(pendingUpgradeTier.monthlyPriceUsd ?? pendingUpgradeTier.yearlyPriceUsd)!}
-          billingInterval={
-            formatBillingPricePeriod(pendingUpgradeTier) === '/yr' ? 'year' : 'month'
-          }
+          pricePerSeat={getUpgradePrice(pendingUpgradeTier)}
+          billingInterval={pendingUpgradeTier.checkoutInterval}
           minimumSeats={Math.max(pendingUpgradeTier.seatCount ?? 1, usedSeats)}
           maximumSeats={pendingUpgradeTier.seatMaximum}
           initialSeats={totalSeats}
@@ -831,10 +834,9 @@ export function TeamManagement() {
             )
               return
             const succeeded = await runAction(`subscribe:${pendingUpgradeTier.id}`, () =>
-              handleUpgrade(toUpgradeTarget(pendingUpgradeTier), {
+              handleUpgrade(pendingUpgradeTier, {
                 organizationId: activeOrgId,
                 seats,
-                ...(formatBillingPricePeriod(pendingUpgradeTier) === '/yr' ? { annual: true } : {}),
               })
             )
             if (succeeded) setPendingUpgradeTier(null)

@@ -45,12 +45,13 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 const previousActEnvironment = reactActEnvironment.IS_REACT_ACT_ENVIRONMENT
 const organizationTarget: BillingUpgradeTarget = {
-  billingTierId: 'team-new',
+  id: 'team-new',
   displayName: 'New Team',
   ownerType: 'organization',
   usageScope: 'pooled',
   seatMode: 'adjustable',
   seatCount: 2,
+  checkoutInterval: 'month',
 }
 
 let container: HTMLDivElement | null = null
@@ -113,14 +114,21 @@ describe('useSubscriptionUpgrade', () => {
     expect(mockInvalidateQueries).not.toHaveBeenCalled()
   })
 
-  it.each([undefined, false, true])(
-    'forwards native annual billing only when selected: %s',
-    async (annual) => {
-      await handleUpgrade?.(organizationTarget, { organizationId: 'org-1', seats: 4, annual })
+  it.each(['month', 'year'] as const)(
+    'uses the tier checkout interval for native billing: %s',
+    async (checkoutInterval) => {
+      await handleUpgrade?.(
+        { ...organizationTarget, checkoutInterval },
+        {
+          organizationId: 'org-1',
+          seats: 4,
+        }
+      )
       expect(mockUpgrade).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({ plan: 'team-new', referenceId: 'org-1', seats: 4 })
       )
-      if (annual) expect(mockUpgrade.mock.calls[0][0]).toHaveProperty('annual', true)
+      if (checkoutInterval === 'year')
+        expect(mockUpgrade.mock.calls[0][0]).toHaveProperty('annual', true)
       else expect(mockUpgrade.mock.calls[0][0]).not.toHaveProperty('annual')
     }
   )

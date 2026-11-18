@@ -5,6 +5,7 @@ const MANAGEMENT_CONFIGURATION_METADATA_KEY = 'tradinggoose_purpose'
 const MANAGEMENT_CONFIGURATION_METADATA_VALUE = 'billing_management'
 const MANAGEMENT_CONFIGURATION_IDEMPOTENCY_KEY = 'billing-portal:management-configuration'
 const STRIPE_PORTAL_PRODUCT_LIMIT = 10
+const PLAN_CHANGE_ALLOWED_UPDATES = ['price', 'quantity'] as const
 
 type PlanChangeTier = Pick<
   BillingTierRecord,
@@ -89,8 +90,10 @@ export async function ensurePlanChangePortalConfiguration(stripe: Stripe) {
   const currentProducts = normalizeCatalog(subscriptionUpdate.products)
   const catalogChanged = JSON.stringify(currentProducts) !== JSON.stringify(products)
   const allowedUpdatesChanged =
-    subscriptionUpdate.default_allowed_updates.length !== 1 ||
-    subscriptionUpdate.default_allowed_updates[0] !== 'price'
+    subscriptionUpdate.default_allowed_updates.length !== PLAN_CHANGE_ALLOWED_UPDATES.length ||
+    PLAN_CHANGE_ALLOWED_UPDATES.some(
+      (update) => !subscriptionUpdate.default_allowed_updates.includes(update)
+    )
 
   if (
     defaultConfiguration.login_page.enabled ||
@@ -104,7 +107,7 @@ export async function ensurePlanChangePortalConfiguration(stripe: Stripe) {
       features: {
         subscription_update: {
           enabled: true,
-          default_allowed_updates: ['price'],
+          default_allowed_updates: [...PLAN_CHANGE_ALLOWED_UPDATES],
           proration_behavior: 'create_prorations',
           products,
         },

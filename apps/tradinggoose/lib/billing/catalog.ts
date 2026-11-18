@@ -19,6 +19,11 @@ export function toBillingTierDisplay(tier: BillingTierRecord): PublicBillingTier
     displayOrder: tier.displayOrder,
     monthlyPriceUsd: tier.monthlyPriceUsd === null ? null : Number(tier.monthlyPriceUsd),
     yearlyPriceUsd: tier.yearlyPriceUsd === null ? null : Number(tier.yearlyPriceUsd),
+    checkoutInterval: tier.stripeMonthlyPriceId
+      ? 'month'
+      : tier.stripeYearlyPriceId
+        ? 'year'
+        : null,
     seatCount: tier.seatCount ?? null,
     seatMaximum: tier.seatMaximum ?? null,
     canEditUsageLimit: tier.canEditUsageLimit,

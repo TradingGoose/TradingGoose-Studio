@@ -23,10 +23,10 @@ import { GET, PUT } from './route'
 let membership: Array<{ role: string }>
 const tables: unknown[] = []
 const params = { params: Promise.resolve({ id: 'org-large' }) }
-const request = (method = 'GET') =>
+const request = (method = 'GET', seats = 60) =>
   new NextRequest('http://localhost/api/organizations/org-large/seats', {
     method,
-    ...(method === 'PUT' ? { body: JSON.stringify({ seats: 60 }) } : {}),
+    ...(method === 'PUT' ? { body: JSON.stringify({ seats }) } : {}),
   })
 
 beforeEach(() => {
@@ -37,6 +37,7 @@ beforeEach(() => {
   mocks.billing.mockResolvedValue({ billingEnabled: true })
   mocks.subscription.mockResolvedValue({
     seats: 60,
+    stripeSubscriptionId: 'sub_organization',
     tier: {
       displayName: 'Team',
       ownerType: 'organization',
@@ -121,6 +122,13 @@ describe('organization seat aggregate', () => {
     membership = [{ role: 'admin' }]
     expect((await PUT(request('PUT'), params)).status).toBe(403)
     expect(mocks.subscription).not.toHaveBeenCalled()
+    expect(mocks.stripe).not.toHaveBeenCalled()
+  })
+
+  it('rejects a reduction below occupied seats before updating Stripe', async () => {
+    const response = await PUT(request('PUT', 55), params)
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({ occupiedSeats: 56 })
     expect(mocks.stripe).not.toHaveBeenCalled()
   })
 })

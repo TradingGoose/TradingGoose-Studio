@@ -1,26 +1,30 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { client, useSession } from '@/lib/auth-client'
-import {
-  formatBillingPricePeriod,
-  type PublicBillingTierDisplay,
-} from '@/lib/billing/public-catalog'
+import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { createLogger } from '@/lib/logs/console/logger'
 import { organizationKeys } from '@/hooks/queries/organization'
 import { resolveOrganizationUpgradeReference } from './upgrade-target'
 
 const logger = createLogger('SubscriptionUpgrade')
-export interface BillingUpgradeTarget {
-  billingTierId: string
-  displayName: string
-  ownerType: PublicBillingTierDisplay['ownerType']
-  usageScope: PublicBillingTierDisplay['usageScope']
-  seatMode: 'fixed' | 'adjustable'
-  seatCount?: number | null
+export type BillingUpgradeTarget = Pick<
+  PublicBillingTierDisplay,
+  'id' | 'displayName' | 'ownerType' | 'usageScope' | 'seatMode' | 'seatCount' | 'checkoutInterval'
+>
+
+export function getUpgradePrice(tier: PublicBillingTierDisplay) {
+  switch (tier.checkoutInterval) {
+    case 'month':
+      return tier.monthlyPriceUsd
+    case 'year':
+      return tier.yearlyPriceUsd
+    default:
+      return null
+  }
 }
 
 export function getUpgradeTierIssue(tier: PublicBillingTierDisplay, occupiedSeats: number) {
-  if (formatBillingPricePeriod(tier) === null) return 'unpriced'
+  if (tier.checkoutInterval === null) return 'unpriced'
   if (tier.ownerType !== 'organization') return null
   const minimum = Math.max(tier.seatCount ?? 1, occupiedSeats, 1)
   const maximum = tier.seatMode === 'fixed' ? Math.max(tier.seatCount ?? 1, 1) : tier.seatMaximum
@@ -37,7 +41,6 @@ export function useSubscriptionUpgrade() {
       options?: {
         seats?: number
         organizationId?: string
-        annual?: boolean
       }
     ) => {
       const userId = session?.user?.id
@@ -81,16 +84,16 @@ export function useSubscriptionUpgrade() {
 
       try {
         const upgradeParams = {
-          plan: targetTier.billingTierId,
+          plan: targetTier.id,
           referenceId,
           successUrl: currentUrl,
           cancelUrl: currentUrl,
-          ...(options?.annual ? { annual: true } : {}),
+          ...(targetTier.checkoutInterval === 'year' ? { annual: true } : {}),
           ...(targetTier.ownerType === 'organization' && { seats: initialSeats }),
         } as const
 
         logger.info('Requesting subscription upgrade', {
-          billingTierId: targetTier.billingTierId,
+          billingTierId: targetTier.id,
           billingTier: targetTier.displayName,
           usageScope: targetTier.usageScope,
           seatMode: targetTier.seatMode,
@@ -112,7 +115,7 @@ export function useSubscriptionUpgrade() {
         }
 
         logger.info('Subscription upgrade completed successfully', {
-          billingTierId: targetTier.billingTierId,
+          billingTierId: targetTier.id,
           billingTier: targetTier.displayName,
           referenceId,
         })
