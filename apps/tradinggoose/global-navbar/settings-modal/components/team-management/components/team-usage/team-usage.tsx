@@ -65,7 +65,6 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
   const currentCap =
     organizationBillingPayload.totalUsageLimit || organizationBillingPayload.minimumUsageLimit || 0
   const minimumUsageLimit = organizationBillingPayload.minimumUsageLimit || 0
-  const seatsCount = organizationBillingPayload.seatsCount || 1
   const percentUsed =
     currentCap > 0 ? Math.round(Math.min((currentUsage / currentCap) * 100, 100)) : 0
   const warningThresholdPercent =
@@ -90,7 +89,7 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
       onBadgeClick={() => {
         if (canEditUsageLimit) usageLimitRef.current?.startEdit()
       }}
-      seatsText={copy('seatsText', { count: seatsCount })}
+      seatsText={copy('seatsText', { count: organizationBillingPayload.totalSeats || 1 })}
       current={currentUsage}
       limit={currentCap}
       isBlocked={Boolean(organizationBillingPayload?.billingBlocked)}

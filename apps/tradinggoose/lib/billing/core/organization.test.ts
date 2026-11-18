@@ -9,7 +9,6 @@ const {
   mockCanTierEditUsageLimit,
   mockDb,
   mockEq,
-  mockGetBillingTierPricing,
   mockGetOrganizationSubscription,
   mockGetResolvedBillingSettings,
   mockGetSubscriptionUsageAllowanceUsd,
@@ -24,7 +23,6 @@ const {
     update: vi.fn(),
   },
   mockEq: vi.fn(),
-  mockGetBillingTierPricing: vi.fn(),
   mockGetOrganizationSubscription: vi.fn(),
   mockGetResolvedBillingSettings: vi.fn(),
   mockGetSubscriptionUsageAllowanceUsd: vi.fn(),
@@ -71,7 +69,6 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@/lib/billing/core/billing', () => ({
-  getBillingTierPricing: mockGetBillingTierPricing,
   getOrganizationSubscription: mockGetOrganizationSubscription,
 }))
 
@@ -198,9 +195,6 @@ describe('getOrganizationBillingData', () => {
     mockGetResolvedBillingSettings.mockResolvedValue({
       billingEnabled: true,
       usageWarningThresholdPercent: 80,
-    })
-    mockGetBillingTierPricing.mockReturnValue({
-      basePrice: 99,
     })
     mockCanTierEditUsageLimit.mockReturnValue(false)
     mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(80)
@@ -376,7 +370,7 @@ describe('getOrganizationBillingData', () => {
     expect(result).not.toBeNull()
     expect(result?.subscriptionTier).toBeNull()
     expect(result?.subscriptionStatus).toBeNull()
-    expect(result?.seatMode).toBeNull()
+    expect(result?.totalSeats).toBe(2)
     expect(result?.members.map((member) => member.usageLimit)).toEqual([
       Number.MAX_SAFE_INTEGER,
       Number.MAX_SAFE_INTEGER,

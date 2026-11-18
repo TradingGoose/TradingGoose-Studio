@@ -8,7 +8,7 @@ import {
   userStats,
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { getBillingTierPricing, getOrganizationSubscription } from '@/lib/billing/core/billing'
+import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import {
   canTierEditUsageLimit,
@@ -243,13 +243,7 @@ interface OrganizationUsageData {
   organizationName: string
   subscriptionTier: BillingTierSummary | null
   subscriptionStatus: string | null
-  seatPriceUsd: number
-  seatCount: number | null
-  seatMaximum: number | null
-  seatMode: 'fixed' | 'adjustable' | null
   totalSeats: number
-  usedSeats: number
-  seatsCount: number
   totalCurrentUsage: number
   totalUsageLimit: number
   warningThresholdPercent: number
@@ -365,13 +359,7 @@ export async function getOrganizationBillingData(
         organizationName: organizationData.name || '',
         subscriptionTier: null,
         subscriptionStatus: null,
-        seatPriceUsd: 0,
-        seatCount: null,
-        seatMaximum: null,
-        seatMode: null,
         totalSeats: members.length,
-        usedSeats: members.length,
-        seatsCount: members.length,
         totalCurrentUsage: roundCurrency(totalCurrentUsage),
         totalUsageLimit: billingEnabled ? 0 : Number.MAX_SAFE_INTEGER,
         warningThresholdPercent: 0,
@@ -433,7 +421,6 @@ export async function getOrganizationBillingData(
     const totalCopilotCost = billingLedger.currentPeriodCopilotCost
     const totalLastPeriodCopilotCost = billingLedger.lastPeriodCopilotCost
 
-    const { basePrice: recurringPrice } = getBillingTierPricing(subscription.tier)
     // Use Stripe subscription seats as source of truth
     // Ensure we always have at least 1 seat (protect against 0 or falsy values)
     const licensedSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
@@ -463,13 +450,7 @@ export async function getOrganizationBillingData(
       organizationName: organizationData.name || '',
       subscriptionTier: toBillingTierSummary(subscription.tier),
       subscriptionStatus: subscription.status || 'inactive',
-      seatPriceUsd: roundCurrency(recurringPrice),
-      seatCount: subscription.tier.seatCount ?? null,
-      seatMaximum: subscription.tier.seatMaximum ?? null,
-      seatMode: subscription.tier.seatMode,
       totalSeats: licensedSeats,
-      usedSeats: members.length,
-      seatsCount: licensedSeats,
       totalCurrentUsage: roundCurrency(totalCurrentUsage),
       totalUsageLimit: roundCurrency(totalUsageLimit),
       warningThresholdPercent: usageWarningThresholdPercent,

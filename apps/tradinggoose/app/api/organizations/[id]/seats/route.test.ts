@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   subscription: vi.fn(),
   select: vi.fn(),
   stripe: vi.fn(),
+  retrieve: vi.fn(),
 }))
 vi.mock('@tradinggoose/db', () => ({ db: { select: mocks.select } }))
 vi.mock('@/lib/auth', () => ({ getSession: mocks.session }))
@@ -35,6 +36,24 @@ beforeEach(() => {
   membership = [{ role: 'owner' }]
   mocks.session.mockResolvedValue({ user: { id: 'user-1' } })
   mocks.billing.mockResolvedValue({ billingEnabled: true })
+  mocks.stripe.mockReturnValue({ subscriptions: { retrieve: mocks.retrieve } })
+  mocks.retrieve.mockResolvedValue({
+    status: 'active',
+    currency: 'usd',
+    items: {
+      data: [
+        {
+          price: {
+            currency: 'usd',
+            billing_scheme: 'per_unit',
+            recurring: { interval: 'year', interval_count: 1, usage_type: 'licensed' },
+            unit_amount: null,
+            unit_amount_decimal: '12000',
+          },
+        },
+      ],
+    },
+  })
   mocks.subscription.mockResolvedValue({
     seats: 60,
     stripeSubscriptionId: 'sub_organization',
@@ -75,10 +94,16 @@ describe('organization seat aggregate', () => {
           pendingInvitations: 3,
           availableSeats: 4,
           canModifySeats: true,
+          seatPrice: role === 'owner' ? { amountUsd: 120, interval: 'year' } : null,
         },
       })
       expect(tables).toEqual([member, member, invitation])
       expect(mocks.subscription).toHaveBeenCalledWith('org-large')
+      if (role === 'owner') {
+        expect(mocks.retrieve).toHaveBeenCalledWith('sub_organization')
+      } else {
+        expect(mocks.stripe).not.toHaveBeenCalled()
+      }
     }
   )
 
@@ -110,7 +135,16 @@ describe('organization seat aggregate', () => {
     const response = await GET(request(), params)
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
-      data: { maxSeats: 60, canModifySeats: false },
+      data: { maxSeats: 60, canModifySeats: false, seatPrice: null },
+    })
+  })
+
+  it('keeps occupancy and seat changes available when Stripe pricing cannot be fetched', async () => {
+    mocks.retrieve.mockRejectedValueOnce(new Error('Stripe unavailable'))
+    const response = await GET(request(), params)
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      data: { usedSeats: 56, canModifySeats: true, seatPrice: null },
     })
   })
 

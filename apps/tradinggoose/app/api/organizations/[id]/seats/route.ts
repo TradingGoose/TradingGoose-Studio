@@ -16,6 +16,38 @@ const updateSeatsSchema = z.object({
   seats: z.number().int().min(1, 'Minimum 1 seat required'),
 })
 
+async function getStripeSeatSubscription(stripeSubscriptionId: string) {
+  const stripe = requireStripeClient()
+  const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId)
+  return { stripe, subscription, item: subscription.items.data[0] }
+}
+
+async function getSeatPrice(stripeSubscriptionId: string) {
+  try {
+    const { subscription, item } = await getStripeSeatSubscription(stripeSubscriptionId)
+    const price = item?.price
+    const interval = price?.recurring?.interval
+    const amount = price?.unit_amount_decimal ?? price?.unit_amount
+    if (
+      subscription.status !== 'active' ||
+      subscription.currency !== 'usd' ||
+      price?.currency !== 'usd' ||
+      price.billing_scheme !== 'per_unit' ||
+      price.transform_quantity ||
+      price.recurring?.usage_type !== 'licensed' ||
+      price.recurring.interval_count !== 1 ||
+      (interval !== 'month' && interval !== 'year') ||
+      amount == null
+    ) {
+      return null
+    }
+    return { amountUsd: Number(amount) / 100, interval }
+  } catch (error) {
+    logger.warn('Failed to get Stripe seat price', { stripeSubscriptionId, error })
+    return null
+  }
+}
+
 /**
  * PUT /api/organizations/[id]/seats
  * Update organization seat count using Stripe's subscription.update API.
@@ -131,19 +163,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       })
     }
 
-    const stripe = requireStripeClient()
-
-    // Get the Stripe subscription to find the subscription item ID
-    const stripeSubscription = await stripe.subscriptions.retrieve(
-      orgSubscription.stripeSubscriptionId
-    )
+    const {
+      stripe,
+      subscription: stripeSubscription,
+      item: subscriptionItem,
+    } = await getStripeSeatSubscription(orgSubscription.stripeSubscriptionId)
 
     if (stripeSubscription.status !== 'active') {
       return NextResponse.json({ error: 'Stripe subscription is not active' }, { status: 400 })
     }
-
-    // Find the single Stripe subscription item that represents this adjustable-seat tier.
-    const subscriptionItem = stripeSubscription.items.data[0]
 
     if (!subscriptionItem) {
       return NextResponse.json(
@@ -275,7 +303,17 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const maxSeats = orgSubscription
       ? Math.max(orgSubscription.seats || orgSubscription.tier.seatCount || 1, 1)
       : 0
-    const seatOccupancy = await getSeatOccupancy(organizationId)
+    const stripeSeatSubscriptionId =
+      orgSubscription?.tier.ownerType === 'organization' &&
+      orgSubscription.tier.seatMode === 'adjustable'
+        ? orgSubscription.stripeSubscriptionId
+        : null
+    const [seatOccupancy, seatPrice] = await Promise.all([
+      getSeatOccupancy(organizationId),
+      stripeSeatSubscriptionId && memberEntry[0].role === 'owner'
+        ? getSeatPrice(stripeSeatSubscriptionId)
+        : null,
+    ])
     const usedSeats = seatOccupancy.occupied
     const availableSeats = Math.max(0, maxSeats - usedSeats)
 
@@ -289,11 +327,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         pendingInvitations: seatOccupancy.pending,
         availableSeats,
         tier: orgSubscription?.tier.displayName ?? null,
-        canModifySeats: Boolean(
-          orgSubscription?.stripeSubscriptionId &&
-            orgSubscription.tier.ownerType === 'organization' &&
-            orgSubscription.tier.seatMode === 'adjustable'
-        ),
+        canModifySeats: Boolean(stripeSeatSubscriptionId),
+        seatPrice,
         seatMode: orgSubscription?.tier.seatMode ?? null,
         seatMaximum: orgSubscription?.tier.seatMaximum ?? null,
       },

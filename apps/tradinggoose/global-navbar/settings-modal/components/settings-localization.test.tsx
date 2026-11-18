@@ -122,6 +122,7 @@ describe('settings localization', () => {
       availableSeats: 0,
       tier: null,
       canModifySeats: false,
+      seatPrice: null,
       seatMode: null,
       seatMaximum: null,
     } satisfies OrganizationSeats)
@@ -466,23 +467,27 @@ describe('settings localization', () => {
       expect(container.textContent).toContain('at most 10 seats, but 50 are required')
     })
 
-    it.each([120, null])(
-      'changes licensed seats with the current annual display amount %s',
-      async (yearlyPriceUsd) => {
+    it.each([
+      { monthlyPriceUsd: 12.5, seatPrice: { amountUsd: 120, interval: 'year' } },
+      { monthlyPriceUsd: null, seatPrice: { amountUsd: 15, interval: 'month' } },
+      { monthlyPriceUsd: 12.5, seatPrice: null },
+    ] as const)(
+      'uses the active Stripe price $seatPrice to quote licensed seat changes',
+      async ({ monthlyPriceUsd, seatPrice }) => {
         mocks.billing = {
           ...mocks.billing,
           totalSeats: 60,
           subscriptionTier: {
             ...EMPTY_BILLING_TIER_SUMMARY,
-            id: 'current-annual',
-            displayName: 'Annual current',
+            id: 'current-team',
+            displayName: 'Current team',
             ownerType: 'organization',
             usageScope: 'pooled',
             seatMode: 'adjustable',
             seatCount: 2,
             seatMaximum: 80,
-            monthlyPriceUsd: null,
-            yearlyPriceUsd,
+            monthlyPriceUsd,
+            yearlyPriceUsd: 999,
             hasStripeMonthlyPriceId: true,
           },
         }
@@ -491,12 +496,16 @@ describe('settings localization', () => {
           maxSeats: 60,
           availableSeats: 10,
           canModifySeats: true,
+          seatPrice,
         })
         await render('en', <TeamManagement />)
         const copy = getClientMessages('en').workspace.settingsModal.team
-        if (yearlyPriceUsd !== null) {
+        if (seatPrice?.interval === 'year') {
           expect(container.textContent).toContain('a minimum of $7,200.00/year')
           expect(container.textContent).toContain('($120.00/year each)')
+        } else if (seatPrice?.interval === 'month') {
+          expect(container.textContent).toContain('a minimum of $900.00/month')
+          expect(container.textContent).toContain('($15.00/month each)')
         }
         const remove = [...container.querySelectorAll('button')].find(
           (button) => button.textContent === copy.removeSeat
@@ -510,14 +519,18 @@ describe('settings localization', () => {
         expect(add).toBeEnabled()
         await act(async () => add.click())
         const dialog = document.querySelector('[role="dialog"]')!
-        if (yearlyPriceUsd === null) {
+        if (seatPrice === null) {
           expect(dialog.textContent).toContain(copy.addSeats.quoteUnavailable)
           expect(dialog.textContent).not.toContain('$')
-        } else {
+        } else if (seatPrice.interval === 'year') {
           expect(dialog.textContent).toContain('$7,320.00 per year')
           expect(dialog.textContent).toContain('Annual cost change:')
+          expect(dialog.textContent).not.toContain('per month')
+        } else {
+          expect(dialog.textContent).toContain('$915.00 per month')
+          expect(dialog.textContent).toContain('Monthly cost change:')
+          expect(dialog.textContent).not.toContain('per year')
         }
-        expect(dialog.textContent).not.toContain('per month')
         const update = [...dialog.querySelectorAll('button')].find(
           (button) => button.textContent === copy.addSeats.confirm
         )!

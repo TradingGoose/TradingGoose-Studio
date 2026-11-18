@@ -113,6 +113,7 @@ export interface OrganizationSeats {
   availableSeats: number
   tier: string | null
   canModifySeats: boolean
+  seatPrice: { amountUsd: number; interval: 'month' | 'year' } | null
   seatMode: 'fixed' | 'adjustable' | null
   seatMaximum: number | null
 }

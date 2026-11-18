@@ -218,9 +218,7 @@ export function TeamManagement() {
     isAdjustableSeatTier &&
     !seatCountsUnavailable &&
     organizationSeats?.canModifySeats === true
-  const seatPriceUsd = currentTier?.monthlyPriceUsd ?? currentTier?.yearlyPriceUsd ?? null
-  const seatInterval =
-    seatPriceUsd === null ? null : currentTier?.monthlyPriceUsd === null ? 'year' : 'month'
+  const seatPrice = isOrganizationOwner ? organizationSeats?.seatPrice : null
   const seatCount = currentTier?.seatCount ?? 1
   const seatMaximum = currentTier?.seatMaximum ?? null
   const organizationPlanCatalogPending =
@@ -487,12 +485,12 @@ export function TeamManagement() {
             <div className='space-y-3'>
               <h4 className='font-medium text-sm'>{copy('howBillingWorks')}</h4>
               <ul className='ml-4 list-disc space-y-2 text-muted-foreground text-xs'>
-                {seatPriceUsd !== null && seatInterval && (
+                {seatPrice && (
                   <li>
                     {copy('billingHowWorksSeatCost', {
                       seats: totalSeats,
-                      amount: formatUsd(locale, totalSeats * seatPriceUsd),
-                      interval: seatInterval,
+                      amount: formatUsd(locale, totalSeats * seatPrice.amountUsd),
+                      interval: seatPrice.interval,
                     })}
                   </li>
                 )}
@@ -671,8 +669,8 @@ export function TeamManagement() {
         {isOrganizationOwner && isAdjustableSeatTier && (
           <TeamSeatsOverview
             totalSeats={totalSeats}
-            pricePerSeat={seatPriceUsd}
-            billingInterval={seatInterval}
+            pricePerSeat={seatPrice?.amountUsd ?? null}
+            billingInterval={seatPrice?.interval ?? null}
             isLoadingSubscription={organizationBillingPending || seatCountsUnavailable}
             usedSeats={usedSeats}
             actionsDisabled={isLoading || isPending || !canModifyCurrentSeats}
@@ -831,15 +829,15 @@ export function TeamManagement() {
           onOpenChange={setIsAddSeatDialogOpen}
           title={copy('addSeats.title')}
           description={
-            seatPriceUsd !== null && seatInterval
+            seatPrice
               ? copy('addSeats.description', {
-                  price: formatUsd(locale, seatPriceUsd),
-                  interval: seatInterval,
+                  price: formatUsd(locale, seatPrice.amountUsd),
+                  interval: seatPrice.interval,
                 })
               : copy('addSeats.quoteUnavailable')
           }
-          pricePerSeat={seatPriceUsd}
-          billingInterval={seatInterval}
+          pricePerSeat={seatPrice?.amountUsd ?? null}
+          billingInterval={seatPrice?.interval ?? null}
           minimumSeats={Math.max(seatCount, usedSeats)}
           maximumSeats={seatMaximum}
           currentSeats={totalSeats}
