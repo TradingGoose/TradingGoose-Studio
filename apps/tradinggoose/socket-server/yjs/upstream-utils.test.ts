@@ -13,6 +13,7 @@ import {
   type ReviewTargetDescriptor,
   YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
   YJS_CLOSE_CODE_DOCUMENT_REJECTED,
+  YJS_CLOSE_CODE_RETRY_REQUIRED,
 } from '@/lib/copilot/review-sessions/types'
 import {
   getDashboardWidgetMap,
@@ -942,23 +943,20 @@ describe('workspace connection authorization', () => {
     )
   }
 
-  it.each(['permission downgraded', 'session revoked'])(
-    'periodically closes a writer with %s',
-    async (reason) => {
-      vi.useFakeTimers()
-      const socket = await connect()
-      if (reason === 'session revoked') sessionMocks.isSocketSessionActive.mockResolvedValue(false)
-      else accessMocks.verifyReviewTargetAccess.mockResolvedValue({ hasAccess: false })
+  it.each([
+    ['permission downgraded', YJS_CLOSE_CODE_AUTHORIZATION_REVOKED, 'Authorization revoked'],
+    ['session revoked', YJS_CLOSE_CODE_RETRY_REQUIRED, 'Session inactive'],
+  ])('periodically closes a writer with %s', async (reason, code, closeReason) => {
+    vi.useFakeTimers()
+    const socket = await connect()
+    if (reason === 'session revoked') sessionMocks.isSocketSessionActive.mockResolvedValue(false)
+    else accessMocks.verifyReviewTargetAccess.mockResolvedValue({ hasAccess: false })
 
-      await vi.advanceTimersByTimeAsync(30_000)
-      expect(sessionMocks.isSocketSessionActive).toHaveBeenCalledWith('user-1', 'native-session')
-      expect(socket.close).toHaveBeenCalledWith(
-        YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
-        'Authorization revoked'
-      )
-      socket.emit('close')
-    }
-  )
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(sessionMocks.isSocketSessionActive).toHaveBeenCalledWith('user-1', 'native-session')
+    expect(socket.close).toHaveBeenCalledWith(code, closeReason)
+    socket.emit('close')
+  })
 
   it.each(['lookup error', 'session revoked'])(
     'discards a queued update and closes the writer on %s',

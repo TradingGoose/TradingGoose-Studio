@@ -18,6 +18,7 @@ import {
   type ReviewTargetDescriptor,
   YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
   YJS_CLOSE_CODE_DOCUMENT_REJECTED,
+  YJS_CLOSE_CODE_RETRY_REQUIRED,
 } from '@/lib/copilot/review-sessions/types'
 import {
   decodeYjsLifecycleMessage,
@@ -779,12 +780,16 @@ async function reconcileConnection(
   connection: ConnectionState
 ): Promise<void> {
   const { userId, sessionToken, descriptor, accessMode } = connection
-  const hasAccess =
-    (await isSocketSessionActive(userId, sessionToken)) &&
-    (await verifyReviewTargetAccess(userId, descriptor, accessMode)).hasAccess
-  if (!hasAccess && doc.conns.get(conn) === connection) {
-    closeConn(doc, conn, YJS_CLOSE_CODE_AUTHORIZATION_REVOKED, 'Authorization revoked')
-  }
+  const sessionActive = await isSocketSessionActive(userId, sessionToken)
+  if (sessionActive && (await verifyReviewTargetAccess(userId, descriptor, accessMode)).hasAccess)
+    return
+  if (doc.conns.get(conn) !== connection) return
+  closeConn(
+    doc,
+    conn,
+    sessionActive ? YJS_CLOSE_CODE_AUTHORIZATION_REVOKED : YJS_CLOSE_CODE_RETRY_REQUIRED,
+    sessionActive ? 'Authorization revoked' : 'Session inactive'
+  )
 }
 
 export function cleanupAllDocuments(): void {

@@ -7,7 +7,10 @@ import * as decoding from 'lib0/decoding'
 import * as encoding from 'lib0/encoding'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import {
+  type ReviewTargetDescriptor,
+  YJS_CLOSE_CODE_RETRY_REQUIRED,
+} from '@/lib/copilot/review-sessions/types'
 import {
   decodeYjsLifecycleMessage,
   encodeYjsDurableCheckpoint,
@@ -367,6 +370,24 @@ describe('bootstrapYjsProvider', () => {
     resolveToken(jsonResponse({ token: 'token-2' }))
     await vi.advanceTimersByTimeAsync(0)
     expect(provider.connect).toHaveBeenCalledTimes(3)
+  })
+
+  it('reconnects a writer with a fresh token while retaining its local edits', async () => {
+    const result = await bootstrapSyncedProvider()
+    const provider = result.provider as unknown as MockWebsocketProvider
+    result.doc.getMap('workflow').set('content', 'local edit')
+    vi.useFakeTimers()
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    fetchMock.mockResolvedValueOnce(jsonResponse({ token: 'token-2' }))
+
+    provider.emit('connection-close', { code: YJS_CLOSE_CODE_RETRY_REQUIRED }, provider)
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    expect(provider.params.token).toBe('token-2')
+    expect(provider.connect).toHaveBeenCalledTimes(2)
+    expect(provider.destroy).not.toHaveBeenCalled()
+    expect(result.doc.getMap('workflow').get('content')).toBe('local edit')
+    result.dispose()
   })
 
   it('terminates an oversized writer update instead of replaying it', async () => {

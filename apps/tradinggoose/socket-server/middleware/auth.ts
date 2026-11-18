@@ -42,24 +42,32 @@ export async function authenticateSocket(
     const userId = session.user.id
     const sessionToken = session.session.token
     socket.userId = userId
-    const requireActiveSession = async () => {
-      try {
-        if (await isSocketSessionActive(userId, sessionToken)) return true
-      } catch {
-        logger.warn(`Socket ${socket.id} session lookup failed`)
-        socket.conn.close(true)
-        return false
-      }
-      socket.disconnect(true)
-      return false
+    let pendingSessionCheck: Promise<boolean> | undefined
+    const requireActiveSession = () => {
+      pendingSessionCheck ??= isSocketSessionActive(userId, sessionToken)
+        .then(
+          (active) => {
+            if (!active) socket.disconnect(true)
+            return active
+          },
+          () => {
+            logger.warn(`Socket ${socket.id} session lookup failed`)
+            socket.conn.close(true)
+            return false
+          }
+        )
+        .finally(() => {
+          pendingSessionCheck = undefined
+        })
+      return pendingSessionCheck
     }
 
     let packetChecks = Promise.resolve()
     socket.use((_packet, nextPacket) => {
+      if (!socket.connected) return
+      const sessionCheck = requireActiveSession()
       packetChecks = packetChecks.then(async () => {
-        if (!socket.connected) return
-        if (await requireActiveSession()) nextPacket()
-        else nextPacket(new Error('Invalid session'))
+        if ((await sessionCheck) && socket.connected) nextPacket()
       })
     })
     const onHeartbeat = ({ type }: { type: string }) => {
