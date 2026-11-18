@@ -15,6 +15,7 @@ import { UsageHeader } from './shared/usage-header'
 import { WorkspaceBillingOwnerEditor } from './subscription/components/workspace-billing-owner'
 import { MemberInvitationCard } from './team-management/components/member-invitation-card/member-invitation-card'
 import { NoOrganizationView } from './team-management/components/no-organization-view/no-organization-view'
+import { TeamMembers } from './team-management/components/team-members/team-members'
 import { TeamSeats } from './team-management/components/team-seats/team-seats'
 import { TeamSeatsOverview } from './team-management/components/team-seats-overview/team-seats-overview'
 import { TeamManagement } from './team-management/team-management'
@@ -167,6 +168,49 @@ describe('settings localization', () => {
       input.dispatchEvent(new Event('input', { bubbles: true }))
     })
   }
+
+  it('keeps member usage scoped to the current organization when an earlier request finishes late', async () => {
+    let finishEarlier!: (response: Response) => void
+    const earlier = new Promise<Response>((resolve) => {
+      finishEarlier = resolve
+    })
+    const usage = (currentPeriodCost: string) =>
+      Response.json({ data: [{ userId: 'user-1', currentPeriodCost }] })
+    vi.mocked(fetch).mockImplementation(async (input) =>
+      String(input).includes('/org-1/') ? earlier : usage('22')
+    )
+    const organization = {
+      id: 'org-1',
+      name: 'First team',
+      slug: 'first-team',
+      createdAt: '2025-01-01',
+      members: [
+        {
+          id: 'member-1',
+          role: 'owner',
+          user: { id: 'user-1', name: 'Ana', email: 'ana@example.com' },
+        },
+      ],
+    }
+    const members = (
+      <TeamMembers
+        organization={organization}
+        currentUserEmail='ana@example.com'
+        isAdminOrOwner
+        actionsDisabled={false}
+        onRemoveMember={vi.fn()}
+        onCancelInvitation={vi.fn()}
+      />
+    )
+    await render('en', members)
+    await render('en', cloneElement(members, { organization: { ...organization, id: 'org-2' } }))
+    await act(async () => {
+      await vi.waitFor(() => expect(container.textContent).toContain('$22.00'))
+      finishEarlier(usage('91'))
+    })
+    expect(container.textContent).toContain('$22.00')
+    expect(container.textContent).not.toContain('$91.00')
+  })
 
   it.each([
     ['es', 'Propietario de facturación', 'Organización'],
@@ -579,7 +623,7 @@ describe('settings localization', () => {
     })
   })
 
-  it('bounds initial seats and resets them when reopening or constraints change', async () => {
+  it('bounds initial seats and preserves valid edits until the dialog closes', async () => {
     const dialog = (
       <TeamSeats
         open
@@ -597,40 +641,47 @@ describe('settings localization', () => {
       />
     )
     const seats = () => document.querySelector<HTMLInputElement>('#seats')!
-
-    await render('en', dialog)
-    expect(seats()).toHaveValue(10)
-    enterSeats(8)
-    await render('en', cloneElement(dialog, { initialSeats: 30 }))
-    expect(seats()).toHaveValue(10)
-    enterSeats(8)
-    await render('en', cloneElement(dialog, { open: false }))
-    await render('en', dialog)
-    expect(seats()).toHaveValue(10)
-
-    const lowInitial = cloneElement(dialog, { initialSeats: 2, minimumSeats: 1 })
-    await render('en', lowInitial)
-    enterSeats(8)
-    await render('en', cloneElement(lowInitial, { maximumSeats: 5 }))
-    expect(seats()).toHaveValue(2)
-    await render('en', cloneElement(lowInitial, { minimumSeats: 4 }))
-    expect(seats()).toHaveValue(4)
-    await render('en', cloneElement(dialog, { maximumSeats: null }))
-    expect(seats()).toHaveValue(20)
-    await render('en', cloneElement(dialog, { minimumSeats: 12 }))
-    expect(seats()).toHaveValue(12)
-    expect(document.querySelector('[role="alert"]')?.textContent).toContain(
-      'at most 10 seats, but 12 are required'
-    )
     const confirm = () =>
       [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
         (button) => button.textContent === 'Confirm'
       )!
+
+    await render('en', dialog)
+    expect(seats()).toHaveValue(10)
+    enterSeats(8)
+    await render('en', cloneElement(dialog, { initialSeats: 30, minimumSeats: 6, maximumSeats: 9 }))
+    expect(seats()).toHaveValue(8)
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('$80.00 per month')
+    await render('en', cloneElement(dialog, { maximumSeats: 7 }))
+    expect(seats()).toHaveValue(8)
     expect(confirm()).toBeDisabled()
+    expect(document.querySelector('[role="dialog"]')?.textContent).not.toContain('$80.00')
     await act(async () => confirm().click())
     expect(mocks.mutate).not.toHaveBeenCalled()
+
+    await render('en', cloneElement(dialog, { open: false }))
+    await render('en', dialog)
+    expect(seats()).toHaveValue(10)
+
+    await render('en', cloneElement(dialog, { minimumSeats: 10, maximumSeats: null }))
+    expect(seats()).toHaveValue(20)
+    enterSeats(1)
+    expect(seats()).toHaveValue(1)
+    expect(confirm()).toBeDisabled()
+    enterSeats(12)
+    expect(seats()).toHaveValue(12)
+    expect(confirm()).toBeEnabled()
+    await act(async () => confirm().click())
+    expect(mocks.mutate).toHaveBeenCalledExactlyOnceWith(12)
+
+    await render('en', cloneElement(dialog, { minimumSeats: 12 }))
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain(
+      'at most 10 seats, but 12 are required'
+    )
+    expect(confirm()).toBeDisabled()
     await render('en', dialog)
     expect(document.querySelector('[role="alert"]')).toBeNull()
+    enterSeats(7)
     expect(confirm()).toBeEnabled()
   })
 

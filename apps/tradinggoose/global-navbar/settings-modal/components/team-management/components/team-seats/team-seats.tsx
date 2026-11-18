@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -49,23 +49,28 @@ export function TeamSeats({
 }: TeamSeatsProps) {
   const t = useTranslations('workspace.settingsModal.team')
   const locale = useLocale()
-  const clampSeats = useCallback(
-    (seats: number) =>
-      Math.max(minimumSeats, maximumSeats === null ? seats : Math.min(seats, maximumSeats)),
-    [minimumSeats, maximumSeats]
-  )
-  const [selectedSeats, setSelectedSeats] = useState(() => clampSeats(initialSeats))
+  const [seatDraft, setSeatDraft] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open) {
-      setSelectedSeats(clampSeats(initialSeats))
-    }
-  }, [open, initialSeats, clampSeats])
+    if (!open) setSeatDraft(null)
+  }, [open])
 
+  const boundedInitialSeats = Math.max(
+    minimumSeats,
+    Math.min(initialSeats, maximumSeats ?? initialSeats)
+  )
+  const inputValue = seatDraft ?? String(boundedInitialSeats)
+  const selectedSeats = Number(inputValue)
   const invalidRange = maximumSeats !== null && minimumSeats > maximumSeats
+  const validQuantity =
+    inputValue !== '' &&
+    Number.isSafeInteger(selectedSeats) &&
+    selectedSeats >= minimumSeats &&
+    (maximumSeats === null || selectedSeats <= maximumSeats)
+  const canQuote = validQuantity && pricePerSeat !== null && billingInterval !== null
+  const canConfirm = !isLoading && validQuantity && selectedSeats !== currentSeats
   const handleConfirm = async () => {
-    if (invalidRange) return
-    await onConfirm(selectedSeats)
+    if (canConfirm) await onConfirm(selectedSeats)
   }
 
   return (
@@ -89,21 +94,13 @@ export function TeamSeats({
             type='number'
             min={minimumSeats}
             max={maximumSeats ?? undefined}
-            value={selectedSeats}
-            onChange={(event) => {
-              const parsed = Number.parseInt(event.target.value, 10)
-              if (!Number.isFinite(parsed)) {
-                setSelectedSeats(minimumSeats)
-                return
-              }
-
-              setSelectedSeats(clampSeats(parsed))
-            }}
+            value={inputValue}
+            onChange={(event) => setSeatDraft(event.target.value)}
             className='rounded-sm'
             disabled={isLoading}
           />
 
-          {pricePerSeat !== null && billingInterval && (
+          {canQuote && (
             <p className='mt-2 text-muted-foreground text-sm'>
               {t('yourTeamWillHave', {
                 count: selectedSeats,
@@ -125,7 +122,7 @@ export function TeamSeats({
             </p>
           )}
 
-          {currentSeats !== undefined && pricePerSeat !== null && billingInterval && (
+          {canQuote && currentSeats !== undefined && (
             <div className='mt-3 rounded-md bg-muted/50 p-3'>
               <div className='flex justify-between text-sm'>
                 <span>{t('currentSeats')}</span>
@@ -163,7 +160,7 @@ export function TeamSeats({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={isLoading || invalidRange || selectedSeats === currentSeats}
+            disabled={!canConfirm}
             focusableWhenDisabled={isLoading}
             aria-busy={isLoading || undefined}
           >

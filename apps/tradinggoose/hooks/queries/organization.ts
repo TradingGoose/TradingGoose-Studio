@@ -19,7 +19,6 @@ export const organizationKeys = {
   detail: (id: string) => [...organizationKeys.details(), id] as const,
   billing: (id: string) => [...organizationKeys.detail(id), 'billing'] as const,
   seats: (id: string) => [...organizationKeys.detail(id), 'seats'] as const,
-  members: (id: string) => [...organizationKeys.detail(id), 'members'] as const,
   memberUsage: (id: string) => [...organizationKeys.detail(id), 'member-usage'] as const,
   workspaces: (id: string) => [...organizationKeys.detail(id), 'workspaces'] as const,
   availableWorkspaces: (id: string) => [...organizationKeys.workspaces(id), 'available'] as const,
@@ -195,26 +194,23 @@ export function useAvailableOrganizationBillingWorkspaces(orgId: string, enabled
   })
 }
 
-async function fetchOrganizationMembers(orgId: string) {
-  const response = await fetch(`/api/organizations/${orgId}/members?include=usage`)
-
-  if (response.status === 404) {
-    return { members: [] }
-  }
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch organization members')
-  }
-  return response.json()
+interface OrganizationMemberUsage {
+  data: { userId: string; currentPeriodCost?: number | string | null }[]
+  usageScope?: 'individual' | 'pooled'
+  sharedCurrentPeriodCost?: number | null
 }
 
-export function useOrganizationMembers(orgId: string) {
+export function useOrganizationMembers(orgId: string, enabled: boolean) {
   return useQuery({
     queryKey: organizationKeys.memberUsage(orgId),
-    queryFn: () => fetchOrganizationMembers(orgId),
-    enabled: !!orgId,
+    queryFn: async ({ signal }): Promise<OrganizationMemberUsage> => {
+      const response = await fetch(`/api/organizations/${orgId}/members?include=usage`, { signal })
+      if (!response.ok) throw new Error('Failed to fetch organization members')
+      return response.json()
+    },
+    enabled: Boolean(orgId) && enabled,
     staleTime: 30 * 1000,
-    placeholderData: keepPreviousData,
+    retry: false,
   })
 }
 
