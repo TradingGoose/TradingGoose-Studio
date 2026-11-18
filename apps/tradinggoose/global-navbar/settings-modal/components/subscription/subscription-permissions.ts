@@ -42,16 +42,6 @@ export const mergeAccessibleBillingTiers = (
     (left, right) => left.displayOrder - right.displayOrder || left.id.localeCompare(right.id)
   )
 
-export function getSubscriptionTierAlternatives(
-  tiers: PublicBillingTierDisplay[],
-  ownerType: PublicBillingTierDisplay['ownerType'],
-  currentTierId?: string | null
-) {
-  return tiers.filter(
-    (tier) => !tier.isDefault && tier.id !== currentTierId && tier.ownerType === ownerType
-  )
-}
-
 function getCurrentTier(
   subscription: SubscriptionState,
   publicTiers: PublicBillingTierDisplay[]
@@ -68,7 +58,6 @@ function getCurrentTier(
       ...subscription.tier,
       id: subscription.tier.id,
       description: '',
-      checkoutInterval: null,
       isDefault: subscription.isFree,
     }
   }
@@ -100,10 +89,11 @@ export function getSubscriptionSurfaceState({
   } else if (isCurrentCustomOrganizationPlan) {
     visiblePlanTiers = currentTier ? [currentTier] : []
   } else {
-    const alternativeTiers = getSubscriptionTierAlternatives(
-      publicTiers,
-      subscription.tier.ownerType,
-      currentTier?.id
+    const alternativeTiers = publicTiers.filter(
+      (tier) =>
+        !tier.isDefault &&
+        tier.id !== currentTier?.id &&
+        tier.ownerType === subscription.tier.ownerType
     )
 
     visiblePlanTiers = currentTier ? [currentTier, ...alternativeTiers] : alternativeTiers

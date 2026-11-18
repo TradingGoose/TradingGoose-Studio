@@ -18,7 +18,7 @@ function buildTier(overrides: Partial<PublicBillingTierDisplay>): PublicBillingT
     displayOrder: 0,
     monthlyPriceUsd: 0,
     yearlyPriceUsd: null,
-    checkoutInterval: null,
+    hasStripeMonthlyPriceId: false,
     seatCount: null,
     seatMaximum: null,
     canEditUsageLimit: false,

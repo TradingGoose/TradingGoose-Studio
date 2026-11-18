@@ -257,7 +257,7 @@ function catalogTier(
     displayOrder,
     monthlyPriceUsd: 12.5,
     yearlyPriceUsd: null,
-    checkoutInterval: 'month',
+    hasStripeMonthlyPriceId: true,
     seatCount: ownerType === 'organization' ? 2 : null,
     seatMaximum: null,
     canEditUsageLimit: false,
@@ -668,14 +668,13 @@ describe('Subscription billing subject', () => {
   })
 
   it.each([
-    { monthly: null, yearly: 120, amount: '$480.00', interval: 'year' },
-    { monthly: 12.5, yearly: 120, amount: '$50.00', interval: 'month' },
-    { monthly: 0, yearly: 120, amount: '$0.00', interval: 'month' },
-    { monthly: null, yearly: 120, amount: null, interval: 'month' },
-    { monthly: null, yearly: null, amount: null, interval: 'month' },
+    { monthly: 12.5, yearly: 120, amount: '$50.00' },
+    { monthly: 0, yearly: 120, amount: '$0.00' },
+    { monthly: null, yearly: 120, amount: null },
+    { monthly: null, yearly: null, amount: null },
   ])(
-    'quotes the $interval price and submits its native interval ($monthly/$yearly)',
-    async ({ monthly, yearly, amount, interval }) => {
+    'keeps monthly checkout available regardless of display prices ($monthly/$yearly)',
+    async ({ monthly, yearly, amount }) => {
       mocks.workspaceSettings = workspaceBillingOwner({
         type: 'organization',
         organizationId: 'org-billing',
@@ -691,21 +690,20 @@ describe('Subscription billing subject', () => {
           ...catalogTier('tier-priced', 'Priced tier', 'organization', 1),
           monthlyPriceUsd: monthly,
           yearlyPriceUsd: yearly,
-          checkoutInterval: interval,
         },
       ]
       render()
       act(() => container.querySelector<HTMLButtonElement>('[data-testid="plan-card"]')!.click())
       const dialog = document.querySelector('[role="dialog"]')!
       if (amount === null) expect(dialog.textContent).not.toContain('$')
-      else expect(dialog.textContent).toContain(`${amount} per ${interval}`)
+      else expect(dialog.textContent).toContain(`${amount} per month`)
       expect(dialog.querySelector('#seats')).toHaveValue(4)
       const confirm = [...dialog.querySelectorAll('button')].find(
         (button) => button.textContent === 'Upgrade'
       )!
       await act(async () => confirm.click())
       expect(mocks.handleUpgrade).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'tier-priced', checkoutInterval: interval }),
+        expect.objectContaining({ id: 'tier-priced', hasStripeMonthlyPriceId: true }),
         {
           organizationId: 'org-billing',
           seats: 4,
@@ -714,7 +712,7 @@ describe('Subscription billing subject', () => {
     }
   )
 
-  it('uses native annual billing for a fixed annual-only tier without opening seat selection', async () => {
+  it('starts a monthly fixed tier without opening seat selection', async () => {
     mocks.workspaceSettings = workspaceBillingOwner({
       type: 'organization',
       organizationId: 'org-billing',
@@ -732,7 +730,6 @@ describe('Subscription billing subject', () => {
         seatCount: 4,
         monthlyPriceUsd: null,
         yearlyPriceUsd: 120,
-        checkoutInterval: 'year',
       },
     ]
     render()
@@ -741,7 +738,7 @@ describe('Subscription billing subject', () => {
     )
     expect(document.querySelector('[role="dialog"]')).toBeNull()
     expect(mocks.handleUpgrade).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'tier-fixed', checkoutInterval: 'year' }),
+      expect.objectContaining({ id: 'tier-fixed', hasStripeMonthlyPriceId: true }),
       { organizationId: 'org-billing' }
     )
   })
@@ -760,7 +757,9 @@ describe('Subscription billing subject', () => {
     mocks.publicTiers = [
       {
         ...catalogTier('tier-blocked', 'Blocked tier', 'organization', 1),
-        ...(issue === 'capacity' ? { seatMaximum: 3 } : { checkoutInterval: null }),
+        ...(issue === 'capacity'
+          ? { seatMaximum: 3 }
+          : { monthlyPriceUsd: null, yearlyPriceUsd: 120, hasStripeMonthlyPriceId: false }),
       },
     ]
     render()

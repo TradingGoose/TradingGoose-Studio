@@ -108,10 +108,6 @@ export function getTierBasePrice(tier: BillingTierRecord | null | undefined): nu
   return parseBillingAmount(tier?.monthlyPriceUsd)
 }
 
-export function getTierIncludedUsageLimit(tier: BillingTierRecord | null | undefined): number {
-  return parseBillingAmount(tier?.includedUsageLimitUsd)
-}
-
 export function getTierUsageAllowanceUsd(tier: BillingTierRecord | null | undefined): number {
   return parseBillingAmount(tier?.includedUsageLimitUsd)
 }

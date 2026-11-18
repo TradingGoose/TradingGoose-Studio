@@ -16,11 +16,7 @@ import {
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
-import {
-  getUpgradePrice,
-  getUpgradeTierIssue,
-  useSubscriptionUpgrade,
-} from '@/lib/subscription/upgrade'
+import { getUpgradeTierIssue, useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import { cn } from '@/lib/utils'
 import {
   type GeneralSettings,
@@ -773,14 +769,14 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                   const issue = isCurrentTier ? null : getUpgradeTierIssue(tier, occupiedSeats)
                   const price = isCurrentTier
                     ? (tier.monthlyPriceUsd ?? tier.yearlyPriceUsd)
-                    : getUpgradePrice(tier)
+                    : tier.hasStripeMonthlyPriceId
+                      ? tier.monthlyPriceUsd
+                      : null
                   const period = isCurrentTier
                     ? formatBillingPricePeriod(tier)
-                    : tier.checkoutInterval === 'month'
+                    : tier.hasStripeMonthlyPriceId
                       ? '/mo'
-                      : tier.checkoutInterval === 'year'
-                        ? '/yr'
-                        : null
+                      : null
 
                   return (
                     <div key={tier.id}>
@@ -898,7 +894,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
       </div>
-      {pendingUpgradeTier?.checkoutInterval && (
+      {pendingUpgradeTier && (
         <TeamSeats
           open={!seatCountsUnavailable}
           onOpenChange={(open) => {
@@ -906,8 +902,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           }}
           title={pendingUpgradeTier.displayName}
           description={pendingUpgradeTier.description || teamCopy('plans.description')}
-          pricePerSeat={getUpgradePrice(pendingUpgradeTier)}
-          billingInterval={pendingUpgradeTier.checkoutInterval}
+          pricePerSeat={pendingUpgradeTier.monthlyPriceUsd}
+          billingInterval='month'
           minimumSeats={Math.max(pendingUpgradeTier.seatCount ?? 1, occupiedSeats)}
           maximumSeats={pendingUpgradeTier.seatMaximum}
           initialSeats={organizationBillingPayload?.totalSeats ?? 1}

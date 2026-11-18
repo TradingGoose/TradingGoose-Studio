@@ -289,9 +289,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         pendingInvitations: seatOccupancy.pending,
         availableSeats,
         tier: orgSubscription?.tier.displayName ?? null,
-        canModifySeats:
-          orgSubscription?.tier.ownerType === 'organization' &&
-          orgSubscription.tier.seatMode === 'adjustable',
+        canModifySeats: Boolean(
+          orgSubscription?.stripeSubscriptionId &&
+            orgSubscription.tier.ownerType === 'organization' &&
+            orgSubscription.tier.seatMode === 'adjustable'
+        ),
         seatMode: orgSubscription?.tier.seatMode ?? null,
         seatMaximum: orgSubscription?.tier.seatMaximum ?? null,
       },

@@ -41,7 +41,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
 vi.mock('drizzle-orm', () => ({ eq: vi.fn() }))
 
 vi.mock('@/lib/billing/tiers', () => ({
-  getTierIncludedUsageLimit: vi.fn(() => 100),
+  getTierUsageAllowanceUsd: vi.fn(() => 100),
   isOrganizationBillingTier: vi.fn(() => true),
   requireBillingTierById,
 }))

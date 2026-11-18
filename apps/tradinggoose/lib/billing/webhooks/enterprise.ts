@@ -7,7 +7,7 @@ import {
   renderEnterpriseSubscriptionEmail,
 } from '@/components/emails/render-email'
 import {
-  getTierIncludedUsageLimit,
+  getTierUsageAllowanceUsd,
   isOrganizationBillingTier,
   requireBillingTierById,
 } from '@/lib/billing/tiers'
@@ -160,7 +160,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
   const subscriptionId = persistedSubscription?.id || subscriptionRow.id
 
   if (billingTierRecord.usageScope === 'pooled') {
-    const organizationUsageLimit = getTierIncludedUsageLimit(billingTierRecord) || monthlyPrice
+    const organizationUsageLimit = getTierUsageAllowanceUsd(billingTierRecord) || monthlyPrice
 
     try {
       await db

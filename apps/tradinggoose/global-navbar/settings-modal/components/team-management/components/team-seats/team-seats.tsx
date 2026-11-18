@@ -20,7 +20,7 @@ interface TeamSeatsProps {
   title: string
   description: string
   pricePerSeat: number | null
-  billingInterval: 'month' | 'year'
+  billingInterval: 'month' | 'year' | null
   minimumSeats: number
   maximumSeats: number | null
   currentSeats?: number
@@ -29,7 +29,6 @@ interface TeamSeatsProps {
   error?: string | null
   onConfirm: (seats: number) => Promise<void>
   confirmButtonText: string
-  showCostBreakdown?: boolean
 }
 
 export function TeamSeats({
@@ -47,7 +46,6 @@ export function TeamSeats({
   error,
   onConfirm,
   confirmButtonText,
-  showCostBreakdown = false,
 }: TeamSeatsProps) {
   const t = useTranslations('workspace.settingsModal.team')
   const locale = useLocale()
@@ -105,7 +103,7 @@ export function TeamSeats({
             disabled={isLoading}
           />
 
-          {pricePerSeat !== null && (
+          {pricePerSeat !== null && billingInterval && (
             <p className='mt-2 text-muted-foreground text-sm'>
               {t('yourTeamWillHave', {
                 count: selectedSeats,
@@ -127,7 +125,7 @@ export function TeamSeats({
             </p>
           )}
 
-          {showCostBreakdown && currentSeats !== undefined && pricePerSeat !== null && (
+          {currentSeats !== undefined && pricePerSeat !== null && billingInterval && (
             <div className='mt-3 rounded-md bg-muted/50 p-3'>
               <div className='flex justify-between text-sm'>
                 <span>{t('currentSeats')}</span>
@@ -165,9 +163,7 @@ export function TeamSeats({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={
-              isLoading || invalidRange || (showCostBreakdown && selectedSeats === currentSeats)
-            }
+            disabled={isLoading || invalidRange || selectedSeats === currentSeats}
             focusableWhenDisabled={isLoading}
             aria-busy={isLoading || undefined}
           >

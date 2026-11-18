@@ -291,7 +291,7 @@ describe('settings localization', () => {
         seatMaximum: 10,
         monthlyPriceUsd: 12.5,
         yearlyPriceUsd: null,
-        checkoutInterval: 'month',
+        hasStripeMonthlyPriceId: true,
         displayOrder: 0,
         pricingFeatures: [],
         canEditUsageLimit: false,
@@ -367,7 +367,7 @@ describe('settings localization', () => {
           seatMaximum: 80,
           monthlyPriceUsd: 12.5,
           yearlyPriceUsd: null,
-          checkoutInterval: 'month',
+          hasStripeMonthlyPriceId: true,
           pricingFeatures: [],
           isDefault: false,
         },
@@ -395,29 +395,11 @@ describe('settings localization', () => {
       })
     })
 
-    it('uses the annual quote and checkout interval for adjustable team tiers', async () => {
+    it('starts a fixed monthly team tier without a seat dialog', async () => {
       mocks.publicTiers[0] = {
         ...mocks.publicTiers[0],
         monthlyPriceUsd: null,
         yearlyPriceUsd: 120,
-        checkoutInterval: 'year',
-      }
-      await render('en', <TeamManagement />)
-      await act(async () => plan().click())
-      expect(document.querySelector('[role="dialog"]')?.textContent).toContain('$6,000.00 per year')
-      await act(async () => confirm().click())
-      expect(mocks.mutate).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'tier-org', checkoutInterval: 'year' }),
-        { organizationId: 'org-1', seats: 50 }
-      )
-    })
-
-    it('uses annual billing for fixed team tiers without a seat dialog', async () => {
-      mocks.publicTiers[0] = {
-        ...mocks.publicTiers[0],
-        monthlyPriceUsd: null,
-        yearlyPriceUsd: 120,
-        checkoutInterval: 'year',
         seatMode: 'fixed',
         seatCount: 60,
       }
@@ -425,7 +407,7 @@ describe('settings localization', () => {
       await act(async () => plan().click())
       expect(document.querySelector('[role="dialog"]')).toBeNull()
       expect(mocks.mutate).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'tier-org', checkoutInterval: 'year' }),
+        expect.objectContaining({ id: 'tier-org', hasStripeMonthlyPriceId: true }),
         { organizationId: 'org-1', seats: 60 }
       )
     })
@@ -440,43 +422,65 @@ describe('settings localization', () => {
       expect(container.textContent).toContain('at most 10 seats, but 50 are required')
     })
 
-    it('quotes add-seat changes from the current annual-only tier instead of a public monthly tier', async () => {
-      mocks.billing = {
-        ...mocks.billing,
-        totalSeats: 60,
-        subscriptionTier: {
-          ...EMPTY_BILLING_TIER_SUMMARY,
-          id: 'current-annual',
-          displayName: 'Annual current',
-          ownerType: 'organization',
-          usageScope: 'pooled',
-          seatMode: 'adjustable',
-          seatCount: 2,
-          seatMaximum: 80,
-          monthlyPriceUsd: null,
-          yearlyPriceUsd: 120,
-          hasStripeMonthlyPriceId: false,
-        },
+    it.each([120, null])(
+      'changes licensed seats with the current annual display amount %s',
+      async (yearlyPriceUsd) => {
+        mocks.billing = {
+          ...mocks.billing,
+          totalSeats: 60,
+          subscriptionTier: {
+            ...EMPTY_BILLING_TIER_SUMMARY,
+            id: 'current-annual',
+            displayName: 'Annual current',
+            ownerType: 'organization',
+            usageScope: 'pooled',
+            seatMode: 'adjustable',
+            seatCount: 2,
+            seatMaximum: 80,
+            monthlyPriceUsd: null,
+            yearlyPriceUsd,
+            hasStripeMonthlyPriceId: true,
+          },
+        }
+        queryClient.setQueryData(organizationKeys.seats('org-1'), {
+          ...counts,
+          maxSeats: 60,
+          availableSeats: 10,
+          canModifySeats: true,
+        })
+        await render('en', <TeamManagement />)
+        const copy = getClientMessages('en').workspace.settingsModal.team
+        if (yearlyPriceUsd !== null) {
+          expect(container.textContent).toContain('a minimum of $7,200.00/year')
+          expect(container.textContent).toContain('($120.00/year each)')
+        }
+        const remove = [...container.querySelectorAll('button')].find(
+          (button) => button.textContent === copy.removeSeat
+        )!
+        expect(remove).toBeEnabled()
+        await act(async () => remove.click())
+        expect(mocks.mutate.mock.lastCall?.[0]).toEqual({ orgId: 'org-1', seats: 59 })
+        const add = [...container.querySelectorAll('button')].find(
+          (button) => button.textContent === copy.addSeat
+        )!
+        expect(add).toBeEnabled()
+        await act(async () => add.click())
+        const dialog = document.querySelector('[role="dialog"]')!
+        if (yearlyPriceUsd === null) {
+          expect(dialog.textContent).toContain(copy.addSeats.quoteUnavailable)
+          expect(dialog.textContent).not.toContain('$')
+        } else {
+          expect(dialog.textContent).toContain('$7,320.00 per year')
+          expect(dialog.textContent).toContain('Annual cost change:')
+        }
+        expect(dialog.textContent).not.toContain('per month')
+        const update = [...dialog.querySelectorAll('button')].find(
+          (button) => button.textContent === copy.addSeats.confirm
+        )!
+        await act(async () => update.click())
+        expect(mocks.mutate.mock.lastCall?.[0]).toEqual({ orgId: 'org-1', seats: 61 })
       }
-      await render('en', <TeamManagement />)
-      expect(container.textContent).toContain('a minimum of $7,200.00/year')
-      expect(container.textContent).not.toContain('$7,200.00/month')
-      expect(container.textContent).toContain('($120.00/year each)')
-      const copy = getClientMessages('en').workspace.settingsModal.team
-      const add = [...container.querySelectorAll('button')].find(
-        (button) => button.textContent === copy.addSeat
-      )!
-      await act(async () => add.click())
-      const dialog = document.querySelector('[role="dialog"]')!
-      expect(dialog.textContent).toContain('$7,320.00 per year')
-      expect(dialog.textContent).toContain('Annual cost change:')
-      expect(dialog.textContent).not.toContain('per month')
-      const update = [...dialog.querySelectorAll('button')].find(
-        (button) => button.textContent === copy.addSeats.confirm
-      )!
-      await act(async () => update.click())
-      expect(mocks.mutate.mock.calls[0]?.[0]).toEqual({ orgId: 'org-1', seats: 61 })
-    })
+    )
 
     it('keeps billing visible but blocks quotes until failed aggregate counts are retried', async () => {
       queryClient.removeQueries({ queryKey: organizationKeys.seats('org-1'), exact: true })
@@ -653,7 +657,6 @@ describe('settings localization', () => {
           isLoading={false}
           onConfirm={mocks.mutate}
           confirmButtonText='Confirm'
-          showCostBreakdown
         />
       )
       const dialog = document.querySelector('[role="dialog"]')!

@@ -102,6 +102,18 @@ describe('organization seat aggregate', () => {
     expect(mocks.stripe).not.toHaveBeenCalled()
   })
 
+  it('does not offer seat changes for adjustable subscriptions without Stripe', async () => {
+    mocks.subscription.mockResolvedValue({
+      seats: 60,
+      tier: { ownerType: 'organization', seatMode: 'adjustable', seatMaximum: 80 },
+    })
+    const response = await GET(request(), params)
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      data: { maxSeats: 60, canModifySeats: false },
+    })
+  })
+
   it.each(['anonymous', 'billing-disabled', 'foreign-member'])(
     'preserves the %s access boundary before reading occupancy',
     async (scenario) => {

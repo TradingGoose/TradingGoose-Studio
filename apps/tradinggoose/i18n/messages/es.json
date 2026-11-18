@@ -2186,6 +2186,7 @@
         "addSeats": {
           "title": "Agregar asientos de equipo",
           "description": "Cada plaza cuesta {price} al {interval, select, year {año} other {mes}}. Ajusta el número de plazas con licencia de tu equipo.",
+          "quoteUnavailable": "No hay un precio estimado por plaza. Los cambios de plazas usan el precio de tu suscripción actual.",
           "confirm": "Actualizar asientos"
         },
         "billing": {

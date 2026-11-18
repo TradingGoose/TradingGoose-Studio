@@ -21,12 +21,10 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
   const locale = useLocale()
   const { data: activeOrg } = useActiveOrganization()
   const {
-    data: billingData,
+    data: organizationBillingPayload,
     isLoading: isLoadingOrgBilling,
     error,
   } = useOrganizationBilling(activeOrg?.id || '')
-
-  const organizationBillingPayload = (billingData as any)?.data ?? billingData
 
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
 

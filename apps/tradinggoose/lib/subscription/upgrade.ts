@@ -9,22 +9,11 @@ import { resolveOrganizationUpgradeReference } from './upgrade-target'
 const logger = createLogger('SubscriptionUpgrade')
 export type BillingUpgradeTarget = Pick<
   PublicBillingTierDisplay,
-  'id' | 'displayName' | 'ownerType' | 'usageScope' | 'seatMode' | 'seatCount' | 'checkoutInterval'
+  'id' | 'displayName' | 'ownerType' | 'usageScope' | 'seatMode' | 'seatCount'
 >
 
-export function getUpgradePrice(tier: PublicBillingTierDisplay) {
-  switch (tier.checkoutInterval) {
-    case 'month':
-      return tier.monthlyPriceUsd
-    case 'year':
-      return tier.yearlyPriceUsd
-    default:
-      return null
-  }
-}
-
 export function getUpgradeTierIssue(tier: PublicBillingTierDisplay, occupiedSeats: number) {
-  if (tier.checkoutInterval === null) return 'unpriced'
+  if (!tier.hasStripeMonthlyPriceId) return 'unpriced'
   if (tier.ownerType !== 'organization') return null
   const minimum = Math.max(tier.seatCount ?? 1, occupiedSeats, 1)
   const maximum = tier.seatMode === 'fixed' ? Math.max(tier.seatCount ?? 1, 1) : tier.seatMaximum
@@ -88,7 +77,6 @@ export function useSubscriptionUpgrade() {
           referenceId,
           successUrl: currentUrl,
           cancelUrl: currentUrl,
-          ...(targetTier.checkoutInterval === 'year' ? { annual: true } : {}),
           ...(targetTier.ownerType === 'organization' && { seats: initialSeats }),
         } as const
 

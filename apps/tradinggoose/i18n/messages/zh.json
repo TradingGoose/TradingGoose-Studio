@@ -2173,6 +2173,7 @@
         "addSeats": {
           "title": "添加团队席位",
           "description": "每个席位{interval, select, year {每年} other {每月}}费用为 {price}。请调整团队的授权席位数。",
+          "quoteUnavailable": "暂时无法提供席位价格预估。席位调整将按当前订阅价格计费。",
           "confirm": "更新席位"
         },
         "billing": {

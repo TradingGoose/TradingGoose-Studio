@@ -12,11 +12,7 @@ import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateSlug, getUserRole } from '@/lib/organization'
 import { getOrganizationAccessState } from '@/lib/organization/access'
-import {
-  getUpgradePrice,
-  getUpgradeTierIssue,
-  useSubscriptionUpgrade,
-} from '@/lib/subscription/upgrade'
+import { getUpgradeTierIssue, useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import {
   organizationMutationOptions,
   useAvailableOrganizationBillingWorkspaces,
@@ -217,8 +213,14 @@ export function TeamManagement() {
   })
   const isAdjustableSeatTier =
     currentTier?.ownerType === 'organization' && currentTier.seatMode === 'adjustable'
+  const canModifyCurrentSeats =
+    isOrganizationOwner &&
+    isAdjustableSeatTier &&
+    !seatCountsUnavailable &&
+    organizationSeats?.canModifySeats === true
   const seatPriceUsd = currentTier?.monthlyPriceUsd ?? currentTier?.yearlyPriceUsd ?? null
-  const seatPeriod = currentTier ? formatBillingPricePeriod(currentTier) : null
+  const seatInterval =
+    seatPriceUsd === null ? null : currentTier?.monthlyPriceUsd === null ? 'year' : 'month'
   const seatCount = currentTier?.seatCount ?? 1
   const seatMaximum = currentTier?.seatMaximum ?? null
   const organizationPlanCatalogPending =
@@ -380,7 +382,7 @@ export function TeamManagement() {
   )
 
   const handleReduceSeats = useCallback(async () => {
-    if (!session?.user || !activeOrgId || !isAdjustableSeatTier || seatCountsUnavailable) return
+    if (!activeOrgId || !canModifyCurrentSeats) return
     if (totalSeats <= 1 || usedSeats >= totalSeats) return
 
     await runAction('reduce-seats', () =>
@@ -389,31 +391,11 @@ export function TeamManagement() {
         seats: totalSeats - 1,
       })
     )
-  }, [
-    session?.user?.id,
-    activeOrgId,
-    isAdjustableSeatTier,
-    totalSeats,
-    usedSeats,
-    seatCountsUnavailable,
-    updateSeatsMutation,
-    runAction,
-  ])
-
-  const handleAddSeatDialog = useCallback(() => {
-    if (
-      seatPriceUsd !== null &&
-      seatPeriod !== null &&
-      !seatCountsUnavailable &&
-      isAdjustableSeatTier
-    ) {
-      setIsAddSeatDialogOpen(true)
-    }
-  }, [isAdjustableSeatTier, seatCountsUnavailable, seatPriceUsd, seatPeriod])
+  }, [activeOrgId, canModifyCurrentSeats, totalSeats, usedSeats, updateSeatsMutation, runAction])
 
   const confirmAddSeats = useCallback(
     async (selectedSeats: number) => {
-      if (!activeOrgId || seatCountsUnavailable || !isAdjustableSeatTier) {
+      if (!activeOrgId || !canModifyCurrentSeats) {
         return
       }
 
@@ -427,7 +409,7 @@ export function TeamManagement() {
         setIsAddSeatDialogOpen(false)
       }
     },
-    [isAdjustableSeatTier, activeOrgId, updateSeatsMutation, runAction, seatCountsUnavailable]
+    [canModifyCurrentSeats, activeOrgId, updateSeatsMutation, runAction]
   )
 
   const handleAssignWorkspaceBilling = useCallback(
@@ -505,12 +487,12 @@ export function TeamManagement() {
             <div className='space-y-3'>
               <h4 className='font-medium text-sm'>{copy('howBillingWorks')}</h4>
               <ul className='ml-4 list-disc space-y-2 text-muted-foreground text-xs'>
-                {seatPriceUsd !== null && seatPeriod && (
+                {seatPriceUsd !== null && seatInterval && (
                   <li>
                     {copy('billingHowWorksSeatCost', {
                       seats: totalSeats,
                       amount: formatUsd(locale, totalSeats * seatPriceUsd),
-                      interval: seatPeriod === '/yr' ? 'year' : 'month',
+                      interval: seatInterval,
                     })}
                   </li>
                 )}
@@ -565,10 +547,10 @@ export function TeamManagement() {
                   const issue = isCurrentTier ? null : getUpgradeTierIssue(tier, usedSeats)
                   const price = isCurrentTier
                     ? (tier.monthlyPriceUsd ?? tier.yearlyPriceUsd)
-                    : getUpgradePrice(tier)
-                  const isMonthly = isCurrentTier
-                    ? formatBillingPricePeriod(tier) === '/mo'
-                    : tier.checkoutInterval === 'month'
+                    : tier.hasStripeMonthlyPriceId
+                      ? tier.monthlyPriceUsd
+                      : null
+                  const isMonthly = !isCurrentTier || formatBillingPricePeriod(tier) === '/mo'
                   const planLabel = (
                     <>
                       {tier.displayName}
@@ -690,16 +672,14 @@ export function TeamManagement() {
           <TeamSeatsOverview
             totalSeats={totalSeats}
             pricePerSeat={seatPriceUsd}
-            billingInterval={seatPeriod ? (seatPeriod === '/yr' ? 'year' : 'month') : null}
+            billingInterval={seatInterval}
             isLoadingSubscription={organizationBillingPending || seatCountsUnavailable}
             usedSeats={usedSeats}
-            actionsDisabled={
-              isLoading || isPending || seatCountsUnavailable || seatPriceUsd === null
-            }
+            actionsDisabled={isLoading || isPending || !canModifyCurrentSeats}
             isReducing={pendingAction === 'reduce-seats'}
             error={actionFailure('reduce-seats')}
             onReduceSeats={handleReduceSeats}
-            onAddSeatDialog={handleAddSeatDialog}
+            onAddSeatDialog={() => setIsAddSeatDialogOpen(true)}
           />
         )}
 
@@ -811,7 +791,7 @@ export function TeamManagement() {
         }
       />
 
-      {pendingUpgradeTier?.checkoutInterval && (
+      {pendingUpgradeTier && (
         <TeamSeats
           open={isOrganizationOwner && !seatCountsUnavailable}
           onOpenChange={(open) => {
@@ -819,8 +799,8 @@ export function TeamManagement() {
           }}
           title={pendingUpgradeTier.displayName}
           description={pendingUpgradeTier.description || copy('plans.description')}
-          pricePerSeat={getUpgradePrice(pendingUpgradeTier)}
-          billingInterval={pendingUpgradeTier.checkoutInterval}
+          pricePerSeat={pendingUpgradeTier.monthlyPriceUsd}
+          billingInterval='month'
           minimumSeats={Math.max(pendingUpgradeTier.seatCount ?? 1, usedSeats)}
           maximumSeats={pendingUpgradeTier.seatMaximum}
           initialSeats={totalSeats}
@@ -845,22 +825,21 @@ export function TeamManagement() {
         />
       )}
 
-      {seatPriceUsd !== null && seatPeriod && (
+      {isAdjustableSeatTier && (
         <TeamSeats
-          open={
-            isAddSeatDialogOpen &&
-            isOrganizationOwner &&
-            isAdjustableSeatTier &&
-            !seatCountsUnavailable
-          }
+          open={isAddSeatDialogOpen && canModifyCurrentSeats}
           onOpenChange={setIsAddSeatDialogOpen}
           title={copy('addSeats.title')}
-          description={copy('addSeats.description', {
-            price: formatUsd(locale, seatPriceUsd),
-            interval: seatPeriod === '/yr' ? 'year' : 'month',
-          })}
+          description={
+            seatPriceUsd !== null && seatInterval
+              ? copy('addSeats.description', {
+                  price: formatUsd(locale, seatPriceUsd),
+                  interval: seatInterval,
+                })
+              : copy('addSeats.quoteUnavailable')
+          }
           pricePerSeat={seatPriceUsd}
-          billingInterval={seatPeriod === '/yr' ? 'year' : 'month'}
+          billingInterval={seatInterval}
           minimumSeats={Math.max(seatCount, usedSeats)}
           maximumSeats={seatMaximum}
           currentSeats={totalSeats}
@@ -872,7 +851,6 @@ export function TeamManagement() {
           error={actionFailure('update-seats')}
           onConfirm={confirmAddSeats}
           confirmButtonText={copy('addSeats.confirm')}
-          showCostBreakdown={true}
         />
       )}
     </div>
