@@ -302,7 +302,6 @@
         "emailRequired": "需要电子邮件。",
         "emailInvalid": "请输入有效的电子邮件地址。",
         "nameRequired": "需要姓名。",
-        "nameEmpty": "姓名不能为空。",
         "nameCharacters": "名称只能包含字母、空格、连字符和撇号。",
         "nameSpaces": "名称不能包含连续空格。",
         "nameTooLong": "姓名将被截断为100个字符。请缩短您的姓名。",

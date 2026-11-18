@@ -278,14 +278,15 @@ describe('auth locale redirects', () => {
   }
 
   it.each([
-    ['es', null],
-    ['zh', '/chat/deployed-chat?view=thread#reply'],
-    ['es', '/invite/invitation?token=workspace-token'],
+    ['es', null, null],
+    ['zh', '/chat/deployed-chat?view=thread#reply', null],
+    ['es', '/invite/invitation?token=workspace-token', null],
+    ['es', '/invite/invitation?token=workspace-token', 'session-token'],
   ] as const)(
-    'preserves the signup destination for %s with callback %s',
-    async (locale, callbackUrl) => {
+    'preserves the signup destination for %s with callback %s and session token %s',
+    async (locale, callbackUrl, token) => {
       if (callbackUrl) testState.searchParams = new URLSearchParams({ callbackUrl })
-      mockSignUpEmail.mockResolvedValue({ user: { id: 'user-1' } })
+      mockSignUpEmail.mockResolvedValue({ data: { user: { id: 'user-1' }, token }, error: null })
       mockRefetchSession.mockResolvedValue(undefined)
       mockSendVerificationOtp.mockResolvedValue(undefined)
 
@@ -319,6 +320,12 @@ describe('auth locale redirects', () => {
       )
       expect(mockRefetchSession).not.toHaveBeenCalled()
       expect(mockFetch).not.toHaveBeenCalled()
+      if (token) {
+        expect(mockSendVerificationOtp).not.toHaveBeenCalled()
+        expect(sessionStorage.setItem).not.toHaveBeenCalled()
+        expect(mockPush).toHaveBeenCalledExactlyOnceWith(callbackUrl)
+        return
+      }
       expect(mockSendVerificationOtp).toHaveBeenCalledWith({
         email: 'ada@example.com',
         type: 'email-verification',

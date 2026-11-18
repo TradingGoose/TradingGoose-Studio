@@ -44,8 +44,6 @@ const PASSWORD_VALIDATIONS = {
 }
 
 const NAME_VALIDATIONS = {
-  required: (value: string) => Boolean(value && typeof value === 'string'),
-  notEmpty: (value: string) => value.trim().length > 0,
   validCharacters: /^[\p{L}\s\-']+$/u,
   noConsecutiveSpaces: /^(?!.*\s\s).*$/,
 }
@@ -56,20 +54,9 @@ const validateEmailField = (
     required: string
     invalid: string
   }
-): string[] => {
-  const validationMessages: string[] = []
-
-  if (!emailValue || !emailValue.trim()) {
-    validationMessages.push(messages.required)
-    return validationMessages
-  }
-
-  const validation = quickValidateEmail(emailValue.trim().toLowerCase())
-  if (!validation.isValid) {
-    validationMessages.push(messages.invalid)
-  }
-
-  return validationMessages
+): string => {
+  if (!emailValue) return messages.required
+  return quickValidateEmail(emailValue).isValid ? '' : messages.invalid
 }
 
 function SignupFormContent({
@@ -91,7 +78,6 @@ function SignupFormContent({
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState('')
   const [passwordErrors, setPasswordErrors] = useState<string[]>([])
-  const [showValidationError, setShowValidationError] = useState(false)
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
   const [usernameError, setUsernameError] = useState('')
@@ -106,16 +92,13 @@ function SignupFormContent({
       usernameAvailability === 'error')
       ? signupCopy.usernameAvailability[usernameAvailability]
       : ''
-  const [emailErrors, setEmailErrors] = useState<string[]>([])
-  const [showEmailValidationError, setShowEmailValidationError] = useState(false)
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
   const [isInviteFlow, setIsInviteFlow] = useState(false)
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   const [name, setName] = useState('')
-  const [nameErrors, setNameErrors] = useState<string[]>([])
-  const [showNameValidationError, setShowNameValidationError] = useState(false)
+  const [nameError, setNameError] = useState('')
 
   useEffect(() => {
     const emailParam = searchParams.get('email')
@@ -149,88 +132,56 @@ function SignupFormContent({
     }
   }, [searchParams])
 
-  const validatePassword = (passwordValue: string): string[] => {
-    const validationMessages: string[] = []
-
+  const validatePassword = (passwordValue: string): string => {
     if (!PASSWORD_VALIDATIONS.minLength.test(passwordValue)) {
-      validationMessages.push(signupCopy.validation.passwordMinLength)
+      return signupCopy.validation.passwordMinLength
     }
 
     if (!PASSWORD_VALIDATIONS.uppercase.test(passwordValue)) {
-      validationMessages.push(signupCopy.validation.passwordUppercase)
+      return signupCopy.validation.passwordUppercase
     }
 
     if (!PASSWORD_VALIDATIONS.lowercase.test(passwordValue)) {
-      validationMessages.push(signupCopy.validation.passwordLowercase)
+      return signupCopy.validation.passwordLowercase
     }
 
     if (!PASSWORD_VALIDATIONS.number.test(passwordValue)) {
-      validationMessages.push(signupCopy.validation.passwordNumber)
+      return signupCopy.validation.passwordNumber
     }
 
     if (!PASSWORD_VALIDATIONS.special.test(passwordValue)) {
-      validationMessages.push(signupCopy.validation.passwordSpecial)
+      return signupCopy.validation.passwordSpecial
     }
 
-    return validationMessages
+    return ''
   }
 
-  const validateName = (nameValue: string): string[] => {
-    const validationMessages: string[] = []
-
-    if (!NAME_VALIDATIONS.required(nameValue)) {
-      validationMessages.push(signupCopy.validation.nameRequired)
-      return validationMessages
-    }
-
-    if (!NAME_VALIDATIONS.notEmpty(nameValue)) {
-      validationMessages.push(signupCopy.validation.nameEmpty)
-      return validationMessages
-    }
-
-    if (!NAME_VALIDATIONS.validCharacters.test(nameValue.trim())) {
-      validationMessages.push(signupCopy.validation.nameCharacters)
+  const validateName = (nameValue: string): string => {
+    if (!nameValue) return signupCopy.validation.nameRequired
+    if (!NAME_VALIDATIONS.validCharacters.test(nameValue)) {
+      return signupCopy.validation.nameCharacters
     }
 
     if (!NAME_VALIDATIONS.noConsecutiveSpaces.test(nameValue)) {
-      validationMessages.push(signupCopy.validation.nameSpaces)
+      return signupCopy.validation.nameSpaces
     }
 
-    return validationMessages
+    return ''
   }
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newPassword = e.target.value
-    setPassword(newPassword)
-
-    const passwordValidationMessages = validatePassword(newPassword)
-    setPasswordErrors(passwordValidationMessages)
-    setShowValidationError(false)
+    setPassword(e.target.value)
+    setPasswordErrors([])
   }
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value
-    setName(rawValue)
-
-    const nameValidationMessages = validateName(rawValue)
-    setNameErrors(nameValidationMessages)
-    setShowNameValidationError(false)
+    setName(e.target.value)
+    setNameError('')
   }
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newEmail = e.target.value
-    setEmail(newEmail)
-
-    const emailValidationMessages = validateEmailField(newEmail, {
-      required: signupCopy.validation.emailRequired,
-      invalid: signupCopy.validation.emailInvalid,
-    })
-    setEmailErrors(emailValidationMessages)
-    setShowEmailValidationError(false)
-
-    if (emailError) {
-      setEmailError('')
-    }
+    setEmail(e.target.value)
+    setEmailError('')
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -247,60 +198,41 @@ function SignupFormContent({
 
     const trimmedName = nameValue.trim()
 
-    const nameValidationErrors = validateName(trimmedName)
-    setNameErrors(nameValidationErrors)
-    setShowNameValidationError(nameValidationErrors.length > 0)
+    const nameValidationError = validateName(trimmedName)
+    setNameError(nameValidationError)
 
-    const emailValidationErrors = validateEmailField(emailValue, {
+    const emailValidationError = validateEmailField(emailValue, {
       required: signupCopy.validation.emailRequired,
       invalid: signupCopy.validation.emailInvalid,
     })
-    setEmailErrors(emailValidationErrors)
-    setShowEmailValidationError(emailValidationErrors.length > 0)
+    setEmailError(emailValidationError)
 
-    const passwordValidationErrors = validatePassword(passwordValue)
-    setPasswordErrors(passwordValidationErrors)
-
-    setShowValidationError(passwordValidationErrors.length > 0)
+    const passwordValidationError = validatePassword(passwordValue)
+    setPasswordErrors(passwordValidationError ? [passwordValidationError] : [])
 
     try {
       if (
         !usernameValue ||
         usernameAvailability === 'taken' ||
-        nameValidationErrors.length > 0 ||
-        emailValidationErrors.length > 0 ||
-        passwordValidationErrors.length > 0
+        nameValidationError ||
+        emailValidationError ||
+        passwordValidationError
       ) {
-        if (nameValidationErrors.length > 0) {
-          setNameErrors([nameValidationErrors[0]])
-          setShowNameValidationError(true)
-        }
-        if (emailValidationErrors.length > 0) {
-          setEmailErrors([emailValidationErrors[0]])
-          setShowEmailValidationError(true)
-        }
-        if (passwordValidationErrors.length > 0) {
-          setPasswordErrors([passwordValidationErrors[0]])
-          setShowValidationError(true)
-        }
         setIsLoading(false)
         return
       }
 
       if (trimmedName.length > 100) {
-        setNameErrors([signupCopy.validation.nameTooLong])
-        setShowNameValidationError(true)
+        setNameError(signupCopy.validation.nameTooLong)
         setIsLoading(false)
         return
       }
-
-      const sanitizedName = trimmedName
 
       const response = await client.signUp.email(
         {
           email: emailValue,
           password: passwordValue,
-          name: sanitizedName,
+          name: trimmedName,
           username: usernameValue,
         },
         {
@@ -320,8 +252,7 @@ function SignupFormContent({
             } else if (authErrorCode === 'INVALID_USERNAME') {
               setUsernameError(signupCopy.validation.usernameInvalid)
             } else if (authErrorCode === 'USER_ALREADY_EXISTS') {
-              errorMessage.push(signupCopy.errors.accountExists)
-              setEmailError(errorMessage[errorMessage.length - 1])
+              setEmailError(signupCopy.errors.accountExists)
             } else if (
               authErrorCode === 'EMAIL_AND_PASSWORD_SIGN_UP_IS_NOT_ENABLED' ||
               authErrorCode === 'BAD_REQUEST' ||
@@ -329,35 +260,28 @@ function SignupFormContent({
               isRegistrationWaitlistReason(ctx.error.message)
             ) {
               if (isRegistrationDisabledReason(ctx.error.message)) {
-                errorMessage.push(signupCopy.errors.emailSignupDisabled)
+                setEmailError(signupCopy.errors.emailSignupDisabled)
               } else if (isRegistrationWaitlistReason(ctx.error.message)) {
-                errorMessage.push(signupCopy.errors.waitlistRequired)
+                setEmailError(signupCopy.errors.waitlistRequired)
               } else {
-                errorMessage.push(signupCopy.errors.signupNotEnabled)
+                setEmailError(signupCopy.errors.signupNotEnabled)
               }
-              setEmailError(errorMessage[errorMessage.length - 1])
             } else if (authErrorCode === 'INVALID_EMAIL') {
-              errorMessage.push(signupCopy.errors.invalidEmail)
-              setEmailError(errorMessage[errorMessage.length - 1])
+              setEmailError(signupCopy.errors.invalidEmail)
             } else if (authErrorCode === 'PASSWORD_TOO_SHORT') {
               errorMessage.push(signupCopy.errors.passwordTooShort)
               setPasswordErrors(errorMessage)
-              setShowValidationError(true)
             } else if (authErrorCode === 'PASSWORD_TOO_LONG') {
               errorMessage.push(signupCopy.errors.passwordTooLong)
               setPasswordErrors(errorMessage)
-              setShowValidationError(true)
             } else if (authErrorCode === 'NETWORK_ERROR') {
               errorMessage.push(signupCopy.errors.network)
               setPasswordErrors(errorMessage)
-              setShowValidationError(true)
             } else if (authErrorCode === 'RATE_LIMIT' || authErrorCode === 'TOO_MANY_REQUESTS') {
               errorMessage.push(signupCopy.errors.rateLimit)
               setPasswordErrors(errorMessage)
-              setShowValidationError(true)
             } else {
               setPasswordErrors(errorMessage)
-              setShowValidationError(true)
             }
           },
         }
@@ -365,6 +289,12 @@ function SignupFormContent({
 
       if (!response || response.error) {
         setIsLoading(false)
+        return
+      }
+
+      const destination = redirectUrl ?? defaultCallbackPath
+      if (response.data?.token) {
+        router.push(destination)
         return
       }
 
@@ -379,9 +309,7 @@ function SignupFormContent({
         logger.warn('Failed to send verification OTP after signup; user can press Resend', otpErr)
       }
 
-      router.push(
-        `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(redirectUrl ?? defaultCallbackPath)}`
-      )
+      router.push(`/verify?fromSignup=true&redirectAfter=${encodeURIComponent(destination)}`)
     } catch (error) {
       logger.error('Signup error:', error)
       setIsLoading(false)
@@ -389,9 +317,7 @@ function SignupFormContent({
   }
 
   const ssoEnabled = isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED'))
-  const hasSocial = githubAvailable || googleAvailable
-  const showBottomSection = hasSocial || ssoEnabled
-  const showDivider = showBottomSection
+  const hasProviders = githubAvailable || googleAvailable || ssoEnabled
 
   return (
     <>
@@ -429,26 +355,21 @@ function SignupFormContent({
               title={signupCopy.nameTitle}
               value={name}
               onChange={handleNameChange}
-              aria-invalid={showNameValidationError && nameErrors.length > 0}
-              aria-describedby={
-                showNameValidationError && nameErrors.length > 0 ? 'signup-name-errors' : undefined
-              }
+              aria-invalid={Boolean(nameError)}
+              aria-describedby={nameError ? 'signup-name-errors' : undefined}
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                showNameValidationError &&
-                  nameErrors.length > 0 &&
+                nameError &&
                   'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
-            {showNameValidationError && nameErrors.length > 0 && (
+            {nameError && (
               <div
                 id='signup-name-errors'
                 role='alert'
                 className='mt-1 space-y-1 text-red-400 text-xs'
               >
-                {nameErrors.map((error, index) => (
-                  <p key={index}>{error}</p>
-                ))}
+                <p>{nameError}</p>
               </div>
             )}
           </div>
@@ -511,32 +432,15 @@ function SignupFormContent({
               autoCorrect='off'
               value={email}
               onChange={handleEmailChange}
-              aria-invalid={
-                Boolean(emailError) || (showEmailValidationError && emailErrors.length > 0)
-              }
-              aria-describedby={
-                emailError || (showEmailValidationError && emailErrors.length > 0)
-                  ? 'signup-email-errors'
-                  : undefined
-              }
+              aria-invalid={Boolean(emailError)}
+              aria-describedby={emailError ? 'signup-email-errors' : undefined}
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                (emailError || (showEmailValidationError && emailErrors.length > 0)) &&
+                emailError &&
                   'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
-            {showEmailValidationError && emailErrors.length > 0 && (
-              <div
-                id='signup-email-errors'
-                role='alert'
-                className='mt-1 space-y-1 text-red-400 text-xs'
-              >
-                {emailErrors.map((error, index) => (
-                  <p key={index}>{error}</p>
-                ))}
-              </div>
-            )}
-            {emailError && !showEmailValidationError && (
+            {emailError && (
               <div id='signup-email-errors' role='alert' className='mt-1 text-red-400 text-xs'>
                 <p>{emailError}</p>
               </div>
@@ -559,16 +463,11 @@ function SignupFormContent({
                 autoCorrect='off'
                 value={password}
                 onChange={handlePasswordChange}
-                aria-invalid={showValidationError && passwordErrors.length > 0}
-                aria-describedby={
-                  showValidationError && passwordErrors.length > 0
-                    ? 'signup-password-errors'
-                    : undefined
-                }
+                aria-invalid={passwordErrors.length > 0}
+                aria-describedby={passwordErrors.length > 0 ? 'signup-password-errors' : undefined}
                 className={cn(
                   'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                  showValidationError &&
-                    passwordErrors.length > 0 &&
+                  passwordErrors.length > 0 &&
                     'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
@@ -581,7 +480,7 @@ function SignupFormContent({
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            {showValidationError && passwordErrors.length > 0 && (
+            {passwordErrors.length > 0 && (
               <div
                 id='signup-password-errors'
                 role='alert'
@@ -604,7 +503,7 @@ function SignupFormContent({
         </Button>
       </form>
 
-      {showDivider && (
+      {hasProviders && (
         <div className={`${inter.className} relative my-6 font-light`}>
           <div className='absolute inset-0 flex items-center'>
             <div className='auth-divider w-full border-t' />
@@ -617,7 +516,7 @@ function SignupFormContent({
         </div>
       )}
 
-      {showBottomSection && (
+      {hasProviders && (
         <div className={inter.className}>
           <SocialLoginButtons
             githubAvailable={githubAvailable}

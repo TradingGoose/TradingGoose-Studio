@@ -40,24 +40,10 @@ const validateIdentifierField = (
     required: string
     invalid: string
   }
-): string[] => {
-  const validationMessages: string[] = []
-
-  if (!emailValue || !emailValue.trim()) {
-    validationMessages.push(messages.required)
-    return validationMessages
-  }
-
-  if (emailValue.includes('@') && !quickValidateEmail(emailValue.trim().toLowerCase()).isValid) {
-    validationMessages.push(messages.invalid)
-  }
-
-  return validationMessages
-}
-
-const PASSWORD_VALIDATIONS = {
-  required: { test: (value: string) => Boolean(value && typeof value === 'string') },
-  notEmpty: { test: (value: string) => value.trim().length > 0 },
+): string => {
+  if (!emailValue) return messages.required
+  if (emailValue.includes('@') && !quickValidateEmail(emailValue).isValid) return messages.invalid
+  return ''
 }
 
 const validatePassword = (
@@ -66,20 +52,10 @@ const validatePassword = (
     required: string
     empty: string
   }
-): string[] => {
-  const validationMessages: string[] = []
-
-  if (!PASSWORD_VALIDATIONS.required.test(passwordValue)) {
-    validationMessages.push(messages.required)
-    return validationMessages
-  }
-
-  if (!PASSWORD_VALIDATIONS.notEmpty.test(passwordValue)) {
-    validationMessages.push(messages.empty)
-    return validationMessages
-  }
-
-  return validationMessages
+): string => {
+  if (!passwordValue) return messages.required
+  if (!passwordValue.trim()) return messages.empty
+  return ''
 }
 
 export default function LoginPage({
@@ -102,8 +78,7 @@ export default function LoginPage({
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState('')
-  const [passwordErrors, setPasswordErrors] = useState<string[]>([])
-  const [showValidationError, setShowValidationError] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
@@ -119,8 +94,7 @@ export default function LoginPage({
   }>({ type: null, message: '' })
 
   const [email, setEmail] = useState('')
-  const [emailErrors, setEmailErrors] = useState<string[]>([])
-  const [showEmailValidationError, setShowEmailValidationError] = useState(false)
+  const [emailError, setEmailError] = useState('')
   const isReauth = searchParams.get('reauth') === '1'
   const shouldRunReauthCleanupRef = useRef(isReauth)
   const reauthCleanupPromiseRef = useRef<Promise<void> | null>(null)
@@ -208,27 +182,13 @@ export default function LoginPage({
   }, [forgotPasswordEmail, forgotPasswordOpen])
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newEmail = e.target.value
-    setEmail(newEmail)
-
-    const errors = validateIdentifierField(newEmail, {
-      required: loginCopy.validation.identifierRequired,
-      invalid: loginCopy.validation.emailInvalid,
-    })
-    setEmailErrors(errors)
-    setShowEmailValidationError(false)
+    setEmail(e.target.value)
+    setEmailError('')
   }
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newPassword = e.target.value
-    setPassword(newPassword)
-
-    const errors = validatePassword(newPassword, {
-      required: loginCopy.validation.passwordRequired,
-      empty: loginCopy.validation.passwordEmpty,
-    })
-    setPasswordErrors(errors)
-    setShowValidationError(false)
+    setPassword(e.target.value)
+    setPasswordError('')
   }
 
   const isSessionRecoveryError = (error: any) =>
@@ -275,21 +235,19 @@ export default function LoginPage({
     const isEmail = emailRaw.includes('@')
     const email = isEmail ? emailRaw.trim().toLowerCase() : emailRaw.trim()
 
-    const emailValidationErrors = validateIdentifierField(email, {
+    const emailValidationError = validateIdentifierField(email, {
       required: loginCopy.validation.identifierRequired,
       invalid: loginCopy.validation.emailInvalid,
     })
-    setEmailErrors(emailValidationErrors)
-    setShowEmailValidationError(emailValidationErrors.length > 0)
+    setEmailError(emailValidationError)
 
-    const passwordValidationErrors = validatePassword(password, {
+    const passwordValidationError = validatePassword(password, {
       required: loginCopy.validation.passwordRequired,
       empty: loginCopy.validation.passwordEmpty,
     })
-    setPasswordErrors(passwordValidationErrors)
-    setShowValidationError(passwordValidationErrors.length > 0)
+    setPasswordError(passwordValidationError)
 
-    if (emailValidationErrors.length > 0 || passwordValidationErrors.length > 0) {
+    if (emailValidationError || passwordValidationError) {
       setIsLoading(false)
       return
     }
@@ -309,8 +267,7 @@ export default function LoginPage({
       if (isSessionRecoveryError(err)) {
         shouldRunReauthCleanupRef.current = true
         void runReauthCleanup()
-        setPasswordErrors([loginCopy.errors.unableToSignInNow])
-        setShowValidationError(true)
+        setPasswordError(loginCopy.errors.unableToSignInNow)
         return
       }
 
@@ -326,14 +283,12 @@ export default function LoginPage({
           router.push(`/verify?redirectAfter=${encodeURIComponent(callbackUrl)}`)
         } catch (error) {
           logger.error('Failed to send login verification code', error)
-          setPasswordErrors([copy.auth.verify.errors.resendFailed])
-          setShowValidationError(true)
+          setPasswordError(copy.auth.verify.errors.resendFailed)
         }
         return
       }
       logger.error('Login error:', err)
-      setPasswordErrors([message ?? loginCopy.errors.unableToSignInNow])
-      setShowValidationError(true)
+      setPasswordError(message ?? loginCopy.errors.unableToSignInNow)
     } finally {
       setIsLoading(false)
     }
@@ -390,9 +345,7 @@ export default function LoginPage({
   }
 
   const ssoEnabled = isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED'))
-  const hasSocial = githubAvailable || googleAvailable
-  const showBottomSection = hasSocial || ssoEnabled
-  const showDivider = showBottomSection
+  const hasProviders = githubAvailable || googleAvailable || ssoEnabled
   const showWaitlistNote = registrationMode === 'waitlist' && !isInviteFlow
   const registrationPath = isInviteFlow ? '/signup' : getRegistrationPrimaryHref(registrationMode)
   const registrationHref =
@@ -428,28 +381,21 @@ export default function LoginPage({
               autoCorrect='off'
               value={email}
               onChange={handleEmailChange}
-              aria-invalid={showEmailValidationError && emailErrors.length > 0}
-              aria-describedby={
-                showEmailValidationError && emailErrors.length > 0
-                  ? 'login-email-errors'
-                  : undefined
-              }
+              aria-invalid={Boolean(emailError)}
+              aria-describedby={emailError ? 'login-email-errors' : undefined}
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                showEmailValidationError &&
-                  emailErrors.length > 0 &&
+                emailError &&
                   'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
-            {showEmailValidationError && emailErrors.length > 0 && (
+            {emailError && (
               <div
                 id='login-email-errors'
                 role='alert'
                 className='mt-1 space-y-1 text-red-400 text-xs'
               >
-                {emailErrors.map((error, index) => (
-                  <p key={index}>{error}</p>
-                ))}
+                <p>{emailError}</p>
               </div>
             )}
           </div>
@@ -477,16 +423,11 @@ export default function LoginPage({
                 placeholder={commonCopy.enterYourPassword}
                 value={password}
                 onChange={handlePasswordChange}
-                aria-invalid={showValidationError && passwordErrors.length > 0}
-                aria-describedby={
-                  showValidationError && passwordErrors.length > 0
-                    ? 'login-password-errors'
-                    : undefined
-                }
+                aria-invalid={Boolean(passwordError)}
+                aria-describedby={passwordError ? 'login-password-errors' : undefined}
                 className={cn(
                   'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                  showValidationError &&
-                    passwordErrors.length > 0 &&
+                  passwordError &&
                     'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
@@ -499,15 +440,13 @@ export default function LoginPage({
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            {showValidationError && passwordErrors.length > 0 && (
+            {passwordError && (
               <div
                 id='login-password-errors'
                 role='alert'
                 className='mt-1 space-y-1 text-red-400 text-xs'
               >
-                {passwordErrors.map((error, index) => (
-                  <p key={index}>{error}</p>
-                ))}
+                <p>{passwordError}</p>
               </div>
             )}
           </div>
@@ -527,7 +466,7 @@ export default function LoginPage({
       </form>
 
       {/* Divider - show when we have multiple auth methods */}
-      {showDivider && (
+      {hasProviders && (
         <div className={`${inter.className} relative my-6 font-light`}>
           <div className='absolute inset-0 flex items-center'>
             <div className='divider w-full border-t' />
@@ -540,7 +479,7 @@ export default function LoginPage({
         </div>
       )}
 
-      {showBottomSection && (
+      {hasProviders && (
         <div className={inter.className}>
           <SocialLoginButtons
             googleAvailable={googleAvailable}

@@ -302,7 +302,6 @@
         "emailRequired": "Email is required.",
         "emailInvalid": "Please enter a valid email address.",
         "nameRequired": "Name is required.",
-        "nameEmpty": "Name cannot be empty.",
         "nameCharacters": "Name can only contain letters, spaces, hyphens, and apostrophes.",
         "nameSpaces": "Name cannot contain consecutive spaces.",
         "nameTooLong": "Name will be truncated to 100 characters. Please shorten your name.",

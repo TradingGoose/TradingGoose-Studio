@@ -35,24 +35,11 @@ interface UseVerificationParams {
   copy: VerifyCopy
 }
 
-interface UseVerificationReturn {
-  otp: string
-  email: string
-  isLoading: boolean
-  isVerified: boolean
-  isInvalidOtp: boolean
-  failureMessage: string
-  isOtpComplete: boolean
-  verifyCode: () => Promise<void>
-  resendCode: () => void
-  handleOtpChange: (value: string) => void
-}
-
 export function useVerification({
   hasEmailService,
   isEmailVerificationEnabled,
   copy,
-}: UseVerificationParams): UseVerificationReturn {
+}: UseVerificationParams) {
   const router = useRouter()
   const locale = useLocale() as LocaleCode
   const redirectAfter = useSearchParams().get('redirectAfter')
@@ -127,15 +114,8 @@ export function useVerification({
         router.push(destination)
       }, 1000)
     } catch (error: unknown) {
-      const message = resolveVerificationFailureMessage(copy, error)
-
       setIsInvalidOtp(true)
-      setFailureMessage(message)
-      logger.info('Error state after caught error:', {
-        isInvalidOtp: true,
-        failureMessage: message,
-      })
-
+      setFailureMessage(resolveVerificationFailureMessage(copy, error))
       setOtp('')
     } finally {
       setIsLoading(false)

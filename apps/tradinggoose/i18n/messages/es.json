@@ -302,7 +302,6 @@
         "emailRequired": "El correo electrónico es obligatorio.",
         "emailInvalid": "Introduzca un correo electrónico válido.",
         "nameRequired": "El nombre es obligatorio.",
-        "nameEmpty": "El nombre no puede estar vacío.",
         "nameCharacters": "El nombre solo puede contener letras, espacios, guiones y apóstrofos.",
         "nameSpaces": "El nombre no puede contener espacios consecutivos.",
         "nameTooLong": "El nombre se truncará a 100 caracteres. Acorte su nombre.",

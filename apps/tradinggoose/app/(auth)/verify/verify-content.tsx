@@ -113,60 +113,18 @@ function VerificationForm({
                 className={cn('gap-2', isInvalidOtp && 'otp-error')}
               >
                 <InputOTPGroup className='[&>div]:!rounded-md gap-2'>
-                  <InputOTPSlot
-                    index={0}
-                    className={cn(
-                      '!rounded-md h-12 w-12 border text-center font-medium text-lg shadow-sm transition-all duration-200',
-                      'border-gray-300 hover:border-gray-400',
-                      'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
-                      isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
-                    )}
-                  />
-                  <InputOTPSlot
-                    index={1}
-                    className={cn(
-                      '!rounded-md h-12 w-12 border text-center font-medium text-lg shadow-sm transition-all duration-200',
-                      'border-gray-300 hover:border-gray-400',
-                      'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
-                      isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
-                    )}
-                  />
-                  <InputOTPSlot
-                    index={2}
-                    className={cn(
-                      '!rounded-md h-12 w-12 border text-center font-medium text-lg shadow-sm transition-all duration-200',
-                      'border-gray-300 hover:border-gray-400',
-                      'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
-                      isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
-                    )}
-                  />
-                  <InputOTPSlot
-                    index={3}
-                    className={cn(
-                      '!rounded-md h-12 w-12 border text-center font-medium text-lg shadow-sm transition-all duration-200',
-                      'border-gray-300 hover:border-gray-400',
-                      'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
-                      isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
-                    )}
-                  />
-                  <InputOTPSlot
-                    index={4}
-                    className={cn(
-                      '!rounded-md h-12 w-12 border text-center font-medium text-lg shadow-sm transition-all duration-200',
-                      'border-gray-300 hover:border-gray-400',
-                      'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
-                      isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
-                    )}
-                  />
-                  <InputOTPSlot
-                    index={5}
-                    className={cn(
-                      '!rounded-md h-12 w-12 border text-center font-medium text-lg shadow-sm transition-all duration-200',
-                      'border-gray-300 hover:border-gray-400',
-                      'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
-                      isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
-                    )}
-                  />
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <InputOTPSlot
+                      key={index}
+                      index={index}
+                      className={cn(
+                        '!rounded-md h-12 w-12 border text-center font-medium text-lg shadow-sm transition-all duration-200',
+                        'border-gray-300 hover:border-gray-400',
+                        'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
+                        isInvalidOtp && 'border-red-500 focus:border-red-500 focus:ring-red-100'
+                      )}
+                    />
+                  ))}
                 </InputOTPGroup>
               </InputOTP>
             </div>
