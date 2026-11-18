@@ -95,11 +95,6 @@ vi.mock('@/lib/email/mailer', () => ({
   sendEmail: (...args: unknown[]) => mockSendEmail(...args),
 }))
 
-vi.mock('@/lib/email/locale', () => ({
-  normalizeEmailLocale: (locale?: string | null) =>
-    locale === 'en' || locale === 'es' || locale === 'zh' ? locale : 'en',
-}))
-
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => mockLogger,
 }))

@@ -6,7 +6,6 @@ import {
   renderWaitlistApprovedEmail,
   renderWaitlistConfirmationEmail,
 } from '@/components/emails/render-email'
-import { normalizeEmailLocale } from '@/lib/email/locale'
 import { sendBatchEmails, sendEmail, type TransactionalBatchEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -17,7 +16,7 @@ import {
   upsertSystemSettings,
 } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { localizeUrl } from '@/i18n/utils'
+import { localizeUrl, normalizeLocaleCode } from '@/i18n/utils'
 import {
   DEFAULT_REGISTRATION_MODE,
   REGISTRATION_DISABLED_REASON,
@@ -83,7 +82,7 @@ export async function addToWaitlist(email: string, locale?: string | null) {
     throw new Error(validation.reason)
   }
 
-  const preferredLocale = normalizeEmailLocale(locale)
+  const preferredLocale = normalizeLocaleCode(locale)
   const existing = await getWaitlistEntryByEmail(normalizedEmail)
   if (existing) {
     if (existing.preferredLocale !== preferredLocale) {
@@ -283,7 +282,7 @@ async function createWaitlistApprovalEmail(
   preferredLocale: string
 ): Promise<TransactionalBatchEmail | null> {
   try {
-    const locale = normalizeEmailLocale(preferredLocale)
+    const locale = normalizeLocaleCode(preferredLocale)
     const signupLink = localizeUrl(baseUrl, locale, `/signup?email=${encodeURIComponent(email)}`)
     return {
       to: email,
