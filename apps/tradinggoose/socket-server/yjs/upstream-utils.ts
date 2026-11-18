@@ -6,7 +6,6 @@
  * `discardDocument` and `cleanupAllDocuments`.
  */
 
-import type { IncomingMessage } from 'http'
 import * as awarenessProtocol from '@y/protocols/awareness'
 import * as syncProtocol from '@y/protocols/sync'
 import * as decoding from 'lib0/decoding'
@@ -34,6 +33,7 @@ import {
   YjsSessionAdmissionError,
 } from '@/lib/yjs/server/revocation-fence'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { isSocketSessionActive } from '../middleware/auth'
 import { YjsAuthError } from './auth'
 
 const messageSync = 0
@@ -67,11 +67,9 @@ export type DocumentAdmission = {
 }
 export type DocumentReconciler = (readStore?: DocumentReadStore) => Promise<void> | void
 export type DocumentValidator = (doc: Y.Doc) => void
-type ConnectionState = {
+type ConnectionState = DocumentAdmission & {
+  sessionToken: string
   awarenessIds: Set<number>
-  userId: string
-  accessMode: ReviewAccessMode
-  descriptor: ReviewTargetDescriptor
   persist?: (doc: Y.Doc, requestId: string, identityName?: string) => Promise<void>
 }
 
@@ -626,14 +624,9 @@ function assertLocalDocumentAdmission(docId: string): void {
 
 export function setupWSConnection(
   conn: WebSocket,
-  _req: IncomingMessage,
-  opts: {
+  opts: Omit<ConnectionState, 'awarenessIds'> & {
     doc: Y.Doc
-    userId: string
-    accessMode: ReviewAccessMode
-    descriptor: ReviewTargetDescriptor
     initialMessages?: readonly Uint8Array[]
-    persist?: (doc: Y.Doc, requestId: string, identityName?: string) => Promise<void>
     onDocumentUpdate?: DocumentPersistenceHandler
     onDocumentUpdateDebounceMs?: number
   }
@@ -641,6 +634,7 @@ export function setupWSConnection(
   const {
     doc: candidate,
     userId,
+    sessionToken,
     accessMode,
     descriptor,
     initialMessages,
@@ -667,7 +661,14 @@ export function setupWSConnection(
     doc.onDocumentUpdate = onDocumentUpdate
     doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0
   }
-  doc.conns.set(conn, { awarenessIds: new Set(), userId, accessMode, descriptor, persist })
+  doc.conns.set(conn, {
+    awarenessIds: new Set(),
+    userId,
+    sessionToken,
+    accessMode,
+    descriptor,
+    persist,
+  })
 
   conn.on('message', (data: ArrayBuffer) => {
     handleMessage(conn, doc, new Uint8Array(data))
@@ -777,12 +778,11 @@ async function reconcileConnection(
   conn: WebSocket,
   connection: ConnectionState
 ): Promise<void> {
-  const access = await verifyReviewTargetAccess(
-    connection.userId,
-    connection.descriptor,
-    connection.accessMode
-  )
-  if (!access.hasAccess && doc.conns.get(conn) === connection) {
+  const { userId, sessionToken, descriptor, accessMode } = connection
+  const hasAccess =
+    (await isSocketSessionActive(userId, sessionToken)) &&
+    (await verifyReviewTargetAccess(userId, descriptor, accessMode)).hasAccess
+  if (!hasAccess && doc.conns.get(conn) === connection) {
     closeConn(doc, conn, YJS_CLOSE_CODE_AUTHORIZATION_REVOKED, 'Authorization revoked')
   }
 }

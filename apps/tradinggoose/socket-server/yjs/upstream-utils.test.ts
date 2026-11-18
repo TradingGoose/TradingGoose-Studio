@@ -1,5 +1,4 @@
 import { EventEmitter } from 'node:events'
-import type { IncomingMessage } from 'http'
 import * as syncProtocol from '@y/protocols/sync'
 import * as decoding from 'lib0/decoding'
 import * as encoding from 'lib0/encoding'
@@ -12,6 +11,7 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import {
   type ReviewTargetDescriptor,
+  YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
   YJS_CLOSE_CODE_DOCUMENT_REJECTED,
 } from '@/lib/copilot/review-sessions/types'
 import {
@@ -42,6 +42,7 @@ import {
 } from './upstream-utils'
 
 const accessMocks = vi.hoisted(() => ({ verifyReviewTargetAccess: vi.fn() }))
+const sessionMocks = vi.hoisted(() => ({ isSocketSessionActive: vi.fn() }))
 const fenceMocks = vi.hoisted(() => {
   const readStore = { select: vi.fn() }
   const defaultAdmission = async (
@@ -54,6 +55,7 @@ const fenceMocks = vi.hoisted(() => {
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
   verifyReviewTargetAccess: accessMocks.verifyReviewTargetAccess,
 }))
+vi.mock('../middleware/auth', () => sessionMocks)
 
 vi.mock('@/lib/yjs/server/revocation-fence', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/yjs/server/revocation-fence')>()),
@@ -80,9 +82,10 @@ function setupWatchlistSocket(
     docId,
     { workspaceId: 'workspace-1', initialize: () => undefined },
     (doc) => {
-      setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+      setupWSConnection(socket as unknown as WebSocket, {
         doc,
         userId: 'user-1',
+        sessionToken: 'native-session',
         accessMode: 'write',
         descriptor: buildSavedEntityDescriptor('watchlist', docId, 'workspace-1'),
         onDocumentUpdate: persist,
@@ -137,6 +140,7 @@ afterEach(() => {
 
 beforeEach(() => {
   accessMocks.verifyReviewTargetAccess.mockReset().mockResolvedValue({ hasAccess: true })
+  sessionMocks.isSocketSessionActive.mockReset().mockResolvedValue(true)
   fenceMocks.readStore.select.mockReset()
   fenceMocks.withAdmission.mockReset().mockImplementation(fenceMocks.defaultAdmission)
 })
@@ -156,9 +160,10 @@ describe('shared document lifecycle', () => {
       'pre-admission-message',
       { workspaceId: 'workspace-1', initialize: () => undefined },
       (shared) => {
-        setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+        setupWSConnection(socket as unknown as WebSocket, {
           doc: shared,
           userId: 'user-1',
+          sessionToken: 'native-session',
           accessMode: 'write',
           descriptor: buildSavedEntityDescriptor(
             'watchlist',
@@ -372,9 +377,10 @@ describe('shared document lifecycle', () => {
       'skill-manual',
       { workspaceId: 'workspace-1', initialize: () => undefined },
       (shared) => {
-        setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+        setupWSConnection(socket as unknown as WebSocket, {
           doc: shared,
           userId: 'user-1',
+          sessionToken: 'native-session',
           accessMode: 'write',
           descriptor,
           persist,
@@ -471,9 +477,10 @@ describe('shared document lifecycle', () => {
       { workspaceId: 'workspace-1', initialize: () => undefined },
       (doc) => {
         for (const socket of sockets) {
-          setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+          setupWSConnection(socket as unknown as WebSocket, {
             doc,
             userId: 'user-1',
+            sessionToken: 'native-session',
             accessMode: 'read',
             descriptor,
           })
@@ -631,16 +638,18 @@ describe('document mutation queue', () => {
           }),
         },
         (doc) => {
-          setupWSConnection(sender as unknown as WebSocket, {} as IncomingMessage, {
+          setupWSConnection(sender as unknown as WebSocket, {
             doc,
             userId: 'user-1',
+            sessionToken: 'native-session',
             accessMode: 'write',
             descriptor: input.descriptor,
             onDocumentUpdate: persist,
           })
-          setupWSConnection(peer as unknown as WebSocket, {} as IncomingMessage, {
+          setupWSConnection(peer as unknown as WebSocket, {
             doc,
             userId: 'user-1',
+            sessionToken: 'native-session',
             accessMode: 'write',
             descriptor: input.descriptor,
           })
@@ -860,9 +869,10 @@ describe('orderly document discard', () => {
       workspaceId: string
     ) =>
       acquireDocument(entityId, { workspaceId, initialize: () => undefined }, (doc) => {
-        setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+        setupWSConnection(socket as unknown as WebSocket, {
           doc,
           userId: 'user-1',
+          sessionToken: 'native-session',
           accessMode: 'write',
           descriptor: buildSavedEntityDescriptor(entityKind, entityId, workspaceId),
         })
@@ -920,9 +930,10 @@ describe('workspace connection authorization', () => {
       'skill-1',
       { workspaceId: 'workspace-1', initialize: () => undefined },
       (doc) => {
-        setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+        setupWSConnection(socket as unknown as WebSocket, {
           doc,
           userId: 'user-1',
+          sessionToken: 'native-session',
           accessMode: 'write',
           descriptor,
         })
@@ -931,27 +942,42 @@ describe('workspace connection authorization', () => {
     )
   }
 
-  it('periodically closes a writer whose permission was downgraded', async () => {
-    vi.useFakeTimers()
-    const socket = await connect()
-    accessMocks.verifyReviewTargetAccess.mockResolvedValueOnce({ hasAccess: false })
+  it.each(['permission downgraded', 'session revoked'])(
+    'periodically closes a writer with %s',
+    async (reason) => {
+      vi.useFakeTimers()
+      const socket = await connect()
+      if (reason === 'session revoked') sessionMocks.isSocketSessionActive.mockResolvedValue(false)
+      else accessMocks.verifyReviewTargetAccess.mockResolvedValue({ hasAccess: false })
 
-    await vi.advanceTimersByTimeAsync(30_000)
-    await vi.waitFor(() => expect(socket.close).toHaveBeenCalled())
-    socket.emit('close')
-  })
+      await vi.advanceTimersByTimeAsync(30_000)
+      expect(sessionMocks.isSocketSessionActive).toHaveBeenCalledWith('user-1', 'native-session')
+      expect(socket.close).toHaveBeenCalledWith(
+        YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
+        'Authorization revoked'
+      )
+      socket.emit('close')
+    }
+  )
 
-  it('closes a writer when queued update authorization cannot be verified', async () => {
-    const socket = await connect()
-    const doc = peekDocument('skill-1')!
-    accessMocks.verifyReviewTargetAccess.mockRejectedValueOnce(new Error('database unavailable'))
+  it.each(['lookup error', 'session revoked'])(
+    'discards a queued update and closes the writer on %s',
+    async (reason) => {
+      const socket = await connect()
+      const doc = peekDocument('skill-1')!
+      if (reason === 'session revoked') sessionMocks.isSocketSessionActive.mockResolvedValue(false)
+      else
+        accessMocks.verifyReviewTargetAccess.mockRejectedValueOnce(
+          new Error('database unavailable')
+        )
 
-    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'unverified', true)))
-    await vi.waitFor(() => expect(socket.close).toHaveBeenCalledOnce())
+      socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'unverified', true)))
+      await vi.waitFor(() => expect(socket.close).toHaveBeenCalledOnce())
 
-    expect(doc.getMap('fields').has('unverified')).toBe(false)
-    socket.emit('close')
-  })
+      expect(doc.getMap('fields').has('unverified')).toBe(false)
+      socket.emit('close')
+    }
+  )
 
   it('drops a queued writer update when its workspace is drained', async () => {
     const socket = await connect()

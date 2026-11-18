@@ -8,6 +8,12 @@ export interface AuthenticatedSocket extends Socket {
   userId?: string
 }
 
+export async function isSocketSessionActive(userId: string, sessionToken: string) {
+  const { internalAdapter } = await auth.$context
+  const current = await internalAdapter.findSession(sessionToken)
+  return current?.user.id === userId && current.session.expiresAt.getTime() > Date.now()
+}
+
 export async function authenticateSocket(
   socket: AuthenticatedSocket,
   next: (error?: Error) => void
@@ -36,13 +42,9 @@ export async function authenticateSocket(
     const userId = session.user.id
     const sessionToken = session.session.token
     socket.userId = userId
-    const { internalAdapter } = await auth.$context
     const requireActiveSession = async () => {
       try {
-        const current = await internalAdapter.findSession(sessionToken)
-        if (current?.user.id === userId && current.session.expiresAt.getTime() > Date.now()) {
-          return true
-        }
+        if (await isSocketSessionActive(userId, sessionToken)) return true
       } catch {
         logger.warn(`Socket ${socket.id} session lookup failed`)
         socket.conn.close(true)

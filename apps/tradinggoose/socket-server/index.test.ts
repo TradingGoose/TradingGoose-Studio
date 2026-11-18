@@ -216,6 +216,11 @@ function createSyncUpdateMessage(update: Uint8Array): Uint8Array {
 }
 
 function connectTestDocument(docId: string) {
+  const sessionToken = 'yjs-session'
+  mockFindSession.mockResolvedValue({
+    user: { id: 'user-1' },
+    session: { token: sessionToken, expiresAt: new Date(Date.now() + 60_000) },
+  })
   const conn = new EventEmitter() as any
   conn.readyState = 1
   conn.send = vi.fn((_message, _options, callback) => callback?.())
@@ -229,9 +234,10 @@ function connectTestDocument(docId: string) {
     docId,
     { workspaceId: descriptor.workspaceId, initialize: () => undefined },
     (doc) => {
-      setupWSConnection(conn, {} as any, {
+      setupWSConnection(conn, {
         doc,
         userId: 'user-1',
+        sessionToken,
         accessMode: listMatch ? 'read' : 'write',
         descriptor,
       })
