@@ -54,9 +54,13 @@ export async function authenticateSocket(
       return false
     }
 
-    socket.use(async (_packet, nextPacket) => {
-      if (await requireActiveSession()) nextPacket()
-      else nextPacket(new Error('Invalid session'))
+    let packetChecks = Promise.resolve()
+    socket.use((_packet, nextPacket) => {
+      packetChecks = packetChecks.then(async () => {
+        if (!socket.connected) return
+        if (await requireActiveSession()) nextPacket()
+        else nextPacket(new Error('Invalid session'))
+      })
     })
     const onHeartbeat = ({ type }: { type: string }) => {
       if (type === 'pong') void requireActiveSession()

@@ -694,6 +694,59 @@ describe('Socket Server Index Integration', () => {
   })
 
   describe('Authentication Middleware', () => {
+    it('validates packets without reordering their handlers', async () => {
+      const verified = {
+        session: { token: 'native-session', expiresAt: new Date(Date.now() + 60_000) },
+        user: { id: 'test-user-id' },
+      }
+      mockVerifyOneTimeToken.mockResolvedValue(verified)
+      let completeFirstCheck!: (value: typeof verified) => void
+      mockFindSession.mockResolvedValue(verified).mockImplementationOnce(
+        () =>
+          new Promise<typeof verified>((resolve) => {
+            completeFirstCheck = resolve
+          })
+      )
+
+      const handled: string[] = []
+      io.use(authenticateSocket)
+      const secondReceived = new Promise<void>((resolve) => {
+        io.on('connection', (socket: AuthenticatedSocket) => {
+          socket.onAny((event, label) => {
+            if (event === 'ordered' && label === 'second') resolve()
+          })
+          socket.on('ordered', (label: string, ack: () => void) => {
+            handled.push(label)
+            ack()
+          })
+        })
+      })
+      const client = createClient(`http://127.0.0.1:${PORT}`, {
+        auth: { token: 'one-time-token' },
+        autoConnect: false,
+        reconnection: false,
+        transports: ['websocket'],
+      })
+      try {
+        await new Promise<void>((resolve, reject) => {
+          client.once('connect', resolve)
+          client.once('connect_error', reject)
+          client.connect()
+        })
+        const replies = Promise.all([
+          client.timeout(1000).emitWithAck('ordered', 'first'),
+          client.timeout(1000).emitWithAck('ordered', 'second'),
+        ])
+        await secondReceived
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        completeFirstCheck(verified)
+        await replies
+        expect(handled).toEqual(['first', 'second'])
+      } finally {
+        client.close()
+      }
+    })
+
     it.each(['incoming packet', 'heartbeat', 'expired session', 'lookup error'])(
       'disconnects when it cannot validate the session on %s',
       async (trigger) => {
