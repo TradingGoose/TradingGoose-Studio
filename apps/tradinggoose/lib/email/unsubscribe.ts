@@ -53,13 +53,6 @@ export function verifyUnsubscribeToken(
 }
 
 /**
- * Check if an email type is transactional
- */
-export function isTransactionalEmail(emailType: EmailType): boolean {
-  return emailType === ('transactional' as EmailType)
-}
-
-/**
  * Get user's email preferences
  */
 export async function getEmailPreferences(email: string): Promise<EmailPreferences | null> {
@@ -151,35 +144,17 @@ export async function updateEmailPreferences(
  */
 export async function isUnsubscribed(
   email: string,
-  emailType: 'all' | 'marketing' | 'updates' | 'notifications' = 'all'
+  emailType: Exclude<EmailType, 'transactional'>
 ): Promise<boolean> {
-  try {
-    const preferences = await getEmailPreferences(email)
-    if (!preferences) return false
+  const preferences = await getEmailPreferences(email)
+  if (preferences?.unsubscribeAll) return true
 
-    // Check unsubscribe all first
-    if (preferences.unsubscribeAll) return true
-
-    // Check specific type
-    switch (emailType) {
-      case 'marketing':
-        return preferences.unsubscribeMarketing || false
-      case 'updates':
-        return preferences.unsubscribeUpdates || false
-      case 'notifications':
-        return preferences.unsubscribeNotifications || false
-      default:
-        return false
-    }
-  } catch (error) {
-    logger.error('Error checking unsubscribe status:', error)
-    return false
+  switch (emailType) {
+    case 'marketing':
+      return preferences?.unsubscribeMarketing ?? false
+    case 'updates':
+      return preferences?.unsubscribeUpdates ?? false
+    case 'notifications':
+      return preferences?.unsubscribeNotifications ?? false
   }
-}
-
-/**
- * Unsubscribe user from all emails
- */
-export async function unsubscribeFromAll(email: string): Promise<boolean> {
-  return updateEmailPreferences(email, { unsubscribeAll: true })
 }

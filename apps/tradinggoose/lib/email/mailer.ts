@@ -1,5 +1,5 @@
 import { EmailClient, type EmailMessage } from '@azure/communication-email'
-import { Resend } from 'resend'
+import { type ErrorResponse, Resend, type Response as ResendResponse } from 'resend'
 import type { EmailLocale } from '@/components/emails/email-copy'
 import { generateUnsubscribeToken, isUnsubscribed } from '@/lib/email/unsubscribe'
 import { getFromEmailAddress } from '@/lib/email/utils'
@@ -15,41 +15,35 @@ const logger = createLogger('Mailer')
 
 export type EmailType = 'transactional' | 'marketing' | 'updates' | 'notifications'
 
-export interface EmailAttachment {
+interface EmailAttachment {
   filename: string
   content: string | Buffer
   contentType: string
   disposition?: 'attachment' | 'inline'
 }
 
-export interface EmailOptions {
+interface EmailOptions {
   to: string | string[]
   subject: string
   html?: string
   text?: string
   from?: string
-  emailType?: EmailType
-  includeUnsubscribe?: boolean
+  emailType: EmailType
   attachments?: EmailAttachment[]
   replyTo?: string
   locale?: EmailLocale
 }
 
-export interface BatchEmailOptions {
-  emails: EmailOptions[]
+export type TransactionalBatchEmail = Pick<
+  EmailOptions,
+  'from' | 'to' | 'subject' | 'html' | 'text'
+> & {
+  emailType: 'transactional'
 }
 
-export interface SendEmailResult {
+interface SendEmailResult {
   success: boolean
   message: string
-  data?: any
-}
-
-export interface BatchSendEmailResult {
-  success: boolean
-  message: string
-  results: SendEmailResult[]
-  data?: any
 }
 
 interface ProcessedEmailData {
@@ -73,6 +67,23 @@ type VerifiedUserEmail = {
   email?: string | null
 }
 
+class ResendContactError extends Error {
+  constructor(
+    readonly details: ErrorResponse,
+    readonly retryAfter?: string
+  ) {
+    super(details.message)
+  }
+}
+
+async function readContactResult<T>(response: Promise<ResendResponse<T>>, allowedStatus?: number) {
+  const { data, error, headers } = await response
+  if (error && (allowedStatus === undefined || error.statusCode !== allowedStatus)) {
+    throw new ResendContactError(error, headers?.['retry-after'])
+  }
+  return data
+}
+
 /**
  * Check if any email service is configured and available
  */
@@ -94,37 +105,51 @@ export async function addVerifiedUserEmailToAudience(
 
     const { contacts } = new Resend(apiKey)
     const oldEmail = previousEmail?.trim().toLowerCase()
-    let wasUnsubscribed = false
-    if (oldEmail && oldEmail !== email) {
-      const previous = await contacts.get({ email: oldEmail })
-      if (previous.error && previous.error.statusCode !== 404) throw previous.error
-      if (previous.data) {
-        wasUnsubscribed = previous.data.unsubscribed
-        const { error } = await contacts.segments.remove({ contactId: previous.data.id, segmentId })
-        if (error && error.statusCode !== 404) throw error
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const previous =
+          oldEmail && oldEmail !== email
+            ? await readContactResult(contacts.get({ email: oldEmail }), 404)
+            : null
+        const unsubscribed = previous?.unsubscribed || (await isUnsubscribed(email, 'marketing'))
+        const current = await readContactResult(contacts.get({ email }), 404)
+
+        if (current) {
+          if (unsubscribed && !current.unsubscribed) {
+            await readContactResult(contacts.update({ id: current.id, unsubscribed: true }))
+          }
+          await readContactResult(contacts.segments.add({ contactId: current.id, segmentId }), 409)
+        } else {
+          await readContactResult(
+            contacts.create({ email, unsubscribed, segments: [{ id: segmentId }] })
+          )
+        }
+
+        if (previous) {
+          await readContactResult(
+            contacts.segments.remove({ contactId: previous.id, segmentId }),
+            404
+          )
+        }
+        return
+      } catch (error) {
+        if (!(error instanceof ResendContactError) || attempt === 2) throw error
+        const { statusCode, name } = error.details
+        const retryable =
+          statusCode === null
+            ? name === 'application_error'
+            : statusCode === 409 || statusCode === 429 || statusCode >= 500
+        if (!retryable) throw error
+
+        const minimumDelay = Number(error.retryAfter) * 1000
+        const delay = Math.max(
+          1000 * 2 ** attempt,
+          Number.isFinite(minimumDelay) ? minimumDelay : 0
+        )
+        if (delay > 2000) throw error
+        await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
-
-    const unsubscribed = wasUnsubscribed || (await isUnsubscribed(email, 'marketing'))
-    const current = await contacts.get({ email })
-    if (current.error && current.error.statusCode !== 404) throw current.error
-    if (!current.data) {
-      const { error } = await contacts.create({
-        email,
-        unsubscribed,
-        segments: [{ id: segmentId }],
-      })
-      if (error) throw error
-      return
-    }
-
-    const contactId = current.data.id
-    if (unsubscribed && !current.data.unsubscribed) {
-      const { error } = await contacts.update({ id: contactId, unsubscribed: true })
-      if (error) throw error
-    }
-    const { error } = await contacts.segments.add({ contactId, segmentId })
-    if (error && error.statusCode !== 409) throw error
   } catch (error) {
     logger.warn('Failed to synchronize verified user email with Resend', {
       userId: user.id,
@@ -139,10 +164,9 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
 
     // Check if user has unsubscribed (skip for critical transactional emails)
     if (options.emailType !== 'transactional') {
-      const unsubscribeType = options.emailType as 'marketing' | 'updates' | 'notifications'
       // For arrays, check the first email address (batch emails typically go to similar recipients)
       const primaryEmail = Array.isArray(options.to) ? options.to[0] : options.to
-      const hasUnsubscribed = await isUnsubscribed(primaryEmail, unsubscribeType)
+      const hasUnsubscribed = await isUnsubscribed(primaryEmail, options.emailType)
       if (hasUnsubscribed) {
         logger.info('Email not sent (user unsubscribed):', {
           to: options.to,
@@ -152,7 +176,6 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
         return {
           success: true,
           message: 'Email skipped (user unsubscribed)',
-          data: { id: 'skipped-unsubscribed' },
         }
       }
     }
@@ -165,6 +188,7 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
       try {
         return await sendWithResend(clients.resend, processedData)
       } catch (error) {
+        if (!clients.azureEmailClient) throw error
         logger.warn('Resend failed, attempting Azure Communication Services fallback:', error)
       }
     }
@@ -192,7 +216,6 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
     return {
       success: true,
       message: 'Email logging successful (no email service configured)',
-      data: { id: 'mock-email-id' },
     }
   } catch (error) {
     logger.error('Error sending email:', error)
@@ -204,18 +227,7 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
 }
 
 async function processEmailData(options: EmailOptions): Promise<ProcessedEmailData> {
-  const {
-    to,
-    subject,
-    html,
-    text,
-    from,
-    emailType = 'transactional',
-    includeUnsubscribe = true,
-    attachments,
-    replyTo,
-    locale,
-  } = options
+  const { to, subject, html, text, from, emailType, attachments, replyTo, locale } = options
 
   const senderEmail = from || (await getFromEmailAddress())
 
@@ -224,7 +236,7 @@ async function processEmailData(options: EmailOptions): Promise<ProcessedEmailDa
   let finalText = text
   const headers: Record<string, string> = {}
 
-  if (includeUnsubscribe && emailType !== 'transactional') {
+  if (emailType !== 'transactional') {
     // For arrays, use the first email for unsubscribe (batch emails typically go to similar recipients)
     const primaryEmail = Array.isArray(to) ? to[0] : to
     const unsubscribeToken = generateUnsubscribeToken(primaryEmail, emailType)
@@ -276,7 +288,7 @@ async function sendWithResend(resend: Resend, data: ProcessedEmailData): Promise
     }))
   }
 
-  const { data: responseData, error } = await resend.emails.send(emailData)
+  const { error } = await resend.emails.send(emailData)
 
   if (error) {
     throw new Error(error.message || 'Failed to send email via Resend')
@@ -285,7 +297,6 @@ async function sendWithResend(resend: Resend, data: ProcessedEmailData): Promise
   return {
     success: true,
     message: 'Email sent successfully via Resend',
-    data: responseData,
   }
 }
 
@@ -330,104 +341,43 @@ async function sendWithAzure(
     return {
       success: true,
       message: 'Email sent successfully via Azure Communication Services',
-      data: { id: result.id },
     }
   }
   throw new Error(`Azure Communication Services failed with status: ${result.status}`)
 }
 
-export async function sendBatchEmails(options: BatchEmailOptions): Promise<BatchSendEmailResult> {
+export async function sendBatchEmails(emails: TransactionalBatchEmail[]): Promise<SendEmailResult> {
   try {
-    const clients = await resolveEmailClients()
-    const results: SendEmailResult[] = []
-
-    // Try Resend first for batch emails if available
-    if (clients.resend) {
+    const { resend } = await resolveEmailClients()
+    if (resend) {
       try {
-        return await sendBatchWithResend(clients.resend, options.emails)
+        const batch = await Promise.all(
+          emails.map(async ({ from, to, subject, html, text }) => ({
+            from: from || (await getFromEmailAddress()),
+            to,
+            subject,
+            html: html || undefined,
+            text: text || undefined,
+          }))
+        )
+        const { error } = await resend.batch.send(batch)
+        if (error) throw new Error(error.message || 'Resend batch API error')
+        return { success: true, message: 'All batch emails sent successfully via Resend' }
       } catch (error) {
         logger.warn('Resend batch failed, falling back to individual sends:', error)
       }
     }
 
-    // Fallback to individual sends (works with both Azure and Resend)
-    logger.info('Sending batch emails individually')
-    for (const email of options.emails) {
-      try {
-        const result = await sendEmail(email)
-        results.push(result)
-      } catch (error) {
-        results.push({
-          success: false,
-          message: error instanceof Error ? error.message : 'Failed to send email',
-        })
-      }
+    let successCount = 0
+    for (const email of emails) {
+      if ((await sendEmail(email)).success) successCount++
     }
-
-    const successCount = results.filter((r) => r.success).length
-    return {
-      success: successCount === results.length,
-      message:
-        successCount === results.length
-          ? 'All batch emails sent successfully'
-          : `${successCount}/${results.length} emails sent successfully`,
-      results,
-      data: { count: successCount },
-    }
+    return successCount === emails.length
+      ? { success: true, message: 'All batch emails sent successfully' }
+      : { success: false, message: `${successCount}/${emails.length} emails sent successfully` }
   } catch (error) {
     logger.error('Error in batch email sending:', error)
-    return {
-      success: false,
-      message: 'Failed to send batch emails',
-      results: [],
-    }
-  }
-}
-
-async function sendBatchWithResend(
-  resend: Resend,
-  emails: EmailOptions[]
-): Promise<BatchSendEmailResult> {
-  const results: SendEmailResult[] = []
-  const batchEmails = await Promise.all(
-    emails.map(async (email) => {
-      const senderEmail = email.from || (await getFromEmailAddress())
-      const emailData: any = {
-        from: senderEmail,
-        to: email.to,
-        subject: email.subject,
-      }
-      if (email.html) emailData.html = email.html
-      if (email.text) emailData.text = email.text
-      return emailData
-    })
-  )
-
-  try {
-    const response = await resend.batch.send(batchEmails as any)
-
-    if (response.error) {
-      throw new Error(response.error.message || 'Resend batch API error')
-    }
-
-    // Success - create results for each email
-    batchEmails.forEach((_, index) => {
-      results.push({
-        success: true,
-        message: 'Email sent successfully via Resend batch',
-        data: { id: `batch-${index}` },
-      })
-    })
-
-    return {
-      success: true,
-      message: 'All batch emails sent successfully via Resend',
-      results,
-      data: { count: results.length },
-    }
-  } catch (error) {
-    logger.error('Resend batch send failed:', error)
-    throw error // Let the caller handle fallback
+    return { success: false, message: 'Failed to send batch emails' }
   }
 }
 

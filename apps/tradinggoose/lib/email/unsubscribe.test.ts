@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { EmailType } from '@/lib/email/mailer'
-import {
-  generateUnsubscribeToken,
-  isTransactionalEmail,
-  verifyUnsubscribeToken,
-} from '@/lib/email/unsubscribe'
+import { generateUnsubscribeToken, verifyUnsubscribeToken } from '@/lib/email/unsubscribe'
 
 vi.mock('@tradinggoose/db', () => ({
   db: {},
@@ -105,20 +100,6 @@ describe('unsubscribe utilities', () => {
       malformedTokens.forEach((token) => {
         const result = verifyUnsubscribeToken(testEmail, token)
         expect(result.valid).toBe(false)
-      })
-    })
-  })
-
-  describe('isTransactionalEmail', () => {
-    it.concurrent('should identify transactional emails correctly', () => {
-      expect(isTransactionalEmail('transactional')).toBe(true)
-    })
-
-    it.concurrent('should identify non-transactional emails correctly', () => {
-      const nonTransactionalTypes: EmailType[] = ['marketing', 'updates', 'notifications']
-
-      nonTransactionalTypes.forEach((type) => {
-        expect(isTransactionalEmail(type)).toBe(false)
       })
     })
   })

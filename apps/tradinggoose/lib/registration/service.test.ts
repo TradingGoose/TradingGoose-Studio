@@ -132,9 +132,7 @@ describe('registration service waitlist approvals', () => {
       async (email: string, signupLink: string) => `<p>${email}:${signupLink}</p>`
     )
     mockSendBatchEmails.mockResolvedValue({
-      data: { count: 1 },
       message: 'All batch emails sent successfully via Resend',
-      results: [],
       success: true,
     })
   })
@@ -152,22 +150,20 @@ describe('registration service waitlist approvals', () => {
     })
 
     expect(mockSendBatchEmails).toHaveBeenCalledTimes(1)
-    expect(mockSendBatchEmails).toHaveBeenCalledWith({
-      emails: [
-        {
-          emailType: 'transactional',
-          html: '<p>alpha@example.com:https://app.tradinggoose.ai/es/signup?email=alpha%40example.com</p>',
-          subject: 'Your TradingGoose access request was approved',
-          to: 'alpha@example.com',
-        },
-        {
-          emailType: 'transactional',
-          html: '<p>beta@example.com:https://app.tradinggoose.ai/zh/signup?email=beta%40example.com</p>',
-          subject: 'Your TradingGoose access request was approved',
-          to: 'beta@example.com',
-        },
-      ],
-    })
+    expect(mockSendBatchEmails).toHaveBeenCalledWith([
+      {
+        emailType: 'transactional',
+        html: '<p>alpha@example.com:https://app.tradinggoose.ai/es/signup?email=alpha%40example.com</p>',
+        subject: 'Your TradingGoose access request was approved',
+        to: 'alpha@example.com',
+      },
+      {
+        emailType: 'transactional',
+        html: '<p>beta@example.com:https://app.tradinggoose.ai/zh/signup?email=beta%40example.com</p>',
+        subject: 'Your TradingGoose access request was approved',
+        to: 'beta@example.com',
+      },
+    ])
     expect(mockSendEmail).not.toHaveBeenCalled()
     expect(mockRenderWaitlistApprovedEmail).toHaveBeenCalledWith(
       'alpha@example.com',
@@ -198,8 +194,8 @@ describe('registration service waitlist approvals', () => {
     })
 
     expect(mockSendBatchEmails).toHaveBeenCalledTimes(2)
-    expect(mockSendBatchEmails.mock.calls[0][0].emails).toHaveLength(100)
-    expect(mockSendBatchEmails.mock.calls[1][0].emails).toHaveLength(1)
+    expect(mockSendBatchEmails.mock.calls[0][0]).toHaveLength(100)
+    expect(mockSendBatchEmails.mock.calls[1][0]).toHaveLength(1)
   })
 
   it('does not send approval emails for rejected status updates', async () => {

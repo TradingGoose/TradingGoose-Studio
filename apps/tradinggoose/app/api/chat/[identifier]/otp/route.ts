@@ -145,6 +145,7 @@ export async function POST(
         to: email,
         subject: getEmailSubject('chat-access', locale, { chatTitle: deployment.title || 'Chat' }),
         html: emailHtml,
+        emailType: 'transactional',
       })
 
       if (!emailResult.success) {

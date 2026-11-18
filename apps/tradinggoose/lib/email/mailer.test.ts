@@ -82,12 +82,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-import {
-  addVerifiedUserEmailToAudience,
-  type EmailType,
-  sendBatchEmails,
-  sendEmail,
-} from '@/lib/email/mailer'
+import { addVerifiedUserEmailToAudience, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
 import { generateUnsubscribeToken, isUnsubscribed } from '@/lib/email/unsubscribe'
 
 describe('mailer', () => {
@@ -95,6 +90,7 @@ describe('mailer', () => {
     to: 'test@example.com',
     subject: 'Test Subject',
     html: '<p>Test email content</p>',
+    emailType: 'transactional' as const,
   }
 
   beforeEach(() => {
@@ -143,14 +139,10 @@ describe('mailer', () => {
 
   describe('sendEmail', () => {
     it('should send a transactional email successfully', async () => {
-      const result = await sendEmail({
-        ...testEmailOptions,
-        emailType: 'transactional',
-      })
+      const result = await sendEmail(testEmailOptions)
 
       expect(result.success).toBe(true)
       expect(result.message).toBe('Email sent successfully via Resend')
-      expect(result.data).toEqual({ id: 'test-email-id' })
 
       // Should not check unsubscribe status for transactional emails
       expect(isUnsubscribed).not.toHaveBeenCalled()
@@ -206,7 +198,6 @@ describe('mailer', () => {
 
       expect(result.success).toBe(true)
       expect(result.message).toBe('Email skipped (user unsubscribed)')
-      expect(result.data).toEqual({ id: 'skipped-unsubscribed' })
 
       // Should not call Resend
       expect(mockSend).not.toHaveBeenCalled()
@@ -230,7 +221,6 @@ describe('mailer', () => {
       expect(result).toEqual({
         success: true,
         message: 'Email logging successful (no email service configured)',
-        data: { id: 'mock-email-id' },
       })
       expect(mockSend).not.toHaveBeenCalled()
       expect(mockAzureBeginSend).not.toHaveBeenCalled()
@@ -245,41 +235,16 @@ describe('mailer', () => {
       )
     })
 
-    it.concurrent('should handle Resend API errors and fallback to Azure', async () => {
-      // Mock Resend to fail
-      mockSend.mockResolvedValue({
-        data: null,
-        error: { message: 'API rate limit exceeded' },
+    it('reports a configured Resend rejection when Azure is unavailable', async () => {
+      mockResolveAzureCommunicationEmailServiceConfig.mockResolvedValue({ connectionString: null })
+      mockSend.mockResolvedValue({ data: null, error: { message: 'Resend rejected the message' } })
+
+      await expect(sendEmail(testEmailOptions)).resolves.toEqual({
+        success: false,
+        message: 'Failed to send email',
       })
-
-      const result = await sendEmail(testEmailOptions)
-
-      expect(result.success).toBe(true)
-      expect(result.message).toBe('Email sent successfully via Azure Communication Services')
-      expect(result.data).toEqual({ id: 'azure-email-id' })
-
-      // Should have tried Resend first
-      expect(mockSend).toHaveBeenCalled()
-
-      // Should have fallen back to Azure
-      expect(mockAzureBeginSend).toHaveBeenCalled()
-    })
-
-    it.concurrent('should handle unexpected errors and fallback to Azure', async () => {
-      // Mock Resend to throw an error
-      mockSend.mockRejectedValue(new Error('Network error'))
-
-      const result = await sendEmail(testEmailOptions)
-
-      expect(result.success).toBe(true)
-      expect(result.message).toBe('Email sent successfully via Azure Communication Services')
-      expect(result.data).toEqual({ id: 'azure-email-id' })
-
-      // Should have tried Resend first
-      expect(mockSend).toHaveBeenCalled()
-
-      // Should have fallen back to Azure
-      expect(mockAzureBeginSend).toHaveBeenCalled()
+      expect(mockAzureBeginSend).not.toHaveBeenCalled()
+      expect(mockLoggerInfo).not.toHaveBeenCalled()
     })
 
     it.concurrent('should use custom from address when provided', async () => {
@@ -295,28 +260,13 @@ describe('mailer', () => {
       )
     })
 
-    it('should not include unsubscribe when includeUnsubscribe is false', async () => {
-      await sendEmail({
-        ...testEmailOptions,
-        emailType: 'marketing',
-        includeUnsubscribe: false,
-      })
-
-      expect(generateUnsubscribeToken).not.toHaveBeenCalled()
-      expect(mockSend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          headers: undefined,
-        })
-      )
-    })
-
     it.concurrent('should replace unsubscribe token placeholders in HTML', async () => {
       const htmlWithPlaceholder = '<p>Content</p><a href="{{UNSUBSCRIBE_TOKEN}}">Unsubscribe</a>'
 
       await sendEmail({
         ...testEmailOptions,
         html: htmlWithPlaceholder,
-        emailType: 'updates' as EmailType,
+        emailType: 'updates',
       })
 
       expect(mockSend).toHaveBeenCalledWith(
@@ -378,6 +328,9 @@ describe('mailer', () => {
         unsubscribed: appOptOut || resendOptOut,
         segments: [{ id: 'audience-123' }],
       })
+      expect(mockContactsCreate.mock.invocationCallOrder[0]).toBeLessThan(
+        mockContactSegmentRemove.mock.invocationCallOrder[0]
+      )
     })
 
     it.each([
@@ -410,56 +363,115 @@ describe('mailer', () => {
       }
     )
 
-    it('does not throw when Resend rejects the contact write', async () => {
+    it('keeps the previous membership when Resend rejects destination enrollment', async () => {
+      mockContactsGet.mockResolvedValueOnce({
+        data: { id: 'old-contact', unsubscribed: false },
+        error: null,
+      })
       mockContactsCreate.mockResolvedValue({
         data: null,
         error: {
-          message: 'Resend is unavailable',
-          name: 'application_error',
-          statusCode: 500,
+          message: 'Invalid API key',
+          name: 'invalid_api_key',
+          statusCode: 401,
         },
         headers: null,
       })
 
       await expect(
-        addVerifiedUserEmailToAudience({
-          id: 'user-123',
-          email: 'user@example.com',
-        })
+        addVerifiedUserEmailToAudience({ email: 'user@example.com' }, 'old@example.com')
       ).resolves.toBeUndefined()
+      expect(mockContactsCreate).toHaveBeenCalledOnce()
+      expect(mockContactSegmentRemove).not.toHaveBeenCalled()
+    })
+
+    it('honors Retry-After and resumes a partially completed mailbox move', async () => {
+      vi.useFakeTimers()
+      try {
+        let enrolled = false
+        mockContactsGet.mockImplementation(async ({ email }) => {
+          if (email === 'old@example.com') {
+            return { data: { id: 'old-contact', unsubscribed: true }, error: null }
+          }
+          return enrolled
+            ? { data: { id: 'new-contact', unsubscribed: true }, error: null }
+            : { data: null, error: { statusCode: 404 } }
+        })
+        mockContactsCreate
+          .mockResolvedValueOnce({ error: { statusCode: 429 }, headers: { 'retry-after': '2' } })
+          .mockImplementationOnce(async () => {
+            enrolled = true
+            return { error: null }
+          })
+        mockContactSegmentRemove
+          .mockResolvedValueOnce({ error: { statusCode: 503 } })
+          .mockResolvedValueOnce({ error: { statusCode: 404 } })
+
+        const sync = addVerifiedUserEmailToAudience(
+          { email: 'user@example.com' },
+          'old@example.com'
+        )
+        await vi.advanceTimersByTimeAsync(1999)
+        expect(mockContactsCreate).toHaveBeenCalledOnce()
+        expect(mockContactSegmentRemove).not.toHaveBeenCalled()
+        await vi.advanceTimersByTimeAsync(1)
+        expect(mockContactsCreate).toHaveBeenCalledTimes(2)
+        expect(mockContactSegmentRemove).toHaveBeenCalledOnce()
+        await vi.runAllTimersAsync()
+        await sync
+
+        expect(mockContactsCreate).toHaveBeenCalledTimes(2)
+        expect(mockContactsCreate).toHaveBeenLastCalledWith(
+          expect.objectContaining({ unsubscribed: true })
+        )
+        expect(mockContactsUpdate).not.toHaveBeenCalled()
+        expect(mockContactSegmentAdd).toHaveBeenCalledExactlyOnceWith({
+          contactId: 'new-contact',
+          segmentId: 'audience-123',
+        })
+        expect(mockContactSegmentRemove).toHaveBeenCalledTimes(2)
+        expect(mockLoggerWarn).not.toHaveBeenCalled()
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 
   describe('Azure Communication Services fallback', () => {
-    it('should fallback to Azure when Resend fails', async () => {
-      // Mock Resend to fail
-      mockSend.mockRejectedValue(new Error('Resend service unavailable'))
+    it.each(['returned', 'thrown'])(
+      'falls back to Azure when Resend %s an error',
+      async (failure) => {
+        if (failure === 'returned') {
+          mockSend.mockResolvedValue({
+            data: null,
+            error: { message: 'Resend API limit exceeded' },
+          })
+        } else {
+          mockSend.mockRejectedValue(new Error('Network error'))
+        }
 
-      const result = await sendEmail({
-        ...testEmailOptions,
-        emailType: 'transactional',
-      })
+        const result = await sendEmail(testEmailOptions)
 
-      expect(result.success).toBe(true)
-      expect(result.message).toBe('Email sent successfully via Azure Communication Services')
-      expect(result.data).toEqual({ id: 'azure-email-id' })
+        expect(result.success).toBe(true)
+        expect(result.message).toBe('Email sent successfully via Azure Communication Services')
 
-      // Should have tried Resend first
-      expect(mockSend).toHaveBeenCalled()
+        // Should have tried Resend first
+        expect(mockSend).toHaveBeenCalled()
 
-      // Should have fallen back to Azure
-      expect(mockAzureBeginSend).toHaveBeenCalledWith({
-        senderAddress: 'noreply@tradinggoose.ai',
-        content: {
-          subject: testEmailOptions.subject,
-          html: testEmailOptions.html,
-        },
-        recipients: {
-          to: [{ address: testEmailOptions.to }],
-        },
-        headers: {},
-      })
-    })
+        // Should have fallen back to Azure
+        expect(mockAzureBeginSend).toHaveBeenCalledWith({
+          senderAddress: 'noreply@tradinggoose.ai',
+          content: {
+            subject: testEmailOptions.subject,
+            html: testEmailOptions.html,
+          },
+          recipients: {
+            to: [{ address: testEmailOptions.to }],
+          },
+          headers: {},
+        })
+      }
+    )
 
     it('should handle Azure Communication Services failure', async () => {
       // Mock both services to fail
@@ -469,10 +481,7 @@ describe('mailer', () => {
         id: 'failed-id',
       })
 
-      const result = await sendEmail({
-        ...testEmailOptions,
-        emailType: 'transactional',
-      })
+      const result = await sendEmail(testEmailOptions)
 
       expect(result.success).toBe(false)
       expect(result.message).toBe('Both Resend and Azure Communication Services failed')
@@ -490,11 +499,10 @@ describe('mailer', () => {
     ]
 
     it('should send batch emails via Resend successfully', async () => {
-      const result = await sendBatchEmails({ emails: testBatchEmails })
+      const result = await sendBatchEmails(testBatchEmails)
 
       expect(result.success).toBe(true)
       expect(result.message).toBe('All batch emails sent successfully via Resend')
-      expect(result.results).toHaveLength(2)
       expect(mockBatchSend).toHaveBeenCalled()
     })
 
@@ -502,11 +510,10 @@ describe('mailer', () => {
       // Mock Resend batch to fail
       mockBatchSend.mockRejectedValue(new Error('Batch service unavailable'))
 
-      const result = await sendBatchEmails({ emails: testBatchEmails })
+      const result = await sendBatchEmails(testBatchEmails)
 
       expect(result.success).toBe(true)
       expect(result.message).toBe('All batch emails sent successfully')
-      expect(result.results).toHaveLength(2)
 
       // Should have tried Resend batch first
       expect(mockBatchSend).toHaveBeenCalled()
@@ -533,13 +540,10 @@ describe('mailer', () => {
         id: 'failed-id',
       })
 
-      const result = await sendBatchEmails({ emails: testBatchEmails })
+      const result = await sendBatchEmails(testBatchEmails)
 
       expect(result.success).toBe(false)
       expect(result.message).toBe('1/2 emails sent successfully')
-      expect(result.results).toHaveLength(2)
-      expect(result.results[0].success).toBe(true)
-      expect(result.results[1].success).toBe(false)
     })
   })
 })

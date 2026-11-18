@@ -1,10 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import type { EmailType } from '@/lib/email/mailer'
 import {
   getEmailPreferences,
-  isTransactionalEmail,
-  unsubscribeFromAll,
   updateEmailPreferences,
   verifyUnsubscribeToken,
 } from '@/lib/email/unsubscribe'
@@ -12,6 +9,12 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('UnsubscribeAPI')
+const preferenceKeys = {
+  all: 'unsubscribeAll',
+  marketing: 'unsubscribeMarketing',
+  updates: 'unsubscribeUpdates',
+  notifications: 'unsubscribeNotifications',
+} as const
 
 const unsubscribeSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -45,8 +48,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const emailType = tokenVerification.emailType as EmailType
-    const isTransactional = isTransactionalEmail(emailType)
+    const { emailType } = tokenVerification
 
     // Get current preferences
     const preferences = await getEmailPreferences(email)
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
       email,
       token,
       emailType,
-      isTransactional,
+      isTransactional: emailType === 'transactional',
       currentPreferences: preferences || {},
     })
   } catch (error) {
@@ -105,11 +107,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const emailType = tokenVerification.emailType as EmailType
-    const isTransactional = isTransactionalEmail(emailType)
+    const { emailType } = tokenVerification
 
     // Prevent unsubscribing from transactional emails
-    if (isTransactional) {
+    if (emailType === 'transactional') {
       logger.warn(`[${requestId}] Attempted to unsubscribe from transactional email: ${email}`)
       return NextResponse.json(
         {
@@ -122,22 +123,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Process unsubscribe based on type
-    let success = false
-    switch (type) {
-      case 'all':
-        success = await unsubscribeFromAll(email)
-        break
-      case 'marketing':
-        success = await updateEmailPreferences(email, { unsubscribeMarketing: true })
-        break
-      case 'updates':
-        success = await updateEmailPreferences(email, { unsubscribeUpdates: true })
-        break
-      case 'notifications':
-        success = await updateEmailPreferences(email, { unsubscribeNotifications: true })
-        break
-    }
+    const success = await updateEmailPreferences(email, { [preferenceKeys[type]]: true })
 
     if (!success) {
       logger.error(`[${requestId}] Failed to update unsubscribe preferences for: ${email}`)
