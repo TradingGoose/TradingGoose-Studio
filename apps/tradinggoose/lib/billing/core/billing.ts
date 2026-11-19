@@ -57,12 +57,15 @@ export async function getOrganizationCurrentUsageForTier(
   return billingLedger?.currentPeriodCost ?? 0
 }
 
-export async function calculateOrganizationIndividualOverage(params: {
-  organizationId: string
-  tier: BillingTierRecord
-}): Promise<number> {
+export async function calculateOrganizationIndividualOverage(
+  params: {
+    organizationId: string
+    tier: BillingTierRecord
+  },
+  store: Pick<typeof db, 'select'> = db
+): Promise<number> {
   const perUserLimit = getTierUsageAllowanceUsd(params.tier)
-  const memberRows = await db
+  const memberRows = await store
     .select({
       currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost,
     })
@@ -170,22 +173,29 @@ export async function calculateUserOverage(userId: string): Promise<{
  * Calculate overage amount for a subscription
  * Shared logic between invoice.finalized and customer.subscription.deleted handlers
  */
-export async function calculateSubscriptionOverage(sub: {
-  id: string
-  referenceId: string
-  seats?: number | null
-  tier?: BillingTierRecord | null
-}): Promise<number> {
+export async function calculateSubscriptionOverage(
+  sub: {
+    id: string
+    referenceId: string
+    seats?: number | null
+    tier?: BillingTierRecord | null
+  },
+  store: Pick<typeof db, 'insert' | 'select'> = db,
+  closingUsage?: number
+): Promise<number> {
   let totalOverage = 0
 
   if (isOrganizationSubscription(sub) && sub.tier) {
     if (usesIndividualBillingLedger(sub.tier)) {
-      totalOverage = await calculateOrganizationIndividualOverage({
-        organizationId: sub.referenceId,
-        tier: sub.tier,
-      })
+      totalOverage = await calculateOrganizationIndividualOverage(
+        {
+          organizationId: sub.referenceId,
+          tier: sub.tier,
+        },
+        store
+      )
     } else {
-      const billingLedger = await getOrganizationBillingLedger(sub.referenceId)
+      const billingLedger = await getOrganizationBillingLedger(sub.referenceId, store)
       const currentUsage = billingLedger?.currentPeriodCost ?? 0
       const { usageAllowance } = getBillingTierPricing(sub)
 
@@ -208,15 +218,18 @@ export async function calculateSubscriptionOverage(sub: {
       })
     }
   } else if (sub.tier) {
-    const [stats] = await db
-      .select({
-        currentPeriodCost: userStats.currentPeriodCost,
-        totalCost: userStats.totalCost,
-      })
-      .from(userStats)
-      .where(eq(userStats.userId, sub.referenceId))
-      .limit(1)
-    const currentUsage = parseDecimal(stats?.currentPeriodCost ?? stats?.totalCost)
+    let currentUsage = closingUsage
+    if (currentUsage === undefined) {
+      const [stats] = await store
+        .select({
+          currentPeriodCost: userStats.currentPeriodCost,
+          totalCost: userStats.totalCost,
+        })
+        .from(userStats)
+        .where(eq(userStats.userId, sub.referenceId))
+        .limit(1)
+      currentUsage = parseDecimal(stats?.currentPeriodCost ?? stats?.totalCost)
+    }
     const { usageAllowance } = getBillingTierPricing(sub.tier)
     totalOverage = Math.max(0, currentUsage - usageAllowance)
 

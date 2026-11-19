@@ -21,6 +21,8 @@ const {
   mockDb: {
     select: vi.fn(),
     insert: vi.fn(),
+    update: vi.fn(),
+    transaction: vi.fn(),
   },
   mockEq: vi.fn(),
   mockRequireDefaultBillingTier: vi.fn(),
@@ -64,6 +66,8 @@ vi.mock('@tradinggoose/db/schema', () => ({
 
 vi.mock('drizzle-orm', () => ({
   and: mockAnd,
+  desc: vi.fn(),
+  isNotNull: vi.fn(),
   eq: mockEq,
   inArray: mockInArray,
   sql: mockSql,
@@ -95,15 +99,24 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
+vi.mock('@/lib/billing/core/usage', () => ({
+  resetUserDefaultUsageToOnboardingAllowanceBalance: vi.fn(),
+}))
+
 vi.mock('@/lib/urls/utils', () => ({
   getBaseUrl: vi.fn(() => 'http://localhost:3000'),
 }))
 
-function createSelectQueryMock(result: unknown, terminal: 'from' | 'limit' | 'where' = 'limit') {
+function createSelectQueryMock(
+  result: unknown,
+  terminal: 'from' | 'limit' | 'where' | 'for' = 'limit'
+) {
   const query = {
     from: vi.fn(() => (terminal === 'from' ? Promise.resolve(result) : query)),
     where: vi.fn(() => (terminal === 'where' ? Promise.resolve(result) : query)),
-    limit: vi.fn(() => Promise.resolve(result)),
+    orderBy: vi.fn(() => query),
+    for: vi.fn(async () => result),
+    limit: vi.fn(() => (terminal === 'for' ? query : Promise.resolve(result))),
   }
 
   return query
@@ -113,6 +126,7 @@ describe('subscription billing helpers', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    mockDb.transaction.mockImplementation(async (run) => run(mockDb))
     mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(10)
     mockHydrateSubscriptionsWithTiers.mockImplementation(async (rows) => rows)
     mockSelectEffectiveSubscription.mockImplementation((subscriptions) => subscriptions[0] ?? null)
@@ -164,41 +178,53 @@ describe('subscription billing helpers', () => {
     expect(snapshot.currentPeriodCost).toBe(12.5)
   })
 
-  it('restores the default subscription when a billed user has no entitled row', async () => {
-    // The reported failure: a missed Stripe cancellation leaves the user's only personal row
-    // non-entitled, so every billing read used to throw.
-    const restoredSubscription = {
-      id: 'sub_default_user_123',
-      referenceType: 'user',
-      referenceId: 'user_123',
-      status: 'active',
-      tier: { id: 'tier_default', isDefault: true },
-    }
+  it('captures canceled usage under lock before restoring a separate default subscription', async () => {
+    const { resetUserDefaultUsageToOnboardingAllowanceBalance } = await import('./usage')
+    const paid = { id: 'sub_default_user_123', metadata: { source: 'default-tier' } }
+    const ledger = { currentPeriodCost: '28', billedOverageThisPeriod: '3' }
+    const save = vi.fn(() => ({ where: vi.fn() }))
     mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
-    const selectResults: unknown[] = [[], [], [restoredSubscription]]
-    mockDb.select.mockImplementation(() =>
-      createSelectQueryMock(selectResults.shift() ?? [], 'where')
-    )
-    const onConflictDoUpdate = vi.fn()
-    mockDb.insert.mockImplementation(() => ({
-      values: vi.fn(() => ({ onConflictDoUpdate })),
+    mockDb.select
+      .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'user_123' }], 'for'))
+      .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+      .mockImplementationOnce(() => createSelectQueryMock([paid], 'for'))
+      .mockImplementationOnce(() => createSelectQueryMock([ledger], 'for'))
+    mockDb.update.mockImplementation(() => ({ set: save }))
+    const insert = vi.fn((values) => ({
+      onConflictDoNothing: () => ({ returning: async () => [] }), // original ID belongs to paid
+      returning: async () => [values],
     }))
-
+    mockDb.insert.mockImplementation(() => ({ values: insert }))
     const { getEffectiveSubscription } = await import('./subscription')
-
-    await expect(getEffectiveSubscription('user_123')).resolves.toBe(restoredSubscription)
-    expect(onConflictDoUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        set: expect.objectContaining({
-          stripeSubscriptionId: null,
-          billingInterval: null,
-          stripeScheduleId: null,
-          cancelAt: null,
-          canceledAt: null,
-          endedAt: null,
-        }),
-      })
+    const active = await getEffectiveSubscription('user_123')
+    expect(save).toHaveBeenCalledExactlyOnceWith({
+      metadata: { ...paid.metadata, finalUsage: ledger },
+    })
+    expect(resetUserDefaultUsageToOnboardingAllowanceBalance).toHaveBeenCalledExactlyOnceWith(
+      'user_123',
+      mockDb
     )
+    expect(active?.id).not.toBe(paid.id)
+    expect(active).toMatchObject({ status: 'active', tier: { isDefault: true } })
+    expect(insert.mock.calls[1][0].stripeSubscriptionId).toBeUndefined()
+    expect(mockDb.transaction).toHaveBeenCalledOnce()
+  })
+
+  it('retains the replacement ledger when the canceled personal usage was never captured', async () => {
+    const { ensureDefaultUserSubscription } = await import('./subscription')
+    const active = { stripeSubscriptionId: 'sub_replacement' }
+    mockDb.select
+      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'user_123' }], 'for'))
+      .mockImplementationOnce(() => createSelectQueryMock([active], 'where'))
+      .mockImplementationOnce(() =>
+        createSelectQueryMock([{ id: 'paid', stripeSubscriptionId: 'sub_old' }], 'for')
+      )
+    await expect(ensureDefaultUserSubscription('user_123', mockDb as any, 'paid')).rejects.toThrow(
+      'sub_old'
+    )
+    expect(mockDb.update).not.toHaveBeenCalled()
+    expect(mockDb.insert).not.toHaveBeenCalled()
   })
 
   it('does not restore a subscription when billing is disabled', async () => {
@@ -290,26 +316,13 @@ describe('subscription billing helpers', () => {
     }> = []
     const selectResults: Array<{
       result: unknown
-      terminal: 'from' | 'limit' | 'where'
+      terminal: 'from' | 'limit' | 'where' | 'for'
     }> = [
       { result: [{ id: 'user_123' }], terminal: 'from' },
       { result: [], terminal: 'where' },
+      { result: [{ id: 'user_123' }], terminal: 'for' },
       { result: [], terminal: 'where' },
-      {
-        result: [
-          {
-            id: 'sub_default_user_123',
-            referenceType: 'user',
-            referenceId: 'user_123',
-            status: 'active',
-            tier: {
-              id: 'tier_default',
-              isDefault: true,
-            },
-          },
-        ],
-        terminal: 'where',
-      },
+      { result: [], terminal: 'for' },
     ]
 
     mockGetResolvedBillingSettings.mockResolvedValue({
@@ -327,7 +340,7 @@ describe('subscription billing helpers', () => {
         }),
         onConflictDoNothing: vi.fn(({ target }) => {
           insertCalls.push({ values, conflict: 'nothing', target })
-          return Promise.resolve()
+          return { returning: async () => [values] }
         }),
       })),
     }))
@@ -336,14 +349,9 @@ describe('subscription billing helpers', () => {
     const createdCount = await backfillDefaultUserSubscriptions()
 
     expect(createdCount).toBe(1)
-    const { id, stripeCustomerId, ...resetValues } = insertCalls[0].values
-    expect(id).toBe('sub_default_user_123')
-    expect(stripeCustomerId).toBeNull()
-    expect(insertCalls[0].set).toEqual(resetValues)
-    expect(mockSql).toHaveBeenCalledTimes(1)
     expect(insertCalls).toEqual([
       expect.objectContaining({
-        conflict: 'update',
+        conflict: 'nothing',
         values: expect.objectContaining({
           id: 'sub_default_user_123',
           plan: 'tier_default',

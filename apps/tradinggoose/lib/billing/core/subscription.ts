@@ -1,6 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { resetUserDefaultUsageToOnboardingAllowanceBalance } from '@/lib/billing/core/usage'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import type { BillingReference, SubscriptionWithTier } from '@/lib/billing/tiers'
@@ -89,7 +90,7 @@ export function getConfiguredPersonalUsageLimit(
  */
 async function restorePersonalEntitlement(
   userId: string,
-  dbClient: Pick<typeof db, 'insert' | 'select'> = db
+  dbClient: Pick<typeof db, 'select' | 'transaction'> = db
 ): Promise<SubscriptionWithTier | null> {
   try {
     // With billing disabled there is no default tier to grant, and callers already treat a
@@ -118,7 +119,7 @@ async function restorePersonalEntitlement(
  */
 export async function getActiveSubscriptionForReference(
   reference: BillingReference,
-  dbClient: Pick<typeof db, 'insert' | 'select'> = db
+  dbClient: Pick<typeof db, 'select' | 'transaction'> = db
 ): Promise<SubscriptionWithTier | null> {
   const rows = await dbClient
     .select()
@@ -195,53 +196,82 @@ export async function getPersonalEffectiveSubscription(
 
 export async function ensureDefaultUserSubscription(
   userId: string,
-  dbClient: Pick<typeof db, 'insert' | 'select'> = db
+  dbClient: Pick<typeof db, 'transaction'> = db,
+  canceledSubscriptionId?: string
 ): Promise<SubscriptionWithTier> {
-  const existingSubscription = await getPersonalEffectiveSubscription(userId, dbClient)
-  if (existingSubscription) {
-    return existingSubscription
-  }
+  return dbClient.transaction(async (tx) => {
+    await tx.select({ id: user.id }).from(user).where(eq(user.id, userId)).for('update')
+    const active = await getPersonalEffectiveSubscription(userId, tx)
+    if (active && !canceledSubscriptionId) return active
 
-  const defaultTier = await requireDefaultBillingTier(dbClient)
-  const defaultValues = {
-    plan: defaultTier.id,
-    billingTierId: defaultTier.id,
-    referenceType: 'user' as const,
-    referenceId: userId,
-    stripeSubscriptionId: null,
-    status: 'active',
-    periodStart: null,
-    periodEnd: null,
-    cancelAtPeriodEnd: false,
-    cancelAt: null,
-    canceledAt: null,
-    endedAt: null,
-    billingInterval: null,
-    stripeScheduleId: null,
-    seats: null,
-    trialStart: null,
-    trialEnd: null,
-    metadata: { source: 'default-tier' },
-  }
+    // A billing read can restore entitlement before the deletion webhook arrives.
+    // Preserve the original Stripe row and capture its usage before opening the next period.
+    const [canceled] = await tx
+      .select()
+      .from(subscription)
+      .where(
+        and(
+          eq(subscription.referenceType, 'user'),
+          eq(subscription.referenceId, userId),
+          eq(subscription.status, 'canceled'),
+          isNotNull(subscription.stripeSubscriptionId),
+          canceledSubscriptionId ? eq(subscription.id, canceledSubscriptionId) : undefined
+        )
+      )
+      .orderBy(desc(subscription.endedAt))
+      .limit(1)
+      .for('update')
+    const metadata = canceled?.metadata as Record<string, unknown> | null
+    if (canceled && !metadata?.finalUsage) {
+      if (active) {
+        throw new Error(
+          `Final usage for ${canceled.stripeSubscriptionId} was not captured before the replacement subscription started`
+        )
+      }
+      const [ledger] = await tx
+        .select({
+          currentPeriodCost: userStats.currentPeriodCost,
+          billedOverageThisPeriod: userStats.billedOverageThisPeriod,
+        })
+        .from(userStats)
+        .where(eq(userStats.userId, userId))
+        .for('update')
+      const finalUsage = ledger ?? { currentPeriodCost: '0', billedOverageThisPeriod: '0' }
+      await tx
+        .update(subscription)
+        .set({
+          metadata: { ...metadata, finalUsage },
+        })
+        .where(eq(subscription.id, canceled.id))
+      await resetUserDefaultUsageToOnboardingAllowanceBalance(userId, tx)
+    }
+    if (active) return active
 
-  await dbClient
-    .insert(subscription)
-    .values({
-      ...defaultValues,
-      id: `sub_default_${userId}`,
-      stripeCustomerId: null,
-    })
-    .onConflictDoUpdate({
-      target: subscription.id,
-      set: defaultValues,
-    })
-
-  const defaultSubscription = await getPersonalEffectiveSubscription(userId, dbClient)
-  if (!defaultSubscription) {
-    throw new Error(`Failed to provision default subscription for user ${userId}`)
-  }
-
-  return defaultSubscription
+    const tier = await requireDefaultBillingTier(tx)
+    const values = {
+      plan: tier.id,
+      billingTierId: tier.id,
+      referenceType: 'user' as const,
+      referenceId: userId,
+      status: 'active',
+      cancelAtPeriodEnd: false,
+      metadata: { source: 'default-tier' },
+    }
+    const [first] = await tx
+      .insert(subscription)
+      .values({ ...values, id: `sub_default_${userId}` })
+      .onConflictDoNothing({ target: subscription.id })
+      .returning()
+    const created =
+      first ??
+      (
+        await tx
+          .insert(subscription)
+          .values({ ...values, id: crypto.randomUUID() })
+          .returning()
+      )[0]
+    return { ...created, tier }
+  })
 }
 
 export async function backfillDefaultUserSubscriptions(): Promise<number> {

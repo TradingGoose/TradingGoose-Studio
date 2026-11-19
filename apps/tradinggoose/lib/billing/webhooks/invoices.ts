@@ -22,6 +22,7 @@ import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { ClosingMetadata } from './subscription'
 
 const logger = createLogger('StripeInvoiceWebhooks')
 
@@ -194,16 +195,19 @@ async function sendPaymentFailureEmails(
  * Organization subscriptions sum billed overage from the owner-tracked pooled record.
  * Individual subscriptions read the requesting user's billed overage directly.
  */
-export async function getBilledOverageForSubscription(sub: {
-  referenceId: string
-  tier?: BillingTierRecord | null
-}): Promise<number> {
+export async function getBilledOverageForSubscription(
+  sub: {
+    referenceId: string
+    tier?: BillingTierRecord | null
+  },
+  store: Pick<typeof db, 'insert' | 'select'> = db
+): Promise<number> {
   if (isOrganizationSubscription(sub)) {
-    const billingLedger = await getOrganizationBillingLedger(sub.referenceId)
+    const billingLedger = await getOrganizationBillingLedger(sub.referenceId, store)
     return billingLedger ? billingLedger.billedOverageThisPeriod : 0
   }
 
-  const userStatsRecords = await db
+  const userStatsRecords = await store
     .select({ billedOverageThisPeriod: userStats.billedOverageThisPeriod })
     .from(userStats)
     .where(eq(userStats.userId, sub.referenceId))
@@ -277,6 +281,13 @@ export async function resetUsageForSubscription(
   }
 }
 
+async function getSubscriptionForInvoiceLedger(stripeSubscriptionId: string) {
+  const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+  // A retained closing subscription no longer owns its reference's live usage ledger.
+  const closing = sub?.metadata as ClosingMetadata | null
+  return sub?.status === 'canceled' || closing?.finalUsage || closing?.finalInvoice ? null : sub
+}
+
 /**
  * Handle invoice payment succeeded webhook
  * We unblock any previously blocked users for this subscription.
@@ -293,7 +304,7 @@ export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
       })
       return
     }
-    const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+    const sub = await getSubscriptionForInvoiceLedger(stripeSubscriptionId)
     if (!sub) return
 
     // Only reset usage here if the tenant was previously blocked; otherwise invoice.created already reset it
@@ -388,15 +399,7 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
 
     // Block users after first payment failure
     if (attemptCount >= 1) {
-      logger.error('Payment failure - blocking users', {
-        invoiceId: invoice.id,
-        customerId,
-        attemptCount,
-        isOverageInvoice,
-        stripeSubscriptionId,
-      })
-
-      const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+      const sub = await getSubscriptionForInvoiceLedger(stripeSubscriptionId)
 
       if (sub) {
         if (isOrganizationSubscription(sub)) {
@@ -433,7 +436,7 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
           })
         }
       } else {
-        logger.warn('Subscription not found in database for failed payment', {
+        logger.info('Skipping failed payment for a subscription without a live ledger', {
           stripeSubscriptionId,
           invoiceId: invoice.id,
         })
@@ -465,7 +468,7 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
     }
     if (invoice.billing_reason && invoice.billing_reason !== 'subscription_cycle') return
 
-    const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+    const sub = await getSubscriptionForInvoiceLedger(stripeSubscriptionId)
     if (!sub) return
 
     const stripe = requireStripeClient()

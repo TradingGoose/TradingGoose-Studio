@@ -35,6 +35,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
 
 vi.mock('drizzle-orm', () => ({
   eq: mockEq,
+  sql: (_text: TemplateStringsArray, column: string) => column,
 }))
 
 vi.mock('@/components/emails/render-email', () => ({
@@ -223,6 +224,8 @@ describe('usage onboarding allowance helpers', () => {
         billedOverageThisPeriod: '0',
         currentPeriodCopilotCost: '0',
         currentPeriodCost: '18',
+        lastPeriodCost: 'userStats.currentPeriodCost',
+        lastPeriodCopilotCost: 'userStats.currentPeriodCopilotCost',
         customUsageLimit: '25',
         customUsageLimitUpdatedAt: expect.any(Date),
       },

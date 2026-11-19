@@ -80,9 +80,10 @@ export interface OrganizationMemberBillingLedgerSnapshot {
 }
 
 export async function getOrganizationBillingLedger(
-  organizationId: string
+  organizationId: string,
+  store: Pick<typeof db, 'insert' | 'select'> = db
 ): Promise<OrganizationBillingLedgerSnapshot | null> {
-  const organizationRows = await db
+  const organizationRows = await store
     .select({ id: organization.id })
     .from(organization)
     .where(eq(organization.id, organizationId))
@@ -92,14 +93,14 @@ export async function getOrganizationBillingLedger(
     return null
   }
 
-  const ledgerRows = await db
+  const ledgerRows = await store
     .select()
     .from(organizationBillingLedger)
     .where(eq(organizationBillingLedger.organizationId, organizationId))
     .limit(1)
 
   if (ledgerRows.length === 0) {
-    await db
+    await store
       .insert(organizationBillingLedger)
       .values({
         organizationId,
@@ -108,7 +109,7 @@ export async function getOrganizationBillingLedger(
         target: [organizationBillingLedger.organizationId],
       })
 
-    const seededRows = await db
+    const seededRows = await store
       .select()
       .from(organizationBillingLedger)
       .where(eq(organizationBillingLedger.organizationId, organizationId))

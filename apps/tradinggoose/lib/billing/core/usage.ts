@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { member, settings, user, userStats } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import {
   getEmailSubject,
   renderFreeTierUpgradeEmail,
@@ -124,7 +124,7 @@ export async function resetUserDefaultUsageToOnboardingAllowanceBalance(
   dbClient: Pick<typeof db, 'select' | 'update'> = db
 ): Promise<void> {
   const [{ onboardingAllowanceUsd }, statsRecords] = await Promise.all([
-    getResolvedBillingSettings(),
+    getResolvedBillingSettings(dbClient),
     dbClient
       .select({ grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd })
       .from(userStats)
@@ -146,6 +146,8 @@ export async function resetUserDefaultUsageToOnboardingAllowanceBalance(
     .set({
       customUsageLimit: onboardingAllowance.toString(),
       customUsageLimitUpdatedAt: new Date(),
+      lastPeriodCost: sql`${userStats.currentPeriodCost}`,
+      lastPeriodCopilotCost: sql`${userStats.currentPeriodCopilotCost}`,
       currentPeriodCost: usedOnboardingAllowance.toString(),
       currentPeriodCopilotCost: '0',
       billedOverageThisPeriod: '0',

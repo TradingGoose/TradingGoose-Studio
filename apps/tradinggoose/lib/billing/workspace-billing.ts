@@ -134,7 +134,7 @@ type ResolveWorkspaceBillingParams = {
 
 async function getBillingOwnerSubscription(
   billingOwner: WorkspaceBillingOwner,
-  store: Pick<typeof db, 'insert' | 'select'>
+  store: Pick<typeof db, 'select' | 'transaction'>
 ): Promise<SubscriptionWithTier | null> {
   if (billingOwner.type === 'organization') {
     return getOrganizationSubscription(billingOwner.organizationId, store)
@@ -153,7 +153,7 @@ async function hydrateBillingContext(
     ownerId: string | null
     billingOwner: WorkspaceBillingOwner
   },
-  store: Pick<typeof db, 'insert' | 'select'> = db
+  store: Pick<typeof db, 'select' | 'transaction'> = db
 ): Promise<WorkspaceBillingContext> {
   const subscription = await getBillingOwnerSubscription(params.billingOwner, store)
   const billingUserId = resolveBillingUserId({
@@ -184,7 +184,7 @@ async function hydrateBillingContext(
 
 export async function resolveWorkspaceBillingContext(
   params: ResolveWorkspaceBillingParams,
-  store: Pick<typeof db, 'insert' | 'select'> = db
+  store: Pick<typeof db, 'select' | 'transaction'> = db
 ): Promise<WorkspaceBillingContext> {
   const workspaceId = params.workspaceId ?? null
   const actorUserId = params.actorUserId ?? null

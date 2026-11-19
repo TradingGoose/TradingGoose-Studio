@@ -1,21 +1,19 @@
 import { db } from '@tradinggoose/db'
 import { subscription } from '@tradinggoose/db/schema'
-import { and, eq, ne } from 'drizzle-orm'
+import { and, eq, ne, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import {
   ensureDefaultUserSubscription,
   getSubscriptionByStripeSubscriptionId,
 } from '@/lib/billing/core/subscription'
-import {
-  decrementGrantedOnboardingAllowanceByCurrentPeriodUsage,
-  resetUserDefaultUsageToOnboardingAllowanceBalance,
-} from '@/lib/billing/core/usage'
+import { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } from '@/lib/billing/core/usage'
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { getStripeSubscriptionFields } from '@/lib/billing/subscriptions/utils'
 import {
   type BillingTierRecord,
+  hydrateSubscriptionsWithTiers,
   isPaidBillingTier,
   type SubscriptionWithTier,
 } from '@/lib/billing/tiers'
@@ -117,264 +115,159 @@ export async function handleSubscriptionCreated(
   }
 }
 
-/**
- * Handle subscription deletion/cancellation - bill for final period overages
- * This fires when a subscription reaches its cancel_at_period_end date or is cancelled immediately
- */
-async function handleSubscriptionDeleted(
-  subscription: SubscriptionWithTier,
+type FinalInvoice = {
+  totalOverage: number
+  billedOverage: number
+  billingPeriod: string
+  tierName: string
+  cancelledAt: string
+}
+
+export type ClosingMetadata = {
+  finalUsage?: { currentPeriodCost: string; billedOverageThisPeriod: string }
+  finalInvoice?: FinalInvoice
+  finalInvoiceId?: string
+  finalInvoiceSettled?: boolean
+}
+
+async function billFinalOverage(
+  sub: SubscriptionWithTier,
   event: Stripe.CustomerSubscriptionDeletedEvent
 ) {
-  try {
-    const { id: stripeSubscriptionId, customer } = event.data.object
+  const { id: stripeSubscriptionId, customer } = event.data.object
+  const customerId = typeof customer === 'string' ? customer : customer.id
+  const metadata = sub.metadata as ClosingMetadata
+  const quote = metadata.finalInvoice!
+  const amount = Math.max(0, quote.totalOverage - quote.billedOverage)
+  const cents = Math.round(amount * 100)
+  const key = `${customerId}:${stripeSubscriptionId}:${quote.billingPeriod}`
+  const record = (fields: Pick<ClosingMetadata, 'finalInvoiceId' | 'finalInvoiceSettled'>) =>
+    db
+      .update(subscription)
+      .set({
+        metadata: sql`${subscription.metadata}::jsonb || ${JSON.stringify(fields)}::jsonb`,
+      })
+      .where(eq(subscription.id, sub.id))
 
-    logger.info('Processing subscription deletion', {
-      stripeSubscriptionId,
-      subscriptionId: subscription.id,
-    })
-
-    // Calculate overage for the final billing period
-    const totalOverage = await calculateSubscriptionOverage(subscription)
-
-    // Get already-billed overage from threshold billing
-    const billedOverage = await getBilledOverageForSubscription(subscription)
-
-    // Only bill the remaining unbilled overage
-    const remainingOverage = Math.max(0, totalOverage - billedOverage)
-
-    logger.info('Subscription deleted overage calculation', {
-      subscriptionId: subscription.id,
-      totalOverage,
-      billedOverage,
-      remainingOverage,
-    })
-
-    // Create final overage invoice if needed
-    if (remainingOverage > 0) {
-      const customerId = typeof customer === 'string' ? customer : customer.id
-      const stripe = requireStripeClient()
-      const cents = Math.round(remainingOverage * 100)
-      const endedAt = subscription.endedAt ?? new Date(event.created * 1000)
-      const billingPeriod = endedAt.toISOString().slice(0, 7)
-
-      const itemIdemKey = `final-overage-item:${customerId}:${stripeSubscriptionId}:${billingPeriod}`
-      const invoiceIdemKey = `final-overage-invoice:${customerId}:${stripeSubscriptionId}:${billingPeriod}`
-
-      try {
-        // Create a one-time invoice for the final overage
-        const overageInvoice = await stripe.invoices.create(
+  if (cents > 0) {
+    const stripe = requireStripeClient()
+    const invoice = metadata.finalInvoiceId
+      ? await stripe.invoices.retrieve(metadata.finalInvoiceId)
+      : await stripe.invoices.create(
           {
             customer: customerId,
             collection_method: 'charge_automatically',
-            auto_advance: true, // Auto-finalize and attempt payment
-            description: `Final overage charges for ${subscription.tier?.displayName || 'subscription'} (${billingPeriod})`,
+            auto_advance: false,
+            description: `Final overage charges for ${quote.tierName} (${quote.billingPeriod})`,
             metadata: {
               type: 'final_overage_billing',
-              billingPeriod,
+              billingPeriod: quote.billingPeriod,
               subscriptionId: stripeSubscriptionId,
-              cancelledAt: subscription.canceledAt
-                ? String(subscription.canceledAt.getTime() / 1000)
-                : '',
+              cancelledAt: quote.cancelledAt,
             },
           },
-          { idempotencyKey: invoiceIdemKey }
+          { idempotencyKey: `final-overage-invoice:${key}` }
         )
+    if (!metadata.finalInvoiceId) await record({ finalInvoiceId: invoice.id })
 
-        // Add the overage line item
+    if (invoice.status === 'draft') {
+      if (!invoice.lines.data.some((line) => line.metadata?.type === 'final_usage_overage')) {
         await stripe.invoiceItems.create(
           {
             customer: customerId,
-            invoice: overageInvoice.id,
+            invoice: invoice.id,
             amount: cents,
             currency: 'usd',
-            description: `Usage overage for ${subscription.tier?.displayName || 'subscription'} (Final billing period)`,
+            description: `Usage overage for ${quote.tierName} (Final billing period)`,
             metadata: {
               type: 'final_usage_overage',
-              usage: remainingOverage.toFixed(2),
-              totalOverage: totalOverage.toFixed(2),
-              billedOverage: billedOverage.toFixed(2),
-              billingPeriod,
+              usage: amount.toFixed(2),
+              totalOverage: quote.totalOverage.toFixed(2),
+              billedOverage: quote.billedOverage.toFixed(2),
+              billingPeriod: quote.billingPeriod,
             },
           },
-          { idempotencyKey: itemIdemKey }
+          { idempotencyKey: `final-overage-item:${key}` }
         )
-
-        // Finalize only draft invoices; duplicate webhook deliveries can return the prior invoice.
-        if (overageInvoice.id && overageInvoice.status === 'draft') {
-          await stripe.invoices.finalizeInvoice(overageInvoice.id)
-        }
-
-        logger.info('Created final overage invoice for cancelled subscription', {
-          subscriptionId: subscription.id,
-          stripeSubscriptionId,
-          invoiceId: overageInvoice.id,
-          totalOverage,
-          billedOverage,
-          remainingOverage,
-          cents,
-          billingPeriod,
-        })
-      } catch (invoiceError) {
-        logger.error('Failed to create final overage invoice', {
-          subscriptionId: subscription.id,
-          stripeSubscriptionId,
-          totalOverage,
-          billedOverage,
-          remainingOverage,
-          error: invoiceError,
-        })
-        throw invoiceError
       }
-    } else {
-      logger.info('No overage to bill for cancelled subscription', {
-        subscriptionId: subscription.id,
-        billingTier: subscription.tier?.displayName,
-      })
+      await stripe.invoices.finalizeInvoice(
+        invoice.id,
+        { auto_advance: true },
+        {
+          idempotencyKey: `final-overage-finalize:${key}`,
+        }
+      )
     }
-
-    await resetUsageForSubscription(subscription)
-
-    logger.info('Successfully processed subscription cancellation', {
-      subscriptionId: subscription.id,
-      stripeSubscriptionId,
-      totalOverage,
-    })
-  } catch (error) {
-    logger.error('Failed to handle subscription deletion', {
-      subscriptionId: subscription.id,
-      stripeSubscriptionId: subscription.stripeSubscriptionId || '',
-      error,
-    })
-    throw error
   }
+  await record({ finalInvoiceSettled: true })
 }
 
 export async function handleStripeSubscriptionDeleted(
   event: Stripe.CustomerSubscriptionDeletedEvent
 ) {
   const stripeSubscription = event.data.object
-  const stripeSubscriptionId = stripeSubscription.id
-
-  const resolvedSubscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
-
-  if (!resolvedSubscription) {
-    logger.info('Deleted Stripe subscription has no local subscription row; skipping settlement', {
-      eventId: event.id,
-      stripeSubscriptionId,
-    })
-    return
-  }
-
-  // Better Auth persists the cancellation before onEvent. Let Stripe retry if that write failed.
-  if (resolvedSubscription.status !== 'canceled') {
+  const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscription.id)
+  if (!sub) return
+  if (sub.status !== 'canceled') {
     throw new Error(
-      `Cancellation for Stripe subscription ${stripeSubscriptionId} has not been saved`
+      `Cancellation for Stripe subscription ${stripeSubscription.id} has not been saved`
     )
   }
-  // Settlement talks to Stripe and can fail. Entitlement restore below must not depend on it:
-  // personal Stripe subscriptions reuse the user's default subscription row, so bailing out
-  // here is exactly what leaves a user with no entitled subscription at all and breaks every
-  // billing read. Failures are rethrown once entitlement is safe. Settlement itself still
-  // depends on this sync, because it prices the final invoice off the tier the sync writes.
-  let settlementError: unknown = null
+  const previous = sub.metadata as ClosingMetadata | null
+  if (previous?.finalInvoiceSettled) return
 
-  try {
+  if (sub.referenceType === 'user') {
+    const active = await ensureDefaultUserSubscription(sub.referenceId, db, sub.id)
+    await syncSubscriptionUsageLimits(active)
+  }
+  let closing = sub
+  if (!previous?.finalInvoice) {
     await syncSubscriptionBillingTierFromStripeSubscription({
-      subscriptionId: resolvedSubscription.id,
+      subscriptionId: sub.id,
       stripeSubscription,
     })
-  } catch (error) {
-    settlementError = error
-    logger.error('Failed to sync billing tier for a cancelled subscription', {
-      subscriptionId: resolvedSubscription.id,
-      stripeSubscriptionId,
-      error,
-    })
-  }
+    closing = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(subscription)
+        .where(eq(subscription.id, sub.id))
+        .for('update')
+      if (!row) throw new Error(`Subscription ${sub.id} disappeared during cancellation`)
+      const [paid] = await hydrateSubscriptionsWithTiers([row], tx)
+      if (!paid) throw new Error(`Missing billing tier for canceled subscription ${row.id}`)
+      const metadata = paid.metadata as ClosingMetadata | null
+      if (metadata?.finalInvoice) return paid
 
-  const subscriptionToSettle = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
-  if (!subscriptionToSettle) {
-    throw new Error(
-      `Local subscription disappeared while settling deleted Stripe subscription ${stripeSubscriptionId}`
-    )
-  }
-
-  let subscriptionForUsageLimits: TieredSubscriptionLifecycleRecord = subscriptionToSettle
-
-  if (settlementError) {
-    // The re-read above exists to pick up the tier sync's write, so a failed sync means the tier
-    // driving overage pricing is unverified. Final invoices are created under a fixed idempotency
-    // key, so billing against a stale allowance here would be locked in - the retry this rethrow
-    // triggers would return the prior invoice rather than a corrected one.
-    logger.error('Skipping final settlement because the billing tier could not be verified', {
-      subscriptionId: subscriptionToSettle.id,
-      referenceType: subscriptionToSettle.referenceType,
-      referenceId: subscriptionToSettle.referenceId,
-    })
-  } else {
-    try {
-      const { periodStart, periodEnd } = getStripeSubscriptionFields(
-        stripeSubscription,
-        subscriptionToSettle.tier
-      )
-      if (periodStart && periodEnd) {
-        await db
-          .update(subscription)
-          .set({ periodStart, periodEnd })
-          .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
+      const usage = metadata?.finalUsage
+      if (paid.referenceType === 'user' && !usage)
+        throw new Error(`Missing closing usage for ${paid.id}`)
+      const quote: FinalInvoice = {
+        totalOverage: await calculateSubscriptionOverage(
+          paid,
+          tx,
+          usage && Number(usage.currentPeriodCost)
+        ),
+        billedOverage: usage
+          ? Number(usage.billedOverageThisPeriod)
+          : await getBilledOverageForSubscription(paid, tx),
+        tierName: paid.tier.displayName,
+        billingPeriod: (paid.endedAt ?? new Date(event.created * 1000)).toISOString().slice(0, 7),
+        cancelledAt: paid.canceledAt ? String(paid.canceledAt.getTime() / 1000) : '',
       }
-      await handleSubscriptionDeleted(subscriptionToSettle, event)
-    } catch (error) {
-      settlementError = error
-      logger.error('Failed to settle a cancelled subscription; restoring entitlement anyway', {
-        subscriptionId: subscriptionToSettle.id,
-        referenceType: subscriptionToSettle.referenceType,
-        referenceId: subscriptionToSettle.referenceId,
-        error,
-      })
-    }
-  }
-
-  // No billing-enabled gate here: a signature-verified Stripe webhook resolving to a local row
-  // that carries a stripeSubscriptionId is only reachable while billing is configured and
-  // running. Re-deriving that from settings only added a fallible read that could skip the
-  // restore and leave the user unentitled.
-  if (subscriptionToSettle.referenceType === 'user') {
-    subscriptionForUsageLimits = await db.transaction(async (tx) => {
-      const nextSubscription = await ensureDefaultUserSubscription(
-        subscriptionToSettle.referenceId,
-        tx
-      )
-
-      if (settlementError) {
-        // A retry needs both the Stripe subscription ID and the unsettled paid usage.
-        await tx
-          .update(subscription)
-          .set({ stripeSubscriptionId })
-          .where(eq(subscription.id, nextSubscription.id))
-      } else if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
-        await resetUserDefaultUsageToOnboardingAllowanceBalance(
-          subscriptionToSettle.referenceId,
-          tx
-        )
-      }
-
-      return nextSubscription
+      const { periodStart, periodEnd } = getStripeSubscriptionFields(stripeSubscription, paid.tier)
+      const updated = { ...metadata, finalInvoice: quote }
+      await tx
+        .update(subscription)
+        .set({
+          ...(periodStart && periodEnd ? { periodStart, periodEnd } : {}),
+          metadata: updated,
+        })
+        .where(eq(subscription.id, paid.id))
+      if (paid.referenceType === 'organization') await resetUsageForSubscription(paid, tx)
+      return { ...paid, metadata: updated }
     })
   }
-
-  await syncSubscriptionUsageLimits(subscriptionForUsageLimits)
-
-  logger.info('Settled deleted Stripe subscription', {
-    eventId: event.id,
-    subscriptionId: subscriptionToSettle.id,
-    referenceType: subscriptionToSettle.referenceType,
-    referenceId: subscriptionToSettle.referenceId,
-    stripeSubscriptionId,
-    settlementFailed: Boolean(settlementError),
-  })
-
-  if (settlementError) {
-    throw settlementError
-  }
+  if (closing.referenceType === 'organization') await syncSubscriptionUsageLimits(closing)
+  if (!(closing.metadata as ClosingMetadata).finalInvoiceSettled)
+    await billFinalOverage(closing, event)
 }
