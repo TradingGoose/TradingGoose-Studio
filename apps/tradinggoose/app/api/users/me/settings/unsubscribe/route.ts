@@ -26,6 +26,11 @@ function invalidLink() {
 }
 
 export async function GET(req: NextRequest) {
+  if (req.headers.get('accept')?.includes('text/html')) {
+    const page = req.nextUrl.clone()
+    page.pathname = '/unsubscribe'
+    return NextResponse.redirect(page)
+  }
   const requestId = generateRequestId()
 
   try {

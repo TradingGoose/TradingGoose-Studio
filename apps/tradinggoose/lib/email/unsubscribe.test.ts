@@ -91,6 +91,15 @@ describe('unsubscribe route', () => {
     })
   })
 
+  it('opens the preferences page on manual GET without changing preferences', async () => {
+    const response = await GET(
+      new NextRequest(`${url}?${params}`, { headers: { Accept: 'text/html,*/*' } })
+    )
+    expect(response.headers.get('location')).toBe(`http://localhost/unsubscribe?${params}`)
+    expect(select).not.toHaveBeenCalled()
+    expect(write).not.toHaveBeenCalled()
+  })
+
   it('replaces a JSON string on the first unsubscribe and merges existing preference objects', async () => {
     lock.mockResolvedValue([{ ...mailbox, preferences: '{}' }])
     expect((await post()).status).toBe(200)
