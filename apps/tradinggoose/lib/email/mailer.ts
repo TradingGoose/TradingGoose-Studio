@@ -90,49 +90,61 @@ export async function addVerifiedUserEmailToAudience(
     const { apiKey, audienceId: segmentId } = await resolveResendServiceConfig()
     if (!apiKey || !segmentId) return
 
-    const recipient = await getEmailRecipient(eq(user.id, verifiedUser.id))
-    if (!recipient?.emailVerified) return
-
     const { contacts } = new Resend(apiKey)
-    const email = recipient.email.trim().toLowerCase()
     const getContact = async (address: string) => {
       const { data, error } = await contacts.get({ email: address })
       if (error && error.statusCode !== 404) throw error
       return data
     }
-    const previousContact =
-      previousEmail &&
-      previousEmail !== email &&
-      !(await getEmailRecipient(eq(user.email, previousEmail)))?.emailVerified
-        ? await getContact(previousEmail)
-        : null
-    const unsubscribed = !!(
-      previousContact?.unsubscribed ||
-      recipient.preferences?.unsubscribeAll ||
-      recipient.preferences?.unsubscribeMarketing
-    )
-    const contact = await getContact(email)
-    if (!contact) {
-      const { error } = await contacts.create({
-        email,
-        unsubscribed,
-        segments: [{ id: segmentId }],
-      })
-      if (error) throw error
-    } else {
-      if (unsubscribed && !contact.unsubscribed) {
-        const { error } = await contacts.update({ id: contact.id, unsubscribed: true })
+    const account = eq(user.id, verifiedUser.id)
+    let recipient = await getEmailRecipient(account)
+    let priorAddress = previousEmail
+    let unsubscribed = false
+    while (recipient?.emailVerified) {
+      const email = recipient.email.trim().toLowerCase()
+      const previousContact =
+        priorAddress &&
+        priorAddress !== email &&
+        !(await getEmailRecipient(eq(user.email, priorAddress)))?.emailVerified
+          ? await getContact(priorAddress)
+          : null
+      unsubscribed ||= !!(
+        previousContact?.unsubscribed ||
+        recipient.preferences?.unsubscribeAll ||
+        recipient.preferences?.unsubscribeMarketing
+      )
+      const contact = await getContact(email)
+      if (!contact) {
+        const { error } = await contacts.create({
+          email,
+          unsubscribed,
+          segments: [{ id: segmentId }],
+        })
+        if (error) throw error
+      } else {
+        if (unsubscribed && !contact.unsubscribed) {
+          const { error } = await contacts.update({ id: contact.id, unsubscribed: true })
+          if (error) throw error
+        }
+        const { error } = await contacts.segments.add({ contactId: contact.id, segmentId })
         if (error) throw error
       }
-      const { error } = await contacts.segments.add({ contactId: contact.id, segmentId })
-      if (error) throw error
-    }
-    if (
-      previousContact &&
-      !(await getEmailRecipient(eq(user.email, previousContact.email)))?.emailVerified
-    ) {
-      const { error } = await contacts.segments.remove({ contactId: previousContact.id, segmentId })
-      if (error && error.statusCode !== 404) throw error
+      if (
+        previousContact &&
+        !(await getEmailRecipient(eq(user.email, previousContact.email)))?.emailVerified
+      ) {
+        const { error } = await contacts.segments.remove({
+          contactId: previousContact.id,
+          segmentId,
+        })
+        if (error && error.statusCode !== 404) throw error
+      }
+
+      // A later change may have finished while Resend was enrolling this address.
+      const latest = await getEmailRecipient(account)
+      if (latest?.email === recipient.email) return
+      priorAddress = email
+      recipient = latest
     }
   } catch (error) {
     logger.warn('Failed to synchronize verified user email with Resend', {
