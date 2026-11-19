@@ -6,6 +6,7 @@ import {
   getEmailSubject,
   renderEnterpriseSubscriptionEmail,
 } from '@/components/emails/render-email'
+import { getStoredStripeUserCustomerId } from '@/lib/billing/stripe-customers'
 import {
   getTierIncludedUsageLimit,
   isOrganizationBillingTier,
@@ -223,31 +224,36 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
       const org = orgDetails[0]
       const locale = await resolveEmailLocale({ userId: user.id, email: user.email })
 
-      const html = await renderEnterpriseSubscriptionEmail(
-        user.name || user.email,
-        user.email,
-        locale
-      )
-
-      const emailResult = await sendEmail({
-        to: user.email,
-        userId: user.id,
-        subject: getEmailSubject('enterprise-subscription', locale),
-        html,
-        emailType: 'transactional',
-      })
+      const sendNotice = async (email: string) =>
+        sendEmail({
+          to: email,
+          userId: user.id,
+          subject: getEmailSubject('enterprise-subscription', locale),
+          html: await renderEnterpriseSubscriptionEmail(user.name || email, email, locale),
+          emailType: 'transactional',
+        })
+      let email = user.email
+      let emailResult = await sendNotice(email)
+      if (
+        !emailResult.success &&
+        emailResult.currentEmail &&
+        (await getStoredStripeUserCustomerId(user.id)) === stripeCustomerId
+      ) {
+        email = emailResult.currentEmail
+        emailResult = await sendNotice(email)
+      }
 
       if (emailResult.success) {
         logger.info('[subscription.created] Enterprise subscription email sent successfully', {
           userId: user.id,
-          email: user.email,
+          email,
           organizationId: org.id,
           subscriptionId: subscriptionRow.id,
         })
       } else {
         logger.warn('[subscription.created] Failed to send enterprise subscription email', {
           userId: user.id,
-          email: user.email,
+          email,
           error: emailResult.message,
         })
       }

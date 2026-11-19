@@ -319,8 +319,8 @@ describe('usage threshold mail', () => {
     ['owner', false, false],
     ['member', true, false],
   ])(
-    'rechecks organization role %s and billing notifications %s before retry',
-    async (role, enabled, retried) => {
+    'uses current organization role %s and billing notifications %s on every delivery',
+    async (role, enabled, eligible) => {
       const { sendEmail } = await import('@/lib/email/mailer')
       const recipient = { id: usage.userId, email: usage.userEmail, role: 'owner', enabled: true }
       const currentEmail = 'new@example.com'
@@ -340,10 +340,14 @@ describe('usage threshold mail', () => {
       })
       const { maybeSendUsageThresholdEmail } = await import('./usage')
       await maybeSendUsageThresholdEmail({ ...usage, scope: 'organization', organizationId: 'org' })
+      const calls = vi.mocked(sendEmail).mock.calls
+      expect(calls.map(([mail]) => mail.to)).toEqual([usage.userEmail, currentEmail])
+      for (const [mail] of calls) {
+        expect(mail.emailType === 'notifications' && (await mail.isRecipientEligible?.())).toBe(
+          eligible
+        )
+      }
       expect(mockEq).toHaveBeenCalledWith('member.userId', usage.userId)
-      expect(vi.mocked(sendEmail).mock.calls.map(([mail]) => mail.to)).toEqual(
-        retried ? [usage.userEmail, currentEmail] : [usage.userEmail]
-      )
     }
   )
 })

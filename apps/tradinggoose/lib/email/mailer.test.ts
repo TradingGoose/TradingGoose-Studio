@@ -485,6 +485,28 @@ describe('mailer', () => {
   })
 
   describe('Azure Communication Services fallback', () => {
+    it.each([true, false])(
+      'checks billing eligibility for a matching unverified mailbox before each provider (initially eligible=%s)',
+      async (eligible) => {
+        vi.mocked(getEmailRecipient).mockResolvedValue({ ...recipient, emailVerified: false })
+        let canSend = eligible
+        mockSend.mockImplementation(async () => {
+          canSend = false
+          return { error: { message: 'Provider unavailable' } }
+        })
+        const result = await sendEmail({
+          ...testEmailOptions,
+          emailType: 'notifications',
+          userId: recipient.id,
+          isRecipientEligible: async () => canSend,
+          html: async () => '<p>Billing notice</p>',
+        })
+        expect(result.success).toBe(false)
+        expect(mockSend).toHaveBeenCalledTimes(eligible ? 1 : 0)
+        expect(mockAzureBeginSend).not.toHaveBeenCalled()
+      }
+    )
+
     it.each(['address changed', 'opted out'])(
       'rechecks before Azure when the recipient %s',
       async (change) => {

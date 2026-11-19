@@ -9,7 +9,7 @@ import {
 } from '@tradinggoose/db/schema'
 import { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
-import type Stripe from 'stripe'
+import Stripe from 'stripe'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import {
@@ -18,13 +18,13 @@ import {
   handleInvoiceResolved,
   lockBilledOverage,
 } from './invoices'
-import type { BillingMetadata } from './overage'
+import { type BillingMetadata, settleUsageInvoice, type UsageInvoice } from './overage'
 import { handleStripeSubscriptionDeleted } from './subscription'
 
 const { db, tx, findSubscription, ensureDefault, calculate, sendEmail, stripe } = vi.hoisted(
   () => ({
     db: { select: vi.fn(), transaction: vi.fn(), update: vi.fn() },
-    tx: { select: vi.fn(), update: vi.fn() },
+    tx: { select: vi.fn(), update: vi.fn(), insert: vi.fn() },
     findSubscription: vi.fn(),
     ensureDefault: vi.fn(),
     calculate: vi.fn(),
@@ -32,7 +32,13 @@ const { db, tx, findSubscription, ensureDefault, calculate, sendEmail, stripe } 
     stripe: {
       customers: { retrieve: vi.fn() },
       subscriptions: { retrieve: vi.fn() },
-      invoices: { create: vi.fn(), finalizeInvoice: vi.fn(), pay: vi.fn(), retrieve: vi.fn() },
+      invoices: {
+        create: vi.fn(),
+        list: vi.fn(),
+        finalizeInvoice: vi.fn(),
+        pay: vi.fn(),
+        retrieve: vi.fn(),
+      },
       invoiceItems: { create: vi.fn() },
     },
   })
@@ -124,6 +130,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   db.transaction.mockImplementation((operation) => operation(tx))
   stripe.invoices.retrieve.mockResolvedValue({ status: 'open' })
+  stripe.invoices.list.mockReturnValue([])
   stripe.customers.retrieve.mockResolvedValue({ invoice_settings: {} })
   sendEmail.mockResolvedValue({ success: true })
 })
@@ -190,29 +197,47 @@ describe('invoice-specific billing blocks', () => {
     async (ownerType) => {
       const original = subscriptionRow(ownerType)
       const replacement = {
-        ...subscriptionRow(ownerType, 'active', { blockedInvoices: ['in_new'] }),
+        ...subscriptionRow(ownerType, 'active'),
         id: 'replacement',
         stripeSubscriptionId: 'sub_new',
       }
       mockSubscriptions(original, replacement)
       const balance = {
-        billingBlocked: true,
+        billingBlocked: false,
         currentPeriodCost: '21',
         billedOverageThisPeriod: '4',
       }
       tx.update.mockImplementation((table) => ({
         set: (values: { metadata?: BillingMetadata; billingBlocked?: boolean }) => ({
-          where: () => {
-            if (table === subscription) original.metadata = values.metadata!
-            else {
-              expect(table).toBe(ownerType === 'user' ? userStats : organizationBillingLedger)
+          where: (predicate: SQL) => {
+            if (table === subscription) {
+              expect(new PgDialect().sqlToQuery(predicate)).toMatchObject({
+                sql: '"subscription"."id" = $1',
+                params: [original.id],
+              })
+              original.metadata = values.metadata!
+            } else {
+              expect(table).toBe(userStats)
               Object.assign(balance, values)
             }
           },
         }),
       }))
+      tx.insert.mockImplementation((table) => ({
+        values: (values: { organizationId: string; billingBlocked: boolean }) => ({
+          onConflictDoUpdate: ({ target, set }: { target: unknown; set: object }) => {
+            expect(table).toBe(organizationBillingLedger)
+            expect(values.organizationId).toBe(original.referenceId)
+            expect(target).toBe(organizationBillingLedger.organizationId)
+            expect(set).toMatchObject({ billingBlocked: values.billingBlocked })
+            Object.assign(balance, set)
+          },
+        }),
+      }))
       await handleInvoicePaymentFailed(invoiceEvent({ attempt_count: 2 }))
       expect(original.metadata.blockedInvoices).toEqual(['in_final'])
+      expect(balance.billingBlocked).toBe(true)
+      replacement.metadata.blockedInvoices = ['in_new']
       stripe.invoices.retrieve.mockResolvedValue({ status: 'paid' })
       await handleInvoiceResolved(invoiceEvent())
       expect(original.metadata.blockedInvoices).toEqual([])
@@ -243,6 +268,58 @@ describe('invoice-specific billing blocks', () => {
 })
 
 describe('renewal and cancellation settlement', () => {
+  it('resumes the same draft after Stripe rejects a detached method and the next create response is lost', async () => {
+    const quote: UsageInvoice = {
+      tierName: 'Pro',
+      billingPeriod: '2026-05',
+      ledgerStart: 'initial',
+      totalOverage: 12,
+      billedOverage: 4,
+      collectionMethod: 'charge_automatically',
+      paymentMethod: 'pm_detached',
+    }
+    const key = 'cus_1:sub_stripe:initial'
+    db.update.mockReturnValue({ set: () => ({ where: vi.fn() }) })
+    stripe.invoices.create
+      .mockRejectedValueOnce(
+        new Stripe.errors.StripeInvalidRequestError({
+          type: 'invalid_request_error',
+          param: 'default_payment_method',
+          code: 'resource_missing',
+        })
+      )
+      .mockImplementationOnce(async ({ metadata }) => {
+        stripe.invoices.list.mockReturnValue([
+          { id: 'in_recovered', metadata, status: 'draft', lines: { data: [] } },
+        ])
+        throw new Error('Connection lost')
+      })
+    stripe.invoices.finalizeInvoice.mockResolvedValue({ id: 'in_recovered', status: 'open' })
+    await expect(
+      settleUsageInvoice('local', 'sub_stripe', 'cus_1', quote, false, 'renewal')
+    ).rejects.toThrow('Connection lost')
+    expect(stripe.invoices.list).toHaveBeenCalledExactlyOnceWith({ customer: 'cus_1', limit: 100 })
+    await settleUsageInvoice('local', 'sub_stripe', 'cus_1', quote, true, 'renewal')
+    const [original, replacement] = stripe.invoices.create.mock.calls
+    expect(stripe.invoices.create).toHaveBeenCalledTimes(2)
+    expect(original[0]).toMatchObject({
+      default_payment_method: 'pm_detached',
+      metadata: { settlementId: key },
+    })
+    expect(replacement[0]).not.toHaveProperty('default_payment_method')
+    expect(replacement[0].metadata).toEqual(original[0].metadata)
+    expect(replacement[1].idempotencyKey).not.toBe(original[1].idempotencyKey)
+    expect(stripe.invoiceItems.create).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ invoice: 'in_recovered', amount: 800 }),
+      { idempotencyKey: `overage-item:${key}` }
+    )
+    expect(stripe.invoices.pay).toHaveBeenCalledExactlyOnceWith(
+      'in_recovered',
+      {},
+      { idempotencyKey: `overage-pay:${key}` }
+    )
+  })
+
   it('locks the organization ledger before its individual member ledgers', async () => {
     const tables: unknown[] = []
     tx.select.mockImplementation(() => ({

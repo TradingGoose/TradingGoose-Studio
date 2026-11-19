@@ -141,7 +141,7 @@ export async function handleStripeSubscriptionDeleted(
       await syncSubscriptionUsageLimits(active)
     }
   }
-  const closing = await db.transaction(async (tx) => {
+  const { closing, resuming } = await db.transaction(async (tx) => {
     const [row] = await tx
       .select()
       .from(subscription)
@@ -151,7 +151,7 @@ export async function handleStripeSubscriptionDeleted(
     const [paid] = await hydrateSubscriptionsWithTiers([row], tx)
     if (!paid) throw new Error(`Missing billing tier for canceled subscription ${row.id}`)
     const metadata = paid.metadata as BillingMetadata | null
-    if (metadata?.finalInvoice) return paid
+    if (metadata?.finalInvoice) return { closing: paid, resuming: true }
 
     const usage = metadata?.finalUsage
     if (paid.referenceType === 'user' && !usage)
@@ -181,7 +181,7 @@ export async function handleStripeSubscriptionDeleted(
       .where(eq(subscription.id, paid.id))
     if (paid.referenceType === 'organization' && billedOverage !== undefined)
       await resetUsageForSubscription(paid, tx)
-    return { ...paid, metadata: updated }
+    return { closing: { ...paid, metadata: updated }, resuming: false }
   })
   if (closing.referenceType === 'organization') await syncSubscriptionUsageLimits(closing)
   const customer = stripeSubscription.customer
@@ -189,6 +189,7 @@ export async function handleStripeSubscriptionDeleted(
     closing.id,
     stripeSubscription.id,
     typeof customer === 'string' ? customer : customer.id,
-    (closing.metadata as BillingMetadata).finalInvoice!
+    (closing.metadata as BillingMetadata).finalInvoice!,
+    resuming
   )
 }

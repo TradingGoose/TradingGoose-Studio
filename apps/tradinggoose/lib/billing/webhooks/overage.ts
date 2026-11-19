@@ -1,7 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { subscription } from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
-import type Stripe from 'stripe'
+import Stripe from 'stripe'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -33,11 +33,43 @@ export function hasClosedLedger(sub: { status: string | null; metadata: unknown 
   return sub.status === 'canceled' || Boolean(metadata?.finalUsage || metadata?.finalInvoice)
 }
 
+async function createUsageInvoice(
+  stripe: Stripe,
+  params: Stripe.InvoiceCreateParams & { customer: string; metadata: { settlementId: string } },
+  resuming: boolean
+) {
+  const key = `overage-invoice:${params.metadata.settlementId}`
+  const findInvoice = async () => {
+    for await (const invoice of stripe.invoices.list({ customer: params.customer, limit: 100 })) {
+      if (invoice.metadata?.settlementId === params.metadata.settlementId) return invoice
+    }
+  }
+  if (resuming) {
+    const existing = await findInvoice()
+    if (existing) return existing
+  }
+  try {
+    return await stripe.invoices.create(params, { idempotencyKey: key })
+  } catch (error) {
+    if (
+      !params.default_payment_method ||
+      !(error instanceof Stripe.errors.StripeInvalidRequestError) ||
+      error.param !== 'default_payment_method'
+    )
+      throw error
+    const existing = await findInvoice()
+    if (existing) return existing
+    const { default_payment_method, ...customerDefaults } = params
+    return stripe.invoices.create(customerDefaults, { idempotencyKey: `${key}:customer-default` })
+  }
+}
+
 export async function settleUsageInvoice(
   subscriptionId: string,
   stripeSubscriptionId: string,
   customerId: string,
   quote: UsageInvoice,
+  resuming: boolean,
   renewalId?: string
 ) {
   if (quote.settled) return
@@ -51,10 +83,12 @@ export async function settleUsageInvoice(
       type,
       billingPeriod: quote.billingPeriod,
       subscriptionId: stripeSubscriptionId,
+      settlementId: key,
     }
     const draft = quote.invoiceId
       ? await stripe.invoices.retrieve(quote.invoiceId)
-      : await stripe.invoices.create(
+      : await createUsageInvoice(
+          stripe,
           {
             customer: customerId,
             collection_method: quote.collectionMethod,
@@ -64,7 +98,7 @@ export async function settleUsageInvoice(
             description: `Usage overage for ${quote.tierName} (${quote.billingPeriod})`,
             metadata,
           },
-          { idempotencyKey: `overage-invoice:${key}` }
+          resuming
         )
     if (!quote.invoiceId) {
       await db
@@ -105,7 +139,7 @@ export async function settleUsageInvoice(
       try {
         await stripe.invoices.pay(
           collectible.id,
-          { payment_method: quote.paymentMethod },
+          {},
           {
             idempotencyKey: `overage-pay:${key}`,
           }

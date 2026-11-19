@@ -13,7 +13,6 @@ import {
   selectEffectiveSubscription,
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
-import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('SubscriptionCore')
@@ -23,14 +22,6 @@ export class MissingBillingSubscriptionError extends Error {
     super(message)
     this.name = 'MissingBillingSubscriptionError'
   }
-}
-
-export interface PersonalBillingSnapshot {
-  subscription: SubscriptionWithTier | null
-  tier: BillingTierSummary
-  currentPeriodCost: number
-  limit: number
-  isExceeded: boolean
 }
 
 function parseOptionalNumber(value: string | number | null | undefined): number | null {
@@ -81,10 +72,14 @@ export function getConfiguredPersonalUsageLimit(
  */
 export async function getBillingSubscriptionForReference(
   reference: BillingReference,
-  dbClient: Pick<typeof db, 'select' | 'transaction'> = db
+  dbClient: Pick<typeof db, 'select' | 'transaction'> = db,
+  provisionDefault = true
 ): Promise<SubscriptionWithTier | null> {
-  const effectiveSubscription = await findEntitledSubscription(reference, dbClient)
-  if (effectiveSubscription || reference.referenceType !== 'user') {
+  const effectiveSubscription = await findSubscription(reference, dbClient, [
+    ...BILLING_ENTITLED_SUBSCRIPTION_STATUSES,
+    'unpaid',
+  ])
+  if (effectiveSubscription || reference.referenceType !== 'user' || !provisionDefault) {
     return effectiveSubscription
   }
 
@@ -101,9 +96,10 @@ export async function getBillingSubscriptionForReference(
 
 export async function getActiveSubscriptionForReference(
   reference: BillingReference,
-  dbClient: Pick<typeof db, 'select' | 'transaction'> = db
+  dbClient: Pick<typeof db, 'select' | 'transaction'> = db,
+  provisionDefault = true
 ): Promise<SubscriptionWithTier | null> {
-  const current = await getBillingSubscriptionForReference(reference, dbClient)
+  const current = await getBillingSubscriptionForReference(reference, dbClient, provisionDefault)
   return current?.status === 'unpaid' ? null : current
 }
 
@@ -149,12 +145,17 @@ export async function getPersonalEffectiveSubscription(
   userId: string,
   dbClient: Pick<typeof db, 'select'> = db
 ): Promise<SubscriptionWithTier | null> {
-  return findEntitledSubscription({ referenceType: 'user', referenceId: userId }, dbClient)
+  return findSubscription(
+    { referenceType: 'user', referenceId: userId },
+    dbClient,
+    BILLING_ENTITLED_SUBSCRIPTION_STATUSES
+  )
 }
 
-async function findEntitledSubscription(
+async function findSubscription(
   reference: BillingReference,
-  dbClient: Pick<typeof db, 'select'>
+  dbClient: Pick<typeof db, 'select'>,
+  statuses: readonly string[]
 ) {
   const rows = await dbClient
     .select()
@@ -163,11 +164,14 @@ async function findEntitledSubscription(
       and(
         eq(subscription.referenceType, reference.referenceType),
         eq(subscription.referenceId, reference.referenceId),
-        inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
+        inArray(subscription.status, [...statuses])
       )
     )
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows, dbClient)
-  return selectEffectiveSubscription(hydratedSubscriptions)
+  return (
+    selectEffectiveSubscription(hydratedSubscriptions.filter((row) => row.status !== 'unpaid')) ??
+    selectEffectiveSubscription(hydratedSubscriptions)
+  )
 }
 
 export async function ensureDefaultUserSubscription(
@@ -200,7 +204,11 @@ export async function ensureDefaultUserSubscription(
           canceledSubscriptionId ? eq(subscription.id, canceledSubscriptionId) : undefined
         )
       )
-      .orderBy(desc(sql`${subscription.status} <> 'canceled'`), desc(subscription.endedAt))
+      .orderBy(
+        desc(sql`${subscription.status} <> 'canceled'`),
+        sql`coalesce(${subscription.endedAt}, ${subscription.canceledAt}) desc nulls last`,
+        sql`${subscription.periodEnd} desc nulls last`
+      )
       .limit(1)
       .for('update')
     if (stripeRow && stripeRow.status !== 'canceled') {
@@ -317,60 +325,55 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
   return createdCount
 }
 
-export async function getPersonalBillingSnapshot(userId: string): Promise<PersonalBillingSnapshot> {
-  try {
-    const [{ billingEnabled }, subscription, statsRecords] = await Promise.all([
-      getResolvedBillingSettings(),
-      // Not the raw personal read: this one repairs a user left without an entitled row.
-      getEffectiveSubscription(userId),
-      db
-        .select({
-          currentPeriodCost: userStats.currentPeriodCost,
-          totalCost: userStats.totalCost,
-          customUsageLimit: userStats.customUsageLimit,
-          grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
+export async function getPersonalBillingSnapshot(
+  userId: string,
+  resolveSubscription = getActiveSubscriptionForReference
+) {
+  const reference = { referenceType: 'user', referenceId: userId } as const
+  const readSnapshot = () =>
+    db.transaction(
+      async (tx) => {
+        const subscription = await resolveSubscription(reference, tx, false)
+        const { billingEnabled, usageWarningThresholdPercent } =
+          await getResolvedBillingSettings(tx)
+        if (billingEnabled && !subscription) return null
+        const [stats] = await tx
+          .select()
+          .from(userStats)
+          .where(eq(userStats.userId, userId))
+          .limit(1)
+        const currentPeriodCost = Number.parseFloat(
+          (stats?.currentPeriodCost ?? stats?.totalCost)?.toString() || '0'
+        )
+        const minimumLimit = getSubscribedPersonalUsageMinimumLimit({
+          subscription: billingEnabled ? subscription : null,
+          grantedOnboardingAllowanceUsd: stats?.grantedOnboardingAllowanceUsd,
         })
-        .from(userStats)
-        .where(eq(userStats.userId, userId))
-        .limit(1),
-    ])
-
-    const stats = statsRecords[0]
-    const currentPeriodCost = Number.parseFloat(
-      (stats?.currentPeriodCost ?? stats?.totalCost)?.toString() || '0'
+        const limit = billingEnabled
+          ? getConfiguredPersonalUsageLimit(stats?.customUsageLimit, minimumLimit)
+          : Number.MAX_SAFE_INTEGER
+        return {
+          billingEnabled,
+          usageWarningThresholdPercent,
+          stats,
+          subscription: billingEnabled ? subscription : null,
+          tier: toBillingTierSummary(billingEnabled ? subscription?.tier : null),
+          currentPeriodCost,
+          minimumLimit,
+          limit,
+          isExceeded: billingEnabled && currentPeriodCost >= limit,
+        }
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' }
     )
-
-    if (!billingEnabled) {
-      return {
-        subscription: null,
-        tier: toBillingTierSummary(null),
-        currentPeriodCost,
-        limit: Number.MAX_SAFE_INTEGER,
-        isExceeded: false,
-      }
-    }
-
-    if (!subscription) {
-      throw new Error(`No active personal subscription found for billed user ${userId}`)
-    }
-
-    const minimumLimit = getSubscribedPersonalUsageMinimumLimit({
-      subscription,
-      grantedOnboardingAllowanceUsd: stats?.grantedOnboardingAllowanceUsd,
-    })
-    const limit = getConfiguredPersonalUsageLimit(stats?.customUsageLimit, minimumLimit)
-
-    return {
-      subscription,
-      tier: toBillingTierSummary(subscription.tier),
-      currentPeriodCost,
-      limit,
-      isExceeded: currentPeriodCost >= limit,
-    }
-  } catch (error) {
-    logger.error('Error getting personal billing snapshot', { error, userId })
-    throw error
+  const snapshot = await readSnapshot()
+  if (snapshot) return snapshot
+  // Provision under the normal per-user lock, then read the resulting billing period.
+  if (await resolveSubscription(reference)) {
+    const repaired = await readSnapshot()
+    if (repaired) return repaired
   }
+  throw new Error(`No active personal subscription found for billed user ${userId}`)
 }
 
 /**

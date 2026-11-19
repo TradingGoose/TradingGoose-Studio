@@ -350,9 +350,12 @@ async function updatePaymentBlock(sub: SubscriptionWithTier, invoiceId: string, 
       )
     if (sub.referenceType === 'organization') {
       await tx
-        .update(organizationBillingLedger)
-        .set({ billingBlocked: blocked, updatedAt: new Date() })
-        .where(eq(organizationBillingLedger.organizationId, sub.referenceId))
+        .insert(organizationBillingLedger)
+        .values({ organizationId: sub.referenceId, billingBlocked: blocked })
+        .onConflictDoUpdate({
+          target: organizationBillingLedger.organizationId,
+          set: { billingBlocked: blocked, updatedAt: new Date() },
+        })
     } else {
       await tx
         .update(userStats)
@@ -465,7 +468,7 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
     if (!row) return
     const metadata = row.metadata as BillingMetadata | null
     const pending = metadata?.pendingRenewals?.[invoice.id]
-    if (pending) return { id: row.id, pending }
+    if (pending) return { id: row.id, pending, resuming: true }
     if (!canClaim(row)) return
     const [sub] = await hydrateSubscriptionsWithTiers([row], tx)
     if (!sub) throw new Error(`Missing billing tier for renewing subscription ${row.id}`)
@@ -502,7 +505,7 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
       })
       .where(eq(subscription.id, sub.id))
     if (billedOverage !== undefined) await resetUsageForSubscription(sub, tx)
-    return { id: sub.id, pending: pendingInvoice }
+    return { id: sub.id, pending: pendingInvoice, resuming: false }
   })
   if (quote) {
     const customer = invoice.customer
@@ -512,6 +515,7 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
       stripeSubscriptionId,
       typeof customer === 'string' ? customer : customer.id,
       quote.pending,
+      quote.resuming,
       invoice.id
     )
   }

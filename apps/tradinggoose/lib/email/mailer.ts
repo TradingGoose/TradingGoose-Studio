@@ -42,6 +42,7 @@ type EmailOptions = {
       emailType: MailingList
       to: string
       userId: string
+      isRecipientEligible?: () => Promise<boolean>
       html: (unsubscribeUrl: string) => Promise<string>
     }
 )
@@ -185,6 +186,13 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
     const senderEmail = from || (await getFromEmailAddress())
     const checkRecipient = async (): Promise<SendEmailResult | undefined> => {
       if (options.userId === undefined) return
+      if (
+        options.emailType !== 'transactional' &&
+        options.isRecipientEligible &&
+        !(await options.isRecipientEligible())
+      ) {
+        return { success: false, message: 'Recipient is no longer eligible for this email' }
+      }
       const recipient = await getEmailRecipient(eq(user.id, options.userId))
       if (!recipient || recipient.email !== to) {
         return {

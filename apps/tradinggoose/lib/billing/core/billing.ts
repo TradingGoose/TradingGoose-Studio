@@ -9,11 +9,8 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
-import {
-  getBillingSubscriptionForReference,
-  getEffectiveSubscription,
-} from '@/lib/billing/core/subscription'
-import { getUserUsageData } from '@/lib/billing/core/usage'
+import { getBillingSubscriptionForReference } from '@/lib/billing/core/subscription'
+import { getPersonalUsageSnapshot } from '@/lib/billing/core/usage'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import {
@@ -141,10 +138,8 @@ export async function calculateUserOverage(userId: string): Promise<{
 } | null> {
   try {
     // Get user's subscription and usage data
-    const [{ billingEnabled }, subscription, usageData, userRecord] = await Promise.all([
-      getResolvedBillingSettings(),
-      getEffectiveSubscription(userId),
-      getUserUsageData(userId),
+    const [snapshot, userRecord] = await Promise.all([
+      getPersonalUsageSnapshot(userId),
       db.select().from(user).where(eq(user.id, userId)).limit(1),
     ])
 
@@ -153,9 +148,9 @@ export async function calculateUserOverage(userId: string): Promise<{
       return null
     }
 
-    const tier = toBillingTierSummary(subscription?.tier)
-    const { basePrice, usageAllowance } = getBillingTierPricing(subscription ?? null)
-    const actualUsage = usageData.currentUsage
+    const { tier, billingEnabled, subscription } = snapshot
+    const { basePrice, usageAllowance } = getBillingTierPricing(subscription)
+    const actualUsage = snapshot.usage.currentUsage
 
     const overageAmount =
       billingEnabled && subscription ? Math.max(0, actualUsage - usageAllowance) : 0
@@ -301,13 +296,13 @@ export async function getSimplifiedBillingSummary(
   }
 }> {
   try {
-    // Get subscription and usage data upfront
-    const [{ billingEnabled, usageWarningThresholdPercent }, subscription] = await Promise.all([
-      getResolvedBillingSettings(),
-      organizationId
-        ? getOrganizationSubscription(organizationId)
-        : getBillingSubscriptionForReference({ referenceType: 'user', referenceId: userId }),
-    ])
+    const billing = organizationId
+      ? await Promise.all([
+          getResolvedBillingSettings(),
+          getOrganizationSubscription(organizationId),
+        ]).then(([settings, subscription]) => ({ ...settings, subscription, organizationId }))
+      : await getPersonalUsageSnapshot(userId, getBillingSubscriptionForReference)
+    const { billingEnabled, usageWarningThresholdPercent, subscription } = billing
     const exposedSubscription = billingEnabled ? subscription : null
 
     // Build a canonical tier-backed summary once and share it across the response.
@@ -316,7 +311,8 @@ export async function getSimplifiedBillingSummary(
     )
     const tier = toBillingTierSummary(exposedSubscription?.tier)
 
-    if (organizationId) {
+    if ('organizationId' in billing) {
+      const { organizationId } = billing
       // Organization billing summary
       if (!subscription) {
         if (!billingEnabled) {
@@ -442,36 +438,11 @@ export async function getSimplifiedBillingSummary(
     }
 
     // Individual billing summary
-    if (billingEnabled && !subscription) {
-      throw new Error(`No active personal subscription found for billed user ${userId}`)
-    }
-
-    const usageData = await getUserUsageData(userId, subscription)
-    const { basePrice, usageAllowance } = getBillingTierPricing(subscription ?? null)
-
-    // Fetch user stats for copilot cost breakdown
-    const userStatsRows = await db
-      .select({
-        currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
-        lastPeriodCopilotCost: userStats.lastPeriodCopilotCost,
-      })
-      .from(userStats)
-      .where(eq(userStats.userId, userId))
-      .limit(1)
-
-    const copilotCost =
-      userStatsRows.length > 0
-        ? Number.parseFloat(userStatsRows[0].currentPeriodCopilotCost?.toString() || '0')
-        : 0
-
-    const lastPeriodCopilotCost =
-      userStatsRows.length > 0
-        ? Number.parseFloat(userStatsRows[0].lastPeriodCopilotCost?.toString() || '0')
-        : 0
-
+    const { usage: usageData, stats } = billing
+    const { basePrice, usageAllowance } = getBillingTierPricing(subscription)
     const currentUsage = usageData.currentUsage
-    const totalCopilotCost = copilotCost
-    const totalLastPeriodCopilotCost = lastPeriodCopilotCost
+    const totalCopilotCost = parseDecimal(stats.currentPeriodCopilotCost)
+    const totalLastPeriodCopilotCost = parseDecimal(stats.lastPeriodCopilotCost)
 
     const overageAmount =
       billingEnabled && subscription ? Math.max(0, currentUsage - usageAllowance) : 0
