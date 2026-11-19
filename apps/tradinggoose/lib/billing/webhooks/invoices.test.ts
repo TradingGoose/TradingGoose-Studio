@@ -1,0 +1,356 @@
+/** @vitest-environment node */
+import {
+  member,
+  organizationBillingLedger,
+  organizationMemberBillingLedger,
+  subscription,
+  user,
+  userStats,
+} from '@tradinggoose/db/schema'
+import { SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import type Stripe from 'stripe'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { BillingTierRecord } from '@/lib/billing/tiers'
+import {
+  handleInvoiceFinalized,
+  handleInvoicePaymentFailed,
+  handleInvoicePaymentSucceeded,
+  lockBilledOverage,
+} from './invoices'
+import type { BillingMetadata } from './overage'
+import { handleStripeSubscriptionDeleted } from './subscription'
+
+const { db, tx, findSubscription, ensureDefault, calculate, sendEmail, stripe } = vi.hoisted(
+  () => ({
+    db: { select: vi.fn(), transaction: vi.fn(), update: vi.fn() },
+    tx: { select: vi.fn(), update: vi.fn() },
+    findSubscription: vi.fn(),
+    ensureDefault: vi.fn(),
+    calculate: vi.fn(),
+    sendEmail: vi.fn(),
+    stripe: {
+      customers: { retrieve: vi.fn() },
+      subscriptions: { retrieve: vi.fn() },
+      invoices: { create: vi.fn(), finalizeInvoice: vi.fn(), pay: vi.fn(), retrieve: vi.fn() },
+      invoiceItems: { create: vi.fn() },
+    },
+  })
+)
+vi.mock('@tradinggoose/db', () => ({ db }))
+vi.mock('@/lib/billing/core/subscription', () => ({
+  getSubscriptionByStripeSubscriptionId: findSubscription,
+  getSubscriptionRowByStripeId: findSubscription,
+  ensureDefaultUserSubscription: ensureDefault,
+}))
+vi.mock('@/lib/billing/core/billing', () => ({ calculateSubscriptionOverage: calculate }))
+vi.mock('@/lib/billing/tiers', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/billing/tiers')>()),
+  hydrateSubscriptionsWithTiers: (rows: unknown[]) => rows,
+}))
+vi.mock('@/lib/billing/organization', () => ({ syncSubscriptionUsageLimits: vi.fn() }))
+vi.mock('@/lib/billing/tiers/persistence', () => ({
+  syncSubscriptionBillingTierFromStripeSubscription: () => ({ ownerType: 'user' }),
+}))
+vi.mock('@/lib/billing/stripe-client', () => ({ requireStripeClient: () => stripe }))
+vi.mock('@/lib/email/mailer', () => ({ sendEmail }))
+vi.mock('@/lib/email/locale', () => ({ resolveEmailLocale: () => 'en' }))
+vi.mock('@/components/emails/render-email', () => ({
+  getEmailSubject: () => 'Payment failed',
+  renderPaymentFailedEmail: () => '<p>Payment failed</p>',
+}))
+
+function subscriptionRow(
+  referenceType: 'user' | 'organization',
+  status = 'active',
+  metadata: BillingMetadata = {}
+) {
+  return {
+    id: 'sub_local',
+    stripeSubscriptionId: 'sub_stripe',
+    tier: {
+      id: 'tier_pro',
+      displayName: 'Pro',
+      ownerType: referenceType,
+      stripeMonthlyPriceId: 'price_m',
+      stripeYearlyPriceId: null,
+    },
+    billingTierId: 'tier_pro',
+    referenceType,
+    referenceId: referenceType === 'user' ? 'user-1' : 'org-1',
+    status,
+    metadata,
+  }
+}
+
+function invoiceEvent(overrides: Partial<Stripe.Invoice> = {}): Stripe.Event {
+  return {
+    data: {
+      object: {
+        id: 'in_final',
+        customer: 'cus_1',
+        amount_due: 1200,
+        attempt_count: 1,
+        hosted_invoice_url: 'https://invoice.stripe.com/i/example',
+        metadata: { type: 'final_overage_billing', subscriptionId: 'sub_stripe' },
+        ...overrides,
+      },
+    },
+  } as Stripe.Event
+}
+
+function queryRows(rows: unknown[]) {
+  const query = Object.assign(Promise.resolve(rows), {
+    where: () => query,
+    orderBy: () => query,
+    innerJoin: () => query,
+    limit: () => query,
+    for: vi.fn((mode: string) => {
+      expect(mode).toBe('update')
+      return Promise.resolve(rows)
+    }),
+  })
+  return query
+}
+
+function mockSubscriptions(...rows: ReturnType<typeof subscriptionRow>[]) {
+  findSubscription.mockResolvedValue(rows[0])
+  tx.select.mockImplementation(() => ({
+    from: (table: unknown) => queryRows(table === subscription ? rows : []),
+  }))
+}
+
+beforeEach(() => {
+  vi.resetAllMocks()
+  db.transaction.mockImplementation((operation) => operation(tx))
+  stripe.customers.retrieve.mockResolvedValue({ invoice_settings: {} })
+  sendEmail.mockResolvedValue({ success: true })
+})
+
+describe('final overage payment notices', () => {
+  const recipient = { id: 'user-1', name: 'Owner', email: 'owner@example.com' }
+  const currentEmail = 'new@example.com'
+
+  it.each([
+    ['user', 'owner', true],
+    ['organization', 'owner', true],
+    ['organization', 'admin', false],
+  ] as const)(
+    'rechecks the %s recipient before retrying after a mailbox change (role %s)',
+    async (scope, currentRole, retry) => {
+      mockSubscriptions(subscriptionRow(scope, 'canceled'))
+      db.select.mockImplementation((fields) => ({
+        from: (table: unknown) => {
+          if (fields) {
+            expect(table).toBe(scope === 'user' ? user : member)
+            return queryRows([recipient])
+          }
+          expect(table).toBe(member)
+          return queryRows([{ role: currentRole }])
+        },
+      }))
+      sendEmail.mockResolvedValueOnce({ success: false, currentEmail, message: 'Mailbox changed' })
+      await handleInvoicePaymentFailed(invoiceEvent())
+      expect(sendEmail.mock.calls.map(([mail]) => [mail.userId, mail.to])).toEqual([
+        [recipient.id, recipient.email],
+        ...(retry ? [[recipient.id, currentEmail]] : []),
+      ])
+      expect(tx.update).not.toHaveBeenCalled()
+    }
+  )
+
+  it('skips notices for later final-invoice attempts and ordinary failures on closed subscriptions', async () => {
+    mockSubscriptions(subscriptionRow('user', 'canceled'))
+    await handleInvoicePaymentFailed(invoiceEvent({ attempt_count: 2 }))
+    await handleInvoicePaymentFailed(
+      invoiceEvent({ metadata: { type: 'overage_billing', subscriptionId: 'sub_stripe' } })
+    )
+    expect(db.select).not.toHaveBeenCalled()
+    expect(sendEmail).not.toHaveBeenCalled()
+    expect(tx.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('invoice-specific billing blocks', () => {
+  it('ignores a delayed first failure after the invoice was paid without a local block', async () => {
+    mockSubscriptions(subscriptionRow('user'))
+    const event = invoiceEvent()
+    await handleInvoicePaymentSucceeded(event)
+    stripe.invoices.retrieve.mockResolvedValue({ status: 'paid' })
+    await handleInvoicePaymentFailed(event)
+    expect(stripe.invoices.retrieve).toHaveBeenCalledExactlyOnceWith('in_final')
+    expect(tx.update).not.toHaveBeenCalled()
+    expect(db.select).not.toHaveBeenCalled()
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it.each(['user', 'organization'] as const)(
+    'clears only the paid %s debt after cancellation',
+    async (ownerType) => {
+      const original = subscriptionRow(ownerType)
+      const replacement = {
+        ...subscriptionRow(ownerType, 'active', { blockedInvoices: ['in_new'] }),
+        id: 'new-sub',
+      }
+      mockSubscriptions(original, replacement)
+      stripe.invoices.retrieve.mockResolvedValue({ status: 'open' })
+      const ledger = ownerType === 'user' ? userStats : organizationBillingLedger
+      const writes: Record<string, unknown>[] = []
+      tx.update.mockImplementation((table) => ({
+        set: (values: { metadata?: BillingMetadata; billingBlocked?: boolean }) => ({
+          where: () => {
+            if (table === subscription) original.metadata = values.metadata!
+            else {
+              expect(table).toBe(ledger)
+              writes.push(values)
+            }
+          },
+        }),
+      }))
+      await handleInvoicePaymentFailed(invoiceEvent({ attempt_count: 2 }))
+      expect(original.metadata.blockedInvoices).toEqual(['in_final'])
+      original.status = 'canceled'
+      await handleInvoicePaymentSucceeded(invoiceEvent({ id: 'in_unrelated' }))
+      expect(writes).toHaveLength(1)
+      await handleInvoicePaymentSucceeded(invoiceEvent())
+      expect(original.metadata.blockedInvoices).toEqual([])
+      expect(writes[1].billingBlocked).toBe(true)
+      original.metadata.blockedInvoices = ['in_other']
+      replacement.metadata.blockedInvoices = []
+      await handleInvoicePaymentSucceeded(invoiceEvent({ id: 'in_other' }))
+      expect(writes[2]).toMatchObject({ billingBlocked: false })
+      expect(writes.every((values) => !('currentPeriodCost' in values))).toBe(true)
+    }
+  )
+})
+
+describe('renewal and cancellation settlement', () => {
+  it('locks the organization ledger before its individual member ledgers', async () => {
+    const tables: unknown[] = []
+    tx.select.mockImplementation(() => ({
+      from: (table: unknown) => {
+        const query = queryRows([{ billedOverage: '12' }])
+        query.for.mockImplementationOnce(async (mode) => {
+          expect(mode).toBe('update')
+          tables.push(table)
+          return [{ billedOverage: '12' }]
+        })
+        return query
+      },
+    }))
+    const tier = { ownerType: 'organization', usageScope: 'individual' } as BillingTierRecord
+    expect(await lockBilledOverage({ referenceId: 'org-1', tier }, tx)).toBe(12)
+    expect(tables).toEqual([organizationBillingLedger, organizationMemberBillingLedger])
+  })
+
+  const boundary = Date.parse('2026-05-01T00:00Z') / 1000
+  const renewal = invoiceEvent({
+    id: 'in_renewal',
+    metadata: {},
+    billing_reason: 'subscription_cycle',
+    parent: { subscription_details: { subscription: 'sub_stripe' } } as Stripe.Invoice.Parent,
+    collection_method: 'send_invoice',
+    period_end: boundary,
+    created: boundary,
+    due_date: boundary + 86400 * 15,
+  })
+  const deletion = {
+    created: boundary + 3600,
+    data: { object: { id: 'sub_stripe', customer: 'cus_1', items: { data: [] } } },
+  } as unknown as Stripe.CustomerSubscriptionDeletedEvent
+
+  it('finishes the original renewal claim after cancellation and prices each usage period once', async () => {
+    const row = subscriptionRow('user')
+    let cost = 60
+    findSubscription.mockResolvedValue(row)
+    tx.select.mockImplementation(() => ({
+      from: (table: unknown) =>
+        queryRows(table === subscription ? [row] : [{ current: String(cost), billedOverage: '0' }]),
+    }))
+    const update = (table: unknown) => ({
+      set: ({ metadata }: { metadata?: BillingMetadata | SQL }) => ({
+        where: () => {
+          if (table !== subscription) {
+            cost = 0
+            return
+          }
+          if (!(metadata instanceof SQL)) {
+            row.metadata = metadata!
+            return
+          }
+          const { sql, params } = new PgDialect().sqlToQuery(metadata)
+          if (sql.includes('#-')) delete row.metadata.pendingRenewals![(params[0] as string[])[1]]
+          else if (sql.includes("'true'")) row.metadata.finalInvoice!.settled = true
+          else {
+            const [field, key] = params[0] as string[]
+            const quote =
+              field === 'finalInvoice'
+                ? row.metadata.finalInvoice!
+                : row.metadata.pendingRenewals![key]
+            quote.invoiceId = params[1] as string
+          }
+        },
+      }),
+    })
+    tx.update.mockImplementation(update)
+    db.update.mockImplementation(update)
+    calculate.mockImplementation((_sub, store, capturedCost) => {
+      expect(store).toBe(tx)
+      return Math.max(0, Number(capturedCost ?? cost) - 10)
+    })
+    ensureDefault.mockImplementation(() => {
+      if (!row.metadata.finalUsage) {
+        row.metadata.finalUsage = { currentPeriodCost: String(cost), billedOverageThisPeriod: '0' }
+        cost = 0
+      }
+      return {}
+    })
+    stripe.subscriptions.retrieve.mockResolvedValue({ default_payment_method: 'pm_default' })
+    stripe.invoices.create
+      .mockRejectedValueOnce(new Error('Stripe busy'))
+      .mockImplementation(async ({ metadata }) => ({
+        id: metadata.type,
+        status: 'draft',
+        lines: { data: [] },
+      }))
+    stripe.invoices.finalizeInvoice.mockResolvedValue({ status: 'open' })
+
+    await expect(handleInvoiceFinalized(renewal)).rejects.toThrow('Stripe busy')
+    expect(cost).toBe(0)
+    cost = 17
+    row.status = 'canceled'
+    await handleStripeSubscriptionDeleted(deletion)
+    cost = 4
+    await handleInvoiceFinalized(renewal)
+    await handleInvoiceFinalized(renewal)
+    expect(cost).toBe(4)
+    expect(calculate).toHaveBeenCalledTimes(2)
+    const [attempt, cancellation, retry] = stripe.invoices.create.mock.calls
+    expect(retry).toEqual(attempt)
+    expect(retry[0]).toMatchObject({
+      collection_method: 'send_invoice',
+      default_payment_method: 'pm_default',
+      days_until_due: 15,
+    })
+    expect(retry[1].idempotencyKey).toBe('overage-invoice:cus_1:sub_stripe:initial')
+    expect(cancellation[1].idempotencyKey).toBe(`overage-invoice:cus_1:sub_stripe:${boundary}`)
+    expect(stripe.invoiceItems.create.mock.calls.map(([line]) => line.amount)).toEqual([700, 5000])
+    expect(stripe.invoices.pay).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    subscriptionRow('user', 'canceled'),
+    subscriptionRow('user', 'active', {
+      finalUsage: { currentPeriodCost: '12', billedOverageThisPeriod: '0' },
+    }),
+    subscriptionRow('user', 'active', {
+      finalInvoice: { totalOverage: 12 } as NonNullable<BillingMetadata['finalInvoice']>,
+    }),
+  ])('skips a renewal when cancellation already owns its ledger', async (row) => {
+    mockSubscriptions(row)
+    await handleInvoiceFinalized(renewal)
+    expect(calculate).not.toHaveBeenCalled()
+    expect(stripe.invoices.create).not.toHaveBeenCalled()
+    expect(tx.update).not.toHaveBeenCalled()
+  })
+})

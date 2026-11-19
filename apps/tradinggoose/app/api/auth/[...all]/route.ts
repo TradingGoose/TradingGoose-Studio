@@ -124,6 +124,9 @@ async function prepareSubscriptionUpgrade(request: Request): Promise<Request | R
     referenceType: tier.ownerType,
     referenceId,
   })
+  if (tier.ownerType === 'user' && !existingSubscription) {
+    return Response.json({ error: 'Personal billing is temporarily unavailable' }, { status: 503 })
+  }
   if (
     requestedSubscriptionId &&
     requestedSubscriptionId !== existingSubscription?.stripeSubscriptionId

@@ -1,28 +1,41 @@
 import { db } from '@tradinggoose/db'
 import {
   member,
+  organization,
   organizationBillingLedger,
   organizationMemberBillingLedger,
+  subscription,
   user,
   userStats,
 } from '@tradinggoose/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { getEmailSubject, renderPaymentFailedEmail } from '@/components/emails/render-email'
+import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
-import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
-import { getSubscriptionByStripeSubscriptionId } from '@/lib/billing/core/subscription'
+import {
+  getSubscriptionByStripeSubscriptionId,
+  getSubscriptionRowByStripeId,
+} from '@/lib/billing/core/subscription'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
+  type BillingReference,
   type BillingTierRecord,
+  hydrateSubscriptionsWithTiers,
   isOrganizationSubscription,
+  type SubscriptionWithTier,
   usesIndividualBillingLedger,
 } from '@/lib/billing/tiers'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { ClosingMetadata } from './subscription'
+import {
+  type BillingMetadata,
+  hasClosedLedger,
+  settleUsageInvoice,
+  type UsageInvoice,
+} from './overage'
 
 const logger = createLogger('StripeInvoiceWebhooks')
 
@@ -32,11 +45,6 @@ const OVERAGE_INVOICE_TYPES = new Set<string>([
   'overage_threshold_billing_org',
   'final_overage_billing',
 ])
-
-function parseDecimal(value: string | number | null | undefined): number {
-  if (value === null || value === undefined) return 0
-  return Number.parseFloat(value.toString())
-}
 
 type SubscriptionUsageScope = {
   referenceId: string
@@ -132,7 +140,7 @@ async function getPaymentMethodDetails(
  * Send payment failure notification emails to affected users
  */
 async function sendPaymentFailureEmails(
-  sub: SubscriptionUsageScope,
+  sub: BillingReference,
   invoice: Stripe.Invoice
 ): Promise<void> {
   try {
@@ -145,13 +153,14 @@ async function sendPaymentFailureEmails(
     const { lastFourDigits, failureReason } = await getPaymentMethodDetails(invoice)
 
     const fields = { id: user.id, email: user.email, name: user.name }
-    const recipients = isOrganizationSubscription(sub)
-      ? await db
-          .select(fields)
-          .from(member)
-          .innerJoin(user, eq(member.userId, user.id))
-          .where(and(eq(member.organizationId, sub.referenceId), eq(member.role, 'owner')))
-      : await db.select(fields).from(user).where(eq(user.id, sub.referenceId)).limit(1)
+    const recipients =
+      sub.referenceType === 'organization'
+        ? await db
+            .select(fields)
+            .from(member)
+            .innerJoin(user, eq(member.userId, user.id))
+            .where(and(eq(member.organizationId, sub.referenceId), eq(member.role, 'owner')))
+        : await db.select(fields).from(user).where(eq(user.id, sub.referenceId)).limit(1)
 
     for (const userToNotify of recipients) {
       if (!quickValidateEmail(userToNotify.email).isValid) continue
@@ -169,13 +178,21 @@ async function sendPaymentFailureEmails(
           locale,
         })
 
-        const result = await sendEmail({
+        const mail = {
           to: userToNotify.email,
           userId: userToNotify.id,
           subject: getEmailSubject('payment-failed', locale),
           html: emailHtml,
-          emailType: 'transactional',
-        })
+          emailType: 'transactional' as const,
+        }
+        let result = await sendEmail(mail)
+        if (
+          !result.success &&
+          result.currentEmail &&
+          (await authorizeSubscriptionReference(userToNotify.id, sub))
+        ) {
+          result = await sendEmail({ ...mail, to: result.currentEmail })
+        }
 
         if (!result.success) throw new Error(result.message)
       } catch (emailError) {
@@ -190,30 +207,29 @@ async function sendPaymentFailureEmails(
   }
 }
 
-/**
- * Get total billed overage for a subscription, handling organization vs individual billing scopes.
- * Organization subscriptions sum billed overage from the owner-tracked pooled record.
- * Individual subscriptions read the requesting user's billed overage directly.
- */
-export async function getBilledOverageForSubscription(
-  sub: {
-    referenceId: string
-    tier?: BillingTierRecord | null
-  },
-  store: Pick<typeof db, 'insert' | 'select'> = db
-): Promise<number> {
-  if (isOrganizationSubscription(sub)) {
-    const billingLedger = await getOrganizationBillingLedger(sub.referenceId, store)
-    return billingLedger ? billingLedger.billedOverageThisPeriod : 0
+// Usage accrual locks the organization ledger before individual member ledgers.
+export async function lockBilledOverage(
+  sub: SubscriptionUsageScope,
+  tx: Pick<typeof db, 'select'>
+) {
+  const isOrganization = isOrganizationSubscription(sub)
+  const table = isOrganization ? organizationBillingLedger : userStats
+  const ownerId = isOrganization ? organizationBillingLedger.organizationId : userStats.userId
+  const [ledger] = await tx
+    .select({ billedOverage: table.billedOverageThisPeriod })
+    .from(table)
+    .where(eq(ownerId, sub.referenceId))
+    .for('update')
+  if (!ledger) return
+  if (isOrganization && sub.tier && usesIndividualBillingLedger(sub.tier)) {
+    await tx
+      .select({ id: organizationMemberBillingLedger.userId })
+      .from(organizationMemberBillingLedger)
+      .where(eq(organizationMemberBillingLedger.organizationId, sub.referenceId))
+      .orderBy(organizationMemberBillingLedger.userId)
+      .for('update')
   }
-
-  const userStatsRecords = await store
-    .select({ billedOverageThisPeriod: userStats.billedOverageThisPeriod })
-    .from(userStats)
-    .where(eq(userStats.userId, sub.referenceId))
-    .limit(1)
-
-  return userStatsRecords.length > 0 ? parseDecimal(userStatsRecords[0].billedOverageThisPeriod) : 0
+  return Number(ledger.billedOverage)
 }
 
 export async function resetUsageForSubscription(
@@ -281,65 +297,77 @@ export async function resetUsageForSubscription(
   }
 }
 
-async function getSubscriptionForInvoiceLedger(stripeSubscriptionId: string) {
-  const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
-  // A retained closing subscription no longer owns its reference's live usage ledger.
-  const closing = sub?.metadata as ClosingMetadata | null
-  return sub?.status === 'canceled' || closing?.finalUsage || closing?.finalInvoice ? null : sub
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice) {
+  if (OVERAGE_INVOICE_TYPES.has(invoice.metadata?.type ?? ''))
+    return invoice.metadata?.subscriptionId
+  const parent = invoice.parent?.subscription_details?.subscription
+  return typeof parent === 'string' ? parent : parent?.id
 }
 
-/**
- * Handle invoice payment succeeded webhook
- * We unblock any previously blocked users for this subscription.
- */
-export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
-  try {
-    const invoice = event.data.object as Stripe.Invoice
-
-    const subscription = invoice.parent?.subscription_details?.subscription
-    const stripeSubscriptionId = typeof subscription === 'string' ? subscription : subscription?.id
-    if (!stripeSubscriptionId) {
-      logger.info('No subscription found on invoice; skipping payment succeeded handler', {
-        invoiceId: invoice.id,
-      })
-      return
-    }
-    const sub = await getSubscriptionForInvoiceLedger(stripeSubscriptionId)
-    if (!sub) return
-
-    // Only reset usage here if the tenant was previously blocked; otherwise invoice.created already reset it
-    let wasBlocked = false
-    if (isOrganizationSubscription(sub)) {
-      const billingLedger = await getOrganizationBillingLedger(sub.referenceId)
-      wasBlocked = Boolean(billingLedger?.billingBlocked)
+// The flag belongs to the billing reference; each failed invoice belongs to its subscription.
+async function updatePaymentBlock(sub: SubscriptionWithTier, invoiceId: string, failed: boolean) {
+  return db.transaction(async (tx) => {
+    const owner = sub.referenceType === 'organization' ? organization : user
+    await tx.select({ id: owner.id }).from(owner).where(eq(owner.id, sub.referenceId)).for('update')
+    const rows = await tx
+      .select()
+      .from(subscription)
+      .where(
+        and(
+          eq(subscription.referenceType, sub.referenceType),
+          eq(subscription.referenceId, sub.referenceId)
+        )
+      )
+      .orderBy(subscription.id)
+      .for('update')
+    const row = rows.find((record) => record.id === sub.id)
+    if (!row) return
+    const closed = hasClosedLedger(row)
+    const metadata = row.metadata as BillingMetadata | null
+    const debts = new Set(metadata?.blockedInvoices)
+    if ((failed && closed) || debts.has(invoiceId) === failed) return closed
+    if (failed) {
+      // Stripe may deliver the failure after payment succeeded. Check while holding the
+      // same lock as the success handler so a stale event cannot recreate a paid debt.
+      const invoice = await requireStripeClient().invoices.retrieve(invoiceId)
+      if (invoice.status === 'paid') return
+      debts.add(invoiceId)
     } else {
-      const row = await db
-        .select({ blocked: userStats.billingBlocked })
-        .from(userStats)
-        .where(eq(userStats.userId, sub.referenceId))
-        .limit(1)
-      wasBlocked = row.length > 0 ? !!row[0].blocked : false
+      debts.delete(invoiceId)
     }
-
-    if (isOrganizationSubscription(sub)) {
-      await db
+    await tx
+      .update(subscription)
+      .set({ metadata: { ...metadata, blockedInvoices: [...debts] } })
+      .where(eq(subscription.id, row.id))
+    const blocked =
+      debts.size > 0 ||
+      rows.some(
+        (record) =>
+          record.id !== row.id &&
+          !!(record.metadata as BillingMetadata | null)?.blockedInvoices?.length
+      )
+    if (sub.referenceType === 'organization') {
+      await tx
         .update(organizationBillingLedger)
-        .set({ billingBlocked: false, updatedAt: new Date() })
+        .set({ billingBlocked: blocked, updatedAt: new Date() })
         .where(eq(organizationBillingLedger.organizationId, sub.referenceId))
     } else {
-      await db
+      await tx
         .update(userStats)
-        .set({ billingBlocked: false })
+        .set({ billingBlocked: blocked })
         .where(eq(userStats.userId, sub.referenceId))
     }
+    if (!blocked && !closed) await resetUsageForSubscription(sub, tx)
+    return closed
+  })
+}
 
-    if (wasBlocked) {
-      await resetUsageForSubscription(sub)
-    }
-  } catch (error) {
-    logger.error('Failed to handle invoice payment succeeded', { eventId: event.id, error })
-    throw error
-  }
+export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
+  const invoice = event.data.object as Stripe.Invoice
+  const id = getInvoiceSubscriptionId(invoice)
+  if (!id) return
+  const sub = await getSubscriptionByStripeSubscriptionId(id)
+  if (sub) await updatePaymentBlock(sub, invoice.id, false)
 }
 
 /**
@@ -352,16 +380,7 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
 
     const invoiceType = invoice.metadata?.type
     const isOverageInvoice = !!(invoiceType && OVERAGE_INVOICE_TYPES.has(invoiceType))
-    let stripeSubscriptionId: string | undefined
-
-    if (isOverageInvoice) {
-      // Overage invoices store subscription ID in metadata
-      stripeSubscriptionId = invoice.metadata?.subscriptionId as string | undefined
-    } else {
-      // Regular subscription invoices have it in parent.subscription_details
-      const subscription = invoice.parent?.subscription_details?.subscription
-      stripeSubscriptionId = typeof subscription === 'string' ? subscription : subscription?.id
-    }
+    const stripeSubscriptionId = getInvoiceSubscriptionId(invoice)
 
     if (!stripeSubscriptionId) {
       logger.info('No subscription found on invoice; skipping payment failed handler', {
@@ -397,50 +416,15 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
       invoiceType: isOverageInvoice ? 'overage' : 'subscription',
     })
 
-    // Block users after first payment failure
-    if (attemptCount >= 1) {
-      const sub = await getSubscriptionForInvoiceLedger(stripeSubscriptionId)
-
-      if (sub) {
-        if (isOrganizationSubscription(sub)) {
-          await db
-            .update(organizationBillingLedger)
-            .set({ billingBlocked: true, updatedAt: new Date() })
-            .where(eq(organizationBillingLedger.organizationId, sub.referenceId))
-          logger.info('Blocked organization billing ledger due to payment failure', {
-            organizationId: sub.referenceId,
-            billingBlocked: true,
-            isOverageInvoice,
-          })
-        } else {
-          await db
-            .update(userStats)
-            .set({ billingBlocked: true })
-            .where(eq(userStats.userId, sub.referenceId))
-          logger.info('Blocked user due to payment failure', {
-            userId: sub.referenceId,
-            isOverageInvoice,
-          })
-        }
-
-        // Send payment failure notification emails
-        // Only send on FIRST failure (attempt_count === 1), not on Stripe's automatic retries
-        // This prevents spamming users with duplicate emails every 3-5-7 days
-        if (attemptCount === 1) {
-          await sendPaymentFailureEmails(sub, invoice)
-        } else {
-          logger.info('Skipping payment failure email on retry attempt', {
-            invoiceId: invoice.id,
-            attemptCount,
-            customerId,
-          })
-        }
-      } else {
-        logger.info('Skipping failed payment for a subscription without a live ledger', {
-          stripeSubscriptionId,
-          invoiceId: invoice.id,
-        })
-      }
+    if (attemptCount < 1) return
+    const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+    if (!sub) return
+    const closed = await updatePaymentBlock(sub, invoice.id, true)
+    if (
+      attemptCount === 1 &&
+      (closed === false || (closed && invoiceType === 'final_overage_billing'))
+    ) {
+      await sendPaymentFailureEmails(sub, invoice)
     }
   } catch (error) {
     logger.error('Failed to handle invoice payment failed', {
@@ -455,141 +439,79 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
  * Handle base invoice finalized → create a separate overage-only invoice
  */
 export async function handleInvoiceFinalized(event: Stripe.Event) {
-  try {
-    const invoice = event.data.object as Stripe.Invoice
-    // Only run for subscription renewal invoices (cycle boundary)
-    const subscription = invoice.parent?.subscription_details?.subscription
-    const stripeSubscriptionId = typeof subscription === 'string' ? subscription : subscription?.id
-    if (!stripeSubscriptionId) {
-      logger.info('No subscription found on invoice; skipping finalized handler', {
-        invoiceId: invoice.id,
-      })
-      return
-    }
-    if (invoice.billing_reason && invoice.billing_reason !== 'subscription_cycle') return
+  const invoice = event.data.object as Stripe.Invoice
+  if (invoice.billing_reason !== 'subscription_cycle') return
+  const parent = invoice.parent?.subscription_details?.subscription
+  const stripeSubscriptionId = typeof parent === 'string' ? parent : parent?.id
+  if (!stripeSubscriptionId) return
 
-    const sub = await getSubscriptionForInvoiceLedger(stripeSubscriptionId)
-    if (!sub) return
-
-    const stripe = requireStripeClient()
-    const periodEnd =
-      invoice.lines?.data?.[0]?.period?.end || invoice.period_end || Math.floor(Date.now() / 1000)
-    const billingPeriod = new Date(periodEnd * 1000).toISOString().slice(0, 7)
-
-    // Compute remaining automated overage before resetting usage
-    const totalOverage = await calculateSubscriptionOverage(sub)
-
-    // Get already-billed overage from threshold billing
-    const billedOverage = await getBilledOverageForSubscription(sub)
-
-    // Only bill the remaining unbilled overage
-    const remainingOverage = Math.max(0, totalOverage - billedOverage)
-
-    logger.info('Invoice finalized overage calculation', {
-      subscriptionId: sub.id,
+  const canClaim = (row: { status: string | null; metadata: unknown }) =>
+    !hasClosedLedger(row) &&
+    ((row.metadata as BillingMetadata | null)?.renewedThrough ?? 0) < invoice.period_end
+  const manual = invoice.collection_method === 'send_invoice'
+  let defaults: Stripe.Subscription | undefined
+  if (!invoice.default_payment_method || (manual && !invoice.due_date)) {
+    const row = await getSubscriptionRowByStripeId(stripeSubscriptionId)
+    if (row && canClaim(row))
+      defaults = await requireStripeClient().subscriptions.retrieve(stripeSubscriptionId)
+  }
+  const quote = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(subscription)
+      .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
+      .for('update')
+    if (!row) return
+    const metadata = row.metadata as BillingMetadata | null
+    const pending = metadata?.pendingRenewals?.[invoice.id]
+    if (pending) return { id: row.id, pending }
+    if (!canClaim(row)) return
+    const [sub] = await hydrateSubscriptionsWithTiers([row], tx)
+    if (!sub) throw new Error(`Missing billing tier for renewing subscription ${row.id}`)
+    const billedOverage = await lockBilledOverage(sub, tx)
+    const totalOverage =
+      billedOverage === undefined ? 0 : await calculateSubscriptionOverage(sub, tx)
+    const pendingInvoice: UsageInvoice = {
       totalOverage,
-      billedOverage,
-      remainingOverage,
-      billingPeriod,
-    })
-
-    if (remainingOverage > 0) {
-      const customerId = String(invoice.customer)
-      const cents = Math.round(remainingOverage * 100)
-      const itemIdemKey = `overage-item:${customerId}:${stripeSubscriptionId}:${billingPeriod}`
-      const invoiceIdemKey = `overage-invoice:${customerId}:${stripeSubscriptionId}:${billingPeriod}`
-
-      // Inherit billing settings from the Stripe subscription/customer for autopay
-      const getPaymentMethodId = (
-        pm: string | Stripe.PaymentMethod | null | undefined
-      ): string | undefined => (typeof pm === 'string' ? pm : pm?.id)
-
-      let collectionMethod: 'charge_automatically' | 'send_invoice' = 'charge_automatically'
-      let defaultPaymentMethod: string | undefined
-      try {
-        const stripeSub = await stripe.subscriptions.retrieve(stripeSubscriptionId)
-        if (stripeSub.collection_method === 'send_invoice') {
-          collectionMethod = 'send_invoice'
-        }
-        const subDpm = getPaymentMethodId(stripeSub.default_payment_method)
-        if (subDpm) {
-          defaultPaymentMethod = subDpm
-        } else if (collectionMethod === 'charge_automatically') {
-          const custObj = await stripe.customers.retrieve(customerId)
-          if (custObj && !('deleted' in custObj)) {
-            const cust = custObj as Stripe.Customer
-            const custDpm = getPaymentMethodId(cust.invoice_settings?.default_payment_method)
-            if (custDpm) defaultPaymentMethod = custDpm
-          }
-        }
-      } catch (e) {
-        logger.error('Failed to retrieve subscription or customer', { error: e })
-      }
-
-      // Create a draft invoice first so we can attach the item directly
-      const overageInvoice = await stripe.invoices.create(
-        {
-          customer: customerId,
-          collection_method: collectionMethod,
-          auto_advance: false,
-          ...(defaultPaymentMethod ? { default_payment_method: defaultPaymentMethod } : {}),
-          metadata: {
-            type: 'overage_billing',
-            billingPeriod,
-            subscriptionId: stripeSubscriptionId,
-          },
-        },
-        { idempotencyKey: invoiceIdemKey }
-      )
-
-      // Attach the item to this invoice
-      await stripe.invoiceItems.create(
-        {
-          customer: customerId,
-          invoice: overageInvoice.id,
-          amount: cents,
-          currency: 'usd',
-          description: `Usage Based Overage – ${billingPeriod}`,
-          metadata: {
-            type: 'overage_billing',
-            billingPeriod,
-            subscriptionId: stripeSubscriptionId,
-          },
-        },
-        { idempotencyKey: itemIdemKey }
-      )
-
-      // Finalize to trigger autopay (if charge_automatically and a PM is present)
-      const draftId = overageInvoice.id
-      if (typeof draftId !== 'string' || draftId.length === 0) {
-        logger.error('Stripe created overage invoice without id; aborting finalize')
-      } else {
-        const finalized = await stripe.invoices.finalizeInvoice(draftId)
-        // Some manual invoices may remain open after finalize; ensure we pay immediately when possible
-        if (collectionMethod === 'charge_automatically' && finalized.status === 'open') {
-          try {
-            const payId = finalized.id
-            if (typeof payId !== 'string' || payId.length === 0) {
-              logger.error('Finalized invoice missing id')
-              throw new Error('Finalized invoice missing id')
-            }
-            await stripe.invoices.pay(payId, {
-              payment_method: defaultPaymentMethod,
-            })
-          } catch (payError) {
-            logger.error('Failed to auto-pay overage invoice', {
-              error: payError,
-              invoiceId: finalized.id,
-            })
-          }
-        }
+      billedOverage: billedOverage ?? 0,
+      billingPeriod: new Date(invoice.period_end * 1000).toISOString().slice(0, 7),
+      tierName: sub.tier.displayName,
+      ledgerStart: metadata?.renewedThrough ?? 'initial',
+      collectionMethod: invoice.collection_method,
+    }
+    if (totalOverage > pendingInvoice.billedOverage) {
+      const pm = invoice.default_payment_method ?? defaults?.default_payment_method
+      if (pm) pendingInvoice.paymentMethod = typeof pm === 'string' ? pm : pm.id
+      if (manual) {
+        const days = invoice.due_date
+          ? Math.max(0, Math.ceil((invoice.due_date - invoice.created) / 86400))
+          : defaults?.days_until_due
+        if (days == null) throw new Error(`Missing payment terms on renewal invoice ${invoice.id}`)
+        pendingInvoice.daysUntilDue = days
       }
     }
-
-    // Finally, reset usage for this subscription after overage handling
-    await resetUsageForSubscription(sub)
-  } catch (error) {
-    logger.error('Failed to handle invoice finalized', { error })
-    throw error
+    await tx
+      .update(subscription)
+      .set({
+        metadata: {
+          ...metadata,
+          renewedThrough: invoice.period_end,
+          pendingRenewals: { ...metadata?.pendingRenewals, [invoice.id]: pendingInvoice },
+        },
+      })
+      .where(eq(subscription.id, sub.id))
+    if (billedOverage !== undefined) await resetUsageForSubscription(sub, tx)
+    return { id: sub.id, pending: pendingInvoice }
+  })
+  if (quote) {
+    const customer = invoice.customer
+    if (!customer) throw new Error(`Missing customer on renewal invoice ${invoice.id}`)
+    await settleUsageInvoice(
+      quote.id,
+      stripeSubscriptionId,
+      typeof customer === 'string' ? customer : customer.id,
+      quote.pending,
+      invoice.id
+    )
   }
 }

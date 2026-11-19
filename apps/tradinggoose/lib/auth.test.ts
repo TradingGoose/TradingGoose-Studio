@@ -9,6 +9,9 @@ const { registerClient } = vi.hoisted(() => ({ registerClient: vi.fn() }))
 vi.mock('@modelcontextprotocol/sdk/client/auth.js', () => ({ registerClient }))
 vi.mock('@tradinggoose/db', () => ({ db: {} }))
 vi.mock('@/lib/billing/plans', () => ({ getBetterAuthPlansConfig: () => [] }))
+vi.mock('@/lib/system-settings/service', () => ({
+  getResolvedSystemSettings: async () => ({ allowPromotionCodes: true }),
+}))
 
 import { auth } from './auth'
 import { isHosted } from './environment'
@@ -19,6 +22,31 @@ import { getBaseUrl } from './urls/utils'
 const baseURL = 'http://localhost:3000'
 const oauth = auth.options.plugins.find((plugin) => plugin.id === 'generic-oauth')!
 const robinhood = oauth.options.config.find((provider) => provider.providerId === 'robinhood')!
+
+it('keeps first Checkout and incomplete attempts available while protecting the previous paid row', async () => {
+  const options = auth.options.plugins.find((plugin) => plugin.id === 'stripe')!.options
+    .subscription
+  if (!options?.enabled) throw new Error('The Stripe subscription plugin is required')
+  const checkout = options.getCheckoutSessionParams!
+  const params = {
+    user: { id: 'user-1' },
+    subscription: { referenceId: 'user-1', status: 'incomplete' },
+  }
+  await expect(checkout(params as never)).resolves.toMatchObject({
+    params: { allow_promotion_codes: true },
+  })
+  const linked = {
+    ...params,
+    subscription: { ...params.subscription, stripeSubscriptionId: 'sub_previous' },
+  }
+  await expect(checkout(linked as never)).resolves.toMatchObject({
+    params: { allow_promotion_codes: true },
+  })
+  linked.subscription.status = 'active'
+  await expect(checkout(linked as never)).rejects.toMatchObject({
+    status: 'CONFLICT',
+  })
+})
 
 async function setupLink(databaseHooks?: BetterAuthOptions['databaseHooks']) {
   const service = betterAuth({

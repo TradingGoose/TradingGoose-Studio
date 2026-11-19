@@ -115,7 +115,10 @@ function createSelectQueryMock(
     from: vi.fn(() => (terminal === 'from' ? Promise.resolve(result) : query)),
     where: vi.fn(() => (terminal === 'where' ? Promise.resolve(result) : query)),
     orderBy: vi.fn(() => query),
-    for: vi.fn(async () => result),
+    for: vi.fn(async (mode: string) => {
+      expect(mode).toBe('update')
+      return result
+    }),
     limit: vi.fn(() => (terminal === 'for' ? query : Promise.resolve(result))),
   }
 
@@ -182,33 +185,56 @@ describe('subscription billing helpers', () => {
     const { resetUserDefaultUsageToOnboardingAllowanceBalance } = await import('./usage')
     const paid = { id: 'sub_default_user_123', metadata: { source: 'default-tier' } }
     const ledger = { currentPeriodCost: '28', billedOverageThisPeriod: '3' }
+    const canceledQuery = createSelectQueryMock([paid], 'for')
+    const ledgerQuery = createSelectQueryMock([ledger], 'for')
+    const tx = { select: vi.fn(), insert: vi.fn(), update: vi.fn() }
     const save = vi.fn(() => ({ where: vi.fn() }))
     mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
-    mockDb.select
-      .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+    mockDb.transaction.mockImplementationOnce(async (run) => run(tx))
+    tx.select
       .mockImplementationOnce(() => createSelectQueryMock([{ id: 'user_123' }], 'for'))
       .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
-      .mockImplementationOnce(() => createSelectQueryMock([paid], 'for'))
-      .mockImplementationOnce(() => createSelectQueryMock([ledger], 'for'))
-    mockDb.update.mockImplementation(() => ({ set: save }))
+      .mockReturnValueOnce(canceledQuery)
+      .mockReturnValueOnce(ledgerQuery)
+    tx.update.mockImplementation(() => ({ set: save }))
     const insert = vi.fn((values) => ({
       onConflictDoNothing: () => ({ returning: async () => [] }), // original ID belongs to paid
       returning: async () => [values],
     }))
-    mockDb.insert.mockImplementation(() => ({ values: insert }))
-    const { getEffectiveSubscription } = await import('./subscription')
+    tx.insert.mockImplementation(() => ({ values: insert }))
+    const { getEffectiveSubscription, ensureDefaultUserSubscription } = await import(
+      './subscription'
+    )
     const active = await getEffectiveSubscription('user_123')
     expect(save).toHaveBeenCalledExactlyOnceWith({
       metadata: { ...paid.metadata, finalUsage: ledger },
     })
     expect(resetUserDefaultUsageToOnboardingAllowanceBalance).toHaveBeenCalledExactlyOnceWith(
       'user_123',
-      mockDb
+      tx
     )
+    expect(canceledQuery.for).toHaveBeenCalledExactlyOnceWith('update')
+    expect(ledgerQuery.for).toHaveBeenCalledExactlyOnceWith('update')
+    expect(mockDb.update).not.toHaveBeenCalled()
     expect(active?.id).not.toBe(paid.id)
     expect(active).toMatchObject({ status: 'active', tier: { isDefault: true } })
     expect(insert.mock.calls[1][0].stripeSubscriptionId).toBeUndefined()
     expect(mockDb.transaction).toHaveBeenCalledOnce()
+
+    const replacement = { ...active, stripeSubscriptionId: 'sub_replacement' }
+    tx.select
+      .mockReturnValueOnce(createSelectQueryMock([{ id: 'user_123' }], 'for'))
+      .mockReturnValueOnce(createSelectQueryMock([replacement], 'where'))
+      .mockReturnValueOnce(
+        createSelectQueryMock([{ ...paid, metadata: { finalUsage: ledger } }], 'for')
+      )
+    mockDb.transaction.mockImplementationOnce(async (run) => run(tx))
+    await expect(ensureDefaultUserSubscription('user_123', mockDb as any, paid.id)).resolves.toBe(
+      replacement
+    )
+    expect(tx.update).toHaveBeenCalledTimes(1)
+    expect(resetUserDefaultUsageToOnboardingAllowanceBalance).toHaveBeenCalledTimes(1)
   })
 
   it('retains the replacement ledger when the canceled personal usage was never captured', async () => {
@@ -304,7 +330,7 @@ describe('subscription billing helpers', () => {
     const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
 
     await expect(getSubscriptionByStripeSubscriptionId('stripe_sub_missing')).resolves.toBe(null)
-    expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([])
+    expect(mockHydrateSubscriptionsWithTiers).not.toHaveBeenCalled()
   })
 
   it('seeds onboarding allowance into user stats on billing-enable backfill', async () => {

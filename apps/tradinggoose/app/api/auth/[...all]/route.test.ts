@@ -125,7 +125,11 @@ describe('/api/auth/[...all] route', () => {
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetStoredStripeUserCustomerId.mockResolvedValue('cus_user_123')
     mockHasPrivateBillingTierAccess.mockResolvedValue(false)
-    mockGetActiveSubscriptionForReference.mockResolvedValue(null)
+    mockGetActiveSubscriptionForReference.mockResolvedValue({
+      status: 'active',
+      stripeSubscriptionId: null,
+      tier: { id: 'default' },
+    })
     mockAuthorizeSubscriptionReference.mockResolvedValue(true)
     mockEnsurePlanChangePortalConfiguration.mockResolvedValue('bpc_default')
     mockGetOccupiedSeatCount.mockResolvedValue(1)
@@ -233,6 +237,25 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
     expect(mockHasPrivateBillingTierAccess).not.toHaveBeenCalled()
     expect(mockEnsurePlanChangePortalConfiguration).not.toHaveBeenCalled()
+  })
+
+  it('leaves personal Checkout retryable when its billing ledger could not be restored', async () => {
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'public-tier',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'user',
+    })
+    mockGetActiveSubscriptionForReference.mockResolvedValue(null)
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({ plan: 'public-tier', referenceId: 'user-1' }),
+      })
+    )
+    expect(response.status).toBe(503)
+    expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
   it('requires the plan-change Portal catalog for the subject existing subscription', async () => {

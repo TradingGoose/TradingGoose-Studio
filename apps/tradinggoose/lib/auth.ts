@@ -31,6 +31,7 @@ import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { createStripeUserCustomer } from '@/lib/billing/stripe-customers'
+import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { hydrateSubscriptionsWithTiers } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import { handleManualEnterpriseSubscription } from '@/lib/billing/webhooks/enterprise'
@@ -1681,7 +1682,18 @@ export const auth = betterAuth({
             referenceId,
           })
         },
-        getCheckoutSessionParams: async () => {
+        getCheckoutSessionParams: async ({ subscription, user }) => {
+          // An existing Stripe subscription changes plan in the portal. Reusing its row
+          // for a new Checkout before its deletion is recorded would overwrite its Stripe ID.
+          if (
+            subscription.referenceId === user.id &&
+            subscription.stripeSubscriptionId &&
+            BILLING_ACTIVE_SUBSCRIPTION_STATUSES.some((status) => status === subscription.status)
+          ) {
+            throw new APIError('CONFLICT', {
+              message: 'Subscription cancellation is still processing',
+            })
+          }
           const settings = await getResolvedSystemSettings()
           return {
             params: {
