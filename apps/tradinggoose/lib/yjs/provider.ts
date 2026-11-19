@@ -361,6 +361,7 @@ export async function bootstrapYjsProvider(
   }
 
   function getPendingLocalEdits(): YjsPendingLocalEdits | undefined {
+    if (accessMode !== 'write') return
     return lineageId && localBase && localUpdates.length > 0
       ? { userId, lineageId, base: localBase, replay: [...replayUpdates] }
       : rebasedState
@@ -370,7 +371,7 @@ export async function bootstrapYjsProvider(
 
   function savePendingDraft(event?: BeforeUnloadEvent): YjsPendingLocalEdits | undefined {
     const pending = getPendingLocalEdits()
-    if (!pending || accessMode !== 'write') return
+    if (!pending) return
     try {
       const draft = toBase64(encodeAny(pending))
       sessionStorage.setItem(draftKey, draft)
@@ -404,7 +405,8 @@ export async function bootstrapYjsProvider(
       provider.messageHandlers[messageSync] = () => undefined
       finishLifecycle({
         type: 'reopen',
-        pendingLocalEdits: savePendingDraft(),
+        pendingLocalEdits:
+          descriptor.entityKind === 'workflow' ? getPendingLocalEdits() : savePendingDraft(),
       })
       return
     }
@@ -422,6 +424,10 @@ export async function bootstrapYjsProvider(
         localBase = edits.base
         window.addEventListener('beforeunload', savePendingDraft)
         edits = undefined
+      } else if (descriptor.entityKind === 'workflow') {
+        // The rebuilt workflow has new edit IDs. Its server state is authoritative.
+        edits = undefined
+        clearSavedDraft()
       }
       resolveLineage()
     }
@@ -573,13 +579,6 @@ export async function bootstrapYjsProvider(
     provider.connect()
     await Promise.all([initialSync, lineage])
     if (accessMode === 'write' && edits?.userId === userId) {
-      // Rebasing replaces the draft's baseline. Workflows checkpoint live edits automatically.
-      if (
-        descriptor.entityKind === 'workflow' &&
-        !Y.snapshotContainsUpdate(durableSnapshot, Y.encodeStateAsUpdate(doc))
-      ) {
-        throw new Error('Waiting for the workflow checkpoint before restoring unsaved edits')
-      }
       rebaseYjsPendingLocalEdits(doc, edits)
       rebasedState = Y.encodeStateAsUpdate(doc)
       acceptPersistedSnapshot(durableSnapshot)

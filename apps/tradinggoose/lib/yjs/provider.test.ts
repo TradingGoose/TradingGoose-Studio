@@ -7,6 +7,7 @@ import * as decoding from 'lib0/decoding'
 import * as encoding from 'lib0/encoding'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import {
   type ReviewTargetDescriptor,
   YJS_CLOSE_CODE_RETRY_REQUIRED,
@@ -119,12 +120,8 @@ function readLifecycleMessage(message: Uint8Array) {
 }
 
 describe('bootstrapYjsProvider', () => {
-  const descriptor: ReviewTargetDescriptor = {
-    workspaceId: 'workspace-1',
-    entityKind: 'workflow',
-    entityId: 'workflow-1',
-    yjsSessionId: 'workflow-1',
-  }
+  const saved = new Map<string, string>()
+  let descriptor: ReviewTargetDescriptor
 
   async function bootstrapSyncedProvider(
     serverUpdate?: Uint8Array,
@@ -160,6 +157,13 @@ describe('bootstrapYjsProvider', () => {
     vi.resetModules()
     fetchMock.mockReset()
     providerInstances.length = 0
+    descriptor = buildSavedEntityDescriptor('workflow', 'workflow-1', 'workspace-1')
+    saved.clear()
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => saved.get(key) ?? null,
+      setItem: (key: string, value: string) => saved.set(key, value),
+      removeItem: (key: string) => saved.delete(key),
+    })
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -175,10 +179,11 @@ describe('bootstrapYjsProvider', () => {
     vi.unstubAllGlobals()
   })
 
-  it('rebases pending local edits onto a fresh server history', async () => {
+  it('rebases pending saved-entity edits onto a fresh server history', async () => {
+    descriptor = buildSavedEntityDescriptor('skill', 'skill-1', 'workspace-1')
     const snapshot = (values: Record<string, unknown>) => {
       const doc = new Y.Doc()
-      const fields = doc.getMap('workflow')
+      const fields = doc.getMap('fields')
       for (const [key, value] of Object.entries(values)) fields.set(key, value)
       const update = Y.encodeStateAsUpdate(doc)
       doc.destroy()
@@ -208,7 +213,7 @@ describe('bootstrapYjsProvider', () => {
     const result = await bootstrapSyncedProvider()
     const provider = result.provider as unknown as MockWebsocketProvider
     provider.receive(createSyncUpdateMessage(initial))
-    const fields = result.doc.getMap('workflow')
+    const fields = result.doc.getMap('fields')
     let acknowledgedUpdate!: Uint8Array
     result.doc.once('update', (update) => {
       acknowledgedUpdate = update
@@ -220,7 +225,7 @@ describe('bootstrapYjsProvider', () => {
     ;(fields.get('nested') as Y.Map<unknown>).set('owned', 'b')
     const remote = new Y.Doc()
     Y.applyUpdate(remote, Y.encodeStateAsUpdate(result.doc))
-    remote.getMap('workflow').set('retyped', new Y.Text('base'))
+    remote.getMap('fields').set('retyped', new Y.Text('base'))
     const intermediate = Y.encodeStateAsUpdate(remote)
     provider.receive(
       createSyncUpdateMessage(Y.encodeStateAsUpdate(remote, Y.encodeStateVector(result.doc)))
@@ -245,7 +250,7 @@ describe('bootstrapYjsProvider', () => {
     expect(pending.replay[0]).toEqual({ local: true, update: acknowledgedUpdate })
     result.dispose()
     const restarted = await bootstrapSyncedProvider(intermediate, pending, 'lineage-2')
-    expect(restarted.doc.getMap('workflow').toJSON()).toEqual({
+    expect(restarted.doc.getMap('fields').toJSON()).toEqual({
       text: 'abc',
       same: 'ab',
       blocks: blocks('Local A', 'Base B'),
@@ -255,7 +260,7 @@ describe('bootstrapYjsProvider', () => {
       retyped: 'base!',
       nested: { owned: 'c', foreign: 'base' },
     })
-    ;(restarted.doc.getMap('workflow').get('same') as Y.Text).insert(1, 'X')
+    ;(restarted.doc.getMap('fields').get('same') as Y.Text).insert(1, 'X')
     const restartedProvider = restarted.provider as unknown as MockWebsocketProvider
     restartedProvider.receive(encodeYjsDurableCheckpoint('lineage-3', Y.emptySnapshot))
     const repeatedEvent = await restarted.lifecycle
@@ -273,7 +278,7 @@ describe('bootstrapYjsProvider', () => {
       nested: nested('b', 'server'),
     })
     const merged = await bootstrapSyncedProvider(concurrent, replayedPending, 'lineage-3')
-    const mergedFields = merged.doc.getMap('workflow')
+    const mergedFields = merged.doc.getMap('fields')
     expect((mergedFields.get('text') as Y.Text).toString()).toBe('aXc')
     expect((mergedFields.get('same') as Y.Text).toString()).toBe('aXXb')
     expect(mergedFields.has('deleted')).toBe(false)
@@ -296,22 +301,22 @@ describe('bootstrapYjsProvider', () => {
       pending,
       'lineage-4'
     )
-    expect(replacement.doc.getMap('workflow').toJSON()).toEqual({
+    expect(replacement.doc.getMap('fields').toJSON()).toEqual({
       text: 'foreignbc',
       deleted: 'foreign',
       retyped: 42,
       nested: { owned: 'foreign', foreign: 'server' },
     })
-    const replacementFields = replacement.doc.getMap('workflow')
+    const replacementFields = replacement.doc.getMap('fields')
     replacementFields.set('checkpointed', true)
     const requested = new Y.Doc()
     Y.applyUpdate(requested, Y.encodeStateAsUpdate(replacement.doc))
     const replacementProvider = replacement.provider as unknown as MockWebsocketProvider
-    const persisted = replacement.persist('Renamed workflow')
+    const persisted = replacement.persist('Renamed skill')
     replacementFields.set('after-request', true)
     const persistRequest = readLifecycleMessage(replacementProvider.ws.send.mock.calls[0]![0])
     if (persistRequest.type !== 'persist-request') throw new Error('Expected persist request')
-    expect(persistRequest.identityName).toBe('Renamed workflow')
+    expect(persistRequest.identityName).toBe('Renamed skill')
     replacementProvider.receive(
       encodeYjsDurableCheckpoint('lineage-4', Y.snapshot(requested), persistRequest.requestId)
     )
@@ -397,19 +402,52 @@ describe('bootstrapYjsProvider', () => {
     result.dispose()
   })
 
-  it('restores pending edits only for their author after reauthentication', async () => {
-    const saved = new Map<string, string>()
-    vi.stubGlobal('sessionStorage', {
-      getItem: (key: string) => saved.get(key) ?? null,
-      setItem: (key: string, value: string) => saved.set(key, value),
-      removeItem: (key: string) => saved.delete(key),
-    })
+  it.each(['reload', 'reconnect'])('uses the rebuilt workflow after a %s', async (transition) => {
+    const server = new Y.Doc()
+    const text = new Y.Text('alpha')
+    server.getMap('workflow').set('text', text)
+    const original = await bootstrapSyncedProvider(Y.encodeStateAsUpdate(server))
+    const local = original.doc.getMap<Y.Text>('workflow').get('text')!
+    local.insert(local.length, ' beta')
+    local.insert(local.length, ' unsaved')
+
+    let pending
+    if (transition === 'reload') {
+      window.dispatchEvent(new Event('beforeunload'))
+      expect(saved.size).toBe(1)
+    } else {
+      const provider = original.provider as unknown as MockWebsocketProvider
+      provider.receive(encodeYjsDurableCheckpoint('rebuilt', Y.emptySnapshot))
+      const event = await original.lifecycle
+      if (event.type !== 'reopen') throw event.error
+      pending = event.pendingLocalEdits
+    }
+    original.dispose()
+
+    const rebuilt = new Y.Doc()
+    rebuilt.getMap('workflow').set('text', new Y.Text('alpha beta'))
+    const checkpoint = Y.snapshot(rebuilt)
+    rebuilt.getMap('workflow').set('live', true)
+    const reopened = await bootstrapSyncedProvider(
+      Y.encodeStateAsUpdate(rebuilt),
+      pending,
+      'rebuilt',
+      'write',
+      transition === 'reconnect' ? checkpoint : undefined
+    )
+    expect(reopened.doc.getMap('workflow').toJSON()).toEqual({ text: 'alpha beta', live: true })
+    expect(saved.size).toBe(0)
+    reopened.dispose()
+    rebuilt.destroy()
+    server.destroy()
+  })
+
+  it('restores pending edits only for their author after an account switch', async () => {
     const original = await bootstrapSyncedProvider()
     const provider = original.provider as unknown as MockWebsocketProvider
     original.doc.getMap('workflow').set('content', 'draft')
     const originalUpdate = Y.encodeStateAsUpdate(original.doc)
-    window.dispatchEvent(new Event('beforeunload'))
-    expect(saved.size).toBe(1)
+    original.doc.getMap('workflow').set('title', 'pending')
     fetchMock.mockImplementation(async () => jsonResponse({ token: 'other', userId: 'user-2' }))
     vi.useFakeTimers()
     vi.spyOn(Math, 'random').mockReturnValue(0)
@@ -425,31 +463,11 @@ describe('bootstrapYjsProvider', () => {
     expect(saved.size).toBe(1)
     other.dispose()
     fetchMock.mockImplementation(async () => jsonResponse({ token: 'renewed', userId: 'user-1' }))
-    const synced = await bootstrapSyncedProvider(
-      originalUpdate,
-      undefined,
-      'lineage-1',
-      'write',
-      Y.emptySnapshot
-    )
-    expect(synced.doc.getMap('workflow').get('content')).toBe('draft')
+    const restored = await bootstrapSyncedProvider(originalUpdate)
+    expect(restored.doc.getMap('workflow').toJSON()).toEqual({ content: 'draft', title: 'pending' })
     expect(saved.size).toBe(1)
-    synced.doc.getMap('workflow').set('title', 'edited after reopening')
-    window.dispatchEvent(new Event('beforeunload'))
-    synced.dispose()
-    await expect(
-      bootstrapSyncedProvider(originalUpdate, undefined, 'lineage-2', 'write', Y.emptySnapshot)
-    ).rejects.toThrow('Waiting for the workflow checkpoint')
-    expect(saved.size).toBe(1)
-    const restored = await bootstrapSyncedProvider(undefined, undefined, 'lineage-3')
-    expect(restored.doc.getMap('workflow').toJSON()).toEqual({
-      content: 'draft',
-      title: 'edited after reopening',
-    })
     const restoredProvider = restored.provider as unknown as MockWebsocketProvider
-    restoredProvider.receive(encodeYjsDurableCheckpoint('lineage-3', Y.emptySnapshot))
-    expect(saved.size).toBe(1)
-    restoredProvider.receive(encodeYjsDurableCheckpoint('lineage-3', Y.snapshot(restored.doc)))
+    restoredProvider.receive(encodeYjsDurableCheckpoint('lineage-1', Y.snapshot(restored.doc)))
     expect(saved.size).toBe(0)
     restored.dispose()
   })
