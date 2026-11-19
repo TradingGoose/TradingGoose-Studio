@@ -206,7 +206,7 @@ export function TeamManagement() {
   })
   const isAdjustableSeatTier =
     currentTier?.ownerType === 'organization' && currentTier.seatMode === 'adjustable'
-  const seatPrice = organizationSeats?.seatPrice
+  const seatPrice = organizationSeats?.seatPrice ?? null
   const seatCount = currentTier?.seatCount ?? 1
   const seatMaximum = currentTier?.seatMaximum ?? null
   const organizationPlanCatalogPending =
@@ -222,7 +222,9 @@ export function TeamManagement() {
   const showOrganizationBillingError = Boolean(
     billingEnabled && adminOrOwner && !organizationBillingPending && organizationBillingError
   )
-  const showSeatCountsError = seatCountsEnabled && isSeatCountsError
+  const seatPriceUnavailable =
+    isOrganizationOwner && isAdjustableSeatTier && !seatCountsUnavailable && !seatPrice
+  const showSeatError = seatCountsEnabled && (isSeatCountsError || seatPriceUnavailable)
 
   const canInviteMembers = Boolean(currentTier?.ownerType === 'organization')
   const inviteUnavailableMessage =
@@ -596,10 +598,16 @@ export function TeamManagement() {
           </div>
         ) : null}
 
-        {showOrganizationBillingError || showSeatCountsError ? (
+        {showOrganizationBillingError || showSeatError ? (
           <div role='alert' className='flex items-center gap-2 text-destructive text-xs'>
-            <p>{copy('errors.loadOrganizationBilling')}</p>
-            {showSeatCountsError && (
+            <p>
+              {copy(
+                seatPriceUnavailable
+                  ? 'addSeats.quoteUnavailable'
+                  : 'errors.loadOrganizationBilling'
+              )}
+            </p>
+            {showSeatError && (
               <Button
                 type='button'
                 size='sm'
@@ -640,11 +648,10 @@ export function TeamManagement() {
         {isOrganizationOwner && isAdjustableSeatTier && (
           <TeamSeatsOverview
             totalSeats={totalSeats}
-            pricePerSeat={seatPrice?.amountUsd ?? null}
-            billingInterval={seatPrice?.interval ?? null}
+            seatPrice={seatPrice}
             isLoadingSubscription={organizationBillingPending || seatCountsUnavailable}
             usedSeats={usedSeats}
-            actionsDisabled={isLoading || isPending}
+            actionsDisabled={isLoading || isPending || !seatPrice}
             isReducing={pendingAction === 'reduce-seats'}
             error={actionFailure('reduce-seats')}
             onReduceSeats={handleReduceSeats}
@@ -752,28 +759,16 @@ export function TeamManagement() {
         <TeamSeats
           open={isAddSeatDialogOpen}
           onOpenChange={setIsAddSeatDialogOpen}
-          title={copy('addSeats.title')}
-          description={
-            seatPrice
-              ? copy('addSeats.description', {
-                  price: formatUsd(locale, seatPrice.amountUsd),
-                  interval: seatPrice.interval,
-                })
-              : copy('addSeats.quoteUnavailable')
-          }
-          pricePerSeat={seatPrice?.amountUsd ?? null}
-          billingInterval={seatPrice?.interval ?? null}
+          seatPrice={seatPrice}
           minimumSeats={Math.max(seatCount, usedSeats)}
           maximumSeats={seatMaximum}
           currentSeats={totalSeats}
-          initialSeats={totalSeats + 1}
           isLoading={
             pendingAction === 'update-seats' ||
             (isAddSeatDialogOpen && updateSeatsMutation.isPending)
           }
           error={actionFailure('update-seats')}
           onConfirm={confirmAddSeats}
-          confirmButtonText={copy('addSeats.confirm')}
         />
       )}
     </div>

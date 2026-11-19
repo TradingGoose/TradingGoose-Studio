@@ -12,40 +12,31 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import type { OrganizationSeats } from '@/hooks/queries/organization'
 import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 
 interface TeamSeatsProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  title: string
-  description: string
-  pricePerSeat: number | null
-  billingInterval: 'month' | 'year' | null
+  seatPrice: OrganizationSeats['seatPrice']
   minimumSeats: number
   maximumSeats: number | null
-  currentSeats?: number
-  initialSeats?: number
+  currentSeats: number
   isLoading: boolean
   error?: string | null
   onConfirm: (seats: number) => Promise<void>
-  confirmButtonText: string
 }
 
 export function TeamSeats({
   open,
   onOpenChange,
-  title,
-  description,
-  pricePerSeat,
-  billingInterval,
+  seatPrice,
   minimumSeats,
   maximumSeats,
   currentSeats,
-  initialSeats = 1,
   isLoading,
   error,
   onConfirm,
-  confirmButtonText,
 }: TeamSeatsProps) {
   const t = useTranslations('workspace.settingsModal.team')
   const locale = useLocale()
@@ -57,7 +48,7 @@ export function TeamSeats({
 
   const boundedInitialSeats = Math.max(
     minimumSeats,
-    Math.min(initialSeats, maximumSeats ?? initialSeats)
+    Math.min(currentSeats + 1, maximumSeats ?? Number.POSITIVE_INFINITY)
   )
   const inputValue = seatDraft ?? String(boundedInitialSeats)
   const selectedSeats = Number(inputValue)
@@ -67,8 +58,8 @@ export function TeamSeats({
     Number.isSafeInteger(selectedSeats) &&
     selectedSeats >= minimumSeats &&
     (maximumSeats === null || selectedSeats <= maximumSeats)
-  const canQuote = validQuantity && pricePerSeat !== null && billingInterval !== null
-  const canConfirm = !isLoading && validQuantity && selectedSeats !== currentSeats
+  const canQuote = validQuantity && seatPrice !== null
+  const canConfirm = !isLoading && canQuote && selectedSeats !== currentSeats
   const handleConfirm = async () => {
     if (canConfirm) await onConfirm(selectedSeats)
   }
@@ -83,8 +74,15 @@ export function TeamSeats({
     >
       <DialogContent hideCloseButton={isLoading}>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle>{t('addSeats.title')}</DialogTitle>
+          <DialogDescription>
+            {seatPrice
+              ? t('addSeats.description', {
+                  price: formatUsd(locale, seatPrice.amountUsd),
+                  interval: seatPrice.interval,
+                })
+              : t('addSeats.quoteUnavailable')}
+          </DialogDescription>
         </DialogHeader>
 
         <div className='py-4'>
@@ -104,8 +102,8 @@ export function TeamSeats({
             <p className='mt-2 text-muted-foreground text-sm'>
               {t('yourTeamWillHave', {
                 count: selectedSeats,
-                cost: formatUsd(locale, selectedSeats * pricePerSeat),
-                interval: billingInterval,
+                cost: formatUsd(locale, selectedSeats * seatPrice.amountUsd),
+                interval: seatPrice.interval,
               })}
             </p>
           )}
@@ -122,7 +120,7 @@ export function TeamSeats({
             </p>
           )}
 
-          {canQuote && currentSeats !== undefined && (
+          {canQuote && (
             <div className='mt-3 rounded-md bg-muted/50 p-3'>
               <div className='flex justify-between text-sm'>
                 <span>{t('currentSeats')}</span>
@@ -133,9 +131,9 @@ export function TeamSeats({
                 <span>{formatLocalizedNumber(locale, selectedSeats)}</span>
               </div>
               <div className='mt-2 flex justify-between border-t pt-2 font-medium text-sm'>
-                <span>{t('costChange', { interval: billingInterval })}</span>
+                <span>{t('costChange', { interval: seatPrice.interval })}</span>
                 <span>
-                  {formatUsd(locale, (selectedSeats - currentSeats) * pricePerSeat, {
+                  {formatUsd(locale, (selectedSeats - currentSeats) * seatPrice.amountUsd, {
                     signDisplay: 'exceptZero',
                   })}
                 </span>
@@ -170,7 +168,7 @@ export function TeamSeats({
                 <span>{t('updating')}</span>
               </div>
             ) : (
-              <span>{confirmButtonText}</span>
+              t('addSeats.confirm')
             )}
           </Button>
         </DialogFooter>

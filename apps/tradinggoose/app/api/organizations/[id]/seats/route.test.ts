@@ -155,6 +155,23 @@ describe('organization seat aggregate', () => {
     expect((await PUT(request('PUT', 61), params)).status).toBe(200)
   })
 
+  it('keeps occupancy readable and declines paid changes for an unquotable Stripe price', async () => {
+    mocks.retrieve.mockResolvedValue({
+      status: 'active',
+      currency: 'usd',
+      items: {
+        data: [
+          { ...subscriptionItem, price: { ...subscriptionItem.price, billing_scheme: 'tiered' } },
+        ],
+      },
+    })
+    await expect((await GET(request(), params)).json()).resolves.toMatchObject({
+      data: { usedSeats: 56, seatPrice: null },
+    })
+    expect((await PUT(request('PUT', 61), params)).status).toBe(409)
+    expect(mocks.updateStripe).not.toHaveBeenCalled()
+  })
+
   it('returns fixed plan capacity without a per-seat quote', async () => {
     mocks.subscription.mockResolvedValue({
       seats: 60,

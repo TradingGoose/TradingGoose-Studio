@@ -1,58 +1,23 @@
 /**
  * @vitest-environment node
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { validateSeatAvailability } from './seat-management'
+
+const { selectMock, getOrganizationSubscriptionMock } = vi.hoisted(() => ({
+  selectMock: vi.fn(),
+  getOrganizationSubscriptionMock: vi.fn(),
+}))
+vi.mock('@tradinggoose/db', () => ({ db: { select: selectMock } }))
+vi.mock('@/lib/billing/core/billing', () => ({
+  getOrganizationSubscription: getOrganizationSubscriptionMock,
+}))
 
 describe('validateSeatAvailability', () => {
-  const selectMock = vi.fn()
-  const getOrganizationSubscriptionMock = vi.fn()
-
-  beforeEach(() => {
-    vi.resetModules()
-    vi.clearAllMocks()
-    selectMock.mockReset()
-    getOrganizationSubscriptionMock.mockReset()
-
-    vi.doMock('@tradinggoose/db', () => ({
-      db: {
-        select: selectMock,
-      },
-    }))
-
-    vi.doMock('@tradinggoose/db/schema', () => ({
-      invitation: {},
-      member: {
-        organizationId: 'member.organizationId',
-      },
-      user: {},
-    }))
-
-    vi.doMock('@/lib/billing/core/billing', () => ({
-      getOrganizationSubscription: getOrganizationSubscriptionMock,
-    }))
-
-    vi.doMock('@/lib/email/validation', () => ({
-      quickValidateEmail: vi.fn(),
-    }))
-
-    vi.doMock('@/lib/logs/console/logger', () => ({
-      createLogger: vi.fn(() => ({
-        debug: vi.fn(),
-        error: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-      })),
-    }))
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
-  })
+  beforeEach(() => vi.resetAllMocks())
 
   it('rejects invites when the organization has no active subscription', async () => {
     getOrganizationSubscriptionMock.mockResolvedValue(null)
-
-    const { validateSeatAvailability } = await import('./seat-management')
 
     await expect(validateSeatAvailability('org-1')).resolves.toEqual({
       canInvite: false,
@@ -73,17 +38,9 @@ describe('validateSeatAvailability', () => {
       },
     })
 
-    const memberCountChain: any = {
-      from: vi.fn(() => memberCountChain),
-      where: vi.fn(() => Promise.resolve([{ count: 1 }])),
+    for (const count of [1, 2]) {
+      selectMock.mockReturnValueOnce({ from: () => ({ where: async () => [{ count }] }) })
     }
-    const invitationCountChain: any = {
-      from: vi.fn(() => invitationCountChain),
-      where: vi.fn(() => Promise.resolve([{ count: 2 }])),
-    }
-    selectMock.mockReturnValueOnce(memberCountChain).mockReturnValueOnce(invitationCountChain)
-
-    const { validateSeatAvailability } = await import('./seat-management')
 
     await expect(validateSeatAvailability('org-1')).resolves.toEqual({
       canInvite: false,

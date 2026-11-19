@@ -9,7 +9,7 @@ import { resolveOrganizationUpgradeReference } from './upgrade-target'
 const logger = createLogger('SubscriptionUpgrade')
 export type BillingUpgradeTarget = Pick<
   PublicBillingTierDisplay,
-  'id' | 'displayName' | 'ownerType' | 'usageScope' | 'seatMode' | 'seatCount'
+  'id' | 'displayName' | 'ownerType' | 'seatCount'
 >
 
 export function getUpgradeTierIssue(tier: PublicBillingTierDisplay, occupiedSeats: number) {
@@ -38,34 +38,19 @@ export function useSubscriptionUpgrade() {
           throw new Error('Select the organization whose subscription you want to change.')
         }
 
-        try {
-          const orgsResponse = await fetch('/api/organizations')
-          if (!orgsResponse.ok) {
-            await orgsResponse.text().catch(() => {})
-            throw new Error('Failed to check organization status')
-          }
+        const orgsResponse = await fetch('/api/organizations')
+        if (!orgsResponse.ok) throw new Error('Failed to check organization status')
 
-          const orgsData = await orgsResponse.json()
-          const organizationReference = resolveOrganizationUpgradeReference({
-            organizationId: options.organizationId,
-            organizationAccess: orgsData,
-          })
-
-          referenceId = organizationReference.referenceId
-        } catch (error) {
-          logger.error('Failed to prepare organization for organization-tier upgrade', error)
-          throw error instanceof Error
-            ? error
-            : new Error(
-                `Failed to prepare ${targetTier.displayName}. Please try again or contact support.`
-              )
-        }
+        referenceId = resolveOrganizationUpgradeReference({
+          organizationId: options.organizationId,
+          organizationAccess: await orgsResponse.json(),
+        }).referenceId
       }
 
       const currentUrl = `${window.location.origin}${window.location.pathname}`
 
       try {
-        const upgradeParams = {
+        const upgradeResult = await client.subscription.upgrade({
           plan: targetTier.id,
           referenceId,
           successUrl: currentUrl,
@@ -73,17 +58,7 @@ export function useSubscriptionUpgrade() {
           ...(targetTier.ownerType === 'organization' && {
             seats: Math.max(targetTier.seatCount ?? 1, 1),
           }),
-        } as const
-
-        logger.info('Requesting subscription upgrade', {
-          billingTierId: targetTier.id,
-          billingTier: targetTier.displayName,
-          usageScope: targetTier.usageScope,
-          seatMode: targetTier.seatMode,
-          referenceId,
         })
-
-        const upgradeResult = await client.subscription.upgrade(upgradeParams)
         if (upgradeResult.error) {
           throw new Error(upgradeResult.error.message || 'Failed to initiate subscription upgrade')
         }
@@ -91,28 +66,12 @@ export function useSubscriptionUpgrade() {
         if (targetTier.ownerType === 'organization') {
           try {
             await queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
-            logger.info('Refreshed organization data after organization-tier upgrade')
           } catch (error) {
             logger.warn('Failed to refresh organization data after upgrade', error)
           }
         }
-
-        logger.info('Subscription upgrade completed successfully', {
-          billingTierId: targetTier.id,
-          billingTier: targetTier.displayName,
-          referenceId,
-        })
       } catch (error) {
         logger.error('Failed to initiate subscription upgrade:', error)
-
-        if (error instanceof Error) {
-          logger.error('Detailed error:', {
-            message: error.message,
-            stack: error.stack,
-            cause: error.cause,
-          })
-        }
-
         throw new Error(
           `Failed to upgrade ${targetTier.displayName}: ${
             error instanceof Error ? error.message : 'Unknown error'

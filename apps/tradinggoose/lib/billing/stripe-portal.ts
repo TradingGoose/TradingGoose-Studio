@@ -1,4 +1,4 @@
-import type Stripe from 'stripe'
+import Stripe from 'stripe'
 import { type BillingTierRecord, getActiveStripeBillingTiers } from '@/lib/billing/tiers'
 
 const MANAGEMENT_CONFIGURATION_METADATA_KEY = 'tradinggoose_purpose'
@@ -12,22 +12,46 @@ type PlanChangeTier = Pick<
   'ownerType' | 'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
 >
 
+export class IneligibleStripePriceError extends Error {}
+
+export function getTierStripePriceIds(
+  tier: Pick<PlanChangeTier, 'stripeMonthlyPriceId' | 'stripeYearlyPriceId'>
+) {
+  return [tier.stripeMonthlyPriceId, tier.stripeYearlyPriceId].filter(
+    (priceId): priceId is string => Boolean(priceId)
+  )
+}
+
 export async function getValidatedStripeTierPrice(
   stripe: Stripe,
   tier: Pick<PlanChangeTier, 'ownerType' | 'stripeProductId'>,
   priceId: string | null
 ) {
-  if (!priceId) throw new Error('Stripe price is required')
-  const price = await stripe.prices.retrieve(priceId)
+  if (!priceId) throw new IneligibleStripePriceError('Stripe price is required')
+  const price = await stripe.prices.retrieve(priceId).catch((error: unknown) => {
+    if (
+      error instanceof Stripe.errors.StripeInvalidRequestError &&
+      error.code === 'resource_missing'
+    ) {
+      throw new IneligibleStripePriceError(`Stripe price ${priceId} does not exist`)
+    }
+    throw error
+  })
   if (!price.active || !price.recurring) {
-    throw new Error(`Stripe price ${price.id} must be an active recurring price`)
+    throw new IneligibleStripePriceError(
+      `Stripe price ${price.id} must be an active recurring price`
+    )
   }
   if (tier.ownerType === 'organization' && price.recurring.usage_type !== 'licensed') {
-    throw new Error(`Stripe price ${price.id} must be licensed for organization seats`)
+    throw new IneligibleStripePriceError(
+      `Stripe price ${price.id} must be licensed for organization seats`
+    )
   }
   const productId = typeof price.product === 'string' ? price.product : price.product.id
   if (tier.stripeProductId && productId !== tier.stripeProductId) {
-    throw new Error(`Stripe price ${price.id} does not belong to ${tier.stripeProductId}`)
+    throw new IneligibleStripePriceError(
+      `Stripe price ${price.id} does not belong to ${tier.stripeProductId}`
+    )
   }
   return { id: price.id, productId }
 }
@@ -60,17 +84,27 @@ function normalizeCatalog(
     .sort((left, right) => left.product.localeCompare(right.product))
 }
 
-export async function buildPlanChangePortalCatalog(stripe: Stripe, tiers: PlanChangeTier[]) {
+export async function buildPlanChangePortalCatalog(
+  stripe: Stripe,
+  tiers: PlanChangeTier[],
+  requiredPriceIds: string[]
+) {
   const pricesByProduct = new Map<string, string[]>()
   const prices = await Promise.all(
     tiers.flatMap((tier) =>
-      [tier.stripeMonthlyPriceId, tier.stripeYearlyPriceId]
-        .filter((priceId): priceId is string => Boolean(priceId))
-        .map((priceId) => getValidatedStripeTierPrice(stripe, tier, priceId))
+      getTierStripePriceIds(tier).map((priceId) =>
+        getValidatedStripeTierPrice(stripe, tier, priceId).catch((error: unknown) => {
+          if (error instanceof IneligibleStripePriceError && !requiredPriceIds.includes(priceId))
+            return null
+          throw error
+        })
+      )
     )
   )
 
-  for (const { id, productId } of prices) {
+  for (const price of prices) {
+    if (!price) continue
+    const { id, productId } = price
     const productPrices = pricesByProduct.get(productId) ?? []
     productPrices.push(id)
     pricesByProduct.set(productId, productPrices)
@@ -90,12 +124,16 @@ export async function buildPlanChangePortalCatalog(stripe: Stripe, tiers: PlanCh
   return normalizeCatalog(products)
 }
 
-export async function ensurePlanChangePortalConfiguration(stripe: Stripe) {
+export async function ensurePlanChangePortalConfiguration(stripe: Stripe, priceId: string | null) {
+  if (!priceId) throw new IneligibleStripePriceError('Stripe price is required')
   const tiers = await getActiveStripeBillingTiers()
   const [{ defaultConfiguration }, products] = await Promise.all([
     listPortalConfigurations(stripe),
-    buildPlanChangePortalCatalog(stripe, tiers),
+    buildPlanChangePortalCatalog(stripe, tiers, [priceId]),
   ])
+  if (!products.some((product) => product.prices.includes(priceId))) {
+    throw new IneligibleStripePriceError('Selected Stripe price is unavailable')
+  }
   const subscriptionUpdate = defaultConfiguration.features.subscription_update
   const currentProducts = normalizeCatalog(subscriptionUpdate.products)
   const catalogChanged = JSON.stringify(currentProducts) !== JSON.stringify(products)

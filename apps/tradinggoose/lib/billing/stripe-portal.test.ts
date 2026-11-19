@@ -90,7 +90,7 @@ describe('Stripe portal configurations', () => {
     ])
     const { ensurePlanChangePortalConfiguration } = await import('./stripe-portal')
 
-    await ensurePlanChangePortalConfiguration(stripe)
+    await ensurePlanChangePortalConfiguration(stripe, 'price_monthly')
 
     expect(update).toHaveBeenCalledWith('bpc_default', {
       login_page: { enabled: false },
@@ -126,14 +126,22 @@ describe('Stripe portal configurations', () => {
       product: 'prod_team',
     }
     retrievePrice.mockResolvedValueOnce({ ...price, recurring: null })
-    await expect(buildPlanChangePortalCatalog(stripe, [tier])).rejects.toThrow('active recurring')
+    await expect(buildPlanChangePortalCatalog(stripe, [tier], ['price'])).rejects.toThrow(
+      'active recurring'
+    )
 
     retrievePrice.mockResolvedValueOnce({ ...price, recurring: { usage_type: 'metered' } })
-    await expect(buildPlanChangePortalCatalog(stripe, [tier])).rejects.toThrow('must be licensed')
+    await expect(buildPlanChangePortalCatalog(stripe, [tier], ['price'])).rejects.toThrow(
+      'must be licensed'
+    )
 
     retrievePrice.mockResolvedValueOnce({ ...price, product: 'prod_other' })
     await expect(
-      buildPlanChangePortalCatalog(stripe, [{ ...tier, stripeProductId: 'prod_expected' }])
+      buildPlanChangePortalCatalog(
+        stripe,
+        [{ ...tier, stripeProductId: 'prod_expected' }],
+        ['price']
+      )
     ).rejects.toThrow('does not belong')
 
     retrievePrice.mockImplementation(async (id: string) => ({
@@ -145,7 +153,54 @@ describe('Stripe portal configurations', () => {
       ...tier,
       stripeMonthlyPriceId: `price_${index}`,
     }))
-    await expect(buildPlanChangePortalCatalog(stripe, tiers)).rejects.toThrow('at most 10')
+    await expect(buildPlanChangePortalCatalog(stripe, tiers, ['price_0'])).rejects.toThrow(
+      'at most 10'
+    )
+  })
+
+  it('keeps licensed plan changes available alongside a metered organization tier', async () => {
+    const { stripe, retrievePrice, update } = createStripe([
+      {
+        id: 'bpc_default',
+        is_default: true,
+        login_page: { enabled: false },
+        features: defaultFeatures,
+      },
+    ])
+    retrievePrice.mockImplementation(async (id: string) => ({
+      id,
+      active: true,
+      recurring: { usage_type: id === 'price_metered' ? 'metered' : 'licensed' },
+      product: 'prod_team',
+    }))
+    getActiveStripeBillingTiers.mockResolvedValue(
+      ['price_monthly', 'price_metered'].map((stripeMonthlyPriceId) => ({
+        stripeMonthlyPriceId,
+        ownerType: 'organization',
+      }))
+    )
+    const { ensurePlanChangePortalConfiguration } = await import('./stripe-portal')
+    await expect(ensurePlanChangePortalConfiguration(stripe, 'price_monthly')).resolves.toBe(
+      'bpc_default'
+    )
+    expect(update.mock.calls[0][1].features.subscription_update.products).toEqual([
+      { product: 'prod_team', prices: ['price_monthly'] },
+    ])
+    await expect(ensurePlanChangePortalConfiguration(stripe, 'price_metered')).rejects.toThrow(
+      'must be licensed'
+    )
+    retrievePrice
+      .mockResolvedValueOnce({
+        id: 'price_monthly',
+        active: true,
+        recurring: { usage_type: 'licensed' },
+        product: 'prod_team',
+      })
+      .mockRejectedValueOnce(new Error('Stripe unavailable'))
+    await expect(ensurePlanChangePortalConfiguration(stripe, 'price_monthly')).rejects.toThrow(
+      'Stripe unavailable'
+    )
+    expect(update).toHaveBeenCalledTimes(1)
   })
 
   it('creates a marked non-default configuration for generic management', async () => {

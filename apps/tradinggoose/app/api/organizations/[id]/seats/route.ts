@@ -9,7 +9,7 @@ import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/setti
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { getStripeSubscriptionPlanItem } from '@/lib/billing/subscriptions/utils'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
-import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
+import { getOccupiedSeatCount, getSeatCapacity } from '@/lib/billing/validation/seat-management'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('OrganizationSeatsAPI')
@@ -30,31 +30,29 @@ async function getStripeSeatSubscription(stripeSubscriptionId: string, tier: Bil
     return null
   }
   const { id, price, quantity } = item
+  const interval = price.recurring?.interval
+  const amount = price.unit_amount_decimal ?? price.unit_amount
+  const seatPrice =
+    subscription.currency === 'usd' &&
+    price.currency === 'usd' &&
+    price.billing_scheme === 'per_unit' &&
+    !price.transform_quantity &&
+    price.recurring?.interval_count === 1 &&
+    (interval === 'month' || interval === 'year') &&
+    amount != null
+      ? { amountUsd: Number(amount) / 100, interval }
+      : null
   return {
     stripe,
-    currency: subscription.currency,
     itemId: id,
-    price,
     quantity,
+    seatPrice,
   }
 }
 
 async function getSeatPrice(stripeSubscriptionId: string, tier: BillingTierRecord) {
   try {
-    const current = await getStripeSeatSubscription(stripeSubscriptionId, tier)
-    if (!current) return null
-    const { currency, price } = current
-    const interval = price.recurring?.interval
-    const amount = price.unit_amount_decimal ?? price.unit_amount
-    return currency === 'usd' &&
-      price.currency === 'usd' &&
-      price.billing_scheme === 'per_unit' &&
-      !price.transform_quantity &&
-      price.recurring?.interval_count === 1 &&
-      (interval === 'month' || interval === 'year') &&
-      amount != null
-      ? { amountUsd: Number(amount) / 100, interval }
-      : null
+    return (await getStripeSeatSubscription(stripeSubscriptionId, tier))?.seatPrice ?? null
   } catch (error) {
     logger.warn('Failed to get Stripe seat price', { stripeSubscriptionId, error })
     return null
@@ -173,6 +171,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
     const { stripe, itemId, quantity: currentSeats } = current
+    if (newSeatCount !== currentSeats && !current.seatPrice) {
+      return NextResponse.json({ error: 'Seat price estimate is unavailable' }, { status: 409 })
+    }
 
     const updatedSubscription =
       newSeatCount === currentSeats
@@ -295,18 +296,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         ? getSeatPrice(orgSubscription.stripeSubscriptionId, orgSubscription.tier)
         : null,
     ])
-    const maxSeats = orgSubscription
-      ? Math.max(orgSubscription.seats || orgSubscription.tier.seatCount || 1, 1)
-      : 0
-    const availableSeats = Math.max(0, maxSeats - usedSeats)
-
     return NextResponse.json({
       success: true,
       data: {
         organizationId,
-        maxSeats,
+        ...getSeatCapacity(orgSubscription, usedSeats),
         usedSeats,
-        availableSeats,
         seatPrice,
       },
     })

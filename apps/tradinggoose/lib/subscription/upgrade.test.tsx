@@ -48,8 +48,6 @@ const organizationTarget: BillingUpgradeTarget = {
   id: 'team-new',
   displayName: 'New Team',
   ownerType: 'organization',
-  usageScope: 'pooled',
-  seatMode: 'adjustable',
   seatCount: 2,
 }
 

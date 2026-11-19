@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { expect, it, vi } from 'vitest'
+import { buildPlanChangePortalCatalog } from '@/lib/billing/stripe-portal'
 import {
   validateBillingTierStripeCatalog,
   validateBillingTierStripeMutation,
@@ -11,7 +12,10 @@ const { getActiveTiers, getTierById } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/billing/stripe-client', () => ({ requireStripeClient: () => ({}) }))
-vi.mock('@/lib/billing/stripe-portal', () => ({ buildPlanChangePortalCatalog: vi.fn() }))
+vi.mock('@/lib/billing/stripe-portal', async (original) => ({
+  ...(await original<typeof import('@/lib/billing/stripe-portal')>()),
+  buildPlanChangePortalCatalog: vi.fn(),
+}))
 vi.mock('@/lib/billing/tiers', () => ({
   getActiveStripeBillingTiers: getActiveTiers,
   getBillingTierById: getTierById,
@@ -41,6 +45,11 @@ it.each([
     stripeProductId: null,
   } as any
   const revision = await validateBillingTierStripeCatalog(input)
+  expect(buildPlanChangePortalCatalog).toHaveBeenCalledWith(
+    expect.anything(),
+    [tier('existing'), input],
+    ['price_candidate']
+  )
   const tx = { execute: vi.fn(), select: vi.fn() }
 
   await expect(validateBillingTierStripeMutation(tx as any, input, revision)).rejects.toThrow(

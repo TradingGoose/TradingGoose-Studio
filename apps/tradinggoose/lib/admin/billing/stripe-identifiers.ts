@@ -3,7 +3,7 @@ import { systemBillingTier } from '@tradinggoose/db/schema'
 import { and, eq, inArray, ne, or, sql } from 'drizzle-orm'
 import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { buildPlanChangePortalCatalog } from '@/lib/billing/stripe-portal'
+import { buildPlanChangePortalCatalog, getTierStripePriceIds } from '@/lib/billing/stripe-portal'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { getActiveStripeBillingTiers, getBillingTierById } from '@/lib/billing/tiers'
 
@@ -32,7 +32,11 @@ export async function validateBillingTierStripeCatalog(
     return null
   }
   const activeTiers = (await getActiveStripeBillingTiers()).filter((tier) => tier.id !== input.id)
-  await buildPlanChangePortalCatalog(requireStripeClient(), [...activeTiers, input])
+  await buildPlanChangePortalCatalog(
+    requireStripeClient(),
+    [...activeTiers, input],
+    getTierStripePriceIds(input)
+  )
   return getStripeCatalogRevision(activeTiers)
 }
 
@@ -56,9 +60,7 @@ export async function validateBillingTierStripeMutation(
     .where(eq(systemBillingTier.id, input.id))
     .limit(1)
 
-  const priceIds = [input.stripeMonthlyPriceId, input.stripeYearlyPriceId].filter(
-    (priceId): priceId is string => Boolean(priceId)
-  )
+  const priceIds = getTierStripePriceIds(input)
   const identifierConditions = [
     ...(priceIds.length > 0
       ? [

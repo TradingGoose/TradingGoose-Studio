@@ -3,12 +3,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
+import type { OrganizationSeats } from '@/hooks/queries/organization'
 import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 
 interface TeamSeatsOverviewProps {
   totalSeats: number
-  pricePerSeat: number | null
-  billingInterval: 'month' | 'year' | null
+  seatPrice: OrganizationSeats['seatPrice']
   isLoadingSubscription: boolean
   usedSeats: number
   actionsDisabled: boolean
@@ -45,8 +45,7 @@ function TeamSeatsSkeleton() {
 
 export function TeamSeatsOverview({
   totalSeats,
-  pricePerSeat,
-  billingInterval,
+  seatPrice,
   isLoadingSubscription,
   usedSeats,
   actionsDisabled,
@@ -68,11 +67,11 @@ export function TeamSeatsOverview({
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
             <span className='font-medium text-sm'>{t('seats')}</span>
-            {pricePerSeat !== null && billingInterval && (
+            {seatPrice && (
               <span className='text-muted-foreground text-xs'>
                 {t('pricePerSeat', {
-                  price: formatUsd(locale, pricePerSeat),
-                  interval: billingInterval,
+                  price: formatUsd(locale, seatPrice.amountUsd),
+                  interval: seatPrice.interval,
                 })}
               </span>
             )}
