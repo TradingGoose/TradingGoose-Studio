@@ -107,14 +107,21 @@ describe('unsubscribe route', () => {
     expect(syncUserEmailAudience).toHaveBeenCalledTimes(2)
   })
 
-  it('syncs the same segment when signed-in users save email preferences', async () => {
+  it('merges a signed-in notification preference into the saved preferences before syncing', async () => {
+    const emailPreferences = { unsubscribeNotifications: false }
     const response = await PATCH(
       new Request('http://localhost/api/users/me/settings', {
         method: 'PATCH',
-        body: JSON.stringify({ emailPreferences: { unsubscribeAll: true } }),
+        body: JSON.stringify({ emailPreferences }),
       })
     )
     expect(response.status).toBe(200)
+    expect(write).toHaveBeenCalledWith(expect.objectContaining({ emailPreferences }))
+    const { sql } = new PgDialect().sqlToQuery(conflict.mock.calls[0][0].set.emailPreferences)
+    expect(sql).toContain(
+      '"settings"."email_preferences"::jsonb || excluded.email_preferences::jsonb'
+    )
+    expect(conflict).toHaveBeenCalledBefore(vi.mocked(syncUserEmailAudience))
     expect(syncUserEmailAudience).toHaveBeenCalledExactlyOnceWith({ id: mailbox.id })
   })
 

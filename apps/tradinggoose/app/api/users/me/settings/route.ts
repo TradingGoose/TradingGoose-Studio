@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { syncUserEmailAudience } from '@/lib/email/mailer'
+import { mergeEmailPreferencesOnConflict } from '@/lib/email/unsubscribe'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import {
@@ -132,6 +133,7 @@ export async function PATCH(request: Request) {
           target: [settings.userId],
           set: {
             ...validatedData,
+            emailPreferences: validatedData.emailPreferences && mergeEmailPreferencesOnConflict(),
             updatedAt: new Date(),
           },
         })

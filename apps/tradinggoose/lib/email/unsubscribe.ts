@@ -57,6 +57,12 @@ export async function getEmailRecipient(where: SQL, tx?: Transaction) {
   return recipients.at(0)
 }
 
+export function mergeEmailPreferencesOnConflict() {
+  return sql`case when json_typeof(${settings.emailPreferences}) = 'object'
+    then (${settings.emailPreferences}::jsonb || excluded.email_preferences::jsonb)::json
+    else excluded.email_preferences end`
+}
+
 export async function unsubscribeFromList(
   database: Pick<typeof db, 'insert'>,
   userId: string,
@@ -69,9 +75,7 @@ export async function unsubscribeFromList(
     .onConflictDoUpdate({
       target: settings.userId,
       set: {
-        emailPreferences: sql`case when json_typeof(${settings.emailPreferences}) = 'object'
-          then (${settings.emailPreferences}::jsonb || excluded.email_preferences::jsonb)::json
-          else excluded.email_preferences end`,
+        emailPreferences: mergeEmailPreferencesOnConflict(),
         updatedAt: new Date(),
       },
     })
