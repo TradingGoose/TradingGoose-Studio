@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { organization, subscription, user } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import {
   getEmailSubject,
@@ -51,9 +51,11 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
   }
 
   const enterpriseMetadata = {
-    ...metadata,
+    referenceType: metadata.referenceType,
     referenceId: metadata.referenceId.trim(),
     billingTierId: metadata.billingTierId.trim(),
+    monthlyPrice: metadata.monthlyPrice,
+    seats: metadata.seats,
   }
   const stripeCustomerId = stripeSubscription.customer as string
 
@@ -73,8 +75,6 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     })
     throw new Error('Unable to resolve referenceId for subscription')
   }
-
-  const metadataJson: Record<string, unknown> = { ...enterpriseMetadata }
 
   // Extract and parse seats and monthly price from metadata (they come as strings from Stripe)
   const seats = Number.parseInt(enterpriseMetadata.seats, 10)
@@ -132,7 +132,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
       ? new Date(stripeSubscription.trial_start * 1000)
       : null,
     trialEnd: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null,
-    metadata: metadataJson,
+    metadata: enterpriseMetadata,
   }
 
   const [persistedSubscription] = await db
@@ -153,7 +153,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
         seats: subscriptionRow.seats,
         trialStart: subscriptionRow.trialStart,
         trialEnd: subscriptionRow.trialEnd,
-        metadata: subscriptionRow.metadata,
+        metadata: sql`coalesce(${subscription.metadata}::jsonb, '{}'::jsonb) || excluded.metadata::jsonb`,
       },
     })
     .returning({ id: subscription.id })

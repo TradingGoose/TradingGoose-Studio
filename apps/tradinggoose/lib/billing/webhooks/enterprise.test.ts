@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { insertValues, requireBillingTierById } = vi.hoisted(() => ({
@@ -26,19 +27,6 @@ vi.mock('@tradinggoose/db', () => ({
     select: vi.fn(() => selectQuery),
   },
 }))
-
-vi.mock('@tradinggoose/db/schema', () => ({
-  organization: { id: 'organization.id', name: 'organization.name' },
-  subscription: { stripeSubscriptionId: 'subscription.stripeSubscriptionId' },
-  user: {
-    id: 'user.id',
-    name: 'user.name',
-    email: 'user.email',
-    stripeCustomerId: 'user.stripeCustomerId',
-  },
-}))
-
-vi.mock('drizzle-orm', () => ({ eq: vi.fn() }))
 
 vi.mock('@/lib/billing/tiers', () => ({
   getTierIncludedUsageLimit: vi.fn(() => 100),
@@ -69,7 +57,7 @@ describe('handleManualEnterpriseSubscription', () => {
     })
   })
 
-  it('normalizes explicit enterprise identifiers once at the metadata boundary', async () => {
+  it('upserts only contract metadata and preserves local settlement and payment records', async () => {
     const { handleManualEnterpriseSubscription } = await import('./enterprise')
 
     await handleManualEnterpriseSubscription({
@@ -83,6 +71,7 @@ describe('handleManualEnterpriseSubscription', () => {
             billingTierId: ' tier_enterprise ',
             monthlyPrice: '100',
             seats: '5',
+            blockedInvoices: 'from Stripe',
           },
           items: { data: [] },
           status: 'active',
@@ -95,11 +84,18 @@ describe('handleManualEnterpriseSubscription', () => {
       expect.objectContaining({
         referenceId: 'org_123',
         billingTierId: 'tier_enterprise',
-        metadata: expect.objectContaining({
+        metadata: {
+          referenceType: 'organization',
           referenceId: 'org_123',
           billingTierId: 'tier_enterprise',
-        }),
+          monthlyPrice: '100',
+          seats: '5',
+        },
       })
+    )
+    const [{ set }] = insertQuery.onConflictDoUpdate.mock.calls[0]
+    expect(new PgDialect().sqlToQuery(set.metadata).sql).toBe(
+      `coalesce("subscription"."metadata"::jsonb, '{}'::jsonb) || excluded.metadata::jsonb`
     )
   })
 })
