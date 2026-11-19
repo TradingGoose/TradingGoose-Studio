@@ -22,7 +22,6 @@ import {
 import type { BillingData, UsageData, UsageLimitInfo } from '@/lib/billing/types'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
-import { getEmailPreferences } from '@/lib/email/unsubscribe'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -582,118 +581,82 @@ export async function maybeSendUsageThresholdEmail(params: {
       params.percentBefore < usageWarningThresholdPercent &&
       params.percentAfter >= usageWarningThresholdPercent
     const crossesFreeTierUpgradeThreshold =
+      params.scope === 'user' &&
       params.isFreeTier &&
       params.percentBefore < freeTierUpgradeThresholdPercent &&
       params.percentAfter >= freeTierUpgradeThresholdPercent
-
-    // Skip if no thresholds crossed
     if (!crossesWarningThreshold && !crossesFreeTierUpgradeThreshold) return
 
-    if (crossesWarningThreshold) {
-      const ctaLink = `${baseUrl}/workspace?billing=usage`
-      const sendTo = async (email: string, name?: string, userId?: string) => {
-        const prefs = await getEmailPreferences(email)
-        if (prefs?.unsubscribeAll || prefs?.unsubscribeNotifications) return
-        const locale = await resolveEmailLocale({ userId, email })
-
-        const html = await renderUsageThresholdEmail({
-          userName: name,
-          planName: params.planName,
-          percentUsed: Math.min(100, Math.round(params.percentAfter)),
-          currentUsage: params.currentUsageAfter,
-          limit: params.limit,
-          ctaLink,
-          locale,
+    let recipients: { id: string; email: string; name?: string | null }[]
+    if (params.scope === 'user') {
+      if (!params.userId || !params.userEmail) return
+      const [preferences] = await db
+        .select({ enabled: settings.billingUsageNotificationsEnabled })
+        .from(settings)
+        .where(eq(settings.userId, params.userId))
+        .limit(1)
+      if (preferences?.enabled === false) return
+      recipients = [{ id: params.userId, email: params.userEmail, name: params.userName }]
+    } else {
+      if (!params.organizationId) return
+      const members = await db
+        .select({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          enabled: settings.billingUsageNotificationsEnabled,
+          role: member.role,
         })
-
-        await sendEmail({
-          to: email,
-          subject: getEmailSubject('usage-threshold', locale),
-          html,
-          emailType: 'notifications',
-        })
-      }
-
-      if (params.scope === 'user' && params.userId && params.userEmail) {
-        const rows = await db
-          .select({ enabled: settings.billingUsageNotificationsEnabled })
-          .from(settings)
-          .where(eq(settings.userId, params.userId))
-          .limit(1)
-        if (rows.length > 0 && rows[0].enabled === false) return
-        await sendTo(params.userEmail, params.userName, params.userId)
-      } else if (params.scope === 'organization' && params.organizationId) {
-        const admins = await db
-          .select({
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            enabled: settings.billingUsageNotificationsEnabled,
-            role: member.role,
-          })
-          .from(member)
-          .innerJoin(user, eq(member.userId, user.id))
-          .leftJoin(settings, eq(settings.userId, member.userId))
-          .where(eq(member.organizationId, params.organizationId))
-
-        for (const a of admins) {
-          const isAdmin = a.role === 'owner' || a.role === 'admin'
-          if (!isAdmin) continue
-          if (a.enabled === false) continue
-          if (!a.email) continue
-          await sendTo(a.email, a.name || undefined, a.id)
-        }
-      }
+        .from(member)
+        .innerJoin(user, eq(member.userId, user.id))
+        .leftJoin(settings, eq(settings.userId, member.userId))
+        .where(eq(member.organizationId, params.organizationId))
+      recipients = members.filter(
+        ({ role, email, enabled }) =>
+          (role === 'owner' || role === 'admin') && email && enabled !== false
+      )
     }
 
-    if (crossesFreeTierUpgradeThreshold && params.isFreeTier) {
-      const upgradeLink = `${baseUrl}/workspace?billing=upgrade`
-      const recommendedTier = await getPrimaryPublicUserUpgradeTier()
-      const sendFreeTierEmail = async (email: string, name?: string, userId?: string) => {
-        const prefs = await getEmailPreferences(email)
-        if (prefs?.unsubscribeAll || prefs?.unsubscribeNotifications) return
-        const locale = await resolveEmailLocale({ userId, email })
-
-        const html = await renderFreeTierUpgradeEmail({
-          userName: name,
-          currentTierName: params.planName,
-          percentUsed: Math.min(100, Math.round(params.percentAfter)),
-          currentUsage: params.currentUsageAfter,
-          limit: params.limit,
-          upgradeLink,
-          recommendedTierName: recommendedTier?.displayName ?? null,
-          recommendedTierPriceUsd: recommendedTier ? getTierBasePrice(recommendedTier) : null,
-          recommendedTierIncludedUsageLimitUsd: recommendedTier
-            ? getTierUsageAllowanceUsd(recommendedTier)
-            : null,
-          recommendedTierFeatures: recommendedTier?.pricingFeatures ?? [],
-          locale,
-        })
-
+    for (const { id, email, name } of recipients) {
+      const locale = await resolveEmailLocale({ userId: id, email })
+      const message = { to: email, userId: id, locale, emailType: 'notifications' as const }
+      const usage = {
+        userName: name || undefined,
+        percentUsed: Math.min(100, Math.round(params.percentAfter)),
+        currentUsage: params.currentUsageAfter,
+        limit: params.limit,
+        locale,
+      }
+      if (crossesWarningThreshold) {
         await sendEmail({
-          to: email,
-          subject: getEmailSubject('free-tier-upgrade', locale),
-          html,
-          emailType: 'notifications',
-        })
-
-        logger.info('Free tier upgrade email sent', {
-          email,
-          percentUsed: Math.round(params.percentAfter),
-          currentUsage: params.currentUsageAfter,
-          limit: params.limit,
+          ...message,
+          subject: getEmailSubject('usage-threshold', locale),
+          html: (unsubscribeUrl) =>
+            renderUsageThresholdEmail({
+              ...usage,
+              unsubscribeUrl,
+              planName: params.planName,
+              ctaLink: `${baseUrl}/workspace?billing=usage`,
+            }),
         })
       }
-
-      // Free users are always individual scope (not organization)
-      if (params.scope === 'user' && params.userId && params.userEmail) {
-        const rows = await db
-          .select({ enabled: settings.billingUsageNotificationsEnabled })
-          .from(settings)
-          .where(eq(settings.userId, params.userId))
-          .limit(1)
-        if (rows.length > 0 && rows[0].enabled === false) return
-        await sendFreeTierEmail(params.userEmail, params.userName, params.userId)
+      if (crossesFreeTierUpgradeThreshold) {
+        const tier = await getPrimaryPublicUserUpgradeTier()
+        await sendEmail({
+          ...message,
+          subject: getEmailSubject('free-tier-upgrade', locale),
+          html: (unsubscribeUrl) =>
+            renderFreeTierUpgradeEmail({
+              ...usage,
+              unsubscribeUrl,
+              currentTierName: params.planName,
+              upgradeLink: `${baseUrl}/workspace?billing=upgrade`,
+              recommendedTierName: tier?.displayName,
+              recommendedTierPriceUsd: tier ? getTierBasePrice(tier) : null,
+              recommendedTierIncludedUsageLimitUsd: tier ? getTierUsageAllowanceUsd(tier) : null,
+              recommendedTierFeatures: tier?.pricingFeatures,
+            }),
+        })
       }
     }
   } catch (error) {

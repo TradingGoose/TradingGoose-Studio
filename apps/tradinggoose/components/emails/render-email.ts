@@ -1,46 +1,18 @@
 import { render } from '@react-email/components'
 import {
-  type EmailLocale,
   emailText,
-  formatEmailCurrency,
   formatEmailDate,
   formatEmailDateTime,
   getEmailCopy,
-  normalizeEmailTemplateLocale,
 } from '@/components/emails/email-copy'
 import { LocalizedEmail } from '@/components/emails/localized-email'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { localizeUrl } from '@/i18n/utils'
+import { formatUsd } from '@/i18n/formatters'
+import { type LocaleInput, localizeUrl, normalizeLocaleCode } from '@/i18n/utils'
 
-export type EmailSubjectType =
-  | 'sign-in'
-  | 'email-verification'
-  | 'forget-password'
-  | 'reset-password'
-  | 'change-email'
-  | 'chat-access'
-  | 'invitation'
-  | 'batch-invitation'
-  | 'workspace-invitation'
-  | 'help-confirmation'
-  | 'enterprise-subscription'
-  | 'plan-welcome'
-  | 'usage-threshold'
-  | 'free-tier-upgrade'
-  | 'payment-failed'
-  | 'waitlist-confirmation'
-  | 'waitlist-approved'
-  | 'careers-confirmation'
-
-const otpTypes = [
-  'sign-in',
-  'email-verification',
-  'forget-password',
-  'change-email',
-  'chat-access',
-] as const
-type OtpType = (typeof otpTypes)[number]
+type EmailSubjectType = keyof ReturnType<typeof getEmailCopy>['subjects']
+type OtpType = keyof ReturnType<typeof getEmailCopy>['otp']['titles']
 
 function commonValues(values: Record<string, string | number> = {}) {
   return {
@@ -54,30 +26,25 @@ function commonValues(values: Record<string, string | number> = {}) {
   }
 }
 
-function text(locale: EmailLocale, template: string, values: Record<string, string | number> = {}) {
+function text(locale: LocaleInput, template: string, values: Record<string, string | number> = {}) {
   return emailText(locale, template, commonValues(values))
 }
 
 export function getEmailSubject(
   type: EmailSubjectType,
-  locale?: EmailLocale,
+  locale?: LocaleInput,
   values: Record<string, string | number> = {}
 ): string {
   const copy = getEmailCopy(locale)
-  const template = copy.subjects[type] ?? copy.subjects['email-verification']
-  return text(locale, template, values)
-}
-
-export function getPlanWelcomeSubject(planName: string, locale?: EmailLocale): string {
-  return getEmailSubject('plan-welcome', locale, { planName })
+  return text(locale, copy.subjects[type], values)
 }
 
 export async function renderOTPEmail(
   otp: string,
   email: string,
-  type: OtpType = 'email-verification',
+  type: OtpType,
   chatTitle?: string,
-  locale?: EmailLocale
+  locale?: LocaleInput
 ): Promise<string> {
   const copy = getEmailCopy(locale)
   const title = text(locale, copy.otp.titles[type], { chatTitle: chatTitle || 'Chat' })
@@ -101,7 +68,7 @@ export async function renderOTPEmail(
 export async function renderPasswordResetEmail(
   username: string,
   resetLink: string,
-  locale?: EmailLocale
+  locale?: LocaleInput
 ): Promise<string> {
   const copy = getEmailCopy(locale)
 
@@ -126,7 +93,7 @@ export async function renderInvitationEmail(
   organizationName: string,
   invitationUrl: string,
   email: string,
-  locale?: EmailLocale
+  locale?: LocaleInput
 ): Promise<string> {
   const copy = getEmailCopy(locale)
 
@@ -161,7 +128,7 @@ export async function renderBatchInvitationEmail(
   organizationRole: 'admin' | 'member',
   workspaceInvitations: WorkspaceInvitation[],
   acceptUrl: string,
-  locale?: EmailLocale
+  locale?: LocaleInput
 ): Promise<string> {
   const copy = getEmailCopy(locale)
   const roleLabel = copy.batchInvitation.roleLabels[organizationRole]
@@ -221,7 +188,7 @@ export async function renderWorkspaceInvitationEmail(params: {
   workspaceName: string
   inviterName: string
   invitationLink: string
-  locale?: EmailLocale
+  locale?: LocaleInput
 }): Promise<string> {
   const copy = getEmailCopy(params.locale)
 
@@ -251,7 +218,7 @@ export async function renderHelpConfirmationEmail(
   userEmail: string,
   type: 'bug' | 'feedback' | 'feature_request' | 'other',
   attachmentCount = 0,
-  locale?: EmailLocale
+  locale?: LocaleInput
 ): Promise<string> {
   const copy = getEmailCopy(locale)
   const typeLabel = copy.help.typeLabels[type]
@@ -290,7 +257,7 @@ export async function renderHelpConfirmationEmail(
 export async function renderEnterpriseSubscriptionEmail(
   userName: string,
   userEmail: string,
-  locale?: EmailLocale
+  locale?: LocaleInput
 ): Promise<string> {
   const copy = getEmailCopy(locale)
   const baseUrl = getBaseUrl()
@@ -318,19 +285,21 @@ export async function renderEnterpriseSubscriptionEmail(
 }
 
 export async function renderUsageThresholdEmail(params: {
+  unsubscribeUrl: string
   userName?: string
   planName: string
   percentUsed: number
   currentUsage: number
   limit: number
   ctaLink: string
-  locale?: EmailLocale
+  locale?: LocaleInput
 }): Promise<string> {
   const copy = getEmailCopy(params.locale)
 
   return await render(
     LocalizedEmail({
       locale: params.locale,
+      unsubscribeUrl: params.unsubscribeUrl,
       preview: text(params.locale, copy.billing.usage.preview, {
         percentUsed: params.percentUsed,
         planName: params.planName,
@@ -345,8 +314,8 @@ export async function renderUsageThresholdEmail(params: {
       ],
       details: [
         text(params.locale, copy.billing.usage.usageLine, {
-          currentUsage: formatEmailCurrency(params.locale, params.currentUsage),
-          limit: formatEmailCurrency(params.locale, params.limit),
+          currentUsage: formatUsd(normalizeLocaleCode(params.locale), params.currentUsage),
+          limit: formatUsd(normalizeLocaleCode(params.locale), params.limit),
         }),
         text(params.locale, copy.billing.usage.percentLine, { percentUsed: params.percentUsed }),
       ],
@@ -360,6 +329,7 @@ export async function renderUsageThresholdEmail(params: {
 }
 
 export async function renderFreeTierUpgradeEmail(params: {
+  unsubscribeUrl: string
   userName?: string
   currentTierName?: string
   percentUsed: number
@@ -370,7 +340,7 @@ export async function renderFreeTierUpgradeEmail(params: {
   recommendedTierPriceUsd?: number | null
   recommendedTierIncludedUsageLimitUsd?: number | null
   recommendedTierFeatures?: string[]
-  locale?: EmailLocale
+  locale?: LocaleInput
 }): Promise<string> {
   const copy = getEmailCopy(params.locale)
   const currentTierName = params.currentTierName || copy.billing.freeTier.currentTierFallback
@@ -386,14 +356,17 @@ export async function renderFreeTierUpgradeEmail(params: {
   if (params.recommendedTierPriceUsd) {
     details.push(
       text(params.locale, copy.billing.freeTier.recommendedPrice, {
-        price: formatEmailCurrency(params.locale, params.recommendedTierPriceUsd),
+        price: formatUsd(normalizeLocaleCode(params.locale), params.recommendedTierPriceUsd),
       })
     )
   }
   if (params.recommendedTierIncludedUsageLimitUsd) {
     details.push(
       text(params.locale, copy.billing.freeTier.recommendedUsage, {
-        usage: formatEmailCurrency(params.locale, params.recommendedTierIncludedUsageLimitUsd),
+        usage: formatUsd(
+          normalizeLocaleCode(params.locale),
+          params.recommendedTierIncludedUsageLimitUsd
+        ),
       })
     )
   }
@@ -402,6 +375,7 @@ export async function renderFreeTierUpgradeEmail(params: {
   return await render(
     LocalizedEmail({
       locale: params.locale,
+      unsubscribeUrl: params.unsubscribeUrl,
       preview: text(params.locale, copy.billing.freeTier.preview, { currentTierName }),
       title: copy.billing.freeTier.title,
       paragraphs: [
@@ -409,8 +383,8 @@ export async function renderFreeTierUpgradeEmail(params: {
           userName: params.userName || copy.billing.freeTier.greetingFallback,
         }),
         text(params.locale, copy.billing.freeTier.usage, {
-          currentUsage: formatEmailCurrency(params.locale, params.currentUsage),
-          limit: formatEmailCurrency(params.locale, params.limit),
+          currentUsage: formatUsd(normalizeLocaleCode(params.locale), params.currentUsage),
+          limit: formatUsd(normalizeLocaleCode(params.locale), params.limit),
           currentTierName,
           percentUsed: params.percentUsed,
         }),
@@ -433,12 +407,12 @@ export async function renderPaymentFailedEmail(params: {
   lastFourDigits?: string
   paymentUrl: string
   failureReason?: string
-  locale?: EmailLocale
+  locale?: LocaleInput
 }): Promise<string> {
   const copy = getEmailCopy(params.locale)
   const details = [
     text(params.locale, copy.billing.paymentFailed.amountDue, {
-      amount: formatEmailCurrency(params.locale, params.amountDue ?? 0),
+      amount: formatUsd(normalizeLocaleCode(params.locale), params.amountDue ?? 0),
     }),
   ]
 
@@ -481,7 +455,7 @@ export async function renderPaymentFailedEmail(params: {
 
 export async function renderWaitlistConfirmationEmail(
   email: string,
-  locale?: EmailLocale
+  locale?: LocaleInput
 ): Promise<string> {
   const copy = getEmailCopy(locale)
 
@@ -506,7 +480,7 @@ export async function renderWaitlistConfirmationEmail(
 export async function renderWaitlistApprovedEmail(
   email: string,
   signupLink: string,
-  locale?: EmailLocale
+  locale?: LocaleInput
 ): Promise<string> {
   const copy = getEmailCopy(locale)
 
@@ -530,10 +504,10 @@ export async function renderWaitlistApprovedEmail(
 }
 
 export async function renderPlanWelcomeEmail(params: {
+  unsubscribeUrl: string
   planName: string
   userName?: string
-  loginLink?: string
-  locale?: EmailLocale
+  locale?: LocaleInput
 }): Promise<string> {
   const copy = getEmailCopy(params.locale)
   const baseUrl = getBaseUrl()
@@ -542,6 +516,7 @@ export async function renderPlanWelcomeEmail(params: {
   return await render(
     LocalizedEmail({
       locale: params.locale,
+      unsubscribeUrl: params.unsubscribeUrl,
       preview: text(params.locale, copy.billing.planWelcome.preview, {
         planName: params.planName,
       }),
@@ -557,7 +532,7 @@ export async function renderPlanWelcomeEmail(params: {
         copy.billing.planWelcome.settings,
       ],
       cta: {
-        href: params.loginLink || loginUrl,
+        href: loginUrl,
         label: text(params.locale, copy.shared.openBrand, { brandName: getBrandConfig().name }),
       },
       footerLine: text(params.locale, copy.shared.sentOn, {
@@ -570,7 +545,7 @@ export async function renderPlanWelcomeEmail(params: {
 export async function renderCareersConfirmationEmail(params: {
   name: string
   position: string
-  locale?: EmailLocale
+  locale?: LocaleInput
 }): Promise<string> {
   const copy = getEmailCopy(params.locale)
   const baseUrl = getBaseUrl()
@@ -595,5 +570,3 @@ export async function renderCareersConfirmationEmail(params: {
     })
   )
 }
-
-export { normalizeEmailTemplateLocale }
