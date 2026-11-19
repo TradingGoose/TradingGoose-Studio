@@ -619,7 +619,22 @@ export async function maybeSendUsageThresholdEmail(params: {
 
     for (const { id, email, name } of recipients) {
       const locale = await resolveEmailLocale({ userId: id, email })
-      const message = { to: email, userId: id, locale, emailType: 'notifications' as const }
+      let address = email
+      const sendNotification = async (subject: string, html: (url: string) => Promise<string>) => {
+        const mail = {
+          to: address,
+          userId: id,
+          locale,
+          emailType: 'notifications' as const,
+          subject,
+          html,
+        }
+        const { success, currentEmail } = await sendEmail(mail)
+        if (!success && currentEmail) {
+          address = currentEmail
+          await sendEmail({ ...mail, to: address })
+        }
+      }
       const usage = {
         userName: name || undefined,
         percentUsed: Math.min(100, Math.round(params.percentAfter)),
@@ -628,39 +643,29 @@ export async function maybeSendUsageThresholdEmail(params: {
         locale,
       }
       if (crossesWarningThreshold) {
-        await sendEmail({
-          ...message,
-          subject: getEmailSubject('usage-threshold', locale),
-          html: (unsubscribeUrl) =>
-            renderUsageThresholdEmail({
-              ...usage,
-              unsubscribeUrl,
-              planName: params.planName,
-              ctaLink: `${baseUrl}/workspace?billing=usage`,
-            }),
-        })
+        await sendNotification(getEmailSubject('usage-threshold', locale), (unsubscribeUrl) =>
+          renderUsageThresholdEmail({
+            ...usage,
+            unsubscribeUrl,
+            planName: params.planName,
+            ctaLink: `${baseUrl}/workspace?billing=usage`,
+          })
+        )
       }
       if (crossesFreeTierUpgradeThreshold) {
         const tier = await getPrimaryPublicUserUpgradeTier()
-        const upgradeEmail = {
-          ...message,
-          subject: getEmailSubject('free-tier-upgrade', locale),
-          html: (unsubscribeUrl: string) =>
-            renderFreeTierUpgradeEmail({
-              ...usage,
-              unsubscribeUrl,
-              currentTierName: params.planName,
-              upgradeLink: `${baseUrl}/workspace?billing=upgrade`,
-              recommendedTierName: tier?.displayName,
-              recommendedTierPriceUsd: tier ? getTierBasePrice(tier) : null,
-              recommendedTierIncludedUsageLimitUsd: tier ? getTierUsageAllowanceUsd(tier) : null,
-              recommendedTierFeatures: tier?.pricingFeatures,
-            }),
-        }
-        const result = await sendEmail(upgradeEmail)
-        if (!result.success && result.currentEmail) {
-          await sendEmail({ ...upgradeEmail, to: result.currentEmail })
-        }
+        await sendNotification(getEmailSubject('free-tier-upgrade', locale), (unsubscribeUrl) =>
+          renderFreeTierUpgradeEmail({
+            ...usage,
+            unsubscribeUrl,
+            currentTierName: params.planName,
+            upgradeLink: `${baseUrl}/workspace?billing=upgrade`,
+            recommendedTierName: tier?.displayName,
+            recommendedTierPriceUsd: tier ? getTierBasePrice(tier) : null,
+            recommendedTierIncludedUsageLimitUsd: tier ? getTierUsageAllowanceUsd(tier) : null,
+            recommendedTierFeatures: tier?.pricingFeatures,
+          })
+        )
       }
     }
   } catch (error) {

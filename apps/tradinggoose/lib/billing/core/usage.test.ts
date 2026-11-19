@@ -250,6 +250,9 @@ describe('usage threshold mail', () => {
       usageWarningThresholdPercent: 75,
       freeTierUpgradeThresholdPercent: 90,
     })
+    mockDb.select.mockImplementation(() =>
+      createSelectQueryMock([{ enabled: true, preferredLocale: 'es' }])
+    )
   })
 
   it.each([true, false])(
@@ -277,9 +280,6 @@ describe('usage threshold mail', () => {
   it.each(['new@example.com', undefined])(
     'retries only the refused upgrade notification when the account has a new mailbox (%s)',
     async (currentEmail) => {
-      mockDb.select.mockImplementation(() =>
-        createSelectQueryMock([{ enabled: true, preferredLocale: 'es' }])
-      )
       const { sendEmail } = await import('@/lib/email/mailer')
       vi.mocked(sendEmail)
         .mockResolvedValueOnce({ success: true, message: 'Accepted' })
@@ -293,4 +293,20 @@ describe('usage threshold mail', () => {
       ])
     }
   )
+
+  it('delivers a refused usage warning to the current mailbox and uses it for the upgrade notice', async () => {
+    const { sendEmail } = await import('@/lib/email/mailer')
+    vi.mocked(sendEmail).mockResolvedValueOnce({
+      success: false,
+      message: 'Unsent',
+      currentEmail: 'new@example.com',
+    })
+    const { maybeSendUsageThresholdEmail } = await import('./usage')
+    await maybeSendUsageThresholdEmail(usage)
+    expect(vi.mocked(sendEmail).mock.calls.map(([mail]) => [mail.subject, mail.to])).toEqual([
+      ['usage-threshold', usage.userEmail],
+      ['usage-threshold', 'new@example.com'],
+      ['free-tier-upgrade', 'new@example.com'],
+    ])
+  })
 })

@@ -298,11 +298,12 @@ describe('mailer', () => {
     const old = 'old@example.com'
     const segmentId = 'audience-123'
     const mockTransferRecipients = (current = recipient, formerOwner?: typeof recipient) =>
-      vi
-        .mocked(getEmailRecipient)
-        .mockImplementation(async (where) =>
-          isDeepStrictEqual(where, eq(user.id, recipient.id)) ? current : formerOwner
-        )
+      vi.mocked(getEmailRecipient).mockImplementation(async (where) => {
+        if (isDeepStrictEqual(where, eq(user.id, recipient.id))) return current
+        if (isDeepStrictEqual(where, eq(user.email, current.email.trim().toLowerCase())))
+          return current
+        return formerOwner
+      })
 
     it('does nothing when the Resend audience is not configured', async () => {
       mockResolveResendServiceConfig.mockResolvedValue({ apiKey: 'test-api-key', audienceId: null })
@@ -351,6 +352,9 @@ describe('mailer', () => {
 
     it('keeps a previous Resend opt-out for the Studio account', async () => {
       mockTransferRecipients()
+      vi.mocked(unsubscribeFromList).mockImplementationOnce(async () => {
+        vi.mocked(isUnsubscribed).mockReturnValue(true)
+      })
       mockContactsGet.mockResolvedValueOnce({ data: { id: old, unsubscribed: true }, error: null })
 
       await syncUserEmailAudience(recipient, old)
@@ -396,6 +400,43 @@ describe('mailer', () => {
         segments: [{ id: segmentId }],
       })
     })
+
+    it.each(['opt-out', 'mailbox change', 'opt-in'])(
+      'preserves a later %s when an earlier Resend write completes last',
+      async (change) => {
+        const next = 'next@example.com'
+        const enrolled = new Set<string>()
+        mockTransferRecipients()
+        mockContactsGet.mockImplementation(async ({ email }) => ({
+          data: { id: email, unsubscribed: false },
+          error: null,
+        }))
+        mockContactSegmentAdd.mockImplementation(async ({ contactId }) => {
+          enrolled.add(contactId)
+          return { error: null }
+        })
+        mockContactSegmentRemove.mockImplementation(async ({ email }) => {
+          enrolled.delete(email)
+          return { error: null }
+        })
+        const initiallyOptedOut = change === 'opt-in'
+        vi.mocked(isUnsubscribed).mockReturnValue(initiallyOptedOut)
+        const pendingWrite = initiallyOptedOut ? mockContactSegmentRemove : mockContactSegmentAdd
+        pendingWrite.mockImplementationOnce(async () => {
+          vi.mocked(isUnsubscribed).mockReturnValue(change === 'opt-out')
+          if (change === 'mailbox change') mockTransferRecipients({ ...recipient, email: next })
+          const prior = change === 'mailbox change' ? recipient.email : undefined
+          await expect(syncUserEmailAudience(recipient, prior)).resolves.toBe(true)
+          if (initiallyOptedOut) enrolled.delete(recipient.email)
+          else enrolled.add(recipient.email)
+          return { error: null }
+        })
+        await expect(syncUserEmailAudience(recipient)).resolves.toBe(true)
+        const expected =
+          change === 'opt-out' ? [] : [change === 'mailbox change' ? next : recipient.email]
+        expect([...enrolled]).toEqual(expected)
+      }
+    )
   })
 
   describe('Azure Communication Services fallback', () => {

@@ -76,9 +76,28 @@ export async function syncUserEmailAudience(
       if (error && error.statusCode !== 404) throw error
       return data
     }
-    const removeFromSegment = async (email: string) => {
-      const { error } = await contacts.segments.remove({ email, segmentId })
-      if (error && error.statusCode !== 404) throw error
+    const syncMembership = async (email: string, enroll: boolean) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (enroll) {
+          const contact = await getContact(email)
+          if (contact?.unsubscribed) return
+          const { error } = contact
+            ? await contacts.segments.add({ contactId: contact.id, segmentId })
+            : await contacts.create({ email, segments: [{ id: segmentId }] })
+          if (error) throw error
+        } else {
+          const { error } = await contacts.segments.remove({ email, segmentId })
+          if (error && error.statusCode !== 404) throw error
+        }
+
+        // A concurrent sync can finish while the Resend write is in flight.
+        const owner = await getEmailRecipient(eq(user.email, email))
+        const wantsMarketing =
+          !!owner?.emailVerified && !isUnsubscribed(owner.preferences, 'marketing')
+        if (enroll === wantsMarketing) return
+        enroll = wantsMarketing
+      }
+      throw new Error('Mailbox ownership or consent changed again during segment synchronization')
     }
 
     const prior = previousEmail?.trim().toLowerCase()
@@ -96,15 +115,8 @@ export async function syncUserEmailAudience(
           optedOut = true
         }
       }
-      if (optedOut) {
-        await removeFromSegment(email)
-      } else if (recipient.emailVerified) {
-        const contact = await getContact(email)
-        if (contact?.unsubscribed) return
-        const { error } = contact
-          ? await contacts.segments.add({ contactId: contact.id, segmentId })
-          : await contacts.create({ email, segments: [{ id: segmentId }] })
-        if (error) throw error
+      if (optedOut || recipient.emailVerified) {
+        await syncMembership(email, !optedOut)
       }
     }
 
@@ -115,7 +127,7 @@ export async function syncUserEmailAudience(
     const changes = [
       syncCurrentAddress,
       async () => {
-        if (!(await hasVerifiedOwner(prior))) await removeFromSegment(prior)
+        if (!(await hasVerifiedOwner(prior))) await syncMembership(prior, false)
       },
     ]
     const results = await Promise.allSettled(
