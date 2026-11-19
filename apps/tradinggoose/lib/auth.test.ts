@@ -156,6 +156,11 @@ it.each([
     subject: 'tradier-live:123',
     profile: { profile: { account: { account_number: '123' } } },
   },
+  {
+    provider: 'wealthbox',
+    subject: '42',
+    profile: { id: 42, name: 'Wealthbox user', email: 'owner@example.com' },
+  },
 ])(
   'links and reconnects $provider only to its Studio owner',
   async ({ provider, subject, profile }) => {
@@ -206,6 +211,17 @@ it.each([
     await expect(internalAdapter.findAccounts(other.id)).resolves.toEqual([])
   }
 )
+
+it('starts Slack authorization for its confidential OAuth app without a PKCE challenge', async () => {
+  const { service, headers } = await setupLink()
+  const { url } = await runWithSystemOAuthClientCredentials(
+    () => service.api.linkSocialAccount({ headers, body: { provider: 'slack' } }),
+    { slack: { clientId: 'slack-client', clientSecret: 'slack-secret', fields: {} } }
+  )
+  const params = new URL(url!).searchParams
+  expect(params.get('client_id')).toBe('slack-client')
+  expect(params.has('code_challenge')).toBe(false)
+})
 
 it('links a Google integration using the current client and the Google UserInfo subject', async () => {
   const provider = 'google-drive'

@@ -124,11 +124,12 @@ const BASE_TRUSTED_OAUTH_PROVIDERS = [
 const TRUSTED_OAUTH_PROVIDER_IDS = Array.from(
   new Set([
     ...BASE_TRUSTED_OAUTH_PROVIDERS,
-    // Broker profiles supply account IDs without an email, for authenticated linking only.
+    // These integration profiles supply account IDs without an email, for authenticated linking only.
     'robinhood',
     'alpaca-live',
     'alpaca-paper',
     'tradier-live',
+    'wealthbox',
     ...Object.entries(OAUTH_PROVIDERS).flatMap(([baseProvider, providerConfig]) =>
       BASE_TRUSTED_OAUTH_PROVIDERS.includes(baseProvider)
         ? Object.values(providerConfig.services).map((service) => service.providerId)
@@ -991,29 +992,9 @@ export const auth = betterAuth({
           providerId: 'wealthbox',
           authorizationUrl: 'https://app.crmworkspace.com/oauth/authorize',
           tokenUrl: 'https://app.crmworkspace.com/oauth/token',
-          userInfoUrl: 'https://dummy-not-used.wealthbox.com', // Dummy URL since no user info endpoint exists
+          userInfoUrl: 'https://api.crmworkspace.com/v1/me',
           scopes: ['login', 'data'],
-          responseType: 'code',
-          getUserInfo: async (tokens) => {
-            try {
-              logger.info('Creating Wealthbox user profile from token data')
-
-              const uniqueId = `wealthbox-${Date.now()}`
-              const now = new Date()
-
-              return {
-                id: uniqueId,
-                name: 'Wealthbox User',
-                email: `${uniqueId.replace(/[^a-zA-Z0-9]/g, '')}@wealthbox.user`,
-                emailVerified: false,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error creating Wealthbox user profile:', { error })
-              return null
-            }
-          },
+          mapProfileToUser: () => ({ email: undefined }),
         },
 
         // Supabase provider
@@ -1498,6 +1479,7 @@ export const auth = betterAuth({
           authorizationUrl: 'https://slack.com/oauth/v2/authorize',
           tokenUrl: 'https://slack.com/api/oauth.v2.access',
           userInfoUrl: 'https://slack.com/api/users.identity',
+          pkce: false,
           scopes: [
             // Bot token scopes only - app acts as a bot user
             'channels:read',
