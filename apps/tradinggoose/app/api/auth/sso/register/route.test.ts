@@ -2,12 +2,14 @@
  * @vitest-environment node
  */
 
+import dns from 'node:dns/promises'
+import { syncBuiltinESMExports } from 'node:module'
 import { inflateRawSync } from 'node:zlib'
 import { sso } from '@better-auth/sso'
 import { betterAuth } from 'better-auth'
 import { organization, testUtils } from 'better-auth/plugins'
 import { NextRequest } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetSession,
@@ -110,6 +112,10 @@ describe('SSO register route', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    vi.spyOn(dns, 'lookup').mockImplementation(
+      vi.fn().mockResolvedValue([{ address: '8.8.8.8', family: 4 }])
+    )
+    syncBuiltinESMExports()
     mockIsOrganizationOwnerOrAdmin.mockResolvedValue(true)
     mockGetBillingGateState.mockResolvedValue({ billingEnabled: true })
     mockGetOrganizationBillingData.mockResolvedValue({
@@ -119,6 +125,11 @@ describe('SSO register route', () => {
       },
     })
     vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    syncBuiltinESMExports()
   })
 
   it('requires an authenticated session', async () => {
@@ -590,6 +601,7 @@ describe('SSO register route', () => {
 
     expect(response.status).toBe(200)
     expect(fetch).toHaveBeenCalledTimes(1)
+    expect(dns.lookup).toHaveBeenCalledWith('issuer.example.com', { all: true })
     const stored = await context.adapter.findOne<{ oidcConfig: string }>({
       model: 'ssoProvider',
       where: [{ field: 'providerId', value: 'okta' }],

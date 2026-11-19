@@ -1,4 +1,11 @@
-import { discoverOIDCConfig } from '@better-auth/sso'
+import {
+  computeDiscoveryUrl,
+  fetchDiscoveryDocument,
+  normalizeDiscoveryUrls,
+  selectTokenEndpointAuthMethod,
+  validateDiscoveryDocument,
+  validateDiscoveryUrl,
+} from '@better-auth/sso'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { auth, getSession } from '@/lib/auth'
@@ -111,24 +118,28 @@ export async function POST(request: NextRequest) {
     if (providerType === 'oidc') {
       const { clientId, clientSecret, scopes, pkce } = body
 
-      const oidcConfig: any = {
-        clientId,
-        clientSecret,
-        scopes: scopes.filter((scope) => scope !== 'offline_access'),
-        pkce,
-        mapping,
-        // Discovery is handled once here using the application's external URL policy.
-        skipDiscovery: true,
-      }
-
       try {
-        Object.assign(
-          oidcConfig,
-          await discoverOIDCConfig({
-            issuer,
-            isTrustedOrigin: (url) => validateExternalUrl(url, 'OIDC URL').isValid,
-          })
-        )
+        const discoveryEndpoint = computeDiscoveryUrl(issuer)
+        const isExternalUrl = (url: string) => validateExternalUrl(url, 'OIDC URL').isValid
+        validateDiscoveryUrl(discoveryEndpoint, isExternalUrl)
+        // Tenant-supplied issuers use Better Auth's public-host checks at fetch time.
+        const document = await fetchDiscoveryDocument(discoveryEndpoint)
+        validateDiscoveryDocument(document, issuer)
+        const endpoints = normalizeDiscoveryUrls(document, issuer, isExternalUrl)
+        providerConfig.oidcConfig = {
+          clientId,
+          clientSecret,
+          scopes: scopes.filter((scope) => scope !== 'offline_access'),
+          pkce,
+          mapping,
+          discoveryEndpoint,
+          authorizationEndpoint: endpoints.authorization_endpoint,
+          tokenEndpoint: endpoints.token_endpoint,
+          jwksEndpoint: endpoints.jwks_uri,
+          userInfoEndpoint: endpoints.userinfo_endpoint,
+          tokenEndpointAuthentication: selectTokenEndpointAuthMethod(endpoints),
+          skipDiscovery: true,
+        }
       } catch (error) {
         logger.error('Error fetching OIDC discovery document', {
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -141,8 +152,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-
-      providerConfig.oidcConfig = oidcConfig
     } else {
       const {
         entryPoint,
