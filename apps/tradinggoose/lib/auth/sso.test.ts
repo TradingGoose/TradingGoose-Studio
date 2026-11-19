@@ -294,6 +294,26 @@ describe('native SSO registration and account matching', () => {
     )
   })
 
+  it('requires a provider ID when verified exact domains differ only in case', async () => {
+    const { auth, headers, register, registrationBody, verify } = await setup()
+    await register('okta')
+    await auth.api.registerSSOProvider({
+      headers,
+      body: { ...registrationBody('okta-prod'), domain: 'Example.com' },
+    })
+    await verify('okta')
+    await verify('okta-prod')
+    const body = { email: localEmail, callbackURL: '/workspace' }
+    await expect(auth.api.signInSSO({ body })).rejects.toMatchObject({
+      statusCode: 409,
+      body: { code: 'SSO_PROVIDER_ID_REQUIRED' },
+    })
+    const { url } = await auth.api.signInSSO({ body: { ...body, providerId: 'okta-prod' } })
+    expect(new URL(url).searchParams.get('redirect_uri')).toBe(
+      `${baseURL}/api/auth/sso/callback/okta-prod`
+    )
+  })
+
   it('signs in a linked SSO subject after their Studio email changes', async () => {
     const { auth, context, register, verify, callback } = await setup()
     await register()

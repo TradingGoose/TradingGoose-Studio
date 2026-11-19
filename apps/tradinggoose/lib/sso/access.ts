@@ -25,7 +25,7 @@ export async function findVerifiedSsoProviderId(adapter: DBAdapter, domain: stri
   const verified = { field: 'domainVerified', value: true }
   const matches = await adapter.findMany<{ providerId: string }>({
     model: 'ssoProvider',
-    where: [verified, { field: 'domain', value: search }],
+    where: [verified, { field: 'domain', value: search, mode: 'insensitive' }],
     select: ['providerId'],
     limit: 2,
   })
