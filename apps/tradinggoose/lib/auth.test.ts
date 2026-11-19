@@ -214,9 +214,7 @@ it.each([
       { providerId: provider, accountId: subject, accessToken: 'renewed' },
     ])
     await expect(internalAdapter.findAccounts(other.id)).resolves.toEqual([])
-    if (provider !== 'discord') {
-      await expect(complete('sign-in')).resolves.toBe('/failed?error=email_not_found')
-    }
+    await expect(complete('sign-in')).resolves.toBe('/failed?error=email_not_found')
   }
 )
 

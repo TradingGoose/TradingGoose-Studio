@@ -379,8 +379,8 @@ describe('native SSO registration and account matching', () => {
     ])
   })
 
-  it('requires the provider organization to have SSO for provider mutations', async () => {
-    const { auth, headers, register } = await setup()
+  it('allows a downgraded owner to retire a provider while blocking configuration', async () => {
+    const { auth, context, headers, register } = await setup()
     await register()
     billingMocks.getOrganizationBillingData.mockResolvedValue({
       subscriptionTier: { ownerType: 'organization', canConfigureSso: false },
@@ -390,7 +390,6 @@ describe('native SSO registration and account matching', () => {
       auth.api.requestDomainVerification,
       auth.api.verifyDomain,
       auth.api.updateSSOProvider,
-      auth.api.deleteSSOProvider,
     ]) {
       await expect(endpoint({ headers, body: { providerId: 'okta' } })).rejects.toMatchObject({
         statusCode: 403,
@@ -399,6 +398,13 @@ describe('native SSO registration and account matching', () => {
     }
     expect(billingMocks.getOrganizationBillingData).toHaveBeenCalledWith(organizationId)
     expect(resolveTxt).not.toHaveBeenCalled()
+    await context.test.addMember!({ userId: 'local-user', organizationId, role: 'member' })
+    const member = await context.test.getAuthHeaders({ userId: 'local-user' })
+    const body = { providerId: 'okta' }
+    await expect(auth.api.deleteSSOProvider({ headers: member, body })).rejects.toMatchObject({
+      statusCode: 403,
+    })
+    await expect(auth.api.deleteSSOProvider({ headers, body })).resolves.toEqual({ success: true })
   })
 
   it('lets an organization administrator verify its provider with billing disabled', async () => {

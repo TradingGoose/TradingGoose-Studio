@@ -53,6 +53,7 @@ import {
   getMicrosoftRefreshTokenExpiry,
   HUBSPOT_OAUTH_SCOPES,
   isMicrosoftProvider,
+  isSystemIntegrationManagedOAuthServiceProviderId,
   MICROSOFT_PROVIDERS,
   OAUTH_PROVIDERS,
 } from '@/lib/oauth'
@@ -184,6 +185,8 @@ function toSystemManagedGenericOAuthConfigs(
 ): GenericOAuthConfig[] {
   return configs.map((config) => ({
     ...config,
+    // Link workflow connections by provider subject without supplying a Studio sign-in email.
+    mapProfileToUser: () => ({ email: undefined }),
     get clientId() {
       return getSystemOAuthClientCredentialsForRequest(config.providerId).clientId
     },
@@ -556,6 +559,18 @@ export const auth = betterAuth({
       },
     },
     account: {
+      delete: {
+        before: async (account, ctx) => {
+          if (
+            (ctx?.path === '/sign-in/email-otp' ||
+              ctx?.path === '/email-otp/verify-email' ||
+              ctx?.path === '/verify-email') &&
+            isSystemIntegrationManagedOAuthServiceProviderId(account.providerId)
+          ) {
+            return false
+          }
+        },
+      },
       create: {
         before: async (account) => {
           if (account.providerId !== 'robinhood') return
@@ -749,12 +764,9 @@ export const auth = betterAuth({
         })
       }
       if (
-        [
-          '/sso/request-domain-verification',
-          '/sso/verify-domain',
-          '/sso/update-provider',
-          '/sso/delete-provider',
-        ].includes(ctx.path) &&
+        ['/sso/request-domain-verification', '/sso/verify-domain', '/sso/update-provider'].includes(
+          ctx.path
+        ) &&
         typeof ctx.body?.providerId === 'string'
       ) {
         const session = await getAuthoritativeSessionFromCtx(ctx)
@@ -989,7 +1001,6 @@ export const auth = betterAuth({
           tokenUrl: 'https://app.crmworkspace.com/oauth/token',
           userInfoUrl: 'https://api.crmworkspace.com/v1/me',
           scopes: ['login', 'data'],
-          mapProfileToUser: () => ({ email: undefined }),
         },
 
         // Supabase provider

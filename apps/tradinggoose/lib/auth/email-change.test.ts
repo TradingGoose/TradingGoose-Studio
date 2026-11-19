@@ -73,7 +73,10 @@ async function setup(
     },
     session: productionAuth.options.session,
     hooks: productionAuth.options.hooks,
-    databaseHooks: { user: { update: productionAuth.options.databaseHooks.user.update } },
+    databaseHooks: {
+      user: { update: productionAuth.options.databaseHooks.user.update },
+      account: { delete: productionAuth.options.databaseHooks.account.delete },
+    },
     emailVerification: productionAuth.options.emailVerification,
     plugins: [
       username(),
@@ -327,7 +330,7 @@ describe('account email change through native Better Auth OTP', () => {
       const password = 'reset-password-by-otp-123'
       const linked = await context.internalAdapter.createAccount({
         userId: 'owner',
-        providerId: 'alpaca',
+        providerId: 'alpaca-live',
         accountId: 'connected-broker',
       })
       await auth.api.requestPasswordResetEmailOTP({ body: { email } })
@@ -344,7 +347,7 @@ describe('account email change through native Better Auth OTP', () => {
   )
 
   it.each(['sign-in', 'email-verification'] as const)(
-    'revokes unproven credentials after standalone %s OTP verification',
+    'keeps workflow connections and revokes unproven sign-in methods during %s verification',
     async (type) => {
       const fixture = await setup('owner@example.com', true, true)
       const email = 'passwordless@example.com'
@@ -352,11 +355,23 @@ describe('account email change through native Better Auth OTP', () => {
       const signup = await fixture.auth.api.signUpEmail({
         body: { email, password, name: 'New user', username: 'new.user' },
       })
+      const adapter = fixture.context.internalAdapter
+      const broker = await adapter.createAccount({
+        userId: signup.user.id,
+        accountId: 'broker-account',
+        providerId: 'alpaca-live',
+        refreshToken: 'broker-refresh-token',
+      })
+      await adapter.createAccount({
+        userId: signup.user.id,
+        accountId: 'github-account',
+        providerId: 'github',
+      })
       await fixture.auth.api.sendVerificationOTP({ body: { email, type } })
       const body = { email, otp: deliveredCode(email) }
       if (type === 'sign-in') await fixture.auth.api.signInEmailOTP({ body })
       else await fixture.auth.api.verifyEmailOTP({ body })
-      expect(await fixture.context.internalAdapter.findAccounts(signup.user.id)).toEqual([])
+      expect(await adapter.findAccounts(signup.user.id)).toEqual([broker])
       await expect(
         fixture.auth.api.signInEmail({ body: { email, password } })
       ).rejects.toMatchObject({
