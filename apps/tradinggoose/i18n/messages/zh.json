@@ -2078,6 +2078,7 @@
         "seatsText": "{count, plural, other {# 个席位}}",
         "descriptions": {
           "manage": "打开 Stripe 结算门户以取消、恢复或更新您的订阅。",
+          "priceInPortal": "前往结算门户查看价格",
           "usageNotifications": "当用量达到结算警告阈值时发送邮件通知我",
           "customPlan": "联系您的客户团队以更改结算层级和用量限制",
           "nonOwnerOrganizationView": "请联系组织所有者管理账单。",

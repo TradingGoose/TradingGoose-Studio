@@ -717,7 +717,13 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                     <PlanCard
                       key={tier.id}
                       name={tier.displayName}
-                      price={price == null ? undefined : formatUsd(locale, price)}
+                      price={
+                        price != null
+                          ? formatUsd(locale, price)
+                          : isCurrentPersonalPlan
+                            ? copy('descriptions.priceInPortal')
+                            : undefined
+                      }
                       priceSubtext={
                         price == null
                           ? undefined

@@ -2078,6 +2078,7 @@
         "seatsText": "{count, plural, one {# plaza} other {# plazas}}",
         "descriptions": {
           "manage": "Abra el Portal de Facturación de Stripe para cancelar, restaurar o actualizar su suscripción.",
+          "priceInPortal": "Consulte el precio en el portal de facturación",
           "usageNotifications": "Envíeme un correo electrónico cuando el uso alcance el umbral de advertencia de facturación.",
           "customPlan": "Contacte a su equipo de cuenta para cambios de nivel de facturación y límites de uso.",
           "nonOwnerOrganizationView": "Contacte al propietario de la organización para gestionar la facturación.",

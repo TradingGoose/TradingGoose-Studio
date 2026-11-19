@@ -347,6 +347,21 @@ describe('Subscription billing subject', () => {
     expect(container.textContent).toContain(new Date(cancelAt).toLocaleDateString('en'))
   })
 
+  it('points to the billing portal for the current price when the interval is unknown', () => {
+    mocks.personalBilling = {
+      data: {
+        ...personalPayload().data,
+        billingInterval: null,
+        tier: tier('paid', 'Paid plan', 'user', { monthlyPriceUsd: 12.5, yearlyPriceUsd: 120 }),
+      },
+    }
+    render()
+    const plan = container.querySelector('[data-testid="plan-card"]')
+    expect(plan).toHaveAttribute('data-price', 'See price in billing portal')
+    expect(plan).not.toHaveAttribute('data-period')
+    expect(container.textContent).toContain('Manage Subscription')
+  })
+
   it('does not substitute viewer billing when another user owns billing', () => {
     mocks.workspaceSettings = workspaceBillingOwner({ type: 'user', userId: 'user-2' })
 
