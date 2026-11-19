@@ -14,7 +14,7 @@ interface TeamSeatsOverviewProps {
   actionsDisabled: boolean
   isReducing: boolean
   error?: string | null
-  onReduceSeats: () => Promise<void>
+  onReduceSeats?: () => Promise<void>
   onAddSeatDialog: () => void
 }
 
@@ -100,7 +100,7 @@ export function TeamSeatsOverview({
             variant='outline'
             size='sm'
             onClick={onReduceSeats}
-            disabled={totalSeats <= 1 || actionsDisabled}
+            disabled={!onReduceSeats || actionsDisabled}
             focusableWhenDisabled={isReducing}
             aria-busy={isReducing || undefined}
             className='h-8 flex-1 rounded-sm'

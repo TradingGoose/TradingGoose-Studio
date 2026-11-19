@@ -208,7 +208,7 @@ export function TeamManagement() {
   const isAdjustableSeatTier =
     currentTier?.ownerType === 'organization' && currentTier.seatMode === 'adjustable'
   const seatQuote = organizationSeats?.seatQuote ?? null
-  const seatCount = currentTier?.seatCount ?? 1
+  const minimumSeats = Math.max(currentTier?.seatCount ?? 1, usedSeats)
   const seatMaximum = currentTier?.seatMaximum ?? null
   const organizationPlanCatalogPending =
     isLoadingPublicBillingCatalog || privateTierAccess.isLoading
@@ -364,7 +364,7 @@ export function TeamManagement() {
   }, [removeMemberDialog.memberId, session?.user?.id, activeOrgId, removeMemberMutation, runAction])
 
   async function updateSeats(seats: number, action: 'reduce-seats' | 'update-seats') {
-    if (!activeOrgId || !seatQuote || seats < Math.max(seatCount, usedSeats)) return
+    if (!activeOrgId || !seatQuote) return
     const saved = await runAction(action, () =>
       updateSeatsMutation.mutateAsync({
         orgId: activeOrgId,
@@ -640,7 +640,11 @@ export function TeamManagement() {
             actionsDisabled={isLoading || isPending || !seatQuote}
             isReducing={pendingAction === 'reduce-seats'}
             error={actionFailure('reduce-seats')}
-            onReduceSeats={() => updateSeats(totalSeats - 1, 'reduce-seats')}
+            onReduceSeats={
+              totalSeats > minimumSeats
+                ? () => updateSeats(totalSeats - 1, 'reduce-seats')
+                : undefined
+            }
             onAddSeatDialog={() => setIsAddSeatDialogOpen(true)}
           />
         )}
@@ -747,7 +751,7 @@ export function TeamManagement() {
           open={isAddSeatDialogOpen}
           onOpenChange={setIsAddSeatDialogOpen}
           seatQuote={seatQuote}
-          minimumSeats={Math.max(seatCount, usedSeats)}
+          minimumSeats={minimumSeats}
           maximumSeats={seatMaximum}
           currentSeats={totalSeats}
           isLoading={

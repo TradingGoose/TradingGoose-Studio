@@ -437,6 +437,31 @@ describe('settings localization', () => {
     })
 
     it.each([
+      { seatCount: 60, usedSeats: 50 },
+      { seatCount: 2, usedSeats: 60 },
+    ])(
+      'disables removal at the plan or occupancy minimum ($seatCount, $usedSeats)',
+      async ({ seatCount, usedSeats }) => {
+        mocks.billing = {
+          ...mocks.billing,
+          subscriptionTier: { ...mocks.publicTiers[0], seatCount },
+        }
+        queryClient.setQueryData(organizationKeys.seats('org-1'), {
+          ...counts,
+          usedSeats,
+          seatQuote: { quantity: 60, revision: 'quoted', amountUsd: 15, interval: 'month' },
+        })
+        await render('en', <TeamManagement />)
+        const { removeSeat } = getClientMessages('en').workspace.settingsModal.team
+        expect(
+          [...container.querySelectorAll('button')].find(
+            (button) => button.textContent === removeSeat
+          )
+        ).toBeDisabled()
+      }
+    )
+
+    it.each([
       {
         billingInterval: 'year',
         monthlyPriceUsd: 12.5,
