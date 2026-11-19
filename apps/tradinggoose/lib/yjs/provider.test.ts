@@ -130,7 +130,8 @@ describe('bootstrapYjsProvider', () => {
     serverUpdate?: Uint8Array,
     pendingLocalEdits?: import('./provider').YjsPendingLocalEdits,
     lineageId = 'lineage-1',
-    accessMode: 'read' | 'write' = 'write'
+    accessMode: 'read' | 'write' = 'write',
+    durableSnapshot?: Y.Snapshot
   ) {
     const { bootstrapYjsProvider } = await import('./provider')
     const providerCount = providerInstances.length + 1
@@ -146,7 +147,9 @@ describe('bootstrapYjsProvider', () => {
     const provider = providerInstances.at(-1)!
     const checkpointDoc = new Y.Doc()
     if (serverUpdate) Y.applyUpdate(checkpointDoc, serverUpdate)
-    provider.receive(encodeYjsDurableCheckpoint(lineageId, Y.snapshot(checkpointDoc)))
+    provider.receive(
+      encodeYjsDurableCheckpoint(lineageId, durableSnapshot ?? Y.snapshot(checkpointDoc))
+    )
     checkpointDoc.destroy()
     if (serverUpdate) provider.receive(createSyncUpdateMessage(serverUpdate))
     provider.emit('sync', true)
@@ -422,13 +425,31 @@ describe('bootstrapYjsProvider', () => {
     expect(saved.size).toBe(1)
     other.dispose()
     fetchMock.mockImplementation(async () => jsonResponse({ token: 'renewed', userId: 'user-1' }))
-    const restored = await bootstrapSyncedProvider()
-    expect(restored.doc.getMap('workflow').get('content')).toBe('draft')
-    expect(Y.snapshotContainsUpdate(Y.snapshot(restored.doc), originalUpdate)).toBe(true)
-    const restoredProvider = restored.provider as unknown as MockWebsocketProvider
-    restoredProvider.receive(encodeYjsDurableCheckpoint('lineage-1', Y.emptySnapshot))
+    const synced = await bootstrapSyncedProvider(
+      originalUpdate,
+      undefined,
+      'lineage-1',
+      'write',
+      Y.emptySnapshot
+    )
+    expect(synced.doc.getMap('workflow').get('content')).toBe('draft')
     expect(saved.size).toBe(1)
-    restoredProvider.receive(encodeYjsDurableCheckpoint('lineage-1', Y.snapshot(restored.doc)))
+    synced.doc.getMap('workflow').set('title', 'edited after reopening')
+    window.dispatchEvent(new Event('beforeunload'))
+    synced.dispose()
+    await expect(
+      bootstrapSyncedProvider(originalUpdate, undefined, 'lineage-2', 'write', Y.emptySnapshot)
+    ).rejects.toThrow('Waiting for the workflow checkpoint')
+    expect(saved.size).toBe(1)
+    const restored = await bootstrapSyncedProvider(undefined, undefined, 'lineage-3')
+    expect(restored.doc.getMap('workflow').toJSON()).toEqual({
+      content: 'draft',
+      title: 'edited after reopening',
+    })
+    const restoredProvider = restored.provider as unknown as MockWebsocketProvider
+    restoredProvider.receive(encodeYjsDurableCheckpoint('lineage-3', Y.emptySnapshot))
+    expect(saved.size).toBe(1)
+    restoredProvider.receive(encodeYjsDurableCheckpoint('lineage-3', Y.snapshot(restored.doc)))
     expect(saved.size).toBe(0)
     restored.dispose()
   })

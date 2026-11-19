@@ -199,16 +199,7 @@ function mergeYMapValue(
   return remote
 }
 
-function replayYjsPendingLocalEdits(
-  target: Y.Doc,
-  pending: YjsPendingLocalEdits,
-  lineageId: string | null
-): void {
-  if (pending.lineageId === lineageId) {
-    const update = Y.mergeUpdates([pending.base, ...pending.replay.map(({ update }) => update)])
-    Y.applyUpdate(target, update, YJS_ORIGINS.SYSTEM)
-    return
-  }
+function rebaseYjsPendingLocalEdits(target: Y.Doc, pending: YjsPendingLocalEdits): void {
   const base = new Y.Doc()
   const current = new Y.Doc()
   try {
@@ -297,6 +288,15 @@ export async function bootstrapYjsProvider(
   const { token, userId } = await fetchSocketToken(Boolean(pendingLocalEdits))
   const draftKey = `yjs-pending:${JSON.stringify([userId, envelopeParams])}`
   let savedDraft: string | null = null
+  let edits = pendingLocalEdits
+  if (accessMode === 'write') {
+    try {
+      savedDraft = sessionStorage.getItem(draftKey)
+      if (edits?.userId !== userId && savedDraft) edits = decodeAny(fromBase64(savedDraft))
+    } catch (error) {
+      logger.warn('Could not read the saved edits from this tab', error)
+    }
+  }
   const doc = new Y.Doc()
   let active = true
   const provider = new WebsocketProvider(`${wsOrigin}/yjs`, descriptor.yjsSessionId, doc, {
@@ -308,6 +308,8 @@ export async function bootstrapYjsProvider(
   const localUpdates: Uint8Array[] = []
   const replayUpdates: YjsPendingLocalEdits['replay'][number][] = []
   let lineageId: string | null = null
+  let durableSnapshot = Y.emptySnapshot
+  let rebasedState: Uint8Array | undefined
   let resolveLineage!: () => void
   const lineage = new Promise<void>((resolve) => {
     resolveLineage = resolve
@@ -326,9 +328,12 @@ export async function bootstrapYjsProvider(
   function acceptPersistedSnapshot(snapshot: Y.Snapshot): void {
     if (
       active &&
-      localUpdates.length > 0 &&
+      (localUpdates.length > 0 || rebasedState) &&
+      (!rebasedState || Y.snapshotContainsUpdate(snapshot, rebasedState)) &&
       localUpdates.every((update) => Y.snapshotContainsUpdate(snapshot, update))
     ) {
+      rebasedState = undefined
+      edits = undefined
       localBase = null
       localUpdates.length = 0
       replayUpdates.length = 0
@@ -358,7 +363,9 @@ export async function bootstrapYjsProvider(
   function getPendingLocalEdits(): YjsPendingLocalEdits | undefined {
     return lineageId && localBase && localUpdates.length > 0
       ? { userId, lineageId, base: localBase, replay: [...replayUpdates] }
-      : undefined
+      : rebasedState
+        ? edits
+        : undefined
   }
 
   function savePendingDraft(event?: BeforeUnloadEvent): YjsPendingLocalEdits | undefined {
@@ -403,9 +410,23 @@ export async function bootstrapYjsProvider(
     }
     if (!lineageId) {
       lineageId = message.lineageId
+      if (accessMode === 'write' && edits?.userId === userId && edits.lineageId === lineageId) {
+        // The server announces its checkpoint before live sync. Restore the original journal first.
+        const updates = [edits.base]
+        for (const entry of edits.replay) {
+          updates.push(entry.update)
+          replayUpdates.push(entry)
+          if (entry.local) localUpdates.push(entry.update)
+        }
+        Y.applyUpdate(doc, Y.mergeUpdates(updates), provider)
+        localBase = edits.base
+        window.addEventListener('beforeunload', savePendingDraft)
+        edits = undefined
+      }
       resolveLineage()
     }
-    acceptPersistedSnapshot(message.snapshot)
+    durableSnapshot = message.snapshot
+    acceptPersistedSnapshot(durableSnapshot)
     if (message.requestId) persistRequests.get(message.requestId)?.(undefined, message.snapshot)
   }
 
@@ -551,16 +572,17 @@ export async function bootstrapYjsProvider(
     const initialSync = waitForYjsSync(provider)
     provider.connect()
     await Promise.all([initialSync, lineage])
-    if (accessMode === 'write') {
-      let edits = pendingLocalEdits
-      try {
-        savedDraft = sessionStorage.getItem(draftKey)
-        if (edits?.userId !== userId && savedDraft) edits = decodeAny(fromBase64(savedDraft))
-      } catch (error) {
-        logger.warn('Could not read the saved edits from this tab', error)
+    if (accessMode === 'write' && edits?.userId === userId) {
+      // Rebasing replaces the draft's baseline. Workflows checkpoint live edits automatically.
+      if (
+        descriptor.entityKind === 'workflow' &&
+        !Y.snapshotContainsUpdate(durableSnapshot, Y.encodeStateAsUpdate(doc))
+      ) {
+        throw new Error('Waiting for the workflow checkpoint before restoring unsaved edits')
       }
-      if (edits?.userId === userId) replayYjsPendingLocalEdits(doc, edits, lineageId)
-      if (localUpdates.length === 0) clearSavedDraft()
+      rebaseYjsPendingLocalEdits(doc, edits)
+      rebasedState = Y.encodeStateAsUpdate(doc)
+      acceptPersistedSnapshot(durableSnapshot)
     }
     ready = true
   } catch (error) {
