@@ -346,22 +346,17 @@ export async function handleStripeSubscriptionDeleted(
         tx
       )
 
-      if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
-        await resetUserDefaultUsageToOnboardingAllowanceBalance(
-          subscriptionToSettle.referenceId,
-          tx
-        )
-      }
-
       if (settlementError) {
-        // The restore just cleared stripe_subscription_id, the only key the retry resolves
-        // rows by - and for a personal subscription the paid row IS this default row. Put it
-        // back while settlement is still owed, or the retry finds nothing and the final
-        // overage is lost even though the usage ledger was already reset.
+        // A retry needs both the Stripe subscription ID and the unsettled paid usage.
         await tx
           .update(subscription)
           .set({ stripeSubscriptionId })
           .where(eq(subscription.id, nextSubscription.id))
+      } else if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
+        await resetUserDefaultUsageToOnboardingAllowanceBalance(
+          subscriptionToSettle.referenceId,
+          tx
+        )
       }
 
       return nextSubscription

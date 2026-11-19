@@ -580,30 +580,39 @@ describe('handleStripeSubscriptionDeleted', () => {
     )
   })
 
-  it('keeps the Stripe id on the restored row when settlement could not complete', async () => {
+  it('preserves personal overage for redelivery when the final period write fails', async () => {
     const stripeBackedSubscription = createDefaultSubscription({
       status: 'canceled',
       stripeSubscriptionId: 'sub_stripe_123',
     })
-    const defaultSubscription = createDefaultSubscription()
-    mockGetSubscriptionByStripeSubscriptionId
-      .mockResolvedValueOnce(stripeBackedSubscription)
-      .mockResolvedValueOnce(stripeBackedSubscription)
-    mockEnsureDefaultUserSubscription.mockResolvedValue(defaultSubscription)
-    mockSyncSubscriptionBillingTierFromStripeSubscription.mockRejectedValue(
-      new Error('Billing tier could not be resolved')
-    )
+    mockGetSubscriptionByStripeSubscriptionId.mockResolvedValue(stripeBackedSubscription)
+    mockEnsureDefaultUserSubscription.mockResolvedValue(createDefaultSubscription())
+    const periodWrite = createUpdateQueryMock()
+    periodWrite.where.mockRejectedValueOnce(new Error('Period update failed'))
+    mockDb.update.mockReturnValueOnce(periodWrite)
+    mockCalculateSubscriptionOverage.mockResolvedValue(8)
+    mockGetBilledOverageForSubscription.mockResolvedValue(3)
+    const invoiceItem = vi.fn()
+    mockRequireStripeClient.mockReturnValue({
+      invoices: { create: vi.fn().mockResolvedValue({ id: 'in_final', status: 'open' }) },
+      invoiceItems: { create: invoiceItem },
+    })
 
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
-    await expect(
-      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
-    ).rejects.toThrow('Billing tier could not be resolved')
+    const event = createDeletedSubscriptionEvent() as any
+    await expect(handleStripeSubscriptionDeleted(event)).rejects.toThrow('Period update failed')
 
-    // Without this the retry cannot resolve the row and the final overage is lost for good,
-    // even though the usage ledger was already reset.
     expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1', mockDb)
     expect(updateCalls).toContainEqual({ stripeSubscriptionId: 'sub_stripe_123' })
-    expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
+    expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
+    expect(mockResetUsageForSubscription).not.toHaveBeenCalled()
+    expect(invoiceItem).not.toHaveBeenCalled()
+
+    await handleStripeSubscriptionDeleted(event)
+    expect(invoiceItem).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ amount: 500 }), {
+      idempotencyKey: 'final-overage-item:cus_team:sub_stripe_123:2026-06',
+    })
+    expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).toHaveBeenCalledOnce()
   })
 
   it('syncs usage limits for organization members after deleting an organization subscription', async () => {
