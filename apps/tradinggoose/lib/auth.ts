@@ -676,6 +676,30 @@ export const auth = betterAuth({
     enabled: true,
     revokeSessionsOnPasswordReset: true,
     requireEmailVerification: isEmailVerificationEnabled,
+    onPasswordReset: async ({ user }) => {
+      if (user.emailVerified) return
+      const ctx = getCurrentAuthEndpointContext()
+      if (ctx.path !== '/email-otp/reset-password') return
+      // This OTP also verifies the mailbox. Keep the password just set by its owner.
+      await ctx.context.adapter.transaction(async (tx) => {
+        const verified = await tx.updateMany({
+          model: 'user',
+          where: [
+            { field: 'id', value: user.id },
+            { field: 'emailVerified', value: false },
+          ],
+          update: { emailVerified: true },
+        })
+        if (verified)
+          await tx.deleteMany({
+            model: 'account',
+            where: [
+              { field: 'userId', value: user.id },
+              { field: 'providerId', operator: 'ne', value: 'credential' },
+            ],
+          })
+      })
+    },
     sendResetPassword: async ({ user, url }) => {
       const username = user.name || ''
       const locale = await resolveEmailLocale({ userId: user.id, email: user.email })

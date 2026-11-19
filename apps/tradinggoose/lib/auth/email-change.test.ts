@@ -207,6 +207,11 @@ describe('account email change through native Better Auth OTP', () => {
         body: { email, password, name: 'New user', username: 'new.user' },
       })
       expect(signup.token).toBeNull()
+      await fixture.context.internalAdapter.createAccount({
+        userId: signup.user.id,
+        providerId: 'github',
+        accountId: 'before-verification',
+      })
       await expect(
         fixture.auth.api.isUsernameAvailable({ body: { username: 'new.user' } })
       ).resolves.toEqual({ available: false })
@@ -228,6 +233,9 @@ describe('account email change through native Better Auth OTP', () => {
         body: { email, otp: deliveredCode(email), password: chosenPassword },
       })
       expect(mail.audience).toHaveBeenCalledWith(expect.objectContaining({ id: signup.user.id }))
+      expect(await fixture.context.internalAdapter.findAccounts(signup.user.id)).toEqual([
+        expect.objectContaining({ providerId: 'credential' }),
+      ])
       await expect(
         fixture.auth.api.signInEmail({ body: { email, password: chosenPassword } })
       ).resolves.toMatchObject({
@@ -289,6 +297,11 @@ describe('account email change through native Better Auth OTP', () => {
     const fixture = await setup()
     const email = fixture.email
     const password = 'reset-password-by-otp-123'
+    const linked = await fixture.context.internalAdapter.createAccount({
+      userId: 'owner',
+      providerId: 'github',
+      accountId: 'already-verified',
+    })
     await fixture.auth.api.requestPasswordResetEmailOTP({ body: { email } })
     await expect(
       fixture.auth.api.resetPasswordEmailOTP({
@@ -296,6 +309,7 @@ describe('account email change through native Better Auth OTP', () => {
       })
     ).resolves.toEqual({ success: true })
     expect(await fixture.auth.api.getSession({ headers: fixture.login.headers })).toBeNull()
+    expect(await fixture.context.internalAdapter.findAccounts('owner')).toContainEqual(linked)
     await expect(
       fixture.auth.api.signInEmail({ body: { email, password } })
     ).resolves.toMatchObject({ user: { id: 'owner' }, token: expect.any(String) })
