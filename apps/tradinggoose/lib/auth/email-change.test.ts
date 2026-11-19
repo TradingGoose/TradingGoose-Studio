@@ -47,7 +47,7 @@ vi.mock('@/lib/email/mailer', async (original) => ({
   ...(await original<typeof import('@/lib/email/mailer')>()),
   sendEmail: mail.send,
   hasEmailService: mail.available,
-  addVerifiedUserEmailToAudience: mail.audience,
+  syncUserEmailAudience: mail.audience,
 }))
 
 import { auth as productionAuth } from '@/lib/auth'

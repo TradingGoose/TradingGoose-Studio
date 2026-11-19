@@ -84,7 +84,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-import { addVerifiedUserEmailToAudience, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
+import { sendBatchEmails, sendEmail, syncUserEmailAudience } from '@/lib/email/mailer'
 import {
   generateUnsubscribeToken,
   getEmailRecipient,
@@ -292,19 +292,19 @@ describe('mailer', () => {
     })
   })
 
-  describe('addVerifiedUserEmailToAudience', () => {
+  describe('syncUserEmailAudience', () => {
     const old = 'old@example.com'
     const segmentId = 'audience-123'
 
     it('does nothing when the Resend audience is not configured', async () => {
       mockResolveResendServiceConfig.mockResolvedValue({ apiKey: 'test-api-key', audienceId: null })
-      await addVerifiedUserEmailToAudience(recipient)
+      await syncUserEmailAudience(recipient)
       expect(mockContactsGet).not.toHaveBeenCalled()
     })
 
     it('does not enroll an unverified address', async () => {
       vi.mocked(getEmailRecipient).mockResolvedValue({ ...recipient, emailVerified: false })
-      await addVerifiedUserEmailToAudience(recipient)
+      await syncUserEmailAudience(recipient)
       expect(mockContactsGet).not.toHaveBeenCalled()
     })
 
@@ -314,7 +314,7 @@ describe('mailer', () => {
         .mockResolvedValueOnce(undefined)
       mockContactsGet.mockResolvedValueOnce({ data: { id: old, unsubscribed: false }, error: null })
 
-      await addVerifiedUserEmailToAudience(recipient, old)
+      await syncUserEmailAudience(recipient, old)
       expect(mockContactSegmentRemove).toHaveBeenCalledExactlyOnceWith({ email: old, segmentId })
       expect(mockContactsCreate).toHaveBeenCalledExactlyOnceWith({
         email: recipient.email,
@@ -327,7 +327,7 @@ describe('mailer', () => {
         data: { id: 'existing', unsubscribed: true },
         error: null,
       })
-      await addVerifiedUserEmailToAudience(recipient)
+      await syncUserEmailAudience(recipient)
       expect(mockContactSegmentAdd).toHaveBeenCalledExactlyOnceWith({
         contactId: 'existing',
         segmentId,
@@ -337,7 +337,7 @@ describe('mailer', () => {
 
     it('honors a Studio marketing opt-out by removing only the Studio segment', async () => {
       vi.mocked(isUnsubscribed).mockReturnValue(true)
-      await addVerifiedUserEmailToAudience(recipient)
+      await syncUserEmailAudience(recipient)
       expect(mockContactSegmentRemove).toHaveBeenCalledExactlyOnceWith({
         email: recipient.email,
         segmentId,
@@ -350,7 +350,7 @@ describe('mailer', () => {
       vi.mocked(getEmailRecipient).mockResolvedValueOnce(recipient).mockResolvedValueOnce(undefined)
       mockContactsGet.mockResolvedValueOnce({ data: { id: old, unsubscribed: true }, error: null })
 
-      await addVerifiedUserEmailToAudience(recipient, old)
+      await syncUserEmailAudience(recipient, old)
       expect(unsubscribeFromList).toHaveBeenCalledWith(expect.anything(), recipient.id, 'marketing')
       expect(mockContactSegmentRemove).toHaveBeenCalledWith({ email: old, segmentId })
       expect(mockContactSegmentRemove).toHaveBeenCalledWith({ email: recipient.email, segmentId })
@@ -361,7 +361,7 @@ describe('mailer', () => {
       vi.mocked(getEmailRecipient)
         .mockResolvedValueOnce(recipient)
         .mockResolvedValueOnce({ ...recipient, id: 'other', email: old })
-      await addVerifiedUserEmailToAudience(recipient, old)
+      await syncUserEmailAudience(recipient, old)
       expect(mockContactsGet).toHaveBeenCalledExactlyOnceWith({ email: recipient.email })
       expect(mockContactSegmentRemove).not.toHaveBeenCalled()
       expect(unsubscribeFromList).not.toHaveBeenCalled()
@@ -370,7 +370,7 @@ describe('mailer', () => {
     it('logs contact enrollment failures without failing verification', async () => {
       const error = { message: 'Invalid API key', name: 'invalid_api_key', statusCode: 401 }
       mockContactsCreate.mockResolvedValueOnce({ data: null, error })
-      await expect(addVerifiedUserEmailToAudience(recipient)).resolves.toBeUndefined()
+      await expect(syncUserEmailAudience(recipient)).resolves.toBe(false)
       expect(mockLoggerWarn).toHaveBeenCalledWith(
         'Failed to synchronize verified user email with Resend',
         { userId: recipient.id, error }

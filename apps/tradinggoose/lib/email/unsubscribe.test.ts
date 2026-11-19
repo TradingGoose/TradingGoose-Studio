@@ -2,11 +2,13 @@ import { settings, user } from '@tradinggoose/db/schema'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { syncUserEmailAudience } from '@/lib/email/mailer'
 import {
   generateUnsubscribeToken,
   isUnsubscribed,
   verifyUnsubscribeToken,
 } from '@/lib/email/unsubscribe'
+import { PATCH } from '@/app/api/users/me/settings/route'
 import { GET, POST } from '@/app/api/users/me/settings/unsubscribe/route'
 
 const { select, lock, write, conflict, transaction } = vi.hoisted(() => ({
@@ -17,7 +19,11 @@ const { select, lock, write, conflict, transaction } = vi.hoisted(() => ({
   transaction: vi.fn(),
 }))
 
-vi.mock('@tradinggoose/db', () => ({ db: { select, transaction } }))
+vi.mock('@tradinggoose/db', () => ({
+  db: { select, transaction, insert: () => ({ values: write }) },
+}))
+vi.mock('@/lib/auth', () => ({ getSession: async () => ({ user: { id: mailbox.id } }) }))
+vi.mock('@/lib/email/mailer', () => ({ syncUserEmailAudience: vi.fn() }))
 vi.mock('@/lib/env', () => ({ env: { BETTER_AUTH_SECRET: 'test-secret-key' } }))
 
 const mailbox = {
@@ -62,6 +68,7 @@ describe('unsubscribe route', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(syncUserEmailAudience).mockResolvedValue(true)
     select.mockImplementation(() => ({
       from: () => ({ leftJoin: () => ({ where: () => ({ limit: () => [mailbox] }) }) }),
     }))
@@ -89,6 +96,26 @@ describe('unsubscribe route', () => {
       userId: mailbox.id,
       emailPreferences: { unsubscribeMarketing: true },
     })
+    expect(syncUserEmailAudience).toHaveBeenCalledWith(expect.objectContaining({ id: mailbox.id }))
+  })
+
+  it('retries segment removal for a one-click unsubscribe after a provider failure', async () => {
+    vi.mocked(syncUserEmailAudience).mockResolvedValueOnce(false)
+    const form = new URLSearchParams({ 'List-Unsubscribe': 'One-Click' })
+    expect((await oneClick(form)).status).toBe(503)
+    expect((await oneClick(form)).status).toBe(200)
+    expect(syncUserEmailAudience).toHaveBeenCalledTimes(2)
+  })
+
+  it('syncs the same segment when signed-in users save email preferences', async () => {
+    const response = await PATCH(
+      new Request('http://localhost/api/users/me/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ emailPreferences: { unsubscribeAll: true } }),
+      })
+    )
+    expect(response.status).toBe(200)
+    expect(syncUserEmailAudience).toHaveBeenCalledExactlyOnceWith({ id: mailbox.id })
   })
 
   it('opens the preferences page on manual GET without changing preferences', async () => {
@@ -122,6 +149,7 @@ describe('unsubscribe route', () => {
       const response = await oneClick(form, generateUnsubscribeToken(mailbox, 'notifications'))
       expect(response.status).toBe(200)
       expect(await response.text()).toBe('')
+      expect(syncUserEmailAudience).not.toHaveBeenCalled()
       expect(write).toHaveBeenCalledWith({
         id: mailbox.id,
         userId: mailbox.id,

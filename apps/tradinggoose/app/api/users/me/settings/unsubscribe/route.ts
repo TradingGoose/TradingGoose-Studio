@@ -3,6 +3,7 @@ import { user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { syncUserEmailAudience } from '@/lib/email/mailer'
 import {
   getEmailRecipient,
   unsubscribeFromList,
@@ -105,14 +106,20 @@ export async function POST(req: NextRequest) {
       if (!recipient || !signedType) return false
       const list = oneClick ? signedType : type
       await unsubscribeFromList(tx, recipient.id, list)
-      return list
+      return { id: recipient.id, list }
     })
     if (!updated) {
       logger.warn(`[${requestId}] Invalid unsubscribe token for email: ${email}`)
       return invalidLink()
     }
 
-    logger.info(`[${requestId}] Successfully unsubscribed ${email} from ${updated}`)
+    if (
+      (updated.list === 'marketing' || updated.list === 'all') &&
+      !(await syncUserEmailAudience(updated))
+    ) {
+      return NextResponse.json({ error: 'email_preference_sync_failed' }, { status: 503 })
+    }
+    logger.info(`[${requestId}] Successfully unsubscribed ${email} from ${updated.list}`)
 
     return oneClick ? new Response(null, { status: 200 }) : NextResponse.json({ success: true })
   } catch (error) {

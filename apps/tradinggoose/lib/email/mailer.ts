@@ -61,15 +61,15 @@ export async function hasEmailService(): Promise<boolean> {
   return Boolean(clients.resend || clients.azureEmailClient)
 }
 
-export async function addVerifiedUserEmailToAudience(
-  verifiedUser: Pick<typeof user.$inferSelect, 'id'>,
+export async function syncUserEmailAudience(
+  account: Pick<typeof user.$inferSelect, 'id'>,
   previousEmail?: string
-): Promise<void> {
+): Promise<boolean> {
   try {
     const { apiKey, audienceId: segmentId } = await resolveResendServiceConfig()
-    if (!apiKey || !segmentId) return
-    const recipient = await getEmailRecipient(eq(user.id, verifiedUser.id))
-    if (!recipient?.emailVerified) return
+    if (!apiKey || !segmentId) return true
+    const recipient = await getEmailRecipient(eq(user.id, account.id))
+    if (!recipient) return true
 
     const { contacts } = new Resend(apiKey)
     const getContact = async (email: string) => {
@@ -100,18 +100,20 @@ export async function addVerifiedUserEmailToAudience(
 
     if (optedOut) {
       await removeFromSegment(email)
-      return
+    } else if (recipient.emailVerified) {
+      const contact = await getContact(email)
+      const { error } = contact
+        ? await contacts.segments.add({ contactId: contact.id, segmentId })
+        : await contacts.create({ email, segments: [{ id: segmentId }] })
+      if (error) throw error
     }
-    const contact = await getContact(email)
-    const { error } = contact
-      ? await contacts.segments.add({ contactId: contact.id, segmentId })
-      : await contacts.create({ email, segments: [{ id: segmentId }] })
-    if (error) throw error
+    return true
   } catch (error) {
     logger.warn('Failed to synchronize verified user email with Resend', {
-      userId: verifiedUser.id,
+      userId: account.id,
       error,
     })
+    return false
   }
 }
 

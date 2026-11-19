@@ -44,7 +44,7 @@ import {
   handleSubscriptionCreated,
 } from '@/lib/billing/webhooks/subscription'
 import { resolveEmailLocale } from '@/lib/email/locale'
-import { addVerifiedUserEmailToAudience, hasEmailService, sendEmail } from '@/lib/email/mailer'
+import { hasEmailService, sendEmail, syncUserEmailAudience } from '@/lib/email/mailer'
 import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled, isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -543,14 +543,14 @@ export const auth = betterAuth({
           }
 
           if (user.emailVerified) {
-            await addVerifiedUserEmailToAudience(user)
+            await syncUserEmailAudience(user)
           }
         },
       },
       update: {
         after: async (user, ctx) => {
           if (ctx?.path === '/email-otp/reset-password' && user.emailVerified) {
-            await addVerifiedUserEmailToAudience(user)
+            await syncUserEmailAudience(user)
           }
         },
       },
@@ -723,9 +723,9 @@ export const auth = betterAuth({
         if (!promoted?.emailVerified) throw new APIError('CONFLICT')
       }
     },
-    afterEmailVerification: (user) => {
+    afterEmailVerification: async (user) => {
       const ctx = getCurrentAuthEndpointContext()
-      return addVerifiedUserEmailToAudience(
+      await syncUserEmailAudience(
         user,
         ctx.path === '/email-otp/change-email' ? ctx.context.session?.user.email : undefined
       )

@@ -6,6 +6,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { syncUserEmailAudience } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import {
@@ -135,6 +136,9 @@ export async function PATCH(request: Request) {
           },
         })
 
+      if (validatedData.emailPreferences && !(await syncUserEmailAudience({ id: userId }))) {
+        return NextResponse.json({ error: 'email_preference_sync_failed' }, { status: 503 })
+      }
       return withPreferredLocaleCookie(
         NextResponse.json({ success: true }, { status: 200 }),
         validatedData.preferredLocale
