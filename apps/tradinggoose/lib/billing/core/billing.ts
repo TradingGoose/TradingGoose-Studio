@@ -3,22 +3,22 @@ import {
   member,
   organization,
   organizationMemberBillingLedger,
-  subscription,
   user,
   userStats,
 } from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
-import { getBillingSubscriptionForReference } from '@/lib/billing/core/subscription'
+import {
+  findSubscriptionForReference,
+  getBillingSubscriptionForReference,
+} from '@/lib/billing/core/subscription'
 import { getPersonalUsageSnapshot } from '@/lib/billing/core/usage'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
-import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import {
   type BillingTierRecord,
   getSubscriptionUsageAllowanceUsd,
   getTierBasePrice,
   getTierUsageAllowanceUsd,
-  hydrateSubscriptionsWithTiers,
   isFreeBillingTier,
   isOrganizationSubscription,
   toBillingTierSummary,
@@ -85,20 +85,10 @@ export async function getOrganizationSubscription(
   organizationId: string,
   store: Pick<typeof db, 'select'> = db
 ) {
-  const orgSubs = await store
-    .select()
-    .from(subscription)
-    .where(
-      and(
-        eq(subscription.referenceType, 'organization'),
-        eq(subscription.referenceId, organizationId),
-        inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
-      )
-    )
-    .limit(1)
-
-  const hydrated = await hydrateSubscriptionsWithTiers(orgSubs, store)
-  return hydrated[0] ?? null
+  return findSubscriptionForReference(
+    { referenceType: 'organization', referenceId: organizationId },
+    store
+  )
 }
 
 /**

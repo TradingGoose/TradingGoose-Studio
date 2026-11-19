@@ -46,6 +46,7 @@ vi.mock('@tradinggoose/db', () => ({
 vi.mock('@tradinggoose/db/schema', () => ({
   member: {},
   subscription: {
+    billingTierId: 'subscription.billingTierId',
     id: 'subscription.id',
     endedAt: 'subscription.endedAt',
     canceledAt: 'subscription.canceledAt',
@@ -71,6 +72,8 @@ vi.mock('drizzle-orm', () => ({
   and: mockAnd,
   desc: vi.fn(),
   isNotNull: vi.fn(),
+  not: vi.fn((condition) => ({ not: condition })),
+  or: vi.fn((...conditions) => ({ or: conditions })),
   eq: mockEq,
   inArray: mockInArray,
   sql: mockSql,
@@ -314,17 +317,23 @@ describe('subscription billing helpers', () => {
   })
 
   it('keeps an unpaid subscription visible for payment without admitting usage or replacing its ledger', async () => {
-    const { getBillingSubscriptionForReference, getEffectiveSubscription } = await import(
-      './subscription'
-    )
+    const {
+      getActiveSubscriptionForReference,
+      getBillingSubscriptionForReference,
+      getEffectiveSubscription,
+    } = await import('./subscription')
     const { resetUserDefaultUsageToOnboardingAllowanceBalance } = await import('./usage')
     const unpaid = { id: 'paid', status: 'unpaid', stripeSubscriptionId: 'sub_old' }
     mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
     for (const referenceType of ['user', 'organization'] as const) {
       const ref = { referenceType, referenceId: 'owner' }
-      const { getActiveSubscriptionForReference } = await import('./subscription')
       mockDb.select.mockReturnValueOnce(createSelectQueryMock([unpaid], 'where'))
       await expect(getBillingSubscriptionForReference(ref)).resolves.toBe(unpaid)
+      expect(mockAnd.mock.lastCall).toContainEqual({
+        not: expect.objectContaining({
+          strings: ['(', "->'finalUsage' IS NOT NULL OR ", "->'finalInvoice' IS NOT NULL)"],
+        }),
+      })
       expect(mockInArray).toHaveBeenLastCalledWith(
         'subscription.status',
         expect.arrayContaining(['unpaid'])
@@ -336,6 +345,12 @@ describe('subscription billing helpers', () => {
       await expect(getActiveSubscriptionForReference(ref)).resolves.toBe(active)
     }
 
+    const localDefault = { id: 'default', status: 'active', tier: { isDefault: true } }
+    const personal = { referenceType: 'user', referenceId: 'user_123' } as const
+    mockDb.select.mockReturnValueOnce(createSelectQueryMock([localDefault, unpaid], 'where'))
+    await expect(getBillingSubscriptionForReference(personal)).resolves.toBe(unpaid)
+    mockDb.select.mockReturnValueOnce(createSelectQueryMock([localDefault, unpaid], 'where'))
+    await expect(getActiveSubscriptionForReference(personal)).resolves.toBeNull()
     const reactivated = { ...unpaid, status: 'active' }
     mockDb.select.mockReturnValueOnce(createSelectQueryMock([reactivated], 'where'))
     await expect(getEffectiveSubscription('user_123')).resolves.toBe(reactivated)
@@ -360,6 +375,37 @@ describe('subscription billing helpers', () => {
       'sub_old'
     )
     expect(mockDb.update).not.toHaveBeenCalled()
+    expect(mockDb.insert).not.toHaveBeenCalled()
+  })
+
+  it('captures a Dashboard subscription’s usage before returning the pre-existing local default', async () => {
+    const { getBillingSubscriptionForReference } = await import('./subscription')
+    const { resetUserDefaultUsageToOnboardingAllowanceBalance } = await import('./usage')
+    const localDefault = { id: 'default', status: 'active', tier: { isDefault: true } }
+    const paid = {
+      id: 'paid',
+      billingTierId: 'tier_pro',
+      status: 'canceled',
+      stripeSubscriptionId: 'sub_dashboard',
+    }
+    const ledger = { currentPeriodCost: '27', billedOverageThisPeriod: '4' }
+    const save = vi.fn(() => ({ where: vi.fn() }))
+    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
+    mockDb.select
+      .mockReturnValueOnce(createSelectQueryMock([paid, localDefault], 'where'))
+      .mockReturnValueOnce(createSelectQueryMock([{ id: 'user_123' }], 'for'))
+      .mockReturnValueOnce(createSelectQueryMock([localDefault], 'where'))
+      .mockReturnValueOnce(createSelectQueryMock([paid], 'for'))
+      .mockReturnValueOnce(createSelectQueryMock([ledger], 'for'))
+    mockDb.update.mockReturnValue({ set: save })
+    await expect(
+      getBillingSubscriptionForReference({ referenceType: 'user', referenceId: 'user_123' })
+    ).resolves.toBe(localDefault)
+    expect(save).toHaveBeenCalledExactlyOnceWith({ metadata: { finalUsage: ledger } })
+    expect(resetUserDefaultUsageToOnboardingAllowanceBalance).toHaveBeenCalledExactlyOnceWith(
+      'user_123',
+      mockDb
+    )
     expect(mockDb.insert).not.toHaveBeenCalled()
   })
 

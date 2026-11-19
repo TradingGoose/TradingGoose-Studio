@@ -327,9 +327,19 @@ async function updatePaymentBlock(sub: SubscriptionWithTier, invoiceId: string, 
     const debts = new Set(metadata?.blockedInvoices)
     if (!failed && !debts.has(invoiceId)) return
 
-    // Stripe can deliver a stale failure after an invoice was paid or voided.
-    const invoice = await requireStripeClient().invoices.retrieve(invoiceId)
-    const resolved = invoice.status === 'paid' || invoice.status === 'void'
+    // Stripe exposes the write-off reason starting with its September 2026 API.
+    const invoice: Stripe.Invoice & {
+      status_details?: { uncollectible?: { reason: string } | null } | null
+    } = await requireStripeClient().invoices.retrieve(
+      invoiceId,
+      {},
+      { apiVersion: '2026-09-30.endive' }
+    )
+    const resolved =
+      invoice.status === 'paid' ||
+      invoice.status === 'void' ||
+      (invoice.status === 'uncollectible' &&
+        invoice.status_details?.uncollectible?.reason === 'user_forgiven')
     if (resolved) {
       if (!debts.delete(invoiceId)) return
     } else {

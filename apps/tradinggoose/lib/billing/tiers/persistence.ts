@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { organization, subscription, systemBillingTier, user } from '@tradinggoose/db/schema'
-import { and, eq, inArray, or } from 'drizzle-orm'
+import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -86,6 +86,14 @@ export async function syncSubscriptionBillingTierFromStripeSubscription(input: {
       billingTierId: tier.id,
       referenceType: tier.ownerType,
       stripeCustomerId,
+      // A personal Stripe row first priced at cancellation never governed Studio usage.
+      // Keep any already-captured usage and leave the live default ledger untouched.
+      ...(tier.ownerType === 'user' &&
+        input.stripeSubscription.status === 'canceled' && {
+          metadata: sql`CASE WHEN ${subscription.billingTierId} IS NULL
+          THEN '{"finalUsage":{"currentPeriodCost":"0","billedOverageThisPeriod":"0"}}'::jsonb || coalesce(${subscription.metadata}::jsonb, '{}'::jsonb)
+          ELSE ${subscription.metadata}::jsonb END`,
+        }),
     })
     .where(eq(subscription.id, input.subscriptionId))
 

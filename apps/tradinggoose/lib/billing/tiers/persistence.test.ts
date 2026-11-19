@@ -1,6 +1,7 @@
 /**
  * @vitest-environment node
  */
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { and, eq, inArray, or, select, update } = vi.hoisted(() => ({
@@ -13,8 +14,8 @@ const { and, eq, inArray, or, select, update } = vi.hoisted(() => ({
 }))
 
 vi.mock('@tradinggoose/db', () => ({ db: { select, update } }))
-vi.mock('@tradinggoose/db/schema', () => ({
-  subscription: { id: 'subscription.id' },
+vi.mock('@tradinggoose/db/schema', async (importOriginal) => ({
+  subscription: (await importOriginal<typeof import('@tradinggoose/db/schema')>()).subscription,
   organization: { id: 'organization.id' },
   user: { id: 'user.id' },
   systemBillingTier: {
@@ -26,7 +27,8 @@ vi.mock('@tradinggoose/db/schema', () => ({
     stripeYearlyPriceId: 'tier.stripeYearlyPriceId',
   },
 }))
-vi.mock('drizzle-orm', () => ({
+vi.mock('drizzle-orm', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('drizzle-orm')>()),
   and,
   eq,
   inArray,
@@ -36,8 +38,9 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ error: vi.fn(), info: vi.fn() }),
 }))
 
-function stripeSubscription(priceId: string, recurring = true) {
+function stripeSubscription(priceId: string, recurring = true, status = 'active') {
   return {
+    status,
     id: 'sub_stripe',
     customer: 'customer_signed',
     items: { data: [{ price: { id: priceId, recurring: recurring ? {} : null } }] },
@@ -83,6 +86,23 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
       referenceType: 'organization',
       stripeCustomerId: 'customer_signed',
     })
+  })
+
+  it('records zero closing usage for a personal row first priced at cancellation, preserving any existing snapshot', async () => {
+    selectResults = [
+      [{ ...tier, ownerType: 'user' }],
+      [{ referenceId: 'user_1' }],
+      [{ id: 'user_1' }],
+    ]
+    const { syncSubscriptionBillingTierFromStripeSubscription } = await import('./persistence')
+    await syncSubscriptionBillingTierFromStripeSubscription({
+      subscriptionId: 'sub_local',
+      stripeSubscription: stripeSubscription('price_yearly', true, 'canceled'),
+    })
+    const { sql } = new PgDialect().sqlToQuery(set.mock.lastCall![0].metadata)
+    expect(sql.replace(/\s+/g, ' ')).toBe(
+      `CASE WHEN "subscription"."billing_tier_id" IS NULL THEN '{"finalUsage":{"currentPeriodCost":"0","billedOverageThisPeriod":"0"}}'::jsonb || coalesce("subscription"."metadata"::jsonb, '{}'::jsonb) ELSE "subscription"."metadata"::jsonb END`
+    )
   })
 
   it('rejects a signed recurring price that matches no tier', async () => {

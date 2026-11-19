@@ -186,7 +186,13 @@ describe('invoice-specific billing blocks', () => {
     await handleInvoiceResolved(event)
     stripe.invoices.retrieve.mockResolvedValue({ status: 'paid' })
     await handleInvoicePaymentFailed(event)
-    expect(stripe.invoices.retrieve).toHaveBeenCalledExactlyOnceWith('in_final')
+    expect(stripe.invoices.retrieve).toHaveBeenCalledExactlyOnceWith(
+      'in_final',
+      {},
+      {
+        apiVersion: '2026-09-30.endive',
+      }
+    )
     expect(tx.update).not.toHaveBeenCalled()
     expect(db.select).not.toHaveBeenCalled()
     expect(sendEmail).not.toHaveBeenCalled()
@@ -244,7 +250,22 @@ describe('invoice-specific billing blocks', () => {
       expect(balance.billingBlocked).toBe(true)
       original.metadata.blockedInvoices = ['in_old']
       replacement.metadata.blockedInvoices = []
+      for (const reason of ['max_payment_attempts', 'unknown', undefined]) {
+        stripe.invoices.retrieve.mockResolvedValue({
+          status: 'uncollectible',
+          status_details: reason ? { uncollectible: { reason } } : null,
+        })
+        await handleInvoiceResolved(invoiceEvent({ id: 'in_old' }))
+        expect(original.metadata.blockedInvoices).toEqual(['in_old'])
+        expect(balance.billingBlocked).toBe(true)
+      }
+      stripe.invoices.retrieve.mockResolvedValue({
+        status: 'uncollectible',
+        status_details: { uncollectible: { reason: 'user_forgiven' } },
+      })
       await handleInvoiceResolved(invoiceEvent({ id: 'in_old' }))
+      await handleInvoicePaymentFailed(invoiceEvent({ id: 'in_old' }))
+      expect(original.metadata.blockedInvoices).toEqual([])
       expect(balance).toMatchObject({
         billingBlocked: false,
         currentPeriodCost: '21',

@@ -15,7 +15,7 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import {
@@ -40,6 +40,7 @@ import {
   handleInvoicePaymentFailed,
   handleInvoiceResolved,
 } from '@/lib/billing/webhooks/invoices'
+import { hasClosingSnapshot } from '@/lib/billing/webhooks/overage'
 import {
   handleStripeSubscriptionDeleted,
   handleSubscriptionCreated,
@@ -1682,11 +1683,10 @@ export const auth = betterAuth({
             referenceId,
           })
         },
-        getCheckoutSessionParams: async ({ subscription, user }) => {
+        getCheckoutSessionParams: async ({ subscription }) => {
           // An existing Stripe subscription changes plan in the portal. Reusing its row
           // for a new Checkout before its deletion is recorded would overwrite its Stripe ID.
           if (
-            subscription.referenceId === user.id &&
             subscription.stripeSubscriptionId &&
             BILLING_ACTIVE_SUBSCRIPTION_STATUSES.some((status) => status === subscription.status)
           ) {
@@ -1733,6 +1733,15 @@ export const auth = betterAuth({
             status: subscription.status,
           })
 
+          // Better Auth applied the event status before this callback. A settled
+          // subscription is terminal even if Stripe delivers an earlier update now.
+          const [closed] = await db
+            .update(schema.subscription)
+            .set({ status: 'canceled' })
+            .where(and(eq(schema.subscription.id, subscription.id), hasClosingSnapshot()))
+            .returning({ id: schema.subscription.id })
+          if (closed) return
+
           const resolvedSubscription = await syncBillingTierAndRequireSubscription({
             subscriptionId: subscription.id,
             stripeSubscription: event.data.object as Stripe.Subscription,
@@ -1758,6 +1767,7 @@ export const auth = betterAuth({
 
         try {
           switch (event.type) {
+            case 'invoice.marked_uncollectible':
             case 'invoice.paid':
             case 'invoice.voided': {
               await handleInvoiceResolved(event)

@@ -33,6 +33,10 @@ export function hasClosedLedger(sub: { status: string | null; metadata: unknown 
   return sub.status === 'canceled' || Boolean(metadata?.finalUsage || metadata?.finalInvoice)
 }
 
+export function hasClosingSnapshot() {
+  return sql`(${subscription.metadata}->'finalUsage' IS NOT NULL OR ${subscription.metadata}->'finalInvoice' IS NOT NULL)`
+}
+
 async function createUsageInvoice(
   stripe: Stripe,
   params: Stripe.InvoiceCreateParams & { customer: string; metadata: { settlementId: string } },

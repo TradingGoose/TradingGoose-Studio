@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
-import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, not, or, sql } from 'drizzle-orm'
 import { resetUserDefaultUsageToOnboardingAllowanceBalance } from '@/lib/billing/core/usage'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
@@ -13,6 +13,7 @@ import {
   selectEffectiveSubscription,
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
+import { hasClosingSnapshot } from '@/lib/billing/webhooks/overage'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('SubscriptionCore')
@@ -75,10 +76,7 @@ export async function getBillingSubscriptionForReference(
   dbClient: Pick<typeof db, 'select' | 'transaction'> = db,
   provisionDefault = true
 ): Promise<SubscriptionWithTier | null> {
-  const effectiveSubscription = await findSubscription(reference, dbClient, [
-    ...BILLING_ENTITLED_SUBSCRIPTION_STATUSES,
-    'unpaid',
-  ])
+  const effectiveSubscription = await findSubscriptionForReference(reference, dbClient, true)
   if (effectiveSubscription || reference.referenceType !== 'user' || !provisionDefault) {
     return effectiveSubscription
   }
@@ -145,18 +143,21 @@ export async function getPersonalEffectiveSubscription(
   userId: string,
   dbClient: Pick<typeof db, 'select'> = db
 ): Promise<SubscriptionWithTier | null> {
-  return findSubscription(
-    { referenceType: 'user', referenceId: userId },
-    dbClient,
-    BILLING_ENTITLED_SUBSCRIPTION_STATUSES
-  )
+  return findSubscriptionForReference({ referenceType: 'user', referenceId: userId }, dbClient)
 }
 
-async function findSubscription(
+function isUnlinkedDefault(row: SubscriptionWithTier | null) {
+  return row?.tier?.isDefault === true && !row.stripeSubscriptionId
+}
+
+export async function findSubscriptionForReference(
   reference: BillingReference,
   dbClient: Pick<typeof db, 'select'>,
-  statuses: readonly string[]
+  includeUnpaid = false
 ) {
+  const statuses: string[] = [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES]
+  if (includeUnpaid) statuses.push('unpaid')
+  const checkClosingUsage = includeUnpaid && reference.referenceType === 'user'
   const rows = await dbClient
     .select()
     .from(subscription)
@@ -164,14 +165,28 @@ async function findSubscription(
       and(
         eq(subscription.referenceType, reference.referenceType),
         eq(subscription.referenceId, reference.referenceId),
-        inArray(subscription.status, [...statuses])
+        not(hasClosingSnapshot()),
+        or(
+          inArray(subscription.status, statuses),
+          checkClosingUsage
+            ? and(
+                eq(subscription.status, 'canceled'),
+                isNotNull(subscription.stripeSubscriptionId),
+                isNotNull(subscription.billingTierId)
+              )
+            : undefined
+        )
       )
     )
-  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows, dbClient)
-  return (
-    selectEffectiveSubscription(hydratedSubscriptions.filter((row) => row.status !== 'unpaid')) ??
+  const current = rows.filter((row) => row.status !== 'canceled')
+  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(current, dbClient)
+  const contracts = hydratedSubscriptions.filter((row) => !isUnlinkedDefault(row))
+  const effective =
+    selectEffectiveSubscription(contracts.filter((row) => row.status !== 'unpaid')) ??
+    selectEffectiveSubscription(contracts) ??
     selectEffectiveSubscription(hydratedSubscriptions)
-  )
+  // Capture the outgoing period before the local default can receive new usage.
+  return current.length !== rows.length && isUnlinkedDefault(effective) ? null : effective
 }
 
 export async function ensureDefaultUserSubscription(
@@ -182,7 +197,7 @@ export async function ensureDefaultUserSubscription(
   return dbClient.transaction(async (tx) => {
     await tx.select({ id: user.id }).from(user).where(eq(user.id, userId)).for('update')
     const active = await getPersonalEffectiveSubscription(userId, tx)
-    if (active && !canceledSubscriptionId) return active
+    if (active && !isUnlinkedDefault(active) && !canceledSubscriptionId) return active
 
     // A billing read can restore entitlement before the deletion webhook arrives.
     // Preserve the original Stripe row and capture its usage before opening the next period.
@@ -201,7 +216,10 @@ export async function ensureDefaultUserSubscription(
                 'canceled',
               ]),
           isNotNull(subscription.stripeSubscriptionId),
-          canceledSubscriptionId ? eq(subscription.id, canceledSubscriptionId) : undefined
+          isNotNull(subscription.billingTierId),
+          canceledSubscriptionId
+            ? eq(subscription.id, canceledSubscriptionId)
+            : not(hasClosingSnapshot())
         )
       )
       .orderBy(
@@ -219,7 +237,7 @@ export async function ensureDefaultUserSubscription(
     }
     const metadata = stripeRow?.metadata as Record<string, unknown> | null
     if (stripeRow && !metadata?.finalUsage) {
-      if (active) {
+      if (active && !isUnlinkedDefault(active)) {
         throw new Error(
           `Final usage for ${stripeRow.stripeSubscriptionId} was not captured before the replacement subscription started`
         )
@@ -280,6 +298,7 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
       .where(
         and(
           eq(subscription.referenceType, 'user'),
+          not(hasClosingSnapshot()),
           inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
         )
       ),

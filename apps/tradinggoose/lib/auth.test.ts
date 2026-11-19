@@ -2,6 +2,8 @@ import { type BetterAuthOptions, betterAuth, getAuthStateVerificationIdentifier 
 import { memoryAdapter } from 'better-auth/adapters/memory'
 import { applySetCookies } from 'better-auth/cookies'
 import { testUtils } from 'better-auth/plugins'
+import type { SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
 import type Stripe from 'stripe'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as invoices from '@/lib/billing/webhooks/invoices'
@@ -9,7 +11,7 @@ import * as invoices from '@/lib/billing/webhooks/invoices'
 const { registerClient } = vi.hoisted(() => ({ registerClient: vi.fn() }))
 
 vi.mock('@modelcontextprotocol/sdk/client/auth.js', () => ({ registerClient }))
-vi.mock('@tradinggoose/db', () => ({ db: {} }))
+vi.mock('@tradinggoose/db', () => ({ db: { update: vi.fn() } }))
 vi.mock('@/lib/billing/plans', () => ({ getBetterAuthPlansConfig: () => [] }))
 vi.mock('@/lib/system-settings/service', () => ({
   getResolvedSystemSettings: async () => ({ allowPromotionCodes: true }),
@@ -25,32 +27,53 @@ const baseURL = 'http://localhost:3000'
 const oauth = auth.options.plugins.find((plugin) => plugin.id === 'generic-oauth')!
 const robinhood = oauth.options.config.find((provider) => provider.providerId === 'robinhood')!
 
-it('keeps first Checkout and incomplete attempts available while protecting the previous paid row', async () => {
+it.each(['user-1', 'org-1'])(
+  'protects the previous paid row for %s while allowing first Checkout and incomplete attempts',
+  async (referenceId) => {
+    const options = auth.options.plugins.find((plugin) => plugin.id === 'stripe')!.options
+      .subscription
+    if (!options?.enabled) throw new Error('The Stripe subscription plugin is required')
+    const checkout = options.getCheckoutSessionParams!
+    const params = {
+      user: { id: 'user-1' },
+      subscription: { referenceId, status: 'incomplete' },
+    }
+    await expect(checkout(params as never)).resolves.toMatchObject({
+      params: { allow_promotion_codes: true },
+    })
+    const linked = {
+      ...params,
+      subscription: { ...params.subscription, stripeSubscriptionId: 'sub_previous' },
+    }
+    await expect(checkout(linked as never)).resolves.toMatchObject({
+      params: { allow_promotion_codes: true },
+    })
+    linked.subscription.status = 'active'
+    await expect(checkout(linked as never)).rejects.toMatchObject({
+      status: 'CONFLICT',
+    })
+  }
+)
+
+it('restores the terminal status before a delayed Stripe update can sync usage limits', async () => {
+  const { db } = await import('@tradinggoose/db')
+  const { subscription } = await import('@tradinggoose/db/schema')
+  const where = vi.fn((_predicate: SQL) => ({ returning: async () => [{ id: 'closed' }] }))
+  const set = vi.fn(() => ({ where }))
+  vi.mocked(db.update).mockReturnValueOnce({ set } as never)
   const options = auth.options.plugins.find((plugin) => plugin.id === 'stripe')!.options
     .subscription
   if (!options?.enabled) throw new Error('The Stripe subscription plugin is required')
-  const checkout = options.getCheckoutSessionParams!
-  const params = {
-    user: { id: 'user-1' },
-    subscription: { referenceId: 'user-1', status: 'incomplete' },
-  }
-  await expect(checkout(params as never)).resolves.toMatchObject({
-    params: { allow_promotion_codes: true },
-  })
-  const linked = {
-    ...params,
-    subscription: { ...params.subscription, stripeSubscriptionId: 'sub_previous' },
-  }
-  await expect(checkout(linked as never)).resolves.toMatchObject({
-    params: { allow_promotion_codes: true },
-  })
-  linked.subscription.status = 'active'
-  await expect(checkout(linked as never)).rejects.toMatchObject({
-    status: 'CONFLICT',
-  })
+  await options.onSubscriptionUpdate!({ subscription: { id: 'closed', status: 'active' } } as never)
+  expect(db.update).toHaveBeenCalledWith(subscription)
+  expect(set).toHaveBeenCalledWith({ status: 'canceled' })
+  const predicate = new PgDialect().sqlToQuery(where.mock.lastCall![0])
+  expect(predicate.params).toEqual(['closed'])
+  expect(predicate.sql).toContain("'finalUsage' IS NOT NULL")
+  expect(predicate.sql).toContain("'finalInvoice' IS NOT NULL")
 })
 
-it.each(['invoice.paid', 'invoice.voided'] as const)(
+it.each(['invoice.paid', 'invoice.voided', 'invoice.marked_uncollectible'] as const)(
   'reconciles the billing block on %s',
   async (type) => {
     const handler = vi.spyOn(invoices, 'handleInvoiceResolved').mockResolvedValue()
