@@ -73,6 +73,10 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
 
   const keyToUse = customKey || fileName
 
+  function withContext(fileInfo: FileInfo): FileInfo {
+    return { ...fileInfo, path: `${fileInfo.path}?context=${context}` }
+  }
+
   if (USE_AZURE_STORAGE) {
     const { uploadToAzure } = await import('../providers/azure/azure-client')
     const azureConfig = {
@@ -82,7 +86,9 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
       connectionString: config.connectionString,
     }
 
-    return uploadToAzure(file, keyToUse, contentType, azureConfig, file.length, preserveKey)
+    return withContext(
+      await uploadToAzure(file, keyToUse, contentType, azureConfig, file.length, preserveKey)
+    )
   }
 
   if (USE_VERCEL_STORAGE) {
@@ -96,10 +102,7 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
       preserveKey
     )
 
-    return {
-      ...fileInfo,
-      path: `/api/files/serve/vercel/${encodeURIComponent(fileInfo.key)}?context=${encodeURIComponent(context)}`,
-    }
+    return withContext(fileInfo)
   }
 
   if (USE_S3_STORAGE) {
@@ -109,7 +112,9 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
       region: config.region!,
     }
 
-    return uploadToS3(file, keyToUse, contentType, s3Config, file.length, preserveKey)
+    return withContext(
+      await uploadToS3(file, keyToUse, contentType, s3Config, file.length, preserveKey)
+    )
   }
 
   logger.info('Using local file storage')
