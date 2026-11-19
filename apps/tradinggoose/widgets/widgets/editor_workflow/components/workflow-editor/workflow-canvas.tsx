@@ -6,6 +6,7 @@ import {
   ConnectionLineType,
   type Edge,
   type Node,
+  type OnNodeDrag,
   ReactFlow,
   useOnSelectionChange,
   useReactFlow,
@@ -35,6 +36,7 @@ import { WorkflowConnectionLine } from '@/widgets/widgets/editor_workflow/compon
 import {
   getBlockConfigFromCache,
   resolveCanvasNodeDescriptor,
+  type WorkflowCanvasNodeData,
   workflowEdgeTypes,
   workflowNodeTypes,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/block-registry'
@@ -1298,8 +1300,8 @@ const WorkflowCanvas = React.memo(
     )
 
     // Handle node drag to detect intersections with container nodes
-    const onNodeDrag = useCallback(
-      (_event: React.MouseEvent, node: any) => {
+    const onNodeDrag = useCallback<OnNodeDrag<Node<WorkflowCanvasNodeData>>>(
+      (_event, node) => {
         if (!canEdit) return
 
         collaborativeUpdateBlockPosition(node.id, node.position, {
@@ -1340,8 +1342,8 @@ const WorkflowCanvas = React.memo(
     )
 
     // Add in a nodeDrag start event to set the dragStartParentId
-    const onNodeDragStart = useCallback(
-      (_event: React.MouseEvent, node: any) => {
+    const onNodeDragStart = useCallback<OnNodeDrag<Node<WorkflowCanvasNodeData>>>(
+      (_event, node) => {
         if (!canEdit) return
 
         // Store the original parent ID when starting to drag
@@ -1359,8 +1361,8 @@ const WorkflowCanvas = React.memo(
     )
 
     // Handle node drag stop to establish parent-child relationships
-    const onNodeDragStop = useCallback(
-      (_event: React.MouseEvent, node: any) => {
+    const onNodeDragStop = useCallback<OnNodeDrag<Node<WorkflowCanvasNodeData>>>(
+      (_event, node) => {
         if (!canEdit) return
 
         clearContainerHighlights()
