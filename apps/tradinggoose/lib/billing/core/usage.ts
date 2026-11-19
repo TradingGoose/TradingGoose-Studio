@@ -7,6 +7,7 @@ import {
   renderUsageThresholdEmail,
 } from '@/components/emails/render-email'
 import {
+  getBillingSubscriptionForReference,
   getConfiguredPersonalUsageLimit,
   getEffectiveSubscription,
   getSubscribedPersonalUsageMinimumLimit,
@@ -17,6 +18,7 @@ import {
   getPrimaryPublicUserUpgradeTier,
   getTierBasePrice,
   getTierUsageAllowanceUsd,
+  type SubscriptionWithTier,
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
 import type { BillingData, UsageData, UsageLimitInfo } from '@/lib/billing/types'
@@ -158,13 +160,16 @@ export async function resetUserDefaultUsageToOnboardingAllowanceBalance(
 /**
  * Get comprehensive usage data for a user
  */
-export async function getUserUsageData(userId: string): Promise<UsageData> {
+export async function getUserUsageData(
+  userId: string,
+  billingSubscription?: SubscriptionWithTier | null
+): Promise<UsageData> {
   try {
     const [{ billingEnabled, usageWarningThresholdPercent }, userStatsData, subscription] =
       await Promise.all([
         getResolvedBillingSettings(),
         db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
-        getEffectiveSubscription(userId),
+        billingSubscription === undefined ? getEffectiveSubscription(userId) : billingSubscription,
       ])
 
     if (userStatsData.length === 0) {
@@ -238,7 +243,7 @@ export async function getUserUsageLimitInfo(userId: string): Promise<UsageLimitI
   try {
     const [{ billingEnabled }, subscription, userStatsRecord] = await Promise.all([
       getResolvedBillingSettings(),
-      getEffectiveSubscription(userId),
+      getBillingSubscriptionForReference({ referenceType: 'user', referenceId: userId }),
       db.select().from(userStats).where(eq(userStats.userId, userId)).limit(1),
     ])
 

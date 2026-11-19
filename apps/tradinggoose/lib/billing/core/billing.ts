@@ -9,7 +9,10 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
-import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
+import {
+  getBillingSubscriptionForReference,
+  getEffectiveSubscription,
+} from '@/lib/billing/core/subscription'
 import { getUserUsageData } from '@/lib/billing/core/usage'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
@@ -303,7 +306,7 @@ export async function getSimplifiedBillingSummary(
       getResolvedBillingSettings(),
       organizationId
         ? getOrganizationSubscription(organizationId)
-        : getEffectiveSubscription(userId),
+        : getBillingSubscriptionForReference({ referenceType: 'user', referenceId: userId }),
     ])
     const exposedSubscription = billingEnabled ? subscription : null
 
@@ -443,7 +446,7 @@ export async function getSimplifiedBillingSummary(
       throw new Error(`No active personal subscription found for billed user ${userId}`)
     }
 
-    const usageData = await getUserUsageData(userId)
+    const usageData = await getUserUsageData(userId, subscription)
     const { basePrice, usageAllowance } = getBillingTierPricing(subscription ?? null)
 
     // Fetch user stats for copilot cost breakdown

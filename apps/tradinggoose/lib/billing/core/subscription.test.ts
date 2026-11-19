@@ -183,7 +183,11 @@ describe('subscription billing helpers', () => {
 
   it('captures canceled usage under lock before restoring a separate default subscription', async () => {
     const { resetUserDefaultUsageToOnboardingAllowanceBalance } = await import('./usage')
-    const paid = { id: 'sub_default_user_123', metadata: { source: 'default-tier' } }
+    const paid = {
+      id: 'sub_default_user_123',
+      status: 'canceled',
+      metadata: { source: 'default-tier' },
+    }
     const ledger = { currentPeriodCost: '28', billedOverageThisPeriod: '3' }
     const canceledQuery = createSelectQueryMock([paid], 'for')
     const ledgerQuery = createSelectQueryMock([ledger], 'for')
@@ -237,6 +241,38 @@ describe('subscription billing helpers', () => {
     expect(resetUserDefaultUsageToOnboardingAllowanceBalance).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps an unpaid subscription visible for payment without admitting usage or replacing its ledger', async () => {
+    const { getBillingSubscriptionForReference, getEffectiveSubscription } = await import(
+      './subscription'
+    )
+    const { resetUserDefaultUsageToOnboardingAllowanceBalance } = await import('./usage')
+    const unpaid = { id: 'paid', status: 'unpaid', stripeSubscriptionId: 'sub_old' }
+    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
+    const readUnpaid = () =>
+      mockDb.select
+        .mockReturnValueOnce(createSelectQueryMock([], 'where'))
+        .mockReturnValueOnce(createSelectQueryMock([{ id: 'user_123' }], 'for'))
+        .mockReturnValueOnce(createSelectQueryMock([], 'where'))
+        .mockReturnValueOnce(createSelectQueryMock([unpaid], 'for'))
+    readUnpaid()
+    await expect(
+      getBillingSubscriptionForReference({ referenceType: 'user', referenceId: 'user_123' })
+    ).resolves.toBe(unpaid)
+    expect(mockInArray).toHaveBeenCalledWith(
+      'subscription.status',
+      expect.arrayContaining(['unpaid', 'canceled'])
+    )
+    readUnpaid()
+    await expect(getEffectiveSubscription('user_123')).resolves.toBeNull()
+
+    const reactivated = { ...unpaid, status: 'active' }
+    mockDb.select.mockReturnValueOnce(createSelectQueryMock([reactivated], 'where'))
+    await expect(getEffectiveSubscription('user_123')).resolves.toBe(reactivated)
+    expect(mockDb.insert).not.toHaveBeenCalled()
+    expect(mockDb.update).not.toHaveBeenCalled()
+    expect(resetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
+  })
+
   it('retains the replacement ledger when the canceled personal usage was never captured', async () => {
     const { ensureDefaultUserSubscription } = await import('./subscription')
     const active = { stripeSubscriptionId: 'sub_replacement' }
@@ -244,7 +280,10 @@ describe('subscription billing helpers', () => {
       .mockImplementationOnce(() => createSelectQueryMock([{ id: 'user_123' }], 'for'))
       .mockImplementationOnce(() => createSelectQueryMock([active], 'where'))
       .mockImplementationOnce(() =>
-        createSelectQueryMock([{ id: 'paid', stripeSubscriptionId: 'sub_old' }], 'for')
+        createSelectQueryMock(
+          [{ id: 'paid', status: 'canceled', stripeSubscriptionId: 'sub_old' }],
+          'for'
+        )
       )
     await expect(ensureDefaultUserSubscription('user_123', mockDb as any, 'paid')).rejects.toThrow(
       'sub_old'

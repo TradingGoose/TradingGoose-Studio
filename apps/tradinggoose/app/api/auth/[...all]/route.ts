@@ -1,7 +1,7 @@
 import { toNextJsHandler } from 'better-auth/next-js'
 import { auth, getSession } from '@/lib/auth'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
-import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
+import { getBillingSubscriptionForReference } from '@/lib/billing/core/subscription'
 import { hasPrivateBillingTierAccess } from '@/lib/billing/private-tier-access'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { getStoredStripeUserCustomerId } from '@/lib/billing/stripe-customers'
@@ -120,7 +120,7 @@ async function prepareSubscriptionUpgrade(request: Request): Promise<Request | R
     return Response.json({ error: 'Billing tier is unavailable' }, { status: 403 })
   }
 
-  const existingSubscription = await getActiveSubscriptionForReference({
+  const existingSubscription = await getBillingSubscriptionForReference({
     referenceType: tier.ownerType,
     referenceId,
   })

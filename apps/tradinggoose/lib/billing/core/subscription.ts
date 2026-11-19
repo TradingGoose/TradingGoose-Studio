@@ -77,69 +77,34 @@ export function getConfiguredPersonalUsageLimit(
 }
 
 /**
- * Give a billed user back the default tier when they hold no entitled subscription.
- *
- * Personal Stripe subscriptions reuse the user's default subscription row, so a cancellation
- * that Stripe reported but we failed to finish (a dropped `customer.subscription.deleted`,
- * or a settlement error part-way through one) leaves that single row non-entitled and every
- * billing read throwing. The local status is enough to act on: the row is not entitling
- * anyone, and the default tier is the floor rather than a revocation.
- *
- * Never throws - callers use it behind a normal read, so a repair failure must surface as
- * the original billing error rather than a new one.
+ * Read the current billing record, including an unpaid contract that can still be recovered.
  */
-async function restorePersonalEntitlement(
-  userId: string,
-  dbClient: Pick<typeof db, 'select' | 'transaction'> = db
-): Promise<SubscriptionWithTier | null> {
-  try {
-    // With billing disabled there is no default tier to grant, and callers already treat a
-    // missing subscription as unlimited.
-    const { billingEnabled } = await getResolvedBillingSettings(dbClient)
-    if (!billingEnabled) {
-      return null
-    }
-
-    const restoredSubscription = await ensureDefaultUserSubscription(userId, dbClient)
-
-    logger.warn('Restored default personal subscription for a user left without one', {
-      userId,
-      subscriptionId: restoredSubscription.id,
-    })
-
-    return restoredSubscription
-  } catch (error) {
-    logger.error('Failed to restore default personal subscription', { userId, error })
-    return null
-  }
-}
-
-/**
- * Get the active subscription that currently governs a billing reference.
- */
-export async function getActiveSubscriptionForReference(
+export async function getBillingSubscriptionForReference(
   reference: BillingReference,
   dbClient: Pick<typeof db, 'select' | 'transaction'> = db
 ): Promise<SubscriptionWithTier | null> {
-  const rows = await dbClient
-    .select()
-    .from(subscription)
-    .where(
-      and(
-        eq(subscription.referenceType, reference.referenceType),
-        eq(subscription.referenceId, reference.referenceId),
-        inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
-      )
-    )
-
-  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows, dbClient)
-  const effectiveSubscription = selectEffectiveSubscription(hydratedSubscriptions)
-
+  const effectiveSubscription = await findEntitledSubscription(reference, dbClient)
   if (effectiveSubscription || reference.referenceType !== 'user') {
     return effectiveSubscription
   }
 
-  return restorePersonalEntitlement(reference.referenceId, dbClient)
+  try {
+    const { billingEnabled } = await getResolvedBillingSettings(dbClient)
+    return billingEnabled
+      ? await ensureDefaultUserSubscription(reference.referenceId, dbClient)
+      : null
+  } catch (error) {
+    logger.error('Failed to resolve personal billing', { userId: reference.referenceId, error })
+    return null
+  }
+}
+
+export async function getActiveSubscriptionForReference(
+  reference: BillingReference,
+  dbClient: Pick<typeof db, 'select' | 'transaction'> = db
+): Promise<SubscriptionWithTier | null> {
+  const current = await getBillingSubscriptionForReference(reference, dbClient)
+  return current?.status === 'unpaid' ? null : current
 }
 
 export async function requireActiveSubscriptionForReference(
@@ -177,25 +142,31 @@ export async function getSubscriptionRowByStripeId(stripeSubscriptionId: string)
 export async function getEffectiveSubscription(
   userId: string
 ): Promise<SubscriptionWithTier | null> {
-  const personalSubscription = await getPersonalEffectiveSubscription(userId)
-  return personalSubscription ?? restorePersonalEntitlement(userId)
+  return getActiveSubscriptionForReference({ referenceType: 'user', referenceId: userId })
 }
 
 export async function getPersonalEffectiveSubscription(
   userId: string,
   dbClient: Pick<typeof db, 'select'> = db
 ): Promise<SubscriptionWithTier | null> {
-  const personalSubs = await dbClient
+  return findEntitledSubscription({ referenceType: 'user', referenceId: userId }, dbClient)
+}
+
+async function findEntitledSubscription(
+  reference: BillingReference,
+  dbClient: Pick<typeof db, 'select'>
+) {
+  const rows = await dbClient
     .select()
     .from(subscription)
     .where(
       and(
-        eq(subscription.referenceType, 'user'),
-        eq(subscription.referenceId, userId),
+        eq(subscription.referenceType, reference.referenceType),
+        eq(subscription.referenceId, reference.referenceId),
         inArray(subscription.status, [...BILLING_ENTITLED_SUBSCRIPTION_STATUSES])
       )
     )
-  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(personalSubs, dbClient)
+  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows, dbClient)
   return selectEffectiveSubscription(hydratedSubscriptions)
 }
 
@@ -211,26 +182,38 @@ export async function ensureDefaultUserSubscription(
 
     // A billing read can restore entitlement before the deletion webhook arrives.
     // Preserve the original Stripe row and capture its usage before opening the next period.
-    const [canceled] = await tx
+    const [stripeRow] = await tx
       .select()
       .from(subscription)
       .where(
         and(
           eq(subscription.referenceType, 'user'),
           eq(subscription.referenceId, userId),
-          eq(subscription.status, 'canceled'),
+          canceledSubscriptionId
+            ? eq(subscription.status, 'canceled')
+            : inArray(subscription.status, [
+                ...BILLING_ENTITLED_SUBSCRIPTION_STATUSES,
+                'unpaid',
+                'canceled',
+              ]),
           isNotNull(subscription.stripeSubscriptionId),
           canceledSubscriptionId ? eq(subscription.id, canceledSubscriptionId) : undefined
         )
       )
-      .orderBy(desc(subscription.endedAt))
+      .orderBy(desc(sql`${subscription.status} <> 'canceled'`), desc(subscription.endedAt))
       .limit(1)
       .for('update')
-    const metadata = canceled?.metadata as Record<string, unknown> | null
-    if (canceled && !metadata?.finalUsage) {
+    if (stripeRow && stripeRow.status !== 'canceled') {
+      // Stripe can reactivate an unpaid subscription. It still owns its usage until cancellation.
+      const [current] = await hydrateSubscriptionsWithTiers([stripeRow], tx)
+      if (!current) throw new Error(`Missing billing tier for subscription ${stripeRow.id}`)
+      return current
+    }
+    const metadata = stripeRow?.metadata as Record<string, unknown> | null
+    if (stripeRow && !metadata?.finalUsage) {
       if (active) {
         throw new Error(
-          `Final usage for ${canceled.stripeSubscriptionId} was not captured before the replacement subscription started`
+          `Final usage for ${stripeRow.stripeSubscriptionId} was not captured before the replacement subscription started`
         )
       }
       const [ledger] = await tx
@@ -247,7 +230,7 @@ export async function ensureDefaultUserSubscription(
         .set({
           metadata: { ...metadata, finalUsage },
         })
-        .where(eq(subscription.id, canceled.id))
+        .where(eq(subscription.id, stripeRow.id))
       await resetUserDefaultUsageToOnboardingAllowanceBalance(userId, tx)
     }
     if (active) return active
@@ -307,7 +290,8 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
       continue
     }
 
-    await ensureDefaultUserSubscription(row.id)
+    const current = await ensureDefaultUserSubscription(row.id)
+    if (current.status === 'unpaid') continue
     await db
       .insert(userStats)
       .values({

@@ -12,7 +12,7 @@ const {
   mockIsSignInOAuthProviderId,
   mockGetSession,
   mockGetBillingTierById,
-  mockGetActiveSubscriptionForReference,
+  mockGetBillingSubscriptionForReference,
   mockHasPrivateBillingTierAccess,
   mockAuthorizeSubscriptionReference,
   mockGetStoredStripeUserCustomerId,
@@ -28,7 +28,7 @@ const {
   ),
   mockGetSession: vi.fn(),
   mockGetBillingTierById: vi.fn(),
-  mockGetActiveSubscriptionForReference: vi.fn(),
+  mockGetBillingSubscriptionForReference: vi.fn(),
   mockHasPrivateBillingTierAccess: vi.fn(),
   mockAuthorizeSubscriptionReference: vi.fn(),
   mockGetStoredStripeUserCustomerId: vi.fn(),
@@ -64,8 +64,8 @@ vi.mock('@/lib/billing/private-tier-access', () => ({
 }))
 
 vi.mock('@/lib/billing/core/subscription', () => ({
-  getActiveSubscriptionForReference: (...args: unknown[]) =>
-    mockGetActiveSubscriptionForReference(...args),
+  getBillingSubscriptionForReference: (...args: unknown[]) =>
+    mockGetBillingSubscriptionForReference(...args),
 }))
 
 vi.mock('@/lib/billing/authorization', () => ({
@@ -125,7 +125,7 @@ describe('/api/auth/[...all] route', () => {
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetStoredStripeUserCustomerId.mockResolvedValue('cus_user_123')
     mockHasPrivateBillingTierAccess.mockResolvedValue(false)
-    mockGetActiveSubscriptionForReference.mockResolvedValue({
+    mockGetBillingSubscriptionForReference.mockResolvedValue({
       status: 'active',
       stripeSubscriptionId: null,
       tier: { id: 'default' },
@@ -246,7 +246,7 @@ describe('/api/auth/[...all] route', () => {
       isPublic: true,
       ownerType: 'user',
     })
-    mockGetActiveSubscriptionForReference.mockResolvedValue(null)
+    mockGetBillingSubscriptionForReference.mockResolvedValue(null)
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
       new Request('http://localhost/api/auth/subscription/upgrade', {
@@ -260,7 +260,7 @@ describe('/api/auth/[...all] route', () => {
 
   it('requires the plan-change Portal catalog for the subject existing subscription', async () => {
     mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
-    mockGetActiveSubscriptionForReference.mockResolvedValue({
+    mockGetBillingSubscriptionForReference.mockResolvedValue({
       status: 'active',
       stripeCustomerId: 'cus_user_123',
       stripeSubscriptionId: 'sub_existing',
@@ -284,7 +284,7 @@ describe('/api/auth/[...all] route', () => {
     )
 
     expect(response.status).toBe(204)
-    expect(mockGetActiveSubscriptionForReference).toHaveBeenCalledWith({
+    expect(mockGetBillingSubscriptionForReference).toHaveBeenCalledWith({
       referenceType: 'user',
       referenceId: 'user-1',
     })
@@ -303,7 +303,7 @@ describe('/api/auth/[...all] route', () => {
       isPublic: true,
       ownerType: 'user',
     })
-    mockGetActiveSubscriptionForReference.mockResolvedValue({
+    mockGetBillingSubscriptionForReference.mockResolvedValue({
       status: 'active',
       stripeSubscriptionId: 'sub_current',
     })
@@ -331,7 +331,7 @@ describe('/api/auth/[...all] route', () => {
       isPublic: true,
       ownerType: 'user',
     })
-    mockGetActiveSubscriptionForReference.mockResolvedValue({
+    mockGetBillingSubscriptionForReference.mockResolvedValue({
       status: 'active',
       stripeCustomerId: 'cus_other_user',
       stripeSubscriptionId: 'sub_current',
@@ -353,33 +353,36 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
-  it('does not create a second subscription while the subject subscription is past due', async () => {
-    mockGetBillingTierById.mockResolvedValue({
-      id: 'public-tier',
-      status: 'active',
-      isPublic: true,
-      ownerType: 'user',
-    })
-    mockGetActiveSubscriptionForReference.mockResolvedValue({
-      status: 'past_due',
-      stripeSubscriptionId: 'sub_past_due',
-    })
-
-    const { handleAuthRequest } = await import('./route')
-    const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/subscription/upgrade', {
-        method: 'POST',
-        body: JSON.stringify({
-          plan: 'public-tier',
-          referenceId: 'user-1',
-        }),
+  it.each(['past_due', 'unpaid'])(
+    'rejects a second subscription while the current one is %s',
+    async (status) => {
+      mockGetBillingTierById.mockResolvedValue({
+        id: 'public-tier',
+        status: 'active',
+        isPublic: true,
+        ownerType: 'user',
       })
-    )
+      mockGetBillingSubscriptionForReference.mockResolvedValue({
+        status,
+        stripeSubscriptionId: 'sub_current',
+      })
 
-    expect(response.status).toBe(409)
-    expect(mockEnsurePlanChangePortalConfiguration).not.toHaveBeenCalled()
-    expect(mockAuthHandler).not.toHaveBeenCalled()
-  })
+      const { handleAuthRequest } = await import('./route')
+      const response = await handleAuthRequest(
+        new Request('http://localhost/api/auth/subscription/upgrade', {
+          method: 'POST',
+          body: JSON.stringify({
+            plan: 'public-tier',
+            referenceId: 'user-1',
+          }),
+        })
+      )
+
+      expect(response.status).toBe(409)
+      expect(mockEnsurePlanChangePortalConfiguration).not.toHaveBeenCalled()
+      expect(mockAuthHandler).not.toHaveBeenCalled()
+    }
+  )
 
   it.each([
     {
@@ -491,7 +494,7 @@ describe('/api/auth/[...all] route', () => {
       seatCount: 2,
       seatMaximum: null,
     })
-    mockGetActiveSubscriptionForReference.mockResolvedValue({
+    mockGetBillingSubscriptionForReference.mockResolvedValue({
       status: 'active',
       stripeCustomerId: 'cus_user_123',
       stripeSubscriptionId: 'sub_current',
@@ -530,7 +533,7 @@ describe('/api/auth/[...all] route', () => {
       seatCount: 2,
       seatMaximum: 10,
     })
-    mockGetActiveSubscriptionForReference.mockResolvedValue({
+    mockGetBillingSubscriptionForReference.mockResolvedValue({
       status: 'active',
       stripeCustomerId: 'cus_user_123',
       stripeSubscriptionId: 'sub_current',

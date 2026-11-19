@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
       billingData = {
         ...summary,
         billingEnabled: billingGate.billingEnabled,
-        billingBlocked: stats.length > 0 ? !!stats[0].blocked : false,
+        billingBlocked: summary.status === 'unpaid' || !!stats[0]?.blocked,
         hasPaymentMethodOnFile,
       }
     } else {

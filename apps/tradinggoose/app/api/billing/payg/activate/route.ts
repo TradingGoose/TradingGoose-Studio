@@ -85,7 +85,10 @@ export async function POST() {
 
       const currentSubscription = await ensureDefaultUserSubscription(session.user.id, tx)
 
-      if (!isActivatablePersonalPaygTier(currentSubscription.tier)) {
+      if (
+        currentSubscription.status === 'unpaid' ||
+        !isActivatablePersonalPaygTier(currentSubscription.tier)
+      ) {
         return NextResponse.json(
           { error: 'Current billing tier is not an inactive personal pay-as-you-go tier' },
           { status: 409 }

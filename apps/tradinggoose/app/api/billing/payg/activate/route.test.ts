@@ -358,6 +358,15 @@ describe('/api/billing/payg/activate route', () => {
     expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
   })
 
+  it('requires payment resolution before activating an unpaid Stripe account', async () => {
+    mockEnsureDefaultUserSubscription.mockResolvedValue(
+      buildCurrentSubscription({ stripeSubscriptionId: 'sub_existing', status: 'unpaid' })
+    )
+    const { POST } = await import('./route')
+    expect((await POST()).status).toBe(409)
+    expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
+  })
+
   it('uses the shared personal Stripe customer contract before requiring a default payment method', async () => {
     mockEnsureStripeUserCustomer.mockResolvedValueOnce(null)
 
