@@ -325,15 +325,17 @@ async function updatePaymentBlock(sub: SubscriptionWithTier, invoiceId: string, 
     const closed = hasClosedLedger(row)
     const metadata = row.metadata as BillingMetadata | null
     const debts = new Set(metadata?.blockedInvoices)
-    if ((failed && closed) || debts.has(invoiceId) === failed) return closed
-    if (failed) {
-      // Stripe may deliver the failure after payment succeeded. Check while holding the
-      // same lock as the success handler so a stale event cannot recreate a paid debt.
-      const invoice = await requireStripeClient().invoices.retrieve(invoiceId)
-      if (invoice.status === 'paid') return
-      debts.add(invoiceId)
+    if (!failed && !debts.has(invoiceId)) return
+
+    // Stripe can deliver a stale failure after an invoice was paid or voided.
+    const invoice = await requireStripeClient().invoices.retrieve(invoiceId)
+    const resolved = invoice.status === 'paid' || invoice.status === 'void'
+    if (resolved) {
+      if (!debts.delete(invoiceId)) return
     } else {
-      debts.delete(invoiceId)
+      if (!failed) return
+      if (closed || debts.has(invoiceId)) return closed
+      debts.add(invoiceId)
     }
     await tx
       .update(subscription)
@@ -357,12 +359,11 @@ async function updatePaymentBlock(sub: SubscriptionWithTier, invoiceId: string, 
         .set({ billingBlocked: blocked })
         .where(eq(userStats.userId, sub.referenceId))
     }
-    if (!blocked && !closed) await resetUsageForSubscription(sub, tx)
-    return closed
+    if (!resolved) return closed
   })
 }
 
-export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
+export async function handleInvoiceResolved(event: Stripe.Event) {
   const invoice = event.data.object as Stripe.Invoice
   const id = getInvoiceSubscriptionId(invoice)
   if (!id) return

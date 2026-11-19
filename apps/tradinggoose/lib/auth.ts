@@ -38,7 +38,7 @@ import { handleManualEnterpriseSubscription } from '@/lib/billing/webhooks/enter
 import {
   handleInvoiceFinalized,
   handleInvoicePaymentFailed,
-  handleInvoicePaymentSucceeded,
+  handleInvoiceResolved,
 } from '@/lib/billing/webhooks/invoices'
 import {
   handleStripeSubscriptionDeleted,
@@ -1758,8 +1758,9 @@ export const auth = betterAuth({
 
         try {
           switch (event.type) {
-            case 'invoice.payment_succeeded': {
-              await handleInvoicePaymentSucceeded(event)
+            case 'invoice.paid':
+            case 'invoice.voided': {
+              await handleInvoiceResolved(event)
               break
             }
             case 'invoice.payment_failed': {

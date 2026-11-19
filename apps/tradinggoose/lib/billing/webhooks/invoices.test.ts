@@ -15,7 +15,7 @@ import type { BillingTierRecord } from '@/lib/billing/tiers'
 import {
   handleInvoiceFinalized,
   handleInvoicePaymentFailed,
-  handleInvoicePaymentSucceeded,
+  handleInvoiceResolved,
   lockBilledOverage,
 } from './invoices'
 import type { BillingMetadata } from './overage'
@@ -123,6 +123,7 @@ function mockSubscriptions(...rows: ReturnType<typeof subscriptionRow>[]) {
 beforeEach(() => {
   vi.resetAllMocks()
   db.transaction.mockImplementation((operation) => operation(tx))
+  stripe.invoices.retrieve.mockResolvedValue({ status: 'open' })
   stripe.customers.retrieve.mockResolvedValue({ invoice_settings: {} })
   sendEmail.mockResolvedValue({ success: true })
 })
@@ -175,7 +176,7 @@ describe('invoice-specific billing blocks', () => {
   it('ignores a delayed first failure after the invoice was paid without a local block', async () => {
     mockSubscriptions(subscriptionRow('user'))
     const event = invoiceEvent()
-    await handleInvoicePaymentSucceeded(event)
+    await handleInvoiceResolved(event)
     stripe.invoices.retrieve.mockResolvedValue({ status: 'paid' })
     await handleInvoicePaymentFailed(event)
     expect(stripe.invoices.retrieve).toHaveBeenCalledExactlyOnceWith('in_final')
@@ -185,41 +186,58 @@ describe('invoice-specific billing blocks', () => {
   })
 
   it.each(['user', 'organization'] as const)(
-    'clears only the paid %s debt after cancellation',
+    'resolving an overage preserves %s usage and clears only its own debt',
     async (ownerType) => {
       const original = subscriptionRow(ownerType)
       const replacement = {
         ...subscriptionRow(ownerType, 'active', { blockedInvoices: ['in_new'] }),
-        id: 'new-sub',
+        id: 'replacement',
+        stripeSubscriptionId: 'sub_new',
       }
       mockSubscriptions(original, replacement)
-      stripe.invoices.retrieve.mockResolvedValue({ status: 'open' })
-      const ledger = ownerType === 'user' ? userStats : organizationBillingLedger
-      const writes: Record<string, unknown>[] = []
+      const balance = {
+        billingBlocked: true,
+        currentPeriodCost: '21',
+        billedOverageThisPeriod: '4',
+      }
       tx.update.mockImplementation((table) => ({
         set: (values: { metadata?: BillingMetadata; billingBlocked?: boolean }) => ({
           where: () => {
             if (table === subscription) original.metadata = values.metadata!
             else {
-              expect(table).toBe(ledger)
-              writes.push(values)
+              expect(table).toBe(ownerType === 'user' ? userStats : organizationBillingLedger)
+              Object.assign(balance, values)
             }
           },
         }),
       }))
       await handleInvoicePaymentFailed(invoiceEvent({ attempt_count: 2 }))
       expect(original.metadata.blockedInvoices).toEqual(['in_final'])
-      original.status = 'canceled'
-      await handleInvoicePaymentSucceeded(invoiceEvent({ id: 'in_unrelated' }))
-      expect(writes).toHaveLength(1)
-      await handleInvoicePaymentSucceeded(invoiceEvent())
+      stripe.invoices.retrieve.mockResolvedValue({ status: 'paid' })
+      await handleInvoiceResolved(invoiceEvent())
       expect(original.metadata.blockedInvoices).toEqual([])
-      expect(writes[1].billingBlocked).toBe(true)
-      original.metadata.blockedInvoices = ['in_other']
+      expect(balance.billingBlocked).toBe(true)
+      original.metadata.blockedInvoices = ['in_old']
       replacement.metadata.blockedInvoices = []
-      await handleInvoicePaymentSucceeded(invoiceEvent({ id: 'in_other' }))
-      expect(writes[2]).toMatchObject({ billingBlocked: false })
-      expect(writes.every((values) => !('currentPeriodCost' in values))).toBe(true)
+      await handleInvoiceResolved(invoiceEvent({ id: 'in_old' }))
+      expect(balance).toMatchObject({
+        billingBlocked: false,
+        currentPeriodCost: '21',
+        billedOverageThisPeriod: '4',
+      })
+
+      original.status = 'canceled'
+      original.metadata.blockedInvoices = ['in_void']
+      balance.billingBlocked = true
+      stripe.invoices.retrieve.mockResolvedValue({ status: 'void' })
+      await handleInvoiceResolved(invoiceEvent({ id: 'in_void' }))
+      await handleInvoicePaymentFailed(invoiceEvent({ id: 'in_void' }))
+      expect(balance).toMatchObject({
+        billingBlocked: false,
+        currentPeriodCost: '21',
+        billedOverageThisPeriod: '4',
+      })
+      expect(sendEmail).not.toHaveBeenCalled()
     }
   )
 })

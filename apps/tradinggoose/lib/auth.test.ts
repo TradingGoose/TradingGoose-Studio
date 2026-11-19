@@ -2,7 +2,9 @@ import { type BetterAuthOptions, betterAuth, getAuthStateVerificationIdentifier 
 import { memoryAdapter } from 'better-auth/adapters/memory'
 import { applySetCookies } from 'better-auth/cookies'
 import { testUtils } from 'better-auth/plugins'
+import type Stripe from 'stripe'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import * as invoices from '@/lib/billing/webhooks/invoices'
 
 const { registerClient } = vi.hoisted(() => ({ registerClient: vi.fn() }))
 
@@ -47,6 +49,20 @@ it('keeps first Checkout and incomplete attempts available while protecting the 
     status: 'CONFLICT',
   })
 })
+
+it.each(['invoice.paid', 'invoice.voided'] as const)(
+  'reconciles the billing block on %s',
+  async (type) => {
+    const handler = vi.spyOn(invoices, 'handleInvoiceResolved').mockResolvedValue()
+    try {
+      const event = { id: 'evt_resolved', type } as Stripe.Event
+      await auth.options.plugins.find((plugin) => plugin.id === 'stripe')!.options.onEvent(event)
+      expect(handler).toHaveBeenCalledExactlyOnceWith(event)
+    } finally {
+      handler.mockRestore()
+    }
+  }
+)
 
 async function setupLink(databaseHooks?: BetterAuthOptions['databaseHooks']) {
   const service = betterAuth({
