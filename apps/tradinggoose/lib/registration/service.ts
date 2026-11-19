@@ -6,8 +6,8 @@ import {
   renderWaitlistApprovedEmail,
   renderWaitlistConfirmationEmail,
 } from '@/components/emails/render-email'
-import { type EmailOptions, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
 import { normalizeEmailLocale } from '@/lib/email/locale'
+import { type EmailOptions, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
