@@ -3,7 +3,7 @@
 ## Ground rules
 - Do not use the pacakge "server-only" in the project.
 - Do not edit any `*/migration/*` files; they are auto-generated.
-- Each branch can generate at most 1 db migration file, remove existing migration file and re-generate to keep the branch intact.
+- Each branch can generate at most 1 db migration file wihtout editing or modifying existing migration files, replace branch introduced migration file and re-generate to keep the branch intact.
 - Do not add legacy support; updates should be clean and avoid extra project complexity.
 - We do not need any form of legacy support as the project is under fresh dev, do not add any form of legacy backfill path
 - This project does not support any legacy methods.

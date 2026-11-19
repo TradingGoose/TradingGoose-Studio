@@ -1,5 +1,6 @@
 import { user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockSend = vi.fn()
@@ -384,11 +385,63 @@ describe('mailer', () => {
     it('leaves a reassigned verified address and its preferences with its new owner', async () => {
       vi.mocked(getEmailRecipient)
         .mockResolvedValueOnce(verifiedUser)
-        .mockResolvedValue({ ...recipient, id: 'other' })
+        .mockResolvedValueOnce({ ...recipient, id: 'other' })
+        .mockResolvedValue(verifiedUser)
       await addVerifiedUserEmailToAudience(verifiedUser, 'old@example.com')
 
       expect(mockContactsGet).toHaveBeenCalledExactlyOnceWith({ email: 'user@example.com' })
       expect(mockContactSegmentRemove).not.toHaveBeenCalled()
+    })
+
+    it('moves a late enrollment and its Resend opt-out to the latest verified address', async () => {
+      const old = 'old@example.com'
+      const intermediate = 'intermediate@example.com'
+      const latest = 'latest@example.com'
+      const contacts = new Map([[old, true]])
+      const members = new Set([old])
+      const dialect = new PgDialect()
+      let email = intermediate
+      vi.mocked(getEmailRecipient).mockImplementation(async (where) => {
+        const [key] = dialect.sqlToQuery(where).params
+        return key === recipient.id || key === email ? { ...recipient, email } : undefined
+      })
+      let finishEnrollment!: () => void
+      const enrollment = new Promise<void>((resolve) => {
+        finishEnrollment = resolve
+      })
+      mockContactsGet.mockImplementation(async ({ email }) => ({
+        data: contacts.has(email) ? { id: email, email, unsubscribed: contacts.get(email) } : null,
+        error: null,
+      }))
+      mockContactsCreate.mockImplementation(async ({ email, unsubscribed }) => {
+        if (email === intermediate) await enrollment
+        contacts.set(email, unsubscribed)
+        members.add(email)
+        return { error: null }
+      })
+      mockContactsUpdate.mockImplementation(async ({ id, unsubscribed }) => {
+        contacts.set(id, unsubscribed)
+        return { error: null }
+      })
+      mockContactSegmentAdd.mockImplementation(async ({ contactId }) => {
+        members.add(contactId)
+        return { error: null }
+      })
+      mockContactSegmentRemove.mockImplementation(async ({ contactId }) => {
+        members.delete(contactId)
+        return { error: null }
+      })
+
+      const firstSync = addVerifiedUserEmailToAudience(recipient, old)
+      await vi.waitFor(() => expect(mockContactsCreate).toHaveBeenCalledOnce())
+      email = latest
+      await addVerifiedUserEmailToAudience(recipient, intermediate)
+      finishEnrollment()
+      await firstSync
+
+      expect([...members]).toEqual([latest])
+      expect(contacts.get(latest)).toBe(true)
+      expect(mockLoggerWarn).not.toHaveBeenCalled()
     })
 
     it('logs contact enrollment failures without failing verification', async () => {

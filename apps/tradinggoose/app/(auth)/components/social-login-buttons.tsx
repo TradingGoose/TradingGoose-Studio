@@ -40,7 +40,7 @@ export function SocialLoginButtons({
   const errorCallbackURL = authRedirectUrls.providerErrorPath(resolvedCallbackURL)
 
   function resolveSocialErrorMessage(providerLabel: string, err: any) {
-    const errorText = [err?.code, err?.message].filter(Boolean).join(' ').toLowerCase()
+    const errorText = [err?.code, err?.message].join(' ').replaceAll('_', ' ').toLowerCase()
 
     if (errorText.includes('account exists') || errorText.includes('already exists')) {
       return copy.auth.signup.errors.accountExists

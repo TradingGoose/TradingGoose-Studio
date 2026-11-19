@@ -60,7 +60,7 @@ export async function uploadImage(
 
   const body = new FormData()
   body.append('file', file)
-  const response = await fetch('/api/files/upload', { method: 'POST', body })
+  const response = await fetch(`/api/files/upload?type=${context}`, { method: 'POST', body })
   if (!response.ok) {
     const data = await response.json().catch(() => ({ error: response.statusText }))
     throw new Error(data.error || `Failed to upload file: ${response.status}`)

@@ -90,6 +90,7 @@ export function SSO() {
   useEffect(() => {
     const scope = {}
     organizationScope.current = scope
+    setFormData(INITIAL_FORM_DATA)
     setDomainTokens({})
     setError(null)
     setIsLoading(false)

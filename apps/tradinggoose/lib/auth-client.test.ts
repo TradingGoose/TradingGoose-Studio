@@ -59,10 +59,6 @@ afterEach(async () => {
   vi.unstubAllGlobals()
 })
 
-async function settle() {
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 20)))
-}
-
 describe('native auth client session', () => {
   it('uses the browser origin for same-origin auth requests', async () => {
     const fetch = vi.fn().mockResolvedValue(Response.json(null))
@@ -97,13 +93,11 @@ describe('native auth client session', () => {
     await act(async () =>
       root.render(createElement('div', null, createElement(Consumer), createElement(Consumer)))
     )
-    await settle()
-    expect(container.textContent).toBe('Original nameOriginal name')
+    await vi.waitFor(() => expect(container.textContent).toBe('Original nameOriginal name'))
     await act(async () => {
       await client.updateUser({ name: 'Chosen name' })
     })
-    await settle()
-    expect(container.textContent).toBe('Chosen nameChosen name')
+    await vi.waitFor(() => expect(container.textContent).toBe('Chosen nameChosen name'))
     failRefresh = true
     await act(async () => {
       await session.refetch()
@@ -143,7 +137,6 @@ describe('PostHog session identity', () => {
     await act(async () =>
       root.render(createElement(PostHogProvider, null, createElement(Consumer)))
     )
-    await settle()
     return () => session
   }
 
@@ -153,8 +146,8 @@ describe('PostHog session identity', () => {
       vi.fn(async () => sessionResponse(null))
     )
     const session = await mount()
+    await vi.waitFor(() => expect(session().isPending).toBe(false))
     await act(async () => session().refetch())
-    await settle()
     expect(analytics.identify).not.toHaveBeenCalled()
     expect(analytics.reset).not.toHaveBeenCalled()
     expect(identity).toEqual({
@@ -180,15 +173,14 @@ describe('PostHog session identity', () => {
         .mockImplementation(async () => sessionResponse(null))
     )
     const session = await mount()
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
     expect(session().isPending).toBe(true)
     expect(analytics.reset).not.toHaveBeenCalled()
     expect(analytics.identify).not.toHaveBeenCalled()
     await act(async () => finish(sessionResponse(null)))
-    await settle()
-    expect(analytics.reset).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(analytics.reset).toHaveBeenCalledOnce())
     expect(identity.state).toBe('anonymous')
     await act(async () => session().refetch())
-    await settle()
     expect(analytics.reset).toHaveBeenCalledOnce()
   })
 
@@ -199,18 +191,18 @@ describe('PostHog session identity', () => {
       vi.fn(async () => sessionResponse(profile))
     )
     const session = await mount()
-    expect(analytics.identify).toHaveBeenCalledWith(
-      user.id,
-      expect.objectContaining({ email: user.email, name: user.name })
+    await vi.waitFor(() =>
+      expect(analytics.identify).toHaveBeenCalledWith(
+        user.id,
+        expect.objectContaining({ email: user.email, name: user.name })
+      )
     )
     expect(analytics.reset).not.toHaveBeenCalled()
     profile = null
     await act(async () => session().refetch())
-    await settle()
-    expect(analytics.reset).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(analytics.reset).toHaveBeenCalledOnce())
     expect(identity.state).toBe('anonymous')
     await act(async () => session().refetch())
-    await settle()
     expect(analytics.reset).toHaveBeenCalledOnce()
   })
 })

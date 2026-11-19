@@ -37,7 +37,7 @@ function AccountSettingsForm({ sessionUser }: { sessionUser?: SessionUser }) {
   const sessionEmail = sessionUser?.email ?? ''
   const [confirmedProfile, setConfirmedProfile] = useState<{
     name?: string
-    email?: { previous: string; value: string }
+    email?: { superseded: string[]; value: string }
     image?: string
     displayUsername?: string
   }>({})
@@ -46,7 +46,9 @@ function AccountSettingsForm({ sessionUser }: { sessionUser?: SessionUser }) {
   for (const field of fields) {
     const acknowledged =
       field === 'email'
-        ? sessionEmail && sessionEmail !== pending.email?.previous
+        ? sessionEmail &&
+          (sessionEmail === pending.email?.value ||
+            !pending.email?.superseded.includes(sessionEmail))
         : pending[field] === sessionUser?.[field]
     if (acknowledged) delete pending[field]
   }
@@ -509,7 +511,12 @@ function AccountSettingsForm({ sessionUser }: { sessionUser?: SessionUser }) {
                 <ChangeEmailForm
                   email={email}
                   onEmailChanged={(value) =>
-                    confirmProfile({ email: { previous: sessionEmail, value } })
+                    confirmProfile({
+                      email: {
+                        superseded: [...(confirmedProfile.email?.superseded ?? []), email],
+                        value,
+                      },
+                    })
                   }
                 />
                 <p className='text-muted-foreground text-xs'>{tAccount('emailHint')}</p>
