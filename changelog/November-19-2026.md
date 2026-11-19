@@ -41,11 +41,19 @@
 
 #### Better Auth 1.7.26 account rollout
 
-Unsubscribe links now identify the recipient by account ID, email address, and mailing list. Address-only links issued before deployment will be rejected. HubSpot setup instructions in Studio and the localized docs use `/api/auth/callback/hubspot`; register that redirect URI on the existing HubSpot app before deployment. Ship the session-backed user menu in `review/reset-email-navbar` with profile editing.
+Unsubscribe links now identify the recipient by account ID, email address, and mailing list. Address-only links issued before deployment will be rejected. HubSpot setup instructions in Studio and the localized docs use `/api/auth/callback/hubspot`; register that redirect URI on the existing HubSpot app before deployment. The user menu reads the saved name and avatar from the Better Auth session, including in browsers that previously cached a profile.
+
+Signup, unverified login, and verification resend use Better Auth’s verification sender. Anonymous requests for an existing verified address receive the generic success response without issuing a password-reset code. OTP password recovery keeps linked accounts and workflow credentials. Public OTP sign-in serves existing accounts. Email registration requires a chosen username.
+
+Enabling `EMAIL_VERIFICATION_ENABLED` requires mailbox verification at the next password sign-in for any account with an unverified email, including previously admitted accounts. Studio has no stored distinction between those accounts and incomplete signups. [Better Auth email verification](https://better-auth.com/docs/authentication/email-password#require-email-verification)
+
+Studio applies its marketing preferences to the configured Resend segment. Provider failures or overlapping address changes can leave membership stale. Opening the unsubscribe header link in a browser displays the preferences page. Mail clients can submit a one-click POST to the same URI.
 
 **Accepted for this release.** Studio uses Better Auth’s native single-use password-reset links. A link issued before an email change can still reset the same account until its original one-hour expiry. New reset requests for that account use its current address. [Better Auth 1.7.26 reset implementation](https://github.com/better-auth/better-auth/blob/v1.7.26/packages/better-auth/src/api/routes/password.ts)
 
 **Open OTP finding.** During Studio’s 15-minute code lifetime, a password-reset code can apply to a different account that acquires its address. A pending destination code can also complete after an intervening change of the account’s current email. Better Auth 1.7.26 checks the current mailbox when requesting a change and offers no setting to invalidate both kinds of code when ownership changes. [Better Auth email OTP implementation](https://github.com/better-auth/better-auth/blob/v1.7.26/packages/better-auth/src/plugins/email-otp/routes.ts)
+
+**Stripe billing email.** The Stripe plugin updates the customer after the account email changes. Overlapping updates can finish out of order, and a failed update can leave Stripe sending billing mail to the former address. The plugin logs a final failure and schedules no further attempt. [Better Auth Stripe implementation](https://github.com/better-auth/better-auth/blob/v1.7.26/packages/stripe/src/index.ts#L425-L465)
 
 #### OAuth callback cutover
 
