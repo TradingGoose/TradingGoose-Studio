@@ -290,7 +290,7 @@ describe('AccountSettings localization', () => {
         }
       )
       vi.mocked(global.fetch).mockImplementation(async (input) =>
-        uploadResponse && String(input) === '/api/files/upload'
+        uploadResponse && String(input) === '/api/files/upload?type=profile-pictures'
           ? uploadResponse
           : ({
               ok: true,
@@ -414,6 +414,10 @@ describe('AccountSettings localization', () => {
       })
       await render()
       await uploadImage()
+      expect(global.fetch).toHaveBeenCalledWith('/api/files/upload?type=profile-pictures', {
+        method: 'POST',
+        body: expect.any(FormData),
+      })
       expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({
         image: '/api/files/serve/new-avatar.png',
       })
@@ -860,8 +864,8 @@ describe('AccountSettings localization', () => {
         await flush()
       })
     }
-    async function start() {
-      await fill('#account-new-email', '  New@Example.com  ')
+    async function start(value = '  New@Example.com  ') {
+      await fill('#account-new-email', value)
       await press(copy.sendCode)
     }
     async function verifyCurrent() {
@@ -915,6 +919,26 @@ describe('AccountSettings localization', () => {
       expect(invalidate).toHaveBeenCalledWith({ queryKey: workspaceKeys.all })
       expect(container.textContent).toContain(copy.success)
       expect(container.querySelector('form')).toBeNull()
+    })
+
+    it('keeps the latest confirmed email until the session catches up with both changes', async () => {
+      for (const value of ['new@example.com', 'latest@example.com']) {
+        await openEmailEditor()
+        await start(value)
+        await verifyCurrent()
+        await fill('#account-email-code', '222222')
+        await press(copy.confirm)
+      }
+
+      changeSession({ email: 'new@example.com' })
+      await render()
+      expect(container.textContent).toContain('latest@example.com')
+      changeSession({ email: 'latest@example.com' })
+      await render()
+      expect(container.textContent).toContain('latest@example.com')
+      changeSession({ email: 'new@example.com' })
+      await render()
+      expect(container.textContent).toContain('new@example.com')
     })
 
     it('restarts current-mailbox proof to resend the new-mailbox code while retaining its target', async () => {
