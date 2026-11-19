@@ -207,6 +207,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
 
       const emailResult = await sendEmail({
         to: user.email,
+        userId: user.id,
         subject: getEmailSubject('enterprise-subscription', locale),
         html,
         emailType: 'transactional',

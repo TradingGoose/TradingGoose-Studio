@@ -147,13 +147,11 @@ describe('registration service waitlist approvals', () => {
     expect(mockSendBatchEmails).toHaveBeenCalledTimes(1)
     expect(mockSendBatchEmails).toHaveBeenCalledWith([
       {
-        emailType: 'transactional',
         html: '<p>alpha@example.com:https://app.tradinggoose.ai/es/signup?email=alpha%40example.com</p>',
         subject: 'Your TradingGoose access request was approved',
         to: 'alpha@example.com',
       },
       {
-        emailType: 'transactional',
         html: '<p>beta@example.com:https://app.tradinggoose.ai/zh/signup?email=beta%40example.com</p>',
         subject: 'Your TradingGoose access request was approved',
         to: 'beta@example.com',

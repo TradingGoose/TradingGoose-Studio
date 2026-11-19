@@ -288,7 +288,6 @@ async function createWaitlistApprovalEmail(
       to: email,
       subject: getEmailSubject('waitlist-approved', locale),
       html: await renderWaitlistApprovedEmail(email, signupLink, locale),
-      emailType: 'transactional',
     }
   } catch (error) {
     logger.error('Failed to render waitlist approval email', {

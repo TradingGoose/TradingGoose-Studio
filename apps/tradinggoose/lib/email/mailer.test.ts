@@ -1,3 +1,5 @@
+import { user } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockSend = vi.fn()
@@ -173,6 +175,7 @@ describe('mailer', () => {
       const result = await sendEmail({
         ...testEmailOptions,
         emailType: 'marketing',
+        userId: recipient.id,
         html: async (url) => `<a href="${url}">Unsubscribe</a>`,
       })
 
@@ -182,7 +185,10 @@ describe('mailer', () => {
       expect(isUnsubscribed).toHaveBeenCalledWith(recipient.preferences, 'marketing')
 
       // Should generate unsubscribe token
-      expect(generateUnsubscribeToken).toHaveBeenCalledWith(recipient, 'marketing')
+      expect(generateUnsubscribeToken).toHaveBeenCalledWith(
+        { id: recipient.id, email: recipient.email },
+        'marketing'
+      )
 
       // Should call Resend with unsubscribe headers
       expect(mockSend).toHaveBeenCalledWith({
@@ -204,6 +210,7 @@ describe('mailer', () => {
       const result = await sendEmail({
         ...testEmailOptions,
         emailType: 'marketing',
+        userId: recipient.id,
         html: async (url) => `<a href="${url}">Unsubscribe</a>`,
       })
 
@@ -212,6 +219,26 @@ describe('mailer', () => {
 
       // Should not call Resend
       expect(mockSend).not.toHaveBeenCalled()
+    })
+
+    it('checks the intended account’s current address after rendering a billing notification', async () => {
+      const result = await sendEmail({
+        ...testEmailOptions,
+        userId: recipient.id,
+        emailType: 'notifications',
+        html: async () => {
+          vi.mocked(getEmailRecipient).mockResolvedValueOnce({
+            ...recipient,
+            email: 'new@example.com',
+          })
+          return '<p>Usage details</p>'
+        },
+      })
+
+      expect(result.success).toBe(false)
+      expect(getEmailRecipient).toHaveBeenCalledExactlyOnceWith(eq(user.id, recipient.id))
+      expect(mockSend).not.toHaveBeenCalled()
+      expect(mockAzureBeginSend).not.toHaveBeenCalled()
     })
 
     it('reports unavailable delivery without logging the verification code', async () => {
