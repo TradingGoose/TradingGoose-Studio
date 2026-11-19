@@ -58,12 +58,12 @@ export async function getEmailRecipient(where: SQL, tx?: Transaction) {
 }
 
 export async function unsubscribeFromList(
-  tx: Transaction,
+  database: Pick<typeof db, 'insert'>,
   userId: string,
   list: UnsubscribeAction
 ) {
   const preferences = { [preferenceKeys[list]]: true }
-  await tx
+  await database
     .insert(settings)
     .values({ id: userId, userId, emailPreferences: preferences })
     .onConflictDoUpdate({

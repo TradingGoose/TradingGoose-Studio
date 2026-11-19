@@ -1,13 +1,11 @@
 import { user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockSend = vi.fn()
 const mockBatchSend = vi.fn()
 const mockContactsCreate = vi.fn()
 const mockContactsGet = vi.fn()
-const mockContactsUpdate = vi.fn()
 const mockContactSegmentAdd = vi.fn()
 const mockContactSegmentRemove = vi.fn()
 const mockAzureBeginSend = vi.fn()
@@ -40,7 +38,6 @@ vi.mock('resend', () => {
         contacts: {
           create: (...args: any[]) => mockContactsCreate(...args),
           get: (...args: any[]) => mockContactsGet(...args),
-          update: (...args: any[]) => mockContactsUpdate(...args),
           segments: { add: mockContactSegmentAdd, remove: mockContactSegmentRemove },
         },
       }
@@ -62,6 +59,7 @@ vi.mock('@azure/communication-email', () => {
 vi.mock('@/lib/email/unsubscribe', () => ({
   isUnsubscribed: vi.fn(),
   generateUnsubscribeToken: vi.fn(),
+  unsubscribeFromList: vi.fn(),
   getEmailRecipient: vi.fn(),
 }))
 
@@ -91,6 +89,7 @@ import {
   generateUnsubscribeToken,
   getEmailRecipient,
   isUnsubscribed,
+  unsubscribeFromList,
 } from '@/lib/email/unsubscribe'
 
 describe('mailer', () => {
@@ -137,7 +136,6 @@ describe('mailer', () => {
       headers: null,
     })
     mockContactsGet.mockResolvedValue({ data: null, error: { statusCode: 404 } })
-    mockContactsUpdate.mockResolvedValue({ error: null })
     mockContactSegmentAdd.mockResolvedValue({ error: null })
     mockContactSegmentRemove.mockResolvedValue({ error: null })
 
@@ -295,163 +293,87 @@ describe('mailer', () => {
   })
 
   describe('addVerifiedUserEmailToAudience', () => {
-    const verifiedUser = { ...recipient, email: ' User@Example.com ' }
-
-    beforeEach(() => {
-      vi.mocked(getEmailRecipient).mockResolvedValue(verifiedUser)
-    })
+    const old = 'old@example.com'
+    const segmentId = 'audience-123'
 
     it('does nothing when the Resend audience is not configured', async () => {
-      mockResolveResendServiceConfig.mockResolvedValue({
-        apiKey: 'test-api-key',
-        audienceId: null,
-      })
-
-      await addVerifiedUserEmailToAudience(verifiedUser)
-
+      mockResolveResendServiceConfig.mockResolvedValue({ apiKey: 'test-api-key', audienceId: null })
+      await addVerifiedUserEmailToAudience(recipient)
       expect(mockContactsGet).not.toHaveBeenCalled()
     })
 
     it('does not enroll an unverified address', async () => {
-      vi.mocked(getEmailRecipient).mockResolvedValue({ ...verifiedUser, emailVerified: false })
-
-      await addVerifiedUserEmailToAudience(verifiedUser)
-
+      vi.mocked(getEmailRecipient).mockResolvedValue({ ...recipient, emailVerified: false })
+      await addVerifiedUserEmailToAudience(recipient)
       expect(mockContactsGet).not.toHaveBeenCalled()
     })
 
-    it.each([false, true])(
-      'enrolls the normalized verified address with marketing opt-out %s',
-      async (unsubscribed) => {
-        vi.mocked(isUnsubscribed).mockReturnValue(unsubscribed)
-
-        await addVerifiedUserEmailToAudience(verifiedUser)
-
-        expect(mockContactsCreate).toHaveBeenCalledExactlyOnceWith({
-          email: 'user@example.com',
-          unsubscribed,
-          segments: [{ id: 'audience-123' }],
-        })
-      }
-    )
-
-    it.each([
-      [true, false],
-      [false, true],
-    ])('preserves opt-outs for an existing contact (%s, %s)', async (appOptOut, existingOptOut) => {
-      vi.mocked(isUnsubscribed).mockReturnValue(appOptOut)
-      mockContactsGet.mockResolvedValueOnce({
-        data: { id: 'existing-contact', unsubscribed: existingOptOut },
-        error: null,
-      })
-
-      await addVerifiedUserEmailToAudience(verifiedUser)
-
-      expect(mockContactsCreate).not.toHaveBeenCalled()
-      if (appOptOut) {
-        expect(mockContactsUpdate).toHaveBeenCalledExactlyOnceWith({
-          id: 'existing-contact',
-          unsubscribed: true,
-        })
-      } else {
-        expect(mockContactsUpdate).not.toHaveBeenCalled()
-      }
-      expect(mockContactSegmentAdd).toHaveBeenCalledExactlyOnceWith({
-        contactId: 'existing-contact',
-        segmentId: 'audience-123',
-      })
-    })
-
-    it('carries the previous contact’s Resend opt-out and removes only its Studio segment', async () => {
-      vi.mocked(getEmailRecipient).mockResolvedValueOnce(verifiedUser).mockResolvedValue(undefined)
-      mockContactsGet.mockResolvedValueOnce({
-        data: { id: 'old', email: 'old@example.com', unsubscribed: true },
-        error: null,
-      })
-
-      await addVerifiedUserEmailToAudience(verifiedUser, 'old@example.com')
-
-      expect(mockContactsCreate).toHaveBeenCalledWith({
-        email: 'user@example.com',
-        unsubscribed: true,
-        segments: [{ id: 'audience-123' }],
-      })
-      expect(mockContactSegmentRemove).toHaveBeenCalledWith({
-        contactId: 'old',
-        segmentId: 'audience-123',
-      })
-    })
-
-    it('leaves a reassigned verified address and its preferences with its new owner', async () => {
+    it('moves a verified address between Studio segment memberships', async () => {
       vi.mocked(getEmailRecipient)
-        .mockResolvedValueOnce(verifiedUser)
-        .mockResolvedValueOnce({ ...recipient, id: 'other' })
-        .mockResolvedValue(verifiedUser)
-      await addVerifiedUserEmailToAudience(verifiedUser, 'old@example.com')
+        .mockResolvedValueOnce({ ...recipient, email: ' Test@Example.com ' })
+        .mockResolvedValueOnce(undefined)
+      mockContactsGet.mockResolvedValueOnce({ data: { id: old, unsubscribed: false }, error: null })
 
-      expect(mockContactsGet).toHaveBeenCalledExactlyOnceWith({ email: 'user@example.com' })
-      expect(mockContactSegmentRemove).not.toHaveBeenCalled()
+      await addVerifiedUserEmailToAudience(recipient, old)
+      expect(mockContactSegmentRemove).toHaveBeenCalledExactlyOnceWith({ email: old, segmentId })
+      expect(mockContactsCreate).toHaveBeenCalledExactlyOnceWith({
+        email: recipient.email,
+        segments: [{ id: segmentId }],
+      })
     })
 
-    it('moves a late enrollment and its Resend opt-out to the latest verified address', async () => {
-      const old = 'old@example.com'
-      const intermediate = 'intermediate@example.com'
-      const latest = 'latest@example.com'
-      const contacts = new Map([[old, true]])
-      const members = new Set([old])
-      const dialect = new PgDialect()
-      let email = intermediate
-      vi.mocked(getEmailRecipient).mockImplementation(async (where) => {
-        const [key] = dialect.sqlToQuery(where).params
-        return key === recipient.id || key === email ? { ...recipient, email } : undefined
-      })
-      let finishEnrollment!: () => void
-      const enrollment = new Promise<void>((resolve) => {
-        finishEnrollment = resolve
-      })
-      mockContactsGet.mockImplementation(async ({ email }) => ({
-        data: contacts.has(email) ? { id: email, email, unsubscribed: contacts.get(email) } : null,
+    it('preserves a global opt-out on the destination contact', async () => {
+      mockContactsGet.mockResolvedValueOnce({
+        data: { id: 'existing', unsubscribed: true },
         error: null,
-      }))
-      mockContactsCreate.mockImplementation(async ({ email, unsubscribed }) => {
-        if (email === intermediate) await enrollment
-        contacts.set(email, unsubscribed)
-        members.add(email)
-        return { error: null }
       })
-      mockContactsUpdate.mockImplementation(async ({ id, unsubscribed }) => {
-        contacts.set(id, unsubscribed)
-        return { error: null }
+      await addVerifiedUserEmailToAudience(recipient)
+      expect(mockContactSegmentAdd).toHaveBeenCalledExactlyOnceWith({
+        contactId: 'existing',
+        segmentId,
       })
-      mockContactSegmentAdd.mockImplementation(async ({ contactId }) => {
-        members.add(contactId)
-        return { error: null }
-      })
-      mockContactSegmentRemove.mockImplementation(async ({ contactId }) => {
-        members.delete(contactId)
-        return { error: null }
-      })
+      expect(mockContactsCreate).not.toHaveBeenCalled()
+    })
 
-      const firstSync = addVerifiedUserEmailToAudience(recipient, old)
-      await vi.waitFor(() => expect(mockContactsCreate).toHaveBeenCalledOnce())
-      email = latest
-      await addVerifiedUserEmailToAudience(recipient, intermediate)
-      finishEnrollment()
-      await firstSync
+    it('honors a Studio marketing opt-out by removing only the Studio segment', async () => {
+      vi.mocked(isUnsubscribed).mockReturnValue(true)
+      await addVerifiedUserEmailToAudience(recipient)
+      expect(mockContactSegmentRemove).toHaveBeenCalledExactlyOnceWith({
+        email: recipient.email,
+        segmentId,
+      })
+      expect(mockContactsCreate).not.toHaveBeenCalled()
+      expect(mockContactSegmentAdd).not.toHaveBeenCalled()
+    })
 
-      expect([...members]).toEqual([latest])
-      expect(contacts.get(latest)).toBe(true)
-      expect(mockLoggerWarn).not.toHaveBeenCalled()
+    it('keeps a previous Resend opt-out for the Studio account', async () => {
+      vi.mocked(getEmailRecipient).mockResolvedValueOnce(recipient).mockResolvedValueOnce(undefined)
+      mockContactsGet.mockResolvedValueOnce({ data: { id: old, unsubscribed: true }, error: null })
+
+      await addVerifiedUserEmailToAudience(recipient, old)
+      expect(unsubscribeFromList).toHaveBeenCalledWith(expect.anything(), recipient.id, 'marketing')
+      expect(mockContactSegmentRemove).toHaveBeenCalledWith({ email: old, segmentId })
+      expect(mockContactSegmentRemove).toHaveBeenCalledWith({ email: recipient.email, segmentId })
+      expect(mockContactsCreate).not.toHaveBeenCalled()
+    })
+
+    it('leaves a reassigned address with its current verified owner', async () => {
+      vi.mocked(getEmailRecipient)
+        .mockResolvedValueOnce(recipient)
+        .mockResolvedValueOnce({ ...recipient, id: 'other', email: old })
+      await addVerifiedUserEmailToAudience(recipient, old)
+      expect(mockContactsGet).toHaveBeenCalledExactlyOnceWith({ email: recipient.email })
+      expect(mockContactSegmentRemove).not.toHaveBeenCalled()
+      expect(unsubscribeFromList).not.toHaveBeenCalled()
     })
 
     it('logs contact enrollment failures without failing verification', async () => {
       const error = { message: 'Invalid API key', name: 'invalid_api_key', statusCode: 401 }
       mockContactsCreate.mockResolvedValueOnce({ data: null, error })
-
-      await expect(addVerifiedUserEmailToAudience(verifiedUser)).resolves.toBeUndefined()
+      await expect(addVerifiedUserEmailToAudience(recipient)).resolves.toBeUndefined()
       expect(mockLoggerWarn).toHaveBeenCalledWith(
         'Failed to synchronize verified user email with Resend',
-        { userId: verifiedUser.id, error }
+        { userId: recipient.id, error }
       )
     })
   })
