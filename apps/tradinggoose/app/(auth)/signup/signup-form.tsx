@@ -12,6 +12,7 @@ import {
   getUsernameErrorMessage,
   normalizeAuthErrorCode,
 } from '@/lib/auth/auth-error-copy'
+import { getPendingVerification, savePendingVerification } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -71,7 +72,8 @@ function SignupFormContent({
   const [showPassword, setShowPassword] = useState(false)
   const [passwordErrors, setPasswordErrors] = useState<string[]>([])
   const [email, setEmail] = useState('')
-  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null)
+  const [pendingVerification, setPendingVerification] =
+    useState<ReturnType<typeof getPendingVerification>>(null)
   const [emailError, setEmailError] = useState('')
   const [usernameError, setUsernameError] = useState('')
   const [usernameCandidate, setUsernameCandidate] = useState('')
@@ -96,7 +98,7 @@ function SignupFormContent({
   const [nameError, setNameError] = useState('')
 
   useEffect(() => {
-    setPendingVerificationEmail(sessionStorage.getItem('verificationEmail'))
+    setPendingVerification(getPendingVerification())
     const emailParam = searchParams.get('email')
     if (emailParam) {
       setEmail(emailParam)
@@ -220,8 +222,7 @@ function SignupFormContent({
       }
 
       if (!response.data?.token) {
-        sessionStorage.setItem('verificationEmail', emailValue)
-        setPendingVerificationEmail(emailValue)
+        setPendingVerification(savePendingVerification(emailValue, verificationPath))
         try {
           await client.sendVerificationEmail({ email: emailValue })
         } catch (otpErr) {
@@ -250,9 +251,9 @@ function SignupFormContent({
 
       {registrationMode === 'waitlist' && !isInviteFlow ? <AuthWaitlistNote /> : null}
 
-      {pendingVerificationEmail && (
-        <Link href={verificationPath} className='text-primary text-sm hover:underline'>
-          {formatTemplate(signupCopy.resumeVerification, { email: pendingVerificationEmail })}
+      {pendingVerification && (
+        <Link href={pendingVerification.href} className='text-primary text-sm hover:underline'>
+          {formatTemplate(signupCopy.resumeVerification, { email: pendingVerification.email })}
         </Link>
       )}
 

@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getPendingVerification, savePendingVerification } from '@/lib/auth/redirect-urls'
 import ResetPasswordPage from '@/app/[locale]/(auth)/reset-password/page'
 import { getPublicCopy } from '@/i18n/public-copy'
 import LoginPage from './login/login-form'
@@ -324,10 +325,29 @@ describe('auth locale redirects', () => {
       expect(mockSendVerificationEmail).toHaveBeenCalledWith({
         email: 'ada@example.com',
       })
-      expect(sessionStorage.setItem).toHaveBeenCalledExactlyOnceWith(
-        'verificationEmail',
-        'ada@example.com'
+      testState.searchParams = new URLSearchParams()
+      await renderWithLocale(
+        locale,
+        <SignupPage
+          key='resume'
+          githubAvailable={false}
+          googleAvailable={false}
+          registrationMode={callbackUrl?.startsWith('/invite/') ? 'waitlist' : 'open'}
+        />
       )
+      const resume = container.querySelector<HTMLAnchorElement>('a[href^="/verify"]')!
+      expect(resume.textContent).toContain('ada@example.com')
+      expect(resume.getAttribute('href')).toBe(verifyPath)
+      testState.searchParams = new URL(resume.href).searchParams
+      vi.useFakeTimers()
+      await renderWithLocale(locale, <VerifyContent hasEmailService isEmailVerificationEnabled />)
+      mockSignInEmail.mockResolvedValue({ error: null })
+      await setInputValue('#verification-code', '123456')
+      await setInputValue('#password', 'Password1!')
+      await submitRenderedForm()
+      await act(async () => vi.advanceTimersByTimeAsync(1000))
+      expect(mockPush).toHaveBeenLastCalledWith(callbackUrl ?? '/workspace')
+      expect(getPendingVerification()).toBeNull()
     }
   )
 
@@ -480,7 +500,7 @@ describe('auth locale redirects', () => {
       redirectAfter: destination,
       invite_flow: 'true',
     })
-    sessionStorage.setItem('verificationEmail', 'ada@example.com')
+    savePendingVerification('ada@example.com', '/verify')
     mockSignInEmail.mockResolvedValue({ error: { code: 'RATE_LIMIT' } })
 
     await renderWithLocale('en', <VerifyContent hasEmailService isEmailVerificationEnabled />)
@@ -501,7 +521,7 @@ describe('auth locale redirects', () => {
     expect(mockPush).toHaveBeenCalledExactlyOnceWith(
       `/login?callbackUrl=${encodeURIComponent(destination)}&invite_flow=true`
     )
-    expect(sessionStorage.getItem('verificationEmail')).toBeNull()
+    expect(getPendingVerification()).toBeNull()
   })
 
   it.each(['returned', 'thrown'] as const)(
@@ -574,7 +594,7 @@ describe('auth locale redirects', () => {
     'completes email verification after callback-only login with destination %s',
     async (callbackUrl, redirectUrl) => {
       vi.useFakeTimers()
-      sessionStorage.setItem('verificationEmail', 'previous@example.com')
+      savePendingVerification('previous@example.com', '/verify')
       vi.mocked(sessionStorage.setItem).mockClear()
       if (callbackUrl) {
         testState.searchParams = new URLSearchParams({ callbackUrl })
@@ -605,10 +625,7 @@ describe('auth locale redirects', () => {
       expect(mockSendVerificationEmail.mock.invocationCallOrder[0]).toBeLessThan(
         mockPush.mock.invocationCallOrder[0]
       )
-      expect(sessionStorage.setItem).toHaveBeenCalledExactlyOnceWith(
-        'verificationEmail',
-        'ada@example.com'
-      )
+      expect(getPendingVerification()?.email).toBe('ada@example.com')
       const verifyPath = `/verify?redirectAfter=${encodeURIComponent(redirectUrl!)}`
       expect(mockPush).toHaveBeenCalledExactlyOnceWith(verifyPath)
       testState.searchParams = new URL(
@@ -631,7 +648,7 @@ describe('auth locale redirects', () => {
         password: 'ChosenPassword1!',
       })
       expect(mockPush).toHaveBeenLastCalledWith(redirectUrl)
-      expect(sessionStorage.getItem('verificationEmail')).toBeNull()
+      expect(getPendingVerification()).toBeNull()
     }
   )
 
@@ -745,10 +762,7 @@ describe('auth locale redirects', () => {
       await setInputValue('#password', 'Password1!')
       await submitRenderedForm()
 
-      expect(sessionStorage.setItem).toHaveBeenCalledExactlyOnceWith(
-        'verificationEmail',
-        'ada@example.com'
-      )
+      expect(getPendingVerification()?.email).toBe('ada@example.com')
       expect(mockPush).toHaveBeenCalledWith(
         `/verify?redirectAfter=${encodeURIComponent(callbackUrl)}&invite_flow=true`
       )
@@ -873,10 +887,10 @@ describe('auth locale redirects', () => {
     'keeps the resend cooldown and returns to %s with the destination',
     async (path, destination, invite) => {
       vi.useFakeTimers()
-      sessionStorage.setItem('verificationEmail', 'ada@example.com')
       testState.searchParams = new URLSearchParams(
         `fromSignup=${path === 'signup'}&redirectAfter=${encodeURIComponent(destination)}${invite}`
       )
+      savePendingVerification('ada@example.com', `/verify?${testState.searchParams}`)
 
       await renderWithLocale('en', <VerifyContent hasEmailService isEmailVerificationEnabled />)
       const findButton = (label: string) =>
@@ -913,7 +927,7 @@ describe('auth locale redirects', () => {
         `/${path}?callbackUrl=${encodeURIComponent(destination)}${invite}`
       )
       if (path === 'login') {
-        expect(sessionStorage.getItem('verificationEmail')).toBeNull()
+        expect(getPendingVerification()).toBeNull()
         return
       }
 

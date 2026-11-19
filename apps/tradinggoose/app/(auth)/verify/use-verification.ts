@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import type { Messages } from 'next-intl'
 import { useLocale, useMessages } from 'next-intl'
 import { getLoginPasswordError, getSignupPasswordError } from '@/lib/auth/auth-error-copy'
+import { clearPendingVerification, getPendingVerification } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useRouter } from '@/i18n/navigation'
@@ -59,7 +60,7 @@ export function useVerification({
   const [failure, setFailure] = useState<{ message: string; invalidOtp?: boolean }>()
 
   useEffect(() => {
-    setEmail(sessionStorage.getItem('verificationEmail')?.trim().toLowerCase() ?? '')
+    setEmail(getPendingVerification()?.email.trim().toLowerCase() ?? '')
   }, [])
 
   const isOtpComplete = otp.length === 6
@@ -97,7 +98,7 @@ export function useVerification({
     try {
       const { error } = await client.emailOtp.resetPassword({ email, otp, password })
       if (error) throw error
-      sessionStorage.removeItem('verificationEmail')
+      clearPendingVerification()
       setIsVerified(true)
 
       const signedIn = await client.signIn.email({ email, password }).catch(() => null)
@@ -139,7 +140,7 @@ export function useVerification({
 
   function returnToAuth() {
     const path = fromSignup ? '/signup' : '/login'
-    if (!fromSignup) sessionStorage.removeItem('verificationEmail')
+    if (!fromSignup) clearPendingVerification()
     router.push(`${path}${returnQuery}`)
   }
 
@@ -147,7 +148,7 @@ export function useVerification({
     if (isEmailVerificationEnabled) return
 
     setIsVerified(true)
-    sessionStorage.removeItem('verificationEmail')
+    clearPendingVerification()
 
     void persistLocale().then(() => {
       router.push(destination)

@@ -19,7 +19,7 @@ import {
   getUsernameErrorMessage,
   isSessionRecoveryAuthError,
 } from '@/lib/auth/auth-error-copy'
-import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
+import { savePendingVerification, useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -240,10 +240,9 @@ export default function LoginPage({
         try {
           const { error } = await client.sendVerificationEmail({ email })
           if (error) throw error
-          sessionStorage.setItem('verificationEmail', email)
-          router.push(
-            `/verify?redirectAfter=${encodeURIComponent(callbackUrl)}${isInviteFlow ? '&invite_flow=true' : ''}`
-          )
+          const verificationPath = `/verify?redirectAfter=${encodeURIComponent(callbackUrl)}${isInviteFlow ? '&invite_flow=true' : ''}`
+          savePendingVerification(email, verificationPath)
+          router.push(verificationPath)
         } catch (error) {
           logger.error('Failed to send login verification code', error)
           setPasswordError(copy.auth.verify.errors.resendFailed)

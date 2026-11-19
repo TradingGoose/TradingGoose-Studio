@@ -6,6 +6,7 @@ import { act, useEffect } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getPendingVerification, savePendingVerification } from '@/lib/auth/redirect-urls'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { useVerification } from './use-verification'
 
@@ -112,7 +113,7 @@ describe('useVerification', () => {
   }
 
   it('pushes the canonical workspace path after successful verification', async () => {
-    sessionStorage.setItem('verificationEmail', 'ada@example.com')
+    savePendingVerification('ada@example.com', '/verify')
     mockResetPasswordOtp.mockResolvedValue({})
 
     let controls!: VerificationControls
@@ -168,7 +169,7 @@ describe('useVerification', () => {
   ])(
     'returns to safe redirectAfter %s after verification without an invitation flag',
     async (redirectAfter, destination) => {
-      sessionStorage.setItem('verificationEmail', 'ada@example.com')
+      savePendingVerification('ada@example.com', '/verify')
       testState.searchParams.set('redirectAfter', redirectAfter)
       mockResetPasswordOtp.mockResolvedValue({})
       let controls!: VerificationControls
@@ -180,12 +181,12 @@ describe('useVerification', () => {
       await act(async () => vi.advanceTimersByTimeAsync(1000))
 
       expect(mockPush).toHaveBeenCalledExactlyOnceWith(destination)
-      expect(sessionStorage.getItem('verificationEmail')).toBeNull()
+      expect(getPendingVerification()).toBeNull()
     }
   )
 
   it('requests verification again for the signup identity', async () => {
-    sessionStorage.setItem('verificationEmail', 'ADA@EXAMPLE.COM')
+    savePendingVerification('ADA@EXAMPLE.COM', '/verify')
     mockSendVerificationEmail.mockResolvedValue({})
     let controls!: VerificationControls
     await renderHarness('en', (value) => {
@@ -206,7 +207,7 @@ describe('useVerification', () => {
     [{ status: 429 }, 'attempts'],
     [{ code: 'UNEXPECTED_ERROR' }, 'generic'],
   ] as const)('localizes returned verification failure %j', async (error, key) => {
-    sessionStorage.setItem('verificationEmail', 'ada@example.com')
+    savePendingVerification('ada@example.com', '/verify')
     testState.searchParams.set('redirectAfter', '/chat/chat-1#reply')
     mockResetPasswordOtp.mockResolvedValue({ error })
     let controls!: VerificationControls
@@ -219,11 +220,11 @@ describe('useVerification', () => {
 
     expect(controls.failureMessage).toBe(getPublicCopy('zh').auth.verify.errors[key])
     expect(mockPush).not.toHaveBeenCalled()
-    expect(sessionStorage.getItem('verificationEmail')).toBe('ada@example.com')
+    expect(getPendingVerification()?.email).toBe('ada@example.com')
   })
 
   it('reports a returned resend failure', async () => {
-    sessionStorage.setItem('verificationEmail', 'ada@example.com')
+    savePendingVerification('ada@example.com', '/verify')
     mockSendVerificationEmail.mockResolvedValue({ error: { status: 429 } })
     let controls!: VerificationControls
     await renderHarness('en', (value) => {
@@ -242,7 +243,7 @@ describe('useVerification', () => {
   ])(
     'persists locale before a single verification-disabled redirect to %s',
     async (redirectAfter, destination) => {
-      sessionStorage.setItem('verificationEmail', 'ada@example.com')
+      savePendingVerification('ada@example.com', '/verify')
       if (redirectAfter) testState.searchParams.set('redirectAfter', redirectAfter)
       const options = { hasEmailService: false, isEmailVerificationEnabled: false }
       await renderHarness('es', () => {}, options)
@@ -260,7 +261,7 @@ describe('useVerification', () => {
         mockPush.mock.invocationCallOrder[0]
       )
       expect(mockPush).toHaveBeenCalledExactlyOnceWith(destination)
-      expect(sessionStorage.getItem('verificationEmail')).toBeNull()
+      expect(getPendingVerification()).toBeNull()
     }
   )
 })
