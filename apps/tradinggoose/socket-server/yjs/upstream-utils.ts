@@ -694,9 +694,7 @@ export function setupWSConnection(
           void reconcileDocument(doc).catch((error) => {
             console.error('[yjs upstream-utils] Failed to reconcile live document', error)
           })
-          void reconcileConnection(doc, conn, connection).catch((error) => {
-            console.error('[yjs upstream-utils] Failed to revalidate connection access', error)
-          })
+          void reconcileConnection(doc, conn, connection)
         }
       } catch {
         closeConn(doc, conn)
@@ -780,16 +778,19 @@ async function reconcileConnection(
   connection: ConnectionState
 ): Promise<void> {
   const { userId, sessionToken, descriptor, accessMode } = connection
-  const sessionActive = await isSocketSessionActive(userId, sessionToken)
-  if (sessionActive && (await verifyReviewTargetAccess(userId, descriptor, accessMode)).hasAccess)
-    return
-  if (doc.conns.get(conn) !== connection) return
-  closeConn(
-    doc,
-    conn,
-    sessionActive ? YJS_CLOSE_CODE_AUTHORIZATION_REVOKED : YJS_CLOSE_CODE_RETRY_REQUIRED,
-    sessionActive ? 'Authorization revoked' : 'Session inactive'
-  )
+  let code = YJS_CLOSE_CODE_RETRY_REQUIRED
+  let reason = 'Session inactive'
+  try {
+    if (await isSocketSessionActive(userId, sessionToken)) {
+      if ((await verifyReviewTargetAccess(userId, descriptor, accessMode)).hasAccess) return
+      code = YJS_CLOSE_CODE_AUTHORIZATION_REVOKED
+      reason = 'Authorization revoked'
+    }
+  } catch (error) {
+    console.error('[yjs upstream-utils] Failed to revalidate connection access', error)
+    reason = 'Access check unavailable'
+  }
+  if (doc.conns.get(conn) === connection) closeConn(doc, conn, code, reason)
 }
 
 export function cleanupAllDocuments(): void {

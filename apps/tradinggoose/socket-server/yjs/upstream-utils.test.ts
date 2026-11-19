@@ -925,7 +925,7 @@ describe('orderly document discard', () => {
 describe('workspace connection authorization', () => {
   const descriptor = buildSavedEntityDescriptor('skill', 'skill-1', 'workspace-1')
 
-  function connect() {
+  function connect(accessMode: 'read' | 'write' = 'write') {
     const socket = new TestSocket()
     return acquireDocument(
       'skill-1',
@@ -935,7 +935,7 @@ describe('workspace connection authorization', () => {
           doc,
           userId: 'user-1',
           sessionToken: 'native-session',
-          accessMode: 'write',
+          accessMode,
           descriptor,
         })
         return socket
@@ -955,6 +955,21 @@ describe('workspace connection authorization', () => {
     await vi.advanceTimersByTimeAsync(30_000)
     expect(sessionMocks.isSocketSessionActive).toHaveBeenCalledWith('user-1', 'native-session')
     expect(socket.close).toHaveBeenCalledWith(code, closeReason)
+    socket.emit('close')
+  })
+
+  it('stops broadcasting to a reader when session revalidation is unavailable', async () => {
+    vi.useFakeTimers()
+    const socket = await connect('read')
+    sessionMocks.isSocketSessionActive.mockRejectedValueOnce(new Error('database unavailable'))
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(socket.close).toHaveBeenCalledWith(
+      YJS_CLOSE_CODE_RETRY_REQUIRED,
+      'Access check unavailable'
+    )
+    socket.send.mockClear()
+    peekDocument('skill-1')!.getMap('fields').set('title', 'Updated')
+    expect(socket.send).not.toHaveBeenCalled()
     socket.emit('close')
   })
 
