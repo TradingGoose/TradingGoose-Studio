@@ -220,8 +220,14 @@ describe('native SSO registration and account matching', () => {
     await expect(register(' OKTA-SAML ', 'saml')).resolves.toMatchObject({
       providerId: 'okta-saml',
     })
-    for (const providerId of ['credential', 'google', 'github-repo']) {
+    for (const providerId of ['credential', 'google']) {
       await expect(register(providerId)).rejects.toMatchObject({ statusCode: 422 })
+    }
+    for (const providerId of ['github-repo', ' Trello ']) {
+      await expect(register(providerId)).rejects.toMatchObject({
+        statusCode: 400,
+        body: { code: 'INVALID_PROVIDER_ID' },
+      })
     }
   })
 
@@ -373,14 +379,19 @@ describe('native SSO registration and account matching', () => {
     ])
   })
 
-  it('requires the provider organization to have SSO before requesting or verifying its DNS record', async () => {
+  it('requires the provider organization to have SSO for provider mutations', async () => {
     const { auth, headers, register } = await setup()
     await register()
     billingMocks.getOrganizationBillingData.mockResolvedValue({
       subscriptionTier: { ownerType: 'organization', canConfigureSso: false },
     })
 
-    for (const endpoint of [auth.api.requestDomainVerification, auth.api.verifyDomain]) {
+    for (const endpoint of [
+      auth.api.requestDomainVerification,
+      auth.api.verifyDomain,
+      auth.api.updateSSOProvider,
+      auth.api.deleteSSOProvider,
+    ]) {
       await expect(endpoint({ headers, body: { providerId: 'okta' } })).rejects.toMatchObject({
         statusCode: 403,
         body: { message: 'Single Sign-On is not enabled for this organization' },

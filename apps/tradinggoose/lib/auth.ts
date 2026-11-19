@@ -749,7 +749,12 @@ export const auth = betterAuth({
         })
       }
       if (
-        (ctx.path === '/sso/request-domain-verification' || ctx.path === '/sso/verify-domain') &&
+        [
+          '/sso/request-domain-verification',
+          '/sso/verify-domain',
+          '/sso/update-provider',
+          '/sso/delete-provider',
+        ].includes(ctx.path) &&
         typeof ctx.body?.providerId === 'string'
       ) {
         const session = await getAuthoritativeSessionFromCtx(ctx)

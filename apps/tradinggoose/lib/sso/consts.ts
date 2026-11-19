@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isSystemIntegrationManagedOAuthServiceProviderId } from '@/lib/oauth'
 
 export function splitSsoDomains(domain: string) {
   return domain
@@ -21,6 +22,10 @@ export const ssoProviderIdSchema = z
   .regex(
     /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/,
     'Use letters and numbers with optional internal dashes.'
+  )
+  .refine(
+    (id) => !isSystemIntegrationManagedOAuthServiceProviderId(id),
+    'This provider ID is reserved for a Studio integration.'
   )
 
 export const SSO_PROVIDER_IDS = [
