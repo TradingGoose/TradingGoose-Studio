@@ -60,7 +60,7 @@ export function SocketProvider({ children, userId }: SocketProviderProps) {
   callbackPathnameRef.current = pathname
 
   // Helper function to generate a fresh socket token
-  const generateSocketToken = async (): Promise<string> => {
+  const generateSocketToken = async () => {
     const res = await fetch('/api/auth/socket-token', {
       method: 'POST',
       credentials: 'include',
@@ -78,7 +78,7 @@ export function SocketProvider({ children, userId }: SocketProviderProps) {
     const body = await res.json().catch(() => ({}))
     const token = body?.token
     if (!token || typeof token !== 'string') throw new Error('Invalid socket token')
-    return token
+    return { token, userId: body.userId }
   }
 
   useEffect(() => {
@@ -102,9 +102,13 @@ export function SocketProvider({ children, userId }: SocketProviderProps) {
         auth: async (cb) => {
           const engine = socketInstance.io.engine
           try {
-            const freshToken = await generateSocketToken()
+            const credentials = await generateSocketToken()
             if (!socketInstance.active || socketInstance.io.engine !== engine) return
-            cb({ token: freshToken })
+            if (credentials.userId !== userId) {
+              socketInstance.disconnect()
+              return
+            }
+            cb({ token: credentials.token })
           } catch (error) {
             if (!socketInstance.active || socketInstance.io.engine !== engine) return
             const message = error instanceof Error ? error.message : String(error)

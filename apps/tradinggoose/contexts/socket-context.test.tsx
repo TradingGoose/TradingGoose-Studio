@@ -54,7 +54,7 @@ it.each([500, 'network', 401] as const)(
             ? Promise.reject(new TypeError('Failed to fetch'))
             : Promise.resolve(new Response(null, { status: failure }))
         )
-        .mockResolvedValue(new Response(JSON.stringify({ token: 'retry-token' })))
+        .mockResolvedValue(Response.json({ token: 'retry-token', userId: 'user-1' }))
     )
     const shared = new TestSocket()
     ioMock.mockReturnValue(shared)
@@ -150,7 +150,7 @@ it.each([false, true])(
       )
     )
     if (unmountBeforeAuth) act(() => root.unmount())
-    await act(async () => resolveToken(new Response(JSON.stringify({ token: 'test-token' }))))
+    await act(async () => resolveToken(Response.json({ token: 'test-token', userId: 'user-1' })))
 
     if (!unmountBeforeAuth) {
       expect(currentSocket?.connected).toBe(true)
@@ -198,7 +198,8 @@ it('reauthenticates a shared socket after server disconnect and releases its fin
 
   const fetchToken = vi
     .fn()
-    .mockResolvedValue(new Response(JSON.stringify({ token: 'replacement-token' })))
+    .mockResolvedValueOnce(Response.json({ token: 'replacement-token', userId: 'user-1' }))
+    .mockResolvedValueOnce(Response.json({ token: 'new-owner-token', userId: 'user-2' }))
   vi.stubGlobal('fetch', fetchToken)
   act(() => {
     shared.connected = false
@@ -234,6 +235,16 @@ it('reauthenticates a shared socket after server disconnect and releases its fin
   renderProviders(undefined, false)
   expect(shared.active).toBe(true)
   expect(shared.listenerCount('disconnect')).toBe(1)
+  act(() => {
+    shared.connected = false
+    shared.active = false
+    shared.emit('disconnect', 'io server disconnect')
+  })
+  const handshake = vi.fn()
+  await act(async () => ioMock.mock.calls[0][1].auth(handshake))
+  expect(handshake).not.toHaveBeenCalled()
+  expect(shared.active).toBe(false)
+  expect(handleAuthError).not.toHaveBeenCalled()
   act(() => root.unmount())
   expect(shared.active).toBe(false)
   expect(shared.listenerCount('disconnect')).toBe(0)
