@@ -1,14 +1,16 @@
 'use client'
 
-import { type ReactNode, useState } from 'react'
+import { useState } from 'react'
 import { useMessages } from 'next-intl'
 import { GithubIcon, GoogleIcon } from '@/components/icons/icons'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
+import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { inter } from '@/app/fonts/inter'
+import { useRouter } from '@/i18n/navigation'
 import { formatTemplate } from '@/i18n/utils'
 
 const logger = createLogger('SocialLoginButtons')
@@ -18,7 +20,6 @@ interface SocialLoginButtonsProps {
   googleAvailable: boolean
   callbackURL?: string
   beforeSignIn?: () => Promise<void>
-  children?: ReactNode
 }
 
 export function SocialLoginButtons({
@@ -26,12 +27,13 @@ export function SocialLoginButtons({
   googleAvailable,
   callbackURL,
   beforeSignIn,
-  children,
 }: SocialLoginButtonsProps) {
   const [isGithubLoading, setIsGithubLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const authRedirectUrls = useAuthRedirectUrls()
+  const router = useRouter()
+  const ssoEnabled = isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED'))
   const copy = useMessages()
   const socialCopy = copy.auth.social
   const resolvedCallbackURL = authRedirectUrls.providerCallbackPath(callbackURL)
@@ -40,11 +42,7 @@ export function SocialLoginButtons({
   function resolveSocialErrorMessage(providerLabel: string, err: any) {
     const errorText = [err?.code, err?.message].filter(Boolean).join(' ').toLowerCase()
 
-    if (
-      errorText.includes('account exists') ||
-      errorText.includes('already exists') ||
-      errorText.includes('user already exists')
-    ) {
+    if (errorText.includes('account exists') || errorText.includes('already exists')) {
       return copy.auth.signup.errors.accountExists
     }
     if (errorText.includes('cancelled') || errorText.includes('canceled')) {
@@ -61,8 +59,6 @@ export function SocialLoginButtons({
   }
 
   async function signIn(provider: 'github' | 'google') {
-    if (provider === 'github' ? !githubAvailable : !googleAvailable) return
-
     const setIsLoading = provider === 'github' ? setIsGithubLoading : setIsGoogleLoading
     const providerLabel = socialCopy[provider]
     setIsLoading(true)
@@ -75,10 +71,7 @@ export function SocialLoginButtons({
         errorCallbackURL,
       })
 
-      if (result?.error) {
-        logger.error('Social sign-in failed', { provider, error: result.error })
-        setErrorMessage(resolveSocialErrorMessage(providerLabel, result.error))
-      }
+      if (result?.error) throw result.error
     } catch (err: any) {
       logger.error('Social sign-in failed', { provider, error: err })
       setErrorMessage(resolveSocialErrorMessage(providerLabel, err))
@@ -87,50 +80,64 @@ export function SocialLoginButtons({
     }
   }
 
-  const githubButton = (
-    <Button
-      variant='outline'
-      className='w-full rounded-md shadow-sm hover:bg-muted'
-      disabled={!githubAvailable || isGithubLoading}
-      onClick={() => signIn('github')}
-    >
-      <GithubIcon className='!h-[18px] !w-[18px] mr-1' />
-      {isGithubLoading ? socialCopy.connecting : socialCopy.github}
-    </Button>
-  )
+  const providers = [
+    { id: 'google', Icon: GoogleIcon, available: googleAvailable, loading: isGoogleLoading },
+    { id: 'github', Icon: GithubIcon, available: githubAvailable, loading: isGithubLoading },
+  ] as const
 
-  const googleButton = (
-    <Button
-      variant='outline'
-      className='w-full rounded-md shadow-sm hover:bg-muted'
-      disabled={!googleAvailable || isGoogleLoading}
-      onClick={() => signIn('google')}
-    >
-      <GoogleIcon className='!h-[18px] !w-[18px] mr-1' />
-      {isGoogleLoading ? socialCopy.connecting : socialCopy.google}
-    </Button>
-  )
-
-  const hasAnyOAuthProvider = githubAvailable || googleAvailable
-
-  if (!hasAnyOAuthProvider && !children) {
-    return null
-  }
+  if (!githubAvailable && !googleAvailable && !ssoEnabled) return null
 
   return (
-    <div className={`${inter.className} grid gap-3 font-light`}>
-      {googleAvailable && googleButton}
-      {githubAvailable && githubButton}
-      {errorMessage ? (
-        <Alert
-          role='alert'
-          variant='destructive'
-          className='border-destructive/30 bg-destructive/10'
-        >
-          <AlertDescription>{errorMessage}</AlertDescription>
-        </Alert>
-      ) : null}
-      {children}
-    </div>
+    <>
+      <div className={`${inter.className} relative my-6 font-light`}>
+        <div className='absolute inset-0 flex items-center'>
+          <div className='w-full border-t' />
+        </div>
+        <div className='relative flex justify-center text-sm'>
+          <span className='bg-background px-4 font-[340] text-muted-foreground'>
+            {socialCopy.divider}
+          </span>
+        </div>
+      </div>
+      <div className={`${inter.className} grid gap-3 font-light`}>
+        {providers.map(
+          ({ id, Icon, available, loading }) =>
+            available && (
+              <Button
+                key={id}
+                variant='outline'
+                className='w-full rounded-md shadow-sm hover:bg-muted'
+                disabled={loading}
+                onClick={() => signIn(id)}
+              >
+                <Icon className='!h-[18px] !w-[18px] mr-1' />
+                {loading ? socialCopy.connecting : socialCopy[id]}
+              </Button>
+            )
+        )}
+        {errorMessage ? (
+          <Alert
+            role='alert'
+            variant='destructive'
+            className='border-destructive/30 bg-destructive/10'
+          >
+            <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        ) : null}
+        {ssoEnabled && (
+          <Button
+            type='button'
+            variant='outline'
+            className='w-full rounded-md shadow-sm hover:bg-gray-50'
+            onClick={async () => {
+              await beforeSignIn?.()
+              router.push(`/sso?callbackUrl=${encodeURIComponent(resolvedCallbackURL)}`)
+            }}
+          >
+            {copy.auth.common.signInWithSso}
+          </Button>
+        )}
+      </div>
+    </>
   )
 }

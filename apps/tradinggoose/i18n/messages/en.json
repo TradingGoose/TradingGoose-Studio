@@ -200,6 +200,7 @@
       "waitlistApprovedEmail": "Use the same waitlist-approved email for any sign-in method."
     },
     "social": {
+      "divider": "Or continue with",
       "github": "GitHub",
       "google": "Google",
       "connecting": "Connecting...",
@@ -214,8 +215,8 @@
       "disabledDescription": "Email verification is disabled. Redirecting to dashboard...",
       "codeSent": "A verification code has been sent to {email}",
       "missingServiceDescription": "Error: Email verification is enabled but no email service is configured",
-      "instructionsWithService": "Enter the 6-digit code to verify your account. If you don't see it in your inbox, check your spam folder.",
-      "instructionsWithoutService": "Enter the 6-digit code to verify your account.",
+      "instructionsWithService": "Enter the 6-digit code from your password reset email and choose the password you’ll use to sign in.",
+      "instructionsWithoutService": "Enter the 6-digit code and choose the password you’ll use to sign in.",
       "verifyButton": "Verify Email",
       "verifyingButton": "Verifying...",
       "resendPrompt": "Didn't receive a code?",
@@ -238,7 +239,6 @@
       "identifierPlaceholder": "Enter your email or username",
       "submit": "Sign in",
       "submitting": "Signing in...",
-      "divider": "Or continue with",
       "resetDialog": {
         "title": "Reset Password",
         "description": "Enter your email address and we'll send you a link to reset your password if your account exists.",
@@ -298,7 +298,6 @@
       "descriptionWaitlist": "Approved waitlist access required",
       "submit": "Create account",
       "submitting": "Creating account...",
-      "divider": "Or continue with",
       "nameTitle": "Name can only contain letters, spaces, hyphens, and apostrophes",
       "usernameHint": "Use 3–30 letters, numbers, underscores, or dots.",
       "validation": {

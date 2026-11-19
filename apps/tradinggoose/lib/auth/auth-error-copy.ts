@@ -36,6 +36,18 @@ export function getUsernameErrorMessage(copy: PublicCopy['username'], code?: str
   return key ? copy[key] : undefined
 }
 
+export function getSignupPasswordError(
+  copy: PublicCopy['auth']['signup']['validation'],
+  password: string
+) {
+  if (!/.{8,}/.test(password)) return copy.passwordMinLength
+  if (!/[A-Z]/.test(password)) return copy.passwordUppercase
+  if (!/[a-z]/.test(password)) return copy.passwordLowercase
+  if (!/[0-9]/.test(password)) return copy.passwordNumber
+  if (!/[#?!@$%^&*-]/.test(password)) return copy.passwordSpecial
+  return ''
+}
+
 const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   UNABLE_TO_CREATE_USER: 'accountCreation',
   FAILED_TO_CREATE_USER: 'accountCreation',

@@ -18,14 +18,12 @@ import { getUsernameErrorMessage, isSessionRecoveryAuthError } from '@/lib/auth/
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
-import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getRegistrationPrimaryHref, type RegistrationMode } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
-import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
 import { Link, useRouter } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
@@ -251,10 +249,7 @@ export default function LoginPage({
       const message = resolveLoginErrorMessage(err)
       if (message === null) {
         try {
-          const { error } = await client.emailOtp.sendVerificationOtp({
-            email,
-            type: 'email-verification',
-          })
+          const { error } = await client.emailOtp.requestPasswordReset({ email })
           if (error) throw error
           sessionStorage.setItem('verificationEmail', email)
           router.push(
@@ -323,8 +318,6 @@ export default function LoginPage({
     }
   }
 
-  const ssoEnabled = isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED'))
-  const hasProviders = githubAvailable || googleAvailable || ssoEnabled
   const showWaitlistNote = registrationMode === 'waitlist' && !isInviteFlow
   const registrationPath = isInviteFlow ? '/signup' : getRegistrationPrimaryHref(registrationMode)
   const registrationHref =
@@ -444,38 +437,12 @@ export default function LoginPage({
         </span>
       </form>
 
-      {/* Divider - show when we have multiple auth methods */}
-      {hasProviders && (
-        <div className={`${inter.className} relative my-6 font-light`}>
-          <div className='absolute inset-0 flex items-center'>
-            <div className='divider w-full border-t' />
-          </div>
-          <div className='relative flex justify-center text-sm'>
-            <span className='bg-background px-4 font-[340] text-muted-foreground'>
-              {loginCopy.divider}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {hasProviders && (
-        <div className={inter.className}>
-          <SocialLoginButtons
-            googleAvailable={googleAvailable}
-            githubAvailable={githubAvailable}
-            callbackURL={callbackUrl}
-            beforeSignIn={prepareAuthStart}
-          >
-            {ssoEnabled && (
-              <SSOLoginButton
-                callbackURL={callbackUrl}
-                variant='outline'
-                beforeSignIn={prepareAuthStart}
-              />
-            )}
-          </SocialLoginButtons>
-        </div>
-      )}
+      <SocialLoginButtons
+        githubAvailable={githubAvailable}
+        googleAvailable={googleAvailable}
+        callbackURL={callbackUrl}
+        beforeSignIn={prepareAuthStart}
+      />
 
       {registrationHref && registrationLabel && (
         <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>

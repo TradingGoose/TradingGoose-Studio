@@ -23,7 +23,8 @@
 
 ### Design Decisions
 
-- Signup verification uses `client.emailOtp.verifyEmail`. Email change uses the signed-in Email OTP flow. Verification keeps the normalized destination in the existing `redirectAfter` query.
+- At signup verification, the mailbox owner sets the password with `client.emailOtp.resetPassword`. Verification keeps the normalized destination in the existing `redirectAfter` query.
+- A signed-in email change verifies both mailboxes and keeps existing sessions. A password change signs out other devices. Completing a password reset signs out all existing sessions.
 - Username availability feedback is advisory. Better Auth validation and database uniqueness decide whether a write succeeds.
 - SSO domain verification and account matching use the native plugin. The settings form and server share a provider ID schema that fits the DNS record label.
 

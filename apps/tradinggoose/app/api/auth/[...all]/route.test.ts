@@ -135,7 +135,10 @@ describe('/api/auth/[...all] route', () => {
       id: 'price_team',
       active: true,
       product: 'prod_team',
-      recurring: { usage_type: 'licensed' },
+      currency: 'usd',
+      billing_scheme: 'per_unit',
+      unit_amount: 1200,
+      recurring: { usage_type: 'licensed', interval_count: 1, interval: 'month' },
     })
     mockGetOccupiedSeatCount.mockResolvedValue(1)
     mockRunWithSystemOAuthClientCredentials.mockImplementation(async (callback: () => Response) =>
@@ -408,7 +411,9 @@ describe('/api/auth/[...all] route', () => {
     )
 
     expect(response.status).toBe(204)
-    expect(mockRetrieveStripePrice).toHaveBeenCalledWith('price_team')
+    expect(mockRetrieveStripePrice).toHaveBeenCalledWith('price_team', {
+      expand: ['currency_options'],
+    })
     expect(mockGetOccupiedSeatCount).toHaveBeenCalledWith('org-1')
     expect(mockAuthHandler).toHaveBeenCalledOnce()
     const delegatedRequest = mockAuthHandler.mock.calls[0]?.[0] as Request
@@ -444,7 +449,9 @@ describe('/api/auth/[...all] route', () => {
     )
 
     expect(response.status).toBe(409)
-    expect(mockRetrieveStripePrice).toHaveBeenCalledExactlyOnceWith('price_team_annual')
+    expect(mockRetrieveStripePrice).toHaveBeenCalledExactlyOnceWith('price_team_annual', {
+      expand: ['currency_options'],
+    })
     expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 

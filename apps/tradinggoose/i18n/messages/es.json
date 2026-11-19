@@ -200,6 +200,7 @@
       "waitlistApprovedEmail": "Usa el mismo correo electrónico aprobado en la lista de espera para cualquier método de inicio de sesión."
     },
     "social": {
+      "divider": "O continuar con",
       "github": "GitHub",
       "google": "Google",
       "connecting": "Conectando...",
@@ -214,8 +215,8 @@
       "disabledDescription": "Verificación de correo desactivada. Redirigiendo al panel…",
       "codeSent": "Se ha enviado un código de verificación a {email}",
       "missingServiceDescription": "Error: La verificación de correo está habilitada pero no hay ningún servicio de correo configurado",
-      "instructionsWithService": "Ingresa el código de 6 dígitos para verificar tu cuenta. Si no lo ves en tu bandeja de entrada, revisa la carpeta de spam.",
-      "instructionsWithoutService": "Ingresa el código de 6 dígitos para verificar tu cuenta.",
+      "instructionsWithService": "Ingresa el código de 6 dígitos del correo de restablecimiento y elige la contraseña que usarás para iniciar sesión.",
+      "instructionsWithoutService": "Ingresa el código de 6 dígitos y elige la contraseña que usarás para iniciar sesión.",
       "verifyButton": "Verificar correo",
       "verifyingButton": "Verificando…",
       "resendPrompt": "¿No recibiste un código?",
@@ -238,7 +239,6 @@
       "identifierPlaceholder": "Ingrese su correo electrónico o nombre de usuario",
       "submit": "Iniciar sesión",
       "submitting": "Iniciando sesión…",
-      "divider": "O continuar con",
       "resetDialog": {
         "title": "Restablecer contraseña",
         "description": "Ingresa tu dirección de correo electrónico y te enviaremos un enlace para restablecer tu contraseña si tu cuenta existe.",
@@ -298,7 +298,6 @@
       "descriptionWaitlist": "Se requiere acceso aprobado a la lista de espera",
       "submit": "Crear cuenta",
       "submitting": "Creando cuenta...",
-      "divider": "O continuar con",
       "nameTitle": "El nombre solo puede contener letras, espacios, guiones y apóstrofos",
       "usernameHint": "Use entre 3 y 30 letras, números, guiones bajos o puntos.",
       "validation": {

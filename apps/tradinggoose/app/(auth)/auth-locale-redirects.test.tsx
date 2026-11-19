@@ -23,19 +23,15 @@ const mockSignInUsername = vi.hoisted(() => vi.fn())
 const mockSignOut = vi.hoisted(() => vi.fn())
 const mockRequestPasswordReset = vi.hoisted(() => vi.fn())
 const mockResetPassword = vi.hoisted(() => vi.fn())
-const mockSendVerificationOtp = vi.hoisted(() => vi.fn())
-const mockVerifyEmail = vi.hoisted(() => vi.fn())
-const mockRefetchSession = vi.hoisted(() => vi.fn())
-const mockUseVerification = vi.hoisted(() => vi.fn())
+const mockRequestPasswordResetOtp = vi.hoisted(() => vi.fn())
+const mockResetPasswordOtp = vi.hoisted(() => vi.fn())
 const mockFetch = vi.hoisted(() => vi.fn())
 const testState = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
 }))
 
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => ({
-    get: (key: string) => testState.searchParams.get(key),
-  }),
+  useSearchParams: () => testState.searchParams,
 }))
 
 vi.mock('@/i18n/navigation', () => ({
@@ -69,25 +65,10 @@ vi.mock('@/lib/auth-client', () => ({
     requestPasswordReset: mockRequestPasswordReset,
     resetPassword: mockResetPassword,
     emailOtp: {
-      sendVerificationOtp: mockSendVerificationOtp,
-      verifyEmail: mockVerifyEmail,
+      requestPasswordReset: mockRequestPasswordResetOtp,
+      resetPassword: mockResetPasswordOtp,
     },
   },
-  useSession: () => ({
-    refetch: mockRefetchSession,
-  }),
-}))
-
-vi.mock('@/app/(auth)/verify/use-verification', () => ({
-  useVerification: mockUseVerification,
-}))
-
-vi.mock('@/app/(auth)/components/social-login-buttons', () => ({
-  SocialLoginButtons: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-}))
-
-vi.mock('@/app/(auth)/components/sso-login-button', () => ({
-  SSOLoginButton: () => null,
 }))
 
 vi.mock('@/app/(auth)/components/auth-page-header', () => ({
@@ -172,13 +153,9 @@ describe('auth locale redirects', () => {
   let container: HTMLDivElement
   let root: Root
   let queryClient: QueryClient
-  let sessionStore: Map<string, string>
-  const reactActEnvironment = globalThis as typeof globalThis & {
-    IS_REACT_ACT_ENVIRONMENT?: boolean
-  }
 
   beforeEach(() => {
-    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -186,18 +163,12 @@ describe('auth locale redirects', () => {
       defaultOptions: { queries: { retry: false, gcTime: Number.POSITIVE_INFINITY } },
     })
     testState.searchParams = new URLSearchParams()
-    sessionStore = new Map()
-    const storage = {
-      getItem: vi.fn((key: string) => sessionStore.get(key) ?? null),
-      setItem: vi.fn((key: string, value: string) => {
-        sessionStore.set(key, value)
-      }),
-      removeItem: vi.fn((key: string) => {
-        sessionStore.delete(key)
-      }),
-    }
-    Object.defineProperty(window, 'sessionStorage', { configurable: true, value: storage })
-    Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: storage })
+    const stored = new Map<string, string>()
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: vi.fn((key: string, value: string) => stored.set(key, value)),
+      removeItem: (key: string) => stored.delete(key),
+    })
     mockPush.mockReset()
     mockSignUpEmail.mockReset()
     mockIsUsernameAvailable
@@ -206,17 +177,17 @@ describe('auth locale redirects', () => {
     mockSignInEmail.mockReset()
     mockSignInUsername.mockReset()
     mockSignOut.mockReset()
-    mockSendVerificationOtp.mockReset().mockResolvedValue({ data: { success: true }, error: null })
-    mockVerifyEmail.mockReset().mockResolvedValue({ data: { status: true }, error: null })
-    mockRefetchSession.mockReset()
-    mockUseVerification.mockReset()
+    mockRequestPasswordResetOtp
+      .mockReset()
+      .mockResolvedValue({ data: { success: true }, error: null })
+    mockResetPasswordOtp.mockReset().mockResolvedValue({ data: { status: true }, error: null })
     mockFetch.mockReset()
     mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
     mockRequestPasswordReset.mockReset()
     mockRequestPasswordReset.mockResolvedValue({ error: null })
     mockResetPassword.mockReset()
     mockResetPassword.mockResolvedValue({ error: null })
-    global.fetch = mockFetch
+    vi.stubGlobal('fetch', mockFetch)
   })
 
   afterEach(() => {
@@ -227,7 +198,7 @@ describe('auth locale redirects', () => {
     queryClient.clear()
     vi.useRealTimers()
     vi.restoreAllMocks()
-    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
+    vi.unstubAllGlobals()
   })
 
   async function renderWithLocale(locale: 'en' | 'es' | 'zh', element: React.ReactElement) {
@@ -287,8 +258,7 @@ describe('auth locale redirects', () => {
     async (locale, callbackUrl, token) => {
       if (callbackUrl) testState.searchParams = new URLSearchParams({ callbackUrl })
       mockSignUpEmail.mockResolvedValue({ data: { user: { id: 'user-1' }, token }, error: null })
-      mockRefetchSession.mockResolvedValue(undefined)
-      mockSendVerificationOtp.mockResolvedValue(undefined)
+      mockRequestPasswordResetOtp.mockResolvedValue(undefined)
 
       await renderWithLocale(
         locale,
@@ -318,23 +288,19 @@ describe('auth locale redirects', () => {
         },
         expect.any(Object)
       )
-      expect(mockRefetchSession).not.toHaveBeenCalled()
+
       expect(mockFetch).not.toHaveBeenCalled()
       const verifyPath = `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(callbackUrl ?? '/workspace')}${callbackUrl?.startsWith('/invite/') ? '&invite_flow=true' : ''}`
       expect(mockPush).toHaveBeenCalledExactlyOnceWith(verifyPath)
       if (token) {
-        expect(mockSendVerificationOtp).not.toHaveBeenCalled()
+        expect(mockRequestPasswordResetOtp).not.toHaveBeenCalled()
         expect(sessionStorage.setItem).not.toHaveBeenCalled()
-        const { useVerification } = await vi.importActual<
-          typeof import('./verify/use-verification')
-        >('./verify/use-verification')
-        mockUseVerification.mockImplementation(useVerification)
         testState.searchParams = new URL(verifyPath, window.location.origin).searchParams
         await renderWithLocale(
           locale,
           <VerifyContent hasEmailService isEmailVerificationEnabled={false} />
         )
-        expect(mockRefetchSession).toHaveBeenCalledOnce()
+
         expect(mockFetch).toHaveBeenCalledExactlyOnceWith(
           '/api/users/me/settings',
           expect.objectContaining({
@@ -346,13 +312,12 @@ describe('auth locale redirects', () => {
           mockPush.mock.invocationCallOrder[1]
         )
         expect(mockPush).toHaveBeenLastCalledWith(callbackUrl)
-        expect(mockVerifyEmail).not.toHaveBeenCalled()
-        expect(mockSendVerificationOtp).not.toHaveBeenCalled()
+        expect(mockResetPasswordOtp).not.toHaveBeenCalled()
+        expect(mockRequestPasswordResetOtp).not.toHaveBeenCalled()
         return
       }
-      expect(mockSendVerificationOtp).toHaveBeenCalledWith({
+      expect(mockRequestPasswordResetOtp).toHaveBeenCalledWith({
         email: 'ada@example.com',
-        type: 'email-verification',
       })
       expect(sessionStorage.setItem).toHaveBeenCalledExactlyOnceWith(
         'verificationEmail',
@@ -483,7 +448,7 @@ describe('auth locale redirects', () => {
     expect(container.querySelector('#signup-username-error')?.textContent).toBe(
       getPublicCopy('es').username[key]
     )
-    expect(mockSendVerificationOtp).not.toHaveBeenCalled()
+    expect(mockRequestPasswordResetOtp).not.toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
   })
 
@@ -509,6 +474,37 @@ describe('auth locale redirects', () => {
     }
   )
 
+  it('keeps the signup code usable for a valid password and returns to login if sign-in fails', async () => {
+    const destination = '/invite/invitation?token=invitation'
+    testState.searchParams = new URLSearchParams({
+      fromSignup: 'true',
+      redirectAfter: destination,
+      invite_flow: 'true',
+    })
+    sessionStorage.setItem('verificationEmail', 'ada@example.com')
+    mockSignInEmail.mockResolvedValue({ error: { code: 'RATE_LIMIT' } })
+
+    await renderWithLocale('en', <VerifyContent hasEmailService isEmailVerificationEnabled />)
+    await setInputValue('#verification-code', '123456')
+    await setInputValue('#password', 'onlylowercase')
+    await submitRenderedForm()
+    expect(mockResetPasswordOtp).not.toHaveBeenCalled()
+    expect(container.textContent).toContain(
+      getPublicCopy('en').auth.signup.validation.passwordUppercase
+    )
+    await setInputValue('#password', 'StrongPassword1!')
+    await submitRenderedForm()
+    expect(mockResetPasswordOtp).toHaveBeenCalledExactlyOnceWith({
+      email: 'ada@example.com',
+      otp: '123456',
+      password: 'StrongPassword1!',
+    })
+    expect(mockPush).toHaveBeenCalledExactlyOnceWith(
+      `/login?callbackUrl=${encodeURIComponent(destination)}&invite_flow=true`
+    )
+    expect(sessionStorage.getItem('verificationEmail')).toBeNull()
+  })
+
   it.each(['returned', 'thrown'] as const)(
     'keeps a username-only unverified %s failure on login without sending a username to email verification',
     async (kind) => {
@@ -522,7 +518,7 @@ describe('auth locale redirects', () => {
       expect(container.textContent).toContain(getPublicCopy('zh').auth.login.errors.verifyWithEmail)
       expect(sessionStorage.setItem).not.toHaveBeenCalled()
       expect(mockPush).not.toHaveBeenCalled()
-      expect(mockSendVerificationOtp).not.toHaveBeenCalled()
+      expect(mockRequestPasswordResetOtp).not.toHaveBeenCalled()
     }
   )
 
@@ -579,16 +575,13 @@ describe('auth locale redirects', () => {
     'completes email verification after callback-only login with destination %s',
     async (callbackUrl, redirectUrl) => {
       vi.useFakeTimers()
-      sessionStore.set('verificationEmail', 'previous@example.com')
-      const { useVerification } = await vi.importActual<typeof import('./verify/use-verification')>(
-        './verify/use-verification'
-      )
-      mockUseVerification.mockImplementation(useVerification)
+      sessionStorage.setItem('verificationEmail', 'previous@example.com')
+      vi.mocked(sessionStorage.setItem).mockClear()
       if (callbackUrl) {
         testState.searchParams = new URLSearchParams({ callbackUrl })
       }
       let finish!: (value: { error: null }) => void
-      mockSendVerificationOtp.mockReturnValueOnce(
+      mockRequestPasswordResetOtp.mockReturnValueOnce(
         new Promise((resolve) => {
           finish = resolve
         })
@@ -604,14 +597,13 @@ describe('auth locale redirects', () => {
       await setInputValue('#email', 'ADA@EXAMPLE.COM')
       await setInputValue('#password', 'Password1!')
       await submitRenderedForm()
-      expect(mockSendVerificationOtp).toHaveBeenCalledExactlyOnceWith({
+      expect(mockRequestPasswordResetOtp).toHaveBeenCalledExactlyOnceWith({
         email: 'ada@example.com',
-        type: 'email-verification',
       })
       expect(mockPush).not.toHaveBeenCalled()
       expect(sessionStorage.setItem).not.toHaveBeenCalled()
       await act(async () => finish({ error: null }))
-      expect(mockSendVerificationOtp.mock.invocationCallOrder[0]).toBeLessThan(
+      expect(mockRequestPasswordResetOtp.mock.invocationCallOrder[0]).toBeLessThan(
         mockPush.mock.invocationCallOrder[0]
       )
       expect(sessionStorage.setItem).toHaveBeenCalledExactlyOnceWith(
@@ -625,14 +617,22 @@ describe('auth locale redirects', () => {
         window.location.origin
       ).searchParams
       await renderWithLocale('zh', <VerifyContent hasEmailService isEmailVerificationEnabled />)
+      mockSignInEmail.mockResolvedValueOnce({ error: null })
       await setInputValue('#verification-code', '123456')
-      await act(async () => vi.advanceTimersByTimeAsync(1300))
-      expect(mockVerifyEmail).toHaveBeenCalledExactlyOnceWith({
+      await setInputValue('#password', 'ChosenPassword1!')
+      await submitRenderedForm()
+      await act(async () => vi.advanceTimersByTimeAsync(1000))
+      expect(mockResetPasswordOtp).toHaveBeenCalledExactlyOnceWith({
         email: 'ada@example.com',
         otp: '123456',
+        password: 'ChosenPassword1!',
+      })
+      expect(mockSignInEmail).toHaveBeenLastCalledWith({
+        email: 'ada@example.com',
+        password: 'ChosenPassword1!',
       })
       expect(mockPush).toHaveBeenLastCalledWith(redirectUrl)
-      expect(sessionStore.has('verificationEmail')).toBe(false)
+      expect(sessionStorage.getItem('verificationEmail')).toBeNull()
     }
   )
 
@@ -645,15 +645,14 @@ describe('auth locale redirects', () => {
       })
       mockSignInEmail.mockResolvedValue({ error: { code: 'EMAIL_NOT_VERIFIED' } })
       if (failure === 'returned')
-        mockSendVerificationOtp.mockResolvedValue({ error: { code: 'SEND_FAILED' } })
-      else mockSendVerificationOtp.mockRejectedValue(new Error('Network failure'))
+        mockRequestPasswordResetOtp.mockResolvedValue({ error: { code: 'SEND_FAILED' } })
+      else mockRequestPasswordResetOtp.mockRejectedValue(new Error('Network failure'))
       await renderLogin('es')
       await setInputValue('#email', 'ADA@EXAMPLE.COM')
       await setInputValue('#password', 'Password1!')
       await submitRenderedForm()
-      expect(mockSendVerificationOtp).toHaveBeenCalledExactlyOnceWith({
+      expect(mockRequestPasswordResetOtp).toHaveBeenCalledExactlyOnceWith({
         email: 'ada@example.com',
-        type: 'email-verification',
       })
       expect(mockPush).not.toHaveBeenCalled()
       expect(sessionStorage.setItem).not.toHaveBeenCalled()
@@ -875,14 +874,10 @@ describe('auth locale redirects', () => {
     'keeps the resend cooldown and returns to %s with the destination',
     async (path, destination, invite) => {
       vi.useFakeTimers()
-      sessionStore.set('verificationEmail', 'ada@example.com')
+      sessionStorage.setItem('verificationEmail', 'ada@example.com')
       testState.searchParams = new URLSearchParams(
         `fromSignup=${path === 'signup'}&redirectAfter=${encodeURIComponent(destination)}${invite}`
       )
-      const { useVerification } = await vi.importActual<typeof import('./verify/use-verification')>(
-        './verify/use-verification'
-      )
-      mockUseVerification.mockImplementation(useVerification)
 
       await renderWithLocale('en', <VerifyContent hasEmailService isEmailVerificationEnabled />)
       const findButton = (label: string) =>
@@ -895,7 +890,7 @@ describe('auth locale redirects', () => {
         throw new Error('Expected resend button to render')
       }
       await act(async () => resendButton.click())
-      expect(mockSendVerificationOtp).toHaveBeenCalledOnce()
+      expect(mockRequestPasswordResetOtp).toHaveBeenCalledOnce()
       expect(findButton(resendLabel)).toBeUndefined()
       for (let second = 0; second < 29; second++) {
         await act(async () => vi.advanceTimersByTimeAsync(1000))
@@ -918,7 +913,7 @@ describe('auth locale redirects', () => {
       expect(mockPush).toHaveBeenCalledExactlyOnceWith(
         `/${path}?callbackUrl=${encodeURIComponent(destination)}${invite}`
       )
-      expect(sessionStore.size).toBe(0)
+      expect(sessionStorage.getItem('verificationEmail')).toBeNull()
     }
   )
 })

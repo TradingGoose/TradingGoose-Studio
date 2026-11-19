@@ -11,18 +11,15 @@ import { useVerification } from './use-verification'
 
 const mockPush = vi.hoisted(() => vi.fn())
 const mockRouter = vi.hoisted(() => ({ push: mockPush }))
-const mockVerifyEmail = vi.hoisted(() => vi.fn())
-const mockSendVerificationOtp = vi.hoisted(() => vi.fn())
-const mockRefetchSession = vi.hoisted(() => vi.fn())
+const mockResetPasswordOtp = vi.hoisted(() => vi.fn())
+const mockRequestPasswordResetOtp = vi.hoisted(() => vi.fn())
 const mockFetch = vi.hoisted(() => vi.fn())
 const testState = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
 }))
 
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => ({
-    get: (key: string) => testState.searchParams.get(key),
-  }),
+  useSearchParams: () => testState.searchParams,
 }))
 
 vi.mock('@/i18n/navigation', () => ({
@@ -31,31 +28,23 @@ vi.mock('@/i18n/navigation', () => ({
 
 vi.mock('@/lib/auth-client', () => ({
   client: {
+    signIn: { email: vi.fn().mockResolvedValue({ error: null }) },
     emailOtp: {
-      verifyEmail: mockVerifyEmail,
-      sendVerificationOtp: mockSendVerificationOtp,
+      resetPassword: mockResetPasswordOtp,
+      requestPasswordReset: mockRequestPasswordResetOtp,
     },
   },
-  useSession: () => ({
-    refetch: mockRefetchSession,
-  }),
 }))
 
-interface VerificationControls {
-  handleOtpChange: (value: string) => void
-  resendCode: () => void
-  failureMessage: string
-}
+type VerificationControls = ReturnType<typeof useVerification>
 
 interface VerificationHarnessProps {
-  locale: 'en' | 'es' | 'zh'
   hasEmailService?: boolean
   isEmailVerificationEnabled?: boolean
   onReady: (controls: VerificationControls) => void
 }
 
 function VerificationHarness({
-  locale,
   hasEmailService = true,
   isEmailVerificationEnabled = true,
   onReady,
@@ -63,7 +52,6 @@ function VerificationHarness({
   const controls = useVerification({
     hasEmailService,
     isEmailVerificationEnabled,
-    copy: getPublicCopy(locale).auth.verify,
   })
 
   useEffect(() => {
@@ -76,54 +64,27 @@ function VerificationHarness({
 describe('useVerification', () => {
   let container: HTMLDivElement
   let root: Root
-  let sessionStore: Map<string, string>
-  const reactActEnvironment = globalThis as typeof globalThis & {
-    IS_REACT_ACT_ENVIRONMENT?: boolean
-  }
 
   beforeEach(() => {
-    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
     vi.useFakeTimers()
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    sessionStore = new Map<string, string>()
-
-    const sessionStorageMock = {
-      getItem: vi.fn((key: string) => sessionStore.get(key) ?? null),
-      setItem: vi.fn((key: string, value: string) => {
-        sessionStore.set(key, value)
-      }),
-      removeItem: vi.fn((key: string) => {
-        sessionStore.delete(key)
-      }),
-      clear: vi.fn(() => {
-        sessionStore.clear()
-      }),
-      key: vi.fn((index: number) => Array.from(sessionStore.keys())[index] ?? null),
-      get length() {
-        return sessionStore.size
-      },
-    }
-
-    Object.defineProperty(window, 'sessionStorage', {
-      configurable: true,
-      value: sessionStorageMock,
+    const stored = new Map<string, string>()
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: vi.fn((key: string, value: string) => stored.set(key, value)),
+      removeItem: (key: string) => stored.delete(key),
     })
-    Object.defineProperty(globalThis, 'sessionStorage', {
-      configurable: true,
-      value: sessionStorageMock,
-    })
-
     mockPush.mockReset()
-    mockVerifyEmail.mockReset()
-    mockSendVerificationOtp.mockReset()
-    mockRefetchSession.mockReset()
+    mockResetPasswordOtp.mockReset()
+    mockRequestPasswordResetOtp.mockReset()
     mockFetch.mockReset()
     mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
     testState.searchParams = new URLSearchParams()
     window.history.replaceState({}, '', '/')
-    global.fetch = mockFetch as typeof fetch
+    vi.stubGlobal('fetch', mockFetch)
   })
 
   afterEach(() => {
@@ -133,7 +94,7 @@ describe('useVerification', () => {
     container.remove()
     vi.useRealTimers()
     vi.restoreAllMocks()
-    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
+    vi.unstubAllGlobals()
   })
 
   async function renderHarness(
@@ -144,16 +105,15 @@ describe('useVerification', () => {
     await act(async () => {
       root.render(
         <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-          <VerificationHarness locale={locale} onReady={onReady} {...options} />
+          <VerificationHarness onReady={onReady} {...options} />
         </NextIntlClientProvider>
       )
     })
   }
 
   it('pushes the canonical workspace path after successful verification', async () => {
-    sessionStore.set('verificationEmail', 'ada@example.com')
-    mockVerifyEmail.mockResolvedValue({})
-    mockRefetchSession.mockResolvedValue(undefined)
+    sessionStorage.setItem('verificationEmail', 'ada@example.com')
+    mockResetPasswordOtp.mockResolvedValue({})
 
     let controls!: VerificationControls
 
@@ -166,12 +126,14 @@ describe('useVerification', () => {
     })
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1300)
+      await controls.verifyCode('ChosenPassword1!')
+      await vi.advanceTimersByTimeAsync(1000)
     })
 
-    expect(mockVerifyEmail).toHaveBeenCalledWith({
+    expect(mockResetPasswordOtp).toHaveBeenCalledWith({
       email: 'ada@example.com',
       otp: '123456',
+      password: 'ChosenPassword1!',
     })
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/users/me/settings',
@@ -202,25 +164,25 @@ describe('useVerification', () => {
   ])(
     'returns to safe redirectAfter %s after verification without an invitation flag',
     async (redirectAfter, destination) => {
-      sessionStore.set('verificationEmail', 'ada@example.com')
+      sessionStorage.setItem('verificationEmail', 'ada@example.com')
       testState.searchParams.set('redirectAfter', redirectAfter)
-      mockVerifyEmail.mockResolvedValue({})
-      mockRefetchSession.mockResolvedValue(undefined)
+      mockResetPasswordOtp.mockResolvedValue({})
       let controls!: VerificationControls
       await renderHarness('zh', (value) => {
         controls = value
       })
       await act(async () => controls.handleOtpChange('123456'))
-      await act(async () => vi.advanceTimersByTimeAsync(1300))
+      await act(async () => controls.verifyCode('ChosenPassword1!'))
+      await act(async () => vi.advanceTimersByTimeAsync(1000))
 
       expect(mockPush).toHaveBeenCalledExactlyOnceWith(destination)
-      expect(sessionStore.size).toBe(0)
+      expect(sessionStorage.getItem('verificationEmail')).toBeNull()
     }
   )
 
-  it('resends an email-verification OTP for the signup identity', async () => {
-    sessionStore.set('verificationEmail', 'ADA@EXAMPLE.COM')
-    mockSendVerificationOtp.mockResolvedValue({})
+  it('resends a password-reset OTP for the signup identity', async () => {
+    sessionStorage.setItem('verificationEmail', 'ADA@EXAMPLE.COM')
+    mockRequestPasswordResetOtp.mockResolvedValue({})
     let controls!: VerificationControls
     await renderHarness('en', (value) => {
       controls = value
@@ -228,9 +190,8 @@ describe('useVerification', () => {
 
     await act(async () => controls.resendCode())
 
-    expect(mockSendVerificationOtp).toHaveBeenCalledWith({
+    expect(mockRequestPasswordResetOtp).toHaveBeenCalledWith({
       email: 'ada@example.com',
-      type: 'email-verification',
     })
   })
 
@@ -241,25 +202,25 @@ describe('useVerification', () => {
     [{ status: 429 }, 'attempts'],
     [{ code: 'UNEXPECTED_ERROR' }, 'generic'],
   ] as const)('localizes returned verification failure %j', async (error, key) => {
-    sessionStore.set('verificationEmail', 'ada@example.com')
+    sessionStorage.setItem('verificationEmail', 'ada@example.com')
     testState.searchParams.set('redirectAfter', '/chat/chat-1#reply')
-    mockVerifyEmail.mockResolvedValue({ error })
+    mockResetPasswordOtp.mockResolvedValue({ error })
     let controls!: VerificationControls
     await renderHarness('zh', (value) => {
       controls = value
     })
 
     await act(async () => controls.handleOtpChange('123456'))
-    await act(async () => vi.advanceTimersByTimeAsync(300))
+    await act(async () => controls.verifyCode('ChosenPassword1!'))
 
     expect(controls.failureMessage).toBe(getPublicCopy('zh').auth.verify.errors[key])
     expect(mockPush).not.toHaveBeenCalled()
-    expect(sessionStore.get('verificationEmail')).toBe('ada@example.com')
+    expect(sessionStorage.getItem('verificationEmail')).toBe('ada@example.com')
   })
 
   it('reports a returned resend failure', async () => {
-    sessionStore.set('verificationEmail', 'ada@example.com')
-    mockSendVerificationOtp.mockResolvedValue({ error: { status: 429 } })
+    sessionStorage.setItem('verificationEmail', 'ada@example.com')
+    mockRequestPasswordResetOtp.mockResolvedValue({ error: { status: 429 } })
     let controls!: VerificationControls
     await renderHarness('en', (value) => {
       controls = value
@@ -277,17 +238,13 @@ describe('useVerification', () => {
   ])(
     'persists locale before a single verification-disabled redirect to %s',
     async (redirectAfter, destination) => {
-      sessionStore.set('verificationEmail', 'ada@example.com')
+      sessionStorage.setItem('verificationEmail', 'ada@example.com')
       if (redirectAfter) testState.searchParams.set('redirectAfter', redirectAfter)
-      mockRefetchSession.mockImplementation(async () => {
-        expect(sessionStore.size).toBe(0)
-      })
       const options = { hasEmailService: false, isEmailVerificationEnabled: false }
       await renderHarness('es', () => {}, options)
       await renderHarness('es', () => {}, options)
 
-      expect(mockRefetchSession).toHaveBeenCalledOnce()
-      expect(mockFetch).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledExactlyOnceWith(
         '/api/users/me/settings',
         expect.objectContaining({
           method: 'PATCH',
@@ -299,7 +256,7 @@ describe('useVerification', () => {
         mockPush.mock.invocationCallOrder[0]
       )
       expect(mockPush).toHaveBeenCalledExactlyOnceWith(destination)
-      expect(sessionStore.size).toBe(0)
+      expect(sessionStorage.getItem('verificationEmail')).toBeNull()
     }
   )
 })

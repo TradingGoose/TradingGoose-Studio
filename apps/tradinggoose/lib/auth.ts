@@ -6,12 +6,8 @@ import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import {
-  APIError,
-  createAuthMiddleware,
-  getAuthoritativeSessionFromCtx,
-  revokeOtherSessions,
-} from 'better-auth/api'
+import { APIError, createAuthMiddleware, getAuthoritativeSessionFromCtx } from 'better-auth/api'
+import { revokeUnprovenAccountAccess } from 'better-auth/db'
 import { nextCookies } from 'better-auth/next-js'
 import { emailOTP, genericOAuth, oneTimeToken, organization, username } from 'better-auth/plugins'
 import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
@@ -551,12 +547,9 @@ export const auth = betterAuth({
         },
       },
       update: {
-        before: async (_user, ctx) => {
-          if (ctx?.path === '/email-otp/change-email') {
-            await revokeOtherSessions({
-              context: ctx.context,
-              headers: new Headers(ctx.headers ?? ctx.request?.headers),
-            })
+        after: async (user, ctx) => {
+          if (ctx?.path === '/email-otp/reset-password' && user.emailVerified) {
+            await addVerifiedUserEmailToAudience(user)
           }
         },
       },
@@ -703,6 +696,20 @@ export const auth = betterAuth({
   },
   emailVerification: {
     autoSignInAfterVerification: true,
+    beforeEmailVerification: async (user) => {
+      const ctx = getCurrentAuthEndpointContext()
+      if (
+        !user.emailVerified &&
+        (ctx.path === '/email-otp/verify-email' || ctx.path === '/verify-email')
+      ) {
+        // These verification callbacks run inside the dispatched Better Auth endpoint.
+        const promoted = await revokeUnprovenAccountAccess(
+          ctx as Parameters<typeof revokeUnprovenAccountAccess>[0],
+          user.id
+        )
+        if (!promoted?.emailVerified) throw new APIError('CONFLICT')
+      }
+    },
     afterEmailVerification: (user) => {
       const ctx = getCurrentAuthEndpointContext()
       return addVerifiedUserEmailToAudience(
@@ -718,6 +725,7 @@ export const auth = betterAuth({
       }
       if (
         (ctx.path === '/email-otp/send-verification-otp' ||
+          ctx.path === '/email-otp/request-password-reset' ||
           ctx.path === '/email-otp/request-email-change') &&
         !(await hasEmailService())
       ) {
@@ -786,7 +794,8 @@ export const auth = betterAuth({
       if (
         (ctx.path.startsWith('/sign-in') ||
           ctx.path.startsWith('/sign-up') ||
-          ctx.path === '/email-otp/verify-email') &&
+          ctx.path === '/email-otp/verify-email' ||
+          ctx.path === '/email-otp/reset-password') &&
         typeof ctx.body?.email === 'string' &&
         !isLoginEmailAllowed(ctx.body.email)
       ) {

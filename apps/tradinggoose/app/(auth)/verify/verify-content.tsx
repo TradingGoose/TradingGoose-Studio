@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
@@ -36,7 +37,6 @@ function VerificationForm({ hasEmailService, isEmailVerificationEnabled }: Verif
   } = useVerification({
     hasEmailService,
     isEmailVerificationEnabled,
-    copy: verifyCopy,
   })
 
   const [countdown, setCountdown] = useState(0)
@@ -78,7 +78,13 @@ function VerificationForm({ hasEmailService, isEmailVerificationEnabled }: Verif
 
       {!isVerified && isEmailVerificationEnabled && (
         <div className={`${inter.className} mt-8 space-y-8`}>
-          <div className='space-y-6'>
+          <form
+            className='space-y-6'
+            onSubmit={(event) => {
+              event.preventDefault()
+              void verifyCode(String(new FormData(event.currentTarget).get('password')))
+            }}
+          >
             <p className='text-center text-muted-foreground text-sm'>
               {hasEmailService
                 ? verifyCopy.instructionsWithService
@@ -116,6 +122,19 @@ function VerificationForm({ hasEmailService, isEmailVerificationEnabled }: Verif
                 </InputOTPGroup>
               </InputOTP>
             </div>
+            <div className='space-y-2'>
+              <Label htmlFor='password'>{copy.auth.resetPassword.setNew.passwordLabel}</Label>
+              <Input
+                id='password'
+                name='password'
+                type='password'
+                autoComplete='new-password'
+                minLength={8}
+                maxLength={128}
+                required
+                disabled={isLoading}
+              />
+            </div>
 
             {failureMessage && (
               <div className='mt-1 space-y-1 text-center text-red-400 text-xs'>
@@ -128,15 +147,14 @@ function VerificationForm({ hasEmailService, isEmailVerificationEnabled }: Verif
                 </p>
               </div>
             )}
-          </div>
-
-          <Button
-            onClick={verifyCode}
-            className={primaryButtonClasses}
-            disabled={!isOtpComplete || isLoading}
-          >
-            {isLoading ? verifyCopy.verifyingButton : verifyCopy.verifyButton}
-          </Button>
+            <Button
+              type='submit'
+              className={primaryButtonClasses}
+              disabled={!isOtpComplete || isLoading}
+            >
+              {isLoading ? verifyCopy.verifyingButton : verifyCopy.verifyButton}
+            </Button>
+          </form>
 
           {hasEmailService && (
             <div className='text-center'>

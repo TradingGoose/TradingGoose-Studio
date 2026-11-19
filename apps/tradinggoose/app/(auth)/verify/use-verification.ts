@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { Messages } from 'next-intl'
-import { useLocale } from 'next-intl'
-import { client, useSession } from '@/lib/auth-client'
+import { useLocale, useMessages } from 'next-intl'
+import { getSignupPasswordError } from '@/lib/auth/auth-error-copy'
+import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useRouter } from '@/i18n/navigation'
 import { type LocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
@@ -32,13 +33,11 @@ function resolveVerificationFailureMessage(copy: VerifyCopy, error: unknown) {
 interface UseVerificationParams {
   hasEmailService: boolean
   isEmailVerificationEnabled: boolean
-  copy: VerifyCopy
 }
 
 export function useVerification({
   hasEmailService,
   isEmailVerificationEnabled,
-  copy,
 }: UseVerificationParams) {
   const router = useRouter()
   const locale = useLocale() as LocaleCode
@@ -50,14 +49,14 @@ export function useVerification({
       searchParams.get('redirectAfter'),
       typeof window !== 'undefined' ? window.location.origin : undefined
     ) ?? '/workspace'
-  const { refetch: refetchSession } = useSession()
+  const returnQuery = `?callbackUrl=${encodeURIComponent(destination)}${isInviteFlow ? '&invite_flow=true' : ''}`
+  const { verify: copy, signup } = useMessages().auth
   const { errors: failureCopy } = copy
   const [otp, setOtp] = useState('')
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isVerified, setIsVerified] = useState(false)
-  const [isInvalidOtp, setIsInvalidOtp] = useState(false)
-  const [failureMessage, setFailureMessage] = useState('')
+  const [failure, setFailure] = useState<{ message: string; invalidOtp?: boolean }>()
 
   useEffect(() => {
     setEmail(sessionStorage.getItem('verificationEmail')?.trim().toLowerCase() ?? '')
@@ -65,13 +64,7 @@ export function useVerification({
 
   const isOtpComplete = otp.length === 6
 
-  async function refreshSessionAndPersistLocale() {
-    try {
-      await refetchSession()
-    } catch (error) {
-      logger.warn('Failed to refetch session after verification', error)
-    }
-
+  async function persistLocale() {
     try {
       const response = await fetch('/api/users/me/settings', {
         method: 'PATCH',
@@ -88,84 +81,67 @@ export function useVerification({
     }
   }
 
-  async function verifyCode() {
-    if (!isOtpComplete || !email) return
+  async function verifyCode(password: string) {
+    if (!isOtpComplete || !email || !password) return
+    if (fromSignup) {
+      const passwordError = getSignupPasswordError(signup.validation, password)
+      if (passwordError) {
+        setFailure({ message: passwordError })
+        return
+      }
+    }
 
     setIsLoading(true)
-    setIsInvalidOtp(false)
-    setFailureMessage('')
+    setFailure(undefined)
 
     try {
-      const { error } = await client.emailOtp.verifyEmail({
-        email,
-        otp,
-      })
-
+      const { error } = await client.emailOtp.resetPassword({ email, otp, password })
       if (error) throw error
+      sessionStorage.removeItem('verificationEmail')
       setIsVerified(true)
 
-      await refreshSessionAndPersistLocale()
+      const signedIn = await client.signIn.email({ email, password }).catch(() => null)
+      if (!signedIn || signedIn.error) {
+        router.push(`/login${returnQuery}`)
+        return
+      }
 
-      sessionStorage.removeItem('verificationEmail')
-
+      await persistLocale()
       setTimeout(() => router.push(destination), 1000)
     } catch (error: unknown) {
-      setIsInvalidOtp(true)
-      setFailureMessage(resolveVerificationFailureMessage(copy, error))
+      setFailure({ message: resolveVerificationFailureMessage(copy, error), invalidOtp: true })
       setOtp('')
     } finally {
       setIsLoading(false)
     }
   }
 
-  function resendCode() {
+  async function resendCode() {
     if (!email || !hasEmailService || !isEmailVerificationEnabled) return
 
     setIsLoading(true)
-    setIsInvalidOtp(false)
-    setFailureMessage('')
+    setFailure(undefined)
 
-    client.emailOtp
-      .sendVerificationOtp({
-        email,
-        type: 'email-verification',
-      })
-      .then(({ error }) => {
-        if (error) throw error
-      })
-      .catch(() => {
-        setFailureMessage(failureCopy.resendFailed)
-      })
-      .finally(() => {
-        setIsLoading(false)
-      })
+    try {
+      const { error } = await client.emailOtp.requestPasswordReset({ email })
+      if (error) throw error
+    } catch {
+      setFailure({ message: failureCopy.resendFailed })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   function handleOtpChange(value: string) {
-    if (value.length === 6) {
-      setIsInvalidOtp(false)
-      setFailureMessage('')
-    }
+    if (value.length === 6) setFailure(undefined)
     setOtp(value)
   }
 
   function returnToAuth() {
     const path = fromSignup ? '/signup' : '/login'
     sessionStorage.removeItem('verificationEmail')
-    router.push(
-      `${path}?callbackUrl=${encodeURIComponent(destination)}${isInviteFlow ? '&invite_flow=true' : ''}`
-    )
+    router.push(`${path}${returnQuery}`)
   }
-
-  useEffect(() => {
-    if (isOtpComplete && email && !isLoading && !isVerified) {
-      const timeoutId = setTimeout(() => {
-        verifyCode()
-      }, 300)
-
-      return () => clearTimeout(timeoutId)
-    }
-  }, [otp, email, isLoading, isVerified])
 
   useEffect(() => {
     if (isEmailVerificationEnabled) return
@@ -173,7 +149,7 @@ export function useVerification({
     setIsVerified(true)
     sessionStorage.removeItem('verificationEmail')
 
-    void refreshSessionAndPersistLocale().then(() => {
+    void persistLocale().then(() => {
       router.push(destination)
     })
   }, [isEmailVerificationEnabled, destination, router])
@@ -185,8 +161,8 @@ export function useVerification({
     email,
     isLoading,
     isVerified,
-    isInvalidOtp,
-    failureMessage,
+    isInvalidOtp: !!failure?.invalidOtp,
+    failureMessage: failure?.message,
     isOtpComplete,
     verifyCode,
     resendCode,

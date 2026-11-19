@@ -178,7 +178,7 @@ describe('public copy', () => {
     expect(getPublicCopy('es').auth.verify.verifyButton).toBe('Verificar correo')
     expect(getPublicCopy('es').auth.verify.errors.resendFailed).toContain('reenviar')
     expect(getPublicCopy('zh').auth.verify.instructionsWithoutService).toBe(
-      '输入6位验证码以验证您的账户。'
+      '请输入六位验证码，并设置今后用于登录的密码。'
     )
     expect(getPublicCopy('zh').auth.verify.yourEmail).toBe('您的邮箱')
   })

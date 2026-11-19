@@ -7,10 +7,13 @@ import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getUsernameErrorMessage, normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
+import {
+  getSignupPasswordError,
+  getUsernameErrorMessage,
+  normalizeAuthErrorCode,
+} from '@/lib/auth/auth-error-copy'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
-import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   REGISTRATION_DISABLED_REASON,
@@ -21,7 +24,6 @@ import { cn } from '@/lib/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
-import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
 import { usernameInputProps, useUsernameAvailability } from '@/hooks/queries/username'
 import { Link, useRouter } from '@/i18n/navigation'
@@ -33,14 +35,6 @@ function SignupFormLoadingFallback() {
   const copy = useMessages()
 
   return <div className='flex h-screen items-center justify-center'>{copy.auth.common.loading}</div>
-}
-
-const PASSWORD_VALIDATIONS = {
-  minLength: /.{8,}/,
-  uppercase: /(?=.*?[A-Z])/,
-  lowercase: /(?=.*?[a-z])/,
-  number: /(?=.*?[0-9])/,
-  special: /(?=.*?[#?!@$%^&*-])/,
 }
 
 const NAME_VALIDATIONS = {
@@ -106,30 +100,6 @@ function SignupFormContent({
     }
   }, [searchParams])
 
-  const validatePassword = (passwordValue: string): string => {
-    if (!PASSWORD_VALIDATIONS.minLength.test(passwordValue)) {
-      return signupCopy.validation.passwordMinLength
-    }
-
-    if (!PASSWORD_VALIDATIONS.uppercase.test(passwordValue)) {
-      return signupCopy.validation.passwordUppercase
-    }
-
-    if (!PASSWORD_VALIDATIONS.lowercase.test(passwordValue)) {
-      return signupCopy.validation.passwordLowercase
-    }
-
-    if (!PASSWORD_VALIDATIONS.number.test(passwordValue)) {
-      return signupCopy.validation.passwordNumber
-    }
-
-    if (!PASSWORD_VALIDATIONS.special.test(passwordValue)) {
-      return signupCopy.validation.passwordSpecial
-    }
-
-    return ''
-  }
-
   const validateName = (nameValue: string): string => {
     if (!nameValue) return signupCopy.validation.nameRequired
     if (!NAME_VALIDATIONS.validCharacters.test(nameValue)) {
@@ -171,7 +141,7 @@ function SignupFormContent({
     })
     setEmailError(emailValidationError)
 
-    const passwordValidationError = validatePassword(passwordValue)
+    const passwordValidationError = getSignupPasswordError(signupCopy.validation, passwordValue)
     setPasswordErrors(passwordValidationError ? [passwordValidationError] : [])
 
     try {
@@ -249,10 +219,7 @@ function SignupFormContent({
       if (!response.data?.token) {
         sessionStorage.setItem('verificationEmail', emailValue)
         try {
-          await client.emailOtp.sendVerificationOtp({
-            email: emailValue,
-            type: 'email-verification',
-          })
+          await client.emailOtp.requestPasswordReset({ email: emailValue })
         } catch (otpErr) {
           logger.warn('Failed to send verification OTP after signup; user can press Resend', otpErr)
         }
@@ -266,9 +233,6 @@ function SignupFormContent({
       setIsLoading(false)
     }
   }
-
-  const ssoEnabled = isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED'))
-  const hasProviders = githubAvailable || googleAvailable || ssoEnabled
 
   return (
     <>
@@ -448,30 +412,11 @@ function SignupFormContent({
         </Button>
       </form>
 
-      {hasProviders && (
-        <div className={`${inter.className} relative my-6 font-light`}>
-          <div className='absolute inset-0 flex items-center'>
-            <div className='auth-divider w-full border-t' />
-          </div>
-          <div className='relative flex justify-center text-sm'>
-            <span className='bg-background px-4 font-[340] text-muted-foreground'>
-              {signupCopy.divider}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {hasProviders && (
-        <div className={inter.className}>
-          <SocialLoginButtons
-            githubAvailable={githubAvailable}
-            googleAvailable={googleAvailable}
-            callbackURL={destination}
-          >
-            {ssoEnabled && <SSOLoginButton callbackURL={destination} variant='outline' />}
-          </SocialLoginButtons>
-        </div>
-      )}
+      <SocialLoginButtons
+        githubAvailable={githubAvailable}
+        googleAvailable={googleAvailable}
+        callbackURL={destination}
+      />
 
       <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
         <span className='font-normal'>{commonCopy.alreadyHaveAccount} </span>
