@@ -51,6 +51,8 @@ vi.mock('@/lib/registration/service', () => ({
   getRegistrationModeForRender: () => mockGetRegistrationModeForRender(),
 }))
 
+vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'https://studio.example' }))
+
 vi.mock('@/app/(auth)/components/auth-page-header', () => ({
   AuthPageHeader: () => null,
 }))
@@ -84,6 +86,10 @@ describe('localized auth entry pages', () => {
   it.each([
     [undefined, '/workspace'],
     ['/invite/invitation?token=workspace-token', '/invite/invitation?token=workspace-token'],
+    [
+      'https://studio.example/invite/invitation?token=workspace-token#accept',
+      '/invite/invitation?token=workspace-token#accept',
+    ],
     ['https://external.example/redirect', '/workspace'],
   ])('redirects authenticated login for callback %s', async (callbackUrl, destination) => {
     mockGetSession.mockResolvedValue({

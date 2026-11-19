@@ -2,6 +2,7 @@ import { getLocale } from 'next-intl/server'
 import { getSession } from '@/lib/auth'
 import { getOAuthProviderAvailability } from '@/lib/oauth/oauth.server'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
+import { getBaseUrl } from '@/lib/urls/utils'
 import LoginForm from '@/app/(auth)/login/login-form'
 import { redirect } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
@@ -23,8 +24,9 @@ export default async function LoginPage({
 
   if (session?.user?.id) {
     const callback = query?.callbackUrl
+    const href = Array.isArray(callback) ? callback[0] : callback
     redirect({
-      href: normalizeCallbackUrl(Array.isArray(callback) ? callback[0] : callback) ?? '/workspace',
+      href: normalizeCallbackUrl(href, getBaseUrl()) ?? '/workspace',
       locale,
     })
   }
