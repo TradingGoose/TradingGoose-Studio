@@ -8,7 +8,7 @@ import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 
 interface TeamSeatsOverviewProps {
   totalSeats: number
-  seatPrice: OrganizationSeats['seatPrice']
+  seatQuote: OrganizationSeats['seatQuote']
   isLoadingSubscription: boolean
   usedSeats: number
   actionsDisabled: boolean
@@ -45,7 +45,7 @@ function TeamSeatsSkeleton() {
 
 export function TeamSeatsOverview({
   totalSeats,
-  seatPrice,
+  seatQuote,
   isLoadingSubscription,
   usedSeats,
   actionsDisabled,
@@ -67,11 +67,11 @@ export function TeamSeatsOverview({
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
             <span className='font-medium text-sm'>{t('seats')}</span>
-            {seatPrice && (
+            {seatQuote && (
               <span className='text-muted-foreground text-xs'>
                 {t('pricePerSeat', {
-                  price: formatUsd(locale, seatPrice.amountUsd),
-                  interval: seatPrice.interval,
+                  price: formatUsd(locale, seatQuote.amountUsd),
+                  interval: seatQuote.interval,
                 })}
               </span>
             )}

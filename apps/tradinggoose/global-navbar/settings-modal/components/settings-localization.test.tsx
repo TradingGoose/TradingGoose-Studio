@@ -118,7 +118,7 @@ describe('settings localization', () => {
       maxSeats: 0,
       usedSeats: 4,
       availableSeats: 0,
-      seatPrice: null,
+      seatQuote: null,
     } satisfies OrganizationSeats)
     vi.stubGlobal(
       'fetch',
@@ -440,17 +440,17 @@ describe('settings localization', () => {
       {
         billingInterval: 'year',
         monthlyPriceUsd: 12.5,
-        seatPrice: { amountUsd: 120, interval: 'year' },
+        seatQuote: { quantity: 60, revision: 'quoted', amountUsd: 120, interval: 'year' },
       },
       {
         billingInterval: 'month',
         monthlyPriceUsd: null,
-        seatPrice: { amountUsd: 15, interval: 'month' },
+        seatQuote: { quantity: 60, revision: 'quoted', amountUsd: 15, interval: 'month' },
       },
-      { billingInterval: null, monthlyPriceUsd: 12.5, seatPrice: null },
+      { billingInterval: null, monthlyPriceUsd: 12.5, seatQuote: null },
     ] as const)(
-      'uses the active Stripe price $seatPrice to quote licensed seat changes',
-      async ({ billingInterval, monthlyPriceUsd, seatPrice }) => {
+      'uses the active Stripe price $seatQuote to quote licensed seat changes',
+      async ({ billingInterval, monthlyPriceUsd, seatQuote }) => {
         mocks.billing = {
           ...mocks.billing,
           totalSeats: 60,
@@ -473,7 +473,7 @@ describe('settings localization', () => {
           ...counts,
           maxSeats: 60,
           availableSeats: 10,
-          seatPrice,
+          seatQuote,
         })
         await render('en', <TeamManagement />)
         const copy = getClientMessages('en').workspace.settingsModal.team
@@ -483,10 +483,10 @@ describe('settings localization', () => {
             ? 'Current team · $999.00/yr · Current'
             : 'Current team · Current'
         )
-        if (seatPrice?.interval === 'year') {
+        if (seatQuote?.interval === 'year') {
           expect(container.textContent).toContain('a minimum of $7,200.00/year')
           expect(container.textContent).toContain('($120.00/year each)')
-        } else if (seatPrice?.interval === 'month') {
+        } else if (seatQuote?.interval === 'month') {
           expect(container.textContent).toContain('a minimum of $900.00/month')
           expect(container.textContent).toContain('($15.00/month each)')
         }
@@ -496,14 +496,14 @@ describe('settings localization', () => {
         const add = [...container.querySelectorAll('button')].find(
           (button) => button.textContent === copy.addSeat
         )!
-        if (seatPrice === null) {
+        if (seatQuote === null) {
           expect(container.textContent).toContain(copy.addSeats.quoteUnavailable)
           expect(remove).toBeDisabled()
           expect(add).toBeDisabled()
           const updated = {
             ...counts,
             maxSeats: 60,
-            seatPrice: { amountUsd: 15, interval: 'month' },
+            seatQuote: { quantity: 60, revision: 'quoted', amountUsd: 15, interval: 'month' },
           }
           vi.mocked(fetch).mockResolvedValue(Response.json({ data: updated }))
           const retry = container.querySelector<HTMLButtonElement>('[role="alert"] button')!
@@ -522,11 +522,12 @@ describe('settings localization', () => {
         expect(mocks.mutate.mock.lastCall?.[0]).toEqual({
           orgId: 'org-1',
           seats: 59,
+          quoteRevision: 'quoted',
         })
         expect(add).toBeEnabled()
         await act(async () => add.click())
         const dialog = document.querySelector('[role="dialog"]')!
-        if (seatPrice.interval === 'year') {
+        if (seatQuote.interval === 'year') {
           expect(dialog.textContent).toContain('$7,320.00 per year')
           expect(dialog.textContent).toContain('Annual cost change:')
           expect(dialog.textContent).not.toContain('per month')
@@ -542,11 +543,12 @@ describe('settings localization', () => {
         expect(mocks.mutate.mock.lastCall?.[0]).toEqual({
           orgId: 'org-1',
           seats: 61,
+          quoteRevision: 'quoted',
         })
       }
     )
 
-    it('keeps direct checkout available while aggregate counts fail and retry', async () => {
+    it('waits for aggregate occupancy before starting adjustable checkout and recovers after retry', async () => {
       queryClient.removeQueries({ queryKey: organizationKeys.seats('org-1'), exact: true })
       let fail!: (error: Error) => void
       const pending = new Promise<Response>((_resolve, reject) => {
@@ -556,7 +558,7 @@ describe('settings localization', () => {
         String(input).endsWith('/seats') ? pending : Response.json({ data: [] })
       )
       await render('en', <TeamManagement />)
-      expect(plan()).toBeEnabled()
+      expect(plan()).toBeDisabled()
       expect(container.querySelector('#organization-private-tier-access-code')).not.toBeNull()
       await act(async () => {
         fail(new Error('Counts unavailable'))
@@ -564,12 +566,10 @@ describe('settings localization', () => {
           expect(queryClient.getQueryState(organizationKeys.seats('org-1'))?.status).toBe('error')
         )
       })
-      expect(plan()).toBeEnabled()
+      expect(plan()).toBeDisabled()
       expect(container.querySelector('#organization-private-tier-access-code')).not.toBeNull()
       await act(async () => plan().click())
-      expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'tier-org' }), {
-        organizationId: 'org-1',
-      })
+      expect(mocks.mutate).not.toHaveBeenCalled()
       vi.mocked(fetch).mockResolvedValue(Response.json({ data: counts }))
       const retry = [...container.querySelectorAll('button')].find(
         (button) =>
@@ -581,21 +581,41 @@ describe('settings localization', () => {
           expect(queryClient.getQueryState(organizationKeys.seats('org-1'))?.status).toBe('success')
         )
       })
+      await vi.waitFor(() => expect(plan()).toBeEnabled())
+      await act(async () => plan().click())
+      expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'tier-org' }), {
+        seats: counts.usedSeats,
+        organizationId: 'org-1',
+      })
     })
 
-    it('starts checkout for the current organization while its seat counts are pending', async () => {
+    it('waits for the new organization’s occupied seats before submitting its selected quantity', async () => {
       await render('en', <TeamManagement />)
       mocks.organizationDetail = mocks.organization
       mocks.organization = { ...mocks.organization!, id: 'org-2', name: 'Second team' }
       mocks.billing = { ...mocks.billing, organizationId: 'org-2' }
-      const pending = new Promise<Response>(() => {})
+      let resolve!: (response: Response) => void
+      const pending = new Promise<Response>((done) => {
+        resolve = done
+      })
       vi.mocked(fetch).mockImplementation(async (input) =>
         String(input).endsWith('/seats') ? pending : Response.json({ data: [] })
       )
       await render('en', <TeamManagement />)
       expect(fetch).toHaveBeenCalledWith('/api/organizations/org-2/seats')
+      expect(plan()).toBeDisabled()
+      await act(async () => {
+        resolve(Response.json({ data: { ...counts, organizationId: 'org-2', usedSeats: 4 } }))
+        await vi.waitFor(() =>
+          expect(queryClient.getQueryState(organizationKeys.seats('org-2'))?.status).toBe('success')
+        )
+      })
+      const input = plan().closest('form')!.querySelector('input')!
+      expect(input.min).toBe('4')
+      input.value = '7'
       await act(async () => plan().click())
       expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'tier-org' }), {
+        seats: 7,
         organizationId: 'org-2',
       })
     })
@@ -627,7 +647,7 @@ describe('settings localization', () => {
       <TeamSeats
         open
         onOpenChange={vi.fn()}
-        seatPrice={{ amountUsd: 10, interval: 'month' }}
+        seatQuote={{ quantity: 60, revision: 'quoted', amountUsd: 10, interval: 'month' }}
         minimumSeats={4}
         maximumSeats={10}
         currentSeats={19}
@@ -656,7 +676,7 @@ describe('settings localization', () => {
     await act(async () => confirm().click())
     expect(mocks.mutate).not.toHaveBeenCalled()
 
-    await render('en', cloneElement(dialog, { seatPrice: null }))
+    await render('en', cloneElement(dialog, { seatQuote: null }))
     expect(confirm()).toBeDisabled()
     await act(async () => confirm().click())
     expect(mocks.mutate).not.toHaveBeenCalled()
@@ -699,7 +719,7 @@ describe('settings localization', () => {
         <TeamSeats
           open
           onOpenChange={vi.fn()}
-          seatPrice={{ amountUsd: 120, interval: 'year' }}
+          seatQuote={{ quantity: 60, revision: 'quoted', amountUsd: 120, interval: 'year' }}
           minimumSeats={4}
           maximumSeats={10}
           currentSeats={2}
@@ -835,7 +855,7 @@ describe('settings localization', () => {
         />
         <TeamSeatsOverview
           totalSeats={2}
-          seatPrice={{ amountUsd: 12.5, interval: 'month' }}
+          seatQuote={{ quantity: 60, revision: 'quoted', amountUsd: 12.5, interval: 'month' }}
           isLoadingSubscription={false}
           usedSeats={1}
           actionsDisabled={false}

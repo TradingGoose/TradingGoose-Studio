@@ -11,8 +11,18 @@ const mocks = vi.hoisted(() => ({
   retrieve: vi.fn(),
   updateStripe: vi.fn(),
   updateDb: vi.fn(),
+  lock: vi.fn(),
 }))
-vi.mock('@tradinggoose/db', () => ({ db: { select: mocks.select, update: mocks.updateDb } }))
+vi.mock('@tradinggoose/db', () => ({
+  db: {
+    select: mocks.select,
+    transaction: (work: (tx: unknown) => Promise<unknown>) =>
+      work({
+        select: () => ({ from: () => ({ where: () => ({ for: mocks.lock }) }) }),
+        update: mocks.updateDb,
+      }),
+  },
+}))
 vi.mock('@/lib/auth', () => ({ getSession: mocks.session }))
 vi.mock('@/lib/billing/core/billing', () => ({ getOrganizationSubscription: mocks.subscription }))
 vi.mock('@/lib/billing/settings', () => ({
@@ -38,15 +48,17 @@ const subscriptionItem = {
     unit_amount_decimal: '12000',
   },
 }
-const seatPrice = { amountUsd: 120, interval: 'year' }
-const request = (method = 'GET', seats = 60) =>
+const revision = (quantity: number) => JSON.stringify(['si_team', 'price_team', quantity])
+const seatQuote = { amountUsd: 120, interval: 'year', quantity: 60, revision: revision(60) }
+const request = (method = 'GET', seats = 60, quoteRevision = revision(60)) =>
   new NextRequest('http://localhost/api/organizations/org-large/seats', {
     method,
-    ...(method === 'PUT' ? { body: JSON.stringify({ seats }) } : {}),
+    ...(method === 'PUT' ? { body: JSON.stringify({ seats, quoteRevision }) } : {}),
   })
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.lock.mockResolvedValue([{ seats: 60 }])
   tables.length = 0
   membership = [{ role: 'owner' }]
   mocks.session.mockResolvedValue({ user: { id: 'user-1' } })
@@ -80,7 +92,7 @@ beforeEach(() => {
       tables.push(table)
       return {
         where: () =>
-          selection
+          selection.count
             ? Promise.resolve([{ count: table === member ? 53 : 3 }])
             : { limit: async () => membership },
       }
@@ -101,7 +113,7 @@ describe('organization seat aggregate', () => {
           maxSeats: 60,
           usedSeats: 56,
           availableSeats: 4,
-          seatPrice: role === 'owner' ? seatPrice : null,
+          seatQuote: role === 'owner' ? seatQuote : null,
         },
       })
       expect(tables).toEqual([member, member, invitation])
@@ -124,7 +136,7 @@ describe('organization seat aggregate', () => {
         usedSeats: 56,
         maxSeats: 0,
         availableSeats: 0,
-        seatPrice: null,
+        seatQuote: null,
       },
     })
     expect((await PUT(request('PUT'), params)).status).toBe(404)
@@ -139,7 +151,7 @@ describe('organization seat aggregate', () => {
     const response = await GET(request(), params)
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
-      data: { maxSeats: 60, seatPrice: null },
+      data: { maxSeats: 60, seatQuote: null },
     })
     expect((await PUT(request('PUT'), params)).status).toBe(400)
     expect(mocks.stripe).not.toHaveBeenCalled()
@@ -150,7 +162,7 @@ describe('organization seat aggregate', () => {
     const response = await GET(request(), params)
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
-      data: { usedSeats: 56, maxSeats: 60, seatPrice: null },
+      data: { usedSeats: 56, maxSeats: 60, seatQuote: null },
     })
     expect((await PUT(request('PUT', 61), params)).status).toBe(200)
   })
@@ -166,7 +178,7 @@ describe('organization seat aggregate', () => {
       },
     })
     await expect((await GET(request(), params)).json()).resolves.toMatchObject({
-      data: { usedSeats: 56, seatPrice: null },
+      data: { usedSeats: 56, seatQuote: null },
     })
     expect((await PUT(request('PUT', 61), params)).status).toBe(409)
     expect(mocks.updateStripe).not.toHaveBeenCalled()
@@ -179,7 +191,7 @@ describe('organization seat aggregate', () => {
       tier: { ownerType: 'organization', seatMode: 'fixed', seatCount: 60 },
     })
     await expect((await GET(request(), params)).json()).resolves.toMatchObject({
-      data: { maxSeats: 60, seatPrice: null },
+      data: { maxSeats: 60, seatQuote: null },
     })
     expect((await PUT(request('PUT'), params)).status).toBe(400)
     expect(mocks.retrieve).not.toHaveBeenCalled()
@@ -231,16 +243,37 @@ describe('organization seat aggregate', () => {
       },
     })
     await expect((await GET(request(), params)).json()).resolves.toMatchObject({
-      data: { maxSeats: 60, availableSeats: 4, seatPrice },
+      data: {
+        maxSeats: 60,
+        availableSeats: 4,
+        seatQuote: { ...seatQuote, quantity: 63, revision: revision(63) },
+      },
     })
-    const response = await PUT(request('PUT', 60), params)
+    expect((await PUT(request('PUT', 61), params)).status).toBe(409)
+    expect(mocks.updateStripe).not.toHaveBeenCalled()
+    expect(mocks.updateDb.mock.results[0].value.set).toHaveBeenCalledWith({ seats: 63 })
+    mocks.lock.mockResolvedValue([{ seats: 63 }])
+    const response = await PUT(request('PUT', 60, revision(63)), params)
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({ data: { seats: 60, previousSeats: 63 } })
+    expect(mocks.lock).toHaveBeenCalledWith('update')
+    expect(mocks.lock.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      mocks.retrieve.mock.invocationCallOrder.at(-1)!
+    )
     expect(mocks.updateStripe).toHaveBeenCalledExactlyOnceWith('sub_organization', {
       items: [{ id: 'si_team', quantity: 60 }],
       proration_behavior: 'create_prorations',
     })
     expect(mocks.updateDb.mock.results[0].value.set).toHaveBeenCalledWith({ seats: 60 })
+  })
+
+  it.each([
+    { ...subscriptionItem, id: 'si_replaced' },
+    { ...subscriptionItem, price: { ...subscriptionItem.price, id: 'price_replaced' } },
+  ])('rejects confirmation after the quoted item or price was replaced', async (item) => {
+    mocks.retrieve.mockResolvedValue({ status: 'active', currency: 'usd', items: { data: [item] } })
+    expect((await PUT(request('PUT', 61), params)).status).toBe(409)
+    expect(mocks.updateStripe).not.toHaveBeenCalled()
   })
 
   it('repairs capacity on retry after Stripe succeeds and the local write fails', async () => {
@@ -254,7 +287,8 @@ describe('organization seat aggregate', () => {
       currency: 'usd',
       items: { data: [{ ...subscriptionItem, quantity: 61 }] },
     })
-    expect((await PUT(request('PUT', 61), params)).status).toBe(200)
+    expect((await PUT(request('PUT', 61), params)).status).toBe(409)
+    expect((await PUT(request('PUT', 61, revision(61)), params)).status).toBe(200)
     expect(mocks.updateStripe).toHaveBeenCalledTimes(1)
     expect(mocks.updateDb.mock.results[1].value.set).toHaveBeenCalledWith({ seats: 61 })
   })

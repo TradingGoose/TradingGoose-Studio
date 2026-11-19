@@ -8,6 +8,7 @@ import {
   userStats,
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
+import { getOrganizationMemberRole } from '@/lib/billing/authorization'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import {
@@ -574,18 +575,8 @@ export async function isOrganizationOwnerOrAdmin(
   organizationId: string
 ): Promise<boolean> {
   try {
-    const memberRecord = await db
-      .select({ role: member.role })
-      .from(member)
-      .where(and(eq(member.userId, userId), eq(member.organizationId, organizationId)))
-      .limit(1)
-
-    if (memberRecord.length === 0) {
-      return false
-    }
-
-    const userRole = memberRecord[0].role
-    return ['owner', 'admin'].includes(userRole)
+    const role = await getOrganizationMemberRole(organizationId, userId)
+    return role === 'owner' || role === 'admin'
   } catch (error) {
     logger.error('Error checking organization ownership/admin status:', error)
     return false

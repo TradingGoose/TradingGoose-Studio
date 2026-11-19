@@ -4,7 +4,6 @@ import { client, useSession } from '@/lib/auth-client'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { createLogger } from '@/lib/logs/console/logger'
 import { organizationKeys } from '@/hooks/queries/organization'
-import { resolveOrganizationUpgradeReference } from './upgrade-target'
 
 const logger = createLogger('SubscriptionUpgrade')
 export type BillingUpgradeTarget = Pick<
@@ -25,27 +24,18 @@ export function useSubscriptionUpgrade() {
   const queryClient = useQueryClient()
 
   const handleUpgrade = useCallback(
-    async (targetTier: BillingUpgradeTarget, options?: { organizationId?: string }) => {
+    async (
+      targetTier: BillingUpgradeTarget,
+      options?: { organizationId?: string; seats?: number }
+    ) => {
       const userId = session?.user?.id
       if (!userId) {
         throw new Error('User not authenticated')
       }
 
-      let referenceId = userId
-
-      if (targetTier.ownerType === 'organization') {
-        if (!options?.organizationId) {
-          throw new Error('Select the organization whose subscription you want to change.')
-        }
-
-        const orgsResponse = await fetch('/api/organizations')
-        if (!orgsResponse.ok) throw new Error('Failed to check organization status')
-
-        referenceId = resolveOrganizationUpgradeReference({
-          organizationId: options.organizationId,
-          organizationAccess: await orgsResponse.json(),
-        }).referenceId
-      }
+      const referenceId = targetTier.ownerType === 'organization' ? options?.organizationId : userId
+      if (!referenceId)
+        throw new Error('Select the organization whose subscription you want to change.')
 
       const currentUrl = `${window.location.origin}${window.location.pathname}`
 
@@ -56,7 +46,7 @@ export function useSubscriptionUpgrade() {
           successUrl: currentUrl,
           cancelUrl: currentUrl,
           ...(targetTier.ownerType === 'organization' && {
-            seats: Math.max(targetTier.seatCount ?? 1, 1),
+            seats: options?.seats ?? Math.max(targetTier.seatCount ?? 1, 1),
           }),
         })
         if (upgradeResult.error) {

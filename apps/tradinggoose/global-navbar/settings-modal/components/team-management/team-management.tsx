@@ -24,6 +24,7 @@ import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useAdminWorkspaces } from '@/hooks/queries/workspace'
 import { formatUsd } from '@/i18n/formatters'
 import type { LocaleCode } from '@/i18n/utils'
+import { getCheckoutSeatBounds, PlanButton } from '../subscription/components/plan-card/plan-card'
 import {
   getSubscriptionSurfaceState,
   mergeAccessibleBillingTiers,
@@ -174,7 +175,7 @@ export function TeamManagement() {
     refetch: refetchSeatCounts,
   } = useOrganizationSeats(activeOrgId || '', seatCountsEnabled)
   const organizationSeats = seatCounts?.organizationId === activeOrgId ? seatCounts : undefined
-  const totalSeats = organizationSeats?.maxSeats ?? 0
+  const totalSeats = organizationSeats?.seatQuote?.quantity ?? organizationSeats?.maxSeats ?? 0
   const seatCountsUnavailable = isSeatCountsPending || isSeatCountsError || !organizationSeats
   const usedSeats = organizationSeats?.usedSeats ?? 0
   const availableOrganizationTiers = mergeAccessibleBillingTiers(
@@ -206,7 +207,7 @@ export function TeamManagement() {
   })
   const isAdjustableSeatTier =
     currentTier?.ownerType === 'organization' && currentTier.seatMode === 'adjustable'
-  const seatPrice = organizationSeats?.seatPrice ?? null
+  const seatQuote = organizationSeats?.seatQuote ?? null
   const seatCount = currentTier?.seatCount ?? 1
   const seatMaximum = currentTier?.seatMaximum ?? null
   const organizationPlanCatalogPending =
@@ -223,7 +224,7 @@ export function TeamManagement() {
     billingEnabled && adminOrOwner && !organizationBillingPending && organizationBillingError
   )
   const seatPriceUnavailable =
-    isOrganizationOwner && isAdjustableSeatTier && !seatCountsUnavailable && !seatPrice
+    isOrganizationOwner && isAdjustableSeatTier && !seatCountsUnavailable && !seatQuote
   const showSeatError = seatCountsEnabled && (isSeatCountsError || seatPriceUnavailable)
 
   const canInviteMembers = Boolean(currentTier?.ownerType === 'organization')
@@ -362,33 +363,17 @@ export function TeamManagement() {
     }
   }, [removeMemberDialog.memberId, session?.user?.id, activeOrgId, removeMemberMutation, runAction])
 
-  const handleReduceSeats = useCallback(async () => {
-    if (!activeOrgId || totalSeats <= 1 || usedSeats >= totalSeats) return
-
-    await runAction('reduce-seats', () =>
+  async function updateSeats(seats: number, action: 'reduce-seats' | 'update-seats') {
+    if (!activeOrgId || !seatQuote || seats < Math.max(seatCount, usedSeats)) return
+    const saved = await runAction(action, () =>
       updateSeatsMutation.mutateAsync({
         orgId: activeOrgId,
-        seats: totalSeats - 1,
+        seats,
+        quoteRevision: seatQuote.revision,
       })
     )
-  }, [activeOrgId, totalSeats, usedSeats, updateSeatsMutation, runAction])
-
-  const confirmAddSeats = useCallback(
-    async (selectedSeats: number) => {
-      if (!activeOrgId) return
-
-      const succeeded = await runAction('update-seats', () =>
-        updateSeatsMutation.mutateAsync({
-          orgId: activeOrgId,
-          seats: selectedSeats,
-        })
-      )
-      if (succeeded) {
-        setIsAddSeatDialogOpen(false)
-      }
-    },
-    [activeOrgId, updateSeatsMutation, runAction]
-  )
+    if (saved && action === 'update-seats') setIsAddSeatDialogOpen(false)
+  }
 
   const handleAssignWorkspaceBilling = useCallback(
     async (workspaceId: string) => {
@@ -465,12 +450,12 @@ export function TeamManagement() {
             <div className='space-y-3'>
               <h4 className='font-medium text-sm'>{copy('howBillingWorks')}</h4>
               <ul className='ml-4 list-disc space-y-2 text-muted-foreground text-xs'>
-                {seatPrice && (
+                {seatQuote && (
                   <li>
                     {copy('billingHowWorksSeatCost', {
                       seats: totalSeats,
-                      amount: formatUsd(locale, totalSeats * seatPrice.amountUsd),
-                      interval: seatPrice.interval,
+                      amount: formatUsd(locale, totalSeats * seatQuote.amountUsd),
+                      interval: seatQuote.interval,
                     })}
                   </li>
                 )}
@@ -555,7 +540,8 @@ export function TeamManagement() {
                     </div>
                   ) : (
                     <div key={tier.id} className='max-w-xs'>
-                      <Button
+                      <PlanButton
+                        seatBounds={getCheckoutSeatBounds(tier, activeOrgId, Boolean(currentTier))}
                         variant='outline'
                         disabled={
                           isPending ||
@@ -563,15 +549,15 @@ export function TeamManagement() {
                           !activeOrgId ||
                           !organizationPlanSurface.canManageOrganizationPlan
                         }
-                        onClick={() => {
+                        onSelect={(seats) => {
                           if (issue) return
                           void runAction(`subscribe:${tier.id}`, () =>
-                            handleUpgrade(tier, { organizationId: activeOrgId })
+                            handleUpgrade(tier, { organizationId: activeOrgId, seats })
                           )
                         }}
                       >
                         {planLabel}
-                      </Button>
+                      </PlanButton>
                       {issue === 'capacity' && (
                         <p className='mt-1 text-muted-foreground text-xs'>
                           {copy('seatCapacityConflict', {
@@ -648,13 +634,13 @@ export function TeamManagement() {
         {isOrganizationOwner && isAdjustableSeatTier && (
           <TeamSeatsOverview
             totalSeats={totalSeats}
-            seatPrice={seatPrice}
+            seatQuote={seatQuote}
             isLoadingSubscription={organizationBillingPending || seatCountsUnavailable}
             usedSeats={usedSeats}
-            actionsDisabled={isLoading || isPending || !seatPrice}
+            actionsDisabled={isLoading || isPending || !seatQuote}
             isReducing={pendingAction === 'reduce-seats'}
             error={actionFailure('reduce-seats')}
-            onReduceSeats={handleReduceSeats}
+            onReduceSeats={() => updateSeats(totalSeats - 1, 'reduce-seats')}
             onAddSeatDialog={() => setIsAddSeatDialogOpen(true)}
           />
         )}
@@ -757,9 +743,10 @@ export function TeamManagement() {
 
       {isOrganizationOwner && isAdjustableSeatTier && !seatCountsUnavailable && (
         <TeamSeats
+          key={seatQuote?.revision}
           open={isAddSeatDialogOpen}
           onOpenChange={setIsAddSeatDialogOpen}
-          seatPrice={seatPrice}
+          seatQuote={seatQuote}
           minimumSeats={Math.max(seatCount, usedSeats)}
           maximumSeats={seatMaximum}
           currentSeats={totalSeats}
@@ -768,7 +755,7 @@ export function TeamManagement() {
             (isAddSeatDialogOpen && updateSeatsMutation.isPending)
           }
           error={actionFailure('update-seats')}
-          onConfirm={confirmAddSeats}
+          onConfirm={(seats) => updateSeats(seats, 'update-seats')}
         />
       )}
     </div>

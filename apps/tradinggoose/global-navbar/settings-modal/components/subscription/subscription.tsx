@@ -32,6 +32,7 @@ import { formatUsd } from '@/i18n/formatters'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { UsageHeader } from '../shared/usage-header'
 import { PlanCard, UsageLimit, type UsageLimitRef, WorkspaceBillingOwnerEditor } from './components'
+import { getCheckoutSeatBounds } from './components/plan-card/plan-card'
 import {
   getPersonalPaygUiState,
   type PaygActivationErrorPayload,
@@ -165,43 +166,29 @@ function SubscriptionSkeleton() {
 
         <div className='flex flex-col gap-2'>
           <div className='grid grid-cols-2 gap-2'>
-            <div className='flex flex-col rounded-sm border p-4'>
-              <div className='mb-4'>
-                <Skeleton className='mb-2 h-5 w-8' />
-                <div className='flex items-baseline'>
-                  <Skeleton className='h-6 w-10' />
-                  <Skeleton className='ml-1 h-3 w-12' />
-                </div>
-              </div>
-              <div className='mb-4 flex-1 space-y-2'>
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className='flex items-start gap-2'>
-                    <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                    <Skeleton className='h-3 w-20' />
+            {[
+              { title: 'w-8', feature: 'w-20' },
+              { title: 'w-10', feature: 'w-24' },
+            ].map(({ title, feature }) => (
+              <div key={title} className='flex flex-col rounded-sm border p-4'>
+                <div className='mb-4'>
+                  <Skeleton className={cn('mb-2 h-5', title)} />
+                  <div className='flex items-baseline'>
+                    <Skeleton className='h-6 w-10' />
+                    <Skeleton className='ml-1 h-3 w-12' />
                   </div>
-                ))}
-              </div>
-              <Skeleton className='h-9 w-full rounded-sm' />
-            </div>
-
-            <div className='flex flex-col rounded-sm border p-4'>
-              <div className='mb-4'>
-                <Skeleton className='mb-2 h-5 w-10' />
-                <div className='flex items-baseline'>
-                  <Skeleton className='h-6 w-10' />
-                  <Skeleton className='ml-1 h-3 w-12' />
                 </div>
+                <div className='mb-4 flex-1 space-y-2'>
+                  {[0, 1, 2, 3].map((row) => (
+                    <div key={row} className='flex items-start gap-2'>
+                      <Skeleton className='mt-0.5 h-3 w-3 rounded' />
+                      <Skeleton className={cn('h-3', feature)} />
+                    </div>
+                  ))}
+                </div>
+                <Skeleton className='h-9 w-full rounded-sm' />
               </div>
-              <div className='mb-4 flex-1 space-y-2'>
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className='flex items-start gap-2'>
-                    <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                    <Skeleton className='h-3 w-24' />
-                  </div>
-                ))}
-              </div>
-              <Skeleton className='h-9 w-full rounded-sm' />
-            </div>
+            ))}
           </div>
 
           <div className='flex items-center justify-between rounded-sm border p-4'>
@@ -449,7 +436,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     (isOrganizationPlan ? organizationBillingPayload?.billingPeriodEnd : billingPayload?.periodEnd)
 
   const handleUpgradeWithErrorHandling = useCallback(
-    async (targetTier: PublicBillingTierDisplay) => {
+    async (targetTier: PublicBillingTierDisplay, seats?: number) => {
       if (!targetTier.hasStripeMonthlyPriceId) {
         setUpgradeError(targetTier.id)
         return
@@ -458,7 +445,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
       try {
         await handleUpgrade(targetTier, {
           ...(targetTier.ownerType === 'organization' && organizationBillingId
-            ? { organizationId: organizationBillingId }
+            ? { organizationId: organizationBillingId, seats }
             : {}),
         })
       } catch {
@@ -745,7 +732,12 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                             ? copy('titles.upgrade')
                             : copy('actions.changeTo', { name: tier.displayName })
                       }
-                      onButtonClick={() => handleUpgradeWithErrorHandling(tier)}
+                      seatBounds={getCheckoutSeatBounds(
+                        tier,
+                        organizationBillingId,
+                        Boolean(organizationTier)
+                      )}
+                      onButtonClick={(seats) => handleUpgradeWithErrorHandling(tier, seats)}
                       buttonDisabled={
                         !canManageSelectedPlan ||
                         (!isCurrentTier && !tier.hasStripeMonthlyPriceId) ||

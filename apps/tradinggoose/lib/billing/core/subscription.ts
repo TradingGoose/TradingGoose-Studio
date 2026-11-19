@@ -403,8 +403,9 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
       }
 
       const locale = await resolveEmailLocale({ userId: recipient.id, email: recipient.email })
-      await sendEmail({
+      const result = await sendEmail({
         to: recipient.email,
+        userId: recipient.id,
         subject: getEmailSubject('plan-welcome', locale, { planName }),
         locale,
         html: (unsubscribeUrl) =>
@@ -416,11 +417,10 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
           }),
         emailType: 'updates',
       })
-      if (referenceType === 'user') {
-        logger.info('Billing tier welcome email sent successfully', {
-          userId: referenceId,
-          email: recipient.email,
-          billingTier: tier.displayName,
+      if (!result.success) {
+        logger.warn('Billing tier welcome email delivery failed', {
+          userId: recipient.id,
+          message: result.message,
         })
       }
     }

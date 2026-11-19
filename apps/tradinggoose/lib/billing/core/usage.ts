@@ -487,7 +487,7 @@ export async function maybeSendUsageThresholdEmail(params: {
 
     for (const { id, email, name } of recipients) {
       const locale = await resolveEmailLocale({ userId: id, email })
-      const message = { to: email, locale, emailType: 'notifications' as const }
+      const message = { to: email, userId: id, locale, emailType: 'notifications' as const }
       const usage = {
         userName: name || undefined,
         percentUsed: Math.min(100, Math.round(params.percentAfter)),

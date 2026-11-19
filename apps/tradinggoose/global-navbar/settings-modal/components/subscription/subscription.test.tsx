@@ -132,7 +132,7 @@ vi.mock('./components', () => ({
       data-testid='plan-card'
       data-price={price}
       data-period={priceSubtext}
-      onClick={onButtonClick}
+      onClick={() => onButtonClick()}
       disabled={buttonDisabled}
     >
       {`${name}:${buttonText}`}

@@ -54,7 +54,6 @@ const organizationTarget: BillingUpgradeTarget = {
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 let handleUpgrade: ReturnType<typeof useSubscriptionUpgrade>['handleUpgrade'] | null = null
-let originalFetch: typeof globalThis.fetch
 
 function UpgradeHarness() {
   handleUpgrade = useSubscriptionUpgrade().handleUpgrade
@@ -73,10 +72,6 @@ describe('useSubscriptionUpgrade', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     handleUpgrade = null
-    originalFetch = globalThis.fetch
-    globalThis.fetch = vi.fn(async () =>
-      Response.json({ organizations: [{ id: 'org-1', role: 'owner' }] })
-    )
     mockUpgrade.mockResolvedValue({ data: {}, error: null })
     mockInvalidateQueries.mockResolvedValue(undefined)
 
@@ -95,7 +90,6 @@ describe('useSubscriptionUpgrade', () => {
     root = null
     container?.remove()
     container = null
-    globalThis.fetch = originalFetch
   })
 
   it('throws Better Auth upgrade result errors', async () => {
@@ -111,10 +105,10 @@ describe('useSubscriptionUpgrade', () => {
     expect(mockInvalidateQueries).not.toHaveBeenCalled()
   })
 
-  it('uses the monthly Stripe price for new starts', async () => {
-    await handleUpgrade?.(organizationTarget, { organizationId: 'org-1' })
+  it('passes the selected seat quantity to Better Auth for monthly checkout', async () => {
+    await handleUpgrade?.(organizationTarget, { organizationId: 'org-1', seats: 7 })
     expect(mockUpgrade).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ plan: 'team-new', referenceId: 'org-1', seats: 2 })
+      expect.objectContaining({ plan: 'team-new', referenceId: 'org-1', seats: 7 })
     )
     expect(mockUpgrade.mock.calls[0][0]).not.toHaveProperty('annual')
   })

@@ -9,7 +9,7 @@ const PLAN_CHANGE_ALLOWED_UPDATES = ['price', 'quantity'] as const
 
 type PlanChangeTier = Pick<
   BillingTierRecord,
-  'ownerType' | 'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
+  'ownerType' | 'seatMode' | 'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
 >
 
 export class IneligibleStripePriceError extends Error {}
@@ -22,21 +22,39 @@ export function getTierStripePriceIds(
   )
 }
 
+export function getStripeSeatPrice(price: Stripe.Price) {
+  const interval = price.recurring?.interval
+  const amount = price.unit_amount_decimal ?? price.unit_amount
+  if (
+    price.currency !== 'usd' ||
+    price.billing_scheme !== 'per_unit' ||
+    price.transform_quantity ||
+    price.recurring?.usage_type !== 'licensed' ||
+    price.recurring.interval_count !== 1 ||
+    (interval !== 'month' && interval !== 'year') ||
+    amount == null
+  )
+    return null
+  return { amountUsd: Number(amount) / 100, interval }
+}
+
 export async function getValidatedStripeTierPrice(
   stripe: Stripe,
-  tier: Pick<PlanChangeTier, 'ownerType' | 'stripeProductId'>,
+  tier: Pick<PlanChangeTier, 'ownerType' | 'seatMode' | 'stripeProductId'>,
   priceId: string | null
 ) {
   if (!priceId) throw new IneligibleStripePriceError('Stripe price is required')
-  const price = await stripe.prices.retrieve(priceId).catch((error: unknown) => {
-    if (
-      error instanceof Stripe.errors.StripeInvalidRequestError &&
-      error.code === 'resource_missing'
-    ) {
-      throw new IneligibleStripePriceError(`Stripe price ${priceId} does not exist`)
-    }
-    throw error
-  })
+  const price = await stripe.prices
+    .retrieve(priceId, { expand: ['currency_options'] })
+    .catch((error: unknown) => {
+      if (
+        error instanceof Stripe.errors.StripeInvalidRequestError &&
+        error.code === 'resource_missing'
+      ) {
+        throw new IneligibleStripePriceError(`Stripe price ${priceId} does not exist`)
+      }
+      throw error
+    })
   if (!price.active || !price.recurring) {
     throw new IneligibleStripePriceError(
       `Stripe price ${price.id} must be an active recurring price`
@@ -45,6 +63,15 @@ export async function getValidatedStripeTierPrice(
   if (tier.ownerType === 'organization' && price.recurring.usage_type !== 'licensed') {
     throw new IneligibleStripePriceError(
       `Stripe price ${price.id} must be licensed for organization seats`
+    )
+  }
+  if (
+    tier.seatMode === 'adjustable' &&
+    (!getStripeSeatPrice(price) ||
+      Object.keys(price.currency_options ?? {}).some((currency) => currency !== 'usd'))
+  ) {
+    throw new IneligibleStripePriceError(
+      `Stripe price ${price.id} must bill adjustable seats per unit in USD each month or year`
     )
   }
   const productId = typeof price.product === 'string' ? price.product : price.product.id

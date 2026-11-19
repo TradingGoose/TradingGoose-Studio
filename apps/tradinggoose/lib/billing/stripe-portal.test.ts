@@ -115,6 +115,7 @@ describe('Stripe portal configurations', () => {
     const { buildPlanChangePortalCatalog } = await import('./stripe-portal')
     const tier = {
       ownerType: 'organization' as const,
+      seatMode: 'fixed' as const,
       stripeProductId: null,
       stripeMonthlyPriceId: 'price',
       stripeYearlyPriceId: null,
@@ -134,6 +135,11 @@ describe('Stripe portal configurations', () => {
     await expect(buildPlanChangePortalCatalog(stripe, [tier], ['price'])).rejects.toThrow(
       'must be licensed'
     )
+
+    retrievePrice.mockResolvedValueOnce({ ...price, currency: 'usd', billing_scheme: 'tiered' })
+    await expect(
+      buildPlanChangePortalCatalog(stripe, [{ ...tier, seatMode: 'adjustable' }], ['price'])
+    ).rejects.toThrow('must bill adjustable seats per unit')
 
     retrievePrice.mockResolvedValueOnce({ ...price, product: 'prod_other' })
     await expect(
