@@ -204,7 +204,7 @@
       "verifiedTitle": "¡Correo electrónico verificado!",
       "verifiedDescription": "Tu correo electrónico ha sido verificado. Redirigiendo al panel...",
       "disabledDescription": "Verificación de correo desactivada. Redirigiendo al panel…",
-      "codeSent": "Se ha enviado un código de verificación a {email}",
+      "checkInbox": "Revisa el buzón de {email} para ver si recibiste un código de verificación.",
       "developmentDescription": "Modo de desarrollo: Revisa los registros de la consola para obtener el código de verificación",
       "missingServiceDescription": "Error: La verificación de correo está habilitada pero no hay ningún servicio de correo configurado",
       "instructionsWithService": "Ingresa el código de 6 dígitos del correo de restablecimiento y elige la contraseña que usarás para iniciar sesión.",

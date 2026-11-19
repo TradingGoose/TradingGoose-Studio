@@ -14,7 +14,11 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getUsernameErrorMessage, isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
+import {
+  getLoginPasswordError,
+  getUsernameErrorMessage,
+  isSessionRecoveryAuthError,
+} from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -41,18 +45,6 @@ const validateIdentifierField = (
 ): string => {
   if (!emailValue) return messages.required
   if (emailValue.includes('@') && !quickValidateEmail(emailValue).isValid) return messages.invalid
-  return ''
-}
-
-const validatePassword = (
-  passwordValue: string,
-  messages: {
-    required: string
-    empty: string
-  }
-): string => {
-  if (!passwordValue) return messages.required
-  if (!passwordValue.trim()) return messages.empty
   return ''
 }
 
@@ -216,10 +208,7 @@ export default function LoginPage({
     })
     setEmailError(emailValidationError)
 
-    const passwordValidationError = validatePassword(password, {
-      required: loginCopy.validation.passwordRequired,
-      empty: loginCopy.validation.passwordEmpty,
-    })
+    const passwordValidationError = getLoginPasswordError(loginCopy.validation, password)
     setPasswordError(passwordValidationError)
 
     if (emailValidationError || passwordValidationError) {

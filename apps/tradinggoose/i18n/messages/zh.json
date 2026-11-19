@@ -204,7 +204,7 @@
       "verifiedTitle": "邮箱已验证！",
       "verifiedDescription": "您的邮箱已验证。正在重定向到仪表盘...",
       "disabledDescription": "邮箱验证已禁用。正在重定向到仪表盘...",
-      "codeSent": "验证码已发送至 {email}",
+      "checkInbox": "请前往 {email} 查看验证码。",
       "developmentDescription": "开发模式：请查看控制台日志以获取验证码",
       "missingServiceDescription": "错误：邮箱验证已启用但未配置邮件服务",
       "instructionsWithService": "请输入密码重置邮件中的六位验证码，并设置今后用于登录的密码。",

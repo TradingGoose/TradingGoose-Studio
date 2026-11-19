@@ -125,15 +125,19 @@ describe('useVerification', () => {
       controls.handleOtpChange('123456')
     })
 
+    await act(async () => controls.verifyCode('        '))
+    expect(controls.failureMessage).toBe(getPublicCopy('zh').auth.login.validation.passwordEmpty)
+    expect(mockResetPasswordOtp).not.toHaveBeenCalled()
+
     await act(async () => {
-      await controls.verifyCode('ChosenPassword1!')
+      await controls.verifyCode(' ChosenPassword1! ')
       await vi.advanceTimersByTimeAsync(1000)
     })
 
     expect(mockResetPasswordOtp).toHaveBeenCalledWith({
       email: 'ada@example.com',
       otp: '123456',
-      password: 'ChosenPassword1!',
+      password: ' ChosenPassword1! ',
     })
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/users/me/settings',

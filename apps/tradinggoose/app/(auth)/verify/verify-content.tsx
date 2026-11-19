@@ -68,7 +68,7 @@ function VerificationForm({ hasEmailService, isEmailVerificationEnabled }: Verif
               : !isEmailVerificationEnabled
                 ? verifyCopy.disabledDescription
                 : hasEmailService
-                  ? formatTemplate(verifyCopy.codeSent, {
+                  ? formatTemplate(verifyCopy.checkInbox, {
                       email: email || verifyCopy.yourEmail,
                     })
                   : verifyCopy.missingServiceDescription

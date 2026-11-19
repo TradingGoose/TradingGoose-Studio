@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { Messages } from 'next-intl'
 import { useLocale, useMessages } from 'next-intl'
-import { getSignupPasswordError } from '@/lib/auth/auth-error-copy'
+import { getLoginPasswordError, getSignupPasswordError } from '@/lib/auth/auth-error-copy'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useRouter } from '@/i18n/navigation'
@@ -50,7 +50,7 @@ export function useVerification({
       typeof window !== 'undefined' ? window.location.origin : undefined
     ) ?? '/workspace'
   const returnQuery = `?callbackUrl=${encodeURIComponent(destination)}${isInviteFlow ? '&invite_flow=true' : ''}`
-  const { verify: copy, signup } = useMessages().auth
+  const { verify: copy, signup, login } = useMessages().auth
   const { errors: failureCopy } = copy
   const [otp, setOtp] = useState('')
   const [email, setEmail] = useState('')
@@ -82,13 +82,13 @@ export function useVerification({
   }
 
   async function verifyCode(password: string) {
-    if (!isOtpComplete || !email || !password) return
-    if (fromSignup) {
-      const passwordError = getSignupPasswordError(signup.validation, password)
-      if (passwordError) {
-        setFailure({ message: passwordError })
-        return
-      }
+    if (!isOtpComplete || !email) return
+    const passwordError = fromSignup
+      ? getSignupPasswordError(signup.validation, password)
+      : getLoginPasswordError(login.validation, password)
+    if (passwordError) {
+      setFailure({ message: passwordError })
+      return
     }
 
     setIsLoading(true)

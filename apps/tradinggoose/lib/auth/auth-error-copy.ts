@@ -36,6 +36,14 @@ export function getUsernameErrorMessage(copy: PublicCopy['username'], code?: str
   return key ? copy[key] : undefined
 }
 
+export function getLoginPasswordError(
+  copy: PublicCopy['auth']['login']['validation'],
+  password: string
+) {
+  if (!password) return copy.passwordRequired
+  return password.trim() ? '' : copy.passwordEmpty
+}
+
 export function getSignupPasswordError(
   copy: PublicCopy['auth']['signup']['validation'],
   password: string

@@ -204,7 +204,7 @@
       "verifiedTitle": "Email Verified!",
       "verifiedDescription": "Your email has been verified. Redirecting to dashboard...",
       "disabledDescription": "Email verification is disabled. Redirecting to dashboard...",
-      "codeSent": "A verification code has been sent to {email}",
+      "checkInbox": "Check {email} for a verification code.",
       "developmentDescription": "Development mode: Check your console logs for the verification code",
       "missingServiceDescription": "Error: Email verification is enabled but no email service is configured",
       "instructionsWithService": "Enter the 6-digit code from your password reset email and choose the password you’ll use to sign in.",
