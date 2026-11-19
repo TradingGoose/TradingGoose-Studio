@@ -1,6 +1,6 @@
 'use client'
 
-import { type DragEvent, type FormEvent, useRef, useState } from 'react'
+import { type DragEvent, type FormEvent, useEffect, useRef, useState } from 'react'
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
 import Image from 'next/image'
 import { useMessages, useTranslations } from 'next-intl'
@@ -37,24 +37,35 @@ function AccountSettingsForm({ sessionUser }: { sessionUser?: SessionUser }) {
   const sessionEmail = sessionUser?.email ?? ''
   const [confirmedProfile, setConfirmedProfile] = useState<{
     name?: string
-    email?: { superseded: string[]; value: string }
     image?: string
     displayUsername?: string
   }>({})
   const pending = { ...confirmedProfile }
   const fields = Object.keys(confirmedProfile) as (keyof typeof confirmedProfile)[]
   for (const field of fields) {
-    const acknowledged =
-      field === 'email'
-        ? sessionEmail &&
-          (sessionEmail === pending.email?.value ||
-            !pending.email?.superseded.includes(sessionEmail))
-        : pending[field] === sessionUser?.[field]
-    if (acknowledged) delete pending[field]
+    if (pending[field] === sessionUser?.[field]) delete pending[field]
   }
   if (Object.keys(pending).length !== fields.length) setConfirmedProfile(pending)
   const name = confirmedProfile.name ?? sessionUser?.name ?? ''
-  const email = confirmedProfile.email?.value ?? sessionEmail
+  const [savedEmail, setSavedEmail] = useState<{ value: string; snapshot?: SessionUser }>()
+  const email = savedEmail?.value ?? sessionEmail
+  if (savedEmail && sessionEmail === savedEmail.value) setSavedEmail(undefined)
+  useEffect(() => {
+    if (!savedEmail || !sessionUser || sessionUser === savedEmail.snapshot) return
+    let ignore = false
+    void client
+      .getSession({ query: { disableCookieCache: true } })
+      .then(({ data }) => {
+        if (ignore || data?.user.id !== sessionUser.id) return
+        const value = data.user.email
+        const confirmed = value === sessionUser.email ? undefined : { value, snapshot: sessionUser }
+        setSavedEmail((current) => (current === savedEmail ? confirmed : current))
+      })
+      .catch((error) => logger.warn('Unable to confirm the current account email', { error }))
+    return () => {
+      ignore = true
+    }
+  }, [savedEmail, sessionUser])
   const userImage = confirmedProfile.image ?? sessionUser?.image ?? null
   const username =
     confirmedProfile.displayUsername ?? sessionUser?.displayUsername ?? sessionUser?.username ?? ''
@@ -510,14 +521,7 @@ function AccountSettingsForm({ sessionUser }: { sessionUser?: SessionUser }) {
                 <Label>{tAccount('emailAddress')}</Label>
                 <ChangeEmailForm
                   email={email}
-                  onEmailChanged={(value) =>
-                    confirmProfile({
-                      email: {
-                        superseded: [...(confirmedProfile.email?.superseded ?? []), email],
-                        value,
-                      },
-                    })
-                  }
+                  onEmailChanged={(value) => setSavedEmail({ value, snapshot: sessionUser })}
                 />
                 <p className='text-muted-foreground text-xs'>{tAccount('emailHint')}</p>
               </div>

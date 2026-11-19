@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util'
 import { user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -78,6 +79,7 @@ vi.mock('@/lib/urls/utils', () => ({
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
+    debug: vi.fn(),
     info: mockLoggerInfo,
     warn: mockLoggerWarn,
     error: mockLoggerError,
@@ -234,7 +236,7 @@ describe('mailer', () => {
         },
       })
 
-      expect(result.success).toBe(false)
+      expect(result).toMatchObject({ success: false, currentEmail: 'new@example.com' })
       expect(getEmailRecipient).toHaveBeenCalledExactlyOnceWith(eq(user.id, recipient.id))
       expect(mockSend).not.toHaveBeenCalled()
       expect(mockAzureBeginSend).not.toHaveBeenCalled()
@@ -295,6 +297,12 @@ describe('mailer', () => {
   describe('syncUserEmailAudience', () => {
     const old = 'old@example.com'
     const segmentId = 'audience-123'
+    const mockTransferRecipients = (current = recipient, formerOwner?: typeof recipient) =>
+      vi
+        .mocked(getEmailRecipient)
+        .mockImplementation(async (where) =>
+          isDeepStrictEqual(where, eq(user.id, recipient.id)) ? current : formerOwner
+        )
 
     it('does nothing when the Resend audience is not configured', async () => {
       mockResolveResendServiceConfig.mockResolvedValue({ apiKey: 'test-api-key', audienceId: null })
@@ -309,9 +317,7 @@ describe('mailer', () => {
     })
 
     it('moves a verified address between Studio segment memberships', async () => {
-      vi.mocked(getEmailRecipient)
-        .mockResolvedValueOnce({ ...recipient, email: ' Test@Example.com ' })
-        .mockResolvedValueOnce(undefined)
+      mockTransferRecipients({ ...recipient, email: ' Test@Example.com ' })
       mockContactsGet.mockResolvedValueOnce({ data: { id: old, unsubscribed: false }, error: null })
 
       await syncUserEmailAudience(recipient, old)
@@ -328,10 +334,7 @@ describe('mailer', () => {
         error: null,
       })
       await syncUserEmailAudience(recipient)
-      expect(mockContactSegmentAdd).toHaveBeenCalledExactlyOnceWith({
-        contactId: 'existing',
-        segmentId,
-      })
+      expect(mockContactSegmentAdd).not.toHaveBeenCalled()
       expect(mockContactsCreate).not.toHaveBeenCalled()
     })
 
@@ -347,7 +350,7 @@ describe('mailer', () => {
     })
 
     it('keeps a previous Resend opt-out for the Studio account', async () => {
-      vi.mocked(getEmailRecipient).mockResolvedValueOnce(recipient).mockResolvedValueOnce(undefined)
+      mockTransferRecipients()
       mockContactsGet.mockResolvedValueOnce({ data: { id: old, unsubscribed: true }, error: null })
 
       await syncUserEmailAudience(recipient, old)
@@ -358,9 +361,7 @@ describe('mailer', () => {
     })
 
     it('leaves a reassigned address with its current verified owner', async () => {
-      vi.mocked(getEmailRecipient)
-        .mockResolvedValueOnce(recipient)
-        .mockResolvedValueOnce({ ...recipient, id: 'other', email: old })
+      mockTransferRecipients(recipient, { ...recipient, id: 'other', email: old })
       await syncUserEmailAudience(recipient, old)
       expect(mockContactsGet).toHaveBeenCalledExactlyOnceWith({ email: recipient.email })
       expect(mockContactSegmentRemove).not.toHaveBeenCalled()
@@ -375,6 +376,25 @@ describe('mailer', () => {
         'Failed to synchronize verified user email with Resend',
         { userId: recipient.id, error }
       )
+    })
+
+    it.each(['cleanup', 'enrollment'])('retries only the failed %s on transfer', async (step) => {
+      mockTransferRecipients()
+      const failed = step === 'cleanup' ? mockContactSegmentRemove : mockContactsCreate
+      failed.mockResolvedValueOnce({ error: { name: 'internal_server_error', statusCode: 503 } })
+      await expect(syncUserEmailAudience(recipient, old)).resolves.toBe(true)
+      expect(mockContactSegmentRemove).toHaveBeenCalledTimes(step === 'cleanup' ? 2 : 1)
+      expect(mockContactsCreate).toHaveBeenCalledTimes(step === 'enrollment' ? 2 : 1)
+    })
+
+    it('enrolls the current mailbox even when the prior removal fails', async () => {
+      mockTransferRecipients()
+      mockContactSegmentRemove.mockResolvedValue({ error: { statusCode: 403 } })
+      await expect(syncUserEmailAudience(recipient, old)).resolves.toBe(false)
+      expect(mockContactsCreate).toHaveBeenCalledExactlyOnceWith({
+        email: recipient.email,
+        segments: [{ id: segmentId }],
+      })
     })
   })
 
@@ -391,25 +411,34 @@ describe('mailer', () => {
           mockSend.mockRejectedValue(new Error('Network error'))
         }
 
-        const result = await sendEmail(testEmailOptions)
+        const result = await sendEmail({
+          ...testEmailOptions,
+          emailType: 'updates',
+          userId: recipient.id,
+          locale: 'es',
+          html: async (url) => `<a href="${url}">Cancelar suscripción</a>`,
+          text: 'Actualización',
+          attachments: [{ filename: 'update.txt', content: 'aG9sYQ==', contentType: 'text/plain' }],
+          replyTo: 'support@example.com',
+        })
 
-        expect(result.success).toBe(true)
         expect(result.message).toBe('Email sent successfully via Azure Communication Services')
-
-        // Should have tried Resend first
-        expect(mockSend).toHaveBeenCalled()
-
-        // Should have fallen back to Azure
+        expect(mockSend).toHaveBeenCalledOnce()
+        const url =
+          'https://test.tradinggoose.ai/es/unsubscribe?token=mock-token-123&email=test%40example.com'
         expect(mockAzureBeginSend).toHaveBeenCalledWith({
           senderAddress: 'noreply@tradinggoose.ai',
           content: {
             subject: testEmailOptions.subject,
-            html: testEmailOptions.html,
+            html: `<a href="${url}">Cancelar suscripción</a>`,
+            plainText: `Actualización\n\nCancelar suscripción: ${url}`,
           },
-          recipients: {
-            to: [{ address: testEmailOptions.to }],
-          },
-          headers: {},
+          recipients: { to: [{ address: testEmailOptions.to }] },
+          attachments: [
+            { name: 'update.txt', contentInBase64: 'aG9sYQ==', contentType: 'text/plain' },
+          ],
+          replyTo: [{ address: 'support@example.com' }],
+          headers: mockSend.mock.calls[0][0].headers,
         })
       }
     )

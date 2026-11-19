@@ -642,10 +642,10 @@ export async function maybeSendUsageThresholdEmail(params: {
       }
       if (crossesFreeTierUpgradeThreshold) {
         const tier = await getPrimaryPublicUserUpgradeTier()
-        await sendEmail({
+        const upgradeEmail = {
           ...message,
           subject: getEmailSubject('free-tier-upgrade', locale),
-          html: (unsubscribeUrl) =>
+          html: (unsubscribeUrl: string) =>
             renderFreeTierUpgradeEmail({
               ...usage,
               unsubscribeUrl,
@@ -656,7 +656,11 @@ export async function maybeSendUsageThresholdEmail(params: {
               recommendedTierIncludedUsageLimitUsd: tier ? getTierUsageAllowanceUsd(tier) : null,
               recommendedTierFeatures: tier?.pricingFeatures,
             }),
-        })
+        }
+        const result = await sendEmail(upgradeEmail)
+        if (!result.success && result.currentEmail) {
+          await sendEmail({ ...upgradeEmail, to: result.currentEmail })
+        }
       }
     }
   } catch (error) {

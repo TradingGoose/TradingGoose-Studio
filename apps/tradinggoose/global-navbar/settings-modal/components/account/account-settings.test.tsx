@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   request: vi.fn(),
   change: vi.fn(),
   refetch: vi.fn(),
+  getSession: vi.fn(),
   updateUser: vi.fn(),
   isUsernameAvailable: vi.fn(),
   requestPasswordReset: vi.fn(),
@@ -65,6 +66,7 @@ vi.mock('@/components/ui/tooltip', () => ({
 }))
 vi.mock('@/lib/auth-client', () => ({
   client: {
+    getSession: mocks.getSession,
     updateUser: mocks.updateUser,
     isUsernameAvailable: mocks.isUsernameAvailable,
     requestPasswordReset: mocks.requestPasswordReset,
@@ -160,6 +162,7 @@ describe('AccountSettings localization', () => {
     mocks.request.mockResolvedValue({ data: { success: true }, error: null })
     mocks.change.mockResolvedValue({ data: { success: true }, error: null })
     mocks.refetch.mockReset().mockResolvedValue(undefined)
+    mocks.getSession.mockReset().mockResolvedValue({ data: null, error: null })
     mocks.updateUser.mockReset().mockResolvedValue({ data: { status: true }, error: null })
     mocks.isUsernameAvailable
       .mockReset()
@@ -921,7 +924,10 @@ describe('AccountSettings localization', () => {
       expect(container.querySelector('form')).toBeNull()
     })
 
-    it('keeps the latest confirmed email until the session catches up with both changes', async () => {
+    it.each([
+      ['a delayed session response', 'latest@example.com'],
+      ['a return to the previous email in another tab', 'new@example.com'],
+    ])('reconciles consecutive email changes with %s', async (_reason, currentEmail) => {
       for (const value of ['new@example.com', 'latest@example.com']) {
         await openEmailEditor()
         await start(value)
@@ -930,9 +936,21 @@ describe('AccountSettings localization', () => {
         await press(copy.confirm)
       }
 
+      expect(mocks.getSession).not.toHaveBeenCalled()
+      mocks.getSession.mockResolvedValue({
+        data: { user: { id: 'user-1', email: currentEmail } },
+        error: null,
+      })
       changeSession({ email: 'new@example.com' })
       await render()
-      expect(container.textContent).toContain('latest@example.com')
+      expect(mocks.getSession).toHaveBeenCalledExactlyOnceWith({
+        query: { disableCookieCache: true },
+      })
+      expect(container.textContent).toContain(currentEmail)
+      await press(getPublicCopy('en').workspace.settingsModal.account.sendLink)
+      expect(mocks.requestPasswordReset).toHaveBeenLastCalledWith(
+        expect.objectContaining({ email: currentEmail })
+      )
       changeSession({ email: 'latest@example.com' })
       await render()
       expect(container.textContent).toContain('latest@example.com')
@@ -1131,6 +1149,10 @@ describe('AccountSettings localization', () => {
       expect(container.querySelector('#account-new-email')).toHaveValue('new@example.com')
       await press(copy.cancel)
 
+      mocks.getSession.mockResolvedValue({
+        data: { user: { id: 'user-1', email: 'other@example.com' } },
+        error: null,
+      })
       changeSession({ email: 'other@example.com' })
       await render()
       expect(container.textContent).toContain('other@example.com')

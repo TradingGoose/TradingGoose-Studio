@@ -65,7 +65,7 @@ vi.mock('@/lib/billing/tiers', () => ({
 }))
 
 vi.mock('@/lib/email/mailer', () => ({
-  sendEmail: vi.fn(),
+  sendEmail: vi.fn().mockResolvedValue({ success: true, message: 'Accepted' }),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -243,15 +243,18 @@ describe('usage threshold mail', () => {
     limit: 100,
   }
 
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetResolvedBillingSettings.mockResolvedValue({
+      billingEnabled: true,
+      usageWarningThresholdPercent: 75,
+      freeTierUpgradeThresholdPercent: 90,
+    })
+  })
+
   it.each([true, false])(
     'uses the billing notification preference for both thresholds (enabled=%s)',
     async (enabled) => {
-      vi.clearAllMocks()
-      mockGetResolvedBillingSettings.mockResolvedValue({
-        billingEnabled: true,
-        usageWarningThresholdPercent: 75,
-        freeTierUpgradeThresholdPercent: 90,
-      })
       mockDb.select.mockImplementation(() =>
         createSelectQueryMock([{ enabled, preferredLocale: 'es' }])
       )
@@ -268,6 +271,26 @@ describe('usage threshold mail', () => {
             ]
           : []
       )
+    }
+  )
+
+  it.each(['new@example.com', undefined])(
+    'retries only the refused upgrade notification when the account has a new mailbox (%s)',
+    async (currentEmail) => {
+      mockDb.select.mockImplementation(() =>
+        createSelectQueryMock([{ enabled: true, preferredLocale: 'es' }])
+      )
+      const { sendEmail } = await import('@/lib/email/mailer')
+      vi.mocked(sendEmail)
+        .mockResolvedValueOnce({ success: true, message: 'Accepted' })
+        .mockResolvedValueOnce({ success: false, message: 'Unsent', currentEmail })
+      const { maybeSendUsageThresholdEmail } = await import('./usage')
+      await maybeSendUsageThresholdEmail(usage)
+      expect(vi.mocked(sendEmail).mock.calls.map(([mail]) => [mail.subject, mail.to])).toEqual([
+        ['usage-threshold', usage.userEmail],
+        ['free-tier-upgrade', usage.userEmail],
+        ...(currentEmail ? [['free-tier-upgrade', currentEmail]] : []),
+      ])
     }
   )
 })

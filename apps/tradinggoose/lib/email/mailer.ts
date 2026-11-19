@@ -12,6 +12,7 @@ import {
   unsubscribeFromList,
 } from '@/lib/email/unsubscribe'
 import { getFromEmailAddress } from '@/lib/email/utils'
+import { retryWithExponentialBackoff } from '@/lib/knowledge/documents/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   resolveAzureCommunicationEmailServiceConfig,
@@ -54,6 +55,7 @@ export interface TransactionalBatchEmail {
 interface SendEmailResult {
   success: boolean
   message: string
+  currentEmail?: string
 }
 
 export async function hasEmailService(): Promise<boolean> {
@@ -68,9 +70,6 @@ export async function syncUserEmailAudience(
   try {
     const { apiKey, audienceId: segmentId } = await resolveResendServiceConfig()
     if (!apiKey || !segmentId) return true
-    const recipient = await getEmailRecipient(eq(user.id, account.id))
-    if (!recipient) return true
-
     const { contacts } = new Resend(apiKey)
     const getContact = async (email: string) => {
       const { data, error } = await contacts.get({ email })
@@ -82,30 +81,57 @@ export async function syncUserEmailAudience(
       if (error && error.statusCode !== 404) throw error
     }
 
-    const email = recipient.email.trim().toLowerCase()
     const prior = previousEmail?.trim().toLowerCase()
-    let optedOut = isUnsubscribed(recipient.preferences, 'marketing')
-    if (
-      prior &&
-      prior !== email &&
-      !(await getEmailRecipient(eq(user.email, prior)))?.emailVerified
-    ) {
-      const oldContact = await getContact(prior)
-      if (oldContact?.unsubscribed && !optedOut) {
-        await unsubscribeFromList(db, recipient.id, 'marketing')
-        optedOut = true
+    const hasVerifiedOwner = async (email: string) =>
+      (await getEmailRecipient(eq(user.email, email)))?.emailVerified
+
+    const syncCurrentAddress = async () => {
+      const recipient = await getEmailRecipient(eq(user.id, account.id))
+      if (!recipient) return
+      const email = recipient.email.trim().toLowerCase()
+      let optedOut = isUnsubscribed(recipient.preferences, 'marketing')
+      if (!optedOut && prior && prior !== email && !(await hasVerifiedOwner(prior))) {
+        if ((await getContact(prior))?.unsubscribed) {
+          await unsubscribeFromList(db, recipient.id, 'marketing')
+          optedOut = true
+        }
       }
-      if (oldContact) await removeFromSegment(prior)
+      if (optedOut) {
+        await removeFromSegment(email)
+      } else if (recipient.emailVerified) {
+        const contact = await getContact(email)
+        if (contact?.unsubscribed) return
+        const { error } = contact
+          ? await contacts.segments.add({ contactId: contact.id, segmentId })
+          : await contacts.create({ email, segments: [{ id: segmentId }] })
+        if (error) throw error
+      }
     }
 
-    if (optedOut) {
-      await removeFromSegment(email)
-    } else if (recipient.emailVerified) {
-      const contact = await getContact(email)
-      const { error } = contact
-        ? await contacts.segments.add({ contactId: contact.id, segmentId })
-        : await contacts.create({ email, segments: [{ id: segmentId }] })
-      if (error) throw error
+    if (!prior) {
+      await syncCurrentAddress()
+      return true
+    }
+    const changes = [
+      syncCurrentAddress,
+      async () => {
+        if (!(await hasVerifiedOwner(prior))) await removeFromSegment(prior)
+      },
+    ]
+    const results = await Promise.allSettled(
+      changes.map((change) =>
+        retryWithExponentialBackoff(change, {
+          maxRetries: 1,
+          retryCondition: (error) =>
+            ('statusCode' in error &&
+              (error.statusCode === null ||
+                (typeof error.statusCode === 'number' && error.statusCode >= 500))) ||
+            ('name' in error && error.name === 'rate_limit_exceeded'),
+        })
+      )
+    )
+    for (const result of results) {
+      if (result.status === 'rejected') throw result.reason
     }
     return true
   } catch (error) {
@@ -143,6 +169,7 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
         return {
           success: false,
           message: 'Email recipient address has changed or no longer exists',
+          currentEmail: recipient?.email,
         }
       }
       if (emailType !== 'transactional' && isUnsubscribed(recipient.preferences, emailType)) {
@@ -177,9 +204,15 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
         senderAddress: senderEmail.match(/<(.+)>/)?.[1] ?? senderEmail,
         content:
           body.html !== undefined
-            ? { subject, html: body.html }
+            ? { subject, html: body.html, plainText: body.text }
             : { subject, plainText: body.text },
         recipients: { to: [{ address: to }] },
+        attachments: attachments?.map(({ filename, content, contentType }) => ({
+          name: filename,
+          contentInBase64: content,
+          contentType,
+        })),
+        replyTo: replyTo ? [{ address: replyTo }] : undefined,
         headers,
       })
       const { status } = await poller.pollUntilDone()
