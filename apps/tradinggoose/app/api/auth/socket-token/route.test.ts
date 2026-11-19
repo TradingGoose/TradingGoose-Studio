@@ -38,7 +38,7 @@ describe('socket token route', () => {
     const response = await POST()
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ token: 'socket-token' })
+    expect(await response.json()).toEqual({ token: 'socket-token', userId: 'user-1' })
     expect(mockGetSession).toHaveBeenCalledWith({ headers: expect.any(Headers) })
     expect(mockGenerateOneTimeToken).toHaveBeenCalledWith({ headers: expect.any(Headers) })
   })

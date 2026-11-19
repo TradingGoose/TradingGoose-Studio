@@ -160,7 +160,8 @@ describe('bootstrapYjsProvider', () => {
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/auth/socket-token') return jsonResponse({ token: 'token-1' })
+      if (url === '/api/auth/socket-token')
+        return jsonResponse({ token: 'token-1', userId: 'user-1' })
       throw new Error(`Unexpected fetch: ${url}`)
     })
   })
@@ -234,7 +235,7 @@ describe('bootstrapYjsProvider', () => {
     provider.receive(createSyncUpdateMessage(stale))
     expect(fields.has('stale')).toBe(false)
     const event = await result.lifecycle
-    if (event.type !== 'lineage-replaced') throw event.error
+    if (event.type !== 'reopen') throw event.error
     const pending = event.pendingLocalEdits
     if (!pending) throw new Error('Expected pending local edits')
     expect(pending.replay).toHaveLength(12)
@@ -255,7 +256,7 @@ describe('bootstrapYjsProvider', () => {
     const restartedProvider = restarted.provider as unknown as MockWebsocketProvider
     restartedProvider.receive(encodeYjsDurableCheckpoint('lineage-3', Y.emptySnapshot))
     const repeatedEvent = await restarted.lifecycle
-    if (repeatedEvent.type !== 'lineage-replaced') throw repeatedEvent.error
+    if (repeatedEvent.type !== 'reopen') throw repeatedEvent.error
     const replayedPending = repeatedEvent.pendingLocalEdits
     restarted.dispose()
     const concurrent = snapshot({
@@ -334,7 +335,7 @@ describe('bootstrapYjsProvider', () => {
     )
     replacementProvider.receive(encodeYjsDurableCheckpoint('lineage-5', Y.emptySnapshot))
     await expect(replacement.lifecycle).resolves.toEqual({
-      type: 'lineage-replaced',
+      type: 'reopen',
       pendingLocalEdits: undefined,
     })
     replacement.dispose()
@@ -367,7 +368,7 @@ describe('bootstrapYjsProvider', () => {
     await vi.advanceTimersByTimeAsync(1_150)
     expect(fetchMock).toHaveBeenCalledTimes(tokenFetches + 4)
     result.dispose()
-    resolveToken(jsonResponse({ token: 'token-2' }))
+    resolveToken(jsonResponse({ token: 'token-2', userId: 'user-1' }))
     await vi.advanceTimersByTimeAsync(0)
     expect(provider.connect).toHaveBeenCalledTimes(3)
   })
@@ -378,15 +379,75 @@ describe('bootstrapYjsProvider', () => {
     result.doc.getMap('workflow').set('content', 'local edit')
     vi.useFakeTimers()
     vi.spyOn(Math, 'random').mockReturnValue(0)
-    fetchMock.mockResolvedValueOnce(jsonResponse({ token: 'token-2' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(null, 401))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ token: 'token-2', userId: 'user-1' }))
 
     provider.emit('connection-close', { code: YJS_CLOSE_CODE_RETRY_REQUIRED }, provider)
     await vi.advanceTimersByTimeAsync(1_000)
+    expect(provider.connect).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(2_000)
 
     expect(provider.params.token).toBe('token-2')
     expect(provider.connect).toHaveBeenCalledTimes(2)
     expect(provider.destroy).not.toHaveBeenCalled()
     expect(result.doc.getMap('workflow').get('content')).toBe('local edit')
+    result.dispose()
+  })
+
+  it('restores pending edits only for their author after reauthentication', async () => {
+    const saved = new Map<string, string>()
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => saved.get(key) ?? null,
+      setItem: (key: string, value: string) => saved.set(key, value),
+      removeItem: (key: string) => saved.delete(key),
+    })
+    const original = await bootstrapSyncedProvider()
+    const provider = original.provider as unknown as MockWebsocketProvider
+    original.doc.getMap('workflow').set('content', 'draft')
+    const originalUpdate = Y.encodeStateAsUpdate(original.doc)
+    window.dispatchEvent(new Event('beforeunload'))
+    expect(saved.size).toBe(1)
+    fetchMock.mockImplementation(async () => jsonResponse({ token: 'other', userId: 'user-2' }))
+    vi.useFakeTimers()
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    provider.emit('connection-close', { code: YJS_CLOSE_CODE_RETRY_REQUIRED }, provider)
+    await vi.advanceTimersByTimeAsync(1_000)
+    await expect(original.lifecycle).resolves.toEqual({ type: 'reopen' })
+    expect(provider.connect).toHaveBeenCalledTimes(1)
+    original.dispose()
+    vi.useRealTimers()
+
+    const other = await bootstrapSyncedProvider()
+    expect(other.doc.getMap('workflow').size).toBe(0)
+    expect(saved.size).toBe(1)
+    other.dispose()
+    fetchMock.mockImplementation(async () => jsonResponse({ token: 'renewed', userId: 'user-1' }))
+    const restored = await bootstrapSyncedProvider()
+    expect(restored.doc.getMap('workflow').get('content')).toBe('draft')
+    expect(Y.snapshotContainsUpdate(Y.snapshot(restored.doc), originalUpdate)).toBe(true)
+    const restoredProvider = restored.provider as unknown as MockWebsocketProvider
+    restoredProvider.receive(encodeYjsDurableCheckpoint('lineage-1', Y.emptySnapshot))
+    expect(saved.size).toBe(1)
+    restoredProvider.receive(encodeYjsDurableCheckpoint('lineage-1', Y.snapshot(restored.doc)))
+    expect(saved.size).toBe(0)
+    restored.dispose()
+  })
+
+  it('releases the previous account even if browser storage is full', async () => {
+    const result = await bootstrapSyncedProvider()
+    const provider = result.provider as unknown as MockWebsocketProvider
+    result.doc.getMap('workflow').set('content', 'draft')
+    vi.spyOn(sessionStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('Full', 'QuotaExceededError')
+    })
+    expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(false)
+    fetchMock.mockResolvedValueOnce(jsonResponse({ token: 'other', userId: 'user-2' }))
+    vi.useFakeTimers()
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    provider.emit('connection-close', { code: YJS_CLOSE_CODE_RETRY_REQUIRED }, provider)
+    await vi.advanceTimersByTimeAsync(1_000)
+    await expect(result.lifecycle).resolves.toEqual({ type: 'reopen' })
+    expect(provider.connect).toHaveBeenCalledTimes(1)
     result.dispose()
   })
 

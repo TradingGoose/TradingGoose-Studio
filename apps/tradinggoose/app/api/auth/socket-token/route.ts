@@ -11,16 +11,9 @@ export async function POST() {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const response = await auth.api.generateOneTimeToken({
-      headers: hdrs,
-    })
-
-    if (!response) {
-      return NextResponse.json({ error: 'Failed to generate token' }, { status: 500 })
-    }
-
-    return NextResponse.json({ token: response.token })
-  } catch (_error: unknown) {
+    const { token } = await auth.api.generateOneTimeToken({ headers: hdrs })
+    return NextResponse.json({ token, userId: session.user.id })
+  } catch {
     return NextResponse.json({ error: 'Failed to generate token' }, { status: 500 })
   }
 }

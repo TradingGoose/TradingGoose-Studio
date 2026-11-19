@@ -1,4 +1,5 @@
 import { diffChars } from 'diff'
+import { decodeAny, encodeAny, fromBase64, toBase64 } from 'lib0/buffer'
 import { isEqual, isPlainObject } from 'lodash'
 import { messageSync, WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
@@ -13,6 +14,7 @@ import {
   YJS_CLOSE_CODE_DOCUMENT_REJECTED,
 } from '@/lib/copilot/review-sessions/types'
 import { getEnv } from '@/lib/env'
+import { createLogger } from '@/lib/logs/console/logger'
 import {
   decodeYjsLifecycleMessage,
   encodeYjsPersistRequest,
@@ -21,6 +23,8 @@ import {
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 export interface YjsPendingLocalEdits {
+  readonly userId: string
+  readonly lineageId: string
   readonly base: Uint8Array
   readonly replay: ReadonlyArray<{ local: boolean; update: Uint8Array }>
 }
@@ -35,7 +39,7 @@ export interface YjsProviderBootstrapResult {
 
 export type YjsProviderError = Error & { retryable: false }
 export type YjsProviderLifecycleEvent =
-  | { type: 'lineage-replaced'; pendingLocalEdits?: YjsPendingLocalEdits }
+  | { type: 'reopen'; pendingLocalEdits?: YjsPendingLocalEdits }
   | { type: 'terminal-failure'; error: YjsProviderError }
 
 function terminalProviderError(message: string): YjsProviderError {
@@ -43,6 +47,7 @@ function terminalProviderError(message: string): YjsProviderError {
 }
 
 const SYNC_TIMEOUT_MS = 10_000
+const logger = createLogger('YjsProvider')
 const RECONNECT_BASE_DELAY_MS = 1_000
 const RECONNECT_MAX_DELAY_MS = 30_000
 const RECONNECT_JITTER_RATIO = 0.3
@@ -55,15 +60,6 @@ function connectionCloseError(event: unknown): YjsProviderError | null {
   return code === YJS_CLOSE_CODE_AUTHORIZATION_REVOKED || code === YJS_CLOSE_CODE_DOCUMENT_REJECTED
     ? terminalProviderError('Yjs session was rejected')
     : null
-}
-
-function requireSuccessfulResponse(response: Response, label: string): void {
-  if (response.ok) return
-  const message = `${label} failed: ${response.status}`
-  if (response.status >= 500 || response.status === 408 || response.status === 429) {
-    throw new Error(message)
-  }
-  throw terminalProviderError(message)
 }
 
 const MISSING_Y_MAP_VALUE = Symbol('missing-y-map-value')
@@ -205,9 +201,14 @@ function mergeYMapValue(
 
 function replayYjsPendingLocalEdits(
   target: Y.Doc,
-  pending: YjsPendingLocalEdits | undefined
+  pending: YjsPendingLocalEdits,
+  lineageId: string | null
 ): void {
-  if (!pending) return
+  if (pending.lineageId === lineageId) {
+    const update = Y.mergeUpdates([pending.base, ...pending.replay.map(({ update }) => update)])
+    Y.applyUpdate(target, update, YJS_ORIGINS.SYSTEM)
+    return
+  }
   const base = new Y.Doc()
   const current = new Y.Doc()
   try {
@@ -231,19 +232,31 @@ function replayYjsPendingLocalEdits(
   }
 }
 
-async function fetchSocketToken(): Promise<string> {
+async function fetchSocketToken(reauthenticating: boolean) {
   const response = await fetch('/api/auth/socket-token', {
     method: 'POST',
     cache: 'no-store',
     credentials: 'include',
     headers: { 'cache-control': 'no-store' },
   })
-  requireSuccessfulResponse(response, 'Socket token fetch')
-  const data = (await response.json().catch(() => null)) as { token?: unknown } | null
-  if (typeof data?.token !== 'string' || !data.token) {
+  if (!response.ok) {
+    const { status } = response
+    const message = `Socket token fetch failed: ${status}`
+    if (status >= 500 || status === 408 || status === 429 || (status === 401 && reauthenticating)) {
+      throw new Error(message)
+    }
+    throw terminalProviderError(message)
+  }
+  const data: { token?: unknown; userId?: unknown } | null = await response.json().catch(() => null)
+  if (
+    typeof data?.token !== 'string' ||
+    !data.token ||
+    typeof data.userId !== 'string' ||
+    !data.userId
+  ) {
     throw terminalProviderError('Socket token response is malformed')
   }
-  return data.token
+  return { token: data.token, userId: data.userId }
 }
 
 export function waitForYjsSync(provider: WebsocketProvider): Promise<void> {
@@ -281,7 +294,9 @@ export async function bootstrapYjsProvider(
   pendingLocalEdits?: YjsPendingLocalEdits
 ): Promise<YjsProviderBootstrapResult> {
   const envelopeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-  const token = await fetchSocketToken()
+  const { token, userId } = await fetchSocketToken(Boolean(pendingLocalEdits))
+  const draftKey = `yjs-pending:${JSON.stringify([userId, envelopeParams])}`
+  let savedDraft: string | null = null
   const doc = new Y.Doc()
   let active = true
   const provider = new WebsocketProvider(`${wsOrigin}/yjs`, descriptor.yjsSessionId, doc, {
@@ -317,6 +332,8 @@ export async function bootstrapYjsProvider(
       localBase = null
       localUpdates.length = 0
       replayUpdates.length = 0
+      clearSavedDraft()
+      window.removeEventListener('beforeunload', savePendingDraft)
     }
   }
 
@@ -329,14 +346,43 @@ export async function bootstrapYjsProvider(
   function handleDocumentUpdate(update: Uint8Array, origin: unknown): void {
     if (!active) return
     const local = origin !== provider
-    if (local) localUpdates.push(update)
+    if (local) {
+      localUpdates.push(update)
+      if (accessMode === 'write' && localUpdates.length === 1) {
+        window.addEventListener('beforeunload', savePendingDraft)
+      }
+    }
     if (localBase) replayUpdates.push({ local, update })
   }
 
   function getPendingLocalEdits(): YjsPendingLocalEdits | undefined {
-    return localBase && localUpdates.length > 0
-      ? { base: localBase, replay: [...replayUpdates] }
+    return lineageId && localBase && localUpdates.length > 0
+      ? { userId, lineageId, base: localBase, replay: [...replayUpdates] }
       : undefined
+  }
+
+  function savePendingDraft(event?: BeforeUnloadEvent): YjsPendingLocalEdits | undefined {
+    const pending = getPendingLocalEdits()
+    if (!pending || accessMode !== 'write') return
+    try {
+      const draft = toBase64(encodeAny(pending))
+      sessionStorage.setItem(draftKey, draft)
+      savedDraft = draft
+    } catch (error) {
+      logger.warn('Could not save pending edits in this tab', error)
+      event?.preventDefault()
+    }
+    return pending
+  }
+
+  function clearSavedDraft(): void {
+    if (!savedDraft) return
+    try {
+      if (sessionStorage.getItem(draftKey) === savedDraft) sessionStorage.removeItem(draftKey)
+    } catch (error) {
+      logger.warn('Could not remove the saved edits from this tab', error)
+    }
+    savedDraft = null
   }
 
   provider.messageHandlers[YJS_MESSAGE_LIFECYCLE] = (_encoder, decoder) => {
@@ -350,8 +396,8 @@ export async function bootstrapYjsProvider(
     if (lineageId && lineageId !== message.lineageId) {
       provider.messageHandlers[messageSync] = () => undefined
       finishLifecycle({
-        type: 'lineage-replaced',
-        pendingLocalEdits: getPendingLocalEdits(),
+        type: 'reopen',
+        pendingLocalEdits: savePendingDraft(),
       })
       return
     }
@@ -372,6 +418,7 @@ export async function bootstrapYjsProvider(
     active = false
     if (reconnectTimer) clearTimeout(reconnectTimer)
     reconnectTimer = null
+    window.removeEventListener('beforeunload', savePendingDraft)
     provider.off('connection-close', handleConnectionLoss)
     provider.off('connection-error', handleConnectionError)
     provider.off('sync', handleSync)
@@ -385,7 +432,6 @@ export async function bootstrapYjsProvider(
     if (disposed) return
     disposed = true
     deactivate()
-    provider.disconnect()
     provider.destroy()
     doc.destroy()
   }
@@ -393,7 +439,6 @@ export async function bootstrapYjsProvider(
   function finishLifecycle(event: YjsProviderLifecycleEvent): void {
     if (!active) return
     deactivate()
-    provider.shouldConnect = false
     provider.disconnect()
     resolveLifecycle(event)
   }
@@ -417,9 +462,14 @@ export async function bootstrapYjsProvider(
     reconnecting = true
     let retry = false
     try {
-      const nextToken = await fetchSocketToken()
+      const next = await fetchSocketToken(true)
       if (!active) return
-      provider.params.token = nextToken
+      if (next.userId !== userId) {
+        savePendingDraft()
+        finishLifecycle({ type: 'reopen' })
+        return
+      }
+      provider.params.token = next.token
       provider.connect()
     } catch (error) {
       if (!active) return
@@ -501,7 +551,17 @@ export async function bootstrapYjsProvider(
     const initialSync = waitForYjsSync(provider)
     provider.connect()
     await Promise.all([initialSync, lineage])
-    replayYjsPendingLocalEdits(doc, pendingLocalEdits)
+    if (accessMode === 'write') {
+      let edits = pendingLocalEdits
+      try {
+        savedDraft = sessionStorage.getItem(draftKey)
+        if (edits?.userId !== userId && savedDraft) edits = decodeAny(fromBase64(savedDraft))
+      } catch (error) {
+        logger.warn('Could not read the saved edits from this tab', error)
+      }
+      if (edits?.userId === userId) replayYjsPendingLocalEdits(doc, edits, lineageId)
+      if (localUpdates.length === 0) clearSavedDraft()
+    }
     ready = true
   } catch (error) {
     dispose()
