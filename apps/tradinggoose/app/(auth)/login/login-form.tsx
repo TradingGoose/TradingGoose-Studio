@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
+import { getUsernameErrorMessage, isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -183,12 +183,8 @@ export default function LoginPage({
     if (authErrorCode === 'EMAIL_NOT_VERIFIED') {
       return email.includes('@') ? null : loginCopy.errors.verifyWithEmail
     }
-    if (authErrorCode === 'USERNAME_TOO_SHORT' || authErrorCode === 'USERNAME_TOO_LONG') {
-      return copy.auth.signup.validation.usernameLength
-    }
-    if (authErrorCode === 'INVALID_USERNAME') {
-      return copy.auth.signup.validation.usernameInvalid
-    }
+    const usernameMessage = getUsernameErrorMessage(copy.username, authErrorCode)
+    if (usernameMessage) return usernameMessage
     if (authErrorCode === 'INVALID_EMAIL') {
       return loginCopy.validation.emailInvalid
     }

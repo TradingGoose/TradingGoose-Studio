@@ -24,6 +24,18 @@ const WAITLIST_HREF = '/waitlist'
 const AUTH_ERROR_CALLBACK_SEGMENT = 'callback'
 type SsoErrorCopyKey = keyof PublicCopy['auth']['sso']['errors']
 
+const USERNAME_ERROR_KEYS: Partial<Record<string, keyof PublicCopy['username']>> = {
+  USERNAME_IS_ALREADY_TAKEN: 'taken',
+  USERNAME_TOO_SHORT: 'length',
+  USERNAME_TOO_LONG: 'length',
+  INVALID_USERNAME: 'invalid',
+}
+
+export function getUsernameErrorMessage(copy: PublicCopy['username'], code?: string | null) {
+  const key = code && USERNAME_ERROR_KEYS[code]
+  return key ? copy[key] : undefined
+}
+
 const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   UNABLE_TO_CREATE_USER: 'accountCreation',
   FAILED_TO_CREATE_USER: 'accountCreation',
@@ -63,6 +75,7 @@ const SSO_ERROR_COPY_BY_CODE: Partial<Record<string, SsoErrorCopyKey>> = {
   INVALID_PROVIDER: 'providerNotConfigured',
   NO_PROVIDER_FOUND: 'providerNotConfigured',
   PROVIDER_DOMAIN_HAS_NOT_BEEN_VERIFIED: 'domainNotVerified',
+  SSO_PROVIDER_ID_REQUIRED: 'providerIdRequired',
   INVALID_EMAIL_DOMAIN: 'invalidEmailDomain',
   NETWORK_ERROR: 'network',
   RATE_LIMIT: 'rateLimit',

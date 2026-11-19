@@ -1,29 +1,22 @@
 'use client'
 
-import {
-  type ChangeEvent,
-  type DragEvent,
-  type FormEvent,
-  type RefObject,
-  useRef,
-  useState,
-} from 'react'
+import { type DragEvent, type FormEvent, useRef, useState } from 'react'
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
 import Image from 'next/image'
-import { useTranslations } from 'next-intl'
+import { useMessages, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
+import { getUsernameErrorMessage } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { IMAGE_UPLOAD_MIME_TYPES } from '@/lib/uploads/client/image-upload'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
-import { useUsernameAvailability } from '@/hooks/queries/username'
+import { usernameInputProps, useUsernameAvailability } from '@/hooks/queries/username'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { ChangeEmailForm } from './change-email-form'
 
@@ -33,33 +26,19 @@ type SessionUser = NonNullable<ReturnType<typeof useSession>['data']>['user']
 
 export function AccountSettings() {
   const { data: session } = useSession()
-  const currentUserRef = useRef(session?.user)
-  currentUserRef.current = session?.user
-
-  return (
-    <AccountSettingsForm
-      key={session?.user?.id}
-      sessionUser={session?.user}
-      currentUserRef={currentUserRef}
-    />
-  )
+  return <AccountSettingsForm key={session?.user?.id} sessionUser={session?.user} />
 }
 
-function AccountSettingsForm({
-  sessionUser,
-  currentUserRef,
-}: {
-  sessionUser: SessionUser | undefined
-  currentUserRef: RefObject<SessionUser | undefined>
-}) {
+function AccountSettingsForm({ sessionUser }: { sessionUser?: SessionUser }) {
   const authRedirectUrls = useAuthRedirectUrls()
   const tAccount = useTranslations('workspace.settingsModal.account')
+  const usernameCopy = useMessages().username
   const userId = sessionUser?.id ?? null
   const sessionEmail = sessionUser?.email ?? ''
   const [confirmedProfile, setConfirmedProfile] = useState<{
     name?: string
     email?: { previous: string; value: string }
-    image?: string | null
+    image?: string
     displayUsername?: string
   }>({})
   const pending = { ...confirmedProfile }
@@ -74,13 +53,10 @@ function AccountSettingsForm({
   if (Object.keys(pending).length !== fields.length) setConfirmedProfile(pending)
   const name = confirmedProfile.name ?? sessionUser?.name ?? ''
   const email = confirmedProfile.email?.value ?? sessionEmail
-  const userImage =
-    confirmedProfile.image !== undefined ? confirmedProfile.image : (sessionUser?.image ?? null)
+  const userImage = confirmedProfile.image ?? sessionUser?.image ?? null
   const username =
     confirmedProfile.displayUsername ?? sessionUser?.displayUsername ?? sessionUser?.username ?? ''
   const confirmProfile = (values: typeof confirmedProfile) => {
-    const user = currentUserRef.current
-    if (!user || user.id !== userId) return
     setConfirmedProfile((previous) => ({ ...previous, ...values }))
   }
 
@@ -134,15 +110,12 @@ function AccountSettingsForm({
     username
   )
   const usernameError =
-    editingUsername?.error ??
-    (usernameAvailability === 'taken' ? tAccount('status.usernameTaken') : null)
+    editingUsername?.error ?? (usernameAvailability === 'taken' ? usernameCopy.taken : null)
   const usernameStatus =
-    usernameAvailability === 'checking' ||
-    usernameAvailability === 'available' ||
-    usernameAvailability === 'error'
-      ? tAccount(`usernameAvailability.${usernameAvailability}`)
-      : null
-  const usernameRequestRef = useRef<symbol | null>(null)
+    usernameAvailability === 'idle' || usernameAvailability === 'taken'
+      ? null
+      : usernameCopy[usernameAvailability]
+  const usernameSavePending = useRef(false)
 
   const editNameInputRef = useRef<HTMLInputElement>(null)
   const nameEditActionRef = useRef<'save' | null>(null)
@@ -152,65 +125,52 @@ function AccountSettingsForm({
     if (
       !userId ||
       !editingUsername ||
-      usernameRequestRef.current ||
+      usernameSavePending.current ||
       usernameAvailability === 'taken'
     )
       return
     const value = editingUsername.value.trim()
     if (!value) {
-      setUsernameEdit({ ...editingUsername, error: tAccount('status.usernameRequired') })
+      setUsernameEdit({ ...editingUsername, error: usernameCopy.required })
       return
     }
-    const request = Symbol()
-    usernameRequestRef.current = request
-    const isCurrent = () =>
-      currentUserRef.current?.id === userId && usernameRequestRef.current === request
+    usernameSavePending.current = true
     setUsernameEdit({ ...editingUsername, value, pending: true, error: undefined })
     try {
       const result = await client.updateUser({ username: value, displayUsername: value })
       if (result.error) throw result.error
-      if (!isCurrent()) return
       confirmProfile({ displayUsername: value })
-      if (isCurrent()) setUsernameEdit(null)
+      setUsernameEdit(null)
     } catch (cause) {
-      if (!isCurrent()) return
-      const code = normalizeAuthErrorCode((cause as { code?: string })?.code)
       const error =
-        code === 'USERNAME_IS_ALREADY_TAKEN'
-          ? tAccount('status.usernameTaken')
-          : code === 'USERNAME_TOO_SHORT' || code === 'USERNAME_TOO_LONG'
-            ? tAccount('status.usernameLength')
-            : code === 'INVALID_USERNAME'
-              ? tAccount('status.usernameInvalid')
-              : tAccount('status.usernameUpdateError')
+        getUsernameErrorMessage(usernameCopy, (cause as { code?: string })?.code) ??
+        tAccount('status.usernameUpdateError')
       setUsernameEdit({ value, valid: editingUsername.valid, error })
     } finally {
-      if (isCurrent()) usernameRequestRef.current = null
+      usernameSavePending.current = false
     }
   }
 
   const updateUserImage = async (imageUrl: string) => {
-    if (!userId || currentUserRef.current?.id !== userId) return
+    if (!userId) return
     const result = await client.updateUser({ image: imageUrl })
     if (result.error) throw new Error(tAccount('status.profilePictureUpdateError'))
-    if (currentUserRef.current?.id !== userId) return
     confirmProfile({ image: imageUrl })
     setProfilePictureError(null)
   }
 
-  const { previewUrl, fileInputRef, handleThumbnailClick, handleFileChange, isUploading } =
-    useProfilePictureUpload({
-      messages: {
-        fileTooLarge: (fileName) =>
-          tAccount('status.profilePictureFileTooLarge', { name: fileName }),
-        unsupportedFormat: (fileName) =>
-          tAccount('status.profilePictureUnsupportedFormat', { name: fileName }),
-        uploadFailed: tAccount('status.unableToUpdateProfilePicture'),
-      },
-      currentImage: userImage,
-      onUpload: updateUserImage,
-      onError: setProfilePictureError,
-    })
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { previewUrl, upload, isUploading } = useProfilePictureUpload({
+    messages: {
+      fileTooLarge: (fileName) => tAccount('status.profilePictureFileTooLarge', { name: fileName }),
+      unsupportedFormat: (fileName) =>
+        tAccount('status.profilePictureUnsupportedFormat', { name: fileName }),
+      uploadFailed: tAccount('status.unableToUpdateProfilePicture'),
+    },
+    currentImage: userImage,
+    onUpload: updateUserImage,
+    onError: setProfilePictureError,
+  })
 
   const startEditingName = () => {
     setEditingNameValue(name)
@@ -247,16 +207,14 @@ function AccountSettingsForm({
     try {
       const result = await client.updateUser({ name: trimmedName })
       if (result.error) throw result.error
-      if (currentUserRef.current?.id !== userId) return
       confirmProfile({ name: trimmedName })
       setIsEditingName(false)
     } catch (error) {
-      if (currentUserRef.current?.id !== userId) return
       logger.error('Error updating name:', error)
       setNameError(tAccount('status.unableToUpdateName'))
       editNameInputRef.current?.focus()
     } finally {
-      if (currentUserRef.current?.id === userId) setIsUpdatingName(false)
+      setIsUpdatingName(false)
     }
   }
 
@@ -313,12 +271,7 @@ function AccountSettingsForm({
     event.stopPropagation()
     setIsDragActive(false)
 
-    if (event.dataTransfer.files?.length) {
-      const syntheticEvent = {
-        target: { files: event.dataTransfer.files },
-      } as unknown as ChangeEvent<HTMLInputElement>
-      void handleFileChange(syntheticEvent)
-    }
+    void upload(event.dataTransfer.files[0])
   }
 
   const avatarSrc = previewUrl || userImage || DEFAULT_AVATAR_SRC
@@ -337,7 +290,7 @@ function AccountSettingsForm({
                   ? 'border-primary bg-primary/10'
                   : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-muted/70'
               }`}
-              onClick={handleThumbnailClick}
+              onClick={() => fileInputRef.current?.click()}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -347,7 +300,7 @@ function AccountSettingsForm({
                 accept={IMAGE_UPLOAD_MIME_TYPES.join(',')}
                 className='hidden'
                 ref={fileInputRef}
-                onChange={handleFileChange}
+                onChange={(event) => void upload(event.target.files?.[0])}
                 disabled={isUploading}
               />
               <div className='relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-md border bg-muted shadow-sm'>
@@ -481,12 +434,8 @@ function AccountSettingsForm({
                             setUsernameEdit(null)
                           }
                         }}
-                        required
-                        minLength={3}
-                        maxLength={30}
-                        pattern='[a-zA-Z0-9_.]+'
+                        {...usernameInputProps}
                         title={tAccount('usernameHint')}
-                        autoComplete='username'
                         disabled={editingUsername.pending}
                         aria-invalid={Boolean(usernameError)}
                         aria-describedby={

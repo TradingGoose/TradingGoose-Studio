@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { getCurrentAuthEndpointContext } from '@better-auth/core/context'
 import { sso } from '@better-auth/sso'
 import { stripe } from '@better-auth/stripe'
 import { db } from '@tradinggoose/db'
@@ -9,7 +10,6 @@ import {
   APIError,
   createAuthMiddleware,
   getAuthoritativeSessionFromCtx,
-  getOAuthState,
   revokeOtherSessions,
 } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
@@ -71,7 +71,7 @@ import {
 } from '@/lib/oauth/system-managed-config'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getRegistrationDenialReason, markWaitlistEntrySignedUp } from '@/lib/registration/service'
-import { getSsoOrganizationAccess } from '@/lib/sso/access'
+import { findVerifiedSsoProviderId, getSsoOrganizationAccess } from '@/lib/sso/access'
 import { ssoProviderIdSchema } from '@/lib/sso/consts'
 import {
   createStripeClientProxy,
@@ -128,6 +128,11 @@ const BASE_TRUSTED_OAUTH_PROVIDERS = [
 const TRUSTED_OAUTH_PROVIDER_IDS = Array.from(
   new Set([
     ...BASE_TRUSTED_OAUTH_PROVIDERS,
+    // Broker profiles supply account IDs without an email, for authenticated linking only.
+    'robinhood',
+    'alpaca-live',
+    'alpaca-paper',
+    'tradier-live',
     ...Object.entries(OAUTH_PROVIDERS).flatMap(([baseProvider, providerConfig]) =>
       BASE_TRUSTED_OAUTH_PROVIDERS.includes(baseProvider)
         ? Object.values(providerConfig.services).map((service) => service.providerId)
@@ -210,28 +215,20 @@ function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
     redirectURI: redirectUri,
     disableSignUp: true,
     getUserInfo: async (tokens) => {
-      const linkUserId = (await getOAuthState())?.link?.userId
-      if (typeof linkUserId !== 'string' || !linkUserId.trim()) {
-        throw new Error('Robinhood OAuth requires an authenticated link')
-      }
       if (!tokens.accessToken?.trim()) throw new Error('Robinhood access token is required')
       const userUuid = typeof tokens.raw?.user_uuid === 'string' ? tokens.raw.user_uuid.trim() : ''
       if (!userUuid) throw new Error('Robinhood token response is missing the user identity')
       return {
         id: userUuid,
         name: 'Robinhood',
-        email: `${userUuid}@robinhood.account`,
-        image: '',
         emailVerified: false,
       }
     },
   }
 }
 
-function createAlpacaOAuthConfig(
-  providerId: 'alpaca-live' | 'alpaca-paper',
-  environment: 'live' | 'paper'
-): SystemManagedGenericOAuthConfig {
+function createAlpacaOAuthConfig(environment: 'live' | 'paper'): SystemManagedGenericOAuthConfig {
+  const providerId = `alpaca-${environment}`
   return {
     providerId,
     authorizationUrl: 'https://app.alpaca.markets/oauth/authorize',
@@ -245,16 +242,14 @@ function createAlpacaOAuthConfig(
           Authorization: `Bearer ${tokens.accessToken}`,
         },
       })
+      if (!response.ok) return null
       const data = await response.json()
       return {
         id: data.id,
         name: data.account_number,
-        email: data.account_number,
-        image: '',
         emailVerified: false,
       }
     },
-    responseType: 'code',
   }
 }
 
@@ -273,28 +268,23 @@ function createTradierOAuthConfig(): SystemManagedGenericOAuthConfig {
           Accept: 'application/json',
         },
       })
+      if (!response.ok) return null
       const data = await response.json()
       const account = Array.isArray(data?.profile?.account)
         ? data.profile.account[0]
         : data?.profile?.account
       const accountNumber =
-        typeof account?.account_number === 'string' && account.account_number.trim()
-          ? account.account_number.trim()
-          : providerId
+        typeof account?.account_number === 'string' ? account.account_number.trim() : ''
+      if (!accountNumber) return null
       const classification =
-        typeof account?.classification === 'string' && account.classification.trim()
-          ? account.classification.trim()
-          : ''
+        typeof account.classification === 'string' ? account.classification.trim() : ''
 
       return {
         id: `${providerId}:${accountNumber}`,
         name: classification ? `${classification} (${accountNumber})` : accountNumber,
-        email: `${accountNumber}@tradier.account`,
-        image: '',
         emailVerified: false,
       }
     },
-    responseType: 'code',
   }
 }
 
@@ -713,7 +703,13 @@ export const auth = betterAuth({
   },
   emailVerification: {
     autoSignInAfterVerification: true,
-    afterEmailVerification: (user) => addVerifiedUserEmailToAudience(user),
+    afterEmailVerification: (user) => {
+      const ctx = getCurrentAuthEndpointContext()
+      return addVerifiedUserEmailToAudience(
+        user,
+        ctx.path === '/email-otp/change-email' ? ctx.context.session?.user.email : undefined
+      )
+    },
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
@@ -797,7 +793,14 @@ export const auth = betterAuth({
         throw new Error('Access restricted. Please contact your administrator.')
       }
 
-      return
+      if (ctx.path === '/sign-in/sso' && !ctx.body?.providerId && !ctx.body?.organizationSlug) {
+        const email = ctx.body?.email
+        const search = ctx.body?.domain || (typeof email === 'string' && email.split('@')[1])
+        if (typeof search === 'string' && search) {
+          const providerId = await findVerifiedSsoProviderId(ctx.context.adapter, search)
+          if (providerId) return { context: { body: { ...ctx.body, providerId } } }
+        }
+      }
     }),
   },
   plugins: [
@@ -809,16 +812,29 @@ export const auth = betterAuth({
       // https://better-auth.com/docs/plugins/email-otp#confirming-with-current-email
       changeEmail: { enabled: true, verifyCurrentEmail: true },
       sendVerificationOTP: async ({ email, otp, type }, ctx) => {
-        const locale = await resolveEmailLocale({ email, userId: ctx?.context.session?.user.id })
-        const subject = getEmailSubject(type, locale)
-        const result = await sendEmail({
-          to: email,
-          subject,
-          html: await renderOTPEmail(otp, email, type, undefined, locale),
-          text: `${subject}\n\n${otp}`,
-          emailType: 'transactional',
-        })
-        if (!result.success) throw new Error(result.message)
+        try {
+          const locale = await resolveEmailLocale({ email, userId: ctx?.context.session?.user.id })
+          const subject = getEmailSubject(type, locale)
+          const result = await sendEmail({
+            to: email,
+            subject,
+            html: await renderOTPEmail(otp, email, type, undefined, locale),
+            text: `${subject}\n\n${otp}`,
+            emailType: 'transactional',
+          })
+          if (!result.success) throw new Error(result.message)
+        } catch (error) {
+          if (
+            ctx &&
+            (type === 'change-email' ||
+              (type === 'email-verification' &&
+                (await getAuthoritativeSessionFromCtx(ctx))?.user.email.toLowerCase() ===
+                  email.toLowerCase()))
+          ) {
+            ctx.setStatus(503)
+          }
+          throw error
+        }
       },
       otpLength: 6, // Explicitly set the OTP length
       expiresIn: 15 * 60, // 15 minutes in seconds
@@ -826,8 +842,8 @@ export const auth = betterAuth({
     genericOAuth({
       config: toSystemManagedGenericOAuthConfigs([
         createRobinhoodOAuthConfig(),
-        createAlpacaOAuthConfig('alpaca-live', 'live'),
-        createAlpacaOAuthConfig('alpaca-paper', 'paper'),
+        createAlpacaOAuthConfig('live'),
+        createAlpacaOAuthConfig('paper'),
         createTradierOAuthConfig(),
         {
           providerId: 'github-repo',

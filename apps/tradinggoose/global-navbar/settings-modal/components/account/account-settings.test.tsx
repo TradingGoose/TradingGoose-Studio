@@ -551,6 +551,7 @@ describe('AccountSettings localization', () => {
     })
   })
   describe('username editing', () => {
+    const usernameCopy = getPublicCopy('en').username
     const copy = getPublicCopy('en').workspace.settingsModal.account
     function setSession(username: string | null, id = 'user-1') {
       mockUseSession.mockReturnValue({
@@ -594,7 +595,7 @@ describe('AccountSettings localization', () => {
         await render()
         await edit('New.Handle')
         expect(usernameRow().querySelector('[role="status"]')?.textContent).toBe(
-          copy.usernameAvailability.checking
+          usernameCopy.checking
         )
         expect(findButtonByText(container, copy.saveUsername)).toBeEnabled()
         await waitForAvailability()
@@ -604,7 +605,7 @@ describe('AccountSettings localization', () => {
         )
         if (status === 'taken') {
           expect(usernameRow().querySelector('[role="alert"]')?.textContent).toBe(
-            copy.status.usernameTaken
+            usernameCopy.taken
           )
           expect(container.querySelector('#accountUsername')).toHaveAttribute(
             'aria-invalid',
@@ -620,7 +621,7 @@ describe('AccountSettings localization', () => {
           expect(mocks.updateUser).not.toHaveBeenCalled()
         } else {
           expect(usernameRow().querySelector('[role="status"]')?.textContent).toBe(
-            copy.usernameAvailability[status]
+            usernameCopy[status]
           )
           await press(copy.saveUsername)
           expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({
@@ -681,7 +682,7 @@ describe('AccountSettings localization', () => {
         expect(
           usernameRow().querySelector(oldAvailable ? '[role="alert"]' : '[role="status"]')
             ?.textContent
-        ).toBe(oldAvailable ? copy.status.usernameTaken : copy.usernameAvailability.available)
+        ).toBe(oldAvailable ? usernameCopy.taken : usernameCopy.available)
         expect(findButtonByText(container, copy.saveUsername).disabled).toBe(oldAvailable)
       }
     )
@@ -785,9 +786,7 @@ describe('AccountSettings localization', () => {
       await waitForAvailability()
       await press(copy.saveUsername)
 
-      expect(usernameRow().querySelector('[role="alert"]')?.textContent).toBe(
-        copy.status.usernameTaken
-      )
+      expect(usernameRow().querySelector('[role="alert"]')?.textContent).toBe(usernameCopy.taken)
       expect(container.querySelector<HTMLInputElement>('#accountUsername')?.value).toBe(
         'Taken.Handle'
       )
@@ -922,8 +921,14 @@ describe('AccountSettings localization', () => {
       await openEmailEditor()
       await start()
       await verifyCurrent()
+      mocks.send.mockResolvedValueOnce({ error: { status: 503 } })
       await press(copy.restart)
-      expect(mocks.send).toHaveBeenCalledTimes(2)
+      expect(container.querySelector('[role="alert"]')?.textContent).toBe(copy.errors.sendFailed)
+      expect(container.querySelector('label[for="account-email-code"]')?.textContent).toBe(
+        copy.newCode
+      )
+      await press(copy.restart)
+      expect(mocks.send).toHaveBeenCalledTimes(3)
       expect(mocks.request).toHaveBeenCalledOnce()
       expect(container.querySelector('label[for="account-email-code"]')?.textContent).toBe(
         copy.currentCode

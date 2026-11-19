@@ -493,22 +493,40 @@ describe('settings localization', () => {
         const remove = [...container.querySelectorAll('button')].find(
           (button) => button.textContent === copy.removeSeat
         )!
+        const add = [...container.querySelectorAll('button')].find(
+          (button) => button.textContent === copy.addSeat
+        )!
+        if (seatPrice === null) {
+          expect(container.textContent).toContain(copy.addSeats.quoteUnavailable)
+          expect(remove).toBeDisabled()
+          expect(add).toBeDisabled()
+          const updated = {
+            ...counts,
+            maxSeats: 60,
+            seatPrice: { amountUsd: 15, interval: 'month' },
+          }
+          vi.mocked(fetch).mockResolvedValue(Response.json({ data: updated }))
+          const retry = container.querySelector<HTMLButtonElement>('[role="alert"] button')!
+          await act(async () => {
+            retry.click()
+            await vi.waitFor(() =>
+              expect(queryClient.getQueryData(organizationKeys.seats('org-1'))).toEqual(updated)
+            )
+          })
+          expect(add).toBeEnabled()
+          expect(remove).toBeEnabled()
+          return
+        }
         expect(remove).toBeEnabled()
         await act(async () => remove.click())
         expect(mocks.mutate.mock.lastCall?.[0]).toEqual({
           orgId: 'org-1',
           seats: 59,
         })
-        const add = [...container.querySelectorAll('button')].find(
-          (button) => button.textContent === copy.addSeat
-        )!
         expect(add).toBeEnabled()
         await act(async () => add.click())
         const dialog = document.querySelector('[role="dialog"]')!
-        if (seatPrice === null) {
-          expect(dialog.textContent).toContain(copy.addSeats.quoteUnavailable)
-          expect(dialog.textContent).not.toContain('$')
-        } else if (seatPrice.interval === 'year') {
+        if (seatPrice.interval === 'year') {
           expect(dialog.textContent).toContain('$7,320.00 per year')
           expect(dialog.textContent).toContain('Annual cost change:')
           expect(dialog.textContent).not.toContain('per month')
@@ -609,34 +627,37 @@ describe('settings localization', () => {
       <TeamSeats
         open
         onOpenChange={vi.fn()}
-        title='Seats'
-        description='Select seats'
-        pricePerSeat={10}
-        billingInterval='month'
+        seatPrice={{ amountUsd: 10, interval: 'month' }}
         minimumSeats={4}
         maximumSeats={10}
-        initialSeats={20}
+        currentSeats={19}
         isLoading={false}
         onConfirm={mocks.mutate}
-        confirmButtonText='Confirm'
       />
     )
     const seats = () => document.querySelector<HTMLInputElement>('#seats')!
     const confirm = () =>
       [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
-        (button) => button.textContent === 'Confirm'
+        (button) =>
+          button.textContent ===
+          getClientMessages('en').workspace.settingsModal.team.addSeats.confirm
       )!
 
     await render('en', dialog)
     expect(seats()).toHaveValue(10)
     enterSeats(8)
-    await render('en', cloneElement(dialog, { initialSeats: 30, minimumSeats: 6, maximumSeats: 9 }))
+    await render('en', cloneElement(dialog, { currentSeats: 29, minimumSeats: 6, maximumSeats: 9 }))
     expect(seats()).toHaveValue(8)
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('$80.00 per month')
     await render('en', cloneElement(dialog, { maximumSeats: 7 }))
     expect(seats()).toHaveValue(8)
     expect(confirm()).toBeDisabled()
     expect(document.querySelector('[role="dialog"]')?.textContent).not.toContain('$80.00')
+    await act(async () => confirm().click())
+    expect(mocks.mutate).not.toHaveBeenCalled()
+
+    await render('en', cloneElement(dialog, { seatPrice: null }))
+    expect(confirm()).toBeDisabled()
     await act(async () => confirm().click())
     expect(mocks.mutate).not.toHaveBeenCalled()
 
@@ -678,17 +699,12 @@ describe('settings localization', () => {
         <TeamSeats
           open
           onOpenChange={vi.fn()}
-          title='Seats'
-          description='Annual tier'
-          pricePerSeat={120}
-          billingInterval='year'
+          seatPrice={{ amountUsd: 120, interval: 'year' }}
           minimumSeats={4}
           maximumSeats={10}
-          initialSeats={4}
           currentSeats={2}
           isLoading={false}
           onConfirm={mocks.mutate}
-          confirmButtonText='Confirm'
         />
       )
       const dialog = document.querySelector('[role="dialog"]')!
@@ -819,8 +835,7 @@ describe('settings localization', () => {
         />
         <TeamSeatsOverview
           totalSeats={2}
-          pricePerSeat={12.5}
-          billingInterval='month'
+          seatPrice={{ amountUsd: 12.5, interval: 'month' }}
           isLoadingSubscription={false}
           usedSeats={1}
           actionsDisabled={false}

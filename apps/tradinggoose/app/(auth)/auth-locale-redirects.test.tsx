@@ -372,7 +372,7 @@ describe('auth locale redirects', () => {
     await submitRenderedForm()
     expect(mockSignUpEmail).not.toHaveBeenCalled()
     expect(container.querySelector('#signup-username-error')?.textContent).toBe(
-      getPublicCopy('en').auth.signup.validation.usernameRequired
+      getPublicCopy('en').username.required
     )
   })
 
@@ -399,7 +399,7 @@ describe('auth locale redirects', () => {
     }
 
     it('checks only the current browser-valid candidate and clears feedback when it is emptied', async () => {
-      const copy = getPublicCopy('es').auth.signup.usernameAvailability
+      const copy = getPublicCopy('es').username
       await renderSignup('es')
       await setInputValue('#username', 'invalid username')
       await checkAvailability()
@@ -425,7 +425,7 @@ describe('auth locale redirects', () => {
       await renderSignup()
       await setInputValue('#username', 'Taken.Name')
       await checkAvailability()
-      const taken = getPublicCopy('en').auth.signup.errors.usernameTaken
+      const taken = getPublicCopy('en').username.taken
       expect(container.querySelector('#signup-username-error')?.textContent).toBe(taken)
       await submitRenderedForm()
       expect(mockSignUpEmail).not.toHaveBeenCalled()
@@ -451,7 +451,7 @@ describe('auth locale redirects', () => {
       await setInputValue('#username', 'Ada.Name')
       await checkAvailability()
       expect(container.querySelector('[role="status"]')?.textContent).toBe(
-        getPublicCopy('zh').auth.signup.usernameAvailability.error
+        getPublicCopy('zh').username.error
       )
       expect(container.querySelector('button[type="submit"]')).toBeEnabled()
       await submitRenderedForm()
@@ -461,10 +461,10 @@ describe('auth locale redirects', () => {
   })
 
   it.each([
-    ['USERNAME_TOO_SHORT', 'usernameLength'],
-    ['USERNAME_TOO_LONG', 'usernameLength'],
-    ['INVALID_USERNAME', 'usernameInvalid'],
-    ['USERNAME_IS_ALREADY_TAKEN', 'usernameTaken'],
+    ['USERNAME_TOO_SHORT', 'length'],
+    ['USERNAME_TOO_LONG', 'length'],
+    ['INVALID_USERNAME', 'invalid'],
+    ['USERNAME_IS_ALREADY_TAKEN', 'taken'],
   ] as const)('localizes native signup username error %s', async (code, key) => {
     mockSignUpEmail.mockImplementation(async (_body, options) => {
       const error = { code }
@@ -480,9 +480,8 @@ describe('auth locale redirects', () => {
     await setInputValue('#email', 'ada@example.com')
     await setInputValue('#password', 'Password1!')
     await submitRenderedForm()
-    const signup = getPublicCopy('es').auth.signup
     expect(container.querySelector('#signup-username-error')?.textContent).toBe(
-      key === 'usernameTaken' ? signup.errors.usernameTaken : signup.validation[key]
+      getPublicCopy('es').username[key]
     )
     expect(mockSendVerificationOtp).not.toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
@@ -665,20 +664,18 @@ describe('auth locale redirects', () => {
 
   it.each([
     ['INVALID_USERNAME_OR_PASSWORD', 'invalidCredentials'],
-    ['INVALID_USERNAME', 'usernameInvalid'],
-    ['USERNAME_TOO_SHORT', 'usernameLength'],
-    ['USERNAME_TOO_LONG', 'usernameLength'],
+    ['INVALID_USERNAME', 'invalid'],
+    ['USERNAME_TOO_SHORT', 'length'],
+    ['USERNAME_TOO_LONG', 'length'],
   ] as const)('localizes native username login error %s', async (code, key) => {
     mockSignInUsername.mockResolvedValue({ error: { code } })
     await renderLogin('zh')
     await setInputValue('#email', 'Ada.Lovelace')
     await setInputValue('#password', 'Password1!')
     await submitRenderedForm()
-    const auth = getPublicCopy('zh').auth
+    const copy = getPublicCopy('zh')
     expect(container.textContent).toContain(
-      key === 'invalidCredentials'
-        ? auth.login.errors.invalidCredentials
-        : auth.signup.validation[key]
+      key === 'invalidCredentials' ? copy.auth.login.errors.invalidCredentials : copy.username[key]
     )
     expect(mockPush).not.toHaveBeenCalled()
   })

@@ -242,22 +242,46 @@ describe('native SSO registration and account matching', () => {
   })
 
   it('supports a verified multi-domain provider when an unverified provider claims an exact match', async () => {
-    const { auth, headers, registrationBody, register, verify } = await setup()
+    const { auth, context, headers, registrationBody, register, verify } = await setup()
     await auth.api.registerSSOProvider({
       headers,
-      body: { ...registrationBody('okta-prod'), domain: 'example.com,other.example' },
+      body: { ...registrationBody('okta-prod'), domain: 'https://EXAMPLE.com/path,other.example' },
     })
     await verify('okta-prod')
-    const signIn = (providerId?: string) =>
-      auth.api.signInSSO({ body: { email: localEmail, providerId, callbackURL: '/workspace' } })
-    const redirectUri = (url: string) => new URL(url).searchParams.get('redirect_uri')
-
-    expect(redirectUri((await signIn()).url)).toBe(`${baseURL}/api/auth/sso/callback/okta-prod`)
-
     await register('okta')
+    await Promise.all(
+      Array.from({ length: 100 }, (_, i) =>
+        context.adapter.create({
+          model: 'ssoProvider',
+          data: {
+            providerId: `a-provider-${i}`,
+            issuer,
+            userId: 'provider-owner',
+            domain: 'other.example.org',
+            domainVerified: true,
+          },
+        })
+      )
+    )
+    const signIn = (providerId?: string, email = localEmail) =>
+      auth.api.signInSSO({ body: { email, providerId, callbackURL: '/workspace' } })
+    const redirectUri = (url: string) => new URL(url).searchParams.get('redirect_uri')
+    const verifiedCallback = `${baseURL}/api/auth/sso/callback/okta-prod`
+    expect(redirectUri((await signIn()).url)).toBe(verifiedCallback)
+    expect(redirectUri((await signIn(undefined, 'member@sub.other.example')).url)).toBe(
+      verifiedCallback
+    )
     await expect(signIn('okta')).rejects.toMatchObject({ statusCode: 401 })
-    expect(redirectUri((await signIn('okta-prod')).url)).toBe(
-      `${baseURL}/api/auth/sso/callback/okta-prod`
+    expect(redirectUri((await signIn('okta-prod')).url)).toBe(verifiedCallback)
+
+    await verify('okta')
+    expect(redirectUri((await signIn()).url)).toBe(`${baseURL}/api/auth/sso/callback/okta`)
+    await expect(signIn(undefined, 'member@sub.example.com')).rejects.toMatchObject({
+      statusCode: 409,
+      body: { code: 'SSO_PROVIDER_ID_REQUIRED' },
+    })
+    expect(redirectUri((await signIn('okta-prod', 'member@sub.example.com')).url)).toBe(
+      verifiedCallback
     )
   })
 

@@ -3,6 +3,8 @@ import { db } from '@tradinggoose/db'
 import { member, systemSettings, waitlist } from '@tradinggoose/db/schema'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { memoryAdapter } from 'better-auth/adapters/memory'
+import { createAuthClient } from 'better-auth/client'
+import { emailOTPClient } from 'better-auth/client/plugins'
 import { applySetCookies } from 'better-auth/cookies'
 import { emailOTP, testUtils, username } from 'better-auth/plugins'
 import type Stripe from 'stripe'
@@ -358,7 +360,8 @@ describe('account email change through native Better Auth OTP', () => {
       })
       expect(fixture.customerUpdate).toHaveBeenCalledWith('cus-owner', { email: 'new@example.com' })
       expect(mail.audience).toHaveBeenCalledWith(
-        expect.objectContaining({ email: 'new@example.com', emailVerified: true })
+        expect.objectContaining({ email: 'new@example.com', emailVerified: true }),
+        'owner@example.com'
       )
       await expect(
         fixture.auth.api.getSession({ headers: cookieHeaders(changed.headers) })
@@ -399,6 +402,40 @@ describe('account email change through native Better Auth OTP', () => {
     await expect(fixture.auth.api.requestEmailChangeEmailOTP(request)).resolves.toEqual({
       success: true,
     })
+  })
+
+  it('reports rejected delivery to the signed-in client and completes a fresh verification', async () => {
+    const fixture = await setup()
+    const { email, auth, login } = fixture
+    const client = createAuthClient({
+      baseURL: 'http://localhost:3000',
+      plugins: [emailOTPClient()],
+      fetchOptions: {
+        headers: login.headers,
+        customFetchImpl: (url, init) => auth.handler(new Request(url, init)),
+      },
+    })
+    const newEmail = 'new@example.com'
+    const body = { email, type: 'email-verification' as const }
+    const rejection = { success: false, message: 'Mail provider unavailable' }
+    const failure = { data: null, error: { status: 503 } }
+
+    mail.send.mockResolvedValueOnce(rejection)
+    expect((await auth.api.sendVerificationOTP({ body, asResponse: true })).status).toBe(200)
+    mail.send.mockResolvedValueOnce(rejection)
+    await expect(client.emailOtp.sendVerificationOtp(body)).resolves.toMatchObject(failure)
+
+    const otp = await sendCurrentCode(fixture)
+    mail.send.mockRejectedValueOnce(new Error(rejection.message))
+    await expect(client.emailOtp.requestEmailChange({ newEmail, otp })).resolves.toMatchObject(
+      failure
+    )
+    const freshOtp = await requestChange(fixture, newEmail)
+    await expect(client.emailOtp.changeEmail({ newEmail, otp: freshOtp })).resolves.toMatchObject({
+      data: { success: true },
+      error: null,
+    })
+    expect(await storedUser(fixture)).toMatchObject({ email: newEmail })
   })
 
   it('completes the account email change when Stripe sync fails', async () => {

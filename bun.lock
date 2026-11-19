@@ -82,6 +82,7 @@
         "@azure/communication-email": "1.0.0",
         "@azure/storage-blob": "12.27.0",
         "@base-ui/react": "1.6.0",
+        "@better-auth/core": "1.7.26",
         "@better-auth/sso": "1.7.26",
         "@better-auth/stripe": "1.7.26",
         "@browserbasehq/stagehand": "^2.0.0",

@@ -1,8 +1,7 @@
-import { betterAuth, getAuthStateVerificationIdentifier } from 'better-auth'
+import { type BetterAuthOptions, betterAuth, getAuthStateVerificationIdentifier } from 'better-auth'
 import { memoryAdapter } from 'better-auth/adapters/memory'
-import { getOAuthState } from 'better-auth/api'
 import { applySetCookies } from 'better-auth/cookies'
-import { genericOAuth, testUtils } from 'better-auth/plugins'
+import { testUtils } from 'better-auth/plugins'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { registerClient } = vi.hoisted(() => ({ registerClient: vi.fn() }))
@@ -10,14 +9,6 @@ const { registerClient } = vi.hoisted(() => ({ registerClient: vi.fn() }))
 vi.mock('@modelcontextprotocol/sdk/client/auth.js', () => ({ registerClient }))
 vi.mock('@tradinggoose/db', () => ({ db: {} }))
 vi.mock('@/lib/billing/plans', () => ({ getBetterAuthPlansConfig: () => [] }))
-vi.mock('better-auth/api', async (original) => {
-  const actual = await original<typeof import('better-auth/api')>()
-  return { ...actual, getOAuthState: vi.fn() }
-})
-vi.mock('better-auth/plugins', async (original) => {
-  const actual = await original<typeof import('better-auth/plugins')>()
-  return { ...actual, genericOAuth: vi.fn(actual.genericOAuth) }
-})
 
 import { auth } from './auth'
 import { isHosted } from './environment'
@@ -25,41 +16,30 @@ import { getRobinhoodOAuthRedirectUri } from './oauth/robinhood-constants'
 import { runWithSystemOAuthClientCredentials } from './oauth/system-managed-config'
 import { getBaseUrl } from './urls/utils'
 
-const config = vi
-  .mocked(genericOAuth)
-  .mock.calls[0][0].config.find((provider) => provider.providerId === 'robinhood')!
+const baseURL = 'http://localhost:3000'
+const oauth = auth.options.plugins.find((plugin) => plugin.id === 'generic-oauth')!
+const robinhood = oauth.options.config.find((provider) => provider.providerId === 'robinhood')!
 
-describe('Robinhood OAuth identity', () => {
-  beforeEach(() => {
-    vi.mocked(getOAuthState).mockResolvedValue({
-      link: { userId: 'studio-user', email: 'user@example.com' },
-    } as Awaited<ReturnType<typeof getOAuthState>>)
+async function setupLink(databaseHooks?: BetterAuthOptions['databaseHooks']) {
+  const service = betterAuth({
+    baseURL,
+    secret: 'integration-link-test-secret-that-is-long-enough',
+    account: auth.options.account,
+    database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
+    databaseHooks,
+    plugins: [oauth, testUtils()],
   })
+  const { test, internalAdapter } = await service.$context
+  const user = await test.saveUser(test.createUser({ email: 'owner@example.com' }))
+  const { headers } = await test.login({ userId: user.id })
+  return { service, test, internalAdapter, user, headers }
+}
 
-  it('uses the token user UUID as the stable account identity', async () => {
-    const tokens = {
-      accessToken: 'access-token',
-      raw: { user_uuid: ' user-uuid ' },
-    }
-    const profile = await config.getUserInfo!(tokens)
-
-    expect(profile).toMatchObject({ id: 'user-uuid', name: 'Robinhood' })
-  })
-
-  it('rejects token responses without a stable user identity', async () => {
-    await expect(config.getUserInfo!({ accessToken: 'access-token', raw: {} })).rejects.toThrow(
-      'missing the user identity'
-    )
-  })
-
-  it('rejects callbacks without an authenticated link state', async () => {
-    vi.mocked(getOAuthState).mockResolvedValueOnce(null)
-
-    await expect(
-      config.getUserInfo!({ accessToken: 'access-token', raw: { user_uuid: 'user-uuid' } })
-    ).rejects.toThrow('requires an authenticated link')
-  })
-})
+function callbackRequest(provider: string, headers: Headers, params: Record<string, string>) {
+  const callback = new URL(`/api/auth/callback/${provider}`, baseURL)
+  callback.search = new URLSearchParams(params).toString()
+  return new Request(callback, { headers })
+}
 
 describe('Robinhood OAuth linking', () => {
   beforeEach(() => {
@@ -71,21 +51,19 @@ describe('Robinhood OAuth linking', () => {
   })
 
   it('uses the environment callback for authorization and token exchange', () => {
-    expect(config.redirectURI).toBe(getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted))
+    expect(robinhood.redirectURI).toBe(getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted))
+  })
+
+  it('rejects token responses without a stable user identity', async () => {
+    await expect(robinhood.getUserInfo!({ accessToken: 'access-token', raw: {} })).rejects.toThrow(
+      'missing the user identity'
+    )
   })
 
   it('registers the client after authentication and returns consent errors to the saved destination', async () => {
-    const baseURL = 'http://localhost:3000'
-    const service = betterAuth({
-      baseURL,
-      secret: 'robinhood-test-secret-that-is-long-enough',
-      database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
-      databaseHooks: { verification: auth.options.databaseHooks.verification },
-      plugins: [genericOAuth({ config: [config] }), testUtils()],
+    const { service, internalAdapter, user, headers } = await setupLink({
+      verification: auth.options.databaseHooks.verification,
     })
-    const { test, internalAdapter } = await service.$context
-    const user = await test.saveUser(test.createUser({ email: 'user@example.com' }))
-    const { headers } = await test.login({ userId: user.id })
     const destination = '/workspace/workspace-1/integrations?oauth_connected=robinhood#node=2'
     const body = { provider: 'robinhood', callbackURL: destination, errorCallbackURL: destination }
     await expect(
@@ -100,7 +78,7 @@ describe('Robinhood OAuth linking', () => {
     )
     const params = new URL(linked.response.url!).searchParams
     expect(params.get('client_id')).toBe('registered-client')
-    expect(params.get('redirect_uri')).toBe(config.redirectURI)
+    expect(params.get('redirect_uri')).toBe(robinhood.redirectURI)
     const state = params.get('state')!
     const record = await internalAdapter.findVerificationValue(
       getAuthStateVerificationIdentifier(state)
@@ -110,9 +88,9 @@ describe('Robinhood OAuth linking', () => {
       robinhoodClientId: 'registered-client',
     })
     applySetCookies(headers, linked.headers.getSetCookie())
-    const callback = new URL('/api/auth/callback/robinhood', baseURL)
-    callback.search = new URLSearchParams({ state, error: 'access_denied' }).toString()
-    const response = await service.handler(new Request(callback, { headers }))
+    const response = await service.handler(
+      callbackRequest('robinhood', headers, { state, error: 'access_denied' })
+    )
     expect(response.status).toBe(302)
     expect(response.headers.get('location')).toBe(
       '/workspace/workspace-1/integrations?oauth_connected=robinhood&error=access_denied#node=2'
@@ -155,21 +133,83 @@ describe('Robinhood OAuth linking', () => {
   })
 })
 
+it('rejects a Tradier profile that omits the account number', async () => {
+  const tradier = oauth.options.config.find((p) => p.providerId === 'tradier-live')!
+  vi.mocked(fetch).mockResolvedValueOnce(Response.json({ profile: { account: {} } }))
+  await expect(tradier.getUserInfo!({ accessToken: 'access-token' })).resolves.toBeNull()
+})
+
+it.each([
+  { provider: 'robinhood', subject: 'user-uuid', profile: null },
+  {
+    provider: 'alpaca-live',
+    subject: 'live-id',
+    profile: { id: 'live-id', account_number: '123' },
+  },
+  {
+    provider: 'alpaca-paper',
+    subject: 'paper-id',
+    profile: { id: 'paper-id', account_number: '123' },
+  },
+  {
+    provider: 'tradier-live',
+    subject: 'tradier-live:123',
+    profile: { profile: { account: { account_number: '123' } } },
+  },
+])(
+  'links and reconnects $provider only to its Studio owner',
+  async ({ provider, subject, profile }) => {
+    const { service, test, internalAdapter, user: owner, headers: ownerSession } = await setupLink()
+    const other = await test.saveUser(test.createUser({ email: 'other@example.com' }))
+    const { headers: otherSession } = await test.login({ userId: other.id })
+
+    async function complete(accessToken: string, session?: Headers) {
+      const headers = new Headers(session)
+      const body = { provider, callbackURL: '/connected', errorCallbackURL: '/failed' }
+      return runWithSystemOAuthClientCredentials(
+        async () => {
+          const start = session
+            ? await service.api.linkSocialAccount({ headers, body, returnHeaders: true })
+            : await service.api.signInSocial({ headers, body, returnHeaders: true })
+          applySetCookies(headers, start.headers.getSetCookie())
+          vi.mocked(fetch).mockResolvedValueOnce(
+            Response.json({
+              access_token: accessToken,
+              user_uuid: ' user-uuid ',
+              token_type: 'Bearer',
+            })
+          )
+          if (profile) vi.mocked(fetch).mockResolvedValueOnce(Response.json(profile))
+          const params = new URL(start.response.url!).searchParams
+          expect(params.get('response_type')).toBe('code')
+          const response = await service.handler(
+            callbackRequest(provider, headers, {
+              state: params.get('state')!,
+              code: 'authorization-code',
+            })
+          )
+          return response.headers.get('location')
+        },
+        { [provider]: { clientId: 'client', clientSecret: 'secret', fields: {} } }
+      )
+    }
+
+    await expect(complete('initial', ownerSession)).resolves.toBe('/connected')
+    await expect(complete('renewed', ownerSession)).resolves.toBe('/connected')
+    await expect(complete('other', otherSession)).resolves.toBe(
+      '/failed?error=account_already_linked_to_different_user'
+    )
+    await expect(complete('sign-in')).resolves.toBe('/failed?error=email_not_found')
+    await expect(internalAdapter.findAccounts(owner.id)).resolves.toMatchObject([
+      { providerId: provider, accountId: subject, accessToken: 'renewed' },
+    ])
+    await expect(internalAdapter.findAccounts(other.id)).resolves.toEqual([])
+  }
+)
+
 it('links a Google integration using the current client and the Google UserInfo subject', async () => {
   const provider = 'google-drive'
-  const google = vi
-    .mocked(genericOAuth)
-    .mock.calls[0][0].config.find((c) => c.providerId === provider)!
-  const baseURL = 'http://localhost:3000'
-  const service = betterAuth({
-    baseURL,
-    secret: 'google-link-test-secret-that-is-long-enough',
-    database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
-    plugins: [genericOAuth({ config: [google] }), testUtils()],
-  })
-  const { test, internalAdapter } = await service.$context
-  const user = await test.saveUser(test.createUser({ email: 'user@example.com' }))
-  const { headers } = await test.login({ userId: user.id })
+  const { service, internalAdapter, user, headers } = await setupLink()
   await expect(
     service.api.signInSocial({ body: { provider, idToken: { token: 'id-token-only' } } })
   ).rejects.toMatchObject({ body: { code: 'ID_TOKEN_NOT_SUPPORTED' } })
@@ -203,13 +243,11 @@ it('links a Google integration using the current client and the Google UserInfo 
     .mockResolvedValueOnce(
       Response.json({ sub: 'google-user', name: 'User', email: user.email, email_verified: true })
     )
-  const callback = new URL('/api/auth/callback/google-drive', baseURL)
-  callback.search = new URLSearchParams({
-    state: params.get('state')!,
-    code: 'google-code',
-  }).toString()
   const response = await runWithSystemOAuthClientCredentials(
-    () => service.handler(new Request(callback, { headers })),
+    () =>
+      service.handler(
+        callbackRequest(provider, headers, { state: params.get('state')!, code: 'google-code' })
+      ),
     credentials
   )
   expect(response.headers.get('location')).toBe('/workspace')

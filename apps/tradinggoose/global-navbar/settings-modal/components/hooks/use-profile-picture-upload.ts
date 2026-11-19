@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import { uploadImage, validateImageUpload } from '@/lib/uploads/client/image-upload'
 
@@ -24,88 +24,54 @@ export function useProfilePictureUpload({
   currentImage,
 }: UseProfilePictureUploadProps) {
   const previewRef = useRef<string | null>(null)
-  const currentImageRef = useRef(currentImage)
-  const activeRef = useRef(true)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
-    currentImageRef.current = currentImage
-    if (previewRef.current && previewRef.current !== currentImage) {
-      URL.revokeObjectURL(previewRef.current)
-      previewRef.current = null
-    }
-    setPreviewUrl(currentImage)
+    setPreviewUrl(null)
   }, [currentImage])
 
-  const handleThumbnailClick = useCallback(() => {
-    fileInputRef.current?.click()
-  }, [])
+  async function upload(file?: File) {
+    if (!file || previewRef.current) return
+    const validationError = validateImageUpload(file)
+    if (validationError) {
+      onError(messages[validationError](file.name))
+      return
+    }
 
-  const handleFileChange = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0]
-      if (file) {
-        const validationError = validateImageUpload(file)
-        if (validationError) {
-          onError(messages[validationError](file.name))
-          return
-        }
-
-        const newPreviewUrl = URL.createObjectURL(file)
-
-        if (previewRef.current) {
-          URL.revokeObjectURL(previewRef.current)
-        }
-
-        setPreviewUrl(newPreviewUrl)
-        previewRef.current = newPreviewUrl
-
-        setIsUploading(true)
-        try {
-          const serverUrl = await uploadImage(file, 'profile-pictures').catch((error) => {
-            logger.error('Failed to upload profile picture', error)
-            throw new Error(messages.uploadFailed)
-          })
-          if (!activeRef.current) return
-
-          URL.revokeObjectURL(newPreviewUrl)
-          previewRef.current = null
-          setPreviewUrl(serverUrl)
-
-          await onUpload(serverUrl)
-        } catch (error) {
-          if (!activeRef.current) return
-          const errorMessage = error instanceof Error ? error.message : messages.uploadFailed
-          onError(errorMessage)
-
-          URL.revokeObjectURL(newPreviewUrl)
-          previewRef.current = null
-          setPreviewUrl(currentImageRef.current)
-        } finally {
-          if (activeRef.current) setIsUploading(false)
-        }
+    const objectUrl = URL.createObjectURL(file)
+    previewRef.current = objectUrl
+    setPreviewUrl(objectUrl)
+    setIsUploading(true)
+    try {
+      const serverUrl = await uploadImage(file, 'profile-pictures').catch((error) => {
+        logger.error('Failed to upload profile picture', error)
+        throw new Error(messages.uploadFailed)
+      })
+      if (previewRef.current !== objectUrl) return
+      setPreviewUrl(serverUrl)
+      await onUpload(serverUrl)
+    } catch (error) {
+      if (previewRef.current !== objectUrl) return
+      onError(error instanceof Error ? error.message : messages.uploadFailed)
+      setPreviewUrl(null)
+    } finally {
+      if (previewRef.current === objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+        previewRef.current = null
+        setIsUploading(false)
       }
-    },
-    [onUpload, onError, messages]
-  )
+    }
+  }
 
-  useEffect(() => {
-    activeRef.current = true
+  useLayoutEffect(() => {
     return () => {
-      activeRef.current = false
       if (previewRef.current) {
         URL.revokeObjectURL(previewRef.current)
+        previewRef.current = null
       }
     }
   }, [])
 
-  return {
-    previewUrl,
-    fileInputRef,
-    handleThumbnailClick,
-    handleFileChange,
-    isUploading,
-  }
+  return { previewUrl, upload, isUploading }
 }

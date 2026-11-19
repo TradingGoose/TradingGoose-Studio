@@ -7,7 +7,7 @@ import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
+import { getUsernameErrorMessage, normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isTruthy } from '@/lib/env'
@@ -23,7 +23,7 @@ import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
-import { useUsernameAvailability } from '@/hooks/queries/username'
+import { usernameInputProps, useUsernameAvailability } from '@/hooks/queries/username'
 import { Link, useRouter } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 
@@ -82,16 +82,18 @@ function SignupFormContent({
   const [usernameCandidate, setUsernameCandidate] = useState('')
   const usernameAvailability = useUsernameAvailability(usernameCandidate)
   const usernameFailure =
-    usernameError || (usernameAvailability === 'taken' ? signupCopy.errors.usernameTaken : '')
+    usernameError || (usernameAvailability === 'taken' ? copy.username.taken : '')
   const usernameStatus =
-    !usernameFailure &&
-    (usernameAvailability === 'checking' ||
-      usernameAvailability === 'available' ||
-      usernameAvailability === 'error')
-      ? signupCopy.usernameAvailability[usernameAvailability]
+    !usernameFailure && usernameAvailability !== 'idle' && usernameAvailability !== 'taken'
+      ? copy.username[usernameAvailability]
       : ''
-  const [destination, setDestination] = useState('/workspace')
-  const [isInviteFlow, setIsInviteFlow] = useState(false)
+  const destination =
+    normalizeCallbackUrl(
+      searchParams.get('callbackUrl'),
+      typeof window !== 'undefined' ? window.location.origin : undefined
+    ) ?? '/workspace'
+  const isInviteFlow =
+    searchParams.get('invite_flow') === 'true' || destination.startsWith('/invite/')
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
@@ -101,31 +103,6 @@ function SignupFormContent({
     const emailParam = searchParams.get('email')
     if (emailParam) {
       setEmail(emailParam)
-    }
-
-    const redirectParam = searchParams.get('redirect') ?? searchParams.get('callbackUrl')
-    if (redirectParam) {
-      const normalizedRedirectUrl = normalizeCallbackUrl(
-        redirectParam,
-        typeof window !== 'undefined' ? window.location.origin : undefined
-      )
-
-      if (normalizedRedirectUrl) {
-        setDestination(normalizedRedirectUrl)
-
-        const redirectPathname = new URL(normalizedRedirectUrl, 'http://tradinggoose.local')
-          .pathname
-        if (redirectPathname.startsWith('/invite/')) {
-          setIsInviteFlow(true)
-        }
-      } else {
-        logger.warn('Invalid signup redirect URL detected and blocked:', { url: redirectParam })
-      }
-    }
-
-    const inviteFlowParam = searchParams.get('invite_flow')
-    if (inviteFlowParam === 'true') {
-      setIsInviteFlow(true)
     }
   }, [searchParams])
 
@@ -181,7 +158,7 @@ function SignupFormContent({
     const passwordValue = formData.get('password') as string
     const nameValue = formData.get('name') as string
     const usernameValue = (formData.get('username') as string).trim()
-    setUsernameError(usernameValue ? '' : signupCopy.validation.usernameRequired)
+    setUsernameError(usernameValue ? '' : copy.username.required)
 
     const trimmedName = nameValue.trim()
 
@@ -229,15 +206,9 @@ function SignupFormContent({
             const messageCode = normalizeAuthErrorCode(ctx.error.message)
             const authErrorCode = normalizeAuthErrorCode(ctx.error.code) ?? messageCode
 
-            if (authErrorCode === 'USERNAME_IS_ALREADY_TAKEN') {
-              setUsernameError(signupCopy.errors.usernameTaken)
-            } else if (
-              authErrorCode === 'USERNAME_TOO_SHORT' ||
-              authErrorCode === 'USERNAME_TOO_LONG'
-            ) {
-              setUsernameError(signupCopy.validation.usernameLength)
-            } else if (authErrorCode === 'INVALID_USERNAME') {
-              setUsernameError(signupCopy.validation.usernameInvalid)
+            const usernameMessage = getUsernameErrorMessage(copy.username, authErrorCode)
+            if (usernameMessage) {
+              setUsernameError(usernameMessage)
             } else if (authErrorCode === 'USER_ALREADY_EXISTS') {
               setEmailError(signupCopy.errors.accountExists)
             } else if (messageCode === REGISTRATION_DISABLED_REASON.toUpperCase()) {
@@ -358,12 +329,8 @@ function SignupFormContent({
               id='username'
               name='username'
               placeholder={commonCopy.enterYourUsername}
-              required
-              minLength={3}
-              maxLength={30}
-              pattern='[a-zA-Z0-9_.]+'
+              {...usernameInputProps}
               autoCapitalize='none'
-              autoComplete='username'
               autoCorrect='off'
               onChange={(event) => {
                 setUsernameError('')

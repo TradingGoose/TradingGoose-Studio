@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { act, createElement, type ReactNode } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const analytics = vi.hoisted(() => ({
@@ -45,8 +45,23 @@ function sessionResponse(profile: typeof user | null) {
   )
 }
 
-beforeEach(() => vi.resetModules())
-afterEach(() => vi.unstubAllGlobals())
+let container: HTMLDivElement
+let root: Root
+
+beforeEach(() => {
+  vi.resetModules()
+  container = document.createElement('div')
+  root = createRoot(container)
+})
+
+afterEach(async () => {
+  await act(async () => root.unmount())
+  vi.unstubAllGlobals()
+})
+
+async function settle() {
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 20)))
+}
 
 describe('native auth client session', () => {
   it('uses the browser origin for same-origin auth requests', async () => {
@@ -79,34 +94,23 @@ describe('native auth client session', () => {
       session = useSession()
       return createElement('span', null, session.data?.user.name)
     }
-    const container = document.createElement('div')
-    const root = createRoot(container)
-    const refresh = async () => {
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 20))
-      })
-    }
-    try {
-      await act(async () =>
-        root.render(createElement('div', null, createElement(Consumer), createElement(Consumer)))
-      )
-      await refresh()
-      expect(container.textContent).toBe('Original nameOriginal name')
-      await act(async () => {
-        await client.updateUser({ name: 'Chosen name' })
-      })
-      await refresh()
-      expect(container.textContent).toBe('Chosen nameChosen name')
-      failRefresh = true
-      await act(async () => {
-        await session.refetch()
-      })
-      expect(session.error?.status).toBe(503)
-      expect(session.isPending).toBe(false)
-      expect(container.textContent).toBe('Chosen nameChosen name')
-    } finally {
-      await act(async () => root.unmount())
-    }
+    await act(async () =>
+      root.render(createElement('div', null, createElement(Consumer), createElement(Consumer)))
+    )
+    await settle()
+    expect(container.textContent).toBe('Original nameOriginal name')
+    await act(async () => {
+      await client.updateUser({ name: 'Chosen name' })
+    })
+    await settle()
+    expect(container.textContent).toBe('Chosen nameChosen name')
+    failRefresh = true
+    await act(async () => {
+      await session.refetch()
+    })
+    expect(session.error?.status).toBe(503)
+    expect(session.isPending).toBe(false)
+    expect(container.textContent).toBe('Chosen nameChosen name')
   })
 })
 
@@ -136,16 +140,11 @@ describe('PostHog session identity', () => {
       session = useSession()
       return null
     }
-    const root = createRoot(document.createElement('div'))
     await act(async () =>
       root.render(createElement(PostHogProvider, null, createElement(Consumer)))
     )
     await settle()
-    return { root, session: () => session }
-  }
-
-  async function settle() {
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)))
+    return () => session
   }
 
   it('preserves an anonymous visitor’s distinct ID and session across session refreshes', async () => {
@@ -153,20 +152,16 @@ describe('PostHog session identity', () => {
       'fetch',
       vi.fn(async () => sessionResponse(null))
     )
-    const view = await mount()
-    try {
-      await act(async () => view.session().refetch())
-      await settle()
-      expect(analytics.identify).not.toHaveBeenCalled()
-      expect(analytics.reset).not.toHaveBeenCalled()
-      expect(identity).toEqual({
-        state: 'anonymous',
-        distinctId: 'anonymous-id',
-        sessionId: 'anonymous-session',
-      })
-    } finally {
-      await act(async () => view.root.unmount())
-    }
+    const session = await mount()
+    await act(async () => session().refetch())
+    await settle()
+    expect(analytics.identify).not.toHaveBeenCalled()
+    expect(analytics.reset).not.toHaveBeenCalled()
+    expect(identity).toEqual({
+      state: 'anonymous',
+      distinctId: 'anonymous-id',
+      sessionId: 'anonymous-session',
+    })
   })
 
   it('clears a persisted identified user only after the initial anonymous session resolves', async () => {
@@ -184,21 +179,17 @@ describe('PostHog session identity', () => {
         )
         .mockImplementation(async () => sessionResponse(null))
     )
-    const view = await mount()
-    try {
-      expect(view.session().isPending).toBe(true)
-      expect(analytics.reset).not.toHaveBeenCalled()
-      expect(analytics.identify).not.toHaveBeenCalled()
-      await act(async () => finish(sessionResponse(null)))
-      await settle()
-      expect(analytics.reset).toHaveBeenCalledOnce()
-      expect(identity.state).toBe('anonymous')
-      await act(async () => view.session().refetch())
-      await settle()
-      expect(analytics.reset).toHaveBeenCalledOnce()
-    } finally {
-      await act(async () => view.root.unmount())
-    }
+    const session = await mount()
+    expect(session().isPending).toBe(true)
+    expect(analytics.reset).not.toHaveBeenCalled()
+    expect(analytics.identify).not.toHaveBeenCalled()
+    await act(async () => finish(sessionResponse(null)))
+    await settle()
+    expect(analytics.reset).toHaveBeenCalledOnce()
+    expect(identity.state).toBe('anonymous')
+    await act(async () => session().refetch())
+    await settle()
+    expect(analytics.reset).toHaveBeenCalledOnce()
   })
 
   it('identifies a signed-in user and resets once on logout', async () => {
@@ -207,23 +198,19 @@ describe('PostHog session identity', () => {
       'fetch',
       vi.fn(async () => sessionResponse(profile))
     )
-    const view = await mount()
-    try {
-      expect(analytics.identify).toHaveBeenCalledWith(
-        user.id,
-        expect.objectContaining({ email: user.email, name: user.name })
-      )
-      expect(analytics.reset).not.toHaveBeenCalled()
-      profile = null
-      await act(async () => view.session().refetch())
-      await settle()
-      expect(analytics.reset).toHaveBeenCalledOnce()
-      expect(identity.state).toBe('anonymous')
-      await act(async () => view.session().refetch())
-      await settle()
-      expect(analytics.reset).toHaveBeenCalledOnce()
-    } finally {
-      await act(async () => view.root.unmount())
-    }
+    const session = await mount()
+    expect(analytics.identify).toHaveBeenCalledWith(
+      user.id,
+      expect.objectContaining({ email: user.email, name: user.name })
+    )
+    expect(analytics.reset).not.toHaveBeenCalled()
+    profile = null
+    await act(async () => session().refetch())
+    await settle()
+    expect(analytics.reset).toHaveBeenCalledOnce()
+    expect(identity.state).toBe('anonymous')
+    await act(async () => session().refetch())
+    await settle()
+    expect(analytics.reset).toHaveBeenCalledOnce()
   })
 })

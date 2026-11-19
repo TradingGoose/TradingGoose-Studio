@@ -23,51 +23,22 @@ const EMPTY_CREDENTIALS: SystemOAuthClientCredentials = {
 }
 
 export async function loadSystemOAuthClientCredentials(providerIds: string[]) {
-  const normalizedProviderIds = Array.from(
-    new Set(providerIds.map((providerId) => providerId.trim()).filter(Boolean))
-  )
-  if (normalizedProviderIds.length === 0) {
-    return {}
+  const subjects = new Map<string, string>()
+  for (const id of providerIds) {
+    const provider = id.trim()
+    if (isSignInOAuthProviderId(provider)) continue
+    const subject = getOAuthProviderSubjectId({ provider })
+    if (subject) subjects.set(provider, subject)
   }
-
-  const subjectProviderIdsByRequestProviderId = new Map(
-    normalizedProviderIds
-      .filter((providerId) => !isSignInOAuthProviderId(providerId))
-      .map((providerId) => [providerId, resolveSystemOAuthProviderSubjectId(providerId)])
-  )
-  const definitions = await resolveSystemIntegrationDefinitions(
-    Array.from(new Set(subjectProviderIdsByRequestProviderId.values()))
-  )
+  const definitions = await resolveSystemIntegrationDefinitions([...subjects.values()])
   const credentials: Record<string, SystemOAuthClientCredentials> = {}
-
-  for (const providerId of normalizedProviderIds) {
-    if (isSignInOAuthProviderId(providerId)) {
-      continue
-    }
-
-    const subjectProviderId = subjectProviderIdsByRequestProviderId.get(providerId) ?? providerId
-    const resolved = definitions[subjectProviderId]
-    const systemCredentials = getSystemManagedOAuthClientCredentials(subjectProviderId, resolved)
-    if (systemCredentials) {
-      credentials[providerId] = systemCredentials
-    }
+  for (const [provider, subject] of subjects) {
+    const resolved = definitions[subject]
+    if (!resolved?.isEnabled) continue
+    const systemCredentials = buildOAuthClientCredentials(subject, resolved.secrets)
+    if (systemCredentials) credentials[provider] = systemCredentials
   }
-
   return credentials
-}
-
-function getSystemManagedOAuthClientCredentials(
-  providerId: string,
-  resolved:
-    | Awaited<ReturnType<typeof resolveSystemIntegrationDefinitions>>[string]
-    | null
-    | undefined
-) {
-  if (!resolved?.isEnabled) {
-    return null
-  }
-
-  return buildOAuthClientCredentials(providerId, resolved.secrets)
 }
 
 function buildOAuthClientCredentials(providerId: string, values: Record<string, string>) {
@@ -91,18 +62,9 @@ function buildOAuthClientCredentials(providerId: string, values: Record<string, 
   } satisfies SystemOAuthClientCredentials
 }
 
-function resolveSystemOAuthProviderSubjectId(providerId: string) {
-  return getOAuthProviderSubjectId({ provider: providerId }) ?? providerId
-}
-
 export async function loadSystemOAuthClientCredentialsForProvider(providerId: string) {
-  const normalizedProviderId = providerId.trim()
-  if (!normalizedProviderId) {
-    return null
-  }
-
-  const credentials = await loadSystemOAuthClientCredentials([normalizedProviderId])
-  return credentials[normalizedProviderId] ?? null
+  const credentials = await loadSystemOAuthClientCredentials([providerId])
+  return credentials[providerId.trim()] ?? null
 }
 
 export async function runWithSystemOAuthClientCredentials<T>(
@@ -115,12 +77,7 @@ export async function runWithSystemOAuthClientCredentials<T>(
 export function getSystemOAuthClientCredentialsForRequest(
   providerId: string
 ): SystemOAuthClientCredentials {
-  const store = oauthCredentialStorage.getStore()
-  if (!store) {
-    return EMPTY_CREDENTIALS
-  }
-
-  return store.get(providerId.trim()) ?? EMPTY_CREDENTIALS
+  return oauthCredentialStorage.getStore()?.get(providerId.trim()) ?? EMPTY_CREDENTIALS
 }
 
 export function setSystemOAuthClientIdForRequest(providerId: string, clientId: string) {

@@ -2,6 +2,14 @@ import { useQuery } from '@tanstack/react-query'
 import { client } from '@/lib/auth-client'
 import { useDebounce } from '@/hooks/use-debounce'
 
+export const usernameInputProps = {
+  required: true,
+  minLength: 3,
+  maxLength: 30,
+  pattern: '[a-zA-Z0-9_.]+',
+  autoComplete: 'username',
+} as const
+
 export function useUsernameAvailability(
   username: string,
   currentUsername?: string
