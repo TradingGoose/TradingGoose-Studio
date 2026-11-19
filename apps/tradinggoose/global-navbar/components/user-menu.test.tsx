@@ -80,6 +80,8 @@ function renderUserMenu(
   root: Root,
   locale: LocaleCode,
   options: {
+    userName?: string
+    userEmail?: string
     billingEnabled?: boolean
     canAccessSystemAdmin?: boolean
     canConfigureSso?: boolean
@@ -89,9 +91,8 @@ function renderUserMenu(
 ) {
   const userMenu = (
     <UserMenu
-      userName='Ada Lovelace'
-      userEmail='ada@example.com'
-      userId='user-1'
+      userName={options.userName ?? 'Ada Lovelace'}
+      userEmail={options.userEmail ?? 'ada@example.com'}
       onOpenSettings={mockOpenSettings}
       billingEnabled={options.billingEnabled ?? false}
       canAccessSystemAdmin={options.canAccessSystemAdmin}
@@ -252,6 +253,30 @@ describe('UserMenu language selector', () => {
 
     const menu = document.body.querySelector('[role="menu"]')
     expect(menu?.className).toContain('w-[var(--anchor-width)]')
+  })
+
+  it('renders the current session identity even when a previous profile name is stored', async () => {
+    window.localStorage.setItem('user-name-user-1', 'Stored Name')
+    for (const sidebarTrigger of [false, true]) {
+      await act(async () => {
+        renderUserMenu(root, 'en', { sidebarTrigger })
+        await flush()
+      })
+      await act(async () => {
+        renderUserMenu(root, 'en', {
+          sidebarTrigger,
+          userName: 'Grace Hopper',
+          userEmail: 'grace@example.com',
+        })
+        await flush()
+      })
+      const trigger = container.querySelector('button[aria-label^="Grace Hopper "]')!
+      expect(trigger).toBeTruthy()
+      expect(trigger.textContent).toContain('GH')
+      if (sidebarTrigger) expect(trigger.textContent).toContain('grace@example.com')
+      expect(container.textContent).not.toContain('Ada Lovelace')
+    }
+    window.localStorage.removeItem('user-name-user-1')
   })
 
   it('owns the system admin menu item for authorized users', async () => {

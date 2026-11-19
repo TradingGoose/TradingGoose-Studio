@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Check,
   ChevronDown,
@@ -66,8 +66,6 @@ interface UserMenuProps {
   userName: string
   userEmail: string
   userAvatar?: string | null
-  userAvatarVersion?: number | string | null
-  userId?: string | null
   onOpenSettings: (section: SettingsSection) => void
   billingEnabled: boolean
   canOpenTeamSettings: boolean
@@ -80,8 +78,6 @@ export function UserMenu({
   userName,
   userEmail,
   userAvatar,
-  userAvatarVersion,
-  userId,
   onOpenSettings,
   billingEnabled,
   canOpenTeamSettings,
@@ -98,11 +94,6 @@ export function UserMenu({
   const tWorkspaceNav = useTranslations('workspace.nav')
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isOpeningBillingPortal, setIsOpeningBillingPortal] = useState(false)
-  const [nameOverride, setNameOverride] = useState<string | null>(null)
-  const [avatarOverride, setAvatarOverride] = useState<{
-    url: string | null
-    version: number | string | null
-  }>({ url: null, version: null })
   const logger = createLogger('UserMenu')
   const theme = useGeneralStore((state) => state.theme)
   const setTheme = useGeneralStore((state) => state.setTheme)
@@ -138,106 +129,6 @@ export function UserMenu({
   const currentThemeLabel = themeOptionLabels[currentThemeOption.value]
   const currentThemeAriaLabel = tUserMenu('themeLabel', { theme: currentThemeLabel })
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
-
-  useEffect(() => {
-    if (!userId || typeof window === 'undefined') {
-      setNameOverride(null)
-      return
-    }
-
-    const key = `user-name-${userId}`
-
-    const readStoredName = () => {
-      const storedName = window.localStorage.getItem(key)
-      setNameOverride(storedName !== null ? storedName || null : null)
-    }
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === key) {
-        readStoredName()
-      }
-    }
-
-    const handleNameEvent = (event: Event) => {
-      const detail = (event as CustomEvent<{ name?: string | null }>).detail
-      setNameOverride(detail && 'name' in detail ? (detail.name ?? null) : null)
-    }
-
-    readStoredName()
-    window.addEventListener('storage', handleStorage)
-    window.addEventListener('user-name-updated', handleNameEvent)
-    return () => {
-      window.removeEventListener('storage', handleStorage)
-      window.removeEventListener('user-name-updated', handleNameEvent)
-    }
-  }, [userId])
-
-  useEffect(() => {
-    if (!userId || typeof window === 'undefined') return
-
-    const readStoredAvatar = () => {
-      const storedVersion = window.localStorage.getItem(`user-avatar-version-${userId}`)
-      const storedUrl = window.localStorage.getItem(`user-avatar-url-${userId}`)
-      if (storedVersion || storedUrl !== null) {
-        setAvatarOverride((prev) => ({
-          url: storedUrl !== null ? storedUrl || null : prev.url,
-          version: storedVersion ?? prev.version,
-        }))
-      }
-    }
-
-    const handleStorage = (event: StorageEvent) => {
-      if (!event.key) return
-      if (
-        event.key === `user-avatar-version-${userId}` ||
-        event.key === `user-avatar-url-${userId}`
-      ) {
-        readStoredAvatar()
-      }
-    }
-
-    readStoredAvatar()
-    window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
-  }, [userId])
-
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const customEvent = event as CustomEvent<
-        { url?: string | null; version?: number } | undefined
-      >
-      const detail = customEvent.detail
-      setAvatarOverride((prev) => ({
-        url: detail && 'url' in detail ? (detail?.url ?? null) : prev.url,
-        version: detail && 'version' in detail ? (detail?.version ?? Date.now()) : Date.now(),
-      }))
-    }
-
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    window.addEventListener('user-avatar-updated', handler)
-    return () => window.removeEventListener('user-avatar-updated', handler)
-  }, [])
-
-  const displayUserName = nameOverride ?? userName
-  const effectiveAvatar = avatarOverride.url ?? userAvatar
-  const effectiveVersion = avatarOverride.version ?? userAvatarVersion
-
-  const avatarSrc = useMemo(() => {
-    if (!effectiveAvatar) return null
-    const numericVersion = Number(effectiveVersion)
-    const versionValue =
-      effectiveVersion && Number.isFinite(numericVersion)
-        ? numericVersion
-        : effectiveVersion
-          ? encodeURIComponent(String(effectiveVersion))
-          : null
-    if (!versionValue) return effectiveAvatar
-    const separator = effectiveAvatar.includes('?') ? '&' : '?'
-    return `${effectiveAvatar}${separator}v=${versionValue}`
-  }, [effectiveAvatar, effectiveVersion])
 
   const handleSignOut = async () => {
     if (isSigningOut) return
@@ -292,15 +183,15 @@ export function UserMenu({
 
   const avatar = (
     <Avatar className='h-8 w-8 rounded-md'>
-      {avatarSrc ? (
-        <AvatarImage key={avatarSrc} src={avatarSrc} alt={displayUserName} />
+      {userAvatar ? (
+        <AvatarImage key={userAvatar} src={userAvatar} alt={userName} />
       ) : (
         <AvatarImage src={DEFAULT_AVATAR_SRC} alt={userMenuCopy.defaultAvatarAlt} />
       )}
-      <AvatarFallback className='rounded-lg'>{getInitials(displayUserName)}</AvatarFallback>
+      <AvatarFallback className='rounded-lg'>{getInitials(userName)}</AvatarFallback>
     </Avatar>
   )
-  const triggerLabel = `${displayUserName} ${userMenuCopy.accountDetail}`
+  const triggerLabel = `${userName} ${userMenuCopy.accountDetail}`
 
   const menuContent = (
     <DropdownMenuContent
@@ -554,7 +445,7 @@ export function UserMenu({
               >
                 {avatar}
                 <div className='grid flex-1 text-left text-sm leading-tight'>
-                  <span className='truncate font-semibold'>{displayUserName}</span>
+                  <span className='truncate font-semibold'>{userName}</span>
                   <span className='truncate text-xs'>{userEmail}</span>
                 </div>
                 <ChevronsUpDown className='ml-auto size-4' />
