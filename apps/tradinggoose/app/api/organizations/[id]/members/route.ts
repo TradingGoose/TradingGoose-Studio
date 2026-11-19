@@ -1,11 +1,19 @@
+import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
-import { member, user, userStats } from '@tradinggoose/db/schema'
+import { invitation, member, organization, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { getEmailSubject, renderInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getUserUsageData } from '@/lib/billing/core/usage'
+import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
+import { resolveEmailLocale } from '@/lib/email/locale'
+import { sendEmail } from '@/lib/email/mailer'
+import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 const logger = createLogger('OrganizationMembersAPI')
 
@@ -142,6 +150,191 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
   } catch (error) {
     logger.error('Failed to get organization members', {
+      organizationId: (await params).id,
+      error,
+    })
+
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+/**
+ * POST /api/organizations/[id]/members
+ * Invite new member to organization
+ */
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await getSession()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id: organizationId } = await params
+    const { email, role = 'member', locale: requestLocale } = await request.json()
+
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 })
+    }
+
+    if (!['admin', 'member'].includes(role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const validation = quickValidateEmail(normalizedEmail)
+    if (!validation.isValid) {
+      return NextResponse.json(
+        { error: validation.reason || 'Invalid email format' },
+        { status: 400 }
+      )
+    }
+
+    const memberEntry = await db
+      .select()
+      .from(member)
+      .where(and(eq(member.organizationId, organizationId), eq(member.userId, session.user.id)))
+      .limit(1)
+
+    if (memberEntry.length === 0) {
+      return NextResponse.json(
+        { error: 'Forbidden - Not a member of this organization' },
+        { status: 403 }
+      )
+    }
+
+    if (!['owner', 'admin'].includes(memberEntry[0].role)) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
+    }
+
+    const existingUser = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, normalizedEmail))
+      .limit(1)
+
+    if (existingUser.length > 0) {
+      const existingMember = await db
+        .select()
+        .from(member)
+        .where(
+          and(eq(member.organizationId, organizationId), eq(member.userId, existingUser[0].id))
+        )
+        .limit(1)
+
+      if (existingMember.length > 0) {
+        return NextResponse.json(
+          { error: 'User is already a member of this organization' },
+          { status: 400 }
+        )
+      }
+    }
+
+    const existingInvitation = await db
+      .select()
+      .from(invitation)
+      .where(
+        and(
+          eq(invitation.organizationId, organizationId),
+          eq(invitation.email, normalizedEmail),
+          eq(invitation.status, 'pending')
+        )
+      )
+      .limit(1)
+
+    if (existingInvitation.length > 0) {
+      return NextResponse.json(
+        { error: 'Pending invitation already exists for this email' },
+        { status: 400 }
+      )
+    }
+
+    const seatValidation = await validateSeatAvailability(organizationId, 1)
+    if (!seatValidation.canInvite) {
+      return NextResponse.json(
+        {
+          error: `Cannot invite member. Using ${seatValidation.currentSeats} of ${seatValidation.maxSeats} seats.`,
+          details: seatValidation,
+        },
+        { status: 400 }
+      )
+    }
+
+    const invitationId = randomUUID()
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 7)
+
+    await db.insert(invitation).values({
+      id: invitationId,
+      email: normalizedEmail,
+      inviterId: session.user.id,
+      organizationId,
+      role,
+      status: 'pending',
+      expiresAt,
+      createdAt: new Date(),
+    })
+
+    const organizationEntry = await db
+      .select({ name: organization.name })
+      .from(organization)
+      .where(eq(organization.id, organizationId))
+      .limit(1)
+
+    const inviter = await db
+      .select({ name: user.name })
+      .from(user)
+      .where(eq(user.id, session.user.id))
+      .limit(1)
+    const locale = await resolveEmailLocale({
+      email: normalizedEmail,
+      fallbackLocale: requestLocale,
+    })
+    const invitationLink = localizeUrl(getBaseUrl(), locale, `/invite/${invitationId}`)
+
+    const emailHtml = await renderInvitationEmail(
+      inviter[0]?.name || 'Someone',
+      organizationEntry[0]?.name || 'organization',
+      invitationLink,
+      normalizedEmail,
+      locale
+    )
+
+    const emailResult = await sendEmail({
+      to: normalizedEmail,
+      subject: getEmailSubject('invitation', locale, {
+        organizationName: organizationEntry[0]?.name || 'organization',
+      }),
+      html: emailHtml,
+      emailType: 'transactional',
+    })
+
+    if (emailResult.success) {
+      logger.info('Member invitation sent', {
+        email: normalizedEmail,
+        organizationId,
+        invitationId,
+        role,
+      })
+    } else {
+      logger.error('Failed to send invitation email', {
+        email: normalizedEmail,
+        error: emailResult.message,
+      })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Invitation sent to ${normalizedEmail}`,
+      data: {
+        invitationId,
+        email: normalizedEmail,
+        role,
+        expiresAt,
+      },
+    })
+  } catch (error) {
+    logger.error('Failed to invite organization member', {
       organizationId: (await params).id,
       error,
     })

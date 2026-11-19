@@ -258,7 +258,7 @@ describe('shared entity Yjs sessions', () => {
     const replacement = new Y.Doc()
     replaceEntityListSessionMembers(replacement, [{ id: 'kept', name: 'Kept' }])
     providerMocks.queuedDocs.push(replacement)
-    await act(async () => stale.emitLifecycle({ type: 'reopen' }))
+    await act(async () => stale.emitLifecycle({ type: 'lineage-replaced' }))
     expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['kept', 'removed'])
     expect(currentList.hasLiveSnapshot).toBe(true)
     expect(current.doc).toBe(staleEntity.doc)

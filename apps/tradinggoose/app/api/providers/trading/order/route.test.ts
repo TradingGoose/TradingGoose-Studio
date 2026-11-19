@@ -39,7 +39,7 @@ vi.mock('@/lib/oauth/tokens', () => ({
   refreshAccessTokenIfNeeded: mockRefreshAccessTokenIfNeeded,
 }))
 
-vi.mock('@/lib/oauth/oauth.server', () => ({
+vi.mock('@/lib/oauth/provider-availability.server', () => ({
   getOAuthProviderAvailability: mockGetOAuthProviderAvailability,
 }))
 

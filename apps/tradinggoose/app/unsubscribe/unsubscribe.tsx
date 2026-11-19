@@ -1,17 +1,28 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import { CheckCircle, Heart, Loader2, XCircle } from 'lucide-react'
+import { CheckCircle, Heart, Info, Loader2, XCircle } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { useMessages } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 import { useBrandConfig } from '@/lib/branding/branding'
-import type { EmailPreferences, UnsubscribeAction } from '@/lib/email/unsubscribe'
+import type { LocaleCode } from '@/i18n/utils'
 
 interface UnsubscribeData {
+  success: boolean
   email: string
-  currentPreferences: EmailPreferences
+  token: string
+  emailType: string
+  isTransactional: boolean
+  currentPreferences: {
+    unsubscribeAll?: boolean
+    unsubscribeMarketing?: boolean
+    unsubscribeUpdates?: boolean
+    unsubscribeNotifications?: boolean
+  }
 }
+
+type UnsubscribeAction = 'all' | 'marketing' | 'updates' | 'notifications'
 
 function UnsubscribeLoadingState({ label }: { label: string }) {
   return (
@@ -32,6 +43,7 @@ function UnsubscribeLoadingState({ label }: { label: string }) {
 }
 
 function UnsubscribeContent() {
+  const locale = useLocale() as LocaleCode
   const copy = useMessages()
   const unsubscribeCopy = copy.unsubscribe
   const searchParams = useSearchParams()
@@ -95,6 +107,34 @@ function UnsubscribeContent() {
 
       if (result.success) {
         setUnsubscribed(true)
+        // Update the data to reflect the change
+        if (data) {
+          // Type-safe property construction with validation
+          const validTypes = ['all', 'marketing', 'updates', 'notifications'] as const
+          if (validTypes.includes(type)) {
+            if (type === 'all') {
+              setData({
+                ...data,
+                currentPreferences: {
+                  ...data.currentPreferences,
+                  unsubscribeAll: true,
+                },
+              })
+            } else {
+              const propertyKey = `unsubscribe${type.charAt(0).toUpperCase()}${type.slice(1)}` as
+                | 'unsubscribeMarketing'
+                | 'unsubscribeUpdates'
+                | 'unsubscribeNotifications'
+              setData({
+                ...data,
+                currentPreferences: {
+                  ...data.currentPreferences,
+                  [propertyKey]: true,
+                },
+              })
+            }
+          }
+        }
       } else {
         setError(result.code || result.error || 'failed-processing')
       }
@@ -175,6 +215,58 @@ function UnsubscribeContent() {
     )
   }
 
+  // Handle transactional emails
+  if (data?.isTransactional) {
+    return (
+      <div className='flex min-h-screen items-center justify-center bg-background p-4'>
+        <Card className='w-full max-w-md border shadow-sm'>
+          <CardHeader className='text-center'>
+            <Info className='mx-auto mb-2 h-12 w-12 text-blue-500' />
+            <CardTitle className='text-foreground'>{unsubscribeCopy.transactional.title}</CardTitle>
+            <CardDescription className='text-muted-foreground'>
+              {unsubscribeCopy.transactional.description}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className='space-y-4'>
+            <div className='rounded-lg border bg-blue-50 p-4'>
+              <p className='text-blue-800 text-sm'>
+                <strong>{unsubscribeCopy.transactional.important}</strong>{' '}
+                {unsubscribeCopy.transactional.body}
+              </p>
+            </div>
+
+            <div className='space-y-3'>
+              <p className='text-foreground text-sm'>
+                {unsubscribeCopy.transactional.optionsPrefix}
+              </p>
+              <ul className='ml-4 list-inside list-disc space-y-1 text-muted-foreground text-sm'>
+                <li>{unsubscribeCopy.transactional.closeAccount}</li>
+                <li>{unsubscribeCopy.transactional.contactSupport}</li>
+              </ul>
+            </div>
+
+            <div className='mt-6 flex flex-col gap-3'>
+              <Button
+                onClick={() =>
+                  window.open(
+                    `mailto:${brand.supportEmail}?subject=Account%20Help&body=Hi%2C%20I%20need%20help%20with%20my%20account%20emails.`,
+                    '_blank'
+                  )
+                }
+                className='w-full bg-blue-600 text-white hover:bg-blue-700'
+              >
+                {unsubscribeCopy.transactional.contactButton}
+              </Button>
+              <Button onClick={() => window.close()} variant='outline' className='w-full'>
+                {unsubscribeCopy.transactional.closeButton}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   if (unsubscribed) {
     return (
       <div className='flex min-h-screen items-center justify-center bg-background'>
@@ -241,31 +333,68 @@ function UnsubscribeContent() {
               {unsubscribeCopy.main.optionsPrefix}
             </div>
 
-            {(
-              [
-                ['marketing', data?.currentPreferences.unsubscribeMarketing],
-                ['updates', data?.currentPreferences.unsubscribeUpdates],
-                ['notifications', data?.currentPreferences.unsubscribeNotifications],
-              ] as const
-            ).map(([list, isUnsubscribed]) => (
-              <Button
-                key={list}
-                onClick={() => handleUnsubscribe(list)}
-                disabled={isProcessing || data?.currentPreferences.unsubscribeAll || isUnsubscribed}
-                aria-busy={pendingAction === list}
-                variant='outline'
-                className='w-full'
-              >
-                {pendingAction === list ? (
-                  <Loader2 aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
-                ) : isUnsubscribed ? (
-                  <CheckCircle className='mr-2 h-4 w-4' />
-                ) : null}
-                {isUnsubscribed
-                  ? unsubscribeCopy.main[`${list}Unsubscribed`]
-                  : unsubscribeCopy.main[`${list}Button`]}
-              </Button>
-            ))}
+            <Button
+              onClick={() => handleUnsubscribe('marketing')}
+              disabled={
+                isProcessing ||
+                data?.currentPreferences.unsubscribeAll ||
+                data?.currentPreferences.unsubscribeMarketing
+              }
+              aria-busy={pendingAction === 'marketing'}
+              variant='outline'
+              className='w-full'
+            >
+              {pendingAction === 'marketing' ? (
+                <Loader2 aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
+              ) : data?.currentPreferences.unsubscribeMarketing ? (
+                <CheckCircle className='mr-2 h-4 w-4' />
+              ) : null}
+              {data?.currentPreferences.unsubscribeMarketing
+                ? unsubscribeCopy.main.marketingUnsubscribed
+                : unsubscribeCopy.main.marketingButton}
+            </Button>
+
+            <Button
+              onClick={() => handleUnsubscribe('updates')}
+              disabled={
+                isProcessing ||
+                data?.currentPreferences.unsubscribeAll ||
+                data?.currentPreferences.unsubscribeUpdates
+              }
+              aria-busy={pendingAction === 'updates'}
+              variant='outline'
+              className='w-full'
+            >
+              {pendingAction === 'updates' ? (
+                <Loader2 aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
+              ) : data?.currentPreferences.unsubscribeUpdates ? (
+                <CheckCircle className='mr-2 h-4 w-4' />
+              ) : null}
+              {data?.currentPreferences.unsubscribeUpdates
+                ? unsubscribeCopy.main.updatesUnsubscribed
+                : unsubscribeCopy.main.updatesButton}
+            </Button>
+
+            <Button
+              onClick={() => handleUnsubscribe('notifications')}
+              disabled={
+                isProcessing ||
+                data?.currentPreferences.unsubscribeAll ||
+                data?.currentPreferences.unsubscribeNotifications
+              }
+              aria-busy={pendingAction === 'notifications'}
+              variant='outline'
+              className='w-full'
+            >
+              {pendingAction === 'notifications' ? (
+                <Loader2 aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
+              ) : data?.currentPreferences.unsubscribeNotifications ? (
+                <CheckCircle className='mr-2 h-4 w-4' />
+              ) : null}
+              {data?.currentPreferences.unsubscribeNotifications
+                ? unsubscribeCopy.main.notificationsUnsubscribed
+                : unsubscribeCopy.main.notificationsButton}
+            </Button>
           </div>
 
           <div className='mt-6 space-y-3'>

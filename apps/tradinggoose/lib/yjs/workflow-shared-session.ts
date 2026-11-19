@@ -192,16 +192,22 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     entry.result = result
     void result.lifecycle.then((event) => {
       if (entry.result !== result) return
-      disposeWorkflowSessionEntry(entry)
-      if (event.type === 'reopen') {
+      if (event.type === 'lineage-replaced') {
         entry.pendingLocalEdits = event.pendingLocalEdits
-        setEntryState(entry, EMPTY_SHARED_WORKFLOW_SESSION_STATE)
+        disposeWorkflowSessionEntry(entry)
+        setEntryState(entry, { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE })
         if (entry.refCount > 0) entry.initPromise = initializeSharedSession(entry)
         return
       }
       entry.isTerminal = true
+      disposeWorkflowSessionEntry(entry)
       setEntryState(entry, {
-        ...EMPTY_SHARED_WORKFLOW_SESSION_STATE,
+        doc: null,
+        provider: null,
+        awareness: null,
+        canUndo: false,
+        canRedo: false,
+        isSynced: false,
         isLoading: false,
         error: event.error.message,
       })
@@ -217,6 +223,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
         trackedOrigins: createYjsUndoTrackedOrigins(),
       }
     )
+    undoManager.clear()
 
     const syncUndoState = () => {
       setEntryState(entry, {
@@ -291,33 +298,52 @@ function ensureSharedSessionInitialized(entry: SharedWorkflowSessionEntry): void
   entry.initPromise = initializeSharedSession(entry)
 }
 
-function retainWorkflowSession(
-  entry: SharedWorkflowSessionEntry,
-  listener?: () => void
-): () => void {
-  entry.refCount += 1
-  if (listener) entry.listeners.add(listener)
-  ensureSharedSessionInitialized(entry)
-  let released = false
-  return () => {
-    if (released) return
-    released = true
-    if (listener) entry.listeners.delete(listener)
-    entry.refCount -= 1
-    if (entry.refCount > 0) return
-    entry.destroyTimeout = setTimeout(() => {
-      if (getSharedSessionEntries().get(entry.workflowId) !== entry || entry.refCount > 0) return
-      getSharedSessionEntries().delete(entry.workflowId)
-      disposeWorkflowSessionEntry(entry)
-    }, SHARED_SESSION_DESTROY_GRACE_MS)
+function releaseSharedSession(workflowId: string): void {
+  const entries = getSharedSessionEntries()
+  const entry = entries.get(workflowId)
+  if (!entry) {
+    return
   }
+
+  entry.refCount = Math.max(0, entry.refCount - 1)
+  if (entry.refCount > 0) {
+    return
+  }
+
+  cancelPendingDestroy(entry)
+  entry.destroyTimeout = setTimeout(() => {
+    const currentEntry = getSharedSessionEntries().get(workflowId)
+    if (!currentEntry || currentEntry !== entry || currentEntry.refCount > 0) {
+      return
+    }
+
+    currentEntry.destroyTimeout = null
+    entries.delete(workflowId)
+
+    disposeWorkflowSessionEntry(currentEntry)
+
+    currentEntry.listeners.clear()
+    currentEntry.state = { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE }
+  }, SHARED_SESSION_DESTROY_GRACE_MS)
 }
 
-export function acquireSharedWorkflowSession(
-  args: { workflowId: string; workspaceId: string | null },
-  listener?: () => void
-): () => void {
-  return retainWorkflowSession(ensureSessionEntry(args), listener)
+export function acquireSharedWorkflowSession(args: {
+  workflowId: string
+  workspaceId: string | null
+}): () => void {
+  const entry = ensureSessionEntry(args)
+  entry.refCount += 1
+  ensureSharedSessionInitialized(entry)
+
+  let released = false
+
+  return () => {
+    if (released) {
+      return
+    }
+    released = true
+    releaseSharedSession(args.workflowId)
+  }
 }
 
 export async function acquireWritableWorkflowSessionLease(args: {
@@ -325,7 +351,17 @@ export async function acquireWritableWorkflowSessionLease(args: {
   workspaceId: string | null
 }): Promise<{ session: RegisteredWorkflowSession; release: () => void }> {
   const entry = ensureSessionEntry(args)
-  const release = retainWorkflowSession(entry)
+  entry.refCount += 1
+  ensureSharedSessionInitialized(entry)
+
+  let released = false
+  const release = () => {
+    if (released) {
+      return
+    }
+    released = true
+    releaseSharedSession(args.workflowId)
+  }
 
   if (entry.initPromise) {
     await entry.initPromise
@@ -354,6 +390,21 @@ export async function acquireWritableWorkflowSessionLease(args: {
       doc: result.doc,
     },
     release,
+  }
+}
+
+export function subscribeToSharedWorkflowSession(
+  workflowId: string,
+  listener: () => void
+): () => void {
+  const entry = getSharedSessionEntries().get(workflowId)
+  if (!entry) {
+    return () => {}
+  }
+
+  entry.listeners.add(listener)
+  return () => {
+    entry.listeners.delete(listener)
   }
 }
 

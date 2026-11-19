@@ -60,7 +60,7 @@ function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMoc
     emitTerminal: (error: Error & { retryable: false }) =>
       resolveLifecycle({ type: 'terminal-failure', error }),
     emitLineageReplaced: (pendingLocalEdits?: unknown) =>
-      resolveLifecycle({ type: 'reopen', pendingLocalEdits }),
+      resolveLifecycle({ type: 'lineage-replaced', pendingLocalEdits }),
   }
   return result
 }

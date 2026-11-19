@@ -1,6 +1,3 @@
-import { subscription } from '@tradinggoose/db/schema'
-import type { SQL } from 'drizzle-orm'
-import { PgDialect } from 'drizzle-orm/pg-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('workspace billing owner helpers', () => {
@@ -8,10 +5,11 @@ describe('workspace billing owner helpers', () => {
   const mockHasWorkspaceAdminAccess = vi.fn()
   const mockGetOrganizationSubscription = vi.fn()
   const mockIsOrganizationSubscription = vi.fn()
-  const where = vi.fn((_predicate: SQL) => ({ limit: () => selectResults.shift() ?? [] }))
   const selectMock = vi.fn(() => ({
     from: vi.fn(() => ({
-      where,
+      where: vi.fn(() => ({
+        limit: vi.fn(() => selectResults.shift() ?? []),
+      })),
     })),
   }))
 
@@ -37,7 +35,13 @@ describe('workspace billing owner helpers', () => {
         billingOwnerUserId: 'workspace.billingOwnerUserId',
         billingOwnerOrganizationId: 'workspace.billingOwnerOrganizationId',
       },
-      subscription,
+      subscription: {
+        id: 'subscription.id',
+        referenceType: 'subscription.referenceType',
+        referenceId: 'subscription.referenceId',
+        status: 'subscription.status',
+        cancelAtPeriodEnd: 'subscription.cancelAtPeriodEnd',
+      },
     }))
 
     vi.doMock('@/lib/permissions/utils', () => ({
@@ -190,10 +194,6 @@ describe('workspace billing owner helpers', () => {
     await expect(assertOrganizationCanBeDeleted('org-1')).rejects.toThrow(
       'Cannot delete an organization while it still has a billing subscription'
     )
-    const predicate = new PgDialect().sqlToQuery(where.mock.calls.at(-1)![0])
-    expect(predicate.sql).toContain('"subscription"."cancel_at" is not null')
-    expect(predicate.sql).toContain('"subscription"."status" not in')
-    expect(predicate.params).toContain('canceled')
   })
 
   it('blocks downgrading the workspace billing owner away from admin', async () => {

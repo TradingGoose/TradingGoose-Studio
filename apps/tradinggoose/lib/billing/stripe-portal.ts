@@ -1,87 +1,15 @@
-import Stripe from 'stripe'
+import type Stripe from 'stripe'
 import { type BillingTierRecord, getActiveStripeBillingTiers } from '@/lib/billing/tiers'
 
 const MANAGEMENT_CONFIGURATION_METADATA_KEY = 'tradinggoose_purpose'
 const MANAGEMENT_CONFIGURATION_METADATA_VALUE = 'billing_management'
 const MANAGEMENT_CONFIGURATION_IDEMPOTENCY_KEY = 'billing-portal:management-configuration'
 const STRIPE_PORTAL_PRODUCT_LIMIT = 10
-const PLAN_CHANGE_ALLOWED_UPDATES = ['price', 'quantity'] as const
 
 type PlanChangeTier = Pick<
   BillingTierRecord,
-  'ownerType' | 'seatMode' | 'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
+  'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
 >
-
-export class IneligibleStripePriceError extends Error {}
-
-export function getTierStripePriceIds(
-  tier: Pick<PlanChangeTier, 'stripeMonthlyPriceId' | 'stripeYearlyPriceId'>
-) {
-  return [tier.stripeMonthlyPriceId, tier.stripeYearlyPriceId].filter(
-    (priceId): priceId is string => Boolean(priceId)
-  )
-}
-
-export function getStripeSeatPrice(price: Stripe.Price) {
-  const interval = price.recurring?.interval
-  const amount = price.unit_amount_decimal ?? price.unit_amount
-  if (
-    price.currency !== 'usd' ||
-    price.billing_scheme !== 'per_unit' ||
-    price.transform_quantity ||
-    price.recurring?.usage_type !== 'licensed' ||
-    price.recurring.interval_count !== 1 ||
-    (interval !== 'month' && interval !== 'year') ||
-    amount == null
-  )
-    return null
-  return { amountUsd: Number(amount) / 100, interval }
-}
-
-export async function getValidatedStripeTierPrice(
-  stripe: Stripe,
-  tier: Pick<PlanChangeTier, 'ownerType' | 'seatMode' | 'stripeProductId'>,
-  priceId: string | null
-) {
-  if (!priceId) throw new IneligibleStripePriceError('Stripe price is required')
-  const price = await stripe.prices
-    .retrieve(priceId, { expand: ['currency_options'] })
-    .catch((error: unknown) => {
-      if (
-        error instanceof Stripe.errors.StripeInvalidRequestError &&
-        error.code === 'resource_missing'
-      ) {
-        throw new IneligibleStripePriceError(`Stripe price ${priceId} does not exist`)
-      }
-      throw error
-    })
-  if (!price.active || !price.recurring) {
-    throw new IneligibleStripePriceError(
-      `Stripe price ${price.id} must be an active recurring price`
-    )
-  }
-  if (tier.ownerType === 'organization' && price.recurring.usage_type !== 'licensed') {
-    throw new IneligibleStripePriceError(
-      `Stripe price ${price.id} must be licensed for organization seats`
-    )
-  }
-  if (
-    tier.seatMode === 'adjustable' &&
-    (!getStripeSeatPrice(price) ||
-      Object.keys(price.currency_options ?? {}).some((currency) => currency !== 'usd'))
-  ) {
-    throw new IneligibleStripePriceError(
-      `Stripe price ${price.id} must bill adjustable seats per unit in USD each month or year`
-    )
-  }
-  const productId = typeof price.product === 'string' ? price.product : price.product.id
-  if (tier.stripeProductId && productId !== tier.stripeProductId) {
-    throw new IneligibleStripePriceError(
-      `Stripe price ${price.id} does not belong to ${tier.stripeProductId}`
-    )
-  }
-  return { id: price.id, productId }
-}
 
 async function listPortalConfigurations(stripe: Stripe) {
   const configurations: Stripe.BillingPortal.Configuration[] = []
@@ -111,29 +39,29 @@ function normalizeCatalog(
     .sort((left, right) => left.product.localeCompare(right.product))
 }
 
-export async function buildPlanChangePortalCatalog(
-  stripe: Stripe,
-  tiers: PlanChangeTier[],
-  requiredPriceIds: string[]
-) {
+export async function buildPlanChangePortalCatalog(stripe: Stripe, tiers: PlanChangeTier[]) {
   const pricesByProduct = new Map<string, string[]>()
   const prices = await Promise.all(
     tiers.flatMap((tier) =>
-      getTierStripePriceIds(tier).map((priceId) =>
-        getValidatedStripeTierPrice(stripe, tier, priceId).catch((error: unknown) => {
-          if (error instanceof IneligibleStripePriceError && !requiredPriceIds.includes(priceId))
-            return null
-          throw error
-        })
-      )
+      [tier.stripeMonthlyPriceId, tier.stripeYearlyPriceId]
+        .filter((priceId): priceId is string => Boolean(priceId))
+        .map(async (priceId) => ({
+          tier,
+          price: await stripe.prices.retrieve(priceId),
+        }))
     )
   )
 
-  for (const price of prices) {
-    if (!price) continue
-    const { id, productId } = price
+  for (const { tier, price } of prices) {
+    if (!price.active || !price.recurring) {
+      throw new Error(`Stripe price ${price.id} must be an active recurring price`)
+    }
+    const productId = typeof price.product === 'string' ? price.product : price.product.id
+    if (tier.stripeProductId && productId !== tier.stripeProductId) {
+      throw new Error(`Stripe price ${price.id} does not belong to ${tier.stripeProductId}`)
+    }
     const productPrices = pricesByProduct.get(productId) ?? []
-    productPrices.push(id)
+    productPrices.push(price.id)
     pricesByProduct.set(productId, productPrices)
   }
 
@@ -151,24 +79,18 @@ export async function buildPlanChangePortalCatalog(
   return normalizeCatalog(products)
 }
 
-export async function ensurePlanChangePortalConfiguration(stripe: Stripe, priceId: string | null) {
-  if (!priceId) throw new IneligibleStripePriceError('Stripe price is required')
+export async function ensurePlanChangePortalConfiguration(stripe: Stripe) {
   const tiers = await getActiveStripeBillingTiers()
   const [{ defaultConfiguration }, products] = await Promise.all([
     listPortalConfigurations(stripe),
-    buildPlanChangePortalCatalog(stripe, tiers, [priceId]),
+    buildPlanChangePortalCatalog(stripe, tiers),
   ])
-  if (!products.some((product) => product.prices.includes(priceId))) {
-    throw new IneligibleStripePriceError('Selected Stripe price is unavailable')
-  }
   const subscriptionUpdate = defaultConfiguration.features.subscription_update
   const currentProducts = normalizeCatalog(subscriptionUpdate.products)
   const catalogChanged = JSON.stringify(currentProducts) !== JSON.stringify(products)
   const allowedUpdatesChanged =
-    subscriptionUpdate.default_allowed_updates.length !== PLAN_CHANGE_ALLOWED_UPDATES.length ||
-    PLAN_CHANGE_ALLOWED_UPDATES.some(
-      (update) => !subscriptionUpdate.default_allowed_updates.includes(update)
-    )
+    subscriptionUpdate.default_allowed_updates.length !== 1 ||
+    subscriptionUpdate.default_allowed_updates[0] !== 'price'
 
   if (
     defaultConfiguration.login_page.enabled ||
@@ -182,7 +104,7 @@ export async function ensurePlanChangePortalConfiguration(stripe: Stripe, priceI
       features: {
         subscription_update: {
           enabled: true,
-          default_allowed_updates: [...PLAN_CHANGE_ALLOWED_UPDATES],
+          default_allowed_updates: ['price'],
           proration_behavior: 'create_prorations',
           products,
         },

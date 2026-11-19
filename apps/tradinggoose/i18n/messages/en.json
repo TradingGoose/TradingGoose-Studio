@@ -76,22 +76,11 @@
       "auth": null
     }
   },
-  "username": {
-    "checking": "Checking username…",
-    "available": "Username is available.",
-    "error": "Unable to check username availability.",
-    "required": "Username is required.",
-    "invalid": "Use only letters, numbers, underscores, and dots.",
-    "length": "Username must be 3–30 characters long.",
-    "taken": "This username is already taken. Choose another."
-  },
   "auth": {
     "common": {
       "email": "Email",
       "password": "Password",
       "fullName": "Full name",
-      "username": "Username",
-      "enterYourUsername": "Enter your username",
       "workEmail": "Work email",
       "enterYourEmail": "Enter your email",
       "enterYourPassword": "Enter your password",
@@ -121,7 +110,9 @@
       "signInWithSso": "Sign in with SSO",
       "continueWithSso": "Continue with SSO",
       "requestAccess": "Request access",
-      "loading": "Loading..."
+      "loading": "Loading...",
+      "username": "Username",
+      "enterYourUsername": "Enter your username"
     },
     "error": {
       "eyebrow": "Authentication error",
@@ -200,11 +191,11 @@
       "waitlistApprovedEmail": "Use the same waitlist-approved email for any sign-in method."
     },
     "social": {
-      "divider": "Or continue with",
       "github": "GitHub",
       "google": "Google",
       "connecting": "Connecting...",
-      "cancelled": "{provider} sign in was cancelled. Please try again."
+      "cancelled": "{provider} sign in was cancelled. Please try again.",
+      "divider": "Or continue with"
     },
     "verify": {
       "eyebrow": "Verification",
@@ -214,6 +205,7 @@
       "verifiedDescription": "Your email has been verified. Redirecting to dashboard...",
       "disabledDescription": "Email verification is disabled. Redirecting to dashboard...",
       "codeSent": "A verification code has been sent to {email}",
+      "developmentDescription": "Development mode: Check your console logs for the verification code",
       "missingServiceDescription": "Error: Email verification is enabled but no email service is configured",
       "instructionsWithService": "Enter the 6-digit code from your password reset email and choose the password you’ll use to sign in.",
       "instructionsWithoutService": "Enter the 6-digit code and choose the password you’ll use to sign in.",
@@ -235,10 +227,9 @@
       "eyebrow": "Sign in",
       "title": "Welcome back",
       "description": "Enter your credentials",
-      "identifierLabel": "Email or username",
-      "identifierPlaceholder": "Enter your email or username",
       "submit": "Sign in",
       "submitting": "Signing in...",
+      "divider": "Or continue with",
       "resetDialog": {
         "title": "Reset Password",
         "description": "Enter your email address and we'll send you a link to reset your password if your account exists.",
@@ -252,21 +243,29 @@
         "submitting": "Sending..."
       },
       "validation": {
-        "identifierRequired": "Email or username is required.",
+        "emailRequired": "Email is required.",
         "emailInvalid": "Please enter a valid email address.",
         "passwordRequired": "Password is required.",
-        "passwordEmpty": "Password cannot be empty."
+        "passwordEmpty": "Password cannot be empty.",
+        "identifierRequired": "Email or username is required."
       },
       "errors": {
         "sessionExpired": "Your session expired. Please try signing in again.",
+        "emailSignInDisabled": "Email sign in is currently disabled.",
         "invalidCredentials": "Invalid login details. Please try again.",
+        "noAccount": "No account found with this email. Please sign up first.",
+        "missingCredentials": "Please enter both email and password.",
         "emailPasswordDisabled": "Email and password login is disabled.",
+        "tooManyAttempts": "Too many login attempts. Please try again later or reset your password.",
+        "accountLocked": "Your account has been locked for security. Please reset your password.",
         "network": "Network error. Please check your connection and try again.",
         "rateLimit": "Too many requests. Please wait a moment before trying again.",
         "unableToSignIn": "Unable to sign in.",
         "unableToSignInNow": "Unable to sign in right now. Please try again.",
         "verifyWithEmail": "Sign in with your email address to verify your account."
-      }
+      },
+      "identifierLabel": "Email or username",
+      "identifierPlaceholder": "Enter your email or username"
     },
     "resetPassword": {
       "eyebrow": "Password reset",
@@ -298,13 +297,13 @@
       "descriptionWaitlist": "Approved waitlist access required",
       "submit": "Create account",
       "submitting": "Creating account...",
+      "divider": "Or continue with",
       "nameTitle": "Name can only contain letters, spaces, hyphens, and apostrophes",
-      "usernameHint": "Use 3–30 letters, numbers, underscores, or dots.",
-      "resumeVerification": "Continue verifying {email}",
       "validation": {
         "emailRequired": "Email is required.",
         "emailInvalid": "Please enter a valid email address.",
         "nameRequired": "Name is required.",
+        "nameEmpty": "Name cannot be empty.",
         "nameCharacters": "Name can only contain letters, spaces, hyphens, and apostrophes.",
         "nameSpaces": "Name cannot contain consecutive spaces.",
         "nameTooLong": "Name will be truncated to 100 characters. Please shorten your name.",
@@ -325,7 +324,9 @@
         "passwordTooLong": "Password must be less than 128 characters long.",
         "network": "Network error. Please check your connection and try again.",
         "rateLimit": "Too many requests. Please wait a moment before trying again."
-      }
+      },
+      "usernameHint": "Use 3–30 letters, numbers, underscores, or dots.",
+      "resumeVerification": "Continue verifying {email}"
     },
     "waitlist": {
       "eyebrow": "Waitlist",
@@ -348,10 +349,11 @@
     "sso": {
       "eyebrow": "SSO",
       "title": "Sign in with SSO",
-      "providerId": "Provider ID (optional)",
       "description": "Enter your work email to continue",
+      "submit": "Continue with SSO",
       "submitting": "Redirecting to SSO provider...",
       "divider": "Or",
+      "emailButton": "Sign in with email",
       "validation": {
         "emailRequired": "Email is required.",
         "emailInvalid": "Please enter a valid email address."
@@ -360,14 +362,15 @@
         "accountNotFound": "No account found. Please contact your administrator to set up SSO access.",
         "ssoFailed": "SSO authentication failed. Please try again.",
         "providerNotConfigured": "SSO provider not configured correctly.",
-        "domainNotVerified": "This SSO connection is unverified. Ask your administrator to verify it or give you a verified provider ID to use on the SSO sign-in page.",
-        "providerIdRequired": "Multiple SSO providers serve this email domain. Enter your organization’s provider ID.",
         "invalidEmailDomain": "Email domain not configured for SSO. Please contact your administrator.",
         "network": "Network error. Please check your connection and try again.",
         "rateLimit": "Too many requests. Please wait a moment before trying again.",
         "ssoDisabled": "SSO authentication is disabled. Please use another sign-in method.",
-        "failed": "SSO sign-in failed. Please try again."
-      }
+        "failed": "SSO sign-in failed. Please try again.",
+        "domainNotVerified": "This SSO connection is unverified. Ask your administrator to verify it or give you a verified provider ID to use on the SSO sign-in page.",
+        "providerIdRequired": "Multiple SSO providers serve this email domain. Enter your organization’s provider ID."
+      },
+      "providerId": "Provider ID (optional)"
     },
     "mcp": {
       "eyebrow": "MCP authorization",
@@ -408,8 +411,16 @@
         "waitlist": "Honk! Introducing TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio is here!"
       },
-      "leadWords": ["Build", "Test", "Run"],
-      "highlightWords": ["Trading Analysis", "Signal Detection", "Risk Assessment"],
+      "leadWords": [
+        "Build",
+        "Test",
+        "Run"
+      ],
+      "highlightWords": [
+        "Trading Analysis",
+        "Signal Detection",
+        "Risk Assessment"
+      ],
       "titleConnector": "your",
       "suffix": "with TradingGoose",
       "description": "Connect your own data providers, write custom indicators to monitor market prices, and wire them into workflows that trigger trade, sell, buy, or any action you define.",
@@ -737,7 +748,13 @@
         "experience": {
           "label": "Years of Experience *",
           "placeholder": "Select experience level",
-          "options": ["0-1 years", "1-3 years", "3-5 years", "5-10 years", "10+ years"]
+          "options": [
+            "0-1 years",
+            "1-3 years",
+            "3-5 years",
+            "5-10 years",
+            "10+ years"
+          ]
         },
         "location": {
           "label": "Location *",
@@ -889,6 +906,17 @@
       "goBack": "Go Back",
       "immediateHelpPrefix": "Need immediate help? Email us at"
     },
+    "transactional": {
+      "title": "Important Account Emails",
+      "description": "This email contains important information about your account",
+      "important": "Transactional emails",
+      "body": "Transactional emails like password resets, account confirmations, and security alerts cannot be unsubscribed from as they contain essential information for your account security and functionality.",
+      "optionsPrefix": "If you no longer wish to receive these emails, you can:",
+      "closeAccount": "Close your account entirely",
+      "contactSupport": "Contact our support team for assistance",
+      "contactButton": "Contact Support",
+      "closeButton": "Close"
+    },
     "success": {
       "title": "Successfully Unsubscribed",
       "description": "You have been unsubscribed from our emails. You will stop receiving emails within 48 hours.",
@@ -913,6 +941,7 @@
       "missing-parameters": "Missing email or token parameter",
       "invalid-link": "Invalid or expired unsubscribe link",
       "invalid-request-data": "Invalid request data",
+      "transactional": "Transactional emails cannot be unsubscribed from as they contain important account information.",
       "failed-processing": "Failed to process unsubscribe request",
       "internal-error": "Internal server error",
       "unknown": "An unexpected error occurred."
@@ -1884,11 +1913,6 @@
         "profileDetails": "Profile Details",
         "profileDetailsDescription": "Update your name and manage access.",
         "fullName": "Full name",
-        "username": "Username",
-        "usernameHint": "Use 3–30 letters, numbers, underscores, or dots. You can sign in with your username or email.",
-        "editUsername": "Edit username",
-        "saveUsername": "Save username",
-        "cancelEditingUsername": "Cancel editing username",
         "emailAddress": "Email address",
         "emailHint": "Verify your current and new email addresses to change your account email.",
         "passwordReset": "Password reset",
@@ -1898,7 +1922,6 @@
         "saveName": "Save name",
         "cancelEditingName": "Cancel editing name",
         "editName": "Edit name",
-        "editEmail": "Edit email",
         "privacy": "Privacy",
         "privacyDescription": "Manage how your data is collected.",
         "telemetry": {
@@ -1915,13 +1938,21 @@
           "profilePictureFileTooLarge": "File {name} is too large. Maximum size is 5MB.",
           "profilePictureUnsupportedFormat": "File {name} is not a supported image format. Please use PNG or JPEG.",
           "profilePictureUpdateError": "Failed to update profile picture",
+          "profilePictureRemoveError": "Failed to remove profile picture",
           "unableToUpdateProfilePicture": "Unable to update profile picture.",
+          "failedUpdateName": "Failed to update name",
           "unableToUpdateName": "Unable to update name. Please try again.",
           "noEmail": "No email address found for this account.",
           "passwordResetSent": "Password reset link sent to your inbox.",
           "passwordResetFailed": "Unable to send password reset email.",
           "usernameUpdateError": "Unable to update username. Please try again."
         },
+        "username": "Username",
+        "usernameHint": "Use 3–30 letters, numbers, underscores, or dots. You can sign in with your username or email.",
+        "editUsername": "Edit username",
+        "saveUsername": "Save username",
+        "cancelEditingUsername": "Cancel editing username",
+        "editEmail": "Edit email",
         "emailChange": {
           "title": "Change account email",
           "newEmail": "New email address",
@@ -2115,7 +2146,7 @@
       "team": {
         "error": "Error",
         "defaultTeamName": "{name}'s Team",
-        "billingHowWorksSeatCost": "Your team is billed a minimum of {amount}/{interval, select, year {year} other {month}} for {seats, plural, one {# licensed seat} other {# licensed seats}}.",
+        "billingHowWorksSeatCost": "Your team is billed a minimum of {amount}/month for {seats, plural, one {# licensed seat} other {# licensed seats}}.",
         "billingHowWorksUsageTracked": "Usage is tracked against the active included allowance for this tier.",
         "billingHowWorksIncreaseLimit": "The organization owner can increase the usage limit when needed.",
         "billingHowWorksOverage": "Any usage beyond the minimum seat cost is billed as overage at the end of the billing period.",
@@ -2134,37 +2165,41 @@
         "teamUrl": "Team URL",
         "teamSlugPlaceholder": "my-team",
         "createTeamWorkspace": "Create Team Workspace",
+        "noTeamSubscriptionFound": "No Team Subscription Found",
+        "subscriptionMayNeedTransfer": "Your subscription may need to be transferred to this organization.",
         "setUpTeamSubscription": "Set Up Team Subscription",
         "seats": "Seats",
-        "pricePerSeat": "({price}/{interval, select, year {year} other {month}} each)",
+        "pricePerSeat": "({price}/month each)",
         "used": "{count} used",
         "total": "{count} total",
         "removeSeat": "Remove Seat",
         "addSeat": "Add Seat",
         "seat": "seat",
         "numberOfSeats": "Number of seats",
-        "yourTeamWillHave": "Your team will have {count, plural, one {# seat} other {# seats}} for {cost} per {interval, select, year {year} other {month}}.",
-        "seatCapacityConflict": "This tier supports at most {maximum, number} seats, but {minimum, number} are required.",
+        "yourTeamWillHave": "Your team will have {count, plural, one {# seat} other {# seats}} with a total of {cost} inference credits per month.",
         "minimumSeatsNoMax": "Minimum {minimum} seats. No maximum seat cap applies to this tier.",
         "chooseBetweenSeats": "Choose between {minimum} and {maximum} seats for this tier.",
         "currentSeats": "Current seats:",
         "newSeats": "New seats:",
-        "costChange": "{interval, select, year {Annual} other {Monthly}} cost change:",
+        "monthlyCostChange": "Monthly cost change:",
         "loading": "Loading...",
+        "reactivateSubscription": "To update seats, go to Subscription > Manage > Keep Subscription to reactivate",
         "leaveOrganization": "Leave Organization",
         "removeTeamMember": "Remove Team Member",
         "leaveOrganizationDescription": "Are you sure you want to leave this organization? You will lose access to all team resources.",
         "removeMemberDescription": "Are you sure you want to remove {name} from the team?",
+        "alsoReduceSeatCount": "Also reduce seat count in my subscription",
+        "reduceSeatCountDescription": "If selected, your team seat count will be reduced by 1, lowering your monthly billing.",
         "thisActionCannotBeUndone": "This action cannot be undone.",
         "cancel": "Cancel",
         "remove": "Remove",
         "inviteUnavailableMessage": "An active organization subscription is required before you can invite team members.",
         "yourself": "yourself",
         "thisMember": "this member",
+        "noPublicAdjustableTier": "No public adjustable organization tier is configured",
         "addSeats": {
           "title": "Add Team Seats",
-          "description": "Estimated at {price} per seat per {interval, select, year {year} other {month}}. Changes use the subscription price in effect when you confirm.",
-          "quoteUnavailable": "A seat price estimate is unavailable. Retry to change seats.",
+          "description": "Each seat costs {price}/month and provides {price} in monthly inference credits. Adjust the number of licensed seats for your team.",
           "confirm": "Update Seats"
         },
         "billing": {
@@ -2286,6 +2321,9 @@
         "audience": "Audience (Entity ID)",
         "audiencePlaceholder": "Enter Audience",
         "audienceDescription": "The SAML audience restriction, optional and defaults to the app URL.",
+        "callbackUrlOverride": "Callback URL Override",
+        "callbackUrlPlaceholder": "Enter Callback URL",
+        "callbackUrlDescription": "Custom SAML callback URL, optional and auto-generated if empty.",
         "requireSignedAssertions": "Require signed SAML assertions",
         "metadataXml": "Identity Provider Metadata XML",
         "metadataPlaceholder": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<md:EntityDescriptor xmlns:md=\"urn:oasis:names:tc:SAML:2.0:metadata\">\n  ...\n</md:EntityDescriptor>",
@@ -3881,7 +3919,10 @@
             },
             "headers": {
               "title": "Response Headers",
-              "columns": ["Key", "Value"],
+              "columns": [
+                "Key",
+                "Value"
+              ],
               "description": "Additional HTTP headers to include in the response"
             }
           },
@@ -19045,7 +19086,10 @@
             },
             "variables": {
               "title": "Variables",
-              "columns": ["Key", "Value"]
+              "columns": [
+                "Key",
+                "Value"
+              ]
             },
             "apiKey": {
               "title": "Anthropic API Key",
@@ -20209,7 +20253,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20236,7 +20280,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20258,7 +20302,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20280,7 +20324,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20329,7 +20373,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20378,7 +20422,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20400,7 +20444,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20427,7 +20471,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -23420,11 +23464,11 @@
       "emailPartFrom": " from {email}"
     },
     "footer": {
-      "unsubscribe": "Unsubscribe",
       "copyright": "(c) {year} {brandName}, All Rights Reserved",
       "questions": "Questions? Email",
       "privacy": "Privacy Policy",
-      "terms": "Terms of Service"
+      "terms": "Terms of Service",
+      "unsubscribe": "Unsubscribe"
     },
     "subjects": {
       "sign-in": "Sign in to {brandName}",
@@ -23603,5 +23647,14 @@
       "explore": "In the meantime, explore our documentation at {docsUrl} or read the latest on our blog at {blogUrl}.",
       "sentLine": "This confirmation was sent on {dateTime}."
     }
+  },
+  "username": {
+    "checking": "Checking username…",
+    "available": "Username is available.",
+    "error": "Unable to check username availability.",
+    "required": "Username is required.",
+    "invalid": "Use only letters, numbers, underscores, and dots.",
+    "length": "Username must be 3–30 characters long.",
+    "taken": "This username is already taken. Choose another."
   }
 }

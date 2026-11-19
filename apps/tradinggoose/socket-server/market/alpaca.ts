@@ -122,6 +122,14 @@ export class AlpacaMarketStream {
     this.socket = null
   }
 
+  getDesiredSymbols(): string[] {
+    const symbols = new Set<string>()
+    for (const set of this.desiredSymbols.values()) {
+      set.forEach((symbol) => symbols.add(symbol))
+    }
+    return Array.from(symbols)
+  }
+
   private ensureConnection() {
     if (
       this.socket &&

@@ -4,7 +4,6 @@ import type { YjsTransportEnvelope } from '@/lib/copilot/review-sessions/types'
 
 export interface YjsAuthResult {
   userId: string
-  sessionToken: string
   envelope: YjsTransportEnvelope
 }
 
@@ -42,13 +41,12 @@ export async function authenticateYjsConnection(url: URL): Promise<YjsAuthResult
     throw error
   }
 
-  if (!session?.user?.id || !session.session.token) {
+  if (!session?.user?.id) {
     throw new YjsAuthError(401, 'Invalid or expired token')
   }
 
   return {
     userId: session.user.id,
-    sessionToken: session.session.token,
     envelope,
   }
 }

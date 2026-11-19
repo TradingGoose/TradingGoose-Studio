@@ -1,14 +1,20 @@
 import { Img, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
-import { getEmailCopy } from '@/components/emails/email-copy'
+import { type EmailLocale, getEmailCopy } from '@/components/emails/email-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
-import type { LocaleInput } from '@/i18n/utils'
 
-export default function EmailHeader({ locale }: { locale?: LocaleInput }) {
+interface EmailHeaderProps {
+  baseUrl?: string
+  tagline?: string
+  locale?: EmailLocale
+}
+
+export const EmailHeader = ({ baseUrl = getBaseUrl(), tagline, locale }: EmailHeaderProps) => {
   const brand = getBrandConfig()
-  const logoSrc = `${getBaseUrl()}/favicon/goose.png`
-  const { tagline } = getEmailCopy(locale).shared
+  const logoSrc = `${baseUrl}/favicon/goose.png`
+  const copy = getEmailCopy(locale)
+  const resolvedTagline = tagline ?? copy.shared.tagline
 
   return (
     <Section style={baseStyles.header}>
@@ -28,7 +34,7 @@ export default function EmailHeader({ locale }: { locale?: LocaleInput }) {
               <span style={{ ...baseStyles.brandName, display: 'inline-block', margin: 0 }}>
                 {brand.name}
               </span>
-              <Text style={baseStyles.tagline}>{tagline}</Text>
+              {resolvedTagline ? <Text style={baseStyles.tagline}>{resolvedTagline}</Text> : null}
             </td>
           </tr>
         </tbody>
@@ -36,3 +42,5 @@ export default function EmailHeader({ locale }: { locale?: LocaleInput }) {
     </Section>
   )
 }
+
+export default EmailHeader

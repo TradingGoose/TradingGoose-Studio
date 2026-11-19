@@ -28,6 +28,13 @@ export const baseStyles = {
     textAlign: 'left' as const,
     paddingBottom: '8px',
   },
+  brandStack: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px',
+    marginBottom: '6px',
+  },
   logo: {
     width: '40px',
     height: '40px',
@@ -108,6 +115,19 @@ export const baseStyles = {
     fontWeight: 800,
     letterSpacing: '4px',
     color: primaryColor,
+  },
+  sectionsBorders: {
+    width: '100%',
+    display: 'flex',
+    padding: '8px 0 4px',
+  },
+  sectionBorder: {
+    borderBottom: '1px solid #1f202a',
+    width: '100%',
+  },
+  sectionCenter: {
+    borderBottom: `1px solid ${primaryColor}`,
+    width: '88px',
   },
   divider: {
     borderTop: '1px solid #1f202a',

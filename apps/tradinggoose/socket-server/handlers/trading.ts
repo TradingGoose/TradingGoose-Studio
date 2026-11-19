@@ -36,7 +36,8 @@ export function setupTradingPortfolioHandlers(socket: AuthenticatedSocket) {
 
   socket.on('trading-portfolio-unsubscribe', (payload: TradingPortfolioUnsubscribePayload) => {
     try {
-      tradingPortfolioStreamManager.unsubscribe(socket, payload)
+      const removed = tradingPortfolioStreamManager.unsubscribe(socket, payload)
+      socket.emit('trading-portfolio-unsubscribed', { subscriptions: removed })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       logger.warn('Trading portfolio unsubscribe failed', {
@@ -44,12 +45,22 @@ export function setupTradingPortfolioHandlers(socket: AuthenticatedSocket) {
         userId: socket.userId,
         error: message,
       })
+      socket.emit('trading-portfolio-unsubscribe-error', {
+        error: message,
+        workspaceId: payload?.workspaceId,
+        provider: payload?.provider,
+        serviceId: payload?.serviceId,
+        channel: payload?.channel,
+        portfolioIdentity: payload?.portfolioIdentity,
+        clientSubscriptionId: payload?.clientSubscriptionId,
+      })
     }
   })
 
   socket.on('trading-portfolio-refresh', (payload: TradingPortfolioRefreshPayload) => {
     try {
-      tradingPortfolioStreamManager.refresh(socket, payload)
+      const refreshed = tradingPortfolioStreamManager.refresh(socket, payload)
+      socket.emit('trading-portfolio-refreshing', { subscriptions: refreshed })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       logger.warn('Trading portfolio refresh failed', {

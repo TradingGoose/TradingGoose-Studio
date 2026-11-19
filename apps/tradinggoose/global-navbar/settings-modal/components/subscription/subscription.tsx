@@ -9,10 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useSession } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
-import {
-  getCatalogPriceForInterval,
-  type PublicBillingTierDisplay,
-} from '@/lib/billing/public-catalog'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
@@ -32,13 +28,12 @@ import { formatUsd } from '@/i18n/formatters'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { UsageHeader } from '../shared/usage-header'
 import { PlanCard, UsageLimit, type UsageLimitRef, WorkspaceBillingOwnerEditor } from './components'
-import { getCheckoutSeatBounds } from './components/plan-card/plan-card'
 import {
   getPersonalPaygUiState,
   type PaygActivationErrorPayload,
   shouldOpenBillingPortalForPaygActivationError,
 } from './payg-ui'
-import { toPlanFeatures } from './plan-configs'
+import { toPlanFeatures, toUpgradeTarget } from './plan-configs'
 import {
   getSubscriptionSurfaceState,
   mergeAccessibleBillingTiers,
@@ -166,29 +161,43 @@ function SubscriptionSkeleton() {
 
         <div className='flex flex-col gap-2'>
           <div className='grid grid-cols-2 gap-2'>
-            {[
-              { title: 'w-8', feature: 'w-20' },
-              { title: 'w-10', feature: 'w-24' },
-            ].map(({ title, feature }) => (
-              <div key={title} className='flex flex-col rounded-sm border p-4'>
-                <div className='mb-4'>
-                  <Skeleton className={cn('mb-2 h-5', title)} />
-                  <div className='flex items-baseline'>
-                    <Skeleton className='h-6 w-10' />
-                    <Skeleton className='ml-1 h-3 w-12' />
-                  </div>
+            <div className='flex flex-col rounded-sm border p-4'>
+              <div className='mb-4'>
+                <Skeleton className='mb-2 h-5 w-8' />
+                <div className='flex items-baseline'>
+                  <Skeleton className='h-6 w-10' />
+                  <Skeleton className='ml-1 h-3 w-12' />
                 </div>
-                <div className='mb-4 flex-1 space-y-2'>
-                  {[0, 1, 2, 3].map((row) => (
-                    <div key={row} className='flex items-start gap-2'>
-                      <Skeleton className='mt-0.5 h-3 w-3 rounded' />
-                      <Skeleton className={cn('h-3', feature)} />
-                    </div>
-                  ))}
-                </div>
-                <Skeleton className='h-9 w-full rounded-sm' />
               </div>
-            ))}
+              <div className='mb-4 flex-1 space-y-2'>
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className='flex items-start gap-2'>
+                    <Skeleton className='mt-0.5 h-3 w-3 rounded' />
+                    <Skeleton className='h-3 w-20' />
+                  </div>
+                ))}
+              </div>
+              <Skeleton className='h-9 w-full rounded-sm' />
+            </div>
+
+            <div className='flex flex-col rounded-sm border p-4'>
+              <div className='mb-4'>
+                <Skeleton className='mb-2 h-5 w-10' />
+                <div className='flex items-baseline'>
+                  <Skeleton className='h-6 w-10' />
+                  <Skeleton className='ml-1 h-3 w-12' />
+                </div>
+              </div>
+              <div className='mb-4 flex-1 space-y-2'>
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className='flex items-start gap-2'>
+                    <Skeleton className='mt-0.5 h-3 w-3 rounded' />
+                    <Skeleton className='h-3 w-24' />
+                  </div>
+                ))}
+              </div>
+              <Skeleton className='h-9 w-full rounded-sm' />
+            </div>
           </div>
 
           <div className='flex items-center justify-between rounded-sm border p-4'>
@@ -277,12 +286,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   } = useOrganizationBilling(organizationBillingId)
   const isOrgBillingPending =
     isOrgBillingLoading || Boolean(organizationBillingId && isOrgBillingPlaceholder)
-  const organizationBillingPayload =
-    organizationBillingData?.organizationId === organizationBillingId
-      ? organizationBillingData
-      : null
+
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
-  const [isUpgradePending, setIsUpgradePending] = useState(false)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
 
@@ -291,6 +296,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     privateTierAccess.data?.privateTiers
   )
   const billingPayload = subscriptionData?.data
+  const organizationBillingPayload =
+    organizationBillingData?.organizationId === organizationBillingId
+      ? organizationBillingData
+      : null
   const personalSubscription = getSubscriptionStatus(billingPayload)
   const organizationTier = organizationBillingPayload?.subscriptionTier ?? null
   const subscription = isOrganizationBillingSubject
@@ -299,6 +308,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         isPaid: Boolean(organizationTier),
         status: organizationBillingPayload?.subscriptionStatus ?? null,
         seats: organizationBillingPayload?.totalSeats ?? null,
+        metadata: null,
         tier: organizationTier ?? EMPTY_ORGANIZATION_BILLING_TIER,
       }
     : personalSubscription
@@ -427,32 +437,23 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     surfaceState.enterprisePlaceholder?.contactUrl ??
     publicBillingCatalog?.enterpriseContactUrl ??
     null
-  const selectedBilling = isOrganizationPlan ? organizationBillingPayload : billingPayload
-  const cancellationScheduled = Boolean(
-    selectedBilling?.cancelAtPeriodEnd || selectedBilling?.cancelAt
-  )
-  const nextBillingDate =
-    selectedBilling?.cancelAt ??
-    (isOrganizationPlan ? organizationBillingPayload?.billingPeriodEnd : billingPayload?.periodEnd)
+  const nextBillingDate = isOrganizationPlan
+    ? organizationBillingPayload?.billingPeriodEnd
+    : (billingPayload?.cancelAt ?? billingPayload?.periodEnd)
+  const cancellationScheduled =
+    !isOrganizationPlan && Boolean(billingPayload?.cancelAtPeriodEnd || billingPayload?.cancelAt)
 
   const handleUpgradeWithErrorHandling = useCallback(
-    async (targetTier: PublicBillingTierDisplay, seats?: number) => {
-      if (!targetTier.hasStripeMonthlyPriceId) {
-        setUpgradeError(targetTier.id)
-        return
-      }
-      setIsUpgradePending(true)
+    async (targetTier: ReturnType<typeof toUpgradeTarget>) => {
       try {
         await handleUpgrade(targetTier, {
           ...(targetTier.ownerType === 'organization' && organizationBillingId
-            ? { organizationId: organizationBillingId, seats }
+            ? { organizationId: organizationBillingId }
             : {}),
         })
       } catch {
-        setUpgradeError(targetTier.id)
+        setUpgradeError(targetTier.billingTierId)
         alert(copy('errors.unknown'))
-      } finally {
-        setIsUpgradePending(false)
       }
     },
     [copy, handleUpgrade, organizationBillingId]
@@ -517,7 +518,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         (tier) => tier.id !== surfaceState.currentTier?.id
       )
       if (defaultUpgradeTier) {
-        void handleUpgradeWithErrorHandling(defaultUpgradeTier)
+        void handleUpgradeWithErrorHandling(toUpgradeTarget(defaultUpgradeTier))
       }
       return
     }
@@ -566,7 +567,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     )
   }
 
-  if (isOrganizationBillingSubject && (isOrgBillingError || !organizationBillingPayload)) {
+  if (isOrganizationBillingSubject && isOrgBillingError) {
     return (
       <div className='px-6 pt-4 pb-4'>
         <div className='flex flex-col gap-4'>
@@ -696,29 +697,29 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               >
                 {surfaceState.visiblePlanTiers.map((tier) => {
                   const isCurrentTier = tier.id === surfaceState.currentTier?.id
-                  const isCurrentSubscription =
-                    isCurrentTier && (subscription.isPaid || showPersonalSubscriptionManagement)
-                  const interval = isCurrentSubscription
-                    ? selectedBilling?.billingInterval
-                    : tier.hasStripeMonthlyPriceId ||
-                        (isCurrentTier && tier.monthlyPriceUsd !== null)
+                  const isCurrentPersonalPlan =
+                    isCurrentTier &&
+                    !isOrganizationPlan &&
+                    (subscription.isPaid || showPersonalSubscriptionManagement)
+                  const interval = isCurrentPersonalPlan
+                    ? billingPayload?.billingInterval
+                    : tier.monthlyPriceUsd !== null
                       ? 'month'
-                      : null
-                  const price = getCatalogPriceForInterval(tier, interval)
+                      : 'year'
+                  const price =
+                    interval === 'month'
+                      ? tier.monthlyPriceUsd
+                      : interval === 'year'
+                        ? tier.yearlyPriceUsd
+                        : null
 
                   return (
                     <PlanCard
                       key={tier.id}
                       name={tier.displayName}
-                      price={
-                        price !== null
-                          ? formatUsd(locale, price)
-                          : isCurrentSubscription
-                            ? undefined
-                            : copy('titles.custom')
-                      }
+                      price={price == null ? undefined : formatUsd(locale, price)}
                       priceSubtext={
-                        price === null
+                        price == null
                           ? undefined
                           : interval === 'month'
                             ? copy('periods.monthly')
@@ -732,17 +733,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                             ? copy('titles.upgrade')
                             : copy('actions.changeTo', { name: tier.displayName })
                       }
-                      seatBounds={getCheckoutSeatBounds(
-                        tier,
-                        organizationBillingId,
-                        Boolean(organizationTier)
-                      )}
-                      onButtonClick={(seats) => handleUpgradeWithErrorHandling(tier, seats)}
-                      buttonDisabled={
-                        !canManageSelectedPlan ||
-                        (!isCurrentTier && !tier.hasStripeMonthlyPriceId) ||
-                        isUpgradePending
-                      }
+                      onButtonClick={() => handleUpgradeWithErrorHandling(toUpgradeTarget(tier))}
+                      buttonDisabled={!canManageSelectedPlan}
                       isCurrent={isCurrentTier}
                       isError={!isCurrentTier && upgradeError === tier.id}
                       layout='vertical'

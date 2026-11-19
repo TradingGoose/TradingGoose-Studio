@@ -25,10 +25,14 @@ import {
 } from '@/lib/yjs/server/apply-entity-state'
 import { initializeSavedReviewTargetDocument } from '@/lib/yjs/server/bootstrap-review-target'
 import { YjsSessionAdmissionError } from '@/lib/yjs/server/revocation-fence'
-import { isSocketSessionActive } from '../middleware/auth'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
 import { bindEntityListSession, refreshActiveEntityListSession } from './entity-list-session'
-import { acquireDocument, persistStagedDocuments, setupWSConnection } from './upstream-utils'
+import {
+  acquireDocument,
+  type DocumentAdmission,
+  persistStagedDocuments,
+  setupWSConnection,
+} from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 const SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS = 1500
@@ -123,7 +127,7 @@ export function handleYjsUpgrade(
   request: IncomingMessage,
   socket: Duplex,
   head: Buffer,
-  canAcceptConnection: () => boolean
+  canAcceptConnection: () => boolean = () => true
 ): void {
   const url = new URL(request.url || '', `http://${request.headers.host}`)
   const match = url.pathname.match(/^\/yjs\/([^/]+)$/)
@@ -178,7 +182,7 @@ export function handleYjsUpgrade(
 
     void (async () => {
       if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
-      const { sessionToken, ...authenticated } = await authenticateYjsUpgrade(yjsSessionId, url)
+      const authenticated = await authenticateYjsUpgrade(yjsSessionId, url)
 
       await acquireDocument(
         yjsSessionId,
@@ -199,11 +203,8 @@ export function handleYjsUpgrade(
             return initializeSavedReviewTargetDocument(admission.descriptor, readStore)
           },
         },
-        async (doc, admission) => {
+        (doc, admission) => {
           if (!admission) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
-          if (!(await isSocketSessionActive(admission.userId, sessionToken))) {
-            throw new YjsAuthError(401, 'Session expired')
-          }
           if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
           if (!awaitingAdmission) return
           const { accessMode, userId, descriptor } = admission
@@ -211,10 +212,11 @@ export function handleYjsUpgrade(
           awaitingAdmission = false
           detachPendingListeners()
           try {
-            setupWSConnection(ws, {
+            setupWSConnection(ws, request, {
               doc,
-              ...admission,
-              sessionToken,
+              userId,
+              accessMode,
+              descriptor,
               initialMessages,
               persist: manualPersistenceHandler(accessMode, descriptor),
               onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
@@ -256,9 +258,9 @@ function yjsConnectionRejectionCode(error: unknown): number {
   return YJS_CLOSE_CODE_DOCUMENT_REJECTED
 }
 
-async function authenticateYjsUpgrade(pathSessionId: string, url: URL) {
+async function authenticateYjsUpgrade(pathSessionId: string, url: URL): Promise<DocumentAdmission> {
   const accessMode = parseAccessMode(url)
-  const { envelope, ...session } = await authenticateYjsConnection(url)
+  const { userId, envelope } = await authenticateYjsConnection(url)
 
   if (envelope.sessionId !== pathSessionId) {
     throw new YjsAuthError(409, 'Session ID mismatch')
@@ -267,7 +269,7 @@ async function authenticateYjsUpgrade(pathSessionId: string, url: URL) {
   const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
   assertAccessModeAllowed(accessMode, descriptor)
 
-  return { ...session, accessMode, descriptor }
+  return { userId, accessMode, descriptor }
 }
 
 function parseAccessMode(url: URL): ReviewAccessMode {

@@ -52,10 +52,7 @@ describe('localized email rendering', () => {
   })
 
   it('localizes generated email app links by locale', async () => {
-    const unsubscribeUrl = 'https://test.tradinggoose.ai/es/unsubscribe?token=test'
-    const html = await renderPlanWelcomeEmail({ planName: 'Pro', locale: 'es', unsubscribeUrl })
-    expect(html).toContain(unsubscribeUrl)
-    expect(html).toContain('Cancelar suscripción')
+    const html = await renderPlanWelcomeEmail({ planName: 'Pro', locale: 'es' })
 
     expect(html).toContain('https://test.tradinggoose.ai/es/login')
     expect(html).toContain('https://test.tradinggoose.ai/es/privacy')

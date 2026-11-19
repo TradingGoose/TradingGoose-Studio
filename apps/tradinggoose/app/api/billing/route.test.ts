@@ -255,7 +255,13 @@ describe('/api/billing route', () => {
       organizationName: 'Acme',
       subscriptionTier: null,
       subscriptionStatus: null,
+      seatPriceUsd: 0,
+      seatCount: null,
+      seatMaximum: null,
+      seatMode: null,
       totalSeats: 1,
+      usedSeats: 1,
+      seatsCount: 1,
       totalCurrentUsage: 0,
       totalUsageLimit: 0,
       warningThresholdPercent: 0,
@@ -307,10 +313,13 @@ describe('/api/billing route', () => {
         hasStripeMonthlyPriceId: true,
       },
       subscriptionStatus: 'active',
-      cancelAt: new Date('2026-04-21T00:00:00Z'),
-      cancelAtPeriodEnd: false,
-      billingInterval: 'year',
+      seatPriceUsd: 20,
+      seatCount: 3,
+      seatMaximum: 10,
+      seatMode: 'adjustable',
       totalSeats: 3,
+      usedSeats: 2,
+      seatsCount: 3,
       totalCurrentUsage: 12,
       totalUsageLimit: 90,
       warningThresholdPercent: 80,
@@ -347,11 +356,6 @@ describe('/api/billing route', () => {
     expect(payload.data.organizationId).toBe('org-1')
     expect(payload.data.subscriptionTier.ownerType).toBe('organization')
     expect(payload.data.subscriptionTier.status).toBe('archived')
-    expect(payload.data).toMatchObject({
-      cancelAt: '2026-04-21T00:00:00.000Z',
-      cancelAtPeriodEnd: false,
-      billingInterval: 'year',
-    })
     expect(payload.data.subscriptionTier.hasStripeMonthlyPriceId).toBe(true)
     expect(payload.data.minimumUsageLimit).toBe(90)
     expect(payload.data.members[0].joinedAt).toBe('2026-04-01T00:00:00.000Z')
@@ -372,7 +376,13 @@ describe('/api/billing route', () => {
       organizationName: 'Acme',
       subscriptionTier: null,
       subscriptionStatus: null,
+      seatPriceUsd: null,
+      seatCount: 0,
+      seatMaximum: null,
+      seatMode: 'fixed',
       totalSeats: 0,
+      usedSeats: 0,
+      seatsCount: 0,
       totalCurrentUsage: 0,
       totalUsageLimit: Number.MAX_SAFE_INTEGER,
       warningThresholdPercent: 80,

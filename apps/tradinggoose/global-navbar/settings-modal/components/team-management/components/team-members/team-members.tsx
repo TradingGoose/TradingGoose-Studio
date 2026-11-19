@@ -1,13 +1,15 @@
+import { useEffect, useState } from 'react'
 import { LogOut, UserX, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { Invitation, Member, Organization } from '@/lib/organization/types'
-import { useOrganizationMembers } from '@/hooks/queries/organization'
 import { formatUsd } from '@/i18n/formatters'
 
+const logger = createLogger('TeamMembers')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
 interface TeamMembersProps {
@@ -42,6 +44,7 @@ interface InvitationItem extends BaseItem {
 }
 
 type TeamMemberItem = MemberItem | InvitationItem
+type MemberUsageMode = 'individual' | 'pooled'
 
 export function TeamMembers({
   organization,
@@ -56,18 +59,60 @@ export function TeamMembers({
   const copy = useTranslations('workspace.settingsModal.team.members')
   const roles = useTranslations('workspace.switcher.roles')
   const locale = useLocale()
-  const { data: memberUsage, isLoading: isLoadingUsage } = useOrganizationMembers(
-    organization.id,
-    isAdminOrOwner
-  )
-  const usageByUserId = new Map(
-    memberUsage?.data.map(({ userId, currentPeriodCost }) => [
-      userId,
-      Number(currentPeriodCost ?? 0),
-    ])
-  )
-  const isPooledUsage = memberUsage?.usageScope === 'pooled'
-  const sharedUsageTotal = memberUsage?.sharedCurrentPeriodCost
+  const [memberUsageData, setMemberUsageData] = useState<Record<string, number>>({})
+  const [memberUsageMode, setMemberUsageMode] = useState<MemberUsageMode>('individual')
+  const [sharedUsageTotal, setSharedUsageTotal] = useState<number | null>(null)
+  const [isLoadingUsage, setIsLoadingUsage] = useState(false)
+
+  // Fetch member usage data when organization changes and user is admin
+  useEffect(() => {
+    const fetchMemberUsage = async () => {
+      if (!organization?.id || !isAdminOrOwner) {
+        setMemberUsageData({})
+        setMemberUsageMode('individual')
+        setSharedUsageTotal(null)
+        return
+      }
+
+      setIsLoadingUsage(true)
+      try {
+        const response = await fetch(`/api/organizations/${organization.id}/members?include=usage`)
+        if (response.ok) {
+          const result = await response.json()
+          const usageMap: Record<string, number> = {}
+          const usageMode =
+            result.usageScope === 'pooled' || result.usageScope === 'individual'
+              ? result.usageScope
+              : 'individual'
+          const pooledUsageTotal =
+            typeof result.sharedCurrentPeriodCost === 'number'
+              ? result.sharedCurrentPeriodCost
+              : null
+
+          if (result.data) {
+            result.data.forEach((member: any) => {
+              if (member.currentPeriodCost !== null && member.currentPeriodCost !== undefined) {
+                usageMap[member.userId] = Number.parseFloat(member.currentPeriodCost.toString())
+              }
+            })
+          }
+
+          setMemberUsageData(usageMap)
+          setMemberUsageMode(usageMode)
+          setSharedUsageTotal(pooledUsageTotal)
+        }
+      } catch (error) {
+        logger.error('Failed to fetch member usage data', { error })
+        setMemberUsageData({})
+        setMemberUsageMode('individual')
+        setSharedUsageTotal(null)
+      } finally {
+        setIsLoadingUsage(false)
+      }
+    }
+
+    fetchMemberUsage()
+  }, [organization?.id, isAdminOrOwner])
 
   // Combine members and pending invitations into a single list
   const teamItems: TeamMemberItem[] = []
@@ -76,9 +121,10 @@ export function TeamMembers({
   if (organization.members) {
     organization.members.forEach((member: Member) => {
       const userId = member.user?.id
-      const usageAmount = userId ? (usageByUserId.get(userId) ?? 0) : 0
+      const usageAmount = userId ? (memberUsageData[userId] ?? 0) : 0
       const name = member.user?.name || copy('unknown')
-      const usage = isPooledUsage ? copy('sharedPool') : formatUsd(locale, usageAmount)
+      const usage =
+        memberUsageMode === 'pooled' ? copy('sharedPool') : formatUsd(locale, usageAmount)
 
       const memberItem: MemberItem = {
         type: 'member',
@@ -133,7 +179,7 @@ export function TeamMembers({
       {/* Header - simple like account page */}
       <div>
         <h4 className='font-medium text-sm'>{copy('title')}</h4>
-        {isAdminOrOwner && isPooledUsage && typeof sharedUsageTotal === 'number' && (
+        {isAdminOrOwner && memberUsageMode === 'pooled' && sharedUsageTotal !== null && (
           <p className='mt-1 text-muted-foreground text-xs'>
             {copy('sharedUsage', { amount: formatUsd(locale, sharedUsageTotal) })}
           </p>
@@ -201,7 +247,7 @@ export function TeamMembers({
                 <div className='hidden items-center text-xs tabular-nums sm:flex'>
                   <div className='text-center'>
                     <div className='text-muted-foreground'>
-                      {isPooledUsage ? copy('billing') : copy('usage')}
+                      {memberUsageMode === 'pooled' ? copy('billing') : copy('usage')}
                     </div>
                     <div className='font-medium'>
                       {isLoadingUsage && item.type === 'member' ? (
@@ -281,7 +327,13 @@ export function TeamMembers({
             variant='outline'
             size='default'
             disabled={actionsDisabled}
-            onClick={() => onRemoveMember(currentUserMember)}
+            onClick={() => {
+              if (!currentUserMember?.user?.id) {
+                logger.error('Cannot leave organization: missing user ID', { currentUserMember })
+                return
+              }
+              onRemoveMember(currentUserMember)
+            }}
             className='w-full hover:bg-card'
           >
             <LogOut className='mr-2 h-4 w-4' />

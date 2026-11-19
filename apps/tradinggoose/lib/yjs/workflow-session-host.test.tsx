@@ -2,9 +2,8 @@
  * @vitest-environment jsdom
  */
 
-import { act, StrictMode } from 'react'
-import { hydrateRoot, type Root } from 'react-dom/client'
-import { renderToString } from 'react-dom/server'
+import { act } from 'react'
+import { createRoot } from 'react-dom/client'
 import { describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import {
@@ -27,7 +26,6 @@ const mocks = vi.hoisted(() => {
   return {
     emptyState,
     states: new Map<string, SharedWorkflowSessionState>(),
-    subscriptions: new Map<string, () => void>(),
     observations: vi.fn(),
   }
 })
@@ -49,10 +47,8 @@ vi.mock('@/lib/yjs/workflow-shared-session', () => ({
   EMPTY_SHARED_WORKFLOW_SESSION_STATE: mocks.emptyState,
   getSharedWorkflowSessionState: (workflowId: string) =>
     mocks.states.get(workflowId) ?? mocks.emptyState,
-  acquireSharedWorkflowSession: ({ workflowId }: { workflowId: string }, notify: () => void) => {
-    mocks.subscriptions.set(workflowId, notify)
-    return () => mocks.subscriptions.delete(workflowId)
-  },
+  acquireSharedWorkflowSession: () => () => {},
+  subscribeToSharedWorkflowSession: () => () => {},
   setSharedWorkflowSessionUser: vi.fn(),
   undoSharedWorkflowSession: vi.fn(),
   redoSharedWorkflowSession: vi.fn(),
@@ -75,34 +71,30 @@ describe('WorkflowSessionProvider', () => {
   it('never exposes the departed workflow document under a new workflow identity', async () => {
     const reactActEnvironment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
     const container = document.createElement('div')
-    let root: Root | undefined
+    const root = createRoot(container)
     const workflowADoc = new Y.Doc()
     const workflowBDoc = new Y.Doc()
-    const session = (workflowId: string) => (
-      <StrictMode>
-        <WorkflowSessionProvider workspaceId='workspace-1' workflowId={workflowId}>
-          <SessionProbe />
-        </WorkflowSessionProvider>
-      </StrictMode>
-    )
+    const renderSession = (workflowId: string) =>
+      act(async () => {
+        root.render(
+          <WorkflowSessionProvider workspaceId='workspace-1' workflowId={workflowId}>
+            <SessionProbe />
+          </WorkflowSessionProvider>
+        )
+      })
 
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     mocks.states.set('workflow-a', stateWithDoc(workflowADoc))
     mocks.states.set('workflow-b', stateWithDoc(workflowBDoc))
 
     try {
-      container.innerHTML = renderToString(session('workflow-a'))
-      expect(mocks.observations).toHaveBeenLastCalledWith({ workflowId: 'workflow-a', doc: null })
-      await act(async () => {
-        root = hydrateRoot(container, session('workflow-a'))
-      })
+      await renderSession('workflow-a')
       expect(mocks.observations).toHaveBeenLastCalledWith({
         workflowId: 'workflow-a',
         doc: workflowADoc,
       })
 
-      await act(async () => root!.render(session('workflow-b')))
-      expect([...mocks.subscriptions.keys()]).toEqual(['workflow-b'])
+      await renderSession('workflow-b')
       expect(mocks.observations).not.toHaveBeenCalledWith({
         workflowId: 'workflow-b',
         doc: workflowADoc,
@@ -111,12 +103,8 @@ describe('WorkflowSessionProvider', () => {
         workflowId: 'workflow-b',
         doc: workflowBDoc,
       })
-      mocks.states.delete('workflow-b')
-      await act(async () => mocks.subscriptions.get('workflow-b')!())
-      expect(mocks.observations).toHaveBeenLastCalledWith({ workflowId: 'workflow-b', doc: null })
     } finally {
-      act(() => root?.unmount())
-      expect(mocks.subscriptions.size).toBe(0)
+      act(() => root.unmount())
       workflowADoc.destroy()
       workflowBDoc.destroy()
       mocks.states.clear()

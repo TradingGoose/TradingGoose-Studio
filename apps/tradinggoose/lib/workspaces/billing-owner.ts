@@ -1,8 +1,7 @@
 import { db, member, subscription, workspace } from '@tradinggoose/db'
-import { and, eq, inArray, isNotNull, notInArray, or } from 'drizzle-orm'
+import { and, eq, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
-import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { isOrganizationSubscription } from '@/lib/billing/tiers'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 
@@ -133,11 +132,10 @@ async function hasBlockingOrganizationSubscription(organizationId: string): Prom
       and(
         eq(subscription.referenceType, 'organization'),
         eq(subscription.referenceId, organizationId),
-        notInArray(subscription.status, ['canceled', 'incomplete_expired']),
         or(
-          inArray(subscription.status, [...BILLING_ACTIVE_SUBSCRIPTION_STATUSES]),
-          eq(subscription.cancelAtPeriodEnd, true),
-          isNotNull(subscription.cancelAt)
+          eq(subscription.status, 'active'),
+          eq(subscription.status, 'trialing'),
+          eq(subscription.cancelAtPeriodEnd, true)
         )
       )
     )

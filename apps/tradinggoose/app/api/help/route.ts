@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getEmailSubject, renderHelpConfirmationEmail } from '@/components/emails/render-email'
+import { getEmailSubject, renderHelpConfirmationEmail } from '@/components/emails'
 import { getSession } from '@/lib/auth'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
@@ -32,10 +32,21 @@ export async function POST(req: NextRequest) {
     // Handle multipart form data
     const formData = await req.formData()
 
+    // Extract form fields
+    const subject = formData.get('subject') as string
+    const message = formData.get('message') as string
+    const type = formData.get('type') as string
+
+    logger.info(`[${requestId}] Processing help request`, {
+      type,
+      email: `${email.substring(0, 3)}***`, // Log partial email for privacy
+    })
+
+    // Validate the form data
     const validationResult = helpFormSchema.safeParse({
-      subject: formData.get('subject'),
-      message: formData.get('message'),
-      type: formData.get('type'),
+      subject,
+      message,
+      type,
     })
 
     if (!validationResult.success) {
@@ -48,20 +59,22 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { subject, message, type } = validationResult.data
-    logger.info(`[${requestId}] Processing help request`, {
-      type,
-      email: `${email.substring(0, 3)}***`,
-    })
+    // Extract images
+    const images: { filename: string; content: Buffer; contentType: string }[] = []
 
-    const images = []
-    for (const [key, value] of formData) {
+    for (const [key, value] of formData.entries()) {
       if (key.startsWith('image_') && typeof value !== 'string') {
-        images.push({
-          filename: value.name,
-          content: Buffer.from(await value.arrayBuffer()).toString('base64'),
-          contentType: value.type,
-        })
+        if (value && 'arrayBuffer' in value) {
+          const blob = value as unknown as Blob
+          const buffer = Buffer.from(await blob.arrayBuffer())
+          const filename = 'name' in value ? (value as any).name : `image_${key.split('_')[1]}`
+
+          images.push({
+            filename,
+            content: buffer,
+            contentType: 'type' in value ? (value as any).type : 'application/octet-stream',
+          })
+        }
       }
     }
 
@@ -81,12 +94,17 @@ ${message}
     }
 
     const emailResult = await sendEmail({
-      to: helpEmailAddress,
+      to: [helpEmailAddress],
       subject: `[${type.toUpperCase()}] ${subject}`,
       text: emailText,
       replyTo: email,
       emailType: 'transactional',
-      attachments: images,
+      attachments: images.map((image) => ({
+        filename: image.filename,
+        content: image.content.toString('base64'),
+        contentType: image.contentType,
+        disposition: 'attachment',
+      })),
     })
 
     if (!emailResult.success) {
@@ -99,10 +117,15 @@ ${message}
     // Send confirmation email to the user
     try {
       const locale = await resolveEmailLocale({ userId: session.user.id, email })
-      const confirmationHtml = await renderHelpConfirmationEmail(email, type, images.length, locale)
+      const confirmationHtml = await renderHelpConfirmationEmail(
+        email,
+        type as 'bug' | 'feedback' | 'feature_request' | 'other',
+        images.length,
+        locale
+      )
 
       await sendEmail({
-        to: email,
+        to: [email],
         subject: getEmailSubject('help-confirmation', locale),
         html: confirmationHtml,
         replyTo: helpEmailAddress,

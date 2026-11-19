@@ -19,11 +19,9 @@ vi.mock('@tanstack/react-query', () => ({
 
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => ({ data: { user: { id: 'user-1' } } }),
-  client: {
-    subscription: {
-      upgrade: (...args: unknown[]) => mockUpgrade(...args),
-    },
-  },
+  useSubscription: () => ({
+    upgrade: (...args: unknown[]) => mockUpgrade(...args),
+  }),
 }))
 
 vi.mock('@/hooks/queries/organization', () => ({
@@ -45,15 +43,18 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 const previousActEnvironment = reactActEnvironment.IS_REACT_ACT_ENVIRONMENT
 const organizationTarget: BillingUpgradeTarget = {
-  id: 'team-new',
+  billingTierId: 'team-new',
   displayName: 'New Team',
   ownerType: 'organization',
+  usageScope: 'pooled',
+  seatMode: 'adjustable',
   seatCount: 2,
 }
 
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 let handleUpgrade: ReturnType<typeof useSubscriptionUpgrade>['handleUpgrade'] | null = null
+let originalFetch: typeof globalThis.fetch
 
 function UpgradeHarness() {
   handleUpgrade = useSubscriptionUpgrade().handleUpgrade
@@ -72,6 +73,10 @@ describe('useSubscriptionUpgrade', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     handleUpgrade = null
+    originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn(async () =>
+      Response.json({ organizations: [{ id: 'org-1', role: 'owner' }] })
+    )
     mockUpgrade.mockResolvedValue({ data: {}, error: null })
     mockInvalidateQueries.mockResolvedValue(undefined)
 
@@ -90,6 +95,7 @@ describe('useSubscriptionUpgrade', () => {
     root = null
     container?.remove()
     container = null
+    globalThis.fetch = originalFetch
   })
 
   it('throws Better Auth upgrade result errors', async () => {
@@ -103,13 +109,5 @@ describe('useSubscriptionUpgrade', () => {
     )
     expect(mockUpgrade.mock.calls[0]?.[0]).not.toHaveProperty('customerType')
     expect(mockInvalidateQueries).not.toHaveBeenCalled()
-  })
-
-  it('passes the selected seat quantity to Better Auth for monthly checkout', async () => {
-    await handleUpgrade?.(organizationTarget, { organizationId: 'org-1', seats: 7 })
-    expect(mockUpgrade).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ plan: 'team-new', referenceId: 'org-1', seats: 7 })
-    )
-    expect(mockUpgrade.mock.calls[0][0]).not.toHaveProperty('annual')
   })
 })

@@ -11,7 +11,8 @@ const logger = createLogger('SocketContext')
 const isSocketAuthError = (message: string) =>
   message === 'Authentication required' ||
   message === 'Invalid session' ||
-  message === 'Token validation failed'
+  message === 'Token validation failed' ||
+  message === 'Failed to generate socket token: 401'
 const logSocketIssue = (
   event: string,
   details: {
@@ -28,13 +29,29 @@ const logSocketIssue = (
   }
 }
 
-const SocketContext = createContext<Socket | null>(null)
+interface User {
+  id: string
+  name?: string
+  email?: string
+}
+
+interface SocketContextType {
+  socket: Socket | null
+  isConnected: boolean
+  isConnecting: boolean
+}
+
+const SocketContext = createContext<SocketContextType>({
+  socket: null,
+  isConnected: false,
+  isConnecting: false,
+})
 
 export const useSocket = () => useContext(SocketContext)
 
 interface SocketProviderProps {
   children: ReactNode
-  userId?: string
+  user?: User
 }
 
 interface SocketRegistryEntry {
@@ -53,14 +70,16 @@ declare global {
   var __socketRegistry: Map<string, SocketRegistryEntry> | undefined
 }
 
-export function SocketProvider({ children, userId }: SocketProviderProps) {
+export function SocketProvider({ children, user }: SocketProviderProps) {
   const pathname = usePathname()
   const [socket, setSocket] = useState<Socket | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
   const callbackPathnameRef = useRef(pathname)
   callbackPathnameRef.current = pathname
 
   // Helper function to generate a fresh socket token
-  const generateSocketToken = async () => {
+  const generateSocketToken = async (): Promise<string> => {
     const res = await fetch('/api/auth/socket-token', {
       method: 'POST',
       credentials: 'include',
@@ -78,19 +97,31 @@ export function SocketProvider({ children, userId }: SocketProviderProps) {
     const body = await res.json().catch(() => ({}))
     const token = body?.token
     if (!token || typeof token !== 'string') throw new Error('Invalid socket token')
-    return { token, userId: body.userId }
+    return token
   }
 
   useEffect(() => {
-    if (!userId) {
+    if (!user?.id) {
       setSocket(null)
+      setIsConnected(false)
+      setIsConnecting(false)
       return
     }
 
     const registry = (globalThis.__socketRegistry ??= new Map())
-    let entry = registry.get(userId)
-    if (!entry) {
+    let entry = registry.get(user.id)
+    if (entry) {
+      logger.info('Reusing existing shared socket connection', { userId: user.id })
+    } else {
+      logger.info('Initializing new socket connection for user:', user.id)
+
       const socketUrl = getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
+
+      logger.info('Attempting to connect to Socket.IO server', {
+        url: socketUrl,
+        userId: user?.id || 'no-user',
+        timestamp: new Date().toISOString(),
+      })
 
       const socketInstance = io(socketUrl, {
         transports: ['websocket', 'polling'],
@@ -102,40 +133,51 @@ export function SocketProvider({ children, userId }: SocketProviderProps) {
         auth: async (cb) => {
           const engine = socketInstance.io.engine
           try {
-            const credentials = await generateSocketToken()
+            const freshToken = await generateSocketToken()
             if (!socketInstance.active || socketInstance.io.engine !== engine) return
-            if (credentials.userId !== userId) {
-              socketInstance.disconnect()
-              return
-            }
-            cb({ token: credentials.token })
+            cb({ token: freshToken })
           } catch (error) {
             if (!socketInstance.active || socketInstance.io.engine !== engine) return
-            const message = error instanceof Error ? error.message : String(error)
             logSocketIssue(
               'Failed to generate fresh token for connection:',
-              { message },
+              {
+                message: error instanceof Error ? error.message : String(error),
+              },
               callbackPathnameRef.current
             )
             engine.close()
-            if (isSocketAuthError(message)) socketInstance.disconnect()
           }
         },
       })
 
       entry = { socket: socketInstance, owners: 0 }
-      registry.set(userId, entry)
+      registry.set(user.id, entry)
     }
 
     entry.owners += 1
     const socketInstance = entry.socket
     setSocket(socketInstance)
+    setIsConnected(socketInstance.connected)
+    setIsConnecting(!socketInstance.connected && socketInstance.active)
+
+    const onConnect = () => {
+      setIsConnected(true)
+      setIsConnecting(false)
+      logger.info('Socket connected successfully', {
+        socketId: socketInstance.id,
+        connected: socketInstance.connected,
+      })
+    }
 
     const onDisconnect = (reason: string) => {
-      if (reason === 'io server disconnect' && !socketInstance.active) socketInstance.connect()
+      setIsConnected(false)
+      setIsConnecting(false)
+      logger.info('Socket disconnected', { reason })
     }
 
     const onConnectError = (error: any) => {
+      setIsConnected(false)
+      setIsConnecting(false)
       logSocketIssue(
         'Socket connection error:',
         {
@@ -146,19 +188,32 @@ export function SocketProvider({ children, userId }: SocketProviderProps) {
       )
     }
 
+    socketInstance.on('connect', onConnect)
     socketInstance.on('disconnect', onDisconnect)
     socketInstance.on('connect_error', onConnectError)
 
     return () => {
+      socketInstance.off('connect', onConnect)
       socketInstance.off('disconnect', onDisconnect)
       socketInstance.off('connect_error', onConnectError)
       entry.owners -= 1
       if (entry.owners === 0) {
-        if (registry.get(userId) === entry) registry.delete(userId)
+        logger.info('Cleaning up socket connection after final provider release')
+        if (registry.get(user.id) === entry) registry.delete(user.id)
         socketInstance.disconnect()
       }
     }
-  }, [userId])
+  }, [user?.id])
 
-  return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
+  return (
+    <SocketContext.Provider
+      value={{
+        socket,
+        isConnected,
+        isConnecting,
+      }}
+    >
+      {children}
+    </SocketContext.Provider>
+  )
 }

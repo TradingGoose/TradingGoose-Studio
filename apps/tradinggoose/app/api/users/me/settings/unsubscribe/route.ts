@@ -1,29 +1,23 @@
-import { db } from '@tradinggoose/db'
-import { user } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import type { EmailType } from '@/lib/email/mailer'
 import {
-  getEmailRecipient,
-  unsubscribeFromList,
+  getEmailPreferences,
+  isTransactionalEmail,
+  unsubscribeFromAll,
+  updateEmailPreferences,
   verifyUnsubscribeToken,
 } from '@/lib/email/unsubscribe'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('UnsubscribeAPI')
+
 const unsubscribeSchema = z.object({
   email: z.string().email('Invalid email address'),
   token: z.string().min(1, 'Token is required'),
   type: z.enum(['all', 'marketing', 'updates', 'notifications']).optional().default('all'),
 })
-
-function invalidLink() {
-  return NextResponse.json(
-    { error: 'invalid_or_expired_unsubscribe_link', code: 'invalid-link' },
-    { status: 400 }
-  )
-}
 
 export async function GET(req: NextRequest) {
   const requestId = generateRequestId()
@@ -41,16 +35,33 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const recipient = await getEmailRecipient(eq(user.email, email))
-    if (!recipient || !verifyUnsubscribeToken(recipient, token)) {
+    // Verify token and get email type
+    const tokenVerification = verifyUnsubscribeToken(email, token)
+    if (!tokenVerification.valid) {
       logger.warn(`[${requestId}] Invalid unsubscribe token for email: ${email}`)
-      return invalidLink()
+      return NextResponse.json(
+        { error: 'invalid_or_expired_unsubscribe_link', code: 'invalid-link' },
+        { status: 400 }
+      )
     }
+
+    const emailType = tokenVerification.emailType as EmailType
+    const isTransactional = isTransactionalEmail(emailType)
+
+    // Get current preferences
+    const preferences = await getEmailPreferences(email)
+
+    logger.info(
+      `[${requestId}] Valid unsubscribe GET request for email: ${email}, type: ${emailType}`
+    )
 
     return NextResponse.json({
       success: true,
       email,
-      currentPreferences: recipient.preferences ?? {},
+      token,
+      emailType,
+      isTransactional,
+      currentPreferences: preferences || {},
     })
   } catch (error) {
     logger.error(`[${requestId}] Error processing unsubscribe GET request:`, error)
@@ -65,17 +76,7 @@ export async function POST(req: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const mediaType = req.headers.get('content-type')?.split(';')[0]
-    const oneClick =
-      mediaType === 'application/x-www-form-urlencoded' || mediaType === 'multipart/form-data'
-    let body
-    if (oneClick) {
-      if ((await req.formData()).get('List-Unsubscribe') !== 'One-Click') return invalidLink()
-      const { searchParams } = new URL(req.url)
-      body = { email: searchParams.get('email'), token: searchParams.get('token') }
-    } else {
-      body = await req.json()
-    }
+    const body = await req.json()
     const result = unsubscribeSchema.safeParse(body)
 
     if (!result.success) {
@@ -94,22 +95,72 @@ export async function POST(req: NextRequest) {
 
     const { email, token, type } = result.data
 
-    const updated = await db.transaction(async (tx) => {
-      const recipient = await getEmailRecipient(eq(user.email, email), tx)
-      const signedType = recipient && verifyUnsubscribeToken(recipient, token)
-      if (!recipient || !signedType) return false
-      const list = oneClick ? signedType : type
-      await unsubscribeFromList(tx, recipient.id, list)
-      return list
-    })
-    if (!updated) {
+    // Verify token and get email type
+    const tokenVerification = verifyUnsubscribeToken(email, token)
+    if (!tokenVerification.valid) {
       logger.warn(`[${requestId}] Invalid unsubscribe token for email: ${email}`)
-      return invalidLink()
+      return NextResponse.json(
+        { error: 'invalid_or_expired_unsubscribe_link', code: 'invalid-link' },
+        { status: 400 }
+      )
     }
 
-    logger.info(`[${requestId}] Successfully unsubscribed ${email} from ${updated}`)
+    const emailType = tokenVerification.emailType as EmailType
+    const isTransactional = isTransactionalEmail(emailType)
 
-    return oneClick ? new Response(null, { status: 200 }) : NextResponse.json({ success: true })
+    // Prevent unsubscribing from transactional emails
+    if (isTransactional) {
+      logger.warn(`[${requestId}] Attempted to unsubscribe from transactional email: ${email}`)
+      return NextResponse.json(
+        {
+          error: 'cannot_unsubscribe_from_transactional_emails',
+          code: 'transactional',
+          isTransactional: true,
+          message: 'transactional_emails_unsubscribable',
+        },
+        { status: 400 }
+      )
+    }
+
+    // Process unsubscribe based on type
+    let success = false
+    switch (type) {
+      case 'all':
+        success = await unsubscribeFromAll(email)
+        break
+      case 'marketing':
+        success = await updateEmailPreferences(email, { unsubscribeMarketing: true })
+        break
+      case 'updates':
+        success = await updateEmailPreferences(email, { unsubscribeUpdates: true })
+        break
+      case 'notifications':
+        success = await updateEmailPreferences(email, { unsubscribeNotifications: true })
+        break
+    }
+
+    if (!success) {
+      logger.error(`[${requestId}] Failed to update unsubscribe preferences for: ${email}`)
+      return NextResponse.json(
+        { error: 'failed_to_process_unsubscribe_request', code: 'failed-processing' },
+        { status: 500 }
+      )
+    }
+
+    logger.info(`[${requestId}] Successfully unsubscribed ${email} from ${type}`)
+
+    // Return 200 for one-click unsubscribe compliance
+    return NextResponse.json(
+      {
+        success: true,
+        code: 'success',
+        message: `Successfully unsubscribed from ${type} emails`,
+        email,
+        type,
+        emailType,
+      },
+      { status: 200 }
+    )
   } catch (error) {
     logger.error(`[${requestId}] Error processing unsubscribe POST request:`, error)
     return NextResponse.json(

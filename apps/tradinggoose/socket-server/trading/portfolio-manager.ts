@@ -395,7 +395,10 @@ export class TradingPortfolioStreamManager {
     return matches.map(toSubscriptionInfo)
   }
 
-  refresh(socket: AuthenticatedSocket, payload: TradingPortfolioRefreshPayload) {
+  refresh(
+    socket: AuthenticatedSocket,
+    payload: TradingPortfolioRefreshPayload
+  ): TradingPortfolioSubscriptionInfo[] {
     const refreshId = payload.refreshId?.trim()
     const socketMap = this.socketSubscriptions.get(socket.id)
     const matches = socketMap ? this.findMatchingSubscriptions(socketMap, payload) : []
@@ -414,6 +417,7 @@ export class TradingPortfolioStreamManager {
         if (state) this.requestForcedPoll(state)
       })
     }
+    return matches.map(toSubscriptionInfo)
   }
 
   removeSocket(socketId: string) {

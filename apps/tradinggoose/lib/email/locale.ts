@@ -3,6 +3,10 @@ import { settings, user, waitlist } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { isLocaleCode, type LocaleCode, normalizeLocaleCode } from '@/i18n/utils'
 
+export function normalizeEmailLocale(locale: string | null | undefined): LocaleCode {
+  return normalizeLocaleCode(locale)
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
 }
@@ -43,7 +47,7 @@ export async function resolveEmailLocale({
       return userPreferredLocale
     }
     if (userRows.length > 0) {
-      return normalizeLocaleCode(fallbackLocale)
+      return normalizeEmailLocale(fallbackLocale)
     }
 
     const waitlistRows = await db
@@ -58,5 +62,5 @@ export async function resolveEmailLocale({
     }
   }
 
-  return normalizeLocaleCode(fallbackLocale)
+  return normalizeEmailLocale(fallbackLocale)
 }

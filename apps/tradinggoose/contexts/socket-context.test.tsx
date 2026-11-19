@@ -24,10 +24,6 @@ class TestSocket extends EventEmitter {
       }),
     },
   }
-  connect = vi.fn(() => {
-    this.active = true
-    return this
-  })
   disconnect() {
     this.connected = false
     this.active = false
@@ -54,13 +50,13 @@ it.each([500, 'network', 401] as const)(
             ? Promise.reject(new TypeError('Failed to fetch'))
             : Promise.resolve(new Response(null, { status: failure }))
         )
-        .mockResolvedValue(Response.json({ token: 'retry-token', userId: 'user-1' }))
+        .mockResolvedValue(new Response(JSON.stringify({ token: 'retry-token' })))
     )
     const shared = new TestSocket()
     ioMock.mockReturnValue(shared)
-    const providerSockets: ReturnType<typeof useSocket>[] = []
+    const states: ReturnType<typeof useSocket>[] = []
     function Probe({ index }: { index: number }) {
-      providerSockets[index] = useSocket()
+      states[index] = useSocket()
       return null
     }
     const root = createRoot(document.createElement('div'))
@@ -68,7 +64,7 @@ it.each([500, 'network', 401] as const)(
       root.render(
         <>
           {[0, 1].map((index) => (
-            <SocketProvider key={index} userId='user-1'>
+            <SocketProvider key={index} user={{ id: 'user-1' }}>
               <Probe index={index} />
             </SocketProvider>
           ))}
@@ -85,16 +81,13 @@ it.each([500, 'network', 401] as const)(
       await act(async () => authenticate(handshake))
       expect(handshake).not.toHaveBeenCalled()
       expect(shared.io.engine.close).toHaveBeenCalledOnce()
-      expect(shared.active).toBe(failure !== 401)
-      expect(shared.connect).not.toHaveBeenCalled()
       expect(handleAuthError).toHaveBeenCalledTimes(failure === 401 ? 1 : 0)
-      expect(providerSockets).toEqual([shared, shared])
-      expect(shared.connected).toBe(false)
+      expect(states.every((state) => !state.isConnecting && !state.isConnected)).toBe(true)
 
       if (failure !== 401) {
         await act(async () => authenticate(handshake))
         expect(handshake).toHaveBeenCalledWith({ token: 'retry-token' })
-        expect(shared.connected).toBe(true)
+        expect(states.every((state) => state.isConnected && !state.isConnecting)).toBe(true)
         expect(handleAuthError).not.toHaveBeenCalled()
         act(() => shared.emit('connect_error', new Error('Invalid session')))
         expect(handleAuthError).toHaveBeenCalledWith('socket-auth', '/workspace')
@@ -133,9 +126,9 @@ it.each([false, true])(
       })
       return socket
     })
-    let currentSocket!: ReturnType<typeof useSocket>
+    let state!: ReturnType<typeof useSocket>
     function Probe() {
-      currentSocket = useSocket()
+      state = useSocket()
       return null
     }
     const container = document.createElement('div')
@@ -143,19 +136,20 @@ it.each([false, true])(
     await act(async () =>
       root.render(
         <StrictMode>
-          <SocketProvider userId='user-1'>
+          <SocketProvider user={{ id: 'user-1' }}>
             <Probe />
           </SocketProvider>
         </StrictMode>
       )
     )
     if (unmountBeforeAuth) act(() => root.unmount())
-    await act(async () => resolveToken(Response.json({ token: 'test-token', userId: 'user-1' })))
+    await act(async () => resolveToken(new Response(JSON.stringify({ token: 'test-token' }))))
 
     if (!unmountBeforeAuth) {
-      expect(currentSocket?.connected).toBe(true)
-      expect(sockets.filter((socket) => socket.active)).toEqual([currentSocket])
-      expect(globalThis.__socketRegistry?.get('user-1')?.socket).toBe(currentSocket)
+      expect(state.isConnected).toBe(true)
+      expect(state.isConnecting).toBe(false)
+      expect(sockets.filter((socket) => socket.active)).toEqual([state.socket])
+      expect(globalThis.__socketRegistry?.get('user-1')?.socket).toBe(state.socket)
       act(() => root.unmount())
     }
     expect(sockets.every((socket) => !socket.active)).toBe(true)
@@ -163,12 +157,12 @@ it.each([false, true])(
   }
 )
 
-it('reauthenticates a shared socket after server disconnect and releases its final owner', async () => {
+it('keeps a shared socket until its final provider releases it', () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   ioMock.mockImplementation(() => new TestSocket())
-  const providerSockets: ReturnType<typeof useSocket>[] = []
+  const states: ReturnType<typeof useSocket>[] = []
   function Probe({ index }: { index: number }) {
-    providerSockets[index] = useSocket()
+    states[index] = useSocket()
     return null
   }
   const root = createRoot(document.createElement('div'))
@@ -177,76 +171,46 @@ it('reauthenticates a shared socket after server disconnect and releases its fin
       root.render(
         <>
           {showFirst && (
-            <SocketProvider key='first' userId={userId}>
+            <SocketProvider key='first' user={userId ? { id: userId } : undefined}>
               <Probe index={0} />
             </SocketProvider>
           )}
-          <SocketProvider key='second' userId='user-1'>
+          <SocketProvider key='second' user={{ id: 'user-1' }}>
             <Probe index={1} />
           </SocketProvider>
         </>
       )
     )
   renderProviders('user-1')
-  const shared = providerSockets[0] as unknown as TestSocket
-  expect(providerSockets[1]).toBe(shared)
+  const shared = states[0].socket as unknown as TestSocket
+  expect(states[1].socket).toBe(shared)
   expect(ioMock).toHaveBeenCalledTimes(1)
   act(() => {
     shared.connected = true
     shared.emit('connect')
   })
-
-  const fetchToken = vi
-    .fn()
-    .mockResolvedValueOnce(Response.json({ token: 'replacement-token', userId: 'user-1' }))
-    .mockResolvedValueOnce(Response.json({ token: 'new-owner-token', userId: 'user-2' }))
-  vi.stubGlobal('fetch', fetchToken)
-  act(() => {
-    shared.connected = false
-    shared.active = false
-    shared.emit('disconnect', 'io server disconnect')
-  })
-  expect(shared.connect).toHaveBeenCalledOnce()
-  expect(shared.connected).toBe(false)
-  await act(async () =>
-    ioMock.mock.calls[0][1].auth(({ token }: { token: string }) => {
-      expect(token).toBe('replacement-token')
-      shared.connected = true
-      shared.emit('connect')
-    })
-  )
-  expect(fetchToken).toHaveBeenCalledOnce()
-  expect(shared.connected).toBe(true)
+  expect(states.every((state) => state.isConnected)).toBe(true)
 
   renderProviders('user-2')
-  const other = providerSockets[0] as unknown as TestSocket
+  const other = states[0].socket as unknown as TestSocket
   expect(shared.active).toBe(true)
-  expect(other).not.toBe(shared)
-  expect(providerSockets[1]).toBe(shared)
+  expect(states[0].isConnected).toBe(false)
+  expect(states[1].isConnected).toBe(true)
   renderProviders('user-1')
   expect(other.active).toBe(false)
-  expect(providerSockets[0]).toBe(shared)
+  expect(states[0].socket).toBe(shared)
+  expect(states[0].isConnected).toBe(true)
 
   renderProviders()
-  expect(providerSockets[0]).toBeNull()
+  expect(states[0]).toEqual({ socket: null, isConnected: false, isConnecting: false })
   expect(shared.active).toBe(true)
   renderProviders('user-1')
   expect(ioMock).toHaveBeenCalledTimes(2)
   renderProviders(undefined, false)
   expect(shared.active).toBe(true)
-  expect(shared.listenerCount('disconnect')).toBe(1)
-  act(() => {
-    shared.connected = false
-    shared.active = false
-    shared.emit('disconnect', 'io server disconnect')
-  })
-  const handshake = vi.fn()
-  await act(async () => ioMock.mock.calls[0][1].auth(handshake))
-  expect(handshake).not.toHaveBeenCalled()
-  expect(shared.active).toBe(false)
-  expect(handleAuthError).not.toHaveBeenCalled()
+  expect(shared.listenerCount('connect')).toBe(1)
   act(() => root.unmount())
   expect(shared.active).toBe(false)
-  expect(shared.listenerCount('disconnect')).toBe(0)
+  expect(shared.listenerCount('connect')).toBe(0)
   expect(globalThis.__socketRegistry?.size).toBe(0)
 })

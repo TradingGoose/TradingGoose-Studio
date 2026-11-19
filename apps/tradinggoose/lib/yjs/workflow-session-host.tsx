@@ -8,7 +8,7 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useSyncExternalStore,
+  useState,
 } from 'react'
 import type * as Y from 'yjs'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
@@ -21,8 +21,8 @@ import {
   getSharedWorkflowSessionState,
   redoSharedWorkflowSession,
   type SharedWorkflowSessionState,
-  type SharedWorkflowSessionUser,
   setSharedWorkflowSessionUser,
+  subscribeToSharedWorkflowSession,
   undoSharedWorkflowSession,
 } from '@/lib/yjs/workflow-shared-session'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
@@ -57,11 +57,22 @@ export function useOptionalWorkflowSession(): WorkflowSessionContextValue | null
   return useContext(WorkflowSessionContext)
 }
 
+export interface WorkflowSessionUser {
+  id: string
+  name?: string
+  email?: string
+}
+
 interface WorkflowSessionProviderProps {
   workspaceId: string
   workflowId: string
-  user?: SharedWorkflowSessionUser
+  user?: WorkflowSessionUser
   children: ReactNode
+}
+
+type ScopedWorkflowWriteState = {
+  workflowId: string
+  state: SharedWorkflowSessionState
 }
 
 export function WorkflowSessionProvider({
@@ -72,16 +83,14 @@ export function WorkflowSessionProvider({
 }: WorkflowSessionProviderProps) {
   const { canEdit: canEditWorkspace, isLoading: isPermissionsLoading } = useUserPermissionsContext()
   const canEdit = !isPermissionsLoading && canEditWorkspace
-  const subscribe = useCallback(
-    (notify: () => void) =>
-      canEdit ? acquireSharedWorkflowSession({ workflowId, workspaceId }, notify) : () => {},
-    [canEdit, workflowId, workspaceId]
-  )
-  const writeState = useSyncExternalStore(
-    subscribe,
-    () => getSharedWorkflowSessionState(canEdit ? workflowId : null),
-    () => EMPTY_SHARED_WORKFLOW_SESSION_STATE
-  )
+  const [scopedWriteState, setScopedWriteState] = useState<ScopedWorkflowWriteState>(() => ({
+    workflowId,
+    state: getSharedWorkflowSessionState(workflowId),
+  }))
+  const writeState =
+    scopedWriteState.workflowId === workflowId
+      ? scopedWriteState.state
+      : EMPTY_SHARED_WORKFLOW_SESSION_STATE
   const readDescriptor = useMemo(
     () =>
       !isPermissionsLoading && !canEdit && workspaceId
@@ -115,6 +124,33 @@ export function WorkflowSessionProvider({
   const canRedo = canEdit && writeState.canRedo
 
   useEffect(() => {
+    if (!canEdit) {
+      setScopedWriteState({
+        workflowId,
+        state: { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE },
+      })
+      return
+    }
+
+    const syncState = () => {
+      setScopedWriteState({ workflowId, state: getSharedWorkflowSessionState(workflowId) })
+    }
+
+    syncState()
+    const release = acquireSharedWorkflowSession({
+      workflowId,
+      workspaceId,
+    })
+    const unsubscribe = subscribeToSharedWorkflowSession(workflowId, syncState)
+    syncState()
+
+    return () => {
+      unsubscribe()
+      release()
+    }
+  }, [canEdit, workflowId, workspaceId])
+
+  useEffect(() => {
     if (canEdit) setSharedWorkflowSessionUser(workflowId, user)
   }, [canEdit, awareness, workflowId, user])
 
@@ -127,7 +163,11 @@ export function WorkflowSessionProvider({
     <T,>(fn: (d: Y.Doc) => T, origin?: string): T | undefined => {
       const writableDoc = writableDocRef.current
       if (!writableDoc) return undefined
-      return writableDoc.transact(() => fn(writableDoc), origin ?? YJS_ORIGINS.USER)
+      let result: T | undefined
+      writableDoc.transact(() => {
+        result = fn(writableDoc)
+      }, origin ?? YJS_ORIGINS.USER)
+      return result
     },
     []
   )

@@ -4,6 +4,7 @@ import { baseStyles } from '@/components/emails/base-styles'
 import EmailFooter from '@/components/emails/footer'
 import EmailHeader from '@/components/emails/header'
 import { getBrandConfig } from '@/lib/branding/branding'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 interface CareersSubmissionEmailProps {
   name: string
@@ -29,7 +30,7 @@ const getExperienceLabel = (experience: string) => {
   return labels[experience] || experience
 }
 
-export default function CareersSubmissionEmail({
+export const CareersSubmissionEmail = ({
   name,
   email,
   phone,
@@ -40,8 +41,9 @@ export default function CareersSubmissionEmail({
   location,
   message,
   submittedDate = new Date(),
-}: CareersSubmissionEmailProps) {
+}: CareersSubmissionEmailProps) => {
   const brand = getBrandConfig()
+  const baseUrl = getBaseUrl()
 
   return (
     <Html>
@@ -290,8 +292,10 @@ export default function CareersSubmissionEmail({
           </Section>
         </Container>
 
-        <EmailFooter />
+        <EmailFooter baseUrl={baseUrl} />
       </Body>
     </Html>
   )
 }
+
+export default CareersSubmissionEmail

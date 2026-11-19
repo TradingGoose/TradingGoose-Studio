@@ -69,7 +69,8 @@ interface MemberInvitationCardProps {
   invitedWorkspaceCount: number | null
   canInviteMembers: boolean
   inviteUnavailableMessage?: string | null
-  availableSeats: number
+  seatLimited: boolean
+  availableSeats?: number
 }
 
 function ButtonSkeleton() {
@@ -94,13 +95,29 @@ export function MemberInvitationCard({
   invitedWorkspaceCount,
   canInviteMembers,
   inviteUnavailableMessage,
-  availableSeats,
+  seatLimited,
+  availableSeats = 0,
 }: MemberInvitationCardProps) {
   const copy = useTranslations('workspace.settingsModal.team.invitation')
   const selectedCount = selectedWorkspaces.length
-  const hasAvailableSeats = availableSeats > 0
+  const hasAvailableSeats = seatLimited ? availableSeats > 0 : true
   const inviteEnabled = canInviteMembers && hasAvailableSeats
   const [emailError, setEmailError] = useState<string>('')
+
+  // Email validation function using existing lib
+  const validateEmailInput = (email: string) => {
+    if (!email.trim()) {
+      setEmailError('')
+      return
+    }
+
+    const validation = quickValidateEmail(email.trim())
+    if (!validation.isValid) {
+      setEmailError(copy('invalidEmail'))
+    } else {
+      setEmailError('')
+    }
+  }
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -112,15 +129,18 @@ export function MemberInvitationCard({
   }
 
   const handleInviteClick = () => {
-    const email = inviteEmail.trim()
-    if (actionsDisabled || !inviteEnabled || !email) return
+    if (actionsDisabled) return
 
-    if (!quickValidateEmail(email).isValid) {
-      setEmailError(copy('invalidEmail'))
-      return
+    // Validate email before proceeding
+    if (inviteEmail.trim()) {
+      validateEmailInput(inviteEmail)
+      const validation = quickValidateEmail(inviteEmail.trim())
+      if (!validation.isValid) {
+        return // Don't proceed if validation fails
+      }
     }
 
-    setEmailError('')
+    // If validation passes or email is empty, proceed with original invite
     onInviteMember()
   }
 

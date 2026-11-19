@@ -18,9 +18,9 @@ vi.mock('@/lib/auth', () => ({
   auth: {
     api: {
       generateOneTimeToken: (...args: unknown[]) => mockGenerateOneTimeToken(...args),
-      getSession: (...args: unknown[]) => mockGetSession(...args),
     },
   },
+  getSession: (...args: unknown[]) => mockGetSession(...args),
 }))
 
 describe('socket token route', () => {
@@ -38,8 +38,8 @@ describe('socket token route', () => {
     const response = await POST()
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ token: 'socket-token', userId: 'user-1' })
-    expect(mockGetSession).toHaveBeenCalledWith({ headers: expect.any(Headers) })
+    expect(await response.json()).toEqual({ token: 'socket-token' })
+    expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers))
     expect(mockGenerateOneTimeToken).toHaveBeenCalledWith({ headers: expect.any(Headers) })
   })
 
@@ -68,14 +68,7 @@ describe('socket token route', () => {
     const response = await POST()
 
     expect(response.status).toBe(401)
-    expect(mockGetSession).toHaveBeenCalledWith({ headers: staleCookieHeaders })
-    expect(mockGenerateOneTimeToken).not.toHaveBeenCalled()
-  })
-
-  it('returns a server error when the session store is unavailable', async () => {
-    mockGetSession.mockRejectedValueOnce(new Error('Database unavailable'))
-    const { POST } = await import('./route')
-    expect((await POST()).status).toBe(500)
+    expect(mockGetSession).toHaveBeenCalledWith(staleCookieHeaders)
     expect(mockGenerateOneTimeToken).not.toHaveBeenCalled()
   })
 })

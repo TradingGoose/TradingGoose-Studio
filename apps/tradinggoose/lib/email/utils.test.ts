@@ -13,6 +13,17 @@ describe('email utils', () => {
     vi.clearAllMocks()
   })
 
+  it('returns the configured email domain from system settings', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValue({
+      emailDomain: 'mail.example.com',
+      fromEmailAddress: null,
+    })
+
+    const { getConfiguredEmailDomain } = await import('./utils')
+
+    await expect(getConfiguredEmailDomain()).resolves.toBe('mail.example.com')
+  })
+
   it('returns the stored from email address when configured', async () => {
     mockGetResolvedSystemSettings.mockResolvedValue({
       emailDomain: 'mail.example.com',

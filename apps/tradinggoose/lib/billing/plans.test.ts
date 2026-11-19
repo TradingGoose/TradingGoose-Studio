@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('getPlans', () => {
   const getResolvableStripeBillingTiersMock = vi.fn()
-  const getTierUsageAllowanceUsdMock = vi.fn()
+  const getTierIncludedUsageLimitMock = vi.fn()
   const parseBillingAmountMock = vi.fn()
 
   const originalNextPhase = process.env.NEXT_PHASE
@@ -14,12 +14,12 @@ describe('getPlans', () => {
     vi.resetModules()
     vi.clearAllMocks()
     getResolvableStripeBillingTiersMock.mockReset()
-    getTierUsageAllowanceUsdMock.mockReset()
+    getTierIncludedUsageLimitMock.mockReset()
     parseBillingAmountMock.mockReset()
 
     vi.doMock('@/lib/billing/tiers', () => ({
       getResolvableStripeBillingTiers: getResolvableStripeBillingTiersMock,
-      getTierUsageAllowanceUsd: getTierUsageAllowanceUsdMock,
+      getTierIncludedUsageLimit: getTierIncludedUsageLimitMock,
       parseBillingAmount: parseBillingAmountMock,
     }))
   })
@@ -62,7 +62,7 @@ describe('getPlans', () => {
         monthlyPriceUsd: '49',
       },
     ])
-    getTierUsageAllowanceUsdMock.mockReturnValue(25)
+    getTierIncludedUsageLimitMock.mockReturnValue(25)
     parseBillingAmountMock.mockReturnValue(49)
 
     const { getPlans } = await import('./plans')

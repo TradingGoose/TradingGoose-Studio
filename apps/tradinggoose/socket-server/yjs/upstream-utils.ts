@@ -6,6 +6,7 @@
  * `discardDocument` and `cleanupAllDocuments`.
  */
 
+import type { IncomingMessage } from 'http'
 import * as awarenessProtocol from '@y/protocols/awareness'
 import * as syncProtocol from '@y/protocols/sync'
 import * as decoding from 'lib0/decoding'
@@ -18,7 +19,6 @@ import {
   type ReviewTargetDescriptor,
   YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
   YJS_CLOSE_CODE_DOCUMENT_REJECTED,
-  YJS_CLOSE_CODE_RETRY_REQUIRED,
 } from '@/lib/copilot/review-sessions/types'
 import {
   decodeYjsLifecycleMessage,
@@ -34,7 +34,6 @@ import {
   YjsSessionAdmissionError,
 } from '@/lib/yjs/server/revocation-fence'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { isSocketSessionActive } from '../middleware/auth'
 import { YjsAuthError } from './auth'
 
 const messageSync = 0
@@ -68,9 +67,11 @@ export type DocumentAdmission = {
 }
 export type DocumentReconciler = (readStore?: DocumentReadStore) => Promise<void> | void
 export type DocumentValidator = (doc: Y.Doc) => void
-type ConnectionState = DocumentAdmission & {
-  sessionToken: string
+type ConnectionState = {
   awarenessIds: Set<number>
+  userId: string
+  accessMode: ReviewAccessMode
+  descriptor: ReviewTargetDescriptor
   persist?: (doc: Y.Doc, requestId: string, identityName?: string) => Promise<void>
 }
 
@@ -625,9 +626,14 @@ function assertLocalDocumentAdmission(docId: string): void {
 
 export function setupWSConnection(
   conn: WebSocket,
-  opts: Omit<ConnectionState, 'awarenessIds'> & {
+  _req: IncomingMessage,
+  opts: {
     doc: Y.Doc
+    userId: string
+    accessMode: ReviewAccessMode
+    descriptor: ReviewTargetDescriptor
     initialMessages?: readonly Uint8Array[]
+    persist?: (doc: Y.Doc, requestId: string, identityName?: string) => Promise<void>
     onDocumentUpdate?: DocumentPersistenceHandler
     onDocumentUpdateDebounceMs?: number
   }
@@ -635,7 +641,6 @@ export function setupWSConnection(
   const {
     doc: candidate,
     userId,
-    sessionToken,
     accessMode,
     descriptor,
     initialMessages,
@@ -662,14 +667,7 @@ export function setupWSConnection(
     doc.onDocumentUpdate = onDocumentUpdate
     doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0
   }
-  doc.conns.set(conn, {
-    awarenessIds: new Set(),
-    userId,
-    sessionToken,
-    accessMode,
-    descriptor,
-    persist,
-  })
+  doc.conns.set(conn, { awarenessIds: new Set(), userId, accessMode, descriptor, persist })
 
   conn.on('message', (data: ArrayBuffer) => {
     handleMessage(conn, doc, new Uint8Array(data))
@@ -694,7 +692,9 @@ export function setupWSConnection(
           void reconcileDocument(doc).catch((error) => {
             console.error('[yjs upstream-utils] Failed to reconcile live document', error)
           })
-          void reconcileConnection(doc, conn, connection)
+          void reconcileConnection(doc, conn, connection).catch((error) => {
+            console.error('[yjs upstream-utils] Failed to revalidate connection access', error)
+          })
         }
       } catch {
         closeConn(doc, conn)
@@ -777,20 +777,14 @@ async function reconcileConnection(
   conn: WebSocket,
   connection: ConnectionState
 ): Promise<void> {
-  const { userId, sessionToken, descriptor, accessMode } = connection
-  let code = YJS_CLOSE_CODE_RETRY_REQUIRED
-  let reason = 'Session inactive'
-  try {
-    if (await isSocketSessionActive(userId, sessionToken)) {
-      if ((await verifyReviewTargetAccess(userId, descriptor, accessMode)).hasAccess) return
-      code = YJS_CLOSE_CODE_AUTHORIZATION_REVOKED
-      reason = 'Authorization revoked'
-    }
-  } catch (error) {
-    console.error('[yjs upstream-utils] Failed to revalidate connection access', error)
-    reason = 'Access check unavailable'
+  const access = await verifyReviewTargetAccess(
+    connection.userId,
+    connection.descriptor,
+    connection.accessMode
+  )
+  if (!access.hasAccess && doc.conns.get(conn) === connection) {
+    closeConn(doc, conn, YJS_CLOSE_CODE_AUTHORIZATION_REVOKED, 'Authorization revoked')
   }
-  if (doc.conns.get(conn) === connection) closeConn(doc, conn, code, reason)
 }
 
 export function cleanupAllDocuments(): void {

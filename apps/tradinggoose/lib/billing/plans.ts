@@ -1,6 +1,6 @@
 import {
   getResolvableStripeBillingTiers,
-  getTierUsageAllowanceUsd,
+  getTierIncludedUsageLimit,
   parseBillingAmount,
 } from '@/lib/billing/tiers'
 
@@ -31,7 +31,7 @@ export async function getPlans(): Promise<BillingPlan[]> {
     priceId: tier.stripeMonthlyPriceId || '',
     annualDiscountPriceId: tier.stripeYearlyPriceId || undefined,
     limits: {
-      cost: getTierUsageAllowanceUsd(tier) || parseBillingAmount(tier.monthlyPriceUsd) || 0,
+      cost: getTierIncludedUsageLimit(tier) || parseBillingAmount(tier.monthlyPriceUsd) || 0,
     },
   }))
 }

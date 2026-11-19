@@ -18,3 +18,12 @@ export const client = createAuthClient({
 })
 
 export const { useSession, useActiveOrganization, signOut } = client
+
+export const useSubscription = () => {
+  return {
+    list: client.subscription?.list,
+    upgrade: client.subscription?.upgrade,
+    cancel: client.subscription?.cancel,
+    restore: client.subscription?.restore,
+  }
+}

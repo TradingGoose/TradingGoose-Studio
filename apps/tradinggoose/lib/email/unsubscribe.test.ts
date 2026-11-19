@@ -1,148 +1,135 @@
-import { settings, user } from '@tradinggoose/db/schema'
-import { PgDialect } from 'drizzle-orm/pg-core'
-import { NextRequest } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import type { EmailType } from '@/lib/email/mailer'
 import {
   generateUnsubscribeToken,
-  isUnsubscribed,
+  isTransactionalEmail,
   verifyUnsubscribeToken,
 } from '@/lib/email/unsubscribe'
-import { GET, POST } from '@/app/api/users/me/settings/unsubscribe/route'
 
-const { select, lock, write, conflict, transaction } = vi.hoisted(() => ({
-  select: vi.fn(),
-  lock: vi.fn(),
-  write: vi.fn(),
-  conflict: vi.fn(),
-  transaction: vi.fn(),
+vi.mock('@tradinggoose/db', () => ({
+  db: {},
 }))
 
-vi.mock('@tradinggoose/db', () => ({ db: { select, transaction } }))
-vi.mock('@/lib/env', () => ({ env: { BETTER_AUTH_SECRET: 'test-secret-key' } }))
+vi.mock('@tradinggoose/db/schema', () => ({
+  settings: {
+    emailPreferences: 'emailPreferences',
+    userId: 'userId',
+    updatedAt: 'updatedAt',
+  },
+  user: {
+    id: 'id',
+    email: 'email',
+  },
+}))
 
-const mailbox = {
-  id: 'original-account',
-  email: 'test@example.com',
-  emailVerified: true,
-  preferences: { unsubscribeUpdates: true },
-}
+vi.mock('@/lib/env', () => ({
+  env: {
+    BETTER_AUTH_SECRET: 'test-secret-key',
+  },
+  isTruthy: (value: string | boolean | number | undefined) =>
+    typeof value === 'string' ? value === 'true' || value === '1' : Boolean(value),
+  getEnv: (variable: string) => process.env[variable],
+}))
 
-describe('unsubscribe tokens', () => {
-  it('signs the mailbox and email type with a unique salt', () => {
-    const token = generateUnsubscribeToken(mailbox, 'marketing')
+describe('unsubscribe utilities', () => {
+  const testEmail = 'test@example.com'
+  const testEmailType = 'marketing'
 
-    expect(verifyUnsubscribeToken(mailbox, token)).toBe('marketing')
-    expect(generateUnsubscribeToken(mailbox, 'marketing')).not.toBe(token)
-    expect(verifyUnsubscribeToken(mailbox, token.replace('marketing', 'updates'))).toBeNull()
-    expect(verifyUnsubscribeToken({ ...mailbox, email: 'other@example.com' }, token)).toBeNull()
-    expect(verifyUnsubscribeToken(mailbox, `${token}:extra`)).toBeNull()
-  })
-})
+  describe('generateUnsubscribeToken', () => {
+    it.concurrent('should generate a token with salt:hash:emailType format', () => {
+      const token = generateUnsubscribeToken(testEmail, testEmailType)
+      const parts = token.split(':')
 
-describe('unsubscribe route', () => {
-  const url = 'http://localhost/api/users/me/settings/unsubscribe'
-  const token = generateUnsubscribeToken(mailbox, 'marketing')
-  const params = new URLSearchParams({ email: mailbox.email, token })
-  const get = () => GET(new NextRequest(`${url}?${params}`))
-  const post = () =>
-    POST(
-      new NextRequest(url, {
-        method: 'POST',
-        body: JSON.stringify({ email: mailbox.email, token, type: 'marketing' }),
-      })
+      expect(parts).toHaveLength(3)
+      expect(parts[0]).toHaveLength(32) // Salt should be 32 chars (16 bytes hex)
+      expect(parts[1]).toHaveLength(64) // SHA256 hash should be 64 chars
+      expect(parts[2]).toBe(testEmailType)
+    })
+
+    it.concurrent(
+      'should generate different tokens for the same email (due to random salt)',
+      () => {
+        const token1 = generateUnsubscribeToken(testEmail, testEmailType)
+        const token2 = generateUnsubscribeToken(testEmail, testEmailType)
+
+        expect(token1).not.toBe(token2)
+      }
     )
 
-  const oneClick = (body: URLSearchParams | FormData, challenge = token) =>
-    POST(
-      new NextRequest(`${url}?${new URLSearchParams({ email: mailbox.email, token: challenge })}`, {
-        method: 'POST',
-        body,
-      })
-    )
+    it.concurrent('should default to marketing email type', () => {
+      const token = generateUnsubscribeToken(testEmail)
+      const parts = token.split(':')
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    select.mockImplementation(() => ({
-      from: () => ({ leftJoin: () => ({ where: () => ({ limit: () => [mailbox] }) }) }),
-    }))
-    lock.mockResolvedValue([mailbox])
-    transaction.mockImplementation(async (run) =>
-      run({
-        select: () => ({
-          from: () => ({ leftJoin: () => ({ where: () => ({ limit: () => ({ for: lock }) }) }) }),
-        }),
-        insert: () => ({ values: write }),
-      })
-    )
-    write.mockReturnValue({ onConflictDoUpdate: conflict })
-  })
+      expect(parts[2]).toBe('marketing')
+    })
 
-  it('reads preferences and writes to the mailbox owner under the row lock', async () => {
-    const readResponse = await get()
-    const writeResponse = await post()
+    it.concurrent('should generate different tokens for different email types', () => {
+      const marketingToken = generateUnsubscribeToken(testEmail, 'marketing')
+      const updatesToken = generateUnsubscribeToken(testEmail, 'updates')
 
-    expect(await readResponse.json()).toMatchObject({ currentPreferences: mailbox.preferences })
-    expect(writeResponse.status).toBe(200)
-    expect(lock).toHaveBeenCalledWith('update', { of: user })
-    expect(write).toHaveBeenCalledWith({
-      id: mailbox.id,
-      userId: mailbox.id,
-      emailPreferences: { unsubscribeMarketing: true },
+      expect(marketingToken).not.toBe(updatesToken)
     })
   })
 
-  it('replaces a JSON string on the first unsubscribe and merges existing preference objects', async () => {
-    lock.mockResolvedValue([{ ...mailbox, preferences: '{}' }])
-    expect((await post()).status).toBe(200)
-    const { emailPreferences } = write.mock.calls[0][0]
-    expect(isUnsubscribed(emailPreferences, 'marketing')).toBe(true)
-    const update = conflict.mock.calls[0][0]
-    expect(update.target).toBe(settings.userId)
-    const { sql } = new PgDialect().sqlToQuery(update.set.emailPreferences)
-    expect(sql).toContain(`when json_typeof("settings"."email_preferences") = 'object'`)
-    expect(sql).toContain(
-      'then ("settings"."email_preferences"::jsonb || excluded.email_preferences::jsonb)::json'
-    )
-    expect(sql).toContain('else excluded.email_preferences end')
-  })
+  describe('verifyUnsubscribeToken', () => {
+    it.concurrent('should verify a valid token', () => {
+      const token = generateUnsubscribeToken(testEmail, testEmailType)
+      const result = verifyUnsubscribeToken(testEmail, token)
 
-  it.each([new URLSearchParams(), new FormData()])(
-    'accepts RFC 8058 form submissions for the signed list',
-    async (form) => {
-      form.set('List-Unsubscribe', 'One-Click')
-      const response = await oneClick(form, generateUnsubscribeToken(mailbox, 'notifications'))
-      expect(response.status).toBe(200)
-      expect(await response.text()).toBe('')
-      expect(write).toHaveBeenCalledWith({
-        id: mailbox.id,
-        userId: mailbox.id,
-        emailPreferences: { unsubscribeNotifications: true },
-      })
-    }
-  )
-
-  it('requires a one-click instruction and leaves preferences untouched on GET', async () => {
-    expect((await get()).status).toBe(200)
-    expect((await oneClick(new URLSearchParams())).status).toBe(400)
-    expect(write).not.toHaveBeenCalled()
-  })
-
-  it('rejects a link when a different account owns the address', async () => {
-    const currentMailbox = { ...mailbox, id: 'different-account' }
-    select.mockReturnValue({
-      from: () => ({ leftJoin: () => ({ where: () => ({ limit: () => [currentMailbox] }) }) }),
+      expect(result.valid).toBe(true)
+      expect(result.emailType).toBe(testEmailType)
     })
-    lock.mockResolvedValue([currentMailbox])
 
-    for (const respond of [
-      get,
-      post,
-      () => oneClick(new URLSearchParams({ 'List-Unsubscribe': 'One-Click' })),
-    ]) {
-      const response = await respond()
-      expect(response.status).toBe(400)
-      expect(await response.json()).toMatchObject({ code: 'invalid-link' })
-    }
-    expect(write).not.toHaveBeenCalled()
+    it.concurrent('should reject an invalid token', () => {
+      const invalidToken = 'invalid:token:format'
+      const result = verifyUnsubscribeToken(testEmail, invalidToken)
+
+      expect(result.valid).toBe(false)
+      expect(result.emailType).toBe('format')
+    })
+
+    it.concurrent('should reject a token for wrong email', () => {
+      const token = generateUnsubscribeToken(testEmail, testEmailType)
+      const result = verifyUnsubscribeToken('wrong@example.com', token)
+
+      expect(result.valid).toBe(false)
+    })
+
+    it.concurrent('should handle legacy tokens (2 parts) and default to marketing', () => {
+      // Generate a real legacy token using the actual hashing logic to ensure backward compatibility
+      const salt = 'abc123'
+      const secret = 'test-secret-key'
+      const { createHash } = require('crypto')
+      const hash = createHash('sha256').update(`${testEmail}:${salt}:${secret}`).digest('hex')
+      const legacyToken = `${salt}:${hash}`
+
+      // This should return valid since we're using the actual legacy format properly
+      const result = verifyUnsubscribeToken(testEmail, legacyToken)
+      expect(result.valid).toBe(true)
+      expect(result.emailType).toBe('marketing') // Should default to marketing for legacy tokens
+    })
+
+    it.concurrent('should reject malformed tokens', () => {
+      const malformedTokens = ['', 'single-part', 'too:many:parts:here:invalid', ':empty:parts:']
+
+      malformedTokens.forEach((token) => {
+        const result = verifyUnsubscribeToken(testEmail, token)
+        expect(result.valid).toBe(false)
+      })
+    })
+  })
+
+  describe('isTransactionalEmail', () => {
+    it.concurrent('should identify transactional emails correctly', () => {
+      expect(isTransactionalEmail('transactional')).toBe(true)
+    })
+
+    it.concurrent('should identify non-transactional emails correctly', () => {
+      const nonTransactionalTypes: EmailType[] = ['marketing', 'updates', 'notifications']
+
+      nonTransactionalTypes.forEach((type) => {
+        expect(isTransactionalEmail(type)).toBe(false)
+      })
+    })
   })
 })

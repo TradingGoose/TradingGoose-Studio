@@ -16,7 +16,7 @@ const { mockGetOAuthProviderAvailability, mockLogger } = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('@/lib/oauth/oauth.server', () => ({
+vi.mock('@/lib/oauth/provider-availability.server', () => ({
   getOAuthProviderAvailability: (...args: unknown[]) => mockGetOAuthProviderAvailability(...args),
 }))
 

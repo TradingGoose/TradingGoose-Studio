@@ -3,7 +3,7 @@ import type {
   PublicBillingTierDisplay,
 } from '@/lib/billing/public-catalog'
 import { canTierEditUsageLimit } from '@/lib/billing/tier-summary'
-import type { BillingTierSummary } from '@/lib/billing/types'
+import type { BillingTierSummary } from '@/lib/subscription/types'
 
 export interface SubscriptionState {
   isFree: boolean
@@ -41,6 +41,16 @@ export const mergeAccessibleBillingTiers = (
   [...publicTiers, ...privateTiers].sort(
     (left, right) => left.displayOrder - right.displayOrder || left.id.localeCompare(right.id)
   )
+
+export function getSubscriptionTierAlternatives(
+  tiers: PublicBillingTierDisplay[],
+  ownerType: PublicBillingTierDisplay['ownerType'],
+  currentTierId?: string | null
+) {
+  return tiers.filter(
+    (tier) => !tier.isDefault && tier.id !== currentTierId && tier.ownerType === ownerType
+  )
+}
 
 function getCurrentTier(
   subscription: SubscriptionState,
@@ -89,11 +99,10 @@ export function getSubscriptionSurfaceState({
   } else if (isCurrentCustomOrganizationPlan) {
     visiblePlanTiers = currentTier ? [currentTier] : []
   } else {
-    const alternativeTiers = publicTiers.filter(
-      (tier) =>
-        !tier.isDefault &&
-        tier.id !== currentTier?.id &&
-        tier.ownerType === subscription.tier.ownerType
+    const alternativeTiers = getSubscriptionTierAlternatives(
+      publicTiers,
+      subscription.tier.ownerType,
+      currentTier?.id
     )
 
     visiblePlanTiers = currentTier ? [currentTier, ...alternativeTiers] : alternativeTiers

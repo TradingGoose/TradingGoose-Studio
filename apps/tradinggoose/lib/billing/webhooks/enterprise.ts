@@ -6,9 +6,8 @@ import {
   getEmailSubject,
   renderEnterpriseSubscriptionEmail,
 } from '@/components/emails/render-email'
-import { getStripeSubscriptionFields } from '@/lib/billing/subscriptions/utils'
 import {
-  getTierUsageAllowanceUsd,
+  getTierIncludedUsageLimit,
   isOrganizationBillingTier,
   requireBillingTierById,
 } from '@/lib/billing/tiers'
@@ -99,6 +98,8 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     throw new Error('Enterprise subscription must include valid monthlyPrice in metadata')
   }
 
+  // Get the first subscription item which contains the period information
+  const referenceItem = stripeSubscription.items?.data?.[0]
   const billingTierRecord = await requireBillingTierById(enterpriseMetadata.billingTierId)
 
   if (!isOrganizationBillingTier(billingTierRecord)) {
@@ -111,32 +112,55 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
   }
 
   const subscriptionRow = {
+    id: crypto.randomUUID(),
     plan: billingTierRecord.id,
     billingTierId: billingTierRecord.id,
     referenceType: 'organization' as const,
     referenceId,
     stripeCustomerId,
-    status: stripeSubscription.status,
-    ...getStripeSubscriptionFields(stripeSubscription, billingTierRecord),
+    stripeSubscriptionId: stripeSubscription.id,
+    status: stripeSubscription.status || null,
+    periodStart: referenceItem?.current_period_start
+      ? new Date(referenceItem.current_period_start * 1000)
+      : null,
+    periodEnd: referenceItem?.current_period_end
+      ? new Date(referenceItem.current_period_end * 1000)
+      : null,
+    cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end ?? null,
     seats,
+    trialStart: stripeSubscription.trial_start
+      ? new Date(stripeSubscription.trial_start * 1000)
+      : null,
+    trialEnd: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null,
     metadata: metadataJson,
   }
 
-  const [{ id: subscriptionId }] = await db
+  const [persistedSubscription] = await db
     .insert(subscription)
-    .values({
-      id: crypto.randomUUID(),
-      stripeSubscriptionId: stripeSubscription.id,
-      ...subscriptionRow,
-    })
+    .values(subscriptionRow)
     .onConflictDoUpdate({
       target: subscription.stripeSubscriptionId,
-      set: subscriptionRow,
+      set: {
+        plan: subscriptionRow.plan,
+        billingTierId: subscriptionRow.billingTierId,
+        referenceType: subscriptionRow.referenceType,
+        referenceId: subscriptionRow.referenceId,
+        stripeCustomerId: subscriptionRow.stripeCustomerId,
+        status: subscriptionRow.status,
+        periodStart: subscriptionRow.periodStart,
+        periodEnd: subscriptionRow.periodEnd,
+        cancelAtPeriodEnd: subscriptionRow.cancelAtPeriodEnd,
+        seats: subscriptionRow.seats,
+        trialStart: subscriptionRow.trialStart,
+        trialEnd: subscriptionRow.trialEnd,
+        metadata: subscriptionRow.metadata,
+      },
     })
     .returning({ id: subscription.id })
+  const subscriptionId = persistedSubscription?.id || subscriptionRow.id
 
   if (billingTierRecord.usageScope === 'pooled') {
-    const organizationUsageLimit = getTierUsageAllowanceUsd(billingTierRecord) || monthlyPrice
+    const organizationUsageLimit = getTierIncludedUsageLimit(billingTierRecord) || monthlyPrice
 
     try {
       await db
@@ -207,7 +231,6 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
 
       const emailResult = await sendEmail({
         to: user.email,
-        userId: user.id,
         subject: getEmailSubject('enterprise-subscription', locale),
         html,
         emailType: 'transactional',
@@ -218,7 +241,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
           userId: user.id,
           email: user.email,
           organizationId: org.id,
-          subscriptionId,
+          subscriptionId: subscriptionRow.id,
         })
       } else {
         logger.warn('[subscription.created] Failed to send enterprise subscription email', {
@@ -243,7 +266,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
       error: emailError,
       stripeCustomerId,
       referenceId,
-      subscriptionId,
+      subscriptionId: subscriptionRow.id,
     })
   }
 }

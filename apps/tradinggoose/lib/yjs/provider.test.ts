@@ -7,11 +7,7 @@ import * as decoding from 'lib0/decoding'
 import * as encoding from 'lib0/encoding'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
-import {
-  type ReviewTargetDescriptor,
-  YJS_CLOSE_CODE_RETRY_REQUIRED,
-} from '@/lib/copilot/review-sessions/types'
+import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import {
   decodeYjsLifecycleMessage,
   encodeYjsDurableCheckpoint,
@@ -120,15 +116,18 @@ function readLifecycleMessage(message: Uint8Array) {
 }
 
 describe('bootstrapYjsProvider', () => {
-  const saved = new Map<string, string>()
-  let descriptor: ReviewTargetDescriptor
+  const descriptor: ReviewTargetDescriptor = {
+    workspaceId: 'workspace-1',
+    entityKind: 'workflow',
+    entityId: 'workflow-1',
+    yjsSessionId: 'workflow-1',
+  }
 
   async function bootstrapSyncedProvider(
     serverUpdate?: Uint8Array,
     pendingLocalEdits?: import('./provider').YjsPendingLocalEdits,
     lineageId = 'lineage-1',
-    accessMode: 'read' | 'write' = 'write',
-    durableSnapshot?: Y.Snapshot
+    accessMode: 'read' | 'write' = 'write'
   ) {
     const { bootstrapYjsProvider } = await import('./provider')
     const providerCount = providerInstances.length + 1
@@ -144,9 +143,7 @@ describe('bootstrapYjsProvider', () => {
     const provider = providerInstances.at(-1)!
     const checkpointDoc = new Y.Doc()
     if (serverUpdate) Y.applyUpdate(checkpointDoc, serverUpdate)
-    provider.receive(
-      encodeYjsDurableCheckpoint(lineageId, durableSnapshot ?? Y.snapshot(checkpointDoc))
-    )
+    provider.receive(encodeYjsDurableCheckpoint(lineageId, Y.snapshot(checkpointDoc)))
     checkpointDoc.destroy()
     if (serverUpdate) provider.receive(createSyncUpdateMessage(serverUpdate))
     provider.emit('sync', true)
@@ -157,18 +154,10 @@ describe('bootstrapYjsProvider', () => {
     vi.resetModules()
     fetchMock.mockReset()
     providerInstances.length = 0
-    descriptor = buildSavedEntityDescriptor('workflow', 'workflow-1', 'workspace-1')
-    saved.clear()
-    vi.stubGlobal('sessionStorage', {
-      getItem: (key: string) => saved.get(key) ?? null,
-      setItem: (key: string, value: string) => saved.set(key, value),
-      removeItem: (key: string) => saved.delete(key),
-    })
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/auth/socket-token')
-        return jsonResponse({ token: 'token-1', userId: 'user-1' })
+      if (url === '/api/auth/socket-token') return jsonResponse({ token: 'token-1' })
       throw new Error(`Unexpected fetch: ${url}`)
     })
   })
@@ -179,11 +168,10 @@ describe('bootstrapYjsProvider', () => {
     vi.unstubAllGlobals()
   })
 
-  it('rebases pending saved-entity edits onto a fresh server history', async () => {
-    descriptor = buildSavedEntityDescriptor('skill', 'skill-1', 'workspace-1')
+  it('rebases pending local edits onto a fresh server history', async () => {
     const snapshot = (values: Record<string, unknown>) => {
       const doc = new Y.Doc()
-      const fields = doc.getMap('fields')
+      const fields = doc.getMap('workflow')
       for (const [key, value] of Object.entries(values)) fields.set(key, value)
       const update = Y.encodeStateAsUpdate(doc)
       doc.destroy()
@@ -213,7 +201,7 @@ describe('bootstrapYjsProvider', () => {
     const result = await bootstrapSyncedProvider()
     const provider = result.provider as unknown as MockWebsocketProvider
     provider.receive(createSyncUpdateMessage(initial))
-    const fields = result.doc.getMap('fields')
+    const fields = result.doc.getMap('workflow')
     let acknowledgedUpdate!: Uint8Array
     result.doc.once('update', (update) => {
       acknowledgedUpdate = update
@@ -225,7 +213,7 @@ describe('bootstrapYjsProvider', () => {
     ;(fields.get('nested') as Y.Map<unknown>).set('owned', 'b')
     const remote = new Y.Doc()
     Y.applyUpdate(remote, Y.encodeStateAsUpdate(result.doc))
-    remote.getMap('fields').set('retyped', new Y.Text('base'))
+    remote.getMap('workflow').set('retyped', new Y.Text('base'))
     const intermediate = Y.encodeStateAsUpdate(remote)
     provider.receive(
       createSyncUpdateMessage(Y.encodeStateAsUpdate(remote, Y.encodeStateVector(result.doc)))
@@ -243,14 +231,14 @@ describe('bootstrapYjsProvider', () => {
     provider.receive(createSyncUpdateMessage(stale))
     expect(fields.has('stale')).toBe(false)
     const event = await result.lifecycle
-    if (event.type !== 'reopen') throw event.error
+    if (event.type !== 'lineage-replaced') throw event.error
     const pending = event.pendingLocalEdits
     if (!pending) throw new Error('Expected pending local edits')
     expect(pending.replay).toHaveLength(12)
     expect(pending.replay[0]).toEqual({ local: true, update: acknowledgedUpdate })
     result.dispose()
     const restarted = await bootstrapSyncedProvider(intermediate, pending, 'lineage-2')
-    expect(restarted.doc.getMap('fields').toJSON()).toEqual({
+    expect(restarted.doc.getMap('workflow').toJSON()).toEqual({
       text: 'abc',
       same: 'ab',
       blocks: blocks('Local A', 'Base B'),
@@ -260,11 +248,11 @@ describe('bootstrapYjsProvider', () => {
       retyped: 'base!',
       nested: { owned: 'c', foreign: 'base' },
     })
-    ;(restarted.doc.getMap('fields').get('same') as Y.Text).insert(1, 'X')
+    ;(restarted.doc.getMap('workflow').get('same') as Y.Text).insert(1, 'X')
     const restartedProvider = restarted.provider as unknown as MockWebsocketProvider
     restartedProvider.receive(encodeYjsDurableCheckpoint('lineage-3', Y.emptySnapshot))
     const repeatedEvent = await restarted.lifecycle
-    if (repeatedEvent.type !== 'reopen') throw repeatedEvent.error
+    if (repeatedEvent.type !== 'lineage-replaced') throw repeatedEvent.error
     const replayedPending = repeatedEvent.pendingLocalEdits
     restarted.dispose()
     const concurrent = snapshot({
@@ -278,7 +266,7 @@ describe('bootstrapYjsProvider', () => {
       nested: nested('b', 'server'),
     })
     const merged = await bootstrapSyncedProvider(concurrent, replayedPending, 'lineage-3')
-    const mergedFields = merged.doc.getMap('fields')
+    const mergedFields = merged.doc.getMap('workflow')
     expect((mergedFields.get('text') as Y.Text).toString()).toBe('aXc')
     expect((mergedFields.get('same') as Y.Text).toString()).toBe('aXXb')
     expect(mergedFields.has('deleted')).toBe(false)
@@ -301,22 +289,22 @@ describe('bootstrapYjsProvider', () => {
       pending,
       'lineage-4'
     )
-    expect(replacement.doc.getMap('fields').toJSON()).toEqual({
+    expect(replacement.doc.getMap('workflow').toJSON()).toEqual({
       text: 'foreignbc',
       deleted: 'foreign',
       retyped: 42,
       nested: { owned: 'foreign', foreign: 'server' },
     })
-    const replacementFields = replacement.doc.getMap('fields')
+    const replacementFields = replacement.doc.getMap('workflow')
     replacementFields.set('checkpointed', true)
     const requested = new Y.Doc()
     Y.applyUpdate(requested, Y.encodeStateAsUpdate(replacement.doc))
     const replacementProvider = replacement.provider as unknown as MockWebsocketProvider
-    const persisted = replacement.persist('Renamed skill')
+    const persisted = replacement.persist('Renamed workflow')
     replacementFields.set('after-request', true)
     const persistRequest = readLifecycleMessage(replacementProvider.ws.send.mock.calls[0]![0])
     if (persistRequest.type !== 'persist-request') throw new Error('Expected persist request')
-    expect(persistRequest.identityName).toBe('Renamed skill')
+    expect(persistRequest.identityName).toBe('Renamed workflow')
     replacementProvider.receive(
       encodeYjsDurableCheckpoint('lineage-4', Y.snapshot(requested), persistRequest.requestId)
     )
@@ -343,7 +331,7 @@ describe('bootstrapYjsProvider', () => {
     )
     replacementProvider.receive(encodeYjsDurableCheckpoint('lineage-5', Y.emptySnapshot))
     await expect(replacement.lifecycle).resolves.toEqual({
-      type: 'reopen',
+      type: 'lineage-replaced',
       pendingLocalEdits: undefined,
     })
     replacement.dispose()
@@ -376,118 +364,9 @@ describe('bootstrapYjsProvider', () => {
     await vi.advanceTimersByTimeAsync(1_150)
     expect(fetchMock).toHaveBeenCalledTimes(tokenFetches + 4)
     result.dispose()
-    resolveToken(jsonResponse({ token: 'token-2', userId: 'user-1' }))
+    resolveToken(jsonResponse({ token: 'token-2' }))
     await vi.advanceTimersByTimeAsync(0)
     expect(provider.connect).toHaveBeenCalledTimes(3)
-  })
-
-  it('reconnects a writer with a fresh token while retaining its local edits', async () => {
-    const result = await bootstrapSyncedProvider()
-    const provider = result.provider as unknown as MockWebsocketProvider
-    result.doc.getMap('workflow').set('content', 'local edit')
-    vi.useFakeTimers()
-    vi.spyOn(Math, 'random').mockReturnValue(0)
-    fetchMock.mockResolvedValueOnce(jsonResponse(null, 401))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ token: 'token-2', userId: 'user-1' }))
-
-    provider.emit('connection-close', { code: YJS_CLOSE_CODE_RETRY_REQUIRED }, provider)
-    await vi.advanceTimersByTimeAsync(1_000)
-    expect(provider.connect).toHaveBeenCalledTimes(1)
-    await vi.advanceTimersByTimeAsync(2_000)
-
-    expect(provider.params.token).toBe('token-2')
-    expect(provider.connect).toHaveBeenCalledTimes(2)
-    expect(provider.destroy).not.toHaveBeenCalled()
-    expect(result.doc.getMap('workflow').get('content')).toBe('local edit')
-    result.dispose()
-  })
-
-  it.each(['reload', 'reconnect'])('uses the rebuilt workflow after a %s', async (transition) => {
-    const server = new Y.Doc()
-    const text = new Y.Text('alpha')
-    server.getMap('workflow').set('text', text)
-    const original = await bootstrapSyncedProvider(Y.encodeStateAsUpdate(server))
-    const local = original.doc.getMap<Y.Text>('workflow').get('text')!
-    local.insert(local.length, ' beta')
-    local.insert(local.length, ' unsaved')
-
-    let pending
-    if (transition === 'reload') {
-      window.dispatchEvent(new Event('beforeunload'))
-      expect(saved.size).toBe(1)
-    } else {
-      const provider = original.provider as unknown as MockWebsocketProvider
-      provider.receive(encodeYjsDurableCheckpoint('rebuilt', Y.emptySnapshot))
-      const event = await original.lifecycle
-      if (event.type !== 'reopen') throw event.error
-      pending = event.pendingLocalEdits
-    }
-    original.dispose()
-
-    const rebuilt = new Y.Doc()
-    rebuilt.getMap('workflow').set('text', new Y.Text('alpha beta'))
-    const checkpoint = Y.snapshot(rebuilt)
-    rebuilt.getMap('workflow').set('live', true)
-    const reopened = await bootstrapSyncedProvider(
-      Y.encodeStateAsUpdate(rebuilt),
-      pending,
-      'rebuilt',
-      'write',
-      transition === 'reconnect' ? checkpoint : undefined
-    )
-    expect(reopened.doc.getMap('workflow').toJSON()).toEqual({ text: 'alpha beta', live: true })
-    expect(saved.size).toBe(0)
-    reopened.dispose()
-    rebuilt.destroy()
-    server.destroy()
-  })
-
-  it('restores pending edits only for their author after an account switch', async () => {
-    const original = await bootstrapSyncedProvider()
-    const provider = original.provider as unknown as MockWebsocketProvider
-    original.doc.getMap('workflow').set('content', 'draft')
-    const originalUpdate = Y.encodeStateAsUpdate(original.doc)
-    original.doc.getMap('workflow').set('title', 'pending')
-    fetchMock.mockImplementation(async () => jsonResponse({ token: 'other', userId: 'user-2' }))
-    vi.useFakeTimers()
-    vi.spyOn(Math, 'random').mockReturnValue(0)
-    provider.emit('connection-close', { code: YJS_CLOSE_CODE_RETRY_REQUIRED }, provider)
-    await vi.advanceTimersByTimeAsync(1_000)
-    await expect(original.lifecycle).resolves.toEqual({ type: 'reopen' })
-    expect(provider.connect).toHaveBeenCalledTimes(1)
-    original.dispose()
-    vi.useRealTimers()
-
-    const other = await bootstrapSyncedProvider()
-    expect(other.doc.getMap('workflow').size).toBe(0)
-    expect(saved.size).toBe(1)
-    other.dispose()
-    fetchMock.mockImplementation(async () => jsonResponse({ token: 'renewed', userId: 'user-1' }))
-    const restored = await bootstrapSyncedProvider(originalUpdate)
-    expect(restored.doc.getMap('workflow').toJSON()).toEqual({ content: 'draft', title: 'pending' })
-    expect(saved.size).toBe(1)
-    const restoredProvider = restored.provider as unknown as MockWebsocketProvider
-    restoredProvider.receive(encodeYjsDurableCheckpoint('lineage-1', Y.snapshot(restored.doc)))
-    expect(saved.size).toBe(0)
-    restored.dispose()
-  })
-
-  it('releases the previous account even if browser storage is full', async () => {
-    const result = await bootstrapSyncedProvider()
-    const provider = result.provider as unknown as MockWebsocketProvider
-    result.doc.getMap('workflow').set('content', 'draft')
-    vi.spyOn(sessionStorage, 'setItem').mockImplementation(() => {
-      throw new DOMException('Full', 'QuotaExceededError')
-    })
-    expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(false)
-    fetchMock.mockResolvedValueOnce(jsonResponse({ token: 'other', userId: 'user-2' }))
-    vi.useFakeTimers()
-    vi.spyOn(Math, 'random').mockReturnValue(0)
-    provider.emit('connection-close', { code: YJS_CLOSE_CODE_RETRY_REQUIRED }, provider)
-    await vi.advanceTimersByTimeAsync(1_000)
-    await expect(result.lifecycle).resolves.toEqual({ type: 'reopen' })
-    expect(provider.connect).toHaveBeenCalledTimes(1)
-    result.dispose()
   })
 
   it('terminates an oversized writer update instead of replaying it', async () => {

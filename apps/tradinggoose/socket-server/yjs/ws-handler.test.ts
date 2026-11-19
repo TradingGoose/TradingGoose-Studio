@@ -33,7 +33,6 @@ const mocks = vi.hoisted(() => {
     YjsAuthError,
     YjsSessionAdmissionError,
     authenticate: vi.fn(),
-    isSocketSessionActive: vi.fn(),
     initialize: vi.fn(),
     bindList: vi.fn(),
     acquire: vi.fn(),
@@ -52,7 +51,6 @@ vi.mock('./auth', () => ({
   authenticateYjsConnection: mocks.authenticate,
   YjsAuthError: mocks.YjsAuthError,
 }))
-vi.mock('../middleware/auth', () => ({ isSocketSessionActive: mocks.isSocketSessionActive }))
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   initializeSavedReviewTargetDocument: mocks.initialize,
 }))
@@ -91,7 +89,6 @@ const entityId = (target: TestTarget) =>
 function authentication(target: TestTarget) {
   return {
     userId: 'user-1',
-    sessionToken: 'native-session',
     envelope: {
       targetKind: target.targetKind ?? 'entity',
       sessionId: target.sessionId,
@@ -158,14 +155,13 @@ async function runUpgrade(
       state: options.bootstrap?.state ?? new Uint8Array([0, 0]),
     })
   }
-  handleYjsUpgrade(wss, request, {} as Duplex, Buffer.alloc(0), () => true)
+  handleYjsUpgrade(wss, request, {} as Duplex, Buffer.alloc(0))
   await tick()
-  return { wss }
+  return { request, wss }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mocks.isSocketSessionActive.mockReset().mockResolvedValue(true)
   for (const { doc } of documents.values()) doc.destroy()
   documents.clear()
   mocks.acquire.mockImplementation(
@@ -229,13 +225,13 @@ describe('handleYjsUpgrade', () => {
 
     const malformed = websocketServer()
     malformed.handleUpgrade.mockImplementation(() => undefined)
-    handleYjsUpgrade(malformed, requestFor(target), {} as Duplex, Buffer.alloc(0), () => true)
+    handleYjsUpgrade(malformed, requestFor(target), {} as Duplex, Buffer.alloc(0))
     await tick()
     expect(malformed.handleUpgrade).toHaveBeenCalledOnce()
     expect(mocks.authenticate).not.toHaveBeenCalled()
 
     const wss = websocketServer()
-    handleYjsUpgrade(wss, requestFor(target), {} as Duplex, Buffer.alloc(0), () => true)
+    handleYjsUpgrade(wss, requestFor(target), {} as Duplex, Buffer.alloc(0))
     await tick()
 
     expect(wss.handleUpgrade).toHaveBeenCalledOnce()
@@ -253,7 +249,7 @@ describe('handleYjsUpgrade', () => {
       ownerUserId: 'user-1',
     }
     const messages = [Buffer.from([0, 0]), Buffer.from([1, 2, 3])]
-    const { wss } = await runUpgrade(target, { messages })
+    const { request, wss } = await runUpgrade(target, { messages })
 
     expect(mocks.initialize).toHaveBeenCalledWith(
       expect.objectContaining({ entityKind: 'dashboard_widget', entityId: 'widget-1' }),
@@ -261,31 +257,19 @@ describe('handleYjsUpgrade', () => {
     )
     expect(mocks.setup).toHaveBeenCalledWith(
       expect.anything(),
+      request,
       expect.objectContaining({
         accessMode: 'write',
-        sessionToken: 'native-session',
         initialMessages: messages.map((message) => Uint8Array.from(message)),
         onDocumentUpdate: expect.any(Function),
       })
     )
-    const initialMessages = mocks.setup.mock.calls[0]?.[1].initialMessages as Uint8Array[]
+    const initialMessages = mocks.setup.mock.calls[0]?.[2].initialMessages as Uint8Array[]
     initialMessages.forEach((message, index) => {
       expect(message).not.toBe(messages[index])
     })
     expect(wss.handleUpgrade.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.initialize.mock.invocationCallOrder[0]!
-    )
-  })
-
-  it('does not attach when the originating session expires during admission', async () => {
-    mocks.isSocketSessionActive.mockResolvedValueOnce(false)
-    await runUpgrade({ sessionId: 'workflow-expired-session', entityKind: 'workflow' })
-
-    expect(mocks.isSocketSessionActive).toHaveBeenCalledWith('user-1', 'native-session')
-    expect(mocks.setup).not.toHaveBeenCalled()
-    expect(mocks.close).toHaveBeenCalledWith(
-      YJS_CLOSE_CODE_RETRY_REQUIRED,
-      'Failed to attach Yjs session'
     )
   })
 
@@ -298,8 +282,7 @@ describe('handleYjsUpgrade', () => {
       websocketServer([Buffer.alloc(2 * 1024 * 1024)]),
       requestFor(target),
       {} as Duplex,
-      Buffer.alloc(0),
-      () => true
+      Buffer.alloc(0)
     )
 
     expect(copy).not.toHaveBeenCalled()
@@ -316,8 +299,7 @@ describe('handleYjsUpgrade', () => {
       websocketServer([[Buffer.alloc(1024 * 1024), Buffer.alloc(1024 * 1024)]]),
       requestFor(target),
       {} as Duplex,
-      Buffer.alloc(0),
-      () => true
+      Buffer.alloc(0)
     )
 
     expect(concat).not.toHaveBeenCalled()
@@ -358,10 +340,11 @@ describe('handleYjsUpgrade', () => {
       },
     ],
   ])('allows %s read-mode websocket upgrades', async (_label, target) => {
-    await runUpgrade(target, { accessMode: 'read' })
+    const { request } = await runUpgrade(target, { accessMode: 'read' })
 
     expect(mocks.setup).toHaveBeenCalledWith(
       expect.anything(),
+      request,
       expect.objectContaining({ accessMode: 'read', onDocumentUpdate: undefined })
     )
   })
@@ -384,7 +367,7 @@ describe('handleYjsUpgrade', () => {
 
   it('persists writable watchlists through their saved-document lifecycle', async () => {
     await runUpgrade({ sessionId: 'watchlist-write', entityKind: 'watchlist' })
-    const persist = mocks.setup.mock.calls[0]?.[1].onDocumentUpdate
+    const persist = mocks.setup.mock.calls[0]?.[2].onDocumentUpdate
     const doc = new Y.Doc()
 
     await persist('watchlist-write', doc)
@@ -401,7 +384,7 @@ describe('handleYjsUpgrade', () => {
 
   it('persists manual entity documents and identity names together', async () => {
     await runUpgrade({ sessionId: 'skill-write', entityKind: 'skill' })
-    const persist = mocks.setup.mock.calls[0]?.[1].persist
+    const persist = mocks.setup.mock.calls[0]?.[2].persist
     const doc = new Y.Doc()
 
     await persist(doc, 'request-1', 'Renamed skill')

@@ -21,7 +21,7 @@ const { socket } = vi.hoisted(() => ({
   },
 }))
 vi.mock('@/contexts/socket-context', () => ({
-  useSocket: () => (socket.available ? socket : null),
+  useSocket: () => ({ socket: socket.available ? socket : null }),
 }))
 
 const listing = { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' as const }

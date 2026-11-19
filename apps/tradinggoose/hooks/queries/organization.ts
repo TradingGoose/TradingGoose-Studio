@@ -18,7 +18,7 @@ export const organizationKeys = {
   details: () => [...organizationKeys.all, 'detail'] as const,
   detail: (id: string) => [...organizationKeys.details(), id] as const,
   billing: (id: string) => [...organizationKeys.detail(id), 'billing'] as const,
-  seats: (id: string) => [...organizationKeys.detail(id), 'seats'] as const,
+  members: (id: string) => [...organizationKeys.detail(id), 'members'] as const,
   memberUsage: (id: string) => [...organizationKeys.detail(id), 'member-usage'] as const,
   workspaces: (id: string) => [...organizationKeys.detail(id), 'workspaces'] as const,
   availableWorkspaces: (id: string) => [...organizationKeys.workspaces(id), 'available'] as const,
@@ -60,17 +60,15 @@ export function useOrganizations(options?: { enabled?: boolean }) {
   })
 }
 
-async function fetchOrganization(orgId: string) {
-  const response = await client.organization.getFullOrganization({
-    query: { organizationId: orgId },
-  })
+async function fetchOrganization() {
+  const response = await client.organization.getFullOrganization()
   return response.data
 }
 
 export function useOrganization(orgId: string) {
   return useQuery({
     queryKey: organizationKeys.detail(orgId),
-    queryFn: () => fetchOrganization(orgId),
+    queryFn: fetchOrganization,
     enabled: !!orgId,
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,
@@ -101,36 +99,6 @@ export function useOrganizationBilling(orgId: string) {
     retry: false,
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,
-  })
-}
-
-export interface OrganizationSeats {
-  organizationId: string
-  maxSeats: number
-  usedSeats: number
-  availableSeats: number
-  seatQuote: {
-    amountUsd: number
-    interval: 'month' | 'year'
-    quantity: number
-    revision: string
-  } | null
-}
-
-export function useOrganizationSeats(orgId: string, enabled = true) {
-  return useQuery({
-    queryKey: organizationKeys.seats(orgId),
-    queryFn: async (): Promise<OrganizationSeats> => {
-      const response = await fetch(`/api/organizations/${orgId}/seats`)
-      if (!response.ok) throw new Error('Failed to fetch organization seats')
-      const payload = await response.json()
-      if (payload.data?.organizationId !== orgId)
-        throw new Error('Organization seats scope mismatch')
-      return payload.data
-    },
-    enabled: Boolean(orgId) && enabled,
-    retry: false,
-    staleTime: 30 * 1000,
   })
 }
 
@@ -194,23 +162,26 @@ export function useAvailableOrganizationBillingWorkspaces(orgId: string, enabled
   })
 }
 
-interface OrganizationMemberUsage {
-  data: { userId: string; currentPeriodCost?: number | string | null }[]
-  usageScope?: 'individual' | 'pooled'
-  sharedCurrentPeriodCost?: number | null
+async function fetchOrganizationMembers(orgId: string) {
+  const response = await fetch(`/api/organizations/${orgId}/members?include=usage`)
+
+  if (response.status === 404) {
+    return { members: [] }
+  }
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch organization members')
+  }
+  return response.json()
 }
 
-export function useOrganizationMembers(orgId: string, enabled: boolean) {
+export function useOrganizationMembers(orgId: string) {
   return useQuery({
     queryKey: organizationKeys.memberUsage(orgId),
-    queryFn: async ({ signal }): Promise<OrganizationMemberUsage> => {
-      const response = await fetch(`/api/organizations/${orgId}/members?include=usage`, { signal })
-      if (!response.ok) throw new Error('Failed to fetch organization members')
-      return response.json()
-    },
-    enabled: Boolean(orgId) && enabled,
+    queryFn: () => fetchOrganizationMembers(orgId),
+    enabled: !!orgId,
     staleTime: 30 * 1000,
-    retry: false,
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -231,6 +202,7 @@ interface InviteMemberParams {
 interface RemoveMemberParams {
   memberId: string
   orgId: string
+  shouldReduceSeats?: boolean
 }
 
 interface CancelInvitationParams {
@@ -239,7 +211,6 @@ interface CancelInvitationParams {
 }
 
 interface UpdateSeatsParams {
-  quoteRevision: string
   orgId: string
   seats: number
 }
@@ -351,10 +322,13 @@ export const organizationMutationOptions = {
 
   removeMember(queryClient: QueryClient) {
     return mutationOptions({
-      mutationFn: async ({ memberId, orgId }: RemoveMemberParams) => {
-        const response = await fetch(`/api/organizations/${orgId}/members/${memberId}`, {
-          method: 'DELETE',
-        })
+      mutationFn: async ({ memberId, orgId, shouldReduceSeats }: RemoveMemberParams) => {
+        const response = await fetch(
+          `/api/organizations/${orgId}/members/${memberId}?shouldReduceSeats=${shouldReduceSeats}`,
+          {
+            method: 'DELETE',
+          }
+        )
 
         if (!response.ok) {
           const error = await response.json()
@@ -399,17 +373,14 @@ export const organizationMutationOptions = {
 
   updateSeats(queryClient: QueryClient) {
     return mutationOptions({
-      mutationFn: async ({ seats, orgId, quoteRevision }: UpdateSeatsParams) => {
+      mutationFn: async ({ seats, orgId }: UpdateSeatsParams) => {
         const response = await fetch(`/api/organizations/${orgId}/seats`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ seats, quoteRevision }),
+          body: JSON.stringify({ seats }),
         })
 
         if (!response.ok) {
-          if (response.status === 409) {
-            await queryClient.invalidateQueries({ queryKey: organizationKeys.seats(orgId) })
-          }
           const error = await response.json()
           throw new Error(error.error || 'Failed to update seats')
         }
@@ -417,7 +388,6 @@ export const organizationMutationOptions = {
         return response.json()
       },
       onSuccess: (_data, variables) => {
-        queryClient.invalidateQueries({ queryKey: organizationKeys.seats(variables.orgId) })
         queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
         queryClient.invalidateQueries({ queryKey: organizationKeys.billing(variables.orgId) })
         queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })

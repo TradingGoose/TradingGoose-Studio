@@ -149,7 +149,7 @@ function useTradingPortfolioSocketData<T>({
     | 'trading-portfolio-performance'
   getData: (payload: any) => T | undefined
 }): TradingSocketQueryResult<T> {
-  const socket = useSocket()
+  const { socket } = useSocket()
   const [dataState, setDataState] = useState<{ key: string; data: T | undefined }>({
     key: '',
     data: undefined,

@@ -25,6 +25,7 @@ import {
   materializeWorkflowBlockFields,
   materializeWorkflowFields,
   readWorkflowMap,
+  readWorkflowSnapshot,
   readWorkflowSubBlockFieldsMap,
   readWorkflowSubBlockFieldValue,
   readWorkflowTextField,
@@ -424,6 +425,15 @@ export function useWorkflowVariables(): Record<string, any> {
   }, [])
 
   return useYjsSubscription(subscribe, extract, EMPTY_VARIABLES, isEqual)
+}
+
+/** Get the full workflow snapshot (non-reactive, imperative read) */
+export function useWorkflowSnapshotReader(): () => WorkflowSnapshot | null {
+  const session = useOptionalWorkflowSession()
+  return useCallback(() => {
+    if (!session?.doc) return null
+    return readWorkflowSnapshot(session.doc)
+  }, [session?.doc])
 }
 
 // ---------------------------------------------------------------------------

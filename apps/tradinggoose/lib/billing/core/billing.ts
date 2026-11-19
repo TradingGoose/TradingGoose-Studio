@@ -1,5 +1,12 @@
 import { db } from '@tradinggoose/db'
-import { organizationMemberBillingLedger, subscription, userStats } from '@tradinggoose/db/schema'
+import {
+  member,
+  organization,
+  organizationMemberBillingLedger,
+  subscription,
+  user,
+  userStats,
+} from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
 import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
@@ -29,6 +36,25 @@ function parseDecimal(value: string | number | null | undefined): number {
 
   const parsed = Number.parseFloat(value.toString())
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+export async function getOrganizationCurrentUsageForTier(
+  organizationId: string,
+  tier: BillingTierRecord
+): Promise<number> {
+  if (usesIndividualBillingLedger(tier)) {
+    const memberRows = await db
+      .select({
+        currentPeriodCost: organizationMemberBillingLedger.currentPeriodCost,
+      })
+      .from(organizationMemberBillingLedger)
+      .where(eq(organizationMemberBillingLedger.organizationId, organizationId))
+
+    return memberRows.reduce((total, row) => total + parseDecimal(row.currentPeriodCost), 0)
+  }
+
+  const billingLedger = await getOrganizationBillingLedger(organizationId)
+  return billingLedger?.currentPeriodCost ?? 0
 }
 
 export async function calculateOrganizationIndividualOverage(params: {
@@ -94,6 +120,49 @@ export function getBillingTierPricing(
   return {
     basePrice: getTierBasePrice(tier),
     usageAllowance: getSubscriptionUsageAllowanceUsd(source),
+  }
+}
+
+/**
+ * Calculate overage billing for a user
+ * Returns only the amount that exceeds their subscription base price
+ */
+export async function calculateUserOverage(userId: string): Promise<{
+  basePrice: number
+  actualUsage: number
+  overageAmount: number
+  tier: BillingTierSummary
+} | null> {
+  try {
+    // Get user's subscription and usage data
+    const [{ billingEnabled }, subscription, usageData, userRecord] = await Promise.all([
+      getResolvedBillingSettings(),
+      getEffectiveSubscription(userId),
+      getUserUsageData(userId),
+      db.select().from(user).where(eq(user.id, userId)).limit(1),
+    ])
+
+    if (userRecord.length === 0) {
+      logger.warn('User not found for overage calculation', { userId })
+      return null
+    }
+
+    const tier = toBillingTierSummary(subscription?.tier)
+    const { basePrice, usageAllowance } = getBillingTierPricing(subscription ?? null)
+    const actualUsage = usageData.currentUsage
+
+    const overageAmount =
+      billingEnabled && subscription ? Math.max(0, actualUsage - usageAllowance) : 0
+
+    return {
+      basePrice,
+      actualUsage,
+      overageAmount,
+      tier,
+    }
+  } catch (error) {
+    logger.error('Failed to calculate user overage', { userId, error })
+    return null
   }
 }
 
@@ -165,11 +234,14 @@ export async function calculateSubscriptionOverage(sub: {
 }
 
 /**
- * Get the personal billing and subscription summary
+ * Get comprehensive billing and subscription summary
  */
-export async function getSimplifiedBillingSummary(userId: string): Promise<{
+export async function getSimplifiedBillingSummary(
+  userId: string,
+  organizationId?: string
+): Promise<{
   id: string | null
-  type: 'individual'
+  type: 'individual' | 'organization'
   tier: BillingTierSummary
   basePrice: number
   currentUsage: number
@@ -204,12 +276,21 @@ export async function getSimplifiedBillingSummary(userId: string): Promise<{
     daysRemaining: number
     copilotCost: number
   }
+  organizationData?: {
+    seatCount: number
+    memberCount: number
+    totalBasePrice: number
+    totalCurrentUsage: number
+    totalOverage: number
+  }
 }> {
   try {
     // Get subscription and usage data upfront
     const [{ billingEnabled, usageWarningThresholdPercent }, subscription] = await Promise.all([
       getResolvedBillingSettings(),
-      getEffectiveSubscription(userId),
+      organizationId
+        ? getOrganizationSubscription(organizationId)
+        : getEffectiveSubscription(userId),
     ])
     const exposedSubscription = billingEnabled ? subscription : null
 
@@ -219,12 +300,138 @@ export async function getSimplifiedBillingSummary(userId: string): Promise<{
     )
     const tier = toBillingTierSummary(exposedSubscription?.tier)
 
+    if (organizationId) {
+      // Organization billing summary
+      if (!subscription) {
+        if (!billingEnabled) {
+          return getDisabledBillingSummary('organization')
+        }
+
+        throw new Error(
+          `No active organization subscription found for billed organization ${organizationId}`
+        )
+      }
+
+      const [members, billingLedger, orgRows] = await Promise.all([
+        db
+          .select({ userId: member.userId })
+          .from(member)
+          .where(eq(member.organizationId, organizationId)),
+        getOrganizationBillingLedger(organizationId),
+        db
+          .select({ orgUsageLimit: organization.orgUsageLimit })
+          .from(organization)
+          .where(eq(organization.id, organizationId))
+          .limit(1),
+      ])
+
+      if (!billingLedger) {
+        if (!billingEnabled) {
+          return getDisabledBillingSummary('organization')
+        }
+
+        throw new Error(`No billing ledger found for billed organization ${organizationId}`)
+      }
+
+      const { basePrice: basePricePerSeat, usageAllowance } = getBillingTierPricing(subscription)
+      // Organization billing is always seat-based. Fall back to the tier's configured seat count
+      // until the subscription record has an explicit seat quantity.
+      const licensedSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
+      const totalBasePrice = billingEnabled ? basePricePerSeat * licensedSeats : 0
+
+      const totalCurrentUsage = await getOrganizationCurrentUsageForTier(
+        organizationId,
+        subscription.tier
+      )
+      const totalCopilotCost = billingLedger.currentPeriodCopilotCost
+      const totalLastPeriodCopilotCost = billingLedger.lastPeriodCopilotCost
+      const totalOverage = billingEnabled
+        ? usesIndividualBillingLedger(subscription.tier)
+          ? await calculateOrganizationIndividualOverage({
+              organizationId,
+              tier: subscription.tier,
+            })
+          : Math.max(0, totalCurrentUsage - usageAllowance)
+        : 0
+      const billingPeriodStart = subscription.periodStart || null
+      const billingPeriodEnd = subscription.periodEnd || null
+
+      const configuredUsageLimit =
+        orgRows.length > 0 && orgRows[0].orgUsageLimit
+          ? Number.parseFloat(orgRows[0].orgUsageLimit)
+          : null
+      const totalUsageLimit = billingEnabled
+        ? usesIndividualBillingLedger(subscription.tier)
+          ? usageAllowance
+          : configuredUsageLimit !== null
+            ? Math.max(configuredUsageLimit, usageAllowance)
+            : usageAllowance
+        : Number.MAX_SAFE_INTEGER
+      const percentUsed =
+        billingEnabled && totalUsageLimit > 0
+          ? Math.round((totalCurrentUsage / totalUsageLimit) * 100)
+          : 0
+      const isWarning =
+        billingEnabled && percentUsed >= usageWarningThresholdPercent && percentUsed < 100
+      const isExceeded = billingEnabled && totalCurrentUsage >= totalUsageLimit
+      const daysRemaining = billingPeriodEnd
+        ? Math.max(0, Math.ceil((billingPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        : 0
+
+      return {
+        type: 'organization',
+        id: exposedSubscription?.id ?? null,
+        basePrice: totalBasePrice,
+        currentUsage: totalCurrentUsage,
+        overageAmount: totalOverage,
+        totalProjected: totalBasePrice + totalOverage,
+        usageLimit: totalUsageLimit,
+        percentUsed,
+        isWarning,
+        isExceeded,
+        daysRemaining,
+        // Subscription details
+        isPaid,
+        status: exposedSubscription?.status || null,
+        seats: exposedSubscription ? licensedSeats : null,
+        metadata: exposedSubscription?.metadata || null,
+        stripeSubscriptionId: exposedSubscription?.stripeSubscriptionId || null,
+        periodEnd: exposedSubscription?.periodEnd || null,
+        cancelAtPeriodEnd: exposedSubscription?.cancelAtPeriodEnd || undefined,
+        cancelAt: exposedSubscription?.cancelAt ?? null,
+        billingInterval: exposedSubscription?.billingInterval ?? null,
+        tier,
+        // Usage details
+        usage: {
+          current: totalCurrentUsage,
+          limit: totalUsageLimit,
+          percentUsed,
+          isWarning,
+          isExceeded,
+          billingPeriodStart,
+          billingPeriodEnd,
+          lastPeriodCost: billingLedger.lastPeriodCost,
+          lastPeriodCopilotCost: totalLastPeriodCopilotCost,
+          daysRemaining,
+          copilotCost: totalCopilotCost,
+        },
+        organizationData: {
+          seatCount: licensedSeats,
+          memberCount: members.length,
+          totalBasePrice,
+          totalCurrentUsage,
+          totalOverage,
+        },
+      }
+    }
+
+    // Individual billing summary
     if (billingEnabled && !subscription) {
       throw new Error(`No active personal subscription found for billed user ${userId}`)
     }
 
     const usageData = await getUserUsageData(userId)
-    const { basePrice, usageAllowance } = getBillingTierPricing(subscription)
+    const { basePrice, usageAllowance } = getBillingTierPricing(subscription ?? null)
 
     // Fetch user stats for copilot cost breakdown
     const userStatsRows = await db
@@ -247,6 +454,8 @@ export async function getSimplifiedBillingSummary(userId: string): Promise<{
         : 0
 
     const currentUsage = usageData.currentUsage
+    const totalCopilotCost = copilotCost
+    const totalLastPeriodCopilotCost = lastPeriodCopilotCost
 
     const overageAmount =
       billingEnabled && subscription ? Math.max(0, currentUsage - usageAllowance) : 0
@@ -267,7 +476,7 @@ export async function getSimplifiedBillingSummary(userId: string): Promise<{
       type: 'individual',
       id: exposedSubscription?.id ?? null,
       basePrice: effectiveBasePrice,
-      currentUsage,
+      currentUsage: currentUsage,
       overageAmount,
       totalProjected: effectiveBasePrice + overageAmount,
       usageLimit: usageData.limit,
@@ -296,18 +505,71 @@ export async function getSimplifiedBillingSummary(userId: string): Promise<{
         billingPeriodStart: usageData.billingPeriodStart,
         billingPeriodEnd: usageData.billingPeriodEnd,
         lastPeriodCost: usageData.lastPeriodCost,
-        lastPeriodCopilotCost,
+        lastPeriodCopilotCost: totalLastPeriodCopilotCost,
         daysRemaining,
-        copilotCost,
+        copilotCost: totalCopilotCost,
       },
     }
   } catch (error) {
     logger.error('Failed to get simplified billing summary', {
       userId,
+      organizationId,
       error,
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     })
     throw error
+  }
+}
+
+/**
+ * Build the permissive summary used only when billing is globally disabled.
+ */
+function getDisabledBillingSummary(type: 'individual' | 'organization') {
+  return {
+    type,
+    id: null,
+    tier: toBillingTierSummary(null),
+    basePrice: 0,
+    currentUsage: 0,
+    overageAmount: 0,
+    totalProjected: 0,
+    usageLimit: Number.MAX_SAFE_INTEGER,
+    percentUsed: 0,
+    isWarning: false,
+    isExceeded: false,
+    daysRemaining: 0,
+    // Subscription details
+    isPaid: false,
+    status: null,
+    seats: null,
+    metadata: null,
+    stripeSubscriptionId: null,
+    periodEnd: null,
+    cancelAt: null,
+    billingInterval: null,
+    // Usage details
+    usage: {
+      current: 0,
+      limit: Number.MAX_SAFE_INTEGER,
+      percentUsed: 0,
+      isWarning: false,
+      isExceeded: false,
+      billingPeriodStart: null,
+      billingPeriodEnd: null,
+      lastPeriodCost: 0,
+      lastPeriodCopilotCost: 0,
+      daysRemaining: 0,
+      copilotCost: 0,
+    },
+    ...(type === 'organization' && {
+      organizationData: {
+        seatCount: 0,
+        memberCount: 0,
+        totalBasePrice: 0,
+        totalCurrentUsage: 0,
+        totalOverage: 0,
+      },
+    }),
   }
 }

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, type ReactNode } from 'react'
+import { act } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
@@ -17,7 +17,6 @@ const mocks = vi.hoisted(() => ({
   organizationBillingId: '',
   organizationBillingPlaceholder: false,
   handleUpgrade: vi.fn(),
-  getFullOrganization: vi.fn(),
   personalBilling: null as Record<string, unknown> | null,
   privateTiers: [] as Array<Record<string, unknown>>,
   privateTierAccessError: null as Error | null,
@@ -31,17 +30,10 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/lib/auth-client', () => ({
-  useSession: () => ({
-    data: {
-      user: { id: 'user-1', email: 'user@example.com' },
-      session: { activeOrganizationId: 'org-active' },
-    },
-  }),
-  client: { organization: { getFullOrganization: mocks.getFullOrganization } },
+  useSession: () => ({ data: { user: { id: 'user-1', email: 'user@example.com' } } }),
 }))
 
-vi.mock('@/lib/subscription/upgrade', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/subscription/upgrade')>()),
+vi.mock('@/lib/subscription/upgrade', () => ({
   useSubscriptionUpgrade: () => ({ handleUpgrade: mocks.handleUpgrade }),
 }))
 
@@ -64,8 +56,7 @@ vi.mock('@/hooks/queries/workspace', () => ({
   workspaceMutationOptions: { updateSettings: vi.fn() },
 }))
 
-vi.mock('@/hooks/queries/organization', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/hooks/queries/organization')>()),
+vi.mock('@/hooks/queries/organization', () => ({
   useOrganizationBilling: (id: string) => {
     mocks.organizationBillingId = id
     return {
@@ -118,48 +109,29 @@ vi.mock('./components', () => ({
     priceSubtext,
     buttonText,
     onButtonClick,
-    buttonDisabled,
   }: {
     name: string
     price?: string
     priceSubtext?: string
     buttonText: string
     onButtonClick: () => void
-    buttonDisabled?: boolean
   }) => (
     <button
       type='button'
       data-testid='plan-card'
       data-price={price}
       data-period={priceSubtext}
-      onClick={() => onButtonClick()}
-      disabled={buttonDisabled}
+      onClick={onButtonClick}
     >
       {`${name}:${buttonText}`}
     </button>
   ),
-  UsageLimit: () => <div data-testid='usage-limit' />,
+  UsageLimit: () => null,
   WorkspaceBillingOwnerEditor: () => <div data-testid='billing-owner-editor' />,
 }))
 
 vi.mock('../shared/usage-header', () => ({
-  UsageHeader: ({
-    title,
-    rightContent,
-    onBadgeClick,
-  }: {
-    title: string
-    rightContent?: ReactNode
-    onBadgeClick?: () => void
-  }) => (
-    <div>
-      <h1>{title}</h1>
-      {rightContent}
-      <button type='button' data-testid='usage-badge' onClick={onBadgeClick}>
-        Badge
-      </button>
-    </div>
-  ),
+  UsageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
 }))
 
 vi.mock('@/stores/settings/general/store', () => ({
@@ -210,7 +182,6 @@ function personalPayload() {
 function organizationPayload() {
   return {
     organizationId: 'org-billing',
-    billingEnabled: true,
     subscriptionTier: tier('tier-org', 'Organization Pro', 'organization', {
       usageScope: 'pooled',
       seatMode: 'adjustable',
@@ -244,7 +215,6 @@ function catalogTier(
     displayOrder,
     monthlyPriceUsd: 12.5,
     yearlyPriceUsd: null,
-    hasStripeMonthlyPriceId: true,
     seatCount: ownerType === 'organization' ? 2 : null,
     seatMaximum: null,
     canEditUsageLimit: false,
@@ -259,7 +229,7 @@ function workspaceBillingOwner(
   return {
     settings: {
       workspace: {
-        id: mocks.workspaceId,
+        id: 'workspace-1',
         ownerId: 'user-1',
         permissions: 'admin',
         billingOwner,
@@ -284,30 +254,23 @@ describe('Subscription billing subject', () => {
     mocks.organizationBillingPlaceholder = false
     mocks.personalBilling = personalPayload()
     mocks.handleUpgrade.mockReset()
-    mocks.getFullOrganization.mockReset().mockImplementation(() => {
-      throw new Error('Subscription must not fetch the member roster')
-    })
     mocks.privateTiers = []
     mocks.privateTierAccessError = null
     mocks.publicTiers = []
-    mocks.workspaceId = 'workspace-1'
     mocks.workspaceSettings = workspaceBillingOwner({ type: 'user', userId: 'user-1' })
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
-    vi.stubGlobal('fetch', vi.fn())
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
   })
 
   afterEach(() => {
-    expect(mocks.getFullOrganization).not.toHaveBeenCalled()
     act(() => root.unmount())
     queryClient.clear()
     container.remove()
     vi.clearAllMocks()
-    vi.unstubAllGlobals()
   })
 
   function render(locale: LocaleCode = 'en', onOpenChange = vi.fn()) {
@@ -345,61 +308,6 @@ describe('Subscription billing subject', () => {
     expect(container.querySelector('#private-tier-access-code')).not.toBeNull()
   })
 
-  it.each(['user', 'organization'] as const)(
-    'shows the active annual price and scheduled cancellation for a %s subscription',
-    (ownerType) => {
-      const periodEnd = '2027-06-01T12:00:00Z'
-      const cancelAt = '2027-03-15T12:00:00Z'
-      const terms = { billingInterval: 'year', cancelAtPeriodEnd: ownerType === 'user' }
-      const currentTier = tier('paid', 'Paid plan', ownerType, {
-        monthlyPriceUsd: 12.5,
-        yearlyPriceUsd: 120,
-      })
-      if (ownerType === 'organization') {
-        mocks.workspaceSettings = workspaceBillingOwner({
-          type: 'organization',
-          organizationId: 'org-billing',
-        })
-        mocks.organizationBilling = {
-          ...organizationPayload(),
-          ...terms,
-          cancelAt,
-          billingPeriodEnd: periodEnd,
-          subscriptionTier: currentTier,
-          userRole: 'owner',
-        }
-      } else {
-        mocks.personalBilling = {
-          data: { ...personalPayload().data, ...terms, periodEnd, tier: currentTier },
-        }
-      }
-      render()
-      const plan = container.querySelector('[data-testid="plan-card"]')
-      expect(plan).toHaveAttribute('data-price', '$120.00')
-      expect(plan).toHaveAttribute('data-period', '/yr')
-      expect(container.textContent).toContain('Restore Subscription')
-      expect(container.textContent).toContain('Subscription ends')
-      expect(container.textContent).toContain(
-        new Date(ownerType === 'user' ? periodEnd : cancelAt).toLocaleDateString('en')
-      )
-    }
-  )
-
-  it('omits the current price when Stripe has no billing interval', () => {
-    mocks.personalBilling = {
-      data: {
-        ...personalPayload().data,
-        billingInterval: null,
-        tier: tier('paid', 'Paid plan', 'user', { monthlyPriceUsd: 12.5, yearlyPriceUsd: 120 }),
-      },
-    }
-    render()
-    const plan = container.querySelector('[data-testid="plan-card"]')
-    expect(plan).toBeInTheDocument()
-    expect(plan).not.toHaveAttribute('data-price')
-    expect(plan).not.toHaveAttribute('data-period')
-  })
-
   it('does not render keep-previous billing data while the organization owner changes', () => {
     mocks.workspaceSettings = workspaceBillingOwner({
       type: 'organization',
@@ -416,6 +324,27 @@ describe('Subscription billing subject', () => {
 
     expect(container.textContent).not.toContain('Previous Organization')
     expect(container.textContent).not.toContain('Personal Pro')
+  })
+
+  it('shows the active annual price and scheduled cancellation for a personal subscription', () => {
+    const cancelAt = '2027-03-15T12:00:00Z'
+    mocks.personalBilling = {
+      data: {
+        ...personalPayload().data,
+        billingInterval: 'year',
+        cancelAt,
+        cancelAtPeriodEnd: false,
+        periodEnd: '2027-06-01T12:00:00Z',
+        tier: tier('paid', 'Paid plan', 'user', { monthlyPriceUsd: 12.5, yearlyPriceUsd: 120 }),
+      },
+    }
+    render()
+    const plan = container.querySelector('[data-testid="plan-card"]')
+    expect(plan).toHaveAttribute('data-price', '$120.00')
+    expect(plan).toHaveAttribute('data-period', '/yr')
+    expect(container.textContent).toContain('Restore Subscription')
+    expect(container.textContent).toContain('Subscription ends')
+    expect(container.textContent).toContain(new Date(cancelAt).toLocaleDateString('en'))
   })
 
   it('does not substitute viewer billing when another user owns billing', () => {
@@ -445,136 +374,16 @@ describe('Subscription billing subject', () => {
     expect(onOpenChange).not.toHaveBeenCalled()
   })
 
-  it('upgrades the organization selected by the current workspace without fetching seat counts', async () => {
-    mocks.publicTiers = [catalogTier('tier-org-public', 'Organization Public', 'organization', 1)]
-    for (const [workspaceId, organizationId] of [
-      ['workspace-1', 'org-billing'],
-      ['workspace-2', 'org-other'],
-    ]) {
-      mocks.workspaceId = workspaceId
-      mocks.workspaceSettings = workspaceBillingOwner({ type: 'organization', organizationId })
-      mocks.organizationBilling = {
-        ...organizationPayload(),
-        organizationId,
-        subscriptionTier: null,
-        totalSeats: 0,
-        userRole: 'owner',
-      }
-      render()
-      const plan = container.querySelector<HTMLButtonElement>('[data-testid="plan-card"]')!
-      expect(plan).toBeEnabled()
-      await act(async () => plan.click())
-      expect(mocks.handleUpgrade).toHaveBeenLastCalledWith(
-        expect.objectContaining({ id: 'tier-org-public' }),
-        { organizationId }
-      )
-    }
-
-    expect(fetch).not.toHaveBeenCalled()
-    expect(document.querySelector('[role="dialog"]')).toBeNull()
-  })
-
-  it.each([
-    { monthly: 12.5, yearly: 120 },
-    { monthly: 0, yearly: 120 },
-    { monthly: null, yearly: 120 },
-    { monthly: null, yearly: null },
-  ])(
-    'keeps monthly checkout available regardless of display prices ($monthly/$yearly)',
-    async ({ monthly, yearly }) => {
-      mocks.workspaceSettings = workspaceBillingOwner({
-        type: 'organization',
-        organizationId: 'org-billing',
-      })
-      mocks.organizationBilling = {
-        ...organizationPayload(),
-        subscriptionTier: null,
-        totalSeats: 0,
-        userRole: 'owner',
-      }
-      mocks.privateTiers = [
-        {
-          ...catalogTier('tier-priced', 'Priced tier', 'organization', 1),
-          monthlyPriceUsd: monthly,
-          yearlyPriceUsd: yearly,
-        },
-      ]
-      render()
-      await act(async () =>
-        container.querySelector<HTMLButtonElement>('[data-testid="plan-card"]')!.click()
-      )
-      expect(mocks.handleUpgrade).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'tier-priced', hasStripeMonthlyPriceId: true }),
-        { organizationId: 'org-billing' }
-      )
-    }
-  )
-
-  it('starts a monthly fixed tier without opening seat selection', async () => {
+  it('offers public and granted-private organization tiers to an unsubscribed organization owner', () => {
     mocks.workspaceSettings = workspaceBillingOwner({
       type: 'organization',
       organizationId: 'org-billing',
     })
     mocks.organizationBilling = {
-      ...organizationPayload(),
+      organizationId: 'org-billing',
+      billingEnabled: true,
       subscriptionTier: null,
-      totalSeats: 0,
-      userRole: 'owner',
-    }
-    mocks.publicTiers = [
-      {
-        ...catalogTier('tier-fixed', 'Fixed annual', 'organization', 1),
-        seatMode: 'fixed',
-        seatCount: 4,
-        monthlyPriceUsd: null,
-        yearlyPriceUsd: 120,
-      },
-    ]
-    render()
-    await act(async () =>
-      container.querySelector<HTMLButtonElement>('[data-testid="plan-card"]')!.click()
-    )
-    expect(document.querySelector('[role="dialog"]')).toBeNull()
-    expect(mocks.handleUpgrade).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'tier-fixed', hasStripeMonthlyPriceId: true }),
-      { organizationId: 'org-billing' }
-    )
-  })
-
-  it('does not offer a tier without a configured Stripe price as a valid upgrade', () => {
-    mocks.workspaceSettings = workspaceBillingOwner({
-      type: 'organization',
-      organizationId: 'org-billing',
-    })
-    mocks.organizationBilling = {
-      ...organizationPayload(),
-      subscriptionTier: null,
-      totalSeats: 0,
-      userRole: 'owner',
-    }
-    mocks.publicTiers = [
-      {
-        ...catalogTier('tier-blocked', 'Blocked tier', 'organization', 1),
-        monthlyPriceUsd: null,
-        yearlyPriceUsd: 120,
-        hasStripeMonthlyPriceId: false,
-      },
-    ]
-    render()
-    const plan = container.querySelector<HTMLButtonElement>('[data-testid="plan-card"]')!
-    expect(plan).toBeDisabled()
-    act(() => plan.click())
-    expect(document.querySelector('[role="dialog"]')).toBeNull()
-    expect(mocks.handleUpgrade).not.toHaveBeenCalled()
-  })
-
-  it('offers accessible private tiers for the current billing organization', async () => {
-    mocks.workspaceSettings = workspaceBillingOwner({
-      type: 'organization',
-      organizationId: 'org-billing',
-    })
-    mocks.organizationBilling = {
-      ...organizationPayload(),
+      subscriptionStatus: null,
       userRole: 'owner',
     }
     mocks.publicTiers = [
@@ -582,10 +391,7 @@ describe('Subscription billing subject', () => {
       catalogTier('tier-org-public', 'Organization Public', 'organization', 1),
     ]
     mocks.privateTiers = [
-      {
-        ...catalogTier('tier-org-private', 'Organization Private', 'organization', 2),
-        seatMaximum: 10,
-      },
+      catalogTier('tier-org-private', 'Organization Private', 'organization', 2),
     ]
 
     render()
@@ -599,10 +405,10 @@ describe('Subscription billing subject', () => {
       button.textContent?.includes('Organization Private')
     )
     expect(privatePlan).toHaveAttribute('data-price', '$12.50')
-    await act(async () => privatePlan?.click())
+    act(() => privatePlan?.click())
 
     expect(mocks.handleUpgrade).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'tier-org-private', ownerType: 'organization' }),
+      expect.objectContaining({ billingTierId: 'tier-org-private', ownerType: 'organization' }),
       { organizationId: 'org-billing' }
     )
   })

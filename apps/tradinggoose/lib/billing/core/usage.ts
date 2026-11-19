@@ -19,9 +19,10 @@ import {
   getTierUsageAllowanceUsd,
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
-import type { UsageData, UsageLimitInfo } from '@/lib/billing/types'
+import type { BillingData, UsageData, UsageLimitInfo } from '@/lib/billing/types'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
+import { getEmailPreferences } from '@/lib/email/unsubscribe'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -365,7 +366,7 @@ export async function updateUserUsageLimit(
 }
 
 /**
- * Get the personal usage limit for server-side checks.
+ * Get usage limit for a user (used by checkUsageStatus for server-side checks).
  */
 export async function getUserUsageLimit(userId: string): Promise<number> {
   const [{ billingEnabled }, subscription, userStatsQuery] = await Promise.all([
@@ -404,6 +405,33 @@ export async function getUserUsageLimit(userId: string): Promise<number> {
 }
 
 /**
+ * Check usage status with warning thresholds
+ */
+export async function checkUsageStatus(userId: string): Promise<{
+  status: 'ok' | 'warning' | 'exceeded'
+  usageData: UsageData
+}> {
+  try {
+    const usageData = await getUserUsageData(userId)
+
+    let status: 'ok' | 'warning' | 'exceeded' = 'ok'
+    if (usageData.isExceeded) {
+      status = 'exceeded'
+    } else if (usageData.isWarning) {
+      status = 'warning'
+    }
+
+    return {
+      status,
+      usageData,
+    }
+  } catch (error) {
+    logger.error('Failed to check usage status', { userId, error })
+    throw error
+  }
+}
+
+/**
  * Sync usage limits based on subscription changes
  */
 export async function syncUsageLimitsFromSubscription(userId: string): Promise<void> {
@@ -418,6 +446,111 @@ export async function syncUsageLimitsFromSubscription(userId: string): Promise<v
   }
 
   logger.info('Verified user stats for tier-backed usage limits', { userId })
+}
+
+/**
+ * Get usage limit information for team members (for admin dashboard)
+ */
+export async function getTeamUsageLimits(organizationId: string): Promise<
+  Array<{
+    userId: string
+    userName: string
+    userEmail: string
+    currentLimit: number
+    currentUsage: number
+    totalCost: number
+    lastActive: Date | null
+  }>
+> {
+  try {
+    const teamMembers = await db
+      .select({
+        userId: member.userId,
+        userName: user.name,
+        userEmail: user.email,
+        currentLimit: userStats.customUsageLimit,
+        currentPeriodCost: userStats.currentPeriodCost,
+        totalCost: userStats.totalCost,
+        lastActive: userStats.lastActive,
+      })
+      .from(member)
+      .innerJoin(user, eq(member.userId, user.id))
+      .leftJoin(userStats, eq(member.userId, userStats.userId))
+      .where(eq(member.organizationId, organizationId))
+
+    return teamMembers.map((memberData) => ({
+      userId: memberData.userId,
+      userName: memberData.userName,
+      userEmail: memberData.userEmail,
+      currentLimit: Number.parseFloat(memberData.currentLimit || '0'),
+      currentUsage: Number.parseFloat(memberData.currentPeriodCost || '0'),
+      totalCost: Number.parseFloat(memberData.totalCost || '0'),
+      lastActive: memberData.lastActive,
+    }))
+  } catch (error) {
+    logger.error('Failed to get team usage limits', { organizationId, error })
+    return []
+  }
+}
+
+/**
+ * Returns the current billing-period usage cost for a user.
+ */
+export async function getEffectiveCurrentPeriodCost(userId: string): Promise<number> {
+  const rows = await db
+    .select({ current: userStats.currentPeriodCost })
+    .from(userStats)
+    .where(eq(userStats.userId, userId))
+    .limit(1)
+
+  if (rows.length === 0) return 0
+  return rows[0].current ? Number.parseFloat(rows[0].current.toString()) : 0
+}
+
+/**
+ * Calculate billing projection based on current usage
+ */
+export async function calculateBillingProjection(userId: string): Promise<BillingData> {
+  try {
+    const usageData = await getUserUsageData(userId)
+
+    if (!usageData.billingPeriodStart || !usageData.billingPeriodEnd) {
+      return {
+        currentPeriodCost: usageData.currentUsage,
+        projectedCost: usageData.currentUsage,
+        limit: usageData.limit,
+        billingPeriodStart: null,
+        billingPeriodEnd: null,
+        daysRemaining: 0,
+      }
+    }
+
+    const now = new Date()
+    const periodStart = new Date(usageData.billingPeriodStart)
+    const periodEnd = new Date(usageData.billingPeriodEnd)
+
+    const totalDays = Math.ceil(
+      (periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)
+    )
+    const daysElapsed = Math.ceil((now.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24))
+    const daysRemaining = Math.max(0, totalDays - daysElapsed)
+
+    // Project cost based on daily usage rate
+    const dailyRate = daysElapsed > 0 ? usageData.currentUsage / daysElapsed : 0
+    const projectedCost = dailyRate * totalDays
+
+    return {
+      currentPeriodCost: usageData.currentUsage,
+      projectedCost: Math.min(projectedCost, usageData.limit), // Cap at limit
+      limit: usageData.limit,
+      billingPeriodStart: usageData.billingPeriodStart,
+      billingPeriodEnd: usageData.billingPeriodEnd,
+      daysRemaining,
+    }
+  } catch (error) {
+    logger.error('Failed to calculate billing projection', { userId, error })
+    throw error
+  }
 }
 
 /**
@@ -449,82 +582,118 @@ export async function maybeSendUsageThresholdEmail(params: {
       params.percentBefore < usageWarningThresholdPercent &&
       params.percentAfter >= usageWarningThresholdPercent
     const crossesFreeTierUpgradeThreshold =
-      params.scope === 'user' &&
       params.isFreeTier &&
       params.percentBefore < freeTierUpgradeThresholdPercent &&
       params.percentAfter >= freeTierUpgradeThresholdPercent
+
+    // Skip if no thresholds crossed
     if (!crossesWarningThreshold && !crossesFreeTierUpgradeThreshold) return
 
-    let recipients: { id: string; email: string; name?: string | null }[]
-    if (params.scope === 'user') {
-      if (!params.userId || !params.userEmail) return
-      const [preferences] = await db
-        .select({ enabled: settings.billingUsageNotificationsEnabled })
-        .from(settings)
-        .where(eq(settings.userId, params.userId))
-        .limit(1)
-      if (preferences?.enabled === false) return
-      recipients = [{ id: params.userId, email: params.userEmail, name: params.userName }]
-    } else {
-      if (!params.organizationId) return
-      const members = await db
-        .select({
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          enabled: settings.billingUsageNotificationsEnabled,
-          role: member.role,
+    if (crossesWarningThreshold) {
+      const ctaLink = `${baseUrl}/workspace?billing=usage`
+      const sendTo = async (email: string, name?: string, userId?: string) => {
+        const prefs = await getEmailPreferences(email)
+        if (prefs?.unsubscribeAll || prefs?.unsubscribeNotifications) return
+        const locale = await resolveEmailLocale({ userId, email })
+
+        const html = await renderUsageThresholdEmail({
+          userName: name,
+          planName: params.planName,
+          percentUsed: Math.min(100, Math.round(params.percentAfter)),
+          currentUsage: params.currentUsageAfter,
+          limit: params.limit,
+          ctaLink,
+          locale,
         })
-        .from(member)
-        .innerJoin(user, eq(member.userId, user.id))
-        .leftJoin(settings, eq(settings.userId, member.userId))
-        .where(eq(member.organizationId, params.organizationId))
-      recipients = members.filter(
-        ({ role, email, enabled }) =>
-          (role === 'owner' || role === 'admin') && email && enabled !== false
-      )
+
+        await sendEmail({
+          to: email,
+          subject: getEmailSubject('usage-threshold', locale),
+          html,
+          emailType: 'notifications',
+        })
+      }
+
+      if (params.scope === 'user' && params.userId && params.userEmail) {
+        const rows = await db
+          .select({ enabled: settings.billingUsageNotificationsEnabled })
+          .from(settings)
+          .where(eq(settings.userId, params.userId))
+          .limit(1)
+        if (rows.length > 0 && rows[0].enabled === false) return
+        await sendTo(params.userEmail, params.userName, params.userId)
+      } else if (params.scope === 'organization' && params.organizationId) {
+        const admins = await db
+          .select({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            enabled: settings.billingUsageNotificationsEnabled,
+            role: member.role,
+          })
+          .from(member)
+          .innerJoin(user, eq(member.userId, user.id))
+          .leftJoin(settings, eq(settings.userId, member.userId))
+          .where(eq(member.organizationId, params.organizationId))
+
+        for (const a of admins) {
+          const isAdmin = a.role === 'owner' || a.role === 'admin'
+          if (!isAdmin) continue
+          if (a.enabled === false) continue
+          if (!a.email) continue
+          await sendTo(a.email, a.name || undefined, a.id)
+        }
+      }
     }
 
-    for (const { id, email, name } of recipients) {
-      const locale = await resolveEmailLocale({ userId: id, email })
-      const message = { to: email, userId: id, locale, emailType: 'notifications' as const }
-      const usage = {
-        userName: name || undefined,
-        percentUsed: Math.min(100, Math.round(params.percentAfter)),
-        currentUsage: params.currentUsageAfter,
-        limit: params.limit,
-        locale,
-      }
-      if (crossesWarningThreshold) {
-        await sendEmail({
-          ...message,
-          subject: getEmailSubject('usage-threshold', locale),
-          html: (unsubscribeUrl) =>
-            renderUsageThresholdEmail({
-              ...usage,
-              unsubscribeUrl,
-              planName: params.planName,
-              ctaLink: `${baseUrl}/workspace?billing=usage`,
-            }),
+    if (crossesFreeTierUpgradeThreshold && params.isFreeTier) {
+      const upgradeLink = `${baseUrl}/workspace?billing=upgrade`
+      const recommendedTier = await getPrimaryPublicUserUpgradeTier()
+      const sendFreeTierEmail = async (email: string, name?: string, userId?: string) => {
+        const prefs = await getEmailPreferences(email)
+        if (prefs?.unsubscribeAll || prefs?.unsubscribeNotifications) return
+        const locale = await resolveEmailLocale({ userId, email })
+
+        const html = await renderFreeTierUpgradeEmail({
+          userName: name,
+          currentTierName: params.planName,
+          percentUsed: Math.min(100, Math.round(params.percentAfter)),
+          currentUsage: params.currentUsageAfter,
+          limit: params.limit,
+          upgradeLink,
+          recommendedTierName: recommendedTier?.displayName ?? null,
+          recommendedTierPriceUsd: recommendedTier ? getTierBasePrice(recommendedTier) : null,
+          recommendedTierIncludedUsageLimitUsd: recommendedTier
+            ? getTierUsageAllowanceUsd(recommendedTier)
+            : null,
+          recommendedTierFeatures: recommendedTier?.pricingFeatures ?? [],
+          locale,
         })
-      }
-      if (crossesFreeTierUpgradeThreshold) {
-        const tier = await getPrimaryPublicUserUpgradeTier()
+
         await sendEmail({
-          ...message,
+          to: email,
           subject: getEmailSubject('free-tier-upgrade', locale),
-          html: (unsubscribeUrl) =>
-            renderFreeTierUpgradeEmail({
-              ...usage,
-              unsubscribeUrl,
-              currentTierName: params.planName,
-              upgradeLink: `${baseUrl}/workspace?billing=upgrade`,
-              recommendedTierName: tier?.displayName,
-              recommendedTierPriceUsd: tier ? getTierBasePrice(tier) : null,
-              recommendedTierIncludedUsageLimitUsd: tier ? getTierUsageAllowanceUsd(tier) : null,
-              recommendedTierFeatures: tier?.pricingFeatures,
-            }),
+          html,
+          emailType: 'notifications',
         })
+
+        logger.info('Free tier upgrade email sent', {
+          email,
+          percentUsed: Math.round(params.percentAfter),
+          currentUsage: params.currentUsageAfter,
+          limit: params.limit,
+        })
+      }
+
+      // Free users are always individual scope (not organization)
+      if (params.scope === 'user' && params.userId && params.userEmail) {
+        const rows = await db
+          .select({ enabled: settings.billingUsageNotificationsEnabled })
+          .from(settings)
+          .where(eq(settings.userId, params.userId))
+          .limit(1)
+        if (rows.length > 0 && rows[0].enabled === false) return
+        await sendFreeTierEmail(params.userEmail, params.userName, params.userId)
       }
     }
   } catch (error) {

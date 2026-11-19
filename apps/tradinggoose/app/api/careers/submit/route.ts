@@ -3,10 +3,11 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import CareersSubmissionEmail from '@/components/emails/careers/careers-submission-email'
 import { getEmailSubject, renderCareersConfirmationEmail } from '@/components/emails/render-email'
+import { normalizeEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { locales, normalizeLocaleCode } from '@/i18n/utils'
+import { locales } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    const locale = normalizeLocaleCode(validatedData.locale)
+    const locale = normalizeEmailLocale(validatedData.locale)
     const confirmationEmailHtml = await renderCareersConfirmationEmail({
       name: validatedData.name,
       position: validatedData.position,

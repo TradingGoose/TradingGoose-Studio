@@ -257,18 +257,17 @@ function routeToCanonicalLocale(
 function handleSecurityFiltering(request: NextRequest): NextResponse | null {
   const userAgent = request.headers.get('user-agent') || ''
   const isWebhookEndpoint = request.nextUrl.pathname.startsWith('/api/webhooks/trigger/')
-  const acceptsEmptyUserAgent =
-    request.nextUrl.pathname === '/api/copilot/mcp' ||
-    (request.method === 'POST' && request.nextUrl.pathname === '/api/users/me/settings/unsubscribe')
-  const pattern = SUSPICIOUS_UA_PATTERNS.find((pattern) => pattern.test(userAgent))
+  const isCodexMcpClientRequest =
+    request.nextUrl.pathname === '/api/copilot/mcp' && /^\s*$/.test(userAgent)
+  const isSuspicious = SUSPICIOUS_UA_PATTERNS.some((pattern) => pattern.test(userAgent))
 
-  if (pattern && !isWebhookEndpoint && !(acceptsEmptyUserAgent && !userAgent.trim())) {
+  if (isSuspicious && !isWebhookEndpoint && !isCodexMcpClientRequest) {
     logger.warn('Blocked suspicious request', {
       userAgent,
       ip: request.headers.get('x-forwarded-for') || 'unknown',
-      path: request.nextUrl.pathname,
+      url: request.url,
       method: request.method,
-      pattern: pattern.toString(),
+      pattern: SUSPICIOUS_UA_PATTERNS.find((pattern) => pattern.test(userAgent))?.toString(),
     })
 
     return new NextResponse(null, {

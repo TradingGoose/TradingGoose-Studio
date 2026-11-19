@@ -1,23 +1,38 @@
 import { Container, Img, Link, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
-import { emailText, getEmailCopy } from '@/components/emails/email-copy'
+import {
+  type EmailLocale,
+  emailText,
+  getEmailCopy,
+  normalizeEmailTemplateLocale,
+} from '@/components/emails/email-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
-import { type LocaleInput, localizeSiteUrl, normalizeLocaleCode } from '@/i18n/utils'
+import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
-interface EmailFooterProps {
-  unsubscribeUrl?: string
-  locale?: LocaleInput
+interface UnsubscribeOptions {
+  unsubscribeToken?: string
+  email?: string
 }
 
-export default function EmailFooter({ locale, unsubscribeUrl }: EmailFooterProps) {
-  const resolvedLocale = normalizeLocaleCode(locale)
+interface EmailFooterProps {
+  baseUrl?: string
+  unsubscribe?: UnsubscribeOptions
+  locale?: EmailLocale
+}
+
+export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: EmailFooterProps) => {
+  const resolvedLocale = normalizeEmailTemplateLocale(locale)
   const copy = getEmailCopy(resolvedLocale)
   const brand = getBrandConfig()
   const year = new Date().getFullYear()
-  const linkStyle = { ...baseStyles.link, fontWeight: 600, fontFamily: baseStyles.fontFamily }
-  const privacyUrl = localizeSiteUrl(resolvedLocale, '/privacy')
-  const termsUrl = localizeSiteUrl(resolvedLocale, '/terms')
+  const privacyUrl = localizeUrl(baseUrl, resolvedLocale, '/privacy')
+  const termsUrl = localizeUrl(baseUrl, resolvedLocale, '/terms')
+  const unsubscribeUrl =
+    unsubscribe?.unsubscribeToken && unsubscribe?.email
+      ? `${localizeUrl(baseUrl, resolvedLocale, '/unsubscribe')}?token=${unsubscribe.unsubscribeToken}&email=${encodeURIComponent(unsubscribe.email)}`
+      : '{{{RESEND_UNSUBSCRIBE_URL}}}'
 
   return (
     <Container style={baseStyles.footer}>
@@ -79,7 +94,15 @@ export default function EmailFooter({ locale, unsubscribeUrl }: EmailFooterProps
                   })}
                   <br />
                   {copy.footer.questions}{' '}
-                  <a href={`mailto:${brand.supportEmail}`} style={linkStyle}>
+                  <a
+                    href={`mailto:${brand.supportEmail}`}
+                    style={{
+                      color: baseStyles.link.color,
+                      textDecoration: 'underline',
+                      fontWeight: 600,
+                      fontFamily: baseStyles.fontFamily,
+                    }}
+                  >
                     {brand.supportEmail}
                   </a>
                   {isHosted && (
@@ -99,21 +122,44 @@ export default function EmailFooter({ locale, unsubscribeUrl }: EmailFooterProps
                             fontFamily: baseStyles.fontFamily,
                           }}
                         >
-                          <a href={privacyUrl} style={linkStyle} rel='noopener noreferrer'>
+                          <a
+                            href={privacyUrl}
+                            style={{
+                              color: baseStyles.link.color,
+                              textDecoration: 'underline',
+                              fontWeight: 600,
+                              fontFamily: baseStyles.fontFamily,
+                            }}
+                            rel='noopener noreferrer'
+                          >
                             {copy.footer.privacy}
                           </a>{' '}
                           |{' '}
-                          <a href={termsUrl} style={linkStyle} rel='noopener noreferrer'>
+                          <a
+                            href={termsUrl}
+                            style={{
+                              color: baseStyles.link.color,
+                              textDecoration: 'underline',
+                              fontWeight: 600,
+                              fontFamily: baseStyles.fontFamily,
+                            }}
+                            rel='noopener noreferrer'
+                          >
                             {copy.footer.terms}
+                          </a>{' '}
+                          |{' '}
+                          <a
+                            href={unsubscribeUrl}
+                            style={{
+                              color: baseStyles.link.color,
+                              textDecoration: 'underline',
+                              fontWeight: 600,
+                              fontFamily: baseStyles.fontFamily,
+                            }}
+                            rel='noopener noreferrer'
+                          >
+                            {copy.footer.unsubscribe}
                           </a>
-                          {unsubscribeUrl && (
-                            <>
-                              {' | '}
-                              <Link href={unsubscribeUrl} style={baseStyles.link}>
-                                {copy.footer.unsubscribe}
-                              </Link>
-                            </>
-                          )}
                         </p>
                       </td>
                     </tr>
@@ -127,3 +173,5 @@ export default function EmailFooter({ locale, unsubscribeUrl }: EmailFooterProps
     </Container>
   )
 }
+
+export default EmailFooter

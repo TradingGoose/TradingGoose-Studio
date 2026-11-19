@@ -41,11 +41,16 @@ vi.mock('drizzle-orm', () => ({
   eq: (...args: unknown[]) => ({ args, kind: 'eq' }),
 }))
 
-import { resolveEmailLocale } from './locale'
+import { normalizeEmailLocale, resolveEmailLocale } from './locale'
 
 describe('email locale resolution', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('normalizes unsupported locale input to the default locale', () => {
+    expect(normalizeEmailLocale('fr')).toBe('en')
+    expect(normalizeEmailLocale(null)).toBe('en')
   })
 
   it('uses authenticated user settings as the canonical user locale source', async () => {

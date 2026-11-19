@@ -115,6 +115,9 @@ export function GlobalNavbar({
   const userName = sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'support@tradinggoose.ai'
   const userAvatar = sessionData?.user?.image
+  const userAvatarVersion = sessionData?.user?.updatedAt
+    ? new Date(sessionData.user.updatedAt).getTime()
+    : null
   const workspaceSwitcher = useWorkspaceSwitcher({
     enabled: isAuthenticated && !isSessionLoading,
     workspaceId,
@@ -280,9 +283,11 @@ export function GlobalNavbar({
                 onOpenSubscriptionSettings={() => openSettings('subscription')}
               />
               <UserMenu
+                userId={userId}
                 userName={userName}
                 userEmail={userEmail}
                 userAvatar={userAvatar}
+                userAvatarVersion={userAvatarVersion}
                 onOpenSettings={openSettings}
                 billingEnabled={billingEnabled}
                 canOpenTeamSettings={canOpenTeamSettings}

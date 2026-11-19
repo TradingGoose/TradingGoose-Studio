@@ -138,15 +138,18 @@ function initializeSharedYjsSessionEntry(
       entry.error = null
       void next.lifecycle.then((event) => {
         if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== next) return
-        entry.result = null
-        next.dispose()
-        if (event.type === 'reopen') {
+        if (event.type === 'lineage-replaced') {
           entry.pendingLocalEdits = event.pendingLocalEdits
+          entry.result = null
+          next.dispose()
+          emitSharedYjsSessionEntry(entry)
           scheduleSharedYjsSessionReopen(entry, openSession, fallbackReason)
         } else {
+          entry.result = null
           entry.error = event.error
+          next.dispose()
+          emitSharedYjsSessionEntry(entry)
         }
-        emitSharedYjsSessionEntry(entry)
       })
     })
     .catch((nextError) => {
@@ -218,9 +221,13 @@ function invalidateSavedEntityQueries(
   const queryClient = getQueryClient()
 
   switch (entityKind) {
+    case 'skill':
+      return
     case 'custom_tool':
       void queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
       void queryClient.invalidateQueries({ queryKey: customToolsKeys.detail(entityId) })
+      return
+    case 'indicator':
       return
     case 'knowledge_base':
       void queryClient.invalidateQueries({ queryKey: knowledgeKeys.list(workspaceId) })
@@ -228,6 +235,10 @@ function invalidateSavedEntityQueries(
       return
     case 'mcp_server':
       window.dispatchEvent(new CustomEvent(MCP_TOOLS_CHANGED_EVENT, { detail: { workspaceId } }))
+      return
+    case 'watchlist':
+      return
+    case 'dashboard_layout':
       return
   }
 }
@@ -271,22 +282,20 @@ function useYjsSession(
   return { ...current, retry }
 }
 
-function getSessionKey(descriptor: ReviewTargetDescriptor, accessMode: ReviewAccessMode) {
-  return [
-    descriptor.entityKind,
-    accessMode,
-    descriptor.workspaceId ?? '',
-    descriptor.ownerUserId ?? '',
-    descriptor.yjsSessionId,
-  ].join(':')
-}
-
 export function useYjsTargetSession(
   descriptor: ReviewTargetDescriptor | null,
   accessMode: ReviewAccessMode,
   fallbackReason = 'Failed to open Yjs session'
 ) {
-  const sessionKey = descriptor ? getSessionKey(descriptor, accessMode) : null
+  const sessionKey = descriptor
+    ? [
+        descriptor.entityKind,
+        accessMode,
+        descriptor.workspaceId ?? '',
+        descriptor.ownerUserId ?? '',
+        descriptor.yjsSessionId,
+      ].join(':')
+    : null
   const openSession = useCallback(
     (pendingLocalEdits?: YjsPendingLocalEdits) =>
       bootstrapYjsProvider(descriptor!, undefined, accessMode, pendingLocalEdits),
@@ -379,7 +388,13 @@ export function useSavedEntityYjsSessionCollection(
     }
 
     const bindings = descriptors.map((descriptor) => {
-      const sessionKey = getSessionKey(descriptor, accessMode)
+      const sessionKey = [
+        descriptor.entityKind,
+        accessMode,
+        descriptor.workspaceId ?? '',
+        descriptor.ownerUserId ?? '',
+        descriptor.yjsSessionId,
+      ].join(':')
       return {
         descriptor,
         sessionKey,
@@ -436,7 +451,13 @@ export function useSavedEntityYjsSessionCollection(
   const current = state.key === collectionKey ? state : null
   const retry = useCallback(() => {
     for (const descriptor of descriptors) {
-      const sessionKey = getSessionKey(descriptor, accessMode)
+      const sessionKey = [
+        descriptor.entityKind,
+        accessMode,
+        descriptor.workspaceId ?? '',
+        descriptor.ownerUserId ?? '',
+        descriptor.yjsSessionId,
+      ].join(':')
       const entry = sharedYjsSessionEntries.get(sessionKey)
       if (!entry) continue
       initializeSharedYjsSessionEntry(
@@ -449,7 +470,13 @@ export function useSavedEntityYjsSessionCollection(
     }
   }, [accessMode, descriptors, entityKind])
   const isRetrying = descriptors.some((descriptor) => {
-    const sessionKey = getSessionKey(descriptor, accessMode)
+    const sessionKey = [
+      descriptor.entityKind,
+      accessMode,
+      descriptor.workspaceId ?? '',
+      descriptor.ownerUserId ?? '',
+      descriptor.yjsSessionId,
+    ].join(':')
     const entry = sharedYjsSessionEntries.get(sessionKey)
     return Boolean(entry?.error && entry.initPromise)
   })
@@ -483,11 +510,17 @@ export function useEntityList(
     }
   }, [entityKind, ownerUserId, workspaceId])
   const sessionKey = descriptor ? descriptor.yjsSessionId : null
-  const { doc, isLoading, isRetrying, error, isTerminalError, retry } = useYjsTargetSession(
-    descriptor,
-    'read',
+  const openSession = useCallback(
+    (pendingLocalEdits?: YjsPendingLocalEdits) =>
+      bootstrapYjsProvider(descriptor!, undefined, 'read', pendingLocalEdits),
+    [descriptor]
+  )
+  const activeState = useYjsSession(
+    sessionKey,
+    sessionKey ? openSession : null,
     'Failed to open entity list'
   )
+  const doc = activeState?.result?.doc ?? null
 
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
@@ -507,6 +540,7 @@ export function useEntityList(
     extract,
     EMPTY_ENTITY_LIST_MEMBERS
   )
+  const isTerminalError = activeState?.error?.retryable === false
   if (doc) memberSnapshot.current = { sessionKey, members, hasLiveSnapshot: true }
   else if (!sessionKey || isTerminalError || memberSnapshot.current.sessionKey !== sessionKey) {
     memberSnapshot.current = {
@@ -519,11 +553,11 @@ export function useEntityList(
   return {
     members: memberSnapshot.current.members,
     hasLiveSnapshot: memberSnapshot.current.hasLiveSnapshot,
-    isLoading,
-    isRetrying,
-    error,
+    isLoading: Boolean(sessionKey && !activeState.result && !activeState.error),
+    isRetrying: activeState.isRetrying,
+    error: activeState.error?.message ?? null,
     isTerminalError,
-    retry,
+    retry: activeState.retry,
   }
 }
 

@@ -21,10 +21,12 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
   const locale = useLocale()
   const { data: activeOrg } = useActiveOrganization()
   const {
-    data: organizationBillingPayload,
+    data: billingData,
     isLoading: isLoadingOrgBilling,
     error,
   } = useOrganizationBilling(activeOrg?.id || '')
+
+  const organizationBillingPayload = (billingData as any)?.data ?? billingData
 
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
 
@@ -65,6 +67,7 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
   const currentCap =
     organizationBillingPayload.totalUsageLimit || organizationBillingPayload.minimumUsageLimit || 0
   const minimumUsageLimit = organizationBillingPayload.minimumUsageLimit || 0
+  const seatsCount = organizationBillingPayload.seatsCount || 1
   const percentUsed =
     currentCap > 0 ? Math.round(Math.min((currentUsage / currentCap) * 100, 100)) : 0
   const warningThresholdPercent =
@@ -89,7 +92,7 @@ export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
       onBadgeClick={() => {
         if (canEditUsageLimit) usageLimitRef.current?.startEdit()
       }}
-      seatsText={copy('seatsText', { count: organizationBillingPayload.totalSeats || 1 })}
+      seatsText={copy('seatsText', { count: seatsCount })}
       current={currentUsage}
       limit={currentCap}
       isBlocked={Boolean(organizationBillingPayload?.billingBlocked)}

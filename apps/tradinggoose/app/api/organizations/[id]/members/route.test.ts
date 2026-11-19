@@ -50,12 +50,17 @@ describe('Organization members GET route', () => {
     }))
 
     vi.doMock('@tradinggoose/db/schema', () => ({
+      invitation: {},
       member: {
         id: 'member.id',
         userId: 'member.userId',
         organizationId: 'member.organizationId',
         role: 'member.role',
         createdAt: 'member.createdAt',
+      },
+      organization: {
+        id: 'organization.id',
+        name: 'organization.name',
       },
       user: {
         id: 'user.id',
@@ -78,12 +83,29 @@ describe('Organization members GET route', () => {
       }),
     }))
 
+    vi.doMock('@/components/emails/render-email', () => ({
+      getEmailSubject: vi.fn(),
+      renderInvitationEmail: vi.fn(),
+    }))
+
     vi.doMock('@/lib/billing/core/organization', () => ({
       getOrganizationBillingData: vi.fn(),
     }))
 
     vi.doMock('@/lib/billing/core/usage', () => ({
       getUserUsageData: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/billing/validation/seat-management', () => ({
+      validateSeatAvailability: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/email/mailer', () => ({
+      sendEmail: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/email/validation', () => ({
+      quickValidateEmail: vi.fn(),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -93,6 +115,10 @@ describe('Organization members GET route', () => {
         info: vi.fn(),
         warn: vi.fn(),
       })),
+    }))
+
+    vi.doMock('@/lib/urls/utils', () => ({
+      getBaseUrl: vi.fn(),
     }))
   })
 
@@ -120,10 +146,13 @@ describe('Organization members GET route', () => {
         canConfigureSso: true,
       },
       subscriptionStatus: 'active',
-      billingInterval: 'month',
-      cancelAt: null,
-      cancelAtPeriodEnd: false,
+      seatPriceUsd: 20,
+      seatCount: 1,
+      seatMaximum: null,
+      seatMode: 'fixed',
       totalSeats: 3,
+      usedSeats: 2,
+      seatsCount: 3,
       totalCurrentUsage: 42.5,
       totalUsageLimit: 60,
       warningThresholdPercent: 80,
@@ -224,10 +253,13 @@ describe('Organization members GET route', () => {
         canConfigureSso: true,
       },
       subscriptionStatus: 'active',
-      billingInterval: 'month',
-      cancelAt: null,
-      cancelAtPeriodEnd: false,
+      seatPriceUsd: 20,
+      seatCount: 1,
+      seatMaximum: 10,
+      seatMode: 'adjustable',
       totalSeats: 3,
+      usedSeats: 2,
+      seatsCount: 3,
       totalCurrentUsage: 18.75,
       totalUsageLimit: 60,
       warningThresholdPercent: 80,

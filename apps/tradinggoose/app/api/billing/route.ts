@@ -1,9 +1,8 @@
 import { db } from '@tradinggoose/db'
-import { user, userStats } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { member, user, userStats } from '@tradinggoose/db/schema'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { getOrganizationMemberRole } from '@/lib/billing/authorization'
 import { getSimplifiedBillingSummary } from '@/lib/billing/core/billing'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getBillingGateState } from '@/lib/billing/settings'
@@ -19,6 +18,16 @@ const logger = createLogger('UnifiedBillingAPI')
 type OrganizationBillingPayload = NonNullable<
   Awaited<ReturnType<typeof getOrganizationBillingData>>
 >
+
+async function getOrganizationMemberRole(organizationId: string, userId: string) {
+  const memberRecord = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(and(eq(member.organizationId, organizationId), eq(member.userId, userId)))
+    .limit(1)
+
+  return memberRecord[0]?.role ?? null
+}
 
 async function getPersonalHasPaymentMethodOnFile(params: {
   stripeConfigured: boolean
@@ -58,10 +67,13 @@ function toOrganizationBillingPayload(
     billingEnabled,
     subscriptionTier: rawBillingData.subscriptionTier,
     subscriptionStatus: rawBillingData.subscriptionStatus,
-    cancelAtPeriodEnd: rawBillingData.cancelAtPeriodEnd,
-    cancelAt: rawBillingData.cancelAt?.toISOString() ?? null,
-    billingInterval: rawBillingData.billingInterval,
+    seatPriceUsd: rawBillingData.seatPriceUsd,
+    seatCount: rawBillingData.seatCount,
+    seatMaximum: rawBillingData.seatMaximum,
+    seatMode: rawBillingData.seatMode,
     totalSeats: rawBillingData.totalSeats,
+    usedSeats: rawBillingData.usedSeats,
+    seatsCount: rawBillingData.seatsCount,
     totalCurrentUsage: rawBillingData.totalCurrentUsage,
     totalUsageLimit: rawBillingData.totalUsageLimit,
     warningThresholdPercent: rawBillingData.warningThresholdPercent,

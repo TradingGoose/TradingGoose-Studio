@@ -14,6 +14,7 @@ import {
 } from '@/lib/billing/tiers'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('SubscriptionCore')
 
@@ -380,22 +381,52 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
       return
     }
 
-    const { getEmailSubject, renderPlanWelcomeEmail } = await import(
+    const { getPlanWelcomeSubject, renderPlanWelcomeEmail } = await import(
       '@/components/emails/render-email'
     )
     const { sendEmail } = await import('@/lib/email/mailer')
     const { resolveEmailLocale } = await import('@/lib/email/locale')
-    const planName = getTierDisplayName(tier)
-    const { referenceId, referenceType } = hydratedSubscription
-    const fields = { id: user.id, email: user.email, name: user.name }
-    const recipients =
-      referenceType === 'user'
-        ? await db.select(fields).from(user).where(eq(user.id, referenceId)).limit(1)
-        : await db
-            .select(fields)
-            .from(member)
-            .innerJoin(user, eq(member.userId, user.id))
-            .where(eq(member.organizationId, referenceId))
+    const baseUrl = getBaseUrl()
+
+    if (hydratedSubscription.referenceType === 'user') {
+      const users = await db
+        .select({ id: user.id, email: user.email, name: user.name })
+        .from(user)
+        .where(eq(user.id, hydratedSubscription.referenceId))
+        .limit(1)
+
+      if (users.length === 0 || !users[0].email) {
+        return
+      }
+
+      const locale = await resolveEmailLocale({ userId: users[0].id, email: users[0].email })
+      const html = await renderPlanWelcomeEmail({
+        planName: getTierDisplayName(tier),
+        userName: users[0].name || undefined,
+        loginLink: `${baseUrl}/login`,
+        locale,
+      })
+
+      await sendEmail({
+        to: users[0].email,
+        subject: getPlanWelcomeSubject(getTierDisplayName(tier), locale),
+        html,
+        emailType: 'updates',
+      })
+
+      logger.info('Billing tier welcome email sent successfully', {
+        userId: hydratedSubscription.referenceId,
+        email: users[0].email,
+        billingTier: tier.displayName,
+      })
+      return
+    }
+
+    const recipients = await db
+      .select({ id: user.id, email: user.email, name: user.name })
+      .from(member)
+      .innerJoin(user, eq(member.userId, user.id))
+      .where(eq(member.organizationId, hydratedSubscription.referenceId))
 
     for (const recipient of recipients) {
       if (!recipient.email) {
@@ -403,26 +434,19 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
       }
 
       const locale = await resolveEmailLocale({ userId: recipient.id, email: recipient.email })
-      const result = await sendEmail({
-        to: recipient.email,
-        userId: recipient.id,
-        subject: getEmailSubject('plan-welcome', locale, { planName }),
+      const html = await renderPlanWelcomeEmail({
+        planName: getTierDisplayName(tier),
+        userName: recipient.name || undefined,
+        loginLink: `${baseUrl}/login`,
         locale,
-        html: (unsubscribeUrl) =>
-          renderPlanWelcomeEmail({
-            unsubscribeUrl,
-            planName,
-            userName: recipient.name || undefined,
-            locale,
-          }),
+      })
+
+      await sendEmail({
+        to: recipient.email,
+        subject: getPlanWelcomeSubject(getTierDisplayName(tier), locale),
+        html,
         emailType: 'updates',
       })
-      if (!result.success) {
-        logger.warn('Billing tier welcome email delivery failed', {
-          userId: recipient.id,
-          message: result.message,
-        })
-      }
     }
   } catch (error) {
     logger.error('Failed to send billing tier welcome email', {

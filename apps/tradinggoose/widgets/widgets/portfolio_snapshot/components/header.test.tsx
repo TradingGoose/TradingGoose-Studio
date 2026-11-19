@@ -367,7 +367,7 @@ describe('trading portfolio socket query', () => {
   beforeEach(() => {
     portfolioResults = {}
     socket = new PortfolioTestSocket()
-    useSocketMock.mockReturnValue(socket)
+    useSocketMock.mockReturnValue({ socket })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)

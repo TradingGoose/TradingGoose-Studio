@@ -12,56 +12,58 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { OrganizationSeats } from '@/hooks/queries/organization'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 
 interface TeamSeatsProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  seatQuote: OrganizationSeats['seatQuote']
+  title: string
+  description: string
+  pricePerSeat: number
   minimumSeats: number
   maximumSeats: number | null
-  currentSeats: number
+  currentSeats?: number
+  initialSeats?: number
   isLoading: boolean
   error?: string | null
   onConfirm: (seats: number) => Promise<void>
+  confirmButtonText: string
+  showCostBreakdown?: boolean
+  isCancelledAtPeriodEnd?: boolean
 }
 
 export function TeamSeats({
   open,
   onOpenChange,
-  seatQuote,
+  title,
+  description,
+  pricePerSeat,
   minimumSeats,
   maximumSeats,
   currentSeats,
+  initialSeats = 1,
   isLoading,
   error,
   onConfirm,
+  confirmButtonText,
+  showCostBreakdown = false,
+  isCancelledAtPeriodEnd = false,
 }: TeamSeatsProps) {
   const t = useTranslations('workspace.settingsModal.team')
   const locale = useLocale()
-  const [seatDraft, setSeatDraft] = useState<string | null>(null)
+  const [selectedSeats, setSelectedSeats] = useState(initialSeats)
 
   useEffect(() => {
-    if (!open) setSeatDraft(null)
-  }, [open])
+    if (open) {
+      setSelectedSeats(initialSeats)
+    }
+  }, [open, initialSeats])
 
-  const boundedInitialSeats = Math.max(
-    minimumSeats,
-    Math.min(currentSeats + 1, maximumSeats ?? Number.POSITIVE_INFINITY)
-  )
-  const inputValue = seatDraft ?? String(boundedInitialSeats)
-  const selectedSeats = Number(inputValue)
-  const invalidRange = maximumSeats !== null && minimumSeats > maximumSeats
-  const validQuantity =
-    inputValue !== '' &&
-    Number.isSafeInteger(selectedSeats) &&
-    selectedSeats >= minimumSeats &&
-    (maximumSeats === null || selectedSeats <= maximumSeats)
-  const canQuote = validQuantity && seatQuote !== null
-  const canConfirm = !isLoading && canQuote && selectedSeats !== currentSeats
+  const totalMonthlyCost = selectedSeats * pricePerSeat
+  const costChange = currentSeats ? (selectedSeats - currentSeats) * pricePerSeat : 0
   const handleConfirm = async () => {
-    if (canConfirm) await onConfirm(selectedSeats)
+    await onConfirm(selectedSeats)
   }
 
   return (
@@ -74,15 +76,8 @@ export function TeamSeats({
     >
       <DialogContent hideCloseButton={isLoading}>
         <DialogHeader>
-          <DialogTitle>{t('addSeats.title')}</DialogTitle>
-          <DialogDescription>
-            {seatQuote
-              ? t('addSeats.description', {
-                  price: formatUsd(locale, seatQuote.amountUsd),
-                  interval: seatQuote.interval,
-                })
-              : t('addSeats.quoteUnavailable')}
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <div className='py-4'>
@@ -92,35 +87,42 @@ export function TeamSeats({
             type='number'
             min={minimumSeats}
             max={maximumSeats ?? undefined}
-            value={inputValue}
-            onChange={(event) => setSeatDraft(event.target.value)}
+            value={selectedSeats}
+            onChange={(event) => {
+              const parsed = Number.parseInt(event.target.value, 10)
+              if (!Number.isFinite(parsed)) {
+                setSelectedSeats(minimumSeats)
+                return
+              }
+
+              const nextValue = Math.max(
+                minimumSeats,
+                maximumSeats === null ? parsed : Math.min(parsed, maximumSeats)
+              )
+              setSelectedSeats(nextValue)
+            }}
             className='rounded-sm'
             disabled={isLoading}
           />
 
-          {canQuote && (
-            <p className='mt-2 text-muted-foreground text-sm'>
-              {t('yourTeamWillHave', {
-                count: selectedSeats,
-                cost: formatUsd(locale, selectedSeats * seatQuote.amountUsd),
-                interval: seatQuote.interval,
-              })}
-            </p>
-          )}
-          {!invalidRange && (
-            <p className='mt-1 text-muted-foreground text-xs'>
-              {maximumSeats === null
-                ? t('minimumSeatsNoMax', {
-                    minimum: formatLocalizedNumber(locale, minimumSeats),
-                  })
-                : t('chooseBetweenSeats', {
-                    minimum: formatLocalizedNumber(locale, minimumSeats),
-                    maximum: formatLocalizedNumber(locale, maximumSeats),
-                  })}
-            </p>
-          )}
+          <p className='mt-2 text-muted-foreground text-sm'>
+            {t('yourTeamWillHave', {
+              count: selectedSeats,
+              cost: formatUsd(locale, totalMonthlyCost),
+            })}
+          </p>
+          <p className='mt-1 text-muted-foreground text-xs'>
+            {maximumSeats === null
+              ? t('minimumSeatsNoMax', {
+                  minimum: formatLocalizedNumber(locale, minimumSeats),
+                })
+              : t('chooseBetweenSeats', {
+                  minimum: formatLocalizedNumber(locale, minimumSeats),
+                  maximum: formatLocalizedNumber(locale, maximumSeats),
+                })}
+          </p>
 
-          {canQuote && (
+          {showCostBreakdown && currentSeats !== undefined && (
             <div className='mt-3 rounded-md bg-muted/50 p-3'>
               <div className='flex justify-between text-sm'>
                 <span>{t('currentSeats')}</span>
@@ -131,24 +133,16 @@ export function TeamSeats({
                 <span>{formatLocalizedNumber(locale, selectedSeats)}</span>
               </div>
               <div className='mt-2 flex justify-between border-t pt-2 font-medium text-sm'>
-                <span>{t('costChange', { interval: seatQuote.interval })}</span>
-                <span>
-                  {formatUsd(locale, (selectedSeats - currentSeats) * seatQuote.amountUsd, {
-                    signDisplay: 'exceptZero',
-                  })}
-                </span>
+                <span>{t('monthlyCostChange')}</span>
+                <span>{formatUsd(locale, costChange, { signDisplay: 'exceptZero' })}</span>
               </div>
             </div>
           )}
         </div>
 
-        {invalidRange || error ? (
+        {error ? (
           <Alert role='alert' variant='destructive'>
-            <AlertDescription>
-              {invalidRange
-                ? t('seatCapacityConflict', { minimum: minimumSeats, maximum: maximumSeats })
-                : error}
-            </AlertDescription>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
 
@@ -156,21 +150,40 @@ export function TeamSeats({
           <Button variant='outline' onClick={() => onOpenChange(false)} disabled={isLoading}>
             {t('cancel')}
           </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={!canConfirm}
-            focusableWhenDisabled={isLoading}
-            aria-busy={isLoading || undefined}
-          >
-            {isLoading ? (
-              <div className='flex items-center space-x-2'>
-                <div className='h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent' />
-                <span>{t('updating')}</span>
-              </div>
-            ) : (
-              t('addSeats.confirm')
-            )}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span>
+                    <Button
+                      onClick={handleConfirm}
+                      disabled={
+                        isLoading ||
+                        (showCostBreakdown && selectedSeats === currentSeats) ||
+                        isCancelledAtPeriodEnd
+                      }
+                      focusableWhenDisabled={isLoading}
+                      aria-busy={isLoading || undefined}
+                    >
+                      {isLoading ? (
+                        <div className='flex items-center space-x-2'>
+                          <div className='h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent' />
+                          <span>{t('updating')}</span>
+                        </div>
+                      ) : (
+                        <span>{confirmButtonText}</span>
+                      )}
+                    </Button>
+                  </span>
+                }
+              />
+              {isCancelledAtPeriodEnd && (
+                <TooltipContent>
+                  <p>{t('reactivateSubscription')}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         </DialogFooter>
       </DialogContent>
     </Dialog>

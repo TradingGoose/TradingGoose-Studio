@@ -12,7 +12,8 @@ const logger = createLogger('MarketHandlers')
 export function setupMarketHandlers(socket: AuthenticatedSocket) {
   socket.on('market-subscribe', async (payload: MarketSubscribePayload) => {
     try {
-      await marketStreamManager.subscribe(socket, payload, 'workspace')
+      const subscription = await marketStreamManager.subscribe(socket, payload, 'workspace')
+      socket.emit('market-subscribed', subscription)
     } catch (error) {
       if (error instanceof MarketSubscriptionCancelledError) return
       const message = error instanceof Error ? error.message : String(error)
@@ -30,13 +31,18 @@ export function setupMarketHandlers(socket: AuthenticatedSocket) {
 
   socket.on('market-unsubscribe', (payload: MarketUnsubscribePayload) => {
     try {
-      marketStreamManager.unsubscribe(socket, payload)
+      const removed = marketStreamManager.unsubscribe(socket, payload)
+      socket.emit('market-unsubscribed', { subscriptions: removed })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       logger.warn('Market unsubscribe failed', {
         socketId: socket.id,
         userId: socket.userId,
         error: message,
+      })
+      socket.emit('market-unsubscribe-error', {
+        error: message,
+        clientSubscriptionId: payload?.clientSubscriptionId,
       })
     }
   })

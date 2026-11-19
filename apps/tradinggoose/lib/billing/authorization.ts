@@ -1,17 +1,7 @@
 import { db } from '@tradinggoose/db'
-import { member } from '@tradinggoose/db/schema'
+import * as schema from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import type { BillingReference } from '@/lib/billing/tiers'
-
-export async function getOrganizationMemberRole(organizationId: string, userId: string) {
-  const memberRecord = await db
-    .select({ role: member.role })
-    .from(member)
-    .where(and(eq(member.organizationId, organizationId), eq(member.userId, userId)))
-    .limit(1)
-
-  return memberRecord[0]?.role ?? null
-}
 
 /**
  * Check if a user is authorized to manage billing for a given subject.
@@ -26,5 +16,11 @@ export async function authorizeSubscriptionReference(
     return referenceId === userId
   }
 
-  return (await getOrganizationMemberRole(referenceId, userId)) === 'owner'
+  const members = await db
+    .select()
+    .from(schema.member)
+    .where(and(eq(schema.member.userId, userId), eq(schema.member.organizationId, referenceId)))
+
+  const member = members[0]
+  return member?.role === 'owner'
 }

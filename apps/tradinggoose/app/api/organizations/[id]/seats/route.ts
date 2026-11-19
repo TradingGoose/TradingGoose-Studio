@@ -1,73 +1,37 @@
 import { db } from '@tradinggoose/db'
-import { subscription } from '@tradinggoose/db/schema'
+import { member, subscription } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import { getOrganizationMemberRole } from '@/lib/billing/authorization'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { getStripeSeatPrice } from '@/lib/billing/stripe-portal'
-import { getStripeSubscriptionPlanItem } from '@/lib/billing/subscriptions/utils'
-import type { BillingTierRecord } from '@/lib/billing/tiers'
-import { getOccupiedSeatCount, getSeatCapacity } from '@/lib/billing/validation/seat-management'
+import { getOccupiedSeatCount, getSeatOccupancy } from '@/lib/billing/validation/seat-management'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('OrganizationSeatsAPI')
 
 const updateSeatsSchema = z.object({
   seats: z.number().int().min(1, 'Minimum 1 seat required'),
-  quoteRevision: z.string().min(1),
 })
 
-async function getBillingUserId() {
-  const session = await getSession()
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!(await getBillingGateState()).billingEnabled) {
-    return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
-  }
-  return session.user.id
-}
-
-async function getStripeSeatSubscription(stripeSubscriptionId: string, tier: BillingTierRecord) {
-  const stripe = requireStripeClient()
-  const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId)
-  const item = getStripeSubscriptionPlanItem(subscription, tier)
-  if (
-    subscription.status !== 'active' ||
-    !item?.quantity ||
-    item.price.recurring?.usage_type !== 'licensed'
-  ) {
-    return null
-  }
-  const { id, price, quantity } = item
-  const seatPrice = subscription.currency === price.currency ? getStripeSeatPrice(price) : null
-  return {
-    stripe,
-    itemId: id,
-    quantity,
-    quote: seatPrice && {
-      ...seatPrice,
-      quantity,
-      revision: JSON.stringify([id, price.id, quantity]),
-    },
-  }
-}
-
-async function getSeatQuote(stripeSubscriptionId: string, tier: BillingTierRecord) {
-  try {
-    return (await getStripeSeatSubscription(stripeSubscriptionId, tier))?.quote ?? null
-  } catch (error) {
-    logger.warn('Failed to get Stripe seat price', { stripeSubscriptionId, error })
-    return null
-  }
-}
-
+/**
+ * PUT /api/organizations/[id]/seats
+ * Update organization seat count using Stripe's subscription.update API.
+ * This is the recommended approach for per-seat billing changes.
+ */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const userId = await getBillingUserId()
-    if (userId instanceof NextResponse) return userId
+    const session = await getSession()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await getBillingGateState()).billingEnabled) {
+      return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
+    }
 
     const { id: organizationId } = await params
     const body = await request.json()
@@ -80,21 +44,27 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const { seats: newSeatCount } = validation.data
 
-    const role = await getOrganizationMemberRole(organizationId, userId)
-    if (!role) {
+    const memberEntry = await db
+      .select()
+      .from(member)
+      .where(and(eq(member.organizationId, organizationId), eq(member.userId, session.user.id)))
+      .limit(1)
+
+    if (memberEntry.length === 0) {
       return NextResponse.json(
         { error: 'Forbidden - Not a member of this organization' },
         { status: 403 }
       )
     }
 
-    if (role !== 'owner') {
+    if (memberEntry[0].role !== 'owner') {
       return NextResponse.json(
         { error: 'Forbidden - Organization owner access required' },
         { status: 403 }
       )
     }
 
+    // Get the organization's subscription
     const orgSubscription = await getOrganizationSubscription(organizationId)
 
     if (!orgSubscription) {
@@ -128,8 +98,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
-    const stripeSubscriptionId = orgSubscription.stripeSubscriptionId
-    if (!stripeSubscriptionId) {
+    if (!orgSubscription.stripeSubscriptionId) {
       return NextResponse.json(
         { error: 'No Stripe subscription found for this organization' },
         { status: 400 }
@@ -148,75 +117,80 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
-    const result = await db.transaction(async (tx) => {
-      const [locked] = await tx
-        .select({ seats: subscription.seats })
-        .from(subscription)
-        .where(
-          and(
-            eq(subscription.id, orgSubscription.id),
-            eq(subscription.stripeSubscriptionId, stripeSubscriptionId)
-          )
-        )
-        .for('update')
-      if (!locked) return NextResponse.json({ error: 'Subscription changed' }, { status: 409 })
-      const current = await getStripeSeatSubscription(stripeSubscriptionId, orgSubscription.tier)
-      if (!current) {
-        return NextResponse.json(
-          { error: 'Stripe subscription has no active licensed seat item' },
-          { status: 400 }
-        )
-      }
-      const { stripe, itemId, quantity: currentSeats } = current
-      if (!current.quote) {
-        return NextResponse.json({ error: 'Seat price estimate is unavailable' }, { status: 409 })
-      }
+    const currentSeats = Math.max(orgSubscription.seats || seatCount || 1, 1)
 
-      const changed = current.quote.revision !== validation.data.quoteRevision
-      const updatedSubscription =
-        changed || newSeatCount === currentSeats
-          ? null
-          : await stripe.subscriptions.update(stripeSubscriptionId, {
-              items: [{ id: itemId, quantity: newSeatCount }],
-              proration_behavior: 'create_prorations',
-            })
-
-      const confirmedSeats = updatedSubscription ? newSeatCount : currentSeats
-      if (locked.seats !== confirmedSeats) {
-        await tx
-          .update(subscription)
-          .set({ seats: confirmedSeats })
-          .where(eq(subscription.id, orgSubscription.id))
-      }
-
-      if (changed) {
-        return NextResponse.json(
-          { error: 'Organization seat quote changed. Review the updated quantity and price.' },
-          { status: 409 }
-        )
-      }
-
-      return { updatedSubscription, currentSeats }
-    })
-    if (result instanceof NextResponse) return result
-    const { updatedSubscription, currentSeats } = result
-    if (!updatedSubscription) {
+    // If no change, return early
+    if (newSeatCount === currentSeats) {
       return NextResponse.json({
         success: true,
         message: 'No change in seat count',
         data: {
           seats: currentSeats,
-          stripeSubscriptionId,
+          stripeSubscriptionId: orgSubscription.stripeSubscriptionId,
         },
       })
     }
 
+    const stripe = requireStripeClient()
+
+    // Get the Stripe subscription to find the subscription item ID
+    const stripeSubscription = await stripe.subscriptions.retrieve(
+      orgSubscription.stripeSubscriptionId
+    )
+
+    if (stripeSubscription.status !== 'active') {
+      return NextResponse.json({ error: 'Stripe subscription is not active' }, { status: 400 })
+    }
+
+    // Find the single Stripe subscription item that represents this adjustable-seat tier.
+    const subscriptionItem = stripeSubscription.items.data[0]
+
+    if (!subscriptionItem) {
+      return NextResponse.json(
+        { error: 'No subscription item found in Stripe subscription' },
+        { status: 500 }
+      )
+    }
+
+    logger.info('Updating Stripe subscription quantity', {
+      organizationId,
+      stripeSubscriptionId: orgSubscription.stripeSubscriptionId,
+      subscriptionItemId: subscriptionItem.id,
+      currentSeats,
+      newSeatCount,
+      userId: session.user.id,
+    })
+
+    // Update the subscription item quantity using Stripe's recommended approach
+    // This will automatically prorate the billing
+    const updatedSubscription = await stripe.subscriptions.update(
+      orgSubscription.stripeSubscriptionId,
+      {
+        items: [
+          {
+            id: subscriptionItem.id,
+            quantity: newSeatCount,
+          },
+        ],
+        proration_behavior: 'create_prorations', // Stripe's default - charge/credit immediately
+      }
+    )
+
+    // Update our local database to reflect the change
+    // Note: This will also be updated via webhook, but we update immediately for UX
+    await db
+      .update(subscription)
+      .set({
+        seats: newSeatCount,
+      })
+      .where(eq(subscription.id, orgSubscription.id))
+
     logger.info('Successfully updated seat count', {
       organizationId,
-      stripeSubscriptionId,
+      stripeSubscriptionId: orgSubscription.stripeSubscriptionId,
       oldSeats: currentSeats,
       newSeats: newSeatCount,
-      updatedBy: userId,
+      updatedBy: session.user.id,
       prorationBehavior: 'create_prorations',
     })
 
@@ -236,6 +210,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   } catch (error) {
     const { id: organizationId } = await params
 
+    // Handle Stripe-specific errors
     if (error instanceof Error && 'type' in error) {
       const stripeError = error as any
       logger.error('Stripe error updating seats', {
@@ -263,15 +238,32 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
+/**
+ * GET /api/organizations/[id]/seats
+ * Get current seat information for an organization
+ */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const userId = await getBillingUserId()
-    if (userId instanceof NextResponse) return userId
+    const session = await getSession()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await getBillingGateState()).billingEnabled) {
+      return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
+    }
 
     const { id: organizationId } = await params
 
-    const role = await getOrganizationMemberRole(organizationId, userId)
-    if (!role) {
+    // Verify user has access to this organization
+    const memberEntry = await db
+      .select()
+      .from(member)
+      .where(and(eq(member.organizationId, organizationId), eq(member.userId, session.user.id)))
+      .limit(1)
+
+    if (memberEntry.length === 0) {
       return NextResponse.json(
         { error: 'Forbidden - Not a member of this organization' },
         { status: 403 }
@@ -280,21 +272,29 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     const orgSubscription = await getOrganizationSubscription(organizationId)
 
-    const [usedSeats, seatQuote] = await Promise.all([
-      getOccupiedSeatCount(organizationId),
-      orgSubscription?.stripeSubscriptionId &&
-      orgSubscription.tier.seatMode === 'adjustable' &&
-      role === 'owner'
-        ? getSeatQuote(orgSubscription.stripeSubscriptionId, orgSubscription.tier)
-        : null,
-    ])
+    if (!orgSubscription) {
+      return NextResponse.json({ error: 'No active subscription found' }, { status: 404 })
+    }
+
+    const maxSeats = Math.max(orgSubscription.seats || orgSubscription.tier.seatCount || 1, 1)
+    const seatOccupancy = await getSeatOccupancy(organizationId)
+    const usedSeats = seatOccupancy.occupied
+    const availableSeats = Math.max(0, maxSeats - usedSeats)
+
     return NextResponse.json({
       success: true,
       data: {
-        organizationId,
-        ...getSeatCapacity(orgSubscription, usedSeats),
+        maxSeats,
         usedSeats,
-        seatQuote,
+        memberSeats: seatOccupancy.members,
+        pendingInvitations: seatOccupancy.pending,
+        availableSeats,
+        tier: orgSubscription.tier.displayName,
+        canModifySeats:
+          orgSubscription.tier.ownerType === 'organization' &&
+          orgSubscription.tier.seatMode === 'adjustable',
+        seatMode: orgSubscription.tier.seatMode,
+        seatMaximum: orgSubscription.tier.seatMaximum,
       },
     })
   } catch (error) {

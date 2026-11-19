@@ -5,11 +5,7 @@ import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscripti
 import { hasPrivateBillingTierAccess } from '@/lib/billing/private-tier-access'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { getStoredStripeUserCustomerId } from '@/lib/billing/stripe-customers'
-import {
-  ensurePlanChangePortalConfiguration,
-  getValidatedStripeTierPrice,
-  IneligibleStripePriceError,
-} from '@/lib/billing/stripe-portal'
+import { ensurePlanChangePortalConfiguration } from '@/lib/billing/stripe-portal'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { getBillingTierById } from '@/lib/billing/tiers'
 import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
@@ -192,17 +188,12 @@ async function prepareSubscriptionUpgrade(request: Request): Promise<Request | R
       preparedBody = { ...preparedBody, seats: authorizedSeats }
     }
   }
-  const priceId = body.annual === true ? tier.stripeYearlyPriceId : tier.stripeMonthlyPriceId
-  try {
-    if (activeStripeSubscriptionId) {
-      await ensurePlanChangePortalConfiguration(requireStripeClient(), priceId)
-    } else if (tier.ownerType === 'organization') {
-      await getValidatedStripeTierPrice(requireStripeClient(), tier, priceId)
+  if (activeStripeSubscriptionId) {
+    try {
+      await ensurePlanChangePortalConfiguration(requireStripeClient())
+    } catch {
+      return Response.json({ error: 'Stripe Billing Portal is unavailable' }, { status: 503 })
     }
-  } catch (error) {
-    return error instanceof IneligibleStripePriceError
-      ? Response.json({ error: error.message }, { status: 409 })
-      : Response.json({ error: 'Stripe billing is unavailable' }, { status: 503 })
   }
 
   const headers = new Headers(request.headers)

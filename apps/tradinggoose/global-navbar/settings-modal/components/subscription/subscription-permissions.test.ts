@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
-import type { BillingTierSummary } from '@/lib/billing/types'
+import type { BillingTierSummary } from '@/lib/subscription/types'
 import { getSubscriptionSurfaceState } from './subscription-permissions'
 
 const ownerRole = { isOrganizationOwner: true }
@@ -18,7 +18,6 @@ function buildTier(overrides: Partial<PublicBillingTierDisplay>): PublicBillingT
     displayOrder: 0,
     monthlyPriceUsd: 0,
     yearlyPriceUsd: null,
-    hasStripeMonthlyPriceId: false,
     seatCount: null,
     seatMaximum: null,
     canEditUsageLimit: false,

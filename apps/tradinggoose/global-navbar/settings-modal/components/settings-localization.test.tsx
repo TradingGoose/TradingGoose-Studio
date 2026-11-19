@@ -7,7 +7,6 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { Organization } from '@/lib/organization'
-import { type OrganizationSeats, organizationKeys } from '@/hooks/queries/organization'
 import type { WorkspaceSettingsResponse } from '@/hooks/queries/workspace'
 import { getClientMessages } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
@@ -15,8 +14,6 @@ import { UsageHeader } from './shared/usage-header'
 import { WorkspaceBillingOwnerEditor } from './subscription/components/workspace-billing-owner'
 import { MemberInvitationCard } from './team-management/components/member-invitation-card/member-invitation-card'
 import { NoOrganizationView } from './team-management/components/no-organization-view/no-organization-view'
-import { TeamMembers } from './team-management/components/team-members/team-members'
-import { TeamSeats } from './team-management/components/team-seats/team-seats'
 import { TeamSeatsOverview } from './team-management/components/team-seats-overview/team-seats-overview'
 import { TeamManagement } from './team-management/team-management'
 
@@ -24,11 +21,9 @@ vi.unmock('next-intl')
 
 const mocks = vi.hoisted(() => ({
   organization: null as Organization | null,
-  organizationDetail: undefined as Organization | null | undefined,
   billing: null as Record<string, unknown> | null,
   refetch: vi.fn(),
   mutate: vi.fn(),
-  publicTiers: [] as Record<string, unknown>[],
 }))
 
 vi.mock('@/lib/auth-client', () => ({
@@ -37,20 +32,15 @@ vi.mock('@/lib/auth-client', () => ({
   }),
 }))
 
-vi.mock('@/lib/subscription/upgrade', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/subscription/upgrade')>()),
+vi.mock('@/lib/subscription/upgrade', () => ({
   useSubscriptionUpgrade: () => ({ handleUpgrade: mocks.mutate }),
 }))
 
-vi.mock('@/hooks/queries/organization', async (importOriginal) => {
+vi.mock('@/hooks/queries/organization', () => {
   const mutation = () => ({ mutationFn: mocks.mutate })
   return {
-    ...(await importOriginal<typeof import('@/hooks/queries/organization')>()),
     useOrganizations: () => ({ data: { activeOrganization: mocks.organization } }),
-    useOrganization: () => ({
-      data: mocks.organizationDetail === undefined ? mocks.organization : mocks.organizationDetail,
-      isLoading: false,
-    }),
+    useOrganization: () => ({ data: mocks.organization, isLoading: false }),
     useOrganizationBilling: () => ({ data: mocks.billing, isLoading: false }),
     useOrganizationBillingWorkspaces: () => ({ data: [], isLoading: false }),
     useAvailableOrganizationBillingWorkspaces: () => ({ data: [], isLoading: false }),
@@ -71,8 +61,12 @@ vi.mock('@/hooks/queries/workspace', () => ({
   workspaceMutationOptions: { updateSettings: () => ({ mutationFn: mocks.mutate }) },
 }))
 
+vi.mock('@/hooks/queries/subscription', () => ({
+  useSubscriptionData: () => ({ data: null, isLoading: false }),
+}))
+
 vi.mock('@/hooks/queries/public-billing-catalog', () => ({
-  usePublicBillingCatalog: () => ({ data: { publicTiers: mocks.publicTiers }, isLoading: false }),
+  usePublicBillingCatalog: () => ({ data: { publicTiers: [] }, isLoading: false }),
 }))
 
 vi.mock('@/hooks/queries/private-tier-access', () => ({
@@ -92,10 +86,8 @@ vi.mock('./team-management/components', async () => ({
   ),
   RemoveMemberDialog: () => null,
   TeamMembers: (await import('./team-management/components/team-members/team-members')).TeamMembers,
-  TeamSeats: (await import('./team-management/components/team-seats/team-seats')).TeamSeats,
-  TeamSeatsOverview: (
-    await import('./team-management/components/team-seats-overview/team-seats-overview')
-  ).TeamSeatsOverview,
+  TeamSeats: () => null,
+  TeamSeatsOverview: () => null,
   TeamUsage: () => null,
   WorkspaceBilling: () => null,
 }))
@@ -109,21 +101,8 @@ describe('settings localization', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.organization = null
-    mocks.organizationDetail = undefined
     mocks.billing = null
-    mocks.publicTiers = []
     queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
-    queryClient.setQueryData(organizationKeys.seats('org-1'), {
-      organizationId: 'org-1',
-      maxSeats: 0,
-      usedSeats: 4,
-      availableSeats: 0,
-      seatQuote: null,
-    } satisfies OrganizationSeats)
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => Response.json({ data: [] }))
-    )
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
@@ -134,7 +113,6 @@ describe('settings localization', () => {
     await act(async () => root.unmount())
     queryClient.clear()
     container.remove()
-    vi.unstubAllGlobals()
     expect(onIntlError).not.toHaveBeenCalled()
   })
 
@@ -152,60 +130,6 @@ describe('settings localization', () => {
       )
     })
   }
-
-  function enterSeats(value: number) {
-    const input = document.querySelector<HTMLInputElement>('#seats')!
-    act(() => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
-        input,
-        String(value)
-      )
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-  }
-
-  it('keeps member usage scoped to the current organization when an earlier request finishes late', async () => {
-    let finishEarlier!: (response: Response) => void
-    const earlier = new Promise<Response>((resolve) => {
-      finishEarlier = resolve
-    })
-    const usage = (currentPeriodCost: string) =>
-      Response.json({ data: [{ userId: 'user-1', currentPeriodCost }] })
-    vi.mocked(fetch).mockImplementation(async (input) =>
-      String(input).includes('/org-1/') ? earlier : usage('22')
-    )
-    const organization = {
-      id: 'org-1',
-      name: 'First team',
-      slug: 'first-team',
-      createdAt: '2025-01-01',
-      members: [
-        {
-          id: 'member-1',
-          role: 'owner',
-          user: { id: 'user-1', name: 'Ana', email: 'ana@example.com' },
-        },
-      ],
-    }
-    const members = (
-      <TeamMembers
-        organization={organization}
-        currentUserEmail='ana@example.com'
-        isAdminOrOwner
-        actionsDisabled={false}
-        onRemoveMember={vi.fn()}
-        onCancelInvitation={vi.fn()}
-      />
-    )
-    await render('en', members)
-    await render('en', cloneElement(members, { organization: { ...organization, id: 'org-2' } }))
-    await act(async () => {
-      await vi.waitFor(() => expect(container.textContent).toContain('$22.00'))
-      finishEarlier(usage('91'))
-    })
-    expect(container.textContent).toContain('$22.00')
-    expect(container.textContent).not.toContain('$91.00')
-  })
 
   it.each([
     ['es', 'Propietario de facturación', 'Organización'],
@@ -280,486 +204,6 @@ describe('settings localization', () => {
       expect(container.textContent).not.toContain('licensed seats')
     }
   })
-
-  it('starts an adjustable plan directly when occupied seats fit the tier', async () => {
-    mocks.organization = {
-      id: 'org-1',
-      name: 'Design team',
-      slug: 'design-team',
-      createdAt: '2025-06-15T12:00:00Z',
-      members: [
-        { id: 'member-1', role: 'owner', user: { email: 'ana@example.com' } },
-        ...Array.from({ length: 3 }, (_, index) => ({
-          id: `member-${index + 2}`,
-          role: 'member',
-          user: { email: `member-${index + 2}@example.com` },
-        })),
-      ],
-    }
-    mocks.billing = {
-      organizationId: 'org-1',
-      billingEnabled: true,
-      subscriptionTier: {
-        ...EMPTY_BILLING_TIER_SUMMARY,
-        id: 'current-org-tier',
-        displayName: 'Current organization tier',
-        ownerType: 'organization',
-        usageScope: 'pooled',
-        seatMode: 'adjustable',
-        hasStripeMonthlyPriceId: true,
-      },
-      totalSeats: 20,
-      totalCurrentUsage: 0,
-      totalUsageLimit: 0,
-    }
-    mocks.publicTiers = [
-      {
-        id: 'tier-org',
-        displayName: 'Organization Pro',
-        description: '',
-        ownerType: 'organization',
-        usageScope: 'pooled',
-        seatMode: 'adjustable',
-        seatCount: 2,
-        seatMaximum: 10,
-        monthlyPriceUsd: 12.5,
-        yearlyPriceUsd: null,
-        hasStripeMonthlyPriceId: true,
-        displayOrder: 0,
-        pricingFeatures: [],
-        canEditUsageLimit: false,
-        isDefault: false,
-      },
-    ]
-
-    await render('es', <TeamManagement />)
-    const plan = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Organization Pro')
-    )!
-    await act(async () => plan.click())
-
-    expect(document.querySelector('[role="dialog"]')).toBeNull()
-    expect(mocks.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'tier-org', ownerType: 'organization' }),
-      { organizationId: 'org-1' }
-    )
-  })
-
-  describe('team seat aggregate quotes', () => {
-    let counts: OrganizationSeats
-    const plan = () =>
-      [...container.querySelectorAll('button')].find((button) =>
-        button.textContent?.includes('Organization Pro')
-      )!
-    beforeEach(() => {
-      mocks.organization = {
-        id: 'org-1',
-        name: 'Design team',
-        slug: 'design-team',
-        createdAt: '2025-06-15T12:00:00Z',
-        members: [{ id: 'owner', role: 'owner', user: { email: 'ana@example.com' } }],
-        invitations: Array.from({ length: 100 }, (_, index) => ({
-          id: `canceled-${index}`,
-          email: `canceled-${index}@example.com`,
-          status: 'canceled',
-        })),
-      }
-      mocks.billing = {
-        organizationId: 'org-1',
-        billingEnabled: true,
-        subscriptionTier: null,
-        totalSeats: 0,
-        totalCurrentUsage: 0,
-        totalUsageLimit: 0,
-      }
-      mocks.publicTiers = [
-        {
-          ...EMPTY_BILLING_TIER_SUMMARY,
-          id: 'tier-org',
-          displayName: 'Organization Pro',
-          ownerType: 'organization',
-          usageScope: 'pooled',
-          seatMode: 'adjustable',
-          seatCount: 2,
-          seatMaximum: 80,
-          monthlyPriceUsd: 12.5,
-          yearlyPriceUsd: null,
-          hasStripeMonthlyPriceId: true,
-          pricingFeatures: [],
-          isDefault: false,
-        },
-      ]
-      counts = {
-        ...queryClient.getQueryData<OrganizationSeats>(organizationKeys.seats('org-1'))!,
-        usedSeats: 50,
-      }
-      queryClient.setQueryData(organizationKeys.seats('org-1'), counts)
-    })
-
-    it('starts a fixed monthly team tier without a seat dialog', async () => {
-      mocks.publicTiers[0] = {
-        ...mocks.publicTiers[0],
-        monthlyPriceUsd: null,
-        yearlyPriceUsd: 120,
-        seatMode: 'fixed',
-        seatCount: 60,
-      }
-      await render('en', <TeamManagement />)
-      await act(async () => plan().click())
-      expect(document.querySelector('[role="dialog"]')).toBeNull()
-      expect(mocks.mutate).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'tier-org', hasStripeMonthlyPriceId: true }),
-        { organizationId: 'org-1' }
-      )
-    })
-
-    it('keeps a team tier with insufficient capacity unavailable', async () => {
-      mocks.publicTiers[0] = { ...mocks.publicTiers[0], seatMaximum: 10 }
-      await render('en', <TeamManagement />)
-      expect(plan()).toBeDisabled()
-      await act(async () => plan().click())
-      expect(document.querySelector('[role="dialog"]')).toBeNull()
-      expect(mocks.mutate).not.toHaveBeenCalled()
-      expect(container.textContent).toContain('at most 10 seats, but 50 are required')
-    })
-
-    it('shows a fixed plan’s annual catalog price without a per-seat estimate', async () => {
-      mocks.publicTiers[0] = { ...mocks.publicTiers[0], seatMode: 'fixed', yearlyPriceUsd: 800 }
-      mocks.billing = {
-        ...mocks.billing,
-        billingInterval: 'year',
-        totalSeats: 60,
-        subscriptionTier: mocks.publicTiers[0],
-      }
-      await render('en', <TeamManagement />)
-      expect(container.querySelector('[aria-current="true"]')).toHaveTextContent('$800.00/yr')
-      expect(container.textContent).not.toContain('a minimum of')
-    })
-
-    it.each([
-      { seatCount: 60, usedSeats: 50 },
-      { seatCount: 2, usedSeats: 60 },
-    ])(
-      'disables removal at the plan or occupancy minimum ($seatCount, $usedSeats)',
-      async ({ seatCount, usedSeats }) => {
-        mocks.billing = {
-          ...mocks.billing,
-          subscriptionTier: { ...mocks.publicTiers[0], seatCount },
-        }
-        queryClient.setQueryData(organizationKeys.seats('org-1'), {
-          ...counts,
-          usedSeats,
-          seatQuote: { quantity: 60, revision: 'quoted', amountUsd: 15, interval: 'month' },
-        })
-        await render('en', <TeamManagement />)
-        const { removeSeat } = getClientMessages('en').workspace.settingsModal.team
-        expect(
-          [...container.querySelectorAll('button')].find(
-            (button) => button.textContent === removeSeat
-          )
-        ).toBeDisabled()
-      }
-    )
-
-    it.each([
-      {
-        billingInterval: 'year',
-        monthlyPriceUsd: 12.5,
-        seatQuote: { quantity: 60, revision: 'quoted', amountUsd: 120, interval: 'year' },
-      },
-      {
-        billingInterval: 'month',
-        monthlyPriceUsd: null,
-        seatQuote: { quantity: 60, revision: 'quoted', amountUsd: 15, interval: 'month' },
-      },
-      { billingInterval: null, monthlyPriceUsd: 12.5, seatQuote: null },
-    ] as const)(
-      'uses the active Stripe price $seatQuote to quote licensed seat changes',
-      async ({ billingInterval, monthlyPriceUsd, seatQuote }) => {
-        mocks.billing = {
-          ...mocks.billing,
-          totalSeats: 60,
-          billingInterval,
-          subscriptionTier: {
-            ...EMPTY_BILLING_TIER_SUMMARY,
-            id: 'current-team',
-            displayName: 'Current team',
-            ownerType: 'organization',
-            usageScope: 'pooled',
-            seatMode: 'adjustable',
-            seatCount: 2,
-            seatMaximum: 80,
-            monthlyPriceUsd,
-            yearlyPriceUsd: 999,
-            hasStripeMonthlyPriceId: true,
-          },
-        }
-        queryClient.setQueryData(organizationKeys.seats('org-1'), {
-          ...counts,
-          maxSeats: 60,
-          availableSeats: 10,
-          seatQuote,
-        })
-        await render('en', <TeamManagement />)
-        const copy = getClientMessages('en').workspace.settingsModal.team
-        const currentPlan = container.querySelector('[aria-current="true"]')
-        expect(currentPlan).toHaveTextContent(
-          billingInterval === 'year'
-            ? 'Current team · $999.00/yr · Current'
-            : 'Current team · Current'
-        )
-        if (seatQuote?.interval === 'year') {
-          expect(container.textContent).toContain('a minimum of $7,200.00/year')
-          expect(container.textContent).toContain('($120.00/year each)')
-        } else if (seatQuote?.interval === 'month') {
-          expect(container.textContent).toContain('a minimum of $900.00/month')
-          expect(container.textContent).toContain('($15.00/month each)')
-        }
-        const remove = [...container.querySelectorAll('button')].find(
-          (button) => button.textContent === copy.removeSeat
-        )!
-        const add = [...container.querySelectorAll('button')].find(
-          (button) => button.textContent === copy.addSeat
-        )!
-        if (seatQuote === null) {
-          expect(container.textContent).toContain(copy.addSeats.quoteUnavailable)
-          expect(remove).toBeDisabled()
-          expect(add).toBeDisabled()
-          const updated = {
-            ...counts,
-            maxSeats: 60,
-            seatQuote: { quantity: 60, revision: 'quoted', amountUsd: 15, interval: 'month' },
-          }
-          vi.mocked(fetch).mockResolvedValue(Response.json({ data: updated }))
-          const retry = container.querySelector<HTMLButtonElement>('[role="alert"] button')!
-          await act(async () => {
-            retry.click()
-            await vi.waitFor(() =>
-              expect(queryClient.getQueryData(organizationKeys.seats('org-1'))).toEqual(updated)
-            )
-          })
-          expect(add).toBeEnabled()
-          expect(remove).toBeEnabled()
-          return
-        }
-        expect(remove).toBeEnabled()
-        await act(async () => remove.click())
-        expect(mocks.mutate.mock.lastCall?.[0]).toEqual({
-          orgId: 'org-1',
-          seats: 59,
-          quoteRevision: 'quoted',
-        })
-        expect(add).toBeEnabled()
-        await act(async () => add.click())
-        const dialog = document.querySelector('[role="dialog"]')!
-        if (seatQuote.interval === 'year') {
-          expect(dialog.textContent).toContain('$7,320.00 per year')
-          expect(dialog.textContent).toContain('Annual cost change:')
-          expect(dialog.textContent).not.toContain('per month')
-        } else {
-          expect(dialog.textContent).toContain('$915.00 per month')
-          expect(dialog.textContent).toContain('Monthly cost change:')
-          expect(dialog.textContent).not.toContain('per year')
-        }
-        const update = [...dialog.querySelectorAll('button')].find(
-          (button) => button.textContent === copy.addSeats.confirm
-        )!
-        await act(async () => update.click())
-        expect(mocks.mutate.mock.lastCall?.[0]).toEqual({
-          orgId: 'org-1',
-          seats: 61,
-          quoteRevision: 'quoted',
-        })
-      }
-    )
-
-    it('waits for aggregate occupancy before starting adjustable checkout and recovers after retry', async () => {
-      queryClient.removeQueries({ queryKey: organizationKeys.seats('org-1'), exact: true })
-      let fail!: (error: Error) => void
-      const pending = new Promise<Response>((_resolve, reject) => {
-        fail = reject
-      })
-      vi.mocked(fetch).mockImplementation(async (input) =>
-        String(input).endsWith('/seats') ? pending : Response.json({ data: [] })
-      )
-      await render('en', <TeamManagement />)
-      expect(plan()).toBeDisabled()
-      expect(container.querySelector('#organization-private-tier-access-code')).not.toBeNull()
-      await act(async () => {
-        fail(new Error('Counts unavailable'))
-        await vi.waitFor(() =>
-          expect(queryClient.getQueryState(organizationKeys.seats('org-1'))?.status).toBe('error')
-        )
-      })
-      expect(plan()).toBeDisabled()
-      expect(container.querySelector('#organization-private-tier-access-code')).not.toBeNull()
-      await act(async () => plan().click())
-      expect(mocks.mutate).not.toHaveBeenCalled()
-      vi.mocked(fetch).mockResolvedValue(Response.json({ data: counts }))
-      const retry = [...container.querySelectorAll('button')].find(
-        (button) =>
-          button.textContent === getClientMessages('en').workspace.permissionsFeedback.retry
-      )!
-      await act(async () => {
-        retry.click()
-        await vi.waitFor(() =>
-          expect(queryClient.getQueryState(organizationKeys.seats('org-1'))?.status).toBe('success')
-        )
-      })
-      await vi.waitFor(() => expect(plan()).toBeEnabled())
-      await act(async () => plan().click())
-      expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'tier-org' }), {
-        seats: counts.usedSeats,
-        organizationId: 'org-1',
-      })
-    })
-
-    it('waits for the new organization’s occupied seats before submitting its selected quantity', async () => {
-      await render('en', <TeamManagement />)
-      mocks.organizationDetail = mocks.organization
-      mocks.organization = { ...mocks.organization!, id: 'org-2', name: 'Second team' }
-      mocks.billing = { ...mocks.billing, organizationId: 'org-2' }
-      let resolve!: (response: Response) => void
-      const pending = new Promise<Response>((done) => {
-        resolve = done
-      })
-      vi.mocked(fetch).mockImplementation(async (input) =>
-        String(input).endsWith('/seats') ? pending : Response.json({ data: [] })
-      )
-      await render('en', <TeamManagement />)
-      expect(fetch).toHaveBeenCalledWith('/api/organizations/org-2/seats')
-      expect(plan()).toBeDisabled()
-      await act(async () => {
-        resolve(Response.json({ data: { ...counts, organizationId: 'org-2', usedSeats: 4 } }))
-        await vi.waitFor(() =>
-          expect(queryClient.getQueryState(organizationKeys.seats('org-2'))?.status).toBe('success')
-        )
-      })
-      const input = plan().closest('form')!.querySelector('input')!
-      expect(input.min).toBe('4')
-      input.value = '7'
-      await act(async () => plan().click())
-      expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'tier-org' }), {
-        seats: 7,
-        organizationId: 'org-2',
-      })
-    })
-
-    it('does not fetch or surface retained seat errors without enabled organization billing', async () => {
-      queryClient.removeQueries({ queryKey: organizationKeys.seats('org-1'), exact: true })
-      await queryClient
-        .fetchQuery({
-          queryKey: organizationKeys.seats('org-1'),
-          queryFn: async () => {
-            throw new Error('Previous seat request failed')
-          },
-          retry: false,
-        })
-        .catch(() => {})
-      for (const billing of [null, { ...mocks.billing, billingEnabled: false }]) {
-        mocks.billing = billing
-        await render('en', <TeamManagement />)
-        expect(fetch).not.toHaveBeenCalledWith('/api/organizations/org-1/seats')
-        expect(container.textContent).not.toContain(
-          getClientMessages('en').workspace.settingsModal.team.errors.loadOrganizationBilling
-        )
-      }
-    })
-  })
-
-  it('bounds initial seats and preserves valid edits until the dialog closes', async () => {
-    const dialog = (
-      <TeamSeats
-        open
-        onOpenChange={vi.fn()}
-        seatQuote={{ quantity: 60, revision: 'quoted', amountUsd: 10, interval: 'month' }}
-        minimumSeats={4}
-        maximumSeats={10}
-        currentSeats={19}
-        isLoading={false}
-        onConfirm={mocks.mutate}
-      />
-    )
-    const seats = () => document.querySelector<HTMLInputElement>('#seats')!
-    const confirm = () =>
-      [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
-        (button) =>
-          button.textContent ===
-          getClientMessages('en').workspace.settingsModal.team.addSeats.confirm
-      )!
-
-    await render('en', dialog)
-    expect(seats()).toHaveValue(10)
-    enterSeats(8)
-    await render('en', cloneElement(dialog, { currentSeats: 29, minimumSeats: 6, maximumSeats: 9 }))
-    expect(seats()).toHaveValue(8)
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('$80.00 per month')
-    await render('en', cloneElement(dialog, { maximumSeats: 7 }))
-    expect(seats()).toHaveValue(8)
-    expect(confirm()).toBeDisabled()
-    expect(document.querySelector('[role="dialog"]')?.textContent).not.toContain('$80.00')
-    await act(async () => confirm().click())
-    expect(mocks.mutate).not.toHaveBeenCalled()
-
-    await render('en', cloneElement(dialog, { seatQuote: null }))
-    expect(confirm()).toBeDisabled()
-    await act(async () => confirm().click())
-    expect(mocks.mutate).not.toHaveBeenCalled()
-
-    await render('en', cloneElement(dialog, { open: false }))
-    await render('en', dialog)
-    expect(seats()).toHaveValue(10)
-
-    await render('en', cloneElement(dialog, { minimumSeats: 10, maximumSeats: null }))
-    expect(seats()).toHaveValue(20)
-    enterSeats(1)
-    expect(seats()).toHaveValue(1)
-    expect(confirm()).toBeDisabled()
-    enterSeats(12)
-    expect(seats()).toHaveValue(12)
-    expect(confirm()).toBeEnabled()
-    await act(async () => confirm().click())
-    expect(mocks.mutate).toHaveBeenCalledExactlyOnceWith(12)
-
-    await render('en', cloneElement(dialog, { minimumSeats: 12 }))
-    expect(document.querySelector('[role="alert"]')?.textContent).toContain(
-      'at most 10 seats, but 12 are required'
-    )
-    expect(confirm()).toBeDisabled()
-    await render('en', dialog)
-    expect(document.querySelector('[role="alert"]')).toBeNull()
-    enterSeats(7)
-    expect(confirm()).toBeEnabled()
-  })
-
-  it.each([
-    ['en', 'per year', 'Annual cost change:'],
-    ['es', 'al año', 'Cambio de costo anual:'],
-    ['zh', '每年', '年度费用变动：'],
-  ] as const)(
-    'localizes annual seat totals and cost changes in %s',
-    async (locale, period, change) => {
-      await render(
-        locale,
-        <TeamSeats
-          open
-          onOpenChange={vi.fn()}
-          seatQuote={{ quantity: 60, revision: 'quoted', amountUsd: 120, interval: 'year' }}
-          minimumSeats={4}
-          maximumSeats={10}
-          currentSeats={2}
-          isLoading={false}
-          onConfirm={mocks.mutate}
-        />
-      )
-      const dialog = document.querySelector('[role="dialog"]')!
-      expect(dialog.textContent).toContain(period)
-      expect(dialog.textContent).toContain(change)
-      expect(dialog.textContent).toContain(
-        new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(480)
-      )
-    }
-  )
 
   it.each([
     ['es', 'Equipo de Ana'],
@@ -843,7 +287,7 @@ describe('settings localization', () => {
           onWorkspaceToggle={vi.fn()}
           invitedWorkspaceCount={count}
           canInviteMembers
-          availableSeats={1}
+          seatLimited={false}
         />
       )
 
@@ -879,12 +323,24 @@ describe('settings localization', () => {
           error={null}
         />
         <TeamSeatsOverview
-          totalSeats={2}
-          seatQuote={{ quantity: 60, revision: 'quoted', amountUsd: 12.5, interval: 'month' }}
+          subscriptionData={{
+            id: 'subscription-1',
+            status: 'active',
+            seats: 2,
+            referenceId: 'org-1',
+            tier: {
+              displayName: 'Organization Pro',
+              ownerType: 'organization',
+              seatMode: 'adjustable',
+              monthlyPriceUsd: 12.5,
+            },
+          }}
           isLoadingSubscription={false}
           usedSeats={1}
+          isLoading={false}
           actionsDisabled={false}
           isReducing={false}
+          onConfirmTeamUpgrade={mocks.mutate}
           onReduceSeats={mocks.mutate}
           onAddSeatDialog={vi.fn()}
         />

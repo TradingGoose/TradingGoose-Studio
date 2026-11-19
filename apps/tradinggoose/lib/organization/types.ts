@@ -28,6 +28,24 @@ export interface Organization {
   [key: string]: unknown
 }
 
+export interface Subscription {
+  id: string
+  status: string
+  seats?: number
+  referenceType?: 'user' | 'organization'
+  referenceId: string
+  cancelAtPeriodEnd?: boolean
+  periodEnd?: number | Date
+  trialEnd?: number | Date
+  metadata?: any
+  [key: string]: unknown
+}
+
+export interface WorkspaceInvitation {
+  workspaceId: string
+  permission: string
+}
+
 export interface Workspace {
   id: string
   name: string
@@ -35,4 +53,42 @@ export interface Workspace {
   billingOwner?: { type: 'user'; userId: string } | { type: 'organization'; organizationId: string }
   isOwner: boolean
   canInvite: boolean
+}
+
+export interface OrganizationFormData {
+  name: string
+  slug: string
+  logo: string
+}
+
+export interface MemberUsageData {
+  userId: string
+  userName: string
+  userEmail: string
+  currentUsage: number
+  usageLimit: number
+  percentUsed: number
+  isOverLimit: boolean
+  role: string
+  joinedAt: string
+  lastActive: string | null
+}
+
+export interface OrganizationBillingData {
+  organizationId: string
+  organizationName: string
+  subscriptionTierName: string
+  subscriptionStatus: string
+  totalSeats: number
+  usedSeats: number
+  seatsCount: number
+  totalCurrentUsage: number
+  totalUsageLimit: number
+  minimumUsageLimit: number
+  averageUsagePerMember: number
+  billingPeriodStart: string | null
+  billingPeriodEnd: string | null
+  members?: MemberUsageData[]
+  userRole?: string
+  billingBlocked?: boolean
 }

@@ -41,7 +41,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
 vi.mock('drizzle-orm', () => ({ eq: vi.fn() }))
 
 vi.mock('@/lib/billing/tiers', () => ({
-  getTierUsageAllowanceUsd: vi.fn(() => 100),
+  getTierIncludedUsageLimit: vi.fn(() => 100),
   isOrganizationBillingTier: vi.fn(() => true),
   requireBillingTierById,
 }))
@@ -66,7 +66,6 @@ describe('handleManualEnterpriseSubscription', () => {
       displayName: 'Enterprise',
       ownerType: 'organization',
       usageScope: 'individual',
-      stripeYearlyPriceId: 'price_yearly',
     })
   })
 
@@ -85,38 +84,22 @@ describe('handleManualEnterpriseSubscription', () => {
             monthlyPrice: '100',
             seats: '5',
           },
-          items: {
-            data: [
-              { price: { id: 'addon', recurring: { interval: 'month' } } },
-              { price: { id: 'price_yearly', recurring: { interval: 'year' } } },
-            ],
-          },
-          cancel_at: 1_900_000_000,
-          canceled_at: 1_800_000_000,
-          ended_at: null,
-          schedule: { id: 'sub_sched' },
+          items: { data: [] },
           status: 'active',
         },
       },
     } as any)
 
     expect(requireBillingTierById).toHaveBeenCalledWith('tier_enterprise')
-    const fields = expect.objectContaining({
-      referenceId: 'org_123',
-      billingTierId: 'tier_enterprise',
-      billingInterval: 'year',
-      stripeScheduleId: 'sub_sched',
-      cancelAt: new Date(1_900_000_000_000),
-      canceledAt: new Date(1_800_000_000_000),
-      endedAt: null,
-      metadata: expect.objectContaining({
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
         referenceId: 'org_123',
         billingTierId: 'tier_enterprise',
-      }),
-    })
-    expect(insertValues).toHaveBeenCalledWith(fields)
-    expect(insertQuery.onConflictDoUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ set: fields })
+        metadata: expect.objectContaining({
+          referenceId: 'org_123',
+          billingTierId: 'tier_enterprise',
+        }),
+      })
     )
   })
 })

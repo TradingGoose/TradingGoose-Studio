@@ -76,22 +76,11 @@
       "auth": null
     }
   },
-  "username": {
-    "checking": "正在检查用户名…",
-    "available": "此用户名可用。",
-    "error": "暂时无法检查用户名是否可用。",
-    "required": "用户名为必填项。",
-    "invalid": "只能使用字母、数字、下划线和英文句点。",
-    "length": "用户名长度必须为 3–30 个字符。",
-    "taken": "此用户名已被使用，请选择其他用户名。"
-  },
   "auth": {
     "common": {
       "email": "邮箱",
       "password": "密码",
       "fullName": "全名",
-      "username": "用户名",
-      "enterYourUsername": "输入用户名",
       "workEmail": "工作邮箱",
       "enterYourEmail": "输入邮箱",
       "enterYourPassword": "输入密码",
@@ -121,7 +110,9 @@
       "signInWithSso": "使用 SSO 登录",
       "continueWithSso": "继续使用 SSO",
       "requestAccess": "请求访问权限",
-      "loading": "加载中..."
+      "loading": "加载中...",
+      "username": "用户名",
+      "enterYourUsername": "输入用户名"
     },
     "error": {
       "eyebrow": "身份验证错误",
@@ -200,11 +191,11 @@
       "waitlistApprovedEmail": "请使用相同的候补批准邮箱进行任何登录方式。"
     },
     "social": {
-      "divider": "或继续使用",
       "github": "GitHub",
       "google": "Google",
       "connecting": "正在连接...",
-      "cancelled": "{provider} 登录已取消。请重试。"
+      "cancelled": "{provider} 登录已取消。请重试。",
+      "divider": "或继续使用"
     },
     "verify": {
       "eyebrow": "验证",
@@ -214,6 +205,7 @@
       "verifiedDescription": "您的邮箱已验证。正在重定向到仪表盘...",
       "disabledDescription": "邮箱验证已禁用。正在重定向到仪表盘...",
       "codeSent": "验证码已发送至 {email}",
+      "developmentDescription": "开发模式：请查看控制台日志以获取验证码",
       "missingServiceDescription": "错误：邮箱验证已启用但未配置邮件服务",
       "instructionsWithService": "请输入密码重置邮件中的六位验证码，并设置今后用于登录的密码。",
       "instructionsWithoutService": "请输入六位验证码，并设置今后用于登录的密码。",
@@ -235,10 +227,9 @@
       "eyebrow": "登录",
       "title": "欢迎回来",
       "description": "请输入您的登录信息",
-      "identifierLabel": "邮箱或用户名",
-      "identifierPlaceholder": "输入邮箱或用户名",
       "submit": "登录",
       "submitting": "登录中...",
+      "divider": "或继续使用",
       "resetDialog": {
         "title": "重置密码",
         "description": "请输入您的邮箱地址，如果您的账户存在，我们将向您发送重置密码的链接。",
@@ -252,21 +243,29 @@
         "submitting": "发送中..."
       },
       "validation": {
-        "identifierRequired": "邮箱或用户名为必填项。",
+        "emailRequired": "邮箱为必填项。",
         "emailInvalid": "请输入有效的邮箱地址。",
         "passwordRequired": "密码为必填项。",
-        "passwordEmpty": "密码不能为空。"
+        "passwordEmpty": "密码不能为空。",
+        "identifierRequired": "邮箱或用户名为必填项。"
       },
       "errors": {
         "sessionExpired": "您的会话已过期，请重新登录。",
+        "emailSignInDisabled": "邮箱登录目前已禁用。",
         "invalidCredentials": "登录信息无效，请重试。",
+        "noAccount": "此邮箱未找到账户，请先注册。",
+        "missingCredentials": "请输入邮箱和密码。",
         "emailPasswordDisabled": "邮箱和密码登录已禁用。",
+        "tooManyAttempts": "登录尝试次数过多，请稍后重试或重置密码。",
+        "accountLocked": "出于安全原因，您的账户已被锁定，请重置密码。",
         "network": "网络错误，请检查连接后重试。",
         "rateLimit": "请求过于频繁，请稍候再试。",
         "unableToSignIn": "无法登录。",
         "unableToSignInNow": "当前无法登录，请稍后重试。",
         "verifyWithEmail": "请使用邮箱地址登录以验证您的账户。"
-      }
+      },
+      "identifierLabel": "邮箱或用户名",
+      "identifierPlaceholder": "输入邮箱或用户名"
     },
     "resetPassword": {
       "eyebrow": "密码重置",
@@ -298,13 +297,13 @@
       "descriptionWaitlist": "需要已批准的候补名单访问权限",
       "submit": "创建账户",
       "submitting": "正在创建账户...",
+      "divider": "或继续使用",
       "nameTitle": "名称只能包含字母、空格、连字符和撇号",
-      "usernameHint": "使用 3–30 个字母、数字、下划线或英文句点。",
-      "resumeVerification": "继续验证 {email}",
       "validation": {
         "emailRequired": "需要电子邮件。",
         "emailInvalid": "请输入有效的电子邮件地址。",
         "nameRequired": "需要姓名。",
+        "nameEmpty": "姓名不能为空。",
         "nameCharacters": "名称只能包含字母、空格、连字符和撇号。",
         "nameSpaces": "名称不能包含连续空格。",
         "nameTooLong": "姓名将被截断为100个字符。请缩短您的姓名。",
@@ -325,7 +324,9 @@
         "passwordTooLong": "密码长度不能超过128个字符。",
         "network": "网络错误，请检查连接后重试。",
         "rateLimit": "请求过于频繁，请稍后再试。"
-      }
+      },
+      "usernameHint": "使用 3–30 个字母、数字、下划线或英文句点。",
+      "resumeVerification": "继续验证 {email}"
     },
     "waitlist": {
       "eyebrow": "等候名单",
@@ -348,10 +349,11 @@
     "sso": {
       "eyebrow": "SSO",
       "title": "通过SSO登录",
-      "providerId": "提供商 ID（可选）",
       "description": "输入您的工作邮箱以继续",
+      "submit": "通过SSO继续",
       "submitting": "正在重定向至SSO提供商...",
       "divider": "或",
+      "emailButton": "通过邮箱登录",
       "validation": {
         "emailRequired": "需要提供邮箱地址。",
         "emailInvalid": "请输入有效的邮箱地址。"
@@ -360,14 +362,15 @@
         "accountNotFound": "未找到账户。请联系管理员以设置SSO访问。",
         "ssoFailed": "SSO身份验证失败。请重试。",
         "providerNotConfigured": "SSO提供商配置不正确。",
-        "domainNotVerified": "此 SSO 连接尚未验证。请管理员验证此连接，或向其索取已验证的提供商 ID 并在 SSO 登录页面输入。",
-        "providerIdRequired": "此邮箱域名有多个 SSO 提供商。请输入你所在组织的提供商 ID。",
         "invalidEmailDomain": "邮箱域名未配置SSO。请联系管理员。",
         "network": "网络错误。请检查网络连接后重试。",
         "rateLimit": "请求过于频繁。请稍候再试。",
         "ssoDisabled": "SSO身份验证已禁用。请使用其他登录方式。",
-        "failed": "SSO登录失败。请重试。"
-      }
+        "failed": "SSO登录失败。请重试。",
+        "domainNotVerified": "此 SSO 连接尚未验证。请管理员验证此连接，或向其索取已验证的提供商 ID 并在 SSO 登录页面输入。",
+        "providerIdRequired": "此邮箱域名有多个 SSO 提供商。请输入你所在组织的提供商 ID。"
+      },
+      "providerId": "提供商 ID（可选）"
     },
     "mcp": {
       "eyebrow": "MCP 授权",
@@ -408,12 +411,25 @@
         "waitlist": "嘟！隆重推出 TradingGoose-Studio",
         "open": "嘟！TradingGoose-Studio 已上线"
       },
-      "leadWords": ["构建", "测试", "运行"],
-      "highlightWords": ["交易分析", "信号检测", "风险评估"],
+      "leadWords": [
+        "构建",
+        "测试",
+        "运行"
+      ],
+      "highlightWords": [
+        "交易分析",
+        "信号检测",
+        "风险评估"
+      ],
       "titleConnector": "你的",
       "suffix": "与 TradingGoose",
       "description": "连接你自己的数据提供商，编写自定义指标以监控市场价格，并将其接入工作流，从而触发交易、卖出、买入或你定义的任何操作。",
-      "featureBadges": ["AI Agent 工作流", "自定义指标", "自带数据", "集成"],
+      "featureBadges": [
+        "AI Agent 工作流",
+        "自定义指标",
+        "自带数据",
+        "集成"
+      ],
       "learnMore": "了解更多",
       "logoAlt": "TradingGoose 标志"
     },
@@ -629,13 +645,21 @@
           "badge": "工作空间",
           "title": "组件布局",
           "description": "拆分工作区，将组件并排或堆叠放置。为每个工作区保存并切换命名的布局。",
-          "bullets": ["递归拆分", "每个工作区保存的布局", "共享组件操作菜单"]
+          "bullets": [
+            "递归拆分",
+            "每个工作区保存的布局",
+            "共享组件操作菜单"
+          ]
         },
         {
           "badge": "图表",
           "title": "指标与实时数据",
           "description": "内置指标以及一个用于编写自定义指标的 PineTS 编辑器。连接您自己的数据提供商，实时监控价格。",
-          "bullets": ["可配置的指标输入", "每根 K 线实时重新执行", "十字准线图例与图表标记"]
+          "bullets": [
+            "可配置的指标输入",
+            "每根 K 线实时重新执行",
+            "十字准线图例与图表标记"
+          ]
         },
         {
           "badge": "工作流",
@@ -724,7 +748,13 @@
         "experience": {
           "label": "工作年限 *",
           "placeholder": "请选择经验级别",
-          "options": ["0-1 年", "1-3 年", "3-5 年", "5-10 年", "10 年以上"]
+          "options": [
+            "0-1 年",
+            "1-3 年",
+            "3-5 年",
+            "5-10 年",
+            "10 年以上"
+          ]
         },
         "location": {
           "label": "所在地 *",
@@ -876,6 +906,17 @@
       "goBack": "返回",
       "immediateHelpPrefix": "需要即时帮助？请发送邮件至"
     },
+    "transactional": {
+      "title": "重要账户邮件",
+      "description": "此邮件包含关于您账户的重要信息",
+      "important": "事务性邮件",
+      "body": "密码重置、账户确认和安全提醒等事务性邮件无法取消订阅，因为它们包含保护您账户安全和正常运作的必要信息。",
+      "optionsPrefix": "如果您不再希望收到这些邮件，您可以：",
+      "closeAccount": "完全关闭您的账户",
+      "contactSupport": "联系我们的支持团队寻求帮助",
+      "contactButton": "联系支持",
+      "closeButton": "关闭"
+    },
     "success": {
       "title": "取消订阅成功",
       "description": "您已成功取消订阅我们的邮件。您将在48小时内停止接收邮件。",
@@ -900,6 +941,7 @@
       "missing-parameters": "缺少电子邮件或令牌参数",
       "invalid-link": "退订链接无效或已过期",
       "invalid-request-data": "请求数据无效",
+      "transactional": "事务性邮件包含重要的账户信息，无法退订。",
       "failed-processing": "处理退订请求失败",
       "internal-error": "内部服务器错误",
       "unknown": "发生了意外错误。"
@@ -1871,11 +1913,6 @@
         "profileDetails": "个人资料详情",
         "profileDetailsDescription": "更新您的姓名并管理访问权限。",
         "fullName": "姓名",
-        "username": "用户名",
-        "usernameHint": "使用 3–30 个字母、数字、下划线或英文句点。可使用用户名或邮箱地址登录。",
-        "editUsername": "编辑用户名",
-        "saveUsername": "保存用户名",
-        "cancelEditingUsername": "取消编辑用户名",
         "emailAddress": "电子邮箱",
         "emailHint": "验证当前邮箱和新邮箱后，即可更改账户邮箱。",
         "passwordReset": "重置密码",
@@ -1885,7 +1922,6 @@
         "saveName": "保存姓名",
         "cancelEditingName": "取消编辑姓名",
         "editName": "编辑姓名",
-        "editEmail": "编辑邮箱",
         "privacy": "隐私",
         "privacyDescription": "管理数据的收集方式。",
         "telemetry": {
@@ -1902,13 +1938,21 @@
           "profilePictureFileTooLarge": "文件 {name} 过大，最大允许 5MB。",
           "profilePictureUnsupportedFormat": "文件 {name} 不是受支持的图片格式。请使用 PNG 或 JPEG。",
           "profilePictureUpdateError": "更新个人资料图片失败",
+          "profilePictureRemoveError": "移除个人资料图片失败",
           "unableToUpdateProfilePicture": "无法更新个人资料图片。",
+          "failedUpdateName": "更新姓名失败",
           "unableToUpdateName": "无法更新姓名。请重试。",
           "noEmail": "未找到此账户的电子邮件地址。",
           "passwordResetSent": "密码重置链接已发送至您的收件箱。",
           "passwordResetFailed": "无法发送密码重置电子邮件。",
           "usernameUpdateError": "无法更新用户名，请重试。"
         },
+        "username": "用户名",
+        "usernameHint": "使用 3–30 个字母、数字、下划线或英文句点。可使用用户名或邮箱地址登录。",
+        "editUsername": "编辑用户名",
+        "saveUsername": "保存用户名",
+        "cancelEditingUsername": "取消编辑用户名",
+        "editEmail": "编辑邮箱",
         "emailChange": {
           "title": "更改账户邮箱",
           "newEmail": "新邮箱地址",
@@ -2102,7 +2146,7 @@
       "team": {
         "error": "错误",
         "defaultTeamName": "{name} 的团队",
-        "billingHowWorksSeatCost": "您的团队{interval, select, year {每年} other {每月}}至少支付 {amount}，共 {seats, plural, other {# 个授权席位}}。",
+        "billingHowWorksSeatCost": "您的团队每月至少支付 {amount}，共 {seats, plural, other {# 个授权席位}}。",
         "billingHowWorksUsageTracked": "用量按此层级当前包含的额度进行统计。",
         "billingHowWorksIncreaseLimit": "组织所有者可根据需要提高使用限额。",
         "billingHowWorksOverage": "超出最低席位费用的用量将在计费周期结束时作为超额费用收取。",
@@ -2121,37 +2165,41 @@
         "teamUrl": "团队 URL",
         "teamSlugPlaceholder": "my-team",
         "createTeamWorkspace": "创建团队工作空间",
+        "noTeamSubscriptionFound": "未找到团队订阅",
+        "subscriptionMayNeedTransfer": "您的订阅可能需要转移到此组织。",
         "setUpTeamSubscription": "设置团队订阅",
         "seats": "席位",
-        "pricePerSeat": "（每席位{interval, select, year {每年} other {每月}}{price}）",
+        "pricePerSeat": "（每席位每月{price}）",
         "used": "已使用 {count} 个",
         "total": "总共 {count} 个",
         "removeSeat": "移除席位",
         "addSeat": "添加席位",
         "seat": "席位",
         "numberOfSeats": "席位数量",
-        "yourTeamWillHave": "您的团队将拥有 {count, plural, other {# 个席位}}，{interval, select, year {每年} other {每月}}费用为 {cost}。",
-        "seatCapacityConflict": "此层级最多支持 {maximum, number} 个席位，但当前需要 {minimum, number} 个。",
+        "yourTeamWillHave": "您的团队将拥有 {count, plural, other {# 个席位}}，每月共计 {cost} 的推理额度。",
         "minimumSeatsNoMax": "最少 {minimum} 个席位。此层级无最大席位上限。",
         "chooseBetweenSeats": "请在此层级选择 {minimum} 到 {maximum} 个席位。",
         "currentSeats": "当前席位：",
         "newSeats": "新席位：",
-        "costChange": "{interval, select, year {年度} other {月度}}费用变动：",
+        "monthlyCostChange": "月度费用变动：",
         "loading": "加载中...",
+        "reactivateSubscription": "要更新席位，请前往 订阅 > 管理 > 保留订阅 以重新激活",
         "leaveOrganization": "退出组织",
         "removeTeamMember": "移除团队成员",
         "leaveOrganizationDescription": "确定要退出此组织吗？您将失去所有团队资源的访问权限。",
         "removeMemberDescription": "确定要将 {name} 从团队中移除吗？",
+        "alsoReduceSeatCount": "同时减少订阅中的席位数量",
+        "reduceSeatCountDescription": "如果选中，您的团队席位数量将减少 1，从而降低您的月度费用。",
         "thisActionCannotBeUndone": "此操作无法撤销。",
         "cancel": "取消",
         "remove": "移除",
         "inviteUnavailableMessage": "需要有效的组织订阅才能邀请团队成员。",
         "yourself": "您自己",
         "thisMember": "该成员",
+        "noPublicAdjustableTier": "未配置公开可调整的组织层级",
         "addSeats": {
           "title": "添加团队席位",
-          "description": "每个席位预计{interval, select, year {每年} other {每月}} {price}。实际费用按确认变更时的订阅价格计算。",
-          "quoteUnavailable": "暂时无法获取席位价格。请重试后再调整席位。",
+          "description": "每个席位每月费用为 {price}，并提供 {price} 的每月推理额度。请调整团队的授权席位数。",
           "confirm": "更新席位"
         },
         "billing": {
@@ -2273,6 +2321,9 @@
         "audience": "受众（实体ID）",
         "audiencePlaceholder": "输入受众",
         "audienceDescription": "SAML受众限制，可选，默认为应用URL。",
+        "callbackUrlOverride": "回调URL覆盖",
+        "callbackUrlPlaceholder": "输入回调URL",
+        "callbackUrlDescription": "自定义SAML回调URL，可选，如果为空则自动生成。",
         "requireSignedAssertions": "要求签名SAML断言",
         "metadataXml": "身份提供者元数据XML",
         "metadataPlaceholder": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<md:EntityDescriptor xmlns:md=\"urn:oasis:names:tc:SAML:2.0:metadata\">\n  ...\n</md:EntityDescriptor>",
@@ -3868,7 +3919,10 @@
             },
             "headers": {
               "title": "响应头",
-              "columns": ["键", "值"],
+              "columns": [
+                "键",
+                "值"
+              ],
               "description": "要包含在响应中的其他 HTTP 头"
             }
           },
@@ -19032,7 +19086,10 @@
             },
             "variables": {
               "title": "变量",
-              "columns": ["键", "值"]
+              "columns": [
+                "键",
+                "值"
+              ]
             },
             "apiKey": {
               "title": "Anthropic API 密钥",
@@ -20196,7 +20253,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20223,7 +20280,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20245,7 +20302,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20267,7 +20324,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20316,7 +20373,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20365,7 +20422,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20387,7 +20444,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20414,7 +20471,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -23407,11 +23464,11 @@
       "emailPartFrom": "，来自 {email}"
     },
     "footer": {
-      "unsubscribe": "退订",
       "copyright": "(c) {year} {brandName}，保留所有权利",
       "questions": "有问题？发送邮件至",
       "privacy": "隐私政策",
-      "terms": "服务条款"
+      "terms": "服务条款",
+      "unsubscribe": "退订"
     },
     "subjects": {
       "sign-in": "登录 {brandName}",
@@ -23525,7 +23582,11 @@
         "body": "你的组织账单层级已在 {brandName} 生效。现在你拥有更高容量、高级控制和组织范围访问权限。",
         "cta": "访问你的账户",
         "nextStepsTitle": "后续步骤",
-        "nextSteps": ["- 邀请团队成员加入组织", "- 配置工作区权限", "- 使用新限制开始构建工作流"],
+        "nextSteps": [
+          "- 邀请团队成员加入组织",
+          "- 配置工作区权限",
+          "- 使用新限制开始构建工作流"
+        ],
         "help": "需要入门帮助？回复此邮件，我们的团队会协助你。"
       },
       "planWelcome": {
@@ -23586,5 +23647,14 @@
       "explore": "与此同时，你可以查看我们的文档 {docsUrl}，或在博客 {blogUrl} 阅读最新内容。",
       "sentLine": "此确认邮件发送时间：{dateTime}。"
     }
+  },
+  "username": {
+    "checking": "正在检查用户名…",
+    "available": "此用户名可用。",
+    "error": "暂时无法检查用户名是否可用。",
+    "required": "用户名为必填项。",
+    "invalid": "只能使用字母、数字、下划线和英文句点。",
+    "length": "用户名长度必须为 3–30 个字符。",
+    "taken": "此用户名已被使用，请选择其他用户名。"
   }
 }

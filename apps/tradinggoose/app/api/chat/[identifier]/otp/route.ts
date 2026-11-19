@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { getEmailSubject, renderOTPEmail } from '@/components/emails/render-email'
+import { normalizeEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { deleteCachedValue, getCachedValue, setCachedValue } from '@/lib/redis'
@@ -11,7 +12,7 @@ import { generateRequestId } from '@/lib/utils'
 import { addCorsHeaders, setChatAuthCookie } from '@/app/api/chat/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 import { CHAT_ERROR_CODES } from '@/app/chat/constants'
-import { locales, normalizeLocaleCode } from '@/i18n/utils'
+import { locales } from '@/i18n/utils'
 
 const logger = createLogger('ChatOtpAPI')
 
@@ -130,7 +131,7 @@ export async function POST(
       const otp = generateOTP()
 
       await storeOTP(email, deployment.id, otp)
-      const locale = normalizeLocaleCode(requestLocale)
+      const locale = normalizeEmailLocale(requestLocale)
 
       const emailHtml = await renderOTPEmail(
         otp,
@@ -144,7 +145,6 @@ export async function POST(
         to: email,
         subject: getEmailSubject('chat-access', locale, { chatTitle: deployment.title || 'Chat' }),
         html: emailHtml,
-        emailType: 'transactional',
       })
 
       if (!emailResult.success) {

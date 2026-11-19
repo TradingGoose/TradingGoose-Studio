@@ -329,21 +329,21 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
   })
 
-  it.each(['/api/copilot/mcp', '/api/users/me/settings/unsubscribe'])(
-    'accepts POST requests to %s without a User-Agent',
-    async (path) => {
-      const { proxy } = await import('./proxy')
-      const response = await proxy(
-        new NextRequest(`http://localhost:3000${path}`, {
-          method: 'POST',
-        })
-      )
+  it('exempts Codex MCP requests with an empty user-agent from suspicious user-agent filtering', async () => {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/api/copilot/mcp', {
+        method: 'POST',
+        headers: {
+          'user-agent': '',
+        },
+      })
+    )
 
-      expect(response.status).toBe(200)
-      expect(response.headers.get('x-middleware-rewrite')).toBeNull()
-      expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
-    }
-  )
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+    expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
+  })
 
   it('does not exempt Codex MCP requests from non-empty suspicious user-agent filtering', async () => {
     const { proxy } = await import('./proxy')

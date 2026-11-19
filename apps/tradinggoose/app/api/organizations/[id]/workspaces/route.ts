@@ -3,7 +3,6 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import { getOrganizationMemberRole } from '@/lib/billing/authorization'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getManageableWorkspaces, hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import {
@@ -13,9 +12,26 @@ import {
 
 const logger = createLogger('OrganizationWorkspacesAPI')
 
-const organizationWorkspaceSchema = z.object({
+const assignOrganizationWorkspaceSchema = z.object({
   workspaceId: z.string().trim().min(1, 'Workspace is required'),
 })
+
+const releaseOrganizationWorkspaceSchema = z.object({
+  workspaceId: z.string().trim().min(1, 'Workspace is required'),
+})
+
+async function getOrganizationMembership(userId: string, organizationId: string) {
+  const rows = await db
+    .select({
+      id: member.id,
+      role: member.role,
+    })
+    .from(member)
+    .where(and(eq(member.organizationId, organizationId), eq(member.userId, userId)))
+    .limit(1)
+
+  return rows[0] ?? null
+}
 
 /**
  * GET /api/organizations/[id]/workspaces
@@ -36,8 +52,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const availableOnly = url.searchParams.get('available') === 'true'
     const memberId = url.searchParams.get('member')
 
-    const role = await getOrganizationMemberRole(organizationId, session.user.id)
-    if (!role) {
+    const membership = await getOrganizationMembership(session.user.id, organizationId)
+    if (!membership) {
       return NextResponse.json(
         {
           error: 'Forbidden - Not a member of this organization',
@@ -46,7 +62,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
-    const hasAdminAccess = role === 'owner' || role === 'admin'
+    const hasAdminAccess = membership.role === 'owner' || membership.role === 'admin'
 
     if (availableOnly) {
       if (!hasAdminAccess) {
@@ -247,7 +263,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         totalCount: organizationWorkspaces.length,
         filter: 'all',
       },
-      userRole: role,
+      userRole: membership.role,
       hasAdminAccess,
     })
   } catch (error) {
@@ -270,16 +286,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const { id: organizationId } = await params
-    const role = await getOrganizationMemberRole(organizationId, session.user.id)
+    const membership = await getOrganizationMembership(session.user.id, organizationId)
 
-    if (role !== 'owner' && role !== 'admin') {
+    if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
       return NextResponse.json(
         { error: 'Only organization admins can assign workspace billing ownership' },
         { status: 403 }
       )
     }
 
-    const { workspaceId } = organizationWorkspaceSchema.parse(await request.json())
+    const { workspaceId } = assignOrganizationWorkspaceSchema.parse(await request.json())
 
     const canAdminWorkspace = await hasWorkspaceAdminAccess(session.user.id, workspaceId)
     if (!canAdminWorkspace) {
@@ -358,9 +374,9 @@ export async function DELETE(
     }
 
     const { id: organizationId } = await params
-    const role = await getOrganizationMemberRole(organizationId, session.user.id)
+    const membership = await getOrganizationMembership(session.user.id, organizationId)
 
-    if (role !== 'owner' && role !== 'admin') {
+    if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
       return NextResponse.json(
         { error: 'Only organization admins can release organization billing ownership' },
         { status: 403 }
@@ -368,7 +384,7 @@ export async function DELETE(
     }
 
     const url = new URL(request.url)
-    const workspaceId = organizationWorkspaceSchema.parse({
+    const workspaceId = releaseOrganizationWorkspaceSchema.parse({
       workspaceId: url.searchParams.get('workspaceId'),
     }).workspaceId
 
