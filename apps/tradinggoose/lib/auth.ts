@@ -1149,7 +1149,7 @@ export const auth = betterAuth({
           authorizationUrl: 'https://discord.com/api/oauth2/authorize',
           tokenUrl: 'https://discord.com/api/oauth2/token',
           userInfoUrl: 'https://discord.com/api/users/@me',
-          scopes: ['identify', 'bot', 'messages.read', 'guilds', 'guilds.members.read'],
+          scopes: getCanonicalScopesForProvider('discord'),
           responseType: 'code',
           accessType: 'offline',
           authentication: 'basic',
@@ -1176,11 +1176,11 @@ export const auth = betterAuth({
               return {
                 id: profile.id,
                 name: profile.username || 'Discord User',
-                email: profile.email || `${profile.id}@discord.user`,
+                email: profile.email,
                 image: profile.avatar
                   ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
                   : undefined,
-                emailVerified: profile.verified || false,
+                emailVerified: profile.verified,
                 createdAt: now,
                 updatedAt: now,
               }

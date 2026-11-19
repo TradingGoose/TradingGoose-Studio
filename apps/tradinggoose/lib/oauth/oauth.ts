@@ -530,7 +530,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
         providerId: 'discord',
         icon: (props) => DiscordIcon(props),
         baseProviderIcon: (props) => DiscordIcon(props),
-        scopes: ['identify', 'bot', 'messages.read', 'guilds', 'guilds.members.read'],
+        scopes: ['identify', 'email', 'bot', 'messages.read', 'guilds', 'guilds.members.read'],
       },
     },
     defaultService: 'discord',

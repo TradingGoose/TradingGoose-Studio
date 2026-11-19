@@ -161,6 +161,11 @@ it.each([
     subject: '42',
     profile: { id: 42, name: 'Wealthbox user', email: 'owner@example.com' },
   },
+  {
+    provider: 'discord',
+    subject: '123',
+    profile: { id: '123', username: 'Discord user', email: 'owner@example.com', verified: true },
+  },
 ])(
   'links and reconnects $provider only to its Studio owner',
   async ({ provider, subject, profile }) => {
@@ -187,6 +192,7 @@ it.each([
           if (profile) vi.mocked(fetch).mockResolvedValueOnce(Response.json(profile))
           const params = new URL(start.response.url!).searchParams
           expect(params.get('response_type')).toBe('code')
+          if (provider === 'discord') expect(params.get('scope')?.split(' ')).toContain('email')
           const response = await service.handler(
             callbackRequest(provider, headers, {
               state: params.get('state')!,
@@ -204,11 +210,13 @@ it.each([
     await expect(complete('other', otherSession)).resolves.toBe(
       '/failed?error=account_already_linked_to_different_user'
     )
-    await expect(complete('sign-in')).resolves.toBe('/failed?error=email_not_found')
     await expect(internalAdapter.findAccounts(owner.id)).resolves.toMatchObject([
       { providerId: provider, accountId: subject, accessToken: 'renewed' },
     ])
     await expect(internalAdapter.findAccounts(other.id)).resolves.toEqual([])
+    if (provider !== 'discord') {
+      await expect(complete('sign-in')).resolves.toBe('/failed?error=email_not_found')
+    }
   }
 )
 
