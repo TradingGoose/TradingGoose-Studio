@@ -3,21 +3,21 @@ import { baseStyles } from '@/components/emails/base-styles'
 import { emailText, getEmailCopy } from '@/components/emails/email-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
-import { getBaseUrl } from '@/lib/urls/utils'
-import { type LocaleInput, localizeUrl, normalizeLocaleCode } from '@/i18n/utils'
+import { type LocaleInput, localizeSiteUrl, normalizeLocaleCode } from '@/i18n/utils'
 
 interface EmailFooterProps {
-  baseUrl?: string
+  unsubscribeUrl?: string
   locale?: LocaleInput
 }
 
-export const EmailFooter = ({ baseUrl = getBaseUrl(), locale }: EmailFooterProps) => {
+export default function EmailFooter({ locale, unsubscribeUrl }: EmailFooterProps) {
   const resolvedLocale = normalizeLocaleCode(locale)
   const copy = getEmailCopy(resolvedLocale)
   const brand = getBrandConfig()
   const year = new Date().getFullYear()
-  const privacyUrl = localizeUrl(baseUrl, resolvedLocale, '/privacy')
-  const termsUrl = localizeUrl(baseUrl, resolvedLocale, '/terms')
+  const linkStyle = { ...baseStyles.link, fontWeight: 600, fontFamily: baseStyles.fontFamily }
+  const privacyUrl = localizeSiteUrl(resolvedLocale, '/privacy')
+  const termsUrl = localizeSiteUrl(resolvedLocale, '/terms')
 
   return (
     <Container style={baseStyles.footer}>
@@ -79,15 +79,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), locale }: EmailFooterProps
                   })}
                   <br />
                   {copy.footer.questions}{' '}
-                  <a
-                    href={`mailto:${brand.supportEmail}`}
-                    style={{
-                      color: baseStyles.link.color,
-                      textDecoration: 'underline',
-                      fontWeight: 600,
-                      fontFamily: baseStyles.fontFamily,
-                    }}
-                  >
+                  <a href={`mailto:${brand.supportEmail}`} style={linkStyle}>
                     {brand.supportEmail}
                   </a>
                   {isHosted && (
@@ -107,31 +99,21 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), locale }: EmailFooterProps
                             fontFamily: baseStyles.fontFamily,
                           }}
                         >
-                          <a
-                            href={privacyUrl}
-                            style={{
-                              color: baseStyles.link.color,
-                              textDecoration: 'underline',
-                              fontWeight: 600,
-                              fontFamily: baseStyles.fontFamily,
-                            }}
-                            rel='noopener noreferrer'
-                          >
+                          <a href={privacyUrl} style={linkStyle} rel='noopener noreferrer'>
                             {copy.footer.privacy}
                           </a>{' '}
                           |{' '}
-                          <a
-                            href={termsUrl}
-                            style={{
-                              color: baseStyles.link.color,
-                              textDecoration: 'underline',
-                              fontWeight: 600,
-                              fontFamily: baseStyles.fontFamily,
-                            }}
-                            rel='noopener noreferrer'
-                          >
+                          <a href={termsUrl} style={linkStyle} rel='noopener noreferrer'>
                             {copy.footer.terms}
                           </a>
+                          {unsubscribeUrl && (
+                            <>
+                              {' | '}
+                              <Link href={unsubscribeUrl} style={baseStyles.link}>
+                                {copy.footer.unsubscribe}
+                              </Link>
+                            </>
+                          )}
                         </p>
                       </td>
                     </tr>
@@ -145,5 +127,3 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), locale }: EmailFooterProps
     </Container>
   )
 }
-
-export default EmailFooter

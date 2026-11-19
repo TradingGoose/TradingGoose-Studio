@@ -38,7 +38,7 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@/components/emails/render-email', () => ({
-  getEmailSubject: vi.fn(),
+  getEmailSubject: vi.fn((key: string) => key),
   renderFreeTierUpgradeEmail: vi.fn(),
   renderUsageThresholdEmail: vi.fn(),
 }))
@@ -228,4 +228,46 @@ describe('usage onboarding allowance helpers', () => {
       },
     ])
   })
+})
+
+describe('usage threshold mail', () => {
+  const usage = {
+    scope: 'user' as const,
+    userId: 'owner',
+    userEmail: 'owner@example.com',
+    planName: 'Free',
+    isFreeTier: true,
+    percentBefore: 50,
+    percentAfter: 95,
+    currentUsageAfter: 95,
+    limit: 100,
+  }
+
+  it.each([true, false])(
+    'uses the billing notification preference for both thresholds (enabled=%s)',
+    async (enabled) => {
+      vi.clearAllMocks()
+      mockGetResolvedBillingSettings.mockResolvedValue({
+        billingEnabled: true,
+        usageWarningThresholdPercent: 75,
+        freeTierUpgradeThresholdPercent: 90,
+      })
+      mockDb.select.mockImplementation(() =>
+        createSelectQueryMock([{ enabled, preferredLocale: 'es' }])
+      )
+      const { sendEmail } = await import('@/lib/email/mailer')
+      const { maybeSendUsageThresholdEmail } = await import('./usage')
+      await maybeSendUsageThresholdEmail(usage)
+      expect(
+        vi.mocked(sendEmail).mock.calls.map(([mail]) => [mail.to, mail.locale, mail.subject])
+      ).toEqual(
+        enabled
+          ? [
+              [usage.userEmail, 'es', 'usage-threshold'],
+              [usage.userEmail, 'es', 'free-tier-upgrade'],
+            ]
+          : []
+      )
+    }
+  )
 })

@@ -6,18 +6,12 @@ import { useSearchParams } from 'next/navigation'
 import { useMessages } from 'next-intl'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 import { useBrandConfig } from '@/lib/branding/branding'
+import type { EmailPreferences, UnsubscribeAction } from '@/lib/email/unsubscribe'
 
 interface UnsubscribeData {
   email: string
-  currentPreferences: {
-    unsubscribeAll?: boolean
-    unsubscribeMarketing?: boolean
-    unsubscribeUpdates?: boolean
-    unsubscribeNotifications?: boolean
-  }
+  currentPreferences: EmailPreferences
 }
-
-type UnsubscribeAction = 'all' | 'marketing' | 'updates' | 'notifications'
 
 function UnsubscribeLoadingState({ label }: { label: string }) {
   return (
@@ -247,68 +241,31 @@ function UnsubscribeContent() {
               {unsubscribeCopy.main.optionsPrefix}
             </div>
 
-            <Button
-              onClick={() => handleUnsubscribe('marketing')}
-              disabled={
-                isProcessing ||
-                data?.currentPreferences.unsubscribeAll ||
-                data?.currentPreferences.unsubscribeMarketing
-              }
-              aria-busy={pendingAction === 'marketing'}
-              variant='outline'
-              className='w-full'
-            >
-              {pendingAction === 'marketing' ? (
-                <Loader2 aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
-              ) : data?.currentPreferences.unsubscribeMarketing ? (
-                <CheckCircle className='mr-2 h-4 w-4' />
-              ) : null}
-              {data?.currentPreferences.unsubscribeMarketing
-                ? unsubscribeCopy.main.marketingUnsubscribed
-                : unsubscribeCopy.main.marketingButton}
-            </Button>
-
-            <Button
-              onClick={() => handleUnsubscribe('updates')}
-              disabled={
-                isProcessing ||
-                data?.currentPreferences.unsubscribeAll ||
-                data?.currentPreferences.unsubscribeUpdates
-              }
-              aria-busy={pendingAction === 'updates'}
-              variant='outline'
-              className='w-full'
-            >
-              {pendingAction === 'updates' ? (
-                <Loader2 aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
-              ) : data?.currentPreferences.unsubscribeUpdates ? (
-                <CheckCircle className='mr-2 h-4 w-4' />
-              ) : null}
-              {data?.currentPreferences.unsubscribeUpdates
-                ? unsubscribeCopy.main.updatesUnsubscribed
-                : unsubscribeCopy.main.updatesButton}
-            </Button>
-
-            <Button
-              onClick={() => handleUnsubscribe('notifications')}
-              disabled={
-                isProcessing ||
-                data?.currentPreferences.unsubscribeAll ||
-                data?.currentPreferences.unsubscribeNotifications
-              }
-              aria-busy={pendingAction === 'notifications'}
-              variant='outline'
-              className='w-full'
-            >
-              {pendingAction === 'notifications' ? (
-                <Loader2 aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
-              ) : data?.currentPreferences.unsubscribeNotifications ? (
-                <CheckCircle className='mr-2 h-4 w-4' />
-              ) : null}
-              {data?.currentPreferences.unsubscribeNotifications
-                ? unsubscribeCopy.main.notificationsUnsubscribed
-                : unsubscribeCopy.main.notificationsButton}
-            </Button>
+            {(
+              [
+                ['marketing', data?.currentPreferences.unsubscribeMarketing],
+                ['updates', data?.currentPreferences.unsubscribeUpdates],
+                ['notifications', data?.currentPreferences.unsubscribeNotifications],
+              ] as const
+            ).map(([list, isUnsubscribed]) => (
+              <Button
+                key={list}
+                onClick={() => handleUnsubscribe(list)}
+                disabled={isProcessing || data?.currentPreferences.unsubscribeAll || isUnsubscribed}
+                aria-busy={pendingAction === list}
+                variant='outline'
+                className='w-full'
+              >
+                {pendingAction === list ? (
+                  <Loader2 aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
+                ) : isUnsubscribed ? (
+                  <CheckCircle className='mr-2 h-4 w-4' />
+                ) : null}
+                {isUnsubscribed
+                  ? unsubscribeCopy.main[`${list}Unsubscribed`]
+                  : unsubscribeCopy.main[`${list}Button`]}
+              </Button>
+            ))}
           </div>
 
           <div className='mt-6 space-y-3'>

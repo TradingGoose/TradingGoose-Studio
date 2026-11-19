@@ -2,7 +2,6 @@ import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@reac
 import { baseStyles } from '@/components/emails/base-styles'
 import EmailFooter from '@/components/emails/footer'
 import EmailHeader from '@/components/emails/header'
-import { getBaseUrl } from '@/lib/urls/utils'
 import type { LocaleInput } from '@/i18n/utils'
 
 interface LocalizedEmailProps {
@@ -18,8 +17,8 @@ interface LocalizedEmailProps {
   detailsTitle?: string
   details?: string[]
   muted?: string[]
+  unsubscribeUrl?: string
   footerLine?: string
-  baseUrl?: string
 }
 
 export function LocalizedEmail({
@@ -33,7 +32,7 @@ export function LocalizedEmail({
   details = [],
   muted = [],
   footerLine,
-  baseUrl = getBaseUrl(),
+  unsubscribeUrl,
 }: LocalizedEmailProps) {
   return (
     <Html>
@@ -41,7 +40,7 @@ export function LocalizedEmail({
       <Body style={baseStyles.main}>
         <Preview>{preview}</Preview>
         <Container style={baseStyles.container}>
-          <EmailHeader baseUrl={baseUrl} locale={locale} />
+          <EmailHeader locale={locale} />
 
           <Section style={baseStyles.content}>
             <Text style={baseStyles.title}>{title}</Text>
@@ -123,7 +122,7 @@ export function LocalizedEmail({
           </Section>
         </Container>
 
-        <EmailFooter baseUrl={baseUrl} locale={locale} />
+        <EmailFooter locale={locale} unsubscribeUrl={unsubscribeUrl} />
       </Body>
     </Html>
   )

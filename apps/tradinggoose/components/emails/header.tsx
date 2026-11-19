@@ -5,14 +5,9 @@ import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
 import type { LocaleInput } from '@/i18n/utils'
 
-interface EmailHeaderProps {
-  baseUrl?: string
-  locale?: LocaleInput
-}
-
-export const EmailHeader = ({ baseUrl = getBaseUrl(), locale }: EmailHeaderProps) => {
+export default function EmailHeader({ locale }: { locale?: LocaleInput }) {
   const brand = getBrandConfig()
-  const logoSrc = `${baseUrl}/favicon/goose.png`
+  const logoSrc = `${getBaseUrl()}/favicon/goose.png`
   const { tagline } = getEmailCopy(locale).shared
 
   return (
@@ -41,5 +36,3 @@ export const EmailHeader = ({ baseUrl = getBaseUrl(), locale }: EmailHeaderProps
     </Section>
   )
 }
-
-export default EmailHeader

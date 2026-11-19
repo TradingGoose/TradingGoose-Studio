@@ -5,20 +5,13 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import {
   getEmailRecipient,
-  updateEmailPreferences,
+  unsubscribeFromList,
   verifyUnsubscribeToken,
 } from '@/lib/email/unsubscribe'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('UnsubscribeAPI')
-const preferenceKeys = {
-  all: 'unsubscribeAll',
-  marketing: 'unsubscribeMarketing',
-  updates: 'unsubscribeUpdates',
-  notifications: 'unsubscribeNotifications',
-} as const
-
 const unsubscribeSchema = z.object({
   email: z.string().email('Invalid email address'),
   token: z.string().min(1, 'Token is required'),
@@ -72,7 +65,17 @@ export async function POST(req: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const body = await req.json()
+    const mediaType = req.headers.get('content-type')?.split(';')[0]
+    const oneClick =
+      mediaType === 'application/x-www-form-urlencoded' || mediaType === 'multipart/form-data'
+    let body
+    if (oneClick) {
+      if ((await req.formData()).get('List-Unsubscribe') !== 'One-Click') return invalidLink()
+      const { searchParams } = new URL(req.url)
+      body = { email: searchParams.get('email'), token: searchParams.get('token') }
+    } else {
+      body = await req.json()
+    }
     const result = unsubscribeSchema.safeParse(body)
 
     if (!result.success) {
@@ -93,18 +96,20 @@ export async function POST(req: NextRequest) {
 
     const updated = await db.transaction(async (tx) => {
       const recipient = await getEmailRecipient(eq(user.email, email), tx)
-      if (!recipient || !verifyUnsubscribeToken(recipient, token)) return false
-      await updateEmailPreferences(tx, recipient.id, { [preferenceKeys[type]]: true })
-      return true
+      const signedType = recipient && verifyUnsubscribeToken(recipient, token)
+      if (!recipient || !signedType) return false
+      const list = oneClick ? signedType : type
+      await unsubscribeFromList(tx, recipient.id, list)
+      return list
     })
     if (!updated) {
       logger.warn(`[${requestId}] Invalid unsubscribe token for email: ${email}`)
       return invalidLink()
     }
 
-    logger.info(`[${requestId}] Successfully unsubscribed ${email} from ${type}`)
+    logger.info(`[${requestId}] Successfully unsubscribed ${email} from ${updated}`)
 
-    return NextResponse.json({ success: true })
+    return oneClick ? new Response(null, { status: 200 }) : NextResponse.json({ success: true })
   } catch (error) {
     logger.error(`[${requestId}] Error processing unsubscribe POST request:`, error)
     return NextResponse.json(

@@ -6,6 +6,7 @@ const mockContactsCreate = vi.fn()
 const mockContactsGet = vi.fn()
 const mockContactsUpdate = vi.fn()
 const mockContactSegmentAdd = vi.fn()
+const mockContactSegmentRemove = vi.fn()
 const mockAzureBeginSend = vi.fn()
 const mockAzurePollUntilDone = vi.fn()
 const {
@@ -37,7 +38,7 @@ vi.mock('resend', () => {
           create: (...args: any[]) => mockContactsCreate(...args),
           get: (...args: any[]) => mockContactsGet(...args),
           update: (...args: any[]) => mockContactsUpdate(...args),
-          segments: { add: mockContactSegmentAdd },
+          segments: { add: mockContactSegmentAdd, remove: mockContactSegmentRemove },
         },
       }
     }),
@@ -135,6 +136,7 @@ describe('mailer', () => {
     mockContactsGet.mockResolvedValue({ data: null, error: { statusCode: 404 } })
     mockContactsUpdate.mockResolvedValue({ error: null })
     mockContactSegmentAdd.mockResolvedValue({ error: null })
+    mockContactSegmentRemove.mockResolvedValue({ error: null })
 
     // Mock successful Azure response
     mockAzurePollUntilDone.mockResolvedValue({
@@ -171,6 +173,7 @@ describe('mailer', () => {
       const result = await sendEmail({
         ...testEmailOptions,
         emailType: 'marketing',
+        html: async (url) => `<a href="${url}">Unsubscribe</a>`,
       })
 
       expect(result.success).toBe(true)
@@ -186,10 +189,10 @@ describe('mailer', () => {
         from: 'TradingGoose <noreply@tradinggoose.ai>',
         to: testEmailOptions.to,
         subject: testEmailOptions.subject,
-        html: testEmailOptions.html,
+        html: '<a href="https://test.tradinggoose.ai/en/unsubscribe?token=mock-token-123&email=test%40example.com">Unsubscribe</a>',
         headers: {
           'List-Unsubscribe':
-            '<https://test.tradinggoose.ai/en/unsubscribe?token=mock-token-123&email=test%40example.com>',
+            '<https://test.tradinggoose.ai/api/users/me/settings/unsubscribe?token=mock-token-123&email=test%40example.com>',
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       })
@@ -201,6 +204,7 @@ describe('mailer', () => {
       const result = await sendEmail({
         ...testEmailOptions,
         emailType: 'marketing',
+        html: async (url) => `<a href="${url}">Unsubscribe</a>`,
       })
 
       expect(result.success).toBe(true)
@@ -328,6 +332,36 @@ describe('mailer', () => {
         contactId: 'existing-contact',
         segmentId: 'audience-123',
       })
+    })
+
+    it('carries the previous contact’s Resend opt-out and removes only its Studio segment', async () => {
+      vi.mocked(getEmailRecipient).mockResolvedValueOnce(verifiedUser).mockResolvedValue(undefined)
+      mockContactsGet.mockResolvedValueOnce({
+        data: { id: 'old', email: 'old@example.com', unsubscribed: true },
+        error: null,
+      })
+
+      await addVerifiedUserEmailToAudience(verifiedUser, 'old@example.com')
+
+      expect(mockContactsCreate).toHaveBeenCalledWith({
+        email: 'user@example.com',
+        unsubscribed: true,
+        segments: [{ id: 'audience-123' }],
+      })
+      expect(mockContactSegmentRemove).toHaveBeenCalledWith({
+        contactId: 'old',
+        segmentId: 'audience-123',
+      })
+    })
+
+    it('leaves a reassigned verified address and its preferences with its new owner', async () => {
+      vi.mocked(getEmailRecipient)
+        .mockResolvedValueOnce(verifiedUser)
+        .mockResolvedValue({ ...recipient, id: 'other' })
+      await addVerifiedUserEmailToAudience(verifiedUser, 'old@example.com')
+
+      expect(mockContactsGet).toHaveBeenCalledExactlyOnceWith({ email: 'user@example.com' })
+      expect(mockContactSegmentRemove).not.toHaveBeenCalled()
     })
 
     it('logs contact enrollment failures without failing verification', async () => {

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getEmailSubject, renderHelpConfirmationEmail } from '@/components/emails'
+import { getEmailSubject, renderHelpConfirmationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'

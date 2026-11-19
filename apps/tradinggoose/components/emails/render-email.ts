@@ -285,6 +285,7 @@ export async function renderEnterpriseSubscriptionEmail(
 }
 
 export async function renderUsageThresholdEmail(params: {
+  unsubscribeUrl: string
   userName?: string
   planName: string
   percentUsed: number
@@ -298,6 +299,7 @@ export async function renderUsageThresholdEmail(params: {
   return await render(
     LocalizedEmail({
       locale: params.locale,
+      unsubscribeUrl: params.unsubscribeUrl,
       preview: text(params.locale, copy.billing.usage.preview, {
         percentUsed: params.percentUsed,
         planName: params.planName,
@@ -327,6 +329,7 @@ export async function renderUsageThresholdEmail(params: {
 }
 
 export async function renderFreeTierUpgradeEmail(params: {
+  unsubscribeUrl: string
   userName?: string
   currentTierName?: string
   percentUsed: number
@@ -372,6 +375,7 @@ export async function renderFreeTierUpgradeEmail(params: {
   return await render(
     LocalizedEmail({
       locale: params.locale,
+      unsubscribeUrl: params.unsubscribeUrl,
       preview: text(params.locale, copy.billing.freeTier.preview, { currentTierName }),
       title: copy.billing.freeTier.title,
       paragraphs: [
@@ -500,9 +504,9 @@ export async function renderWaitlistApprovedEmail(
 }
 
 export async function renderPlanWelcomeEmail(params: {
+  unsubscribeUrl: string
   planName: string
   userName?: string
-  loginLink?: string
   locale?: LocaleInput
 }): Promise<string> {
   const copy = getEmailCopy(params.locale)
@@ -512,6 +516,7 @@ export async function renderPlanWelcomeEmail(params: {
   return await render(
     LocalizedEmail({
       locale: params.locale,
+      unsubscribeUrl: params.unsubscribeUrl,
       preview: text(params.locale, copy.billing.planWelcome.preview, {
         planName: params.planName,
       }),
@@ -527,7 +532,7 @@ export async function renderPlanWelcomeEmail(params: {
         copy.billing.planWelcome.settings,
       ],
       cta: {
-        href: params.loginLink || loginUrl,
+        href: loginUrl,
         label: text(params.locale, copy.shared.openBrand, { brandName: getBrandConfig().name }),
       },
       footerLine: text(params.locale, copy.shared.sentOn, {

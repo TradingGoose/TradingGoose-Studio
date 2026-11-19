@@ -2,10 +2,12 @@ import { EmailClient, type EmailMessage } from '@azure/communication-email'
 import { user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { Resend } from 'resend'
+import { getEmailCopy } from '@/components/emails/email-copy'
 import {
   generateUnsubscribeToken,
   getEmailRecipient,
   isUnsubscribed,
+  type MailingList,
 } from '@/lib/email/unsubscribe'
 import { getFromEmailAddress } from '@/lib/email/utils'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -18,8 +20,6 @@ import { type LocaleInput, localizeUrl } from '@/i18n/utils'
 
 const logger = createLogger('Mailer')
 
-export type EmailType = 'transactional' | 'marketing' | 'updates' | 'notifications'
-
 interface EmailAttachment {
   filename: string
   content: string | Buffer
@@ -27,24 +27,26 @@ interface EmailAttachment {
   disposition?: 'attachment' | 'inline'
 }
 
-interface EmailOptions {
-  to: string | string[]
+type EmailOptions = {
   subject: string
-  html?: string
   text?: string
   from?: string
-  emailType: EmailType
   attachments?: EmailAttachment[]
   replyTo?: string
   locale?: LocaleInput
-}
+} & (
+  | { emailType: 'transactional'; to: string | string[]; html?: string }
+  | {
+      emailType: MailingList
+      to: string
+      html?: (unsubscribeUrl: string) => Promise<string>
+    }
+)
 
 export type TransactionalBatchEmail = Pick<
-  EmailOptions,
-  'from' | 'to' | 'subject' | 'html' | 'text'
-> & {
-  emailType: 'transactional'
-}
+  Extract<EmailOptions, { emailType: 'transactional' }>,
+  'emailType' | 'from' | 'to' | 'subject' | 'html' | 'text'
+>
 
 interface SendEmailResult {
   success: boolean
@@ -76,7 +78,8 @@ export async function hasEmailService(): Promise<boolean> {
 }
 
 export async function addVerifiedUserEmailToAudience(
-  verifiedUser: Pick<typeof user.$inferSelect, 'id'>
+  verifiedUser: Pick<typeof user.$inferSelect, 'id'>,
+  previousEmail?: string
 ): Promise<void> {
   try {
     const { apiKey, audienceId: segmentId } = await resolveResendServiceConfig()
@@ -87,10 +90,20 @@ export async function addVerifiedUserEmailToAudience(
 
     const { contacts } = new Resend(apiKey)
     const email = recipient.email.trim().toLowerCase()
-    const unsubscribed = isUnsubscribed(recipient.preferences, 'marketing')
-    const { data: contact, error: lookupError } = await contacts.get({ email })
-    if (lookupError && lookupError.statusCode !== 404) throw lookupError
-
+    const getContact = async (address: string) => {
+      const { data, error } = await contacts.get({ email: address })
+      if (error && error.statusCode !== 404) throw error
+      return data
+    }
+    const previousContact =
+      previousEmail &&
+      previousEmail !== email &&
+      !(await getEmailRecipient(eq(user.email, previousEmail)))?.emailVerified
+        ? await getContact(previousEmail)
+        : null
+    const unsubscribed =
+      !!previousContact?.unsubscribed || isUnsubscribed(recipient.preferences, 'marketing')
+    const contact = await getContact(email)
     if (!contact) {
       const { error } = await contacts.create({
         email,
@@ -98,15 +111,21 @@ export async function addVerifiedUserEmailToAudience(
         segments: [{ id: segmentId }],
       })
       if (error) throw error
-      return
-    }
-
-    if (unsubscribed && !contact.unsubscribed) {
-      const { error } = await contacts.update({ id: contact.id, unsubscribed: true })
+    } else {
+      if (unsubscribed && !contact.unsubscribed) {
+        const { error } = await contacts.update({ id: contact.id, unsubscribed: true })
+        if (error) throw error
+      }
+      const { error } = await contacts.segments.add({ contactId: contact.id, segmentId })
       if (error) throw error
     }
-    const { error } = await contacts.segments.add({ contactId: contact.id, segmentId })
-    if (error) throw error
+    if (
+      previousContact &&
+      !(await getEmailRecipient(eq(user.email, previousContact.email)))?.emailVerified
+    ) {
+      const { error } = await contacts.segments.remove({ contactId: previousContact.id, segmentId })
+      if (error && error.statusCode !== 404) throw error
+    }
   } catch (error) {
     logger.warn('Failed to synchronize verified user email with Resend', {
       userId: verifiedUser.id,
@@ -118,25 +137,29 @@ export async function addVerifiedUserEmailToAudience(
 export async function sendEmail(options: EmailOptions): Promise<SendEmailResult> {
   try {
     const clients = await resolveEmailClients()
-    const { to, subject, html, text, from, emailType, attachments, replyTo, locale } = options
+    const { to, subject, from, emailType, attachments, replyTo, locale } = options
+    let html = emailType === 'transactional' ? options.html : undefined
+    let text = options.text
     const headers: Record<string, string> = {}
 
     if (emailType !== 'transactional') {
-      const primaryEmail = Array.isArray(to) ? to[0] : to
-      const recipient = await getEmailRecipient(eq(user.email, primaryEmail))
-      if (isUnsubscribed(recipient?.preferences, emailType)) {
+      const recipient = await getEmailRecipient(eq(user.email, to))
+      if (!recipient) return { success: false, message: 'Email recipient no longer exists' }
+      if (isUnsubscribed(recipient.preferences, emailType)) {
         logger.info('Email not sent (user unsubscribed):', { to, subject, emailType })
         return {
           success: true,
           message: 'Email skipped (user unsubscribed)',
         }
       }
-      if (recipient) {
-        const token = generateUnsubscribeToken(recipient, emailType)
-        const unsubscribeUrl = `${localizeUrl(getBaseUrl(), locale, '/unsubscribe')}?token=${token}&email=${encodeURIComponent(primaryEmail)}`
-        headers['List-Unsubscribe'] = `<${unsubscribeUrl}>`
-        headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
-      }
+      const token = generateUnsubscribeToken(recipient, emailType)
+      const params = new URLSearchParams({ token, email: to })
+      const baseUrl = getBaseUrl()
+      const unsubscribeUrl = `${localizeUrl(baseUrl, locale, '/unsubscribe')}?${params}`
+      headers['List-Unsubscribe'] = `<${baseUrl}/api/users/me/settings/unsubscribe?${params}>`
+      headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
+      html = await options.html?.(unsubscribeUrl)
+      if (text) text += `\n\n${getEmailCopy(locale).footer.unsubscribe}: ${unsubscribeUrl}`
     }
 
     const senderEmail = from || (await getFromEmailAddress())
