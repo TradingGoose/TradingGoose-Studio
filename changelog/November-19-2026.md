@@ -41,7 +41,11 @@
 
 #### Better Auth 1.7.26 account rollout
 
+Ship the account-bound unsubscribe links in `review/reset-email-mail` with address changes, the HubSpot setup instructions in `review/reset-email-callback-docs` with the callback cutover, and the session-backed user menu in `review/reset-email-navbar` with profile editing.
+
 **Accepted for this release.** Studio uses Better Auth’s native single-use password-reset links. A link issued before an email change can still reset the same account until its original one-hour expiry. New reset requests for that account use its current address. [Better Auth 1.7.26 reset implementation](https://github.com/better-auth/better-auth/blob/v1.7.26/packages/better-auth/src/api/routes/password.ts)
+
+**Open OTP finding.** During Studio’s 15-minute code lifetime, a password-reset code can apply to a different account that acquires its address. A pending destination code can also complete after an intervening change of the account’s current email. Better Auth 1.7.26 checks the current mailbox when requesting a change and offers no setting to invalidate both kinds of code when ownership changes. [Better Auth email OTP implementation](https://github.com/better-auth/better-auth/blob/v1.7.26/packages/better-auth/src/plugins/email-otp/routes.ts)
 
 #### OAuth callback cutover
 
