@@ -22,9 +22,15 @@ export function getClientMessages(
   scope?: 'workspace' | 'admin'
 ) {
   const { admin, emails: _emails, workspace, ...messages } = getPublicCopy(locale)
-  if (scope === 'workspace') return { nav: messages.nav, workspace }
+  if (scope === 'workspace') return { nav: messages.nav, username: messages.username, workspace }
   if (scope === 'admin')
-    return { admin, nav: messages.nav, registration: messages.registration, workspace }
+    return {
+      admin,
+      nav: messages.nav,
+      registration: messages.registration,
+      username: messages.username,
+      workspace,
+    }
   return {
     ...messages,
     workspace: {

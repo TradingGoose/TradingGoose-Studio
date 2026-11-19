@@ -76,6 +76,15 @@
       "auth": null
     }
   },
+  "username": {
+    "checking": "Comprobando el nombre de usuario…",
+    "available": "El nombre de usuario está disponible.",
+    "error": "No se pudo comprobar la disponibilidad del nombre de usuario.",
+    "required": "El nombre de usuario es obligatorio.",
+    "invalid": "Use solo letras, números, guiones bajos y puntos.",
+    "length": "El nombre de usuario debe tener entre 3 y 30 caracteres.",
+    "taken": "Este nombre de usuario ya está en uso. Elija otro."
+  },
   "auth": {
     "common": {
       "email": "Correo electrónico",
@@ -292,11 +301,6 @@
       "divider": "O continuar con",
       "nameTitle": "El nombre solo puede contener letras, espacios, guiones y apóstrofos",
       "usernameHint": "Use entre 3 y 30 letras, números, guiones bajos o puntos.",
-      "usernameAvailability": {
-        "checking": "Comprobando el nombre de usuario…",
-        "available": "El nombre de usuario está disponible.",
-        "error": "No se pudo comprobar la disponibilidad del nombre de usuario."
-      },
       "validation": {
         "emailRequired": "El correo electrónico es obligatorio.",
         "emailInvalid": "Introduzca un correo electrónico válido.",
@@ -304,9 +308,6 @@
         "nameCharacters": "El nombre solo puede contener letras, espacios, guiones y apóstrofos.",
         "nameSpaces": "El nombre no puede contener espacios consecutivos.",
         "nameTooLong": "El nombre se truncará a 100 caracteres. Acorte su nombre.",
-        "usernameRequired": "El nombre de usuario es obligatorio.",
-        "usernameInvalid": "Use solo letras, números, guiones bajos y puntos.",
-        "usernameLength": "El nombre de usuario debe tener entre 3 y 30 caracteres.",
         "passwordMinLength": "La contraseña debe tener al menos 8 caracteres.",
         "passwordUppercase": "La contraseña debe incluir al menos una letra mayúscula.",
         "passwordLowercase": "La contraseña debe incluir al menos una letra minúscula.",
@@ -316,7 +317,6 @@
       "errors": {
         "failedToCreateAccount": "Error al crear la cuenta",
         "accountExists": "Ya existe una cuenta con este correo electrónico. Inicie sesión en su lugar.",
-        "usernameTaken": "Este nombre de usuario ya está en uso. Elija otro.",
         "emailSignupDisabled": "El registro por correo electrónico está desactivado.",
         "signupNotEnabled": "El registro con correo electrónico y contraseña no está habilitado.",
         "waitlistRequired": "Este correo electrónico aún no está aprobado para registrarse. Únase a la lista de espera primero.",
@@ -361,6 +361,7 @@
         "ssoFailed": "La autenticación SSO falló. Inténtalo de nuevo.",
         "providerNotConfigured": "El proveedor SSO no está configurado correctamente.",
         "domainNotVerified": "Esta conexión SSO está sin verificar. Pide a tu administrador que la verifique o que te dé el ID de un proveedor verificado para usarlo en la página de inicio de sesión SSO.",
+        "providerIdRequired": "Hay varios proveedores SSO para este dominio de correo electrónico. Introduce el ID del proveedor de tu organización.",
         "invalidEmailDomain": "El dominio de correo no está configurado para SSO. Contacta a tu administrador.",
         "network": "Error de red. Verifica tu conexión e inténtalo de nuevo.",
         "rateLimit": "Demasiadas solicitudes. Espera un momento antes de intentarlo de nuevo.",
@@ -1885,11 +1886,6 @@
         "fullName": "Nombre completo",
         "username": "Nombre de usuario",
         "usernameHint": "Use entre 3 y 30 letras, números, guiones bajos o puntos. Puede iniciar sesión con su nombre de usuario o correo electrónico.",
-        "usernameAvailability": {
-          "checking": "Comprobando el nombre de usuario…",
-          "available": "El nombre de usuario está disponible.",
-          "error": "No se pudo comprobar la disponibilidad del nombre de usuario."
-        },
         "editUsername": "Editar nombre de usuario",
         "saveUsername": "Guardar nombre de usuario",
         "cancelEditingUsername": "Cancelar edición del nombre de usuario",
@@ -1924,11 +1920,7 @@
           "noEmail": "No se encontró una dirección de correo electrónico para esta cuenta.",
           "passwordResetSent": "Enlace de restablecimiento de contraseña enviado a tu bandeja de entrada.",
           "passwordResetFailed": "No se pudo enviar el correo de restablecimiento de contraseña.",
-          "usernameUpdateError": "No se pudo actualizar el nombre de usuario. Intente nuevamente.",
-          "usernameRequired": "El nombre de usuario es obligatorio.",
-          "usernameInvalid": "Use solo letras, números, guiones bajos y puntos.",
-          "usernameLength": "El nombre de usuario debe tener entre 3 y 30 caracteres.",
-          "usernameTaken": "Este nombre de usuario ya está en uso. Elija otro."
+          "usernameUpdateError": "No se pudo actualizar el nombre de usuario. Intente nuevamente."
         },
         "emailChange": {
           "title": "Cambiar el correo de la cuenta",
@@ -2172,7 +2164,7 @@
         "addSeats": {
           "title": "Agregar asientos de equipo",
           "description": "El precio estimado por plaza es de {price} al {interval, select, year {año} other {mes}}. Se aplicará el precio de la suscripción vigente al confirmar el cambio.",
-          "quoteUnavailable": "No hay un precio estimado por plaza. Los cambios de plazas usan el precio de tu suscripción actual.",
+          "quoteUnavailable": "El precio estimado por plaza no está disponible. Vuelve a intentarlo para cambiar las plazas.",
           "confirm": "Actualizar asientos"
         },
         "billing": {
@@ -23428,6 +23420,7 @@
       "emailPartFrom": " desde {email}"
     },
     "footer": {
+      "unsubscribe": "Cancelar suscripción",
       "copyright": "(c) {year} {brandName}, Todos los derechos reservados",
       "questions": "¿Preguntas? Escribe a",
       "privacy": "Política de privacidad",

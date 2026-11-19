@@ -76,6 +76,15 @@
       "auth": null
     }
   },
+  "username": {
+    "checking": "正在检查用户名…",
+    "available": "此用户名可用。",
+    "error": "暂时无法检查用户名是否可用。",
+    "required": "用户名为必填项。",
+    "invalid": "只能使用字母、数字、下划线和英文句点。",
+    "length": "用户名长度必须为 3–30 个字符。",
+    "taken": "此用户名已被使用，请选择其他用户名。"
+  },
   "auth": {
     "common": {
       "email": "邮箱",
@@ -292,11 +301,6 @@
       "divider": "或继续使用",
       "nameTitle": "名称只能包含字母、空格、连字符和撇号",
       "usernameHint": "使用 3–30 个字母、数字、下划线或英文句点。",
-      "usernameAvailability": {
-        "checking": "正在检查用户名…",
-        "available": "此用户名可用。",
-        "error": "暂时无法检查用户名是否可用。"
-      },
       "validation": {
         "emailRequired": "需要电子邮件。",
         "emailInvalid": "请输入有效的电子邮件地址。",
@@ -304,9 +308,6 @@
         "nameCharacters": "名称只能包含字母、空格、连字符和撇号。",
         "nameSpaces": "名称不能包含连续空格。",
         "nameTooLong": "姓名将被截断为100个字符。请缩短您的姓名。",
-        "usernameRequired": "用户名为必填项。",
-        "usernameInvalid": "只能使用字母、数字、下划线和英文句点。",
-        "usernameLength": "用户名长度必须为 3–30 个字符。",
         "passwordMinLength": "密码长度至少为8个字符。",
         "passwordUppercase": "密码必须包含至少一个大写字母。",
         "passwordLowercase": "密码必须包含至少一个小写字母。",
@@ -316,7 +317,6 @@
       "errors": {
         "failedToCreateAccount": "创建账户失败",
         "accountExists": "该邮箱已注册账户，请直接登录。",
-        "usernameTaken": "此用户名已被使用，请选择其他用户名。",
         "emailSignupDisabled": "邮箱注册当前已禁用。",
         "signupNotEnabled": "邮箱和密码注册功能未启用。",
         "waitlistRequired": "该邮箱尚未获批注册，请先加入等候名单。",
@@ -361,6 +361,7 @@
         "ssoFailed": "SSO身份验证失败。请重试。",
         "providerNotConfigured": "SSO提供商配置不正确。",
         "domainNotVerified": "此 SSO 连接尚未验证。请管理员验证此连接，或向其索取已验证的提供商 ID 并在 SSO 登录页面输入。",
+        "providerIdRequired": "此邮箱域名有多个 SSO 提供商。请输入你所在组织的提供商 ID。",
         "invalidEmailDomain": "邮箱域名未配置SSO。请联系管理员。",
         "network": "网络错误。请检查网络连接后重试。",
         "rateLimit": "请求过于频繁。请稍候再试。",
@@ -1872,11 +1873,6 @@
         "fullName": "姓名",
         "username": "用户名",
         "usernameHint": "使用 3–30 个字母、数字、下划线或英文句点。可使用用户名或邮箱地址登录。",
-        "usernameAvailability": {
-          "checking": "正在检查用户名…",
-          "available": "此用户名可用。",
-          "error": "暂时无法检查用户名是否可用。"
-        },
         "editUsername": "编辑用户名",
         "saveUsername": "保存用户名",
         "cancelEditingUsername": "取消编辑用户名",
@@ -1911,11 +1907,7 @@
           "noEmail": "未找到此账户的电子邮件地址。",
           "passwordResetSent": "密码重置链接已发送至您的收件箱。",
           "passwordResetFailed": "无法发送密码重置电子邮件。",
-          "usernameUpdateError": "无法更新用户名，请重试。",
-          "usernameRequired": "用户名为必填项。",
-          "usernameInvalid": "只能使用字母、数字、下划线和英文句点。",
-          "usernameLength": "用户名长度必须为 3–30 个字符。",
-          "usernameTaken": "此用户名已被使用，请选择其他用户名。"
+          "usernameUpdateError": "无法更新用户名，请重试。"
         },
         "emailChange": {
           "title": "更改账户邮箱",
@@ -2159,7 +2151,7 @@
         "addSeats": {
           "title": "添加团队席位",
           "description": "每个席位预计{interval, select, year {每年} other {每月}} {price}。实际费用按确认变更时的订阅价格计算。",
-          "quoteUnavailable": "暂时无法提供席位价格预估。席位调整将按当前订阅价格计费。",
+          "quoteUnavailable": "暂时无法获取席位价格。请重试后再调整席位。",
           "confirm": "更新席位"
         },
         "billing": {
@@ -23415,6 +23407,7 @@
       "emailPartFrom": "，来自 {email}"
     },
     "footer": {
+      "unsubscribe": "退订",
       "copyright": "(c) {year} {brandName}，保留所有权利",
       "questions": "有问题？发送邮件至",
       "privacy": "隐私政策",

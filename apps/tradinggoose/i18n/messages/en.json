@@ -76,6 +76,15 @@
       "auth": null
     }
   },
+  "username": {
+    "checking": "Checking username…",
+    "available": "Username is available.",
+    "error": "Unable to check username availability.",
+    "required": "Username is required.",
+    "invalid": "Use only letters, numbers, underscores, and dots.",
+    "length": "Username must be 3–30 characters long.",
+    "taken": "This username is already taken. Choose another."
+  },
   "auth": {
     "common": {
       "email": "Email",
@@ -292,11 +301,6 @@
       "divider": "Or continue with",
       "nameTitle": "Name can only contain letters, spaces, hyphens, and apostrophes",
       "usernameHint": "Use 3–30 letters, numbers, underscores, or dots.",
-      "usernameAvailability": {
-        "checking": "Checking username…",
-        "available": "Username is available.",
-        "error": "Unable to check username availability."
-      },
       "validation": {
         "emailRequired": "Email is required.",
         "emailInvalid": "Please enter a valid email address.",
@@ -304,9 +308,6 @@
         "nameCharacters": "Name can only contain letters, spaces, hyphens, and apostrophes.",
         "nameSpaces": "Name cannot contain consecutive spaces.",
         "nameTooLong": "Name will be truncated to 100 characters. Please shorten your name.",
-        "usernameRequired": "Username is required.",
-        "usernameInvalid": "Use only letters, numbers, underscores, and dots.",
-        "usernameLength": "Username must be 3–30 characters long.",
         "passwordMinLength": "Password must be at least 8 characters long.",
         "passwordUppercase": "Password must include at least one uppercase letter.",
         "passwordLowercase": "Password must include at least one lowercase letter.",
@@ -316,7 +317,6 @@
       "errors": {
         "failedToCreateAccount": "Failed to create account",
         "accountExists": "An account with this email already exists. Please sign in instead.",
-        "usernameTaken": "This username is already taken. Choose another.",
         "emailSignupDisabled": "Email signup is currently disabled.",
         "signupNotEnabled": "Email and password sign up is not enabled.",
         "waitlistRequired": "This email is not approved for signup yet. Join the waitlist first.",
@@ -361,6 +361,7 @@
         "ssoFailed": "SSO authentication failed. Please try again.",
         "providerNotConfigured": "SSO provider not configured correctly.",
         "domainNotVerified": "This SSO connection is unverified. Ask your administrator to verify it or give you a verified provider ID to use on the SSO sign-in page.",
+        "providerIdRequired": "Multiple SSO providers serve this email domain. Enter your organization’s provider ID.",
         "invalidEmailDomain": "Email domain not configured for SSO. Please contact your administrator.",
         "network": "Network error. Please check your connection and try again.",
         "rateLimit": "Too many requests. Please wait a moment before trying again.",
@@ -1885,11 +1886,6 @@
         "fullName": "Full name",
         "username": "Username",
         "usernameHint": "Use 3–30 letters, numbers, underscores, or dots. You can sign in with your username or email.",
-        "usernameAvailability": {
-          "checking": "Checking username…",
-          "available": "Username is available.",
-          "error": "Unable to check username availability."
-        },
         "editUsername": "Edit username",
         "saveUsername": "Save username",
         "cancelEditingUsername": "Cancel editing username",
@@ -1924,11 +1920,7 @@
           "noEmail": "No email address found for this account.",
           "passwordResetSent": "Password reset link sent to your inbox.",
           "passwordResetFailed": "Unable to send password reset email.",
-          "usernameUpdateError": "Unable to update username. Please try again.",
-          "usernameRequired": "Username is required.",
-          "usernameInvalid": "Use only letters, numbers, underscores, and dots.",
-          "usernameLength": "Username must be 3–30 characters long.",
-          "usernameTaken": "This username is already taken. Choose another."
+          "usernameUpdateError": "Unable to update username. Please try again."
         },
         "emailChange": {
           "title": "Change account email",
@@ -2172,7 +2164,7 @@
         "addSeats": {
           "title": "Add Team Seats",
           "description": "Estimated at {price} per seat per {interval, select, year {year} other {month}}. Changes use the subscription price in effect when you confirm.",
-          "quoteUnavailable": "A seat price estimate is unavailable. Seat changes use your current subscription price.",
+          "quoteUnavailable": "A seat price estimate is unavailable. Retry to change seats.",
           "confirm": "Update Seats"
         },
         "billing": {
@@ -23428,6 +23420,7 @@
       "emailPartFrom": " from {email}"
     },
     "footer": {
+      "unsubscribe": "Unsubscribe",
       "copyright": "(c) {year} {brandName}, All Rights Reserved",
       "questions": "Questions? Email",
       "privacy": "Privacy Policy",
