@@ -1,13 +1,19 @@
-import { user } from '@tradinggoose/db/schema'
+import { settings, user } from '@tradinggoose/db/schema'
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateUnsubscribeToken, verifyUnsubscribeToken } from '@/lib/email/unsubscribe'
+import {
+  generateUnsubscribeToken,
+  isUnsubscribed,
+  verifyUnsubscribeToken,
+} from '@/lib/email/unsubscribe'
 import { GET, POST } from '@/app/api/users/me/settings/unsubscribe/route'
 
-const { select, lock, write, transaction } = vi.hoisted(() => ({
+const { select, lock, write, conflict, transaction } = vi.hoisted(() => ({
   select: vi.fn(),
   lock: vi.fn(),
   write: vi.fn(),
+  conflict: vi.fn(),
   transaction: vi.fn(),
 }))
 
@@ -68,7 +74,7 @@ describe('unsubscribe route', () => {
         insert: () => ({ values: write }),
       })
     )
-    write.mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(null) })
+    write.mockReturnValue({ onConflictDoUpdate: conflict })
   })
 
   it('reads preferences and writes to the mailbox owner under the row lock', async () => {
@@ -83,6 +89,21 @@ describe('unsubscribe route', () => {
       userId: mailbox.id,
       emailPreferences: { unsubscribeMarketing: true },
     })
+  })
+
+  it('replaces a JSON string on the first unsubscribe and merges existing preference objects', async () => {
+    lock.mockResolvedValue([{ ...mailbox, preferences: '{}' }])
+    expect((await post()).status).toBe(200)
+    const { emailPreferences } = write.mock.calls[0][0]
+    expect(isUnsubscribed(emailPreferences, 'marketing')).toBe(true)
+    const update = conflict.mock.calls[0][0]
+    expect(update.target).toBe(settings.userId)
+    const { sql } = new PgDialect().sqlToQuery(update.set.emailPreferences)
+    expect(sql).toContain(`when json_typeof("settings"."email_preferences") = 'object'`)
+    expect(sql).toContain(
+      'then ("settings"."email_preferences"::jsonb || excluded.email_preferences::jsonb)::json'
+    )
+    expect(sql).toContain('else excluded.email_preferences end')
   })
 
   it.each([new URLSearchParams(), new FormData()])(

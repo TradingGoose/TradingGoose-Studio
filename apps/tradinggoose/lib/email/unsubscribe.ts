@@ -69,7 +69,9 @@ export async function unsubscribeFromList(
     .onConflictDoUpdate({
       target: settings.userId,
       set: {
-        emailPreferences: sql`(${settings.emailPreferences}::jsonb || ${JSON.stringify(preferences)}::jsonb)::json`,
+        emailPreferences: sql`case when json_typeof(${settings.emailPreferences}) = 'object'
+          then (${settings.emailPreferences}::jsonb || excluded.email_preferences::jsonb)::json
+          else excluded.email_preferences end`,
         updatedAt: new Date(),
       },
     })

@@ -1,11 +1,15 @@
 import { createHmac } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'bun:test'
 
 type Language = 'javascript' | 'python'
-type Delivery = { rawBody: string; headers: Record<string, string> }
+type Delivery = {
+  rawBody: string
+  headers: Record<string, string>
+  duplicate?: boolean
+  failEffect?: boolean
+}
 const secret = 'test-webhook-secret'
 const event = {
   id: 'evt_original',
@@ -42,77 +46,86 @@ function delivery(
   }
 }
 
-async function withDatabase(test: (path: string) => Promise<void>) {
-  const directory = mkdtempSync(join(tmpdir(), 'webhook-docs-'))
-  try {
-    await test(join(directory, 'receipts.sqlite'))
-  } finally {
-    rmSync(directory, { recursive: true, force: true })
-  }
-}
-
-async function run(language: Language, database: string, deliveries: Delivery[]) {
+async function run(language: Language, deliveries: Delivery[]) {
   const snippet = example('en', language)
   const code =
     language === 'javascript'
       ? `
-      let handler;
-      const express = Object.assign(() => ({ post: (_path, _parser, callback) => { handler = callback; } }), { raw: () => null });
-      ${snippet.replace("import express from 'express';", '').replace(
-        '// Apply your database side effects here using db, inside this transaction.',
-        `db.exec('INSERT INTO effects DEFAULT VALUES');
-        if (req.headers['test-delay']) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
-        if (req.headers['test-fail']) throw new Error('Injected effect failure');`
-      )}
-      db.exec('CREATE TABLE IF NOT EXISTS effects (id INTEGER PRIMARY KEY)');
-      const requests = JSON.parse((await import('node:fs')).readFileSync(0, 'utf8'));
-      const statuses = requests.map(({ rawBody, headers }) => {
-        const res = { code: 200, status(code) { this.code = code; return this; }, send() {}, sendStatus(code) { this.code = code; } };
-        handler({ headers, body: Buffer.from(rawBody) }, res);
-        return res.code;
-      });
-      const count = (table) => db.prepare('SELECT COUNT(*) AS count FROM ' + table).get().count;
-      console.log(JSON.stringify({ statuses, receipts: count('webhook_receipts'), effects: count('effects') }));
-      db.close();
-    `
+import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+
+let handler, request, calls = [];
+const express = Object.assign(() => ({ post: (_path, _parser, fn) => { handler = fn; } }), { raw: () => null });
+class DatabaseSync {
+  isTransaction = true;
+  exec(sql) { calls.push(sql.trim()); }
+  prepare() {
+    return { run(...args) { calls.push(args); return { changes: request.duplicate ? 0 : 1 }; } };
+  }
+}
+function effect() {
+  calls.push('effect');
+  if (request.failEffect) throw new Error('Injected effect failure');
+}
+runInNewContext(${JSON.stringify(
+          snippet
+            .replace(/^import .*;$/gm, '')
+            .replace(
+              '// Apply your database side effects here using db, inside this transaction.',
+              'effect();'
+            )
+        )}, { crypto, Buffer, express, DatabaseSync, effect, process: { env: { WEBHOOK_SECRET: process.env.WEBHOOK_SECRET } } });
+const results = JSON.parse(readFileSync(0, 'utf8')).map(item => {
+  request = item;
+  calls = [];
+  const res = { code: 200, status(code) { this.code = code; return this; }, send() {}, sendStatus(code) { this.code = code; } };
+  handler({ headers: item.headers, body: Buffer.from(item.rawBody) }, res);
+  return { status: res.code, calls };
+});
+console.log(JSON.stringify(results));
+`
       : `
-import json, sys, types, time
-flask = types.ModuleType('flask')
-flask.request = types.SimpleNamespace()
-class Flask:
-    def __init__(self, name):
-        self.logger = types.SimpleNamespace(exception=lambda message: None)
-    def route(self, *args, **kwargs):
-        return lambda handler: handler
-flask.Flask = Flask
-sys.modules['flask'] = flask
+import json, sys
+from unittest.mock import MagicMock
+
+flask = sys.modules['flask'] = MagicMock()
+flask.Flask.return_value.route.return_value = lambda handler: handler
+sqlite = sys.modules['sqlite3'] = MagicMock()
+connection = sqlite.connect.return_value
 class Headers(dict):
     def get(self, key, default=None):
         return super().get(key.lower(), default)
+calls = []
+def execute(sql, args=None):
+    calls.append(args if args is not None else sql.strip())
+    return connection.cursor.return_value
+connection.execute.side_effect = execute
+connection.__exit__.side_effect = lambda error, *_: calls.append('ROLLBACK' if error else 'COMMIT')
+def effect():
+    calls.append('effect')
+    if item.get('failEffect'):
+        raise RuntimeError('Injected effect failure')
 ${snippet.replace(
   '# Apply your database side effects here using db, inside this transaction.',
-  `db.execute('INSERT INTO effects DEFAULT VALUES')
-            if request.headers.get('test-delay'): time.sleep(0.1)
-            if request.headers.get('test-fail'): raise RuntimeError('Injected effect failure')`
+  'effect()'
 )}
-with closing(sqlite3.connect(database_path)) as connection, connection:
-    connection.execute('CREATE TABLE IF NOT EXISTS effects (id INTEGER PRIMARY KEY)')
-statuses = []
+results = []
 for item in json.load(sys.stdin):
+    calls = []
+    connection.cursor.return_value.rowcount = 0 if item.get('duplicate') else 1
     flask.request.headers = Headers(item['headers'])
-    flask.request.get_data = lambda as_text: item['rawBody']
-    flask.request.get_json = lambda: json.loads(item['rawBody'])
-    statuses.append(webhook()[1])
-with closing(sqlite3.connect(database_path)) as connection:
-    counts = {table: connection.execute('SELECT COUNT(*) FROM ' + table).fetchone()[0] for table in ('webhook_receipts', 'effects')}
-print(json.dumps(dict(statuses=statuses, receipts=counts['webhook_receipts'], effects=counts['effects'])))
+    flask.request.get_data.return_value = item['rawBody']
+    flask.request.get_json.return_value = json.loads(item['rawBody'])
+    results.append(dict(status=webhook()[1], calls=calls))
+print(json.dumps(results))
 `
   const process = Bun.spawn(
     language === 'javascript'
       ? ['node', '--input-type=module', '-e', code]
       : ['python3', '-c', code],
     {
-      env: { ...Bun.env, WEBHOOK_SECRET: secret, WEBHOOK_DB_PATH: database },
+      env: { ...Bun.env, WEBHOOK_SECRET: secret },
       stdin: new Blob([JSON.stringify(deliveries)]),
       stdout: 'pipe',
       stderr: 'pipe',
@@ -124,7 +137,7 @@ print(json.dumps(dict(statuses=statuses, receipts=counts['webhook_receipts'], ef
     new Response(process.stderr).text(),
   ])
   if (exitCode !== 0) throw new Error(`${language} example failed: ${stderr}`)
-  return JSON.parse(stdout) as { statuses: number[]; receipts: number; effects: number }
+  return JSON.parse(stdout) as { status: number; calls: (string | string[])[] }[]
 }
 
 describe.each(['javascript', 'python'] as const)('%s webhook documentation example', (language) => {
@@ -132,82 +145,48 @@ describe.each(['javascript', 'python'] as const)('%s webhook documentation examp
     expect(example(locale, language)).toBe(example('en', language))
   })
 
-  it('rejects invalid authentication, delivery headers, and signed event identities', () =>
-    withDatabase(async (database) => {
-      const requests = [
-        delivery(event, { ...deliveryHeaders, 'tradinggoose-signature': 'invalid' }),
-        delivery(event, {}),
-        delivery(event, { ...deliveryHeaders, 'idempotency-key': 'different' }),
-        delivery(event, { 'idempotency-key': ' ' }),
-        delivery(null),
-        delivery({ ...event, type: 'different' }),
-        delivery({ ...event, data: { executionId: 'execution-1' } }),
-        delivery({ ...event, data: { workflowId: 'workflow-1', executionId: 123 } }),
-      ]
-      expect(await run(language, database, requests)).toEqual({
-        statuses: [401, 400, 400, 400, 400, 400, 400, 400],
-        receipts: 0,
-        effects: 0,
-      })
-    }))
+  it('declares both receipt uniqueness constraints and a conflict-safe insert', () => {
+    const sql = example('en', language).replace(/\s+/g, ' ')
+    expect(sql).toContain('delivery_id TEXT PRIMARY KEY')
+    expect(sql).toContain('UNIQUE (event_type, workflow_id, execution_id)')
+    expect(sql).toContain(
+      'INSERT INTO webhook_receipts (delivery_id, event_type, workflow_id, execution_id) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING'
+    )
+  })
 
-  it('deduplicates retries, regenerated payload IDs, and substituted unsigned delivery headers', () =>
-    withDatabase(async (database) => {
-      const requests = [
-        delivery(),
-        delivery(),
-        delivery({ ...event, id: 'evt_regenerated' }),
-        delivery(event, {
-          'idempotency-key': 'substituted',
-          'tradinggoose-delivery-id': 'substituted',
-        }),
-      ]
-      expect(await run(language, database, requests)).toEqual({
-        statuses: [200, 200, 200, 200],
-        receipts: 1,
-        effects: 1,
-      })
-    }))
+  it('rejects invalid authentication, delivery headers, and signed event identities before writing', async () => {
+    const results = await run(language, [
+      delivery(event, { ...deliveryHeaders, 'tradinggoose-signature': 'invalid' }),
+      delivery(event, {}),
+      delivery(event, { ...deliveryHeaders, 'idempotency-key': 'different' }),
+      delivery(event, { 'idempotency-key': ' ' }),
+      delivery(null),
+      delivery({ ...event, type: 'different' }),
+      delivery({ ...event, data: { executionId: 'execution-1' } }),
+      delivery({ ...event, data: { workflowId: 'workflow-1', executionId: 123 } }),
+    ])
+    expect(results.map(({ status }) => status)).toEqual([401, 400, 400, 400, 400, 400, 400, 400])
+    for (const { calls } of results) expect(calls).toEqual([])
+  })
 
-  it('accepts either delivery header and still processes distinct executions', () =>
-    withDatabase(async (database) => {
-      const nextEvent = { ...event, data: { ...event.data, executionId: 'execution-2' } }
-      expect(
-        await run(language, database, [
-          delivery(event, { 'idempotency-key': 'delivery-1' }),
-          delivery(event, { 'tradinggoose-delivery-id': 'delivery-1' }),
-          delivery(nextEvent, { 'tradinggoose-delivery-id': 'delivery-2' }),
-        ])
-      ).toEqual({ statuses: [200, 200, 200], receipts: 2, effects: 2 })
-    }))
-
-  it('rolls back failed effects and persists successful receipts across process restarts', () =>
-    withDatabase(async (database) => {
-      expect(
-        await run(language, database, [delivery(event, { ...deliveryHeaders, 'test-fail': '1' })])
-      ).toEqual({ statuses: [500], receipts: 0, effects: 0 })
-      expect(await run(language, database, [delivery()])).toEqual({
-        statuses: [200],
-        receipts: 1,
-        effects: 1,
-      })
-      expect(await run(language, database, [delivery()])).toEqual({
-        statuses: [200],
-        receipts: 1,
-        effects: 1,
-      })
-    }))
-
-  it('serializes competing receiver processes without repeating effects', () =>
-    withDatabase(async (database) => {
-      await run(language, database, [])
-      const request = delivery(event, { ...deliveryHeaders, 'test-delay': '1' })
-      const results = await Promise.all([
-        run(language, database, [request]),
-        run(language, database, [request]),
+  it('rolls back a failed effect, commits a retry and skips the effect for a duplicate receipt', async () => {
+    const claim = ['delivery-1', event.type, event.data.workflowId, event.data.executionId]
+    expect(
+      await run(language, [
+        { ...delivery(), failEffect: true },
+        delivery(event, { 'idempotency-key': 'delivery-1' }),
+        {
+          ...delivery(
+            { ...event, id: 'regenerated' },
+            { 'tradinggoose-delivery-id': 'delivery-1' }
+          ),
+          duplicate: true,
+        },
       ])
-      for (const result of results) {
-        expect(result).toEqual({ statuses: [200], receipts: 1, effects: 1 })
-      }
-    }))
+    ).toEqual([
+      { status: 500, calls: ['BEGIN IMMEDIATE', claim, 'effect', 'ROLLBACK'] },
+      { status: 200, calls: ['BEGIN IMMEDIATE', claim, 'effect', 'COMMIT'] },
+      { status: 200, calls: ['BEGIN IMMEDIATE', claim, 'COMMIT'] },
+    ])
+  })
 })
