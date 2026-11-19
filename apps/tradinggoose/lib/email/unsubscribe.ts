@@ -1,77 +1,48 @@
-import { createHash, randomBytes } from 'crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { settings, user } from '@tradinggoose/db/schema'
 import { eq, type SQL, sql } from 'drizzle-orm'
-import type { EmailType } from '@/lib/email/mailer'
 import { env } from '@/lib/env'
-import { createLogger } from '@/lib/logs/console/logger'
 
-const logger = createLogger('Unsubscribe')
+const preferenceKeys = {
+  all: 'unsubscribeAll',
+  marketing: 'unsubscribeMarketing',
+  updates: 'unsubscribeUpdates',
+  notifications: 'unsubscribeNotifications',
+} as const
 
-export interface EmailPreferences {
-  unsubscribeAll?: boolean
-  unsubscribeMarketing?: boolean
-  unsubscribeUpdates?: boolean
-  unsubscribeNotifications?: boolean
+export type UnsubscribeAction = keyof typeof preferenceKeys
+export type MailingList = Exclude<UnsubscribeAction, 'all'>
+export type EmailPreferences = Partial<Record<(typeof preferenceKeys)[UnsubscribeAction], boolean>>
+
+type Mailbox = Pick<typeof user.$inferSelect, 'id' | 'email'>
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+function signUnsubscribeToken(mailbox: Mailbox, salt: string, emailType: string) {
+  return createHmac('sha256', env.BETTER_AUTH_SECRET)
+    .update(JSON.stringify([mailbox.id, mailbox.email, salt, emailType]))
+    .digest()
 }
 
-/**
- * Generate a secure unsubscribe token for an email address
- */
-export function generateUnsubscribeToken(email: string, emailType = 'marketing'): string {
+export function generateUnsubscribeToken(mailbox: Mailbox, emailType: MailingList): string {
   const salt = randomBytes(16).toString('hex')
-  const hash = createHash('sha256')
-    .update(`${email}:${salt}:${emailType}:${env.BETTER_AUTH_SECRET}`)
-    .digest('hex')
-
-  return `${salt}:${hash}:${emailType}`
+  return `${salt}:${signUnsubscribeToken(mailbox, salt, emailType).toString('hex')}:${emailType}`
 }
 
-/**
- * Verify an unsubscribe token for an email address and return email type
- */
-export function verifyUnsubscribeToken(
-  email: string,
-  token: string
-): { valid: boolean; emailType?: string } {
-  try {
-    const parts = token.split(':')
-    if (parts.length < 2) return { valid: false }
+export function verifyUnsubscribeToken(mailbox: Mailbox, token: string) {
+  const parts = /^([a-f0-9]{32}):([a-f0-9]{64}):(marketing|updates|notifications)$/.exec(token)
+  if (!parts) return null
 
-    // Handle legacy tokens (without email type)
-    if (parts.length === 2) {
-      const [salt, expectedHash] = parts
-      const hash = createHash('sha256')
-        .update(`${email}:${salt}:${env.BETTER_AUTH_SECRET}`)
-        .digest('hex')
-
-      return { valid: hash === expectedHash, emailType: 'marketing' }
-    }
-
-    // Handle new tokens (with email type)
-    const [salt, expectedHash, emailType] = parts
-    if (!salt || !expectedHash || !emailType) return { valid: false }
-
-    const hash = createHash('sha256')
-      .update(`${email}:${salt}:${emailType}:${env.BETTER_AUTH_SECRET}`)
-      .digest('hex')
-
-    return { valid: hash === expectedHash, emailType }
-  } catch (error) {
-    logger.error('Error verifying unsubscribe token:', error)
-    return { valid: false }
-  }
+  const [, salt, signature, emailType] = parts
+  const valid = timingSafeEqual(
+    Buffer.from(signature, 'hex'),
+    signUnsubscribeToken(mailbox, salt, emailType)
+  )
+  return valid ? (emailType as MailingList) : null
 }
 
-/**
- * Check if an email type is transactional
- */
-export function isTransactionalEmail(emailType: EmailType): boolean {
-  return emailType === ('transactional' as EmailType)
-}
-
-export async function getEmailRecipient(where: SQL) {
-  const recipients = await db
+export async function getEmailRecipient(where: SQL, tx?: Transaction) {
+  const query = (tx ?? db)
     .select({
       id: user.id,
       email: user.email,
@@ -82,132 +53,33 @@ export async function getEmailRecipient(where: SQL) {
     .leftJoin(settings, eq(settings.userId, user.id))
     .where(where)
     .limit(1)
+  const recipients = await (tx ? query.for('update', { of: user }) : query)
   return recipients.at(0)
 }
 
-/**
- * Get user's email preferences
- */
-export async function getEmailPreferences(email: string): Promise<EmailPreferences | null> {
-  try {
-    const recipient = await getEmailRecipient(eq(user.email, email))
-    return recipient ? (recipient.preferences ?? {}) : null
-  } catch (error) {
-    logger.error('Error getting email preferences:', error)
-    return null
-  }
+export async function unsubscribeFromList(
+  tx: Transaction,
+  userId: string,
+  list: UnsubscribeAction
+) {
+  const preferences = { [preferenceKeys[list]]: true }
+  await tx
+    .insert(settings)
+    .values({ id: userId, userId, emailPreferences: preferences })
+    .onConflictDoUpdate({
+      target: settings.userId,
+      set: {
+        emailPreferences: sql`case when json_typeof(${settings.emailPreferences}) = 'object'
+          then (${settings.emailPreferences}::jsonb || excluded.email_preferences::jsonb)::json
+          else excluded.email_preferences end`,
+        updatedAt: new Date(),
+      },
+    })
 }
 
-/**
- * Update user's email preferences
- */
-export async function updateEmailPreferences(
-  email: string,
-  preferences: EmailPreferences
-): Promise<boolean> {
-  try {
-    // First, find the user
-    const userResult = await db
-      .select({ id: user.id })
-      .from(user)
-      .where(eq(user.email, email))
-      .limit(1)
-
-    if (!userResult[0]) {
-      logger.warn(`User not found for email: ${email}`)
-      return false
-    }
-
-    const userId = userResult[0].id
-
-    // Get existing email preferences
-    const existingSettings = await db
-      .select({ emailPreferences: settings.emailPreferences })
-      .from(settings)
-      .where(eq(settings.userId, userId))
-      .limit(1)
-
-    let currentEmailPreferences = {}
-    if (existingSettings[0]) {
-      currentEmailPreferences = (existingSettings[0].emailPreferences as EmailPreferences) || {}
-    }
-
-    // Merge email preferences
-    const updatedEmailPreferences = {
-      ...currentEmailPreferences,
-      ...preferences,
-    }
-
-    // Upsert settings
-    await db
-      .insert(settings)
-      .values({
-        id: userId,
-        userId,
-        emailPreferences: updatedEmailPreferences,
-      })
-      .onConflictDoUpdate({
-        target: settings.userId,
-        set: {
-          emailPreferences: updatedEmailPreferences,
-          updatedAt: new Date(),
-        },
-      })
-
-    logger.info(`Updated email preferences for user: ${email}`)
-    return true
-  } catch (error) {
-    logger.error('Error updating email preferences:', error)
-    return false
-  }
-}
-
-/**
- * Check if user has unsubscribed from a specific email type
- */
-export async function isUnsubscribed(
-  email: string,
-  emailType: 'all' | 'marketing' | 'updates' | 'notifications' = 'all'
-): Promise<boolean> {
-  try {
-    const preferences = await getEmailPreferences(email)
-    if (!preferences) return false
-
-    // Check unsubscribe all first
-    if (preferences.unsubscribeAll) return true
-
-    // Check specific type
-    switch (emailType) {
-      case 'marketing':
-        return preferences.unsubscribeMarketing || false
-      case 'updates':
-        return preferences.unsubscribeUpdates || false
-      case 'notifications':
-        return preferences.unsubscribeNotifications || false
-      default:
-        return false
-    }
-  } catch (error) {
-    logger.error('Error checking unsubscribe status:', error)
-    return false
-  }
-}
-
-/**
- * Unsubscribe user from all emails
- */
-export async function unsubscribeFromAll(email: string): Promise<boolean> {
-  return updateEmailPreferences(email, { unsubscribeAll: true })
-}
-
-/**
- * Resubscribe user (remove all unsubscribe flags)
- */
-export async function resubscribe(email: string): Promise<boolean> {
-  return updateEmailPreferences(email, {
-    unsubscribeAll: false,
-    unsubscribeMarketing: false,
-    unsubscribeUpdates: false,
-    unsubscribeNotifications: false,
-  })
+export function isUnsubscribed(
+  preferences: EmailPreferences | null | undefined,
+  list: MailingList
+) {
+  return !!(preferences?.unsubscribeAll || preferences?.[preferenceKeys[list]])
 }

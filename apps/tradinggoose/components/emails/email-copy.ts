@@ -1,46 +1,32 @@
 import { getPublicCopy } from '@/i18n/public-copy'
 import { formatTemplate, type LocaleInput, normalizeLocaleCode } from '@/i18n/utils'
 
-export type EmailLocale = LocaleInput
-
-export function normalizeEmailTemplateLocale(locale: EmailLocale) {
-  return normalizeLocaleCode(locale)
-}
-
-export function getEmailCopy(locale: EmailLocale) {
-  return getPublicCopy(normalizeEmailTemplateLocale(locale)).emails
+export function getEmailCopy(locale: LocaleInput) {
+  return getPublicCopy(normalizeLocaleCode(locale)).emails
 }
 
 export function emailText(
-  locale: EmailLocale,
+  locale: LocaleInput,
   template: string,
   values: Record<string, string | number>
 ) {
-  return formatTemplate(template, values, normalizeEmailTemplateLocale(locale))
+  return formatTemplate(template, values, normalizeLocaleCode(locale))
 }
 
-export function formatEmailDate(locale: EmailLocale, date: Date) {
-  return new Intl.DateTimeFormat(normalizeEmailTemplateLocale(locale), {
+export function formatEmailDate(locale: LocaleInput, date: Date) {
+  return new Intl.DateTimeFormat(normalizeLocaleCode(locale), {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
   }).format(date)
 }
 
-export function formatEmailDateTime(locale: EmailLocale, date: Date) {
-  return new Intl.DateTimeFormat(normalizeEmailTemplateLocale(locale), {
+export function formatEmailDateTime(locale: LocaleInput, date: Date) {
+  return new Intl.DateTimeFormat(normalizeLocaleCode(locale), {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   }).format(date)
-}
-
-export function formatEmailCurrency(locale: EmailLocale, value: number) {
-  return new Intl.NumberFormat(normalizeEmailTemplateLocale(locale), {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(value)
 }

@@ -1,16 +1,11 @@
 import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
-import {
-  type EmailLocale,
-  getEmailCopy,
-  normalizeEmailTemplateLocale,
-} from '@/components/emails/email-copy'
 import EmailFooter from '@/components/emails/footer'
 import EmailHeader from '@/components/emails/header'
-import { getBaseUrl } from '@/lib/urls/utils'
+import type { LocaleInput } from '@/i18n/utils'
 
 interface LocalizedEmailProps {
-  locale?: EmailLocale
+  locale?: LocaleInput
   preview: string
   title: string
   paragraphs: string[]
@@ -22,8 +17,8 @@ interface LocalizedEmailProps {
   detailsTitle?: string
   details?: string[]
   muted?: string[]
+  unsubscribeUrl?: string
   footerLine?: string
-  baseUrl?: string
 }
 
 export function LocalizedEmail({
@@ -37,18 +32,15 @@ export function LocalizedEmail({
   details = [],
   muted = [],
   footerLine,
-  baseUrl = getBaseUrl(),
+  unsubscribeUrl,
 }: LocalizedEmailProps) {
-  const resolvedLocale = normalizeEmailTemplateLocale(locale)
-  const copy = getEmailCopy(resolvedLocale)
-
   return (
     <Html>
       <Head />
       <Body style={baseStyles.main}>
         <Preview>{preview}</Preview>
         <Container style={baseStyles.container}>
-          <EmailHeader baseUrl={baseUrl} locale={resolvedLocale} tagline={copy.shared.tagline} />
+          <EmailHeader locale={locale} />
 
           <Section style={baseStyles.content}>
             <Text style={baseStyles.title}>{title}</Text>
@@ -130,7 +122,7 @@ export function LocalizedEmail({
           </Section>
         </Container>
 
-        <EmailFooter baseUrl={baseUrl} locale={resolvedLocale} />
+        <EmailFooter locale={locale} unsubscribeUrl={unsubscribeUrl} />
       </Body>
     </Html>
   )

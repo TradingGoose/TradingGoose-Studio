@@ -6,7 +6,7 @@ import {
   user,
   userStats,
 } from '@tradinggoose/db/schema'
-import { eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { getEmailSubject, renderPaymentFailedEmail } from '@/components/emails/render-email'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
@@ -143,44 +143,17 @@ async function sendPaymentFailureEmails(
     const amountDue = invoice.amount_due / 100 // Convert cents to dollars
     const { lastFourDigits, failureReason } = await getPaymentMethodDetails(invoice)
 
-    // Get users to notify
-    let usersToNotify: Array<{ id: string; email: string; name: string | null }> = []
+    const fields = { id: user.id, email: user.email, name: user.name }
+    const recipients = isOrganizationSubscription(sub)
+      ? await db
+          .select(fields)
+          .from(member)
+          .innerJoin(user, eq(member.userId, user.id))
+          .where(and(eq(member.organizationId, sub.referenceId), eq(member.role, 'owner')))
+      : await db.select(fields).from(user).where(eq(user.id, sub.referenceId)).limit(1)
 
-    if (isOrganizationSubscription(sub)) {
-      // For organization-scoped tiers, notify owners
-      const members = await db
-        .select({
-          userId: member.userId,
-          role: member.role,
-        })
-        .from(member)
-        .where(eq(member.organizationId, sub.referenceId))
-
-      const ownerIds = members.filter((m) => m.role === 'owner').map((m) => m.userId)
-
-      if (ownerIds.length > 0) {
-        const users = await db
-          .select({ id: user.id, email: user.email, name: user.name })
-          .from(user)
-          .where(inArray(user.id, ownerIds))
-
-        usersToNotify = users.filter((u) => u.email && quickValidateEmail(u.email).isValid)
-      }
-    } else {
-      // For individual plans, notify the user
-      const users = await db
-        .select({ id: user.id, email: user.email, name: user.name })
-        .from(user)
-        .where(eq(user.id, sub.referenceId))
-        .limit(1)
-
-      if (users.length > 0) {
-        usersToNotify = users.filter((u) => u.email && quickValidateEmail(u.email).isValid)
-      }
-    }
-
-    // Send emails to all affected users
-    for (const userToNotify of usersToNotify) {
+    for (const userToNotify of recipients) {
+      if (!quickValidateEmail(userToNotify.email).isValid) continue
       try {
         const locale = await resolveEmailLocale({
           userId: userToNotify.id,
@@ -195,17 +168,15 @@ async function sendPaymentFailureEmails(
           locale,
         })
 
-        await sendEmail({
+        const result = await sendEmail({
           to: userToNotify.email,
+          userId: userToNotify.id,
           subject: getEmailSubject('payment-failed', locale),
           html: emailHtml,
           emailType: 'transactional',
         })
 
-        logger.info('Payment failure email sent', {
-          email: userToNotify.email,
-          invoiceId: invoice.id,
-        })
+        if (!result.success) throw new Error(result.message)
       } catch (emailError) {
         logger.error('Failed to send payment failure email', {
           error: emailError,

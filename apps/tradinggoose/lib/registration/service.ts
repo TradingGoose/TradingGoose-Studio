@@ -6,8 +6,7 @@ import {
   renderWaitlistApprovedEmail,
   renderWaitlistConfirmationEmail,
 } from '@/components/emails/render-email'
-import { type EmailOptions, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
-import { normalizeEmailLocale } from '@/lib/email/locale'
+import { sendBatchEmails, sendEmail, type TransactionalBatchEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -281,15 +280,14 @@ async function createWaitlistApprovalEmail(
   email: string,
   baseUrl: string,
   preferredLocale: string
-): Promise<EmailOptions | null> {
+): Promise<TransactionalBatchEmail | null> {
   try {
-    const locale = normalizeEmailLocale(preferredLocale)
+    const locale = normalizeLocaleCode(preferredLocale)
     const signupLink = localizeUrl(baseUrl, locale, `/signup?email=${encodeURIComponent(email)}`)
     return {
       to: email,
       subject: getEmailSubject('waitlist-approved', locale),
       html: await renderWaitlistApprovedEmail(email, signupLink, locale),
-      emailType: 'transactional',
     }
   } catch (error) {
     logger.error('Failed to render waitlist approval email', {
@@ -312,14 +310,14 @@ async function sendWaitlistApprovalEmails(
         createWaitlistApprovalEmail(email, baseUrl, preferredLocale)
       )
     )
-    const batchEmails = renderedEmails.filter((email): email is EmailOptions => email !== null)
+    const batchEmails = renderedEmails.filter((email) => email !== null)
 
     if (batchEmails.length === 0) {
       continue
     }
 
     try {
-      const result = await sendBatchEmails({ emails: batchEmails })
+      const result = await sendBatchEmails(batchEmails)
 
       if (!result.success) {
         logger.error('Failed to send waitlist approval email batch', {
