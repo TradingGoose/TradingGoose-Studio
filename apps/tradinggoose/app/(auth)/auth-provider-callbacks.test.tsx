@@ -262,9 +262,7 @@ describe('auth provider callback routing', () => {
       errorCallbackURL: getAuthErrorCallbackPath('/workspace'),
     })
 
-    mockSocialSignIn.mockResolvedValue({
-      error: { code: 'USER_ALREADY_EXISTS', message: 'User already exists' },
-    })
+    mockSocialSignIn.mockResolvedValue({ error: { code: 'USER_ALREADY_EXISTS' } })
     await act(async () => button.click())
     expect(container.querySelector('[role="alert"]')?.textContent).toBe(
       getPublicCopy('en').auth.signup.errors.accountExists
@@ -276,6 +274,27 @@ describe('auth provider callback routing', () => {
       getPublicCopy('en').auth.error.default.description
     )
   })
+
+  it.each([
+    ['/invite/token?workspace=team', '/signup', '&invite_flow=true'],
+    ['/workspace', '/waitlist', ''],
+  ])(
+    'keeps SSO entry links in the correct registration flow for %s',
+    async (callbackUrl, registrationPath, inviteFlag) => {
+      testState.searchParams = new URLSearchParams({ callbackUrl })
+      await act(async () => {
+        root.render(
+          <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+            <SSOForm registrationMode='waitlist' />
+          </NextIntlClientProvider>
+        )
+      })
+      const query = `?callbackUrl=${encodeURIComponent(callbackUrl)}${inviteFlag}`
+      for (const path of ['/login', registrationPath]) {
+        expect(container.querySelector(`a[href^="${path}?"]`)).toHaveAttribute('href', path + query)
+      }
+    }
+  )
 
   it('keeps the SSO callback destination through domain feedback and explicit provider selection', async () => {
     testState.searchParams = new URLSearchParams({ callbackUrl: '/workspace' })

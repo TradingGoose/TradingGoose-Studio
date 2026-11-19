@@ -96,16 +96,19 @@ async function setup(email = localEmail, emailVerified = true) {
   })
   const register = (providerId = 'okta', providerType: 'oidc' | 'saml' = 'oidc') =>
     auth.api.registerSSOProvider({ headers, body: registrationBody(providerId, providerType) })
-  const verify = async (providerId = 'okta') => {
+  const verify = async (providerId = 'okta', domains = ['example.com']) => {
     const { domainVerificationToken } = await auth.api.requestDomainVerification({
       headers,
       body: { providerId },
     })
-    resolveTxt.mockResolvedValue([[domainVerificationToken]])
+    const hosts = domains.map((domain) => `_better-auth-token-${providerId}.${domain}`)
+    resolveTxt.mockImplementation(async (host: string) =>
+      hosts.includes(host) ? [[domainVerificationToken]] : []
+    )
     await expect(
       auth.api.verifyDomain({ headers, body: { providerId }, asResponse: true })
     ).resolves.toMatchObject({ status: 204 })
-    expect(resolveTxt).toHaveBeenCalledWith(`_better-auth-token-${providerId}.example.com`)
+    for (const host of hosts) expect(resolveTxt).toHaveBeenCalledWith(host)
   }
   const callback = async () => {
     const start = await auth.api.signInSSO({
@@ -247,7 +250,7 @@ describe('native SSO registration and account matching', () => {
       headers,
       body: { ...registrationBody('okta-prod'), domain: 'https://EXAMPLE.com/path,other.example' },
     })
-    await verify('okta-prod')
+    await verify('okta-prod', ['example.com', 'other.example'])
     await register('okta')
     await Promise.all(
       Array.from({ length: 100 }, (_, i) =>

@@ -37,9 +37,12 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
       searchParams?.get('callbackUrl'),
       typeof window !== 'undefined' ? window.location.origin : undefined
     ) ?? '/workspace'
-  const registrationHref = getRegistrationPrimaryHref(registrationMode)
-  const registrationLabel = copy.registration[registrationMode].auth
-  const callbackUrlParam = encodeURIComponent(callbackUrl)
+  const isInviteFlow =
+    searchParams?.get('invite_flow') === 'true' || callbackUrl.startsWith('/invite/')
+  const signupMode = isInviteFlow ? 'open' : registrationMode
+  const registrationHref = getRegistrationPrimaryHref(signupMode)
+  const registrationLabel = copy.registration[signupMode].auth
+  const returnQuery = `?callbackUrl=${encodeURIComponent(callbackUrl)}${isInviteFlow ? '&invite_flow=true' : ''}`
 
   useEffect(() => {
     const emailParam = searchParams?.get('email')
@@ -101,7 +104,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
         description={ssoCopy.description}
       />
 
-      {registrationMode === 'waitlist' ? <AuthWaitlistNote /> : null}
+      {signupMode === 'waitlist' ? <AuthWaitlistNote /> : null}
 
       <form
         onSubmit={onSubmit}
@@ -168,7 +171,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
 
       <div className={`${inter.className} space-y-3`}>
         <Link
-          href={`/login?callbackUrl=${callbackUrlParam}`}
+          href={`/login${returnQuery}`}
           className={buttonVariants({
             variant: 'outline',
             className: 'w-full rounded-md shadow-sm hover:bg-gray-50',
@@ -182,7 +185,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
         <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
           <span className='font-normal'>{commonCopy.dontHaveAccount} </span>
           <Link
-            href={`${registrationHref}?callbackUrl=${callbackUrlParam}`}
+            href={`${registrationHref}${returnQuery}`}
             className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
           >
             {registrationLabel}

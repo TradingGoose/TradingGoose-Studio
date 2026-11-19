@@ -318,6 +318,21 @@ describe('SSO access guard', () => {
       }
     )
 
+    it('clears the registration draft when the active organization changes', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({ providers: [] }),
+      } as Response)
+      await renderSettings()
+      await fillRegistrationForm('okta')
+      expect(container.querySelector('button[type="submit"]')).toBeEnabled()
+      setOrganization('org-2')
+      await renderSettings()
+      expect(container.querySelector('#client-secret')).toHaveValue('')
+      expect(container.querySelector('#domain')).toHaveValue('')
+      expect(container.querySelector('button[type="submit"]')).toBeDisabled()
+    })
+
     it.each([false, true])(
       'ignores a stale registration refresh after switching organizations (switch back: %s)',
       async (switchBack) => {
