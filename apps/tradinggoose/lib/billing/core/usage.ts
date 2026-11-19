@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { member, settings, user, userStats } from '@tradinggoose/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import {
   getEmailSubject,
   renderFreeTierUpgradeEmail,
@@ -589,18 +589,19 @@ export async function maybeSendUsageThresholdEmail(params: {
       params.percentAfter >= freeTierUpgradeThresholdPercent
     if (!crossesWarningThreshold && !crossesFreeTierUpgradeThreshold) return
 
-    let recipients: { id: string; email: string; name?: string | null }[]
-    if (params.scope === 'user') {
-      if (!params.userId || !params.userEmail) return
-      const [preferences] = await db
-        .select({ enabled: settings.billingUsageNotificationsEnabled })
-        .from(settings)
-        .where(eq(settings.userId, params.userId))
-        .limit(1)
-      if (preferences?.enabled === false) return
-      recipients = [{ id: params.userId, email: params.userEmail, name: params.userName }]
-    } else {
-      if (!params.organizationId) return
+    const getRecipients = async (recipientId?: string) => {
+      if (params.scope === 'user') {
+        if (!params.userId || !params.userEmail) return []
+        const [preferences] = await db
+          .select({ enabled: settings.billingUsageNotificationsEnabled })
+          .from(settings)
+          .where(eq(settings.userId, params.userId))
+          .limit(1)
+        return preferences?.enabled === false
+          ? []
+          : [{ id: params.userId, email: params.userEmail, name: params.userName }]
+      }
+      if (!params.organizationId) return []
       const members = await db
         .select({
           id: user.id,
@@ -612,14 +613,19 @@ export async function maybeSendUsageThresholdEmail(params: {
         .from(member)
         .innerJoin(user, eq(member.userId, user.id))
         .leftJoin(settings, eq(settings.userId, member.userId))
-        .where(eq(member.organizationId, params.organizationId))
-      recipients = members.filter(
+        .where(
+          and(
+            eq(member.organizationId, params.organizationId),
+            recipientId ? eq(member.userId, recipientId) : undefined
+          )
+        )
+      return members.filter(
         ({ role, email, enabled }) =>
           (role === 'owner' || role === 'admin') && email && enabled !== false
       )
     }
 
-    for (const { id, email, name } of recipients) {
+    for (const { id, email, name } of await getRecipients()) {
       const locale = await resolveEmailLocale({ userId: id, email })
       let address = email
       const sendNotification = async (subject: string, html: (url: string) => Promise<string>) => {
@@ -632,7 +638,7 @@ export async function maybeSendUsageThresholdEmail(params: {
           html,
         }
         const { success, currentEmail } = await sendEmail(mail)
-        if (!success && currentEmail) {
+        if (!success && currentEmail && (await getRecipients(id)).length) {
           address = currentEmail
           await sendEmail({ ...mail, to: address })
         }

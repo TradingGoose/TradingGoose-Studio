@@ -2,7 +2,7 @@ import { EmailClient } from '@azure/communication-email'
 import { db } from '@tradinggoose/db'
 import { user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { Resend } from 'resend'
+import { type ErrorResponse, Resend } from 'resend'
 import { getEmailCopy } from '@/components/emails/email-copy'
 import {
   generateUnsubscribeToken,
@@ -71,11 +71,19 @@ export async function syncUserEmailAudience(
     const { apiKey, audienceId: segmentId } = await resolveResendServiceConfig()
     if (!apiKey || !segmentId) return true
     const { contacts } = new Resend(apiKey)
+    const checkResponse = (error: ErrorResponse | null, allowMissing = false) => {
+      if (error && !(allowMissing && error.statusCode === 404)) {
+        throw Object.assign(new Error(error.message), error)
+      }
+    }
     const getContact = async (email: string) => {
       const { data, error } = await contacts.get({ email })
-      if (error && error.statusCode !== 404) throw error
+      checkResponse(error, true)
       return data
     }
+    const getOwner = (email: string) => getEmailRecipient(eq(user.email, email))
+    const wantsMarketing = (owner: Awaited<ReturnType<typeof getOwner>>) =>
+      !!owner?.emailVerified && !isUnsubscribed(owner.preferences, 'marketing')
     const syncMembership = async (email: string, enroll: boolean) => {
       for (let attempt = 0; attempt < 2; attempt++) {
         if (enroll) {
@@ -84,32 +92,27 @@ export async function syncUserEmailAudience(
           const { error } = contact
             ? await contacts.segments.add({ contactId: contact.id, segmentId })
             : await contacts.create({ email, segments: [{ id: segmentId }] })
-          if (error) throw error
+          checkResponse(error)
         } else {
           const { error } = await contacts.segments.remove({ email, segmentId })
-          if (error && error.statusCode !== 404) throw error
+          checkResponse(error, true)
         }
 
         // A concurrent sync can finish while the Resend write is in flight.
-        const owner = await getEmailRecipient(eq(user.email, email))
-        const wantsMarketing =
-          !!owner?.emailVerified && !isUnsubscribed(owner.preferences, 'marketing')
-        if (enroll === wantsMarketing) return
-        enroll = wantsMarketing
+        const desired = wantsMarketing(await getOwner(email))
+        if (enroll === desired) return
+        enroll = desired
       }
       throw new Error('Mailbox ownership or consent changed again during segment synchronization')
     }
 
     const prior = previousEmail?.trim().toLowerCase()
-    const hasVerifiedOwner = async (email: string) =>
-      (await getEmailRecipient(eq(user.email, email)))?.emailVerified
-
     const syncCurrentAddress = async () => {
       const recipient = await getEmailRecipient(eq(user.id, account.id))
       if (!recipient) return
       const email = recipient.email.trim().toLowerCase()
       let optedOut = isUnsubscribed(recipient.preferences, 'marketing')
-      if (!optedOut && prior && prior !== email && !(await hasVerifiedOwner(prior))) {
+      if (!optedOut && prior && prior !== email && !(await getOwner(prior))?.emailVerified) {
         if ((await getContact(prior))?.unsubscribed) {
           await unsubscribeFromList(db, recipient.id, 'marketing')
           optedOut = true
@@ -124,13 +127,17 @@ export async function syncUserEmailAudience(
       await syncCurrentAddress()
       return true
     }
+    let cleanupStarted = false
     const changes = [
       syncCurrentAddress,
       async () => {
-        if (!(await hasVerifiedOwner(prior))) await syncMembership(prior, false)
+        const owner = await getOwner(prior)
+        if (owner?.emailVerified && !cleanupStarted) return
+        cleanupStarted = true
+        await syncMembership(prior, wantsMarketing(owner))
       },
     ]
-    const results = await Promise.allSettled(
+    const [current, previous] = await Promise.allSettled(
       changes.map((change) =>
         retryWithExponentialBackoff(change, {
           maxRetries: 1,
@@ -142,10 +149,15 @@ export async function syncUserEmailAudience(
         })
       )
     )
-    for (const result of results) {
-      if (result.status === 'rejected') throw result.reason
+    if (previous.status === 'rejected') {
+      logger.warn(
+        'Failed to reconcile the previous mailbox in the Resend segment',
+        { userId: account.id, previousEmail: prior, segmentId },
+        previous.reason
+      )
     }
-    return true
+    if (current.status === 'rejected') throw current.reason
+    return previous.status === 'fulfilled'
   } catch (error) {
     logger.warn('Failed to synchronize verified user email with Resend', {
       userId: account.id,
@@ -181,7 +193,7 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
         return {
           success: false,
           message: 'Email recipient address has changed or no longer exists',
-          currentEmail: recipient?.email,
+          currentEmail: recipient?.emailVerified ? recipient.email : undefined,
         }
       }
       if (emailType !== 'transactional' && isUnsubscribed(recipient.preferences, emailType)) {

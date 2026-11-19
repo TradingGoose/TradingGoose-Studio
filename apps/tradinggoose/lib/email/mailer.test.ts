@@ -222,25 +222,32 @@ describe('mailer', () => {
       expect(mockSend).not.toHaveBeenCalled()
     })
 
-    it('checks the intended account’s current address after rendering a billing notification', async () => {
-      const result = await sendEmail({
-        ...testEmailOptions,
-        userId: recipient.id,
-        emailType: 'notifications',
-        html: async () => {
-          vi.mocked(getEmailRecipient).mockResolvedValueOnce({
-            ...recipient,
-            email: 'new@example.com',
-          })
-          return '<p>Usage details</p>'
-        },
-      })
+    it.each([true, false])(
+      'returns only a verified replacement mailbox (verified=%s)',
+      async (emailVerified) => {
+        const result = await sendEmail({
+          ...testEmailOptions,
+          userId: recipient.id,
+          emailType: 'notifications',
+          html: async () => {
+            vi.mocked(getEmailRecipient).mockResolvedValueOnce({
+              ...recipient,
+              email: 'new@example.com',
+              emailVerified,
+            })
+            return '<p>Usage details</p>'
+          },
+        })
 
-      expect(result).toMatchObject({ success: false, currentEmail: 'new@example.com' })
-      expect(getEmailRecipient).toHaveBeenCalledExactlyOnceWith(eq(user.id, recipient.id))
-      expect(mockSend).not.toHaveBeenCalled()
-      expect(mockAzureBeginSend).not.toHaveBeenCalled()
-    })
+        expect(result).toMatchObject({
+          success: false,
+          currentEmail: emailVerified ? 'new@example.com' : undefined,
+        })
+        expect(getEmailRecipient).toHaveBeenCalledExactlyOnceWith(eq(user.id, recipient.id))
+        expect(mockSend).not.toHaveBeenCalled()
+        expect(mockAzureBeginSend).not.toHaveBeenCalled()
+      }
+    )
 
     it('reports unavailable delivery without logging the verification code', async () => {
       mockResolveResendServiceConfig.mockResolvedValue({
@@ -378,7 +385,7 @@ describe('mailer', () => {
       await expect(syncUserEmailAudience(recipient)).resolves.toBe(false)
       expect(mockLoggerWarn).toHaveBeenCalledWith(
         'Failed to synchronize verified user email with Resend',
-        { userId: recipient.id, error }
+        { userId: recipient.id, error: expect.objectContaining(error) }
       )
     })
 
@@ -393,12 +400,39 @@ describe('mailer', () => {
 
     it('enrolls the current mailbox even when the prior removal fails', async () => {
       mockTransferRecipients()
-      mockContactSegmentRemove.mockResolvedValue({ error: { statusCode: 403 } })
+      const error = { statusCode: 403, name: 'restricted_api_key', message: 'Forbidden' }
+      mockContactSegmentRemove.mockResolvedValue({ error })
       await expect(syncUserEmailAudience(recipient, old)).resolves.toBe(false)
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        'Failed to reconcile the previous mailbox in the Resend segment',
+        { userId: recipient.id, previousEmail: old, segmentId },
+        expect.objectContaining(error)
+      )
       expect(mockContactsCreate).toHaveBeenCalledExactlyOnceWith({
         email: recipient.email,
         segments: [{ id: segmentId }],
       })
+    })
+
+    it('retries enrollment for the verified owner who acquired the address during removal', async () => {
+      mockTransferRecipients()
+      mockContactSegmentRemove.mockImplementationOnce(async () => {
+        mockTransferRecipients(recipient, { ...recipient, id: 'new-owner', email: old })
+        return { error: null }
+      })
+      mockContactsGet.mockImplementation(async ({ email }) =>
+        email === old
+          ? { data: { id: 'old-contact' }, error: null }
+          : { error: { statusCode: 404 } }
+      )
+      mockContactSegmentAdd.mockResolvedValueOnce({ error: { statusCode: 503 } })
+
+      await expect(syncUserEmailAudience(recipient, old)).resolves.toBe(true)
+      expect(mockContactSegmentRemove).toHaveBeenCalledExactlyOnceWith({ email: old, segmentId })
+      expect(mockContactSegmentAdd.mock.calls).toEqual([
+        [{ contactId: 'old-contact', segmentId }],
+        [{ contactId: 'old-contact', segmentId }],
+      ])
     })
 
     it.each(['opt-out', 'mailbox change', 'opt-in'])(

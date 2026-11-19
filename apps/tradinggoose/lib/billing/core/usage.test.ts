@@ -21,7 +21,7 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  member: {},
+  member: { userId: 'member.userId' },
   settings: {},
   user: {},
   userStats: {
@@ -34,6 +34,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
 }))
 
 vi.mock('drizzle-orm', () => ({
+  and: (...conditions: unknown[]) => conditions,
   eq: mockEq,
   sql: (_text: TemplateStringsArray, column: string) => column,
 }))
@@ -312,4 +313,37 @@ describe('usage threshold mail', () => {
       ['free-tier-upgrade', 'new@example.com'],
     ])
   })
+
+  it.each([
+    ['admin', true, true],
+    ['owner', false, false],
+    ['member', true, false],
+  ])(
+    'rechecks organization role %s and billing notifications %s before retry',
+    async (role, enabled, retried) => {
+      const { sendEmail } = await import('@/lib/email/mailer')
+      const recipient = { id: usage.userId, email: usage.userEmail, role: 'owner', enabled: true }
+      const currentEmail = 'new@example.com'
+      vi.mocked(sendEmail).mockImplementationOnce(async () => {
+        Object.assign(recipient, { role, enabled, email: currentEmail })
+        return { success: false, message: 'Unsent', currentEmail }
+      })
+      mockDb.select.mockImplementation((fields) => {
+        if ('preferredLocale' in fields) return createSelectQueryMock([{ preferredLocale: 'es' }])
+        const query = {
+          from: () => query,
+          innerJoin: () => query,
+          leftJoin: () => query,
+          where: async () => [recipient],
+        }
+        return query
+      })
+      const { maybeSendUsageThresholdEmail } = await import('./usage')
+      await maybeSendUsageThresholdEmail({ ...usage, scope: 'organization', organizationId: 'org' })
+      expect(mockEq).toHaveBeenCalledWith('member.userId', usage.userId)
+      expect(vi.mocked(sendEmail).mock.calls.map(([mail]) => mail.to)).toEqual(
+        retried ? [usage.userEmail, currentEmail] : [usage.userEmail]
+      )
+    }
+  )
 })
