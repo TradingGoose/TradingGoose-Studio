@@ -139,7 +139,7 @@ export function useVerification({
 
   function returnToAuth() {
     const path = fromSignup ? '/signup' : '/login'
-    sessionStorage.removeItem('verificationEmail')
+    if (!fromSignup) sessionStorage.removeItem('verificationEmail')
     router.push(`${path}${returnQuery}`)
   }
 

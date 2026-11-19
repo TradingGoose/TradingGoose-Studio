@@ -207,6 +207,9 @@ describe('account email change through native Better Auth OTP', () => {
         body: { email, password, name: 'New user', username: 'new.user' },
       })
       expect(signup.token).toBeNull()
+      await expect(
+        fixture.auth.api.isUsernameAvailable({ body: { username: 'new.user' } })
+      ).resolves.toEqual({ available: false })
       if (duplicate) {
         const retry = await fixture.auth.api.signUpEmail({
           body: {
@@ -228,7 +231,7 @@ describe('account email change through native Better Auth OTP', () => {
       await expect(
         fixture.auth.api.signInEmail({ body: { email, password: chosenPassword } })
       ).resolves.toMatchObject({
-        user: { id: signup.user.id, emailVerified: true },
+        user: { id: signup.user.id, emailVerified: true, username: 'new.user' },
         token: expect.any(String),
       })
       await expect(

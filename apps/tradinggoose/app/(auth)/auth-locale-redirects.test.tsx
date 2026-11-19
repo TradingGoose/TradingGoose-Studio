@@ -248,6 +248,11 @@ describe('auth locale redirects', () => {
     )
   }
 
+  async function checkAvailability() {
+    await act(async () => vi.advanceTimersByTimeAsync(300))
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+  }
+
   it.each([
     ['es', null, null],
     ['zh', '/chat/deployed-chat?view=thread#reply', null],
@@ -354,15 +359,6 @@ describe('auth locale redirects', () => {
       await setInputValue('#password', 'Password1!')
     }
 
-    async function checkAvailability() {
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(300)
-      })
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(0)
-      })
-    }
-
     it('checks only the current browser-valid candidate and clears feedback when it is emptied', async () => {
       const copy = getPublicCopy('es').username
       await renderSignup('es')
@@ -392,6 +388,9 @@ describe('auth locale redirects', () => {
       await checkAvailability()
       const taken = getPublicCopy('en').username.taken
       expect(container.querySelector('#signup-username-error')?.textContent).toBe(taken)
+      expect(container.querySelector('a[href^="/login"]')?.textContent).toBe(
+        getPublicCopy('en').auth.common.signInWithEmail
+      )
       await submitRenderedForm()
       expect(mockSignUpEmail).not.toHaveBeenCalled()
       await setInputValue('#username', 'Free.Name')
@@ -913,7 +912,30 @@ describe('auth locale redirects', () => {
       expect(mockPush).toHaveBeenCalledExactlyOnceWith(
         `/${path}?callbackUrl=${encodeURIComponent(destination)}${invite}`
       )
-      expect(sessionStorage.getItem('verificationEmail')).toBeNull()
+      if (path === 'login') {
+        expect(sessionStorage.getItem('verificationEmail')).toBeNull()
+        return
+      }
+
+      testState.searchParams = new URL(
+        mockPush.mock.lastCall![0],
+        window.location.origin
+      ).searchParams
+      mockIsUsernameAvailable.mockResolvedValue({ data: { available: false }, error: null })
+      await renderWithLocale(
+        'en',
+        <SignupPage githubAvailable={false} googleAvailable={false} registrationMode='open' />
+      )
+      await setInputValue('#username', 'Ada.Lovelace')
+      await checkAvailability()
+      expect(container.querySelector('button[type="submit"]')).toBeDisabled()
+      const resume = container.querySelector('a[href^="/verify"]')
+      expect(resume?.textContent).toContain('ada@example.com')
+      expect(resume?.getAttribute('href')).toBe(
+        `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(destination)}${invite}`
+      )
+      expect(mockSignUpEmail).not.toHaveBeenCalled()
+      expect(mockRequestPasswordResetOtp).toHaveBeenCalledOnce()
     }
   )
 })

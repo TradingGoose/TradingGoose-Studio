@@ -300,6 +300,7 @@
       "submitting": "Creating account...",
       "nameTitle": "Name can only contain letters, spaces, hyphens, and apostrophes",
       "usernameHint": "Use 3–30 letters, numbers, underscores, or dots.",
+      "resumeVerification": "Continue verifying {email}",
       "validation": {
         "emailRequired": "Email is required.",
         "emailInvalid": "Please enter a valid email address.",

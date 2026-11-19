@@ -300,6 +300,7 @@
       "submitting": "Creando cuenta...",
       "nameTitle": "El nombre solo puede contener letras, espacios, guiones y apóstrofos",
       "usernameHint": "Use entre 3 y 30 letras, números, guiones bajos o puntos.",
+      "resumeVerification": "Continuar con la verificación de {email}",
       "validation": {
         "emailRequired": "El correo electrónico es obligatorio.",
         "emailInvalid": "Introduzca un correo electrónico válido.",

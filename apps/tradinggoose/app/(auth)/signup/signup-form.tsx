@@ -27,7 +27,7 @@ import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons
 import { inter } from '@/app/fonts/inter'
 import { usernameInputProps, useUsernameAvailability } from '@/hooks/queries/username'
 import { Link, useRouter } from '@/i18n/navigation'
-import { normalizeCallbackUrl } from '@/i18n/utils'
+import { formatTemplate, normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('SignupForm')
 
@@ -71,6 +71,7 @@ function SignupFormContent({
   const [showPassword, setShowPassword] = useState(false)
   const [passwordErrors, setPasswordErrors] = useState<string[]>([])
   const [email, setEmail] = useState('')
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null)
   const [emailError, setEmailError] = useState('')
   const [usernameError, setUsernameError] = useState('')
   const [usernameCandidate, setUsernameCandidate] = useState('')
@@ -88,12 +89,14 @@ function SignupFormContent({
     ) ?? '/workspace'
   const isInviteFlow =
     searchParams.get('invite_flow') === 'true' || destination.startsWith('/invite/')
+  const verificationPath = `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(destination)}${isInviteFlow ? '&invite_flow=true' : ''}`
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   const [nameError, setNameError] = useState('')
 
   useEffect(() => {
+    setPendingVerificationEmail(sessionStorage.getItem('verificationEmail'))
     const emailParam = searchParams.get('email')
     if (emailParam) {
       setEmail(emailParam)
@@ -218,6 +221,7 @@ function SignupFormContent({
 
       if (!response.data?.token) {
         sessionStorage.setItem('verificationEmail', emailValue)
+        setPendingVerificationEmail(emailValue)
         try {
           await client.emailOtp.requestPasswordReset({ email: emailValue })
         } catch (otpErr) {
@@ -225,9 +229,7 @@ function SignupFormContent({
         }
       }
 
-      router.push(
-        `/verify?fromSignup=true&redirectAfter=${encodeURIComponent(destination)}${isInviteFlow ? '&invite_flow=true' : ''}`
-      )
+      router.push(verificationPath)
     } catch (error) {
       logger.error('Signup error:', error)
       setIsLoading(false)
@@ -247,6 +249,12 @@ function SignupFormContent({
       />
 
       {registrationMode === 'waitlist' && !isInviteFlow ? <AuthWaitlistNote /> : null}
+
+      {pendingVerificationEmail && (
+        <Link href={verificationPath} className='text-primary text-sm hover:underline'>
+          {formatTemplate(signupCopy.resumeVerification, { email: pendingVerificationEmail })}
+        </Link>
+      )}
 
       <form
         onSubmit={onSubmit}
@@ -424,7 +432,7 @@ function SignupFormContent({
           href={`/login?callbackUrl=${encodeURIComponent(destination)}${isInviteFlow ? '&invite_flow=true' : ''}`}
           className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
         >
-          {commonCopy.signIn}
+          {usernameAvailability === 'taken' ? commonCopy.signInWithEmail : commonCopy.signIn}
         </Link>
       </div>
 

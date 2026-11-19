@@ -300,6 +300,7 @@
       "submitting": "正在创建账户...",
       "nameTitle": "名称只能包含字母、空格、连字符和撇号",
       "usernameHint": "使用 3–30 个字母、数字、下划线或英文句点。",
+      "resumeVerification": "继续验证 {email}",
       "validation": {
         "emailRequired": "需要电子邮件。",
         "emailInvalid": "请输入有效的电子邮件地址。",
