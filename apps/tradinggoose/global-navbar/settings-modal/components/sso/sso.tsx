@@ -2,13 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Copy, Eye, EyeOff } from 'lucide-react'
+import { z } from 'zod'
 import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { Skeleton } from '@/components/ui/skeleton'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
-import { SSO_PROVIDER_ID_MAX_LENGTH, SSO_PROVIDER_IDS, ssoProviderIdSchema } from '@/lib/sso/consts'
+import {
+  SSO_PROVIDER_ID_MAX_LENGTH,
+  SSO_PROVIDER_IDS,
+  splitSsoDomains,
+  ssoProviderIdSchema,
+} from '@/lib/sso/consts'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
@@ -199,13 +205,11 @@ export function SSO() {
     return out
   }
 
-  const validateDomain = (value: string): string[] => {
-    const out: string[] = []
-    if (!value || !value.trim()) return ['Domain is required.']
-    if (/^https?:\/\//i.test(value.trim())) out.push('Do not include protocol (https://).')
-    if (!/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(value.trim()))
-      out.push('Enter an email domain like company.com')
-    return out
+  const validateDomains = (domains: string[]): string[] => {
+    if (!domains.length) return ['Domain is required.']
+    if (domains.some((domain) => !z.regexes.domain.test(domain)))
+      return ['Enter email domains like company.com, without a protocol or path.']
+    return []
   }
 
   const validateRequired = (label: string, value: string): string[] => {
@@ -216,10 +220,11 @@ export function SSO() {
 
   const isOidc = formData.providerType === 'oidc'
   const providerId = ssoProviderIdSchema.safeParse(formData.providerId)
+  const domains = splitSsoDomains(formData.domain)
   const errors = {
     providerId: providerId.success ? [] : providerId.error.issues.map(({ message }) => message),
     issuerUrl: validateIssuerUrl(formData.issuerUrl),
-    domain: validateDomain(formData.domain),
+    domain: validateDomains(domains),
     clientId: isOidc ? validateRequired('Client ID', formData.clientId) : [],
     clientSecret: isOidc ? validateRequired('Client Secret', formData.clientSecret) : [],
     scopes: isOidc && !formData.scopes.trim() ? ['Scopes are required for OIDC providers'] : [],
@@ -240,7 +245,7 @@ export function SSO() {
       const requestBody: any = {
         providerId: providerId.data,
         issuer: formData.issuerUrl,
-        domain: formData.domain,
+        domain: domains.join(','),
         providerType: formData.providerType,
       }
 
@@ -550,7 +555,7 @@ export function SSO() {
                 </div>
 
                 <div className='space-y-1'>
-                  <Label htmlFor='domain'>Domain</Label>
+                  <Label htmlFor='domain'>Email domains</Label>
                   <Input
                     id='domain'
                     type='text'
@@ -575,7 +580,9 @@ export function SSO() {
                       <p>{errors.domain.join(' ')}</p>
                     </div>
                   )}
-                  <p className='text-muted-foreground text-xs'>Use your users' email domain.</p>
+                  <p className='text-muted-foreground text-xs'>
+                    Separate multiple domains with commas.
+                  </p>
                 </div>
 
                 {/* Provider-specific fields */}

@@ -255,7 +255,7 @@ describe('SSO access guard', () => {
       expect(button).toBeDefined()
       await act(async () => button!.click())
     }
-    async function fillRegistrationForm(providerId: string) {
+    async function fillRegistrationForm(providerId: string, domain = 'example.com') {
       const select = container.querySelector<HTMLSelectElement>('#provider-id')!
       select.append(new Option(providerId, providerId))
       await act(async () => {
@@ -264,7 +264,7 @@ describe('SSO access guard', () => {
       })
       for (const [id, value] of [
         ['issuer-url', 'https://idp.example.com'],
-        ['domain', 'example.com'],
+        ['domain', domain],
         ['client-id', 'client-id'],
         ['client-secret', 'client-secret'],
       ]) {
@@ -317,6 +317,22 @@ describe('SSO access guard', () => {
         }
       }
     )
+
+    it('validates each email domain and submits a comma-separated registration', async () => {
+      vi.mocked(fetch).mockImplementation(async () => Response.json({ providers: [] }))
+      await renderSettings()
+      await fillRegistrationForm('okta', 'company.com, https://subsidiary.com')
+      expect(container.querySelector('button[type="submit"]')).toBeDisabled()
+
+      await fillRegistrationForm('okta', 'company.com, subsidiary.com')
+      await click('Configure SSO Provider')
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/auth/sso/register',
+        expect.objectContaining({
+          body: expect.stringContaining('"domain":"company.com,subsidiary.com"'),
+        })
+      )
+    })
 
     it('clears the registration draft when the active organization changes', async () => {
       vi.mocked(fetch).mockResolvedValue({

@@ -6,14 +6,13 @@ import {
 } from '@/lib/billing/core/organization'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { getOrganizationAccessState } from '@/lib/organization/access'
+import { splitSsoDomains } from '@/lib/sso/consts'
 
 // Match the hostname normalization used by Better Auth's DNS verification and domain matching.
 export function getSsoProviderHostnames(domain: string) {
   const hostnames = new Set<string>()
-  for (const entry of domain.split(',')) {
-    const value = entry.trim()
-    if (!value) continue
-    const hostname = getHostname(value)
+  for (const entry of splitSsoDomains(domain)) {
+    const hostname = getHostname(entry)
     if (!hostname) return []
     hostnames.add(hostname.toLowerCase())
   }
