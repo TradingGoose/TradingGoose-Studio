@@ -41,7 +41,7 @@
 
 #### Better Auth 1.7.26 account rollout
 
-Ship the account-bound unsubscribe links in `review/reset-email-mail` with address changes, the HubSpot setup instructions in `review/reset-email-callback-docs` with the callback cutover, and the session-backed user menu in `review/reset-email-navbar` with profile editing.
+Unsubscribe links now identify the recipient by account ID, email address, and mailing list. Address-only links issued before deployment will be rejected. HubSpot setup instructions in Studio and the localized docs use `/api/auth/callback/hubspot`; register that redirect URI on the existing HubSpot app before deployment. Ship the session-backed user menu in `review/reset-email-navbar` with profile editing.
 
 **Accepted for this release.** Studio uses Better Auth’s native single-use password-reset links. A link issued before an email change can still reset the same account until its original one-hour expiry. New reset requests for that account use its current address. [Better Auth 1.7.26 reset implementation](https://github.com/better-auth/better-auth/blob/v1.7.26/packages/better-auth/src/api/routes/password.ts)
 

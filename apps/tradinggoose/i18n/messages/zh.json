@@ -20209,7 +20209,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20236,7 +20236,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20258,7 +20258,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20280,7 +20280,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20329,7 +20329,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20378,7 +20378,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20400,7 +20400,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
@@ -20427,7 +20427,7 @@
                 "steps": [
                   "<strong>第 1 步：创建 HubSpot 开发者账户</strong><br/>如果您还没有账户，请前往 <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> 注册一个免费的开发者账户。",
                   "<strong>第 2 步：通过 CLI 创建 Public App</strong><br/><strong>注意：</strong>HubSpot 已弃用用于创建应用的 Web UI。您必须使用 HubSpot CLI 创建和管理应用。使用 <code>npm install -g @hubspot/cli</code> 安装 CLI，并运行 <code>hs project create</code> 创建新应用。详情请参阅 <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot 文档</a>。",
-                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
+                  "<strong>第 3 步：保存 OAuth 应用凭据</strong><br/>将 <code>https://www.tradinggoose.ai/api/auth/callback/hubspot</code> 添加到您的 HubSpot OAuth 重定向 URL。然后从 HubSpot 应用配置中获取 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，并将其填入上方字段。",
                   "<strong>第 4 步：获取 App ID 和开发者 API 密钥</strong><br/>在您的 HubSpot 开发者账户中，找到 <strong>App ID</strong>（显示在应用名称下方）以及 <strong>开发者 API 密钥</strong>（位于应用设置中）。后续步骤需要这两个值。",
                   "<strong>第 5 步：设置必需的作用域</strong><br/>将您的应用配置为包含所需的 OAuth scope：<code>crm.objects.contacts.read</code>",
                   "<strong>第 6 步：在 TradingGoose 中保存配置</strong><br/>点击上方的 <strong>“Save Configuration”</strong> 按钮。这将生成您唯一的 webhook URL。",
