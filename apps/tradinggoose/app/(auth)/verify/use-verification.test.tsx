@@ -12,7 +12,7 @@ import { useVerification } from './use-verification'
 const mockPush = vi.hoisted(() => vi.fn())
 const mockRouter = vi.hoisted(() => ({ push: mockPush }))
 const mockResetPasswordOtp = vi.hoisted(() => vi.fn())
-const mockRequestPasswordResetOtp = vi.hoisted(() => vi.fn())
+const mockSendVerificationEmail = vi.hoisted(() => vi.fn())
 const mockFetch = vi.hoisted(() => vi.fn())
 const testState = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
@@ -29,9 +29,9 @@ vi.mock('@/i18n/navigation', () => ({
 vi.mock('@/lib/auth-client', () => ({
   client: {
     signIn: { email: vi.fn().mockResolvedValue({ error: null }) },
+    sendVerificationEmail: mockSendVerificationEmail,
     emailOtp: {
       resetPassword: mockResetPasswordOtp,
-      requestPasswordReset: mockRequestPasswordResetOtp,
     },
   },
 }))
@@ -79,7 +79,7 @@ describe('useVerification', () => {
     })
     mockPush.mockReset()
     mockResetPasswordOtp.mockReset()
-    mockRequestPasswordResetOtp.mockReset()
+    mockSendVerificationEmail.mockReset()
     mockFetch.mockReset()
     mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
     testState.searchParams = new URLSearchParams()
@@ -184,9 +184,9 @@ describe('useVerification', () => {
     }
   )
 
-  it('resends a password-reset OTP for the signup identity', async () => {
+  it('requests verification again for the signup identity', async () => {
     sessionStorage.setItem('verificationEmail', 'ADA@EXAMPLE.COM')
-    mockRequestPasswordResetOtp.mockResolvedValue({})
+    mockSendVerificationEmail.mockResolvedValue({})
     let controls!: VerificationControls
     await renderHarness('en', (value) => {
       controls = value
@@ -194,7 +194,7 @@ describe('useVerification', () => {
 
     await act(async () => controls.resendCode())
 
-    expect(mockRequestPasswordResetOtp).toHaveBeenCalledWith({
+    expect(mockSendVerificationEmail).toHaveBeenCalledWith({
       email: 'ada@example.com',
     })
   })
@@ -224,7 +224,7 @@ describe('useVerification', () => {
 
   it('reports a returned resend failure', async () => {
     sessionStorage.setItem('verificationEmail', 'ada@example.com')
-    mockRequestPasswordResetOtp.mockResolvedValue({ error: { status: 429 } })
+    mockSendVerificationEmail.mockResolvedValue({ error: { status: 429 } })
     let controls!: VerificationControls
     await renderHarness('en', (value) => {
       controls = value

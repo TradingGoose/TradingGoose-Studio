@@ -123,7 +123,7 @@ export function useVerification({
     setFailure(undefined)
 
     try {
-      const { error } = await client.emailOtp.requestPasswordReset({ email })
+      const { error } = await client.sendVerificationEmail({ email })
       if (error) throw error
     } catch {
       setFailure({ message: failureCopy.resendFailed })

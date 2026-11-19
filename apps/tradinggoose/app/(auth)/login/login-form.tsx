@@ -238,7 +238,7 @@ export default function LoginPage({
       const message = resolveLoginErrorMessage(err)
       if (message === null) {
         try {
-          const { error } = await client.emailOtp.requestPasswordReset({ email })
+          const { error } = await client.sendVerificationEmail({ email })
           if (error) throw error
           sessionStorage.setItem('verificationEmail', email)
           router.push(

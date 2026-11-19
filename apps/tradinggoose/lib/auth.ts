@@ -677,30 +677,6 @@ export const auth = betterAuth({
     enabled: true,
     revokeSessionsOnPasswordReset: true,
     requireEmailVerification: isEmailVerificationEnabled,
-    onPasswordReset: async ({ user }) => {
-      if (user.emailVerified) return
-      const ctx = getCurrentAuthEndpointContext()
-      if (ctx.path !== '/email-otp/reset-password') return
-      // This OTP also verifies the mailbox. Keep the password just set by its owner.
-      await ctx.context.adapter.transaction(async (tx) => {
-        const verified = await tx.updateMany({
-          model: 'user',
-          where: [
-            { field: 'id', value: user.id },
-            { field: 'emailVerified', value: false },
-          ],
-          update: { emailVerified: true },
-        })
-        if (verified)
-          await tx.deleteMany({
-            model: 'account',
-            where: [
-              { field: 'userId', value: user.id },
-              { field: 'providerId', operator: 'ne', value: 'credential' },
-            ],
-          })
-      })
-    },
     sendResetPassword: async ({ user, url }) => {
       const username = user.name || ''
       const locale = await resolveEmailLocale({ userId: user.id, email: user.email })
@@ -720,6 +696,18 @@ export const auth = betterAuth({
     },
   },
   emailVerification: {
+    sendOnSignUp: false,
+    async sendVerificationEmail({ user }, request) {
+      const { context } = getCurrentAuthEndpointContext()
+      // Better Auth's verification sender selects unverified mailboxes before issuing this code.
+      const requestReset = context.getPlugin('email-otp')?.endpoints?.requestPasswordResetEmailOTP
+      if (!requestReset) throw new Error('The email OTP plugin is required')
+      await requestReset({
+        context,
+        request,
+        body: { email: user.email },
+      })
+    },
     autoSignInAfterVerification: true,
     beforeEmailVerification: async (user) => {
       const ctx = getCurrentAuthEndpointContext()
@@ -749,7 +737,8 @@ export const auth = betterAuth({
         return { context: { body: { ...ctx.body, revokeOtherSessions: true } } }
       }
       if (
-        (ctx.path === '/email-otp/send-verification-otp' ||
+        (ctx.path === '/send-verification-email' ||
+          ctx.path === '/email-otp/send-verification-otp' ||
           ctx.path === '/email-otp/request-password-reset' ||
           ctx.path === '/email-otp/request-email-change') &&
         !(await hasEmailService())
@@ -843,6 +832,7 @@ export const auth = betterAuth({
       expiresIn: 24 * 60 * 60, // 24 hours - Socket.IO handles connection persistence with heartbeats
     }),
     emailOTP({
+      disableSignUp: true,
       // https://better-auth.com/docs/plugins/email-otp#confirming-with-current-email
       changeEmail: { enabled: true, verifyCurrentEmail: true },
       sendVerificationOTP: async ({ email, otp, type }, ctx) => {

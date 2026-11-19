@@ -223,7 +223,7 @@ function SignupFormContent({
         sessionStorage.setItem('verificationEmail', emailValue)
         setPendingVerificationEmail(emailValue)
         try {
-          await client.emailOtp.requestPasswordReset({ email: emailValue })
+          await client.sendVerificationEmail({ email: emailValue })
         } catch (otpErr) {
           logger.warn('Failed to send verification OTP after signup; user can press Resend', otpErr)
         }

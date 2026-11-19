@@ -207,11 +207,6 @@ describe('account email change through native Better Auth OTP', () => {
         body: { email, password, name: 'New user', username: 'new.user' },
       })
       expect(signup.token).toBeNull()
-      await fixture.context.internalAdapter.createAccount({
-        userId: signup.user.id,
-        providerId: 'github',
-        accountId: 'before-verification',
-      })
       await expect(
         fixture.auth.api.isUsernameAvailable({ body: { username: 'new.user' } })
       ).resolves.toEqual({ available: false })
@@ -227,7 +222,8 @@ describe('account email change through native Better Auth OTP', () => {
         expect(retry.token).toBeNull()
       }
 
-      await fixture.auth.api.requestPasswordResetEmailOTP({ body: { email } })
+      await fixture.auth.api.sendVerificationEmail({ body: { email } })
+      expect(mail.send).toHaveBeenCalledOnce()
       const chosenPassword = 'password-confirmed-with-mailbox-123'
       await fixture.auth.api.resetPasswordEmailOTP({
         body: { email, otp: deliveredCode(email), password: chosenPassword },
@@ -250,6 +246,27 @@ describe('account email change through native Better Auth OTP', () => {
     }
   )
 
+  it('keeps verified accounts out of signup verification and resend', async () => {
+    const { auth, email, login } = await setup('owner@example.com', true, true)
+    const password = 'existing-password-123'
+    await auth.api.setPassword({ headers: login.headers, body: { newPassword: password } })
+    const signup = await auth.api.signUpEmail({
+      body: { email, password: 'different-password-123', name: 'New signup', username: 'new.user' },
+    })
+    expect(signup.token).toBeNull()
+    await expect(auth.api.sendVerificationEmail({ body: { email } })).resolves.toEqual({
+      status: true,
+    })
+    expect(mail.send).not.toHaveBeenCalled()
+    expect(
+      await auth.api.getVerificationOTP({ query: { email, type: 'forget-password' } })
+    ).toEqual({ otp: null })
+    expect(await auth.api.getSession({ headers: login.headers })).toBeTruthy()
+    await expect(auth.api.signInEmail({ body: { email, password } })).resolves.toMatchObject({
+      user: { id: login.session.userId },
+    })
+  })
+
   it('signs in a verified user with the emailed OTP', async () => {
     const fixture = await setup()
     const email = fixture.email
@@ -265,6 +282,16 @@ describe('account email change through native Better Auth OTP', () => {
     await expect(
       fixture.auth.api.getSession({ headers: cookieHeaders(login.headers) })
     ).resolves.toMatchObject({ user: { id: 'owner', email } })
+  })
+
+  it('reserves account creation for signup when an unknown mailbox requests a sign-in OTP', async () => {
+    const fixture = await setup()
+    const email = 'new@example.com'
+    await expect(
+      fixture.auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } })
+    ).resolves.toEqual({ success: true })
+    expect(mail.send).not.toHaveBeenCalled()
+    expect(await fixture.context.internalAdapter.findUserByEmail(email)).toBeNull()
   })
 
   it('rotates the current session and signs out other devices on a password change', async () => {
@@ -293,27 +320,28 @@ describe('account email change through native Better Auth OTP', () => {
     })
   })
 
-  it('resets the account password with the emailed OTP', async () => {
-    const fixture = await setup()
-    const email = fixture.email
-    const password = 'reset-password-by-otp-123'
-    const linked = await fixture.context.internalAdapter.createAccount({
-      userId: 'owner',
-      providerId: 'github',
-      accountId: 'already-verified',
-    })
-    await fixture.auth.api.requestPasswordResetEmailOTP({ body: { email } })
-    await expect(
-      fixture.auth.api.resetPasswordEmailOTP({
-        body: { email, otp: deliveredCode(email), password },
+  it.each([false, true])(
+    'preserves linked accounts on OTP password reset (previously verified=%s)',
+    async (verified) => {
+      const { auth, context, email, login } = await setup('owner@example.com', verified)
+      const password = 'reset-password-by-otp-123'
+      const linked = await context.internalAdapter.createAccount({
+        userId: 'owner',
+        providerId: 'alpaca',
+        accountId: 'connected-broker',
       })
-    ).resolves.toEqual({ success: true })
-    expect(await fixture.auth.api.getSession({ headers: fixture.login.headers })).toBeNull()
-    expect(await fixture.context.internalAdapter.findAccounts('owner')).toContainEqual(linked)
-    await expect(
-      fixture.auth.api.signInEmail({ body: { email, password } })
-    ).resolves.toMatchObject({ user: { id: 'owner' }, token: expect.any(String) })
-  })
+      await auth.api.requestPasswordResetEmailOTP({ body: { email } })
+      await expect(
+        auth.api.resetPasswordEmailOTP({ body: { email, otp: deliveredCode(email), password } })
+      ).resolves.toEqual({ success: true })
+      expect(await auth.api.getSession({ headers: login.headers })).toBeNull()
+      expect(await context.internalAdapter.findAccounts('owner')).toContainEqual(linked)
+      await expect(auth.api.signInEmail({ body: { email, password } })).resolves.toMatchObject({
+        user: { id: 'owner', emailVerified: true },
+        token: expect.any(String),
+      })
+    }
+  )
 
   it.each(['sign-in', 'email-verification'] as const)(
     'revokes unproven credentials after standalone %s OTP verification',
