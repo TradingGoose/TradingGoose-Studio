@@ -3,7 +3,7 @@ import { sso } from '@better-auth/sso'
 import { stripe } from '@better-auth/stripe'
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
-import { betterAuth, parseState } from 'better-auth'
+import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import {
   APIError,
@@ -48,7 +48,7 @@ import {
   handleSubscriptionCreated,
 } from '@/lib/billing/webhooks/subscription'
 import { resolveEmailLocale } from '@/lib/email/locale'
-import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
+import { addVerifiedUserEmailToAudience, hasEmailService, sendEmail } from '@/lib/email/mailer'
 import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled, isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -177,37 +177,22 @@ type EnvBackedSocialProviderConfig = {
   clientSecret: string
 }
 
-function toSystemManagedGenericOAuthConfig(
-  config: SystemManagedGenericOAuthConfig
-): GenericOAuthConfig {
-  const providerConfig = {
+function toSystemManagedGenericOAuthConfigs(
+  configs: SystemManagedGenericOAuthConfig[]
+): GenericOAuthConfig[] {
+  return configs.map((config) => ({
     ...config,
-    clientId: '',
-    clientSecret: '',
-  } satisfies GenericOAuthConfig
-
-  Object.defineProperties(providerConfig, {
-    clientId: {
-      enumerable: true,
-      configurable: true,
-      get() {
-        return getSystemOAuthClientCredentialsForRequest(config.providerId).clientId
-      },
+    get clientId() {
+      return getSystemOAuthClientCredentialsForRequest(config.providerId).clientId
     },
-    clientSecret: {
-      enumerable: true,
-      configurable: true,
-      get() {
-        return getSystemOAuthClientCredentialsForRequest(config.providerId).clientSecret
-      },
+    get clientSecret() {
+      return getSystemOAuthClientCredentialsForRequest(config.providerId).clientSecret
     },
-  })
-
-  return providerConfig
-}
-
-function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthConfig[]) {
-  return configs.map((config) => toSystemManagedGenericOAuthConfig(config))
+    get authentication() {
+      // Studio loads confidential client credentials for the current request.
+      return this.clientSecret ? config.authentication : undefined
+    },
+  }))
 }
 
 function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
@@ -243,32 +228,6 @@ function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
   }
 }
 
-function createGenericOAuthPlugin(options: Parameters<typeof genericOAuth>[0]) {
-  const plugin = genericOAuth(options)
-  plugin.endpoints.oAuth2LinkAccount.options.use.push(
-    createAuthMiddleware(async (ctx) => {
-      if (ctx.body?.providerId === 'robinhood') {
-        try {
-          const clientId = await registerRobinhoodOAuthClient(
-            getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted)
-          )
-          setSystemOAuthClientIdForRequest('robinhood', clientId)
-        } catch (error) {
-          logger.error('Robinhood OAuth client registration failed', {
-            error: error instanceof Error ? error.message : String(error),
-          })
-          throw new APIError('BAD_GATEWAY', {
-            message: 'Could not register the Robinhood connection',
-          })
-        }
-      }
-
-      return { session: ctx.context.session! }
-    })
-  )
-  return plugin
-}
-
 function createAlpacaOAuthConfig(
   providerId: 'alpaca-live' | 'alpaca-paper',
   environment: 'live' | 'paper'
@@ -296,7 +255,6 @@ function createAlpacaOAuthConfig(
       }
     },
     responseType: 'code',
-    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
   }
 }
 
@@ -337,7 +295,6 @@ function createTradierOAuthConfig(): SystemManagedGenericOAuthConfig {
       }
     },
     responseType: 'code',
-    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
   }
 }
 
@@ -453,7 +410,6 @@ function createMicrosoftOAuthProvider(providerId: string) {
     ...MICROSOFT_OAUTH_BASE_CONFIG,
     providerId,
     scopes: getCanonicalScopesForProvider(providerId),
-    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
     getUserInfo: async (tokens: OAuthTokens) => getMicrosoftUserInfoFromIdToken(tokens, providerId),
   }
 }
@@ -656,9 +612,11 @@ export const auth = betterAuth({
     verification: {
       create: {
         before: async (verification, context) => {
-          if (context?.path !== '/oauth2/link' || context.body?.providerId !== 'robinhood') return
-          const clientId = getSystemOAuthClientCredentialsForRequest('robinhood').clientId
-          if (!clientId) return
+          if (context?.path !== '/link-social' || context.body?.provider !== 'robinhood') return
+          const clientId = await registerRobinhoodOAuthClient(
+            getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted)
+          )
+          setSystemOAuthClientIdForRequest('robinhood', clientId)
           return {
             data: {
               ...verification,
@@ -763,6 +721,16 @@ export const auth = betterAuth({
         return { context: { body: { ...ctx.body, revokeOtherSessions: true } } }
       }
       if (
+        (ctx.path === '/email-otp/send-verification-otp' ||
+          ctx.path === '/email-otp/request-email-change') &&
+        !(await hasEmailService())
+      ) {
+        throw new APIError('SERVICE_UNAVAILABLE', {
+          code: 'EMAIL_DELIVERY_UNAVAILABLE',
+          message: 'No email service configured',
+        })
+      }
+      if (
         (ctx.path === '/sso/request-domain-verification' || ctx.path === '/sso/verify-domain') &&
         typeof ctx.body?.providerId === 'string'
       ) {
@@ -820,21 +788,6 @@ export const auth = betterAuth({
       }
 
       if (
-        ctx.path === '/oauth2/callback/:providerId' &&
-        ctx.params?.providerId === 'robinhood' &&
-        typeof ctx.query?.error === 'string'
-      ) {
-        const { errorURL = '/error' } = await parseState(ctx)
-        const redirectURL = new URL(errorURL, getBaseUrl())
-        redirectURL.searchParams.set('error', ctx.query.error)
-        if (typeof ctx.query.error_description === 'string') {
-          redirectURL.searchParams.set('error_description', ctx.query.error_description)
-        }
-        const redirectPath = `/${redirectURL.pathname.replace(/^\/+/, '')}`
-        throw ctx.redirect(`${redirectPath}${redirectURL.search}${redirectURL.hash}`)
-      }
-
-      if (
         (ctx.path.startsWith('/sign-in') ||
           ctx.path.startsWith('/sign-up') ||
           ctx.path === '/email-otp/verify-email') &&
@@ -853,7 +806,7 @@ export const auth = betterAuth({
       expiresIn: 24 * 60 * 60, // 24 hours - Socket.IO handles connection persistence with heartbeats
     }),
     emailOTP({
-      // https://better-auth.com/docs/1.6/plugins/email-otp#confirming-with-current-email
+      // https://better-auth.com/docs/plugins/email-otp#confirming-with-current-email
       changeEmail: { enabled: true, verifyCurrentEmail: true },
       sendVerificationOTP: async ({ email, otp, type }, ctx) => {
         const locale = await resolveEmailLocale({ email, userId: ctx?.context.session?.user.id })
@@ -870,7 +823,7 @@ export const auth = betterAuth({
       otpLength: 6, // Explicitly set the OTP length
       expiresIn: 15 * 60, // 15 minutes in seconds
     }),
-    createGenericOAuthPlugin({
+    genericOAuth({
       config: toSystemManagedGenericOAuthConfigs([
         createRobinhoodOAuthConfig(),
         createAlpacaOAuthConfig('alpaca-live', 'live'),
@@ -884,7 +837,6 @@ export const auth = betterAuth({
           tokenUrl: 'https://github.com/login/oauth/access_token',
           userInfoUrl: 'https://api.github.com/user',
           scopes: ['user:email', 'repo', 'read:user', 'workflow'],
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/github-repo`,
           getUserInfo: async (tokens) => {
             try {
               const profileResponse = await fetch('https://api.github.com/user', {
@@ -950,99 +902,39 @@ export const auth = betterAuth({
           },
         },
 
-        // Google providers
-        {
-          providerId: 'google-email',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/gmail.send',
-            'https://www.googleapis.com/auth/gmail.modify',
-            'https://www.googleapis.com/auth/gmail.labels',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-email`,
-        },
-        {
-          providerId: 'google-calendar',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/calendar',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-calendar`,
-        },
-        {
-          providerId: 'google-drive',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/drive.readonly',
-            'https://www.googleapis.com/auth/drive.file',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-drive`,
-        },
-        {
-          providerId: 'google-docs',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/drive.readonly',
-            'https://www.googleapis.com/auth/drive.file',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-docs`,
-        },
-        {
-          providerId: 'google-sheets',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/drive.readonly',
-            'https://www.googleapis.com/auth/drive.file',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-sheets`,
-        },
-
-        {
-          providerId: 'google-forms',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/forms.responses.readonly',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-forms`,
-        },
-
-        {
-          providerId: 'google-vault',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/ediscovery',
-            'https://www.googleapis.com/auth/devstorage.read_only',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-vault`,
-        },
+        ...Object.values(OAUTH_PROVIDERS.google.services).map(
+          ({ providerId, scopes }): SystemManagedGenericOAuthConfig => ({
+            providerId,
+            authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+            tokenUrl: 'https://oauth2.googleapis.com/token',
+            accessType: 'offline',
+            prompt: 'consent',
+            pkce: true,
+            scopes: [
+              ...new Set([
+                'openid',
+                'https://www.googleapis.com/auth/userinfo.email',
+                'https://www.googleapis.com/auth/userinfo.profile',
+                ...scopes,
+              ]),
+            ],
+            getUserInfo: async ({ accessToken }) => {
+              if (!accessToken) return null
+              const response = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+                headers: { Authorization: `Bearer ${accessToken}` },
+              })
+              if (!response.ok) return null
+              const profile = await response.json()
+              return {
+                id: profile.sub,
+                name: profile.name,
+                email: profile.email,
+                image: profile.picture,
+                emailVerified: profile.email_verified,
+              }
+            },
+          })
+        ),
 
         ...[...MICROSOFT_PROVIDERS].map(createMicrosoftOAuthProvider),
 
@@ -1053,7 +945,6 @@ export const auth = betterAuth({
           userInfoUrl: 'https://dummy-not-used.wealthbox.com', // Dummy URL since no user info endpoint exists
           scopes: ['login', 'data'],
           responseType: 'code',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/wealthbox`,
           getUserInfo: async (tokens) => {
             try {
               logger.info('Creating Wealthbox user profile from token data')
@@ -1085,7 +976,6 @@ export const auth = betterAuth({
           scopes: ['database.read', 'database.write', 'projects.read'],
           responseType: 'code',
           pkce: true,
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/supabase`,
           getUserInfo: async (tokens) => {
             try {
               logger.info('Creating Supabase user profile from token data')
@@ -1136,7 +1026,6 @@ export const auth = betterAuth({
           responseType: 'code',
           prompt: 'consent',
           authentication: 'basic',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/x`,
           getUserInfo: async (tokens) => {
             try {
               const response = await fetch(
@@ -1193,7 +1082,6 @@ export const auth = betterAuth({
           accessType: 'offline',
           authentication: 'basic',
           prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/confluence`,
           getUserInfo: async (tokens) => {
             try {
               const response = await fetch('https://api.atlassian.com/me', {
@@ -1241,7 +1129,6 @@ export const auth = betterAuth({
           accessType: 'offline',
           authentication: 'basic',
           prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/discord`,
           getUserInfo: async (tokens) => {
             try {
               const response = await fetch('https://discord.com/api/users/@me', {
@@ -1310,7 +1197,6 @@ export const auth = betterAuth({
           accessType: 'offline',
           authentication: 'basic',
           prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/jira`,
           getUserInfo: async (tokens) => {
             try {
               const response = await fetch('https://api.atlassian.com/me', {
@@ -1359,7 +1245,6 @@ export const auth = betterAuth({
           accessType: 'offline',
           authentication: 'basic',
           prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/airtable`,
           getUserInfo: async (tokens) => {
             try {
               const response = await fetch('https://api.airtable.com/v0/meta/whoami', {
@@ -1406,7 +1291,6 @@ export const auth = betterAuth({
           accessType: 'offline',
           authentication: 'basic',
           prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/notion`,
           getUserInfo: async (tokens) => {
             try {
               const response = await fetch('https://api.notion.com/v1/users/me', {
@@ -1454,7 +1338,6 @@ export const auth = betterAuth({
           accessType: 'offline',
           authentication: 'basic',
           prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/reddit`,
           getUserInfo: async (tokens) => {
             try {
               const response = await fetch('https://oauth.reddit.com/api/v1/me', {
@@ -1497,7 +1380,6 @@ export const auth = betterAuth({
           tokenUrl: 'https://api.linear.app/oauth/token',
           scopes: ['read', 'write'],
           responseType: 'code',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/linear`,
           pkce: true,
           prompt: 'consent',
           accessType: 'offline',
@@ -1582,7 +1464,6 @@ export const auth = betterAuth({
           responseType: 'code',
           accessType: 'offline',
           prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/slack`,
           getUserInfo: async (tokens) => {
             try {
               logger.info('Creating Slack bot profile from token data')
@@ -1628,7 +1509,6 @@ export const auth = betterAuth({
           userInfoUrl: 'https://api.webflow.com/v2/token/introspect',
           scopes: ['sites:read', 'sites:write', 'cms:read', 'cms:write'],
           responseType: 'code',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/webflow`,
           getUserInfo: async (tokens) => {
             try {
               logger.info('Fetching Webflow user info')
@@ -1687,7 +1567,6 @@ export const auth = betterAuth({
           tokenUrl: 'https://api.hubspot.com/oauth/v3/token',
           scopes: HUBSPOT_OAUTH_SCOPES,
           responseType: 'code',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/hubspot`,
           getUserInfo: async (tokens) => {
             try {
               const credentials = getSystemOAuthClientCredentialsForRequest('hubspot')

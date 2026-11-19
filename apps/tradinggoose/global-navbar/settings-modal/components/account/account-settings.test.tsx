@@ -1022,6 +1022,18 @@ describe('AccountSettings localization', () => {
       )
     })
 
+    it('reports unavailable email delivery without opening code entry', async () => {
+      mocks.send.mockResolvedValueOnce({
+        error: { status: 503, code: 'EMAIL_DELIVERY_UNAVAILABLE' },
+      })
+      await openEmailEditor()
+      await start()
+      expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+        copy.errors.deliveryUnavailable
+      )
+      expect(container.querySelector('#account-email-code')).toBeNull()
+    })
+
     it.each([
       ['OTP_EXPIRED', 'expiredCode'],
       ['TOO_MANY_ATTEMPTS', 'tooManyAttempts'],

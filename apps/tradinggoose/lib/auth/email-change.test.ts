@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { mail, policy } = vi.hoisted(() => ({
   mail: {
+    available: vi.fn(),
     send: vi.fn(),
     audience: vi.fn(),
   },
@@ -43,6 +44,7 @@ vi.mock('@/lib/email/locale', async (original) => ({
 vi.mock('@/lib/email/mailer', async (original) => ({
   ...(await original<typeof import('@/lib/email/mailer')>()),
   sendEmail: mail.send,
+  hasEmailService: mail.available,
   addVerifiedUserEmailToAudience: mail.audience,
 }))
 
@@ -136,6 +138,7 @@ function cookieHeaders(headers: Headers) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mail.available.mockResolvedValue(true)
   mail.send.mockReset().mockResolvedValue({ success: true })
   policy.allowedDomains = ''
 })
@@ -380,6 +383,22 @@ describe('account email change through native Better Auth OTP', () => {
       })
     ).rejects.toThrow('Session store unavailable')
     expect(await storedUser(fixture)).toMatchObject({ email: fixture.email })
+  })
+
+  it('reports missing mail delivery before initiating either email change verification step', async () => {
+    const fixture = await setup()
+    const otp = await sendCurrentCode(fixture)
+    mail.available.mockResolvedValue(false)
+    const error = { statusCode: 503, body: { code: 'EMAIL_DELIVERY_UNAVAILABLE' } }
+    await expect(sendCurrentCode(fixture)).rejects.toMatchObject(error)
+    const request = { headers: fixture.login.headers, body: { newEmail: 'new@example.com', otp } }
+    await expect(fixture.auth.api.requestEmailChangeEmailOTP(request)).rejects.toMatchObject(error)
+    expect(mail.send).toHaveBeenCalledTimes(1)
+
+    mail.available.mockResolvedValue(true)
+    await expect(fixture.auth.api.requestEmailChangeEmailOTP(request)).resolves.toEqual({
+      success: true,
+    })
   })
 
   it('completes the account email change when Stripe sync fails', async () => {

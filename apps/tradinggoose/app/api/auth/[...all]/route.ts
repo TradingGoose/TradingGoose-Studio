@@ -14,6 +14,7 @@ import { getBillingTierById } from '@/lib/billing/tiers'
 import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
 import { getRobinhoodOAuthClientIdFromState } from '@/lib/oauth/robinhood'
+import { ROBINHOOD_OAUTH_CALLBACK_PATH } from '@/lib/oauth/robinhood-constants'
 import {
   loadSystemOAuthClientCredentials,
   runWithSystemOAuthClientCredentials,
@@ -21,9 +22,7 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-const SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES = ['/api/auth/callback/', '/api/auth/oauth2/callback/']
 const SUBSCRIPTION_UPGRADE_PATH = '/api/auth/subscription/upgrade'
-const ROBINHOOD_OAUTH_CALLBACK_PATH = '/api/auth/oauth2/callback/robinhood'
 const APP_OWNED_AUTH_POST_PATHS = new Set([
   '/api/auth/organization/update',
   '/api/auth/organization/cancel-invitation',
@@ -37,45 +36,24 @@ const APP_OWNED_AUTH_POST_PATHS = new Set([
   '/api/auth/organization/accept-invitation',
 ])
 
-const isSystemOAuthCallbackPath = (pathname: string) =>
-  SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
-
-const shouldHydrateSystemOAuthCredentials = (pathname: string) =>
-  isSystemOAuthCallbackPath(pathname) ||
-  pathname === '/api/auth/oauth2/link' ||
-  pathname === '/api/auth/sign-in/oauth2' ||
-  pathname === '/api/auth/sign-in/social'
-
 async function getRequestedSystemOAuthProviderId(request: Request, pathname: string) {
-  if (isSystemOAuthCallbackPath(pathname)) {
+  if (pathname.startsWith('/api/auth/callback/')) {
     return pathname.split('/').at(-1)?.trim() ?? ''
   }
 
-  if (
-    pathname === '/api/auth/oauth2/link' ||
-    pathname === '/api/auth/sign-in/oauth2' ||
-    pathname === '/api/auth/sign-in/social'
-  ) {
+  if (pathname === '/api/auth/link-social' || pathname === '/api/auth/sign-in/social') {
     const body = await request
       .clone()
       .json()
       .catch(() => null)
-    if (!body || typeof body !== 'object') {
-      return ''
-    }
-
-    if ('providerId' in body) {
-      return String(body.providerId)
-    }
-
-    return 'provider' in body ? String(body.provider) : ''
+    return typeof body?.provider === 'string' ? body.provider : ''
   }
 
-  return ''
+  return null
 }
 
 async function handleRobinhoodOAuthRequest(request: Request, pathname: string) {
-  const isLinkRequest = request.method === 'POST' && pathname === '/api/auth/oauth2/link'
+  const isLinkRequest = request.method === 'POST' && pathname === '/api/auth/link-social'
   const isCallbackRequest = request.method === 'GET' && pathname === ROBINHOOD_OAUTH_CALLBACK_PATH
   if (!isLinkRequest && !isCallbackRequest) {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
@@ -261,11 +239,11 @@ export const handleAuthRequest = async (request: Request) => {
     requestToHandle = preparedRequest
   }
 
-  if (!shouldHydrateSystemOAuthCredentials(pathname)) {
+  const providerId = await getRequestedSystemOAuthProviderId(request, pathname)
+  if (providerId === null) {
     return auth.handler(requestToHandle)
   }
 
-  const providerId = await getRequestedSystemOAuthProviderId(request, pathname)
   if (!providerId) {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
   }

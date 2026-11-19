@@ -463,12 +463,6 @@ describe('SSO register route', () => {
           tokenEndpoint: 'https://issuer.example.com/oauth2/v1/token',
           userInfoEndpoint: 'https://issuer.example.com/oauth2/v1/userinfo',
           jwksEndpoint: 'https://issuer.example.com/oauth2/v1/keys',
-          mapping: {
-            id: 'sub',
-            email: 'email',
-            name: 'name',
-            image: 'picture',
-          },
         }),
       }),
       headers: expect.any(Headers),
@@ -476,7 +470,7 @@ describe('SSO register route', () => {
     expect(mockIsOrganizationOwnerOrAdmin).toHaveBeenCalledWith('user-1', 'org-1')
   })
 
-  it('normalizes a 44-character SAML provider before building the native ACS callback URL', async () => {
+  it('registers the normalized SAML provider with the IdP and Studio entity IDs', async () => {
     const providerId = 'x'.repeat(44)
     mockGetSession.mockResolvedValue({
       user: {
@@ -512,9 +506,10 @@ describe('SSO register route', () => {
     expect(mockRegisterSSOProvider).toHaveBeenCalledWith({
       body: expect.objectContaining({
         providerId,
+        issuer: 'http://localhost:3000',
         organizationId: 'org-1',
         samlConfig: expect.objectContaining({
-          callbackUrl: `http://localhost:3000/api/auth/sso/saml2/sp/acs/${providerId}`,
+          idpMetadata: { entityID: 'https://issuer.example.com/metadata' },
         }),
       }),
       headers: expect.any(Headers),
@@ -658,15 +653,15 @@ describe('SSO register route', () => {
       model: 'ssoProvider',
       where: [{ field: 'providerId', value: providerId }],
     })
-    expect(JSON.parse(stored!.samlConfig).spMetadata).toEqual({})
+    expect(JSON.parse(stored!.samlConfig).idpMetadata.entityID).toBe(issuer)
     expect(JSON.parse(stored!.samlConfig).wantAssertionsSigned).toBe(true)
     const metadata = await nativeAuth.api.spMetadata({
-      query: { providerId, format: 'xml' },
+      query: { providerId },
       asResponse: true,
     })
     const xml = await metadata.text()
     const callbackUrl = `${baseURL}/api/auth/sso/saml2/sp/acs/${providerId}`
-    expect(xml).toContain(`entityID="${issuer}"`)
+    expect(xml).toContain(`entityID="${baseURL}"`)
     expect(xml).toContain(`Location="${callbackUrl}"`)
     const login = await nativeAuth.api.signInSSO({
       body: { providerId, callbackURL: `${baseURL}/workspace` },
@@ -677,6 +672,6 @@ describe('SSO register route', () => {
       Buffer.from(request.searchParams.get('SAMLRequest')!, 'base64')
     ).toString()
     expect(authn).toContain(`AssertionConsumerServiceURL="${callbackUrl}"`)
-    expect(authn).toContain(issuer)
+    expect(authn).toContain(`>${baseURL}</saml:Issuer>`)
   })
 })

@@ -1,11 +1,6 @@
 import { ssoClient } from '@better-auth/sso/client'
 import { stripeClient } from '@better-auth/stripe/client'
-import {
-  emailOTPClient,
-  genericOAuthClient,
-  organizationClient,
-  usernameClient,
-} from 'better-auth/client/plugins'
+import { emailOTPClient, organizationClient, usernameClient } from 'better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/react'
 import { env } from '@/lib/env'
 
@@ -14,7 +9,6 @@ export const client = createAuthClient({
   plugins: [
     usernameClient(),
     emailOTPClient(),
-    genericOAuthClient(),
     stripeClient({
       subscription: true,
     }),

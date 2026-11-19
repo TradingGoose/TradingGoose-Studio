@@ -307,6 +307,9 @@ describe('/api/billing route', () => {
         hasStripeMonthlyPriceId: true,
       },
       subscriptionStatus: 'active',
+      cancelAt: new Date('2026-04-21T00:00:00Z'),
+      cancelAtPeriodEnd: false,
+      billingInterval: 'year',
       totalSeats: 3,
       totalCurrentUsage: 12,
       totalUsageLimit: 90,
@@ -344,6 +347,11 @@ describe('/api/billing route', () => {
     expect(payload.data.organizationId).toBe('org-1')
     expect(payload.data.subscriptionTier.ownerType).toBe('organization')
     expect(payload.data.subscriptionTier.status).toBe('archived')
+    expect(payload.data).toMatchObject({
+      cancelAt: '2026-04-21T00:00:00.000Z',
+      cancelAtPeriodEnd: false,
+      billingInterval: 'year',
+    })
     expect(payload.data.subscriptionTier.hasStripeMonthlyPriceId).toBe(true)
     expect(payload.data.minimumUsageLimit).toBe(90)
     expect(payload.data.members[0].joinedAt).toBe('2026-04-01T00:00:00.000Z')

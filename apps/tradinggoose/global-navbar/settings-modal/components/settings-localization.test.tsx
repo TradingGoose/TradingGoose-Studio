@@ -423,16 +423,38 @@ describe('settings localization', () => {
       expect(container.textContent).toContain('at most 10 seats, but 50 are required')
     })
 
+    it('shows a fixed plan’s annual catalog price without a per-seat estimate', async () => {
+      mocks.publicTiers[0] = { ...mocks.publicTiers[0], seatMode: 'fixed', yearlyPriceUsd: 800 }
+      mocks.billing = {
+        ...mocks.billing,
+        billingInterval: 'year',
+        totalSeats: 60,
+        subscriptionTier: mocks.publicTiers[0],
+      }
+      await render('en', <TeamManagement />)
+      expect(container.querySelector('[aria-current="true"]')).toHaveTextContent('$800.00/yr')
+      expect(container.textContent).not.toContain('a minimum of')
+    })
+
     it.each([
-      { monthlyPriceUsd: 12.5, seatPrice: { amountUsd: 120, interval: 'year' } },
-      { monthlyPriceUsd: null, seatPrice: { amountUsd: 15, interval: 'month' } },
-      { monthlyPriceUsd: 12.5, seatPrice: null },
+      {
+        billingInterval: 'year',
+        monthlyPriceUsd: 12.5,
+        seatPrice: { amountUsd: 120, interval: 'year' },
+      },
+      {
+        billingInterval: 'month',
+        monthlyPriceUsd: null,
+        seatPrice: { amountUsd: 15, interval: 'month' },
+      },
+      { billingInterval: null, monthlyPriceUsd: 12.5, seatPrice: null },
     ] as const)(
       'uses the active Stripe price $seatPrice to quote licensed seat changes',
-      async ({ monthlyPriceUsd, seatPrice }) => {
+      async ({ billingInterval, monthlyPriceUsd, seatPrice }) => {
         mocks.billing = {
           ...mocks.billing,
           totalSeats: 60,
+          billingInterval,
           subscriptionTier: {
             ...EMPTY_BILLING_TIER_SUMMARY,
             id: 'current-team',
@@ -455,6 +477,12 @@ describe('settings localization', () => {
         })
         await render('en', <TeamManagement />)
         const copy = getClientMessages('en').workspace.settingsModal.team
+        const currentPlan = container.querySelector('[aria-current="true"]')
+        expect(currentPlan).toHaveTextContent(
+          billingInterval === 'year'
+            ? 'Current team · $999.00/yr · Current'
+            : 'Current team · Current'
+        )
         if (seatPrice?.interval === 'year') {
           expect(container.textContent).toContain('a minimum of $7,200.00/year')
           expect(container.textContent).toContain('($120.00/year each)')

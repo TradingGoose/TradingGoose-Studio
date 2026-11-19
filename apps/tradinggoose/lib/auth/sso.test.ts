@@ -70,7 +70,7 @@ async function setup(email = localEmail, emailVerified = true) {
   const { headers } = await context.test.login({ userId: 'provider-owner' })
   const registrationBody = (providerId = 'okta', providerType: 'oidc' | 'saml' = 'oidc') => ({
     providerId,
-    issuer,
+    issuer: providerType === 'saml' ? baseURL : issuer,
     domain: 'example.com',
     organizationId,
     ...(providerType === 'saml'
@@ -78,8 +78,7 @@ async function setup(email = localEmail, emailVerified = true) {
           samlConfig: {
             entryPoint: `${issuer}/saml`,
             cert: 'test-certificate',
-            callbackUrl: `${baseURL}/api/auth/sso/saml2/sp/acs/${providerId}`,
-            spMetadata: {},
+            idpMetadata: { entityID: issuer },
           },
         }
       : {
@@ -242,9 +241,12 @@ describe('native SSO registration and account matching', () => {
     await expect(context.internalAdapter.listSessions('local-user')).resolves.toEqual([])
   })
 
-  it('discovers a provider from email and supports explicit provider selection', async () => {
-    const { auth, register, verify } = await setup()
-    await register('okta-prod')
+  it('supports a verified multi-domain provider when an unverified provider claims an exact match', async () => {
+    const { auth, headers, registrationBody, register, verify } = await setup()
+    await auth.api.registerSSOProvider({
+      headers,
+      body: { ...registrationBody('okta-prod'), domain: 'example.com,other.example' },
+    })
     await verify('okta-prod')
     const signIn = (providerId?: string) =>
       auth.api.signInSSO({ body: { email: localEmail, providerId, callbackURL: '/workspace' } })

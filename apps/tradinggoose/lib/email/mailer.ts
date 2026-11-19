@@ -165,16 +165,9 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
       }
     }
 
-    // No email service configured
-    logger.info('Email not sent (no email service configured):', {
-      to,
-      subject,
-      from: senderEmail,
-      text,
-    })
     return {
-      success: true,
-      message: 'Email logging successful (no email service configured)',
+      success: false,
+      message: 'No email service configured',
     }
   } catch (error) {
     logger.error('Error sending email:', error)

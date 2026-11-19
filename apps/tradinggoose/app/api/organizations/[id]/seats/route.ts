@@ -7,6 +7,8 @@ import { getSession } from '@/lib/auth'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
+import { getStripeSubscriptionPlanItem } from '@/lib/billing/subscriptions/utils'
+import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -16,10 +18,10 @@ const updateSeatsSchema = z.object({
   seats: z.number().int().min(1, 'Minimum 1 seat required'),
 })
 
-async function getStripeSeatSubscription(stripeSubscriptionId: string) {
+async function getStripeSeatSubscription(stripeSubscriptionId: string, tier: BillingTierRecord) {
   const stripe = requireStripeClient()
   const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId)
-  const item = subscription.items.data[0]
+  const item = getStripeSubscriptionPlanItem(subscription, tier)
   if (
     subscription.status !== 'active' ||
     !item?.quantity ||
@@ -37,9 +39,9 @@ async function getStripeSeatSubscription(stripeSubscriptionId: string) {
   }
 }
 
-async function getSeatPrice(stripeSubscriptionId: string) {
+async function getSeatPrice(stripeSubscriptionId: string, tier: BillingTierRecord) {
   try {
-    const current = await getStripeSeatSubscription(stripeSubscriptionId)
+    const current = await getStripeSeatSubscription(stripeSubscriptionId, tier)
     if (!current) return null
     const { currency, price } = current
     const interval = price.recurring?.interval
@@ -160,7 +162,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
-    const current = await getStripeSeatSubscription(orgSubscription.stripeSubscriptionId)
+    const current = await getStripeSeatSubscription(
+      orgSubscription.stripeSubscriptionId,
+      orgSubscription.tier
+    )
     if (!current) {
       return NextResponse.json(
         { error: 'Stripe subscription has no active licensed seat item' },
@@ -169,8 +174,22 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
     const { stripe, itemId, quantity: currentSeats } = current
 
-    // If no change, return early
-    if (newSeatCount === currentSeats) {
+    const updatedSubscription =
+      newSeatCount === currentSeats
+        ? null
+        : await stripe.subscriptions.update(orgSubscription.stripeSubscriptionId, {
+            items: [{ id: itemId, quantity: newSeatCount }],
+            proration_behavior: 'create_prorations',
+          })
+
+    if (updatedSubscription || orgSubscription.seats !== newSeatCount) {
+      await db
+        .update(subscription)
+        .set({ seats: newSeatCount })
+        .where(eq(subscription.id, orgSubscription.id))
+    }
+
+    if (!updatedSubscription) {
       return NextResponse.json({
         success: true,
         message: 'No change in seat count',
@@ -180,37 +199,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         },
       })
     }
-
-    logger.info('Updating Stripe subscription quantity', {
-      organizationId,
-      stripeSubscriptionId: orgSubscription.stripeSubscriptionId,
-      subscriptionItemId: itemId,
-      currentSeats,
-      newSeatCount,
-      userId: session.user.id,
-    })
-
-    const updatedSubscription = await stripe.subscriptions.update(
-      orgSubscription.stripeSubscriptionId,
-      {
-        items: [
-          {
-            id: itemId,
-            quantity: newSeatCount,
-          },
-        ],
-        proration_behavior: 'create_prorations',
-      }
-    )
-
-    // Update our local database to reflect the change
-    // Note: This will also be updated via webhook, but we update immediately for UX
-    await db
-      .update(subscription)
-      .set({
-        seats: newSeatCount,
-      })
-      .where(eq(subscription.id, orgSubscription.id))
 
     logger.info('Successfully updated seat count', {
       organizationId,
@@ -299,15 +287,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     const orgSubscription = await getOrganizationSubscription(organizationId)
 
-    const stripeSeatSubscriptionId =
-      orgSubscription?.tier.ownerType === 'organization' &&
-      orgSubscription.tier.seatMode === 'adjustable'
-        ? orgSubscription.stripeSubscriptionId
-        : null
     const [usedSeats, seatPrice] = await Promise.all([
       getOccupiedSeatCount(organizationId),
-      stripeSeatSubscriptionId && memberEntry[0].role === 'owner'
-        ? getSeatPrice(stripeSeatSubscriptionId)
+      orgSubscription?.stripeSubscriptionId &&
+      orgSubscription.tier.seatMode === 'adjustable' &&
+      memberEntry[0].role === 'owner'
+        ? getSeatPrice(orgSubscription.stripeSubscriptionId, orgSubscription.tier)
         : null,
     ])
     const maxSeats = orgSubscription

@@ -179,14 +179,26 @@ describe('subscription billing helpers', () => {
     mockDb.select.mockImplementation(() =>
       createSelectQueryMock(selectResults.shift() ?? [], 'where')
     )
+    const onConflictDoUpdate = vi.fn()
     mockDb.insert.mockImplementation(() => ({
-      values: vi.fn(() => ({ onConflictDoUpdate: vi.fn(() => Promise.resolve()) })),
+      values: vi.fn(() => ({ onConflictDoUpdate })),
     }))
 
     const { getEffectiveSubscription } = await import('./subscription')
 
     await expect(getEffectiveSubscription('user_123')).resolves.toBe(restoredSubscription)
-    expect(mockDb.insert).toHaveBeenCalled()
+    expect(onConflictDoUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        set: expect.objectContaining({
+          stripeSubscriptionId: null,
+          billingInterval: null,
+          stripeScheduleId: null,
+          cancelAt: null,
+          canceledAt: null,
+          endedAt: null,
+        }),
+      })
+    )
   })
 
   it('does not restore a subscription when billing is disabled', async () => {

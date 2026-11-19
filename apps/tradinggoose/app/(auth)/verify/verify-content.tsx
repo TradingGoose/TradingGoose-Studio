@@ -13,19 +13,10 @@ import { formatTemplate } from '@/i18n/utils'
 
 interface VerifyContentProps {
   hasEmailService: boolean
-  isProduction: boolean
   isEmailVerificationEnabled: boolean
 }
 
-function VerificationForm({
-  hasEmailService,
-  isProduction,
-  isEmailVerificationEnabled,
-}: {
-  hasEmailService: boolean
-  isProduction: boolean
-  isEmailVerificationEnabled: boolean
-}) {
+function VerificationForm({ hasEmailService, isEmailVerificationEnabled }: VerifyContentProps) {
   const copy = useMessages()
   const verifyCopy = copy.auth.verify
   const commonCopy = copy.auth.common
@@ -80,9 +71,7 @@ function VerificationForm({
                   ? formatTemplate(verifyCopy.codeSent, {
                       email: email || verifyCopy.yourEmail,
                     })
-                  : !isProduction
-                    ? verifyCopy.developmentDescription
-                    : verifyCopy.missingServiceDescription
+                  : verifyCopy.missingServiceDescription
           }
         />
       </div>
@@ -193,18 +182,10 @@ function VerificationFormFallback() {
   )
 }
 
-export function VerifyContent({
-  hasEmailService,
-  isProduction,
-  isEmailVerificationEnabled,
-}: VerifyContentProps) {
+export function VerifyContent(props: VerifyContentProps) {
   return (
     <Suspense fallback={<VerificationFormFallback />}>
-      <VerificationForm
-        hasEmailService={hasEmailService}
-        isProduction={isProduction}
-        isEmailVerificationEnabled={isEmailVerificationEnabled}
-      />
+      <VerificationForm {...props} />
     </Suspense>
   )
 }

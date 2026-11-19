@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Button, Input, Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
-import { formatBillingPricePeriod } from '@/lib/billing/public-catalog'
+import { getCatalogPriceForInterval } from '@/lib/billing/public-catalog'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -523,12 +523,12 @@ export function TeamManagement() {
                   const issue = isCurrentTier
                     ? null
                     : getUpgradeTierIssue(tier, seatCountsUnavailable ? 0 : usedSeats)
-                  const price = isCurrentTier
-                    ? (tier.monthlyPriceUsd ?? tier.yearlyPriceUsd)
+                  const interval = isCurrentTier
+                    ? organizationBillingPayload?.billingInterval
                     : tier.hasStripeMonthlyPriceId
-                      ? tier.monthlyPriceUsd
+                      ? 'month'
                       : null
-                  const isMonthly = !isCurrentTier || formatBillingPricePeriod(tier) === '/mo'
+                  const price = getCatalogPriceForInterval(tier, interval)
                   const planLabel = (
                     <>
                       {tier.displayName}
@@ -536,7 +536,7 @@ export function TeamManagement() {
                         <>
                           {' '}
                           · {formatUsd(locale, price)}
-                          {isMonthly ? copy('plans.monthly') : copy('plans.yearly')}
+                          {interval === 'year' ? copy('plans.yearly') : copy('plans.monthly')}
                         </>
                       )}
                       {isCurrentTier ? ` · ${copy('plans.current')}` : null}

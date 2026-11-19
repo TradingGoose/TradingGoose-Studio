@@ -117,10 +117,6 @@ vi.mock('@/lib/billing/stripe-customers', async () => {
   }
 })
 
-vi.mock('@/lib/billing/subscriptions/utils', () => ({
-  BILLING_ACTIVE_SUBSCRIPTION_STATUSES: ['active', 'trialing'],
-}))
-
 vi.mock('@/lib/billing/tiers', () => ({
   isFreeBillingTier: mockIsFreeBillingTier,
 }))
@@ -199,6 +195,7 @@ function buildStripeSubscription(overrides: Record<string, unknown> = {}) {
         {
           current_period_start: 1_712_905_600,
           current_period_end: 1_715_584_000,
+          price: { id: 'price_payg', recurring: { interval: 'month' } },
         },
       ],
     },
@@ -433,6 +430,11 @@ describe('/api/billing/payg/activate route', () => {
             stripeSubscriptionId: 'sub_stripe_123',
             status: 'active',
             cancelAtPeriodEnd: false,
+            billingInterval: 'month',
+            cancelAt: null,
+            canceledAt: null,
+            endedAt: null,
+            stripeScheduleId: null,
             periodStart: new Date('2024-04-12T07:06:40.000Z'),
             periodEnd: new Date('2024-05-13T07:06:40.000Z'),
             trialStart: null,

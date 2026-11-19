@@ -243,6 +243,9 @@ interface OrganizationUsageData {
   organizationName: string
   subscriptionTier: BillingTierSummary | null
   subscriptionStatus: string | null
+  cancelAtPeriodEnd: boolean | null
+  cancelAt: Date | null
+  billingInterval: string | null
   totalSeats: number
   totalCurrentUsage: number
   totalUsageLimit: number
@@ -359,6 +362,9 @@ export async function getOrganizationBillingData(
         organizationName: organizationData.name || '',
         subscriptionTier: null,
         subscriptionStatus: null,
+        cancelAtPeriodEnd: null,
+        cancelAt: null,
+        billingInterval: null,
         totalSeats: members.length,
         totalCurrentUsage: roundCurrency(totalCurrentUsage),
         totalUsageLimit: billingEnabled ? 0 : Number.MAX_SAFE_INTEGER,
@@ -450,6 +456,9 @@ export async function getOrganizationBillingData(
       organizationName: organizationData.name || '',
       subscriptionTier: toBillingTierSummary(subscription.tier),
       subscriptionStatus: subscription.status || 'inactive',
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      cancelAt: subscription.cancelAt,
+      billingInterval: subscription.billingInterval,
       totalSeats: licensedSeats,
       totalCurrentUsage: roundCurrency(totalCurrentUsage),
       totalUsageLimit: roundCurrency(totalUsageLimit),

@@ -4,21 +4,21 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { link } = vi.hoisted(() => ({ link: vi.fn() }))
+const { linkSocial } = vi.hoisted(() => ({ linkSocial: vi.fn() }))
 
 vi.mock('@/lib/auth-client', () => ({
-  client: { oauth2: { link } },
+  client: { linkSocial },
 }))
 
 import { startOAuthConnectFlow } from './connect'
 
 describe('startOAuthConnectFlow', () => {
   beforeEach(() => {
-    link.mockReset()
+    linkSocial.mockReset()
   })
 
   it('rejects a resolved OAuth error', async () => {
-    link.mockResolvedValue({
+    linkSocial.mockResolvedValue({
       data: null,
       error: { message: 'Unauthorized', status: 401, statusText: 'Unauthorized' },
     })
@@ -29,8 +29,8 @@ describe('startOAuthConnectFlow', () => {
         callbackURL: '/workspace/ws-1/integrations',
       })
     ).rejects.toThrow('Unauthorized')
-    expect(link).toHaveBeenCalledWith({
-      providerId: 'robinhood',
+    expect(linkSocial).toHaveBeenCalledWith({
+      provider: 'robinhood',
       callbackURL: '/workspace/ws-1/integrations',
       errorCallbackURL: '/workspace/ws-1/integrations',
     })

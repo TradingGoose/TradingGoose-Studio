@@ -39,6 +39,15 @@ export const GENERIC_ENTERPRISE_PLACEHOLDER_FEATURES = [
   'Dedicated onboarding and support',
 ]
 
+export function getCatalogPriceForInterval(
+  tier: Pick<PublicBillingTierDisplay, 'monthlyPriceUsd' | 'yearlyPriceUsd'>,
+  interval: string | null | undefined
+) {
+  if (interval === 'month') return tier.monthlyPriceUsd
+  if (interval === 'year') return tier.yearlyPriceUsd
+  return null
+}
+
 function getPrimaryRecurringPrice(tier: {
   monthlyPriceUsd: number | null
   yearlyPriceUsd: number | null

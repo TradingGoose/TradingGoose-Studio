@@ -142,6 +142,7 @@ function createDeletedStripeSubscription(
 ) {
   return {
     id: overrides.id ?? 'sub_stripe_123',
+    customer: 'cus_team',
     cancel_at_period_end: true,
     metadata: overrides.metadata ?? {
       referenceId: 'user-1',
@@ -166,6 +167,7 @@ function createDeletedStripeSubscription(
 function createDeletedSubscriptionEvent(stripeSubscription = createDeletedStripeSubscription()) {
   return {
     id: 'evt_deleted',
+    created: Date.parse('2026-06-01T00:00:00Z') / 1000,
     data: {
       object: stripeSubscription,
     },
@@ -297,18 +299,26 @@ describe('handleStripeSubscriptionDeleted', () => {
     mockResetUsageForSubscription.mockResolvedValue(undefined)
   })
 
-  it('settles a deleted Stripe PAYG subscription by Stripe subscription id before restoring default PAYG', async () => {
+  it('retries a missing native cancellation before settling and restoring default PAYG', async () => {
     const stripeBackedSubscription = createDefaultSubscription({
       status: 'canceled',
       stripeSubscriptionId: 'sub_stripe_123',
     })
     const defaultSubscription = createDefaultSubscription()
     mockGetSubscriptionByStripeSubscriptionId
+      .mockResolvedValueOnce({ ...stripeBackedSubscription, status: 'active' })
       .mockResolvedValueOnce(stripeBackedSubscription)
       .mockResolvedValueOnce(stripeBackedSubscription)
     mockEnsureDefaultUserSubscription.mockResolvedValue(defaultSubscription)
 
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await expect(
+      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    ).rejects.toThrow('has not been saved')
+    expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
+    expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
+    expect(updateCalls).toEqual([])
+
     await handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
 
     expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
@@ -340,12 +350,12 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(mockEnsureDefaultUserSubscription.mock.invocationCallOrder[0]).toBeLessThan(
       mockSyncSubscriptionUsageLimits.mock.invocationCallOrder[0]
     )
-    expect(updateCalls).toContainEqual(
-      expect.objectContaining({
-        status: 'canceled',
-        stripeSubscriptionId: 'sub_stripe_123',
-      })
-    )
+    expect(updateCalls).toEqual([
+      {
+        periodStart: new Date(1778910924 * 1000),
+        periodEnd: new Date(1781589324 * 1000),
+      },
+    ])
   })
 
   it('skips deleted Stripe subscription events without a local subscription row', async () => {
@@ -418,6 +428,55 @@ describe('handleStripeSubscriptionDeleted', () => {
     )
   })
 
+  it.each([
+    { endedAt: new Date('2026-05-01T00:00:00Z'), billingPeriod: '2026-05' },
+    { endedAt: null, billingPeriod: '2026-06' },
+  ])(
+    'retains the $billingPeriod final overage keys on redelivery',
+    async ({ endedAt, billingPeriod }) => {
+      const sub = {
+        ...createDefaultSubscription({
+          status: 'canceled',
+          referenceType: 'organization',
+          stripeSubscriptionId: 'sub_stripe_123',
+        }),
+        endedAt,
+        canceledAt: new Date('2026-04-15T00:00:00Z'),
+      }
+      mockGetSubscriptionByStripeSubscriptionId.mockResolvedValue(sub)
+      mockCalculateSubscriptionOverage.mockResolvedValue(5)
+      const invoice = vi.fn().mockResolvedValue({ id: 'in_final', status: 'draft' })
+      const invoiceItem = vi.fn()
+      mockRequireStripeClient.mockReturnValue({
+        invoices: {
+          create: invoice,
+          finalizeInvoice: vi.fn().mockRejectedValueOnce(new Error('unavailable')),
+        },
+        invoiceItems: { create: invoiceItem },
+      })
+      const { handleStripeSubscriptionDeleted } = await import('./subscription')
+      const event = createDeletedSubscriptionEvent() as any
+      await expect(handleStripeSubscriptionDeleted(event)).rejects.toThrow('unavailable')
+      await handleStripeSubscriptionDeleted(event)
+
+      expect(invoice.mock.calls[1]).toEqual(invoice.mock.calls[0])
+      expect(invoiceItem.mock.calls[1]).toEqual(invoiceItem.mock.calls[0])
+      expect(invoice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customer: 'cus_team',
+          metadata: expect.objectContaining({
+            billingPeriod,
+            cancelledAt: String(sub.canceledAt.getTime() / 1000),
+          }),
+        }),
+        { idempotencyKey: `final-overage-invoice:cus_team:sub_stripe_123:${billingPeriod}` }
+      )
+      expect(invoiceItem).toHaveBeenCalledWith(expect.objectContaining({ amount: 500 }), {
+        idempotencyKey: `final-overage-item:cus_team:sub_stripe_123:${billingPeriod}`,
+      })
+    }
+  )
+
   it('rejects when a matched subscription disappears during deletion settlement', async () => {
     const stripeBackedSubscription = createDefaultSubscription({
       status: 'canceled',
@@ -435,12 +494,6 @@ describe('handleStripeSubscriptionDeleted', () => {
     )
 
     expect(mockSyncSubscriptionBillingTierFromStripeSubscription).toHaveBeenCalled()
-    expect(updateCalls).toContainEqual(
-      expect.objectContaining({
-        status: 'canceled',
-        stripeSubscriptionId: 'sub_stripe_123',
-      })
-    )
     expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
     expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
     expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()

@@ -19,6 +19,7 @@ const ERROR_KEYS = {
   EMAIL_IS_THE_SAME: 'sameEmail',
   EMAIL_ALREADY_IN_USE: 'inUse',
   EMAIL_CHANGE_NOT_ALLOWED: 'notAllowed',
+  EMAIL_DELIVERY_UNAVAILABLE: 'deliveryUnavailable',
   INVALID_OTP: 'invalidCode',
   OTP_EXPIRED: 'expiredCode',
   TOO_MANY_ATTEMPTS: 'tooManyAttempts',

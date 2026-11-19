@@ -72,6 +72,7 @@ beforeEach(() => {
       seatCount: 1,
       seatMaximum: 80,
       seatMode: 'adjustable',
+      stripeYearlyPriceId: 'price_team',
     },
   })
   mocks.select.mockImplementation((selection) => ({
@@ -154,6 +155,19 @@ describe('organization seat aggregate', () => {
     expect((await PUT(request('PUT', 61), params)).status).toBe(200)
   })
 
+  it('returns fixed plan capacity without a per-seat quote', async () => {
+    mocks.subscription.mockResolvedValue({
+      seats: 60,
+      stripeSubscriptionId: 'sub_organization',
+      tier: { ownerType: 'organization', seatMode: 'fixed', seatCount: 60 },
+    })
+    await expect((await GET(request(), params)).json()).resolves.toMatchObject({
+      data: { maxSeats: 60, seatPrice: null },
+    })
+    expect((await PUT(request('PUT'), params)).status).toBe(400)
+    expect(mocks.retrieve).not.toHaveBeenCalled()
+  })
+
   it.each(['anonymous', 'billing-disabled', 'foreign-member'])(
     'preserves the %s access boundary before reading occupancy',
     async (scenario) => {
@@ -184,11 +198,20 @@ describe('organization seat aggregate', () => {
     expect(mocks.stripe).not.toHaveBeenCalled()
   })
 
-  it('displays stored capacity and applies changes to the active Stripe item', async () => {
+  it('displays stored capacity and quotes and updates the plan item when an add-on comes first', async () => {
     mocks.retrieve.mockResolvedValue({
       status: 'active',
       currency: 'usd',
-      items: { data: [{ ...subscriptionItem, quantity: 63 }] },
+      items: {
+        data: [
+          {
+            ...subscriptionItem,
+            id: 'si_addon',
+            price: { ...subscriptionItem.price, id: 'price_addon', unit_amount_decimal: '100' },
+          },
+          { ...subscriptionItem, quantity: 63 },
+        ],
+      },
     })
     await expect((await GET(request(), params)).json()).resolves.toMatchObject({
       data: { maxSeats: 60, availableSeats: 4, seatPrice },
@@ -201,5 +224,21 @@ describe('organization seat aggregate', () => {
       proration_behavior: 'create_prorations',
     })
     expect(mocks.updateDb.mock.results[0].value.set).toHaveBeenCalledWith({ seats: 60 })
+  })
+
+  it('repairs capacity on retry after Stripe succeeds and the local write fails', async () => {
+    mocks.updateDb.mockImplementationOnce(() => {
+      throw new Error('Database unavailable')
+    })
+    expect((await PUT(request('PUT', 61), params)).status).toBe(500)
+
+    mocks.retrieve.mockResolvedValue({
+      status: 'active',
+      currency: 'usd',
+      items: { data: [{ ...subscriptionItem, quantity: 61 }] },
+    })
+    expect((await PUT(request('PUT', 61), params)).status).toBe(200)
+    expect(mocks.updateStripe).toHaveBeenCalledTimes(1)
+    expect(mocks.updateDb.mock.results[1].value.set).toHaveBeenCalledWith({ seats: 61 })
   })
 })

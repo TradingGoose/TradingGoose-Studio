@@ -115,12 +115,14 @@ vi.mock('./components', () => ({
   PlanCard: ({
     name,
     price,
+    priceSubtext,
     buttonText,
     onButtonClick,
     buttonDisabled,
   }: {
     name: string
-    price: string
+    price?: string
+    priceSubtext?: string
     buttonText: string
     onButtonClick: () => void
     buttonDisabled?: boolean
@@ -129,6 +131,7 @@ vi.mock('./components', () => ({
       type='button'
       data-testid='plan-card'
       data-price={price}
+      data-period={priceSubtext}
       onClick={onButtonClick}
       disabled={buttonDisabled}
     >
@@ -340,6 +343,61 @@ describe('Subscription billing subject', () => {
     expect(container.textContent).toContain('Personal Pro')
     expect(container.textContent).not.toContain('Organization Pro')
     expect(container.querySelector('#private-tier-access-code')).not.toBeNull()
+  })
+
+  it.each(['user', 'organization'] as const)(
+    'shows the active annual price and scheduled cancellation for a %s subscription',
+    (ownerType) => {
+      const periodEnd = '2027-06-01T12:00:00Z'
+      const cancelAt = '2027-03-15T12:00:00Z'
+      const terms = { billingInterval: 'year', cancelAtPeriodEnd: ownerType === 'user' }
+      const currentTier = tier('paid', 'Paid plan', ownerType, {
+        monthlyPriceUsd: 12.5,
+        yearlyPriceUsd: 120,
+      })
+      if (ownerType === 'organization') {
+        mocks.workspaceSettings = workspaceBillingOwner({
+          type: 'organization',
+          organizationId: 'org-billing',
+        })
+        mocks.organizationBilling = {
+          ...organizationPayload(),
+          ...terms,
+          cancelAt,
+          billingPeriodEnd: periodEnd,
+          subscriptionTier: currentTier,
+          userRole: 'owner',
+        }
+      } else {
+        mocks.personalBilling = {
+          data: { ...personalPayload().data, ...terms, periodEnd, tier: currentTier },
+        }
+      }
+      render()
+      const plan = container.querySelector('[data-testid="plan-card"]')
+      expect(plan).toHaveAttribute('data-price', '$120.00')
+      expect(plan).toHaveAttribute('data-period', '/yr')
+      expect(container.textContent).toContain('Restore Subscription')
+      expect(container.textContent).toContain('Subscription ends')
+      expect(container.textContent).toContain(
+        new Date(ownerType === 'user' ? periodEnd : cancelAt).toLocaleDateString('en')
+      )
+    }
+  )
+
+  it('omits the current price when Stripe has no billing interval', () => {
+    mocks.personalBilling = {
+      data: {
+        ...personalPayload().data,
+        billingInterval: null,
+        tier: tier('paid', 'Paid plan', 'user', { monthlyPriceUsd: 12.5, yearlyPriceUsd: 120 }),
+      },
+    }
+    render()
+    const plan = container.querySelector('[data-testid="plan-card"]')
+    expect(plan).toBeInTheDocument()
+    expect(plan).not.toHaveAttribute('data-price')
+    expect(plan).not.toHaveAttribute('data-period')
   })
 
   it('does not render keep-previous billing data while the organization owner changes', () => {

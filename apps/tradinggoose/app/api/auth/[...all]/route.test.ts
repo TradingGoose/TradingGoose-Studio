@@ -204,7 +204,7 @@ describe('/api/auth/[...all] route', () => {
 
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/oauth2/callback/github', {
+      new Request('http://localhost/api/auth/callback/github', {
         method: 'GET',
       })
     )
@@ -687,10 +687,10 @@ describe('/api/auth/[...all] route', () => {
 
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/oauth2/link', {
+      new Request('http://localhost/api/auth/link-social', {
         method: 'POST',
         body: JSON.stringify({
-          providerId: 'alpaca-paper',
+          provider: 'alpaca-paper',
           callbackURL: 'http://localhost/workspace',
         }),
       })
@@ -715,7 +715,7 @@ describe('/api/auth/[...all] route', () => {
 
       const { handleAuthRequest } = await import('./route')
       const response = await handleAuthRequest(
-        new Request(`http://localhost/api/auth/oauth2/callback/${providerId}?code=code`, {
+        new Request(`http://localhost/api/auth/callback/${providerId}?code=code`, {
           method: 'GET',
         })
       )
@@ -730,7 +730,7 @@ describe('/api/auth/[...all] route', () => {
   it('returns 400 when a system oauth callback provider is not configured', async () => {
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/oauth2/callback/github-repo', {
+      new Request('http://localhost/api/auth/callback/github-repo', {
         method: 'GET',
       })
     )
@@ -748,9 +748,9 @@ describe('/api/auth/[...all] route', () => {
 
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/oauth2/link', {
+      new Request('http://localhost/api/auth/link-social', {
         method: 'POST',
-        body: JSON.stringify({ providerId: 'robinhood', callbackURL: '/workspace' }),
+        body: JSON.stringify({ provider: 'robinhood', callbackURL: '/workspace' }),
       })
     )
 
@@ -772,7 +772,7 @@ describe('/api/auth/[...all] route', () => {
 
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/oauth2/callback/robinhood?code=code&state=oauth-state')
+      new Request('http://localhost/api/auth/callback/robinhood?code=code&state=oauth-state')
     )
 
     expect(response.status).toBe(204)

@@ -16,18 +16,12 @@ type OrganizationSession = {
 }
 
 const mappingSchema = z
-  .object({
-    id: z.string().default('sub'),
-    email: z.string().default('email'),
-    name: z.string().default('name'),
-    image: z.string().default('picture'),
+  .strictObject({
+    email: z.string().optional(),
+    name: z.string().optional(),
+    image: z.string().optional(),
   })
-  .default({
-    id: 'sub',
-    email: 'email',
-    name: 'name',
-    image: 'picture',
-  })
+  .optional()
 
 const ssoRegistrationSchema = z.discriminatedUnion('providerType', [
   z.strictObject({
@@ -49,7 +43,6 @@ const ssoRegistrationSchema = z.discriminatedUnion('providerType', [
     mapping: mappingSchema,
     entryPoint: z.string().url('Entry point must be a valid URL for SAML'),
     cert: z.string().min(1, 'Certificate is required for SAML'),
-    callbackUrl: z.string().url().optional(),
     audience: z.string().optional(),
     wantAssertionsSigned: z.boolean().optional(),
     signatureAlgorithm: z.string().optional(),
@@ -110,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     const providerConfig: any = {
       providerId,
-      issuer,
+      issuer: providerType === 'saml' ? getBaseUrl() : issuer,
       domain,
       organizationId: activeOrganizationId,
     }
@@ -154,7 +147,6 @@ export async function POST(request: NextRequest) {
       const {
         entryPoint,
         cert,
-        callbackUrl,
         audience,
         wantAssertionsSigned,
         signatureAlgorithm,
@@ -163,29 +155,17 @@ export async function POST(request: NextRequest) {
         idpMetadata,
       } = body
 
-      const computedCallbackUrl =
-        callbackUrl || `${getBaseUrl()}/api/auth/sso/saml2/sp/acs/${providerId}`
-
-      const samlConfig: any = {
+      providerConfig.samlConfig = {
         entryPoint,
         cert,
-        callbackUrl: computedCallbackUrl,
-        spMetadata: {},
+        audience,
+        wantAssertionsSigned,
+        signatureAlgorithm,
+        digestAlgorithm,
+        identifierFormat,
+        idpMetadata: idpMetadata ? { metadata: idpMetadata } : { entityID: issuer },
         mapping,
       }
-
-      if (audience) samlConfig.audience = audience
-      if (wantAssertionsSigned !== undefined) samlConfig.wantAssertionsSigned = wantAssertionsSigned
-      if (signatureAlgorithm) samlConfig.signatureAlgorithm = signatureAlgorithm
-      if (digestAlgorithm) samlConfig.digestAlgorithm = digestAlgorithm
-      if (identifierFormat) samlConfig.identifierFormat = identifierFormat
-      if (idpMetadata) {
-        samlConfig.idpMetadata = {
-          metadata: idpMetadata,
-        }
-      }
-
-      providerConfig.samlConfig = samlConfig
     }
 
     const registration = await auth.api.registerSSOProvider({

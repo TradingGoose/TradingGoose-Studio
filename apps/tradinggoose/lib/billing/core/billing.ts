@@ -188,6 +188,8 @@ export async function getSimplifiedBillingSummary(userId: string): Promise<{
   stripeSubscriptionId: string | null
   periodEnd: Date | string | null
   cancelAtPeriodEnd?: boolean
+  cancelAt: Date | null
+  billingInterval: string | null
   // Usage details
   usage: {
     current: number
@@ -281,6 +283,8 @@ export async function getSimplifiedBillingSummary(userId: string): Promise<{
       stripeSubscriptionId: exposedSubscription?.stripeSubscriptionId || null,
       periodEnd: exposedSubscription?.periodEnd || null,
       cancelAtPeriodEnd: exposedSubscription?.cancelAtPeriodEnd || undefined,
+      cancelAt: exposedSubscription?.cancelAt ?? null,
+      billingInterval: exposedSubscription?.billingInterval ?? null,
       tier,
       // Usage details
       usage: {

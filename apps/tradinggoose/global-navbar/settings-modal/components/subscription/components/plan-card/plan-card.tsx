@@ -12,7 +12,7 @@ export interface PlanFeature {
 
 interface PlanCardProps {
   name: string
-  price: string
+  price?: string
   priceSubtext?: string
   features: PlanFeature[]
   buttonText: string
@@ -86,12 +86,14 @@ export function PlanCard({
     >
       <header className={isHorizontal ? undefined : 'mb-4'}>
         <h3 className='mb-2 font-semibold text-sm'>{name}</h3>
-        <div className='flex items-baseline'>
-          <span className='font-semibold text-xl'>{price}</span>
-          {priceSubtext && (
-            <span className='ml-1 text-muted-foreground text-xs'>{priceSubtext}</span>
-          )}
-        </div>
+        {price && (
+          <div className='flex items-baseline'>
+            <span className='font-semibold text-xl'>{price}</span>
+            {priceSubtext && (
+              <span className='ml-1 text-muted-foreground text-xs'>{priceSubtext}</span>
+            )}
+          </div>
+        )}
         {isHorizontal && renderFeatures()}
       </header>
 

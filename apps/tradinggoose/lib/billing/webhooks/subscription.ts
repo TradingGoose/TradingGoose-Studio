@@ -13,7 +13,12 @@ import {
 } from '@/lib/billing/core/usage'
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { type BillingTierRecord, isPaidBillingTier } from '@/lib/billing/tiers'
+import { getStripeSubscriptionFields } from '@/lib/billing/subscriptions/utils'
+import {
+  type BillingTierRecord,
+  isPaidBillingTier,
+  type SubscriptionWithTier,
+} from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import {
   getBilledOverageForSubscription,
@@ -31,18 +36,6 @@ type TieredSubscriptionLifecycleRecord = {
   stripeSubscriptionId?: string | null
   seats?: number | null
   tier?: BillingTierRecord | null
-}
-
-function getStripeSubscriptionPeriod(stripeSubscription: Stripe.Subscription) {
-  const item = stripeSubscription.items.data[0]
-  if (!item) {
-    return {}
-  }
-
-  return {
-    periodStart: new Date(item.current_period_start * 1000),
-    periodEnd: new Date(item.current_period_end * 1000),
-  }
 }
 
 /**
@@ -128,9 +121,12 @@ export async function handleSubscriptionCreated(
  * Handle subscription deletion/cancellation - bill for final period overages
  * This fires when a subscription reaches its cancel_at_period_end date or is cancelled immediately
  */
-export async function handleSubscriptionDeleted(subscription: TieredSubscriptionLifecycleRecord) {
+async function handleSubscriptionDeleted(
+  subscription: SubscriptionWithTier,
+  event: Stripe.CustomerSubscriptionDeletedEvent
+) {
   try {
-    const stripeSubscriptionId = subscription.stripeSubscriptionId || ''
+    const { id: stripeSubscriptionId, customer } = event.data.object
 
     logger.info('Processing subscription deletion', {
       stripeSubscriptionId,
@@ -139,7 +135,6 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
 
     // Calculate overage for the final billing period
     const totalOverage = await calculateSubscriptionOverage(subscription)
-    const stripe = requireStripeClient()
 
     // Get already-billed overage from threshold billing
     const billedOverage = await getBilledOverageForSubscription(subscription)
@@ -155,14 +150,12 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
     })
 
     // Create final overage invoice if needed
-    if (remainingOverage > 0 && stripeSubscriptionId) {
-      const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId)
-      const customerId = stripeSubscription.customer as string
+    if (remainingOverage > 0) {
+      const customerId = typeof customer === 'string' ? customer : customer.id
+      const stripe = requireStripeClient()
       const cents = Math.round(remainingOverage * 100)
-
-      // Use the subscription end date for the billing period
-      const endedAt = stripeSubscription.ended_at || Math.floor(Date.now() / 1000)
-      const billingPeriod = new Date(endedAt * 1000).toISOString().slice(0, 7)
+      const endedAt = subscription.endedAt ?? new Date(event.created * 1000)
+      const billingPeriod = endedAt.toISOString().slice(0, 7)
 
       const itemIdemKey = `final-overage-item:${customerId}:${stripeSubscriptionId}:${billingPeriod}`
       const invoiceIdemKey = `final-overage-invoice:${customerId}:${stripeSubscriptionId}:${billingPeriod}`
@@ -179,7 +172,9 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
               type: 'final_overage_billing',
               billingPeriod,
               subscriptionId: stripeSubscriptionId,
-              cancelledAt: stripeSubscription.canceled_at?.toString() || '',
+              cancelledAt: subscription.canceledAt
+                ? String(subscription.canceledAt.getTime() / 1000)
+                : '',
             },
           },
           { idempotencyKey: invoiceIdemKey }
@@ -254,8 +249,10 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
   }
 }
 
-export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
-  const stripeSubscription = event.data.object as Stripe.Subscription
+export async function handleStripeSubscriptionDeleted(
+  event: Stripe.CustomerSubscriptionDeletedEvent
+) {
+  const stripeSubscription = event.data.object
   const stripeSubscriptionId = stripeSubscription.id
 
   const resolvedSubscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
@@ -268,16 +265,12 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     return
   }
 
-  await db
-    .update(subscription)
-    .set({
-      ...getStripeSubscriptionPeriod(stripeSubscription),
-      stripeSubscriptionId,
-      status: 'canceled',
-      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-    })
-    .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
-
+  // Better Auth persists the cancellation before onEvent. Let Stripe retry if that write failed.
+  if (resolvedSubscription.status !== 'canceled') {
+    throw new Error(
+      `Cancellation for Stripe subscription ${stripeSubscriptionId} has not been saved`
+    )
+  }
   // Settlement talks to Stripe and can fail. Entitlement restore below must not depend on it:
   // personal Stripe subscriptions reuse the user's default subscription row, so bailing out
   // here is exactly what leaves a user with no entitled subscription at all and breaks every
@@ -299,18 +292,13 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     })
   }
 
-  const hydratedSubscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
-  if (!hydratedSubscription) {
+  const subscriptionToSettle = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+  if (!subscriptionToSettle) {
     throw new Error(
       `Local subscription disappeared while settling deleted Stripe subscription ${stripeSubscriptionId}`
     )
   }
 
-  const subscriptionToSettle = {
-    ...hydratedSubscription,
-    stripeSubscriptionId,
-    status: 'canceled',
-  }
   let subscriptionForUsageLimits: TieredSubscriptionLifecycleRecord = subscriptionToSettle
 
   if (settlementError) {
@@ -325,7 +313,17 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     })
   } else {
     try {
-      await handleSubscriptionDeleted(subscriptionToSettle)
+      const { periodStart, periodEnd } = getStripeSubscriptionFields(
+        stripeSubscription,
+        subscriptionToSettle.tier
+      )
+      if (periodStart && periodEnd) {
+        await db
+          .update(subscription)
+          .set({ periodStart, periodEnd })
+          .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
+      }
+      await handleSubscriptionDeleted(subscriptionToSettle, event)
     } catch (error) {
       settlementError = error
       logger.error('Failed to settle a cancelled subscription; restoring entitlement anyway', {

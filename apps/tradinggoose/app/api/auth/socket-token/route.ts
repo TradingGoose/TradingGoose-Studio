@@ -1,11 +1,11 @@
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { auth, getSession } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 
 export async function POST() {
   try {
     const hdrs = await headers()
-    const session = await getSession(hdrs)
+    const session = await auth.api.getSession({ headers: hdrs })
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })

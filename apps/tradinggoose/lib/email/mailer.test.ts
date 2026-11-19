@@ -210,7 +210,7 @@ describe('mailer', () => {
       expect(mockSend).not.toHaveBeenCalled()
     })
 
-    it('should log unsent email text when no email service is configured', async () => {
+    it('reports unavailable delivery without logging the verification code', async () => {
       mockResolveResendServiceConfig.mockResolvedValue({
         apiKey: null,
         audienceId: null,
@@ -226,20 +226,14 @@ describe('mailer', () => {
       })
 
       expect(result).toEqual({
-        success: true,
-        message: 'Email logging successful (no email service configured)',
+        success: false,
+        message: 'No email service configured',
       })
       expect(mockSend).not.toHaveBeenCalled()
       expect(mockAzureBeginSend).not.toHaveBeenCalled()
-      expect(mockLoggerInfo).toHaveBeenCalledWith(
-        'Email not sent (no email service configured):',
-        expect.objectContaining({
-          to: testEmailOptions.to,
-          subject: testEmailOptions.subject,
-          from: 'TradingGoose <noreply@tradinggoose.ai>',
-          text: 'Verification code: 123456',
-        })
-      )
+      expect(mockLoggerInfo).not.toHaveBeenCalled()
+      expect(mockLoggerWarn).not.toHaveBeenCalled()
+      expect(mockLoggerError).not.toHaveBeenCalled()
     })
 
     it('reports a configured Resend rejection when Azure is unavailable', async () => {

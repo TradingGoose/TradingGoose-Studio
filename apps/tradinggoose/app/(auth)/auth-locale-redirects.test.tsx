@@ -332,7 +332,7 @@ describe('auth locale redirects', () => {
         testState.searchParams = new URL(verifyPath, window.location.origin).searchParams
         await renderWithLocale(
           locale,
-          <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled={false} />
+          <VerifyContent hasEmailService isEmailVerificationEnabled={false} />
         )
         expect(mockRefetchSession).toHaveBeenCalledOnce()
         expect(mockFetch).toHaveBeenCalledExactlyOnceWith(
@@ -625,10 +625,7 @@ describe('auth locale redirects', () => {
         mockPush.mock.lastCall![0],
         window.location.origin
       ).searchParams
-      await renderWithLocale(
-        'zh',
-        <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled />
-      )
+      await renderWithLocale('zh', <VerifyContent hasEmailService isEmailVerificationEnabled />)
       await setInputValue('#verification-code', '123456')
       await act(async () => vi.advanceTimersByTimeAsync(1300))
       expect(mockVerifyEmail).toHaveBeenCalledExactlyOnceWith({
@@ -890,10 +887,7 @@ describe('auth locale redirects', () => {
       )
       mockUseVerification.mockImplementation(useVerification)
 
-      await renderWithLocale(
-        'en',
-        <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled />
-      )
+      await renderWithLocale('en', <VerifyContent hasEmailService isEmailVerificationEnabled />)
       const findButton = (label: string) =>
         Array.from(container.querySelectorAll('button')).find(
           (button) => button.textContent === label

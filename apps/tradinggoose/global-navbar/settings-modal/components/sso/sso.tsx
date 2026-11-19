@@ -40,7 +40,6 @@ const INITIAL_FORM_DATA = {
   scopes: 'openid,profile,email',
   entryPoint: '',
   cert: '',
-  callbackUrl: '',
   audience: '',
   wantAssertionsSigned: true,
   idpMetadata: '',
@@ -252,12 +251,10 @@ export function SSO() {
         requestBody.entryPoint = formData.entryPoint
         requestBody.cert = formData.cert
         requestBody.wantAssertionsSigned = formData.wantAssertionsSigned
-        if (formData.callbackUrl) requestBody.callbackUrl = formData.callbackUrl
         if (formData.audience) requestBody.audience = formData.audience
         if (formData.idpMetadata) requestBody.idpMetadata = formData.idpMetadata
 
         requestBody.mapping = {
-          id: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier',
           email: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress',
           name: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
         }
@@ -768,24 +765,6 @@ export function SSO() {
                             />
                             <p className='text-muted-foreground text-xs'>
                               The SAML audience restriction (optional, defaults to app URL)
-                            </p>
-                          </div>
-
-                          <div className='space-y-1'>
-                            <Label htmlFor='callback-url'>Callback URL Override</Label>
-                            <Input
-                              id='callback-url'
-                              type='url'
-                              placeholder='Enter Callback URL'
-                              value={formData.callbackUrl}
-                              autoComplete='off'
-                              autoCapitalize='none'
-                              spellCheck={false}
-                              onChange={(e) => handleInputChange('callbackUrl', e.target.value)}
-                              className='rounded-md shadow-sm'
-                            />
-                            <p className='text-muted-foreground text-xs'>
-                              Custom SAML callback URL (optional, auto-generated if empty)
                             </p>
                           </div>
 

@@ -1,6 +1,6 @@
 # November-17-2026
 
-## feat/reset-email @ b845c5456 vs origin/staging
+## feat/reset-email @ 0a0d6908c vs origin/staging
 
 ### Summary
 
@@ -9,7 +9,7 @@
 
 ### Branch Scope
 
-- Compared merge base `81ad8ce95` with branch head `b845c5456`. This note includes the local implementation changes being prepared for the branch.
+- Compared merge base `81ad8ce95` with branch head `0a0d6908c` and the local changes prepared for this branch.
 - The feature spans auth pages and settings, dependency manifests and lockfile, and one generated database migration.
 
 ### Key Changes
@@ -17,8 +17,9 @@
 - `apps/tradinggoose/lib/auth.ts` enables Email OTP with `changeEmail.verifyCurrentEmail`. The account `ChangeEmailForm` requests a code for the current mailbox, uses it to request a code for the new mailbox, and updates the account after the second code is verified. Account Settings uses the confirmed address for password-reset mail and refreshes session and identity queries.
 - `username()` and `usernameClient()` support user-chosen handles. Password signup requires a username, sign-in accepts a username or email, and Account Settings updates the username through `client.updateUser`. Better Auth normalizes the login handle and preserves the display case.
 - SSO settings use native DNS TXT verification and show the provider's verification status. The SSO sign-in form accepts an optional provider ID to select a connection explicitly. Studio's invitation flow continues to own organization membership.
-- Better Auth and its SSO and Stripe plugins use `1.6.34`, Stripe uses `22.6.2` with API version `2026-08-26.dahlia`, Drizzle ORM uses `^0.45.2`, and Bun uses `1.4.4`. Checkout and PAYG activation set classic billing mode explicitly. Subscription upgrades send the selected plan to the native endpoint and apply organization seat limits on the server.
-- `packages/db/migrations/0043_grey_typhoid_mary.sql` adds nullable username and display-username fields, username uniqueness, and `sso_provider.domain_verified` with a false default. Existing accounts may choose a username in Account Settings.
+- Better Auth and its SSO and Stripe plugins use `1.7.26`, which includes the upstream OTP email-change fix. Stripe uses `22.6.2` with API version `2026-08-26.dahlia`, Drizzle ORM uses `^0.45.2`, and Bun uses `1.4.4`. Checkout and PAYG activation set classic billing mode explicitly. Subscription upgrades send the selected plan to the native endpoint and apply organization seat limits on the server.
+- Migration `0043` adds nullable username and display-username fields, username uniqueness, and `sso_provider.domain_verified` with a false default. It also adds the Stripe plugin’s nullable subscription fields for cancellation, end dates, billing interval, and schedule ID. Existing accounts may choose a username in Account Settings.
+- Better Auth synchronizes Stripe subscription changes through its webhook. PAYG activation and manually provisioned enterprise subscriptions write the same Stripe fields. Billing settings use the active subscription’s cancellation date and billing interval.
 
 ### Design Decisions
 
@@ -42,7 +43,7 @@
 
 - Keep signup, username changes and email changes on the existing Better Auth client and account settings. Preserve invitation and chat destinations through verification.
 - Keep SSO provider IDs separate from OAuth account-linking trust. Use the existing native DNS verification controls for each configured provider.
-- Apply the generated migration through `bun run db:migrate` before deploying the application version that reads the new fields. Username selection remains user-driven.
+- Before deploying, apply the generated migration with `bun run db:migrate` and register `/api/auth/callback/<provider-id>` at each configured generic OAuth provider. Better Auth 1.7 uses `linkSocial` for these connections. Username selection remains user-driven.
 
 ### Validation Notes
 

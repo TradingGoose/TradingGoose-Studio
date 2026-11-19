@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { useSession } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import {
-  formatBillingPricePeriod,
+  getCatalogPriceForInterval,
   type PublicBillingTierDisplay,
 } from '@/lib/billing/public-catalog'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
@@ -440,11 +440,13 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     surfaceState.enterprisePlaceholder?.contactUrl ??
     publicBillingCatalog?.enterpriseContactUrl ??
     null
-  const selectedPeriodEnd = isOrganizationPlan
-    ? organizationBillingPayload?.billingPeriodEnd
-    : billingPayload?.periodEnd
-  const selectedCancelAtPeriodEnd =
-    !isOrganizationPlan && Boolean(billingPayload?.cancelAtPeriodEnd)
+  const selectedBilling = isOrganizationPlan ? organizationBillingPayload : billingPayload
+  const cancellationScheduled = Boolean(
+    selectedBilling?.cancelAtPeriodEnd || selectedBilling?.cancelAt
+  )
+  const nextBillingDate =
+    selectedBilling?.cancelAt ??
+    (isOrganizationPlan ? organizationBillingPayload?.billingPeriodEnd : billingPayload?.periodEnd)
 
   const handleUpgradeWithErrorHandling = useCallback(
     async (targetTier: PublicBillingTierDisplay) => {
@@ -707,28 +709,33 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               >
                 {surfaceState.visiblePlanTiers.map((tier) => {
                   const isCurrentTier = tier.id === surfaceState.currentTier?.id
-                  const price = isCurrentTier
-                    ? (tier.monthlyPriceUsd ?? tier.yearlyPriceUsd)
-                    : tier.hasStripeMonthlyPriceId
-                      ? tier.monthlyPriceUsd
+                  const isCurrentSubscription =
+                    isCurrentTier && (subscription.isPaid || showPersonalSubscriptionManagement)
+                  const interval = isCurrentSubscription
+                    ? selectedBilling?.billingInterval
+                    : tier.hasStripeMonthlyPriceId ||
+                        (isCurrentTier && tier.monthlyPriceUsd !== null)
+                      ? 'month'
                       : null
-                  const period = isCurrentTier
-                    ? formatBillingPricePeriod(tier)
-                    : tier.hasStripeMonthlyPriceId
-                      ? '/mo'
-                      : null
+                  const price = getCatalogPriceForInterval(tier, interval)
 
                   return (
                     <PlanCard
                       key={tier.id}
                       name={tier.displayName}
-                      price={price === null ? copy('titles.custom') : formatUsd(locale, price)}
+                      price={
+                        price !== null
+                          ? formatUsd(locale, price)
+                          : isCurrentSubscription
+                            ? undefined
+                            : copy('titles.custom')
+                      }
                       priceSubtext={
-                        period === '/mo'
-                          ? copy('periods.monthly')
-                          : period === '/yr'
-                            ? copy('periods.yearly')
-                            : undefined
+                        price === null
+                          ? undefined
+                          : interval === 'month'
+                            ? copy('periods.monthly')
+                            : copy('periods.yearly')
                       }
                       features={toPlanFeatures(tier.pricingFeatures)}
                       buttonText={
@@ -771,11 +778,15 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
 
-        {(subscription.isPaid || showPersonalSubscriptionManagement) && selectedPeriodEnd && (
+        {(subscription.isPaid || showPersonalSubscriptionManagement) && nextBillingDate && (
           <div className='mt-4 flex items-center justify-between'>
-            <span className='font-medium text-sm'>{copy('titles.nextBillingDate')}</span>
+            <span className='font-medium text-sm'>
+              {cancellationScheduled
+                ? copy('titles.subscriptionEnds')
+                : copy('titles.nextBillingDate')}
+            </span>
             <span className='text-muted-foreground text-sm'>
-              {new Date(selectedPeriodEnd).toLocaleDateString(locale)}
+              {new Date(nextBillingDate).toLocaleDateString(locale)}
             </span>
           </div>
         )}
@@ -802,7 +813,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             <div className='flex items-center justify-between'>
               <div>
                 <span className='font-medium text-sm'>
-                  {selectedCancelAtPeriodEnd ? copy('titles.restore') : copy('titles.manage')}
+                  {cancellationScheduled ? copy('titles.restore') : copy('titles.manage')}
                 </span>
                 <p className='mt-1 text-muted-foreground text-xs'>{copy('descriptions.manage')}</p>
               </div>

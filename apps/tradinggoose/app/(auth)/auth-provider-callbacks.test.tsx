@@ -319,9 +319,7 @@ describe('auth provider callback routing', () => {
       errorCallbackURL: getAuthErrorCallbackPath('/workspace'),
     })
 
-    expect(container.querySelector('[role="alert"]')).toHaveTextContent(
-      'Ask your organization administrator to verify the SSO domain.'
-    )
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent(/verified provider ID/i)
     expect(form.querySelector('button[type="submit"]')).toBeEnabled()
 
     const providerId = form.querySelector<HTMLInputElement>('input[name="providerId"]')!

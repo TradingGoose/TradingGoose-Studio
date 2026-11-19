@@ -1,5 +1,6 @@
 import { registerClient } from '@modelcontextprotocol/sdk/client/auth.js'
 import { db, verification } from '@tradinggoose/db'
+import { getAuthStateVerificationIdentifier } from 'better-auth'
 import { eq } from 'drizzle-orm'
 import { getCanonicalScopesForProvider } from '@/lib/oauth/oauth'
 import { ROBINHOOD_OAUTH_RESOURCE } from './robinhood-constants'
@@ -60,7 +61,7 @@ export async function getRobinhoodOAuthClientIdFromState(state: string) {
   const [record] = await db
     .select({ value: verification.value })
     .from(verification)
-    .where(eq(verification.identifier, state))
+    .where(eq(verification.identifier, getAuthStateVerificationIdentifier(state)))
     .limit(1)
   if (!record) return ''
 

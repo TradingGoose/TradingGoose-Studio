@@ -11,7 +11,10 @@ import {
   ensureStripeUserCustomer,
   getStripeCustomerDefaultPaymentMethodId,
 } from '@/lib/billing/stripe-customers'
-import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
+import {
+  BILLING_ACTIVE_SUBSCRIPTION_STATUSES,
+  getStripeSubscriptionFields,
+} from '@/lib/billing/subscriptions/utils'
 import { type BillingTierRecord, isFreeBillingTier } from '@/lib/billing/tiers'
 import { handleSubscriptionCreated } from '@/lib/billing/webhooks/subscription'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -252,19 +255,9 @@ export async function POST() {
       )
     }
 
-    const currentPeriod = stripeSubscription.items.data[0]
-    if (!currentPeriod) {
+    if (!stripeSubscription.items.data.length) {
       throw new Error(`Stripe subscription ${stripeSubscription.id} has no subscription items`)
     }
-
-    const periodStart = new Date(currentPeriod.current_period_start * 1000)
-    const periodEnd = new Date(currentPeriod.current_period_end * 1000)
-    const trialStart = stripeSubscription.trial_start
-      ? new Date(stripeSubscription.trial_start * 1000)
-      : null
-    const trialEnd = stripeSubscription.trial_end
-      ? new Date(stripeSubscription.trial_end * 1000)
-      : null
 
     let persistedStripeSubscriptionId = stripeSubscription.id
     let didPersistActivation = false
@@ -302,11 +295,10 @@ export async function POST() {
           stripeCustomerId: customer.id,
           stripeSubscriptionId: stripeSubscription.id,
           status: stripeSubscription.status,
-          periodStart,
-          periodEnd,
-          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-          trialStart,
-          trialEnd,
+          ...getStripeSubscriptionFields(
+            stripeSubscription,
+            activationState.currentSubscription.tier
+          ),
           metadata: withoutPaygActivationAttemptId(currentSubscription.metadata),
         })
         .where(eq(subscription.id, currentSubscription.id))
