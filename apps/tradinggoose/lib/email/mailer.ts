@@ -123,20 +123,16 @@ export async function syncUserEmailAudience(
       }
     }
 
-    if (!prior) {
-      await syncCurrentAddress()
-      return true
-    }
-    let cleanupStarted = false
-    const changes = [
-      syncCurrentAddress,
-      async () => {
+    const changes = [syncCurrentAddress]
+    if (prior) {
+      let cleanupStarted = false
+      changes.push(async () => {
         const owner = await getOwner(prior)
         if (owner?.emailVerified && !cleanupStarted) return
         cleanupStarted = true
         await syncMembership(prior, wantsMarketing(owner))
-      },
-    ]
+      })
+    }
     const [current, previous] = await Promise.allSettled(
       changes.map((change) =>
         retryWithExponentialBackoff(change, {
@@ -149,7 +145,7 @@ export async function syncUserEmailAudience(
         })
       )
     )
-    if (previous.status === 'rejected') {
+    if (previous?.status === 'rejected') {
       logger.warn(
         'Failed to reconcile the previous mailbox in the Resend segment',
         { userId: account.id, previousEmail: prior, segmentId },
@@ -157,7 +153,7 @@ export async function syncUserEmailAudience(
       )
     }
     if (current.status === 'rejected') throw current.reason
-    return previous.status === 'fulfilled'
+    return previous?.status !== 'rejected'
   } catch (error) {
     logger.warn('Failed to synchronize verified user email with Resend', {
       userId: account.id,
@@ -187,7 +183,8 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
     }
 
     const senderEmail = from || (await getFromEmailAddress())
-    if (options.userId !== undefined) {
+    const checkRecipient = async (): Promise<SendEmailResult | undefined> => {
+      if (options.userId === undefined) return
       const recipient = await getEmailRecipient(eq(user.id, options.userId))
       if (!recipient || recipient.email !== to) {
         return {
@@ -200,6 +197,8 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
         return { success: true, message: 'Email skipped (user unsubscribed)' }
       }
     }
+    const skipped = await checkRecipient()
+    if (skipped) return skipped
     const body = html ? { html, text } : text ? { text } : null
     if (!body) throw new Error('Email content is required')
 
@@ -219,6 +218,8 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
       } catch (error) {
         if (!clients.azureEmailClient) throw error
         logger.warn('Resend failed, attempting Azure Communication Services fallback:', error)
+        const skipped = await checkRecipient()
+        if (skipped) return skipped
       }
     }
 

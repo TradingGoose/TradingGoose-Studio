@@ -357,6 +357,17 @@ describe('mailer', () => {
       expect(mockContactSegmentAdd).not.toHaveBeenCalled()
     })
 
+    it('retries a rate-limited removal for an explicit marketing opt-out', async () => {
+      vi.mocked(isUnsubscribed).mockReturnValue(true)
+      mockContactSegmentRemove.mockResolvedValueOnce({
+        error: { statusCode: 429, name: 'rate_limit_exceeded' },
+      })
+
+      await expect(syncUserEmailAudience(recipient)).resolves.toBe(true)
+      expect(mockContactSegmentRemove).toHaveBeenCalledTimes(2)
+      expect(mockContactSegmentAdd).not.toHaveBeenCalled()
+    })
+
     it('keeps a previous Resend opt-out for the Studio account', async () => {
       mockTransferRecipients()
       vi.mocked(unsubscribeFromList).mockImplementationOnce(async () => {
@@ -474,6 +485,42 @@ describe('mailer', () => {
   })
 
   describe('Azure Communication Services fallback', () => {
+    it.each(['address changed', 'opted out'])(
+      'rechecks before Azure when the recipient %s',
+      async (change) => {
+        mockSend.mockImplementationOnce(async () => {
+          if (change === 'address changed') {
+            vi.mocked(getEmailRecipient).mockResolvedValue({
+              ...recipient,
+              email: 'new@example.com',
+            })
+          } else {
+            vi.mocked(isUnsubscribed).mockReturnValue(true)
+          }
+          return { error: { message: 'Provider unavailable' } }
+        })
+        const mail =
+          change === 'address changed'
+            ? { ...testEmailOptions, userId: recipient.id }
+            : {
+                ...testEmailOptions,
+                userId: recipient.id,
+                emailType: 'updates' as const,
+                html: async () => '<p>Update</p>',
+              }
+
+        const result = await sendEmail(mail)
+
+        expect(mockSend).toHaveBeenCalledOnce()
+        expect(mockAzureBeginSend).not.toHaveBeenCalled()
+        expect(result).toMatchObject(
+          change === 'address changed'
+            ? { success: false, currentEmail: 'new@example.com' }
+            : { success: true, message: 'Email skipped (user unsubscribed)' }
+        )
+      }
+    )
+
     it.each(['returned', 'thrown'])(
       'falls back to Azure when Resend %s an error',
       async (failure) => {
