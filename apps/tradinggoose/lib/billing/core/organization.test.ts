@@ -212,11 +212,26 @@ describe('getOrganizationBillingData', () => {
     }))
   })
 
-  it('sums member allowances for individual-scope organization totals', async () => {
+  it.each([
+    { metadata: null, monthlyBasePriceUsd: 198, seats: 2 },
+    {
+      metadata: {
+        referenceType: 'organization',
+        referenceId: 'org_123',
+        billingTierId: 'tier_org_individual',
+        stripeSubscriptionItemId: 'si_contract',
+        monthlyPrice: '250.50',
+        seats: '8',
+      },
+      monthlyBasePriceUsd: 250.5,
+      seats: 8,
+    },
+  ])('projects $seats licensed seats for a monthly total of $monthlyBasePriceUsd', async (plan) => {
     mockGetOrganizationSubscription.mockResolvedValue({
       id: 'sub_123',
       status: 'active',
-      seats: null,
+      seats: 2,
+      metadata: plan.metadata,
       periodStart: new Date('2026-04-01T00:00:00.000Z'),
       periodEnd: new Date('2026-05-01T00:00:00.000Z'),
       tier: {
@@ -283,6 +298,8 @@ describe('getOrganizationBillingData', () => {
     const result = await getOrganizationBillingData('org_123')
 
     expect(result).not.toBeNull()
+    expect(result?.monthlyBasePriceUsd).toBe(plan.monthlyBasePriceUsd)
+    expect(result?.totalSeats).toBe(plan.seats)
     expect(result?.members).toHaveLength(2)
     expect(result?.members.map((member) => member.usageLimit)).toEqual([80, 80])
     expect(result?.totalCurrentUsage).toBe(120)

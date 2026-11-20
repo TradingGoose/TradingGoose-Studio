@@ -314,6 +314,7 @@ describe('/api/billing route', () => {
       },
       subscriptionStatus: 'active',
       seatPriceUsd: 20,
+      monthlyBasePriceUsd: 100,
       seatCount: 3,
       seatMaximum: 10,
       seatMode: 'adjustable',
@@ -357,6 +358,7 @@ describe('/api/billing route', () => {
     expect(payload.data.subscriptionTier.ownerType).toBe('organization')
     expect(payload.data.subscriptionTier.status).toBe('archived')
     expect(payload.data.subscriptionTier.hasStripeMonthlyPriceId).toBe(true)
+    expect(payload.data.monthlyBasePriceUsd).toBe(100)
     expect(payload.data.minimumUsageLimit).toBe(90)
     expect(payload.data.members[0].joinedAt).toBe('2026-04-01T00:00:00.000Z')
   })

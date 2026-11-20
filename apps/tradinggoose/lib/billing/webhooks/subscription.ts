@@ -11,6 +11,7 @@ import { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } from '@/lib/b
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
+  getStoredManualContract,
   getStripeSubscriptionFields,
   getStripeSubscriptionPlanItem,
 } from '@/lib/billing/subscriptions/utils'
@@ -22,7 +23,7 @@ import {
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import { lockBilledOverage, resetUsageForSubscription } from '@/lib/billing/webhooks/invoices'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getStoredManualContract, getStripeSubscriptionItems } from './enterprise'
+import { getStripeSubscriptionItems } from './enterprise'
 import {
   type BillingMetadata,
   hasClosingSnapshot,
@@ -243,7 +244,12 @@ export async function handleStripeSubscriptionDeleted(
       tierName: paid.tier.displayName,
       billingPeriod: (paid.endedAt ?? new Date(event.created * 1000)).toISOString().slice(0, 7),
       ledgerStart: metadata?.renewedThrough ?? 'initial',
-      collectionMethod: 'charge_automatically',
+      collectionMethod: stripeSubscription.collection_method,
+    }
+    if (quote.totalOverage > quote.billedOverage && quote.collectionMethod === 'send_invoice') {
+      if (stripeSubscription.days_until_due == null)
+        throw new Error(`Missing payment terms on canceled subscription ${stripeSubscription.id}`)
+      quote.daysUntilDue = stripeSubscription.days_until_due
     }
     const item = contract
       ? await getStoredContractItem(stripeSubscription, contract.itemId)

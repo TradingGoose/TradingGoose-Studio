@@ -7,9 +7,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderEnterpriseSubscriptionEmail } from '@/components/emails/render-email'
 import { sendEmail } from '@/lib/email/mailer'
 
-const { insertValues, listItems, requireBillingTierById } = vi.hoisted(() => ({
+const { insertValues, listItems, retrieve, requireBillingTierById } = vi.hoisted(() => ({
   insertValues: vi.fn(),
   listItems: vi.fn(),
+  retrieve: vi.fn(),
   requireBillingTierById: vi.fn(),
 }))
 
@@ -37,7 +38,10 @@ vi.mock('@/lib/billing/tiers', () => ({
   requireBillingTierById,
 }))
 vi.mock('@/lib/billing/stripe-client', () => ({
-  requireStripeClient: () => ({ subscriptionItems: { list: listItems } }),
+  requireStripeClient: () => ({
+    subscriptionItems: { list: listItems },
+    subscriptions: { retrieve },
+  }),
 }))
 
 vi.mock('@/components/emails/render-email', () => ({
@@ -83,6 +87,7 @@ describe('handleManualEnterpriseSubscription', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     insertValues.mockReturnValue(insertQuery)
+    retrieve.mockResolvedValue(event.data.object)
     requireBillingTierById.mockResolvedValue({
       id: 'tier_enterprise',
       displayName: 'Enterprise',
@@ -118,11 +123,13 @@ describe('handleManualEnterpriseSubscription', () => {
   it('upserts only contract metadata and preserves local settlement and payment records', async () => {
     const { handleManualEnterpriseSubscription } = await import('./enterprise')
 
+    retrieve.mockResolvedValueOnce({ ...event.data.object, status: 'incomplete' })
     await handleManualEnterpriseSubscription(event)
 
     expect(requireBillingTierById).toHaveBeenCalledWith('tier_enterprise')
     expect(insertValues).toHaveBeenCalledWith(
       expect.objectContaining({
+        status: 'incomplete',
         referenceId: 'org_123',
         billingTierId: 'tier_enterprise',
         seats: 5,
@@ -139,11 +146,32 @@ describe('handleManualEnterpriseSubscription', () => {
         },
       })
     )
+    expect(retrieve).toHaveBeenCalledExactlyOnceWith(
+      event.data.object.id,
+      {},
+      { timeout: 5_000, maxNetworkRetries: 0 }
+    )
     expect(listItems).not.toHaveBeenCalled()
-    const [{ set }] = insertQuery.onConflictDoUpdate.mock.calls[0]
+    const [{ set, setWhere }] = insertQuery.onConflictDoUpdate.mock.calls[0]
+    const condition = new PgDialect().sqlToQuery(setWhere).sql
+    expect(condition).toContain("NOT IN ('canceled', 'incomplete_expired')")
+    expect(condition).toContain("'finalUsage' IS NOT NULL")
     expect(new PgDialect().sqlToQuery(set.metadata).sql).toBe(
       `coalesce("subscription"."metadata"::jsonb, '{}'::jsonb) || excluded.metadata::jsonb`
     )
+  })
+
+  it('ignores an active creation snapshot when Stripe or the retained local row is already closed', async () => {
+    const { handleManualEnterpriseSubscription } = await import('./enterprise')
+    retrieve.mockResolvedValueOnce({ ...event.data.object, status: 'canceled' })
+    await handleManualEnterpriseSubscription(event)
+    expect(insertValues).not.toHaveBeenCalled()
+
+    insertQuery.returning.mockResolvedValueOnce([])
+    await handleManualEnterpriseSubscription(event)
+    expect(insertValues).toHaveBeenCalledOnce()
+    expect(selectQuery.from).not.toHaveBeenCalled()
+    expect(sendEmail).not.toHaveBeenCalled()
   })
 
   it('ignores subscription-level metadata when Checkout items have no contract terms', async () => {
@@ -164,6 +192,7 @@ describe('handleManualEnterpriseSubscription', () => {
       ...event,
       data: { object: { ...event.data.object, items: { data: [contractItem], has_more: true } } },
     }
+    retrieve.mockResolvedValueOnce(truncated.data.object)
     listItems.mockResolvedValueOnce({ data: [contractItem, { ...contractItem, id: 'si_other' }] })
     await expect(handleManualEnterpriseSubscription(truncated)).rejects.toThrow(
       'Ambiguous enterprise contract items'

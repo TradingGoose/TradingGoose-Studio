@@ -35,6 +35,7 @@ const { db, tx, findSubscription, ensureDefault, calculate, sendEmail, stripe } 
       invoices: {
         create: vi.fn(),
         list: vi.fn(),
+        listLineItems: vi.fn(),
         finalizeInvoice: vi.fn(),
         pay: vi.fn(),
         retrieve: vi.fn(),
@@ -98,6 +99,7 @@ function invoiceEvent(overrides: Partial<Stripe.Invoice> = {}): Stripe.Event {
         amount_due: 1200,
         attempt_count: 1,
         hosted_invoice_url: 'https://invoice.stripe.com/i/example',
+        lines: { data: [], has_more: false },
         metadata: { type: 'final_overage_billing', subscriptionId: 'sub_stripe' },
         ...overrides,
       },
@@ -393,7 +395,14 @@ describe('renewal and cancellation settlement', () => {
   })
   const deletion = {
     created: boundary + 3600,
-    data: { object: { id: 'sub_stripe', customer: 'cus_1', items: { data: [] } } },
+    data: {
+      object: {
+        id: 'sub_stripe',
+        customer: 'cus_1',
+        collection_method: 'charge_automatically',
+        items: { data: [] },
+      },
+    },
   } as unknown as Stripe.CustomerSubscriptionDeletedEvent
 
   it('finishes the original renewal claim after cancellation and prices each usage period once', async () => {
@@ -470,9 +479,72 @@ describe('renewal and cancellation settlement', () => {
       days_until_due: 15,
     })
     expect(retry[1].idempotencyKey).toBe('overage-invoice:cus_1:sub_stripe:initial')
+    expect(cancellation[0].collection_method).toBe('charge_automatically')
+    expect(cancellation[0]).not.toHaveProperty('days_until_due')
     expect(cancellation[1].idempotencyKey).toBe(`overage-invoice:cus_1:sub_stripe:${boundary}`)
     expect(stripe.invoiceItems.create.mock.calls.map(([line]) => line.amount)).toEqual([700, 5000])
     expect(stripe.invoices.pay).not.toHaveBeenCalled()
+  })
+
+  it('closes a mixed-interval contract only for its own recurring item', async () => {
+    const row = subscriptionRow('organization')
+    Object.assign(row.metadata, {
+      referenceType: 'organization',
+      referenceId: row.referenceId,
+      billingTierId: row.billingTierId,
+      monthlyPrice: '200',
+      seats: '25',
+      stripeSubscriptionItemId: 'si_annual',
+    })
+    findSubscription.mockResolvedValue(row)
+    tx.select.mockImplementation(() => ({
+      from: (table: unknown) =>
+        queryRows(table === subscription ? [row] : [{ billedOverage: '0' }]),
+    }))
+    tx.update.mockImplementation((table) => ({
+      set: (values: { metadata?: BillingMetadata }) => ({
+        where: () => {
+          if (table === subscription) row.metadata = values.metadata!
+        },
+      }),
+    }))
+    db.update.mockReturnValue({ set: () => ({ where: vi.fn() }) })
+    calculate.mockResolvedValue(0)
+    const line = (item: string, proration = false) => ({
+      id: `il_${item}`,
+      period: { start: boundary, end: boundary + 31536000 },
+      parent: { subscription_item_details: { subscription_item: item, proration } },
+    })
+    const event = invoiceEvent({
+      ...(renewal.data.object as Stripe.Invoice),
+      period_end: boundary + 60,
+      lines: {
+        data: [line('si_monthly'), line('si_annual', true)],
+        has_more: false,
+      } as Stripe.Invoice['lines'],
+    })
+    await handleInvoiceFinalized(event)
+    expect(tx.update).not.toHaveBeenCalled()
+    expect(stripe.subscriptions.retrieve).not.toHaveBeenCalled()
+
+    const invoice = event.data.object as Stripe.Invoice
+    invoice.lines.has_more = true
+    stripe.invoices.listLineItems.mockReturnValue([line('si_annual')])
+    await handleInvoiceFinalized(event)
+    expect(stripe.invoices.listLineItems).toHaveBeenCalledWith(invoice.id, {
+      starting_after: 'il_si_annual',
+      limit: 100,
+    })
+    expect(row.metadata.renewedThrough).toBe(boundary)
+    stripe.invoices.listLineItems.mockClear()
+    await handleInvoiceFinalized(event)
+    invoice.lines.data = [line('si_annual') as Stripe.InvoiceLineItem]
+    await handleInvoiceFinalized(invoiceEvent({ ...invoice, id: 'in_same_period' }))
+    expect(stripe.invoices.listLineItems).not.toHaveBeenCalled()
+    expect(calculate).toHaveBeenCalledTimes(1)
+    expect(
+      tx.update.mock.calls.filter(([table]) => table === organizationBillingLedger)
+    ).toHaveLength(1)
   })
 
   it.each([

@@ -244,6 +244,8 @@ function createDeletedStripeSubscription(
   return {
     id: overrides.id ?? 'sub_stripe_123',
     customer: 'cus_team',
+    collection_method: 'charge_automatically',
+    days_until_due: null as number | null,
     cancel_at_period_end: true,
     metadata: overrides.metadata ?? {
       referenceId: 'user-1',
@@ -581,8 +583,12 @@ describe('handleStripeSubscriptionDeleted', () => {
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
     mockSyncSubscriptionUsageLimits.mockRejectedValueOnce(new Error('Usage limit sync failed'))
-    await expect(handleStripeSubscriptionDeleted(event)).rejects.toThrow('Usage limit sync failed')
-    await handleStripeSubscriptionDeleted(event)
+    const manual = createDeletedSubscriptionEvent({
+      ...createDeletedStripeSubscription(),
+      collection_method: 'send_invoice',
+    }) as any
+    await expect(handleStripeSubscriptionDeleted(manual)).rejects.toThrow('Usage limit sync failed')
+    await handleStripeSubscriptionDeleted(manual)
     expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledTimes(2)
     expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
     expect(mockResetUsageForSubscription).toHaveBeenCalledOnce()
@@ -592,7 +598,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(invoice).not.toHaveBeenCalled()
   })
 
-  it('settles a bespoke contract using its retained tier and billed item period', async () => {
+  it('settles a bespoke contract using its retained tier, billed item period, and invoice terms', async () => {
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
     sub = createDefaultSubscription({
       referenceType: 'organization',
@@ -601,9 +607,17 @@ describe('handleStripeSubscriptionDeleted', () => {
       status: 'canceled',
     })
     Object.assign(sub, { seats: 1 })
-    mockCalculateSubscriptionOverage.mockResolvedValue(0)
+    mockCalculateSubscriptionOverage.mockResolvedValue(20)
+    const manual = { ...createEnterpriseStripeSubscription(), collection_method: 'send_invoice' }
+    await expect(
+      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent(manual) as any)
+    ).rejects.toThrow('Missing payment terms')
+    expect(mockResetUsageForSubscription).not.toHaveBeenCalled()
     await handleStripeSubscriptionDeleted(
-      createDeletedSubscriptionEvent(createEnterpriseStripeSubscription()) as any
+      createDeletedSubscriptionEvent({
+        ...manual,
+        days_until_due: 30,
+      }) as any
     )
     expect(mockSyncSubscriptionBillingTierFromStripeSubscription).not.toHaveBeenCalled()
     expect(updateCalls[0]).toMatchObject({
@@ -617,5 +631,9 @@ describe('handleStripeSubscriptionDeleted', () => {
       undefined
     )
     expect(mockResetUsageForSubscription).toHaveBeenCalledOnce()
+    expect(invoice).toHaveBeenCalledWith(
+      expect.objectContaining({ collection_method: 'send_invoice', days_until_due: 30 }),
+      expect.anything()
+    )
   })
 })

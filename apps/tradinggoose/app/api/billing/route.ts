@@ -68,6 +68,7 @@ function toOrganizationBillingPayload(
     subscriptionTier: rawBillingData.subscriptionTier,
     subscriptionStatus: rawBillingData.subscriptionStatus,
     seatPriceUsd: rawBillingData.seatPriceUsd,
+    monthlyBasePriceUsd: rawBillingData.monthlyBasePriceUsd,
     seatCount: rawBillingData.seatCount,
     seatMaximum: rawBillingData.seatMaximum,
     seatMode: rawBillingData.seatMode,

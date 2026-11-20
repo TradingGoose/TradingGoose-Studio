@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { organization, subscription, user } from '@tradinggoose/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, not, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import {
   getEmailSubject,
@@ -8,7 +8,10 @@ import {
 } from '@/components/emails/render-email'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { getStoredStripeUserCustomerId } from '@/lib/billing/stripe-customers'
-import { getStripeSubscriptionFields } from '@/lib/billing/subscriptions/utils'
+import {
+  getStripeSubscriptionFields,
+  isManualContractMetadata,
+} from '@/lib/billing/subscriptions/utils'
 import {
   getTierIncludedUsageLimit,
   isOrganizationBillingTier,
@@ -17,47 +20,9 @@ import {
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { EnterpriseSubscriptionMetadata } from '../types'
+import { hasClosingSnapshot } from './overage'
 
 const logger = createLogger('BillingEnterprise')
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0
-}
-
-function isManualContractMetadata(value: unknown): value is EnterpriseSubscriptionMetadata {
-  return (
-    !!value &&
-    typeof value === 'object' &&
-    'referenceType' in value &&
-    'referenceId' in value &&
-    'billingTierId' in value &&
-    'monthlyPrice' in value &&
-    'seats' in value &&
-    value.referenceType === 'organization' &&
-    isNonEmptyString(value.referenceId) &&
-    isNonEmptyString(value.billingTierId) &&
-    isNonEmptyString(value.monthlyPrice) &&
-    isNonEmptyString(value.seats)
-  )
-}
-
-export function getStoredManualContract(value: unknown) {
-  if (
-    !isManualContractMetadata(value) ||
-    !('stripeSubscriptionItemId' in value) ||
-    !isNonEmptyString(value.stripeSubscriptionItemId)
-  )
-    return
-  return {
-    itemId: value.stripeSubscriptionItemId,
-    terms: {
-      plan: value.billingTierId,
-      billingTierId: value.billingTierId,
-      seats: Number.parseInt(value.seats, 10),
-    },
-  }
-}
 
 export async function getStripeSubscriptionItems(stripeSubscription: Stripe.Subscription) {
   if (!stripeSubscription.items.has_more) return stripeSubscription.items.data
@@ -72,9 +37,24 @@ export async function getStripeSubscriptionItems(stripeSubscription: Stripe.Subs
 export async function handleManualEnterpriseSubscription(
   event: Stripe.CustomerSubscriptionCreatedEvent
 ) {
-  const stripeSubscription = event.data.object
+  const snapshot = event.data.object
   // Better Auth copies Checkout request metadata onto the subscription. Operators
   // put negotiated terms on its recurring item when creating a manual contract.
+  if (
+    !snapshot.items.has_more &&
+    !snapshot.items.data.some((item) => isManualContractMetadata(item.metadata))
+  )
+    return
+  const stripeSubscription = await requireStripeClient().subscriptions.retrieve(
+    snapshot.id,
+    {},
+    { timeout: 5_000, maxNetworkRetries: 0 }
+  )
+  if (
+    stripeSubscription.status === 'canceled' ||
+    stripeSubscription.status === 'incomplete_expired'
+  )
+    return
   const items = await getStripeSubscriptionItems(stripeSubscription)
   const [contractItem, otherContractItem] = items.filter((item) =>
     isManualContractMetadata(item.metadata)
@@ -157,13 +137,18 @@ export async function handleManualEnterpriseSubscription(
     .values(subscriptionRow)
     .onConflictDoUpdate({
       target: subscription.stripeSubscriptionId,
+      setWhere: and(
+        sql`coalesce(${subscription.status}, '') NOT IN ('canceled', 'incomplete_expired')`,
+        not(hasClosingSnapshot())
+      ),
       set: {
         ...contract,
         metadata: sql`coalesce(${subscription.metadata}::jsonb, '{}'::jsonb) || excluded.metadata::jsonb`,
       },
     })
     .returning({ id: subscription.id })
-  const subscriptionId = persistedSubscription?.id || subscriptionRow.id
+  if (!persistedSubscription) return
+  const subscriptionId = persistedSubscription.id
 
   if (billingTierRecord.usageScope === 'pooled') {
     const organizationUsageLimit = getTierIncludedUsageLimit(billingTierRecord) || monthlyPrice

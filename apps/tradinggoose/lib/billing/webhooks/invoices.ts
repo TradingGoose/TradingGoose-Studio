@@ -18,6 +18,7 @@ import {
   getSubscriptionRowByStripeId,
 } from '@/lib/billing/core/subscription'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
+import { getStoredManualContract } from '@/lib/billing/subscriptions/utils'
 import {
   type BillingReference,
   type BillingTierRecord,
@@ -449,6 +450,22 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
   }
 }
 
+async function getContractRenewalStart(invoice: Stripe.Invoice, itemId: string) {
+  const matchesItem = (line: Stripe.InvoiceLineItem) => {
+    const item = line.parent?.subscription_item_details
+    return item?.subscription_item === itemId && !item.proration
+  }
+  const embedded = invoice.lines.data.find(matchesItem)
+  if (embedded || !invoice.lines.has_more) return embedded?.period.start
+  const remaining = requireStripeClient().invoices.listLineItems(invoice.id, {
+    starting_after: invoice.lines.data.at(-1)?.id,
+    limit: 100,
+  })
+  for await (const line of remaining) {
+    if (matchesItem(line)) return line.period.start
+  }
+}
+
 /**
  * Handle base invoice finalized → create a separate overage-only invoice
  */
@@ -459,15 +476,23 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
   const stripeSubscriptionId = typeof parent === 'string' ? parent : parent?.id
   if (!stripeSubscriptionId) return
 
-  const canClaim = (row: { status: string | null; metadata: unknown }) =>
-    !hasClosedLedger(row) &&
-    ((row.metadata as BillingMetadata | null)?.renewedThrough ?? 0) < invoice.period_end
+  const candidate = await getSubscriptionRowByStripeId(stripeSubscriptionId)
+  if (!candidate) return
+  const existing = candidate.metadata as BillingMetadata | null
+  const itemId = getStoredManualContract(candidate.metadata)?.itemId
+  const pending = existing?.pendingRenewals?.[invoice.id]
+  if (!pending && hasClosedLedger(candidate)) return
+  let boundary: number | undefined
+  if (!pending)
+    boundary = itemId ? await getContractRenewalStart(invoice, itemId) : invoice.period_end
   const manual = invoice.collection_method === 'send_invoice'
   let defaults: Stripe.Subscription | undefined
-  if (!invoice.default_payment_method || (manual && !invoice.due_date)) {
-    const row = await getSubscriptionRowByStripeId(stripeSubscriptionId)
-    if (row && canClaim(row))
-      defaults = await requireStripeClient().subscriptions.retrieve(stripeSubscriptionId)
+  if (
+    boundary !== undefined &&
+    (existing?.renewedThrough ?? 0) < boundary &&
+    (!invoice.default_payment_method || (manual && !invoice.due_date))
+  ) {
+    defaults = await requireStripeClient().subscriptions.retrieve(stripeSubscriptionId)
   }
   const quote = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -479,7 +504,12 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
     const metadata = row.metadata as BillingMetadata | null
     const pending = metadata?.pendingRenewals?.[invoice.id]
     if (pending) return { id: row.id, pending, resuming: true }
-    if (!canClaim(row)) return
+    if (
+      boundary === undefined ||
+      hasClosedLedger(row) ||
+      (metadata?.renewedThrough ?? 0) >= boundary
+    )
+      return
     const [sub] = await hydrateSubscriptionsWithTiers([row], tx)
     if (!sub) throw new Error(`Missing billing tier for renewing subscription ${row.id}`)
     const billedOverage = await lockBilledOverage(sub, tx)
@@ -488,7 +518,7 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
     const pendingInvoice: UsageInvoice = {
       totalOverage,
       billedOverage: billedOverage ?? 0,
-      billingPeriod: new Date(invoice.period_end * 1000).toISOString().slice(0, 7),
+      billingPeriod: new Date(boundary * 1000).toISOString().slice(0, 7),
       tierName: sub.tier.displayName,
       ledgerStart: metadata?.renewedThrough ?? 'initial',
       collectionMethod: invoice.collection_method,
@@ -509,7 +539,7 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
       .set({
         metadata: {
           ...metadata,
-          renewedThrough: invoice.period_end,
+          renewedThrough: boundary,
           pendingRenewals: { ...metadata?.pendingRenewals, [invoice.id]: pendingInvoice },
         },
       })

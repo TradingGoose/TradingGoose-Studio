@@ -1,6 +1,7 @@
 import type Stripe from 'stripe'
 import { canTierEditUsageLimit } from '@/lib/billing/tier-summary'
-import type { BillingTierRecord } from '@/lib/billing/tiers'
+import type { BillingTierRecord, SubscriptionWithTier } from '@/lib/billing/tiers'
+import type { EnterpriseSubscriptionMetadata } from '@/lib/billing/types'
 
 /**
  * Subscription statuses that count as active for billing purposes
@@ -10,6 +11,58 @@ export const BILLING_ENTITLED_SUBSCRIPTION_STATUSES = [
   ...BILLING_ACTIVE_SUBSCRIPTION_STATUSES,
   'past_due',
 ] as const
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+export function isManualContractMetadata(value: unknown): value is EnterpriseSubscriptionMetadata {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'referenceType' in value &&
+    'referenceId' in value &&
+    'billingTierId' in value &&
+    'monthlyPrice' in value &&
+    'seats' in value &&
+    value.referenceType === 'organization' &&
+    isNonEmptyString(value.referenceId) &&
+    isNonEmptyString(value.billingTierId) &&
+    isNonEmptyString(value.monthlyPrice) &&
+    isNonEmptyString(value.seats)
+  )
+}
+
+export function getStoredManualContract(value: unknown) {
+  if (
+    !isManualContractMetadata(value) ||
+    !('stripeSubscriptionItemId' in value) ||
+    !isNonEmptyString(value.stripeSubscriptionItemId)
+  )
+    return
+  return {
+    itemId: value.stripeSubscriptionItemId,
+    monthlyPriceUsd: Number.parseFloat(value.monthlyPrice),
+    terms: {
+      plan: value.billingTierId,
+      billingTierId: value.billingTierId,
+      seats: Number.parseInt(value.seats, 10),
+    },
+  }
+}
+
+export function getOrganizationMonthlyPrice(
+  subscription: SubscriptionWithTier,
+  seatPriceUsd: number
+) {
+  const contract = getStoredManualContract(subscription.metadata)
+  const licensedSeats =
+    contract?.terms.seats ?? Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
+  return {
+    licensedSeats,
+    monthlyBasePriceUsd: contract?.monthlyPriceUsd ?? seatPriceUsd * licensedSeats,
+  }
+}
 
 function stripeDate(timestamp: number | null | undefined) {
   return timestamp == null ? null : new Date(timestamp * 1000)

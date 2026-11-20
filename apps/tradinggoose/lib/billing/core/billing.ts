@@ -14,6 +14,7 @@ import {
 } from '@/lib/billing/core/subscription'
 import { getPersonalUsageSnapshot } from '@/lib/billing/core/usage'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import { getOrganizationMonthlyPrice } from '@/lib/billing/subscriptions/utils'
 import {
   type BillingTierRecord,
   getSubscriptionUsageAllowanceUsd,
@@ -336,10 +337,11 @@ export async function getSimplifiedBillingSummary(
       }
 
       const { basePrice: basePricePerSeat, usageAllowance } = getBillingTierPricing(subscription)
-      // Organization billing is always seat-based. Fall back to the tier's configured seat count
-      // until the subscription record has an explicit seat quantity.
-      const licensedSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
-      const totalBasePrice = billingEnabled ? basePricePerSeat * licensedSeats : 0
+      const { licensedSeats, monthlyBasePriceUsd } = getOrganizationMonthlyPrice(
+        subscription,
+        basePricePerSeat
+      )
+      const totalBasePrice = billingEnabled ? monthlyBasePriceUsd : 0
 
       const totalCurrentUsage = await getOrganizationCurrentUsageForTier(
         organizationId,

@@ -185,6 +185,7 @@ describe('settings localization', () => {
         monthlyPriceUsd: 12.5,
       },
       totalSeats: 2,
+      monthlyBasePriceUsd: 100,
       totalCurrentUsage: 0,
       totalUsageLimit: 25,
     }
@@ -192,6 +193,9 @@ describe('settings localization', () => {
     await render(locale, <TeamManagement />)
 
     expect(container.textContent).toContain(title)
+    expect(container.textContent).toContain(
+      new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(100)
+    )
     expect(
       Array.from(container.querySelectorAll('span')).filter((span) => span.textContent === role)
     ).toHaveLength(2)

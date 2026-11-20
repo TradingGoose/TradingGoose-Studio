@@ -598,15 +598,15 @@ export function TeamManagement() {
         <TeamUsage isOrganizationOwner={isOrganizationOwner} />
 
         {/* Organization billing information */}
-        {currentTier?.ownerType === 'organization' && (
+        {organizationBillingPayload && currentTier?.ownerType === 'organization' && (
           <div className='rounded-sm border bg-blue-50/50 p-4 shadow-xs dark:bg-blue-950/20'>
             <div className='space-y-3'>
               <h4 className='font-medium text-sm'>{copy('howBillingWorks')}</h4>
               <ul className='ml-4 list-disc space-y-2 text-muted-foreground text-xs'>
                 <li>
                   {copy('billingHowWorksSeatCost', {
-                    seats: subscriptionData?.seats || 0,
-                    amount: formatUsd(locale, (subscriptionData?.seats || 0) * seatPriceUsd),
+                    seats: organizationBillingPayload.totalSeats,
+                    amount: formatUsd(locale, organizationBillingPayload.monthlyBasePriceUsd),
                   })}
                 </li>
                 <li>{copy('billingHowWorksUsageTracked')}</li>

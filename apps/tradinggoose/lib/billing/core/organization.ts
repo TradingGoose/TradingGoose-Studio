@@ -10,6 +10,7 @@ import {
 import { and, eq } from 'drizzle-orm'
 import { getBillingTierPricing, getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import { getOrganizationMonthlyPrice } from '@/lib/billing/subscriptions/utils'
 import {
   canTierEditUsageLimit,
   getSubscriptionUsageAllowanceUsd,
@@ -245,6 +246,7 @@ interface OrganizationUsageData {
   subscriptionTier: BillingTierSummary | null
   subscriptionStatus: string | null
   seatPriceUsd: number
+  monthlyBasePriceUsd: number
   seatCount: number | null
   seatMaximum: number | null
   seatMode: 'fixed' | 'adjustable' | null
@@ -367,6 +369,7 @@ export async function getOrganizationBillingData(
         subscriptionTier: null,
         subscriptionStatus: null,
         seatPriceUsd: 0,
+        monthlyBasePriceUsd: 0,
         seatCount: null,
         seatMaximum: null,
         seatMode: null,
@@ -435,9 +438,10 @@ export async function getOrganizationBillingData(
     const totalLastPeriodCopilotCost = billingLedger.lastPeriodCopilotCost
 
     const { basePrice: recurringPrice } = getBillingTierPricing(subscription.tier)
-    // Use Stripe subscription seats as source of truth
-    // Ensure we always have at least 1 seat (protect against 0 or falsy values)
-    const licensedSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
+    const { licensedSeats, monthlyBasePriceUsd } = getOrganizationMonthlyPrice(
+      subscription,
+      recurringPrice
+    )
 
     const minimumUsageLimit = getOrganizationMinimumUsageLimitUsd(subscription)
     let totalUsageLimit: number
@@ -465,6 +469,7 @@ export async function getOrganizationBillingData(
       subscriptionTier: toBillingTierSummary(subscription.tier),
       subscriptionStatus: subscription.status || 'inactive',
       seatPriceUsd: roundCurrency(recurringPrice),
+      monthlyBasePriceUsd: roundCurrency(monthlyBasePriceUsd),
       seatCount: subscription.tier.seatCount ?? null,
       seatMaximum: subscription.tier.seatMaximum ?? null,
       seatMode: subscription.tier.seatMode,
