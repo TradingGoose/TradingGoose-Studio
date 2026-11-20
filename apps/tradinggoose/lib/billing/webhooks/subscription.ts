@@ -9,7 +9,11 @@ import {
 } from '@/lib/billing/core/subscription'
 import { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } from '@/lib/billing/core/usage'
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
-import { getStripeSubscriptionFields } from '@/lib/billing/subscriptions/utils'
+import { requireStripeClient } from '@/lib/billing/stripe-client'
+import {
+  getStripeSubscriptionFields,
+  getStripeSubscriptionPlanItem,
+} from '@/lib/billing/subscriptions/utils'
 import {
   type BillingTierRecord,
   hydrateSubscriptionsWithTiers,
@@ -18,7 +22,12 @@ import {
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import { lockBilledOverage, resetUsageForSubscription } from '@/lib/billing/webhooks/invoices'
 import { createLogger } from '@/lib/logs/console/logger'
-import { type BillingMetadata, settleUsageInvoice, type UsageInvoice } from './overage'
+import {
+  type BillingMetadata,
+  hasClosingSnapshot,
+  settleUsageInvoice,
+  type UsageInvoice,
+} from './overage'
 
 const logger = createLogger('StripeSubscriptionWebhooks')
 
@@ -109,6 +118,48 @@ export async function handleSubscriptionCreated(
     })
     throw error
   }
+}
+
+export async function handleStripeSubscriptionUpdated(
+  event: Stripe.CustomerSubscriptionUpdatedEvent
+) {
+  const stripeId = event.data.object.id
+  const current = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ id: subscription.id, closed: hasClosingSnapshot() })
+      .from(subscription)
+      .where(eq(subscription.stripeSubscriptionId, stripeId))
+      .for('update')
+    if (!row) return
+    if (row.closed) {
+      await tx.update(subscription).set({ status: 'canceled' }).where(eq(subscription.id, row.id))
+      return
+    }
+
+    // Better Auth has applied this event's snapshot. Read Stripe under the row lock
+    // so concurrent deliveries apply the current subscription in the order they read it.
+    const live = await requireStripeClient().subscriptions.retrieve(
+      stripeId,
+      {},
+      { timeout: 5_000, maxNetworkRetries: 0 }
+    )
+    const tier = await syncSubscriptionBillingTierFromStripeSubscription(
+      { subscriptionId: row.id, stripeSubscription: live },
+      tx
+    )
+    const [updated] = await tx
+      .update(subscription)
+      .set({
+        ...getStripeSubscriptionFields(live, tier),
+        plan: tier.id,
+        seats: getStripeSubscriptionPlanItem(live, tier)?.quantity ?? 1,
+        status: live.status,
+      })
+      .where(eq(subscription.id, row.id))
+      .returning()
+    return updated
+  })
+  if (current) await syncSubscriptionUsageLimits(current)
 }
 
 export async function handleStripeSubscriptionDeleted(

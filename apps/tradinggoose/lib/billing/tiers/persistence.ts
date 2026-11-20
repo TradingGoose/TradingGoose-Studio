@@ -17,20 +17,22 @@ function getStripeRecurringPriceIds(stripeSubscription: Stripe.Subscription) {
   )
 }
 
-export async function syncSubscriptionBillingTierFromStripeSubscription(input: {
-  subscriptionId: string
-  stripeSubscription: Stripe.Subscription
-}) {
+export async function syncSubscriptionBillingTierFromStripeSubscription(
+  input: { subscriptionId: string; stripeSubscription: Stripe.Subscription },
+  dbClient: Pick<typeof db, 'select' | 'update'> = db
+) {
   const stripePriceIds = getStripeRecurringPriceIds(input.stripeSubscription)
   if (stripePriceIds.length === 0) {
     throw new Error(`Stripe subscription ${input.stripeSubscription.id} has no recurring price`)
   }
 
-  const tiers = await db
+  const tiers = await dbClient
     .select({
       id: systemBillingTier.id,
       displayName: systemBillingTier.displayName,
       ownerType: systemBillingTier.ownerType,
+      stripeMonthlyPriceId: systemBillingTier.stripeMonthlyPriceId,
+      stripeYearlyPriceId: systemBillingTier.stripeYearlyPriceId,
     })
     .from(systemBillingTier)
     .where(
@@ -60,7 +62,7 @@ export async function syncSubscriptionBillingTierFromStripeSubscription(input: {
       ? input.stripeSubscription.customer
       : input.stripeSubscription.customer.id
 
-  const [subscriptionRecord] = await db
+  const [subscriptionRecord] = await dbClient
     .select({ referenceId: subscription.referenceId })
     .from(subscription)
     .where(eq(subscription.id, input.subscriptionId))
@@ -70,7 +72,7 @@ export async function syncSubscriptionBillingTierFromStripeSubscription(input: {
   }
 
   const referenceTable = tier.ownerType === 'organization' ? organization : user
-  const [referenceRecord] = await db
+  const [referenceRecord] = await dbClient
     .select({ id: referenceTable.id })
     .from(referenceTable)
     .where(eq(referenceTable.id, subscriptionRecord.referenceId))
@@ -80,7 +82,7 @@ export async function syncSubscriptionBillingTierFromStripeSubscription(input: {
     throw new Error(`Subscription ${input.subscriptionId} does not reference ${referenceLabel}`)
   }
 
-  await db
+  await dbClient
     .update(subscription)
     .set({
       billingTierId: tier.id,

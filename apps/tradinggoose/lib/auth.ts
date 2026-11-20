@@ -15,7 +15,7 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import {
@@ -40,9 +40,9 @@ import {
   handleInvoicePaymentFailed,
   handleInvoiceResolved,
 } from '@/lib/billing/webhooks/invoices'
-import { hasClosingSnapshot } from '@/lib/billing/webhooks/overage'
 import {
   handleStripeSubscriptionDeleted,
+  handleStripeSubscriptionUpdated,
   handleSubscriptionCreated,
 } from '@/lib/billing/webhooks/subscription'
 import { resolveEmailLocale } from '@/lib/email/locale'
@@ -141,36 +141,18 @@ const TRUSTED_OAUTH_PROVIDER_IDS = Array.from(
   ])
 )
 
-async function getHydratedSubscriptionById(subscriptionId: string) {
-  const rows = await db
-    .select()
-    .from(schema.subscription)
-    .where(eq(schema.subscription.id, subscriptionId))
-    .limit(1)
-
-  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
-  return hydratedSubscriptions[0] ?? null
-}
-
-async function syncBillingTierAndRequireSubscription(input: {
-  subscriptionId: string
-  stripeSubscription: Stripe.Subscription
-}) {
-  await syncSubscriptionBillingTierFromStripeSubscription(input)
-
-  const hydratedSubscription = await getHydratedSubscriptionById(input.subscriptionId)
-  if (!hydratedSubscription) {
-    throw new Error(`Subscription ${input.subscriptionId} could not be hydrated`)
-  }
-
-  return hydratedSubscription
-}
-
 async function handleCompletedSubscription(input: {
   subscriptionId: string
   stripeSubscription: Stripe.Subscription
 }) {
-  const subscription = await syncBillingTierAndRequireSubscription(input)
+  await syncSubscriptionBillingTierFromStripeSubscription(input)
+  const rows = await db
+    .select()
+    .from(schema.subscription)
+    .where(eq(schema.subscription.id, input.subscriptionId))
+    .limit(1)
+  const [subscription] = await hydrateSubscriptionsWithTiers(rows)
+  if (!subscription) throw new Error(`Subscription ${input.subscriptionId} could not be hydrated`)
   await handleSubscriptionCreated(subscription)
   await syncSubscriptionUsageLimits(subscription)
   await sendBillingTierWelcomeEmail(subscription)
@@ -1721,43 +1703,6 @@ export const auth = betterAuth({
             stripeSubscription,
           })
         },
-        onSubscriptionUpdate: async ({
-          event,
-          subscription,
-        }: {
-          event: Stripe.Event
-          subscription: any
-        }) => {
-          logger.info('[onSubscriptionUpdate] Subscription updated', {
-            subscriptionId: subscription.id,
-            status: subscription.status,
-          })
-
-          // Better Auth applied the event status before this callback. A settled
-          // subscription is terminal even if Stripe delivers an earlier update now.
-          const [closed] = await db
-            .update(schema.subscription)
-            .set({ status: 'canceled' })
-            .where(and(eq(schema.subscription.id, subscription.id), hasClosingSnapshot()))
-            .returning({ id: schema.subscription.id })
-          if (closed) return
-
-          const resolvedSubscription = await syncBillingTierAndRequireSubscription({
-            subscriptionId: subscription.id,
-            stripeSubscription: event.data.object as Stripe.Subscription,
-          })
-
-          try {
-            await syncSubscriptionUsageLimits(resolvedSubscription)
-          } catch (error) {
-            logger.error('[onSubscriptionUpdate] Failed to sync usage limits', {
-              subscriptionId: subscription.id,
-              referenceType: resolvedSubscription.referenceType,
-              referenceId: resolvedSubscription.referenceId,
-              error,
-            })
-          }
-        },
       },
       onEvent: async (event: Stripe.Event) => {
         logger.info('[onEvent] Received Stripe webhook', {
@@ -1783,6 +1728,10 @@ export const auth = betterAuth({
             }
             case 'customer.subscription.created': {
               await handleManualEnterpriseSubscription(event)
+              break
+            }
+            case 'customer.subscription.updated': {
+              await handleStripeSubscriptionUpdated(event)
               break
             }
             case 'customer.subscription.deleted': {

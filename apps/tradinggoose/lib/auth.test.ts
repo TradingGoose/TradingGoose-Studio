@@ -2,11 +2,10 @@ import { type BetterAuthOptions, betterAuth, getAuthStateVerificationIdentifier 
 import { memoryAdapter } from 'better-auth/adapters/memory'
 import { applySetCookies } from 'better-auth/cookies'
 import { testUtils } from 'better-auth/plugins'
-import type { SQL } from 'drizzle-orm'
-import { PgDialect } from 'drizzle-orm/pg-core'
 import type Stripe from 'stripe'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as invoices from '@/lib/billing/webhooks/invoices'
+import * as subscriptions from '@/lib/billing/webhooks/subscription'
 
 const { registerClient } = vi.hoisted(() => ({ registerClient: vi.fn() }))
 
@@ -55,22 +54,21 @@ it.each(['user-1', 'org-1'])(
   }
 )
 
-it('restores the terminal status before a delayed Stripe update can sync usage limits', async () => {
-  const { db } = await import('@tradinggoose/db')
-  const { subscription } = await import('@tradinggoose/db/schema')
-  const where = vi.fn((_predicate: SQL) => ({ returning: async () => [{ id: 'closed' }] }))
-  const set = vi.fn(() => ({ where }))
-  vi.mocked(db.update).mockReturnValueOnce({ set } as never)
-  const options = auth.options.plugins.find((plugin) => plugin.id === 'stripe')!.options
-    .subscription
-  if (!options?.enabled) throw new Error('The Stripe subscription plugin is required')
-  await options.onSubscriptionUpdate!({ subscription: { id: 'closed', status: 'active' } } as never)
-  expect(db.update).toHaveBeenCalledWith(subscription)
-  expect(set).toHaveBeenCalledWith({ status: 'canceled' })
-  const predicate = new PgDialect().sqlToQuery(where.mock.lastCall![0])
-  expect(predicate.params).toEqual(['closed'])
-  expect(predicate.sql).toContain("'finalUsage' IS NOT NULL")
-  expect(predicate.sql).toContain("'finalInvoice' IS NOT NULL")
+it('propagates subscription reconciliation failures so Stripe retries the update', async () => {
+  const handler = vi
+    .spyOn(subscriptions, 'handleStripeSubscriptionUpdated')
+    .mockRejectedValue(new Error('Stripe unavailable'))
+  try {
+    const event = {
+      type: 'customer.subscription.updated',
+    } as Stripe.CustomerSubscriptionUpdatedEvent
+    await expect(
+      auth.options.plugins.find((plugin) => plugin.id === 'stripe')!.options.onEvent(event)
+    ).rejects.toThrow('Stripe unavailable')
+    expect(handler).toHaveBeenCalledExactlyOnceWith(event)
+  } finally {
+    handler.mockRestore()
+  }
 })
 
 it.each(['invoice.paid', 'invoice.voided', 'invoice.marked_uncollectible'] as const)(

@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 
+import type Stripe from 'stripe'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
@@ -114,6 +115,77 @@ vi.mock('@/lib/logs/console/logger', () => ({
     warn: vi.fn(),
   }),
 }))
+
+describe('subscription updates arriving out of order', () => {
+  const stripeId = 'sub_current'
+  const event = {
+    type: 'customer.subscription.updated',
+    data: { object: { id: stripeId, status: 'unpaid' } },
+  } as Stripe.CustomerSubscriptionUpdatedEvent
+  const lock = vi.fn()
+  const set = vi.fn()
+  const tx = {
+    select: () => ({ from: () => ({ where: () => ({ for: lock }) }) }),
+    update: () => ({ set }),
+  }
+  const retrieve = vi.fn()
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockDb.transaction.mockImplementation((run) => run(tx))
+    mockRequireStripeClient.mockReturnValue({ subscriptions: { retrieve } })
+  })
+
+  it('restores the current paid plan and period under the lock before syncing usage limits', async () => {
+    const { handleStripeSubscriptionUpdated } = await import('./subscription')
+    lock.mockResolvedValue([{ id: 'local', closed: false }])
+    const live = { ...createDeletedStripeSubscription({ id: stripeId }), status: 'active' }
+    Object.assign(live.items.data[0], { quantity: 4 })
+    retrieve.mockResolvedValue(live)
+    mockSyncSubscriptionBillingTierFromStripeSubscription.mockResolvedValue({
+      id: 'tier_live',
+      stripeMonthlyPriceId: 'price_payg',
+    })
+    const updated = { id: 'local', status: 'active' }
+    set.mockReturnValue({ where: () => ({ returning: async () => [updated] }) })
+
+    await handleStripeSubscriptionUpdated(event)
+    expect(lock).toHaveBeenCalledWith('update')
+    expect(lock).toHaveBeenCalledBefore(retrieve)
+    expect(retrieve).toHaveBeenCalledExactlyOnceWith(
+      stripeId,
+      {},
+      {
+        timeout: 5_000,
+        maxNetworkRetries: 0,
+      }
+    )
+    expect(mockSyncSubscriptionBillingTierFromStripeSubscription).toHaveBeenCalledExactlyOnceWith(
+      { subscriptionId: 'local', stripeSubscription: live },
+      tx
+    )
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'active',
+        plan: 'tier_live',
+        seats: 4,
+        periodEnd: new Date(1781589324 * 1000),
+      })
+    )
+    expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledExactlyOnceWith(updated)
+  })
+
+  it('keeps a captured period closed and ignores an untracked subscription', async () => {
+    const { handleStripeSubscriptionUpdated } = await import('./subscription')
+    lock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'local', closed: true }])
+    set.mockReturnValue({ where: vi.fn() })
+    await handleStripeSubscriptionUpdated(event)
+    await handleStripeSubscriptionUpdated(event)
+    expect(set).toHaveBeenCalledExactlyOnceWith({ status: 'canceled' })
+    expect(retrieve).not.toHaveBeenCalled()
+    expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
+  })
+})
 
 function createDeletedStripeSubscription(
   overrides: Partial<{
