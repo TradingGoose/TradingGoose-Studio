@@ -76,6 +76,7 @@ function UnsubscribeContent() {
   const handleUnsubscribe = async (type: UnsubscribeAction) => {
     if (!email || !token || pendingAction !== null) return
 
+    setError(null)
     setPendingAction(type)
 
     try {
@@ -96,9 +97,9 @@ function UnsubscribeContent() {
       if (result.success) {
         setUnsubscribed(true)
       } else {
-        setError(result.code || result.error || 'failed-processing')
+        setError(result.code === 'invalid-link' ? 'invalid-link' : 'failed-processing')
       }
-    } catch (error) {
+    } catch {
       setError('failed-processing')
     } finally {
       setPendingAction(null)
@@ -109,7 +110,7 @@ function UnsubscribeContent() {
     return <UnsubscribeLoadingState label={unsubscribeCopy.loading} />
   }
 
-  if (error) {
+  if (error && error !== 'failed-processing') {
     const unsubscribeFailureCopy = unsubscribeCopy.errors
     const failureMessage =
       unsubscribeFailureCopy[error as keyof typeof unsubscribeFailureCopy] ??
@@ -219,10 +220,15 @@ function UnsubscribeContent() {
           </div>
         </CardHeader>
         <CardContent className='space-y-4'>
+          {error && (
+            <p role='alert' className='text-destructive text-sm'>
+              {unsubscribeCopy.errors['failed-processing']}
+            </p>
+          )}
           <div className='space-y-3'>
             <Button
               onClick={() => handleUnsubscribe('all')}
-              disabled={isProcessing || data?.currentPreferences.unsubscribeAll}
+              disabled={isProcessing}
               aria-busy={pendingAction === 'all'}
               variant='destructive'
               className='w-full'
@@ -251,7 +257,11 @@ function UnsubscribeContent() {
               <Button
                 key={list}
                 onClick={() => handleUnsubscribe(list)}
-                disabled={isProcessing || data?.currentPreferences.unsubscribeAll || isUnsubscribed}
+                disabled={
+                  isProcessing ||
+                  data?.currentPreferences.unsubscribeAll ||
+                  (list !== 'marketing' && isUnsubscribed)
+                }
                 aria-busy={pendingAction === list}
                 variant='outline'
                 className='w-full'

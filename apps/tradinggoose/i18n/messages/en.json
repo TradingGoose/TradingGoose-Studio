@@ -899,10 +899,10 @@
     },
     "main": {
       "emailLabel": "Email:",
-      "allButtonUnsubscribed": "Unsubscribed from All Emails",
+      "allButtonUnsubscribed": "Confirm opt-out from all emails",
       "allButton": "Unsubscribe from All Marketing Emails",
       "optionsPrefix": "or choose specific types:",
-      "marketingUnsubscribed": "Unsubscribed from Marketing",
+      "marketingUnsubscribed": "Confirm marketing email opt-out",
       "marketingButton": "Unsubscribe from Marketing Emails",
       "updatesUnsubscribed": "Unsubscribed from Updates",
       "updatesButton": "Unsubscribe from Product Updates",
@@ -916,7 +916,7 @@
       "missing-parameters": "Missing email or token parameter",
       "invalid-link": "Invalid or expired unsubscribe link",
       "invalid-request-data": "Invalid request data",
-      "failed-processing": "Failed to process unsubscribe request",
+      "failed-processing": "We couldn't complete your unsubscribe request. Please try again.",
       "internal-error": "Internal server error",
       "unknown": "An unexpected error occurred."
     }

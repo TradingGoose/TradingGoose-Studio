@@ -899,10 +899,10 @@
     },
     "main": {
       "emailLabel": "Correo:",
-      "allButtonUnsubscribed": "Dado de baja de todos los correos",
+      "allButtonUnsubscribed": "Confirmar la baja de todos los correos",
       "allButton": "Cancelar suscripción a todos los correos de marketing",
       "optionsPrefix": "o elige tipos específicos:",
-      "marketingUnsubscribed": "Dado de baja de marketing",
+      "marketingUnsubscribed": "Confirmar la baja de los correos de marketing",
       "marketingButton": "Cancelar suscripción a correos de marketing",
       "updatesUnsubscribed": "Dado de baja de actualizaciones",
       "updatesButton": "Cancelar suscripción a actualizaciones de producto",
@@ -916,7 +916,7 @@
       "missing-parameters": "Falta el parámetro de correo o token",
       "invalid-link": "Enlace de cancelación no válido o expirado",
       "invalid-request-data": "Datos de solicitud no válidos",
-      "failed-processing": "No se pudo procesar la solicitud de cancelación",
+      "failed-processing": "No se pudo completar tu solicitud de baja. Vuelve a intentarlo.",
       "internal-error": "Error interno del servidor",
       "unknown": "Ocurrió un error inesperado."
     }
