@@ -223,8 +223,13 @@ it.each([
   },
   {
     provider: 'wealthbox',
-    subject: '42',
-    profile: { id: 42, name: 'Wealthbox user', email: 'owner@example.com' },
+    subject: '42:17',
+    profile: {
+      id: 42,
+      name: 'Wealthbox user',
+      email: 'owner@example.com',
+      current_user: { account: 17 },
+    },
   },
   {
     provider: 'discord',
@@ -238,7 +243,11 @@ it.each([
     const other = await test.saveUser(test.createUser({ email: 'other@example.com' }))
     const { headers: otherSession } = await test.login({ userId: other.id })
 
-    async function complete(accessToken: string, session?: Headers) {
+    async function complete(
+      accessToken: string,
+      session?: Headers,
+      responseProfile: unknown = profile
+    ) {
       const headers = new Headers(session)
       const body = { provider, callbackURL: '/connected', errorCallbackURL: '/failed' }
       return runWithSystemOAuthClientCredentials(
@@ -254,7 +263,8 @@ it.each([
               token_type: 'Bearer',
             })
           )
-          if (profile) vi.mocked(fetch).mockResolvedValueOnce(Response.json(profile))
+          if (responseProfile)
+            vi.mocked(fetch).mockResolvedValueOnce(Response.json(responseProfile))
           const params = new URL(start.response.url!).searchParams
           expect(params.get('response_type')).toBe('code')
           if (provider === 'discord') expect(params.get('scope')?.split(' ')).toContain('email')
@@ -275,9 +285,18 @@ it.each([
     await expect(complete('other', otherSession)).resolves.toBe(
       '/failed?error=account_already_linked_to_different_user'
     )
-    await expect(internalAdapter.findAccounts(owner.id)).resolves.toMatchObject([
-      { providerId: provider, accountId: subject, accessToken: 'renewed' },
-    ])
+    const expectedAccounts = [{ providerId: provider, accountId: subject, accessToken: 'renewed' }]
+    if (provider === 'wealthbox') {
+      await expect(
+        complete('second-workspace', ownerSession, { ...profile, current_user: { account: 24 } })
+      ).resolves.toBe('/connected')
+      expectedAccounts.push({
+        providerId: provider,
+        accountId: '42:24',
+        accessToken: 'second-workspace',
+      })
+    }
+    await expect(internalAdapter.findAccounts(owner.id)).resolves.toMatchObject(expectedAccounts)
     await expect(internalAdapter.findAccounts(other.id)).resolves.toEqual([])
     await expect(complete('sign-in')).resolves.toBe('/failed?error=email_not_found')
   }

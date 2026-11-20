@@ -984,6 +984,12 @@ export const auth = betterAuth({
           authorizationUrl: 'https://app.crmworkspace.com/oauth/authorize',
           tokenUrl: 'https://app.crmworkspace.com/oauth/token',
           userInfoUrl: 'https://api.crmworkspace.com/v1/me',
+          accountSubject: ({ profile }) => {
+            const workspaceId = (profile.current_user as { account?: number } | undefined)?.account
+            return typeof profile.id === 'number' && typeof workspaceId === 'number'
+              ? `${profile.id}:${workspaceId}`
+              : ''
+          },
           scopes: ['login', 'data'],
         },
 
