@@ -585,6 +585,22 @@ describe('account email change through native Better Auth OTP', () => {
     expect(mail.send).not.toHaveBeenCalled()
   })
 
+  it('reports unavailable reset-link delivery before looking up the email', async () => {
+    const { auth, context, email } = await setup()
+    mail.available.mockResolvedValue(false)
+    const lookup = vi.spyOn(context.internalAdapter, 'findUserByEmail')
+    for (const address of [email, 'unregistered@example.com']) {
+      await expect(
+        auth.api.requestPasswordReset({ body: { email: address } })
+      ).rejects.toMatchObject({
+        statusCode: 503,
+        body: { code: 'EMAIL_DELIVERY_UNAVAILABLE' },
+      })
+    }
+    expect(lookup).not.toHaveBeenCalled()
+    expect(mail.send).not.toHaveBeenCalled()
+  })
+
   it('resets the password using the link delivered to the account email', async () => {
     const { auth, context, email, login } = await setup()
     const otherDevice = await context.test.login({ userId: login.session.userId })

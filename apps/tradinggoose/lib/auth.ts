@@ -736,7 +736,8 @@ export const auth = betterAuth({
         return { context: { body: { ...ctx.body, revokeOtherSessions: true } } }
       }
       if (
-        (ctx.path === '/send-verification-email' ||
+        (ctx.path === '/request-password-reset' ||
+          ctx.path === '/send-verification-email' ||
           ctx.path === '/email-otp/send-verification-otp' ||
           ctx.path === '/email-otp/request-password-reset' ||
           ctx.path === '/email-otp/request-email-change') &&
