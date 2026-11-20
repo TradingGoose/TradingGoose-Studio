@@ -163,6 +163,7 @@ describe('checkAndBillOverageThreshold', () => {
     })
     mockStripeSubscriptionsRetrieve.mockResolvedValue({
       customer: 'cus_123',
+      collection_method: 'charge_automatically',
       default_payment_method: 'pm_123',
     })
     mockStripeInvoicesCreate.mockResolvedValue({
@@ -172,6 +173,7 @@ describe('checkAndBillOverageThreshold', () => {
     mockStripeFinalizeInvoice.mockResolvedValue({
       id: 'in_123',
       status: 'open',
+      collection_method: 'charge_automatically',
     })
     mockStripeInvoicesPay.mockResolvedValue({})
     mockRequireStripeClient.mockReturnValue({
@@ -205,11 +207,41 @@ describe('checkAndBillOverageThreshold', () => {
       }),
       expect.any(Object)
     )
+    expect(mockStripeInvoicesCreate.mock.calls[0][0]).toMatchObject({
+      collection_method: 'charge_automatically',
+      default_payment_method: 'pm_123',
+    })
+    expect(mockStripeInvoicesPay).toHaveBeenCalledWith('in_123', { payment_method: 'pm_123' })
     expect(updatedStats).toEqual([
       expect.objectContaining({
         billedOverageThisPeriod: expect.any(Object),
       }),
     ])
+  })
+
+  it('sends a threshold invoice on the subscription payment terms without charging the saved card', async () => {
+    mockStripeSubscriptionsRetrieve.mockResolvedValue({
+      customer: 'cus_123',
+      collection_method: 'send_invoice',
+      days_until_due: 30,
+      default_payment_method: 'pm_123',
+    })
+    mockStripeFinalizeInvoice.mockResolvedValue({
+      id: 'in_123',
+      status: 'open',
+      collection_method: 'send_invoice',
+    })
+
+    const { checkAndBillOverageThreshold } = await import('./threshold-billing')
+    await checkAndBillOverageThreshold({ userId: 'user-1', workspaceId: 'workspace-1' })
+
+    expect(mockStripeInvoicesCreate.mock.calls[0][0]).toMatchObject({
+      collection_method: 'send_invoice',
+      days_until_due: 30,
+    })
+    expect(mockStripeFinalizeInvoice).toHaveBeenCalledWith('in_123', { auto_advance: true })
+    expect(mockStripeInvoicesPay).not.toHaveBeenCalled()
+    expect(updatedStats).toHaveLength(1)
   })
 
   it('does not create a threshold invoice until unbilled overage reaches the configured threshold', async () => {

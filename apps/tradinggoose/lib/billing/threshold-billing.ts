@@ -31,7 +31,7 @@ async function createAndFinalizeOverageInvoice(
   stripe: ReturnType<typeof requireStripeClient>,
   params: {
     customerId: string
-    stripeSubscriptionId: string
+    subscription: Stripe.Subscription
     amountCents: number
     description: string
     itemDescription: string
@@ -39,36 +39,20 @@ async function createAndFinalizeOverageInvoice(
     idempotencyKey: string
   }
 ): Promise<string> {
-  const getPaymentMethodId = (
-    pm: string | Stripe.PaymentMethod | null | undefined
-  ): string | undefined => (typeof pm === 'string' ? pm : pm?.id)
-
-  let defaultPaymentMethod: string | undefined
-  try {
-    const stripeSub = await stripe.subscriptions.retrieve(params.stripeSubscriptionId)
-    const subDpm = getPaymentMethodId(stripeSub.default_payment_method)
-    if (subDpm) {
-      defaultPaymentMethod = subDpm
-    } else {
-      const custObj = await stripe.customers.retrieve(params.customerId)
-      if (custObj && !('deleted' in custObj)) {
-        const cust = custObj as Stripe.Customer
-        const custDpm = getPaymentMethodId(cust.invoice_settings?.default_payment_method)
-        if (custDpm) defaultPaymentMethod = custDpm
-      }
-    }
-  } catch (error) {
-    logger.error('Failed to retrieve subscription or customer', { error })
-  }
+  const { collection_method, days_until_due, default_payment_method } = params.subscription
+  const manual = collection_method === 'send_invoice'
+  const paymentMethod =
+    typeof default_payment_method === 'string' ? default_payment_method : default_payment_method?.id
 
   const invoice = await stripe.invoices.create(
     {
       customer: params.customerId,
-      collection_method: 'charge_automatically',
+      collection_method,
+      ...(manual && { days_until_due: days_until_due ?? undefined }),
       auto_advance: false,
       description: params.description,
       metadata: params.metadata,
-      ...(defaultPaymentMethod ? { default_payment_method: defaultPaymentMethod } : {}),
+      ...(!manual && paymentMethod && { default_payment_method: paymentMethod }),
     },
     { idempotencyKey: `${params.idempotencyKey}-invoice` }
   )
@@ -85,24 +69,20 @@ async function createAndFinalizeOverageInvoice(
     { idempotencyKey: params.idempotencyKey }
   )
 
-  if (invoice.id) {
-    const finalized = await stripe.invoices.finalizeInvoice(invoice.id)
+  const finalized = await stripe.invoices.finalizeInvoice(invoice.id, { auto_advance: manual })
 
-    if (finalized.status === 'open' && finalized.id) {
-      try {
-        await stripe.invoices.pay(finalized.id, {
-          payment_method: defaultPaymentMethod,
-        })
-      } catch (payError) {
-        logger.error('Failed to auto-pay threshold overage invoice', {
-          error: payError,
-          invoiceId: finalized.id,
-        })
-      }
+  if (finalized.collection_method === 'charge_automatically' && finalized.status === 'open') {
+    try {
+      await stripe.invoices.pay(finalized.id, { payment_method: paymentMethod })
+    } catch (payError) {
+      logger.error('Failed to auto-pay threshold overage invoice', {
+        error: payError,
+        invoiceId: finalized.id,
+      })
     }
   }
 
-  return invoice.id || ''
+  return invoice.id
 }
 
 async function resolveThresholdBillingContext(params: {
@@ -305,7 +285,7 @@ export async function checkAndBillOverageThreshold(params: {
 
       const invoiceId = await createAndFinalizeOverageInvoice(stripe, {
         customerId,
-        stripeSubscriptionId,
+        subscription: stripeSubscription,
         amountCents,
         description: `Threshold overage billing – ${billingPeriod}`,
         itemDescription: `Usage overage ($${amountToBill.toFixed(2)})`,
