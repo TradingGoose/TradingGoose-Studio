@@ -186,10 +186,14 @@ describe('subscription updates arriving out of order', () => {
     expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
 
-  it('uses the negotiated seats and the stored contract item when an enterprise plan changes status', async () => {
+  it('refreshes negotiated amounts from the linked item and keeps the billing record', async () => {
     const { handleStripeSubscriptionUpdated } = await import('./subscription')
-    lock.mockResolvedValue([{ id: 'enterprise', metadata: contract, closed: false }])
+    const metadata = { ...contract, renewedThrough: 123, blockedInvoices: ['in_123'] }
+    lock.mockResolvedValue([{ id: 'enterprise', metadata, closed: false }])
     const live = createEnterpriseStripeSubscription()
+    const item = live.items.data[1]
+    item.price.id = 'price_renegotiated'
+    item.metadata = { seats: '32', monthlyPrice: '250.50' }
     retrieve.mockResolvedValue({ ...live, status: 'active', metadata: { seats: '1' } })
     set.mockReturnValue({ where: () => ({ returning: async () => [{}] }) })
     await handleStripeSubscriptionUpdated(event)
@@ -197,7 +201,8 @@ describe('subscription updates arriving out of order', () => {
       expect.objectContaining({
         plan: contract.billingTierId,
         billingTierId: contract.billingTierId,
-        seats: 25,
+        seats: 32,
+        metadata: { ...metadata, ...item.metadata },
         status: 'active',
         periodEnd: new Date(1781589324 * 1000),
         billingInterval: 'year',
@@ -230,6 +235,7 @@ function createEnterpriseStripeSubscription() {
     id: contract.stripeSubscriptionItemId,
     quantity: 1,
     price: { id: 'price_bespoke', recurring: { interval: 'year' } },
+    metadata: { seats: contract.seats, monthlyPrice: contract.monthlyPrice },
   }
   return { ...stripe, items: { data: [{ ...item, id: 'si_addon', current_period_end: 42 }, item] } }
 }

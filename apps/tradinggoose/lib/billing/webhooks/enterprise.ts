@@ -9,6 +9,7 @@ import {
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { getStoredStripeUserCustomerId } from '@/lib/billing/stripe-customers'
 import {
+  getManualContractAmounts,
   getStripeSubscriptionFields,
   isManualContractMetadata,
 } from '@/lib/billing/subscriptions/utils'
@@ -86,27 +87,7 @@ export async function handleManualEnterpriseSubscription(
 
   const referenceId = enterpriseMetadata.referenceId
 
-  // Extract and parse seats and monthly price from metadata (they come as strings from Stripe)
-  const seats = Number.parseInt(enterpriseMetadata.seats, 10)
-  const monthlyPrice = Number.parseFloat(enterpriseMetadata.monthlyPrice)
-
-  if (!seats || seats <= 0 || Number.isNaN(seats)) {
-    logger.error('[subscription.created] Invalid or missing seats in enterprise metadata', {
-      subscriptionId: stripeSubscription.id,
-      seatsRaw: enterpriseMetadata.seats,
-      seatsParsed: seats,
-    })
-    throw new Error('Enterprise subscription must include valid seats in metadata')
-  }
-
-  if (!monthlyPrice || monthlyPrice <= 0 || Number.isNaN(monthlyPrice)) {
-    logger.error('[subscription.created] Invalid or missing monthlyPrice in enterprise metadata', {
-      subscriptionId: stripeSubscription.id,
-      monthlyPriceRaw: enterpriseMetadata.monthlyPrice,
-      monthlyPriceParsed: monthlyPrice,
-    })
-    throw new Error('Enterprise subscription must include valid monthlyPrice in metadata')
-  }
+  const { seats, monthlyPriceUsd } = getManualContractAmounts(enterpriseMetadata)
 
   const billingTierRecord = await requireBillingTierById(enterpriseMetadata.billingTierId)
 
@@ -151,7 +132,7 @@ export async function handleManualEnterpriseSubscription(
   const subscriptionId = persistedSubscription.id
 
   if (billingTierRecord.usageScope === 'pooled') {
-    const organizationUsageLimit = getTierIncludedUsageLimit(billingTierRecord) || monthlyPrice
+    const organizationUsageLimit = getTierIncludedUsageLimit(billingTierRecord) || monthlyPriceUsd
 
     try {
       await db
@@ -184,7 +165,7 @@ export async function handleManualEnterpriseSubscription(
     billingTierId: subscriptionRow.billingTierId,
     billingTier: billingTierRecord.displayName,
     status: subscriptionRow.status,
-    monthlyPrice,
+    monthlyPrice: monthlyPriceUsd,
     seats,
     note: 'Seats from metadata, Stripe quantity set to 1',
   })

@@ -11,6 +11,7 @@ import { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } from '@/lib/b
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
+  getManualContractAmounts,
   getStoredManualContract,
   getStripeSubscriptionFields,
   getStripeSubscriptionPlanItem,
@@ -159,11 +160,14 @@ export async function handleStripeSubscriptionUpdated(
     )
     let item: Stripe.SubscriptionItem | undefined
     let terms
+    let metadata = row.metadata
     if (contract) {
       item = await getStoredContractItem(live, contract.itemId)
       if (!item)
         throw new Error(`Missing enterprise contract item ${contract.itemId} on ${live.id}`)
-      terms = contract.terms
+      const { seats, monthlyPrice } = item.metadata
+      terms = { ...contract.terms, seats: getManualContractAmounts({ seats, monthlyPrice }).seats }
+      metadata = { ...(metadata as BillingMetadata | null), seats, monthlyPrice }
     } else {
       const tier = await syncSubscriptionBillingTierFromStripeSubscription(
         { subscriptionId: row.id, stripeSubscription: live },
@@ -177,6 +181,7 @@ export async function handleStripeSubscriptionUpdated(
       .set({
         ...getStripeSubscriptionFields(live, item),
         ...terms,
+        ...(contract && { metadata }),
         status: live.status,
       })
       .where(eq(subscription.id, row.id))

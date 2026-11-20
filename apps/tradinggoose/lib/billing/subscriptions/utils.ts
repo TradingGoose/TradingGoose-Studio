@@ -33,6 +33,20 @@ export function isManualContractMetadata(value: unknown): value is EnterpriseSub
   )
 }
 
+export function getManualContractAmounts(
+  metadata: Pick<EnterpriseSubscriptionMetadata, 'seats' | 'monthlyPrice'>
+) {
+  const seats = Number(metadata.seats)
+  const monthlyPriceUsd = Number(metadata.monthlyPrice)
+  if (!Number.isSafeInteger(seats) || seats < 1) {
+    throw new Error('Enterprise subscription must include valid seats in item metadata')
+  }
+  if (!Number.isFinite(monthlyPriceUsd) || monthlyPriceUsd <= 0) {
+    throw new Error('Enterprise subscription must include a valid monthlyPrice in item metadata')
+  }
+  return { seats, monthlyPriceUsd }
+}
+
 export function getStoredManualContract(value: unknown) {
   if (
     !isManualContractMetadata(value) ||
@@ -40,13 +54,14 @@ export function getStoredManualContract(value: unknown) {
     !isNonEmptyString(value.stripeSubscriptionItemId)
   )
     return
+  const { seats, monthlyPriceUsd } = getManualContractAmounts(value)
   return {
     itemId: value.stripeSubscriptionItemId,
-    monthlyPriceUsd: Number.parseFloat(value.monthlyPrice),
+    monthlyPriceUsd,
     terms: {
       plan: value.billingTierId,
       billingTierId: value.billingTierId,
-      seats: Number.parseInt(value.seats, 10),
+      seats,
     },
   }
 }
