@@ -1,4 +1,7 @@
-import { getPersonalBillingSnapshot } from '@/lib/billing/core/subscription'
+import {
+  getBillingSubscriptionForReference,
+  getPersonalBillingSnapshot,
+} from '@/lib/billing/core/subscription'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { ExecutionLimiter } from '@/services/queue'
 
@@ -24,10 +27,11 @@ export interface UserLimits {
 }
 
 export async function getUserLimits(userId: string): Promise<UserLimits> {
-  const [billingSnapshot, rateLimiter] = await Promise.all([
-    getPersonalBillingSnapshot(userId),
-    Promise.resolve(new ExecutionLimiter()),
-  ])
+  const billingSnapshot = await getPersonalBillingSnapshot(
+    userId,
+    getBillingSubscriptionForReference
+  )
+  const rateLimiter = new ExecutionLimiter()
 
   const [syncStatus, asyncStatus] = await Promise.all([
     rateLimiter.getRateLimitStatusWithSubscription(

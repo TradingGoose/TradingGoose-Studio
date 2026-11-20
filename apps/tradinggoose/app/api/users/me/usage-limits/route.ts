@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import { getPersonalBillingSnapshot } from '@/lib/billing/core/subscription'
+import {
+  getBillingSubscriptionForReference,
+  getPersonalBillingSnapshot,
+} from '@/lib/billing/core/subscription'
 import { getUserStorageLimit, getUserStorageUsage } from '@/lib/billing/storage'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createErrorResponse } from '@/app/api/workflows/utils'
@@ -17,7 +20,10 @@ export async function GET(request: NextRequest) {
     const authenticatedUserId = auth.userId
 
     // Rate limit info (sync + async), mirroring /users/me/rate-limit
-    const billingSnapshot = await getPersonalBillingSnapshot(authenticatedUserId)
+    const billingSnapshot = await getPersonalBillingSnapshot(
+      authenticatedUserId,
+      getBillingSubscriptionForReference
+    )
     const rateLimiter = new ExecutionLimiter()
     const triggerType = auth.authType === 'api_key' ? 'api' : 'manual'
     const [syncStatus, asyncStatus] = await Promise.all([
