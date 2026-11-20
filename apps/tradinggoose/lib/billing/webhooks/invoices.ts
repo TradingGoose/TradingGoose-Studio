@@ -344,7 +344,7 @@ async function updatePaymentBlock(sub: SubscriptionWithTier, invoiceId: string, 
       if (!debts.delete(invoiceId)) return
     } else {
       if (!failed) return
-      if (closed || debts.has(invoiceId)) return closed
+      if (debts.has(invoiceId)) return closed
       debts.add(invoiceId)
     }
     await tx

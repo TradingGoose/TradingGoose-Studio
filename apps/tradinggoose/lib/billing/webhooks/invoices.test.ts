@@ -139,6 +139,11 @@ describe('final overage payment notices', () => {
   const recipient = { id: 'user-1', name: 'Owner', email: 'owner@example.com' }
   const currentEmail = 'new@example.com'
 
+  beforeEach(() => {
+    tx.update.mockReturnValue({ set: () => ({ where: vi.fn() }) })
+    tx.insert.mockReturnValue({ values: () => ({ onConflictDoUpdate: vi.fn() }) })
+  })
+
   it.each([
     ['user', 'owner', true],
     ['organization', 'owner', true],
@@ -163,7 +168,7 @@ describe('final overage payment notices', () => {
         [recipient.id, recipient.email],
         ...(retry ? [[recipient.id, currentEmail]] : []),
       ])
-      expect(tx.update).not.toHaveBeenCalled()
+      expect(tx.update).toHaveBeenCalledWith(subscription)
     }
   )
 
@@ -175,7 +180,7 @@ describe('final overage payment notices', () => {
     )
     expect(db.select).not.toHaveBeenCalled()
     expect(sendEmail).not.toHaveBeenCalled()
-    expect(tx.update).not.toHaveBeenCalled()
+    expect(tx.update).toHaveBeenCalledWith(subscription)
   })
 })
 
@@ -273,11 +278,27 @@ describe('invoice-specific billing blocks', () => {
       })
 
       original.status = 'canceled'
-      original.metadata.blockedInvoices = ['in_void']
-      balance.billingBlocked = true
+      const final = invoiceEvent({ id: 'in_final_after_cancellation' })
+      const earlier = invoiceEvent({
+        id: 'in_earlier',
+        metadata: { type: 'overage_threshold_billing', subscriptionId: 'sub_stripe' },
+      })
+      stripe.invoices.retrieve.mockResolvedValue({ status: 'open' })
+      db.select.mockReturnValue({ from: () => queryRows([]) })
+      await handleInvoicePaymentFailed(final)
+      expect(balance.billingBlocked).toBe(true)
+      await handleInvoicePaymentFailed(earlier)
+      expect(original.metadata.blockedInvoices).toEqual([
+        'in_final_after_cancellation',
+        'in_earlier',
+      ])
       stripe.invoices.retrieve.mockResolvedValue({ status: 'void' })
-      await handleInvoiceResolved(invoiceEvent({ id: 'in_void' }))
-      await handleInvoicePaymentFailed(invoiceEvent({ id: 'in_void' }))
+      await handleInvoiceResolved(final)
+      await handleInvoicePaymentFailed(final)
+      expect(original.metadata.blockedInvoices).toEqual(['in_earlier'])
+      expect(balance.billingBlocked).toBe(true)
+      await handleInvoiceResolved(earlier)
+      expect(original.metadata.blockedInvoices).toEqual([])
       expect(balance).toMatchObject({
         billingBlocked: false,
         currentPeriodCost: '21',
