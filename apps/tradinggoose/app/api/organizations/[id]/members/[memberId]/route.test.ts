@@ -64,8 +64,12 @@ describe('Organization member DELETE route', () => {
       }),
     }))
 
+    vi.doMock('@/lib/billing/core/subscription', () => ({
+      getBillingSubscriptionForReference: vi.fn(),
+    }))
+
     vi.doMock('@/lib/billing/core/usage', () => ({
-      getUserUsageData: vi.fn(),
+      getPersonalUsageSnapshot: vi.fn(),
     }))
 
     vi.doMock('@/lib/billing/stripe-client', () => ({

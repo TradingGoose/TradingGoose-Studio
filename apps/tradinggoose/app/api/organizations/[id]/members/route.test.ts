@@ -22,6 +22,7 @@ function createSelectChain(result: any) {
 describe('Organization members GET route', () => {
   let adminMembershipRows: any[] = []
   let memberRows: any[] = []
+  const getPersonalUsageSnapshot = vi.fn()
   const selectMock = vi.fn((selection?: Record<string, unknown>) => {
     if (selection && 'userName' in selection) {
       const chain: any = {
@@ -92,8 +93,12 @@ describe('Organization members GET route', () => {
       getOrganizationBillingData: vi.fn(),
     }))
 
+    vi.doMock('@/lib/billing/core/subscription', () => ({
+      getBillingSubscriptionForReference: vi.fn(),
+    }))
+
     vi.doMock('@/lib/billing/core/usage', () => ({
-      getUserUsageData: vi.fn(),
+      getPersonalUsageSnapshot,
     }))
 
     vi.doMock('@/lib/billing/validation/seat-management', () => ({
@@ -124,6 +129,29 @@ describe('Organization members GET route', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('returns personal billing periods for the whole roster including an unpaid member', async () => {
+    const { getBillingSubscriptionForReference } = await import('@/lib/billing/core/subscription')
+    adminMembershipRows = [{ id: 'admin', role: 'owner' }]
+    memberRows = [{ userId: 'paid' }, { userId: 'unpaid' }]
+    const billingPeriodStart = '2026-04-01T00:00:00.000Z'
+    const billingPeriodEnd = '2026-05-01T00:00:00.000Z'
+    getPersonalUsageSnapshot.mockResolvedValue({ usage: { billingPeriodStart, billingPeriodEnd } })
+
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/organizations/org-1/members?include=usage'),
+      { params: Promise.resolve({ id: 'org-1' }) }
+    )
+    expect(response.status).toBe(200)
+    expect((await response.json()).data).toEqual(
+      memberRows.map((row) => ({ ...row, billingPeriodStart, billingPeriodEnd }))
+    )
+    expect(getPersonalUsageSnapshot).toHaveBeenCalledWith(
+      'unpaid',
+      getBillingSubscriptionForReference
+    )
   })
 
   it('returns pooled organization usage as shared billing instead of stale user stats', async () => {

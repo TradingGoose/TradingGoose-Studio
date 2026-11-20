@@ -6,7 +6,8 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getEmailSubject, renderInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
-import { getUserUsageData } from '@/lib/billing/core/usage'
+import { getBillingSubscriptionForReference } from '@/lib/billing/core/subscription'
+import { getPersonalUsageSnapshot } from '@/lib/billing/core/usage'
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
@@ -121,7 +122,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
       const membersWithUsage = await Promise.all(
         base.map(async (row) => {
-          const usage = await getUserUsageData(row.userId)
+          const { usage } = await getPersonalUsageSnapshot(
+            row.userId,
+            getBillingSubscriptionForReference
+          )
           return {
             ...row,
             billingPeriodStart: usage.billingPeriodStart,

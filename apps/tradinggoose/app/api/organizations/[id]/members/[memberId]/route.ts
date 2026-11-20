@@ -3,7 +3,8 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
-import { getUserUsageData } from '@/lib/billing/core/usage'
+import { getBillingSubscriptionForReference } from '@/lib/billing/core/subscription'
+import { getPersonalUsageSnapshot } from '@/lib/billing/core/usage'
 import { createLogger } from '@/lib/logs/console/logger'
 import { assertWorkspaceOwnerCanLeaveBillingOrganization } from '@/lib/workspaces/billing-owner'
 
@@ -128,7 +129,10 @@ export async function GET(
           },
         }
       } else if (usageData.length > 0) {
-        const computed = await getUserUsageData(memberId)
+        const { usage: computed } = await getPersonalUsageSnapshot(
+          memberId,
+          getBillingSubscriptionForReference
+        )
 
         memberData = {
           ...memberData,
