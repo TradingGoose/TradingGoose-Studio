@@ -30,9 +30,8 @@ export function getStripeSubscriptionPlanItem(
 
 export function getStripeSubscriptionFields(
   subscription: Stripe.Subscription,
-  tier: Pick<BillingTierRecord, 'stripeMonthlyPriceId' | 'stripeYearlyPriceId'>
+  item: Stripe.SubscriptionItem | undefined
 ) {
-  const item = getStripeSubscriptionPlanItem(subscription, tier)
   return {
     periodStart: stripeDate(item?.current_period_start),
     periodEnd: stripeDate(item?.current_period_end),

@@ -6,7 +6,9 @@ import {
   getEmailSubject,
   renderEnterpriseSubscriptionEmail,
 } from '@/components/emails/render-email'
+import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { getStoredStripeUserCustomerId } from '@/lib/billing/stripe-customers'
+import { getStripeSubscriptionFields } from '@/lib/billing/subscriptions/utils'
 import {
   getTierIncludedUsageLimit,
   isOrganizationBillingTier,
@@ -40,25 +42,60 @@ function isManualContractMetadata(value: unknown): value is EnterpriseSubscripti
   )
 }
 
-export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
-  const stripeSubscription = event.data.object as Stripe.Subscription
-  const metadata = stripeSubscription.metadata || {}
-
-  if (!isManualContractMetadata(metadata)) {
-    logger.info('[subscription.created] Skipping non-enterprise metadata subscription', {
-      subscriptionId: stripeSubscription.id,
-    })
+export function getStoredManualContract(value: unknown) {
+  if (
+    !isManualContractMetadata(value) ||
+    !('stripeSubscriptionItemId' in value) ||
+    !isNonEmptyString(value.stripeSubscriptionItemId)
+  )
     return
+  return {
+    itemId: value.stripeSubscriptionItemId,
+    terms: {
+      plan: value.billingTierId,
+      billingTierId: value.billingTierId,
+      seats: Number.parseInt(value.seats, 10),
+    },
   }
+}
 
+export async function getStripeSubscriptionItems(stripeSubscription: Stripe.Subscription) {
+  if (!stripeSubscription.items.has_more) return stripeSubscription.items.data
+  // A Stripe subscription contains at most 20 items.
+  const items = await requireStripeClient().subscriptionItems.list(
+    { subscription: stripeSubscription.id, limit: 100 },
+    { timeout: 5_000, maxNetworkRetries: 0 }
+  )
+  return items.data
+}
+
+export async function handleManualEnterpriseSubscription(
+  event: Stripe.CustomerSubscriptionCreatedEvent
+) {
+  const stripeSubscription = event.data.object
+  // Better Auth copies Checkout request metadata onto the subscription. Operators
+  // put negotiated terms on its recurring item when creating a manual contract.
+  const items = await getStripeSubscriptionItems(stripeSubscription)
+  const [contractItem, otherContractItem] = items.filter((item) =>
+    isManualContractMetadata(item.metadata)
+  )
+  if (!contractItem) return
+  if (otherContractItem)
+    throw new Error(`Ambiguous enterprise contract items for ${stripeSubscription.id}`)
+
+  const metadata = contractItem.metadata
   const enterpriseMetadata = {
-    referenceType: metadata.referenceType,
+    referenceType: 'organization' as const,
     referenceId: metadata.referenceId.trim(),
     billingTierId: metadata.billingTierId.trim(),
     monthlyPrice: metadata.monthlyPrice,
     seats: metadata.seats,
+    stripeSubscriptionItemId: contractItem.id,
   }
-  const stripeCustomerId = stripeSubscription.customer as string
+  const stripeCustomerId =
+    typeof stripeSubscription.customer === 'string'
+      ? stripeSubscription.customer
+      : stripeSubscription.customer.id
 
   if (!stripeCustomerId) {
     logger.error('[subscription.created] Missing Stripe customer ID', {
@@ -68,14 +105,6 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
   }
 
   const referenceId = enterpriseMetadata.referenceId
-
-  if (!referenceId) {
-    logger.error('[subscription.created] Unable to resolve referenceId', {
-      subscriptionId: stripeSubscription.id,
-      stripeCustomerId,
-    })
-    throw new Error('Unable to resolve referenceId for subscription')
-  }
 
   // Extract and parse seats and monthly price from metadata (they come as strings from Stripe)
   const seats = Number.parseInt(enterpriseMetadata.seats, 10)
@@ -99,8 +128,6 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     throw new Error('Enterprise subscription must include valid monthlyPrice in metadata')
   }
 
-  // Get the first subscription item which contains the period information
-  const referenceItem = stripeSubscription.items?.data?.[0]
   const billingTierRecord = await requireBillingTierById(enterpriseMetadata.billingTierId)
 
   if (!isOrganizationBillingTier(billingTierRecord)) {
@@ -112,8 +139,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     return
   }
 
-  const subscriptionRow = {
-    id: crypto.randomUUID(),
+  const contract = {
     plan: billingTierRecord.id,
     billingTierId: billingTierRecord.id,
     referenceType: 'organization' as const,
@@ -121,39 +147,18 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     stripeCustomerId,
     stripeSubscriptionId: stripeSubscription.id,
     status: stripeSubscription.status || null,
-    periodStart: referenceItem?.current_period_start
-      ? new Date(referenceItem.current_period_start * 1000)
-      : null,
-    periodEnd: referenceItem?.current_period_end
-      ? new Date(referenceItem.current_period_end * 1000)
-      : null,
-    cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end ?? null,
+    ...getStripeSubscriptionFields(stripeSubscription, contractItem),
     seats,
-    trialStart: stripeSubscription.trial_start
-      ? new Date(stripeSubscription.trial_start * 1000)
-      : null,
-    trialEnd: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null,
-    metadata: enterpriseMetadata,
   }
 
+  const subscriptionRow = { id: crypto.randomUUID(), ...contract, metadata: enterpriseMetadata }
   const [persistedSubscription] = await db
     .insert(subscription)
     .values(subscriptionRow)
     .onConflictDoUpdate({
       target: subscription.stripeSubscriptionId,
       set: {
-        plan: subscriptionRow.plan,
-        billingTierId: subscriptionRow.billingTierId,
-        referenceType: subscriptionRow.referenceType,
-        referenceId: subscriptionRow.referenceId,
-        stripeCustomerId: subscriptionRow.stripeCustomerId,
-        status: subscriptionRow.status,
-        periodStart: subscriptionRow.periodStart,
-        periodEnd: subscriptionRow.periodEnd,
-        cancelAtPeriodEnd: subscriptionRow.cancelAtPeriodEnd,
-        seats: subscriptionRow.seats,
-        trialStart: subscriptionRow.trialStart,
-        trialEnd: subscriptionRow.trialEnd,
+        ...contract,
         metadata: sql`coalesce(${subscription.metadata}::jsonb, '{}'::jsonb) || excluded.metadata::jsonb`,
       },
     })

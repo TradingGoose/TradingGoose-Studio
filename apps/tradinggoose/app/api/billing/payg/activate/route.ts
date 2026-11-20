@@ -14,6 +14,7 @@ import {
 import {
   BILLING_ACTIVE_SUBSCRIPTION_STATUSES,
   getStripeSubscriptionFields,
+  getStripeSubscriptionPlanItem,
 } from '@/lib/billing/subscriptions/utils'
 import { type BillingTierRecord, isFreeBillingTier } from '@/lib/billing/tiers'
 import { handleSubscriptionCreated } from '@/lib/billing/webhooks/subscription'
@@ -300,7 +301,10 @@ export async function POST() {
           status: stripeSubscription.status,
           ...getStripeSubscriptionFields(
             stripeSubscription,
-            activationState.currentSubscription.tier
+            getStripeSubscriptionPlanItem(
+              stripeSubscription,
+              activationState.currentSubscription.tier
+            )
           ),
           metadata: withoutPaygActivationAttemptId(currentSubscription.metadata),
         })

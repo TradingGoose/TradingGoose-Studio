@@ -22,6 +22,7 @@ import {
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import { lockBilledOverage, resetUsageForSubscription } from '@/lib/billing/webhooks/invoices'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getStoredManualContract, getStripeSubscriptionItems } from './enterprise'
 import {
   type BillingMetadata,
   hasClosingSnapshot,
@@ -120,19 +121,31 @@ export async function handleSubscriptionCreated(
   }
 }
 
+async function getStoredContractItem(subscription: Stripe.Subscription, itemId: string) {
+  return (await getStripeSubscriptionItems(subscription)).find((item) => item.id === itemId)
+}
+
 export async function handleStripeSubscriptionUpdated(
   event: Stripe.CustomerSubscriptionUpdatedEvent
 ) {
   const stripeId = event.data.object.id
   const current = await db.transaction(async (tx) => {
     const [row] = await tx
-      .select({ id: subscription.id, closed: hasClosingSnapshot() })
+      .select({
+        id: subscription.id,
+        metadata: subscription.metadata,
+        closed: hasClosingSnapshot(),
+      })
       .from(subscription)
       .where(eq(subscription.stripeSubscriptionId, stripeId))
       .for('update')
     if (!row) return
+    const contract = getStoredManualContract(row.metadata)
     if (row.closed) {
-      await tx.update(subscription).set({ status: 'canceled' }).where(eq(subscription.id, row.id))
+      await tx
+        .update(subscription)
+        .set({ ...contract?.terms, status: 'canceled' })
+        .where(eq(subscription.id, row.id))
       return
     }
 
@@ -143,16 +156,26 @@ export async function handleStripeSubscriptionUpdated(
       {},
       { timeout: 5_000, maxNetworkRetries: 0 }
     )
-    const tier = await syncSubscriptionBillingTierFromStripeSubscription(
-      { subscriptionId: row.id, stripeSubscription: live },
-      tx
-    )
+    let item: Stripe.SubscriptionItem | undefined
+    let terms
+    if (contract) {
+      item = await getStoredContractItem(live, contract.itemId)
+      if (!item)
+        throw new Error(`Missing enterprise contract item ${contract.itemId} on ${live.id}`)
+      terms = contract.terms
+    } else {
+      const tier = await syncSubscriptionBillingTierFromStripeSubscription(
+        { subscriptionId: row.id, stripeSubscription: live },
+        tx
+      )
+      item = getStripeSubscriptionPlanItem(live, tier)
+      terms = { plan: tier.id, seats: item?.quantity ?? 1 }
+    }
     const [updated] = await tx
       .update(subscription)
       .set({
-        ...getStripeSubscriptionFields(live, tier),
-        plan: tier.id,
-        seats: getStripeSubscriptionPlanItem(live, tier)?.quantity ?? 1,
+        ...getStripeSubscriptionFields(live, item),
+        ...terms,
         status: live.status,
       })
       .where(eq(subscription.id, row.id))
@@ -179,7 +202,7 @@ export async function handleStripeSubscriptionDeleted(
   // A native Stripe row may not yet have a Studio tier or its resolved owner type.
   let ownerType = sub.billingTierId ? sub.referenceType : undefined
   try {
-    if (!previous?.finalInvoice) {
+    if (!previous?.finalInvoice && !getStoredManualContract(sub.metadata)) {
       const tier = await syncSubscriptionBillingTierFromStripeSubscription({
         subscriptionId: sub.id,
         stripeSubscription,
@@ -199,7 +222,8 @@ export async function handleStripeSubscriptionDeleted(
       .where(eq(subscription.id, sub.id))
       .for('update')
     if (!row) throw new Error(`Subscription ${sub.id} disappeared during cancellation`)
-    const [paid] = await hydrateSubscriptionsWithTiers([row], tx)
+    const contract = getStoredManualContract(row.metadata)
+    const [paid] = await hydrateSubscriptionsWithTiers([{ ...row, ...contract?.terms }], tx)
     if (!paid) throw new Error(`Missing billing tier for canceled subscription ${row.id}`)
     const metadata = paid.metadata as BillingMetadata | null
     if (metadata?.finalInvoice) return { closing: paid, resuming: true }
@@ -221,11 +245,15 @@ export async function handleStripeSubscriptionDeleted(
       ledgerStart: metadata?.renewedThrough ?? 'initial',
       collectionMethod: 'charge_automatically',
     }
-    const { periodStart, periodEnd } = getStripeSubscriptionFields(stripeSubscription, paid.tier)
+    const item = contract
+      ? await getStoredContractItem(stripeSubscription, contract.itemId)
+      : getStripeSubscriptionPlanItem(stripeSubscription, paid.tier)
+    const { periodStart, periodEnd } = getStripeSubscriptionFields(stripeSubscription, item)
     const updated = { ...metadata, finalInvoice: quote }
     await tx
       .update(subscription)
       .set({
+        ...contract?.terms,
         ...(periodStart && periodEnd ? { periodStart, periodEnd } : {}),
         metadata: updated,
       })

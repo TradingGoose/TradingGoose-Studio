@@ -7,8 +7,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderEnterpriseSubscriptionEmail } from '@/components/emails/render-email'
 import { sendEmail } from '@/lib/email/mailer'
 
-const { insertValues, requireBillingTierById } = vi.hoisted(() => ({
+const { insertValues, listItems, requireBillingTierById } = vi.hoisted(() => ({
   insertValues: vi.fn(),
+  listItems: vi.fn(),
   requireBillingTierById: vi.fn(),
 }))
 
@@ -35,6 +36,9 @@ vi.mock('@/lib/billing/tiers', () => ({
   isOrganizationBillingTier: vi.fn(() => true),
   requireBillingTierById,
 }))
+vi.mock('@/lib/billing/stripe-client', () => ({
+  requireStripeClient: () => ({ subscriptionItems: { list: listItems } }),
+}))
 
 vi.mock('@/components/emails/render-email', () => ({
   getEmailSubject: vi.fn(),
@@ -48,20 +52,29 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 describe('handleManualEnterpriseSubscription', () => {
+  const contractItem = {
+    id: 'si_contract',
+    metadata: {
+      referenceType: 'organization',
+      referenceId: ' org_123 ',
+      billingTierId: ' tier_enterprise ',
+      monthlyPrice: '100',
+      seats: '5',
+      blockedInvoices: 'from Stripe',
+    },
+    quantity: 1,
+    current_period_start: 1_767_225_600,
+    current_period_end: 1_798_761_600,
+    price: { recurring: { interval: 'year' } },
+  }
+  const addOn = { id: 'si_add_on', metadata: {}, price: { recurring: { interval: 'month' } } }
   const event = {
     data: {
       object: {
         id: 'sub_stripe_enterprise',
         customer: 'cus_enterprise',
-        metadata: {
-          referenceType: 'organization',
-          referenceId: ' org_123 ',
-          billingTierId: ' tier_enterprise ',
-          monthlyPrice: '100',
-          seats: '5',
-          blockedInvoices: 'from Stripe',
-        },
-        items: { data: [] },
+        metadata: {},
+        items: { data: [addOn, contractItem], has_more: false },
         status: 'active',
       },
     },
@@ -112,18 +125,50 @@ describe('handleManualEnterpriseSubscription', () => {
       expect.objectContaining({
         referenceId: 'org_123',
         billingTierId: 'tier_enterprise',
+        seats: 5,
+        periodStart: new Date(contractItem.current_period_start * 1000),
+        periodEnd: new Date(contractItem.current_period_end * 1000),
+        billingInterval: 'year',
         metadata: {
           referenceType: 'organization',
           referenceId: 'org_123',
           billingTierId: 'tier_enterprise',
           monthlyPrice: '100',
           seats: '5',
+          stripeSubscriptionItemId: contractItem.id,
         },
       })
     )
+    expect(listItems).not.toHaveBeenCalled()
     const [{ set }] = insertQuery.onConflictDoUpdate.mock.calls[0]
     expect(new PgDialect().sqlToQuery(set.metadata).sql).toBe(
       `coalesce("subscription"."metadata"::jsonb, '{}'::jsonb) || excluded.metadata::jsonb`
     )
+  })
+
+  it('ignores subscription-level metadata when Checkout items have no contract terms', async () => {
+    const { handleManualEnterpriseSubscription } = await import('./enterprise')
+    await handleManualEnterpriseSubscription({
+      ...event,
+      data: {
+        object: { ...event.data.object, metadata: contractItem.metadata, items: { data: [addOn] } },
+      },
+    })
+    expect(requireBillingTierById).not.toHaveBeenCalled()
+    expect(insertValues).not.toHaveBeenCalled()
+  })
+
+  it('checks the complete Stripe item list before granting terms from a single item', async () => {
+    const { handleManualEnterpriseSubscription } = await import('./enterprise')
+    const truncated = {
+      ...event,
+      data: { object: { ...event.data.object, items: { data: [contractItem], has_more: true } } },
+    }
+    listItems.mockResolvedValueOnce({ data: [contractItem, { ...contractItem, id: 'si_other' }] })
+    await expect(handleManualEnterpriseSubscription(truncated)).rejects.toThrow(
+      'Ambiguous enterprise contract items'
+    )
+    expect(listItems).toHaveBeenCalledOnce()
+    expect(insertValues).not.toHaveBeenCalled()
   })
 })

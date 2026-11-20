@@ -185,7 +185,54 @@ describe('subscription updates arriving out of order', () => {
     expect(retrieve).not.toHaveBeenCalled()
     expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
+
+  it('uses the negotiated seats and the stored contract item when an enterprise plan changes status', async () => {
+    const { handleStripeSubscriptionUpdated } = await import('./subscription')
+    lock.mockResolvedValue([{ id: 'enterprise', metadata: contract, closed: false }])
+    const live = createEnterpriseStripeSubscription()
+    retrieve.mockResolvedValue({ ...live, status: 'active', metadata: { seats: '1' } })
+    set.mockReturnValue({ where: () => ({ returning: async () => [{}] }) })
+    await handleStripeSubscriptionUpdated(event)
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plan: contract.billingTierId,
+        billingTierId: contract.billingTierId,
+        seats: 25,
+        status: 'active',
+        periodEnd: new Date(1781589324 * 1000),
+        billingInterval: 'year',
+      })
+    )
+    expect(mockSyncSubscriptionBillingTierFromStripeSubscription).not.toHaveBeenCalled()
+
+    live.items.data.pop()
+    retrieve.mockResolvedValue(live)
+    await expect(handleStripeSubscriptionUpdated(event)).rejects.toThrow(
+      contract.stripeSubscriptionItemId
+    )
+    expect(set).toHaveBeenCalledOnce()
+  })
 })
+
+const contract = {
+  referenceType: 'organization',
+  referenceId: 'org-1',
+  billingTierId: 'tier_enterprise',
+  monthlyPrice: '200',
+  seats: '25',
+  stripeSubscriptionItemId: 'si_enterprise',
+}
+
+function createEnterpriseStripeSubscription() {
+  const stripe = createDeletedStripeSubscription({ priceId: 'price_bespoke' })
+  const item = {
+    ...stripe.items.data[0],
+    id: contract.stripeSubscriptionItemId,
+    quantity: 1,
+    price: { id: 'price_bespoke', recurring: { interval: 'year' } },
+  }
+  return { ...stripe, items: { data: [{ ...item, id: 'si_addon', current_period_end: 42 }, item] } }
+}
 
 function createDeletedStripeSubscription(
   overrides: Partial<{
@@ -543,5 +590,32 @@ describe('handleStripeSubscriptionDeleted', () => {
       expect.objectContaining({ id: 'sub_org' })
     )
     expect(invoice).not.toHaveBeenCalled()
+  })
+
+  it('settles a bespoke contract using its retained tier and billed item period', async () => {
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    sub = createDefaultSubscription({
+      referenceType: 'organization',
+      metadata: contract,
+      billingTierId: contract.billingTierId,
+      status: 'canceled',
+    })
+    Object.assign(sub, { seats: 1 })
+    mockCalculateSubscriptionOverage.mockResolvedValue(0)
+    await handleStripeSubscriptionDeleted(
+      createDeletedSubscriptionEvent(createEnterpriseStripeSubscription()) as any
+    )
+    expect(mockSyncSubscriptionBillingTierFromStripeSubscription).not.toHaveBeenCalled()
+    expect(updateCalls[0]).toMatchObject({
+      seats: 25,
+      periodEnd: new Date(1781589324 * 1000),
+      metadata: contract,
+    })
+    expect(mockCalculateSubscriptionOverage).toHaveBeenCalledWith(
+      expect.objectContaining({ billingTierId: contract.billingTierId, seats: 25 }),
+      mockDb,
+      undefined
+    )
+    expect(mockResetUsageForSubscription).toHaveBeenCalledOnce()
   })
 })
