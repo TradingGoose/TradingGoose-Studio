@@ -350,7 +350,7 @@ describe('handleStripeSubscriptionDeleted', () => {
       const { handleStripeSubscriptionDeleted } = await import('./subscription')
       invoiceItem.mockRejectedValueOnce(new Error('Stripe unavailable'))
       await expect(handleStripeSubscriptionDeleted(event)).rejects.toThrow('Stripe unavailable')
-      expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1', mockDb, sub.id)
+      expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1')
       expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(
         expect.objectContaining({ stripeSubscriptionId: null })
       )
@@ -408,6 +408,16 @@ describe('handleStripeSubscriptionDeleted', () => {
       expect.objectContaining({ amount: 500 }),
       expect.anything()
     )
+  })
+
+  it('refuses to invoice an older cancellation without its own usage snapshot', async () => {
+    mockEnsureDefaultUserSubscription.mockResolvedValueOnce(createDefaultSubscription())
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await expect(handleStripeSubscriptionDeleted(event)).rejects.toThrow(
+      `Missing closing usage for ${sub.id}`
+    )
+    expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
+    expect(invoice).not.toHaveBeenCalled()
   })
 
   it('does not add another line when the saved Stripe draft already contains the final overage', async () => {

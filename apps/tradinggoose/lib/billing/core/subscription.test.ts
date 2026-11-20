@@ -13,17 +13,14 @@ const {
   mockGetSubscriptionUsageAllowanceUsd,
   mockHydrateSubscriptionsWithTiers,
   mockInArray,
+  mockLedgerOwnerQuery,
   mockSql,
   mockSelectEffectiveSubscription,
   mockToBillingTierSummary,
 } = vi.hoisted(() => ({
   mockAnd: vi.fn(),
-  mockDb: {
-    select: vi.fn(),
-    insert: vi.fn(),
-    update: vi.fn(),
-    transaction: vi.fn(),
-  },
+  mockDb: createBillingDbMock(),
+  mockLedgerOwnerQuery: vi.fn(),
   mockEq: vi.fn(),
   mockRequireDefaultBillingTier: vi.fn(),
   mockGetResolvedBillingSettings: vi.fn(),
@@ -113,6 +110,18 @@ vi.mock('@/lib/urls/utils', () => ({
   getBaseUrl: vi.fn(() => 'http://localhost:3000'),
 }))
 
+function createBillingDbMock() {
+  const queries = vi.fn()
+  return {
+    select: (fields?: { id?: string }) =>
+      fields?.id === 'subscription.id' ? mockLedgerOwnerQuery() : queries(fields),
+    queries,
+    insert: vi.fn(),
+    update: vi.fn(),
+    transaction: vi.fn(),
+  }
+}
+
 function createSelectQueryMock(
   result: unknown,
   terminal: 'from' | 'limit' | 'where' | 'for' = 'limit'
@@ -135,6 +144,7 @@ describe('subscription billing helpers', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    mockLedgerOwnerQuery.mockImplementation(() => createSelectQueryMock([], 'for'))
     mockDb.transaction.mockImplementation(async (run) => run(mockDb))
     mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(10)
     mockHydrateSubscriptionsWithTiers.mockImplementation(async (rows) => rows)
@@ -165,7 +175,7 @@ describe('subscription billing helpers', () => {
     mockGetResolvedBillingSettings.mockResolvedValue({
       billingEnabled: false,
     })
-    mockDb.select
+    mockDb.queries
       .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
       .mockImplementationOnce(() =>
         createSelectQueryMock([
@@ -192,10 +202,10 @@ describe('subscription billing helpers', () => {
     const { resetUserDefaultUsageToOnboardingAllowanceBalance } = await import('./usage')
     const ledger = { currentPeriodCost: '28', grantedOnboardingAllowanceUsd: '10' }
     const active = { id: 'default', tier: { isDefault: true } }
-    const tx = { select: vi.fn(), update: vi.fn(), insert: vi.fn() }
+    const tx = createBillingDbMock()
     mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
     mockDb.transaction.mockImplementation((run) => run(tx))
-    tx.select
+    tx.queries
       .mockReturnValueOnce(createSelectQueryMock([], 'where')) // first snapshot
       .mockReturnValueOnce(createSelectQueryMock([{ id: 'user_123' }], 'for'))
       .mockReturnValueOnce(createSelectQueryMock([], 'where'))
@@ -203,7 +213,7 @@ describe('subscription billing helpers', () => {
       .mockReturnValueOnce(createSelectQueryMock([ledger], 'for'))
       .mockReturnValueOnce(createSelectQueryMock([active], 'where')) // post-repair snapshot
       .mockImplementationOnce(() => createSelectQueryMock([{ ...ledger }]))
-    mockDb.select.mockReturnValueOnce(createSelectQueryMock([], 'where'))
+    mockDb.queries.mockReturnValueOnce(createSelectQueryMock([], 'where'))
     tx.update.mockReturnValue({ set: () => ({ where: vi.fn() }) })
     tx.insert.mockReturnValue({
       values: () => ({ onConflictDoNothing: () => ({ returning: async () => [active] }) }),
@@ -228,15 +238,18 @@ describe('subscription billing helpers', () => {
     ])
   })
 
-  it('captures closing usage on the latest canceled subscription and resets the ledger once', async () => {
-    const { resetUserDefaultUsageToOnboardingAllowanceBalance } = await import('./usage')
+  it('preserves default-period usage on later reads and repairs with older canceled rows', async () => {
+    const { resetUserDefaultUsageToOnboardingAllowanceBalance: reset } = await import('./usage')
+    const { ensureDefaultUserSubscription, getEffectiveSubscription } = await import(
+      './subscription'
+    )
     const paid = {
       id: 'sub_default_user_123',
       status: 'canceled',
       endedAt: new Date('2026-11-10'),
       canceledAt: new Date('2026-11-09'),
       periodEnd: new Date('2026-11-15'),
-      metadata: { source: 'default-tier' },
+      metadata: { source: 'default-tier' } as Record<string, unknown>,
     }
     const older = {
       ...paid,
@@ -244,11 +257,17 @@ describe('subscription billing helpers', () => {
       endedAt: null,
       canceledAt: null,
       periodEnd: new Date('2027-10-10'),
+      metadata: {},
     }
+    const history = [older, paid]
     const ledger = { currentPeriodCost: '28', billedOverageThisPeriod: '3' }
-    const canceledRows = [older, paid]
-    const canceledQuery = createSelectQueryMock(canceledRows, 'for')
-    canceledQuery.orderBy.mockImplementation((_, order, tiebreaker) => {
+    const owner = {
+      from: () => owner,
+      where: vi.fn((_predicate: unknown) => owner),
+      orderBy: vi.fn((..._columns: unknown[]) => owner),
+      limit: vi.fn((_limit: number) => history[0].id),
+    }
+    owner.orderBy.mockImplementation((_, order, tiebreaker) => {
       expect(order).toMatchObject({
         strings: ['coalesce(', ', ', ') desc nulls last'],
         values: ['subscription.endedAt', 'subscription.canceledAt'],
@@ -257,63 +276,84 @@ describe('subscription billing helpers', () => {
         strings: ['', ' desc nulls last'],
         values: ['subscription.periodEnd'],
       })
-      canceledRows.sort(
-        (a, b) => +(b.endedAt ?? b.canceledAt ?? 0) - +(a.endedAt ?? a.canceledAt ?? 0)
-      )
-      return canceledQuery
+      history.sort((a, b) => +(b.endedAt ?? b.canceledAt ?? 0) - +(a.endedAt ?? a.canceledAt ?? 0))
+      return owner
     })
-    const ledgerQuery = createSelectQueryMock([ledger], 'for')
-    const tx = { select: vi.fn(), insert: vi.fn(), update: vi.fn() }
-    const where = vi.fn()
-    const save = vi.fn(() => ({ where }))
-    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
-    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'where'))
-    mockDb.transaction.mockImplementationOnce(async (run) => run(tx))
-    tx.select
-      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'user_123' }], 'for'))
-      .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
-      .mockReturnValueOnce(canceledQuery)
-      .mockReturnValueOnce(ledgerQuery)
-    tx.update.mockImplementation(() => ({ set: save }))
+    mockLedgerOwnerQuery.mockReturnValue(owner)
+    mockAnd.mockImplementation((...conditions) => conditions)
     mockEq.mockImplementation((column, value) => [column, value])
+    const outstandingOwner = () =>
+      history.slice(0, 1).filter((row) => !('finalUsage' in row.metadata))
+    const tx = createBillingDbMock()
+    const ownerLock = createSelectQueryMock([{ id: 'user_123' }], 'for')
+    const ledgerLock = createSelectQueryMock([{ ...ledger }], 'for')
+    const firstCapture = createSelectQueryMock([paid], 'for')
+    const save = vi.fn(({ metadata }) => ({
+      where: ([, id]: string[]) => {
+        Object.assign(history.find((row) => row.id === id)!, { metadata })
+      },
+    }))
+    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
+    mockDb.transaction.mockImplementation((run) => run(tx))
+    mockDb.queries.mockReturnValueOnce(createSelectQueryMock([], 'where'))
+    tx.queries
+      .mockReturnValueOnce(ownerLock)
+      .mockReturnValueOnce(createSelectQueryMock([], 'where'))
+      .mockReturnValueOnce(firstCapture)
+      .mockReturnValueOnce(ledgerLock)
+    tx.update.mockReturnValue({ set: save })
+    vi.mocked(reset).mockImplementationOnce(async () => {
+      ledger.currentPeriodCost = '0'
+      ledger.billedOverageThisPeriod = '0'
+    })
     const insert = vi.fn((values) => ({
       onConflictDoNothing: () => ({ returning: async () => [] }), // original ID belongs to paid
       returning: async () => [values],
     }))
-    tx.insert.mockImplementation(() => ({ values: insert }))
-    const { getEffectiveSubscription, ensureDefaultUserSubscription } = await import(
-      './subscription'
-    )
+    tx.insert.mockReturnValue({ values: insert })
+
     const active = await getEffectiveSubscription('user_123')
-    expect(save).toHaveBeenCalledExactlyOnceWith({
-      metadata: { ...paid.metadata, finalUsage: ledger },
+    expect(paid.metadata.finalUsage).toEqual({
+      currentPeriodCost: '28',
+      billedOverageThisPeriod: '3',
     })
-    expect(where).toHaveBeenCalledWith(['subscription.id', paid.id])
-    expect(resetUserDefaultUsageToOnboardingAllowanceBalance).toHaveBeenCalledExactlyOnceWith(
-      'user_123',
-      tx
-    )
-    expect(canceledQuery.for).toHaveBeenCalledExactlyOnceWith('update')
-    expect(ledgerQuery.for).toHaveBeenCalledExactlyOnceWith('update')
-    expect(mockDb.update).not.toHaveBeenCalled()
     expect(active?.id).not.toBe(paid.id)
     expect(active).toMatchObject({ status: 'active', tier: { isDefault: true } })
     expect(insert.mock.calls[1][0].stripeSubscriptionId).toBeUndefined()
+    expect(ledgerLock.for).toHaveBeenCalledExactlyOnceWith('update')
+    expect(firstCapture.for).toHaveBeenCalledExactlyOnceWith('update')
+
+    ledger.currentPeriodCost = '7'
+    const nextRead = createSelectQueryMock([active, ...outstandingOwner()], 'where')
+    mockDb.queries.mockReturnValueOnce(nextRead)
+    await expect(getEffectiveSubscription('user_123')).resolves.toBe(active)
     expect(mockDb.transaction).toHaveBeenCalledOnce()
 
-    const replacement = { ...active, stripeSubscriptionId: 'sub_replacement' }
-    tx.select
-      .mockReturnValueOnce(createSelectQueryMock([{ id: 'user_123' }], 'for'))
-      .mockReturnValueOnce(createSelectQueryMock([replacement], 'where'))
-      .mockReturnValueOnce(
-        createSelectQueryMock([{ ...paid, metadata: { finalUsage: ledger } }], 'for')
-      )
-    mockDb.transaction.mockImplementationOnce(async (run) => run(tx))
-    await expect(ensureDefaultUserSubscription('user_123', mockDb as any, paid.id)).resolves.toBe(
-      replacement
+    const nextRepair = createSelectQueryMock(outstandingOwner(), 'for')
+    tx.queries
+      .mockReturnValueOnce(ownerLock)
+      .mockReturnValueOnce(createSelectQueryMock([active], 'where'))
+      .mockReturnValueOnce(nextRepair)
+    await expect(ensureDefaultUserSubscription('user_123', mockDb as any)).resolves.toBe(active)
+    const captured = {
+      not: expect.objectContaining({
+        strings: ['(', "->'finalUsage' IS NOT NULL OR ", "->'finalInvoice' IS NOT NULL)"],
+      }),
+    }
+    const ownerId = ['subscription.id', paid.id]
+    expect(nextRead.where).toHaveBeenCalledWith(
+      expect.arrayContaining([captured, { or: expect.arrayContaining([ownerId]) }])
     )
-    expect(tx.update).toHaveBeenCalledTimes(1)
-    expect(resetUserDefaultUsageToOnboardingAllowanceBalance).toHaveBeenCalledTimes(1)
+    for (const query of [firstCapture, nextRepair]) {
+      expect(query.where).toHaveBeenCalledWith(expect.arrayContaining([captured, ownerId]))
+    }
+    for (const [predicate] of owner.where.mock.calls) {
+      expect(predicate).not.toContainEqual(captured)
+    }
+    expect(owner.limit).toHaveBeenCalledWith(1)
+    expect(reset).toHaveBeenCalledExactlyOnceWith('user_123', tx)
+    expect(ledger.currentPeriodCost).toBe('7')
+    expect(older.metadata).toEqual({})
   })
 
   it('keeps an unpaid subscription visible for payment without admitting usage or replacing its ledger', async () => {
@@ -327,32 +367,32 @@ describe('subscription billing helpers', () => {
     mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
     for (const referenceType of ['user', 'organization'] as const) {
       const ref = { referenceType, referenceId: 'owner' }
-      mockDb.select.mockReturnValueOnce(createSelectQueryMock([unpaid], 'where'))
+      mockDb.queries.mockReturnValueOnce(createSelectQueryMock([unpaid], 'where'))
       await expect(getBillingSubscriptionForReference(ref)).resolves.toBe(unpaid)
       expect(mockAnd.mock.lastCall).toContainEqual({
         not: expect.objectContaining({
           strings: ['(', "->'finalUsage' IS NOT NULL OR ", "->'finalInvoice' IS NOT NULL)"],
         }),
       })
-      expect(mockInArray).toHaveBeenLastCalledWith(
+      expect(mockInArray).toHaveBeenCalledWith(
         'subscription.status',
         expect.arrayContaining(['unpaid'])
       )
-      mockDb.select.mockReturnValueOnce(createSelectQueryMock([unpaid], 'where'))
+      mockDb.queries.mockReturnValueOnce(createSelectQueryMock([unpaid], 'where'))
       await expect(getActiveSubscriptionForReference(ref)).resolves.toBeNull()
       const active = { ...unpaid, status: 'active' }
-      mockDb.select.mockReturnValueOnce(createSelectQueryMock([unpaid, active], 'where'))
+      mockDb.queries.mockReturnValueOnce(createSelectQueryMock([unpaid, active], 'where'))
       await expect(getActiveSubscriptionForReference(ref)).resolves.toBe(active)
     }
 
     const localDefault = { id: 'default', status: 'active', tier: { isDefault: true } }
     const personal = { referenceType: 'user', referenceId: 'user_123' } as const
-    mockDb.select.mockReturnValueOnce(createSelectQueryMock([localDefault, unpaid], 'where'))
+    mockDb.queries.mockReturnValueOnce(createSelectQueryMock([localDefault, unpaid], 'where'))
     await expect(getBillingSubscriptionForReference(personal)).resolves.toBe(unpaid)
-    mockDb.select.mockReturnValueOnce(createSelectQueryMock([localDefault, unpaid], 'where'))
+    mockDb.queries.mockReturnValueOnce(createSelectQueryMock([localDefault, unpaid], 'where'))
     await expect(getActiveSubscriptionForReference(personal)).resolves.toBeNull()
     const reactivated = { ...unpaid, status: 'active' }
-    mockDb.select.mockReturnValueOnce(createSelectQueryMock([reactivated], 'where'))
+    mockDb.queries.mockReturnValueOnce(createSelectQueryMock([reactivated], 'where'))
     await expect(getEffectiveSubscription('user_123')).resolves.toBe(reactivated)
     expect(mockDb.insert).not.toHaveBeenCalled()
     expect(mockDb.update).not.toHaveBeenCalled()
@@ -362,18 +402,10 @@ describe('subscription billing helpers', () => {
   it('retains the replacement ledger when the canceled personal usage was never captured', async () => {
     const { ensureDefaultUserSubscription } = await import('./subscription')
     const active = { stripeSubscriptionId: 'sub_replacement' }
-    mockDb.select
-      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'user_123' }], 'for'))
-      .mockImplementationOnce(() => createSelectQueryMock([active], 'where'))
-      .mockImplementationOnce(() =>
-        createSelectQueryMock(
-          [{ id: 'paid', status: 'canceled', stripeSubscriptionId: 'sub_old' }],
-          'for'
-        )
-      )
-    await expect(ensureDefaultUserSubscription('user_123', mockDb as any, 'paid')).rejects.toThrow(
-      'sub_old'
-    )
+    mockDb.queries
+      .mockReturnValueOnce(createSelectQueryMock([{ id: 'user_123' }], 'for'))
+      .mockReturnValueOnce(createSelectQueryMock([active], 'where'))
+    await expect(ensureDefaultUserSubscription('user_123', mockDb as any)).resolves.toBe(active)
     expect(mockDb.update).not.toHaveBeenCalled()
     expect(mockDb.insert).not.toHaveBeenCalled()
   })
@@ -391,7 +423,7 @@ describe('subscription billing helpers', () => {
     const ledger = { currentPeriodCost: '27', billedOverageThisPeriod: '4' }
     const save = vi.fn(() => ({ where: vi.fn() }))
     mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
-    mockDb.select
+    mockDb.queries
       .mockReturnValueOnce(createSelectQueryMock([paid, localDefault], 'where'))
       .mockReturnValueOnce(createSelectQueryMock([{ id: 'user_123' }], 'for'))
       .mockReturnValueOnce(createSelectQueryMock([localDefault], 'where'))
@@ -411,7 +443,7 @@ describe('subscription billing helpers', () => {
 
   it('does not restore a subscription when billing is disabled', async () => {
     mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: false })
-    mockDb.select.mockImplementation(() => createSelectQueryMock([], 'where'))
+    mockDb.queries.mockImplementation(() => createSelectQueryMock([], 'where'))
     mockDb.insert.mockImplementation(() => ({
       values: vi.fn(() => ({ onConflictDoUpdate: vi.fn(() => Promise.resolve()) })),
     }))
@@ -426,7 +458,7 @@ describe('subscription billing helpers', () => {
     mockGetResolvedBillingSettings.mockResolvedValue({
       billingEnabled: true,
     })
-    mockDb.select.mockImplementation(() => createSelectQueryMock([], 'where'))
+    mockDb.queries.mockImplementation(() => createSelectQueryMock([], 'where'))
     mockDb.transaction
       .mockImplementationOnce((read) => read(mockDb))
       .mockRejectedValueOnce(new Error('Unable to provision the default tier'))
@@ -438,7 +470,7 @@ describe('subscription billing helpers', () => {
   })
 
   it('throws a typed error when a required active subscription is missing', async () => {
-    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+    mockDb.queries.mockImplementationOnce(() => createSelectQueryMock([], 'where'))
 
     const { MissingBillingSubscriptionError, requireActiveSubscriptionForReference } = await import(
       './subscription'
@@ -458,7 +490,7 @@ describe('subscription billing helpers', () => {
       stripeSubscriptionId: 'stripe_sub_123',
       tier: { id: 'tier_default' },
     }
-    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([row], 'limit'))
+    mockDb.queries.mockImplementationOnce(() => createSelectQueryMock([row], 'limit'))
 
     const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
 
@@ -468,7 +500,7 @@ describe('subscription billing helpers', () => {
   })
 
   it('returns null for an untracked Stripe subscription id', async () => {
-    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'limit'))
+    mockDb.queries.mockImplementationOnce(() => createSelectQueryMock([], 'limit'))
 
     const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
 
@@ -497,7 +529,7 @@ describe('subscription billing helpers', () => {
     mockGetResolvedBillingSettings.mockResolvedValue({
       onboardingAllowanceUsd: 25,
     })
-    mockDb.select.mockImplementation(() => {
+    mockDb.queries.mockImplementation(() => {
       const nextResult = selectResults.shift() ?? { result: [], terminal: 'where' as const }
       return createSelectQueryMock(nextResult.result, nextResult.terminal)
     })

@@ -137,7 +137,7 @@ export async function handleStripeSubscriptionDeleted(
     }
   } finally {
     if (ownerType === 'user') {
-      const active = await ensureDefaultUserSubscription(sub.referenceId, db, sub.id)
+      const active = await ensureDefaultUserSubscription(sub.referenceId)
       await syncSubscriptionUsageLimits(active)
     }
   }

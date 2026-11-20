@@ -150,6 +150,37 @@ function isUnlinkedDefault(row: SubscriptionWithTier | null) {
   return row?.tier?.isDefault === true && !row.stripeSubscriptionId
 }
 
+function personalLedgerOwnerId(userId: string, dbClient: Pick<typeof db, 'select'>) {
+  // A captured period stays in the history even if a late webhook changes its status.
+  const closingSnapshot = hasClosingSnapshot()
+  return dbClient
+    .select({ id: subscription.id })
+    .from(subscription)
+    .where(
+      and(
+        eq(subscription.referenceType, 'user'),
+        eq(subscription.referenceId, userId),
+        isNotNull(subscription.stripeSubscriptionId),
+        isNotNull(subscription.billingTierId),
+        or(
+          inArray(subscription.status, [
+            ...BILLING_ENTITLED_SUBSCRIPTION_STATUSES,
+            'unpaid',
+            'canceled',
+          ]),
+          closingSnapshot
+        )
+      )
+    )
+    .orderBy(
+      desc(sql`${subscription.status} <> 'canceled' and not ${closingSnapshot}`),
+      sql`coalesce(${subscription.endedAt}, ${subscription.canceledAt}) desc nulls last`,
+      sql`${subscription.periodEnd} desc nulls last`,
+      desc(subscription.id)
+    )
+    .limit(1)
+}
+
 export async function findSubscriptionForReference(
   reference: BillingReference,
   dbClient: Pick<typeof db, 'select'>,
@@ -169,11 +200,7 @@ export async function findSubscriptionForReference(
         or(
           inArray(subscription.status, statuses),
           checkClosingUsage
-            ? and(
-                eq(subscription.status, 'canceled'),
-                isNotNull(subscription.stripeSubscriptionId),
-                isNotNull(subscription.billingTierId)
-              )
+            ? eq(subscription.id, personalLedgerOwnerId(reference.referenceId, dbClient))
             : undefined
         )
       )
@@ -191,43 +218,19 @@ export async function findSubscriptionForReference(
 
 export async function ensureDefaultUserSubscription(
   userId: string,
-  dbClient: Pick<typeof db, 'transaction'> = db,
-  canceledSubscriptionId?: string
+  dbClient: Pick<typeof db, 'transaction'> = db
 ): Promise<SubscriptionWithTier> {
   return dbClient.transaction(async (tx) => {
     await tx.select({ id: user.id }).from(user).where(eq(user.id, userId)).for('update')
     const active = await getPersonalEffectiveSubscription(userId, tx)
-    if (active && !isUnlinkedDefault(active) && !canceledSubscriptionId) return active
+    if (active && !isUnlinkedDefault(active)) return active
 
     // A billing read can restore entitlement before the deletion webhook arrives.
     // Preserve the original Stripe row and capture its usage before opening the next period.
     const [stripeRow] = await tx
       .select()
       .from(subscription)
-      .where(
-        and(
-          eq(subscription.referenceType, 'user'),
-          eq(subscription.referenceId, userId),
-          canceledSubscriptionId
-            ? eq(subscription.status, 'canceled')
-            : inArray(subscription.status, [
-                ...BILLING_ENTITLED_SUBSCRIPTION_STATUSES,
-                'unpaid',
-                'canceled',
-              ]),
-          isNotNull(subscription.stripeSubscriptionId),
-          isNotNull(subscription.billingTierId),
-          canceledSubscriptionId
-            ? eq(subscription.id, canceledSubscriptionId)
-            : not(hasClosingSnapshot())
-        )
-      )
-      .orderBy(
-        desc(sql`${subscription.status} <> 'canceled'`),
-        sql`coalesce(${subscription.endedAt}, ${subscription.canceledAt}) desc nulls last`,
-        sql`${subscription.periodEnd} desc nulls last`
-      )
-      .limit(1)
+      .where(and(eq(subscription.id, personalLedgerOwnerId(userId, tx)), not(hasClosingSnapshot())))
       .for('update')
     if (stripeRow && stripeRow.status !== 'canceled') {
       // Stripe can reactivate an unpaid subscription. It still owns its usage until cancellation.
@@ -235,13 +238,7 @@ export async function ensureDefaultUserSubscription(
       if (!current) throw new Error(`Missing billing tier for subscription ${stripeRow.id}`)
       return current
     }
-    const metadata = stripeRow?.metadata as Record<string, unknown> | null
-    if (stripeRow && !metadata?.finalUsage) {
-      if (active && !isUnlinkedDefault(active)) {
-        throw new Error(
-          `Final usage for ${stripeRow.stripeSubscriptionId} was not captured before the replacement subscription started`
-        )
-      }
+    if (stripeRow) {
       const [ledger] = await tx
         .select({
           currentPeriodCost: userStats.currentPeriodCost,
@@ -254,7 +251,7 @@ export async function ensureDefaultUserSubscription(
       await tx
         .update(subscription)
         .set({
-          metadata: { ...metadata, finalUsage },
+          metadata: { ...(stripeRow.metadata as Record<string, unknown> | null), finalUsage },
         })
         .where(eq(subscription.id, stripeRow.id))
       await resetUserDefaultUsageToOnboardingAllowanceBalance(userId, tx)
