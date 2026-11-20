@@ -382,6 +382,24 @@ describe('mailer', () => {
       expect(mockContactsCreate).not.toHaveBeenCalled()
     })
 
+    it('removes the latest mailbox when a previous opt-out is saved after a second transfer', async () => {
+      const latest = 'latest@example.com'
+      mockTransferRecipients()
+      mockContactsGet.mockResolvedValueOnce({ data: { id: old, unsubscribed: true }, error: null })
+      vi.mocked(unsubscribeFromList).mockImplementationOnce(async () => {
+        mockTransferRecipients({ ...recipient, email: latest })
+        await expect(syncUserEmailAudience(recipient, recipient.email)).resolves.toBe(true)
+        expect(mockContactsCreate).toHaveBeenCalledWith({
+          email: latest,
+          segments: [{ id: segmentId }],
+        })
+        vi.mocked(isUnsubscribed).mockReturnValue(true)
+      })
+
+      await expect(syncUserEmailAudience(recipient, old)).resolves.toBe(true)
+      expect(mockContactSegmentRemove).toHaveBeenCalledWith({ email: latest, segmentId })
+    })
+
     it('leaves a reassigned address with its current verified owner', async () => {
       mockTransferRecipients(recipient, { ...recipient, id: 'other', email: old })
       await syncUserEmailAudience(recipient, old)

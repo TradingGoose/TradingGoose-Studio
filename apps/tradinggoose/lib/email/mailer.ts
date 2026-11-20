@@ -109,18 +109,23 @@ export async function syncUserEmailAudience(
 
     const prior = previousEmail?.trim().toLowerCase()
     const syncCurrentAddress = async () => {
-      const recipient = await getEmailRecipient(eq(user.id, account.id))
+      const byAccount = eq(user.id, account.id)
+      let recipient = await getEmailRecipient(byAccount)
       if (!recipient) return
-      const email = recipient.email.trim().toLowerCase()
-      let optedOut = isUnsubscribed(recipient.preferences, 'marketing')
-      if (!optedOut && prior && prior !== email && !(await getOwner(prior))?.emailVerified) {
-        if ((await getContact(prior))?.unsubscribed) {
-          await unsubscribeFromList(db, recipient.id, 'marketing')
-          optedOut = true
-        }
+      if (
+        prior &&
+        prior !== recipient.email.trim().toLowerCase() &&
+        !isUnsubscribed(recipient.preferences, 'marketing') &&
+        !(await getOwner(prior))?.emailVerified &&
+        (await getContact(prior))?.unsubscribed
+      ) {
+        await unsubscribeFromList(db, recipient.id, 'marketing')
+        recipient = await getEmailRecipient(byAccount)
+        if (!recipient) return
       }
+      const optedOut = isUnsubscribed(recipient.preferences, 'marketing')
       if (optedOut || recipient.emailVerified) {
-        await syncMembership(email, !optedOut)
+        await syncMembership(recipient.email.trim().toLowerCase(), !optedOut)
       }
     }
 
