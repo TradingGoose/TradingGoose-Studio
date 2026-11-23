@@ -664,6 +664,13 @@ export const auth = betterAuth({
     requireEmailVerification: isEmailVerificationEnabled,
     throwOnMissingCredentials: true,
     throwOnInvalidCredentials: true,
+    onExistingUserSignUp: async ({ user }): Promise<void> => {
+      if (isEmailVerificationEnabled && !user.emailVerified) {
+        await auth.api.sendVerificationOTP({
+          body: { email: user.email, type: 'email-verification' },
+        })
+      }
+    },
     sendResetPassword: async ({ user, url, token }, request) => {
       const username = user.name || ''
       const locale = await resolveEmailLocale({ userId: user.id, email: user.email })

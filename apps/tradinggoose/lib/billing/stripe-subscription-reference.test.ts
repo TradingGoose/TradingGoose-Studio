@@ -136,41 +136,98 @@ function cookies(response: Response) {
     .join('; ')
 }
 
+async function accountVerificationFixture(verifySignup: boolean) {
+  vi.resetModules()
+  vi.stubEnv('EMAIL_VERIFICATION_ENABLED', String(verifySignup))
+  vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
+  vi.stubEnv('BETTER_AUTH_SECRET', 'disposable-auth-handler-fixture-at-least-32-characters')
+  vi.stubEnv('ALLOWED_LOGIN_EMAILS', 'OLD@EXAMPLE.COM')
+  vi.stubEnv('ALLOWED_LOGIN_DOMAINS', 'TEAM.EXAMPLE')
+  const { auth: appAuth } = await import('@/lib/auth')
+  // The production adapter checks the plugin fields against our Drizzle schema at startup.
+  await appAuth.$context
+  const auth = betterAuth({ ...appAuth.options, database: undefined })
+  const { adapter } = await auth.$context
+  const origin = 'http://localhost:3000'
+
+  function post(path: string, body: Record<string, string>, cookie = '') {
+    return auth.handler(
+      new Request(`${origin}/api/auth${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin, cookie },
+        body: JSON.stringify(body),
+      })
+    )
+  }
+  return { auth, adapter, origin, post }
+}
+
+function lastCode(to: string, subject: string) {
+  const message = accountMail.mock.lastCall?.[0]
+  expect(message).toMatchObject({ to, subject: expect.stringContaining(subject) })
+  const otp = message!.text.split('\n').at(-1)!
+  expect(otp).toMatch(/^\d{6}$/)
+  return otp
+}
+
+it.each([true, false])(
+  'retries signup for an existing email with verification %s',
+  async (verifySignup) => {
+    const { adapter, post } = await accountVerificationFixture(verifySignup)
+    const signup = {
+      name: 'Original Name',
+      username: 'original_name',
+      email: 'old@example.com',
+      password: 'original-password-52',
+    }
+    const retry = {
+      ...signup,
+      name: 'Retry Name',
+      username: 'retry_name',
+      password: 'retry-password-83',
+    }
+    const created = await post('/sign-up/email', signup)
+    expect(created.status).toBe(200)
+    const { user } = await created.json()
+    expect(accountMail).toHaveBeenCalledTimes(verifySignup ? 1 : 0)
+    const byUser = [{ field: 'userId', value: user.id }]
+    const credential = await adapter.findOne({ model: 'account', where: byUser })
+    expect(credential).toMatchObject({ providerId: 'credential', password: expect.any(String) })
+
+    accountMail.mockClear()
+    const retried = await post('/sign-up/email', retry)
+    expect(retried.status).toBe(verifySignup ? 200 : 422)
+    expect(cookies(retried)).toBe('')
+    expect(accountMail).toHaveBeenCalledTimes(verifySignup ? 1 : 0)
+    if (verifySignup) {
+      expect(await retried.json()).toMatchObject({ token: null })
+      const otp = lastCode(signup.email, 'Verify your email')
+      const verified = await post('/email-otp/verify-email', { email: signup.email, otp })
+      expect(verified.status).toBe(200)
+      accountMail.mockClear()
+      expect((await post('/sign-up/email', retry)).status).toBe(200)
+      expect(accountMail).not.toHaveBeenCalled()
+    }
+
+    const login = await post('/sign-in/email', { email: signup.email, password: signup.password })
+    expect(login.status).toBe(200)
+    expect((await login.json()).user).toMatchObject({
+      id: user.id,
+      name: signup.name,
+      username: signup.username,
+      emailVerified: verifySignup,
+    })
+    expect(await adapter.findOne({ model: 'account', where: byUser })).toEqual(credential)
+  }
+)
+
 it.each([true, false])(
   'handles password login and syncs confirmed email with verification %s',
   async (verifySignup) => {
-    vi.resetModules()
-    vi.stubEnv('EMAIL_VERIFICATION_ENABLED', String(verifySignup))
-    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
-    vi.stubEnv('BETTER_AUTH_SECRET', 'disposable-auth-handler-fixture-at-least-32-characters')
-    vi.stubEnv('ALLOWED_LOGIN_EMAILS', 'OLD@EXAMPLE.COM')
-    vi.stubEnv('ALLOWED_LOGIN_DOMAINS', 'TEAM.EXAMPLE')
-    const { auth: appAuth } = await import('@/lib/auth')
-    // The production adapter checks the plugin fields against our Drizzle schema at startup.
-    await appAuth.$context
-    const auth = betterAuth({ ...appAuth.options, database: undefined })
-    const { adapter } = await auth.$context
+    const { auth, adapter, origin, post } = await accountVerificationFixture(verifySignup)
     const original = 'old@example.com'
     const newEmail = 'new@team.example'
     const password = 'test-password-5729'
-    const origin = 'http://localhost:3000'
-
-    function post(path: string, body: Record<string, string>, cookie = '') {
-      return auth.handler(
-        new Request(origin + '/api/auth' + path, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', origin, cookie },
-          body: JSON.stringify(body),
-        })
-      )
-    }
-    function lastCode(to: string, subject: string) {
-      const message = accountMail.mock.lastCall?.[0]
-      expect(message).toMatchObject({ to, subject: expect.stringContaining(subject) })
-      const otp = message!.text.split('\n').at(-1)!
-      expect(otp).toMatch(/^\d{6}$/)
-      return otp
-    }
 
     const signup = await post('/sign-up/email', {
       name: 'Preserved Name',
