@@ -773,11 +773,7 @@ export const auth = betterAuth({
     emailOTP({
       overrideDefaultEmailVerification: true,
       changeEmail: { enabled: true },
-      sendVerificationOTP: async (data: {
-        email: string
-        otp: string
-        type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
-      }) => {
+      sendVerificationOTP: async (data, ctx) => {
         if (!isEmailVerificationEnabled && data.type !== 'change-email') {
           logger.info('Skipping email verification')
           return
@@ -800,7 +796,10 @@ export const auth = betterAuth({
             )
           }
 
-          const locale = await resolveEmailLocale({ email: data.email })
+          const locale = await resolveEmailLocale({
+            userId: data.type === 'change-email' ? ctx?.context.session?.user.id : undefined,
+            email: data.email,
+          })
           const html = await renderOTPEmail(data.otp, data.email, data.type, undefined, locale)
 
           const result = await sendEmail({
