@@ -302,6 +302,20 @@
       "when": 1794353945762,
       "tag": "0042_builtin_copilot",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1795421132263,
+      "tag": "0043_patched_auth_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1795421170951,
+      "tag": "0044_account_username",
+      "breakpoints": true
     }
   ]
 }
