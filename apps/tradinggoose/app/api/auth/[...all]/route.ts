@@ -1,6 +1,6 @@
 import { getAuthStateVerificationIdentifier, type StateData } from 'better-auth'
 import { toNextJsHandler } from 'better-auth/next-js'
-import { auth, createOAuthAuth, getSession } from '@/lib/auth'
+import { auth, createOAuthAuth, createOrganizationWithAuth, getSession } from '@/lib/auth'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
 import { hasPrivateBillingTierAccess } from '@/lib/billing/private-tier-access'
@@ -182,6 +182,10 @@ export const handleAuthRequest = async (request: Request) => {
 
   if (request.method === 'POST' && APP_OWNED_AUTH_POST_PATHS.has(pathname)) {
     return Response.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  if (request.method === 'POST' && pathname === '/api/auth/organization/create') {
+    return createOrganizationWithAuth(request)
   }
 
   if (request.method === 'POST' && pathname === SUBSCRIPTION_UPGRADE_PATH) {

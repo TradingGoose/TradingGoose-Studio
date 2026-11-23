@@ -87,8 +87,8 @@ export async function getResolvedBillingSettings(store: Pick<typeof db, 'select'
   }
 }
 
-export async function getBillingGateState() {
-  const { billingEnabled, stripeConfigured } = await getResolvedBillingSettings()
+export async function getBillingGateState(store: Pick<typeof db, 'select'> = db) {
+  const { billingEnabled, stripeConfigured } = await getResolvedBillingSettings(store)
 
   return {
     billingEnabled,

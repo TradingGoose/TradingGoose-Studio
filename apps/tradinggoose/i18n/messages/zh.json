@@ -280,7 +280,8 @@
       "complete": "账户邮箱已更新为 {email}。",
       "workspace": "返回工作区",
       "failure": "无法更改邮箱，请重试。",
-      "sendFailure": "无法发送新链接，请重试。"
+      "sendFailure": "无法发送新链接，请重试。",
+      "targetDeliveryFailed": "无法将验证码发送到你的新邮箱。"
     },
     "resetPassword": {
       "eyebrow": "密码重置",

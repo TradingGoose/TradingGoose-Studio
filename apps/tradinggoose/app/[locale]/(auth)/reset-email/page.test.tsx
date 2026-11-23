@@ -174,10 +174,20 @@ describe('localized account email change', () => {
     })
     const queryKey = organizationKeys.detail('org')
     queryClient.setQueryData(queryKey, organization(auth.user!.email))
-    const loadMembers = vi.fn(async () => organization(newEmail))
+    let finishSession!: () => void
+    let finishMembers!: () => void
+    const loadMembers = vi.fn(async () => {
+      await new Promise<void>((resolve) => {
+        finishMembers = resolve
+      })
+      return organization(newEmail)
+    })
     const observer = new QueryObserver(queryClient, { queryKey, queryFn: loadMembers })
     const unsubscribe = observer.subscribe(() => {})
-    auth.refetch.mockImplementation(() => {
+    auth.refetch.mockImplementation(async () => {
+      await new Promise<void>((resolve) => {
+        finishSession = resolve
+      })
       auth.user = { id: 'owner', email: newEmail }
     })
     auth.request.mockResolvedValue({})
@@ -198,6 +208,10 @@ describe('localized account email change', () => {
       expect(auth.confirm).toHaveBeenLastCalledWith({ newEmail, otp: '123456' })
       expect(auth.refetch).toHaveBeenCalledOnce()
       expect(loadMembers).toHaveBeenCalledOnce()
+      expect(container.querySelector('[role="status"]')).toBeNull()
+      await act(async () => finishSession())
+      expect(container.querySelector('[role="status"]')).toBeNull()
+      await act(async () => finishMembers())
       expect(container.querySelector('[role="status"]')).toHaveTextContent(newEmail)
       const role = getUserRole(observer.getCurrentResult().data, auth.user!.email)
       expect(role).toBe('owner')
@@ -211,6 +225,40 @@ describe('localized account email change', () => {
     } finally {
       unsubscribe()
     }
+  })
+
+  it.each(['request', 'confirm'] as const)(
+    'offers current-email verification on %s',
+    async (phase) => {
+      auth.request.mockResolvedValue({})
+      auth[phase].mockResolvedValue({ error: { code: 'EMAIL_NOT_VERIFIED' } })
+      await render()
+      await submit(newEmail)
+      if (phase === 'confirm') await submit('123456')
+      expect(container).toHaveTextContent(auth.user!.email)
+      expect(container).toHaveTextContent(
+        getPublicCopy('es').workspace.settingsModal.account.verifyEmailButton
+      )
+      expect(container.querySelector('form')).toBeNull()
+      expect(auth.sendVerificationOtp).not.toHaveBeenCalled()
+      expect(auth.refetch).not.toHaveBeenCalled()
+    }
+  )
+
+  it('keeps pre-consumption errors editable and offers a fresh link after target delivery fails', async () => {
+    auth.request
+      .mockResolvedValueOnce({ error: { message: 'Email is the same' } })
+      .mockResolvedValueOnce({ error: { code: 'EMAIL_CHANGE_CODE_DELIVERY_FAILED' } })
+    await render()
+    await submit(auth.user!.email)
+    expect(container.querySelector('input[type=email]')).toBeEnabled()
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent('Email is the same')
+    await submit(newEmail)
+    expect(container.querySelector('form')).toBeNull()
+    expect(container.querySelector('[role="alert"]')).toHaveTextContent(copy.targetDeliveryFailed)
+    await click(copy.restart)
+    expect(auth.sendLink).toHaveBeenCalledExactlyOnceWith('owner')
+    expect(auth.confirm).not.toHaveBeenCalled()
   })
 
   it.each(['invalid link', 'expired code', 'lost code or change of target'])(

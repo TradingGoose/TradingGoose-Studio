@@ -83,7 +83,7 @@ export default function ResetEmailPage() {
 
 function ResetEmailForm({ link }: { link: EmailLink }) {
   const t = useTranslations('auth.resetEmail')
-  const { refetch } = useSession()
+  const { data: session, refetch } = useSession()
   const queryClient = useQueryClient()
   const [step, setStep] = useState<'email' | 'code' | 'restart' | 'sent' | 'complete'>('email')
   const [target, setTarget] = useState('')
@@ -104,12 +104,24 @@ function ResetEmailForm({ link }: { link: EmailLink }) {
           ? await client.emailOtp.changeEmail({ newEmail, otp: String(fields.get('otp')).trim() })
           : await client.emailOtp.requestEmailChange({ newEmail, otp: link.otp })
       if (failure) {
-        if (
+        if (failure.code === 'EMAIL_NOT_VERIFIED' && session?.user?.id === link.accountId) {
+          setVerification({ accountId: link.accountId, email: session.user.email })
+        } else if (failure.code === 'EMAIL_CHANGE_CODE_DELIVERY_FAILED') {
+          setError(t('targetDeliveryFailed'))
+          setStep('restart')
+        } else if (
           failure.code === 'OTP_EXPIRED' ||
           failure.code === 'TOO_MANY_ATTEMPTS' ||
+          failure.code === 'CURRENT_EMAIL_CHANGED' ||
           (step === 'email' && failure.code === 'INVALID_OTP')
         ) {
-          setError(t(step === 'code' ? 'codeExpired' : 'invalidLink'))
+          setError(
+            t(
+              step === 'code' && failure.code !== 'CURRENT_EMAIL_CHANGED'
+                ? 'codeExpired'
+                : 'invalidLink'
+            )
+          )
           setStep('restart')
         } else {
           setError(
@@ -122,11 +134,11 @@ function ResetEmailForm({ link }: { link: EmailLink }) {
         setTarget(newEmail)
         setStep('code')
       } else {
-        setStep('complete')
         await Promise.all([
           refetch(),
           queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
         ])
+        setStep('complete')
       }
     } catch {
       setError(t('failure'))

@@ -6,35 +6,40 @@ import dns from 'node:dns/promises'
 import { syncBuiltinESMExports } from 'node:module'
 import { sso } from '@better-auth/sso'
 import { betterAuth } from 'better-auth'
+import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { memoryAdapter } from 'better-auth/adapters/memory'
 import { organization } from 'better-auth/plugins'
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 import { NextRequest } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { authDatabase } from '@/lib/auth/database'
 import { ssoOptions } from '@/lib/sso/options'
 
 const {
   mockGetSession,
   mockRegisterSSOProvider,
   mockIsOrganizationOwnerOrAdmin,
-  mockGetOrganizationBillingData,
+  mockGetOrganizationSubscription,
   mockGetBillingGateState,
-  mockHasOrganizationMembership,
   mockValidateSeatAvailability,
   mockLogger,
 } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockRegisterSSOProvider: vi.fn(),
   mockIsOrganizationOwnerOrAdmin: vi.fn(),
-  mockGetOrganizationBillingData: vi.fn(),
+  mockGetOrganizationSubscription: vi.fn(),
   mockGetBillingGateState: vi.fn(),
-  mockHasOrganizationMembership: vi.fn(),
   mockValidateSeatAvailability: vi.fn(),
   mockLogger: {
     error: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
   },
+}))
+
+vi.mock('better-auth/adapters/drizzle', () => ({ drizzleAdapter: vi.fn() }))
+vi.mock('@/lib/organization/admission', () => ({
+  withOrganizationAdmission: (_target: unknown, callback: (tx: object) => unknown) => callback({}),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -48,12 +53,14 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/billing/core/organization', () => ({
   isOrganizationOwnerOrAdmin: (...args: unknown[]) => mockIsOrganizationOwnerOrAdmin(...args),
-  getOrganizationBillingData: (...args: unknown[]) => mockGetOrganizationBillingData(...args),
-  hasOrganizationMembership: mockHasOrganizationMembership,
 }))
 
 vi.mock('@/lib/billing/validation/seat-management', () => ({
   validateSeatAvailability: mockValidateSeatAvailability,
+}))
+
+vi.mock('@/lib/billing/core/billing', () => ({
+  getOrganizationSubscription: (...args: unknown[]) => mockGetOrganizationSubscription(...args),
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -81,13 +88,22 @@ describe('SSO register route', () => {
     vi.clearAllMocks()
     mockIsOrganizationOwnerOrAdmin.mockResolvedValue(true)
     mockGetBillingGateState.mockResolvedValue({ billingEnabled: true })
-    mockGetOrganizationBillingData.mockResolvedValue({
-      subscriptionTier: {
+    mockGetOrganizationSubscription.mockResolvedValue({
+      tier: {
         ownerType: 'organization',
         canConfigureSso: true,
       },
     })
     vi.stubGlobal('fetch', vi.fn())
+    vi.spyOn(dns, 'lookup').mockImplementation(
+      vi.fn().mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
+    )
+    syncBuiltinESMExports()
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    syncBuiltinESMExports()
   })
 
   it('requires an authenticated session', async () => {
@@ -198,8 +214,8 @@ describe('SSO register route', () => {
         activeOrganizationId: 'org-1',
       },
     })
-    mockGetOrganizationBillingData.mockResolvedValue({
-      subscriptionTier: {
+    mockGetOrganizationSubscription.mockResolvedValue({
+      tier: {
         ownerType: 'organization',
         canConfigureSso: false,
       },
@@ -240,8 +256,8 @@ describe('SSO register route', () => {
       },
     })
     mockGetBillingGateState.mockResolvedValue({ billingEnabled: false })
-    mockGetOrganizationBillingData.mockResolvedValue({
-      subscriptionTier: null,
+    mockGetOrganizationSubscription.mockResolvedValue({
+      tier: null,
     })
     mockRegisterSSOProvider.mockResolvedValue({
       providerId: 'okta',
@@ -285,6 +301,30 @@ describe('SSO register route', () => {
 
     expect(response.status).toBe(200)
     expect(mockRegisterSSOProvider).toHaveBeenCalled()
+  })
+
+  it('rejects domains that normalize to an empty list before discovery', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'owner' },
+      session: { activeOrganizationId: 'org' },
+    })
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('http://localhost/api/auth/sso/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerType: 'oidc',
+          providerId: 'okta',
+          issuer: 'https://issuer.example.com',
+          domain: ' ,  , ',
+          clientId: 'client',
+          clientSecret: 'secret',
+        }),
+      })
+    )
+    expect(response.status).toBe(400)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
   })
 
   it('rejects legacy manual oidc endpoint override fields', async () => {
@@ -388,7 +428,7 @@ describe('SSO register route', () => {
         body: JSON.stringify({
           providerId,
           issuer: 'https://issuer.example.com',
-          domain: 'example.com',
+          domain: ' Example.COM, , https://Login.Example.org/path, example.com ',
           providerType: 'oidc',
           clientId: 'client-id',
           clientSecret: 'client-secret',
@@ -407,7 +447,7 @@ describe('SSO register route', () => {
     expect(mockRegisterSSOProvider).toHaveBeenCalledWith({
       body: expect.objectContaining({
         providerId,
-        domain: 'example.com',
+        domain: 'example.com,login.example.org',
         organizationId: 'org-1',
         oidcConfig: expect.objectContaining({
           authorizationEndpoint: 'https://issuer.example.com/oauth2/v1/authorize',
@@ -548,19 +588,21 @@ describe('SSO register route', () => {
     const issuer = 'https://93.184.216.34'
     const email = 'member@example.com'
     const callbackURL = '/signup?complete=username&callbackUrl=%2Finvite%2Fteam'
+    const memory = memoryAdapter({
+      user: [],
+      session: [],
+      account: [],
+      verification: [],
+      organization: [],
+      member: [],
+      invitation: [],
+      ssoProvider: [],
+    })
+    vi.mocked(drizzleAdapter).mockReturnValue(memory)
     const auth = betterAuth({
       baseURL: origin,
       secret: 'local-integration-test-secret-safe-for-fixtures-only',
-      database: memoryAdapter({
-        user: [],
-        session: [],
-        account: [],
-        verification: [],
-        organization: [],
-        member: [],
-        invitation: [],
-        ssoProvider: [],
-      }),
+      database: authDatabase,
       emailAndPassword: { enabled: true },
       plugins: [organization(), sso(ssoOptions)],
     })
@@ -598,8 +640,7 @@ describe('SSO register route', () => {
     mockGetSession.mockResolvedValue({ user: owner, session: { activeOrganizationId: org.id } })
     mockRegisterSSOProvider.mockImplementation((options) => auth.api.registerSSOProvider(options))
     mockGetBillingGateState.mockResolvedValue({ billingEnabled: false })
-    mockGetOrganizationBillingData.mockResolvedValue({ subscriptionTier: null })
-    mockHasOrganizationMembership.mockResolvedValue(false)
+    mockGetOrganizationSubscription.mockResolvedValue({ tier: null })
     mockValidateSeatAvailability.mockResolvedValue({
       canInvite: false,
       reason: 'No active subscription found',
@@ -677,7 +718,7 @@ describe('SSO register route', () => {
     try {
       await verifyDomain()
       await complete()
-      expect(mockHasOrganizationMembership).toHaveBeenCalledWith(user.id)
+      expect(mockGetOrganizationSubscription).not.toHaveBeenCalled()
       expect(mockValidateSeatAvailability).not.toHaveBeenCalled()
       expect(
         await adapter.findOne({ model: 'member', where: [{ field: 'userId', value: user.id }] })

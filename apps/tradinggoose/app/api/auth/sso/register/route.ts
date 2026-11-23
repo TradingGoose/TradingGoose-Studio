@@ -11,7 +11,8 @@ import { auth, getSession } from '@/lib/auth'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateExternalUrl } from '@/lib/security/input-validation'
-import { assertSsoProviderIdAllowed, requireSsoOrganization } from '@/lib/sso/management'
+import { requireSsoOrganization, requireSsoRegistrationDomains } from '@/lib/sso/management'
+import { assertSsoProviderIdAllowed } from '@/lib/sso/provider-id'
 
 const logger = createLogger('SSO-Register')
 const LEGACY_OIDC_OVERRIDE_FIELDS = [
@@ -31,7 +32,7 @@ const ssoRegistrationSchema = z.discriminatedUnion('providerType', [
     providerType: z.literal('oidc').default('oidc'),
     providerId: z.string().min(1, 'Provider ID is required'),
     issuer: z.string().url('Issuer must be a valid URL'),
-    domain: z.string().min(1, 'Domain is required'),
+    domain: z.string(),
     mapping: mappingSchema.extend({ image: z.string().default('picture') }).default({
       email: 'email',
       name: 'name',
@@ -57,7 +58,7 @@ const ssoRegistrationSchema = z.discriminatedUnion('providerType', [
       providerType: z.literal('saml'),
       providerId: z.string().min(1, 'Provider ID is required'),
       issuer: z.string().url('Issuer must be a valid URL'),
-      domain: z.string().min(1, 'Domain is required'),
+      domain: z.string(),
       mapping: mappingSchema.default({ email: 'email', name: 'name' }),
       entryPoint: z.string().url('Entry point must be a valid URL for SAML'),
       cert: z.string().trim().min(1).optional(),
@@ -128,8 +129,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = parseResult.data
-    const { providerId, issuer, domain, providerType } = body
+    const { providerId, issuer, providerType } = body
     assertSsoProviderIdAllowed(providerId)
+    const domain = requireSsoRegistrationDomains(body.domain)
     const providerConfig: NonNullable<Parameters<typeof auth.api.registerSSOProvider>[0]>['body'] =
       {
         providerId,

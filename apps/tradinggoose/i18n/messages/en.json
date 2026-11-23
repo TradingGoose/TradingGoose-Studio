@@ -280,7 +280,8 @@
       "complete": "Your account email is now {email}.",
       "workspace": "Return to workspace",
       "failure": "We couldn’t change your email. Please try again.",
-      "sendFailure": "We couldn’t send a fresh link. Please try again."
+      "sendFailure": "We couldn’t send a fresh link. Please try again.",
+      "targetDeliveryFailed": "We couldn’t send a code to your new email address."
     },
     "resetPassword": {
       "eyebrow": "Password reset",

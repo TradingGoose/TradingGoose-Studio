@@ -13,6 +13,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { withOrganizationAdmission } from '@/lib/organization/admission'
 import { grantWorkspaceAccessInTx } from '@/lib/workspaces/service'
 
 const logger = createLogger('OrganizationInvitation')
@@ -91,149 +92,160 @@ export async function PUT(
       )
     }
 
-    const orgInvitation = await db
-      .select()
-      .from(invitation)
-      .where(and(eq(invitation.id, invitationId), eq(invitation.organizationId, organizationId)))
-      .then((rows) => rows[0])
-
-    if (!orgInvitation) {
-      return NextResponse.json({ error: 'Invitation not found' }, { status: 404 })
-    }
-
-    if (orgInvitation.status !== 'pending') {
-      return NextResponse.json({ error: 'Invitation already processed' }, { status: 400 })
-    }
-
-    if (status === 'accepted') {
-      const userData = await db
-        .select()
-        .from(user)
-        .where(eq(user.id, session.user.id))
-        .then((rows) => rows[0])
-
-      if (!userData || userData.email.toLowerCase() !== orgInvitation.email.toLowerCase()) {
-        return NextResponse.json(
-          { error: 'Email mismatch. You can only accept invitations sent to your email address.' },
-          { status: 403 }
-        )
-      }
-    }
-
-    if (status === 'cancelled') {
-      const isAdmin = await db
-        .select()
-        .from(member)
-        .where(
-          and(
-            eq(member.organizationId, organizationId),
-            eq(member.userId, session.user.id),
-            eq(member.role, 'admin')
+    const result = await withOrganizationAdmission(
+      { organizationId, userId: status === 'accepted' ? session.user.id : undefined },
+      async (tx) => {
+        const orgInvitation = await tx
+          .select()
+          .from(invitation)
+          .where(
+            and(eq(invitation.id, invitationId), eq(invitation.organizationId, organizationId))
           )
-        )
-        .then((rows) => rows.length > 0)
+          .for('update')
+          .then((rows) => rows[0])
 
-      if (!isAdmin) {
-        return NextResponse.json(
-          { error: 'Only organization admins can cancel invitations' },
-          { status: 403 }
-        )
-      }
-    }
-
-    // Enforce: user can only be part of a single organization
-    if (status === 'accepted') {
-      // Check if user is already a member of ANY organization
-      const existingOrgMemberships = await db
-        .select({ organizationId: member.organizationId })
-        .from(member)
-        .where(eq(member.userId, session.user.id))
-
-      if (existingOrgMemberships.length > 0) {
-        // Check if already a member of THIS specific organization
-        const alreadyMemberOfThisOrg = existingOrgMemberships.some(
-          (m) => m.organizationId === organizationId
-        )
-
-        if (alreadyMemberOfThisOrg) {
-          return NextResponse.json(
-            { error: 'You are already a member of this organization' },
-            { status: 400 }
-          )
+        if (!orgInvitation) {
+          return NextResponse.json({ error: 'Invitation not found' }, { status: 404 })
         }
 
-        // Member of a different organization
-        // Mark the invitation as rejected since they can't accept it
-        await db
-          .update(invitation)
-          .set({
-            status: 'rejected',
-          })
-          .where(eq(invitation.id, invitationId))
+        if (orgInvitation.status !== 'pending') {
+          return NextResponse.json({ error: 'Invitation already processed' }, { status: 400 })
+        }
 
-        return NextResponse.json(
-          {
-            error:
-              'You are already a member of an organization. Leave your current organization before accepting a new invitation.',
-          },
-          { status: 409 }
-        )
-      }
-    }
+        if (status === 'accepted') {
+          const userData = await tx
+            .select()
+            .from(user)
+            .where(eq(user.id, session.user.id))
+            .then((rows) => rows[0])
 
-    await db.transaction(async (tx) => {
-      await tx.update(invitation).set({ status }).where(eq(invitation.id, invitationId))
-
-      if (status === 'accepted') {
-        await tx.insert(member).values({
-          id: randomUUID(),
-          userId: session.user.id,
-          organizationId,
-          role: orgInvitation.role,
-          createdAt: new Date(),
-        })
-
-        await tx
-          .insert(organizationMemberBillingLedger)
-          .values({
-            organizationId,
-            userId: session.user.id,
-          })
-          .onConflictDoNothing()
-
-        const linkedWorkspaceInvitations = await tx
-          .select()
-          .from(workspaceInvitation)
-          .where(
-            and(
-              eq(workspaceInvitation.orgInvitationId, invitationId),
-              eq(workspaceInvitation.status, 'pending' as WorkspaceInvitationStatus)
+          if (!userData || userData.email.toLowerCase() !== orgInvitation.email.toLowerCase()) {
+            return NextResponse.json(
+              {
+                error:
+                  'Email mismatch. You can only accept invitations sent to your email address.',
+              },
+              { status: 403 }
             )
-          )
+          }
+        }
 
-        for (const wsInvitation of linkedWorkspaceInvitations) {
+        if (status === 'cancelled') {
+          const isAdmin = await tx
+            .select()
+            .from(member)
+            .where(
+              and(
+                eq(member.organizationId, organizationId),
+                eq(member.userId, session.user.id),
+                eq(member.role, 'admin')
+              )
+            )
+            .then((rows) => rows.length > 0)
+
+          if (!isAdmin) {
+            return NextResponse.json(
+              { error: 'Only organization admins can cancel invitations' },
+              { status: 403 }
+            )
+          }
+        }
+
+        // Enforce: user can only be part of a single organization
+        if (status === 'accepted') {
+          // Check if user is already a member of ANY organization
+          const existingOrgMemberships = await tx
+            .select({ organizationId: member.organizationId })
+            .from(member)
+            .where(eq(member.userId, session.user.id))
+
+          if (existingOrgMemberships.length > 0) {
+            // Check if already a member of THIS specific organization
+            const alreadyMemberOfThisOrg = existingOrgMemberships.some(
+              (m) => m.organizationId === organizationId
+            )
+
+            if (alreadyMemberOfThisOrg) {
+              return NextResponse.json(
+                { error: 'You are already a member of this organization' },
+                { status: 400 }
+              )
+            }
+
+            // Member of a different organization
+            // Mark the invitation as rejected since they can't accept it
+            await tx
+              .update(invitation)
+              .set({
+                status: 'rejected',
+              })
+              .where(eq(invitation.id, invitationId))
+
+            return NextResponse.json(
+              {
+                error:
+                  'You are already a member of an organization. Leave your current organization before accepting a new invitation.',
+              },
+              { status: 409 }
+            )
+          }
+        }
+
+        await tx.update(invitation).set({ status }).where(eq(invitation.id, invitationId))
+
+        if (status === 'accepted') {
+          await tx.insert(member).values({
+            id: randomUUID(),
+            userId: session.user.id,
+            organizationId,
+            role: orgInvitation.role,
+            createdAt: new Date(),
+          })
+
+          await tx
+            .insert(organizationMemberBillingLedger)
+            .values({
+              organizationId,
+              userId: session.user.id,
+            })
+            .onConflictDoNothing()
+
+          const linkedWorkspaceInvitations = await tx
+            .select()
+            .from(workspaceInvitation)
+            .where(
+              and(
+                eq(workspaceInvitation.orgInvitationId, invitationId),
+                eq(workspaceInvitation.status, 'pending' as WorkspaceInvitationStatus)
+              )
+            )
+
+          for (const wsInvitation of linkedWorkspaceInvitations) {
+            await tx
+              .update(workspaceInvitation)
+              .set({
+                status: 'accepted' as WorkspaceInvitationStatus,
+                updatedAt: new Date(),
+              })
+              .where(eq(workspaceInvitation.id, wsInvitation.id))
+
+            await grantWorkspaceAccessInTx(tx, {
+              workspaceId: wsInvitation.workspaceId,
+              userId: session.user.id,
+              permissionType: wsInvitation.permissions || 'read',
+            })
+          }
+        } else if (status === 'cancelled') {
           await tx
             .update(workspaceInvitation)
-            .set({
-              status: 'accepted' as WorkspaceInvitationStatus,
-              updatedAt: new Date(),
-            })
-            .where(eq(workspaceInvitation.id, wsInvitation.id))
-
-          await grantWorkspaceAccessInTx(tx, {
-            workspaceId: wsInvitation.workspaceId,
-            userId: session.user.id,
-            permissionType: wsInvitation.permissions || 'read',
-          })
+            .set({ status: 'cancelled' as WorkspaceInvitationStatus })
+            .where(eq(workspaceInvitation.orgInvitationId, invitationId))
         }
-      } else if (status === 'cancelled') {
-        await tx
-          .update(workspaceInvitation)
-          .set({ status: 'cancelled' as WorkspaceInvitationStatus })
-          .where(eq(workspaceInvitation.orgInvitationId, invitationId))
+        return orgInvitation
       }
-    })
-
+    )
+    if (result instanceof Response) return result
+    const orgInvitation = result
     logger.info(`Organization invitation ${status}`, {
       organizationId,
       invitationId,

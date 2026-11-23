@@ -280,7 +280,8 @@
       "complete": "El correo de tu cuenta ahora es {email}.",
       "workspace": "Volver al espacio de trabajo",
       "failure": "No se pudo cambiar tu correo. Inténtalo de nuevo.",
-      "sendFailure": "No se pudo enviar un nuevo enlace. Inténtalo de nuevo."
+      "sendFailure": "No se pudo enviar un nuevo enlace. Inténtalo de nuevo.",
+      "targetDeliveryFailed": "No se pudo enviar el código a tu nueva dirección de correo."
     },
     "resetPassword": {
       "eyebrow": "Restablecer contraseña",

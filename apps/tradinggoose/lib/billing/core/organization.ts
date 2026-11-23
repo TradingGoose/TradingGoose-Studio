@@ -578,8 +578,11 @@ export async function updateOrganizationUsageLimit(
   }
 }
 
-export async function hasOrganizationMembership(userId: string) {
-  const memberships = await db
+export async function hasOrganizationMembership(
+  userId: string,
+  store: Pick<typeof db, 'select'> = db
+) {
+  const memberships = await store
     .select({ id: member.id })
     .from(member)
     .where(eq(member.userId, userId))

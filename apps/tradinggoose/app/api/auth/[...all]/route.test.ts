@@ -50,6 +50,7 @@ vi.mock('@/lib/auth', () => ({
     $context: Promise.resolve({ internalAdapter: { findVerificationValue } }),
   },
   createOAuthAuth: () => ({ handler: mockAuthHandler }),
+  createOrganizationWithAuth: (request: Request) => mockAuthHandler(request),
   getSession: () => mockGetSession(),
 }))
 

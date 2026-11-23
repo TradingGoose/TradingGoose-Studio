@@ -1,33 +1,25 @@
+import { db } from '@tradinggoose/db'
 import { APIError } from 'better-auth/api'
-import {
-  getOrganizationBillingData,
-  isOrganizationOwnerOrAdmin,
-} from '@/lib/billing/core/organization'
+import { getOrganizationSubscription } from '@/lib/billing/core/billing'
+import { isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
 import { getBillingGateState } from '@/lib/billing/settings'
-import { isSystemIntegrationManagedOAuthServiceProviderId } from '@/lib/oauth/oauth'
 import { isOrganizationSsoEnabled } from '@/lib/organization/access'
+import { normalizeSsoDomains } from '@/lib/sso/domains'
 
-export function assertSsoProviderIdAllowed(providerId: unknown) {
-  if (typeof providerId !== 'string') return
-  if (isSystemIntegrationManagedOAuthServiceProviderId(providerId)) {
-    throw new APIError('UNPROCESSABLE_ENTITY', {
-      message: 'This providerId is reserved and cannot be used for an SSO provider',
-    })
-  }
-  // The 63-character DNS label also contains the "_better-auth-token-" prefix.
-  if (providerId.length > 44) {
-    throw new APIError('UNPROCESSABLE_ENTITY', {
-      message: 'SSO provider IDs must be 44 characters or fewer',
-    })
-  }
+export function requireSsoRegistrationDomains(value: unknown) {
+  const domain = normalizeSsoDomains(value)
+  if (!domain) throw new APIError('BAD_REQUEST', { message: 'Enter a valid domain.' })
+  return domain
 }
 
-export async function requireOrganizationSsoEnabled(organizationId: string) {
-  const [gate, billing] = await Promise.all([
-    getBillingGateState(),
-    getOrganizationBillingData(organizationId),
-  ])
-  if (!isOrganizationSsoEnabled(gate.billingEnabled, billing?.subscriptionTier)) {
+export async function requireOrganizationSsoEnabled(
+  organizationId: string,
+  store: Pick<typeof db, 'select'> = db
+) {
+  const gate = await getBillingGateState(store)
+  if (!gate.billingEnabled) return gate
+  const subscription = await getOrganizationSubscription(organizationId, store)
+  if (!isOrganizationSsoEnabled(gate.billingEnabled, subscription?.tier)) {
     throw new APIError('FORBIDDEN', {
       message: 'Single Sign-On is not enabled for this organization',
     })

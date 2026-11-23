@@ -3,7 +3,6 @@ import { stripe } from '@better-auth/stripe'
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
 import { betterAuth, parseState } from 'better-auth'
-import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import {
   APIError,
   createAuthMiddleware,
@@ -26,6 +25,8 @@ import {
   renderOTPEmail,
   renderPasswordResetEmail,
 } from '@/components/emails/render-email'
+import { authDatabase, nativeAuthDatabase } from '@/lib/auth/database'
+import { emailChangeDeliveryFailed, hashEmailChangeIdentifier } from '@/lib/auth/email-change'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import { hasOrganizationMembership } from '@/lib/billing/core/organization'
@@ -37,7 +38,6 @@ import { getBillingGateState } from '@/lib/billing/settings'
 import { createStripeUserCustomer } from '@/lib/billing/stripe-customers'
 import { hydrateSubscriptionsWithTiers } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
-import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { handleManualEnterpriseSubscription } from '@/lib/billing/webhooks/enterprise'
 import {
   handleInvoiceFinalized,
@@ -77,13 +77,15 @@ import {
   setSystemOAuthClientIdForRequest,
 } from '@/lib/oauth/system-managed-config'
 import { getOrganizationAccessState } from '@/lib/organization/access'
+import { withOrganizationAdmission } from '@/lib/organization/admission'
 import { getRegistrationEligibility, markWaitlistEntrySignedUp } from '@/lib/registration/service'
 import {
   REGISTRATION_DISABLED_REASON,
   REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
-import { assertSsoProviderIdAllowed, requireSsoOrganization } from '@/lib/sso/management'
+import { requireSsoOrganization, requireSsoRegistrationDomains } from '@/lib/sso/management'
 import { ssoOptions } from '@/lib/sso/options'
+import { assertSsoProviderIdAllowed } from '@/lib/sso/provider-id'
 import {
   createStripeClientProxy,
   getStripeServiceConfig,
@@ -458,9 +460,80 @@ async function createStripeCustomerForSignedUpUser(user: {
   })
 }
 
+function organizationPlugin(store: Pick<typeof db, 'select'> = db) {
+  return organization({
+    allowUserToCreateOrganization: async (user) => {
+      const [{ billingEnabled }, hasOrganization] = await Promise.all([
+        getBillingGateState(store),
+        hasOrganizationMembership(user.id, store),
+      ])
+
+      return getOrganizationAccessState({
+        billingEnabled,
+        hasOrganization,
+        isOrganizationAdmin: false,
+      }).canCreateOrganization
+    },
+    // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
+    membershipLimit: 50,
+    sendInvitationEmail: async (data: any) => {
+      try {
+        const { invitation, organization, inviter } = data
+
+        const inviterName = inviter.user?.name || 'A team member'
+        const locale = await resolveEmailLocale({ email: invitation.email })
+        const inviteUrl = localizeUrl(getBaseUrl(), locale, `/invite/${invitation.id}`)
+
+        const html = await renderInvitationEmail(
+          inviterName,
+          organization.name,
+          inviteUrl,
+          invitation.email,
+          locale
+        )
+
+        const result = await sendEmail({
+          to: invitation.email,
+          subject: getEmailSubject('invitation', locale, {
+            organizationName: organization.name,
+          }),
+          html,
+          emailType: 'transactional',
+        })
+
+        if (!result.success) {
+          logger.error('Failed to send organization invitation email:', result.message)
+        }
+      } catch (error) {
+        logger.error('Error sending invitation email', { error })
+      }
+    },
+    organizationCreation: {
+      afterCreate: async ({
+        organization,
+        user,
+      }: {
+        organization: { id: string }
+        user: { id: string }
+      }) => {
+        logger.info('[organizationCreation.afterCreate] Organization created', {
+          organizationId: organization.id,
+          creatorId: user.id,
+        })
+      },
+    },
+  })
+}
+
 export const auth = betterAuth({
   baseURL: getBaseUrl(),
   disabledPaths: ['/sign-in/email-otp', '/sign-in/username'],
+  verification: {
+    storeIdentifier: {
+      default: 'plain',
+      overrides: { 'change-email-otp-': { hash: hashEmailChangeIdentifier } },
+    },
+  },
   trustedOrigins: [
     getBaseUrl(),
     ...(env.NEXT_PUBLIC_SOCKET_URL ? [env.NEXT_PUBLIC_SOCKET_URL] : []),
@@ -468,10 +541,7 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: { enabled: false },
   },
-  database: drizzleAdapter(db, {
-    provider: 'pg',
-    schema,
-  }),
+  database: authDatabase,
   session: {
     expiresIn: 30 * 24 * 60 * 60, // 30 days (how long a session can last overall)
     updateAge: 24 * 60 * 60, // 24 hours (how often to refresh the expiry)
@@ -705,7 +775,20 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
-      if (ctx.path === '/sso/register') assertSsoProviderIdAllowed(ctx.body?.providerId)
+      if (
+        ctx.path === '/sign-up/email' &&
+        (typeof ctx.body?.username !== 'string' || !ctx.body.username)
+      ) {
+        throw new APIError('BAD_REQUEST', {
+          code: 'INVALID_USERNAME',
+          message: 'Username is required',
+        })
+      }
+      if (ctx.path === '/sso/register') {
+        assertSsoProviderIdAllowed(ctx.body?.providerId)
+        const domain = requireSsoRegistrationDomains(ctx.body?.domain)
+        return { context: { ...ctx, body: { ...ctx.body, domain } } }
+      }
 
       if (ctx.path === '/sso/request-domain-verification' || ctx.path === '/sso/verify-domain') {
         const organizationId = await requireSsoOrganization(
@@ -802,6 +885,17 @@ export const auth = betterAuth({
         }
       }
     }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (
+        ctx.path === '/email-otp/request-email-change' &&
+        (await emailChangeDeliveryFailed.get())
+      ) {
+        throw new APIError('BAD_GATEWAY', {
+          code: 'EMAIL_CHANGE_CODE_DELIVERY_FAILED',
+          message: 'Could not send the code to your new email. Request a fresh link.',
+        })
+      }
+    }),
   },
   plugins: [
     oneTimeToken({
@@ -853,6 +947,7 @@ export const auth = betterAuth({
             throw new Error(`Failed to send verification code: ${result.message}`)
           }
         } catch (error) {
+          if (data.type === 'change-email') await emailChangeDeliveryFailed.set(true)
           logger.error('Error sending verification code:', {
             error,
             email: data.email,
@@ -989,76 +1084,7 @@ export const auth = betterAuth({
         }
       },
     }),
-    organization({
-      allowUserToCreateOrganization: async (user) => {
-        const [{ billingEnabled }, hasOrganization] = await Promise.all([
-          getBillingGateState(),
-          hasOrganizationMembership(user.id),
-        ])
-
-        return getOrganizationAccessState({
-          billingEnabled,
-          hasOrganization,
-          isOrganizationAdmin: false,
-        }).canCreateOrganization
-      },
-      // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
-      membershipLimit: 50,
-      // Validate seat limits before sending invitations
-      beforeInvite: async ({ organization }: { organization: { id: string } }) => {
-        const seatValidation = await validateSeatAvailability(organization.id)
-
-        if (!seatValidation.canInvite) {
-          throw new Error(seatValidation.reason ?? 'Unable to invite member')
-        }
-      },
-      sendInvitationEmail: async (data: any) => {
-        try {
-          const { invitation, organization, inviter } = data
-
-          const inviterName = inviter.user?.name || 'A team member'
-          const locale = await resolveEmailLocale({ email: invitation.email })
-          const inviteUrl = localizeUrl(getBaseUrl(), locale, `/invite/${invitation.id}`)
-
-          const html = await renderInvitationEmail(
-            inviterName,
-            organization.name,
-            inviteUrl,
-            invitation.email,
-            locale
-          )
-
-          const result = await sendEmail({
-            to: invitation.email,
-            subject: getEmailSubject('invitation', locale, {
-              organizationName: organization.name,
-            }),
-            html,
-            emailType: 'transactional',
-          })
-
-          if (!result.success) {
-            logger.error('Failed to send organization invitation email:', result.message)
-          }
-        } catch (error) {
-          logger.error('Error sending invitation email', { error })
-        }
-      },
-      organizationCreation: {
-        afterCreate: async ({
-          organization,
-          user,
-        }: {
-          organization: { id: string }
-          user: { id: string }
-        }) => {
-          logger.info('[organizationCreation.afterCreate] Organization created', {
-            organizationId: organization.id,
-            creatorId: user.id,
-          })
-        },
-      },
-    }),
+    organizationPlugin(),
     nextCookies(),
   ],
   onAPIError: {
@@ -1071,6 +1097,29 @@ export const auth = betterAuth({
     verify: '/verify',
   },
 })
+
+// The organization plugin creates the organization and its first owner in separate calls.
+export async function createOrganizationWithAuth(request: Request) {
+  const session = await getSession(request.headers)
+  if (!session?.user.id) return Response.json({ message: 'Unauthorized' }, { status: 401 })
+  try {
+    return await withOrganizationAdmission({ userId: session.user.id }, async (tx) => {
+      const scoped = betterAuth({
+        ...auth.options,
+        database: nativeAuthDatabase(tx),
+        plugins: auth.options.plugins.map((plugin) =>
+          plugin.id === 'organization' ? organizationPlugin(tx) : plugin
+        ),
+      })
+      const response = await scoped.handler(request)
+      if (!response.ok) throw response
+      return response
+    })
+  } catch (error) {
+    if (error instanceof Response) return error
+    throw error
+  }
+}
 
 export function createOAuthAuth(
   providerId: string,

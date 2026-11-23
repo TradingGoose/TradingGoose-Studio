@@ -8,6 +8,7 @@ import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
+import { normalizeSsoDomains } from '@/lib/sso/domains'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
@@ -247,12 +248,7 @@ export function SSO() {
   }
 
   const validateDomain = (value: string): string[] => {
-    const out: string[] = []
-    if (!value || !value.trim()) return ['Domain is required.']
-    if (/^https?:\/\//i.test(value.trim())) out.push('Do not include protocol (https://).')
-    if (!/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(value.trim()))
-      out.push('Enter a valid domain like your-domain.identityprovider.com')
-    return out
+    return normalizeSsoDomains(value) ? [] : ['Enter one or more comma-separated domains.']
   }
 
   const validateRequired = (label: string, value: string): string[] => {

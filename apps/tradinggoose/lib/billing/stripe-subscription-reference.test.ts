@@ -1,9 +1,12 @@
 /**
  * @vitest-environment node
  */
-import { betterAuth } from 'better-auth'
+import { type BetterAuthOptions, betterAuth } from 'better-auth'
+import { memoryAdapter } from 'better-auth/adapters/memory'
+import { getAuthTables } from 'better-auth/db'
 import { testUtils } from 'better-auth/plugins'
 import { afterEach, expect, it, vi } from 'vitest'
+import { bindEmailChangeUpdate } from '@/lib/auth/email-change'
 
 it('checks out the selected organization seats using the user Stripe customer', async () => {
   vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
@@ -147,9 +150,19 @@ async function accountVerificationFixture(verifySignup: boolean) {
   const { auth: appAuth } = await import('@/lib/auth')
   // The production adapter checks the plugin fields against our Drizzle schema at startup.
   await appAuth.$context
+  const beforeVerification = vi.fn<() => Promise<void>>()
   const auth = betterAuth({
     ...appAuth.options,
-    database: undefined,
+    database: (options: BetterAuthOptions) => {
+      const tables = Object.fromEntries(
+        Object.keys(getAuthTables(options)).map((name) => [name, []])
+      )
+      return bindEmailChangeUpdate(memoryAdapter(tables)(options))
+    },
+    emailVerification: {
+      ...appAuth.options.emailVerification,
+      beforeEmailVerification: beforeVerification,
+    },
     plugins: [...appAuth.options.plugins, testUtils()],
   })
   const { adapter } = await auth.$context
@@ -160,7 +173,7 @@ async function accountVerificationFixture(verifySignup: boolean) {
   const limit = vi.spyOn(ExecutionLimiter.prototype, 'checkRateLimitWithSubscription')
   limit.mockResolvedValue({ allowed: true, remaining: 2, resetAt: new Date() })
 
-  function post(path: string, body: Record<string, string>, cookie = '', requestOrigin = origin) {
+  function post(path: string, body: Record<string, unknown>, cookie = '', requestOrigin = origin) {
     const request = new Request(`${origin}/api/auth${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: requestOrigin, cookie },
@@ -168,7 +181,7 @@ async function accountVerificationFixture(verifySignup: boolean) {
     })
     return path === '/request-email-change-link' ? sendLink(request) : auth.handler(request)
   }
-  return { auth, adapter, origin, post, limit }
+  return { auth, adapter, origin, post, limit, beforeVerification }
 }
 
 function lastCode(to: string, subject: string) {
@@ -190,6 +203,124 @@ function currentMailboxCode(to: string, accountId: string, locale = 'en') {
   expect(otp).toMatch(/^\d{6}$/)
   return otp
 }
+
+it('requires a valid username before creating a password user', async () => {
+  const { post, adapter } = await accountVerificationFixture(true)
+  const signup = { name: 'Owner', email: 'old@example.com', password: 'owner-password' }
+  for (const username of [undefined, null, '', 123, 'has space']) {
+    const response = await post('/sign-up/email', { ...signup, username })
+    expect(response.status).toBe(400)
+  }
+  for (const model of ['user', 'account', 'verification']) {
+    expect(await adapter.findMany({ model })).toHaveLength(0)
+  }
+  expect(accountMail).not.toHaveBeenCalled()
+  expect((await post('/sign-up/email', { ...signup, username: 'Owner_Name' })).status).toBe(200)
+  expect(await adapter.findMany({ model: 'user' })).toMatchObject([{ username: 'owner_name' }])
+})
+
+it('requires a fresh current-mailbox link after failed target delivery', async () => {
+  const { post, adapter } = await accountVerificationFixture(false)
+  const email = 'old@example.com'
+  const newEmail = 'target@team.example'
+  const signup = await post('/sign-up/email', {
+    email,
+    name: 'Owner',
+    username: 'owner_name',
+    password: 'owner-password',
+  })
+  const { user } = await signup.json()
+  const cookie = cookies(signup)
+  const sendLink = () => post('/request-email-change-link', { accountId: user.id }, cookie)
+  const request = (otp: string) =>
+    post('/email-otp/request-email-change', { newEmail, otp }, cookie)
+  expect((await sendLink()).status).toBe(204)
+  const proof = currentMailboxCode(email, user.id)
+  expect(
+    (await post('/email-otp/request-email-change', { newEmail: email, otp: proof }, cookie)).status
+  ).toBe(400)
+  accountMail.mockResolvedValueOnce({ success: false })
+  const failed = await request(proof)
+  expect(failed.status).toBe(502)
+  expect(await failed.json()).toMatchObject({ code: 'EMAIL_CHANGE_CODE_DELIVERY_FAILED' })
+  const replay = await request(proof)
+  expect(await replay.json()).toMatchObject({ code: 'INVALID_OTP' })
+  expect(
+    await adapter.findOne({ model: 'user', where: [{ field: 'id', value: user.id }] })
+  ).toMatchObject({ email })
+  expect(customer.update).not.toHaveBeenCalled()
+  expect((await sendLink()).status).toBe(204)
+  expect((await request(currentMailboxCode(email, user.id))).status).toBe(200)
+  expect(
+    (
+      await post(
+        '/email-otp/change-email',
+        { newEmail, otp: lastCode(newEmail, 'Verify your new email') },
+        cookie
+      )
+    ).status
+  ).toBe(200)
+})
+
+it('rejects pending and in-flight confirmations after another mailbox change', async () => {
+  const { post, adapter, beforeVerification } = await accountVerificationFixture(false)
+  const email = 'old@example.com'
+  const signup = await post('/sign-up/email', {
+    email,
+    name: 'Owner',
+    username: 'owner_name',
+    password: 'owner-password',
+  })
+  const { user } = await signup.json()
+  const cookie = cookies(signup)
+  customer.retrieve.mockResolvedValue({ id: 'cus_owner', email })
+  const where = [{ field: 'id', value: user.id }]
+  await adapter.update({ model: 'user', where, update: { stripeCustomerId: 'cus_owner' } })
+  async function challenge(currentEmail: string, newEmail: string) {
+    expect((await post('/request-email-change-link', { accountId: user.id }, cookie)).status).toBe(
+      204
+    )
+    const otp = currentMailboxCode(currentEmail, user.id)
+    expect((await post('/email-otp/request-email-change', { newEmail, otp }, cookie)).status).toBe(
+      200
+    )
+    return { newEmail, otp: lastCode(newEmail, 'Verify your new email') }
+  }
+  const confirm = (body: { newEmail: string; otp: string }) =>
+    post('/email-otp/change-email', body, cookie)
+  const pending = await challenge(email, 'pending@team.example')
+  const anonymous = await post('/email-otp/check-verification-otp', {
+    type: 'change-email',
+    email: pending.newEmail,
+    otp: pending.otp,
+  })
+  expect(anonymous.status).toBe(400)
+  expect(await anonymous.json()).toMatchObject({ code: 'INVALID_OTP' })
+  const inFlight = await challenge(email, 'inflight@team.example')
+  const winner = await challenge(email, 'winner@team.example')
+  let resume!: () => void
+  beforeVerification.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        resume = resolve
+      })
+  )
+  const changing = confirm(inFlight)
+  try {
+    await vi.waitFor(() => expect(beforeVerification).toHaveBeenCalledOnce())
+    expect((await confirm(winner)).status).toBe(200)
+  } finally {
+    resume()
+  }
+  expect(await (await changing).json()).toMatchObject({ code: 'CURRENT_EMAIL_CHANGED' })
+  expect(await (await confirm(pending)).json()).toMatchObject({ code: 'INVALID_OTP' })
+  expect(await adapter.findOne({ model: 'user', where })).toMatchObject({
+    id: user.id,
+    email: winner.newEmail,
+  })
+  expect(customer.update).toHaveBeenCalledExactlyOnceWith('cus_owner', { email: winner.newEmail })
+  expect((await confirm(await challenge(winner.newEmail, pending.newEmail))).status).toBe(200)
+})
 
 it('limits email reset links to the authenticated account and its stored address', async () => {
   const { adapter, post, limit } = await accountVerificationFixture(false)

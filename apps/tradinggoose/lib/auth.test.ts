@@ -1,9 +1,8 @@
 import { hashPassword } from 'better-auth/crypto'
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getOrganizationBillingData } from '@/lib/billing/core/organization'
+import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { getBillingGateState } from '@/lib/billing/settings'
-import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { handleAuthRequest } from '@/app/api/auth/[...all]/route'
 import { auth } from './auth'
@@ -35,7 +34,6 @@ const { tables, resolveDefinitions, registerClient, origin } = vi.hoisted(() => 
 
 vi.mock('@/lib/billing/core/organization', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/billing/core/organization')>()),
-  getOrganizationBillingData: vi.fn(async () => ({ subscriptionTier: null })),
   hasOrganizationMembership: vi.fn(async (userId: string) =>
     tables.member.some((row) => row.userId === userId)
   ),
@@ -45,11 +43,18 @@ vi.mock('@/lib/billing/validation/seat-management', async (original) => ({
   ...(await original<typeof import('@/lib/billing/validation/seat-management')>()),
   validateSeatAvailability: vi.fn(),
 }))
+vi.mock('@/lib/billing/core/billing', async (original) => ({
+  ...(await original<typeof import('@/lib/billing/core/billing')>()),
+  getOrganizationSubscription: vi.fn(),
+}))
 vi.mock('@/lib/billing/settings', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/billing/settings')>()),
   getBillingGateState: vi.fn(async () => ({ billingEnabled: false })),
 }))
 
+vi.mock('@/lib/organization/admission', () => ({
+  withOrganizationAdmission: (target: unknown, callback: (tx: object) => unknown) => callback({}),
+}))
 vi.mock('better-auth/adapters/drizzle', async () => {
   const { memoryAdapter } = await import('better-auth/adapters/memory')
   return { drizzleAdapter: () => memoryAdapter(tables) }
@@ -191,11 +196,19 @@ describe('managed OAuth through the auth handler', () => {
     }
   })
 
-  it('uses current managed credentials for discovery, ID-token verification and the linked account', async () => {
+  const googleServices = [
+    'google-calendar',
+    'google-email',
+    'google-drive',
+    'google-docs',
+    'google-sheets',
+    'google-forms',
+    'google-vault',
+  ]
+  it.each(googleServices)('links %s with the managed client and callback', async (provider) => {
     const { publicKey, privateKey } = await generateKeyPair('RS256')
     const jwk = await exportJWK(publicKey)
     const issuer = 'https://accounts.google.com'
-    const provider = 'google-email'
     let clientId = 'first-client'
     let nonce: string | null = null
     resolveDefinitions.mockImplementation(async () => ({
@@ -221,6 +234,7 @@ describe('managed OAuth through the auth handler', () => {
           const body = new URLSearchParams(await outgoing.text())
           expect(body.get('client_id')).toBe(clientId)
           expect(body.get('client_secret')).toBe('configured-secret')
+          expect(body.get('redirect_uri')).toBe(`${origin}/api/auth/callback/${provider}`)
           const idToken = await new SignJWT({
             nonce,
             email: 'owner@example.test',
@@ -234,7 +248,11 @@ describe('managed OAuth through the auth handler', () => {
             .setIssuedAt()
             .setExpirationTime('5m')
             .sign(privateKey)
-          return Response.json({ id_token: idToken, access_token: 'access', token_type: 'Bearer' })
+          return Response.json({
+            id_token: idToken,
+            access_token: 'access',
+            token_type: 'Bearer',
+          })
         }
         default:
           throw new Error(`Unexpected fixture URL ${outgoing.url}`)
@@ -297,7 +315,7 @@ describe('SSO domain verification access', () => {
     for (const table of Object.keys(tables)) tables[table] = []
   })
   afterEach(() => {
-    vi.mocked(getOrganizationBillingData).mockReset()
+    vi.mocked(getOrganizationSubscription).mockReset()
     vi.mocked(getBillingGateState).mockReset()
     vi.mocked(validateSeatAvailability).mockReset()
     vi.unstubAllGlobals()
@@ -328,13 +346,13 @@ describe('SSO domain verification access', () => {
     const issuer = 'https://idp.example.com'
     const providerId = 'a'.repeat(44)
     vi.stubGlobal('fetch', vi.fn())
-    const register = (id: string) =>
+    const register = (id: string, domain = ' EXAMPLE.com, Example.org,example.com, ') =>
       request(
         '/sso/register',
         {
           providerId: id,
           issuer,
-          domain: 'example.com',
+          domain,
           oidcConfig: {
             clientId: 'client',
             clientSecret: 'secret',
@@ -347,6 +365,8 @@ describe('SSO domain verification access', () => {
         cookie
       )
     expect((await register(providerId)).status).toBe(200)
+    expect(tables.ssoProvider[0].domain).toBe('example.com,example.org')
+    expect((await register('empty-domains', ' , , ')).status).toBe(400)
     const rejected = await register(`${providerId}a`)
     expect(rejected.status).toBe(422)
     expect(await rejected.json()).toMatchObject({
@@ -417,9 +437,8 @@ describe('SSO domain verification access', () => {
         billingEnabled: scenario !== 'member elsewhere without billing',
         stripeConfigured: true,
       })
-      vi.mocked(getOrganizationBillingData, { partial: true }).mockResolvedValue({
-        subscriptionTier: {
-          ...EMPTY_BILLING_TIER_SUMMARY,
+      vi.mocked(getOrganizationSubscription, { partial: true, deep: true }).mockResolvedValue({
+        tier: {
           ownerType: 'organization',
           canConfigureSso: scenario !== 'ineligible',
         },
@@ -460,7 +479,7 @@ describe('SSO domain verification access', () => {
         expect(tables.member).toEqual(previousMembers)
         return
       }
-      expect(seats).toHaveBeenCalledWith(organizationId)
+      expect(seats).toHaveBeenCalledWith(organizationId, 1, expect.anything())
       expect(tables.member).toEqual([
         expect.objectContaining({ userId, organizationId, role: 'member' }),
       ])

@@ -18,13 +18,14 @@ import {
 } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
 import {
+  reserveOrganizationInvitations,
   validateBulkInvitations,
-  validateSeatAvailability,
 } from '@/lib/billing/validation/seat-management'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
+import { withOrganizationAdmission } from '@/lib/organization/admission'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { localizeUrl } from '@/i18n/utils'
@@ -211,42 +212,51 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    const existingMembers = await db
-      .select({ userEmail: user.email })
-      .from(member)
-      .innerJoin(user, eq(member.userId, user.id))
-      .where(eq(member.organizationId, organizationId))
-
-    const existingEmails = existingMembers.map((m) => m.userEmail)
-    const newEmails = processedEmails.filter((email: string) => !existingEmails.includes(email))
-
-    const existingInvitations = await db
-      .select({ email: invitation.email })
-      .from(invitation)
-      .where(and(eq(invitation.organizationId, organizationId), eq(invitation.status, 'pending')))
-
-    const pendingEmails = existingInvitations.map((i) => i.email)
-    const emailsToInvite = newEmails.filter((email: string) => !pendingEmails.includes(email))
-
-    if (emailsToInvite.length === 0) {
+    const { validation, invitations: invitationsToCreate } = await withOrganizationAdmission(
+      { organizationId },
+      async (tx) => {
+        const result = await reserveOrganizationInvitations(tx, {
+          organizationId,
+          inviterId: session.user.id,
+          emails: processedEmails,
+          role,
+        })
+        for (const orgInvite of result.invitations) {
+          for (const wsInvitation of validWorkspaceInvitations) {
+            await tx.insert(workspaceInvitation).values({
+              id: randomUUID(),
+              workspaceId: wsInvitation.workspaceId,
+              email: orgInvite.email,
+              inviterId: session.user.id,
+              role: 'member',
+              status: 'pending',
+              token: randomUUID(),
+              permissions: wsInvitation.permission,
+              orgInvitationId: orgInvite.id,
+              expiresAt: orgInvite.expiresAt,
+              createdAt: orgInvite.createdAt,
+              updatedAt: orgInvite.createdAt,
+            })
+          }
+        }
+        return result
+      }
+    )
+    const {
+      validEmails: emailsToInvite,
+      existingMembers,
+      pendingInvitations,
+      validationResult: seatValidation,
+    } = validation
+    if (!emailsToInvite.length) {
       return NextResponse.json(
         {
           error: 'All emails are already members or have pending invitations',
-          details: {
-            existingMembers: processedEmails.filter((email: string) =>
-              existingEmails.includes(email)
-            ),
-            pendingInvitations: processedEmails.filter((email: string) =>
-              pendingEmails.includes(email)
-            ),
-          },
+          details: { existingMembers, pendingInvitations },
         },
         { status: 400 }
       )
     }
-
-    const seatValidation = await validateSeatAvailability(organizationId, emailsToInvite.length)
-
     if (!seatValidation.canInvite) {
       return NextResponse.json(
         {
@@ -260,48 +270,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         },
         { status: 400 }
       )
-    }
-
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-    const invitationsToCreate = emailsToInvite.map((email: string) => ({
-      id: randomUUID(),
-      email,
-      inviterId: session.user.id,
-      organizationId,
-      role,
-      status: 'pending' as const,
-      expiresAt,
-      createdAt: new Date(),
-    }))
-
-    await db.insert(invitation).values(invitationsToCreate)
-
-    const workspaceInvitationIds: string[] = []
-    if (isBatch && validWorkspaceInvitations.length > 0) {
-      for (const email of emailsToInvite) {
-        const orgInviteForEmail = invitationsToCreate.find((inv) => inv.email === email)
-        for (const wsInvitation of validWorkspaceInvitations) {
-          const wsInvitationId = randomUUID()
-          const token = randomUUID()
-
-          await db.insert(workspaceInvitation).values({
-            id: wsInvitationId,
-            workspaceId: wsInvitation.workspaceId,
-            email,
-            inviterId: session.user.id,
-            role: 'member',
-            status: 'pending',
-            token,
-            permissions: wsInvitation.permission,
-            orgInvitationId: orgInviteForEmail?.id,
-            expiresAt,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-
-          workspaceInvitationIds.push(wsInvitationId)
-        }
-      }
     }
 
     const inviter = await db
@@ -392,7 +360,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       emails: emailsToInvite,
       role,
       isBatch,
-      workspaceInvitationCount: workspaceInvitationIds.length,
+      workspaceInvitationCount: invitationsToCreate.length * validWorkspaceInvitations.length,
     })
 
     return NextResponse.json({
@@ -401,10 +369,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       data: {
         invitationsSent: invitationsToCreate.length,
         invitedEmails: emailsToInvite,
-        existingMembers: processedEmails.filter((email: string) => existingEmails.includes(email)),
-        pendingInvitations: processedEmails.filter((email: string) =>
-          pendingEmails.includes(email)
-        ),
+        existingMembers,
+        pendingInvitations,
         invalidEmails: invitationEmails.filter(
           (email: string) => !quickValidateEmail(email.trim().toLowerCase()).isValid
         ),
