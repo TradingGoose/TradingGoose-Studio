@@ -28,6 +28,7 @@ import {
 } from '@/components/emails/render-email'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
+import { hasOrganizationMembership } from '@/lib/billing/core/organization'
 import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
 import { handleNewUser } from '@/lib/billing/core/usage'
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
@@ -77,7 +78,11 @@ import {
   REGISTRATION_DISABLED_REASON,
   REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
-import { assertSsoProviderIdAllowed, requireSsoOrganization } from '@/lib/sso/management'
+import {
+  assertSsoProviderIdAllowed,
+  requireOrganizationSsoEnabled,
+  requireSsoOrganization,
+} from '@/lib/sso/management'
 import {
   createStripeClientProxy,
   getStripeServiceConfig,
@@ -837,6 +842,24 @@ export const auth = betterAuth({
       ? [
           sso({
             domainVerification: { enabled: true },
+            organizationProvisioning: {
+              getRole: async ({ user, provider }) => {
+                const organizationId = provider.organizationId
+                if (!organizationId)
+                  throw new APIError('BAD_REQUEST', { message: 'Organization required' })
+                await requireOrganizationSsoEnabled(organizationId)
+                if (await hasOrganizationMembership(user.id)) {
+                  throw new APIError('FORBIDDEN', {
+                    message: 'Already a member of an organization',
+                  })
+                }
+                const seats = await validateSeatAvailability(organizationId)
+                if (!seats.canInvite) {
+                  throw new APIError('FORBIDDEN', { message: seats.reason ?? 'No available seats' })
+                }
+                return 'member'
+              },
+            },
             saml: { allowIdpInitiated: true, idpInitiatedCallbackUrl: '/signup?complete=username' },
           }),
         ]
@@ -967,18 +990,14 @@ export const auth = betterAuth({
     }),
     organization({
       allowUserToCreateOrganization: async (user) => {
-        const [{ billingEnabled }, memberships] = await Promise.all([
+        const [{ billingEnabled }, hasOrganization] = await Promise.all([
           getBillingGateState(),
-          db
-            .select({ id: schema.member.id })
-            .from(schema.member)
-            .where(eq(schema.member.userId, user.id))
-            .limit(1),
+          hasOrganizationMembership(user.id),
         ])
 
         return getOrganizationAccessState({
           billingEnabled,
-          hasOrganization: memberships.length > 0,
+          hasOrganization,
           isOrganizationAdmin: false,
         }).canCreateOrganization
       },

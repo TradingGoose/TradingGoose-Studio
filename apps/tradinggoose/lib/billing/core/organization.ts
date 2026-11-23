@@ -578,6 +578,15 @@ export async function updateOrganizationUsageLimit(
   }
 }
 
+export async function hasOrganizationMembership(userId: string) {
+  const memberships = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(eq(member.userId, userId))
+    .limit(1)
+  return memberships.length > 0
+}
+
 /**
  * Check if a user is an owner or admin of a specific organization
  *

@@ -3,6 +3,7 @@ import { member, organization } from '@tradinggoose/db/schema'
 import { and, eq, or } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { hasOrganizationMembership } from '@/lib/billing/core/organization'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('OrganizationsAPI')
@@ -31,15 +32,9 @@ export async function GET() {
         )
       )
 
-    const anyMembership = await db
-      .select({ id: member.id })
-      .from(member)
-      .where(eq(member.userId, session.user.id))
-      .limit(1)
-
     return NextResponse.json({
       organizations: userOrganizations,
-      isMemberOfAnyOrg: anyMembership.length > 0,
+      isMemberOfAnyOrg: await hasOrganizationMembership(session.user.id),
     })
   } catch (error) {
     logger.error('Failed to fetch organizations', {

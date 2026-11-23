@@ -1,6 +1,10 @@
 import { hashPassword } from 'better-auth/crypto'
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getOrganizationBillingData } from '@/lib/billing/core/organization'
+import { getBillingGateState } from '@/lib/billing/settings'
+import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
+import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { handleAuthRequest } from '@/app/api/auth/[...all]/route'
 import { auth } from './auth'
 import { isHosted } from './environment'
@@ -10,6 +14,8 @@ const { tables, resolveDefinitions, registerClient, origin } = vi.hoisted(() => 
   const origin = 'http://localhost:3000'
   vi.stubEnv('NEXT_PUBLIC_APP_URL', origin)
   vi.stubEnv('SSO_ENABLED', 'true')
+  vi.stubEnv('GITHUB_CLIENT_ID', 'fixture-client')
+  vi.stubEnv('GITHUB_CLIENT_SECRET', 'fixture-secret')
   vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-for-managed-oauth-fixture-only')
   return {
     origin,
@@ -19,6 +25,7 @@ const { tables, resolveDefinitions, registerClient, origin } = vi.hoisted(() => 
       session: [],
       verification: [],
       member: [],
+      invitation: [],
       ssoProvider: [],
     } as Record<string, Record<string, unknown>[]>,
     resolveDefinitions: vi.fn(),
@@ -29,7 +36,14 @@ const { tables, resolveDefinitions, registerClient, origin } = vi.hoisted(() => 
 vi.mock('@/lib/billing/core/organization', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/billing/core/organization')>()),
   getOrganizationBillingData: vi.fn(async () => ({ subscriptionTier: null })),
+  hasOrganizationMembership: vi.fn(async (userId: string) =>
+    tables.member.some((row) => row.userId === userId)
+  ),
   isOrganizationOwnerOrAdmin: vi.fn(async () => true),
+}))
+vi.mock('@/lib/billing/validation/seat-management', async (original) => ({
+  ...(await original<typeof import('@/lib/billing/validation/seat-management')>()),
+  validateSeatAvailability: vi.fn(),
 }))
 vi.mock('@/lib/billing/settings', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/billing/settings')>()),
@@ -279,33 +293,37 @@ describe('managed OAuth through the auth handler', () => {
 })
 
 describe('SSO domain verification access', () => {
+  beforeEach(() => {
+    for (const table of Object.keys(tables)) tables[table] = []
+  })
+  afterEach(() => {
+    vi.mocked(getOrganizationBillingData).mockReset()
+    vi.mocked(getBillingGateState).mockReset()
+    vi.mocked(validateSeatAvailability).mockReset()
+    vi.unstubAllGlobals()
+  })
+
   it('reserves managed OAuth IDs on the native SSO registration endpoint', async () => {
     const cookie = await signIn('managed-provider-owner')
     expect((await auth.$context).socialProviders.map(({ id }) => id)).not.toContain('tradier-live')
     const outgoing = vi.fn()
     vi.stubGlobal('fetch', outgoing)
-    try {
-      const result = await request(
-        '/sso/register',
-        {
-          providerId: 'tradier-live',
-          issuer: 'https://idp.example.com',
-          domain: 'example.com',
-          oidcConfig: { clientId: 'client', clientSecret: 'secret' },
-        },
-        cookie
-      )
-      expect(result.status).toBe(422)
-      expect(outgoing).not.toHaveBeenCalled()
-      expect(tables.ssoProvider).toEqual([])
-    } finally {
-      vi.unstubAllGlobals()
-    }
+    const result = await request(
+      '/sso/register',
+      {
+        providerId: 'tradier-live',
+        issuer: 'https://idp.example.com',
+        domain: 'example.com',
+        oidcConfig: { clientId: 'client', clientSecret: 'secret' },
+      },
+      cookie
+    )
+    expect(result.status).toBe(422)
+    expect(outgoing).not.toHaveBeenCalled()
+    expect(tables.ssoProvider).toEqual([])
   })
 
   it('requires an eligible active organization that owns the provider', async () => {
-    const { getBillingGateState } = await import('@/lib/billing/settings')
-    for (const table of Object.keys(tables)) tables[table] = []
     const cookie = await signIn('sso-owner')
     tables.ssoProvider.push({
       id: 'provider-id',
@@ -337,4 +355,87 @@ describe('SSO domain verification access', () => {
       (await request('/sso/request-domain-verification', { providerId: 'okta' }, cookie)).status
     ).toBe(201)
   })
+
+  it.each(['ineligible', 'full', 'member elsewhere', 'eligible'] as const)(
+    'applies organization provisioning policy on a verified GitHub sign-in (%s)',
+    async (scenario) => {
+      const userId = 'social-user'
+      const email = `${userId}@example.test`
+      const organizationId = 'org-a'
+      await signIn(userId)
+      tables.account.push({ id: 'github-link', providerId: 'github', accountId: '42', userId })
+      tables.ssoProvider.push({
+        id: 'sso-a',
+        providerId: 'okta',
+        organizationId,
+        domain: 'example.test',
+        domainVerified: true,
+      })
+      if (scenario === 'member elsewhere') {
+        tables.member.push({ id: 'member-b', organizationId: 'org-b', userId, role: 'admin' })
+      }
+      const previousMembers = [...tables.member]
+      vi.mocked(getBillingGateState).mockResolvedValue({
+        billingEnabled: true,
+        stripeConfigured: true,
+      })
+      vi.mocked(getOrganizationBillingData, { partial: true }).mockResolvedValue({
+        subscriptionTier: {
+          ...EMPTY_BILLING_TIER_SUMMARY,
+          ownerType: 'organization',
+          canConfigureSso: scenario !== 'ineligible',
+        },
+      })
+      const seats = vi.mocked(validateSeatAvailability).mockResolvedValue({
+        canInvite: scenario !== 'full',
+        availableSeats: scenario === 'full' ? 0 : 1,
+        currentSeats: scenario === 'full' ? 2 : 1,
+        maxSeats: 2,
+      })
+      vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+        switch (new URL(new Request(input).url).pathname) {
+          case '/login/oauth/access_token':
+            return Response.json({ access_token: 'fixture-token', token_type: 'bearer' })
+          case '/user':
+            return Response.json({ id: 42, login: userId, email })
+          case '/user/emails':
+            return Response.json([{ email, primary: true, verified: true }])
+          default:
+            throw new Error('Unexpected GitHub fixture request')
+        }
+      })
+      const githubSignIn = async () => {
+        const start = await request('/sign-in/social', {
+          provider: 'github',
+          callbackURL: '/workspace',
+        })
+        expect(start.status).toBe(200)
+        const url = new URL((await start.json()).url)
+        return completeLink('github', { url, cookie: cookies(start) }, 'fixture-code')
+      }
+      const callback = await githubSignIn()
+      expect(callback.status).toBe(302)
+      expect(callback.headers.get('location')).toBe('/workspace')
+      const session = await request('/get-session', undefined, cookies(callback))
+      expect((await session.json()).user.id).toBe(userId)
+      if (scenario !== 'eligible') {
+        expect(tables.member).toEqual(previousMembers)
+        return
+      }
+      expect(seats).toHaveBeenCalledWith(organizationId)
+      expect(tables.member).toEqual([
+        expect.objectContaining({ userId, organizationId, role: 'member' }),
+      ])
+      const membership = { ...tables.member[0] }
+      seats
+        .mockClear()
+        .mockResolvedValue({ canInvite: false, currentSeats: 2, availableSeats: 0, maxSeats: 2 })
+      const repeat = await githubSignIn()
+      expect(repeat.status).toBe(302)
+      const returningSession = await request('/get-session', undefined, cookies(repeat))
+      expect((await returningSession.json()).user.id).toBe(userId)
+      expect(tables.member).toEqual([membership])
+      expect(seats).not.toHaveBeenCalled()
+    }
+  )
 })
