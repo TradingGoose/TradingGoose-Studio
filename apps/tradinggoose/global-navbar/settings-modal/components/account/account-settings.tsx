@@ -1,11 +1,11 @@
 'use client'
 
 import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
-import { UsernameForm } from '@/components/auth/username-form'
+import { useSaveUsername } from '@/components/auth/username-form'
+import { VerifyCurrentEmail } from '@/components/auth/verify-current-email'
 import { AgentIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,10 +14,13 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
-import { client, useSession } from '@/lib/auth-client'
+import {
+  type CurrentEmailVerification,
+  requestEmailChangeLink,
+  useSession,
+} from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
-import { organizationKeys } from '@/hooks/queries/organization'
 import { useGeneralStore } from '@/stores/settings/general/store'
 
 const logger = createLogger('AccountSettings')
@@ -30,12 +33,186 @@ const toEpochMillis = (value: string | Date | null | undefined): number | null =
   return Number.isNaN(time) ? null : time
 }
 
+const editButtonClass =
+  'inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
+
+function ProfileNameField({
+  id,
+  value,
+  onSave,
+}: {
+  id: 'accountName' | 'username'
+  value: string
+  onSave: (value: string) => Promise<string | undefined>
+}) {
+  const t = useTranslations('workspace.settingsModal.account')
+  const [draft, setDraft] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+  const username = id === 'username'
+  const editing = draft !== null
+
+  useEffect(() => {
+    if (editing) {
+      input.current?.focus()
+      input.current?.select()
+    }
+  }, [editing])
+
+  useEffect(() => {
+    if (error) input.current?.focus()
+  }, [error])
+
+  const cancel = () => {
+    setDraft(null)
+    setError('')
+  }
+
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (draft === null || busy) return
+    const next = draft.trim()
+    if (next && (username ? next.toLowerCase() === value.toLowerCase() : next === value)) {
+      cancel()
+      return
+    }
+    setBusy(true)
+    setError('')
+    const message = await onSave(next)
+    setBusy(false)
+    if (message) setError(message)
+    else cancel()
+  }
+
+  return (
+    <div className='space-y-1'>
+      <Label htmlFor={id}>{t(username ? 'username.label' : 'fullName')}</Label>
+      {editing ? (
+        <form
+          className='py-1.5'
+          onSubmit={save}
+          aria-busy={busy}
+          onBlur={(event) => {
+            if (!busy && !event.currentTarget.contains(event.relatedTarget)) cancel()
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && !busy) {
+              event.preventDefault()
+              event.stopPropagation()
+              cancel()
+            }
+          }}
+        >
+          <div className='flex max-w-md items-center gap-2'>
+            <Input
+              id={id}
+              ref={input}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              disabled={busy}
+              required={username}
+              autoComplete={username ? 'username' : 'off'}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? `${id}-error` : undefined}
+              className='h-8 min-w-0 flex-1'
+            />
+            <button
+              type='submit'
+              className={editButtonClass}
+              onMouseDown={(event) => event.preventDefault()}
+              disabled={busy}
+            >
+              <Check className='h-3.5 w-3.5' />
+              <span className='sr-only'>{t(username ? 'username.save' : 'saveName')}</span>
+            </button>
+            <button type='button' className={editButtonClass} onClick={cancel} disabled={busy}>
+              <X className='h-3.5 w-3.5' />
+              <span className='sr-only'>
+                {t(username ? 'username.cancel' : 'cancelEditingName')}
+              </span>
+            </button>
+          </div>
+          {error && (
+            <p role='alert' id={`${id}-error`} className='text-destructive text-xs'>
+              {error}
+            </p>
+          )}
+        </form>
+      ) : (
+        <div className='flex items-center gap-2'>
+          <p className='font-medium'>{value || '—'}</p>
+          <button type='button' className={editButtonClass} onClick={() => setDraft(value)}>
+            <Pencil className='h-3.5 w-3.5' />
+            <span className='sr-only'>{t(username ? 'username.edit' : 'editName')}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ResetLinkControl({
+  label,
+  description,
+  sent,
+  failed,
+  send,
+}: {
+  label: string
+  description: string
+  sent: string
+  failed: string
+  send: () => Promise<string | undefined>
+}) {
+  const t = useTranslations('workspace.settingsModal.account')
+  const [sending, setSending] = useState(false)
+  const [status, setStatus] = useState<{ success: boolean; message: string } | null>(null)
+
+  async function handleSend() {
+    setSending(true)
+    setStatus(null)
+    try {
+      const error = await send()
+      setStatus({ success: !error, message: error || sent })
+    } catch {
+      setStatus({ success: false, message: failed })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div role='group' aria-label={label} className='rounded-sm border bg-muted/30 px-4 py-4'>
+      <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+        <div>
+          <Label className='font-semibold text-sm'>{label}</Label>
+          <p className='text-muted-foreground text-sm'>{description}</p>
+        </div>
+        <Button type='button' size='sm' onClick={handleSend} disabled={sending}>
+          {sending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+          {t(sending ? 'sending' : 'sendLink')}
+        </Button>
+      </div>
+      {status && (
+        <p
+          role='status'
+          className={`mt-3 text-sm ${status.success ? 'text-emerald-600' : 'text-destructive'}`}
+        >
+          {status.message}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function AccountSettings() {
-  const { data: session, refetch } = useSession()
-  const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  const saveUsername = useSaveUsername()
   const authRedirectUrls = useAuthRedirectUrls()
   const tAccount = useTranslations('workspace.settingsModal.account')
   const userId = session?.user?.id ?? null
+  const [verification, setVerification] = useState<CurrentEmailVerification | null>(null)
 
   // Telemetry state from general store
   const storeIsLoading = useGeneralStore((state) => state.isLoading)
@@ -68,25 +245,10 @@ export function AccountSettings() {
 
   const [name, setName] = useState('')
   const email = session?.user?.email ?? ''
-  const [pendingEmail, setPendingEmail] = useState('')
-  const [emailError, setEmailError] = useState('')
-  const [changingEmail, setChangingEmail] = useState(false)
   const [profilePictureError, setProfilePictureError] = useState<string | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
-  const [isSendingReset, setIsSendingReset] = useState(false)
-  const [passwordResetStatus, setPasswordResetStatus] = useState<{
-    type: 'success' | 'error'
-    message: string
-  } | null>(null)
-  const [isEditingName, setIsEditingName] = useState(false)
-  const [editingNameValue, setEditingNameValue] = useState('')
-  const [isUpdatingName, setIsUpdatingName] = useState(false)
-  const [nameError, setNameError] = useState<string | null>(null)
   const [userImage, setUserImage] = useState<string | null>(null)
   const [avatarVersion, setAvatarVersion] = useState<number | null>(null)
-
-  const editNameInputRef = useRef<HTMLInputElement>(null)
-  const nameEditActionRef = useRef<'save' | 'cancel' | null>(null)
 
   const updateUserImage = async (imageUrl: string | null) => {
     try {
@@ -183,37 +345,8 @@ export function AccountSettings() {
     void fetchProfile()
   }, [session?.user, userId])
 
-  const startEditingName = () => {
-    setEditingNameValue(name)
-    setIsEditingName(true)
-    setNameError(null)
-    setTimeout(() => {
-      editNameInputRef.current?.focus()
-      editNameInputRef.current?.select()
-    }, 0)
-  }
-
-  const cancelEditingName = () => {
-    setIsEditingName(false)
-    setEditingNameValue('')
-    setNameError(null)
-  }
-
-  const commitEditingName = async () => {
-    const trimmedName = editingNameValue.trim()
-    if (!trimmedName) {
-      setNameError(tAccount('status.nameRequiredValidation'))
-      editNameInputRef.current?.focus()
-      return
-    }
-    if (trimmedName === name) {
-      setIsEditingName(false)
-      setNameError(null)
-      return
-    }
-
-    setIsUpdatingName(true)
-    setNameError(null)
+  const saveName = async (trimmedName: string) => {
+    if (!trimmedName) return tAccount('status.nameRequiredValidation')
     try {
       const response = await fetch('/api/users/me/profile', {
         method: 'PATCH',
@@ -221,14 +354,9 @@ export function AccountSettings() {
         body: JSON.stringify({ name: trimmedName }),
       })
 
-      if (!response.ok) {
-        setNameError(tAccount('status.failedUpdateName'))
-        editNameInputRef.current?.focus()
-        return
-      }
+      if (!response.ok) return tAccount('status.failedUpdateName')
 
       setName(trimmedName)
-      setIsEditingName(false)
       if (typeof window !== 'undefined') {
         if (userId) {
           window.localStorage.setItem(`user-name-${userId}`, trimmedName)
@@ -239,95 +367,33 @@ export function AccountSettings() {
       }
     } catch (error) {
       logger.error('Error updating name:', error)
-      setNameError(tAccount('status.unableToUpdateName'))
-      editNameInputRef.current?.focus()
-    } finally {
-      setIsUpdatingName(false)
+      return tAccount('status.unableToUpdateName')
     }
   }
 
-  async function changeEmail(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = event.currentTarget
-    const fields = new FormData(form)
-    setChangingEmail(true)
-    setEmailError('')
-    try {
-      if (!pendingEmail) {
-        const newEmail = String(fields.get('newEmail')).trim().toLowerCase()
-        const { error } = await client.emailOtp.requestEmailChange({ newEmail })
-        if (error) throw new Error(error.message)
-        setPendingEmail(newEmail)
-      } else {
-        const { error } = await client.emailOtp.changeEmail({
-          newEmail: pendingEmail,
-          otp: String(fields.get('otp')).trim(),
-        })
-        if (error) throw new Error(error.message)
-        setPendingEmail('')
-        form.reset()
-        await Promise.all([
-          refetch(),
-          queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
-        ])
+  const sendPasswordReset = async () => {
+    if (!email) return tAccount('status.noEmail')
+    const response = await fetch('/api/auth/forget-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, redirectTo: authRedirectUrls.passwordResetUrl() }),
+    })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const rawMessage = errorData?.message ?? errorData?.error?.message ?? errorData?.error
+      if (
+        typeof rawMessage === 'string' &&
+        rawMessage.toLowerCase().includes('email is required')
+      ) {
+        return tAccount('status.noEmail')
       }
-    } catch (error) {
-      setEmailError(
-        error instanceof Error && error.message ? error.message : tAccount('status.saveError')
-      )
-    } finally {
-      setChangingEmail(false)
+      return tAccount('status.passwordResetFailed')
     }
   }
 
-  const handlePasswordReset = async () => {
-    const targetEmail = email
-    if (!targetEmail) {
-      setPasswordResetStatus({
-        type: 'error',
-        message: tAccount('status.noEmail'),
-      })
-      return
-    }
-
-    setIsSendingReset(true)
-    setPasswordResetStatus(null)
-    try {
-      const response = await fetch('/api/auth/forget-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: targetEmail,
-          redirectTo: authRedirectUrls.passwordResetUrl(),
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const rawMessage = errorData?.message ?? errorData?.error?.message ?? errorData?.error
-        const normalizedError =
-          typeof rawMessage === 'string' ? rawMessage.trim().toLowerCase() : ''
-
-        if (normalizedError.includes('email is required')) {
-          throw new Error(tAccount('status.noEmail'))
-        }
-
-        throw new Error(tAccount('status.passwordResetFailed'))
-      }
-
-      setPasswordResetStatus({
-        type: 'success',
-        message: tAccount('status.passwordResetSent'),
-      })
-    } catch (error) {
-      logger.error('Error requesting password reset:', error)
-      setPasswordResetStatus({
-        type: 'error',
-        message: error instanceof Error ? error.message : tAccount('status.passwordResetFailed'),
-      })
-    } finally {
-      setIsSendingReset(false)
-    }
+  const sendEmailReset = async () => {
+    if (!userId || !email) return tAccount('status.noEmail')
+    setVerification(await requestEmailChangeLink(userId))
   }
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -440,175 +506,31 @@ export function AccountSettings() {
           </CardHeader>
           <CardContent className='space-y-5'>
             <div className='space-y-3'>
-              <div className='space-y-1'>
-                <Label htmlFor='accountName'>{tAccount('fullName')}</Label>
-                {isEditingName ? (
-                  <div className='py-1.5'>
-                    <div className='flex max-w-md items-center gap-2'>
-                      <Input
-                        id='accountName'
-                        ref={editNameInputRef}
-                        value={editingNameValue}
-                        onChange={(event) => setEditingNameValue(event.target.value)}
-                        onBlur={() => {
-                          if (nameEditActionRef.current === 'save') {
-                            return
-                          }
-                          nameEditActionRef.current = null
-                          cancelEditingName()
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            void commitEditingName()
-                          } else if (event.key === 'Escape') {
-                            event.preventDefault()
-                            cancelEditingName()
-                          }
-                        }}
-                        disabled={isUpdatingName}
-                        className='h-8 min-w-0 flex-1'
-                        autoComplete='off'
-                      />
-                      <button
-                        type='button'
-                        onMouseDown={() => {
-                          nameEditActionRef.current = 'save'
-                        }}
-                        className='inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                        onClick={() => {
-                          nameEditActionRef.current = null
-                          void commitEditingName()
-                        }}
-                        disabled={isUpdatingName}
-                      >
-                        <Check className='h-3.5 w-3.5' />
-                        <span className='sr-only'>{tAccount('saveName')}</span>
-                      </button>
-                      <button
-                        type='button'
-                        onMouseDown={() => {
-                          nameEditActionRef.current = 'cancel'
-                        }}
-                        className='inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                        onClick={cancelEditingName}
-                        disabled={isUpdatingName}
-                      >
-                        <X className='h-3.5 w-3.5' />
-                        <span className='sr-only'>{tAccount('cancelEditingName')}</span>
-                      </button>
-                    </div>
-                    {nameError && <p className='text-destructive text-xs'>{nameError}</p>}
-                  </div>
-                ) : (
-                  <div className='flex items-center gap-2'>
-                    <p className='font-medium'>{name || '—'}</p>
-                    <button
-                      type='button'
-                      className='inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                      onClick={startEditingName}
-                      disabled={isUpdatingName}
-                    >
-                      <Pencil className='h-3.5 w-3.5' />
-                      <span className='sr-only'>{tAccount('editName')}</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-              <UsernameForm current={session?.user?.username ?? undefined} />
-              <form onSubmit={changeEmail} className='max-w-md space-y-2' aria-busy={changingEmail}>
-                <p className='text-sm'>
-                  {tAccount('emailAddress')}: {email || '—'}
-                </p>
-                {pendingEmail ? (
-                  <>
-                    <Label htmlFor='email-change-code'>
-                      {tAccount('codeSentTo', { email: pendingEmail })}
-                    </Label>
-                    <Input
-                      id='email-change-code'
-                      name='otp'
-                      key='otp'
-                      autoComplete='one-time-code'
-                      inputMode='numeric'
-                      required
-                    />
-                  </>
-                ) : (
-                  <>
-                    <Label htmlFor='new-email'>{tAccount('newEmail')}</Label>
-                    <Input
-                      id='new-email'
-                      name='newEmail'
-                      key='newEmail'
-                      type='email'
-                      autoComplete='email'
-                      required
-                    />
-                  </>
-                )}
-                <div className='flex gap-2'>
-                  <Button type='submit' size='sm' disabled={changingEmail}>
-                    {tAccount(pendingEmail ? 'confirmEmail' : 'sendCode')}
-                  </Button>
-                  {pendingEmail && (
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='sm'
-                      disabled={changingEmail}
-                      onClick={() => {
-                        setPendingEmail('')
-                        setEmailError('')
-                      }}
-                    >
-                      {tAccount('cancelEmail')}
-                    </Button>
-                  )}
-                </div>
-                {emailError && (
-                  <p role='alert' className='text-destructive text-xs'>
-                    {emailError}
-                  </p>
-                )}
-              </form>
+              <ProfileNameField id='accountName' value={name} onSave={saveName} />
+              <ProfileNameField
+                id='username'
+                value={session?.user?.username ?? ''}
+                onSave={saveUsername}
+              />
             </div>
-
-            <div className='rounded-sm border bg-muted/30 px-4 py-4'>
-              <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
-                <div>
-                  <Label className='font-semibold text-sm'>{tAccount('passwordReset')}</Label>
-                  <p className='text-muted-foreground text-sm'>
-                    {tAccount('passwordResetDescription')}
-                  </p>
-                </div>
-                <Button
-                  type='button'
-                  size='sm'
-                  onClick={handlePasswordReset}
-                  disabled={isSendingReset}
-                >
-                  {isSendingReset ? (
-                    <>
-                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                      {tAccount('sending')}
-                    </>
-                  ) : (
-                    tAccount('sendLink')
-                  )}
-                </Button>
-              </div>
-              {passwordResetStatus && (
-                <p
-                  className={`mt-3 text-sm ${
-                    passwordResetStatus.type === 'success' ? 'text-emerald-600' : 'text-destructive'
-                  }`}
-                  role='status'
-                >
-                  {passwordResetStatus.message}
-                </p>
-              )}
-            </div>
+            {verification && verification.accountId === userId ? (
+              <VerifyCurrentEmail {...verification} />
+            ) : (
+              <ResetLinkControl
+                label={tAccount('emailAddress')}
+                description={tAccount('emailResetDescription', { email: email || '—' })}
+                sent={tAccount('status.emailResetSent')}
+                failed={tAccount('status.emailResetFailed')}
+                send={sendEmailReset}
+              />
+            )}
+            <ResetLinkControl
+              label={tAccount('passwordReset')}
+              description={tAccount('passwordResetDescription')}
+              sent={tAccount('status.passwordResetSent')}
+              failed={tAccount('status.passwordResetFailed')}
+              send={sendPasswordReset}
+            />
           </CardContent>
         </Card>
       </div>

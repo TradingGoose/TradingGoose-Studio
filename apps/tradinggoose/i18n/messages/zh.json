@@ -260,6 +260,28 @@
         "unableToSignInNow": "当前无法登录，请稍后重试。"
       }
     },
+    "resetEmail": {
+      "eyebrow": "账户设置",
+      "title": "更改邮箱地址",
+      "description": "请在 15 分钟内使用此链接选择新的邮箱地址。我们会向新邮箱发送验证码，验证后再更新你的账户。",
+      "invalidLink": "链接缺失、已过期或已使用。请在账户设置中申请新链接。",
+      "signIn": "请登录发起此次邮箱变更的账户。",
+      "wrongAccount": "此链接属于另一个账户。请使用发起此次变更的账户登录。",
+      "switchAccount": "切换账户",
+      "newEmail": "新邮箱地址",
+      "sendCode": "发送验证码",
+      "codeSentTo": "请输入发送至 {email} 的 6 位验证码。验证码在 15 分钟内有效。",
+      "confirm": "确认新邮箱",
+      "invalidCode": "验证码有误，请核对后重试。",
+      "codeExpired": "验证码已过期或已达到尝试次数上限。",
+      "restartHint": "如需重新获取验证码或更换目标邮箱，请先向当前邮箱发送新链接。",
+      "restart": "发送新链接",
+      "sent": "请前往当前邮箱查看新链接。链接在 15 分钟内有效。",
+      "complete": "账户邮箱已更新为 {email}。",
+      "workspace": "返回工作区",
+      "failure": "无法更改邮箱，请重试。",
+      "sendFailure": "无法发送新链接，请重试。"
+    },
     "resetPassword": {
       "eyebrow": "密码重置",
       "title": "重置密码",
@@ -1870,6 +1892,8 @@
         "username": {
           "label": "用户名",
           "choose": "选择用户名",
+          "edit": "编辑用户名",
+          "cancel": "取消编辑用户名",
           "save": "保存用户名",
           "taken": "该用户名已被使用。",
           "failed": "无法保存用户名。"
@@ -1882,11 +1906,9 @@
         "profileDetailsDescription": "更新您的姓名并管理访问权限。",
         "fullName": "姓名",
         "emailAddress": "电子邮箱",
-        "newEmail": "新邮箱地址",
-        "sendCode": "发送验证码",
-        "codeSentTo": "输入发送至 {email} 的验证码",
-        "confirmEmail": "确认更改邮箱",
-        "cancelEmail": "取消",
+        "verifyCurrentEmail": "请先验证 {email}，然后才能更改邮箱。验证后，请返回账户设置并请求新的链接。",
+        "verifyEmailButton": "发送验证码",
+        "emailResetDescription": "我们会向 {email} 发送更改邮箱的链接。链接在 15 分钟后失效。",
         "passwordReset": "重置密码",
         "passwordResetDescription": "我们将向您发送一封包含安全链接的邮件。",
         "sendLink": "发送链接",
@@ -1915,6 +1937,9 @@
           "failedUpdateName": "更新姓名失败",
           "unableToUpdateName": "无法更新姓名。请重试。",
           "noEmail": "未找到此账户的电子邮件地址。",
+          "verificationSendFailed": "无法向此账户发送验证码。请返回账户设置后重试。",
+          "emailResetSent": "更改邮箱的链接已发送到您当前的邮箱。",
+          "emailResetFailed": "无法发送更改邮箱的链接。",
           "passwordResetSent": "密码重置链接已发送至您的收件箱。",
           "passwordResetFailed": "无法发送密码重置电子邮件。"
         }
@@ -23401,6 +23426,7 @@
       "email-verification": "验证你的 {brandName} 邮箱",
       "forget-password": "重置你的 {brandName} 密码",
       "reset-password": "重置你的 {brandName} 密码",
+      "email-change-link": "更改你的 {brandName} 邮箱",
       "change-email": "验证你的新 {brandName} 邮箱",
       "chat-access": "{chatTitle} 验证码",
       "invitation": "你被邀请加入 {brandName} 上的 {organizationName}",
@@ -23433,6 +23459,12 @@
       "cta": "重置密码",
       "accountFallback": "你的账户邮箱",
       "sentLine": "发送时间：{date}，账户：{account}。"
+    },
+    "emailChangeLink": {
+      "title": "更改邮箱地址",
+      "body": "请在登录账户后打开此链接，填写新邮箱地址。我们会向新邮箱发送验证码。",
+      "action": "填写新邮箱地址",
+      "expires": "此链接将在 15 分钟后失效。"
     },
     "invitation": {
       "preview": "{inviterName} 邀请你加入 {brandName} 上的 {organizationName}",

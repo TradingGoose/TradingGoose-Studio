@@ -43,3 +43,7 @@ export const isHosted = HOSTED_HOSTNAMES.includes(extractHostname(getEnv('NEXT_P
  * Is email verification enabled
  */
 export const isEmailVerificationEnabled = isTruthy(env.EMAIL_VERIFICATION_ENABLED)
+
+export function needsSignupEmailVerification(user: { emailVerified: boolean }) {
+  return isEmailVerificationEnabled && !user.emailVerified
+}

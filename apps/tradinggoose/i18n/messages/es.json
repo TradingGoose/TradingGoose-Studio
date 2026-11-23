@@ -260,6 +260,28 @@
         "unableToSignInNow": "No se puede iniciar sesión en este momento. Intente nuevamente."
       }
     },
+    "resetEmail": {
+      "eyebrow": "Ajustes de la cuenta",
+      "title": "Cambiar tu correo electrónico",
+      "description": "Usa este enlace en los próximos 15 minutos para elegir una nueva dirección. Antes de actualizar tu cuenta, enviaremos un código de verificación a esa dirección.",
+      "invalidLink": "El enlace falta, ha caducado o ya se ha usado. Solicita otro en los ajustes de tu cuenta.",
+      "signIn": "Inicia sesión en la cuenta que solicitó este cambio de correo.",
+      "wrongAccount": "Este enlace pertenece a otra cuenta. Inicia sesión en la cuenta que lo solicitó.",
+      "switchAccount": "Cambiar de cuenta",
+      "newEmail": "Nuevo correo electrónico",
+      "sendCode": "Enviar código de verificación",
+      "codeSentTo": "Introduce el código de 6 dígitos que enviamos a {email}. Caduca en 15 minutos.",
+      "confirm": "Confirmar nuevo correo",
+      "invalidCode": "El código es incorrecto. Revísalo e inténtalo de nuevo.",
+      "codeExpired": "Este código ha caducado o ha alcanzado el límite de intentos.",
+      "restartHint": "Para recibir otro código o elegir otra dirección, solicita un enlace nuevo en tu correo actual.",
+      "restart": "Enviar un nuevo enlace",
+      "sent": "Revisa tu correo actual para ver el nuevo enlace. Caduca en 15 minutos.",
+      "complete": "El correo de tu cuenta ahora es {email}.",
+      "workspace": "Volver al espacio de trabajo",
+      "failure": "No se pudo cambiar tu correo. Inténtalo de nuevo.",
+      "sendFailure": "No se pudo enviar un nuevo enlace. Inténtalo de nuevo."
+    },
     "resetPassword": {
       "eyebrow": "Restablecer contraseña",
       "title": "Restablece tu contraseña",
@@ -1883,6 +1905,8 @@
         "username": {
           "label": "Nombre de usuario",
           "choose": "Elige un nombre de usuario",
+          "edit": "Editar nombre de usuario",
+          "cancel": "Cancelar edición del nombre de usuario",
           "save": "Guardar nombre de usuario",
           "taken": "Este nombre de usuario ya está en uso.",
           "failed": "No se pudo guardar el nombre de usuario."
@@ -1895,11 +1919,9 @@
         "profileDetailsDescription": "Actualice su nombre y administre el acceso.",
         "fullName": "Nombre completo",
         "emailAddress": "Dirección de correo electrónico",
-        "newEmail": "Nueva dirección de correo",
-        "sendCode": "Enviar código de verificación",
-        "codeSentTo": "Introduce el código enviado a {email}",
-        "confirmEmail": "Confirmar cambio de correo",
-        "cancelEmail": "Cancelar",
+        "verifyCurrentEmail": "Verifica {email} antes de cambiar tu correo. Después, vuelve a Cuenta y solicita un enlace nuevo.",
+        "verifyEmailButton": "Enviar código de verificación",
+        "emailResetDescription": "Para cambiar tu correo, te enviaremos un enlace a {email}. El enlace caduca en 15 minutos.",
         "passwordReset": "Restablecimiento de contraseña",
         "passwordResetDescription": "Le enviaremos un enlace seguro por correo electrónico.",
         "sendLink": "Enviar enlace",
@@ -1928,6 +1950,9 @@
           "failedUpdateName": "No se pudo actualizar el nombre",
           "unableToUpdateName": "No se puede actualizar el nombre. Inténtalo de nuevo.",
           "noEmail": "No se encontró una dirección de correo electrónico para esta cuenta.",
+          "verificationSendFailed": "No se pudo enviar el código de verificación a esta cuenta. Vuelve a Cuenta e inténtalo de nuevo.",
+          "emailResetSent": "Enlace para cambiar el correo enviado a tu buzón actual.",
+          "emailResetFailed": "No se pudo enviar el enlace para cambiar el correo.",
           "passwordResetSent": "Enlace de restablecimiento de contraseña enviado a tu bandeja de entrada.",
           "passwordResetFailed": "No se pudo enviar el correo de restablecimiento de contraseña."
         }
@@ -23414,6 +23439,7 @@
       "email-verification": "Verifica tu correo para {brandName}",
       "forget-password": "Restablece tu contraseña de {brandName}",
       "reset-password": "Restablece tu contraseña de {brandName}",
+      "email-change-link": "Cambia tu correo de {brandName}",
       "change-email": "Verifica tu nuevo correo para {brandName}",
       "chat-access": "Código de verificación para {chatTitle}",
       "invitation": "Te invitaron a unirte a {organizationName} en {brandName}",
@@ -23446,6 +23472,12 @@
       "cta": "Restablecer contraseña",
       "accountFallback": "el correo de tu cuenta",
       "sentLine": "Enviado el {date} a {account}."
+    },
+    "emailChangeLink": {
+      "title": "Cambia tu dirección de correo",
+      "body": "Abre este enlace con tu sesión iniciada para elegir una nueva dirección de correo. Te enviaremos un código de verificación a esa dirección.",
+      "action": "Elegir una nueva dirección",
+      "expires": "Este enlace caduca en 15 minutos."
     },
     "invitation": {
       "preview": "{inviterName} te invitó a unirte a {organizationName} en {brandName}",

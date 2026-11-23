@@ -52,7 +52,11 @@ import { resolveEmailLocale } from '@/lib/email/locale'
 import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { env, getEnv } from '@/lib/env'
-import { isEmailVerificationEnabled, isHosted } from '@/lib/environment'
+import {
+  isEmailVerificationEnabled,
+  isHosted,
+  needsSignupEmailVerification,
+} from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getCanonicalScopesForProvider,
@@ -667,7 +671,7 @@ export const auth = betterAuth({
     throwOnMissingCredentials: true,
     throwOnInvalidCredentials: true,
     onExistingUserSignUp: async ({ user }): Promise<void> => {
-      if (isEmailVerificationEnabled && !user.emailVerified) {
+      if (needsSignupEmailVerification(user)) {
         await auth.api.sendVerificationOTP({
           body: { email: user.email, type: 'email-verification' },
         })
@@ -736,9 +740,9 @@ export const auth = betterAuth({
         throw ctx.redirect(`${redirectPath}${redirectURL.search}${redirectURL.hash}`)
       }
 
+      const isEmailChange =
+        ctx.path === '/email-otp/request-email-change' || ctx.path === '/email-otp/change-email'
       if (env.ALLOWED_LOGIN_EMAILS || env.ALLOWED_LOGIN_DOMAINS) {
-        const isEmailChange =
-          ctx.path === '/email-otp/request-email-change' || ctx.path === '/email-otp/change-email'
         const isLogin =
           ctx.path.startsWith('/sign-in') ||
           ctx.path.startsWith('/sign-up') ||
@@ -772,7 +776,31 @@ export const auth = betterAuth({
         }
       }
 
-      return
+      // Signup and change-email use the same native current-mailbox proof.
+      const isSignupConfirmation = ctx.path === '/email-otp/verify-email'
+      const isSignupResend =
+        ctx.path === '/email-otp/send-verification-otp' && ctx.body?.type === 'email-verification'
+      if ((isSignupConfirmation || isSignupResend) && typeof ctx.body?.email === 'string') {
+        const account = isEmailVerificationEnabled
+          ? await ctx.context.internalAdapter.findUserByEmail(ctx.body.email.toLowerCase())
+          : null
+        if (!account || !needsSignupEmailVerification(account.user)) {
+          if (isSignupResend) return ctx.json({ success: true })
+          throw new APIError('BAD_REQUEST', { code: 'INVALID_OTP', message: 'Invalid OTP' })
+        }
+      }
+      if (ctx.path === '/send-verification-email' && !isEmailVerificationEnabled) {
+        return ctx.json({ status: true })
+      }
+      if (isEmailChange && isEmailVerificationEnabled) {
+        const session = await getAuthoritativeSessionFromCtx(ctx)
+        if (session && needsSignupEmailVerification(session.user)) {
+          throw new APIError('FORBIDDEN', {
+            code: 'EMAIL_NOT_VERIFIED',
+            message: 'Verify your current email before changing it.',
+          })
+        }
+      }
     }),
   },
   plugins: [
@@ -782,7 +810,7 @@ export const auth = betterAuth({
     username({ displayUsername: false }),
     emailOTP({
       overrideDefaultEmailVerification: true,
-      changeEmail: { enabled: true },
+      changeEmail: { enabled: true, verifyCurrentEmail: true },
       sendVerificationOTP: async (data, ctx) => {
         if (!isEmailVerificationEnabled && data.type !== 'change-email') {
           logger.info('Skipping email verification')
@@ -817,6 +845,7 @@ export const auth = betterAuth({
             subject: getEmailSubject(data.type, locale),
             html,
             text: `${getEmailSubject(data.type, locale)}\n\n${data.otp}`,
+            logTextWhenUnconfigured: data.type !== 'change-email',
             emailType: 'transactional',
           })
 

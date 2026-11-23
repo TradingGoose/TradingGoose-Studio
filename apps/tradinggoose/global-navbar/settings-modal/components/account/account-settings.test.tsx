@@ -2,14 +2,10 @@
 
 import type React from 'react'
 import { act } from 'react'
-import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getOrganizationAccessState } from '@/lib/organization/access'
-import { getUserRole } from '@/lib/organization/helpers'
 import { getGeneralSettingsResponsePatch } from '@/hooks/queries/general-settings'
-import { organizationKeys } from '@/hooks/queries/organization'
 import { getClientMessages, getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
@@ -20,10 +16,11 @@ const mockRefetch = vi.fn()
 const auth = vi.hoisted(() => ({
   isUsernameAvailable: vi.fn(),
   updateUser: vi.fn(),
-  emailOtp: { requestEmailChange: vi.fn(), changeEmail: vi.fn() },
+  getSession: vi.fn(),
+  emailOtp: { sendVerificationOtp: vi.fn() },
+  push: vi.fn(),
 }))
-vi.mock('@/i18n/navigation', () => ({ useRouter: () => ({ replace: vi.fn() }) }))
-let queryClient: QueryClient
+vi.mock('@/i18n/navigation', () => ({ useRouter: () => ({ replace: vi.fn(), push: auth.push }) }))
 const mockSetTelemetryEnabled = vi.fn()
 const generalState = {
   isLoading: false,
@@ -65,7 +62,8 @@ vi.mock('@/components/ui/tooltip', () => ({
   }) => <>{render ?? children}</>,
   TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
-vi.mock('@/lib/auth-client', () => ({
+vi.mock('@/lib/auth-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/auth-client')>()),
   client: auth,
   useSession: () => mockUseSession(),
 }))
@@ -75,11 +73,9 @@ vi.mock('@/stores/settings/general/store', () => ({
 
 function renderAccountSettings(root: Root, locale: LocaleCode) {
   root.render(
-    <QueryClientProvider client={queryClient}>
-      <NextIntlClientProvider locale={locale} messages={getClientMessages(locale, 'workspace')}>
-        <AccountSettings />
-      </NextIntlClientProvider>
-    </QueryClientProvider>
+    <NextIntlClientProvider locale={locale} messages={getClientMessages(locale, 'workspace')}>
+      <AccountSettings />
+    </NextIntlClientProvider>
   )
 }
 function findButtonByText(container: HTMLElement, text: string) {
@@ -117,9 +113,6 @@ describe('AccountSettings localization', () => {
   let root: Root
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
-    })
     vi.clearAllMocks()
     mockSetTelemetryEnabled.mockReset()
     mockUseSession.mockReturnValue({
@@ -171,7 +164,6 @@ describe('AccountSettings localization', () => {
     act(() => {
       root.unmount()
     })
-    queryClient.clear()
     container.remove()
     vi.restoreAllMocks()
   })
@@ -193,94 +185,147 @@ describe('AccountSettings localization', () => {
     expect(container.textContent).toContain(copy.telemetry.body)
   })
 
-  async function submitField(selector: string, value: string) {
-    const input = container.querySelector<HTMLInputElement>(selector)!
-    await act(async () => {
-      setInputValue(input, value)
-      input.form!.requestSubmit()
-      await flush()
-    })
-  }
-
-  it('keeps the display name independent and handles a username claimed before or after the check', async () => {
+  it('selects the username for editing and cancels with the cancel button, Escape or blur', async () => {
     const copy = getPublicCopy('en').workspace.settingsModal.account.username
-    await act(async () => {
-      renderAccountSettings(root, 'en')
-      await flush()
-    })
+    await act(async () => renderAccountSettings(root, 'en'))
+    expect(container.querySelector('#username')).toBeNull()
+    for (const action of ['cancel', 'escape', 'blur'] as const) {
+      await act(async () => click(findButtonByText(container, copy.edit)))
+      const input = container.querySelector<HTMLInputElement>('#username')!
+      expect(input).toHaveFocus()
+      expect([input.selectionStart, input.selectionEnd]).toEqual([0, 3])
+      await act(async () => setInputValue(input, 'discard'))
+      await act(async () => {
+        if (action === 'cancel') await click(findButtonByText(container, copy.cancel))
+        if (action === 'escape') {
+          const dialogKeyDown = vi.fn()
+          document.addEventListener('keydown', dialogKeyDown)
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+          document.removeEventListener('keydown', dialogKeyDown)
+          expect(dialogKeyDown).not.toHaveBeenCalled()
+        }
+        if (action === 'blur') input.blur()
+      })
+      expect(container.querySelector('#username')).toBeNull()
+      expect(container.textContent).toContain('ada')
+    }
+    expect(auth.isUsernameAvailable).not.toHaveBeenCalled()
+    expect(auth.updateUser).not.toHaveBeenCalled()
+    expect(mockRefetch).not.toHaveBeenCalled()
+  })
+
+  it('skips a normalized unchanged username and handles native availability and update errors', async () => {
+    const copy = getPublicCopy('en').workspace.settingsModal.account.username
+    await act(async () => renderAccountSettings(root, 'en'))
+    await act(async () => click(findButtonByText(container, copy.edit)))
+    let input = container.querySelector<HTMLInputElement>('#username')!
+    await act(async () => setInputValue(input, '  ADA  '))
+    await act(async () => input.form!.requestSubmit())
+    expect(container.querySelector('#username')).toBeNull()
+    expect(auth.isUsernameAvailable).not.toHaveBeenCalled()
+
+    await act(async () => click(findButtonByText(container, copy.edit)))
+    input = container.querySelector<HTMLInputElement>('#username')!
     auth.isUsernameAvailable.mockResolvedValueOnce({ data: { available: false } })
-    await submitField('#username', 'TAKEN')
+    await act(async () => setInputValue(input, 'TAKEN'))
+    await act(async () => input.form!.requestSubmit())
     expect(auth.updateUser).not.toHaveBeenCalled()
     expect(container.querySelector('#username-error')).toHaveTextContent(copy.taken)
+
+    auth.isUsernameAvailable.mockResolvedValueOnce({ error: { message: 'Invalid username' } })
+    await act(async () => input.form!.requestSubmit())
+    expect(input).toHaveAccessibleDescription('Invalid username')
+
     auth.isUsernameAvailable.mockResolvedValue({ data: { available: true } })
     auth.updateUser.mockResolvedValueOnce({ error: { code: 'USERNAME_IS_ALREADY_TAKEN' } })
-    await submitField('#username', 'Claimed')
-    expect(container.querySelector('#username-error')).toHaveTextContent(copy.taken)
+    await act(async () => setInputValue(input, 'Claimed'))
+    await act(async () => click(findButtonByText(container, copy.save)))
+    expect(input).toHaveAccessibleDescription(copy.taken)
     expect(mockRefetch).not.toHaveBeenCalled()
-    auth.updateUser.mockResolvedValueOnce({ data: {} })
-    await submitField('#username', 'AdaTwo')
+
+    let finish!: () => void
+    auth.updateUser.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = () => resolve({})
+      })
+    )
+    await act(async () => setInputValue(input, ' AdaTwo '))
+    await act(async () => click(findButtonByText(container, copy.save)))
+    expect(input).toBeDisabled()
+    expect(findButtonByText(container, copy.save)).toBeDisabled()
+    expect(findButtonByText(container, copy.cancel)).toBeDisabled()
     expect(auth.isUsernameAvailable).toHaveBeenLastCalledWith({ username: 'AdaTwo' })
     expect(auth.updateUser).toHaveBeenLastCalledWith({ username: 'AdaTwo' })
+    await act(async () => finish())
     expect(mockRefetch).toHaveBeenCalledOnce()
+    expect(container.querySelector('#username')).toBeNull()
     expect(container.textContent).toContain('Ada Lovelace')
   })
 
-  it('refreshes the session and active organization members only after the proposed email is confirmed', async () => {
-    const oldEmail = 'ada@example.com'
-    const newEmail = 'ada@new.example'
-    const organization = (email: string) => ({
-      id: 'org',
-      name: 'Organization',
-      slug: 'org',
-      createdAt: new Date(),
-      members: [{ id: 'membership', role: 'owner', user: { id: 'user-1', email } }],
-    })
-    const queryKey = organizationKeys.detail('org')
-    queryClient.setQueryData(queryKey, organization(oldEmail))
-    const loadMembers = vi.fn(async () => organization(newEmail))
-    const observer = new QueryObserver(queryClient, { queryKey, queryFn: loadMembers })
-    const unsubscribe = observer.subscribe(() => {})
-    mockRefetch.mockImplementationOnce(() => {
-      mockUseSession.mockReturnValue({
-        data: { user: { id: 'user-1', email: newEmail } },
-        refetch: mockRefetch,
+  it('shows independent localized email link status and sends only the account ID', async () => {
+    const copy = getPublicCopy('es').workspace.settingsModal.account
+    await act(async () => renderAccountSettings(root, 'es'))
+    const group = container.querySelector<HTMLElement>(
+      `[role="group"][aria-label="${copy.emailAddress}"]`
+    )!
+    const button = findButtonByText(group, copy.sendLink)
+    expect(group).toHaveTextContent('ada@example.com')
+    expect(group).toHaveTextContent('15 minutos')
+    expect(group.querySelector('input')).toBeNull()
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 403 }))
+    await act(async () => click(button))
+    expect(group.querySelector('[role="status"]')).toHaveTextContent(copy.status.emailResetFailed)
+    let finish!: () => void
+    vi.mocked(fetch).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = () => resolve(new Response(null, { status: 204 }))
       })
+    )
+    await act(async () => click(button))
+    expect(button).toBeDisabled()
+    expect(button).toHaveTextContent(copy.sending)
+    expect(group.querySelector('[role="status"]')).toBeNull()
+    expect(fetch).toHaveBeenLastCalledWith('/api/auth/request-email-change-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: 'user-1' }),
     })
-    auth.emailOtp.requestEmailChange.mockResolvedValue({})
-    auth.emailOtp.changeEmail
-      .mockResolvedValueOnce({ error: { message: 'Invalid code' } })
-      .mockResolvedValueOnce({})
-    try {
-      await act(async () => {
-        renderAccountSettings(root, 'en')
-        await flush()
-      })
-      await submitField('#new-email', newEmail)
-      expect(auth.emailOtp.requestEmailChange).toHaveBeenCalledWith({ newEmail })
-      await submitField('#email-change-code', '000000')
-      expect(container.textContent).toContain(oldEmail)
-      expect(container.textContent).toContain('Invalid code')
-      expect(loadMembers).not.toHaveBeenCalled()
-      expect(mockRefetch).not.toHaveBeenCalled()
-      await submitField('#email-change-code', '123456')
-      expect(auth.emailOtp.changeEmail).toHaveBeenLastCalledWith({ newEmail, otp: '123456' })
-      expect(mockRefetch).toHaveBeenCalledOnce()
-      expect(loadMembers).toHaveBeenCalledOnce()
-      const email = mockUseSession().data.user.email
-      expect(email).toBe(newEmail)
-      expect(container.textContent).toContain(newEmail)
-      const role = getUserRole(observer.getCurrentResult().data, email)
-      expect(role).toBe('owner')
-      expect(
-        getOrganizationAccessState({
-          billingEnabled: false,
-          hasOrganization: true,
-          isOrganizationAdmin: role === 'owner',
-        })
-      ).toMatchObject({ canManageOrganization: true, canConfigureSso: true })
-    } finally {
-      unsubscribe()
-    }
+    await act(async () => finish())
+    expect(group.querySelector('[role="status"]')).toHaveTextContent(copy.status.emailResetSent)
+    expect(container.textContent).not.toContain(copy.status.passwordResetSent)
+    expect(mockRefetch).not.toHaveBeenCalled()
+  })
+
+  it('offers signup verification for the matched current mailbox, then opens the existing verification screen', async () => {
+    const copy = getPublicCopy('es').workspace.settingsModal.account
+    const email = 'ada@example.com'
+    await act(async () => renderAccountSettings(root, 'es'))
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({ code: 'EMAIL_NOT_VERIFIED', email }, { status: 412 })
+    )
+    const group = container.querySelector<HTMLElement>(
+      `[role="group"][aria-label="${copy.emailAddress}"]`
+    )!
+    await act(async () => click(findButtonByText(group, copy.sendLink)))
+    expect(container).toHaveTextContent(formatTemplate(copy.verifyCurrentEmail, { email }))
+    expect(container).not.toHaveTextContent(copy.status.emailResetSent)
+    expect(auth.emailOtp.sendVerificationOtp).not.toHaveBeenCalled()
+    const verify = findButtonByText(container, copy.verifyEmailButton)
+
+    auth.getSession.mockResolvedValueOnce({ data: { user: { id: 'other', email } } })
+    await act(async () => click(verify))
+    expect(container).toHaveTextContent(copy.status.verificationSendFailed)
+    expect(auth.emailOtp.sendVerificationOtp).not.toHaveBeenCalled()
+    expect(auth.push).not.toHaveBeenCalled()
+    auth.getSession.mockResolvedValue({ data: { user: { id: 'user-1', email } } })
+    auth.emailOtp.sendVerificationOtp.mockResolvedValueOnce({})
+    await act(async () => click(verify))
+    expect(auth.emailOtp.sendVerificationOtp).toHaveBeenCalledExactlyOnceWith({
+      email,
+      type: 'email-verification',
+    })
+    expect(sessionStorage.setItem).toHaveBeenCalledWith('verificationEmail', email)
+    expect(auth.push).toHaveBeenCalledExactlyOnceWith('/verify')
   })
 
   it('synchronizes each settings response around independent active mutations', async () => {
@@ -355,7 +400,10 @@ describe('AccountSettings localization', () => {
       formatTemplate(copy.status.profilePictureFileTooLarge, { name: oversizedFile.name })
     )
     await act(async () => {
-      await click(findButtonByText(container, copy.sendLink))
+      const group = container.querySelector<HTMLElement>(
+        `[role="group"][aria-label="${copy.passwordReset}"]`
+      )!
+      await click(findButtonByText(group, copy.sendLink))
     })
     expect(container.textContent).toContain(copy.status.passwordResetSent)
   })

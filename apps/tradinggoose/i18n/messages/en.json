@@ -260,6 +260,28 @@
         "unableToSignInNow": "Unable to sign in right now. Please try again."
       }
     },
+    "resetEmail": {
+      "eyebrow": "Account settings",
+      "title": "Change your email address",
+      "description": "Use this link within 15 minutes to choose a new address. We’ll send a verification code to that address before updating your account.",
+      "invalidLink": "This link is missing, expired, or already used. Request a fresh link from Account settings.",
+      "signIn": "Sign in to the account that requested this email change.",
+      "wrongAccount": "This link belongs to a different account. Sign in to the account that requested it.",
+      "switchAccount": "Switch account",
+      "newEmail": "New email address",
+      "sendCode": "Send verification code",
+      "codeSentTo": "Enter the 6-digit code sent to {email}. It expires in 15 minutes.",
+      "confirm": "Confirm new email",
+      "invalidCode": "That code is incorrect. Check the code and try again.",
+      "codeExpired": "This code has expired or has reached its attempt limit.",
+      "restartHint": "To get another code or choose a different address, start with a fresh link sent to your current email.",
+      "restart": "Send a fresh link",
+      "sent": "Check your current email for a fresh link. It expires in 15 minutes.",
+      "complete": "Your account email is now {email}.",
+      "workspace": "Return to workspace",
+      "failure": "We couldn’t change your email. Please try again.",
+      "sendFailure": "We couldn’t send a fresh link. Please try again."
+    },
     "resetPassword": {
       "eyebrow": "Password reset",
       "title": "Reset your password",
@@ -1883,6 +1905,8 @@
         "username": {
           "label": "Username",
           "choose": "Choose a username",
+          "edit": "Edit username",
+          "cancel": "Cancel editing username",
           "save": "Save username",
           "taken": "That username is already taken.",
           "failed": "Unable to save username."
@@ -1895,11 +1919,9 @@
         "profileDetailsDescription": "Update your name and manage access.",
         "fullName": "Full name",
         "emailAddress": "Email address",
-        "newEmail": "New email address",
-        "sendCode": "Send verification code",
-        "codeSentTo": "Enter the code sent to {email}",
-        "confirmEmail": "Confirm email change",
-        "cancelEmail": "Cancel",
+        "verifyCurrentEmail": "Verify {email} before changing your email address. After verification, return to Account and request a new link.",
+        "verifyEmailButton": "Send verification code",
+        "emailResetDescription": "To change your email, we’ll send a link to {email}. The link expires in 15 minutes.",
         "passwordReset": "Password reset",
         "passwordResetDescription": "We’ll email you a secure link.",
         "sendLink": "Send link",
@@ -1928,6 +1950,9 @@
           "failedUpdateName": "Failed to update name",
           "unableToUpdateName": "Unable to update name. Please try again.",
           "noEmail": "No email address found for this account.",
+          "verificationSendFailed": "We couldn’t send a verification code to this account. Return to Account and try again.",
+          "emailResetSent": "Email change link sent to your current inbox.",
+          "emailResetFailed": "Unable to send the email change link.",
           "passwordResetSent": "Password reset link sent to your inbox.",
           "passwordResetFailed": "Unable to send password reset email."
         }
@@ -23414,6 +23439,7 @@
       "email-verification": "Verify your email for {brandName}",
       "forget-password": "Reset your {brandName} password",
       "reset-password": "Reset your {brandName} password",
+      "email-change-link": "Change your email for {brandName}",
       "change-email": "Verify your new email for {brandName}",
       "chat-access": "Verification code for {chatTitle}",
       "invitation": "You've been invited to join {organizationName} on {brandName}",
@@ -23446,6 +23472,12 @@
       "cta": "Reset Password",
       "accountFallback": "your account email",
       "sentLine": "Sent on {date} to {account}."
+    },
+    "emailChangeLink": {
+      "title": "Change your email address",
+      "body": "Open this link while signed in to your account to choose a new email address. We’ll send a verification code to that address.",
+      "action": "Choose a new email address",
+      "expires": "This link expires in 15 minutes."
     },
     "invitation": {
       "preview": "{inviterName} invited you to join {organizationName} on {brandName}",

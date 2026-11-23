@@ -19,6 +19,26 @@ export const client = createAuthClient({
   ],
 })
 
+export type CurrentEmailVerification = { accountId: string; email: string }
+
+export async function requestEmailChangeLink(
+  accountId: string
+): Promise<CurrentEmailVerification | null> {
+  const response = await fetch('/api/auth/request-email-change-link', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId }),
+  })
+  if (response.ok) return null
+  if (response.status === 412) {
+    const body = await response.json()
+    if (body?.code === 'EMAIL_NOT_VERIFIED' && typeof body.email === 'string' && body.email) {
+      return { accountId, email: body.email }
+    }
+  }
+  throw new Error('Email change link request failed')
+}
+
 export function useSession(): SessionHookResult {
   const ctx = useContext(SessionContext)
   if (!ctx) {
