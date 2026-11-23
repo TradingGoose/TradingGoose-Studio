@@ -222,19 +222,20 @@ it.each([true, false])(
 )
 
 it.each([true, false])(
-  'handles password login and syncs confirmed email with verification %s',
+  'recovers an identical signup through password login and syncs confirmed email with verification %s',
   async (verifySignup) => {
     const { auth, adapter, origin, post } = await accountVerificationFixture(verifySignup)
     const original = 'old@example.com'
     const newEmail = 'new@team.example'
     const password = 'test-password-5729'
 
-    const signup = await post('/sign-up/email', {
+    const signupDetails = {
       name: 'Preserved Name',
       email: original,
       username: 'User_Name',
       password,
-    })
+    }
+    const signup = await post('/sign-up/email', signupDetails)
     expect(signup.status).toBe(200)
     const { user } = await signup.json()
     expect(user).toMatchObject({
@@ -262,6 +263,17 @@ it.each([true, false])(
     }
 
     accountMail.mockClear()
+    for (const email of [newEmail, original]) {
+      const collision = await post('/sign-up/email', { ...signupDetails, email })
+      expect(collision.status).toBe(400)
+      expect(await collision.json()).toMatchObject({ code: 'USERNAME_IS_ALREADY_TAKEN' })
+      expect(cookies(collision)).toBe('')
+      const denied = await post('/sign-in/email', { email, password: 'incorrect-password' })
+      expect(denied.status).toBe(401)
+      expect(await denied.json()).toMatchObject({ code: 'INVALID_EMAIL_OR_PASSWORD' })
+      expect(cookies(denied)).toBe('')
+    }
+    expect(accountMail).not.toHaveBeenCalled()
     const login = await post('/sign-in/email', { email: original, password })
     if (verifySignup) {
       expect(login.status).toBe(403)

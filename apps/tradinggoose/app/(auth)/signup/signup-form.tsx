@@ -13,7 +13,7 @@ import {
   isRegistrationWaitlistReason,
   normalizeAuthErrorCode,
 } from '@/lib/auth/auth-error-copy'
-import { client } from '@/lib/auth-client'
+import { client, useSession } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -84,6 +84,7 @@ function SignupFormContent({
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
+  const { refetch: refetchSession } = useSession()
   const copy = useMessages()
   const commonCopy = copy.auth.common
   const signupCopy = copy.auth.signup
@@ -242,6 +243,12 @@ function SignupFormContent({
     const passwordValue = formData.get('password') as string
     const nameValue = formData.get('name') as string
 
+    function openVerification() {
+      sessionStorage.setItem('verificationEmail', emailValue)
+      const redirectParam = redirectUrl ? `&redirectAfter=${encodeURIComponent(redirectUrl)}` : ''
+      router.push(`/verify?fromSignup=true${redirectParam}`)
+    }
+
     const trimmedName = nameValue.trim()
 
     const nameValidationErrors = validateName(trimmedName)
@@ -299,7 +306,7 @@ function SignupFormContent({
           username: usernameInput.value.trim(),
         },
         {
-          onError: (ctx) => {
+          onError: async (ctx) => {
             logger.error('Signup error:', ctx.error)
             const errorMessage: string[] = [signupCopy.errors.failedToCreateAccount]
             const authErrorCode =
@@ -307,11 +314,20 @@ function SignupFormContent({
 
             if (authErrorCode?.includes('USERNAME')) {
               const usernameCopy = copy.workspace.settingsModal.account.username
-              setUsernameError(
-                authErrorCode === 'USERNAME_IS_ALREADY_TAKEN'
-                  ? usernameCopy.taken
-                  : ctx.error.message || usernameCopy.failed
-              )
+              if (authErrorCode === 'USERNAME_IS_ALREADY_TAKEN') {
+                const login = await client.signIn.email({
+                  email: emailValue,
+                  password: passwordValue,
+                })
+                if (login.error?.code === 'EMAIL_NOT_VERIFIED') return openVerification()
+                if (login.data) {
+                  await refetchSession()
+                  return router.push(redirectUrl ?? defaultCallbackPath)
+                }
+                setUsernameError(usernameCopy.taken)
+              } else {
+                setUsernameError(ctx.error.message || usernameCopy.failed)
+              }
             } else if (authErrorCode === 'USER_ALREADY_EXISTS') {
               errorMessage.push(signupCopy.errors.accountExists)
               setEmailError(errorMessage[errorMessage.length - 1])
@@ -361,9 +377,7 @@ function SignupFormContent({
         return
       }
 
-      sessionStorage.setItem('verificationEmail', emailValue)
-      const redirectParam = redirectUrl ? `&redirectAfter=${encodeURIComponent(redirectUrl)}` : ''
-      router.push(`/verify?fromSignup=true${redirectParam}`)
+      openVerification()
     } catch (error) {
       logger.error('Signup error:', error)
       setIsLoading(false)

@@ -317,6 +317,68 @@ describe('auth locale redirects', () => {
     }
   )
 
+  it.each([
+    {
+      errorCode: 'EMAIL_NOT_VERIFIED',
+      destination: '/verify?fromSignup=true&redirectAfter=%2Finvite%2Fteam',
+    },
+    { errorCode: null, destination: '/invite/team' },
+    { errorCode: 'INVALID_EMAIL_OR_PASSWORD', destination: null },
+  ])(
+    'recovers a taken signup username according to password login ($errorCode)',
+    async ({ errorCode, destination }) => {
+      testState.searchParams.set('callbackUrl', `${window.location.origin}/invite/team`)
+      const taken = { code: 'USERNAME_IS_ALREADY_TAKEN' }
+      mockSignUpEmail.mockImplementation(async (_body, { onError }) => {
+        await onError({ error: taken })
+        return { error: taken }
+      })
+      mockSignInEmail.mockResolvedValue(
+        errorCode ? { error: { code: errorCode } } : { data: { user: { id: 'ada' } } }
+      )
+      const store = vi.spyOn(sessionStorage, 'setItem').mockClear()
+      await renderWithLocale(
+        'es',
+        <SignupPage
+          githubAvailable={false}
+          googleAvailable={false}
+          isProduction={false}
+          registrationMode='open'
+        />
+      )
+      await setInputValue('#name', 'Ada Lovelace')
+      await setInputValue('#username', 'AdaGoose')
+      await setInputValue('#email', 'ADA@example.com')
+      await setInputValue('#password', 'Password1!')
+      await submitRenderedForm()
+
+      expect(mockSignInEmail).toHaveBeenCalledExactlyOnceWith({
+        email: 'ada@example.com',
+        password: 'Password1!',
+      })
+      expect(mockSendVerificationOtp).not.toHaveBeenCalled()
+      if (errorCode) {
+        expect(mockRefetchSession).not.toHaveBeenCalled()
+      } else {
+        expect(mockRefetchSession).toHaveBeenCalledOnce()
+        expect(mockRefetchSession).toHaveBeenCalledBefore(mockPush)
+      }
+      if (errorCode === 'EMAIL_NOT_VERIFIED') {
+        expect(store).toHaveBeenCalledWith('verificationEmail', 'ada@example.com')
+      } else {
+        expect(store).not.toHaveBeenCalled()
+      }
+      if (destination) {
+        expect(mockPush).toHaveBeenCalledExactlyOnceWith(destination)
+      } else {
+        expect(mockPush).not.toHaveBeenCalled()
+        expect(container.querySelector('#username-error')?.textContent).toBe(
+          getPublicCopy('es').workspace.settingsModal.account.username.taken
+        )
+      }
+    }
+  )
+
   it.each(['es', 'zh'] as const)(
     'pushes the canonical verify path after an unverified login for %s',
     async (locale) => {
