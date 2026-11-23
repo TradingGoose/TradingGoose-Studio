@@ -179,6 +179,7 @@ describe('AccountSettings localization', () => {
     expect(container.textContent).toContain(copy.profilePicture)
     expect(container.textContent).toContain(copy.profileDetails)
     expect(container.textContent).toContain(copy.profileDetailsDescription)
+    expect(container.querySelector('label[for="displayName"]')).toHaveTextContent('Nombre visible')
     expect(container.textContent).toContain(copy.passwordReset)
     expect(container.textContent).toContain(copy.telemetry.label)
     expect(container.textContent).toContain(copy.telemetry.tooltipBody)
@@ -360,7 +361,7 @@ describe('AccountSettings localization', () => {
       isBillingUsageNotificationsEnabled: true,
     })
   })
-  it('localizes name validation, profile image validation, and password reset status in zh', async () => {
+  it('localizes display name validation, profile image validation, and password reset status in zh', async () => {
     const copy = getPublicCopy('zh').workspace.settingsModal.account
     await act(async () => {
       renderAccountSettings(root, 'zh')
@@ -369,19 +370,28 @@ describe('AccountSettings localization', () => {
     await act(async () => {
       await click(findButtonByText(container, copy.editName))
     })
-    const nameInput = container.querySelector('#accountName')
-    if (!(nameInput instanceof HTMLInputElement)) {
-      throw new Error('Expected editable name input to render')
+    const displayNameInput = container.querySelector('#displayName')
+    if (!(displayNameInput instanceof HTMLInputElement)) {
+      throw new Error('Expected editable display name input to render')
     }
+    expect(displayNameInput).toHaveAccessibleName(copy.displayName)
 
     await act(async () => {
-      setInputValue(nameInput, '   ')
+      setInputValue(displayNameInput, '   ')
       await flush()
     })
     await act(async () => {
       await click(findButtonByText(container, copy.saveName))
     })
     expect(container.textContent).toContain(copy.status.nameRequiredValidation)
+    await act(async () => setInputValue(displayNameInput, '  Blue Goose  '))
+    await act(async () => click(findButtonByText(container, copy.saveName)))
+    expect(fetch).toHaveBeenLastCalledWith('/api/users/me/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Blue Goose' }),
+    })
+    expect(container).toHaveTextContent('Blue Goose')
     const fileInput = container.querySelector('input[type="file"]')
     if (!(fileInput instanceof HTMLInputElement)) {
       throw new Error('Expected profile picture input to render')

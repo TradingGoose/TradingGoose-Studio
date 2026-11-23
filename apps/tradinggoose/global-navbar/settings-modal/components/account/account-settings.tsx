@@ -41,7 +41,7 @@ function ProfileNameField({
   value,
   onSave,
 }: {
-  id: 'accountName' | 'username'
+  id: 'displayName' | 'username'
   value: string
   onSave: (value: string) => Promise<string | undefined>
 }) {
@@ -87,10 +87,10 @@ function ProfileNameField({
 
   return (
     <div className='space-y-1'>
-      <Label htmlFor={id}>{t(username ? 'username.label' : 'fullName')}</Label>
+      <Label htmlFor={id}>{t(username ? 'username.label' : 'displayName')}</Label>
       {editing ? (
         <form
-          className='py-1.5'
+          className=''
           onSubmit={save}
           aria-busy={busy}
           onBlur={(event) => {
@@ -104,7 +104,7 @@ function ProfileNameField({
             }
           }}
         >
-          <div className='flex max-w-md items-center gap-2'>
+          <div className='flex max-w-md flex-wrap items-center gap-2'>
             <Input
               id={id}
               ref={input}
@@ -115,23 +115,25 @@ function ProfileNameField({
               autoComplete={username ? 'username' : 'off'}
               aria-invalid={Boolean(error)}
               aria-describedby={error ? `${id}-error` : undefined}
-              className='h-8 min-w-0 flex-1'
+              className='h-7 min-w-0 grow basis-24'
             />
-            <button
-              type='submit'
-              className={editButtonClass}
-              onMouseDown={(event) => event.preventDefault()}
-              disabled={busy}
-            >
-              <Check className='h-3.5 w-3.5' />
-              <span className='sr-only'>{t(username ? 'username.save' : 'saveName')}</span>
-            </button>
-            <button type='button' className={editButtonClass} onClick={cancel} disabled={busy}>
-              <X className='h-3.5 w-3.5' />
-              <span className='sr-only'>
-                {t(username ? 'username.cancel' : 'cancelEditingName')}
-              </span>
-            </button>
+            <div className='flex gap-1'>
+              <button
+                type='submit'
+                className={editButtonClass}
+                onMouseDown={(event) => event.preventDefault()}
+                disabled={busy}
+              >
+                <Check className='h-3.5 w-3.5' />
+                <span className='sr-only'>{t(username ? 'username.save' : 'saveName')}</span>
+              </button>
+              <button type='button' className={editButtonClass} onClick={cancel} disabled={busy}>
+                <X className='h-3.5 w-3.5' />
+                <span className='sr-only'>
+                  {t(username ? 'username.cancel' : 'cancelEditingName')}
+                </span>
+              </button>
+            </div>
           </div>
           {error && (
             <p role='alert' id={`${id}-error`} className='text-destructive text-xs'>
@@ -141,7 +143,9 @@ function ProfileNameField({
         </form>
       ) : (
         <div className='flex items-center gap-2'>
-          <p className='font-medium'>{value || '—'}</p>
+          <p className='truncate font-medium' title={value}>
+            {value || '—'}
+          </p>
           <button type='button' className={editButtonClass} onClick={() => setDraft(value)}>
             <Pencil className='h-3.5 w-3.5' />
             <span className='sr-only'>{t(username ? 'username.edit' : 'editName')}</span>
@@ -243,7 +247,7 @@ export function AccountSettings() {
     }
   }
 
-  const [name, setName] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const email = session?.user?.email ?? ''
   const [profilePictureError, setProfilePictureError] = useState<string | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
@@ -317,7 +321,7 @@ export function AccountSettings() {
         }
 
         const data = await response.json()
-        setName(data.user.name)
+        setDisplayName(data.user.name)
         setUserImage(data.user.image || null)
         setAvatarVersion(data.user.updatedAt ? new Date(data.user.updatedAt).getTime() : Date.now())
         if (typeof window !== 'undefined' && userId) {
@@ -328,7 +332,7 @@ export function AccountSettings() {
         }
       } catch (error) {
         logger.error('Error fetching profile:', error)
-        setName(session?.user?.name ?? '')
+        setDisplayName(session?.user?.name ?? '')
         setUserImage(session?.user?.image ?? null)
         setAvatarVersion(
           session?.user?.updatedAt ? new Date(session.user.updatedAt).getTime() : Date.now()
@@ -345,28 +349,28 @@ export function AccountSettings() {
     void fetchProfile()
   }, [session?.user, userId])
 
-  const saveName = async (trimmedName: string) => {
-    if (!trimmedName) return tAccount('status.nameRequiredValidation')
+  const saveDisplayName = async (nextDisplayName: string) => {
+    if (!nextDisplayName) return tAccount('status.nameRequiredValidation')
     try {
       const response = await fetch('/api/users/me/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmedName }),
+        body: JSON.stringify({ name: nextDisplayName }),
       })
 
       if (!response.ok) return tAccount('status.failedUpdateName')
 
-      setName(trimmedName)
+      setDisplayName(nextDisplayName)
       if (typeof window !== 'undefined') {
         if (userId) {
-          window.localStorage.setItem(`user-name-${userId}`, trimmedName)
+          window.localStorage.setItem(`user-name-${userId}`, nextDisplayName)
         }
         window.dispatchEvent(
-          new CustomEvent('user-name-updated', { detail: { name: trimmedName } })
+          new CustomEvent('user-name-updated', { detail: { name: nextDisplayName } })
         )
       }
     } catch (error) {
-      logger.error('Error updating name:', error)
+      logger.error('Error updating display name:', error)
       return tAccount('status.unableToUpdateName')
     }
   }
@@ -441,8 +445,8 @@ export function AccountSettings() {
   }, [avatarVersion, previewUrl, session?.user?.image, session?.user?.updatedAt, userImage])
 
   return (
-    <div className='bg-background px-6 py-6'>
-      <div className='grid gap-6 p-6 sm:grid-cols-[280px,1fr] '>
+    <div className='bg-background py-6 [container-type:inline-size] sm:px-6'>
+      <div className='grid grid-cols-1 gap-6 p-6 [@container(min-width:40rem)]:grid-cols-[280px_minmax(0,1fr)]'>
         <Card className='border-none shadow-none'>
           <CardHeader className='pb-4'>
             <CardTitle className='font-semibold text-base'>{tAccount('profilePicture')}</CardTitle>
@@ -470,7 +474,7 @@ export function AccountSettings() {
                 {avatarSrc ? (
                   <Image
                     src={avatarSrc}
-                    alt={name || session?.user?.name || tAccount('profilePictureAlt')}
+                    alt={displayName || session?.user?.name || tAccount('profilePictureAlt')}
                     width={96}
                     height={96}
                     className='h-full w-full object-cover'
@@ -504,8 +508,8 @@ export function AccountSettings() {
             <p className='text-muted-foreground text-sm'>{tAccount('profileDetailsDescription')}</p>
           </CardHeader>
           <CardContent className='space-y-5'>
-            <div className='space-y-3'>
-              <ProfileNameField id='accountName' value={name} onSave={saveName} />
+            <div className='grid grid-cols-2 gap-4'>
+              <ProfileNameField id='displayName' value={displayName} onSave={saveDisplayName} />
               <ProfileNameField
                 id='username'
                 value={session?.user?.username ?? ''}
@@ -535,10 +539,6 @@ export function AccountSettings() {
       </div>
       <div className='px-6 pb-6'>
         <Card className='border-none shadow-none'>
-          <CardHeader className='space-y-1 pb-5'>
-            <CardTitle className='font-semibold text-lg'>{tAccount('privacy')}</CardTitle>
-            <p className='text-muted-foreground text-sm'>{tAccount('privacyDescription')}</p>
-          </CardHeader>
           <CardContent>
             <TooltipProvider>
               <div className='flex flex-col gap-2'>

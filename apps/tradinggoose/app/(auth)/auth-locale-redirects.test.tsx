@@ -262,7 +262,7 @@ describe('auth locale redirects', () => {
         registrationMode='open'
       />
     )
-    await setInputValue('#name', 'Ada Lovelace')
+    await setInputValue('#displayName', 'Ada Lovelace')
     await setInputValue('#email', 'ada@example.com')
     await setInputValue('#password', 'Password1!')
     await submitRenderedForm()
@@ -278,9 +278,13 @@ describe('auth locale redirects', () => {
     )
   })
 
-  it.each(['es', 'zh'] as const)(
-    'pushes the canonical verify path after signup for %s',
-    async (locale) => {
+  it.each([
+    ['en', 'Display name'],
+    ['es', 'Nombre visible'],
+    ['zh', '显示名称'],
+  ] as const)(
+    'submits the localized display name and opens verification for %s',
+    async (locale, label) => {
       mockSignUpEmail.mockResolvedValue({ user: { id: 'user-1' } })
       mockRefetchSession.mockResolvedValue(undefined)
       mockSendVerificationOtp.mockResolvedValue(undefined)
@@ -295,7 +299,10 @@ describe('auth locale redirects', () => {
         />
       )
 
-      await setInputValue('#name', 'Ada Lovelace')
+      const displayNameInput = container.querySelector('#displayName')
+      expect(displayNameInput).toHaveAccessibleName(label)
+      expect(displayNameInput).toHaveAttribute('autocomplete', 'nickname')
+      await setInputValue('#displayName', '  Blue Goose  ')
       await setInputValue('#username', 'AdaGoose')
       await setInputValue('#email', 'ada@example.com')
       await setInputValue('#password', 'Password1!')
@@ -306,7 +313,7 @@ describe('auth locale redirects', () => {
           email: 'ada@example.com',
           password: 'Password1!',
           username: 'AdaGoose',
-          name: 'Ada Lovelace',
+          name: 'Blue Goose',
         },
         expect.any(Object)
       )
@@ -346,7 +353,7 @@ describe('auth locale redirects', () => {
           registrationMode='open'
         />
       )
-      await setInputValue('#name', 'Ada Lovelace')
+      await setInputValue('#displayName', 'Ada Lovelace')
       await setInputValue('#username', 'AdaGoose')
       await setInputValue('#email', 'ADA@example.com')
       await setInputValue('#password', 'Password1!')

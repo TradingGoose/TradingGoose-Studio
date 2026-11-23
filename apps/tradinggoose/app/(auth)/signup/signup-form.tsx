@@ -106,7 +106,7 @@ function SignupFormContent({
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   const [usernameError, setUsernameError] = useState('')
-  const [name, setName] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [nameErrors, setNameErrors] = useState<string[]>([])
   const [showNameValidationError, setShowNameValidationError] = useState(false)
 
@@ -202,9 +202,9 @@ function SignupFormContent({
     setShowValidationError(false)
   }
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDisplayNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value
-    setName(rawValue)
+    setDisplayName(rawValue)
 
     const nameValidationMessages = validateName(rawValue)
     setNameErrors(nameValidationMessages)
@@ -241,7 +241,7 @@ function SignupFormContent({
     const emailValueRaw = formData.get('email') as string
     const emailValue = emailValueRaw.trim().toLowerCase()
     const passwordValue = formData.get('password') as string
-    const nameValue = formData.get('name') as string
+    const trimmedDisplayName = (formData.get('displayName') as string).trim()
 
     function openVerification() {
       sessionStorage.setItem('verificationEmail', emailValue)
@@ -249,9 +249,7 @@ function SignupFormContent({
       router.push(`/verify?fromSignup=true${redirectParam}`)
     }
 
-    const trimmedName = nameValue.trim()
-
-    const nameValidationErrors = validateName(trimmedName)
+    const nameValidationErrors = validateName(trimmedDisplayName)
     setNameErrors(nameValidationErrors)
     setShowNameValidationError(nameValidationErrors.length > 0)
 
@@ -289,20 +287,18 @@ function SignupFormContent({
         return
       }
 
-      if (trimmedName.length > 100) {
+      if (trimmedDisplayName.length > 100) {
         setNameErrors([signupCopy.validation.nameTooLong])
         setShowNameValidationError(true)
         setIsLoading(false)
         return
       }
 
-      const sanitizedName = trimmedName
-
       const response = await client.signUp.email(
         {
           email: emailValue,
           password: passwordValue,
-          name: sanitizedName,
+          name: trimmedDisplayName,
           username: usernameInput.value.trim(),
         },
         {
@@ -412,19 +408,19 @@ function SignupFormContent({
         <div className='space-y-6'>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
-              <Label htmlFor='name'>{commonCopy.fullName}</Label>
+              <Label htmlFor='displayName'>{commonCopy.displayName}</Label>
             </div>
             <Input
-              id='name'
-              name='name'
-              placeholder={commonCopy.enterYourName}
+              id='displayName'
+              name='displayName'
+              placeholder={commonCopy.enterYourDisplayName}
               type='text'
               required
               autoCapitalize='words'
-              autoComplete='name'
+              autoComplete='nickname'
               title={signupCopy.nameTitle}
-              value={name}
-              onChange={handleNameChange}
+              value={displayName}
+              onChange={handleDisplayNameChange}
               aria-invalid={showNameValidationError && nameErrors.length > 0}
               aria-describedby={
                 showNameValidationError && nameErrors.length > 0 ? 'signup-name-errors' : undefined
