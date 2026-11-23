@@ -2,8 +2,8 @@
 
 ## Ground rules
 - Do not use the pacakge "server-only" in the project.
-- Do not edit any `*/migration/*` files; they are auto-generated.
-- Each branch can generate at most 1 db migration file wihtout editing or modifying existing migration files, replace branch introduced migration file and re-generate to keep the branch intact.
+- Keep at most one generated database migration per branch. Preserve all SQL, snapshots and journal entries inherited from the base branch.
+- To regenerate this branch’s migration, remove its SQL file, its matching entry from `packages/db/migrations/meta/_journal.json`, and its matching snapshot from `packages/db/migrations/meta/`. Then run `bun run db:generate` from the repository root. Let Drizzle generate the replacement files.
 - Do not add legacy support; updates should be clean and avoid extra project complexity.
 - We do not need any form of legacy support as the project is under fresh dev, do not add any form of legacy backfill path
 - This project does not support any legacy methods.
