@@ -863,6 +863,7 @@ export function TeamManagement() {
           open
           onOpenChange={setIsAddSeatDialogOpen}
           tier={currentTier}
+          usedSeats={usedSeats.used}
           currentSeats={subscriptionData?.seats || 1}
           initialSeats={newSeatCount}
           isLoading={pendingAction === 'update-seats' || updateSeatsMutation.isPending}

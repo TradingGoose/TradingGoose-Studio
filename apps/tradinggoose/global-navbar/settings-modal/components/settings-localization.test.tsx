@@ -89,7 +89,9 @@ vi.mock('./team-management/components', async () => ({
   RemoveMemberDialog: () => null,
   TeamMembers: (await import('./team-management/components/team-members/team-members')).TeamMembers,
   TeamSeats: (await import('./team-management/components/team-seats/team-seats')).TeamSeats,
-  TeamSeatsOverview: () => null,
+  TeamSeatsOverview: (
+    await import('./team-management/components/team-seats-overview/team-seats-overview')
+  ).TeamSeatsOverview,
   TeamUsage: () => null,
   WorkspaceBilling: () => null,
 }))
@@ -276,6 +278,72 @@ describe('settings localization', () => {
         (button) => button.textContent === 'Set Up Team Subscription'
       )
     ).toBeDisabled()
+  })
+
+  it('keeps the open add-seat dialog within the occupied total and the current tier maximum', async () => {
+    mocks.organization = {
+      id: 'org-1',
+      name: 'Design team',
+      slug: 'design-team',
+      createdAt: '2025-06-15',
+      members: [{ id: 'owner', role: 'owner', user: { email: 'ana@example.com' } }],
+      invitations: [{ id: 'invite', email: 'pat@example.com', status: 'pending' }],
+    }
+    const tier = {
+      ...EMPTY_BILLING_TIER_SUMMARY,
+      id: 'adjustable',
+      displayName: 'Design plan',
+      ownerType: 'organization',
+      seatMode: 'adjustable',
+      seatCount: 1,
+      seatMaximum: 10,
+    }
+    mocks.billing = {
+      organizationId: 'org-1',
+      billingEnabled: true,
+      subscriptionTier: tier,
+      totalSeats: 5,
+    }
+    await render('en', <TeamManagement />)
+    const add = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Add Seat'
+    )!
+    await act(async () => add.click())
+    const dialog = document.querySelector('[role="dialog"]')!
+    const seats = dialog.querySelector('input')!
+    const selectSeats = async (value: number) => {
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+          seats,
+          String(value)
+        )
+        seats.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+    }
+    expect(seats).toHaveValue(6)
+    expect(seats.min).toBe('2')
+    await selectSeats(9)
+    mocks.billing = { ...mocks.billing, subscriptionTier: { ...tier, seatMaximum: 8 } }
+    await render('en', <TeamManagement />)
+    expect(seats).toHaveValue(8)
+    await selectSeats(2)
+    mocks.organization = {
+      ...mocks.organization,
+      invitations: [
+        ...mocks.organization.invitations!,
+        { id: 'additional', email: 'lee@example.com', status: 'pending' },
+      ],
+    }
+    await render('en', <TeamManagement />)
+    expect(seats).toHaveValue(3)
+    mocks.billing = { ...mocks.billing, subscriptionTier: { ...tier, seatMaximum: 4 } }
+    await render('en', <TeamManagement />)
+    expect(seats).toHaveValue(3)
+    const confirm = Array.from(dialog.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Update Seats'
+    )!
+    await act(async () => confirm.click())
+    expect(mocks.mutate.mock.calls[0]?.[0]).toEqual({ orgId: 'org-1', seats: 3 })
   })
 
   it.each([

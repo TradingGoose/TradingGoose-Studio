@@ -51,21 +51,21 @@ export function TeamSeats({
   const minimumSeats = Math.max(tier.seatCount ?? 1, usedSeats, 1)
   const maximumSeats = tier.seatMaximum
   const exceedsSeatMaximum = maximumSeats !== null && minimumSeats > maximumSeats
-  const defaultSeats = Math.max(
-    minimumSeats,
-    Math.min(initialSeats ?? minimumSeats, maximumSeats ?? Number.POSITIVE_INFINITY)
-  )
-  const [selectedSeats, setSelectedSeats] = useState(defaultSeats)
+  const clampSeats = (seats: number) =>
+    Math.max(minimumSeats, Math.min(seats, maximumSeats ?? Number.POSITIVE_INFINITY))
+  const [requestedSeats, setRequestedSeats] = useState<number>()
+  const selectedSeats = clampSeats(requestedSeats ?? initialSeats ?? minimumSeats)
   const pricePerSeat = tier.monthlyPriceUsd
 
   useEffect(() => {
-    if (open) {
-      setSelectedSeats(defaultSeats)
+    if (!open) setRequestedSeats(undefined)
+    else if (requestedSeats !== undefined && selectedSeats !== requestedSeats) {
+      setRequestedSeats(selectedSeats)
     }
-  }, [open, defaultSeats])
+  }, [open, requestedSeats, selectedSeats])
 
   const handleConfirm = async () => {
-    await onConfirm(selectedSeats)
+    if (!exceedsSeatMaximum) await onConfirm(clampSeats(selectedSeats))
   }
 
   return (
@@ -98,16 +98,7 @@ export function TeamSeats({
             value={selectedSeats}
             onChange={(event) => {
               const parsed = Number.parseInt(event.target.value, 10)
-              if (!Number.isFinite(parsed)) {
-                setSelectedSeats(minimumSeats)
-                return
-              }
-
-              const nextValue = Math.max(
-                minimumSeats,
-                maximumSeats === null ? parsed : Math.min(parsed, maximumSeats)
-              )
-              setSelectedSeats(nextValue)
+              setRequestedSeats(clampSeats(Number.isFinite(parsed) ? parsed : minimumSeats))
             }}
             className='rounded-sm'
             disabled={isLoading || exceedsSeatMaximum}
