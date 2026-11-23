@@ -8,12 +8,16 @@ import { isSystemIntegrationManagedOAuthServiceProviderId } from '@/lib/oauth/oa
 import { isOrganizationSsoEnabled } from '@/lib/organization/access'
 
 export function assertSsoProviderIdAllowed(providerId: unknown) {
-  if (
-    typeof providerId === 'string' &&
-    isSystemIntegrationManagedOAuthServiceProviderId(providerId)
-  ) {
+  if (typeof providerId !== 'string') return
+  if (isSystemIntegrationManagedOAuthServiceProviderId(providerId)) {
     throw new APIError('UNPROCESSABLE_ENTITY', {
       message: 'This providerId is reserved and cannot be used for an SSO provider',
+    })
+  }
+  // The 63-character DNS label also contains the "_better-auth-token-" prefix.
+  if (providerId.length > 44) {
+    throw new APIError('UNPROCESSABLE_ENTITY', {
+      message: 'SSO provider IDs must be 44 characters or fewer',
     })
   }
 }

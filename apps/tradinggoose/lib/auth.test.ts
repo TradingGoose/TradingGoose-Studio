@@ -323,6 +323,38 @@ describe('SSO domain verification access', () => {
     expect(tables.ssoProvider).toEqual([])
   })
 
+  it('accepts 44-character provider IDs and rejects 45 on native SSO registration', async () => {
+    const cookie = await signIn('sso-owner')
+    const issuer = 'https://idp.example.com'
+    const providerId = 'a'.repeat(44)
+    vi.stubGlobal('fetch', vi.fn())
+    const register = (id: string) =>
+      request(
+        '/sso/register',
+        {
+          providerId: id,
+          issuer,
+          domain: 'example.com',
+          oidcConfig: {
+            clientId: 'client',
+            clientSecret: 'secret',
+            authorizationEndpoint: `${issuer}/authorize`,
+            tokenEndpoint: `${issuer}/token`,
+            jwksEndpoint: `${issuer}/keys`,
+            skipDiscovery: true,
+          },
+        },
+        cookie
+      )
+    expect((await register(providerId)).status).toBe(200)
+    const rejected = await register(`${providerId}a`)
+    expect(rejected.status).toBe(422)
+    expect(await rejected.json()).toMatchObject({
+      message: 'SSO provider IDs must be 44 characters or fewer',
+    })
+    expect(tables.ssoProvider.map((provider) => provider.providerId)).toEqual([providerId])
+  })
+
   it('requires an eligible active organization that owns the provider', async () => {
     const cookie = await signIn('sso-owner')
     tables.ssoProvider.push({

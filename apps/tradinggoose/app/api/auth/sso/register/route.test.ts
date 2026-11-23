@@ -325,7 +325,7 @@ describe('SSO register route', () => {
     expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
   })
 
-  it('rejects managed OAuth provider IDs before OIDC discovery or registration', async () => {
+  it.each(['tradier-live', 'a'.repeat(45)])('rejects %s before discovery', async (providerId) => {
     mockGetSession.mockResolvedValue({
       user: { id: 'owner' },
       session: { activeOrganizationId: 'org' },
@@ -336,7 +336,7 @@ describe('SSO register route', () => {
         method: 'POST',
         body: JSON.stringify({
           providerType: 'oidc',
-          providerId: 'tradier-live',
+          providerId,
           issuer: 'https://idp.example.com',
           domain: 'example.com',
           clientId: 'client',
@@ -349,7 +349,8 @@ describe('SSO register route', () => {
     expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
   })
 
-  it('registers oidc providers for the active organization via issuer discovery', async () => {
+  it('registers a 44-character OIDC provider ID for the active organization via issuer discovery', async () => {
+    const providerId = 'a'.repeat(44)
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -359,7 +360,7 @@ describe('SSO register route', () => {
       },
     })
     mockRegisterSSOProvider.mockResolvedValue({
-      providerId: 'okta',
+      providerId,
     })
     vi.mocked(fetch).mockResolvedValue(
       new Response(
@@ -385,7 +386,7 @@ describe('SSO register route', () => {
       new NextRequest('http://localhost/api/auth/sso/register', {
         method: 'POST',
         body: JSON.stringify({
-          providerId: 'okta',
+          providerId,
           issuer: 'https://issuer.example.com',
           domain: 'example.com',
           providerType: 'oidc',
@@ -405,7 +406,7 @@ describe('SSO register route', () => {
     expect(options?.redirect).toBe('manual')
     expect(mockRegisterSSOProvider).toHaveBeenCalledWith({
       body: expect.objectContaining({
-        providerId: 'okta',
+        providerId,
         domain: 'example.com',
         organizationId: 'org-1',
         oidcConfig: expect.objectContaining({
