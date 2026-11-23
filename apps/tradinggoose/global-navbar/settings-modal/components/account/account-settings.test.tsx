@@ -118,7 +118,7 @@ describe('AccountSettings localization', () => {
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+      defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
     })
     vi.clearAllMocks()
     mockSetTelemetryEnabled.mockReset()
