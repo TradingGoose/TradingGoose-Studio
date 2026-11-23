@@ -17,6 +17,7 @@ import {
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
 import type { BillingTierSummary } from '@/lib/billing/types'
+import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('OrganizationBilling')
@@ -309,12 +310,17 @@ export async function getOrganizationBillingData(
     const organizationData = orgRecord[0]
 
     // Get organization subscription directly (referenceId = organizationId)
-    const [{ billingEnabled, usageWarningThresholdPercent }, subscription, billingLedger] =
-      await Promise.all([
-        getResolvedBillingSettings(),
-        getOrganizationSubscription(organizationId),
-        getOrganizationBillingLedger(organizationId),
-      ])
+    const [
+      { billingEnabled, usageWarningThresholdPercent },
+      subscription,
+      billingLedger,
+      usedSeats,
+    ] = await Promise.all([
+      getResolvedBillingSettings(),
+      getOrganizationSubscription(organizationId),
+      getOrganizationBillingLedger(organizationId),
+      getOccupiedSeatCount(organizationId),
+    ])
 
     if (!billingLedger) {
       logger.warn('Organization billing ledger not found', { organizationId })
@@ -370,7 +376,7 @@ export async function getOrganizationBillingData(
         seatMaximum: null,
         seatMode: null,
         totalSeats: members.length,
-        usedSeats: members.length,
+        usedSeats,
         seatsCount: members.length,
         totalCurrentUsage: roundCurrency(totalCurrentUsage),
         totalUsageLimit: billingEnabled ? 0 : Number.MAX_SAFE_INTEGER,
@@ -468,7 +474,7 @@ export async function getOrganizationBillingData(
       seatMaximum: subscription.tier.seatMaximum ?? null,
       seatMode: subscription.tier.seatMode,
       totalSeats: licensedSeats,
-      usedSeats: members.length,
+      usedSeats,
       seatsCount: licensedSeats,
       totalCurrentUsage: roundCurrency(totalCurrentUsage),
       totalUsageLimit: roundCurrency(totalUsageLimit),

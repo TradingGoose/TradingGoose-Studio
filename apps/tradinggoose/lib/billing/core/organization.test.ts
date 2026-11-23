@@ -10,6 +10,7 @@ const {
   mockDb,
   mockEq,
   mockGetBillingTierPricing,
+  mockGetOccupiedSeatCount,
   mockGetOrganizationSubscription,
   mockGetResolvedBillingSettings,
   mockGetSubscriptionUsageAllowanceUsd,
@@ -25,6 +26,7 @@ const {
   },
   mockEq: vi.fn(),
   mockGetBillingTierPricing: vi.fn(),
+  mockGetOccupiedSeatCount: vi.fn(),
   mockGetOrganizationSubscription: vi.fn(),
   mockGetResolvedBillingSettings: vi.fn(),
   mockGetSubscriptionUsageAllowanceUsd: vi.fn(),
@@ -77,6 +79,10 @@ vi.mock('@/lib/billing/core/billing', () => ({
 
 vi.mock('@/lib/billing/settings', () => ({
   getResolvedBillingSettings: mockGetResolvedBillingSettings,
+}))
+
+vi.mock('@/lib/billing/validation/seat-management', () => ({
+  getOccupiedSeatCount: mockGetOccupiedSeatCount,
 }))
 
 vi.mock('@/lib/billing/tiers', () => ({
@@ -199,6 +205,7 @@ describe('getOrganizationBillingData', () => {
       billingEnabled: true,
       usageWarningThresholdPercent: 80,
     })
+    mockGetOccupiedSeatCount.mockResolvedValue(3)
     mockGetBillingTierPricing.mockReturnValue({
       basePrice: 99,
     })
@@ -385,7 +392,7 @@ describe('getOrganizationBillingData', () => {
     expect(result?.billingBlocked).toBe(false)
   })
 
-  it('returns an unsubscribed organization projection when billing is enabled', async () => {
+  it('includes occupied seats in the billing data for an unsubscribed organization', async () => {
     mockGetOrganizationSubscription.mockResolvedValueOnce(null)
     mockDb.select
       .mockImplementationOnce(() =>
@@ -404,8 +411,10 @@ describe('getOrganizationBillingData', () => {
     expect(result).toMatchObject({
       subscriptionTier: null,
       subscriptionStatus: null,
+      usedSeats: 3,
       totalUsageLimit: 0,
     })
+    expect(mockGetOccupiedSeatCount).toHaveBeenCalledWith('org_123')
     expect(result?.members).toEqual([expect.objectContaining({ usageLimit: 0, isOverLimit: true })])
   })
 })

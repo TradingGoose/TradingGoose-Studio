@@ -1,44 +1,24 @@
 /**
  * @vitest-environment node
  */
-import { stripe } from '@better-auth/stripe'
 import { betterAuth } from 'better-auth'
 import { testUtils } from 'better-auth/plugins'
-import type Stripe from 'stripe'
 import { afterEach, expect, it, vi } from 'vitest'
 
-it('uses the user Stripe customer for an organization subscription reference', async () => {
-  const checkoutCreate = vi.fn().mockResolvedValue({
+it('checks out the selected organization seats using the user Stripe customer', async () => {
+  vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
+  const { auth: appAuth } = await import('@/lib/auth')
+  customer.create.mockResolvedValue({ id: 'customer-1' })
+  checkoutCreate.mockResolvedValue({
     id: 'checkout-1',
     url: 'https://checkout.stripe.test/session',
   })
-  const customerCreate = vi.fn().mockResolvedValue({ id: 'customer-1' })
-  const stripeClient = {
-    checkout: { sessions: { create: checkoutCreate } },
-    customers: {
-      create: customerCreate,
-      search: vi.fn().mockResolvedValue({ data: [] }),
-    },
-    subscriptions: {
-      list: vi.fn().mockResolvedValue({ data: [] }),
-    },
-  } as unknown as Stripe
 
   const auth = betterAuth({
-    baseURL: 'http://localhost:3000',
+    ...appAuth.options,
+    database: undefined,
     secret: 'test-secret-that-is-long-enough-for-better-auth',
-    plugins: [
-      stripe({
-        stripeClient,
-        stripeWebhookSecret: 'webhook-secret',
-        subscription: {
-          enabled: true,
-          plans: [{ name: 'team', priceId: 'price-team' }],
-          authorizeReference: async ({ referenceId }) => referenceId === 'organization-1',
-        },
-      }),
-      testUtils(),
-    ],
+    plugins: [...appAuth.options.plugins, testUtils()],
   })
   const context = await auth.$context
   const testUser = context.test.createUser({ id: 'user-1' })
@@ -51,6 +31,7 @@ it('uses the user Stripe customer for an organization subscription reference', a
       body: {
         plan: 'team',
         referenceId: 'organization-1',
+        seats: 7,
         successUrl: '/billing/success',
         cancelUrl: '/billing',
         disableRedirect: true,
@@ -75,14 +56,20 @@ it('uses the user Stripe customer for an organization subscription reference', a
   ).resolves.toMatchObject({
     referenceId: 'organization-1',
     stripeCustomerId: 'customer-1',
+    seats: 7,
   })
-  expect(customerCreate).toHaveBeenCalledWith(
+  expect(customer.create).toHaveBeenCalledWith(
     expect.objectContaining({
       metadata: expect.objectContaining({ customerType: 'user', userId: testUser.id }),
     })
   )
   expect(checkoutCreate).toHaveBeenCalledWith(
-    expect.objectContaining({ customer: 'customer-1' }),
+    expect.objectContaining({
+      customer: 'customer-1',
+      client_reference_id: 'organization-1',
+      line_items: [{ price: 'price-team', quantity: 7 }],
+      allow_promotion_codes: true,
+    }),
     undefined
   )
 })
@@ -90,15 +77,36 @@ it('uses the user Stripe customer for an organization subscription reference', a
 const accountMail = vi.hoisted(() =>
   vi.fn(async (_message: { to: string; text: string; subject: string }) => ({ success: true }))
 )
-const customer = vi.hoisted(() => ({ retrieve: vi.fn(), update: vi.fn() }))
+const customer = vi.hoisted(() => ({
+  create: vi.fn(),
+  search: vi.fn().mockResolvedValue({ data: [] }),
+  retrieve: vi.fn(),
+  update: vi.fn(),
+}))
+const checkoutCreate = vi.hoisted(() => vi.fn())
+
+vi.mock('@/lib/billing/authorization', () => ({
+  authorizeSubscriptionReference: (_userId: string, { referenceId }: { referenceId: string }) =>
+    referenceId === 'organization-1',
+}))
+vi.mock('@/lib/billing/plans', () => ({
+  getBetterAuthPlansConfig: () => [{ name: 'team', priceId: 'price-team' }],
+}))
+vi.mock('@/lib/system-settings/service', () => ({
+  getResolvedSystemSettings: () => ({ allowPromotionCodes: true }),
+}))
 
 vi.mock('@/lib/email/mailer', () => ({
   sendEmail: accountMail,
   addVerifiedUserEmailToAudience: vi.fn(),
 }))
-vi.mock('@/lib/email/locale', () => ({ resolveEmailLocale: () => 'en' }))
+vi.mock('@/lib/email/locale', () => ({ resolveEmailLocale: vi.fn().mockResolvedValue('en') }))
 vi.mock('@/lib/system-services/stripe-runtime', () => ({
-  createStripeClientProxy: () => ({ customers: customer }),
+  createStripeClientProxy: () => ({
+    customers: customer,
+    subscriptions: { list: vi.fn().mockResolvedValue({ data: [] }) },
+    checkout: { sessions: { create: checkoutCreate } },
+  }),
   hasStripeSecretKey: () => false,
   getStripeServiceConfig: () => ({}),
 }))
@@ -231,9 +239,13 @@ it.each([true, false])(
       ).status
     ).toBe(403)
     expect(accountMail).not.toHaveBeenCalled()
+    const { resolveEmailLocale } = await import('@/lib/email/locale')
+    vi.mocked(resolveEmailLocale).mockImplementationOnce(async ({ userId }) =>
+      userId === user.id ? 'es' : 'en'
+    )
     expect((await post('/email-otp/request-email-change', { newEmail }, cookie)).status).toBe(200)
     expect(accountMail).toHaveBeenCalledTimes(1)
-    const otp = lastCode(newEmail, 'Verify your new email')
+    const otp = lastCode(newEmail, 'Verifica tu nuevo correo')
     expect(customer.update).not.toHaveBeenCalled()
 
     vi.stubEnv('ALLOWED_LOGIN_DOMAINS', '')
